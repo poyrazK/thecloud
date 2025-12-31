@@ -21,10 +21,19 @@ var computeCmd = &cobra.Command{
 
 func getClient() *resty.Client {
 	client := resty.New()
-	key := apiKey
+	key := apiKey // 1. Flag
 	if key == "" {
-		key = os.Getenv("MINIAWS_API_KEY")
+		key = os.Getenv("MINIAWS_API_KEY") // 2. Env Var
 	}
+	if key == "" {
+		key = loadConfig() // 3. Config File
+	}
+
+	if key == "" {
+		fmt.Println("⚠️  No API Key found. Run 'cloud auth create-demo <name>' to get one.")
+		os.Exit(1)
+	}
+
 	client.SetHeader("X-API-Key", key)
 	return client
 }

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -40,18 +41,20 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image string
 	}
 
 	// 3. Call Docker to create actual container
-	// Note: In a real "Async by Default" architecture, this would be a background job.
-	// For now, we do it synchronously to see results.
-	containerID, err := s.docker.CreateContainer(ctx, name, image)
-	_ = containerID // ID is not yet stored, but container is created
+	// We generate a unique name for Docker to avoid conflicts if user reuses "Name"
+	// Docker name format: miniaws-<short_uuid>
+	dockerName := fmt.Sprintf("miniaws-%s", inst.ID.String()[:8])
+
+	containerID, err := s.docker.CreateContainer(ctx, dockerName, image)
 	if err != nil {
 		inst.Status = domain.StatusError
 		_ = s.repo.Update(ctx, inst) // Try to mark error in DB
 		return nil, errors.Wrap(errors.Internal, "failed to launch container", err)
 	}
 
-	// 4. Update status to RUNNING
+	// 4. Update status and save ContainerID
 	inst.Status = domain.StatusRunning
+	inst.ContainerID = containerID
 	// Note: We might want to store the docker container ID in our DB too.
 	// For simplicity, we'll just update status for now.
 	if err := s.repo.Update(ctx, inst); err != nil {
@@ -73,9 +76,21 @@ func (s *InstanceService) StopInstance(ctx context.Context, id uuid.UUID) error 
 	}
 
 	// 2. Call Docker stop
-	// In the real world, instance ID would map to container ID.
-	// We'll use the instance name or a stored ID for this.
-	if err := s.docker.StopContainer(ctx, inst.Name); err != nil {
+	// We use the stored ContainerID if available, otherwise fallback to Name (legacy support)
+	target := inst.ContainerID
+	if target == "" {
+		// Try to reconstruct older naming scheme or just fail?
+		// For now let's assumes legacy containers used Name.
+		// But in our new scheme they use miniaws-ID.
+		// Actually, let's look for the container by name if ID is missing.
+		target = inst.Name
+	} else {
+		// StopContainer in adapter currently takes 'name', but Docker API supports ID too.
+	}
+
+	if err := s.docker.StopContainer(ctx, target); err != nil {
+		// If we can't stop it, maybe it is already gone or name changed.
+		// Log warning?
 		return errors.Wrap(errors.Internal, "failed to stop container", err)
 	}
 
