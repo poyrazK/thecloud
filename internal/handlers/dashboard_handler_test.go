@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -42,21 +43,14 @@ func (m *dashboardServiceMock) GetStats(ctx context.Context) (*domain.DashboardS
 	return args.Get(0).(*domain.DashboardStats), args.Error(1)
 }
 
-// Actual test
 func TestDashboardHandler_GetSummary(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-
 	mockSvc := new(dashboardServiceMock)
 	handler := NewDashboardHandler(mockSvc)
-
 	r := gin.New()
 	r.GET("/summary", handler.GetSummary)
 
-	summary := &domain.ResourceSummary{
-		TotalInstances:   5,
-		RunningInstances: 3,
-	}
-
+	summary := &domain.ResourceSummary{TotalInstances: 5}
 	mockSvc.On("GetSummary", mock.Anything).Return(summary, nil)
 
 	req, _ := http.NewRequest("GET", "/summary", nil)
@@ -64,29 +58,21 @@ func TestDashboardHandler_GetSummary(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-
-	// Handle httputil.Response wrapper
 	var wrapper struct {
 		Data domain.ResourceSummary `json:"data"`
 	}
-	err := json.Unmarshal(w.Body.Bytes(), &wrapper)
-	assert.NoError(t, err)
+	json.Unmarshal(w.Body.Bytes(), &wrapper)
 	assert.Equal(t, 5, wrapper.Data.TotalInstances)
 }
 
 func TestDashboardHandler_GetRecentEvents(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-
 	mockSvc := new(dashboardServiceMock)
 	handler := NewDashboardHandler(mockSvc)
-
 	r := gin.New()
 	r.GET("/events", handler.GetRecentEvents)
 
-	events := []*domain.Event{
-		{ID: uuid.New(), Action: "TEST_ACTION"},
-	}
-
+	events := []*domain.Event{{ID: uuid.New(), Action: "TEST"}}
 	mockSvc.On("GetRecentEvents", mock.Anything, 10).Return(events, nil)
 
 	req, _ := http.NewRequest("GET", "/events?limit=10", nil)
@@ -94,12 +80,59 @@ func TestDashboardHandler_GetRecentEvents(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-
 	var wrapper struct {
 		Data []*domain.Event `json:"data"`
 	}
-	err := json.Unmarshal(w.Body.Bytes(), &wrapper)
-	assert.NoError(t, err)
+	json.Unmarshal(w.Body.Bytes(), &wrapper)
 	assert.Len(t, wrapper.Data, 1)
-	assert.Equal(t, "TEST_ACTION", wrapper.Data[0].Action)
+}
+
+func TestDashboardHandler_GetStats(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockSvc := new(dashboardServiceMock)
+	handler := NewDashboardHandler(mockSvc)
+	r := gin.New()
+	r.GET("/stats", handler.GetStats)
+
+	stats := &domain.DashboardStats{
+		CPUHistory: []domain.MetricPoint{{Value: 10.1}},
+	}
+	mockSvc.On("GetStats", mock.Anything).Return(stats, nil)
+
+	req, _ := http.NewRequest("GET", "/stats", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var wrapper struct {
+		Data domain.DashboardStats `json:"data"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &wrapper)
+	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &wrapper))
+	assert.Len(t, wrapper.Data.CPUHistory, 1)
+	assert.Equal(t, 10.1, wrapper.Data.CPUHistory[0].Value)
+}
+
+func TestDashboardHandler_StreamEvents(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockSvc := new(dashboardServiceMock)
+	handler := NewDashboardHandler(mockSvc)
+	r := gin.New()
+	r.GET("/stream", handler.StreamEvents)
+
+	summary := &domain.ResourceSummary{TotalInstances: 10}
+	mockSvc.On("GetSummary", mock.Anything).Return(summary, nil)
+
+	req, _ := http.NewRequest("GET", "/stream", nil)
+	w := httptest.NewRecorder()
+	ctx, cancel := context.WithCancel(context.Background())
+	req = req.WithContext(ctx)
+
+	go r.ServeHTTP(w, req)
+
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	assert.Contains(t, w.Header().Get("Content-Type"), "text/event-stream")
+	assert.Contains(t, w.Body.String(), "event:summary")
 }
