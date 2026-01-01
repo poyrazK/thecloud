@@ -41,3 +41,10 @@ Thumbs.db
 
 # Project specific
 tmp/
+*.log
+
+# Agent prompts (internal development only)
+agents/
+
+# Local storage data
+miniaws-data/
