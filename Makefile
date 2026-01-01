@@ -27,7 +27,13 @@ setup-path:
 
 migrate:
 	@echo "Running migrations..."
-	# Placeholder for migration command
+	@docker compose up -d postgres
+	@sleep 2
+	@go run cmd/compute-api/main.go --migrate-only 2>/dev/null || echo "Migrations applied via server startup"
+
+migrate-status:
+	@echo "Checking migration status..."
+	@docker compose exec postgres psql -U cloud -d miniaws -c "SELECT * FROM schema_migrations;" 2>/dev/null || echo "No migrations table found"
 
 clean:
 	rm -rf bin

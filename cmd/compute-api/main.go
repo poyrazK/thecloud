@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log/slog"
 	"net/http"
 	"os"
@@ -24,6 +25,9 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
+	migrateOnly := flag.Bool("migrate-only", false, "run database migrations and exit")
+	flag.Parse()
+
 	// 2. Config
 	cfg, err := platform.NewConfig()
 	if err != nil {
@@ -45,6 +49,15 @@ func main() {
 	// 3.1 Run Migrations
 	if err := postgres.RunMigrations(ctx, db); err != nil {
 		logger.Warn("failed to run migrations", "error", err)
+		if *migrateOnly {
+			db.Close()
+			os.Exit(1)
+		}
+	}
+
+	if *migrateOnly {
+		logger.Info("migrations completed, exiting")
+		return
 	}
 
 	dockerAdapter, err := docker.NewDockerAdapter()
@@ -99,16 +112,34 @@ func main() {
 
 	// 6. Routes
 	r.GET("/health", func(c *gin.Context) {
-		status := "UP"
+		overallStatus := "UP"
+
+		// Check database
 		dbStatus := "CONNECTED"
 		if err := db.Ping(c.Request.Context()); err != nil {
 			dbStatus = "DISCONNECTED"
+			overallStatus = "DEGRADED"
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"status":   status,
-			"database": dbStatus,
-			"time":     time.Now().Format(time.RFC3339),
+		// Check Docker daemon
+		dockerStatus := "CONNECTED"
+		if err := dockerAdapter.Ping(c.Request.Context()); err != nil {
+			dockerStatus = "DISCONNECTED"
+			overallStatus = "DEGRADED"
+		}
+
+		statusCode := http.StatusOK
+		if overallStatus == "DEGRADED" {
+			statusCode = http.StatusServiceUnavailable
+		}
+
+		c.JSON(statusCode, gin.H{
+			"status": overallStatus,
+			"checks": gin.H{
+				"database": dbStatus,
+				"docker":   dockerStatus,
+			},
+			"time": time.Now().Format(time.RFC3339),
 		})
 	})
 

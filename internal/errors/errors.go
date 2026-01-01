@@ -25,10 +25,13 @@ const (
 	InstanceNotRunning Type = "INSTANCE_NOT_RUNNING"
 )
 
+// Error represents an API error that can be safely returned to clients.
+// The Cause field is intentionally omitted from JSON to prevent internal details from leaking.
 type Error struct {
 	Type    Type   `json:"type"`
 	Message string `json:"message"`
-	Cause   error  `json:"-"`
+	Code    string `json:"code,omitempty"` // Optional error code for programmatic handling
+	Cause   error  `json:"-"`              // Never exposed to clients
 }
 
 func (e Error) Error() string {
@@ -38,12 +41,17 @@ func (e Error) Error() string {
 	return fmt.Sprintf("%s: %s", e.Type, e.Message)
 }
 
+// Unwrap implements the errors.Unwrap interface for error chain support
+func (e Error) Unwrap() error {
+	return e.Cause
+}
+
 func New(t Type, msg string) error {
-	return Error{Type: t, Message: msg}
+	return Error{Type: t, Message: msg, Code: string(t)}
 }
 
 func Wrap(t Type, msg string, err error) error {
-	return Error{Type: t, Message: msg, Cause: err}
+	return Error{Type: t, Message: msg, Code: string(t), Cause: err}
 }
 
 func Is(err error, t Type) bool {
@@ -51,4 +59,12 @@ func Is(err error, t Type) bool {
 		return e.Type == t
 	}
 	return false
+}
+
+// GetCause returns the underlying cause for logging purposes (not for client exposure)
+func GetCause(err error) error {
+	if e, ok := err.(Error); ok {
+		return e.Cause
+	}
+	return nil
 }

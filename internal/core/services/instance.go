@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -140,10 +141,37 @@ func (s *InstanceService) parseAndValidatePorts(ports string) ([]string, error) 
 		if len(parts) != 2 {
 			return nil, errors.New(errors.InvalidPortFormat, "port format must be host:container")
 		}
-		// In a more robust version we'd check if ports are integers within range
+
+		hostPort, err := parsePort(parts[0])
+		if err != nil {
+			return nil, errors.New(errors.InvalidPortFormat, fmt.Sprintf("invalid host port: %s", parts[0]))
+		}
+		containerPort, err := parsePort(parts[1])
+		if err != nil {
+			return nil, errors.New(errors.InvalidPortFormat, fmt.Sprintf("invalid container port: %s", parts[1]))
+		}
+
+		if hostPort < domain.MinPort || hostPort > domain.MaxPort {
+			return nil, errors.New(errors.InvalidPortFormat, fmt.Sprintf("host port %d out of range (%d-%d)", hostPort, domain.MinPort, domain.MaxPort))
+		}
+		if containerPort < domain.MinPort || containerPort > domain.MaxPort {
+			return nil, errors.New(errors.InvalidPortFormat, fmt.Sprintf("container port %d out of range (%d-%d)", containerPort, domain.MinPort, domain.MaxPort))
+		}
 	}
 
 	return portList, nil
+}
+
+func parsePort(s string) (int, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, fmt.Errorf("empty port")
+	}
+	port, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, err
+	}
+	return port, nil
 }
 
 func (s *InstanceService) StopInstance(ctx context.Context, idOrName string) error {
@@ -221,23 +249,60 @@ func (s *InstanceService) TerminateInstance(ctx context.Context, idOrName string
 	}
 
 	// 2. Remove from Docker (force remove handles running containers)
-	if inst.ContainerID != "" {
-		_ = s.docker.RemoveContainer(ctx, inst.ContainerID)
-	} else {
-		// Fallback to Reconstruction for legacy or missing ID
-		dockerName := fmt.Sprintf("miniaws-%s", inst.ID.String()[:8])
-		if err := s.docker.RemoveContainer(ctx, dockerName); err != nil {
-			s.logger.Warn("failed to remove docker container (reconstructed name)", "name", dockerName, "error", err)
-		}
+	if err := s.removeInstanceContainer(ctx, inst); err != nil {
+		return err
 	}
-	s.logger.Info("instance terminated", "instance_id", inst.ID)
 
-	// 3. Delete from DB
+	// 3. Release attached volumes after container removal
+	if err := s.releaseAttachedVolumes(ctx, inst.ID); err != nil {
+		s.logger.Warn("failed to release volumes during termination", "instance_id", inst.ID, "error", err)
+	}
+
+	// 4. Delete from DB
 	if err := s.repo.Delete(ctx, inst.ID); err != nil {
 		return err
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "INSTANCE_TERMINATE", inst.ID.String(), "INSTANCE", map[string]interface{}{})
+	return nil
+}
+
+func (s *InstanceService) removeInstanceContainer(ctx context.Context, inst *domain.Instance) error {
+	containerID := inst.ContainerID
+	if containerID == "" {
+		// Fallback to Reconstruction for legacy or missing ID
+		containerID = fmt.Sprintf("miniaws-%s", inst.ID.String()[:8])
+	}
+
+	if err := s.docker.RemoveContainer(ctx, containerID); err != nil {
+		s.logger.Warn("failed to remove docker container", "container_id", containerID, "error", err)
+		return errors.Wrap(errors.Internal, "failed to remove container", err)
+	}
+
+	s.logger.Info("instance terminated", "instance_id", inst.ID)
+	return nil
+}
+
+// releaseAttachedVolumes marks all volumes attached to an instance as available
+func (s *InstanceService) releaseAttachedVolumes(ctx context.Context, instanceID uuid.UUID) error {
+	volumes, err := s.volumeRepo.ListByInstanceID(ctx, instanceID)
+	if err != nil {
+		return err
+	}
+
+	for _, vol := range volumes {
+		vol.Status = domain.VolumeStatusAvailable
+		vol.InstanceID = nil
+		vol.MountPath = ""
+		vol.UpdatedAt = time.Now()
+
+		if err := s.volumeRepo.Update(ctx, vol); err != nil {
+			s.logger.Warn("failed to release volume", "volume_id", vol.ID, "error", err)
+			continue
+		}
+		s.logger.Info("volume released during instance termination", "volume_id", vol.ID, "instance_id", instanceID)
+	}
+
 	return nil
 }
 

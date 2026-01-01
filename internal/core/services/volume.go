@@ -99,3 +99,29 @@ func (s *VolumeService) DeleteVolume(ctx context.Context, idOrName string) error
 	s.logger.Info("volume deleted", "volume_id", vol.ID)
 	return nil
 }
+
+// ReleaseVolumesForInstance detaches all volumes attached to an instance and marks them as available.
+// This should be called when an instance is terminated to free up its volumes.
+func (s *VolumeService) ReleaseVolumesForInstance(ctx context.Context, instanceID uuid.UUID) error {
+	volumes, err := s.repo.ListByInstanceID(ctx, instanceID)
+	if err != nil {
+		s.logger.Error("failed to list volumes for instance", "instance_id", instanceID, "error", err)
+		return err
+	}
+
+	for _, vol := range volumes {
+		vol.Status = domain.VolumeStatusAvailable
+		vol.InstanceID = nil
+		vol.MountPath = ""
+		vol.UpdatedAt = time.Now()
+
+		if err := s.repo.Update(ctx, vol); err != nil {
+			s.logger.Warn("failed to release volume", "volume_id", vol.ID, "error", err)
+			continue // Continue releasing other volumes even if one fails
+		}
+
+		s.logger.Info("volume released", "volume_id", vol.ID, "instance_id", instanceID)
+	}
+
+	return nil
+}

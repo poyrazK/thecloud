@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"strings"
 
@@ -12,8 +13,16 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
+)
+
+const (
+	// ImagePullTimeout is the maximum time allowed for pulling a Docker image
+	ImagePullTimeout = 5 * time.Minute
+	// DefaultOperationTimeout is the default timeout for Docker operations
+	DefaultOperationTimeout = 30 * time.Second
 )
 
 type DockerAdapter struct {
@@ -28,9 +37,21 @@ func NewDockerAdapter() (*DockerAdapter, error) {
 	return &DockerAdapter{cli: cli}, nil
 }
 
+// Ping checks if Docker daemon is reachable
+func (a *DockerAdapter) Ping(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := a.cli.Ping(ctx)
+	return err
+}
+
 func (a *DockerAdapter) CreateContainer(ctx context.Context, name, imageName string, ports []string, networkID string, volumeBinds []string) (string, error) {
-	// 1. Ensure image exists (pull if not)
-	reader, err := a.cli.ImagePull(ctx, imageName, image.PullOptions{})
+	// 1. Ensure image exists (pull if not) - with timeout
+	pullCtx, pullCancel := context.WithTimeout(ctx, ImagePullTimeout)
+	defer pullCancel()
+
+	reader, err := a.cli.ImagePull(pullCtx, imageName, image.PullOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to pull image: %w", err)
 	}
@@ -97,6 +118,9 @@ func (a *DockerAdapter) StopContainer(ctx context.Context, name string) error {
 func (a *DockerAdapter) RemoveContainer(ctx context.Context, containerID string) error {
 	err := a.cli.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: true})
 	if err != nil {
+		if errdefs.IsNotFound(err) {
+			return nil
+		}
 		return fmt.Errorf("failed to remove container %s: %w", containerID, err)
 	}
 	return nil

@@ -2,12 +2,21 @@ package httphandlers
 
 import (
 	"net/http"
+	"strings"
+	"unicode"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyraz/cloud/internal/core/domain"
 	"github.com/poyraz/cloud/internal/core/ports"
+	"github.com/poyraz/cloud/internal/errors"
 	"github.com/poyraz/cloud/pkg/httputil"
+)
+
+const (
+	maxNameLength  = 64
+	minNameLength  = 1
+	maxImageLength = 256
 )
 
 type InstanceHandler struct {
@@ -31,10 +40,64 @@ type LaunchRequest struct {
 	Volumes []VolumeAttachmentRequest `json:"volumes"`
 }
 
+// validateLaunchRequest performs custom validation beyond struct tags
+func validateLaunchRequest(req *LaunchRequest) error {
+	// Validate name
+	req.Name = strings.TrimSpace(req.Name)
+	if len(req.Name) < minNameLength || len(req.Name) > maxNameLength {
+		return errors.New(errors.InvalidInput, "name must be between 1 and 64 characters")
+	}
+	if !isValidResourceName(req.Name) {
+		return errors.New(errors.InvalidInput, "name must contain only alphanumeric characters, hyphens, and underscores")
+	}
+
+	// Validate image
+	req.Image = strings.TrimSpace(req.Image)
+	if req.Image == "" {
+		return errors.New(errors.InvalidInput, "image is required")
+	}
+	if len(req.Image) > maxImageLength {
+		return errors.New(errors.InvalidInput, "image name too long (max 256 characters)")
+	}
+
+	// Validate volume attachments
+	for i, v := range req.Volumes {
+		if strings.TrimSpace(v.VolumeID) == "" {
+			return errors.New(errors.InvalidInput, "volume_id is required for volume attachment")
+		}
+		if strings.TrimSpace(v.MountPath) == "" {
+			return errors.New(errors.InvalidInput, "mount_path is required for volume attachment")
+		}
+		if !strings.HasPrefix(v.MountPath, "/") {
+			return errors.New(errors.InvalidInput, "mount_path must be an absolute path starting with /")
+		}
+		req.Volumes[i].VolumeID = strings.TrimSpace(v.VolumeID)
+		req.Volumes[i].MountPath = strings.TrimSpace(v.MountPath)
+	}
+
+	return nil
+}
+
+// isValidResourceName checks if name contains only valid characters (alphanumeric, hyphen, underscore)
+func isValidResourceName(name string) bool {
+	for _, r := range name {
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '-' && r != '_' {
+			return false
+		}
+	}
+	return true
+}
+
 func (h *InstanceHandler) Launch(c *gin.Context) {
 	var req LaunchRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, err) // Will be mapped to InvalidInput
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid request body"))
+		return
+	}
+
+	// Custom validation
+	if err := validateLaunchRequest(&req); err != nil {
+		httputil.Error(c, err)
 		return
 	}
 

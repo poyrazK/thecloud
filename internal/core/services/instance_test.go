@@ -187,6 +187,14 @@ func (m *MockVolumeRepo) List(ctx context.Context) ([]*domain.Volume, error) {
 	return args.Get(0).([]*domain.Volume), args.Error(1)
 }
 
+func (m *MockVolumeRepo) ListByInstanceID(ctx context.Context, id uuid.UUID) ([]*domain.Volume, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Volume), args.Error(1)
+}
+
 func (m *MockVolumeRepo) Update(ctx context.Context, v *domain.Volume) error {
 	args := m.Called(ctx, v)
 	return args.Error(0)
@@ -238,10 +246,27 @@ func TestTerminateInstance_Success(t *testing.T) {
 
 	ctx := context.Background()
 	id := uuid.New()
+	volID := uuid.New()
 	inst := &domain.Instance{ID: id, Name: "test", ContainerID: "c123"}
+	attachedVolumes := []*domain.Volume{
+		{
+			ID:         volID,
+			Name:       "vol-1",
+			Status:     domain.VolumeStatusInUse,
+			InstanceID: &id,
+			MountPath:  "/data",
+		},
+	}
 
 	repo.On("GetByID", ctx, id).Return(inst, nil)
 	docker.On("RemoveContainer", ctx, "c123").Return(nil)
+	volumeRepo.On("ListByInstanceID", ctx, id).Return(attachedVolumes, nil)
+	volumeRepo.On("Update", ctx, mock.MatchedBy(func(v *domain.Volume) bool {
+		return v.ID == volID &&
+			v.Status == domain.VolumeStatusAvailable &&
+			v.InstanceID == nil &&
+			v.MountPath == ""
+	})).Return(nil)
 	repo.On("Delete", ctx, id).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "INSTANCE_TERMINATE", id.String(), "INSTANCE", mock.Anything).Return(nil)
 
@@ -250,4 +275,37 @@ func TestTerminateInstance_Success(t *testing.T) {
 	assert.NoError(t, err)
 	repo.AssertExpectations(t)
 	docker.AssertExpectations(t)
+	volumeRepo.AssertExpectations(t)
+}
+
+func TestTerminateInstance_RemoveContainerFails_DoesNotReleaseVolumes(t *testing.T) {
+	repo := new(MockRepo)
+	vpcRepo := new(MockVpcRepo)
+	volumeRepo := new(MockVolumeRepo)
+	docker := new(MockDocker)
+	eventSvc := new(MockEventService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, logger)
+
+	ctx := context.Background()
+	id := uuid.New()
+	inst := &domain.Instance{ID: id, Name: "test", ContainerID: "c123"}
+
+	repo.On("GetByID", ctx, id).Return(inst, nil)
+	docker.On("RemoveContainer", ctx, "c123").Return(assert.AnError)
+
+	err := svc.TerminateInstance(ctx, id.String())
+
+	assert.Error(t, err)
+	volumeRepo.AssertNotCalled(t, "ListByInstanceID", mock.Anything, id)
+	repo.AssertNotCalled(t, "Delete", mock.Anything, id)
+	eventSvc.AssertNotCalled(t, "RecordEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestParseAndValidatePorts_RejectsInvalidPort(t *testing.T) {
+	svc := &InstanceService{}
+
+	_, err := svc.parseAndValidatePorts("80abc:90")
+
+	assert.Error(t, err)
 }
