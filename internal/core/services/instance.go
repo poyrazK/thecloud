@@ -129,19 +129,18 @@ func (s *InstanceService) ListInstances(ctx context.Context) ([]*domain.Instance
 	return s.repo.List(ctx)
 }
 
-func (s *InstanceService) GetInstanceLogs(ctx context.Context, idOrName string) (string, error) {
-	var inst *domain.Instance
-	var err error
-
+func (s *InstanceService) GetInstance(ctx context.Context, idOrName string) (*domain.Instance, error) {
 	// 1. Try to parse as UUID
 	id, uuidErr := uuid.Parse(idOrName)
 	if uuidErr == nil {
-		inst, err = s.repo.GetByID(ctx, id)
-	} else {
-		// 2. Fallback to name lookup
-		inst, err = s.repo.GetByName(ctx, idOrName)
+		return s.repo.GetByID(ctx, id)
 	}
+	// 2. Fallback to name lookup
+	return s.repo.GetByName(ctx, idOrName)
+}
 
+func (s *InstanceService) GetInstanceLogs(ctx context.Context, idOrName string) (string, error) {
+	inst, err := s.GetInstance(ctx, idOrName)
 	if err != nil {
 		return "", err
 	}

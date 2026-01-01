@@ -59,6 +59,12 @@ View instance logs (supports ID or Name).
 cloud compute logs my-server
 ```
 
+### `compute show <id>`
+Show detailed instance information.
+```bash
+cloud compute show my-server
+```
+
 ---
 
 ## storage

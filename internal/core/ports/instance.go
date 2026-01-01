@@ -22,5 +22,6 @@ type InstanceService interface {
 	LaunchInstance(ctx context.Context, name, image, ports string) (*domain.Instance, error)
 	StopInstance(ctx context.Context, id uuid.UUID) error
 	ListInstances(ctx context.Context) ([]*domain.Instance, error)
+	GetInstance(ctx context.Context, idOrName string) (*domain.Instance, error)
 	GetInstanceLogs(ctx context.Context, idOrName string) (string, error)
 }

@@ -71,7 +71,7 @@ func main() {
 		mode := ""
 		prompt := &survey.Select{
 			Message: "☁️  Cloud CLI Control Panel - What would you like to do?",
-			Options: []string{"List Instances", "Launch Instance", "Stop Instance", "View Logs", "Exit"},
+			Options: []string{"List Instances", "Launch Instance", "Stop Instance", "View Logs", "View Details", "Exit"},
 		}
 		if err := survey.AskOne(prompt, &mode); err != nil {
 			fmt.Println("Bye!")
@@ -88,6 +88,8 @@ func main() {
 			stopInstance()
 		case "View Logs":
 			viewLogs()
+		case "View Details":
+			showInstance()
 		case "Exit":
 			fmt.Println("👋 See you in the cloud!")
 			return
@@ -306,4 +308,68 @@ func viewLogs() {
 	fmt.Println("📜 --- Logs Start ---")
 	fmt.Print(string(resp.Body()))
 	fmt.Println("📜 --- Logs End ---")
+}
+
+func showInstance() {
+	client := getClient()
+	resp, err := client.R().Get(apiURL + "/instances")
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+
+	var result struct {
+		Data []map[string]interface{} `json:"data"`
+	}
+	json.Unmarshal(resp.Body(), &result)
+
+	var options []string
+	idMap := make(map[string]string)
+
+	for _, inst := range result.Data {
+		id := fmt.Sprintf("%v", inst["id"])
+		name := fmt.Sprintf("%v", inst["name"])
+		display := fmt.Sprintf("%s (%s)", name, id[:8])
+		options = append(options, display)
+		idMap[display] = id
+	}
+
+	if len(options) == 0 {
+		fmt.Println("⚠️  No instances found.")
+		return
+	}
+
+	var selected string
+	prompt := &survey.Select{
+		Message: "Select instance to view details:",
+		Options: options,
+	}
+	if err := survey.AskOne(prompt, &selected); err != nil {
+		return
+	}
+
+	targetID := idMap[selected]
+	resp, err = client.R().Get(apiURL + "/instances/" + targetID)
+	if err != nil || resp.IsError() {
+		fmt.Printf("❌ Failed to fetch details.\n")
+		return
+	}
+
+	var detailResult struct {
+		Data map[string]interface{} `json:"data"`
+	}
+	json.Unmarshal(resp.Body(), &detailResult)
+	inst := detailResult.Data
+
+	fmt.Printf("\n☁️  Instance Details\n")
+	fmt.Println(strings.Repeat("-", 40))
+	fmt.Printf("%-15s %v\n", "ID:", inst["id"])
+	fmt.Printf("%-15s %v\n", "Name:", inst["name"])
+	fmt.Printf("%-15s %v\n", "Status:", inst["status"])
+	fmt.Printf("%-15s %v\n", "Image:", inst["image"])
+	fmt.Printf("%-15s %v\n", "Ports:", inst["ports"])
+	fmt.Printf("%-15s %v\n", "Created At:", inst["created_at"])
+	fmt.Printf("%-15s %v\n", "Version:", inst["version"])
+	fmt.Printf("%-15s %v\n", "Container ID:", inst["container_id"])
+	fmt.Println(strings.Repeat("-", 40))
 }

@@ -76,3 +76,14 @@ func (h *InstanceHandler) GetLogs(c *gin.Context) {
 
 	c.String(http.StatusOK, logs)
 }
+
+func (h *InstanceHandler) Get(c *gin.Context) {
+	idStr := c.Param("id")
+	inst, err := h.svc.GetInstance(c.Request.Context(), idStr)
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, inst)
+}

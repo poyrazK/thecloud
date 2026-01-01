@@ -175,11 +175,54 @@ var logsCmd = &cobra.Command{
 	},
 }
 
+var showCmd = &cobra.Command{
+	Use:   "show [id/name]",
+	Short: "Show detailed instance information",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		id := args[0]
+		client := getClient()
+		resp, err := client.R().Get(apiURL + "/instances/" + id)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+
+		if resp.IsError() {
+			fmt.Printf("Failed: %s\n", resp.String())
+			return
+		}
+
+		var result struct {
+			Data map[string]interface{} `json:"data"`
+		}
+		if err := json.Unmarshal(resp.Body(), &result); err != nil {
+			fmt.Printf("Error parsing response: %v\n", err)
+			return
+		}
+
+		inst := result.Data
+		fmt.Printf("\n☁️  Instance Details\n")
+		fmt.Println(strings.Repeat("-", 40))
+		fmt.Printf("%-15s %v\n", "ID:", inst["id"])
+		fmt.Printf("%-15s %v\n", "Name:", inst["name"])
+		fmt.Printf("%-15s %v\n", "Status:", inst["status"])
+		fmt.Printf("%-15s %v\n", "Image:", inst["image"])
+		fmt.Printf("%-15s %v\n", "Ports:", inst["ports"])
+		fmt.Printf("%-15s %v\n", "Created At:", inst["created_at"])
+		fmt.Printf("%-15s %v\n", "Version:", inst["version"])
+		fmt.Printf("%-15s %v\n", "Container ID:", inst["container_id"])
+		fmt.Println(strings.Repeat("-", 40))
+		fmt.Println("")
+	},
+}
+
 func init() {
 	computeCmd.AddCommand(listCmd)
 	computeCmd.AddCommand(launchCmd)
 	computeCmd.AddCommand(stopCmd)
 	computeCmd.AddCommand(logsCmd)
+	computeCmd.AddCommand(showCmd)
 
 	launchCmd.Flags().StringP("name", "n", "", "Name of the instance (required)")
 	launchCmd.Flags().StringP("image", "i", "alpine", "Image to use")
