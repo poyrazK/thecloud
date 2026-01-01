@@ -16,18 +16,20 @@ import (
 )
 
 type InstanceService struct {
-	repo    ports.InstanceRepository
-	vpcRepo ports.VpcRepository
-	docker  ports.DockerClient
-	logger  *slog.Logger
+	repo     ports.InstanceRepository
+	vpcRepo  ports.VpcRepository
+	docker   ports.DockerClient
+	eventSvc ports.EventService
+	logger   *slog.Logger
 }
 
-func NewInstanceService(repo ports.InstanceRepository, vpcRepo ports.VpcRepository, docker ports.DockerClient, logger *slog.Logger) *InstanceService {
+func NewInstanceService(repo ports.InstanceRepository, vpcRepo ports.VpcRepository, docker ports.DockerClient, eventSvc ports.EventService, logger *slog.Logger) *InstanceService {
 	return &InstanceService{
-		repo:    repo,
-		vpcRepo: vpcRepo,
-		docker:  docker,
-		logger:  logger,
+		repo:     repo,
+		vpcRepo:  vpcRepo,
+		docker:   docker,
+		eventSvc: eventSvc,
+		logger:   logger,
 	}
 }
 
@@ -73,7 +75,14 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 	if err != nil {
 		s.logger.Error("failed to create docker container", "name", dockerName, "image", image, "error", err)
 		inst.Status = domain.StatusError
-		_ = s.repo.Update(ctx, inst)
+		if err := s.repo.Update(ctx, inst); err != nil {
+			s.logger.Error("failed to update instance status after docker create failure", "instance_id", inst.ID, "error", err)
+		}
+		_ = s.eventSvc.RecordEvent(ctx, "INSTANCE_LAUNCH_FAILED", inst.ID.String(), "INSTANCE", map[string]interface{}{
+			"name":  inst.Name,
+			"image": inst.Image,
+			"error": err.Error(),
+		})
 		return nil, errors.Wrap(errors.Internal, "failed to launch container", err)
 	}
 
@@ -85,6 +94,11 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 	if err := s.repo.Update(ctx, inst); err != nil {
 		return nil, err
 	}
+
+	_ = s.eventSvc.RecordEvent(ctx, "INSTANCE_LAUNCH", inst.ID.String(), "INSTANCE", map[string]interface{}{
+		"name":  inst.Name,
+		"image": inst.Image,
+	})
 
 	return inst, nil
 }
@@ -197,7 +211,12 @@ func (s *InstanceService) TerminateInstance(ctx context.Context, idOrName string
 	s.logger.Info("instance terminated", "instance_id", inst.ID)
 
 	// 3. Delete from DB
-	return s.repo.Delete(ctx, inst.ID)
+	if err := s.repo.Delete(ctx, inst.ID); err != nil {
+		return err
+	}
+
+	_ = s.eventSvc.RecordEvent(ctx, "INSTANCE_TERMINATE", inst.ID.String(), "INSTANCE", map[string]interface{}{})
+	return nil
 }
 
 func (s *InstanceService) GetInstanceStats(ctx context.Context, idOrName string) (*domain.InstanceStats, error) {

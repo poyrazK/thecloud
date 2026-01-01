@@ -128,6 +128,20 @@ func (m *MockDocker) GetContainerStats(ctx context.Context, containerID string) 
 	return args.Get(0).(io.ReadCloser), args.Error(1)
 }
 
+type MockEventService struct {
+	mock.Mock
+}
+
+func (m *MockEventService) RecordEvent(ctx context.Context, action, resourceID, resourceType string, metadata map[string]interface{}) error {
+	args := m.Called(ctx, action, resourceID, resourceType, metadata)
+	return args.Error(0)
+}
+
+func (m *MockEventService) ListEvents(ctx context.Context, limit int) ([]*domain.Event, error) {
+	args := m.Called(ctx, limit)
+	return args.Get(0).([]*domain.Event), args.Error(1)
+}
+
 func (m *MockDocker) RemoveNetwork(ctx context.Context, networkID string) error {
 	args := m.Called(ctx, networkID)
 	return args.Error(0)
@@ -138,8 +152,9 @@ func TestLaunchInstance_Success(t *testing.T) {
 	repo := new(MockRepo)
 	vpcRepo := new(MockVpcRepo)
 	docker := new(MockDocker)
+	eventSvc := new(MockEventService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := NewInstanceService(repo, vpcRepo, docker, logger)
+	svc := NewInstanceService(repo, vpcRepo, docker, eventSvc, logger)
 
 	ctx := context.Background()
 	name := "test-inst"
@@ -149,6 +164,7 @@ func TestLaunchInstance_Success(t *testing.T) {
 	repo.On("Create", ctx, mock.AnythingOfType("*domain.Instance")).Return(nil)
 	docker.On("CreateContainer", ctx, mock.Anything, image, []string{"8080:80"}, "").Return("container-123", nil)
 	repo.On("Update", ctx, mock.AnythingOfType("*domain.Instance")).Return(nil)
+	eventSvc.On("RecordEvent", ctx, "INSTANCE_LAUNCH", mock.Anything, "INSTANCE", mock.Anything).Return(nil)
 
 	inst, err := svc.LaunchInstance(ctx, name, image, ports, nil)
 
@@ -164,8 +180,9 @@ func TestTerminateInstance_Success(t *testing.T) {
 	repo := new(MockRepo)
 	vpcRepo := new(MockVpcRepo)
 	docker := new(MockDocker)
+	eventSvc := new(MockEventService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := NewInstanceService(repo, vpcRepo, docker, logger)
+	svc := NewInstanceService(repo, vpcRepo, docker, eventSvc, logger)
 
 	ctx := context.Background()
 	id := uuid.New()
@@ -174,6 +191,7 @@ func TestTerminateInstance_Success(t *testing.T) {
 	repo.On("GetByID", ctx, id).Return(inst, nil)
 	docker.On("RemoveContainer", ctx, "c123").Return(nil)
 	repo.On("Delete", ctx, id).Return(nil)
+	eventSvc.On("RecordEvent", ctx, "INSTANCE_TERMINATE", id.String(), "INSTANCE", mock.Anything).Return(nil)
 
 	err := svc.TerminateInstance(ctx, id.String())
 
