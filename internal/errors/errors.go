@@ -12,6 +12,11 @@ const (
 	Internal     Type = "INTERNAL"
 	Unauthorized Type = "UNAUTHORIZED"
 	Conflict     Type = "CONFLICT"
+
+	// Storage Errors
+	BucketNotFound Type = "BUCKET_NOT_FOUND"
+	ObjectNotFound Type = "OBJECT_NOT_FOUND"
+	ObjectTooLarge Type = "OBJECT_TOO_LARGE"
 )
 
 type Error struct {

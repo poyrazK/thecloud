@@ -97,5 +97,4 @@ func loadConfig() string {
 func init() {
 	authCmd.AddCommand(createDemoCmd)
 	authCmd.AddCommand(loginCmd)
-	rootCmd.AddCommand(authCmd)
 }

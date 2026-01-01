@@ -1,0 +1,22 @@
+nohup: ignoring input
+{"time":"2026-01-01T11:15:59.551355071+03:00","level":"INFO","msg":"connected to database"}
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /health                   --> main.main.func1 (4 handlers)
+[GIN-debug] POST   /auth/keys                --> github.com/poyraz/cloud/internal/handlers.(*IdentityHandler).CreateKey-fm (4 handlers)
+[GIN-debug] POST   /instances                --> github.com/poyraz/cloud/internal/handlers.(*InstanceHandler).Launch-fm (5 handlers)
+[GIN-debug] GET    /instances                --> github.com/poyraz/cloud/internal/handlers.(*InstanceHandler).List-fm (5 handlers)
+[GIN-debug] POST   /instances/:id/stop       --> github.com/poyraz/cloud/internal/handlers.(*InstanceHandler).Stop-fm (5 handlers)
+[GIN-debug] PUT    /storage/:bucket/:key     --> github.com/poyraz/cloud/internal/handlers.(*StorageHandler).Upload-fm (5 handlers)
+[GIN-debug] GET    /storage/:bucket/:key     --> github.com/poyraz/cloud/internal/handlers.(*StorageHandler).Download-fm (5 handlers)
+[GIN-debug] GET    /storage/:bucket          --> github.com/poyraz/cloud/internal/handlers.(*StorageHandler).List-fm (5 handlers)
+[GIN-debug] DELETE /storage/:bucket/:key     --> github.com/poyraz/cloud/internal/handlers.(*StorageHandler).Delete-fm (5 handlers)
+{"time":"2026-01-01T11:15:59.551635919+03:00","level":"INFO","msg":"starting compute-api","port":"8080"}
+{"time":"2026-01-01T11:17:02.609952512+03:00","level":"INFO","msg":"request","status":201,"method":"PUT","path":"/storage/test-bucket/README.md","query":"","ip":"127.0.0.1","latency":5327410,"requestID":"c17d5b84-17eb-4f8a-b463-d33117154025"}
+{"time":"2026-01-01T11:17:02.619736754+03:00","level":"INFO","msg":"request","status":200,"method":"GET","path":"/storage/test-bucket","query":"","ip":"127.0.0.1","latency":4941103,"requestID":"2a0cc2d7-96b4-4557-8782-b606852e50d8"}
+{"time":"2026-01-01T11:17:02.625872585+03:00","level":"INFO","msg":"request","status":200,"method":"GET","path":"/storage/test-bucket/README.md","query":"","ip":"127.0.0.1","latency":644533,"requestID":"83275293-00a2-45b6-850f-bb3df6bdb31d"}
+{"time":"2026-01-01T11:17:02.633221176+03:00","level":"INFO","msg":"request","status":204,"method":"DELETE","path":"/storage/test-bucket/README.md","query":"","ip":"127.0.0.1","latency":981576,"requestID":"3b616b57-7abb-45e9-bfe0-7fa6239d0ec5"}
+{"time":"2026-01-01T11:17:02.638346906+03:00","level":"INFO","msg":"request","status":200,"method":"GET","path":"/storage/test-bucket","query":"","ip":"127.0.0.1","latency":500250,"requestID":"a5387d41-b718-47d2-a0e6-b9f95bbf1b62"}
+{"time":"2026-01-01T11:19:25.313162915+03:00","level":"INFO","msg":"request","status":201,"method":"POST","path":"/auth/keys","query":"","ip":"127.0.0.1","latency":1367290,"requestID":"c5172371-64a7-4fe5-a65b-6f1aacc1d1fd"}

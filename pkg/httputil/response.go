@@ -38,6 +38,10 @@ func Error(c *gin.Context, err error) {
 		statusCode = http.StatusUnauthorized
 	case errors.Conflict:
 		statusCode = http.StatusConflict
+	case errors.BucketNotFound, errors.ObjectNotFound:
+		statusCode = http.StatusNotFound
+	case errors.ObjectTooLarge:
+		statusCode = http.StatusRequestEntityTooLarge
 	}
 
 	c.JSON(statusCode, Response{Error: e})

@@ -14,6 +14,7 @@ import (
 	httphandlers "github.com/poyraz/cloud/internal/handlers"
 	"github.com/poyraz/cloud/internal/platform"
 	"github.com/poyraz/cloud/internal/repositories/docker"
+	"github.com/poyraz/cloud/internal/repositories/filesystem"
 	"github.com/poyraz/cloud/internal/repositories/postgres"
 	"github.com/poyraz/cloud/pkg/httputil"
 )
@@ -56,6 +57,16 @@ func main() {
 	instanceSvc := services.NewInstanceService(instanceRepo, dockerAdapter)
 	instanceHandler := httphandlers.NewInstanceHandler(instanceSvc)
 
+	// Storage Service
+	fileStore, err := filesystem.NewLocalFileStore("./miniaws-data/local/storage")
+	if err != nil {
+		logger.Error("failed to initialize file store", "error", err)
+		os.Exit(1)
+	}
+	storageRepo := postgres.NewStorageRepository(db)
+	storageSvc := services.NewStorageService(storageRepo, fileStore)
+	storageHandler := httphandlers.NewStorageHandler(storageSvc)
+
 	// 5. Engine & Middleware
 	if cfg.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -91,6 +102,16 @@ func main() {
 		instanceGroup.POST("", instanceHandler.Launch)
 		instanceGroup.GET("", instanceHandler.List)
 		instanceGroup.POST("/:id/stop", instanceHandler.Stop)
+	}
+
+	// Storage Routes (Protected)
+	storageGroup := r.Group("/storage")
+	storageGroup.Use(httputil.Auth(identitySvc))
+	{
+		storageGroup.PUT("/:bucket/:key", storageHandler.Upload)
+		storageGroup.GET("/:bucket/:key", storageHandler.Download)
+		storageGroup.GET("/:bucket", storageHandler.List)
+		storageGroup.DELETE("/:bucket/:key", storageHandler.Delete)
 	}
 
 	// 6. Server setup

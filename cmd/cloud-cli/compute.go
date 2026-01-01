@@ -145,5 +145,4 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVarP(&outputJSON, "json", "j", false, "Output in JSON format")
 	rootCmd.PersistentFlags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
-	rootCmd.AddCommand(computeCmd)
 }
