@@ -68,6 +68,10 @@ func main() {
 	eventHandler := httphandlers.NewEventHandler(eventSvc)
 	volumeHandler := httphandlers.NewVolumeHandler(volumeSvc)
 
+	// Dashboard Service (aggregates all repositories)
+	dashboardSvc := services.NewDashboardService(instanceRepo, volumeRepo, vpcRepo, eventRepo, logger)
+	dashboardHandler := httphandlers.NewDashboardHandler(dashboardSvc)
+
 	// Storage Service
 	fileStore, err := filesystem.NewLocalFileStore("./miniaws-data/local/storage")
 	if err != nil {
@@ -154,6 +158,15 @@ func main() {
 		volumeGroup.GET("", volumeHandler.List)
 		volumeGroup.GET("/:id", volumeHandler.Get)
 		volumeGroup.DELETE("/:id", volumeHandler.Delete)
+	}
+
+	// Dashboard Routes (Protected)
+	dashboardGroup := r.Group("/api/dashboard")
+	dashboardGroup.Use(httputil.Auth(identitySvc))
+	{
+		dashboardGroup.GET("/summary", dashboardHandler.GetSummary)
+		dashboardGroup.GET("/events", dashboardHandler.GetRecentEvents)
+		dashboardGroup.GET("/stats", dashboardHandler.GetStats)
 	}
 
 	// 6. Server setup
