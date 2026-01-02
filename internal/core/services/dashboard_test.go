@@ -88,6 +88,14 @@ func (m *mockVolumeRepo) List(ctx context.Context) ([]*domain.Volume, error) {
 	return args.Get(0).([]*domain.Volume), args.Error(1)
 }
 
+func (m *mockVolumeRepo) ListByInstanceID(ctx context.Context, instanceID uuid.UUID) ([]*domain.Volume, error) {
+	args := m.Called(ctx, instanceID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Volume), args.Error(1)
+}
+
 func (m *mockVolumeRepo) Update(ctx context.Context, v *domain.Volume) error {
 	args := m.Called(ctx, v)
 	return args.Error(0)
