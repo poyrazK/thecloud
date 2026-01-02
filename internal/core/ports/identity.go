@@ -15,5 +15,5 @@ type IdentityRepository interface {
 
 type IdentityService interface {
 	CreateKey(ctx context.Context, userID uuid.UUID, name string) (*domain.ApiKey, error)
-	ValidateApiKey(ctx context.Context, key string) (bool, error)
+	ValidateApiKey(ctx context.Context, key string) (*domain.ApiKey, error)
 }

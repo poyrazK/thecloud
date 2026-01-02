@@ -43,13 +43,10 @@ func (s *IdentityService) CreateKey(ctx context.Context, userID uuid.UUID, name 
 	return apiKey, nil
 }
 
-func (s *IdentityService) ValidateApiKey(ctx context.Context, key string) (bool, error) {
-	_, err := s.repo.GetApiKeyByKey(ctx, key)
+func (s *IdentityService) ValidateApiKey(ctx context.Context, key string) (*domain.ApiKey, error) {
+	apiKey, err := s.repo.GetApiKeyByKey(ctx, key)
 	if err != nil {
-		if errors.Is(err, errors.Unauthorized) {
-			return false, nil
-		}
-		return false, err
+		return nil, err
 	}
-	return true, nil
+	return apiKey, nil
 }

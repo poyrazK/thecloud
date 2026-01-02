@@ -24,6 +24,7 @@ const (
 
 type Instance struct {
 	ID          uuid.UUID      `json:"id"`
+	UserID      uuid.UUID      `json:"user_id"`
 	Name        string         `json:"name"`
 	Image       string         `json:"image"`
 	ContainerID string         `json:"container_id,omitempty"`

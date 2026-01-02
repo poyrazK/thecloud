@@ -16,6 +16,7 @@ const (
 
 type Volume struct {
 	ID         uuid.UUID    `json:"id"`
+	UserID     uuid.UUID    `json:"user_id"`
 	Name       string       `json:"name"`
 	SizeGB     int          `json:"size_gb"`
 	Status     VolumeStatus `json:"status"`

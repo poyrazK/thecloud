@@ -15,13 +15,14 @@ func Auth(svc ports.IdentityService) gin.HandlerFunc {
 			return
 		}
 
-		valid, err := svc.ValidateApiKey(c.Request.Context(), apiKey)
-		if err != nil || !valid {
+		apiKeyObj, err := svc.ValidateApiKey(c.Request.Context(), apiKey)
+		if err != nil {
 			Error(c, errors.New(errors.Unauthorized, "invalid API key"))
 			c.Abort()
 			return
 		}
 
+		c.Set("userID", apiKeyObj.UserID)
 		c.Next()
 	}
 }

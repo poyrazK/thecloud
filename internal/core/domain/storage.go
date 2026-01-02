@@ -8,6 +8,7 @@ import (
 
 type Object struct {
 	ID          uuid.UUID  `json:"id"`
+	UserID      uuid.UUID  `json:"user_id"`
 	ARN         string     `json:"arn"`
 	Bucket      string     `json:"bucket"`
 	Key         string     `json:"key"`
