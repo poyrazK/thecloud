@@ -105,6 +105,32 @@ func (r *LBRepository) List(ctx context.Context) ([]*domain.LoadBalancer, error)
 	return lbs, nil
 }
 
+func (r *LBRepository) ListAll(ctx context.Context) ([]*domain.LoadBalancer, error) {
+	query := `
+		SELECT id, user_id, COALESCE(idempotency_key, ''), name, vpc_id, port, algorithm, status, version, created_at
+		FROM load_balancers
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to list all load balancers", err)
+	}
+	defer rows.Close()
+
+	var lbs []*domain.LoadBalancer
+	for rows.Next() {
+		var lb domain.LoadBalancer
+		err := rows.Scan(
+			&lb.ID, &lb.UserID, &lb.IdempotencyKey, &lb.Name, &lb.VpcID, &lb.Port, &lb.Algorithm, &lb.Status, &lb.Version, &lb.CreatedAt,
+		)
+		if err != nil {
+			return nil, errors.Wrap(errors.Internal, "failed to scan load balancer", err)
+		}
+		lbs = append(lbs, &lb)
+	}
+	return lbs, nil
+}
+
 func (r *LBRepository) Update(ctx context.Context, lb *domain.LoadBalancer) error {
 	query := `
 		UPDATE load_balancers

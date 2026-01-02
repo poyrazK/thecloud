@@ -12,6 +12,7 @@ type LBRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.LoadBalancer, error)
 	GetByIdempotencyKey(ctx context.Context, key string) (*domain.LoadBalancer, error)
 	List(ctx context.Context) ([]*domain.LoadBalancer, error)
+	ListAll(ctx context.Context) ([]*domain.LoadBalancer, error)
 	Update(ctx context.Context, lb *domain.LoadBalancer) error
 	Delete(ctx context.Context, id uuid.UUID) error
 

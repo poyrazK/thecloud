@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
@@ -48,7 +49,7 @@ func (w *LBWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 func (w *LBWorker) processCreatingLBs(ctx context.Context) {
-	lbs, err := w.lbRepo.List(ctx)
+	lbs, err := w.lbRepo.ListAll(ctx)
 	if err != nil {
 		log.Printf("Worker: failed to list LBs: %v", err)
 		return
@@ -56,20 +57,22 @@ func (w *LBWorker) processCreatingLBs(ctx context.Context) {
 
 	for _, lb := range lbs {
 		if lb.Status == domain.LBStatusCreating {
-			w.deployLB(ctx, lb)
+			gCtx := appcontext.WithUserID(ctx, lb.UserID)
+			w.deployLB(gCtx, lb)
 		}
 	}
 }
 
 func (w *LBWorker) processDeletingLBs(ctx context.Context) {
-	lbs, err := w.lbRepo.List(ctx)
+	lbs, err := w.lbRepo.ListAll(ctx)
 	if err != nil {
 		return
 	}
 
 	for _, lb := range lbs {
 		if lb.Status == domain.LBStatusDeleted {
-			w.cleanupLB(ctx, lb)
+			gCtx := appcontext.WithUserID(ctx, lb.UserID)
+			w.cleanupLB(gCtx, lb)
 		}
 	}
 }
@@ -113,19 +116,20 @@ func (w *LBWorker) cleanupLB(ctx context.Context, lb *domain.LoadBalancer) {
 }
 
 func (w *LBWorker) processActiveLBs(ctx context.Context) {
-	lbs, err := w.lbRepo.List(ctx)
+	lbs, err := w.lbRepo.ListAll(ctx)
 	if err != nil {
 		return
 	}
 
 	for _, lb := range lbs {
 		if lb.Status == domain.LBStatusActive {
-			targets, err := w.lbRepo.ListTargets(ctx, lb.ID)
+			gCtx := appcontext.WithUserID(ctx, lb.UserID)
+			targets, err := w.lbRepo.ListTargets(gCtx, lb.ID)
 			if err != nil {
 				continue
 			}
 			// Update configuration (e.g. if targets changed)
-			if err := w.proxyAdapter.UpdateProxyConfig(ctx, lb, targets); err != nil {
+			if err := w.proxyAdapter.UpdateProxyConfig(gCtx, lb, targets); err != nil {
 				log.Printf("Worker: failed to update proxy config for LB %s: %v", lb.ID, err)
 			}
 		}
@@ -133,14 +137,15 @@ func (w *LBWorker) processActiveLBs(ctx context.Context) {
 }
 
 func (w *LBWorker) processHealthChecks(ctx context.Context) {
-	lbs, err := w.lbRepo.List(ctx)
+	lbs, err := w.lbRepo.ListAll(ctx)
 	if err != nil {
 		return
 	}
 
 	for _, lb := range lbs {
 		if lb.Status == domain.LBStatusActive {
-			w.checkLBHealth(ctx, lb)
+			gCtx := appcontext.WithUserID(ctx, lb.UserID)
+			w.checkLBHealth(gCtx, lb)
 		}
 	}
 }

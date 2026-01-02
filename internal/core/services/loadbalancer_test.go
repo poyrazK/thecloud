@@ -45,6 +45,14 @@ func (m *mockLBRepo) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	return args.Get(0).([]*domain.LoadBalancer), args.Error(1)
 }
 
+func (m *mockLBRepo) ListAll(ctx context.Context) ([]*domain.LoadBalancer, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.LoadBalancer), args.Error(1)
+}
+
 func (m *mockLBRepo) Update(ctx context.Context, lb *domain.LoadBalancer) error {
 	args := m.Called(ctx, lb)
 	return args.Error(0)
