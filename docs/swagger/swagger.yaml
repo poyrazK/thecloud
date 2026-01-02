@@ -44,14 +44,13 @@ definitions:
         type: string
       metadata:
         description: JSON details
-        items:
-          type: integer
-        type: array
       resource_id:
         description: e.g. UUID of instance
         type: string
       resource_type:
         description: e.g. INSTANCE, VPC
+        type: string
+      user_id:
         type: string
     type: object
   domain.Instance:
@@ -71,6 +70,8 @@ definitions:
       status:
         $ref: '#/definitions/domain.InstanceStatus'
       updated_at:
+        type: string
+      user_id:
         type: string
       version:
         type: integer
@@ -147,6 +148,8 @@ definitions:
         type: integer
       status:
         $ref: '#/definitions/domain.LBStatus'
+      user_id:
+        type: string
       version:
         type: integer
       vpc_id:
@@ -179,6 +182,8 @@ definitions:
         type: string
       size_bytes:
         type: integer
+      user_id:
+        type: string
     type: object
   domain.ResourceSummary:
     properties:
@@ -229,6 +234,8 @@ definitions:
         $ref: '#/definitions/domain.ScalingGroupStatus'
       updated_at:
         type: string
+      user_id:
+        type: string
       version:
         type: integer
       vpc_id:
@@ -268,6 +275,21 @@ definitions:
       target_value:
         type: number
     type: object
+  domain.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
+      updated_at:
+        type: string
+    type: object
   domain.VPC:
     properties:
       created_at:
@@ -277,6 +299,8 @@ definitions:
       name:
         type: string
       network_id:
+        type: string
+      user_id:
         type: string
     type: object
   domain.Volume:
@@ -296,6 +320,8 @@ definitions:
       status:
         $ref: '#/definitions/domain.VolumeStatus'
       updated_at:
+        type: string
+      user_id:
         type: string
     type: object
   domain.VolumeStatus:
@@ -416,6 +442,36 @@ definitions:
     required:
     - image
     - name
+    type: object
+  httphandlers.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  httphandlers.LoginResponse:
+    properties:
+      api_key:
+        type: string
+      user: {}
+    type: object
+  httphandlers.RegisterRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        minLength: 8
+        type: string
+    required:
+    - email
+    - name
+    - password
     type: object
   httphandlers.VolumeAttachmentRequest:
     properties:
@@ -542,6 +598,60 @@ paths:
       summary: Create a new API key
       tags:
       - identity
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate and get an API key
+      parameters:
+      - description: Credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputil.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/httphandlers.LoginResponse'
+              type: object
+      summary: Login as a user
+      tags:
+      - Auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new account on The Cloud
+      parameters:
+      - description: Registration Info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputil.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.User'
+              type: object
+      summary: Register a new user
+      tags:
+      - Auth
   /autoscaling/groups:
     get:
       description: Gets a list of all auto-scaling groups

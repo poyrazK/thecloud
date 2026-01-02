@@ -169,6 +169,98 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/login": {
+            "post": {
+                "description": "Authenticate and get an API key",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Login as a user",
+                "parameters": [
+                    {
+                        "description": "Credentials",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httputil.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httphandlers.LoginResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/register": {
+            "post": {
+                "description": "Create a new account on The Cloud",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Register a new user",
+                "parameters": [
+                    {
+                        "description": "Registration Info",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.RegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httputil.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.User"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/autoscaling/groups": {
             "get": {
                 "security": [
@@ -1614,11 +1706,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "metadata": {
-                    "description": "JSON details",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "description": "JSON details"
                 },
                 "resource_id": {
                     "description": "e.g. UUID of instance",
@@ -1626,6 +1714,9 @@ const docTemplate = `{
                 },
                 "resource_type": {
                     "description": "e.g. INSTANCE, VPC",
+                    "type": "string"
+                },
+                "user_id": {
                     "type": "string"
                 }
             }
@@ -1655,6 +1746,9 @@ const docTemplate = `{
                     "$ref": "#/definitions/domain.InstanceStatus"
                 },
                 "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
                     "type": "string"
                 },
                 "version": {
@@ -1763,6 +1857,9 @@ const docTemplate = `{
                 "status": {
                     "$ref": "#/definitions/domain.LBStatus"
                 },
+                "user_id": {
+                    "type": "string"
+                },
                 "version": {
                     "type": "integer"
                 },
@@ -1811,6 +1908,9 @@ const docTemplate = `{
                 },
                 "size_bytes": {
                     "type": "integer"
+                },
+                "user_id": {
+                    "type": "string"
                 }
             }
         },
@@ -1888,6 +1988,9 @@ const docTemplate = `{
                 "updated_at": {
                     "type": "string"
                 },
+                "user_id": {
+                    "type": "string"
+                },
                 "version": {
                     "type": "integer"
                 },
@@ -1944,6 +2047,29 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.User": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.VPC": {
             "type": "object",
             "properties": {
@@ -1957,6 +2083,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "network_id": {
+                    "type": "string"
+                },
+                "user_id": {
                     "type": "string"
                 }
             }
@@ -1986,6 +2115,9 @@ const docTemplate = `{
                     "$ref": "#/definitions/domain.VolumeStatus"
                 },
                 "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
                     "type": "string"
                 }
             }
@@ -2160,6 +2292,50 @@ const docTemplate = `{
                 },
                 "vpc_id": {
                     "type": "string"
+                }
+            }
+        },
+        "httphandlers.LoginRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "httphandlers.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "type": "string"
+                },
+                "user": {}
+            }
+        },
+        "httphandlers.RegisterRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "name",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 8
                 }
             }
         },
