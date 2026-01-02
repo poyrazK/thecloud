@@ -7,7 +7,8 @@ To build the world's best open-source cloud platform that anyone can run, modify
 - **Storage**: S3-compatible object storage (Upload, Download, Delete)
 - **Block Storage**: Persistent volumes that survive instance termination
 - **Networking**: VPC with isolated Docker networks
-- **Identity**: API Key authentication
+- **Networking**: VPC with isolated Docker networks
+- **Identity**: API Key authentication ([Guide](docs/guides/authentication.md))
 - **Observability**: Real-time CPU/Memory metrics and System Events
 - **Load Balancer**: Layer 7 HTTP traffic distribution
 - **Auto-Scaling**: Dynamic scaling of compute resources based on metrics
@@ -20,8 +21,13 @@ git clone https://github.com/PoyrazK/thecloud.git
 cd thecloud
 make run
 
-# 2. Test health (Database + Docker Status)
-curl localhost:8080/health
+# 2. Register & Login (Get API Key)
+curl -X POST http://localhost:8080/auth/register -d '{"email":"user@example.com", "password":"password", "name":"User"}'
+curl -X POST http://localhost:8080/auth/login -d '{"email":"user@example.com", "password":"password"}'
+# Copy the "token" from the response
+
+# 3. Test Access
+curl -H "X-API-Key: YOUR_API_KEY" http://localhost:8080/instances
 ```
 
 ## 🎮 Quick Start (Console - Frontend)
