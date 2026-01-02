@@ -25,7 +25,8 @@ Prioritized using the **RICE** method (Reach, Impact, Confidence, Effort).
 - [x] Block Storage Volumes (`cloud volume create/list/rm`)
 - [x] Volume Attachment (`--volume vol:/path`)
 
-## 🟡 Phase 5: Frontend & Polish (Next)
+## ✅ Phase 5: Scalability & Polish (In Progress)
+- [x] Load Balancer (Round Robin, Target Groups)
+- [x] Auto-Scaling (Groups, Policies, Worker)
 - [ ] Next.js Web Dashboard
 - [ ] Database-as-a-Service (RDS)
-- [ ] Load Balancer
