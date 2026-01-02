@@ -75,6 +75,12 @@ func (w *AutoScalingWorker) evaluateAllGroups(ctx context.Context) {
 		return
 	}
 
+	policiesByGroup, err := w.repo.GetAllPolicies(ctx, groupIDs)
+	if err != nil {
+		log.Printf("AutoScaling: failed to fetch policies: %v", err)
+		return
+	}
+
 	for _, group := range groups {
 		if group.Status == domain.ScalingGroupStatusDeleting {
 			w.cleanupGroup(ctx, group, instancesByGroup[group.ID])
@@ -93,7 +99,7 @@ func (w *AutoScalingWorker) evaluateAllGroups(ctx context.Context) {
 		platform.AutoScalingCurrentInstances.WithLabelValues(group.ID.String()).Set(float64(group.CurrentCount))
 
 		w.reconcileInstances(ctx, group, instances)
-		w.evaluatePolicies(ctx, group, instances)
+		w.evaluatePolicies(ctx, group, instances, policiesByGroup[group.ID])
 	}
 }
 
@@ -155,9 +161,8 @@ func (w *AutoScalingWorker) reconcileInstances(ctx context.Context, group *domai
 	}
 }
 
-func (w *AutoScalingWorker) evaluatePolicies(ctx context.Context, group *domain.ScalingGroup, instanceIDs []uuid.UUID) {
-	policies, err := w.repo.GetPoliciesForGroup(ctx, group.ID)
-	if err != nil || len(policies) == 0 {
+func (w *AutoScalingWorker) evaluatePolicies(ctx context.Context, group *domain.ScalingGroup, instanceIDs []uuid.UUID, policies []*domain.ScalingPolicy) {
+	if len(policies) == 0 {
 		return
 	}
 

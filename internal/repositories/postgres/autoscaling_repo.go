@@ -215,6 +215,41 @@ func (r *AutoScalingRepo) GetPoliciesForGroup(ctx context.Context, groupID uuid.
 	return policies, nil
 }
 
+func (r *AutoScalingRepo) GetAllPolicies(ctx context.Context, groupIDs []uuid.UUID) (map[uuid.UUID][]*domain.ScalingPolicy, error) {
+	if len(groupIDs) == 0 {
+		return make(map[uuid.UUID][]*domain.ScalingPolicy), nil
+	}
+
+	query := `
+		SELECT id, scaling_group_id, name, metric_type, target_value, 
+			   scale_out_step, scale_in_step, cooldown_sec, last_scaled_at 
+		FROM scaling_policies WHERE scaling_group_id = ANY($1)
+	`
+	rows, err := r.db.Query(ctx, query, groupIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID][]*domain.ScalingPolicy)
+	for rows.Next() {
+		var p domain.ScalingPolicy
+		var lastScaledAt sql.NullTime
+		if err := rows.Scan(
+			&p.ID, &p.ScalingGroupID, &p.Name, &p.MetricType, &p.TargetValue,
+			&p.ScaleOutStep, &p.ScaleInStep, &p.CooldownSec, &lastScaledAt,
+		); err != nil {
+			return nil, err
+		}
+		if lastScaledAt.Valid {
+			t := lastScaledAt.Time
+			p.LastScaledAt = &t
+		}
+		result[p.ScalingGroupID] = append(result[p.ScalingGroupID], &p)
+	}
+	return result, nil
+}
+
 func (r *AutoScalingRepo) UpdatePolicyLastScaled(ctx context.Context, policyID uuid.UUID, t time.Time) error {
 	_, err := r.db.Exec(ctx, "UPDATE scaling_policies SET last_scaled_at = $1 WHERE id = $2", t, policyID)
 	return err

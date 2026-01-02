@@ -21,6 +21,7 @@ type AutoScalingRepository interface {
 	// Policies
 	CreatePolicy(ctx context.Context, policy *domain.ScalingPolicy) error
 	GetPoliciesForGroup(ctx context.Context, groupID uuid.UUID) ([]*domain.ScalingPolicy, error)
+	GetAllPolicies(ctx context.Context, groupIDs []uuid.UUID) (map[uuid.UUID][]*domain.ScalingPolicy, error)
 	UpdatePolicyLastScaled(ctx context.Context, policyID uuid.UUID, t time.Time) error
 	DeletePolicy(ctx context.Context, id uuid.UUID) error
 

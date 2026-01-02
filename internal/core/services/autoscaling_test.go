@@ -58,6 +58,10 @@ func (m *MockAutoScalingRepo) GetPoliciesForGroup(ctx context.Context, groupID u
 	args := m.Called(ctx, groupID)
 	return args.Get(0).([]*domain.ScalingPolicy), args.Error(1)
 }
+func (m *MockAutoScalingRepo) GetAllPolicies(ctx context.Context, groupIDs []uuid.UUID) (map[uuid.UUID][]*domain.ScalingPolicy, error) {
+	args := m.Called(ctx, groupIDs)
+	return args.Get(0).(map[uuid.UUID][]*domain.ScalingPolicy), args.Error(1)
+}
 func (m *MockAutoScalingRepo) UpdatePolicyLastScaled(ctx context.Context, policyID uuid.UUID, t time.Time) error {
 	args := m.Called(ctx, policyID, t)
 	return args.Error(0)
