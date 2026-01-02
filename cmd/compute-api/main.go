@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"sync"
+
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/gin-gonic/gin"
@@ -83,10 +85,20 @@ func main() {
 	volumeSvc := services.NewVolumeService(volumeRepo, dockerAdapter, eventSvc, logger)
 	instanceSvc := services.NewInstanceService(instanceRepo, vpcRepo, volumeRepo, dockerAdapter, eventSvc, logger)
 
+	lbRepo := postgres.NewLBRepository(db)
+	lbProxy, err := docker.NewLBProxyAdapter(instanceRepo, vpcRepo)
+	if err != nil {
+		logger.Error("failed to initialize load balancer proxy adapter", "error", err)
+		os.Exit(1)
+	}
+	lbSvc := services.NewLBService(lbRepo, vpcRepo, instanceRepo)
+	lbWorker := services.NewLBWorker(lbRepo, lbProxy)
+
 	vpcHandler := httphandlers.NewVpcHandler(vpcSvc)
 	instanceHandler := httphandlers.NewInstanceHandler(instanceSvc)
 	eventHandler := httphandlers.NewEventHandler(eventSvc)
 	volumeHandler := httphandlers.NewVolumeHandler(volumeSvc)
+	lbHandler := httphandlers.NewLBHandler(lbSvc)
 
 	// Dashboard Service (aggregates all repositories)
 	dashboardSvc := services.NewDashboardService(instanceRepo, volumeRepo, vpcRepo, eventRepo, logger)
@@ -211,7 +223,26 @@ func main() {
 		dashboardGroup.GET("/stream", dashboardHandler.StreamEvents)
 	}
 
-	// 6. Server setup
+	// Load Balancer Routes (Protected)
+	lbGroup := r.Group("/lb")
+	lbGroup.Use(httputil.Auth(identitySvc))
+	{
+		lbGroup.POST("", lbHandler.Create)
+		lbGroup.GET("", lbHandler.List)
+		lbGroup.GET("/:id", lbHandler.Get)
+		lbGroup.DELETE("/:id", lbHandler.Delete)
+		lbGroup.POST("/:id/targets", lbHandler.AddTarget)
+		lbGroup.GET("/:id/targets", lbHandler.ListTargets)
+		lbGroup.DELETE("/:id/targets/:instanceId", lbHandler.RemoveTarget)
+	}
+
+	// 7. Background Workers
+	wg := &sync.WaitGroup{}
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+	wg.Add(1)
+	go lbWorker.Run(workerCtx, wg)
+
+	// 8. Server setup
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: r,
@@ -238,6 +269,10 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		logger.Error("server forced to shutdown", "error", err)
 	}
+
+	// Shutdown workers
+	workerCancel()
+	wg.Wait()
 
 	logger.Info("server exited")
 }
