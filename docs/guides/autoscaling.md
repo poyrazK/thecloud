@@ -70,4 +70,48 @@ cloud autoscaling create ... --ports 0:80
 This will allow Docker to assign a random available port on the host for each instance.
 
 ## Metrics
-The Auto-Scaling worker runs in the background and evaluates policies every 15 minutes by default (configurable). It queries the metrics history of instances to calculate the average utilization.
+The Auto-Scaling worker runs in the background and evaluates policies every 10 seconds by default (configurable). It queries the metrics history of instances to calculate the average utilization.
+
+## Failure Backoff
+
+To prevent resource exhaustion during prolonged outages (e.g., Docker daemon issues, network problems), the Auto-Scaling worker implements a **failure backoff** mechanism:
+
+- After **5 consecutive failures** to launch instances, the worker pauses scale-out attempts for that group.
+- The backoff period lasts **5 minutes** from the last failure.
+- Once the backoff expires, scaling resumes normally.
+- A **successful launch resets** the failure counter.
+
+This prevents the system from continuously retrying failing operations.
+
+## Async Deletion
+
+When you delete a Scaling Group, the operation is **asynchronous**:
+
+1. The API immediately marks the group as `DELETING` and returns.
+2. The background worker detects this status and:
+   - Terminates all instances in the group
+   - Removes instances from any associated Load Balancer
+   - Deletes the group record once all instances are gone
+
+This ensures the API doesn't block while instances are being terminated.
+
+## Worker Configuration
+
+The Auto-Scaling worker uses the following defaults (set in code):
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `tickInterval` | 10s | How often the worker evaluates all groups |
+| `maxFailureCount` | 5 | Failures before entering backoff |
+| `failureBackoffMinutes` | 5 | Duration of backoff period |
+
+## Prometheus Metrics
+
+The following metrics are exposed at `/metrics`:
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `mini_aws_autoscaling_evaluations_total` | Counter | Total evaluation cycles |
+| `mini_aws_autoscaling_scale_out_total` | Counter | Scale-out events |
+| `mini_aws_autoscaling_scale_in_total` | Counter | Scale-in events |
+| `mini_aws_autoscaling_current_instances` | Gauge | Current instance count per group (label: `scaling_group_id`) |

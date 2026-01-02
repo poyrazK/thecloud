@@ -84,7 +84,9 @@ CREATE TABLE scaling_groups (
     max_instances INT NOT NULL,
     desired_count INT NOT NULL,
     current_count INT NOT NULL DEFAULT 0,
-    status VARCHAR(50) DEFAULT 'ACTIVE'
+    status VARCHAR(50) DEFAULT 'ACTIVE',
+    failure_count INT DEFAULT 0,
+    last_failure_at TIMESTAMPTZ
 );
 ```
 
