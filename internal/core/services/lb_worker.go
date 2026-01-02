@@ -195,7 +195,7 @@ func (w *LBWorker) checkLBHealth(ctx context.Context, lb *domain.LoadBalancer) {
 		}
 
 		if t.Health != status {
-			w.lbRepo.UpdateTargetHealth(ctx, lb.ID, t.InstanceID, status)
+			_ = w.lbRepo.UpdateTargetHealth(ctx, lb.ID, t.InstanceID, status)
 			changed = true
 		}
 	}
@@ -217,8 +217,8 @@ func parsePorts(ports string) map[string]int {
 		if len(parts) == 2 {
 			var hPort string
 			var cPort int
-			fmt.Sscanf(parts[0], "%s", &hPort)
-			fmt.Sscanf(parts[1], "%d", &cPort)
+			_, _ = fmt.Sscanf(parts[0], "%s", &hPort)
+			_, _ = fmt.Sscanf(parts[1], "%d", &cPort)
 			res[hPort] = cPort
 		}
 	}

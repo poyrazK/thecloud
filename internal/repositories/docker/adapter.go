@@ -8,12 +8,12 @@ import (
 
 	"strings"
 
+	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
-	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 )
@@ -56,7 +56,7 @@ func (a *DockerAdapter) CreateContainer(ctx context.Context, name, imageName str
 		return "", fmt.Errorf("failed to pull image: %w", err)
 	}
 	defer reader.Close()
-	io.Copy(io.Discard, reader)
+	_, _ = io.Copy(io.Discard, reader)
 
 	// 2. Configure container
 	config := &container.Config{

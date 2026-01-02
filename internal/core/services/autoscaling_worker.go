@@ -105,7 +105,7 @@ func (w *AutoScalingWorker) Evaluate(ctx context.Context) {
 		if len(instances) != group.CurrentCount {
 			// Reconciliation: update group count if mismatched
 			group.CurrentCount = len(instances)
-			w.repo.UpdateGroup(gCtx, group)
+			_ = w.repo.UpdateGroup(gCtx, group)
 		}
 
 		platform.AutoScalingCurrentInstances.WithLabelValues(group.ID.String()).Set(float64(group.CurrentCount))
@@ -142,11 +142,11 @@ func (w *AutoScalingWorker) reconcileInstances(ctx context.Context, group *domai
 	// Force Desired to be within bounds
 	if group.DesiredCount < group.MinInstances {
 		group.DesiredCount = group.MinInstances
-		w.repo.UpdateGroup(ctx, group)
+		_ = w.repo.UpdateGroup(ctx, group)
 	}
 	if group.DesiredCount > group.MaxInstances {
 		group.DesiredCount = group.MaxInstances
-		w.repo.UpdateGroup(ctx, group)
+		_ = w.repo.UpdateGroup(ctx, group)
 	}
 
 	if current < group.DesiredCount {
@@ -212,11 +212,11 @@ func (w *AutoScalingWorker) evaluatePolicies(ctx context.Context, group *domain.
 						newDesired = group.MaxInstances
 					}
 					group.DesiredCount = newDesired
-					w.repo.UpdateGroup(ctx, group)
+					_ = w.repo.UpdateGroup(ctx, group)
 					// Next tick will reconcile
 
 					// Update policy last scaled
-					w.repo.UpdatePolicyLastScaled(ctx, policy.ID, w.clock.Now())
+					_ = w.repo.UpdatePolicyLastScaled(ctx, policy.ID, w.clock.Now())
 					return // Only trigger one policy per tick per group to avoid conflicts
 				}
 			} else if avgCPU < (policy.TargetValue - 10.0) { // arbitrary 10% buffer for scale in
@@ -228,9 +228,9 @@ func (w *AutoScalingWorker) evaluatePolicies(ctx context.Context, group *domain.
 						newDesired = group.MinInstances
 					}
 					group.DesiredCount = newDesired
-					w.repo.UpdateGroup(ctx, group)
+					_ = w.repo.UpdateGroup(ctx, group)
 
-					w.repo.UpdatePolicyLastScaled(ctx, policy.ID, w.clock.Now())
+					_ = w.repo.UpdatePolicyLastScaled(ctx, policy.ID, w.clock.Now())
 					return
 				}
 			}
@@ -264,7 +264,7 @@ func (w *AutoScalingWorker) scaleOut(ctx context.Context, group *domain.ScalingG
 	}
 
 	platform.AutoScalingScaleOutEvents.Inc()
-	w.eventSvc.RecordEvent(ctx, "AUTOSCALING_SCALE_OUT", group.ID.String(), "SCALING_GROUP", map[string]interface{}{
+	_ = w.eventSvc.RecordEvent(ctx, "AUTOSCALING_SCALE_OUT", group.ID.String(), "SCALING_GROUP", map[string]interface{}{
 		"instance_id": inst.ID.String(),
 		"trigger":     "reconciliation",
 	})
@@ -292,7 +292,7 @@ func (w *AutoScalingWorker) scaleIn(ctx context.Context, group *domain.ScalingGr
 	}
 
 	platform.AutoScalingScaleInEvents.Inc()
-	w.eventSvc.RecordEvent(ctx, "AUTOSCALING_SCALE_IN", group.ID.String(), "SCALING_GROUP", map[string]interface{}{
+	_ = w.eventSvc.RecordEvent(ctx, "AUTOSCALING_SCALE_IN", group.ID.String(), "SCALING_GROUP", map[string]interface{}{
 		"instance_id": instanceID.String(),
 		"trigger":     "reconciliation",
 	})
@@ -338,13 +338,13 @@ func (w *AutoScalingWorker) recordFailure(ctx context.Context, group *domain.Sca
 	group.FailureCount++
 	now := w.clock.Now()
 	group.LastFailureAt = &now
-	w.repo.UpdateGroup(ctx, group)
+	_ = w.repo.UpdateGroup(ctx, group)
 }
 
 func (w *AutoScalingWorker) resetFailures(ctx context.Context, group *domain.ScalingGroup) {
 	if group.FailureCount > 0 {
 		group.FailureCount = 0
 		group.LastFailureAt = nil
-		w.repo.UpdateGroup(ctx, group)
+		_ = w.repo.UpdateGroup(ctx, group)
 	}
 }

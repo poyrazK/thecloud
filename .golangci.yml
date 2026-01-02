@@ -1,0 +1,39 @@
+# golangci-lint configuration
+# See: https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  tests: false  # Don't lint test files
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - gosimple
+    - ineffassign
+  disable:
+    - godox  # Allow TODO comments
+    - gochecknoglobals
+    - exhaustive
+
+linters-settings:
+  errcheck:
+    # Ignore specific functions where error handling is optional
+    exclude-functions:
+      - (*github.com/olekukonko/tablewriter.Table).Append
+      - (*github.com/olekukonko/tablewriter.Table).Render
+      - (net/http.ResponseWriter).Write
+      - (*github.com/spf13/cobra.Command).MarkFlagRequired
+
+issues:
+  # Exclude some issues in specific paths
+  exclude-dirs:
+    - cmd/thecloud       # CLI has many intentionally ignored errors
+    - pkg/sdk            # SDK test files
+    - internal/handlers/ws # WebSocket handlers with intentional error ignoring
+  
+  # Maximum issues count per one linter
+  max-issues-per-linter: 50
+  max-same-issues: 10

@@ -41,7 +41,7 @@ func Error(c *gin.Context, err error) {
 		// Log unknown errors for debugging
 		// Use a global logger if available or just fmt (standard lib logging) as fallback
 		// ideally c.Error(err) should be used so middleware can log it
-		c.Error(err)
+		_ = c.Error(err)
 		fmt.Printf("DEBUG ERROR: %v\n", err)
 		e = errors.Error{
 			Type:    errors.Internal,

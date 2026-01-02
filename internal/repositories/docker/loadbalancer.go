@@ -48,7 +48,7 @@ func (a *LBProxyAdapter) DeployProxy(ctx context.Context, lb *domain.LoadBalance
 	if err != nil {
 		return "", err
 	}
-	io.Copy(io.Discard, reader)
+	_, _ = io.Copy(io.Discard, reader)
 	reader.Close()
 
 	// 2. Generate config
