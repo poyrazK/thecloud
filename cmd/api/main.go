@@ -94,9 +94,12 @@ func main() {
 	}
 
 	// 4. Layers (Repo -> Service -> Handler)
+	userRepo := postgres.NewUserRepo(db)
 	identityRepo := postgres.NewIdentityRepository(db)
 	identitySvc := services.NewIdentityService(identityRepo)
+	authSvc := services.NewAuthService(userRepo, identitySvc)
 	identityHandler := httphandlers.NewIdentityHandler(identitySvc)
+	authHandler := httphandlers.NewAuthHandler(authSvc)
 
 	instanceRepo := postgres.NewInstanceRepository(db)
 	vpcRepo := postgres.NewVpcRepository(db)
@@ -185,6 +188,8 @@ func main() {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// Identity Routes (Public for bootstrapping)
+	r.POST("/auth/register", authHandler.Register)
+	r.POST("/auth/login", authHandler.Login)
 	r.POST("/auth/keys", identityHandler.CreateKey)
 
 	// Instance Routes (Protected)

@@ -3,6 +3,7 @@ package ports
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
@@ -13,6 +14,6 @@ type IdentityRepository interface {
 }
 
 type IdentityService interface {
-	GenerateApiKey(ctx context.Context, name string) (*domain.ApiKey, error)
+	CreateKey(ctx context.Context, userID uuid.UUID, name string) (*domain.ApiKey, error)
 	ValidateApiKey(ctx context.Context, key string) (bool, error)
 }

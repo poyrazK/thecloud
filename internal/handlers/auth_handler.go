@@ -1,4 +1,4 @@
-package handlers
+package httphandlers
 
 import (
 	"net/http"
@@ -11,13 +11,11 @@ import (
 
 type AuthHandler struct {
 	authSvc ports.AuthService
-	resp    *httputil.Responder
 }
 
 func NewAuthHandler(authSvc ports.AuthService) *AuthHandler {
 	return &AuthHandler{
 		authSvc: authSvc,
-		resp:    httputil.NewResponder(),
 	}
 }
 
@@ -49,17 +47,17 @@ type LoginResponse struct {
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.resp.Error(c, errors.New(errors.InvalidInput, err.Error()))
+		httputil.Error(c, errors.New(errors.InvalidInput, err.Error()))
 		return
 	}
 
 	user, err := h.authSvc.Register(c.Request.Context(), req.Email, req.Password, req.Name)
 	if err != nil {
-		h.resp.Error(c, err)
+		httputil.Error(c, err)
 		return
 	}
 
-	h.resp.Success(c, http.StatusCreated, user)
+	httputil.Success(c, http.StatusCreated, user)
 }
 
 // Login godoc
@@ -74,17 +72,17 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.resp.Error(c, errors.New(errors.InvalidInput, err.Error()))
+		httputil.Error(c, errors.New(errors.InvalidInput, err.Error()))
 		return
 	}
 
 	user, apiKey, err := h.authSvc.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
-		h.resp.Error(c, err)
+		httputil.Error(c, err)
 		return
 	}
 
-	h.resp.Success(c, http.StatusOK, LoginResponse{
+	httputil.Success(c, http.StatusOK, LoginResponse{
 		User:   user,
 		ApiKey: apiKey,
 	})

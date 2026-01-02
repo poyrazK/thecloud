@@ -20,7 +20,7 @@ func NewIdentityService(repo ports.IdentityRepository) *IdentityService {
 	return &IdentityService{repo: repo}
 }
 
-func (s *IdentityService) GenerateApiKey(ctx context.Context, name string) (*domain.ApiKey, error) {
+func (s *IdentityService) CreateKey(ctx context.Context, userID uuid.UUID, name string) (*domain.ApiKey, error) {
 	// Generate a secure random key
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
@@ -30,7 +30,7 @@ func (s *IdentityService) GenerateApiKey(ctx context.Context, name string) (*dom
 
 	apiKey := &domain.ApiKey{
 		ID:        uuid.New(),
-		UserID:    uuid.New(), // In a real system, this would be the logged-in user
+		UserID:    userID,
 		Key:       keyStr,
 		Name:      name,
 		CreatedAt: time.Now(),

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
@@ -37,7 +38,9 @@ func (h *IdentityHandler) CreateKey(c *gin.Context) {
 		return
 	}
 
-	key, err := h.svc.GenerateApiKey(c.Request.Context(), req.Name)
+	// For bootstrapping, we use a nil UUID or a system-level UUID
+	// In the future, this endpoint should be protected or removed in favor of Login
+	key, err := h.svc.CreateKey(c.Request.Context(), uuid.Nil, req.Name)
 	if err != nil {
 		httputil.Error(c, err)
 		return
