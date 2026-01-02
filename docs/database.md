@@ -49,6 +49,57 @@ CREATE TABLE objects (
 );
 ```
 
+### `vpcs` Table
+Stores Virtual Private Cloud networks.
+```sql
+CREATE TABLE vpcs (
+    id UUID PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    cidr_block VARCHAR(18) NOT NULL,
+    network_id VARCHAR(255) NOT NULL,
+    gateway_id VARCHAR(255)
+);
+```
+
+### `load_balancers` Table
+```sql
+CREATE TABLE load_balancers (
+    id UUID PRIMARY KEY,
+    vpc_id UUID REFERENCES vpcs(id) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(50) DEFAULT 'HTTP',
+    status VARCHAR(50),
+    listener_port INT NOT NULL,
+    container_id VARCHAR(255)
+);
+```
+
+### `scaling_groups` Table
+```sql
+CREATE TABLE scaling_groups (
+    id UUID PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    vpc_id UUID REFERENCES vpcs(id),
+    min_instances INT NOT NULL,
+    max_instances INT NOT NULL,
+    desired_count INT NOT NULL,
+    current_count INT NOT NULL DEFAULT 0,
+    status VARCHAR(50) DEFAULT 'ACTIVE'
+);
+```
+
+### `metrics_history` Table
+Stores time-series data for instances.
+```sql
+CREATE TABLE metrics_history (
+    id UUID PRIMARY KEY,
+    instance_id UUID NOT NULL,
+    cpu_percent DOUBLE PRECISION,
+    memory_usage_bytes BIGINT,
+    recorded_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
 ## Migration Strategy
 - **Mechanism**: Embedded Go Filesystem (`embed`)
 - **Location**: `internal/repositories/postgres/migrations/`

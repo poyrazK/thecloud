@@ -57,6 +57,11 @@ graph TB
 - **Responsibility**: Implements the interfaces. Connects to real "dirty" details like SQL or Docker APIs.
 - **Dependencies**: Imports Ports and Domain.
 
+### 5. Background Workers
+- **LBWorker**: Periodically checks health of LB targets and manages proxy containers.
+- **AutoScalingWorker**: Evaluates scaling policies and adjusts group sizes (scale-out/scale-in) asynchronously.
+- **MetricCollector**: Collects and archives instance stats.
+
 ## Key Design Decisions
 
 ### Dependency Injection

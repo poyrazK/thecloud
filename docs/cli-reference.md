@@ -171,3 +171,81 @@ Delete an object.
 ```bash
 cloud storage delete my-bucket file.txt
 ```
+
+---
+
+## lb
+Manage Load Balancers.
+
+### `lb list`
+List all Load Balancers.
+```bash
+cloud lb list
+```
+
+### `lb create`
+Create a new Load Balancer.
+```bash
+cloud lb create --name my-lb --vpc <vpc-id> --port 8080
+```
+| Flag | Description |
+|------|-------------|
+| `-n, --name` | (required) Name of the load balancer |
+| `-v, --vpc` | (required) VPC ID |
+| `-p, --port` | (required) Port to listen on |
+| `-t, --type` | Type (default: HTTP) |
+
+### `lb rm <id>`
+Delete a Load Balancer.
+```bash
+cloud lb rm <lb-id>
+```
+
+### `lb add-target <lb-id> <instance-id>`
+Register an instance with the load balancer.
+```bash
+cloud lb add-target   --instance <inst-id>
+```
+
+### `lb remove-target <lb-id> <instance-id>`
+Deregister an instance.
+```bash
+cloud lb remove-target   --instance <inst-id>
+```
+
+---
+
+## autoscaling
+Manage Auto-Scaling Groups.
+
+### `autoscaling list`
+List all scaling groups.
+```bash
+cloud autoscaling list
+```
+
+### `autoscaling create`
+Create a new scaling group.
+```bash
+cloud autoscaling create \
+  --name web-asg \
+  --vpc <vpc-id> \
+  --image nginx:alpine \
+  --ports 80:80 \
+  --min 1 --max 5 --desired 2
+```
+
+### `autoscaling rm <id>`
+Delete a scaling group and terminate its instances.
+```bash
+cloud autoscaling rm <asg-id>
+```
+
+### `autoscaling add-policy <id>`
+Add a scaling policy.
+```bash
+cloud autoscaling add-policy <asg-id> \
+  --name cpu-policy \
+  --metric cpu \
+  --target 50
+```
