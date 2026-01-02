@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -21,13 +20,11 @@ var vpcListCmd = &cobra.Command{
 		client := getClient()
 		vpcs, err := client.ListVPCs()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
 		if outputJSON {
-			data, _ := json.MarshalIndent(vpcs, "", "  ")
-			fmt.Println(string(data))
+			printJSON(vpcs)
 			return
 		}
 
@@ -55,13 +52,14 @@ var vpcCreateCmd = &cobra.Command{
 		client := getClient()
 		vpc, err := client.CreateVPC(name)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
-		fmt.Printf("[SUCCESS] VPC %s created successfully!\n", vpc.Name)
-		fmt.Printf("ID: %s\n", vpc.ID)
-		fmt.Printf("Network ID: %s\n", vpc.NetworkID)
+		printDataOrStatus(vpc, fmt.Sprintf("[SUCCESS] VPC %s created successfully!", vpc.Name))
+		if !outputJSON {
+			fmt.Printf("ID: %s\n", vpc.ID)
+			fmt.Printf("Network ID: %s\n", vpc.NetworkID)
+		}
 	},
 }
 
@@ -73,11 +71,10 @@ var vpcRmCmd = &cobra.Command{
 		id := args[0]
 		client := getClient()
 		if err := client.DeleteVPC(id); err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
-		fmt.Printf("[SUCCESS] VPC %s removed successfully.\n", id)
+		printStatus(fmt.Sprintf("[SUCCESS] VPC %s removed successfully.", id))
 	},
 }
 

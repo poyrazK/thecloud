@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -25,13 +24,11 @@ var storageListCmd = &cobra.Command{
 		client := getClient()
 		objects, err := client.ListObjects(bucket)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
 		if outputJSON {
-			data, _ := json.MarshalIndent(objects, "", "  ")
-			fmt.Println(string(data))
+			printJSON(objects)
 			return
 		}
 
@@ -71,11 +68,10 @@ var storageUploadCmd = &cobra.Command{
 
 		client := getClient()
 		if err := client.UploadObject(bucket, key, f); err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
-		fmt.Printf("[SUCCESS] Uploaded %s to bucket %s\n", key, bucket)
+		printStatus(fmt.Sprintf("[SUCCESS] Uploaded %s to bucket %s", key, bucket))
 	},
 }
 
@@ -91,25 +87,22 @@ var storageDownloadCmd = &cobra.Command{
 		client := getClient()
 		body, err := client.DownloadObject(bucket, key)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 		defer body.Close()
 
 		out, err := os.Create(dest)
 		if err != nil {
-			fmt.Printf("Error creating destination file: %v\n", err)
-			return
+			printError(err)
 		}
 		defer out.Close()
 
 		_, err = io.Copy(out, body)
 		if err != nil {
-			fmt.Printf("Error writing file: %v\n", err)
-			return
+			printError(err)
 		}
 
-		fmt.Printf("[SUCCESS] Downloaded %s to %s\n", key, dest)
+		printStatus(fmt.Sprintf("[SUCCESS] Downloaded %s to %s", key, dest))
 	},
 }
 
@@ -123,11 +116,10 @@ var storageDeleteCmd = &cobra.Command{
 
 		client := getClient()
 		if err := client.DeleteObject(bucket, key); err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
-		fmt.Printf("[SUCCESS] Deleted %s from bucket %s\n", key, bucket)
+		printStatus(fmt.Sprintf("[SUCCESS] Deleted %s from bucket %s", key, bucket))
 	},
 }
 

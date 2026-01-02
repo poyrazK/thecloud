@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -21,13 +20,11 @@ var lbListCmd = &cobra.Command{
 		client := getClient()
 		lbs, err := client.ListLBs()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
 		if outputJSON {
-			data, _ := json.MarshalIndent(lbs, "", "  ")
-			fmt.Println(string(data))
+			printJSON(lbs)
 			return
 		}
 
@@ -60,13 +57,14 @@ var lbCreateCmd = &cobra.Command{
 		client := getClient()
 		lb, err := client.CreateLB(name, vpcID, port, algo)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
-		fmt.Printf("[SUCCESS] Load Balancer %s creation initiated!\n", lb.Name)
-		fmt.Printf("ID: %s\n", lb.ID)
-		fmt.Printf("Status: %s (It will be ACTIVE shortly)\n", lb.Status)
+		printDataOrStatus(lb, fmt.Sprintf("[SUCCESS] Load Balancer %s creation initiated!", lb.Name))
+		if !outputJSON {
+			fmt.Printf("ID: %s\n", lb.ID)
+			fmt.Printf("Status: %s (It will be ACTIVE shortly)\n", lb.Status)
+		}
 	},
 }
 
@@ -78,11 +76,10 @@ var lbRmCmd = &cobra.Command{
 		id := args[0]
 		client := getClient()
 		if err := client.DeleteLB(id); err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
-		fmt.Printf("[SUCCESS] Load Balancer %s deletion initiated.\n", id)
+		printStatus(fmt.Sprintf("[SUCCESS] Load Balancer %s deletion initiated.", id))
 	},
 }
 
@@ -98,11 +95,10 @@ var lbAddTargetCmd = &cobra.Command{
 
 		client := getClient()
 		if err := client.AddLBTarget(lbID, instID, port, weight); err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
-		fmt.Printf("[SUCCESS] Target %s added to LB %s.\n", instID, lbID)
+		printStatus(fmt.Sprintf("[SUCCESS] Target %s added to LB %s.", instID, lbID))
 	},
 }
 
@@ -115,11 +111,10 @@ var lbRemoveTargetCmd = &cobra.Command{
 		instID := args[1]
 		client := getClient()
 		if err := client.RemoveLBTarget(lbID, instID); err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
-		fmt.Printf("[SUCCESS] Target %s removed from LB %s.\n", instID, lbID)
+		printStatus(fmt.Sprintf("[SUCCESS] Target %s removed from LB %s.", instID, lbID))
 	},
 }
 
@@ -153,13 +148,11 @@ var lbListTargetsCmd = &cobra.Command{
 		client := getClient()
 		targets, err := client.ListLBTargets(args[0])
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
 		if outputJSON {
-			data, _ := json.MarshalIndent(targets, "", "  ")
-			fmt.Println(string(data))
+			printJSON(targets)
 			return
 		}
 

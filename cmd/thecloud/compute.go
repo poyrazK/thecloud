@@ -1,10 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
-
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
@@ -45,13 +43,11 @@ var listCmd = &cobra.Command{
 		client := getClient()
 		instances, err := client.ListInstances()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
 		if outputJSON {
-			data, _ := json.MarshalIndent(instances, "", "  ")
-			fmt.Println(string(data))
+			printJSON(instances)
 			return
 		}
 
@@ -114,13 +110,10 @@ var launchCmd = &cobra.Command{
 		client := getClient()
 		inst, err := client.LaunchInstance(name, image, ports, vpc, volumes)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
-		fmt.Printf("[SUCCESS] Instance launched successfully!\n")
-		data, _ := json.MarshalIndent(inst, "", "  ")
-		fmt.Println(string(data))
+		printDataOrStatus(inst, fmt.Sprintf("[SUCCESS] Instance launched: %s (%s)", inst.Name, inst.ID))
 	},
 }
 var stopCmd = &cobra.Command{
@@ -131,11 +124,10 @@ var stopCmd = &cobra.Command{
 		id := args[0]
 		client := getClient()
 		if err := client.StopInstance(id); err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
-		fmt.Println("[INFO] Instance stop initiated.")
+		printStatus("[INFO] Instance stop initiated.")
 	},
 }
 
@@ -148,10 +140,13 @@ var logsCmd = &cobra.Command{
 		client := getClient()
 		logs, err := client.GetInstanceLogs(id)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
+		if outputJSON {
+			printJSON(map[string]string{"logs": logs})
+			return
+		}
 		fmt.Print(logs)
 	},
 }
@@ -165,7 +160,11 @@ var showCmd = &cobra.Command{
 		client := getClient()
 		inst, err := client.GetInstance(id)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			printError(err)
+		}
+
+		if outputJSON {
+			printJSON(inst)
 			return
 		}
 
@@ -192,10 +191,9 @@ var rmCmd = &cobra.Command{
 		id := args[0]
 		client := getClient()
 		if err := client.TerminateInstance(id); err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
-
+		printStatus(fmt.Sprintf("[SUCCESS] Instance %s removed.", id))
 	},
 }
 
@@ -208,13 +206,11 @@ var statsCmd = &cobra.Command{
 		client := getClient()
 		stats, err := client.GetInstanceStats(id)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
 		if outputJSON {
-			data, _ := json.MarshalIndent(stats, "", "  ")
-			fmt.Println(string(data))
+			printJSON(stats)
 			return
 		}
 
@@ -229,6 +225,9 @@ var statsCmd = &cobra.Command{
 }
 
 func init() {
+	if env := os.Getenv("THECLOUD_API_URL"); env != "" {
+		apiURL = env
+	}
 	computeCmd.AddCommand(listCmd)
 	computeCmd.AddCommand(launchCmd)
 	computeCmd.AddCommand(stopCmd)
@@ -244,6 +243,7 @@ func init() {
 	launchCmd.Flags().StringSliceP("volume", "V", nil, "Volume attachment (vol-name:/path)")
 	launchCmd.MarkFlagRequired("name")
 
+	rootCmd.PersistentFlags().StringVar(&apiURL, "api-url", apiURL, "API base URL")
 	rootCmd.PersistentFlags().BoolVarP(&outputJSON, "json", "j", false, "Output in JSON format")
 	rootCmd.PersistentFlags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
 }

@@ -25,12 +25,15 @@ var createDemoCmd = &cobra.Command{
 		key, err := client.CreateKey(name)
 
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
-		fmt.Printf("[INFO] Generated Key: %s\n", key)
 		saveConfig(key)
+		if outputJSON {
+			printJSON(map[string]string{"api_key": key})
+			return
+		}
+		fmt.Printf("[INFO] Generated Key: %s\n", key)
 		fmt.Println("[SUCCESS] Key saved to configuration. You can now use 'cloud' commands without flags.")
 	},
 }
@@ -42,6 +45,10 @@ var loginCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		key := args[0]
 		saveConfig(key)
+		if outputJSON {
+			printJSON(map[string]string{"api_key": key})
+			return
+		}
 		fmt.Println("[SUCCESS] Key saved to configuration.")
 	},
 }

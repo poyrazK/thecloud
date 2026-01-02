@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -21,13 +20,11 @@ var volumeListCmd = &cobra.Command{
 		client := getClient()
 		volumes, err := client.ListVolumes()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
 		if outputJSON {
-			data, _ := json.MarshalIndent(volumes, "", "  ")
-			fmt.Println(string(data))
+			printJSON(volumes)
 			return
 		}
 
@@ -65,13 +62,10 @@ var volumeCreateCmd = &cobra.Command{
 		client := getClient()
 		vol, err := client.CreateVolume(name, size)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
-		fmt.Printf("[SUCCESS] Volume created!\n")
-		data, _ := json.MarshalIndent(vol, "", "  ")
-		fmt.Println(string(data))
+		printDataOrStatus(vol, "[SUCCESS] Volume created!")
 	},
 }
 
@@ -83,10 +77,9 @@ var volumeDeleteCmd = &cobra.Command{
 		id := args[0]
 		client := getClient()
 		if err := client.DeleteVolume(id); err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
-		fmt.Printf("[SUCCESS] Volume %s deleted.\n", id)
+		printStatus(fmt.Sprintf("[SUCCESS] Volume %s deleted.", id))
 	},
 }
 

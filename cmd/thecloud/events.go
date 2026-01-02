@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -22,13 +21,11 @@ var listEventsCmd = &cobra.Command{
 		client := getClient()
 		events, err := client.ListEvents()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+			printError(err)
 		}
 
 		if outputJSON {
-			data, _ := json.MarshalIndent(events, "", "  ")
-			fmt.Println(string(data))
+			printJSON(events)
 			return
 		}
 
