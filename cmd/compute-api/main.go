@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/gin-gonic/gin"
 	"github.com/poyraz/cloud/internal/core/services"
 	httphandlers "github.com/poyraz/cloud/internal/handlers"
@@ -95,6 +97,7 @@ func main() {
 	r := gin.New()
 	r.Use(httputil.RequestID())
 	r.Use(httputil.Logger(logger))
+	r.Use(httputil.CORS())
 	r.Use(gin.Recovery())
 
 	// 6. Routes
@@ -111,6 +114,8 @@ func main() {
 			"time":     time.Now().Format(time.RFC3339),
 		})
 	})
+
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// Identity Routes (Public for bootstrapping)
 	r.POST("/auth/keys", identityHandler.CreateKey)

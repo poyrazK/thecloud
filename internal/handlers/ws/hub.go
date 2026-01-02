@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/poyraz/cloud/internal/core/domain"
+	"github.com/poyraz/cloud/internal/platform"
 )
 
 // Hub maintains active WebSocket connections and broadcasts messages.
@@ -37,6 +38,7 @@ func (h *Hub) Run() {
 			h.mu.Lock()
 			h.clients[client] = true
 			h.mu.Unlock()
+			platform.WSConnectionsActive.Inc()
 			h.logger.Debug("client connected", slog.Int("total", len(h.clients)))
 
 		case client := <-h.unregister:
@@ -46,6 +48,7 @@ func (h *Hub) Run() {
 				close(client.send)
 			}
 			h.mu.Unlock()
+			platform.WSConnectionsActive.Dec()
 			h.logger.Debug("client disconnected", slog.Int("total", len(h.clients)))
 
 		case message := <-h.broadcast:
