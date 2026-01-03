@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -358,4 +359,120 @@ func TestParseAndValidatePorts_RejectsInvalidPort(t *testing.T) {
 	_, err := svc.parseAndValidatePorts("80abc:90")
 
 	assert.Error(t, err)
+}
+
+func TestGetInstance_ByID(t *testing.T) {
+	repo := new(MockRepo)
+	vpcRepo := new(MockVpcRepo)
+	volumeRepo := new(MockVolumeRepo)
+	docker := new(MockDocker)
+	eventSvc := new(MockEventService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, logger)
+
+	ctx := context.Background()
+	instID := uuid.New()
+	inst := &domain.Instance{ID: instID, Name: "test-inst"}
+
+	repo.On("GetByID", ctx, instID).Return(inst, nil)
+
+	result, err := svc.GetInstance(ctx, instID.String())
+
+	assert.NoError(t, err)
+	assert.Equal(t, instID, result.ID)
+	repo.AssertExpectations(t)
+}
+
+func TestGetInstance_ByName(t *testing.T) {
+	repo := new(MockRepo)
+	vpcRepo := new(MockVpcRepo)
+	volumeRepo := new(MockVolumeRepo)
+	docker := new(MockDocker)
+	eventSvc := new(MockEventService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, logger)
+
+	ctx := context.Background()
+	name := "my-instance"
+	inst := &domain.Instance{ID: uuid.New(), Name: name}
+
+	repo.On("GetByName", ctx, name).Return(inst, nil)
+
+	result, err := svc.GetInstance(ctx, name)
+
+	assert.NoError(t, err)
+	assert.Equal(t, name, result.Name)
+	repo.AssertExpectations(t)
+}
+
+func TestListInstances(t *testing.T) {
+	repo := new(MockRepo)
+	vpcRepo := new(MockVpcRepo)
+	volumeRepo := new(MockVolumeRepo)
+	docker := new(MockDocker)
+	eventSvc := new(MockEventService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, logger)
+
+	ctx := context.Background()
+	instances := []*domain.Instance{{Name: "inst1"}, {Name: "inst2"}}
+
+	repo.On("List", ctx).Return(instances, nil)
+
+	result, err := svc.ListInstances(ctx)
+
+	assert.NoError(t, err)
+	assert.Len(t, result, 2)
+	repo.AssertExpectations(t)
+}
+
+func TestGetInstanceLogs(t *testing.T) {
+	repo := new(MockRepo)
+	vpcRepo := new(MockVpcRepo)
+	volumeRepo := new(MockVolumeRepo)
+	docker := new(MockDocker)
+	eventSvc := new(MockEventService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, logger)
+
+	ctx := context.Background()
+	instID := uuid.New()
+	inst := &domain.Instance{ID: instID, ContainerID: "c123"}
+
+	repo.On("GetByID", ctx, instID).Return(inst, nil)
+	docker.On("GetLogs", ctx, "c123").Return(io.NopCloser(strings.NewReader("log line 1\nlog line 2")), nil)
+
+	logs, err := svc.GetInstanceLogs(ctx, instID.String())
+
+	assert.NoError(t, err)
+	assert.Contains(t, logs, "log line 1")
+	repo.AssertExpectations(t)
+	docker.AssertExpectations(t)
+}
+
+func TestStopInstance_Success(t *testing.T) {
+	repo := new(MockRepo)
+	vpcRepo := new(MockVpcRepo)
+	volumeRepo := new(MockVolumeRepo)
+	docker := new(MockDocker)
+	eventSvc := new(MockEventService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, logger)
+
+	ctx := context.Background()
+	instID := uuid.New()
+	inst := &domain.Instance{ID: instID, ContainerID: "c123", Status: domain.StatusRunning}
+
+	repo.On("GetByID", ctx, instID).Return(inst, nil)
+	docker.On("StopContainer", ctx, "c123").Return(nil)
+	repo.On("Update", ctx, mock.MatchedBy(func(i *domain.Instance) bool {
+		return i.Status == domain.StatusStopped
+	})).Return(nil)
+	eventSvc.On("RecordEvent", ctx, "INSTANCE_STOP", instID.String(), "INSTANCE", mock.Anything).Return(nil)
+
+	err := svc.StopInstance(ctx, instID.String())
+
+	assert.NoError(t, err)
+	repo.AssertExpectations(t)
+	docker.AssertExpectations(t)
 }
