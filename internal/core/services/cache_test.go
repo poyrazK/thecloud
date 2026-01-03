@@ -112,7 +112,7 @@ func TestDeleteCache_Success(t *testing.T) {
 	docker.AssertExpectations(t)
 }
 
-func TestFlushCache_NotImplemented(t *testing.T) {
+func TestFlushCache_Success(t *testing.T) {
 	repo := new(MockCacheRepo)
 	docker := new(MockDockerClient)
 	vpcRepo := new(MockVpcRepo)
@@ -124,14 +124,18 @@ func TestFlushCache_NotImplemented(t *testing.T) {
 	ctx := context.Background()
 	cacheID := uuid.New()
 	cache := &domain.Cache{
-		ID:     cacheID,
-		Status: domain.CacheStatusRunning,
+		ID:          cacheID,
+		Status:      domain.CacheStatusRunning,
+		ContainerID: "cont-123",
+		Password:    "secret",
 	}
 
 	repo.On("GetByID", ctx, cacheID).Return(cache, nil)
+	// Expect Exec call: redis-cli -a password FLUSHALL
+	docker.On("Exec", ctx, "cont-123", []string{"redis-cli", "-a", "secret", "FLUSHALL"}).Return("OK", nil)
 
 	err := svc.FlushCache(ctx, cacheID.String())
 
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not implemented")
+	assert.NoError(t, err)
+	docker.AssertExpectations(t)
 }

@@ -145,7 +145,8 @@ var statsCacheCmd = &cobra.Command{
 
 		fmt.Printf("Used Memory: %s\n", formatBytes(stats.UsedMemoryBytes))
 		fmt.Printf("Max Memory:  %s\n", formatBytes(stats.MaxMemoryBytes))
-		fmt.Printf("Keys:        %d (unknown)\n", stats.TotalKeys) // API returns -1 currently
+		fmt.Printf("Clients:     %d\n", stats.ConnectedClients)
+		fmt.Printf("Keys:        %d\n", stats.TotalKeys)
 	},
 }
 

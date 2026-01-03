@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -203,27 +205,20 @@ func (s *CacheService) FlushCache(ctx context.Context, idOrName string) error {
 		return errors.New(errors.InstanceNotRunning, "cache is not running")
 	}
 
-	// Use RunTask to execute FLUSHALL?
-	// RunTask creates a NEW container. We want to exec inside EXISTING container.
-	// DockerClient interface doesn't have Exec.
-	// But we can use redis-cli from *another* container via RunTask if on same network?
-	// Or we can use `CreateContainer` with `redis-cli -h <ip> flushall`.
-	// Since we are on host network or mapped ports, we can try to connect to the exposed port?
-	// But the service runs inside a container (API). It can talk to other containers via Docker Network.
-	// If they are on the same network.
-	// If the API allows Exec, that's best.
-	// Currently DockerClient has no Exec.
-	// Workaround: Use RunTask with redis-cli connecting to the cache container?
-	// We need the cache container's IP. DockerClient doesn't expose Inspect easily here.
-	//
-	// Alternative: Adding `Exec` to DockerClient is the Right Way.
-	// Given I just modified DockerClient, I could add Exec.
-	// But I want to avoid another refactor cycle right now if possible.
-	//
-	// Let's implement FlushCache returning "Not Implemented" for now or leave it empty?
-	// The prompt asked for it.
-	// I'll return an error "not implemented yet" and note it.
-	return errors.New(errors.Internal, "FlushCache not implemented (requires Exec support)")
+	// Exec FLUSHALL inside the container
+	// We need to pass the password if set.
+	cmd := []string{"redis-cli"}
+	if cache.Password != "" {
+		cmd = append(cmd, "-a", cache.Password)
+	}
+	cmd = append(cmd, "FLUSHALL")
+
+	output, err := s.docker.Exec(ctx, cache.ContainerID, cmd)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to flush cache: "+output, err)
+	}
+
+	return nil
 }
 
 func (s *CacheService) GetCacheStats(ctx context.Context, idOrName string) (*ports.CacheStats, error) {
@@ -249,21 +244,81 @@ func (s *CacheService) GetCacheStats(ctx context.Context, idOrName string) (*por
 	// However, we can return container stats as a proxy for "UsedMemoryBytes".
 	// Parse similar to InstanceService.
 
-	var stats struct {
+	// Parse Docker Stats (standard JSON)
+	var dockerStats struct {
 		MemoryStats struct {
 			Usage uint64 `json:"usage"`
 			Limit uint64 `json:"limit"`
 		} `json:"memory_stats"`
 	}
-	if err := json.NewDecoder(stream).Decode(&stats); err != nil {
+	if err := json.NewDecoder(stream).Decode(&dockerStats); err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to decode stats", err)
 	}
 
-	// We can't get Keys/Clients without Redis protocol.
-	return &ports.CacheStats{
-		UsedMemoryBytes:  int64(stats.MemoryStats.Usage),
-		MaxMemoryBytes:   int64(stats.MemoryStats.Limit),
-		ConnectedClients: -1, // Unknown
-		TotalKeys:        -1, // Unknown
-	}, nil
+	result := &ports.CacheStats{
+		UsedMemoryBytes:  int64(dockerStats.MemoryStats.Usage),
+		MaxMemoryBytes:   int64(dockerStats.MemoryStats.Limit),
+		ConnectedClients: 0,
+		TotalKeys:        0,
+	}
+
+	// Try to get Redis Internal Stats
+	cmd := []string{"redis-cli"}
+	if cache.Password != "" {
+		cmd = append(cmd, "-a", cache.Password)
+	}
+	cmd = append(cmd, "INFO")
+
+	output, err := s.docker.Exec(ctx, cache.ContainerID, cmd)
+	if err == nil {
+		result.ConnectedClients = parseRedisClients(output)
+		result.TotalKeys = parseRedisKeys(output)
+	} else {
+		s.logger.Warn("failed to get redis internal stats", "error", err)
+	}
+
+	return result, nil
+}
+
+func parseRedisClients(info string) int {
+	// Look for connected_clients:N
+	lines := strings.Split(info, "\r\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "connected_clients:") {
+			parts := strings.Split(line, ":")
+			if len(parts) == 2 {
+				val, _ := strconv.Atoi(parts[1])
+				return val
+			}
+		}
+	}
+	return 0
+}
+
+func parseRedisKeys(info string) int64 {
+	// Look for Keyspace section, e.g. db0:keys=1,expires=0,avg_ttl=0
+	// We want to sum all keys across all DBs
+	var total int64
+	lines := strings.Split(info, "\r\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "db") && strings.Contains(line, "keys=") {
+			// db0:keys=1,...
+			parts := strings.Split(line, ":")
+			if len(parts) < 2 {
+				continue
+			}
+			stats := parts[1] // keys=1,expires=0...
+			pairs := strings.Split(stats, ",")
+			for _, pair := range pairs {
+				if strings.HasPrefix(pair, "keys=") {
+					kv := strings.Split(pair, "=")
+					if len(kv) == 2 {
+						val, _ := strconv.ParseInt(kv[1], 10, 64)
+						total += val
+					}
+				}
+			}
+		}
+	}
+	return total
 }

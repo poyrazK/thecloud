@@ -174,6 +174,11 @@ func (m *MockDocker) WaitContainer(ctx context.Context, containerID string) (int
 	return int64(args.Int(0)), args.Error(1)
 }
 
+func (m *MockDocker) Exec(ctx context.Context, containerID string, cmd []string) (string, error) {
+	args := m.Called(ctx, containerID, cmd)
+	return args.String(0), args.Error(1)
+}
+
 type MockVolumeRepo struct {
 	mock.Mock
 }

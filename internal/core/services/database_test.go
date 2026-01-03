@@ -101,6 +101,10 @@ func (m *MockDockerClient) WaitContainer(ctx context.Context, id string) (int64,
 	args := m.Called(ctx, id)
 	return int64(args.Int(0)), args.Error(1)
 }
+func (m *MockDockerClient) Exec(ctx context.Context, containerID string, cmd []string) (string, error) {
+	args := m.Called(ctx, containerID, cmd)
+	return args.String(0), args.Error(1)
+}
 
 func TestCreateDatabase_Success(t *testing.T) {
 	repo := new(MockDatabaseRepo)

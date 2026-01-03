@@ -281,3 +281,42 @@ func (a *DockerAdapter) WaitContainer(ctx context.Context, containerID string) (
 	}
 	return 0, nil
 }
+
+func (a *DockerAdapter) Exec(ctx context.Context, containerID string, cmd []string) (string, error) {
+	config := container.ExecOptions{
+		Cmd:          cmd,
+		AttachStdout: true,
+		AttachStderr: true,
+	}
+
+	execResp, err := a.cli.ContainerExecCreate(ctx, containerID, config)
+	if err != nil {
+		return "", fmt.Errorf("failed to create exec: %w", err)
+	}
+
+	resp, err := a.cli.ContainerExecAttach(ctx, execResp.ID, container.ExecStartOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to attach exec: %w", err)
+	}
+	defer resp.Close()
+
+	// Capture output
+	var outBuf strings.Builder
+	if _, err := stdcopy.StdCopy(&outBuf, &outBuf, resp.Reader); err != nil {
+		return "", fmt.Errorf("failed to read exec output: %w", err)
+	}
+
+	// Wait for completion to get exit code?
+	// The attach waits for the stream to close, which happens when the process exits.
+	// But to be sure, we can inspect.
+	execInspect, err := a.cli.ContainerExecInspect(ctx, execResp.ID)
+	if err != nil {
+		return outBuf.String(), fmt.Errorf("failed to inspect exec result: %w", err)
+	}
+
+	if execInspect.ExitCode != 0 {
+		return outBuf.String(), fmt.Errorf("command execution failed with exit code %d: %s", execInspect.ExitCode, outBuf.String())
+	}
+
+	return outBuf.String(), nil
+}
