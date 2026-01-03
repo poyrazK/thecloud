@@ -47,8 +47,8 @@ func (m *MockDatabaseRepo) Delete(ctx context.Context, id uuid.UUID) error {
 // MockDockerClient
 type MockDockerClient struct{ mock.Mock }
 
-func (m *MockDockerClient) CreateContainer(ctx context.Context, name, image string, ports []string, networkID string, volumeBinds []string, env []string) (string, error) {
-	args := m.Called(ctx, name, image, ports, networkID, volumeBinds, env)
+func (m *MockDockerClient) CreateContainer(ctx context.Context, name, image string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error) {
+	args := m.Called(ctx, name, image, ports, networkID, volumeBinds, env, cmd)
 	return args.String(0), args.Error(1)
 }
 func (m *MockDockerClient) StopContainer(ctx context.Context, id string) error {
@@ -116,7 +116,7 @@ func TestCreateDatabase_Success(t *testing.T) {
 	engine := "postgres"
 	version := "16"
 
-	docker.On("CreateContainer", ctx, mock.Anything, "postgres:16-alpine", []string{"0:5432"}, "", []string(nil), mock.Anything).Return("cont-123", nil)
+	docker.On("CreateContainer", ctx, mock.Anything, "postgres:16-alpine", []string{"0:5432"}, "", []string(nil), mock.Anything, []string(nil)).Return("cont-123", nil)
 	docker.On("GetContainerPort", ctx, "cont-123", "5432").Return(54321, nil)
 	repo.On("Create", ctx, mock.AnythingOfType("*domain.Database")).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "DATABASE_CREATE", mock.Anything, "DATABASE", mock.Anything).Return(nil)

@@ -109,7 +109,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	dockerName := fmt.Sprintf("cloud-db-%s-%s", name, db.ID.String()[:8])
 	portMapping := []string{"0:" + defaultPort}
 
-	containerID, err := s.docker.CreateContainer(ctx, dockerName, imageName, portMapping, networkID, nil, env)
+	containerID, err := s.docker.CreateContainer(ctx, dockerName, imageName, portMapping, networkID, nil, env, nil)
 	if err != nil {
 		s.logger.Error("failed to create database container", "error", err)
 		return nil, errors.Wrap(errors.Internal, "failed to launch database container", err)

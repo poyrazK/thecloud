@@ -29,5 +29,6 @@ type CacheRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Cache, error)
 	GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Cache, error)
 	List(ctx context.Context, userID uuid.UUID) ([]*domain.Cache, error)
+	Update(ctx context.Context, cache *domain.Cache) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }

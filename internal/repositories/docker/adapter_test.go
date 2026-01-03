@@ -22,7 +22,7 @@ func TestDockerAdapter_Integration(t *testing.T) {
 
 		// 1. Create
 		// Using a minimal sleep command so it stays running but exits eventually
-		id, err := adapter.CreateContainer(ctx, name, image, []string{}, "", []string{})
+		id, err := adapter.CreateContainer(ctx, name, image, []string{}, "", []string{}, nil, nil)
 		require.NoError(t, err)
 		assert.NotEmpty(t, id)
 

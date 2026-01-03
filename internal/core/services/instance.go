@@ -93,7 +93,7 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 		attachedVolumes = append(attachedVolumes, vol)
 	}
 
-	containerID, err := s.docker.CreateContainer(ctx, dockerName, image, portList, networkID, volumeBinds, nil)
+	containerID, err := s.docker.CreateContainer(ctx, dockerName, image, portList, networkID, volumeBinds, nil, nil)
 	if err != nil {
 		s.logger.Error("failed to create docker container", "name", dockerName, "image", image, "error", err)
 		inst.Status = domain.StatusError

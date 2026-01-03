@@ -110,6 +110,24 @@ func (r *CacheRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain
 	return caches, nil
 }
 
+func (r *CacheRepository) Update(ctx context.Context, cache *domain.Cache) error {
+	query := `
+		UPDATE caches SET
+			status = $1,
+			container_id = $2,
+			port = $3,
+			updated_at = $4
+		WHERE id = $5
+	`
+	_, err := r.db.Exec(ctx, query,
+		cache.Status, cache.ContainerID, cache.Port, cache.UpdatedAt, cache.ID,
+	)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to update cache", err)
+	}
+	return nil
+}
+
 func (r *CacheRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM caches WHERE id = $1`
 	_, err := r.db.Exec(ctx, query, id)

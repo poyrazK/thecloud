@@ -18,7 +18,7 @@ func TestDockerAdapter_GetContainerStats(t *testing.T) {
 	require.NoError(t, err)
 
 	// 1. Create a dummy container
-	containerID, err := adapter.CreateContainer(ctx, "stats-test", "alpine", []string{}, "", []string{})
+	containerID, err := adapter.CreateContainer(ctx, "stats-test", "alpine", []string{}, "", []string{}, nil, nil)
 	require.NoError(t, err)
 	defer adapter.RemoveContainer(ctx, containerID)
 

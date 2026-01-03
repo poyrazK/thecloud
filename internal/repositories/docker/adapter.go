@@ -47,7 +47,7 @@ func (a *DockerAdapter) Ping(ctx context.Context) error {
 	return err
 }
 
-func (a *DockerAdapter) CreateContainer(ctx context.Context, name, imageName string, ports []string, networkID string, volumeBinds []string, env []string) (string, error) {
+func (a *DockerAdapter) CreateContainer(ctx context.Context, name, imageName string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error) {
 	// 1. Ensure image exists (pull if not) - with timeout
 	pullCtx, pullCancel := context.WithTimeout(ctx, ImagePullTimeout)
 	defer pullCancel()
@@ -63,6 +63,7 @@ func (a *DockerAdapter) CreateContainer(ctx context.Context, name, imageName str
 	config := &container.Config{
 		Image:        imageName,
 		Env:          env,
+		Cmd:          cmd,
 		ExposedPorts: make(nat.PortSet),
 	}
 	hostConfig := &container.HostConfig{
