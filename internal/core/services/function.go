@@ -168,7 +168,7 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 		NetworkDisabled: true,
 		ReadOnlyRootfs:  true,
 		WorkingDir:      "/var/task",
-		Binds:           []string{fmt.Sprintf("%s:/var/task:ro")},
+		Binds:           []string{fmt.Sprintf("%s:/var/task:ro", tmpDir)},
 	}
 
 	// Set PidsLimit if possible

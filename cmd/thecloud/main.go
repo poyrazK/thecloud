@@ -32,6 +32,7 @@ func init() {
 	rootCmd.AddCommand(lbCmd)
 	rootCmd.AddCommand(dbCmd)
 	rootCmd.AddCommand(secretsCmd)
+	rootCmd.AddCommand(fnCmd)
 }
 
 func main() {
