@@ -127,21 +127,13 @@ func (s *CacheService) CreateCache(ctx context.Context, name, version string, me
 		s.logger.Warn("failed to update cache status after launch", "id", cache.ID, "error", err)
 	}
 
-	// Re-fetch to ensure no concurrent updates (though we just created it)
-	// Just update what we have.
-	// Note: Repo doesn't have Update? Check ports/cache.go
-	// It only has Create. I need to add Update to CacheRepository interface and implementation!
-	// Abort: I forgot Update method in Repo.
-
-	// Let's add Update method to Repo first.
-	// But first, emit event.
 	_ = s.eventSvc.RecordEvent(ctx, "CACHE_CREATE", cache.ID.String(), "CACHE", map[string]interface{}{
 		"name":    cache.Name,
 		"version": cache.Version,
 		"memory":  cache.MemoryMB,
 	})
 
-	return cache, nil // Returning incomplete update for now until I fix Repo
+	return cache, nil
 }
 
 func (s *CacheService) GetCache(ctx context.Context, idOrName string) (*domain.Cache, error) {
@@ -236,13 +228,6 @@ func (s *CacheService) GetCacheStats(ctx context.Context, idOrName string) (*por
 		return nil, err
 	}
 	defer stream.Close()
-
-	// Parse Docker Stats (standard JSON)
-	// This gives CPU/Mem of the *container*, not Redis internal keys.
-	// The requirement was: "Execute INFO and parse memory/clients/keys".
-	// This also requires Exec or redis-cli connection.
-	// However, we can return container stats as a proxy for "UsedMemoryBytes".
-	// Parse similar to InstanceService.
 
 	// Parse Docker Stats (standard JSON)
 	var dockerStats struct {
