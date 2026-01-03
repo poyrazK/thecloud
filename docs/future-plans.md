@@ -21,7 +21,7 @@ This document outlines planned features and how you can contribute to The Cloud.
 | Feature | Branch | Owner | ETA |
 |---------|--------|-------|-----|
 | Web Dashboard | `jack/main` | @jack | Q1 2026 |
-| RDS (Database Service) | `feature/rds-implementation` | @antigravity | Q1 2026 |
+| Secrets Manager | `feature/secrets-manager` | @PoyrazK | Q1 2026 |
 
 ---
 
@@ -29,8 +29,9 @@ This document outlines planned features and how you can contribute to The Cloud.
 
 ### High Priority
 - [ ] **RBAC** - User roles (admin, developer, read-only)
-- [ ] **RDS** - Managed PostgreSQL/MySQL containers
-- [ ] **Secrets Manager** - Encrypted secret storage
+- [x] **RDS** - Managed PostgreSQL/MySQL containers
+- [x] **Secrets Manager** - Encrypted secret storage
+- [ ] **CloudFunctions** - Serverless functions (Lambda-like)
 
 ### Medium Priority
 - [ ] **CloudCache** - Managed Redis instances
