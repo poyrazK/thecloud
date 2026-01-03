@@ -142,6 +142,10 @@ func main() {
 	storageSvc := services.NewStorageService(storageRepo, fileStore)
 	storageHandler := httphandlers.NewStorageHandler(storageSvc)
 
+	databaseRepo := postgres.NewDatabaseRepository(db)
+	databaseSvc := services.NewDatabaseService(databaseRepo, dockerAdapter, vpcRepo, eventSvc, logger)
+	databaseHandler := httphandlers.NewDatabaseHandler(databaseSvc)
+
 	// 5. Engine & Middleware
 	if cfg.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -272,6 +276,17 @@ func main() {
 		lbGroup.POST("/:id/targets", lbHandler.AddTarget)
 		lbGroup.GET("/:id/targets", lbHandler.ListTargets)
 		lbGroup.DELETE("/:id/targets/:instanceId", lbHandler.RemoveTarget)
+	}
+
+	// Database Routes (Protected)
+	dbGroup := r.Group("/databases")
+	dbGroup.Use(httputil.Auth(identitySvc))
+	{
+		dbGroup.POST("", databaseHandler.Create)
+		dbGroup.GET("", databaseHandler.List)
+		dbGroup.GET("/:id", databaseHandler.Get)
+		dbGroup.DELETE("/:id", databaseHandler.Delete)
+		dbGroup.GET("/:id/connection", databaseHandler.GetConnectionString)
 	}
 
 	// Auto-Scaling Routes (Protected)
