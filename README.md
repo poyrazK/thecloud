@@ -12,6 +12,8 @@ To build the world's best open-source cloud platform that anyone can run, modify
 - **Observability**: Real-time CPU/Memory metrics and System Events
 - **Load Balancer**: Layer 7 HTTP traffic distribution
 - **Auto-Scaling**: Dynamic scaling of compute resources based on metrics
+- **Managed Databases (RDS)**: Launch PostgreSQL/MySQL instances with a single command ([Guide](docs/guides/rds.md))
+- **Secrets Manager**: Encrypted storage for API keys and sensitive config ([Guide](docs/guides/secrets.md))
 - **Console**: Interactive Next.js Dashboard for visual resource management
 
 ## 🚀 Quick Start (Backend)
@@ -76,10 +78,12 @@ npm run dev
 |-------|-------------|
 | [Auto-Scaling](docs/guides/autoscaling.md) | Scalability patterns and usage |
 | [Load Balancer](docs/guides/loadbalancer.md) | Traffic distribution guide |
+| [Managed Databases](docs/guides/rds.md) | RDS patterns and usage |
+| [Secrets Manager](docs/guides/secrets.md) | Security and encryption guide |
 | [Networking](docs/guides/networking.md) | VPCs and Network isolation |
 | [Storage](docs/guides/storage.md) | Object and Block storage |
 
-## �📊 KPIs
+## 📊 KPIs
 - Time to Hello World: < 5 min
 - API Latency (P95): < 200ms
 - CLI Success Rate: > 95%

@@ -90,6 +90,43 @@ CREATE TABLE scaling_groups (
 );
 ```
 
+### `databases` Table
+Stores managed database instance metadata.
+```sql
+CREATE TABLE databases (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    vpc_id UUID REFERENCES vpcs(id) ON DELETE SET NULL,
+    name VARCHAR(255) NOT NULL,
+    engine VARCHAR(50) NOT NULL, -- 'postgres', 'mysql'
+    version VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    host VARCHAR(255),
+    port INT,
+    username VARCHAR(255),
+    password TEXT, -- Plaintext for demo, should be encrypted
+    container_id VARCHAR(255),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+### `secrets` Table
+Stores encrypted user secrets.
+```sql
+CREATE TABLE secrets (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    encrypted_value TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_accessed_at TIMESTAMPTZ,
+    CONSTRAINT secrets_name_user_key UNIQUE (name, user_id)
+);
+```
+
 ### `metrics_history` Table
 Stores time-series data for instances.
 ```sql
