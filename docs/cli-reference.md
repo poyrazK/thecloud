@@ -519,3 +519,36 @@ cloud gateway rm-route <route-id>
 **Public Proxy Access**:
 Routes are accessible via `http://<api-host>/gw/<prefix>/...`
 Example: `http://localhost:8080/gw/v1/users` will proxy to `http://my-instance:8080/users` if `--strip` is enabled.
+
+---
+
+## container
+Manage CloudContainers (Container Deployments).
+
+### `container deploy <name> <image>`
+Create a new container deployment.
+```bash
+cloud container deploy my-web nginx:latest --replicas 3 --ports 80:80
+```
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-r, --replicas` | `1` | Number of instances to maintain |
+| `-p, --ports` | | Ports to expose |
+
+### `container list`
+List all active deployments.
+```bash
+cloud container list
+```
+
+### `container scale <id> <replicas>`
+Scale a deployment to a new replica count.
+```bash
+cloud container scale <deployment-id> 5
+```
+
+### `container rm <id>`
+Delete a deployment and all its containers.
+```bash
+cloud container rm <deployment-id>
+```
