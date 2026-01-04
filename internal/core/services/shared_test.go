@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -413,4 +414,114 @@ func (m *MockQueueRepo) PurgeMessages(ctx context.Context, queueID uuid.UUID) (i
 func (m *MockQueueRepo) GetQueueStats(ctx context.Context, queueID uuid.UUID) (int, int, error) {
 	args := m.Called(ctx, queueID)
 	return args.Int(0), args.Int(1), args.Error(2)
+}
+
+// MockQueueService
+type MockQueueService struct{ mock.Mock }
+
+func (m *MockQueueService) CreateQueue(ctx context.Context, name string, opts *ports.CreateQueueOptions) (*domain.Queue, error) {
+	args := m.Called(ctx, name, opts)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Queue), args.Error(1)
+}
+func (m *MockQueueService) GetQueue(ctx context.Context, id uuid.UUID) (*domain.Queue, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Queue), args.Error(1)
+}
+func (m *MockQueueService) ListQueues(ctx context.Context) ([]*domain.Queue, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Queue), args.Error(1)
+}
+func (m *MockQueueService) DeleteQueue(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+func (m *MockQueueService) SendMessage(ctx context.Context, queueID uuid.UUID, body string) (*domain.Message, error) {
+	args := m.Called(ctx, queueID, body)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Message), args.Error(1)
+}
+func (m *MockQueueService) ReceiveMessages(ctx context.Context, queueID uuid.UUID, maxMessages int) ([]*domain.Message, error) {
+	args := m.Called(ctx, queueID, maxMessages)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Message), args.Error(1)
+}
+func (m *MockQueueService) DeleteMessage(ctx context.Context, queueID uuid.UUID, receiptHandle string) error {
+	args := m.Called(ctx, queueID, receiptHandle)
+	return args.Error(0)
+}
+func (m *MockQueueService) PurgeQueue(ctx context.Context, queueID uuid.UUID) error {
+	args := m.Called(ctx, queueID)
+	return args.Error(0)
+}
+
+// MockNotifyRepo
+type MockNotifyRepo struct{ mock.Mock }
+
+func (m *MockNotifyRepo) CreateTopic(ctx context.Context, topic *domain.Topic) error {
+	args := m.Called(ctx, topic)
+	return args.Error(0)
+}
+func (m *MockNotifyRepo) GetTopicByID(ctx context.Context, id, userID uuid.UUID) (*domain.Topic, error) {
+	args := m.Called(ctx, id, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Topic), args.Error(1)
+}
+func (m *MockNotifyRepo) GetTopicByName(ctx context.Context, name string, userID uuid.UUID) (*domain.Topic, error) {
+	args := m.Called(ctx, name, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Topic), args.Error(1)
+}
+func (m *MockNotifyRepo) ListTopics(ctx context.Context, userID uuid.UUID) ([]*domain.Topic, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Topic), args.Error(1)
+}
+func (m *MockNotifyRepo) DeleteTopic(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+func (m *MockNotifyRepo) CreateSubscription(ctx context.Context, sub *domain.Subscription) error {
+	args := m.Called(ctx, sub)
+	return args.Error(0)
+}
+func (m *MockNotifyRepo) GetSubscriptionByID(ctx context.Context, id, userID uuid.UUID) (*domain.Subscription, error) {
+	args := m.Called(ctx, id, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Subscription), args.Error(1)
+}
+func (m *MockNotifyRepo) ListSubscriptions(ctx context.Context, topicID uuid.UUID) ([]*domain.Subscription, error) {
+	args := m.Called(ctx, topicID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Subscription), args.Error(1)
+}
+func (m *MockNotifyRepo) DeleteSubscription(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+func (m *MockNotifyRepo) SaveMessage(ctx context.Context, msg *domain.NotifyMessage) error {
+	args := m.Called(ctx, msg)
+	return args.Error(0)
 }

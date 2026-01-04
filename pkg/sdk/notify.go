@@ -40,7 +40,7 @@ func (c *Client) ListTopics() ([]Topic, error) {
 }
 
 func (c *Client) DeleteTopic(id string) error {
-	return c.delete(fmt.Sprintf("/notify/topics/%s", id))
+	return c.delete(fmt.Sprintf("/notify/topics/%s", id), nil)
 }
 
 func (c *Client) Subscribe(topicID, protocol, endpoint string) (*Subscription, error) {
@@ -61,7 +61,7 @@ func (c *Client) ListSubscriptions(topicID string) ([]Subscription, error) {
 }
 
 func (c *Client) Unsubscribe(id string) error {
-	return c.delete(fmt.Sprintf("/notify/subscriptions/%s", id))
+	return c.delete(fmt.Sprintf("/notify/subscriptions/%s", id), nil)
 }
 
 func (c *Client) Publish(topicID, message string) error {
