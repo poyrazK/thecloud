@@ -15,6 +15,11 @@ To build the world's best open-source cloud platform that anyone can run, modify
 - **Managed Caches (Redis)**: Launch and manage Redis instances ([Guide](docs/guides/cache.md))
 - **Cloud Functions (Serverless)**: Run logic without managing servers ([Guide](docs/guides/functions.md))
 - **Secrets Manager**: Encrypted storage for API keys and sensitive config ([Guide](docs/guides/secrets.md))
+- **CloudQueue**: Distributed message queuing with visibility timeouts ([Guide](docs/services/cloud-queue.md))
+- **CloudNotify**: Pub/Sub topic and subscription service via Webhooks/Queues ([Guide](docs/services/cloud-notify.md))
+- **CloudCron**: Managed scheduled tasks with execution history ([Guide](docs/services/cloud-cron.md))
+- **CloudGateway**: API Routing and Reverse Proxy with path stripping ([Guide](docs/services/cloud-gateway.md))
+- **CloudContainers**: Managed container deployments with replication and auto-healing ([Guide](docs/services/cloud-containers.md))
 - **Console**: Interactive Next.js Dashboard for visual resource management
 
 ## 🚀 Quick Start (Backend)
@@ -73,6 +78,11 @@ npm run dev
 | [Backend Guide](docs/backend.md) | Go service implementation |
 | [Database Guide](docs/database.md) | Schema, tables, and migrations |
 | [CLI Reference](docs/cli-reference.md) | All commands and flags |
+| [CloudQueue](docs/services/cloud-queue.md) | Message Queue deep dive |
+| [CloudNotify](docs/services/cloud-notify.md) | Pub/Sub details |
+| [CloudCron](docs/services/cloud-cron.md) | Scheduler internals |
+| [CloudGateway](docs/services/cloud-gateway.md) | Gateway & Proxy guide |
+| [CloudContainers](docs/services/cloud-containers.md) | Container Orchestration |
 
 ### 📖 Guides
 | Guide | Description |
