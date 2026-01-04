@@ -38,6 +38,8 @@ curl -X POST http://localhost:8080/auth/login -d '{"email":"user@example.com", "
 curl -H "X-API-Key: YOUR_API_KEY" http://localhost:8080/instances
 ```
 
+> **⚠️ Production Security Note**: Before deploying to production, ensure you set a secure `SECRETS_ENCRYPTION_KEY` environment variable (32+ characters). See `.env.example` for all required configuration.
+
 ## 🎮 Quick Start (Console - Frontend)
 ```bash
 # 1. Enter web directory
