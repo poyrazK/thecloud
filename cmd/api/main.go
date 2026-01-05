@@ -237,9 +237,13 @@ func main() {
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
+	// Auth Rate Limiter (5 req/min, burst 5)
+	authLimiter := ratelimit.NewIPRateLimiter(rate.Limit(5.0/60.0), 5, logger)
+	authMiddleware := ratelimit.Middleware(authLimiter)
+
 	// Identity Routes
-	r.POST("/auth/register", authHandler.Register)
-	r.POST("/auth/login", authHandler.Login)
+	r.POST("/auth/register", authMiddleware, authHandler.Register)
+	r.POST("/auth/login", authMiddleware, authHandler.Login)
 
 	keyGroup := r.Group("/auth/keys")
 	keyGroup.Use(httputil.Auth(identitySvc))
