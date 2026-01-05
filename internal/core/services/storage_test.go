@@ -17,9 +17,11 @@ import (
 func TestStorageUpload_Success(t *testing.T) {
 	repo := new(MockStorageRepo)
 	store := new(MockFileStore)
-	svc := services.NewStorageService(repo, store)
+	auditSvc := new(services.MockAuditService)
+	svc := services.NewStorageService(repo, store, auditSvc)
 
-	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
 	bucket := "test-bucket"
 	key := "test-key"
 	content := "hello world"
@@ -27,6 +29,7 @@ func TestStorageUpload_Success(t *testing.T) {
 
 	store.On("Write", ctx, bucket, key, reader).Return(int64(len(content)), nil)
 	repo.On("SaveMeta", ctx, mock.AnythingOfType("*domain.Object")).Return(nil)
+	auditSvc.On("Log", ctx, userID, "storage.upload", "object", mock.Anything, mock.Anything).Return(nil)
 
 	obj, err := svc.Upload(ctx, bucket, key, reader)
 
@@ -43,9 +46,11 @@ func TestStorageUpload_Success(t *testing.T) {
 func TestStorageDownload_Success(t *testing.T) {
 	repo := new(MockStorageRepo)
 	store := new(MockFileStore)
-	svc := services.NewStorageService(repo, store)
+	auditSvc := new(services.MockAuditService)
+	svc := services.NewStorageService(repo, store, auditSvc)
 
-	ctx := context.Background()
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
 	bucket := "test-bucket"
 	key := "test-key"
 	meta := &domain.Object{Bucket: bucket, Key: key}
@@ -53,6 +58,7 @@ func TestStorageDownload_Success(t *testing.T) {
 
 	repo.On("GetMeta", ctx, bucket, key).Return(meta, nil)
 	store.On("Read", ctx, bucket, key).Return(content, nil)
+	auditSvc.On("Log", ctx, userID, "storage.download", "object", mock.Anything, mock.Anything).Return(nil)
 
 	r, obj, err := svc.Download(ctx, bucket, key)
 
@@ -67,13 +73,16 @@ func TestStorageDownload_Success(t *testing.T) {
 func TestStorageDelete_Success(t *testing.T) {
 	repo := new(MockStorageRepo)
 	store := new(MockFileStore)
-	svc := services.NewStorageService(repo, store)
+	auditSvc := new(services.MockAuditService)
+	svc := services.NewStorageService(repo, store, auditSvc)
 
-	ctx := context.Background()
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
 	bucket := "test-bucket"
 	key := "test-key"
 
 	repo.On("SoftDelete", ctx, bucket, key).Return(nil)
+	auditSvc.On("Log", ctx, userID, "storage.delete", "object", mock.Anything, mock.Anything).Return(nil)
 
 	err := svc.DeleteObject(ctx, bucket, key)
 
@@ -84,7 +93,8 @@ func TestStorageDelete_Success(t *testing.T) {
 func TestStorageList_Success(t *testing.T) {
 	repo := new(MockStorageRepo)
 	store := new(MockFileStore)
-	svc := services.NewStorageService(repo, store)
+	auditSvc := new(services.MockAuditService)
+	svc := services.NewStorageService(repo, store, auditSvc)
 
 	ctx := context.Background()
 	bucket := "test-bucket"
