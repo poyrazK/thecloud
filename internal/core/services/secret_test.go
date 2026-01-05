@@ -66,6 +66,7 @@ func TestSecretService_CreateAndGet(t *testing.T) {
 
 	repo.On("Create", mock.Anything, mock.AnythingOfType("*domain.Secret")).Return(nil)
 	eventSvc.On("RecordEvent", mock.Anything, "SECRET_CREATE", mock.Anything, "SECRET", mock.Anything).Return(nil)
+	auditSvc.On("Log", mock.Anything, userID, "secret.create", "secret", mock.Anything, mock.Anything).Return(nil)
 
 	// Test Create
 	secret, err := svc.CreateSecret(ctxWithUser, name, value, "test desc")
@@ -78,6 +79,7 @@ func TestSecretService_CreateAndGet(t *testing.T) {
 		return s.LastAccessedAt != nil
 	})).Return(nil)
 	eventSvc.On("RecordEvent", mock.Anything, "SECRET_ACCESS", secret.ID.String(), "SECRET", mock.Anything).Return(nil)
+	auditSvc.On("Log", mock.Anything, secret.UserID, "secret.access", "secret", secret.ID.String(), mock.Anything).Return(nil)
 
 	fetched, err := svc.GetSecret(ctxWithUser, secret.ID)
 	assert.NoError(t, err)
@@ -105,6 +107,7 @@ func TestSecretService_Delete(t *testing.T) {
 	repo.On("GetByID", ctx, secretID).Return(&domain.Secret{ID: secretID, Name: "TEST"}, nil)
 	repo.On("Delete", ctx, secretID).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "SECRET_DELETE", secretID.String(), "SECRET", mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "secret.delete", "secret", secretID.String(), mock.Anything).Return(nil)
 
 	err := svc.DeleteSecret(ctx, secretID)
 

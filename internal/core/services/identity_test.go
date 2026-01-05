@@ -56,6 +56,7 @@ func TestIdentityService_CreateKey_Success(t *testing.T) {
 	repo.On("CreateAPIKey", ctx, mock.MatchedBy(func(k *domain.APIKey) bool {
 		return k.UserID == userID && len(k.Key) > 10 && k.Name == "Test Key"
 	})).Return(nil)
+	audit.On("Log", ctx, userID, "api_key.create", "api_key", mock.Anything, mock.Anything).Return(nil)
 
 	key, err := svc.CreateKey(ctx, userID, "Test Key")
 
