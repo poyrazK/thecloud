@@ -3,6 +3,7 @@ package httputil
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -31,4 +32,15 @@ func Auth(svc ports.IdentityService) gin.HandlerFunc {
 		c.Set("userID", apiKeyObj.UserID) // Also keep in Gin context for convenience
 		c.Next()
 	}
+}
+func GetUserID(c *gin.Context) uuid.UUID {
+	val, exists := c.Get("userID")
+	if !exists {
+		return uuid.Nil
+	}
+	userID, ok := val.(uuid.UUID)
+	if !ok {
+		return uuid.Nil
+	}
+	return userID
 }
