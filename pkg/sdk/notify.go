@@ -28,15 +28,15 @@ func (c *Client) CreateTopic(name string) (*Topic, error) {
 		Name string `json:"name"`
 	}{Name: name}
 
-	var topic Topic
-	err := c.post("/notify/topics", req, &topic)
-	return &topic, err
+	var resp Response[Topic]
+	err := c.post("/notify/topics", req, &resp)
+	return &resp.Data, err
 }
 
 func (c *Client) ListTopics() ([]Topic, error) {
-	var topics []Topic
-	err := c.get("/notify/topics", &topics)
-	return topics, err
+	var resp Response[[]Topic]
+	err := c.get("/notify/topics", &resp)
+	return resp.Data, err
 }
 
 func (c *Client) DeleteTopic(id string) error {
@@ -49,15 +49,15 @@ func (c *Client) Subscribe(topicID, protocol, endpoint string) (*Subscription, e
 		Endpoint string `json:"endpoint"`
 	}{Protocol: protocol, Endpoint: endpoint}
 
-	var sub Subscription
-	err := c.post(fmt.Sprintf("/notify/topics/%s/subscriptions", topicID), req, &sub)
-	return &sub, err
+	var resp Response[Subscription]
+	err := c.post(fmt.Sprintf("/notify/topics/%s/subscriptions", topicID), req, &resp)
+	return &resp.Data, err
 }
 
 func (c *Client) ListSubscriptions(topicID string) ([]Subscription, error) {
-	var subs []Subscription
-	err := c.get(fmt.Sprintf("/notify/topics/%s/subscriptions", topicID), &subs)
-	return subs, err
+	var resp Response[[]Subscription]
+	err := c.get(fmt.Sprintf("/notify/topics/%s/subscriptions", topicID), &resp)
+	return resp.Data, err
 }
 
 func (c *Client) Unsubscribe(id string) error {
