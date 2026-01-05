@@ -183,6 +183,10 @@ func main() {
 	containerHandler := httphandlers.NewContainerHandler(containerSvc)
 	containerWorker := services.NewContainerWorker(containerRepo, instanceSvc, eventSvc)
 
+	// Health Service
+	healthSvc := services.NewHealthServiceImpl(db, dockerAdapter)
+	healthHandler := httphandlers.NewHealthHandler(healthSvc)
+
 	// 5. Engine & Middleware
 	if cfg.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -202,37 +206,9 @@ func main() {
 	r.Use(ratelimit.Middleware(limiter))
 
 	// 6. Routes
-	r.GET("/health", func(c *gin.Context) {
-		overallStatus := "UP"
-
-		// Check database
-		dbStatus := "CONNECTED"
-		if err := db.Ping(c.Request.Context()); err != nil {
-			dbStatus = "DISCONNECTED"
-			overallStatus = "DEGRADED"
-		}
-
-		// Check Docker daemon
-		dockerStatus := "CONNECTED"
-		if err := dockerAdapter.Ping(c.Request.Context()); err != nil {
-			dockerStatus = "DISCONNECTED"
-			overallStatus = "DEGRADED"
-		}
-
-		statusCode := http.StatusOK
-		if overallStatus == "DEGRADED" {
-			statusCode = http.StatusServiceUnavailable
-		}
-
-		c.JSON(statusCode, gin.H{
-			"status": overallStatus,
-			"checks": gin.H{
-				"database": dbStatus,
-				"docker":   dockerStatus,
-			},
-			"time": time.Now().Format(time.RFC3339),
-		})
-	})
+	r.GET("/health/live", healthHandler.Live)
+	r.GET("/health/ready", healthHandler.Ready)
+	r.GET("/health", healthHandler.Ready) // Alias for backward compatibility
 
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
