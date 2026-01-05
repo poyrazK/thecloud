@@ -3,13 +3,37 @@ services:
     image: postgres:16-alpine
     container_name: cloud-db
     environment:
-      POSTGRES_USER: cloud
-      POSTGRES_PASSWORD: cloud
-      POSTGRES_DB: thecloud
+      POSTGRES_USER: ${DB_USER:-cloud}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-cloud}
+      POSTGRES_DB: ${DB_NAME:-thecloud}
     ports:
-      - "5433:5432"
+      - "${DB_PORT_MAPPING:-5433:5432}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U cloud -d thecloud" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-cloud} -d ${DB_NAME:-thecloud}" ]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cloud-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${PORT:-8080}:${PORT:-8080}"
+    environment:
+      - PORT=${PORT:-8080}
+      - DB_URL=postgres://${DB_USER:-cloud}:${DB_PASSWORD:-cloud}@postgres:5432/${DB_NAME:-thecloud}?sslmode=disable
+      - APP_ENV=${APP_ENV:-development}
+      - SECRETS_ENCRYPTION_KEY=${SECRETS_ENCRYPTION_KEY}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./thecloud-data:/app/thecloud-data
+
+volumes:
+  postgres_data:
