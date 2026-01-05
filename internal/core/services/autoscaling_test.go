@@ -47,7 +47,7 @@ func TestCreateGroup_Success(t *testing.T) {
 	mockVpcRepo.On("GetByID", ctx, vpcID).Return(&domain.VPC{ID: vpcID}, nil)
 	mockRepo.On("CountGroupsByVPC", ctx, vpcID).Return(0, nil)
 	mockRepo.On("CreateGroup", ctx, mock.AnythingOfType("*domain.ScalingGroup")).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "asg.group_create", "asg", mock.Anything, mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "asg.group_create", "scaling_group", mock.Anything, mock.Anything).Return(nil)
 
 	group, err := svc.CreateGroup(ctx, "my-asg", vpcID, "nginx", "80:80", 1, 5, 2, nil, "")
 
@@ -118,7 +118,7 @@ func TestDeleteGroup_Success(t *testing.T) {
 	mockRepo.On("UpdateGroup", ctx, mock.MatchedBy(func(g *domain.ScalingGroup) bool {
 		return g.Status == domain.ScalingGroupStatusDeleting && g.DesiredCount == 0 && g.MinInstances == 0
 	})).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "asg.group_delete", "asg", groupID.String(), mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "asg.group_delete", "scaling_group", groupID.String(), mock.Anything).Return(nil)
 
 	err := svc.DeleteGroup(ctx, groupID)
 

@@ -24,7 +24,7 @@ func TestGatewayService_CreateRoute(t *testing.T) {
 	repo.On("CreateRoute", ctx, mock.AnythingOfType("*domain.GatewayRoute")).Return(nil)
 	repo.On("GetAllActiveRoutes", ctx).Return([]*domain.GatewayRoute{}, nil)
 	auditSvc.On("Log", ctx, userID, "gateway.route_create", "gateway", mock.Anything, mock.MatchedBy(func(details map[string]interface{}) bool {
-		return details["path"] == "/v1"
+		return details["prefix"] == "/v1"
 	})).Return(nil)
 
 	route, err := svc.CreateRoute(ctx, "test-api", "/v1", "http://target:80", true, 100)

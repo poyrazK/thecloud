@@ -29,7 +29,7 @@ func TestStorageUpload_Success(t *testing.T) {
 
 	store.On("Write", ctx, bucket, key, reader).Return(int64(len(content)), nil)
 	repo.On("SaveMeta", ctx, mock.AnythingOfType("*domain.Object")).Return(nil)
-	auditSvc.On("Log", ctx, userID, "storage.upload", "object", mock.Anything, mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, userID, "storage.object_upload", "storage", mock.Anything, mock.Anything).Return(nil)
 
 	obj, err := svc.Upload(ctx, bucket, key, reader)
 
@@ -58,7 +58,7 @@ func TestStorageDownload_Success(t *testing.T) {
 
 	repo.On("GetMeta", ctx, bucket, key).Return(meta, nil)
 	store.On("Read", ctx, bucket, key).Return(content, nil)
-	auditSvc.On("Log", ctx, userID, "storage.download", "object", mock.Anything, mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, userID, "storage.object_download", "storage", mock.Anything, mock.Anything).Return(nil)
 
 	r, obj, err := svc.Download(ctx, bucket, key)
 
@@ -82,7 +82,7 @@ func TestStorageDelete_Success(t *testing.T) {
 	key := "test-key"
 
 	repo.On("SoftDelete", ctx, bucket, key).Return(nil)
-	auditSvc.On("Log", ctx, userID, "storage.delete", "object", mock.Anything, mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, userID, "storage.object_delete", "storage", mock.Anything, mock.Anything).Return(nil)
 
 	err := svc.DeleteObject(ctx, bucket, key)
 
