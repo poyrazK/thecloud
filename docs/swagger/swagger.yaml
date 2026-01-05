@@ -16,6 +16,28 @@ definitions:
       user_id:
         type: string
     type: object
+  domain.AuditLog:
+    properties:
+      action:
+        type: string
+      created_at:
+        type: string
+      details:
+        additionalProperties: true
+        type: object
+      id:
+        type: string
+      ip_address:
+        type: string
+      resource_id:
+        type: string
+      resource_type:
+        type: string
+      user_agent:
+        type: string
+      user_id:
+        type: string
+    type: object
   domain.DashboardStats:
     properties:
       cpu_history:
@@ -572,6 +594,29 @@ paths:
       summary: Get dashboard summary
       tags:
       - dashboard
+  /audit:
+    get:
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.AuditLog'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      summary: List audit logs
+      tags:
+      - audit
   /auth/keys:
     get:
       produces:
