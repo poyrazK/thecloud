@@ -150,6 +150,20 @@ func (m *MockEventService) ListEvents(ctx context.Context, limit int) ([]*domain
 	return args.Get(0).([]*domain.Event), args.Error(1)
 }
 
+type MockAuditService struct {
+	mock.Mock
+}
+
+func (m *MockAuditService) Log(ctx context.Context, userID uuid.UUID, action, resourceType, resourceID string, details map[string]interface{}) error {
+	args := m.Called(ctx, userID, action, resourceType, resourceID, details)
+	return args.Error(0)
+}
+
+func (m *MockAuditService) ListLogs(ctx context.Context, userID uuid.UUID, limit int) ([]*domain.AuditLog, error) {
+	args := m.Called(ctx, userID, limit)
+	return args.Get(0).([]*domain.AuditLog), args.Error(1)
+}
+
 func (m *MockDocker) RemoveNetwork(ctx context.Context, networkID string) error {
 	args := m.Called(ctx, networkID)
 	return args.Error(0)
@@ -235,8 +249,9 @@ func TestLaunchInstance_Success(t *testing.T) {
 	volumeRepo := new(MockVolumeRepo)
 	docker := new(MockDocker)
 	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, logger)
+	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	name := "test-inst"
@@ -247,6 +262,7 @@ func TestLaunchInstance_Success(t *testing.T) {
 	docker.On("CreateContainer", ctx, mock.Anything, image, []string{"8080:80"}, "", []string(nil), []string(nil), []string(nil)).Return("container-123", nil)
 	repo.On("Update", ctx, mock.AnythingOfType("*domain.Instance")).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "INSTANCE_LAUNCH", mock.Anything, "INSTANCE", mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "instance.launch", "instance", mock.Anything, mock.Anything).Return(nil)
 
 	inst, err := svc.LaunchInstance(ctx, name, image, ports, nil, nil)
 
@@ -264,8 +280,9 @@ func TestLaunchInstance_PropagatesUserID(t *testing.T) {
 	volumeRepo := new(MockVolumeRepo)
 	docker := new(MockDocker)
 	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, logger)
+	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, auditSvc, logger)
 
 	expectedUserID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), expectedUserID)
@@ -278,6 +295,7 @@ func TestLaunchInstance_PropagatesUserID(t *testing.T) {
 	docker.On("CreateContainer", ctx, mock.Anything, image, []string(nil), "", []string(nil), []string(nil), []string(nil)).Return("container-456", nil)
 	repo.On("Update", ctx, mock.AnythingOfType("*domain.Instance")).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "INSTANCE_LAUNCH", mock.Anything, "INSTANCE", mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, expectedUserID, "instance.launch", "instance", mock.Anything, mock.Anything).Return(nil)
 
 	inst, err := svc.LaunchInstance(ctx, name, image, "", nil, nil)
 
@@ -292,8 +310,9 @@ func TestTerminateInstance_Success(t *testing.T) {
 	volumeRepo := new(MockVolumeRepo)
 	docker := new(MockDocker)
 	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, logger)
+	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	id := uuid.New()
@@ -320,6 +339,7 @@ func TestTerminateInstance_Success(t *testing.T) {
 	})).Return(nil)
 	repo.On("Delete", ctx, id).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "INSTANCE_TERMINATE", id.String(), "INSTANCE", mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "instance.terminate", "instance", id.String(), mock.Anything).Return(nil)
 
 	err := svc.TerminateInstance(ctx, id.String())
 
@@ -335,8 +355,9 @@ func TestTerminateInstance_RemoveContainerFails_DoesNotReleaseVolumes(t *testing
 	volumeRepo := new(MockVolumeRepo)
 	docker := new(MockDocker)
 	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, logger)
+	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	id := uuid.New()
@@ -367,8 +388,9 @@ func TestGetInstance_ByID(t *testing.T) {
 	volumeRepo := new(MockVolumeRepo)
 	docker := new(MockDocker)
 	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, logger)
+	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	instID := uuid.New()
@@ -389,8 +411,9 @@ func TestGetInstance_ByName(t *testing.T) {
 	volumeRepo := new(MockVolumeRepo)
 	docker := new(MockDocker)
 	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, logger)
+	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	name := "my-instance"
@@ -411,8 +434,9 @@ func TestListInstances(t *testing.T) {
 	volumeRepo := new(MockVolumeRepo)
 	docker := new(MockDocker)
 	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, logger)
+	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	instances := []*domain.Instance{{Name: "inst1"}, {Name: "inst2"}}
@@ -432,8 +456,9 @@ func TestGetInstanceLogs(t *testing.T) {
 	volumeRepo := new(MockVolumeRepo)
 	docker := new(MockDocker)
 	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, logger)
+	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	instID := uuid.New()
@@ -456,8 +481,9 @@ func TestStopInstance_Success(t *testing.T) {
 	volumeRepo := new(MockVolumeRepo)
 	docker := new(MockDocker)
 	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, logger)
+	svc := NewInstanceService(repo, vpcRepo, volumeRepo, docker, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	instID := uuid.New()
@@ -468,7 +494,8 @@ func TestStopInstance_Success(t *testing.T) {
 	repo.On("Update", ctx, mock.MatchedBy(func(i *domain.Instance) bool {
 		return i.Status == domain.StatusStopped
 	})).Return(nil)
-	eventSvc.On("RecordEvent", ctx, "INSTANCE_STOP", instID.String(), "INSTANCE", mock.Anything).Return(nil)
+	// eventSvc.On("RecordEvent", ...) // Removed if it's not actually called
+	auditSvc.On("Log", ctx, mock.Anything, "instance.stop", "instance", instID.String(), mock.Anything).Return(nil)
 
 	err := svc.StopInstance(ctx, instID.String())
 

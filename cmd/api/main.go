@@ -114,7 +114,7 @@ func main() {
 	vpcSvc := services.NewVpcService(vpcRepo, dockerAdapter, logger)
 	eventSvc := services.NewEventService(eventRepo, logger)
 	volumeSvc := services.NewVolumeService(volumeRepo, dockerAdapter, eventSvc, logger)
-	instanceSvc := services.NewInstanceService(instanceRepo, vpcRepo, volumeRepo, dockerAdapter, eventSvc, logger)
+	instanceSvc := services.NewInstanceService(instanceRepo, vpcRepo, volumeRepo, dockerAdapter, eventSvc, auditSvc, logger)
 
 	lbRepo := postgres.NewLBRepository(db)
 	lbProxy, err := docker.NewLBProxyAdapter(instanceRepo, vpcRepo)

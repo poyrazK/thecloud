@@ -23,16 +23,18 @@ type InstanceService struct {
 	volumeRepo ports.VolumeRepository
 	docker     ports.DockerClient
 	eventSvc   ports.EventService
+	auditSvc   ports.AuditService
 	logger     *slog.Logger
 }
 
-func NewInstanceService(repo ports.InstanceRepository, vpcRepo ports.VpcRepository, volumeRepo ports.VolumeRepository, docker ports.DockerClient, eventSvc ports.EventService, logger *slog.Logger) *InstanceService {
+func NewInstanceService(repo ports.InstanceRepository, vpcRepo ports.VpcRepository, volumeRepo ports.VolumeRepository, docker ports.DockerClient, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) *InstanceService {
 	return &InstanceService{
 		repo:       repo,
 		vpcRepo:    vpcRepo,
 		volumeRepo: volumeRepo,
 		docker:     docker,
 		eventSvc:   eventSvc,
+		auditSvc:   auditSvc,
 		logger:     logger,
 	}
 }
@@ -122,6 +124,11 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 		"image": inst.Image,
 	})
 
+	_ = s.auditSvc.Log(ctx, inst.UserID, "instance.launch", "instance", inst.ID.String(), map[string]interface{}{
+		"name":  inst.Name,
+		"image": inst.Image,
+	})
+
 	// 6. Update volume statuses
 	s.updateVolumesAfterLaunch(ctx, attachedVolumes, inst.ID)
 
@@ -202,7 +209,15 @@ func (s *InstanceService) StopInstance(ctx context.Context, idOrName string) err
 
 	// 3. Update DB
 	inst.Status = domain.StatusStopped
-	return s.repo.Update(ctx, inst)
+	if err := s.repo.Update(ctx, inst); err != nil {
+		return err
+	}
+
+	_ = s.auditSvc.Log(ctx, inst.UserID, "instance.stop", "instance", inst.ID.String(), map[string]interface{}{
+		"name": inst.Name,
+	})
+
+	return nil
 }
 
 func (s *InstanceService) ListInstances(ctx context.Context) ([]*domain.Instance, error) {
@@ -266,6 +281,11 @@ func (s *InstanceService) TerminateInstance(ctx context.Context, idOrName string
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "INSTANCE_TERMINATE", inst.ID.String(), "INSTANCE", map[string]interface{}{})
+
+	_ = s.auditSvc.Log(ctx, inst.UserID, "instance.terminate", "instance", inst.ID.String(), map[string]interface{}{
+		"name": inst.Name,
+	})
+
 	return nil
 }
 
