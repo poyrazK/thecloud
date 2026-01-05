@@ -30,12 +30,18 @@ cd thecloud
 make run
 
 # 2. Register & Login (Get API Key)
-curl -X POST http://localhost:8080/auth/register -d '{"email":"user@example.com", "password":"password", "name":"User"}'
-curl -X POST http://localhost:8080/auth/login -d '{"email":"user@example.com", "password":"password"}'
-# Copy the "token" from the response
+curl -X POST http://localhost:8080/auth/register \
+  -d '{"email":"user@example.com", "password":"password", "name":"User"}'
+
+curl -X POST http://localhost:8080/auth/login \
+  -d '{"email":"user@example.com", "password":"password"}'
+# Copy the "token" (API Key) from the response
 
 # 3. Test Access
+# All protected endpoints require the X-API-Key header
 curl -H "X-API-Key: YOUR_API_KEY" http://localhost:8080/instances
+
+For more details, see the [Authentication Guide](docs/guides/authentication.md).
 ```
 
 ## 🎮 Quick Start (Console - Frontend)
