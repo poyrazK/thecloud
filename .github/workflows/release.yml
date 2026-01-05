@@ -9,6 +9,8 @@ jobs:
   release-cli:
     name: Release CLI Binaries
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v6
