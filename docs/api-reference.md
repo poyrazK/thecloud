@@ -35,9 +35,92 @@ Login to obtain an API Key.
 }
 ```
 
-  "expires_in": 86400
+**Response:**
+```json
+{
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "name": "User Name"
+  },
+  "api_key": "thecloud_xxxxx"
 }
 ```
+
+### POST /auth/forgot-password
+Request a password reset token (rate limited: 5 requests/minute).
+
+**Request:**
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "If the email exists, a reset token has been sent."
+}
+```
+
+### POST /auth/reset-password
+Reset password using a valid token (rate limited: 5 requests/minute).
+
+**Request:**
+```json
+{
+  "token": "reset-token-from-email",
+  "new_password": "new-secure-password"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "password updated successfully"
+}
+```
+
+---
+
+## API Key Management
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### POST /auth/keys
+Create a new API key.
+
+**Request:**
+```json
+{
+  "name": "Production Key"
+}
+```
+
+**Response:**
+```json
+{
+  "id": "uuid",
+  "user_id": "user-uuid",
+  "name": "Production Key",
+  "key": "thecloud_xxxxx",
+  "created_at": "2026-01-05T23:00:00Z",
+  "last_used": "2026-01-05T23:00:00Z"
+}
+```
+
+### GET /auth/keys
+List all API keys for the authenticated user.
+
+### DELETE /auth/keys/:id
+Revoke an API key.
+
+### POST /auth/keys/:id/rotate
+Rotate an API key (creates new key, deletes old one).
+
+### POST /auth/keys/:id/regenerate
+Regenerate an API key (alias for rotate).
 
 ---
 

@@ -452,6 +452,13 @@ definitions:
     - name
     - size_gb
     type: object
+  httphandlers.ForgotPasswordRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
   httphandlers.LaunchRequest:
     properties:
       image:
@@ -505,6 +512,18 @@ definitions:
     - email
     - name
     - password
+    type: object
+  httphandlers.ResetPasswordRequest:
+    properties:
+      new_password:
+        maxLength: 72
+        minLength: 8
+        type: string
+      token:
+        type: string
+    required:
+    - new_password
+    - token
     type: object
   httphandlers.VolumeAttachmentRequest:
     properties:
@@ -628,6 +647,28 @@ paths:
       summary: List audit logs
       tags:
       - audit
+  /auth/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Sends a password reset token (logged to console for now)
+      parameters:
+      - description: Email
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.ForgotPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      summary: Request password reset
+      tags:
+      - Auth
   /auth/keys:
     get:
       produces:
@@ -690,6 +731,30 @@ paths:
           schema:
             $ref: '#/definitions/httputil.Response'
       summary: Revoke an API key
+      tags:
+      - identity
+  /auth/keys/{id}/regenerate:
+    post:
+      parameters:
+      - description: Key ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.APIKey'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      summary: Regenerate an API key
       tags:
       - identity
   /auth/keys/{id}/rotate:
@@ -768,6 +833,27 @@ paths:
                   $ref: '#/definitions/domain.User'
               type: object
       summary: Register a new user
+      tags:
+      - Auth
+  /auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Resets a user's password using a valid token
+      parameters:
+      - description: Reset Info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
       tags:
       - Auth
   /autoscaling/groups:

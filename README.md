@@ -23,10 +23,23 @@ To build the world's best open-source cloud platform that anyone can run, modify
 - **Console**: Interactive Next.js Dashboard for visual resource management
 
 ## 🔐 Authentication
-The Cloud uses API Key authentication.
+The Cloud uses API Key authentication with comprehensive security features.
+
+### User Registration & Login
 1. **Register**: `POST /auth/register` to create an account.
 2. **Login**: `POST /auth/login` to receive your API Key.
 3. **Authenticate**: Send `X-API-Key: <your-key>` header with all requests.
+
+### Password Reset
+- **Request Reset**: `POST /auth/forgot-password` with your email (rate limited: 5/min)
+- **Reset Password**: `POST /auth/reset-password` with token and new password
+
+### API Key Management
+- **Create Key**: `POST /auth/keys` (requires authentication)
+- **List Keys**: `GET /auth/keys`
+- **Rotate Key**: `POST /auth/keys/:id/rotate`
+- **Regenerate Key**: `POST /auth/keys/:id/regenerate`
+- **Revoke Key**: `DELETE /auth/keys/:id`
 
 ## 🩺 System Health
 - **Liveness**: `GET /health/live` (Returns 200 OK)
