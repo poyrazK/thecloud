@@ -15,7 +15,8 @@ import (
 func TestNotifyService_CreateTopic(t *testing.T) {
 	repo := new(MockNotifyRepo)
 	eventSvc := new(MockEventService)
-	svc := services.NewNotifyService(repo, nil, eventSvc)
+	auditSvc := new(services.MockAuditService)
+	svc := services.NewNotifyService(repo, nil, eventSvc, auditSvc)
 
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
@@ -23,6 +24,7 @@ func TestNotifyService_CreateTopic(t *testing.T) {
 	repo.On("GetTopicByName", ctx, "test-topic", userID).Return(nil, nil)
 	repo.On("CreateTopic", ctx, mock.AnythingOfType("*domain.Topic")).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "TOPIC_CREATED", mock.Anything, "TOPIC", mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, userID, "notify.topic_create", "topic", mock.Anything, mock.Anything).Return(nil)
 
 	topic, err := svc.CreateTopic(ctx, "test-topic")
 
@@ -37,7 +39,8 @@ func TestNotifyService_Publish(t *testing.T) {
 	repo := new(MockNotifyRepo)
 	queueSvc := new(MockQueueService)
 	eventSvc := new(MockEventService)
-	svc := services.NewNotifyService(repo, queueSvc, eventSvc)
+	auditSvc := new(services.MockAuditService)
+	svc := services.NewNotifyService(repo, queueSvc, eventSvc, auditSvc)
 
 	userID := uuid.New()
 	topicID := uuid.New()
@@ -58,6 +61,7 @@ func TestNotifyService_Publish(t *testing.T) {
 
 	queueSvc.On("SendMessage", mock.Anything, uuid.MustParse(sub.Endpoint), "hello").Return(&domain.Message{}, nil)
 	eventSvc.On("RecordEvent", ctx, "TOPIC_PUBLISHED", topicID.String(), "TOPIC", mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, userID, "notify.publish", "topic", topicID.String(), mock.Anything).Return(nil)
 
 	err := svc.Publish(ctx, topicID, "hello")
 
