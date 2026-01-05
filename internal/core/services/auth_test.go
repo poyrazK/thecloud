@@ -60,6 +60,24 @@ func (m *MockIdentityService) ValidateAPIKey(ctx context.Context, key string) (*
 	}
 	return args.Get(0).(*domain.APIKey), args.Error(1)
 }
+func (m *MockIdentityService) ListKeys(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.APIKey), args.Error(1)
+}
+func (m *MockIdentityService) RevokeKey(ctx context.Context, userID, id uuid.UUID) error {
+	args := m.Called(ctx, userID, id)
+	return args.Error(0)
+}
+func (m *MockIdentityService) RotateKey(ctx context.Context, userID, id uuid.UUID) (*domain.APIKey, error) {
+	args := m.Called(ctx, userID, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.APIKey), args.Error(1)
+}
 
 func TestAuthService_Register_Success(t *testing.T) {
 	userRepo := new(MockUserRepo)

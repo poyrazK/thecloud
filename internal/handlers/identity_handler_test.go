@@ -34,6 +34,24 @@ func (m *mockIdentityService) ValidateAPIKey(ctx context.Context, key string) (*
 	}
 	return args.Get(0).(*domain.APIKey), args.Error(1)
 }
+func (m *mockIdentityService) ListKeys(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.APIKey), args.Error(1)
+}
+func (m *mockIdentityService) RevokeKey(ctx context.Context, userID, id uuid.UUID) error {
+	args := m.Called(ctx, userID, id)
+	return args.Error(0)
+}
+func (m *mockIdentityService) RotateKey(ctx context.Context, userID, id uuid.UUID) (*domain.APIKey, error) {
+	args := m.Called(ctx, userID, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.APIKey), args.Error(1)
+}
 
 func TestIdentityHandler_CreateKey(t *testing.T) {
 	gin.SetMode(gin.TestMode)
