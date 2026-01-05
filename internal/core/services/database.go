@@ -19,6 +19,7 @@ type DatabaseService struct {
 	docker   ports.DockerClient
 	vpcRepo  ports.VpcRepository
 	eventSvc ports.EventService
+	auditSvc ports.AuditService
 	logger   *slog.Logger
 }
 
@@ -27,6 +28,7 @@ func NewDatabaseService(
 	docker ports.DockerClient,
 	vpcRepo ports.VpcRepository,
 	eventSvc ports.EventService,
+	auditSvc ports.AuditService,
 	logger *slog.Logger,
 ) *DatabaseService {
 	return &DatabaseService{
@@ -34,6 +36,7 @@ func NewDatabaseService(
 		docker:   docker,
 		vpcRepo:  vpcRepo,
 		eventSvc: eventSvc,
+		auditSvc: auditSvc,
 		logger:   logger,
 	}
 }
@@ -138,6 +141,11 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 		"engine": db.Engine,
 	})
 
+	_ = s.auditSvc.Log(ctx, db.UserID, "database.create", "database", db.ID.String(), map[string]interface{}{
+		"name":   db.Name,
+		"engine": db.Engine,
+	})
+
 	return db, nil
 }
 
@@ -168,6 +176,10 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_DELETE", id.String(), "DATABASE", nil)
+
+	_ = s.auditSvc.Log(ctx, db.UserID, "database.delete", "database", db.ID.String(), map[string]interface{}{
+		"name": db.Name,
+	})
 
 	return nil
 }

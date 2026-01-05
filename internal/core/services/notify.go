@@ -17,13 +17,15 @@ type NotifyService struct {
 	repo     ports.NotifyRepository
 	queueSvc ports.QueueService
 	eventSvc ports.EventService
+	auditSvc ports.AuditService
 }
 
-func NewNotifyService(repo ports.NotifyRepository, queueSvc ports.QueueService, eventSvc ports.EventService) ports.NotifyService {
+func NewNotifyService(repo ports.NotifyRepository, queueSvc ports.QueueService, eventSvc ports.EventService, auditSvc ports.AuditService) ports.NotifyService {
 	return &NotifyService{
 		repo:     repo,
 		queueSvc: queueSvc,
 		eventSvc: eventSvc,
+		auditSvc: auditSvc,
 	}
 }
 
@@ -53,6 +55,10 @@ func (s *NotifyService) CreateTopic(ctx context.Context, name string) (*domain.T
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "TOPIC_CREATED", topic.ID.String(), "TOPIC", nil)
+
+	_ = s.auditSvc.Log(ctx, topic.UserID, "notify.topic_create", "topic", topic.ID.String(), map[string]interface{}{
+		"name": topic.Name,
+	})
 
 	return topic, nil
 }
@@ -84,6 +90,11 @@ func (s *NotifyService) DeleteTopic(ctx context.Context, id uuid.UUID) error {
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "TOPIC_DELETED", id.String(), "TOPIC", nil)
+
+	_ = s.auditSvc.Log(ctx, topic.UserID, "notify.topic_delete", "topic", topic.ID.String(), map[string]interface{}{
+		"name": topic.Name,
+	})
+
 	return nil
 }
 
@@ -114,6 +125,12 @@ func (s *NotifyService) Subscribe(ctx context.Context, topicID uuid.UUID, protoc
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "SUBSCRIPTION_CREATED", sub.ID.String(), "SUBSCRIPTION", map[string]interface{}{"topic_id": topicID})
+
+	_ = s.auditSvc.Log(ctx, sub.UserID, "notify.subscribe", "subscription", sub.ID.String(), map[string]interface{}{
+		"topic_id": topicID.String(),
+		"protocol": protocol,
+		"endpoint": endpoint,
+	})
 
 	return sub, nil
 }
@@ -148,6 +165,11 @@ func (s *NotifyService) Unsubscribe(ctx context.Context, id uuid.UUID) error {
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "SUBSCRIPTION_DELETED", id.String(), "SUBSCRIPTION", nil)
+
+	_ = s.auditSvc.Log(ctx, sub.UserID, "notify.unsubscribe", "subscription", sub.ID.String(), map[string]interface{}{
+		"topic_id": sub.TopicID.String(),
+	})
+
 	return nil
 }
 
@@ -184,6 +206,10 @@ func (s *NotifyService) Publish(ctx context.Context, topicID uuid.UUID, body str
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "TOPIC_PUBLISHED", topic.ID.String(), "TOPIC", map[string]interface{}{"message_id": msg.ID})
+
+	_ = s.auditSvc.Log(ctx, topic.UserID, "notify.publish", "topic", topic.ID.String(), map[string]interface{}{
+		"message_id": msg.ID.String(),
+	})
 
 	return nil
 }

@@ -1,4 +1,4 @@
-package services
+package services_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -52,33 +53,14 @@ func (m *MockFunctionRepo) GetInvocations(ctx context.Context, functionID uuid.U
 	return args.Get(0).([]*domain.Invocation), args.Error(1)
 }
 
-type MockFileStore struct {
-	mock.Mock
-}
-
-func (m *MockFileStore) Write(ctx context.Context, bucket, key string, r io.Reader) (int64, error) {
-	args := m.Called(ctx, bucket, key, r)
-	return args.Get(0).(int64), args.Error(1)
-}
-func (m *MockFileStore) Read(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
-	args := m.Called(ctx, bucket, key)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(io.ReadCloser), args.Error(1)
-}
-func (m *MockFileStore) Delete(ctx context.Context, bucket, key string) error {
-	args := m.Called(ctx, bucket, key)
-	return args.Error(0)
-}
-
 func TestFunctionService_InvokeFunction(t *testing.T) {
 	repo := new(MockFunctionRepo)
-	docker := new(MockDocker)
+	docker := new(MockDockerClient)
 	fileStore := new(MockFileStore)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.Default()
 
-	svc := NewFunctionService(repo, docker, fileStore, logger)
+	svc := services.NewFunctionService(repo, docker, fileStore, auditSvc, logger)
 	assert.NotNil(t, svc)
 
 	fID := uuid.New()
@@ -93,23 +75,22 @@ func TestFunctionService_InvokeFunction(t *testing.T) {
 	}
 
 	repo.On("GetByID", mock.Anything, fID).Return(f, nil)
-	// We'd need to mock prepareCode which is internal...
-	// For unit testing, we might want to extract internal logic to helpers or interfaces.
-	// But let's see if we can test create first.
 }
 
 func TestCreateFunction_Success(t *testing.T) {
 	repo := new(MockFunctionRepo)
-	docker := new(MockDocker)
+	docker := new(MockDockerClient)
 	fileStore := new(MockFileStore)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.Default()
 
-	svc := NewFunctionService(repo, docker, fileStore, logger)
+	svc := services.NewFunctionService(repo, docker, fileStore, auditSvc, logger)
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 
 	fileStore.On("Write", mock.Anything, "functions", mock.Anything, mock.Anything).Return(int64(100), nil)
 	repo.On("Create", mock.Anything, mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "function.create", "function", mock.Anything, mock.Anything).Return(nil)
 
 	fn, err := svc.CreateFunction(ctx, "my-fn", "nodejs20", "index.handler", []byte("code"))
 
@@ -121,11 +102,12 @@ func TestCreateFunction_Success(t *testing.T) {
 
 func TestCreateFunction_InvalidRuntime(t *testing.T) {
 	repo := new(MockFunctionRepo)
-	docker := new(MockDocker)
+	docker := new(MockDockerClient)
 	fileStore := new(MockFileStore)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.Default()
 
-	svc := NewFunctionService(repo, docker, fileStore, logger)
+	svc := services.NewFunctionService(repo, docker, fileStore, auditSvc, logger)
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 
@@ -138,11 +120,12 @@ func TestCreateFunction_InvalidRuntime(t *testing.T) {
 
 func TestListFunctions(t *testing.T) {
 	repo := new(MockFunctionRepo)
-	docker := new(MockDocker)
+	docker := new(MockDockerClient)
 	fileStore := new(MockFileStore)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.Default()
 
-	svc := NewFunctionService(repo, docker, fileStore, logger)
+	svc := services.NewFunctionService(repo, docker, fileStore, auditSvc, logger)
 
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
@@ -159,11 +142,12 @@ func TestListFunctions(t *testing.T) {
 
 func TestDeleteFunction(t *testing.T) {
 	repo := new(MockFunctionRepo)
-	docker := new(MockDocker)
+	docker := new(MockDockerClient)
 	fileStore := new(MockFileStore)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.Default()
 
-	svc := NewFunctionService(repo, docker, fileStore, logger)
+	svc := services.NewFunctionService(repo, docker, fileStore, auditSvc, logger)
 
 	ctx := context.Background()
 	fnID := uuid.New()
@@ -171,6 +155,7 @@ func TestDeleteFunction(t *testing.T) {
 
 	repo.On("GetByID", ctx, fnID).Return(fn, nil)
 	repo.On("Delete", ctx, fnID).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "function.delete", "function", fnID.String(), mock.Anything).Return(nil)
 	// The function calls fileStore.Delete in a goroutine with context.Background()
 	fileStore.On("Delete", mock.Anything, "functions", fn.CodePath).Return(nil).Maybe()
 
@@ -182,11 +167,12 @@ func TestDeleteFunction(t *testing.T) {
 
 func TestGetFunctionLogs(t *testing.T) {
 	repo := new(MockFunctionRepo)
-	docker := new(MockDocker)
+	docker := new(MockDockerClient)
 	fileStore := new(MockFileStore)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.Default()
 
-	svc := NewFunctionService(repo, docker, fileStore, logger)
+	svc := services.NewFunctionService(repo, docker, fileStore, auditSvc, logger)
 
 	ctx := context.Background()
 	fnID := uuid.New()

@@ -22,6 +22,7 @@ type CacheService struct {
 	docker   ports.DockerClient
 	vpcRepo  ports.VpcRepository
 	eventSvc ports.EventService
+	auditSvc ports.AuditService
 	logger   *slog.Logger
 }
 
@@ -30,6 +31,7 @@ func NewCacheService(
 	docker ports.DockerClient,
 	vpcRepo ports.VpcRepository,
 	eventSvc ports.EventService,
+	auditSvc ports.AuditService,
 	logger *slog.Logger,
 ) *CacheService {
 	return &CacheService{
@@ -37,6 +39,7 @@ func NewCacheService(
 		docker:   docker,
 		vpcRepo:  vpcRepo,
 		eventSvc: eventSvc,
+		auditSvc: auditSvc,
 		logger:   logger,
 	}
 }
@@ -133,6 +136,10 @@ func (s *CacheService) CreateCache(ctx context.Context, name, version string, me
 		"memory":  cache.MemoryMB,
 	})
 
+	_ = s.auditSvc.Log(ctx, cache.UserID, "cache.create", "cache", cache.ID.String(), map[string]interface{}{
+		"name": cache.Name,
+	})
+
 	return cache, nil
 }
 
@@ -165,6 +172,11 @@ func (s *CacheService) DeleteCache(ctx context.Context, idOrName string) error {
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "CACHE_DELETE", cache.ID.String(), "CACHE", nil)
+
+	_ = s.auditSvc.Log(ctx, cache.UserID, "cache.delete", "cache", cache.ID.String(), map[string]interface{}{
+		"name": cache.Name,
+	})
+
 	return nil
 }
 
@@ -209,6 +221,8 @@ func (s *CacheService) FlushCache(ctx context.Context, idOrName string) error {
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to flush cache: "+output, err)
 	}
+
+	_ = s.auditSvc.Log(ctx, cache.UserID, "cache.flush", "cache", cache.ID.String(), map[string]interface{}{})
 
 	return nil
 }

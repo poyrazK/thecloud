@@ -15,13 +15,15 @@ import (
 type CronService struct {
 	repo     ports.CronRepository
 	eventSvc ports.EventService
+	auditSvc ports.AuditService
 	parser   cron.Parser
 }
 
-func NewCronService(repo ports.CronRepository, eventSvc ports.EventService) ports.CronService {
+func NewCronService(repo ports.CronRepository, eventSvc ports.EventService, auditSvc ports.AuditService) ports.CronService {
 	return &CronService{
 		repo:     repo,
 		eventSvc: eventSvc,
+		auditSvc: auditSvc,
 		parser:   cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow),
 	}
 }
@@ -59,6 +61,11 @@ func (s *CronService) CreateJob(ctx context.Context, name, schedule, targetURL, 
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "CRON_JOB_CREATED", job.ID.String(), "CRON_JOB", nil)
+
+	_ = s.auditSvc.Log(ctx, job.UserID, "cron.job_create", "cron_job", job.ID.String(), map[string]interface{}{
+		"name":     job.Name,
+		"schedule": job.Schedule,
+	})
 
 	return job, nil
 }
@@ -111,5 +118,11 @@ func (s *CronService) DeleteJob(ctx context.Context, id uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	return s.repo.DeleteJob(ctx, id)
+	if err := s.repo.DeleteJob(ctx, id); err != nil {
+		return err
+	}
+
+	_ = s.auditSvc.Log(ctx, userID, "cron.job_delete", "cron_job", id.String(), map[string]interface{}{})
+
+	return nil
 }

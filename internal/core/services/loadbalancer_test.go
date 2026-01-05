@@ -1,4 +1,4 @@
-package services
+package services_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -97,9 +98,10 @@ func (m *mockLBRepo) GetTargetsForInstance(ctx context.Context, instanceID uuid.
 
 func TestLBService_Create(t *testing.T) {
 	lbRepo := new(mockLBRepo)
-	vpcRepo := new(mockVpcRepo)
-	instRepo := new(mockInstanceRepo)
-	svc := NewLBService(lbRepo, vpcRepo, instRepo)
+	vpcRepo := new(MockVpcRepo)
+	instRepo := new(MockInstanceRepo)
+	auditSvc := new(services.MockAuditService)
+	svc := services.NewLBService(lbRepo, vpcRepo, instRepo, auditSvc)
 
 	ctx := context.Background()
 	vpcID := uuid.New()
@@ -113,6 +115,7 @@ func TestLBService_Create(t *testing.T) {
 		lbRepo.On("Create", ctx, mock.MatchedBy(func(lb *domain.LoadBalancer) bool {
 			return lb.Name == name && lb.VpcID == vpcID && lb.Port == port && lb.Status == domain.LBStatusCreating
 		})).Return(nil).Once()
+		auditSvc.On("Log", ctx, mock.Anything, "lb.create", "loadbalancer", mock.Anything, mock.Anything).Return(nil).Once()
 
 		lb, err := svc.Create(ctx, name, vpcID, port, algo, "key1")
 
@@ -150,9 +153,10 @@ func TestLBService_Create(t *testing.T) {
 
 func TestLBService_PropagatesUserID(t *testing.T) {
 	lbRepo := new(mockLBRepo)
-	vpcRepo := new(mockVpcRepo)
-	instRepo := new(mockInstanceRepo)
-	svc := NewLBService(lbRepo, vpcRepo, instRepo)
+	vpcRepo := new(MockVpcRepo)
+	instRepo := new(MockInstanceRepo)
+	auditSvc := new(services.MockAuditService)
+	svc := services.NewLBService(lbRepo, vpcRepo, instRepo, auditSvc)
 
 	expectedUserID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), expectedUserID)
@@ -164,6 +168,7 @@ func TestLBService_PropagatesUserID(t *testing.T) {
 	lbRepo.On("Create", ctx, mock.MatchedBy(func(lb *domain.LoadBalancer) bool {
 		return lb.UserID == expectedUserID
 	})).Return(nil).Once()
+	auditSvc.On("Log", ctx, expectedUserID, "lb.create", "loadbalancer", mock.Anything, mock.Anything).Return(nil).Once()
 
 	lb, err := svc.Create(ctx, name, vpcID, 80, "round-robin", "key3")
 
@@ -174,9 +179,10 @@ func TestLBService_PropagatesUserID(t *testing.T) {
 
 func TestLBService_AddTarget(t *testing.T) {
 	lbRepo := new(mockLBRepo)
-	vpcRepo := new(mockVpcRepo)
-	instRepo := new(mockInstanceRepo)
-	svc := NewLBService(lbRepo, vpcRepo, instRepo)
+	vpcRepo := new(MockVpcRepo)
+	instRepo := new(MockInstanceRepo)
+	auditSvc := new(services.MockAuditService)
+	svc := services.NewLBService(lbRepo, vpcRepo, instRepo, auditSvc)
 
 	ctx := context.Background()
 	lbID := uuid.New()
@@ -187,6 +193,7 @@ func TestLBService_AddTarget(t *testing.T) {
 		lbRepo.On("GetByID", ctx, lbID).Return(&domain.LoadBalancer{ID: lbID, VpcID: vpcID}, nil).Once()
 		instRepo.On("GetByID", ctx, instID).Return(&domain.Instance{ID: instID, VpcID: &vpcID}, nil).Once()
 		lbRepo.On("AddTarget", ctx, mock.Anything).Return(nil).Once()
+		auditSvc.On("Log", ctx, mock.Anything, "lb.target_add", "loadbalancer", lbID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.AddTarget(ctx, lbID, instID, 80, 1)
 
@@ -211,9 +218,10 @@ func TestLBService_AddTarget(t *testing.T) {
 
 func TestLBService_Delete_Success(t *testing.T) {
 	lbRepo := new(mockLBRepo)
-	vpcRepo := new(mockVpcRepo)
-	instRepo := new(mockInstanceRepo)
-	svc := NewLBService(lbRepo, vpcRepo, instRepo)
+	vpcRepo := new(MockVpcRepo)
+	instRepo := new(MockInstanceRepo)
+	auditSvc := new(services.MockAuditService)
+	svc := services.NewLBService(lbRepo, vpcRepo, instRepo, auditSvc)
 
 	ctx := context.Background()
 	lbID := uuid.New()
@@ -224,6 +232,7 @@ func TestLBService_Delete_Success(t *testing.T) {
 	lbRepo.On("Update", ctx, mock.MatchedBy(func(l *domain.LoadBalancer) bool {
 		return l.ID == lbID && l.Status == domain.LBStatusDeleted
 	})).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "lb.delete", "loadbalancer", lbID.String(), mock.Anything).Return(nil).Once()
 
 	err := svc.Delete(ctx, lbID)
 

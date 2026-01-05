@@ -13,14 +13,16 @@ import (
 )
 
 type StorageService struct {
-	repo  ports.StorageRepository
-	store ports.FileStore
+	repo     ports.StorageRepository
+	store    ports.FileStore
+	auditSvc ports.AuditService
 }
 
-func NewStorageService(repo ports.StorageRepository, store ports.FileStore) *StorageService {
+func NewStorageService(repo ports.StorageRepository, store ports.FileStore, auditSvc ports.AuditService) *StorageService {
 	return &StorageService{
-		repo:  repo,
-		store: store,
+		repo:     repo,
+		store:    store,
+		auditSvc: auditSvc,
 	}
 }
 
@@ -54,6 +56,11 @@ func (s *StorageService) Upload(ctx context.Context, bucket, key string, r io.Re
 		return nil, err
 	}
 
+	_ = s.auditSvc.Log(ctx, obj.UserID, "storage.object_upload", "storage", obj.ID.String(), map[string]interface{}{
+		"bucket": obj.Bucket,
+		"key":    obj.Key,
+	})
+
 	return obj, nil
 }
 
@@ -85,5 +92,11 @@ func (s *StorageService) DeleteObject(ctx context.Context, bucket, key string) e
 
 	// Note: We don't delete from FileStore yet because it's a "soft delete".
 	// A background job could clean up Filesystem objects with deleted_at set.
+
+	_ = s.auditSvc.Log(ctx, appcontext.UserIDFromContext(ctx), "storage.object_delete", "storage", bucket+"/"+key, map[string]interface{}{
+		"bucket": bucket,
+		"key":    key,
+	})
+
 	return nil
 }

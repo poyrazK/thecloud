@@ -18,9 +18,10 @@ func TestCreateVolume_Success(t *testing.T) {
 	repo := new(MockVolumeRepo)
 	docker := new(MockDockerClient)
 	eventSvc := new(MockEventService)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewVolumeService(repo, docker, eventSvc, logger)
+	svc := services.NewVolumeService(repo, docker, eventSvc, auditSvc, logger)
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	name := "test-vol"
@@ -31,6 +32,7 @@ func TestCreateVolume_Success(t *testing.T) {
 	})).Return(nil)
 	repo.On("Create", ctx, mock.AnythingOfType("*domain.Volume")).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "VOLUME_CREATE", mock.Anything, "VOLUME", mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "volume.create", "volume", mock.Anything, mock.Anything).Return(nil)
 
 	vol, err := svc.CreateVolume(ctx, name, size)
 
@@ -48,9 +50,10 @@ func TestDeleteVolume_Success(t *testing.T) {
 	repo := new(MockVolumeRepo)
 	docker := new(MockDockerClient)
 	eventSvc := new(MockEventService)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewVolumeService(repo, docker, eventSvc, logger)
+	svc := services.NewVolumeService(repo, docker, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	volID := uuid.New()
@@ -65,6 +68,7 @@ func TestDeleteVolume_Success(t *testing.T) {
 	docker.On("DeleteVolume", ctx, dockerName).Return(nil)
 	repo.On("Delete", ctx, volID).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "VOLUME_DELETE", volID.String(), "VOLUME", mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "volume.delete", "volume", mock.Anything, mock.Anything).Return(nil)
 
 	err := svc.DeleteVolume(ctx, volID.String())
 
@@ -77,9 +81,10 @@ func TestDeleteVolume_InUse_Fails(t *testing.T) {
 	repo := new(MockVolumeRepo)
 	docker := new(MockDockerClient)
 	eventSvc := new(MockEventService)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewVolumeService(repo, docker, eventSvc, logger)
+	svc := services.NewVolumeService(repo, docker, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	volID := uuid.New()

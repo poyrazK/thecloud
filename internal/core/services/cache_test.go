@@ -54,9 +54,10 @@ func TestCreateCache_Success(t *testing.T) {
 	docker := new(MockDockerClient)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, logger)
+	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	name := "test-cache"
@@ -68,6 +69,7 @@ func TestCreateCache_Success(t *testing.T) {
 	repo.On("Create", ctx, mock.AnythingOfType("*domain.Cache")).Return(nil)
 	repo.On("Update", ctx, mock.AnythingOfType("*domain.Cache")).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "CACHE_CREATE", mock.Anything, "CACHE", mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "cache.create", "cache", mock.Anything, mock.Anything).Return(nil)
 
 	cache, err := svc.CreateCache(ctx, name, version, memory, nil)
 
@@ -89,14 +91,16 @@ func TestDeleteCache_Success(t *testing.T) {
 	docker := new(MockDockerClient)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, logger)
+	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	cacheID := uuid.New()
 	cache := &domain.Cache{
 		ID:          cacheID,
+		Name:        "test-cache",
 		ContainerID: "cont-123",
 	}
 
@@ -105,6 +109,7 @@ func TestDeleteCache_Success(t *testing.T) {
 	docker.On("RemoveContainer", ctx, "cont-123").Return(nil)
 	repo.On("Delete", ctx, cacheID).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "CACHE_DELETE", cacheID.String(), "CACHE", mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "cache.delete", "cache", cacheID.String(), mock.Anything).Return(nil)
 
 	err := svc.DeleteCache(ctx, cacheID.String())
 
@@ -118,9 +123,10 @@ func TestFlushCache_Success(t *testing.T) {
 	docker := new(MockDockerClient)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, logger)
+	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	cacheID := uuid.New()
@@ -134,6 +140,7 @@ func TestFlushCache_Success(t *testing.T) {
 	repo.On("GetByID", ctx, cacheID).Return(cache, nil)
 	// Expect Exec call: redis-cli -a password FLUSHALL
 	docker.On("Exec", ctx, "cont-123", []string{"redis-cli", "-a", "secret", "FLUSHALL"}).Return("OK", nil)
+	auditSvc.On("Log", ctx, mock.Anything, "cache.flush", "cache", cacheID.String(), mock.Anything).Return(nil)
 
 	err := svc.FlushCache(ctx, cacheID.String())
 
@@ -146,9 +153,10 @@ func TestGetCacheStats_Success(t *testing.T) {
 	docker := new(MockDockerClient)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, logger)
+	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	cacheID := uuid.New()
@@ -187,9 +195,10 @@ func TestCreateCache_DockerFailure(t *testing.T) {
 	docker := new(MockDockerClient)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, logger)
+	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	name := "fail-cache"
@@ -216,9 +225,10 @@ func TestGetCache_ByID(t *testing.T) {
 	docker := new(MockDockerClient)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, logger)
+	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	cacheID := uuid.New()
@@ -238,9 +248,10 @@ func TestGetCache_ByName(t *testing.T) {
 	docker := new(MockDockerClient)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, logger)
+	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
 
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
@@ -261,9 +272,10 @@ func TestListCaches(t *testing.T) {
 	docker := new(MockDockerClient)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, logger)
+	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
 
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
@@ -283,9 +295,10 @@ func TestGetCacheConnectionString(t *testing.T) {
 	docker := new(MockDockerClient)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, logger)
+	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	cacheID := uuid.New()

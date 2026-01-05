@@ -105,15 +105,20 @@ func (m *MockDockerClient) Exec(ctx context.Context, containerID string, cmd []s
 	args := m.Called(ctx, containerID, cmd)
 	return args.String(0), args.Error(1)
 }
+func (m *MockDockerClient) Ping(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
 
 func TestCreateDatabase_Success(t *testing.T) {
 	repo := new(MockDatabaseRepo)
 	docker := new(MockDockerClient)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, logger)
+	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	name := "test-db"
@@ -124,6 +129,9 @@ func TestCreateDatabase_Success(t *testing.T) {
 	docker.On("GetContainerPort", ctx, "cont-123", "5432").Return(54321, nil)
 	repo.On("Create", ctx, mock.AnythingOfType("*domain.Database")).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "DATABASE_CREATE", mock.Anything, "DATABASE", mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "database.create", "database", mock.Anything, mock.MatchedBy(func(details map[string]interface{}) bool {
+		return details["name"] == name && details["engine"] == domain.EnginePostgres
+	})).Return(nil)
 
 	db, err := svc.CreateDatabase(ctx, name, engine, version, nil)
 
@@ -143,14 +151,16 @@ func TestDeleteDatabase_Success(t *testing.T) {
 	docker := new(MockDockerClient)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, logger)
+	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	dbID := uuid.New()
 	db := &domain.Database{
 		ID:          dbID,
+		Name:        "test-db",
 		ContainerID: "cont-123",
 	}
 
@@ -158,6 +168,9 @@ func TestDeleteDatabase_Success(t *testing.T) {
 	docker.On("RemoveContainer", ctx, "cont-123").Return(nil)
 	repo.On("Delete", ctx, dbID).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "DATABASE_DELETE", dbID.String(), "DATABASE", mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "database.delete", "database", dbID.String(), mock.MatchedBy(func(details map[string]interface{}) bool {
+		return details["name"] == "test-db"
+	})).Return(nil)
 
 	err := svc.DeleteDatabase(ctx, dbID)
 
@@ -171,9 +184,10 @@ func TestGetDatabase_ByID(t *testing.T) {
 	docker := new(MockDockerClient)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, logger)
+	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	dbID := uuid.New()
@@ -193,9 +207,10 @@ func TestListDatabases(t *testing.T) {
 	docker := new(MockDockerClient)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, logger)
+	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	dbs := []*domain.Database{{Name: "db1"}, {Name: "db2"}}
@@ -214,9 +229,10 @@ func TestGetConnectionString(t *testing.T) {
 	docker := new(MockDockerClient)
 	vpcRepo := new(MockVpcRepo)
 	eventSvc := new(MockEventService)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, logger)
+	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	dbID := uuid.New()

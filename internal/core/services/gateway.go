@@ -17,17 +17,19 @@ import (
 )
 
 type GatewayService struct {
-	repo    ports.GatewayRepository
-	proxyMu sync.RWMutex
-	proxies map[string]*httputil.ReverseProxy
-	routes  map[string]*domain.GatewayRoute
+	repo     ports.GatewayRepository
+	proxyMu  sync.RWMutex
+	proxies  map[string]*httputil.ReverseProxy
+	routes   map[string]*domain.GatewayRoute
+	auditSvc ports.AuditService
 }
 
-func NewGatewayService(repo ports.GatewayRepository) *GatewayService {
+func NewGatewayService(repo ports.GatewayRepository, auditSvc ports.AuditService) *GatewayService {
 	s := &GatewayService{
-		repo:    repo,
-		proxies: make(map[string]*httputil.ReverseProxy),
-		routes:  make(map[string]*domain.GatewayRoute),
+		repo:     repo,
+		proxies:  make(map[string]*httputil.ReverseProxy),
+		routes:   make(map[string]*domain.GatewayRoute),
+		auditSvc: auditSvc,
 	}
 	// Initial load
 	_ = s.RefreshRoutes(context.Background())
@@ -56,6 +58,11 @@ func (s *GatewayService) CreateRoute(ctx context.Context, name, prefix, target s
 		return nil, err
 	}
 
+	_ = s.auditSvc.Log(ctx, route.UserID, "gateway.route_create", "gateway", route.ID.String(), map[string]interface{}{
+		"name":   route.Name,
+		"prefix": route.PathPrefix,
+	})
+
 	_ = s.RefreshRoutes(ctx)
 	return route, nil
 }
@@ -70,13 +77,18 @@ func (s *GatewayService) ListRoutes(ctx context.Context) ([]*domain.GatewayRoute
 
 func (s *GatewayService) DeleteRoute(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
-	_, err := s.repo.GetRouteByID(ctx, id, userID)
+	route, err := s.repo.GetRouteByID(ctx, id, userID)
 	if err != nil {
 		return err
 	}
 	if err := s.repo.DeleteRoute(ctx, id); err != nil {
 		return err
 	}
+
+	_ = s.auditSvc.Log(ctx, route.UserID, "gateway.route_delete", "gateway", route.ID.String(), map[string]interface{}{
+		"name": route.Name,
+	})
+
 	return s.RefreshRoutes(ctx)
 }
 

@@ -14,12 +14,14 @@ import (
 type ContainerService struct {
 	repo     ports.ContainerRepository
 	eventSvc ports.EventService
+	auditSvc ports.AuditService
 }
 
-func NewContainerService(repo ports.ContainerRepository, eventSvc ports.EventService) ports.ContainerService {
+func NewContainerService(repo ports.ContainerRepository, eventSvc ports.EventService, auditSvc ports.AuditService) ports.ContainerService {
 	return &ContainerService{
 		repo:     repo,
 		eventSvc: eventSvc,
+		auditSvc: auditSvc,
 	}
 }
 
@@ -47,6 +49,11 @@ func (s *ContainerService) CreateDeployment(ctx context.Context, name, image str
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "DEPLOYMENT_CREATED", dep.ID.String(), "DEPLOYMENT", nil)
+
+	_ = s.auditSvc.Log(ctx, dep.UserID, "container.deployment_create", "deployment", dep.ID.String(), map[string]interface{}{
+		"name":  dep.Name,
+		"image": dep.Image,
+	})
 
 	return dep, nil
 }
@@ -76,7 +83,15 @@ func (s *ContainerService) ScaleDeployment(ctx context.Context, id uuid.UUID, re
 
 	dep.Replicas = replicas
 	dep.Status = domain.DeploymentStatusScaling
-	return s.repo.UpdateDeployment(ctx, dep)
+	if err := s.repo.UpdateDeployment(ctx, dep); err != nil {
+		return err
+	}
+
+	_ = s.auditSvc.Log(ctx, userID, "container.deployment_scale", "deployment", id.String(), map[string]interface{}{
+		"replicas": replicas,
+	})
+
+	return nil
 }
 
 func (s *ContainerService) DeleteDeployment(ctx context.Context, id uuid.UUID) error {
@@ -87,5 +102,11 @@ func (s *ContainerService) DeleteDeployment(ctx context.Context, id uuid.UUID) e
 	}
 
 	dep.Status = domain.DeploymentStatusDeleting
-	return s.repo.UpdateDeployment(ctx, dep)
+	if err := s.repo.UpdateDeployment(ctx, dep); err != nil {
+		return err
+	}
+
+	_ = s.auditSvc.Log(ctx, userID, "container.deployment_delete", "deployment", id.String(), map[string]interface{}{})
+
+	return nil
 }

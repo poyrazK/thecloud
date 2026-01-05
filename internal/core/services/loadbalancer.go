@@ -15,13 +15,15 @@ type LBService struct {
 	lbRepo       ports.LBRepository
 	vpcRepo      ports.VpcRepository
 	instanceRepo ports.InstanceRepository
+	auditSvc     ports.AuditService
 }
 
-func NewLBService(lbRepo ports.LBRepository, vpcRepo ports.VpcRepository, instanceRepo ports.InstanceRepository) *LBService {
+func NewLBService(lbRepo ports.LBRepository, vpcRepo ports.VpcRepository, instanceRepo ports.InstanceRepository, auditSvc ports.AuditService) *LBService {
 	return &LBService{
 		lbRepo:       lbRepo,
 		vpcRepo:      vpcRepo,
 		instanceRepo: instanceRepo,
+		auditSvc:     auditSvc,
 	}
 }
 
@@ -62,6 +64,10 @@ func (s *LBService) Create(ctx context.Context, name string, vpcID uuid.UUID, po
 		return nil, err
 	}
 
+	_ = s.auditSvc.Log(ctx, lb.UserID, "lb.create", "loadbalancer", lb.ID.String(), map[string]interface{}{
+		"name": lb.Name,
+	})
+
 	return lb, nil
 }
 
@@ -84,7 +90,15 @@ func (s *LBService) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	lb.Status = domain.LBStatusDeleted
-	return s.lbRepo.Update(ctx, lb)
+	if err := s.lbRepo.Update(ctx, lb); err != nil {
+		return err
+	}
+
+	_ = s.auditSvc.Log(ctx, lb.UserID, "lb.delete", "loadbalancer", lb.ID.String(), map[string]interface{}{
+		"name": lb.Name,
+	})
+
+	return nil
 }
 
 func (s *LBService) AddTarget(ctx context.Context, lbID, instanceID uuid.UUID, port int, weight int) error {
@@ -118,11 +132,33 @@ func (s *LBService) AddTarget(ctx context.Context, lbID, instanceID uuid.UUID, p
 		Health:     "unknown",
 	}
 
-	return s.lbRepo.AddTarget(ctx, target)
+	if err := s.lbRepo.AddTarget(ctx, target); err != nil {
+		return err
+	}
+
+	_ = s.auditSvc.Log(ctx, lb.UserID, "lb.target_add", "loadbalancer", lb.ID.String(), map[string]interface{}{
+		"instance_id": instanceID.String(),
+		"port":        port,
+	})
+
+	return nil
 }
 
 func (s *LBService) RemoveTarget(ctx context.Context, lbID, instanceID uuid.UUID) error {
-	return s.lbRepo.RemoveTarget(ctx, lbID, instanceID)
+	lb, err := s.lbRepo.GetByID(ctx, lbID)
+	if err != nil {
+		return err
+	}
+
+	if err := s.lbRepo.RemoveTarget(ctx, lbID, instanceID); err != nil {
+		return err
+	}
+
+	_ = s.auditSvc.Log(ctx, lb.UserID, "lb.target_remove", "loadbalancer", lb.ID.String(), map[string]interface{}{
+		"instance_id": instanceID.String(),
+	})
+
+	return nil
 }
 
 func (s *LBService) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*domain.LBTarget, error) {

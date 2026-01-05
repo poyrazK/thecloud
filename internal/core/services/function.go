@@ -36,14 +36,16 @@ type FunctionService struct {
 	repo      ports.FunctionRepository
 	docker    ports.DockerClient
 	fileStore ports.FileStore
+	auditSvc  ports.AuditService
 	logger    *slog.Logger
 }
 
-func NewFunctionService(repo ports.FunctionRepository, docker ports.DockerClient, fileStore ports.FileStore, logger *slog.Logger) *FunctionService {
+func NewFunctionService(repo ports.FunctionRepository, docker ports.DockerClient, fileStore ports.FileStore, auditSvc ports.AuditService, logger *slog.Logger) *FunctionService {
 	return &FunctionService{
 		repo:      repo,
 		docker:    docker,
 		fileStore: fileStore,
+		auditSvc:  auditSvc,
 		logger:    logger,
 	}
 }
@@ -85,6 +87,11 @@ func (s *FunctionService) CreateFunction(ctx context.Context, name, runtime, han
 		return nil, err
 	}
 
+	_ = s.auditSvc.Log(ctx, f.UserID, "function.create", "function", f.ID.String(), map[string]interface{}{
+		"name":    f.Name,
+		"runtime": f.Runtime,
+	})
+
 	s.logger.Info("function created", "name", name, "runtime", runtime, "id", id)
 
 	return f, nil
@@ -116,6 +123,10 @@ func (s *FunctionService) DeleteFunction(ctx context.Context, id uuid.UUID) erro
 		_ = s.fileStore.Delete(context.Background(), "functions", f.CodePath)
 	}()
 
+	_ = s.auditSvc.Log(ctx, f.UserID, "function.delete", "function", f.ID.String(), map[string]interface{}{
+		"name": f.Name,
+	})
+
 	return nil
 }
 
@@ -137,12 +148,14 @@ func (s *FunctionService) InvokeFunction(ctx context.Context, id uuid.UUID, payl
 	}
 
 	if async {
+		_ = s.auditSvc.Log(ctx, f.UserID, "function.invoke_async", "function", f.ID.String(), map[string]interface{}{})
 		go func() {
 			_, _ = s.runInvocation(context.Background(), f, invocation, payload)
 		}()
 		return invocation, nil
 	}
 
+	_ = s.auditSvc.Log(ctx, f.UserID, "function.invoke", "function", f.ID.String(), map[string]interface{}{})
 	return s.runInvocation(ctx, f, invocation, payload)
 }
 

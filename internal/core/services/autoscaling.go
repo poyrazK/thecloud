@@ -13,14 +13,16 @@ import (
 )
 
 type AutoScalingService struct {
-	repo    ports.AutoScalingRepository
-	vpcRepo ports.VpcRepository
+	repo     ports.AutoScalingRepository
+	vpcRepo  ports.VpcRepository
+	auditSvc ports.AuditService
 }
 
-func NewAutoScalingService(repo ports.AutoScalingRepository, vpcRepo ports.VpcRepository) *AutoScalingService {
+func NewAutoScalingService(repo ports.AutoScalingRepository, vpcRepo ports.VpcRepository, auditSvc ports.AuditService) *AutoScalingService {
 	return &AutoScalingService{
-		repo:    repo,
-		vpcRepo: vpcRepo,
+		repo:     repo,
+		vpcRepo:  vpcRepo,
+		auditSvc: auditSvc,
 	}
 }
 
@@ -83,6 +85,10 @@ func (s *AutoScalingService) CreateGroup(ctx context.Context, name string, vpcID
 		return nil, err
 	}
 
+	_ = s.auditSvc.Log(ctx, group.UserID, "asg.group_create", "scaling_group", group.ID.String(), map[string]interface{}{
+		"name": group.Name,
+	})
+
 	return group, nil
 }
 
@@ -104,7 +110,15 @@ func (s *AutoScalingService) DeleteGroup(ctx context.Context, id uuid.UUID) erro
 	group.Status = domain.ScalingGroupStatusDeleting
 	group.MinInstances = 0 // Allow desired to be 0
 	group.DesiredCount = 0 // Stop scaling out immediately
-	return s.repo.UpdateGroup(ctx, group)
+	if err := s.repo.UpdateGroup(ctx, group); err != nil {
+		return err
+	}
+
+	_ = s.auditSvc.Log(ctx, group.UserID, "asg.group_delete", "scaling_group", group.ID.String(), map[string]interface{}{
+		"name": group.Name,
+	})
+
+	return nil
 }
 
 // SetDesiredCapacity just updates the DB. Worker reconciles.

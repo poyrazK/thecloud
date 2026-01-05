@@ -13,16 +13,18 @@ import (
 )
 
 type VpcService struct {
-	repo   ports.VpcRepository
-	docker ports.DockerClient
-	logger *slog.Logger
+	repo     ports.VpcRepository
+	docker   ports.DockerClient
+	auditSvc ports.AuditService
+	logger   *slog.Logger
 }
 
-func NewVpcService(repo ports.VpcRepository, docker ports.DockerClient, logger *slog.Logger) *VpcService {
+func NewVpcService(repo ports.VpcRepository, docker ports.DockerClient, auditSvc ports.AuditService, logger *slog.Logger) *VpcService {
 	return &VpcService{
-		repo:   repo,
-		docker: docker,
-		logger: logger,
+		repo:     repo,
+		docker:   docker,
+		auditSvc: auditSvc,
+		logger:   logger,
 	}
 }
 
@@ -52,7 +54,9 @@ func (s *VpcService) CreateVPC(ctx context.Context, name string) (*domain.VPC, e
 		return nil, err
 	}
 
-	s.logger.Info("vpc created", "vpc_id", vpc.ID, "network_id", dockerNetworkID)
+	_ = s.auditSvc.Log(ctx, vpc.UserID, "vpc.create", "vpc", vpc.ID.String(), map[string]interface{}{
+		"name": vpc.Name,
+	})
 
 	return vpc, nil
 }
@@ -83,5 +87,13 @@ func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
 	s.logger.Info("vpc network removed", "network_id", vpc.NetworkID)
 
 	// 2. Delete from DB
-	return s.repo.Delete(ctx, vpc.ID)
+	if err := s.repo.Delete(ctx, vpc.ID); err != nil {
+		return err
+	}
+
+	_ = s.auditSvc.Log(ctx, vpc.UserID, "vpc.delete", "vpc", vpc.ID.String(), map[string]interface{}{
+		"name": vpc.Name,
+	})
+
+	return nil
 }

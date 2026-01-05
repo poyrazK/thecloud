@@ -17,16 +17,20 @@ import (
 func TestVpcService_Create_Success(t *testing.T) {
 	vpcRepo := new(MockVpcRepo)
 	docker := new(MockDockerClient)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewVpcService(vpcRepo, docker, logger)
+	svc := services.NewVpcService(vpcRepo, docker, auditSvc, logger)
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	name := "test-vpc"
 
 	docker.On("CreateNetwork", ctx, mock.MatchedBy(func(n string) bool {
 		return len(n) > 0 // Dynamic name
 	})).Return("docker-net-123", nil)
-	vpcRepo.On("Create", ctx, mock.AnythingOfType("*domain.VPC")).Return(nil)
+	vpcRepo.On("Create", ctx, mock.MatchedBy(func(vpc *domain.VPC) bool {
+		return vpc.Name == name
+	})).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "vpc.create", "vpc", mock.Anything, mock.Anything).Return(nil)
 
 	vpc, err := svc.CreateVPC(ctx, name)
 
@@ -42,9 +46,10 @@ func TestVpcService_Create_Success(t *testing.T) {
 func TestVpcService_Create_DBFailure_RollsBackNetwork(t *testing.T) {
 	vpcRepo := new(MockVpcRepo)
 	docker := new(MockDockerClient)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewVpcService(vpcRepo, docker, logger)
+	svc := services.NewVpcService(vpcRepo, docker, auditSvc, logger)
 	ctx := context.Background()
 	name := "fail-vpc"
 
@@ -62,9 +67,10 @@ func TestVpcService_Create_DBFailure_RollsBackNetwork(t *testing.T) {
 func TestVpcService_Delete_Success(t *testing.T) {
 	vpcRepo := new(MockVpcRepo)
 	docker := new(MockDockerClient)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewVpcService(vpcRepo, docker, logger)
+	svc := services.NewVpcService(vpcRepo, docker, auditSvc, logger)
 	ctx := context.Background()
 	vpcID := uuid.New()
 	vpc := &domain.VPC{
@@ -76,6 +82,7 @@ func TestVpcService_Delete_Success(t *testing.T) {
 	vpcRepo.On("GetByID", ctx, vpcID).Return(vpc, nil)
 	docker.On("RemoveNetwork", ctx, "docker-net-789").Return(nil)
 	vpcRepo.On("Delete", ctx, vpcID).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "vpc.delete", "vpc", mock.Anything, mock.Anything).Return(nil)
 
 	err := svc.DeleteVPC(ctx, vpcID.String())
 
@@ -87,9 +94,10 @@ func TestVpcService_Delete_Success(t *testing.T) {
 func TestVpcService_List_Success(t *testing.T) {
 	vpcRepo := new(MockVpcRepo)
 	docker := new(MockDockerClient)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewVpcService(vpcRepo, docker, logger)
+	svc := services.NewVpcService(vpcRepo, docker, auditSvc, logger)
 	ctx := context.Background()
 
 	vpcs := []*domain.VPC{{Name: "vpc1"}, {Name: "vpc2"}}
@@ -105,9 +113,10 @@ func TestVpcService_List_Success(t *testing.T) {
 func TestVpcService_Get_ByName(t *testing.T) {
 	vpcRepo := new(MockVpcRepo)
 	docker := new(MockDockerClient)
+	auditSvc := new(services.MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewVpcService(vpcRepo, docker, logger)
+	svc := services.NewVpcService(vpcRepo, docker, auditSvc, logger)
 	ctx := context.Background()
 	name := "my-vpc"
 	vpc := &domain.VPC{ID: uuid.New(), Name: name}

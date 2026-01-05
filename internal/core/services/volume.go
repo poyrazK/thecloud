@@ -16,14 +16,16 @@ type VolumeService struct {
 	repo     ports.VolumeRepository
 	docker   ports.DockerClient
 	eventSvc ports.EventService
+	auditSvc ports.AuditService
 	logger   *slog.Logger
 }
 
-func NewVolumeService(repo ports.VolumeRepository, docker ports.DockerClient, eventSvc ports.EventService, logger *slog.Logger) *VolumeService {
+func NewVolumeService(repo ports.VolumeRepository, docker ports.DockerClient, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) *VolumeService {
 	return &VolumeService{
 		repo:     repo,
 		docker:   docker,
 		eventSvc: eventSvc,
+		auditSvc: auditSvc,
 		logger:   logger,
 	}
 }
@@ -55,6 +57,11 @@ func (s *VolumeService) CreateVolume(ctx context.Context, name string, sizeGB in
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "VOLUME_CREATE", vol.ID.String(), "VOLUME", map[string]interface{}{
+		"name":    vol.Name,
+		"size_gb": vol.SizeGB,
+	})
+
+	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.create", "volume", vol.ID.String(), map[string]interface{}{
 		"name":    vol.Name,
 		"size_gb": vol.SizeGB,
 	})
@@ -97,6 +104,10 @@ func (s *VolumeService) DeleteVolume(ctx context.Context, idOrName string) error
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "VOLUME_DELETE", vol.ID.String(), "VOLUME", map[string]interface{}{})
+
+	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.delete", "volume", vol.ID.String(), map[string]interface{}{
+		"name": vol.Name,
+	})
 
 	s.logger.Info("volume deleted", "volume_id", vol.ID)
 	return nil

@@ -111,9 +111,9 @@ func main() {
 	eventRepo := postgres.NewEventRepository(db)
 	volumeRepo := postgres.NewVolumeRepository(db)
 
-	vpcSvc := services.NewVpcService(vpcRepo, dockerAdapter, logger)
+	vpcSvc := services.NewVpcService(vpcRepo, dockerAdapter, auditSvc, logger)
 	eventSvc := services.NewEventService(eventRepo, logger)
-	volumeSvc := services.NewVolumeService(volumeRepo, dockerAdapter, eventSvc, logger)
+	volumeSvc := services.NewVolumeService(volumeRepo, dockerAdapter, eventSvc, auditSvc, logger)
 	instanceSvc := services.NewInstanceService(instanceRepo, vpcRepo, volumeRepo, dockerAdapter, eventSvc, auditSvc, logger)
 
 	lbRepo := postgres.NewLBRepository(db)
@@ -122,7 +122,7 @@ func main() {
 		logger.Error("failed to initialize load balancer proxy adapter", "error", err)
 		os.Exit(1)
 	}
-	lbSvc := services.NewLBService(lbRepo, vpcRepo, instanceRepo)
+	lbSvc := services.NewLBService(lbRepo, vpcRepo, instanceRepo, auditSvc)
 	lbWorker := services.NewLBWorker(lbRepo, instanceRepo, lbProxy)
 
 	vpcHandler := httphandlers.NewVpcHandler(vpcSvc)
@@ -142,11 +142,11 @@ func main() {
 		os.Exit(1)
 	}
 	storageRepo := postgres.NewStorageRepository(db)
-	storageSvc := services.NewStorageService(storageRepo, fileStore)
+	storageSvc := services.NewStorageService(storageRepo, fileStore, auditSvc)
 	storageHandler := httphandlers.NewStorageHandler(storageSvc)
 
 	databaseRepo := postgres.NewDatabaseRepository(db)
-	databaseSvc := services.NewDatabaseService(databaseRepo, dockerAdapter, vpcRepo, eventSvc, logger)
+	databaseSvc := services.NewDatabaseService(databaseRepo, dockerAdapter, vpcRepo, eventSvc, auditSvc, logger)
 	databaseHandler := httphandlers.NewDatabaseHandler(databaseSvc)
 
 	secretRepo := postgres.NewSecretRepository(db)
@@ -154,32 +154,32 @@ func main() {
 	secretHandler := httphandlers.NewSecretHandler(secretSvc)
 
 	fnRepo := postgres.NewFunctionRepository(db)
-	fnSvc := services.NewFunctionService(fnRepo, dockerAdapter, fileStore, logger)
+	fnSvc := services.NewFunctionService(fnRepo, dockerAdapter, fileStore, auditSvc, logger)
 	fnHandler := httphandlers.NewFunctionHandler(fnSvc)
 
 	cacheRepo := postgres.NewCacheRepository(db)
-	cacheSvc := services.NewCacheService(cacheRepo, dockerAdapter, vpcRepo, eventSvc, logger)
+	cacheSvc := services.NewCacheService(cacheRepo, dockerAdapter, vpcRepo, eventSvc, auditSvc, logger)
 	cacheHandler := httphandlers.NewCacheHandler(cacheSvc)
 
 	queueRepo := postgres.NewPostgresQueueRepository(db)
-	queueSvc := services.NewQueueService(queueRepo, eventSvc)
+	queueSvc := services.NewQueueService(queueRepo, eventSvc, auditSvc)
 	queueHandler := httphandlers.NewQueueHandler(queueSvc)
 
 	notifyRepo := postgres.NewPostgresNotifyRepository(db)
-	notifySvc := services.NewNotifyService(notifyRepo, queueSvc, eventSvc)
+	notifySvc := services.NewNotifyService(notifyRepo, queueSvc, eventSvc, auditSvc)
 	notifyHandler := httphandlers.NewNotifyHandler(notifySvc)
 
 	cronRepo := postgres.NewPostgresCronRepository(db)
-	cronSvc := services.NewCronService(cronRepo, eventSvc)
+	cronSvc := services.NewCronService(cronRepo, eventSvc, auditSvc)
 	cronHandler := httphandlers.NewCronHandler(cronSvc)
 	cronWorker := services.NewCronWorker(cronRepo)
 
 	gwRepo := postgres.NewPostgresGatewayRepository(db)
-	gwSvc := services.NewGatewayService(gwRepo)
+	gwSvc := services.NewGatewayService(gwRepo, auditSvc)
 	gwHandler := httphandlers.NewGatewayHandler(gwSvc)
 
 	containerRepo := postgres.NewPostgresContainerRepository(db)
-	containerSvc := services.NewContainerService(containerRepo, eventSvc)
+	containerSvc := services.NewContainerService(containerRepo, eventSvc, auditSvc)
 	containerHandler := httphandlers.NewContainerHandler(containerSvc)
 	containerWorker := services.NewContainerWorker(containerRepo, instanceSvc, eventSvc)
 
@@ -435,7 +435,7 @@ func main() {
 
 	// Auto-Scaling Routes (Protected)
 	asgRepo := postgres.NewAutoScalingRepo(db)
-	asgSvc := services.NewAutoScalingService(asgRepo, vpcRepo)
+	asgSvc := services.NewAutoScalingService(asgRepo, vpcRepo, auditSvc)
 	asgHandler := httphandlers.NewAutoScalingHandler(asgSvc)
 	asgWorker := services.NewAutoScalingWorker(asgRepo, instanceSvc, lbSvc, eventSvc, ports.RealClock{})
 

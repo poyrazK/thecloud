@@ -14,10 +14,15 @@ import (
 type QueueService struct {
 	repo     ports.QueueRepository
 	eventSvc ports.EventService
+	auditSvc ports.AuditService
 }
 
-func NewQueueService(repo ports.QueueRepository, eventSvc ports.EventService) ports.QueueService {
-	return &QueueService{repo: repo, eventSvc: eventSvc}
+func NewQueueService(repo ports.QueueRepository, eventSvc ports.EventService, auditSvc ports.AuditService) ports.QueueService {
+	return &QueueService{
+		repo:     repo,
+		eventSvc: eventSvc,
+		auditSvc: auditSvc,
+	}
 }
 
 func (s *QueueService) CreateQueue(ctx context.Context, name string, opts *ports.CreateQueueOptions) (*domain.Queue, error) {
@@ -67,6 +72,10 @@ func (s *QueueService) CreateQueue(ctx context.Context, name string, opts *ports
 
 	_ = s.eventSvc.RecordEvent(ctx, "QUEUE_CREATED", q.ID.String(), "QUEUE", nil)
 
+	_ = s.auditSvc.Log(ctx, q.UserID, "queue.create", "queue", q.ID.String(), map[string]interface{}{
+		"name": q.Name,
+	})
+
 	return q, nil
 }
 
@@ -106,6 +115,10 @@ func (s *QueueService) DeleteQueue(ctx context.Context, id uuid.UUID) error {
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "QUEUE_DELETED", q.ID.String(), "QUEUE", nil)
+
+	_ = s.auditSvc.Log(ctx, q.UserID, "queue.delete", "queue", q.ID.String(), map[string]interface{}{
+		"name": q.Name,
+	})
 
 	return nil
 }
@@ -182,6 +195,8 @@ func (s *QueueService) PurgeQueue(ctx context.Context, queueID uuid.UUID) error 
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "QUEUE_PURGED", q.ID.String(), "QUEUE", nil)
+
+	_ = s.auditSvc.Log(ctx, q.UserID, "queue.purge", "queue", q.ID.String(), map[string]interface{}{})
 
 	return nil
 }
