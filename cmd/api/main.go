@@ -234,10 +234,18 @@ func main() {
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	// Identity Routes (Public for bootstrapping)
+	// Identity Routes
 	r.POST("/auth/register", authHandler.Register)
 	r.POST("/auth/login", authHandler.Login)
-	r.POST("/auth/keys", identityHandler.CreateKey)
+
+	keyGroup := r.Group("/auth/keys")
+	keyGroup.Use(httputil.Auth(identitySvc))
+	{
+		keyGroup.POST("", identityHandler.CreateKey)
+		keyGroup.GET("", identityHandler.ListKeys)
+		keyGroup.DELETE("/:id", identityHandler.RevokeKey)
+		keyGroup.POST("/:id/rotate", identityHandler.RotateKey)
+	}
 
 	// Instance Routes (Protected)
 	instanceGroup := r.Group("/instances")
