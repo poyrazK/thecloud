@@ -149,7 +149,7 @@ func main() {
 
 	// IaC Service
 	stackRepo := postgres.NewStackRepository(db)
-	stackSvc := services.NewStackService(stackRepo, instanceSvc, vpcSvc, logger)
+	stackSvc := services.NewStackService(stackRepo, instanceSvc, vpcSvc, volumeSvc, snapshotSvc, logger)
 	stackHandler := httphandlers.NewStackHandler(stackSvc)
 
 	// Storage Service

@@ -19,9 +19,11 @@ func TestCreateStack_Success(t *testing.T) {
 	repo := new(MockStackRepo)
 	instanceSvc := new(MockInstanceService)
 	vpcSvc := new(MockVpcService)
+	volumeSvc := new(MockVolumeService)
+	snapshotSvc := new(MockSnapshotService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewStackService(repo, instanceSvc, vpcSvc, logger)
+	svc := services.NewStackService(repo, instanceSvc, vpcSvc, volumeSvc, snapshotSvc, logger)
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	template := `
@@ -68,7 +70,7 @@ Resources:
 	assert.Equal(t, domain.StackStatusCreateInProgress, stack.Status)
 
 	// Wait for background processing
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(150 * time.Millisecond)
 
 	repo.AssertExpectations(t)
 	vpcSvc.AssertExpectations(t)
@@ -79,9 +81,11 @@ func TestDeleteStack_Success(t *testing.T) {
 	repo := new(MockStackRepo)
 	instanceSvc := new(MockInstanceService)
 	vpcSvc := new(MockVpcService)
+	volumeSvc := new(MockVolumeService)
+	snapshotSvc := new(MockSnapshotService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewStackService(repo, instanceSvc, vpcSvc, logger)
+	svc := services.NewStackService(repo, instanceSvc, vpcSvc, volumeSvc, snapshotSvc, logger)
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	stackID := uuid.New()
@@ -104,7 +108,7 @@ func TestDeleteStack_Success(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Wait for background processing
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(150 * time.Millisecond)
 
 	repo.AssertExpectations(t)
 	instanceSvc.AssertExpectations(t)

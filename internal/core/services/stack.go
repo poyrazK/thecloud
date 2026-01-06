@@ -18,6 +18,8 @@ type stackService struct {
 	repo        ports.StackRepository
 	instanceSvc ports.InstanceService
 	vpcSvc      ports.VpcService
+	volumeSvc   ports.VolumeService
+	snapshotSvc ports.SnapshotService
 	logger      *slog.Logger
 }
 
@@ -25,12 +27,16 @@ func NewStackService(
 	repo ports.StackRepository,
 	instanceSvc ports.InstanceService,
 	vpcSvc ports.VpcService,
+	volumeSvc ports.VolumeService,
+	snapshotSvc ports.SnapshotService,
 	logger *slog.Logger,
 ) *stackService {
 	return &stackService{
 		repo:        repo,
 		instanceSvc: instanceSvc,
 		vpcSvc:      vpcSvc,
+		volumeSvc:   volumeSvc,
+		snapshotSvc: snapshotSvc,
 		logger:      logger,
 	}
 }
@@ -96,19 +102,36 @@ func (s *stackService) processStack(stack *domain.Stack) {
 		}
 	}
 
-	// Pass 2: Everything else
+	// Pass 2: Volumes
 	for logicalID, res := range t.Resources {
-		if res.Type == "VPC" {
-			continue
+		if res.Type == "Volume" {
+			id, err := s.createVolume(ctx, stack.ID, logicalID, res.Properties)
+			if err != nil {
+				s.updateStackStatus(ctx, stack, domain.StackStatusCreateFailed, fmt.Sprintf("Failed to create Volume %s: %v", logicalID, err))
+				return
+			}
+			logicalToPhysical[logicalID] = id
 		}
+	}
 
-		// Resolve references (Ref: LogicalID)
-		props := s.resolveRefs(res.Properties, logicalToPhysical)
-
+	// Pass 3: Instances
+	for logicalID, res := range t.Resources {
 		if res.Type == "Instance" {
-			_, err := s.createInstance(ctx, stack.ID, logicalID, props)
+			id, err := s.createInstance(ctx, stack.ID, logicalID, s.resolveRefs(res.Properties, logicalToPhysical))
 			if err != nil {
 				s.updateStackStatus(ctx, stack, domain.StackStatusCreateFailed, fmt.Sprintf("Failed to create Instance %s: %v", logicalID, err))
+				return
+			}
+			logicalToPhysical[logicalID] = id
+		}
+	}
+
+	// Pass 4: Snapshots
+	for logicalID, res := range t.Resources {
+		if res.Type == "Snapshot" {
+			_, err := s.createSnapshot(ctx, stack.ID, logicalID, s.resolveRefs(res.Properties, logicalToPhysical))
+			if err != nil {
+				s.updateStackStatus(ctx, stack, domain.StackStatusCreateFailed, fmt.Sprintf("Failed to create Snapshot %s: %v", logicalID, err))
 				return
 			}
 		}
@@ -157,6 +180,64 @@ func (s *stackService) createVPC(ctx context.Context, stackID uuid.UUID, logical
 	})
 
 	return vpc.ID, nil
+}
+
+func (s *stackService) createVolume(ctx context.Context, stackID uuid.UUID, logicalID string, props map[string]interface{}) (uuid.UUID, error) {
+	name, _ := props["Name"].(string)
+	size, _ := props["Size"].(int)
+	if size == 0 {
+		size = 10
+	}
+
+	if name == "" {
+		name = fmt.Sprintf("%s-%s", logicalID, stackID.String()[:8])
+	}
+
+	vol, err := s.volumeSvc.CreateVolume(ctx, name, size)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	_ = s.repo.AddResource(ctx, &domain.StackResource{
+		ID:           uuid.New(),
+		StackID:      stackID,
+		LogicalID:    logicalID,
+		PhysicalID:   vol.ID.String(),
+		ResourceType: "Volume",
+		Status:       "CREATE_COMPLETE",
+		CreatedAt:    time.Now(),
+	})
+
+	return vol.ID, nil
+}
+
+func (s *stackService) createSnapshot(ctx context.Context, stackID uuid.UUID, logicalID string, props map[string]interface{}) (uuid.UUID, error) {
+	name, _ := props["Name"].(string)
+	volumeID, ok := props["VolumeID"].(uuid.UUID)
+	if !ok {
+		return uuid.Nil, fmt.Errorf("VolumeID is required for Snapshot")
+	}
+
+	if name == "" {
+		name = fmt.Sprintf("%s-%s", logicalID, stackID.String()[:8])
+	}
+
+	snap, err := s.snapshotSvc.CreateSnapshot(ctx, volumeID, name)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	_ = s.repo.AddResource(ctx, &domain.StackResource{
+		ID:           uuid.New(),
+		StackID:      stackID,
+		LogicalID:    logicalID,
+		PhysicalID:   snap.ID.String(),
+		ResourceType: "Snapshot",
+		Status:       "CREATE_IN_PROGRESS",
+		CreatedAt:    time.Now(),
+	})
+
+	return snap.ID, nil
 }
 
 func (s *stackService) createInstance(ctx context.Context, stackID uuid.UUID, logicalID string, props map[string]interface{}) (uuid.UUID, error) {
@@ -232,6 +313,11 @@ func (s *stackService) DeleteStack(ctx context.Context, id uuid.UUID) error {
 				_ = s.instanceSvc.TerminateInstance(bgCtx, physID)
 			case "VPC":
 				_ = s.vpcSvc.DeleteVPC(bgCtx, physID)
+			case "Volume":
+				_ = s.volumeSvc.DeleteVolume(bgCtx, physID)
+			case "Snapshot":
+				snapID, _ := uuid.Parse(physID)
+				_ = s.snapshotSvc.DeleteSnapshot(bgCtx, snapID)
 			}
 		}
 

@@ -1055,3 +1055,76 @@ func (m *MockVpcService) DeleteVPC(ctx context.Context, idOrName string) error {
 	args := m.Called(ctx, idOrName)
 	return args.Error(0)
 }
+
+// MockVolumeService
+type MockVolumeService struct {
+	mock.Mock
+}
+
+func (m *MockVolumeService) CreateVolume(ctx context.Context, name string, sizeGB int) (*domain.Volume, error) {
+	args := m.Called(ctx, name, sizeGB)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Volume), args.Error(1)
+}
+func (m *MockVolumeService) ListVolumes(ctx context.Context) ([]*domain.Volume, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Volume), args.Error(1)
+}
+func (m *MockVolumeService) GetVolume(ctx context.Context, idOrName string) (*domain.Volume, error) {
+	args := m.Called(ctx, idOrName)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Volume), args.Error(1)
+}
+func (m *MockVolumeService) DeleteVolume(ctx context.Context, idOrName string) error {
+	args := m.Called(ctx, idOrName)
+	return args.Error(0)
+}
+func (m *MockVolumeService) ReleaseVolumesForInstance(ctx context.Context, instanceID uuid.UUID) error {
+	args := m.Called(ctx, instanceID)
+	return args.Error(0)
+}
+
+// MockSnapshotService
+type MockSnapshotService struct {
+	mock.Mock
+}
+
+func (m *MockSnapshotService) CreateSnapshot(ctx context.Context, volumeID uuid.UUID, description string) (*domain.Snapshot, error) {
+	args := m.Called(ctx, volumeID, description)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Snapshot), args.Error(1)
+}
+func (m *MockSnapshotService) ListSnapshots(ctx context.Context) ([]*domain.Snapshot, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Snapshot), args.Error(1)
+}
+func (m *MockSnapshotService) GetSnapshot(ctx context.Context, id uuid.UUID) (*domain.Snapshot, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Snapshot), args.Error(1)
+}
+func (m *MockSnapshotService) DeleteSnapshot(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+func (m *MockSnapshotService) RestoreSnapshot(ctx context.Context, snapshotID uuid.UUID, newVolumeName string) (*domain.Volume, error) {
+	args := m.Called(ctx, snapshotID, newVolumeName)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Volume), args.Error(1)
+}
