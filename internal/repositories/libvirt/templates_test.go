@@ -14,7 +14,7 @@ func TestGenerateVolumeXML(t *testing.T) {
 }
 
 func TestGenerateDomainXML(t *testing.T) {
-	xml := generateDomainXML("test-vm", "/path/to/disk", "default", "", 1024, 2)
+	xml := generateDomainXML("test-vm", "/path/to/disk", "default", "", 1024, 2, nil)
 	assert.Contains(t, xml, "<name>test-vm</name>")
 	assert.Contains(t, xml, "<memory unit='KiB'>1048576</memory>") // 1024 * 1024
 	assert.Contains(t, xml, "<vcpu placement='static'>2</vcpu>")

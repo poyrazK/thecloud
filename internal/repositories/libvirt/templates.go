@@ -15,7 +15,7 @@ func generateVolumeXML(name string, sizeGB int) string {
 </volume>`, name, sizeGB)
 }
 
-func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu int) string {
+func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu int, additionalDisks []string) string {
 	if networkID == "" {
 		networkID = "default"
 	}
@@ -33,6 +33,17 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
     </disk>`, isoPath)
 	}
 
+	additionalDisksXML := ""
+	for i, dPath := range additionalDisks {
+		dev := fmt.Sprintf("vd%c", 'b'+i)
+		additionalDisksXML += fmt.Sprintf(`
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='qcow2'/>
+      <source file='%s'/>
+      <target dev='%s' bus='virtio'/>
+    </disk>`, dPath, dev)
+	}
+
 	return fmt.Sprintf(`
 <domain type='kvm'>
   <name>%s</name>
@@ -47,7 +58,7 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
       <driver name='qemu' type='qcow2'/>
       <source file='%s'/>
       <target dev='vda' bus='virtio'/>
-    </disk>%s
+    </disk>%s%s
     <interface type='network'>
       <source network='%s'/>
       <model type='virtio'/>
@@ -59,7 +70,7 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
       <target type='serial' port='0'/>
     </console>
   </devices>
-</domain>`, name, memoryKB, vcpu, diskPath, isoXML, networkID)
+</domain>`, name, memoryKB, vcpu, diskPath, isoXML, additionalDisksXML, networkID)
 }
 
 func generateNetworkXML(name, bridgeName, gatewayIP, rangeStart, rangeEnd string) string {

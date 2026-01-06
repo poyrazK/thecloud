@@ -1,6 +1,7 @@
 package libvirt
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -87,23 +88,48 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName str
 	// For now, assume standard path.
 	diskPath := fmt.Sprintf("/var/lib/libvirt/images/%s-root", name)
 
-	// 2. Define Domain
+	// 2. Cloud-Init ISO (if env or cmd provided)
+	isoPath := ""
+	if len(env) > 0 || len(cmd) > 0 {
+		var err error
+		isoPath, err = a.generateCloudInitISO(ctx, name, env, cmd)
+		if err != nil {
+			a.logger.Warn("failed to generate cloud-init iso, proceeding without it", "error", err)
+		}
+	}
+
+	// 3. Resolve Volume Binds to host paths
+	var additionalDisks []string
+	for _, volName := range volumeBinds {
+		vol, err := a.conn.StorageVolLookupByName(pool, volName)
+		if err == nil {
+			path, err := a.conn.StorageVolGetPath(vol)
+			if err == nil {
+				additionalDisks = append(additionalDisks, path)
+			}
+		}
+	}
+
+	// 4. Define Domain
 	// Memory: 512MB
 	// CPU: 1
 	if networkID == "" {
 		networkID = "default"
 	}
 
-	domainXML := generateDomainXML(name, diskPath, networkID, "", 512, 1)
+	domainXML := generateDomainXML(name, diskPath, networkID, isoPath, 512, 1, additionalDisks)
 
 	dom, err := a.conn.DomainDefineXML(domainXML)
 	if err != nil {
 		// Clean up volume
 		_ = a.conn.StorageVolDelete(vol, 0)
+		if isoPath != "" {
+			os.Remove(isoPath)
+		}
 		return "", fmt.Errorf("failed to define domain: %w", err)
 	}
 
-	// 3. Start Domain
+	// 5. Start Domain
 	if err := a.conn.DomainCreate(dom); err != nil {
 		return "", fmt.Errorf("failed to start domain: %w", err)
 	}
@@ -219,6 +245,10 @@ func (a *LibvirtAdapter) DeleteInstance(ctx context.Context, id string) error {
 		delete(a.portMappings, id)
 	}
 	a.mu.Unlock()
+
+	// Cleanup Cloud-Init ISO if exists
+	isoPath := filepath.Join("/tmp", "cloud-init-"+id+".iso")
+	_ = os.Remove(isoPath)
 
 	// Try to delete root volume?
 	// Name-root
@@ -385,9 +415,15 @@ func (a *LibvirtAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions)
 		return "", fmt.Errorf("failed to get volume path: %w", err)
 	}
 
-	// 2. Define Domain
-	// We pass empty ISO for now as we don't generate one.
-	domainXML := generateDomainXML(name, diskPath, "default", "", int(opts.MemoryMB), 1)
+	// 2. Cloud-Init
+	isoPath, err := a.generateCloudInitISO(ctx, name, nil, opts.Command)
+	if err != nil {
+		a.logger.Warn("failed to generate cloud-init iso for task", "error", err)
+	}
+
+	// 3. Define Domain
+	// Memory: opts.MemoryMB
+	domainXML := generateDomainXML(name, diskPath, "default", isoPath, int(opts.MemoryMB), 1, nil)
 
 	dom, err := a.conn.DomainDefineXML(domainXML)
 	if err != nil {
@@ -584,4 +620,57 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 	}
 
 	return nil
+}
+func (a *LibvirtAdapter) generateCloudInitISO(ctx context.Context, name string, env []string, cmd []string) (string, error) {
+	tmpDir, err := os.MkdirTemp("", "cloud-init-"+name)
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// meta-data
+	metaData := fmt.Sprintf("instance-id: %s\nlocal-hostname: %s\n", name, name)
+	if err := os.WriteFile(filepath.Join(tmpDir, "meta-data"), []byte(metaData), 0644); err != nil {
+		return "", err
+	}
+
+	// user-data
+	var userData bytes.Buffer
+	userData.WriteString("#cloud-config\n")
+
+	if len(env) > 0 {
+		userData.WriteString("write_files:\n")
+		userData.WriteString("  - path: /etc/profile.d/cloud-env.sh\n")
+		userData.WriteString("    content: |\n")
+		for _, e := range env {
+			userData.WriteString(fmt.Sprintf("      export %s\n", e))
+		}
+	}
+
+	if len(cmd) > 0 {
+		userData.WriteString("runcmd:\n")
+		for _, c := range cmd {
+			userData.WriteString(fmt.Sprintf("  - [ sh, -c, %q ]\n", c))
+		}
+	}
+
+	if err := os.WriteFile(filepath.Join(tmpDir, "user-data"), []byte(userData.String()), 0644); err != nil {
+		return "", err
+	}
+
+	isoPath := filepath.Join("/tmp", "cloud-init-"+name+".iso")
+
+	// Create ISO
+	genCmd := exec.Command("genisoimage", "-output", isoPath, "-volid", "config-2", "-joliet", "-rock",
+		filepath.Join(tmpDir, "user-data"), filepath.Join(tmpDir, "meta-data"))
+
+	if _, err := genCmd.CombinedOutput(); err != nil {
+		genCmd = exec.Command("mkisofs", "-output", isoPath, "-volid", "config-2", "-joliet", "-rock",
+			filepath.Join(tmpDir, "user-data"), filepath.Join(tmpDir, "meta-data"))
+		if _, err2 := genCmd.CombinedOutput(); err2 != nil {
+			return "", fmt.Errorf("failed to generate iso (genisoimage/mkisofs): %w", err2)
+		}
+	}
+
+	return isoPath, nil
 }
