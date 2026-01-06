@@ -73,6 +73,9 @@ func (s *SnapshotService) CreateSnapshot(ctx context.Context, volumeID uuid.UUID
 		return nil, err
 	}
 
+	// Return a copy to avoid data race with the background goroutine
+	snapshotCopy := *snapshot
+
 	// 4. Perform async snapshot (for now we'll do it synchronously or simulate async)
 	go func() {
 		// Use a fresh context for background task
@@ -95,7 +98,7 @@ func (s *SnapshotService) CreateSnapshot(ctx context.Context, volumeID uuid.UUID
 		"volume_id": volumeID.String(),
 	})
 
-	return snapshot, nil
+	return &snapshotCopy, nil
 }
 
 func (s *SnapshotService) performSnapshot(ctx context.Context, vol *domain.Volume, snapshot *domain.Snapshot) error {
