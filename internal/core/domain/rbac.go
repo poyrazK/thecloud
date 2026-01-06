@@ -80,6 +80,11 @@ const (
 	PermissionGatewayDelete Permission = "gateway:delete"
 	PermissionGatewayRead   Permission = "gateway:read"
 
+	// IaC Permissions
+	PermissionStackCreate Permission = "stack:create"
+	PermissionStackDelete Permission = "stack:delete"
+	PermissionStackRead   Permission = "stack:read"
+
 	// Auto-Scaling Permissions
 	PermissionAsCreate Permission = "as:create"
 	PermissionAsDelete Permission = "as:delete"
