@@ -132,8 +132,14 @@ jobs:
           sudo virsh pool-start default
           sudo virsh pool-autostart default
           
-          # Create default network
-          cat > /tmp/default-net.xml << 'EOF'
+          # Check if default network exists
+          if sudo virsh net-info default &>/dev/null; then
+            echo "Default network already exists, ensuring it's active..."
+            sudo virsh net-start default 2>/dev/null || true
+            sudo virsh net-autostart default
+          else
+            echo "Creating default network..."
+            cat > /tmp/default-net.xml << 'EOF'
           <network>
             <name>default</name>
             <forward mode='nat'/>
@@ -145,9 +151,10 @@ jobs:
             </ip>
           </network>
           EOF
-          sudo virsh net-define /tmp/default-net.xml
-          sudo virsh net-start default
-          sudo virsh net-autostart default
+            sudo virsh net-define /tmp/default-net.xml
+            sudo virsh net-start default
+            sudo virsh net-autostart default
+          fi
           
           # Verify setup
           sudo virsh pool-list

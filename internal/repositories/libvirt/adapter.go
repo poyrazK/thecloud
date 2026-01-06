@@ -170,9 +170,8 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName str
 					// Allocate random port (deterministic for simplicity in this POC)
 					hPort = 30000 + int(uuid.New().ID()%10000)
 				} else {
-					if _, err := fmt.Sscanf(hostPort, "%d", &hPort); err == nil {
-						// Successfully parsed
-					}
+					// Parse host port, ignore error as we validate hPort > 0 below
+					_, _ = fmt.Sscanf(hostPort, "%d", &hPort)
 				}
 
 				if hPort > 0 {
