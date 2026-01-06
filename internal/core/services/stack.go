@@ -140,9 +140,8 @@ func (s *stackService) createVPC(ctx context.Context, stackID uuid.UUID, logical
 	if name == "" {
 		name = fmt.Sprintf("%s-%s", logicalID, stackID.String()[:8])
 	}
-	cidr, _ := props["CIDR"].(string)
 
-	vpc, err := s.vpcSvc.Create(ctx, name, cidr)
+	vpc, err := s.vpcSvc.CreateVPC(ctx, name)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -163,15 +162,19 @@ func (s *stackService) createVPC(ctx context.Context, stackID uuid.UUID, logical
 func (s *stackService) createInstance(ctx context.Context, stackID uuid.UUID, logicalID string, props map[string]interface{}) (uuid.UUID, error) {
 	name, _ := props["Name"].(string)
 	image, _ := props["Image"].(string)
-	cpu, _ := props["CPU"].(int)
-	mem, _ := props["Memory"].(int)
+	// cpu, mem are currently not used in LaunchInstance but we can keep them in template
 	vpcID, _ := props["VpcID"].(uuid.UUID)
 
 	if name == "" {
 		name = fmt.Sprintf("%s-%s", logicalID, stackID.String()[:8])
 	}
 
-	inst, err := s.instanceSvc.Launch(ctx, name, image, cpu, mem, vpcID, nil)
+	var vpcIDPtr *uuid.UUID
+	if vpcID != uuid.Nil {
+		vpcIDPtr = &vpcID
+	}
+
+	inst, err := s.instanceSvc.LaunchInstance(ctx, name, image, "80", vpcIDPtr, nil)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -222,16 +225,13 @@ func (s *stackService) DeleteStack(ctx context.Context, id uuid.UUID) error {
 		// Delete resources in reverse order (naive)
 		for i := len(resources) - 1; i >= 0; i-- {
 			res := resources[i]
-			physID, err := uuid.Parse(res.PhysicalID)
-			if err != nil {
-				continue
-			}
+			physID := res.PhysicalID
 
 			switch res.ResourceType {
 			case "Instance":
-				_ = s.instanceSvc.Terminate(bgCtx, physID)
+				_ = s.instanceSvc.TerminateInstance(bgCtx, physID)
 			case "VPC":
-				_ = s.vpcSvc.Delete(bgCtx, physID)
+				_ = s.vpcSvc.DeleteVPC(bgCtx, physID)
 			}
 		}
 
