@@ -139,6 +139,11 @@ func main() {
 	dashboardSvc := services.NewDashboardService(instanceRepo, volumeRepo, vpcRepo, eventRepo, logger)
 	dashboardHandler := httphandlers.NewDashboardHandler(dashboardSvc)
 
+	// Snapshot Service
+	snapshotRepo := postgres.NewSnapshotRepository(db)
+	snapshotSvc := services.NewSnapshotService(snapshotRepo, volumeRepo, dockerAdapter, eventSvc, auditSvc, logger)
+	snapshotHandler := httphandlers.NewSnapshotHandler(snapshotSvc)
+
 	// Storage Service
 	fileStore, err := filesystem.NewLocalFileStore("./thecloud-data/local/storage")
 	if err != nil {
@@ -302,6 +307,17 @@ func main() {
 		dashboardGroup.GET("/events", dashboardHandler.GetRecentEvents)
 		dashboardGroup.GET("/stats", dashboardHandler.GetStats)
 		dashboardGroup.GET("/stream", dashboardHandler.StreamEvents)
+	}
+
+	// Snapshot Routes (Protected)
+	snapshotGroup := r.Group("/snapshots")
+	snapshotGroup.Use(httputil.Auth(identitySvc))
+	{
+		snapshotGroup.POST("", snapshotHandler.Create)
+		snapshotGroup.GET("", snapshotHandler.List)
+		snapshotGroup.GET("/:id", snapshotHandler.Get)
+		snapshotGroup.DELETE("/:id", snapshotHandler.Delete)
+		snapshotGroup.POST("/:id/restore", snapshotHandler.Restore)
 	}
 
 	// Load Balancer Routes (Protected)
