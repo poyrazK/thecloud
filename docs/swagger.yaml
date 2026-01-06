@@ -1,0 +1,2144 @@
+basePath: /
+definitions:
+  domain.APIKey:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      key:
+        description: 'Transparently: the actual secret'
+        type: string
+      last_used:
+        type: string
+      name:
+        type: string
+      user_id:
+        type: string
+    type: object
+  domain.AuditLog:
+    properties:
+      action:
+        type: string
+      created_at:
+        type: string
+      details:
+        additionalProperties: true
+        type: object
+      id:
+        type: string
+      ip_address:
+        type: string
+      resource_id:
+        type: string
+      resource_type:
+        type: string
+      user_agent:
+        type: string
+      user_id:
+        type: string
+    type: object
+  domain.DashboardStats:
+    properties:
+      cpu_history:
+        items:
+          $ref: '#/definitions/domain.MetricPoint'
+        type: array
+      memory_history:
+        items:
+          $ref: '#/definitions/domain.MetricPoint'
+        type: array
+      recent_events:
+        items:
+          $ref: '#/definitions/domain.Event'
+        type: array
+      summary:
+        $ref: '#/definitions/domain.ResourceSummary'
+    type: object
+  domain.Event:
+    properties:
+      action:
+        description: e.g. INSTANCE_LAUNCH
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      metadata:
+        description: JSON details
+      resource_id:
+        description: e.g. UUID of instance
+        type: string
+      resource_type:
+        description: e.g. INSTANCE, VPC
+        type: string
+      user_id:
+        type: string
+    type: object
+  domain.Instance:
+    properties:
+      container_id:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      image:
+        type: string
+      name:
+        type: string
+      ports:
+        type: string
+      status:
+        $ref: '#/definitions/domain.InstanceStatus'
+      updated_at:
+        type: string
+      user_id:
+        type: string
+      version:
+        type: integer
+      vpc_id:
+        type: string
+    type: object
+  domain.InstanceStats:
+    properties:
+      cpu_percentage:
+        type: number
+      memory_limit_bytes:
+        type: number
+      memory_percentage:
+        type: number
+      memory_usage_bytes:
+        type: number
+    type: object
+  domain.InstanceStatus:
+    enum:
+    - STARTING
+    - RUNNING
+    - STOPPED
+    - ERROR
+    - DELETED
+    type: string
+    x-enum-varnames:
+    - StatusStarting
+    - StatusRunning
+    - StatusStopped
+    - StatusError
+    - StatusDeleted
+  domain.LBStatus:
+    enum:
+    - CREATING
+    - ACTIVE
+    - DRAINING
+    - DELETED
+    type: string
+    x-enum-varnames:
+    - LBStatusCreating
+    - LBStatusActive
+    - LBStatusDraining
+    - LBStatusDeleted
+  domain.LBTarget:
+    properties:
+      health:
+        description: '"healthy" | "unhealthy" | "unknown"'
+        type: string
+      id:
+        type: string
+      instance_id:
+        type: string
+      lb_id:
+        type: string
+      port:
+        type: integer
+      weight:
+        type: integer
+    type: object
+  domain.LoadBalancer:
+    properties:
+      algorithm:
+        description: '"round-robin" | "least-conn"'
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      idempotency_key:
+        type: string
+      name:
+        type: string
+      port:
+        type: integer
+      status:
+        $ref: '#/definitions/domain.LBStatus'
+      user_id:
+        type: string
+      version:
+        type: integer
+      vpc_id:
+        type: string
+    type: object
+  domain.MetricPoint:
+    properties:
+      label:
+        type: string
+      timestamp:
+        type: string
+      value:
+        type: number
+    type: object
+  domain.Object:
+    properties:
+      arn:
+        type: string
+      bucket:
+        type: string
+      content_type:
+        type: string
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      id:
+        type: string
+      key:
+        type: string
+      size_bytes:
+        type: integer
+      user_id:
+        type: string
+    type: object
+  domain.ResourceSummary:
+    properties:
+      attached_volumes:
+        type: integer
+      running_instances:
+        type: integer
+      stopped_instances:
+        type: integer
+      total_instances:
+        type: integer
+      total_storage_mb:
+        type: integer
+      total_volumes:
+        type: integer
+      total_vpcs:
+        type: integer
+    type: object
+  domain.ScalingGroup:
+    properties:
+      created_at:
+        type: string
+      current_count:
+        type: integer
+      desired_count:
+        type: integer
+      failure_count:
+        type: integer
+      id:
+        type: string
+      idempotency_key:
+        type: string
+      image:
+        type: string
+      last_failure_at:
+        type: string
+      load_balancer_id:
+        type: string
+      max_instances:
+        type: integer
+      min_instances:
+        type: integer
+      name:
+        type: string
+      ports:
+        type: string
+      status:
+        $ref: '#/definitions/domain.ScalingGroupStatus'
+      updated_at:
+        type: string
+      user_id:
+        type: string
+      version:
+        type: integer
+      vpc_id:
+        type: string
+    type: object
+  domain.ScalingGroupStatus:
+    enum:
+    - ACTIVE
+    - UPDATING
+    - DELETING
+    - DELETED
+    type: string
+    x-enum-varnames:
+    - ScalingGroupStatusActive
+    - ScalingGroupStatusUpdating
+    - ScalingGroupStatusDeleting
+    - ScalingGroupStatusDeleted
+  domain.ScalingPolicy:
+    properties:
+      cooldown_sec:
+        type: integer
+      id:
+        type: string
+      last_scaled_at:
+        type: string
+      metric_type:
+        description: '"cpu" | "memory"'
+        type: string
+      name:
+        type: string
+      scale_in_step:
+        type: integer
+      scale_out_step:
+        type: integer
+      scaling_group_id:
+        type: string
+      target_value:
+        type: number
+    type: object
+  domain.Snapshot:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      size_gb:
+        type: integer
+      status:
+        $ref: '#/definitions/domain.SnapshotStatus'
+      user_id:
+        type: string
+      volume_id:
+        type: string
+      volume_name:
+        type: string
+    type: object
+  domain.SnapshotStatus:
+    enum:
+    - CREATING
+    - AVAILABLE
+    - DELETING
+    - ERROR
+    type: string
+    x-enum-varnames:
+    - SnapshotStatusCreating
+    - SnapshotStatusAvailable
+    - SnapshotStatusDeleting
+    - SnapshotStatusError
+  domain.Stack:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      parameters:
+        type: string
+      resources:
+        items:
+          $ref: '#/definitions/domain.StackResource'
+        type: array
+      status:
+        $ref: '#/definitions/domain.StackStatus'
+      status_reason:
+        type: string
+      template:
+        description: Raw YAML or JSON
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  domain.StackResource:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      logical_id:
+        description: ID in template
+        type: string
+      physical_id:
+        description: ID in The Cloud (UUID)
+        type: string
+      resource_type:
+        description: e.g. "Instance", "VPC"
+        type: string
+      stack_id:
+        type: string
+      status:
+        type: string
+    type: object
+  domain.StackStatus:
+    enum:
+    - CREATE_IN_PROGRESS
+    - CREATE_COMPLETE
+    - CREATE_FAILED
+    - DELETE_IN_PROGRESS
+    - DELETE_COMPLETE
+    - DELETE_FAILED
+    - ROLLBACK_IN_PROGRESS
+    - ROLLBACK_COMPLETE
+    - ROLLBACK_FAILED
+    type: string
+    x-enum-varnames:
+    - StackStatusCreateInProgress
+    - StackStatusCreateComplete
+    - StackStatusCreateFailed
+    - StackStatusDeleteInProgress
+    - StackStatusDeleteComplete
+    - StackStatusDeleteFailed
+    - StackStatusRollbackInProgress
+    - StackStatusRollbackComplete
+    - StackStatusRollbackFailed
+  domain.TemplateValidateResponse:
+    properties:
+      errors:
+        items:
+          type: string
+        type: array
+      parameters:
+        items:
+          type: string
+        type: array
+      valid:
+        type: boolean
+    type: object
+  domain.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  domain.VPC:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      network_id:
+        type: string
+      user_id:
+        type: string
+    type: object
+  domain.Volume:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      instance_id:
+        type: string
+      mount_path:
+        type: string
+      name:
+        type: string
+      size_gb:
+        type: integer
+      status:
+        $ref: '#/definitions/domain.VolumeStatus'
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  domain.VolumeStatus:
+    enum:
+    - AVAILABLE
+    - IN-USE
+    - DELETING
+    type: string
+    x-enum-varnames:
+    - VolumeStatusAvailable
+    - VolumeStatusInUse
+    - VolumeStatusDeleting
+  httphandlers.AddTargetRequest:
+    properties:
+      instance_id:
+        type: string
+      port:
+        type: integer
+      weight:
+        type: integer
+    required:
+    - instance_id
+    - port
+    type: object
+  httphandlers.CreateASPolicyRequest:
+    properties:
+      cooldown_sec:
+        type: integer
+      metric_type:
+        type: string
+      name:
+        type: string
+      scale_in_step:
+        type: integer
+      scale_out_step:
+        type: integer
+      target_value:
+        type: number
+    required:
+    - cooldown_sec
+    - metric_type
+    - name
+    - scale_in_step
+    - scale_out_step
+    - target_value
+    type: object
+  httphandlers.CreateGroupRequest:
+    properties:
+      desired_count:
+        type: integer
+      image:
+        type: string
+      load_balancer_id:
+        type: string
+      max_instances:
+        type: integer
+      min_instances:
+        description: 0 is valid
+        type: integer
+      name:
+        type: string
+      ports:
+        type: string
+      vpc_id:
+        type: string
+    required:
+    - desired_count
+    - image
+    - max_instances
+    - name
+    - vpc_id
+    type: object
+  httphandlers.CreateKeyRequest:
+    properties:
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  httphandlers.CreateLBRequest:
+    properties:
+      algorithm:
+        type: string
+      name:
+        type: string
+      port:
+        type: integer
+      vpc_id:
+        type: string
+    required:
+    - name
+    - port
+    - vpc_id
+    type: object
+  httphandlers.CreateSnapshotRequest:
+    properties:
+      description:
+        type: string
+      volume_id:
+        type: string
+    required:
+    - volume_id
+    type: object
+  httphandlers.CreateStackRequest:
+    properties:
+      name:
+        type: string
+      parameters:
+        additionalProperties:
+          type: string
+        type: object
+      template:
+        type: string
+    required:
+    - name
+    - template
+    type: object
+  httphandlers.CreateVolumeRequest:
+    properties:
+      name:
+        maxLength: 64
+        minLength: 3
+        type: string
+      size_gb:
+        maximum: 16000
+        minimum: 1
+        type: integer
+    required:
+    - name
+    - size_gb
+    type: object
+  httphandlers.ForgotPasswordRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  httphandlers.LaunchRequest:
+    properties:
+      image:
+        type: string
+      name:
+        type: string
+      ports:
+        type: string
+      volumes:
+        items:
+          $ref: '#/definitions/httphandlers.VolumeAttachmentRequest'
+        type: array
+      vpc_id:
+        type: string
+    required:
+    - image
+    - name
+    type: object
+  httphandlers.LoginRequest:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      password:
+        maxLength: 72
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  httphandlers.LoginResponse:
+    properties:
+      api_key:
+        type: string
+      user: {}
+    type: object
+  httphandlers.RegisterRequest:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+      password:
+        maxLength: 72
+        minLength: 8
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  httphandlers.ResetPasswordRequest:
+    properties:
+      new_password:
+        maxLength: 72
+        minLength: 8
+        type: string
+      token:
+        type: string
+    required:
+    - new_password
+    - token
+    type: object
+  httphandlers.RestoreSnapshotRequest:
+    properties:
+      new_volume_name:
+        maxLength: 64
+        minLength: 3
+        type: string
+    required:
+    - new_volume_name
+    type: object
+  httphandlers.VolumeAttachmentRequest:
+    properties:
+      mount_path:
+        type: string
+      volume_id:
+        type: string
+    type: object
+  httputil.Meta:
+    properties:
+      request_id:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  httputil.Response:
+    properties:
+      data: {}
+      error: {}
+      meta:
+        $ref: '#/definitions/httputil.Meta'
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: This is The Cloud Compute API server.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: The Cloud API
+  version: "1.0"
+paths:
+  /api/dashboard/events:
+    get:
+      description: Gets a list of the latest audit/status events
+      parameters:
+      - default: 10
+        description: Number of events to return
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Event'
+            type: array
+      security:
+      - APIKeyAuth: []
+      summary: Get recent events
+      tags:
+      - dashboard
+  /api/dashboard/stats:
+    get:
+      description: Gets comprehensive counts and aggregated resource information
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.DashboardStats'
+      security:
+      - APIKeyAuth: []
+      summary: Get detailed dashboard stats
+      tags:
+      - dashboard
+  /api/dashboard/stream:
+    get:
+      description: Real-time stream of dashboard summary updates via Server-Sent Events
+      produces:
+      - text/event-stream
+      responses: {}
+      security:
+      - APIKeyAuth: []
+      summary: Stream dashboard updates (SSE)
+      tags:
+      - dashboard
+  /api/dashboard/summary:
+    get:
+      description: Gets counts for instances, volumes, vpcs, and events
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.ResourceSummary'
+      security:
+      - APIKeyAuth: []
+      summary: Get dashboard summary
+      tags:
+      - dashboard
+  /audit:
+    get:
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.AuditLog'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      summary: List audit logs
+      tags:
+      - audit
+  /auth/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Sends a password reset token (logged to console for now)
+      parameters:
+      - description: Email
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.ForgotPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      summary: Request password reset
+      tags:
+      - Auth
+  /auth/keys:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.APIKey'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      summary: List API keys
+      tags:
+      - identity
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Key creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreateKeyRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.APIKey'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      summary: Create a new API key
+      tags:
+      - identity
+  /auth/keys/{id}:
+    delete:
+      parameters:
+      - description: Key ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      summary: Revoke an API key
+      tags:
+      - identity
+  /auth/keys/{id}/regenerate:
+    post:
+      parameters:
+      - description: Key ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.APIKey'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      summary: Regenerate an API key
+      tags:
+      - identity
+  /auth/keys/{id}/rotate:
+    post:
+      parameters:
+      - description: Key ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.APIKey'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      summary: Rotate an API key
+      tags:
+      - identity
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate and get an API key
+      parameters:
+      - description: Credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputil.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/httphandlers.LoginResponse'
+              type: object
+      summary: Login as a user
+      tags:
+      - Auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new account on The Cloud
+      parameters:
+      - description: Registration Info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputil.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.User'
+              type: object
+      summary: Register a new user
+      tags:
+      - Auth
+  /auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Resets a user's password using a valid token
+      parameters:
+      - description: Reset Info
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      tags:
+      - Auth
+  /autoscaling/groups:
+    get:
+      description: Gets a list of all auto-scaling groups
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.ScalingGroup'
+            type: array
+      security:
+      - APIKeyAuth: []
+      summary: List all scaling groups
+      tags:
+      - autoscaling
+    post:
+      consumes:
+      - application/json
+      description: Creates an auto-scaling group for instances
+      parameters:
+      - description: ASG creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreateGroupRequest'
+      - description: Idempotency key
+        in: header
+        name: Idempotency-Key
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.ScalingGroup'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create a new scaling group
+      tags:
+      - autoscaling
+  /autoscaling/groups/{id}:
+    delete:
+      description: Removes an auto-scaling group
+      parameters:
+      - description: ASG ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete a scaling group
+      tags:
+      - autoscaling
+    get:
+      description: Gets detailed information about a specific auto-scaling group
+      parameters:
+      - description: ASG ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.ScalingGroup'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get scaling group details
+      tags:
+      - autoscaling
+  /autoscaling/groups/{id}/policies:
+    post:
+      consumes:
+      - application/json
+      description: Adds a scaling policy to an auto-scaling group
+      parameters:
+      - description: ASG ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Policy creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreateASPolicyRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.ScalingPolicy'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create a new scaling policy
+      tags:
+      - autoscaling
+  /autoscaling/policies/{id}:
+    delete:
+      description: Removes a scaling policy
+      parameters:
+      - description: Policy ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete a scaling policy
+      tags:
+      - autoscaling
+  /health/live:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Liveness check
+      tags:
+      - health
+  /health/ready:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Readiness check
+      tags:
+      - health
+  /iac/stacks:
+    get:
+      description: Returns all stacks for the user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Stack'
+            type: array
+      summary: List stacks
+      tags:
+      - IaC
+    post:
+      consumes:
+      - application/json
+      description: Creates a stack from a YAML/JSON template
+      parameters:
+      - description: Stack details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreateStackRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Stack'
+      summary: Create a new stack
+      tags:
+      - IaC
+  /iac/stacks/{id}:
+    delete:
+      description: Deletes a stack and all its resources
+      parameters:
+      - description: Stack ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      summary: Delete stack
+      tags:
+      - IaC
+    get:
+      description: Returns a single stack by ID
+      parameters:
+      - description: Stack ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Stack'
+      summary: Get stack details
+      tags:
+      - IaC
+  /iac/validate:
+    post:
+      consumes:
+      - application/json
+      description: Validates an IaC template without creating a stack
+      parameters:
+      - description: Template content
+        in: body
+        name: template
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.TemplateValidateResponse'
+      summary: Validate template
+      tags:
+      - IaC
+  /instances:
+    get:
+      description: Gets a list of all compute instances
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Instance'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List all instances
+      tags:
+      - instances
+    post:
+      consumes:
+      - application/json
+      description: Creates and starts a new compute instance with optional volumes
+        and VPC
+      parameters:
+      - description: Launch request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.LaunchRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Instance'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Launch a new instance
+      tags:
+      - instances
+  /instances/{id}:
+    delete:
+      description: Deletes a compute instance and its associated resources
+      parameters:
+      - description: Instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Terminate an instance
+      tags:
+      - instances
+    get:
+      description: Gets detailed information about a specific compute instance
+      parameters:
+      - description: Instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Instance'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get instance details
+      tags:
+      - instances
+  /instances/{id}/logs:
+    get:
+      description: Gets the console output logs for a compute instance
+      parameters:
+      - description: Instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Logs content
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get instance logs
+      tags:
+      - instances
+  /instances/{id}/stats:
+    get:
+      description: Gets real-time CPU and Memory usage for a compute instance
+      parameters:
+      - description: Instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.InstanceStats'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get instance stats
+      tags:
+      - instances
+  /instances/{id}/stop:
+    post:
+      description: Initiates a graceful shutdown of a compute instance
+      parameters:
+      - description: Instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Stop an instance
+      tags:
+      - instances
+  /lb:
+    get:
+      description: Gets a list of all load balancers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.LoadBalancer'
+            type: array
+      security:
+      - APIKeyAuth: []
+      summary: List all load balancers
+      tags:
+      - loadbalancers
+    post:
+      consumes:
+      - application/json
+      description: Creates a new load balancer in a VPC
+      parameters:
+      - description: LB creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreateLBRequest'
+      - description: Idempotency key
+        in: header
+        name: Idempotency-Key
+        type: string
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/domain.LoadBalancer'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create a new load balancer
+      tags:
+      - loadbalancers
+  /lb/{id}:
+    delete:
+      description: Removes a load balancer and stops associated proxy
+      parameters:
+      - description: LB ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete a load balancer
+      tags:
+      - loadbalancers
+    get:
+      description: Gets detailed information about a specific load balancer
+      parameters:
+      - description: LB ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.LoadBalancer'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get load balancer details
+      tags:
+      - loadbalancers
+  /lb/{id}/targets:
+    get:
+      description: Gets a list of targets for a load balancer
+      parameters:
+      - description: LB ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.LBTarget'
+            type: array
+      security:
+      - APIKeyAuth: []
+      summary: List all targets for a load balancer
+      tags:
+      - loadbalancers
+    post:
+      consumes:
+      - application/json
+      description: Registers a compute instance to receive traffic from the load balancer
+      parameters:
+      - description: LB ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Target details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.AddTargetRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Add a target to a load balancer
+      tags:
+      - loadbalancers
+  /lb/{id}/targets/{instanceId}:
+    delete:
+      description: Deregisters a compute instance from the load balancer
+      parameters:
+      - description: LB ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Instance ID
+        in: path
+        name: instanceId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Remove a target from a load balancer
+      tags:
+      - loadbalancers
+  /snapshots:
+    get:
+      description: Gets a list of all existing snapshots for the user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Snapshot'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List all snapshots
+      tags:
+      - snapshots
+    post:
+      consumes:
+      - application/json
+      description: Creates a point-in-time snapshot of an existing volume
+      parameters:
+      - description: Snapshot creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreateSnapshotRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Snapshot'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create a new snapshot
+      tags:
+      - snapshots
+  /snapshots/{id}:
+    delete:
+      description: Removes a snapshot and its stored data
+      parameters:
+      - description: Snapshot ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete a snapshot
+      tags:
+      - snapshots
+    get:
+      description: Gets detailed information about a specific snapshot
+      parameters:
+      - description: Snapshot ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Snapshot'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get snapshot details
+      tags:
+      - snapshots
+  /snapshots/{id}/restore:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new volume using data from a snapshot
+      parameters:
+      - description: Snapshot ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Restore request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.RestoreSnapshotRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Volume'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Restore snapshot to volume
+      tags:
+      - snapshots
+  /storage/{bucket}:
+    get:
+      description: Gets a list of all objects within a specific bucket
+      parameters:
+      - description: Bucket name
+        in: path
+        name: bucket
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Object'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List objects in a bucket
+      tags:
+      - storage
+  /storage/{bucket}/{key}:
+    delete:
+      description: Removes an object from the specified bucket
+      parameters:
+      - description: Bucket name
+        in: path
+        name: bucket
+        required: true
+        type: string
+      - description: Object key
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete an object
+      tags:
+      - storage
+    get:
+      description: Streams the specified object as an attachment
+      parameters:
+      - description: Bucket name
+        in: path
+        name: bucket
+        required: true
+        type: string
+      - description: Object key
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: Object content
+          schema:
+            type: file
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Download an object
+      tags:
+      - storage
+    put:
+      consumes:
+      - application/octet-stream
+      description: Uploads a file/object to the specified bucket and key
+      parameters:
+      - description: Bucket name
+        in: path
+        name: bucket
+        required: true
+        type: string
+      - description: Object key
+        in: path
+        name: key
+        required: true
+        type: string
+      - description: File to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Object'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Upload an object
+      tags:
+      - storage
+  /volumes:
+    get:
+      description: Gets a list of all existing block storage volumes
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Volume'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List all volumes
+      tags:
+      - volumes
+    post:
+      consumes:
+      - application/json
+      description: Creates a new block storage volume
+      parameters:
+      - description: Volume creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreateVolumeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Volume'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create a new volume
+      tags:
+      - volumes
+  /volumes/{id}:
+    delete:
+      description: Removes a block storage volume
+      parameters:
+      - description: Volume ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete a volume
+      tags:
+      - volumes
+    get:
+      description: Gets detailed information about a specific block storage volume
+      parameters:
+      - description: Volume ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Volume'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get volume details
+      tags:
+      - volumes
+  /vpcs:
+    get:
+      description: Gets a list of all existing VPCs
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.VPC'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List all VPCs
+      tags:
+      - vpcs
+    post:
+      consumes:
+      - application/json
+      description: Creates a new virtual private cloud network
+      parameters:
+      - description: VPC creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            name:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.VPC'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create a new VPC
+      tags:
+      - vpcs
+  /vpcs/{id}:
+    delete:
+      description: Removes a VPC network (must be empty of instances)
+      parameters:
+      - description: VPC ID or Name
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete a VPC
+      tags:
+      - vpcs
+    get:
+      description: Gets detailed information about a specific VPC
+      parameters:
+      - description: VPC ID or Name
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.VPC'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get VPC details
+      tags:
+      - vpcs
+securityDefinitions:
+  APIKeyAuth:
+    in: header
+    name: X-API-Key
+    type: apiKey
+swagger: "2.0"

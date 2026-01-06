@@ -26,7 +26,7 @@ type Stack struct {
 	UserID       uuid.UUID       `json:"user_id"`
 	Name         string          `json:"name"`
 	Template     string          `json:"template"` // Raw YAML or JSON
-	Parameters   json.RawMessage `json:"parameters"`
+	Parameters   json.RawMessage `json:"parameters" swaggertype:"string"`
 	Status       StackStatus     `json:"status"`
 	StatusReason string          `json:"status_reason,omitempty"`
 	Resources    []StackResource `json:"resources,omitempty"`
