@@ -3,7 +3,9 @@
 To build the world's best open-source cloud platform that anyone can run, modify, and own.
 
 ## ✨ Features
-- **Compute**: Docker-based instance management (Launch, Stop, Terminate, Stats)
+- **Compute**: Multi-backend instance management (Docker or Libvirt/KVM)
+  - Docker: Fast container-based instances
+  - Libvirt: Full VM isolation with KVM/QEMU ([Guide](docs/guides/libvirt-backend.md))
 - **Storage**: S3-compatible object storage (Upload, Download, Delete)
 - **Block Storage**: Persistent volumes that survive instance termination
 - **Networking**: VPC with isolated Docker networks
@@ -84,7 +86,9 @@ npm run dev
 - **Frontend**: Next.js 14, Tailwind CSS, GSAP
 - **Backend**: Go (Clean Architecture, Hexagonal)
 - **Database**: PostgreSQL (pgx)
-- **Infrastructure**: Docker Engine (Containers, Networks, Volumes)
+- **Infrastructure**: 
+  - Docker Engine (Containers, Networks, Volumes)
+  - Libvirt/KVM (Virtual Machines, QCOW2 Storage, NAT Networks)
 - **Observability**: Prometheus Metrics & Real-time WebSockets
 - **CLI**: Cobra (command-based) + Survey (interactive)
 
@@ -114,6 +118,7 @@ npm run dev
 ### 📖 Guides
 | Guide | Description |
 |-------|-------------|
+| [Libvirt Backend](docs/guides/libvirt-backend.md) | KVM/QEMU virtualization setup and usage |
 | [Auto-Scaling](docs/guides/autoscaling.md) | Scalability patterns and usage |
 | [Load Balancer](docs/guides/loadbalancer.md) | Traffic distribution guide |
 | [Managed Databases](docs/guides/rds.md) | RDS patterns and usage |

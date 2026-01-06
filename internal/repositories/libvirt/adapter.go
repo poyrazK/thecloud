@@ -653,7 +653,7 @@ func (a *LibvirtAdapter) generateCloudInitISO(ctx context.Context, name string, 
 		}
 	}
 
-	if err := os.WriteFile(filepath.Join(tmpDir, "user-data"), []byte(userData.String()), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "user-data"), userData.Bytes(), 0644); err != nil {
 		return "", err
 	}
 

@@ -7,14 +7,32 @@ This document provides a comprehensive overview of every feature currently imple
 ## 🏗️ Core Infrastructure
 
 ### 1. Compute (Instances)
-**What it is**: Launch virtual machines (simulated as containers) to run applications.
-**Tech Stack**: Docker Engine, Go (Backend).
+**What it is**: Launch virtual machines or containers to run applications.
+
+**Tech Stack**: 
+- **Docker Engine** (Container Backend)
+- **Libvirt/KVM** (VM Backend)
+- **Go** (Backend with pluggable ComputeBackend interface)
+
 **Implementation**:
-- **Simulation**: Instead of full VMs (KVM), we use **Docker Containers** to simulate instances. This allows sub-second boot times and low resource overhead.
-- **Isolation**: Each "Instance" is a Docker container.
-- **Networking**: Instances are attached to custom Bridge Networks (simulating VPCs).
-- **Persistence**: Usage of Docker Volumes for persistent storage.
-- **Lifecycle**: The `InstanceService` manages the Docker API to Create, Start, Stop, and Remove containers.
+- **Multi-Backend Architecture**: The system supports two compute backends via a unified `ComputeBackend` interface:
+  
+  **Docker Backend** (Default):
+  - **Simulation**: Uses Docker Containers to simulate instances with sub-second boot times
+  - **Isolation**: Each "Instance" is a Docker container
+  - **Networking**: Instances attach to custom Bridge Networks (simulating VPCs)
+  - **Persistence**: Docker Volumes for persistent storage
+  
+  **Libvirt Backend** (Production VMs):
+  - **Real VMs**: Uses KVM/QEMU for full hardware virtualization
+  - **Isolation**: Complete VM isolation with dedicated kernels
+  - **Storage**: QCOW2 volumes in libvirt storage pools
+  - **Networking**: NAT networks with DHCP and iptables port forwarding
+  - **Cloud-Init**: Automatic VM configuration via ISO injection
+  - **Snapshots**: Efficient QCOW2 snapshots using qemu-img
+
+- **Backend Selection**: Set via `COMPUTE_BACKEND` environment variable (`docker` or `libvirt`)
+- **Lifecycle**: The `InstanceService` manages the backend API to Create, Start, Stop, and Remove instances
 
 ### 2. Networking (VPC)
 **What it is**: Isolated virtual networks to secure resources.
