@@ -25,8 +25,11 @@ func (r *stackRepository) Create(ctx context.Context, s *domain.Stack) error {
 	
 	// Check for unique constraint violation on (user_id, name)
 	if err != nil {
-		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" && strings.Contains(pgErr.ConstraintName, "user_id") {
-			return domain.ErrStackNameAlreadyExists
+		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" {
+			// Unique constraint violation
+			if strings.Contains(pgErr.ConstraintName, "user_id") || strings.Contains(pgErr.ConstraintName, "name") {
+				return domain.ErrStackNameAlreadyExists
+			}
 		}
 	}
 	return err

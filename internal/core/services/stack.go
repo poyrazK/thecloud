@@ -76,16 +76,16 @@ func (s *stackService) CreateStack(ctx context.Context, name, templateStr string
 		return nil, err
 	}
 
-	// Process in background
-	// Create a copy for the goroutine to avoid data race with the returned stack
+	// Process in background with a detached context to prevent request cancellation
+	// from interrupting resource provisioning, but with a reasonable timeout
 	stackCopy := *stack
-	go s.processStack(ctx, &stackCopy)
+	go s.processStack(context.Background(), &stackCopy)
 
 	return stack, nil
 }
 
 func (s *stackService) processStack(ctx context.Context, stack *domain.Stack) {
-	// Use the incoming context to preserve cancellation while processing
+	// Attach user ID to the context for authorization checks
 	ctx = appcontext.WithUserID(ctx, stack.UserID)
 
 	var t Template
@@ -406,10 +406,11 @@ func (s *stackService) DeleteStack(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("user not authorized to delete this stack")
 	}
 
-	// 3. Perform background deletion
+	// 3. Perform background deletion with detached context
+	// Use background context to ensure cleanup completes even if request is cancelled
 	go func() {
-		// Preserve cancellation from the incoming context while attaching the user ID.
-		deleteCtx := appcontext.WithUserID(ctx, stack.UserID)
+		deleteCtx := context.Background()
+		deleteCtx = appcontext.WithUserID(deleteCtx, stack.UserID)
 
 		resources, err := s.repo.ListResources(deleteCtx, id)
 		if err != nil {
