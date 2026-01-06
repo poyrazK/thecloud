@@ -1024,3 +1024,34 @@ func (m *MockStackRepo) DeleteResources(ctx context.Context, stackID uuid.UUID) 
 	args := m.Called(ctx, stackID)
 	return args.Error(0)
 }
+
+// MockVpcService
+type MockVpcService struct {
+	mock.Mock
+}
+
+func (m *MockVpcService) CreateVPC(ctx context.Context, name string) (*domain.VPC, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.VPC), args.Error(1)
+}
+func (m *MockVpcService) GetVPC(ctx context.Context, idOrName string) (*domain.VPC, error) {
+	args := m.Called(ctx, idOrName)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.VPC), args.Error(1)
+}
+func (m *MockVpcService) ListVPCs(ctx context.Context) ([]*domain.VPC, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.VPC), args.Error(1)
+}
+func (m *MockVpcService) DeleteVPC(ctx context.Context, idOrName string) error {
+	args := m.Called(ctx, idOrName)
+	return args.Error(0)
+}
