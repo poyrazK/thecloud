@@ -970,3 +970,57 @@ func (m *MockRoleRepo) GetPermissionsForRole(ctx context.Context, roleID uuid.UU
 	}
 	return args.Get(0).([]domain.Permission), args.Error(1)
 }
+
+// MockStackRepo
+type MockStackRepo struct {
+	mock.Mock
+}
+
+func (m *MockStackRepo) Create(ctx context.Context, s *domain.Stack) error {
+	args := m.Called(ctx, s)
+	return args.Error(0)
+}
+func (m *MockStackRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Stack, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Stack), args.Error(1)
+}
+func (m *MockStackRepo) GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Stack, error) {
+	args := m.Called(ctx, userID, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Stack), args.Error(1)
+}
+func (m *MockStackRepo) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Stack, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Stack), args.Error(1)
+}
+func (m *MockStackRepo) Update(ctx context.Context, s *domain.Stack) error {
+	args := m.Called(ctx, s)
+	return args.Error(0)
+}
+func (m *MockStackRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+func (m *MockStackRepo) AddResource(ctx context.Context, r *domain.StackResource) error {
+	args := m.Called(ctx, r)
+	return args.Error(0)
+}
+func (m *MockStackRepo) ListResources(ctx context.Context, stackID uuid.UUID) ([]domain.StackResource, error) {
+	args := m.Called(ctx, stackID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.StackResource), args.Error(1)
+}
+func (m *MockStackRepo) DeleteResources(ctx context.Context, stackID uuid.UUID) error {
+	args := m.Called(ctx, stackID)
+	return args.Error(0)
+}
