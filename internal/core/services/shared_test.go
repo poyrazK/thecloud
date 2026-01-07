@@ -881,6 +881,11 @@ func (m *MockComputeBackend) Ping(ctx context.Context) error {
 	return args.Error(0)
 }
 
+func (m *MockComputeBackend) Type() string {
+	args := m.Called()
+	return args.String(0)
+}
+
 // MockPasswordResetService
 type MockPasswordResetService struct {
 	mock.Mock

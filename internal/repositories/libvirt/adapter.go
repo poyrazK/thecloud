@@ -61,9 +61,11 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 
 // Ping checks if libvirt is reachable
 func (a *LibvirtAdapter) Ping(ctx context.Context) error {
-	// Simple check: get version
-	_, err := a.conn.ConnectGetLibVersion()
-	return err
+	return a.conn.Connect() // returns error only
+}
+
+func (a *LibvirtAdapter) Type() string {
+	return "libvirt"
 }
 
 func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error) {

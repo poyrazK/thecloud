@@ -33,4 +33,5 @@ type ComputeBackend interface {
 
 	// Health
 	Ping(ctx context.Context) error
+	Type() string
 }
