@@ -31,7 +31,7 @@ func (c *Client) GetRole(idOrName string) (*domain.Role, error) {
 }
 
 func (c *Client) DeleteRole(id uuid.UUID) error {
-	return c.delete(fmt.Sprintf("/rbac/roles/%s", id))
+	return c.delete(fmt.Sprintf("/rbac/roles/%s", id), nil)
 }
 
 func (c *Client) UpdateRole(id uuid.UUID, name, description string, permissions []domain.Permission) (*domain.Role, error) {
