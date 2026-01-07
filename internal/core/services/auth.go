@@ -11,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
+	"github.com/poyrazk/thecloud/internal/platform"
 	passwordvalidator "github.com/wagslane/go-password-validator"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -94,6 +95,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*domai
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
 		s.incrementFailure(email)
+		platform.AuthAttemptsTotal.WithLabelValues("failure_not_found").Inc()
 		return nil, "", errors.New(errors.Unauthorized, "invalid email or password")
 	}
 
@@ -120,6 +122,8 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*domai
 
 	_ = s.auditSvc.Log(ctx, user.ID, "user.login", "user", user.ID.String(), map[string]interface{}{})
 
+	platform.AuthAttemptsTotal.WithLabelValues("success").Inc()
+
 	return user, key.Key, nil
 }
 
@@ -127,8 +131,10 @@ func (s *AuthService) incrementFailure(email string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.failedAttempts[email]++
+	platform.AuthAttemptsTotal.WithLabelValues("failure_incorrect_password").Inc()
 	if s.failedAttempts[email] >= maxFailedAttempts {
 		s.lockouts[email] = time.Now().Add(lockoutDuration)
+		platform.AuthAttemptsTotal.WithLabelValues("failure_lockout").Inc()
 	}
 }
 
