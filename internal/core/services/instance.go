@@ -15,6 +15,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
+	"github.com/poyrazk/thecloud/internal/platform"
 )
 
 type InstanceService struct {
@@ -97,6 +98,7 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 
 	containerID, err := s.compute.CreateInstance(ctx, dockerName, image, portList, networkID, volumeBinds, nil, nil)
 	if err != nil {
+		platform.InstanceOperationsTotal.WithLabelValues("launch", "failure").Inc()
 		s.logger.Error("failed to create docker container", "name", dockerName, "image", image, "error", err)
 		inst.Status = domain.StatusError
 		if err := s.repo.Update(ctx, inst); err != nil {
@@ -202,9 +204,15 @@ func (s *InstanceService) StopInstance(ctx context.Context, idOrName string) err
 	}
 
 	if err := s.compute.StopInstance(ctx, target); err != nil {
+		platform.InstanceOperationsTotal.WithLabelValues("stop", "failure").Inc()
 		s.logger.Error("failed to stop docker container", "container_id", target, "error", err)
 		return errors.Wrap(errors.Internal, "failed to stop container", err)
 	}
+
+	platform.InstancesTotal.WithLabelValues("running", s.compute.Type()).Dec()
+	platform.InstancesTotal.WithLabelValues("stopped", s.compute.Type()).Inc()
+	platform.InstanceOperationsTotal.WithLabelValues("stop", "success").Inc()
+
 	s.logger.Info("instance stopped", "instance_id", inst.ID)
 
 	// 3. Update DB
@@ -267,8 +275,16 @@ func (s *InstanceService) TerminateInstance(ctx context.Context, idOrName string
 
 	// 2. Remove from Docker (force remove handles running containers)
 	if err := s.removeInstanceContainer(ctx, inst); err != nil {
+		platform.InstanceOperationsTotal.WithLabelValues("terminate", "failure").Inc()
 		return err
 	}
+
+	if inst.Status == domain.StatusRunning {
+		platform.InstancesTotal.WithLabelValues("running", s.compute.Type()).Dec()
+	} else if inst.Status == domain.StatusStopped {
+		platform.InstancesTotal.WithLabelValues("stopped", s.compute.Type()).Dec()
+	}
+	platform.InstanceOperationsTotal.WithLabelValues("terminate", "success").Inc()
 
 	// 3. Release attached volumes after container removal
 	if err := s.releaseAttachedVolumes(ctx, inst.ID); err != nil {
