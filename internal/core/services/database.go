@@ -11,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
+	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/pkg/util"
 )
 
@@ -141,10 +142,12 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 		"engine": db.Engine,
 	})
 
-	_ = s.auditSvc.Log(ctx, db.UserID, "database.create", "database", db.ID.String(), map[string]interface{}{
-		"name":   db.Name,
-		"engine": db.Engine,
+	_ = s.auditSvc.Log(ctx, userID, "database.create", "database", db.ID.String(), map[string]interface{}{
+		"name":   name,
+		"engine": engine,
 	})
+
+	platform.RDSInstancesTotal.WithLabelValues(engine, "running").Inc()
 
 	return db, nil
 }
@@ -180,6 +183,8 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 	_ = s.auditSvc.Log(ctx, db.UserID, "database.delete", "database", db.ID.String(), map[string]interface{}{
 		"name": db.Name,
 	})
+
+	platform.RDSInstancesTotal.WithLabelValues(string(db.Engine), "running").Dec()
 
 	return nil
 }

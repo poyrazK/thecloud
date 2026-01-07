@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
+	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/pkg/util"
 )
 
@@ -137,8 +138,10 @@ func (s *CacheService) CreateCache(ctx context.Context, name, version string, me
 	})
 
 	_ = s.auditSvc.Log(ctx, cache.UserID, "cache.create", "cache", cache.ID.String(), map[string]interface{}{
-		"name": cache.Name,
+		"name": name,
 	})
+
+	platform.CacheInstancesTotal.WithLabelValues("running").Inc()
 
 	return cache, nil
 }
@@ -176,6 +179,8 @@ func (s *CacheService) DeleteCache(ctx context.Context, idOrName string) error {
 	_ = s.auditSvc.Log(ctx, cache.UserID, "cache.delete", "cache", cache.ID.String(), map[string]interface{}{
 		"name": cache.Name,
 	})
+
+	platform.CacheInstancesTotal.WithLabelValues("running").Dec()
 
 	return nil
 }

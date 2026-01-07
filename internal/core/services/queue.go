@@ -9,6 +9,7 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/platform"
 )
 
 type QueueService struct {
@@ -140,6 +141,8 @@ func (s *QueueService) SendMessage(ctx context.Context, queueID uuid.UUID, body 
 
 	_ = s.eventSvc.RecordEvent(ctx, "MESSAGE_SENT", m.ID.String(), "MESSAGE", map[string]interface{}{"queue_id": q.ID})
 
+	platform.QueueMessagesTotal.WithLabelValues(q.ID.String(), "send").Inc()
+
 	return m, nil
 }
 
@@ -163,6 +166,7 @@ func (s *QueueService) ReceiveMessages(ctx context.Context, queueID uuid.UUID, m
 
 	for _, m := range msgs {
 		_ = s.eventSvc.RecordEvent(ctx, "MESSAGE_RECEIVED", m.ID.String(), "MESSAGE", map[string]interface{}{"queue_id": q.ID})
+		platform.QueueMessagesTotal.WithLabelValues(q.ID.String(), "receive").Inc()
 	}
 
 	return msgs, nil
@@ -179,6 +183,8 @@ func (s *QueueService) DeleteMessage(ctx context.Context, queueID uuid.UUID, rec
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "MESSAGE_DELETED", receiptHandle, "MESSAGE", map[string]interface{}{"queue_id": q.ID})
+
+	platform.QueueMessagesTotal.WithLabelValues(q.ID.String(), "delete").Inc()
 
 	return nil
 }
