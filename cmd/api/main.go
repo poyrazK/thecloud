@@ -328,6 +328,8 @@ func main() {
 		rbacGroup.DELETE("/roles/:id", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.DeleteRole)
 		rbacGroup.POST("/roles/:id/permissions", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.AddPermission)
 		rbacGroup.DELETE("/roles/:id/permissions/:permission", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.RemovePermission)
+		rbacGroup.POST("/bindings", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.BindRole)
+		rbacGroup.GET("/bindings", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.ListRoleBindings)
 	}
 
 	// Volume Routes (Protected)
