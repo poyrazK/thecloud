@@ -27,7 +27,7 @@ func TestIdentityRepository_Integration(t *testing.T) {
 	userRepo := NewUserRepo(db)
 	testUser := &domain.User{
 		ID:           userID,
-		Email:        "apikey_test@example.com",
+		Email:        "apikey_test_" + userID.String() + "@example.com",
 		PasswordHash: "hash",
 		Name:         "API Key Test User",
 		Role:         "user",
