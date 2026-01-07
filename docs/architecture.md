@@ -73,3 +73,34 @@ This makes testing easy, as we can inject mock repositories into the services.
 
 ### Error Handling
 We use a custom error strategy (to be implemented) where domain errors are mapped to HTTP status codes at the Handler layer, preventing HTTP logic from leaking into the Service layer.
+
+### Testing Strategy
+
+The hexagonal architecture provides excellent testability:
+
+**Unit Testing** (51.3% overall coverage):
+- **Services** (55.4%): Test business logic with mocked repositories
+- **Handlers** (52.8%): Test HTTP endpoints with mocked services
+- **Repositories** (57.5%): Integration tests with real PostgreSQL
+
+**Benefits of This Architecture for Testing**:
+1. **Isolation**: Each layer can be tested independently
+2. **Mocking**: Interfaces make it easy to create test doubles
+3. **Fast Tests**: Unit tests run without external dependencies
+4. **Integration Tests**: Repository tests verify real database interactions
+
+**Test Organization**:
+```
+internal/
+├── core/
+│   └── services/
+│       ├── *_test.go          # Unit tests
+│       └── shared_test.go     # Mock definitions
+├── handlers/
+│   └── *_test.go              # HTTP handler tests
+└── repositories/
+    └── postgres/
+        └── *_test.go          # Integration tests (//go:build integration)
+```
+
+See [Backend Guide](backend.md#testing) for detailed testing documentation.

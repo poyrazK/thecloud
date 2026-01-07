@@ -46,5 +46,51 @@ Every function in the Service and Repository layers MUST accept `context.Context
 
 ## Testing
 
-- **Unit Tests**: Place `_test.go` files next to the code. Mock interfaces using `mockery`.
-- **Integration Tests**: (Future) Will use `testcontainers` to spin up real Docker/Postgres instances.
+The Cloud has comprehensive test coverage (51.3%) across all layers:
+
+### Test Organization
+
+**Unit Tests** (`*_test.go` files):
+- **Services**: `internal/core/services/*_test.go` (55.4% coverage)
+  - Business logic testing with mocked dependencies
+  - Located in `shared_test.go` for reusable mocks
+- **Handlers**: `internal/handlers/*_test.go` (52.8% coverage)
+  - HTTP endpoint testing using `httptest`
+  - Gin test mode for request/response validation
+
+**Integration Tests** (require `//go:build integration` tag):
+- **Repositories**: `internal/repositories/postgres/*_test.go` (57.5% coverage)
+  - Real PostgreSQL database interactions
+  - Uses `setupDB()` helper for test database setup
+  - Includes cleanup functions for test isolation
+
+### Running Tests
+
+```bash
+# Unit tests only (no database required)
+go test ./...
+
+# Integration tests (requires PostgreSQL)
+docker compose up -d postgres
+go test -tags=integration ./...
+
+# Coverage report
+go test -tags=integration -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+```
+
+### Mocking Strategy
+
+We use `testify/mock` for interface mocking:
+- Mock definitions in `internal/core/services/shared_test.go`
+- Mocks for all repository and service interfaces
+- Consistent mock expectations using `On()` and `AssertExpectations()`
+
+### Coverage Goals
+
+| Layer | Current | Target |
+|-------|---------|--------|
+| Services | 55.4% | 80% |
+| Handlers | 52.8% | 80% |
+| Repositories | 57.5% | 75% |
+| **Overall** | **51.3%** | **80%** |
