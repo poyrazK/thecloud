@@ -122,15 +122,99 @@ func (r *SecurityGroupRepository) Delete(ctx context.Context, id uuid.UUID) erro
 }
 
 func (r *SecurityGroupRepository) AddInstanceToGroup(ctx context.Context, instanceID, groupID uuid.UUID) error {
-	query := `INSERT INTO instance_security_groups (instance_id, group_id) VALUES ($1, $2)`
-	_, err := r.db.Exec(ctx, query, instanceID, groupID)
-	return err
+	userID := appcontext.UserIDFromContext(ctx)
+
+	// Start transaction
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to start transaction", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Verify instance ownership
+	var instanceOwner uuid.UUID
+	instanceQuery := `SELECT user_id FROM instances WHERE id = $1`
+	err = tx.QueryRow(ctx, instanceQuery, instanceID).Scan(&instanceOwner)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return errors.New(errors.NotFound, "instance not found")
+		}
+		return errors.Wrap(errors.Internal, "failed to verify instance ownership", err)
+	}
+	if instanceOwner != userID {
+		return errors.New(errors.Forbidden, "you do not own this instance")
+	}
+
+	// Verify security group ownership
+	var groupOwner uuid.UUID
+	groupQuery := `SELECT user_id FROM security_groups WHERE id = $1`
+	err = tx.QueryRow(ctx, groupQuery, groupID).Scan(&groupOwner)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return errors.New(errors.NotFound, "security group not found")
+		}
+		return errors.Wrap(errors.Internal, "failed to verify security group ownership", err)
+	}
+	if groupOwner != userID {
+		return errors.New(errors.Forbidden, "you do not own this security group")
+	}
+
+	// Perform the insert
+	query := `INSERT INTO instance_security_groups (instance_id, group_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`
+	_, err = tx.Exec(ctx, query, instanceID, groupID)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to add instance to group", err)
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (r *SecurityGroupRepository) RemoveInstanceFromGroup(ctx context.Context, instanceID, groupID uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+
+	// Start transaction
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to start transaction", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Verify instance ownership
+	var instanceOwner uuid.UUID
+	instanceQuery := `SELECT user_id FROM instances WHERE id = $1`
+	err = tx.QueryRow(ctx, instanceQuery, instanceID).Scan(&instanceOwner)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return errors.New(errors.NotFound, "instance not found")
+		}
+		return errors.Wrap(errors.Internal, "failed to verify instance ownership", err)
+	}
+	if instanceOwner != userID {
+		return errors.New(errors.Forbidden, "you do not own this instance")
+	}
+
+	// Verify security group ownership
+	var groupOwner uuid.UUID
+	groupQuery := `SELECT user_id FROM security_groups WHERE id = $1`
+	err = tx.QueryRow(ctx, groupQuery, groupID).Scan(&groupOwner)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return errors.New(errors.NotFound, "security group not found")
+		}
+		return errors.Wrap(errors.Internal, "failed to verify security group ownership", err)
+	}
+	if groupOwner != userID {
+		return errors.New(errors.Forbidden, "you do not own this security group")
+	}
+
+	// Perform the delete
 	query := `DELETE FROM instance_security_groups WHERE instance_id = $1 AND group_id = $2`
-	_, err := r.db.Exec(ctx, query, instanceID, groupID)
-	return err
+	_, err = tx.Exec(ctx, query, instanceID, groupID)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to remove instance from group", err)
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (r *SecurityGroupRepository) ListInstanceGroups(ctx context.Context, instanceID uuid.UUID) ([]*domain.SecurityGroup, error) {

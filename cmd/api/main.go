@@ -27,6 +27,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/docker"
 	"github.com/poyrazk/thecloud/internal/repositories/filesystem"
 	"github.com/poyrazk/thecloud/internal/repositories/libvirt"
+	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/ovs"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/poyrazk/thecloud/pkg/httputil"
@@ -133,9 +134,13 @@ func main() {
 	sgRepo := postgres.NewSecurityGroupRepository(db)
 	subnetRepo := postgres.NewSubnetRepository(db)
 
-	networkBackend, err := ovs.NewOvsAdapter(logger)
+	var networkBackend ports.NetworkBackend
+	ovsAdapter, err := ovs.NewOvsAdapter(logger)
 	if err != nil {
-		logger.Warn("failed to initialize OVS adapter, falling back to mock or failing networking operations", "error", err)
+		logger.Warn("failed to initialize OVS adapter, using no-op network backend", "error", err)
+		networkBackend = noop.NewNoopNetworkAdapter(logger)
+	} else {
+		networkBackend = ovsAdapter
 	}
 
 	vpcSvc := services.NewVpcService(vpcRepo, networkBackend, auditSvc, logger, cfg.DefaultVPCCIDR)
@@ -264,6 +269,17 @@ func main() {
 
 	// OVS Health check
 	r.GET("/health/ovs", func(c *gin.Context) {
+		if networkBackend == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable", "error": "network backend not initialized"})
+			return
+		}
+
+		// Check if using noop adapter (degraded mode)
+		if networkBackend.Type() == "noop" {
+			c.JSON(http.StatusOK, gin.H{"status": "degraded", "message": "using no-op network backend"})
+			return
+		}
+
 		if err := networkBackend.Ping(c.Request.Context()); err != nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy", "error": err.Error()})
 			return
