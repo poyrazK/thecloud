@@ -163,7 +163,12 @@ Launch a new instance.
 {
   "name": "web-01",
   "image": "nginx",
-  "vpc_id": "vpc-uuid"
+  "vpc_id": "vpc-uuid",
+  "subnet_id": "subnet-uuid",
+  "ports": "80:80",
+  "volumes": [
+    { "volume_id": "vol-uuid", "mount_path": "/data" }
+  ]
 }
 ```
 
@@ -195,6 +200,31 @@ Create a new VPC.
 
 ### DELETE /vpcs/:id
 Delete a VPC.
+
+---
+
+## Subnets
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /vpcs/:vpc_id/subnets
+List all subnets in a VPC.
+
+### POST /vpcs/:vpc_id/subnets
+Create a new subnet.
+```json
+{
+  "name": "private-subnet-1",
+  "cidr_block": "10.0.1.0/24",
+  "availability_zone": "us-east-1a"
+}
+```
+
+### GET /subnets/:id
+Get details of a specific subnet.
+
+### DELETE /subnets/:id
+Delete a subnet.
 
 ---
 

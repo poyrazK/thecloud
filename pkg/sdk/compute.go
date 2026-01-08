@@ -12,6 +12,8 @@ type Instance struct {
 	Status      string    `json:"status"`
 	Ports       string    `json:"ports"`
 	VpcID       string    `json:"vpc_id,omitempty"`
+	SubnetID    string    `json:"subnet_id,omitempty"`
+	PrivateIP   string    `json:"private_ip,omitempty"`
 	ContainerID string    `json:"container_id"`
 	Version     int       `json:"version"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -39,13 +41,14 @@ type VolumeAttachmentInput struct {
 	MountPath string `json:"mount_path"`
 }
 
-func (c *Client) LaunchInstance(name, image, ports string, vpcID string, volumes []VolumeAttachmentInput) (*Instance, error) {
+func (c *Client) LaunchInstance(name, image, ports string, vpcID, subnetID string, volumes []VolumeAttachmentInput) (*Instance, error) {
 	body := map[string]interface{}{
-		"name":    name,
-		"image":   image,
-		"ports":   ports,
-		"vpc_id":  vpcID,
-		"volumes": volumes,
+		"name":      name,
+		"image":     image,
+		"ports":     ports,
+		"vpc_id":    vpcID,
+		"subnet_id": subnetID,
+		"volumes":   volumes,
 	}
 	var res Response[Instance]
 	if err := c.post("/instances", body, &res); err != nil {

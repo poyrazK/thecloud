@@ -34,6 +34,7 @@ graph TB
         RepoDocker[Docker Engine<br/>Container Runtime]
         RepoLibvirt[Libvirt/KVM<br/>VM Runtime]
         RepoFS[Filesystem<br/>Object Storage]
+        RepoOVS[Open vSwitch<br/>SDN Networking]
     end
 
     subgraph "Background Workers"
@@ -57,6 +58,7 @@ graph TB
     Ports --> RepoDocker
     Ports --> RepoLibvirt
     Ports --> RepoFS
+    Ports --> RepoOVS
     Service --> ASWorker
     Service --> CronWorker
     Service --> ContainerWorker
@@ -251,11 +253,10 @@ func (h *InstanceHandler) Launch(c *gin.Context) {
 - Function, Queue, Topic state
 - Audit logs and events
 
-**Docker/Libvirt Adapters**:
-- Container/VM lifecycle
-- Network management
-- Volume operations
-- Resource monitoring
+**OVS Adapter**:
+- SDN management (Bridges, Ports, Flow rules)
+- VXLAN tunnel orchestration
+- IPAM and veth plumbing for instances
 
 **Example Repository**:
 ```go

@@ -97,6 +97,7 @@ var launchCmd = &cobra.Command{
 		image, _ := cmd.Flags().GetString("image")
 		ports, _ := cmd.Flags().GetString("port")
 		vpc, _ := cmd.Flags().GetString("vpc")
+		subnetID, _ := cmd.Flags().GetString("subnet")
 		volumeStrs, _ := cmd.Flags().GetStringSlice("volume")
 
 		// Parse volume strings like "vol-name:/path"
@@ -112,7 +113,7 @@ var launchCmd = &cobra.Command{
 		}
 
 		client := getClient()
-		inst, err := client.LaunchInstance(name, image, ports, vpc, volumes)
+		inst, err := client.LaunchInstance(name, image, ports, vpc, subnetID, volumes)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
@@ -241,6 +242,7 @@ func init() {
 	launchCmd.Flags().StringP("image", "i", "alpine", "Image to use")
 	launchCmd.Flags().StringP("port", "p", "", "Port mapping (host:container)")
 	launchCmd.Flags().StringP("vpc", "v", "", "VPC ID or Name to attach to")
+	launchCmd.Flags().StringP("subnet", "s", "", "Subnet ID or Name to attach to")
 	launchCmd.Flags().StringSliceP("volume", "V", nil, "Volume attachment (vol-name:/path)")
 	launchCmd.MarkFlagRequired("name")
 

@@ -84,7 +84,7 @@ func TestClient_LaunchInstance(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, "test-key")
-	instance, err := client.LaunchInstance("new-instance", "nginx", "80:80", "", nil)
+	instance, err := client.LaunchInstance("new-instance", "nginx", "80:80", "", "", nil)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "inst-1", instance.ID)

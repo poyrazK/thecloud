@@ -117,6 +117,7 @@ cloud instance launch --name my-server --image nginx:alpine
 | `--image` | `-i` | No | `alpine` | Docker image or VM template |
 | `--port` | `-p` | No | - | Port mapping (host:container) |
 | `--vpc` | `-v` | No | - | VPC ID or name |
+| `--subnet` | `-s` | No | - | Subnet ID or name |
 | `--volume` | `-V` | No | - | Volume attachment (vol-name:/path) |
 | `--env` | `-e` | No | - | Environment variable (KEY=VALUE) |
 | `--backend` | | No | `docker` | Backend (docker/libvirt) |
@@ -129,9 +130,10 @@ cloud instance launch --name web --image nginx:alpine
 # With port mapping
 cloud instance launch --name api --image node:20 --port 3000:3000
 
-# With VPC and volume
+# With VPC, Subnet and volume
 cloud instance launch --name db --image postgres:16 \
   --vpc my-network \
+  --subnet my-private-subnet \
   --volume db-data:/var/lib/postgresql/data
 
 # With environment variables
@@ -323,6 +325,44 @@ Delete a VPC.
 
 ```bash
 cloud vpc rm my-network
+```
+
+---
+
+## Subnet Commands
+
+Manage VPC subnets (internal network segments).
+
+### `subnet list`
+
+List all subnets in a VPC.
+
+```bash
+cloud subnet list --vpc my-network
+```
+
+### `subnet create`
+
+Create a new subnet in a VPC.
+
+```bash
+cloud subnet create --name my-private-subnet --vpc my-network --cidr 10.0.1.0/24 --az us-east-1a
+```
+
+**Flags**:
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--name` | Yes | - | Subnet name |
+| `--vpc` | Yes | - | VPC ID or name |
+| `--cidr` | Yes | - | CIDR block (must be within VPC range) |
+| `--az` | No | - | Availability Zone |
+
+### `subnet rm <id>`
+
+Delete a subnet.
+
+```bash
+cloud subnet rm my-private-subnet --vpc my-network
 ```
 
 ---
