@@ -24,10 +24,11 @@ func NewInstanceRepository(db *pgxpool.Pool) *InstanceRepository {
 func (r *InstanceRepository) Create(ctx context.Context, inst *domain.Instance) error {
 	query := `
 		INSERT INTO instances (id, user_id, name, image, container_id, status, ports, vpc_id, subnet_id, private_ip, ovs_port, version, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, '')::inet, $11, $12, $13, $14)
 	`
 	_, err := r.db.Exec(ctx, query,
-		inst.ID, inst.UserID, inst.Name, inst.Image, inst.ContainerID, inst.Status, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.Version, inst.CreatedAt, inst.UpdatedAt,
+		inst.ID, inst.UserID, inst.Name, inst.Image, inst.ContainerID, inst.Status, inst.Ports, inst.VpcID, inst.SubnetID,
+		inst.PrivateIP, inst.OvsPort, inst.Version, inst.CreatedAt, inst.UpdatedAt,
 	)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to create instance", err)
@@ -38,7 +39,7 @@ func (r *InstanceRepository) Create(ctx context.Context, inst *domain.Instance) 
 func (r *InstanceRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Instance, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
+		SELECT id, user_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
 		FROM instances
 		WHERE id = $1 AND user_id = $2
 	`
@@ -58,7 +59,7 @@ func (r *InstanceRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 func (r *InstanceRepository) GetByName(ctx context.Context, name string) (*domain.Instance, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
+		SELECT id, user_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
 		FROM instances
 		WHERE name = $1 AND user_id = $2
 	`
@@ -78,7 +79,7 @@ func (r *InstanceRepository) GetByName(ctx context.Context, name string) (*domai
 func (r *InstanceRepository) List(ctx context.Context) ([]*domain.Instance, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
+		SELECT id, user_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
 		FROM instances
 		WHERE user_id = $1
 		ORDER BY created_at DESC
@@ -107,7 +108,7 @@ func (r *InstanceRepository) Update(ctx context.Context, inst *domain.Instance) 
 	// Implements Optimistic Locking via 'version'
 	query := `
 		UPDATE instances
-		SET name = $1, status = $2, version = version + 1, updated_at = $3, container_id = $4, ports = $5, vpc_id = $6, subnet_id = $7, private_ip = $8, ovs_port = $9
+		SET name = $1, status = $2, version = version + 1, updated_at = $3, container_id = $4, ports = $5, vpc_id = $6, subnet_id = $7, private_ip = NULLIF($8, '')::inet, ovs_port = $9
 		WHERE id = $10 AND version = $11 AND user_id = $12
 	`
 	now := time.Now()
@@ -128,7 +129,7 @@ func (r *InstanceRepository) Update(ctx context.Context, inst *domain.Instance) 
 func (r *InstanceRepository) ListBySubnet(ctx context.Context, subnetID uuid.UUID) ([]*domain.Instance, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
+		SELECT id, user_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
 		FROM instances
 		WHERE subnet_id = $1 AND user_id = $2
 		ORDER BY created_at DESC

@@ -23,7 +23,7 @@ func NewSubnetRepository(db *pgxpool.Pool) *SubnetRepository {
 func (r *SubnetRepository) Create(ctx context.Context, subnet *domain.Subnet) error {
 	query := `
 		INSERT INTO subnets (id, user_id, vpc_id, name, cidr_block, availability_zone, gateway_ip, arn, status, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		VALUES ($1, $2, $3, $4, NULLIF($5, '')::cidr, $6, NULLIF($7, '')::inet, $8, $9, $10)
 	`
 	_, err := r.db.Exec(ctx, query, subnet.ID, subnet.UserID, subnet.VPCID, subnet.Name, subnet.CIDRBlock, subnet.AvailabilityZone, subnet.GatewayIP, subnet.ARN, subnet.Status, subnet.CreatedAt)
 	if err != nil {
@@ -34,7 +34,7 @@ func (r *SubnetRepository) Create(ctx context.Context, subnet *domain.Subnet) er
 
 func (r *SubnetRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Subnet, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	query := `SELECT id, user_id, vpc_id, name, cidr_block, availability_zone, gateway_ip, arn, status, created_at FROM subnets WHERE id = $1 AND user_id = $2`
+	query := `SELECT id, user_id, vpc_id, name, cidr_block::text, availability_zone, COALESCE(gateway_ip::text, ''), arn, status, created_at FROM subnets WHERE id = $1 AND user_id = $2`
 	var s domain.Subnet
 	err := r.db.QueryRow(ctx, query, id, userID).Scan(
 		&s.ID, &s.UserID, &s.VPCID, &s.Name, &s.CIDRBlock, &s.AvailabilityZone, &s.GatewayIP, &s.ARN, &s.Status, &s.CreatedAt,
@@ -50,7 +50,7 @@ func (r *SubnetRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.S
 
 func (r *SubnetRepository) GetByName(ctx context.Context, vpcID uuid.UUID, name string) (*domain.Subnet, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	query := `SELECT id, user_id, vpc_id, name, cidr_block, availability_zone, gateway_ip, arn, status, created_at FROM subnets WHERE vpc_id = $1 AND name = $2 AND user_id = $3`
+	query := `SELECT id, user_id, vpc_id, name, cidr_block::text, availability_zone, COALESCE(gateway_ip::text, ''), arn, status, created_at FROM subnets WHERE vpc_id = $1 AND name = $2 AND user_id = $3`
 	var s domain.Subnet
 	err := r.db.QueryRow(ctx, query, vpcID, name, userID).Scan(
 		&s.ID, &s.UserID, &s.VPCID, &s.Name, &s.CIDRBlock, &s.AvailabilityZone, &s.GatewayIP, &s.ARN, &s.Status, &s.CreatedAt,
@@ -66,7 +66,7 @@ func (r *SubnetRepository) GetByName(ctx context.Context, vpcID uuid.UUID, name 
 
 func (r *SubnetRepository) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*domain.Subnet, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	query := `SELECT id, user_id, vpc_id, name, cidr_block, availability_zone, gateway_ip, arn, status, created_at FROM subnets WHERE vpc_id = $1 AND user_id = $2 ORDER BY created_at DESC`
+	query := `SELECT id, user_id, vpc_id, name, cidr_block::text, availability_zone, COALESCE(gateway_ip::text, ''), arn, status, created_at FROM subnets WHERE vpc_id = $1 AND user_id = $2 ORDER BY created_at DESC`
 	rows, err := r.db.Query(ctx, query, vpcID, userID)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list subnets", err)

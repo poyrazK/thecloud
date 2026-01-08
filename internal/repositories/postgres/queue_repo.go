@@ -85,7 +85,13 @@ func (r *PostgresQueueRepository) SendMessage(ctx context.Context, queueID uuid.
 		CreatedAt: time.Now(),
 	}
 	query := `INSERT INTO queue_messages (id, queue_id, body, visible_at, created_at) VALUES ($1, $2, $3, $4, $5)`
-	_, err := r.db.Exec(ctx, query, m.ID, m.QueueID, m.Body, m.VisibleAt, m.CreatedAt)
+	var err error
+	if time.Since(m.VisibleAt) < time.Second && time.Until(m.VisibleAt) < time.Second {
+		query = `INSERT INTO queue_messages (id, queue_id, body, visible_at, created_at) VALUES ($1, $2, $3, NOW(), NOW())`
+		_, err = r.db.Exec(ctx, query, m.ID, m.QueueID, m.Body)
+	} else {
+		_, err = r.db.Exec(ctx, query, m.ID, m.QueueID, m.Body, m.VisibleAt, m.CreatedAt)
+	}
 	if err != nil {
 		return nil, err
 	}

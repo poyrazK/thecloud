@@ -23,7 +23,7 @@ func NewVpcRepository(db *pgxpool.Pool) *VpcRepository {
 func (r *VpcRepository) Create(ctx context.Context, vpc *domain.VPC) error {
 	query := `
 		INSERT INTO vpcs (id, user_id, name, cidr_block, network_id, vxlan_id, status, arn, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		VALUES ($1, $2, $3, NULLIF($4, '')::cidr, $5, $6, $7, $8, $9)
 	`
 	_, err := r.db.Exec(ctx, query, vpc.ID, vpc.UserID, vpc.Name, vpc.CIDRBlock, vpc.NetworkID, vpc.VXLANID, vpc.Status, vpc.ARN, vpc.CreatedAt)
 	if err != nil {
@@ -34,7 +34,7 @@ func (r *VpcRepository) Create(ctx context.Context, vpc *domain.VPC) error {
 
 func (r *VpcRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.VPC, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	query := `SELECT id, user_id, name, cidr_block, network_id, vxlan_id, status, arn, created_at FROM vpcs WHERE id = $1 AND user_id = $2`
+	query := `SELECT id, user_id, name, COALESCE(cidr_block::text, ''), network_id, vxlan_id, status, arn, created_at FROM vpcs WHERE id = $1 AND user_id = $2`
 	var vpc domain.VPC
 	err := r.db.QueryRow(ctx, query, id, userID).Scan(
 		&vpc.ID, &vpc.UserID, &vpc.Name, &vpc.CIDRBlock, &vpc.NetworkID, &vpc.VXLANID, &vpc.Status, &vpc.ARN, &vpc.CreatedAt,
@@ -50,7 +50,7 @@ func (r *VpcRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.VPC,
 
 func (r *VpcRepository) GetByName(ctx context.Context, name string) (*domain.VPC, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	query := `SELECT id, user_id, name, cidr_block, network_id, vxlan_id, status, arn, created_at FROM vpcs WHERE name = $1 AND user_id = $2`
+	query := `SELECT id, user_id, name, COALESCE(cidr_block::text, ''), network_id, vxlan_id, status, arn, created_at FROM vpcs WHERE name = $1 AND user_id = $2`
 	var vpc domain.VPC
 	err := r.db.QueryRow(ctx, query, name, userID).Scan(
 		&vpc.ID, &vpc.UserID, &vpc.Name, &vpc.CIDRBlock, &vpc.NetworkID, &vpc.VXLANID, &vpc.Status, &vpc.ARN, &vpc.CreatedAt,
@@ -66,7 +66,7 @@ func (r *VpcRepository) GetByName(ctx context.Context, name string) (*domain.VPC
 
 func (r *VpcRepository) List(ctx context.Context) ([]*domain.VPC, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	query := `SELECT id, user_id, name, cidr_block, network_id, vxlan_id, status, arn, created_at FROM vpcs WHERE user_id = $1 ORDER BY created_at DESC`
+	query := `SELECT id, user_id, name, COALESCE(cidr_block::text, ''), network_id, vxlan_id, status, arn, created_at FROM vpcs WHERE user_id = $1 ORDER BY created_at DESC`
 	rows, err := r.db.Query(ctx, query, userID)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list vpcs", err)
