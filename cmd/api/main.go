@@ -131,6 +131,7 @@ func main() {
 	eventRepo := postgres.NewEventRepository(db)
 	volumeRepo := postgres.NewVolumeRepository(db)
 	sgRepo := postgres.NewSecurityGroupRepository(db)
+	subnetRepo := postgres.NewSubnetRepository(db)
 
 	networkBackend, err := ovs.NewOvsAdapter(logger)
 	if err != nil {
@@ -138,6 +139,7 @@ func main() {
 	}
 
 	vpcSvc := services.NewVpcService(vpcRepo, networkBackend, auditSvc, logger)
+	subnetSvc := services.NewSubnetService(subnetRepo, vpcRepo, auditSvc, logger)
 	eventSvc := services.NewEventService(eventRepo, logger)
 	volumeSvc := services.NewVolumeService(volumeRepo, computeBackend, eventSvc, auditSvc, logger)
 	instanceSvc := services.NewInstanceService(instanceRepo, vpcRepo, volumeRepo, computeBackend, eventSvc, auditSvc, logger)
@@ -162,6 +164,7 @@ func main() {
 	lbWorker := services.NewLBWorker(lbRepo, instanceRepo, lbProxy)
 
 	vpcHandler := httphandlers.NewVpcHandler(vpcSvc)
+	subnetHandler := httphandlers.NewSubnetHandler(subnetSvc)
 	instanceHandler := httphandlers.NewInstanceHandler(instanceSvc)
 	eventHandler := httphandlers.NewEventHandler(eventSvc)
 	volumeHandler := httphandlers.NewVolumeHandler(volumeSvc)
@@ -312,6 +315,18 @@ func main() {
 		vpcGroup.GET("", httputil.Permission(rbacSvc, domain.PermissionVpcRead), vpcHandler.List)
 		vpcGroup.GET("/:id", httputil.Permission(rbacSvc, domain.PermissionVpcRead), vpcHandler.Get)
 		vpcGroup.DELETE("/:id", httputil.Permission(rbacSvc, domain.PermissionVpcDelete), vpcHandler.Delete)
+
+		// Subnet routes nested under VPC
+		vpcGroup.POST("/:vpc_id/subnets", httputil.Permission(rbacSvc, domain.PermissionVpcUpdate), subnetHandler.Create)
+		vpcGroup.GET("/:vpc_id/subnets", httputil.Permission(rbacSvc, domain.PermissionVpcRead), subnetHandler.List)
+	}
+
+	// standalone Subnet routes
+	subnetGroup := r.Group("/subnets")
+	subnetGroup.Use(httputil.Auth(identitySvc))
+	{
+		subnetGroup.GET("/:id", httputil.Permission(rbacSvc, domain.PermissionVpcRead), subnetHandler.Get)
+		subnetGroup.DELETE("/:id", httputil.Permission(rbacSvc, domain.PermissionVpcUpdate), subnetHandler.Delete)
 	}
 
 	// Security Group Routes (Protected)

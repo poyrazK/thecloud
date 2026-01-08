@@ -17,6 +17,7 @@ const (
 	PermissionVpcCreate Permission = "vpc:create"
 	PermissionVpcDelete Permission = "vpc:delete"
 	PermissionVpcRead   Permission = "vpc:read"
+	PermissionVpcUpdate Permission = "vpc:update"
 
 	// Storage Permissions
 	PermissionVolumeCreate Permission = "volume:create"
