@@ -9,12 +9,13 @@ import (
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-func TestCreateVolume_Success(t *testing.T) {
+func setupVolumeServiceTest(t *testing.T) (*MockVolumeRepo, *MockComputeBackend, *MockEventService, *MockAuditService, ports.VolumeService) {
 	repo := new(MockVolumeRepo)
 	docker := new(MockComputeBackend)
 	eventSvc := new(MockEventService)
@@ -22,6 +23,15 @@ func TestCreateVolume_Success(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := services.NewVolumeService(repo, docker, eventSvc, auditSvc, logger)
+	return repo, docker, eventSvc, auditSvc, svc
+}
+
+func TestCreateVolume_Success(t *testing.T) {
+	repo, docker, eventSvc, auditSvc, svc := setupVolumeServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer docker.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	name := "test-vol"
@@ -41,19 +51,14 @@ func TestCreateVolume_Success(t *testing.T) {
 	assert.Equal(t, name, vol.Name)
 	assert.Equal(t, size, vol.SizeGB)
 	assert.Equal(t, domain.VolumeStatusAvailable, vol.Status)
-
-	repo.AssertExpectations(t)
-	docker.AssertExpectations(t)
 }
 
 func TestDeleteVolume_Success(t *testing.T) {
-	repo := new(MockVolumeRepo)
-	docker := new(MockComputeBackend)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
-	svc := services.NewVolumeService(repo, docker, eventSvc, auditSvc, logger)
+	repo, docker, eventSvc, auditSvc, svc := setupVolumeServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer docker.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	ctx := context.Background()
 	volID := uuid.New()
@@ -73,18 +78,12 @@ func TestDeleteVolume_Success(t *testing.T) {
 	err := svc.DeleteVolume(ctx, volID.String())
 
 	assert.NoError(t, err)
-	repo.AssertExpectations(t)
-	docker.AssertExpectations(t)
 }
 
 func TestDeleteVolume_InUse_Fails(t *testing.T) {
-	repo := new(MockVolumeRepo)
-	docker := new(MockComputeBackend)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
-	svc := services.NewVolumeService(repo, docker, eventSvc, auditSvc, logger)
+	repo, docker, _, _, svc := setupVolumeServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer docker.AssertExpectations(t)
 
 	ctx := context.Background()
 	volID := uuid.New()

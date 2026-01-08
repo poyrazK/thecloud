@@ -9,16 +9,25 @@ import (
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-func TestStorageUpload_Success(t *testing.T) {
+func setupStorageServiceTest(t *testing.T) (*MockStorageRepo, *MockFileStore, *MockAuditService, ports.StorageService) {
 	repo := new(MockStorageRepo)
 	store := new(MockFileStore)
 	auditSvc := new(MockAuditService)
 	svc := services.NewStorageService(repo, store, auditSvc)
+	return repo, store, auditSvc, svc
+}
+
+func TestStorageUpload_Success(t *testing.T) {
+	repo, store, auditSvc, svc := setupStorageServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer store.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
@@ -38,16 +47,13 @@ func TestStorageUpload_Success(t *testing.T) {
 	assert.Equal(t, bucket, obj.Bucket)
 	assert.Equal(t, key, obj.Key)
 	assert.Equal(t, int64(len(content)), obj.SizeBytes)
-
-	repo.AssertExpectations(t)
-	store.AssertExpectations(t)
 }
 
 func TestStorageDownload_Success(t *testing.T) {
-	repo := new(MockStorageRepo)
-	store := new(MockFileStore)
-	auditSvc := new(MockAuditService)
-	svc := services.NewStorageService(repo, store, auditSvc)
+	repo, store, auditSvc, svc := setupStorageServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer store.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
@@ -58,23 +64,18 @@ func TestStorageDownload_Success(t *testing.T) {
 
 	repo.On("GetMeta", ctx, bucket, key).Return(meta, nil)
 	store.On("Read", ctx, bucket, key).Return(content, nil)
-	auditSvc.On("Log", ctx, userID, "storage.object_download", "storage", mock.Anything, mock.Anything).Return(nil)
 
 	r, obj, err := svc.Download(ctx, bucket, key)
 
 	assert.NoError(t, err)
 	assert.Equal(t, meta, obj)
 	assert.NotNil(t, r)
-
-	repo.AssertExpectations(t)
-	store.AssertExpectations(t)
 }
 
 func TestStorageDelete_Success(t *testing.T) {
-	repo := new(MockStorageRepo)
-	store := new(MockFileStore)
-	auditSvc := new(MockAuditService)
-	svc := services.NewStorageService(repo, store, auditSvc)
+	repo, _, auditSvc, svc := setupStorageServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
@@ -87,14 +88,11 @@ func TestStorageDelete_Success(t *testing.T) {
 	err := svc.DeleteObject(ctx, bucket, key)
 
 	assert.NoError(t, err)
-	repo.AssertExpectations(t)
 }
 
 func TestStorageList_Success(t *testing.T) {
-	repo := new(MockStorageRepo)
-	store := new(MockFileStore)
-	auditSvc := new(MockAuditService)
-	svc := services.NewStorageService(repo, store, auditSvc)
+	repo, _, _, svc := setupStorageServiceTest(t)
+	defer repo.AssertExpectations(t)
 
 	ctx := context.Background()
 	bucket := "test-bucket"
@@ -106,5 +104,4 @@ func TestStorageList_Success(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, expected, list)
-	repo.AssertExpectations(t)
 }
