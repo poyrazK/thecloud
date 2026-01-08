@@ -2682,11 +2682,20 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "ovs_port": {
+                    "type": "string"
+                },
                 "ports": {
+                    "type": "string"
+                },
+                "private_ip": {
                     "type": "string"
                 },
                 "status": {
                     "$ref": "#/definitions/domain.InstanceStatus"
+                },
+                "subnet_id": {
+                    "type": "string"
                 },
                 "updated_at": {
                     "type": "string"
@@ -2867,6 +2876,7 @@ const docTemplate = `{
                 "vpc:create",
                 "vpc:delete",
                 "vpc:read",
+                "vpc:update",
                 "volume:create",
                 "volume:delete",
                 "volume:read",
@@ -2928,6 +2938,7 @@ const docTemplate = `{
                 "PermissionVpcCreate",
                 "PermissionVpcDelete",
                 "PermissionVpcRead",
+                "PermissionVpcUpdate",
                 "PermissionVolumeCreate",
                 "PermissionVolumeDelete",
                 "PermissionVolumeRead",
@@ -3318,6 +3329,12 @@ const docTemplate = `{
         "domain.VPC": {
             "type": "object",
             "properties": {
+                "arn": {
+                    "type": "string"
+                },
+                "cidr_block": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -3328,10 +3345,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "network_id": {
+                    "description": "OVS bridge name",
+                    "type": "string"
+                },
+                "status": {
                     "type": "string"
                 },
                 "user_id": {
                     "type": "string"
+                },
+                "vxlan_id": {
+                    "type": "integer"
                 }
             }
         },
@@ -3624,6 +3648,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "ports": {
+                    "type": "string"
+                },
+                "subnet_id": {
                     "type": "string"
                 },
                 "volumes": {
