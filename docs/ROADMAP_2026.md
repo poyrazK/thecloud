@@ -21,7 +21,7 @@ Transform The Cloud from an educational platform into a **production-grade, self
 - ✅ **Multi-Backend Compute** - Docker containers + Libvirt/KVM VMs
 - ✅ **Object Storage** - S3-compatible API
 - ✅ **Block Storage** - Persistent volumes with snapshots
-- ✅ **Networking** - VPC isolation, NAT, port forwarding
+- ✅ **Networking** - VPC isolation, NAT, OVS SDN, Subnets, and IPAM
 - ✅ **Load Balancer** - Layer 7 HTTP distribution
 - ✅ **Auto-Scaling** - Metric-based dynamic scaling
 
@@ -48,8 +48,8 @@ Transform The Cloud from an educational platform into a **production-grade, self
 - Full KVM/QEMU virtualization support
 - **Complete RBAC management system (API + CLI)**
 - **Full Prometheus & Grafana Integration**
-- **Test Coverage: 51.3%** (Unit + Integration Tests)
-  - Services: 55.4%, Handlers: 52.8%, Repositories: 57.5%
+- **Test Coverage: 52.4%** (Unit + Integration Tests)
+  - Services: 58.2%, Handlers: 52.8%, Repositories: 57.5%
   - Comprehensive test suite with PostgreSQL integration tests
 - Cloud-Init integration for VM provisioning
 - Production-ready CI/CD pipeline

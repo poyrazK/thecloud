@@ -9,7 +9,7 @@ To build the world's best open-source cloud platform that anyone can run, modify
 - **RBAC**: Role-Based Access Control with fine-grained permissions ([Guide](docs/guides/rbac.md))
 - **Storage**: S3-compatible object storage (Upload, Download, Delete)
 - **Block Storage**: Persistent volumes that survive instance termination
-- **Networking**: VPC with isolated Docker networks
+- **Networking**: Advanced VPC with SDN (Open vSwitch), Subnet isolation, and IPAM.
 - **Identity**: API Key authentication ([Guide](docs/guides/authentication.md))
 - **Observability**: Prometheus metrics and Grafana dashboards ([Guide](docs/guides/observability.md))
 - **Load Balancer**: Layer 7 HTTP traffic distribution
@@ -97,6 +97,7 @@ npm run dev
 - **Infrastructure**: 
   - Docker Engine (Containers, Networks, Volumes)
   - Libvirt/KVM (Virtual Machines, QCOW2 Storage, NAT Networks)
+  - Open vSwitch (SDN, VXLAN, VPC Isolation, Subnets)
 - **Observability**: Prometheus Metrics & Real-time WebSockets
 - **CLI**: Cobra (command-based) + Survey (interactive)
 
@@ -141,13 +142,13 @@ npm run dev
 - Time to Hello World: < 5 min
 - API Latency (P95): < 200ms
 - CLI Success Rate: > 95%
-- **Test Coverage: 51.3%** (Unit + Integration Tests)
+- **Test Coverage: 52.4%** (Unit + Integration Tests)
 
 ## Testing
 The Cloud has comprehensive test coverage across all layers:
 - **Unit Tests**: Core services, handlers, and business logic
 - **Integration Tests**: Database repositories with real PostgreSQL
-- **Coverage**: 51.3% overall (Services: 55.4%, Handlers: 52.8%, Repositories: 57.5%)
+- **Coverage**: 52.4% overall (Services: 58.2%, Handlers: 52.8%, Repositories: 57.5%)
 
 Run tests:
 ```bash

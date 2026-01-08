@@ -4,7 +4,7 @@ This document provides a detailed technical roadmap for the remaining phases of 
 
 ## 🏁 Current State
 - **Phase 1-6 (Core & Services)**: ✅ Completed.
-  - Compute, Networking, Storage, LB, Auto-Scaling.
+  - Compute, Networking (OVS SDN + Subnets), Storage, LB, Auto-Scaling.
   - Managed Services: RDS, Cache, Queue, Notify, Cron, Gateway.
 - **Phase 7 (Console)**: 🚧 In Progress.
   - Backend foundation is complete (Resource aggregation, Streaming).
