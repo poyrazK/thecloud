@@ -20,8 +20,8 @@ type instanceServiceMock struct {
 	mock.Mock
 }
 
-func (m *instanceServiceMock) LaunchInstance(ctx context.Context, name, image, ports string, vpcID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
-	args := m.Called(ctx, name, image, ports, vpcID, volumes)
+func (m *instanceServiceMock) LaunchInstance(ctx context.Context, name, image, ports string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
+	args := m.Called(ctx, name, image, ports, vpcID, subnetID, volumes)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -97,7 +97,7 @@ func TestInstanceHandler_Launch(t *testing.T) {
 	r.POST("/instances", handler.Launch)
 
 	inst := &domain.Instance{ID: uuid.New(), Name: "test-inst"}
-	mockSvc.On("LaunchInstance", mock.Anything, "test-inst", "alpine", "", (*uuid.UUID)(nil), []domain.VolumeAttachment(nil)).Return(inst, nil)
+	mockSvc.On("LaunchInstance", mock.Anything, "test-inst", "alpine", "", (*uuid.UUID)(nil), (*uuid.UUID)(nil), []domain.VolumeAttachment(nil)).Return(inst, nil)
 
 	body := `{"name":"test-inst","image":"alpine"}`
 	req := httptest.NewRequest(http.MethodPost, "/instances", strings.NewReader(body))
@@ -243,7 +243,7 @@ func TestInstanceHandler_Launch_WithVolumesAndVPC(t *testing.T) {
 		{VolumeIDOrName: volID, MountPath: "/mnt/data"},
 	}
 
-	mockSvc.On("LaunchInstance", mock.Anything, "test-complex", "ubuntu", "80:80", &vpcID, expectedVolumes).Return(inst, nil)
+	mockSvc.On("LaunchInstance", mock.Anything, "test-complex", "ubuntu", "80:80", &vpcID, (*uuid.UUID)(nil), expectedVolumes).Return(inst, nil)
 
 	body := map[string]interface{}{
 		"name":   "test-complex",

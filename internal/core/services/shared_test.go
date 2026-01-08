@@ -188,8 +188,8 @@ func (m *MockAutoScalingRepo) GetAverageCPU(ctx context.Context, instanceIDs []u
 // MockInstanceService
 type MockInstanceService struct{ mock.Mock }
 
-func (m *MockInstanceService) LaunchInstance(ctx context.Context, name, image, ports string, vpcID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
-	args := m.Called(ctx, name, image, ports, vpcID, volumes)
+func (m *MockInstanceService) LaunchInstance(ctx context.Context, name, image, ports string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
+	args := m.Called(ctx, name, image, ports, vpcID, subnetID, volumes)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -328,6 +328,37 @@ func (m *MockVpcRepo) List(ctx context.Context) ([]*domain.VPC, error) {
 func (m *MockVpcRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
+}
+
+// MockSubnetRepo
+type MockSubnetRepo struct{ mock.Mock }
+
+func (m *MockSubnetRepo) Create(ctx context.Context, subnet *domain.Subnet) error {
+	return m.Called(ctx, subnet).Error(0)
+}
+func (m *MockSubnetRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Subnet, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Subnet), args.Error(1)
+}
+func (m *MockSubnetRepo) GetByName(ctx context.Context, vpcID uuid.UUID, name string) (*domain.Subnet, error) {
+	args := m.Called(ctx, vpcID, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Subnet), args.Error(1)
+}
+func (m *MockSubnetRepo) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*domain.Subnet, error) {
+	args := m.Called(ctx, vpcID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Subnet), args.Error(1)
+}
+func (m *MockSubnetRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
 }
 
 // MockStorageRepo
@@ -784,6 +815,13 @@ func (m *MockInstanceRepo) List(ctx context.Context) ([]*domain.Instance, error)
 	}
 	return args.Get(0).([]*domain.Instance), args.Error(1)
 }
+func (m *MockInstanceRepo) ListBySubnet(ctx context.Context, subnetID uuid.UUID) ([]*domain.Instance, error) {
+	args := m.Called(ctx, subnetID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Instance), args.Error(1)
+}
 func (m *MockInstanceRepo) Update(ctx context.Context, inst *domain.Instance) error {
 	args := m.Called(ctx, inst)
 	return args.Error(0)
@@ -934,6 +972,26 @@ func (m *MockNetworkBackend) ListFlowRules(ctx context.Context, bridge string) (
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]ports.FlowRule), args.Error(1)
+}
+
+func (m *MockNetworkBackend) CreateVethPair(ctx context.Context, hostEnd, containerEnd string) error {
+	args := m.Called(ctx, hostEnd, containerEnd)
+	return args.Error(0)
+}
+
+func (m *MockNetworkBackend) AttachVethToBridge(ctx context.Context, bridge, vethEnd string) error {
+	args := m.Called(ctx, bridge, vethEnd)
+	return args.Error(0)
+}
+
+func (m *MockNetworkBackend) DeleteVethPair(ctx context.Context, hostEnd string) error {
+	args := m.Called(ctx, hostEnd)
+	return args.Error(0)
+}
+
+func (m *MockNetworkBackend) SetVethIP(ctx context.Context, vethEnd, ip, cidr string) error {
+	args := m.Called(ctx, vethEnd, ip, cidr)
+	return args.Error(0)
 }
 func (m *MockNetworkBackend) Ping(ctx context.Context) error {
 	args := m.Called(ctx)

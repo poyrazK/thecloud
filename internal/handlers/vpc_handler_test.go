@@ -19,8 +19,8 @@ type mockVpcService struct {
 	mock.Mock
 }
 
-func (m *mockVpcService) CreateVPC(ctx context.Context, name string) (*domain.VPC, error) {
-	args := m.Called(ctx, name)
+func (m *mockVpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*domain.VPC, error) {
+	args := m.Called(ctx, name, cidrBlock)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -54,9 +54,9 @@ func TestVpcHandler_Create(t *testing.T) {
 	r.POST("/vpcs", handler.Create)
 
 	vpc := &domain.VPC{ID: uuid.New(), Name: "test-vpc"}
-	svc.On("CreateVPC", mock.Anything, "test-vpc").Return(vpc, nil)
+	svc.On("CreateVPC", mock.Anything, "test-vpc", "10.0.0.0/16").Return(vpc, nil)
 
-	body, _ := json.Marshal(map[string]string{"name": "test-vpc"})
+	body, _ := json.Marshal(map[string]string{"name": "test-vpc", "cidr_block": "10.0.0.0/16"})
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("POST", "/vpcs", bytes.NewBuffer(body))
 	r.ServeHTTP(w, req)

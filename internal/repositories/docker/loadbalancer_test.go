@@ -42,6 +42,13 @@ func (m *mockInstanceRepo) List(ctx context.Context) ([]*domain.Instance, error)
 	}
 	return args.Get(0).([]*domain.Instance), args.Error(1)
 }
+func (m *mockInstanceRepo) ListBySubnet(ctx context.Context, subnetID uuid.UUID) ([]*domain.Instance, error) {
+	args := m.Called(ctx, subnetID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Instance), args.Error(1)
+}
 
 func (m *mockInstanceRepo) Update(ctx context.Context, instance *domain.Instance) error {
 	args := m.Called(ctx, instance)

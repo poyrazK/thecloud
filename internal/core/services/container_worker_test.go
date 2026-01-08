@@ -37,10 +37,10 @@ func TestContainerWorker_Reconcile_ScaleUp(t *testing.T) {
 	inst1 := &domain.Instance{ID: instID1}
 	inst2 := &domain.Instance{ID: instID2}
 
-	instSvc.On("LaunchInstance", mock.Anything, mock.AnythingOfType("string"), dep.Image, dep.Ports, (*uuid.UUID)(nil), ([]domain.VolumeAttachment)(nil)).Return(inst1, nil).Once()
+	instSvc.On("LaunchInstance", mock.Anything, mock.AnythingOfType("string"), dep.Image, dep.Ports, (*uuid.UUID)(nil), (*uuid.UUID)(nil), ([]domain.VolumeAttachment)(nil)).Return(inst1, nil).Once()
 	repo.On("AddContainer", mock.Anything, depID, instID1).Return(nil).Once()
 
-	instSvc.On("LaunchInstance", mock.Anything, mock.AnythingOfType("string"), dep.Image, dep.Ports, (*uuid.UUID)(nil), ([]domain.VolumeAttachment)(nil)).Return(inst2, nil).Once()
+	instSvc.On("LaunchInstance", mock.Anything, mock.AnythingOfType("string"), dep.Image, dep.Ports, (*uuid.UUID)(nil), (*uuid.UUID)(nil), ([]domain.VolumeAttachment)(nil)).Return(inst2, nil).Once()
 	repo.On("AddContainer", mock.Anything, depID, instID2).Return(nil).Once()
 
 	repo.On("UpdateDeployment", mock.Anything, mock.MatchedBy(func(d *domain.Deployment) bool {

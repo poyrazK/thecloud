@@ -68,7 +68,7 @@ func TestAutoScalingWorker_Evaluate_ScaleOut(t *testing.T) {
 	newInst := &domain.Instance{ID: uuid.New()}
 	mockInstSvc.On("LaunchInstance", mock.Anything, mock.MatchedBy(func(name string) bool {
 		return true // validating name prefix if needed
-	}), "nginx", mock.Anything, mock.Anything, []domain.VolumeAttachment(nil)).Return(newInst, nil)
+	}), "nginx", mock.Anything, mock.Anything, mock.Anything, []domain.VolumeAttachment(nil)).Return(newInst, nil)
 
 	// Add to group
 	mockRepo.On("AddInstanceToGroup", mock.Anything, groupID, newInst.ID).Return(nil)

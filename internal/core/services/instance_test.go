@@ -24,7 +24,9 @@ func TestLaunchInstance_Success(t *testing.T) {
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewInstanceService(repo, vpcRepo, volumeRepo, compute, eventSvc, auditSvc, logger)
+	subnetRepo := new(MockSubnetRepo)
+	network := new(MockNetworkBackend)
+	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	name := "test-inst"
@@ -37,7 +39,7 @@ func TestLaunchInstance_Success(t *testing.T) {
 	eventSvc.On("RecordEvent", ctx, "INSTANCE_LAUNCH", mock.Anything, "INSTANCE", mock.Anything).Return(nil)
 	auditSvc.On("Log", ctx, mock.Anything, "instance.launch", "instance", mock.Anything, mock.Anything).Return(nil)
 
-	inst, err := svc.LaunchInstance(ctx, name, image, ports, nil, nil)
+	inst, err := svc.LaunchInstance(ctx, name, image, ports, nil, nil, nil)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, inst)
@@ -56,7 +58,9 @@ func TestLaunchInstance_PropagatesUserID(t *testing.T) {
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewInstanceService(repo, vpcRepo, volumeRepo, compute, eventSvc, auditSvc, logger)
+	subnetRepo := new(MockSubnetRepo)
+	network := new(MockNetworkBackend)
+	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
 
 	expectedUserID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), expectedUserID)
@@ -71,7 +75,7 @@ func TestLaunchInstance_PropagatesUserID(t *testing.T) {
 	eventSvc.On("RecordEvent", ctx, "INSTANCE_LAUNCH", mock.Anything, "INSTANCE", mock.Anything).Return(nil)
 	auditSvc.On("Log", ctx, expectedUserID, "instance.launch", "instance", mock.Anything, mock.Anything).Return(nil)
 
-	inst, err := svc.LaunchInstance(ctx, name, image, "", nil, nil)
+	inst, err := svc.LaunchInstance(ctx, name, image, "", nil, nil, nil)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, inst)
@@ -87,7 +91,9 @@ func TestTerminateInstance_Success(t *testing.T) {
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewInstanceService(repo, vpcRepo, volumeRepo, compute, eventSvc, auditSvc, logger)
+	subnetRepo := new(MockSubnetRepo)
+	network := new(MockNetworkBackend)
+	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	id := uuid.New()
@@ -132,7 +138,9 @@ func TestTerminateInstance_RemoveContainerFails_DoesNotReleaseVolumes(t *testing
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewInstanceService(repo, vpcRepo, volumeRepo, compute, eventSvc, auditSvc, logger)
+	subnetRepo := new(MockSubnetRepo)
+	network := new(MockNetworkBackend)
+	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	id := uuid.New()
@@ -157,7 +165,9 @@ func TestGetInstance_ByID(t *testing.T) {
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewInstanceService(repo, vpcRepo, volumeRepo, compute, eventSvc, auditSvc, logger)
+	subnetRepo := new(MockSubnetRepo)
+	network := new(MockNetworkBackend)
+	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	instID := uuid.New()
@@ -180,7 +190,9 @@ func TestGetInstance_ByName(t *testing.T) {
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewInstanceService(repo, vpcRepo, volumeRepo, compute, eventSvc, auditSvc, logger)
+	subnetRepo := new(MockSubnetRepo)
+	network := new(MockNetworkBackend)
+	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	name := "my-instance"
@@ -203,7 +215,9 @@ func TestListInstances(t *testing.T) {
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewInstanceService(repo, vpcRepo, volumeRepo, compute, eventSvc, auditSvc, logger)
+	subnetRepo := new(MockSubnetRepo)
+	network := new(MockNetworkBackend)
+	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	instances := []*domain.Instance{{Name: "inst1"}, {Name: "inst2"}}
@@ -225,7 +239,9 @@ func TestGetInstanceLogs(t *testing.T) {
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewInstanceService(repo, vpcRepo, volumeRepo, compute, eventSvc, auditSvc, logger)
+	subnetRepo := new(MockSubnetRepo)
+	network := new(MockNetworkBackend)
+	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	instID := uuid.New()
@@ -250,7 +266,9 @@ func TestStopInstance_Success(t *testing.T) {
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewInstanceService(repo, vpcRepo, volumeRepo, compute, eventSvc, auditSvc, logger)
+	subnetRepo := new(MockSubnetRepo)
+	network := new(MockNetworkBackend)
+	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 	instID := uuid.New()
