@@ -1,3 +1,5 @@
+-- +goose Up
+
 CREATE TABLE IF NOT EXISTS volumes (
     id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE,

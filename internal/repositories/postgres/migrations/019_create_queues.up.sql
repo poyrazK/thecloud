@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- CloudQueue: Message Queue Service
 CREATE TABLE queues (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

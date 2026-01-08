@@ -27,7 +27,7 @@ func setupDB(t *testing.T) *pgxpool.Pool {
 
 	err = db.Ping(ctx)
 	if err != nil {
-		t.Skip("Skipping integration test: database not available")
+		t.Skipf("Skipping integration test: database not available: %v", err)
 	}
 
 	return db

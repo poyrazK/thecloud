@@ -1,3 +1,5 @@
+-- +goose Up
+
 CREATE TABLE caches (
     id UUID PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id),

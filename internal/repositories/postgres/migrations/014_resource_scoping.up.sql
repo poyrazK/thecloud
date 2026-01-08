@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- Add user_id to all resource tables
 ALTER TABLE instances ADD COLUMN user_id UUID REFERENCES users(id) ON DELETE RESTRICT;
 ALTER TABLE vpcs ADD COLUMN user_id UUID REFERENCES users(id) ON DELETE RESTRICT;

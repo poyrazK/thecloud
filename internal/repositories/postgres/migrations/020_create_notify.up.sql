@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- CloudNotify: Pub/Sub Service
 CREATE TABLE topics (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

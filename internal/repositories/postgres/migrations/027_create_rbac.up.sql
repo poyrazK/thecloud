@@ -1,3 +1,5 @@
+-- +goose Up
+
 CREATE TABLE roles (
     id UUID PRIMARY KEY,
     name TEXT UNIQUE NOT NULL,

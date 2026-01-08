@@ -1,3 +1,4 @@
+-- +goose Up
 -- CloudCron: Scheduled Tasks Service
 CREATE TABLE cron_jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

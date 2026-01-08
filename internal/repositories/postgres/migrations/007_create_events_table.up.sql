@@ -1,3 +1,5 @@
+-- +goose Up
+
 CREATE TABLE IF NOT EXISTS events (
     id UUID PRIMARY KEY,
     action VARCHAR(50) NOT NULL,

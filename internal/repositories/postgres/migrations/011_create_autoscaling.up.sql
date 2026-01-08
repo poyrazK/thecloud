@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- Migration: 011_create_autoscaling.up.sql
 
 CREATE TABLE scaling_groups (

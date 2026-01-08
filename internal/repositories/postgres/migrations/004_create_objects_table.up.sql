@@ -1,3 +1,5 @@
+-- +goose Up
+
 CREATE TABLE objects (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     arn VARCHAR(512) NOT NULL UNIQUE,

@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- CloudGateway: API Gateway Service
 CREATE TABLE gateway_routes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -49,7 +49,7 @@ func TestDockerAdapter_Integration(t *testing.T) {
 		assert.NotEmpty(t, id)
 
 		// 2. Remove
-		err = adapter.RemoveNetwork(ctx, id)
+		err = adapter.DeleteNetwork(ctx, id)
 		assert.NoError(t, err)
 	})
 }

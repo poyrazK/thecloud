@@ -17,5 +17,3 @@ CREATE TABLE subnets (
 CREATE INDEX idx_subnets_vpc ON subnets(vpc_id);
 CREATE INDEX idx_subnets_user ON subnets(user_id);
 
--- +goose Down
-DROP TABLE IF EXISTS subnets;

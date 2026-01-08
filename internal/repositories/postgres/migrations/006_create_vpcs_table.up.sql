@@ -1,3 +1,5 @@
+-- +goose Up
+
 CREATE TABLE IF NOT EXISTS vpcs (
     id UUID PRIMARY KEY,
     name VARCHAR(255) UNIQUE NOT NULL,

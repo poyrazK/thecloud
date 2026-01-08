@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- CloudContainers: Container Orchestration Service
 CREATE TABLE deployments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

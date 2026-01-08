@@ -1,3 +1,5 @@
+-- +goose Up
+
 CREATE TABLE load_balancers (
     id UUID PRIMARY KEY,
     idempotency_key VARCHAR(64) UNIQUE,

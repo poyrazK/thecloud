@@ -1,3 +1,5 @@
+-- +goose Up
+
 -- Migration: 009_create_metrics_history.up.sql
 -- Purpose: Store historical metrics for dashboard charts
 
