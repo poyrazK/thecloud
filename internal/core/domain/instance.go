@@ -31,6 +31,9 @@ type Instance struct {
 	Status      InstanceStatus `json:"status"`
 	Ports       string         `json:"ports,omitempty"`
 	VpcID       *uuid.UUID     `json:"vpc_id,omitempty"`
+	SubnetID    *uuid.UUID     `json:"subnet_id,omitempty"`
+	PrivateIP   string         `json:"private_ip,omitempty"`
+	OvsPort     string         `json:"ovs_port,omitempty"`
 	Version     int            `json:"version"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
