@@ -7,16 +7,27 @@ import (
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-func TestGatewayService_CreateRoute(t *testing.T) {
+func setupGatewayServiceTest(t *testing.T, initialRoutes []*domain.GatewayRoute) (*MockGatewayRepo, *MockAuditService, ports.GatewayService) {
 	repo := new(MockGatewayRepo)
 	auditSvc := new(MockAuditService)
-	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{}, nil)
+
+	// NewGatewayService calls GetAllActiveRoutes during initialization
+	repo.On("GetAllActiveRoutes", mock.Anything).Return(initialRoutes, nil).Once()
+
 	svc := services.NewGatewayService(repo, auditSvc)
+	return repo, auditSvc, svc
+}
+
+func TestGatewayService_CreateRoute(t *testing.T) {
+	repo, auditSvc, svc := setupGatewayServiceTest(t, []*domain.GatewayRoute{})
+	defer repo.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
@@ -32,20 +43,16 @@ func TestGatewayService_CreateRoute(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, route)
 	assert.Equal(t, "/v1", route.PathPrefix)
-	repo.AssertExpectations(t)
 }
 
 func TestGatewayService_RefreshAndGetProxy(t *testing.T) {
-	repo := new(MockGatewayRepo)
-	auditSvc := new(MockAuditService)
-
 	route := &domain.GatewayRoute{
 		PathPrefix: "/api",
 		TargetURL:  "http://localhost:8080",
 	}
-	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{route}, nil)
 
-	svc := services.NewGatewayService(repo, auditSvc)
+	repo, _, svc := setupGatewayServiceTest(t, []*domain.GatewayRoute{route})
+	defer repo.AssertExpectations(t)
 
 	proxy, ok := svc.GetProxy("/api/users")
 	assert.True(t, ok)

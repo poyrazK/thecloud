@@ -10,23 +10,33 @@ import (
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-// Tests
-func TestLaunchInstance_Success(t *testing.T) {
+func setupInstanceServiceTest(t *testing.T) (*MockInstanceRepo, *MockVpcRepo, *MockSubnetRepo, *MockVolumeRepo, *MockComputeBackend, *MockNetworkBackend, *MockEventService, *MockAuditService, ports.InstanceService) {
 	repo := new(MockInstanceRepo)
 	vpcRepo := new(MockVpcRepo)
+	subnetRepo := new(MockSubnetRepo)
 	volumeRepo := new(MockVolumeRepo)
 	compute := new(MockComputeBackend)
+	network := new(MockNetworkBackend)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	subnetRepo := new(MockSubnetRepo)
-	network := new(MockNetworkBackend)
+
 	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
+	return repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, svc
+}
+
+func TestLaunchInstance_Success(t *testing.T) {
+	repo, _, _, _, compute, _, eventSvc, auditSvc, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer compute.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	ctx := context.Background()
 	name := "test-inst"
@@ -46,21 +56,14 @@ func TestLaunchInstance_Success(t *testing.T) {
 	assert.Equal(t, name, inst.Name)
 	assert.Equal(t, "container-123", inst.ContainerID)
 	assert.Equal(t, domain.StatusRunning, inst.Status)
-	repo.AssertExpectations(t)
-	compute.AssertExpectations(t)
 }
 
 func TestLaunchInstance_PropagatesUserID(t *testing.T) {
-	repo := new(MockInstanceRepo)
-	vpcRepo := new(MockVpcRepo)
-	volumeRepo := new(MockVolumeRepo)
-	compute := new(MockComputeBackend)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	subnetRepo := new(MockSubnetRepo)
-	network := new(MockNetworkBackend)
-	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
+	repo, _, _, _, compute, _, eventSvc, auditSvc, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer compute.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	expectedUserID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), expectedUserID)
@@ -80,20 +83,15 @@ func TestLaunchInstance_PropagatesUserID(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, inst)
 	assert.Equal(t, expectedUserID, inst.UserID)
-	repo.AssertExpectations(t)
 }
 
 func TestTerminateInstance_Success(t *testing.T) {
-	repo := new(MockInstanceRepo)
-	vpcRepo := new(MockVpcRepo)
-	volumeRepo := new(MockVolumeRepo)
-	compute := new(MockComputeBackend)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	subnetRepo := new(MockSubnetRepo)
-	network := new(MockNetworkBackend)
-	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
+	repo, _, _, volumeRepo, compute, _, eventSvc, auditSvc, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer volumeRepo.AssertExpectations(t)
+	defer compute.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	ctx := context.Background()
 	id := uuid.New()
@@ -125,22 +123,12 @@ func TestTerminateInstance_Success(t *testing.T) {
 	err := svc.TerminateInstance(ctx, id.String())
 
 	assert.NoError(t, err)
-	repo.AssertExpectations(t)
-	compute.AssertExpectations(t)
-	volumeRepo.AssertExpectations(t)
 }
 
 func TestTerminateInstance_RemoveContainerFails_DoesNotReleaseVolumes(t *testing.T) {
-	repo := new(MockInstanceRepo)
-	vpcRepo := new(MockVpcRepo)
-	volumeRepo := new(MockVolumeRepo)
-	compute := new(MockComputeBackend)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	subnetRepo := new(MockSubnetRepo)
-	network := new(MockNetworkBackend)
-	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
+	repo, _, _, volumeRepo, compute, _, eventSvc, _, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer compute.AssertExpectations(t)
 
 	ctx := context.Background()
 	id := uuid.New()
@@ -158,16 +146,8 @@ func TestTerminateInstance_RemoveContainerFails_DoesNotReleaseVolumes(t *testing
 }
 
 func TestGetInstance_ByID(t *testing.T) {
-	repo := new(MockInstanceRepo)
-	vpcRepo := new(MockVpcRepo)
-	volumeRepo := new(MockVolumeRepo)
-	compute := new(MockComputeBackend)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	subnetRepo := new(MockSubnetRepo)
-	network := new(MockNetworkBackend)
-	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
+	repo, _, _, _, _, _, _, _, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
 
 	ctx := context.Background()
 	instID := uuid.New()
@@ -179,20 +159,11 @@ func TestGetInstance_ByID(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, instID, result.ID)
-	repo.AssertExpectations(t)
 }
 
 func TestGetInstance_ByName(t *testing.T) {
-	repo := new(MockInstanceRepo)
-	vpcRepo := new(MockVpcRepo)
-	volumeRepo := new(MockVolumeRepo)
-	compute := new(MockComputeBackend)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	subnetRepo := new(MockSubnetRepo)
-	network := new(MockNetworkBackend)
-	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
+	repo, _, _, _, _, _, _, _, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
 
 	ctx := context.Background()
 	name := "my-instance"
@@ -204,20 +175,11 @@ func TestGetInstance_ByName(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, name, result.Name)
-	repo.AssertExpectations(t)
 }
 
 func TestListInstances(t *testing.T) {
-	repo := new(MockInstanceRepo)
-	vpcRepo := new(MockVpcRepo)
-	volumeRepo := new(MockVolumeRepo)
-	compute := new(MockComputeBackend)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	subnetRepo := new(MockSubnetRepo)
-	network := new(MockNetworkBackend)
-	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
+	repo, _, _, _, _, _, _, _, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
 
 	ctx := context.Background()
 	instances := []*domain.Instance{{Name: "inst1"}, {Name: "inst2"}}
@@ -228,20 +190,12 @@ func TestListInstances(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
-	repo.AssertExpectations(t)
 }
 
 func TestGetInstanceLogs(t *testing.T) {
-	repo := new(MockInstanceRepo)
-	vpcRepo := new(MockVpcRepo)
-	volumeRepo := new(MockVolumeRepo)
-	compute := new(MockComputeBackend)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	subnetRepo := new(MockSubnetRepo)
-	network := new(MockNetworkBackend)
-	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
+	repo, _, _, _, compute, _, _, _, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer compute.AssertExpectations(t)
 
 	ctx := context.Background()
 	instID := uuid.New()
@@ -254,21 +208,13 @@ func TestGetInstanceLogs(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Contains(t, logs, "log line 1")
-	repo.AssertExpectations(t)
-	compute.AssertExpectations(t)
 }
 
 func TestStopInstance_Success(t *testing.T) {
-	repo := new(MockInstanceRepo)
-	vpcRepo := new(MockVpcRepo)
-	volumeRepo := new(MockVolumeRepo)
-	compute := new(MockComputeBackend)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	subnetRepo := new(MockSubnetRepo)
-	network := new(MockNetworkBackend)
-	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
+	repo, _, _, _, compute, _, _, auditSvc, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer compute.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	ctx := context.Background()
 	instID := uuid.New()
@@ -285,21 +231,17 @@ func TestStopInstance_Success(t *testing.T) {
 	err := svc.StopInstance(ctx, instID.String())
 
 	assert.NoError(t, err)
-	repo.AssertExpectations(t)
-	compute.AssertExpectations(t)
 }
 
 func TestLaunchInstance_WithSubnetAndNetworking(t *testing.T) {
-	repo := new(MockInstanceRepo)
-	vpcRepo := new(MockVpcRepo)
-	subnetRepo := new(MockSubnetRepo)
-	volumeRepo := new(MockVolumeRepo)
-	compute := new(MockComputeBackend)
-	network := new(MockNetworkBackend)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
+	repo, vpcRepo, subnetRepo, _, compute, network, eventSvc, auditSvc, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer vpcRepo.AssertExpectations(t)
+	defer subnetRepo.AssertExpectations(t)
+	defer compute.AssertExpectations(t)
+	defer network.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	ctx := context.Background()
 	vpcID := uuid.New()
@@ -336,7 +278,4 @@ func TestLaunchInstance_WithSubnetAndNetworking(t *testing.T) {
 	assert.NotNil(t, inst)
 	assert.Equal(t, "10.0.1.2", inst.PrivateIP) // First available after .1
 	assert.Contains(t, inst.OvsPort, "veth-")
-
-	repo.AssertExpectations(t)
-	network.AssertExpectations(t)
 }

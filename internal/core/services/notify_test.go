@@ -7,24 +7,32 @@ import (
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func TestNotifyService_CreateTopic(t *testing.T) {
+func setupNotifyServiceTest(t *testing.T) (*MockNotifyRepo, *MockQueueService, *MockEventService, *MockAuditService, ports.NotifyService) {
 	notifyRepo := new(MockNotifyRepo)
 	queueSvc := new(MockQueueService)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
-
 	svc := services.NewNotifyService(notifyRepo, queueSvc, eventSvc, auditSvc)
+	return notifyRepo, queueSvc, eventSvc, auditSvc, svc
+}
 
+func TestNotifyService_CreateTopic(t *testing.T) {
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
 
 	t.Run("Success", func(t *testing.T) {
+		notifyRepo, _, eventSvc, auditSvc, svc := setupNotifyServiceTest(t)
+		defer notifyRepo.AssertExpectations(t)
+		defer eventSvc.AssertExpectations(t)
+		defer auditSvc.AssertExpectations(t)
+
 		topicName := "test-topic"
 
 		notifyRepo.On("GetTopicByName", ctx, topicName, userID).Return(nil, assert.AnError).Once()
@@ -39,37 +47,32 @@ func TestNotifyService_CreateTopic(t *testing.T) {
 		assert.Equal(t, topicName, topic.Name)
 		assert.Equal(t, userID, topic.UserID)
 		assert.NotEmpty(t, topic.ARN)
-
-		notifyRepo.AssertExpectations(t)
-		eventSvc.AssertExpectations(t)
-		auditSvc.AssertExpectations(t)
 	})
 
 	t.Run("TopicAlreadyExists", func(t *testing.T) {
+		notifyRepo, _, _, _, svc := setupNotifyServiceTest(t)
+		defer notifyRepo.AssertExpectations(t)
+
 		existingTopic := &domain.Topic{ID: uuid.New(), Name: "existing-topic"}
 		notifyRepo.On("GetTopicByName", ctx, "existing-topic", userID).Return(existingTopic, nil).Once()
 
 		_, err := svc.CreateTopic(ctx, "existing-topic")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "already exists")
-
-		notifyRepo.AssertExpectations(t)
 	})
 }
 
 func TestNotifyService_Subscribe(t *testing.T) {
-	notifyRepo := new(MockNotifyRepo)
-	queueSvc := new(MockQueueService)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-
-	svc := services.NewNotifyService(notifyRepo, queueSvc, eventSvc, auditSvc)
-
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
 	topicID := uuid.New()
 
 	t.Run("Success", func(t *testing.T) {
+		notifyRepo, _, eventSvc, auditSvc, svc := setupNotifyServiceTest(t)
+		defer notifyRepo.AssertExpectations(t)
+		defer eventSvc.AssertExpectations(t)
+		defer auditSvc.AssertExpectations(t)
+
 		topic := &domain.Topic{ID: topicID, UserID: userID, Name: "test-topic"}
 
 		notifyRepo.On("GetTopicByID", ctx, topicID, userID).Return(topic, nil).Once()
@@ -83,26 +86,20 @@ func TestNotifyService_Subscribe(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, topicID, sub.TopicID)
 		assert.Equal(t, domain.ProtocolQueue, sub.Protocol)
-
-		notifyRepo.AssertExpectations(t)
-		eventSvc.AssertExpectations(t)
-		auditSvc.AssertExpectations(t)
 	})
 }
 
 func TestNotifyService_Publish(t *testing.T) {
-	notifyRepo := new(MockNotifyRepo)
-	queueSvc := new(MockQueueService)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-
-	svc := services.NewNotifyService(notifyRepo, queueSvc, eventSvc, auditSvc)
-
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
 	topicID := uuid.New()
 
 	t.Run("Success", func(t *testing.T) {
+		notifyRepo, _, eventSvc, auditSvc, svc := setupNotifyServiceTest(t)
+		defer notifyRepo.AssertExpectations(t)
+		defer eventSvc.AssertExpectations(t)
+		defer auditSvc.AssertExpectations(t)
+
 		topic := &domain.Topic{ID: topicID, UserID: userID, Name: "test-topic"}
 		messageBody := "test message"
 
@@ -116,20 +113,12 @@ func TestNotifyService_Publish(t *testing.T) {
 
 		err := svc.Publish(ctx, topicID, messageBody)
 		require.NoError(t, err)
-
-		notifyRepo.AssertExpectations(t)
-		eventSvc.AssertExpectations(t)
-		auditSvc.AssertExpectations(t)
 	})
 }
 
 func TestNotifyService_ListTopics(t *testing.T) {
-	notifyRepo := new(MockNotifyRepo)
-	queueSvc := new(MockQueueService)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-
-	svc := services.NewNotifyService(notifyRepo, queueSvc, eventSvc, auditSvc)
+	notifyRepo, _, _, _, svc := setupNotifyServiceTest(t)
+	defer notifyRepo.AssertExpectations(t)
 
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
@@ -144,17 +133,13 @@ func TestNotifyService_ListTopics(t *testing.T) {
 	result, err := svc.ListTopics(ctx)
 	require.NoError(t, err)
 	assert.Len(t, result, 2)
-
-	notifyRepo.AssertExpectations(t)
 }
 
 func TestNotifyService_DeleteTopic(t *testing.T) {
-	notifyRepo := new(MockNotifyRepo)
-	queueSvc := new(MockQueueService)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-
-	svc := services.NewNotifyService(notifyRepo, queueSvc, eventSvc, auditSvc)
+	notifyRepo, _, eventSvc, auditSvc, svc := setupNotifyServiceTest(t)
+	defer notifyRepo.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
@@ -169,19 +154,13 @@ func TestNotifyService_DeleteTopic(t *testing.T) {
 
 	err := svc.DeleteTopic(ctx, topicID)
 	require.NoError(t, err)
-
-	notifyRepo.AssertExpectations(t)
-	eventSvc.AssertExpectations(t)
-	auditSvc.AssertExpectations(t)
 }
 
 func TestNotifyService_Unsubscribe(t *testing.T) {
-	notifyRepo := new(MockNotifyRepo)
-	queueSvc := new(MockQueueService)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-
-	svc := services.NewNotifyService(notifyRepo, queueSvc, eventSvc, auditSvc)
+	notifyRepo, _, eventSvc, auditSvc, svc := setupNotifyServiceTest(t)
+	defer notifyRepo.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
@@ -197,8 +176,4 @@ func TestNotifyService_Unsubscribe(t *testing.T) {
 
 	err := svc.Unsubscribe(ctx, subID)
 	require.NoError(t, err)
-
-	notifyRepo.AssertExpectations(t)
-	eventSvc.AssertExpectations(t)
-	auditSvc.AssertExpectations(t)
 }

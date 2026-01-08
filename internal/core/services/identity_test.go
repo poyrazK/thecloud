@@ -6,50 +6,24 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-// MockIdentityRepo
-type MockIdentityRepo struct {
-	mock.Mock
-}
-
-func (m *MockIdentityRepo) CreateAPIKey(ctx context.Context, apiKey *domain.APIKey) error {
-	args := m.Called(ctx, apiKey)
-	return args.Error(0)
-}
-func (m *MockIdentityRepo) GetAPIKeyByKey(ctx context.Context, key string) (*domain.APIKey, error) {
-	args := m.Called(ctx, key)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.APIKey), args.Error(1)
-}
-func (m *MockIdentityRepo) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error) {
-	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.APIKey), args.Error(1)
-}
-func (m *MockIdentityRepo) ListAPIKeysByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
-	args := m.Called(ctx, userID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.APIKey), args.Error(1)
-}
-func (m *MockIdentityRepo) DeleteAPIKey(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
-}
-
-func TestIdentityService_CreateKey_Success(t *testing.T) {
+func setupIdentityServiceTest(t *testing.T) (*MockIdentityRepo, *MockAuditService, ports.IdentityService) {
 	repo := new(MockIdentityRepo)
 	audit := new(MockAuditService)
 	svc := services.NewIdentityService(repo, audit)
+	return repo, audit, svc
+}
+
+func TestIdentityService_CreateKey_Success(t *testing.T) {
+	repo, audit, svc := setupIdentityServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer audit.AssertExpectations(t)
+
 	ctx := context.Background()
 	userID := uuid.New()
 
@@ -64,13 +38,12 @@ func TestIdentityService_CreateKey_Success(t *testing.T) {
 	assert.NotNil(t, key)
 	assert.Contains(t, key.Key, "thecloud_")
 	assert.Equal(t, userID, key.UserID)
-	repo.AssertExpectations(t)
 }
 
 func TestIdentityService_ValidateAPIKey_Success(t *testing.T) {
-	repo := new(MockIdentityRepo)
-	audit := new(MockAuditService)
-	svc := services.NewIdentityService(repo, audit)
+	repo, _, svc := setupIdentityServiceTest(t)
+	defer repo.AssertExpectations(t)
+
 	ctx := context.Background()
 
 	keyStr := "thecloud_abc123"
@@ -84,13 +57,12 @@ func TestIdentityService_ValidateAPIKey_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, apiKey.ID, result.ID)
 	assert.Equal(t, userID, result.UserID)
-	repo.AssertExpectations(t)
 }
 
 func TestIdentityService_ValidateAPIKey_NotFound(t *testing.T) {
-	repo := new(MockIdentityRepo)
-	audit := new(MockAuditService)
-	svc := services.NewIdentityService(repo, audit)
+	repo, _, svc := setupIdentityServiceTest(t)
+	defer repo.AssertExpectations(t)
+
 	ctx := context.Background()
 
 	repo.On("GetAPIKeyByKey", ctx, "invalid-key").Return(nil, assert.AnError)
@@ -99,5 +71,4 @@ func TestIdentityService_ValidateAPIKey_NotFound(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, result)
-	repo.AssertExpectations(t)
 }

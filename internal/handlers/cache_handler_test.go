@@ -64,35 +64,41 @@ func (m *mockCacheService) GetCacheStats(ctx context.Context, idOrName string) (
 	return args.Get(0).(*ports.CacheStats), args.Error(1)
 }
 
-func TestCacheHandler_Create(t *testing.T) {
+func setupCacheHandlerTest(t *testing.T) (*mockCacheService, *CacheHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockCacheService)
 	handler := NewCacheHandler(svc)
-
 	r := gin.New()
+	return svc, handler, r
+}
+
+func TestCacheHandler_Create(t *testing.T) {
+	svc, handler, r := setupCacheHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
 	r.POST("/caches", handler.Create)
 
 	cache := &domain.Cache{ID: uuid.New(), Name: "cache-1"}
 	svc.On("CreateCache", mock.Anything, "cache-1", "redis6", 128, (*uuid.UUID)(nil)).Return(cache, nil)
 
-	body, _ := json.Marshal(map[string]interface{}{
+	body, err := json.Marshal(map[string]interface{}{
 		"name":      "cache-1",
 		"version":   "redis6",
 		"memory_mb": 128,
 	})
+	assert.NoError(t, err)
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/caches", bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", "/caches", bytes.NewBuffer(body))
+	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
 func TestCacheHandler_List(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	svc := new(mockCacheService)
-	handler := NewCacheHandler(svc)
+	svc, handler, r := setupCacheHandlerTest(t)
+	defer svc.AssertExpectations(t)
 
-	r := gin.New()
 	r.GET("/caches", handler.List)
 
 	caches := []*domain.Cache{{ID: uuid.New(), Name: "cache-1"}}
@@ -107,11 +113,9 @@ func TestCacheHandler_List(t *testing.T) {
 }
 
 func TestCacheHandler_Get(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	svc := new(mockCacheService)
-	handler := NewCacheHandler(svc)
+	svc, handler, r := setupCacheHandlerTest(t)
+	defer svc.AssertExpectations(t)
 
-	r := gin.New()
 	r.GET("/caches/:id", handler.Get)
 
 	id := uuid.New().String()
@@ -127,11 +131,9 @@ func TestCacheHandler_Get(t *testing.T) {
 }
 
 func TestCacheHandler_Delete(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	svc := new(mockCacheService)
-	handler := NewCacheHandler(svc)
+	svc, handler, r := setupCacheHandlerTest(t)
+	defer svc.AssertExpectations(t)
 
-	r := gin.New()
 	r.DELETE("/caches/:id", handler.Delete)
 
 	id := uuid.New().String()
@@ -146,11 +148,9 @@ func TestCacheHandler_Delete(t *testing.T) {
 }
 
 func TestCacheHandler_GetConnectionString(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	svc := new(mockCacheService)
-	handler := NewCacheHandler(svc)
+	svc, handler, r := setupCacheHandlerTest(t)
+	defer svc.AssertExpectations(t)
 
-	r := gin.New()
 	r.GET("/caches/:id/connection", handler.GetConnectionString)
 
 	id := uuid.New().String()
@@ -166,11 +166,9 @@ func TestCacheHandler_GetConnectionString(t *testing.T) {
 }
 
 func TestCacheHandler_Flush(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	svc := new(mockCacheService)
-	handler := NewCacheHandler(svc)
+	svc, handler, r := setupCacheHandlerTest(t)
+	defer svc.AssertExpectations(t)
 
-	r := gin.New()
 	r.POST("/caches/:id/flush", handler.Flush)
 
 	id := uuid.New().String()
@@ -185,11 +183,9 @@ func TestCacheHandler_Flush(t *testing.T) {
 }
 
 func TestCacheHandler_GetStats(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	svc := new(mockCacheService)
-	handler := NewCacheHandler(svc)
+	svc, handler, r := setupCacheHandlerTest(t)
+	defer svc.AssertExpectations(t)
 
-	r := gin.New()
 	r.GET("/caches/:id/stats", handler.GetStats)
 
 	id := uuid.New().String()

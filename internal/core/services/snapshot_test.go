@@ -10,20 +10,30 @@ import (
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-func TestCreateSnapshot_Success(t *testing.T) {
+func setupSnapshotServiceTest(t *testing.T) (*MockSnapshotRepo, *MockVolumeRepo, *MockComputeBackend, *MockEventService, *MockAuditService, ports.SnapshotService) {
 	repo := new(MockSnapshotRepo)
 	volRepo := new(MockVolumeRepo)
 	docker := new(MockComputeBackend)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
 	svc := services.NewSnapshotService(repo, volRepo, docker, eventSvc, auditSvc, logger)
+	return repo, volRepo, docker, eventSvc, auditSvc, svc
+}
+
+func TestCreateSnapshot_Success(t *testing.T) {
+	repo, volRepo, docker, eventSvc, auditSvc, svc := setupSnapshotServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer volRepo.AssertExpectations(t)
+	defer docker.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	volID := uuid.New()
@@ -51,21 +61,15 @@ func TestCreateSnapshot_Success(t *testing.T) {
 
 	// Wait a bit for the goroutine to finish its mocks
 	time.Sleep(100 * time.Millisecond)
-
-	volRepo.AssertExpectations(t)
-	repo.AssertExpectations(t)
-	docker.AssertExpectations(t)
 }
 
 func TestRestoreSnapshot_Success(t *testing.T) {
-	repo := new(MockSnapshotRepo)
-	volRepo := new(MockVolumeRepo)
-	docker := new(MockComputeBackend)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
-	svc := services.NewSnapshotService(repo, volRepo, docker, eventSvc, auditSvc, logger)
+	repo, volRepo, docker, eventSvc, auditSvc, svc := setupSnapshotServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer volRepo.AssertExpectations(t)
+	defer docker.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	snapID := uuid.New()
@@ -93,21 +97,13 @@ func TestRestoreSnapshot_Success(t *testing.T) {
 	assert.NotNil(t, vol)
 	assert.Equal(t, "restored-vol", vol.Name)
 	assert.Equal(t, 10, vol.SizeGB)
-
-	repo.AssertExpectations(t)
-	docker.AssertExpectations(t)
-	volRepo.AssertExpectations(t)
 }
 
 func TestDeleteSnapshot_Success(t *testing.T) {
-	repo := new(MockSnapshotRepo)
-	volRepo := new(MockVolumeRepo)
-	docker := new(MockComputeBackend)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
-	svc := services.NewSnapshotService(repo, volRepo, docker, eventSvc, auditSvc, logger)
+	repo, _, _, eventSvc, auditSvc, svc := setupSnapshotServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	snapID := uuid.New()
@@ -124,5 +120,4 @@ func TestDeleteSnapshot_Success(t *testing.T) {
 	err := svc.DeleteSnapshot(ctx, snapID)
 
 	assert.NoError(t, err)
-	repo.AssertExpectations(t)
 }

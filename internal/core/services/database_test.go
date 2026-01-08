@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -44,7 +45,7 @@ func (m *MockDatabaseRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return args.Error(0)
 }
 
-func TestCreateDatabase_Success(t *testing.T) {
+func setupDatabaseServiceTest(t *testing.T) (*MockDatabaseRepo, *MockComputeBackend, *MockVpcRepo, *MockEventService, *MockAuditService, ports.DatabaseService) {
 	repo := new(MockDatabaseRepo)
 	docker := new(MockComputeBackend)
 	vpcRepo := new(MockVpcRepo)
@@ -53,6 +54,15 @@ func TestCreateDatabase_Success(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
+	return repo, docker, vpcRepo, eventSvc, auditSvc, svc
+}
+
+func TestCreateDatabase_Success(t *testing.T) {
+	repo, docker, _, eventSvc, auditSvc, svc := setupDatabaseServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer docker.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	ctx := context.Background()
 	name := "test-db"
@@ -75,20 +85,14 @@ func TestCreateDatabase_Success(t *testing.T) {
 	assert.Equal(t, domain.EnginePostgres, db.Engine)
 	assert.Equal(t, 54321, db.Port)
 	assert.Equal(t, "cont-123", db.ContainerID)
-
-	repo.AssertExpectations(t)
-	docker.AssertExpectations(t)
 }
 
 func TestDeleteDatabase_Success(t *testing.T) {
-	repo := new(MockDatabaseRepo)
-	docker := new(MockComputeBackend)
-	vpcRepo := new(MockVpcRepo)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
-	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
+	repo, docker, _, eventSvc, auditSvc, svc := setupDatabaseServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer docker.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	ctx := context.Background()
 	dbID := uuid.New()
@@ -109,19 +113,11 @@ func TestDeleteDatabase_Success(t *testing.T) {
 	err := svc.DeleteDatabase(ctx, dbID)
 
 	assert.NoError(t, err)
-	repo.AssertExpectations(t)
-	docker.AssertExpectations(t)
 }
 
 func TestGetDatabase_ByID(t *testing.T) {
-	repo := new(MockDatabaseRepo)
-	docker := new(MockComputeBackend)
-	vpcRepo := new(MockVpcRepo)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
-	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
+	repo, _, _, _, _, svc := setupDatabaseServiceTest(t)
+	defer repo.AssertExpectations(t)
 
 	ctx := context.Background()
 	dbID := uuid.New()
@@ -133,18 +129,11 @@ func TestGetDatabase_ByID(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, dbID, result.ID)
-	repo.AssertExpectations(t)
 }
 
 func TestListDatabases(t *testing.T) {
-	repo := new(MockDatabaseRepo)
-	docker := new(MockComputeBackend)
-	vpcRepo := new(MockVpcRepo)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
-	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
+	repo, _, _, _, _, svc := setupDatabaseServiceTest(t)
+	defer repo.AssertExpectations(t)
 
 	ctx := context.Background()
 	dbs := []*domain.Database{{Name: "db1"}, {Name: "db2"}}
@@ -155,18 +144,11 @@ func TestListDatabases(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
-	repo.AssertExpectations(t)
 }
 
 func TestGetConnectionString(t *testing.T) {
-	repo := new(MockDatabaseRepo)
-	docker := new(MockComputeBackend)
-	vpcRepo := new(MockVpcRepo)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
-	svc := services.NewDatabaseService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
+	repo, _, _, _, _, svc := setupDatabaseServiceTest(t)
+	defer repo.AssertExpectations(t)
 
 	ctx := context.Background()
 	dbID := uuid.New()
@@ -187,5 +169,4 @@ func TestGetConnectionString(t *testing.T) {
 	assert.Contains(t, connStr, "postgres://")
 	assert.Contains(t, connStr, "admin:secret")
 	assert.Contains(t, connStr, "5432")
-	repo.AssertExpectations(t)
 }

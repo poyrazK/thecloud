@@ -26,6 +26,9 @@ func (m *mockStorageService) CreateBucket(ctx context.Context, name string) erro
 
 func (m *mockStorageService) ListBuckets(ctx context.Context) ([]string, error) {
 	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]string), args.Error(1)
 }
 
@@ -47,6 +50,9 @@ func (m *mockStorageService) Download(ctx context.Context, bucket, key string) (
 
 func (m *mockStorageService) ListObjects(ctx context.Context, bucket string) ([]*domain.Object, error) {
 	args := m.Called(ctx, bucket)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]*domain.Object), args.Error(1)
 }
 
@@ -63,30 +69,35 @@ func (m *mockStorageService) GetObject(ctx context.Context, bucket, key string) 
 	return args.Get(0).(*domain.Object), args.Error(1)
 }
 
-func TestStorageHandler_Upload(t *testing.T) {
+func setupStorageHandlerTest(t *testing.T) (*mockStorageService, *StorageHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockStorageService)
 	handler := NewStorageHandler(svc)
-
 	r := gin.New()
+	return svc, handler, r
+}
+
+func TestStorageHandler_Upload(t *testing.T) {
+	svc, handler, r := setupStorageHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
 	r.PUT("/storage/:bucket/:key", handler.Upload)
 
 	obj := &domain.Object{Key: "test.txt", SizeBytes: 4}
 	svc.On("Upload", mock.Anything, "b1", "test.txt", mock.Anything).Return(obj, nil)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("PUT", "/storage/b1/test.txt", strings.NewReader("data"))
+	req, err := http.NewRequest("PUT", "/storage/b1/test.txt", strings.NewReader("data"))
+	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
 func TestStorageHandler_Download(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	svc := new(mockStorageService)
-	handler := NewStorageHandler(svc)
+	svc, handler, r := setupStorageHandlerTest(t)
+	defer svc.AssertExpectations(t)
 
-	r := gin.New()
 	r.GET("/storage/:bucket/:key", handler.Download)
 
 	content := io.NopCloser(bytes.NewBufferString("hello"))
@@ -94,7 +105,8 @@ func TestStorageHandler_Download(t *testing.T) {
 	svc.On("Download", mock.Anything, "b1", "test.txt").Return(content, obj, nil)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/storage/b1/test.txt", nil)
+	req, err := http.NewRequest("GET", "/storage/b1/test.txt", nil)
+	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)

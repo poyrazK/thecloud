@@ -9,18 +9,28 @@ import (
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-func TestVpcService_Create_Success(t *testing.T) {
+func setupVpcServiceTest(t *testing.T, cidr string) (*MockVpcRepo, *MockNetworkBackend, *MockAuditService, ports.VpcService) {
 	vpcRepo := new(MockVpcRepo)
 	network := new(MockNetworkBackend)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewVpcService(vpcRepo, network, auditSvc, logger, "10.0.0.0/16")
+	svc := services.NewVpcService(vpcRepo, network, auditSvc, logger, cidr)
+	return vpcRepo, network, auditSvc, svc
+}
+
+func TestVpcService_Create_Success(t *testing.T) {
+	vpcRepo, network, auditSvc, svc := setupVpcServiceTest(t, "10.0.0.0/16")
+	defer vpcRepo.AssertExpectations(t)
+	defer network.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
+
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	name := "test-vpc"
 	cidr := "10.0.0.0/16"
@@ -39,18 +49,13 @@ func TestVpcService_Create_Success(t *testing.T) {
 	assert.NotNil(t, vpc)
 	assert.Equal(t, name, vpc.Name)
 	assert.Contains(t, vpc.NetworkID, "br-vpc-")
-
-	vpcRepo.AssertExpectations(t)
-	network.AssertExpectations(t)
 }
 
 func TestVpcService_Create_DBFailure_RollsBackBridge(t *testing.T) {
-	vpcRepo := new(MockVpcRepo)
-	network := new(MockNetworkBackend)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	vpcRepo, network, _, svc := setupVpcServiceTest(t, "10.0.0.0/16")
+	defer vpcRepo.AssertExpectations(t)
+	defer network.AssertExpectations(t)
 
-	svc := services.NewVpcService(vpcRepo, network, auditSvc, logger, "10.0.0.0/16")
 	ctx := context.Background()
 	name := "fail-vpc"
 
@@ -66,12 +71,11 @@ func TestVpcService_Create_DBFailure_RollsBackBridge(t *testing.T) {
 }
 
 func TestVpcService_Delete_Success(t *testing.T) {
-	vpcRepo := new(MockVpcRepo)
-	network := new(MockNetworkBackend)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	vpcRepo, network, auditSvc, svc := setupVpcServiceTest(t, "10.0.0.0/16")
+	defer vpcRepo.AssertExpectations(t)
+	defer network.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
-	svc := services.NewVpcService(vpcRepo, network, auditSvc, logger, "10.0.0.0/16")
 	ctx := context.Background()
 	vpcID := uuid.New()
 	vpc := &domain.VPC{
@@ -88,17 +92,12 @@ func TestVpcService_Delete_Success(t *testing.T) {
 	err := svc.DeleteVPC(ctx, vpcID.String())
 
 	assert.NoError(t, err)
-	vpcRepo.AssertExpectations(t)
-	network.AssertExpectations(t)
 }
 
 func TestVpcService_List_Success(t *testing.T) {
-	vpcRepo := new(MockVpcRepo)
-	network := new(MockNetworkBackend)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	vpcRepo, _, _, svc := setupVpcServiceTest(t, "10.0.0.0/16")
+	defer vpcRepo.AssertExpectations(t)
 
-	svc := services.NewVpcService(vpcRepo, network, auditSvc, logger, "10.0.0.0/16")
 	ctx := context.Background()
 
 	vpcs := []*domain.VPC{{Name: "vpc1"}, {Name: "vpc2"}}
@@ -108,16 +107,12 @@ func TestVpcService_List_Success(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
-	vpcRepo.AssertExpectations(t)
 }
 
 func TestVpcService_Get_ByName(t *testing.T) {
-	vpcRepo := new(MockVpcRepo)
-	network := new(MockNetworkBackend)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	vpcRepo, _, _, svc := setupVpcServiceTest(t, "10.0.0.0/16")
+	defer vpcRepo.AssertExpectations(t)
 
-	svc := services.NewVpcService(vpcRepo, network, auditSvc, logger, "10.0.0.0/16")
 	ctx := context.Background()
 	name := "my-vpc"
 	vpc := &domain.VPC{ID: uuid.New(), Name: name}
@@ -128,5 +123,4 @@ func TestVpcService_Get_ByName(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, name, result.Name)
-	vpcRepo.AssertExpectations(t)
 }

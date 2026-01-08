@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -50,16 +51,28 @@ func (m *MockSecretRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return args.Error(0)
 }
 
-func TestSecretService_CreateAndGet(t *testing.T) {
+func setupSecretServiceTest(t *testing.T) (*MockSecretRepo, *MockEventService, *MockAuditService, ports.SecretService) {
 	repo := new(MockSecretRepo)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
 	key := "test-key-must-be-32-bytes-long---"
 	svc := services.NewSecretService(repo, eventSvc, auditSvc, logger, key, "development")
+	return repo, eventSvc, auditSvc, svc
+}
+
+func setupTestUserCtx(userID uuid.UUID) context.Context {
+	return appcontext.WithUserID(context.Background(), userID)
+}
+
+func TestSecretService_CreateAndGet(t *testing.T) {
+	repo, eventSvc, auditSvc, svc := setupSecretServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
+
 	userID := uuid.New()
-	ctxWithUser := setupTestUserCtx(userID) // Helper needed or inline
+	ctxWithUser := setupTestUserCtx(userID)
 
 	name := "API_KEY"
 	value := "super-secret-value"
@@ -84,23 +97,14 @@ func TestSecretService_CreateAndGet(t *testing.T) {
 	fetched, err := svc.GetSecret(ctxWithUser, secret.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, value, fetched.EncryptedValue) // Should be decrypted in response
-
-	repo.AssertExpectations(t)
-	eventSvc.AssertExpectations(t)
-}
-
-func setupTestUserCtx(userID uuid.UUID) context.Context {
-	return appcontext.WithUserID(context.Background(), userID)
 }
 
 func TestSecretService_Delete(t *testing.T) {
-	repo := new(MockSecretRepo)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	repo, eventSvc, auditSvc, svc := setupSecretServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
-	key := "test-key-must-be-32-bytes-long---"
-	svc := services.NewSecretService(repo, eventSvc, auditSvc, logger, key, "development")
 	ctx := context.Background()
 	secretID := uuid.New()
 
@@ -112,18 +116,12 @@ func TestSecretService_Delete(t *testing.T) {
 	err := svc.DeleteSecret(ctx, secretID)
 
 	assert.NoError(t, err)
-	repo.AssertExpectations(t)
-	eventSvc.AssertExpectations(t)
 }
 
 func TestSecretService_List(t *testing.T) {
-	repo := new(MockSecretRepo)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	repo, _, _, svc := setupSecretServiceTest(t)
+	defer repo.AssertExpectations(t)
 
-	key := "test-key-must-be-32-bytes-long---"
-	svc := services.NewSecretService(repo, eventSvc, auditSvc, logger, key, "development")
 	ctx := context.Background()
 
 	secrets := []*domain.Secret{
@@ -136,5 +134,4 @@ func TestSecretService_List(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
-	repo.AssertExpectations(t)
 }

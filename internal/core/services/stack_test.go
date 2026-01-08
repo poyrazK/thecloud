@@ -11,20 +11,28 @@ import (
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-func TestCreateStack_Success(t *testing.T) {
+func setupStackServiceTest(t *testing.T) (*MockStackRepo, *MockInstanceService, *MockVpcService, *MockVolumeService, *MockSnapshotService, ports.StackService) {
 	repo := new(MockStackRepo)
 	instanceSvc := new(MockInstanceService)
 	vpcSvc := new(MockVpcService)
 	volumeSvc := new(MockVolumeService)
 	snapshotSvc := new(MockSnapshotService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
 	svc := services.NewStackService(repo, instanceSvc, vpcSvc, volumeSvc, snapshotSvc, logger)
+	return repo, instanceSvc, vpcSvc, volumeSvc, snapshotSvc, svc
+}
+
+func TestCreateStack_Success(t *testing.T) {
+	repo, instanceSvc, vpcSvc, _, _, svc := setupStackServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer instanceSvc.AssertExpectations(t)
+	defer vpcSvc.AssertExpectations(t)
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	template := `
@@ -72,21 +80,13 @@ Resources:
 
 	// Wait for background processing
 	time.Sleep(150 * time.Millisecond)
-
-	repo.AssertExpectations(t)
-	vpcSvc.AssertExpectations(t)
-	instanceSvc.AssertExpectations(t)
 }
 
 func TestDeleteStack_Success(t *testing.T) {
-	repo := new(MockStackRepo)
-	instanceSvc := new(MockInstanceService)
-	vpcSvc := new(MockVpcService)
-	volumeSvc := new(MockVolumeService)
-	snapshotSvc := new(MockSnapshotService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
-	svc := services.NewStackService(repo, instanceSvc, vpcSvc, volumeSvc, snapshotSvc, logger)
+	repo, instanceSvc, vpcSvc, _, _, svc := setupStackServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer instanceSvc.AssertExpectations(t)
+	defer vpcSvc.AssertExpectations(t)
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	stackID := uuid.New()
@@ -110,21 +110,13 @@ func TestDeleteStack_Success(t *testing.T) {
 
 	// Wait for background processing
 	time.Sleep(150 * time.Millisecond)
-
-	repo.AssertExpectations(t)
-	instanceSvc.AssertExpectations(t)
-	vpcSvc.AssertExpectations(t)
 }
 
 func TestCreateStack_Rollback(t *testing.T) {
-	repo := new(MockStackRepo)
-	instanceSvc := new(MockInstanceService)
-	vpcSvc := new(MockVpcService)
-	volumeSvc := new(MockVolumeService)
-	snapshotSvc := new(MockSnapshotService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
-	svc := services.NewStackService(repo, instanceSvc, vpcSvc, volumeSvc, snapshotSvc, logger)
+	repo, instanceSvc, vpcSvc, _, _, svc := setupStackServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer instanceSvc.AssertExpectations(t)
+	defer vpcSvc.AssertExpectations(t)
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	template := `
@@ -184,8 +176,4 @@ Resources:
 
 	// Wait for background processing
 	time.Sleep(150 * time.Millisecond)
-
-	repo.AssertExpectations(t)
-	vpcSvc.AssertExpectations(t)
-	instanceSvc.AssertExpectations(t)
 }

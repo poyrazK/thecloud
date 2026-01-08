@@ -9,18 +9,27 @@ import (
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-func TestSubnetService_CreateSubnet_Success(t *testing.T) {
+func setupSubnetServiceTest(t *testing.T) (*MockSubnetRepo, *MockVpcRepo, *MockAuditService, ports.SubnetService) {
 	repo := new(MockSubnetRepo)
 	vpcRepo := new(MockVpcRepo)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := services.NewSubnetService(repo, vpcRepo, auditSvc, logger)
+	return repo, vpcRepo, auditSvc, svc
+}
+
+func TestSubnetService_CreateSubnet_Success(t *testing.T) {
+	repo, vpcRepo, auditSvc, svc := setupSubnetServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer vpcRepo.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	vpcID := uuid.New()
@@ -40,16 +49,12 @@ func TestSubnetService_CreateSubnet_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, subnet)
 	assert.Equal(t, "10.0.1.1", subnet.GatewayIP)
-	repo.AssertExpectations(t)
 }
 
 func TestSubnetService_CreateSubnet_InvalidCIDR(t *testing.T) {
-	repo := new(MockSubnetRepo)
-	vpcRepo := new(MockVpcRepo)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
-	svc := services.NewSubnetService(repo, vpcRepo, auditSvc, logger)
+	repo, vpcRepo, _, svc := setupSubnetServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer vpcRepo.AssertExpectations(t)
 
 	ctx := context.Background()
 	vpcID := uuid.New()
@@ -69,12 +74,10 @@ func TestSubnetService_CreateSubnet_InvalidCIDR(t *testing.T) {
 }
 
 func TestSubnetService_DeleteSubnet_Success(t *testing.T) {
-	repo := new(MockSubnetRepo)
-	vpcRepo := new(MockVpcRepo)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
-	svc := services.NewSubnetService(repo, vpcRepo, auditSvc, logger)
+	repo, vpcRepo, auditSvc, svc := setupSubnetServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer vpcRepo.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
 
 	ctx := context.Background()
 	subnetID := uuid.New()
@@ -87,12 +90,12 @@ func TestSubnetService_DeleteSubnet_Success(t *testing.T) {
 	err := svc.DeleteSubnet(ctx, subnetID)
 
 	assert.NoError(t, err)
-	repo.AssertExpectations(t)
 }
 
 func TestSubnetService_GetSubnet(t *testing.T) {
-	repo := new(MockSubnetRepo)
-	svc := services.NewSubnetService(repo, nil, nil, nil)
+	repo, _, _, svc := setupSubnetServiceTest(t)
+	defer repo.AssertExpectations(t)
+
 	ctx := context.Background()
 	id := uuid.New()
 	expected := &domain.Subnet{ID: id, Name: "test"}
@@ -106,8 +109,9 @@ func TestSubnetService_GetSubnet(t *testing.T) {
 }
 
 func TestSubnetService_ListSubnets(t *testing.T) {
-	repo := new(MockSubnetRepo)
-	svc := services.NewSubnetService(repo, nil, nil, nil)
+	repo, _, _, svc := setupSubnetServiceTest(t)
+	defer repo.AssertExpectations(t)
+
 	ctx := context.Background()
 	vpcID := uuid.New()
 	expected := []*domain.Subnet{{ID: uuid.New(), Name: "s1"}}

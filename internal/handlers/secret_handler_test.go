@@ -29,6 +29,9 @@ func (m *mockSecretService) CreateSecret(ctx context.Context, name, value, descr
 
 func (m *mockSecretService) ListSecrets(ctx context.Context) ([]*domain.Secret, error) {
 	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]*domain.Secret), args.Error(1)
 }
 
@@ -53,101 +56,101 @@ func (m *mockSecretService) DeleteSecret(ctx context.Context, id uuid.UUID) erro
 	return args.Error(0)
 }
 
-func TestSecretHandler_Create(t *testing.T) {
+func setupSecretHandlerTest(t *testing.T) (*mockSecretService, *SecretHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSecretService)
 	handler := NewSecretHandler(svc)
-
 	r := gin.New()
+	return svc, handler, r
+}
+
+func TestSecretHandler_Create(t *testing.T) {
+	svc, handler, r := setupSecretHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
 	r.POST("/secrets", handler.Create)
 
 	secret := &domain.Secret{ID: uuid.New(), Name: "sec-1"}
 	svc.On("CreateSecret", mock.Anything, "sec-1", "value", "desc").Return(secret, nil)
 
-	body, _ := json.Marshal(map[string]interface{}{
+	body, err := json.Marshal(map[string]interface{}{
 		"name":        "sec-1",
 		"value":       "value",
 		"description": "desc",
 	})
+	assert.NoError(t, err)
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/secrets", bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", "/secrets", bytes.NewBuffer(body))
+	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
 func TestSecretHandler_List(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	svc := new(mockSecretService)
-	handler := NewSecretHandler(svc)
+	svc, handler, r := setupSecretHandlerTest(t)
+	defer svc.AssertExpectations(t)
 
-	r := gin.New()
 	r.GET("/secrets", handler.List)
 
 	secrets := []*domain.Secret{{ID: uuid.New(), Name: "sec-1"}}
 	svc.On("ListSecrets", mock.Anything).Return(secrets, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/secrets", nil)
+	req, err := http.NewRequest(http.MethodGet, "/secrets", nil)
+	assert.NoError(t, err)
 	w := httptest.NewRecorder()
-
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestSecretHandler_Get_ByID(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	svc := new(mockSecretService)
-	handler := NewSecretHandler(svc)
+	svc, handler, r := setupSecretHandlerTest(t)
+	defer svc.AssertExpectations(t)
 
-	r := gin.New()
 	r.GET("/secrets/:id", handler.Get)
 
 	id := uuid.New()
 	secret := &domain.Secret{ID: id, Name: "sec-1"}
 	svc.On("GetSecret", mock.Anything, id).Return(secret, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/secrets/"+id.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, "/secrets/"+id.String(), nil)
+	assert.NoError(t, err)
 	w := httptest.NewRecorder()
-
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestSecretHandler_Get_ByName(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	svc := new(mockSecretService)
-	handler := NewSecretHandler(svc)
+	svc, handler, r := setupSecretHandlerTest(t)
+	defer svc.AssertExpectations(t)
 
-	r := gin.New()
 	r.GET("/secrets/:id", handler.Get)
 
 	secret := &domain.Secret{ID: uuid.New(), Name: "sec-1"}
 	svc.On("GetSecretByName", mock.Anything, "sec-1").Return(secret, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/secrets/sec-1", nil)
+	req, err := http.NewRequest(http.MethodGet, "/secrets/sec-1", nil)
+	assert.NoError(t, err)
 	w := httptest.NewRecorder()
-
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestSecretHandler_Delete(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	svc := new(mockSecretService)
-	handler := NewSecretHandler(svc)
+	svc, handler, r := setupSecretHandlerTest(t)
+	defer svc.AssertExpectations(t)
 
-	r := gin.New()
 	r.DELETE("/secrets/:id", handler.Delete)
 
 	id := uuid.New()
 	svc.On("DeleteSecret", mock.Anything, id).Return(nil)
 
-	req := httptest.NewRequest(http.MethodDelete, "/secrets/"+id.String(), nil)
+	req, err := http.NewRequest(http.MethodDelete, "/secrets/"+id.String(), nil)
+	assert.NoError(t, err)
 	w := httptest.NewRecorder()
-
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
