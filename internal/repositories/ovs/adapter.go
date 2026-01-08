@@ -1,3 +1,4 @@
+// Package ovs implements the Open vSwitch network adapter.
 package ovs
 
 import (

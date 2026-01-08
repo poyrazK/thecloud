@@ -163,11 +163,12 @@ func (s *SecurityGroupService) syncGroupFlows(ctx context.Context, sg *domain.Se
 func (s *SecurityGroupService) translateToFlow(rule domain.SecurityRule) ports.FlowRule {
 	matchParts := []string{}
 
-	if rule.Protocol == "tcp" {
+	switch rule.Protocol {
+	case "tcp":
 		matchParts = append(matchParts, "tcp")
-	} else if rule.Protocol == "udp" {
+	case "udp":
 		matchParts = append(matchParts, "udp")
-	} else if rule.Protocol == "icmp" {
+	case "icmp":
 		matchParts = append(matchParts, "icmp")
 	}
 
@@ -181,9 +182,8 @@ func (s *SecurityGroupService) translateToFlow(rule domain.SecurityRule) ports.F
 
 	if rule.PortMin > 0 {
 		if rule.PortMin == rule.PortMax {
-			if rule.Protocol == "tcp" {
-				matchParts = append(matchParts, fmt.Sprintf("tp_dst=%d", rule.PortMin))
-			} else if rule.Protocol == "udp" {
+			switch rule.Protocol {
+			case "tcp", "udp":
 				matchParts = append(matchParts, fmt.Sprintf("tp_dst=%d", rule.PortMin))
 			}
 		} else if rule.PortMax > rule.PortMin {
