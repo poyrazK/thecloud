@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	cronPath    = "/cron"
-	testJobName = "job-1"
+	cronPath       = "/cron"
+	testJobName    = "job-1"
+	testExampleURL = "http://example.com"
 )
 
 type mockCronService struct {
@@ -77,12 +78,12 @@ func TestCronHandlerCreateJob(t *testing.T) {
 	r.POST(cronPath, handler.CreateJob)
 
 	job := &domain.CronJob{ID: uuid.New(), Name: testJobName}
-	svc.On("CreateJob", mock.Anything, testJobName, "* * * * *", "http://example.com", "POST", "payload").Return(job, nil)
+	svc.On("CreateJob", mock.Anything, testJobName, "* * * * *", testExampleURL, "POST", "payload").Return(job, nil)
 
 	body, err := json.Marshal(map[string]interface{}{
 		"name":           testJobName,
 		"schedule":       "* * * * *",
-		"target_url":     "http://example.com",
+		"target_url":     testExampleURL,
 		"target_method":  "POST",
 		"target_payload": "payload",
 	})

@@ -13,6 +13,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	gatewayV1Prefix  = "/v1"
+	gatewayTargetURL = "http://target:80"
+)
+
 func setupGatewayServiceTest(t *testing.T, initialRoutes []*domain.GatewayRoute) (*MockGatewayRepo, *MockAuditService, ports.GatewayService) {
 	repo := new(MockGatewayRepo)
 	auditSvc := new(MockAuditService)
@@ -35,14 +40,14 @@ func TestGatewayServiceCreateRoute(t *testing.T) {
 	repo.On("CreateRoute", ctx, mock.AnythingOfType("*domain.GatewayRoute")).Return(nil)
 	repo.On("GetAllActiveRoutes", ctx).Return([]*domain.GatewayRoute{}, nil)
 	auditSvc.On("Log", ctx, userID, "gateway.route_create", "gateway", mock.Anything, mock.MatchedBy(func(details map[string]interface{}) bool {
-		return details["prefix"] == "/v1"
+		return details["prefix"] == gatewayV1Prefix
 	})).Return(nil)
 
-	route, err := svc.CreateRoute(ctx, "test-api", "/v1", "http://target:80", true, 100)
+	route, err := svc.CreateRoute(ctx, "test-api", gatewayV1Prefix, gatewayTargetURL, true, 100)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, route)
-	assert.Equal(t, "/v1", route.PathPrefix)
+	assert.Equal(t, gatewayV1Prefix, route.PathPrefix)
 }
 
 func TestGatewayServiceRefreshAndGetProxy(t *testing.T) {

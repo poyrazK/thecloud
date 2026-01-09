@@ -15,7 +15,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-const vpcsPath = "/vpcs"
+const (
+	vpcsPath    = "/vpcs"
+	testVpcName = "test-vpc"
+	testCidr    = "10.0.0.0/16"
+)
 
 type mockVpcService struct {
 	mock.Mock
@@ -64,10 +68,10 @@ func TestVpcHandlerCreate(t *testing.T) {
 
 	r.POST(vpcsPath, handler.Create)
 
-	vpc := &domain.VPC{ID: uuid.New(), Name: "test-vpc"}
-	svc.On("CreateVPC", mock.Anything, "test-vpc", "10.0.0.0/16").Return(vpc, nil)
+	vpc := &domain.VPC{ID: uuid.New(), Name: testVpcName}
+	svc.On("CreateVPC", mock.Anything, testVpcName, testCidr).Return(vpc, nil)
 
-	body, err := json.Marshal(map[string]string{"name": "test-vpc", "cidr_block": "10.0.0.0/16"})
+	body, err := json.Marshal(map[string]string{"name": testVpcName, "cidr_block": testCidr})
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", vpcsPath, bytes.NewBuffer(body))
