@@ -54,13 +54,12 @@ func (m *mockCronService) PauseJob(ctx context.Context, id uuid.UUID) error {
 }
 
 func (m *mockCronService) ResumeJob(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 
 func (m *mockCronService) DeleteJob(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	res := m.Called(ctx, id)
+	return res.Error(0)
 }
 
 func setupCronHandlerTest(t *testing.T) (*mockCronService, *CronHandler, *gin.Engine) {

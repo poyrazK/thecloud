@@ -76,8 +76,7 @@ func (m *mockQueueService) DeleteMessage(ctx context.Context, queueID uuid.UUID,
 }
 
 func (m *mockQueueService) PurgeQueue(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 
 func setupQueueHandlerTest(t *testing.T) (*mockQueueService, *QueueHandler, *gin.Engine) {

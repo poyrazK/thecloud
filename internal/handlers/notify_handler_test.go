@@ -57,8 +57,7 @@ func (m *mockNotifyService) ListSubscriptions(ctx context.Context, topicID uuid.
 }
 
 func (m *mockNotifyService) Unsubscribe(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 
 func (m *mockNotifyService) Publish(ctx context.Context, topicID uuid.UUID, body string) error {

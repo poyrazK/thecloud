@@ -34,8 +34,7 @@ func (m *instanceServiceMock) LaunchInstance(ctx context.Context, name, image, p
 }
 
 func (m *instanceServiceMock) StopInstance(ctx context.Context, idOrName string) error {
-	args := m.Called(ctx, idOrName)
-	return args.Error(0)
+	return m.Called(ctx, idOrName).Error(0)
 }
 
 func (m *instanceServiceMock) ListInstances(ctx context.Context) ([]*domain.Instance, error) {
@@ -65,6 +64,7 @@ func (m *instanceServiceMock) GetInstanceStats(ctx context.Context, idOrName str
 }
 
 func (m *instanceServiceMock) TerminateInstance(ctx context.Context, idOrName string) error {
+	// TerminateInstance permanently deletes an instance
 	args := m.Called(ctx, idOrName)
 	return args.Error(0)
 }

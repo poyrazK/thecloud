@@ -57,8 +57,7 @@ func (m *mockCacheService) GetConnectionString(ctx context.Context, idOrName str
 }
 
 func (m *mockCacheService) FlushCache(ctx context.Context, idOrName string) error {
-	args := m.Called(ctx, idOrName)
-	return args.Error(0)
+	return m.Called(ctx, idOrName).Error(0)
 }
 
 func (m *mockCacheService) GetCacheStats(ctx context.Context, idOrName string) (*ports.CacheStats, error) {
