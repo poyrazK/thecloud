@@ -22,7 +22,7 @@ func setupAutoScalingWorkerTest(t *testing.T) (*MockAutoScalingRepo, *MockInstan
 	return mockRepo, mockInstSvc, mockLBSvc, mockEventSvc, mockClock, worker
 }
 
-func TestAutoScalingWorker_Evaluate_ScaleOut(t *testing.T) {
+func TestAutoScalingWorkerEvaluateScaleOut(t *testing.T) {
 	mockRepo, mockInstSvc, _, mockEventSvc, mockClock, worker := setupAutoScalingWorkerTest(t)
 	defer mockRepo.AssertExpectations(t)
 	defer mockInstSvc.AssertExpectations(t)
@@ -67,7 +67,7 @@ func TestAutoScalingWorker_Evaluate_ScaleOut(t *testing.T) {
 	worker.Evaluate(ctx)
 }
 
-func TestAutoScalingWorker_Evaluate_ScaleIn(t *testing.T) {
+func TestAutoScalingWorkerEvaluateScaleIn(t *testing.T) {
 	mockRepo, mockInstSvc, _, mockEventSvc, mockClock, worker := setupAutoScalingWorkerTest(t)
 	defer mockRepo.AssertExpectations(t)
 	defer mockInstSvc.AssertExpectations(t)
@@ -106,7 +106,7 @@ func TestAutoScalingWorker_Evaluate_ScaleIn(t *testing.T) {
 	worker.Evaluate(ctx)
 }
 
-func TestAutoScalingWorker_Evaluate_PolicyTrigger(t *testing.T) {
+func TestAutoScalingWorkerEvaluatePolicyTrigger(t *testing.T) {
 	mockRepo, _, _, _, mockClock, worker := setupAutoScalingWorkerTest(t)
 	defer mockRepo.AssertExpectations(t)
 	defer mockClock.AssertExpectations(t)

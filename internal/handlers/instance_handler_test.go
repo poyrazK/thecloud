@@ -19,6 +19,9 @@ import (
 const (
 	testInstanceName = "test-inst"
 	instancesPath    = "/instances"
+	contentType      = "Content-Type"
+	applicationJSON  = "application/json"
+	complexTestName  = "test-complex"
 )
 
 type instanceServiceMock struct {
@@ -84,7 +87,7 @@ func TestInstanceHandlerLaunchRejectsEmptyImage(t *testing.T) {
 
 	body := `{"name":"` + testInstanceName + `","image":"   "}`
 	req := httptest.NewRequest(http.MethodPost, instancesPath, strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(contentType, applicationJSON)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -110,7 +113,7 @@ func TestInstanceHandlerLaunch(t *testing.T) {
 
 	body := `{"name":"` + testInstanceName + `","image":"alpine"}`
 	req := httptest.NewRequest(http.MethodPost, instancesPath, strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(contentType, applicationJSON)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -225,16 +228,16 @@ func TestInstanceHandlerLaunchWithVolumesAndVPC(t *testing.T) {
 	vpcID := uuid.New()
 	volID := "vol-123"
 
-	inst := &domain.Instance{ID: uuid.New(), Name: "test-complex", VpcID: &vpcID}
+	inst := &domain.Instance{ID: uuid.New(), Name: complexTestName, VpcID: &vpcID}
 
 	expectedVolumes := []domain.VolumeAttachment{
 		{VolumeIDOrName: volID, MountPath: "/mnt/data"},
 	}
 
-	mockSvc.On("LaunchInstance", mock.Anything, "test-complex", "ubuntu", "80:80", &vpcID, (*uuid.UUID)(nil), expectedVolumes).Return(inst, nil)
+	mockSvc.On("LaunchInstance", mock.Anything, complexTestName, "ubuntu", "80:80", &vpcID, (*uuid.UUID)(nil), expectedVolumes).Return(inst, nil)
 
 	body := map[string]interface{}{
-		"name":   "test-complex",
+		"name":   complexTestName,
 		"image":  "ubuntu",
 		"ports":  "80:80",
 		"vpc_id": vpcID.String(),
@@ -245,8 +248,8 @@ func TestInstanceHandlerLaunchWithVolumesAndVPC(t *testing.T) {
 	jsonBody, err := json.Marshal(body)
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/instances", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
+	req := httptest.NewRequest(http.MethodPost, instancesPath, bytes.NewBuffer(jsonBody))
+	req.Header.Set(contentType, applicationJSON)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)

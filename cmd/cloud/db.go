@@ -10,6 +10,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	errorFormat = "Error: %v\n"
+	detailRow   = "%-15s %v\n"
+)
+
 var dbCmd = &cobra.Command{
 	Use:   "db",
 	Short: "Manage managed database instances (RDS)",
@@ -22,7 +27,7 @@ var dbListCmd = &cobra.Command{
 		client := getClient()
 		databases, err := client.ListDatabases()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errorFormat, err)
 			return
 		}
 
@@ -71,7 +76,7 @@ var dbCreateCmd = &cobra.Command{
 		client := getClient()
 		db, err := client.CreateDatabase(name, engine, version, vpcPtr)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errorFormat, err)
 			return
 		}
 
@@ -99,21 +104,21 @@ var dbShowCmd = &cobra.Command{
 		client := getClient()
 		db, err := client.GetDatabase(id)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errorFormat, err)
 			return
 		}
 
 		fmt.Printf("\nDatabase Details\n")
 		fmt.Println(strings.Repeat("-", 40))
-		fmt.Printf("%-15s %v\n", "ID:", db.ID)
-		fmt.Printf("%-15s %v\n", "Name:", db.Name)
-		fmt.Printf("%-15s %v\n", "Engine:", db.Engine)
-		fmt.Printf("%-15s %v\n", "Version:", db.Version)
-		fmt.Printf("%-15s %v\n", "Status:", db.Status)
-		fmt.Printf("%-15s %v\n", "Port:", db.Port)
-		fmt.Printf("%-15s %v\n", "Username:", db.Username)
-		fmt.Printf("%-15s %v\n", "VPC ID:", db.VpcID)
-		fmt.Printf("%-15s %v\n", "Created At:", db.CreatedAt)
+		fmt.Printf(detailRow, "ID:", db.ID)
+		fmt.Printf(detailRow, "Name:", db.Name)
+		fmt.Printf(detailRow, "Engine:", db.Engine)
+		fmt.Printf(detailRow, "Version:", db.Version)
+		fmt.Printf(detailRow, "Status:", db.Status)
+		fmt.Printf(detailRow, "Port:", db.Port)
+		fmt.Printf(detailRow, "Username:", db.Username)
+		fmt.Printf(detailRow, "VPC ID:", db.VpcID)
+		fmt.Printf(detailRow, "Created At:", db.CreatedAt)
 		fmt.Println(strings.Repeat("-", 40))
 		fmt.Println("")
 	},
@@ -127,7 +132,7 @@ var dbRmCmd = &cobra.Command{
 		id := args[0]
 		client := getClient()
 		if err := client.DeleteDatabase(id); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errorFormat, err)
 			return
 		}
 		fmt.Println("[SUCCESS] Database removed.")

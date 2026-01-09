@@ -11,7 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 )
 
-func BenchmarkInstanceService_List(b *testing.B) {
+func BenchmarkInstanceServiceList(b *testing.B) {
 	// Setup
 	repo := &noop.NoopInstanceRepository{}
 	vpcRepo := &noop.NoopVpcRepository{}
@@ -33,7 +33,7 @@ func BenchmarkInstanceService_List(b *testing.B) {
 	}
 }
 
-func BenchmarkVPCService_Get(b *testing.B) {
+func BenchmarkVPCServiceGet(b *testing.B) {
 	repo := &noop.NoopVpcRepository{}
 	network := &noop.NoopNetworkAdapter{}
 	auditSvc := &noop.NoopAuditService{}

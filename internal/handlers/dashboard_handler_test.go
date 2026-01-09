@@ -21,6 +21,7 @@ type dashboardServiceMock struct {
 
 func (m *dashboardServiceMock) GetSummary(ctx context.Context) (*domain.ResourceSummary, error) {
 	args := m.Called(ctx)
+	// Helper for checking return value
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -37,6 +38,7 @@ func (m *dashboardServiceMock) GetRecentEvents(ctx context.Context, limit int) (
 
 func (m *dashboardServiceMock) GetStats(ctx context.Context) (*domain.DashboardStats, error) {
 	args := m.Called(ctx)
+	// Check for nil return
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
