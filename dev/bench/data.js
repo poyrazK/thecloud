@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1767971456633,
+  "lastUpdate": 1767990810167,
   "repoUrl": "https://github.com/PoyrazK/thecloud",
   "entries": {
     "Go Benchmarks": [
@@ -500,6 +500,78 @@ window.BENCHMARK_DATA = {
             "value": 2,
             "unit": "allocs/op",
             "extra": "9141504 times\n4 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "83272398+PoyrazK@users.noreply.github.com",
+            "name": "Poyraz Küçükarslan",
+            "username": "PoyrazK"
+          },
+          "committer": {
+            "email": "83272398+PoyrazK@users.noreply.github.com",
+            "name": "Poyraz Küçükarslan",
+            "username": "PoyrazK"
+          },
+          "distinct": true,
+          "id": "d8db6cf752c65474840994f4b17f000092bd1180",
+          "message": "Merge feature/improve-test-coverage: Increase test coverage to 59.7%\n\nThis merge brings significant improvements to test coverage:\n\nTest Coverage Improvements:\n- Overall: 57.0% → 59.7% (+2.7%)\n- SDK: 44.2% → 80.1% (+35.9%)\n- Repositories: 65.0% → 70.1% (+5.1%)\n- Services: 71.5%\n- Handlers: 65.8%\n\nKey Achievements:\n✅ 16 new SDK test modules with comprehensive coverage\n✅ Fixed repository test issues and improved coverage\n✅ Added comprehensive TESTING.md documentation\n✅ Updated README.md and development.md with current stats\n✅ Fixed all golangci-lint issues (4 errors)\n✅ Resolved race condition in async function test\n✅ All tests passing with race detector\n\nCommits:\n- Repository refactoring and comprehensive unit tests\n- SDK tests for RBAC, Secret, Storage, Snapshot, Subnet, IAC\n- SDK tests for Security Group, Container, Database\n- SDK tests for Cron, Gateway, Events\n- Complete Autoscaling and LoadBalancer coverage\n- Documentation updates\n- Linting fixes (errcheck, ineffassign, staticcheck)\n- Race condition fix in async test",
+          "timestamp": "2026-01-09T23:32:30+03:00",
+          "tree_id": "c669cc51e38d9b429909997ac9a6a479d01770ca",
+          "url": "https://github.com/PoyrazK/thecloud/commit/d8db6cf752c65474840994f4b17f000092bd1180"
+        },
+        "date": 1767990806014,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkInstanceServiceList",
+            "value": 1.867,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "642333475 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - ns/op",
+            "value": 1.867,
+            "unit": "ns/op",
+            "extra": "642333475 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "642333475 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "642333475 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet",
+            "value": 128.8,
+            "unit": "ns/op\t     192 B/op\t       2 allocs/op",
+            "extra": "9194427 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - ns/op",
+            "value": 128.8,
+            "unit": "ns/op",
+            "extra": "9194427 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - B/op",
+            "value": 192,
+            "unit": "B/op",
+            "extra": "9194427 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - allocs/op",
+            "value": 2,
+            "unit": "allocs/op",
+            "extra": "9194427 times\n4 procs"
           }
         ]
       }
