@@ -78,3 +78,22 @@ func TestStorageRepository_List(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, objects, 1)
 }
+
+func TestStorageRepository_SoftDelete(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewStorageRepository(mock)
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	bucket := "mybucket"
+	key := "mykey"
+
+	mock.ExpectExec("UPDATE objects SET deleted_at = \\$1 WHERE bucket = \\$2 AND key = \\$3 AND deleted_at IS NULL AND user_id = \\$4").
+		WithArgs(pgxmock.AnyArg(), bucket, key, userID).
+		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+	err = repo.SoftDelete(ctx, bucket, key)
+	assert.NoError(t, err)
+}
