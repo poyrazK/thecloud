@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type SnapshotRepository struct {
@@ -19,7 +20,7 @@ func NewSnapshotRepository(db DB) *SnapshotRepository {
 func (r *SnapshotRepository) Create(ctx context.Context, s *domain.Snapshot) error {
 	query := `INSERT INTO snapshots (id, user_id, volume_id, volume_name, size_gb, status, description, created_at) 
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
-	_, err := r.db.Exec(ctx, query, s.ID, s.UserID, s.VolumeID, s.VolumeName, s.SizeGB, s.Status, s.Description, s.CreatedAt)
+	_, err := r.db.Exec(ctx, query, s.ID, s.UserID, s.VolumeID, s.VolumeName, s.SizeGB, string(s.Status), s.Description, s.CreatedAt)
 	return err
 }
 
@@ -81,13 +82,19 @@ func (r *SnapshotRepository) ListByUserID(ctx context.Context, userID uuid.UUID)
 
 func (r *SnapshotRepository) Update(ctx context.Context, s *domain.Snapshot) error {
 	query := `UPDATE snapshots SET status = $1, description = $2 WHERE id = $3 AND user_id = $4`
-	_, err := r.db.Exec(ctx, query, s.Status, s.Description, s.ID, s.UserID)
+	_, err := r.db.Exec(ctx, query, string(s.Status), s.Description, s.ID, s.UserID)
 	return err
 }
 
 func (r *SnapshotRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `DELETE FROM snapshots WHERE id = $1 AND user_id = $2`
-	_, err := r.db.Exec(ctx, query, id, userID)
-	return err
+	cmd, err := r.db.Exec(ctx, query, id, userID)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return errors.New(errors.NotFound, "snapshot not found")
+	}
+	return nil
 }

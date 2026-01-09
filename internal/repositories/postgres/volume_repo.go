@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type VolumeRepository struct {
@@ -102,6 +103,12 @@ func (r *VolumeRepository) Update(ctx context.Context, v *domain.Volume) error {
 func (r *VolumeRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `DELETE FROM volumes WHERE id = $1 AND user_id = $2`
-	_, err := r.db.Exec(ctx, query, id, userID)
-	return err
+	cmd, err := r.db.Exec(ctx, query, id, userID)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return errors.New(errors.NotFound, "volume not found")
+	}
+	return nil
 }
