@@ -92,26 +92,25 @@ func TestAuthServiceLoginSuccess(t *testing.T) {
 	ctx := context.Background()
 
 	email := "login@example.com"
-	// Use a variable to avoid "hardcoded secret" detection in this scope
-	userPassword := "correct-password-is-long-enough"
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(userPassword), bcrypt.DefaultCost)
+	// Use predefined constant
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(strongTestPassword), bcrypt.DefaultCost)
 	assert.NoError(t, err)
 	userID := uuid.New()
 	user := &domain.User{ID: userID, Email: email, PasswordHash: string(hashedPassword)}
 
 	userRepo.On("GetByEmail", ctx, email).Return(user, nil)
 	identitySvc.On("CreateKey", ctx, userID, "Default Key").Return(&domain.APIKey{
-		Key:       "sk_test_123",
+		Key:       "mock-api-key",
 		UserID:    userID,
 		CreatedAt: time.Now(),
 	}, nil)
 	auditSvc.On("Log", ctx, userID, "user.login", "user", userID.String(), mock.Anything).Return(nil)
 
-	resultUser, apiKey, err := svc.Login(ctx, email, userPassword)
+	resultUser, apiKey, err := svc.Login(ctx, email, strongTestPassword)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resultUser)
-	assert.Equal(t, "sk_test_123", apiKey)
+	assert.Equal(t, "mock-api-key", apiKey)
 }
 
 func TestAuthServiceLoginWrongPassword(t *testing.T) {
@@ -121,9 +120,8 @@ func TestAuthServiceLoginWrongPassword(t *testing.T) {
 	ctx := context.Background()
 
 	email := "wrong@example.com"
-	// Use a variable for the real password that's hashed
-	realPassword := "real-password-for-hash"
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(realPassword), bcrypt.DefaultCost)
+	// Use predefined constant for the "real" password stored in DB
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(strongTestPassword), bcrypt.DefaultCost)
 	assert.NoError(t, err)
 	user := &domain.User{ID: uuid.New(), Email: email, PasswordHash: string(hashedPassword)}
 
