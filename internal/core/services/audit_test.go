@@ -154,6 +154,7 @@ func TestAuditService_ListLogs_DefaultLimit(t *testing.T) {
 	logs, err := svc.ListLogs(ctx, userID, 0)
 
 	assert.NoError(t, err)
+	assert.NotNil(t, logs)
 	repo.AssertExpectations(t)
 	repo.AssertCalled(t, "ListByUserID", ctx, userID, 50)
 

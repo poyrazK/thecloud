@@ -104,11 +104,10 @@ func TestVpcRepository_GetByID(t *testing.T) {
 		theCloudErr, ok := err.(*theclouderrors.Error)
 		if ok {
 			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
-		} else {
-			// If it's wrapped or directly the error we expect (but it seems the repo wraps it)
-			// The implementation: return nil, errors.New(errors.NotFound, fmt.Sprintf("vpc %s not found", id))
-			// So it should be a custom error.
 		}
+		// If it's wrapped or directly the error we expect (but it seems the repo wraps it)
+		// The implementation: return nil, errors.New(errors.NotFound, fmt.Sprintf("vpc %s not found", id))
+		// So it should be a custom error.
 	})
 
 	t.Run("db error", func(t *testing.T) {
