@@ -29,8 +29,26 @@ func TestClient_AutoScaling(t *testing.T) {
 			return
 		}
 
+		if r.Method == "GET" && r.URL.Path == "/autoscaling/groups/asg-1" {
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(Response[ScalingGroup]{
+				Data: ScalingGroup{ID: "asg-1", Name: "test-asg", Status: "ACTIVE"},
+			})
+			return
+		}
+
+		if r.Method == "DELETE" && r.URL.Path == "/autoscaling/groups/asg-1" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
 		if r.Method == "POST" && r.URL.Path == "/autoscaling/groups/asg-1/policies" {
 			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method == "DELETE" && r.URL.Path == "/autoscaling/policies/pol-1" {
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 
@@ -59,6 +77,18 @@ func TestClient_AutoScaling(t *testing.T) {
 		assert.Len(t, groups, 1)
 	})
 
+	t.Run("GetScalingGroup", func(t *testing.T) {
+		group, err := client.GetScalingGroup("asg-1")
+		assert.NoError(t, err)
+		assert.NotNil(t, group)
+		assert.Equal(t, "asg-1", group.ID)
+	})
+
+	t.Run("DeleteScalingGroup", func(t *testing.T) {
+		err := client.DeleteScalingGroup("asg-1")
+		assert.NoError(t, err)
+	})
+
 	t.Run("CreateScalingPolicy", func(t *testing.T) {
 		req := CreatePolicyRequest{
 			Name:        "scale-out",
@@ -66,6 +96,11 @@ func TestClient_AutoScaling(t *testing.T) {
 			TargetValue: 70,
 		}
 		err := client.CreateScalingPolicy("asg-1", req)
+		assert.NoError(t, err)
+	})
+
+	t.Run("DeleteScalingPolicy", func(t *testing.T) {
+		err := client.DeleteScalingPolicy("pol-1")
 		assert.NoError(t, err)
 	})
 }
