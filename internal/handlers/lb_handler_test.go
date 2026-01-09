@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	lbPath     = "/lb"
-	testLBName = "test-lb"
+	lbPath         = "/lb"
+	testLBName     = "test-lb"
+	algoRoundRobin = "round-robin"
 )
 
 type mockLBService struct {
@@ -81,13 +82,13 @@ func TestLBHandlerCreate(t *testing.T) {
 
 	vpcID := uuid.New()
 	lb := &domain.LoadBalancer{ID: uuid.New(), Name: testLBName}
-	svc.On("Create", mock.Anything, testLBName, vpcID, 80, "round-robin", "").Return(lb, nil)
+	svc.On("Create", mock.Anything, testLBName, vpcID, 80, algoRoundRobin, "").Return(lb, nil)
 
 	body, err := json.Marshal(map[string]interface{}{
 		"name":      testLBName,
 		"vpc_id":    vpcID.String(),
 		"port":      80,
-		"algorithm": "round-robin",
+		"algorithm": algoRoundRobin,
 	})
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
