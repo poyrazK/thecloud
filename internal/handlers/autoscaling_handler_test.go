@@ -15,6 +15,14 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	asgPath        = "/autoscaling/groups"
+	policyPath     = "/autoscaling/policies"
+	testAsgName    = "asg-1"
+	testPolicyName = "policy-1"
+	invalidIDPath  = "/invalid-id"
+)
+
 type mockAutoScalingService struct {
 	mock.Mock
 }
@@ -74,18 +82,18 @@ func setupAutoScalingHandlerTest(t *testing.T) (*mockAutoScalingService, *AutoSc
 	return svc, handler, r
 }
 
-func TestAutoScalingHandler_CreateGroup(t *testing.T) {
+func TestAutoScalingHandlerCreateGroup(t *testing.T) {
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.POST("/autoscaling/groups", handler.CreateGroup)
+	r.POST(asgPath, handler.CreateGroup)
 
 	vpcID := uuid.New()
-	group := &domain.ScalingGroup{ID: uuid.New(), Name: "asg-1"}
-	svc.On("CreateGroup", mock.Anything, "asg-1", vpcID, "alpine", "80:80", 1, 5, 2, (*uuid.UUID)(nil), "").Return(group, nil)
+	group := &domain.ScalingGroup{ID: uuid.New(), Name: testAsgName}
+	svc.On("CreateGroup", mock.Anything, testAsgName, vpcID, "alpine", "80:80", 1, 5, 2, (*uuid.UUID)(nil), "").Return(group, nil)
 
 	body, err := json.Marshal(map[string]interface{}{
-		"name":          "asg-1",
+		"name":          testAsgName,
 		"vpc_id":        vpcID.String(),
 		"image":         "alpine",
 		"ports":         "80:80",
@@ -95,23 +103,23 @@ func TestAutoScalingHandler_CreateGroup(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("POST", "/autoscaling/groups", bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", asgPath, bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
-func TestAutoScalingHandler_ListGroups(t *testing.T) {
+func TestAutoScalingHandlerListGroups(t *testing.T) {
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.GET("/autoscaling/groups", handler.ListGroups)
+	r.GET(asgPath, handler.ListGroups)
 
-	groups := []*domain.ScalingGroup{{ID: uuid.New(), Name: "asg-1"}}
+	groups := []*domain.ScalingGroup{{ID: uuid.New(), Name: testAsgName}}
 	svc.On("ListGroups", mock.Anything).Return(groups, nil)
 
-	req, err := http.NewRequest(http.MethodGet, "/autoscaling/groups", nil)
+	req, err := http.NewRequest(http.MethodGet, asgPath, nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -119,17 +127,17 @@ func TestAutoScalingHandler_ListGroups(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestAutoScalingHandler_GetGroup(t *testing.T) {
+func TestAutoScalingHandlerGetGroup(t *testing.T) {
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.GET("/autoscaling/groups/:id", handler.GetGroup)
+	r.GET(asgPath+"/:id", handler.GetGroup)
 
 	id := uuid.New()
-	group := &domain.ScalingGroup{ID: id, Name: "asg-1"}
+	group := &domain.ScalingGroup{ID: id, Name: testAsgName}
 	svc.On("GetGroup", mock.Anything, id).Return(group, nil)
 
-	req, err := http.NewRequest(http.MethodGet, "/autoscaling/groups/"+id.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, asgPath+"/"+id.String(), nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -137,16 +145,16 @@ func TestAutoScalingHandler_GetGroup(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestAutoScalingHandler_DeleteGroup(t *testing.T) {
+func TestAutoScalingHandlerDeleteGroup(t *testing.T) {
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.DELETE("/autoscaling/groups/:id", handler.DeleteGroup)
+	r.DELETE(asgPath+"/:id", handler.DeleteGroup)
 
 	id := uuid.New()
 	svc.On("DeleteGroup", mock.Anything, id).Return(nil)
 
-	req, err := http.NewRequest(http.MethodDelete, "/autoscaling/groups/"+id.String(), nil)
+	req, err := http.NewRequest(http.MethodDelete, asgPath+"/"+id.String(), nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -154,18 +162,18 @@ func TestAutoScalingHandler_DeleteGroup(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, w.Code)
 }
 
-func TestAutoScalingHandler_CreatePolicy(t *testing.T) {
+func TestAutoScalingHandlerCreatePolicy(t *testing.T) {
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.POST("/autoscaling/groups/:id/policies", handler.CreatePolicy)
+	r.POST(asgPath+"/:id/policies", handler.CreatePolicy)
 
 	groupID := uuid.New()
-	policy := &domain.ScalingPolicy{ID: uuid.New(), Name: "policy-1"}
-	svc.On("CreatePolicy", mock.Anything, groupID, "policy-1", "cpu", 80.0, 1, 1, 60).Return(policy, nil)
+	policy := &domain.ScalingPolicy{ID: uuid.New(), Name: testPolicyName}
+	svc.On("CreatePolicy", mock.Anything, groupID, testPolicyName, "cpu", 80.0, 1, 1, 60).Return(policy, nil)
 
 	body, err := json.Marshal(map[string]interface{}{
-		"name":           "policy-1",
+		"name":           testPolicyName,
 		"metric_type":    "cpu",
 		"target_value":   80.0,
 		"scale_out_step": 1,
@@ -174,23 +182,23 @@ func TestAutoScalingHandler_CreatePolicy(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("POST", "/autoscaling/groups/"+groupID.String()+"/policies", bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", asgPath+"/"+groupID.String()+"/policies", bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
-func TestAutoScalingHandler_DeletePolicy(t *testing.T) {
+func TestAutoScalingHandlerDeletePolicy(t *testing.T) {
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.DELETE("/autoscaling/policies/:id", handler.DeletePolicy)
+	r.DELETE(policyPath+"/:id", handler.DeletePolicy)
 
 	id := uuid.New()
 	svc.On("DeletePolicy", mock.Anything, id).Return(nil)
 
-	req, err := http.NewRequest(http.MethodDelete, "/autoscaling/policies/"+id.String(), nil)
+	req, err := http.NewRequest(http.MethodDelete, policyPath+"/"+id.String(), nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -198,13 +206,13 @@ func TestAutoScalingHandler_DeletePolicy(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, w.Code)
 }
 
-func TestAutoScalingHandler_CreateGroup_Errors(t *testing.T) {
+func TestAutoScalingHandlerCreateGroupErrors(t *testing.T) {
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
-	r.POST("/autoscaling/groups", handler.CreateGroup)
+	r.POST(asgPath, handler.CreateGroup)
 
 	t.Run("InvalidInput", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPost, "/autoscaling/groups", bytes.NewBufferString("invalid json"))
+		req, err := http.NewRequest(http.MethodPost, asgPath, bytes.NewBufferString("invalid json"))
 		assert.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -219,7 +227,7 @@ func TestAutoScalingHandler_CreateGroup_Errors(t *testing.T) {
 			"ports": "80:80", "min_instances": 1, "max_instances": 5, "desired_count": 2,
 		})
 		assert.NoError(t, err)
-		req, err := http.NewRequest(http.MethodPost, "/autoscaling/groups", bytes.NewBuffer(body))
+		req, err := http.NewRequest(http.MethodPost, asgPath, bytes.NewBuffer(body))
 		assert.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -227,13 +235,13 @@ func TestAutoScalingHandler_CreateGroup_Errors(t *testing.T) {
 	})
 }
 
-func TestAutoScalingHandler_GetGroup_Errors(t *testing.T) {
+func TestAutoScalingHandlerGetGroupErrors(t *testing.T) {
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
-	r.GET("/autoscaling/groups/:id", handler.GetGroup)
+	r.GET(asgPath+"/:id", handler.GetGroup)
 
 	t.Run("InvalidID", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodGet, "/autoscaling/groups/invalid-id", nil)
+		req, err := http.NewRequest(http.MethodGet, asgPath+invalidIDPath, nil)
 		assert.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -243,7 +251,7 @@ func TestAutoScalingHandler_GetGroup_Errors(t *testing.T) {
 	t.Run("ServiceError", func(t *testing.T) {
 		id := uuid.New()
 		svc.On("GetGroup", mock.Anything, id).Return(nil, assert.AnError).Once()
-		req, err := http.NewRequest(http.MethodGet, "/autoscaling/groups/"+id.String(), nil)
+		req, err := http.NewRequest(http.MethodGet, asgPath+"/"+id.String(), nil)
 		assert.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -251,13 +259,13 @@ func TestAutoScalingHandler_GetGroup_Errors(t *testing.T) {
 	})
 }
 
-func TestAutoScalingHandler_DeleteGroup_Errors(t *testing.T) {
+func TestAutoScalingHandlerDeleteGroupErrors(t *testing.T) {
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
-	r.DELETE("/autoscaling/groups/:id", handler.DeleteGroup)
+	r.DELETE(asgPath+"/:id", handler.DeleteGroup)
 
 	t.Run("InvalidID", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodDelete, "/autoscaling/groups/invalid-id", nil)
+		req, err := http.NewRequest(http.MethodDelete, asgPath+invalidIDPath, nil)
 		assert.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -267,7 +275,7 @@ func TestAutoScalingHandler_DeleteGroup_Errors(t *testing.T) {
 	t.Run("ServiceError", func(t *testing.T) {
 		id := uuid.New()
 		svc.On("DeleteGroup", mock.Anything, id).Return(assert.AnError).Once()
-		req, err := http.NewRequest(http.MethodDelete, "/autoscaling/groups/"+id.String(), nil)
+		req, err := http.NewRequest(http.MethodDelete, asgPath+"/"+id.String(), nil)
 		assert.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -275,26 +283,26 @@ func TestAutoScalingHandler_DeleteGroup_Errors(t *testing.T) {
 	})
 }
 
-func TestAutoScalingHandler_ListGroups_Error(t *testing.T) {
+func TestAutoScalingHandlerListGroupsError(t *testing.T) {
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
-	r.GET("/autoscaling/groups", handler.ListGroups)
+	r.GET(asgPath, handler.ListGroups)
 
 	svc.On("ListGroups", mock.Anything).Return(nil, assert.AnError).Once()
-	req, err := http.NewRequest(http.MethodGet, "/autoscaling/groups", nil)
+	req, err := http.NewRequest(http.MethodGet, asgPath, nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestAutoScalingHandler_CreatePolicy_Errors(t *testing.T) {
+func TestAutoScalingHandlerCreatePolicyErrors(t *testing.T) {
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
-	r.POST("/autoscaling/groups/:id/policies", handler.CreatePolicy)
+	r.POST(asgPath+"/:id/policies", handler.CreatePolicy)
 
 	t.Run("InvalidGroupID", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPost, "/autoscaling/groups/invalid-id/policies", nil)
+		req, err := http.NewRequest(http.MethodPost, asgPath+invalidIDPath+"/policies", nil)
 		assert.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -303,7 +311,7 @@ func TestAutoScalingHandler_CreatePolicy_Errors(t *testing.T) {
 
 	t.Run("InvalidInput", func(t *testing.T) {
 		id := uuid.New()
-		req, err := http.NewRequest(http.MethodPost, "/autoscaling/groups/"+id.String()+"/policies", bytes.NewBufferString("invalid"))
+		req, err := http.NewRequest(http.MethodPost, asgPath+"/"+id.String()+"/policies", bytes.NewBufferString("invalid"))
 		assert.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -318,7 +326,7 @@ func TestAutoScalingHandler_CreatePolicy_Errors(t *testing.T) {
 			"name": "p1", "metric_type": "cpu", "target_value": 50, "scale_out_step": 1, "scale_in_step": 1, "cooldown_sec": 60,
 		})
 		assert.NoError(t, err)
-		req, err := http.NewRequest(http.MethodPost, "/autoscaling/groups/"+id.String()+"/policies", bytes.NewBuffer(body))
+		req, err := http.NewRequest(http.MethodPost, asgPath+"/"+id.String()+"/policies", bytes.NewBuffer(body))
 		assert.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -326,13 +334,13 @@ func TestAutoScalingHandler_CreatePolicy_Errors(t *testing.T) {
 	})
 }
 
-func TestAutoScalingHandler_DeletePolicy_Errors(t *testing.T) {
+func TestAutoScalingHandlerDeletePolicyErrors(t *testing.T) {
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
-	r.DELETE("/autoscaling/policies/:id", handler.DeletePolicy)
+	r.DELETE(policyPath+"/:id", handler.DeletePolicy)
 
 	t.Run("InvalidID", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodDelete, "/autoscaling/policies/invalid-id", nil)
+		req, err := http.NewRequest(http.MethodDelete, policyPath+invalidIDPath, nil)
 		assert.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -342,7 +350,7 @@ func TestAutoScalingHandler_DeletePolicy_Errors(t *testing.T) {
 	t.Run("ServiceError", func(t *testing.T) {
 		id := uuid.New()
 		svc.On("DeletePolicy", mock.Anything, id).Return(assert.AnError).Once()
-		req, err := http.NewRequest(http.MethodDelete, "/autoscaling/policies/"+id.String(), nil)
+		req, err := http.NewRequest(http.MethodDelete, policyPath+"/"+id.String(), nil)
 		assert.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
