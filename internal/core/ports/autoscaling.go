@@ -37,14 +37,38 @@ type AutoScalingRepository interface {
 	GetAverageCPU(ctx context.Context, instanceIDs []uuid.UUID, since time.Time) (float64, error)
 }
 
+// CreateScalingGroupParams encapsulates arguments for creating a scaling group
+type CreateScalingGroupParams struct {
+	Name           string
+	VpcID          uuid.UUID
+	Image          string
+	Ports          string
+	MinInstances   int
+	MaxInstances   int
+	DesiredCount   int
+	LoadBalancerID *uuid.UUID
+	IdempotencyKey string
+}
+
+// CreateScalingPolicyParams encapsulates arguments for creating a scaling policy
+type CreateScalingPolicyParams struct {
+	GroupID     uuid.UUID
+	Name        string
+	MetricType  string
+	TargetValue float64
+	ScaleOut    int
+	ScaleIn     int
+	CooldownSec int
+}
+
 type AutoScalingService interface {
-	CreateGroup(ctx context.Context, name string, vpcID uuid.UUID, image string, ports string, min, max, desired int, lbID *uuid.UUID, idempotencyKey string) (*domain.ScalingGroup, error)
+	CreateGroup(ctx context.Context, params CreateScalingGroupParams) (*domain.ScalingGroup, error)
 	GetGroup(ctx context.Context, id uuid.UUID) (*domain.ScalingGroup, error)
 	ListGroups(ctx context.Context) ([]*domain.ScalingGroup, error)
 	DeleteGroup(ctx context.Context, id uuid.UUID) error
 	SetDesiredCapacity(ctx context.Context, groupID uuid.UUID, desired int) error
 
-	CreatePolicy(ctx context.Context, groupID uuid.UUID, name, metricType string, targetValue float64, scaleOut, scaleIn, cooldownSec int) (*domain.ScalingPolicy, error)
+	CreatePolicy(ctx context.Context, params CreateScalingPolicyParams) (*domain.ScalingPolicy, error)
 	DeletePolicy(ctx context.Context, id uuid.UUID) error
 }
 

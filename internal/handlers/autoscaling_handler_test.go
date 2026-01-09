@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -32,8 +33,8 @@ type mockAutoScalingService struct {
 }
 
 //nolint:gocritic // Mock function signature matches interface, cannot reduce parameters
-func (m *mockAutoScalingService) CreateGroup(ctx context.Context, name string, vpcID uuid.UUID, image, ports string, min, max, desired int, lbID *uuid.UUID, idempotencyKey string) (*domain.ScalingGroup, error) {
-	args := m.Called(ctx, name, vpcID, image, ports, min, max, desired, lbID, idempotencyKey)
+func (m *mockAutoScalingService) CreateGroup(ctx context.Context, params ports.CreateScalingGroupParams) (*domain.ScalingGroup, error) {
+	args := m.Called(ctx, params)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -61,8 +62,8 @@ func (m *mockAutoScalingService) DeleteGroup(ctx context.Context, id uuid.UUID) 
 }
 
 //nolint:gocritic // Mock function signature matches interface, cannot reduce parameters
-func (m *mockAutoScalingService) CreatePolicy(ctx context.Context, groupID uuid.UUID, name, metricType string, targetValue float64, scaleOut, scaleIn, cooldown int) (*domain.ScalingPolicy, error) {
-	args := m.Called(ctx, groupID, name, metricType, targetValue, scaleOut, scaleIn, cooldown)
+func (m *mockAutoScalingService) CreatePolicy(ctx context.Context, params ports.CreateScalingPolicyParams) (*domain.ScalingPolicy, error) {
+	args := m.Called(ctx, params)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -94,7 +95,17 @@ func TestAutoScalingHandlerCreateGroup(t *testing.T) {
 
 	vpcID := uuid.New()
 	group := &domain.ScalingGroup{ID: uuid.New(), Name: testAsgName}
-	svc.On("CreateGroup", mock.Anything, testAsgName, vpcID, imageAlpine, port8080, 1, 5, 2, (*uuid.UUID)(nil), "").Return(group, nil)
+	svc.On("CreateGroup", mock.Anything, ports.CreateScalingGroupParams{
+		Name:           testAsgName,
+		VpcID:          vpcID,
+		Image:          imageAlpine,
+		Ports:          port8080,
+		MinInstances:   1,
+		MaxInstances:   5,
+		DesiredCount:   2,
+		LoadBalancerID: (*uuid.UUID)(nil),
+		IdempotencyKey: "",
+	}).Return(group, nil)
 
 	body, err := json.Marshal(map[string]interface{}{
 		"name":          testAsgName,
@@ -174,7 +185,15 @@ func TestAutoScalingHandlerCreatePolicy(t *testing.T) {
 
 	groupID := uuid.New()
 	policy := &domain.ScalingPolicy{ID: uuid.New(), Name: testPolicyName}
-	svc.On("CreatePolicy", mock.Anything, groupID, testPolicyName, metricCPU, 80.0, 1, 1, 60).Return(policy, nil)
+	svc.On("CreatePolicy", mock.Anything, ports.CreateScalingPolicyParams{
+		GroupID:     groupID,
+		Name:        testPolicyName,
+		MetricType:  metricCPU,
+		TargetValue: 80.0,
+		ScaleOut:    1,
+		ScaleIn:     1,
+		CooldownSec: 60,
+	}).Return(policy, nil)
 
 	body, err := json.Marshal(map[string]interface{}{
 		"name":           testPolicyName,
@@ -224,7 +243,7 @@ func TestAutoScalingHandlerCreateGroupErrors(t *testing.T) {
 	})
 
 	t.Run("ServiceError", func(t *testing.T) {
-		svc.On("CreateGroup", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError).Once()
+		svc.On("CreateGroup", mock.Anything, mock.AnythingOfType("ports.CreateScalingGroupParams")).Return(nil, assert.AnError).Once()
 
 		body, err := json.Marshal(map[string]interface{}{
 			"name": "asg-err", "vpc_id": uuid.New().String(), "image": imageAlpine,
@@ -324,7 +343,7 @@ func TestAutoScalingHandlerCreatePolicyErrors(t *testing.T) {
 
 	t.Run("ServiceError", func(t *testing.T) {
 		id := uuid.New()
-		svc.On("CreatePolicy", mock.Anything, id, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError).Once()
+		svc.On("CreatePolicy", mock.Anything, mock.AnythingOfType("ports.CreateScalingPolicyParams")).Return(nil, assert.AnError).Once()
 
 		body, err := json.Marshal(map[string]interface{}{
 			"name": "p1", "metric_type": metricCPU, "target_value": 50, "scale_out_step": 1, "scale_in_step": 1, "cooldown_sec": 60,

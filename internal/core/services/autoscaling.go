@@ -26,35 +26,35 @@ func NewAutoScalingService(repo ports.AutoScalingRepository, vpcRepo ports.VpcRe
 	}
 }
 
-func (s *AutoScalingService) CreateGroup(ctx context.Context, name string, vpcID uuid.UUID, image string, ports string, min, max, desired int, lbID *uuid.UUID, idempotencyKey string) (*domain.ScalingGroup, error) {
+func (s *AutoScalingService) CreateGroup(ctx context.Context, params ports.CreateScalingGroupParams) (*domain.ScalingGroup, error) {
 	// Idempotency check
-	if idempotencyKey != "" {
-		if existing, err := s.repo.GetGroupByIdempotencyKey(ctx, idempotencyKey); err == nil && existing != nil {
+	if params.IdempotencyKey != "" {
+		if existing, err := s.repo.GetGroupByIdempotencyKey(ctx, params.IdempotencyKey); err == nil && existing != nil {
 			return existing, nil
 		}
 	}
 
 	// Validation
-	if max > domain.MaxInstancesHardLimit {
+	if params.MaxInstances > domain.MaxInstancesHardLimit {
 		return nil, errors.New(errors.InvalidInput, fmt.Sprintf("max_instances cannot exceed %d", domain.MaxInstancesHardLimit))
 	}
-	if min < 0 {
+	if params.MinInstances < 0 {
 		return nil, errors.New(errors.InvalidInput, "min_instances cannot be negative")
 	}
-	if min > max {
+	if params.MinInstances > params.MaxInstances {
 		return nil, errors.New(errors.InvalidInput, "min_instances cannot be greater than max_instances")
 	}
-	if desired < min || desired > max {
+	if params.DesiredCount < params.MinInstances || params.DesiredCount > params.MaxInstances {
 		return nil, errors.New(errors.InvalidInput, "desired_count must be between min and max instances")
 	}
 
 	// Check VPC exists
-	if _, err := s.vpcRepo.GetByID(ctx, vpcID); err != nil {
+	if _, err := s.vpcRepo.GetByID(ctx, params.VpcID); err != nil {
 		return nil, err
 	}
 
 	// Security: Check VPC group limit
-	count, err := s.repo.CountGroupsByVPC(ctx, vpcID)
+	count, err := s.repo.CountGroupsByVPC(ctx, params.VpcID)
 	if err != nil {
 		return nil, err
 	}
@@ -65,15 +65,15 @@ func (s *AutoScalingService) CreateGroup(ctx context.Context, name string, vpcID
 	group := &domain.ScalingGroup{
 		ID:             uuid.New(),
 		UserID:         appcontext.UserIDFromContext(ctx),
-		IdempotencyKey: idempotencyKey,
-		Name:           name,
-		VpcID:          vpcID,
-		LoadBalancerID: lbID,
-		Image:          image,
-		Ports:          ports,
-		MinInstances:   min,
-		MaxInstances:   max,
-		DesiredCount:   desired,
+		IdempotencyKey: params.IdempotencyKey,
+		Name:           params.Name,
+		VpcID:          params.VpcID,
+		LoadBalancerID: params.LoadBalancerID,
+		Image:          params.Image,
+		Ports:          params.Ports,
+		MinInstances:   params.MinInstances,
+		MaxInstances:   params.MaxInstances,
+		DesiredCount:   params.DesiredCount,
 		CurrentCount:   0, // Worker will spawn these
 		Status:         domain.ScalingGroupStatusActive,
 		Version:        1,
@@ -136,24 +136,24 @@ func (s *AutoScalingService) SetDesiredCapacity(ctx context.Context, groupID uui
 	return s.repo.UpdateGroup(ctx, group)
 }
 
-func (s *AutoScalingService) CreatePolicy(ctx context.Context, groupID uuid.UUID, name, metricType string, targetValue float64, scaleOut, scaleIn, cooldownSec int) (*domain.ScalingPolicy, error) {
-	if _, err := s.repo.GetGroupByID(ctx, groupID); err != nil {
+func (s *AutoScalingService) CreatePolicy(ctx context.Context, params ports.CreateScalingPolicyParams) (*domain.ScalingPolicy, error) {
+	if _, err := s.repo.GetGroupByID(ctx, params.GroupID); err != nil {
 		return nil, err
 	}
 
-	if cooldownSec < domain.MinCooldownSeconds {
+	if params.CooldownSec < domain.MinCooldownSeconds {
 		return nil, errors.New(errors.InvalidInput, fmt.Sprintf("cooldown must be at least %d seconds", domain.MinCooldownSeconds))
 	}
 
 	policy := &domain.ScalingPolicy{
 		ID:             uuid.New(),
-		ScalingGroupID: groupID,
-		Name:           name,
-		MetricType:     metricType,
-		TargetValue:    targetValue,
-		ScaleOutStep:   scaleOut,
-		ScaleInStep:    scaleIn,
-		CooldownSec:    cooldownSec,
+		ScalingGroupID: params.GroupID,
+		Name:           params.Name,
+		MetricType:     params.MetricType,
+		TargetValue:    params.TargetValue,
+		ScaleOutStep:   params.ScaleOut,
+		ScaleInStep:    params.ScaleIn,
+		CooldownSec:    params.CooldownSec,
 	}
 
 	if err := s.repo.CreatePolicy(ctx, policy); err != nil {
