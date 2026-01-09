@@ -10,6 +10,10 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+const (
+	errInvalidGroupID = "invalid group id"
+)
+
 type AutoScalingHandler struct {
 	svc ports.AutoScalingService
 }
@@ -101,7 +105,7 @@ func (h *AutoScalingHandler) ListGroups(c *gin.Context) {
 func (h *AutoScalingHandler) GetGroup(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid group id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidGroupID))
 		return
 	}
 
@@ -127,7 +131,7 @@ func (h *AutoScalingHandler) GetGroup(c *gin.Context) {
 func (h *AutoScalingHandler) DeleteGroup(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid group id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidGroupID))
 		return
 	}
 
@@ -163,7 +167,7 @@ type CreateASPolicyRequest struct {
 func (h *AutoScalingHandler) CreatePolicy(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid group id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidGroupID))
 		return
 	}
 
