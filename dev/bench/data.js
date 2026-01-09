@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1767970407851,
+  "lastUpdate": 1767970506038,
   "repoUrl": "https://github.com/PoyrazK/thecloud",
   "entries": {
     "Go Benchmarks": [
@@ -216,6 +216,78 @@ window.BENCHMARK_DATA = {
             "value": 2,
             "unit": "allocs/op",
             "extra": "8985362 times\n4 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "83272398+PoyrazK@users.noreply.github.com",
+            "name": "Poyraz Küçükarslan",
+            "username": "PoyrazK"
+          },
+          "committer": {
+            "email": "83272398+PoyrazK@users.noreply.github.com",
+            "name": "Poyraz Küçükarslan",
+            "username": "PoyrazK"
+          },
+          "distinct": true,
+          "id": "bca24ceea9ab3acff3ccb0b68b7b50c68d548622",
+          "message": "fix(lint): resolve golangci-lint staticcheck and unused issues\n\n- Add package comment to setup package to satisfy ST1000\n- Remove unused constants bucketKeyRoute and roleIDRoute from cmd/api/main.go\n- All 5 lint issues resolved (3 staticcheck + 2 unused)",
+          "timestamp": "2026-01-09T17:54:30+03:00",
+          "tree_id": "64652a9094724a98ff93270a3880819d07948d1f",
+          "url": "https://github.com/PoyrazK/thecloud/commit/bca24ceea9ab3acff3ccb0b68b7b50c68d548622"
+        },
+        "date": 1767970496850,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkInstanceServiceList",
+            "value": 1.867,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "641201409 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - ns/op",
+            "value": 1.867,
+            "unit": "ns/op",
+            "extra": "641201409 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "641201409 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "641201409 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet",
+            "value": 131,
+            "unit": "ns/op\t     192 B/op\t       2 allocs/op",
+            "extra": "9077884 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - ns/op",
+            "value": 131,
+            "unit": "ns/op",
+            "extra": "9077884 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - B/op",
+            "value": 192,
+            "unit": "B/op",
+            "extra": "9077884 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - allocs/op",
+            "value": 2,
+            "unit": "allocs/op",
+            "extra": "9077884 times\n4 procs"
           }
         ]
       }
