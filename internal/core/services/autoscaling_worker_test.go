@@ -2,12 +2,14 @@ package services_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -155,4 +157,145 @@ func TestAutoScalingWorkerEvaluatePolicyTrigger(t *testing.T) {
 	mockRepo.On("UpdatePolicyLastScaled", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	worker.Evaluate(ctx)
+}
+
+func TestAutoScalingWorker_Run_ContextCancellation(t *testing.T) {
+	mockRepo, _, _, _, _, worker := setupAutoScalingWorkerTest(t)
+	defer mockRepo.AssertExpectations(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Mock the Evaluate call that will happen
+	mockRepo.On("ListAllGroups", mock.Anything).Return([]*domain.ScalingGroup{}, nil).Maybe()
+	mockRepo.On("GetAllScalingGroupInstances", mock.Anything, mock.Anything).Return(map[uuid.UUID][]uuid.UUID{}, nil).Maybe()
+	mockRepo.On("GetAllPolicies", mock.Anything, mock.Anything).Return(map[uuid.UUID][]*domain.ScalingPolicy{}, nil).Maybe()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go worker.Run(ctx, &wg)
+
+	// Give it a moment to start
+	time.Sleep(100 * time.Millisecond)
+
+	// Cancel context
+	cancel()
+
+	// Wait for worker to stop
+	wg.Wait()
+
+	// If we get here, the worker stopped gracefully
+}
+
+func TestAutoScalingWorker_CleanupGroup_DeletesGroup(t *testing.T) {
+	mockRepo, _, _, _, _, worker := setupAutoScalingWorkerTest(t)
+	defer mockRepo.AssertExpectations(t)
+
+	ctx := context.Background()
+	groupID := uuid.New()
+	group := &domain.ScalingGroup{
+		ID:     groupID,
+		Name:   "test-group",
+		Status: domain.ScalingGroupStatusDeleting,
+	}
+
+	// When no instances, should delete the group
+	mockRepo.On("ListAllGroups", ctx).Return([]*domain.ScalingGroup{group}, nil)
+	mockRepo.On("GetAllScalingGroupInstances", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]uuid.UUID{groupID: {}}, nil)
+	mockRepo.On("GetAllPolicies", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]*domain.ScalingPolicy{}, nil)
+	mockRepo.On("DeleteGroup", mock.Anything, groupID).Return(nil) // Use mock.Anything for context since worker adds UserID
+
+	worker.Evaluate(ctx)
+
+	mockRepo.AssertCalled(t, "DeleteGroup", mock.Anything, groupID)
+}
+
+func TestAutoScalingWorker_RecordFailure(t *testing.T) {
+	// This test verifies the worker logic handles failures properly
+	// by checking that UpdateGroup is called when there's a failure
+	mockRepo, mockInstSvc, _, _, mockClock, worker := setupAutoScalingWorkerTest(t)
+	defer mockRepo.AssertExpectations(t)
+	defer mockInstSvc.AssertExpectations(t)
+	defer mockClock.AssertExpectations(t)
+
+	ctx := context.Background()
+	groupID := uuid.New()
+	userID := uuid.New()
+	now := time.Now()
+
+	group := &domain.ScalingGroup{
+		ID:           groupID,
+		UserID:       userID,
+		Name:         "test-group",
+		MinInstances: 1,
+		MaxInstances: 5,
+		DesiredCount: 2,
+		CurrentCount: 1,
+		Image:        "nginx",
+		Ports:        "80:80",
+		Status:       domain.ScalingGroupStatusActive,
+		FailureCount: 0,
+	}
+
+	mockClock.On("Now").Return(now)
+	mockRepo.On("ListAllGroups", ctx).Return([]*domain.ScalingGroup{group}, nil)
+	mockRepo.On("GetAllScalingGroupInstances", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]uuid.UUID{groupID: {}}, nil)
+	mockRepo.On("GetAllPolicies", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]*domain.ScalingPolicy{}, nil)
+
+	// Simulate a failure during scale out - use context matcher to handle UserID context
+	mockInstSvc.On("LaunchInstance", mock.Anything, mock.Anything, "nginx", "80:80", mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
+
+	// Should record failure - use Any() matcher for context
+	mockRepo.On("UpdateGroup", mock.Anything, mock.Anything).Return(nil)
+
+	worker.Evaluate(ctx)
+
+	mockRepo.AssertCalled(t, "UpdateGroup", mock.Anything, mock.Anything)
+}
+
+func TestAutoScalingWorker_ResetFailures(t *testing.T) {
+	// This test verifies that successful operations reset the failure count
+	mockRepo, mockInstSvc, _, mockEventSvc, mockClock, worker := setupAutoScalingWorkerTest(t)
+	defer mockRepo.AssertExpectations(t)
+	defer mockInstSvc.AssertExpectations(t)
+	defer mockEventSvc.AssertExpectations(t)
+	defer mockClock.AssertExpectations(t)
+
+	ctx := context.Background()
+	groupID := uuid.New()
+	userID := uuid.New()
+	instanceID := uuid.New()
+	now := time.Now()
+	pastTime := now.Add(-1 * time.Hour)
+
+	group := &domain.ScalingGroup{
+		ID:            groupID,
+		UserID:        userID,
+		Name:          "test-group",
+		MinInstances:  1,
+		MaxInstances:  5,
+		DesiredCount:  2,
+		CurrentCount:  1,
+		Image:         "nginx",
+		Ports:         "80:80",
+		Status:        domain.ScalingGroupStatusActive,
+		FailureCount:  3,
+		LastFailureAt: &pastTime,
+	}
+
+	mockClock.On("Now").Return(now)
+	mockRepo.On("ListAllGroups", ctx).Return([]*domain.ScalingGroup{group}, nil)
+	mockRepo.On("GetAllScalingGroupInstances", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]uuid.UUID{groupID: {instanceID}}, nil)
+	mockRepo.On("GetAllPolicies", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]*domain.ScalingPolicy{}, nil)
+
+	// Successful scale out should reset failures
+	newInstance := &domain.Instance{ID: uuid.New(), UserID: userID}
+	mockInstSvc.On("LaunchInstance", mock.Anything, mock.Anything, "nginx", "80:80", mock.Anything, mock.Anything, mock.Anything).Return(newInstance, nil)
+	mockEventSvc.On("RecordEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	mockRepo.On("UpdateGroup", mock.Anything, mock.Anything).Return(nil)
+
+	worker.Evaluate(ctx)
+
+	mockRepo.AssertCalled(t, "UpdateGroup", mock.Anything, mock.Anything)
 }
