@@ -15,6 +15,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	databasesPath = "/databases"
+	testDBName    = "db-1"
+)
+
 type mockDatabaseService struct {
 	mock.Mock
 }
@@ -61,39 +66,39 @@ func setupDatabaseHandlerTest(t *testing.T) (*mockDatabaseService, *DatabaseHand
 	return svc, handler, r
 }
 
-func TestDatabaseHandler_Create(t *testing.T) {
+func TestDatabaseHandlerCreate(t *testing.T) {
 	svc, handler, r := setupDatabaseHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.POST("/databases", handler.Create)
+	r.POST(databasesPath, handler.Create)
 
-	db := &domain.Database{ID: uuid.New(), Name: "db-1"}
-	svc.On("CreateDatabase", mock.Anything, "db-1", "postgres", "15", (*uuid.UUID)(nil)).Return(db, nil)
+	db := &domain.Database{ID: uuid.New(), Name: testDBName}
+	svc.On("CreateDatabase", mock.Anything, testDBName, "postgres", "15", (*uuid.UUID)(nil)).Return(db, nil)
 
 	body, err := json.Marshal(map[string]interface{}{
-		"name":    "db-1",
+		"name":    testDBName,
 		"engine":  "postgres",
 		"version": "15",
 	})
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("POST", "/databases", bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", databasesPath, bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
-func TestDatabaseHandler_List(t *testing.T) {
+func TestDatabaseHandlerList(t *testing.T) {
 	svc, handler, r := setupDatabaseHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.GET("/databases", handler.List)
+	r.GET(databasesPath, handler.List)
 
-	dbs := []*domain.Database{{ID: uuid.New(), Name: "db-1"}}
+	dbs := []*domain.Database{{ID: uuid.New(), Name: testDBName}}
 	svc.On("ListDatabases", mock.Anything).Return(dbs, nil)
 
-	req, err := http.NewRequest(http.MethodGet, "/databases", nil)
+	req, err := http.NewRequest(http.MethodGet, databasesPath, nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -101,17 +106,17 @@ func TestDatabaseHandler_List(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestDatabaseHandler_Get(t *testing.T) {
+func TestDatabaseHandlerGet(t *testing.T) {
 	svc, handler, r := setupDatabaseHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.GET("/databases/:id", handler.Get)
+	r.GET(databasesPath+"/:id", handler.Get)
 
 	id := uuid.New()
-	db := &domain.Database{ID: id, Name: "db-1"}
+	db := &domain.Database{ID: id, Name: testDBName}
 	svc.On("GetDatabase", mock.Anything, id).Return(db, nil)
 
-	req, err := http.NewRequest(http.MethodGet, "/databases/"+id.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, databasesPath+"/"+id.String(), nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -119,16 +124,16 @@ func TestDatabaseHandler_Get(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestDatabaseHandler_Delete(t *testing.T) {
+func TestDatabaseHandlerDelete(t *testing.T) {
 	svc, handler, r := setupDatabaseHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.DELETE("/databases/:id", handler.Delete)
+	r.DELETE(databasesPath+"/:id", handler.Delete)
 
 	id := uuid.New()
 	svc.On("DeleteDatabase", mock.Anything, id).Return(nil)
 
-	req, err := http.NewRequest(http.MethodDelete, "/databases/"+id.String(), nil)
+	req, err := http.NewRequest(http.MethodDelete, databasesPath+"/"+id.String(), nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -136,16 +141,16 @@ func TestDatabaseHandler_Delete(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestDatabaseHandler_GetConnectionString(t *testing.T) {
+func TestDatabaseHandlerGetConnectionString(t *testing.T) {
 	svc, handler, r := setupDatabaseHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.GET("/databases/:id/connection", handler.GetConnectionString)
+	r.GET(databasesPath+"/:id/connection", handler.GetConnectionString)
 
 	id := uuid.New()
 	svc.On("GetConnectionString", mock.Anything, id).Return("postgres://user:pass@host:5432/db", nil)
 
-	req, err := http.NewRequest(http.MethodGet, "/databases/"+id.String()+"/connection", nil)
+	req, err := http.NewRequest(http.MethodGet, databasesPath+"/"+id.String()+"/connection", nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)

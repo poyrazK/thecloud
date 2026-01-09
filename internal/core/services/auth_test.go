@@ -26,7 +26,7 @@ func setupAuthServiceTest(t *testing.T) (*MockUserRepo, *MockIdentityService, *M
 	return userRepo, identitySvc, auditSvc, svc
 }
 
-func TestAuthService_Register_Success(t *testing.T) {
+func TestAuthServiceRegisterSuccess(t *testing.T) {
 	userRepo, _, auditSvc, svc := setupAuthServiceTest(t)
 	defer userRepo.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
@@ -51,7 +51,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 	assert.NotEqual(t, password, user.PasswordHash) // Hashed
 }
 
-func TestAuthService_Register_WeakPassword(t *testing.T) {
+func TestAuthServiceRegisterWeakPassword(t *testing.T) {
 	userRepo, _, _, svc := setupAuthServiceTest(t)
 	defer userRepo.AssertExpectations(t)
 
@@ -65,7 +65,7 @@ func TestAuthService_Register_WeakPassword(t *testing.T) {
 	assert.Contains(t, err.Error(), "password is too weak")
 }
 
-func TestAuthService_Register_DuplicateEmail(t *testing.T) {
+func TestAuthServiceRegisterDuplicateEmail(t *testing.T) {
 	userRepo, _, _, svc := setupAuthServiceTest(t)
 	defer userRepo.AssertExpectations(t)
 
@@ -83,7 +83,7 @@ func TestAuthService_Register_DuplicateEmail(t *testing.T) {
 	assert.Contains(t, err.Error(), "already exists")
 }
 
-func TestAuthService_Login_Success(t *testing.T) {
+func TestAuthServiceLoginSuccess(t *testing.T) {
 	userRepo, identitySvc, auditSvc, svc := setupAuthServiceTest(t)
 	defer userRepo.AssertExpectations(t)
 	defer identitySvc.AssertExpectations(t)
@@ -92,35 +92,36 @@ func TestAuthService_Login_Success(t *testing.T) {
 	ctx := context.Background()
 
 	email := "login@example.com"
-	password := "correct-password-is-long-enough"
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	// Use predefined constant
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(strongTestPassword), bcrypt.DefaultCost)
 	assert.NoError(t, err)
 	userID := uuid.New()
 	user := &domain.User{ID: userID, Email: email, PasswordHash: string(hashedPassword)}
 
 	userRepo.On("GetByEmail", ctx, email).Return(user, nil)
 	identitySvc.On("CreateKey", ctx, userID, "Default Key").Return(&domain.APIKey{
-		Key:       "sk_test_123",
+		Key:       "mock-api-key",
 		UserID:    userID,
 		CreatedAt: time.Now(),
 	}, nil)
 	auditSvc.On("Log", ctx, userID, "user.login", "user", userID.String(), mock.Anything).Return(nil)
 
-	resultUser, apiKey, err := svc.Login(ctx, email, password)
+	resultUser, apiKey, err := svc.Login(ctx, email, strongTestPassword)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resultUser)
-	assert.Equal(t, "sk_test_123", apiKey)
+	assert.Equal(t, "mock-api-key", apiKey)
 }
 
-func TestAuthService_Login_WrongPassword(t *testing.T) {
+func TestAuthServiceLoginWrongPassword(t *testing.T) {
 	userRepo, _, _, svc := setupAuthServiceTest(t)
 	defer userRepo.AssertExpectations(t)
 
 	ctx := context.Background()
 
 	email := "wrong@example.com"
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("real-password"), bcrypt.DefaultCost)
+	// Use predefined constant for the "real" password stored in DB
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(strongTestPassword), bcrypt.DefaultCost)
 	assert.NoError(t, err)
 	user := &domain.User{ID: uuid.New(), Email: email, PasswordHash: string(hashedPassword)}
 
@@ -138,7 +139,7 @@ func TestAuthService_Login_WrongPassword(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid")
 }
 
-func TestAuthService_ValidateUser(t *testing.T) {
+func TestAuthServiceValidateUser(t *testing.T) {
 	userRepo, _, _, svc := setupAuthServiceTest(t)
 	defer userRepo.AssertExpectations(t)
 

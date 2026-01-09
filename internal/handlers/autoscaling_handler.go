@@ -10,6 +10,10 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+const (
+	errInvalidGroupID = "invalid group id"
+)
+
 type AutoScalingHandler struct {
 	svc ports.AutoScalingService
 }
@@ -50,7 +54,19 @@ func (h *AutoScalingHandler) CreateGroup(c *gin.Context) {
 
 	key := c.GetHeader("Idempotency-Key")
 
-	group, err := h.svc.CreateGroup(c.Request.Context(), req.Name, req.VpcID, req.Image, req.Ports, req.MinInstances, req.MaxInstances, req.DesiredCount, req.LoadBalancerID, key)
+	params := ports.CreateScalingGroupParams{
+		Name:           req.Name,
+		VpcID:          req.VpcID,
+		Image:          req.Image,
+		Ports:          req.Ports,
+		MinInstances:   req.MinInstances,
+		MaxInstances:   req.MaxInstances,
+		DesiredCount:   req.DesiredCount,
+		LoadBalancerID: req.LoadBalancerID,
+		IdempotencyKey: key,
+	}
+
+	group, err := h.svc.CreateGroup(c.Request.Context(), params)
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -89,7 +105,7 @@ func (h *AutoScalingHandler) ListGroups(c *gin.Context) {
 func (h *AutoScalingHandler) GetGroup(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid group id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidGroupID))
 		return
 	}
 
@@ -115,7 +131,7 @@ func (h *AutoScalingHandler) GetGroup(c *gin.Context) {
 func (h *AutoScalingHandler) DeleteGroup(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid group id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidGroupID))
 		return
 	}
 
@@ -151,7 +167,7 @@ type CreateASPolicyRequest struct {
 func (h *AutoScalingHandler) CreatePolicy(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid group id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidGroupID))
 		return
 	}
 
@@ -161,7 +177,17 @@ func (h *AutoScalingHandler) CreatePolicy(c *gin.Context) {
 		return
 	}
 
-	policy, err := h.svc.CreatePolicy(c.Request.Context(), id, req.Name, req.MetricType, req.TargetValue, req.ScaleOut, req.ScaleIn, req.CooldownSec)
+	params := ports.CreateScalingPolicyParams{
+		GroupID:     id,
+		Name:        req.Name,
+		MetricType:  req.MetricType,
+		TargetValue: req.TargetValue,
+		ScaleOut:    req.ScaleOut,
+		ScaleIn:     req.ScaleIn,
+		CooldownSec: req.CooldownSec,
+	}
+
+	policy, err := h.svc.CreatePolicy(c.Request.Context(), params)
 	if err != nil {
 		httputil.Error(c, err)
 		return

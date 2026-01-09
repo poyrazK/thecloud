@@ -16,6 +16,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	routesPath    = "/gateway/routes"
+	testRouteName = "route-1"
+)
+
 type mockGatewayService struct {
 	mock.Mock
 }
@@ -62,40 +67,40 @@ func setupGatewayHandlerTest(t *testing.T) (*mockGatewayService, *GatewayHandler
 	return svc, handler, r
 }
 
-func TestGatewayHandler_CreateRoute(t *testing.T) {
+func TestGatewayHandlerCreateRoute(t *testing.T) {
 	svc, handler, r := setupGatewayHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.POST("/gateway/routes", handler.CreateRoute)
+	r.POST(routesPath, handler.CreateRoute)
 
-	route := &domain.GatewayRoute{ID: uuid.New(), Name: "route-1"}
-	svc.On("CreateRoute", mock.Anything, "route-1", "/api/v1", "http://example.com", false, 100).Return(route, nil)
+	route := &domain.GatewayRoute{ID: uuid.New(), Name: testRouteName}
+	svc.On("CreateRoute", mock.Anything, testRouteName, "/api/v1", "http://example.com", false, 100).Return(route, nil)
 
 	body, err := json.Marshal(map[string]interface{}{
-		"name":        "route-1",
+		"name":        testRouteName,
 		"path_prefix": "/api/v1",
 		"target_url":  "http://example.com",
 		"rate_limit":  100,
 	})
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("POST", "/gateway/routes", bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", routesPath, bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
-func TestGatewayHandler_ListRoutes(t *testing.T) {
+func TestGatewayHandlerListRoutes(t *testing.T) {
 	svc, handler, r := setupGatewayHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.GET("/gateway/routes", handler.ListRoutes)
+	r.GET(routesPath, handler.ListRoutes)
 
-	routes := []*domain.GatewayRoute{{ID: uuid.New(), Name: "route-1"}}
+	routes := []*domain.GatewayRoute{{ID: uuid.New(), Name: testRouteName}}
 	svc.On("ListRoutes", mock.Anything).Return(routes, nil)
 
-	req, err := http.NewRequest(http.MethodGet, "/gateway/routes", nil)
+	req, err := http.NewRequest(http.MethodGet, routesPath, nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -103,16 +108,16 @@ func TestGatewayHandler_ListRoutes(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestGatewayHandler_DeleteRoute(t *testing.T) {
+func TestGatewayHandlerDeleteRoute(t *testing.T) {
 	svc, handler, r := setupGatewayHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.DELETE("/gateway/routes/:id", handler.DeleteRoute)
+	r.DELETE(routesPath+"/:id", handler.DeleteRoute)
 
 	id := uuid.New()
 	svc.On("DeleteRoute", mock.Anything, id).Return(nil)
 
-	req, err := http.NewRequest(http.MethodDelete, "/gateway/routes/"+id.String(), nil)
+	req, err := http.NewRequest(http.MethodDelete, routesPath+"/"+id.String(), nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -120,7 +125,7 @@ func TestGatewayHandler_DeleteRoute(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestGatewayHandler_Proxy_NotFound(t *testing.T) {
+func TestGatewayHandlerProxyNotFound(t *testing.T) {
 	svc, handler, r := setupGatewayHandlerTest(t)
 	defer svc.AssertExpectations(t)
 

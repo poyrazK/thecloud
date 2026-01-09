@@ -16,6 +16,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	queuesPath    = "/queues"
+	testQueueName = "q-1"
+)
+
 type mockQueueService struct {
 	mock.Mock
 }
@@ -71,8 +76,7 @@ func (m *mockQueueService) DeleteMessage(ctx context.Context, queueID uuid.UUID,
 }
 
 func (m *mockQueueService) PurgeQueue(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
+	return m.Called(ctx, id).Error(0)
 }
 
 func setupQueueHandlerTest(t *testing.T) (*mockQueueService, *QueueHandler, *gin.Engine) {
@@ -83,38 +87,38 @@ func setupQueueHandlerTest(t *testing.T) (*mockQueueService, *QueueHandler, *gin
 	return svc, handler, r
 }
 
-func TestQueueHandler_Create(t *testing.T) {
+func TestQueueHandlerCreate(t *testing.T) {
 	svc, handler, r := setupQueueHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.POST("/queues", handler.Create)
+	r.POST(queuesPath, handler.Create)
 
-	q := &domain.Queue{ID: uuid.New(), Name: "q-1"}
+	q := &domain.Queue{ID: uuid.New(), Name: testQueueName}
 	// Expect opts to have nils for optional fields as per request
-	svc.On("CreateQueue", mock.Anything, "q-1", mock.MatchedBy(func(opts *ports.CreateQueueOptions) bool {
+	svc.On("CreateQueue", mock.Anything, testQueueName, mock.MatchedBy(func(opts *ports.CreateQueueOptions) bool {
 		return opts.VisibilityTimeout == nil && opts.RetentionDays == nil && opts.MaxMessageSize == nil
 	})).Return(q, nil)
 
-	body, err := json.Marshal(map[string]interface{}{"name": "q-1"})
+	body, err := json.Marshal(map[string]interface{}{"name": testQueueName})
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("POST", "/queues", bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", queuesPath, bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
-func TestQueueHandler_List(t *testing.T) {
+func TestQueueHandlerList(t *testing.T) {
 	svc, handler, r := setupQueueHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.GET("/queues", handler.List)
+	r.GET(queuesPath, handler.List)
 
-	queues := []*domain.Queue{{ID: uuid.New(), Name: "q-1"}}
+	queues := []*domain.Queue{{ID: uuid.New(), Name: testQueueName}}
 	svc.On("ListQueues", mock.Anything).Return(queues, nil)
 
-	req, err := http.NewRequest(http.MethodGet, "/queues", nil)
+	req, err := http.NewRequest(http.MethodGet, queuesPath, nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -122,17 +126,17 @@ func TestQueueHandler_List(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestQueueHandler_Get(t *testing.T) {
+func TestQueueHandlerGet(t *testing.T) {
 	svc, handler, r := setupQueueHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.GET("/queues/:id", handler.Get)
+	r.GET(queuesPath+"/:id", handler.Get)
 
 	id := uuid.New()
-	q := &domain.Queue{ID: id, Name: "q-1"}
+	q := &domain.Queue{ID: id, Name: testQueueName}
 	svc.On("GetQueue", mock.Anything, id).Return(q, nil)
 
-	req, err := http.NewRequest(http.MethodGet, "/queues/"+id.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, queuesPath+"/"+id.String(), nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -140,16 +144,16 @@ func TestQueueHandler_Get(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestQueueHandler_Delete(t *testing.T) {
+func TestQueueHandlerDelete(t *testing.T) {
 	svc, handler, r := setupQueueHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.DELETE("/queues/:id", handler.Delete)
+	r.DELETE(queuesPath+"/:id", handler.Delete)
 
 	id := uuid.New()
 	svc.On("DeleteQueue", mock.Anything, id).Return(nil)
 
-	req, err := http.NewRequest(http.MethodDelete, "/queues/"+id.String(), nil)
+	req, err := http.NewRequest(http.MethodDelete, queuesPath+"/"+id.String(), nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -157,11 +161,11 @@ func TestQueueHandler_Delete(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, w.Code)
 }
 
-func TestQueueHandler_SendMessage(t *testing.T) {
+func TestQueueHandlerSendMessage(t *testing.T) {
 	svc, handler, r := setupQueueHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.POST("/queues/:id/messages", handler.SendMessage)
+	r.POST(queuesPath+"/:id/messages", handler.SendMessage)
 
 	id := uuid.New()
 	msg := &domain.Message{ID: uuid.New(), Body: "hello"}
@@ -170,24 +174,24 @@ func TestQueueHandler_SendMessage(t *testing.T) {
 	body, err := json.Marshal(map[string]interface{}{"body": "hello"})
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("POST", "/queues/"+id.String()+"/messages", bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", queuesPath+"/"+id.String()+"/messages", bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
-func TestQueueHandler_ReceiveMessages(t *testing.T) {
+func TestQueueHandlerReceiveMessages(t *testing.T) {
 	svc, handler, r := setupQueueHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.GET("/queues/:id/messages", handler.ReceiveMessages)
+	r.GET(queuesPath+"/:id/messages", handler.ReceiveMessages)
 
 	id := uuid.New()
 	msgs := []*domain.Message{{ID: uuid.New(), Body: "hello"}}
 	svc.On("ReceiveMessages", mock.Anything, id, 10).Return(msgs, nil)
 
-	req, err := http.NewRequest(http.MethodGet, "/queues/"+id.String()+"/messages?max_messages=10", nil)
+	req, err := http.NewRequest(http.MethodGet, queuesPath+"/"+id.String()+"/messages?max_messages=10", nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -195,17 +199,17 @@ func TestQueueHandler_ReceiveMessages(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestQueueHandler_DeleteMessage(t *testing.T) {
+func TestQueueHandlerDeleteMessage(t *testing.T) {
 	svc, handler, r := setupQueueHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.DELETE("/queues/:id/messages/:handle", handler.DeleteMessage)
+	r.DELETE(queuesPath+"/:id/messages/:handle", handler.DeleteMessage)
 
 	id := uuid.New()
 	handle := "handle123"
 	svc.On("DeleteMessage", mock.Anything, id, handle).Return(nil)
 
-	req, err := http.NewRequest(http.MethodDelete, "/queues/"+id.String()+"/messages/"+handle, nil)
+	req, err := http.NewRequest(http.MethodDelete, queuesPath+"/"+id.String()+"/messages/"+handle, nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -213,16 +217,16 @@ func TestQueueHandler_DeleteMessage(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, w.Code)
 }
 
-func TestQueueHandler_Purge(t *testing.T) {
+func TestQueueHandlerPurge(t *testing.T) {
 	svc, handler, r := setupQueueHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.POST("/queues/:id/purge", handler.Purge)
+	r.POST(queuesPath+"/:id/purge", handler.Purge)
 
 	id := uuid.New()
 	svc.On("PurgeQueue", mock.Anything, id).Return(nil)
 
-	req, err := http.NewRequest(http.MethodPost, "/queues/"+id.String()+"/purge", nil)
+	req, err := http.NewRequest(http.MethodPost, queuesPath+"/"+id.String()+"/purge", nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)

@@ -15,6 +15,13 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	deploymentsPath   = "/containers/deployments"
+	testDepName       = "dep-1"
+	imageNginx        = "nginx"
+	containerPort8080 = "80:80"
+)
+
 type mockContainerService struct {
 	mock.Mock
 }
@@ -61,40 +68,40 @@ func setupContainerHandlerTest(t *testing.T) (*mockContainerService, *ContainerH
 	return svc, handler, r
 }
 
-func TestContainerHandler_CreateDeployment(t *testing.T) {
+func TestContainerHandlerCreateDeployment(t *testing.T) {
 	svc, handler, r := setupContainerHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.POST("/containers/deployments", handler.CreateDeployment)
+	r.POST(deploymentsPath, handler.CreateDeployment)
 
-	dep := &domain.Deployment{ID: uuid.New(), Name: "dep-1"}
-	svc.On("CreateDeployment", mock.Anything, "dep-1", "nginx", 3, "80:80").Return(dep, nil)
+	dep := &domain.Deployment{ID: uuid.New(), Name: testDepName}
+	svc.On("CreateDeployment", mock.Anything, testDepName, imageNginx, 3, containerPort8080).Return(dep, nil)
 
 	body, err := json.Marshal(map[string]interface{}{
-		"name":     "dep-1",
-		"image":    "nginx",
+		"name":     testDepName,
+		"image":    imageNginx,
 		"replicas": 3,
-		"ports":    "80:80",
+		"ports":    containerPort8080,
 	})
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("POST", "/containers/deployments", bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", deploymentsPath, bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
-func TestContainerHandler_ListDeployments(t *testing.T) {
+func TestContainerHandlerListDeployments(t *testing.T) {
 	svc, handler, r := setupContainerHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.GET("/containers/deployments", handler.ListDeployments)
+	r.GET(deploymentsPath, handler.ListDeployments)
 
-	deps := []*domain.Deployment{{ID: uuid.New(), Name: "dep-1"}}
+	deps := []*domain.Deployment{{ID: uuid.New(), Name: testDepName}}
 	svc.On("ListDeployments", mock.Anything).Return(deps, nil)
 
-	req, err := http.NewRequest(http.MethodGet, "/containers/deployments", nil)
+	req, err := http.NewRequest(http.MethodGet, deploymentsPath, nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -102,17 +109,17 @@ func TestContainerHandler_ListDeployments(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestContainerHandler_GetDeployment(t *testing.T) {
+func TestContainerHandlerGetDeployment(t *testing.T) {
 	svc, handler, r := setupContainerHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.GET("/containers/deployments/:id", handler.GetDeployment)
+	r.GET(deploymentsPath+"/:id", handler.GetDeployment)
 
 	id := uuid.New()
-	dep := &domain.Deployment{ID: id, Name: "dep-1"}
+	dep := &domain.Deployment{ID: id, Name: testDepName}
 	svc.On("GetDeployment", mock.Anything, id).Return(dep, nil)
 
-	req, err := http.NewRequest(http.MethodGet, "/containers/deployments/"+id.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, deploymentsPath+"/"+id.String(), nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -120,11 +127,11 @@ func TestContainerHandler_GetDeployment(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestContainerHandler_ScaleDeployment(t *testing.T) {
+func TestContainerHandlerScaleDeployment(t *testing.T) {
 	svc, handler, r := setupContainerHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.POST("/containers/deployments/:id/scale", handler.ScaleDeployment)
+	r.POST(deploymentsPath+"/:id/scale", handler.ScaleDeployment)
 
 	id := uuid.New()
 	svc.On("ScaleDeployment", mock.Anything, id, 5).Return(nil)
@@ -132,23 +139,23 @@ func TestContainerHandler_ScaleDeployment(t *testing.T) {
 	body, err := json.Marshal(map[string]interface{}{"replicas": 5})
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("POST", "/containers/deployments/"+id.String()+"/scale", bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", deploymentsPath+"/"+id.String()+"/scale", bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestContainerHandler_DeleteDeployment(t *testing.T) {
+func TestContainerHandlerDeleteDeployment(t *testing.T) {
 	svc, handler, r := setupContainerHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.DELETE("/containers/deployments/:id", handler.DeleteDeployment)
+	r.DELETE(deploymentsPath+"/:id", handler.DeleteDeployment)
 
 	id := uuid.New()
 	svc.On("DeleteDeployment", mock.Anything, id).Return(nil)
 
-	req, err := http.NewRequest(http.MethodDelete, "/containers/deployments/"+id.String(), nil)
+	req, err := http.NewRequest(http.MethodDelete, deploymentsPath+"/"+id.String(), nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)

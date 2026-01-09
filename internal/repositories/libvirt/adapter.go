@@ -24,7 +24,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
-const defaultPoolName = "default"
+const (
+	defaultPoolName  = "default"
+	userDataFileName = "user-data"
+	metaDataFileName = "meta-data"
+	errGetVolumePath = "failed to get volume path: %w"
+)
 
 type LibvirtAdapter struct {
 	conn   *libvirt.Libvirt
@@ -85,28 +90,10 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName str
 		name = uuid.New().String()[:8]
 	}
 
-	// 1. Prepare storage
-	// We assume 'imageName' is a backing volume in the default pool.
-	pool, err := a.conn.StoragePoolLookupByName(defaultPoolName)
+	// 1. Prepare storage (root volume)
+	diskPath, vol, err := a.prepareRootVolume(name)
 	if err != nil {
-		return "", fmt.Errorf("default pool not found: %w", err)
-	}
-
-	// Create root disk for the VM
-	// For simplicity, we just create an empty 10GB qcows if image not found, or clone if we knew how (omitted for brevity)
-	volXML := generateVolumeXML(name+"-root", 10)
-
-	vol, err := a.conn.StorageVolCreateXML(pool, volXML, 0)
-	if err != nil {
-		// Try to continue if exists? No, better fail.
-		return "", fmt.Errorf("failed to create root volume: %w", err)
-	}
-
-	// Get volume path from libvirt
-	diskPath, err := a.conn.StorageVolGetPath(vol)
-	if err != nil {
-		_ = a.conn.StorageVolDelete(vol, 0)
-		return "", fmt.Errorf("failed to get volume path: %w", err)
+		return "", err
 	}
 
 	// 2. Cloud-Init ISO (if env or cmd provided)
@@ -120,16 +107,7 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName str
 	}
 
 	// 3. Resolve Volume Binds to host paths
-	var additionalDisks []string
-	for _, volName := range volumeBinds {
-		vol, err := a.conn.StorageVolLookupByName(pool, volName)
-		if err == nil {
-			path, err := a.conn.StorageVolGetPath(vol)
-			if err == nil {
-				additionalDisks = append(additionalDisks, path)
-			}
-		}
-	}
+	additionalDisks := a.resolveBinds(volumeBinds)
 
 	// 4. Define Domain
 	// Memory: 512MB
@@ -147,7 +125,7 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName str
 		if isoPath != "" {
 			if err := os.Remove(isoPath); err != nil {
 				// Log but don't fail cleanup
-				fmt.Printf("Warning: failed to remove ISO %s: %v\n", isoPath, err)
+				a.logger.Warn("failed to remove ISO", "path", isoPath, "error", err)
 			}
 		}
 		return "", fmt.Errorf("failed to define domain: %w", err)
@@ -155,85 +133,14 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName str
 
 	// 5. Start Domain
 	if err := a.conn.DomainCreate(dom); err != nil {
+		_ = a.conn.DomainUndefine(dom)
+		_ = a.conn.StorageVolDelete(vol, 0)
 		return "", fmt.Errorf("failed to start domain: %w", err)
 	}
 
 	// 4. Port Forwarding (Best effort)
 	if len(ports) > 0 {
-		go func() {
-			// Wait for VM to get an IP
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-			defer cancel()
-
-			ip, err := a.waitInitialIP(ctx, name)
-			if err != nil {
-				a.logger.Error("failed to get ip for port forwarding", "instance", name, "error", err)
-				return
-			}
-
-			for _, p := range ports {
-				// Format: [hostPort:]containerPort
-				parts := strings.Split(p, ":")
-				var hostPort, containerPort string
-				if len(parts) == 2 {
-					hostPort = parts[0]
-					containerPort = parts[1]
-				} else {
-					hostPort = "0"
-					containerPort = parts[0]
-				}
-
-				// Security: Validate ports are numeric
-				var hP, cP int
-				_, errH := fmt.Sscanf(hostPort, "%d", &hP)
-				_, errC := fmt.Sscanf(containerPort, "%d", &cP)
-				if (hostPort != "0" && errH != nil) || errC != nil {
-					a.logger.Warn("invalid port format, skipping forwarding", "port", p)
-					continue
-				}
-
-				// Validate IP format
-				if net.ParseIP(ip) == nil {
-					a.logger.Error("invalid vm ip for port forwarding", "ip", ip)
-					return
-				}
-
-				hPort := 0
-				if hostPort == "0" {
-					// Allocate random port (deterministic for simplicity in this POC)
-					hPort = 30000 + int(uuid.New().ID()%10000)
-				} else {
-					// Parse host port, ignore error as we validate hPort > 0 below
-					_, _ = fmt.Sscanf(hostPort, "%d", &hPort)
-				}
-
-				if hPort > 0 {
-					a.mu.Lock()
-					if a.portMappings[name] == nil {
-						a.portMappings[name] = make(map[string]int)
-					}
-					a.portMappings[name][containerPort] = hPort
-					a.mu.Unlock()
-
-					a.logger.Info("setting up port forwarding", "host", hPort, "vm", containerPort, "ip", ip)
-					// iptables -t nat -A PREROUTING -p tcp --dport <hPort> -j DNAT --to <ip>:<containerPort>
-					path, err := exec.LookPath("iptables")
-					if err != nil {
-						a.logger.Error("iptables not found, cannot set up port forwarding", "error", err)
-						continue
-					}
-					if path != "" {
-						// Security: Use numeric values to avoid injection
-						hPortStr := strconv.Itoa(hPort)
-						cPortStr := strconv.Itoa(cP)
-						cmd := exec.Command("sudo", "iptables", "-t", "nat", "-A", "PREROUTING", "-p", "tcp", "--dport", hPortStr, "-j", "DNAT", "--to", ip+":"+cPortStr)
-						if err := cmd.Run(); err != nil {
-							a.logger.Error("failed to set up iptables rule", "command", cmd.String(), "error", err)
-						}
-					}
-				}
-			}
-		}()
+		go a.setupPortForwarding(name, ports)
 	}
 
 	return name, nil
@@ -300,7 +207,7 @@ func (a *LibvirtAdapter) DeleteInstance(ctx context.Context, id string) error {
 		a.logger.Warn("invalid id for iso cleanup", "id", id)
 		return nil
 	}
-	isoPath := filepath.Join("/tmp", "cloud-init-"+id+".iso")
+	isoPath := filepath.Join(os.TempDir(), "cloud-init-"+id+".iso")
 	_ = os.Remove(isoPath)
 
 	// Try to delete root volume?
@@ -468,7 +375,7 @@ func (a *LibvirtAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions)
 	diskPath, err := a.conn.StorageVolGetPath(vol)
 	if err != nil {
 		_ = a.conn.StorageVolDelete(vol, 0)
-		return "", fmt.Errorf("failed to get volume path: %w", err)
+		return "", fmt.Errorf(errGetVolumePath, err)
 	}
 
 	// 2. Cloud-Init
@@ -617,7 +524,7 @@ func (a *LibvirtAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID stri
 
 	volPath, err := a.conn.StorageVolGetPath(vol)
 	if err != nil {
-		return fmt.Errorf("failed to get volume path: %w", err)
+		return fmt.Errorf(errGetVolumePath, err)
 	}
 
 	// Use qemu-img to convert the volume to a temporary qcow2
@@ -628,7 +535,7 @@ func (a *LibvirtAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID stri
 	}
 	defer func() {
 		if err := os.Remove(tmpQcow2); err != nil {
-			fmt.Printf("Warning: failed to remove temp file %s: %v\n", tmpQcow2, err)
+			a.logger.Warn("failed to remove temp file", "path", tmpQcow2, "error", err)
 		}
 	}()
 
@@ -655,7 +562,7 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 
 	volPath, err := a.conn.StorageVolGetPath(vol)
 	if err != nil {
-		return fmt.Errorf("failed to get volume path: %w", err)
+		return fmt.Errorf(errGetVolumePath, err)
 	}
 
 	// 1. Untar
@@ -665,7 +572,7 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 	}
 	defer func() {
 		if err := os.RemoveAll(tmpDir); err != nil {
-			fmt.Printf("Warning: failed to remove temp dir %s: %v\n", tmpDir, err)
+			a.logger.Warn("failed to remove temp dir", "path", tmpDir, "error", err)
 		}
 	}()
 
@@ -701,13 +608,13 @@ func (a *LibvirtAdapter) generateCloudInitISO(ctx context.Context, name string, 
 	}
 	defer func() {
 		if err := os.RemoveAll(tmpDir); err != nil {
-			fmt.Printf("Warning: failed to remove temp dir %s: %v\n", tmpDir, err)
+			a.logger.Warn("failed to remove temp dir", "path", tmpDir, "error", err)
 		}
 	}()
 
 	// meta-data
 	metaData := fmt.Sprintf("instance-id: %s\nlocal-hostname: %s\n", name, name)
-	if err := os.WriteFile(filepath.Join(tmpDir, "meta-data"), []byte(metaData), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, metaDataFileName), []byte(metaData), 0644); err != nil {
 		return "", err
 	}
 
@@ -731,19 +638,19 @@ func (a *LibvirtAdapter) generateCloudInitISO(ctx context.Context, name string, 
 		}
 	}
 
-	if err := os.WriteFile(filepath.Join(tmpDir, "user-data"), userData.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, userDataFileName), userData.Bytes(), 0644); err != nil {
 		return "", err
 	}
 
-	isoPath := filepath.Join("/tmp", "cloud-init-"+safeName+".iso")
+	isoPath := filepath.Join(os.TempDir(), "cloud-init-"+safeName+".iso")
 
 	// Create ISO
 	genCmd := exec.Command("genisoimage", "-output", isoPath, "-volid", "config-2", "-joliet", "-rock",
-		filepath.Join(tmpDir, "user-data"), filepath.Join(tmpDir, "meta-data"))
+		filepath.Join(tmpDir, userDataFileName), filepath.Join(tmpDir, metaDataFileName))
 
 	if _, err := genCmd.CombinedOutput(); err != nil {
 		genCmd = exec.Command("mkisofs", "-output", isoPath, "-volid", "config-2", "-joliet", "-rock",
-			filepath.Join(tmpDir, "user-data"), filepath.Join(tmpDir, "meta-data"))
+			filepath.Join(tmpDir, userDataFileName), filepath.Join(tmpDir, metaDataFileName))
 		if _, err2 := genCmd.CombinedOutput(); err2 != nil {
 			return "", fmt.Errorf("failed to generate iso (genisoimage/mkisofs): %w", err2)
 		}
@@ -792,4 +699,141 @@ func validateID(id string) error {
 		return fmt.Errorf("invalid id: contains path traversal characters")
 	}
 	return nil
+}
+
+func (a *LibvirtAdapter) setupPortForwarding(name string, ports []string) {
+	// Wait for VM to get an IP
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	ip, err := a.waitInitialIP(ctx, name)
+	if err != nil {
+		a.logger.Error("failed to get ip for port forwarding", "instance", name, "error", err)
+		return
+	}
+
+	for _, p := range ports {
+		hPort, cP, err := a.parseAndValidatePort(p)
+		if err != nil {
+			a.logger.Warn("skipping invalid port forwarding configuration", "port", p, "error", err)
+			continue
+		}
+
+		// Validate IP format
+		if net.ParseIP(ip) == nil {
+			a.logger.Error("invalid vm ip for port forwarding", "ip", ip)
+			return
+		}
+
+		if hPort > 0 {
+			a.configureIptables(name, ip, strconv.Itoa(cP), hPort, cP)
+		}
+	}
+}
+
+func (a *LibvirtAdapter) configureIptables(name, ip, containerPort string, hPort, cP int) {
+	a.mu.Lock()
+	if a.portMappings[name] == nil {
+		a.portMappings[name] = make(map[string]int)
+	}
+	a.portMappings[name][containerPort] = hPort
+	a.mu.Unlock()
+
+	a.logger.Info("setting up port forwarding", "host", hPort, "vm", containerPort, "ip", ip)
+	// iptables -t nat -A PREROUTING -p tcp --dport <hPort> -j DNAT --to <ip>:<containerPort>
+	path, err := exec.LookPath("iptables")
+	if err != nil {
+		a.logger.Error("iptables not found, cannot set up port forwarding", "error", err)
+		return
+	}
+	if path != "" {
+		// Security: Use numeric values to avoid injection
+		hPortStr := strconv.Itoa(hPort)
+		cPortStr := strconv.Itoa(cP)
+		cmd := exec.Command("sudo", "iptables", "-t", "nat", "-A", "PREROUTING", "-p", "tcp", "--dport", hPortStr, "-j", "DNAT", "--to", ip+":"+cPortStr)
+		if err := cmd.Run(); err != nil {
+			a.logger.Error("failed to set up iptables rule", "command", cmd.String(), "error", err)
+		}
+	}
+}
+
+func (a *LibvirtAdapter) prepareRootVolume(name string) (string, libvirt.StorageVol, error) {
+	// We assume 'imageName' is a backing volume in the default pool.
+	pool, err := a.conn.StoragePoolLookupByName(defaultPoolName)
+	if err != nil {
+		return "", libvirt.StorageVol{}, fmt.Errorf("default pool not found: %w", err)
+	}
+
+	// Create root disk for the VM
+	// For simplicity, we just create an empty 10GB qcows if image not found, or clone if we knew how
+	volXML := generateVolumeXML(name+"-root", 10)
+
+	vol, err := a.conn.StorageVolCreateXML(pool, volXML, 0)
+	if err != nil {
+		return "", libvirt.StorageVol{}, fmt.Errorf("failed to create root volume: %w", err)
+	}
+
+	// Get volume path from libvirt
+	diskPath, err := a.conn.StorageVolGetPath(vol)
+	if err != nil {
+		_ = a.conn.StorageVolDelete(vol, 0)
+		return "", libvirt.StorageVol{}, fmt.Errorf(errGetVolumePath, err)
+	}
+
+	return diskPath, vol, nil
+}
+
+func (a *LibvirtAdapter) parseAndValidatePort(p string) (int, int, error) {
+	// Format: [hostPort:]containerPort
+	parts := strings.Split(p, ":")
+	var hostPort, containerPort string
+	if len(parts) == 2 {
+		hostPort = parts[0]
+		containerPort = parts[1]
+	} else {
+		hostPort = "0"
+		containerPort = parts[0]
+	}
+
+	// Security: Validate ports are numeric
+	var hP, cP int
+	_, errH := fmt.Sscanf(hostPort, "%d", &hP)
+	_, errC := fmt.Sscanf(containerPort, "%d", &cP)
+	if (hostPort != "0" && errH != nil) || errC != nil {
+		return 0, 0, fmt.Errorf("invalid port format")
+	}
+
+	hPort := 0
+	if hostPort == "0" {
+		// Allocate random port (deterministic for simplicity in this POC)
+		hPort = 30000 + int(uuid.New().ID()%10000)
+	} else {
+		// Parse host port, ignore error as we validate hPort > 0 below
+		_, _ = fmt.Sscanf(hostPort, "%d", &hPort)
+	}
+
+	return hPort, cP, nil
+}
+
+func (a *LibvirtAdapter) resolveBinds(volumeBinds []string) []string {
+	var additionalDisks []string
+	if len(volumeBinds) == 0 {
+		return additionalDisks
+	}
+
+	pool, err := a.conn.StoragePoolLookupByName(defaultPoolName)
+	if err != nil {
+		return additionalDisks
+	}
+
+	for _, volName := range volumeBinds {
+		v, err := a.conn.StorageVolLookupByName(pool, volName)
+		if err == nil {
+			path, err := a.conn.StorageVolGetPath(v)
+			if err == nil {
+				additionalDisks = append(additionalDisks, path)
+			}
+		}
+	}
+	return additionalDisks
 }

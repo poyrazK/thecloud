@@ -15,6 +15,13 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	rolesPath    = "/rbac/roles"
+	bindPath     = "/rbac/bind"
+	testRoleName = "test-role"
+	adminRole    = "admin"
+)
+
 type mockRBACService struct {
 	mock.Mock
 }
@@ -53,8 +60,7 @@ func (m *mockRBACService) ListRoles(ctx context.Context) ([]*domain.Role, error)
 	return args.Get(0).([]*domain.Role), args.Error(1)
 }
 func (m *mockRBACService) UpdateRole(ctx context.Context, role *domain.Role) error {
-	args := m.Called(ctx, role)
-	return args.Error(0)
+	return m.Called(ctx, role).Error(0)
 }
 func (m *mockRBACService) DeleteRole(ctx context.Context, id uuid.UUID) error {
 	args := m.Called(ctx, id)
@@ -65,8 +71,7 @@ func (m *mockRBACService) AddPermissionToRole(ctx context.Context, roleID uuid.U
 	return args.Error(0)
 }
 func (m *mockRBACService) RemovePermissionFromRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
-	args := m.Called(ctx, roleID, permission)
-	return args.Error(0)
+	return m.Called(ctx, roleID, permission).Error(0)
 }
 func (m *mockRBACService) BindRole(ctx context.Context, userIdentifier string, roleName string) error {
 	args := m.Called(ctx, userIdentifier, roleName)
@@ -88,14 +93,14 @@ func setupRBACHandlerTest(t *testing.T) (*mockRBACService, *RBACHandler, *gin.En
 	return svc, handler, r
 }
 
-func TestRBACHandler_CreateRole(t *testing.T) {
+func TestRBACHandlerCreateRole(t *testing.T) {
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.POST("/rbac/roles", handler.CreateRole)
+	r.POST(rolesPath, handler.CreateRole)
 
 	req := CreateRoleRequest{
-		Name:        "test-role",
+		Name:        testRoleName,
 		Description: "A test role",
 		Permissions: []domain.Permission{domain.PermissionInstanceRead},
 	}
@@ -107,61 +112,61 @@ func TestRBACHandler_CreateRole(t *testing.T) {
 	})).Return(nil)
 
 	w := httptest.NewRecorder()
-	httpReq, err := http.NewRequest("POST", "/rbac/roles", bytes.NewBuffer(body))
+	httpReq, err := http.NewRequest("POST", rolesPath, bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
-func TestRBACHandler_ListRoles(t *testing.T) {
+func TestRBACHandlerListRoles(t *testing.T) {
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.GET("/rbac/roles", handler.ListRoles)
+	r.GET(rolesPath, handler.ListRoles)
 
 	roles := []*domain.Role{
-		{ID: uuid.New(), Name: "admin"},
+		{ID: uuid.New(), Name: adminRole},
 		{ID: uuid.New(), Name: "viewer"},
 	}
 
 	svc.On("ListRoles", mock.Anything).Return(roles, nil)
 
 	w := httptest.NewRecorder()
-	httpReq, err := http.NewRequest("GET", "/rbac/roles", nil)
+	httpReq, err := http.NewRequest("GET", rolesPath, nil)
 	assert.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "admin")
+	assert.Contains(t, w.Body.String(), adminRole)
 	assert.Contains(t, w.Body.String(), "viewer")
 }
 
-func TestRBACHandler_GetRoleByID(t *testing.T) {
+func TestRBACHandlerGetRoleByID(t *testing.T) {
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.GET("/rbac/roles/:id", handler.GetRole)
+	r.GET(rolesPath+"/:id", handler.GetRole)
 
 	roleID := uuid.New()
-	role := &domain.Role{ID: roleID, Name: "admin"}
+	role := &domain.Role{ID: roleID, Name: adminRole}
 
 	svc.On("GetRoleByID", mock.Anything, roleID).Return(role, nil)
 
 	w := httptest.NewRecorder()
-	httpReq, err := http.NewRequest("GET", "/rbac/roles/"+roleID.String(), nil)
+	httpReq, err := http.NewRequest("GET", rolesPath+"/"+roleID.String(), nil)
 	assert.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "admin")
+	assert.Contains(t, w.Body.String(), adminRole)
 }
 
-func TestRBACHandler_GetRoleByName(t *testing.T) {
+func TestRBACHandlerGetRoleByName(t *testing.T) {
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.GET("/rbac/roles/:id", handler.GetRole)
+	r.GET(rolesPath+"/:id", handler.GetRole)
 
 	roleName := "developer"
 	role := &domain.Role{ID: uuid.New(), Name: roleName}
@@ -169,7 +174,7 @@ func TestRBACHandler_GetRoleByName(t *testing.T) {
 	svc.On("GetRoleByName", mock.Anything, roleName).Return(role, nil)
 
 	w := httptest.NewRecorder()
-	httpReq, err := http.NewRequest("GET", "/rbac/roles/"+roleName, nil)
+	httpReq, err := http.NewRequest("GET", rolesPath+"/"+roleName, nil)
 	assert.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
@@ -177,29 +182,29 @@ func TestRBACHandler_GetRoleByName(t *testing.T) {
 	assert.Contains(t, w.Body.String(), roleName)
 }
 
-func TestRBACHandler_DeleteRole(t *testing.T) {
+func TestRBACHandlerDeleteRole(t *testing.T) {
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.DELETE("/rbac/roles/:id", handler.DeleteRole)
+	r.DELETE(rolesPath+"/:id", handler.DeleteRole)
 
 	roleID := uuid.New()
 
 	svc.On("DeleteRole", mock.Anything, roleID).Return(nil)
 
 	w := httptest.NewRecorder()
-	httpReq, err := http.NewRequest("DELETE", "/rbac/roles/"+roleID.String(), nil)
+	httpReq, err := http.NewRequest("DELETE", rolesPath+"/"+roleID.String(), nil)
 	assert.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusNoContent, w.Code)
 }
 
-func TestRBACHandler_AddPermission(t *testing.T) {
+func TestRBACHandlerAddPermission(t *testing.T) {
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.POST("/rbac/roles/:id/permissions", handler.AddPermission)
+	r.POST(rolesPath+"/:id/permissions", handler.AddPermission)
 
 	roleID := uuid.New()
 
@@ -212,21 +217,21 @@ func TestRBACHandler_AddPermission(t *testing.T) {
 	svc.On("AddPermissionToRole", mock.Anything, roleID, domain.PermissionInstanceLaunch).Return(nil)
 
 	w := httptest.NewRecorder()
-	httpReq, err := http.NewRequest("POST", "/rbac/roles/"+roleID.String()+"/permissions", bytes.NewBuffer(body))
+	httpReq, err := http.NewRequest("POST", rolesPath+"/"+roleID.String()+"/permissions", bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusNoContent, w.Code)
 }
 
-func TestRBACHandler_BindRole(t *testing.T) {
+func TestRBACHandlerBindRole(t *testing.T) {
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.POST("/rbac/bind", handler.BindRole)
+	r.POST(bindPath, handler.BindRole)
 
 	userEmail := "user@example.com"
-	roleName := "admin"
+	roleName := adminRole
 
 	body, err := json.Marshal(map[string]string{
 		"user_identifier": userEmail,
@@ -237,7 +242,7 @@ func TestRBACHandler_BindRole(t *testing.T) {
 	svc.On("BindRole", mock.Anything, userEmail, roleName).Return(nil)
 
 	w := httptest.NewRecorder()
-	httpReq, err := http.NewRequest("POST", "/rbac/bind", bytes.NewBuffer(body))
+	httpReq, err := http.NewRequest("POST", bindPath, bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 
@@ -17,7 +18,7 @@ var migrationsFS embed.FS
 // In a real production system, this should track applied migrations in a table.
 // For The Cloud, we'll use IF NOT EXISTS in SQL to make them idempotent-ish,
 // or just run them and ignore "already exists" errors for simplicity in this MVP.
-func RunMigrations(ctx context.Context, db *pgxpool.Pool) error {
+func RunMigrations(ctx context.Context, db *pgxpool.Pool, logger *slog.Logger) error {
 	entries, err := migrationsFS.ReadDir("migrations")
 	if err != nil {
 		return fmt.Errorf("failed to read migrations: %w", err)
@@ -45,9 +46,9 @@ func RunMigrations(ctx context.Context, db *pgxpool.Pool) error {
 		if err != nil {
 			// Log but don't fail, as tables might already exist
 			// Ideally we should check specific error codes
-			fmt.Printf("Migration %s result: %v\n", entry.Name(), err)
+			logger.Warn("migration result", "migration", entry.Name(), "error", err)
 		} else {
-			fmt.Printf("Applied migration: %s\n", entry.Name())
+			logger.Info("applied migration", "migration", entry.Name())
 		}
 	}
 

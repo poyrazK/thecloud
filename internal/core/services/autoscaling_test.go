@@ -9,8 +9,11 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 )
+
+const cpuHighPolicyName = "cpu-high"
 
 func setupAutoScalingServiceTest(t *testing.T) (*MockAutoScalingRepo, *MockVpcRepo, *MockAuditService, *services.AutoScalingService) {
 	mockRepo := new(MockAutoScalingRepo)
@@ -31,14 +34,30 @@ func TestCreateGroup_SecurityLimits(t *testing.T) {
 	mockVpcRepo.On("GetByID", ctx, vpcID).Return(&domain.VPC{ID: vpcID}, nil)
 
 	t.Run("ExceedsMaxInstances", func(t *testing.T) {
-		_, err := svc.CreateGroup(ctx, "test", vpcID, "img", "80:80", 1, 1000, 1, nil, "")
+		_, err := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
+			Name:         "test",
+			VpcID:        vpcID,
+			Image:        "img",
+			Ports:        "80:80",
+			MinInstances: 1,
+			MaxInstances: 1000,
+			DesiredCount: 1,
+		})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "max_instances cannot exceed")
 	})
 
 	t.Run("ExceedsVPCLimit", func(t *testing.T) {
 		mockRepo.On("CountGroupsByVPC", ctx, vpcID).Return(10, nil)
-		_, err := svc.CreateGroup(ctx, "test", vpcID, "img", "80:80", 1, 5, 1, nil, "")
+		_, err := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
+			Name:         "test",
+			VpcID:        vpcID,
+			Image:        "img",
+			Ports:        "80:80",
+			MinInstances: 1,
+			MaxInstances: 5,
+			DesiredCount: 1,
+		})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "VPC already has")
 	})
@@ -58,7 +77,15 @@ func TestCreateGroup_Success(t *testing.T) {
 	mockRepo.On("CreateGroup", ctx, mock.AnythingOfType("*domain.ScalingGroup")).Return(nil)
 	auditSvc.On("Log", ctx, mock.Anything, "asg.group_create", "scaling_group", mock.Anything, mock.Anything).Return(nil)
 
-	group, err := svc.CreateGroup(ctx, "my-asg", vpcID, "nginx", "80:80", 1, 5, 2, nil, "")
+	group, err := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
+		Name:         "my-asg",
+		VpcID:        vpcID,
+		Image:        "nginx",
+		Ports:        "80:80",
+		MinInstances: 1,
+		MaxInstances: 5,
+		DesiredCount: 2,
+	})
 
 	assert.NoError(t, err)
 	assert.NotNil(t, group)
@@ -78,7 +105,16 @@ func TestCreateGroup_Idempotency(t *testing.T) {
 	existingGroup := &domain.ScalingGroup{ID: uuid.New(), Name: "existing", IdempotencyKey: "key123"}
 	mockRepo.On("GetGroupByIdempotencyKey", ctx, "key123").Return(existingGroup, nil)
 
-	group, err := svc.CreateGroup(ctx, "new-name", vpcID, "nginx", "80:80", 1, 5, 2, nil, "key123")
+	group, err := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
+		Name:           "new-name",
+		VpcID:          vpcID,
+		Image:          "nginx",
+		Ports:          "80:80",
+		MinInstances:   1,
+		MaxInstances:   5,
+		DesiredCount:   2,
+		IdempotencyKey: "key123",
+	})
 
 	assert.NoError(t, err)
 	assert.Equal(t, existingGroup.ID, group.ID)
@@ -91,19 +127,40 @@ func TestCreateGroup_ValidationErrors(t *testing.T) {
 	vpcID := uuid.New()
 
 	t.Run("NegativeMin", func(t *testing.T) {
-		_, err := svc.CreateGroup(ctx, "test", vpcID, "img", "", -1, 5, 1, nil, "")
+		_, err := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
+			Name:         "test",
+			VpcID:        vpcID,
+			Image:        "img",
+			MinInstances: -1,
+			MaxInstances: 5,
+			DesiredCount: 1,
+		})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot be negative")
 	})
 
 	t.Run("MinGreaterThanMax", func(t *testing.T) {
-		_, err := svc.CreateGroup(ctx, "test", vpcID, "img", "", 5, 2, 3, nil, "")
+		_, err := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
+			Name:         "test",
+			VpcID:        vpcID,
+			Image:        "img",
+			MinInstances: 5,
+			MaxInstances: 2,
+			DesiredCount: 3,
+		})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot be greater than max")
 	})
 
 	t.Run("DesiredOutOfRange", func(t *testing.T) {
-		_, err := svc.CreateGroup(ctx, "test", vpcID, "img", "", 2, 5, 10, nil, "")
+		_, err := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
+			Name:         "test",
+			VpcID:        vpcID,
+			Image:        "img",
+			MinInstances: 2,
+			MaxInstances: 5,
+			DesiredCount: 10,
+		})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "between min and max")
 	})
@@ -173,11 +230,19 @@ func TestCreatePolicy_Success(t *testing.T) {
 	mockRepo.On("GetGroupByID", ctx, groupID).Return(&domain.ScalingGroup{ID: groupID}, nil)
 	mockRepo.On("CreatePolicy", ctx, mock.AnythingOfType("*domain.ScalingPolicy")).Return(nil)
 
-	policy, err := svc.CreatePolicy(ctx, groupID, "cpu-high", "cpu", 70.0, 1, 1, 300)
+	policy, err := svc.CreatePolicy(ctx, ports.CreateScalingPolicyParams{
+		GroupID:     groupID,
+		Name:        cpuHighPolicyName,
+		MetricType:  "cpu",
+		TargetValue: 70.0,
+		ScaleOut:    1,
+		ScaleIn:     1,
+		CooldownSec: 300,
+	})
 
 	assert.NoError(t, err)
 	assert.NotNil(t, policy)
-	assert.Equal(t, "cpu-high", policy.Name)
+	assert.Equal(t, cpuHighPolicyName, policy.Name)
 	assert.Equal(t, 70.0, policy.TargetValue)
 }
 
@@ -190,7 +255,15 @@ func TestCreatePolicy_CooldownTooLow(t *testing.T) {
 
 	mockRepo.On("GetGroupByID", ctx, groupID).Return(&domain.ScalingGroup{ID: groupID}, nil)
 
-	_, err := svc.CreatePolicy(ctx, groupID, "cpu-high", "cpu", 70.0, 1, 1, 10) // Too low cooldown
+	_, err := svc.CreatePolicy(ctx, ports.CreateScalingPolicyParams{
+		GroupID:     groupID,
+		Name:        cpuHighPolicyName,
+		MetricType:  "cpu",
+		TargetValue: 70.0,
+		ScaleOut:    1,
+		ScaleIn:     1,
+		CooldownSec: 10, // Too low
+	})
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "cooldown must be at least")

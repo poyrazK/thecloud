@@ -11,7 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 )
 
-func BenchmarkInstanceService_List(b *testing.B) {
+func BenchmarkInstanceServiceList(b *testing.B) {
 	// Setup
 	repo := &noop.NoopInstanceRepository{}
 	vpcRepo := &noop.NoopVpcRepository{}
@@ -23,7 +23,17 @@ func BenchmarkInstanceService_List(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	logger := slog.Default()
 
-	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
+	svc := services.NewInstanceService(services.InstanceServiceParams{
+		Repo:       repo,
+		VpcRepo:    vpcRepo,
+		SubnetRepo: subnetRepo,
+		VolumeRepo: volumeRepo,
+		Compute:    compute,
+		Network:    network,
+		EventSvc:   eventSvc,
+		AuditSvc:   auditSvc,
+		Logger:     logger,
+	})
 
 	ctx := context.Background()
 
@@ -33,7 +43,7 @@ func BenchmarkInstanceService_List(b *testing.B) {
 	}
 }
 
-func BenchmarkVPCService_Get(b *testing.B) {
+func BenchmarkVPCServiceGet(b *testing.B) {
 	repo := &noop.NoopVpcRepository{}
 	network := &noop.NoopNetworkAdapter{}
 	auditSvc := &noop.NoopAuditService{}

@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const subnetTestCIDR = "10.0.0.0/16"
+
 func setupSubnetServiceTest(t *testing.T) (*MockSubnetRepo, *MockVpcRepo, *MockAuditService, ports.SubnetService) {
 	repo := new(MockSubnetRepo)
 	vpcRepo := new(MockVpcRepo)
@@ -25,7 +27,7 @@ func setupSubnetServiceTest(t *testing.T) (*MockSubnetRepo, *MockVpcRepo, *MockA
 	return repo, vpcRepo, auditSvc, svc
 }
 
-func TestSubnetService_CreateSubnet_Success(t *testing.T) {
+func TestSubnetServiceCreateSubnetSuccess(t *testing.T) {
 	repo, vpcRepo, auditSvc, svc := setupSubnetServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer vpcRepo.AssertExpectations(t)
@@ -35,7 +37,7 @@ func TestSubnetService_CreateSubnet_Success(t *testing.T) {
 	vpcID := uuid.New()
 	vpc := &domain.VPC{
 		ID:        vpcID,
-		CIDRBlock: "10.0.0.0/16",
+		CIDRBlock: subnetTestCIDR,
 	}
 
 	vpcRepo.On("GetByID", ctx, vpcID).Return(vpc, nil)
@@ -51,7 +53,7 @@ func TestSubnetService_CreateSubnet_Success(t *testing.T) {
 	assert.Equal(t, "10.0.1.1", subnet.GatewayIP)
 }
 
-func TestSubnetService_CreateSubnet_InvalidCIDR(t *testing.T) {
+func TestSubnetServiceCreateSubnetInvalidCIDR(t *testing.T) {
 	repo, vpcRepo, _, svc := setupSubnetServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer vpcRepo.AssertExpectations(t)
@@ -60,7 +62,7 @@ func TestSubnetService_CreateSubnet_InvalidCIDR(t *testing.T) {
 	vpcID := uuid.New()
 	vpc := &domain.VPC{
 		ID:        vpcID,
-		CIDRBlock: "10.0.0.0/16",
+		CIDRBlock: subnetTestCIDR,
 	}
 
 	vpcRepo.On("GetByID", ctx, vpcID).Return(vpc, nil)
@@ -73,7 +75,7 @@ func TestSubnetService_CreateSubnet_InvalidCIDR(t *testing.T) {
 	assert.Contains(t, err.Error(), "within VPC CIDR range")
 }
 
-func TestSubnetService_DeleteSubnet_Success(t *testing.T) {
+func TestSubnetServiceDeleteSubnetSuccess(t *testing.T) {
 	repo, vpcRepo, auditSvc, svc := setupSubnetServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer vpcRepo.AssertExpectations(t)
@@ -92,7 +94,7 @@ func TestSubnetService_DeleteSubnet_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSubnetService_GetSubnet(t *testing.T) {
+func TestSubnetServiceGetSubnet(t *testing.T) {
 	repo, _, _, svc := setupSubnetServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -108,7 +110,7 @@ func TestSubnetService_GetSubnet(t *testing.T) {
 	assert.Equal(t, expected, subnet)
 }
 
-func TestSubnetService_ListSubnets(t *testing.T) {
+func TestSubnetServiceListSubnets(t *testing.T) {
 	repo, _, _, svc := setupSubnetServiceTest(t)
 	defer repo.AssertExpectations(t)
 

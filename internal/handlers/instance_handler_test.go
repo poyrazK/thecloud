@@ -16,6 +16,14 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	testInstanceName = "test-inst"
+	instancesPath    = "/instances"
+	contentType      = "Content-Type"
+	applicationJSON  = "application/json"
+	complexTestName  = "test-complex"
+)
+
 type instanceServiceMock struct {
 	mock.Mock
 }
@@ -29,8 +37,7 @@ func (m *instanceServiceMock) LaunchInstance(ctx context.Context, name, image, p
 }
 
 func (m *instanceServiceMock) StopInstance(ctx context.Context, idOrName string) error {
-	args := m.Called(ctx, idOrName)
-	return args.Error(0)
+	return m.Called(ctx, idOrName).Error(0)
 }
 
 func (m *instanceServiceMock) ListInstances(ctx context.Context) ([]*domain.Instance, error) {
@@ -60,6 +67,7 @@ func (m *instanceServiceMock) GetInstanceStats(ctx context.Context, idOrName str
 }
 
 func (m *instanceServiceMock) TerminateInstance(ctx context.Context, idOrName string) error {
+	// TerminateInstance permanently deletes an instance
 	args := m.Called(ctx, idOrName)
 	return args.Error(0)
 }
@@ -72,14 +80,14 @@ func setupInstanceHandlerTest(t *testing.T) (*instanceServiceMock, *InstanceHand
 	return mockSvc, handler, r
 }
 
-func TestInstanceHandler_LaunchRejectsEmptyImage(t *testing.T) {
+func TestInstanceHandlerLaunchRejectsEmptyImage(t *testing.T) {
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
-	r.POST("/instances", handler.Launch)
+	r.POST(instancesPath, handler.Launch)
 
-	body := `{"name":"test-inst","image":"   "}`
-	req := httptest.NewRequest(http.MethodPost, "/instances", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
+	body := `{"name":"` + testInstanceName + `","image":"   "}`
+	req := httptest.NewRequest(http.MethodPost, instancesPath, strings.NewReader(body))
+	req.Header.Set(contentType, applicationJSON)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -95,17 +103,17 @@ func TestInstanceHandler_LaunchRejectsEmptyImage(t *testing.T) {
 	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
-func TestInstanceHandler_Launch(t *testing.T) {
+func TestInstanceHandlerLaunch(t *testing.T) {
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
-	r.POST("/instances", handler.Launch)
+	r.POST(instancesPath, handler.Launch)
 
-	inst := &domain.Instance{ID: uuid.New(), Name: "test-inst"}
-	mockSvc.On("LaunchInstance", mock.Anything, "test-inst", "alpine", "", (*uuid.UUID)(nil), (*uuid.UUID)(nil), []domain.VolumeAttachment(nil)).Return(inst, nil)
+	inst := &domain.Instance{ID: uuid.New(), Name: testInstanceName}
+	mockSvc.On("LaunchInstance", mock.Anything, testInstanceName, "alpine", "", (*uuid.UUID)(nil), (*uuid.UUID)(nil), []domain.VolumeAttachment(nil)).Return(inst, nil)
 
-	body := `{"name":"test-inst","image":"alpine"}`
-	req := httptest.NewRequest(http.MethodPost, "/instances", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
+	body := `{"name":"` + testInstanceName + `","image":"alpine"}`
+	req := httptest.NewRequest(http.MethodPost, instancesPath, strings.NewReader(body))
+	req.Header.Set(contentType, applicationJSON)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -113,15 +121,15 @@ func TestInstanceHandler_Launch(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
-func TestInstanceHandler_List(t *testing.T) {
+func TestInstanceHandlerList(t *testing.T) {
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
-	r.GET("/instances", handler.List)
+	r.GET(instancesPath, handler.List)
 
-	instances := []*domain.Instance{{ID: uuid.New(), Name: "test-inst"}}
+	instances := []*domain.Instance{{ID: uuid.New(), Name: testInstanceName}}
 	mockSvc.On("ListInstances", mock.Anything).Return(instances, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/instances", nil)
+	req := httptest.NewRequest(http.MethodGet, instancesPath, nil)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -129,16 +137,16 @@ func TestInstanceHandler_List(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestInstanceHandler_Get(t *testing.T) {
+func TestInstanceHandlerGet(t *testing.T) {
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
-	r.GET("/instances/:id", handler.Get)
+	r.GET(instancesPath+"/:id", handler.Get)
 
 	id := uuid.New().String()
-	inst := &domain.Instance{ID: uuid.MustParse(id), Name: "test-inst"}
+	inst := &domain.Instance{ID: uuid.MustParse(id), Name: testInstanceName}
 	mockSvc.On("GetInstance", mock.Anything, id).Return(inst, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/instances/"+id, nil)
+	req := httptest.NewRequest(http.MethodGet, instancesPath+"/"+id, nil)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -146,15 +154,15 @@ func TestInstanceHandler_Get(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestInstanceHandler_Stop(t *testing.T) {
+func TestInstanceHandlerStop(t *testing.T) {
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
-	r.POST("/instances/:id/stop", handler.Stop)
+	r.POST(instancesPath+"/:id/stop", handler.Stop)
 
 	id := uuid.New().String()
 	mockSvc.On("StopInstance", mock.Anything, id).Return(nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/instances/"+id+"/stop", nil)
+	req := httptest.NewRequest(http.MethodPost, instancesPath+"/"+id+"/stop", nil)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -162,15 +170,15 @@ func TestInstanceHandler_Stop(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestInstanceHandler_Terminate(t *testing.T) {
+func TestInstanceHandlerTerminate(t *testing.T) {
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
-	r.DELETE("/instances/:id", handler.Terminate)
+	r.DELETE(instancesPath+"/:id", handler.Terminate)
 
 	id := uuid.New().String()
 	mockSvc.On("TerminateInstance", mock.Anything, id).Return(nil)
 
-	req := httptest.NewRequest(http.MethodDelete, "/instances/"+id, nil)
+	req := httptest.NewRequest(http.MethodDelete, instancesPath+"/"+id, nil)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -178,15 +186,15 @@ func TestInstanceHandler_Terminate(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestInstanceHandler_GetLogs(t *testing.T) {
+func TestInstanceHandlerGetLogs(t *testing.T) {
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
-	r.GET("/instances/:id/logs", handler.GetLogs)
+	r.GET(instancesPath+"/:id/logs", handler.GetLogs)
 
 	id := uuid.New().String()
 	mockSvc.On("GetInstanceLogs", mock.Anything, id).Return("logs content", nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/instances/"+id+"/logs", nil)
+	req := httptest.NewRequest(http.MethodGet, instancesPath+"/"+id+"/logs", nil)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -195,16 +203,16 @@ func TestInstanceHandler_GetLogs(t *testing.T) {
 	assert.Equal(t, "logs content", w.Body.String())
 }
 
-func TestInstanceHandler_GetStats(t *testing.T) {
+func TestInstanceHandlerGetStats(t *testing.T) {
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
-	r.GET("/instances/:id/stats", handler.GetStats)
+	r.GET(instancesPath+"/:id/stats", handler.GetStats)
 
 	id := uuid.New().String()
 	stats := &domain.InstanceStats{CPUPercentage: 10.5, MemoryUsageBytes: 128}
 	mockSvc.On("GetInstanceStats", mock.Anything, id).Return(stats, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/instances/"+id+"/stats", nil)
+	req := httptest.NewRequest(http.MethodGet, instancesPath+"/"+id+"/stats", nil)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -212,24 +220,24 @@ func TestInstanceHandler_GetStats(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestInstanceHandler_Launch_WithVolumesAndVPC(t *testing.T) {
+func TestInstanceHandlerLaunchWithVolumesAndVPC(t *testing.T) {
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
-	r.POST("/instances", handler.Launch)
+	r.POST(instancesPath, handler.Launch)
 
 	vpcID := uuid.New()
 	volID := "vol-123"
 
-	inst := &domain.Instance{ID: uuid.New(), Name: "test-complex", VpcID: &vpcID}
+	inst := &domain.Instance{ID: uuid.New(), Name: complexTestName, VpcID: &vpcID}
 
 	expectedVolumes := []domain.VolumeAttachment{
 		{VolumeIDOrName: volID, MountPath: "/mnt/data"},
 	}
 
-	mockSvc.On("LaunchInstance", mock.Anything, "test-complex", "ubuntu", "80:80", &vpcID, (*uuid.UUID)(nil), expectedVolumes).Return(inst, nil)
+	mockSvc.On("LaunchInstance", mock.Anything, complexTestName, "ubuntu", "80:80", &vpcID, (*uuid.UUID)(nil), expectedVolumes).Return(inst, nil)
 
 	body := map[string]interface{}{
-		"name":   "test-complex",
+		"name":   complexTestName,
 		"image":  "ubuntu",
 		"ports":  "80:80",
 		"vpc_id": vpcID.String(),
@@ -240,8 +248,8 @@ func TestInstanceHandler_Launch_WithVolumesAndVPC(t *testing.T) {
 	jsonBody, err := json.Marshal(body)
 	assert.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/instances", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
+	req := httptest.NewRequest(http.MethodPost, instancesPath, bytes.NewBuffer(jsonBody))
+	req.Header.Set(contentType, applicationJSON)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)

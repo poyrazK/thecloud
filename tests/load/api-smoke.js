@@ -8,7 +8,7 @@ export const options = {
     },
 };
 
-export default function () {
+export default function smokeTest() {
     const url = 'http://localhost:8080/health'; // This assumes the app is running locally or in a container
     const res = http.get(url);
 

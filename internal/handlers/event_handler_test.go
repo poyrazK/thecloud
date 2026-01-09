@@ -38,7 +38,7 @@ func setupEventHandlerTest(t *testing.T) (*mockEventService, *EventHandler, *gin
 	return svc, handler, r
 }
 
-func TestEventHandler_List(t *testing.T) {
+func TestEventHandlerList(t *testing.T) {
 	svc, handler, r := setupEventHandlerTest(t)
 	defer svc.AssertExpectations(t)
 

@@ -46,25 +46,7 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, permi
 	// 2. Get role
 	role, err := s.roleRepo.GetRoleByName(ctx, user.Role)
 	if err != nil {
-		// Fallback to default roles if not found in DB
-		switch user.Role {
-		case domain.RoleAdmin:
-			return true, nil
-		case domain.RoleViewer:
-			if permission == domain.PermissionInstanceRead ||
-				permission == domain.PermissionVolumeRead ||
-				permission == domain.PermissionVpcRead {
-				return true, nil
-			}
-		case domain.RoleDeveloper:
-			// Developer gets most things except RBAC management
-			if permission != domain.PermissionFullAccess {
-				return true, nil
-			}
-		}
-
-		s.logger.Warn("role not found in DB and no default fallback", "role", user.Role)
-		return false, nil
+		return s.hasDefaultPermission(user.Role, permission)
 	}
 
 	// 3. Check permissions
@@ -143,4 +125,26 @@ func (s *rbacService) BindRole(ctx context.Context, userIdentifier string, roleN
 func (s *rbacService) ListRoleBindings(ctx context.Context) ([]*domain.User, error) {
 	// In this implementation, bindings are just users with their roles
 	return s.userRepo.List(ctx)
+}
+
+func (s *rbacService) hasDefaultPermission(roleName string, permission domain.Permission) (bool, error) {
+	// Fallback to default roles if not found in DB
+	switch roleName {
+	case domain.RoleAdmin:
+		return true, nil
+	case domain.RoleViewer:
+		if permission == domain.PermissionInstanceRead ||
+			permission == domain.PermissionVolumeRead ||
+			permission == domain.PermissionVpcRead {
+			return true, nil
+		}
+	case domain.RoleDeveloper:
+		// Developer gets most things except RBAC management
+		if permission != domain.PermissionFullAccess {
+			return true, nil
+		}
+	}
+
+	s.logger.Warn("role not found in DB and no default fallback", "role", roleName)
+	return false, nil
 }

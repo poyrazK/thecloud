@@ -15,6 +15,12 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	vpcsPath    = "/vpcs"
+	testVpcName = "test-vpc"
+	testCidr    = "10.0.0.0/16"
+)
+
 type mockVpcService struct {
 	mock.Mock
 }
@@ -56,71 +62,71 @@ func setupVpcHandlerTest(t *testing.T) (*mockVpcService, *VpcHandler, *gin.Engin
 	return svc, handler, r
 }
 
-func TestVpcHandler_Create(t *testing.T) {
+func TestVpcHandlerCreate(t *testing.T) {
 	svc, handler, r := setupVpcHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.POST("/vpcs", handler.Create)
+	r.POST(vpcsPath, handler.Create)
 
-	vpc := &domain.VPC{ID: uuid.New(), Name: "test-vpc"}
-	svc.On("CreateVPC", mock.Anything, "test-vpc", "10.0.0.0/16").Return(vpc, nil)
+	vpc := &domain.VPC{ID: uuid.New(), Name: testVpcName}
+	svc.On("CreateVPC", mock.Anything, testVpcName, testCidr).Return(vpc, nil)
 
-	body, err := json.Marshal(map[string]string{"name": "test-vpc", "cidr_block": "10.0.0.0/16"})
+	body, err := json.Marshal(map[string]string{"name": testVpcName, "cidr_block": testCidr})
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("POST", "/vpcs", bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", vpcsPath, bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
-func TestVpcHandler_List(t *testing.T) {
+func TestVpcHandlerList(t *testing.T) {
 	svc, handler, r := setupVpcHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.GET("/vpcs", handler.List)
+	r.GET(vpcsPath, handler.List)
 
 	vpcs := []*domain.VPC{{ID: uuid.New(), Name: "vpc1"}}
 	svc.On("ListVPCs", mock.Anything).Return(vpcs, nil)
 
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/vpcs", nil)
+	req, err := http.NewRequest("GET", vpcsPath, nil)
 	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestVpcHandler_Get(t *testing.T) {
+func TestVpcHandlerGet(t *testing.T) {
 	svc, handler, r := setupVpcHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.GET("/vpcs/:id", handler.Get)
+	r.GET(vpcsPath+"/:id", handler.Get)
 
 	vpcID := uuid.New().String()
 	vpc := &domain.VPC{ID: uuid.New(), Name: "vpc1"}
 	svc.On("GetVPC", mock.Anything, vpcID).Return(vpc, nil)
 
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/vpcs/"+vpcID, nil)
+	req, err := http.NewRequest("GET", vpcsPath+"/"+vpcID, nil)
 	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestVpcHandler_Delete(t *testing.T) {
+func TestVpcHandlerDelete(t *testing.T) {
 	svc, handler, r := setupVpcHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.DELETE("/vpcs/:id", handler.Delete)
+	r.DELETE(vpcsPath+"/:id", handler.Delete)
 
 	vpcID := uuid.New().String()
 	svc.On("DeleteVPC", mock.Anything, vpcID).Return(nil)
 
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("DELETE", "/vpcs/"+vpcID, nil)
+	req, err := http.NewRequest("DELETE", vpcsPath+"/"+vpcID, nil)
 	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
