@@ -1,0 +1,36 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  benchmark:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          
+      - name: Run Benchmarks
+        run: go test -bench=. -benchmem ./internal/core/services/... | tee bench.txt
+
+      - name: Store Benchmark Result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Go Benchmarks
+          tool: 'go'
+          output-file-path: bench.txt
+          # Access token to push results to gh-pages branch
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          # Fail if performance drops by more than 50%
+          alert-threshold: '150%'
+          comment-on-alert: true
+          fail-on-alert: true
