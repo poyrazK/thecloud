@@ -53,6 +53,13 @@ import (
 // @in header
 // @name X-API-Key
 
+// @name X-API-Key
+
+const (
+	bucketKeyRoute = "/:bucket/:key"
+	roleIDRoute    = "/roles/:id"
+)
+
 func main() {
 	// 1. Logger
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -80,7 +87,7 @@ func main() {
 	defer db.Close()
 
 	// 3.1 Run Migrations
-	if err := postgres.RunMigrations(ctx, db); err != nil {
+	if err := postgres.RunMigrations(ctx, db, logger); err != nil {
 		logger.Warn("failed to run migrations", "error", err)
 		if *migrateOnly {
 			db.Close()
@@ -119,7 +126,7 @@ func main() {
 	auditSvc := services.NewAuditService(auditRepo)
 	identitySvc := services.NewIdentityService(identityRepo, auditSvc)
 	authSvc := services.NewAuthService(userRepo, identitySvc, auditSvc)
-	pwdResetSvc := services.NewPasswordResetService(pwdResetRepo, userRepo)
+	pwdResetSvc := services.NewPasswordResetService(pwdResetRepo, userRepo, logger)
 	rbacRepo := postgres.NewRBACRepository(db)
 	rbacSvc := services.NewRBACService(userRepo, rbacRepo, logger)
 
@@ -222,7 +229,7 @@ func main() {
 	queueHandler := httphandlers.NewQueueHandler(queueSvc)
 
 	notifyRepo := postgres.NewPostgresNotifyRepository(db)
-	notifySvc := services.NewNotifyService(notifyRepo, queueSvc, eventSvc, auditSvc)
+	notifySvc := services.NewNotifyService(notifyRepo, queueSvc, eventSvc, auditSvc, logger)
 	notifyHandler := httphandlers.NewNotifyHandler(notifySvc)
 
 	cronRepo := postgres.NewPostgresCronRepository(db)
@@ -361,10 +368,10 @@ func main() {
 	storageGroup := r.Group("/storage")
 	storageGroup.Use(httputil.Auth(identitySvc))
 	{
-		storageGroup.PUT("/:bucket/:key", storageHandler.Upload)
-		storageGroup.GET("/:bucket/:key", storageHandler.Download)
+		storageGroup.PUT(bucketKeyRoute, storageHandler.Upload)
+		storageGroup.GET(bucketKeyRoute, storageHandler.Download)
 		storageGroup.GET("/:bucket", storageHandler.List)
-		storageGroup.DELETE("/:bucket/:key", storageHandler.Delete)
+		storageGroup.DELETE(bucketKeyRoute, storageHandler.Delete)
 	}
 
 	// Event Routes (Protected)
@@ -387,9 +394,9 @@ func main() {
 	{
 		rbacGroup.POST("/roles", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.CreateRole)
 		rbacGroup.GET("/roles", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.ListRoles)
-		rbacGroup.GET("/roles/:id", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.GetRole)
-		rbacGroup.PUT("/roles/:id", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.UpdateRole)
-		rbacGroup.DELETE("/roles/:id", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.DeleteRole)
+		rbacGroup.GET(roleIDRoute, httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.GetRole)
+		rbacGroup.PUT(roleIDRoute, httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.UpdateRole)
+		rbacGroup.DELETE(roleIDRoute, httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.DeleteRole)
 		rbacGroup.POST("/roles/:id/permissions", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.AddPermission)
 		rbacGroup.DELETE("/roles/:id/permissions/:permission", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.RemovePermission)
 		rbacGroup.POST("/bindings", httputil.Permission(rbacSvc, domain.PermissionFullAccess), rbacHandler.BindRole)

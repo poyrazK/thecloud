@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,13 +23,15 @@ const (
 type PasswordResetService struct {
 	repo     ports.PasswordResetRepository
 	userRepo ports.UserRepository
+	logger   *slog.Logger
 	// In a real app, we'd inject an EmailService here
 }
 
-func NewPasswordResetService(repo ports.PasswordResetRepository, userRepo ports.UserRepository) *PasswordResetService {
+func NewPasswordResetService(repo ports.PasswordResetRepository, userRepo ports.UserRepository, logger *slog.Logger) *PasswordResetService {
 	return &PasswordResetService{
 		repo:     repo,
 		userRepo: userRepo,
+		logger:   logger,
 	}
 }
 
@@ -66,7 +69,7 @@ func (s *PasswordResetService) RequestReset(ctx context.Context, email string) e
 
 	// TODO: Integrate EmailService to send 'token' to 'email'
 	// For MVP/Demo: Log the token so we can test it manually
-	fmt.Printf(" [DEBUG] Password Reset Token for %s: %s\n", email, token)
+	s.logger.Debug("password reset token", "email", email, "token", token)
 
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -18,14 +19,16 @@ type NotifyService struct {
 	queueSvc ports.QueueService
 	eventSvc ports.EventService
 	auditSvc ports.AuditService
+	logger   *slog.Logger
 }
 
-func NewNotifyService(repo ports.NotifyRepository, queueSvc ports.QueueService, eventSvc ports.EventService, auditSvc ports.AuditService) ports.NotifyService {
+func NewNotifyService(repo ports.NotifyRepository, queueSvc ports.QueueService, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) ports.NotifyService {
 	return &NotifyService{
 		repo:     repo,
 		queueSvc: queueSvc,
 		eventSvc: eventSvc,
 		auditSvc: auditSvc,
+		logger:   logger,
 	}
 }
 
@@ -221,14 +224,14 @@ func (s *NotifyService) deliver(ctx context.Context, sub *domain.Subscription, b
 		// For now let's assume endpoint is the Queue UUID string.
 		qID, err := uuid.Parse(sub.Endpoint)
 		if err != nil {
-			fmt.Printf("Invalid queue ID in subscription: %v\n", err)
+			s.logger.Warn("invalid queue ID in subscription", "endpoint", sub.Endpoint, "error", err)
 			return
 		}
 		// We need to bypass user check or use sub.UserID context
 		deliveryCtx := appcontext.WithUserID(ctx, sub.UserID)
 		_, err = s.queueSvc.SendMessage(deliveryCtx, qID, body)
 		if err != nil {
-			fmt.Printf("Failed to deliver to queue %s: %v\n", qID, err)
+			s.logger.Warn("failed to deliver to queue", "queue_id", qID, "error", err)
 		}
 
 	case domain.ProtocolWebhook:
@@ -236,7 +239,7 @@ func (s *NotifyService) deliver(ctx context.Context, sub *domain.Subscription, b
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			fmt.Printf("Failed to deliver to webhook %s: %v\n", sub.Endpoint, err)
+			s.logger.Warn("failed to deliver to webhook", "endpoint", sub.Endpoint, "error", err)
 			return
 		}
 		_ = resp.Body.Close()

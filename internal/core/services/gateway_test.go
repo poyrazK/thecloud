@@ -24,7 +24,7 @@ func setupGatewayServiceTest(t *testing.T, initialRoutes []*domain.GatewayRoute)
 	return repo, auditSvc, svc
 }
 
-func TestGatewayService_CreateRoute(t *testing.T) {
+func TestGatewayServiceCreateRoute(t *testing.T) {
 	repo, auditSvc, svc := setupGatewayServiceTest(t, []*domain.GatewayRoute{})
 	defer repo.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
@@ -45,7 +45,7 @@ func TestGatewayService_CreateRoute(t *testing.T) {
 	assert.Equal(t, "/v1", route.PathPrefix)
 }
 
-func TestGatewayService_RefreshAndGetProxy(t *testing.T) {
+func TestGatewayServiceRefreshAndGetProxy(t *testing.T) {
 	route := &domain.GatewayRoute{
 		PathPrefix: "/api",
 		TargetURL:  "http://localhost:8080",

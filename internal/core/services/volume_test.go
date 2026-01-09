@@ -26,7 +26,7 @@ func setupVolumeServiceTest(t *testing.T) (*MockVolumeRepo, *MockComputeBackend,
 	return repo, docker, eventSvc, auditSvc, svc
 }
 
-func TestCreateVolume_Success(t *testing.T) {
+func TestVolumeServiceCreateVolumeSuccess(t *testing.T) {
 	repo, docker, eventSvc, auditSvc, svc := setupVolumeServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer docker.AssertExpectations(t)
@@ -53,7 +53,7 @@ func TestCreateVolume_Success(t *testing.T) {
 	assert.Equal(t, domain.VolumeStatusAvailable, vol.Status)
 }
 
-func TestDeleteVolume_Success(t *testing.T) {
+func TestVolumeServiceDeleteVolumeSuccess(t *testing.T) {
 	repo, docker, eventSvc, auditSvc, svc := setupVolumeServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer docker.AssertExpectations(t)
@@ -80,7 +80,7 @@ func TestDeleteVolume_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestDeleteVolume_InUse_Fails(t *testing.T) {
+func TestVolumeServiceDeleteVolumeInUseFails(t *testing.T) {
 	repo, docker, _, _, svc := setupVolumeServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer docker.AssertExpectations(t)

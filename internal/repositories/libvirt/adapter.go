@@ -122,9 +122,9 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName str
 	// 3. Resolve Volume Binds to host paths
 	var additionalDisks []string
 	for _, volName := range volumeBinds {
-		vol, err := a.conn.StorageVolLookupByName(pool, volName)
+		v, err := a.conn.StorageVolLookupByName(pool, volName)
 		if err == nil {
-			path, err := a.conn.StorageVolGetPath(vol)
+			path, err := a.conn.StorageVolGetPath(v)
 			if err == nil {
 				additionalDisks = append(additionalDisks, path)
 			}
@@ -147,7 +147,7 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName str
 		if isoPath != "" {
 			if err := os.Remove(isoPath); err != nil {
 				// Log but don't fail cleanup
-				fmt.Printf("Warning: failed to remove ISO %s: %v\n", isoPath, err)
+				a.logger.Warn("failed to remove ISO", "path", isoPath, "error", err)
 			}
 		}
 		return "", fmt.Errorf("failed to define domain: %w", err)
@@ -155,6 +155,8 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName str
 
 	// 5. Start Domain
 	if err := a.conn.DomainCreate(dom); err != nil {
+		_ = a.conn.DomainUndefine(dom)
+		_ = a.conn.StorageVolDelete(vol, 0)
 		return "", fmt.Errorf("failed to start domain: %w", err)
 	}
 
@@ -300,7 +302,7 @@ func (a *LibvirtAdapter) DeleteInstance(ctx context.Context, id string) error {
 		a.logger.Warn("invalid id for iso cleanup", "id", id)
 		return nil
 	}
-	isoPath := filepath.Join("/tmp", "cloud-init-"+id+".iso")
+	isoPath := filepath.Join(os.TempDir(), "cloud-init-"+id+".iso")
 	_ = os.Remove(isoPath)
 
 	// Try to delete root volume?
@@ -628,7 +630,7 @@ func (a *LibvirtAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID stri
 	}
 	defer func() {
 		if err := os.Remove(tmpQcow2); err != nil {
-			fmt.Printf("Warning: failed to remove temp file %s: %v\n", tmpQcow2, err)
+			a.logger.Warn("failed to remove temp file", "path", tmpQcow2, "error", err)
 		}
 	}()
 
@@ -665,7 +667,7 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 	}
 	defer func() {
 		if err := os.RemoveAll(tmpDir); err != nil {
-			fmt.Printf("Warning: failed to remove temp dir %s: %v\n", tmpDir, err)
+			a.logger.Warn("failed to remove temp dir", "path", tmpDir, "error", err)
 		}
 	}()
 
@@ -701,7 +703,7 @@ func (a *LibvirtAdapter) generateCloudInitISO(ctx context.Context, name string, 
 	}
 	defer func() {
 		if err := os.RemoveAll(tmpDir); err != nil {
-			fmt.Printf("Warning: failed to remove temp dir %s: %v\n", tmpDir, err)
+			a.logger.Warn("failed to remove temp dir", "path", tmpDir, "error", err)
 		}
 	}()
 
@@ -735,7 +737,7 @@ func (a *LibvirtAdapter) generateCloudInitISO(ctx context.Context, name string, 
 		return "", err
 	}
 
-	isoPath := filepath.Join("/tmp", "cloud-init-"+safeName+".iso")
+	isoPath := filepath.Join(os.TempDir(), "cloud-init-"+safeName+".iso")
 
 	// Create ISO
 	genCmd := exec.Command("genisoimage", "-output", isoPath, "-volid", "config-2", "-joliet", "-rock",

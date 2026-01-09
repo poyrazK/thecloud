@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const vpcTestCIDR = "10.0.0.0/16"
+
 func setupVpcServiceTest(t *testing.T, cidr string) (*MockVpcRepo, *MockNetworkBackend, *MockAuditService, ports.VpcService) {
 	vpcRepo := new(MockVpcRepo)
 	network := new(MockNetworkBackend)
@@ -25,15 +27,15 @@ func setupVpcServiceTest(t *testing.T, cidr string) (*MockVpcRepo, *MockNetworkB
 	return vpcRepo, network, auditSvc, svc
 }
 
-func TestVpcService_Create_Success(t *testing.T) {
-	vpcRepo, network, auditSvc, svc := setupVpcServiceTest(t, "10.0.0.0/16")
+func TestVpcServiceCreateSuccess(t *testing.T) {
+	vpcRepo, network, auditSvc, svc := setupVpcServiceTest(t, vpcTestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 	defer network.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	name := "test-vpc"
-	cidr := "10.0.0.0/16"
+	cidr := vpcTestCIDR
 
 	network.On("CreateBridge", ctx, mock.MatchedBy(func(n string) bool {
 		return len(n) > 0 // Dynamic name
@@ -51,8 +53,8 @@ func TestVpcService_Create_Success(t *testing.T) {
 	assert.Contains(t, vpc.NetworkID, "br-vpc-")
 }
 
-func TestVpcService_Create_DBFailure_RollsBackBridge(t *testing.T) {
-	vpcRepo, network, _, svc := setupVpcServiceTest(t, "10.0.0.0/16")
+func TestVpcServiceCreateDBFailureRollsBackBridge(t *testing.T) {
+	vpcRepo, network, _, svc := setupVpcServiceTest(t, vpcTestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 	defer network.AssertExpectations(t)
 
@@ -70,8 +72,8 @@ func TestVpcService_Create_DBFailure_RollsBackBridge(t *testing.T) {
 	network.AssertCalled(t, "DeleteBridge", ctx, mock.Anything)
 }
 
-func TestVpcService_Delete_Success(t *testing.T) {
-	vpcRepo, network, auditSvc, svc := setupVpcServiceTest(t, "10.0.0.0/16")
+func TestVpcServiceDeleteSuccess(t *testing.T) {
+	vpcRepo, network, auditSvc, svc := setupVpcServiceTest(t, vpcTestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 	defer network.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
@@ -94,8 +96,8 @@ func TestVpcService_Delete_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestVpcService_List_Success(t *testing.T) {
-	vpcRepo, _, _, svc := setupVpcServiceTest(t, "10.0.0.0/16")
+func TestVpcServiceListSuccess(t *testing.T) {
+	vpcRepo, _, _, svc := setupVpcServiceTest(t, vpcTestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 
 	ctx := context.Background()
@@ -109,8 +111,8 @@ func TestVpcService_List_Success(t *testing.T) {
 	assert.Len(t, result, 2)
 }
 
-func TestVpcService_Get_ByName(t *testing.T) {
-	vpcRepo, _, _, svc := setupVpcServiceTest(t, "10.0.0.0/16")
+func TestVpcServiceGetByName(t *testing.T) {
+	vpcRepo, _, _, svc := setupVpcServiceTest(t, vpcTestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 
 	ctx := context.Background()
