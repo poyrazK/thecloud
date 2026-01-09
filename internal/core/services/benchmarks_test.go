@@ -14,34 +14,37 @@ import (
 func BenchmarkInstanceService_List(b *testing.B) {
 	// Setup
 	repo := &noop.NoopInstanceRepository{}
+	vpcRepo := &noop.NoopVpcRepository{}
+	subnetRepo := &noop.NoopSubnetRepository{}
+	volumeRepo := &noop.NoopVolumeRepository{}
 	compute := &noop.NoopComputeBackend{}
+	network := &noop.NoopNetworkAdapter{}
 	eventSvc := &noop.NoopEventService{}
 	auditSvc := &noop.NoopAuditService{}
 	logger := slog.Default()
-	svc := services.NewInstanceService(repo, compute, eventSvc, auditSvc, logger)
+
+	svc := services.NewInstanceService(repo, vpcRepo, subnetRepo, volumeRepo, compute, network, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
-	userID := uuid.New()
 
-	// Seed some instances in repo if needed, but noop doesn't care
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = svc.ListInstances(ctx, userID)
+		_, _ = svc.ListInstances(ctx)
 	}
 }
 
 func BenchmarkVPCService_Get(b *testing.B) {
 	repo := &noop.NoopVpcRepository{}
-	eventSvc := &noop.NoopEventService{}
+	network := &noop.NoopNetworkAdapter{}
 	auditSvc := &noop.NoopAuditService{}
 	logger := slog.Default()
-	svc := services.NewVpcService(repo, eventSvc, auditSvc, logger)
+	svc := services.NewVpcService(repo, network, auditSvc, logger, "10.0.0.0/16")
 
 	ctx := context.Background()
 	id := uuid.New()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = svc.GetVPC(ctx, id)
+		_, _ = svc.GetVPC(ctx, id.String())
 	}
 }
