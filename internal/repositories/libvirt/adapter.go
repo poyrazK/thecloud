@@ -13,6 +13,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -77,6 +79,12 @@ func (a *LibvirtAdapter) Type() string {
 }
 
 func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error) {
+	// Security: Sanitize name
+	name = regexp.MustCompile(`[^a-zA-Z0-9-]`).ReplaceAllString(name, "")
+	if name == "" {
+		name = uuid.New().String()[:8]
+	}
+
 	// 1. Prepare storage
 	// We assume 'imageName' is a backing volume in the default pool.
 	pool, err := a.conn.StoragePoolLookupByName(defaultPoolName)
@@ -215,7 +223,10 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName str
 						continue
 					}
 					if path != "" {
-						cmd := exec.Command("sudo", "iptables", "-t", "nat", "-A", "PREROUTING", "-p", "tcp", "--dport", fmt.Sprintf("%d", hPort), "-j", "DNAT", "--to", ip+":"+containerPort)
+						// Security: Use numeric values to avoid injection
+						hPortStr := strconv.Itoa(hPort)
+						cPortStr := strconv.Itoa(cP)
+						cmd := exec.Command("sudo", "iptables", "-t", "nat", "-A", "PREROUTING", "-p", "tcp", "--dport", hPortStr, "-j", "DNAT", "--to", ip+":"+cPortStr)
 						if err := cmd.Run(); err != nil {
 							a.logger.Error("failed to set up iptables rule", "command", cmd.String(), "error", err)
 						}
@@ -678,7 +689,13 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 	return nil
 }
 func (a *LibvirtAdapter) generateCloudInitISO(ctx context.Context, name string, env []string, cmd []string) (string, error) {
-	tmpDir, err := os.MkdirTemp("", "cloud-init-"+name)
+	// Security: Sanitize name to avoid path traversal
+	safeName := regexp.MustCompile(`[^a-zA-Z0-9-]`).ReplaceAllString(name, "")
+	if safeName == "" {
+		safeName = uuid.New().String()[:8]
+	}
+
+	tmpDir, err := os.MkdirTemp("", "cloud-init-"+safeName)
 	if err != nil {
 		return "", err
 	}
@@ -718,7 +735,7 @@ func (a *LibvirtAdapter) generateCloudInitISO(ctx context.Context, name string, 
 		return "", err
 	}
 
-	isoPath := filepath.Join("/tmp", "cloud-init-"+name+".iso")
+	isoPath := filepath.Join("/tmp", "cloud-init-"+safeName+".iso")
 
 	// Create ISO
 	genCmd := exec.Command("genisoimage", "-output", isoPath, "-volid", "config-2", "-joliet", "-rock",

@@ -55,3 +55,4 @@ api/main
 /cloud-api
 platform-api
 api_test.log
+.mcp.json

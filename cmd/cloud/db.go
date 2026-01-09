@@ -77,12 +77,15 @@ var dbCreateCmd = &cobra.Command{
 
 		fmt.Printf("[SUCCESS] Database %s created successfully!\n", name)
 		if outputJSON {
-			data, _ := json.MarshalIndent(db, "", "  ")
+			// Mask password for JSON output
+			dbCopy := *db
+			dbCopy.Password = "********"
+			data, _ := json.MarshalIndent(dbCopy, "", "  ")
 			fmt.Println(string(data))
 		} else {
 			fmt.Printf("ID:       %s\n", db.ID)
 			fmt.Printf("Username: %s\n", db.Username)
-			fmt.Printf("Password: %s (SAVE THIS!)\n", db.Password)
+			fmt.Printf("Secret:   %s (SAVE THIS!)\n", db.Password)
 		}
 	},
 }
