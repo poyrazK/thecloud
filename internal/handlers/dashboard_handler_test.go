@@ -51,7 +51,7 @@ func setupDashboardHandlerTest(t *testing.T) (*dashboardServiceMock, *DashboardH
 	return mockSvc, handler, r
 }
 
-func TestDashboardHandler_GetSummary(t *testing.T) {
+func TestDashboardHandlerGetSummary(t *testing.T) {
 	mockSvc, handler, r := setupDashboardHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 
@@ -73,7 +73,7 @@ func TestDashboardHandler_GetSummary(t *testing.T) {
 	assert.Equal(t, 5, wrapper.Data.TotalInstances)
 }
 
-func TestDashboardHandler_GetRecentEvents(t *testing.T) {
+func TestDashboardHandlerGetRecentEvents(t *testing.T) {
 	mockSvc, handler, r := setupDashboardHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 
@@ -95,7 +95,7 @@ func TestDashboardHandler_GetRecentEvents(t *testing.T) {
 	assert.Len(t, wrapper.Data, 1)
 }
 
-func TestDashboardHandler_GetStats(t *testing.T) {
+func TestDashboardHandlerGetStats(t *testing.T) {
 	mockSvc, handler, r := setupDashboardHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 
@@ -120,7 +120,7 @@ func TestDashboardHandler_GetStats(t *testing.T) {
 	assert.Equal(t, 10.1, wrapper.Data.CPUHistory[0].Value)
 }
 
-func TestDashboardHandler_StreamEvents(t *testing.T) {
+func TestDashboardHandlerStreamEvents(t *testing.T) {
 	mockSvc, handler, r := setupDashboardHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 
