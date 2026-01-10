@@ -7,8 +7,10 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func BenchmarkInstanceServiceList(b *testing.B) {
@@ -124,5 +126,65 @@ func BenchmarkFunctionServiceList(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = svc.ListFunctions(ctx)
+	}
+}
+
+func BenchmarkAuthServiceRegister(b *testing.B) {
+	userRepo := &noop.NoopUserRepository{}
+	identitySvc := &noop.NoopIdentityService{}
+	auditSvc := &noop.NoopAuditService{}
+
+	svc := services.NewAuthService(userRepo, identitySvc, auditSvc)
+
+	ctx := context.Background()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// Use unique email each time to avoid "user exists" check impact if we were using real repo
+		// though noop always returns nil for existing check usually (wait, I should check noop GetByEmail)
+		_, _ = svc.Register(ctx, "test@example.com", "P@ssword123!", "Test User")
+	}
+}
+
+type BenchUserRepository struct {
+	noop.NoopUserRepository
+	hash string
+}
+
+func (r *BenchUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+	h := r.hash
+	if h == "" {
+		h = "$2a$10$8K1p/a0ZlAbzf.H4G1/BTe1B9U1S9S9S9S9S9S9S9S9S9S9S9S9S"
+	}
+	return &domain.User{
+		ID:           uuid.New(),
+		Email:        email,
+		PasswordHash: h,
+	}, nil
+}
+
+func BenchmarkAuthServiceLogin(b *testing.B) {
+	// Generate a real hash once
+	hash, _ := bcrypt.GenerateFromPassword([]byte("password"), 10)
+
+	userRepo := &BenchUserRepository{}
+	// Override the default behavior to return the real hash
+	// using a closure or just setting it if we make it a field.
+	// Let's make it a field.
+	userRepo.hash = string(hash)
+
+	identitySvc := &noop.NoopIdentityService{}
+	auditSvc := &noop.NoopAuditService{}
+
+	svc := services.NewAuthService(userRepo, identitySvc, auditSvc)
+
+	ctx := context.Background()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _, err := svc.Login(ctx, "test@example.com", "password")
+		if err != nil {
+			b.Fatalf("Login failed: %v", err)
+		}
 	}
 }
