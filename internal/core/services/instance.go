@@ -7,7 +7,6 @@ import (
 	"io"
 	"log/slog"
 	"net"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -168,18 +167,25 @@ func (s *InstanceService) parseAndValidatePorts(ports string) ([]string, error) 
 	}
 
 	for _, p := range portList {
-		parts := strings.Split(p, ":")
-		if len(parts) != 2 {
+		idx := strings.Index(p, ":")
+		if idx == -1 {
+			return nil, errors.New(errors.InvalidPortFormat, "port format must be host:container")
+		}
+		// Ensure only one colon
+		if strings.Index(p[idx+1:], ":") != -1 {
 			return nil, errors.New(errors.InvalidPortFormat, "port format must be host:container")
 		}
 
-		hostPort, err := parsePort(parts[0])
+		hostPart := p[:idx]
+		containerPart := p[idx+1:]
+
+		hostPort, err := parsePort(hostPart)
 		if err != nil {
-			return nil, errors.New(errors.InvalidPortFormat, fmt.Sprintf("invalid host port: %s", parts[0]))
+			return nil, errors.New(errors.InvalidPortFormat, fmt.Sprintf("invalid host port: %s", hostPart))
 		}
-		containerPort, err := parsePort(parts[1])
+		containerPort, err := parsePort(containerPart)
 		if err != nil {
-			return nil, errors.New(errors.InvalidPortFormat, fmt.Sprintf("invalid container port: %s", parts[1]))
+			return nil, errors.New(errors.InvalidPortFormat, fmt.Sprintf("invalid container port: %s", containerPart))
 		}
 
 		if hostPort < domain.MinPort || hostPort > domain.MaxPort {
@@ -515,7 +521,7 @@ func (s *InstanceService) resolveNetworkConfig(ctx context.Context, vpcID, subne
 			return "", "", "", errors.Wrap(errors.ResourceLimitExceeded, "failed to allocate IP in subnet", err)
 		}
 
-		ovsPort = fmt.Sprintf("veth-%s", uuid.New().String()[:8])
+		ovsPort = "veth-" + uuid.New().String()[:8]
 	}
 	return networkID, allocatedIP, ovsPort, nil
 }
@@ -527,13 +533,13 @@ func (s *InstanceService) resolveVolumes(ctx context.Context, volumes []domain.V
 		vol, err := s.getVolumeByIDOrName(ctx, va.VolumeIDOrName)
 		if err != nil {
 			s.logger.Error("failed to get volume", "volume", va.VolumeIDOrName, "error", err)
-			return nil, nil, errors.Wrap(errors.NotFound, fmt.Sprintf("volume %s not found", va.VolumeIDOrName), err)
+			return nil, nil, errors.Wrap(errors.NotFound, "volume "+va.VolumeIDOrName+" not found", err)
 		}
 		if vol.Status != domain.VolumeStatusAvailable {
-			return nil, nil, errors.New(errors.InvalidInput, fmt.Sprintf("volume %s is not available", vol.Name))
+			return nil, nil, errors.New(errors.InvalidInput, "volume "+vol.Name+" is not available")
 		}
 		dockerVolName := "thecloud-vol-" + vol.ID.String()[:8]
-		volumeBinds = append(volumeBinds, fmt.Sprintf("%s:%s", dockerVolName, va.MountPath))
+		volumeBinds = append(volumeBinds, dockerVolName+":"+va.MountPath)
 		attachedVolumes = append(attachedVolumes, vol)
 	}
 	return volumeBinds, attachedVolumes, nil
@@ -544,14 +550,18 @@ func (s *InstanceService) plumbNetwork(ctx context.Context, inst *domain.Instanc
 		return nil
 	}
 
-	vethContainer := fmt.Sprintf("eth0-%s", inst.ID.String()[:8])
+	vethContainer := "eth0-" + inst.ID.String()[:8]
 	if err := s.network.CreateVethPair(ctx, inst.OvsPort, vethContainer); err != nil {
 		return err
 	}
 
-	vpc, _ := s.vpcRepo.GetByID(ctx, *inst.VpcID)
-	if err := s.network.AttachVethToBridge(ctx, vpc.NetworkID, inst.OvsPort); err != nil {
-		return err
+	if inst.VpcID != nil {
+		vpc, _ := s.vpcRepo.GetByID(ctx, *inst.VpcID)
+		if vpc != nil {
+			if err := s.network.AttachVethToBridge(ctx, vpc.NetworkID, inst.OvsPort); err != nil {
+				return err
+			}
+		}
 	}
 
 	// Set IP on the host simulation "container" end
@@ -562,20 +572,16 @@ func (s *InstanceService) plumbNetwork(ctx context.Context, inst *domain.Instanc
 			ones, _ := ipNet.Mask.Size()
 			// In a real cloud, this happens inside the container namespace.
 			// For this demo, we do it on the host for the 'peer' end.
-			if err := s.network.SetVethIP(ctx, vethContainer, inst.PrivateIP, fmt.Sprintf("%d", ones)); err != nil {
+			if err := s.network.SetVethIP(ctx, vethContainer, inst.PrivateIP, strconv.Itoa(ones)); err != nil {
 				return err
 			}
-
-			// Ensure the "container" end is also up on host if simulating
-			cmd := exec.CommandContext(ctx, "ip", "link", "set", vethContainer, "up")
-			_ = cmd.Run()
 		}
 	}
 	return nil
 }
 
 func (s *InstanceService) formatContainerName(id uuid.UUID) string {
-	return fmt.Sprintf("thecloud-%s", id.String()[:8])
+	return "thecloud-" + id.String()[:8]
 }
 
 func (s *InstanceService) findAvailableIP(ipNet *net.IPNet, usedIPs map[string]bool) (string, error) {

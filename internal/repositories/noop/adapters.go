@@ -51,8 +51,16 @@ func (r *NoopVpcRepository) ListByUserID(ctx context.Context, userID uuid.UUID) 
 type NoopSubnetRepository struct{}
 
 func (r *NoopSubnetRepository) Create(ctx context.Context, s *domain.Subnet) error { return nil }
+
+var staticSubnet = &domain.Subnet{
+	ID:        uuid.New(),
+	CIDRBlock: "10.0.0.0/24",
+	GatewayIP: "10.0.0.1",
+	Status:    "available",
+}
+
 func (r *NoopSubnetRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Subnet, error) {
-	return &domain.Subnet{ID: id}, nil
+	return staticSubnet, nil
 }
 func (r *NoopSubnetRepository) GetByName(ctx context.Context, vpcID uuid.UUID, name string) (*domain.Subnet, error) {
 	return &domain.Subnet{ID: uuid.New(), Name: name, VPCID: vpcID}, nil
@@ -209,3 +217,51 @@ func (r *NoopFunctionRepository) CreateInvocation(ctx context.Context, i *domain
 func (r *NoopFunctionRepository) GetInvocations(ctx context.Context, functionID uuid.UUID, limit int) ([]*domain.Invocation, error) {
 	return []*domain.Invocation{}, nil
 }
+
+type NoopUserRepository struct{}
+
+func (r *NoopUserRepository) Create(ctx context.Context, user *domain.User) error { return nil }
+func (r *NoopUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+	return nil, nil // Return nil so Register doesn't fail
+}
+func (r *NoopUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+	return &domain.User{ID: id}, nil
+}
+func (r *NoopUserRepository) Update(ctx context.Context, user *domain.User) error { return nil }
+func (r *NoopUserRepository) List(ctx context.Context) ([]*domain.User, error) {
+	return []*domain.User{}, nil
+}
+
+type NoopIdentityService struct{}
+
+func (s *NoopIdentityService) CreateKey(ctx context.Context, userID uuid.UUID, name string) (*domain.APIKey, error) {
+	return &domain.APIKey{ID: uuid.New(), UserID: userID, Name: name, Key: "noop-key"}, nil
+}
+func (s *NoopIdentityService) ValidateAPIKey(ctx context.Context, key string) (*domain.APIKey, error) {
+	return &domain.APIKey{ID: uuid.New(), Key: key}, nil
+}
+func (s *NoopIdentityService) ListKeys(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
+	return []*domain.APIKey{}, nil
+}
+func (s *NoopIdentityService) RevokeKey(ctx context.Context, userID uuid.UUID, id uuid.UUID) error {
+	return nil
+}
+func (s *NoopIdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*domain.APIKey, error) {
+	return &domain.APIKey{ID: id, UserID: userID, Key: "rotated-key"}, nil
+}
+
+type NoopIdentityRepository struct{}
+
+func (r *NoopIdentityRepository) CreateAPIKey(ctx context.Context, apiKey *domain.APIKey) error {
+	return nil
+}
+func (r *NoopIdentityRepository) GetAPIKeyByKey(ctx context.Context, key string) (*domain.APIKey, error) {
+	return &domain.APIKey{Key: key}, nil
+}
+func (r *NoopIdentityRepository) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error) {
+	return &domain.APIKey{ID: id}, nil
+}
+func (r *NoopIdentityRepository) ListAPIKeysByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
+	return []*domain.APIKey{}, nil
+}
+func (r *NoopIdentityRepository) DeleteAPIKey(ctx context.Context, id uuid.UUID) error { return nil }

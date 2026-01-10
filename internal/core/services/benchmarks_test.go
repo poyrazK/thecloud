@@ -63,15 +63,15 @@ func BenchmarkVPCServiceGet(b *testing.B) {
 }
 
 func BenchmarkInstanceServiceCreate(b *testing.B) {
+	logger := slog.Default()
 	repo := &noop.NoopInstanceRepository{}
 	vpcRepo := &noop.NoopVpcRepository{}
 	subnetRepo := &noop.NoopSubnetRepository{}
 	volumeRepo := &noop.NoopVolumeRepository{}
 	compute := &noop.NoopComputeBackend{}
-	network := &noop.NoopNetworkAdapter{}
+	network := noop.NewNoopNetworkAdapter(logger)
 	eventSvc := &noop.NoopEventService{}
 	auditSvc := &noop.NoopAuditService{}
-	logger := slog.Default()
 
 	svc := services.NewInstanceService(services.InstanceServiceParams{
 		Repo:       repo,
