@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	_ "github.com/poyrazk/thecloud/docs/swagger"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -127,8 +128,13 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
 	})
 
-	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+	// 7. Profiling (pprof) - only in non-production
+	if cfg.Environment != "production" {
+		pprof.Register(r)
+	}
 
 	// Auth Rate Limiter (5 req/min, burst 5)
 	authLimiter := ratelimit.NewIPRateLimiter(rate.Limit(5.0/60.0), 5, logger)
