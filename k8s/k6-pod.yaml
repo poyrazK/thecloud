@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k6-loadtest
+  namespace: thecloud
+spec:
+  containers:
+  - name: k6
+    image: grafana/k6:latest
+    command: ["sleep"]
+    args: ["3600"]
+  restartPolicy: Never

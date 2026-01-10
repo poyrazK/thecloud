@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migration-job
+  namespace: thecloud
+spec:
+  template:
+    spec:
+      containers:
+      - name: migration
+        image: thecloud-api:latest
+        imagePullPolicy: IfNotPresent
+        command: ["/app/api"]
+        args: ["-migrate-only"]
+        env:
+        - name: ROLE
+          value: "api"
+        envFrom:
+        - configMapRef:
+            name: cloud-config
+        - secretRef:
+            name: cloud-secrets
+      restartPolicy: OnFailure
