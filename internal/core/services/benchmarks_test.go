@@ -94,3 +94,35 @@ func BenchmarkCacheServiceList(b *testing.B) {
 		_, _ = svc.ListCaches(ctx)
 	}
 }
+
+func BenchmarkStorageServiceList(b *testing.B) {
+	repo := &noop.NoopStorageRepository{}
+	fileStore := &noop.NoopFileStore{}
+	auditSvc := &noop.NoopAuditService{}
+
+	svc := services.NewStorageService(repo, fileStore, auditSvc)
+
+	ctx := context.Background()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = svc.ListObjects(ctx, "test-bucket")
+	}
+}
+
+func BenchmarkFunctionServiceList(b *testing.B) {
+	repo := &noop.NoopFunctionRepository{}
+	compute := &noop.NoopComputeBackend{}
+	fileStore := &noop.NoopFileStore{}
+	auditSvc := &noop.NoopAuditService{}
+	logger := slog.Default()
+
+	svc := services.NewFunctionService(repo, compute, fileStore, auditSvc, logger)
+
+	ctx := context.Background()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = svc.ListFunctions(ctx)
+	}
+}

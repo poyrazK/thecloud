@@ -168,3 +168,44 @@ func (r *NoopCacheRepository) List(ctx context.Context, userID uuid.UUID) ([]*do
 }
 func (r *NoopCacheRepository) Update(ctx context.Context, cache *domain.Cache) error { return nil }
 func (r *NoopCacheRepository) Delete(ctx context.Context, id uuid.UUID) error        { return nil }
+
+type NoopStorageRepository struct{}
+
+func (r *NoopStorageRepository) SaveMeta(ctx context.Context, obj *domain.Object) error { return nil }
+func (r *NoopStorageRepository) GetMeta(ctx context.Context, bucket, key string) (*domain.Object, error) {
+	return &domain.Object{Bucket: bucket, Key: key}, nil
+}
+func (r *NoopStorageRepository) List(ctx context.Context, bucket string) ([]*domain.Object, error) {
+	return []*domain.Object{}, nil
+}
+func (r *NoopStorageRepository) SoftDelete(ctx context.Context, bucket, key string) error { return nil }
+
+type NoopFileStore struct{}
+
+func (r *NoopFileStore) Write(ctx context.Context, bucket, key string, reader io.Reader) (int64, error) {
+	return 0, nil
+}
+func (r *NoopFileStore) Read(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader("")), nil
+}
+func (r *NoopFileStore) Delete(ctx context.Context, bucket, key string) error { return nil }
+
+type NoopFunctionRepository struct{}
+
+func (r *NoopFunctionRepository) Create(ctx context.Context, f *domain.Function) error { return nil }
+func (r *NoopFunctionRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Function, error) {
+	return &domain.Function{ID: id}, nil
+}
+func (r *NoopFunctionRepository) GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Function, error) {
+	return &domain.Function{ID: uuid.New(), Name: name, UserID: userID}, nil
+}
+func (r *NoopFunctionRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.Function, error) {
+	return []*domain.Function{}, nil
+}
+func (r *NoopFunctionRepository) Delete(ctx context.Context, id uuid.UUID) error { return nil }
+func (r *NoopFunctionRepository) CreateInvocation(ctx context.Context, i *domain.Invocation) error {
+	return nil
+}
+func (r *NoopFunctionRepository) GetInvocations(ctx context.Context, functionID uuid.UUID, limit int) ([]*domain.Invocation, error) {
+	return []*domain.Invocation{}, nil
+}
