@@ -19,6 +19,7 @@ type Config struct {
 	DBMaxConns           string
 	DBMinConns           string
 	RedisURL             string
+	DatabaseReadURL      string
 }
 
 func NewConfig() (*Config, error) {
@@ -27,6 +28,7 @@ func NewConfig() (*Config, error) {
 	return &Config{
 		Port:                 getEnv("PORT", "8080"),
 		DatabaseURL:          getEnv("DATABASE_URL", "postgres://cloud:cloud@localhost:5433/thecloud"),
+		DatabaseReadURL:      getEnv("DATABASE_READ_URL", ""), // Default to empty (use primary)
 		Environment:          getEnv("APP_ENV", "development"),
 		SecretsEncryptionKey: os.Getenv("SECRETS_ENCRYPTION_KEY"),
 		ComputeBackend:       getEnv("COMPUTE_BACKEND", "docker"),

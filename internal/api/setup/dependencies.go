@@ -3,7 +3,6 @@ package setup
 import (
 	"log/slog"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/platform"
@@ -43,7 +42,7 @@ type Repositories struct {
 	TaskQueue     ports.TaskQueue
 }
 
-func InitRepositories(db *pgxpool.Pool, rdb *redisv9.Client) *Repositories {
+func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 	return &Repositories{
 		Audit:         postgres.NewAuditRepository(db),
 		User:          postgres.NewUserRepo(db),
@@ -119,7 +118,7 @@ func InitServices(
 	compute ports.ComputeBackend,
 	network ports.NetworkBackend,
 	lbProxy ports.LBProxyAdapter,
-	db *pgxpool.Pool, // needed for HealthService
+	db postgres.DB, // needed for HealthService
 	rdb *redisv9.Client,
 	logger *slog.Logger,
 ) (*Services, *Workers, error) {

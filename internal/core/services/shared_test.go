@@ -1525,28 +1525,49 @@ func (m *MockLBRepo) GetTargetsForInstance(ctx context.Context, instanceID uuid.
 
 // MockSecurityGroupRepo
 type MockSecurityGroupRepo struct{ mock.Mock }
-func (m *MockSecurityGroupRepo) Create(ctx context.Context, sg *domain.SecurityGroup) error { return m.Called(ctx, sg).Error(0) }
+
+func (m *MockSecurityGroupRepo) Create(ctx context.Context, sg *domain.SecurityGroup) error {
+	return m.Called(ctx, sg).Error(0)
+}
 func (m *MockSecurityGroupRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.SecurityGroup, error) {
 	args := m.Called(ctx, id)
-	if args.Get(0) == nil { return nil, args.Error(1) }
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*domain.SecurityGroup), args.Error(1)
 }
 func (m *MockSecurityGroupRepo) GetByName(ctx context.Context, vpcID uuid.UUID, name string) (*domain.SecurityGroup, error) {
 	args := m.Called(ctx, vpcID, name)
-	if args.Get(0) == nil { return nil, args.Error(1) }
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*domain.SecurityGroup), args.Error(1)
 }
 func (m *MockSecurityGroupRepo) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*domain.SecurityGroup, error) {
 	args := m.Called(ctx, vpcID)
-	if args.Get(0) == nil { return nil, args.Error(1) }
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]*domain.SecurityGroup), args.Error(1)
 }
-func (m *MockSecurityGroupRepo) AddRule(ctx context.Context, rule *domain.SecurityRule) error { return m.Called(ctx, rule).Error(0) }
-func (m *MockSecurityGroupRepo) DeleteRule(ctx context.Context, ruleID uuid.UUID) error { return m.Called(ctx, ruleID).Error(0) }
-func (m *MockSecurityGroupRepo) Delete(ctx context.Context, id uuid.UUID) error { return m.Called(ctx, id).Error(0) }
-func (m *MockSecurityGroupRepo) AddInstanceToGroup(ctx context.Context, instanceID, groupID uuid.UUID) error { return m.Called(ctx, instanceID, groupID).Error(0) }
-func (m *MockSecurityGroupRepo) RemoveInstanceFromGroup(ctx context.Context, instanceID, groupID uuid.UUID) error { return m.Called(ctx, instanceID, groupID).Error(0) }
-func (m *MockSecurityGroupRepo) ListInstanceGroups(ctx context.Context, instanceID uuid.UUID) ([]*domain.SecurityGroup, error) { return nil, nil }
+func (m *MockSecurityGroupRepo) AddRule(ctx context.Context, rule *domain.SecurityRule) error {
+	return m.Called(ctx, rule).Error(0)
+}
+func (m *MockSecurityGroupRepo) DeleteRule(ctx context.Context, ruleID uuid.UUID) error {
+	return m.Called(ctx, ruleID).Error(0)
+}
+func (m *MockSecurityGroupRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockSecurityGroupRepo) AddInstanceToGroup(ctx context.Context, instanceID, groupID uuid.UUID) error {
+	return m.Called(ctx, instanceID, groupID).Error(0)
+}
+func (m *MockSecurityGroupRepo) RemoveInstanceFromGroup(ctx context.Context, instanceID, groupID uuid.UUID) error {
+	return m.Called(ctx, instanceID, groupID).Error(0)
+}
+func (m *MockSecurityGroupRepo) ListInstanceGroups(ctx context.Context, instanceID uuid.UUID) ([]*domain.SecurityGroup, error) {
+	return nil, nil
+}
 
 // MockQueueRepository
 type MockQueueRepository struct{ mock.Mock }
@@ -1557,12 +1578,16 @@ func (m *MockQueueRepository) Create(ctx context.Context, queue *domain.Queue) e
 }
 func (m *MockQueueRepository) GetByID(ctx context.Context, id, userID uuid.UUID) (*domain.Queue, error) {
 	args := m.Called(ctx, id, userID)
-	if args.Get(0) == nil { return nil, args.Error(1) }
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*domain.Queue), args.Error(1)
 }
 func (m *MockQueueRepository) GetByName(ctx context.Context, name string, userID uuid.UUID) (*domain.Queue, error) {
 	args := m.Called(ctx, name, userID)
-	if args.Get(0) == nil { return nil, args.Error(1) }
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*domain.Queue), args.Error(1)
 }
 func (m *MockQueueRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.Queue, error) {

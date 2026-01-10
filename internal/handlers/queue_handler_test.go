@@ -379,7 +379,7 @@ func TestQueueHandler_InvalidJSON(t *testing.T) {
 	r.POST(queuesPath+"/:id/messages", handler.SendMessage)
 
 	id := uuid.New()
-	
+
 	t.Run("Create", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		req, _ := http.NewRequest("POST", queuesPath, bytes.NewBufferString("{invalid}"))
