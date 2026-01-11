@@ -36,7 +36,7 @@ func TestVolumeRepository_Create(t *testing.T) {
 		}
 
 		mock.ExpectExec("INSERT INTO volumes").
-			WithArgs(vol.ID, vol.UserID, vol.Name, vol.SizeGB, string(vol.Status), vol.InstanceID, vol.MountPath, vol.CreatedAt, vol.UpdatedAt).
+			WithArgs(vol.ID, vol.UserID, vol.Name, vol.SizeGB, string(vol.Status), vol.InstanceID, vol.BackendPath, vol.MountPath, vol.CreatedAt, vol.UpdatedAt).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), vol)
@@ -73,10 +73,10 @@ func TestVolumeRepository_GetByID(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, name, size_gb, status, instance_id, mount_path, created_at, updated_at FROM volumes").
+		mock.ExpectQuery("SELECT id, user_id, name, size_gb, status, instance_id, backend_path, mount_path, created_at, updated_at FROM volumes").
 			WithArgs(id, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "size_gb", "status", "instance_id", "mount_path", "created_at", "updated_at"}).
-				AddRow(id, userID, "vol-1", 10, string(domain.VolumeStatusAvailable), &id, "/mnt/data", now, now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "size_gb", "status", "instance_id", "backend_path", "mount_path", "created_at", "updated_at"}).
+				AddRow(id, userID, "vol-1", 10, string(domain.VolumeStatusAvailable), &id, "", "/mnt/data", now, now))
 
 		vol, err := repo.GetByID(ctx, id)
 		assert.NoError(t, err)
@@ -94,7 +94,7 @@ func TestVolumeRepository_GetByID(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, name, size_gb, status, instance_id, mount_path, created_at, updated_at FROM volumes").
+		mock.ExpectQuery("SELECT id, user_id, name, size_gb, status, instance_id, backend_path, mount_path, created_at, updated_at FROM volumes").
 			WithArgs(id, userID).
 			WillReturnError(pgx.ErrNoRows)
 
@@ -121,10 +121,10 @@ func TestVolumeRepository_GetByName(t *testing.T) {
 		now := time.Now()
 		name := "vol-1"
 
-		mock.ExpectQuery("SELECT id, user_id, name, size_gb, status, instance_id, mount_path, created_at, updated_at FROM volumes").
+		mock.ExpectQuery("SELECT id, user_id, name, size_gb, status, instance_id, backend_path, mount_path, created_at, updated_at FROM volumes").
 			WithArgs(name, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "size_gb", "status", "instance_id", "mount_path", "created_at", "updated_at"}).
-				AddRow(id, userID, name, 10, string(domain.VolumeStatusAvailable), &id, "/mnt/data", now, now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "size_gb", "status", "instance_id", "backend_path", "mount_path", "created_at", "updated_at"}).
+				AddRow(id, userID, name, 10, string(domain.VolumeStatusAvailable), &id, "", "/mnt/data", now, now))
 
 		vol, err := repo.GetByName(ctx, name)
 		assert.NoError(t, err)
@@ -142,7 +142,7 @@ func TestVolumeRepository_GetByName(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		name := "vol-1"
 
-		mock.ExpectQuery("SELECT id, user_id, name, size_gb, status, instance_id, mount_path, created_at, updated_at FROM volumes").
+		mock.ExpectQuery("SELECT id, user_id, name, size_gb, status, instance_id, backend_path, mount_path, created_at, updated_at FROM volumes").
 			WithArgs(name, userID).
 			WillReturnError(pgx.ErrNoRows)
 
@@ -168,10 +168,10 @@ func TestVolumeRepository_List(t *testing.T) {
 		now := time.Now()
 
 		instID := uuid.New()
-		mock.ExpectQuery("SELECT id, user_id, name, size_gb, status, instance_id, mount_path, created_at, updated_at FROM volumes").
+		mock.ExpectQuery("SELECT id, user_id, name, size_gb, status, instance_id, backend_path, mount_path, created_at, updated_at FROM volumes").
 			WithArgs(userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "size_gb", "status", "instance_id", "mount_path", "created_at", "updated_at"}).
-				AddRow(uuid.New(), userID, "vol-1", 10, string(domain.VolumeStatusAvailable), &instID, "/mnt/data", now, now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "size_gb", "status", "instance_id", "backend_path", "mount_path", "created_at", "updated_at"}).
+				AddRow(uuid.New(), userID, "vol-1", 10, string(domain.VolumeStatusAvailable), &instID, "", "/mnt/data", now, now))
 
 		vols, err := repo.List(ctx)
 		assert.NoError(t, err)
@@ -187,7 +187,7 @@ func TestVolumeRepository_List(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, name, size_gb, status, instance_id, mount_path, created_at, updated_at FROM volumes").
+		mock.ExpectQuery("SELECT id, user_id, name, size_gb, status, instance_id, backend_path, mount_path, created_at, updated_at FROM volumes").
 			WithArgs(userID).
 			WillReturnError(errors.New("db error"))
 
@@ -209,10 +209,10 @@ func TestVolumeRepository_ListByInstanceID(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, name, size_gb, status, instance_id, mount_path, created_at, updated_at FROM volumes").
+		mock.ExpectQuery("SELECT id, user_id, name, size_gb, status, instance_id, backend_path, mount_path, created_at, updated_at FROM volumes").
 			WithArgs(instanceID, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "size_gb", "status", "instance_id", "mount_path", "created_at", "updated_at"}).
-				AddRow(uuid.New(), userID, "vol-1", 10, string(domain.VolumeStatusAvailable), &instanceID, "/mnt/data", now, now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "size_gb", "status", "instance_id", "backend_path", "mount_path", "created_at", "updated_at"}).
+				AddRow(uuid.New(), userID, "vol-1", 10, string(domain.VolumeStatusAvailable), &instanceID, "", "/mnt/data", now, now))
 
 		vols, err := repo.ListByInstanceID(ctx, instanceID)
 		assert.NoError(t, err)
@@ -229,7 +229,7 @@ func TestVolumeRepository_ListByInstanceID(t *testing.T) {
 		instanceID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, name, size_gb, status, instance_id, mount_path, created_at, updated_at FROM volumes").
+		mock.ExpectQuery("SELECT id, user_id, name, size_gb, status, instance_id, backend_path, mount_path, created_at, updated_at FROM volumes").
 			WithArgs(instanceID, userID).
 			WillReturnError(errors.New("db error"))
 
@@ -254,7 +254,7 @@ func TestVolumeRepository_Update(t *testing.T) {
 		}
 
 		mock.ExpectExec("UPDATE volumes").
-			WithArgs(string(vol.Status), vol.InstanceID, vol.MountPath, vol.UpdatedAt, vol.ID, vol.UserID).
+			WithArgs(string(vol.Status), vol.InstanceID, vol.BackendPath, vol.MountPath, vol.UpdatedAt, vol.ID, vol.UserID).
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		err = repo.Update(context.Background(), vol)

@@ -123,7 +123,7 @@ func TestInstanceHandlerLaunch(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, http.StatusAccepted, w.Code)
 }
 
 func TestInstanceHandlerList(t *testing.T) {
@@ -259,5 +259,5 @@ func TestInstanceHandlerLaunchWithVolumesAndVPC(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, http.StatusAccepted, w.Code)
 }

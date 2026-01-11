@@ -65,16 +65,18 @@ func (s *SnapshotService) CreateSnapshot(ctx context.Context, volumeID uuid.UUID
 	}
 
 	// 4. Perform async snapshot
+	// Copy snapshot to avoid data race with returned pointer
+	asyncSnap := *snapshot
 	go func() {
 		bgCtx := context.Background()
-		err := s.performSnapshot(bgCtx, vol, snapshot)
+		err := s.performSnapshot(bgCtx, vol, &asyncSnap)
 		if err != nil {
 			s.logger.Error("failed to perform snapshot", "snapshot_id", snapshot.ID, "error", err)
-			snapshot.Status = domain.SnapshotStatusError
+			asyncSnap.Status = domain.SnapshotStatusError
 		} else {
-			snapshot.Status = domain.SnapshotStatusAvailable
+			asyncSnap.Status = domain.SnapshotStatusAvailable
 		}
-		_ = s.repo.Update(bgCtx, snapshot)
+		_ = s.repo.Update(bgCtx, &asyncSnap)
 	}()
 
 	_ = s.eventSvc.RecordEvent(ctx, "SNAPSHOT_CREATE", snapshot.ID.String(), "SNAPSHOT", map[string]interface{}{
