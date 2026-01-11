@@ -56,7 +56,8 @@ func TestInitComputeBackend(t *testing.T) {
 
 func TestInitNetworkBackend(t *testing.T) {
 	logger := InitLogger()
-	backend := InitNetworkBackend(logger)
+	cfg := &platform.Config{NetworkBackend: "noop"}
+	backend := InitNetworkBackend(cfg, logger)
 	assert.NotNil(t, backend)
 }
 
