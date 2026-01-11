@@ -16,22 +16,22 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func setupSnapshotServiceTest(t *testing.T) (*MockSnapshotRepo, *MockVolumeRepo, *MockComputeBackend, *MockEventService, *MockAuditService, ports.SnapshotService) {
+func setupSnapshotServiceTest(t *testing.T) (*MockSnapshotRepo, *MockVolumeRepo, *MockStorageBackend, *MockEventService, *MockAuditService, ports.SnapshotService) {
 	repo := new(MockSnapshotRepo)
 	volRepo := new(MockVolumeRepo)
-	docker := new(MockComputeBackend)
+	storage := new(MockStorageBackend)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewSnapshotService(repo, volRepo, docker, eventSvc, auditSvc, logger)
-	return repo, volRepo, docker, eventSvc, auditSvc, svc
+	svc := services.NewSnapshotService(repo, volRepo, storage, eventSvc, auditSvc, logger)
+	return repo, volRepo, storage, eventSvc, auditSvc, svc
 }
 
 func TestCreateSnapshot_Success(t *testing.T) {
-	repo, volRepo, docker, eventSvc, auditSvc, svc := setupSnapshotServiceTest(t)
+	repo, volRepo, storage, eventSvc, auditSvc, svc := setupSnapshotServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer volRepo.AssertExpectations(t)
-	defer docker.AssertExpectations(t)
+	defer storage.AssertExpectations(t)
 	defer eventSvc.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
 
@@ -49,7 +49,7 @@ func TestCreateSnapshot_Success(t *testing.T) {
 	auditSvc.On("Log", ctx, mock.Anything, "snapshot.create", "snapshot", mock.Anything, mock.Anything).Return(nil)
 
 	// Async expectations
-	docker.On("CreateVolumeSnapshot", mock.Anything, "thecloud-vol-"+volID.String()[:8], mock.Anything).Return(nil)
+	storage.On("CreateSnapshot", mock.Anything, "thecloud-vol-"+volID.String()[:8], mock.Anything).Return(nil)
 	repo.On("Update", mock.Anything, mock.AnythingOfType("*domain.Snapshot")).Return(nil)
 
 	snap, err := svc.CreateSnapshot(ctx, volID, "Test snapshot")
@@ -64,10 +64,10 @@ func TestCreateSnapshot_Success(t *testing.T) {
 }
 
 func TestRestoreSnapshot_Success(t *testing.T) {
-	repo, volRepo, docker, eventSvc, auditSvc, svc := setupSnapshotServiceTest(t)
+	repo, volRepo, storage, eventSvc, auditSvc, svc := setupSnapshotServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer volRepo.AssertExpectations(t)
-	defer docker.AssertExpectations(t)
+	defer storage.AssertExpectations(t)
 	defer eventSvc.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
 
@@ -82,10 +82,11 @@ func TestRestoreSnapshot_Success(t *testing.T) {
 	}
 
 	repo.On("GetByID", ctx, snapID).Return(snap, nil)
-	docker.On("CreateVolume", ctx, mock.Anything).Return(nil)
+	// CreateVolume returns (string, error)
+	storage.On("CreateVolume", ctx, mock.Anything, 10).Return("vol-path", nil)
 	// Restore expectations
 	// volume id is dynamic in test but we can use mock.Anything or partial match
-	docker.On("RestoreVolumeSnapshot", ctx, mock.Anything, mock.Anything).Return(nil)
+	storage.On("RestoreSnapshot", ctx, mock.Anything, mock.Anything).Return(nil)
 	volRepo.On("Create", ctx, mock.AnythingOfType("*domain.Volume")).Return(nil)
 
 	eventSvc.On("RecordEvent", ctx, "VOLUME_RESTORE", mock.Anything, "VOLUME", mock.Anything).Return(nil)
@@ -100,8 +101,9 @@ func TestRestoreSnapshot_Success(t *testing.T) {
 }
 
 func TestDeleteSnapshot_Success(t *testing.T) {
-	repo, _, _, eventSvc, auditSvc, svc := setupSnapshotServiceTest(t)
+	repo, _, storage, eventSvc, auditSvc, svc := setupSnapshotServiceTest(t)
 	defer repo.AssertExpectations(t)
+	defer storage.AssertExpectations(t)
 	defer eventSvc.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
 
@@ -113,6 +115,10 @@ func TestDeleteSnapshot_Success(t *testing.T) {
 	}
 
 	repo.On("GetByID", ctx, snapID).Return(snap, nil)
+
+	backendSnapName := "thecloud-snap-" + snapID.String()[:8]
+	storage.On("DeleteSnapshot", ctx, backendSnapName).Return(nil)
+
 	repo.On("Delete", ctx, snapID).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "SNAPSHOT_DELETE", snapID.String(), "SNAPSHOT", mock.Anything).Return(nil)
 	auditSvc.On("Log", ctx, mock.Anything, "snapshot.delete", "snapshot", snapID.String(), mock.Anything).Return(nil)

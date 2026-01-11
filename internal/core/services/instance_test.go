@@ -290,6 +290,7 @@ func TestProvision_Success(t *testing.T) {
 	repo.On("ListBySubnet", mock.Anything, subnetID).Return([]*domain.Instance{}, nil)
 
 	compute.On("CreateInstance", mock.Anything, mock.Anything, image, []string{"8080:80"}, "br-vpc-123", mock.Anything, mock.Anything, mock.Anything).Return("c-123", nil)
+	compute.On("Type").Return("docker")
 
 	network.On("CreateVethPair", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	network.On("AttachVethToBridge", mock.Anything, "br-vpc-123", mock.Anything).Return(nil)

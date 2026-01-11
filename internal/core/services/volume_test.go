@@ -15,21 +15,21 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func setupVolumeServiceTest(t *testing.T) (*MockVolumeRepo, *MockComputeBackend, *MockEventService, *MockAuditService, ports.VolumeService) {
+func setupVolumeServiceTest(t *testing.T) (*MockVolumeRepo, *MockStorageBackend, *MockEventService, *MockAuditService, ports.VolumeService) {
 	repo := new(MockVolumeRepo)
-	docker := new(MockComputeBackend)
+	storage := new(MockStorageBackend)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewVolumeService(repo, docker, eventSvc, auditSvc, logger)
-	return repo, docker, eventSvc, auditSvc, svc
+	svc := services.NewVolumeService(repo, storage, eventSvc, auditSvc, logger)
+	return repo, storage, eventSvc, auditSvc, svc
 }
 
 func TestVolumeServiceCreateVolumeSuccess(t *testing.T) {
-	repo, docker, eventSvc, auditSvc, svc := setupVolumeServiceTest(t)
+	repo, storage, eventSvc, auditSvc, svc := setupVolumeServiceTest(t)
 	defer repo.AssertExpectations(t)
-	defer docker.AssertExpectations(t)
+	defer storage.AssertExpectations(t)
 	defer eventSvc.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
 
@@ -37,9 +37,11 @@ func TestVolumeServiceCreateVolumeSuccess(t *testing.T) {
 	name := "test-vol"
 	size := 10
 
-	docker.On("CreateVolume", ctx, mock.MatchedBy(func(n string) bool {
+	// CreateVolume(ctx, name, size) -> (path, error)
+	storage.On("CreateVolume", ctx, mock.MatchedBy(func(n string) bool {
 		return len(n) > 0 // Ensure some name is generated
-	})).Return(nil)
+	}), size).Return("vol-path", nil)
+
 	repo.On("Create", ctx, mock.AnythingOfType("*domain.Volume")).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "VOLUME_CREATE", mock.Anything, "VOLUME", mock.Anything).Return(nil)
 	auditSvc.On("Log", ctx, mock.Anything, "volume.create", "volume", mock.Anything, mock.Anything).Return(nil)
@@ -54,9 +56,9 @@ func TestVolumeServiceCreateVolumeSuccess(t *testing.T) {
 }
 
 func TestVolumeServiceDeleteVolumeSuccess(t *testing.T) {
-	repo, docker, eventSvc, auditSvc, svc := setupVolumeServiceTest(t)
+	repo, storage, eventSvc, auditSvc, svc := setupVolumeServiceTest(t)
 	defer repo.AssertExpectations(t)
-	defer docker.AssertExpectations(t)
+	defer storage.AssertExpectations(t)
 	defer eventSvc.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
 
@@ -70,7 +72,7 @@ func TestVolumeServiceDeleteVolumeSuccess(t *testing.T) {
 
 	repo.On("GetByID", ctx, volID).Return(vol, nil)
 	dockerName := "thecloud-vol-" + volID.String()[:8]
-	docker.On("DeleteVolume", ctx, dockerName).Return(nil)
+	storage.On("DeleteVolume", ctx, dockerName).Return(nil)
 	repo.On("Delete", ctx, volID).Return(nil)
 	eventSvc.On("RecordEvent", ctx, "VOLUME_DELETE", volID.String(), "VOLUME", mock.Anything).Return(nil)
 	auditSvc.On("Log", ctx, mock.Anything, "volume.delete", "volume", mock.Anything, mock.Anything).Return(nil)
@@ -81,9 +83,9 @@ func TestVolumeServiceDeleteVolumeSuccess(t *testing.T) {
 }
 
 func TestVolumeServiceDeleteVolumeInUseFails(t *testing.T) {
-	repo, docker, _, _, svc := setupVolumeServiceTest(t)
+	repo, storage, _, _, svc := setupVolumeServiceTest(t)
 	defer repo.AssertExpectations(t)
-	defer docker.AssertExpectations(t)
+	defer storage.AssertExpectations(t)
 
 	ctx := context.Background()
 	volID := uuid.New()
@@ -99,6 +101,6 @@ func TestVolumeServiceDeleteVolumeInUseFails(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "in use")
 
-	docker.AssertNotCalled(t, "DeleteVolume", mock.Anything, mock.Anything)
+	storage.AssertNotCalled(t, "DeleteVolume", mock.Anything, mock.Anything)
 	repo.AssertNotCalled(t, "Delete", mock.Anything, mock.Anything)
 }
