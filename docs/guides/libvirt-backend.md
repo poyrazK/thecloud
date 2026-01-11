@@ -10,7 +10,8 @@ The Cloud supports **Libvirt** as an alternative compute backend to Docker, enab
 
 - **LibvirtAdapter**: Implements the `ComputeBackend` interface using `go-libvirt`
 - **Cloud-Init Integration**: Automatic VM configuration via ISO injection
-- **Storage**: QCOW2 volumes in libvirt storage pools
+- **Storage**: QCOW2 (file-based) or **LVM** (block-based) volumes
+- **Console**: VNC access via Websockets (`/console` endpoint)
 - **Networking**: NAT networks with DHCP and port forwarding via iptables
 - **Load Balancing**: Host-level Nginx process for HTTP traffic distribution
 
@@ -39,7 +40,8 @@ The Cloud supports **Libvirt** as an alternative compute backend to Docker, enab
 - **libvirt daemon** installed and running
 - **QEMU/KVM** virtualization packages
 - **genisoimage** or **mkisofs** for Cloud-Init ISO generation
-- **qemu-img** for volume management
+- **qemu-img** for QCOW2 volume management
+- **lvm2** for LVM block storage (optional, for `STORAGE_BACKEND=lvm`)
 
 ### Installation
 
@@ -160,6 +162,7 @@ Or add it to your `.env` file:
 
 ```env
 COMPUTE_BACKEND=libvirt
+STORAGE_BACKEND=lvm # Optional: Defaults to 'noop'
 ```
 
 ### 4. Permissions
