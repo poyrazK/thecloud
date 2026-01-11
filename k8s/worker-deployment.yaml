@@ -33,6 +33,7 @@ spec:
           requests:
             cpu: "30m"
             memory: "64Mi"
+            ephemeral-storage: "50Mi"
           limits:
             cpu: "100m"
             memory: "80Mi"
