@@ -56,3 +56,6 @@ api/main
 platform-api
 api_test.log
 .mcp.json
+
+# Build artifacts
+api
