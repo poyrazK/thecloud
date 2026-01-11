@@ -90,7 +90,11 @@ var dbCreateCmd = &cobra.Command{
 		} else {
 			fmt.Printf("ID:       %s\n", db.ID)
 			fmt.Printf("Username: %s\n", db.Username)
-			fmt.Printf("Secret:   %s (SAVE THIS!)\n", db.Password)
+			fmt.Println("\n SECURITY WARNING: The following password is shown ONCE only.")
+			fmt.Println("    Save it securely - it cannot be retrieved later.")
+			// nosemgrep: go.lang.security.audit.xss.print-not-escaped.print-not-escaped
+			fmt.Printf("Password: %s\n", db.Password)
+			fmt.Println("\nFor security reasons, this password will not be displayed again.")
 		}
 	},
 }
