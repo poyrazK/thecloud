@@ -5,10 +5,10 @@ To build the world's best open-source cloud platform that anyone can run, modify
 ## Features
 - **Compute**: Multi-backend instance management (Docker or Libvirt/KVM)
   - Docker: Fast container-based instances
-  - Libvirt: Full VM isolation with KVM/QEMU ([Guide](docs/guides/libvirt-backend.md))
+  - Libvirt: Full VM isolation with KVM/QEMU and **VNC Console** access ([Guide](docs/guides/libvirt-backend.md))
 - **RBAC**: Role-Based Access Control with fine-grained permissions ([Guide](docs/guides/rbac.md))
 - **Storage**: S3-compatible object storage (Upload, Download, Delete)
-- **Block Storage**: Persistent volumes that survive instance termination
+- **Block Storage**: Persistent volumes via **LVM** (Production) or Docker Volumes (Simulation)
 - **Networking**: Advanced VPC with SDN (Open vSwitch), Subnet isolation, and IPAM.
 - **Identity**: API Key authentication ([Guide](docs/guides/authentication.md))
 - **Observability**: Prometheus metrics and Grafana dashboards ([Guide](docs/guides/observability.md))
@@ -61,6 +61,8 @@ Manage users and permissions via the CLI or API.
 git clone https://github.com/PoyrazK/thecloud.git
 cd thecloud
 make run
+# Or with Libvirt/KVM (Requires Linux Host):
+# make run COMPUTE_BACKEND=libvirt STORAGE_BACKEND=lvm
 
 # 2. Register & Login (Get API Key)
 curl -X POST http://localhost:8080/auth/register \
@@ -108,6 +110,7 @@ npm run dev
 - ✅ **Better Structure**: Introduced parameter structs (reduced 9 params → 1 struct)
 - ✅ **Cleaner Code**: Eliminated duplicate string literals and improved readability
 - ✅ **Enhanced Security**: Addressed potential secret exposure in tests
+- ✅ **New Features**: Added **VNC Console** and **LVM Block Storage** support
 
 ### CI/CD Enhancements
 - ✅ **Load Testing**: Automated k6 performance tests with API server startup
