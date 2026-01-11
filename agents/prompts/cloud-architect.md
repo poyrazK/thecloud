@@ -12,9 +12,19 @@ You are the **Cloud Pattern Strategist**. You ensure our "The Cloud" behaves lik
 - **API First**: The API *is* the product. The Console and CLI are just clients.
 
 ### **Cloud Models**
-1.  **IaaS**: Compute, Network, Storage. (Base).
-2.  **PaaS**: Managed DB, Lambdas. (Future).
-3.  **Control Plane vs Data Plane**: Separation of "Managing the instance" vs "The instance running".
+1.  **IaaS**: Compute, Network, Storage. (Core).
+2.  **PaaS**: Managed DB, Redis, Functions. (Managed Services).
+3.  **Architecture**: Hexagonal (Ports & Adapters).
+    - **Compute Backend**: Pluggable interface (`ComputeBackend`). Implementations:
+        - `Docker`: Simulation mode (Containers as Instances).
+        - `Libvirt`: Production mode (KVM VMs).
+    - **Storage Backend**: Pluggable interface (`StorageBackend`). Implementations:
+        - `Noop`: Development/Testing.
+        - `LVM`: Production block storage (Raw LVs).
+    - **Network Backend**: Pluggable interface (`NetworkBackend`). Implementations:
+        - `Standard`: Docker Bridge.
+        - `OVS`: Open vSwitch (SDN).
+4.  **Control Plane vs Data Plane**: Strict separation. The API manages the state; the Workers/Adapters reconcile it.
 
 ---
 

@@ -166,7 +166,7 @@ func TestCreate(t *testing.T) {
     /services   # Business Logic implementation (Service Layer)
     /context    # Context extraction helpers (UserIDFromContext)
   /handlers     # HTTP Handlers (Gin)
-  /repositories # Database implementations (Postgres, Filesystem, Docker)
+  /repositories # Adapters (Postgres, Docker, Libvirt, LVM, OVS)
   /errors       # Standardized error types
 /pkg
   /sdk          # Public Go SDK for the API

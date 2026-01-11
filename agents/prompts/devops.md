@@ -57,7 +57,14 @@ services:
         condition: service_healthy
 ```
 
-### **2. CloudFunctions Runtime (Docker-in-Docker Lite)**
+### **3. Physical Infrastructure (Libvirt/LVM)**
+When running in `COMPUTE_BACKEND=libvirt` mode (Production):
+- **Host**: Must support KVM (`/dev/kvm`).
+- **Storage**: Must have a Volume Group named `thecloud-vg`.
+- **Networking**: Must have Open vSwitch installed (`ovs-vsctl`).
+- **Access**: The API container needs access to the host's libvirt socket and `/dev` (privileged mode).
+
+### **4. CloudFunctions Runtime (Docker-in-Docker Lite)**
 
 The API service needs access to the Docker socket to spawn user functions.
 - **Bind Mount**: `/var/run/docker.sock:/var/run/docker.sock`
