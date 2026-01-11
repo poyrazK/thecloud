@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
@@ -39,27 +40,7 @@ func (r *PostgresCronRepository) CreateJob(ctx context.Context, job *domain.Cron
 
 func (r *PostgresCronRepository) GetJobByID(ctx context.Context, id, userID uuid.UUID) (*domain.CronJob, error) {
 	query := `SELECT id, user_id, name, schedule, target_url, target_method, target_payload, status, last_run_at, next_run_at, created_at, updated_at FROM cron_jobs WHERE id = $1 AND user_id = $2`
-	var job domain.CronJob
-	var status string
-	err := r.db.QueryRow(ctx, query, id, userID).Scan(
-		&job.ID,
-		&job.UserID,
-		&job.Name,
-		&job.Schedule,
-		&job.TargetURL,
-		&job.TargetMethod,
-		&job.TargetPayload,
-		&status,
-		&job.LastRunAt,
-		&job.NextRunAt,
-		&job.CreatedAt,
-		&job.UpdatedAt,
-	)
-	if err != nil {
-		return nil, err
-	}
-	job.Status = domain.CronStatus(status)
-	return &job, nil
+	return r.scanCronJob(r.db.QueryRow(ctx, query, id, userID))
 }
 
 func (r *PostgresCronRepository) ListJobs(ctx context.Context, userID uuid.UUID) ([]*domain.CronJob, error) {
@@ -68,32 +49,7 @@ func (r *PostgresCronRepository) ListJobs(ctx context.Context, userID uuid.UUID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var jobs []*domain.CronJob
-	for rows.Next() {
-		var job domain.CronJob
-		var status string
-		if err := rows.Scan(
-			&job.ID,
-			&job.UserID,
-			&job.Name,
-			&job.Schedule,
-			&job.TargetURL,
-			&job.TargetMethod,
-			&job.TargetPayload,
-			&status,
-			&job.LastRunAt,
-			&job.NextRunAt,
-			&job.CreatedAt,
-			&job.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		job.Status = domain.CronStatus(status)
-		jobs = append(jobs, &job)
-	}
-	return jobs, nil
+	return r.scanCronJobs(rows)
 }
 
 func (r *PostgresCronRepository) UpdateJob(ctx context.Context, job *domain.CronJob) error {
@@ -118,30 +74,42 @@ func (r *PostgresCronRepository) GetNextJobsToRun(ctx context.Context) ([]*domai
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	return r.scanCronJobs(rows)
+}
 
+func (r *PostgresCronRepository) scanCronJob(row pgx.Row) (*domain.CronJob, error) {
+	var job domain.CronJob
+	var status string
+	err := row.Scan(
+		&job.ID,
+		&job.UserID,
+		&job.Name,
+		&job.Schedule,
+		&job.TargetURL,
+		&job.TargetMethod,
+		&job.TargetPayload,
+		&status,
+		&job.LastRunAt,
+		&job.NextRunAt,
+		&job.CreatedAt,
+		&job.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	job.Status = domain.CronStatus(status)
+	return &job, nil
+}
+
+func (r *PostgresCronRepository) scanCronJobs(rows pgx.Rows) ([]*domain.CronJob, error) {
+	defer rows.Close()
 	var jobs []*domain.CronJob
 	for rows.Next() {
-		var job domain.CronJob
-		var status string
-		if err := rows.Scan(
-			&job.ID,
-			&job.UserID,
-			&job.Name,
-			&job.Schedule,
-			&job.TargetURL,
-			&job.TargetMethod,
-			&job.TargetPayload,
-			&status,
-			&job.LastRunAt,
-			&job.NextRunAt,
-			&job.CreatedAt,
-			&job.UpdatedAt,
-		); err != nil {
+		job, err := r.scanCronJob(rows)
+		if err != nil {
 			return nil, err
 		}
-		job.Status = domain.CronStatus(status)
-		jobs = append(jobs, &job)
+		jobs = append(jobs, job)
 	}
 	return jobs, nil
 }

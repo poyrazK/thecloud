@@ -41,20 +41,7 @@ func (r *DatabaseRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 		FROM databases
 		WHERE id = $1 AND user_id = $2
 	`
-	var db domain.Database
-	var engine, status string
-	err := r.db.QueryRow(ctx, query, id, userID).Scan(
-		&db.ID, &db.UserID, &db.Name, &engine, &db.Version, &status, &db.VpcID, &db.ContainerID, &db.Port, &db.Username, &db.Password, &db.CreatedAt, &db.UpdatedAt,
-	)
-	db.Engine = domain.DatabaseEngine(engine)
-	db.Status = domain.DatabaseStatus(status)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, errors.New(errors.NotFound, fmt.Sprintf("database %s not found", id))
-		}
-		return nil, errors.Wrap(errors.Internal, "failed to get database", err)
-	}
-	return &db, nil
+	return r.scanDatabase(r.db.QueryRow(ctx, query, id, userID))
 }
 
 func (r *DatabaseRepository) List(ctx context.Context) ([]*domain.Database, error) {
@@ -69,21 +56,35 @@ func (r *DatabaseRepository) List(ctx context.Context) ([]*domain.Database, erro
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list databases", err)
 	}
-	defer rows.Close()
+	return r.scanDatabases(rows)
+}
 
+func (r *DatabaseRepository) scanDatabase(row pgx.Row) (*domain.Database, error) {
+	var db domain.Database
+	var engine, status string
+	err := row.Scan(
+		&db.ID, &db.UserID, &db.Name, &engine, &db.Version, &status, &db.VpcID, &db.ContainerID, &db.Port, &db.Username, &db.Password, &db.CreatedAt, &db.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, errors.New(errors.NotFound, "database not found")
+		}
+		return nil, errors.Wrap(errors.Internal, "failed to scan database", err)
+	}
+	db.Engine = domain.DatabaseEngine(engine)
+	db.Status = domain.DatabaseStatus(status)
+	return &db, nil
+}
+
+func (r *DatabaseRepository) scanDatabases(rows pgx.Rows) ([]*domain.Database, error) {
+	defer rows.Close()
 	var databases []*domain.Database
 	for rows.Next() {
-		var db domain.Database
-		var engine, status string
-		err := rows.Scan(
-			&db.ID, &db.UserID, &db.Name, &engine, &db.Version, &status, &db.VpcID, &db.ContainerID, &db.Port, &db.Username, &db.Password, &db.CreatedAt, &db.UpdatedAt,
-		)
-		db.Engine = domain.DatabaseEngine(engine)
-		db.Status = domain.DatabaseStatus(status)
+		db, err := r.scanDatabase(rows)
 		if err != nil {
-			return nil, errors.Wrap(errors.Internal, "failed to scan database", err)
+			return nil, err
 		}
-		databases = append(databases, &db)
+		databases = append(databases, db)
 	}
 	return databases, nil
 }

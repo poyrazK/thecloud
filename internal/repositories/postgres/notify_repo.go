@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
@@ -34,36 +35,12 @@ func (r *PostgresNotifyRepository) CreateTopic(ctx context.Context, topic *domai
 
 func (r *PostgresNotifyRepository) GetTopicByID(ctx context.Context, id, userID uuid.UUID) (*domain.Topic, error) {
 	query := `SELECT id, user_id, name, arn, created_at, updated_at FROM topics WHERE id = $1 AND user_id = $2`
-	var topic domain.Topic
-	err := r.db.QueryRow(ctx, query, id, userID).Scan(
-		&topic.ID,
-		&topic.UserID,
-		&topic.Name,
-		&topic.ARN,
-		&topic.CreatedAt,
-		&topic.UpdatedAt,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return &topic, nil
+	return r.scanTopic(r.db.QueryRow(ctx, query, id, userID))
 }
 
 func (r *PostgresNotifyRepository) GetTopicByName(ctx context.Context, name string, userID uuid.UUID) (*domain.Topic, error) {
 	query := `SELECT id, user_id, name, arn, created_at, updated_at FROM topics WHERE name = $1 AND user_id = $2`
-	var topic domain.Topic
-	err := r.db.QueryRow(ctx, query, name, userID).Scan(
-		&topic.ID,
-		&topic.UserID,
-		&topic.Name,
-		&topic.ARN,
-		&topic.CreatedAt,
-		&topic.UpdatedAt,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return &topic, nil
+	return r.scanTopic(r.db.QueryRow(ctx, query, name, userID))
 }
 
 func (r *PostgresNotifyRepository) ListTopics(ctx context.Context, userID uuid.UUID) ([]*domain.Topic, error) {
@@ -72,17 +49,7 @@ func (r *PostgresNotifyRepository) ListTopics(ctx context.Context, userID uuid.U
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var topics []*domain.Topic
-	for rows.Next() {
-		var topic domain.Topic
-		if err := rows.Scan(&topic.ID, &topic.UserID, &topic.Name, &topic.ARN, &topic.CreatedAt, &topic.UpdatedAt); err != nil {
-			return nil, err
-		}
-		topics = append(topics, &topic)
-	}
-	return topics, nil
+	return r.scanTopics(rows)
 }
 
 func (r *PostgresNotifyRepository) DeleteTopic(ctx context.Context, id uuid.UUID) error {
@@ -110,9 +77,51 @@ func (r *PostgresNotifyRepository) CreateSubscription(ctx context.Context, sub *
 
 func (r *PostgresNotifyRepository) GetSubscriptionByID(ctx context.Context, id, userID uuid.UUID) (*domain.Subscription, error) {
 	query := `SELECT id, user_id, topic_id, protocol, endpoint, created_at, updated_at FROM subscriptions WHERE id = $1 AND user_id = $2`
+	return r.scanSubscription(r.db.QueryRow(ctx, query, id, userID))
+}
+
+func (r *PostgresNotifyRepository) ListSubscriptions(ctx context.Context, topicID uuid.UUID) ([]*domain.Subscription, error) {
+	query := `SELECT id, user_id, topic_id, protocol, endpoint, created_at, updated_at FROM subscriptions WHERE topic_id = $1 ORDER BY created_at DESC`
+	rows, err := r.db.Query(ctx, query, topicID)
+	if err != nil {
+		return nil, err
+	}
+	return r.scanSubscriptions(rows)
+}
+
+func (r *PostgresNotifyRepository) scanTopic(row pgx.Row) (*domain.Topic, error) {
+	var topic domain.Topic
+	err := row.Scan(
+		&topic.ID,
+		&topic.UserID,
+		&topic.Name,
+		&topic.ARN,
+		&topic.CreatedAt,
+		&topic.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &topic, nil
+}
+
+func (r *PostgresNotifyRepository) scanTopics(rows pgx.Rows) ([]*domain.Topic, error) {
+	defer rows.Close()
+	var topics []*domain.Topic
+	for rows.Next() {
+		topic, err := r.scanTopic(rows)
+		if err != nil {
+			return nil, err
+		}
+		topics = append(topics, topic)
+	}
+	return topics, nil
+}
+
+func (r *PostgresNotifyRepository) scanSubscription(row pgx.Row) (*domain.Subscription, error) {
 	var sub domain.Subscription
 	var protocol string
-	err := r.db.QueryRow(ctx, query, id, userID).Scan(
+	err := row.Scan(
 		&sub.ID,
 		&sub.UserID,
 		&sub.TopicID,
@@ -128,23 +137,15 @@ func (r *PostgresNotifyRepository) GetSubscriptionByID(ctx context.Context, id, 
 	return &sub, nil
 }
 
-func (r *PostgresNotifyRepository) ListSubscriptions(ctx context.Context, topicID uuid.UUID) ([]*domain.Subscription, error) {
-	query := `SELECT id, user_id, topic_id, protocol, endpoint, created_at, updated_at FROM subscriptions WHERE topic_id = $1 ORDER BY created_at DESC`
-	rows, err := r.db.Query(ctx, query, topicID)
-	if err != nil {
-		return nil, err
-	}
+func (r *PostgresNotifyRepository) scanSubscriptions(rows pgx.Rows) ([]*domain.Subscription, error) {
 	defer rows.Close()
-
 	var subs []*domain.Subscription
 	for rows.Next() {
-		var sub domain.Subscription
-		var protocol string
-		if err := rows.Scan(&sub.ID, &sub.UserID, &sub.TopicID, &protocol, &sub.Endpoint, &sub.CreatedAt, &sub.UpdatedAt); err != nil {
+		sub, err := r.scanSubscription(rows)
+		if err != nil {
 			return nil, err
 		}
-		sub.Protocol = domain.SubscriptionProtocol(protocol)
-		subs = append(subs, &sub)
+		subs = append(subs, sub)
 	}
 	return subs, nil
 }

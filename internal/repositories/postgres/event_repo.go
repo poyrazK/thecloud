@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 )
@@ -34,12 +35,23 @@ func (r *EventRepository) List(ctx context.Context, limit int) ([]*domain.Event,
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	return r.scanEvents(rows)
+}
 
+func (r *EventRepository) scanEvent(row pgx.Row) (*domain.Event, error) {
+	e := &domain.Event{}
+	if err := row.Scan(&e.ID, &e.UserID, &e.Action, &e.ResourceID, &e.ResourceType, &e.Metadata, &e.CreatedAt); err != nil {
+		return nil, err
+	}
+	return e, nil
+}
+
+func (r *EventRepository) scanEvents(rows pgx.Rows) ([]*domain.Event, error) {
+	defer rows.Close()
 	var events []*domain.Event
 	for rows.Next() {
-		e := &domain.Event{}
-		if err := rows.Scan(&e.ID, &e.UserID, &e.Action, &e.ResourceID, &e.ResourceType, &e.Metadata, &e.CreatedAt); err != nil {
+		e, err := r.scanEvent(rows)
+		if err != nil {
 			return nil, err
 		}
 		events = append(events, e)

@@ -43,21 +43,7 @@ func (r *CacheRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Ca
 		FROM caches
 		WHERE id = $1
 	`
-	var cache domain.Cache
-	var engine, status string
-	err := r.db.QueryRow(ctx, query, id).Scan(
-		&cache.ID, &cache.UserID, &cache.Name, &engine, &cache.Version, &status, &cache.VpcID,
-		&cache.ContainerID, &cache.Port, &cache.Password, &cache.MemoryMB, &cache.CreatedAt, &cache.UpdatedAt,
-	)
-	cache.Engine = domain.CacheEngine(engine)
-	cache.Status = domain.CacheStatus(status)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, errors.New(errors.NotFound, "cache not found")
-		}
-		return nil, errors.Wrap(errors.Internal, "failed to get cache", err)
-	}
-	return &cache, nil
+	return r.scanCache(r.db.QueryRow(ctx, query, id))
 }
 
 func (r *CacheRepository) GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Cache, error) {
@@ -68,21 +54,7 @@ func (r *CacheRepository) GetByName(ctx context.Context, userID uuid.UUID, name 
 		FROM caches
 		WHERE user_id = $1 AND name = $2
 	`
-	var cache domain.Cache
-	var engine, status string
-	err := r.db.QueryRow(ctx, query, userID, name).Scan(
-		&cache.ID, &cache.UserID, &cache.Name, &engine, &cache.Version, &status, &cache.VpcID,
-		&cache.ContainerID, &cache.Port, &cache.Password, &cache.MemoryMB, &cache.CreatedAt, &cache.UpdatedAt,
-	)
-	cache.Engine = domain.CacheEngine(engine)
-	cache.Status = domain.CacheStatus(status)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, errors.New(errors.NotFound, "cache not found")
-		}
-		return nil, errors.Wrap(errors.Internal, "failed to get cache by name", err)
-	}
-	return &cache, nil
+	return r.scanCache(r.db.QueryRow(ctx, query, userID, name))
 }
 
 func (r *CacheRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.Cache, error) {
@@ -98,22 +70,36 @@ func (r *CacheRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list caches", err)
 	}
-	defer rows.Close()
+	return r.scanCaches(rows)
+}
 
+func (r *CacheRepository) scanCache(row pgx.Row) (*domain.Cache, error) {
+	var cache domain.Cache
+	var engine, status string
+	err := row.Scan(
+		&cache.ID, &cache.UserID, &cache.Name, &engine, &cache.Version, &status, &cache.VpcID,
+		&cache.ContainerID, &cache.Port, &cache.Password, &cache.MemoryMB, &cache.CreatedAt, &cache.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, errors.New(errors.NotFound, "cache not found")
+		}
+		return nil, errors.Wrap(errors.Internal, "failed to scan cache", err)
+	}
+	cache.Engine = domain.CacheEngine(engine)
+	cache.Status = domain.CacheStatus(status)
+	return &cache, nil
+}
+
+func (r *CacheRepository) scanCaches(rows pgx.Rows) ([]*domain.Cache, error) {
+	defer rows.Close()
 	var caches []*domain.Cache
 	for rows.Next() {
-		var cache domain.Cache
-		var engine, status string
-		err := rows.Scan(
-			&cache.ID, &cache.UserID, &cache.Name, &engine, &cache.Version, &status, &cache.VpcID,
-			&cache.ContainerID, &cache.Port, &cache.Password, &cache.MemoryMB, &cache.CreatedAt, &cache.UpdatedAt,
-		)
+		cache, err := r.scanCache(rows)
 		if err != nil {
-			return nil, errors.Wrap(errors.Internal, "failed to scan cache", err)
+			return nil, err
 		}
-		cache.Engine = domain.CacheEngine(engine)
-		cache.Status = domain.CacheStatus(status)
-		caches = append(caches, &cache)
+		caches = append(caches, cache)
 	}
 	return caches, nil
 }

@@ -84,66 +84,67 @@ func (a *LibvirtAdapter) Type() string {
 }
 
 func (a *LibvirtAdapter) CreateInstance(ctx context.Context, name, imageName string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error) {
-	// Security: Sanitize name
-	name = regexp.MustCompile(`[^a-zA-Z0-9-]`).ReplaceAllString(name, "")
-	if name == "" {
-		name = uuid.New().String()[:8]
-	}
+	name = a.sanitizeDomainName(name)
 
-	// 1. Prepare storage (root volume)
 	diskPath, vol, err := a.prepareRootVolume(name)
 	if err != nil {
 		return "", err
 	}
 
-	// 2. Cloud-Init ISO (if env or cmd provided)
-	isoPath := ""
-	if len(env) > 0 || len(cmd) > 0 {
-		var err error
-		isoPath, err = a.generateCloudInitISO(ctx, name, env, cmd)
-		if err != nil {
-			a.logger.Warn("failed to generate cloud-init iso, proceeding without it", "error", err)
-		}
-	}
-
-	// 3. Resolve Volume Binds to host paths
+	isoPath := a.prepareCloudInit(ctx, name, env, cmd)
 	additionalDisks := a.resolveBinds(volumeBinds)
 
-	// 4. Define Domain
-	// Memory: 512MB
-	// CPU: 1
 	if networkID == "" {
 		networkID = "default"
 	}
 
 	domainXML := generateDomainXML(name, diskPath, networkID, isoPath, 512, 1, additionalDisks)
-
 	dom, err := a.conn.DomainDefineXML(domainXML)
 	if err != nil {
-		// Clean up volume
-		_ = a.conn.StorageVolDelete(vol, 0)
-		if isoPath != "" {
-			if err := os.Remove(isoPath); err != nil {
-				// Log but don't fail cleanup
-				a.logger.Warn("failed to remove ISO", "path", isoPath, "error", err)
-			}
-		}
+		a.cleanupCreateFailure(vol, isoPath)
 		return "", fmt.Errorf("failed to define domain: %w", err)
 	}
 
-	// 5. Start Domain
 	if err := a.conn.DomainCreate(dom); err != nil {
 		_ = a.conn.DomainUndefine(dom)
 		_ = a.conn.StorageVolDelete(vol, 0)
 		return "", fmt.Errorf("failed to start domain: %w", err)
 	}
 
-	// 4. Port Forwarding (Best effort)
 	if len(ports) > 0 {
 		go a.setupPortForwarding(name, ports)
 	}
 
 	return name, nil
+}
+
+func (a *LibvirtAdapter) sanitizeDomainName(name string) string {
+	name = regexp.MustCompile(`[^a-zA-Z0-9-]`).ReplaceAllString(name, "")
+	if name == "" {
+		return uuid.New().String()[:8]
+	}
+	return name
+}
+
+func (a *LibvirtAdapter) prepareCloudInit(ctx context.Context, name string, env []string, cmd []string) string {
+	if len(env) == 0 && len(cmd) == 0 {
+		return ""
+	}
+	isoPath, err := a.generateCloudInitISO(ctx, name, env, cmd)
+	if err != nil {
+		a.logger.Warn("failed to generate cloud-init iso, proceeding without it", "error", err)
+		return ""
+	}
+	return isoPath
+}
+
+func (a *LibvirtAdapter) cleanupCreateFailure(vol libvirt.StorageVol, isoPath string) {
+	_ = a.conn.StorageVolDelete(vol, 0)
+	if isoPath != "" {
+		if err := os.Remove(isoPath); err != nil {
+			a.logger.Warn("failed to remove ISO", "path", isoPath, "error", err)
+		}
+	}
 }
 
 func (a *LibvirtAdapter) waitInitialIP(ctx context.Context, id string) (string, error) {
@@ -177,51 +178,59 @@ func (a *LibvirtAdapter) StopInstance(ctx context.Context, id string) error {
 func (a *LibvirtAdapter) DeleteInstance(ctx context.Context, id string) error {
 	dom, err := a.conn.DomainLookupByName(id)
 	if err != nil {
-		return nil // Assume already gone
+		return nil
 	}
 
-	// Stop if running
-	state, _, err := a.conn.DomainGetState(dom, 0)
-	if err == nil && state == 1 { // Running
-		_ = a.conn.DomainDestroy(dom)
-	}
+	a.stopDomainIfRunning(dom)
 
-	// Undefine (remove XML)
 	if err := a.conn.DomainUndefine(dom); err != nil {
 		return fmt.Errorf("failed to undefine domain: %w", err)
 	}
 
-	// Cleanup port mappings and iptables rules if possible
+	a.cleanupPortMappings(id)
+	a.cleanupDomainISO(id)
+	a.cleanupRootVolume(id)
+
+	return nil
+}
+
+func (a *LibvirtAdapter) stopDomainIfRunning(dom libvirt.Domain) {
+	state, _, err := a.conn.DomainGetState(dom, 0)
+	if err == nil && state == 1 { // Running
+		_ = a.conn.DomainDestroy(dom)
+	}
+}
+
+func (a *LibvirtAdapter) cleanupPortMappings(id string) {
 	a.mu.Lock()
+	defer a.mu.Unlock()
 	if mappings, ok := a.portMappings[id]; ok {
 		for _, hPort := range mappings {
-			// Best effort cleanup: iptables -t nat -D PREROUTING ...
 			_ = exec.Command("sudo", "iptables", "-t", "nat", "-D", "PREROUTING", "-p", "tcp", "--dport", fmt.Sprintf("%d", hPort), "-j", "DNAT").Run()
 		}
 		delete(a.portMappings, id)
 	}
-	a.mu.Unlock()
+}
 
-	// Cleanup Cloud-Init ISO if exists
+func (a *LibvirtAdapter) cleanupDomainISO(id string) {
 	if err := validateID(id); err != nil {
 		a.logger.Warn("invalid id for iso cleanup", "id", id)
-		return nil
+		return
 	}
 	isoPath := filepath.Join(os.TempDir(), "cloud-init-"+id+".iso")
 	_ = os.Remove(isoPath)
+}
 
-	// Try to delete root volume?
-	// Name-root
+func (a *LibvirtAdapter) cleanupRootVolume(id string) {
 	pool, err := a.conn.StoragePoolLookupByName(defaultPoolName)
-	if err == nil {
-		volName := id + "-root"
-		vol, err := a.conn.StorageVolLookupByName(pool, volName)
-		if err == nil {
-			_ = a.conn.StorageVolDelete(vol, 0)
-		}
+	if err != nil {
+		return
 	}
-
-	return nil
+	volName := id + "-root"
+	vol, err := a.conn.StorageVolLookupByName(pool, volName)
+	if err == nil {
+		_ = a.conn.StorageVolDelete(vol, 0)
+	}
 }
 
 func (a *LibvirtAdapter) GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error) {
@@ -419,64 +428,34 @@ func (a *LibvirtAdapter) Exec(ctx context.Context, id string, cmd []string) (str
 }
 
 func (a *LibvirtAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
-	// For now, we assume a base image "alpine" exists in the default pool or we fail.
-	// We create a new instance with a randomized name.
 	name := "task-" + uuid.New().String()[:8]
 
-	// Create volumes for binders?
-	// The ports.RunTaskOptions has Binds []string.
-	// We currently only support simple host binds or ignore them for the POC.
-	// To perform the snapshot task, we actually rely on bind mounts.
-	// As noted before, we replaced SnapshotService logic to use CreateVolumeSnapshot,
-	// so RunTask is less critical for Snapshots now, but still useful for other things.
-
-	// Since we don't have a dynamic ISO generator linked yet, we just start the VM.
-	// If the user wants to run a command, we'd need Cloud-Init.
-
-	// 1. Create a disk for the task VM (clone alpine-base if we could, or just new one)
-	// We use the same create logic as CreateInstance but force a small size
-	// We assume "alpine" is the image source.
-	// In CreateInstance we assume image is passed as name.
-	// Here opts.Image is "alpine".
-
-	// Check if base image exists
 	pool, err := a.conn.StoragePoolLookupByName(defaultPoolName)
 	if err != nil {
 		return "", fmt.Errorf("failed to find default pool: %w", err)
 	}
 
-	// For brevity, we just create a new empty vol.
-	// Real implementation should clone base image.
 	volXML := generateVolumeXML(name+"-root", 1)
 	vol, err := a.conn.StorageVolCreateXML(pool, volXML, 0)
 	if err != nil {
 		return "", fmt.Errorf("failed to create root volume: %w", err)
 	}
 
-	// Get path
 	diskPath, err := a.conn.StorageVolGetPath(vol)
 	if err != nil {
 		_ = a.conn.StorageVolDelete(vol, 0)
 		return "", fmt.Errorf(errGetVolumePath, err)
 	}
 
-	// 2. Cloud-Init
-	isoPath, err := a.generateCloudInitISO(ctx, name, nil, opts.Command)
-	if err != nil {
-		a.logger.Warn("failed to generate cloud-init iso for task", "error", err)
-	}
-
-	// 3. Define Domain
-	// Memory: opts.MemoryMB
+	isoPath := a.prepareCloudInit(ctx, name, nil, opts.Command)
 	domainXML := generateDomainXML(name, diskPath, "default", isoPath, int(opts.MemoryMB), 1, nil)
 
 	dom, err := a.conn.DomainDefineXML(domainXML)
 	if err != nil {
-		_ = a.conn.StorageVolDelete(vol, 0)
+		a.cleanupCreateFailure(vol, isoPath)
 		return "", fmt.Errorf("failed to define domain: %w", err)
 	}
 
-	// 3. Start Domain
 	if err := a.conn.DomainCreate(dom); err != nil {
 		_ = a.conn.DomainUndefine(dom)
 		_ = a.conn.StorageVolDelete(vol, 0)
@@ -678,29 +657,39 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 	return nil
 }
 func (a *LibvirtAdapter) generateCloudInitISO(ctx context.Context, name string, env []string, cmd []string) (string, error) {
-	// Security: Sanitize name to avoid path traversal
-	safeName := regexp.MustCompile(`[^a-zA-Z0-9-]`).ReplaceAllString(name, "")
-	if safeName == "" {
-		safeName = uuid.New().String()[:8]
-	}
+	safeName := a.sanitizeDomainName(name)
 
 	tmpDir, err := os.MkdirTemp("", "cloud-init-"+safeName)
 	if err != nil {
 		return "", err
 	}
-	defer func() {
-		if err := os.RemoveAll(tmpDir); err != nil {
-			a.logger.Warn("failed to remove temp dir", "path", tmpDir, "error", err)
-		}
-	}()
+	defer a.cleanupTempDir(tmpDir)
 
-	// meta-data
-	metaData := fmt.Sprintf("instance-id: %s\nlocal-hostname: %s\n", name, name)
-	if err := os.WriteFile(filepath.Join(tmpDir, metaDataFileName), []byte(metaData), 0644); err != nil {
+	if err := a.writeCloudInitFiles(tmpDir, name, env, cmd); err != nil {
 		return "", err
 	}
 
-	// user-data
+	isoPath := filepath.Join(os.TempDir(), "cloud-init-"+safeName+".iso")
+	return isoPath, a.runIsoCommand(isoPath, tmpDir)
+}
+
+func (a *LibvirtAdapter) cleanupTempDir(tmpDir string) {
+	if err := os.RemoveAll(tmpDir); err != nil {
+		a.logger.Warn("failed to remove temp dir", "path", tmpDir, "error", err)
+	}
+}
+
+func (a *LibvirtAdapter) writeCloudInitFiles(tmpDir, name string, env, cmd []string) error {
+	metaData := fmt.Sprintf("instance-id: %s\nlocal-hostname: %s\n", name, name)
+	if err := os.WriteFile(filepath.Join(tmpDir, metaDataFileName), []byte(metaData), 0644); err != nil {
+		return err
+	}
+
+	userData := a.generateUserData(env, cmd)
+	return os.WriteFile(filepath.Join(tmpDir, userDataFileName), userData, 0644)
+}
+
+func (a *LibvirtAdapter) generateUserData(env, cmd []string) []byte {
 	var userData bytes.Buffer
 	userData.WriteString("#cloud-config\n")
 
@@ -719,14 +708,10 @@ func (a *LibvirtAdapter) generateCloudInitISO(ctx context.Context, name string, 
 			userData.WriteString(fmt.Sprintf("  - [ sh, -c, %q ]\n", c))
 		}
 	}
+	return userData.Bytes()
+}
 
-	if err := os.WriteFile(filepath.Join(tmpDir, userDataFileName), userData.Bytes(), 0644); err != nil {
-		return "", err
-	}
-
-	isoPath := filepath.Join(os.TempDir(), "cloud-init-"+safeName+".iso")
-
-	// Create ISO
+func (a *LibvirtAdapter) runIsoCommand(isoPath, tmpDir string) error {
 	genCmd := exec.Command("genisoimage", "-output", isoPath, "-volid", "config-2", "-joliet", "-rock",
 		filepath.Join(tmpDir, userDataFileName), filepath.Join(tmpDir, metaDataFileName))
 
@@ -734,11 +719,10 @@ func (a *LibvirtAdapter) generateCloudInitISO(ctx context.Context, name string, 
 		genCmd = exec.Command("mkisofs", "-output", isoPath, "-volid", "config-2", "-joliet", "-rock",
 			filepath.Join(tmpDir, userDataFileName), filepath.Join(tmpDir, metaDataFileName))
 		if _, err2 := genCmd.CombinedOutput(); err2 != nil {
-			return "", fmt.Errorf("failed to generate iso (genisoimage/mkisofs): %w", err2)
+			return fmt.Errorf("failed to generate iso (genisoimage/mkisofs): %w", err2)
 		}
 	}
-
-	return isoPath, nil
+	return nil
 }
 
 // getNextNetworkRange allocates the next /24 network from the pool

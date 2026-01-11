@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
@@ -32,26 +33,12 @@ func (r *FunctionRepository) Create(ctx context.Context, f *domain.Function) err
 
 func (r *FunctionRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Function, error) {
 	query := `SELECT id, user_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, created_at, updated_at FROM functions WHERE id = $1`
-	row := r.db.QueryRow(ctx, query, id)
-
-	f := &domain.Function{}
-	err := row.Scan(&f.ID, &f.UserID, &f.Name, &f.Runtime, &f.Handler, &f.CodePath, &f.Timeout, &f.MemoryMB, &f.Status, &f.CreatedAt, &f.UpdatedAt)
-	if err != nil {
-		return nil, errors.Wrap(errors.NotFound, "function not found", err)
-	}
-	return f, nil
+	return r.scanFunction(r.db.QueryRow(ctx, query, id))
 }
 
 func (r *FunctionRepository) GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Function, error) {
 	query := `SELECT id, user_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, created_at, updated_at FROM functions WHERE user_id = $1 AND name = $2`
-	row := r.db.QueryRow(ctx, query, userID, name)
-
-	f := &domain.Function{}
-	err := row.Scan(&f.ID, &f.UserID, &f.Name, &f.Runtime, &f.Handler, &f.CodePath, &f.Timeout, &f.MemoryMB, &f.Status, &f.CreatedAt, &f.UpdatedAt)
-	if err != nil {
-		return nil, errors.Wrap(errors.NotFound, "function not found", err)
-	}
-	return f, nil
+	return r.scanFunction(r.db.QueryRow(ctx, query, userID, name))
 }
 
 func (r *FunctionRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.Function, error) {
@@ -60,18 +47,7 @@ func (r *FunctionRepository) List(ctx context.Context, userID uuid.UUID) ([]*dom
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list functions", err)
 	}
-	defer rows.Close()
-
-	var functions []*domain.Function
-	for rows.Next() {
-		f := &domain.Function{}
-		err := rows.Scan(&f.ID, &f.UserID, &f.Name, &f.Runtime, &f.Handler, &f.CodePath, &f.Timeout, &f.MemoryMB, &f.Status, &f.CreatedAt, &f.UpdatedAt)
-		if err != nil {
-			return nil, errors.Wrap(errors.Internal, "failed to scan function", err)
-		}
-		functions = append(functions, f)
-	}
-	return functions, nil
+	return r.scanFunctions(rows)
 }
 
 func (r *FunctionRepository) Delete(ctx context.Context, id uuid.UUID) error {
@@ -103,14 +79,47 @@ func (r *FunctionRepository) GetInvocations(ctx context.Context, functionID uuid
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to get invocations", err)
 	}
-	defer rows.Close()
+	return r.scanInvocations(rows)
+}
 
+func (r *FunctionRepository) scanFunction(row pgx.Row) (*domain.Function, error) {
+	f := &domain.Function{}
+	err := row.Scan(&f.ID, &f.UserID, &f.Name, &f.Runtime, &f.Handler, &f.CodePath, &f.Timeout, &f.MemoryMB, &f.Status, &f.CreatedAt, &f.UpdatedAt)
+	if err != nil {
+		return nil, errors.Wrap(errors.NotFound, "function not found", err)
+	}
+	return f, nil
+}
+
+func (r *FunctionRepository) scanFunctions(rows pgx.Rows) ([]*domain.Function, error) {
+	defer rows.Close()
+	var functions []*domain.Function
+	for rows.Next() {
+		f, err := r.scanFunction(rows)
+		if err != nil {
+			return nil, err
+		}
+		functions = append(functions, f)
+	}
+	return functions, nil
+}
+
+func (r *FunctionRepository) scanInvocation(row pgx.Row) (*domain.Invocation, error) {
+	i := &domain.Invocation{}
+	err := row.Scan(&i.ID, &i.FunctionID, &i.Status, &i.StartedAt, &i.EndedAt, &i.DurationMs, &i.StatusCode, &i.Logs)
+	if err != nil {
+		return nil, err
+	}
+	return i, nil
+}
+
+func (r *FunctionRepository) scanInvocations(rows pgx.Rows) ([]*domain.Invocation, error) {
+	defer rows.Close()
 	var invocations []*domain.Invocation
 	for rows.Next() {
-		i := &domain.Invocation{}
-		err := rows.Scan(&i.ID, &i.FunctionID, &i.Status, &i.StartedAt, &i.EndedAt, &i.DurationMs, &i.StatusCode, &i.Logs)
+		i, err := r.scanInvocation(rows)
 		if err != nil {
-			return nil, errors.Wrap(errors.Internal, "failed to scan invocation", err)
+			return nil, err
 		}
 		invocations = append(invocations, i)
 	}

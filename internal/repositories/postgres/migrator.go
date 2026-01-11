@@ -16,7 +16,6 @@ var migrationsFS embed.FS
 // In a real production system, this should track applied migrations in a table.
 // For The Cloud, we'll use IF NOT EXISTS in SQL to make them idempotent-ish,
 // or just run them and ignore "already exists" errors for simplicity in this MVP.
-// or just run them and ignore "already exists" errors for simplicity in this MVP.
 func RunMigrations(ctx context.Context, db DB, logger *slog.Logger) error {
 	entries, err := migrationsFS.ReadDir("migrations")
 	if err != nil {
