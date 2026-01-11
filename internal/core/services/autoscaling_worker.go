@@ -136,47 +136,68 @@ func (w *AutoScalingWorker) cleanupGroup(ctx context.Context, group *domain.Scal
 }
 
 func (w *AutoScalingWorker) reconcileInstances(ctx context.Context, group *domain.ScalingGroup, instanceIDs []uuid.UUID) {
-	// 1. Check if we need to scale out to meet Desired/Min
 	current := len(instanceIDs)
 
-	// Force Desired to be within bounds
-	if group.DesiredCount < group.MinInstances {
-		group.DesiredCount = group.MinInstances
-		_ = w.repo.UpdateGroup(ctx, group)
-	}
-	if group.DesiredCount > group.MaxInstances {
-		group.DesiredCount = group.MaxInstances
-		_ = w.repo.UpdateGroup(ctx, group)
+	if w.adjustDesiredBounds(ctx, group) {
+		// If adjusted, reload might be needed in real world, but for now just use updated fields
 	}
 
 	if current < group.DesiredCount {
-		// Check failure backoff before trying to scale out
-		if w.shouldSkipDueToFailures(group) {
-			return
-		}
-
-		needed := group.DesiredCount - current
-		log.Printf("AutoScaling: Group %s needs %d more instances (Current: %d, Desired: %d)", group.Name, needed, current, group.DesiredCount)
-		for i := 0; i < needed; i++ {
-			if err := w.scaleOut(ctx, group, nil); err != nil {
-				log.Printf("AutoScaling: failed to scale out group %s: %v", group.Name, err)
-				w.recordFailure(ctx, group)
-				break
-			} else {
-				w.resetFailures(ctx, group)
-			}
-		}
+		w.reconcileScaleOut(ctx, group, current)
 	} else if current > group.DesiredCount {
-		excess := current - group.DesiredCount
-		log.Printf("AutoScaling: Group %s has %d excess instances", group.Name, excess)
-		for i := 0; i < excess; i++ {
-			// Remove oldest first? Or random?
-			// For simplicity: last one.
-			targetID := instanceIDs[len(instanceIDs)-1-i]
-			if err := w.scaleIn(ctx, group, targetID, nil); err != nil {
-				log.Printf("AutoScaling: failed to scale in group %s: %v", group.Name, err)
-				break
-			}
+		w.reconcileScaleIn(ctx, group, instanceIDs, current)
+	}
+}
+
+func (w *AutoScalingWorker) adjustDesiredBounds(ctx context.Context, group *domain.ScalingGroup) bool {
+	changed := false
+	if group.DesiredCount < group.MinInstances {
+		group.DesiredCount = group.MinInstances
+		changed = true
+	}
+	if group.DesiredCount > group.MaxInstances {
+		group.DesiredCount = group.MaxInstances
+		changed = true
+	}
+	if changed {
+		_ = w.repo.UpdateGroup(ctx, group)
+	}
+	return changed
+}
+
+func (w *AutoScalingWorker) reconcileScaleOut(ctx context.Context, group *domain.ScalingGroup, current int) {
+	if w.shouldSkipDueToFailures(group) {
+		return
+	}
+
+	needed := group.DesiredCount - current
+	log.Printf("AutoScaling: Group %s needs %d more instances (Current: %d, Desired: %d)", group.Name, needed, current, group.DesiredCount)
+	for i := 0; i < needed; i++ {
+		if err := w.scaleOut(ctx, group, nil); err != nil {
+			log.Printf("AutoScaling: failed to scale out group %s: %v", group.Name, err)
+			w.recordFailure(ctx, group)
+			break
+		} else {
+			w.resetFailures(ctx, group)
+		}
+	}
+}
+
+func (w *AutoScalingWorker) reconcileScaleIn(ctx context.Context, group *domain.ScalingGroup, instanceIDs []uuid.UUID, current int) {
+	excess := current - group.DesiredCount
+	log.Printf("AutoScaling: Group %s has %d excess instances", group.Name, excess)
+	for i := 0; i < excess; i++ {
+		// Remove form the end (last created or strictly last in list)
+		if len(instanceIDs) == 0 {
+			break
+		}
+		targetID := instanceIDs[len(instanceIDs)-1]
+		// Update slice for next iteration safety
+		instanceIDs = instanceIDs[:len(instanceIDs)-1]
+
+		if err := w.scaleIn(ctx, group, targetID, nil); err != nil {
+			log.Printf("AutoScaling: failed to scale in group %s: %v", group.Name, err)
+			break
 		}
 	}
 }
