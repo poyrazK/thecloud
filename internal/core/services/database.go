@@ -45,28 +45,89 @@ func NewDatabaseService(
 func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 
-	// Validate engine
 	dbEngine := domain.DatabaseEngine(engine)
-	if dbEngine != domain.EnginePostgres && dbEngine != domain.EngineMySQL {
+	if !s.isValidEngine(dbEngine) {
 		return nil, errors.New(errors.InvalidInput, "unsupported database engine")
 	}
 
-	// Generate credentials
 	password, err := util.GenerateRandomPassword(16)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to generate password", err)
 	}
-	username := "cloud_user"
-	if dbEngine == domain.EngineMySQL {
-		username = "root" // Default for many mysql images for easy setup
+
+	username := s.getDefaultUsername(dbEngine)
+	db := s.initialDatabaseRecord(userID, name, dbEngine, version, username, password, vpcID)
+
+	imageName, env, defaultPort := s.getEngineConfig(dbEngine, version, username, password, name)
+
+	networkID, err := s.resolveVpcNetwork(ctx, vpcID)
+	if err != nil {
+		return nil, err
 	}
 
-	// Prepare domain object
-	db := &domain.Database{
+	dockerName := fmt.Sprintf("cloud-db-%s-%s", name, db.ID.String()[:8])
+	containerID, err := s.compute.CreateInstance(ctx, dockerName, imageName, []string{"0:" + defaultPort}, networkID, nil, env, nil)
+	if err != nil {
+		s.logger.Error("failed to create database container", "error", err)
+		return nil, errors.Wrap(errors.Internal, "failed to launch database container", err)
+	}
+
+	hostPort, _ := s.compute.GetInstancePort(ctx, containerID, defaultPort)
+	db.ContainerID = containerID
+	db.Port = hostPort
+	db.Status = domain.DatabaseStatusRunning
+
+	if err := s.repo.Create(ctx, db); err != nil {
+		_ = s.compute.DeleteInstance(ctx, containerID)
+		return nil, err
+	}
+
+	s.recordDatabaseCreation(ctx, userID, db, engine)
+	return db, nil
+}
+
+func (s *DatabaseService) isValidEngine(engine domain.DatabaseEngine) bool {
+	return engine == domain.EnginePostgres || engine == domain.EngineMySQL
+}
+
+func (s *DatabaseService) getDefaultUsername(engine domain.DatabaseEngine) string {
+	if engine == domain.EngineMySQL {
+		return "root"
+	}
+	return "cloud_user"
+}
+
+func (s *DatabaseService) getEngineConfig(engine domain.DatabaseEngine, version, username, password, name string) (string, []string, string) {
+	switch engine {
+	case domain.EnginePostgres:
+		return fmt.Sprintf("postgres:%s-alpine", version),
+			[]string{"POSTGRES_USER=" + username, "POSTGRES_PASSWORD=" + password, "POSTGRES_DB=" + name},
+			"5432"
+	case domain.EngineMySQL:
+		return fmt.Sprintf("mysql:%s", version),
+			[]string{"MYSQL_ROOT_PASSWORD=" + password, "MYSQL_DATABASE=" + name},
+			"3306"
+	}
+	return "", nil, ""
+}
+
+func (s *DatabaseService) resolveVpcNetwork(ctx context.Context, vpcID *uuid.UUID) (string, error) {
+	if vpcID == nil {
+		return "", nil
+	}
+	vpc, err := s.vpcRepo.GetByID(ctx, *vpcID)
+	if err != nil {
+		return "", errors.Wrap(errors.NotFound, "vpc not found", err)
+	}
+	return vpc.NetworkID, nil
+}
+
+func (s *DatabaseService) initialDatabaseRecord(userID uuid.UUID, name string, engine domain.DatabaseEngine, version, username, password string, vpcID *uuid.UUID) *domain.Database {
+	return &domain.Database{
 		ID:        uuid.New(),
 		UserID:    userID,
 		Name:      name,
-		Engine:    dbEngine,
+		Engine:    engine,
 		Version:   version,
 		Status:    domain.DatabaseStatusCreating,
 		VpcID:     vpcID,
@@ -75,81 +136,20 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
+}
 
-	// Docker config
-	imageName := ""
-	var env []string
-	defaultPort := ""
-
-	switch dbEngine {
-	case domain.EnginePostgres:
-		imageName = fmt.Sprintf("postgres:%s-alpine", version)
-		env = []string{
-			"POSTGRES_USER=" + username,
-			"POSTGRES_PASSWORD=" + password,
-			"POSTGRES_DB=" + name,
-		}
-		defaultPort = "5432"
-	case domain.EngineMySQL:
-		imageName = fmt.Sprintf("mysql:%s", version)
-		env = []string{
-			"MYSQL_ROOT_PASSWORD=" + password,
-			"MYSQL_DATABASE=" + name,
-		}
-		defaultPort = "3306"
-	}
-
-	// VPC config
-	networkID := ""
-	if vpcID != nil {
-		vpc, err := s.vpcRepo.GetByID(ctx, *vpcID)
-		if err != nil {
-			return nil, errors.Wrap(errors.NotFound, "vpc not found", err)
-		}
-		networkID = vpc.NetworkID
-	}
-
-	// Launch container with dynamic port
-	dockerName := fmt.Sprintf("cloud-db-%s-%s", name, db.ID.String()[:8])
-	portMapping := []string{"0:" + defaultPort}
-
-	containerID, err := s.compute.CreateInstance(ctx, dockerName, imageName, portMapping, networkID, nil, env, nil)
-	if err != nil {
-		s.logger.Error("failed to create database container", "error", err)
-		return nil, errors.Wrap(errors.Internal, "failed to launch database container", err)
-	}
-
-	// 5. Fetch host port
-	hostPort, err := s.compute.GetInstancePort(ctx, containerID, defaultPort)
-	if err != nil {
-		s.logger.Warn("failed to get mapped port", "container_id", containerID, "error", err)
-		// We'll continue, but the connection string might be broken if not stored correctly.
-	}
-
-	db.ContainerID = containerID
-	db.Port = hostPort
-	db.Status = domain.DatabaseStatusRunning // For simplicity in MVP, we mark as running once container starts
-
-	// Save to repo
-	if err := s.repo.Create(ctx, db); err != nil {
-		// Cleanup container if DB save fails
-		_ = s.compute.DeleteInstance(ctx, containerID)
-		return nil, err
-	}
-
+func (s *DatabaseService) recordDatabaseCreation(ctx context.Context, userID uuid.UUID, db *domain.Database, originalEngine string) {
 	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_CREATE", db.ID.String(), "DATABASE", map[string]interface{}{
 		"name":   db.Name,
 		"engine": db.Engine,
 	})
 
 	_ = s.auditSvc.Log(ctx, userID, "database.create", "database", db.ID.String(), map[string]interface{}{
-		"name":   name,
-		"engine": engine,
+		"name":   db.Name,
+		"engine": originalEngine,
 	})
 
-	platform.RDSInstancesTotal.WithLabelValues(engine, "running").Inc()
-
-	return db, nil
+	platform.RDSInstancesTotal.WithLabelValues(originalEngine, "running").Inc()
 }
 
 func (s *DatabaseService) GetDatabase(ctx context.Context, id uuid.UUID) (*domain.Database, error) {

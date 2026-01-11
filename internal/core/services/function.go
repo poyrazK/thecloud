@@ -163,56 +163,54 @@ func (s *FunctionService) InvokeFunction(ctx context.Context, id uuid.UUID, payl
 func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function, i *domain.Invocation, payload []byte) (*domain.Invocation, error) {
 	i.Status = "RUNNING"
 
-	config := runtimes[f.Runtime]
-
-	// 1. Prepare code (Extraction)
 	tmpDir, err := s.prepareCode(ctx, f)
 	if err != nil {
-		i.Status = "FAILED"
-		i.Logs = fmt.Sprintf("Error preparing code: %v", err)
-		_ = s.repo.CreateInvocation(context.Background(), i)
-		return i, err
+		return s.failInvocation(i, fmt.Sprintf("Error preparing code: %v", err), err)
 	}
-	defer func() {
-		_ = os.RemoveAll(tmpDir)
-	}()
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	// 2. Configure Docker Task
-	opts := ports.RunTaskOptions{
+	opts := s.buildTaskOptions(f, tmpDir, payload)
+
+	containerID, err := s.compute.RunTask(ctx, opts)
+	if err != nil {
+		return s.failInvocation(i, fmt.Sprintf("Error running task: %v", err), err)
+	}
+	defer func() { _ = s.compute.DeleteInstance(context.Background(), containerID) }()
+
+	statusCode, err := s.waitForTask(ctx, containerID, f.Timeout)
+	s.captureInvocationResults(i, containerID, statusCode, err)
+
+	if err := s.repo.CreateInvocation(context.Background(), i); err != nil {
+		s.logger.Error("failed to record invocation", "error", err)
+	}
+
+	return i, nil
+}
+
+func (s *FunctionService) buildTaskOptions(f *domain.Function, tmpDir string, payload []byte) ports.RunTaskOptions {
+	config := runtimes[f.Runtime]
+	pidsLimit := int64(50)
+	return ports.RunTaskOptions{
 		Image:           config.Image,
 		Command:         append(config.Entrypoint, f.Handler),
 		Env:             []string{fmt.Sprintf("PAYLOAD=%s", string(payload))},
 		MemoryMB:        int64(f.MemoryMB),
-		CPUs:            0.5, // Default for now
+		CPUs:            0.5,
 		NetworkDisabled: true,
 		ReadOnlyRootfs:  true,
 		WorkingDir:      "/var/task",
 		Binds:           []string{fmt.Sprintf("%s:/var/task:ro", tmpDir)},
+		PidsLimit:       &pidsLimit,
 	}
+}
 
-	// Set PidsLimit if possible
-	pidsLimit := int64(50)
-	opts.PidsLimit = &pidsLimit
-
-	// 3. Run Container
-	containerID, err := s.compute.RunTask(ctx, opts)
-	if err != nil {
-		i.Status = "FAILED"
-		i.Logs = fmt.Sprintf("Error running task: %v", err)
-		_ = s.repo.CreateInvocation(context.Background(), i)
-		return i, err
-	}
-	defer func() {
-		_ = s.compute.DeleteInstance(context.Background(), containerID)
-	}()
-
-	// 4. Wait for Completion
-	waitCtx, cancel := context.WithTimeout(ctx, time.Duration(f.Timeout)*time.Second)
+func (s *FunctionService) waitForTask(ctx context.Context, containerID string, timeout int) (int64, error) {
+	waitCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 	defer cancel()
+	return s.compute.WaitTask(waitCtx, containerID)
+}
 
-	statusCode, err := s.compute.WaitTask(waitCtx, containerID)
-
-	// 5. Capture Results
+func (s *FunctionService) captureInvocationResults(i *domain.Invocation, containerID string, statusCode int64, waitErr error) {
 	logsReader, _ := s.compute.GetInstanceLogs(context.Background(), containerID)
 	if logsReader != nil {
 		logBytes, _ := io.ReadAll(logsReader)
@@ -225,24 +223,25 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 	i.DurationMs = int(i.EndedAt.Sub(i.StartedAt).Milliseconds())
 	i.StatusCode = int(statusCode)
 
-	if err != nil {
+	if waitErr != nil {
 		i.Status = "FAILED"
-		if err == context.DeadlineExceeded {
+		if waitErr == context.DeadlineExceeded {
 			i.Logs += "\nError: Execution timed out"
 		} else {
-			i.Logs += fmt.Sprintf("\nError: %v", err)
+			i.Logs += fmt.Sprintf("\nError: %v", waitErr)
 		}
 	} else if statusCode != 0 {
 		i.Status = "FAILED"
 	} else {
 		i.Status = "SUCCESS"
 	}
+}
 
-	if err := s.repo.CreateInvocation(context.Background(), i); err != nil {
-		s.logger.Error("failed to record invocation", "error", err)
-	}
-
-	return i, nil
+func (s *FunctionService) failInvocation(i *domain.Invocation, logMsg string, err error) (*domain.Invocation, error) {
+	i.Status = "FAILED"
+	i.Logs = logMsg
+	_ = s.repo.CreateInvocation(context.Background(), i)
+	return i, err
 }
 
 func (s *FunctionService) prepareCode(ctx context.Context, f *domain.Function) (string, error) {
@@ -257,53 +256,59 @@ func (s *FunctionService) prepareCode(ctx context.Context, f *domain.Function) (
 		return "", err
 	}
 
-	// Copy to buffer because archive/zip needs ReaderAt
-	buf := new(bytes.Buffer)
-	_, err = io.Copy(buf, rc)
-	if err != nil {
+	if err := s.extractZip(rc, tmpDir); err != nil {
+		_ = os.RemoveAll(tmpDir)
 		return "", err
+	}
+
+	return tmpDir, nil
+}
+
+func (s *FunctionService) extractZip(rc io.Reader, tmpDir string) error {
+	buf := new(bytes.Buffer)
+	if _, err := io.Copy(buf, rc); err != nil {
+		return err
 	}
 
 	zr, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	for _, file := range zr.File {
-		path := filepath.Join(tmpDir, file.Name)
-		if !strings.HasPrefix(path, filepath.Clean(tmpDir)+string(os.PathSeparator)) {
-			return "", fmt.Errorf("invalid file path in zip: %s", file.Name)
-		}
-		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(path, 0755); err != nil {
-				return "", err
-			}
-			continue
-		}
-		// ...
-
-		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-			return "", err
-		}
-
-		dst, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
-		if err != nil {
-			return "", err
-		}
-
-		src, err := file.Open()
-		if err != nil {
-			_ = dst.Close()
-			return "", err
-		}
-
-		_, err = io.Copy(dst, src)
-		_ = src.Close()
-		_ = dst.Close()
-		if err != nil {
-			return "", err
+		if err := s.extractZipFile(file, tmpDir); err != nil {
+			return err
 		}
 	}
+	return nil
+}
 
-	return tmpDir, nil
+func (s *FunctionService) extractZipFile(file *zip.File, tmpDir string) error {
+	path := filepath.Join(tmpDir, file.Name)
+	if !strings.HasPrefix(path, filepath.Clean(tmpDir)+string(os.PathSeparator)) {
+		return fmt.Errorf("invalid file path in zip: %s", file.Name)
+	}
+
+	if file.FileInfo().IsDir() {
+		return os.MkdirAll(path, 0755)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+
+	dst, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+	if err != nil {
+		return err
+	}
+	defer func() { _ = dst.Close() }()
+
+	src, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = src.Close() }()
+
+	_, err = io.Copy(dst, src)
+	return err
 }

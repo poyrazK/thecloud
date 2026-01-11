@@ -61,7 +61,7 @@ func (r *PostgresQueueRepository) scanQueue(row pgx.Row) (*domain.Queue, error) 
 	err := row.Scan(&q.ID, &q.UserID, &q.Name, &q.ARN, &q.VisibilityTimeout, &q.RetentionDays, &q.MaxMessageSize, &status, &q.CreatedAt, &q.UpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return nil, nil
+			return nil, nil // Return nil, nil when not found as per previous behavior
 		}
 		return nil, err
 	}

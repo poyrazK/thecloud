@@ -223,16 +223,7 @@ func (s *stackService) createVPC(ctx context.Context, stackID uuid.UUID, logical
 		return uuid.Nil, err
 	}
 
-	_ = s.repo.AddResource(ctx, &domain.StackResource{
-		ID:           uuid.New(),
-		StackID:      stackID,
-		LogicalID:    logicalID,
-		PhysicalID:   vpc.ID.String(),
-		ResourceType: "VPC",
-		Status:       "CREATE_COMPLETE",
-		CreatedAt:    time.Now(),
-	})
-
+	s.recordResource(ctx, stackID, logicalID, vpc.ID.String(), "VPC", "CREATE_COMPLETE")
 	return vpc.ID, nil
 }
 
@@ -252,16 +243,7 @@ func (s *stackService) createVolume(ctx context.Context, stackID uuid.UUID, logi
 		return uuid.Nil, err
 	}
 
-	_ = s.repo.AddResource(ctx, &domain.StackResource{
-		ID:           uuid.New(),
-		StackID:      stackID,
-		LogicalID:    logicalID,
-		PhysicalID:   vol.ID.String(),
-		ResourceType: "Volume",
-		Status:       "CREATE_COMPLETE",
-		CreatedAt:    time.Now(),
-	})
-
+	s.recordResource(ctx, stackID, logicalID, vol.ID.String(), "Volume", "CREATE_COMPLETE")
 	return vol.ID, nil
 }
 
@@ -281,23 +263,13 @@ func (s *stackService) createSnapshot(ctx context.Context, stackID uuid.UUID, lo
 		return uuid.Nil, err
 	}
 
-	_ = s.repo.AddResource(ctx, &domain.StackResource{
-		ID:           uuid.New(),
-		StackID:      stackID,
-		LogicalID:    logicalID,
-		PhysicalID:   snap.ID.String(),
-		ResourceType: "Snapshot",
-		Status:       "CREATE_IN_PROGRESS",
-		CreatedAt:    time.Now(),
-	})
-
+	s.recordResource(ctx, stackID, logicalID, snap.ID.String(), "Snapshot", "CREATE_IN_PROGRESS")
 	return snap.ID, nil
 }
 
 func (s *stackService) createInstance(ctx context.Context, stackID uuid.UUID, logicalID string, props map[string]interface{}) (uuid.UUID, error) {
 	name, _ := props["Name"].(string)
 	image, _ := props["Image"].(string)
-	// cpu, mem are currently not used in LaunchInstance but we can keep them in template
 	vpcID, _ := props["VpcID"].(uuid.UUID)
 
 	if name == "" {
@@ -314,17 +286,20 @@ func (s *stackService) createInstance(ctx context.Context, stackID uuid.UUID, lo
 		return uuid.Nil, err
 	}
 
+	s.recordResource(ctx, stackID, logicalID, inst.ID.String(), "Instance", "CREATE_COMPLETE")
+	return inst.ID, nil
+}
+
+func (s *stackService) recordResource(ctx context.Context, stackID uuid.UUID, logicalID, physicalID, resType, status string) {
 	_ = s.repo.AddResource(ctx, &domain.StackResource{
 		ID:           uuid.New(),
 		StackID:      stackID,
 		LogicalID:    logicalID,
-		PhysicalID:   inst.ID.String(),
-		ResourceType: "Instance",
-		Status:       "CREATE_COMPLETE",
+		PhysicalID:   physicalID,
+		ResourceType: resType,
+		Status:       status,
 		CreatedAt:    time.Now(),
 	})
-
-	return inst.ID, nil
 }
 
 func (s *stackService) updateStackStatus(ctx context.Context, stack *domain.Stack, status domain.StackStatus, reason string) {

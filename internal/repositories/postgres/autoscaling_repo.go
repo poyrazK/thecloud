@@ -285,12 +285,19 @@ func (r *AutoScalingRepo) GetInstancesInGroup(ctx context.Context, groupID uuid.
 	defer rows.Close()
 	var ids []uuid.UUID
 	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err == nil {
-			ids = append(ids, id)
+		id, err := r.scanScalingGroupInstance(rows)
+		if err != nil {
+			return nil, err
 		}
+		ids = append(ids, id)
 	}
 	return ids, nil
+}
+
+func (r *AutoScalingRepo) scanScalingGroupInstance(row pgx.Row) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 func (r *AutoScalingRepo) GetAllScalingGroupInstances(ctx context.Context, groupIDs []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error) {

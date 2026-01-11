@@ -55,17 +55,7 @@ func (r *imageRepository) List(ctx context.Context, userID uuid.UUID, includePub
 	if err != nil {
 		return nil, fmt.Errorf("failed to list images: %w", err)
 	}
-	defer rows.Close()
-
-	var images []*domain.Image
-	for rows.Next() {
-		img, err := r.scanImage(rows)
-		if err != nil {
-			return nil, err
-		}
-		images = append(images, img)
-	}
-	return images, nil
+	return r.scanImages(rows)
 }
 
 func (r *imageRepository) scanImage(row pgx.Row) (*domain.Image, error) {
@@ -82,6 +72,19 @@ func (r *imageRepository) scanImage(row pgx.Row) (*domain.Image, error) {
 		return nil, fmt.Errorf("failed to scan image: %w", err)
 	}
 	return &img, nil
+}
+
+func (r *imageRepository) scanImages(rows pgx.Rows) ([]*domain.Image, error) {
+	defer rows.Close()
+	var images []*domain.Image
+	for rows.Next() {
+		img, err := r.scanImage(rows)
+		if err != nil {
+			return nil, err
+		}
+		images = append(images, img)
+	}
+	return images, nil
 }
 
 func (r *imageRepository) Update(ctx context.Context, img *domain.Image) error {
