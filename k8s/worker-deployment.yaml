@@ -15,9 +15,10 @@ spec:
       labels:
         app: cloud-worker
     spec:
+      automountServiceAccountToken: false
       containers:
       - name: worker
-        image: thecloud-api:latest # Reuse same image, just different entrypoint if needed, or same main with args
+        image: thecloud-api:v1.0.0 # Reuse same image, just different entrypoint if needed, or same main with args
         imagePullPolicy: IfNotPresent
         # args: ["worker"] # Removed args, using ROLE env var instead
         env:

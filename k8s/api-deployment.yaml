@@ -15,9 +15,10 @@ spec:
       labels:
         app: cloud-api
     spec:
+      automountServiceAccountToken: false
       containers:
       - name: api
-        image: thecloud-api:latest
+        image: thecloud-api:v1.0.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
