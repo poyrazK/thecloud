@@ -41,6 +41,7 @@ type Repositories struct {
 	AutoScaling   ports.AutoScalingRepository
 	Accounting    ports.AccountingRepository
 	TaskQueue     ports.TaskQueue
+	Image         ports.ImageRepository
 }
 
 func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
@@ -72,6 +73,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		AutoScaling:   postgres.NewAutoScalingRepo(db),
 		Accounting:    postgres.NewAccountingRepository(db),
 		TaskQueue:     redis.NewRedisTaskQueue(rdb),
+		Image:         postgres.NewImageRepository(db),
 	}
 }
 
@@ -104,6 +106,7 @@ type Services struct {
 	Health        ports.HealthService
 	AutoScaling   ports.AutoScalingService
 	Accounting    ports.AccountingService
+	Image         ports.ImageService
 }
 
 // Workers struct to return background workers
@@ -215,6 +218,8 @@ func InitServices(
 	accountingSvc := services.NewAccountingService(repos.Accounting, repos.Instance)
 	accountingWorker := workers.NewAccountingWorker(accountingSvc, logger)
 
+	imageSvc := services.NewImageService(repos.Image, fileStore, logger)
+
 	provisionWorker := workers.NewProvisionWorker(instanceSvc, repos.TaskQueue, logger)
 
 	svcs := &Services{
@@ -224,7 +229,7 @@ func InitServices(
 		Snapshot: snapshotSvc, Stack: stackSvc, Storage: storageSvc, Database: databaseSvc,
 		Secret: secretSvc, Function: fnSvc, Cache: cacheSvc, Queue: queueSvc, Notify: notifySvc,
 		Cron: cronSvc, Gateway: gwSvc, Container: containerSvc, Health: healthSvc,
-		AutoScaling: asgSvc, Accounting: accountingSvc,
+		AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc,
 	}
 
 	workersCollection := &Workers{

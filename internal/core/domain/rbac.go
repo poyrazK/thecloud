@@ -98,6 +98,11 @@ const (
 	PermissionContainerRead   Permission = "container:read"
 	PermissionContainerUpdate Permission = "container:scale"
 
+	// Image Permissions
+	PermissionImageCreate Permission = "image:create"
+	PermissionImageRead   Permission = "image:read"
+	PermissionImageDelete Permission = "image:delete"
+
 	// System Permissions
 	PermissionFullAccess Permission = "*"
 )

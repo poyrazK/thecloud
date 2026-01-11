@@ -53,6 +53,7 @@ type Handlers struct {
 	SecurityGroup *httphandlers.SecurityGroupHandler
 	AutoScaling   *httphandlers.AutoScalingHandler
 	Accounting    *httphandlers.AccountingHandler
+	Image         *httphandlers.ImageHandler
 }
 
 func InitHandlers(svcs *Services) *Handlers {
@@ -84,6 +85,7 @@ func InitHandlers(svcs *Services) *Handlers {
 		SecurityGroup: httphandlers.NewSecurityGroupHandler(svcs.SecurityGroup),
 		AutoScaling:   httphandlers.NewAutoScalingHandler(svcs.AutoScaling),
 		Accounting:    httphandlers.NewAccountingHandler(svcs.Accounting),
+		Image:         httphandlers.NewImageHandler(svcs.Image),
 	}
 }
 
@@ -429,6 +431,17 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 	{
 		billingGroup.GET("/summary", handlers.Accounting.GetSummary)
 		billingGroup.GET("/usage", handlers.Accounting.ListUsage)
+	}
+
+	// Image Routes (Protected)
+	imageGroup := r.Group("/images")
+	imageGroup.Use(httputil.Auth(services.Identity))
+	{
+		imageGroup.POST("", httputil.Permission(services.RBAC, domain.PermissionImageCreate), handlers.Image.RegisterImage)
+		imageGroup.GET("", httputil.Permission(services.RBAC, domain.PermissionImageRead), handlers.Image.ListImages)
+		imageGroup.GET("/:id", httputil.Permission(services.RBAC, domain.PermissionImageRead), handlers.Image.GetImage)
+		imageGroup.DELETE("/:id", httputil.Permission(services.RBAC, domain.PermissionImageDelete), handlers.Image.DeleteImage)
+		imageGroup.POST("/:id/upload", httputil.Permission(services.RBAC, domain.PermissionImageCreate), handlers.Image.UploadImage)
 	}
 
 	return r
