@@ -103,11 +103,17 @@ internal/
 - Function, Queue, Topic state
 - Audit logs and events
 
-**Docker/Libvirt Adapters:**
+**Compute Adapters (Docker/Libvirt):**
 - Container/VM lifecycle operations
 - Network creation and management
-- Volume attachment and snapshots
-- Resource monitoring
+- Volume attachment (binds/hot-plug)
+- Resource monitoring services
+- VNC Console access (Libvirt)
+
+**Storage Adapters (LVM/Noop):**
+- Block volume creation/deletion
+- Snapshot management (Create/Restore)
+- Direct interaction with `lvcreate`/`lvremove`
 
 ## API Design Standards
 
