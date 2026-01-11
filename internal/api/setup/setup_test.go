@@ -75,8 +75,9 @@ func TestInitLBProxy(t *testing.T) {
 }
 
 func TestInitHandlers(t *testing.T) {
+	logger := InitLogger()
 	svcs := &Services{} // Empty services
-	handlers := InitHandlers(svcs)
+	handlers := InitHandlers(svcs, logger)
 	assert.NotNil(t, handlers)
 	assert.NotNil(t, handlers.Auth)
 }
@@ -85,7 +86,7 @@ func TestSetupRouter(t *testing.T) {
 	cfg := &platform.Config{Environment: "test"}
 	logger := InitLogger()
 	svcs := &Services{}
-	handlers := InitHandlers(svcs)
+	handlers := InitHandlers(svcs, logger)
 
 	router := SetupRouter(cfg, logger, handlers, svcs, nil)
 	assert.NotNil(t, router)
