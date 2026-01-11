@@ -10,45 +10,48 @@ This document provides a comprehensive overview of every feature currently imple
 **What it is**: Launch virtual machines or containers to run applications.
 
 **Tech Stack**: 
-- **Docker Engine** (Container Backend)
-- **Libvirt/KVM** (VM Backend)
-- **Go** (Backend with pluggable ComputeBackend interface)
+- **Docker Engine** (Container Backend - Simulators)
+- **Libvirt/KVM** (VM Backend - Production)
+- **Go** (Backend with unified `ComputeBackend` interface)
 
 **Implementation**:
 - **Multi-Backend Architecture**: The system supports two compute backends via a unified `ComputeBackend` interface:
   
-  **Docker Backend** (Default):
-  - **Simulation**: Uses Docker Containers to simulate instances with sub-second boot times
-  - **Isolation**: Each "Instance" is a Docker container
-  - **Networking**: Instances attach to custom Bridge Networks (simulating VPCs)
-  - **Persistence**: Docker Volumes for persistent storage
+  **Docker Backend** (Simulation/Dev):
+  - **Simulation**: Uses Docker Containers to simulate instances with sub-second boot times.
+  - **Isolation**: Process-level isolation via namespaces.
+  - **Networking**: Instances attach to custom Bridge Networks (simulating VPCs).
+  - **Persistence**: Docker Volumes for persistent storage.
   
-  **Libvirt Backend** (Production VMs):
-  - **Real VMs**: Uses KVM/QEMU for full hardware virtualization
-  - **Isolation**: Complete VM isolation with dedicated kernels
-  - **Storage**: QCOW2 volumes in libvirt storage pools
-  - **Networking**: NAT networks with DHCP and iptables port forwarding
-  - **Cloud-Init**: Automatic VM configuration via ISO injection
-  - **Snapshots**: Efficient QCOW2 snapshots using qemu-img
+  **Libvirt Backend** (Production/KVM):
+  - **Real VMs**: Uses KVM/QEMU for full hardware virtualization.
+  - **Isolation**: Complete VM isolation with dedicated kernels.
+  - **Console**: **VNC Console** access via dynamic websockets (`/console` endpoint).
+  - **Storage**: Supports both file-based QCOW2 and raw LVM block devices.
+  - **Networking**: Integrated with Open vSwitch (OVS) for true SDN.
 
-- **Backend Selection**: Set via `COMPUTE_BACKEND` environment variable (`docker` or `libvirt`)
-- **Lifecycle**: The `InstanceService` manages the backend API to Create, Start, Stop, and Remove instances
+- **Backend Selection**: Set via `COMPUTE_BACKEND` environment variable (`docker` or `libvirt`).
+- **Lifecycle**: The `InstanceService` manages the backend API to Create, Start, Stop, and Remove instances.
 
 ### 2. Networking (VPC)
 **What it is**: Isolated virtual networks to secure resources.
-**Tech Stack**: Docker Networks (Bridge Driver).
+**Tech Stack**: Docker Networks (Bridge) or Open vSwitch (OVS).
 **Implementation**:
-- **Abstraction**: A "VPC" maps directly to a **Docker Bridge Network**.
-- **Isolation**: Containers in one VPC cannot communicate with containers in another (unless peered/exposed).
-- **DNS**: Uses Docker's internal DNS for service discovery within the VPC (e.g., `ping my-db`).
+- **Docker Mode**: A "VPC" maps directly to a **Docker Bridge Network**.
+- **Libvirt Mode**: Uses **Open vSwitch (OVS)** bridges and VXLANs for tenant isolation.
+- **Isolation**: strict traffic segregation rules enforced by generic or OVS flow rules.
 
 ### 3. Block Storage (Volumes)
 **What it is**: Persistent disks that can be attached/detached from instances.
-**Tech Stack**: Docker Volumes.
+**Tech Stack**: Docker Volumes or Linux LVM.
 **Implementation**:
-- **Creation**: Maps to `docker volume create`.
-- **Attachment**: When "attaching" a volume to an instance, we currently have to recreate the container with the new bind mount (due to Docker limitations on live mounting).
-- **Persistence**: Data survives container termination.
+- **Docker Mode**: Maps to `docker volume create`.
+- **LVM Mode**:
+  - **Creation**: Allocates raw logical volumes (`lvcreate`) from a volume group.
+  - **Snapshots**: Instant, copy-on-write snapshots for backups.
+  - **Performance**: Near-native block device performance for VMs.
+- **Attachment**: Hot-pluggable (in Libvirt mode) or bind-mounted (in Docker mode).
+- **Persistence**: Data survives instance termination.
 
 ### 4. Object Storage (S3-compatible)
 **What it is**: Store and retrieve files (blobs) via API.
