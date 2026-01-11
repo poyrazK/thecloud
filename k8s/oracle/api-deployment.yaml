@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloud-api
+  namespace: thecloud
+  labels:
+    app: cloud-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: cloud-api
+  template:
+    metadata:
+      labels:
+        app: cloud-api
+    spec:
+      containers:
+      - name: api
+        image: YOUR_REGISTRY/thecloud-api:latest  # Change this to your actual image
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: ROLE
+          value: "api"
+        envFrom:
+        - configMapRef:
+            name: cloud-config
+        - secretRef:
+            name: cloud-secrets
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5

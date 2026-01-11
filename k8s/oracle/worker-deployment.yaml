@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloud-worker
+  namespace: thecloud
+  labels:
+    app: cloud-worker
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: cloud-worker
+  template:
+    metadata:
+      labels:
+        app: cloud-worker
+    spec:
+      containers:
+      - name: worker
+        image: YOUR_REGISTRY/thecloud-api:latest  # Reuse same image
+        imagePullPolicy: Always
+        env:
+        - name: ROLE
+          value: "worker"
+        envFrom:
+        - configMapRef:
+            name: cloud-config
+        - secretRef:
+            name: cloud-secrets
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "300m"
+            memory: "256Mi"

@@ -13,6 +13,7 @@ type InstanceRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Instance, error)
 	GetByName(ctx context.Context, name string) (*domain.Instance, error)
 	List(ctx context.Context) ([]*domain.Instance, error)
+	ListAll(ctx context.Context) ([]*domain.Instance, error)
 	ListBySubnet(ctx context.Context, subnetID uuid.UUID) ([]*domain.Instance, error)
 	Update(ctx context.Context, instance *domain.Instance) error
 	Delete(ctx context.Context, id uuid.UUID) error

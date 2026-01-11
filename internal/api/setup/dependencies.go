@@ -39,6 +39,7 @@ type Repositories struct {
 	Gateway       ports.GatewayRepository
 	Container     ports.ContainerRepository
 	AutoScaling   ports.AutoScalingRepository
+	Accounting    ports.AccountingRepository
 	TaskQueue     ports.TaskQueue
 }
 
@@ -69,6 +70,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		Gateway:       postgres.NewPostgresGatewayRepository(db),
 		Container:     postgres.NewPostgresContainerRepository(db),
 		AutoScaling:   postgres.NewAutoScalingRepo(db),
+		Accounting:    postgres.NewAccountingRepository(db),
 		TaskQueue:     redis.NewRedisTaskQueue(rdb),
 	}
 }
@@ -101,6 +103,7 @@ type Services struct {
 	Container     ports.ContainerService
 	Health        ports.HealthService
 	AutoScaling   ports.AutoScalingService
+	Accounting    ports.AccountingService
 }
 
 // Workers struct to return background workers
@@ -110,6 +113,7 @@ type Workers struct {
 	Cron        *services.CronWorker
 	Container   *services.ContainerWorker
 	Provision   *workers.ProvisionWorker
+	Accounting  *workers.AccountingWorker
 }
 
 func InitServices(
@@ -130,7 +134,8 @@ func InitServices(
 	identitySvc := services.NewCachedIdentityService(baseIdentitySvc, rdb, logger)
 	authSvc := services.NewAuthService(repos.User, identitySvc, auditSvc)
 	pwdResetSvc := services.NewPasswordResetService(repos.PasswordReset, repos.User, logger)
-	rbacSvc := services.NewRBACService(repos.User, repos.RBAC, logger)
+	baseRbacSvc := services.NewRBACService(repos.User, repos.RBAC, logger)
+	rbacSvc := services.NewCachedRBACService(baseRbacSvc, rdb, logger)
 
 	// Core Cloud Services
 	eventSvc := services.NewEventService(repos.Event, logger)
@@ -207,6 +212,9 @@ func InitServices(
 	asgSvc := services.NewAutoScalingService(repos.AutoScaling, repos.Vpc, auditSvc)
 	asgWorker := services.NewAutoScalingWorker(repos.AutoScaling, instanceSvc, lbSvc, eventSvc, ports.RealClock{})
 
+	accountingSvc := services.NewAccountingService(repos.Accounting, repos.Instance)
+	accountingWorker := workers.NewAccountingWorker(accountingSvc, logger)
+
 	provisionWorker := workers.NewProvisionWorker(instanceSvc, repos.TaskQueue, logger)
 
 	svcs := &Services{
@@ -216,12 +224,12 @@ func InitServices(
 		Snapshot: snapshotSvc, Stack: stackSvc, Storage: storageSvc, Database: databaseSvc,
 		Secret: secretSvc, Function: fnSvc, Cache: cacheSvc, Queue: queueSvc, Notify: notifySvc,
 		Cron: cronSvc, Gateway: gwSvc, Container: containerSvc, Health: healthSvc,
-		AutoScaling: asgSvc,
+		AutoScaling: asgSvc, Accounting: accountingSvc,
 	}
 
 	workersCollection := &Workers{
 		LB: lbWorker, AutoScaling: asgWorker, Cron: cronWorker, Container: containerWorker,
-		Provision: provisionWorker,
+		Provision: provisionWorker, Accounting: accountingWorker,
 	}
 
 	return svcs, workersCollection, nil

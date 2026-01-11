@@ -52,6 +52,7 @@ type Handlers struct {
 	Health        *httphandlers.HealthHandler
 	SecurityGroup *httphandlers.SecurityGroupHandler
 	AutoScaling   *httphandlers.AutoScalingHandler
+	Accounting    *httphandlers.AccountingHandler
 }
 
 func InitHandlers(svcs *Services) *Handlers {
@@ -82,6 +83,7 @@ func InitHandlers(svcs *Services) *Handlers {
 		Health:        httphandlers.NewHealthHandler(svcs.Health),
 		SecurityGroup: httphandlers.NewSecurityGroupHandler(svcs.SecurityGroup),
 		AutoScaling:   httphandlers.NewAutoScalingHandler(svcs.AutoScaling),
+		Accounting:    httphandlers.NewAccountingHandler(svcs.Accounting),
 	}
 }
 
@@ -419,6 +421,14 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 		iacGroup.GET("/stacks/:id", httputil.Permission(services.RBAC, domain.PermissionStackRead), handlers.Stack.Get)
 		iacGroup.DELETE("/stacks/:id", httputil.Permission(services.RBAC, domain.PermissionStackDelete), handlers.Stack.Delete)
 		iacGroup.POST("/validate", httputil.Permission(services.RBAC, domain.PermissionStackRead), handlers.Stack.Validate)
+	}
+
+	// Billing Routes (Protected)
+	billingGroup := r.Group("/billing")
+	billingGroup.Use(httputil.Auth(services.Identity))
+	{
+		billingGroup.GET("/summary", handlers.Accounting.GetSummary)
+		billingGroup.GET("/usage", handlers.Accounting.ListUsage)
 	}
 
 	return r

@@ -115,6 +115,34 @@ func (r *InstanceRepository) List(ctx context.Context) ([]*domain.Instance, erro
 	return instances, nil
 }
 
+func (r *InstanceRepository) ListAll(ctx context.Context) ([]*domain.Instance, error) {
+	query := `
+		SELECT id, user_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
+		FROM instances
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to list all instances", err)
+	}
+	defer rows.Close()
+
+	var instances []*domain.Instance
+	for rows.Next() {
+		var inst domain.Instance
+		var status string
+		err := rows.Scan(
+			&inst.ID, &inst.UserID, &inst.Name, &inst.Image, &inst.ContainerID, &status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
+		)
+		if err != nil {
+			return nil, errors.Wrap(errors.Internal, "failed to scan instance", err)
+		}
+		inst.Status = domain.InstanceStatus(status)
+		instances = append(instances, &inst)
+	}
+	return instances, nil
+}
+
 // Update modifies an existing instance record using optimistic locking (via the version field).
 func (r *InstanceRepository) Update(ctx context.Context, inst *domain.Instance) error {
 	// Implements Optimistic Locking via 'version'

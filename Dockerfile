@@ -1,5 +1,8 @@
 # Build stage
-FROM golang:1.24-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
+
+ARG TARGETARCH
+ARG TARGETOS
 
 WORKDIR /app
 
@@ -15,13 +18,14 @@ COPY . .
 
 # Build binary
 # CGO_ENABLED=0 for static binary
-RUN CGO_ENABLED=0 go build -o /bin/api cmd/api/main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -o /bin/api cmd/api/main.go
 
 # Production stage
 FROM alpine:3.19
 
 # Install runtime dependencies
-RUN apk add --no-cache ca-certificates tzdata openvswitch
+RUN apk add --no-cache ca-certificates tzdata
 
 WORKDIR /app
 

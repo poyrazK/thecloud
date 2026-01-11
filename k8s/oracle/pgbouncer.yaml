@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer
+  namespace: thecloud
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pgbouncer
+  template:
+    metadata:
+      labels:
+        app: pgbouncer
+    spec:
+      containers:
+      - name: pgbouncer
+        image: edoburu/pgbouncer:latest
+        ports:
+        - containerPort: 5432
+        env:
+        - name: DB_HOST
+          value: postgres-service
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          value: cloud
+        - name: DB_PASSWORD
+          value: cloud
+        - name: DB_NAME
+          value: thecloud
+        - name: POOL_MODE
+          value: transaction
+        - name: MAX_CLIENT_CONN
+          value: "20000"
+        - name: DEFAULT_POOL_SIZE
+          value: "25"     # 10 pods * 25 = 250 conns total < 300 PG max
+        - name: AUTH_TYPE
+          value: "plain" # Trust auth from internal clients, or use 'md5'/'scram-sha-256' matching PG. 'plain' is easiest for k8s internal.
+          
+          # Edoburu image uses slightly different env vars:
+          # DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
+          # POOL_MODE, MAX_CLIENT_CONN, DEFAULT_POOL_SIZE
+        resources:
+          requests:
+            cpu: "30m"
+            memory: "48Mi"
+          limits:
+            cpu: "100m"
+            memory: "64Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgbouncer-service
+  namespace: thecloud
+spec:
+  ports:
+  - port: 5432     # Expose as standard PG port internally
+    targetPort: 5432
+  selector:
+    app: pgbouncer

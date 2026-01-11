@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: cloud-db
+  namespace: thecloud
+spec:
+  serviceName: postgres-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloud-db
+  template:
+    metadata:
+      labels:
+        app: cloud-db
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:16-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: cloud
+        - name: POSTGRES_PASSWORD
+          value: cloud
+        - name: POSTGRES_DB
+          value: thecloud
+        - name: POSTGRES_ARGS
+          value: "-c max_connections=300"  # Increased from default 100 to support PgBouncer pool of 200
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      storageClassName: oci-bv
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-headless
+  namespace: thecloud
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+  clusterIP: None
+  selector:
+    app: cloud-db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: thecloud
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: cloud-db
