@@ -174,7 +174,7 @@ func (m *mockEventRepo) List(ctx context.Context, limit int) ([]*domain.Event, e
 	return args.Get(0).([]*domain.Event), args.Error(1)
 }
 
-func setupDashboardServiceTest(t *testing.T) (*mockInstanceRepo, *mockVolumeRepo, *mockVpcRepo, *mockEventRepo, ports.DashboardService) {
+func setupDashboardServiceTest(_ *testing.T) (*mockInstanceRepo, *mockVolumeRepo, *mockVpcRepo, *mockEventRepo, ports.DashboardService) {
 	instanceRepo := new(mockInstanceRepo)
 	volumeRepo := new(mockVolumeRepo)
 	vpcRepo := new(mockVpcRepo)

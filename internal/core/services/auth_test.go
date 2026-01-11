@@ -18,7 +18,7 @@ import (
 // Helper to get a strong password for tests
 const strongTestPassword = "CorrectHorseBatteryStaple123!"
 
-func setupAuthServiceTest(t *testing.T) (*MockUserRepo, *MockIdentityService, *MockAuditService, *services.AuthService) {
+func setupAuthServiceTest(_ *testing.T) (*MockUserRepo, *MockIdentityService, *MockAuditService, *services.AuthService) {
 	userRepo := new(MockUserRepo)
 	identitySvc := new(MockIdentityService)
 	auditSvc := new(MockAuditService)

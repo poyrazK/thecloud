@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func setupIdentityServiceTest(t *testing.T) (*MockIdentityRepo, *MockAuditService, ports.IdentityService) {
+func setupIdentityServiceTest(_ *testing.T) (*MockIdentityRepo, *MockAuditService, ports.IdentityService) {
 	repo := new(MockIdentityRepo)
 	audit := new(MockAuditService)
 	svc := services.NewIdentityService(repo, audit)

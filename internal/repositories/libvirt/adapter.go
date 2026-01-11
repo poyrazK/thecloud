@@ -25,10 +25,13 @@ import (
 )
 
 const (
-	defaultPoolName  = "default"
-	userDataFileName = "user-data"
-	metaDataFileName = "meta-data"
-	errGetVolumePath = "failed to get volume path: %w"
+	defaultPoolName   = "default"
+	userDataFileName  = "user-data"
+	metaDataFileName  = "meta-data"
+	errGetVolumePath  = "failed to get volume path: %w"
+	errDomainNotFound = errDomainNotFound
+	errPoolNotFound   = errPoolNotFound
+	prefixCloudInit   = prefixCloudInit
 )
 
 type LibvirtAdapter struct {
@@ -166,7 +169,7 @@ func (a *LibvirtAdapter) waitInitialIP(ctx context.Context, id string) (string, 
 func (a *LibvirtAdapter) StopInstance(ctx context.Context, id string) error {
 	dom, err := a.conn.DomainLookupByName(id)
 	if err != nil {
-		return fmt.Errorf("domain not found: %w", err)
+		return fmt.Errorf(errDomainNotFound, err)
 	}
 
 	if err := a.conn.DomainDestroy(dom); err != nil {
@@ -217,7 +220,7 @@ func (a *LibvirtAdapter) cleanupDomainISO(id string) {
 		a.logger.Warn("invalid id for iso cleanup", "id", id)
 		return
 	}
-	isoPath := filepath.Join(os.TempDir(), "cloud-init-"+id+".iso")
+	isoPath := filepath.Join(os.TempDir(), prefixCloudInit+id+".iso")
 	_ = os.Remove(isoPath)
 }
 
@@ -253,7 +256,7 @@ func (a *LibvirtAdapter) GetInstanceLogs(ctx context.Context, id string) (io.Rea
 func (a *LibvirtAdapter) GetInstanceStats(ctx context.Context, id string) (io.ReadCloser, error) {
 	dom, err := a.conn.DomainLookupByName(id)
 	if err != nil {
-		return nil, fmt.Errorf("domain not found: %w", err)
+		return nil, fmt.Errorf(errDomainNotFound, err)
 	}
 
 	// Memory stats
@@ -294,7 +297,7 @@ func (a *LibvirtAdapter) GetInstancePort(ctx context.Context, id string, interna
 func (a *LibvirtAdapter) AttachVolume(ctx context.Context, id string, volumePath string) error {
 	dom, err := a.conn.DomainLookupByName(id)
 	if err != nil {
-		return fmt.Errorf("domain not found: %w", err)
+		return fmt.Errorf(errDomainNotFound, err)
 	}
 
 	// We need to find an available device name (vdb, vdc, etc.)
@@ -325,7 +328,7 @@ func (a *LibvirtAdapter) AttachVolume(ctx context.Context, id string, volumePath
 func (a *LibvirtAdapter) DetachVolume(ctx context.Context, id string, volumePath string) error {
 	dom, err := a.conn.DomainLookupByName(id)
 	if err != nil {
-		return fmt.Errorf("domain not found: %w", err)
+		return fmt.Errorf(errDomainNotFound, err)
 	}
 
 	// To detach, we technically only need the target device or a matching XML.
@@ -377,7 +380,7 @@ func (a *LibvirtAdapter) GetInstanceIP(ctx context.Context, id string) (string, 
 	// 1. Get Domain
 	dom, err := a.conn.DomainLookupByName(id)
 	if err != nil {
-		return "", fmt.Errorf("domain not found: %w", err)
+		return "", fmt.Errorf(errDomainNotFound, err)
 	}
 
 	// 2. We need the MAC address to look up DHCP leases.
@@ -481,7 +484,7 @@ func (a *LibvirtAdapter) WaitTask(ctx context.Context, id string) (int64, error)
 			dom, err := a.conn.DomainLookupByName(id)
 			if err != nil {
 				// If domain is gone, maybe it was deleted?
-				return -1, fmt.Errorf("domain not found: %w", err)
+				return -1, fmt.Errorf(errDomainNotFound, err)
 			}
 
 			state, _, err := a.conn.DomainGetState(dom, 0)
@@ -534,7 +537,7 @@ func (a *LibvirtAdapter) DeleteNetwork(ctx context.Context, id string) error {
 func (a *LibvirtAdapter) CreateVolume(ctx context.Context, name string) error {
 	pool, err := a.conn.StoragePoolLookupByName(defaultPoolName)
 	if err != nil {
-		return fmt.Errorf("failed to find default storage pool: %w", err)
+		return fmt.Errorf(errPoolNotFound, err)
 	}
 
 	// 10GB default
@@ -556,7 +559,7 @@ func (a *LibvirtAdapter) CreateVolume(ctx context.Context, name string) error {
 func (a *LibvirtAdapter) DeleteVolume(ctx context.Context, name string) error {
 	pool, err := a.conn.StoragePoolLookupByName(defaultPoolName)
 	if err != nil {
-		return fmt.Errorf("failed to find default storage pool: %w", err)
+		return fmt.Errorf(errPoolNotFound, err)
 	}
 
 	vol, err := a.conn.StorageVolLookupByName(pool, name)
@@ -575,7 +578,7 @@ func (a *LibvirtAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID stri
 	// volumeID is the libvirt volume name
 	pool, err := a.conn.StoragePoolLookupByName(defaultPoolName)
 	if err != nil {
-		return fmt.Errorf("failed to find default storage pool: %w", err)
+		return fmt.Errorf(errPoolNotFound, err)
 	}
 
 	vol, err := a.conn.StorageVolLookupByName(pool, volumeID)
@@ -613,7 +616,7 @@ func (a *LibvirtAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID stri
 func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID string, sourcePath string) error {
 	pool, err := a.conn.StoragePoolLookupByName(defaultPoolName)
 	if err != nil {
-		return fmt.Errorf("failed to find default storage pool: %w", err)
+		return fmt.Errorf(errPoolNotFound, err)
 	}
 
 	vol, err := a.conn.StorageVolLookupByName(pool, volumeID)
@@ -659,7 +662,7 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 func (a *LibvirtAdapter) generateCloudInitISO(ctx context.Context, name string, env []string, cmd []string) (string, error) {
 	safeName := a.sanitizeDomainName(name)
 
-	tmpDir, err := os.MkdirTemp("", "cloud-init-"+safeName)
+	tmpDir, err := os.MkdirTemp("", prefixCloudInit+safeName)
 	if err != nil {
 		return "", err
 	}
@@ -669,7 +672,7 @@ func (a *LibvirtAdapter) generateCloudInitISO(ctx context.Context, name string, 
 		return "", err
 	}
 
-	isoPath := filepath.Join(os.TempDir(), "cloud-init-"+safeName+".iso")
+	isoPath := filepath.Join(os.TempDir(), prefixCloudInit+safeName+".iso")
 	return isoPath, a.runIsoCommand(isoPath, tmpDir)
 }
 

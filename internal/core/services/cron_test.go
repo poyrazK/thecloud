@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func setupCronServiceTest(t *testing.T) (*MockCronRepository, *MockEventService, *MockAuditService, ports.CronService) {
+func setupCronServiceTest(_ *testing.T) (*MockCronRepository, *MockEventService, *MockAuditService, ports.CronService) {
 	repo := new(MockCronRepository)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)

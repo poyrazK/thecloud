@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func setupContainerWorkerTest(t *testing.T) (*MockContainerRepo, *MockInstanceService, *MockEventService, *services.ContainerWorker) {
+func setupContainerWorkerTest(_ *testing.T) (*MockContainerRepo, *MockInstanceService, *MockEventService, *services.ContainerWorker) {
 	repo := new(MockContainerRepo)
 	instSvc := new(MockInstanceService)
 	eventSvc := new(MockEventService)

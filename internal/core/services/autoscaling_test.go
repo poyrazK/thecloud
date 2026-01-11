@@ -15,7 +15,7 @@ import (
 
 const cpuHighPolicyName = "cpu-high"
 
-func setupAutoScalingServiceTest(t *testing.T) (*MockAutoScalingRepo, *MockVpcRepo, *MockAuditService, *services.AutoScalingService) {
+func setupAutoScalingServiceTest(_ *testing.T) (*MockAutoScalingRepo, *MockVpcRepo, *MockAuditService, *services.AutoScalingService) {
 	mockRepo := new(MockAutoScalingRepo)
 	mockVpcRepo := new(MockVpcRepo)
 	auditSvc := new(MockAuditService)

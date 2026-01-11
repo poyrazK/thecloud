@@ -52,7 +52,7 @@ func (m *MockCacheRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return args.Error(0)
 }
 
-func setupCacheServiceTest(t *testing.T) (*MockCacheRepo, *MockComputeBackend, *MockVpcRepo, *MockEventService, *MockAuditService, *services.CacheService) {
+func setupCacheServiceTest(_ *testing.T) (*MockCacheRepo, *MockComputeBackend, *MockVpcRepo, *MockEventService, *MockAuditService, *services.CacheService) {
 	repo := new(MockCacheRepo)
 	docker := new(MockComputeBackend)
 	vpcRepo := new(MockVpcRepo)

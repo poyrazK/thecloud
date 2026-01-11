@@ -45,7 +45,7 @@ func (m *MockDatabaseRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return args.Error(0)
 }
 
-func setupDatabaseServiceTest(t *testing.T) (*MockDatabaseRepo, *MockComputeBackend, *MockVpcRepo, *MockEventService, *MockAuditService, ports.DatabaseService) {
+func setupDatabaseServiceTest(_ *testing.T) (*MockDatabaseRepo, *MockComputeBackend, *MockVpcRepo, *MockEventService, *MockAuditService, ports.DatabaseService) {
 	repo := new(MockDatabaseRepo)
 	docker := new(MockComputeBackend)
 	vpcRepo := new(MockVpcRepo)
