@@ -3022,6 +3022,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "container_id": {
+                    "description": "Backend identifier",
                     "type": "string"
                 },
                 "created_at": {
@@ -3031,18 +3032,23 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "image": {
+                    "description": "Container/VM image",
                     "type": "string"
                 },
                 "name": {
+                    "description": "Unique per user",
                     "type": "string"
                 },
                 "ovs_port": {
+                    "description": "OVS port name",
                     "type": "string"
                 },
                 "ports": {
+                    "description": "\"host:container\" mappings",
                     "type": "string"
                 },
                 "private_ip": {
+                    "description": "VPC private IP",
                     "type": "string"
                 },
                 "status": {
@@ -3055,12 +3061,15 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user_id": {
+                    "description": "Owner for multi-tenancy",
                     "type": "string"
                 },
                 "version": {
+                    "description": "Optimistic locking",
                     "type": "integer"
                 },
                 "vpc_id": {
+                    "description": "Optional VPC attachment",
                     "type": "string"
                 }
             }

@@ -136,20 +136,26 @@ definitions:
   domain.Instance:
     properties:
       container_id:
+        description: Backend identifier
         type: string
       created_at:
         type: string
       id:
         type: string
       image:
+        description: Container/VM image
         type: string
       name:
+        description: Unique per user
         type: string
       ovs_port:
+        description: OVS port name
         type: string
       ports:
+        description: '"host:container" mappings'
         type: string
       private_ip:
+        description: VPC private IP
         type: string
       status:
         $ref: '#/definitions/domain.InstanceStatus'
@@ -158,10 +164,13 @@ definitions:
       updated_at:
         type: string
       user_id:
+        description: Owner for multi-tenancy
         type: string
       version:
+        description: Optimistic locking
         type: integer
       vpc_id:
+        description: Optional VPC attachment
         type: string
     type: object
   domain.InstanceStats:
