@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -158,103 +159,72 @@ func (w *LBWorker) checkLBHealth(ctx context.Context, lb *domain.LoadBalancer) {
 
 	changed := false
 	for _, t := range targets {
-		inst, err := w.instanceRepo.GetByID(ctx, t.InstanceID)
-		if err != nil {
-			continue
-		}
-
-		// Simple TCP check to container name (Nginx uses this in the same network)
-		// But here we are outside the network.
-		// Wait, if we use container names, they are only resolvable inside the docker network.
-		// For host-based health check, we'd need to know the host port.
-		// For simplicity, let's assume we can reach the container port if we are on the same bridge or if we use the container IP.
-		// In a real simulator, we might want to "exec" a ping inside the LB container.
-
-		status := "unhealthy"
-		// This is a naive check. In a real system, we'd use the proxy status or internal probes.
-		// For this simulator, we'll try to connect to the mapped host port if available.
-		// (Assuming ports are mapped as "hostPort:containerPort")
-		hostPort := ""
-		if inst.Ports != "" {
-			// Find the port mapping for t.Port
-			mappings := parsePorts(inst.Ports)
-			for h, c := range mappings {
-				if c == t.Port {
-					hostPort = h
-					break
-				}
-			}
-		}
-
-		if hostPort != "" {
-			conn, err := net.DialTimeout("tcp", "localhost:"+hostPort, 2*time.Second)
-			if err == nil {
-				status = "healthy"
-				_ = conn.Close()
-			}
-		}
-
-		if t.Health != status {
-			_ = w.lbRepo.UpdateTargetHealth(ctx, lb.ID, t.InstanceID, status)
+		if w.checkTargetHealth(ctx, lb, t) {
 			changed = true
 		}
 	}
 
 	if changed {
-		// If health changed, we might want to update the proxy config if it supports it,
-		// or just let Nginx handle it (Nginx Open Source doesn't have active health checks easily).
-		// For now, we just update the DB so the CLI can show it.
 		log.Printf("Worker: health changed for LB %s", lb.ID)
-		// w.proxyAdapter.UpdateProxyConfig(ctx, lb, targets) // Optional
 	}
 }
 
-func parsePorts(ports string) map[string]int {
+func (w *LBWorker) checkTargetHealth(ctx context.Context, lb *domain.LoadBalancer, t *domain.LBTarget) bool {
+	inst, err := w.instanceRepo.GetByID(ctx, t.InstanceID)
+	if err != nil {
+		return false
+	}
+
+	hostPort := getHostPort(inst.Ports, t.Port)
+	status := "unhealthy"
+	if hostPort != "" {
+		if isPortOpen(hostPort) {
+			status = "healthy"
+		}
+	}
+
+	if t.Health != status {
+		_ = w.lbRepo.UpdateTargetHealth(ctx, lb.ID, t.InstanceID, status)
+		return true
+	}
+	return false
+}
+
+func getHostPort(portsStr string, targetPort int) string {
+	if portsStr == "" {
+		return ""
+	}
+	mappings := parsePorts(portsStr)
+	for h, c := range mappings {
+		if c == targetPort {
+			return h
+		}
+	}
+	return ""
+}
+
+func isPortOpen(port string) bool {
+	conn, err := net.DialTimeout("tcp", "localhost:"+port, 2*time.Second)
+	if err == nil {
+		_ = conn.Close()
+		return true
+	}
+	return false
+}
+
+func parsePorts(portsStr string) map[string]int {
 	res := make(map[string]int)
-	pairs := splitCommas(ports)
+	if portsStr == "" {
+		return res
+	}
+	pairs := strings.Split(portsStr, ",")
 	for _, p := range pairs {
-		parts := splitColons(p)
+		parts := strings.Split(p, ":")
 		if len(parts) == 2 {
-			var hPort string
 			var cPort int
-			_, _ = fmt.Sscanf(parts[0], "%s", &hPort)
 			_, _ = fmt.Sscanf(parts[1], "%d", &cPort)
-			res[hPort] = cPort
+			res[parts[0]] = cPort
 		}
-	}
-	return res
-}
-
-func splitCommas(s string) []string {
-	var res []string
-	current := ""
-	for _, r := range s {
-		if r == ',' {
-			res = append(res, current)
-			current = ""
-		} else {
-			current += string(r)
-		}
-	}
-	if current != "" {
-		res = append(res, current)
-	}
-	return res
-}
-
-func splitColons(s string) []string {
-	var res []string
-	current := ""
-	for _, r := range s {
-		if r == ':' {
-			res = append(res, current)
-			current = ""
-		} else {
-			current += string(r)
-		}
-	}
-	if current != "" {
-		res = append(res, current)
 	}
 	return res
 }

@@ -220,28 +220,34 @@ func (s *NotifyService) Publish(ctx context.Context, topicID uuid.UUID, body str
 func (s *NotifyService) deliver(ctx context.Context, sub *domain.Subscription, body string) {
 	switch sub.Protocol {
 	case domain.ProtocolQueue:
-		// Endpoint is Queue ARN or ID. Let's assume ID for simplicity or parse ARN.
-		// For now let's assume endpoint is the Queue UUID string.
-		qID, err := uuid.Parse(sub.Endpoint)
-		if err != nil {
-			s.logger.Warn("invalid queue ID in subscription", "endpoint", sub.Endpoint, "error", err)
-			return
-		}
-		// We need to bypass user check or use sub.UserID context
-		deliveryCtx := appcontext.WithUserID(ctx, sub.UserID)
-		_, err = s.queueSvc.SendMessage(deliveryCtx, qID, body)
-		if err != nil {
-			s.logger.Warn("failed to deliver to queue", "queue_id", qID, "error", err)
-		}
-
+		s.deliverToQueue(ctx, sub, body)
 	case domain.ProtocolWebhook:
-		req, _ := http.NewRequestWithContext(ctx, "POST", sub.Endpoint, bytes.NewBufferString(body))
-		req.Header.Set("Content-Type", "application/json")
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			s.logger.Warn("failed to deliver to webhook", "endpoint", sub.Endpoint, "error", err)
-			return
-		}
-		_ = resp.Body.Close()
+		s.deliverToWebhook(ctx, sub, body)
 	}
+}
+
+func (s *NotifyService) deliverToQueue(ctx context.Context, sub *domain.Subscription, body string) {
+	// Endpoint is Queue ARN or ID. Let's assume ID for simplicity or parse ARN.
+	// For now let's assume endpoint is the Queue UUID string.
+	qID, err := uuid.Parse(sub.Endpoint)
+	if err != nil {
+		s.logger.Warn("invalid queue ID in subscription", "endpoint", sub.Endpoint, "error", err)
+		return
+	}
+	// We need to bypass user check or use sub.UserID context
+	deliveryCtx := appcontext.WithUserID(ctx, sub.UserID)
+	if _, err = s.queueSvc.SendMessage(deliveryCtx, qID, body); err != nil {
+		s.logger.Warn("failed to deliver to queue", "queue_id", qID, "error", err)
+	}
+}
+
+func (s *NotifyService) deliverToWebhook(ctx context.Context, sub *domain.Subscription, body string) {
+	req, _ := http.NewRequestWithContext(ctx, "POST", sub.Endpoint, bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		s.logger.Warn("failed to deliver to webhook", "endpoint", sub.Endpoint, "error", err)
+		return
+	}
+	_ = resp.Body.Close()
 }
