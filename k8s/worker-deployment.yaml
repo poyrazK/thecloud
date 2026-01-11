@@ -6,7 +6,7 @@ metadata:
   labels:
     app: cloud-worker
 spec:
-  replicas: 20  # Scaled for 10K concurrent users
+  replicas: 50  # Fitting into 110 pod limit
   selector:
     matchLabels:
       app: cloud-worker
@@ -30,8 +30,8 @@ spec:
             name: cloud-secrets
         resources:
           requests:
-            cpu: "100m"
-            memory: "128Mi"
+            cpu: "30m"
+            memory: "64Mi"
           limits:
-            cpu: "500m"
-            memory: "512Mi"
+            cpu: "100m"
+            memory: "80Mi"

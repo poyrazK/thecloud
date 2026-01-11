@@ -4,7 +4,7 @@ metadata:
   name: pgbouncer
   namespace: thecloud
 spec:
-  replicas: 2
+  replicas: 5
   selector:
     matchLabels:
       app: pgbouncer
@@ -34,7 +34,7 @@ spec:
         - name: MAX_CLIENT_CONN
           value: "20000"
         - name: DEFAULT_POOL_SIZE
-          value: "130"     # Reduced to 130 * 2 pods = 260 < 300 max_connections
+          value: "25"     # 10 pods * 25 = 250 conns total < 300 PG max
         - name: AUTH_TYPE
           value: "plain" # Trust auth from internal clients, or use 'md5'/'scram-sha-256' matching PG. 'plain' is easiest for k8s internal.
           
@@ -43,11 +43,11 @@ spec:
           # POOL_MODE, MAX_CLIENT_CONN, DEFAULT_POOL_SIZE
         resources:
           requests:
-            cpu: "100m"
-            memory: "128Mi"
+            cpu: "30m"
+            memory: "48Mi"
           limits:
-            cpu: "500m"
-            memory: "256Mi"
+            cpu: "100m"
+            memory: "64Mi"
 ---
 apiVersion: v1
 kind: Service

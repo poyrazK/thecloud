@@ -6,7 +6,7 @@ metadata:
   labels:
     app: cloud-api
 spec:
-  replicas: 10  # Initial replicas for 10K users, HPA will scale up to 20 # Initial scale
+  replicas: 40  # Fitting into 110 pod limit
   selector:
     matchLabels:
       app: cloud-api
@@ -18,7 +18,7 @@ spec:
       containers:
       - name: api
         image: thecloud-api:latest
-        imagePullPolicy: IfNotPresent # Use local image
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
         env:
@@ -31,11 +31,11 @@ spec:
             name: cloud-secrets
         resources:
           requests:
-            cpu: "100m"
-            memory: "128Mi"
+            cpu: "50m"
+            memory: "100Mi"
           limits:
-            cpu: "500m"
-            memory: "512Mi"
+            cpu: "200m"
+            memory: "128Mi"
         livenessProbe:
           httpGet:
             path: /health/live
