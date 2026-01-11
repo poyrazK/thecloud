@@ -352,18 +352,26 @@ func (s *InstanceService) GetConsoleURL(ctx context.Context, idOrName string) (s
 }
 
 func (s *InstanceService) TerminateInstance(ctx context.Context, idOrName string) error {
-	// 1. Get from DB (handles both Name and UUID)
 	inst, err := s.GetInstance(ctx, idOrName)
 	if err != nil {
 		return err
 	}
 
-	// 2. Remove from Docker (force remove handles running containers)
 	if err := s.removeInstanceContainer(ctx, inst); err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("terminate", "failure").Inc()
 		return err
 	}
 
+	s.updateTerminationMetrics(inst)
+
+	if err := s.releaseAttachedVolumes(ctx, inst.ID); err != nil {
+		s.logger.Warn("failed to release volumes during termination", "instance_id", inst.ID, "error", err)
+	}
+
+	return s.finalizeTermination(ctx, inst)
+}
+
+func (s *InstanceService) updateTerminationMetrics(inst *domain.Instance) {
 	switch inst.Status {
 	case domain.StatusRunning:
 		platform.InstancesTotal.WithLabelValues("running", s.compute.Type()).Dec()
@@ -371,13 +379,9 @@ func (s *InstanceService) TerminateInstance(ctx context.Context, idOrName string
 		platform.InstancesTotal.WithLabelValues("stopped", s.compute.Type()).Dec()
 	}
 	platform.InstanceOperationsTotal.WithLabelValues("terminate", "success").Inc()
+}
 
-	// 3. Release attached volumes after container removal
-	if err := s.releaseAttachedVolumes(ctx, inst.ID); err != nil {
-		s.logger.Warn("failed to release volumes during termination", "instance_id", inst.ID, "error", err)
-	}
-
-	// 4. Delete from DB
+func (s *InstanceService) finalizeTermination(ctx context.Context, inst *domain.Instance) error {
 	if err := s.repo.Delete(ctx, inst.ID); err != nil {
 		return err
 	}
