@@ -61,7 +61,7 @@ func main() {
 		logger.Error("failed to connect to redis", "error", err)
 		os.Exit(1)
 	}
-	defer rdb.Close()
+	defer func() { _ = rdb.Close() }()
 
 	// 3.1 Run Migrations
 	if err := setup.RunMigrations(ctx, db, logger); err != nil {

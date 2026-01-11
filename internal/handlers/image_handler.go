@@ -80,7 +80,11 @@ func (h *ImageHandler) UploadImage(c *gin.Context) {
 		httputil.Error(c, errors.Wrap(errors.Internal, "failed to open uploaded file", err))
 		return
 	}
-	defer src.Close()
+	defer func() {
+		if err := src.Close(); err != nil {
+			httputil.Error(c, errors.Wrap(errors.Internal, "failed to close uploaded file", err))
+		}
+	}()
 
 	if err := h.svc.UploadImage(c.Request.Context(), id, src); err != nil {
 		httputil.Error(c, err)

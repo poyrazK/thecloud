@@ -1,3 +1,4 @@
+// Package redis implements Redis-based repositories and data structures.
 package redis
 
 import (

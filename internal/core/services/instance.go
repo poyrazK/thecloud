@@ -325,7 +325,7 @@ func (s *InstanceService) GetInstanceLogs(ctx context.Context, idOrName string) 
 	return string(bytes), nil
 }
 
-// TerminateInstance permanently removes an instance and its associated compute resources.
+// GetConsoleURL returns the VNC console URL for an instance.
 func (s *InstanceService) GetConsoleURL(ctx context.Context, idOrName string) (string, error) {
 	inst, err := s.GetInstance(ctx, idOrName)
 	if err != nil {

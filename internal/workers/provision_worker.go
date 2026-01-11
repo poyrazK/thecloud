@@ -1,3 +1,4 @@
+// Package workers contains background workers for the cloud platform
 package workers
 
 import (
