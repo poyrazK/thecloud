@@ -56,13 +56,6 @@ func main() {
 	}
 	defer db.Close()
 
-	rdb, err := setup.InitRedis(ctx, cfg, logger)
-	if err != nil {
-		logger.Error("failed to connect to redis", "error", err)
-		os.Exit(1)
-	}
-	defer func() { _ = rdb.Close() }()
-
 	// 3.1 Run Migrations
 	if err := setup.RunMigrations(ctx, db, logger); err != nil {
 		logger.Warn("failed to run migrations", "error", err)
@@ -76,6 +69,13 @@ func main() {
 		logger.Info("migrations completed, exiting")
 		return
 	}
+
+	rdb, err := setup.InitRedis(ctx, cfg, logger)
+	if err != nil {
+		logger.Error("failed to connect to redis", "error", err)
+		os.Exit(1)
+	}
+	defer func() { _ = rdb.Close() }()
 
 	computeBackend, err := setup.InitComputeBackend(cfg, logger)
 	if err != nil {
