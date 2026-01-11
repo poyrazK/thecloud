@@ -278,3 +278,24 @@ func (h *InstanceHandler) GetStats(c *gin.Context) {
 	}
 	httputil.Success(c, http.StatusOK, stats)
 }
+
+// GetConsole returns a console URL for the instance
+// @Summary Get instance console
+// @Description Gets a VNC URL for the instance console
+// @Tags instances
+// @Produce json
+// @Security APIKeyAuth
+// @Param id path string true "Instance ID"
+// @Success 200 {object} map[string]string
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
+// @Router /instances/{id}/console [get]
+func (h *InstanceHandler) GetConsole(c *gin.Context) {
+	idStr := c.Param("id")
+	url, err := h.svc.GetConsoleURL(c.Request.Context(), idStr)
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+	httputil.Success(c, http.StatusOK, gin.H{"url": url})
+}

@@ -117,6 +117,9 @@ func (c *NoopComputeBackend) GetInstancePort(ctx context.Context, id string, int
 func (c *NoopComputeBackend) GetInstanceIP(ctx context.Context, id string) (string, error) {
 	return "127.0.0.1", nil
 }
+func (c *NoopComputeBackend) GetConsoleURL(ctx context.Context, id string) (string, error) {
+	return "vnc://127.0.0.1:5900", nil
+}
 func (c *NoopComputeBackend) Exec(ctx context.Context, id string, cmd []string) (string, error) {
 	return "", nil
 }

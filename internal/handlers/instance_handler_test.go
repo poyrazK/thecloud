@@ -66,6 +66,11 @@ func (m *instanceServiceMock) GetInstanceStats(ctx context.Context, idOrName str
 	return args.Get(0).(*domain.InstanceStats), args.Error(1)
 }
 
+func (m *instanceServiceMock) GetConsoleURL(ctx context.Context, idOrName string) (string, error) {
+	args := m.Called(ctx, idOrName)
+	return args.String(0), args.Error(1)
+}
+
 func (m *instanceServiceMock) TerminateInstance(ctx context.Context, idOrName string) error {
 	// TerminateInstance permanently deletes an instance
 	args := m.Called(ctx, idOrName)

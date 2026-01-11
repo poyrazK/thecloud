@@ -335,6 +335,10 @@ func (a *DockerAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID stri
 	return nil
 }
 
+func (a *DockerAdapter) GetConsoleURL(ctx context.Context, id string) (string, error) {
+	return "", fmt.Errorf("console not supported for docker instances")
+}
+
 func (a *DockerAdapter) GetInstanceIP(ctx context.Context, id string) (string, error) {
 	// Inspect container
 	json, err := a.cli.ContainerInspect(ctx, id)

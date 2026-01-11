@@ -282,6 +282,40 @@ func (a *LibvirtAdapter) GetInstancePort(ctx context.Context, id string, interna
 	return 0, fmt.Errorf("no host port mapping found for instance %s port %s", id, internalPort)
 }
 
+func (a *LibvirtAdapter) GetConsoleURL(ctx context.Context, id string) (string, error) {
+	if err := validateID(id); err != nil {
+		return "", err
+	}
+
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	domain, err := a.conn.DomainLookupByName(id)
+	if err != nil {
+		return "", fmt.Errorf("failed to lookup domain: %w", err)
+	}
+
+	xml, err := a.conn.DomainGetXMLDesc(domain, 0)
+	if err != nil {
+		return "", fmt.Errorf("failed to get domain xml: %w", err)
+	}
+
+	// Simple string parsing for VNC port as we don't want to import heavy XML decoders if not needed
+	// XML looks like: <graphics type='vnc' port='5900' ... />
+	startIdx := strings.Index(xml, "<graphics type='vnc' port='")
+	if startIdx == -1 {
+		return "", fmt.Errorf("vnc graphics not found in domain xml")
+	}
+	xml = xml[startIdx+len("<graphics type='vnc' port='"):]
+	endIdx := strings.Index(xml, "'")
+	if endIdx == -1 {
+		return "", fmt.Errorf("failed to parse vnc port from xml")
+	}
+
+	portStr := xml[:endIdx]
+	return fmt.Sprintf("vnc://%s:%s", "127.0.0.1", portStr), nil
+}
+
 func (a *LibvirtAdapter) GetInstanceIP(ctx context.Context, id string) (string, error) {
 	// 1. Get Domain
 	dom, err := a.conn.DomainLookupByName(id)

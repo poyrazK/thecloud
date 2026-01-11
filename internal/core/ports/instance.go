@@ -27,5 +27,6 @@ type InstanceService interface {
 	GetInstance(ctx context.Context, idOrName string) (*domain.Instance, error)
 	GetInstanceLogs(ctx context.Context, idOrName string) (string, error)
 	GetInstanceStats(ctx context.Context, idOrName string) (*domain.InstanceStats, error)
+	GetConsoleURL(ctx context.Context, idOrName string) (string, error)
 	TerminateInstance(ctx context.Context, idOrName string) error
 }

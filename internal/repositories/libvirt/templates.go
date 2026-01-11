@@ -64,6 +64,9 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
       <source network='%s'/>
       <model type='virtio'/>
     </interface>
+    <graphics type='vnc' port='-1' autoport='yes' listen='0.0.0.0'>
+      <listen type='address' address='0.0.0.0'/>
+    </graphics>
     <serial type='pty'>
       <target port='0'/>
     </serial>

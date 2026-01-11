@@ -179,6 +179,7 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 		instanceGroup.POST("/:id/stop", httputil.Permission(services.RBAC, domain.PermissionInstanceUpdate), handlers.Instance.Stop)
 		instanceGroup.GET("/:id/logs", httputil.Permission(services.RBAC, domain.PermissionInstanceRead), handlers.Instance.GetLogs)
 		instanceGroup.GET("/:id/stats", httputil.Permission(services.RBAC, domain.PermissionInstanceRead), handlers.Instance.GetStats)
+		instanceGroup.GET("/:id/console", httputil.Permission(services.RBAC, domain.PermissionInstanceRead), handlers.Instance.GetConsole)
 		instanceGroup.DELETE("/:id", httputil.Permission(services.RBAC, domain.PermissionInstanceTerminate), handlers.Instance.Terminate)
 	}
 

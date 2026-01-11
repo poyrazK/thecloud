@@ -326,6 +326,20 @@ func (s *InstanceService) GetInstanceLogs(ctx context.Context, idOrName string) 
 }
 
 // TerminateInstance permanently removes an instance and its associated compute resources.
+func (s *InstanceService) GetConsoleURL(ctx context.Context, idOrName string) (string, error) {
+	inst, err := s.GetInstance(ctx, idOrName)
+	if err != nil {
+		return "", err
+	}
+
+	id := inst.ID.String()
+	if inst.ContainerID != "" {
+		id = inst.ContainerID
+	}
+
+	return s.compute.GetConsoleURL(ctx, id)
+}
+
 func (s *InstanceService) TerminateInstance(ctx context.Context, idOrName string) error {
 	// 1. Get from DB (handles both Name and UUID)
 	inst, err := s.GetInstance(ctx, idOrName)
