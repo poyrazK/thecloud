@@ -18,7 +18,7 @@ COPY . .
 
 # Build binary
 # CGO_ENABLED=0 for static binary
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+RUN CGO_ENABLED=0 GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
     go build -o /bin/api cmd/api/main.go
 
 # Production stage

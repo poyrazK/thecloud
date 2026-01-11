@@ -32,14 +32,14 @@ func (m *MockEventRepo) List(ctx context.Context, limit int) ([]*domain.Event, e
 	return args.Get(0).([]*domain.Event), args.Error(1)
 }
 
-func setupEventServiceTest(t *testing.T) (*MockEventRepo, ports.EventService) {
+func setupEventServiceTest(_ *testing.T) (*MockEventRepo, ports.EventService) {
 	repo := new(MockEventRepo)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := services.NewEventService(repo, nil, logger)
 	return repo, svc
 }
 
-func TestEventService_RecordEvent_Success(t *testing.T) {
+func TestEventServiceRecordEventSuccess(t *testing.T) {
 	repo, svc := setupEventServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -52,7 +52,7 @@ func TestEventService_RecordEvent_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestEventService_RecordEvent_Failure(t *testing.T) {
+func TestEventServiceRecordEventFailure(t *testing.T) {
 	repo, svc := setupEventServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -65,7 +65,7 @@ func TestEventService_RecordEvent_Failure(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestEventService_ListEvents_Success(t *testing.T) {
+func TestEventServiceListEventsSuccess(t *testing.T) {
 	repo, svc := setupEventServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -80,7 +80,7 @@ func TestEventService_ListEvents_Success(t *testing.T) {
 	assert.Len(t, result, 2)
 }
 
-func TestEventService_ListEvents_DefaultLimit(t *testing.T) {
+func TestEventServiceListEventsDefaultLimit(t *testing.T) {
 	repo, svc := setupEventServiceTest(t)
 	defer repo.AssertExpectations(t)
 

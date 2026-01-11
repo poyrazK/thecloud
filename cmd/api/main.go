@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -10,119 +12,114 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/poyrazk/thecloud/internal/api/setup"
+	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/platform"
+	"github.com/poyrazk/thecloud/internal/repositories/postgres"
+	"github.com/redis/go-redis/v9"
 )
 
-// @title The Cloud API
-// @version 1.0
-// @description This is The Cloud Compute API server.
-// @termsOfService http://swagger.io/terms/
+// ... (omitted comments) ...
 
-// @contact.name API Support
-// @contact.url http://www.swagger.io/support
-// @contact.email support@swagger.io
-
-// @license.name Apache 2.0
-// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
-
-// @host localhost:8080
-// @BasePath /
-
-// @securityDefinitions.apikey APIKeyAuth
-// @in header
-// @name X-API-Key
+var ErrMigrationDone = errors.New("migrations done")
 
 func main() {
-	// 1. Logger
 	logger := setup.InitLogger()
-
 	migrateOnly := flag.Bool("migrate-only", false, "run database migrations and exit")
 	flag.Parse()
 
-	// 2. Config
-	cfg, err := setup.LoadConfig(logger)
+	cfg, db, rdb, err := initInfrastructure(logger, *migrateOnly)
 	if err != nil {
+		if *migrateOnly && errors.Is(err, ErrMigrationDone) {
+			return
+		}
+		logger.Error("initialization failed", "error", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+	defer func() { _ = rdb.Close() }()
+
+	compute, storage, network, lbProxy, err := initBackends(cfg, logger, db, rdb)
+	if err != nil {
+		logger.Error("backend initialization failed", "error", err)
 		os.Exit(1)
 	}
 
-	// 3. Infrastructure
+	repos := setup.InitRepositories(db, rdb)
+	svcs, workers, err := setup.InitServices(setup.ServiceConfig{
+		Config: cfg, Repos: repos, Compute: compute, Storage: storage,
+		Network: network, LBProxy: lbProxy, DB: db, RDB: rdb, Logger: logger,
+	})
+	if err != nil {
+		logger.Error("services initialization failed", "error", err)
+		os.Exit(1)
+	}
+
+	handlers := setup.InitHandlers(svcs, logger)
+	r := setup.SetupRouter(cfg, logger, handlers, svcs, network)
+
+	runApplication(cfg, logger, r, workers)
+}
+
+func initInfrastructure(logger *slog.Logger, migrateOnly bool) (*platform.Config, postgres.DB, *redis.Client, error) {
+	cfg, err := setup.LoadConfig(logger)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	db, err := setup.InitDatabase(ctx, cfg, logger)
 	if err != nil {
-		logger.Error("failed to connect to database", "error", err)
-		os.Exit(1)
+		return nil, nil, nil, err
 	}
-	defer db.Close()
 
-	// 3.1 Run Migrations
 	if err := setup.RunMigrations(ctx, db, logger); err != nil {
 		logger.Warn("failed to run migrations", "error", err)
-		if *migrateOnly {
+		if migrateOnly {
 			db.Close()
-			os.Exit(1)
+			return nil, nil, nil, err
 		}
-	}
-
-	if *migrateOnly {
-		logger.Info("migrations completed, exiting")
-		return
+	} else if migrateOnly {
+		logger.Info("migrations completed")
+		db.Close()
+		return nil, nil, nil, ErrMigrationDone
 	}
 
 	rdb, err := setup.InitRedis(ctx, cfg, logger)
 	if err != nil {
-		logger.Error("failed to connect to redis", "error", err)
-		os.Exit(1)
+		db.Close()
+		return nil, nil, nil, err
 	}
-	defer func() { _ = rdb.Close() }()
 
-	computeBackend, err := setup.InitComputeBackend(cfg, logger)
+	return cfg, db, rdb, nil
+}
+
+func initBackends(cfg *platform.Config, logger *slog.Logger, db postgres.DB, rdb *redis.Client) (ports.ComputeBackend, ports.StorageBackend, ports.NetworkBackend, ports.LBProxyAdapter, error) {
+	compute, err := setup.InitComputeBackend(cfg, logger)
 	if err != nil {
-		logger.Error("failed to initialize compute backend", "error", err)
-		os.Exit(1)
+		return nil, nil, nil, nil, err
 	}
 
-	storageBackend, err := setup.InitStorageBackend(cfg, logger)
+	storage, err := setup.InitStorageBackend(cfg, logger)
 	if err != nil {
-		logger.Error("failed to initialize storage backend", "error", err)
-		os.Exit(1)
+		return nil, nil, nil, nil, err
 	}
 
-	networkBackend := setup.InitNetworkBackend(cfg, logger)
+	network := setup.InitNetworkBackend(cfg, logger)
 
-	// 4. Dependencies
-	repos := setup.InitRepositories(db, rdb)
-
-	// We need LBProxy for services initialization
-	lbProxy, err := setup.InitLBProxy(cfg, computeBackend, repos.Instance, repos.Vpc)
+	tmpRepos := setup.InitRepositories(db, rdb)
+	lbProxy, err := setup.InitLBProxy(cfg, compute, tmpRepos.Instance, tmpRepos.Vpc)
 	if err != nil {
-		logger.Error("failed to initialize load balancer proxy adapter", "error", err)
-		os.Exit(1)
+		return nil, nil, nil, nil, err
 	}
 
-	svcs, workers, err := setup.InitServices(setup.ServiceConfig{
-		Config:  cfg,
-		Repos:   repos,
-		Compute: computeBackend,
-		Storage: storageBackend,
-		Network: networkBackend,
-		LBProxy: lbProxy,
-		DB:      db,
-		RDB:     rdb,
-		Logger:  logger,
-	})
-	if err != nil {
-		logger.Error("failed to initialize services", "error", err)
-		os.Exit(1)
-	}
+	return compute, storage, network, lbProxy, nil
+}
 
-	handlers := setup.InitHandlers(svcs, logger)
-
-	// 5. Router
-	r := setup.SetupRouter(cfg, logger, handlers, svcs, networkBackend)
-
-	// 6. Background Workers & Server
+func runApplication(cfg *platform.Config, logger *slog.Logger, r *gin.Engine, workers *setup.Workers) {
 	role := os.Getenv("ROLE")
 	if role == "" {
 		role = "all"
@@ -135,7 +132,6 @@ func main() {
 		runWorkers(workerCtx, wg, workers)
 	}
 
-	// 7. Server
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: r,
@@ -159,17 +155,15 @@ func main() {
 
 	logger.Info("shutting down server...")
 
-	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
 		logger.Error("server forced to shutdown", "error", err)
 	}
 
-	// Shutdown workers
 	workerCancel()
 	wg.Wait()
-
 	logger.Info("server exited")
 }
 
