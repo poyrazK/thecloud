@@ -14,7 +14,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
-	"github.com/opencontainers/image-spec/specs-go/v1"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 type fakeDockerClient struct {
@@ -79,7 +79,6 @@ func (f *fakeDockerClient) ContainerStats(ctx context.Context, containerID strin
 	}
 	return container.StatsResponseReader{Body: f.statsRC}, nil
 }
-
 
 func (f *fakeDockerClient) ContainerInspect(ctx context.Context, containerID string) (types.ContainerJSON, error) {
 	if f.inspectErr != nil {
