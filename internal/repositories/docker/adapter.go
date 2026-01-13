@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/containerd/errdefs"
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
@@ -20,6 +21,7 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 const (
@@ -30,9 +32,34 @@ const (
 )
 
 type DockerAdapter struct {
-	cli *client.Client
+	cli dockerClient
 }
 
+// dockerClient is a narrow interface over the Docker SDK client.
+// It exists to make DockerAdapter unit-testable without requiring a real Docker daemon.
+//
+// We keep it in the docker package (not exported) to avoid leaking docker SDK types
+// into other packages.
+type dockerClient interface {
+	Ping(ctx context.Context) (types.Ping, error)
+	ImagePull(ctx context.Context, ref string, options image.PullOptions) (io.ReadCloser, error)
+	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *v1.Platform, containerName string) (container.CreateResponse, error)
+	ContainerStart(ctx context.Context, containerID string, options container.StartOptions) error
+	ContainerStop(ctx context.Context, containerID string, options container.StopOptions) error
+	ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error
+	ContainerLogs(ctx context.Context, containerID string, options container.LogsOptions) (io.ReadCloser, error)
+	ContainerStats(ctx context.Context, containerID string, stream bool) (container.StatsResponseReader, error)
+	ContainerInspect(ctx context.Context, containerID string) (types.ContainerJSON, error)
+	NetworkCreate(ctx context.Context, name string, options network.CreateOptions) (network.CreateResponse, error)
+	NetworkRemove(ctx context.Context, networkID string) error
+	VolumeCreate(ctx context.Context, options volume.CreateOptions) (volume.Volume, error)
+	VolumeRemove(ctx context.Context, volumeID string, force bool) error
+	ContainerWait(ctx context.Context, containerID string, condition container.WaitCondition) (<-chan container.WaitResponse, <-chan error)
+	ContainerExecCreate(ctx context.Context, container string, config container.ExecOptions) (container.ExecCreateResponse, error)
+	ContainerExecStart(ctx context.Context, execID string, config container.ExecStartOptions) error
+	ContainerExecAttach(ctx context.Context, execID string, config container.ExecStartOptions) (types.HijackedResponse, error)
+	ContainerExecInspect(ctx context.Context, execID string) (container.ExecInspect, error)
+}
 func NewDockerAdapter() (*DockerAdapter, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
