@@ -108,6 +108,22 @@ func TestInstanceHandlerLaunchRejectsEmptyImage(t *testing.T) {
 	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
+func TestInstanceHandlerLaunchRejectsInvalidNameCharacters(t *testing.T) {
+	mockSvc, handler, r := setupInstanceHandlerTest(t)
+	defer mockSvc.AssertExpectations(t)
+	r.POST(instancesPath, handler.Launch)
+
+	body := `{"name":"bad$name","image":"alpine"}`
+	req := httptest.NewRequest(http.MethodPost, instancesPath, strings.NewReader(body))
+	req.Header.Set(contentType, applicationJSON)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
 func TestInstanceHandlerLaunch(t *testing.T) {
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
@@ -124,6 +140,22 @@ func TestInstanceHandlerLaunch(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusAccepted, w.Code)
+}
+
+func TestInstanceHandlerLaunchRejectsInvalidMountPath(t *testing.T) {
+	mockSvc, handler, r := setupInstanceHandlerTest(t)
+	defer mockSvc.AssertExpectations(t)
+	r.POST(instancesPath, handler.Launch)
+
+	body := `{"name":"` + testInstanceName + `","image":"alpine","volumes":[{"volume_id":"vol-1","mount_path":"mnt/data"}]}`
+	req := httptest.NewRequest(http.MethodPost, instancesPath, strings.NewReader(body))
+	req.Header.Set(contentType, applicationJSON)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestInstanceHandlerList(t *testing.T) {
@@ -260,4 +292,20 @@ func TestInstanceHandlerLaunchWithVolumesAndVPC(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusAccepted, w.Code)
+}
+
+func TestInstanceHandlerLaunchRejectsInvalidVPCID(t *testing.T) {
+	mockSvc, handler, r := setupInstanceHandlerTest(t)
+	defer mockSvc.AssertExpectations(t)
+	r.POST(instancesPath, handler.Launch)
+
+	body := `{"name":"` + testInstanceName + `","image":"ubuntu","vpc_id":"not-a-uuid"}`
+	req := httptest.NewRequest(http.MethodPost, instancesPath, strings.NewReader(body))
+	req.Header.Set(contentType, applicationJSON)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
