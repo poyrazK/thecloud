@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -88,6 +89,45 @@ func TestVolumeHandlerCreate(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
+func TestVolumeHandlerCreateInvalidJSON(t *testing.T) {
+	svc, handler, r := setupVolumeHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.POST(volumesPath, handler.Create)
+
+	req := httptest.NewRequest(http.MethodPost, volumesPath, bytes.NewBufferString("{bad"))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	svc.AssertNotCalled(t, "CreateVolume", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestVolumeHandlerCreateInvalidInputFromService(t *testing.T) {
+	svc, handler, r := setupVolumeHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.POST(volumesPath, handler.Create)
+
+	body, err := json.Marshal(map[string]interface{}{
+		"name":    testVolumeName,
+		"size_gb": 10,
+	})
+	assert.NoError(t, err)
+
+	svc.On("CreateVolume", mock.Anything, testVolumeName, 10).Return(nil, errors.New(errors.InvalidInput, "duplicate"))
+
+	req := httptest.NewRequest(http.MethodPost, volumesPath, bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
 func TestVolumeHandlerList(t *testing.T) {
 	svc, handler, r := setupVolumeHandlerTest(t)
 	defer svc.AssertExpectations(t)
@@ -123,6 +163,23 @@ func TestVolumeHandlerGet(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
+func TestVolumeHandlerGetNotFound(t *testing.T) {
+	svc, handler, r := setupVolumeHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.GET(volumesPath+"/:id", handler.Get)
+
+	id := uuid.New().String()
+	svc.On("GetVolume", mock.Anything, id).Return(nil, errors.New(errors.NotFound, "not found"))
+
+	req := httptest.NewRequest(http.MethodGet, volumesPath+"/"+id, nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
 func TestVolumeHandlerDelete(t *testing.T) {
 	svc, handler, r := setupVolumeHandlerTest(t)
 	defer svc.AssertExpectations(t)
@@ -138,4 +195,21 @@ func TestVolumeHandlerDelete(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestVolumeHandlerDeleteNotFound(t *testing.T) {
+	svc, handler, r := setupVolumeHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.DELETE(volumesPath+"/:id", handler.Delete)
+
+	id := uuid.New().String()
+	svc.On("DeleteVolume", mock.Anything, id).Return(errors.New(errors.NotFound, "not found"))
+
+	req := httptest.NewRequest(http.MethodDelete, volumesPath+"/"+id, nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
 }
