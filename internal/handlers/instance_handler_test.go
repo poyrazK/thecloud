@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -105,6 +106,21 @@ func TestInstanceHandlerLaunchRejectsEmptyImage(t *testing.T) {
 	}
 	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &wrapper))
 	assert.Equal(t, "INVALID_INPUT", wrapper.Error.Type)
+	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestInstanceHandlerLaunchRejectsInvalidJSON(t *testing.T) {
+	mockSvc, handler, r := setupInstanceHandlerTest(t)
+	defer mockSvc.AssertExpectations(t)
+	r.POST(instancesPath, handler.Launch)
+
+	req := httptest.NewRequest(http.MethodPost, instancesPath, strings.NewReader("{invalid"))
+	req.Header.Set(contentType, applicationJSON)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
@@ -221,6 +237,38 @@ func TestInstanceHandlerTerminate(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestInstanceHandlerStopNotFound(t *testing.T) {
+	mockSvc, handler, r := setupInstanceHandlerTest(t)
+	defer mockSvc.AssertExpectations(t)
+	r.POST(instancesPath+"/:id/stop", handler.Stop)
+
+	id := uuid.New().String()
+	mockSvc.On("StopInstance", mock.Anything, id).Return(errors.New(errors.NotFound, "not found"))
+
+	req := httptest.NewRequest(http.MethodPost, instancesPath+"/"+id+"/stop", nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestInstanceHandlerTerminateNotFound(t *testing.T) {
+	mockSvc, handler, r := setupInstanceHandlerTest(t)
+	defer mockSvc.AssertExpectations(t)
+	r.DELETE(instancesPath+"/:id", handler.Terminate)
+
+	id := uuid.New().String()
+	mockSvc.On("TerminateInstance", mock.Anything, id).Return(errors.New(errors.NotFound, "not found"))
+
+	req := httptest.NewRequest(http.MethodDelete, instancesPath+"/"+id, nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
 func TestInstanceHandlerGetLogs(t *testing.T) {
