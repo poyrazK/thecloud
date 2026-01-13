@@ -17,12 +17,12 @@ func TestQueueSDK(t *testing.T) {
 		if r.URL.Path == "/api/v1/queues" && r.Method == "POST" {
 			var body map[string]interface{}
 			_ = json.NewDecoder(r.Body).Decode(&body)
-			if body["name"] == "my-queue" {
+			if body["name"] == "my-queue" || body["name"] == "my-queue-options" {
 				w.WriteHeader(http.StatusCreated)
 				json.NewEncoder(w).Encode(map[string]interface{}{
 					"data": map[string]interface{}{
 						"id":   "q-1",
-						"name": "my-queue",
+						"name": body["name"],
 					},
 				})
 				return
@@ -101,6 +101,17 @@ func TestQueueSDK(t *testing.T) {
 		assert.NoError(t, err)
 		if q != nil {
 			assert.Equal(t, "my-queue", q.Name)
+		}
+	})
+
+	t.Run("CreateQueueWithOptions", func(t *testing.T) {
+		vt := 30
+		rd := 7
+		mms := 1024
+		q, err := client.CreateQueue("my-queue-options", &vt, &rd, &mms)
+		assert.NoError(t, err)
+		if q != nil {
+			assert.Equal(t, "my-queue-options", q.Name)
 		}
 	})
 
