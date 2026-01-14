@@ -12,10 +12,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// LocalFileStore stores objects on the local filesystem.
 type LocalFileStore struct {
 	basePath string
 }
 
+// NewLocalFileStore creates a LocalFileStore and ensures the base path exists.
 func NewLocalFileStore(basePath string) (*LocalFileStore, error) {
 	if err := os.MkdirAll(basePath, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create storage base path: %w", err)

@@ -17,6 +17,7 @@ var (
 	bridgeNameRegex = regexp.MustCompile(`^[a-zA-Z0-9-]+$`)
 )
 
+// OvsAdapter implements NetworkBackend using Open vSwitch commands.
 type OvsAdapter struct {
 	ovsPath   string // Path to ovs-vsctl
 	ofctlPath string // Path to ovs-ofctl
@@ -42,6 +43,7 @@ func (osExecer) CommandContext(ctx context.Context, name string, args ...string)
 	return exec.CommandContext(ctx, name, args...)
 }
 
+// NewOvsAdapter creates an OvsAdapter with required binaries resolved.
 func NewOvsAdapter(logger *slog.Logger) (*OvsAdapter, error) {
 	ex := osExecer{}
 	ovsctl, err := ex.LookPath("ovs-vsctl")

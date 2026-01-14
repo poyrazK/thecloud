@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// NewDatabase creates a PostgreSQL connection pool using config settings.
 func NewDatabase(ctx context.Context, cfg *Config, logger *slog.Logger) (*pgxpool.Pool, error) {
 	config, err := pgxpool.ParseConfig(cfg.DatabaseURL)
 	if err != nil {

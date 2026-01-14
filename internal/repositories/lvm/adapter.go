@@ -24,11 +24,13 @@ func (r *realExecer) Run(name string, args ...string) ([]byte, error) {
 	return cmd.CombinedOutput()
 }
 
+// LvmAdapter implements storage backend operations using LVM.
 type LvmAdapter struct {
 	vgName string
 	execer execer
 }
 
+// NewLvmAdapter constructs an LvmAdapter for the given volume group.
 func NewLvmAdapter(vgName string) *LvmAdapter {
 	return &LvmAdapter{
 		vgName: vgName,

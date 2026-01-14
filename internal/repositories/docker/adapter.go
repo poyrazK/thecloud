@@ -35,6 +35,7 @@ const (
 	tracerName = "docker-adapter"
 )
 
+// DockerAdapter implements the compute backend using Docker.
 type DockerAdapter struct {
 	cli dockerClient
 }
@@ -65,6 +66,7 @@ type dockerClient interface {
 	ContainerExecInspect(ctx context.Context, execID string) (container.ExecInspect, error)
 }
 
+// NewDockerAdapter constructs a DockerAdapter with a Docker client.
 func NewDockerAdapter() (*DockerAdapter, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {

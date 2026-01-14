@@ -5,6 +5,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
+// Prometheus metrics exported by the platform package.
 var (
 	WSConnectionsActive = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "thecloud_ws_connections_active",
