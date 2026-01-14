@@ -2,13 +2,101 @@ package main
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/poyrazk/thecloud/pkg/sdk"
 )
 
-// TestGetClient_WithApiKeyFlag checks if getClient() respects the apiKey flag.
+func TestListInstances_JSONOutput(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		payload := map[string]interface{}{
+			"data": []map[string]interface{}{
+				{
+					"id":           "i-1",
+					"name":         "web",
+					"image":        "alpine",
+					"status":       "RUNNING",
+					"ports":        "80:8080",
+					"vpc_id":       "vpc-1",
+					"subnet_id":    "subnet-1",
+					"private_ip":   "10.0.0.2",
+					"container_id": "c-1",
+					"version":      1,
+					"created_at":   time.Now().UTC().Format(time.RFC3339),
+					"updated_at":   time.Now().UTC().Format(time.RFC3339),
+				},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(payload)
+	}))
+	defer server.Close()
+
+	apiURL = server.URL
+	apiKey = "test-key"
+	outputJSON = true
+	defer func() { outputJSON = false }()
+
+	out := captureStdout(t, func() {
+		listCmd.Run(listCmd, nil)
+	})
+	if !strings.Contains(out, "\"id\": \"i-1\"") {
+		t.Fatalf("expected JSON output to include instance id, got: %s", out)
+	}
+}
+
+func TestLaunchInstance_VolumeParsing(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/instances" || r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		payload := map[string]interface{}{
+			"data": map[string]interface{}{
+				"id":           "i-2",
+				"name":         "app",
+				"image":        "alpine",
+				"status":       "RUNNING",
+				"ports":        "80:8080",
+				"vpc_id":       "vpc-1",
+				"subnet_id":    "subnet-1",
+				"private_ip":   "10.0.0.3",
+				"container_id": "c-2",
+				"version":      1,
+				"created_at":   time.Now().UTC().Format(time.RFC3339),
+				"updated_at":   time.Now().UTC().Format(time.RFC3339),
+			},
+		}
+		_ = json.NewEncoder(w).Encode(payload)
+	}))
+	defer server.Close()
+
+	apiURL = server.URL
+	apiKey = "test-key"
+
+	_ = launchCmd.Flags().Set("name", "app")
+	_ = launchCmd.Flags().Set("image", "alpine")
+	_ = launchCmd.Flags().Set("port", "80:8080")
+	_ = launchCmd.Flags().Set("vpc", "vpc-1")
+	_ = launchCmd.Flags().Set("subnet", "subnet-1")
+	_ = launchCmd.Flags().Set("volume", "vol-1:/data")
+
+	out := captureStdout(t, func() {
+		launchCmd.Run(launchCmd, nil)
+	})
+	if !strings.Contains(out, "Instance launched successfully") {
+		t.Fatalf("expected success message, got: %s", out)
+	}
+}
 
 func TestGetClientWithApiKeyFlag(t *testing.T) {
 	oldKey := apiKey
@@ -230,11 +318,7 @@ func TestTruncateID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.id
-			if len(result) > 8 {
-				result = result[:8]
-			}
-
+			result := truncateID(tt.id, 8)
 			if result != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, result)
 			}
