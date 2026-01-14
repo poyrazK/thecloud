@@ -10,7 +10,7 @@ import (
 
 // TestGetClient_WithApiKeyFlag checks if getClient() respects the apiKey flag.
 
-func TestGetClient_WithApiKeyFlag(t *testing.T) {
+func TestGetClientWithApiKeyFlag(t *testing.T) {
 	oldKey := apiKey
 	defer func() { apiKey = oldKey }()
 	apiKey = "test-key"
@@ -21,7 +21,7 @@ func TestGetClient_WithApiKeyFlag(t *testing.T) {
 	}
 }
 
-func TestGetClient_WithEnvVar(t *testing.T) {
+func TestGetClientWithEnvVar(t *testing.T) {
 	oldKey := apiKey
 	defer func() { apiKey = oldKey }()
 	apiKey = ""
@@ -34,7 +34,7 @@ func TestGetClient_WithEnvVar(t *testing.T) {
 	}
 }
 
-func TestListCmd_CommandSetup(t *testing.T) {
+func TestListCmdCommandSetup(t *testing.T) {
 	// Validate the command setup
 	if instanceCmd == nil {
 		t.Fatal("instanceCmd should not be nil")
@@ -44,7 +44,7 @@ func TestListCmd_CommandSetup(t *testing.T) {
 	}
 }
 
-func TestLaunchCmd_FlagsSetup(t *testing.T) {
+func TestLaunchCmdFlagsSetup(t *testing.T) {
 	if launchCmd.Flag("name") == nil {
 		t.Error("launch command should have --name flag")
 	}
@@ -65,7 +65,7 @@ func TestLaunchCmd_FlagsSetup(t *testing.T) {
 	}
 }
 
-func TestStopCmd_RequiresOneArg(t *testing.T) {
+func TestStopCmdRequiresOneArg(t *testing.T) {
 	if stopCmd.Args == nil {
 		t.Fatal("stop command should require args")
 	}
@@ -87,7 +87,7 @@ func TestStopCmd_RequiresOneArg(t *testing.T) {
 	}
 }
 
-func TestLogsCmd_RequiresOneArg(t *testing.T) {
+func TestLogsCmdRequiresOneArg(t *testing.T) {
 	if logsCmd.Args == nil {
 		t.Fatal("logs command should require args")
 	}
@@ -103,7 +103,7 @@ func TestLogsCmd_RequiresOneArg(t *testing.T) {
 	}
 }
 
-func TestShowCmd_RequiresOneArg(t *testing.T) {
+func TestShowCmdRequiresOneArg(t *testing.T) {
 	if showCmd.Args == nil {
 		t.Fatal("show command should require args")
 	}
@@ -114,7 +114,7 @@ func TestShowCmd_RequiresOneArg(t *testing.T) {
 	}
 }
 
-func TestRmCmd_RequiresOneArg(t *testing.T) {
+func TestRmCmdRequiresOneArg(t *testing.T) {
 	if rmCmd.Args == nil {
 		t.Fatal("rm command should require args")
 	}
@@ -125,7 +125,7 @@ func TestRmCmd_RequiresOneArg(t *testing.T) {
 	}
 }
 
-func TestStatsCmd_RequiresOneArg(t *testing.T) {
+func TestStatsCmdRequiresOneArg(t *testing.T) {
 	if statsCmd.Args == nil {
 		t.Fatal("stats command should require args")
 	}
@@ -136,7 +136,7 @@ func TestStatsCmd_RequiresOneArg(t *testing.T) {
 	}
 }
 
-func TestInstanceCmd_HasSubcommands(t *testing.T) {
+func TestInstanceCmdHasSubcommands(t *testing.T) {
 	subcommands := instanceCmd.Commands()
 
 	expectedCommands := []string{"list", "launch", "stop", "logs", "show", "rm", "stats"}
@@ -194,22 +194,7 @@ func TestFormatAccessPorts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			access := "-"
-			if tt.ports != "" && tt.status == "RUNNING" {
-				pList := strings.Split(tt.ports, ",")
-				var mappings []string
-				for _, mapping := range pList {
-					parts := strings.Split(mapping, ":")
-					if len(parts) == 2 {
-						mappings = append(mappings, "localhost:"+parts[0]+"->"+parts[1])
-					}
-				}
-				if len(mappings) > 0 {
-					access = strings.Join(mappings, ", ")
-				} else {
-					access = ""
-				}
-			}
+			access := formatAccessPorts(tt.ports, tt.status)
 
 			if access != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, access)

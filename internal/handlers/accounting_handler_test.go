@@ -42,7 +42,7 @@ func (m *mockAccountingService) ProcessHourlyBilling(ctx context.Context) error 
 	return args.Error(0)
 }
 
-func TestAccountingHandler_GetSummary(t *testing.T) {
+func TestAccountingHandlerGetSummary(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -77,7 +77,7 @@ func TestAccountingHandler_GetSummary(t *testing.T) {
 	})
 }
 
-func TestAccountingHandler_ListUsage(t *testing.T) {
+func TestAccountingHandlerListUsage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {

@@ -20,17 +20,17 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
-func TestDockerAdapter_Type(t *testing.T) {
+func TestDockerAdapterType(t *testing.T) {
 	a := &DockerAdapter{}
 	require.Equal(t, "docker", a.Type())
 }
 
-func TestDockerAdapter_DeleteInstance_NotFoundIsNil(t *testing.T) {
+func TestDockerAdapterDeleteInstanceNotFoundIsNil(t *testing.T) {
 	a := &DockerAdapter{cli: &fakeDockerClient{removeErr: errdefs.ErrNotFound}}
 	require.NoError(t, a.DeleteInstance(context.Background(), "missing"))
 }
 
-func TestDockerAdapter_GetInstancePort_NoBinding(t *testing.T) {
+func TestDockerAdapterGetInstancePortNoBinding(t *testing.T) {
 	inspect := types.ContainerJSON{}
 	inspect.NetworkSettings = &types.NetworkSettings{}
 
@@ -42,7 +42,7 @@ func TestDockerAdapter_GetInstancePort_NoBinding(t *testing.T) {
 // Note: port parsing is best covered via integration tests because docker SDK
 // types for NetworkSettings/Ports are tricky to construct across versions.
 
-func TestDockerAdapter_GetInstanceIP_NoNetworks(t *testing.T) {
+func TestDockerAdapterGetInstanceIPNoNetworks(t *testing.T) {
 	inspect := types.ContainerJSON{}
 	inspect.NetworkSettings = &types.NetworkSettings{Networks: map[string]*network.EndpointSettings{}}
 
@@ -51,7 +51,7 @@ func TestDockerAdapter_GetInstanceIP_NoNetworks(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestDockerAdapter_GetInstanceIP_FirstIP(t *testing.T) {
+func TestDockerAdapterGetInstanceIPFirstIP(t *testing.T) {
 	inspect := types.ContainerJSON{}
 	inspect.NetworkSettings = &types.NetworkSettings{
 		Networks: map[string]*network.EndpointSettings{
@@ -65,14 +65,14 @@ func TestDockerAdapter_GetInstanceIP_FirstIP(t *testing.T) {
 	require.Equal(t, "10.0.0.2", ip)
 }
 
-func TestDockerAdapter_GetInstanceStats_ReturnsBody(t *testing.T) {
+func TestDockerAdapterGetInstanceStatsReturnsBody(t *testing.T) {
 	a := &DockerAdapter{cli: &fakeDockerClient{statsRC: io.NopCloser(strings.NewReader("{}"))}}
 	rc, err := a.GetInstanceStats(context.Background(), "cid")
 	require.NoError(t, err)
 	defer func() { _ = rc.Close() }()
 }
 
-func TestDockerAdapter_Exec_NonZeroExit(t *testing.T) {
+func TestDockerAdapterExecNonZeroExit(t *testing.T) {
 	cli := &fakeDockerClient{
 		execAttachRead: strings.NewReader("out"),
 		execInspect:    container.ExecInspect{ExitCode: 2},
@@ -86,7 +86,7 @@ func TestDockerAdapter_Exec_NonZeroExit(t *testing.T) {
 	_ = out
 }
 
-func TestDockerAdapter_Exec_InspectErrorReturnsOutput(t *testing.T) {
+func TestDockerAdapterExecInspectErrorReturnsOutput(t *testing.T) {
 	cli := &fakeDockerClient{
 		execAttachRead: strings.NewReader("out"),
 		execInspectErr: errFakeNotFound,
@@ -98,7 +98,7 @@ func TestDockerAdapter_Exec_InspectErrorReturnsOutput(t *testing.T) {
 	_ = out
 }
 
-func TestDockerAdapter_CreateVolume(t *testing.T) {
+func TestDockerAdapterCreateVolume(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
 
@@ -106,7 +106,7 @@ func TestDockerAdapter_CreateVolume(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestDockerAdapter_DeleteVolume(t *testing.T) {
+func TestDockerAdapterDeleteVolume(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
 
@@ -114,21 +114,21 @@ func TestDockerAdapter_DeleteVolume(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestDockerAdapter_AttachVolume(t *testing.T) {
+func TestDockerAdapterAttachVolume(t *testing.T) {
 	adapter := &DockerAdapter{}
 	err := adapter.AttachVolume(context.Background(), "inst1", "/data")
 	// AttachVolume is not supported in docker
 	require.Error(t, err)
 }
 
-func TestDockerAdapter_DetachVolume(t *testing.T) {
+func TestDockerAdapterDetachVolume(t *testing.T) {
 	adapter := &DockerAdapter{}
 	err := adapter.DetachVolume(context.Background(), "inst1", "/data")
 	// DetachVolume is not supported in docker
 	require.Error(t, err)
 }
 
-func TestDockerAdapter_GetConsoleURL(t *testing.T) {
+func TestDockerAdapterGetConsoleURL(t *testing.T) {
 	adapter := &DockerAdapter{}
 	_, err := adapter.GetConsoleURL(context.Background(), "cid")
 	// Console is not supported for docker
@@ -136,7 +136,7 @@ func TestDockerAdapter_GetConsoleURL(t *testing.T) {
 	require.Contains(t, err.Error(), "console not supported")
 }
 
-func TestDockerAdapter_CreateVolumeSnapshot(t *testing.T) {
+func TestDockerAdapterCreateVolumeSnapshot(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
 
@@ -145,7 +145,7 @@ func TestDockerAdapter_CreateVolumeSnapshot(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestDockerAdapter_RestoreVolumeSnapshot(t *testing.T) {
+func TestDockerAdapterRestoreVolumeSnapshot(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
 
@@ -154,7 +154,7 @@ func TestDockerAdapter_RestoreVolumeSnapshot(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestDockerAdapter_RunTask(t *testing.T) {
+func TestDockerAdapterRunTask(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
 
@@ -167,7 +167,7 @@ func TestDockerAdapter_RunTask(t *testing.T) {
 	require.Equal(t, "cid", id)
 }
 
-func TestDockerAdapter_WaitTask(t *testing.T) {
+func TestDockerAdapterWaitTask(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
 
@@ -176,7 +176,7 @@ func TestDockerAdapter_WaitTask(t *testing.T) {
 	require.Equal(t, int64(0), exitCode)
 }
 
-func TestDockerAdapter_WaitTask_Error(t *testing.T) {
+func TestDockerAdapterWaitTaskError(t *testing.T) {
 	cli := &fakeDockerClient{waitErr: errors.New("wait failed")}
 	adapter := &DockerAdapter{cli: cli}
 
@@ -184,7 +184,7 @@ func TestDockerAdapter_WaitTask_Error(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestDockerAdapter_CreateNetwork(t *testing.T) {
+func TestDockerAdapterCreateNetwork(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
 
@@ -193,7 +193,7 @@ func TestDockerAdapter_CreateNetwork(t *testing.T) {
 	require.Equal(t, "nid", id)
 }
 
-func TestDockerAdapter_DeleteNetwork(t *testing.T) {
+func TestDockerAdapterDeleteNetwork(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
 
@@ -201,7 +201,7 @@ func TestDockerAdapter_DeleteNetwork(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestDockerAdapter_CreateInstance(t *testing.T) {
+func TestDockerAdapterCreateInstance(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
 
@@ -216,7 +216,7 @@ func TestDockerAdapter_CreateInstance(t *testing.T) {
 	require.Equal(t, "cid", id)
 }
 
-func TestDockerAdapter_StopInstance(t *testing.T) {
+func TestDockerAdapterStopInstance(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
 
@@ -224,7 +224,7 @@ func TestDockerAdapter_StopInstance(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestDockerAdapter_GetInstanceLogs(t *testing.T) {
+func TestDockerAdapterGetInstanceLogs(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
 
@@ -233,7 +233,7 @@ func TestDockerAdapter_GetInstanceLogs(t *testing.T) {
 	_ = rc.Close()
 }
 
-func TestDockerAdapter_Ping(t *testing.T) {
+func TestDockerAdapterPing(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
 	err := adapter.Ping(context.Background())
@@ -244,7 +244,7 @@ func TestDockerAdapter_Ping(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestDockerAdapter_NewDockerAdapter_Error(t *testing.T) {
+func TestDockerAdapterNewDockerAdapterError(t *testing.T) {
 	// Triggering error by setting an invalid DOCKER_HOST
 	t.Setenv("DOCKER_HOST", "invalid-proto://")
 	_, err := NewDockerAdapter()
@@ -269,7 +269,7 @@ func (m *mockInstanceRepoUnit) GetByID(ctx context.Context, id uuid.UUID) (*doma
 	return m.getByIDFunc(ctx, id)
 }
 
-func TestLBProxyAdapter_DeployProxy(t *testing.T) {
+func TestLBProxyAdapterDeployProxy(t *testing.T) {
 	cli := &fakeDockerClient{}
 	vpcRepo := &mockVpcRepository{
 		getByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.VPC, error) {
@@ -301,14 +301,14 @@ func TestLBProxyAdapter_DeployProxy(t *testing.T) {
 	require.Equal(t, "cid", id)
 }
 
-func TestLBProxyAdapter_RemoveProxy(t *testing.T) {
+func TestLBProxyAdapterRemoveProxy(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &LBProxyAdapter{cli: cli}
 	err := adapter.RemoveProxy(context.Background(), uuid.New())
 	require.NoError(t, err)
 }
 
-func TestLBProxyAdapter_UpdateProxyConfig(t *testing.T) {
+func TestLBProxyAdapterUpdateProxyConfig(t *testing.T) {
 	cli := &fakeDockerClient{}
 	instRepo := &mockInstanceRepoUnit{
 		getByIDFunc: func(ctx context.Context, id uuid.UUID) (*domain.Instance, error) {
@@ -337,14 +337,14 @@ func TestLBProxyAdapter_UpdateProxyConfig(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestDockerAdapter_StopInstance_Error(t *testing.T) {
+func TestDockerAdapterStopInstanceError(t *testing.T) {
 	cli := &fakeDockerClient{stopErr: errors.New("stop error")}
 	adapter := &DockerAdapter{cli: cli}
 	err := adapter.StopInstance(context.Background(), "cid")
 	require.Error(t, err)
 }
 
-func TestDockerAdapter_CreateNetwork_Error(t *testing.T) {
+func TestDockerAdapterCreateNetworkError(t *testing.T) {
 	cli := &fakeDockerClient{networkCreateErr: errors.New("network create error")}
 	adapter := &DockerAdapter{cli: cli}
 	_, err := adapter.CreateNetwork(context.Background(), "net")

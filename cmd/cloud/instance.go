@@ -16,6 +16,14 @@ var apiURL = "http://localhost:8080"
 var outputJSON bool
 var apiKey string
 
+const (
+	fmtErrorLog     = "Error: %v\n"
+	fmtDetailRow    = "%-15s %v\n"
+	demoPrompt      = "[WARN] No API Key found. Run 'cloud auth create-demo <name>' to get one."
+	successInstance = "[SUCCESS] Instance launched successfully!\n"
+	infoStop        = "[INFO] Instance stop initiated."
+)
+
 var instanceCmd = &cobra.Command{
 	Use:   "instance",
 	Short: "Manage compute instances",
@@ -31,7 +39,7 @@ func getClient() *sdk.Client {
 	}
 
 	if key == "" {
-		fmt.Println("[WARN] No API Key found. Run 'cloud auth create-demo <name>' to get one.")
+		fmt.Println(demoPrompt)
 		os.Exit(1)
 	}
 
@@ -45,7 +53,7 @@ var listCmd = &cobra.Command{
 		client := getClient()
 		instances, err := client.ListInstances()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(fmtErrorLog, err)
 			return
 		}
 
@@ -64,18 +72,7 @@ var listCmd = &cobra.Command{
 				id = id[:8]
 			}
 
-			access := "-"
-			if inst.Ports != "" && inst.Status == "RUNNING" {
-				pList := strings.Split(inst.Ports, ",")
-				var mappings []string
-				for _, mapping := range pList {
-					parts := strings.Split(mapping, ":")
-					if len(parts) == 2 {
-						mappings = append(mappings, fmt.Sprintf("localhost:%s->%s", parts[0], parts[1]))
-					}
-				}
-				access = strings.Join(mappings, ", ")
-			}
+			access := formatAccessPorts(inst.Ports, inst.Status)
 
 			table.Append([]string{
 				id,
@@ -115,11 +112,11 @@ var launchCmd = &cobra.Command{
 		client := getClient()
 		inst, err := client.LaunchInstance(name, image, ports, vpc, subnetID, volumes)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(fmtErrorLog, err)
 			return
 		}
 
-		fmt.Printf("[SUCCESS] Instance launched successfully!\n")
+		fmt.Printf(successInstance)
 		data, _ := json.MarshalIndent(inst, "", "  ")
 		fmt.Println(string(data))
 	},
@@ -132,11 +129,11 @@ var stopCmd = &cobra.Command{
 		id := args[0]
 		client := getClient()
 		if err := client.StopInstance(id); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(fmtErrorLog, err)
 			return
 		}
 
-		fmt.Println("[INFO] Instance stop initiated.")
+		fmt.Println(infoStop)
 	},
 }
 
@@ -149,7 +146,7 @@ var logsCmd = &cobra.Command{
 		client := getClient()
 		logs, err := client.GetInstanceLogs(id)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(fmtErrorLog, err)
 			return
 		}
 
@@ -166,20 +163,20 @@ var showCmd = &cobra.Command{
 		client := getClient()
 		inst, err := client.GetInstance(id)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(fmtErrorLog, err)
 			return
 		}
 
 		fmt.Printf("\nInstance Details\n")
 		fmt.Println(strings.Repeat("-", 40))
-		fmt.Printf("%-15s %v\n", "ID:", inst.ID)
-		fmt.Printf("%-15s %v\n", "Name:", inst.Name)
-		fmt.Printf("%-15s %v\n", "Status:", inst.Status)
-		fmt.Printf("%-15s %v\n", "Image:", inst.Image)
-		fmt.Printf("%-15s %v\n", "Ports:", inst.Ports)
-		fmt.Printf("%-15s %v\n", "Created At:", inst.CreatedAt)
-		fmt.Printf("%-15s %v\n", "Version:", inst.Version)
-		fmt.Printf("%-15s %v\n", "Container ID:", inst.ContainerID)
+		fmt.Printf(fmtDetailRow, "ID:", inst.ID)
+		fmt.Printf(fmtDetailRow, "Name:", inst.Name)
+		fmt.Printf(fmtDetailRow, "Status:", inst.Status)
+		fmt.Printf(fmtDetailRow, "Image:", inst.Image)
+		fmt.Printf(fmtDetailRow, "Ports:", inst.Ports)
+		fmt.Printf(fmtDetailRow, "Created At:", inst.CreatedAt)
+		fmt.Printf(fmtDetailRow, "Version:", inst.Version)
+		fmt.Printf(fmtDetailRow, "Container ID:", inst.ContainerID)
 		fmt.Println(strings.Repeat("-", 40))
 		fmt.Println("")
 	},
@@ -193,7 +190,7 @@ var rmCmd = &cobra.Command{
 		id := args[0]
 		client := getClient()
 		if err := client.TerminateInstance(id); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(fmtErrorLog, err)
 			return
 		}
 
@@ -209,7 +206,7 @@ var statsCmd = &cobra.Command{
 		client := getClient()
 		stats, err := client.GetInstanceStats(id)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(fmtErrorLog, err)
 			return
 		}
 
@@ -248,4 +245,25 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVarP(&outputJSON, "json", "j", false, "Output in JSON format")
 	rootCmd.PersistentFlags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
+}
+
+func formatAccessPorts(ports string, status string) string {
+	if ports == "" || status != "RUNNING" {
+		return "-"
+	}
+
+	pList := strings.Split(ports, ",")
+	var mappings []string
+	for _, mapping := range pList {
+		parts := strings.Split(mapping, ":")
+		if len(parts) == 2 {
+			mappings = append(mappings, fmt.Sprintf("localhost:%s->%s", parts[0], parts[1]))
+		}
+	}
+
+	if len(mappings) == 0 {
+		return ""
+	}
+
+	return strings.Join(mappings, ", ")
 }

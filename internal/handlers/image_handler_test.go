@@ -17,6 +17,12 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	imagesAPI    = "/api/v1/images"
+	imageIDParam = "id"
+	testImage    = "test-image"
+)
+
 type mockImageService struct {
 	mock.Mock
 }
@@ -55,7 +61,7 @@ func (m *mockImageService) DeleteImage(ctx context.Context, id uuid.UUID) error 
 	return args.Error(0)
 }
 
-func TestImageHandler_RegisterImage(t *testing.T) {
+func TestImageHandlerRegisterImage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -64,17 +70,17 @@ func TestImageHandler_RegisterImage(t *testing.T) {
 
 		expectedImage := &domain.Image{
 			ID:   uuid.New(),
-			Name: "test-image",
+			Name: testImage,
 		}
 
-		svc.On("RegisterImage", mock.Anything, "test-image", "desc", "linux", "1.0", true).Return(expectedImage, nil)
+		svc.On("RegisterImage", mock.Anything, testImage, "desc", "linux", "1.0", true).Return(expectedImage, nil)
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", "/api/v1/images", nil)
+		c.Request = httptest.NewRequest("POST", imagesAPI, nil)
 
 		body := map[string]interface{}{
-			"name":        "test-image",
+			"name":        testImage,
 			"description": "desc",
 			"os":          "linux",
 			"version":     "1.0",
@@ -95,7 +101,7 @@ func TestImageHandler_RegisterImage(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", "/api/v1/images", nil)
+		c.Request = httptest.NewRequest("POST", imagesAPI, nil)
 		c.Request.Body = io.NopCloser(bytes.NewBufferString(`{}`)) // Missing required fields
 
 		handler.RegisterImage(c)
@@ -104,7 +110,7 @@ func TestImageHandler_RegisterImage(t *testing.T) {
 	})
 }
 
-func TestImageHandler_UploadImage(t *testing.T) {
+func TestImageHandlerUploadImage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -126,9 +132,9 @@ func TestImageHandler_UploadImage(t *testing.T) {
 		err = writer.Close()
 		assert.NoError(t, err)
 
-		c.Request = httptest.NewRequest("POST", "/api/v1/images/"+imageID.String()+"/upload", body)
+		c.Request = httptest.NewRequest("POST", imagesAPI+"/"+imageID.String()+"/upload", body)
 		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
-		c.Params = []gin.Param{{Key: "id", Value: imageID.String()}}
+		c.Params = []gin.Param{{Key: imageIDParam, Value: imageID.String()}}
 
 		handler.UploadImage(c)
 
@@ -142,8 +148,8 @@ func TestImageHandler_UploadImage(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", "/api/v1/images/invalid/upload", nil)
-		c.Params = []gin.Param{{Key: "id", Value: "invalid"}}
+		c.Request = httptest.NewRequest("POST", imagesAPI+"/invalid/upload", nil)
+		c.Params = []gin.Param{{Key: imageIDParam, Value: "invalid"}}
 
 		handler.UploadImage(c)
 
@@ -151,7 +157,7 @@ func TestImageHandler_UploadImage(t *testing.T) {
 	})
 }
 
-func TestImageHandler_ListImages(t *testing.T) {
+func TestImageHandlerListImages(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -165,7 +171,7 @@ func TestImageHandler_ListImages(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/api/v1/images", nil)
+		c.Request = httptest.NewRequest("GET", imagesAPI, nil)
 		c.Set("userID", userID)
 
 		handler.ListImages(c)
@@ -175,7 +181,7 @@ func TestImageHandler_ListImages(t *testing.T) {
 	})
 }
 
-func TestImageHandler_GetImage(t *testing.T) {
+func TestImageHandlerGetImage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -189,8 +195,8 @@ func TestImageHandler_GetImage(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/api/v1/images/"+imageID.String(), nil)
-		c.Params = []gin.Param{{Key: "id", Value: imageID.String()}}
+		c.Request = httptest.NewRequest("GET", imagesAPI+"/"+imageID.String(), nil)
+		c.Params = []gin.Param{{Key: imageIDParam, Value: imageID.String()}}
 
 		handler.GetImage(c)
 
@@ -204,8 +210,8 @@ func TestImageHandler_GetImage(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/api/v1/images/invalid", nil)
-		c.Params = []gin.Param{{Key: "id", Value: "invalid"}}
+		c.Request = httptest.NewRequest("GET", imagesAPI+"/invalid", nil)
+		c.Params = []gin.Param{{Key: imageIDParam, Value: "invalid"}}
 
 		handler.GetImage(c)
 
@@ -213,7 +219,7 @@ func TestImageHandler_GetImage(t *testing.T) {
 	})
 }
 
-func TestImageHandler_DeleteImage(t *testing.T) {
+func TestImageHandlerDeleteImage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -226,8 +232,8 @@ func TestImageHandler_DeleteImage(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("DELETE", "/api/v1/images/"+imageID.String(), nil)
-		c.Params = []gin.Param{{Key: "id", Value: imageID.String()}}
+		c.Request = httptest.NewRequest("DELETE", imagesAPI+"/"+imageID.String(), nil)
+		c.Params = []gin.Param{{Key: imageIDParam, Value: imageID.String()}}
 
 		handler.DeleteImage(c)
 
