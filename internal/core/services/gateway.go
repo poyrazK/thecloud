@@ -16,6 +16,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// GatewayService manages API gateway routes and reverse proxies.
 type GatewayService struct {
 	repo     ports.GatewayRepository
 	proxyMu  sync.RWMutex
@@ -24,6 +25,7 @@ type GatewayService struct {
 	auditSvc ports.AuditService
 }
 
+// NewGatewayService constructs a GatewayService and loads existing routes.
 func NewGatewayService(repo ports.GatewayRepository, auditSvc ports.AuditService) *GatewayService {
 	s := &GatewayService{
 		repo:     repo,

@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// NotifyService manages topics, subscriptions, and message delivery.
 type NotifyService struct {
 	repo     ports.NotifyRepository
 	queueSvc ports.QueueService
@@ -22,6 +23,7 @@ type NotifyService struct {
 	logger   *slog.Logger
 }
 
+// NewNotifyService constructs a NotifyService with its dependencies.
 func NewNotifyService(repo ports.NotifyRepository, queueSvc ports.QueueService, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) ports.NotifyService {
 	return &NotifyService{
 		repo:     repo,
