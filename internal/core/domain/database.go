@@ -6,35 +6,45 @@ import (
 	"github.com/google/uuid"
 )
 
+// DatabaseEngine represents the type of relational database management system.
 type DatabaseEngine string
 
 const (
+	// EnginePostgres represents PostgreSQL.
 	EnginePostgres DatabaseEngine = "postgres"
-	EngineMySQL    DatabaseEngine = "mysql"
+	// EngineMySQL represents MySQL.
+	EngineMySQL DatabaseEngine = "mysql"
 )
 
+// DatabaseStatus represents the lifecycle state of a managed database instance.
 type DatabaseStatus string
 
 const (
+	// DatabaseStatusCreating indicates the database is being provisioned.
 	DatabaseStatusCreating DatabaseStatus = "CREATING"
-	DatabaseStatusRunning  DatabaseStatus = "RUNNING"
-	DatabaseStatusStopped  DatabaseStatus = "STOPPED"
+	// DatabaseStatusRunning indicates the database is online and accepting connections.
+	DatabaseStatusRunning DatabaseStatus = "RUNNING"
+	// DatabaseStatusStopped indicates the database instance is halted.
+	DatabaseStatusStopped DatabaseStatus = "STOPPED"
+	// DatabaseStatusDeleting indicates the database is being removed.
 	DatabaseStatusDeleting DatabaseStatus = "DELETING"
-	DatabaseStatusFailed   DatabaseStatus = "FAILED"
+	// DatabaseStatusFailed indicates the database encountered a critical error.
+	DatabaseStatusFailed DatabaseStatus = "FAILED"
 )
 
+// Database represents a managed relational database instance.
 type Database struct {
-	ID          uuid.UUID
-	UserID      uuid.UUID
-	Name        string
-	Engine      DatabaseEngine
-	Version     string
-	Status      DatabaseStatus
-	VpcID       *uuid.UUID
-	ContainerID string
-	Port        int
-	Username    string
-	Password    string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID          uuid.UUID      `json:"id"`
+	UserID      uuid.UUID      `json:"user_id"`
+	Name        string         `json:"name"`
+	Engine      DatabaseEngine `json:"engine"`
+	Version     string         `json:"version"` // Engine version (e.g. "15", "8.0")
+	Status      DatabaseStatus `json:"status"`
+	VpcID       *uuid.UUID     `json:"vpc_id,omitempty"` // Optional private networking
+	ContainerID string         `json:"container_id,omitempty"`
+	Port        int            `json:"port"`
+	Username    string         `json:"username"`
+	Password    string         `json:"-"` // Never serialize password to JSON
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
