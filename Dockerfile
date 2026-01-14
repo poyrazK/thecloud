@@ -19,7 +19,7 @@ COPY . .
 # Build binary
 # CGO_ENABLED=0 for static binary
 RUN CGO_ENABLED=0 GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
-    go build -o /bin/api cmd/api/main.go
+    go build -o /bin/api ./cmd/api
 
 # Production stage
 FROM alpine:3.19
