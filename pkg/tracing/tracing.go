@@ -1,3 +1,4 @@
+// Package tracing provides OpenTelemetry instrumentation and initialization for the application.
 package tracing
 
 import (
