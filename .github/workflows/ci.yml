@@ -70,7 +70,7 @@ jobs:
       - name: Run Database Migrations
         env:
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/thecloud?sslmode=disable
-        run: go run cmd/api/main.go -migrate-only
+        run: go run ./cmd/api -migrate-only
         
       - name: Run Integration Tests
         env:

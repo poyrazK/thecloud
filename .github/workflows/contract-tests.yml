@@ -20,7 +20,7 @@ jobs:
 
       - name: Build and Start API
         run: |
-          go build -o thecloud-api cmd/api/main.go
+          go build -o thecloud-api ./cmd/api
           ./thecloud-api &
           # Wait for API to be ready
           for i in {1..30}; do
