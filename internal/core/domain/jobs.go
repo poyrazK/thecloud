@@ -4,8 +4,9 @@ import (
 	"github.com/google/uuid"
 )
 
+// ProvisionJob represents an asynchronous task to initialize and configure a new compute instance.
 type ProvisionJob struct {
 	InstanceID uuid.UUID          `json:"instance_id"`
 	UserID     uuid.UUID          `json:"user_id"`
-	Volumes    []VolumeAttachment `json:"volumes"`
+	Volumes    []VolumeAttachment `json:"volumes"` // List of storage volumes to attach during initialization
 }
