@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"os"
 	"sync"
 	"testing"
 
@@ -128,6 +129,9 @@ func BenchmarkInstanceServiceCreateParallel(b *testing.B) {
 	network := noop.NewNoopNetworkAdapter(logger)
 	eventSvc := &noop.NoopEventService{}
 	auditSvc := &noop.NoopAuditService{}
+
+	// Disable tracing for benchmarks to avoid overhead
+	_ = os.Setenv("TRACING_ENABLED", "false")
 
 	svc := services.NewInstanceService(services.InstanceServiceParams{
 		Repo:       repo,
