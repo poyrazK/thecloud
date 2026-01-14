@@ -2,6 +2,7 @@ package libvirt
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/poyrazk/thecloud/pkg/testutil"
@@ -19,9 +20,14 @@ func TestGenerateDomainXML(t *testing.T) {
 	t.Run("basic", func(t *testing.T) {
 		xml := generateDomainXML("test-vm", "/path/to/disk", "default", "", 1024, 2, nil)
 		assert.Contains(t, xml, "<name>test-vm</name>")
-		assert.Contains(t, xml, "<memory unit='KiB'>1048576</memory>") // 1024 * 1024
+		assert.Contains(t, xml, "<memory unit='KiB'>1048576</memory>")
 		assert.Contains(t, xml, "<vcpu placement='static'>2</vcpu>")
 		assert.Contains(t, xml, "<source file='/path/to/disk'/>")
+		assert.Contains(t, xml, "<source network='default'/>")
+	})
+
+	t.Run("default network when empty", func(t *testing.T) {
+		xml := generateDomainXML("vm-default", "/path/to/disk", "", "", 512, 1, nil)
 		assert.Contains(t, xml, "<source network='default'/>")
 	})
 
@@ -31,17 +37,12 @@ func TestGenerateDomainXML(t *testing.T) {
 
 		assert.Contains(t, xml, "<source file='/path/to/iso'/>")
 		assert.Contains(t, xml, "<target dev='sda' bus='sata'/>")
-
-		// vdb (file)
 		assert.Contains(t, xml, "<disk type='file' device='disk'>")
 		assert.Contains(t, xml, "<source file='/path/to/vdb'/>")
 		assert.Contains(t, xml, "<target dev='vdb' bus='virtio'/>")
-
-		// sdc (block)
 		assert.Contains(t, xml, "<disk type='block' device='disk'>")
 		assert.Contains(t, xml, "<source dev='/dev/sdc'/>")
 		assert.Contains(t, xml, "<target dev='vdc' bus='virtio'/>")
-
 		assert.Contains(t, xml, "<source network='custom-net'/>")
 	})
 }
@@ -52,4 +53,5 @@ func TestGenerateNetworkXML(t *testing.T) {
 	assert.Contains(t, xml, "<bridge name='test-br' stp='on' delay='0'/>")
 	assert.Contains(t, xml, fmt.Sprintf("<ip address='%s'", testutil.TestIPHost))
 	assert.Contains(t, xml, fmt.Sprintf("<range start='%s' end='%s'/>", testutil.TestLibvirtDHCPStart, testutil.TestLibvirtDHCPEnd))
+	assert.True(t, strings.Contains(xml, "<network>"))
 }
