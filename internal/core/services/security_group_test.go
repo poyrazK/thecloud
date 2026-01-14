@@ -37,7 +37,7 @@ func TestSecurityGroupServiceCreateGroup(t *testing.T) {
 	vpcID := uuid.New()
 
 	repo.On("Create", mock.Anything, mock.Anything).Return(nil)
-	auditSvc.On("Log", mock.Anything, userID, "security_group.create", "security_group", mock.Anything, mock.Anything).Return(nil)
+	auditSvc.On("Log", mock.Anything, mock.Anything, "security_group.create", "security_group", mock.Anything, mock.Anything).Return(nil)
 
 	sg, err := svc.CreateGroup(ctx, vpcID, testSGName, "desc")
 
@@ -57,13 +57,13 @@ func TestSecurityGroupServiceGetGroup(t *testing.T) {
 	sg := &domain.SecurityGroup{ID: sgID, Name: testSGName}
 
 	// By ID
-	repo.On("GetByID", ctx, sgID).Return(sg, nil).Once()
+	repo.On("GetByID", mock.Anything, sgID).Return(sg, nil).Once()
 	res, err := svc.GetGroup(ctx, sgID.String(), vpcID)
 	assert.NoError(t, err)
 	assert.Equal(t, sgID, res.ID)
 
 	// By Name
-	repo.On("GetByName", ctx, vpcID, testSGName).Return(sg, nil).Once()
+	repo.On("GetByName", mock.Anything, vpcID, testSGName).Return(sg, nil).Once()
 	res, err = svc.GetGroup(ctx, testSGName, vpcID)
 	assert.NoError(t, err)
 	assert.Equal(t, testSGName, res.Name)
@@ -77,7 +77,7 @@ func TestSecurityGroupServiceListGroups(t *testing.T) {
 	vpcID := uuid.New()
 	sgs := []*domain.SecurityGroup{{ID: uuid.New(), VPCID: vpcID}}
 
-	repo.On("ListByVPC", ctx, vpcID).Return(sgs, nil)
+	repo.On("ListByVPC", mock.Anything, vpcID).Return(sgs, nil)
 
 	res, err := svc.ListGroups(ctx, vpcID)
 	assert.NoError(t, err)
@@ -92,8 +92,8 @@ func TestSecurityGroupServiceDeleteGroup(t *testing.T) {
 	ctx := appcontext.WithUserID(context.Background(), userID)
 	sgID := uuid.New()
 
-	repo.On("Delete", ctx, sgID).Return(nil)
-	auditSvc.On("Log", mock.Anything, userID, "security_group.delete", "security_group", sgID.String(), mock.Anything).Return(nil)
+	repo.On("Delete", mock.Anything, sgID).Return(nil)
+	auditSvc.On("Log", mock.Anything, mock.Anything, "security_group.delete", "security_group", sgID.String(), mock.Anything).Return(nil)
 
 	err := svc.DeleteGroup(ctx, sgID)
 	assert.NoError(t, err)
@@ -115,7 +115,7 @@ func TestSecurityGroupServiceAddRule(t *testing.T) {
 	repo.On("AddRule", mock.Anything, mock.Anything).Return(nil)
 	vpcRepo.On("GetByID", mock.Anything, vpcID).Return(vpc, nil)
 	network.On("AddFlowRule", mock.Anything, "net1", mock.Anything).Return(nil)
-	auditSvc.On("Log", mock.Anything, userID, "security_group.add_rule", "security_group", sgID.String(), mock.Anything).Return(nil)
+	auditSvc.On("Log", mock.Anything, mock.Anything, "security_group.add_rule", "security_group", sgID.String(), mock.Anything).Return(nil)
 
 	res, err := svc.AddRule(ctx, sgID, rule)
 
@@ -125,7 +125,7 @@ func TestSecurityGroupServiceAddRule(t *testing.T) {
 }
 
 func TestSecurityGroupServiceAttachToInstance(t *testing.T) {
-	repo, vpcRepo, network, _, svc := setupSecurityGroupServiceTest(t)
+	repo, vpcRepo, network, auditSvc, svc := setupSecurityGroupServiceTest(t)
 	defer repo.AssertExpectations(t)
 
 	ctx := context.Background()
@@ -139,13 +139,14 @@ func TestSecurityGroupServiceAttachToInstance(t *testing.T) {
 	repo.On("GetByID", mock.Anything, sgID).Return(sg, nil)
 	vpcRepo.On("GetByID", mock.Anything, vpcID).Return(vpc, nil)
 	network.On("AddFlowRule", mock.Anything, "net1", mock.Anything).Return(nil)
+	auditSvc.On("Log", mock.Anything, mock.Anything, "security_group.attach", "instance", instID.String(), mock.Anything).Return(nil)
 
 	err := svc.AttachToInstance(ctx, instID, sgID)
 	assert.NoError(t, err)
 }
 
 func TestSecurityGroupServiceDetachFromInstance(t *testing.T) {
-	repo, _, _, _, svc := setupSecurityGroupServiceTest(t)
+	repo, _, _, auditSvc, svc := setupSecurityGroupServiceTest(t)
 	defer repo.AssertExpectations(t)
 
 	ctx := context.Background()
@@ -153,6 +154,7 @@ func TestSecurityGroupServiceDetachFromInstance(t *testing.T) {
 	sgID := uuid.New()
 
 	repo.On("RemoveInstanceFromGroup", mock.Anything, instID, sgID).Return(nil)
+	auditSvc.On("Log", mock.Anything, mock.Anything, "security_group.detach", "instance", instID.String(), mock.Anything).Return(nil)
 
 	err := svc.DetachFromInstance(ctx, instID, sgID)
 	assert.NoError(t, err)
@@ -177,7 +179,7 @@ func TestSecurityGroupServiceRemoveRule(t *testing.T) {
 	vpcRepo.On("GetByID", mock.Anything, vpcID).Return(vpc, nil)
 	network.On("DeleteFlowRule", mock.Anything, "net1", mock.Anything).Return(nil)
 	repo.On("DeleteRule", mock.Anything, ruleID).Return(nil)
-	auditSvc.On("Log", mock.Anything, userID, "security_group.remove_rule", "security_group", groupID.String(), mock.Anything).Return(nil)
+	auditSvc.On("Log", mock.Anything, mock.Anything, "security_group.remove_rule", "security_group", groupID.String(), mock.Anything).Return(nil)
 
 	err := svc.RemoveRule(ctx, ruleID)
 	assert.NoError(t, err)

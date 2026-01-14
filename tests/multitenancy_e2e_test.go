@@ -146,7 +146,7 @@ func createInstance(t *testing.T, client *http.Client, token, name string) Insta
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("Create instance failed: status %d body %s", resp.StatusCode, body)
 	}

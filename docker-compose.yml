@@ -53,8 +53,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    # ports:
-    #   - "${PORT:-8080}:${PORT:-8080}" # Will be handled by LB or individual replicas
+    ports:
+      - "${PORT:-8080}:${PORT:-8080}"
     cap_add:
       - NET_ADMIN
       - NET_RAW
