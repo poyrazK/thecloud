@@ -23,12 +23,14 @@ func NewLocalFileStore(basePath string) (*LocalFileStore, error) {
 	return &LocalFileStore{basePath: basePath}, nil
 }
 
+const errTraversal = "invalid path: traversal detected"
+
 func (s *LocalFileStore) Write(ctx context.Context, bucket, key string, r io.Reader) (int64, error) {
 	bucketPath := filepath.Join(s.basePath, filepath.Clean(bucket))
 	filePath := filepath.Join(bucketPath, filepath.Clean(key))
 
 	if !strings.HasPrefix(filePath, filepath.Clean(s.basePath)) {
-		return 0, errors.New(errors.InvalidInput, "invalid path: traversal detected")
+		return 0, errors.New(errors.InvalidInput, errTraversal)
 	}
 
 	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
@@ -52,7 +54,7 @@ func (s *LocalFileStore) Write(ctx context.Context, bucket, key string, r io.Rea
 func (s *LocalFileStore) Read(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
 	filePath := filepath.Join(s.basePath, filepath.Clean(bucket), filepath.Clean(key))
 	if !strings.HasPrefix(filePath, filepath.Clean(s.basePath)) {
-		return nil, errors.New(errors.InvalidInput, "invalid path: traversal detected")
+		return nil, errors.New(errors.InvalidInput, errTraversal)
 	}
 	f, err := os.Open(filePath)
 	if err != nil {
@@ -67,7 +69,7 @@ func (s *LocalFileStore) Read(ctx context.Context, bucket, key string) (io.ReadC
 func (s *LocalFileStore) Delete(ctx context.Context, bucket, key string) error {
 	filePath := filepath.Join(s.basePath, filepath.Clean(bucket), filepath.Clean(key))
 	if !strings.HasPrefix(filePath, filepath.Clean(s.basePath)) {
-		return errors.New(errors.InvalidInput, "invalid path: traversal detected")
+		return errors.New(errors.InvalidInput, errTraversal)
 	}
 	err := os.Remove(filePath)
 	if err != nil {
