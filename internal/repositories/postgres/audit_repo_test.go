@@ -8,10 +8,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/pashagolub/pgxmock/v3"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAuditRepository_Create(t *testing.T) {
+func TestAuditRepositoryCreate(t *testing.T) {
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -24,8 +25,8 @@ func TestAuditRepository_Create(t *testing.T) {
 		ResourceType: "INSTANCE",
 		ResourceID:   uuid.New().String(),
 		Details:      map[string]interface{}{"name": "test"},
-		IPAddress:    "127.0.0.1",
-		UserAgent:    "UA",
+		IPAddress:    testutil.TestIPLocalhost,
+		UserAgent:    testutil.TestUserAgent,
 		CreatedAt:    time.Now(),
 	}
 
@@ -38,7 +39,7 @@ func TestAuditRepository_Create(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestAuditRepository_ListByUserID(t *testing.T) {
+func TestAuditRepositoryListByUserID(t *testing.T) {
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
