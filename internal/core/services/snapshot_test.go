@@ -127,3 +127,34 @@ func TestDeleteSnapshotSuccess(t *testing.T) {
 
 	assert.NoError(t, err)
 }
+
+func TestListSnapshots(t *testing.T) {
+	repo, _, _, _, _, svc := setupSnapshotServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+
+	items := []*domain.Snapshot{{ID: uuid.New(), UserID: userID}}
+	repo.On("ListByUserID", ctx, userID).Return(items, nil).Once()
+
+	res, err := svc.ListSnapshots(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, res, 1)
+}
+
+func TestGetSnapshot(t *testing.T) {
+	repo, _, _, _, _, svc := setupSnapshotServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+
+	snapID := uuid.New()
+	snap := &domain.Snapshot{ID: snapID, UserID: userID}
+	repo.On("GetByID", ctx, snapID).Return(snap, nil).Once()
+
+	res, err := svc.GetSnapshot(ctx, snapID)
+	assert.NoError(t, err)
+	assert.Equal(t, snapID, res.ID)
+}
