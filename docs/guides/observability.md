@@ -54,3 +54,27 @@ Alerts are defined in `prometheus/alerts/api-alerts.yml`. Default alerts include
 - **HighAPIErrorRate**: Triggers if 5xx errors exceed 10% for 2 minutes.
 - **HighAPILatency**: Triggers if p95 latency exceeds 2 seconds for 5 minutes.
 - **InstanceErrorStatus**: Triggers if any instance enters an `error` state.
+
+## Distributed Tracing
+
+The Cloud supports **Distributed Tracing** via OpenTelemetry and Jaeger to visualize request flows across microservices and databases.
+
+### Enabling Tracing
+
+Tracing is **opt-in** to avoid performance overhead. Enable it via environment variables:
+
+```bash
+TRACING_ENABLED=true
+JAEGER_ENDPOINT=http://localhost:4318  # Default
+```
+
+### Viewing Traces
+
+1. Ensure the Jaeger service is running (included in `docker-compose.yml`).
+2. Open the Jaeger UI at [http://localhost:16686](http://localhost:16686).
+3. Select the service `thecloud-api` to view traces.
+
+### Features
+- **Full Trace Context**: Visualizes the entire lifecycle of a request (API -> Service -> Database/Docker).
+- **Database Tracing**: Automatically instrumented PostgreSQL queries with `otelpgx`.
+- **Rich Metadata**: Spans include relevant attributes like `instance.id`, `user.id`, and `db.statement`.

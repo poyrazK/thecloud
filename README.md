@@ -11,7 +11,7 @@ An open-source cloud platform that anyone can run, modify, and own.
 - **Block Storage**: Persistent volumes via **LVM** (Production) or Docker Volumes (Simulation)
 - **Networking**: Advanced VPC with SDN (Open vSwitch), Subnet isolation, and IPAM.
 - **Identity**: API Key authentication ([Guide](docs/guides/authentication.md))
-- **Observability**: Prometheus metrics and Grafana dashboards ([Guide](docs/guides/observability.md))
+- **Observability**: Prometheus metrics and Grafana dashboards ([Guide](docs/guides/observability.md)) with **Distributed Tracing** (Jaeger).
 - **Load Balancer**: Layer 7 HTTP traffic distribution
 - **Auto-Scaling**: Dynamic scaling of compute resources based on metrics
 - **Managed Databases (RDS)**: Launch PostgreSQL/MySQL instances with a single command ([Guide](docs/guides/rds.md))
@@ -100,7 +100,7 @@ npm run dev
   - Docker Engine (Containers, Networks, Volumes)
   - Libvirt/KVM (Virtual Machines, QCOW2 Storage, NAT Networks)
   - Open vSwitch (SDN, VXLAN, VPC Isolation, Subnets)
-- **Observability**: Prometheus Metrics & Real-time WebSockets
+- **Observability**: Prometheus Metrics, Real-time WebSockets, OpenTelemetry (Tracing)
 - **CLI**: Cobra (command-based) + Survey (interactive)
 
 ## Recent Improvements
