@@ -105,18 +105,22 @@ npm run dev
 
 ## Recent Improvements
 
-### Code Quality
-- **Reduced Complexity**: Extracted helper methods to simplify `InstanceService` and `LibvirtAdapter`
-- **Better Structure**: Introduced parameter structs (reduced 9 params → 1 struct)
-- **Cleaner Code**: Eliminated duplicate string literals and improved readability
-- **Enhanced Security**: Addressed potential secret exposure in tests
-- **New Features**: Added **VNC Console** and **LVM Block Storage** support
+### Code Quality & Features
+- **Simplified Architecture**: Refactored `InstanceService` using parameter structs and helper methods.
+- **Enhanced Storage**: Added support for **LVM Block Storage** and **VNC Console** access.
+- **Clean Code**: Eliminated duplicate literals and improved test security.
 
-### CI/CD Enhancements
-- **Load Testing**: Automated k6 performance tests with API server startup
-- **Code Quality**: Integrated golangci-lint with 7+ linters
-- **Static Analysis**: SonarQube integration for continuous quality monitoring
-- **Smaller Repo**: Removed 297 unnecessary files (sonarqube-mcp-server)
+### AI & Automation
+- **AI Context**: Added `GEMINI.md` to provide AI assistants with project-specific hexagonal architecture rules and coding standards.
+- **Interactive Workflows**: Introduced `.agent/workflows/` for rapid development:
+    - `/new-service`: Scaffold full hexagonal layers (Domain → Port → Service → Repo → Handler).
+    - `/deploy`: Automated build and deployment with **integrated smoke tests**.
+    - `/test-coverage`: Detailed coverage analysis and reporting.
+    - `/swagger`: One-click OpenAPI documentation updates.
+
+### CI/CD & DevSecOps
+- **Quality Gates**: Integrated `golangci-lint`, SonarQube, and automated k6 performance testing.
+- **Project Hygiene**: Major cleanup of legacy artifacts and repository optimization.
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed changes.
 

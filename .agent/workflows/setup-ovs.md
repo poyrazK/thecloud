@@ -1,26 +1,49 @@
 ---
 description: Setup and verify Open vSwitch networking environment
 ---
+# Setup OVS Workflow
 
-This workflow automates the installation and configuration of Open vSwitch (OVS) required for Sprint 3 networking features.
+Setup Open vSwitch for VPC/SDN networking.
 
-// turbo-all
-1. Make setup script executable
+## Prerequisites
+- Linux host with OVS installed
+- Root/sudo access
+
+## Steps
+
+1. **Check OVS Installation**
+// turbo
 ```bash
-chmod +x /home/poyraz/dev/Cloud/scripts/setup-ovs.sh
+which ovs-vsctl || echo "OVS not installed"
 ```
 
-2. Run the setup script
+2. **Start OVS Service**
 ```bash
-/home/poyraz/dev/Cloud/scripts/setup-ovs.sh
+sudo systemctl start openvswitch-switch
 ```
 
-3. Update Docker Compose for OVS support
+3. **Verify OVS Running**
+// turbo
 ```bash
-# This adds NET_ADMIN capabilities and mounts the OVS socket
+sudo ovs-vsctl show
 ```
 
-4. Verify OVS integration via API health check
+4. **Create Test Bridge**
 ```bash
-# Wait for API to restart and check /health/ovs
+sudo ovs-vsctl add-br test-br0
 ```
+
+5. **List Bridges**
+// turbo
+```bash
+sudo ovs-vsctl list-br
+```
+
+6. **Cleanup Test Bridge**
+```bash
+sudo ovs-vsctl del-br test-br0
+```
+
+## Troubleshooting
+- If OVS not found: `apt install openvswitch-switch` (Ubuntu) or `brew install openvswitch` (Mac)
+- If permission denied: ensure running with sudo
