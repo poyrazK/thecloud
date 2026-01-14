@@ -252,7 +252,9 @@ func registerNetworkRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		sgGroup.GET("/:id", handlers.SecurityGroup.Get)
 		sgGroup.DELETE("/:id", handlers.SecurityGroup.Delete)
 		sgGroup.POST("/:id/rules", handlers.SecurityGroup.AddRule)
+		sgGroup.DELETE("/rules/:rule_id", handlers.SecurityGroup.RemoveRule)
 		sgGroup.POST("/attach", handlers.SecurityGroup.Attach)
+		sgGroup.POST("/detach", handlers.SecurityGroup.Detach)
 	}
 
 	lbGroup := r.Group("/lb")

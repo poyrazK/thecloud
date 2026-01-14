@@ -139,6 +139,34 @@ func init() {
 	sgAddRuleCmd.Flags().String("cidr", "0.0.0.0/0", "CIDR block")
 	sgAddRuleCmd.Flags().Int("priority", 100, "Priority")
 
-	sgCmd.AddCommand(sgCreateCmd, sgListCmd, sgAddRuleCmd, sgAttachCmd)
+	sgCmd.AddCommand(sgCreateCmd, sgListCmd, sgAddRuleCmd, sgRemoveRuleCmd, sgAttachCmd, sgDetachCmd)
 	rootCmd.AddCommand(sgCmd)
+}
+
+var sgRemoveRuleCmd = &cobra.Command{
+	Use:   "remove-rule [rule-id]",
+	Short: "Remove a rule from a security group",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		client := getClient()
+		if err := client.RemoveSecurityRule(args[0]); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+		fmt.Printf("[SUCCESS] Rule %s removed successfully.\n", args[0])
+	},
+}
+
+var sgDetachCmd = &cobra.Command{
+	Use:   "detach [instance-id] [sg-id]",
+	Short: "Detach a security group from an instance",
+	Args:  cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		client := getClient()
+		if err := client.DetachSecurityGroup(args[0], args[1]); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+		fmt.Printf("[SUCCESS] Security Group %s detached from instance %s successfully.\n", args[1], args[0])
+	},
 }

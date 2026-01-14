@@ -77,3 +77,15 @@ func (c *Client) AttachSecurityGroup(instanceID, groupID string) error {
 	}
 	return c.post("/security-groups/attach", body, nil)
 }
+
+func (c *Client) RemoveSecurityRule(ruleID string) error {
+	return c.delete(fmt.Sprintf("/security-groups/rules/%s", ruleID), nil)
+}
+
+func (c *Client) DetachSecurityGroup(instanceID, groupID string) error {
+	body := map[string]string{
+		"instance_id": instanceID,
+		"group_id":    groupID,
+	}
+	return c.post("/security-groups/detach", body, nil)
+}

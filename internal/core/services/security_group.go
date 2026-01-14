@@ -12,6 +12,8 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type SecurityGroupService struct {
@@ -39,6 +41,14 @@ func NewSecurityGroupService(
 }
 
 func (s *SecurityGroupService) CreateGroup(ctx context.Context, vpcID uuid.UUID, name, description string) (*domain.SecurityGroup, error) {
+	ctx, span := otel.Tracer("security-group-service").Start(ctx, "CreateGroup")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("vpc_id", vpcID.String()),
+		attribute.String("name", name),
+	)
+
 	userID := appcontext.UserIDFromContext(ctx)
 	sgID := uuid.New()
 
@@ -93,6 +103,16 @@ func (s *SecurityGroupService) DeleteGroup(ctx context.Context, id uuid.UUID) er
 }
 
 func (s *SecurityGroupService) AddRule(ctx context.Context, groupID uuid.UUID, rule domain.SecurityRule) (*domain.SecurityRule, error) {
+	ctx, span := otel.Tracer("security-group-service").Start(ctx, "AddRule")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("group_id", groupID.String()),
+		attribute.String("protocol", rule.Protocol),
+		attribute.Int("port_min", rule.PortMin),
+		attribute.String("cidr", rule.CIDR),
+	)
+
 	sg, err := s.repo.GetByID(ctx, groupID)
 	if err != nil {
 		return nil, err
@@ -120,6 +140,11 @@ func (s *SecurityGroupService) AddRule(ctx context.Context, groupID uuid.UUID, r
 }
 
 func (s *SecurityGroupService) RemoveRule(ctx context.Context, ruleID uuid.UUID) error {
+	ctx, span := otel.Tracer("security-group-service").Start(ctx, "RemoveRule")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("rule_id", ruleID.String()))
+
 	// 1. Get Rule to find GroupID
 	rule, err := s.repo.GetRuleByID(ctx, ruleID)
 	if err != nil {
@@ -160,6 +185,14 @@ func (s *SecurityGroupService) RemoveRule(ctx context.Context, ruleID uuid.UUID)
 }
 
 func (s *SecurityGroupService) AttachToInstance(ctx context.Context, instanceID, groupID uuid.UUID) error {
+	ctx, span := otel.Tracer("security-group-service").Start(ctx, "AttachToInstance")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("instance_id", instanceID.String()),
+		attribute.String("group_id", groupID.String()),
+	)
+
 	if err := s.repo.AddInstanceToGroup(ctx, instanceID, groupID); err != nil {
 		return err
 	}
@@ -174,6 +207,14 @@ func (s *SecurityGroupService) AttachToInstance(ctx context.Context, instanceID,
 }
 
 func (s *SecurityGroupService) DetachFromInstance(ctx context.Context, instanceID, groupID uuid.UUID) error {
+	ctx, span := otel.Tracer("security-group-service").Start(ctx, "DetachFromInstance")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("instance_id", instanceID.String()),
+		attribute.String("group_id", groupID.String()),
+	)
+
 	return s.repo.RemoveInstanceFromGroup(ctx, instanceID, groupID)
 }
 
