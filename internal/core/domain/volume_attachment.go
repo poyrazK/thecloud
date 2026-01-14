@@ -1,3 +1,4 @@
+// Package domain defines core business entities.
 package domain
 
 // VolumeAttachment represents a request to attach a volume to an instance.
