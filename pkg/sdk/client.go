@@ -7,6 +7,7 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
+// Client is the API client for the platform.
 type Client struct {
 	resty  *resty.Client
 	apiURL string
@@ -17,6 +18,7 @@ const (
 	errAPIError      = "api error: %s"
 )
 
+// NewClient constructs a Client with the provided API URL and key.
 func NewClient(apiURL, apiKey string) *Client {
 	client := resty.New()
 	client.SetHeader("X-API-Key", apiKey)
@@ -26,11 +28,13 @@ func NewClient(apiURL, apiKey string) *Client {
 	}
 }
 
+// Response wraps API responses returned by the platform.
 type Response[T any] struct {
 	Data  T              `json:"data"`
 	Error *ErrorResponse `json:"error,omitempty"`
 }
 
+// ErrorResponse represents an API error payload.
 type ErrorResponse struct {
 	Type    string `json:"type"`
 	Message string `json:"message"`

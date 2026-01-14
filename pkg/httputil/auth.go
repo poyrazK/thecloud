@@ -10,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// Auth enforces API key authentication and injects user context.
 func Auth(svc ports.IdentityService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		apiKey := c.GetHeader("X-API-Key")
@@ -34,6 +35,7 @@ func Auth(svc ports.IdentityService) gin.HandlerFunc {
 		c.Next()
 	}
 }
+// GetUserID returns the authenticated user ID from the request context.
 func GetUserID(c *gin.Context) uuid.UUID {
 	val, exists := c.Get("userID")
 	if !exists {
@@ -46,6 +48,7 @@ func GetUserID(c *gin.Context) uuid.UUID {
 	return userID
 }
 
+// Permission enforces RBAC checks for the provided permission.
 func Permission(rbac ports.RBACService, permission domain.Permission) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := GetUserID(c)

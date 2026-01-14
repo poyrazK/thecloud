@@ -10,6 +10,7 @@ const (
 	passwordChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+"
 )
 
+// GenerateRandomPassword returns a random password of the requested length.
 func GenerateRandomPassword(length int) (string, error) {
 	password := make([]byte, length)
 	for i := range password {

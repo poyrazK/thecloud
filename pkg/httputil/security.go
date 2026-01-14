@@ -1,8 +1,9 @@
+// Package httputil provides HTTP utilities and middleware.
 package httputil
 
 import "github.com/gin-gonic/gin"
 
-// SecurityHeadersMiddleware adds common security headers to responses
+// SecurityHeadersMiddleware adds common security headers to responses.
 func SecurityHeadersMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("X-Content-Type-Options", "nosniff")

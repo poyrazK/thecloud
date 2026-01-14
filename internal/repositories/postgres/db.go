@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -24,6 +25,7 @@ type DualDB struct {
 	replica DB
 }
 
+// NewDualDB creates a DualDB that routes reads to the replica when provided.
 func NewDualDB(primary, replica DB) *DualDB {
 	if replica == nil {
 		replica = primary

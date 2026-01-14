@@ -13,6 +13,7 @@ type redisTaskQueue struct {
 	client *redis.Client
 }
 
+// NewRedisTaskQueue creates a Redis-backed task queue.
 func NewRedisTaskQueue(client *redis.Client) *redisTaskQueue {
 	return &redisTaskQueue{client: client}
 }
