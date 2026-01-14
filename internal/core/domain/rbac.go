@@ -4,6 +4,8 @@ import (
 	"github.com/google/uuid"
 )
 
+// Permission represents a specific authorization grant string.
+// Format: "resource:action" (e.g. "instance:launch")
 type Permission string
 
 const (
@@ -107,6 +109,7 @@ const (
 	PermissionFullAccess Permission = "*"
 )
 
+// Role represents a named collection of permissions.
 type Role struct {
 	ID          uuid.UUID    `json:"id"`
 	Name        string       `json:"name"`
