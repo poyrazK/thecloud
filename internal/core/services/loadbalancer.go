@@ -1,3 +1,4 @@
+// Package services implements core business workflows.
 package services
 
 import (
@@ -11,6 +12,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// LBService manages load balancers and target registration.
 type LBService struct {
 	lbRepo       ports.LBRepository
 	vpcRepo      ports.VpcRepository
@@ -18,6 +20,7 @@ type LBService struct {
 	auditSvc     ports.AuditService
 }
 
+// NewLBService constructs an LBService with its dependencies.
 func NewLBService(lbRepo ports.LBRepository, vpcRepo ports.VpcRepository, instanceRepo ports.InstanceRepository, auditSvc ports.AuditService) *LBService {
 	return &LBService{
 		lbRepo:       lbRepo,

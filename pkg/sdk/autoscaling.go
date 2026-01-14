@@ -1,3 +1,4 @@
+// Package sdk provides the official Go SDK for the platform.
 package sdk
 
 import (
@@ -5,6 +6,7 @@ import (
 	"time"
 )
 
+// ScalingGroup describes an autoscaling group.
 type ScalingGroup struct {
 	ID             string    `json:"id"`
 	Name           string    `json:"name"`
@@ -20,6 +22,7 @@ type ScalingGroup struct {
 	CreatedAt      time.Time `json:"created_at"`
 }
 
+// CreateScalingGroupRequest defines parameters for creating a scaling group.
 type CreateScalingGroupRequest struct {
 	Name           string  `json:"name"`
 	VpcID          string  `json:"vpc_id"`
@@ -88,6 +91,7 @@ func (c *Client) DeleteScalingGroup(id string) error {
 	return nil
 }
 
+// CreatePolicyRequest defines parameters for creating a scaling policy.
 type CreatePolicyRequest struct {
 	Name        string  `json:"name"`
 	MetricType  string  `json:"metric_type"`

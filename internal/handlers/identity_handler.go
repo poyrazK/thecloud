@@ -1,3 +1,4 @@
+// Package httphandlers provides HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -9,14 +10,17 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// IdentityHandler handles API key management endpoints.
 type IdentityHandler struct {
 	svc ports.IdentityService
 }
 
+// NewIdentityHandler constructs an IdentityHandler.
 func NewIdentityHandler(svc ports.IdentityService) *IdentityHandler {
 	return &IdentityHandler{svc: svc}
 }
 
+// CreateKeyRequest is the payload for API key creation.
 type CreateKeyRequest struct {
 	Name string `json:"name" binding:"required"`
 }

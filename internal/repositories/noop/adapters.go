@@ -1,3 +1,4 @@
+// Package noop provides no-op infrastructure adapters for testing and local runs.
 package noop
 
 import (
@@ -10,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// NoopInstanceRepository is a no-op instance repository.
 type NoopInstanceRepository struct{}
 
 func (r *NoopInstanceRepository) Create(ctx context.Context, i *domain.Instance) error { return nil }
@@ -34,6 +36,7 @@ func (r *NoopInstanceRepository) ListByUserID(ctx context.Context, userID uuid.U
 	return []*domain.Instance{}, nil
 }
 
+// NoopVpcRepository is a no-op VPC repository.
 type NoopVpcRepository struct{}
 
 func (r *NoopVpcRepository) Create(ctx context.Context, v *domain.VPC) error { return nil }
@@ -51,6 +54,7 @@ func (r *NoopVpcRepository) ListByUserID(ctx context.Context, userID uuid.UUID) 
 	return []*domain.VPC{}, nil
 }
 
+// NoopSubnetRepository is a no-op subnet repository.
 type NoopSubnetRepository struct{}
 
 func (r *NoopSubnetRepository) Create(ctx context.Context, s *domain.Subnet) error { return nil }
@@ -73,6 +77,7 @@ func (r *NoopSubnetRepository) ListByVPC(ctx context.Context, vpcID uuid.UUID) (
 }
 func (r *NoopSubnetRepository) Delete(ctx context.Context, id uuid.UUID) error { return nil }
 
+// NoopVolumeRepository is a no-op volume repository.
 type NoopVolumeRepository struct{}
 
 func (r *NoopVolumeRepository) Create(ctx context.Context, v *domain.Volume) error { return nil }
@@ -94,10 +99,12 @@ func (r *NoopVolumeRepository) ListByInstanceID(ctx context.Context, instanceID 
 func (r *NoopVolumeRepository) Update(ctx context.Context, v *domain.Volume) error { return nil }
 func (r *NoopVolumeRepository) Delete(ctx context.Context, id uuid.UUID) error     { return nil }
 
+// NewNoopComputeBackend returns a no-op compute backend.
 func NewNoopComputeBackend() ports.ComputeBackend {
 	return &NoopComputeBackend{}
 }
 
+// NoopComputeBackend is a no-op compute backend implementation.
 type NoopComputeBackend struct{}
 
 func (c *NoopComputeBackend) CreateInstance(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
@@ -140,6 +147,7 @@ func (c *NoopComputeBackend) DetachVolume(ctx context.Context, id string, volume
 func (c *NoopComputeBackend) Ping(ctx context.Context) error { return nil }
 func (c *NoopComputeBackend) Type() string                   { return "noop" }
 
+// NoopEventService is a no-op event service.
 type NoopEventService struct{}
 
 func (e *NoopEventService) RecordEvent(ctx context.Context, eventType, resourceID, resourceType string, data map[string]interface{}) error {
@@ -149,6 +157,7 @@ func (e *NoopEventService) ListEvents(ctx context.Context, limit int) ([]*domain
 	return []*domain.Event{}, nil
 }
 
+// NoopAuditService is a no-op audit service.
 type NoopAuditService struct{}
 
 func (a *NoopAuditService) Log(ctx context.Context, userID uuid.UUID, action, resourceType, resourceID string, metadata map[string]interface{}) error {
@@ -158,6 +167,7 @@ func (a *NoopAuditService) ListLogs(ctx context.Context, userID uuid.UUID, limit
 	return []*domain.AuditLog{}, nil
 }
 
+// NoopDatabaseRepository is a no-op database repository.
 type NoopDatabaseRepository struct{}
 
 func (r *NoopDatabaseRepository) Create(ctx context.Context, db *domain.Database) error { return nil }
@@ -170,6 +180,7 @@ func (r *NoopDatabaseRepository) List(ctx context.Context) ([]*domain.Database, 
 func (r *NoopDatabaseRepository) Update(ctx context.Context, db *domain.Database) error { return nil }
 func (r *NoopDatabaseRepository) Delete(ctx context.Context, id uuid.UUID) error        { return nil }
 
+// NoopCacheRepository is a no-op cache repository.
 type NoopCacheRepository struct{}
 
 func (r *NoopCacheRepository) Create(ctx context.Context, cache *domain.Cache) error { return nil }
@@ -185,6 +196,7 @@ func (r *NoopCacheRepository) List(ctx context.Context, userID uuid.UUID) ([]*do
 func (r *NoopCacheRepository) Update(ctx context.Context, cache *domain.Cache) error { return nil }
 func (r *NoopCacheRepository) Delete(ctx context.Context, id uuid.UUID) error        { return nil }
 
+// NoopStorageRepository is a no-op storage repository.
 type NoopStorageRepository struct{}
 
 func (r *NoopStorageRepository) SaveMeta(ctx context.Context, obj *domain.Object) error { return nil }
@@ -196,6 +208,7 @@ func (r *NoopStorageRepository) List(ctx context.Context, bucket string) ([]*dom
 }
 func (r *NoopStorageRepository) SoftDelete(ctx context.Context, bucket, key string) error { return nil }
 
+// NoopFileStore is a no-op file store.
 type NoopFileStore struct{}
 
 func (r *NoopFileStore) Write(ctx context.Context, bucket, key string, reader io.Reader) (int64, error) {
@@ -206,6 +219,7 @@ func (r *NoopFileStore) Read(ctx context.Context, bucket, key string) (io.ReadCl
 }
 func (r *NoopFileStore) Delete(ctx context.Context, bucket, key string) error { return nil }
 
+// NoopFunctionRepository is a no-op function repository.
 type NoopFunctionRepository struct{}
 
 func (r *NoopFunctionRepository) Create(ctx context.Context, f *domain.Function) error { return nil }
@@ -226,6 +240,7 @@ func (r *NoopFunctionRepository) GetInvocations(ctx context.Context, functionID 
 	return []*domain.Invocation{}, nil
 }
 
+// NoopUserRepository is a no-op user repository.
 type NoopUserRepository struct{}
 
 func (r *NoopUserRepository) Create(ctx context.Context, user *domain.User) error { return nil }
@@ -240,6 +255,7 @@ func (r *NoopUserRepository) List(ctx context.Context) ([]*domain.User, error) {
 	return []*domain.User{}, nil
 }
 
+// NoopIdentityService is a no-op identity service.
 type NoopIdentityService struct{}
 
 func (s *NoopIdentityService) CreateKey(ctx context.Context, userID uuid.UUID, name string) (*domain.APIKey, error) {
@@ -258,6 +274,7 @@ func (s *NoopIdentityService) RotateKey(ctx context.Context, userID uuid.UUID, i
 	return &domain.APIKey{ID: id, UserID: userID, Key: "rotated-key"}, nil
 }
 
+// NoopIdentityRepository is a no-op identity repository.
 type NoopIdentityRepository struct{}
 
 func (r *NoopIdentityRepository) CreateAPIKey(ctx context.Context, apiKey *domain.APIKey) error {
@@ -274,10 +291,12 @@ func (r *NoopIdentityRepository) ListAPIKeysByUserID(ctx context.Context, userID
 }
 func (r *NoopIdentityRepository) DeleteAPIKey(ctx context.Context, id uuid.UUID) error { return nil }
 
+// NewNoopStorageBackend returns a no-op storage backend.
 func NewNoopStorageBackend() ports.StorageBackend {
 	return &NoopStorageBackend{}
 }
 
+// NoopStorageBackend is a no-op storage backend implementation.
 type NoopStorageBackend struct{}
 
 func (b *NoopStorageBackend) CreateVolume(ctx context.Context, name string, sizeGB int) (string, error) {

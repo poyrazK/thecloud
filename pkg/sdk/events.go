@@ -1,3 +1,4 @@
+// Package sdk provides the official Go SDK for the platform.
 package sdk
 
 import (
@@ -7,6 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// Event represents an audit/event stream entry.
 type Event struct {
 	ID           uuid.UUID       `json:"id"`
 	Action       string          `json:"action"`

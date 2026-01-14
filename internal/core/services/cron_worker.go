@@ -1,3 +1,4 @@
+// Package services implements core business workflows.
 package services
 
 import (
@@ -14,12 +15,14 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
+// CronWorker executes scheduled jobs and records run results.
 type CronWorker struct {
 	repo   ports.CronRepository
 	parser cron.Parser
 	client *http.Client
 }
 
+// NewCronWorker constructs a CronWorker with default scheduling configuration.
 func NewCronWorker(repo ports.CronRepository) *CronWorker {
 	return &CronWorker{
 		repo:   repo,

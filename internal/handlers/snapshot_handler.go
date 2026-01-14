@@ -1,3 +1,4 @@
+// Package httphandlers provides HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -9,19 +10,23 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// SnapshotHandler handles snapshot HTTP endpoints.
 type SnapshotHandler struct {
 	svc ports.SnapshotService
 }
 
+// NewSnapshotHandler constructs a SnapshotHandler.
 func NewSnapshotHandler(svc ports.SnapshotService) *SnapshotHandler {
 	return &SnapshotHandler{svc: svc}
 }
 
+// CreateSnapshotRequest is the payload for creating a snapshot.
 type CreateSnapshotRequest struct {
 	VolumeID    uuid.UUID `json:"volume_id" binding:"required"`
 	Description string    `json:"description"`
 }
 
+// RestoreSnapshotRequest is the payload for restoring a snapshot.
 type RestoreSnapshotRequest struct {
 	NewVolumeName string `json:"new_volume_name" binding:"required,min=3,max=64"`
 }

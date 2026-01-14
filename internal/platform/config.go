@@ -7,6 +7,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// Config stores application configuration loaded from environment variables.
 type Config struct {
 	Port                 string
 	DatabaseURL          string
@@ -27,6 +28,7 @@ type Config struct {
 	LvmVgName            string
 }
 
+// NewConfig loads configuration from the environment with defaults.
 func NewConfig() (*Config, error) {
 	_ = godotenv.Load() // Ignore error if .env doesn't exist
 

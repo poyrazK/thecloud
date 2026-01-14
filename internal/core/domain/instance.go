@@ -1,3 +1,4 @@
+// Package domain defines core business entities.
 package domain
 
 import (
@@ -82,6 +83,7 @@ type InstanceStats struct {
 	MemoryPercentage float64 `json:"memory_percentage"`
 }
 
+// RawDockerStats mirrors Docker's stats payload for CPU/memory calculations.
 type RawDockerStats struct {
 	CPUStats struct {
 		CPUUsage struct {

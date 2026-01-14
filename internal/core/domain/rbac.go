@@ -1,3 +1,4 @@
+// Package domain defines core business entities.
 package domain
 
 import (
@@ -8,6 +9,7 @@ import (
 // Format: "resource:action" (e.g. "instance:launch")
 type Permission string
 
+// Permissions define coarse-grained access control for resources.
 const (
 	// Compute Permissions
 	PermissionInstanceLaunch    Permission = "instance:launch"

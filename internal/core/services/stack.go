@@ -1,3 +1,4 @@
+// Package services implements core business workflows.
 package services
 
 import (
@@ -23,6 +24,7 @@ type stackService struct {
 	logger      *slog.Logger
 }
 
+// NewStackService constructs a StackService with its dependencies.
 func NewStackService(
 	repo ports.StackRepository,
 	instanceSvc ports.InstanceService,
@@ -41,10 +43,12 @@ func NewStackService(
 	}
 }
 
+// Template represents a stack template with logical resources.
 type Template struct {
 	Resources map[string]ResourceDefinition `yaml:"Resources"`
 }
 
+// ResourceDefinition describes a single stack resource.
 type ResourceDefinition struct {
 	Type       string                 `yaml:"Type"`
 	Properties map[string]interface{} `yaml:"Properties"`

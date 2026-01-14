@@ -1,3 +1,4 @@
+// Package httphandlers provides HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -10,20 +11,24 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// SecurityGroupHandler handles security group HTTP endpoints.
 type SecurityGroupHandler struct {
 	svc ports.SecurityGroupService
 }
 
+// NewSecurityGroupHandler constructs a SecurityGroupHandler.
 func NewSecurityGroupHandler(svc ports.SecurityGroupService) *SecurityGroupHandler {
 	return &SecurityGroupHandler{svc: svc}
 }
 
+// CreateSecurityGroupRequest is the payload for creating a security group.
 type CreateSecurityGroupRequest struct {
 	VPCID       uuid.UUID `json:"vpc_id" binding:"required"`
 	Name        string    `json:"name" binding:"required"`
 	Description string    `json:"description"`
 }
 
+// AttachDetachSGRequest is the payload for attaching or detaching a security group.
 type AttachDetachSGRequest struct {
 	InstanceID uuid.UUID `json:"instance_id" binding:"required"`
 	GroupID    uuid.UUID `json:"group_id" binding:"required"`
@@ -241,6 +246,7 @@ func (h *SecurityGroupHandler) RemoveRule(c *gin.Context) {
 
 // Detach detaches a security group from an instance
 // @Summary Detach security group
+// AttachDetachSGRequest is the payload for attaching or detaching a security group.
 // @Description Removes a security group association from a compute instance
 // @Tags security-groups
 // @Accept json

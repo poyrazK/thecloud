@@ -1,3 +1,4 @@
+// Package httphandlers provides HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -19,19 +20,23 @@ const (
 	maxImageLength = 256
 )
 
+// InstanceHandler handles instance lifecycle HTTP endpoints.
 type InstanceHandler struct {
 	svc ports.InstanceService
 }
 
+// NewInstanceHandler constructs an InstanceHandler.
 func NewInstanceHandler(svc ports.InstanceService) *InstanceHandler {
 	return &InstanceHandler{svc: svc}
 }
 
+// VolumeAttachmentRequest is the payload for attaching a volume.
 type VolumeAttachmentRequest struct {
 	VolumeID  string `json:"volume_id"`
 	MountPath string `json:"mount_path"`
 }
 
+// LaunchRequest is the payload for launching a new instance.
 type LaunchRequest struct {
 	Name     string                    `json:"name" binding:"required"`
 	Image    string                    `json:"image" binding:"required"`

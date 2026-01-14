@@ -1,3 +1,4 @@
+// Package httphandlers provides HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -10,14 +11,17 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// CacheHandler handles cache HTTP endpoints.
 type CacheHandler struct {
 	svc ports.CacheService
 }
 
+// NewCacheHandler constructs a CacheHandler.
 func NewCacheHandler(svc ports.CacheService) *CacheHandler {
 	return &CacheHandler{svc: svc}
 }
 
+// CreateCacheRequest is the payload for cache creation.
 type CreateCacheRequest struct {
 	Name     string     `json:"name" binding:"required"`
 	Version  string     `json:"version" binding:"required"`

@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -9,10 +10,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// FunctionRepository provides PostgreSQL-backed function persistence.
 type FunctionRepository struct {
 	db DB
 }
 
+// NewFunctionRepository creates a FunctionRepository using the provided DB.
 func NewFunctionRepository(db DB) *FunctionRepository {
 	return &FunctionRepository{db: db}
 }

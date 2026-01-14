@@ -1,7 +1,9 @@
+// Package sdk provides the official Go SDK for the platform.
 package sdk
 
 import "fmt"
 
+// CreateKey requests a new API key for the given name.
 func (c *Client) CreateKey(name string) (string, error) {
 	body := map[string]string{"name": name}
 	var res Response[struct {

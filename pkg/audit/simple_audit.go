@@ -10,11 +10,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
-// SimpleAuditLogger logs audit events to standard structured logger
+// SimpleAuditLogger logs audit events to a structured logger.
 type SimpleAuditLogger struct {
 	logger *slog.Logger
 }
 
+// NewSimpleAuditLogger constructs a SimpleAuditLogger.
 func NewSimpleAuditLogger(logger *slog.Logger) ports.AuditLogger {
 	return &SimpleAuditLogger{logger: logger}
 }

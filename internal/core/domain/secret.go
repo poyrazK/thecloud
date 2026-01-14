@@ -1,3 +1,4 @@
+// Package domain defines core business entities.
 package domain
 
 import (

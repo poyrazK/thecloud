@@ -1,3 +1,4 @@
+// Package main provides the cloud CLI entrypoint.
 package main
 
 import (

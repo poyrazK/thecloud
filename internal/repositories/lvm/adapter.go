@@ -24,11 +24,13 @@ func (r *realExecer) Run(name string, args ...string) ([]byte, error) {
 	return cmd.CombinedOutput()
 }
 
+// LvmAdapter implements storage backend operations using LVM.
 type LvmAdapter struct {
 	vgName string
 	execer execer
 }
 
+// NewLvmAdapter constructs an LvmAdapter for the given volume group.
 func NewLvmAdapter(vgName string) *LvmAdapter {
 	return &LvmAdapter{
 		vgName: vgName,
@@ -40,7 +42,7 @@ func (a *LvmAdapter) CreateVolume(ctx context.Context, name string, sizeGB int) 
 	if a.execer == nil {
 		a.execer = &realExecer{ctx: ctx}
 	}
-	
+
 	out, err := a.execer.Run("lvcreate", "-L", fmt.Sprintf("%dG", sizeGB), "-n", name, a.vgName)
 	if err != nil {
 		return "", fmt.Errorf("failed to create logical volume: %v, output: %s", err, string(out))
@@ -52,7 +54,7 @@ func (a *LvmAdapter) DeleteVolume(ctx context.Context, name string) error {
 	if a.execer == nil {
 		a.execer = &realExecer{ctx: ctx}
 	}
-	
+
 	out, err := a.execer.Run("lvremove", "-f", fmt.Sprintf("%s/%s", a.vgName, name))
 	if err != nil {
 		return fmt.Errorf("failed to remove logical volume: %v, output: %s", err, string(out))
@@ -76,7 +78,7 @@ func (a *LvmAdapter) CreateSnapshot(ctx context.Context, volumeName, snapshotNam
 	if a.execer == nil {
 		a.execer = &realExecer{ctx: ctx}
 	}
-	
+
 	out, err := a.execer.Run("lvcreate", "-s", "-n", snapshotName, "-L", "1G", fmt.Sprintf("/dev/%s/%s", a.vgName, volumeName))
 	if err != nil {
 		return fmt.Errorf("failed to create lvm snapshot: %v, output: %s", err, string(out))
@@ -88,7 +90,7 @@ func (a *LvmAdapter) RestoreSnapshot(ctx context.Context, volumeName, snapshotNa
 	if a.execer == nil {
 		a.execer = &realExecer{ctx: ctx}
 	}
-	
+
 	out, err := a.execer.Run("lvconvert", "--merge", fmt.Sprintf("%s/%s", a.vgName, snapshotName))
 	if err != nil {
 		return fmt.Errorf("failed to restore lvm snapshot: %v, output: %s", err, string(out))
@@ -100,7 +102,7 @@ func (a *LvmAdapter) DeleteSnapshot(ctx context.Context, snapshotName string) er
 	if a.execer == nil {
 		a.execer = &realExecer{ctx: ctx}
 	}
-	
+
 	out, err := a.execer.Run("lvremove", "-f", fmt.Sprintf("%s/%s", a.vgName, snapshotName))
 	if err != nil {
 		return fmt.Errorf("failed to remove lvm snapshot: %v, output: %s", err, string(out))
@@ -112,7 +114,7 @@ func (a *LvmAdapter) Ping(ctx context.Context) error {
 	if a.execer == nil {
 		a.execer = &realExecer{ctx: ctx}
 	}
-	
+
 	_, err := a.execer.Run("vgs", a.vgName)
 	return err
 }

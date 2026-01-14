@@ -1,3 +1,4 @@
+// Package docker provides Docker-based infrastructure adapters.
 package docker
 
 import (
@@ -20,16 +21,19 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// NginxImage is the container image used for load balancer proxies.
 const (
 	NginxImage = "nginx:alpine"
 )
 
+// LBProxyAdapter deploys Nginx-based load balancer proxies using Docker.
 type LBProxyAdapter struct {
 	cli          dockerClient
 	instanceRepo ports.InstanceRepository
 	vpcRepo      ports.VpcRepository
 }
 
+// NewLBProxyAdapter constructs an LBProxyAdapter using the Docker client.
 func NewLBProxyAdapter(instanceRepo ports.InstanceRepository, vpcRepo ports.VpcRepository) (*LBProxyAdapter, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {

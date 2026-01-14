@@ -1,3 +1,4 @@
+// Package platform provides infrastructure initialization helpers.
 package platform
 
 import (

@@ -1,3 +1,4 @@
+// Package httphandlers provides HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -10,14 +11,17 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// SecretHandler handles secret HTTP endpoints.
 type SecretHandler struct {
 	svc ports.SecretService
 }
 
+// NewSecretHandler constructs a SecretHandler.
 func NewSecretHandler(svc ports.SecretService) *SecretHandler {
 	return &SecretHandler{svc: svc}
 }
 
+// CreateSecretRequest is the payload for secret creation.
 type CreateSecretRequest struct {
 	Name        string `json:"name" binding:"required"`
 	Value       string `json:"value" binding:"required"`

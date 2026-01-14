@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -12,10 +13,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// DatabaseRepository provides PostgreSQL-backed database persistence.
 type DatabaseRepository struct {
 	db DB
 }
 
+// NewDatabaseRepository creates a DatabaseRepository using the provided DB.
 func NewDatabaseRepository(db DB) *DatabaseRepository {
 	return &DatabaseRepository{db: db}
 }

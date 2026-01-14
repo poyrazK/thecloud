@@ -1,4 +1,4 @@
-.PHONY: run test test-coverage build migrate clean stop swagger reset clean-docker
+.PHONY: run test test-coverage doccheck build migrate clean stop swagger reset clean-docker
 
 # Configuration
 PROJECT_PREFIX = cloud-
@@ -41,6 +41,9 @@ test-coverage:
 	go test -coverprofile=coverage.out ./...
 	go tool cover -func=coverage.out
 	@rm coverage.out
+
+doccheck:
+	go run ./cmd/doccheck --root .
 
 swagger:
 	@$(HOME)/go/bin/swag init -d cmd/api,internal/handlers -g main.go -o docs/swagger --parseDependency --parseInternal

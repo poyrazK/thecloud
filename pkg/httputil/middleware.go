@@ -1,3 +1,4 @@
+// Package httputil provides HTTP utilities and middleware.
 package httputil
 
 import (
@@ -11,6 +12,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/platform"
 )
 
+// Metrics records HTTP request counts and latencies.
 func Metrics() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -30,8 +32,10 @@ func Metrics() gin.HandlerFunc {
 	}
 }
 
+// HeaderXRequestID is the header used to track request IDs.
 const HeaderXRequestID = "X-Request-ID"
 
+// RequestID injects a request ID into the context and response headers.
 func RequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		requestID := c.GetHeader(HeaderXRequestID)
@@ -44,6 +48,7 @@ func RequestID() gin.HandlerFunc {
 	}
 }
 
+// Logger logs request details using the provided logger.
 func Logger(logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -66,6 +71,7 @@ func Logger(logger *slog.Logger) gin.HandlerFunc {
 	}
 }
 
+// CORS enables permissive CORS headers for development.
 func CORS() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*") // For development, allow all. Could restrict to localhost:3000

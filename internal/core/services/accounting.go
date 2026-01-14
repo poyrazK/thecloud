@@ -1,3 +1,4 @@
+// Package services implements core business workflows.
 package services
 
 import (
@@ -18,6 +19,7 @@ type accountingService struct {
 	// In a real system, we'd have price configuration here
 }
 
+// NewAccountingService constructs an AccountingService with its dependencies.
 func NewAccountingService(repo ports.AccountingRepository, instanceRepo ports.InstanceRepository, logger *slog.Logger) ports.AccountingService {
 	return &accountingService{
 		repo:         repo,

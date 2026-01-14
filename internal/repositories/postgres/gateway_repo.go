@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -9,10 +10,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// PostgresGatewayRepository provides PostgreSQL-backed gateway route persistence.
 type PostgresGatewayRepository struct {
 	db DB
 }
 
+// NewPostgresGatewayRepository creates a gateway repository using the provided DB.
 func NewPostgresGatewayRepository(db DB) ports.GatewayRepository {
 	return &PostgresGatewayRepository{db: db}
 }

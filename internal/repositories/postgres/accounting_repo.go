@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -15,6 +16,7 @@ type accountingRepository struct {
 	db DB
 }
 
+// NewAccountingRepository returns a PostgreSQL-backed accounting repository.
 func NewAccountingRepository(db DB) ports.AccountingRepository {
 	return &accountingRepository{db: db}
 }

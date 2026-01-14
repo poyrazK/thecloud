@@ -1,9 +1,11 @@
+// Package sdk provides the official Go SDK for the platform.
 package sdk
 
 import (
 	"fmt"
 )
 
+// Topic describes a notification topic.
 type Topic struct {
 	ID        string `json:"id"`
 	UserID    string `json:"user_id"`
@@ -13,6 +15,7 @@ type Topic struct {
 	UpdatedAt string `json:"updated_at"`
 }
 
+// Subscription describes a topic subscription.
 type Subscription struct {
 	ID        string `json:"id"`
 	UserID    string `json:"user_id"`

@@ -1,3 +1,4 @@
+// Package sdk provides the official Go SDK for the platform.
 package sdk
 
 import (
@@ -6,6 +7,7 @@ import (
 	"time"
 )
 
+// Object describes an object stored in a bucket.
 type Object struct {
 	ID          string    `json:"id"`
 	ARN         string    `json:"arn"`

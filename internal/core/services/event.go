@@ -1,3 +1,4 @@
+// Package services implements core business workflows.
 package services
 
 import (
@@ -13,12 +14,14 @@ import (
 	"github.com/poyrazk/thecloud/internal/handlers/ws"
 )
 
+// EventService records events and emits websocket notifications.
 type EventService struct {
 	repo   ports.EventRepository
 	hub    *ws.Hub
 	logger *slog.Logger
 }
 
+// NewEventService constructs an EventService with its dependencies.
 func NewEventService(repo ports.EventRepository, hub *ws.Hub, logger *slog.Logger) *EventService {
 	return &EventService{
 		repo:   repo,

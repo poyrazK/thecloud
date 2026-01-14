@@ -1,6 +1,7 @@
 //go:build !test
 // +build !test
 
+// Package main provides the API server entrypoint.
 package main
 
 import (

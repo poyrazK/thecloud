@@ -1,3 +1,4 @@
+// Package services implements core business workflows.
 package services
 
 import (
@@ -15,6 +16,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/platform"
 )
 
+// AutoScalingWorker periodically evaluates scaling groups and applies changes.
 type AutoScalingWorker struct {
 	repo         ports.AutoScalingRepository
 	instanceSvc  ports.InstanceService
@@ -30,6 +32,7 @@ const (
 	failureBackoffMinutes = 5
 )
 
+// NewAutoScalingWorker constructs an AutoScalingWorker with its dependencies.
 func NewAutoScalingWorker(
 	repo ports.AutoScalingRepository,
 	instanceSvc ports.InstanceService,

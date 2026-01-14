@@ -1,3 +1,4 @@
+// Package services implements core business workflows.
 package services
 
 import (
@@ -20,6 +21,7 @@ type cachedIdentityService struct {
 	ttl    time.Duration
 }
 
+// NewCachedIdentityService wraps an IdentityService with a redis-backed cache.
 func NewCachedIdentityService(base ports.IdentityService, redis *redis.Client, logger *slog.Logger) ports.IdentityService {
 	return &cachedIdentityService{
 		base:   base,

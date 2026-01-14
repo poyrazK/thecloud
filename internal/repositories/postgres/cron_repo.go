@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -9,10 +10,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// PostgresCronRepository provides PostgreSQL-backed cron job persistence.
 type PostgresCronRepository struct {
 	db DB
 }
 
+// NewPostgresCronRepository creates a cron repository using the provided DB.
 func NewPostgresCronRepository(db DB) ports.CronRepository {
 	return &PostgresCronRepository{db: db}
 }

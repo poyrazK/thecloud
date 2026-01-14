@@ -1,3 +1,4 @@
+// Package httphandlers provides HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -11,10 +12,12 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// StorageHandler handles object storage HTTP endpoints.
 type StorageHandler struct {
 	svc ports.StorageService
 }
 
+// NewStorageHandler constructs a StorageHandler.
 func NewStorageHandler(svc ports.StorageService) *StorageHandler {
 	return &StorageHandler{
 		svc: svc,

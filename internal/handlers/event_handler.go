@@ -1,3 +1,4 @@
+// Package httphandlers provides HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -9,10 +10,12 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// EventHandler handles event listing endpoints.
 type EventHandler struct {
 	svc ports.EventService
 }
 
+// NewEventHandler constructs an EventHandler.
 func NewEventHandler(svc ports.EventService) *EventHandler {
 	return &EventHandler{svc: svc}
 }

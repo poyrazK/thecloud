@@ -1,3 +1,4 @@
+// Package services implements core business workflows.
 package services
 
 import (
@@ -20,6 +21,7 @@ type cachedRBACService struct {
 	ttl    time.Duration
 }
 
+// NewCachedRBACService wraps an RBACService with a redis-backed cache.
 func NewCachedRBACService(rbac ports.RBACService, cache *redis.Client, logger *slog.Logger) ports.RBACService {
 	return &cachedRBACService{
 		rbac:   rbac,

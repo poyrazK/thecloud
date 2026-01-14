@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -9,10 +10,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// PostgresNotifyRepository provides PostgreSQL-backed notify persistence.
 type PostgresNotifyRepository struct {
 	db DB
 }
 
+// NewPostgresNotifyRepository creates a notify repository using the provided DB.
 func NewPostgresNotifyRepository(db DB) ports.NotifyRepository {
 	return &PostgresNotifyRepository{db: db}
 }

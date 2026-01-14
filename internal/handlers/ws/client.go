@@ -1,3 +1,4 @@
+// Package ws provides WebSocket handler components.
 package ws
 
 import (

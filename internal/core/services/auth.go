@@ -23,6 +23,7 @@ const (
 	lockoutDuration   = 15 * time.Minute
 )
 
+// AuthService handles registration and authentication workflows.
 type AuthService struct {
 	userRepo       ports.UserRepository
 	apiKeySvc      ports.IdentityService
@@ -32,6 +33,7 @@ type AuthService struct {
 	mu             sync.Mutex
 }
 
+// NewAuthService constructs an AuthService with its dependencies.
 func NewAuthService(userRepo ports.UserRepository, apiKeySvc ports.IdentityService, auditSvc ports.AuditService) *AuthService {
 	return &AuthService{
 		userRepo:       userRepo,

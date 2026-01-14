@@ -1,3 +1,4 @@
+// Package httphandlers provides HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -10,14 +11,17 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// DatabaseHandler handles database HTTP endpoints.
 type DatabaseHandler struct {
 	svc ports.DatabaseService
 }
 
+// NewDatabaseHandler constructs a DatabaseHandler.
 func NewDatabaseHandler(svc ports.DatabaseService) *DatabaseHandler {
 	return &DatabaseHandler{svc: svc}
 }
 
+// CreateDatabaseRequest is the payload for database creation.
 type CreateDatabaseRequest struct {
 	Name    string     `json:"name" binding:"required"`
 	Engine  string     `json:"engine" binding:"required"`

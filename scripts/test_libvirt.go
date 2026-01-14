@@ -1,3 +1,4 @@
+// Package main provides a libvirt connectivity test harness.
 package main
 
 import (

@@ -1,3 +1,4 @@
+// Package sdk provides the official Go SDK for the platform.
 package sdk
 
 import (
@@ -5,6 +6,7 @@ import (
 	"time"
 )
 
+// Queue describes a message queue.
 type Queue struct {
 	ID                string    `json:"id"`
 	Name              string    `json:"name"`
@@ -17,6 +19,7 @@ type Queue struct {
 	UpdatedAt         time.Time `json:"updated_at"`
 }
 
+// Message represents a queue message.
 type Message struct {
 	ID            string    `json:"id"`
 	QueueID       string    `json:"queue_id"`

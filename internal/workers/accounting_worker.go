@@ -1,3 +1,4 @@
+// Package workers provides background worker implementations.
 package workers
 
 import (
@@ -9,12 +10,14 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// AccountingWorker periodically runs usage accounting jobs.
 type AccountingWorker struct {
 	accountingSvc ports.AccountingService
 	logger        *slog.Logger
 	interval      time.Duration
 }
 
+// NewAccountingWorker constructs an AccountingWorker with the default interval.
 func NewAccountingWorker(accountingSvc ports.AccountingService, logger *slog.Logger) *AccountingWorker {
 	return &AccountingWorker{
 		accountingSvc: accountingSvc,

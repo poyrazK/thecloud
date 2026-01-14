@@ -1,3 +1,4 @@
+// Package httphandlers provides HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -11,10 +12,12 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// GatewayHandler handles API gateway HTTP endpoints.
 type GatewayHandler struct {
 	svc ports.GatewayService
 }
 
+// NewGatewayHandler constructs a GatewayHandler.
 func NewGatewayHandler(svc ports.GatewayService) *GatewayHandler {
 	return &GatewayHandler{svc: svc}
 }

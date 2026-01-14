@@ -1,3 +1,4 @@
+// Package services implements core business workflows.
 package services
 
 import (
@@ -14,12 +15,14 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// LBWorker reconciles load balancer state and health checks.
 type LBWorker struct {
 	lbRepo       ports.LBRepository
 	instanceRepo ports.InstanceRepository
 	proxyAdapter ports.LBProxyAdapter
 }
 
+// NewLBWorker constructs an LBWorker with its dependencies.
 func NewLBWorker(lbRepo ports.LBRepository, instanceRepo ports.InstanceRepository, proxyAdapter ports.LBProxyAdapter) *LBWorker {
 	return &LBWorker{
 		lbRepo:       lbRepo,

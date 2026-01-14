@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -10,10 +11,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// SecurityGroupRepository provides PostgreSQL-backed security group persistence.
 type SecurityGroupRepository struct {
 	db DB
 }
 
+// NewSecurityGroupRepository creates a SecurityGroupRepository using the provided DB.
 func NewSecurityGroupRepository(db DB) *SecurityGroupRepository {
 	return &SecurityGroupRepository{db: db}
 }

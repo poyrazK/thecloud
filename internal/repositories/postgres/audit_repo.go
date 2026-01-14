@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -9,10 +10,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// AuditRepository provides PostgreSQL-backed audit log storage.
 type AuditRepository struct {
 	db DB
 }
 
+// NewAuditRepository creates an AuditRepository using the provided DB.
 func NewAuditRepository(db DB) *AuditRepository {
 	return &AuditRepository{db: db}
 }

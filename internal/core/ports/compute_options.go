@@ -1,3 +1,4 @@
+// Package ports defines service and repository interfaces.
 package ports
 
 // CreateInstanceOptions encapsulates the requirements for provisioning a new compute resource.

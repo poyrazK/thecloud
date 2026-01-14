@@ -1,3 +1,4 @@
+// Package httphandlers provides HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -7,10 +8,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// HealthHandler handles health check endpoints.
 type HealthHandler struct {
 	svc ports.HealthService
 }
 
+// NewHealthHandler constructs a HealthHandler.
 func NewHealthHandler(svc ports.HealthService) *HealthHandler {
 	return &HealthHandler{svc: svc}
 }

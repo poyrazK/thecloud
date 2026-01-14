@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -12,6 +13,7 @@ type stackRepository struct {
 	db DB
 }
 
+// NewStackRepository creates a stack repository using the provided DB.
 func NewStackRepository(db DB) *stackRepository {
 	return &stackRepository{db: db}
 }

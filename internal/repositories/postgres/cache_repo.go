@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -9,10 +10,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// CacheRepository provides PostgreSQL-backed cache persistence.
 type CacheRepository struct {
 	db DB
 }
 
+// NewCacheRepository creates a CacheRepository using the provided DB.
 func NewCacheRepository(db DB) *CacheRepository {
 	return &CacheRepository{db: db}
 }

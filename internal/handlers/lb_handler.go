@@ -1,3 +1,4 @@
+// Package httphandlers provides HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -10,14 +11,17 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// LBHandler handles load balancer HTTP endpoints.
 type LBHandler struct {
 	svc ports.LBService
 }
 
+// NewLBHandler constructs an LBHandler.
 func NewLBHandler(svc ports.LBService) *LBHandler {
 	return &LBHandler{svc: svc}
 }
 
+// CreateLBRequest is the payload for load balancer creation.
 type CreateLBRequest struct {
 	Name      string `json:"name" binding:"required"`
 	VpcID     string `json:"vpc_id" binding:"required"`
@@ -25,6 +29,7 @@ type CreateLBRequest struct {
 	Algorithm string `json:"algorithm"`
 }
 
+// AddTargetRequest is the payload for adding a load balancer target.
 type AddTargetRequest struct {
 	InstanceID string `json:"instance_id" binding:"required"`
 	Port       int    `json:"port" binding:"required"`

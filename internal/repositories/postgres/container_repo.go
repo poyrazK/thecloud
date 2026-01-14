@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -9,10 +10,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// PostgresContainerRepository provides PostgreSQL-backed container persistence.
 type PostgresContainerRepository struct {
 	db DB
 }
 
+// NewPostgresContainerRepository creates a container repository using the provided DB.
 func NewPostgresContainerRepository(db DB) ports.ContainerRepository {
 	return &PostgresContainerRepository{db: db}
 }

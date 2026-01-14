@@ -1,3 +1,4 @@
+// Package services implements core business workflows.
 package services
 
 import (
@@ -13,11 +14,13 @@ import (
 	"github.com/poyrazk/thecloud/internal/platform"
 )
 
+// IdentityService manages API key lifecycle and validation.
 type IdentityService struct {
 	repo     ports.IdentityRepository
 	auditSvc ports.AuditService
 }
 
+// NewIdentityService constructs an IdentityService with its dependencies.
 func NewIdentityService(repo ports.IdentityRepository, auditSvc ports.AuditService) *IdentityService {
 	return &IdentityService{repo: repo, auditSvc: auditSvc}
 }

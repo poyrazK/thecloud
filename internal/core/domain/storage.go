@@ -1,3 +1,4 @@
+// Package domain defines core business entities.
 package domain
 
 import (
@@ -6,6 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// Object represents stored object metadata in the storage subsystem.
 type Object struct {
 	ID          uuid.UUID  `json:"id"`
 	UserID      uuid.UUID  `json:"user_id"`

@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -10,10 +11,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// IdentityRepository provides PostgreSQL-backed identity persistence.
 type IdentityRepository struct {
 	db DB
 }
 
+// NewIdentityRepository creates an IdentityRepository using the provided DB.
 func NewIdentityRepository(db DB) *IdentityRepository {
 	return &IdentityRepository{db: db}
 }

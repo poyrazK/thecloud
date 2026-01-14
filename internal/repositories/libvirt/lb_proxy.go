@@ -15,10 +15,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// LBProxyAdapter manages host-level Nginx load balancer proxies.
 type LBProxyAdapter struct {
 	compute ports.ComputeBackend
 }
 
+// NewLBProxyAdapter constructs an LBProxyAdapter for the given compute backend.
 func NewLBProxyAdapter(compute ports.ComputeBackend) *LBProxyAdapter {
 	return &LBProxyAdapter{
 		compute: compute,

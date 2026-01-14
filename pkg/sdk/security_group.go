@@ -1,3 +1,4 @@
+// Package sdk provides the official Go SDK for the platform.
 package sdk
 
 import (
@@ -5,6 +6,7 @@ import (
 	"time"
 )
 
+// SecurityGroup describes a security group resource.
 type SecurityGroup struct {
 	ID          string         `json:"id"`
 	VPCID       string         `json:"vpc_id"`
@@ -15,6 +17,7 @@ type SecurityGroup struct {
 	CreatedAt   time.Time      `json:"created_at"`
 }
 
+// SecurityRule describes an ingress or egress rule.
 type SecurityRule struct {
 	ID        string `json:"id"`
 	Direction string `json:"direction"`

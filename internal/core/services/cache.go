@@ -1,3 +1,4 @@
+// Package services implements core business workflows.
 package services
 
 import (
@@ -18,6 +19,7 @@ import (
 	"github.com/poyrazk/thecloud/pkg/util"
 )
 
+// CacheService manages cache clusters and their lifecycle.
 type CacheService struct {
 	repo     ports.CacheRepository
 	compute  ports.ComputeBackend
@@ -27,6 +29,7 @@ type CacheService struct {
 	logger   *slog.Logger
 }
 
+// NewCacheService constructs a CacheService with its dependencies.
 func NewCacheService(
 	repo ports.CacheRepository,
 	compute ports.ComputeBackend,

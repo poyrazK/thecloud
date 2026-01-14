@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -10,10 +11,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// PasswordResetRepository provides PostgreSQL-backed password reset persistence.
 type PasswordResetRepository struct {
 	db DB
 }
 
+// NewPasswordResetRepository creates a password reset repository using the provided DB.
 func NewPasswordResetRepository(db DB) ports.PasswordResetRepository {
 	return &PasswordResetRepository{db: db}
 }

@@ -1,3 +1,4 @@
+// Package sdk provides the official Go SDK for the platform.
 package sdk
 
 import (
@@ -5,6 +6,7 @@ import (
 	"time"
 )
 
+// Subnet describes a VPC subnet.
 type Subnet struct {
 	ID        string    `json:"id"`
 	VpcID     string    `json:"vpc_id"`

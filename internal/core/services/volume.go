@@ -1,3 +1,4 @@
+// Package services implements core business workflows.
 package services
 
 import (
@@ -17,6 +18,7 @@ import (
 
 const tracerName = "volume-service"
 
+// VolumeService manages block volume lifecycle and attachments.
 type VolumeService struct {
 	repo     ports.VolumeRepository
 	storage  ports.StorageBackend
@@ -25,6 +27,7 @@ type VolumeService struct {
 	logger   *slog.Logger
 }
 
+// NewVolumeService constructs a VolumeService with its dependencies.
 func NewVolumeService(repo ports.VolumeRepository, storage ports.StorageBackend, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) *VolumeService {
 	return &VolumeService{
 		repo:     repo,

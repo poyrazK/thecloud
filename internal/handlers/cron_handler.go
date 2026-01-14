@@ -1,3 +1,4 @@
+// Package httphandlers provides HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -10,10 +11,12 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// CronHandler handles scheduled job HTTP endpoints.
 type CronHandler struct {
 	svc ports.CronService
 }
 
+// NewCronHandler constructs a CronHandler.
 func NewCronHandler(svc ports.CronService) *CronHandler {
 	return &CronHandler{svc: svc}
 }

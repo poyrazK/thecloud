@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -13,6 +14,7 @@ type rbacRepository struct {
 	db DB
 }
 
+// NewRBACRepository creates an RBAC repository using the provided DB.
 func NewRBACRepository(db DB) ports.RoleRepository {
 	return &rbacRepository{db: db}
 }

@@ -1,3 +1,4 @@
+// Package sdk provides the official Go SDK for the platform.
 package sdk
 
 import (
@@ -6,6 +7,7 @@ import (
 	"time"
 )
 
+// Function describes a serverless function.
 type Function struct {
 	ID        string    `json:"id"`
 	UserID    string    `json:"user_id"`
@@ -20,6 +22,7 @@ type Function struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// Invocation represents a function invocation result.
 type Invocation struct {
 	ID         string     `json:"id"`
 	FunctionID string     `json:"function_id"`

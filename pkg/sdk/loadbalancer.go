@@ -1,11 +1,14 @@
+// Package sdk provides the official Go SDK for the platform.
 package sdk
 
 import (
 	"fmt"
 )
 
+// LBStatus represents the lifecycle state of a load balancer.
 type LBStatus string
 
+// LoadBalancer describes a load balancer resource.
 type LoadBalancer struct {
 	ID             string   `json:"id"`
 	IdempotencyKey string   `json:"idempotency_key,omitempty"`
@@ -16,6 +19,7 @@ type LoadBalancer struct {
 	Status         LBStatus `json:"status"`
 }
 
+// LBTarget describes a load balancer target.
 type LBTarget struct {
 	ID         string `json:"id"`
 	LBID       string `json:"lb_id"`

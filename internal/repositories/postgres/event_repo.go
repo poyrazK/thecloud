@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -8,10 +9,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
+// EventRepository provides PostgreSQL-backed event persistence.
 type EventRepository struct {
 	db DB
 }
 
+// NewEventRepository creates an EventRepository using the provided DB.
 func NewEventRepository(db DB) *EventRepository {
 	return &EventRepository{db: db}
 }

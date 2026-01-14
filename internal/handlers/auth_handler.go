@@ -1,4 +1,5 @@
 // Package httphandlers implements the HTTP handlers for the application.
+// Package httphandlers provides HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -10,11 +11,13 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// AuthHandler handles authentication and password reset endpoints.
 type AuthHandler struct {
 	authSvc ports.AuthService
 	pwdSvc  ports.PasswordResetService
 }
 
+// NewAuthHandler constructs an AuthHandler.
 func NewAuthHandler(authSvc ports.AuthService, pwdSvc ports.PasswordResetService) *AuthHandler {
 	return &AuthHandler{
 		authSvc: authSvc,
@@ -22,26 +25,31 @@ func NewAuthHandler(authSvc ports.AuthService, pwdSvc ports.PasswordResetService
 	}
 }
 
+// RegisterRequest is the payload for user registration.
 type RegisterRequest struct {
 	Email    string `json:"email" binding:"required,email,max=255"`
 	Password string `json:"password" binding:"required,min=8,max=72"`
 	Name     string `json:"name" binding:"required,min=2,max=100"`
 }
 
+// LoginRequest is the payload for user login.
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required,email,max=255"`
 	Password string `json:"password" binding:"required,max=72"`
 }
 
+// ForgotPasswordRequest is the payload for requesting a reset token.
 type ForgotPasswordRequest struct {
 	Email string `json:"email" binding:"required,email"`
 }
 
+// ResetPasswordRequest is the payload for completing a password reset.
 type ResetPasswordRequest struct {
 	Token       string `json:"token" binding:"required"`
 	NewPassword string `json:"new_password" binding:"required,min=8,max=72"`
 }
 
+// LoginResponse contains the authenticated user and API key.
 type LoginResponse struct {
 	User   interface{} `json:"user"`
 	APIKey string      `json:"api_key"`

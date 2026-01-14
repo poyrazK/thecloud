@@ -1,7 +1,9 @@
+// Package sdk provides the official Go SDK for the platform.
 package sdk
 
 import "time"
 
+// Secret describes a stored secret value.
 type Secret struct {
 	ID             string     `json:"id"`
 	UserID         string     `json:"user_id"`
@@ -13,6 +15,7 @@ type Secret struct {
 	LastAccessedAt *time.Time `json:"last_accessed_at,omitempty"`
 }
 
+// CreateSecretInput defines parameters for creating a secret.
 type CreateSecretInput struct {
 	Name        string `json:"name"`
 	Value       string `json:"value"`

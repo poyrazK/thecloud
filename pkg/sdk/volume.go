@@ -1,3 +1,4 @@
+// Package sdk provides the official Go SDK for the platform.
 package sdk
 
 import (
@@ -7,6 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// Volume describes a storage volume.
 type Volume struct {
 	ID         uuid.UUID  `json:"id"`
 	Name       string     `json:"name"`

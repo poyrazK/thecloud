@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -16,6 +17,7 @@ type imageRepository struct {
 	db DB
 }
 
+// NewImageRepository creates an image repository using the provided DB.
 func NewImageRepository(db DB) ports.ImageRepository {
 	return &imageRepository{db: db}
 }

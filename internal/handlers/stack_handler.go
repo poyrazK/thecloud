@@ -1,3 +1,4 @@
+// Package httphandlers provides HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -9,14 +10,17 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// StackHandler handles stack HTTP endpoints.
 type StackHandler struct {
 	svc ports.StackService
 }
 
+// NewStackHandler constructs a StackHandler.
 func NewStackHandler(svc ports.StackService) *StackHandler {
 	return &StackHandler{svc: svc}
 }
 
+// CreateStackRequest is the payload for creating a stack.
 type CreateStackRequest struct {
 	Name       string            `json:"name" binding:"required"`
 	Template   string            `json:"template" binding:"required"`

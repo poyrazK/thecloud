@@ -1,7 +1,9 @@
+// Package sdk provides the official Go SDK for the platform.
 package sdk
 
 import "time"
 
+// Database describes a managed database instance.
 type Database struct {
 	ID          string    `json:"id"`
 	UserID      string    `json:"user_id"`
@@ -18,6 +20,7 @@ type Database struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// CreateDatabaseInput defines parameters for creating a database.
 type CreateDatabaseInput struct {
 	Name    string  `json:"name"`
 	Engine  string  `json:"engine"`

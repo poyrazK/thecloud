@@ -1,3 +1,4 @@
+// Package sdk provides the official Go SDK for the platform.
 package sdk
 
 import (
@@ -5,6 +6,7 @@ import (
 	"time"
 )
 
+// Instance describes a compute instance.
 type Instance struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`
@@ -20,6 +22,7 @@ type Instance struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// ListInstances returns all instances visible to the API key.
 func (c *Client) ListInstances() ([]Instance, error) {
 	var res Response[[]Instance]
 	if err := c.get("/instances", &res); err != nil {
@@ -36,6 +39,7 @@ func (c *Client) GetInstance(idOrName string) (*Instance, error) {
 	return &res.Data, nil
 }
 
+// VolumeAttachmentInput defines a volume attachment for instance launch.
 type VolumeAttachmentInput struct {
 	VolumeID  string `json:"volume_id"`
 	MountPath string `json:"mount_path"`
@@ -76,6 +80,7 @@ func (c *Client) GetInstanceLogs(idOrName string) (string, error) {
 	return string(resp.Body()), nil
 }
 
+// InstanceStats captures resource usage for an instance.
 type InstanceStats struct {
 	CPUPercentage    float64 `json:"cpu_percentage"`
 	MemoryUsageBytes float64 `json:"memory_usage_bytes"`

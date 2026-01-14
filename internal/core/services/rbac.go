@@ -1,3 +1,4 @@
+// Package services implements core business workflows.
 package services
 
 import (
@@ -17,6 +18,7 @@ type rbacService struct {
 	logger   *slog.Logger
 }
 
+// NewRBACService constructs an RBAC service for role-based authorization.
 func NewRBACService(userRepo ports.UserRepository, roleRepo ports.RoleRepository, logger *slog.Logger) *rbacService {
 	return &rbacService{
 		userRepo: userRepo,

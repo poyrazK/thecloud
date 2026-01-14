@@ -1,3 +1,4 @@
+// Package main provides the API server entrypoint.
 package main
 
 import (
@@ -24,6 +25,7 @@ import (
 
 // ... (omitted comments) ...
 
+// ErrMigrationDone signals that migrations have already completed.
 var ErrMigrationDone = errors.New("migrations done")
 
 func main() {

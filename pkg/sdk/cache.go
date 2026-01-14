@@ -1,7 +1,9 @@
+// Package sdk provides the official Go SDK for the platform.
 package sdk
 
 import "time"
 
+// Cache describes a cache instance.
 type Cache struct {
 	ID          string    `json:"id"`
 	UserID      string    `json:"user_id"`
@@ -18,6 +20,7 @@ type Cache struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// CreateCacheInput defines parameters for creating a cache.
 type CreateCacheInput struct {
 	Name     string  `json:"name"`
 	Version  string  `json:"version"`
@@ -25,6 +28,7 @@ type CreateCacheInput struct {
 	VpcID    *string `json:"vpc_id,omitempty"`
 }
 
+// CacheStats summarizes cache runtime metrics.
 type CacheStats struct {
 	UsedMemoryBytes  int64 `json:"used_memory_bytes"`
 	MaxMemoryBytes   int64 `json:"max_memory_bytes"`

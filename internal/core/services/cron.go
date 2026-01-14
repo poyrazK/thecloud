@@ -1,3 +1,4 @@
+// Package services implements core business workflows.
 package services
 
 import (
@@ -12,6 +13,7 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
+// CronService manages scheduled jobs and persistence.
 type CronService struct {
 	repo     ports.CronRepository
 	eventSvc ports.EventService
@@ -19,6 +21,7 @@ type CronService struct {
 	parser   cron.Parser
 }
 
+// NewCronService constructs a CronService with its dependencies.
 func NewCronService(repo ports.CronRepository, eventSvc ports.EventService, auditSvc ports.AuditService) ports.CronService {
 	return &CronService{
 		repo:     repo,

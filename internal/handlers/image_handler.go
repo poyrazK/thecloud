@@ -1,3 +1,4 @@
+// Package httphandlers provides HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -10,10 +11,12 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// ImageHandler handles image registry HTTP endpoints.
 type ImageHandler struct {
 	svc ports.ImageService
 }
 
+// NewImageHandler constructs an ImageHandler.
 func NewImageHandler(svc ports.ImageService) *ImageHandler {
 	return &ImageHandler{svc: svc}
 }

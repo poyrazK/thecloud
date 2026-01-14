@@ -1,3 +1,4 @@
+// Package services implements core business workflows.
 package services
 
 import (
@@ -11,12 +12,14 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// ContainerService manages deployments and their containers.
 type ContainerService struct {
 	repo     ports.ContainerRepository
 	eventSvc ports.EventService
 	auditSvc ports.AuditService
 }
 
+// NewContainerService constructs a ContainerService with its dependencies.
 func NewContainerService(repo ports.ContainerRepository, eventSvc ports.EventService, auditSvc ports.AuditService) ports.ContainerService {
 	return &ContainerService{
 		repo:     repo,

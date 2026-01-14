@@ -1,4 +1,4 @@
-// Package workers contains background workers for the cloud platform
+// Package workers provides background worker implementations.
 package workers
 
 import (
@@ -14,12 +14,14 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 )
 
+// ProvisionWorker processes instance provisioning tasks.
 type ProvisionWorker struct {
 	instSvc   *services.InstanceService
 	taskQueue ports.TaskQueue
 	logger    *slog.Logger
 }
 
+// NewProvisionWorker constructs a ProvisionWorker.
 func NewProvisionWorker(instSvc *services.InstanceService, taskQueue ports.TaskQueue, logger *slog.Logger) *ProvisionWorker {
 	return &ProvisionWorker{
 		instSvc:   instSvc,

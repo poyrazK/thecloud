@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -12,10 +13,12 @@ import (
 	errs "github.com/poyrazk/thecloud/internal/errors"
 )
 
+// AutoScalingRepo provides PostgreSQL-backed autoscaling persistence.
 type AutoScalingRepo struct {
 	db DB
 }
 
+// NewAutoScalingRepo creates an AutoScalingRepo using the provided DB.
 func NewAutoScalingRepo(db DB) *AutoScalingRepo {
 	return &AutoScalingRepo{db: db}
 }

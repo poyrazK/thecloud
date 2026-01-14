@@ -1,3 +1,4 @@
+// Package httphandlers provides HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -10,14 +11,17 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// RBACHandler handles role and permission HTTP endpoints.
 type RBACHandler struct {
 	svc ports.RBACService
 }
 
+// NewRBACHandler constructs an RBACHandler.
 func NewRBACHandler(svc ports.RBACService) *RBACHandler {
 	return &RBACHandler{svc: svc}
 }
 
+// CreateRoleRequest is the payload for creating a role.
 type CreateRoleRequest struct {
 	Name        string              `json:"name" binding:"required"`
 	Description string              `json:"description"`
@@ -160,6 +164,7 @@ func (h *RBACHandler) DeleteRole(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// AddPermissionRequest is the payload for adding a permission to a role.
 type AddPermissionRequest struct {
 	Permission domain.Permission `json:"permission" binding:"required"`
 }
@@ -220,6 +225,7 @@ func (h *RBACHandler) RemovePermission(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// BindRoleRequest is the payload for assigning a role to a user.
 type BindRoleRequest struct {
 	UserIdentifier string `json:"user_identifier" binding:"required"`
 	RoleName       string `json:"role_name" binding:"required"`

@@ -34,6 +34,7 @@ const (
 	prefixCloudInit   = "cloud-init-"
 )
 
+// LibvirtAdapter implements compute backend operations using libvirt/KVM.
 type LibvirtAdapter struct {
 	conn   *libvirt.Libvirt
 	logger *slog.Logger
@@ -48,6 +49,7 @@ type LibvirtAdapter struct {
 	poolEnd        net.IP
 }
 
+// NewLibvirtAdapter creates a LibvirtAdapter connected to the provided URI.
 func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error) {
 	if uri == "" {
 		uri = "/var/run/libvirt/libvirt-sock"

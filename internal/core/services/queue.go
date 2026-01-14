@@ -1,3 +1,4 @@
+// Package services implements core business workflows.
 package services
 
 import (
@@ -12,12 +13,14 @@ import (
 	"github.com/poyrazk/thecloud/internal/platform"
 )
 
+// QueueService manages queue resources and message operations.
 type QueueService struct {
 	repo     ports.QueueRepository
 	eventSvc ports.EventService
 	auditSvc ports.AuditService
 }
 
+// NewQueueService constructs a QueueService with its dependencies.
 func NewQueueService(repo ports.QueueRepository, eventSvc ports.EventService, auditSvc ports.AuditService) ports.QueueService {
 	return &QueueService{
 		repo:     repo,

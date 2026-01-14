@@ -1,7 +1,9 @@
+// Package sdk provides the official Go SDK for the platform.
 package sdk
 
 import "fmt"
 
+// GatewayRoute describes an API gateway route.
 type GatewayRoute struct {
 	ID          string `json:"id"`
 	UserID      string `json:"user_id"`

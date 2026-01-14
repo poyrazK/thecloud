@@ -1,3 +1,4 @@
+// Package httputil provides HTTP utilities and middleware.
 package httputil
 
 import (
@@ -9,17 +10,20 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// Meta contains response metadata such as timestamps and request IDs.
 type Meta struct {
 	RequestID string `json:"request_id,omitempty"`
 	Timestamp string `json:"timestamp"`
 }
 
+// Response wraps API responses with optional data or error payloads.
 type Response struct {
 	Data  interface{} `json:"data,omitempty"`
 	Error interface{} `json:"error,omitempty"`
 	Meta  *Meta       `json:"meta,omitempty"`
 }
 
+// Success writes a success response with metadata.
 func Success(c *gin.Context, code int, data interface{}) {
 	requestID, _ := c.Get("requestID")
 	reqIDStr, _ := requestID.(string)
@@ -33,6 +37,7 @@ func Success(c *gin.Context, code int, data interface{}) {
 	})
 }
 
+// Error maps a domain error to an HTTP response.
 func Error(c *gin.Context, err error) {
 	var e errors.Error
 	if apiErr, ok := err.(errors.Error); ok {

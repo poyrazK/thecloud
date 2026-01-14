@@ -5,8 +5,10 @@ import (
 	"fmt"
 )
 
+// Type identifies a category of application error.
 type Type string
 
+// Common application error types.
 const (
 	NotFound              Type = "NOT_FOUND"
 	InvalidInput          Type = "INVALID_INPUT"
@@ -55,14 +57,17 @@ func (e Error) Unwrap() error {
 	return e.Cause
 }
 
+// New creates an Error with a type and message.
 func New(t Type, msg string) error {
 	return Error{Type: t, Message: msg, Code: string(t)}
 }
 
+// Wrap creates an Error with a cause.
 func Wrap(t Type, msg string, err error) error {
 	return Error{Type: t, Message: msg, Code: string(t), Cause: err}
 }
 
+// Is checks whether an error is of the given Type.
 func Is(err error, t Type) bool {
 	if e, ok := err.(Error); ok {
 		return e.Type == t
@@ -78,6 +83,7 @@ func GetCause(err error) error {
 	return nil
 }
 
+// Convenience error values for common load balancer failures.
 var (
 	ErrLBNotFound     = New(LBNotFound, "load balancer not found")
 	ErrLBTargetExists = New(LBTargetExists, "target already registered")

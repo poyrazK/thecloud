@@ -1,3 +1,4 @@
+// Package httphandlers provides HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -11,14 +12,17 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// FunctionHandler handles serverless function HTTP endpoints.
 type FunctionHandler struct {
 	svc ports.FunctionService
 }
 
+// NewFunctionHandler constructs a FunctionHandler.
 func NewFunctionHandler(svc ports.FunctionService) *FunctionHandler {
 	return &FunctionHandler{svc: svc}
 }
 
+// CreateFunctionRequest is the payload for function creation.
 type CreateFunctionRequest struct {
 	Name    string `form:"name" binding:"required"`
 	Runtime string `form:"runtime" binding:"required"`

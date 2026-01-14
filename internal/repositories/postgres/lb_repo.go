@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -10,10 +11,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// LBRepository provides PostgreSQL-backed load balancer persistence.
 type LBRepository struct {
 	db DB
 }
 
+// NewLBRepository creates an LBRepository using the provided DB.
 func NewLBRepository(db DB) *LBRepository {
 	return &LBRepository{db: db}
 }
