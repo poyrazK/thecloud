@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -12,10 +13,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// SecretRepository provides PostgreSQL-backed secret persistence.
 type SecretRepository struct {
 	db DB
 }
 
+// NewSecretRepository creates a SecretRepository using the provided DB.
 func NewSecretRepository(db DB) *SecretRepository {
 	return &SecretRepository{db: db}
 }

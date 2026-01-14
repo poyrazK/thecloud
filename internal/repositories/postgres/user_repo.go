@@ -1,4 +1,5 @@
 // Package postgres implements the PostgreSQL repositories.
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -10,10 +11,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
+// UserRepo provides PostgreSQL-backed user persistence.
 type UserRepo struct {
 	db DB
 }
 
+// NewUserRepo creates a UserRepo using the provided DB.
 func NewUserRepo(db DB) *UserRepo {
 	return &UserRepo{db: db}
 }

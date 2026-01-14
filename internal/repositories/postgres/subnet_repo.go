@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -10,10 +11,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// SubnetRepository provides PostgreSQL-backed subnet persistence.
 type SubnetRepository struct {
 	db DB
 }
 
+// NewSubnetRepository creates a SubnetRepository using the provided DB.
 func NewSubnetRepository(db DB) *SubnetRepository {
 	return &SubnetRepository{db: db}
 }

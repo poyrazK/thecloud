@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -10,10 +11,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// VolumeRepository provides PostgreSQL-backed volume persistence.
 type VolumeRepository struct {
 	db DB
 }
 
+// NewVolumeRepository creates a VolumeRepository using the provided DB.
 func NewVolumeRepository(db DB) *VolumeRepository {
 	return &VolumeRepository{db: db}
 }

@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -10,10 +11,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// StorageRepository provides PostgreSQL-backed object storage metadata persistence.
 type StorageRepository struct {
 	db DB
 }
 
+// NewStorageRepository creates a StorageRepository using the provided DB.
 func NewStorageRepository(db DB) *StorageRepository {
 	return &StorageRepository{db: db}
 }

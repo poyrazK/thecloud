@@ -1,3 +1,4 @@
+// Package postgres provides PostgreSQL-backed repository implementations.
 package postgres
 
 import (
@@ -10,10 +11,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// SnapshotRepository provides PostgreSQL-backed snapshot persistence.
 type SnapshotRepository struct {
 	db DB
 }
 
+// NewSnapshotRepository creates a SnapshotRepository using the provided DB.
 func NewSnapshotRepository(db DB) *SnapshotRepository {
 	return &SnapshotRepository{db: db}
 }
