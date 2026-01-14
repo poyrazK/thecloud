@@ -12,10 +12,18 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSubnetRepository_Create(t *testing.T) {
+const (
+	testSubnetName    = "subnet-1"
+	testAZ            = "us-east-1a"
+	selectSubnet      = "SELECT id, user_id, vpc_id, name, cidr_block::text, availability_zone, COALESCE\\(gateway_ip::text, ''\\), arn, status, created_at FROM subnets"
+	deleteSubnetQuery = "DELETE FROM subnets"
+)
+
+func TestSubnetRepositoryCreate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -26,10 +34,10 @@ func TestSubnetRepository_Create(t *testing.T) {
 			ID:               uuid.New(),
 			UserID:           uuid.New(),
 			VPCID:            uuid.New(),
-			Name:             "subnet-1",
-			CIDRBlock:        "10.0.1.0/24",
-			AvailabilityZone: "us-east-1a",
-			GatewayIP:        "10.0.1.1",
+			Name:             testSubnetName,
+			CIDRBlock:        testutil.TestSubnetCIDR,
+			AvailabilityZone: testAZ,
+			GatewayIP:        testutil.TestGatewayIP,
 			ARN:              "arn",
 			Status:           "available",
 			CreatedAt:        time.Now(),
@@ -43,7 +51,7 @@ func TestSubnetRepository_Create(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("db error", func(t *testing.T) {
+	t.Run(testDbError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -54,14 +62,14 @@ func TestSubnetRepository_Create(t *testing.T) {
 		}
 
 		mock.ExpectExec("INSERT INTO subnets").
-			WillReturnError(errors.New("db error"))
+			WillReturnError(errors.New(testDbError))
 
 		err = repo.Create(context.Background(), s)
 		assert.Error(t, err)
 	})
 }
 
-func TestSubnetRepository_GetByID(t *testing.T) {
+func TestSubnetRepositoryGetByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -73,10 +81,10 @@ func TestSubnetRepository_GetByID(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, vpc_id, name, cidr_block::text, availability_zone, COALESCE\\(gateway_ip::text, ''\\), arn, status, created_at FROM subnets").
+		mock.ExpectQuery(selectSubnet).
 			WithArgs(id, userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "cidr_block", "availability_zone", "gateway_ip", "arn", "status", "created_at"}).
-				AddRow(id, userID, uuid.New(), "subnet-1", "10.0.1.0/24", "us-east-1a", "10.0.1.1", "arn", "available", now))
+				AddRow(id, userID, uuid.New(), testSubnetName, testutil.TestSubnetCIDR, testAZ, testutil.TestGatewayIP, "arn", "available", now))
 
 		s, err := repo.GetByID(ctx, id)
 		assert.NoError(t, err)
@@ -85,7 +93,7 @@ func TestSubnetRepository_GetByID(t *testing.T) {
 
 	})
 
-	t.Run("not found", func(t *testing.T) {
+	t.Run(testNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -108,7 +116,7 @@ func TestSubnetRepository_GetByID(t *testing.T) {
 		}
 	})
 
-	t.Run("db error", func(t *testing.T) {
+	t.Run(testDbError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -118,9 +126,9 @@ func TestSubnetRepository_GetByID(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, vpc_id, name, cidr_block::text, availability_zone, COALESCE\\(gateway_ip::text, ''\\), arn, status, created_at FROM subnets").
+		mock.ExpectQuery(selectSubnet).
 			WithArgs(id, userID).
-			WillReturnError(errors.New("db error"))
+			WillReturnError(errors.New(testDbError))
 
 		s, err := repo.GetByID(ctx, id)
 		assert.Error(t, err)
@@ -128,7 +136,7 @@ func TestSubnetRepository_GetByID(t *testing.T) {
 	})
 }
 
-func TestSubnetRepository_GetByName(t *testing.T) {
+func TestSubnetRepositoryGetByName(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -140,12 +148,12 @@ func TestSubnetRepository_GetByName(t *testing.T) {
 		vpcID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
-		name := "subnet-1"
+		name := testSubnetName
 
-		mock.ExpectQuery("SELECT id, user_id, vpc_id, name, cidr_block::text, availability_zone, COALESCE\\(gateway_ip::text, ''\\), arn, status, created_at FROM subnets").
+		mock.ExpectQuery(selectSubnet).
 			WithArgs(vpcID, name, userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "cidr_block", "availability_zone", "gateway_ip", "arn", "status", "created_at"}).
-				AddRow(id, userID, vpcID, name, "10.0.1.0/24", "us-east-1a", "10.0.1.1", "arn", "available", now))
+				AddRow(id, userID, vpcID, name, testutil.TestSubnetCIDR, testAZ, testutil.TestGatewayIP, "arn", "available", now))
 
 		s, err := repo.GetByName(ctx, vpcID, name)
 		assert.NoError(t, err)
@@ -154,7 +162,7 @@ func TestSubnetRepository_GetByName(t *testing.T) {
 
 	})
 
-	t.Run("not found", func(t *testing.T) {
+	t.Run(testNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -163,9 +171,9 @@ func TestSubnetRepository_GetByName(t *testing.T) {
 		userID := uuid.New()
 		vpcID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
-		name := "subnet-1"
+		name := testSubnetName
 
-		mock.ExpectQuery("SELECT id, user_id, vpc_id, name, cidr_block::text, availability_zone, COALESCE\\(gateway_ip::text, ''\\), arn, status, created_at FROM subnets").
+		mock.ExpectQuery(selectSubnet).
 			WithArgs(vpcID, name, userID).
 			WillReturnError(pgx.ErrNoRows)
 
@@ -179,7 +187,7 @@ func TestSubnetRepository_GetByName(t *testing.T) {
 	})
 }
 
-func TestSubnetRepository_ListByVPC(t *testing.T) {
+func TestSubnetRepositoryListByVPC(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -191,10 +199,10 @@ func TestSubnetRepository_ListByVPC(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, vpc_id, name, cidr_block::text, availability_zone, COALESCE\\(gateway_ip::text, ''\\), arn, status, created_at FROM subnets").
+		mock.ExpectQuery(selectSubnet).
 			WithArgs(vpcID, userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "cidr_block", "availability_zone", "gateway_ip", "arn", "status", "created_at"}).
-				AddRow(uuid.New(), userID, vpcID, "subnet-1", "10.0.1.0/24", "us-east-1a", "10.0.1.1", "arn", "available", now))
+				AddRow(uuid.New(), userID, vpcID, testSubnetName, testutil.TestSubnetCIDR, testAZ, testutil.TestGatewayIP, "arn", "available", now))
 
 		subnets, err := repo.ListByVPC(ctx, vpcID)
 		assert.NoError(t, err)
@@ -202,7 +210,7 @@ func TestSubnetRepository_ListByVPC(t *testing.T) {
 
 	})
 
-	t.Run("db error", func(t *testing.T) {
+	t.Run(testDbError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -212,9 +220,9 @@ func TestSubnetRepository_ListByVPC(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, vpc_id, name, cidr_block::text, availability_zone, COALESCE\\(gateway_ip::text, ''\\), arn, status, created_at FROM subnets").
+		mock.ExpectQuery(selectSubnet).
 			WithArgs(vpcID, userID).
-			WillReturnError(errors.New("db error"))
+			WillReturnError(errors.New(testDbError))
 
 		subnets, err := repo.ListByVPC(ctx, vpcID)
 		assert.Error(t, err)
@@ -232,10 +240,10 @@ func TestSubnetRepository_ListByVPC(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, vpc_id, name, cidr_block::text, availability_zone, COALESCE\\(gateway_ip::text, ''\\), arn, status, created_at FROM subnets").
+		mock.ExpectQuery(selectSubnet).
 			WithArgs(vpcID, userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "cidr_block", "availability_zone", "gateway_ip", "arn", "status", "created_at"}).
-				AddRow("invalid-uuid", userID, vpcID, "subnet-1", "10.0.1.0/24", "us-east-1a", "10.0.1.1", "arn", "available", now))
+				AddRow("invalid-uuid", userID, vpcID, testSubnetName, testutil.TestSubnetCIDR, testAZ, testutil.TestGatewayIP, "arn", "available", now))
 
 		subnets, err := repo.ListByVPC(ctx, vpcID)
 		assert.Error(t, err)
@@ -243,7 +251,7 @@ func TestSubnetRepository_ListByVPC(t *testing.T) {
 	})
 }
 
-func TestSubnetRepository_Delete(t *testing.T) {
+func TestSubnetRepositoryDelete(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -254,7 +262,7 @@ func TestSubnetRepository_Delete(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectExec("DELETE FROM subnets").
+		mock.ExpectExec(deleteSubnetQuery).
 			WithArgs(id, userID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
@@ -262,7 +270,7 @@ func TestSubnetRepository_Delete(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("not found", func(t *testing.T) {
+	t.Run(testNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -272,7 +280,7 @@ func TestSubnetRepository_Delete(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectExec("DELETE FROM subnets").
+		mock.ExpectExec(deleteSubnetQuery).
 			WithArgs(id, userID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 0))
 
@@ -284,7 +292,7 @@ func TestSubnetRepository_Delete(t *testing.T) {
 		}
 	})
 
-	t.Run("db error", func(t *testing.T) {
+	t.Run(testDbError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -294,9 +302,9 @@ func TestSubnetRepository_Delete(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectExec("DELETE FROM subnets").
+		mock.ExpectExec(deleteSubnetQuery).
 			WithArgs(id, userID).
-			WillReturnError(errors.New("db error"))
+			WillReturnError(errors.New(testDbError))
 
 		err = repo.Delete(ctx, id)
 		assert.Error(t, err)

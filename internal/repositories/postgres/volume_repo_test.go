@@ -17,9 +17,7 @@ import (
 
 const (
 	testMountPath    = "/mock/path"
-	testDBError      = "db error"
 	testSelectVolume = "SELECT id, user_id, name, size_gb, status, instance_id, backend_path, mount_path, created_at, updated_at FROM volumes"
-	testNotFound     = "not found"
 )
 
 func TestVolumeRepositoryCreate(t *testing.T) {
@@ -50,7 +48,7 @@ func TestVolumeRepositoryCreate(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run(testDBError, func(t *testing.T) {
+	t.Run(testDbError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -61,7 +59,7 @@ func TestVolumeRepositoryCreate(t *testing.T) {
 		}
 
 		mock.ExpectExec("INSERT INTO volumes").
-			WillReturnError(errors.New(testDBError))
+			WillReturnError(errors.New(testDbError))
 
 		err = repo.Create(context.Background(), vol)
 		assert.Error(t, err)
@@ -185,7 +183,7 @@ func TestVolumeRepositoryList(t *testing.T) {
 		assert.Len(t, vols, 1)
 	})
 
-	t.Run(testDBError, func(t *testing.T) {
+	t.Run(testDbError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -196,7 +194,7 @@ func TestVolumeRepositoryList(t *testing.T) {
 
 		mock.ExpectQuery(testSelectVolume).
 			WithArgs(userID).
-			WillReturnError(errors.New(testDBError))
+			WillReturnError(errors.New(testDbError))
 
 		vols, err := repo.List(ctx)
 		assert.Error(t, err)
@@ -226,7 +224,7 @@ func TestVolumeRepositoryListByInstanceID(t *testing.T) {
 		assert.Len(t, vols, 1)
 	})
 
-	t.Run(testDBError, func(t *testing.T) {
+	t.Run(testDbError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -238,7 +236,7 @@ func TestVolumeRepositoryListByInstanceID(t *testing.T) {
 
 		mock.ExpectQuery(testSelectVolume).
 			WithArgs(instanceID, userID).
-			WillReturnError(errors.New(testDBError))
+			WillReturnError(errors.New(testDbError))
 
 		vols, err := repo.ListByInstanceID(ctx, instanceID)
 		assert.Error(t, err)
@@ -268,7 +266,7 @@ func TestVolumeRepositoryUpdate(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run(testDBError, func(t *testing.T) {
+	t.Run(testDbError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -279,7 +277,7 @@ func TestVolumeRepositoryUpdate(t *testing.T) {
 		}
 
 		mock.ExpectExec("UPDATE volumes").
-			WillReturnError(errors.New(testDBError))
+			WillReturnError(errors.New(testDbError))
 
 		err = repo.Update(context.Background(), vol)
 		assert.Error(t, err)
