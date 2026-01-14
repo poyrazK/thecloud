@@ -14,9 +14,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/poyrazk/thecloud/pkg/testutil"
 )
 
-const baseURL = "http://localhost:8080"
+const instancesPathFmt = "%s/instances/%s"
+
+// baseURL is now usually defined by constant, but let's assume we use the one from testutil
+// const baseURL = "http://localhost:8080"
 
 type RegisterRequest struct {
 	Email    string `json:"email"`
@@ -43,9 +48,9 @@ type Instance struct {
 	Status string `json:"status"`
 }
 
-func TestMultiTenancy_E2E(t *testing.T) {
+func TestMultiTenancyE2E(t *testing.T) {
 	// Ensure server is reachable
-	require.NoError(t, waitForServer(), "Server must be running at "+baseURL)
+	require.NoError(t, waitForServer(), "Server must be running at "+testutil.TestBaseURL)
 
 	client := &http.Client{Timeout: 5 * time.Second}
 
@@ -67,8 +72,8 @@ func TestMultiTenancy_E2E(t *testing.T) {
 	})
 
 	t.Run("User B cannot Get User A's instance", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/instances/%s", baseURL, instA.ID), nil)
-		req.Header.Set("X-API-Key", tokenB)
+		req, _ := http.NewRequest("GET", fmt.Sprintf(instancesPathFmt, testutil.TestBaseURL, instA.ID), nil)
+		req.Header.Set(testutil.TestHeaderAPIKey, tokenB)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
 		defer resp.Body.Close()
@@ -79,8 +84,8 @@ func TestMultiTenancy_E2E(t *testing.T) {
 	})
 
 	t.Run("User A can see their instance", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/instances/%s", baseURL, instA.ID), nil)
-		req.Header.Set("X-API-Key", tokenA)
+		req, _ := http.NewRequest("GET", fmt.Sprintf(instancesPathFmt, testutil.TestBaseURL, instA.ID), nil)
+		req.Header.Set(testutil.TestHeaderAPIKey, tokenA)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
 		defer resp.Body.Close()
@@ -94,7 +99,7 @@ func TestMultiTenancy_E2E(t *testing.T) {
 
 func waitForServer() error {
 	for i := 0; i < 5; i++ {
-		resp, err := http.Get(baseURL + "/health")
+		resp, err := http.Get(testutil.TestBaseURL + "/health")
 		if err == nil && resp.StatusCode == 200 {
 			return nil
 		}
@@ -105,18 +110,18 @@ func waitForServer() error {
 
 func registerAndLogin(t *testing.T, client *http.Client, email, name string) string {
 	// Register
-	regReq := RegisterRequest{Email: email, Password: "password123", Name: name}
+	regReq := RegisterRequest{Email: email, Password: testutil.TestPasswordStrong, Name: name}
 	body, _ := json.Marshal(regReq)
-	resp, err := client.Post(baseURL+"/auth/register", "application/json", bytes.NewBuffer(body))
+	resp, err := client.Post(testutil.TestBaseURL+"/auth/register", testutil.TestContentTypeAppJSON, bytes.NewBuffer(body))
 	if err == nil {
 		resp.Body.Close()
 	}
 	// Ignore error if already registered, proceed to login
 
 	// Login
-	loginReq := LoginRequest{Email: email, Password: "password123"}
+	loginReq := LoginRequest{Email: email, Password: testutil.TestPasswordStrong}
 	body, _ = json.Marshal(loginReq)
-	resp, err = client.Post(baseURL+"/auth/login", "application/json", bytes.NewBuffer(body))
+	resp, err = client.Post(testutil.TestBaseURL+"/auth/login", testutil.TestContentTypeAppJSON, bytes.NewBuffer(body))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -135,9 +140,9 @@ func createInstance(t *testing.T, client *http.Client, token, name string) Insta
 		"image": "alpine",
 	}
 	body, _ := json.Marshal(reqBody)
-	req, _ := http.NewRequest("POST", baseURL+"/instances", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-API-Key", token)
+	req, _ := http.NewRequest("POST", testutil.TestBaseURL+"/instances", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", testutil.TestContentTypeAppJSON)
+	req.Header.Set(testutil.TestHeaderAPIKey, token)
 
 	resp, err := client.Do(req)
 	require.NoError(t, err)
@@ -158,8 +163,8 @@ func createInstance(t *testing.T, client *http.Client, token, name string) Insta
 }
 
 func listInstances(t *testing.T, client *http.Client, token string) []Instance {
-	req, _ := http.NewRequest("GET", baseURL+"/instances", nil)
-	req.Header.Set("X-API-Key", token)
+	req, _ := http.NewRequest("GET", testutil.TestBaseURL+"/instances", nil)
+	req.Header.Set(testutil.TestHeaderAPIKey, token)
 
 	resp, err := client.Do(req)
 	require.NoError(t, err)
@@ -176,7 +181,7 @@ func listInstances(t *testing.T, client *http.Client, token string) []Instance {
 }
 
 func deleteInstance(t *testing.T, client *http.Client, token, id string) {
-	req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/instances/%s", baseURL, id), nil)
-	req.Header.Set("X-API-Key", token)
+	req, _ := http.NewRequest("DELETE", fmt.Sprintf(instancesPathFmt, testutil.TestBaseURL, id), nil)
+	req.Header.Set(testutil.TestHeaderAPIKey, token)
 	client.Do(req)
 }

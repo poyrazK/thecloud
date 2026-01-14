@@ -25,7 +25,9 @@ func setupSecurityGroupServiceTest(_ *testing.T) (*MockSecurityGroupRepo, *MockV
 	return repo, vpcRepo, network, auditSvc, svc
 }
 
-func TestSecurityGroupService_CreateGroup(t *testing.T) {
+const testSGName = "test-sg"
+
+func TestSecurityGroupServiceCreateGroup(t *testing.T) {
 	repo, _, _, auditSvc, svc := setupSecurityGroupServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -36,22 +38,22 @@ func TestSecurityGroupService_CreateGroup(t *testing.T) {
 	repo.On("Create", mock.Anything, mock.Anything).Return(nil)
 	auditSvc.On("Log", mock.Anything, userID, "security_group.create", "security_group", mock.Anything, mock.Anything).Return(nil)
 
-	sg, err := svc.CreateGroup(ctx, vpcID, "test-sg", "desc")
+	sg, err := svc.CreateGroup(ctx, vpcID, testSGName, "desc")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, sg)
-	assert.Equal(t, "test-sg", sg.Name)
+	assert.Equal(t, testSGName, sg.Name)
 	assert.Equal(t, vpcID, sg.VPCID)
 }
 
-func TestSecurityGroupService_GetGroup(t *testing.T) {
+func TestSecurityGroupServiceGetGroup(t *testing.T) {
 	repo, _, _, _, svc := setupSecurityGroupServiceTest(t)
 	defer repo.AssertExpectations(t)
 
 	ctx := context.Background()
 	sgID := uuid.New()
 	vpcID := uuid.New()
-	sg := &domain.SecurityGroup{ID: sgID, Name: "test-sg"}
+	sg := &domain.SecurityGroup{ID: sgID, Name: testSGName}
 
 	// By ID
 	repo.On("GetByID", ctx, sgID).Return(sg, nil).Once()
@@ -60,13 +62,13 @@ func TestSecurityGroupService_GetGroup(t *testing.T) {
 	assert.Equal(t, sgID, res.ID)
 
 	// By Name
-	repo.On("GetByName", ctx, vpcID, "test-sg").Return(sg, nil).Once()
-	res, err = svc.GetGroup(ctx, "test-sg", vpcID)
+	repo.On("GetByName", ctx, vpcID, testSGName).Return(sg, nil).Once()
+	res, err = svc.GetGroup(ctx, testSGName, vpcID)
 	assert.NoError(t, err)
-	assert.Equal(t, "test-sg", res.Name)
+	assert.Equal(t, testSGName, res.Name)
 }
 
-func TestSecurityGroupService_ListGroups(t *testing.T) {
+func TestSecurityGroupServiceListGroups(t *testing.T) {
 	repo, _, _, _, svc := setupSecurityGroupServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -81,7 +83,7 @@ func TestSecurityGroupService_ListGroups(t *testing.T) {
 	assert.Equal(t, sgs, res)
 }
 
-func TestSecurityGroupService_DeleteGroup(t *testing.T) {
+func TestSecurityGroupServiceDeleteGroup(t *testing.T) {
 	repo, _, _, auditSvc, svc := setupSecurityGroupServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -96,7 +98,7 @@ func TestSecurityGroupService_DeleteGroup(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSecurityGroupService_AddRule(t *testing.T) {
+func TestSecurityGroupServiceAddRule(t *testing.T) {
 	repo, vpcRepo, network, auditSvc, svc := setupSecurityGroupServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -121,7 +123,7 @@ func TestSecurityGroupService_AddRule(t *testing.T) {
 	assert.Equal(t, sgID, res.GroupID)
 }
 
-func TestSecurityGroupService_AttachToInstance(t *testing.T) {
+func TestSecurityGroupServiceAttachToInstance(t *testing.T) {
 	repo, vpcRepo, network, _, svc := setupSecurityGroupServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -141,7 +143,7 @@ func TestSecurityGroupService_AttachToInstance(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSecurityGroupService_DetachFromInstance(t *testing.T) {
+func TestSecurityGroupServiceDetachFromInstance(t *testing.T) {
 	repo, _, _, _, svc := setupSecurityGroupServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -155,7 +157,7 @@ func TestSecurityGroupService_DetachFromInstance(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSecurityGroupService_RemoveRule(t *testing.T) {
+func TestSecurityGroupServiceRemoveRule(t *testing.T) {
 	repo, vpcRepo, network, auditSvc, svc := setupSecurityGroupServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -180,7 +182,7 @@ func TestSecurityGroupService_RemoveRule(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSecurityGroupService_Errors(t *testing.T) {
+func TestSecurityGroupServiceErrors(t *testing.T) {
 	ctx := context.Background()
 	sgID := uuid.New()
 
@@ -206,7 +208,7 @@ func TestSecurityGroupService_Errors(t *testing.T) {
 	})
 }
 
-func TestSecurityGroupService_TranslateToFlow(t *testing.T) {
+func TestSecurityGroupServiceTranslateToFlow(t *testing.T) {
 	repo, vpcRepo, network, auditSvc, svc := setupSecurityGroupServiceTest(t)
 	ctx := context.Background()
 	sgID := uuid.New()
