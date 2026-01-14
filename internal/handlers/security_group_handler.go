@@ -27,6 +27,7 @@ type CreateSecurityGroupRequest struct {
 	Description string    `json:"description"`
 }
 
+// AttachDetachSGRequest is the payload for attaching or detaching a security group.
 type AttachDetachSGRequest struct {
 	InstanceID uuid.UUID `json:"instance_id" binding:"required"`
 	GroupID    uuid.UUID `json:"group_id" binding:"required"`

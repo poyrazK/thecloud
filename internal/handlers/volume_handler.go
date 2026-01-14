@@ -8,14 +8,17 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// VolumeHandler handles volume HTTP endpoints.
 type VolumeHandler struct {
 	svc ports.VolumeService
 }
 
+// NewVolumeHandler constructs a VolumeHandler.
 func NewVolumeHandler(svc ports.VolumeService) *VolumeHandler {
 	return &VolumeHandler{svc: svc}
 }
 
+// CreateVolumeRequest is the payload for volume creation.
 type CreateVolumeRequest struct {
 	Name   string `json:"name" binding:"required,min=3,max=64"`
 	SizeGB int    `json:"size_gb" binding:"required,min=1,max=16000"`

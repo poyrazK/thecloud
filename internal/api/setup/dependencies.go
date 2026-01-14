@@ -14,6 +14,7 @@ import (
 	redisv9 "github.com/redis/go-redis/v9"
 )
 
+// Repositories bundles all data access implementations.
 type Repositories struct {
 	Audit         ports.AuditRepository
 	User          ports.UserRepository
@@ -45,6 +46,7 @@ type Repositories struct {
 	Image         ports.ImageRepository
 }
 
+// InitRepositories constructs repositories using the provided database clients.
 func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 	return &Repositories{
 		Audit:         postgres.NewAuditRepository(db),
@@ -78,6 +80,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 	}
 }
 
+// Services bundles the core application services.
 type Services struct {
 	WsHub         *ws.Hub
 	Audit         ports.AuditService
@@ -134,6 +137,7 @@ type ServiceConfig struct {
 	Logger  *slog.Logger
 }
 
+// InitServices constructs core services and background workers.
 func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	// 1. Core Services (Audit, Identity, Auth, RBAC)
 	auditSvc := services.NewAuditService(c.Repos.Audit)

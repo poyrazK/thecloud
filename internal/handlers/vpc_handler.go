@@ -8,10 +8,12 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// VpcHandler handles VPC HTTP endpoints.
 type VpcHandler struct {
 	svc ports.VpcService
 }
 
+// NewVpcHandler constructs a VpcHandler.
 func NewVpcHandler(svc ports.VpcService) *VpcHandler {
 	return &VpcHandler{svc: svc}
 }

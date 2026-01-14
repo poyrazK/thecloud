@@ -26,6 +26,7 @@ const (
 	roleIDRoute    = "/roles/:id"
 )
 
+// Handlers bundles HTTP handlers used by the router.
 type Handlers struct {
 	Audit         *httphandlers.AuditHandler
 	Identity      *httphandlers.IdentityHandler
@@ -58,6 +59,7 @@ type Handlers struct {
 	Ws            *ws.Handler
 }
 
+// InitHandlers constructs HTTP handlers and websocket hub.
 func InitHandlers(svcs *Services, logger *slog.Logger) *Handlers {
 	hub := ws.NewHub(logger)
 	go hub.Run()
@@ -95,6 +97,7 @@ func InitHandlers(svcs *Services, logger *slog.Logger) *Handlers {
 	}
 }
 
+// SetupRouter wires all routes, middleware, and documentation endpoints.
 func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, services *Services, networkBackend ports.NetworkBackend) *gin.Engine {
 	if cfg.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)

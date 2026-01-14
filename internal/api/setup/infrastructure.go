@@ -53,6 +53,7 @@ func RunMigrations(ctx context.Context, db postgres.DB, logger *slog.Logger) err
 	return postgres.RunMigrations(ctx, db, logger)
 }
 
+// InitComputeBackend initializes the compute backend based on configuration.
 func InitComputeBackend(cfg *platform.Config, logger *slog.Logger) (ports.ComputeBackend, error) {
 	if cfg.ComputeBackend == "noop" {
 		logger.Info("using no-op compute backend")
@@ -82,6 +83,7 @@ func InitStorageBackend(cfg *platform.Config, logger *slog.Logger) (ports.Storag
 	return noop.NewNoopStorageBackend(), nil
 }
 
+// InitNetworkBackend initializes the network backend based on configuration.
 func InitNetworkBackend(cfg *platform.Config, logger *slog.Logger) ports.NetworkBackend {
 	if cfg.NetworkBackend == "noop" {
 		logger.Info("using no-op network backend")
