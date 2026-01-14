@@ -2,11 +2,13 @@ package libvirt
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -21,17 +23,17 @@ func (m *mockComputeBackend) GetInstanceIP(ctx context.Context, id string) (stri
 	return args.String(0), args.Error(1)
 }
 
-func TestLibvirtAdapter_Type(t *testing.T) {
+func TestLibvirtAdapterType(t *testing.T) {
 	a := &LibvirtAdapter{}
 	assert.Equal(t, "libvirt", a.Type())
 }
 
-func TestLibvirtAdapter_ValidateID(t *testing.T) {
+func TestLibvirtAdapterValidateID(t *testing.T) {
 	assert.NoError(t, validateID("valid-id"))
 	assert.Error(t, validateID("../traversal"))
 }
 
-func TestLibvirtAdapter_ParseAndValidatePort(t *testing.T) {
+func TestLibvirtAdapterParseAndValidatePort(t *testing.T) {
 	a := &LibvirtAdapter{}
 
 	tests := []struct {
@@ -58,7 +60,7 @@ func TestLibvirtAdapter_ParseAndValidatePort(t *testing.T) {
 	}
 }
 
-func TestLibvirtAdapter_ResolveBinds(t *testing.T) {
+func TestLibvirtAdapterResolveBinds(t *testing.T) {
 	a := &LibvirtAdapter{}
 	// Test empty binds
 	resolved := a.resolveBinds(nil)
@@ -81,13 +83,12 @@ func TestGenerateNginxConfig(t *testing.T) {
 		targets := []*domain.LBTarget{
 			{InstanceID: instanceID, Port: 8080, Weight: 1},
 		}
-
-		mockCompute.On("GetInstanceIP", mock.Anything, instanceID.String()).Return("192.168.122.10", nil)
+		mockCompute.On("GetInstanceIP", mock.Anything, instanceID.String()).Return(testutil.TestLibvirtInstanceIP, nil)
 
 		config, err := a.generateNginxConfig(context.Background(), lb, targets)
 		assert.NoError(t, err)
 		assert.Contains(t, config, "listen 80;")
-		assert.Contains(t, config, "server 192.168.122.10:8080 weight=1;")
+		assert.Contains(t, config, fmt.Sprintf("server %s:8080 weight=1;", testutil.TestLibvirtInstanceIP))
 		assert.NotContains(t, config, "least_conn;")
 	})
 
@@ -105,7 +106,7 @@ func TestGenerateNginxConfig(t *testing.T) {
 			{InstanceID: instanceID, Port: 8080, Weight: 1},
 		}
 
-		mockCompute.On("GetInstanceIP", mock.Anything, instanceID.String()).Return("192.168.122.10", nil)
+		mockCompute.On("GetInstanceIP", mock.Anything, instanceID.String()).Return(testutil.TestLibvirtInstanceIP, nil)
 
 		config, err := a.generateNginxConfig(context.Background(), lb, targets)
 		assert.NoError(t, err)
