@@ -116,7 +116,7 @@ var launchCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf(successInstance)
+		fmt.Print(successInstance)
 		data, _ := json.MarshalIndent(inst, "", "  ")
 		fmt.Println(string(data))
 	},
@@ -167,7 +167,7 @@ var showCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("\nInstance Details\n")
+		fmt.Print("\nInstance Details\n")
 		fmt.Println(strings.Repeat("-", 40))
 		fmt.Printf(fmtDetailRow, "ID:", inst.ID)
 		fmt.Printf(fmtDetailRow, "Name:", inst.Name)
