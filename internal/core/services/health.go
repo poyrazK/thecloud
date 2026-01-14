@@ -7,15 +7,18 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// Checkable defines a dependency that can be pinged for health checks.
 type Checkable interface {
 	Ping(ctx context.Context) error
 }
 
+// HealthServiceImpl aggregates system checks across dependencies.
 type HealthServiceImpl struct {
 	db      Checkable
 	compute ports.ComputeBackend
 }
 
+// NewHealthServiceImpl constructs a health service with its dependencies.
 func NewHealthServiceImpl(db Checkable, compute ports.ComputeBackend) *HealthServiceImpl {
 	return &HealthServiceImpl{
 		db:      db,

@@ -11,10 +11,12 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+// AuditService records user actions for compliance and tracing.
 type AuditService struct {
 	repo ports.AuditRepository
 }
 
+// NewAuditService constructs an audit service for persisting audit logs.
 func NewAuditService(repo ports.AuditRepository) *AuditService {
 	return &AuditService{repo: repo}
 }
