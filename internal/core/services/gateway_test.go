@@ -19,7 +19,7 @@ const (
 	gatewayTargetURL = "http://target:80"
 )
 
-func setupGatewayServiceTest(t *testing.T, initialRoutes []*domain.GatewayRoute) (*MockGatewayRepo, *MockAuditService, ports.GatewayService) {
+func setupGatewayServiceTest(initialRoutes []*domain.GatewayRoute) (*MockGatewayRepo, *MockAuditService, ports.GatewayService) {
 	repo := new(MockGatewayRepo)
 	auditSvc := new(MockAuditService)
 
@@ -31,7 +31,7 @@ func setupGatewayServiceTest(t *testing.T, initialRoutes []*domain.GatewayRoute)
 }
 
 func TestGatewayServiceCreateRoute(t *testing.T) {
-	repo, auditSvc, svc := setupGatewayServiceTest(t, []*domain.GatewayRoute{})
+	repo, auditSvc, svc := setupGatewayServiceTest([]*domain.GatewayRoute{})
 	defer repo.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
 
@@ -57,7 +57,7 @@ func TestGatewayServiceRefreshAndGetProxy(t *testing.T) {
 		TargetURL:  "http://localhost:8080",
 	}
 
-	repo, _, svc := setupGatewayServiceTest(t, []*domain.GatewayRoute{route})
+	repo, _, svc := setupGatewayServiceTest([]*domain.GatewayRoute{route})
 	defer repo.AssertExpectations(t)
 
 	proxy, ok := svc.GetProxy("/api/users")
@@ -68,8 +68,8 @@ func TestGatewayServiceRefreshAndGetProxy(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestGatewayService_ListRoutes(t *testing.T) {
-	repo, _, svc := setupGatewayServiceTest(t, nil)
+func TestGatewayServiceListRoutes(t *testing.T) {
+	repo, _, svc := setupGatewayServiceTest(nil)
 	defer repo.AssertExpectations(t)
 
 	userID := uuid.New()
@@ -84,8 +84,8 @@ func TestGatewayService_ListRoutes(t *testing.T) {
 	assert.Equal(t, routes, res)
 }
 
-func TestGatewayService_DeleteRoute(t *testing.T) {
-	repo, audit, svc := setupGatewayServiceTest(t, nil)
+func TestGatewayServiceDeleteRoute(t *testing.T) {
+	repo, audit, svc := setupGatewayServiceTest(nil)
 	defer repo.AssertExpectations(t)
 
 	userID := uuid.New()
@@ -102,8 +102,8 @@ func TestGatewayService_DeleteRoute(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestGatewayService_CreateRoute_Unauthorized(t *testing.T) {
-	_, _, svc := setupGatewayServiceTest(t, nil)
+func TestGatewayServiceCreateRouteUnauthorized(t *testing.T) {
+	_, _, svc := setupGatewayServiceTest(nil)
 	ctx := context.Background()
 
 	_, err := svc.CreateRoute(ctx, "test", "/api", "http://target", true, 100)
@@ -111,40 +111,40 @@ func TestGatewayService_CreateRoute_Unauthorized(t *testing.T) {
 	assert.Contains(t, err.Error(), "unauthorized")
 }
 
-func TestGatewayService_Errors(t *testing.T) {
+func TestGatewayServiceErrors(t *testing.T) {
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	userID := appcontext.UserIDFromContext(ctx)
 
 	t.Run("CreateRoute_RepoError", func(t *testing.T) {
-		repo, _, svc := setupGatewayServiceTest(t, nil)
+		repo, _, svc := setupGatewayServiceTest(nil)
 		repo.On("CreateRoute", ctx, mock.Anything).Return(assert.AnError)
 		_, err := svc.CreateRoute(ctx, "test", "/api", "http://target", true, 100)
 		assert.Error(t, err)
 	})
 
 	t.Run("ListRoutes_RepoError", func(t *testing.T) {
-		repo, _, svc := setupGatewayServiceTest(t, nil)
+		repo, _, svc := setupGatewayServiceTest(nil)
 		repo.On("ListRoutes", ctx, userID).Return(nil, assert.AnError)
 		_, err := svc.ListRoutes(ctx)
 		assert.Error(t, err)
 	})
 
 	t.Run("DeleteRoute_GetError", func(t *testing.T) {
-		repo, _, svc := setupGatewayServiceTest(t, nil)
+		repo, _, svc := setupGatewayServiceTest(nil)
 		repo.On("GetRouteByID", ctx, mock.Anything, userID).Return(nil, assert.AnError)
 		err := svc.DeleteRoute(ctx, uuid.New())
 		assert.Error(t, err)
 	})
 
 	t.Run("RefreshRoutes_RepoError", func(t *testing.T) {
-		repo, _, svc := setupGatewayServiceTest(t, nil)
+		repo, _, svc := setupGatewayServiceTest(nil)
 		repo.On("GetAllActiveRoutes", mock.Anything).Return(nil, assert.AnError)
 		err := svc.RefreshRoutes(context.Background())
 		assert.Error(t, err)
 	})
 
 	t.Run("RefreshRoutes_ParseError", func(t *testing.T) {
-		repo, _, svc := setupGatewayServiceTest(t, nil)
+		repo, _, svc := setupGatewayServiceTest(nil)
 		routes := []*domain.GatewayRoute{{PathPrefix: "/api", TargetURL: "::invalid"}}
 		repo.On("GetAllActiveRoutes", mock.Anything).Return(routes, nil)
 		err := svc.RefreshRoutes(context.Background())
@@ -152,15 +152,15 @@ func TestGatewayService_Errors(t *testing.T) {
 	})
 }
 
-func TestGatewayService_ListRoutes_Unauthorized(t *testing.T) {
-	_, _, svc := setupGatewayServiceTest(t, nil)
+func TestGatewayServiceListRoutesUnauthorized(t *testing.T) {
+	_, _, svc := setupGatewayServiceTest(nil)
 	ctx := context.Background()
 	_, err := svc.ListRoutes(ctx)
 	assert.Error(t, err)
 }
 
-func TestGatewayService_DeleteRoute_DeleteError(t *testing.T) {
-	repo, _, svc := setupGatewayServiceTest(t, nil)
+func TestGatewayServiceDeleteRouteDeleteError(t *testing.T) {
+	repo, _, svc := setupGatewayServiceTest(nil)
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)
 	routeID := uuid.New()
@@ -172,8 +172,8 @@ func TestGatewayService_DeleteRoute_DeleteError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestGatewayService_ProxyDirector(t *testing.T) {
-	repo, _, svc := setupGatewayServiceTest(t, nil)
+func TestGatewayServiceProxyDirector(t *testing.T) {
+	repo, _, svc := setupGatewayServiceTest(nil)
 	ctx := context.Background()
 
 	route := &domain.GatewayRoute{

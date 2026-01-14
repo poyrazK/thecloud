@@ -29,6 +29,8 @@ func (m *MockAuditRepository) ListByUserID(ctx context.Context, userID uuid.UUID
 	return args.Get(0).([]*domain.AuditLog), args.Error(1)
 }
 
+const auditLogType = "*domain.AuditLog"
+
 func TestNewAuditService(t *testing.T) {
 	repo := new(MockAuditRepository)
 	svc := services.NewAuditService(repo)
@@ -36,7 +38,7 @@ func TestNewAuditService(t *testing.T) {
 	assert.NotNil(t, svc)
 }
 
-func TestAuditService_Log_Success(t *testing.T) {
+func TestAuditServiceLogSuccess(t *testing.T) {
 	repo := new(MockAuditRepository)
 	svc := services.NewAuditService(repo)
 
@@ -50,23 +52,23 @@ func TestAuditService_Log_Success(t *testing.T) {
 		"size":  "small",
 	}
 
-	repo.On("Create", mock.Anything, mock.AnythingOfType("*domain.AuditLog")).Return(nil)
+	repo.On("Create", mock.Anything, mock.AnythingOfType(auditLogType)).Return(nil)
 
 	err := svc.Log(ctx, userID, action, resourceType, resourceID, details)
 
 	assert.NoError(t, err)
 	repo.AssertExpectations(t)
-	repo.AssertCalled(t, "Create", mock.Anything, mock.AnythingOfType("*domain.AuditLog"))
+	repo.AssertCalled(t, "Create", mock.Anything, mock.AnythingOfType(auditLogType))
 }
 
-func TestAuditService_Log_RepositoryError(t *testing.T) {
+func TestAuditServiceLogRepositoryError(t *testing.T) {
 	repo := new(MockAuditRepository)
 	svc := services.NewAuditService(repo)
 
 	ctx := context.Background()
 	userID := uuid.New()
 
-	repo.On("Create", mock.Anything, mock.AnythingOfType("*domain.AuditLog")).Return(assert.AnError)
+	repo.On("Create", mock.Anything, mock.AnythingOfType(auditLogType)).Return(assert.AnError)
 
 	err := svc.Log(ctx, userID, "test.action", "test", "123", nil)
 
@@ -75,14 +77,14 @@ func TestAuditService_Log_RepositoryError(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
-func TestAuditService_Log_WithNilDetails(t *testing.T) {
+func TestAuditServiceLogWithNilDetails(t *testing.T) {
 	repo := new(MockAuditRepository)
 	svc := services.NewAuditService(repo)
 
 	ctx := context.Background()
 	userID := uuid.New()
 
-	repo.On("Create", mock.Anything, mock.AnythingOfType("*domain.AuditLog")).Return(nil)
+	repo.On("Create", mock.Anything, mock.AnythingOfType(auditLogType)).Return(nil)
 
 	err := svc.Log(ctx, userID, "test.action", "test", "123", nil)
 
@@ -90,7 +92,7 @@ func TestAuditService_Log_WithNilDetails(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
-func TestAuditService_ListLogs_Success(t *testing.T) {
+func TestAuditServiceListLogsSuccess(t *testing.T) {
 	repo := new(MockAuditRepository)
 	svc := services.NewAuditService(repo)
 
@@ -125,7 +127,7 @@ func TestAuditService_ListLogs_Success(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
-func TestAuditService_ListLogs_EmptyResult(t *testing.T) {
+func TestAuditServiceListLogsEmptyResult(t *testing.T) {
 	repo := new(MockAuditRepository)
 	svc := services.NewAuditService(repo)
 
@@ -141,7 +143,7 @@ func TestAuditService_ListLogs_EmptyResult(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
-func TestAuditService_ListLogs_DefaultLimit(t *testing.T) {
+func TestAuditServiceListLogsDefaultLimit(t *testing.T) {
 	repo := new(MockAuditRepository)
 	svc := services.NewAuditService(repo)
 
@@ -170,7 +172,7 @@ func TestAuditService_ListLogs_DefaultLimit(t *testing.T) {
 	repo2.AssertExpectations(t)
 }
 
-func TestAuditService_ListLogs_RepositoryError(t *testing.T) {
+func TestAuditServiceListLogsRepositoryError(t *testing.T) {
 	repo := new(MockAuditRepository)
 	svc := services.NewAuditService(repo)
 

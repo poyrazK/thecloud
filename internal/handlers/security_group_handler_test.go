@@ -15,6 +15,14 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	testSgName       = "web-sg"
+	testContentType  = "Content-Type"
+	testAppJSON      = "application/json"
+	testSgPath       = "/security-groups"
+	testSgDetailPath = "/security-groups/"
+)
+
 type mockSecurityGroupService struct {
 	mock.Mock
 }
@@ -61,8 +69,8 @@ func (m *mockSecurityGroupService) AttachToInstance(ctx context.Context, instanc
 	return args.Error(0)
 }
 
-func (m *mockSecurityGroupService) DetachFromInstance(ctx context.Context, instanceID, groupID uuid.UUID) error {
-	args := m.Called(ctx, instanceID, groupID)
+func (m *mockSecurityGroupService) DetachFromInstance(c context.Context, i uuid.UUID, g uuid.UUID) error {
+	args := m.Called(c, i, g)
 	return args.Error(0)
 }
 
@@ -71,27 +79,26 @@ func (m *mockSecurityGroupService) RemoveRule(ctx context.Context, ruleID uuid.U
 	return args.Error(0)
 }
 
-func TestSecurityGroupHandler_Create(t *testing.T) {
+func TestSecurityGroupHandlerCreate(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSecurityGroupService)
 	h := NewSecurityGroupHandler(svc)
 
 	vpcID := uuid.New()
-	sg := &domain.SecurityGroup{ID: uuid.New(), VPCID: vpcID, Name: "web-sg"}
-
-	svc.On("CreateGroup", mock.Anything, vpcID, "web-sg", "web servers").Return(sg, nil)
+	sg := &domain.SecurityGroup{ID: uuid.New(), VPCID: vpcID, Name: testSgName}
+	svc.On("CreateGroup", mock.Anything, vpcID, testSgName, "web servers").Return(sg, nil)
 
 	reqBody := map[string]interface{}{
 		"vpc_id":      vpcID,
-		"name":        "web-sg",
+		"name":        testSgName,
 		"description": "web servers",
 	}
 	body, _ := json.Marshal(reqBody)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("POST", "/security-groups", bytes.NewBuffer(body))
-	c.Request.Header.Set("Content-Type", "application/json")
+	c.Request = httptest.NewRequest("POST", testSgPath, bytes.NewBuffer(body))
+	c.Request.Header.Set(testContentType, testAppJSON)
 
 	h.Create(c)
 
@@ -99,7 +106,7 @@ func TestSecurityGroupHandler_Create(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestSecurityGroupHandler_List(t *testing.T) {
+func TestSecurityGroupHandlerList(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSecurityGroupService)
 	h := NewSecurityGroupHandler(svc)
@@ -111,7 +118,7 @@ func TestSecurityGroupHandler_List(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/security-groups?vpc_id="+vpcID.String(), nil)
+	c.Request = httptest.NewRequest("GET", testSgPath+"?vpc_id="+vpcID.String(), nil)
 
 	h.List(c)
 
@@ -119,7 +126,7 @@ func TestSecurityGroupHandler_List(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestSecurityGroupHandler_Get(t *testing.T) {
+func TestSecurityGroupHandlerGet(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSecurityGroupService)
 	h := NewSecurityGroupHandler(svc)
@@ -132,7 +139,7 @@ func TestSecurityGroupHandler_Get(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/security-groups/"+id+"?vpc_id="+vpcID.String(), nil)
+	c.Request = httptest.NewRequest("GET", testSgDetailPath+id+"?vpc_id="+vpcID.String(), nil)
 	c.Params = gin.Params{{Key: "id", Value: id}}
 
 	h.Get(c)
@@ -141,7 +148,7 @@ func TestSecurityGroupHandler_Get(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestSecurityGroupHandler_Delete(t *testing.T) {
+func TestSecurityGroupHandlerDelete(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSecurityGroupService)
 	h := NewSecurityGroupHandler(svc)
@@ -152,7 +159,7 @@ func TestSecurityGroupHandler_Delete(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("DELETE", "/security-groups/"+id.String(), nil)
+	c.Request = httptest.NewRequest("DELETE", testSgDetailPath+id.String(), nil)
 	c.Params = gin.Params{{Key: "id", Value: id.String()}}
 
 	h.Delete(c)
@@ -161,7 +168,7 @@ func TestSecurityGroupHandler_Delete(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestSecurityGroupHandler_AddRule(t *testing.T) {
+func TestSecurityGroupHandlerAddRule(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSecurityGroupService)
 	h := NewSecurityGroupHandler(svc)
@@ -174,8 +181,8 @@ func TestSecurityGroupHandler_AddRule(t *testing.T) {
 	body, _ := json.Marshal(rule)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("POST", "/security-groups/"+groupID.String()+"/rules", bytes.NewBuffer(body))
-	c.Request.Header.Set("Content-Type", "application/json")
+	c.Request = httptest.NewRequest("POST", testSgDetailPath+groupID.String()+"/rules", bytes.NewBuffer(body))
+	c.Request.Header.Set(testContentType, testAppJSON)
 	c.Params = gin.Params{{Key: "id", Value: groupID.String()}}
 
 	h.AddRule(c)
@@ -184,7 +191,7 @@ func TestSecurityGroupHandler_AddRule(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestSecurityGroupHandler_Attach(t *testing.T) {
+func TestSecurityGroupHandlerAttach(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSecurityGroupService)
 	h := NewSecurityGroupHandler(svc)
@@ -202,10 +209,56 @@ func TestSecurityGroupHandler_Attach(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("POST", "/security-groups/attach", bytes.NewBuffer(body))
-	c.Request.Header.Set("Content-Type", "application/json")
+	c.Request = httptest.NewRequest("POST", testSgPath+"/attach", bytes.NewBuffer(body))
+	c.Request.Header.Set(testContentType, testAppJSON)
 
 	h.Attach(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	svc.AssertExpectations(t)
+}
+
+func TestSecurityGroupHandlerRemoveRule(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := new(mockSecurityGroupService)
+	h := NewSecurityGroupHandler(svc)
+
+	ruleID := uuid.New()
+	svc.On("RemoveRule", mock.Anything, ruleID).Return(nil)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("DELETE", testSgPath+"/rules/"+ruleID.String(), nil)
+	c.Params = gin.Params{{Key: "rule_id", Value: ruleID.String()}}
+
+	h.RemoveRule(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	svc.AssertExpectations(t)
+}
+
+func TestSecurityGroupHandlerDetach(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := new(mockSecurityGroupService)
+	h := NewSecurityGroupHandler(svc)
+
+	instanceID := uuid.New()
+	groupID := uuid.New()
+
+	svc.On("DetachFromInstance", mock.Anything, instanceID, groupID).Return(nil)
+
+	reqBody := map[string]interface{}{
+		"instance_id": instanceID,
+		"group_id":    groupID,
+	}
+	body, _ := json.Marshal(reqBody)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("POST", testSgPath+"/detach", bytes.NewBuffer(body))
+	c.Request.Header.Set(testContentType, testAppJSON)
+
+	h.Detach(c)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	svc.AssertExpectations(t)

@@ -56,7 +56,8 @@ func (m *instanceServiceMock) GetInstance(ctx context.Context, idOrName string) 
 
 func (m *instanceServiceMock) GetInstanceLogs(ctx context.Context, idOrName string) (string, error) {
 	args := m.Called(ctx, idOrName)
-	return args.String(0), args.Error(1)
+	logs := args.String(0)
+	return logs, args.Error(1)
 }
 
 func (m *instanceServiceMock) GetInstanceStats(ctx context.Context, idOrName string) (*domain.InstanceStats, error) {

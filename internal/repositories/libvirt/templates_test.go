@@ -1,8 +1,10 @@
 package libvirt
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,28 +28,28 @@ func TestGenerateDomainXML(t *testing.T) {
 	t.Run("with iso and disks", func(t *testing.T) {
 		additionalDisks := []string{"/path/to/vdb", "/dev/sdc"}
 		xml := generateDomainXML("test-vm", "/path/to/disk", "custom-net", "/path/to/iso", 512, 1, additionalDisks)
-		
+
 		assert.Contains(t, xml, "<source file='/path/to/iso'/>")
 		assert.Contains(t, xml, "<target dev='sda' bus='sata'/>")
-		
+
 		// vdb (file)
 		assert.Contains(t, xml, "<disk type='file' device='disk'>")
 		assert.Contains(t, xml, "<source file='/path/to/vdb'/>")
 		assert.Contains(t, xml, "<target dev='vdb' bus='virtio'/>")
-		
+
 		// sdc (block)
 		assert.Contains(t, xml, "<disk type='block' device='disk'>")
 		assert.Contains(t, xml, "<source dev='/dev/sdc'/>")
 		assert.Contains(t, xml, "<target dev='vdc' bus='virtio'/>")
-		
+
 		assert.Contains(t, xml, "<source network='custom-net'/>")
 	})
 }
 
 func TestGenerateNetworkXML(t *testing.T) {
-	xml := generateNetworkXML("test-net", "test-br", "10.0.0.1", "10.0.0.2", "10.0.0.50")
+	xml := generateNetworkXML("test-net", "test-br", testutil.TestIPHost, testutil.TestLibvirtDHCPStart, testutil.TestLibvirtDHCPEnd)
 	assert.Contains(t, xml, "<name>test-net</name>")
 	assert.Contains(t, xml, "<bridge name='test-br' stp='on' delay='0'/>")
-	assert.Contains(t, xml, "<ip address='10.0.0.1'")
-	assert.Contains(t, xml, "<range start='10.0.0.2' end='10.0.0.50'/>")
+	assert.Contains(t, xml, fmt.Sprintf("<ip address='%s'", testutil.TestIPHost))
+	assert.Contains(t, xml, fmt.Sprintf("<range start='%s' end='%s'/>", testutil.TestLibvirtDHCPStart, testutil.TestLibvirtDHCPEnd))
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -54,7 +55,7 @@ func BenchmarkVPCServiceGet(b *testing.B) {
 	network := &noop.NoopNetworkAdapter{}
 	auditSvc := &noop.NoopAuditService{}
 	logger := slog.Default()
-	svc := services.NewVpcService(repo, network, auditSvc, logger, "10.0.0.0/16")
+	svc := services.NewVpcService(repo, network, auditSvc, logger, testutil.TestCIDR)
 
 	ctx := context.Background()
 	id := uuid.New()
@@ -165,7 +166,7 @@ func BenchmarkAuthServiceLoginParallel(b *testing.B) {
 
 	ctx := context.Background()
 	email := "admin@thecloud.local"
-	password := "password"
+	password := testutil.TestPasswordStrong
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -287,7 +288,7 @@ func BenchmarkAuthServiceRegister(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Use unique email each time to avoid "user exists" check impact if we were using real repo
 		// though noop always returns nil for existing check usually (wait, I should check noop GetByEmail)
-		_, _ = svc.Register(ctx, "test@example.com", "P@ssword123!", "Test User")
+		_, _ = svc.Register(ctx, "test@example.com", testutil.TestPasswordStrong, "Test User")
 	}
 }
 
@@ -310,7 +311,7 @@ func (r *BenchUserRepository) GetByEmail(ctx context.Context, email string) (*do
 
 func BenchmarkAuthServiceLogin(b *testing.B) {
 	// Generate a real hash once
-	hash, _ := bcrypt.GenerateFromPassword([]byte("password"), 10)
+	hash, _ := bcrypt.GenerateFromPassword([]byte(testutil.TestPasswordStrong), 10)
 
 	userRepo := &BenchUserRepository{}
 	// Override the default behavior to return the real hash
@@ -327,7 +328,7 @@ func BenchmarkAuthServiceLogin(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _, err := svc.Login(ctx, "test@example.com", "password")
+		_, _, err := svc.Login(ctx, "test@example.com", testutil.TestPasswordStrong)
 		if err != nil {
 			b.Fatalf("Login failed: %v", err)
 		}

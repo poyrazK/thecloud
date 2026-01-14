@@ -7,21 +7,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestClient_CreateSecurityGroup(t *testing.T) {
+func TestClientCreateSecurityGroup(t *testing.T) {
 	vpcID := "vpc-123"
 	expectedSG := SecurityGroup{
 		ID:          "sg-1",
 		VPCID:       vpcID,
-		Name:        "test-sg",
+		Name:        testSgName,
 		Description: "test security group",
 		CreatedAt:   time.Now(),
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/security-groups", r.URL.Path)
+		assert.Equal(t, sgBasePath, r.URL.Path)
 		assert.Equal(t, http.MethodPost, r.Method)
 
 		var req map[string]string
@@ -30,21 +31,21 @@ func TestClient_CreateSecurityGroup(t *testing.T) {
 		assert.Equal(t, vpcID, req["vpc_id"])
 		assert.Equal(t, expectedSG.Name, req["name"])
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		resp := Response[SecurityGroup]{Data: expectedSG}
 		json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
-	sg, err := client.CreateSecurityGroup(vpcID, "test-sg", "test security group")
+	client := NewClient(server.URL, testAPIKey)
+	sg, err := client.CreateSecurityGroup(vpcID, testSgName, "test security group")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, sg)
 	assert.Equal(t, expectedSG.ID, sg.ID)
 }
 
-func TestClient_ListSecurityGroups(t *testing.T) {
+func TestClientListSecurityGroups(t *testing.T) {
 	vpcID := "vpc-123"
 	expectedSGs := []SecurityGroup{
 		{ID: "sg-1", Name: "sg-1", VPCID: vpcID},
@@ -52,41 +53,41 @@ func TestClient_ListSecurityGroups(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/security-groups", r.URL.Path)
+		assert.Equal(t, sgBasePath, r.URL.Path)
 		assert.Equal(t, "vpc_id="+vpcID, r.URL.RawQuery)
 		assert.Equal(t, http.MethodGet, r.Method)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		resp := Response[[]SecurityGroup]{Data: expectedSGs}
 		json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, testAPIKey)
 	sgs, err := client.ListSecurityGroups(vpcID)
 
 	assert.NoError(t, err)
 	assert.Len(t, sgs, 2)
 }
 
-func TestClient_GetSecurityGroup(t *testing.T) {
-	id := "sg-123"
+func TestClientGetSecurityGroup(t *testing.T) {
+	id := sg123
 	expectedSG := SecurityGroup{
 		ID:   id,
-		Name: "test-sg",
+		Name: testSgName,
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/security-groups/"+id, r.URL.Path)
+		assert.Equal(t, sgDetailPath+id, r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		resp := Response[SecurityGroup]{Data: expectedSG}
 		json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, testAPIKey)
 	sg, err := client.GetSecurityGroup(id)
 
 	assert.NoError(t, err)
@@ -94,35 +95,35 @@ func TestClient_GetSecurityGroup(t *testing.T) {
 	assert.Equal(t, expectedSG.ID, sg.ID)
 }
 
-func TestClient_DeleteSecurityGroup(t *testing.T) {
-	id := "sg-123"
+func TestClientDeleteSecurityGroup(t *testing.T) {
+	id := sg123
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/security-groups/"+id, r.URL.Path)
+		assert.Equal(t, sgDetailPath+id, r.URL.Path)
 		assert.Equal(t, http.MethodDelete, r.Method)
 
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, testAPIKey)
 	err := client.DeleteSecurityGroup(id)
 
 	assert.NoError(t, err)
 }
 
-func TestClient_AddSecurityRule(t *testing.T) {
-	groupID := "sg-123"
+func TestClientAddSecurityRule(t *testing.T) {
+	groupID := sg123
 	rule := SecurityRule{
 		Direction: "ingress",
 		Protocol:  "tcp",
 		PortMin:   80,
 		PortMax:   80,
-		CIDR:      "0.0.0.0/0",
+		CIDR:      testutil.TestAnyCIDR,
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/security-groups/"+groupID+"/rules", r.URL.Path)
+		assert.Equal(t, sgDetailPath+groupID+"/rules", r.URL.Path)
 		assert.Equal(t, http.MethodPost, r.Method)
 
 		var req SecurityRule
@@ -130,14 +131,14 @@ func TestClient_AddSecurityRule(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, rule.Protocol, req.Protocol)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		rule.ID = "rule-1"
 		resp := Response[SecurityRule]{Data: rule}
 		json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, testAPIKey)
 	result, err := client.AddSecurityRule(groupID, rule)
 
 	assert.NoError(t, err)
@@ -145,9 +146,9 @@ func TestClient_AddSecurityRule(t *testing.T) {
 	assert.Equal(t, "rule-1", result.ID)
 }
 
-func TestClient_AttachSecurityGroup(t *testing.T) {
+func TestClientAttachSecurityGroup(t *testing.T) {
 	instanceID := "inst-123"
-	groupID := "sg-123"
+	groupID := sg123
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/security-groups/attach", r.URL.Path)
@@ -163,7 +164,7 @@ func TestClient_AttachSecurityGroup(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, testAPIKey)
 	err := client.AttachSecurityGroup(instanceID, groupID)
 
 	assert.NoError(t, err)

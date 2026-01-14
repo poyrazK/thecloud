@@ -480,6 +480,14 @@ definitions:
           $ref: '#/definitions/domain.Permission'
         type: array
     type: object
+  domain.RuleDirection:
+    enum:
+    - ingress
+    - egress
+    type: string
+    x-enum-varnames:
+    - RuleIngress
+    - RuleEgress
   domain.ScalingGroup:
     properties:
       created_at:
@@ -566,6 +574,52 @@ definitions:
       target_value:
         description: Threshold (e.g. 80.0 for 80%)
         type: number
+    type: object
+  domain.SecurityGroup:
+    properties:
+      arn:
+        description: Unique identifier (arn:thecloud:vpc:{region}:{user}:sg/{name})
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      rules:
+        items:
+          $ref: '#/definitions/domain.SecurityRule'
+        type: array
+      user_id:
+        type: string
+      vpc_id:
+        type: string
+    type: object
+  domain.SecurityRule:
+    properties:
+      cidr:
+        description: Targeted IPv4 range (e.g., "0.0.0.0/0")
+        type: string
+      created_at:
+        type: string
+      direction:
+        $ref: '#/definitions/domain.RuleDirection'
+      group_id:
+        type: string
+      id:
+        type: string
+      port_max:
+        type: integer
+      port_min:
+        type: integer
+      priority:
+        description: Evaluation order (lower values evaluated first)
+        type: integer
+      protocol:
+        description: Traffic protocol (e.g., "tcp", "udp", "icmp", "all")
+        type: string
     type: object
   domain.Snapshot:
     properties:
@@ -801,6 +855,16 @@ definitions:
     - instance_id
     - port
     type: object
+  httphandlers.AttachDetachSGRequest:
+    properties:
+      group_id:
+        type: string
+      instance_id:
+        type: string
+    required:
+    - group_id
+    - instance_id
+    type: object
   httphandlers.BindRoleRequest:
     properties:
       role_name:
@@ -893,6 +957,18 @@ definitions:
         type: array
     required:
     - name
+    type: object
+  httphandlers.CreateSecurityGroupRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      vpc_id:
+        type: string
+    required:
+    - name
+    - vpc_id
     type: object
   httphandlers.CreateSnapshotRequest:
     properties:
@@ -2357,6 +2433,255 @@ paths:
       summary: Remove permission from role
       tags:
       - RBAC
+  /security-groups:
+    get:
+      description: Lists all security groups for a VPC
+      parameters:
+      - description: VPC ID
+        in: query
+        name: vpc_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.SecurityGroup'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List security groups
+      tags:
+      - security-groups
+    post:
+      consumes:
+      - application/json
+      description: Creates a new security group in a VPC
+      parameters:
+      - description: Create request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreateSecurityGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.SecurityGroup'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create security group
+      tags:
+      - security-groups
+  /security-groups/{id}:
+    delete:
+      description: Deletes a security group
+      parameters:
+      - description: Security Group ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete security group
+      tags:
+      - security-groups
+    get:
+      description: Gets details of a specific security group
+      parameters:
+      - description: Security Group ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: VPC ID (optional if ID is UUID)
+        in: query
+        name: vpc_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.SecurityGroup'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get security group
+      tags:
+      - security-groups
+  /security-groups/{id}/rules:
+    post:
+      consumes:
+      - application/json
+      description: Adds a new rule to a security group
+      parameters:
+      - description: Security Group ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Rule details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.SecurityRule'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.SecurityRule'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Add security rule
+      tags:
+      - security-groups
+  /security-groups/attach:
+    post:
+      consumes:
+      - application/json
+      description: Associates a security group with a compute instance
+      parameters:
+      - description: Attach details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.AttachDetachSGRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Attach security group
+      tags:
+      - security-groups
+  /security-groups/detach:
+    post:
+      consumes:
+      - application/json
+      description: Removes a security group association from a compute instance
+      parameters:
+      - description: Detach details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.AttachDetachSGRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Detach security group
+      tags:
+      - security-groups
+  /security-groups/rules/{rule_id}:
+    delete:
+      description: Deletes a specific security rule by ID
+      parameters:
+      - description: Rule ID
+        in: path
+        name: rule_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Remove security rule
+      tags:
+      - security-groups
   /snapshots:
     get:
       description: Gets a list of all existing snapshots for the user

@@ -2,6 +2,7 @@ package ovs_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"testing"
@@ -9,11 +10,19 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/repositories/ovs"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestOvsAdapter_Integration(t *testing.T) {
+const (
+	testSrcFmt        = "ip,nw_src=%s"
+	ovsNotAvailable   = "OVS not available, skipping validation test"
+	errInvalidBridge  = "expected error for invalid bridge name"
+	invalidBridgeName = "invalid bridge"
+)
+
+func TestOvsAdapterIntegration(t *testing.T) {
 	if os.Getenv("OVS_INTEGRATION_TEST") != "true" {
 		t.Skip("Skipping OVS integration test. Set OVS_INTEGRATION_TEST=true to run.")
 	}
@@ -39,7 +48,7 @@ func TestOvsAdapter_Integration(t *testing.T) {
 	t.Run("AddFlowRule", func(t *testing.T) {
 		rule := ports.FlowRule{
 			Priority: 100,
-			Match:    "ip,nw_src=10.0.0.1",
+			Match:    fmt.Sprintf(testSrcFmt, testutil.TestIPHost),
 			Actions:  "drop",
 		}
 		err := adapter.AddFlowRule(ctx, bridgeName, rule)
@@ -48,7 +57,7 @@ func TestOvsAdapter_Integration(t *testing.T) {
 
 	// 3. Delete Flow Rule
 	t.Run("DeleteFlowRule", func(t *testing.T) {
-		err := adapter.DeleteFlowRule(ctx, bridgeName, "ip,nw_src=10.0.0.1")
+		err := adapter.DeleteFlowRule(ctx, bridgeName, fmt.Sprintf(testSrcFmt, testutil.TestIPHost))
 		assert.NoError(t, err)
 	})
 
@@ -59,7 +68,7 @@ func TestOvsAdapter_Integration(t *testing.T) {
 	})
 }
 
-func TestOvsAdapter_Type(t *testing.T) {
+func TestOvsAdapterType(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	adapter, err := ovs.NewOvsAdapter(logger)
 	if err != nil {
@@ -71,50 +80,50 @@ func TestOvsAdapter_Type(t *testing.T) {
 	}
 }
 
-func TestOvsAdapter_CreateBridge_InvalidName(t *testing.T) {
+func TestOvsAdapterCreateBridgeInvalidName(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	adapter, err := ovs.NewOvsAdapter(logger)
 	if err != nil {
-		t.Skip("OVS not available, skipping validation test")
+		t.Skip(ovsNotAvailable)
 	}
 
 	err = adapter.CreateBridge(context.Background(), "invalid name", 1)
 	if err == nil {
-		t.Fatalf("expected error for invalid bridge name")
+		t.Fatal(errInvalidBridge)
 	}
 }
 
-func TestOvsAdapter_DeleteBridge_InvalidName(t *testing.T) {
+func TestOvsAdapterDeleteBridgeInvalidName(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	adapter, err := ovs.NewOvsAdapter(logger)
 	if err != nil {
-		t.Skip("OVS not available, skipping validation test")
+		t.Skip(ovsNotAvailable)
 	}
 
 	err = adapter.DeleteBridge(context.Background(), "invalid name")
 	if err == nil {
-		t.Fatalf("expected error for invalid bridge name")
+		t.Fatal(errInvalidBridge)
 	}
 }
 
-func TestOvsAdapter_AddPort_InvalidName(t *testing.T) {
+func TestOvsAdapterAddPortInvalidName(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	adapter, err := ovs.NewOvsAdapter(logger)
 	if err != nil {
-		t.Skip("OVS not available, skipping validation test")
+		t.Skip(ovsNotAvailable)
 	}
 
-	err = adapter.AddPort(context.Background(), "invalid bridge", "port")
+	err = adapter.AddPort(context.Background(), invalidBridgeName, "port")
 	if err == nil {
-		t.Fatalf("expected error for invalid bridge name")
+		t.Fatal(errInvalidBridge)
 	}
 }
 
-func TestOvsAdapter_DeletePort_InvalidName(t *testing.T) {
+func TestOvsAdapterDeletePortInvalidName(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	adapter, err := ovs.NewOvsAdapter(logger)
 	if err != nil {
-		t.Skip("OVS not available, skipping validation test")
+		t.Skip(ovsNotAvailable)
 	}
 
 	err = adapter.DeletePort(context.Background(), "bridge", "invalid port")
@@ -123,34 +132,34 @@ func TestOvsAdapter_DeletePort_InvalidName(t *testing.T) {
 	}
 }
 
-func TestOvsAdapter_AddFlowRule_InvalidBridge(t *testing.T) {
+func TestOvsAdapterAddFlowRuleInvalidBridge(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	adapter, err := ovs.NewOvsAdapter(logger)
 	if err != nil {
-		t.Skip("OVS not available, skipping validation test")
+		t.Skip(ovsNotAvailable)
 	}
 
 	rule := ports.FlowRule{Priority: 100, Match: "in_port=1", Actions: "output:2"}
-	err = adapter.AddFlowRule(context.Background(), "invalid bridge", rule)
+	err = adapter.AddFlowRule(context.Background(), invalidBridgeName, rule)
 	if err == nil {
-		t.Fatalf("expected error for invalid bridge name")
+		t.Fatal(errInvalidBridge)
 	}
 }
 
-func TestOvsAdapter_DeleteFlowRule_InvalidBridge(t *testing.T) {
+func TestOvsAdapterDeleteFlowRuleInvalidBridge(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	adapter, err := ovs.NewOvsAdapter(logger)
 	if err != nil {
-		t.Skip("OVS not available, skipping validation test")
+		t.Skip(ovsNotAvailable)
 	}
 
-	err = adapter.DeleteFlowRule(context.Background(), "invalid bridge", "match")
+	err = adapter.DeleteFlowRule(context.Background(), invalidBridgeName, "match")
 	if err == nil {
-		t.Fatalf("expected error for invalid bridge name")
+		t.Fatal(errInvalidBridge)
 	}
 }
 
-func TestOvsAdapter_ListFlowRules(t *testing.T) {
+func TestOvsAdapterListFlowRules(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	adapter, err := ovs.NewOvsAdapter(logger)
 	if err != nil {

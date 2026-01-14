@@ -7,27 +7,28 @@ import (
 	"testing"
 	"time"
 
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestClient_ListSubnets(t *testing.T) {
+func TestClientListSubnets(t *testing.T) {
 	vpcID := "vpc-123"
 	expectedSubnets := []*Subnet{
-		{ID: "subnet-1", Name: "subnet-1", VpcID: vpcID, CIDRBlock: "10.0.1.0/24"},
-		{ID: "subnet-2", Name: "subnet-2", VpcID: vpcID, CIDRBlock: "10.0.2.0/24"},
+		{ID: subnet1, Name: subnet1, VpcID: vpcID, CIDRBlock: testutil.TestSubnetCIDR},
+		{ID: "subnet-2", Name: "subnet-2", VpcID: vpcID, CIDRBlock: testutil.TestSubnet2CIDR},
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/vpcs/"+vpcID+"/subnets", r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		resp := Response[[]*Subnet]{Data: expectedSubnets}
 		json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, testAPIKey)
 	subnets, err := client.ListSubnets(vpcID)
 
 	assert.NoError(t, err)
@@ -35,13 +36,13 @@ func TestClient_ListSubnets(t *testing.T) {
 	assert.Equal(t, expectedSubnets[0].CIDRBlock, subnets[0].CIDRBlock)
 }
 
-func TestClient_CreateSubnet(t *testing.T) {
+func TestClientCreateSubnet(t *testing.T) {
 	vpcID := "vpc-123"
 	expectedSubnet := &Subnet{
-		ID:        "subnet-1",
+		ID:        subnet1,
 		VpcID:     vpcID,
-		Name:      "test-subnet",
-		CIDRBlock: "10.0.1.0/24",
+		Name:      testSubnetName,
+		CIDRBlock: testutil.TestSubnetCIDR,
 		AZ:        "us-east-1a",
 		Status:    "available",
 		CreatedAt: time.Now(),
@@ -58,14 +59,14 @@ func TestClient_CreateSubnet(t *testing.T) {
 		assert.Equal(t, expectedSubnet.CIDRBlock, req["cidr_block"])
 		assert.Equal(t, expectedSubnet.AZ, req["availability_zone"])
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		resp := Response[*Subnet]{Data: expectedSubnet}
 		json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
-	subnet, err := client.CreateSubnet(vpcID, "test-subnet", "10.0.1.0/24", "us-east-1a")
+	client := NewClient(server.URL, testAPIKey)
+	subnet, err := client.CreateSubnet(vpcID, testSubnetName, testutil.TestSubnetCIDR, "us-east-1a")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, subnet)
@@ -73,7 +74,7 @@ func TestClient_CreateSubnet(t *testing.T) {
 	assert.Equal(t, expectedSubnet.CIDRBlock, subnet.CIDRBlock)
 }
 
-func TestClient_DeleteSubnet(t *testing.T) {
+func TestClientDeleteSubnet(t *testing.T) {
 	id := "subnet-123"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -84,31 +85,31 @@ func TestClient_DeleteSubnet(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, testAPIKey)
 	err := client.DeleteSubnet(id)
 
 	assert.NoError(t, err)
 }
 
-func TestClient_GetSubnet(t *testing.T) {
+func TestClientGetSubnet(t *testing.T) {
 	id := "subnet-123"
 	expectedSubnet := &Subnet{
 		ID:        id,
-		Name:      "test-subnet",
-		CIDRBlock: "10.0.1.0/24",
+		Name:      testSubnetName,
+		CIDRBlock: testutil.TestSubnetCIDR,
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/subnets/"+id, r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", testutil.TestContentTypeAppJSON)
 		resp := Response[*Subnet]{Data: expectedSubnet}
 		json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, testAPIKey)
 	subnet, err := client.GetSubnet(id)
 
 	assert.NoError(t, err)

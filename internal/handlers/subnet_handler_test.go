@@ -11,8 +11,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+)
+
+const (
+	testSubnetName    = "test-subnet"
+	vpcsPathPrefix    = "/vpcs/"
+	subnetsPathPrefix = "/subnets/"
+	subnetsPath       = "/subnets"
 )
 
 type mockSubnetService struct {
@@ -48,7 +56,7 @@ func (m *mockSubnetService) DeleteSubnet(ctx context.Context, id uuid.UUID) erro
 	return args.Error(0)
 }
 
-func TestSubnetHandler_Create_Success(t *testing.T) {
+func TestSubnetHandlerCreateSuccess(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
@@ -59,23 +67,23 @@ func TestSubnetHandler_Create_Success(t *testing.T) {
 	expectedSubnet := &domain.Subnet{
 		ID:        subnetID,
 		VPCID:     vpcID,
-		Name:      "test-subnet",
-		CIDRBlock: "10.0.1.0/24",
+		Name:      testSubnetName,
+		CIDRBlock: testutil.TestSubnetCIDR,
 	}
 
-	svc.On("CreateSubnet", mock.Anything, vpcID, "test-subnet", "10.0.1.0/24", "us-east-1a").Return(expectedSubnet, nil)
+	svc.On("CreateSubnet", mock.Anything, vpcID, testSubnetName, testutil.TestSubnetCIDR, "us-east-1a").Return(expectedSubnet, nil)
 
 	reqBody := map[string]string{
-		"name":              "test-subnet",
-		"cidr_block":        "10.0.1.0/24",
+		"name":              testSubnetName,
+		"cidr_block":        testutil.TestSubnetCIDR,
 		"availability_zone": "us-east-1a",
 	}
 	body, _ := json.Marshal(reqBody)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("POST", "/vpcs/"+vpcID.String()+"/subnets", bytes.NewBuffer(body))
-	c.Request.Header.Set("Content-Type", "application/json")
+	c.Request = httptest.NewRequest("POST", vpcsPathPrefix+vpcID.String()+subnetsPath, bytes.NewBuffer(body))
+	c.Request.Header.Set(contentType, applicationJSON)
 	c.Params = gin.Params{{Key: "vpc_id", Value: vpcID.String()}}
 
 	handler.Create(c)
@@ -84,14 +92,14 @@ func TestSubnetHandler_Create_Success(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestSubnetHandler_Create_InvalidVpcID(t *testing.T) {
+func TestSubnetHandlerCreateInvalidVpcID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("POST", "/vpcs/invalid-uuid/subnets", nil)
+	c.Request = httptest.NewRequest("POST", vpcsPathPrefix+"invalid-uuid/subnets", nil)
 	c.Params = gin.Params{{Key: "vpc_id", Value: "invalid-uuid"}}
 
 	handler.Create(c)
@@ -100,7 +108,7 @@ func TestSubnetHandler_Create_InvalidVpcID(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestSubnetHandler_Create_InvalidRequest(t *testing.T) {
+func TestSubnetHandlerCreateInvalidRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
@@ -114,8 +122,8 @@ func TestSubnetHandler_Create_InvalidRequest(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("POST", "/vpcs/"+vpcID.String()+"/subnets", bytes.NewBuffer(body))
-	c.Request.Header.Set("Content-Type", "application/json")
+	c.Request = httptest.NewRequest("POST", vpcsPathPrefix+vpcID.String()+subnetsPath, bytes.NewBuffer(body))
+	c.Request.Header.Set(contentType, applicationJSON)
 	c.Params = gin.Params{{Key: "vpc_id", Value: vpcID.String()}}
 
 	handler.Create(c)
@@ -124,7 +132,7 @@ func TestSubnetHandler_Create_InvalidRequest(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestSubnetHandler_List_Success(t *testing.T) {
+func TestSubnetHandlerListSuccess(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
@@ -140,7 +148,7 @@ func TestSubnetHandler_List_Success(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/vpcs/"+vpcID.String()+"/subnets", nil)
+	c.Request = httptest.NewRequest("GET", vpcsPathPrefix+vpcID.String()+subnetsPath, nil)
 	c.Params = gin.Params{{Key: "vpc_id", Value: vpcID.String()}}
 
 	handler.List(c)
@@ -149,14 +157,14 @@ func TestSubnetHandler_List_Success(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestSubnetHandler_List_InvalidVpcID(t *testing.T) {
+func TestSubnetHandlerListInvalidVpcID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/vpcs/invalid/subnets", nil)
+	c.Request = httptest.NewRequest("GET", vpcsPathPrefix+"invalid/subnets", nil)
 	c.Params = gin.Params{{Key: "vpc_id", Value: "invalid"}}
 
 	handler.List(c)
@@ -165,7 +173,7 @@ func TestSubnetHandler_List_InvalidVpcID(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestSubnetHandler_Get_Success(t *testing.T) {
+func TestSubnetHandlerGetSuccess(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
@@ -174,14 +182,14 @@ func TestSubnetHandler_Get_Success(t *testing.T) {
 
 	expectedSubnet := &domain.Subnet{
 		ID:   subnetID,
-		Name: "test-subnet",
+		Name: testSubnetName,
 	}
 
 	svc.On("GetSubnet", mock.Anything, subnetID.String(), uuid.Nil).Return(expectedSubnet, nil)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/subnets/"+subnetID.String(), nil)
+	c.Request = httptest.NewRequest("GET", subnetsPathPrefix+subnetID.String(), nil)
 	c.Params = gin.Params{{Key: "id", Value: subnetID.String()}}
 
 	handler.Get(c)
@@ -190,7 +198,7 @@ func TestSubnetHandler_Get_Success(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestSubnetHandler_Get_ServiceError(t *testing.T) {
+func TestSubnetHandlerGetServiceError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
@@ -201,7 +209,7 @@ func TestSubnetHandler_Get_ServiceError(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/subnets/"+subnetID.String(), nil)
+	c.Request = httptest.NewRequest("GET", subnetsPathPrefix+subnetID.String(), nil)
 	c.Params = gin.Params{{Key: "id", Value: subnetID.String()}}
 
 	handler.Get(c)
@@ -210,7 +218,7 @@ func TestSubnetHandler_Get_ServiceError(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestSubnetHandler_Delete_Success(t *testing.T) {
+func TestSubnetHandlerDeleteSuccess(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
@@ -221,7 +229,7 @@ func TestSubnetHandler_Delete_Success(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("DELETE", "/subnets/"+subnetID.String(), nil)
+	c.Request = httptest.NewRequest("DELETE", subnetsPathPrefix+subnetID.String(), nil)
 	c.Params = gin.Params{{Key: "id", Value: subnetID.String()}}
 
 	handler.Delete(c)
@@ -230,14 +238,14 @@ func TestSubnetHandler_Delete_Success(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestSubnetHandler_Delete_InvalidID(t *testing.T) {
+func TestSubnetHandlerDeleteInvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("DELETE", "/subnets/invalid", nil)
+	c.Request = httptest.NewRequest("DELETE", subnetsPathPrefix+"invalid", nil)
 	c.Params = gin.Params{{Key: "id", Value: "invalid"}}
 
 	handler.Delete(c)
@@ -246,7 +254,7 @@ func TestSubnetHandler_Delete_InvalidID(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestSubnetHandler_Delete_ServiceError(t *testing.T) {
+func TestSubnetHandlerDeleteServiceError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
@@ -257,7 +265,7 @@ func TestSubnetHandler_Delete_ServiceError(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("DELETE", "/subnets/"+subnetID.String(), nil)
+	c.Request = httptest.NewRequest("DELETE", subnetsPathPrefix+subnetID.String(), nil)
 	c.Params = gin.Params{{Key: "id", Value: subnetID.String()}}
 
 	handler.Delete(c)

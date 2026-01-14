@@ -17,9 +17,7 @@ import (
 
 const (
 	testMountPath    = "/mock/path"
-	testDBError      = "db error"
 	testSelectVolume = "SELECT id, user_id, name, size_gb, status, instance_id, backend_path, mount_path, created_at, updated_at FROM volumes"
-	testNotFound     = "not found"
 )
 
 func TestVolumeRepositoryCreate(t *testing.T) {

@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -18,7 +19,6 @@ import (
 const (
 	vpcsPath    = "/vpcs"
 	testVpcName = "test-vpc"
-	testCidr    = "10.0.0.0/16"
 )
 
 type mockVpcService struct {
@@ -69,9 +69,9 @@ func TestVpcHandlerCreate(t *testing.T) {
 	r.POST(vpcsPath, handler.Create)
 
 	vpc := &domain.VPC{ID: uuid.New(), Name: testVpcName}
-	svc.On("CreateVPC", mock.Anything, testVpcName, testCidr).Return(vpc, nil)
+	svc.On("CreateVPC", mock.Anything, testVpcName, testutil.TestCIDR).Return(vpc, nil)
 
-	body, err := json.Marshal(map[string]string{"name": testVpcName, "cidr_block": testCidr})
+	body, err := json.Marshal(map[string]string{"name": testVpcName, "cidr_block": testutil.TestCIDR})
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", vpcsPath, bytes.NewBuffer(body))
@@ -81,7 +81,7 @@ func TestVpcHandlerCreate(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
-func TestVpcHandlerCreate_Errors(t *testing.T) {
+func TestVpcHandlerCreateErrors(t *testing.T) {
 	svc, handler, r := setupVpcHandlerTest(t)
 	r.POST(vpcsPath, handler.Create)
 
@@ -137,7 +137,7 @@ func TestVpcHandlerGet(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestVpcHandlerGet_Error(t *testing.T) {
+func TestVpcHandlerGetError(t *testing.T) {
 	svc, handler, r := setupVpcHandlerTest(t)
 	r.GET(vpcsPath+"/:id", handler.Get)
 
@@ -167,7 +167,7 @@ func TestVpcHandlerDelete(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestVpcHandlerList_Error(t *testing.T) {
+func TestVpcHandlerListError(t *testing.T) {
 	svc, handler, r := setupVpcHandlerTest(t)
 	r.GET(vpcsPath, handler.List)
 
@@ -180,7 +180,7 @@ func TestVpcHandlerList_Error(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestVpcHandlerDelete_Error(t *testing.T) {
+func TestVpcHandlerDeleteError(t *testing.T) {
 	svc, handler, r := setupVpcHandlerTest(t)
 	r.DELETE(vpcsPath+"/:id", handler.Delete)
 

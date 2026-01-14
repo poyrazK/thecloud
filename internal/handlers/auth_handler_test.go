@@ -19,6 +19,7 @@ import (
 const (
 	testEmail    = "test@example.com"
 	testPassword = "password123"
+	testName     = "Test User"
 	registerPath = "/auth/register"
 	loginPath    = "/auth/login"
 )
@@ -81,12 +82,12 @@ func TestAuthHandlerRegister(t *testing.T) {
 	r.POST(registerPath, handler.Register)
 
 	user := &domain.User{ID: uuid.New(), Email: testEmail}
-	svc.On("Register", mock.Anything, testEmail, testPassword, "Test User").Return(user, nil)
+	svc.On("Register", mock.Anything, testEmail, testPassword, testName).Return(user, nil)
 
 	body, err := json.Marshal(map[string]string{
 		"email":    testEmail,
 		"password": testPassword,
-		"name":     "Test User",
+		"name":     testName,
 	})
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
@@ -104,7 +105,7 @@ func TestAuthHandlerRegisterInvalidJSON(t *testing.T) {
 	r.POST(registerPath, handler.Register)
 
 	req := httptest.NewRequest(http.MethodPost, registerPath, bytes.NewBufferString("{bad"))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(contentType, applicationJSON)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -126,10 +127,10 @@ func TestAuthHandlerRegisterInvalidInputFromService(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	svc.On("Register", mock.Anything, testEmail, testPassword, "Test User").Return(nil, errors.New(errors.InvalidInput, "duplicate"))
+	svc.On("Register", mock.Anything, testEmail, testPassword, testName).Return(nil, errors.New(errors.InvalidInput, "duplicate"))
 
 	req := httptest.NewRequest(http.MethodPost, registerPath, bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(contentType, applicationJSON)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -167,7 +168,7 @@ func TestAuthHandlerLoginInvalidJSON(t *testing.T) {
 	r.POST(loginPath, handler.Login)
 
 	req := httptest.NewRequest(http.MethodPost, loginPath, bytes.NewBufferString("{oops"))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(contentType, applicationJSON)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -191,7 +192,7 @@ func TestAuthHandlerLoginInvalidCredentials(t *testing.T) {
 	svc.On("Login", mock.Anything, testEmail, testPassword).Return(nil, "", errors.New(errors.Unauthorized, "invalid credentials"))
 
 	req := httptest.NewRequest(http.MethodPost, loginPath, bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(contentType, applicationJSON)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -210,9 +211,9 @@ func TestAuthHandlerForgotPassword(t *testing.T) {
 	body, _ := json.Marshal(map[string]string{
 		"email": testEmail,
 	})
-	
+
 	req := httptest.NewRequest("POST", "/auth/forgot-password", bytes.NewBuffer(body))
-    req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(contentType, applicationJSON)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -224,19 +225,19 @@ func TestAuthHandlerResetPassword(t *testing.T) {
 	defer pwdSvc.AssertExpectations(t)
 
 	r.POST("/auth/reset-password", handler.ResetPassword)
-    
+
 	token := "reset-token"
 	newPwd := "newpass123"
 
 	pwdSvc.On("ResetPassword", mock.Anything, token, newPwd).Return(nil)
 
 	body, _ := json.Marshal(map[string]string{
-		"token": token,
+		"token":        token,
 		"new_password": newPwd,
 	})
-	
+
 	req := httptest.NewRequest("POST", "/auth/reset-password", bytes.NewBuffer(body))
-    req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(contentType, applicationJSON)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

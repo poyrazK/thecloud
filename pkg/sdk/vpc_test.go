@@ -6,10 +6,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestClient_ListVPCs(t *testing.T) {
+func TestClientListVPCs(t *testing.T) {
 	mockVPCs := []VPC{
 		{
 			ID:   "vpc-1",
@@ -21,13 +22,13 @@ func TestClient_ListVPCs(t *testing.T) {
 		assert.Equal(t, "/vpcs", r.URL.Path)
 		assert.Equal(t, "GET", r.Method)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(Response[[]VPC]{Data: mockVPCs})
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-key")
+	client := NewClient(server.URL, testAPIKey)
 	vpcs, err := client.ListVPCs()
 
 	assert.NoError(t, err)
@@ -35,10 +36,10 @@ func TestClient_ListVPCs(t *testing.T) {
 	assert.Equal(t, "vpc-1", vpcs[0].ID)
 }
 
-func TestClient_CreateVPC(t *testing.T) {
+func TestClientCreateVPC(t *testing.T) {
 	mockVPC := VPC{
 		ID:   "vpc-1",
-		Name: "new-vpc",
+		Name: testVpcName,
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -47,47 +48,47 @@ func TestClient_CreateVPC(t *testing.T) {
 
 		var body map[string]string
 		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, "new-vpc", body["name"])
-		assert.Equal(t, "10.0.0.0/16", body["cidr_block"])
+		assert.Equal(t, testVpcName, body["name"])
+		assert.Equal(t, testutil.TestCIDR, body["cidr_block"])
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(Response[VPC]{Data: mockVPC})
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-key")
-	vpc, err := client.CreateVPC("new-vpc", "10.0.0.0/16")
+	client := NewClient(server.URL, testAPIKey)
+	vpc, err := client.CreateVPC(testVpcName, testutil.TestCIDR)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "vpc-1", vpc.ID)
-	assert.Equal(t, "new-vpc", vpc.Name)
+	assert.Equal(t, testVpcName, vpc.Name)
 }
 
-func TestClient_GetVPC(t *testing.T) {
+func TestClientGetVPC(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/vpcs/vpc-1", r.URL.Path)
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(Response[VPC]{Data: VPC{ID: "vpc-1"}})
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-key")
+	client := NewClient(server.URL, testAPIKey)
 	vpc, err := client.GetVPC("vpc-1")
 
 	assert.NoError(t, err)
 	assert.Equal(t, "vpc-1", vpc.ID)
 }
 
-func TestClient_DeleteVPC(t *testing.T) {
+func TestClientDeleteVPC(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/vpcs/vpc-1", r.URL.Path)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-key")
+	client := NewClient(server.URL, testAPIKey)
 	err := client.DeleteVPC("vpc-1")
 
 	assert.NoError(t, err)

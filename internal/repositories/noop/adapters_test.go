@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -263,8 +264,8 @@ func TestNoopNetworkAdapter(t *testing.T) {
 	t.Run("PortsAndTunnels", func(t *testing.T) {
 		require.NoError(t, adapter.AddPort(ctx, "br0", "p0"))
 		require.NoError(t, adapter.DeletePort(ctx, "br0", "p0"))
-		require.NoError(t, adapter.CreateVXLANTunnel(ctx, "br0", 1, "1.1.1.1"))
-		require.NoError(t, adapter.DeleteVXLANTunnel(ctx, "br0", "1.1.1.1"))
+		require.NoError(t, adapter.CreateVXLANTunnel(ctx, "br0", 1, testutil.TestNoopIP1))
+		require.NoError(t, adapter.DeleteVXLANTunnel(ctx, "br0", testutil.TestNoopIP1))
 	})
 
 	t.Run("FlowRules", func(t *testing.T) {
@@ -279,7 +280,7 @@ func TestNoopNetworkAdapter(t *testing.T) {
 		require.NoError(t, adapter.CreateVethPair(ctx, "h", "c"))
 		require.NoError(t, adapter.AttachVethToBridge(ctx, "br0", "h"))
 		require.NoError(t, adapter.DeleteVethPair(ctx, "h"))
-		require.NoError(t, adapter.SetVethIP(ctx, "h", "1.1.1.2", "24"))
+		require.NoError(t, adapter.SetVethIP(ctx, "h", testutil.TestNoopIP2, "24"))
 		require.NoError(t, adapter.Ping(ctx))
 	})
 }

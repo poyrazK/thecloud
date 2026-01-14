@@ -58,7 +58,7 @@ func (m *mockIdentityService) RotateKey(ctx context.Context, userID, id uuid.UUI
 	return args.Get(0).(*domain.APIKey), args.Error(1)
 }
 
-func setupIdentityHandlerTest(t *testing.T, userID uuid.UUID) (*mockIdentityService, *IdentityHandler, *gin.Engine) {
+func setupIdentityHandlerTest(userID uuid.UUID) (*mockIdentityService, *IdentityHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockIdentityService)
 	handler := NewIdentityHandler(svc)
@@ -73,7 +73,7 @@ func setupIdentityHandlerTest(t *testing.T, userID uuid.UUID) (*mockIdentityServ
 
 func TestIdentityHandlerCreateKey(t *testing.T) {
 	userID := uuid.New()
-	svc, handler, r := setupIdentityHandlerTest(t, userID)
+	svc, handler, r := setupIdentityHandlerTest(userID)
 	defer svc.AssertExpectations(t)
 
 	r.POST(authKeysPath, handler.CreateKey)
@@ -94,7 +94,7 @@ func TestIdentityHandlerCreateKey(t *testing.T) {
 
 func TestIdentityHandlerListKeys(t *testing.T) {
 	userID := uuid.New()
-	svc, handler, r := setupIdentityHandlerTest(t, userID)
+	svc, handler, r := setupIdentityHandlerTest(userID)
 	defer svc.AssertExpectations(t)
 
 	r.GET(authKeysPath, handler.ListKeys)
@@ -114,7 +114,7 @@ func TestIdentityHandlerListKeys(t *testing.T) {
 
 func TestIdentityHandlerRevokeKey(t *testing.T) {
 	userID := uuid.New()
-	svc, handler, r := setupIdentityHandlerTest(t, userID)
+	svc, handler, r := setupIdentityHandlerTest(userID)
 	defer svc.AssertExpectations(t)
 
 	keyID := uuid.New()
@@ -132,7 +132,7 @@ func TestIdentityHandlerRevokeKey(t *testing.T) {
 
 func TestIdentityHandlerRotateKey(t *testing.T) {
 	userID := uuid.New()
-	svc, handler, r := setupIdentityHandlerTest(t, userID)
+	svc, handler, r := setupIdentityHandlerTest(userID)
 	defer svc.AssertExpectations(t)
 
 	keyID := uuid.New()
@@ -152,7 +152,7 @@ func TestIdentityHandlerRotateKey(t *testing.T) {
 
 func TestIdentityHandlerRegenerateKey(t *testing.T) {
 	userID := uuid.New()
-	svc, handler, r := setupIdentityHandlerTest(t, userID)
+	svc, handler, r := setupIdentityHandlerTest(userID)
 	defer svc.AssertExpectations(t)
 
 	keyID := uuid.New()

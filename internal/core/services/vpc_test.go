@@ -11,13 +11,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-const vpcTestCIDR = "10.0.0.0/16"
-
-func setupVpcServiceTest(t *testing.T, cidr string) (*MockVpcRepo, *MockNetworkBackend, *MockAuditService, ports.VpcService) {
+func setupVpcServiceTest(cidr string) (*MockVpcRepo, *MockNetworkBackend, *MockAuditService, ports.VpcService) {
 	vpcRepo := new(MockVpcRepo)
 	network := new(MockNetworkBackend)
 	auditSvc := new(MockAuditService)
@@ -28,14 +27,14 @@ func setupVpcServiceTest(t *testing.T, cidr string) (*MockVpcRepo, *MockNetworkB
 }
 
 func TestVpcServiceCreateSuccess(t *testing.T) {
-	vpcRepo, network, auditSvc, svc := setupVpcServiceTest(t, vpcTestCIDR)
+	vpcRepo, network, auditSvc, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 	defer network.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	name := "test-vpc"
-	cidr := vpcTestCIDR
+	cidr := testutil.TestCIDR
 
 	network.On("CreateBridge", mock.Anything, mock.MatchedBy(func(n string) bool {
 		return len(n) > 0 // Dynamic name
@@ -54,7 +53,7 @@ func TestVpcServiceCreateSuccess(t *testing.T) {
 }
 
 func TestVpcServiceCreateDBFailureRollsBackBridge(t *testing.T) {
-	vpcRepo, network, _, svc := setupVpcServiceTest(t, vpcTestCIDR)
+	vpcRepo, network, _, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 	defer network.AssertExpectations(t)
 
@@ -72,7 +71,7 @@ func TestVpcServiceCreateDBFailureRollsBackBridge(t *testing.T) {
 }
 
 func TestVpcServiceDeleteSuccess(t *testing.T) {
-	vpcRepo, network, auditSvc, svc := setupVpcServiceTest(t, vpcTestCIDR)
+	vpcRepo, network, auditSvc, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 	defer network.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
@@ -95,7 +94,7 @@ func TestVpcServiceDeleteSuccess(t *testing.T) {
 }
 
 func TestVpcServiceListSuccess(t *testing.T) {
-	vpcRepo, _, _, svc := setupVpcServiceTest(t, vpcTestCIDR)
+	vpcRepo, _, _, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 
 	vpcs := []*domain.VPC{{Name: "vpc1"}, {Name: "vpc2"}}
@@ -108,7 +107,7 @@ func TestVpcServiceListSuccess(t *testing.T) {
 }
 
 func TestVpcServiceGetByName(t *testing.T) {
-	vpcRepo, _, _, svc := setupVpcServiceTest(t, vpcTestCIDR)
+	vpcRepo, _, _, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 
 	name := "my-vpc"

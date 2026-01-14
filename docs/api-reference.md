@@ -212,6 +212,66 @@ Delete a VPC.
 
 ---
 
+## Security Groups
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /security-groups
+List all security groups.
+Query params: `?vpc_id=<vpc-uuid>` (required)
+
+### POST /security-groups
+Create a new security group.
+```json
+{
+  "vpc_id": "vpc-uuid",
+  "name": "web-tier",
+  "description": "Port 80 and 443 allowed"
+}
+```
+
+### GET /security-groups/:id
+Get details and rules for a security group.
+
+### DELETE /security-groups/:id
+Delete a security group.
+
+### POST /security-groups/:id/rules
+Add a firewall rule.
+```json
+{
+  "direction": "ingress",
+  "protocol": "tcp",
+  "port_min": 80,
+  "port_max": 80,
+  "cidr": "0.0.0.0/0",
+  "priority": 100
+}
+```
+
+### DELETE /security-groups/rules/:rule_id
+Remove a firewall rule.
+
+### POST /security-groups/attach
+Attach a security group to an instance.
+```json
+{
+  "instance_id": "inst-uuid",
+  "group_id": "sg-uuid"
+}
+```
+
+### POST /security-groups/detach
+Detach a security group from an instance.
+```json
+{
+  "instance_id": "inst-uuid",
+  "group_id": "sg-uuid"
+}
+```
+
+---
+
 ## Subnets
 
 **Headers Required:** `X-API-Key: <your-api-key>`

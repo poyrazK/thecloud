@@ -12,7 +12,11 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
+
+const securityGroupTracer = "security-group-service"
 
 type SecurityGroupService struct {
 	repo     ports.SecurityGroupRepository
@@ -39,6 +43,14 @@ func NewSecurityGroupService(
 }
 
 func (s *SecurityGroupService) CreateGroup(ctx context.Context, vpcID uuid.UUID, name, description string) (*domain.SecurityGroup, error) {
+	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "CreateGroup")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("vpc_id", vpcID.String()),
+		attribute.String("name", name),
+	)
+
 	userID := appcontext.UserIDFromContext(ctx)
 	sgID := uuid.New()
 
@@ -67,6 +79,10 @@ func (s *SecurityGroupService) CreateGroup(ctx context.Context, vpcID uuid.UUID,
 }
 
 func (s *SecurityGroupService) GetGroup(ctx context.Context, idOrName string, vpcID uuid.UUID) (*domain.SecurityGroup, error) {
+	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "GetGroup")
+	defer span.End()
+	span.SetAttributes(attribute.String("id_or_name", idOrName))
+
 	id, err := uuid.Parse(idOrName)
 	if err == nil {
 		return s.repo.GetByID(ctx, id)
@@ -75,10 +91,18 @@ func (s *SecurityGroupService) GetGroup(ctx context.Context, idOrName string, vp
 }
 
 func (s *SecurityGroupService) ListGroups(ctx context.Context, vpcID uuid.UUID) ([]*domain.SecurityGroup, error) {
+	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "ListGroups")
+	defer span.End()
+	span.SetAttributes(attribute.String("vpc_id", vpcID.String()))
+
 	return s.repo.ListByVPC(ctx, vpcID)
 }
 
 func (s *SecurityGroupService) DeleteGroup(ctx context.Context, id uuid.UUID) error {
+	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "DeleteGroup")
+	defer span.End()
+	span.SetAttributes(attribute.String("group_id", id.String()))
+
 	userID := appcontext.UserIDFromContext(ctx)
 
 	// In a real implementation, we should check if any instances are still attached
@@ -93,6 +117,16 @@ func (s *SecurityGroupService) DeleteGroup(ctx context.Context, id uuid.UUID) er
 }
 
 func (s *SecurityGroupService) AddRule(ctx context.Context, groupID uuid.UUID, rule domain.SecurityRule) (*domain.SecurityRule, error) {
+	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "AddRule")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("group_id", groupID.String()),
+		attribute.String("protocol", rule.Protocol),
+		attribute.Int("port_min", rule.PortMin),
+		attribute.String("cidr", rule.CIDR),
+	)
+
 	sg, err := s.repo.GetByID(ctx, groupID)
 	if err != nil {
 		return nil, err
@@ -120,12 +154,59 @@ func (s *SecurityGroupService) AddRule(ctx context.Context, groupID uuid.UUID, r
 }
 
 func (s *SecurityGroupService) RemoveRule(ctx context.Context, ruleID uuid.UUID) error {
-	// 1. Get rule to know groupID
-	// Implementation omitted: would need a GetRuleByID in repo
+	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "RemoveRule")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("rule_id", ruleID.String()))
+
+	// 1. Get Rule to find GroupID
+	rule, err := s.repo.GetRuleByID(ctx, ruleID)
+	if err != nil {
+		return err
+	}
+
+	// 2. Get Group (needed for audit logs and flow context)
+	sg, err := s.repo.GetByID(ctx, rule.GroupID)
+	if err != nil {
+		return err
+	}
+
+	// 3. Remove from OVS
+	// We attempt this before DB deletion. If it fails, we assume consistency check later or manual fix.
+	// In production, this should likely be a localized transaction or workflow.
+	vpc, err := s.vpcRepo.GetByID(ctx, sg.VPCID)
+	if err == nil {
+		flow := s.translateToFlow(*rule)
+		if err := s.network.DeleteFlowRule(ctx, vpc.NetworkID, flow.Match); err != nil {
+			// Log but proceed to ensure DB consistency
+			s.logger.Error("failed to delete OVS flow rule", "rule_id", ruleID, "error", err)
+		}
+	} else {
+		// VPC might be gone?
+		s.logger.Warn("vpc not found during rule deletion", "vpc_id", sg.VPCID)
+	}
+
+	// 4. Delete from DB
+	if err := s.repo.DeleteRule(ctx, ruleID); err != nil {
+		return errors.Wrap(errors.Internal, "failed to delete security rule", err)
+	}
+
+	_ = s.auditSvc.Log(ctx, sg.UserID, "security_group.remove_rule", "security_group", sg.ID.String(), map[string]interface{}{
+		"rule_id": ruleID.String(),
+	})
+
 	return nil
 }
 
 func (s *SecurityGroupService) AttachToInstance(ctx context.Context, instanceID, groupID uuid.UUID) error {
+	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "AttachToInstance")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("instance_id", instanceID.String()),
+		attribute.String("group_id", groupID.String()),
+	)
+
 	if err := s.repo.AddInstanceToGroup(ctx, instanceID, groupID); err != nil {
 		return err
 	}
@@ -136,11 +217,44 @@ func (s *SecurityGroupService) AttachToInstance(ctx context.Context, instanceID,
 	}
 
 	// Update OVS flows
-	return s.syncGroupFlows(ctx, sg)
+	if err := s.syncGroupFlows(ctx, sg); err != nil {
+		return err
+	}
+
+	_ = s.auditSvc.Log(ctx, sg.UserID, "security_group.attach", "instance", instanceID.String(), map[string]interface{}{
+		"group_id": groupID.String(),
+	})
+
+	return nil
 }
 
 func (s *SecurityGroupService) DetachFromInstance(ctx context.Context, instanceID, groupID uuid.UUID) error {
-	return s.repo.RemoveInstanceFromGroup(ctx, instanceID, groupID)
+	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "DetachFromInstance")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("instance_id", instanceID.String()),
+		attribute.String("group_id", groupID.String()),
+	)
+
+	if err := s.repo.RemoveInstanceFromGroup(ctx, instanceID, groupID); err != nil {
+		return err
+	}
+
+	sg, err := s.repo.GetByID(ctx, groupID)
+	if err == nil {
+		// Cleanup OVS flows
+		if err := s.removeGroupFlows(ctx, sg); err != nil {
+			s.logger.Error("failed to remove OVS flows", "group_id", groupID, "error", err)
+		}
+	}
+
+	userID := appcontext.UserIDFromContext(ctx)
+	_ = s.auditSvc.Log(ctx, userID, "security_group.detach", "instance", instanceID.String(), map[string]interface{}{
+		"group_id": groupID.String(),
+	})
+
+	return nil
 }
 
 func (s *SecurityGroupService) syncGroupFlows(ctx context.Context, sg *domain.SecurityGroup) error {
@@ -154,6 +268,22 @@ func (s *SecurityGroupService) syncGroupFlows(ctx context.Context, sg *domain.Se
 		flow := s.translateToFlow(rule)
 		if err := s.network.AddFlowRule(ctx, vpc.NetworkID, flow); err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *SecurityGroupService) removeGroupFlows(ctx context.Context, sg *domain.SecurityGroup) error {
+	vpc, err := s.vpcRepo.GetByID(ctx, sg.VPCID)
+	if err != nil {
+		return err
+	}
+
+	for _, rule := range sg.Rules {
+		flow := s.translateToFlow(rule)
+		if err := s.network.DeleteFlowRule(ctx, vpc.NetworkID, flow.Match); err != nil {
+			s.logger.Error("failed to delete flow rule", "rule", rule.ID, "error", err)
 		}
 	}
 

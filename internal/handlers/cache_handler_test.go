@@ -207,7 +207,7 @@ func TestCacheHandlerGetStats(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestCacheHandler_Errors(t *testing.T) {
+func TestCacheHandlerErrors(t *testing.T) {
 	svc, handler, r := setupCacheHandlerTest(t)
 	r.POST(cachesPath, handler.Create)
 	r.GET(cachesPath, handler.List)

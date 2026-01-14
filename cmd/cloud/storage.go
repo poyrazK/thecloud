@@ -25,7 +25,7 @@ var storageListCmd = &cobra.Command{
 		client := getClient()
 		objects, err := client.ListObjects(bucket)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errFmt, err)
 			return
 		}
 
@@ -71,7 +71,7 @@ var storageUploadCmd = &cobra.Command{
 
 		client := getClient()
 		if err := client.UploadObject(bucket, key, f); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errFmt, err)
 			return
 		}
 
@@ -91,7 +91,7 @@ var storageDownloadCmd = &cobra.Command{
 		client := getClient()
 		body, err := client.DownloadObject(bucket, key)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errFmt, err)
 			return
 		}
 		defer func() { _ = body.Close() }()
@@ -123,7 +123,7 @@ var storageDeleteCmd = &cobra.Command{
 
 		client := getClient()
 		if err := client.DeleteObject(bucket, key); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errFmt, err)
 			return
 		}
 

@@ -367,6 +367,87 @@ cloud subnet rm my-private-subnet --vpc my-network
 
 ---
 
+## Security Group Commands
+
+Manage network security groups (firewall rules).
+
+### `sg list`
+
+List all security groups.
+
+```bash
+cloud sg list --vpc my-network
+```
+
+### `sg get [sg-id]`
+
+Get detailed information and rules for a security group.
+
+```bash
+cloud sg get my-sg
+```
+
+### `sg create`
+
+Create a new security group.
+
+```bash
+cloud sg create my-sg --vpc my-network --description "Web servers"
+```
+
+### `sg delete [sg-id]`
+
+Delete a security group.
+
+```bash
+cloud sg delete my-sg
+```
+
+### `sg add-rule <sg-id>`
+
+Add a rule to a security group.
+
+```bash
+cloud sg add-rule my-sg --protocol tcp --port-min 80 --port-max 80 --cidr 0.0.0.0/0
+```
+
+**Flags**:
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--direction` | `ingress` | Direction (ingress/egress) |
+| `--protocol` | `tcp` | Protocol (tcp/udp/icmp/all) |
+| `--port-min` | `0` | Minimum port |
+| `--port-max` | `0` | Maximum port |
+| `--cidr` | `0.0.0.0/0` | CIDR block |
+| `--priority` | `100` | Rule priority |
+
+### `sg remove-rule <rule-id>`
+
+Remove a rule from a security group.
+
+```bash
+cloud sg remove-rule rule-1234
+```
+
+### `sg attach <instance-id> <sg-id>`
+
+Attach a security group to an instance.
+
+```bash
+cloud sg attach my-server my-sg
+```
+
+### `sg detach <instance-id> <sg-id>`
+
+Detach a security group from an instance.
+
+```bash
+cloud sg detach my-server my-sg
+```
+
+---
+
 ## Load Balancer Commands
 
 Manage Layer 7 load balancers.

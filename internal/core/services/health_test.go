@@ -27,7 +27,7 @@ func (m *fullMockComputeBackend) Ping(ctx context.Context) error {
 	return m.Called(ctx).Error(0)
 }
 
-func TestHealthService_Check(t *testing.T) {
+func TestHealthServiceCheck(t *testing.T) {
 	t.Run("Healthy", func(t *testing.T) {
 		db := new(mockCheckable)
 		compute := new(fullMockComputeBackend)

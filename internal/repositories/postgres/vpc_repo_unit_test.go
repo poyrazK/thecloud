@@ -12,10 +12,16 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestVpcRepository_Create(t *testing.T) {
+const (
+	testVpcName = "test-vpc"
+	selectVpc   = "SELECT id, user_id, name, COALESCE\\(cidr_block::text, ''\\), network_id, vxlan_id, status, arn, created_at FROM vpcs"
+)
+
+func TestVpcRepositoryCreate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -25,8 +31,8 @@ func TestVpcRepository_Create(t *testing.T) {
 		vpc := &domain.VPC{
 			ID:        uuid.New(),
 			UserID:    uuid.New(),
-			Name:      "test-vpc",
-			CIDRBlock: "10.0.0.0/16",
+			Name:      testVpcName,
+			CIDRBlock: testutil.TestCIDR,
 			NetworkID: "net-1",
 			VXLANID:   100,
 			Status:    "available",
@@ -53,14 +59,14 @@ func TestVpcRepository_Create(t *testing.T) {
 		}
 
 		mock.ExpectExec("INSERT INTO vpcs").
-			WillReturnError(errors.New("db error"))
+			WillReturnError(errors.New(testDBError))
 
 		err = repo.Create(context.Background(), vpc)
 		assert.Error(t, err)
 	})
 }
 
-func TestVpcRepository_GetByID(t *testing.T) {
+func TestVpcRepositoryGetByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -72,10 +78,10 @@ func TestVpcRepository_GetByID(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, name, COALESCE\\(cidr_block::text, ''\\), network_id, vxlan_id, status, arn, created_at FROM vpcs").
+		mock.ExpectQuery(selectVpc).
 			WithArgs(id, userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "cidr_block", "network_id", "vxlan_id", "status", "arn", "created_at"}).
-				AddRow(id, userID, "test-vpc", "10.0.0.0/16", "net-1", 100, "available", "arn", now))
+				AddRow(id, userID, testVpcName, testutil.TestCIDR, "net-1", 100, "available", "arn", now))
 
 		vpc, err := repo.GetByID(ctx, id)
 		assert.NoError(t, err)
@@ -83,7 +89,7 @@ func TestVpcRepository_GetByID(t *testing.T) {
 		assert.Equal(t, id, vpc.ID)
 	})
 
-	t.Run("not found", func(t *testing.T) {
+	t.Run(testNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -110,7 +116,7 @@ func TestVpcRepository_GetByID(t *testing.T) {
 		// So it should be a custom error.
 	})
 
-	t.Run("db error", func(t *testing.T) {
+	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -120,9 +126,9 @@ func TestVpcRepository_GetByID(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, name, COALESCE\\(cidr_block::text, ''\\), network_id, vxlan_id, status, arn, created_at FROM vpcs").
+		mock.ExpectQuery(selectVpc).
 			WithArgs(id, userID).
-			WillReturnError(errors.New("db error"))
+			WillReturnError(errors.New(testDBError))
 
 		vpc, err := repo.GetByID(ctx, id)
 		assert.Error(t, err)
@@ -130,7 +136,7 @@ func TestVpcRepository_GetByID(t *testing.T) {
 	})
 }
 
-func TestVpcRepository_GetByName(t *testing.T) {
+func TestVpcRepositoryGetByName(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -141,12 +147,12 @@ func TestVpcRepository_GetByName(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
-		name := "test-vpc"
+		name := testVpcName
 
-		mock.ExpectQuery("SELECT id, user_id, name, COALESCE\\(cidr_block::text, ''\\), network_id, vxlan_id, status, arn, created_at FROM vpcs").
+		mock.ExpectQuery(selectVpc).
 			WithArgs(name, userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "cidr_block", "network_id", "vxlan_id", "status", "arn", "created_at"}).
-				AddRow(id, userID, name, "10.0.0.0/16", "net-1", 100, "available", "arn", now))
+				AddRow(id, userID, name, testutil.TestCIDR, "net-1", 100, "available", "arn", now))
 
 		vpc, err := repo.GetByName(ctx, name)
 		assert.NoError(t, err)
@@ -154,7 +160,7 @@ func TestVpcRepository_GetByName(t *testing.T) {
 		assert.Equal(t, id, vpc.ID)
 	})
 
-	t.Run("not found", func(t *testing.T) {
+	t.Run(testNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -162,9 +168,9 @@ func TestVpcRepository_GetByName(t *testing.T) {
 		repo := NewVpcRepository(mock)
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
-		name := "test-vpc"
+		name := testVpcName
 
-		mock.ExpectQuery("SELECT id, user_id, name, COALESCE\\(cidr_block::text, ''\\), network_id, vxlan_id, status, arn, created_at FROM vpcs").
+		mock.ExpectQuery(selectVpc).
 			WithArgs(name, userID).
 			WillReturnError(pgx.ErrNoRows)
 
@@ -174,7 +180,7 @@ func TestVpcRepository_GetByName(t *testing.T) {
 	})
 }
 
-func TestVpcRepository_List(t *testing.T) {
+func TestVpcRepositoryList(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -185,17 +191,17 @@ func TestVpcRepository_List(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, name, COALESCE\\(cidr_block::text, ''\\), network_id, vxlan_id, status, arn, created_at FROM vpcs").
+		mock.ExpectQuery(selectVpc).
 			WithArgs(userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "cidr_block", "network_id", "vxlan_id", "status", "arn", "created_at"}).
-				AddRow(uuid.New(), userID, "test-vpc", "10.0.0.0/16", "net-1", 100, "available", "arn", now))
+				AddRow(uuid.New(), userID, testVpcName, testutil.TestCIDR, "net-1", 100, "available", "arn", now))
 
 		vpcs, err := repo.List(ctx)
 		assert.NoError(t, err)
 		assert.Len(t, vpcs, 1)
 	})
 
-	t.Run("db error", func(t *testing.T) {
+	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -204,9 +210,9 @@ func TestVpcRepository_List(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, name, COALESCE\\(cidr_block::text, ''\\), network_id, vxlan_id, status, arn, created_at FROM vpcs").
+		mock.ExpectQuery(selectVpc).
 			WithArgs(userID).
-			WillReturnError(errors.New("db error"))
+			WillReturnError(errors.New(testDBError))
 
 		vpcs, err := repo.List(ctx)
 		assert.Error(t, err)
@@ -224,10 +230,10 @@ func TestVpcRepository_List(t *testing.T) {
 		now := time.Now()
 
 		// Return a row with incompatible types to force scan error
-		mock.ExpectQuery("SELECT id, user_id, name, COALESCE\\(cidr_block::text, ''\\), network_id, vxlan_id, status, arn, created_at FROM vpcs").
+		mock.ExpectQuery(selectVpc).
 			WithArgs(userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "cidr_block", "network_id", "vxlan_id", "status", "arn", "created_at"}).
-				AddRow("invalid-uuid", userID, "test-vpc", "10.0.0.0/16", "net-1", 100, "available", "arn", now))
+				AddRow("invalid-uuid", userID, testVpcName, testutil.TestCIDR, "net-1", 100, "available", "arn", now))
 
 		vpcs, err := repo.List(ctx)
 		assert.Error(t, err)
@@ -235,7 +241,7 @@ func TestVpcRepository_List(t *testing.T) {
 	})
 }
 
-func TestVpcRepository_Delete(t *testing.T) {
+func TestVpcRepositoryDelete(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -254,7 +260,7 @@ func TestVpcRepository_Delete(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("not found", func(t *testing.T) {
+	t.Run(testNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()

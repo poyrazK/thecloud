@@ -153,6 +153,8 @@ func TestInstanceCmdHasSubcommands(t *testing.T) {
 	}
 }
 
+const portMapping = "8080:80"
+
 func TestFormatAccessPorts(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -168,19 +170,19 @@ func TestFormatAccessPorts(t *testing.T) {
 		},
 		{
 			name:     "stopped instance",
-			ports:    "8080:80",
+			ports:    portMapping,
 			status:   "STOPPED",
 			expected: "-",
 		},
 		{
 			name:     "single port mapping",
-			ports:    "8080:80",
+			ports:    portMapping,
 			status:   "RUNNING",
 			expected: "localhost:8080->80",
 		},
 		{
 			name:     "multiple port mappings",
-			ports:    "8080:80,8443:443",
+			ports:    portMapping + ",8443:443",
 			status:   "RUNNING",
 			expected: "localhost:8080->80, localhost:8443->443",
 		},
@@ -246,7 +248,7 @@ func TestJSONMarshalIndent(t *testing.T) {
 		Name:   "test-instance",
 		Image:  "alpine",
 		Status: "RUNNING",
-		Ports:  "8080:80",
+		Ports:  portMapping,
 	}
 
 	data, err := json.MarshalIndent(inst, "", "  ")

@@ -19,6 +19,8 @@ type SecurityGroupRepository interface {
 	ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*domain.SecurityGroup, error)
 	// AddRule appends a new traffic filtering rule to an existing group.
 	AddRule(ctx context.Context, rule *domain.SecurityRule) error
+	// GetRuleByID retrieves a specific security rule.
+	GetRuleByID(ctx context.Context, ruleID uuid.UUID) (*domain.SecurityRule, error)
 	// DeleteRule removes a specific traffic filtering rule.
 	DeleteRule(ctx context.Context, ruleID uuid.UUID) error
 	// Delete removes a security group and all its rules.

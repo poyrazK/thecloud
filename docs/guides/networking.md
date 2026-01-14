@@ -35,5 +35,39 @@ You can map multiple ports by separating them with a comma (max 10):
 cloud compute launch --name dual --image my-app --port 8080:80,3000:3000
 ```
 
-## Internal Networking
-*Coming soon: VPCs, Subnets, and Security Groups.*
+## Virtual Private Cloud (VPC)
+VPCs provide logically isolated sections of The Cloud network. All instances must belong to a VPC.
+
+### Create a VPC
+```bash
+cloud vpc create --name prod-vpc
+```
+
+## Subnets
+Subnets allow you to partition your VPC into smaller segments.
+
+### Create a Subnet
+```bash
+cloud vpc create-subnet --vpc-id <vpc-id> --name private-1 --cidr 10.0.1.0/24
+```
+
+## Security Groups
+Security Groups act as virtual firewalls for your instances, controlling inbound and outbound traffic.
+
+### Create a Group
+```bash
+cloud sg create --vpc-id <vpc-id> web-sg --description "Web Traffic"
+```
+
+### Add Rules
+Rules allow specific traffic based on protocol, port, and CIDR.
+```bash
+cloud sg add-rule <sg-id> --direction ingress --protocol tcp --port-min 80 --port-max 80 --cidr 0.0.0.0/0
+```
+
+### Manage Associations
+Apply groups to instances to protect them.
+```bash
+cloud sg attach <instance-id> <sg-id>
+cloud sg detach <instance-id> <sg-id>
+```

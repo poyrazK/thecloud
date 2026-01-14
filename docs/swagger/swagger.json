@@ -2044,6 +2044,400 @@
                 }
             }
         },
+        "/security-groups": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Lists all security groups for a VPC",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "security-groups"
+                ],
+                "summary": "List security groups",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "VPC ID",
+                        "name": "vpc_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.SecurityGroup"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Creates a new security group in a VPC",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "security-groups"
+                ],
+                "summary": "Create security group",
+                "parameters": [
+                    {
+                        "description": "Create request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.CreateSecurityGroupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.SecurityGroup"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/security-groups/attach": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Associates a security group with a compute instance",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "security-groups"
+                ],
+                "summary": "Attach security group",
+                "parameters": [
+                    {
+                        "description": "Attach details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.AttachDetachSGRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/security-groups/detach": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Removes a security group association from a compute instance",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "security-groups"
+                ],
+                "summary": "Detach security group",
+                "parameters": [
+                    {
+                        "description": "Detach details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.AttachDetachSGRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/security-groups/rules/{rule_id}": {
+            "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Deletes a specific security rule by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "security-groups"
+                ],
+                "summary": "Remove security rule",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Rule ID",
+                        "name": "rule_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/security-groups/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Gets details of a specific security group",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "security-groups"
+                ],
+                "summary": "Get security group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Security Group ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "VPC ID (optional if ID is UUID)",
+                        "name": "vpc_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.SecurityGroup"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Deletes a security group",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "security-groups"
+                ],
+                "summary": "Delete security group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Security Group ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/security-groups/{id}/rules": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Adds a new rule to a security group",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "security-groups"
+                ],
+                "summary": "Add security rule",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Security Group ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Rule details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.SecurityRule"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.SecurityRule"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/snapshots": {
             "get": {
                 "security": [
@@ -3446,6 +3840,17 @@
                 }
             }
         },
+        "domain.RuleDirection": {
+            "type": "string",
+            "enum": [
+                "ingress",
+                "egress"
+            ],
+            "x-enum-varnames": [
+                "RuleIngress",
+                "RuleEgress"
+            ]
+        },
         "domain.ScalingGroup": {
             "type": "object",
             "properties": {
@@ -3564,6 +3969,74 @@
                 "target_value": {
                     "description": "Threshold (e.g. 80.0 for 80%)",
                     "type": "number"
+                }
+            }
+        },
+        "domain.SecurityGroup": {
+            "type": "object",
+            "properties": {
+                "arn": {
+                    "description": "Unique identifier (arn:thecloud:vpc:{region}:{user}:sg/{name})",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "rules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.SecurityRule"
+                    }
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "vpc_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.SecurityRule": {
+            "type": "object",
+            "properties": {
+                "cidr": {
+                    "description": "Targeted IPv4 range (e.g., \"0.0.0.0/0\")",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "direction": {
+                    "$ref": "#/definitions/domain.RuleDirection"
+                },
+                "group_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "port_max": {
+                    "type": "integer"
+                },
+                "port_min": {
+                    "type": "integer"
+                },
+                "priority": {
+                    "description": "Evaluation order (lower values evaluated first)",
+                    "type": "integer"
+                },
+                "protocol": {
+                    "description": "Traffic protocol (e.g., \"tcp\", \"udp\", \"icmp\", \"all\")",
+                    "type": "string"
                 }
             }
         },
@@ -3900,6 +4373,21 @@
                 }
             }
         },
+        "httphandlers.AttachDetachSGRequest": {
+            "type": "object",
+            "required": [
+                "group_id",
+                "instance_id"
+            ],
+            "properties": {
+                "group_id": {
+                    "type": "string"
+                },
+                "instance_id": {
+                    "type": "string"
+                }
+            }
+        },
         "httphandlers.BindRoleRequest": {
             "type": "object",
             "required": [
@@ -4033,6 +4521,24 @@
                     "items": {
                         "$ref": "#/definitions/domain.Permission"
                     }
+                }
+            }
+        },
+        "httphandlers.CreateSecurityGroupRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "vpc_id"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "vpc_id": {
+                    "type": "string"
                 }
             }
         },

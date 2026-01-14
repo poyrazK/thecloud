@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	"github.com/gin-gonic/gin"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/time/rate"
 )
@@ -31,7 +32,7 @@ func newTestContext(method string, path string, ip string) (*gin.Context, *httpt
 
 func TestMiddlewareAllowsFirstRequest(t *testing.T) {
 	limiter := NewIPRateLimiter(rate.Limit(1), 1, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	ctx, resp := newTestContext("GET", "/", "1.2.3.4")
+	ctx, resp := newTestContext("GET", "/", testutil.TestNoopIP3)
 
 	Middleware(limiter)(ctx)
 
@@ -40,10 +41,10 @@ func TestMiddlewareAllowsFirstRequest(t *testing.T) {
 
 func TestMiddlewareBlocksWhenRateExceeded(t *testing.T) {
 	limiter := NewIPRateLimiter(rate.Limit(1), 1, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	ctx, _ := newTestContext("GET", "/", "2.2.2.2")
+	ctx, _ := newTestContext("GET", "/", testutil.TestNoopIP4)
 	Middleware(limiter)(ctx)
 
-	ctx2, resp2 := newTestContext("GET", "/", "2.2.2.2")
+	ctx2, resp2 := newTestContext("GET", "/", testutil.TestNoopIP4)
 	Middleware(limiter)(ctx2)
 
 	assert.Equal(t, http.StatusTooManyRequests, resp2.Code)

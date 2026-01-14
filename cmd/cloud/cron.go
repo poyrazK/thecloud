@@ -24,7 +24,7 @@ var createCronCmd = &cobra.Command{
 		client := getClient()
 		job, err := client.CreateCronJob(args[0], args[1], args[2], method, payload)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errFmt, err)
 			return
 		}
 
@@ -40,7 +40,7 @@ var listCronCmd = &cobra.Command{
 		client := getClient()
 		jobs, err := client.ListCronJobs()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errFmt, err)
 			return
 		}
 
@@ -61,7 +61,7 @@ var pauseCronCmd = &cobra.Command{
 		client := getClient()
 		err := client.PauseCronJob(args[0])
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errFmt, err)
 			return
 		}
 		fmt.Println("[SUCCESS] Job paused")
@@ -76,7 +76,7 @@ var resumeCronCmd = &cobra.Command{
 		client := getClient()
 		err := client.ResumeCronJob(args[0])
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errFmt, err)
 			return
 		}
 		fmt.Println("[SUCCESS] Job resumed")
@@ -91,7 +91,7 @@ var deleteCronCmd = &cobra.Command{
 		client := getClient()
 		err := client.DeleteCronJob(args[0])
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(errFmt, err)
 			return
 		}
 		fmt.Println("[SUCCESS] Job deleted")

@@ -17,6 +17,7 @@ import (
 
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 )
 
 func TestDockerAdapterType(t *testing.T) {
@@ -54,14 +55,14 @@ func TestDockerAdapterGetInstanceIPFirstIP(t *testing.T) {
 	inspect := container.InspectResponse{}
 	inspect.NetworkSettings = &container.NetworkSettings{
 		Networks: map[string]*network.EndpointSettings{
-			"n1": {IPAddress: "10.0.0.2"},
+			"n1": {IPAddress: testutil.TestDockerInstanceIP},
 		},
 	}
 
 	a := &DockerAdapter{cli: &fakeDockerClient{inspect: inspect}}
 	ip, err := a.GetInstanceIP(context.Background(), "cid")
 	require.NoError(t, err)
-	require.Equal(t, "10.0.0.2", ip)
+	require.Equal(t, testutil.TestDockerInstanceIP, ip)
 }
 
 func TestDockerAdapterGetInstanceStatsReturnsBody(t *testing.T) {

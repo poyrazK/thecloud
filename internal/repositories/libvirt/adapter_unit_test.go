@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/digitalocean/go-libvirt"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -59,10 +60,10 @@ func TestSanitizeDomainName(t *testing.T) {
 	}
 }
 
-func TestSanitizeDomainName_EmptyString(t *testing.T) {
+func TestSanitizeDomainNameEmptyString(t *testing.T) {
 	a := &LibvirtAdapter{}
 	result := a.sanitizeDomainName("")
-	
+
 	assert.NotEmpty(t, result, "empty name should generate UUID")
 	assert.Len(t, result, 8, "generated name should be 8 chars")
 }
@@ -243,7 +244,7 @@ func TestValidateID(t *testing.T) {
 	}
 }
 
-func TestParseAndValidatePort_Extended(t *testing.T) {
+func TestParseAndValidatePortExtended(t *testing.T) {
 	a := &LibvirtAdapter{}
 
 	tests := []struct {
@@ -334,18 +335,18 @@ func TestResolveVolumePath(t *testing.T) {
 func TestCleanupCreateFailure(t *testing.T) {
 	// This function has side effects but we can test it doesn't panic
 	a := &LibvirtAdapter{}
-	
+
 	// Should not panic - just verify it's callable
 	// Cannot test without real libvirt connection
 	assert.NotNil(t, a)
 }
 
-func TestWaitInitialIP_ContextCancellation(t *testing.T) {
+func TestWaitInitialIPContextCancellation(t *testing.T) {
 	a := &LibvirtAdapter{}
-	
+
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
-	
+
 	_, err := a.waitInitialIP(ctx, "test-instance")
 	assert.Error(t, err)
 	assert.Equal(t, context.Canceled, err)
@@ -354,8 +355,8 @@ func TestWaitInitialIP_ContextCancellation(t *testing.T) {
 func TestGetNextNetworkRange(t *testing.T) {
 	a := &LibvirtAdapter{
 		networkCounter: 0,
-		poolStart:      net.ParseIP("192.168.100.0"),
-		poolEnd:        net.ParseIP("192.168.200.255"),
+		poolStart:      net.ParseIP(testutil.TestLibvirtPoolStart),
+		poolEnd:        net.ParseIP(testutil.TestLibvirtPoolEnd),
 	}
 
 	gateway1, start1, end1 := a.getNextNetworkRange()
@@ -369,7 +370,7 @@ func TestGetNextNetworkRange(t *testing.T) {
 	assert.Equal(t, 2, a.networkCounter)
 }
 
-func TestExec_NotSupported(t *testing.T) {
+func TestExecNotSupported(t *testing.T) {
 	a := &LibvirtAdapter{}
 	_, err := a.Exec(context.Background(), "instance-id", []string{"echo", "test"})
 	assert.Error(t, err)

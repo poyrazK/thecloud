@@ -12,10 +12,19 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSecurityGroupRepository_Create(t *testing.T) {
+const (
+	testSgName         = "test-sg"
+	selectSg           = "SELECT id, user_id, vpc_id, name, description, arn, created_at FROM security_groups"
+	selectRule         = "SELECT id, group_id, direction, protocol, port_min, port_max, cidr, priority, created_at FROM security_rules"
+	selectInstanceUser = "SELECT user_id FROM instances WHERE id = \\$1"
+	selectSgUser       = "SELECT user_id FROM security_groups WHERE id = \\$1"
+)
+
+func TestSecurityGroupRepositoryCreate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -26,7 +35,7 @@ func TestSecurityGroupRepository_Create(t *testing.T) {
 			ID:          uuid.New(),
 			UserID:      uuid.New(),
 			VPCID:       uuid.New(),
-			Name:        "test-sg",
+			Name:        testSgName,
 			Description: "desc",
 			ARN:         "arn",
 			CreatedAt:   time.Now(),
@@ -40,7 +49,7 @@ func TestSecurityGroupRepository_Create(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("db error", func(t *testing.T) {
+	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -51,14 +60,14 @@ func TestSecurityGroupRepository_Create(t *testing.T) {
 		}
 
 		mock.ExpectExec("INSERT INTO security_groups").
-			WillReturnError(errors.New("db error"))
+			WillReturnError(errors.New(testDBError))
 
 		err = repo.Create(context.Background(), sg)
 		assert.Error(t, err)
 	})
 }
 
-func TestSecurityGroupRepository_GetByID(t *testing.T) {
+func TestSecurityGroupRepositoryGetByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -70,15 +79,15 @@ func TestSecurityGroupRepository_GetByID(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, vpc_id, name, description, arn, created_at FROM security_groups").
+		mock.ExpectQuery(selectSg).
 			WithArgs(id, userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "description", "arn", "created_at"}).
-				AddRow(id, userID, uuid.New(), "test-sg", "desc", "arn", now))
+				AddRow(id, userID, uuid.New(), testSgName, "desc", "arn", now))
 
-		mock.ExpectQuery("SELECT id, group_id, direction, protocol, port_min, port_max, cidr, priority, created_at FROM security_rules").
+		mock.ExpectQuery(selectRule).
 			WithArgs(id).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "group_id", "direction", "protocol", "port_min", "port_max", "cidr", "priority", "created_at"}).
-				AddRow(uuid.New(), id, string(domain.RuleIngress), "tcp", 80, 80, "0.0.0.0/0", 100, now))
+				AddRow(uuid.New(), id, string(domain.RuleIngress), "tcp", 80, 80, testutil.TestAnyCIDR, 100, now))
 
 		sg, err := repo.GetByID(ctx, id)
 		assert.NoError(t, err)
@@ -87,7 +96,7 @@ func TestSecurityGroupRepository_GetByID(t *testing.T) {
 		}
 	})
 
-	t.Run("not found", func(t *testing.T) {
+	t.Run(testNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -97,7 +106,7 @@ func TestSecurityGroupRepository_GetByID(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, vpc_id, name, description, arn, created_at FROM security_groups").
+		mock.ExpectQuery(selectSg).
 			WithArgs(id, userID).
 			WillReturnError(pgx.ErrNoRows)
 
@@ -111,7 +120,7 @@ func TestSecurityGroupRepository_GetByID(t *testing.T) {
 	})
 }
 
-func TestSecurityGroupRepository_GetByName(t *testing.T) {
+func TestSecurityGroupRepositoryGetByName(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -123,17 +132,17 @@ func TestSecurityGroupRepository_GetByName(t *testing.T) {
 		vpcID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
-		name := "test-sg"
+		name := testSgName
 
-		mock.ExpectQuery("SELECT id, user_id, vpc_id, name, description, arn, created_at FROM security_groups").
+		mock.ExpectQuery(selectSg).
 			WithArgs(vpcID, name, userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "description", "arn", "created_at"}).
 				AddRow(id, userID, vpcID, name, "desc", "arn", now))
 
-		mock.ExpectQuery("SELECT id, group_id, direction, protocol, port_min, port_max, cidr, priority, created_at FROM security_rules").
+		mock.ExpectQuery(selectRule).
 			WithArgs(id).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "group_id", "direction", "protocol", "port_min", "port_max", "cidr", "priority", "created_at"}).
-				AddRow(uuid.New(), id, string(domain.RuleIngress), "tcp", 80, 80, "0.0.0.0/0", 100, now))
+				AddRow(uuid.New(), id, string(domain.RuleIngress), "tcp", 80, 80, testutil.TestAnyCIDR, 100, now))
 
 		sg, err := repo.GetByName(ctx, vpcID, name)
 		assert.NoError(t, err)
@@ -141,7 +150,7 @@ func TestSecurityGroupRepository_GetByName(t *testing.T) {
 		assert.Equal(t, id, sg.ID)
 	})
 
-	t.Run("not found", func(t *testing.T) {
+	t.Run(testNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -150,9 +159,9 @@ func TestSecurityGroupRepository_GetByName(t *testing.T) {
 		userID := uuid.New()
 		vpcID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
-		name := "test-sg"
+		name := testSgName
 
-		mock.ExpectQuery("SELECT id, user_id, vpc_id, name, description, arn, created_at FROM security_groups").
+		mock.ExpectQuery(selectSg).
 			WithArgs(vpcID, name, userID).
 			WillReturnError(pgx.ErrNoRows)
 
@@ -166,7 +175,7 @@ func TestSecurityGroupRepository_GetByName(t *testing.T) {
 	})
 }
 
-func TestSecurityGroupRepository_ListByVPC(t *testing.T) {
+func TestSecurityGroupRepositoryListByVPC(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -178,17 +187,17 @@ func TestSecurityGroupRepository_ListByVPC(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, vpc_id, name, description, arn, created_at FROM security_groups").
+		mock.ExpectQuery(selectSg).
 			WithArgs(vpcID, userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "description", "arn", "created_at"}).
-				AddRow(uuid.New(), userID, vpcID, "test-sg", "desc", "arn", now))
+				AddRow(uuid.New(), userID, vpcID, testSgName, "desc", "arn", now))
 
 		groups, err := repo.ListByVPC(ctx, vpcID)
 		assert.NoError(t, err)
 		assert.Len(t, groups, 1)
 	})
 
-	t.Run("db error", func(t *testing.T) {
+	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -198,9 +207,9 @@ func TestSecurityGroupRepository_ListByVPC(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, vpc_id, name, description, arn, created_at FROM security_groups").
+		mock.ExpectQuery(selectSg).
 			WithArgs(vpcID, userID).
-			WillReturnError(errors.New("db error"))
+			WillReturnError(errors.New(testDBError))
 
 		groups, err := repo.ListByVPC(ctx, vpcID)
 		assert.Error(t, err)
@@ -208,7 +217,7 @@ func TestSecurityGroupRepository_ListByVPC(t *testing.T) {
 	})
 }
 
-func TestSecurityGroupRepository_AddRule(t *testing.T) {
+func TestSecurityGroupRepositoryAddRule(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -222,7 +231,7 @@ func TestSecurityGroupRepository_AddRule(t *testing.T) {
 			Protocol:  "tcp",
 			PortMin:   80,
 			PortMax:   80,
-			CIDR:      "0.0.0.0/0",
+			CIDR:      testutil.TestAnyCIDR,
 			Priority:  100,
 			CreatedAt: time.Now(),
 		}
@@ -235,7 +244,7 @@ func TestSecurityGroupRepository_AddRule(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("db error", func(t *testing.T) {
+	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -246,14 +255,14 @@ func TestSecurityGroupRepository_AddRule(t *testing.T) {
 		}
 
 		mock.ExpectExec("INSERT INTO security_rules").
-			WillReturnError(errors.New("db error"))
+			WillReturnError(errors.New(testDBError))
 
 		err = repo.AddRule(context.Background(), rule)
 		assert.Error(t, err)
 	})
 }
 
-func TestSecurityGroupRepository_DeleteRule(t *testing.T) {
+func TestSecurityGroupRepositoryDeleteRule(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -261,16 +270,18 @@ func TestSecurityGroupRepository_DeleteRule(t *testing.T) {
 
 		repo := NewSecurityGroupRepository(mock)
 		ruleID := uuid.New()
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
 
 		mock.ExpectExec("DELETE FROM security_rules").
-			WithArgs(ruleID).
+			WithArgs(ruleID, userID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
-		err = repo.DeleteRule(context.Background(), ruleID)
+		err = repo.DeleteRule(ctx, ruleID)
 		assert.NoError(t, err)
 	})
 
-	t.Run("db error", func(t *testing.T) {
+	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -280,14 +291,61 @@ func TestSecurityGroupRepository_DeleteRule(t *testing.T) {
 
 		mock.ExpectExec("DELETE FROM security_rules").
 			WithArgs(ruleID).
-			WillReturnError(errors.New("db error"))
+			WillReturnError(errors.New(testDBError))
 
 		err = repo.DeleteRule(context.Background(), ruleID)
 		assert.Error(t, err)
 	})
 }
 
-func TestSecurityGroupRepository_Delete(t *testing.T) {
+func TestSecurityGroupRepositoryGetRuleByID(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewSecurityGroupRepository(mock)
+		ruleID := uuid.New()
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+		now := time.Now()
+
+		rows := pgxmock.NewRows([]string{"id", "group_id", "direction", "protocol", "port_min", "port_max", "cidr", "priority", "created_at"}).
+			AddRow(ruleID, uuid.New(), "ingress", "tcp", 80, 80, "0.0.0.0/0", 100, now)
+
+		mock.ExpectQuery("SELECT .* FROM security_rules").
+			WithArgs(ruleID, userID).
+			WillReturnRows(rows)
+
+		rule, err := repo.GetRuleByID(ctx, ruleID)
+		assert.NoError(t, err)
+		assert.NotNil(t, rule)
+		assert.Equal(t, ruleID, rule.ID)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		assert.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewSecurityGroupRepository(mock)
+		ruleID := uuid.New()
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+
+		mock.ExpectQuery("SELECT .* FROM security_rules").
+			WithArgs(ruleID, userID).
+			WillReturnError(pgx.ErrNoRows)
+
+		rule, err := repo.GetRuleByID(ctx, ruleID)
+		assert.Error(t, err)
+		assert.Nil(t, rule)
+		assert.IsType(t, theclouderrors.Error{}, err)
+		assert.Equal(t, theclouderrors.NotFound, err.(theclouderrors.Error).Type)
+	})
+}
+
+func TestSecurityGroupRepositoryDelete(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -306,7 +364,7 @@ func TestSecurityGroupRepository_Delete(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("db error", func(t *testing.T) {
+	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -318,14 +376,14 @@ func TestSecurityGroupRepository_Delete(t *testing.T) {
 
 		mock.ExpectExec("DELETE FROM security_groups").
 			WithArgs(id, userID).
-			WillReturnError(errors.New("db error"))
+			WillReturnError(errors.New(testDBError))
 
 		err = repo.Delete(ctx, id)
 		assert.Error(t, err)
 	})
 }
 
-func TestSecurityGroupRepository_AddInstanceToGroup(t *testing.T) {
+func TestSecurityGroupRepositoryAddInstanceToGroup(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -338,10 +396,10 @@ func TestSecurityGroupRepository_AddInstanceToGroup(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
 		mock.ExpectBegin()
-		mock.ExpectQuery("SELECT user_id FROM instances WHERE id = \\$1").
+		mock.ExpectQuery(selectInstanceUser).
 			WithArgs(instanceID).
 			WillReturnRows(pgxmock.NewRows([]string{"user_id"}).AddRow(userID))
-		mock.ExpectQuery("SELECT user_id FROM security_groups WHERE id = \\$1").
+		mock.ExpectQuery(selectSgUser).
 			WithArgs(groupID).
 			WillReturnRows(pgxmock.NewRows([]string{"user_id"}).AddRow(userID))
 		mock.ExpectExec("INSERT INTO instance_security_groups").
@@ -365,7 +423,7 @@ func TestSecurityGroupRepository_AddInstanceToGroup(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
 		mock.ExpectBegin()
-		mock.ExpectQuery("SELECT user_id FROM instances WHERE id = \\$1").
+		mock.ExpectQuery(selectInstanceUser).
 			WithArgs(instanceID).
 			WillReturnError(pgx.ErrNoRows)
 		mock.ExpectRollback()
@@ -390,10 +448,10 @@ func TestSecurityGroupRepository_AddInstanceToGroup(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
 		mock.ExpectBegin()
-		mock.ExpectQuery("SELECT user_id FROM instances WHERE id = \\$1").
+		mock.ExpectQuery(selectInstanceUser).
 			WithArgs(instanceID).
 			WillReturnRows(pgxmock.NewRows([]string{"user_id"}).AddRow(userID))
-		mock.ExpectQuery("SELECT user_id FROM security_groups WHERE id = \\$1").
+		mock.ExpectQuery(selectSgUser).
 			WithArgs(groupID).
 			WillReturnError(pgx.ErrNoRows)
 		mock.ExpectRollback()
@@ -407,7 +465,7 @@ func TestSecurityGroupRepository_AddInstanceToGroup(t *testing.T) {
 	})
 }
 
-func TestSecurityGroupRepository_RemoveInstanceFromGroup(t *testing.T) {
+func TestSecurityGroupRepositoryRemoveInstanceFromGroup(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -420,10 +478,10 @@ func TestSecurityGroupRepository_RemoveInstanceFromGroup(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
 		mock.ExpectBegin()
-		mock.ExpectQuery("SELECT user_id FROM instances WHERE id = \\$1").
+		mock.ExpectQuery(selectInstanceUser).
 			WithArgs(instanceID).
 			WillReturnRows(pgxmock.NewRows([]string{"user_id"}).AddRow(userID))
-		mock.ExpectQuery("SELECT user_id FROM security_groups WHERE id = \\$1").
+		mock.ExpectQuery(selectSgUser).
 			WithArgs(groupID).
 			WillReturnRows(pgxmock.NewRows([]string{"user_id"}).AddRow(userID))
 		mock.ExpectExec("DELETE FROM instance_security_groups").
@@ -447,7 +505,7 @@ func TestSecurityGroupRepository_RemoveInstanceFromGroup(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
 		mock.ExpectBegin()
-		mock.ExpectQuery("SELECT user_id FROM instances WHERE id = \\$1").
+		mock.ExpectQuery(selectInstanceUser).
 			WithArgs(instanceID).
 			WillReturnError(pgx.ErrNoRows)
 		mock.ExpectRollback()
@@ -461,7 +519,7 @@ func TestSecurityGroupRepository_RemoveInstanceFromGroup(t *testing.T) {
 	})
 }
 
-func TestSecurityGroupRepository_ListInstanceGroups(t *testing.T) {
+func TestSecurityGroupRepositoryListInstanceGroups(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -474,14 +532,14 @@ func TestSecurityGroupRepository_ListInstanceGroups(t *testing.T) {
 		mock.ExpectQuery("SELECT sg.id, sg.user_id, sg.vpc_id, sg.name, sg.description, sg.arn, sg.created_at").
 			WithArgs(instanceID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "description", "arn", "created_at"}).
-				AddRow(uuid.New(), uuid.New(), uuid.New(), "test-sg", "desc", "arn", now))
+				AddRow(uuid.New(), uuid.New(), uuid.New(), testSgName, "desc", "arn", now))
 
 		groups, err := repo.ListInstanceGroups(context.Background(), instanceID)
 		assert.NoError(t, err)
 		assert.Len(t, groups, 1)
 	})
 
-	t.Run("db error", func(t *testing.T) {
+	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -491,7 +549,7 @@ func TestSecurityGroupRepository_ListInstanceGroups(t *testing.T) {
 
 		mock.ExpectQuery("SELECT sg.id, sg.user_id, sg.vpc_id, sg.name, sg.description, sg.arn, sg.created_at").
 			WithArgs(instanceID).
-			WillReturnError(errors.New("db error"))
+			WillReturnError(errors.New(testDBError))
 
 		groups, err := repo.ListInstanceGroups(context.Background(), instanceID)
 		assert.Error(t, err)

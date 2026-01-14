@@ -11,11 +11,10 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
-
-const subnetTestCIDR = "10.0.0.0/16"
 
 func setupSubnetServiceTest(_ *testing.T) (*MockSubnetRepo, *MockVpcRepo, *MockAuditService, ports.SubnetService) {
 	repo := new(MockSubnetRepo)
@@ -37,20 +36,20 @@ func TestSubnetServiceCreateSubnetSuccess(t *testing.T) {
 	vpcID := uuid.New()
 	vpc := &domain.VPC{
 		ID:        vpcID,
-		CIDRBlock: subnetTestCIDR,
+		CIDRBlock: testutil.TestCIDR,
 	}
 
 	vpcRepo.On("GetByID", ctx, vpcID).Return(vpc, nil)
 	repo.On("Create", ctx, mock.MatchedBy(func(s *domain.Subnet) bool {
-		return s.VPCID == vpcID && s.CIDRBlock == "10.0.1.0/24" && s.GatewayIP == "10.0.1.1"
+		return s.VPCID == vpcID && s.CIDRBlock == testutil.TestSubnetCIDR && s.GatewayIP == testutil.TestGatewayIP
 	})).Return(nil)
 	auditSvc.On("Log", ctx, mock.Anything, "subnet.create", "subnet", mock.Anything, mock.Anything).Return(nil)
 
-	subnet, err := svc.CreateSubnet(ctx, vpcID, "test-subnet", "10.0.1.0/24", "us-east-1a")
+	subnet, err := svc.CreateSubnet(ctx, vpcID, "test-subnet", testutil.TestSubnetCIDR, "us-east-1a")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, subnet)
-	assert.Equal(t, "10.0.1.1", subnet.GatewayIP)
+	assert.Equal(t, testutil.TestGatewayIP, subnet.GatewayIP)
 }
 
 func TestSubnetServiceCreateSubnetInvalidCIDR(t *testing.T) {
@@ -62,13 +61,13 @@ func TestSubnetServiceCreateSubnetInvalidCIDR(t *testing.T) {
 	vpcID := uuid.New()
 	vpc := &domain.VPC{
 		ID:        vpcID,
-		CIDRBlock: subnetTestCIDR,
+		CIDRBlock: testutil.TestCIDR,
 	}
 
 	vpcRepo.On("GetByID", ctx, vpcID).Return(vpc, nil)
 
 	// Outside VPC range
-	subnet, err := svc.CreateSubnet(ctx, vpcID, "bad-subnet", "192.168.1.0/24", "us-east-1a")
+	subnet, err := svc.CreateSubnet(ctx, vpcID, "bad-subnet", testutil.TestOtherCIDR, "us-east-1a")
 
 	assert.Error(t, err)
 	assert.Nil(t, subnet)

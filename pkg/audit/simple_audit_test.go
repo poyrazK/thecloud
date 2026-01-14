@@ -9,10 +9,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSimpleAuditLogger_Log(t *testing.T) {
+func TestSimpleAuditLoggerLog(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
 	audit := NewSimpleAuditLogger(logger)
@@ -24,8 +25,8 @@ func TestSimpleAuditLogger_Log(t *testing.T) {
 		Action:       "CREATE",
 		ResourceType: "instance",
 		ResourceID:   "123",
-		IPAddress:    "127.0.0.1",
-		UserAgent:    "test-agent",
+		IPAddress:    testutil.TestIPLocalhost,
+		UserAgent:    testutil.TestUserAgent,
 		Details:      map[string]interface{}{"foo": "bar"},
 		CreatedAt:    time.Now(),
 	}
@@ -40,13 +41,13 @@ func TestSimpleAuditLogger_Log(t *testing.T) {
 	assert.Contains(t, logOutput, userID.String())
 	assert.Contains(t, logOutput, "instance")
 	assert.Contains(t, logOutput, "123")
-	assert.Contains(t, logOutput, "127.0.0.1")
-	assert.Contains(t, logOutput, "test-agent")
+	assert.Contains(t, logOutput, testutil.TestIPLocalhost)
+	assert.Contains(t, logOutput, testutil.TestUserAgent)
 	assert.Contains(t, logOutput, "foo")
 	assert.Contains(t, logOutput, "bar")
 }
 
-func TestSimpleAuditLogger_Log_Anonymous(t *testing.T) {
+func TestSimpleAuditLoggerLogAnonymous(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
 	audit := NewSimpleAuditLogger(logger)
@@ -66,7 +67,7 @@ func TestSimpleAuditLogger_Log_Anonymous(t *testing.T) {
 	assert.Contains(t, logOutput, "anonymous")
 }
 
-func TestSimpleAuditLogger_Log_EmptyDetails(t *testing.T) {
+func TestSimpleAuditLoggerLogEmptyDetails(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
 	audit := NewSimpleAuditLogger(logger)

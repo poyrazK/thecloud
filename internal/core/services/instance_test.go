@@ -12,6 +12,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -276,8 +277,8 @@ func TestProvisionSuccess(t *testing.T) {
 	subnet := &domain.Subnet{
 		ID:        subnetID,
 		VPCID:     vpcID,
-		CIDRBlock: "10.0.1.0/24",
-		GatewayIP: "10.0.1.1",
+		CIDRBlock: testutil.TestSubnetCIDR,
+		GatewayIP: testutil.TestGatewayIP,
 	}
 
 	repo.On("GetByID", mock.Anything, instID).Return(inst, nil)
@@ -294,7 +295,7 @@ func TestProvisionSuccess(t *testing.T) {
 
 	network.On("CreateVethPair", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	network.On("AttachVethToBridge", mock.Anything, testVPCNetwork, mock.Anything).Return(nil)
-	network.On("SetVethIP", mock.Anything, mock.Anything, "10.0.1.2", "24").Return(nil)
+	network.On("SetVethIP", mock.Anything, mock.Anything, testutil.TestInstanceIP, "24").Return(nil)
 
 	repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
 		return i.Status == domain.StatusRunning && i.ContainerID == "c-123"

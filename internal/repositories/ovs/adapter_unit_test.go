@@ -8,7 +8,14 @@ import (
 
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	apperrors "github.com/poyrazk/thecloud/internal/errors"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/require"
+)
+
+const (
+	ovsVsctlPath = "/bin/ovs-vsctl"
+	ovsOfctlPath = "/bin/ovs-ofctl"
+	badBridge    = "bad bridge"
 )
 
 type fakeCmd struct {
@@ -50,88 +57,88 @@ func (e *fakeExecer) CommandContext(ctx context.Context, name string, args ...st
 	return e.cmd
 }
 
-func TestOvsAdapter_CommandErrorsAreWrapped(t *testing.T) {
+func TestOvsAdapterCommandErrorsAreWrapped(t *testing.T) {
 	fx := &fakeExecer{
-		lookPath: map[string]string{"ovs-vsctl": "/bin/ovs-vsctl", "ovs-ofctl": "/bin/ovs-ofctl"},
+		lookPath: map[string]string{"ovs-vsctl": ovsVsctlPath, "ovs-ofctl": ovsOfctlPath},
 		cmd:      &fakeCmd{runErr: errors.New("boom")},
 	}
 
-	a := &OvsAdapter{ovsPath: "/bin/ovs-vsctl", ofctlPath: "/bin/ovs-ofctl", logger: slog.Default(), exec: fx}
+	a := &OvsAdapter{ovsPath: ovsVsctlPath, ofctlPath: ovsOfctlPath, logger: slog.Default(), exec: fx}
 
 	err := a.CreateBridge(context.Background(), "br0", 0)
 	require.Error(t, err)
 	require.True(t, apperrors.Is(err, apperrors.Internal))
 }
 
-func TestOvsAdapter_ListBridges_EmptyOutput(t *testing.T) {
+func TestOvsAdapterListBridgesEmptyOutput(t *testing.T) {
 	fx := &fakeExecer{
 		cmd: &fakeCmd{out: []byte("\n")},
 	}
 
-	a := &OvsAdapter{ovsPath: "/bin/ovs-vsctl", logger: slog.Default(), exec: fx}
+	a := &OvsAdapter{ovsPath: ovsVsctlPath, logger: slog.Default(), exec: fx}
 	bridges, err := a.ListBridges(context.Background())
 	require.NoError(t, err)
 	require.Len(t, bridges, 0)
 }
 
-func TestOvsAdapter_AddFlowRule_InvalidBridge(t *testing.T) {
+func TestOvsAdapterAddFlowRuleInvalidBridge(t *testing.T) {
 	fx := &fakeExecer{cmd: &fakeCmd{}}
-	a := &OvsAdapter{ofctlPath: "/bin/ovs-ofctl", logger: slog.Default(), exec: fx}
+	a := &OvsAdapter{ofctlPath: ovsOfctlPath, logger: slog.Default(), exec: fx}
 
-	err := a.AddFlowRule(context.Background(), "bad bridge", ports.FlowRule{Priority: 1, Match: "ip", Actions: "drop"})
+	err := a.AddFlowRule(context.Background(), badBridge, ports.FlowRule{Priority: 1, Match: "ip", Actions: "drop"})
 	require.Error(t, err)
 	require.True(t, apperrors.Is(err, apperrors.InvalidInput))
 }
 
-func TestOvsAdapter_AddFlowRule_Success(t *testing.T) {
+func TestOvsAdapterAddFlowRuleSuccess(t *testing.T) {
 	fx := &fakeExecer{cmd: &fakeCmd{}}
-	a := &OvsAdapter{ofctlPath: "/bin/ovs-ofctl", logger: slog.Default(), exec: fx}
+	a := &OvsAdapter{ofctlPath: ovsOfctlPath, logger: slog.Default(), exec: fx}
 
 	err := a.AddFlowRule(context.Background(), "br0", ports.FlowRule{Priority: 100, Match: "ip", Actions: "normal"})
 	require.NoError(t, err)
 }
 
-func TestOvsAdapter_AddPort(t *testing.T) {
+func TestOvsAdapterAddPort(t *testing.T) {
 	fx := &fakeExecer{cmd: &fakeCmd{}}
-	a := &OvsAdapter{ovsPath: "/bin/ovs-vsctl", logger: slog.Default(), exec: fx}
+	a := &OvsAdapter{ovsPath: ovsVsctlPath, logger: slog.Default(), exec: fx}
 
 	err := a.AddPort(context.Background(), "br0", "port1")
 	require.NoError(t, err)
 }
 
-func TestOvsAdapter_DeletePort(t *testing.T) {
+func TestOvsAdapterDeletePort(t *testing.T) {
 	fx := &fakeExecer{cmd: &fakeCmd{}}
-	a := &OvsAdapter{ovsPath: "/bin/ovs-vsctl", logger: slog.Default(), exec: fx}
+	a := &OvsAdapter{ovsPath: ovsVsctlPath, logger: slog.Default(), exec: fx}
 
 	err := a.DeletePort(context.Background(), "br0", "port1")
 	require.NoError(t, err)
 }
 
-func TestOvsAdapter_Ping(t *testing.T) {
+func TestOvsAdapterPing(t *testing.T) {
 	fx := &fakeExecer{cmd: &fakeCmd{}}
-	a := &OvsAdapter{ovsPath: "/bin/ovs-vsctl", logger: slog.Default(), exec: fx}
+	a := &OvsAdapter{ovsPath: ovsVsctlPath, logger: slog.Default(), exec: fx}
 
 	err := a.Ping(context.Background())
 	require.NoError(t, err)
 }
 
-func TestOvsAdapter_Type(t *testing.T) {
+func TestOvsAdapterType(t *testing.T) {
 	a := &OvsAdapter{}
 	require.Equal(t, "ovs", a.Type())
 }
 
-func TestOvsAdapter_DeleteBridge(t *testing.T) {
+func TestOvsAdapterDeleteBridge(t *testing.T) {
 	fx := &fakeExecer{cmd: &fakeCmd{}}
-	a := &OvsAdapter{ovsPath: "/bin/ovs-vsctl", logger: slog.Default(), exec: fx}
+	a := &OvsAdapter{ovsPath: ovsVsctlPath, logger: slog.Default(), exec: fx}
 
 	err := a.DeleteBridge(context.Background(), "br0")
 	require.NoError(t, err)
 }
 
-func TestOvsAdapter_DeleteFlowRule(t *testing.T) {
+func TestOvsAdapterDeleteFlowRule(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		fx := &fakeExecer{cmd: &fakeCmd{}}
-		a := &OvsAdapter{ofctlPath: "/bin/ovs-ofctl", logger: slog.Default(), exec: fx}
+		a := &OvsAdapter{ofctlPath: ovsOfctlPath, logger: slog.Default(), exec: fx}
 
 		err := a.DeleteFlowRule(context.Background(), "br0", "match")
 		require.NoError(t, err)
@@ -139,42 +146,42 @@ func TestOvsAdapter_DeleteFlowRule(t *testing.T) {
 
 	t.Run("invalid bridge", func(t *testing.T) {
 		fx := &fakeExecer{cmd: &fakeCmd{}}
-		a := &OvsAdapter{ofctlPath: "/bin/ovs-ofctl", logger: slog.Default(), exec: fx}
+		a := &OvsAdapter{ofctlPath: ovsOfctlPath, logger: slog.Default(), exec: fx}
 
-		err := a.DeleteFlowRule(context.Background(), "bad bridge", "match")
+		err := a.DeleteFlowRule(context.Background(), badBridge, "match")
 		require.Error(t, err)
 		require.True(t, apperrors.Is(err, apperrors.InvalidInput))
 	})
 }
 
-func TestOvsAdapter_CreateVXLANTunnel(t *testing.T) {
+func TestOvsAdapterCreateVXLANTunnel(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		fx := &fakeExecer{cmd: &fakeCmd{}}
-		a := &OvsAdapter{ovsPath: "/bin/ovs-vsctl", logger: slog.Default(), exec: fx}
+		a := &OvsAdapter{ovsPath: ovsVsctlPath, logger: slog.Default(), exec: fx}
 
-		err := a.CreateVXLANTunnel(context.Background(), "br0", 100, "192.168.1.1")
+		err := a.CreateVXLANTunnel(context.Background(), "br0", 100, testutil.TestVXLANRemoteIP)
 		require.NoError(t, err)
 	})
 
 	t.Run("invalid bridge", func(t *testing.T) {
 		fx := &fakeExecer{cmd: &fakeCmd{}}
-		a := &OvsAdapter{ovsPath: "/bin/ovs-vsctl", logger: slog.Default(), exec: fx}
+		a := &OvsAdapter{ovsPath: ovsVsctlPath, logger: slog.Default(), exec: fx}
 
-		err := a.CreateVXLANTunnel(context.Background(), "bad bridge", 100, "192.168.1.1")
+		err := a.CreateVXLANTunnel(context.Background(), badBridge, 100, testutil.TestVXLANRemoteIP)
 		require.Error(t, err)
 		require.True(t, apperrors.Is(err, apperrors.InvalidInput))
 	})
 }
 
-func TestOvsAdapter_DeleteVXLANTunnel(t *testing.T) {
+func TestOvsAdapterDeleteVXLANTunnel(t *testing.T) {
 	fx := &fakeExecer{cmd: &fakeCmd{}}
-	a := &OvsAdapter{ovsPath: "/bin/ovs-vsctl", logger: slog.Default(), exec: fx}
+	a := &OvsAdapter{ovsPath: ovsVsctlPath, logger: slog.Default(), exec: fx}
 
-	err := a.DeleteVXLANTunnel(context.Background(), "br0", "192.168.1.1")
+	err := a.DeleteVXLANTunnel(context.Background(), "br0", testutil.TestVXLANRemoteIP)
 	require.NoError(t, err)
 }
 
-func TestOvsAdapter_CreateVethPair(t *testing.T) {
+func TestOvsAdapterCreateVethPair(t *testing.T) {
 	fx := &fakeExecer{cmd: &fakeCmd{}}
 	a := &OvsAdapter{logger: slog.Default(), exec: fx}
 
@@ -182,15 +189,15 @@ func TestOvsAdapter_CreateVethPair(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestOvsAdapter_AttachVethToBridge(t *testing.T) {
+func TestOvsAdapterAttachVethToBridge(t *testing.T) {
 	fx := &fakeExecer{cmd: &fakeCmd{}}
-	a := &OvsAdapter{ovsPath: "/bin/ovs-vsctl", logger: slog.Default(), exec: fx}
+	a := &OvsAdapter{ovsPath: ovsVsctlPath, logger: slog.Default(), exec: fx}
 
 	err := a.AttachVethToBridge(context.Background(), "br0", "veth0")
 	require.NoError(t, err)
 }
 
-func TestOvsAdapter_DeleteVethPair(t *testing.T) {
+func TestOvsAdapterDeleteVethPair(t *testing.T) {
 	fx := &fakeExecer{cmd: &fakeCmd{}}
 	a := &OvsAdapter{logger: slog.Default(), exec: fx}
 
@@ -198,17 +205,17 @@ func TestOvsAdapter_DeleteVethPair(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestOvsAdapter_SetVethIP(t *testing.T) {
+func TestOvsAdapterSetVethIP(t *testing.T) {
 	fx := &fakeExecer{cmd: &fakeCmd{}}
 	a := &OvsAdapter{logger: slog.Default(), exec: fx}
 
-	err := a.SetVethIP(context.Background(), "veth0", "10.0.0.1", "24")
+	err := a.SetVethIP(context.Background(), "veth0", testutil.TestIPHost, "24")
 	require.NoError(t, err)
 }
 
-func TestOvsAdapter_ListFlowRules(t *testing.T) {
+func TestOvsAdapterListFlowRules(t *testing.T) {
 	fx := &fakeExecer{cmd: &fakeCmd{out: []byte("cookie=0x0, duration=1.0s, table=0, n_packets=0, n_bytes=0, priority=100,ip actions=NORMAL\n")}}
-	a := &OvsAdapter{ofctlPath: "/bin/ovs-ofctl", logger: slog.Default(), exec: fx}
+	a := &OvsAdapter{ofctlPath: ovsOfctlPath, logger: slog.Default(), exec: fx}
 
 	rules, err := a.ListFlowRules(context.Background(), "br0")
 	require.NoError(t, err)
