@@ -37,13 +37,13 @@ func TestVpcServiceCreateSuccess(t *testing.T) {
 	name := "test-vpc"
 	cidr := vpcTestCIDR
 
-	network.On("CreateBridge", ctx, mock.MatchedBy(func(n string) bool {
+	network.On("CreateBridge", mock.Anything, mock.MatchedBy(func(n string) bool {
 		return len(n) > 0 // Dynamic name
 	}), mock.Anything).Return(nil)
-	vpcRepo.On("Create", ctx, mock.MatchedBy(func(vpc *domain.VPC) bool {
+	vpcRepo.On("Create", mock.Anything, mock.MatchedBy(func(vpc *domain.VPC) bool {
 		return vpc.Name == name && vpc.CIDRBlock == cidr
 	})).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "vpc.create", "vpc", mock.Anything, mock.Anything).Return(nil)
+	auditSvc.On("Log", mock.Anything, mock.Anything, "vpc.create", "vpc", mock.Anything, mock.Anything).Return(nil)
 
 	vpc, err := svc.CreateVPC(ctx, name, cidr)
 
@@ -58,18 +58,17 @@ func TestVpcServiceCreateDBFailureRollsBackBridge(t *testing.T) {
 	defer vpcRepo.AssertExpectations(t)
 	defer network.AssertExpectations(t)
 
-	ctx := context.Background()
 	name := "fail-vpc"
 
-	network.On("CreateBridge", ctx, mock.Anything, mock.Anything).Return(nil)
-	vpcRepo.On("Create", ctx, mock.Anything).Return(assert.AnError)
-	network.On("DeleteBridge", ctx, mock.Anything).Return(nil) // Rollback
+	network.On("CreateBridge", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	vpcRepo.On("Create", mock.Anything, mock.Anything).Return(assert.AnError)
+	network.On("DeleteBridge", mock.Anything, mock.Anything).Return(nil) // Rollback
 
-	vpc, err := svc.CreateVPC(ctx, name, "")
+	vpc, err := svc.CreateVPC(context.Background(), name, "")
 
 	assert.Error(t, err)
 	assert.Nil(t, vpc)
-	network.AssertCalled(t, "DeleteBridge", ctx, mock.Anything)
+	network.AssertCalled(t, "DeleteBridge", mock.Anything, mock.Anything)
 }
 
 func TestVpcServiceDeleteSuccess(t *testing.T) {
@@ -78,7 +77,6 @@ func TestVpcServiceDeleteSuccess(t *testing.T) {
 	defer network.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
 
-	ctx := context.Background()
 	vpcID := uuid.New()
 	vpc := &domain.VPC{
 		ID:        vpcID,
@@ -86,12 +84,12 @@ func TestVpcServiceDeleteSuccess(t *testing.T) {
 		NetworkID: "br-vpc-123",
 	}
 
-	vpcRepo.On("GetByID", ctx, vpcID).Return(vpc, nil)
-	network.On("DeleteBridge", ctx, "br-vpc-123").Return(nil)
-	vpcRepo.On("Delete", ctx, vpcID).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "vpc.delete", "vpc", mock.Anything, mock.Anything).Return(nil)
+	vpcRepo.On("GetByID", mock.Anything, vpcID).Return(vpc, nil)
+	network.On("DeleteBridge", mock.Anything, "br-vpc-123").Return(nil)
+	vpcRepo.On("Delete", mock.Anything, vpcID).Return(nil)
+	auditSvc.On("Log", mock.Anything, mock.Anything, "vpc.delete", "vpc", mock.Anything, mock.Anything).Return(nil)
 
-	err := svc.DeleteVPC(ctx, vpcID.String())
+	err := svc.DeleteVPC(context.Background(), vpcID.String())
 
 	assert.NoError(t, err)
 }
@@ -100,12 +98,10 @@ func TestVpcServiceListSuccess(t *testing.T) {
 	vpcRepo, _, _, svc := setupVpcServiceTest(t, vpcTestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 
-	ctx := context.Background()
-
 	vpcs := []*domain.VPC{{Name: "vpc1"}, {Name: "vpc2"}}
-	vpcRepo.On("List", ctx).Return(vpcs, nil)
+	vpcRepo.On("List", mock.Anything).Return(vpcs, nil)
 
-	result, err := svc.ListVPCs(ctx)
+	result, err := svc.ListVPCs(context.Background())
 
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
@@ -115,13 +111,12 @@ func TestVpcServiceGetByName(t *testing.T) {
 	vpcRepo, _, _, svc := setupVpcServiceTest(t, vpcTestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 
-	ctx := context.Background()
 	name := "my-vpc"
 	vpc := &domain.VPC{ID: uuid.New(), Name: name}
 
-	vpcRepo.On("GetByName", ctx, name).Return(vpc, nil)
+	vpcRepo.On("GetByName", mock.Anything, name).Return(vpc, nil)
 
-	result, err := svc.GetVPC(ctx, name)
+	result, err := svc.GetVPC(context.Background(), name)
 
 	assert.NoError(t, err)
 	assert.Equal(t, name, result.Name)

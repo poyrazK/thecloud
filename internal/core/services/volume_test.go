@@ -38,13 +38,13 @@ func TestVolumeServiceCreateVolumeSuccess(t *testing.T) {
 	size := 10
 
 	// CreateVolume(ctx, name, size) -> (path, error)
-	storage.On("CreateVolume", ctx, mock.MatchedBy(func(n string) bool {
+	storage.On("CreateVolume", mock.Anything, mock.MatchedBy(func(n string) bool {
 		return len(n) > 0 // Ensure some name is generated
 	}), size).Return("vol-path", nil)
 
-	repo.On("Create", ctx, mock.AnythingOfType("*domain.Volume")).Return(nil)
-	eventSvc.On("RecordEvent", ctx, "VOLUME_CREATE", mock.Anything, "VOLUME", mock.Anything).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "volume.create", "volume", mock.Anything, mock.Anything).Return(nil)
+	repo.On("Create", mock.Anything, mock.AnythingOfType("*domain.Volume")).Return(nil)
+	eventSvc.On("RecordEvent", mock.Anything, "VOLUME_CREATE", mock.Anything, "VOLUME", mock.Anything).Return(nil)
+	auditSvc.On("Log", mock.Anything, mock.Anything, "volume.create", "volume", mock.Anything, mock.Anything).Return(nil)
 
 	vol, err := svc.CreateVolume(ctx, name, size)
 
@@ -70,12 +70,12 @@ func TestVolumeServiceDeleteVolumeSuccess(t *testing.T) {
 		Status: domain.VolumeStatusAvailable,
 	}
 
-	repo.On("GetByID", ctx, volID).Return(vol, nil)
+	repo.On("GetByID", mock.Anything, volID).Return(vol, nil)
 	dockerName := "thecloud-vol-" + volID.String()[:8]
-	storage.On("DeleteVolume", ctx, dockerName).Return(nil)
-	repo.On("Delete", ctx, volID).Return(nil)
-	eventSvc.On("RecordEvent", ctx, "VOLUME_DELETE", volID.String(), "VOLUME", mock.Anything).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "volume.delete", "volume", mock.Anything, mock.Anything).Return(nil)
+	storage.On("DeleteVolume", mock.Anything, dockerName).Return(nil)
+	repo.On("Delete", mock.Anything, volID).Return(nil)
+	eventSvc.On("RecordEvent", mock.Anything, "VOLUME_DELETE", volID.String(), "VOLUME", mock.Anything).Return(nil)
+	auditSvc.On("Log", mock.Anything, mock.Anything, "volume.delete", "volume", mock.Anything, mock.Anything).Return(nil)
 
 	err := svc.DeleteVolume(ctx, volID.String())
 
@@ -94,7 +94,7 @@ func TestVolumeServiceDeleteVolumeInUseFails(t *testing.T) {
 		Status: domain.VolumeStatusInUse,
 	}
 
-	repo.On("GetByID", ctx, volID).Return(vol, nil)
+	repo.On("GetByID", mock.Anything, volID).Return(vol, nil)
 
 	err := svc.DeleteVolume(ctx, volID.String())
 

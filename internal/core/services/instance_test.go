@@ -52,14 +52,13 @@ func TestLaunchInstanceSuccess(t *testing.T) {
 	repo, _, _, _, _, _, _, _, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
 
-	ctx := context.Background()
 	name := "test-inst"
 	image := "alpine"
 	ports := testPorts
 
-	repo.On("Create", ctx, mock.AnythingOfType("*domain.Instance")).Return(nil)
+	repo.On("Create", mock.Anything, mock.AnythingOfType("*domain.Instance")).Return(nil)
 
-	inst, err := svc.LaunchInstance(ctx, name, image, ports, nil, nil, nil)
+	inst, err := svc.LaunchInstance(context.Background(), name, image, ports, nil, nil, nil)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, inst)
@@ -76,7 +75,7 @@ func TestLaunchInstancePropagatesUserID(t *testing.T) {
 	name := "test-inst-user"
 	image := "alpine"
 
-	repo.On("Create", ctx, mock.MatchedBy(func(inst *domain.Instance) bool {
+	repo.On("Create", mock.Anything, mock.MatchedBy(func(inst *domain.Instance) bool {
 		return inst.UserID == expectedUserID
 	})).Return(nil)
 
@@ -95,7 +94,6 @@ func TestTerminateInstanceSuccess(t *testing.T) {
 	defer eventSvc.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
 
-	ctx := context.Background()
 	id := uuid.New()
 	volID := uuid.New()
 	inst := &domain.Instance{ID: id, Name: "test", ContainerID: "c123"}
@@ -109,20 +107,20 @@ func TestTerminateInstanceSuccess(t *testing.T) {
 		},
 	}
 
-	repo.On("GetByID", ctx, id).Return(inst, nil)
-	compute.On("DeleteInstance", ctx, "c123").Return(nil)
-	volumeRepo.On("ListByInstanceID", ctx, id).Return(attachedVolumes, nil)
-	volumeRepo.On("Update", ctx, mock.MatchedBy(func(v *domain.Volume) bool {
+	repo.On("GetByID", mock.Anything, id).Return(inst, nil)
+	compute.On("DeleteInstance", mock.Anything, "c123").Return(nil)
+	volumeRepo.On("ListByInstanceID", mock.Anything, id).Return(attachedVolumes, nil)
+	volumeRepo.On("Update", mock.Anything, mock.MatchedBy(func(v *domain.Volume) bool {
 		return v.ID == volID &&
 			v.Status == domain.VolumeStatusAvailable &&
 			v.InstanceID == nil &&
 			v.MountPath == ""
 	})).Return(nil)
-	repo.On("Delete", ctx, id).Return(nil)
-	eventSvc.On("RecordEvent", ctx, "INSTANCE_TERMINATE", id.String(), "INSTANCE", mock.Anything).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "instance.terminate", "instance", id.String(), mock.Anything).Return(nil)
+	repo.On("Delete", mock.Anything, id).Return(nil)
+	eventSvc.On("RecordEvent", mock.Anything, "INSTANCE_TERMINATE", id.String(), "INSTANCE", mock.Anything).Return(nil)
+	auditSvc.On("Log", mock.Anything, mock.Anything, "instance.terminate", "instance", id.String(), mock.Anything).Return(nil)
 
-	err := svc.TerminateInstance(ctx, id.String())
+	err := svc.TerminateInstance(context.Background(), id.String())
 
 	assert.NoError(t, err)
 }
@@ -132,14 +130,13 @@ func TestTerminateInstanceRemoveContainerFailsDoesNotReleaseVolumes(t *testing.T
 	defer repo.AssertExpectations(t)
 	defer compute.AssertExpectations(t)
 
-	ctx := context.Background()
 	id := uuid.New()
 	inst := &domain.Instance{ID: id, Name: "test", ContainerID: "c123"}
 
-	repo.On("GetByID", ctx, id).Return(inst, nil)
-	compute.On("DeleteInstance", ctx, "c123").Return(assert.AnError)
+	repo.On("GetByID", mock.Anything, id).Return(inst, nil)
+	compute.On("DeleteInstance", mock.Anything, "c123").Return(assert.AnError)
 
-	err := svc.TerminateInstance(ctx, id.String())
+	err := svc.TerminateInstance(context.Background(), id.String())
 
 	assert.Error(t, err)
 	volumeRepo.AssertNotCalled(t, "ListByInstanceID", mock.Anything, id)
@@ -151,13 +148,12 @@ func TestGetInstanceByID(t *testing.T) {
 	repo, _, _, _, _, _, _, _, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
 
-	ctx := context.Background()
 	instID := uuid.New()
 	inst := &domain.Instance{ID: instID, Name: "test-inst"}
 
-	repo.On("GetByID", ctx, instID).Return(inst, nil)
+	repo.On("GetByID", mock.Anything, instID).Return(inst, nil)
 
-	result, err := svc.GetInstance(ctx, instID.String())
+	result, err := svc.GetInstance(context.Background(), instID.String())
 
 	assert.NoError(t, err)
 	assert.Equal(t, instID, result.ID)
@@ -167,13 +163,12 @@ func TestGetInstanceByName(t *testing.T) {
 	repo, _, _, _, _, _, _, _, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
 
-	ctx := context.Background()
 	name := "my-instance"
 	inst := &domain.Instance{ID: uuid.New(), Name: name}
 
-	repo.On("GetByName", ctx, name).Return(inst, nil)
+	repo.On("GetByName", mock.Anything, name).Return(inst, nil)
 
-	result, err := svc.GetInstance(ctx, name)
+	result, err := svc.GetInstance(context.Background(), name)
 
 	assert.NoError(t, err)
 	assert.Equal(t, name, result.Name)
@@ -183,12 +178,11 @@ func TestListInstances(t *testing.T) {
 	repo, _, _, _, _, _, _, _, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
 
-	ctx := context.Background()
 	instances := []*domain.Instance{{Name: "inst1"}, {Name: "inst2"}}
 
-	repo.On("List", ctx).Return(instances, nil)
+	repo.On("List", mock.Anything).Return(instances, nil)
 
-	result, err := svc.ListInstances(ctx)
+	result, err := svc.ListInstances(context.Background())
 
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
@@ -199,14 +193,13 @@ func TestGetInstanceLogs(t *testing.T) {
 	defer repo.AssertExpectations(t)
 	defer compute.AssertExpectations(t)
 
-	ctx := context.Background()
 	instID := uuid.New()
 	inst := &domain.Instance{ID: instID, ContainerID: "c123"}
 
-	repo.On("GetByID", ctx, instID).Return(inst, nil)
-	compute.On("GetInstanceLogs", ctx, "c123").Return(io.NopCloser(strings.NewReader("log line 1\nlog line 2")), nil)
+	repo.On("GetByID", mock.Anything, instID).Return(inst, nil)
+	compute.On("GetInstanceLogs", mock.Anything, "c123").Return(io.NopCloser(strings.NewReader("log line 1\nlog line 2")), nil)
 
-	logs, err := svc.GetInstanceLogs(ctx, instID.String())
+	logs, err := svc.GetInstanceLogs(context.Background(), instID.String())
 
 	assert.NoError(t, err)
 	assert.Contains(t, logs, "log line 1")
@@ -218,19 +211,18 @@ func TestStopInstanceSuccess(t *testing.T) {
 	defer compute.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
 
-	ctx := context.Background()
 	instID := uuid.New()
 	inst := &domain.Instance{ID: instID, ContainerID: "c123", Status: domain.StatusRunning}
 
-	repo.On("GetByID", ctx, instID).Return(inst, nil)
-	compute.On("StopInstance", ctx, "c123").Return(nil)
+	repo.On("GetByID", mock.Anything, instID).Return(inst, nil)
+	compute.On("StopInstance", mock.Anything, "c123").Return(nil)
 	compute.On("Type").Return("mock")
-	repo.On("Update", ctx, mock.MatchedBy(func(i *domain.Instance) bool {
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
 		return i.Status == domain.StatusStopped
 	})).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "instance.stop", "instance", instID.String(), mock.Anything).Return(nil)
+	auditSvc.On("Log", mock.Anything, mock.Anything, "instance.stop", "instance", instID.String(), mock.Anything).Return(nil)
 
-	err := svc.StopInstance(ctx, instID.String())
+	err := svc.StopInstance(context.Background(), instID.String())
 
 	assert.NoError(t, err)
 }
@@ -241,15 +233,14 @@ func TestLaunchInstanceWithSubnetAndNetworking(t *testing.T) {
 	defer vpcRepo.AssertExpectations(t)
 	defer subnetRepo.AssertExpectations(t)
 
-	ctx := context.Background()
 	vpcID := uuid.New()
 	subnetID := uuid.New()
 	name := "net-inst"
 	image := "alpine"
 
-	repo.On("Create", ctx, mock.AnythingOfType("*domain.Instance")).Return(nil)
+	repo.On("Create", mock.Anything, mock.AnythingOfType("*domain.Instance")).Return(nil)
 
-	inst, err := svc.LaunchInstance(ctx, name, image, "", &vpcID, &subnetID, nil)
+	inst, err := svc.LaunchInstance(context.Background(), name, image, "", &vpcID, &subnetID, nil)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, inst)
@@ -323,94 +314,87 @@ func TestInstanceServiceGetInstanceStats(t *testing.T) {
 	defer repo.AssertExpectations(t)
 	defer compute.AssertExpectations(t)
 
-	ctx := context.Background()
 	instID := uuid.New()
 	inst := &domain.Instance{ID: instID, ContainerID: "c123"}
 
-	repo.On("GetByID", ctx, instID).Return(inst, nil)
-	compute.On("GetInstanceStats", ctx, "c123").Return(io.NopCloser(strings.NewReader("{}")), nil)
+	repo.On("GetByID", mock.Anything, instID).Return(inst, nil)
+	compute.On("GetInstanceStats", mock.Anything, "c123").Return(io.NopCloser(strings.NewReader("{}")), nil)
 
-	stats, err := svc.GetInstanceStats(ctx, instID.String())
+	stats, err := svc.GetInstanceStats(context.Background(), instID.String())
 	assert.NoError(t, err)
 	assert.NotNil(t, stats)
 }
 
 func TestInstanceServiceGetInstanceStatsError(t *testing.T) {
 	repo, _, _, _, compute, _, _, _, _, svc := setupInstanceServiceTest(t)
-	ctx := context.Background()
 	instID := uuid.New()
 	inst := &domain.Instance{ID: instID, ContainerID: "c123"}
 
 	t.Run("RepoError", func(t *testing.T) {
-		repo.On("GetByID", ctx, instID).Return(nil, assert.AnError).Once()
-		_, err := svc.GetInstanceStats(ctx, instID.String())
+		repo.On("GetByID", mock.Anything, instID).Return(nil, assert.AnError).Once()
+		_, err := svc.GetInstanceStats(context.Background(), instID.String())
 		assert.Error(t, err)
 	})
 
 	t.Run("ComputeError", func(t *testing.T) {
-		repo.On("GetByID", ctx, instID).Return(inst, nil).Once()
-		compute.On("GetInstanceStats", ctx, "c123").Return(nil, assert.AnError).Once()
-		_, err := svc.GetInstanceStats(ctx, instID.String())
+		repo.On("GetByID", mock.Anything, instID).Return(inst, nil).Once()
+		compute.On("GetInstanceStats", mock.Anything, "c123").Return(nil, assert.AnError).Once()
+		_, err := svc.GetInstanceStats(context.Background(), instID.String())
 		assert.Error(t, err)
 	})
 }
 
 func TestInstanceServiceLaunchInvalidPorts(t *testing.T) {
 	_, _, _, _, _, _, _, _, _, svc := setupInstanceServiceTest(t)
-	ctx := context.Background()
 
-	_, err := svc.LaunchInstance(ctx, "n", "i", "invalid", nil, nil, nil)
+	_, err := svc.LaunchInstance(context.Background(), "n", "i", "invalid", nil, nil, nil)
 	assert.Error(t, err)
 }
 
 func TestInstanceServiceStopError(t *testing.T) {
 	repo, _, _, _, compute, _, _, _, _, svc := setupInstanceServiceTest(t)
-	ctx := context.Background()
 	instID := uuid.New()
 	inst := &domain.Instance{ID: instID, ContainerID: "c123", Status: domain.StatusRunning}
 
-	repo.On("GetByID", ctx, instID).Return(inst, nil)
-	compute.On("StopInstance", ctx, "c123").Return(assert.AnError)
+	repo.On("GetByID", mock.Anything, instID).Return(inst, nil)
+	compute.On("StopInstance", mock.Anything, "c123").Return(assert.AnError)
 
-	err := svc.StopInstance(ctx, instID.String())
+	err := svc.StopInstance(context.Background(), instID.String())
 	assert.Error(t, err)
 }
 
 func TestInstanceServiceGetInstanceLogsError(t *testing.T) {
 	repo, _, _, _, compute, _, _, _, _, svc := setupInstanceServiceTest(t)
-	ctx := context.Background()
 	instID := uuid.New()
 	inst := &domain.Instance{ID: instID, ContainerID: "c123"}
 
-	repo.On("GetByID", ctx, instID).Return(inst, nil)
-	compute.On("GetInstanceLogs", ctx, "c123").Return(nil, assert.AnError)
+	repo.On("GetByID", mock.Anything, instID).Return(inst, nil)
+	compute.On("GetInstanceLogs", mock.Anything, "c123").Return(nil, assert.AnError)
 
-	_, err := svc.GetInstanceLogs(ctx, instID.String())
+	_, err := svc.GetInstanceLogs(context.Background(), instID.String())
 	assert.Error(t, err)
 }
 
 func TestInstanceServiceLaunchWithVolumes(t *testing.T) {
 	repo, _, _, volumeRepo, _, _, _, _, _, svc := setupInstanceServiceTest(t)
-	ctx := context.Background()
 	volID := uuid.New()
 
-	volumeRepo.On("GetByID", ctx, volID).Return(&domain.Volume{ID: volID, Name: "v1", Status: domain.VolumeStatusAvailable}, nil)
-	repo.On("Create", ctx, mock.Anything).Return(nil)
+	volumeRepo.On("GetByID", mock.Anything, volID).Return(&domain.Volume{ID: volID, Name: "v1", Status: domain.VolumeStatusAvailable}, nil)
+	repo.On("Create", mock.Anything, mock.Anything).Return(nil)
 
 	attachments := []domain.VolumeAttachment{
 		{VolumeIDOrName: volID.String(), MountPath: "/data"},
 	}
-	_, err := svc.LaunchInstance(ctx, "n", "i", "", nil, nil, attachments)
+	_, err := svc.LaunchInstance(context.Background(), "n", "i", "", nil, nil, attachments)
 	assert.NoError(t, err)
 }
 
 func TestInstanceServiceGetVolumeByIDOrName(t *testing.T) {
 	_, _, _, volumeRepo, _, _, _, _, _, _ := setupInstanceServiceTest(t)
-	ctx := context.Background()
 	volID := uuid.New()
 
 	// Test by ID
-	volumeRepo.On("GetByID", ctx, volID).Return(&domain.Volume{ID: volID}, nil).Once()
+	volumeRepo.On("GetByID", mock.Anything, volID).Return(&domain.Volume{ID: volID}, nil).Once()
 	// Wait, getVolumeByIDOrName is unexported. I can't call it directly.
 	// But LaunchInstance/TerminateInstance/etc might call it?
 	// Actually, only LaunchInstance calls resolveVolumes which calls it.
