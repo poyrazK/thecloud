@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// SnapshotService manages volume snapshots and storage interactions.
 type SnapshotService struct {
 	repo       ports.SnapshotRepository
 	volumeRepo ports.VolumeRepository
@@ -25,6 +26,7 @@ type SnapshotService struct {
 const snapshotNamePrefix = "thecloud-snap-"
 const volumeNamePrefix = "thecloud-vol-"
 
+// NewSnapshotService constructs a SnapshotService with its dependencies.
 func NewSnapshotService(
 	repo ports.SnapshotRepository,
 	volumeRepo ports.VolumeRepository,

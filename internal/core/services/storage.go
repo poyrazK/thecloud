@@ -13,12 +13,14 @@ import (
 	"github.com/poyrazk/thecloud/internal/platform"
 )
 
+// StorageService manages object storage metadata and files.
 type StorageService struct {
 	repo     ports.StorageRepository
 	store    ports.FileStore
 	auditSvc ports.AuditService
 }
 
+// NewStorageService constructs a StorageService with its dependencies.
 func NewStorageService(repo ports.StorageRepository, store ports.FileStore, auditSvc ports.AuditService) *StorageService {
 	return &StorageService{
 		repo:     repo,

@@ -18,6 +18,7 @@ import (
 
 const securityGroupTracer = "security-group-service"
 
+// SecurityGroupService manages security group lifecycle and rules.
 type SecurityGroupService struct {
 	repo     ports.SecurityGroupRepository
 	vpcRepo  ports.VpcRepository
@@ -26,6 +27,7 @@ type SecurityGroupService struct {
 	logger   *slog.Logger
 }
 
+// NewSecurityGroupService constructs a SecurityGroupService with its dependencies.
 func NewSecurityGroupService(
 	repo ports.SecurityGroupRepository,
 	vpcRepo ports.VpcRepository,

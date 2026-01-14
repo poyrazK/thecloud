@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/pkg/crypto"
 )
 
+// SecretService manages encrypted secret storage.
 type SecretService struct {
 	repo      ports.SecretRepository
 	eventSvc  ports.EventService
@@ -22,6 +23,7 @@ type SecretService struct {
 	masterKey []byte
 }
 
+// NewSecretService constructs a SecretService and validates the master key.
 func NewSecretService(repo ports.SecretRepository, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger, masterKey string, environment string) *SecretService {
 	if masterKey == "" {
 		if environment == "production" {
