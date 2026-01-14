@@ -19,7 +19,7 @@ func TestGenerateRandomPassword(t *testing.T) {
 	assert.NotEqual(t, password, password2, "passwords should be random")
 }
 
-func TestGenerateRandomPassword_ZeroLength(t *testing.T) {
+func TestGenerateRandomPasswordZeroLength(t *testing.T) {
 	password, err := GenerateRandomPassword(0)
 	assert.NoError(t, err)
 	assert.Equal(t, "", password)
