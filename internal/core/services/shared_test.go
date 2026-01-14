@@ -1509,6 +1509,13 @@ func (m *MockSecurityGroupRepo) ListByVPC(ctx context.Context, vpcID uuid.UUID) 
 func (m *MockSecurityGroupRepo) AddRule(ctx context.Context, rule *domain.SecurityRule) error {
 	return m.Called(ctx, rule).Error(0)
 }
+func (m *MockSecurityGroupRepo) GetRuleByID(ctx context.Context, ruleID uuid.UUID) (*domain.SecurityRule, error) {
+	args := m.Called(ctx, ruleID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.SecurityRule), args.Error(1)
+}
 func (m *MockSecurityGroupRepo) DeleteRule(ctx context.Context, ruleID uuid.UUID) error {
 	return m.Called(ctx, ruleID).Error(0)
 }

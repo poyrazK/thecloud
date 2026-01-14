@@ -120,8 +120,42 @@ func (s *SecurityGroupService) AddRule(ctx context.Context, groupID uuid.UUID, r
 }
 
 func (s *SecurityGroupService) RemoveRule(ctx context.Context, ruleID uuid.UUID) error {
-	// 1. Get rule to know groupID
-	// Implementation omitted: would need a GetRuleByID in repo
+	// 1. Get Rule to find GroupID
+	rule, err := s.repo.GetRuleByID(ctx, ruleID)
+	if err != nil {
+		return err
+	}
+
+	// 2. Get Group (needed for audit logs and flow context)
+	sg, err := s.repo.GetByID(ctx, rule.GroupID)
+	if err != nil {
+		return err
+	}
+
+	// 3. Remove from OVS
+	// We attempt this before DB deletion. If it fails, we assume consistency check later or manual fix.
+	// In production, this should likely be a localized transaction or workflow.
+	vpc, err := s.vpcRepo.GetByID(ctx, sg.VPCID)
+	if err == nil {
+		flow := s.translateToFlow(*rule)
+		if err := s.network.DeleteFlowRule(ctx, vpc.NetworkID, flow.Match); err != nil {
+			// Log but proceed to ensure DB consistency
+			s.logger.Error("failed to delete OVS flow rule", "rule_id", ruleID, "error", err)
+		}
+	} else {
+		// VPC might be gone?
+		s.logger.Warn("vpc not found during rule deletion", "vpc_id", sg.VPCID)
+	}
+
+	// 4. Delete from DB
+	if err := s.repo.DeleteRule(ctx, ruleID); err != nil {
+		return errors.Wrap(errors.Internal, "failed to delete security rule", err)
+	}
+
+	_ = s.auditSvc.Log(ctx, sg.UserID, "security_group.remove_rule", "security_group", sg.ID.String(), map[string]interface{}{
+		"rule_id": ruleID.String(),
+	})
+
 	return nil
 }
 

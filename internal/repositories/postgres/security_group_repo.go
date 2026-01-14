@@ -114,6 +114,18 @@ func (r *SecurityGroupRepository) AddRule(ctx context.Context, rule *domain.Secu
 	return nil
 }
 
+func (r *SecurityGroupRepository) GetRuleByID(ctx context.Context, ruleID uuid.UUID) (*domain.SecurityRule, error) {
+	query := `SELECT id, group_id, direction, protocol, port_min, port_max, cidr, priority, created_at FROM security_rules WHERE id = $1`
+	rule, err := r.scanSecurityRule(r.db.QueryRow(ctx, query, ruleID))
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, errors.New(errors.NotFound, "security rule not found")
+		}
+		return nil, errors.Wrap(errors.Internal, "failed to get security rule", err)
+	}
+	return &rule, nil
+}
+
 func (r *SecurityGroupRepository) DeleteRule(ctx context.Context, ruleID uuid.UUID) error {
 	query := `DELETE FROM security_rules WHERE id = $1`
 	_, err := r.db.Exec(ctx, query, ruleID)

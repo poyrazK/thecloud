@@ -136,3 +136,38 @@ func (h *SecurityGroupHandler) Attach(c *gin.Context) {
 
 	httputil.Success(c, http.StatusOK, gin.H{"message": "security group attached"})
 }
+
+func (h *SecurityGroupHandler) RemoveRule(c *gin.Context) {
+	ruleIDStr := c.Param("rule_id")
+	ruleID, err := uuid.Parse(ruleIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid rule_id"})
+		return
+	}
+
+	if err := h.svc.RemoveRule(c.Request.Context(), ruleID); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, gin.H{"message": "security rule removed"})
+}
+
+func (h *SecurityGroupHandler) Detach(c *gin.Context) {
+	var req struct {
+		InstanceID uuid.UUID `json:"instance_id" binding:"required"`
+		GroupID    uuid.UUID `json:"group_id" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.svc.DetachFromInstance(c.Request.Context(), req.InstanceID, req.GroupID); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, gin.H{"message": "security group detached"})
+}
