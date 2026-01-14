@@ -188,7 +188,7 @@ func TestNoopFileStore(t *testing.T) {
 	if rc, err := store.Read(ctx, "b", "k"); err != nil {
 		t.Fatalf("Read returned error: %v", err)
 	} else {
-		rc.Close()
+		_ = rc.Close()
 	}
 	if err := store.Delete(ctx, "b", "k"); err != nil {
 		t.Fatalf("Delete returned error: %v", err)

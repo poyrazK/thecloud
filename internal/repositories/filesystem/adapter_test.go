@@ -15,7 +15,7 @@ func TestLocalFileStore_WriteReadDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	store, err := NewLocalFileStore(tempDir)
 	if err != nil {
@@ -41,7 +41,7 @@ func TestLocalFileStore_WriteReadDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	readData, err := io.ReadAll(r)
 	if err != nil {
 		t.Fatal(err)
@@ -71,7 +71,7 @@ func TestLocalFileStore_PathTraversal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	store, err := NewLocalFileStore(tempDir)
 	if err != nil {

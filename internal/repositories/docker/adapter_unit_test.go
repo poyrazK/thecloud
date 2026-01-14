@@ -69,7 +69,7 @@ func TestDockerAdapter_GetInstanceStats_ReturnsBody(t *testing.T) {
 	a := &DockerAdapter{cli: &fakeDockerClient{statsRC: io.NopCloser(strings.NewReader("{}"))}}
 	rc, err := a.GetInstanceStats(context.Background(), "cid")
 	require.NoError(t, err)
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 }
 
 func TestDockerAdapter_Exec_NonZeroExit(t *testing.T) {
@@ -101,7 +101,7 @@ func TestDockerAdapter_Exec_InspectErrorReturnsOutput(t *testing.T) {
 func TestDockerAdapter_CreateVolume(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
-	
+
 	err := adapter.CreateVolume(context.Background(), "test-volume")
 	require.NoError(t, err)
 }
@@ -109,7 +109,7 @@ func TestDockerAdapter_CreateVolume(t *testing.T) {
 func TestDockerAdapter_DeleteVolume(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
-	
+
 	err := adapter.DeleteVolume(context.Background(), "test-volume")
 	require.NoError(t, err)
 }
@@ -187,7 +187,7 @@ func TestDockerAdapter_WaitTask_Error(t *testing.T) {
 func TestDockerAdapter_CreateNetwork(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
-	
+
 	id, err := adapter.CreateNetwork(context.Background(), "net1")
 	require.NoError(t, err)
 	require.Equal(t, "nid", id)
@@ -196,7 +196,7 @@ func TestDockerAdapter_CreateNetwork(t *testing.T) {
 func TestDockerAdapter_DeleteNetwork(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
-	
+
 	err := adapter.DeleteNetwork(context.Background(), "net1")
 	require.NoError(t, err)
 }
@@ -204,7 +204,7 @@ func TestDockerAdapter_DeleteNetwork(t *testing.T) {
 func TestDockerAdapter_CreateInstance(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
-	
+
 	opts := ports.CreateInstanceOptions{
 		Name:      "inst1",
 		ImageName: "alpine",
@@ -219,7 +219,7 @@ func TestDockerAdapter_CreateInstance(t *testing.T) {
 func TestDockerAdapter_StopInstance(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
-	
+
 	err := adapter.StopInstance(context.Background(), "cid")
 	require.NoError(t, err)
 }
@@ -227,10 +227,10 @@ func TestDockerAdapter_StopInstance(t *testing.T) {
 func TestDockerAdapter_GetInstanceLogs(t *testing.T) {
 	cli := &fakeDockerClient{}
 	adapter := &DockerAdapter{cli: cli}
-	
+
 	rc, err := adapter.GetInstanceLogs(context.Background(), "cid")
 	require.NoError(t, err)
-	rc.Close()
+	_ = rc.Close()
 }
 
 func TestDockerAdapter_Ping(t *testing.T) {
@@ -330,8 +330,8 @@ func TestLBProxyAdapter_UpdateProxyConfig(t *testing.T) {
 
 	// Ensure directory exists for test
 	configPath := filepath.Join("/tmp", "thecloud", "lb", lb.ID.String())
-	os.MkdirAll(configPath, 0755)
-	defer os.RemoveAll(configPath)
+	_ = os.MkdirAll(configPath, 0755)
+	defer func() { _ = os.RemoveAll(configPath) }()
 
 	err := adapter.UpdateProxyConfig(context.Background(), lb, targets)
 	require.NoError(t, err)
@@ -350,4 +350,3 @@ func TestDockerAdapter_CreateNetwork_Error(t *testing.T) {
 	_, err := adapter.CreateNetwork(context.Background(), "net")
 	require.Error(t, err)
 }
-

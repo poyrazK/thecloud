@@ -19,13 +19,17 @@ type mockIdentityService struct {
 
 func (m *mockIdentityService) CreateKey(ctx context.Context, userID uuid.UUID, name string) (*domain.APIKey, error) {
 	args := m.Called(ctx, userID, name)
-	if args.Get(0) == nil { return nil, args.Error(1) }
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*domain.APIKey), args.Error(1)
 }
 
 func (m *mockIdentityService) ValidateAPIKey(ctx context.Context, key string) (*domain.APIKey, error) {
 	args := m.Called(ctx, key)
-	if args.Get(0) == nil { return nil, args.Error(1) }
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*domain.APIKey), args.Error(1)
 }
 
@@ -40,7 +44,9 @@ func (m *mockIdentityService) RevokeKey(ctx context.Context, userID uuid.UUID, i
 
 func (m *mockIdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*domain.APIKey, error) {
 	args := m.Called(ctx, userID, id)
-	if args.Get(0) == nil { return nil, args.Error(1) }
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*domain.APIKey), args.Error(1)
 }
 
@@ -65,7 +71,7 @@ func TestCachedIdentityService_ValidateAPIKey(t *testing.T) {
 
 	t.Run("cache miss", func(t *testing.T) {
 		base.On("ValidateAPIKey", mock.Anything, key).Return(apiKey, nil).Once()
-		
+
 		res, err := svc.ValidateAPIKey(ctx, key)
 		assert.NoError(t, err)
 		assert.Equal(t, apiKey.ID, res.ID)
@@ -79,17 +85,17 @@ func TestCachedIdentityService_ValidateAPIKey(t *testing.T) {
 		assert.Equal(t, apiKey.ID, res.ID)
 		base.AssertExpectations(t)
 	})
-	
+
 	t.Run("invalid cache data", func(t *testing.T) {
-        // Corrupt cache
-        client.Set(ctx, "apikey:invalid", "corrupt", 0)
-        base.On("ValidateAPIKey", mock.Anything, "invalid").Return(apiKey, nil).Once()
-        
-        res, err := svc.ValidateAPIKey(ctx, "invalid")
-        assert.NoError(t, err)
-        assert.NotNil(t, res)
-        base.AssertExpectations(t)
-    })
+		// Corrupt cache
+		client.Set(ctx, "apikey:invalid", "corrupt", 0)
+		base.On("ValidateAPIKey", mock.Anything, "invalid").Return(apiKey, nil).Once()
+
+		res, err := svc.ValidateAPIKey(ctx, "invalid")
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+		base.AssertExpectations(t)
+	})
 }
 
 func TestCachedIdentityService_Passthrough(t *testing.T) {
@@ -101,25 +107,29 @@ func TestCachedIdentityService_Passthrough(t *testing.T) {
 
 	t.Run("CreateKey", func(t *testing.T) {
 		base.On("CreateKey", mock.Anything, userID, "name").Return(&domain.APIKey{}, nil)
-		svc.CreateKey(ctx, userID, "name")
+		_, err := svc.CreateKey(ctx, userID, "name")
+		assert.NoError(t, err)
 		base.AssertExpectations(t)
 	})
 
 	t.Run("ListKeys", func(t *testing.T) {
 		base.On("ListKeys", mock.Anything, userID).Return([]*domain.APIKey{}, nil)
-		svc.ListKeys(ctx, userID)
+		_, err := svc.ListKeys(ctx, userID)
+		assert.NoError(t, err)
 		base.AssertExpectations(t)
 	})
 
 	t.Run("RevokeKey", func(t *testing.T) {
 		base.On("RevokeKey", mock.Anything, userID, keyID).Return(nil)
-		svc.RevokeKey(ctx, userID, keyID)
+		err := svc.RevokeKey(ctx, userID, keyID)
+		assert.NoError(t, err)
 		base.AssertExpectations(t)
 	})
 
 	t.Run("RotateKey", func(t *testing.T) {
 		base.On("RotateKey", mock.Anything, userID, keyID).Return(&domain.APIKey{}, nil)
-		svc.RotateKey(ctx, userID, keyID)
+		_, err := svc.RotateKey(ctx, userID, keyID)
+		assert.NoError(t, err)
 		base.AssertExpectations(t)
 	})
 }

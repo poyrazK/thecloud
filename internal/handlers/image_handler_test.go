@@ -61,30 +61,30 @@ func TestImageHandler_RegisterImage(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		svc := new(mockImageService)
 		handler := NewImageHandler(svc)
-		
+
 		expectedImage := &domain.Image{
-			ID: uuid.New(),
+			ID:   uuid.New(),
 			Name: "test-image",
 		}
-		
+
 		svc.On("RegisterImage", mock.Anything, "test-image", "desc", "linux", "1.0", true).Return(expectedImage, nil)
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest("POST", "/api/v1/images", nil)
-		
+
 		body := map[string]interface{}{
-			"name": "test-image",
+			"name":        "test-image",
 			"description": "desc",
-			"os": "linux",
-			"version": "1.0",
-			"is_public": true,
+			"os":          "linux",
+			"version":     "1.0",
+			"is_public":   true,
 		}
 		bodyBytes, _ := json.Marshal(body)
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 		handler.RegisterImage(c)
-		
+
 		assert.Equal(t, http.StatusCreated, w.Code)
 		svc.AssertExpectations(t)
 	})
@@ -92,14 +92,14 @@ func TestImageHandler_RegisterImage(t *testing.T) {
 	t.Run("invalid input", func(t *testing.T) {
 		svc := new(mockImageService)
 		handler := NewImageHandler(svc)
-		
+
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest("POST", "/api/v1/images", nil)
 		c.Request.Body = io.NopCloser(bytes.NewBufferString(`{}`)) // Missing required fields
 
 		handler.RegisterImage(c)
-		
+
 		assert.NotEqual(t, http.StatusCreated, w.Code)
 	})
 }
@@ -110,26 +110,28 @@ func TestImageHandler_UploadImage(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		svc := new(mockImageService)
 		handler := NewImageHandler(svc)
-		
+
 		imageID := uuid.New()
-		
+
 		svc.On("UploadImage", mock.Anything, imageID, mock.Anything).Return(nil)
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		
+
 		body := new(bytes.Buffer)
 		writer := multipart.NewWriter(body)
 		part, _ := writer.CreateFormFile("file", "image.qcow2")
-		part.Write([]byte("image content"))
-		writer.Close()
-		
+		_, err := part.Write([]byte("image content"))
+		assert.NoError(t, err)
+		err = writer.Close()
+		assert.NoError(t, err)
+
 		c.Request = httptest.NewRequest("POST", "/api/v1/images/"+imageID.String()+"/upload", body)
 		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
 		c.Params = []gin.Param{{Key: "id", Value: imageID.String()}}
 
 		handler.UploadImage(c)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
 		svc.AssertExpectations(t)
 	})
@@ -137,14 +139,14 @@ func TestImageHandler_UploadImage(t *testing.T) {
 	t.Run("invalid id", func(t *testing.T) {
 		svc := new(mockImageService)
 		handler := NewImageHandler(svc)
-		
+
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest("POST", "/api/v1/images/invalid/upload", nil)
 		c.Params = []gin.Param{{Key: "id", Value: "invalid"}}
 
 		handler.UploadImage(c)
-		
+
 		assert.NotEqual(t, http.StatusOK, w.Code)
 	})
 }
@@ -155,10 +157,10 @@ func TestImageHandler_ListImages(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		svc := new(mockImageService)
 		handler := NewImageHandler(svc)
-		
+
 		userID := uuid.New()
 		images := []*domain.Image{{ID: uuid.New(), Name: "img1"}}
-		
+
 		svc.On("ListImages", mock.Anything, userID, true).Return(images, nil)
 
 		w := httptest.NewRecorder()
@@ -167,7 +169,7 @@ func TestImageHandler_ListImages(t *testing.T) {
 		c.Set("userID", userID)
 
 		handler.ListImages(c)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
 		svc.AssertExpectations(t)
 	})
@@ -179,10 +181,10 @@ func TestImageHandler_GetImage(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		svc := new(mockImageService)
 		handler := NewImageHandler(svc)
-		
+
 		imageID := uuid.New()
 		img := &domain.Image{ID: imageID, Name: "img1"}
-		
+
 		svc.On("GetImage", mock.Anything, imageID).Return(img, nil)
 
 		w := httptest.NewRecorder()
@@ -191,7 +193,7 @@ func TestImageHandler_GetImage(t *testing.T) {
 		c.Params = []gin.Param{{Key: "id", Value: imageID.String()}}
 
 		handler.GetImage(c)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
 		svc.AssertExpectations(t)
 	})
@@ -199,14 +201,14 @@ func TestImageHandler_GetImage(t *testing.T) {
 	t.Run("invalid id", func(t *testing.T) {
 		svc := new(mockImageService)
 		handler := NewImageHandler(svc)
-		
+
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest("GET", "/api/v1/images/invalid", nil)
 		c.Params = []gin.Param{{Key: "id", Value: "invalid"}}
 
 		handler.GetImage(c)
-		
+
 		assert.NotEqual(t, http.StatusOK, w.Code)
 	})
 }
@@ -217,9 +219,9 @@ func TestImageHandler_DeleteImage(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		svc := new(mockImageService)
 		handler := NewImageHandler(svc)
-		
+
 		imageID := uuid.New()
-		
+
 		svc.On("DeleteImage", mock.Anything, imageID).Return(nil)
 
 		w := httptest.NewRecorder()
@@ -228,7 +230,7 @@ func TestImageHandler_DeleteImage(t *testing.T) {
 		c.Params = []gin.Param{{Key: "id", Value: imageID.String()}}
 
 		handler.DeleteImage(c)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
 		svc.AssertExpectations(t)
 	})
