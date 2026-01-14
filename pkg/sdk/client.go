@@ -12,6 +12,11 @@ type Client struct {
 	apiURL string
 }
 
+const (
+	errRequestFailed = "request failed: %w"
+	errAPIError      = "api error: %s"
+)
+
 func NewClient(apiURL, apiKey string) *Client {
 	client := resty.New()
 	client.SetHeader("X-API-Key", apiKey)
@@ -37,11 +42,11 @@ func (c *Client) get(path string, result interface{}) error {
 		Get(c.apiURL + path)
 
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return fmt.Errorf(errRequestFailed, err)
 	}
 
 	if resp.IsError() {
-		return fmt.Errorf("api error: %s", resp.String())
+		return fmt.Errorf(errAPIError, resp.String())
 	}
 
 	return nil
@@ -58,11 +63,11 @@ func (c *Client) post(path string, body interface{}, result interface{}) error {
 
 	resp, err := req.Post(c.apiURL + path)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return fmt.Errorf(errRequestFailed, err)
 	}
 
 	if resp.IsError() {
-		return fmt.Errorf("api error: %s", resp.String())
+		return fmt.Errorf(errAPIError, resp.String())
 	}
 
 	return nil
@@ -76,11 +81,11 @@ func (c *Client) delete(path string, result interface{}) error {
 
 	resp, err := req.Delete(c.apiURL + path)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return fmt.Errorf(errRequestFailed, err)
 	}
 
 	if resp.IsError() {
-		return fmt.Errorf("api error: %s", resp.String())
+		return fmt.Errorf(errAPIError, resp.String())
 	}
 
 	return nil
@@ -97,11 +102,11 @@ func (c *Client) put(path string, body interface{}, result interface{}) error {
 
 	resp, err := req.Put(c.apiURL + path)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return fmt.Errorf(errRequestFailed, err)
 	}
 
 	if resp.IsError() {
-		return fmt.Errorf("api error: %s", resp.String())
+		return fmt.Errorf(errAPIError, resp.String())
 	}
 
 	return nil
