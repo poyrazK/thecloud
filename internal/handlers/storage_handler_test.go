@@ -15,7 +15,12 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-const testFileName = "test.txt"
+const (
+	testFileName      = "test.txt"
+	storageBucketName = "b1"
+	storageObjectPath = "/storage/:bucket/:key"
+	storageBasePath   = "/storage/"
+)
 
 type mockStorageService struct {
 	mock.Mock
@@ -83,13 +88,13 @@ func TestStorageHandlerUpload(t *testing.T) {
 	svc, handler, r := setupStorageHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.PUT("/storage/:bucket/:key", handler.Upload)
+	r.PUT(storageObjectPath, handler.Upload)
 
 	obj := &domain.Object{Key: testFileName, SizeBytes: 4}
-	svc.On("Upload", mock.Anything, "b1", testFileName, mock.Anything).Return(obj, nil)
+	svc.On("Upload", mock.Anything, storageBucketName, testFileName, mock.Anything).Return(obj, nil)
 
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("PUT", "/storage/b1/"+testFileName, strings.NewReader("data"))
+	req, err := http.NewRequest("PUT", storageBasePath+storageBucketName+"/"+testFileName, strings.NewReader("data"))
 	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
@@ -100,14 +105,14 @@ func TestStorageHandlerDownload(t *testing.T) {
 	svc, handler, r := setupStorageHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.GET("/storage/:bucket/:key", handler.Download)
+	r.GET(storageObjectPath, handler.Download)
 
 	content := io.NopCloser(bytes.NewBufferString("hello"))
 	obj := &domain.Object{Key: testFileName, SizeBytes: 5, ContentType: "text/plain"}
-	svc.On("Download", mock.Anything, "b1", testFileName).Return(content, obj, nil)
+	svc.On("Download", mock.Anything, storageBucketName, testFileName).Return(content, obj, nil)
 
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/storage/b1/"+testFileName, nil)
+	req, err := http.NewRequest("GET", storageBasePath+storageBucketName+"/"+testFileName, nil)
 	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
@@ -122,10 +127,10 @@ func TestStorageHandlerList(t *testing.T) {
 	r.GET("/storage/:bucket", handler.List)
 
 	objects := []*domain.Object{{Key: testFileName, SizeBytes: 10}}
-	svc.On("ListObjects", mock.Anything, "b1").Return(objects, nil)
+	svc.On("ListObjects", mock.Anything, storageBucketName).Return(objects, nil)
 
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/storage/b1", nil)
+	req, err := http.NewRequest("GET", storageBasePath+storageBucketName, nil)
 	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
@@ -136,12 +141,12 @@ func TestStorageHandlerDelete(t *testing.T) {
 	svc, handler, r := setupStorageHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.DELETE("/storage/:bucket/:key", handler.Delete)
+	r.DELETE(storageObjectPath, handler.Delete)
 
-	svc.On("DeleteObject", mock.Anything, "b1", testFileName).Return(nil)
+	svc.On("DeleteObject", mock.Anything, storageBucketName, testFileName).Return(nil)
 
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("DELETE", "/storage/b1/"+testFileName, nil)
+	req, err := http.NewRequest("DELETE", storageBasePath+storageBucketName+"/"+testFileName, nil)
 	assert.NoError(t, err)
 	r.ServeHTTP(w, req)
 
