@@ -21,6 +21,7 @@ type imageService struct {
 	logger     *slog.Logger
 }
 
+// NewImageService constructs the image service for managing custom images.
 func NewImageService(repo ports.ImageRepository, fileStore ports.FileStore, logger *slog.Logger) ports.ImageService {
 	return &imageService{
 		repo:       repo,

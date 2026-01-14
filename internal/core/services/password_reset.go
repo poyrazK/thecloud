@@ -20,6 +20,7 @@ const (
 	tokenDuration = 1 * time.Hour
 )
 
+// PasswordResetService handles password reset token lifecycle and updates.
 type PasswordResetService struct {
 	repo     ports.PasswordResetRepository
 	userRepo ports.UserRepository
@@ -27,6 +28,7 @@ type PasswordResetService struct {
 	// In a real app, we'd inject an EmailService here
 }
 
+// NewPasswordResetService constructs a PasswordResetService with its dependencies.
 func NewPasswordResetService(repo ports.PasswordResetRepository, userRepo ports.UserRepository, logger *slog.Logger) *PasswordResetService {
 	return &PasswordResetService{
 		repo:     repo,
