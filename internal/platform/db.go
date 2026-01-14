@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 
+	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -12,6 +14,10 @@ func NewDatabase(ctx context.Context, cfg *Config, logger *slog.Logger) (*pgxpoo
 	config, err := pgxpool.ParseConfig(cfg.DatabaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse database url: %w", err)
+	}
+
+	if os.Getenv("TRACING_ENABLED") == "true" {
+		config.ConnConfig.Tracer = otelpgx.NewTracer()
 	}
 
 	// Apply performance optimizations

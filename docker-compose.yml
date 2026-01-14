@@ -31,6 +31,18 @@ services:
     networks:
       - cloud-network
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.54
+    container_name: cloud-jaeger
+    ports:
+      - "16686:16686" # Web UI
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - cloud-network
+
   api:
     build:
       context: .
@@ -57,6 +69,8 @@ services:
       - SECRETS_ENCRYPTION_KEY=${SECRETS_ENCRYPTION_KEY}
       - RATE_LIMIT_GLOBAL=1000
       - RATE_LIMIT_AUTH=3000
+      - TRACING_ENABLED=${TRACING_ENABLED:-false}
+      - JAEGER_ENDPOINT=http://jaeger:4318
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/run/openvswitch:/var/run/openvswitch

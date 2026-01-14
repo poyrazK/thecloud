@@ -16,7 +16,10 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
+	"github.com/poyrazk/thecloud/pkg/tracing"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 // ... (omitted comments) ...
@@ -27,6 +30,15 @@ func main() {
 	logger := setup.InitLogger()
 	migrateOnly := flag.Bool("migrate-only", false, "run database migrations and exit")
 	flag.Parse()
+
+	// Initialize Tracing (Opt-in)
+	if tp := initTracing(logger); tp != nil {
+		defer func() {
+			if err := tp.Shutdown(context.Background()); err != nil {
+				logger.Error("failed to shutdown tracer", "error", err)
+			}
+		}()
+	}
 
 	cfg, db, rdb, err := initInfrastructure(logger, *migrateOnly)
 	if err != nil {
@@ -58,7 +70,43 @@ func main() {
 	handlers := initHandlersFunc(svcs, logger)
 	r := setupRouterFunc(cfg, logger, handlers, svcs, network)
 
+	// Add Tracing Middleware if enabled
+	if os.Getenv("TRACING_ENABLED") == "true" {
+		r.Use(otelgin.Middleware("thecloud-api"))
+	}
+
 	runApplication(cfg, logger, r, workers)
+}
+
+func initTracing(logger *slog.Logger) *sdktrace.TracerProvider {
+	if os.Getenv("TRACING_ENABLED") != "true" {
+		return nil
+	}
+
+	serviceName := "thecloud-api"
+	exporterType := os.Getenv("TRACING_EXPORTER")
+
+	if exporterType == "console" {
+		logger.Info("initializing console tracing (debug mode)")
+		tp, err := tracing.InitConsoleTracer(serviceName)
+		if err != nil {
+			logger.Error("failed to init console tracer", "error", err)
+			return nil
+		}
+		return tp
+	}
+
+	endpoint := os.Getenv("JAEGER_ENDPOINT")
+	if endpoint == "" {
+		endpoint = "http://localhost:4318"
+	}
+	logger.Info("initializing distributed tracing (Jaeger)", "endpoint", endpoint)
+	tp, err := tracing.InitTracer(context.Background(), serviceName, endpoint)
+	if err != nil {
+		logger.Error("failed to init tracer", "error", err)
+		return nil
+	}
+	return tp
 }
 
 func initInfrastructure(logger *slog.Logger, migrateOnly bool) (*platform.Config, postgres.DB, *redis.Client, error) {
