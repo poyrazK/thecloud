@@ -1,3 +1,4 @@
+// Package services implements core business workflows.
 package services
 
 import (
