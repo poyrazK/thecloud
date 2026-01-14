@@ -11,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -108,7 +109,7 @@ func TestSecurityGroupServiceAddRule(t *testing.T) {
 	vpcID := uuid.New()
 	sg := &domain.SecurityGroup{ID: sgID, UserID: userID, VPCID: vpcID}
 	vpc := &domain.VPC{ID: vpcID, NetworkID: "net1"}
-	rule := domain.SecurityRule{Protocol: "tcp", PortMin: 80, PortMax: 80, CIDR: "0.0.0.0/0", Direction: domain.RuleIngress}
+	rule := domain.SecurityRule{Protocol: "tcp", PortMin: 80, PortMax: 80, CIDR: testutil.TestAnyCIDR, Direction: domain.RuleIngress}
 
 	repo.On("GetByID", mock.Anything, sgID).Return(sg, nil)
 	repo.On("AddRule", mock.Anything, mock.Anything).Return(nil)
@@ -216,9 +217,9 @@ func TestSecurityGroupServiceTranslateToFlow(t *testing.T) {
 	vpc := &domain.VPC{ID: vpcID, NetworkID: "net1"}
 
 	rules := []domain.SecurityRule{
-		{Protocol: "udp", PortMin: 53, PortMax: 53, CIDR: "8.8.8.8/32", Direction: domain.RuleIngress},
-		{Protocol: "icmp", CIDR: "0.0.0.0/0", Direction: domain.RuleEgress},
-		{Protocol: "tcp", PortMin: 1000, PortMax: 2000, CIDR: "10.0.0.0/8", Direction: domain.RuleEgress},
+		{Protocol: "udp", PortMin: 53, PortMax: 53, CIDR: testutil.TestGoogleDNSCIDR, Direction: domain.RuleIngress},
+		{Protocol: "icmp", CIDR: testutil.TestAnyCIDR, Direction: domain.RuleEgress},
+		{Protocol: "tcp", PortMin: 1000, PortMax: 2000, CIDR: testutil.TestTenCIDR, Direction: domain.RuleEgress},
 	}
 
 	for _, rule := range rules {
