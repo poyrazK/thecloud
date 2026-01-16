@@ -43,8 +43,7 @@ func (m *MockSecretRepo) List(ctx context.Context) ([]*domain.Secret, error) {
 	return args.Get(0).([]*domain.Secret), args.Error(1)
 }
 func (m *MockSecretRepo) Update(ctx context.Context, s *domain.Secret) error {
-	args := m.Called(ctx, s)
-	return args.Error(0)
+	return m.Called(ctx, s).Error(0)
 }
 func (m *MockSecretRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	args := m.Called(ctx, id)
@@ -65,7 +64,7 @@ func setupTestUserCtx(userID uuid.UUID) context.Context {
 	return appcontext.WithUserID(context.Background(), userID)
 }
 
-func TestSecretService_CreateAndGet(t *testing.T) {
+func TestSecretServiceCreateAndGet(t *testing.T) {
 	repo, eventSvc, auditSvc, svc := setupSecretServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer eventSvc.AssertExpectations(t)
@@ -99,7 +98,7 @@ func TestSecretService_CreateAndGet(t *testing.T) {
 	assert.Equal(t, value, fetched.EncryptedValue) // Should be decrypted in response
 }
 
-func TestSecretService_Delete(t *testing.T) {
+func TestSecretServiceDelete(t *testing.T) {
 	repo, eventSvc, auditSvc, svc := setupSecretServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer eventSvc.AssertExpectations(t)
@@ -118,7 +117,7 @@ func TestSecretService_Delete(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSecretService_List(t *testing.T) {
+func TestSecretServiceList(t *testing.T) {
 	repo, _, _, svc := setupSecretServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -134,4 +133,34 @@ func TestSecretService_List(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
+}
+func TestSecretServiceGetByName(t *testing.T) {
+	repo, eventSvc, auditSvc, svc := setupSecretServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
+
+	userID := uuid.New()
+	ctx := setupTestUserCtx(userID)
+	name := "API_KEY"
+	value := "super-secret"
+
+	// 1. Create a valid secret first
+	repo.On("Create", mock.Anything, mock.AnythingOfType("*domain.Secret")).Return(nil)
+	eventSvc.On("RecordEvent", mock.Anything, "SECRET_CREATE", mock.Anything, "SECRET", mock.Anything).Return(nil)
+	auditSvc.On("Log", mock.Anything, userID, "secret.create", "secret", mock.Anything, mock.Anything).Return(nil)
+
+	secret, err := svc.CreateSecret(ctx, name, value, "desc")
+	assert.NoError(t, err)
+
+	// 2. Mock GetByName with the valid secret
+	repo.On("GetByName", ctx, name).Return(secret, nil)
+	repo.On("Update", mock.Anything, mock.Anything).Return(nil)
+	eventSvc.On("RecordEvent", mock.Anything, "SECRET_ACCESS", secret.ID.String(), "SECRET", mock.Anything).Return(nil)
+	auditSvc.On("Log", mock.Anything, userID, "secret.access", "secret", secret.ID.String(), mock.Anything).Return(nil)
+
+	res, err := svc.GetSecretByName(ctx, name)
+	assert.NoError(t, err)
+	assert.NotNil(t, res)
+	assert.Equal(t, value, res.EncryptedValue)
 }
