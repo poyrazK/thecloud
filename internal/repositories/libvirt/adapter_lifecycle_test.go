@@ -3,7 +3,7 @@ package libvirt
 import (
 	"context"
 	"errors"
-	"io/ioutil"
+	"io"
 	"log/slog"
 	"testing"
 	"time"
@@ -21,7 +21,7 @@ const (
 func newTestAdapter(m *MockLibvirtClient) *LibvirtAdapter {
 	return &LibvirtAdapter{
 		client:         m,
-		logger:         slog.New(slog.NewTextHandler(ioutil.Discard, nil)),
+		logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
 		uri:            "qemu:///system",
 		ipWaitInterval: 1 * time.Millisecond,
 	}
