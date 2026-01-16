@@ -8,31 +8,36 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
+const (
+	pathRoles    = "/rbac/roles"
+	pathRolesFmt = "/rbac/roles/%s"
+)
+
 func (c *Client) CreateRole(name, description string, permissions []domain.Permission) (*domain.Role, error) {
 	req := map[string]interface{}{
 		"name":        name,
 		"description": description,
 		"permissions": permissions,
 	}
-	var role domain.Role
-	err := c.post("/rbac/roles", req, &role)
-	return &role, err
+	var res Response[domain.Role]
+	err := c.post(pathRoles, req, &res)
+	return &res.Data, err
 }
 
 func (c *Client) ListRoles() ([]domain.Role, error) {
-	var roles []domain.Role
-	err := c.get("/rbac/roles", &roles)
-	return roles, err
+	var res Response[[]domain.Role]
+	err := c.get(pathRoles, &res)
+	return res.Data, err
 }
 
 func (c *Client) GetRole(idOrName string) (*domain.Role, error) {
-	var role domain.Role
-	err := c.get(fmt.Sprintf("/rbac/roles/%s", idOrName), &role)
-	return &role, err
+	var res Response[domain.Role]
+	err := c.get(fmt.Sprintf(pathRolesFmt, idOrName), &res)
+	return &res.Data, err
 }
 
 func (c *Client) DeleteRole(id uuid.UUID) error {
-	return c.delete(fmt.Sprintf("/rbac/roles/%s", id), nil)
+	return c.delete(fmt.Sprintf(pathRolesFmt, id), nil)
 }
 
 func (c *Client) UpdateRole(id uuid.UUID, name, description string, permissions []domain.Permission) (*domain.Role, error) {
@@ -41,9 +46,9 @@ func (c *Client) UpdateRole(id uuid.UUID, name, description string, permissions 
 		"description": description,
 		"permissions": permissions,
 	}
-	var role domain.Role
-	err := c.put(fmt.Sprintf("/rbac/roles/%s", id), req, &role)
-	return &role, err
+	var res Response[domain.Role]
+	err := c.put(fmt.Sprintf(pathRolesFmt, id), req, &res)
+	return &res.Data, err
 }
 
 func (c *Client) BindRole(userIdentifier string, roleName string) error {
@@ -55,7 +60,7 @@ func (c *Client) BindRole(userIdentifier string, roleName string) error {
 }
 
 func (c *Client) ListRoleBindings() ([]domain.User, error) {
-	var users []domain.User
-	err := c.get("/rbac/bindings", &users)
-	return users, err
+	var res Response[[]domain.User]
+	err := c.get("/rbac/bindings", &res)
+	return res.Data, err
 }

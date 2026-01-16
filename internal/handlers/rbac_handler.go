@@ -55,7 +55,7 @@ func (h *RBACHandler) CreateRole(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, role)
+	httputil.Success(c, http.StatusCreated, role)
 }
 
 // ListRoles godoc
@@ -71,7 +71,7 @@ func (h *RBACHandler) ListRoles(c *gin.Context) {
 		httputil.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, roles)
+	httputil.Success(c, http.StatusOK, roles)
 }
 
 // GetRole godoc
@@ -91,7 +91,7 @@ func (h *RBACHandler) GetRole(c *gin.Context) {
 			httputil.Error(c, err)
 			return
 		}
-		c.JSON(http.StatusOK, role)
+		httputil.Success(c, http.StatusOK, role)
 		return
 	}
 
@@ -267,5 +267,5 @@ func (h *RBACHandler) ListRoleBindings(c *gin.Context) {
 		httputil.Error(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, bindings)
+	httputil.Success(c, http.StatusOK, bindings)
 }
