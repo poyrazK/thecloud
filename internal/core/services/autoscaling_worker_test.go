@@ -300,3 +300,59 @@ func TestAutoScalingWorker_ResetFailures(t *testing.T) {
 
 	mockRepo.AssertCalled(t, "UpdateGroup", mock.Anything, mock.Anything)
 }
+
+func TestAutoScalingWorkerEvaluatePolicyTriggerScaleIn(t *testing.T) {
+	mockRepo, _, _, _, mockClock, worker := setupAutoScalingWorkerTest(t)
+	defer mockRepo.AssertExpectations(t)
+	defer mockClock.AssertExpectations(t)
+
+	ctx := context.Background()
+	groupID := uuid.New()
+	userID := uuid.New()
+	policyID := uuid.New()
+
+	now := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+	mockClock.On("Now").Return(now)
+
+	group := &domain.ScalingGroup{
+		ID:           groupID,
+		UserID:       userID,
+		Name:         "test-asg-policy-in",
+		MinInstances: 1,
+		MaxInstances: 5,
+		DesiredCount: 2,
+		CurrentCount: 2,
+		Status:       domain.ScalingGroupStatusActive,
+		Image:        "nginx",
+		Ports:        "80:80",
+	}
+
+	inst1ID := uuid.New()
+	inst2ID := uuid.New()
+	instances := []uuid.UUID{inst1ID, inst2ID}
+
+	policy := &domain.ScalingPolicy{
+		ID:           policyID,
+		Name:         "cpu-low",
+		MetricType:   "cpu",
+		TargetValue:  30.0, // Scale in if < 20.0
+		ScaleOutStep: 1,
+		ScaleInStep:  1,
+		CooldownSec:  300,
+		LastScaledAt: nil,
+	}
+
+	mockRepo.On("ListAllGroups", ctx).Return([]*domain.ScalingGroup{group}, nil)
+	mockRepo.On("GetAllScalingGroupInstances", ctx, mock.Anything).Return(map[uuid.UUID][]uuid.UUID{groupID: instances}, nil)
+	mockRepo.On("GetAllPolicies", ctx, mock.Anything).Return(map[uuid.UUID][]*domain.ScalingPolicy{groupID: {policy}}, nil)
+
+	mockRepo.On("GetAverageCPU", mock.Anything, mock.Anything, mock.Anything).Return(15.0, nil)
+	mockRepo.On("UpdateGroup", mock.Anything, mock.Anything).Return(nil)
+	mockRepo.On("UpdatePolicyLastScaled", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	worker.Evaluate(ctx)
+
+	mockRepo.AssertCalled(t, "UpdateGroup", mock.Anything, mock.MatchedBy(func(g *domain.ScalingGroup) bool {
+		return g.DesiredCount == 1 // Scale in from 2 to 1
+	}))
+}
