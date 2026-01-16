@@ -160,6 +160,7 @@ func TestContainerWorkerLaunchError(t *testing.T) {
 	worker.Reconcile(ctx)
 
 	instSvc.AssertExpectations(t)
+	repo.AssertExpectations(t)
 }
 
 func TestContainerWorkerRun(t *testing.T) {

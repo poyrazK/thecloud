@@ -288,6 +288,7 @@ func TestSecurityGroupHandlerAttachError(t *testing.T) {
 	h.Attach(c)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	svc.AssertExpectations(t)
 }
 
 func TestSecurityGroupHandlerDetachError(t *testing.T) {
@@ -314,4 +315,5 @@ func TestSecurityGroupHandlerDetachError(t *testing.T) {
 	h.Detach(c)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	svc.AssertExpectations(t)
 }

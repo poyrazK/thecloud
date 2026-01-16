@@ -180,6 +180,9 @@ func TestQueueService_DeleteQueue(t *testing.T) {
 
 	err := svc.DeleteQueue(ctx, qID)
 	assert.NoError(t, err)
+	repo.AssertExpectations(t)
+	eventSvc.AssertExpectations(t)
+	auditSvc.AssertExpectations(t)
 }
 
 func TestQueueService_ListQueues(t *testing.T) {
@@ -195,6 +198,7 @@ func TestQueueService_ListQueues(t *testing.T) {
 	queues, err := svc.ListQueues(ctx)
 	assert.NoError(t, err)
 	assert.Len(t, queues, 1)
+	repo.AssertExpectations(t)
 }
 
 func TestQueueService_DeleteMessage(t *testing.T) {
@@ -215,6 +219,9 @@ func TestQueueService_DeleteMessage(t *testing.T) {
 
 	err := svc.DeleteMessage(ctx, qID, receipt)
 	assert.NoError(t, err)
+	repo.AssertExpectations(t)
+	eventSvc.AssertExpectations(t)
+	auditSvc.AssertExpectations(t)
 }
 
 func TestQueueService_PurgeQueue(t *testing.T) {
@@ -235,4 +242,7 @@ func TestQueueService_PurgeQueue(t *testing.T) {
 
 	err := svc.PurgeQueue(ctx, qID)
 	assert.NoError(t, err)
+	repo.AssertExpectations(t)
+	eventSvc.AssertExpectations(t)
+	auditSvc.AssertExpectations(t)
 }
