@@ -4,7 +4,10 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
@@ -19,6 +22,8 @@ import (
 const (
 	testTopicName     = "test-topic"
 	existingTopicName = "existing-topic"
+	testMsg           = "test message"
+	auditPublish      = "notify.publish"
 )
 
 func setupNotifyServiceTest(_ *testing.T) (*MockNotifyRepo, *MockQueueService, *MockEventService, *MockAuditService, ports.NotifyService) {
@@ -109,7 +114,7 @@ func TestNotifyServicePublish(t *testing.T) {
 		defer auditSvc.AssertExpectations(t)
 
 		topic := &domain.Topic{ID: topicID, UserID: userID, Name: testTopicName}
-		messageBody := "test message"
+		messageBody := testMsg
 
 		notifyRepo.On("GetTopicByID", ctx, topicID, userID).Return(topic, nil).Once()
 		notifyRepo.On("SaveMessage", ctx, mock.MatchedBy(func(m *domain.NotifyMessage) bool {
@@ -117,7 +122,7 @@ func TestNotifyServicePublish(t *testing.T) {
 		})).Return(nil).Once()
 		notifyRepo.On("ListSubscriptions", ctx, topicID).Return([]*domain.Subscription{}, nil).Once()
 		eventSvc.On("RecordEvent", ctx, "TOPIC_PUBLISHED", topicID.String(), "TOPIC", mock.Anything).Return(nil).Once()
-		auditSvc.On("Log", ctx, userID, "notify.publish", "topic", topicID.String(), mock.Anything).Return(nil).Once()
+		auditSvc.On("Log", ctx, userID, auditPublish, "topic", topicID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.Publish(ctx, topicID, messageBody)
 		require.NoError(t, err)
@@ -153,7 +158,7 @@ func TestNotifyServiceDeleteTopic(t *testing.T) {
 	ctx := appcontext.WithUserID(context.Background(), userID)
 	topicID := uuid.New()
 
-	topic := &domain.Topic{ID: topicID, UserID: userID, Name: "test-topic"}
+	topic := &domain.Topic{ID: topicID, UserID: userID, Name: testTopicName}
 
 	notifyRepo.On("GetTopicByID", ctx, topicID, userID).Return(topic, nil).Once()
 	notifyRepo.On("DeleteTopic", ctx, topicID).Return(nil).Once()
@@ -184,4 +189,92 @@ func TestNotifyServiceUnsubscribe(t *testing.T) {
 
 	err := svc.Unsubscribe(ctx, subID)
 	require.NoError(t, err)
+}
+func TestNotifyServiceListSubscriptions(t *testing.T) {
+	notifyRepo, _, _, _, svc := setupNotifyServiceTest(t)
+	defer notifyRepo.AssertExpectations(t)
+
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	topicID := uuid.New()
+	topic := &domain.Topic{ID: topicID, UserID: userID}
+	subs := []*domain.Subscription{{ID: uuid.New(), TopicID: topicID}}
+
+	notifyRepo.On("GetTopicByID", ctx, topicID, userID).Return(topic, nil).Once()
+	notifyRepo.On("ListSubscriptions", ctx, topicID).Return(subs, nil).Once()
+
+	result, err := svc.ListSubscriptions(ctx, topicID)
+	require.NoError(t, err)
+	assert.Len(t, result, 1)
+}
+
+func TestNotifyServiceDeliverToQueue(t *testing.T) {
+	notifyRepo, queueSvc, eventSvc, auditSvc, svc := setupNotifyServiceTest(t)
+
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	topicID := uuid.New()
+	qID := uuid.New()
+	topic := &domain.Topic{ID: topicID, UserID: userID, Name: testTopicName}
+	sub := &domain.Subscription{
+		ID:       uuid.New(),
+		UserID:   userID,
+		TopicID:  topicID,
+		Protocol: domain.ProtocolQueue,
+		Endpoint: qID.String(),
+	}
+	body := testMsg
+
+	notifyRepo.On("GetTopicByID", ctx, topicID, userID).Return(topic, nil).Once()
+	notifyRepo.On("SaveMessage", ctx, mock.Anything).Return(nil).Once()
+	notifyRepo.On("ListSubscriptions", ctx, topicID).Return([]*domain.Subscription{sub}, nil).Once()
+	queueSvc.On("SendMessage", mock.Anything, qID, body).Return(&domain.Message{}, nil).Once()
+	eventSvc.On("RecordEvent", ctx, "TOPIC_PUBLISHED", topicID.String(), "TOPIC", mock.Anything).Return(nil).Once()
+	auditSvc.On("Log", ctx, userID, auditPublish, "topic", topicID.String(), mock.Anything).Return(nil).Once()
+
+	err := svc.Publish(ctx, topicID, body)
+	require.NoError(t, err)
+
+	// Wait for goroutine
+	time.Sleep(100 * time.Millisecond)
+	queueSvc.AssertExpectations(t)
+	eventSvc.AssertExpectations(t)
+	auditSvc.AssertExpectations(t)
+}
+
+func TestNotifyServiceDeliverToWebhook(t *testing.T) {
+	notifyRepo, _, eventSvc, auditSvc, svc := setupNotifyServiceTest(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	topicID := uuid.New()
+	topic := &domain.Topic{ID: topicID, UserID: userID, Name: testTopicName}
+	sub := &domain.Subscription{
+		ID:       uuid.New(),
+		UserID:   userID,
+		TopicID:  topicID,
+		Protocol: domain.ProtocolWebhook,
+		Endpoint: server.URL,
+	}
+	body := testMsg
+
+	notifyRepo.On("GetTopicByID", ctx, topicID, userID).Return(topic, nil).Once()
+	notifyRepo.On("SaveMessage", ctx, mock.Anything).Return(nil).Once()
+	notifyRepo.On("ListSubscriptions", ctx, topicID).Return([]*domain.Subscription{sub}, nil).Once()
+	eventSvc.On("RecordEvent", ctx, "TOPIC_PUBLISHED", topicID.String(), "TOPIC", mock.Anything).Return(nil).Once()
+	auditSvc.On("Log", ctx, userID, auditPublish, "topic", topicID.String(), mock.Anything).Return(nil).Once()
+
+	err := svc.Publish(ctx, topicID, body)
+	require.NoError(t, err)
+
+	// Wait for goroutine
+	time.Sleep(100 * time.Millisecond)
+	notifyRepo.AssertExpectations(t)
 }
