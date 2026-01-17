@@ -77,12 +77,12 @@ jobs:
           fi
 
       - name: Setup k6
-        uses: grafana/setup-k6-action@v0.3.1
+        uses: grafana/setup-k6-action@v1
       
       - name: Run k6 Load Test
-        uses: grafana/run-k6-action@v0.3.1
+        uses: grafana/run-k6-action@v1
         with:
-          filename: tests/load/api-smoke.js
+          path: tests/load/api-smoke.js
           flags: --vus 10 --duration 30s
 
       - name: Stop API Server
