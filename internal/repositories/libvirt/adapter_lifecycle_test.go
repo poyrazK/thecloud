@@ -30,6 +30,7 @@ func newTestAdapter(m *MockLibvirtClient) *LibvirtAdapter {
 		taskWaitInterval: 1 * time.Millisecond,
 		poolStart:        net.ParseIP("192.168.100.0"),
 		poolEnd:          net.ParseIP("192.168.200.255"),
+		portMappings:     make(map[string]map[string]int),
 	}
 }
 
@@ -331,4 +332,27 @@ func TestWaitTaskDomainNotFound(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, int64(-1), status)
 	m.AssertExpectations(t)
+}
+
+func TestRunTaskFailures(t *testing.T) {
+	m := new(MockLibvirtClient)
+	a := newTestAdapter(m)
+	ctx := context.Background()
+	pool := libvirt.StoragePool{Name: "default"}
+
+	opts := ports.RunTaskOptions{
+		Image:   "ubuntu",
+		Command: []string{"echo"},
+	}
+
+	// 1. Pool lookup failure
+	m.On("StoragePoolLookupByName", ctx, "default").Return(libvirt.StoragePool{}, libvirt.Error{Code: 1}).Once()
+	_, err := a.RunTask(ctx, opts)
+	assert.Error(t, err)
+
+	// 2. Vol creation failure
+	m.On("StoragePoolLookupByName", ctx, "default").Return(pool, nil).Once()
+	m.On("StorageVolCreateXML", ctx, pool, mock.Anything, uint32(0)).Return(libvirt.StorageVol{}, libvirt.Error{Code: 1}).Once()
+	_, err = a.RunTask(ctx, opts)
+	assert.Error(t, err)
 }
