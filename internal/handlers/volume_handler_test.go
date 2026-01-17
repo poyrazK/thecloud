@@ -145,6 +145,22 @@ func TestVolumeHandlerList(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
+func TestVolumeHandlerListError(t *testing.T) {
+	svc, handler, r := setupVolumeHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.GET(volumesPath, handler.List)
+
+	svc.On("ListVolumes", mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
+
+	req, err := http.NewRequest(http.MethodGet, volumesPath, nil)
+	assert.NoError(t, err)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
 func TestVolumeHandlerGet(t *testing.T) {
 	svc, handler, r := setupVolumeHandlerTest(t)
 	defer svc.AssertExpectations(t)
