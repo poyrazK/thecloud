@@ -2,6 +2,8 @@ package libvirt
 
 import (
 	"context"
+	"fmt"
+	"math"
 
 	"github.com/digitalocean/go-libvirt"
 )
@@ -168,6 +170,9 @@ func (r *RealLibvirtClient) NetworkGetDhcpLeases(ctx context.Context, net libvir
 	case <-ctx.Done():
 		return nil, 0, ctx.Err()
 	default:
+	}
+	if needResults > math.MaxInt32 {
+		return nil, 0, fmt.Errorf("needResults exceeds max allowed value: %d > %d", needResults, math.MaxInt32)
 	}
 	return r.conn.NetworkGetDhcpLeases(net, mac, int32(needResults), flags)
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/digitalocean/go-libvirt"
@@ -62,6 +63,9 @@ func TestStoragePoolNotFound(t *testing.T) {
 }
 
 func TestCreateVolumeSnapshotSuccess(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Snapshot tests require Linux with QEMU/KVM")
+	}
 	// Mock execCommand
 	oldExec := execCommand
 	defer func() { execCommand = oldExec }()
@@ -87,6 +91,9 @@ func TestCreateVolumeSnapshotSuccess(t *testing.T) {
 }
 
 func TestRestoreVolumeSnapshotSuccess(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Snapshot tests require Linux with QEMU/KVM")
+	}
 	// Mock execCommand
 	oldExec := execCommand
 	defer func() { execCommand = oldExec }()
@@ -100,7 +107,10 @@ func TestRestoreVolumeSnapshotSuccess(t *testing.T) {
 	mkdirTemp = func(dir, pattern string) (string, error) {
 		tmp, err := os.MkdirTemp(dir, pattern)
 		if err == nil {
-			_ = os.WriteFile(filepath.Join(tmp, "dummy.qcow2"), []byte("data"), 0644)
+			writeErr := os.WriteFile(filepath.Join(tmp, "dummy.qcow2"), []byte("data"), 0644)
+			if writeErr != nil {
+				return tmp, writeErr
+			}
 		}
 		return tmp, err
 	}

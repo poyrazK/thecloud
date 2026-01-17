@@ -3,6 +3,7 @@ package libvirt
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"testing"
 
@@ -158,11 +159,15 @@ func TestGenerateNginxConfig(t *testing.T) {
 }
 
 func TestLBProxyAdapterOperations(t *testing.T) {
-	// Mock execCommandContext
+	// Mock execCommandContext using a hermetic helper process
 	oldExec := execCommandContext
 	defer func() { execCommandContext = oldExec }()
 	execCommandContext = func(ctx context.Context, name string, args ...string) *exec.Cmd {
-		return exec.CommandContext(ctx, "true")
+		cs := []string{"-test.run=TestHelperProcess", "--", name}
+		cs = append(cs, args...)
+		cmd := exec.CommandContext(ctx, os.Args[0], cs...)
+		cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}
+		return cmd
 	}
 
 	mockCompute := new(mockComputeBackend)
@@ -190,4 +195,13 @@ func TestLBProxyAdapterOperations(t *testing.T) {
 		err := a.RemoveProxy(ctx, lb.ID)
 		assert.NoError(t, err)
 	})
+}
+
+// TestHelperProcess isn't a real test. It's used as a helper process for TestLBProxyAdapterOperations.
+func TestHelperProcess(t *testing.T) {
+	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
+		return
+	}
+	// Exit with 0 (success) which approximates "true" behavior
+	os.Exit(0)
 }
