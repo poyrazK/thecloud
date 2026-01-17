@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -56,25 +57,35 @@ func (m *mockStackService) ValidateTemplate(ctx context.Context, template string
 	return args.Get(0).(*domain.TemplateValidateResponse), args.Error(1)
 }
 
-func TestStackHandler_Create(t *testing.T) {
+const (
+	testStackName     = "test-stack"
+	testStackTmpl     = "version: 1"
+	testStackPath     = "/iac/stacks"
+	testStackVPath    = "/iac/validate"
+	testStackAppJSON  = "application/json"
+	stackPathInvalid  = "invalid"
+	headerContentType = "Content-Type"
+)
+
+func TestStackHandlerCreate(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockStackService)
 	handler := NewStackHandler(svc)
 
 	stack := &domain.Stack{ID: uuid.New(), Name: "test-stack"}
 
-	svc.On("CreateStack", mock.Anything, "test-stack", "version: 1", mock.Anything).Return(stack, nil)
+	svc.On("CreateStack", mock.Anything, testStackName, testStackTmpl, mock.Anything).Return(stack, nil)
 
 	reqBody := CreateStackRequest{
-		Name:     "test-stack",
-		Template: "version: 1",
+		Name:     testStackName,
+		Template: testStackTmpl,
 	}
 	body, _ := json.Marshal(reqBody)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("POST", "/iac/stacks", bytes.NewBuffer(body))
-	c.Request.Header.Set("Content-Type", "application/json")
+	c.Request = httptest.NewRequest("POST", testStackPath, bytes.NewBuffer(body))
+	c.Request.Header.Set(headerContentType, testStackAppJSON)
 
 	handler.Create(c)
 
@@ -82,7 +93,7 @@ func TestStackHandler_Create(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestStackHandler_List(t *testing.T) {
+func TestStackHandlerList(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockStackService)
 	handler := NewStackHandler(svc)
@@ -95,7 +106,7 @@ func TestStackHandler_List(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/iac/stacks", nil)
+	c.Request = httptest.NewRequest("GET", testStackPath, nil)
 
 	handler.List(c)
 
@@ -103,19 +114,19 @@ func TestStackHandler_List(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestStackHandler_Get(t *testing.T) {
+func TestStackHandlerGet(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockStackService)
 	handler := NewStackHandler(svc)
 
 	id := uuid.New()
-	stack := &domain.Stack{ID: id, Name: "test-stack"}
+	stack := &domain.Stack{ID: id, Name: testStackName}
 
 	svc.On("GetStack", mock.Anything, id).Return(stack, nil)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/iac/stacks/"+id.String(), nil)
+	c.Request = httptest.NewRequest("GET", testStackPath+"/"+id.String(), nil)
 	c.Params = gin.Params{{Key: "id", Value: id.String()}}
 
 	handler.Get(c)
@@ -124,7 +135,7 @@ func TestStackHandler_Get(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestStackHandler_Delete(t *testing.T) {
+func TestStackHandlerDelete(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockStackService)
 	handler := NewStackHandler(svc)
@@ -135,7 +146,7 @@ func TestStackHandler_Delete(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("DELETE", "/iac/stacks/"+id.String(), nil)
+	c.Request = httptest.NewRequest("DELETE", testStackPath+"/"+id.String(), nil)
 	c.Params = gin.Params{{Key: "id", Value: id.String()}}
 
 	handler.Delete(c)
@@ -144,27 +155,130 @@ func TestStackHandler_Delete(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestStackHandler_Validate(t *testing.T) {
+func TestStackHandlerValidate(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockStackService)
 	handler := NewStackHandler(svc)
 
 	resp := &domain.TemplateValidateResponse{Valid: true}
 
-	svc.On("ValidateTemplate", mock.Anything, "version: 1").Return(resp, nil)
+	svc.On("ValidateTemplate", mock.Anything, testStackTmpl).Return(resp, nil)
 
 	reqBody := map[string]string{
-		"template": "version: 1",
+		"template": testStackTmpl,
 	}
 	body, _ := json.Marshal(reqBody)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("POST", "/iac/validate", bytes.NewBuffer(body))
-	c.Request.Header.Set("Content-Type", "application/json")
+	c.Request = httptest.NewRequest("POST", testStackVPath, bytes.NewBuffer(body))
+	c.Request.Header.Set(headerContentType, testStackAppJSON)
 
 	handler.Validate(c)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	svc.AssertExpectations(t)
+}
+
+func TestStackHandlerErrorPaths(t *testing.T) {
+	setup := func(_ *testing.T) (*mockStackService, *StackHandler, *gin.Engine) {
+		svc := new(mockStackService)
+		handler := NewStackHandler(svc)
+		r := gin.New()
+		return svc, handler, r
+	}
+
+	t.Run("CreateInvalidJSON", func(t *testing.T) {
+		_, handler, r := setup(t)
+		r.POST(testStackPath, handler.Create)
+		req, _ := http.NewRequest("POST", testStackPath, bytes.NewBufferString("invalid"))
+		req.Header.Set(headerContentType, testStackAppJSON)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("CreateServiceError", func(t *testing.T) {
+		svc, handler, r := setup(t)
+		r.POST(testStackPath, handler.Create)
+		svc.On("CreateStack", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
+		body, _ := json.Marshal(map[string]interface{}{"name": "n", "template": "t"})
+		req, _ := http.NewRequest("POST", testStackPath, bytes.NewBuffer(body))
+		req.Header.Set(headerContentType, testStackAppJSON)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("ListServiceError", func(t *testing.T) {
+		svc, handler, r := setup(t)
+		r.GET(testStackPath, handler.List)
+		svc.On("ListStacks", mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest("GET", testStackPath, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("GetInvalidID", func(t *testing.T) {
+		_, handler, r := setup(t)
+		r.GET(testStackPath+"/:id", handler.Get)
+		req, _ := http.NewRequest("GET", testStackPath+"/"+stackPathInvalid, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("GetServiceError", func(t *testing.T) {
+		svc, handler, r := setup(t)
+		r.GET(testStackPath+"/:id", handler.Get)
+		id := uuid.New()
+		svc.On("GetStack", mock.Anything, id).Return(nil, errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest("GET", testStackPath+"/"+id.String(), nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("DeleteInvalidID", func(t *testing.T) {
+		_, handler, r := setup(t)
+		r.DELETE(testStackPath+"/:id", handler.Delete)
+		req, _ := http.NewRequest("DELETE", testStackPath+"/"+stackPathInvalid, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("DeleteServiceError", func(t *testing.T) {
+		svc, handler, r := setup(t)
+		r.DELETE(testStackPath+"/:id", handler.Delete)
+		id := uuid.New()
+		svc.On("DeleteStack", mock.Anything, id).Return(errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest("DELETE", testStackPath+"/"+id.String(), nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("ValidateInvalidJSON", func(t *testing.T) {
+		_, handler, r := setup(t)
+		r.POST(testStackVPath, handler.Validate)
+		req, _ := http.NewRequest("POST", testStackVPath, bytes.NewBufferString("invalid"))
+		req.Header.Set(headerContentType, testStackAppJSON)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("ValidateServiceError", func(t *testing.T) {
+		svc, handler, r := setup(t)
+		r.POST(testStackVPath, handler.Validate)
+		svc.On("ValidateTemplate", mock.Anything, mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
+		body, _ := json.Marshal(map[string]interface{}{"template": "t"})
+		req, _ := http.NewRequest("POST", testStackVPath, bytes.NewBuffer(body))
+		req.Header.Set(headerContentType, testStackAppJSON)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
 }

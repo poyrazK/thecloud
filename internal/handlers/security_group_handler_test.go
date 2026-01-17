@@ -21,6 +21,7 @@ const (
 	testAppJSON      = "application/json"
 	testSgPath       = "/security-groups"
 	testSgDetailPath = "/security-groups/"
+	vpcIDQuery       = "?vpc_id="
 )
 
 type mockSecurityGroupService struct {
@@ -118,7 +119,7 @@ func TestSecurityGroupHandlerList(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", testSgPath+"?vpc_id="+vpcID.String(), nil)
+	c.Request = httptest.NewRequest("GET", testSgPath+vpcIDQuery+vpcID.String(), nil)
 
 	h.List(c)
 
@@ -139,7 +140,7 @@ func TestSecurityGroupHandlerGet(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", testSgDetailPath+id+"?vpc_id="+vpcID.String(), nil)
+	c.Request = httptest.NewRequest("GET", testSgDetailPath+id+vpcIDQuery+vpcID.String(), nil)
 	c.Params = gin.Params{{Key: "id", Value: id}}
 
 	h.Get(c)
@@ -149,22 +150,16 @@ func TestSecurityGroupHandlerGet(t *testing.T) {
 }
 
 func TestSecurityGroupHandlerDelete(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	svc := new(mockSecurityGroupService)
-	h := NewSecurityGroupHandler(svc)
-
+	svc, handler, r := setupSecurityGroupHandlerTest(t)
+	r.DELETE(testSgDetailPath+":id", handler.Delete)
 	id := uuid.New()
-
 	svc.On("DeleteGroup", mock.Anything, id).Return(nil)
 
 	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("DELETE", testSgDetailPath+id.String(), nil)
-	c.Params = gin.Params{{Key: "id", Value: id.String()}}
+	req, _ := http.NewRequest("DELETE", testSgDetailPath+id.String(), nil)
+	r.ServeHTTP(w, req)
 
-	h.Delete(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusNoContent, w.Code)
 	svc.AssertExpectations(t)
 }
 
@@ -219,24 +214,18 @@ func TestSecurityGroupHandlerAttach(t *testing.T) {
 }
 
 func TestSecurityGroupHandlerRemoveRule(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	svc := new(mockSecurityGroupService)
-	h := NewSecurityGroupHandler(svc)
-
+	svc, handler, r := setupSecurityGroupHandlerTest(t)
+	r.DELETE(testSgPath+"/rules/:rule_id", handler.RemoveRule)
 	ruleID := uuid.New()
 	svc.On("RemoveRule", mock.Anything, ruleID).Return(nil)
 
 	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("DELETE", testSgPath+"/rules/"+ruleID.String(), nil)
-	c.Params = gin.Params{{Key: "rule_id", Value: ruleID.String()}}
+	req, _ := http.NewRequest("DELETE", testSgPath+"/rules/"+ruleID.String(), nil)
+	r.ServeHTTP(w, req)
 
-	h.RemoveRule(c)
-
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusNoContent, w.Code)
 	svc.AssertExpectations(t)
 }
-
 func TestSecurityGroupHandlerDetach(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSecurityGroupService)
@@ -316,4 +305,166 @@ func TestSecurityGroupHandlerDetachError(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	svc.AssertExpectations(t)
+}
+func TestSecurityGroupHandlerErrorPaths(t *testing.T) {
+	t.Run("CreateInvalidJSON", func(t *testing.T) {
+		_, handler, _ := setupSecurityGroupHandlerTest(t)
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest("POST", testSgPath, bytes.NewBufferString("invalid"))
+		handler.Create(c)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("CreateServiceError", func(t *testing.T) {
+		svc, handler, _ := setupSecurityGroupHandlerTest(t)
+		svc.On("CreateGroup", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, context.DeadlineExceeded)
+		body, _ := json.Marshal(map[string]interface{}{"vpc_id": uuid.New(), "name": "n"})
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest("POST", testSgPath, bytes.NewBuffer(body))
+		handler.Create(c)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("ListMissingVPC", func(t *testing.T) {
+		_, handler, _ := setupSecurityGroupHandlerTest(t)
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest("GET", testSgPath, nil)
+		handler.List(c)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("ListInvalidVPC", func(t *testing.T) {
+		_, handler, _ := setupSecurityGroupHandlerTest(t)
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest("GET", testSgPath+vpcIDQuery+"invalid", nil)
+		handler.List(c)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("ListServiceError", func(t *testing.T) {
+		svc, handler, _ := setupSecurityGroupHandlerTest(t)
+		vpcID := uuid.New()
+		svc.On("ListGroups", mock.Anything, vpcID).Return(nil, context.DeadlineExceeded)
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest("GET", testSgPath+vpcIDQuery+vpcID.String(), nil)
+		handler.List(c)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("DeleteInvalidID", func(t *testing.T) {
+		_, handler, _ := setupSecurityGroupHandlerTest(t)
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Params = gin.Params{{Key: "id", Value: "invalid"}}
+		handler.Delete(c)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("DeleteServiceError", func(t *testing.T) {
+		svc, handler, _ := setupSecurityGroupHandlerTest(t)
+		id := uuid.New()
+		svc.On("DeleteGroup", mock.Anything, id).Return(context.DeadlineExceeded)
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest("DELETE", "/", nil)
+		c.Params = gin.Params{{Key: "id", Value: id.String()}}
+		handler.Delete(c)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("AddRuleInvalidID", func(t *testing.T) {
+		_, handler, _ := setupSecurityGroupHandlerTest(t)
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Params = gin.Params{{Key: "id", Value: "invalid"}}
+		handler.AddRule(c)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("AddRuleInvalidJSON", func(t *testing.T) {
+		_, handler, _ := setupSecurityGroupHandlerTest(t)
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Params = gin.Params{{Key: "id", Value: uuid.New().String()}}
+		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString("invalid"))
+		handler.AddRule(c)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("AddRuleServiceError", func(t *testing.T) {
+		svc, handler, _ := setupSecurityGroupHandlerTest(t)
+		groupID := uuid.New()
+		svc.On("AddRule", mock.Anything, groupID, mock.Anything).Return(nil, context.DeadlineExceeded)
+		r := domain.SecurityRule{}
+		body, _ := json.Marshal(r)
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Params = gin.Params{{Key: "id", Value: groupID.String()}}
+		c.Request = httptest.NewRequest("POST", "/", bytes.NewBuffer(body))
+		handler.AddRule(c)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("RemoveRuleInvalidID", func(t *testing.T) {
+		_, handler, _ := setupSecurityGroupHandlerTest(t)
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Params = gin.Params{{Key: "rule_id", Value: "invalid"}}
+		handler.RemoveRule(c)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("RemoveRuleServiceError", func(t *testing.T) {
+		svc, handler, _ := setupSecurityGroupHandlerTest(t)
+		ruleID := uuid.New()
+		svc.On("RemoveRule", mock.Anything, ruleID).Return(context.DeadlineExceeded)
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest("DELETE", "/", nil)
+		c.Params = gin.Params{{Key: "rule_id", Value: ruleID.String()}}
+		handler.RemoveRule(c)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("AttachInvalidJSON", func(t *testing.T) {
+		_, handler, _ := setupSecurityGroupHandlerTest(t)
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString("invalid"))
+		handler.Attach(c)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("DetachInvalidJSON", func(t *testing.T) {
+		_, handler, _ := setupSecurityGroupHandlerTest(t)
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest("POST", "/", bytes.NewBufferString("invalid"))
+		handler.Detach(c)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("GetServiceError", func(t *testing.T) {
+		svc, handler, _ := setupSecurityGroupHandlerTest(t)
+		id := "some-id"
+		svc.On("GetGroup", mock.Anything, id, mock.Anything).Return(nil, context.DeadlineExceeded)
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest("GET", "/", nil)
+		c.Params = gin.Params{{Key: "id", Value: id}}
+		handler.Get(c)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+}
+
+func setupSecurityGroupHandlerTest(_ *testing.T) (*mockSecurityGroupService, *SecurityGroupHandler, *gin.Engine) {
+	svc := new(mockSecurityGroupService)
+	handler := NewSecurityGroupHandler(svc)
+	r := gin.New()
+	return svc, handler, r
 }

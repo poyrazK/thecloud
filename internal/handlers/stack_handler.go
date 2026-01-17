@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
@@ -19,6 +20,10 @@ type StackHandler struct {
 func NewStackHandler(svc ports.StackService) *StackHandler {
 	return &StackHandler{svc: svc}
 }
+
+const (
+	errInvalidStackID = "invalid stack id"
+)
 
 // CreateStackRequest is the payload for creating a stack.
 type CreateStackRequest struct {
@@ -39,7 +44,7 @@ type CreateStackRequest struct {
 func (h *StackHandler) Create(c *gin.Context) {
 	var req CreateStackRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid request body"))
 		return
 	}
 
@@ -79,7 +84,7 @@ func (h *StackHandler) List(c *gin.Context) {
 func (h *StackHandler) Get(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidStackID))
 		return
 	}
 
@@ -101,7 +106,7 @@ func (h *StackHandler) Get(c *gin.Context) {
 func (h *StackHandler) Delete(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidStackID))
 		return
 	}
 
@@ -127,7 +132,7 @@ func (h *StackHandler) Validate(c *gin.Context) {
 		Template string `json:"template" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid request body"))
 		return
 	}
 

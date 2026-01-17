@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -19,6 +20,10 @@ import (
 const (
 	functionsPath    = "/functions"
 	testFunctionName = "fn-1"
+	invokeSuffix     = "/invoke"
+	logsSuffix       = "/logs"
+	hdrContentType   = "Content-Type"
+	fnPathInvalid      = "/invalid"
 )
 
 type mockFunctionService struct {
@@ -104,7 +109,7 @@ func TestFunctionHandlerCreate(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodPost, functionsPath, body)
 	assert.NoError(t, err)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set(hdrContentType, writer.FormDataContentType())
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -167,13 +172,13 @@ func TestFunctionHandlerInvoke(t *testing.T) {
 	svc, handler, r := setupFunctionHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.POST(functionsPath+"/:id/invoke", handler.Invoke)
+	r.POST(functionsPath+"/:id"+invokeSuffix, handler.Invoke)
 
 	id := uuid.New()
 	inv := &domain.Invocation{ID: uuid.New(), Status: "completed"}
 	svc.On("InvokeFunction", mock.Anything, id, []byte("{}"), false).Return(inv, nil)
 
-	req, err := http.NewRequest(http.MethodPost, functionsPath+"/"+id.String()+"/invoke", strings.NewReader("{}"))
+	req, err := http.NewRequest(http.MethodPost, functionsPath+"/"+id.String()+invokeSuffix, strings.NewReader("{}"))
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -185,15 +190,181 @@ func TestFunctionHandlerGetLogs(t *testing.T) {
 	svc, handler, r := setupFunctionHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.GET(functionsPath+"/:id/logs", handler.GetLogs)
+	r.GET(functionsPath+"/:id"+logsSuffix, handler.GetLogs)
 
 	id := uuid.New()
 	svc.On("GetFunctionLogs", mock.Anything, id, 100).Return([]*domain.Invocation{}, nil)
 
-	req, err := http.NewRequest(http.MethodGet, functionsPath+"/"+id.String()+"/logs", nil)
+	req, err := http.NewRequest(http.MethodGet, functionsPath+"/"+id.String()+logsSuffix, nil)
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestFunctionHandlerCreateError(t *testing.T) {
+	t.Run("InvalidForm", func(t *testing.T) {
+		_, handler, r := setupFunctionHandlerTest(t)
+		r.POST(functionsPath, handler.Create)
+		req, _ := http.NewRequest("POST", functionsPath, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("MissingFile", func(t *testing.T) {
+		_, handler, r := setupFunctionHandlerTest(t)
+		r.POST(functionsPath, handler.Create)
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+		_ = writer.WriteField("name", "n")
+		_ = writer.WriteField("runtime", "r")
+		_ = writer.WriteField("handler", "h")
+		_ = writer.Close()
+		req, _ := http.NewRequest("POST", functionsPath, body)
+		req.Header.Set(hdrContentType, writer.FormDataContentType())
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("ServiceError", func(t *testing.T) {
+		svc, handler, r := setupFunctionHandlerTest(t)
+		r.POST(functionsPath, handler.Create)
+		svc.On("CreateFunction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			Return(nil, errors.New(errors.Internal, "error"))
+
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+		_ = writer.WriteField("name", "n")
+		_ = writer.WriteField("runtime", "r")
+		_ = writer.WriteField("handler", "h")
+		part, _ := writer.CreateFormFile("code", "index.js")
+		_, _ = part.Write([]byte("code"))
+		_ = writer.Close()
+
+		req, _ := http.NewRequest("POST", functionsPath, body)
+		req.Header.Set(hdrContentType, writer.FormDataContentType())
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		svc.AssertExpectations(t)
+	})
+}
+
+func TestFunctionHandlerListError(t *testing.T) {
+	svc, handler, r := setupFunctionHandlerTest(t)
+	r.GET(functionsPath, handler.List)
+	svc.On("ListFunctions", mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
+	req, _ := http.NewRequest(http.MethodGet, functionsPath, nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	svc.AssertExpectations(t)
+}
+
+func TestFunctionHandlerGetError(t *testing.T) {
+	t.Run("InvalidID", func(t *testing.T) {
+		_, handler, r := setupFunctionHandlerTest(t)
+		r.GET(functionsPath+"/:id", handler.Get)
+		req, _ := http.NewRequest(http.MethodGet, functionsPath+fnPathInvalid, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("NotFound", func(t *testing.T) {
+		svc, handler, r := setupFunctionHandlerTest(t)
+		r.GET(functionsPath+"/:id", handler.Get)
+		id := uuid.New()
+		svc.On("GetFunction", mock.Anything, id).Return(nil, errors.New(errors.NotFound, errNotFound))
+		req, _ := http.NewRequest(http.MethodGet, functionsPath+"/"+id.String(), nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusNotFound, w.Code)
+		svc.AssertExpectations(t)
+	})
+}
+
+func TestFunctionHandlerInvokeError(t *testing.T) {
+	t.Run("InvalidID", func(t *testing.T) {
+		_, handler, r := setupFunctionHandlerTest(t)
+		r.POST(functionsPath+"/:id"+invokeSuffix, handler.Invoke)
+		req, _ := http.NewRequest("POST", functionsPath+fnPathInvalid+invokeSuffix, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("ServiceError", func(t *testing.T) {
+		svc, handler, r := setupFunctionHandlerTest(t)
+		r.POST(functionsPath+"/:id"+invokeSuffix, handler.Invoke)
+		id := uuid.New()
+		svc.On("InvokeFunction", mock.Anything, id, mock.Anything, false).Return(nil, errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest("POST", functionsPath+"/"+id.String()+invokeSuffix, strings.NewReader("{}"))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		svc.AssertExpectations(t)
+	})
+
+	t.Run("AsyncSuccess", func(t *testing.T) {
+		svc, handler, r := setupFunctionHandlerTest(t)
+		r.POST(functionsPath+"/:id"+invokeSuffix, handler.Invoke)
+		id := uuid.New()
+		inv := &domain.Invocation{ID: uuid.New(), Status: "accepted"}
+		svc.On("InvokeFunction", mock.Anything, id, mock.Anything, true).Return(inv, nil)
+		req, _ := http.NewRequest("POST", functionsPath+"/"+id.String()+invokeSuffix+"?async=true", strings.NewReader("{}"))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusAccepted, w.Code)
+		svc.AssertExpectations(t)
+	})
+}
+
+func TestFunctionHandlerGetLogsError(t *testing.T) {
+	t.Run("InvalidID", func(t *testing.T) {
+		_, handler, r := setupFunctionHandlerTest(t)
+		r.GET(functionsPath+"/:id"+logsSuffix, handler.GetLogs)
+		req, _ := http.NewRequest(http.MethodGet, functionsPath+fnPathInvalid+logsSuffix, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("ServiceError", func(t *testing.T) {
+		svc, handler, r := setupFunctionHandlerTest(t)
+		r.GET(functionsPath+"/:id"+logsSuffix, handler.GetLogs)
+		id := uuid.New()
+		svc.On("GetFunctionLogs", mock.Anything, id, mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest(http.MethodGet, functionsPath+"/"+id.String()+logsSuffix, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		svc.AssertExpectations(t)
+	})
+}
+
+func TestFunctionHandlerDeleteError(t *testing.T) {
+	t.Run("InvalidID", func(t *testing.T) {
+		_, handler, r := setupFunctionHandlerTest(t)
+		r.DELETE(functionsPath+"/:id", handler.Delete)
+		req, _ := http.NewRequest(http.MethodDelete, functionsPath+fnPathInvalid, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("ServiceError", func(t *testing.T) {
+		svc, handler, r := setupFunctionHandlerTest(t)
+		r.DELETE(functionsPath+"/:id", handler.Delete)
+		id := uuid.New()
+		svc.On("DeleteFunction", mock.Anything, id).Return(errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest(http.MethodDelete, functionsPath+"/"+id.String(), nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		svc.AssertExpectations(t)
+	})
 }

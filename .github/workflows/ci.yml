@@ -26,7 +26,7 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -47,7 +47,7 @@ jobs:
           fi
 
       - name: Lint
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@v6
         with:
           version: latest
 
@@ -95,7 +95,7 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -185,7 +185,7 @@ jobs:
     needs: [test, test-libvirt]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       
       - name: Build Docker Image
         run: docker build . -t thecloud-api:latest
@@ -208,7 +208,7 @@ jobs:
       packages: write
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Lowercase Repo Name
         id: repo_name
@@ -239,7 +239,7 @@ jobs:
       packages: write
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Lowercase Repo Name
         id: repo_name

@@ -3,6 +3,8 @@ package libvirt
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/google/uuid"
@@ -67,7 +69,7 @@ func TestLibvirtAdapterParseAndValidatePort(t *testing.T) {
 func TestLibvirtAdapterResolveBinds(t *testing.T) {
 	a := &LibvirtAdapter{}
 	// Test empty binds
-	resolved := a.resolveBinds(nil)
+	resolved := a.resolveBinds(context.Background(), nil)
 	assert.Empty(t, resolved)
 
 	// We cannot test full resolveBinds without a libvirt connection mock (complex)
@@ -154,4 +156,52 @@ func TestGenerateNginxConfig(t *testing.T) {
 		assert.Contains(t, config, "return 503")
 		assert.NotContains(t, config, "upstream backend")
 	})
+}
+
+func TestLBProxyAdapterOperations(t *testing.T) {
+	// Mock execCommandContext using a hermetic helper process
+	oldExec := execCommandContext
+	defer func() { execCommandContext = oldExec }()
+	execCommandContext = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		cs := []string{"-test.run=TestHelperProcess", "--", name}
+		cs = append(cs, args...)
+		cmd := exec.CommandContext(ctx, os.Args[0], cs...)
+		cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}
+		return cmd
+	}
+
+	mockCompute := new(mockComputeBackend)
+	a := NewLBProxyAdapter(mockCompute)
+	ctx := context.Background()
+
+	lb := &domain.LoadBalancer{
+		ID:        uuid.New(),
+		Port:      80,
+		Algorithm: algoRoundRobin,
+	}
+
+	t.Run("DeployProxy", func(t *testing.T) {
+		id, err := a.DeployProxy(ctx, lb, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, lb.ID.String(), id)
+	})
+
+	t.Run("UpdateProxyConfig", func(t *testing.T) {
+		err := a.UpdateProxyConfig(ctx, lb, nil)
+		assert.NoError(t, err)
+	})
+
+	t.Run("RemoveProxy", func(t *testing.T) {
+		err := a.RemoveProxy(ctx, lb.ID)
+		assert.NoError(t, err)
+	})
+}
+
+// TestHelperProcess isn't a real test. It's used as a helper process for TestLBProxyAdapterOperations.
+func TestHelperProcess(t *testing.T) {
+	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
+		return
+	}
+	// Exit with 0 (success) which approximates "true" behavior
+	os.Exit(0)
 }

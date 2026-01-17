@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -18,6 +19,7 @@ import (
 const (
 	secretsPath    = "/secrets"
 	testSecretName = "sec-1"
+	errNotFound    = "not found"
 )
 
 type mockSecretService struct {
@@ -145,18 +147,110 @@ func TestSecretHandlerGetByName(t *testing.T) {
 }
 
 func TestSecretHandlerDelete(t *testing.T) {
+	t.Run("SuccessByID", func(t *testing.T) {
+		svc, handler, r := setupSecretHandlerTest(t)
+		r.DELETE(secretsPath+"/:id", handler.Delete)
+		id := uuid.New()
+		svc.On("DeleteSecret", mock.Anything, id).Return(nil)
+		req, _ := http.NewRequest(http.MethodDelete, secretsPath+"/"+id.String(), nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		svc.AssertExpectations(t)
+	})
+
+	t.Run("SuccessByName", func(t *testing.T) {
+		svc, handler, r := setupSecretHandlerTest(t)
+		r.DELETE(secretsPath+"/:id", handler.Delete)
+		id := uuid.New()
+		svc.On("GetSecretByName", mock.Anything, testSecretName).Return(&domain.Secret{ID: id}, nil)
+		svc.On("DeleteSecret", mock.Anything, id).Return(nil)
+		req, _ := http.NewRequest(http.MethodDelete, secretsPath+"/"+testSecretName, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		svc.AssertExpectations(t)
+	})
+
+	t.Run("GetByNameError", func(t *testing.T) {
+		svc, handler, r := setupSecretHandlerTest(t)
+		r.DELETE(secretsPath+"/:id", handler.Delete)
+		svc.On("GetSecretByName", mock.Anything, testSecretName).Return(nil, errors.New(errors.NotFound, errNotFound))
+		req, _ := http.NewRequest(http.MethodDelete, secretsPath+"/"+testSecretName, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusNotFound, w.Code)
+		svc.AssertExpectations(t)
+	})
+
+	t.Run("DeleteError", func(t *testing.T) {
+		svc, handler, r := setupSecretHandlerTest(t)
+		r.DELETE(secretsPath+"/:id", handler.Delete)
+		id := uuid.New()
+		svc.On("DeleteSecret", mock.Anything, id).Return(errors.New(errors.Internal, "internal error"))
+		req, _ := http.NewRequest(http.MethodDelete, secretsPath+"/"+id.String(), nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		svc.AssertExpectations(t)
+	})
+}
+
+func TestSecretHandlerCreateError(t *testing.T) {
+	t.Run("InvalidJSON", func(t *testing.T) {
+		_, handler, r := setupSecretHandlerTest(t)
+		r.POST(secretsPath, handler.Create)
+		req, _ := http.NewRequest("POST", secretsPath, bytes.NewBufferString("invalid"))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("ServiceError", func(t *testing.T) {
+		svc, handler, r := setupSecretHandlerTest(t)
+		r.POST(secretsPath, handler.Create)
+		svc.On("CreateSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
+		body, _ := json.Marshal(map[string]interface{}{"name": "n", "value": "v"})
+		req, _ := http.NewRequest("POST", secretsPath, bytes.NewBuffer(body))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		svc.AssertExpectations(t)
+	})
+}
+
+func TestSecretHandlerListError(t *testing.T) {
 	svc, handler, r := setupSecretHandlerTest(t)
-	defer svc.AssertExpectations(t)
-
-	r.DELETE(secretsPath+"/:id", handler.Delete)
-
-	id := uuid.New()
-	svc.On("DeleteSecret", mock.Anything, id).Return(nil)
-
-	req, err := http.NewRequest(http.MethodDelete, secretsPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	r.GET(secretsPath, handler.List)
+	svc.On("ListSecrets", mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
+	req, _ := http.NewRequest(http.MethodGet, secretsPath, nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	svc.AssertExpectations(t)
+}
 
-	assert.Equal(t, http.StatusOK, w.Code)
+func TestSecretHandlerGetError(t *testing.T) {
+	t.Run("NotFoundByID", func(t *testing.T) {
+		svc, handler, r := setupSecretHandlerTest(t)
+		r.GET(secretsPath+"/:id", handler.Get)
+		id := uuid.New()
+		svc.On("GetSecret", mock.Anything, id).Return(nil, errors.New(errors.NotFound, errNotFound))
+		req, _ := http.NewRequest(http.MethodGet, secretsPath+"/"+id.String(), nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusNotFound, w.Code)
+		svc.AssertExpectations(t)
+	})
+
+	t.Run("NotFoundByName", func(t *testing.T) {
+		svc, handler, r := setupSecretHandlerTest(t)
+		r.GET(secretsPath+"/:id", handler.Get)
+		svc.On("GetSecretByName", mock.Anything, "name").Return(nil, errors.New(errors.NotFound, errNotFound))
+		req, _ := http.NewRequest(http.MethodGet, secretsPath+"/name", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusNotFound, w.Code)
+		svc.AssertExpectations(t)
+	})
 }

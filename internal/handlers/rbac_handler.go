@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
@@ -20,6 +21,11 @@ type RBACHandler struct {
 func NewRBACHandler(svc ports.RBACService) *RBACHandler {
 	return &RBACHandler{svc: svc}
 }
+
+const (
+	errInvalidRoleID = "invalid role id"
+	errInvalidBody   = "invalid request body"
+)
 
 // CreateRoleRequest is the payload for creating a role.
 type CreateRoleRequest struct {
@@ -40,7 +46,7 @@ type CreateRoleRequest struct {
 func (h *RBACHandler) CreateRole(c *gin.Context) {
 	var req CreateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidBody))
 		return
 	}
 
@@ -116,13 +122,13 @@ func (h *RBACHandler) GetRole(c *gin.Context) {
 func (h *RBACHandler) UpdateRole(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidRoleID))
 		return
 	}
 
 	var req CreateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidBody))
 		return
 	}
 
@@ -152,7 +158,7 @@ func (h *RBACHandler) DeleteRole(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		// Try to look up by name and delete? No, strictly by ID for safety.
-		httputil.Error(c, err)
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidRoleID))
 		return
 	}
 
@@ -181,13 +187,13 @@ type AddPermissionRequest struct {
 func (h *RBACHandler) AddPermission(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidRoleID))
 		return
 	}
 
 	var req AddPermissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidBody))
 		return
 	}
 
@@ -211,7 +217,7 @@ func (h *RBACHandler) AddPermission(c *gin.Context) {
 func (h *RBACHandler) RemovePermission(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidRoleID))
 		return
 	}
 
@@ -242,7 +248,7 @@ type BindRoleRequest struct {
 func (h *RBACHandler) BindRole(c *gin.Context) {
 	var req BindRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidBody))
 		return
 	}
 

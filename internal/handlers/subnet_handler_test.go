@@ -132,6 +132,33 @@ func TestSubnetHandlerCreateInvalidRequest(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
+func TestSubnetHandlerCreateServiceError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := new(mockSubnetService)
+	handler := NewSubnetHandler(svc)
+
+	vpcID := uuid.New()
+
+	svc.On("CreateSubnet", mock.Anything, vpcID, testSubnetName, testutil.TestSubnetCIDR, mock.Anything).Return(nil, assert.AnError)
+
+	reqBody := map[string]string{
+		"name":       testSubnetName,
+		"cidr_block": testutil.TestSubnetCIDR,
+	}
+	body, _ := json.Marshal(reqBody)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("POST", vpcsPathPrefix+vpcID.String()+subnetsPath, bytes.NewBuffer(body))
+	c.Request.Header.Set(contentType, applicationJSON)
+	c.Params = gin.Params{{Key: "vpc_id", Value: vpcID.String()}}
+
+	handler.Create(c)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	svc.AssertExpectations(t)
+}
+
 func TestSubnetHandlerListSuccess(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
@@ -170,6 +197,26 @@ func TestSubnetHandlerListInvalidVpcID(t *testing.T) {
 	handler.List(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+	svc.AssertExpectations(t)
+}
+
+func TestSubnetHandlerListServiceError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := new(mockSubnetService)
+	handler := NewSubnetHandler(svc)
+
+	vpcID := uuid.New()
+
+	svc.On("ListSubnets", mock.Anything, vpcID).Return(nil, assert.AnError)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", vpcsPathPrefix+vpcID.String()+subnetsPath, nil)
+	c.Params = gin.Params{{Key: "vpc_id", Value: vpcID.String()}}
+
+	handler.List(c)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	svc.AssertExpectations(t)
 }
 

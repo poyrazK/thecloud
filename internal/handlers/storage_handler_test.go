@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -151,4 +152,80 @@ func TestStorageHandlerDelete(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNoContent, w.Code)
+}
+
+func TestStorageHandlerErrorPaths(t *testing.T) {
+	setup := func(_ *testing.T) (*mockStorageService, *StorageHandler, *gin.Engine) {
+		svc := new(mockStorageService)
+		handler := NewStorageHandler(svc)
+		r := gin.New()
+		return svc, handler, r
+	}
+
+	t.Run("UploadMissingBucketOrKey", func(t *testing.T) {
+		_, handler, r := setup(t)
+		r.PUT(storageObjectPath, handler.Upload)
+		req, _ := http.NewRequest("PUT", storageBasePath+storageBucketName, nil)
+		// This URL matching might be tricky with params if one is empty.
+		// Actually if I send /storage/b1 without key, it won't match :key path segment usually.
+		// But handler logic says: bucket := c.Param("bucket"), key := c.Param("key").
+		// If I use a route like /storage/:bucket/*key, maybe?
+		// The existing route is /storage/:bucket/:key.
+		// If I request /storage/b1/ then key is empty?
+		// Let's try explicit empty key if possible or verify param logic.
+		// Actually if Params are missing from context (e.g. if I don't use router but call handler directly), it fails.
+		// But using router, if I request /storage/b1/, it might match if trailing slash enabled?
+		// Let's rely on manually setting params for this specific test to ensure we hit the check.
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Params = gin.Params{{Key: "bucket", Value: "b1"}, {Key: "key", Value: ""}}
+		c.Request = req
+		handler.Upload(c)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("UploadServiceError", func(t *testing.T) {
+		svc, handler, r := setup(t)
+		defer svc.AssertExpectations(t)
+		r.PUT(storageObjectPath, handler.Upload)
+		svc.On("Upload", mock.Anything, storageBucketName, testFileName, mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest("PUT", storageBasePath+storageBucketName+"/"+testFileName, strings.NewReader("data"))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("DownloadServiceError", func(t *testing.T) {
+		svc, handler, r := setup(t)
+		defer svc.AssertExpectations(t)
+		r.GET(storageObjectPath, handler.Download)
+		svc.On("Download", mock.Anything, storageBucketName, testFileName).Return(nil, nil, errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest("GET", storageBasePath+storageBucketName+"/"+testFileName, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("ListServiceError", func(t *testing.T) {
+		svc, handler, r := setup(t)
+		defer svc.AssertExpectations(t)
+		r.GET("/storage/:bucket", handler.List)
+		svc.On("ListObjects", mock.Anything, storageBucketName).Return(nil, errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest("GET", storageBasePath+storageBucketName, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("DeleteServiceError", func(t *testing.T) {
+		svc, handler, r := setup(t)
+		defer svc.AssertExpectations(t)
+		r.DELETE(storageObjectPath, handler.Delete)
+		svc.On("DeleteObject", mock.Anything, storageBucketName, testFileName).Return(errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest("DELETE", storageBasePath+storageBucketName+"/"+testFileName, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
 }

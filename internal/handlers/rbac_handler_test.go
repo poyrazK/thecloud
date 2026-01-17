@@ -11,15 +11,19 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
 const (
-	rolesPath    = "/rbac/roles"
-	bindPath     = "/rbac/bind"
-	testRoleName = "test-role"
-	adminRole    = "admin"
+	rolesPath       = "/rbac/roles"
+	bindPath        = "/rbac/bindings"
+	testRoleName    = "test-role"
+	adminRole       = "admin"
+	permSuffix      = "/permissions"
+	permFullSuffix  = "/permissions/:permission"
+	rbacPathInvalid = "/invalid"
 )
 
 type mockRBACService struct {
@@ -204,7 +208,7 @@ func TestRBACHandlerAddPermission(t *testing.T) {
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.POST(rolesPath+"/:id/permissions", handler.AddPermission)
+	r.POST(rolesPath+"/:id"+permSuffix, handler.AddPermission)
 
 	roleID := uuid.New()
 
@@ -217,7 +221,7 @@ func TestRBACHandlerAddPermission(t *testing.T) {
 	svc.On("AddPermissionToRole", mock.Anything, roleID, domain.PermissionInstanceLaunch).Return(nil)
 
 	w := httptest.NewRecorder()
-	httpReq, err := http.NewRequest("POST", rolesPath+"/"+roleID.String()+"/permissions", bytes.NewBuffer(body))
+	httpReq, err := http.NewRequest("POST", rolesPath+"/"+roleID.String()+permSuffix, bytes.NewBuffer(body))
 	assert.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
@@ -279,7 +283,7 @@ func TestRBACHandlerRemovePermission(t *testing.T) {
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.DELETE(rolesPath+"/:id/permissions/:permission", handler.RemovePermission)
+	r.DELETE(rolesPath+"/:id"+permFullSuffix, handler.RemovePermission)
 
 	roleID := uuid.New()
 	perm := domain.PermissionInstanceRead
@@ -299,7 +303,7 @@ func TestRBACHandlerListRoleBindings(t *testing.T) {
 
 	r.GET(bindPath, handler.ListRoleBindings)
 
-	bindings := []*domain.User{} 
+	bindings := []*domain.User{}
 	svc.On("ListRoleBindings", mock.Anything).Return(bindings, nil)
 
 	w := httptest.NewRecorder()
@@ -307,4 +311,188 @@ func TestRBACHandlerListRoleBindings(t *testing.T) {
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+func TestRBACHandlerErrorPaths(t *testing.T) {
+	t.Run("CreateRoleInvalidJSON", func(t *testing.T) {
+		_, handler, r := setupRBACHandlerTest(t)
+		r.POST(rolesPath, handler.CreateRole)
+		req, _ := http.NewRequest("POST", rolesPath, bytes.NewBufferString("invalid"))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("CreateRoleServiceError", func(t *testing.T) {
+		svc, handler, r := setupRBACHandlerTest(t)
+		r.POST(rolesPath, handler.CreateRole)
+		svc.On("CreateRole", mock.Anything, mock.Anything).Return(errors.New(errors.Internal, "error"))
+		body, _ := json.Marshal(map[string]interface{}{"name": "n"})
+		req, _ := http.NewRequest("POST", rolesPath, bytes.NewBuffer(body))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("ListRolesServiceError", func(t *testing.T) {
+		svc, handler, r := setupRBACHandlerTest(t)
+		r.GET(rolesPath, handler.ListRoles)
+		svc.On("ListRoles", mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest("GET", rolesPath, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("GetRoleByIDError", func(t *testing.T) {
+		svc, handler, r := setupRBACHandlerTest(t)
+		r.GET(rolesPath+"/:id", handler.GetRole)
+		id := uuid.New()
+		svc.On("GetRoleByID", mock.Anything, id).Return(nil, errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest("GET", rolesPath+"/"+id.String(), nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("GetRoleByNameError", func(t *testing.T) {
+		svc, handler, r := setupRBACHandlerTest(t)
+		r.GET(rolesPath+"/:id", handler.GetRole)
+		svc.On("GetRoleByName", mock.Anything, "n").Return(nil, errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest("GET", rolesPath+"/n", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("UpdateRoleInvalidID", func(t *testing.T) {
+		_, handler, r := setupRBACHandlerTest(t)
+		r.PUT(rolesPath+"/:id", handler.UpdateRole)
+		req, _ := http.NewRequest("PUT", rolesPath+rbacPathInvalid, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("UpdateRoleInvalidJSON", func(t *testing.T) {
+		_, handler, r := setupRBACHandlerTest(t)
+		r.PUT(rolesPath+"/:id", handler.UpdateRole)
+		id := uuid.New()
+		req, _ := http.NewRequest("PUT", rolesPath+"/"+id.String(), bytes.NewBufferString("invalid"))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("UpdateRoleServiceError", func(t *testing.T) {
+		svc, handler, r := setupRBACHandlerTest(t)
+		r.PUT(rolesPath+"/:id", handler.UpdateRole)
+		id := uuid.New()
+		svc.On("UpdateRole", mock.Anything, mock.Anything).Return(errors.New(errors.Internal, "error"))
+		body, _ := json.Marshal(map[string]interface{}{"name": "n"})
+		req, _ := http.NewRequest("PUT", rolesPath+"/"+id.String(), bytes.NewBuffer(body))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("DeleteRoleInvalidID", func(t *testing.T) {
+		_, handler, r := setupRBACHandlerTest(t)
+		r.DELETE(rolesPath+"/:id", handler.DeleteRole)
+		req, _ := http.NewRequest("DELETE", rolesPath+rbacPathInvalid, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("DeleteRoleServiceError", func(t *testing.T) {
+		svc, handler, r := setupRBACHandlerTest(t)
+		r.DELETE(rolesPath+"/:id", handler.DeleteRole)
+		id := uuid.New()
+		svc.On("DeleteRole", mock.Anything, id).Return(errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest("DELETE", rolesPath+"/"+id.String(), nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("AddPermissionInvalidID", func(t *testing.T) {
+		_, handler, r := setupRBACHandlerTest(t)
+		r.POST(rolesPath+"/:id"+permSuffix, handler.AddPermission)
+		req, _ := http.NewRequest("POST", rolesPath+rbacPathInvalid+permSuffix, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("AddPermissionInvalidJSON", func(t *testing.T) {
+		_, handler, r := setupRBACHandlerTest(t)
+		r.POST(rolesPath+"/:id"+permSuffix, handler.AddPermission)
+		id := uuid.New()
+		req, _ := http.NewRequest("POST", rolesPath+"/"+id.String()+permSuffix, bytes.NewBufferString("invalid"))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("AddPermissionServiceError", func(t *testing.T) {
+		svc, handler, r := setupRBACHandlerTest(t)
+		r.POST(rolesPath+"/:id"+permSuffix, handler.AddPermission)
+		id := uuid.New()
+		svc.On("AddPermissionToRole", mock.Anything, id, mock.Anything).Return(errors.New(errors.Internal, "error"))
+		body, _ := json.Marshal(map[string]interface{}{"permission": "p"})
+		req, _ := http.NewRequest("POST", rolesPath+"/"+id.String()+permSuffix, bytes.NewBuffer(body))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("RemovePermissionInvalidID", func(t *testing.T) {
+		_, handler, r := setupRBACHandlerTest(t)
+		r.DELETE(rolesPath+"/:id"+permFullSuffix, handler.RemovePermission)
+		req, _ := http.NewRequest("DELETE", rolesPath+rbacPathInvalid+permSuffix+"/p", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("RemovePermissionServiceError", func(t *testing.T) {
+		svc, handler, r := setupRBACHandlerTest(t)
+		r.DELETE(rolesPath+"/:id"+permFullSuffix, handler.RemovePermission)
+		id := uuid.New()
+		svc.On("RemovePermissionFromRole", mock.Anything, id, mock.Anything).Return(errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest("DELETE", rolesPath+"/"+id.String()+permSuffix+"/p", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("BindRoleInvalidJSON", func(t *testing.T) {
+		_, handler, r := setupRBACHandlerTest(t)
+		r.POST(bindPath, handler.BindRole)
+		req, _ := http.NewRequest("POST", bindPath, bytes.NewBufferString("invalid"))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("BindRoleServiceError", func(t *testing.T) {
+		svc, handler, r := setupRBACHandlerTest(t)
+		r.POST(bindPath, handler.BindRole)
+		svc.On("BindRole", mock.Anything, mock.Anything, mock.Anything).Return(errors.New(errors.Internal, "error"))
+		body, _ := json.Marshal(map[string]interface{}{"user_identifier": "u", "role_name": "r"})
+		req, _ := http.NewRequest("POST", bindPath, bytes.NewBuffer(body))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("ListBindingsServiceError", func(t *testing.T) {
+		svc, handler, r := setupRBACHandlerTest(t)
+		r.GET(bindPath, handler.ListRoleBindings)
+		svc.On("ListRoleBindings", mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest("GET", bindPath, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
 }

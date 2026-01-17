@@ -1,38 +1,38 @@
-version: "2"
-
 run:
   timeout: 5m
 
+linters-settings:
+  errcheck:
+    exclude-functions:
+      - fmt.Fprintln
+      - fmt.Fprintf
+      - fmt.Printf
+      - fmt.Println
+      - (*github.com/olekukonko/tablewriter.Table).Append
+      - (*github.com/olekukonko/tablewriter.Table).Render
+      - (*text/tabwriter.Writer).Flush
+      - (net/http.ResponseWriter).Write
+      - (*github.com/spf13/cobra.Command).MarkFlagRequired
+  staticcheck:
+    checks: ["all", "-QF1008"]
+
 linters:
-  default: none
+  disable-all: true
   enable:
     - errcheck
     - govet
     - staticcheck
     - unused
     - ineffassign
-  settings:
-    errcheck:
-      exclude-functions:
-        - fmt.Fprintln
-        - fmt.Fprintf
-        - fmt.Printf
-        - fmt.Println
-        - (*github.com/olekukonko/tablewriter.Table).Append
-        - (*github.com/olekukonko/tablewriter.Table).Render
-        - (*text/tabwriter.Writer).Flush
-        - (net/http.ResponseWriter).Write
-        - (*github.com/spf13/cobra.Command).MarkFlagRequired
-    staticcheck:
-      checks: ["all", "-QF1008"]
-  exclusions:
-    rules:
-      - path: cmd/thecloud
-        linters:
-          - errcheck
-      - path: pkg/sdk
-        linters:
-          - errcheck
-      - path: internal/handlers/ws
-        linters:
-          - errcheck
+
+issues:
+  exclude-rules:
+    - path: cmd/thecloud
+      linters:
+        - errcheck
+    - path: pkg/sdk
+      linters:
+        - errcheck
+    - path: internal/handlers/ws
+      linters:
+        - errcheck

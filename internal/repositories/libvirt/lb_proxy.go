@@ -6,13 +6,17 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"text/template"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+)
+
+const (
+	nginxConfigFileName = "nginx.conf"
+	nginxPidFileName    = "nginx.pid"
 )
 
 // LBProxyAdapter manages host-level Nginx load balancer proxies.
@@ -38,15 +42,15 @@ func (a *LBProxyAdapter) DeployProxy(ctx context.Context, lb *domain.LoadBalance
 		return "", err
 	}
 
-	configPath := filepath.Join(configDir, "nginx.conf")
+	configPath := filepath.Join(configDir, nginxConfigFileName)
 	if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
 		return "", err
 	}
 
-	pidPath := filepath.Join(configDir, "nginx.pid")
+	pidPath := filepath.Join(configDir, nginxPidFileName)
 	// Start nginx
 	// nginx -c /path/to/conf -g "pid /path/to/pid; daemon on;"
-	cmd := exec.CommandContext(ctx, "nginx", "-c", configPath, "-g", fmt.Sprintf("pid %s; daemon on;", pidPath))
+	cmd := execCommandContext(ctx, "nginx", "-c", configPath, "-g", fmt.Sprintf("pid %s; daemon on;", pidPath))
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to start nginx: %w", err)
 	}
@@ -56,12 +60,12 @@ func (a *LBProxyAdapter) DeployProxy(ctx context.Context, lb *domain.LoadBalance
 
 func (a *LBProxyAdapter) RemoveProxy(ctx context.Context, lbID uuid.UUID) error {
 	configDir := filepath.Join("/tmp", "thecloud", "lb", lbID.String())
-	pidPath := filepath.Join(configDir, "nginx.pid")
+	pidPath := filepath.Join(configDir, nginxPidFileName)
 
 	if _, err := os.Stat(pidPath); err == nil {
 		// Stop nginx: nginx -s stop -c ...
-		configPath := filepath.Join(configDir, "nginx.conf")
-		cmd := exec.CommandContext(ctx, "nginx", "-c", configPath, "-g", fmt.Sprintf("pid %s;", pidPath), "-s", "stop")
+		configPath := filepath.Join(configDir, nginxConfigFileName)
+		cmd := execCommandContext(ctx, "nginx", "-c", configPath, "-g", fmt.Sprintf("pid %s;", pidPath), "-s", "stop")
 		_ = cmd.Run()
 	}
 
@@ -76,14 +80,14 @@ func (a *LBProxyAdapter) UpdateProxyConfig(ctx context.Context, lb *domain.LoadB
 	}
 
 	configDir := filepath.Join("/tmp", "thecloud", "lb", lb.ID.String())
-	configPath := filepath.Join(configDir, "nginx.conf")
+	configPath := filepath.Join(configDir, nginxConfigFileName)
 	if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
 		return err
 	}
 
-	pidPath := filepath.Join(configDir, "nginx.pid")
+	pidPath := filepath.Join(configDir, nginxPidFileName)
 	// Reload nginx
-	cmd := exec.CommandContext(ctx, "nginx", "-c", configPath, "-g", fmt.Sprintf("pid %s;", pidPath), "-s", "reload")
+	cmd := execCommandContext(ctx, "nginx", "-c", configPath, "-g", fmt.Sprintf("pid %s;", pidPath), "-s", "reload")
 	return cmd.Run()
 }
 

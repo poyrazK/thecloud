@@ -62,7 +62,7 @@ func setupAPIServer(t *testing.T) *httptest.Server {
 	}))
 }
 
-func handleSecurityGroupsMock(w http.ResponseWriter, r *http.Request, method, path string) bool {
+func handleSecurityGroupsMock(w http.ResponseWriter, _ *http.Request, method, path string) bool {
 	switch {
 	case method == http.MethodGet && path == "/security-groups":
 		resp := sdk.Response[[]sdk.SecurityGroup]{
@@ -100,7 +100,7 @@ func handleSecurityGroupsMock(w http.ResponseWriter, r *http.Request, method, pa
 	return false
 }
 
-func handleVPCsMock(w http.ResponseWriter, r *http.Request, method, path string) bool {
+func handleVPCsMock(w http.ResponseWriter, _ *http.Request, method, path string) bool {
 	switch {
 	case method == http.MethodGet && path == "/vpcs":
 		resp := sdk.Response[[]sdk.VPC]{
@@ -133,7 +133,7 @@ func handleVPCsMock(w http.ResponseWriter, r *http.Request, method, path string)
 	return false
 }
 
-func handleVolumesMock(w http.ResponseWriter, r *http.Request, method, path string) bool {
+func handleVolumesMock(w http.ResponseWriter, _ *http.Request, method, path string) bool {
 	switch {
 	case method == http.MethodGet && path == "/volumes":
 		resp := sdk.Response[[]sdk.Volume]{
@@ -153,7 +153,7 @@ func handleVolumesMock(w http.ResponseWriter, r *http.Request, method, path stri
 	return false
 }
 
-func handleCachesMock(w http.ResponseWriter, r *http.Request, method, path string) bool {
+func handleCachesMock(w http.ResponseWriter, _ *http.Request, method, path string) bool {
 	vpcID := testVPCID
 	cacheID := testCacheID // Assuming testCacheID is now a local var or defined elsewhere
 	switch {
@@ -195,7 +195,7 @@ func handleCachesMock(w http.ResponseWriter, r *http.Request, method, path strin
 	return false
 }
 
-func handleQueuesMock(w http.ResponseWriter, r *http.Request, method, path string) bool {
+func handleQueuesMock(w http.ResponseWriter, _ *http.Request, method, path string) bool {
 	switch {
 	case method == http.MethodPost && path == "/queues":
 		resp := sdk.Response[sdk.Queue]{
@@ -230,7 +230,7 @@ func handleQueuesMock(w http.ResponseWriter, r *http.Request, method, path strin
 	return false
 }
 
-func handleNotifyMock(w http.ResponseWriter, r *http.Request, method, path string) bool {
+func handleNotifyMock(w http.ResponseWriter, _ *http.Request, method, path string) bool {
 	switch {
 	case method == http.MethodPost && path == "/notify/topics":
 		resp := sdk.Response[sdk.Topic]{
@@ -256,7 +256,7 @@ func handleNotifyMock(w http.ResponseWriter, r *http.Request, method, path strin
 	return false
 }
 
-func handleRBACMock(w http.ResponseWriter, r *http.Request, method, path string) bool {
+func handleRBACMock(w http.ResponseWriter, _ *http.Request, method, path string) bool {
 	switch {
 	case method == http.MethodGet && path == "/rbac/roles":
 		resp := sdk.Response[[]domain.Role]{
@@ -286,7 +286,7 @@ func handleRBACMock(w http.ResponseWriter, r *http.Request, method, path string)
 	return false
 }
 
-func handleDatabasesMock(w http.ResponseWriter, r *http.Request, method, path string) bool {
+func handleDatabasesMock(w http.ResponseWriter, _ *http.Request, method, path string) bool {
 	switch {
 	case method == http.MethodGet && path == "/databases":
 		resp := sdk.Response[[]sdk.Database]{
@@ -316,7 +316,7 @@ func handleDatabasesMock(w http.ResponseWriter, r *http.Request, method, path st
 	return false
 }
 
-func handleSecretsMock(w http.ResponseWriter, r *http.Request, method, path string) bool {
+func handleSecretsMock(w http.ResponseWriter, _ *http.Request, method, path string) bool {
 	switch {
 	case method == http.MethodGet && path == "/secrets":
 		resp := sdk.Response[[]sdk.Secret]{

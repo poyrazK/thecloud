@@ -7,18 +7,31 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
+	"net/url"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
+type closeNotifierRecorder struct {
+	*httptest.ResponseRecorder
+}
+
+func (c *closeNotifierRecorder) CloseNotify() <-chan bool {
+	return make(chan bool)
+}
+
 const (
 	routesPath    = "/gateway/routes"
 	testRouteName = "route-1"
+	gwProxyPath   = "/gw/*proxy"
+	gwAPITestPath = "/gw/api"
+	gwPathInvalid   = "/invalid"
 )
 
 type mockGatewayService struct {
@@ -104,7 +117,6 @@ func TestGatewayHandlerListRoutes(t *testing.T) {
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
@@ -121,7 +133,6 @@ func TestGatewayHandlerDeleteRoute(t *testing.T) {
 	assert.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
@@ -129,7 +140,7 @@ func TestGatewayHandlerProxyNotFound(t *testing.T) {
 	svc, handler, r := setupGatewayHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.Any("/gw/*proxy", handler.Proxy)
+	r.Any(gwProxyPath, handler.Proxy)
 
 	svc.On("GetProxy", "/unknown").Return(nil, false)
 
@@ -139,4 +150,164 @@ func TestGatewayHandlerProxyNotFound(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestGatewayHandlerProxySuccess(t *testing.T) {
+	svc, handler, r := setupGatewayHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.Any(gwProxyPath, handler.Proxy)
+
+	// Mock ReverseProxy
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("proxied"))
+	}))
+	defer ts.Close()
+	targetURL, _ := url.Parse(ts.URL)
+
+	// Use real proxy targeting test server
+	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+	// NewSingleHostReverseProxy doesn't set a Director that strips the prefix /gw by default if we just proxy.
+	// But GatewayHandler typically strips prefix before calling proxy or expects proxy to handle it.
+	// Gateway Handler implementation: c.Request.URL.Path = c.Param("proxy")? or just calls ServeHTTP.
+	// If GatewayHandler calls `proxy.ServeHTTP(w, c.Request)`, the request path "/gw/api" is sent to target.
+	// Test server expects any path.
+	svc.On("GetProxy", "/api").Return(proxy, true)
+
+	req, err := http.NewRequest(http.MethodGet, gwAPITestPath, nil)
+	assert.NoError(t, err)
+	w := &closeNotifierRecorder{httptest.NewRecorder()}
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestGatewayHandlerProxyWithoutSlash(t *testing.T) {
+	svc, handler, r := setupGatewayHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.Any(gwProxyPath, handler.Proxy)
+
+	// Mock ReverseProxy
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+	targetURL, _ := url.Parse(ts.URL)
+
+	svc.On("GetProxy", "/api").Return(httputil.NewSingleHostReverseProxy(targetURL), true)
+
+	req, err := http.NewRequest(http.MethodGet, gwAPITestPath, nil)
+	assert.NoError(t, err)
+	w := &closeNotifierRecorder{httptest.NewRecorder()}
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestGatewayHandlerProxyWithSlash(t *testing.T) {
+	svc, handler, r := setupGatewayHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.Any(gwProxyPath, handler.Proxy)
+
+	// Mock ReverseProxy
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+	targetURL, _ := url.Parse(ts.URL)
+
+	svc.On("GetProxy", "//api").Return(httputil.NewSingleHostReverseProxy(targetURL), true)
+
+	req, err := http.NewRequest(http.MethodGet, "/gw//api", nil)
+	assert.NoError(t, err)
+	w := &closeNotifierRecorder{httptest.NewRecorder()}
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestGatewayHandlerCreateError(t *testing.T) {
+	t.Run("InvalidJSON", func(t *testing.T) {
+		_, handler, r := setupGatewayHandlerTest(t)
+		r.POST(routesPath, handler.CreateRoute)
+		req, _ := http.NewRequest("POST", routesPath, bytes.NewBufferString("invalid"))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("ServiceError", func(t *testing.T) {
+		svc, handler, r := setupGatewayHandlerTest(t)
+		r.POST(routesPath, handler.CreateRoute)
+		svc.On("CreateRoute", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			Return(nil, errors.New(errors.Internal, "error"))
+		body, _ := json.Marshal(map[string]interface{}{"name": "n", "path_prefix": "/p", "target_url": "u"})
+		req, _ := http.NewRequest("POST", routesPath, bytes.NewBuffer(body))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		svc.AssertExpectations(t)
+	})
+}
+
+func TestGatewayHandlerListError(t *testing.T) {
+	svc, handler, r := setupGatewayHandlerTest(t)
+	r.GET(routesPath, handler.ListRoutes)
+	svc.On("ListRoutes", mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
+	req, _ := http.NewRequest(http.MethodGet, routesPath, nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	svc.AssertExpectations(t)
+}
+
+func TestGatewayHandlerProxyParamWithoutSlash(t *testing.T) {
+	mockSvc := new(mockGatewayService)
+	handler := NewGatewayHandler(mockSvc)
+	gin.SetMode(gin.TestMode)
+
+	// Manually create context to pass parameter without slash
+	w := &closeNotifierRecorder{httptest.NewRecorder()}
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{{Key: "proxy", Value: "api"}}
+	c.Request = httptest.NewRequest("GET", gwAPITestPath, nil)
+
+	// Mock ReverseProxy
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+	targetURL, _ := url.Parse(ts.URL)
+
+	// Expect GetProxy to be called with "/api" (slash added)
+	mockSvc.On("GetProxy", "/api").Return(httputil.NewSingleHostReverseProxy(targetURL), true)
+
+	handler.Proxy(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	mockSvc.AssertExpectations(t)
+}
+
+func TestGatewayHandlerDeleteError(t *testing.T) {
+	t.Run("InvalidID", func(t *testing.T) {
+		_, handler, r := setupGatewayHandlerTest(t)
+		r.DELETE(routesPath+"/:id", handler.DeleteRoute)
+		req, _ := http.NewRequest(http.MethodDelete, routesPath+gwPathInvalid, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("ServiceError", func(t *testing.T) {
+		svc, handler, r := setupGatewayHandlerTest(t)
+		r.DELETE(routesPath+"/:id", handler.DeleteRoute)
+		id := uuid.New()
+		svc.On("DeleteRoute", mock.Anything, id).Return(errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest(http.MethodDelete, routesPath+"/"+id.String(), nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		svc.AssertExpectations(t)
+	})
 }
