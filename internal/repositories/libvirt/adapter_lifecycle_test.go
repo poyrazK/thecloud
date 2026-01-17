@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -211,6 +212,59 @@ func TestGetInstanceStatsSuccess(t *testing.T) {
 	rc, err := a.GetInstanceStats(ctx, testInstanceName)
 	assert.NoError(t, err)
 	assert.NotNil(t, rc)
-	_ = rc.Close()
+	rc.Close()
+	m.AssertExpectations(t)
+}
+
+func TestCreateInstanceSuccess(t *testing.T) {
+	m := new(MockLibvirtClient)
+	a := newTestAdapter(m)
+	ctx := context.Background()
+
+	pool := libvirt.StoragePool{Name: "default"}
+	vol := libvirt.StorageVol{Name: testInstanceName + "-root"}
+	dom := libvirt.Domain{Name: testInstanceName}
+
+	m.On("StoragePoolLookupByName", mock.Anything, "default").Return(pool, nil)
+	m.On("StorageVolCreateXML", mock.Anything, pool, mock.Anything, uint32(0)).Return(vol, nil)
+	m.On("StorageVolGetPath", mock.Anything, vol).Return("/path/to/disk", nil)
+	m.On("DomainDefineXML", mock.Anything, mock.Anything).Return(dom, nil)
+	m.On("DomainCreate", mock.Anything, dom).Return(nil)
+
+	opts := ports.CreateInstanceOptions{
+		Name:      testInstanceName,
+		ImageName: "ubuntu",
+	}
+
+	id, err := a.CreateInstance(ctx, opts)
+	assert.NoError(t, err)
+	assert.Equal(t, testInstanceName, id)
+	m.AssertExpectations(t)
+}
+
+func TestRunTaskSuccess(t *testing.T) {
+	m := new(MockLibvirtClient)
+	a := newTestAdapter(m)
+	ctx := context.Background()
+
+	pool := libvirt.StoragePool{Name: "default"}
+	vol := libvirt.StorageVol{Name: "task-root"}
+	dom := libvirt.Domain{Name: "task-instance"}
+
+	m.On("StoragePoolLookupByName", mock.Anything, "default").Return(pool, nil)
+	m.On("StorageVolCreateXML", mock.Anything, pool, mock.Anything, uint32(0)).Return(vol, nil)
+	m.On("StorageVolGetPath", mock.Anything, vol).Return("/path/to/task-disk", nil)
+	m.On("DomainDefineXML", mock.Anything, mock.Anything).Return(dom, nil)
+	m.On("DomainCreate", mock.Anything, dom).Return(nil)
+
+	opts := ports.RunTaskOptions{
+		Image:    "ubuntu",
+		Command:  []string{"echo", "hello"},
+		MemoryMB: 512,
+	}
+
+	id, err := a.RunTask(ctx, opts)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, id)
 	m.AssertExpectations(t)
 }
