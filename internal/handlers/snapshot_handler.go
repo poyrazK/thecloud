@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
@@ -19,6 +20,10 @@ type SnapshotHandler struct {
 func NewSnapshotHandler(svc ports.SnapshotService) *SnapshotHandler {
 	return &SnapshotHandler{svc: svc}
 }
+
+const (
+	errInvalidSnapshotID = "invalid snapshot id"
+)
 
 // CreateSnapshotRequest is the payload for creating a snapshot.
 type CreateSnapshotRequest struct {
@@ -46,7 +51,7 @@ type RestoreSnapshotRequest struct {
 func (h *SnapshotHandler) Create(c *gin.Context) {
 	var req CreateSnapshotRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid request body"))
 		return
 	}
 
@@ -93,7 +98,7 @@ func (h *SnapshotHandler) Get(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidSnapshotID))
 		return
 	}
 
@@ -121,7 +126,7 @@ func (h *SnapshotHandler) Delete(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidSnapshotID))
 		return
 	}
 
@@ -150,13 +155,13 @@ func (h *SnapshotHandler) Restore(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidSnapshotID))
 		return
 	}
 
 	var req RestoreSnapshotRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid request body"))
 		return
 	}
 

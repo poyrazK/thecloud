@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -56,7 +57,18 @@ func (m *mockSnapshotService) RestoreSnapshot(ctx context.Context, id uuid.UUID,
 	return args.Get(0).(*domain.Volume), args.Error(1)
 }
 
-func TestSnapshotHandler_Create(t *testing.T) {
+const (
+	testSSnap             = "test snapshot"
+	testSpath             = "/snapshots"
+	testSpathID           = "/snapshots/"
+	testSRestore          = "/restore"
+	testVolRest           = "restored-volume"
+	snapPathInvalid       = "invalid"
+	snapHeaderContentType = "Content-Type"
+	snapAppJSON           = "application/json"
+)
+
+func TestSnapshotHandlerCreate(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSnapshotService)
 	handler := NewSnapshotHandler(svc)
@@ -64,18 +76,18 @@ func TestSnapshotHandler_Create(t *testing.T) {
 	volumeID := uuid.New()
 	snapshot := &domain.Snapshot{ID: uuid.New(), VolumeID: volumeID, Description: "test snapshot"}
 
-	svc.On("CreateSnapshot", mock.Anything, volumeID, "test snapshot").Return(snapshot, nil)
+	svc.On("CreateSnapshot", mock.Anything, volumeID, testSSnap).Return(snapshot, nil)
 
 	reqBody := CreateSnapshotRequest{
 		VolumeID:    volumeID,
-		Description: "test snapshot",
+		Description: testSSnap,
 	}
 	body, _ := json.Marshal(reqBody)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("POST", "/snapshots", bytes.NewBuffer(body))
-	c.Request.Header.Set("Content-Type", "application/json")
+	c.Request = httptest.NewRequest("POST", testSpath, bytes.NewBuffer(body))
+	c.Request.Header.Set(snapHeaderContentType, snapAppJSON)
 
 	handler.Create(c)
 
@@ -83,7 +95,7 @@ func TestSnapshotHandler_Create(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestSnapshotHandler_List(t *testing.T) {
+func TestSnapshotHandlerList(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSnapshotService)
 	handler := NewSnapshotHandler(svc)
@@ -97,7 +109,7 @@ func TestSnapshotHandler_List(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/snapshots", nil)
+	c.Request = httptest.NewRequest("GET", testSpath, nil)
 
 	handler.List(c)
 
@@ -105,7 +117,7 @@ func TestSnapshotHandler_List(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestSnapshotHandler_Get(t *testing.T) {
+func TestSnapshotHandlerGet(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSnapshotService)
 	handler := NewSnapshotHandler(svc)
@@ -117,7 +129,7 @@ func TestSnapshotHandler_Get(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/snapshots/"+id.String(), nil)
+	c.Request = httptest.NewRequest("GET", testSpathID+id.String(), nil)
 	c.Params = gin.Params{{Key: "id", Value: id.String()}}
 
 	handler.Get(c)
@@ -126,7 +138,7 @@ func TestSnapshotHandler_Get(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestSnapshotHandler_Delete(t *testing.T) {
+func TestSnapshotHandlerDelete(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSnapshotService)
 	handler := NewSnapshotHandler(svc)
@@ -137,7 +149,7 @@ func TestSnapshotHandler_Delete(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("DELETE", "/snapshots/"+id.String(), nil)
+	c.Request = httptest.NewRequest("DELETE", testSpathID+id.String(), nil)
 	c.Params = gin.Params{{Key: "id", Value: id.String()}}
 
 	handler.Delete(c)
@@ -146,29 +158,139 @@ func TestSnapshotHandler_Delete(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestSnapshotHandler_Restore(t *testing.T) {
+func TestSnapshotHandlerRestore(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSnapshotService)
 	handler := NewSnapshotHandler(svc)
 
 	id := uuid.New()
-	vol := &domain.Volume{ID: uuid.New(), Name: "restored-volume"}
+	vol := &domain.Volume{ID: uuid.New(), Name: testVolRest}
 
-	svc.On("RestoreSnapshot", mock.Anything, id, "restored-volume").Return(vol, nil)
+	svc.On("RestoreSnapshot", mock.Anything, id, testVolRest).Return(vol, nil)
 
 	reqBody := RestoreSnapshotRequest{
-		NewVolumeName: "restored-volume",
+		NewVolumeName: testVolRest,
 	}
 	body, _ := json.Marshal(reqBody)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("POST", "/snapshots/"+id.String()+"/restore", bytes.NewBuffer(body))
-	c.Request.Header.Set("Content-Type", "application/json")
+	c.Request = httptest.NewRequest("POST", testSpathID+id.String()+testSRestore, bytes.NewBuffer(body))
+	c.Request.Header.Set(snapHeaderContentType, snapAppJSON)
 	c.Params = gin.Params{{Key: "id", Value: id.String()}}
 
 	handler.Restore(c)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 	svc.AssertExpectations(t)
+}
+
+func TestSnapshotHandlerErrorPaths(t *testing.T) {
+	setup := func(_ *testing.T) (*mockSnapshotService, *SnapshotHandler, *gin.Engine) {
+		svc := new(mockSnapshotService)
+		handler := NewSnapshotHandler(svc)
+		r := gin.New()
+		return svc, handler, r
+	}
+
+	t.Run("CreateInvalidJSON", func(t *testing.T) {
+		_, handler, r := setup(t)
+		r.POST(testSpath, handler.Create)
+		req, _ := http.NewRequest("POST", testSpath, bytes.NewBufferString("invalid"))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("CreateServiceError", func(t *testing.T) {
+		svc, handler, r := setup(t)
+		r.POST(testSpath, handler.Create)
+		svc.On("CreateSnapshot", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
+		body, _ := json.Marshal(map[string]interface{}{"volume_id": uuid.New(), "description": "d"})
+		req, _ := http.NewRequest("POST", testSpath, bytes.NewBuffer(body))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("ListServiceError", func(t *testing.T) {
+		svc, handler, r := setup(t)
+		r.GET(testSpath, handler.List)
+		svc.On("ListSnapshots", mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest("GET", testSpath, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("GetInvalidID", func(t *testing.T) {
+		_, handler, r := setup(t)
+		r.GET(testSpath+"/:id", handler.Get)
+		req, _ := http.NewRequest("GET", testSpath+"/"+snapPathInvalid, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("GetServiceError", func(t *testing.T) {
+		svc, handler, r := setup(t)
+		r.GET(testSpath+"/:id", handler.Get)
+		id := uuid.New()
+		svc.On("GetSnapshot", mock.Anything, id).Return(nil, errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest("GET", testSpath+"/"+id.String(), nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("DeleteInvalidID", func(t *testing.T) {
+		_, handler, r := setup(t)
+		r.DELETE(testSpath+"/:id", handler.Delete)
+		req, _ := http.NewRequest("DELETE", testSpath+"/"+snapPathInvalid, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("DeleteServiceError", func(t *testing.T) {
+		svc, handler, r := setup(t)
+		r.DELETE(testSpath+"/:id", handler.Delete)
+		id := uuid.New()
+		svc.On("DeleteSnapshot", mock.Anything, id).Return(errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest("DELETE", testSpath+"/"+id.String(), nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("RestoreInvalidID", func(t *testing.T) {
+		_, handler, r := setup(t)
+		r.POST(testSpathID+":id"+testSRestore, handler.Restore)
+		req, _ := http.NewRequest("POST", testSpath+"/"+snapPathInvalid+"/restore", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("RestoreInvalidJSON", func(t *testing.T) {
+		_, handler, r := setup(t)
+		r.POST(testSpathID+":id"+testSRestore, handler.Restore)
+		id := uuid.New()
+		req, _ := http.NewRequest("POST", testSpath+"/"+id.String()+testSRestore, bytes.NewBufferString("invalid"))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("RestoreServiceError", func(t *testing.T) {
+		svc, handler, r := setup(t)
+		r.POST(testSpathID+":id"+testSRestore, handler.Restore)
+		id := uuid.New()
+		svc.On("RestoreSnapshot", mock.Anything, id, mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
+		body, _ := json.Marshal(map[string]interface{}{"new_volume_name": "vol"})
+		req, _ := http.NewRequest("POST", testSpath+"/"+id.String()+testSRestore, bytes.NewBuffer(body))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
 }
