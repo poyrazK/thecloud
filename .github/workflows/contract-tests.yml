@@ -11,10 +11,10 @@ jobs:
     name: OpenAPI Validation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: '1.24'
 
@@ -28,7 +28,7 @@ jobs:
           done
 
       - name: Run Schemathesis
-        uses: schemathesis/action@v1
+        uses: schemathesis/action@v2
         with:
           schema: './docs/swagger/swagger.json'
           base-url: 'http://localhost:8080'
