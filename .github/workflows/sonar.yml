@@ -24,7 +24,7 @@ jobs:
         run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
         
       - name: SonarCloud Scan
-        uses: sonarsource/sonarqube-scan-action@v7
+        uses: sonarsource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
