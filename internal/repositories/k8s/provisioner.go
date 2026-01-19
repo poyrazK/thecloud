@@ -265,7 +265,7 @@ func (p *KubeadmProvisioner) Deprovision(ctx context.Context, cluster *domain.Cl
 
 func (p *KubeadmProvisioner) failCluster(ctx context.Context, cluster *domain.Cluster, msg string, err error) error {
 	cluster.Status = domain.ClusterStatusFailed
-	p.repo.Update(ctx, cluster)
+	_ = p.repo.Update(ctx, cluster)
 	p.logger.Error(msg, "cluster_id", cluster.ID, "error", err)
 	return fmt.Errorf("%s: %w", msg, err)
 }
