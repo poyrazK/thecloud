@@ -23,11 +23,11 @@ func NewLBRepository(db DB) *LBRepository {
 
 func (r *LBRepository) Create(ctx context.Context, lb *domain.LoadBalancer) error {
 	query := `
-		INSERT INTO load_balancers (id, user_id, idempotency_key, name, vpc_id, port, algorithm, status, version, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO load_balancers (id, user_id, idempotency_key, name, vpc_id, port, algorithm, ip, status, version, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 	_, err := r.db.Exec(ctx, query,
-		lb.ID, lb.UserID, lb.IdempotencyKey, lb.Name, lb.VpcID, lb.Port, lb.Algorithm, lb.Status, lb.Version, lb.CreatedAt,
+		lb.ID, lb.UserID, lb.IdempotencyKey, lb.Name, lb.VpcID, lb.Port, lb.Algorithm, lb.IP, lb.Status, lb.Version, lb.CreatedAt,
 	)
 	if err != nil {
 		// Check for unique constraint violation on idempotency_key
@@ -39,7 +39,7 @@ func (r *LBRepository) Create(ctx context.Context, lb *domain.LoadBalancer) erro
 func (r *LBRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.LoadBalancer, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, COALESCE(idempotency_key, ''), name, vpc_id, port, algorithm, status, version, created_at
+		SELECT id, user_id, COALESCE(idempotency_key, ''), name, vpc_id, port, algorithm, COALESCE(ip, ''), status, version, created_at
 		FROM load_balancers
 		WHERE id = $1 AND user_id = $2
 	`
@@ -52,7 +52,7 @@ func (r *LBRepository) GetByIdempotencyKey(ctx context.Context, key string) (*do
 	}
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, idempotency_key, name, vpc_id, port, algorithm, status, version, created_at
+		SELECT id, user_id, idempotency_key, name, vpc_id, port, algorithm, COALESCE(ip, ''), status, version, created_at
 		FROM load_balancers
 		WHERE idempotency_key = $1 AND user_id = $2
 	`
@@ -62,7 +62,7 @@ func (r *LBRepository) GetByIdempotencyKey(ctx context.Context, key string) (*do
 func (r *LBRepository) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, COALESCE(idempotency_key, ''), name, vpc_id, port, algorithm, status, version, created_at
+		SELECT id, user_id, COALESCE(idempotency_key, ''), name, vpc_id, port, algorithm, COALESCE(ip, ''), status, version, created_at
 		FROM load_balancers
 		WHERE user_id = $1
 		ORDER BY created_at DESC
@@ -76,7 +76,7 @@ func (r *LBRepository) List(ctx context.Context) ([]*domain.LoadBalancer, error)
 
 func (r *LBRepository) ListAll(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	query := `
-		SELECT id, user_id, COALESCE(idempotency_key, ''), name, vpc_id, port, algorithm, status, version, created_at
+		SELECT id, user_id, COALESCE(idempotency_key, ''), name, vpc_id, port, algorithm, COALESCE(ip, ''), status, version, created_at
 		FROM load_balancers
 		ORDER BY created_at DESC
 	`
@@ -91,7 +91,7 @@ func (r *LBRepository) scanLB(row pgx.Row) (*domain.LoadBalancer, error) {
 	var lb domain.LoadBalancer
 	var status string
 	err := row.Scan(
-		&lb.ID, &lb.UserID, &lb.IdempotencyKey, &lb.Name, &lb.VpcID, &lb.Port, &lb.Algorithm, &status, &lb.Version, &lb.CreatedAt,
+		&lb.ID, &lb.UserID, &lb.IdempotencyKey, &lb.Name, &lb.VpcID, &lb.Port, &lb.Algorithm, &lb.IP, &status, &lb.Version, &lb.CreatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -119,10 +119,10 @@ func (r *LBRepository) scanLBs(rows pgx.Rows) ([]*domain.LoadBalancer, error) {
 func (r *LBRepository) Update(ctx context.Context, lb *domain.LoadBalancer) error {
 	query := `
 		UPDATE load_balancers
-		SET name = $1, port = $2, algorithm = $3, status = $4, version = version + 1
-		WHERE id = $5 AND version = $6 AND user_id = $7
+		SET name = $1, port = $2, algorithm = $3, ip = $4, status = $5, version = version + 1
+		WHERE id = $6 AND version = $7 AND user_id = $8
 	`
-	cmd, err := r.db.Exec(ctx, query, lb.Name, lb.Port, lb.Algorithm, lb.Status, lb.ID, lb.Version, lb.UserID)
+	cmd, err := r.db.Exec(ctx, query, lb.Name, lb.Port, lb.Algorithm, lb.IP, lb.Status, lb.ID, lb.Version, lb.UserID)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to update load balancer", err)
 	}
