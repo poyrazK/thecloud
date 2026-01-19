@@ -16,6 +16,7 @@ An open-source cloud platform that anyone can run, modify, and own.
 - **Auto-Scaling**: Dynamic scaling of compute resources based on metrics
 - **Managed Databases (RDS)**: Launch PostgreSQL/MySQL instances with a single command ([Guide](docs/guides/rds.md))
 - **Managed Caches (Redis)**: Launch and manage Redis instances ([Guide](docs/guides/cache.md))
+- **Managed Kubernetes (KaaS)**: Provision production-ready HA clusters with automated LB setup ([Guide](docs/api-reference.md#managed-kubernetes-kaas))
 - **Cloud Functions (Serverless)**: Run logic without managing servers ([Guide](docs/guides/functions.md))
 - **Secrets Manager**: Encrypted storage for API keys and sensitive config ([Guide](docs/guides/secrets.md))
 - **CloudQueue**: Distributed message queuing with visibility timeouts ([Guide](docs/services/cloud-queue.md))
@@ -108,6 +109,8 @@ npm run dev
 ### Code Quality & Features
 - **Simplified Architecture**: Refactored `InstanceService` using parameter structs and helper methods.
 - **Enhanced Storage**: Added support for **LVM Block Storage** and **VNC Console** access.
+- **Asynchronous Core**: Refactored long-running operations (K8s clusters, instance deletions) to use a durable **Redis Task Queue**.
+- **HA Control Plane**: Supported 1-click **High-Availability** Kubernetes clusters with 3 control plane nodes and automated API Server Load Balancers.
 - **Clean Code**: Eliminated duplicate literals and improved test security.
 
 ### AI & Automation
