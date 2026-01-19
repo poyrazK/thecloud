@@ -36,4 +36,9 @@ type SecretService interface {
 	ListSecrets(ctx context.Context) ([]*domain.Secret, error)
 	// DeleteSecret decommissioning a sensitive configuration value.
 	DeleteSecret(ctx context.Context, id uuid.UUID) error
+
+	// Encrypt encrypts plain text using the user's derived key.
+	Encrypt(ctx context.Context, userID uuid.UUID, plainText string) (string, error)
+	// Decrypt decrypts cipher text using the user's derived key.
+	Decrypt(ctx context.Context, userID uuid.UUID, cipherText string) (string, error)
 }
