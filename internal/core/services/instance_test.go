@@ -323,7 +323,7 @@ func TestProvisionSuccess(t *testing.T) {
 	compute.On("CreateInstance", mock.Anything, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
 		return opts.ImageName == image &&
 			len(opts.Ports) == 1 && opts.Ports[0] == testPorts &&
-			opts.NetworkID == testVPCNetwork
+			opts.NetworkID == "cloud-network"
 	})).Return("c-123", nil)
 	compute.On("Type").Return("docker")
 
@@ -526,6 +526,7 @@ func TestProvisionWithVolumesSuccess(t *testing.T) {
 
 	compute.On("CreateInstance", mock.Anything, mock.Anything).Return("c-456", nil)
 	compute.On("Type").Return("docker")
+	compute.On("GetInstanceIP", mock.Anything, "c-456").Return("172.17.0.2", nil)
 
 	repo.On("Update", mock.Anything, mock.Anything).Return(nil)
 	volumeRepo.On("Update", mock.Anything, mock.MatchedBy(func(v *domain.Volume) bool {
