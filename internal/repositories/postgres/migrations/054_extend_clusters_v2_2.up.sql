@@ -1,0 +1,7 @@
+ALTER TABLE clusters 
+ADD COLUMN ha_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+ADD COLUMN api_server_lb_address TEXT,
+ADD COLUMN job_id TEXT;
+
+ALTER TABLE load_balancers
+ADD COLUMN ip TEXT;
