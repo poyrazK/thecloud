@@ -36,6 +36,7 @@ const (
 	pathMessages  = "/messages"
 	pathPurge     = "/purge"
 	pathRules     = "/rules"
+	pathClusters  = "/clusters/"
 )
 
 func setupAPIServer(t *testing.T) *httptest.Server {
@@ -54,7 +55,10 @@ func setupAPIServer(t *testing.T) *httptest.Server {
 			handleNotifyMock(w, r, method, path) ||
 			handleRBACMock(w, r, method, path) ||
 			handleDatabasesMock(w, r, method, path) ||
-			handleSecretsMock(w, r, method, path)
+			handleRBACMock(w, r, method, path) ||
+			handleDatabasesMock(w, r, method, path) ||
+			handleSecretsMock(w, r, method, path) ||
+			handleKubernetesMock(w, r, method, path)
 
 		if !handled {
 			w.WriteHeader(http.StatusNotFound)
@@ -96,6 +100,38 @@ func handleSecurityGroupsMock(w http.ResponseWriter, _ *http.Request, method, pa
 		(method == http.MethodPost && path == "/security-groups/detach"):
 		w.WriteHeader(http.StatusOK)
 		return true
+	}
+	return false
+}
+
+func handleKubernetesMock(w http.ResponseWriter, _ *http.Request, method, path string) bool {
+	clusterID := uuid.New()
+	vpcID := uuid.MustParse(testVPCID) // Assuming testVPCID is valid UUID or we generate one
+	if testVPCID == "vpc-1" {
+		vpcID = uuid.New()
+	}
+
+	switch {
+	case method == http.MethodGet && path == "/clusters":
+		resp := sdk.Response[[]sdk.Cluster]{
+			Data: []sdk.Cluster{{ID: clusterID, Name: "prod", VpcID: vpcID, Status: "running", WorkerCount: 3}},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+		return true
+	case method == http.MethodPost && path == "/clusters":
+		resp := sdk.Response[sdk.Cluster]{
+			Data: sdk.Cluster{ID: clusterID, Name: "prod", VpcID: vpcID, Status: "provisioning", WorkerCount: 3},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+		return true
+	case method == http.MethodGet && strings.Contains(path, "/kubeconfig"):
+		resp := sdk.Response[map[string]string]{
+			Data: map[string]string{"kubeconfig": "apiVersion: v1..."},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+		return true
+	case method == http.MethodDelete && strings.HasPrefix(path, pathClusters):
+		return respondNoContent(w)
 	}
 	return false
 }
