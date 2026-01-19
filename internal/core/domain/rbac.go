@@ -111,6 +111,7 @@ const (
 	PermissionClusterCreate Permission = "cluster:create"
 	PermissionClusterDelete Permission = "cluster:delete"
 	PermissionClusterRead   Permission = "cluster:read"
+	PermissionClusterUpdate Permission = "cluster:update"
 
 	// System Permissions
 	PermissionFullAccess Permission = "*"
