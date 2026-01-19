@@ -159,7 +159,7 @@ func TestAutoScalingWorkerEvaluatePolicyTrigger(t *testing.T) {
 	worker.Evaluate(ctx)
 }
 
-func TestAutoScalingWorker_Run_ContextCancellation(t *testing.T) {
+func TestAutoScalingWorkerRunContextCancellation(t *testing.T) {
 	mockRepo, _, _, _, _, worker := setupAutoScalingWorkerTest(t)
 	defer mockRepo.AssertExpectations(t)
 
@@ -187,7 +187,7 @@ func TestAutoScalingWorker_Run_ContextCancellation(t *testing.T) {
 	// If we get here, the worker stopped gracefully
 }
 
-func TestAutoScalingWorker_CleanupGroup_DeletesGroup(t *testing.T) {
+func TestAutoScalingWorkerCleanupGroupDeletesGroup(t *testing.T) {
 	mockRepo, _, _, _, _, worker := setupAutoScalingWorkerTest(t)
 	defer mockRepo.AssertExpectations(t)
 
@@ -210,7 +210,7 @@ func TestAutoScalingWorker_CleanupGroup_DeletesGroup(t *testing.T) {
 	mockRepo.AssertCalled(t, "DeleteGroup", mock.Anything, groupID)
 }
 
-func TestAutoScalingWorker_RecordFailure(t *testing.T) {
+func TestAutoScalingWorkerRecordFailure(t *testing.T) {
 	// This test verifies the worker logic handles failures properly
 	// by checking that UpdateGroup is called when there's a failure
 	mockRepo, mockInstSvc, _, _, mockClock, worker := setupAutoScalingWorkerTest(t)
@@ -253,7 +253,7 @@ func TestAutoScalingWorker_RecordFailure(t *testing.T) {
 	mockRepo.AssertCalled(t, "UpdateGroup", mock.Anything, mock.Anything)
 }
 
-func TestAutoScalingWorker_ResetFailures(t *testing.T) {
+func TestAutoScalingWorkerResetFailures(t *testing.T) {
 	// This test verifies that successful operations reset the failure count
 	mockRepo, mockInstSvc, _, mockEventSvc, mockClock, worker := setupAutoScalingWorkerTest(t)
 	defer mockRepo.AssertExpectations(t)
