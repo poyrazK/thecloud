@@ -27,7 +27,7 @@ func (p *KubeadmProvisioner) provisionHAControlPlane(ctx context.Context, cluste
 	}
 
 	cluster.APIServerLBAddress = &lbIP
-	p.repo.Update(ctx, cluster)
+	_ = p.repo.Update(ctx, cluster)
 
 	// 2. Provision 3 Master Nodes
 	masterIPs, _, err := p.provisionHAMasters(ctx, cluster, lb)
@@ -36,7 +36,7 @@ func (p *KubeadmProvisioner) provisionHAControlPlane(ctx context.Context, cluste
 	}
 
 	cluster.ControlPlaneIPs = masterIPs
-	p.repo.Update(ctx, cluster)
+	_ = p.repo.Update(ctx, cluster)
 
 	// 3. Init Kubeadm on master-0
 	p.logger.Info("initializing kubeadm on first master", "ip", masterIPs[0])
@@ -104,7 +104,7 @@ func (p *KubeadmProvisioner) storeKubeconfig(ctx context.Context, cluster *domai
 	} else {
 		cluster.Kubeconfig = encryptedKubeconfig
 	}
-	p.repo.Update(ctx, cluster)
+	_ = p.repo.Update(ctx, cluster)
 }
 
 func (p *KubeadmProvisioner) initKubeadmHA(ctx context.Context, cluster *domain.Cluster, ip, lbIP string) (joinCmd, cpJoinCmd, kubeconfig string, err error) {
