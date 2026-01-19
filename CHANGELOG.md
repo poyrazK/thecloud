@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Integrated Managed Kubernetes (KaaS)**: Launched production-ready Kubernetes cluster management.
+- **High-Availability (HA) Control Plane**: Supported 3-node HA control plane with automated API Server Load Balancers.
+- **Asynchronous Durable Operations**: Introduced a Redis-backed **Task Queue** and **Cluster Worker** for long-running operations (Provision/Delete/Upgrade).
 - **Code Quality Pipeline**: Integrated golangci-lint with comprehensive checks in CI/CD
 - **Load Testing Pipeline**: Added k6 performance tests with API server startup
 - **SonarQube Analysis**: Static code analysis for quality and security metrics
