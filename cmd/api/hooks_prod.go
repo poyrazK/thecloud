@@ -18,6 +18,12 @@ import (
 
 // Default indirections for production builds.
 var (
+	// These variables are used via indirection, but the linter doesn't see it.
+	// We assign them to _ to make the linter happy while keeping the indirection.
+	_ = setup.InitServices
+	_ = setup.InitHandlers
+	_ = setup.SetupRouter
+
 	loadConfigFunc         = setup.LoadConfig
 	initDatabaseFunc       = setup.InitDatabase
 	runMigrationsFunc      = setup.RunMigrations
