@@ -13,6 +13,9 @@ import (
 )
 
 func (p *KubeadmProvisioner) Upgrade(ctx context.Context, cluster *domain.Cluster, version string) error {
+	if len(cluster.ControlPlaneIPs) == 0 {
+		return fmt.Errorf("cluster %s has no control plane IPs", cluster.ID)
+	}
 	masterIP := cluster.ControlPlaneIPs[0]
 	p.logger.Info("starting Kubernetes upgrade", "cluster_id", cluster.ID, "target_version", version)
 
@@ -119,6 +122,9 @@ systemctl restart kubelet
 }
 
 func (p *KubeadmProvisioner) RotateSecrets(ctx context.Context, cluster *domain.Cluster) error {
+	if len(cluster.ControlPlaneIPs) == 0 {
+		return fmt.Errorf("cluster %s has no control plane IPs", cluster.ID)
+	}
 	masterIP := cluster.ControlPlaneIPs[0]
 	exec, err := p.getExecutor(ctx, cluster, masterIP)
 	if err != nil {
@@ -153,6 +159,9 @@ func (p *KubeadmProvisioner) RotateSecrets(ctx context.Context, cluster *domain.
 }
 
 func (p *KubeadmProvisioner) CreateBackup(ctx context.Context, cluster *domain.Cluster) error {
+	if len(cluster.ControlPlaneIPs) == 0 {
+		return fmt.Errorf("cluster %s has no control plane IPs", cluster.ID)
+	}
 	masterIP := cluster.ControlPlaneIPs[0]
 	exec, err := p.getExecutor(ctx, cluster, masterIP)
 	if err != nil {
@@ -195,6 +204,9 @@ func (p *KubeadmProvisioner) CreateBackup(ctx context.Context, cluster *domain.C
 }
 
 func (p *KubeadmProvisioner) Restore(ctx context.Context, cluster *domain.Cluster, backupPath string) error {
+	if len(cluster.ControlPlaneIPs) == 0 {
+		return fmt.Errorf("cluster %s has no control plane IPs", cluster.ID)
+	}
 	masterIP := cluster.ControlPlaneIPs[0]
 	exec, err := p.getExecutor(ctx, cluster, masterIP)
 	if err != nil {

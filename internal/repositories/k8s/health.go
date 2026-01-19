@@ -15,6 +15,9 @@ func (p *KubeadmProvisioner) GetStatus(ctx context.Context, cluster *domain.Clus
 }
 
 func (p *KubeadmProvisioner) Repair(ctx context.Context, cluster *domain.Cluster) error {
+	if len(cluster.ControlPlaneIPs) == 0 {
+		return fmt.Errorf("cluster %s has no control plane IPs", cluster.ID)
+	}
 	masterIP := cluster.ControlPlaneIPs[0]
 	p.logger.Info("repairing cluster components", "cluster_id", cluster.ID, "ip", masterIP)
 
@@ -61,6 +64,9 @@ func (p *KubeadmProvisioner) Scale(ctx context.Context, cluster *domain.Cluster)
 }
 
 func (p *KubeadmProvisioner) scaleUp(ctx context.Context, cluster *domain.Cluster, currentCount int) error {
+	if len(cluster.ControlPlaneIPs) == 0 {
+		return fmt.Errorf("cluster %s has no control plane IPs", cluster.ID)
+	}
 	masterIP := cluster.ControlPlaneIPs[0]
 	exec, err := p.getExecutor(ctx, cluster, masterIP)
 	if err != nil {
@@ -113,6 +119,9 @@ func (p *KubeadmProvisioner) scaleDown(ctx context.Context, cluster *domain.Clus
 }
 
 func (p *KubeadmProvisioner) GetKubeconfig(ctx context.Context, cluster *domain.Cluster, role string) (string, error) {
+	if len(cluster.ControlPlaneIPs) == 0 {
+		return "", fmt.Errorf("cluster %s has no control plane IPs", cluster.ID)
+	}
 	masterIP := cluster.ControlPlaneIPs[0]
 	exec, err := p.getExecutor(ctx, cluster, masterIP)
 	if err != nil {
@@ -129,6 +138,9 @@ func (p *KubeadmProvisioner) GetKubeconfig(ctx context.Context, cluster *domain.
 }
 
 func (p *KubeadmProvisioner) GetHealth(ctx context.Context, cluster *domain.Cluster) (*ports.ClusterHealth, error) {
+	if len(cluster.ControlPlaneIPs) == 0 {
+		return nil, fmt.Errorf("cluster %s has no control plane IPs", cluster.ID)
+	}
 	masterIP := cluster.ControlPlaneIPs[0]
 	exec, err := p.getExecutor(ctx, cluster, masterIP)
 	if err != nil {

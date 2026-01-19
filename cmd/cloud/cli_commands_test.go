@@ -106,9 +106,15 @@ func handleSecurityGroupsMock(w http.ResponseWriter, _ *http.Request, method, pa
 
 func handleKubernetesMock(w http.ResponseWriter, _ *http.Request, method, path string) bool {
 	clusterID := uuid.New()
-	vpcID := uuid.MustParse(testVPCID) // Assuming testVPCID is valid UUID or we generate one
+	var vpcID uuid.UUID
 	if testVPCID == "vpc-1" {
 		vpcID = uuid.New()
+	} else {
+		var err error
+		vpcID, err = uuid.Parse(testVPCID)
+		if err != nil {
+			vpcID = uuid.New()
+		}
 	}
 
 	switch {
