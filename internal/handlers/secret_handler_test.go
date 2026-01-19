@@ -63,6 +63,16 @@ func (m *mockSecretService) DeleteSecret(ctx context.Context, id uuid.UUID) erro
 	return args.Error(0)
 }
 
+func (m *mockSecretService) Encrypt(ctx context.Context, userID uuid.UUID, plainText string) (string, error) {
+	args := m.Called(ctx, userID, plainText)
+	return args.String(0), args.Error(1)
+}
+
+func (m *mockSecretService) Decrypt(ctx context.Context, userID uuid.UUID, cipherText string) (string, error) {
+	args := m.Called(ctx, userID, cipherText)
+	return args.String(0), args.Error(1)
+}
+
 func setupSecretHandlerTest(_ *testing.T) (*mockSecretService, *SecretHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSecretService)
