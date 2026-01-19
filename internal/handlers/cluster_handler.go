@@ -11,6 +11,11 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+const (
+	errInvalidClusterID = "invalid cluster id"
+	errInvalidRequest   = "invalid request body"
+)
+
 // ClusterHandler handles managed Kubernetes HTTP endpoints.
 type ClusterHandler struct {
 	svc ports.ClusterService
@@ -23,10 +28,12 @@ func NewClusterHandler(svc ports.ClusterService) *ClusterHandler {
 
 // CreateClusterRequest is the payload for creating a K8s cluster.
 type CreateClusterRequest struct {
-	Name    string `json:"name" binding:"required"`
-	VpcID   string `json:"vpc_id" binding:"required"`
-	Version string `json:"version"`
-	Workers int    `json:"workers"`
+	Name             string `json:"name" binding:"required"`
+	VpcID            string `json:"vpc_id" binding:"required"`
+	Version          string `json:"version"`
+	Workers          int    `json:"workers"`
+	NetworkIsolation bool   `json:"network_isolation"`
+	HA               bool   `json:"ha"`
 }
 
 // CreateCluster godoc
@@ -41,7 +48,7 @@ type CreateClusterRequest struct {
 func (h *ClusterHandler) CreateCluster(c *gin.Context) {
 	var req CreateClusterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid request body"))
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidRequest))
 		return
 	}
 
@@ -61,7 +68,15 @@ func (h *ClusterHandler) CreateCluster(c *gin.Context) {
 		req.Workers = 2 // Default 2 workers
 	}
 
-	cluster, err := h.svc.CreateCluster(c.Request.Context(), userID, req.Name, vpcID, req.Version, req.Workers)
+	cluster, err := h.svc.CreateCluster(c.Request.Context(), ports.CreateClusterParams{
+		UserID:           userID,
+		Name:             req.Name,
+		VpcID:            vpcID,
+		Version:          req.Version,
+		Workers:          req.Workers,
+		NetworkIsolation: req.NetworkIsolation,
+		HAEnabled:        req.HA,
+	})
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -81,7 +96,7 @@ func (h *ClusterHandler) CreateCluster(c *gin.Context) {
 func (h *ClusterHandler) GetCluster(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid cluster id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidClusterID))
 		return
 	}
 
@@ -122,7 +137,7 @@ func (h *ClusterHandler) ListClusters(c *gin.Context) {
 func (h *ClusterHandler) DeleteCluster(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid cluster id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidClusterID))
 		return
 	}
 
@@ -140,20 +155,214 @@ func (h *ClusterHandler) DeleteCluster(c *gin.Context) {
 // @Tags K8s
 // @Produce plain
 // @Param id path string true "Cluster ID"
+// @Param role query string false "Role (e.g. viewer)"
 // @Success 200 {string} string
 // @Router /clusters/{id}/kubeconfig [get]
 func (h *ClusterHandler) GetKubeconfig(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid cluster id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidClusterID))
 		return
 	}
 
-	kubeconfig, err := h.svc.GetKubeconfig(c.Request.Context(), id)
+	role := c.Query("role")
+	kubeconfig, err := h.svc.GetKubeconfig(c.Request.Context(), id, role)
 	if err != nil {
 		httputil.Error(c, err)
 		return
 	}
 
-	c.String(http.StatusOK, kubeconfig)
+	httputil.Success(c, http.StatusOK, kubeconfig)
+}
+
+// RepairCluster godoc
+// @Summary Repair cluster components
+// @Description Re-applies CNI and kube-proxy patches to a running cluster
+// @Tags K8s
+// @Param id path string true "Cluster ID"
+// @Success 202
+// @Router /clusters/{id}/repair [post]
+func (h *ClusterHandler) RepairCluster(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidClusterID))
+		return
+	}
+
+	if err := h.svc.RepairCluster(c.Request.Context(), id); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusAccepted, nil)
+}
+
+// ScaleClusterRequest is the payload for scaling workers.
+type ScaleClusterRequest struct {
+	Workers int `json:"workers"`
+}
+
+// ScaleCluster godoc
+// @Summary Scale cluster workers
+// @Description Adjusts the number of worker nodes
+// @Tags K8s
+// @Param id path string true "Cluster ID"
+// @Param request body ScaleClusterRequest true "Scale Request"
+// @Success 200
+// @Router /clusters/{id}/scale [post]
+func (h *ClusterHandler) ScaleCluster(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidClusterID))
+		return
+	}
+
+	var req ScaleClusterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidRequest))
+		return
+	}
+
+	if err := h.svc.ScaleCluster(c.Request.Context(), id, req.Workers); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, nil)
+}
+
+// GetClusterHealth godoc
+// @Summary Get cluster operational health
+// @Description Returns readiness of nodes and API server
+// @Tags K8s
+// @Produce json
+// @Param id path string true "Cluster ID"
+// @Success 200 {object} ports.ClusterHealth
+// @Router /clusters/{id}/health [get]
+func (h *ClusterHandler) GetClusterHealth(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidClusterID))
+		return
+	}
+
+	health, err := h.svc.GetClusterHealth(c.Request.Context(), id)
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, health)
+}
+
+// UpgradeClusterRequest is the payload for cluster upgrade.
+type UpgradeClusterRequest struct {
+	Version string `json:"version" binding:"required"`
+}
+
+// UpgradeCluster godoc
+// @Summary Upgrade cluster version
+// @Description Initiates an asynchronous upgrade of the Kubernetes control plane and workers
+// @Tags K8s
+// @Param id path string true "Cluster ID"
+// @Param request body UpgradeClusterRequest true "Upgrade Request"
+// @Success 202
+// @Router /clusters/{id}/upgrade [post]
+func (h *ClusterHandler) UpgradeCluster(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidClusterID))
+		return
+	}
+
+	var req UpgradeClusterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid version"))
+		return
+	}
+
+	if err := h.svc.UpgradeCluster(c.Request.Context(), id, req.Version); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusAccepted, nil)
+}
+
+// RotateSecrets godoc
+// @Summary Rotate cluster secrets
+// @Description Renews cluster certificates and refreshes admin kubeconfig
+// @Tags K8s
+// @Param id path string true "Cluster ID"
+// @Success 200
+// @Router /clusters/{id}/rotate-secrets [post]
+func (h *ClusterHandler) RotateSecrets(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidClusterID))
+		return
+	}
+
+	if err := h.svc.RotateSecrets(c.Request.Context(), id); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, nil)
+}
+
+// CreateBackup godoc
+// @Summary Create cluster backup
+// @Description Creates an etcd snapshot of the cluster state
+// @Tags K8s
+// @Param id path string true "Cluster ID"
+// @Success 202
+// @Router /clusters/{id}/backups [post]
+func (h *ClusterHandler) CreateBackup(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidClusterID))
+		return
+	}
+
+	if err := h.svc.CreateBackup(c.Request.Context(), id); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusAccepted, nil)
+}
+
+// RestoreBackupRequest is the payload for cluster restoration.
+type RestoreBackupRequest struct {
+	BackupPath string `json:"backup_path" binding:"required"`
+}
+
+// RestoreBackup godoc
+// @Summary Restore cluster from backup
+// @Description Restores the etcd state from a specified snapshot path
+// @Tags K8s
+// @Param id path string true "Cluster ID"
+// @Param request body RestoreBackupRequest true "Restore Request"
+// @Success 200
+// @Router /clusters/{id}/restore [post]
+func (h *ClusterHandler) RestoreBackup(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidClusterID))
+		return
+	}
+
+	var req RestoreBackupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid backup path"))
+		return
+	}
+
+	if err := h.svc.RestoreBackup(c.Request.Context(), id, req.BackupPath); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, nil)
 }
