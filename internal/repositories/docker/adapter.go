@@ -120,9 +120,34 @@ func (a *DockerAdapter) CreateInstance(ctx context.Context, opts ports.CreateIns
 		Cmd:          opts.Cmd,
 		ExposedPorts: make(nat.PortSet),
 	}
+
+	// If no command is specified, use a long-running command to keep container alive
+	// This is essential for K8s nodes which need to stay running while we bootstrap them.
+	// HACK: For kindest/node, we MUST NOT override the entrypoint/command as it starts systemd.
+	isKIND := strings.Contains(opts.ImageName, "kindest/node")
+	if len(config.Cmd) == 0 && !isKIND {
+		config.Cmd = []string{"/bin/bash", "-c", "tail -f /dev/null"}
+	}
+
 	hostConfig := &container.HostConfig{
 		PortBindings: make(nat.PortMap),
 		Binds:        opts.VolumeBinds,
+	}
+
+	// For KIND images, we need privileged mode to support systemd and cgroups.
+	// We also need to mount /lib/modules and use anonymous volumes for containerd/kubelet
+	// to avoid nested overlayfs issues on Mac.
+	if isKIND {
+		hostConfig.Privileged = true
+		if config.Volumes == nil {
+			config.Volumes = make(map[string]struct{})
+		}
+		config.Volumes["/var/lib/containerd"] = struct{}{}
+		config.Volumes["/var/lib/kubelet"] = struct{}{}
+
+		hostConfig.Binds = append(hostConfig.Binds,
+			"/lib/modules:/lib/modules:ro",
+		)
 	}
 	networkingConfig := &network.NetworkingConfig{}
 
@@ -444,7 +469,7 @@ func (a *DockerAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) 
 		},
 		Binds:          opts.Binds,
 		ReadonlyRootfs: opts.ReadOnlyRootfs,
-		SecurityOpt:    []string{"no-new-privileges:true"},
+		// SecurityOpt:    []string{"no-new-privileges:true"}, // Removed to allow privileged operations (e.g. kube-proxy)
 	}
 
 	if opts.PidsLimit != nil {
@@ -452,7 +477,7 @@ func (a *DockerAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) 
 	}
 
 	// 3. Create container
-	resp, err := a.cli.ContainerCreate(ctx, config, hostConfig, nil, nil, "")
+	resp, err := a.cli.ContainerCreate(ctx, config, hostConfig, nil, nil, opts.Name)
 	if err != nil {
 		return "", fmt.Errorf("failed to create task container: %w", err)
 	}
