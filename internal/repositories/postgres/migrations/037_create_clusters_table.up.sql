@@ -7,6 +7,7 @@ CREATE TABLE clusters (
     control_plane_ips TEXT[],
     worker_count INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL,
+    ssh_key TEXT,
     kubeconfig TEXT, -- Encrypted
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
