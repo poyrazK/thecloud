@@ -158,21 +158,32 @@ func (c *Client) WriteFile(ctx context.Context, path string, content []byte, mod
 	return nil
 }
 
+const (
+	sshWaitInterval = 2 * time.Second
+	sshDialTimeout  = 2 * time.Second
+)
+
 // WaitForSSH waits for the SSH port to be open and accepting connections.
 func (c *Client) WaitForSSH(ctx context.Context, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(sshWaitInterval)
 	defer ticker.Stop()
+
+	// Determine address to dial once
+	addr := c.Host
+	if _, _, err := net.SplitHostPort(addr); err != nil {
+		addr = net.JoinHostPort(addr, "22")
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("timed out waiting for SSH on %s: %w", c.Host, ctx.Err())
 		case <-ticker.C:
-			d := net.Dialer{Timeout: 2 * time.Second}
-			conn, err := d.DialContext(ctx, "tcp", net.JoinHostPort(c.Host, "22"))
+			d := net.Dialer{Timeout: sshDialTimeout}
+			conn, err := d.DialContext(ctx, "tcp", addr)
 			if err == nil {
 				conn.Close()
 				return nil
