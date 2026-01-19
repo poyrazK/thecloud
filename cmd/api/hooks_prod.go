@@ -37,6 +37,11 @@ var (
 	initHandlersFunc       = setup.InitHandlers
 	setupRouterFunc        = setup.SetupRouter
 
+	// Force usage of the variables to satisfy linter
+	_ = initServicesFunc
+	_ = initHandlersFunc
+	_ = setupRouterFunc
+
 	newHTTPServer = func(addr string, handler http.Handler) *http.Server {
 		return &http.Server{Addr: addr, Handler: handler}
 	}
