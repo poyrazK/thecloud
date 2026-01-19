@@ -63,6 +63,50 @@ definitions:
       user_id:
         type: string
     type: object
+  domain.Cluster:
+    properties:
+      control_plane_ips:
+        items:
+          type: string
+        type: array
+      created_at:
+        type: string
+      id:
+        type: string
+      kubeconfig:
+        description: Encrypted
+        type: string
+      name:
+        type: string
+      status:
+        $ref: '#/definitions/domain.ClusterStatus'
+      updated_at:
+        type: string
+      user_id:
+        type: string
+      version:
+        type: string
+      vpc_id:
+        type: string
+      worker_count:
+        type: integer
+    type: object
+  domain.ClusterStatus:
+    enum:
+    - pending
+    - provisioning
+    - running
+    - upgrading
+    - failed
+    - deleting
+    type: string
+    x-enum-varnames:
+    - ClusterStatusPending
+    - ClusterStatusProvisioning
+    - ClusterStatusRunning
+    - ClusterStatusUpgrading
+    - ClusterStatusFailed
+    - ClusterStatusDeleting
   domain.DashboardStats:
     properties:
       cpu_history:
@@ -367,6 +411,9 @@ definitions:
     - image:create
     - image:read
     - image:delete
+    - cluster:create
+    - cluster:delete
+    - cluster:read
     - '*'
     type: string
     x-enum-varnames:
@@ -432,6 +479,9 @@ definitions:
     - PermissionImageCreate
     - PermissionImageRead
     - PermissionImageDelete
+    - PermissionClusterCreate
+    - PermissionClusterDelete
+    - PermissionClusterRead
     - PermissionFullAccess
   domain.ResourceSummary:
     properties:
@@ -896,6 +946,20 @@ definitions:
     - scale_in_step
     - scale_out_step
     - target_value
+    type: object
+  httphandlers.CreateClusterRequest:
+    properties:
+      name:
+        type: string
+      version:
+        type: string
+      vpc_id:
+        type: string
+      workers:
+        type: integer
+    required:
+    - name
+    - vpc_id
     type: object
   httphandlers.CreateGroupRequest:
     properties:
@@ -1732,6 +1796,94 @@ paths:
       summary: List usage records
       tags:
       - billing
+  /clusters:
+    get:
+      description: Returns all clusters belonging to the user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Cluster'
+            type: array
+      summary: List managed K8s clusters
+      tags:
+      - K8s
+    post:
+      consumes:
+      - application/json
+      description: Provisions a new Kubernetes cluster using kubeadm
+      parameters:
+      - description: Cluster details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreateClusterRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/domain.Cluster'
+      summary: Create a managed K8s cluster
+      tags:
+      - K8s
+  /clusters/{id}:
+    delete:
+      description: Terminates all nodes and removes the cluster record
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "202":
+          description: Accepted
+      summary: Delete a K8s cluster
+      tags:
+      - K8s
+    get:
+      description: Returns cluster metadata and current status
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Cluster'
+      summary: Get cluster details
+      tags:
+      - K8s
+  /clusters/{id}/kubeconfig:
+    get:
+      description: Returns the kubeconfig for clinical access to the cluster
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Download kubeconfig
+      tags:
+      - K8s
   /health/live:
     get:
       responses:

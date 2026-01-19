@@ -952,6 +952,140 @@
                 }
             }
         },
+        "/clusters": {
+            "get": {
+                "description": "Returns all clusters belonging to the user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "List managed K8s clusters",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.Cluster"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Provisions a new Kubernetes cluster using kubeadm",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "Create a managed K8s cluster",
+                "parameters": [
+                    {
+                        "description": "Cluster details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.CreateClusterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Cluster"
+                        }
+                    }
+                }
+            }
+        },
+        "/clusters/{id}": {
+            "get": {
+                "description": "Returns cluster metadata and current status",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "Get cluster details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Cluster"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Terminates all nodes and removes the cluster record",
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "Delete a K8s cluster",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted"
+                    }
+                }
+            }
+        },
+        "/clusters/{id}/kubeconfig": {
+            "get": {
+                "description": "Returns the kubeconfig for clinical access to the cluster",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "Download kubeconfig",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/health/live": {
             "get": {
                 "tags": [
@@ -3301,6 +3435,67 @@
                 }
             }
         },
+        "domain.Cluster": {
+            "type": "object",
+            "properties": {
+                "control_plane_ips": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kubeconfig": {
+                    "description": "Encrypted",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/domain.ClusterStatus"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                },
+                "vpc_id": {
+                    "type": "string"
+                },
+                "worker_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.ClusterStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "provisioning",
+                "running",
+                "upgrading",
+                "failed",
+                "deleting"
+            ],
+            "x-enum-varnames": [
+                "ClusterStatusPending",
+                "ClusterStatusProvisioning",
+                "ClusterStatusRunning",
+                "ClusterStatusUpgrading",
+                "ClusterStatusFailed",
+                "ClusterStatusDeleting"
+            ]
+        },
         "domain.DashboardStats": {
             "type": "object",
             "properties": {
@@ -3706,6 +3901,9 @@
                 "image:create",
                 "image:read",
                 "image:delete",
+                "cluster:create",
+                "cluster:delete",
+                "cluster:read",
                 "*"
             ],
             "x-enum-varnames": [
@@ -3771,6 +3969,9 @@
                 "PermissionImageCreate",
                 "PermissionImageRead",
                 "PermissionImageDelete",
+                "PermissionClusterCreate",
+                "PermissionClusterDelete",
+                "PermissionClusterRead",
                 "PermissionFullAccess"
             ]
         },
@@ -4431,6 +4632,27 @@
                 },
                 "target_value": {
                     "type": "number"
+                }
+            }
+        },
+        "httphandlers.CreateClusterRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "vpc_id"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                },
+                "vpc_id": {
+                    "type": "string"
+                },
+                "workers": {
+                    "type": "integer"
                 }
             }
         },
