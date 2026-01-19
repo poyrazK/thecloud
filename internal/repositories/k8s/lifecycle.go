@@ -30,11 +30,13 @@ func (p *KubeadmProvisioner) Upgrade(ctx context.Context, cluster *domain.Cluste
 		return err
 	}
 
+	var upgradeErrs []error
 	for _, node := range nodes {
 		if node.Role == domain.NodeRoleWorker {
 			inst, err := p.instSvc.GetInstance(ctx, node.InstanceID.String())
 			if err != nil {
 				p.logger.Error("failed to get worker instance for upgrade", "instance_id", node.InstanceID, "error", err)
+				upgradeErrs = append(upgradeErrs, fmt.Errorf("failed to get instance for node %s: %w", node.ID, err))
 				continue
 			}
 
@@ -46,9 +48,14 @@ func (p *KubeadmProvisioner) Upgrade(ctx context.Context, cluster *domain.Cluste
 			p.logger.Info("upgrading worker node", "ip", ip)
 			if err := p.upgradeWorkerNode(ctx, cluster, ip, version); err != nil {
 				p.logger.Error("worker upgrade failed", "ip", ip, "error", err)
+				upgradeErrs = append(upgradeErrs, fmt.Errorf("failed to upgrade node %s (%s): %w", node.ID, ip, err))
 				continue
 			}
 		}
+	}
+
+	if len(upgradeErrs) > 0 {
+		return fmt.Errorf("upgrade completed with errors: %v", upgradeErrs)
 	}
 
 	p.logger.Info("Kubernetes upgrade completed", "cluster_id", cluster.ID, "version", version)
@@ -146,13 +153,13 @@ func (p *KubeadmProvisioner) RotateSecrets(ctx context.Context, cluster *domain.
 	}
 
 	// 3. Encrypt and store the new kubeconfig
+	// 3. Encrypt and store the new kubeconfig
 	encryptedKubeconfig, err := p.secretSvc.Encrypt(ctx, cluster.UserID, kubeconfig)
 	if err != nil {
 		p.logger.Error("failed to encrypt renewed kubeconfig", "cluster_id", cluster.ID, "error", err)
-		cluster.Kubeconfig = kubeconfig
-	} else {
-		cluster.Kubeconfig = encryptedKubeconfig
+		return fmt.Errorf("failed to encrypt kubeconfig: %w", err)
 	}
+	cluster.Kubeconfig = encryptedKubeconfig
 
 	// 4. Update repo
 	return p.repo.Update(ctx, cluster)
@@ -197,7 +204,10 @@ func (p *KubeadmProvisioner) CreateBackup(ctx context.Context, cluster *domain.C
 	}
 
 	// Cleanup temp file
-	_, _ = exec.Run(ctx, "rm "+tempPath)
+	// Cleanup temp file
+	if _, err := exec.Run(ctx, "rm "+tempPath); err != nil {
+		p.logger.Warn("failed to remove temp backup file", "path", tempPath, "error", err)
+	}
 
 	p.logger.Info("etcd snapshot backed up to remote storage", "key", key)
 	return nil
