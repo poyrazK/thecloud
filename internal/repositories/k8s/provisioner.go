@@ -99,7 +99,7 @@ func (p *KubeadmProvisioner) provisionControlPlane(ctx context.Context, cluster 
 		return "", p.failCluster(ctx, cluster, "master node failed to get an IP", nil)
 	}
 	cluster.ControlPlaneIPs = []string{masterIP}
-	p.repo.Update(ctx, cluster)
+	_ = p.repo.Update(ctx, cluster)
 
 	p.logger.Info("bootstrapping master node", "ip", masterIP)
 	if err := p.bootstrapNode(ctx, cluster, masterIP, cluster.Version, true); err != nil {
@@ -124,7 +124,7 @@ func (p *KubeadmProvisioner) provisionControlPlane(ctx context.Context, cluster 
 	} else {
 		cluster.Kubeconfig = encryptedKubeconfig
 	}
-	p.repo.Update(ctx, cluster)
+	_ = p.repo.Update(ctx, cluster)
 
 	return joinCmd, nil
 }
@@ -198,7 +198,7 @@ func (p *KubeadmProvisioner) finalizeCluster(ctx context.Context, cluster *domai
 	}
 
 	cluster.Status = domain.ClusterStatusRunning
-	p.repo.Update(ctx, cluster)
+	_ = p.repo.Update(ctx, cluster)
 	p.logger.Info("cluster finalized and running", "cluster_id", cluster.ID)
 	return nil
 }
