@@ -147,6 +147,7 @@ func (a *DockerAdapter) CreateInstance(ctx context.Context, opts ports.CreateIns
 
 		hostConfig.Binds = append(hostConfig.Binds,
 			"/lib/modules:/lib/modules:ro",
+			"/sys/fs/cgroup:/sys/fs/cgroup:ro",
 		)
 	}
 	networkingConfig := &network.NetworkingConfig{}
