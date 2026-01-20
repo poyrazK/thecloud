@@ -1,3 +1,4 @@
+// Package domain contains core business entities.
 package domain
 
 import (
@@ -9,6 +10,7 @@ import (
 // ClusterStatus represents the current state of a Kubernetes cluster.
 type ClusterStatus string
 
+// Managed cluster states.
 const (
 	ClusterStatusPending      ClusterStatus = "pending"
 	ClusterStatusProvisioning ClusterStatus = "provisioning"
@@ -23,6 +25,7 @@ const (
 // NodeRole represents the role of a node in a cluster.
 type NodeRole string
 
+// Cluster node roles.
 const (
 	NodeRoleControlPlane NodeRole = "control-plane"
 	NodeRoleWorker       NodeRole = "worker"

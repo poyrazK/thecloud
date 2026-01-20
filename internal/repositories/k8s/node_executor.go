@@ -23,6 +23,7 @@ type SSHExecutor struct {
 	key  string
 }
 
+// NewSSHExecutor creates a new SSHExecutor.
 func NewSSHExecutor(ip, user, key string) *SSHExecutor {
 	return &SSHExecutor{ip: ip, user: user, key: key}
 }
@@ -55,6 +56,7 @@ type ServiceExecutor struct {
 	instID  uuid.UUID
 }
 
+// NewServiceExecutor creates a new ServiceExecutor.
 func NewServiceExecutor(instSvc ports.InstanceService, instID uuid.UUID) *ServiceExecutor {
 	return &ServiceExecutor{instSvc: instSvc, instID: instID}
 }

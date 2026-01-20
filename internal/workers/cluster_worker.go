@@ -1,3 +1,4 @@
+// Package workers provides background worker implementations for various cloud tasks.
 package workers
 
 import (
@@ -12,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// ClusterWorker handles background tasks for Kubernetes cluster lifecycle management.
 type ClusterWorker struct {
 	repo        ports.ClusterRepository
 	provisioner ports.ClusterProvisioner
@@ -19,6 +21,7 @@ type ClusterWorker struct {
 	logger      *slog.Logger
 }
 
+// NewClusterWorker creates a new ClusterWorker.
 func NewClusterWorker(repo ports.ClusterRepository, provisioner ports.ClusterProvisioner, taskQueue ports.TaskQueue, logger *slog.Logger) *ClusterWorker {
 	return &ClusterWorker{
 		repo:        repo,

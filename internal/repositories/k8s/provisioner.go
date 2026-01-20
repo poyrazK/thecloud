@@ -16,11 +16,13 @@ const (
 	errFailedSSHClient     = "failed to create ssh client: %w"
 	errFailedBootstrapNode = "failed to bootstrap node: %w"
 	podCIDR                = "192.168.0.0/16" // Calico default
-	AnyCIDR                = "0.0.0.0/0"
-	adminKubeconfig        = "/etc/kubernetes/admin.conf"
-	kubectlBase            = "kubectl --kubeconfig " + adminKubeconfig
-	kubectlApply           = kubectlBase + " apply -f %s"
-	calicoVersion          = "v3.27.0"
+	// AnyCIDR represents all IPv4 addresses.
+	AnyCIDR = "0.0.0.0/0"
+	// adminKubeconfig is the default path for kubeconfig on control plane nodes.
+	adminKubeconfig = "/etc/kubernetes/admin.conf"
+	kubectlBase     = "kubectl --kubeconfig " + adminKubeconfig
+	kubectlApply    = kubectlBase + " apply -f %s"
+	calicoVersion   = "v3.27.0"
 )
 
 // KubeadmProvisioner implements ports.ClusterProvisioner using kubeadm and SSH.

@@ -36,7 +36,7 @@ func TestLBRepository_Create(t *testing.T) {
 		}
 
 		mock.ExpectExec("INSERT INTO load_balancers").
-			WithArgs(lb.ID, lb.UserID, lb.IdempotencyKey, lb.Name, lb.VpcID, lb.Port, lb.Algorithm, lb.Status, lb.Version, lb.CreatedAt).
+			WithArgs(lb.ID, lb.UserID, lb.IdempotencyKey, lb.Name, lb.VpcID, lb.Port, lb.Algorithm, lb.IP, lb.Status, lb.Version, lb.CreatedAt).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), lb)
@@ -71,10 +71,10 @@ func TestLBRepository_GetByID(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, COALESCE.+idempotency_key.+name, vpc_id, port, algorithm, status, version, created_at FROM load_balancers").
+		mock.ExpectQuery("SELECT id, user_id, COALESCE.+idempotency_key.+name, vpc_id, port, algorithm, COALESCE.+ip.+status, version, created_at FROM load_balancers").
 			WithArgs(id, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "idempotency_key", "name", "vpc_id", "port", "algorithm", "status", "version", "created_at"}).
-				AddRow(id, userID, "key-1", "lb-1", uuid.New(), 80, "round_robin", string(domain.LBStatusActive), 1, now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "idempotency_key", "name", "vpc_id", "port", "algorithm", "ip", "status", "version", "created_at"}).
+				AddRow(id, userID, "key-1", "lb-1", uuid.New(), 80, "round_robin", "10.0.0.1", string(domain.LBStatusActive), 1, now))
 
 		lb, err := repo.GetByID(ctx, id)
 		assert.NoError(t, err)
@@ -92,7 +92,7 @@ func TestLBRepository_GetByID(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, COALESCE.+idempotency_key.+name, vpc_id, port, algorithm, status, version, created_at FROM load_balancers").
+		mock.ExpectQuery("SELECT id, user_id, COALESCE.+idempotency_key.+name, vpc_id, port, algorithm, COALESCE.+ip.+status, version, created_at FROM load_balancers").
 			WithArgs(id, userID).
 			WillReturnError(pgx.ErrNoRows)
 
@@ -114,10 +114,10 @@ func TestLBRepository_List(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, COALESCE.+idempotency_key.+name, vpc_id, port, algorithm, status, version, created_at FROM load_balancers").
+		mock.ExpectQuery("SELECT id, user_id, COALESCE.+idempotency_key.+name, vpc_id, port, algorithm, COALESCE.+ip.+status, version, created_at FROM load_balancers").
 			WithArgs(userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "idempotency_key", "name", "vpc_id", "port", "algorithm", "status", "version", "created_at"}).
-				AddRow(uuid.New(), userID, "key-1", "lb-1", uuid.New(), 80, "round_robin", string(domain.LBStatusActive), 1, now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "idempotency_key", "name", "vpc_id", "port", "algorithm", "ip", "status", "version", "created_at"}).
+				AddRow(uuid.New(), userID, "key-1", "lb-1", uuid.New(), 80, "round_robin", "10.0.0.1", string(domain.LBStatusActive), 1, now))
 
 		lbs, err := repo.List(ctx)
 		assert.NoError(t, err)
@@ -161,7 +161,7 @@ func TestLBRepository_Update(t *testing.T) {
 		}
 
 		mock.ExpectExec("UPDATE load_balancers").
-			WithArgs(lb.Name, lb.Port, lb.Algorithm, lb.Status, lb.ID, lb.Version, lb.UserID).
+			WithArgs(lb.Name, lb.Port, lb.Algorithm, lb.IP, lb.Status, lb.ID, lb.Version, lb.UserID).
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		err = repo.Update(context.Background(), lb)
@@ -182,7 +182,7 @@ func TestLBRepository_Update(t *testing.T) {
 		}
 
 		mock.ExpectExec("UPDATE load_balancers").
-			WithArgs(lb.Name, lb.Port, lb.Algorithm, lb.Status, lb.ID, lb.Version, lb.UserID).
+			WithArgs(lb.Name, lb.Port, lb.Algorithm, lb.IP, lb.Status, lb.ID, lb.Version, lb.UserID).
 			WillReturnResult(pgxmock.NewResult("UPDATE", 0))
 
 		err = repo.Update(context.Background(), lb)

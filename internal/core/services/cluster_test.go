@@ -5,7 +5,6 @@ import (
 	"io"
 	"log/slog"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -17,12 +16,13 @@ import (
 
 const testClusterName = "test-cluster"
 
-func setupClusterServiceTest() (*MockClusterRepo, *MockClusterProvisioner, *MockVpcService, *MockInstanceService, ports.ClusterService) {
+func setupClusterServiceTest() (*MockClusterRepo, *MockClusterProvisioner, *MockVpcService, *MockInstanceService, *MockTaskQueue, ports.ClusterService) {
 	repo := new(MockClusterRepo)
 	provisioner := new(MockClusterProvisioner)
 	vpcSvc := new(MockVpcService)
 	instSvc := new(MockInstanceService)
 	secretSvc := new(MockSecretService)
+	taskQueue := new(MockTaskQueue)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := services.NewClusterService(services.ClusterServiceParams{
@@ -31,13 +31,14 @@ func setupClusterServiceTest() (*MockClusterRepo, *MockClusterProvisioner, *Mock
 		VpcSvc:      vpcSvc,
 		InstanceSvc: instSvc,
 		SecretSvc:   secretSvc,
+		TaskQueue:   taskQueue,
 		Logger:      logger,
 	})
-	return repo, provisioner, vpcSvc, instSvc, svc
+	return repo, provisioner, vpcSvc, instSvc, taskQueue, svc
 }
 
 func TestClusterServiceCreate(t *testing.T) {
-	repo, provisioner, vpcSvc, _, svc := setupClusterServiceTest()
+	repo, _, vpcSvc, _, taskQueue, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	userID := uuid.New()
 	vpcID := uuid.New()
@@ -47,7 +48,12 @@ func TestClusterServiceCreate(t *testing.T) {
 		return c.Name == testClusterName && c.UserID == userID
 	})).Return(nil)
 	repo.On("Update", mock.Anything, mock.Anything).Return(nil)
-	provisioner.On("Provision", mock.Anything, mock.Anything).Return(nil)
+	repo.On("Update", mock.Anything, mock.Anything).Return(nil)
+
+	// Expect task queue enqueue
+	taskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.MatchedBy(func(job domain.ClusterJob) bool {
+		return job.Type == domain.ClusterJobProvision && job.ClusterID != uuid.Nil && job.UserID == userID
+	})).Return(nil).Once()
 
 	cluster, err := svc.CreateCluster(ctx, ports.CreateClusterParams{
 		UserID:  userID,
@@ -62,28 +68,31 @@ func TestClusterServiceCreate(t *testing.T) {
 	assert.Equal(t, testClusterName, cluster.Name)
 	assert.Equal(t, domain.ClusterStatusPending, cluster.Status)
 
-	// Wait for background provisioning
-	time.Sleep(100 * time.Millisecond)
-	provisioner.AssertCalled(t, "Provision", mock.Anything, mock.Anything)
+	// Wait for background provisioning - Wait time removed as provision is not async in test mock unless explicitly delayed
+	taskQueue.AssertExpectations(t)
 }
 
 func TestClusterServiceDelete(t *testing.T) {
-	repo, provisioner, _, _, svc := setupClusterServiceTest()
+	repo, _, _, _, taskQueue, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	id := uuid.New()
 	cluster := &domain.Cluster{ID: id, Status: domain.ClusterStatusRunning}
 
 	repo.On("GetByID", mock.Anything, id).Return(cluster, nil)
 	repo.On("Update", mock.Anything, mock.Anything).Return(nil)
-	provisioner.On("Deprovision", mock.Anything, mock.Anything).Return(nil)
+	repo.On("Update", mock.Anything, mock.Anything).Return(nil)
 	repo.On("Delete", mock.Anything, id).Return(nil)
+
+	// Expect task queue enqueue
+	taskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.MatchedBy(func(job domain.ClusterJob) bool {
+		return job.Type == domain.ClusterJobDeprovision && job.ClusterID == id
+	})).Return(nil).Once()
 
 	err := svc.DeleteCluster(ctx, id)
 
 	assert.NoError(t, err)
 
-	// Wait for background deprovisioning
-	time.Sleep(100 * time.Millisecond)
-	provisioner.AssertCalled(t, "Deprovision", mock.Anything, mock.Anything)
-	repo.AssertCalled(t, "Delete", mock.Anything, id)
+	taskQueue.AssertExpectations(t)
+	repo.AssertCalled(t, "GetByID", mock.Anything, id)
+	repo.AssertCalled(t, "Update", mock.Anything, mock.Anything)
 }

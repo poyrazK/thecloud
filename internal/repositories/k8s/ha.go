@@ -22,12 +22,15 @@ func (p *KubeadmProvisioner) provisionHAControlPlane(ctx context.Context, cluste
 	lbIP := lb.IP
 	if lbIP == "" {
 		time.Sleep(5 * time.Second)
-		lb, _ = p.lbSvc.Get(ctx, lb.ID)
-		lbIP = lb.IP
+		if lbNew, err := p.lbSvc.Get(ctx, lb.ID); err == nil {
+			lbIP = lbNew.IP
+		}
 	}
 
 	cluster.APIServerLBAddress = &lbIP
-	_ = p.repo.Update(ctx, cluster)
+	if err := p.repo.Update(ctx, cluster); err != nil {
+		p.logger.Warn("failed to update cluster load balancer address", "cluster_id", cluster.ID, "error", err)
+	}
 
 	// 2. Provision 3 Master Nodes
 	masterIPs, _, err := p.provisionHAMasters(ctx, cluster, lb)
@@ -36,7 +39,9 @@ func (p *KubeadmProvisioner) provisionHAControlPlane(ctx context.Context, cluste
 	}
 
 	cluster.ControlPlaneIPs = masterIPs
-	_ = p.repo.Update(ctx, cluster)
+	if err := p.repo.Update(ctx, cluster); err != nil {
+		p.logger.Warn("failed to update cluster control plane IPs", "cluster_id", cluster.ID, "error", err)
+	}
 
 	// 3. Init Kubeadm on master-0
 	p.logger.Info("initializing kubeadm on first master", "ip", masterIPs[0])
@@ -51,7 +56,9 @@ func (p *KubeadmProvisioner) provisionHAControlPlane(ctx context.Context, cluste
 	}
 
 	// 5. Encrypt and store kubeconfig
-	p.storeKubeconfig(ctx, cluster, kubeconfig)
+	if err := p.storeKubeconfig(ctx, cluster, kubeconfig); err != nil {
+		return "", p.failCluster(ctx, cluster, "failed to store HA kubeconfig", err)
+	}
 
 	return joinCmd, nil
 }
@@ -97,14 +104,17 @@ func (p *KubeadmProvisioner) joinHAMasters(ctx context.Context, cluster *domain.
 	return nil
 }
 
-func (p *KubeadmProvisioner) storeKubeconfig(ctx context.Context, cluster *domain.Cluster, kubeconfig string) {
+func (p *KubeadmProvisioner) storeKubeconfig(ctx context.Context, cluster *domain.Cluster, kubeconfig string) error {
 	encryptedKubeconfig, err := p.secretSvc.Encrypt(ctx, cluster.UserID, kubeconfig)
 	if err != nil {
-		cluster.Kubeconfig = kubeconfig
-	} else {
-		cluster.Kubeconfig = encryptedKubeconfig
+		p.logger.Error("failed to encrypt HA kubeconfig", "cluster_id", cluster.ID, "error", err)
+		return fmt.Errorf("failed to encrypt kubeconfig: %w", err)
 	}
-	_ = p.repo.Update(ctx, cluster)
+	cluster.Kubeconfig = encryptedKubeconfig
+	if err := p.repo.Update(ctx, cluster); err != nil {
+		return fmt.Errorf("failed to store kubeconfig in repo: %w", err)
+	}
+	return nil
 }
 
 func (p *KubeadmProvisioner) initKubeadmHA(ctx context.Context, cluster *domain.Cluster, ip, lbIP string) (joinCmd, cpJoinCmd, kubeconfig string, err error) {
@@ -119,28 +129,39 @@ func (p *KubeadmProvisioner) initKubeadmHA(ctx context.Context, cluster *domain.
 		return "", "", "", err
 	}
 
-	lines := strings.Split(out, "\n")
+	joinCmd, cpJoinCmd = p.parseJoinCommands(out)
+
+	kubeconfig, err = exec.Run(ctx, "cat "+adminKubeconfig)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to read admin kubeconfig: %w", err)
+	}
+	return joinCmd, cpJoinCmd, kubeconfig, nil
+}
+
+func (p *KubeadmProvisioner) parseJoinCommands(output string) (joinCmd, cpJoinCmd string) {
+	lines := strings.Split(output, "\n")
 	for i, line := range lines {
-		if strings.Contains(line, "kubeadm join") {
-			cmd := line
-			for j := i + 1; j < len(lines); j++ {
-				trimmed := strings.TrimSpace(lines[j])
-				if trimmed == "" {
-					break
-				}
-				cmd += " " + trimmed
+		if !strings.Contains(line, "kubeadm join") {
+			continue
+		}
+
+		cmd := line
+		for j := i + 1; j < len(lines); j++ {
+			trimmed := strings.TrimSpace(lines[j])
+			if trimmed == "" {
+				break
 			}
-			fullCmd := strings.TrimSpace(strings.ReplaceAll(cmd, "\\", ""))
-			if strings.Contains(fullCmd, "--control-plane") {
-				cpJoinCmd = fullCmd
-			} else {
-				joinCmd = fullCmd
-			}
+			cmd += " " + trimmed
+		}
+
+		fullCmd := strings.TrimSpace(strings.ReplaceAll(cmd, "\\", ""))
+		if strings.Contains(fullCmd, "--control-plane") {
+			cpJoinCmd = fullCmd
+		} else {
+			joinCmd = fullCmd
 		}
 	}
-
-	kubeconfig, _ = exec.Run(ctx, "cat "+adminKubeconfig)
-	return joinCmd, cpJoinCmd, kubeconfig, nil
+	return joinCmd, cpJoinCmd
 }
 
 func (p *KubeadmProvisioner) joinControlPlane(ctx context.Context, cluster *domain.Cluster, ip, joinCmd string) error {

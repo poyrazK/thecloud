@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"sync"
 	"syscall"
 	"time"
@@ -25,6 +26,34 @@ import (
 
 // ErrMigrationDone signals that migrations have already completed.
 var ErrMigrationDone = errors.New("migrations done")
+
+// Dependency injection points for testing
+var (
+	loadConfigFunc         = setup.LoadConfig
+	initDatabaseFunc       = setup.InitDatabase
+	runMigrationsFunc      = setup.RunMigrations
+	initRedisFunc          = setup.InitRedis
+	initComputeBackendFunc = setup.InitComputeBackend
+	initStorageBackendFunc = setup.InitStorageBackend
+	initNetworkBackendFunc = setup.InitNetworkBackend
+	initLBProxyFunc        = setup.InitLBProxy
+	initRepositoriesFunc   = setup.InitRepositories
+	initServicesFunc       = setup.InitServices
+	initHandlersFunc       = setup.InitHandlers
+	setupRouterFunc        = setup.SetupRouter
+	newHTTPServer          = func(addr string, handler http.Handler) *http.Server {
+		return &http.Server{Addr: addr, Handler: handler}
+	}
+	startHTTPServer = func(s *http.Server) error {
+		return s.ListenAndServe()
+	}
+	shutdownHTTPServer = func(ctx context.Context, s *http.Server) error {
+		return s.Shutdown(ctx)
+	}
+	notifySignals = func(c chan<- os.Signal, sigs ...os.Signal) {
+		signal.Notify(c, sigs...)
+	}
+)
 
 func main() {
 	logger := setup.InitLogger()
@@ -57,8 +86,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	repos := setup.InitRepositories(db, rdb)
-	svcs, workers, err := setup.InitServices(setup.ServiceConfig{
+	repos := initRepositoriesFunc(db, rdb)
+	svcs, workers, err := initServicesFunc(setup.ServiceConfig{
 		Config: cfg, Repos: repos, Compute: compute, Storage: storage,
 		Network: network, LBProxy: lbProxy, DB: db, RDB: rdb, Logger: logger,
 	})
@@ -67,8 +96,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	handlers := setup.InitHandlers(svcs, logger)
-	r := setup.SetupRouter(cfg, logger, handlers, svcs, network)
+	handlers := initHandlersFunc(svcs, logger)
+	r := setupRouterFunc(cfg, logger, handlers, svcs, network)
 
 	// Add Tracing Middleware if enabled
 	if os.Getenv("TRACING_ENABLED") == "true" {
@@ -110,7 +139,7 @@ func initTracing(logger *slog.Logger) *sdktrace.TracerProvider {
 }
 
 func initInfrastructure(logger *slog.Logger, migrateOnly bool) (*platform.Config, postgres.DB, *redis.Client, error) {
-	cfg, err := setup.LoadConfig(logger)
+	cfg, err := loadConfigFunc(logger)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -118,12 +147,12 @@ func initInfrastructure(logger *slog.Logger, migrateOnly bool) (*platform.Config
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	db, err := setup.InitDatabase(ctx, cfg, logger)
+	db, err := initDatabaseFunc(ctx, cfg, logger)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	if err := setup.RunMigrations(ctx, db, logger); err != nil {
+	if err := runMigrationsFunc(ctx, db, logger); err != nil {
 		logger.Warn("failed to run migrations", "error", err)
 		if migrateOnly {
 			db.Close()
@@ -135,7 +164,7 @@ func initInfrastructure(logger *slog.Logger, migrateOnly bool) (*platform.Config
 		return nil, nil, nil, ErrMigrationDone
 	}
 
-	rdb, err := setup.InitRedis(ctx, cfg, logger)
+	rdb, err := initRedisFunc(ctx, cfg, logger)
 	if err != nil {
 		db.Close()
 		return nil, nil, nil, err
@@ -145,20 +174,20 @@ func initInfrastructure(logger *slog.Logger, migrateOnly bool) (*platform.Config
 }
 
 func initBackends(cfg *platform.Config, logger *slog.Logger, db postgres.DB, rdb *redis.Client) (ports.ComputeBackend, ports.StorageBackend, ports.NetworkBackend, ports.LBProxyAdapter, error) {
-	compute, err := setup.InitComputeBackend(cfg, logger)
+	compute, err := initComputeBackendFunc(cfg, logger)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	storage, err := setup.InitStorageBackend(cfg, logger)
+	storage, err := initStorageBackendFunc(cfg, logger)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	network := setup.InitNetworkBackend(cfg, logger)
+	network := initNetworkBackendFunc(cfg, logger)
 
-	tmpRepos := setup.InitRepositories(db, rdb)
-	lbProxy, err := setup.InitLBProxy(cfg, compute, tmpRepos.Instance, tmpRepos.Vpc)
+	tmpRepos := initRepositoriesFunc(db, rdb)
+	lbProxy, err := initLBProxyFunc(cfg, compute, tmpRepos.Instance, tmpRepos.Vpc)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}

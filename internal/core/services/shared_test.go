@@ -1756,3 +1756,18 @@ func (m *MockSecretService) Decrypt(ctx context.Context, userID uuid.UUID, ciphe
 	args := m.Called(ctx, userID, cipherText)
 	return args.String(0), args.Error(1)
 }
+
+// MockTaskQueue
+type MockTaskQueue struct {
+	mock.Mock
+}
+
+func (m *MockTaskQueue) Enqueue(ctx context.Context, queue string, payload interface{}) error {
+	args := m.Called(ctx, queue, payload)
+	return args.Error(0)
+}
+
+func (m *MockTaskQueue) Dequeue(ctx context.Context, queue string) (string, error) {
+	args := m.Called(ctx, queue)
+	return args.String(0), args.Error(1)
+}

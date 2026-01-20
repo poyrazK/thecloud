@@ -36,7 +36,7 @@ type ClusterServiceParams struct {
 	Logger      *slog.Logger
 }
 
-// NewClusterService constructs a new ClusterService.
+// NewClusterService creates a new ClusterService with the provided parameters.
 func NewClusterService(params ClusterServiceParams) *ClusterService {
 	return &ClusterService{
 		repo:        params.Repo,

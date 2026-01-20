@@ -17,7 +17,7 @@ const (
 )
 
 func TestClusterServiceUpgrade(t *testing.T) {
-	repo, provisioner, _, _, svc := setupClusterServiceTest()
+	repo, provisioner, _, _, taskQueue, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	id := uuid.New()
 	cluster := &domain.Cluster{
@@ -33,9 +33,9 @@ func TestClusterServiceUpgrade(t *testing.T) {
 			return c.Status == domain.ClusterStatusUpgrading
 		})).Return(nil).Once()
 
-		provisioner.On("Upgrade", mock.Anything, mock.Anything, testK8sVersion).Return(nil).Once()
-		repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
-			return c.Status == domain.ClusterStatusRunning && c.Version == testK8sVersion
+		// Expect task queue enqueue
+		taskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.MatchedBy(func(job domain.ClusterJob) bool {
+			return job.Type == domain.ClusterJobUpgrade && job.ClusterID == id && job.Version == testK8sVersion
 		})).Return(nil).Once()
 
 		err := svc.UpgradeCluster(ctx, id, testK8sVersion)
@@ -45,6 +45,7 @@ func TestClusterServiceUpgrade(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 		provisioner.AssertExpectations(t)
 		repo.AssertExpectations(t)
+		taskQueue.AssertExpectations(t)
 	})
 
 	t.Run("fails if not running", func(t *testing.T) {
@@ -88,7 +89,7 @@ func TestClusterServiceUpgrade(t *testing.T) {
 }
 
 func TestClusterServiceRotateSecrets(t *testing.T) {
-	repo, provisioner, _, _, svc := setupClusterServiceTest()
+	repo, provisioner, _, _, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	id := uuid.New()
 	cluster := &domain.Cluster{
@@ -116,7 +117,7 @@ func TestClusterServiceRotateSecrets(t *testing.T) {
 }
 
 func TestClusterServiceBackup(t *testing.T) {
-	repo, provisioner, _, _, svc := setupClusterServiceTest()
+	repo, provisioner, _, _, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	id := uuid.New()
 	cluster := &domain.Cluster{
@@ -135,7 +136,7 @@ func TestClusterServiceBackup(t *testing.T) {
 }
 
 func TestClusterServiceRestore(t *testing.T) {
-	repo, provisioner, _, _, svc := setupClusterServiceTest()
+	repo, provisioner, _, _, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	id := uuid.New()
 	cluster := &domain.Cluster{
