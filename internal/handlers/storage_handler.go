@@ -131,3 +131,93 @@ func (h *StorageHandler) Delete(c *gin.Context) {
 
 	httputil.Success(c, http.StatusNoContent, nil)
 }
+
+// CreateBucket creates a new bucket
+// @Summary Create a bucket
+// @Description Creates a new storage bucket
+// @Tags storage
+// @Accept json
+// @Produce json
+// @Security APIKeyAuth
+// @Param request body domain.Bucket true "Bucket creation request"
+// @Success 201 {object} domain.Bucket
+// @Failure 400 {object} httputil.Response
+// @Router /storage/buckets [post]
+func (h *StorageHandler) CreateBucket(c *gin.Context) {
+	var req struct {
+		Name     string `json:"name" binding:"required"`
+		IsPublic bool   `json:"is_public"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid request body"))
+		return
+	}
+
+	bucket, err := h.svc.CreateBucket(c.Request.Context(), req.Name, req.IsPublic)
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusCreated, bucket)
+}
+
+// ListBuckets lists all buckets for the user
+// @Summary List buckets
+// @Description Lists all storage buckets owned by the user
+// @Tags storage
+// @Produce json
+// @Security APIKeyAuth
+// @Success 200 {array} domain.Bucket
+// @Failure 500 {object} httputil.Response
+// @Router /storage/buckets [get]
+func (h *StorageHandler) ListBuckets(c *gin.Context) {
+	buckets, err := h.svc.ListBuckets(c.Request.Context())
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+	httputil.Success(c, http.StatusOK, buckets)
+}
+
+// DeleteBucket deletes a bucket
+// @Summary Delete a bucket
+// @Description Deletes a storage bucket
+// @Tags storage
+// @Produce json
+// @Security APIKeyAuth
+// @Param bucket path string true "Bucket name"
+// @Success 204
+// @Failure 400 {object} httputil.Response
+// @Router /storage/buckets/{bucket} [delete]
+func (h *StorageHandler) DeleteBucket(c *gin.Context) {
+	bucket := c.Param("bucket")
+	if bucket == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "bucket name required"))
+		return
+	}
+
+	if err := h.svc.DeleteBucket(c.Request.Context(), bucket); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusNoContent, nil)
+}
+
+// GetClusterStatus returns the current state of the storage cluster
+// @Summary Get storage cluster status
+// @Description Returns the status of all nodes in the distributed storage cluster
+// @Tags storage
+// @Produce json
+// @Security APIKeyAuth
+// @Success 200 {object} domain.StorageCluster
+// @Router /storage/cluster/status [get]
+func (h *StorageHandler) GetClusterStatus(c *gin.Context) {
+	status, err := h.svc.GetClusterStatus(c.Request.Context())
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+	httputil.Success(c, http.StatusOK, status)
+}
