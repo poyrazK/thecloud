@@ -5,6 +5,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -108,4 +109,119 @@ func (r *StorageRepository) SoftDelete(ctx context.Context, bucket, key string) 
 		return errors.New(errors.ObjectNotFound, "object not found or already deleted")
 	}
 	return nil
+}
+
+// CreateBucket creates a new bucket.
+func (r *StorageRepository) CreateBucket(ctx context.Context, bucket *domain.Bucket) error {
+	query := `
+		INSERT INTO buckets (id, name, user_id, is_public, created_at)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+	_, err := r.db.Exec(ctx, query, bucket.ID, bucket.Name, bucket.UserID, bucket.IsPublic, bucket.CreatedAt)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to create bucket", err)
+	}
+	return nil
+}
+
+// GetBucket retrieves a bucket by name.
+func (r *StorageRepository) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
+	query := `
+		SELECT id, name, user_id, is_public, created_at
+		FROM buckets
+		WHERE name = $1
+	`
+	var bucket domain.Bucket
+	err := r.db.QueryRow(ctx, query, name).Scan(&bucket.ID, &bucket.Name, &bucket.UserID, &bucket.IsPublic, &bucket.CreatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, errors.New(errors.ObjectNotFound, "bucket not found")
+		}
+		return nil, errors.Wrap(errors.Internal, "failed to get bucket", err)
+	}
+	return &bucket, nil
+}
+
+// DeleteBucket deletes a bucket by name.
+func (r *StorageRepository) DeleteBucket(ctx context.Context, name string) error {
+	query := `DELETE FROM buckets WHERE name = $1`
+	cmd, err := r.db.Exec(ctx, query, name)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to delete bucket", err)
+	}
+	if cmd.RowsAffected() == 0 {
+		return errors.New(errors.ObjectNotFound, "bucket not found")
+	}
+	return nil
+}
+
+// ListBuckets list buckets for a user.
+func (r *StorageRepository) ListBuckets(ctx context.Context, userID string) ([]*domain.Bucket, error) {
+	query := `
+		SELECT id, name, user_id, is_public, created_at
+		FROM buckets
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to list buckets", err)
+	}
+	defer rows.Close()
+
+	var buckets []*domain.Bucket
+	for rows.Next() {
+		var b domain.Bucket
+		if err := rows.Scan(&b.ID, &b.Name, &b.UserID, &b.IsPublic, &b.CreatedAt); err != nil {
+			return nil, err
+		}
+		buckets = append(buckets, &b)
+	}
+	return buckets, nil
+}
+
+func (r *StorageRepository) SaveMultipartUpload(ctx context.Context, upload *domain.MultipartUpload) error {
+	query := `INSERT INTO multipart_uploads (id, user_id, bucket, key, created_at) VALUES ($1, $2, $3, $4, $5)`
+	_, err := r.db.Exec(ctx, query, upload.ID, upload.UserID, upload.Bucket, upload.Key, upload.CreatedAt)
+	return err
+}
+
+func (r *StorageRepository) GetMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.MultipartUpload, error) {
+	query := `SELECT id, user_id, bucket, key, created_at FROM multipart_uploads WHERE id = $1`
+	var u domain.MultipartUpload
+	err := r.db.QueryRow(ctx, query, uploadID).Scan(&u.ID, &u.UserID, &u.Bucket, &u.Key, &u.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+func (r *StorageRepository) DeleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) error {
+	_, err := r.db.Exec(ctx, "DELETE FROM multipart_uploads WHERE id = $1", uploadID)
+	return err
+}
+
+func (r *StorageRepository) SavePart(ctx context.Context, part *domain.Part) error {
+	query := `INSERT INTO multipart_parts (upload_id, part_number, size_bytes, etag) VALUES ($1, $2, $3, $4)`
+	_, err := r.db.Exec(ctx, query, part.UploadID, part.PartNumber, part.SizeBytes, part.ETag)
+	return err
+}
+
+func (r *StorageRepository) ListParts(ctx context.Context, uploadID uuid.UUID) ([]*domain.Part, error) {
+	query := `SELECT upload_id, part_number, size_bytes, etag FROM multipart_parts WHERE upload_id = $1 ORDER BY part_number ASC`
+	rows, err := r.db.Query(ctx, query, uploadID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var parts []*domain.Part
+	for rows.Next() {
+		var p domain.Part
+		if err := rows.Scan(&p.UploadID, &p.PartNumber, &p.SizeBytes, &p.ETag); err != nil {
+			return nil, err
+		}
+		parts = append(parts, &p)
+	}
+	return parts, nil
 }
