@@ -15,7 +15,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLBRepository_Create(t *testing.T) {
+const (
+	lbQueryPattern = "SELECT id, user_id, COALESCE.+idempotency_key.+name, vpc_id, port, algorithm, COALESCE.+ip.+status, version, created_at FROM load_balancers"
+	errDbMessage   = "db error"
+	errNotFound    = "not found"
+)
+
+func TestLBRepositoryCreate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -43,7 +49,7 @@ func TestLBRepository_Create(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("db error", func(t *testing.T) {
+	t.Run(errDbMessage, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -52,14 +58,14 @@ func TestLBRepository_Create(t *testing.T) {
 		lb := &domain.LoadBalancer{ID: uuid.New()}
 
 		mock.ExpectExec("INSERT INTO load_balancers").
-			WillReturnError(errors.New("db error"))
+			WillReturnError(errors.New(errDbMessage))
 
 		err = repo.Create(context.Background(), lb)
 		assert.Error(t, err)
 	})
 }
 
-func TestLBRepository_GetByID(t *testing.T) {
+func TestLBRepositoryGetByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -71,7 +77,7 @@ func TestLBRepository_GetByID(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, COALESCE.+idempotency_key.+name, vpc_id, port, algorithm, COALESCE.+ip.+status, version, created_at FROM load_balancers").
+		mock.ExpectQuery(lbQueryPattern).
 			WithArgs(id, userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "idempotency_key", "name", "vpc_id", "port", "algorithm", "ip", "status", "version", "created_at"}).
 				AddRow(id, userID, "key-1", "lb-1", uuid.New(), 80, "round_robin", "10.0.0.1", string(domain.LBStatusActive), 1, now))
@@ -82,7 +88,7 @@ func TestLBRepository_GetByID(t *testing.T) {
 		assert.Equal(t, id, lb.ID)
 	})
 
-	t.Run("not found", func(t *testing.T) {
+	t.Run(errNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -92,7 +98,7 @@ func TestLBRepository_GetByID(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, COALESCE.+idempotency_key.+name, vpc_id, port, algorithm, COALESCE.+ip.+status, version, created_at FROM load_balancers").
+		mock.ExpectQuery(lbQueryPattern).
 			WithArgs(id, userID).
 			WillReturnError(pgx.ErrNoRows)
 
@@ -103,7 +109,7 @@ func TestLBRepository_GetByID(t *testing.T) {
 	})
 }
 
-func TestLBRepository_List(t *testing.T) {
+func TestLBRepositoryList(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -114,7 +120,7 @@ func TestLBRepository_List(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, COALESCE.+idempotency_key.+name, vpc_id, port, algorithm, COALESCE.+ip.+status, version, created_at FROM load_balancers").
+		mock.ExpectQuery(lbQueryPattern).
 			WithArgs(userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "idempotency_key", "name", "vpc_id", "port", "algorithm", "ip", "status", "version", "created_at"}).
 				AddRow(uuid.New(), userID, "key-1", "lb-1", uuid.New(), 80, "round_robin", "10.0.0.1", string(domain.LBStatusActive), 1, now))
@@ -124,7 +130,7 @@ func TestLBRepository_List(t *testing.T) {
 		assert.Len(t, lbs, 1)
 	})
 
-	t.Run("db error", func(t *testing.T) {
+	t.Run(errDbMessage, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -133,9 +139,9 @@ func TestLBRepository_List(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, COALESCE.+idempotency_key.+name, vpc_id, port, algorithm, status, version, created_at FROM load_balancers").
+		mock.ExpectQuery(lbQueryPattern).
 			WithArgs(userID).
-			WillReturnError(errors.New("db error"))
+			WillReturnError(errors.New(errDbMessage))
 
 		list, err := repo.List(ctx)
 		assert.Error(t, err)
@@ -143,7 +149,7 @@ func TestLBRepository_List(t *testing.T) {
 	})
 }
 
-func TestLBRepository_Update(t *testing.T) {
+func TestLBRepositoryUpdate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -194,7 +200,7 @@ func TestLBRepository_Update(t *testing.T) {
 	})
 }
 
-func TestLBRepository_Delete(t *testing.T) {
+func TestLBRepositoryDelete(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -213,7 +219,7 @@ func TestLBRepository_Delete(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("not found", func(t *testing.T) {
+	t.Run(errNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -233,7 +239,7 @@ func TestLBRepository_Delete(t *testing.T) {
 	})
 }
 
-func TestLBRepository_AddTarget(t *testing.T) {
+func TestLBRepositoryAddTarget(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -258,7 +264,7 @@ func TestLBRepository_AddTarget(t *testing.T) {
 	})
 }
 
-func TestLBRepository_RemoveTarget(t *testing.T) {
+func TestLBRepositoryRemoveTarget(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -276,7 +282,7 @@ func TestLBRepository_RemoveTarget(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("not found", func(t *testing.T) {
+	t.Run(errNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -294,7 +300,7 @@ func TestLBRepository_RemoveTarget(t *testing.T) {
 	})
 }
 
-func TestLBRepository_ListTargets(t *testing.T) {
+func TestLBRepositoryListTargets(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
@@ -314,7 +320,7 @@ func TestLBRepository_ListTargets(t *testing.T) {
 	})
 }
 
-func TestLBRepository_UpdateTargetHealth(t *testing.T) {
+func TestLBRepositoryUpdateTargetHealth(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)

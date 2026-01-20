@@ -142,7 +142,8 @@ func TestInitBackendsLBProxyError(t *testing.T) {
 	})
 	defer resetLBProxy()
 
-	_, _, _, _, err := initBackends(cfg, logger, &stubDB{}, redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"}))
+	// Use nil for rdb since we shouldn't be calling it in this test if stubs work.
+	_, _, _, _, err := initBackends(cfg, logger, &stubDB{}, nil)
 	if err == nil {
 		t.Fatalf("expected error when lb proxy init fails")
 	}

@@ -38,6 +38,9 @@ type ClusterServiceParams struct {
 
 // NewClusterService creates a new ClusterService with the provided parameters.
 func NewClusterService(params ClusterServiceParams) *ClusterService {
+	if params.TaskQueue == nil {
+		panic("taskQueue cannot be nil")
+	}
 	return &ClusterService{
 		repo:        params.Repo,
 		provisioner: params.Provisioner,
@@ -269,6 +272,10 @@ func (s *ClusterService) UpgradeCluster(ctx context.Context, id uuid.UUID, versi
 		UserID:    cluster.UserID,
 		Type:      domain.ClusterJobUpgrade,
 		Version:   version,
+	}
+
+	if s.taskQueue == nil {
+		return errors.New(errors.Internal, "task queue not initialized")
 	}
 
 	if err := s.taskQueue.Enqueue(ctx, "k8s_jobs", job); err != nil {
