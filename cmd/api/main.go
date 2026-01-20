@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"sync"
 	"syscall"
 	"time"
@@ -23,15 +24,64 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
-// ... (omitted comments) ...
-
 // ErrMigrationDone signals that migrations have already completed.
 var ErrMigrationDone = errors.New("migrations done")
+
+// AppDeps holds the dependencies for the application, enabling DI for testing.
+type AppDeps struct {
+	LoadConfig         func(*slog.Logger) (*platform.Config, error)
+	InitDatabase       func(context.Context, *platform.Config, *slog.Logger) (postgres.DB, error)
+	RunMigrations      func(context.Context, postgres.DB, *slog.Logger) error
+	InitRedis          func(context.Context, *platform.Config, *slog.Logger) (*redis.Client, error)
+	InitComputeBackend func(*platform.Config, *slog.Logger) (ports.ComputeBackend, error)
+	InitStorageBackend func(*platform.Config, *slog.Logger) (ports.StorageBackend, error)
+	InitNetworkBackend func(*platform.Config, *slog.Logger) ports.NetworkBackend
+	InitLBProxy        func(*platform.Config, ports.ComputeBackend, ports.InstanceRepository, ports.VpcRepository) (ports.LBProxyAdapter, error)
+	InitRepositories   func(postgres.DB, *redis.Client) *setup.Repositories
+	InitServices       func(setup.ServiceConfig) (*setup.Services, *setup.Workers, error)
+	InitHandlers       func(*setup.Services, *slog.Logger) *setup.Handlers
+	SetupRouter        func(*platform.Config, *slog.Logger, *setup.Handlers, *setup.Services, ports.NetworkBackend) *gin.Engine
+	NewHTTPServer      func(string, http.Handler) *http.Server
+	StartHTTPServer    func(*http.Server) error
+	ShutdownHTTPServer func(context.Context, *http.Server) error
+	NotifySignals      func(chan<- os.Signal, ...os.Signal)
+}
+
+func DefaultDeps() AppDeps {
+	return AppDeps{
+		LoadConfig:         setup.LoadConfig,
+		InitDatabase:       setup.InitDatabase,
+		RunMigrations:      setup.RunMigrations,
+		InitRedis:          setup.InitRedis,
+		InitComputeBackend: setup.InitComputeBackend,
+		InitStorageBackend: setup.InitStorageBackend,
+		InitNetworkBackend: setup.InitNetworkBackend,
+		InitLBProxy:        setup.InitLBProxy,
+		InitRepositories:   setup.InitRepositories,
+		InitServices:       setup.InitServices,
+		InitHandlers:       setup.InitHandlers,
+		SetupRouter:        setup.SetupRouter,
+		NewHTTPServer: func(addr string, handler http.Handler) *http.Server {
+			return &http.Server{Addr: addr, Handler: handler}
+		},
+		StartHTTPServer: func(s *http.Server) error {
+			return s.ListenAndServe()
+		},
+		ShutdownHTTPServer: func(ctx context.Context, s *http.Server) error {
+			return s.Shutdown(ctx)
+		},
+		NotifySignals: func(c chan<- os.Signal, sigs ...os.Signal) {
+			signal.Notify(c, sigs...)
+		},
+	}
+}
 
 func main() {
 	logger := setup.InitLogger()
 	migrateOnly := flag.Bool("migrate-only", false, "run database migrations and exit")
 	flag.Parse()
+
+	deps := DefaultDeps()
 
 	// Initialize Tracing (Opt-in)
 	if tp := initTracing(logger); tp != nil {
@@ -42,7 +92,7 @@ func main() {
 		}()
 	}
 
-	cfg, db, rdb, err := initInfrastructure(logger, *migrateOnly)
+	cfg, db, rdb, err := initInfrastructure(deps, logger, *migrateOnly)
 	if err != nil {
 		if *migrateOnly && errors.Is(err, ErrMigrationDone) {
 			return
@@ -53,14 +103,14 @@ func main() {
 	defer db.Close()
 	defer func() { _ = rdb.Close() }()
 
-	compute, storage, network, lbProxy, err := initBackends(cfg, logger, db, rdb)
+	compute, storage, network, lbProxy, err := initBackends(deps, cfg, logger, db, rdb)
 	if err != nil {
 		logger.Error("backend initialization failed", "error", err)
 		os.Exit(1)
 	}
 
-	repos := initRepositoriesFunc(db, rdb)
-	svcs, workers, err := initServicesFunc(setup.ServiceConfig{
+	repos := deps.InitRepositories(db, rdb)
+	svcs, workers, err := deps.InitServices(setup.ServiceConfig{
 		Config: cfg, Repos: repos, Compute: compute, Storage: storage,
 		Network: network, LBProxy: lbProxy, DB: db, RDB: rdb, Logger: logger,
 	})
@@ -69,15 +119,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	handlers := initHandlersFunc(svcs, logger)
-	r := setupRouterFunc(cfg, logger, handlers, svcs, network)
+	handlers := deps.InitHandlers(svcs, logger)
+	r := deps.SetupRouter(cfg, logger, handlers, svcs, network)
 
 	// Add Tracing Middleware if enabled
 	if os.Getenv("TRACING_ENABLED") == "true" {
 		r.Use(otelgin.Middleware("thecloud-api"))
 	}
 
-	runApplication(cfg, logger, r, workers)
+	runApplication(deps, cfg, logger, r, workers)
 }
 
 func initTracing(logger *slog.Logger) *sdktrace.TracerProvider {
@@ -111,8 +161,8 @@ func initTracing(logger *slog.Logger) *sdktrace.TracerProvider {
 	return tp
 }
 
-func initInfrastructure(logger *slog.Logger, migrateOnly bool) (*platform.Config, postgres.DB, *redis.Client, error) {
-	cfg, err := loadConfigFunc(logger)
+func initInfrastructure(deps AppDeps, logger *slog.Logger, migrateOnly bool) (*platform.Config, postgres.DB, *redis.Client, error) {
+	cfg, err := deps.LoadConfig(logger)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -120,12 +170,12 @@ func initInfrastructure(logger *slog.Logger, migrateOnly bool) (*platform.Config
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	db, err := initDatabaseFunc(ctx, cfg, logger)
+	db, err := deps.InitDatabase(ctx, cfg, logger)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	if err := runMigrationsFunc(ctx, db, logger); err != nil {
+	if err := deps.RunMigrations(ctx, db, logger); err != nil {
 		logger.Warn("failed to run migrations", "error", err)
 		if migrateOnly {
 			db.Close()
@@ -137,7 +187,7 @@ func initInfrastructure(logger *slog.Logger, migrateOnly bool) (*platform.Config
 		return nil, nil, nil, ErrMigrationDone
 	}
 
-	rdb, err := initRedisFunc(ctx, cfg, logger)
+	rdb, err := deps.InitRedis(ctx, cfg, logger)
 	if err != nil {
 		db.Close()
 		return nil, nil, nil, err
@@ -146,21 +196,21 @@ func initInfrastructure(logger *slog.Logger, migrateOnly bool) (*platform.Config
 	return cfg, db, rdb, nil
 }
 
-func initBackends(cfg *platform.Config, logger *slog.Logger, db postgres.DB, rdb *redis.Client) (ports.ComputeBackend, ports.StorageBackend, ports.NetworkBackend, ports.LBProxyAdapter, error) {
-	compute, err := initComputeBackendFunc(cfg, logger)
+func initBackends(deps AppDeps, cfg *platform.Config, logger *slog.Logger, db postgres.DB, rdb *redis.Client) (ports.ComputeBackend, ports.StorageBackend, ports.NetworkBackend, ports.LBProxyAdapter, error) {
+	compute, err := deps.InitComputeBackend(cfg, logger)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	storage, err := initStorageBackendFunc(cfg, logger)
+	storage, err := deps.InitStorageBackend(cfg, logger)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	network := initNetworkBackendFunc(cfg, logger)
+	network := deps.InitNetworkBackend(cfg, logger)
 
-	tmpRepos := initRepositoriesFunc(db, rdb)
-	lbProxy, err := initLBProxyFunc(cfg, compute, tmpRepos.Instance, tmpRepos.Vpc)
+	tmpRepos := deps.InitRepositories(db, rdb)
+	lbProxy, err := deps.InitLBProxy(cfg, compute, tmpRepos.Instance, tmpRepos.Vpc)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -168,7 +218,7 @@ func initBackends(cfg *platform.Config, logger *slog.Logger, db postgres.DB, rdb
 	return compute, storage, network, lbProxy, nil
 }
 
-func runApplication(cfg *platform.Config, logger *slog.Logger, r *gin.Engine, workers *setup.Workers) {
+func runApplication(deps AppDeps, cfg *platform.Config, logger *slog.Logger, r *gin.Engine, workers *setup.Workers) {
 	role := os.Getenv("ROLE")
 	if role == "" {
 		role = "all"
@@ -181,12 +231,12 @@ func runApplication(cfg *platform.Config, logger *slog.Logger, r *gin.Engine, wo
 		runWorkers(workerCtx, wg, workers)
 	}
 
-	srv := newHTTPServer(":"+cfg.Port, r)
+	srv := deps.NewHTTPServer(":"+cfg.Port, r)
 
 	if role == "api" || role == "all" {
 		go func() {
 			logger.Info("starting compute-api", "port", cfg.Port)
-			if err := startHTTPServer(srv); err != nil && err != http.ErrServerClosed {
+			if err := deps.StartHTTPServer(srv); err != nil && err != http.ErrServerClosed {
 				logger.Error("failed to start server", "error", err)
 				os.Exit(1)
 			}
@@ -196,7 +246,7 @@ func runApplication(cfg *platform.Config, logger *slog.Logger, r *gin.Engine, wo
 	}
 
 	quit := make(chan os.Signal, 1)
-	notifySignals(quit, syscall.SIGINT, syscall.SIGTERM)
+	deps.NotifySignals(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	logger.Info("shutting down server...")
@@ -204,7 +254,7 @@ func runApplication(cfg *platform.Config, logger *slog.Logger, r *gin.Engine, wo
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := shutdownHTTPServer(ctx, srv); err != nil {
+	if err := deps.ShutdownHTTPServer(ctx, srv); err != nil {
 		logger.Error("server forced to shutdown", "error", err)
 	}
 
@@ -214,11 +264,12 @@ func runApplication(cfg *platform.Config, logger *slog.Logger, r *gin.Engine, wo
 }
 
 func runWorkers(ctx context.Context, wg *sync.WaitGroup, workers *setup.Workers) {
-	wg.Add(6)
+	wg.Add(7)
 	go workers.LB.Run(ctx, wg)
 	go workers.AutoScaling.Run(ctx, wg)
 	go workers.Cron.Run(ctx, wg)
 	go workers.Container.Run(ctx, wg)
 	go workers.Provision.Run(ctx, wg)
 	go workers.Accounting.Run(ctx, wg)
+	go workers.Cluster.Run(ctx, wg)
 }

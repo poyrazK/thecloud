@@ -79,6 +79,11 @@ func (m *instanceServiceMock) TerminateInstance(ctx context.Context, idOrName st
 	return args.Error(0)
 }
 
+func (m *instanceServiceMock) Exec(ctx context.Context, idOrName string, cmd []string) (string, error) {
+	args := m.Called(ctx, idOrName, cmd)
+	return args.String(0), args.Error(1)
+}
+
 func setupInstanceHandlerTest(_ *testing.T) (*instanceServiceMock, *InstanceHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	mockSvc := new(instanceServiceMock)

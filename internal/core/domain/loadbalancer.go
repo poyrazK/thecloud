@@ -31,6 +31,7 @@ type LoadBalancer struct {
 	VpcID          uuid.UUID `json:"vpc_id"`
 	Port           int       `json:"port"`      // Listener port (e.g. 80)
 	Algorithm      string    `json:"algorithm"` // "round-robin" | "least-conn"
+	IP             string    `json:"ip,omitempty"`
 	Status         LBStatus  `json:"status"`
 	Version        int       `json:"version"` // Optimistic locking
 	CreatedAt      time.Time `json:"created_at"`

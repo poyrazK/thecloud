@@ -50,7 +50,7 @@ swagger:
 
 build:
 	mkdir -p bin
-	go build -o bin/api cmd/api/main.go
+	go build -o bin/api ./cmd/api
 	go build -o bin/cloud cmd/cloud/*.go
 
 install: build

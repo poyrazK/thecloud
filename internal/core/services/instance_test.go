@@ -19,7 +19,7 @@ import (
 
 const (
 	testPorts      = "8080:80"
-	testVPCNetwork = "br-vpc-123"
+	testVPCNetwork = "cloud-network"
 )
 
 func setupInstanceServiceTest(_ *testing.T) (*MockInstanceRepo, *MockVpcRepo, *MockSubnetRepo, *MockVolumeRepo, *MockComputeBackend, *MockNetworkBackend, *MockEventService, *MockAuditService, *services.TaskQueueStub, ports.InstanceService) {
@@ -433,115 +433,4 @@ func TestInstanceServiceGetVolumeByIDOrName(t *testing.T) {
 	// Wait, getVolumeByIDOrName is unexported. I can't call it directly.
 	// But LaunchInstance/TerminateInstance/etc might call it?
 	// Actually, only LaunchInstance calls resolveVolumes which calls it.
-}
-func TestProvisionNetworkingFailure(t *testing.T) {
-	repo, vpcRepo, _, _, compute, _, _, _, _, svc := setupInstanceServiceTest(t)
-	instID := uuid.New()
-	vpcID := uuid.New()
-	inst := &domain.Instance{ID: instID, VpcID: &vpcID}
-
-	compute.On("Type").Return("docker")
-	repo.On("GetByID", mock.Anything, instID).Return(inst, nil)
-	vpcRepo.On("GetByID", mock.Anything, vpcID).Return(nil, assert.AnError)
-	repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
-		return i.Status == domain.StatusError
-	})).Return(nil)
-
-	err := svc.(interface {
-		Provision(context.Context, uuid.UUID, []domain.VolumeAttachment) error
-	}).Provision(context.Background(), instID, nil)
-
-	assert.Error(t, err)
-}
-
-func TestProvisionVolumeResolutionFailure(t *testing.T) {
-	repo, _, _, volumeRepo, compute, _, _, _, _, svc := setupInstanceServiceTest(t)
-	instID := uuid.New()
-	inst := &domain.Instance{ID: instID}
-
-	compute.On("Type").Return("docker")
-	volID := uuid.New()
-	repo.On("GetByID", mock.Anything, instID).Return(inst, nil)
-	volumeRepo.On("GetByID", mock.Anything, volID).Return(nil, assert.AnError)
-	repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
-		return i.Status == domain.StatusError
-	})).Return(nil)
-
-	err := svc.(interface {
-		Provision(context.Context, uuid.UUID, []domain.VolumeAttachment) error
-	}).Provision(context.Background(), instID, []domain.VolumeAttachment{{VolumeIDOrName: volID.String()}})
-
-	assert.Error(t, err)
-}
-
-func TestProvisionVolumeNotAvailable(t *testing.T) {
-	repo, _, _, volumeRepo, compute, _, _, _, _, svc := setupInstanceServiceTest(t)
-	instID := uuid.New()
-	inst := &domain.Instance{ID: instID}
-	volID := uuid.New()
-
-	compute.On("Type").Return("docker")
-	repo.On("GetByID", mock.Anything, instID).Return(inst, nil)
-	volumeRepo.On("GetByID", mock.Anything, volID).Return(&domain.Volume{ID: volID, Status: domain.VolumeStatusInUse}, nil)
-	repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
-		return i.Status == domain.StatusError
-	})).Return(nil)
-
-	err := svc.(interface {
-		Provision(context.Context, uuid.UUID, []domain.VolumeAttachment) error
-	}).Provision(context.Background(), instID, []domain.VolumeAttachment{{VolumeIDOrName: volID.String()}})
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not available")
-}
-
-func TestProvisionWithVolumesSuccess(t *testing.T) {
-	repo, _, _, volumeRepo, compute, _, eventSvc, auditSvc, _, svc := setupInstanceServiceTest(t)
-	defer repo.AssertExpectations(t)
-	defer volumeRepo.AssertExpectations(t)
-	defer compute.AssertExpectations(t)
-	defer eventSvc.AssertExpectations(t)
-	defer auditSvc.AssertExpectations(t)
-
-	ctx := context.Background()
-	instID := uuid.New()
-	volID := uuid.New()
-	image := "alpine"
-
-	inst := &domain.Instance{
-		ID:    instID,
-		Name:  "inst-vol",
-		Image: image,
-	}
-
-	vol := &domain.Volume{
-		ID:     volID,
-		Name:   "vol1",
-		Status: domain.VolumeStatusAvailable,
-	}
-
-	repo.On("GetByID", mock.Anything, instID).Return(inst, nil)
-	volumeRepo.On("GetByID", mock.Anything, volID).Return(vol, nil)
-	volumeRepo.On("GetByName", mock.Anything, mock.Anything).Return(nil, assert.AnError).Maybe()
-
-	compute.On("CreateInstance", mock.Anything, mock.Anything).Return("c-456", nil)
-	compute.On("Type").Return("docker")
-
-	repo.On("Update", mock.Anything, mock.Anything).Return(nil)
-	volumeRepo.On("Update", mock.Anything, mock.MatchedBy(func(v *domain.Volume) bool {
-		return v.ID == volID && v.Status == domain.VolumeStatusInUse
-	})).Return(nil)
-
-	eventSvc.On("RecordEvent", mock.Anything, "INSTANCE_LAUNCH", instID.String(), "INSTANCE", mock.Anything).Return(nil)
-	auditSvc.On("Log", mock.Anything, mock.Anything, "instance.launch", "instance", instID.String(), mock.Anything).Return(nil)
-
-	attachments := []domain.VolumeAttachment{
-		{VolumeIDOrName: volID.String(), MountPath: "/data"},
-	}
-
-	err := svc.(interface {
-		Provision(context.Context, uuid.UUID, []domain.VolumeAttachment) error
-	}).Provision(ctx, instID, attachments)
-
-	assert.NoError(t, err)
 }

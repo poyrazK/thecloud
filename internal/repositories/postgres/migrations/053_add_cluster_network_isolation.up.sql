@@ -1,0 +1,1 @@
+ALTER TABLE clusters ADD COLUMN network_isolation BOOLEAN NOT NULL DEFAULT FALSE;

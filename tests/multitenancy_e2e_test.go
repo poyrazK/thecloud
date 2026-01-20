@@ -181,7 +181,7 @@ func listInstances(t *testing.T, client *http.Client, token string) []Instance {
 	return listWrapper.Data
 }
 
-func deleteInstance(t *testing.T, client *http.Client, token, id string) {
+func deleteInstance(_ *testing.T, client *http.Client, token, id string) {
 	req, _ := http.NewRequest("DELETE", fmt.Sprintf(instancesPathFmt, testutil.TestBaseURL, id), nil)
 	req.Header.Set(testutil.TestHeaderAPIKey, token)
 	_, _ = client.Do(req)

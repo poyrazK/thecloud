@@ -46,4 +46,6 @@ type InstanceService interface {
 	GetConsoleURL(ctx context.Context, idOrName string) (string, error)
 	// TerminateInstance permanently removes a compute resource and releases its allocated assets.
 	TerminateInstance(ctx context.Context, idOrName string) error
+	// Exec runs a command inside the instance and returns the output.
+	Exec(ctx context.Context, idOrName string, cmd []string) (string, error)
 }

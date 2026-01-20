@@ -222,6 +222,10 @@ func (m *MockInstanceService) GetConsoleURL(ctx context.Context, idOrName string
 func (m *MockInstanceService) TerminateInstance(ctx context.Context, idOrName string) error {
 	return m.Called(ctx, idOrName).Error(0)
 }
+func (m *MockInstanceService) Exec(ctx context.Context, idOrName string, cmd []string) (string, error) {
+	args := m.Called(ctx, idOrName, cmd)
+	return args.String(0), args.Error(1)
+}
 
 // MockLBService
 type MockLBService struct{ mock.Mock }
@@ -806,6 +810,92 @@ func (m *MockInstanceRepo) Update(ctx context.Context, inst *domain.Instance) er
 }
 func (m *MockInstanceRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
+}
+
+// MockClusterRepo
+type MockClusterRepo struct{ mock.Mock }
+
+func (m *MockClusterRepo) Create(ctx context.Context, cluster *domain.Cluster) error {
+	return m.Called(ctx, cluster).Error(0)
+}
+func (m *MockClusterRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Cluster, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Cluster), args.Error(1)
+}
+func (m *MockClusterRepo) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Cluster, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Cluster), args.Error(1)
+}
+func (m *MockClusterRepo) Update(ctx context.Context, cluster *domain.Cluster) error {
+	return m.Called(ctx, cluster).Error(0)
+}
+func (m *MockClusterRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockClusterRepo) AddNode(ctx context.Context, node *domain.ClusterNode) error {
+	return m.Called(ctx, node).Error(0)
+}
+func (m *MockClusterRepo) GetNodes(ctx context.Context, clusterID uuid.UUID) ([]*domain.ClusterNode, error) {
+	args := m.Called(ctx, clusterID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.ClusterNode), args.Error(1)
+}
+func (m *MockClusterRepo) DeleteNode(ctx context.Context, nodeID uuid.UUID) error {
+	return m.Called(ctx, nodeID).Error(0)
+}
+func (m *MockClusterRepo) UpdateNode(ctx context.Context, node *domain.ClusterNode) error {
+	return m.Called(ctx, node).Error(0)
+}
+
+// MockClusterProvisioner
+type MockClusterProvisioner struct{ mock.Mock }
+
+func (m *MockClusterProvisioner) Provision(ctx context.Context, cluster *domain.Cluster) error {
+	return m.Called(ctx, cluster).Error(0)
+}
+func (m *MockClusterProvisioner) Deprovision(ctx context.Context, cluster *domain.Cluster) error {
+	return m.Called(ctx, cluster).Error(0)
+}
+func (m *MockClusterProvisioner) GetStatus(ctx context.Context, cluster *domain.Cluster) (domain.ClusterStatus, error) {
+	args := m.Called(ctx, cluster)
+	return args.Get(0).(domain.ClusterStatus), args.Error(1)
+}
+func (m *MockClusterProvisioner) Repair(ctx context.Context, cluster *domain.Cluster) error {
+	return m.Called(ctx, cluster).Error(0)
+}
+func (m *MockClusterProvisioner) Scale(ctx context.Context, cluster *domain.Cluster) error {
+	return m.Called(ctx, cluster).Error(0)
+}
+func (m *MockClusterProvisioner) GetKubeconfig(ctx context.Context, cluster *domain.Cluster, role string) (string, error) {
+	args := m.Called(ctx, cluster, role)
+	return args.String(0), args.Error(1)
+}
+func (m *MockClusterProvisioner) GetHealth(ctx context.Context, cluster *domain.Cluster) (*ports.ClusterHealth, error) {
+	args := m.Called(ctx, cluster)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*ports.ClusterHealth), args.Error(1)
+}
+func (m *MockClusterProvisioner) Upgrade(ctx context.Context, cluster *domain.Cluster, version string) error {
+	return m.Called(ctx, cluster, version).Error(0)
+}
+func (m *MockClusterProvisioner) RotateSecrets(ctx context.Context, cluster *domain.Cluster) error {
+	return m.Called(ctx, cluster).Error(0)
+}
+func (m *MockClusterProvisioner) CreateBackup(ctx context.Context, cluster *domain.Cluster) error {
+	return m.Called(ctx, cluster).Error(0)
+}
+func (m *MockClusterProvisioner) Restore(ctx context.Context, cluster *domain.Cluster, backupPath string) error {
+	return m.Called(ctx, cluster, backupPath).Error(0)
 }
 func (m *MockInstanceRepo) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*domain.Instance, error) {
 	args := m.Called(ctx, vpcID)
@@ -1620,4 +1710,64 @@ func (m *MockStorageBackend) Ping(ctx context.Context) error {
 func (m *MockStorageBackend) Type() string {
 	args := m.Called()
 	return args.String(0)
+}
+
+// MockSecretService
+type MockSecretService struct {
+	mock.Mock
+}
+
+func (m *MockSecretService) CreateSecret(ctx context.Context, name, value, description string) (*domain.Secret, error) {
+	args := m.Called(ctx, name, value, description)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Secret), args.Error(1)
+}
+func (m *MockSecretService) GetSecret(ctx context.Context, id uuid.UUID) (*domain.Secret, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Secret), args.Error(1)
+}
+func (m *MockSecretService) GetSecretByName(ctx context.Context, name string) (*domain.Secret, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Secret), args.Error(1)
+}
+func (m *MockSecretService) ListSecrets(ctx context.Context) ([]*domain.Secret, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Secret), args.Error(1)
+}
+func (m *MockSecretService) DeleteSecret(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockSecretService) Encrypt(ctx context.Context, userID uuid.UUID, plainText string) (string, error) {
+	args := m.Called(ctx, userID, plainText)
+	return args.String(0), args.Error(1)
+}
+func (m *MockSecretService) Decrypt(ctx context.Context, userID uuid.UUID, cipherText string) (string, error) {
+	args := m.Called(ctx, userID, cipherText)
+	return args.String(0), args.Error(1)
+}
+
+// MockTaskQueue
+type MockTaskQueue struct {
+	mock.Mock
+}
+
+func (m *MockTaskQueue) Enqueue(ctx context.Context, queue string, payload interface{}) error {
+	args := m.Called(ctx, queue, payload)
+	return args.Error(0)
+}
+
+func (m *MockTaskQueue) Dequeue(ctx context.Context, queue string) (string, error) {
+	args := m.Called(ctx, queue)
+	return args.String(0), args.Error(1)
 }

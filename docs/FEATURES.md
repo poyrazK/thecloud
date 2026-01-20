@@ -101,7 +101,16 @@ This document provides a comprehensive overview of every feature currently imple
 - **Algorithm**: Distributes requests sequentially (Round Robin) to targets.
 - **Health Checks**: Background workers ping targets to ensure availability.
 
-### 9. Auto-Scaling
+### 9. Managed Kubernetes (KaaS) 🆕
+**What it is**: Provision and manage production-ready Kubernetes clusters.
+**Tech Stack**: Kubeadm, Containerd, LoadBalancer, Go Workers.
+**Implementation**:
+- **Async Provisioning**: Uses a Redis-backed **Task Queue** to handle cluster creation/deletion asynchronously. 
+- **High Availability (HA)**: Supports 3-node HA Control Plane with an automated API Server Load Balancer.
+- **Node Management**: Automatically bootstraps nodes with `kubeadm` and required CNI plugins.
+- **Isolation**: Each cluster is isolated within its own VPC.
+
+### 10. Auto-Scaling
 **What it is**: Automatically add/remove instances based on CPU load.
 **Tech Stack**: Go Background Workers.
 **Implementation**:
@@ -110,7 +119,7 @@ This document provides a comprehensive overview of every feature currently imple
 - **Scale Out**: Calls `InstanceService` to clone the template instance.
 - **Scale In**: Terminates the oldest instance in the group.
 
-### 10. Secrets Manager
+### 11. Secrets Manager
 **What it is**: Store sensitive data (API keys, passwords) securely.
 **Tech Stack**: AES-GCM Encryption, Go `crypto/aes`.
 **Implementation**:

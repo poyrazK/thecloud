@@ -8,6 +8,7 @@ import (
 
 // RunTaskOptions encapsulates configuration for executing a one-off containerized task.
 type RunTaskOptions struct {
+	Name            string   // Optional name for the task container
 	Image           string   // Container image to use
 	Command         []string // Command to execute within the container
 	Env             []string // Environment variables (e.g., "KEY=VALUE")

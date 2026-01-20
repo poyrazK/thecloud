@@ -58,6 +58,7 @@ graph TB
     Service --> ASWorker
     Service --> CronWorker
     Service --> ContainerWorker
+    Service --> ClusterWorker
 ```
 
 ## Architectural Layers
@@ -298,6 +299,12 @@ func (r *instanceRepository) Create(ctx context.Context, inst *domain.Instance) 
 - Executes scheduled tasks
 - Records execution history
 - Handles failures and retries
+
+**Cluster Worker**:
+- Handles long-running Kubernetes operations (Provision, Deprovision, Upgrade)
+- Consumes jobs from a Redis-backed **Task Queue**
+- Ensures operations are durable and can resume after system restarts
+- Manages complex multi-node coordination for HA clusters
 
 ## Key Design Principles
 

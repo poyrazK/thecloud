@@ -67,7 +67,26 @@ func (s *SecurityGroupService) CreateGroup(ctx context.Context, vpcID uuid.UUID,
 		Description: description,
 		ARN:         arn,
 		CreatedAt:   time.Now(),
+		Rules:       []domain.SecurityRule{},
 	}
+
+	// Default allow ARP
+	sg.Rules = append(sg.Rules, domain.SecurityRule{
+		ID:        uuid.New(),
+		GroupID:   sgID,
+		Protocol:  "arp",
+		Direction: domain.RuleIngress,
+		Priority:  1000,
+		CreatedAt: time.Now(),
+	})
+	sg.Rules = append(sg.Rules, domain.SecurityRule{
+		ID:        uuid.New(),
+		GroupID:   sgID,
+		Protocol:  "arp",
+		Direction: domain.RuleEgress,
+		Priority:  1000,
+		CreatedAt: time.Now(),
+	})
 
 	if err := s.repo.Create(ctx, sg); err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to create security group", err)
@@ -303,6 +322,8 @@ func (s *SecurityGroupService) translateToFlow(rule domain.SecurityRule) ports.F
 		matchParts = append(matchParts, "udp")
 	case "icmp":
 		matchParts = append(matchParts, "icmp")
+	case "arp":
+		matchParts = append(matchParts, "arp")
 	}
 
 	if rule.CIDR != "" && rule.CIDR != "0.0.0.0/0" {
@@ -329,6 +350,6 @@ func (s *SecurityGroupService) translateToFlow(rule domain.SecurityRule) ports.F
 	return ports.FlowRule{
 		Priority: rule.Priority,
 		Match:    strings.Join(matchParts, ","),
-		Actions:  "allow", // Simplified
+		Actions:  "NORMAL",
 	}
 }

@@ -489,6 +489,69 @@ Pause a job.
 ### POST /cron/:id/resume
 Resume a job.
 
+---
+
+## Managed Kubernetes (KaaS)
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /clusters
+List all Kubernetes clusters.
+
+### POST /clusters
+Create a new Kubernetes cluster (Asynchronous).
+```json
+{
+  "name": "my-cluster",
+  "vpc_id": "vpc-uuid",
+  "version": "v1.29.0",
+  "workers": 3,
+  "ha": true
+}
+```
+
+### GET /clusters/:id
+Get detailed information and status.
+
+### DELETE /clusters/:id
+Delete a cluster (Asynchronous).
+
+### GET /clusters/:id/kubeconfig
+Download the admin kubeconfig.
+
+### GET /clusters/:id/health
+Get operational health (nodes ready, api server reachability).
+
+### POST /clusters/:id/upgrade
+Upgrade cluster version (Asynchronous).
+```json
+{
+  "version": "v1.30.0"
+}
+```
+
+### POST /clusters/:id/scale
+Scale worker nodes.
+```json
+{
+  "workers": 5
+}
+```
+
+### POST /clusters/:id/repair
+Re-run bootstrap scripts on nodes.
+
+### POST /clusters/:id/backups
+Trigger an etcd backup.
+
+### POST /clusters/:id/restore
+Restore etcd state from path.
+```json
+{
+  "backup_path": "/backups/etcd-snapshot.db"
+}
+```
+
 ## Error Codes
 
 | Status Code | Description |

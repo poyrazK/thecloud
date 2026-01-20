@@ -57,6 +57,7 @@ type Handlers struct {
 	AutoScaling   *httphandlers.AutoScalingHandler
 	Accounting    *httphandlers.AccountingHandler
 	Image         *httphandlers.ImageHandler
+	Cluster       *httphandlers.ClusterHandler
 	Ws            *ws.Handler
 }
 
@@ -94,6 +95,7 @@ func InitHandlers(svcs *Services, logger *slog.Logger) *Handlers {
 		AutoScaling:   httphandlers.NewAutoScalingHandler(svcs.AutoScaling),
 		Accounting:    httphandlers.NewAccountingHandler(svcs.Accounting),
 		Image:         httphandlers.NewImageHandler(svcs.Image),
+		Cluster:       httphandlers.NewClusterHandler(svcs.Cluster),
 		Ws:            ws.NewHandler(hub, svcs.Identity, logger),
 	}
 }
@@ -225,6 +227,23 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		imageGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionImageRead), handlers.Image.GetImage)
 		imageGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionImageDelete), handlers.Image.DeleteImage)
 		imageGroup.POST("/:id/upload", httputil.Permission(svcs.RBAC, domain.PermissionImageCreate), handlers.Image.UploadImage)
+	}
+
+	clusterGroup := r.Group("/clusters")
+	clusterGroup.Use(httputil.Auth(svcs.Identity))
+	{
+		clusterGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionClusterCreate), handlers.Cluster.CreateCluster)
+		clusterGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionClusterRead), handlers.Cluster.ListClusters)
+		clusterGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionClusterRead), handlers.Cluster.GetCluster)
+		clusterGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionClusterDelete), handlers.Cluster.DeleteCluster)
+		clusterGroup.GET("/:id/kubeconfig", httputil.Permission(svcs.RBAC, domain.PermissionClusterRead), handlers.Cluster.GetKubeconfig)
+		clusterGroup.POST("/:id/repair", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.RepairCluster)
+		clusterGroup.POST("/:id/scale", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.ScaleCluster)
+		clusterGroup.GET("/:id/health", httputil.Permission(svcs.RBAC, domain.PermissionClusterRead), handlers.Cluster.GetClusterHealth)
+		clusterGroup.POST("/:id/upgrade", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.UpgradeCluster)
+		clusterGroup.POST("/:id/rotate-secrets", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.RotateSecrets)
+		clusterGroup.POST("/:id/backups", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.CreateBackup)
+		clusterGroup.POST("/:id/restore", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.RestoreBackup)
 	}
 }
 

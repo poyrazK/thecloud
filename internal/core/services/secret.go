@@ -15,6 +15,10 @@ import (
 	"github.com/poyrazk/thecloud/pkg/crypto"
 )
 
+const (
+	errFailedDeriveKey = "failed to derive key"
+)
+
 // SecretService manages encrypted secret storage.
 type SecretService struct {
 	repo      ports.SecretRepository
@@ -59,7 +63,7 @@ func (s *SecretService) CreateSecret(ctx context.Context, name, value, descripti
 
 	key, err := s.getDerivedKey(userID)
 	if err != nil {
-		return nil, errors.Wrap(errors.Internal, "failed to derive key", err)
+		return nil, errors.Wrap(errors.Internal, errFailedDeriveKey, err)
 	}
 
 	encrypted, err := crypto.Encrypt([]byte(value), key)
@@ -101,7 +105,7 @@ func (s *SecretService) GetSecret(ctx context.Context, id uuid.UUID) (*domain.Se
 
 	key, err := s.getDerivedKey(secret.UserID)
 	if err != nil {
-		return nil, errors.Wrap(errors.Internal, "failed to derive key", err)
+		return nil, errors.Wrap(errors.Internal, errFailedDeriveKey, err)
 	}
 
 	decrypted, err := crypto.Decrypt(secret.EncryptedValue, key)
@@ -134,7 +138,7 @@ func (s *SecretService) GetSecretByName(ctx context.Context, name string) (*doma
 
 	key, err := s.getDerivedKey(secret.UserID)
 	if err != nil {
-		return nil, errors.Wrap(errors.Internal, "failed to derive key", err)
+		return nil, errors.Wrap(errors.Internal, errFailedDeriveKey, err)
 	}
 
 	decrypted, err := crypto.Decrypt(secret.EncryptedValue, key)
@@ -191,4 +195,32 @@ func (s *SecretService) DeleteSecret(ctx context.Context, id uuid.UUID) error {
 	})
 
 	return nil
+}
+
+func (s *SecretService) Encrypt(ctx context.Context, userID uuid.UUID, plainText string) (string, error) {
+	key, err := s.getDerivedKey(userID)
+	if err != nil {
+		return "", errors.Wrap(errors.Internal, errFailedDeriveKey, err)
+	}
+
+	encrypted, err := crypto.Encrypt([]byte(plainText), key)
+	if err != nil {
+		return "", errors.Wrap(errors.Internal, "failed to encrypt", err)
+	}
+
+	return encrypted, nil
+}
+
+func (s *SecretService) Decrypt(ctx context.Context, userID uuid.UUID, cipherText string) (string, error) {
+	key, err := s.getDerivedKey(userID)
+	if err != nil {
+		return "", errors.Wrap(errors.Internal, errFailedDeriveKey, err)
+	}
+
+	decrypted, err := crypto.Decrypt(cipherText, key)
+	if err != nil {
+		return "", errors.Wrap(errors.Internal, "failed to decrypt", err)
+	}
+
+	return string(decrypted), nil
 }

@@ -24,6 +24,9 @@ import (
 // NginxImage is the container image used for load balancer proxies.
 const (
 	NginxImage = "nginx:alpine"
+	nginxConf  = "nginx.conf"
+	dirPerm    = 0755
+	filePerm   = 0644
 )
 
 // LBProxyAdapter deploys Nginx-based load balancer proxies using Docker.
@@ -65,10 +68,10 @@ func (a *LBProxyAdapter) DeployProxy(ctx context.Context, lb *domain.LoadBalance
 	// Docker doesn't support mounting strings directly easily without a file.
 	// We'll create a temp directory for LB configs.
 	configPath := filepath.Join("/tmp", "thecloud", "lb", lb.ID.String())
-	if err := os.MkdirAll(configPath, 0755); err != nil {
+	if err := os.MkdirAll(configPath, dirPerm); err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(filepath.Join(configPath, "nginx.conf"), []byte(config), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(configPath, nginxConf), []byte(config), filePerm); err != nil {
 		return "", err
 	}
 
@@ -88,7 +91,7 @@ func (a *LBProxyAdapter) DeployProxy(ctx context.Context, lb *domain.LoadBalance
 
 	hostConfig := &container.HostConfig{
 		Binds: []string{
-			fmt.Sprintf("%s:/etc/nginx/nginx.conf:ro", filepath.Join(configPath, "nginx.conf")),
+			fmt.Sprintf("%s:/etc/nginx/nginx.conf:ro", filepath.Join(configPath, nginxConf)),
 		},
 		PortBindings: nat.PortMap{
 			cPort: []nat.PortBinding{
@@ -145,8 +148,8 @@ func (a *LBProxyAdapter) UpdateProxyConfig(ctx context.Context, lb *domain.LoadB
 		return err
 	}
 
-	configPath := filepath.Join("/tmp", "thecloud", "lb", lb.ID.String(), "nginx.conf")
-	if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
+	configPath := filepath.Join("/tmp", "thecloud", "lb", lb.ID.String(), nginxConf)
+	if err := os.WriteFile(configPath, []byte(config), filePerm); err != nil {
 		return err
 	}
 

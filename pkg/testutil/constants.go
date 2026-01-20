@@ -75,4 +75,10 @@ const (
 	TestPort = "8080"
 	// TestProdPort is a production port used in tests.
 	TestProdPort = "9090"
+	// TestCacheID is a default cache ID used in tests.
+	TestCacheID = "cache-1"
+	// TestQueueID is a default queue ID used in tests.
+	TestQueueID = "queue-1"
+	// TestTopicID is a default topic ID used in tests.
+	TestTopicID = "topic-1"
 )

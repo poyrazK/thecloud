@@ -47,6 +47,7 @@ func init() {
 	rootCmd.AddCommand(iacCmd)
 	rootCmd.AddCommand(rolesCmd)
 	rootCmd.AddCommand(subnetCmd)
+	rootCmd.AddCommand(kubernetesCmd)
 }
 
 func main() {

@@ -191,6 +191,17 @@ func (s *InstanceService) finalizeProvision(ctx context.Context, inst *domain.In
 
 	inst.Status = domain.StatusRunning
 	inst.ContainerID = containerID
+
+	// If IP was not allocated during provision (e.g. Docker dynamic), fetch it now
+	if inst.PrivateIP == "" {
+		ip, err := s.compute.GetInstanceIP(ctx, containerID)
+		if err == nil && ip != "" {
+			inst.PrivateIP = ip
+		} else {
+			s.logger.Warn("failed to get instance IP from backend", "instance_id", inst.ID, "error", err)
+		}
+	}
+
 	if err := s.repo.Update(ctx, inst); err != nil {
 		return err
 	}
@@ -200,11 +211,13 @@ func (s *InstanceService) finalizeProvision(ctx context.Context, inst *domain.In
 	_ = s.eventSvc.RecordEvent(ctx, "INSTANCE_LAUNCH", inst.ID.String(), "INSTANCE", map[string]interface{}{
 		"name":  inst.Name,
 		"image": inst.Image,
+		"ip":    inst.PrivateIP,
 	})
 
 	_ = s.auditSvc.Log(ctx, inst.UserID, "instance.launch", "instance", inst.ID.String(), map[string]interface{}{
 		"name":  inst.Name,
 		"image": inst.Image,
+		"ip":    inst.PrivateIP,
 	})
 
 	return nil
@@ -568,6 +581,18 @@ func (s *InstanceService) resolveNetworkConfig(ctx context.Context, vpcID, subne
 		networkID = vpc.NetworkID
 	}
 
+	// HACK: For Docker-based demo without full OVS integration, force use of shared network
+	// because 'br-vpc-xxx' OVS bridge doesn't exist as a Docker network.
+	if s.compute.Type() == "docker" {
+		networkID = "cloud-network"
+
+		// If no subnet is configured, we let the backend assign an IP (dynamic).
+		// We return empty string here, and LaunchInstance should fetch the real IP later.
+		if subnetID == nil {
+			return networkID, "", "", nil
+		}
+	}
+
 	if subnetID == nil || s.network == nil {
 		return networkID, "", "", nil
 	}
@@ -616,7 +641,10 @@ func (s *InstanceService) plumbNetwork(ctx context.Context, inst *domain.Instanc
 
 	vethContainer := "eth0-" + inst.ID.String()[:8]
 	if err := s.network.CreateVethPair(ctx, inst.OvsPort, vethContainer); err != nil {
-		return err
+		// In Docker/Dev mode without real OVS, this might fail. We log and continue
+		// to allow the instance to run (albeit without custom networking).
+		s.logger.Warn("failed to create veth pair (networking might be limited)", "error", err)
+		return nil
 	}
 
 	if inst.VpcID != nil {
@@ -675,4 +703,27 @@ func (s *InstanceService) findAvailableIP(ipNet *net.IPNet, usedIPs map[string]b
 		}
 	}
 	return "", fmt.Errorf("no available IPs in subnet")
+}
+
+func (s *InstanceService) Exec(ctx context.Context, idOrName string, cmd []string) (string, error) {
+	inst, err := s.GetInstance(ctx, idOrName)
+	if err != nil {
+		return "", err
+	}
+
+	if inst.ContainerID == "" {
+		return "", errors.New(errors.InstanceNotRunning, "instance not running")
+	}
+
+	// Permission check?
+	// Implicitly checked by GetInstance if we had per-instance ACLs,
+	// but context UserID is checked in GetInstance -> repo.Get... (actually Repo typically scopes or checks, but GetInstance checks GetByID/GetByName).
+	// Let's assume caller (Handler) checked PermissionInstanceUpdate/Execute.
+
+	output, err := s.compute.Exec(ctx, inst.ContainerID, cmd)
+	if err != nil {
+		return "", errors.Wrap(errors.Internal, "failed to execute command", err)
+	}
+
+	return output, nil
 }

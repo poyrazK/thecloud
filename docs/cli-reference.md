@@ -1037,7 +1037,66 @@ cloud gateway rm-route my-api
 
 ---
 
-## Container Commands (Orchestration)
+## Kubernetes Commands
+ 
+ Manage managed Kubernetes clusters.
+ 
+ ### `k8s list`
+ 
+ List all Kubernetes clusters.
+ 
+ ```bash
+ cloud k8s list
+ ```
+ 
+ ### `k8s create`
+ 
+ Create a new Kubernetes cluster.
+ 
+ ```bash
+ # Standard cluster (1 master, 2 workers)
+ cloud k8s create --name my-cluster --vpc my-vpc
+ 
+ # High-Availability cluster (3 masters, load balancer, 3 workers)
+ cloud k8s create --name ha-cluster --vpc my-vpc --ha --workers 3
+ ```
+ 
+ **Flags**:
+ | Flag | Required | Default | Description |
+ |------|----------|---------|-------------|
+ | `--name` | Yes | - | Cluster name |
+ | `--vpc` | Yes | - | VPC ID |
+ | `--ha` | No | `false` | Enable 3-node HA control plane |
+ | `--version` | No | `v1.29.0` | K8s version |
+ | `--workers` | No | `2` | Worker node count |
+ 
+ ### `k8s show <id>`
+ 
+ Show detailed cluster information including HA status and API Server address.
+ 
+ ```bash
+ cloud k8s show my-cluster
+ ```
+ 
+ ### `k8s kubeconfig <id>`
+ 
+ Get kubeconfig for a cluster.
+ 
+ ```bash
+ cloud k8s kubeconfig my-cluster > kubeconfig.yaml
+ ```
+ 
+ ### `k8s delete <id>`
+ 
+ Delete a Kubernetes cluster.
+ 
+ ```bash
+ cloud k8s delete my-cluster
+ ```
+ 
+ ---
+ 
+ ## Container Commands (Orchestration)
 
 Manage container deployments with auto-healing.
 
