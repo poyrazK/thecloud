@@ -301,6 +301,7 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		storageGroup.GET(bucketKeyRoute, handlers.Storage.Download)
 		storageGroup.GET("/:bucket", handlers.Storage.List)
 		storageGroup.DELETE(bucketKeyRoute, handlers.Storage.Delete)
+		storageGroup.GET("/cluster/status", handlers.Storage.GetClusterStatus)
 	}
 
 	volumeGroup := r.Group("/volumes")
