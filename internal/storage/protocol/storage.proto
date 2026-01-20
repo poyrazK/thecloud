@@ -9,6 +9,13 @@ service StorageNode {
   rpc Retrieve(RetrieveRequest) returns (RetrieveResponse);
   rpc Delete(DeleteRequest) returns (DeleteResponse);
   rpc Gossip(GossipMessage) returns (GossipResponse);
+  rpc GetClusterStatus(Empty) returns (ClusterStatusResponse);
+}
+
+message Empty {}
+
+message ClusterStatusResponse {
+   map<string, MemberState> members = 1;
 }
 
 message GossipMessage {

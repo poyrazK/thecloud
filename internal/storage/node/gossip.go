@@ -65,17 +65,44 @@ func (g *GossipProtocol) AddPeer(id, addr string) {
 
 func (g *GossipProtocol) Start(interval time.Duration) {
 	ticker := time.NewTicker(interval)
+	failTicker := time.NewTicker(2 * time.Second) // Check failures often
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
 				g.gossip()
+			case <-failTicker.C:
+				g.detectFailures()
 			case <-g.stopCh:
 				ticker.Stop()
+				failTicker.Stop()
 				return
 			}
 		}
 	}()
+}
+
+func (g *GossipProtocol) detectFailures() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	now := time.Now()
+	timeout := 5 * time.Second
+
+	for id, m := range g.members {
+		if id == g.nodeID {
+			continue
+		}
+
+		if m.Status == "alive" && now.Sub(m.LastSeen) > timeout {
+			m.Status = "suspect"
+			g.logger.Warn("node flagged as suspect", "id", id, "last_seen", m.LastSeen)
+		} else if m.Status == "suspect" && now.Sub(m.LastSeen) > 3*timeout {
+			m.Status = "dead"
+			g.logger.Error("node flagged as dead", "id", id, "last_seen", m.LastSeen)
+			// TODO: Trigger reconfiguration
+		}
+	}
 }
 
 func (g *GossipProtocol) Stop() {

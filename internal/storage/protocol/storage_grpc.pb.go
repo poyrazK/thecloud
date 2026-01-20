@@ -19,10 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	StorageNode_Store_FullMethodName    = "/storage.StorageNode/Store"
-	StorageNode_Retrieve_FullMethodName = "/storage.StorageNode/Retrieve"
-	StorageNode_Delete_FullMethodName   = "/storage.StorageNode/Delete"
-	StorageNode_Gossip_FullMethodName   = "/storage.StorageNode/Gossip"
+	StorageNode_Store_FullMethodName            = "/storage.StorageNode/Store"
+	StorageNode_Retrieve_FullMethodName         = "/storage.StorageNode/Retrieve"
+	StorageNode_Delete_FullMethodName           = "/storage.StorageNode/Delete"
+	StorageNode_Gossip_FullMethodName           = "/storage.StorageNode/Gossip"
+	StorageNode_GetClusterStatus_FullMethodName = "/storage.StorageNode/GetClusterStatus"
 )
 
 // StorageNodeClient is the client API for StorageNode service.
@@ -33,6 +34,7 @@ type StorageNodeClient interface {
 	Retrieve(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*RetrieveResponse, error)
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
 	Gossip(ctx context.Context, in *GossipMessage, opts ...grpc.CallOption) (*GossipResponse, error)
+	GetClusterStatus(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ClusterStatusResponse, error)
 }
 
 type storageNodeClient struct {
@@ -83,6 +85,16 @@ func (c *storageNodeClient) Gossip(ctx context.Context, in *GossipMessage, opts 
 	return out, nil
 }
 
+func (c *storageNodeClient) GetClusterStatus(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ClusterStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClusterStatusResponse)
+	err := c.cc.Invoke(ctx, StorageNode_GetClusterStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // StorageNodeServer is the server API for StorageNode service.
 // All implementations must embed UnimplementedStorageNodeServer
 // for forward compatibility.
@@ -91,6 +103,7 @@ type StorageNodeServer interface {
 	Retrieve(context.Context, *RetrieveRequest) (*RetrieveResponse, error)
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
 	Gossip(context.Context, *GossipMessage) (*GossipResponse, error)
+	GetClusterStatus(context.Context, *Empty) (*ClusterStatusResponse, error)
 	mustEmbedUnimplementedStorageNodeServer()
 }
 
@@ -112,6 +125,9 @@ func (UnimplementedStorageNodeServer) Delete(context.Context, *DeleteRequest) (*
 }
 func (UnimplementedStorageNodeServer) Gossip(context.Context, *GossipMessage) (*GossipResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Gossip not implemented")
+}
+func (UnimplementedStorageNodeServer) GetClusterStatus(context.Context, *Empty) (*ClusterStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetClusterStatus not implemented")
 }
 func (UnimplementedStorageNodeServer) mustEmbedUnimplementedStorageNodeServer() {}
 func (UnimplementedStorageNodeServer) testEmbeddedByValue()                     {}
@@ -206,6 +222,24 @@ func _StorageNode_Gossip_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _StorageNode_GetClusterStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StorageNodeServer).GetClusterStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: StorageNode_GetClusterStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StorageNodeServer).GetClusterStatus(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // StorageNode_ServiceDesc is the grpc.ServiceDesc for StorageNode service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -228,6 +262,10 @@ var StorageNode_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Gossip",
 			Handler:    _StorageNode_Gossip_Handler,
+		},
+		{
+			MethodName: "GetClusterStatus",
+			Handler:    _StorageNode_GetClusterStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

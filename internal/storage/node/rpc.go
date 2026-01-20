@@ -50,3 +50,24 @@ func (s *RPCServer) Gossip(ctx context.Context, req *pb.GossipMessage) (*pb.Goss
 	}
 	return &pb.GossipResponse{Success: true}, nil
 }
+
+func (s *RPCServer) GetClusterStatus(ctx context.Context, req *pb.Empty) (*pb.ClusterStatusResponse, error) {
+	if s.gossiper == nil {
+		return &pb.ClusterStatusResponse{}, nil
+	}
+
+	s.gossiper.mu.RLock()
+	defer s.gossiper.mu.RUnlock()
+
+	members := make(map[string]*pb.MemberState)
+	for id, m := range s.gossiper.members {
+		members[id] = &pb.MemberState{
+			Addr:      m.Address,
+			Status:    m.Status,
+			LastSeen:  m.LastSeen.Unix(),
+			Heartbeat: m.Heartbeat,
+		}
+	}
+
+	return &pb.ClusterStatusResponse{Members: members}, nil
+}
