@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
@@ -75,6 +76,39 @@ func (m *mockStorageService) GetObject(ctx context.Context, bucket, key string) 
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*domain.Object), args.Error(1)
+}
+
+func (m *mockStorageService) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.StorageCluster), args.Error(1)
+}
+
+func (m *mockStorageService) CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error) {
+	args := m.Called(ctx, bucket, key)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.MultipartUpload), args.Error(1)
+}
+func (m *mockStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
+	args := m.Called(ctx, uploadID, partNumber, r)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Part), args.Error(1)
+}
+func (m *mockStorageService) CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error) {
+	args := m.Called(ctx, uploadID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Object), args.Error(1)
+}
+func (m *mockStorageService) AbortMultipartUpload(ctx context.Context, uploadID uuid.UUID) error {
+	return m.Called(ctx, uploadID).Error(0)
 }
 
 func setupStorageHandlerTest(_ *testing.T) (*mockStorageService, *StorageHandler, *gin.Engine) {

@@ -385,6 +385,30 @@ func (m *MockStorageRepo) SoftDelete(ctx context.Context, bucket, key string) er
 	return args.Error(0)
 }
 
+func (m *MockStorageRepo) SaveMultipartUpload(ctx context.Context, upload *domain.MultipartUpload) error {
+	return m.Called(ctx, upload).Error(0)
+}
+func (m *MockStorageRepo) GetMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.MultipartUpload, error) {
+	args := m.Called(ctx, uploadID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.MultipartUpload), args.Error(1)
+}
+func (m *MockStorageRepo) DeleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) error {
+	return m.Called(ctx, uploadID).Error(0)
+}
+func (m *MockStorageRepo) SavePart(ctx context.Context, part *domain.Part) error {
+	return m.Called(ctx, part).Error(0)
+}
+func (m *MockStorageRepo) ListParts(ctx context.Context, uploadID uuid.UUID) ([]*domain.Part, error) {
+	args := m.Called(ctx, uploadID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Part), args.Error(1)
+}
+
 // MockFileStore
 type MockFileStore struct {
 	mock.Mock
@@ -404,6 +428,17 @@ func (m *MockFileStore) Read(ctx context.Context, bucket, key string) (io.ReadCl
 func (m *MockFileStore) Delete(ctx context.Context, bucket, key string) error {
 	args := m.Called(ctx, bucket, key)
 	return args.Error(0)
+}
+func (m *MockFileStore) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.StorageCluster), args.Error(1)
+}
+func (m *MockFileStore) Assemble(ctx context.Context, bucket, key string, parts []string) (int64, error) {
+	args := m.Called(ctx, bucket, key, parts)
+	return args.Get(0).(int64), args.Error(1)
 }
 
 // MockVolumeRepo

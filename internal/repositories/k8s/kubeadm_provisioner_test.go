@@ -137,6 +137,34 @@ func (m *MockStorageService) ListObjects(ctx context.Context, bucket string) ([]
 func (m *MockStorageService) DeleteObject(ctx context.Context, bucket, key string) error {
 	return nil
 }
+func (m *MockStorageService) CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error) {
+	return &domain.Bucket{Name: name}, nil
+}
+func (m *MockStorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
+	return &domain.Bucket{Name: name}, nil
+}
+func (m *MockStorageService) DeleteBucket(ctx context.Context, name string) error {
+	return nil
+}
+func (m *MockStorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {
+	return nil, nil
+}
+func (m *MockStorageService) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
+	return nil, nil
+}
+
+func (m *MockStorageService) CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error) {
+	return nil, nil
+}
+func (m *MockStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
+	return nil, nil
+}
+func (m *MockStorageService) CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error) {
+	return nil, nil
+}
+func (m *MockStorageService) AbortMultipartUpload(ctx context.Context, uploadID uuid.UUID) error {
+	return nil
+}
 
 type MockLBService struct{ mock.Mock }
 

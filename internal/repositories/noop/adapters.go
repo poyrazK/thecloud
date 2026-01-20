@@ -218,6 +218,13 @@ func (r *NoopFileStore) Read(ctx context.Context, bucket, key string) (io.ReadCl
 	return io.NopCloser(strings.NewReader("")), nil
 }
 func (r *NoopFileStore) Delete(ctx context.Context, bucket, key string) error { return nil }
+func (r *NoopFileStore) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
+	return &domain.StorageCluster{Nodes: []domain.StorageNode{}}, nil
+}
+
+func (r *NoopFileStore) Assemble(ctx context.Context, bucket, key string, parts []string) (int64, error) {
+	return 0, nil
+}
 
 // NoopFunctionRepository is a no-op function repository.
 type NoopFunctionRepository struct{}
