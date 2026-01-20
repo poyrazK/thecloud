@@ -123,7 +123,9 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 		wg.Add(1)
 		go func(id string, cl pb.StorageNodeClient) {
 			defer wg.Done()
-			_, err := cl.Store(ctx, &pb.StoreRequest{Bucket: bucket, Key: key, Data: b})
+			// Use current time as timestamp for LWW
+			ts := time.Now().UnixNano()
+			_, err := cl.Store(ctx, &pb.StoreRequest{Bucket: bucket, Key: key, Data: b, Timestamp: ts})
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil {
@@ -143,37 +145,102 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 	return size, nil
 }
 
-// Read retrieves data from the cluster.
+// Read retrieves data from the cluster with Read Repair.
 func (c *Coordinator) Read(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
 	nodes := c.ring.GetNodes(bucket+"/"+key, c.replicaCount)
 	if len(nodes) == 0 {
 		return nil, fmt.Errorf("no storage nodes available")
 	}
 
-	var lastErr error
+	// Read from all replicas (or R=Quorum)
+	// For simplicity and repair, we query all.
+	type result struct {
+		nodeID    string
+		data      []byte
+		timestamp int64
+		found     bool
+		err       error
+	}
+
+	results := make(chan result, len(nodes))
+	var wg sync.WaitGroup
+
 	for _, nodeID := range nodes {
 		client, ok := c.clients[nodeID]
 		if !ok {
 			continue
 		}
-
-		resp, err := client.Retrieve(ctx, &pb.RetrieveRequest{Bucket: bucket, Key: key})
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		if !resp.Found {
-			continue
-		}
-
-		// Found it
-		return io.NopCloser(bytes.NewReader(resp.Data)), nil
+		wg.Add(1)
+		go func(id string, cl pb.StorageNodeClient) {
+			defer wg.Done()
+			resp, err := cl.Retrieve(ctx, &pb.RetrieveRequest{Bucket: bucket, Key: key})
+			if err != nil {
+				results <- result{nodeID: id, err: err}
+				return
+			}
+			results <- result{nodeID: id, data: resp.Data, timestamp: resp.Timestamp, found: resp.Found}
+		}(nodeID, client)
 	}
 
-	if lastErr != nil {
-		return nil, lastErr
+	wg.Wait()
+	close(results)
+
+	var latest result
+	foundCount := 0
+	var repairNodes []string
+
+	// Collect results
+	validResults := []result{}
+
+	for res := range results {
+		if res.err != nil || !res.found {
+			// If not found or error, this node might need repair if others have it
+			if res.err == nil && !res.found {
+				repairNodes = append(repairNodes, res.nodeID)
+			}
+			continue
+		}
+
+		validResults = append(validResults, res)
+		foundCount++
+
+		if res.timestamp > latest.timestamp {
+			latest = res
+		}
 	}
-	return nil, fmt.Errorf("object not found")
+
+	if foundCount == 0 {
+		return nil, fmt.Errorf("object not found")
+	}
+
+	// Read Repair: Check for stale nodes
+	for _, res := range validResults {
+		if res.timestamp < latest.timestamp {
+			repairNodes = append(repairNodes, res.nodeID)
+		}
+	}
+
+	// Async Repair
+	if len(repairNodes) > 0 {
+		go c.repairNodes(context.Background(), bucket, key, latest.data, latest.timestamp, repairNodes)
+	}
+
+	return io.NopCloser(bytes.NewReader(latest.data)), nil
+}
+
+func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, data []byte, timestamp int64, nodes []string) {
+	// Simple repair: write latest data to stale/missing nodes
+	for _, nodeID := range nodes {
+		if client, ok := c.clients[nodeID]; ok {
+			// Use background context or detached context
+			_, _ = client.Store(ctx, &pb.StoreRequest{
+				Bucket:    bucket,
+				Key:       key,
+				Data:      data,
+				Timestamp: timestamp,
+			})
+		}
+	}
 }
 
 // Delete removes data from the cluster.

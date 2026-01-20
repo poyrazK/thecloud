@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,7 +24,8 @@ func TestLocalStore(t *testing.T) {
 	data := []byte("hello world")
 
 	// 1. Write
-	err = store.Write(bucket, key, data)
+	ts := time.Now().UnixNano()
+	err = store.Write(bucket, key, data, ts)
 	assert.NoError(t, err)
 
 	// Verify file on disk
@@ -32,9 +34,10 @@ func TestLocalStore(t *testing.T) {
 	assert.NoError(t, err)
 
 	// 2. Read
-	readData, err := store.Read(bucket, key)
+	readData, readTs, err := store.Read(bucket, key)
 	assert.NoError(t, err)
 	assert.Equal(t, data, readData)
+	assert.Equal(t, ts, readTs)
 
 	// 3. Delete
 	err = store.Delete(bucket, key)
@@ -45,7 +48,7 @@ func TestLocalStore(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 
 	// 4. Read Non-existent
-	_, err = store.Read(bucket, key)
+	_, _, err = store.Read(bucket, key)
 	assert.Error(t, err)
 	assert.True(t, os.IsNotExist(err))
 }

@@ -41,6 +41,7 @@ message StoreRequest {
   string bucket = 1;
   string key = 2;
   bytes data = 3;
+  int64 timestamp = 4;
 }
 
 message StoreResponse {
@@ -57,6 +58,7 @@ message RetrieveResponse {
   bytes data = 1;
   bool found = 2;
   string error = 3;
+  int64 timestamp = 4;
 }
 
 message DeleteRequest {

@@ -286,6 +286,7 @@ type StoreRequest struct {
 	Bucket        string                 `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
 	Key           string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
 	Data          []byte                 `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
+	Timestamp     int64                  `protobuf:"varint,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -339,6 +340,13 @@ func (x *StoreRequest) GetData() []byte {
 		return x.Data
 	}
 	return nil
+}
+
+func (x *StoreRequest) GetTimestamp() int64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
 }
 
 type StoreResponse struct {
@@ -450,6 +458,7 @@ type RetrieveResponse struct {
 	Data          []byte                 `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 	Found         bool                   `protobuf:"varint,2,opt,name=found,proto3" json:"found,omitempty"`
 	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	Timestamp     int64                  `protobuf:"varint,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -503,6 +512,13 @@ func (x *RetrieveResponse) GetError() string {
 		return x.Error
 	}
 	return ""
+}
+
+func (x *RetrieveResponse) GetTimestamp() int64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
 }
 
 type DeleteRequest struct {
@@ -635,21 +651,23 @@ const file_internal_storage_protocol_storage_proto_rawDesc = "" +
 	"\tlast_seen\x18\x03 \x01(\x03R\blastSeen\x12\x1c\n" +
 	"\theartbeat\x18\x04 \x01(\x04R\theartbeat\"*\n" +
 	"\x0eGossipResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\"L\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"j\n" +
 	"\fStoreRequest\x12\x16\n" +
 	"\x06bucket\x18\x01 \x01(\tR\x06bucket\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key\x12\x12\n" +
-	"\x04data\x18\x03 \x01(\fR\x04data\"?\n" +
+	"\x04data\x18\x03 \x01(\fR\x04data\x12\x1c\n" +
+	"\ttimestamp\x18\x04 \x01(\x03R\ttimestamp\"?\n" +
 	"\rStoreResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\";\n" +
 	"\x0fRetrieveRequest\x12\x16\n" +
 	"\x06bucket\x18\x01 \x01(\tR\x06bucket\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key\"R\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\"p\n" +
 	"\x10RetrieveResponse\x12\x12\n" +
 	"\x04data\x18\x01 \x01(\fR\x04data\x12\x14\n" +
 	"\x05found\x18\x02 \x01(\bR\x05found\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\"9\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\x12\x1c\n" +
+	"\ttimestamp\x18\x04 \x01(\x03R\ttimestamp\"9\n" +
 	"\rDeleteRequest\x12\x16\n" +
 	"\x06bucket\x18\x01 \x01(\tR\x06bucket\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key\"@\n" +
