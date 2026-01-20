@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	"strings"
+
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/handlers/ws"
@@ -13,8 +15,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/k8s"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/poyrazk/thecloud/internal/repositories/redis"
+	"github.com/poyrazk/thecloud/internal/storage/coordinator"
+	"github.com/poyrazk/thecloud/internal/storage/protocol"
 	"github.com/poyrazk/thecloud/internal/workers"
 	redisv9 "github.com/redis/go-redis/v9"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Repositories bundles all data access implementations.
@@ -172,9 +178,37 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	lbWorker := services.NewLBWorker(c.Repos.LB, c.Repos.Instance, c.LBProxy)
 
 	// 4. Advanced Services (Storage, DB, Secrets, FaaS, Cache, Queue)
-	fileStore, err := filesystem.NewLocalFileStore("./thecloud-data/local/storage")
-	if err != nil {
-		return nil, nil, err
+	var fileStore ports.FileStore
+	var err error
+
+	if c.Config.ObjectStorageMode == "distributed" {
+		c.Logger.Info("initializing distributed storage backend")
+		ring := coordinator.NewConsistentHashRing(100) // 100 virtual nodes
+
+		nodes := strings.Split(c.Config.ObjectStorageNodes, ",")
+		clients := make(map[string]protocol.StorageNodeClient)
+
+		for i, addr := range nodes {
+			if addr == "" {
+				continue
+			}
+			nodeID := fmt.Sprintf("node-%d", i+1)
+
+			conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to connect to storage node %s: %w", addr, err)
+			}
+			clients[nodeID] = protocol.NewStorageNodeClient(conn)
+			ring.AddNode(nodeID)
+			c.Logger.Info("added storage node", "id", nodeID, "addr", addr)
+		}
+
+		fileStore = coordinator.NewCoordinator(ring, clients, 3)
+	} else {
+		fileStore, err = filesystem.NewLocalFileStore("./thecloud-data/local/storage")
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	storageSvc := services.NewStorageService(c.Repos.Storage, fileStore, auditSvc)
 

@@ -26,6 +26,8 @@ type Config struct {
 	RateLimitAuth        string
 	StorageBackend       string
 	LvmVgName            string
+	ObjectStorageMode    string
+	ObjectStorageNodes   string
 }
 
 // NewConfig loads configuration from the environment with defaults.
@@ -50,6 +52,8 @@ func NewConfig() (*Config, error) {
 		RateLimitAuth:        getEnv("RATE_LIMIT_AUTH", "10"),
 		StorageBackend:       getEnv("STORAGE_BACKEND", "noop"),
 		LvmVgName:            getEnv("LVM_VG_NAME", "thecloud-vg"),
+		ObjectStorageMode:    getEnv("OBJECT_STORAGE_MODE", "local"),
+		ObjectStorageNodes:   getEnv("OBJECT_STORAGE_NODES", ""),
 	}, nil
 }
 
