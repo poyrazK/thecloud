@@ -108,3 +108,62 @@ func (s *StorageService) DeleteObject(ctx context.Context, bucket, key string) e
 
 	return nil
 }
+
+// CreateBucket creates a new storage bucket.
+func (s *StorageService) CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error) {
+	bucket := &domain.Bucket{
+		ID:        uuid.New(),
+		Name:      name,
+		UserID:    appcontext.UserIDFromContext(ctx),
+		IsPublic:  isPublic,
+		CreatedAt: time.Now(),
+	}
+
+	if err := s.repo.CreateBucket(ctx, bucket); err != nil {
+		return nil, err
+	}
+
+	_ = s.auditSvc.Log(ctx, bucket.UserID, "storage.bucket_create", "bucket", bucket.ID.String(), map[string]interface{}{
+		"name": name,
+	})
+
+	return bucket, nil
+}
+
+// GetBucket retrieves bucket metadata.
+func (s *StorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
+	return s.repo.GetBucket(ctx, name)
+}
+
+// DeleteBucket deletes a bucket.
+func (s *StorageService) DeleteBucket(ctx context.Context, name string) error {
+	// Check if bucket is empty? (Logic improvement for later)
+	return s.repo.DeleteBucket(ctx, name)
+}
+
+// ListBuckets list buckets for the current user.
+func (s *StorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	return s.repo.ListBuckets(ctx, userID.String())
+}
+
+// GetClusterStatus returns the current state of the storage cluster.
+func (s *StorageService) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
+	return s.store.GetClusterStatus(ctx)
+}
+
+func (s *StorageService) CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (s *StorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (s *StorageService) CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (s *StorageService) AbortMultipartUpload(ctx context.Context, uploadID uuid.UUID) error {
+	return fmt.Errorf("not implemented")
+}
