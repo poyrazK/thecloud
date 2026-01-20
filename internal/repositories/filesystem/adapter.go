@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
@@ -81,4 +82,46 @@ func (s *LocalFileStore) Delete(ctx context.Context, bucket, key string) error {
 		return errors.Wrap(errors.Internal, "failed to delete file", err)
 	}
 	return nil
+}
+func (s *LocalFileStore) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
+	// Local storage acts as a single-node "cluster"
+	return &domain.StorageCluster{
+		Nodes: []domain.StorageNode{
+			{
+				ID:      "local-node",
+				Address: "localhost",
+				Status:  "alive",
+			},
+		},
+	}, nil
+}
+
+func (s *LocalFileStore) Assemble(ctx context.Context, bucket, key string, parts []string) (int64, error) {
+	bucketPath := filepath.Join(s.basePath, filepath.Clean(bucket))
+	destPath := filepath.Join(bucketPath, filepath.Clean(key))
+
+	f, err := os.Create(destPath)
+	if err != nil {
+		return 0, errors.Wrap(errors.Internal, "failed to create dest file", err)
+	}
+	defer f.Close()
+
+	var totalSize int64
+	for _, partKey := range parts {
+		partPath := filepath.Join(bucketPath, filepath.Clean(partKey))
+		pf, err := os.Open(partPath)
+		if err != nil {
+			return 0, errors.Wrap(errors.Internal, "failed to open part file", err)
+		}
+
+		n, err := io.Copy(f, pf)
+		pf.Close()
+		if err != nil {
+			return 0, errors.Wrap(errors.Internal, "failed to copy part", err)
+		}
+		totalSize += n
+		os.Remove(partPath) // Cleanup part
+	}
+
+	return totalSize, nil
 }
