@@ -308,7 +308,14 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		storageGroup.PUT("/multipart/:id/parts", handlers.Storage.UploadPart)
 		storageGroup.POST("/multipart/:id/complete", handlers.Storage.CompleteMultipartUpload)
 		storageGroup.DELETE("/multipart/:id", handlers.Storage.AbortMultipartUpload)
+
+		// Presigned Generation (Auth Required)
+		storageGroup.POST("/presign/:bucket/*key", handlers.Storage.GeneratePresignedURL)
 	}
+
+	// Public Routes for Presigned Access (No Auth Middleware)
+	r.GET("/storage/presigned/:bucket/*key", handlers.Storage.ServePresignedDownload)
+	r.PUT("/storage/presigned/:bucket/*key", handlers.Storage.ServePresignedUpload)
 
 	volumeGroup := r.Group("/volumes")
 	volumeGroup.Use(httputil.Auth(svcs.Identity))

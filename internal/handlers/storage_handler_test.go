@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -125,6 +126,14 @@ func (m *mockStorageService) CompleteMultipartUpload(ctx context.Context, upload
 }
 func (m *mockStorageService) AbortMultipartUpload(ctx context.Context, uploadID uuid.UUID) error {
 	return m.Called(ctx, uploadID).Error(0)
+}
+
+func (m *mockStorageService) GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error) {
+	args := m.Called(ctx, bucket, key, method, expiry)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.PresignedURL), args.Error(1)
 }
 
 func setupStorageHandlerTest(_ *testing.T) (*mockStorageService, *StorageHandler, *gin.Engine) {
