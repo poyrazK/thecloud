@@ -320,10 +320,10 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		storageGroup.GET("/versions/:bucket/*key", handlers.Storage.ListVersions)
 
 		// Multipart
-		storageGroup.POST("/multipart/:bucket/*key", handlers.Storage.InitiateMultipartUpload)
-		storageGroup.PUT("/multipart/:id/parts", handlers.Storage.UploadPart)
-		storageGroup.POST("/multipart/:id/complete", handlers.Storage.CompleteMultipartUpload)
-		storageGroup.DELETE("/multipart/:id", handlers.Storage.AbortMultipartUpload)
+		storageGroup.POST("/multipart/init/:bucket/*key", handlers.Storage.InitiateMultipartUpload)
+		storageGroup.PUT("/multipart/upload/:id/parts", handlers.Storage.UploadPart)
+		storageGroup.POST("/multipart/complete/:id", handlers.Storage.CompleteMultipartUpload)
+		storageGroup.DELETE("/multipart/abort/:id", handlers.Storage.AbortMultipartUpload)
 
 		// Presigned Generation (Auth Required)
 		storageGroup.POST("/presign"+bucketKeyRoute, handlers.Storage.GeneratePresignedURL)
