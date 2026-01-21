@@ -99,7 +99,9 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 		"version_id": obj.VersionID,
 	})
 
-	platform.StorageOperationsTotal.WithLabelValues("object_upload").Inc()
+	// Metrics
+	platform.StorageOperations.WithLabelValues("upload", bucketName, "success").Inc()
+	platform.StorageBytesTransferred.WithLabelValues("upload").Add(float64(size))
 
 	return obj, nil
 }
@@ -114,7 +116,13 @@ func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.R
 	// 2. Open file
 	reader, err := s.store.Read(ctx, bucket, key)
 	if err != nil {
+		platform.StorageOperations.WithLabelValues("download", bucket, "error").Inc()
 		return nil, nil, err
+	}
+
+	platform.StorageOperations.WithLabelValues("download", bucket, "success").Inc()
+	if obj != nil {
+		platform.StorageBytesTransferred.WithLabelValues("download").Add(float64(obj.SizeBytes))
 	}
 
 	return reader, obj, nil
@@ -183,7 +191,7 @@ func (s *StorageService) DeleteObject(ctx context.Context, bucket, key string) e
 		"key":    key,
 	})
 
-	platform.StorageOperationsTotal.WithLabelValues("object_delete").Inc()
+	platform.StorageOperations.WithLabelValues("delete", bucket, "success").Inc()
 
 	return nil
 }

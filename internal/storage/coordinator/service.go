@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/platform"
 	pb "github.com/poyrazk/thecloud/internal/storage/protocol"
 )
 
@@ -207,9 +208,11 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 
 	// 4. Check Quorum
 	if successCount < c.writeQuorum {
+		platform.StorageOperations.WithLabelValues("cluster_write", bucket, "quorum_failure").Inc()
 		return 0, fmt.Errorf("write quorum failed (%d/%d): %v", successCount, c.writeQuorum, lastErr)
 	}
 
+	platform.StorageOperations.WithLabelValues("cluster_write", bucket, "success").Inc()
 	return size, nil
 }
 
@@ -224,6 +227,7 @@ func (c *Coordinator) Read(ctx context.Context, bucket, key string) (io.ReadClos
 	latest, validResults, repairNodes, foundCount := c.processReadResults(results)
 
 	if foundCount == 0 {
+		platform.StorageOperations.WithLabelValues("cluster_read", bucket, "not_found").Inc()
 		return nil, fmt.Errorf("object not found")
 	}
 
@@ -239,6 +243,7 @@ func (c *Coordinator) Read(ctx context.Context, bucket, key string) (io.ReadClos
 		go c.repairNodes(context.Background(), bucket, key, latest.data, latest.timestamp, repairNodes)
 	}
 
+	platform.StorageOperations.WithLabelValues("cluster_read", bucket, "success").Inc()
 	return io.NopCloser(bytes.NewReader(latest.data)), nil
 }
 
@@ -340,8 +345,10 @@ func (c *Coordinator) Delete(ctx context.Context, bucket, key string) error {
 	}
 
 	if successCount == 0 && len(nodes) > 0 {
+		platform.StorageOperations.WithLabelValues("cluster_delete", bucket, "failure").Inc()
 		return fmt.Errorf("failed to delete from any node")
 	}
 
+	platform.StorageOperations.WithLabelValues("cluster_delete", bucket, "success").Inc()
 	return nil
 }
