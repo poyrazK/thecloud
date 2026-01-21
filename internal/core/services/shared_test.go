@@ -385,6 +385,27 @@ func (m *MockStorageRepo) SoftDelete(ctx context.Context, bucket, key string) er
 	return args.Error(0)
 }
 
+func (m *MockStorageRepo) CreateBucket(ctx context.Context, bucket *domain.Bucket) error {
+	return m.Called(ctx, bucket).Error(0)
+}
+func (m *MockStorageRepo) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Bucket), args.Error(1)
+}
+func (m *MockStorageRepo) DeleteBucket(ctx context.Context, name string) error {
+	return m.Called(ctx, name).Error(0)
+}
+func (m *MockStorageRepo) ListBuckets(ctx context.Context, userID string) ([]*domain.Bucket, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Bucket), args.Error(1)
+}
+
 func (m *MockStorageRepo) SaveMultipartUpload(ctx context.Context, upload *domain.MultipartUpload) error {
 	return m.Called(ctx, upload).Error(0)
 }

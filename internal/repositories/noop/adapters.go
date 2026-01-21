@@ -208,6 +208,37 @@ func (r *NoopStorageRepository) List(ctx context.Context, bucket string) ([]*dom
 }
 func (r *NoopStorageRepository) SoftDelete(ctx context.Context, bucket, key string) error { return nil }
 
+// Bucket operations
+func (r *NoopStorageRepository) CreateBucket(ctx context.Context, bucket *domain.Bucket) error {
+	return nil
+}
+func (r *NoopStorageRepository) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
+	return &domain.Bucket{Name: name}, nil
+}
+func (r *NoopStorageRepository) DeleteBucket(ctx context.Context, name string) error {
+	return nil
+}
+func (r *NoopStorageRepository) ListBuckets(ctx context.Context, userID string) ([]*domain.Bucket, error) {
+	return []*domain.Bucket{}, nil
+}
+
+// Multipart operations
+func (r *NoopStorageRepository) SaveMultipartUpload(ctx context.Context, upload *domain.MultipartUpload) error {
+	return nil
+}
+func (r *NoopStorageRepository) GetMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.MultipartUpload, error) {
+	return &domain.MultipartUpload{ID: uploadID}, nil
+}
+func (r *NoopStorageRepository) DeleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) error {
+	return nil
+}
+func (r *NoopStorageRepository) SavePart(ctx context.Context, part *domain.Part) error {
+	return nil
+}
+func (r *NoopStorageRepository) ListParts(ctx context.Context, uploadID uuid.UUID) ([]*domain.Part, error) {
+	return []*domain.Part{}, nil
+}
+
 // NoopFileStore is a no-op file store.
 type NoopFileStore struct{}
 
