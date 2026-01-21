@@ -2,6 +2,7 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -24,19 +25,21 @@ const (
 
 // StorageService manages object storage metadata and files.
 type StorageService struct {
-	repo     ports.StorageRepository
-	store    ports.FileStore
-	auditSvc ports.AuditService
-	cfg      *platform.Config
+	repo       ports.StorageRepository
+	store      ports.FileStore
+	auditSvc   ports.AuditService
+	encryptSvc ports.EncryptionService
+	cfg        *platform.Config
 }
 
 // NewStorageService constructs a StorageService with its dependencies.
-func NewStorageService(repo ports.StorageRepository, store ports.FileStore, auditSvc ports.AuditService, cfg *platform.Config) *StorageService {
+func NewStorageService(repo ports.StorageRepository, store ports.FileStore, auditSvc ports.AuditService, encryptSvc ports.EncryptionService, cfg *platform.Config) *StorageService {
 	return &StorageService{
-		repo:     repo,
-		store:    store,
-		auditSvc: auditSvc,
-		cfg:      cfg,
+		repo:       repo,
+		store:      store,
+		auditSvc:   auditSvc,
+		encryptSvc: encryptSvc,
+		cfg:        cfg,
 	}
 }
 
@@ -61,7 +64,22 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 		storeKey = fmt.Sprintf(versionQueryFormat, key, versionID)
 	}
 
-	size, err := s.store.Write(ctx, bucketName, storeKey, r)
+	// Encryption
+	var finalReader io.Reader = r
+	if bucket.EncryptionEnabled && s.encryptSvc != nil {
+		// Read entire content to encrypt (streaming encryption is better but complex for now)
+		data, err := io.ReadAll(r)
+		if err != nil {
+			return nil, err
+		}
+		encryptedData, err := s.encryptSvc.Encrypt(ctx, bucketName, data)
+		if err != nil {
+			return nil, err
+		}
+		finalReader = bytes.NewReader(encryptedData)
+	}
+
+	size, err := s.store.Write(ctx, bucketName, storeKey, finalReader)
 	if err != nil {
 		return nil, err
 	}
@@ -118,6 +136,34 @@ func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.R
 	if err != nil {
 		platform.StorageOperations.WithLabelValues("download", bucket, "error").Inc()
 		return nil, nil, err
+	}
+
+	// Decryption
+	// We need to check if object is encrypted?
+	// Currently we check bucket setting but valid approach is: if bucket has encryption enabled, we try to decrypt.
+	// OR we assume everything in an encrypted bucket is encrypted.
+	// Ideally Object metadata should flag "IsEncrypted".
+	// For now, let's rely on checking the bucket config again or just if we can decrypt.
+	// BUT wait, Read returns io.ReadCloser (stream). We implemented full read for encryption.
+	// So we must read all, decrypt, wrap in Reader.
+
+	// Check bucket status for efficiency (though key lookup is fast)
+	b, err := s.repo.GetBucket(ctx, bucket)
+	if err == nil && b.EncryptionEnabled && s.encryptSvc != nil {
+		data, err := io.ReadAll(reader)
+		reader.Close() // Close underlying file stream
+		if err != nil {
+			return nil, nil, err
+		}
+
+		decryptedData, err := s.encryptSvc.Decrypt(ctx, bucket, data)
+		if err != nil {
+			// Fallback: maybe it wasn't encrypted (legacy objects before encryption enabled)
+			// In a real system we'd check metadata.
+			// Re-wrap original data if decrypt failed? No, AES-GCM fails clearly.
+			return nil, nil, err
+		}
+		reader = io.NopCloser(bytes.NewReader(decryptedData))
 	}
 
 	platform.StorageOperations.WithLabelValues("download", bucket, "success").Inc()

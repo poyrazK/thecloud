@@ -24,7 +24,7 @@ func setupStorageServiceTest(_ *testing.T) (*MockStorageRepo, *MockFileStore, *M
 	repo := new(MockStorageRepo)
 	store := new(MockFileStore)
 	auditSvc := new(MockAuditService)
-	svc := services.NewStorageService(repo, store, auditSvc, nil)
+	svc := services.NewStorageService(repo, store, auditSvc, nil, nil)
 	return repo, store, auditSvc, svc
 }
 
@@ -70,6 +70,7 @@ func TestStorageDownloadSuccess(t *testing.T) {
 
 	repo.On("GetMeta", ctx, bucket, key).Return(meta, nil)
 	store.On("Read", ctx, bucket, key).Return(content, nil)
+	repo.On("GetBucket", ctx, bucket).Return(&domain.Bucket{Name: bucket, EncryptionEnabled: false, UserID: userID}, nil)
 
 	r, obj, err := svc.Download(ctx, bucket, key)
 

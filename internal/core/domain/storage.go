@@ -30,6 +30,8 @@ type Bucket struct {
 	UserID            uuid.UUID `json:"user_id"`
 	IsPublic          bool      `json:"is_public"`
 	VersioningEnabled bool      `json:"versioning_enabled"`
+	EncryptionEnabled bool      `json:"encryption_enabled"`
+	EncryptionKeyID   string    `json:"encryption_key_id,omitempty"`
 	CreatedAt         time.Time `json:"created_at"`
 }
 

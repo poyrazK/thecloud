@@ -181,9 +181,15 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	lbSvc := services.NewLBService(c.Repos.LB, c.Repos.Vpc, c.Repos.Instance, auditSvc)
 	lbWorker := services.NewLBWorker(c.Repos.LB, c.Repos.Instance, c.LBProxy)
 
+	// Encryption Service
+	encryptionRepo := postgres.NewEncryptionRepository(c.DB)
+	encryptionSvc, err := services.NewEncryptionService(encryptionRepo, c.Config.SecretsEncryptionKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to init encryption service: %w", err)
+	}
+
 	// 4. Advanced Services (Storage, DB, Secrets, FaaS, Cache, Queue)
 	var fileStore ports.FileStore
-	var err error
 
 	if c.Config.ObjectStorageMode == "distributed" {
 		c.Logger.Info("initializing distributed storage backend")
@@ -214,7 +220,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 			return nil, nil, err
 		}
 	}
-	storageSvc := services.NewStorageService(c.Repos.Storage, fileStore, auditSvc, c.Config)
+	storageSvc := services.NewStorageService(c.Repos.Storage, fileStore, auditSvc, encryptionSvc, c.Config)
 
 	databaseSvc := services.NewDatabaseService(c.Repos.Database, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
 	secretSvc := services.NewSecretService(c.Repos.Secret, eventSvc, auditSvc, c.Logger, c.Config.SecretsEncryptionKey, c.Config.Environment)
