@@ -40,6 +40,15 @@ type StorageCluster struct {
 	Nodes []StorageNode `json:"nodes"`
 }
 
+type LifecycleRule struct {
+	ID             string    `json:"id"`
+	BucketName     string    `json:"bucket_name"`
+	Prefix         string    `json:"prefix"`
+	ExpirationDays int       `json:"expiration_days"`
+	Enabled        bool      `json:"enabled"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
 func (c *Client) ListObjects(bucket string) ([]Object, error) {
 	var res Response[[]Object]
 	if err := c.get(fmt.Sprintf("/storage/%s", bucket), &res); err != nil {
@@ -162,4 +171,33 @@ func (c *Client) GeneratePresignedURL(bucket, key, method string, expirySeconds 
 		return nil, err
 	}
 	return &res.Data, nil
+}
+
+func (c *Client) CreateLifecycleRule(bucket, prefix string, expirationDays int, enabled bool) (*LifecycleRule, error) {
+	req := struct {
+		Prefix         string `json:"prefix"`
+		ExpirationDays int    `json:"expiration_days"`
+		Enabled        bool   `json:"enabled"`
+	}{
+		Prefix:         prefix,
+		ExpirationDays: expirationDays,
+		Enabled:        enabled,
+	}
+	var res Response[LifecycleRule]
+	if err := c.post(fmt.Sprintf("/storage/buckets/%s/lifecycle", bucket), req, &res); err != nil {
+		return nil, err
+	}
+	return &res.Data, nil
+}
+
+func (c *Client) ListLifecycleRules(bucket string) ([]LifecycleRule, error) {
+	var res Response[[]LifecycleRule]
+	if err := c.get(fmt.Sprintf("/storage/buckets/%s/lifecycle", bucket), &res); err != nil {
+		return nil, err
+	}
+	return res.Data, nil
+}
+
+func (c *Client) DeleteLifecycleRule(bucket, ruleID string) error {
+	return c.delete(fmt.Sprintf("/storage/buckets/%s/lifecycle/%s", bucket, ruleID), nil)
 }

@@ -42,6 +42,7 @@ func TestStorageUploadSuccess(t *testing.T) {
 	reader := strings.NewReader(content)
 
 	store.On("Write", ctx, bucket, key, reader).Return(int64(len(content)), nil)
+	repo.On("GetBucket", ctx, bucket).Return(&domain.Bucket{Name: bucket, VersioningEnabled: false, UserID: userID}, nil)
 	repo.On("SaveMeta", ctx, mock.AnythingOfType("*domain.Object")).Return(nil)
 	auditSvc.On("Log", ctx, userID, "storage.object_upload", "storage", mock.Anything, mock.Anything).Return(nil)
 

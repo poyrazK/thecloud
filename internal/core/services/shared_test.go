@@ -1848,3 +1848,36 @@ func (m *MockTaskQueue) Dequeue(ctx context.Context, queue string) (string, erro
 	args := m.Called(ctx, queue)
 	return args.String(0), args.Error(1)
 }
+
+// MockLifecycleRepository
+type MockLifecycleRepository struct {
+	mock.Mock
+}
+
+func (m *MockLifecycleRepository) Create(ctx context.Context, rule *domain.LifecycleRule) error {
+	return m.Called(ctx, rule).Error(0)
+}
+func (m *MockLifecycleRepository) Get(ctx context.Context, id uuid.UUID) (*domain.LifecycleRule, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.LifecycleRule), args.Error(1)
+}
+func (m *MockLifecycleRepository) List(ctx context.Context, bucketName string) ([]*domain.LifecycleRule, error) {
+	args := m.Called(ctx, bucketName)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.LifecycleRule), args.Error(1)
+}
+func (m *MockLifecycleRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockLifecycleRepository) GetEnabledRules(ctx context.Context) ([]*domain.LifecycleRule, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.LifecycleRule), args.Error(1)
+}

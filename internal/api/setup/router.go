@@ -58,6 +58,7 @@ type Handlers struct {
 	Accounting    *httphandlers.AccountingHandler
 	Image         *httphandlers.ImageHandler
 	Cluster       *httphandlers.ClusterHandler
+	Lifecycle     *httphandlers.LifecycleHandler
 	Ws            *ws.Handler
 }
 
@@ -96,6 +97,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		Accounting:    httphandlers.NewAccountingHandler(svcs.Accounting),
 		Image:         httphandlers.NewImageHandler(svcs.Image),
 		Cluster:       httphandlers.NewClusterHandler(svcs.Cluster),
+		Lifecycle:     httphandlers.NewLifecycleHandler(svcs.Lifecycle),
 		Ws:            ws.NewHandler(hub, svcs.Identity, logger),
 	}
 }
@@ -308,6 +310,11 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		storageGroup.GET("/buckets", handlers.Storage.ListBuckets)
 		storageGroup.DELETE("/buckets/:bucket", handlers.Storage.DeleteBucket)
 		storageGroup.PATCH("/buckets/:bucket/versioning", handlers.Storage.SetBucketVersioning)
+
+		// Lifecycle Management
+		storageGroup.POST("/buckets/:bucket/lifecycle", handlers.Lifecycle.CreateRule)
+		storageGroup.GET("/buckets/:bucket/lifecycle", handlers.Lifecycle.ListRules)
+		storageGroup.DELETE("/buckets/:bucket/lifecycle/:id", handlers.Lifecycle.DeleteRule)
 
 		// Versioning
 		storageGroup.GET("/versions/:bucket/*key", handlers.Storage.ListVersions)

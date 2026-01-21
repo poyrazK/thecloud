@@ -264,7 +264,7 @@ func runApplication(deps AppDeps, cfg *platform.Config, logger *slog.Logger, r *
 }
 
 func runWorkers(ctx context.Context, wg *sync.WaitGroup, workers *setup.Workers) {
-	wg.Add(7)
+	wg.Add(8)
 	go workers.LB.Run(ctx, wg)
 	go workers.AutoScaling.Run(ctx, wg)
 	go workers.Cron.Run(ctx, wg)
@@ -272,4 +272,5 @@ func runWorkers(ctx context.Context, wg *sync.WaitGroup, workers *setup.Workers)
 	go workers.Provision.Run(ctx, wg)
 	go workers.Accounting.Run(ctx, wg)
 	go workers.Cluster.Run(ctx, wg)
+	go workers.Lifecycle.Run(ctx, wg)
 }

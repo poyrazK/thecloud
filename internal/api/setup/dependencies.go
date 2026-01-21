@@ -54,6 +54,7 @@ type Repositories struct {
 	TaskQueue     ports.TaskQueue
 	Image         ports.ImageRepository
 	Cluster       ports.ClusterRepository
+	Lifecycle     ports.LifecycleRepository
 }
 
 // InitRepositories constructs repositories using the provided database clients.
@@ -88,6 +89,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		TaskQueue:     redis.NewRedisTaskQueue(rdb),
 		Image:         postgres.NewImageRepository(db),
 		Cluster:       postgres.NewClusterRepository(db),
+		Lifecycle:     postgres.NewLifecycleRepository(db),
 	}
 }
 
@@ -124,6 +126,7 @@ type Services struct {
 	Accounting    ports.AccountingService
 	Image         ports.ImageService
 	Cluster       ports.ClusterService
+	Lifecycle     ports.LifecycleService
 }
 
 // Workers struct to return background workers
@@ -135,6 +138,7 @@ type Workers struct {
 	Provision   *workers.ProvisionWorker
 	Accounting  *workers.AccountingWorker
 	Cluster     *workers.ClusterWorker
+	Lifecycle   *workers.LifecycleWorker
 }
 
 // ServiceConfig holds the dependencies required to initialize services
@@ -253,12 +257,14 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		Health: services.NewHealthServiceImpl(c.DB, c.Compute), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc,
 		Cluster:   clusterSvc,
 		Dashboard: services.NewDashboardService(c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger),
+		Lifecycle: services.NewLifecycleService(c.Repos.Lifecycle, c.Repos.Storage),
 	}
 
 	workersCollection := &Workers{
 		LB: lbWorker, AutoScaling: asgWorker, Cron: cronWorker, Container: containerWorker,
 		Provision: provisionWorker, Accounting: accountingWorker,
-		Cluster: workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.TaskQueue, c.Logger),
+		Cluster:   workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.TaskQueue, c.Logger),
+		Lifecycle: workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger),
 	}
 
 	return svcs, workersCollection, nil
