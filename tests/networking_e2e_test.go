@@ -99,10 +99,37 @@ func TestNetworkingE2E(t *testing.T) {
 		sgID = res.Data.ID.String()
 	})
 
-	// 5. Cleanup
+	// 5. Load Balancer
+	var lbID string
+	t.Run("CreateLoadBalancer", func(t *testing.T) {
+		payload := map[string]interface{}{
+			"name":      "e2e-lb",
+			"vpc_id":    vpcID,
+			"port":      80,
+			"algorithm": "round-robin",
+		}
+		resp := postRequest(t, client, testutil.TestBaseURL+"/lb", token, payload)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusAccepted, resp.StatusCode)
+
+		var res struct {
+			Data domain.LoadBalancer `json:"data"`
+		}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
+		lbID = res.Data.ID.String()
+		assert.NotEmpty(t, lbID)
+	})
+
+	// 6. Cleanup
 	t.Run("Cleanup", func(t *testing.T) {
+		// Delete LB
+		resp := deleteRequest(t, client, fmt.Sprintf("%s/lb/%s", testutil.TestBaseURL, lbID), token)
+		resp.Body.Close()
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
 		// Delete Security Group
-		resp := deleteRequest(t, client, fmt.Sprintf("%s/security-groups/%s", testutil.TestBaseURL, sgID), token)
+		resp = deleteRequest(t, client, fmt.Sprintf("%s/security-groups/%s", testutil.TestBaseURL, sgID), token)
 		resp.Body.Close()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
