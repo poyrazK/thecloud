@@ -210,7 +210,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 			return nil, nil, err
 		}
 	}
-	storageSvc := services.NewStorageService(c.Repos.Storage, fileStore, auditSvc)
+	storageSvc := services.NewStorageService(c.Repos.Storage, fileStore, auditSvc, c.Config)
 
 	databaseSvc := services.NewDatabaseService(c.Repos.Database, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
 	secretSvc := services.NewSecretService(c.Repos.Secret, eventSvc, auditSvc, c.Logger, c.Config.SecretsEncryptionKey, c.Config.Environment)

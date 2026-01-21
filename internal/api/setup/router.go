@@ -62,7 +62,7 @@ type Handlers struct {
 }
 
 // InitHandlers constructs HTTP handlers and websocket hub.
-func InitHandlers(svcs *Services, logger *slog.Logger) *Handlers {
+func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Handlers {
 	hub := ws.NewHub(logger)
 	go hub.Run()
 
@@ -80,7 +80,7 @@ func InitHandlers(svcs *Services, logger *slog.Logger) *Handlers {
 		RBAC:          httphandlers.NewRBACHandler(svcs.RBAC),
 		Snapshot:      httphandlers.NewSnapshotHandler(svcs.Snapshot),
 		Stack:         httphandlers.NewStackHandler(svcs.Stack),
-		Storage:       httphandlers.NewStorageHandler(svcs.Storage),
+		Storage:       httphandlers.NewStorageHandler(svcs.Storage, cfg),
 		Database:      httphandlers.NewDatabaseHandler(svcs.Database),
 		Secret:        httphandlers.NewSecretHandler(svcs.Secret),
 		Function:      httphandlers.NewFunctionHandler(svcs.Function),

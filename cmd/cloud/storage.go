@@ -244,8 +244,40 @@ func init() {
 	storageCmd.AddCommand(createBucketCmd)
 	storageCmd.AddCommand(deleteBucketCmd)
 	storageCmd.AddCommand(storageClusterStatusCmd)
+	storageCmd.AddCommand(storagePresignCmd)
 
 	createBucketCmd.Flags().Bool("public", false, "Make bucket public")
 
 	storageUploadCmd.Flags().String("key", "", "Custom key for the object")
+	storagePresignCmd.Flags().String("method", "GET", "HTTP method (GET or PUT)")
+	storagePresignCmd.Flags().Int("expires", 900, "Expiration in seconds (default 15 mins)")
+}
+
+var storagePresignCmd = &cobra.Command{
+	Use:   "presign [bucket] [key]",
+	Short: "Generate a pre-signed URL for an object",
+	Args:  cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		bucket := args[0]
+		key := args[1]
+		method, _ := cmd.Flags().GetString("method")
+		expires, _ := cmd.Flags().GetInt("expires")
+
+		client := getClient()
+		url, err := client.GeneratePresignedURL(bucket, key, method, expires)
+		if err != nil {
+			fmt.Printf(errFmt, err)
+			return
+		}
+
+		if outputJSON {
+			data, _ := json.MarshalIndent(url, "", "  ")
+			fmt.Println(string(data))
+			return
+		}
+
+		fmt.Printf("URL: %s\n", url.URL)
+		fmt.Printf("Expires: %s\n", url.ExpiresAt.Format(time.RFC3339))
+		fmt.Printf("Method: %s\n", url.Method)
+	},
 }

@@ -24,7 +24,7 @@ func setupStorageServiceTest(_ *testing.T) (*MockStorageRepo, *MockFileStore, *M
 	repo := new(MockStorageRepo)
 	store := new(MockFileStore)
 	auditSvc := new(MockAuditService)
-	svc := services.NewStorageService(repo, store, auditSvc)
+	svc := services.NewStorageService(repo, store, auditSvc, nil)
 	return repo, store, auditSvc, svc
 }
 

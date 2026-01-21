@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
+	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/pkg/crypto"
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
@@ -18,12 +19,14 @@ import (
 // StorageHandler handles object storage HTTP endpoints.
 type StorageHandler struct {
 	svc ports.StorageService
+	cfg *platform.Config
 }
 
 // NewStorageHandler constructs a StorageHandler.
-func NewStorageHandler(svc ports.StorageService) *StorageHandler {
+func NewStorageHandler(svc ports.StorageService, cfg *platform.Config) *StorageHandler {
 	return &StorageHandler{
 		svc: svc,
+		cfg: cfg,
 	}
 }
 

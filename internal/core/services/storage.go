@@ -26,14 +26,16 @@ type StorageService struct {
 	repo     ports.StorageRepository
 	store    ports.FileStore
 	auditSvc ports.AuditService
+	cfg      *platform.Config
 }
 
 // NewStorageService constructs a StorageService with its dependencies.
-func NewStorageService(repo ports.StorageRepository, store ports.FileStore, auditSvc ports.AuditService) *StorageService {
+func NewStorageService(repo ports.StorageRepository, store ports.FileStore, auditSvc ports.AuditService, cfg *platform.Config) *StorageService {
 	return &StorageService{
 		repo:     repo,
 		store:    store,
 		auditSvc: auditSvc,
+		cfg:      cfg,
 	}
 }
 
@@ -321,11 +323,18 @@ func (s *StorageService) GeneratePresignedURL(ctx context.Context, bucket, key, 
 
 	expiresAt := time.Now().Add(expiry)
 
-	// Use dependency injected config secret if available, else a hardcoded one for now
-	secret := "storage-secret-key" // In real world use injected config
+	// Use dependency injected config secret if available
+	secret := "storage-secret-key"
+	if s.cfg != nil && s.cfg.SecretsEncryptionKey != "" {
+		secret = s.cfg.SecretsEncryptionKey
+	}
 
-	// Hardcoded base URL for now - in production this comes from config
+	// Dynamic base URL derived from config or default
 	baseURL := "http://localhost:8080"
+	if s.cfg != nil && s.cfg.Port != "" {
+		// In production this might need a full public URL config
+		baseURL = fmt.Sprintf("http://localhost:%s", s.cfg.Port)
+	}
 
 	urlStr, err := crypto.SignURL(secret, baseURL, method, bucket, key, expiresAt)
 	if err != nil {

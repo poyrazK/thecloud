@@ -112,3 +112,25 @@ func (c *Client) GetStorageClusterStatus() (*StorageCluster, error) {
 	}
 	return &res.Data, nil
 }
+
+type PresignedURL struct {
+	URL       string    `json:"url"`
+	Method    string    `json:"method"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+func (c *Client) GeneratePresignedURL(bucket, key, method string, expirySeconds int) (*PresignedURL, error) {
+	req := struct {
+		Method    string `json:"method"`
+		ExpirySec int    `json:"expiry_seconds"`
+	}{
+		Method:    method,
+		ExpirySec: expirySeconds,
+	}
+
+	var res Response[PresignedURL]
+	if err := c.post(fmt.Sprintf("/storage/presign/%s/%s", bucket, key), req, &res); err != nil {
+		return nil, err
+	}
+	return &res.Data, nil
+}

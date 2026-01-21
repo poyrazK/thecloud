@@ -39,7 +39,7 @@ type AppDeps struct {
 	InitLBProxy        func(*platform.Config, ports.ComputeBackend, ports.InstanceRepository, ports.VpcRepository) (ports.LBProxyAdapter, error)
 	InitRepositories   func(postgres.DB, *redis.Client) *setup.Repositories
 	InitServices       func(setup.ServiceConfig) (*setup.Services, *setup.Workers, error)
-	InitHandlers       func(*setup.Services, *slog.Logger) *setup.Handlers
+	InitHandlers       func(*setup.Services, *platform.Config, *slog.Logger) *setup.Handlers
 	SetupRouter        func(*platform.Config, *slog.Logger, *setup.Handlers, *setup.Services, ports.NetworkBackend) *gin.Engine
 	NewHTTPServer      func(string, http.Handler) *http.Server
 	StartHTTPServer    func(*http.Server) error
@@ -119,7 +119,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	handlers := deps.InitHandlers(svcs, logger)
+	handlers := deps.InitHandlers(svcs, cfg, logger)
 	r := deps.SetupRouter(cfg, logger, handlers, svcs, network)
 
 	// Add Tracing Middleware if enabled

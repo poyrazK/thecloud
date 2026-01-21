@@ -139,7 +139,7 @@ func (m *mockStorageService) GeneratePresignedURL(ctx context.Context, bucket, k
 func setupStorageHandlerTest(_ *testing.T) (*mockStorageService, *StorageHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockStorageService)
-	handler := NewStorageHandler(svc)
+	handler := NewStorageHandler(svc, nil)
 	r := gin.New()
 	return svc, handler, r
 }
@@ -216,7 +216,7 @@ func TestStorageHandlerDelete(t *testing.T) {
 func TestStorageHandlerErrorPaths(t *testing.T) {
 	setup := func(_ *testing.T) (*mockStorageService, *StorageHandler, *gin.Engine) {
 		svc := new(mockStorageService)
-		handler := NewStorageHandler(svc)
+		handler := NewStorageHandler(svc, nil)
 		r := gin.New()
 		return svc, handler, r
 	}

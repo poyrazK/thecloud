@@ -248,7 +248,7 @@ func BenchmarkStorageServiceList(b *testing.B) {
 	fileStore := &noop.NoopFileStore{}
 	auditSvc := &noop.NoopAuditService{}
 
-	svc := services.NewStorageService(repo, fileStore, auditSvc)
+	svc := services.NewStorageService(repo, fileStore, auditSvc, nil)
 
 	ctx := context.Background()
 
