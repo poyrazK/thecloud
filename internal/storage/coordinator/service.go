@@ -14,6 +14,8 @@ import (
 	pb "github.com/poyrazk/thecloud/internal/storage/protocol"
 )
 
+const errNoNodesAvailable = "no storage nodes available"
+
 // Coordinator implements ports.FileStore to manage distributed storage.
 type Coordinator struct {
 	ring         *ConsistentHashRing
@@ -106,8 +108,53 @@ func (c *Coordinator) GetClusterStatus(ctx context.Context) (*domain.StorageClus
 }
 
 func (c *Coordinator) Assemble(ctx context.Context, bucket, key string, parts []string) (int64, error) {
-	// TODO: Implement distributed assembly or proxy to primary node
-	return 0, fmt.Errorf("assemble not implemented in coordinator")
+	// 1. Get target nodes
+	nodes := c.ring.GetNodes(bucket+"/"+key, c.replicaCount)
+	if len(nodes) == 0 {
+		return 0, fmt.Errorf(errNoNodesAvailable)
+	}
+
+	// 2. Parallel Assemble on all replicas
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	successCount := 0
+	var lastErr error
+	var size int64
+
+	for _, nodeID := range nodes {
+		client, ok := c.clients[nodeID]
+		if !ok {
+			continue
+		}
+
+		wg.Add(1)
+		go func(id string, cl pb.StorageNodeClient) {
+			defer wg.Done()
+			resp, err := cl.Assemble(ctx, &pb.AssembleRequest{
+				Bucket: bucket,
+				Key:    key,
+				Parts:  parts,
+			})
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				lastErr = err
+			} else if resp.Error != "" {
+				lastErr = fmt.Errorf("%s", resp.Error)
+			} else {
+				successCount++
+				size = resp.Size
+			}
+		}(nodeID, client)
+	}
+	wg.Wait()
+
+	// 3. Quorum check
+	if successCount < c.writeQuorum {
+		return 0, fmt.Errorf("assemble quorum failed (%d/%d): %v", successCount, c.writeQuorum, lastErr)
+	}
+
+	return size, nil
 }
 
 func (c *Coordinator) Stop() {
@@ -126,7 +173,7 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 	// 2. Get target nodes
 	nodes := c.ring.GetNodes(bucket+"/"+key, c.replicaCount)
 	if len(nodes) == 0 {
-		return 0, fmt.Errorf("no storage nodes available")
+		return 0, fmt.Errorf(errNoNodesAvailable)
 	}
 
 	// 3. Parallel Write
@@ -170,65 +217,11 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 func (c *Coordinator) Read(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
 	nodes := c.ring.GetNodes(bucket+"/"+key, c.replicaCount)
 	if len(nodes) == 0 {
-		return nil, fmt.Errorf("no storage nodes available")
+		return nil, fmt.Errorf(errNoNodesAvailable)
 	}
 
-	// Read from all replicas (or R=Quorum)
-	// For simplicity and repair, we query all.
-	type result struct {
-		nodeID    string
-		data      []byte
-		timestamp int64
-		found     bool
-		err       error
-	}
-
-	results := make(chan result, len(nodes))
-	var wg sync.WaitGroup
-
-	for _, nodeID := range nodes {
-		client, ok := c.clients[nodeID]
-		if !ok {
-			continue
-		}
-		wg.Add(1)
-		go func(id string, cl pb.StorageNodeClient) {
-			defer wg.Done()
-			resp, err := cl.Retrieve(ctx, &pb.RetrieveRequest{Bucket: bucket, Key: key})
-			if err != nil {
-				results <- result{nodeID: id, err: err}
-				return
-			}
-			results <- result{nodeID: id, data: resp.Data, timestamp: resp.Timestamp, found: resp.Found}
-		}(nodeID, client)
-	}
-
-	wg.Wait()
-	close(results)
-
-	var latest result
-	foundCount := 0
-	var repairNodes []string
-
-	// Collect results
-	validResults := []result{}
-
-	for res := range results {
-		if res.err != nil || !res.found {
-			// If not found or error, this node might need repair if others have it
-			if res.err == nil && !res.found {
-				repairNodes = append(repairNodes, res.nodeID)
-			}
-			continue
-		}
-
-		validResults = append(validResults, res)
-		foundCount++
-
-		if res.timestamp > latest.timestamp {
-			latest = res
-		}
-	}
+	results := c.collectReadResults(ctx, bucket, key, nodes)
+	latest, validResults, repairNodes, foundCount := c.processReadResults(results)
 
 	if foundCount == 0 {
 		return nil, fmt.Errorf("object not found")
@@ -247,6 +240,68 @@ func (c *Coordinator) Read(ctx context.Context, bucket, key string) (io.ReadClos
 	}
 
 	return io.NopCloser(bytes.NewReader(latest.data)), nil
+}
+
+type readResult struct {
+	nodeID    string
+	data      []byte
+	timestamp int64
+	found     bool
+	err       error
+}
+
+func (c *Coordinator) collectReadResults(ctx context.Context, bucket, key string, nodes []string) chan readResult {
+	results := make(chan readResult, len(nodes))
+	var wg sync.WaitGroup
+
+	for _, nodeID := range nodes {
+		client, ok := c.clients[nodeID]
+		if !ok {
+			continue
+		}
+		wg.Add(1)
+		go func(id string, cl pb.StorageNodeClient) {
+			defer wg.Done()
+			resp, err := cl.Retrieve(ctx, &pb.RetrieveRequest{Bucket: bucket, Key: key})
+			if err != nil {
+				results <- readResult{nodeID: id, err: err}
+				return
+			}
+			results <- readResult{nodeID: id, data: resp.Data, timestamp: resp.Timestamp, found: resp.Found}
+		}(nodeID, client)
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	return results
+}
+
+func (c *Coordinator) processReadResults(results chan readResult) (readResult, []readResult, []string, int) {
+	var latest readResult
+	foundCount := 0
+	var repairNodes []string
+	var validResults []readResult
+
+	for res := range results {
+		if res.err != nil || !res.found {
+			if res.err == nil && !res.found {
+				repairNodes = append(repairNodes, res.nodeID)
+			}
+			continue
+		}
+
+		validResults = append(validResults, res)
+		foundCount++
+
+		if res.timestamp > latest.timestamp {
+			latest = res
+		}
+	}
+
+	return latest, validResults, repairNodes, foundCount
 }
 
 func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, data []byte, timestamp int64, nodes []string) {
