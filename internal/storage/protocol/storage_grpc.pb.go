@@ -24,6 +24,7 @@ const (
 	StorageNode_Delete_FullMethodName           = "/storage.StorageNode/Delete"
 	StorageNode_Gossip_FullMethodName           = "/storage.StorageNode/Gossip"
 	StorageNode_GetClusterStatus_FullMethodName = "/storage.StorageNode/GetClusterStatus"
+	StorageNode_Assemble_FullMethodName         = "/storage.StorageNode/Assemble"
 )
 
 // StorageNodeClient is the client API for StorageNode service.
@@ -35,6 +36,7 @@ type StorageNodeClient interface {
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
 	Gossip(ctx context.Context, in *GossipMessage, opts ...grpc.CallOption) (*GossipResponse, error)
 	GetClusterStatus(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ClusterStatusResponse, error)
+	Assemble(ctx context.Context, in *AssembleRequest, opts ...grpc.CallOption) (*AssembleResponse, error)
 }
 
 type storageNodeClient struct {
@@ -95,6 +97,16 @@ func (c *storageNodeClient) GetClusterStatus(ctx context.Context, in *Empty, opt
 	return out, nil
 }
 
+func (c *storageNodeClient) Assemble(ctx context.Context, in *AssembleRequest, opts ...grpc.CallOption) (*AssembleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AssembleResponse)
+	err := c.cc.Invoke(ctx, StorageNode_Assemble_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // StorageNodeServer is the server API for StorageNode service.
 // All implementations must embed UnimplementedStorageNodeServer
 // for forward compatibility.
@@ -104,6 +116,7 @@ type StorageNodeServer interface {
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
 	Gossip(context.Context, *GossipMessage) (*GossipResponse, error)
 	GetClusterStatus(context.Context, *Empty) (*ClusterStatusResponse, error)
+	Assemble(context.Context, *AssembleRequest) (*AssembleResponse, error)
 	mustEmbedUnimplementedStorageNodeServer()
 }
 
@@ -128,6 +141,9 @@ func (UnimplementedStorageNodeServer) Gossip(context.Context, *GossipMessage) (*
 }
 func (UnimplementedStorageNodeServer) GetClusterStatus(context.Context, *Empty) (*ClusterStatusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetClusterStatus not implemented")
+}
+func (UnimplementedStorageNodeServer) Assemble(context.Context, *AssembleRequest) (*AssembleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Assemble not implemented")
 }
 func (UnimplementedStorageNodeServer) mustEmbedUnimplementedStorageNodeServer() {}
 func (UnimplementedStorageNodeServer) testEmbeddedByValue()                     {}
@@ -240,6 +256,24 @@ func _StorageNode_GetClusterStatus_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _StorageNode_Assemble_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssembleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StorageNodeServer).Assemble(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: StorageNode_Assemble_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StorageNodeServer).Assemble(ctx, req.(*AssembleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // StorageNode_ServiceDesc is the grpc.ServiceDesc for StorageNode service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -266,6 +300,10 @@ var StorageNode_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetClusterStatus",
 			Handler:    _StorageNode_GetClusterStatus_Handler,
+		},
+		{
+			MethodName: "Assemble",
+			Handler:    _StorageNode_Assemble_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

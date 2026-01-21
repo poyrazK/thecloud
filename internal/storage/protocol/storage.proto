@@ -10,6 +10,7 @@ service StorageNode {
   rpc Delete(DeleteRequest) returns (DeleteResponse);
   rpc Gossip(GossipMessage) returns (GossipResponse);
   rpc GetClusterStatus(Empty) returns (ClusterStatusResponse);
+  rpc Assemble(AssembleRequest) returns (AssembleResponse);
 }
 
 message Empty {}
@@ -68,5 +69,16 @@ message DeleteRequest {
 
 message DeleteResponse {
   bool success = 1;
+  string error = 2;
+}
+
+message AssembleRequest {
+  string bucket = 1;
+  string key = 2;
+  repeated string parts = 3;
+}
+
+message AssembleResponse {
+  int64 size = 1;
   string error = 2;
 }

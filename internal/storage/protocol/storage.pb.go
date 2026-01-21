@@ -625,6 +625,118 @@ func (x *DeleteResponse) GetError() string {
 	return ""
 }
 
+type AssembleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Bucket        string                 `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	Key           string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	Parts         []string               `protobuf:"bytes,3,rep,name=parts,proto3" json:"parts,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AssembleRequest) Reset() {
+	*x = AssembleRequest{}
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AssembleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AssembleRequest) ProtoMessage() {}
+
+func (x *AssembleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AssembleRequest.ProtoReflect.Descriptor instead.
+func (*AssembleRequest) Descriptor() ([]byte, []int) {
+	return file_internal_storage_protocol_storage_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *AssembleRequest) GetBucket() string {
+	if x != nil {
+		return x.Bucket
+	}
+	return ""
+}
+
+func (x *AssembleRequest) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *AssembleRequest) GetParts() []string {
+	if x != nil {
+		return x.Parts
+	}
+	return nil
+}
+
+type AssembleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Size          int64                  `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AssembleResponse) Reset() {
+	*x = AssembleResponse{}
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AssembleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AssembleResponse) ProtoMessage() {}
+
+func (x *AssembleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_storage_protocol_storage_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AssembleResponse.ProtoReflect.Descriptor instead.
+func (*AssembleResponse) Descriptor() ([]byte, []int) {
+	return file_internal_storage_protocol_storage_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *AssembleResponse) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+func (x *AssembleResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
 var File_internal_storage_protocol_storage_proto protoreflect.FileDescriptor
 
 const file_internal_storage_protocol_storage_proto_rawDesc = "" +
@@ -673,13 +785,21 @@ const file_internal_storage_protocol_storage_proto_rawDesc = "" +
 	"\x03key\x18\x02 \x01(\tR\x03key\"@\n" +
 	"\x0eDeleteResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error2\xc0\x02\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"Q\n" +
+	"\x0fAssembleRequest\x12\x16\n" +
+	"\x06bucket\x18\x01 \x01(\tR\x06bucket\x12\x10\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\x12\x14\n" +
+	"\x05parts\x18\x03 \x03(\tR\x05parts\"<\n" +
+	"\x10AssembleResponse\x12\x12\n" +
+	"\x04size\x18\x01 \x01(\x03R\x04size\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error2\x81\x03\n" +
 	"\vStorageNode\x126\n" +
 	"\x05Store\x12\x15.storage.StoreRequest\x1a\x16.storage.StoreResponse\x12?\n" +
 	"\bRetrieve\x12\x18.storage.RetrieveRequest\x1a\x19.storage.RetrieveResponse\x129\n" +
 	"\x06Delete\x12\x16.storage.DeleteRequest\x1a\x17.storage.DeleteResponse\x129\n" +
 	"\x06Gossip\x12\x16.storage.GossipMessage\x1a\x17.storage.GossipResponse\x12B\n" +
-	"\x10GetClusterStatus\x12\x0e.storage.Empty\x1a\x1e.storage.ClusterStatusResponseB\x1bZ\x19internal/storage/protocolb\x06proto3"
+	"\x10GetClusterStatus\x12\x0e.storage.Empty\x1a\x1e.storage.ClusterStatusResponse\x12?\n" +
+	"\bAssemble\x12\x18.storage.AssembleRequest\x1a\x19.storage.AssembleResponseB\x1bZ\x19internal/storage/protocolb\x06proto3"
 
 var (
 	file_internal_storage_protocol_storage_proto_rawDescOnce sync.Once
@@ -693,7 +813,7 @@ func file_internal_storage_protocol_storage_proto_rawDescGZIP() []byte {
 	return file_internal_storage_protocol_storage_proto_rawDescData
 }
 
-var file_internal_storage_protocol_storage_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_internal_storage_protocol_storage_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_internal_storage_protocol_storage_proto_goTypes = []any{
 	(*Empty)(nil),                 // 0: storage.Empty
 	(*ClusterStatusResponse)(nil), // 1: storage.ClusterStatusResponse
@@ -706,12 +826,14 @@ var file_internal_storage_protocol_storage_proto_goTypes = []any{
 	(*RetrieveResponse)(nil),      // 8: storage.RetrieveResponse
 	(*DeleteRequest)(nil),         // 9: storage.DeleteRequest
 	(*DeleteResponse)(nil),        // 10: storage.DeleteResponse
-	nil,                           // 11: storage.ClusterStatusResponse.MembersEntry
-	nil,                           // 12: storage.GossipMessage.MembersEntry
+	(*AssembleRequest)(nil),       // 11: storage.AssembleRequest
+	(*AssembleResponse)(nil),      // 12: storage.AssembleResponse
+	nil,                           // 13: storage.ClusterStatusResponse.MembersEntry
+	nil,                           // 14: storage.GossipMessage.MembersEntry
 }
 var file_internal_storage_protocol_storage_proto_depIdxs = []int32{
-	11, // 0: storage.ClusterStatusResponse.members:type_name -> storage.ClusterStatusResponse.MembersEntry
-	12, // 1: storage.GossipMessage.members:type_name -> storage.GossipMessage.MembersEntry
+	13, // 0: storage.ClusterStatusResponse.members:type_name -> storage.ClusterStatusResponse.MembersEntry
+	14, // 1: storage.GossipMessage.members:type_name -> storage.GossipMessage.MembersEntry
 	3,  // 2: storage.ClusterStatusResponse.MembersEntry.value:type_name -> storage.MemberState
 	3,  // 3: storage.GossipMessage.MembersEntry.value:type_name -> storage.MemberState
 	5,  // 4: storage.StorageNode.Store:input_type -> storage.StoreRequest
@@ -719,13 +841,15 @@ var file_internal_storage_protocol_storage_proto_depIdxs = []int32{
 	9,  // 6: storage.StorageNode.Delete:input_type -> storage.DeleteRequest
 	2,  // 7: storage.StorageNode.Gossip:input_type -> storage.GossipMessage
 	0,  // 8: storage.StorageNode.GetClusterStatus:input_type -> storage.Empty
-	6,  // 9: storage.StorageNode.Store:output_type -> storage.StoreResponse
-	8,  // 10: storage.StorageNode.Retrieve:output_type -> storage.RetrieveResponse
-	10, // 11: storage.StorageNode.Delete:output_type -> storage.DeleteResponse
-	4,  // 12: storage.StorageNode.Gossip:output_type -> storage.GossipResponse
-	1,  // 13: storage.StorageNode.GetClusterStatus:output_type -> storage.ClusterStatusResponse
-	9,  // [9:14] is the sub-list for method output_type
-	4,  // [4:9] is the sub-list for method input_type
+	11, // 9: storage.StorageNode.Assemble:input_type -> storage.AssembleRequest
+	6,  // 10: storage.StorageNode.Store:output_type -> storage.StoreResponse
+	8,  // 11: storage.StorageNode.Retrieve:output_type -> storage.RetrieveResponse
+	10, // 12: storage.StorageNode.Delete:output_type -> storage.DeleteResponse
+	4,  // 13: storage.StorageNode.Gossip:output_type -> storage.GossipResponse
+	1,  // 14: storage.StorageNode.GetClusterStatus:output_type -> storage.ClusterStatusResponse
+	12, // 15: storage.StorageNode.Assemble:output_type -> storage.AssembleResponse
+	10, // [10:16] is the sub-list for method output_type
+	4,  // [4:10] is the sub-list for method input_type
 	4,  // [4:4] is the sub-list for extension type_name
 	4,  // [4:4] is the sub-list for extension extendee
 	0,  // [0:4] is the sub-list for field type_name
@@ -742,7 +866,7 @@ func file_internal_storage_protocol_storage_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_internal_storage_protocol_storage_proto_rawDesc), len(file_internal_storage_protocol_storage_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
