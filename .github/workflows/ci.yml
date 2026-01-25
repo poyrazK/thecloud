@@ -51,8 +51,8 @@ jobs:
         with:
           version: v1.64.8
 
-      - name: Run Unit Tests with Coverage
-        run: go test -race -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v github.com/poyrazk/thecloud/tests)
+      - name: Run Unit Tests
+        run: go test -race -v $(go list ./... | grep -v github.com/poyrazk/thecloud/tests)
         
       - name: Wait for Database
         run: |
