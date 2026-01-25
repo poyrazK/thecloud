@@ -54,23 +54,6 @@ jobs:
       - name: Run Unit Tests with Coverage
         run: go test -race -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v github.com/poyrazk/thecloud/tests)
         
-      - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage.out
-          fail_ci_if_error: false
-
-      - name: SonarCloud Scan
-        uses: sonarsource/sonarqube-scan-action@v6
-        if: ${{ github.actor != 'dependabot[bot]' }}
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.organization=poyrazk
-            -Dsonar.projectKey=PoyrazK_thecloud
-            -Dsonar.go.coverage.reportPaths=coverage.out
-      
       - name: Wait for Database
         run: |
           until pg_isready -h localhost -p 5433 -U cloud; do
