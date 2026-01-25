@@ -35,18 +35,15 @@ func TestChaos(t *testing.T) {
 		// Ensure Redis is stopped
 		defer func() {
 			t.Log("Restarting Redis container...")
-			exec.Command("docker", "start", "cloud-redis").Run()
+			_ = exec.Command("docker", "start", "cloud-redis").Run()
 			// Wait for Redis to be ready again
 			time.Sleep(2 * time.Second)
 		}()
 
 		// 3. Verify API behavior without Redis
-		// Some features like rate limiting or caching might fail, but main API should ideally gracefully degrade
-		// or at least return a proper error (not crash)
 		resp = getRequest(t, client, testutil.TestBaseURL+"/instances", token)
 		defer resp.Body.Close()
 
-		// If Redis is critical, it might return 500. If it's used for caching/rate-limiting only, it might succeed or warn.
 		t.Logf("API response without Redis: %d", resp.StatusCode)
 		assert.NotEqual(t, 0, resp.StatusCode, "API should still respond")
 
@@ -56,7 +53,6 @@ func TestChaos(t *testing.T) {
 			defer respH.Body.Close()
 			body, _ := io.ReadAll(respH.Body)
 			t.Logf("Health check status without Redis: %d, body: %s", respH.StatusCode, string(body))
-			// Health check should probably show redis as DOWN or system as DEGRADED
 		}
 	})
 

@@ -21,16 +21,24 @@ func TestSecurityEdge(t *testing.T) {
 	t.Run("Authentication Bypass Attempts", func(t *testing.T) {
 		// 1. Missing API Key
 		req, _ := http.NewRequest("GET", testutil.TestBaseURL+"/instances", nil)
-		resp, _ := client.Do(req)
-		defer resp.Body.Close()
-		assert.Contains(t, []int{http.StatusUnauthorized, http.StatusForbidden}, resp.StatusCode)
+		resp, err := client.Do(req)
+		if err == nil && resp != nil {
+			defer resp.Body.Close()
+			assert.Contains(t, []int{http.StatusUnauthorized, http.StatusForbidden}, resp.StatusCode)
+		} else {
+			assert.NoError(t, err)
+		}
 
 		// 2. Invalid API Key format
 		req, _ = http.NewRequest("GET", testutil.TestBaseURL+"/instances", nil)
 		req.Header.Set(testutil.TestHeaderAPIKey, "invalid-key-format-123")
-		resp, _ = client.Do(req)
-		defer resp.Body.Close()
-		assert.Contains(t, []int{http.StatusUnauthorized, http.StatusForbidden}, resp.StatusCode)
+		resp, err = client.Do(req)
+		if err == nil && resp != nil {
+			defer resp.Body.Close()
+			assert.Contains(t, []int{http.StatusUnauthorized, http.StatusForbidden}, resp.StatusCode)
+		} else {
+			assert.NoError(t, err)
+		}
 	})
 
 	t.Run("Cross-Tenant Access Attempt", func(t *testing.T) {
@@ -56,10 +64,13 @@ func TestSecurityEdge(t *testing.T) {
 		tokenB := registerAndLogin(t, client, "userB-sec@thecloud.local", "User B Sec")
 		reqB, _ := http.NewRequest("GET", fmt.Sprintf("%s/instances/%s", testutil.TestBaseURL, instID), nil)
 		reqB.Header.Set(testutil.TestHeaderAPIKey, tokenB)
-		respB, _ := client.Do(reqB)
-		defer respB.Body.Close()
-
-		// Should be 404 (preferred for security to avoid ID discovery) or 403
-		assert.Contains(t, []int{http.StatusNotFound, http.StatusForbidden}, respB.StatusCode)
+		respB, err := client.Do(reqB)
+		if err == nil && respB != nil {
+			defer respB.Body.Close()
+			// Should be 404 (preferred for security to avoid ID discovery) or 403
+			assert.Contains(t, []int{http.StatusNotFound, http.StatusForbidden}, respB.StatusCode)
+		} else {
+			assert.NoError(t, err)
+		}
 	})
 }

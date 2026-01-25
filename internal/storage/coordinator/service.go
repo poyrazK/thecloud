@@ -112,7 +112,7 @@ func (c *Coordinator) Assemble(ctx context.Context, bucket, key string, parts []
 	// 1. Get target nodes
 	nodes := c.ring.GetNodes(bucket+"/"+key, c.replicaCount)
 	if len(nodes) == 0 {
-		return 0, fmt.Errorf(errNoNodesAvailable)
+		return 0, fmt.Errorf("%s", errNoNodesAvailable)
 	}
 
 	// 2. Parallel Assemble on all replicas
@@ -174,7 +174,7 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 	// 2. Get target nodes
 	nodes := c.ring.GetNodes(bucket+"/"+key, c.replicaCount)
 	if len(nodes) == 0 {
-		return 0, fmt.Errorf(errNoNodesAvailable)
+		return 0, fmt.Errorf("%s", errNoNodesAvailable)
 	}
 
 	// 3. Parallel Write
@@ -220,7 +220,7 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 func (c *Coordinator) Read(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
 	nodes := c.ring.GetNodes(bucket+"/"+key, c.replicaCount)
 	if len(nodes) == 0 {
-		return nil, fmt.Errorf(errNoNodesAvailable)
+		return nil, fmt.Errorf("%s", errNoNodesAvailable)
 	}
 
 	results := c.collectReadResults(ctx, bucket, key, nodes)
