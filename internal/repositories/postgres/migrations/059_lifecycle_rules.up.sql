@@ -14,5 +14,3 @@ CREATE TABLE IF NOT EXISTS lifecycle_rules (
 CREATE INDEX idx_lifecycle_rules_enabled ON lifecycle_rules(enabled) WHERE enabled = TRUE;
 CREATE INDEX idx_lifecycle_rules_bucket ON lifecycle_rules(bucket_name);
 
--- +goose Down
-DROP TABLE IF EXISTS lifecycle_rules;

@@ -162,10 +162,10 @@ func (r *StorageRepository) SoftDelete(ctx context.Context, bucket, key string) 
 // CreateBucket creates a new bucket.
 func (r *StorageRepository) CreateBucket(ctx context.Context, bucket *domain.Bucket) error {
 	query := `
-		INSERT INTO buckets (id, name, user_id, is_public, created_at)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO buckets (id, name, user_id, is_public, versioning_enabled, encryption_enabled, encryption_key_id, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
-	_, err := r.db.Exec(ctx, query, bucket.ID, bucket.Name, bucket.UserID, bucket.IsPublic, bucket.CreatedAt)
+	_, err := r.db.Exec(ctx, query, bucket.ID, bucket.Name, bucket.UserID, bucket.IsPublic, bucket.VersioningEnabled, bucket.EncryptionEnabled, bucket.EncryptionKeyID, bucket.CreatedAt)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to create bucket", err)
 	}
@@ -175,12 +175,15 @@ func (r *StorageRepository) CreateBucket(ctx context.Context, bucket *domain.Buc
 // GetBucket retrieves a bucket by name.
 func (r *StorageRepository) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
 	query := `
-		SELECT id, name, user_id, is_public, created_at
+		SELECT id, name, user_id, is_public, versioning_enabled, encryption_enabled, encryption_key_id, created_at
 		FROM buckets
 		WHERE name = $1
 	`
 	var bucket domain.Bucket
-	err := r.db.QueryRow(ctx, query, name).Scan(&bucket.ID, &bucket.Name, &bucket.UserID, &bucket.IsPublic, &bucket.VersioningEnabled, &bucket.CreatedAt)
+	err := r.db.QueryRow(ctx, query, name).Scan(
+		&bucket.ID, &bucket.Name, &bucket.UserID, &bucket.IsPublic, &bucket.VersioningEnabled,
+		&bucket.EncryptionEnabled, &bucket.EncryptionKeyID, &bucket.CreatedAt,
+	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, errors.New(errors.ObjectNotFound, "bucket not found")
