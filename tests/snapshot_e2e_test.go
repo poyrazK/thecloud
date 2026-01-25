@@ -79,7 +79,7 @@ func TestSnapshotE2E(t *testing.T) {
 				var res struct {
 					Data domain.Snapshot `json:"data"`
 				}
-				json.NewDecoder(resp.Body).Decode(&res)
+				_ = json.NewDecoder(resp.Body).Decode(&res)
 				resp.Body.Close()
 
 				if res.Data.Status == domain.SnapshotStatusAvailable {
