@@ -59,6 +59,17 @@ jobs:
         with:
           files: ./coverage.out
           fail_ci_if_error: false
+
+      - name: SonarCloud Scan
+        uses: sonarsource/sonarqube-scan-action@v6
+        if: ${{ github.actor != 'dependabot[bot]' }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.organization=poyrazk
+            -Dsonar.projectKey=PoyrazK_thecloud
+            -Dsonar.go.coverage.reportPaths=coverage.out
       
       - name: Wait for Database
         run: |
