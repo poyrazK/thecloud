@@ -1,0 +1,47 @@
+-- Add tenant_id to core resource tables
+ALTER TABLE instances ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE vpcs ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE volumes ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE load_balancers ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE scaling_groups ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE buckets ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE clusters ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE floating_ips ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE security_groups ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE subnets ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE snapshots ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE secrets ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE functions ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE caches ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE queues ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE topics ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE subscriptions ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE cron_jobs ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE gateway_routes ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE deployments ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE stacks ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+ALTER TABLE images ADD COLUMN tenant_id UUID REFERENCES tenants(id) ON DELETE RESTRICT;
+
+-- Create indexes for efficient tenant-scoped queries
+CREATE INDEX idx_instances_tenant ON instances(tenant_id);
+CREATE INDEX idx_vpcs_tenant ON vpcs(tenant_id);
+CREATE INDEX idx_volumes_tenant ON volumes(tenant_id);
+CREATE INDEX idx_load_balancers_tenant ON load_balancers(tenant_id);
+CREATE INDEX idx_scaling_groups_tenant ON scaling_groups(tenant_id);
+CREATE INDEX idx_buckets_tenant ON buckets(tenant_id);
+CREATE INDEX idx_clusters_tenant ON clusters(tenant_id);
+CREATE INDEX idx_floating_ips_tenant ON floating_ips(tenant_id);
+CREATE INDEX idx_security_groups_tenant ON security_groups(tenant_id);
+CREATE INDEX idx_subnets_tenant ON subnets(tenant_id);
+CREATE INDEX idx_snapshots_tenant ON snapshots(tenant_id);
+CREATE INDEX idx_secrets_tenant ON secrets(tenant_id);
+CREATE INDEX idx_functions_tenant ON functions(tenant_id);
+CREATE INDEX idx_caches_tenant ON caches(tenant_id);
+CREATE INDEX idx_queues_tenant ON queues(tenant_id);
+CREATE INDEX idx_topics_tenant ON topics(tenant_id);
+CREATE INDEX idx_subscriptions_tenant ON subscriptions(tenant_id);
+CREATE INDEX idx_cron_jobs_tenant ON cron_jobs(tenant_id);
+CREATE INDEX idx_gateway_routes_tenant ON gateway_routes(tenant_id);
+CREATE INDEX idx_deployments_tenant ON deployments(tenant_id);
+CREATE INDEX idx_stacks_tenant ON stacks(tenant_id);
+CREATE INDEX idx_images_tenant ON images(tenant_id);
