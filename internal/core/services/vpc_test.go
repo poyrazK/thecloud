@@ -70,6 +70,26 @@ func TestVpcServiceCreateDBFailureRollsBackBridge(t *testing.T) {
 	network.AssertCalled(t, "DeleteBridge", mock.Anything, mock.Anything)
 }
 
+func TestVpcServiceCreateDefaultCIDR(t *testing.T) {
+	vpcRepo, network, auditSvc, svc := setupVpcServiceTest("")
+	defer vpcRepo.AssertExpectations(t)
+	defer network.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
+
+	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+
+	network.On("CreateBridge", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	vpcRepo.On("Create", mock.Anything, mock.MatchedBy(func(vpc *domain.VPC) bool {
+		return vpc.CIDRBlock == "10.0.0.0/16"
+	})).Return(nil)
+	auditSvc.On("Log", mock.Anything, mock.Anything, "vpc.create", "vpc", mock.Anything, mock.Anything).Return(nil)
+
+	vpc, err := svc.CreateVPC(ctx, "default-cidr", "")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, vpc)
+}
+
 func TestVpcServiceDeleteSuccess(t *testing.T) {
 	vpcRepo, network, auditSvc, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)
@@ -91,6 +111,27 @@ func TestVpcServiceDeleteSuccess(t *testing.T) {
 	err := svc.DeleteVPC(context.Background(), vpcID.String())
 
 	assert.NoError(t, err)
+}
+
+func TestVpcServiceDeleteBridgeError(t *testing.T) {
+	vpcRepo, network, _, svc := setupVpcServiceTest(testutil.TestCIDR)
+	defer vpcRepo.AssertExpectations(t)
+	defer network.AssertExpectations(t)
+
+	vpcID := uuid.New()
+	vpc := &domain.VPC{
+		ID:        vpcID,
+		Name:      "to-delete",
+		NetworkID: "br-vpc-err",
+	}
+
+	vpcRepo.On("GetByID", mock.Anything, vpcID).Return(vpc, nil)
+	network.On("DeleteBridge", mock.Anything, "br-vpc-err").Return(assert.AnError)
+
+	err := svc.DeleteVPC(context.Background(), vpcID.String())
+
+	assert.Error(t, err)
+	vpcRepo.AssertNotCalled(t, "Delete", mock.Anything, mock.Anything)
 }
 
 func TestVpcServiceListSuccess(t *testing.T) {
