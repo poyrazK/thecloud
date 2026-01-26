@@ -31,6 +31,7 @@ const (
 type Handlers struct {
 	Audit         *httphandlers.AuditHandler
 	Identity      *httphandlers.IdentityHandler
+	Tenant        *httphandlers.TenantHandler
 	Auth          *httphandlers.AuthHandler
 	Vpc           *httphandlers.VpcHandler
 	Subnet        *httphandlers.SubnetHandler
@@ -70,6 +71,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 	return &Handlers{
 		Audit:         httphandlers.NewAuditHandler(svcs.Audit),
 		Identity:      httphandlers.NewIdentityHandler(svcs.Identity),
+		Tenant:        httphandlers.NewTenantHandler(svcs.Tenant),
 		Auth:          httphandlers.NewAuthHandler(svcs.Auth, svcs.PasswordReset),
 		Vpc:           httphandlers.NewVpcHandler(svcs.Vpc),
 		Subnet:        httphandlers.NewSubnetHandler(svcs.Subnet),
@@ -165,6 +167,7 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 	registerNetworkRoutes(r, handlers, services)
 	registerDataRoutes(r, handlers, services)
 	registerDevOpsRoutes(r, handlers, services)
+	registerTenantRoutes(r, handlers, services)
 	registerAdminRoutes(r, handlers, services)
 
 	// The actual Gateway Proxy (Public)
@@ -199,7 +202,7 @@ func registerAuthRoutes(r *gin.Engine, handlers *Handlers, svcs *Services, cfg *
 
 func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	instanceGroup := r.Group("/instances")
-	instanceGroup.Use(httputil.Auth(svcs.Identity))
+	instanceGroup.Use(httputil.Auth(svcs.Identity), httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant))
 	{
 		instanceGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionInstanceLaunch), handlers.Instance.Launch)
 		instanceGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.List)
@@ -251,7 +254,7 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 
 func registerNetworkRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	vpcGroup := r.Group("/vpcs")
-	vpcGroup.Use(httputil.Auth(svcs.Identity))
+	vpcGroup.Use(httputil.Auth(svcs.Identity), httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant))
 	{
 		vpcGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionVpcCreate), handlers.Vpc.Create)
 		vpcGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionVpcRead), handlers.Vpc.List)
@@ -297,7 +300,7 @@ func registerNetworkRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 
 func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	storageGroup := r.Group("/storage")
-	storageGroup.Use(httputil.Auth(svcs.Identity))
+	storageGroup.Use(httputil.Auth(svcs.Identity), httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant))
 	{
 		// explicitly registered static paths first
 		storageGroup.GET("/cluster/status", handlers.Storage.GetClusterStatus)
@@ -337,7 +340,7 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	r.PUT("/storage/presigned"+bucketKeyRoute, handlers.Storage.ServePresignedUpload)
 
 	volumeGroup := r.Group("/volumes")
-	volumeGroup.Use(httputil.Auth(svcs.Identity))
+	volumeGroup.Use(httputil.Auth(svcs.Identity), httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant))
 	{
 		volumeGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionVolumeCreate), handlers.Volume.Create)
 		volumeGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionVolumeRead), handlers.Volume.List)
@@ -507,5 +510,15 @@ func registerAdminRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	{
 		billingGroup.GET("/summary", handlers.Accounting.GetSummary)
 		billingGroup.GET("/usage", handlers.Accounting.ListUsage)
+	}
+}
+
+func registerTenantRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
+	tenantGroup := r.Group("/tenants")
+	tenantGroup.Use(httputil.Auth(svcs.Identity))
+	{
+		tenantGroup.POST("", handlers.Tenant.Create)
+		tenantGroup.POST("/:id/members", httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant), handlers.Tenant.InviteMember)
+		tenantGroup.POST("/:id/switch", handlers.Tenant.SwitchTenant)
 	}
 }

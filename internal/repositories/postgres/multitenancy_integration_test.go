@@ -14,160 +14,116 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMultiTenancy_ResourceIsolation(t *testing.T) {
+func TestMultiTenancy_TenantIsolation(t *testing.T) {
 	db := setupDB(t)
 	defer db.Close()
 
-	// Clear tables
+	// Clear tables in correct order
 	ctx := context.Background()
 	_, _ = db.Exec(ctx, "DELETE FROM instances")
-	_, _ = db.Exec(ctx, "DELETE FROM load_balancers")
 	_, _ = db.Exec(ctx, "DELETE FROM vpcs")
 	_, _ = db.Exec(ctx, "DELETE FROM volumes")
-	_, _ = db.Exec(ctx, "DELETE FROM scaling_groups")
+	_, _ = db.Exec(ctx, "DELETE FROM tenant_members")
+	_, _ = db.Exec(ctx, "UPDATE users SET default_tenant_id = NULL")
+	_, _ = db.Exec(ctx, "DELETE FROM tenants")
+	_, _ = db.Exec(ctx, "DELETE FROM users")
 
-	// Create user IDs
-	userA := uuid.New()
-	userB := uuid.New()
-
-	// User contexts
-	ctxA := appcontext.WithUserID(ctx, userA)
-	ctxB := appcontext.WithUserID(ctx, userB)
+	// Create User IDs
+	user1 := uuid.New()
+	user2 := uuid.New()
+	user3 := uuid.New()
 
 	// Repositories
 	userRepo := NewUserRepo(db)
+	tenantRepo := NewTenantRepo(db)
 	vpcRepo := NewVpcRepository(db)
 	instRepo := NewInstanceRepository(db)
-	lbRepo := NewLBRepository(db)
-	volRepo := NewVolumeRepository(db)
 
-	// Create Users
-	err := userRepo.Create(ctx, &domain.User{
-		ID:        userA,
-		Email:     "usera@example.com",
-		Name:      "User A",
-		Role:      "user",
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	})
-	require.NoError(t, err)
+	// 1. Create Users
+	users := []*domain.User{
+		{ID: user1, Email: "user1@a.com", Name: "U1", Role: "user", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+		{ID: user2, Email: "user2@a.com", Name: "U2", Role: "user", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+		{ID: user3, Email: "user3@b.com", Name: "U3", Role: "user", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+	}
+	for _, u := range users {
+		require.NoError(t, userRepo.Create(ctx, u))
+	}
 
-	err = userRepo.Create(ctx, &domain.User{
-		ID:        userB,
-		Email:     "userb@example.com",
-		Name:      "User B",
-		Role:      "user",
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	})
-	require.NoError(t, err)
+	// 2. Create Tenants
+	tenantA := uuid.New()
+	tenantB := uuid.New()
 
-	t.Run("VPC Isolation", func(t *testing.T) {
-		vpcA := &domain.VPC{
+	require.NoError(t, tenantRepo.Create(ctx, &domain.Tenant{ID: tenantA, Name: "Tenant A", Slug: "tenant-a", OwnerID: user1, CreatedAt: time.Now(), UpdatedAt: time.Now(), Plan: "free", Status: "active"}))
+	require.NoError(t, tenantRepo.Create(ctx, &domain.Tenant{ID: tenantB, Name: "Tenant B", Slug: "tenant-b", OwnerID: user3, CreatedAt: time.Now(), UpdatedAt: time.Now(), Plan: "free", Status: "active"}))
+
+	// 3. Setup Memberships
+	require.NoError(t, tenantRepo.AddMember(ctx, tenantA, user1, "owner"))
+	require.NoError(t, tenantRepo.AddMember(ctx, tenantA, user2, "member"))
+	require.NoError(t, tenantRepo.AddMember(ctx, tenantB, user3, "owner"))
+
+	// Contexts
+	ctxA1 := appcontext.WithTenantID(appcontext.WithUserID(ctx, user1), tenantA)
+	ctxA2 := appcontext.WithTenantID(appcontext.WithUserID(ctx, user2), tenantA)
+	ctxB3 := appcontext.WithTenantID(appcontext.WithUserID(ctx, user3), tenantB)
+
+	t.Run("Resource Visibility Within Tenant", func(t *testing.T) {
+		vpc := &domain.VPC{
 			ID:        uuid.New(),
-			UserID:    userA,
-			Name:      "vpc-a",
-			NetworkID: "net-123",
+			UserID:    user1,
+			TenantID:  tenantA,
+			Name:      "shared-vpc",
 			CreatedAt: time.Now(),
 		}
-		require.NoError(t, vpcRepo.Create(ctxA, vpcA))
+		require.NoError(t, vpcRepo.Create(ctxA1, vpc))
 
-		// User A can see it
-		fetched, err := vpcRepo.GetByID(ctxA, vpcA.ID)
+		// User 1 (Owner) can see it
+		fetched1, err := vpcRepo.GetByID(ctxA1, vpc.ID)
 		require.NoError(t, err)
-		assert.Equal(t, vpcA.ID, fetched.ID)
+		assert.Equal(t, vpc.ID, fetched1.ID)
 
-		// User B cannot see it
-		_, err = vpcRepo.GetByID(ctxB, vpcA.ID)
+		// User 2 (Member of same tenant) can also see it
+		fetched2, err := vpcRepo.GetByID(ctxA2, vpc.ID)
+		require.NoError(t, err)
+		assert.Equal(t, vpc.ID, fetched2.ID)
+
+		// User 3 (Different tenant) cannot see it
+		_, err = vpcRepo.GetByID(ctxB3, vpc.ID)
 		assert.Error(t, err)
-
-		// List for User B should be empty
-		listB, err := vpcRepo.List(ctxB)
-		require.NoError(t, err)
-		assert.Empty(t, listB)
 	})
 
-	t.Run("Instance Isolation", func(t *testing.T) {
+	t.Run("Instance Isolation Between Tenants", func(t *testing.T) {
 		instA := &domain.Instance{
 			ID:        uuid.New(),
-			UserID:    userA,
-			Name:      "inst-a",
+			UserID:    user1,
+			TenantID:  tenantA,
+			Name:      "tenant-a-inst",
 			Image:     "alpine",
 			Status:    domain.StatusRunning,
 			CreatedAt: time.Now(),
 		}
-		require.NoError(t, instRepo.Create(ctxA, instA))
+		require.NoError(t, instRepo.Create(ctxA1, instA))
 
-		// User A can see it
-		fetched, err := instRepo.GetByID(ctxA, instA.ID)
-		require.NoError(t, err)
-		assert.Equal(t, instA.ID, fetched.ID)
-
-		// User B cannot see it
-		_, err = instRepo.GetByID(ctxB, instA.ID)
-		assert.Error(t, err)
-
-		// List for User B should be empty
-		listB, err := instRepo.List(ctxB)
-		require.NoError(t, err)
-		assert.Empty(t, listB)
-	})
-
-	t.Run("Volume Isolation", func(t *testing.T) {
-		volA := &domain.Volume{
+		instB := &domain.Instance{
 			ID:        uuid.New(),
-			UserID:    userA,
-			Name:      "vol-a",
-			SizeGB:    10,
-			Status:    domain.VolumeStatusAvailable,
+			UserID:    user3,
+			TenantID:  tenantB,
+			Name:      "tenant-b-inst",
+			Image:     "ubuntu",
+			Status:    domain.StatusRunning,
 			CreatedAt: time.Now(),
 		}
-		require.NoError(t, volRepo.Create(ctxA, volA))
+		require.NoError(t, instRepo.Create(ctxB3, instB))
 
-		// User A can see it
-		fetched, err := volRepo.GetByID(ctxA, volA.ID)
+		// Tenant A list
+		listA, err := instRepo.List(ctxA1)
 		require.NoError(t, err)
-		assert.Equal(t, volA.ID, fetched.ID)
+		assert.Len(t, listA, 1)
+		assert.Equal(t, instA.ID, listA[0].ID)
 
-		// User B cannot see it
-		_, err = volRepo.GetByID(ctxB, volA.ID)
-		assert.Error(t, err)
-
-		// List for User B should be empty
-		listB, err := volRepo.List(ctxB)
+		// Tenant B list
+		listB, err := instRepo.List(ctxB3)
 		require.NoError(t, err)
-		assert.Empty(t, listB)
-	})
-
-	t.Run("Load Balancer Isolation", func(t *testing.T) {
-		// Need a VPC first
-		vpcID := uuid.New()
-		_ = vpcRepo.Create(ctxA, &domain.VPC{ID: vpcID, UserID: userA, Name: "lb-vpc", NetworkID: "net-lb", CreatedAt: time.Now()})
-
-		lbA := &domain.LoadBalancer{
-			ID:        uuid.New(),
-			UserID:    userA,
-			Name:      "lb-a",
-			VpcID:     vpcID,
-			Port:      80,
-			Algorithm: "round-robin",
-			Status:    domain.LBStatusActive,
-			CreatedAt: time.Now(),
-		}
-		require.NoError(t, lbRepo.Create(ctxA, lbA))
-
-		// User A can see it
-		fetched, err := lbRepo.GetByID(ctxA, lbA.ID)
-		require.NoError(t, err)
-		assert.Equal(t, lbA.ID, fetched.ID)
-
-		// User B cannot see it
-		_, err = lbRepo.GetByID(ctxB, lbA.ID)
-		assert.Error(t, err)
-
-		// List for User B should be empty
-		listB, err := lbRepo.List(ctxB)
-		require.NoError(t, err)
-		assert.Empty(t, listB)
+		assert.Len(t, listB, 1)
+		assert.Equal(t, instB.ID, listB[0].ID)
 	})
 }

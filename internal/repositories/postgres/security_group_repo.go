@@ -23,10 +23,10 @@ func NewSecurityGroupRepository(db DB) *SecurityGroupRepository {
 
 func (r *SecurityGroupRepository) Create(ctx context.Context, sg *domain.SecurityGroup) error {
 	query := `
-		INSERT INTO security_groups (id, user_id, vpc_id, name, description, arn, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO security_groups (id, user_id, tenant_id, vpc_id, name, description, arn, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
-	_, err := r.db.Exec(ctx, query, sg.ID, sg.UserID, sg.VPCID, sg.Name, sg.Description, sg.ARN, sg.CreatedAt)
+	_, err := r.db.Exec(ctx, query, sg.ID, sg.UserID, sg.TenantID, sg.VPCID, sg.Name, sg.Description, sg.ARN, sg.CreatedAt)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to create security group", err)
 	}
@@ -34,10 +34,10 @@ func (r *SecurityGroupRepository) Create(ctx context.Context, sg *domain.Securit
 }
 
 func (r *SecurityGroupRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.SecurityGroup, error) {
-	userID := appcontext.UserIDFromContext(ctx)
-	query := `SELECT id, user_id, vpc_id, name, description, arn, created_at FROM security_groups WHERE id = $1 AND user_id = $2`
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	query := `SELECT id, user_id, tenant_id, vpc_id, name, description, arn, created_at FROM security_groups WHERE id = $1 AND tenant_id = $2`
 
-	sg, err := r.scanSecurityGroup(r.db.QueryRow(ctx, query, id, userID))
+	sg, err := r.scanSecurityGroup(r.db.QueryRow(ctx, query, id, tenantID))
 	if err != nil {
 		return nil, err
 	}
@@ -52,10 +52,10 @@ func (r *SecurityGroupRepository) GetByID(ctx context.Context, id uuid.UUID) (*d
 }
 
 func (r *SecurityGroupRepository) GetByName(ctx context.Context, vpcID uuid.UUID, name string) (*domain.SecurityGroup, error) {
-	userID := appcontext.UserIDFromContext(ctx)
-	query := `SELECT id, user_id, vpc_id, name, description, arn, created_at FROM security_groups WHERE vpc_id = $1 AND name = $2 AND user_id = $3`
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	query := `SELECT id, user_id, tenant_id, vpc_id, name, description, arn, created_at FROM security_groups WHERE vpc_id = $1 AND name = $2 AND tenant_id = $3`
 
-	sg, err := r.scanSecurityGroup(r.db.QueryRow(ctx, query, vpcID, name, userID))
+	sg, err := r.scanSecurityGroup(r.db.QueryRow(ctx, query, vpcID, name, tenantID))
 	if err != nil {
 		return nil, err
 	}
@@ -70,10 +70,10 @@ func (r *SecurityGroupRepository) GetByName(ctx context.Context, vpcID uuid.UUID
 }
 
 func (r *SecurityGroupRepository) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*domain.SecurityGroup, error) {
-	userID := appcontext.UserIDFromContext(ctx)
-	query := `SELECT id, user_id, vpc_id, name, description, arn, created_at FROM security_groups WHERE vpc_id = $1 AND user_id = $2 ORDER BY created_at DESC`
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	query := `SELECT id, user_id, tenant_id, vpc_id, name, description, arn, created_at FROM security_groups WHERE vpc_id = $1 AND tenant_id = $2 ORDER BY created_at DESC`
 
-	rows, err := r.db.Query(ctx, query, vpcID, userID)
+	rows, err := r.db.Query(ctx, query, vpcID, tenantID)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list security groups", err)
 	}
@@ -82,7 +82,7 @@ func (r *SecurityGroupRepository) ListByVPC(ctx context.Context, vpcID uuid.UUID
 
 func (r *SecurityGroupRepository) scanSecurityGroup(row pgx.Row) (*domain.SecurityGroup, error) {
 	var sg domain.SecurityGroup
-	err := row.Scan(&sg.ID, &sg.UserID, &sg.VPCID, &sg.Name, &sg.Description, &sg.ARN, &sg.CreatedAt)
+	err := row.Scan(&sg.ID, &sg.UserID, &sg.TenantID, &sg.VPCID, &sg.Name, &sg.Description, &sg.ARN, &sg.CreatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, errors.New(errors.NotFound, "security group not found")
@@ -118,14 +118,14 @@ func (r *SecurityGroupRepository) AddRule(ctx context.Context, rule *domain.Secu
 }
 
 func (r *SecurityGroupRepository) GetRuleByID(ctx context.Context, ruleID uuid.UUID) (*domain.SecurityRule, error) {
-	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
 		SELECT sr.id, sr.group_id, sr.direction, sr.protocol, sr.port_min, sr.port_max, sr.cidr, sr.priority, sr.created_at 
 		FROM security_rules sr
 		JOIN security_groups sg ON sr.group_id = sg.id
-		WHERE sr.id = $1 AND sg.user_id = $2
+		WHERE sr.id = $1 AND sg.tenant_id = $2
 	`
-	rule, err := r.scanSecurityRule(r.db.QueryRow(ctx, query, ruleID, userID))
+	rule, err := r.scanSecurityRule(r.db.QueryRow(ctx, query, ruleID, tenantID))
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, errors.New(errors.NotFound, "security rule not found")
@@ -136,13 +136,13 @@ func (r *SecurityGroupRepository) GetRuleByID(ctx context.Context, ruleID uuid.U
 }
 
 func (r *SecurityGroupRepository) DeleteRule(ctx context.Context, ruleID uuid.UUID) error {
-	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
 		DELETE FROM security_rules sr
 		USING security_groups sg
-		WHERE sr.group_id = sg.id AND sr.id = $1 AND sg.user_id = $2
+		WHERE sr.group_id = sg.id AND sr.id = $1 AND sg.tenant_id = $2
 	`
-	res, err := r.db.Exec(ctx, query, ruleID, userID)
+	res, err := r.db.Exec(ctx, query, ruleID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -153,14 +153,14 @@ func (r *SecurityGroupRepository) DeleteRule(ctx context.Context, ruleID uuid.UU
 }
 
 func (r *SecurityGroupRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	userID := appcontext.UserIDFromContext(ctx)
-	query := `DELETE FROM security_groups WHERE id = $1 AND user_id = $2`
-	_, err := r.db.Exec(ctx, query, id, userID)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	query := `DELETE FROM security_groups WHERE id = $1 AND tenant_id = $2`
+	_, err := r.db.Exec(ctx, query, id, tenantID)
 	return err
 }
 
 func (r *SecurityGroupRepository) AddInstanceToGroup(ctx context.Context, instanceID, groupID uuid.UUID) error {
-	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -168,7 +168,7 @@ func (r *SecurityGroupRepository) AddInstanceToGroup(ctx context.Context, instan
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if err := r.verifyOwnership(ctx, tx, userID, instanceID, groupID); err != nil {
+	if err := r.verifyTenantOwnership(ctx, tx, tenantID, instanceID, groupID); err != nil {
 		return err
 	}
 
@@ -182,7 +182,7 @@ func (r *SecurityGroupRepository) AddInstanceToGroup(ctx context.Context, instan
 }
 
 func (r *SecurityGroupRepository) RemoveInstanceFromGroup(ctx context.Context, instanceID, groupID uuid.UUID) error {
-	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -190,7 +190,7 @@ func (r *SecurityGroupRepository) RemoveInstanceFromGroup(ctx context.Context, i
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if err := r.verifyOwnership(ctx, tx, userID, instanceID, groupID); err != nil {
+	if err := r.verifyTenantOwnership(ctx, tx, tenantID, instanceID, groupID); err != nil {
 		return err
 	}
 
@@ -203,36 +203,35 @@ func (r *SecurityGroupRepository) RemoveInstanceFromGroup(ctx context.Context, i
 	return tx.Commit(ctx)
 }
 
-func (r *SecurityGroupRepository) verifyOwnership(ctx context.Context, tx pgx.Tx, userID, instanceID, groupID uuid.UUID) error {
-	var instanceOwner uuid.UUID
-	err := tx.QueryRow(ctx, "SELECT user_id FROM instances WHERE id = $1", instanceID).Scan(&instanceOwner)
+func (r *SecurityGroupRepository) verifyTenantOwnership(ctx context.Context, tx pgx.Tx, tenantID, instanceID, groupID uuid.UUID) error {
+	var instanceTenant uuid.UUID
+	err := tx.QueryRow(ctx, "SELECT tenant_id FROM instances WHERE id = $1", instanceID).Scan(&instanceTenant)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return errors.New(errors.NotFound, "instance not found")
 		}
 		return errors.Wrap(errors.Internal, "failed to verify instance ownership", err)
 	}
-	if instanceOwner != userID {
-		return errors.New(errors.Forbidden, "you do not own this instance")
+	if instanceTenant != tenantID {
+		return errors.New(errors.Forbidden, "instance does not belong to this tenant")
 	}
-
-	var groupOwner uuid.UUID
-	err = tx.QueryRow(ctx, "SELECT user_id FROM security_groups WHERE id = $1", groupID).Scan(&groupOwner)
+	var groupTenant uuid.UUID
+	err = tx.QueryRow(ctx, "SELECT tenant_id FROM security_groups WHERE id = $1", groupID).Scan(&groupTenant)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return errors.New(errors.NotFound, "security group not found")
 		}
 		return errors.Wrap(errors.Internal, "failed to verify security group ownership", err)
 	}
-	if groupOwner != userID {
-		return errors.New(errors.Forbidden, "you do not own this security group")
+	if groupTenant != tenantID {
+		return errors.New(errors.Forbidden, "security group does not belong to this tenant")
 	}
 	return nil
 }
 
 func (r *SecurityGroupRepository) ListInstanceGroups(ctx context.Context, instanceID uuid.UUID) ([]*domain.SecurityGroup, error) {
 	query := `
-		SELECT sg.id, sg.user_id, sg.vpc_id, sg.name, sg.description, sg.arn, sg.created_at 
+		SELECT sg.id, sg.user_id, sg.tenant_id, sg.vpc_id, sg.name, sg.description, sg.arn, sg.created_at 
 		FROM security_groups sg
 		JOIN instance_security_groups isg ON sg.id = isg.group_id
 		WHERE isg.instance_id = $1

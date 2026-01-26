@@ -27,6 +27,7 @@ import (
 type Repositories struct {
 	Audit         ports.AuditRepository
 	User          ports.UserRepository
+	Tenant        ports.TenantRepository
 	Identity      ports.IdentityRepository
 	PasswordReset ports.PasswordResetRepository
 	RBAC          ports.RoleRepository
@@ -62,6 +63,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 	return &Repositories{
 		Audit:         postgres.NewAuditRepository(db),
 		User:          postgres.NewUserRepo(db),
+		Tenant:        postgres.NewTenantRepo(db),
 		Identity:      postgres.NewIdentityRepository(db),
 		PasswordReset: postgres.NewPasswordResetRepository(db),
 		RBAC:          postgres.NewRBACRepository(db),
@@ -98,6 +100,7 @@ type Services struct {
 	WsHub         *ws.Hub
 	Audit         ports.AuditService
 	Identity      ports.IdentityService
+	Tenant        ports.TenantService
 	Auth          ports.AuthService
 	PasswordReset ports.PasswordResetService
 	RBAC          ports.RBACService
@@ -159,6 +162,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	// 1. Core Services (Audit, Identity, Auth, RBAC)
 	auditSvc := services.NewAuditService(c.Repos.Audit)
 	identitySvc := initIdentityServices(c, auditSvc)
+	tenantSvc := services.NewTenantService(c.Repos.Tenant, c.Repos.User, c.Logger)
 	authSvc := services.NewAuthService(c.Repos.User, identitySvc, auditSvc)
 	pwdResetSvc := services.NewPasswordResetService(c.Repos.PasswordReset, c.Repos.User, c.Logger)
 	rbacSvc := initRBACServices(c)
@@ -255,7 +259,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	}
 
 	svcs := &Services{
-		WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Auth: authSvc, PasswordReset: pwdResetSvc, RBAC: rbacSvc,
+		WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Tenant: tenantSvc, Auth: authSvc, PasswordReset: pwdResetSvc, RBAC: rbacSvc,
 		Vpc: vpcSvc, Subnet: subnetSvc, Event: eventSvc, Volume: volumeSvc, Instance: instSvcConcrete,
 		SecurityGroup: sgSvc, LB: lbSvc, Snapshot: snapshotSvc, Stack: stackSvc,
 		Storage: storageSvc, Database: databaseSvc, Secret: secretSvc, Function: fnSvc, Cache: cacheSvc,

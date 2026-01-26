@@ -2,18 +2,18 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type TenantRepo struct {
-	db *sql.DB
+	db DB
 }
 
-func NewTenantRepo(db *sql.DB) *TenantRepo {
+func NewTenantRepo(db DB) *TenantRepo {
 	return &TenantRepo{db: db}
 }
 
@@ -22,7 +22,7 @@ func (r *TenantRepo) Create(ctx context.Context, tenant *domain.Tenant) error {
 		INSERT INTO tenants (id, name, slug, owner_id, plan, status, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := r.db.Exec(ctx, query,
 		tenant.ID, tenant.Name, tenant.Slug, tenant.OwnerID,
 		tenant.Plan, tenant.Status, tenant.CreatedAt, tenant.UpdatedAt,
 	)
@@ -35,13 +35,13 @@ func (r *TenantRepo) Create(ctx context.Context, tenant *domain.Tenant) error {
 func (r *TenantRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) {
 	query := `SELECT id, name, slug, owner_id, plan, status, created_at, updated_at FROM tenants WHERE id = $1`
 	var t domain.Tenant
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
+	err := r.db.QueryRow(ctx, query, id).Scan(
 		&t.ID, &t.Name, &t.Slug, &t.OwnerID, &t.Plan, &t.Status, &t.CreatedAt, &t.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
-		return nil, errors.New(errors.NotFound, "tenant not found")
-	}
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, errors.New(errors.NotFound, "tenant not found")
+		}
 		return nil, errors.Wrap(errors.Internal, "failed to get tenant", err)
 	}
 	return &t, nil
@@ -50,13 +50,13 @@ func (r *TenantRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Tenant,
 func (r *TenantRepo) GetBySlug(ctx context.Context, slug string) (*domain.Tenant, error) {
 	query := `SELECT id, name, slug, owner_id, plan, status, created_at, updated_at FROM tenants WHERE slug = $1`
 	var t domain.Tenant
-	err := r.db.QueryRowContext(ctx, query, slug).Scan(
+	err := r.db.QueryRow(ctx, query, slug).Scan(
 		&t.ID, &t.Name, &t.Slug, &t.OwnerID, &t.Plan, &t.Status, &t.CreatedAt, &t.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
-		return nil, errors.New(errors.NotFound, "tenant not found")
-	}
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, errors.New(errors.NotFound, "tenant not found")
+		}
 		return nil, errors.Wrap(errors.Internal, "failed to get tenant by slug", err)
 	}
 	return &t, nil
@@ -68,7 +68,7 @@ func (r *TenantRepo) Update(ctx context.Context, tenant *domain.Tenant) error {
 		SET name = $2, slug = $3, owner_id = $4, plan = $5, status = $6, updated_at = $7
 		WHERE id = $1
 	`
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := r.db.Exec(ctx, query,
 		tenant.ID, tenant.Name, tenant.Slug, tenant.OwnerID,
 		tenant.Plan, tenant.Status, tenant.UpdatedAt,
 	)
@@ -79,7 +79,7 @@ func (r *TenantRepo) Update(ctx context.Context, tenant *domain.Tenant) error {
 }
 
 func (r *TenantRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, "DELETE FROM tenants WHERE id = $1", id)
+	_, err := r.db.Exec(ctx, "DELETE FROM tenants WHERE id = $1", id)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to delete tenant", err)
 	}
@@ -88,7 +88,7 @@ func (r *TenantRepo) Delete(ctx context.Context, id uuid.UUID) error {
 
 func (r *TenantRepo) AddMember(ctx context.Context, tenantID, userID uuid.UUID, role string) error {
 	query := `INSERT INTO tenant_members (tenant_id, user_id, role, joined_at) VALUES ($1, $2, $3, NOW())`
-	_, err := r.db.ExecContext(ctx, query, tenantID, userID, role)
+	_, err := r.db.Exec(ctx, query, tenantID, userID, role)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to add tenant member", err)
 	}
@@ -96,7 +96,7 @@ func (r *TenantRepo) AddMember(ctx context.Context, tenantID, userID uuid.UUID, 
 }
 
 func (r *TenantRepo) RemoveMember(ctx context.Context, tenantID, userID uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, "DELETE FROM tenant_members WHERE tenant_id = $1 AND user_id = $2", tenantID, userID)
+	_, err := r.db.Exec(ctx, "DELETE FROM tenant_members WHERE tenant_id = $1 AND user_id = $2", tenantID, userID)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to remove tenant member", err)
 	}
@@ -105,7 +105,7 @@ func (r *TenantRepo) RemoveMember(ctx context.Context, tenantID, userID uuid.UUI
 
 func (r *TenantRepo) ListMembers(ctx context.Context, tenantID uuid.UUID) ([]domain.TenantMember, error) {
 	query := `SELECT tenant_id, user_id, role, joined_at FROM tenant_members WHERE tenant_id = $1`
-	rows, err := r.db.QueryContext(ctx, query, tenantID)
+	rows, err := r.db.Query(ctx, query, tenantID)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list tenant members", err)
 	}
@@ -125,11 +125,11 @@ func (r *TenantRepo) ListMembers(ctx context.Context, tenantID uuid.UUID) ([]dom
 func (r *TenantRepo) GetMembership(ctx context.Context, tenantID, userID uuid.UUID) (*domain.TenantMember, error) {
 	query := `SELECT tenant_id, user_id, role, joined_at FROM tenant_members WHERE tenant_id = $1 AND user_id = $2`
 	var m domain.TenantMember
-	err := r.db.QueryRowContext(ctx, query, tenantID, userID).Scan(&m.TenantID, &m.UserID, &m.Role, &m.JoinedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil // No membership is not an error here
-	}
+	err := r.db.QueryRow(ctx, query, tenantID, userID).Scan(&m.TenantID, &m.UserID, &m.Role, &m.JoinedAt)
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil // No membership is not an error here
+		}
 		return nil, errors.Wrap(errors.Internal, "failed to get membership", err)
 	}
 	return &m, nil
@@ -142,7 +142,7 @@ func (r *TenantRepo) ListUserTenants(ctx context.Context, userID uuid.UUID) ([]d
 		JOIN tenant_members tm ON t.id = tm.tenant_id
 		WHERE tm.user_id = $1
 	`
-	rows, err := r.db.QueryContext(ctx, query, userID)
+	rows, err := r.db.Query(ctx, query, userID)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list user tenants", err)
 	}
@@ -162,11 +162,11 @@ func (r *TenantRepo) ListUserTenants(ctx context.Context, userID uuid.UUID) ([]d
 func (r *TenantRepo) GetQuota(ctx context.Context, tenantID uuid.UUID) (*domain.TenantQuota, error) {
 	query := `SELECT tenant_id, max_instances, max_vpcs, max_storage_gb, max_memory_gb, max_vcpus FROM tenant_quotas WHERE tenant_id = $1`
 	var q domain.TenantQuota
-	err := r.db.QueryRowContext(ctx, query, tenantID).Scan(&q.TenantID, &q.MaxInstances, &q.MaxVPCs, &q.MaxStorageGB, &q.MaxMemoryGB, &q.MaxVCPUs)
-	if err == sql.ErrNoRows {
-		return nil, errors.New(errors.NotFound, "quota not found")
-	}
+	err := r.db.QueryRow(ctx, query, tenantID).Scan(&q.TenantID, &q.MaxInstances, &q.MaxVPCs, &q.MaxStorageGB, &q.MaxMemoryGB, &q.MaxVCPUs)
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, errors.New(errors.NotFound, "quota not found")
+		}
 		return nil, errors.Wrap(errors.Internal, "failed to get quota", err)
 	}
 	return &q, nil
@@ -179,7 +179,7 @@ func (r *TenantRepo) UpdateQuota(ctx context.Context, quota *domain.TenantQuota)
 		ON CONFLICT (tenant_id) DO UPDATE
 		SET max_instances = $2, max_vpcs = $3, max_storage_gb = $4, max_memory_gb = $5, max_vcpus = $6
 	`
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := r.db.Exec(ctx, query,
 		quota.TenantID, quota.MaxInstances, quota.MaxVPCs, quota.MaxStorageGB, quota.MaxMemoryGB, quota.MaxVCPUs,
 	)
 	if err != nil {
