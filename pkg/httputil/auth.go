@@ -29,11 +29,45 @@ func Auth(svc ports.IdentityService) gin.HandlerFunc {
 
 		// Wrap the request context with UserID
 		ctx := appcontext.WithUserID(c.Request.Context(), apiKeyObj.UserID)
+
+		// Resolve active tenant (from header or user default)
+		tenantIDStr := c.GetHeader("X-Tenant-ID")
+		var tenantID uuid.UUID
+		if tenantIDStr != "" {
+			var err error
+			tenantID, err = uuid.Parse(tenantIDStr)
+			if err != nil {
+				Error(c, errors.New(errors.InvalidInput, "invalid tenant ID header"))
+				c.Abort()
+				return
+			}
+		} else if apiKeyObj.DefaultTenantID != nil {
+			tenantID = *apiKeyObj.DefaultTenantID
+		}
+
+		if tenantID != uuid.Nil {
+			ctx = appcontext.WithTenantID(ctx, tenantID)
+			c.Set("tenantID", tenantID)
+		}
+
 		c.Request = c.Request.WithContext(ctx)
 
 		c.Set("userID", apiKeyObj.UserID) // Also keep in Gin context for convenience
 		c.Next()
 	}
+}
+
+// GetTenantID returns the active tenant ID from the request context.
+func GetTenantID(c *gin.Context) uuid.UUID {
+	val, exists := c.Get("tenantID")
+	if !exists {
+		return uuid.Nil
+	}
+	userID, ok := val.(uuid.UUID)
+	if !ok {
+		return uuid.Nil
+	}
+	return userID
 }
 
 // GetUserID returns the authenticated user ID from the request context.
