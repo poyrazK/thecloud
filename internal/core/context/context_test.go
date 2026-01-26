@@ -25,4 +25,34 @@ func TestUserIDContext(t *testing.T) {
 
 		assert.Equal(t, expectedID, userID)
 	})
+
+	t.Run("Ignore invalid type", func(t *testing.T) {
+		ctx := context.WithValue(context.Background(), "user_id", "not-a-uuid")
+		userID := appcontext.UserIDFromContext(ctx)
+		assert.Equal(t, uuid.Nil, userID)
+	})
+}
+
+func TestTenantIDContext(t *testing.T) {
+	t.Run("Extract from empty context", func(t *testing.T) {
+		ctx := context.Background()
+		tenantID := appcontext.TenantIDFromContext(ctx)
+		assert.Equal(t, uuid.Nil, tenantID)
+	})
+
+	t.Run("Set and extract", func(t *testing.T) {
+		ctx := context.Background()
+		expectedID := uuid.New()
+
+		ctx = appcontext.WithTenantID(ctx, expectedID)
+		tenantID := appcontext.TenantIDFromContext(ctx)
+
+		assert.Equal(t, expectedID, tenantID)
+	})
+
+	t.Run("Ignore invalid type", func(t *testing.T) {
+		ctx := context.WithValue(context.Background(), "tenant_id", "not-a-uuid")
+		tenantID := appcontext.TenantIDFromContext(ctx)
+		assert.Equal(t, uuid.Nil, tenantID)
+	})
 }
