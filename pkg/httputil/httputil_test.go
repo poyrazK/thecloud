@@ -140,6 +140,79 @@ func TestAuth_InvalidKey(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
+func TestAuth_InvalidTenantHeader(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := new(mockIdentityService)
+	tenantSvc := new(mockTenantService)
+	userID := uuid.New()
+	svc.On("ValidateAPIKey", mock.Anything, "valid-key").Return(&domain.APIKey{UserID: userID}, nil)
+
+	r := gin.New()
+	r.Use(Auth(svc, tenantSvc))
+	r.GET("/protected", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/protected", nil)
+	req.Header.Set("X-API-Key", "valid-key")
+	req.Header.Set("X-Tenant-ID", "not-a-uuid")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestAuth_TenantNotMember(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := new(mockIdentityService)
+	tenantSvc := new(mockTenantService)
+	userID := uuid.New()
+	tenantID := uuid.New()
+
+	svc.On("ValidateAPIKey", mock.Anything, "valid-key").Return(&domain.APIKey{UserID: userID}, nil)
+	tenantSvc.On("GetMembership", mock.Anything, tenantID, userID).Return(nil, nil)
+
+	r := gin.New()
+	r.Use(Auth(svc, tenantSvc))
+	r.GET("/protected", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/protected", nil)
+	req.Header.Set("X-API-Key", "valid-key")
+	req.Header.Set("X-Tenant-ID", tenantID.String())
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestAuth_DefaultTenantMembership(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := new(mockIdentityService)
+	tenantSvc := new(mockTenantService)
+	userID := uuid.New()
+	tenantID := uuid.New()
+
+	svc.On("ValidateAPIKey", mock.Anything, "valid-key").Return(&domain.APIKey{UserID: userID, DefaultTenantID: &tenantID}, nil)
+	tenantSvc.On("GetMembership", mock.Anything, tenantID, userID).Return(&domain.TenantMember{TenantID: tenantID, UserID: userID}, nil)
+
+	r := gin.New()
+	r.Use(Auth(svc, tenantSvc))
+	r.GET("/protected", func(c *gin.Context) {
+		val, _ := c.Get("tenantID")
+		assert.Equal(t, tenantID, val)
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/protected", nil)
+	req.Header.Set("X-API-Key", "valid-key")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
 func TestResponse_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
@@ -258,6 +331,111 @@ func TestMetrics(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/test", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestRequireTenant(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(RequireTenant())
+	r.GET("/tenant", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/tenant", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestRequireTenant_WithTenant(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("tenantID", uuid.New())
+		c.Next()
+	})
+	r.Use(RequireTenant())
+	r.GET("/tenant", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/tenant", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestTenantMember_MissingContext(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tenantSvc := new(mockTenantService)
+
+	r := gin.New()
+	r.Use(TenantMember(tenantSvc))
+	r.GET("/tenant", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/tenant", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestTenantMember_NotMember(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tenantSvc := new(mockTenantService)
+	userID := uuid.New()
+	tenantID := uuid.New()
+
+	tenantSvc.On("GetMembership", mock.Anything, tenantID, userID).Return(nil, nil)
+
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("userID", userID)
+		c.Set("tenantID", tenantID)
+		c.Next()
+	})
+	r.Use(TenantMember(tenantSvc))
+	r.GET("/tenant", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/tenant", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestTenantMember_SetsRole(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tenantSvc := new(mockTenantService)
+	userID := uuid.New()
+	tenantID := uuid.New()
+
+	tenantSvc.On("GetMembership", mock.Anything, tenantID, userID).Return(&domain.TenantMember{TenantID: tenantID, UserID: userID, Role: "admin"}, nil)
+
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("userID", userID)
+		c.Set("tenantID", tenantID)
+		c.Next()
+	})
+	r.Use(TenantMember(tenantSvc))
+	r.GET("/tenant", func(c *gin.Context) {
+		role, _ := c.Get("tenantRole")
+		assert.Equal(t, "admin", role)
+		c.Status(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/tenant", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
