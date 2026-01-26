@@ -2,6 +2,8 @@ package services_test
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -15,8 +17,8 @@ func setupTenantServiceTest(_ *testing.T) (*MockTenantRepo, *MockUserRepo, *Mock
 	tenantRepo := new(MockTenantRepo)
 	userRepo := new(MockUserRepo)
 	auditSvc := new(MockAuditService)
-	// We pass nil for logger for now, or you can mock it if needed
-	svc := services.NewTenantService(tenantRepo, userRepo, nil)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := services.NewTenantService(tenantRepo, userRepo, logger)
 	return tenantRepo, userRepo, auditSvc, svc
 }
 
@@ -86,6 +88,42 @@ func TestCreateTenant_SlugTaken(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, tenant)
 	assert.Contains(t, err.Error(), "already exists")
+}
+
+func TestCreateTenant_AddMemberError(t *testing.T) {
+	tenantRepo, userRepo, _, svc := setupTenantServiceTest(t)
+
+	ctx := context.Background()
+	ownerID := uuid.New()
+	name := "My Tenant"
+	slug := "my-tenant"
+
+	tenantRepo.On("GetBySlug", mock.Anything, slug).Return(nil, nil)
+	tenantRepo.On("Create", mock.Anything, mock.Anything).Return(nil)
+	tenantRepo.On("AddMember", mock.Anything, mock.Anything, ownerID, "owner").Return(assert.AnError)
+	userRepo.On("GetByID", mock.Anything, ownerID).Return(&domain.User{ID: ownerID}, nil).Maybe()
+
+	tenant, err := svc.CreateTenant(ctx, name, slug, ownerID)
+	assert.Error(t, err)
+	assert.Nil(t, tenant)
+}
+
+func TestCreateTenant_UpdateQuotaErrorContinues(t *testing.T) {
+	tenantRepo, userRepo, _, svc := setupTenantServiceTest(t)
+
+	ctx := context.Background()
+	ownerID := uuid.New()
+
+	tenantRepo.On("GetBySlug", mock.Anything, "slug-ok").Return(nil, nil)
+	tenantRepo.On("Create", mock.Anything, mock.Anything).Return(nil)
+	tenantRepo.On("AddMember", mock.Anything, mock.Anything, ownerID, "owner").Return(nil)
+	tenantRepo.On("UpdateQuota", mock.Anything, mock.Anything).Return(assert.AnError).Once()
+	userRepo.On("GetByID", mock.Anything, ownerID).Return(&domain.User{ID: ownerID}, nil)
+	userRepo.On("Update", mock.Anything, mock.Anything).Return(nil)
+
+	tenant, err := svc.CreateTenant(ctx, "My Tenant", "slug-ok", ownerID)
+	assert.NoError(t, err)
+	assert.NotNil(t, tenant)
 }
 
 func TestInviteMember_Success(t *testing.T) {
