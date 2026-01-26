@@ -62,7 +62,7 @@ func TestRPCServer(t *testing.T) {
 	assert.Equal(t, int64(2), asmResp.Size)
 }
 
-func TestRPCServer_GetClusterStatus(t *testing.T) {
+func TestRPCServerGetClusterStatus(t *testing.T) {
 	// With nil gossiper
 	server := NewRPCServer(nil, nil)
 	resp, err := server.GetClusterStatus(context.Background(), &pb.Empty{})
