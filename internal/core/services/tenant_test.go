@@ -108,6 +108,20 @@ func TestCreateTenant_AddMemberError(t *testing.T) {
 	assert.Nil(t, tenant)
 }
 
+func TestCreateTenant_CreateError(t *testing.T) {
+	tenantRepo, _, _, svc := setupTenantServiceTest(t)
+
+	ctx := context.Background()
+	ownerID := uuid.New()
+
+	tenantRepo.On("GetBySlug", mock.Anything, "slug-fail").Return(nil, nil)
+	tenantRepo.On("Create", mock.Anything, mock.Anything).Return(assert.AnError)
+
+	tenant, err := svc.CreateTenant(ctx, "My Tenant", "slug-fail", ownerID)
+	assert.Error(t, err)
+	assert.Nil(t, tenant)
+}
+
 func TestCreateTenant_UpdateQuotaErrorContinues(t *testing.T) {
 	tenantRepo, userRepo, _, svc := setupTenantServiceTest(t)
 
@@ -248,6 +262,20 @@ func TestSwitchTenant_NotMember(t *testing.T) {
 	err := svc.SwitchTenant(ctx, userID, tenantID)
 	assert.Error(t, err)
 	userRepo.AssertNotCalled(t, "GetByID", mock.Anything, mock.Anything)
+}
+
+func TestSwitchTenant_GetUserError(t *testing.T) {
+	tenantRepo, userRepo, _, svc := setupTenantServiceTest(t)
+
+	ctx := context.Background()
+	userID := uuid.New()
+	tenantID := uuid.New()
+
+	tenantRepo.On("GetMembership", mock.Anything, tenantID, userID).Return(&domain.TenantMember{UserID: userID, TenantID: tenantID}, nil)
+	userRepo.On("GetByID", mock.Anything, userID).Return(nil, assert.AnError)
+
+	err := svc.SwitchTenant(ctx, userID, tenantID)
+	assert.Error(t, err)
 }
 
 func TestCheckQuota_WithinLimit(t *testing.T) {
@@ -404,6 +432,18 @@ func TestRemoveMember_RepoError(t *testing.T) {
 	tenant := &domain.Tenant{ID: tenantID, OwnerID: ownerID}
 	tenantRepo.On("GetByID", mock.Anything, tenantID).Return(tenant, nil)
 	tenantRepo.On("RemoveMember", mock.Anything, tenantID, userID).Return(assert.AnError)
+
+	err := svc.RemoveMember(ctx, tenantID, userID)
+	assert.Error(t, err)
+}
+
+func TestRemoveMember_GetTenantError(t *testing.T) {
+	tenantRepo, _, _, svc := setupTenantServiceTest(t)
+	ctx := context.Background()
+	tenantID := uuid.New()
+	userID := uuid.New()
+
+	tenantRepo.On("GetByID", mock.Anything, tenantID).Return(nil, assert.AnError)
 
 	err := svc.RemoveMember(ctx, tenantID, userID)
 	assert.Error(t, err)
