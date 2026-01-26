@@ -18,7 +18,7 @@ import (
 
 const (
 	testVpcName = "test-vpc"
-	selectVpc   = "SELECT id, user_id, name, COALESCE\\(cidr_block::text, ''\\), network_id, vxlan_id, status, arn, created_at FROM vpcs"
+	selectVpc   = "SELECT id, user_id, tenant_id, name, COALESCE\\(cidr_block::text, ''\\), network_id, vxlan_id, status, arn, created_at FROM vpcs"
 )
 
 func TestVpcRepositoryCreate(t *testing.T) {
@@ -31,6 +31,7 @@ func TestVpcRepositoryCreate(t *testing.T) {
 		vpc := &domain.VPC{
 			ID:        uuid.New(),
 			UserID:    uuid.New(),
+			TenantID:  uuid.New(),
 			Name:      testVpcName,
 			CIDRBlock: testutil.TestCIDR,
 			NetworkID: "net-1",
@@ -41,7 +42,7 @@ func TestVpcRepositoryCreate(t *testing.T) {
 		}
 
 		mock.ExpectExec("INSERT INTO vpcs").
-			WithArgs(vpc.ID, vpc.UserID, vpc.Name, vpc.CIDRBlock, vpc.NetworkID, vpc.VXLANID, vpc.Status, vpc.ARN, vpc.CreatedAt).
+			WithArgs(vpc.ID, vpc.UserID, vpc.TenantID, vpc.Name, vpc.CIDRBlock, vpc.NetworkID, vpc.VXLANID, vpc.Status, vpc.ARN, vpc.CreatedAt).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), vpc)
@@ -75,13 +76,14 @@ func TestVpcRepositoryGetByID(t *testing.T) {
 		repo := NewVpcRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		now := time.Now()
 
 		mock.ExpectQuery(selectVpc).
-			WithArgs(id, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "cidr_block", "network_id", "vxlan_id", "status", "arn", "created_at"}).
-				AddRow(id, userID, testVpcName, testutil.TestCIDR, "net-1", 100, "available", "arn", now))
+			WithArgs(id, tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "cidr_block", "network_id", "vxlan_id", "status", "arn", "created_at"}).
+				AddRow(id, userID, tenantID, testVpcName, testutil.TestCIDR, "net-1", 100, "available", "arn", now))
 
 		vpc, err := repo.GetByID(ctx, id)
 		assert.NoError(t, err)
@@ -97,10 +99,11 @@ func TestVpcRepositoryGetByID(t *testing.T) {
 		repo := NewVpcRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
-		mock.ExpectQuery("SELECT id, user_id, name, COALESCE\\(cidr_block::text, ''\\), network_id, vxlan_id, status, arn, created_at FROM vpcs").
-			WithArgs(id, userID).
+		mock.ExpectQuery(selectVpc).
+			WithArgs(id, tenantID).
 			WillReturnError(pgx.ErrNoRows)
 
 		vpc, err := repo.GetByID(ctx, id)
@@ -124,10 +127,11 @@ func TestVpcRepositoryGetByID(t *testing.T) {
 		repo := NewVpcRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectQuery(selectVpc).
-			WithArgs(id, userID).
+			WithArgs(id, tenantID).
 			WillReturnError(errors.New(testDBError))
 
 		vpc, err := repo.GetByID(ctx, id)
@@ -145,14 +149,15 @@ func TestVpcRepositoryGetByName(t *testing.T) {
 		repo := NewVpcRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		now := time.Now()
 		name := testVpcName
 
 		mock.ExpectQuery(selectVpc).
-			WithArgs(name, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "cidr_block", "network_id", "vxlan_id", "status", "arn", "created_at"}).
-				AddRow(id, userID, name, testutil.TestCIDR, "net-1", 100, "available", "arn", now))
+			WithArgs(name, tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "cidr_block", "network_id", "vxlan_id", "status", "arn", "created_at"}).
+				AddRow(id, userID, tenantID, name, testutil.TestCIDR, "net-1", 100, "available", "arn", now))
 
 		vpc, err := repo.GetByName(ctx, name)
 		assert.NoError(t, err)
@@ -167,11 +172,12 @@ func TestVpcRepositoryGetByName(t *testing.T) {
 
 		repo := NewVpcRepository(mock)
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		name := testVpcName
 
 		mock.ExpectQuery(selectVpc).
-			WithArgs(name, userID).
+			WithArgs(name, tenantID).
 			WillReturnError(pgx.ErrNoRows)
 
 		vpc, err := repo.GetByName(ctx, name)
@@ -188,13 +194,14 @@ func TestVpcRepositoryList(t *testing.T) {
 
 		repo := NewVpcRepository(mock)
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		now := time.Now()
 
 		mock.ExpectQuery(selectVpc).
-			WithArgs(userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "cidr_block", "network_id", "vxlan_id", "status", "arn", "created_at"}).
-				AddRow(uuid.New(), userID, testVpcName, testutil.TestCIDR, "net-1", 100, "available", "arn", now))
+			WithArgs(tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "cidr_block", "network_id", "vxlan_id", "status", "arn", "created_at"}).
+				AddRow(uuid.New(), userID, tenantID, testVpcName, testutil.TestCIDR, "net-1", 100, "available", "arn", now))
 
 		vpcs, err := repo.List(ctx)
 		assert.NoError(t, err)
@@ -208,10 +215,11 @@ func TestVpcRepositoryList(t *testing.T) {
 
 		repo := NewVpcRepository(mock)
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectQuery(selectVpc).
-			WithArgs(userID).
+			WithArgs(tenantID).
 			WillReturnError(errors.New(testDBError))
 
 		vpcs, err := repo.List(ctx)
@@ -226,14 +234,15 @@ func TestVpcRepositoryList(t *testing.T) {
 
 		repo := NewVpcRepository(mock)
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		now := time.Now()
 
 		// Return a row with incompatible types to force scan error
 		mock.ExpectQuery(selectVpc).
-			WithArgs(userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "cidr_block", "network_id", "vxlan_id", "status", "arn", "created_at"}).
-				AddRow("invalid-uuid", userID, testVpcName, testutil.TestCIDR, "net-1", 100, "available", "arn", now))
+			WithArgs(tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "cidr_block", "network_id", "vxlan_id", "status", "arn", "created_at"}).
+				AddRow("invalid-uuid", userID, tenantID, testVpcName, testutil.TestCIDR, "net-1", 100, "available", "arn", now))
 
 		vpcs, err := repo.List(ctx)
 		assert.Error(t, err)
@@ -250,10 +259,11 @@ func TestVpcRepositoryDelete(t *testing.T) {
 		repo := NewVpcRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectExec("DELETE FROM vpcs").
-			WithArgs(id, userID).
+			WithArgs(id, tenantID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.Delete(ctx, id)
@@ -268,10 +278,11 @@ func TestVpcRepositoryDelete(t *testing.T) {
 		repo := NewVpcRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectExec("DELETE FROM vpcs").
-			WithArgs(id, userID).
+			WithArgs(id, tenantID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 0))
 
 		err = repo.Delete(ctx, id)

@@ -10,7 +10,8 @@ import (
 type contextKey string
 
 const (
-	userIDKey contextKey = "user_id"
+	userIDKey   contextKey = "user_id"
+	tenantIDKey contextKey = "tenant_id"
 )
 
 // WithUserID returns a new context with the given userID.
@@ -25,4 +26,18 @@ func UserIDFromContext(ctx context.Context) uuid.UUID {
 		return uuid.Nil
 	}
 	return userID
+}
+
+// WithTenantID returns a new context with the given tenantID.
+func WithTenantID(ctx context.Context, tenantID uuid.UUID) context.Context {
+	return context.WithValue(ctx, tenantIDKey, tenantID)
+}
+
+// TenantIDFromContext returns the tenantID from the context, or uuid.Nil if not found.
+func TenantIDFromContext(ctx context.Context) uuid.UUID {
+	tenantID, ok := ctx.Value(tenantIDKey).(uuid.UUID)
+	if !ok {
+		return uuid.Nil
+	}
+	return tenantID
 }

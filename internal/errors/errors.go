@@ -16,7 +16,9 @@ const (
 	Unauthorized          Type = "UNAUTHORIZED"
 	Conflict              Type = "CONFLICT"
 	Forbidden             Type = "FORBIDDEN"
+	PermissionDenied      Type = "PERMISSION_DENIED"
 	ResourceLimitExceeded Type = "RESOURCE_LIMIT_EXCEEDED"
+	QuotaExceeded         Type = "QUOTA_EXCEEDED"
 	NotImplemented        Type = "NOT_IMPLEMENTED"
 
 	// Storage Errors

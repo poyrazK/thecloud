@@ -3,6 +3,8 @@ definitions:
     properties:
       created_at:
         type: string
+      default_tenant_id:
+        type: string
       id:
         type: string
       key:
@@ -236,7 +238,7 @@ definitions:
         description: Container/VM image
         type: string
       name:
-        description: Unique per user
+        description: Unique per tenant
         type: string
       ovs_port:
         description: OVS port name
@@ -251,10 +253,12 @@ definitions:
         $ref: '#/definitions/domain.InstanceStatus'
       subnet_id:
         type: string
+      tenant_id:
+        type: string
       updated_at:
         type: string
       user_id:
-        description: Owner for multi-tenancy
+        description: Owner
         type: string
       version:
         description: Optimistic locking
@@ -721,6 +725,8 @@ definitions:
         items:
           $ref: '#/definitions/domain.SecurityRule'
         type: array
+      tenant_id:
+        type: string
       user_id:
         type: string
       vpc_id:
@@ -912,6 +918,8 @@ definitions:
     properties:
       created_at:
         type: string
+      default_tenant_id:
+        type: string
       email:
         type: string
       id:
@@ -944,6 +952,8 @@ definitions:
       status:
         description: e.g. "ACTIVE"
         type: string
+      tenant_id:
+        type: string
       user_id:
         type: string
       vxlan_id:
@@ -971,6 +981,8 @@ definitions:
         type: integer
       status:
         $ref: '#/definitions/domain.VolumeStatus'
+      tenant_id:
+        type: string
       updated_at:
         type: string
       user_id:
@@ -3682,6 +3694,30 @@ paths:
       summary: List object versions
       tags:
       - storage
+  /tenants:
+    post:
+      responses: {}
+      security:
+      - APIKeyAuth: []
+      summary: Create a new tenant
+      tags:
+      - Tenant
+  /tenants/:id/members:
+    post:
+      responses: {}
+      security:
+      - APIKeyAuth: []
+      summary: Invite member to tenant
+      tags:
+      - Tenant
+  /tenants/:id/switch:
+    post:
+      responses: {}
+      security:
+      - APIKeyAuth: []
+      summary: Switch active tenant
+      tags:
+      - Tenant
   /volumes:
     get:
       description: Gets a list of all existing block storage volumes

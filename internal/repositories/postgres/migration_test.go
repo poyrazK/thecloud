@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,6 +18,22 @@ func TestMigrationRollback(t *testing.T) {
 	db := setupDB(t)
 	defer db.Close()
 	ctx := context.Background()
+	conn, err := db.Acquire(ctx)
+	require.NoError(t, err)
+	defer conn.Release()
+
+	schema := "migration_test_" + strings.ReplaceAll(uuid.NewString(), "-", "_")
+	_, err = conn.Exec(ctx, "CREATE SCHEMA "+schema)
+	require.NoError(t, err)
+	defer func() {
+		_, _ = conn.Exec(ctx, "DROP SCHEMA IF EXISTS "+schema+" CASCADE")
+	}()
+
+	_, err = conn.Exec(ctx, "SET search_path TO "+schema+", public")
+	require.NoError(t, err)
+
+	_, err = conn.Exec(ctx, "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"")
+	require.NoError(t, err)
 
 	// Get all migration files
 	files, err := os.ReadDir("migrations")
@@ -42,7 +59,7 @@ func TestMigrationRollback(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		_, err = db.Exec(ctx, string(content))
+		_, err = conn.Exec(ctx, string(content))
 		return err
 	}
 

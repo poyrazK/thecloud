@@ -32,6 +32,7 @@ func TestInstanceRepositoryCreate(t *testing.T) {
 		inst := &domain.Instance{
 			ID:          uuid.New(),
 			UserID:      uuid.New(),
+			TenantID:    uuid.New(),
 			Name:        testInstanceName,
 			Image:       testInstanceImg,
 			ContainerID: "cid-1",
@@ -47,7 +48,7 @@ func TestInstanceRepositoryCreate(t *testing.T) {
 		}
 
 		mock.ExpectExec("(?s)INSERT INTO instances.*").
-			WithArgs(inst.ID, inst.UserID, inst.Name, inst.Image, inst.ContainerID, string(inst.Status), inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.Version, inst.CreatedAt, inst.UpdatedAt).
+			WithArgs(inst.ID, inst.UserID, inst.TenantID, inst.Name, inst.Image, inst.ContainerID, string(inst.Status), inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.Version, inst.CreatedAt, inst.UpdatedAt).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), inst)
@@ -79,18 +80,20 @@ func TestInstanceRepositoryGetByID(t *testing.T) {
 		repo := NewInstanceRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		now := time.Now()
 
 		mock.ExpectQuery(selectQuery).
-			WithArgs(id, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "version", "created_at", "updated_at"}).
-				AddRow(id, userID, testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", 1, now, now))
+			WithArgs(id, tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "version", "created_at", "updated_at"}).
+				AddRow(id, userID, tenantID, testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", 1, now, now))
 
 		inst, err := repo.GetByID(ctx, id)
 		assert.NoError(t, err)
-		assert.NotNil(t, inst)
-		assert.Equal(t, id, inst.ID)
+		if assert.NotNil(t, inst) {
+			assert.Equal(t, id, inst.ID)
+		}
 	})
 
 	t.Run("not found", func(t *testing.T) {
@@ -101,10 +104,11 @@ func TestInstanceRepositoryGetByID(t *testing.T) {
 		repo := NewInstanceRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectQuery(selectQuery).
-			WithArgs(id, userID).
+			WithArgs(id, tenantID).
 			WillReturnError(pgx.ErrNoRows)
 
 		inst, err := repo.GetByID(ctx, id)
@@ -126,19 +130,21 @@ func TestInstanceRepositoryGetByName(t *testing.T) {
 		repo := NewInstanceRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		name := testInstanceName
 		now := time.Now()
 
 		mock.ExpectQuery(selectQuery).
-			WithArgs(name, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "version", "created_at", "updated_at"}).
-				AddRow(id, userID, name, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", 1, now, now))
+			WithArgs(name, tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "version", "created_at", "updated_at"}).
+				AddRow(id, userID, tenantID, name, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", 1, now, now))
 
 		inst, err := repo.GetByName(ctx, name)
 		assert.NoError(t, err)
-		assert.NotNil(t, inst)
-		assert.Equal(t, id, inst.ID)
+		if assert.NotNil(t, inst) {
+			assert.Equal(t, id, inst.ID)
+		}
 	})
 
 	t.Run("not found", func(t *testing.T) {
@@ -148,11 +154,12 @@ func TestInstanceRepositoryGetByName(t *testing.T) {
 
 		repo := NewInstanceRepository(mock)
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		name := testInstanceName
 
 		mock.ExpectQuery(selectQuery).
-			WithArgs(name, userID).
+			WithArgs(name, tenantID).
 			WillReturnError(pgx.ErrNoRows)
 
 		inst, err := repo.GetByName(ctx, name)
@@ -173,13 +180,14 @@ func TestInstanceRepositoryList(t *testing.T) {
 
 		repo := NewInstanceRepository(mock)
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		now := time.Now()
 
 		mock.ExpectQuery(selectQuery).
-			WithArgs(userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "version", "created_at", "updated_at"}).
-				AddRow(uuid.New(), userID, testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", 1, now, now))
+			WithArgs(tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "version", "created_at", "updated_at"}).
+				AddRow(uuid.New(), userID, tenantID, testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", 1, now, now))
 
 		list, err := repo.List(ctx)
 		assert.NoError(t, err)
@@ -193,10 +201,11 @@ func TestInstanceRepositoryList(t *testing.T) {
 
 		repo := NewInstanceRepository(mock)
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectQuery(selectQuery).
-			WithArgs(userID).
+			WithArgs(tenantID).
 			WillReturnError(errors.New(testDBError))
 
 		list, err := repo.List(ctx)
@@ -213,14 +222,15 @@ func TestInstanceRepositoryListBySubnet(t *testing.T) {
 
 		repo := NewInstanceRepository(mock)
 		userID := uuid.New()
+		tenantID := uuid.New()
 		subnetID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		now := time.Now()
 
 		mock.ExpectQuery(selectQuery).
-			WithArgs(subnetID, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "version", "created_at", "updated_at"}).
-				AddRow(uuid.New(), userID, testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", 1, now, now))
+			WithArgs(subnetID, tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "version", "created_at", "updated_at"}).
+				AddRow(uuid.New(), userID, tenantID, testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", 1, now, now))
 
 		list, err := repo.ListBySubnet(ctx, subnetID)
 		assert.NoError(t, err)
@@ -238,6 +248,7 @@ func TestInstanceRepositoryUpdate(t *testing.T) {
 		inst := &domain.Instance{
 			ID:          uuid.New(),
 			UserID:      uuid.New(),
+			TenantID:    uuid.New(),
 			Name:        "inst-1-updated",
 			Status:      domain.StatusStopped,
 			ContainerID: "cid-1",
@@ -247,7 +258,7 @@ func TestInstanceRepositoryUpdate(t *testing.T) {
 		}
 
 		mock.ExpectExec("(?s)UPDATE instances.*").
-			WithArgs(inst.Name, string(inst.Status), pgxmock.AnyArg(), inst.ContainerID, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.ID, inst.Version, inst.UserID).
+			WithArgs(inst.Name, string(inst.Status), pgxmock.AnyArg(), inst.ContainerID, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.ID, inst.Version, inst.TenantID).
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		err = repo.Update(context.Background(), inst)
@@ -262,14 +273,15 @@ func TestInstanceRepositoryUpdate(t *testing.T) {
 
 		repo := NewInstanceRepository(mock)
 		inst := &domain.Instance{
-			ID:      uuid.New(),
-			UserID:  uuid.New(),
-			Status:  domain.StatusStopped,
-			Version: 1,
+			ID:       uuid.New(),
+			UserID:   uuid.New(),
+			TenantID: uuid.New(),
+			Status:   domain.StatusStopped,
+			Version:  1,
 		}
 
 		mock.ExpectExec("(?s)UPDATE instances.*").
-			WithArgs(inst.Name, string(inst.Status), pgxmock.AnyArg(), inst.ContainerID, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.ID, inst.Version, inst.UserID).
+			WithArgs(inst.Name, string(inst.Status), pgxmock.AnyArg(), inst.ContainerID, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.ID, inst.Version, inst.TenantID).
 			WillReturnResult(pgxmock.NewResult("UPDATE", 0))
 
 		err = repo.Update(context.Background(), inst)
@@ -287,10 +299,11 @@ func TestInstanceRepositoryDelete(t *testing.T) {
 		repo := NewInstanceRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectExec("DELETE FROM instances").
-			WithArgs(id, userID).
+			WithArgs(id, tenantID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.Delete(ctx, id)
@@ -305,10 +318,11 @@ func TestInstanceRepositoryDelete(t *testing.T) {
 		repo := NewInstanceRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectExec("DELETE FROM instances").
-			WithArgs(id, userID).
+			WithArgs(id, tenantID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 0))
 
 		err = repo.Delete(ctx, id)

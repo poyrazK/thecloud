@@ -18,10 +18,10 @@ import (
 
 const (
 	testSgName         = "test-sg"
-	selectSg           = "SELECT id, user_id, vpc_id, name, description, arn, created_at FROM security_groups"
+	selectSg           = "SELECT id, user_id, tenant_id, vpc_id, name, description, arn, created_at FROM security_groups"
 	selectRule         = "SELECT id, group_id, direction, protocol, port_min, port_max, cidr, priority, created_at FROM security_rules"
-	selectInstanceUser = "SELECT user_id FROM instances WHERE id = \\$1"
-	selectSgUser       = "SELECT user_id FROM security_groups WHERE id = \\$1"
+	selectInstanceUser = "SELECT tenant_id FROM instances WHERE id = \\$1"
+	selectSgUser       = "SELECT tenant_id FROM security_groups WHERE id = \\$1"
 )
 
 func TestSecurityGroupRepositoryCreate(t *testing.T) {
@@ -34,6 +34,7 @@ func TestSecurityGroupRepositoryCreate(t *testing.T) {
 		sg := &domain.SecurityGroup{
 			ID:          uuid.New(),
 			UserID:      uuid.New(),
+			TenantID:    uuid.New(),
 			VPCID:       uuid.New(),
 			Name:        testSgName,
 			Description: "desc",
@@ -42,7 +43,7 @@ func TestSecurityGroupRepositoryCreate(t *testing.T) {
 		}
 
 		mock.ExpectExec("INSERT INTO security_groups").
-			WithArgs(sg.ID, sg.UserID, sg.VPCID, sg.Name, sg.Description, sg.ARN, sg.CreatedAt).
+			WithArgs(sg.ID, sg.UserID, sg.TenantID, sg.VPCID, sg.Name, sg.Description, sg.ARN, sg.CreatedAt).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), sg)
@@ -76,13 +77,14 @@ func TestSecurityGroupRepositoryGetByID(t *testing.T) {
 		repo := NewSecurityGroupRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		now := time.Now()
 
 		mock.ExpectQuery(selectSg).
-			WithArgs(id, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "description", "arn", "created_at"}).
-				AddRow(id, userID, uuid.New(), testSgName, "desc", "arn", now))
+			WithArgs(id, tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "vpc_id", "name", "description", "arn", "created_at"}).
+				AddRow(id, userID, tenantID, uuid.New(), testSgName, "desc", "arn", now))
 
 		mock.ExpectQuery(selectRule).
 			WithArgs(id).
@@ -104,10 +106,11 @@ func TestSecurityGroupRepositoryGetByID(t *testing.T) {
 		repo := NewSecurityGroupRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectQuery(selectSg).
-			WithArgs(id, userID).
+			WithArgs(id, tenantID).
 			WillReturnError(pgx.ErrNoRows)
 
 		sg, err := repo.GetByID(ctx, id)
@@ -129,15 +132,16 @@ func TestSecurityGroupRepositoryGetByName(t *testing.T) {
 		repo := NewSecurityGroupRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
+		tenantID := uuid.New()
 		vpcID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		now := time.Now()
 		name := testSgName
 
 		mock.ExpectQuery(selectSg).
-			WithArgs(vpcID, name, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "description", "arn", "created_at"}).
-				AddRow(id, userID, vpcID, name, "desc", "arn", now))
+			WithArgs(vpcID, name, tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "vpc_id", "name", "description", "arn", "created_at"}).
+				AddRow(id, userID, tenantID, vpcID, name, "desc", "arn", now))
 
 		mock.ExpectQuery(selectRule).
 			WithArgs(id).
@@ -157,12 +161,13 @@ func TestSecurityGroupRepositoryGetByName(t *testing.T) {
 
 		repo := NewSecurityGroupRepository(mock)
 		userID := uuid.New()
+		tenantID := uuid.New()
 		vpcID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		name := testSgName
 
 		mock.ExpectQuery(selectSg).
-			WithArgs(vpcID, name, userID).
+			WithArgs(vpcID, name, tenantID).
 			WillReturnError(pgx.ErrNoRows)
 
 		sg, err := repo.GetByName(ctx, vpcID, name)
@@ -184,13 +189,14 @@ func TestSecurityGroupRepositoryListByVPC(t *testing.T) {
 		repo := NewSecurityGroupRepository(mock)
 		vpcID := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		now := time.Now()
 
 		mock.ExpectQuery(selectSg).
-			WithArgs(vpcID, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "description", "arn", "created_at"}).
-				AddRow(uuid.New(), userID, vpcID, testSgName, "desc", "arn", now))
+			WithArgs(vpcID, tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "vpc_id", "name", "description", "arn", "created_at"}).
+				AddRow(uuid.New(), userID, tenantID, vpcID, testSgName, "desc", "arn", now))
 
 		groups, err := repo.ListByVPC(ctx, vpcID)
 		assert.NoError(t, err)
@@ -205,10 +211,11 @@ func TestSecurityGroupRepositoryListByVPC(t *testing.T) {
 		repo := NewSecurityGroupRepository(mock)
 		vpcID := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectQuery(selectSg).
-			WithArgs(vpcID, userID).
+			WithArgs(vpcID, tenantID).
 			WillReturnError(errors.New(testDBError))
 
 		groups, err := repo.ListByVPC(ctx, vpcID)
@@ -271,10 +278,11 @@ func TestSecurityGroupRepositoryDeleteRule(t *testing.T) {
 		repo := NewSecurityGroupRepository(mock)
 		ruleID := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectExec("DELETE FROM security_rules").
-			WithArgs(ruleID, userID).
+			WithArgs(ruleID, tenantID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.DeleteRule(ctx, ruleID)
@@ -288,12 +296,14 @@ func TestSecurityGroupRepositoryDeleteRule(t *testing.T) {
 
 		repo := NewSecurityGroupRepository(mock)
 		ruleID := uuid.New()
+		tenantID := uuid.New()
 
 		mock.ExpectExec("DELETE FROM security_rules").
-			WithArgs(ruleID).
+			WithArgs(ruleID, tenantID).
 			WillReturnError(errors.New(testDBError))
 
-		err = repo.DeleteRule(context.Background(), ruleID)
+		ctx := appcontext.WithTenantID(context.Background(), tenantID)
+		err = repo.DeleteRule(ctx, ruleID)
 		assert.Error(t, err)
 	})
 }
@@ -307,14 +317,15 @@ func TestSecurityGroupRepositoryGetRuleByID(t *testing.T) {
 		repo := NewSecurityGroupRepository(mock)
 		ruleID := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		now := time.Now()
 
 		rows := pgxmock.NewRows([]string{"id", "group_id", "direction", "protocol", "port_min", "port_max", "cidr", "priority", "created_at"}).
 			AddRow(ruleID, uuid.New(), "ingress", "tcp", 80, 80, "0.0.0.0/0", 100, now)
 
 		mock.ExpectQuery("SELECT .* FROM security_rules").
-			WithArgs(ruleID, userID).
+			WithArgs(ruleID, tenantID).
 			WillReturnRows(rows)
 
 		rule, err := repo.GetRuleByID(ctx, ruleID)
@@ -331,10 +342,11 @@ func TestSecurityGroupRepositoryGetRuleByID(t *testing.T) {
 		repo := NewSecurityGroupRepository(mock)
 		ruleID := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectQuery("SELECT .* FROM security_rules").
-			WithArgs(ruleID, userID).
+			WithArgs(ruleID, tenantID).
 			WillReturnError(pgx.ErrNoRows)
 
 		rule, err := repo.GetRuleByID(ctx, ruleID)
@@ -354,10 +366,11 @@ func TestSecurityGroupRepositoryDelete(t *testing.T) {
 		repo := NewSecurityGroupRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectExec("DELETE FROM security_groups").
-			WithArgs(id, userID).
+			WithArgs(id, tenantID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.Delete(ctx, id)
@@ -372,10 +385,11 @@ func TestSecurityGroupRepositoryDelete(t *testing.T) {
 		repo := NewSecurityGroupRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectExec("DELETE FROM security_groups").
-			WithArgs(id, userID).
+			WithArgs(id, tenantID).
 			WillReturnError(errors.New(testDBError))
 
 		err = repo.Delete(ctx, id)
@@ -393,15 +407,16 @@ func TestSecurityGroupRepositoryAddInstanceToGroup(t *testing.T) {
 		instanceID := uuid.New()
 		groupID := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectBegin()
 		mock.ExpectQuery(selectInstanceUser).
 			WithArgs(instanceID).
-			WillReturnRows(pgxmock.NewRows([]string{"user_id"}).AddRow(userID))
+			WillReturnRows(pgxmock.NewRows([]string{"tenant_id"}).AddRow(tenantID))
 		mock.ExpectQuery(selectSgUser).
 			WithArgs(groupID).
-			WillReturnRows(pgxmock.NewRows([]string{"user_id"}).AddRow(userID))
+			WillReturnRows(pgxmock.NewRows([]string{"tenant_id"}).AddRow(tenantID))
 		mock.ExpectExec("INSERT INTO instance_security_groups").
 			WithArgs(instanceID, groupID).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
@@ -420,7 +435,8 @@ func TestSecurityGroupRepositoryAddInstanceToGroup(t *testing.T) {
 		instanceID := uuid.New()
 		groupID := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectBegin()
 		mock.ExpectQuery(selectInstanceUser).
@@ -445,12 +461,13 @@ func TestSecurityGroupRepositoryAddInstanceToGroup(t *testing.T) {
 		instanceID := uuid.New()
 		groupID := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectBegin()
 		mock.ExpectQuery(selectInstanceUser).
 			WithArgs(instanceID).
-			WillReturnRows(pgxmock.NewRows([]string{"user_id"}).AddRow(userID))
+			WillReturnRows(pgxmock.NewRows([]string{"tenant_id"}).AddRow(tenantID))
 		mock.ExpectQuery(selectSgUser).
 			WithArgs(groupID).
 			WillReturnError(pgx.ErrNoRows)
@@ -475,15 +492,16 @@ func TestSecurityGroupRepositoryRemoveInstanceFromGroup(t *testing.T) {
 		instanceID := uuid.New()
 		groupID := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectBegin()
 		mock.ExpectQuery(selectInstanceUser).
 			WithArgs(instanceID).
-			WillReturnRows(pgxmock.NewRows([]string{"user_id"}).AddRow(userID))
+			WillReturnRows(pgxmock.NewRows([]string{"tenant_id"}).AddRow(tenantID))
 		mock.ExpectQuery(selectSgUser).
 			WithArgs(groupID).
-			WillReturnRows(pgxmock.NewRows([]string{"user_id"}).AddRow(userID))
+			WillReturnRows(pgxmock.NewRows([]string{"tenant_id"}).AddRow(tenantID))
 		mock.ExpectExec("DELETE FROM instance_security_groups").
 			WithArgs(instanceID, groupID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
@@ -502,7 +520,8 @@ func TestSecurityGroupRepositoryRemoveInstanceFromGroup(t *testing.T) {
 		instanceID := uuid.New()
 		groupID := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectBegin()
 		mock.ExpectQuery(selectInstanceUser).
@@ -529,10 +548,10 @@ func TestSecurityGroupRepositoryListInstanceGroups(t *testing.T) {
 		instanceID := uuid.New()
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT sg.id, sg.user_id, sg.vpc_id, sg.name, sg.description, sg.arn, sg.created_at").
+		mock.ExpectQuery("SELECT sg.id, sg.user_id, sg.tenant_id, sg.vpc_id, sg.name, sg.description, sg.arn, sg.created_at").
 			WithArgs(instanceID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "description", "arn", "created_at"}).
-				AddRow(uuid.New(), uuid.New(), uuid.New(), testSgName, "desc", "arn", now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "vpc_id", "name", "description", "arn", "created_at"}).
+				AddRow(uuid.New(), uuid.New(), uuid.New(), uuid.New(), testSgName, "desc", "arn", now))
 
 		groups, err := repo.ListInstanceGroups(context.Background(), instanceID)
 		assert.NoError(t, err)
@@ -547,7 +566,7 @@ func TestSecurityGroupRepositoryListInstanceGroups(t *testing.T) {
 		repo := NewSecurityGroupRepository(mock)
 		instanceID := uuid.New()
 
-		mock.ExpectQuery("SELECT sg.id, sg.user_id, sg.vpc_id, sg.name, sg.description, sg.arn, sg.created_at").
+		mock.ExpectQuery("SELECT sg.id, sg.user_id, sg.tenant_id, sg.vpc_id, sg.name, sg.description, sg.arn, sg.created_at").
 			WithArgs(instanceID).
 			WillReturnError(errors.New(testDBError))
 

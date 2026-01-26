@@ -1929,3 +1929,109 @@ func (m *MockEncryptionService) RotateKey(ctx context.Context, bucket string) (s
 	args := m.Called(ctx, bucket)
 	return args.String(0), args.Error(1)
 }
+
+// MockTenantRepo
+type MockTenantRepo struct {
+	mock.Mock
+}
+
+func (m *MockTenantRepo) Create(ctx context.Context, tenant *domain.Tenant) error {
+	return m.Called(ctx, tenant).Error(0)
+}
+func (m *MockTenantRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Tenant), args.Error(1)
+}
+func (m *MockTenantRepo) GetBySlug(ctx context.Context, slug string) (*domain.Tenant, error) {
+	args := m.Called(ctx, slug)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Tenant), args.Error(1)
+}
+func (m *MockTenantRepo) Update(ctx context.Context, tenant *domain.Tenant) error {
+	return m.Called(ctx, tenant).Error(0)
+}
+func (m *MockTenantRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockTenantRepo) AddMember(ctx context.Context, tenantID, userID uuid.UUID, role string) error {
+	return m.Called(ctx, tenantID, userID, role).Error(0)
+}
+func (m *MockTenantRepo) RemoveMember(ctx context.Context, tenantID, userID uuid.UUID) error {
+	return m.Called(ctx, tenantID, userID).Error(0)
+}
+func (m *MockTenantRepo) ListMembers(ctx context.Context, tenantID uuid.UUID) ([]domain.TenantMember, error) {
+	args := m.Called(ctx, tenantID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.TenantMember), args.Error(1)
+}
+func (m *MockTenantRepo) GetMembership(ctx context.Context, tenantID, userID uuid.UUID) (*domain.TenantMember, error) {
+	args := m.Called(ctx, tenantID, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.TenantMember), args.Error(1)
+}
+func (m *MockTenantRepo) ListUserTenants(ctx context.Context, userID uuid.UUID) ([]domain.Tenant, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.Tenant), args.Error(1)
+}
+func (m *MockTenantRepo) GetQuota(ctx context.Context, tenantID uuid.UUID) (*domain.TenantQuota, error) {
+	args := m.Called(ctx, tenantID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.TenantQuota), args.Error(1)
+}
+func (m *MockTenantRepo) UpdateQuota(ctx context.Context, quota *domain.TenantQuota) error {
+	return m.Called(ctx, quota).Error(0)
+}
+
+// MockTenantService
+type MockTenantService struct {
+	mock.Mock
+}
+
+func (m *MockTenantService) CreateTenant(ctx context.Context, name, slug string, ownerID uuid.UUID) (*domain.Tenant, error) {
+	args := m.Called(ctx, name, slug, ownerID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Tenant), args.Error(1)
+}
+func (m *MockTenantService) GetTenant(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Tenant), args.Error(1)
+}
+func (m *MockTenantService) InviteMember(ctx context.Context, tenantID uuid.UUID, email, role string) error {
+	return m.Called(ctx, tenantID, email, role).Error(0)
+}
+func (m *MockTenantService) RemoveMember(ctx context.Context, tenantID, userID uuid.UUID) error {
+	return m.Called(ctx, tenantID, userID).Error(0)
+}
+func (m *MockTenantService) SwitchTenant(ctx context.Context, userID, tenantID uuid.UUID) error {
+	return m.Called(ctx, userID, tenantID).Error(0)
+}
+func (m *MockTenantService) CheckQuota(ctx context.Context, tenantID uuid.UUID, resource string, requested int) error {
+	return m.Called(ctx, tenantID, resource, requested).Error(0)
+}
+func (m *MockTenantService) GetMembership(ctx context.Context, tenantID, userID uuid.UUID) (*domain.TenantMember, error) {
+	args := m.Called(ctx, tenantID, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.TenantMember), args.Error(1)
+}
+

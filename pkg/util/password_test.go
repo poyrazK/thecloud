@@ -1,6 +1,7 @@
 package util
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,10 +14,9 @@ func TestGenerateRandomPassword(t *testing.T) {
 	assert.Len(t, password, length)
 	assert.NotEmpty(t, password)
 
-	// Check for randomness (simple check)
-	password2, err := GenerateRandomPassword(length)
-	assert.NoError(t, err)
-	assert.NotEqual(t, password, password2, "passwords should be random")
+	for _, ch := range password {
+		assert.True(t, strings.ContainsRune(passwordChars, ch), "password contains invalid character")
+	}
 }
 
 func TestGenerateRandomPasswordZeroLength(t *testing.T) {

@@ -39,9 +39,9 @@ func TestEdgeCases(t *testing.T) {
 	})
 
 	t.Run("Boundary Values", func(t *testing.T) {
-		// 1. Instance name exactly 255 chars
+		// 1. Instance name exactly 64 chars (max allowed)
 		longName := ""
-		for i := 0; i < 255; i++ {
+		for i := 0; i < 64; i++ {
 			longName += "a"
 		}
 		payload := map[string]string{
@@ -50,10 +50,9 @@ func TestEdgeCases(t *testing.T) {
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
 		defer resp.Body.Close()
-		// Depending on implementation, 255 might be OK or redirected to async launch (202)
 		assert.Contains(t, []int{http.StatusCreated, http.StatusAccepted}, resp.StatusCode)
 
-		// 2. Instance name 256 chars (overflow)
+		// 2. Instance name 65 chars (overflow)
 		tooLongName := longName + "a"
 		payload["name"] = tooLongName
 		resp = postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
@@ -62,14 +61,14 @@ func TestEdgeCases(t *testing.T) {
 	})
 
 	t.Run("Special Characters", func(t *testing.T) {
-		// 1. Unicode in instance name
+		// 1. Unicode in instance name (should fail validation)
 		payload := map[string]string{
 			"name":  "test-🚀-instance",
 			"image": "alpine",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
 		defer resp.Body.Close()
-		assert.Contains(t, []int{http.StatusCreated, http.StatusAccepted}, resp.StatusCode)
+		helpers.AssertErrorCode(t, resp, http.StatusBadRequest)
 
 		// 2. SQL Injection attempt in bucket name
 		bucketPayload := map[string]string{

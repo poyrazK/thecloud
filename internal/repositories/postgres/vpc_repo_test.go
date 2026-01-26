@@ -17,16 +17,18 @@ func TestVpcRepository_Integration(t *testing.T) {
 	db := setupDB(t)
 	defer db.Close()
 	repo := NewVpcRepository(db)
-	ctx := setupTestUser(t, db)
-	userID := appcontext.UserIDFromContext(ctx)
-
 	// Cleanup
 	cleanDB(t, db)
+
+	ctx := setupTestUser(t, db)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	vpcID := uuid.New()
 	vpc := &domain.VPC{
 		ID:        vpcID,
 		UserID:    userID,
+		TenantID:  tenantID,
 		Name:      "test-vpc",
 		NetworkID: "net-123",
 		CreatedAt: time.Now(),

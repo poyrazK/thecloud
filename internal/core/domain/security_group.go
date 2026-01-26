@@ -14,6 +14,7 @@ import (
 type SecurityGroup struct {
 	ID          uuid.UUID      `json:"id"`
 	UserID      uuid.UUID      `json:"user_id"`
+	TenantID    uuid.UUID      `json:"tenant_id"`
 	VPCID       uuid.UUID      `json:"vpc_id"`
 	Name        string         `json:"name"`
 	Description string         `json:"description"`

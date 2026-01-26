@@ -157,12 +157,37 @@ func BenchmarkInstanceServiceCreateParallel(b *testing.B) {
 	})
 }
 
+type NoopTenantService struct{}
+
+func (s *NoopTenantService) CreateTenant(ctx context.Context, name, slug string, ownerID uuid.UUID) (*domain.Tenant, error) {
+	return &domain.Tenant{ID: uuid.New()}, nil
+}
+func (s *NoopTenantService) GetTenant(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) {
+	return &domain.Tenant{ID: id}, nil
+}
+func (s *NoopTenantService) InviteMember(ctx context.Context, tenantID uuid.UUID, email, role string) error {
+	return nil
+}
+func (s *NoopTenantService) RemoveMember(ctx context.Context, tenantID, userID uuid.UUID) error {
+	return nil
+}
+func (s *NoopTenantService) SwitchTenant(ctx context.Context, userID, tenantID uuid.UUID) error {
+	return nil
+}
+func (s *NoopTenantService) CheckQuota(ctx context.Context, tenantID uuid.UUID, resource string, requested int) error {
+	return nil
+}
+func (s *NoopTenantService) GetMembership(ctx context.Context, tenantID, userID uuid.UUID) (*domain.TenantMember, error) {
+	return &domain.TenantMember{}, nil
+}
+
 func BenchmarkAuthServiceLoginParallel(b *testing.B) {
 	userRepo := &BenchUserRepository{}
 	idSvc := &noop.NoopIdentityService{}
 	auditSvc := &noop.NoopAuditService{}
+	tenantSvc := &NoopTenantService{}
 
-	svc := services.NewAuthService(userRepo, idSvc, auditSvc)
+	svc := services.NewAuthService(userRepo, idSvc, auditSvc, tenantSvc)
 
 	ctx := context.Background()
 	email := "admin@thecloud.local"
@@ -279,8 +304,9 @@ func BenchmarkAuthServiceRegister(b *testing.B) {
 	userRepo := &noop.NoopUserRepository{}
 	identitySvc := &noop.NoopIdentityService{}
 	auditSvc := &noop.NoopAuditService{}
+	tenantSvc := &NoopTenantService{}
 
-	svc := services.NewAuthService(userRepo, identitySvc, auditSvc)
+	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc)
 
 	ctx := context.Background()
 
@@ -321,8 +347,9 @@ func BenchmarkAuthServiceLogin(b *testing.B) {
 
 	identitySvc := &noop.NoopIdentityService{}
 	auditSvc := &noop.NoopAuditService{}
+	tenantSvc := &NoopTenantService{}
 
-	svc := services.NewAuthService(userRepo, identitySvc, auditSvc)
+	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc)
 
 	ctx := context.Background()
 

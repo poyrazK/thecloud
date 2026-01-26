@@ -59,8 +59,9 @@ const (
 // Port format: "hostPort:containerPort" (e.g., "8080:80,443:443")
 type Instance struct {
 	ID          uuid.UUID      `json:"id"`
-	UserID      uuid.UUID      `json:"user_id"`                // Owner for multi-tenancy
-	Name        string         `json:"name"`                   // Unique per user
+	UserID      uuid.UUID      `json:"user_id"` // Owner
+	TenantID    uuid.UUID      `json:"tenant_id"`
+	Name        string         `json:"name"`                   // Unique per tenant
 	Image       string         `json:"image"`                  // Container/VM image
 	ContainerID string         `json:"container_id,omitempty"` // Backend identifier
 	Status      InstanceStatus `json:"status"`

@@ -23,6 +23,7 @@ func TestDataIntegrity(t *testing.T) {
 	token := registerAndLogin(t, client, "integrity-tester@thecloud.local", "Integrity Tester")
 
 	t.Run("Encoding Edge Cases", func(t *testing.T) {
+
 		// Use emojis and RTL characters in resource names
 		fancyName := "test-🚀-עברית-عربي-123"
 		payload := map[string]string{
@@ -32,19 +33,8 @@ func TestDataIntegrity(t *testing.T) {
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
 		defer resp.Body.Close()
 
-		require.Contains(t, []int{http.StatusCreated, http.StatusAccepted}, resp.StatusCode)
-
-		var res struct {
-			Data struct {
-				ID   string `json:"id"`
-				Name string `json:"name"`
-			} `json:"data"`
-		}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
-		assert.Equal(t, fancyName, res.Data.Name, "Name encoding should be preserved")
-
-		// Cleanup
-		deleteRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteInstances, res.Data.ID), token).Body.Close()
+		// Should receive 400 Bad Request due to strict name validation
+		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
 
 	t.Run("Large Payload Handling", func(t *testing.T) {

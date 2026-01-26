@@ -20,6 +20,7 @@ func TestInstanceRepository_Integration(t *testing.T) {
 	repo := NewInstanceRepository(db)
 	ctx := setupTestUser(t, db)
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	// Cleanup
 	// We need to clean up strictly for this user or all?
@@ -34,6 +35,7 @@ func TestInstanceRepository_Integration(t *testing.T) {
 		inst := &domain.Instance{
 			ID:        id,
 			UserID:    userID,
+			TenantID:  tenantID,
 			Name:      "integration-test-inst",
 			Image:     "alpine",
 			Status:    domain.StatusStarting,

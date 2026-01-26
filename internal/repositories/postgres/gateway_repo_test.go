@@ -17,6 +17,8 @@ func TestPostgresGatewayRepository(t *testing.T) {
 	db := setupDB(t)
 	defer db.Close()
 	repo := NewPostgresGatewayRepository(db)
+
+	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
 	userID := appcontext.UserIDFromContext(ctx)
 

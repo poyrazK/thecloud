@@ -19,7 +19,7 @@ func TestAuthE2E(t *testing.T) {
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	email := fmt.Sprintf("auth-test-%d@thecloud.local", time.Now().UnixNano()%1000)
+	email := fmt.Sprintf("auth-test-%d@thecloud.local", time.Now().UnixNano())
 	password := testutil.TestPasswordStrong
 
 	// 1. Register

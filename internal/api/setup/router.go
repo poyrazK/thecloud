@@ -31,6 +31,7 @@ const (
 type Handlers struct {
 	Audit         *httphandlers.AuditHandler
 	Identity      *httphandlers.IdentityHandler
+	Tenant        *httphandlers.TenantHandler
 	Auth          *httphandlers.AuthHandler
 	Vpc           *httphandlers.VpcHandler
 	Subnet        *httphandlers.SubnetHandler
@@ -70,6 +71,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 	return &Handlers{
 		Audit:         httphandlers.NewAuditHandler(svcs.Audit),
 		Identity:      httphandlers.NewIdentityHandler(svcs.Identity),
+		Tenant:        httphandlers.NewTenantHandler(svcs.Tenant),
 		Auth:          httphandlers.NewAuthHandler(svcs.Auth, svcs.PasswordReset),
 		Vpc:           httphandlers.NewVpcHandler(svcs.Vpc),
 		Subnet:        httphandlers.NewSubnetHandler(svcs.Subnet),
@@ -165,6 +167,7 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 	registerNetworkRoutes(r, handlers, services)
 	registerDataRoutes(r, handlers, services)
 	registerDevOpsRoutes(r, handlers, services)
+	registerTenantRoutes(r, handlers, services)
 	registerAdminRoutes(r, handlers, services)
 
 	// The actual Gateway Proxy (Public)
@@ -187,7 +190,7 @@ func registerAuthRoutes(r *gin.Engine, handlers *Handlers, svcs *Services, cfg *
 	r.POST("/auth/reset-password", authMiddleware, handlers.Auth.ResetPassword)
 
 	keyGroup := r.Group("/auth/keys")
-	keyGroup.Use(httputil.Auth(svcs.Identity))
+	keyGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		keyGroup.POST("", handlers.Identity.CreateKey)
 		keyGroup.GET("", handlers.Identity.ListKeys)
@@ -199,7 +202,7 @@ func registerAuthRoutes(r *gin.Engine, handlers *Handlers, svcs *Services, cfg *
 
 func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	instanceGroup := r.Group("/instances")
-	instanceGroup.Use(httputil.Auth(svcs.Identity))
+	instanceGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant), httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant))
 	{
 		instanceGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionInstanceLaunch), handlers.Instance.Launch)
 		instanceGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.List)
@@ -212,7 +215,7 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	snapshotGroup := r.Group("/snapshots")
-	snapshotGroup.Use(httputil.Auth(svcs.Identity))
+	snapshotGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		snapshotGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionSnapshotCreate), handlers.Snapshot.Create)
 		snapshotGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionSnapshotRead), handlers.Snapshot.List)
@@ -222,7 +225,7 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	imageGroup := r.Group("/images")
-	imageGroup.Use(httputil.Auth(svcs.Identity))
+	imageGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		imageGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionImageCreate), handlers.Image.RegisterImage)
 		imageGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionImageRead), handlers.Image.ListImages)
@@ -232,7 +235,7 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	clusterGroup := r.Group("/clusters")
-	clusterGroup.Use(httputil.Auth(svcs.Identity))
+	clusterGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		clusterGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionClusterCreate), handlers.Cluster.CreateCluster)
 		clusterGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionClusterRead), handlers.Cluster.ListClusters)
@@ -251,7 +254,7 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 
 func registerNetworkRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	vpcGroup := r.Group("/vpcs")
-	vpcGroup.Use(httputil.Auth(svcs.Identity))
+	vpcGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant), httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant))
 	{
 		vpcGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionVpcCreate), handlers.Vpc.Create)
 		vpcGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionVpcRead), handlers.Vpc.List)
@@ -263,14 +266,14 @@ func registerNetworkRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	subnetGroup := r.Group("/subnets")
-	subnetGroup.Use(httputil.Auth(svcs.Identity))
+	subnetGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		subnetGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionVpcRead), handlers.Subnet.Get)
 		subnetGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionVpcUpdate), handlers.Subnet.Delete)
 	}
 
 	sgGroup := r.Group("/security-groups")
-	sgGroup.Use(httputil.Auth(svcs.Identity))
+	sgGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		sgGroup.POST("", handlers.SecurityGroup.Create)
 		sgGroup.GET("", handlers.SecurityGroup.List)
@@ -283,7 +286,7 @@ func registerNetworkRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	lbGroup := r.Group("/lb")
-	lbGroup.Use(httputil.Auth(svcs.Identity))
+	lbGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		lbGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionLbCreate), handlers.LB.Create)
 		lbGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionLbRead), handlers.LB.List)
@@ -297,7 +300,7 @@ func registerNetworkRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 
 func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	storageGroup := r.Group("/storage")
-	storageGroup.Use(httputil.Auth(svcs.Identity))
+	storageGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant), httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant))
 	{
 		// explicitly registered static paths first
 		storageGroup.GET("/cluster/status", handlers.Storage.GetClusterStatus)
@@ -337,7 +340,7 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	r.PUT("/storage/presigned"+bucketKeyRoute, handlers.Storage.ServePresignedUpload)
 
 	volumeGroup := r.Group("/volumes")
-	volumeGroup.Use(httputil.Auth(svcs.Identity))
+	volumeGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant), httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant))
 	{
 		volumeGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionVolumeCreate), handlers.Volume.Create)
 		volumeGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionVolumeRead), handlers.Volume.List)
@@ -346,7 +349,7 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	dbGroup := r.Group("/databases")
-	dbGroup.Use(httputil.Auth(svcs.Identity))
+	dbGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		dbGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionDBCreate), handlers.Database.Create)
 		dbGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionDBRead), handlers.Database.List)
@@ -356,7 +359,7 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	cacheGroup := r.Group("/caches")
-	cacheGroup.Use(httputil.Auth(svcs.Identity))
+	cacheGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		cacheGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionCacheCreate), handlers.Cache.Create)
 		cacheGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionCacheRead), handlers.Cache.List)
@@ -368,7 +371,7 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	secretGroup := r.Group("/secrets")
-	secretGroup.Use(httputil.Auth(svcs.Identity))
+	secretGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		secretGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionSecretCreate), handlers.Secret.Create)
 		secretGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionSecretRead), handlers.Secret.List)
@@ -379,7 +382,7 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 
 func registerDevOpsRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	fnGroup := r.Group("/functions")
-	fnGroup.Use(httputil.Auth(svcs.Identity))
+	fnGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		fnGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionFunctionCreate), handlers.Function.Create)
 		fnGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionFunctionRead), handlers.Function.List)
@@ -390,7 +393,7 @@ func registerDevOpsRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	queueGroup := r.Group("/queues")
-	queueGroup.Use(httputil.Auth(svcs.Identity))
+	queueGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		queueGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionQueueCreate), handlers.Queue.Create)
 		queueGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionQueueRead), handlers.Queue.List)
@@ -403,7 +406,7 @@ func registerDevOpsRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	notifyGroup := r.Group("/notify")
-	notifyGroup.Use(httputil.Auth(svcs.Identity))
+	notifyGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		notifyGroup.POST("/topics", httputil.Permission(svcs.RBAC, domain.PermissionNotifyCreate), handlers.Notify.CreateTopic)
 		notifyGroup.GET("/topics", httputil.Permission(svcs.RBAC, domain.PermissionNotifyRead), handlers.Notify.ListTopics)
@@ -415,7 +418,7 @@ func registerDevOpsRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	cronGroup := r.Group("/cron")
-	cronGroup.Use(httputil.Auth(svcs.Identity))
+	cronGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		cronGroup.POST("/jobs", httputil.Permission(svcs.RBAC, domain.PermissionCronCreate), handlers.Cron.CreateJob)
 		cronGroup.GET("/jobs", httputil.Permission(svcs.RBAC, domain.PermissionCronRead), handlers.Cron.ListJobs)
@@ -426,7 +429,7 @@ func registerDevOpsRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	gatewayGroup := r.Group("/gateway")
-	gatewayGroup.Use(httputil.Auth(svcs.Identity))
+	gatewayGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		gatewayGroup.POST("/routes", httputil.Permission(svcs.RBAC, domain.PermissionGatewayCreate), handlers.Gateway.CreateRoute)
 		gatewayGroup.GET("/routes", httputil.Permission(svcs.RBAC, domain.PermissionGatewayRead), handlers.Gateway.ListRoutes)
@@ -434,7 +437,7 @@ func registerDevOpsRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	containerGroup := r.Group("/containers")
-	containerGroup.Use(httputil.Auth(svcs.Identity))
+	containerGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		containerGroup.POST("/deployments", httputil.Permission(svcs.RBAC, domain.PermissionContainerCreate), handlers.Container.CreateDeployment)
 		containerGroup.GET("/deployments", httputil.Permission(svcs.RBAC, domain.PermissionContainerRead), handlers.Container.ListDeployments)
@@ -444,7 +447,7 @@ func registerDevOpsRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	asgGroup := r.Group("/autoscaling")
-	asgGroup.Use(httputil.Auth(svcs.Identity))
+	asgGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		asgGroup.POST("/groups", httputil.Permission(svcs.RBAC, domain.PermissionAsCreate), handlers.AutoScaling.CreateGroup)
 		asgGroup.GET("/groups", httputil.Permission(svcs.RBAC, domain.PermissionAsRead), handlers.AutoScaling.ListGroups)
@@ -455,7 +458,7 @@ func registerDevOpsRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	iacGroup := r.Group("/iac")
-	iacGroup.Use(httputil.Auth(svcs.Identity))
+	iacGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		iacGroup.POST("/stacks", httputil.Permission(svcs.RBAC, domain.PermissionStackCreate), handlers.Stack.Create)
 		iacGroup.GET("/stacks", httputil.Permission(svcs.RBAC, domain.PermissionStackRead), handlers.Stack.List)
@@ -467,19 +470,19 @@ func registerDevOpsRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 
 func registerAdminRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	eventGroup := r.Group("/events")
-	eventGroup.Use(httputil.Auth(svcs.Identity))
+	eventGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		eventGroup.GET("", handlers.Event.List)
 	}
 
 	auditGroup := r.Group("/audit")
-	auditGroup.Use(httputil.Auth(svcs.Identity))
+	auditGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		auditGroup.GET("", handlers.Audit.ListLogs)
 	}
 
 	rbacGroup := r.Group("/rbac")
-	rbacGroup.Use(httputil.Auth(svcs.Identity))
+	rbacGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		rbacGroup.POST("/roles", httputil.Permission(svcs.RBAC, domain.PermissionFullAccess), handlers.RBAC.CreateRole)
 		rbacGroup.GET("/roles", httputil.Permission(svcs.RBAC, domain.PermissionFullAccess), handlers.RBAC.ListRoles)
@@ -493,7 +496,7 @@ func registerAdminRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	dashboardGroup := r.Group("/api/dashboard")
-	dashboardGroup.Use(httputil.Auth(svcs.Identity))
+	dashboardGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		dashboardGroup.GET("/summary", handlers.Dashboard.GetSummary)
 		dashboardGroup.GET("/events", handlers.Dashboard.GetRecentEvents)
@@ -503,9 +506,19 @@ func registerAdminRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	billingGroup := r.Group("/billing")
-	billingGroup.Use(httputil.Auth(svcs.Identity))
+	billingGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		billingGroup.GET("/summary", handlers.Accounting.GetSummary)
 		billingGroup.GET("/usage", handlers.Accounting.ListUsage)
+	}
+}
+
+func registerTenantRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
+	tenantGroup := r.Group("/tenants")
+	tenantGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
+	{
+		tenantGroup.POST("", handlers.Tenant.Create)
+		tenantGroup.POST("/:id/members", httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant), handlers.Tenant.InviteMember)
+		tenantGroup.POST("/:id/switch", handlers.Tenant.SwitchTenant)
 	}
 }

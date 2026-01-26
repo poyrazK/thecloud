@@ -51,7 +51,26 @@ func setupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
 	err := userRepo.Create(ctx, user)
 	require.NoError(t, err)
 
-	return appcontext.WithUserID(ctx, userID)
+	tenantID := uuid.New()
+	slug := "test-tenant-" + tenantID.String()
+	_, err = db.Exec(ctx, `
+		INSERT INTO tenants (id, name, slug, owner_id, plan, status, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, 'free', 'active', NOW(), NOW())
+	`, tenantID, "Test Tenant", slug, userID)
+	require.NoError(t, err)
+
+	_, err = db.Exec(ctx, `
+		INSERT INTO tenant_members (tenant_id, user_id, role)
+		VALUES ($1, $2, 'owner')
+	`, tenantID, userID)
+	require.NoError(t, err)
+
+	_, err = db.Exec(ctx, `
+		UPDATE users SET default_tenant_id = $1 WHERE id = $2
+	`, tenantID, userID)
+	require.NoError(t, err)
+
+	return appcontext.WithTenantID(appcontext.WithUserID(ctx, userID), tenantID)
 }
 
 func cleanDB(t *testing.T, db *pgxpool.Pool) {
@@ -74,6 +93,9 @@ func cleanDB(t *testing.T, db *pgxpool.Pool) {
 		"DELETE FROM volumes",
 		"DELETE FROM instances",
 		"DELETE FROM vpcs",
+		"DELETE FROM tenant_members",
+		"DELETE FROM tenant_quotas",
+		"DELETE FROM tenants",
 		// Users are usually not deleted to keep test user valid if reused,
 		// but here we create a new user per test with setupTestUser, so we accumulate users.
 		// We can leave users or delete them if we track the ID.

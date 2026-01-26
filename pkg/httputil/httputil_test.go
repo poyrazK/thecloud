@@ -49,14 +49,45 @@ func (m *mockIdentityService) RotateKey(ctx context.Context, userID, id uuid.UUI
 	return args.Get(0).(*domain.APIKey), args.Error(1)
 }
 
+type mockTenantService struct {
+	mock.Mock
+}
+
+func (m *mockTenantService) CreateTenant(ctx context.Context, name, slug string, ownerID uuid.UUID) (*domain.Tenant, error) {
+	return nil, nil
+}
+func (m *mockTenantService) GetTenant(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) {
+	return nil, nil
+}
+func (m *mockTenantService) InviteMember(ctx context.Context, tenantID uuid.UUID, email, role string) error {
+	return nil
+}
+func (m *mockTenantService) RemoveMember(ctx context.Context, tenantID, userID uuid.UUID) error {
+	return nil
+}
+func (m *mockTenantService) SwitchTenant(ctx context.Context, userID, tenantID uuid.UUID) error {
+	return nil
+}
+func (m *mockTenantService) CheckQuota(ctx context.Context, tenantID uuid.UUID, resource string, requested int) error {
+	return nil
+}
+func (m *mockTenantService) GetMembership(ctx context.Context, tenantID, userID uuid.UUID) (*domain.TenantMember, error) {
+	args := m.Called(ctx, tenantID, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.TenantMember), args.Error(1)
+}
+
 func TestAuth_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockIdentityService)
+	tenantSvc := new(mockTenantService)
 	userID := uuid.New()
 	svc.On("ValidateAPIKey", mock.Anything, "valid-key").Return(&domain.APIKey{UserID: userID}, nil)
 
 	r := gin.New()
-	r.Use(Auth(svc))
+	r.Use(Auth(svc, tenantSvc))
 	r.GET("/protected", func(c *gin.Context) {
 		val, _ := c.Get("userID")
 		assert.Equal(t, userID, val)
@@ -74,9 +105,10 @@ func TestAuth_Success(t *testing.T) {
 func TestAuth_MissingKey(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockIdentityService)
+	tenantSvc := new(mockTenantService)
 
 	r := gin.New()
-	r.Use(Auth(svc))
+	r.Use(Auth(svc, tenantSvc))
 	r.GET("/protected", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -91,10 +123,11 @@ func TestAuth_MissingKey(t *testing.T) {
 func TestAuth_InvalidKey(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockIdentityService)
+	tenantSvc := new(mockTenantService)
 	svc.On("ValidateAPIKey", mock.Anything, "invalid-key").Return(nil, fmt.Errorf("invalid"))
 
 	r := gin.New()
-	r.Use(Auth(svc))
+	r.Use(Auth(svc, tenantSvc))
 	r.GET("/protected", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
