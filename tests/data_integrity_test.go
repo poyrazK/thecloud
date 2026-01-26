@@ -29,7 +29,7 @@ func TestDataIntegrity(t *testing.T) {
 			"name":  fancyName,
 			"image": "alpine",
 		}
-		resp := postRequest(t, client, testutil.TestBaseURL+"/instances", token, payload)
+		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
 		defer resp.Body.Close()
 
 		require.Contains(t, []int{http.StatusCreated, http.StatusAccepted}, resp.StatusCode)
@@ -44,7 +44,7 @@ func TestDataIntegrity(t *testing.T) {
 		assert.Equal(t, fancyName, res.Data.Name, "Name encoding should be preserved")
 
 		// Cleanup
-		deleteRequest(t, client, fmt.Sprintf("%s/instances/%s", testutil.TestBaseURL, res.Data.ID), token).Body.Close()
+		deleteRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteInstances, res.Data.ID), token).Body.Close()
 	})
 
 	t.Run("Large Payload Handling", func(t *testing.T) {
@@ -55,7 +55,7 @@ func TestDataIntegrity(t *testing.T) {
 			largePayload[fmt.Sprintf("key_%d", i)] = "value_which_is_quite_long_to_fill_up_memory_and_test_parsing_performance"
 		}
 
-		resp := postRequest(t, client, testutil.TestBaseURL+"/instances", token, largePayload)
+		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, largePayload)
 		defer resp.Body.Close()
 
 		// Should either reject (413 Payload Too Large) or handle correctly (400 if missing required fields, but not 500)
@@ -64,7 +64,7 @@ func TestDataIntegrity(t *testing.T) {
 
 	t.Run("Wrong Content-Type", func(t *testing.T) {
 		payload := bytes.NewBufferString("name=test-instance&image=alpine")
-		req, _ := http.NewRequest("POST", testutil.TestBaseURL+"/instances", payload)
+		req, _ := http.NewRequest("POST", testutil.TestBaseURL+testutil.TestRouteInstances, payload)
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded") // API expects JSON
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
 
@@ -82,7 +82,7 @@ func TestDataIntegrity(t *testing.T) {
 		payload := map[string]string{"name": name, "cidr_block": "10.20.0.0/16"}
 
 		// 1. Create
-		resp := postRequest(t, client, testutil.TestBaseURL+"/vpcs", token, payload)
+		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteVpcs, token, payload)
 		defer resp.Body.Close()
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -97,7 +97,8 @@ func TestDataIntegrity(t *testing.T) {
 		id := w.Data.ID
 
 		// 2. Read
-		resp = getRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, id), token)
+		vpcPath := fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteVpcs, id)
+		resp = getRequest(t, client, vpcPath, token)
 		defer resp.Body.Close()
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 		_ = json.NewDecoder(resp.Body).Decode(&w)
@@ -109,7 +110,7 @@ func TestDataIntegrity(t *testing.T) {
 		updatePayload := map[string]string{"name": newName}
 		// Some endpoints might not support name updates, testing common pattern
 		b, _ := json.Marshal(updatePayload)
-		req, _ := http.NewRequest("PATCH", fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, id), bytes.NewBuffer(b))
+		req, _ := http.NewRequest("PATCH", vpcPath, bytes.NewBuffer(b))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
 		resp, _ = client.Do(req)
@@ -117,7 +118,7 @@ func TestDataIntegrity(t *testing.T) {
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
 				// 4. Verify Update
-				resp = getRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, id), token)
+				resp = getRequest(t, client, vpcPath, token)
 				defer resp.Body.Close()
 				_ = json.NewDecoder(resp.Body).Decode(&w)
 				assert.Equal(t, newName, w.Data.Name)
@@ -125,12 +126,12 @@ func TestDataIntegrity(t *testing.T) {
 		}
 
 		// 5. Delete
-		resp = deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, id), token)
+		resp = deleteRequest(t, client, vpcPath, token)
 		resp.Body.Close()
 		assert.Contains(t, []int{http.StatusOK, http.StatusNoContent}, resp.StatusCode)
 
 		// 6. Verify Deleted
-		resp = getRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, id), token)
+		resp = getRequest(t, client, vpcPath, token)
 		resp.Body.Close()
 		assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	})
