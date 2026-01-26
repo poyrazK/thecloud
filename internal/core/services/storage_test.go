@@ -403,6 +403,14 @@ func TestStorageBucketOps(t *testing.T) {
 		assert.Equal(t, bucket, b.Name)
 	})
 
+	t.Run("CreateBucketRepoError", func(t *testing.T) {
+		repo.On("CreateBucket", ctx, mock.Anything).Return(assert.AnError).Once()
+
+		b, err := svc.CreateBucket(ctx, "bucket-fail", false)
+		assert.Error(t, err)
+		assert.Nil(t, b)
+	})
+
 	t.Run("CreateBucketInvalidName", func(t *testing.T) {
 		_, err := svc.CreateBucket(ctx, "Invalid_Name", false)
 		assert.Error(t, err)
@@ -527,5 +535,16 @@ func TestStorageEncryption(t *testing.T) {
 		assert.NoError(t, err)
 		data, _ := io.ReadAll(r)
 		assert.Equal(t, plaintext, data)
+	})
+
+	t.Run("DownloadEncryptedDecryptError", func(t *testing.T) {
+		repo.On("GetMeta", ctx, bucket, key).Return(&domain.Object{Bucket: bucket, Key: key}, nil).Once()
+		repo.On("GetBucket", ctx, bucket).Return(&domain.Bucket{Name: bucket, EncryptionEnabled: true}, nil).Once()
+		store.On("Read", ctx, bucket, key).Return(io.NopCloser(bytes.NewReader(encrypted)), nil).Once()
+		encryptSvc.On("Decrypt", ctx, bucket, encrypted).Return(nil, assert.AnError).Once()
+
+		r, _, err := svc.Download(ctx, bucket, key)
+		assert.Error(t, err)
+		assert.Nil(t, r)
 	})
 }
