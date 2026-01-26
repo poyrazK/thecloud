@@ -12,7 +12,7 @@ func RequireTenant() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tenantID := GetTenantID(c)
 		if tenantID == uuid.Nil {
-			Error(c, errors.New(errors.BadRequest, "X-Tenant-ID header required or default tenant not set"))
+			Error(c, errors.New(errors.InvalidInput, "X-Tenant-ID header required or default tenant not set"))
 			c.Abort()
 			return
 		}
