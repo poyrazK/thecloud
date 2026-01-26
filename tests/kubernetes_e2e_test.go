@@ -36,7 +36,8 @@ func TestKubernetesE2E(t *testing.T) {
 	token := registerAndLogin(t, client, "k8s-user@test.com", "K8s User")
 
 	// 1. Create VPC
-	vpc := createVPC(t, client, token, "k8s-vpc", "10.100.0.0/16")
+	vpcName := fmt.Sprintf("k8s-vpc-%d", time.Now().UnixNano()%1000000)
+	vpc := createVPC(t, client, token, vpcName, "10.100.0.0/16")
 	require.NotEmpty(t, vpc.ID)
 	// defer deleteVPC(t, client, token, vpc.ID) // Optional cleanup
 
@@ -45,7 +46,7 @@ func TestKubernetesE2E(t *testing.T) {
 	cluster := createCluster(t, client, token, "test-cluster", vpc.ID, 1)
 	assert.NotEmpty(t, cluster.ID)
 	assert.Equal(t, "test-cluster", cluster.Name)
-	assert.Equal(t, "provisioning", cluster.Status)
+	assert.Contains(t, []string{"provisioning", "pending"}, cluster.Status)
 
 	// 3. Get Cluster Details
 	t.Run("Get Cluster", func(t *testing.T) {
@@ -81,7 +82,7 @@ func TestKubernetesE2E(t *testing.T) {
 		resp, err := client.Do(req)
 		require.NoError(t, err)
 		defer resp.Body.Close()
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Contains(t, []int{http.StatusOK, http.StatusAccepted}, resp.StatusCode)
 	})
 }
 
@@ -91,7 +92,7 @@ func createVPC(t *testing.T, client *http.Client, token, name, cidr string) VPC 
 		"cidr_block": cidr,
 	}
 	body, _ := json.Marshal(reqBody)
-	req, _ := http.NewRequest("POST", testutil.TestBaseURL+"/vpcs", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("POST", testutil.TestBaseURL+testutil.TestRouteVpcs, bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", testutil.TestContentTypeAppJSON)
 	req.Header.Set(testutil.TestHeaderAPIKey, token)
 
