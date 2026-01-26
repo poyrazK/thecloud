@@ -234,3 +234,66 @@ func TestClusterServiceGetClusterHealth(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, domain.ClusterStatusRunning, resp.Status)
 }
+
+func TestClusterServiceRotateSecretsSuccess(t *testing.T) {
+	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusRunning}
+
+	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.Status == domain.ClusterStatusUpdating
+	})).Return(nil).Once()
+	provisioner.On("RotateSecrets", ctx, cluster).Return(nil).Once()
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.Status == domain.ClusterStatusRunning
+	})).Return(nil).Once()
+
+	err := svc.RotateSecrets(ctx, clusterID)
+	assert.NoError(t, err)
+}
+
+func TestClusterServiceRotateSecretsNotRunning(t *testing.T) {
+	repo, _, _, _, _, _, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusPending}
+
+	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
+
+	err := svc.RotateSecrets(ctx, clusterID)
+	assert.Error(t, err)
+}
+
+func TestClusterServiceRestoreBackup(t *testing.T) {
+	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusRunning}
+	backupPath := "s3://bucket/backup"
+
+	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.Status == domain.ClusterStatusRepairing
+	})).Return(nil).Once()
+	provisioner.On("Restore", ctx, cluster, backupPath).Return(nil).Once()
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.Status == domain.ClusterStatusRunning
+	})).Return(nil).Once()
+
+	err := svc.RestoreBackup(ctx, clusterID, backupPath)
+	assert.NoError(t, err)
+}
+
+func TestClusterServiceRestoreBackupNotRunning(t *testing.T) {
+	repo, _, _, _, _, _, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusPending}
+
+	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
+
+	err := svc.RestoreBackup(ctx, clusterID, "s3://bucket/backup")
+	assert.Error(t, err)
+}
