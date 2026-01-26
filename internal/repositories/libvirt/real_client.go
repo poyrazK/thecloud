@@ -14,12 +14,17 @@ type RealLibvirtClient struct {
 }
 
 func (r *RealLibvirtClient) Connect(ctx context.Context) error {
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- r.conn.Connect()
+	}()
+
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	default:
+	case err := <-errChan:
+		return err
 	}
-	return r.conn.Connect()
 }
 
 func (r *RealLibvirtClient) Close() error {
