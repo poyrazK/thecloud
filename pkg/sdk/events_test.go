@@ -49,3 +49,16 @@ func TestClient_ListEvents(t *testing.T) {
 	assert.Len(t, events, 2)
 	assert.Equal(t, "instance.created", events[0].Action)
 }
+
+func TestClient_ListEventsError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	_, err := client.ListEvents()
+
+	assert.Error(t, err)
+}

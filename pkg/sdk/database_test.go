@@ -129,3 +129,28 @@ func TestClient_GetDatabaseConnectionString(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, connStr, result)
 }
+
+func TestClient_DatabaseErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+
+	_, err := client.CreateDatabase("db", "postgres", "14", nil)
+	assert.Error(t, err)
+
+	_, err = client.ListDatabases()
+	assert.Error(t, err)
+
+	_, err = client.GetDatabase("db-1")
+	assert.Error(t, err)
+
+	err = client.DeleteDatabase("db-1")
+	assert.Error(t, err)
+
+	_, err = client.GetDatabaseConnectionString("db-1")
+	assert.Error(t, err)
+}
