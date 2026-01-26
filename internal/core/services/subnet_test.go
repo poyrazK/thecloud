@@ -74,6 +74,46 @@ func TestSubnetServiceCreateSubnetInvalidCIDR(t *testing.T) {
 	assert.Contains(t, err.Error(), "within VPC CIDR range")
 }
 
+func TestSubnetServiceCreateSubnetInvalidSubnetCIDRFormat(t *testing.T) {
+	repo, vpcRepo, _, svc := setupSubnetServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer vpcRepo.AssertExpectations(t)
+
+	ctx := context.Background()
+	vpcID := uuid.New()
+	vpc := &domain.VPC{
+		ID:        vpcID,
+		CIDRBlock: testutil.TestCIDR,
+	}
+
+	vpcRepo.On("GetByID", ctx, vpcID).Return(vpc, nil)
+
+	subnet, err := svc.CreateSubnet(ctx, vpcID, "bad-subnet", "not-a-cidr", "us-east-1a")
+
+	assert.Error(t, err)
+	assert.Nil(t, subnet)
+}
+
+func TestSubnetServiceCreateSubnetInvalidVPCCIDRFormat(t *testing.T) {
+	repo, vpcRepo, _, svc := setupSubnetServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer vpcRepo.AssertExpectations(t)
+
+	ctx := context.Background()
+	vpcID := uuid.New()
+	vpc := &domain.VPC{
+		ID:        vpcID,
+		CIDRBlock: "bad-cidr",
+	}
+
+	vpcRepo.On("GetByID", ctx, vpcID).Return(vpc, nil)
+
+	subnet, err := svc.CreateSubnet(ctx, vpcID, "bad-vpc", testutil.TestSubnetCIDR, "us-east-1a")
+
+	assert.Error(t, err)
+	assert.Nil(t, subnet)
+}
+
 func TestSubnetServiceDeleteSubnetSuccess(t *testing.T) {
 	repo, vpcRepo, auditSvc, svc := setupSubnetServiceTest(t)
 	defer repo.AssertExpectations(t)
@@ -93,6 +133,21 @@ func TestSubnetServiceDeleteSubnetSuccess(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSubnetServiceDeleteSubnetRepoError(t *testing.T) {
+	repo, _, _, svc := setupSubnetServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	subnetID := uuid.New()
+	subnet := &domain.Subnet{ID: subnetID, UserID: uuid.New()}
+
+	repo.On("GetByID", ctx, subnetID).Return(subnet, nil)
+	repo.On("Delete", ctx, subnetID).Return(assert.AnError)
+
+	err := svc.DeleteSubnet(ctx, subnetID)
+	assert.Error(t, err)
+}
+
 func TestSubnetServiceGetSubnet(t *testing.T) {
 	repo, _, _, svc := setupSubnetServiceTest(t)
 	defer repo.AssertExpectations(t)
@@ -105,6 +160,22 @@ func TestSubnetServiceGetSubnet(t *testing.T) {
 
 	subnet, err := svc.GetSubnet(ctx, id.String(), uuid.Nil)
 
+	assert.NoError(t, err)
+	assert.Equal(t, expected, subnet)
+}
+
+func TestSubnetServiceGetSubnetByName(t *testing.T) {
+	repo, _, _, svc := setupSubnetServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	vpcID := uuid.New()
+	name := "subnet-name"
+	expected := &domain.Subnet{ID: uuid.New(), Name: name}
+
+	repo.On("GetByName", ctx, vpcID, name).Return(expected, nil)
+
+	subnet, err := svc.GetSubnet(ctx, name, vpcID)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, subnet)
 }
