@@ -137,3 +137,34 @@ func TestCacheSDK(t *testing.T) {
 		assert.NoError(t, err)
 	})
 }
+
+func TestCacheSDK_Errors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := sdk.NewClient(server.URL+"/api/v1", "test-api-key")
+
+	_, err := client.CreateCache("my-cache", "7.0", 128, nil)
+	assert.Error(t, err)
+
+	_, err = client.ListCaches()
+	assert.Error(t, err)
+
+	_, err = client.GetCache("c-1")
+	assert.Error(t, err)
+
+	err = client.DeleteCache("c-1")
+	assert.Error(t, err)
+
+	_, err = client.GetCacheConnectionString("c-1")
+	assert.Error(t, err)
+
+	err = client.FlushCache("c-1")
+	assert.Error(t, err)
+
+	_, err = client.GetCacheStats("c-1")
+	assert.Error(t, err)
+}

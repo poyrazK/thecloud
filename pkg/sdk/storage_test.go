@@ -61,6 +61,24 @@ func TestClient_UploadObject(t *testing.T) {
 	assert.NotNil(t, obj)
 }
 
+func TestClient_UploadObjectErrorStatus(t *testing.T) {
+	bucket := "my-bucket"
+	key := "file.txt"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/storage/"+bucket+"/"+key, r.URL.Path)
+		assert.Equal(t, http.MethodPut, r.Method)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	_, err := client.UploadObject(bucket, key, strings.NewReader("data"))
+
+	assert.Error(t, err)
+}
+
 func TestClient_DownloadObject(t *testing.T) {
 	bucket := "my-bucket"
 	key := "file.txt"

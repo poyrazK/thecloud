@@ -151,3 +151,31 @@ func TestFunctionSDK(t *testing.T) {
 		assert.NoError(t, err)
 	})
 }
+
+func TestFunctionSDK_Errors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := sdk.NewClient(server.URL+"/api/v1", "test-api-key")
+
+	_, err := client.CreateFunction("my-fn", "nodejs20", "index.js", []byte("code"))
+	assert.Error(t, err)
+
+	_, err = client.ListFunctions()
+	assert.Error(t, err)
+
+	_, err = client.GetFunction("fn-1")
+	assert.Error(t, err)
+
+	err = client.DeleteFunction("fn-1")
+	assert.Error(t, err)
+
+	_, err = client.InvokeFunction("fn-1", []byte(`{"key":"value"}`), true)
+	assert.Error(t, err)
+
+	_, err = client.GetFunctionLogs("fn-1")
+	assert.Error(t, err)
+}
