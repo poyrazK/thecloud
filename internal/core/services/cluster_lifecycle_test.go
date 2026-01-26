@@ -86,6 +86,42 @@ func TestClusterServiceUpgrade(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "must be higher than current")
 	})
+
+	t.Run("fails with invalid target version", func(t *testing.T) {
+		cluster.Status = domain.ClusterStatusRunning
+		cluster.Version = testK8sBase
+		repo.On("GetByID", mock.Anything, id).Return(cluster, nil).Once()
+
+		err := svc.UpgradeCluster(ctx, id, "not-a-version")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid target version")
+	})
+
+	t.Run("allows upgrade with invalid current version", func(t *testing.T) {
+		cluster.Status = domain.ClusterStatusRunning
+		cluster.Version = "bad-current"
+		repo.On("GetByID", mock.Anything, id).Return(cluster, nil).Once()
+		repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+			return c.Status == domain.ClusterStatusUpgrading
+		})).Return(nil).Once()
+		taskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.MatchedBy(func(job domain.ClusterJob) bool {
+			return job.Type == domain.ClusterJobUpgrade && job.ClusterID == id && job.Version == testK8sVersion
+		})).Return(nil).Once()
+
+		err := svc.UpgradeCluster(ctx, id, testK8sVersion)
+		assert.NoError(t, err)
+	})
+
+	t.Run("fails when enqueue fails", func(t *testing.T) {
+		cluster.Status = domain.ClusterStatusRunning
+		cluster.Version = testK8sBase
+		repo.On("GetByID", mock.Anything, id).Return(cluster, nil).Once()
+		repo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
+		taskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.Anything).Return(assert.AnError).Once()
+
+		err := svc.UpgradeCluster(ctx, id, testK8sVersion)
+		assert.Error(t, err)
+	})
 }
 
 func TestClusterServiceRotateSecrets(t *testing.T) {
@@ -132,6 +168,14 @@ func TestClusterServiceBackup(t *testing.T) {
 		err := svc.CreateBackup(ctx, id)
 		assert.NoError(t, err)
 		provisioner.AssertExpectations(t)
+	})
+
+	t.Run("fails when not running", func(t *testing.T) {
+		cluster.Status = domain.ClusterStatusPending
+		repo.On("GetByID", mock.Anything, id).Return(cluster, nil).Once()
+
+		err := svc.CreateBackup(ctx, id)
+		assert.Error(t, err)
 	})
 }
 
