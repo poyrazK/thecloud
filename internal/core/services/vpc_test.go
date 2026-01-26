@@ -134,6 +134,27 @@ func TestVpcServiceDeleteBridgeError(t *testing.T) {
 	vpcRepo.AssertNotCalled(t, "Delete", mock.Anything, mock.Anything)
 }
 
+func TestVpcServiceDeleteRepoError(t *testing.T) {
+	vpcRepo, network, _, svc := setupVpcServiceTest(testutil.TestCIDR)
+	defer vpcRepo.AssertExpectations(t)
+	defer network.AssertExpectations(t)
+
+	vpcID := uuid.New()
+	vpc := &domain.VPC{
+		ID:        vpcID,
+		Name:      "to-delete",
+		NetworkID: "br-vpc-ok",
+	}
+
+	vpcRepo.On("GetByID", mock.Anything, vpcID).Return(vpc, nil)
+	network.On("DeleteBridge", mock.Anything, "br-vpc-ok").Return(nil)
+	vpcRepo.On("Delete", mock.Anything, vpcID).Return(assert.AnError)
+
+	err := svc.DeleteVPC(context.Background(), vpcID.String())
+
+	assert.Error(t, err)
+}
+
 func TestVpcServiceListSuccess(t *testing.T) {
 	vpcRepo, _, _, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)

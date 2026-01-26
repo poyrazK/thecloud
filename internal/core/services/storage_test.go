@@ -417,6 +417,13 @@ func TestStorageMultipart(t *testing.T) {
 		assert.NotNil(t, obj)
 	})
 
+	t.Run("CompleteMultipartNotFound", func(t *testing.T) {
+		repo.On("GetMultipartUpload", ctx, uploadID).Return(nil, errors.New(errors.NotFound, "not found")).Once()
+
+		_, err := svc.CompleteMultipartUpload(ctx, uploadID)
+		assert.Error(t, err)
+	})
+
 	t.Run("CompleteMultipartNoParts", func(t *testing.T) {
 		upload := &domain.MultipartUpload{ID: uploadID, Bucket: bucket, Key: key, UserID: userID}
 		repo.On("GetMultipartUpload", ctx, uploadID).Return(upload, nil).Once()

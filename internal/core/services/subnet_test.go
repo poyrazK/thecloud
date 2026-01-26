@@ -133,6 +133,19 @@ func TestSubnetServiceDeleteSubnetSuccess(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSubnetServiceDeleteSubnetGetError(t *testing.T) {
+	repo, _, _, svc := setupSubnetServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	subnetID := uuid.New()
+
+	repo.On("GetByID", ctx, subnetID).Return(nil, assert.AnError)
+
+	err := svc.DeleteSubnet(ctx, subnetID)
+	assert.Error(t, err)
+}
+
 func TestSubnetServiceDeleteSubnetRepoError(t *testing.T) {
 	repo, _, _, svc := setupSubnetServiceTest(t)
 	defer repo.AssertExpectations(t)

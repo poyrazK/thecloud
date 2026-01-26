@@ -126,6 +126,41 @@ func TestCreateTenant_UpdateQuotaErrorContinues(t *testing.T) {
 	assert.NotNil(t, tenant)
 }
 
+func TestCreateTenant_UserLookupErrorContinues(t *testing.T) {
+	tenantRepo, userRepo, _, svc := setupTenantServiceTest(t)
+
+	ctx := context.Background()
+	ownerID := uuid.New()
+
+	tenantRepo.On("GetBySlug", mock.Anything, "slug-ok").Return(nil, nil)
+	tenantRepo.On("Create", mock.Anything, mock.Anything).Return(nil)
+	tenantRepo.On("AddMember", mock.Anything, mock.Anything, ownerID, "owner").Return(nil)
+	tenantRepo.On("UpdateQuota", mock.Anything, mock.Anything).Return(nil).Maybe()
+	userRepo.On("GetByID", mock.Anything, ownerID).Return(nil, assert.AnError)
+
+	tenant, err := svc.CreateTenant(ctx, "My Tenant", "slug-ok", ownerID)
+	assert.NoError(t, err)
+	assert.NotNil(t, tenant)
+}
+
+func TestCreateTenant_UserUpdateErrorContinues(t *testing.T) {
+	tenantRepo, userRepo, _, svc := setupTenantServiceTest(t)
+
+	ctx := context.Background()
+	ownerID := uuid.New()
+
+	tenantRepo.On("GetBySlug", mock.Anything, "slug-ok-2").Return(nil, nil)
+	tenantRepo.On("Create", mock.Anything, mock.Anything).Return(nil)
+	tenantRepo.On("AddMember", mock.Anything, mock.Anything, ownerID, "owner").Return(nil)
+	tenantRepo.On("UpdateQuota", mock.Anything, mock.Anything).Return(nil).Maybe()
+	userRepo.On("GetByID", mock.Anything, ownerID).Return(&domain.User{ID: ownerID}, nil)
+	userRepo.On("Update", mock.Anything, mock.Anything).Return(assert.AnError)
+
+	tenant, err := svc.CreateTenant(ctx, "My Tenant", "slug-ok-2", ownerID)
+	assert.NoError(t, err)
+	assert.NotNil(t, tenant)
+}
+
 func TestInviteMember_Success(t *testing.T) {
 	tenantRepo, userRepo, _, svc := setupTenantServiceTest(t)
 
