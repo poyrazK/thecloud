@@ -42,6 +42,14 @@ func setupStorageServiceWithEncryption(_ *testing.T) (*MockStorageRepo, *MockFil
 	return repo, store, auditSvc, encryptSvc, svc
 }
 
+func setupStorageServiceWithConfig(_ *testing.T, cfg *platform.Config) (*MockStorageRepo, *MockFileStore, *MockAuditService, ports.StorageService) {
+	repo := new(MockStorageRepo)
+	store := new(MockFileStore)
+	auditSvc := new(MockAuditService)
+	svc := services.NewStorageService(repo, store, auditSvc, nil, cfg)
+	return repo, store, auditSvc, svc
+}
+
 func TestStorageUploadSuccess(t *testing.T) {
 	repo, store, auditSvc, svc := setupStorageServiceTest(t)
 	defer repo.AssertExpectations(t)
@@ -320,6 +328,15 @@ func TestStorageMultipart(t *testing.T) {
 		assert.Equal(t, key, obj.Key)
 	})
 
+	t.Run("CompleteMultipartNoParts", func(t *testing.T) {
+		upload := &domain.MultipartUpload{ID: uploadID, Bucket: bucket, Key: key, UserID: userID}
+		repo.On("GetMultipartUpload", ctx, uploadID).Return(upload, nil).Once()
+		repo.On("ListParts", ctx, uploadID).Return([]*domain.Part{}, nil).Once()
+
+		_, err := svc.CompleteMultipartUpload(ctx, uploadID)
+		assert.Error(t, err)
+	})
+
 	t.Run("AbortMultipart", func(t *testing.T) {
 		upload := &domain.MultipartUpload{ID: uploadID, Bucket: bucket, Key: key}
 		repo.On("GetMultipartUpload", ctx, uploadID).Return(upload, nil).Once()
@@ -331,9 +348,36 @@ func TestStorageMultipart(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	t.Run("AbortMultipartDeleteError", func(t *testing.T) {
+		upload := &domain.MultipartUpload{ID: uploadID, Bucket: bucket, Key: key}
+		repo.On("GetMultipartUpload", ctx, uploadID).Return(upload, nil).Once()
+		repo.On("ListParts", ctx, uploadID).Return([]*domain.Part{}, nil).Once()
+		repo.On("DeleteMultipartUpload", ctx, uploadID).Return(assert.AnError).Once()
+
+		err := svc.AbortMultipartUpload(ctx, uploadID)
+		assert.Error(t, err)
+	})
+
 	t.Run("UploadPartNotFound", func(t *testing.T) {
 		repo.On("GetMultipartUpload", ctx, uploadID).Return(nil, errors.New(errors.NotFound, "not found")).Once()
 		_, err := svc.UploadPart(ctx, uploadID, 1, nil)
+		assert.Error(t, err)
+	})
+
+	t.Run("UploadPartSaveError", func(t *testing.T) {
+		upload := &domain.MultipartUpload{ID: uploadID, Bucket: bucket, Key: key}
+		repo.On("GetMultipartUpload", ctx, uploadID).Return(upload, nil).Once()
+		store.On("Write", ctx, bucket, mock.Anything, mock.Anything).Return(int64(10), nil).Once()
+		repo.On("SavePart", ctx, mock.Anything).Return(assert.AnError).Once()
+
+		_, err := svc.UploadPart(ctx, uploadID, 2, strings.NewReader("part-data"))
+		assert.Error(t, err)
+	})
+
+	t.Run("CreateMultipartBucketMissing", func(t *testing.T) {
+		repo.On("GetBucket", ctx, bucket).Return(nil, errors.New(errors.NotFound, "bucket not found")).Once()
+
+		_, err := svc.CreateMultipartUpload(ctx, bucket, key)
 		assert.Error(t, err)
 	})
 }
@@ -357,6 +401,11 @@ func TestStorageBucketOps(t *testing.T) {
 		b, err := svc.CreateBucket(ctx, bucket, false)
 		assert.NoError(t, err)
 		assert.Equal(t, bucket, b.Name)
+	})
+
+	t.Run("CreateBucketInvalidName", func(t *testing.T) {
+		_, err := svc.CreateBucket(ctx, "Invalid_Name", false)
+		assert.Error(t, err)
 	})
 
 	t.Run("DeleteBucket", func(t *testing.T) {
@@ -402,6 +451,28 @@ func TestStoragePresignedURL(t *testing.T) {
 	assert.Contains(t, url.URL, bucket)
 	assert.Contains(t, url.URL, key)
 	assert.Equal(t, "GET", url.Method)
+}
+
+func TestStoragePresignedURLBucketNotFound(t *testing.T) {
+	repo, _, _, svc := setupStorageServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	repo.On("GetBucket", ctx, testBucket).Return(nil, errors.New(errors.NotFound, "bucket not found")).Once()
+
+	_, err := svc.GeneratePresignedURL(ctx, testBucket, testKey, "GET", 0)
+	assert.Error(t, err)
+}
+
+func TestStoragePresignedURLMissingSecret(t *testing.T) {
+	repo, _, _, svc := setupStorageServiceWithConfig(t, &platform.Config{Port: "8080"})
+	defer repo.AssertExpectations(t)
+
+	ctx := context.Background()
+	repo.On("GetBucket", ctx, testBucket).Return(&domain.Bucket{Name: testBucket}, nil).Once()
+
+	_, err := svc.GeneratePresignedURL(ctx, testBucket, testKey, "GET", 0)
+	assert.Error(t, err)
 }
 
 func TestStorageEncryption(t *testing.T) {
