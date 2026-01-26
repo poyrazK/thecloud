@@ -28,24 +28,29 @@ func generateTestKey(t *testing.T) string {
 	return string(keyPEM)
 }
 
+const (
+	testLocalhostSSH = "localhost:22"
+	testLoopbackAddr = "127.0.0.1:0"
+)
+
 func TestNewClientWithKey(t *testing.T) {
 	// 1. Valid Key
 	privKey := generateTestKey(t)
-	client, err := NewClientWithKey("localhost:22", "user", privKey)
+	client, err := NewClientWithKey(testLocalhostSSH, "user", privKey)
 	require.NoError(t, err)
 	assert.NotNil(t, client)
-	assert.Equal(t, "localhost:22", client.Host)
+	assert.Equal(t, testLocalhostSSH, client.Host)
 	assert.Equal(t, "user", client.User)
 	assert.NotEmpty(t, client.Auth)
 
 	// 2. Invalid Key
-	_, err = NewClientWithKey("localhost:22", "user", "invalid-key")
+	_, err = NewClientWithKey(testLocalhostSSH, "user", "invalid-key")
 	require.Error(t, err)
 }
 
 func TestWaitForSSH(t *testing.T) {
 	// Start a dummy TCP server
-	l, err := net.Listen("tcp", "127.0.0.1:0")
+	l, err := net.Listen("tcp", testLoopbackAddr)
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -59,7 +64,7 @@ func TestWaitForSSH(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestWaitForSSH_Timeout(t *testing.T) {
+func TestWaitForSSHTimeout(t *testing.T) {
 	// Pick a random port (hopefully unused)
 	client := &Client{Host: "127.0.0.1:54321"} // Unlikely to be a valid SSH server immediately
 
@@ -70,9 +75,9 @@ func TestWaitForSSH_Timeout(t *testing.T) {
 	assert.Contains(t, err.Error(), "timed out")
 }
 
-func TestRun_ConnectionRefused(t *testing.T) {
+func TestRunConnectionRefused(t *testing.T) {
 	// Ensure we pick a port that rejects connection
-	l, err := net.Listen("tcp", "127.0.0.1:0")
+	l, err := net.Listen("tcp", testLoopbackAddr)
 	require.NoError(t, err)
 	port := l.Addr().(*net.TCPAddr).Port
 	l.Close() // Close immediately to ensure connection refused
@@ -89,9 +94,9 @@ func TestRun_ConnectionRefused(t *testing.T) {
 // TODO: A full SSH server mock for Run and WriteFile would be better but significantly more complex.
 // For "Phase 1 Quick Wins", validating the Client logic, Key parsing, and Network dialing is a good start.
 
-func TestWriteFile_ConnectionRefused(t *testing.T) {
+func TestWriteFileConnectionRefused(t *testing.T) {
 	// Pick a random port (hopefully unused)
-	client := &Client{Host: "127.0.0.1:0"}
+	client := &Client{Host: testLoopbackAddr}
 
 	err := client.WriteFile(context.Background(), "/tmp/test", []byte("data"), "0644")
 	require.Error(t, err)
