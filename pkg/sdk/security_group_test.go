@@ -89,6 +89,19 @@ func TestClientListSecurityGroups_NoVPC(t *testing.T) {
 	assert.Len(t, groups, 1)
 }
 
+func TestClientListSecurityGroups_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, testAPIKey)
+	_, err := client.ListSecurityGroups("vpc-1")
+
+	assert.Error(t, err)
+}
+
 func TestClientGetSecurityGroup(t *testing.T) {
 	id := sg123
 	expectedSG := SecurityGroup{

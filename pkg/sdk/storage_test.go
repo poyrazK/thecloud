@@ -192,6 +192,13 @@ func TestClient_DownloadObjectErrorStatus(t *testing.T) {
 	assert.Contains(t, err.Error(), "api error")
 }
 
+func TestClient_DownloadObjectRequestError(t *testing.T) {
+	client := NewClient("http://127.0.0.1:0", testAPIKey)
+	_, err := client.DownloadObject("bucket", "key")
+
+	assert.Error(t, err)
+}
+
 func TestClient_DeleteObjectWithVersion(t *testing.T) {
 	bucket := "my-bucket"
 	key := "file.txt"

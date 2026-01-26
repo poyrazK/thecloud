@@ -133,6 +133,20 @@ func TestClient_GetKubeconfigNoRole(t *testing.T) {
 	assert.Equal(t, "kubeconfig", config)
 }
 
+func TestClient_GetKubeconfigErrorStatus(t *testing.T) {
+	clusterID := uuid.New()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, testAPIKey)
+	_, err := client.GetKubeconfig(clusterID.String(), "admin")
+
+	assert.Error(t, err)
+}
+
 func TestClient_RepairScaleUpgradeRotateBackupRestoreCluster(t *testing.T) {
 	clusterID := uuid.New()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
