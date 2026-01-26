@@ -7,7 +7,7 @@ An open-source cloud platform that anyone can run, modify, and own.
   - Docker: Fast container-based instances
   - Libvirt: Full VM isolation with KVM/QEMU and **VNC Console** access ([Guide](docs/guides/libvirt-backend.md))
 - **RBAC**: Role-Based Access Control with fine-grained permissions ([Guide](docs/guides/rbac.md))
-- **Storage**: S3-compatible object storage (Upload, Download, Delete)
+- **Storage**: Distributed S3-compatible object storage with **Consistent Hashing** and **Gossip Protocol** ([Guide](docs/guides/storage.md))
 - **Block Storage**: Persistent volumes via **LVM** (Production) or Docker Volumes (Simulation)
 - **Networking**: Advanced VPC with SDN (Open vSwitch), Subnet isolation, and IPAM.
 - **Identity**: API Key authentication ([Guide](docs/guides/authentication.md))
@@ -111,7 +111,11 @@ npm run dev
 - **Enhanced Storage**: Added support for **LVM Block Storage** and **VNC Console** access.
 - **Asynchronous Core**: Refactored long-running operations (K8s clusters, instance deletions) to use a durable **Redis Task Queue**.
 - **HA Control Plane**: Supported 1-click **High-Availability** Kubernetes clusters with 3 control plane nodes and automated API Server Load Balancers.
-- **Clean Code**: Eliminated duplicate literals and improved test security.
+- **Distributed Storage (v2)**: Replaced local filesystem storage with a multi-node **Distributed Object Store** featuring:
+    - **Consistent Hash Ring**: Dynamic data distribution across nodes.
+    - **Gossip Protocol**: Fully decentralized node discovery and health tracking.
+    - **Quorum-based Replication**: Configurable N-way replication with write-quorum consistency.
+- **Clean Code**: Eliminated duplicate literals and improved test security across all service layers.
 
 ### AI & Automation
 - **AI Context**: Added `GEMINI.md` to provide AI assistants with project-specific hexagonal architecture rules and coding standards.
