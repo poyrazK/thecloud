@@ -17,7 +17,7 @@ import (
 
 const (
 	testMountPath    = "/mock/path"
-	testSelectVolume = "SELECT id, user_id, name, size_gb, status, instance_id, backend_path, mount_path, created_at, updated_at FROM volumes"
+	testSelectVolume = "SELECT id, user_id, tenant_id, name, size_gb, status, instance_id, backend_path, mount_path, created_at, updated_at FROM volumes"
 )
 
 func TestVolumeRepositoryCreate(t *testing.T) {
@@ -28,6 +28,7 @@ func TestVolumeRepositoryCreate(t *testing.T) {
 
 		repo := NewVolumeRepository(mock)
 		instanceID := uuid.New()
+		tenantID := uuid.New()
 		vol := &domain.Volume{
 			ID:         uuid.New(),
 			UserID:     uuid.New(),
@@ -41,10 +42,11 @@ func TestVolumeRepositoryCreate(t *testing.T) {
 		}
 
 		mock.ExpectExec("INSERT INTO volumes").
-			WithArgs(vol.ID, vol.UserID, vol.Name, vol.SizeGB, string(vol.Status), vol.InstanceID, vol.BackendPath, vol.MountPath, vol.CreatedAt, vol.UpdatedAt).
+			WithArgs(vol.ID, vol.UserID, tenantID, vol.Name, vol.SizeGB, string(vol.Status), vol.InstanceID, vol.BackendPath, vol.MountPath, vol.CreatedAt, vol.UpdatedAt).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
-		err = repo.Create(context.Background(), vol)
+		ctx := appcontext.WithTenantID(context.Background(), tenantID)
+		err = repo.Create(ctx, vol)
 		assert.NoError(t, err)
 	})
 
@@ -54,6 +56,7 @@ func TestVolumeRepositoryCreate(t *testing.T) {
 		defer mock.Close()
 
 		repo := NewVolumeRepository(mock)
+		tenantID := uuid.New()
 		vol := &domain.Volume{
 			ID: uuid.New(),
 		}
@@ -61,7 +64,8 @@ func TestVolumeRepositoryCreate(t *testing.T) {
 		mock.ExpectExec("INSERT INTO volumes").
 			WillReturnError(errors.New(testDBError))
 
-		err = repo.Create(context.Background(), vol)
+		ctx := appcontext.WithTenantID(context.Background(), tenantID)
+		err = repo.Create(ctx, vol)
 		assert.Error(t, err)
 	})
 }
@@ -75,13 +79,14 @@ func TestVolumeRepositoryGetByID(t *testing.T) {
 		repo := NewVolumeRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		now := time.Now()
 
 		mock.ExpectQuery(testSelectVolume).
-			WithArgs(id, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "size_gb", "status", "instance_id", "backend_path", "mount_path", "created_at", "updated_at"}).
-				AddRow(id, userID, "vol-1", 10, string(domain.VolumeStatusAvailable), &id, "", testMountPath, now, now))
+			WithArgs(id, tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "size_gb", "status", "instance_id", "backend_path", "mount_path", "created_at", "updated_at"}).
+				AddRow(id, userID, tenantID, "vol-1", 10, string(domain.VolumeStatusAvailable), &id, "", testMountPath, now, now))
 
 		vol, err := repo.GetByID(ctx, id)
 		assert.NoError(t, err)
@@ -97,10 +102,11 @@ func TestVolumeRepositoryGetByID(t *testing.T) {
 		repo := NewVolumeRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectQuery(testSelectVolume).
-			WithArgs(id, userID).
+			WithArgs(id, tenantID).
 			WillReturnError(pgx.ErrNoRows)
 
 		vol, err := repo.GetByID(ctx, id)
@@ -122,14 +128,15 @@ func TestVolumeRepositoryGetByName(t *testing.T) {
 		repo := NewVolumeRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		now := time.Now()
 		name := "vol-1"
 
 		mock.ExpectQuery(testSelectVolume).
-			WithArgs(name, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "size_gb", "status", "instance_id", "backend_path", "mount_path", "created_at", "updated_at"}).
-				AddRow(id, userID, name, 10, string(domain.VolumeStatusAvailable), &id, "", testMountPath, now, now))
+			WithArgs(name, tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "size_gb", "status", "instance_id", "backend_path", "mount_path", "created_at", "updated_at"}).
+				AddRow(id, userID, tenantID, name, 10, string(domain.VolumeStatusAvailable), &id, "", testMountPath, now, now))
 
 		vol, err := repo.GetByName(ctx, name)
 		assert.NoError(t, err)
@@ -144,11 +151,12 @@ func TestVolumeRepositoryGetByName(t *testing.T) {
 
 		repo := NewVolumeRepository(mock)
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		name := "vol-1"
 
 		mock.ExpectQuery(testSelectVolume).
-			WithArgs(name, userID).
+			WithArgs(name, tenantID).
 			WillReturnError(pgx.ErrNoRows)
 
 		vol, err := repo.GetByName(ctx, name)
@@ -169,14 +177,15 @@ func TestVolumeRepositoryList(t *testing.T) {
 
 		repo := NewVolumeRepository(mock)
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		now := time.Now()
 
 		instID := uuid.New()
 		mock.ExpectQuery(testSelectVolume).
-			WithArgs(userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "size_gb", "status", "instance_id", "backend_path", "mount_path", "created_at", "updated_at"}).
-				AddRow(uuid.New(), userID, "vol-1", 10, string(domain.VolumeStatusAvailable), &instID, "", testMountPath, now, now))
+			WithArgs(tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "size_gb", "status", "instance_id", "backend_path", "mount_path", "created_at", "updated_at"}).
+				AddRow(uuid.New(), userID, tenantID, "vol-1", 10, string(domain.VolumeStatusAvailable), &instID, "", testMountPath, now, now))
 
 		vols, err := repo.List(ctx)
 		assert.NoError(t, err)
@@ -190,10 +199,11 @@ func TestVolumeRepositoryList(t *testing.T) {
 
 		repo := NewVolumeRepository(mock)
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectQuery(testSelectVolume).
-			WithArgs(userID).
+			WithArgs(tenantID).
 			WillReturnError(errors.New(testDBError))
 
 		vols, err := repo.List(ctx)
@@ -211,13 +221,14 @@ func TestVolumeRepositoryListByInstanceID(t *testing.T) {
 		repo := NewVolumeRepository(mock)
 		userID := uuid.New()
 		instanceID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 		now := time.Now()
 
 		mock.ExpectQuery(testSelectVolume).
-			WithArgs(instanceID, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "size_gb", "status", "instance_id", "backend_path", "mount_path", "created_at", "updated_at"}).
-				AddRow(uuid.New(), userID, "vol-1", 10, string(domain.VolumeStatusAvailable), &instanceID, "", testMountPath, now, now))
+			WithArgs(instanceID, tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "size_gb", "status", "instance_id", "backend_path", "mount_path", "created_at", "updated_at"}).
+				AddRow(uuid.New(), userID, tenantID, "vol-1", 10, string(domain.VolumeStatusAvailable), &instanceID, "", testMountPath, now, now))
 
 		vols, err := repo.ListByInstanceID(ctx, instanceID)
 		assert.NoError(t, err)
@@ -232,10 +243,11 @@ func TestVolumeRepositoryListByInstanceID(t *testing.T) {
 		repo := NewVolumeRepository(mock)
 		userID := uuid.New()
 		instanceID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectQuery(testSelectVolume).
-			WithArgs(instanceID, userID).
+			WithArgs(instanceID, tenantID).
 			WillReturnError(errors.New(testDBError))
 
 		vols, err := repo.ListByInstanceID(ctx, instanceID)
@@ -257,12 +269,14 @@ func TestVolumeRepositoryUpdate(t *testing.T) {
 			Status:    domain.VolumeStatusInUse,
 			UpdatedAt: time.Now(),
 		}
+		tenantID := uuid.New()
 
 		mock.ExpectExec("UPDATE volumes").
-			WithArgs(string(vol.Status), vol.InstanceID, vol.BackendPath, vol.MountPath, vol.UpdatedAt, vol.ID, vol.UserID).
+			WithArgs(string(vol.Status), vol.InstanceID, vol.BackendPath, vol.MountPath, vol.UpdatedAt, vol.ID, tenantID).
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
-		err = repo.Update(context.Background(), vol)
+		ctx := appcontext.WithTenantID(context.Background(), tenantID)
+		err = repo.Update(ctx, vol)
 		assert.NoError(t, err)
 	})
 
@@ -275,11 +289,13 @@ func TestVolumeRepositoryUpdate(t *testing.T) {
 		vol := &domain.Volume{
 			ID: uuid.New(),
 		}
+		tenantID := uuid.New()
 
 		mock.ExpectExec("UPDATE volumes").
 			WillReturnError(errors.New(testDBError))
 
-		err = repo.Update(context.Background(), vol)
+		ctx := appcontext.WithTenantID(context.Background(), tenantID)
+		err = repo.Update(ctx, vol)
 		assert.Error(t, err)
 	})
 }
@@ -293,10 +309,11 @@ func TestVolumeRepositoryDelete(t *testing.T) {
 		repo := NewVolumeRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectExec("DELETE FROM volumes").
-			WithArgs(id, userID).
+			WithArgs(id, tenantID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.Delete(ctx, id)
@@ -311,10 +328,11 @@ func TestVolumeRepositoryDelete(t *testing.T) {
 		repo := NewVolumeRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 		mock.ExpectExec("DELETE FROM volumes").
-			WithArgs(id, userID).
+			WithArgs(id, tenantID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 0))
 
 		err = repo.Delete(ctx, id)
