@@ -74,6 +74,94 @@ func TestClusterServiceCreate(t *testing.T) {
 	taskQueue.AssertExpectations(t)
 }
 
+func TestClusterServiceCreateVpcNotFound(t *testing.T) {
+	_, _, vpcSvc, _, _, _, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	userID := uuid.New()
+	vpcID := uuid.New()
+
+	vpcSvc.On("GetVPC", mock.Anything, vpcID.String()).Return(nil, assert.AnError)
+
+	cluster, err := svc.CreateCluster(ctx, ports.CreateClusterParams{
+		UserID:  userID,
+		Name:    testClusterName,
+		VpcID:   vpcID,
+		Version: "v1.29.0",
+		Workers: 2,
+	})
+
+	assert.Error(t, err)
+	assert.Nil(t, cluster)
+}
+
+func TestClusterServiceCreateEncryptError(t *testing.T) {
+	repo, _, vpcSvc, _, _, secretSvc, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	userID := uuid.New()
+	vpcID := uuid.New()
+
+	vpcSvc.On("GetVPC", mock.Anything, vpcID.String()).Return(&domain.VPC{ID: vpcID}, nil)
+	secretSvc.On("Encrypt", mock.Anything, userID, mock.Anything).Return("", assert.AnError)
+
+	cluster, err := svc.CreateCluster(ctx, ports.CreateClusterParams{
+		UserID:  userID,
+		Name:    testClusterName,
+		VpcID:   vpcID,
+		Version: "v1.29.0",
+		Workers: 2,
+	})
+
+	assert.Error(t, err)
+	assert.Nil(t, cluster)
+	repo.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+}
+
+func TestClusterServiceCreateRepoError(t *testing.T) {
+	repo, _, vpcSvc, _, _, secretSvc, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	userID := uuid.New()
+	vpcID := uuid.New()
+
+	vpcSvc.On("GetVPC", mock.Anything, vpcID.String()).Return(&domain.VPC{ID: vpcID}, nil)
+	secretSvc.On("Encrypt", mock.Anything, userID, mock.Anything).Return("encrypted-key", nil)
+	repo.On("Create", mock.Anything, mock.Anything).Return(assert.AnError)
+
+	cluster, err := svc.CreateCluster(ctx, ports.CreateClusterParams{
+		UserID:  userID,
+		Name:    testClusterName,
+		VpcID:   vpcID,
+		Version: "v1.29.0",
+		Workers: 2,
+	})
+
+	assert.Error(t, err)
+	assert.Nil(t, cluster)
+}
+
+func TestClusterServiceCreateEnqueueError(t *testing.T) {
+	repo, _, vpcSvc, _, taskQueue, secretSvc, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	userID := uuid.New()
+	vpcID := uuid.New()
+
+	vpcSvc.On("GetVPC", mock.Anything, vpcID.String()).Return(&domain.VPC{ID: vpcID}, nil)
+	secretSvc.On("Encrypt", mock.Anything, userID, mock.Anything).Return("encrypted-key", nil)
+	repo.On("Create", mock.Anything, mock.Anything).Return(nil)
+	repo.On("Update", mock.Anything, mock.Anything).Return(nil)
+	taskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.Anything).Return(assert.AnError).Once()
+
+	cluster, err := svc.CreateCluster(ctx, ports.CreateClusterParams{
+		UserID:  userID,
+		Name:    testClusterName,
+		VpcID:   vpcID,
+		Version: "v1.29.0",
+		Workers: 2,
+	})
+
+	assert.Error(t, err)
+	assert.Nil(t, cluster)
+}
+
 func TestClusterServiceDelete(t *testing.T) {
 	repo, _, _, _, taskQueue, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
