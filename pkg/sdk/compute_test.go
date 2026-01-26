@@ -173,6 +173,21 @@ func TestClient_GetInstanceStats(t *testing.T) {
 	assert.Equal(t, 15.5, stats.CPUPercentage)
 }
 
+func TestClient_ComputeErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-key")
+	_, err := client.GetInstance("inst-1")
+	assert.Error(t, err)
+
+	_, err = client.GetInstanceStats("inst-1")
+	assert.Error(t, err)
+}
+
 func TestClient_ApiError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

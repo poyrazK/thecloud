@@ -110,3 +110,24 @@ func TestClient_DeleteSecret(t *testing.T) {
 
 	assert.NoError(t, err)
 }
+
+func TestClient_SecretErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	_, err := client.CreateSecret("secret", "value", "desc")
+	assert.Error(t, err)
+
+	_, err = client.ListSecrets()
+	assert.Error(t, err)
+
+	_, err = client.GetSecret("sec-1")
+	assert.Error(t, err)
+
+	err = client.DeleteSecret("sec-1")
+	assert.Error(t, err)
+}

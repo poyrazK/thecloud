@@ -158,3 +158,36 @@ func TestQueueSDK(t *testing.T) {
 		assert.NoError(t, err)
 	})
 }
+
+func TestQueueSDK_Errors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := sdk.NewClient(server.URL+"/api/v1", "test-api-key")
+	_, err := client.CreateQueue("q", nil, nil, nil)
+	assert.Error(t, err)
+
+	_, err = client.ListQueues()
+	assert.Error(t, err)
+
+	_, err = client.GetQueue("q-1")
+	assert.Error(t, err)
+
+	err = client.DeleteQueue("q-1")
+	assert.Error(t, err)
+
+	_, err = client.SendMessage("q-1", "hello")
+	assert.Error(t, err)
+
+	_, err = client.ReceiveMessages("q-1", 10)
+	assert.Error(t, err)
+
+	err = client.DeleteMessage("q-1", "handle-1")
+	assert.Error(t, err)
+
+	err = client.PurgeQueue("q-1")
+	assert.Error(t, err)
+}

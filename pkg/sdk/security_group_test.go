@@ -210,3 +210,18 @@ func TestClientDetachSecurityGroup(t *testing.T) {
 
 	assert.NoError(t, err)
 }
+
+func TestClient_SecurityGroupErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, testAPIKey)
+	_, err := client.GetSecurityGroup("sg-1")
+	assert.Error(t, err)
+
+	_, err = client.AddSecurityRule("sg-1", SecurityRule{Protocol: "tcp"})
+	assert.Error(t, err)
+}

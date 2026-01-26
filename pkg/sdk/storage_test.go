@@ -373,3 +373,27 @@ func TestClient_LifecycleRules(t *testing.T) {
 	err = client.DeleteLifecycleRule(bucket, "rule-1")
 	assert.NoError(t, err)
 }
+
+func TestClient_StorageListErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, testAPIKey)
+	_, err := client.ListObjects("bucket")
+	assert.Error(t, err)
+
+	_, err = client.ListVersions("bucket", "key")
+	assert.Error(t, err)
+
+	_, err = client.ListBuckets()
+	assert.Error(t, err)
+
+	_, err = client.GetStorageClusterStatus()
+	assert.Error(t, err)
+
+	_, err = client.ListLifecycleRules("bucket")
+	assert.Error(t, err)
+}

@@ -178,3 +178,24 @@ func TestClient_GetClusterHealth(t *testing.T) {
 	assert.Equal(t, "ok", status.Status)
 	assert.Equal(t, 3, status.NodesReady)
 }
+
+func TestClient_ClusterErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, testAPIKey)
+	_, err := client.ListClusters()
+	assert.Error(t, err)
+
+	_, err = client.CreateCluster(&CreateClusterInput{Name: "c1"})
+	assert.Error(t, err)
+
+	_, err = client.GetCluster("cluster-1")
+	assert.Error(t, err)
+
+	_, err = client.GetClusterHealth("cluster-1")
+	assert.Error(t, err)
+}
