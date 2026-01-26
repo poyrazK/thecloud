@@ -2,13 +2,30 @@ package services
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+type mockDialer struct {
+	err error
+}
+
+func (m *mockDialer) DialTimeout(network, address string, timeout time.Duration) (net.Conn, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	conn1, conn2 := net.Pipe()
+	_ = conn2.Close()
+	return conn1, nil
+}
 
 type MockLBProxyAdapter struct {
 	mock.Mock
@@ -231,6 +248,43 @@ func TestLBWorkerProcessHealthChecks(t *testing.T) {
 	worker.processHealthChecks(ctx)
 
 	// If we want to verify healthy check, we can maybe simulate it, but tough without refactoring.
+}
+
+func TestLBWorkerIsPortOpen(t *testing.T) {
+	lbRepo := new(mockLBRepo)
+	instRepo := new(mockInstRepo)
+	proxy := new(MockLBProxyAdapter)
+	worker := NewLBWorker(lbRepo, instRepo, proxy)
+
+	worker.dialer = &mockDialer{}
+	assert.True(t, worker.isPortOpen("8080"))
+
+	worker.dialer = &mockDialer{err: fmt.Errorf("dial failed")}
+	assert.False(t, worker.isPortOpen("8080"))
+}
+
+func TestLBWorkerCheckTargetHealthUpdates(t *testing.T) {
+	lbRepo := new(mockLBRepo)
+	instRepo := new(mockInstRepo)
+	proxy := new(MockLBProxyAdapter)
+	worker := NewLBWorker(lbRepo, instRepo, proxy)
+	worker.dialer = &mockDialer{}
+
+	ctx := context.Background()
+	lbID := uuid.New()
+	instID := uuid.New()
+
+	instRepo.On("GetByID", ctx, instID).Return(&domain.Instance{ID: instID, Ports: "8080:80"}, nil)
+	lbRepo.On("UpdateTargetHealth", ctx, lbID, instID, "healthy").Return(nil).Once()
+
+	changed := worker.checkTargetHealth(ctx, &domain.LoadBalancer{ID: lbID}, &domain.LBTarget{
+		InstanceID: instID,
+		Port:       80,
+		Health:     "unhealthy",
+	})
+
+	assert.True(t, changed)
+	lbRepo.AssertExpectations(t)
 }
 
 func TestLBWorkerRun(t *testing.T) {
