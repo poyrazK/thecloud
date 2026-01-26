@@ -206,6 +206,47 @@ func TestGetInstanceLogs(t *testing.T) {
 	assert.Contains(t, logs, "log line 1")
 }
 
+func TestExecInstanceNotRunning(t *testing.T) {
+	repo, _, _, _, _, _, _, _, _, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
+
+	instID := uuid.New()
+	inst := &domain.Instance{ID: instID, ContainerID: ""}
+	repo.On("GetByID", mock.Anything, instID).Return(inst, nil)
+
+	_, err := svc.Exec(context.Background(), instID.String(), []string{"echo", "hi"})
+	assert.Error(t, err)
+}
+
+func TestExecInstanceSuccess(t *testing.T) {
+	repo, _, _, _, compute, _, _, _, _, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer compute.AssertExpectations(t)
+
+	instID := uuid.New()
+	inst := &domain.Instance{ID: instID, ContainerID: "c123"}
+	repo.On("GetByID", mock.Anything, instID).Return(inst, nil)
+	compute.On("Exec", mock.Anything, "c123", []string{"echo", "hi"}).Return("hi", nil)
+
+	out, err := svc.Exec(context.Background(), instID.String(), []string{"echo", "hi"})
+	assert.NoError(t, err)
+	assert.Equal(t, "hi", out)
+}
+
+func TestExecInstanceError(t *testing.T) {
+	repo, _, _, _, compute, _, _, _, _, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer compute.AssertExpectations(t)
+
+	instID := uuid.New()
+	inst := &domain.Instance{ID: instID, ContainerID: "c123"}
+	repo.On("GetByID", mock.Anything, instID).Return(inst, nil)
+	compute.On("Exec", mock.Anything, "c123", []string{"echo", "hi"}).Return("", assert.AnError)
+
+	_, err := svc.Exec(context.Background(), instID.String(), []string{"echo", "hi"})
+	assert.Error(t, err)
+}
+
 func TestStopInstanceSuccess(t *testing.T) {
 	repo, _, _, _, compute, _, _, auditSvc, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
