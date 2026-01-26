@@ -137,6 +137,21 @@ func TestClient_GetInstanceLogs(t *testing.T) {
 	assert.Equal(t, mockLogs, logs)
 }
 
+func TestClient_GetInstanceLogsErrorStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/instances/inst-1/logs", r.URL.Path)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-key")
+	_, err := client.GetInstanceLogs("inst-1")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "api error")
+}
+
 func TestClient_GetInstanceStats(t *testing.T) {
 	mockStats := InstanceStats{
 		CPUPercentage:    15.5,
