@@ -26,11 +26,11 @@ func NewInstanceRepository(db DB) *InstanceRepository {
 // Create inserts a new instance record into the database.
 func (r *InstanceRepository) Create(ctx context.Context, inst *domain.Instance) error {
 	query := `
-		INSERT INTO instances (id, user_id, name, image, container_id, status, ports, vpc_id, subnet_id, private_ip, ovs_port, version, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, '')::inet, $11, $12, $13, $14)
+		INSERT INTO instances (id, user_id, tenant_id, name, image, container_id, status, ports, vpc_id, subnet_id, private_ip, ovs_port, version, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULLIF($11, '')::inet, $12, $13, $14, $15)
 	`
 	_, err := r.db.Exec(ctx, query,
-		inst.ID, inst.UserID, inst.Name, inst.Image, inst.ContainerID, string(inst.Status), inst.Ports, inst.VpcID, inst.SubnetID,
+		inst.ID, inst.UserID, inst.TenantID, inst.Name, inst.Image, inst.ContainerID, string(inst.Status), inst.Ports, inst.VpcID, inst.SubnetID,
 		inst.PrivateIP, inst.OvsPort, inst.Version, inst.CreatedAt, inst.UpdatedAt,
 	)
 	if err != nil {
@@ -41,20 +41,20 @@ func (r *InstanceRepository) Create(ctx context.Context, inst *domain.Instance) 
 
 // GetByID retrieves a single instance by its UUID and ensures it belongs to the authenticated user.
 func (r *InstanceRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Instance, error) {
-	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
+		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
 		FROM instances
-		WHERE id = $1 AND user_id = $2
+		WHERE id = $1 AND tenant_id = $2
 	`
-	return r.scanInstance(r.db.QueryRow(ctx, query, id, userID))
+	return r.scanInstance(r.db.QueryRow(ctx, query, id, tenantID))
 }
 
 func (r *InstanceRepository) scanInstance(row pgx.Row) (*domain.Instance, error) {
 	var inst domain.Instance
 	var status string
 	err := row.Scan(
-		&inst.ID, &inst.UserID, &inst.Name, &inst.Image, &inst.ContainerID, &status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
+		&inst.ID, &inst.UserID, &inst.TenantID, &inst.Name, &inst.Image, &inst.ContainerID, &status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -68,25 +68,25 @@ func (r *InstanceRepository) scanInstance(row pgx.Row) (*domain.Instance, error)
 
 // GetByName retrieves a single instance by its name and ensures it belongs to the authenticated user.
 func (r *InstanceRepository) GetByName(ctx context.Context, name string) (*domain.Instance, error) {
-	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
+		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
 		FROM instances
-		WHERE name = $1 AND user_id = $2
+		WHERE name = $1 AND tenant_id = $2
 	`
-	return r.scanInstance(r.db.QueryRow(ctx, query, name, userID))
+	return r.scanInstance(r.db.QueryRow(ctx, query, name, tenantID))
 }
 
 // List returns all instances belonging to the authenticated user.
 func (r *InstanceRepository) List(ctx context.Context) ([]*domain.Instance, error) {
-	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
+		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
 		FROM instances
-		WHERE user_id = $1
+		WHERE tenant_id = $1
 		ORDER BY created_at DESC
 	`
-	rows, err := r.db.Query(ctx, query, userID)
+	rows, err := r.db.Query(ctx, query, tenantID)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list instances", err)
 	}
@@ -95,7 +95,7 @@ func (r *InstanceRepository) List(ctx context.Context) ([]*domain.Instance, erro
 
 func (r *InstanceRepository) ListAll(ctx context.Context) ([]*domain.Instance, error) {
 	query := `
-		SELECT id, user_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
+		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
 		FROM instances
 		ORDER BY created_at DESC
 	`
@@ -112,10 +112,10 @@ func (r *InstanceRepository) Update(ctx context.Context, inst *domain.Instance) 
 	query := `
 		UPDATE instances
 		SET name = $1, status = $2, version = version + 1, updated_at = $3, container_id = $4, ports = $5, vpc_id = $6, subnet_id = $7, private_ip = NULLIF($8, '')::inet, ovs_port = $9
-		WHERE id = $10 AND version = $11 AND user_id = $12
+		WHERE id = $10 AND version = $11 AND tenant_id = $12
 	`
 	now := time.Now()
-	cmd, err := r.db.Exec(ctx, query, inst.Name, string(inst.Status), now, inst.ContainerID, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.ID, inst.Version, inst.UserID)
+	cmd, err := r.db.Exec(ctx, query, inst.Name, string(inst.Status), now, inst.ContainerID, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.ID, inst.Version, inst.TenantID)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to update instance", err)
 	}
@@ -131,14 +131,14 @@ func (r *InstanceRepository) Update(ctx context.Context, inst *domain.Instance) 
 
 // ListBySubnet returns all instances associated with a specific subnet.
 func (r *InstanceRepository) ListBySubnet(ctx context.Context, subnetID uuid.UUID) ([]*domain.Instance, error) {
-	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
+		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), version, created_at, updated_at
 		FROM instances
-		WHERE subnet_id = $1 AND user_id = $2
+		WHERE subnet_id = $1 AND tenant_id = $2
 		ORDER BY created_at DESC
 	`
-	rows, err := r.db.Query(ctx, query, subnetID, userID)
+	rows, err := r.db.Query(ctx, query, subnetID, tenantID)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list instances by subnet", err)
 	}
@@ -160,9 +160,9 @@ func (r *InstanceRepository) scanInstances(rows pgx.Rows) ([]*domain.Instance, e
 
 // Delete removes an instance record from the database.
 func (r *InstanceRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	userID := appcontext.UserIDFromContext(ctx)
-	query := `DELETE FROM instances WHERE id = $1 AND user_id = $2`
-	cmd, err := r.db.Exec(ctx, query, id, userID)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	query := `DELETE FROM instances WHERE id = $1 AND tenant_id = $2`
+	cmd, err := r.db.Exec(ctx, query, id, tenantID)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to delete instance", err)
 	}
