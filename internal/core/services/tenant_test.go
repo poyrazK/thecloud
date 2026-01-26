@@ -13,6 +13,12 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	testTenantName = "My Tenant"
+	testTenantSlug = "my-tenant"
+	testSlugOk     = "slug-ok"
+)
+
 func setupTenantServiceTest(_ *testing.T) (*MockTenantRepo, *MockUserRepo, *MockAuditService, *services.TenantService) {
 	tenantRepo := new(MockTenantRepo)
 	userRepo := new(MockUserRepo)
@@ -22,13 +28,13 @@ func setupTenantServiceTest(_ *testing.T) (*MockTenantRepo, *MockUserRepo, *Mock
 	return tenantRepo, userRepo, auditSvc, svc
 }
 
-func TestCreateTenant_Success(t *testing.T) {
+func TestCreateTenantSuccess(t *testing.T) {
 	tenantRepo, userRepo, _, svc := setupTenantServiceTest(t)
 
 	ctx := context.Background()
 	ownerID := uuid.New()
-	name := "My Tenant"
-	slug := "my-tenant"
+	name := testTenantName
+	slug := testTenantSlug
 
 	tenantRepo.On("GetBySlug", mock.Anything, slug).Return(nil, nil) // Slug available
 	tenantRepo.On("Create", mock.Anything, mock.MatchedBy(func(tenant *domain.Tenant) bool {
@@ -51,13 +57,13 @@ func TestCreateTenant_Success(t *testing.T) {
 	assert.Equal(t, slug, tenant.Slug)
 }
 
-func TestCreateTenant_DoesNotUpdateUserWhenDefaultTenantSet(t *testing.T) {
+func TestCreateTenantDoesNotUpdateUserWhenDefaultTenantSet(t *testing.T) {
 	tenantRepo, userRepo, _, svc := setupTenantServiceTest(t)
 
 	ctx := context.Background()
 	ownerID := uuid.New()
-	name := "My Tenant"
-	slug := "my-tenant"
+	name := testTenantName
+	slug := testTenantSlug
 	defaultTenantID := uuid.New()
 
 	tenantRepo.On("GetBySlug", mock.Anything, slug).Return(nil, nil)
@@ -73,7 +79,7 @@ func TestCreateTenant_DoesNotUpdateUserWhenDefaultTenantSet(t *testing.T) {
 	userRepo.AssertNotCalled(t, "Update", mock.Anything, mock.Anything)
 }
 
-func TestCreateTenant_SlugTaken(t *testing.T) {
+func TestCreateTenantSlugTaken(t *testing.T) {
 	tenantRepo, _, _, svc := setupTenantServiceTest(t)
 
 	ctx := context.Background()
@@ -90,13 +96,13 @@ func TestCreateTenant_SlugTaken(t *testing.T) {
 	assert.Contains(t, err.Error(), "already exists")
 }
 
-func TestCreateTenant_AddMemberError(t *testing.T) {
+func TestCreateTenantAddMemberError(t *testing.T) {
 	tenantRepo, userRepo, _, svc := setupTenantServiceTest(t)
 
 	ctx := context.Background()
 	ownerID := uuid.New()
-	name := "My Tenant"
-	slug := "my-tenant"
+	name := testTenantName
+	slug := testTenantSlug
 
 	tenantRepo.On("GetBySlug", mock.Anything, slug).Return(nil, nil)
 	tenantRepo.On("Create", mock.Anything, mock.Anything).Return(nil)
@@ -108,7 +114,7 @@ func TestCreateTenant_AddMemberError(t *testing.T) {
 	assert.Nil(t, tenant)
 }
 
-func TestCreateTenant_CreateError(t *testing.T) {
+func TestCreateTenantCreateError(t *testing.T) {
 	tenantRepo, _, _, svc := setupTenantServiceTest(t)
 
 	ctx := context.Background()
@@ -117,47 +123,47 @@ func TestCreateTenant_CreateError(t *testing.T) {
 	tenantRepo.On("GetBySlug", mock.Anything, "slug-fail").Return(nil, nil)
 	tenantRepo.On("Create", mock.Anything, mock.Anything).Return(assert.AnError)
 
-	tenant, err := svc.CreateTenant(ctx, "My Tenant", "slug-fail", ownerID)
+	tenant, err := svc.CreateTenant(ctx, testTenantName, "slug-fail", ownerID)
 	assert.Error(t, err)
 	assert.Nil(t, tenant)
 }
 
-func TestCreateTenant_UpdateQuotaErrorContinues(t *testing.T) {
+func TestCreateTenantUpdateQuotaErrorContinues(t *testing.T) {
 	tenantRepo, userRepo, _, svc := setupTenantServiceTest(t)
 
 	ctx := context.Background()
 	ownerID := uuid.New()
 
-	tenantRepo.On("GetBySlug", mock.Anything, "slug-ok").Return(nil, nil)
+	tenantRepo.On("GetBySlug", mock.Anything, testSlugOk).Return(nil, nil)
 	tenantRepo.On("Create", mock.Anything, mock.Anything).Return(nil)
 	tenantRepo.On("AddMember", mock.Anything, mock.Anything, ownerID, "owner").Return(nil)
 	tenantRepo.On("UpdateQuota", mock.Anything, mock.Anything).Return(assert.AnError).Once()
 	userRepo.On("GetByID", mock.Anything, ownerID).Return(&domain.User{ID: ownerID}, nil)
 	userRepo.On("Update", mock.Anything, mock.Anything).Return(nil)
 
-	tenant, err := svc.CreateTenant(ctx, "My Tenant", "slug-ok", ownerID)
+	tenant, err := svc.CreateTenant(ctx, testTenantName, testSlugOk, ownerID)
 	assert.NoError(t, err)
 	assert.NotNil(t, tenant)
 }
 
-func TestCreateTenant_UserLookupErrorContinues(t *testing.T) {
+func TestCreateTenantUserLookupErrorContinues(t *testing.T) {
 	tenantRepo, userRepo, _, svc := setupTenantServiceTest(t)
 
 	ctx := context.Background()
 	ownerID := uuid.New()
 
-	tenantRepo.On("GetBySlug", mock.Anything, "slug-ok").Return(nil, nil)
+	tenantRepo.On("GetBySlug", mock.Anything, testSlugOk).Return(nil, nil)
 	tenantRepo.On("Create", mock.Anything, mock.Anything).Return(nil)
 	tenantRepo.On("AddMember", mock.Anything, mock.Anything, ownerID, "owner").Return(nil)
 	tenantRepo.On("UpdateQuota", mock.Anything, mock.Anything).Return(nil).Maybe()
 	userRepo.On("GetByID", mock.Anything, ownerID).Return(nil, assert.AnError)
 
-	tenant, err := svc.CreateTenant(ctx, "My Tenant", "slug-ok", ownerID)
+	tenant, err := svc.CreateTenant(ctx, testTenantName, testSlugOk, ownerID)
 	assert.NoError(t, err)
 	assert.NotNil(t, tenant)
 }
 
-func TestCreateTenant_UserUpdateErrorContinues(t *testing.T) {
+func TestCreateTenantUserUpdateErrorContinues(t *testing.T) {
 	tenantRepo, userRepo, _, svc := setupTenantServiceTest(t)
 
 	ctx := context.Background()
@@ -170,12 +176,12 @@ func TestCreateTenant_UserUpdateErrorContinues(t *testing.T) {
 	userRepo.On("GetByID", mock.Anything, ownerID).Return(&domain.User{ID: ownerID}, nil)
 	userRepo.On("Update", mock.Anything, mock.Anything).Return(assert.AnError)
 
-	tenant, err := svc.CreateTenant(ctx, "My Tenant", "slug-ok-2", ownerID)
+	tenant, err := svc.CreateTenant(ctx, testTenantName, "slug-ok-2", ownerID)
 	assert.NoError(t, err)
 	assert.NotNil(t, tenant)
 }
 
-func TestInviteMember_Success(t *testing.T) {
+func TestInviteMemberSuccess(t *testing.T) {
 	tenantRepo, userRepo, _, svc := setupTenantServiceTest(t)
 
 	ctx := context.Background()
@@ -199,7 +205,7 @@ func TestInviteMember_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestInviteMember_UserNotFound(t *testing.T) {
+func TestInviteMemberUserNotFound(t *testing.T) {
 	_, userRepo, _, svc := setupTenantServiceTest(t)
 
 	ctx := context.Background()
@@ -212,7 +218,7 @@ func TestInviteMember_UserNotFound(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestInviteMember_AlreadyMember(t *testing.T) {
+func TestInviteMemberAlreadyMember(t *testing.T) {
 	tenantRepo, userRepo, _, svc := setupTenantServiceTest(t)
 
 	ctx := context.Background()
@@ -228,7 +234,7 @@ func TestInviteMember_AlreadyMember(t *testing.T) {
 	assert.Contains(t, err.Error(), "already a member")
 }
 
-func TestSwitchTenant_Success(t *testing.T) {
+func TestSwitchTenantSuccess(t *testing.T) {
 	tenantRepo, userRepo, _, svc := setupTenantServiceTest(t)
 
 	ctx := context.Background()
@@ -250,7 +256,7 @@ func TestSwitchTenant_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSwitchTenant_NotMember(t *testing.T) {
+func TestSwitchTenantNotMember(t *testing.T) {
 	tenantRepo, userRepo, _, svc := setupTenantServiceTest(t)
 
 	ctx := context.Background()
@@ -264,7 +270,7 @@ func TestSwitchTenant_NotMember(t *testing.T) {
 	userRepo.AssertNotCalled(t, "GetByID", mock.Anything, mock.Anything)
 }
 
-func TestSwitchTenant_GetUserError(t *testing.T) {
+func TestSwitchTenantGetUserError(t *testing.T) {
 	tenantRepo, userRepo, _, svc := setupTenantServiceTest(t)
 
 	ctx := context.Background()
@@ -278,7 +284,7 @@ func TestSwitchTenant_GetUserError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestCheckQuota_WithinLimit(t *testing.T) {
+func TestCheckQuotaWithinLimit(t *testing.T) {
 	tenantRepo, _, _, svc := setupTenantServiceTest(t)
 	ctx := context.Background()
 	tenantID := uuid.New()
@@ -294,7 +300,7 @@ func TestCheckQuota_WithinLimit(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestCheckQuota_Exceeded(t *testing.T) {
+func TestCheckQuotaExceeded(t *testing.T) {
 	tenantRepo, _, _, svc := setupTenantServiceTest(t)
 	ctx := context.Background()
 	tenantID := uuid.New()
@@ -311,7 +317,7 @@ func TestCheckQuota_Exceeded(t *testing.T) {
 	assert.Contains(t, err.Error(), "quota exceeded")
 }
 
-func TestGetTenant_Success(t *testing.T) {
+func TestGetTenantSuccess(t *testing.T) {
 	tenantRepo, _, _, svc := setupTenantServiceTest(t)
 	ctx := context.Background()
 	tenantID := uuid.New()
@@ -325,7 +331,7 @@ func TestGetTenant_Success(t *testing.T) {
 	assert.Equal(t, "Found Tenant", result.Name)
 }
 
-func TestRemoveMember_Success(t *testing.T) {
+func TestRemoveMemberSuccess(t *testing.T) {
 	tenantRepo, _, _, svc := setupTenantServiceTest(t)
 	ctx := context.Background()
 	tenantID := uuid.New()
@@ -342,7 +348,7 @@ func TestRemoveMember_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestRemoveMember_CannotRemoveOwner(t *testing.T) {
+func TestRemoveMemberCannotRemoveOwner(t *testing.T) {
 	tenantRepo, _, _, svc := setupTenantServiceTest(t)
 	ctx := context.Background()
 	tenantID := uuid.New()
@@ -357,7 +363,7 @@ func TestRemoveMember_CannotRemoveOwner(t *testing.T) {
 	assert.Contains(t, err.Error(), "cannot remove tenant owner")
 }
 
-func TestGetMembership_Success(t *testing.T) {
+func TestGetMembershipSuccess(t *testing.T) {
 	tenantRepo, _, _, svc := setupTenantServiceTest(t)
 	ctx := context.Background()
 	tenantID := uuid.New()
@@ -371,7 +377,7 @@ func TestGetMembership_Success(t *testing.T) {
 	assert.Equal(t, member, result)
 }
 
-func TestCheckQuota_Resources(t *testing.T) {
+func TestCheckQuotaResources(t *testing.T) {
 	tenantRepo, _, _, svc := setupTenantServiceTest(t)
 	ctx := context.Background()
 	tenantID := uuid.New()
@@ -397,23 +403,23 @@ func TestCheckQuota_Resources(t *testing.T) {
 	assert.Contains(t, err.Error(), "unknown resource type")
 }
 
-func TestCheckQuota_ResourcesWithinLimit(t *testing.T) {
+func TestCheckQuotaResourcesWithinLimit(t *testing.T) {
 	tenantRepo, _, _, svc := setupTenantServiceTest(t)
 	ctx := context.Background()
 	tenantID := uuid.New()
 
 	quota := &domain.TenantQuota{
-		TenantID:       tenantID,
-		MaxStorageGB:   50,
-		UsedStorageGB:  10,
-		MaxMemoryGB:    16,
-		UsedMemoryGB:   8,
-		MaxVCPUs:       8,
-		UsedVCPUs:      4,
-		MaxVPCs:        2,
-		UsedVPCs:       1,
-		MaxInstances:   10,
-		UsedInstances:  3,
+		TenantID:      tenantID,
+		MaxStorageGB:  50,
+		UsedStorageGB: 10,
+		MaxMemoryGB:   16,
+		UsedMemoryGB:  8,
+		MaxVCPUs:      8,
+		UsedVCPUs:     4,
+		MaxVPCs:       2,
+		UsedVPCs:      1,
+		MaxInstances:  10,
+		UsedInstances: 3,
 	}
 	tenantRepo.On("GetQuota", mock.Anything, tenantID).Return(quota, nil)
 
@@ -422,7 +428,7 @@ func TestCheckQuota_ResourcesWithinLimit(t *testing.T) {
 	assert.NoError(t, svc.CheckQuota(ctx, tenantID, "vcpus", 2))
 }
 
-func TestRemoveMember_RepoError(t *testing.T) {
+func TestRemoveMemberRepoError(t *testing.T) {
 	tenantRepo, _, _, svc := setupTenantServiceTest(t)
 	ctx := context.Background()
 	tenantID := uuid.New()
@@ -437,7 +443,7 @@ func TestRemoveMember_RepoError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestRemoveMember_GetTenantError(t *testing.T) {
+func TestRemoveMemberGetTenantError(t *testing.T) {
 	tenantRepo, _, _, svc := setupTenantServiceTest(t)
 	ctx := context.Background()
 	tenantID := uuid.New()
@@ -449,7 +455,7 @@ func TestRemoveMember_GetTenantError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestCheckQuota_GetQuotaError(t *testing.T) {
+func TestCheckQuotaGetQuotaError(t *testing.T) {
 	tenantRepo, _, _, svc := setupTenantServiceTest(t)
 	ctx := context.Background()
 	tenantID := uuid.New()
