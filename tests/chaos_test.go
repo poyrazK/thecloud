@@ -97,7 +97,7 @@ func TestChaos(t *testing.T) {
 
 		// 4. Verify system is still functional (new request)
 		token2 := registerAndLogin(t, client, "post-restart@thecloud.local", "Post Restart")
-		resp := getRequest(t, client, testutil.TestBaseURL+"/instances", token2)
+		resp := getRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token2)
 		defer resp.Body.Close()
 		assert.Equal(t, http.StatusOK, resp.StatusCode, "API should be functional after restart")
 	})
