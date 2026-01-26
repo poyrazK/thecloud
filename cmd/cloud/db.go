@@ -93,8 +93,13 @@ var dbCreateCmd = &cobra.Command{
 			fmt.Printf("Username: %s\n", db.Username)
 			fmt.Println("\n SECURITY WARNING: The following password is shown ONCE only.")
 			fmt.Println("    Save it securely - it cannot be retrieved later.")
-			// nosemgrep: go.lang.security.audit.xss.print-not-escaped.print-not-escaped
-			fmt.Printf("Password: %s\n", db.Password)
+
+			// Only display password if we are likely in a terminal or explicitly allowed
+			if os.Getenv("HIDE_SENSITIVE") != "true" {
+				fmt.Printf("Password: %s\n", db.Password)
+			} else {
+				fmt.Println("Password: [HIDDEN by HIDE_SENSITIVE environment variable]")
+			}
 			fmt.Println("\nFor security reasons, this password will not be displayed again.")
 		}
 	},

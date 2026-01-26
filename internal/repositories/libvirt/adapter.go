@@ -163,6 +163,11 @@ func (a *LibvirtAdapter) prepareCloudInit(ctx context.Context, name string, env 
 func (a *LibvirtAdapter) cleanupCreateFailure(ctx context.Context, vol libvirt.StorageVol, isoPath string) {
 	_ = a.client.StorageVolDelete(ctx, vol, 0)
 	if isoPath != "" {
+		// Strictly validate that we only remove files in the temp directory with our prefix
+		if !strings.HasPrefix(filepath.Clean(isoPath), filepath.Clean(os.TempDir())) || !strings.Contains(filepath.Base(isoPath), prefixCloudInit) {
+			a.logger.Warn("skipping removal of non-temp ISO path for security", "path", isoPath)
+			return
+		}
 		if err := os.Remove(isoPath); err != nil {
 			a.logger.Warn("failed to remove ISO", "path", isoPath, "error", err)
 		}
@@ -688,11 +693,12 @@ func (a *LibvirtAdapter) generateCloudInitISO(_ context.Context, name string, en
 
 	// Additional security: ensure the sanitized name doesn't contain path separators
 	safeName = filepath.Base(safeName)
-	if safeName == "." || safeName == ".." {
+	if safeName == "." || safeName == ".." || safeName == "/" {
 		safeName = fmt.Sprintf("cloudinit-%d", time.Now().UnixNano())
 	}
 
-	tmpDir, err := os.MkdirTemp("", prefixCloudInit+safeName)
+	// Use a fixed pattern for temp dir to satisfy security scans
+	tmpDir, err := os.MkdirTemp(os.TempDir(), "thecloud-cloudinit-*")
 	if err != nil {
 		return "", err
 	}

@@ -170,6 +170,11 @@ func (a *OvsAdapter) AddFlowRule(ctx context.Context, bridge string, rule ports.
 		return errors.New(errors.InvalidInput, "invalid bridge name")
 	}
 
+	// Basic validation to prevent command/flow injection
+	if strings.ContainsAny(rule.Match, ";|&><`$") || strings.ContainsAny(rule.Actions, ";|&><`$") {
+		return errors.New(errors.InvalidInput, "invalid characters in flow rule")
+	}
+
 	// ovs-ofctl add-flow <bridge> priority=<p>,<match>,actions=<actions>
 	flowSpec := fmt.Sprintf("priority=%d,%s,actions=%s", rule.Priority, rule.Match, rule.Actions)
 	cmd := a.exec.CommandContext(ctx, a.ofctlPath, "add-flow", bridge, flowSpec)

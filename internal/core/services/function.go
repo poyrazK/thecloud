@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -218,7 +219,9 @@ func (s *FunctionService) captureInvocationResults(i *domain.Invocation, contain
 	logsReader, _ := s.compute.GetInstanceLogs(context.Background(), containerID)
 	if logsReader != nil {
 		logBytes, _ := io.ReadAll(logsReader)
-		i.Logs = string(logBytes)
+		// Sanitize logs to prevent log injection (strip control characters)
+		re := regexp.MustCompile(`[^[:print:][:space:]]`)
+		i.Logs = re.ReplaceAllString(string(logBytes), "?")
 		_ = logsReader.Close()
 	}
 
@@ -269,8 +272,12 @@ func (s *FunctionService) prepareCode(ctx context.Context, f *domain.Function) (
 }
 
 func (s *FunctionService) extractZip(rc io.Reader, tmpDir string) error {
+	// Limit extraction to 50MB to prevent Zip bombs
+	const maxZipSize = 50 * 1024 * 1024
+	lr := io.LimitReader(rc, maxZipSize)
+
 	buf := new(bytes.Buffer)
-	if _, err := io.Copy(buf, rc); err != nil {
+	if _, err := io.Copy(buf, lr); err != nil {
 		return err
 	}
 

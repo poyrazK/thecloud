@@ -100,6 +100,10 @@ func (s *LocalFileStore) Assemble(ctx context.Context, bucket, key string, parts
 	bucketPath := filepath.Join(s.basePath, filepath.Clean(bucket))
 	destPath := filepath.Join(bucketPath, filepath.Clean(key))
 
+	if !strings.HasPrefix(destPath, filepath.Clean(s.basePath)) {
+		return 0, errors.New(errors.InvalidInput, errTraversal)
+	}
+
 	f, err := os.Create(destPath)
 	if err != nil {
 		return 0, errors.Wrap(errors.Internal, "failed to create dest file", err)
@@ -109,6 +113,9 @@ func (s *LocalFileStore) Assemble(ctx context.Context, bucket, key string, parts
 	var totalSize int64
 	for _, partKey := range parts {
 		partPath := filepath.Join(bucketPath, filepath.Clean(partKey))
+		if !strings.HasPrefix(partPath, filepath.Clean(s.basePath)) {
+			return 0, errors.New(errors.InvalidInput, errTraversal)
+		}
 		pf, err := os.Open(partPath)
 		if err != nil {
 			return 0, errors.Wrap(errors.Internal, "failed to open part file", err)

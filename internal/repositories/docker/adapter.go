@@ -304,9 +304,13 @@ func (a *DockerAdapter) DeleteVolume(ctx context.Context, name string) error {
 }
 
 func (a *DockerAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID string, destinationPath string) error {
-	// Use a helper container to tar the volume content to host path
 	// volumeID is the docker volume name
 	// destinationPath is on the host
+
+	// Check for path traversal in destinationPath
+	if strings.Contains(destinationPath, "..") {
+		return fmt.Errorf("invalid destination path: traversal detected")
+	}
 
 	// Ensure parent dir of destinationPath exists
 	// We assume destinationPath is accessible to the docker daemon (bind mount)
@@ -368,6 +372,11 @@ func (a *DockerAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID strin
 func (a *DockerAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID string, sourcePath string) error {
 	// volumeID is the docker volume name
 	// sourcePath is the .tar.gz on host
+
+	// Check for path traversal in sourcePath
+	if strings.Contains(sourcePath, "..") {
+		return fmt.Errorf("invalid source path: traversal detected")
+	}
 
 	imageName := "alpine"
 	if _, err := a.cli.ImagePull(ctx, imageName, image.PullOptions{}); err != nil {

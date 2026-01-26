@@ -13,9 +13,10 @@ import (
 
 // Client represents an SSH client for remote execution.
 type Client struct {
-	Host string
-	User string
-	Auth []ssh.AuthMethod
+	Host            string
+	User            string
+	Auth            []ssh.AuthMethod
+	HostKeyCallback ssh.HostKeyCallback
 }
 
 // NewClientWithKey constructs an SSH client using a private key.
@@ -31,6 +32,7 @@ func NewClientWithKey(host, user, privateKey string) (*Client, error) {
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // Default to insecure for legacy compatibility, but now configurable
 	}, nil
 }
 
@@ -39,7 +41,7 @@ func (c *Client) Run(ctx context.Context, cmd string) (string, error) {
 	config := &ssh.ClientConfig{
 		User:            c.User,
 		Auth:            c.Auth,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: c.HostKeyCallback,
 		Timeout:         10 * time.Second,
 	}
 
@@ -86,7 +88,7 @@ func (c *Client) WriteFile(ctx context.Context, path string, content []byte, mod
 	config := &ssh.ClientConfig{
 		User:            c.User,
 		Auth:            c.Auth,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: c.HostKeyCallback,
 		Timeout:         10 * time.Second,
 	}
 

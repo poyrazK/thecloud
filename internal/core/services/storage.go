@@ -456,9 +456,9 @@ func (s *StorageService) GeneratePresignedURL(ctx context.Context, bucket, key, 
 	expiresAt := time.Now().Add(expiry)
 
 	// Use dependency injected config secret if available
-	secret := "storage-secret-key"
-	if s.cfg != nil && s.cfg.SecretsEncryptionKey != "" {
-		secret = s.cfg.SecretsEncryptionKey
+	secret := s.cfg.SecretsEncryptionKey
+	if secret == "" {
+		return nil, errors.New(errors.Internal, "storage secret not configured")
 	}
 
 	// Dynamic base URL derived from config or default
