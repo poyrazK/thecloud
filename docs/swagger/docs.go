@@ -3702,6 +3702,48 @@ const docTemplate = `{
                 }
             }
         },
+        "/tenants": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "Tenant"
+                ],
+                "summary": "Create a new tenant",
+                "responses": {}
+            }
+        },
+        "/tenants/:id/members": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "Tenant"
+                ],
+                "summary": "Invite member to tenant",
+                "responses": {}
+            }
+        },
+        "/tenants/:id/switch": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "Tenant"
+                ],
+                "summary": "Switch active tenant",
+                "responses": {}
+            }
+        },
         "/volumes": {
             "get": {
                 "security": [
@@ -4061,6 +4103,9 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "default_tenant_id": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -4391,7 +4436,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
-                    "description": "Unique per user",
+                    "description": "Unique per tenant",
                     "type": "string"
                 },
                 "ovs_port": {
@@ -4412,11 +4457,14 @@ const docTemplate = `{
                 "subnet_id": {
                     "type": "string"
                 },
+                "tenant_id": {
+                    "type": "string"
+                },
                 "updated_at": {
                     "type": "string"
                 },
                 "user_id": {
-                    "description": "Owner for multi-tenancy",
+                    "description": "Owner",
                     "type": "string"
                 },
                 "version": {
@@ -5028,6 +5076,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/domain.SecurityRule"
                     }
                 },
+                "tenant_id": {
+                    "type": "string"
+                },
                 "user_id": {
                     "type": "string"
                 },
@@ -5301,6 +5352,9 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "default_tenant_id": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
@@ -5347,6 +5401,9 @@ const docTemplate = `{
                     "description": "e.g. \"ACTIVE\"",
                     "type": "string"
                 },
+                "tenant_id": {
+                    "type": "string"
+                },
                 "user_id": {
                     "type": "string"
                 },
@@ -5385,6 +5442,9 @@ const docTemplate = `{
                 },
                 "status": {
                     "$ref": "#/definitions/domain.VolumeStatus"
+                },
+                "tenant_id": {
+                    "type": "string"
                 },
                 "updated_at": {
                     "type": "string"
