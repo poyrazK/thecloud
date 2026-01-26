@@ -97,7 +97,7 @@ func TestDataIntegrity(t *testing.T) {
 		id := w.Data.ID
 
 		// 2. Read
-		vpcPath := fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteVpcs, id)
+		vpcPath := fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteVpcs, id)
 		resp = getRequest(t, client, vpcPath, token)
 		defer resp.Body.Close()
 		require.Equal(t, http.StatusOK, resp.StatusCode)

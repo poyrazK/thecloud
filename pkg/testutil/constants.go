@@ -90,4 +90,6 @@ const (
 	TestRouteSnapshots = "/snapshots"
 	// TestRouteStorageBuckets is the endpoint for storage buckets.
 	TestRouteStorageBuckets = "/storage/buckets"
+	// TestRouteFormat is the default template for specific resource routes.
+	TestRouteFormat = "%s%s/%s"
 )

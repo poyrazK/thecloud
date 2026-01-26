@@ -49,7 +49,7 @@ func TestComputeE2E(t *testing.T) {
 
 	// 2. Get Instance Details
 	t.Run("GetInstance", func(t *testing.T) {
-		resp := getRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
+		resp := getRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
 		defer resp.Body.Close()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -66,7 +66,7 @@ func TestComputeE2E(t *testing.T) {
 		timeout := 2 * time.Minute
 		start := time.Now()
 		for time.Since(start) < timeout {
-			resp := getRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
+			resp := getRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
 			var res struct {
 				Data domain.Instance `json:"data"`
 			}
@@ -125,7 +125,7 @@ func TestComputeE2E(t *testing.T) {
 
 	// 6. Terminate Instance
 	t.Run("TerminateInstance", func(t *testing.T) {
-		resp := deleteRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
+		resp := deleteRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
 		defer resp.Body.Close()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
