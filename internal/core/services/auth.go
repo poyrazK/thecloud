@@ -4,6 +4,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,17 +29,19 @@ type AuthService struct {
 	userRepo       ports.UserRepository
 	apiKeySvc      ports.IdentityService
 	auditSvc       ports.AuditService
+	tenantSvc      ports.TenantService
 	failedAttempts map[string]int
 	lockouts       map[string]time.Time
 	mu             sync.Mutex
 }
 
 // NewAuthService constructs an AuthService with its dependencies.
-func NewAuthService(userRepo ports.UserRepository, apiKeySvc ports.IdentityService, auditSvc ports.AuditService) *AuthService {
+func NewAuthService(userRepo ports.UserRepository, apiKeySvc ports.IdentityService, auditSvc ports.AuditService, tenantSvc ports.TenantService) *AuthService {
 	return &AuthService{
 		userRepo:       userRepo,
 		apiKeySvc:      apiKeySvc,
 		auditSvc:       auditSvc,
+		tenantSvc:      tenantSvc,
 		failedAttempts: make(map[string]int),
 		lockouts:       make(map[string]time.Time),
 	}
@@ -75,9 +78,45 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 		UpdatedAt:    time.Now(),
 	}
 
+	// Transactionality would be better here, but avoiding for simplicity unless needed
 	err = s.userRepo.Create(ctx, user)
 	if err != nil {
 		return nil, err
+	}
+
+	// Create Personal Tenant
+	// Create Personal Tenant
+	tenantName := fmt.Sprintf("%s's Personal Tenant", name)
+
+	// Simple slugify: lowercase, replace spaces with hyphens, keep only alphanumeric
+	slugName := strings.ToLower(name)
+	slugName = strings.ReplaceAll(slugName, " ", "-")
+
+	// Remove non-alphanumeric chars
+	var cleanSlug strings.Builder
+	for _, r := range slugName {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			cleanSlug.WriteRune(r)
+		}
+	}
+	slugName = cleanSlug.String()
+
+	if slugName == "" {
+		slugName = "personal"
+	}
+	tenantSlug := fmt.Sprintf("personal-%s-%s", slugName, user.ID.String()[:8])
+
+	_, err = s.tenantSvc.CreateTenant(ctx, tenantName, tenantSlug, user.ID)
+	if err != nil {
+		// TODO: Implement user rollback here if tenant creation fails.
+		// Currently UserRepository does not expose a Delete method.
+		return nil, fmt.Errorf("failed to create personal tenant: %w", err)
+	}
+
+	// Reload user to reflect changes made during tenant creation (e.g. DefaultTenantID)
+	updatedUser, err := s.userRepo.GetByID(ctx, user.ID)
+	if err == nil {
+		user = updatedUser
 	}
 
 	_ = s.auditSvc.Log(ctx, user.ID, "user.register", "user", user.ID.String(), map[string]interface{}{

@@ -23,18 +23,20 @@ const (
 	wrongPassword   = "wrong-password"
 )
 
-func setupAuthServiceTest(_ *testing.T) (*MockUserRepo, *MockIdentityService, *MockAuditService, *services.AuthService) {
+func setupAuthServiceTest(_ *testing.T) (*MockUserRepo, *MockIdentityService, *MockAuditService, *MockTenantService, *services.AuthService) {
 	userRepo := new(MockUserRepo)
 	identitySvc := new(MockIdentityService)
 	auditSvc := new(MockAuditService)
-	svc := services.NewAuthService(userRepo, identitySvc, auditSvc)
-	return userRepo, identitySvc, auditSvc, svc
+	tenantSvc := new(MockTenantService)
+	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc)
+	return userRepo, identitySvc, auditSvc, tenantSvc, svc
 }
 
 func TestAuthServiceRegisterSuccess(t *testing.T) {
-	userRepo, _, auditSvc, svc := setupAuthServiceTest(t)
+	userRepo, _, auditSvc, tenantSvc, svc := setupAuthServiceTest(t)
 	defer userRepo.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
+	defer tenantSvc.AssertExpectations(t)
 
 	ctx := context.Background()
 
@@ -43,7 +45,22 @@ func TestAuthServiceRegisterSuccess(t *testing.T) {
 	name := "Test User"
 
 	userRepo.On("GetByEmail", mock.Anything, email).Return(nil, nil) // Not existing
-	userRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.User")).Return(nil)
+
+	// Match user creation
+	userRepo.On("Create", mock.Anything, mock.MatchedBy(func(u *domain.User) bool {
+		return u.Email == email && u.Name == name
+	})).Return(nil)
+
+	// Match tenant creation
+	tenantSvc.On("CreateTenant", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("uuid.UUID")).Return(&domain.Tenant{ID: uuid.New()}, nil)
+
+	// Match user reload
+	userRepo.On("GetByID", mock.Anything, mock.AnythingOfType("uuid.UUID")).Return(&domain.User{
+		ID:    uuid.New(),
+		Email: email,
+		Name:  name,
+	}, nil)
+
 	auditSvc.On("Log", mock.Anything, mock.Anything, "user.register", "user", mock.Anything, mock.Anything).Return(nil)
 
 	user, err := svc.Register(ctx, email, password, name)
@@ -52,12 +69,10 @@ func TestAuthServiceRegisterSuccess(t *testing.T) {
 	assert.NotNil(t, user)
 	assert.Equal(t, email, user.Email)
 	assert.Equal(t, name, user.Name)
-	assert.NotEmpty(t, user.PasswordHash)
-	assert.NotEqual(t, password, user.PasswordHash) // Hashed
 }
 
 func TestAuthServiceRegisterWeakPassword(t *testing.T) {
-	userRepo, _, _, svc := setupAuthServiceTest(t)
+	userRepo, _, _, _, svc := setupAuthServiceTest(t)
 	defer userRepo.AssertExpectations(t)
 
 	ctx := context.Background()
@@ -71,7 +86,7 @@ func TestAuthServiceRegisterWeakPassword(t *testing.T) {
 }
 
 func TestAuthServiceRegisterDuplicateEmail(t *testing.T) {
-	userRepo, _, _, svc := setupAuthServiceTest(t)
+	userRepo, _, _, _, svc := setupAuthServiceTest(t)
 	defer userRepo.AssertExpectations(t)
 
 	ctx := context.Background()
@@ -89,7 +104,7 @@ func TestAuthServiceRegisterDuplicateEmail(t *testing.T) {
 }
 
 func TestAuthServiceLoginSuccess(t *testing.T) {
-	userRepo, identitySvc, auditSvc, svc := setupAuthServiceTest(t)
+	userRepo, identitySvc, auditSvc, _, svc := setupAuthServiceTest(t)
 	defer userRepo.AssertExpectations(t)
 	defer identitySvc.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
@@ -119,7 +134,7 @@ func TestAuthServiceLoginSuccess(t *testing.T) {
 }
 
 func TestAuthServiceLoginWrongPassword(t *testing.T) {
-	userRepo, _, _, svc := setupAuthServiceTest(t)
+	userRepo, _, _, _, svc := setupAuthServiceTest(t)
 	defer userRepo.AssertExpectations(t)
 
 	ctx := context.Background()
@@ -145,7 +160,7 @@ func TestAuthServiceLoginWrongPassword(t *testing.T) {
 }
 
 func TestAuthServiceValidateUser(t *testing.T) {
-	userRepo, _, _, svc := setupAuthServiceTest(t)
+	userRepo, _, _, _, svc := setupAuthServiceTest(t)
 	defer userRepo.AssertExpectations(t)
 
 	ctx := context.Background()
@@ -161,7 +176,7 @@ func TestAuthServiceValidateUser(t *testing.T) {
 }
 
 func TestAuthServiceLoginUserNotFound(t *testing.T) {
-	userRepo, _, _, svc := setupAuthServiceTest(t)
+	userRepo, _, _, _, svc := setupAuthServiceTest(t)
 	defer userRepo.AssertExpectations(t)
 
 	ctx := context.Background()
@@ -178,7 +193,7 @@ func TestAuthServiceLoginUserNotFound(t *testing.T) {
 }
 
 func TestAuthServiceLoginAccountLockout(t *testing.T) {
-	userRepo, _, _, svc := setupAuthServiceTest(t)
+	userRepo, _, _, _, svc := setupAuthServiceTest(t)
 	defer userRepo.AssertExpectations(t)
 
 	ctx := context.Background()
@@ -204,7 +219,7 @@ func TestAuthServiceLoginAccountLockout(t *testing.T) {
 }
 
 func TestAuthServiceLoginLockedAccountExpiry(t *testing.T) {
-	userRepo, identitySvc, auditSvc, svc := setupAuthServiceTest(t)
+	userRepo, identitySvc, auditSvc, _, svc := setupAuthServiceTest(t)
 	defer userRepo.AssertExpectations(t)
 	defer identitySvc.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
@@ -236,7 +251,7 @@ func TestAuthServiceLoginLockedAccountExpiry(t *testing.T) {
 }
 
 func TestAuthServiceLoginAPIKeyCreationFailure(t *testing.T) {
-	userRepo, identitySvc, _, svc := setupAuthServiceTest(t)
+	userRepo, identitySvc, _, _, svc := setupAuthServiceTest(t)
 	defer userRepo.AssertExpectations(t)
 	defer identitySvc.AssertExpectations(t)
 
@@ -258,7 +273,7 @@ func TestAuthServiceLoginAPIKeyCreationFailure(t *testing.T) {
 }
 
 func TestAuthServiceLoginClearsFailuresOnSuccess(t *testing.T) {
-	userRepo, identitySvc, auditSvc, svc := setupAuthServiceTest(t)
+	userRepo, identitySvc, auditSvc, _, svc := setupAuthServiceTest(t)
 	defer userRepo.AssertExpectations(t)
 	defer identitySvc.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)

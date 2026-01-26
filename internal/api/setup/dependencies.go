@@ -163,7 +163,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	auditSvc := services.NewAuditService(c.Repos.Audit)
 	identitySvc := initIdentityServices(c, auditSvc)
 	tenantSvc := services.NewTenantService(c.Repos.Tenant, c.Repos.User, c.Logger)
-	authSvc := services.NewAuthService(c.Repos.User, identitySvc, auditSvc)
+	authSvc := services.NewAuthService(c.Repos.User, identitySvc, auditSvc, tenantSvc)
 	pwdResetSvc := services.NewPasswordResetService(c.Repos.PasswordReset, c.Repos.User, c.Logger)
 	rbacSvc := initRBACServices(c)
 
