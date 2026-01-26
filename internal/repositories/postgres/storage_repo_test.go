@@ -34,7 +34,7 @@ func TestStorageRepository_SaveMeta(t *testing.T) {
 		}
 
 		mock.ExpectExec("INSERT INTO objects").
-			WithArgs(obj.ID, obj.UserID, obj.ARN, obj.Bucket, obj.Key, obj.SizeBytes, obj.ContentType, obj.CreatedAt).
+			WithArgs(obj.ID, obj.UserID, obj.ARN, obj.Bucket, obj.Key, obj.VersionID, obj.IsLatest, obj.SizeBytes, obj.ContentType, obj.CreatedAt).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.SaveMeta(context.Background(), obj)
@@ -71,10 +71,10 @@ func TestStorageRepository_GetMeta(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, size_bytes, content_type, created_at FROM objects").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at FROM objects").
 			WithArgs("mybucket", "mykey", userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "size_bytes", "content_type", "created_at"}).
-				AddRow(id, userID, "arn", "mybucket", "mykey", int64(1024), "text/plain", now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "created_at"}).
+				AddRow(id, userID, "arn", "mybucket", "mykey", "v1", true, int64(1024), "text/plain", now))
 
 		obj, err := repo.GetMeta(ctx, "mybucket", "mykey")
 		assert.NoError(t, err)
@@ -91,7 +91,7 @@ func TestStorageRepository_GetMeta(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, size_bytes, content_type, created_at FROM objects").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at FROM objects").
 			WithArgs("mybucket", "mykey", userID).
 			WillReturnError(pgx.ErrNoRows)
 
@@ -113,7 +113,7 @@ func TestStorageRepository_GetMeta(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, size_bytes, content_type, created_at FROM objects").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at FROM objects").
 			WithArgs("mybucket", "mykey", userID).
 			WillReturnError(errors.New("db error"))
 
@@ -134,10 +134,10 @@ func TestStorageRepository_List(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, size_bytes, content_type, created_at FROM objects").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at FROM objects").
 			WithArgs("mybucket", userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "size_bytes", "content_type", "created_at"}).
-				AddRow(uuid.New(), userID, "arn", "mybucket", "mykey", int64(1024), "text/plain", now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "created_at"}).
+				AddRow(uuid.New(), userID, "arn", "mybucket", "mykey", "v1", true, int64(1024), "text/plain", now))
 
 		objects, err := repo.List(ctx, "mybucket")
 		assert.NoError(t, err)
@@ -153,7 +153,7 @@ func TestStorageRepository_List(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, size_bytes, content_type, created_at FROM objects").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at FROM objects").
 			WithArgs("mybucket", userID).
 			WillReturnError(errors.New("db error"))
 

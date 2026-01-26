@@ -52,6 +52,7 @@ build:
 	mkdir -p bin
 	go build -o bin/api ./cmd/api
 	go build -o bin/cloud cmd/cloud/*.go
+	go build -o bin/storage-node cmd/storage-node/main.go
 
 install: build
 	mkdir -p $(HOME)/.local/bin

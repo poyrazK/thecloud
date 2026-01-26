@@ -63,6 +63,25 @@ definitions:
       user_id:
         type: string
     type: object
+  domain.Bucket:
+    properties:
+      created_at:
+        type: string
+      encryption_enabled:
+        type: boolean
+      encryption_key_id:
+        type: string
+      id:
+        type: string
+      is_public:
+        type: boolean
+      name:
+        type: string
+      user_id:
+        type: string
+      versioning_enabled:
+        type: boolean
+    type: object
   domain.Cluster:
     properties:
       api_server_lb_address:
@@ -298,6 +317,25 @@ definitions:
         description: Traffic share for weighted algorithms
         type: integer
     type: object
+  domain.LifecycleRule:
+    properties:
+      bucket_name:
+        type: string
+      created_at:
+        type: string
+      enabled:
+        type: boolean
+      expiration_days:
+        type: integer
+      id:
+        type: string
+      prefix:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
   domain.LoadBalancer:
     properties:
       algorithm:
@@ -337,6 +375,19 @@ definitions:
         description: The measured value (e.g., percentage or byte count)
         type: number
     type: object
+  domain.MultipartUpload:
+    properties:
+      bucket:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      key:
+        type: string
+      user_id:
+        type: string
+    type: object
   domain.Object:
     properties:
       arn:
@@ -351,11 +402,26 @@ definitions:
         type: string
       id:
         type: string
+      is_latest:
+        type: boolean
       key:
         type: string
       size_bytes:
         type: integer
       user_id:
+        type: string
+      version_id:
+        type: string
+    type: object
+  domain.Part:
+    properties:
+      etag:
+        type: string
+      part_number:
+        type: integer
+      size_bytes:
+        type: integer
+      upload_id:
         type: string
     type: object
   domain.Permission:
@@ -786,6 +852,27 @@ definitions:
     - StackStatusRollbackInProgress
     - StackStatusRollbackComplete
     - StackStatusRollbackFailed
+  domain.StorageCluster:
+    properties:
+      nodes:
+        items:
+          $ref: '#/definitions/domain.StorageNode'
+        type: array
+    type: object
+  domain.StorageNode:
+    properties:
+      address:
+        description: host:port
+        type: string
+      data_dir:
+        type: string
+      id:
+        type: string
+      last_seen:
+        type: string
+      status:
+        type: string
+    type: object
   domain.TemplateValidateResponse:
     properties:
       errors:
@@ -3279,6 +3366,320 @@ paths:
       security:
       - APIKeyAuth: []
       summary: Upload an object
+      tags:
+      - storage
+  /storage/{bucket}/{key}/multipart:
+    post:
+      description: Creates a new multipart upload session for a bucket and key
+      parameters:
+      - description: Bucket name
+        in: path
+        name: bucket
+        required: true
+        type: string
+      - description: Object key
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.MultipartUpload'
+      security:
+      - APIKeyAuth: []
+      summary: Initiate multipart upload
+      tags:
+      - storage
+  /storage/buckets:
+    get:
+      description: Lists all storage buckets owned by the user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Bucket'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List buckets
+      tags:
+      - storage
+    post:
+      consumes:
+      - application/json
+      description: Creates a new storage bucket
+      parameters:
+      - description: Bucket creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Bucket'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Bucket'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create a bucket
+      tags:
+      - storage
+  /storage/buckets/{bucket}:
+    delete:
+      description: Deletes a storage bucket
+      parameters:
+      - description: Bucket name
+        in: path
+        name: bucket
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete a bucket
+      tags:
+      - storage
+  /storage/buckets/{bucket}/lifecycle:
+    get:
+      description: Lists all lifecycle rules configured for a bucket
+      parameters:
+      - description: Bucket name
+        in: path
+        name: bucket
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.LifecycleRule'
+            type: array
+      security:
+      - APIKeyAuth: []
+      summary: List lifecycle rules
+      tags:
+      - lifecycle
+    post:
+      consumes:
+      - application/json
+      description: Adds an expiration rule for objects with a specific prefix
+      parameters:
+      - description: Bucket name
+        in: path
+        name: bucket
+        required: true
+        type: string
+      - description: Lifecycle rule
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.LifecycleRule'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.LifecycleRule'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create lifecycle rule
+      tags:
+      - lifecycle
+  /storage/buckets/{bucket}/lifecycle/{id}:
+    delete:
+      description: Deletes a specific lifecycle rule
+      parameters:
+      - description: Bucket name
+        in: path
+        name: bucket
+        required: true
+        type: string
+      - description: Rule ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+      security:
+      - APIKeyAuth: []
+      summary: Delete lifecycle rule
+      tags:
+      - lifecycle
+  /storage/buckets/{bucket}/versioning:
+    patch:
+      consumes:
+      - application/json
+      description: Enables or disables object versioning for the specified bucket
+      parameters:
+      - description: Bucket name
+        in: path
+        name: bucket
+        required: true
+        type: string
+      - description: Versioning request
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      security:
+      - APIKeyAuth: []
+      summary: Set bucket versioning
+      tags:
+      - storage
+  /storage/cluster/status:
+    get:
+      description: Returns the status of all nodes in the distributed storage cluster
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.StorageCluster'
+      security:
+      - APIKeyAuth: []
+      summary: Get storage cluster status
+      tags:
+      - storage
+  /storage/multipart/:id:
+    delete:
+      description: Cancels the upload and deletes all uploaded parts
+      parameters:
+      - description: Upload ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+      security:
+      - APIKeyAuth: []
+      summary: Abort multipart upload
+      tags:
+      - storage
+  /storage/multipart/:id/complete:
+    post:
+      description: Assembles all uploaded parts into the final object
+      parameters:
+      - description: Upload ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Object'
+      security:
+      - APIKeyAuth: []
+      summary: Complete multipart upload
+      tags:
+      - storage
+  /storage/multipart/:id/parts:
+    put:
+      consumes:
+      - application/octet-stream
+      description: Uploads a data chunk (part) for the specified multipart upload
+      parameters:
+      - description: Upload ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Part number
+        in: query
+        name: part
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Part'
+      security:
+      - APIKeyAuth: []
+      summary: Upload a part
+      tags:
+      - storage
+  /storage/versions/{bucket}/{key}:
+    get:
+      description: Gets a list of all versions of a specific object
+      parameters:
+      - description: Bucket name
+        in: path
+        name: bucket
+        required: true
+        type: string
+      - description: Object key
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Object'
+            type: array
+      security:
+      - APIKeyAuth: []
+      summary: List object versions
       tags:
       - storage
   /volumes:

@@ -1,0 +1,23 @@
+# Build artifacts
+bin/
+api
+cloud
+*.test
+*.out
+*.log
+
+# Data and large directories
+thecloud-data/
+.git/
+.DS_Store
+
+# Frontend
+web/node_modules/
+web/.next/
+web/out/
+
+# IDE
+.vscode/
+.idea/
+.agent/
+.gemini/

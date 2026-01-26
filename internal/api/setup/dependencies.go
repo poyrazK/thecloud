@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	"strings"
+
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/handlers/ws"
@@ -13,8 +15,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/k8s"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/poyrazk/thecloud/internal/repositories/redis"
+	"github.com/poyrazk/thecloud/internal/storage/coordinator"
+	"github.com/poyrazk/thecloud/internal/storage/protocol"
 	"github.com/poyrazk/thecloud/internal/workers"
 	redisv9 "github.com/redis/go-redis/v9"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Repositories bundles all data access implementations.
@@ -48,6 +54,7 @@ type Repositories struct {
 	TaskQueue     ports.TaskQueue
 	Image         ports.ImageRepository
 	Cluster       ports.ClusterRepository
+	Lifecycle     ports.LifecycleRepository
 }
 
 // InitRepositories constructs repositories using the provided database clients.
@@ -82,6 +89,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		TaskQueue:     redis.NewRedisTaskQueue(rdb),
 		Image:         postgres.NewImageRepository(db),
 		Cluster:       postgres.NewClusterRepository(db),
+		Lifecycle:     postgres.NewLifecycleRepository(db),
 	}
 }
 
@@ -118,6 +126,7 @@ type Services struct {
 	Accounting    ports.AccountingService
 	Image         ports.ImageService
 	Cluster       ports.ClusterService
+	Lifecycle     ports.LifecycleService
 }
 
 // Workers struct to return background workers
@@ -129,6 +138,7 @@ type Workers struct {
 	Provision   *workers.ProvisionWorker
 	Accounting  *workers.AccountingWorker
 	Cluster     *workers.ClusterWorker
+	Lifecycle   *workers.LifecycleWorker
 }
 
 // ServiceConfig holds the dependencies required to initialize services
@@ -171,12 +181,46 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	lbSvc := services.NewLBService(c.Repos.LB, c.Repos.Vpc, c.Repos.Instance, auditSvc)
 	lbWorker := services.NewLBWorker(c.Repos.LB, c.Repos.Instance, c.LBProxy)
 
-	// 4. Advanced Services (Storage, DB, Secrets, FaaS, Cache, Queue)
-	fileStore, err := filesystem.NewLocalFileStore("./thecloud-data/local/storage")
+	// Encryption Service
+	encryptionRepo := postgres.NewEncryptionRepository(c.DB)
+	encryptionSvc, err := services.NewEncryptionService(encryptionRepo, c.Config.SecretsEncryptionKey)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to init encryption service: %w", err)
 	}
-	storageSvc := services.NewStorageService(c.Repos.Storage, fileStore, auditSvc)
+
+	// 4. Advanced Services (Storage, DB, Secrets, FaaS, Cache, Queue)
+	var fileStore ports.FileStore
+
+	if c.Config.ObjectStorageMode == "distributed" {
+		c.Logger.Info("initializing distributed storage backend")
+		ring := coordinator.NewConsistentHashRing(100) // 100 virtual nodes
+
+		nodes := strings.Split(c.Config.ObjectStorageNodes, ",")
+		clients := make(map[string]protocol.StorageNodeClient)
+
+		for i, addr := range nodes {
+			if addr == "" {
+				continue
+			}
+			nodeID := fmt.Sprintf("node-%d", i+1)
+
+			conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to connect to storage node %s: %w", addr, err)
+			}
+			clients[nodeID] = protocol.NewStorageNodeClient(conn)
+			ring.AddNode(nodeID)
+			c.Logger.Info("added storage node", "id", nodeID, "addr", addr)
+		}
+
+		fileStore = coordinator.NewCoordinator(ring, clients, 3)
+	} else {
+		fileStore, err = filesystem.NewLocalFileStore("./thecloud-data/local/storage")
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	storageSvc := services.NewStorageService(c.Repos.Storage, fileStore, auditSvc, encryptionSvc, c.Config)
 
 	databaseSvc := services.NewDatabaseService(c.Repos.Database, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
 	secretSvc := services.NewSecretService(c.Repos.Secret, eventSvc, auditSvc, c.Logger, c.Config.SecretsEncryptionKey, c.Config.Environment)
@@ -219,12 +263,14 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		Health: services.NewHealthServiceImpl(c.DB, c.Compute), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc,
 		Cluster:   clusterSvc,
 		Dashboard: services.NewDashboardService(c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger),
+		Lifecycle: services.NewLifecycleService(c.Repos.Lifecycle, c.Repos.Storage),
 	}
 
 	workersCollection := &Workers{
 		LB: lbWorker, AutoScaling: asgWorker, Cron: cronWorker, Container: containerWorker,
 		Provision: provisionWorker, Accounting: accountingWorker,
-		Cluster: workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.TaskQueue, c.Logger),
+		Cluster:   workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.TaskQueue, c.Logger),
+		Lifecycle: workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger),
 	}
 
 	return svcs, workersCollection, nil

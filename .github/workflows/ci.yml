@@ -51,15 +51,9 @@ jobs:
         with:
           version: v1.64.8
 
-      - name: Run Unit Tests with Coverage
-        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+      - name: Run Unit Tests
+        run: go test -race -v ./cmd/... ./internal/... ./pkg/...
         
-      - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage.out
-          fail_ci_if_error: false
-      
       - name: Wait for Database
         run: |
           until pg_isready -h localhost -p 5433 -U cloud; do

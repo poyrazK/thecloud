@@ -384,6 +384,72 @@ func (m *MockStorageRepo) SoftDelete(ctx context.Context, bucket, key string) er
 	args := m.Called(ctx, bucket, key)
 	return args.Error(0)
 }
+func (m *MockStorageRepo) DeleteVersion(ctx context.Context, bucket, key, versionID string) error {
+	args := m.Called(ctx, bucket, key, versionID)
+	return args.Error(0)
+}
+func (m *MockStorageRepo) GetMetaByVersion(ctx context.Context, bucket, key, versionID string) (*domain.Object, error) {
+	args := m.Called(ctx, bucket, key, versionID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Object), args.Error(1)
+}
+func (m *MockStorageRepo) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
+	args := m.Called(ctx, bucket, key)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Object), args.Error(1)
+}
+
+func (m *MockStorageRepo) CreateBucket(ctx context.Context, bucket *domain.Bucket) error {
+	return m.Called(ctx, bucket).Error(0)
+}
+func (m *MockStorageRepo) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Bucket), args.Error(1)
+}
+func (m *MockStorageRepo) DeleteBucket(ctx context.Context, name string) error {
+	return m.Called(ctx, name).Error(0)
+}
+func (m *MockStorageRepo) ListBuckets(ctx context.Context, userID string) ([]*domain.Bucket, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Bucket), args.Error(1)
+}
+func (m *MockStorageRepo) SetBucketVersioning(ctx context.Context, name string, enabled bool) error {
+	return m.Called(ctx, name, enabled).Error(0)
+}
+
+func (m *MockStorageRepo) SaveMultipartUpload(ctx context.Context, upload *domain.MultipartUpload) error {
+	return m.Called(ctx, upload).Error(0)
+}
+func (m *MockStorageRepo) GetMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.MultipartUpload, error) {
+	args := m.Called(ctx, uploadID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.MultipartUpload), args.Error(1)
+}
+func (m *MockStorageRepo) DeleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) error {
+	return m.Called(ctx, uploadID).Error(0)
+}
+func (m *MockStorageRepo) SavePart(ctx context.Context, part *domain.Part) error {
+	return m.Called(ctx, part).Error(0)
+}
+func (m *MockStorageRepo) ListParts(ctx context.Context, uploadID uuid.UUID) ([]*domain.Part, error) {
+	args := m.Called(ctx, uploadID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Part), args.Error(1)
+}
 
 // MockFileStore
 type MockFileStore struct {
@@ -404,6 +470,17 @@ func (m *MockFileStore) Read(ctx context.Context, bucket, key string) (io.ReadCl
 func (m *MockFileStore) Delete(ctx context.Context, bucket, key string) error {
 	args := m.Called(ctx, bucket, key)
 	return args.Error(0)
+}
+func (m *MockFileStore) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.StorageCluster), args.Error(1)
+}
+func (m *MockFileStore) Assemble(ctx context.Context, bucket, key string, parts []string) (int64, error) {
+	args := m.Called(ctx, bucket, key, parts)
+	return args.Get(0).(int64), args.Error(1)
 }
 
 // MockVolumeRepo
@@ -1769,5 +1846,86 @@ func (m *MockTaskQueue) Enqueue(ctx context.Context, queue string, payload inter
 
 func (m *MockTaskQueue) Dequeue(ctx context.Context, queue string) (string, error) {
 	args := m.Called(ctx, queue)
+	return args.String(0), args.Error(1)
+}
+
+// MockLifecycleRepository
+type MockLifecycleRepository struct {
+	mock.Mock
+}
+
+func (m *MockLifecycleRepository) Create(ctx context.Context, rule *domain.LifecycleRule) error {
+	return m.Called(ctx, rule).Error(0)
+}
+func (m *MockLifecycleRepository) Get(ctx context.Context, id uuid.UUID) (*domain.LifecycleRule, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.LifecycleRule), args.Error(1)
+}
+func (m *MockLifecycleRepository) List(ctx context.Context, bucketName string) ([]*domain.LifecycleRule, error) {
+	args := m.Called(ctx, bucketName)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.LifecycleRule), args.Error(1)
+}
+func (m *MockLifecycleRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockLifecycleRepository) GetEnabledRules(ctx context.Context) ([]*domain.LifecycleRule, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.LifecycleRule), args.Error(1)
+}
+
+// MockEncryptionRepository
+type MockEncryptionRepository struct {
+	mock.Mock
+}
+
+func (m *MockEncryptionRepository) SaveKey(ctx context.Context, key ports.EncryptionKey) error {
+	return m.Called(ctx, key).Error(0)
+}
+
+func (m *MockEncryptionRepository) GetKey(ctx context.Context, bucketName string) (*ports.EncryptionKey, error) {
+	args := m.Called(ctx, bucketName)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*ports.EncryptionKey), args.Error(1)
+}
+
+// MockEncryptionService
+type MockEncryptionService struct {
+	mock.Mock
+}
+
+func (m *MockEncryptionService) Encrypt(ctx context.Context, bucket string, data []byte) ([]byte, error) {
+	args := m.Called(ctx, bucket, data)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]byte), args.Error(1)
+}
+
+func (m *MockEncryptionService) Decrypt(ctx context.Context, bucket string, encryptedData []byte) ([]byte, error) {
+	args := m.Called(ctx, bucket, encryptedData)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]byte), args.Error(1)
+}
+
+func (m *MockEncryptionService) CreateKey(ctx context.Context, bucket string) (string, error) {
+	args := m.Called(ctx, bucket)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockEncryptionService) RotateKey(ctx context.Context, bucket string) (string, error) {
+	args := m.Called(ctx, bucket)
 	return args.String(0), args.Error(1)
 }

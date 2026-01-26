@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	bucketKeyRoute = "/:bucket/:key"
+	bucketKeyRoute = "/:bucket/*key"
 	roleIDRoute    = "/roles/:id"
 )
 
@@ -58,11 +58,12 @@ type Handlers struct {
 	Accounting    *httphandlers.AccountingHandler
 	Image         *httphandlers.ImageHandler
 	Cluster       *httphandlers.ClusterHandler
+	Lifecycle     *httphandlers.LifecycleHandler
 	Ws            *ws.Handler
 }
 
 // InitHandlers constructs HTTP handlers and websocket hub.
-func InitHandlers(svcs *Services, logger *slog.Logger) *Handlers {
+func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Handlers {
 	hub := ws.NewHub(logger)
 	go hub.Run()
 
@@ -80,7 +81,7 @@ func InitHandlers(svcs *Services, logger *slog.Logger) *Handlers {
 		RBAC:          httphandlers.NewRBACHandler(svcs.RBAC),
 		Snapshot:      httphandlers.NewSnapshotHandler(svcs.Snapshot),
 		Stack:         httphandlers.NewStackHandler(svcs.Stack),
-		Storage:       httphandlers.NewStorageHandler(svcs.Storage),
+		Storage:       httphandlers.NewStorageHandler(svcs.Storage, cfg),
 		Database:      httphandlers.NewDatabaseHandler(svcs.Database),
 		Secret:        httphandlers.NewSecretHandler(svcs.Secret),
 		Function:      httphandlers.NewFunctionHandler(svcs.Function),
@@ -96,6 +97,7 @@ func InitHandlers(svcs *Services, logger *slog.Logger) *Handlers {
 		Accounting:    httphandlers.NewAccountingHandler(svcs.Accounting),
 		Image:         httphandlers.NewImageHandler(svcs.Image),
 		Cluster:       httphandlers.NewClusterHandler(svcs.Cluster),
+		Lifecycle:     httphandlers.NewLifecycleHandler(svcs.Lifecycle),
 		Ws:            ws.NewHandler(hub, svcs.Identity, logger),
 	}
 }
@@ -297,11 +299,42 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	storageGroup := r.Group("/storage")
 	storageGroup.Use(httputil.Auth(svcs.Identity))
 	{
+		// explicitly registered static paths first
+		storageGroup.GET("/cluster/status", handlers.Storage.GetClusterStatus)
+
+		// Bucket Management (static/specific)
+		storageGroup.POST("/buckets", handlers.Storage.CreateBucket)
+		storageGroup.GET("/buckets", handlers.Storage.ListBuckets)
+		storageGroup.DELETE("/buckets/:bucket", handlers.Storage.DeleteBucket)
+		storageGroup.PATCH("/buckets/:bucket/versioning", handlers.Storage.SetBucketVersioning)
+
+		// Lifecycle Management
+		storageGroup.POST("/buckets/:bucket/lifecycle", handlers.Lifecycle.CreateRule)
+		storageGroup.GET("/buckets/:bucket/lifecycle", handlers.Lifecycle.ListRules)
+		storageGroup.DELETE("/buckets/:bucket/lifecycle/:id", handlers.Lifecycle.DeleteRule)
+
+		// Versioning
+		storageGroup.GET("/versions/:bucket/*key", handlers.Storage.ListVersions)
+
+		// Multipart
+		storageGroup.POST("/multipart/init/:bucket/*key", handlers.Storage.InitiateMultipartUpload)
+		storageGroup.PUT("/multipart/upload/:id/parts", handlers.Storage.UploadPart)
+		storageGroup.POST("/multipart/complete/:id", handlers.Storage.CompleteMultipartUpload)
+		storageGroup.DELETE("/multipart/abort/:id", handlers.Storage.AbortMultipartUpload)
+
+		// Presigned Generation (Auth Required)
+		storageGroup.POST("/presign"+bucketKeyRoute, handlers.Storage.GeneratePresignedURL)
+
+		// Parameterized object routes last
 		storageGroup.PUT(bucketKeyRoute, handlers.Storage.Upload)
 		storageGroup.GET(bucketKeyRoute, handlers.Storage.Download)
-		storageGroup.GET("/:bucket", handlers.Storage.List)
 		storageGroup.DELETE(bucketKeyRoute, handlers.Storage.Delete)
+		storageGroup.GET("/:bucket", handlers.Storage.List)
 	}
+
+	// Public Routes for Presigned Access (No Auth Middleware)
+	r.GET("/storage/presigned"+bucketKeyRoute, handlers.Storage.ServePresignedDownload)
+	r.PUT("/storage/presigned"+bucketKeyRoute, handlers.Storage.ServePresignedUpload)
 
 	volumeGroup := r.Group("/volumes")
 	volumeGroup.Use(httputil.Auth(svcs.Identity))

@@ -8,8 +8,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
@@ -27,17 +29,33 @@ type mockStorageService struct {
 	mock.Mock
 }
 
-func (m *mockStorageService) CreateBucket(ctx context.Context, name string) error {
-	args := m.Called(ctx, name)
-	return args.Error(0)
+func (m *mockStorageService) CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error) {
+	args := m.Called(ctx, name, isPublic)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Bucket), args.Error(1)
 }
 
-func (m *mockStorageService) ListBuckets(ctx context.Context) ([]string, error) {
+func (m *mockStorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]string), args.Error(1)
+	return args.Get(0).([]*domain.Bucket), args.Error(1)
+}
+
+func (m *mockStorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Bucket), args.Error(1)
+}
+
+func (m *mockStorageService) DeleteBucket(ctx context.Context, name string) error {
+	args := m.Called(ctx, name)
+	return args.Error(0)
 }
 
 func (m *mockStorageService) Upload(ctx context.Context, bucket, key string, content io.Reader) (*domain.Object, error) {
@@ -69,6 +87,27 @@ func (m *mockStorageService) DeleteObject(ctx context.Context, bucket, key strin
 	return args.Error(0)
 }
 
+func (m *mockStorageService) DownloadVersion(ctx context.Context, bucket, key, versionID string) (io.ReadCloser, *domain.Object, error) {
+	args := m.Called(ctx, bucket, key, versionID)
+	if args.Get(0) == nil {
+		return nil, nil, args.Error(2)
+	}
+	return args.Get(0).(io.ReadCloser), args.Get(1).(*domain.Object), args.Error(2)
+}
+
+func (m *mockStorageService) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
+	args := m.Called(ctx, bucket, key)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Object), args.Error(1)
+}
+
+func (m *mockStorageService) DeleteVersion(ctx context.Context, bucket, key, versionID string) error {
+	args := m.Called(ctx, bucket, key, versionID)
+	return args.Error(0)
+}
+
 func (m *mockStorageService) GetObject(ctx context.Context, bucket, key string) (*domain.Object, error) {
 	args := m.Called(ctx, bucket, key)
 	if args.Get(0) == nil {
@@ -77,10 +116,56 @@ func (m *mockStorageService) GetObject(ctx context.Context, bucket, key string) 
 	return args.Get(0).(*domain.Object), args.Error(1)
 }
 
+func (m *mockStorageService) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.StorageCluster), args.Error(1)
+}
+
+func (m *mockStorageService) SetBucketVersioning(ctx context.Context, name string, enabled bool) error {
+	args := m.Called(ctx, name, enabled)
+	return args.Error(0)
+}
+
+func (m *mockStorageService) CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error) {
+	args := m.Called(ctx, bucket, key)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.MultipartUpload), args.Error(1)
+}
+func (m *mockStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
+	args := m.Called(ctx, uploadID, partNumber, r)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Part), args.Error(1)
+}
+func (m *mockStorageService) CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error) {
+	args := m.Called(ctx, uploadID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Object), args.Error(1)
+}
+func (m *mockStorageService) AbortMultipartUpload(ctx context.Context, uploadID uuid.UUID) error {
+	return m.Called(ctx, uploadID).Error(0)
+}
+
+func (m *mockStorageService) GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error) {
+	args := m.Called(ctx, bucket, key, method, expiry)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.PresignedURL), args.Error(1)
+}
+
 func setupStorageHandlerTest(_ *testing.T) (*mockStorageService, *StorageHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockStorageService)
-	handler := NewStorageHandler(svc)
+	handler := NewStorageHandler(svc, nil)
 	r := gin.New()
 	return svc, handler, r
 }
@@ -157,7 +242,7 @@ func TestStorageHandlerDelete(t *testing.T) {
 func TestStorageHandlerErrorPaths(t *testing.T) {
 	setup := func(_ *testing.T) (*mockStorageService, *StorageHandler, *gin.Engine) {
 		svc := new(mockStorageService)
-		handler := NewStorageHandler(svc)
+		handler := NewStorageHandler(svc, nil)
 		r := gin.New()
 		return svc, handler, r
 	}

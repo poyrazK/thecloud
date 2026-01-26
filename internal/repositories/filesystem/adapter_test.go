@@ -105,3 +105,42 @@ func TestLocalFileStore_PathTraversal(t *testing.T) {
 		t.Fatalf("expected InvalidInput, got %v", err)
 	}
 }
+
+func TestLocalFileStore_Assemble(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "filestore_test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
+	store, err := NewLocalFileStore(tempDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	bucket := "testbucket"
+
+	// Create parts
+	p1 := "part1"
+	p2 := "part2"
+	_, _ = store.Write(ctx, bucket, p1, bytes.NewReader([]byte("hello ")))
+	_, _ = store.Write(ctx, bucket, p2, bytes.NewReader([]byte("world")))
+
+	// Assemble
+	target := "target"
+	size, err := store.Assemble(ctx, bucket, target, []string{p1, p2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if size != 11 {
+		t.Fatalf("expected 11 bytes, got %d", size)
+	}
+
+	// Verify content
+	r, _ := store.Read(ctx, bucket, target)
+	data, _ := io.ReadAll(r)
+	if string(data) != "hello world" {
+		t.Fatalf("expected 'hello world', got '%s'", string(data))
+	}
+}

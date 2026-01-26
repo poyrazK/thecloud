@@ -39,7 +39,7 @@ type AppDeps struct {
 	InitLBProxy        func(*platform.Config, ports.ComputeBackend, ports.InstanceRepository, ports.VpcRepository) (ports.LBProxyAdapter, error)
 	InitRepositories   func(postgres.DB, *redis.Client) *setup.Repositories
 	InitServices       func(setup.ServiceConfig) (*setup.Services, *setup.Workers, error)
-	InitHandlers       func(*setup.Services, *slog.Logger) *setup.Handlers
+	InitHandlers       func(*setup.Services, *platform.Config, *slog.Logger) *setup.Handlers
 	SetupRouter        func(*platform.Config, *slog.Logger, *setup.Handlers, *setup.Services, ports.NetworkBackend) *gin.Engine
 	NewHTTPServer      func(string, http.Handler) *http.Server
 	StartHTTPServer    func(*http.Server) error
@@ -119,7 +119,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	handlers := deps.InitHandlers(svcs, logger)
+	handlers := deps.InitHandlers(svcs, cfg, logger)
 	r := deps.SetupRouter(cfg, logger, handlers, svcs, network)
 
 	// Add Tracing Middleware if enabled
@@ -264,12 +264,36 @@ func runApplication(deps AppDeps, cfg *platform.Config, logger *slog.Logger, r *
 }
 
 func runWorkers(ctx context.Context, wg *sync.WaitGroup, workers *setup.Workers) {
-	wg.Add(7)
-	go workers.LB.Run(ctx, wg)
-	go workers.AutoScaling.Run(ctx, wg)
-	go workers.Cron.Run(ctx, wg)
-	go workers.Container.Run(ctx, wg)
-	go workers.Provision.Run(ctx, wg)
-	go workers.Accounting.Run(ctx, wg)
-	go workers.Cluster.Run(ctx, wg)
+	if workers.LB != nil {
+		wg.Add(1)
+		go workers.LB.Run(ctx, wg)
+	}
+	if workers.AutoScaling != nil {
+		wg.Add(1)
+		go workers.AutoScaling.Run(ctx, wg)
+	}
+	if workers.Cron != nil {
+		wg.Add(1)
+		go workers.Cron.Run(ctx, wg)
+	}
+	if workers.Container != nil {
+		wg.Add(1)
+		go workers.Container.Run(ctx, wg)
+	}
+	if workers.Provision != nil {
+		wg.Add(1)
+		go workers.Provision.Run(ctx, wg)
+	}
+	if workers.Accounting != nil {
+		wg.Add(1)
+		go workers.Accounting.Run(ctx, wg)
+	}
+	if workers.Cluster != nil {
+		wg.Add(1)
+		go workers.Cluster.Run(ctx, wg)
+	}
+	if workers.Lifecycle != nil {
+		wg.Add(1)
+		go workers.Lifecycle.Run(ctx, wg)
+	}
 }

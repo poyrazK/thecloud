@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -135,6 +136,49 @@ func (m *MockStorageService) ListObjects(ctx context.Context, bucket string) ([]
 	return nil, nil
 }
 func (m *MockStorageService) DeleteObject(ctx context.Context, bucket, key string) error {
+	return nil
+}
+func (m *MockStorageService) DownloadVersion(ctx context.Context, bucket, key, versionID string) (io.ReadCloser, *domain.Object, error) {
+	return nil, nil, nil
+}
+func (m *MockStorageService) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
+	return nil, nil
+}
+func (m *MockStorageService) DeleteVersion(ctx context.Context, bucket, key, versionID string) error {
+	return nil
+}
+func (m *MockStorageService) CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error) {
+	return &domain.Bucket{Name: name}, nil
+}
+func (m *MockStorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
+	return &domain.Bucket{Name: name}, nil
+}
+func (m *MockStorageService) DeleteBucket(ctx context.Context, name string) error {
+	return nil
+}
+func (m *MockStorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {
+	return nil, nil
+}
+func (m *MockStorageService) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
+	return nil, nil
+}
+func (m *MockStorageService) SetBucketVersioning(ctx context.Context, name string, enabled bool) error {
+	return nil
+}
+func (m *MockStorageService) GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error) {
+	return nil, nil
+}
+
+func (m *MockStorageService) CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error) {
+	return nil, nil
+}
+func (m *MockStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
+	return nil, nil
+}
+func (m *MockStorageService) CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error) {
+	return nil, nil
+}
+func (m *MockStorageService) AbortMultipartUpload(ctx context.Context, uploadID uuid.UUID) error {
 	return nil
 }
 

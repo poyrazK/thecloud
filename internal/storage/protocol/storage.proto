@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package storage;
+
+option go_package = "internal/storage/protocol";
+
+service StorageNode {
+  rpc Store(StoreRequest) returns (StoreResponse);
+  rpc Retrieve(RetrieveRequest) returns (RetrieveResponse);
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+  rpc Gossip(GossipMessage) returns (GossipResponse);
+  rpc GetClusterStatus(Empty) returns (ClusterStatusResponse);
+  rpc Assemble(AssembleRequest) returns (AssembleResponse);
+}
+
+message Empty {}
+
+message ClusterStatusResponse {
+   map<string, MemberState> members = 1;
+}
+
+message GossipMessage {
+  string sender_id = 1;
+  string sender_addr = 2;
+  map<string, MemberState> members = 3; // Key is node_id
+  int64 timestamp = 4;
+}
+
+message MemberState {
+  string addr = 1;
+  string status = 2; // "alive", "suspect", "dead"
+  int64 last_seen = 3;
+  uint64 heartbeat = 4;
+}
+
+message GossipResponse {
+  bool success = 1;
+}
+
+
+message StoreRequest {
+  string bucket = 1;
+  string key = 2;
+  bytes data = 3;
+  int64 timestamp = 4;
+}
+
+message StoreResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message RetrieveRequest {
+  string bucket = 1;
+  string key = 2;
+}
+
+message RetrieveResponse {
+  bytes data = 1;
+  bool found = 2;
+  string error = 3;
+  int64 timestamp = 4;
+}
+
+message DeleteRequest {
+  string bucket = 1;
+  string key = 2;
+}
+
+message DeleteResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message AssembleRequest {
+  string bucket = 1;
+  string key = 2;
+  repeated string parts = 3;
+}
+
+message AssembleResponse {
+  int64 size = 1;
+  string error = 2;
+}

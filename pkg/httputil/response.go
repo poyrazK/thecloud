@@ -42,6 +42,7 @@ func Error(c *gin.Context, err error) {
 	var e errors.Error
 	if apiErr, ok := err.(errors.Error); ok {
 		e = apiErr
+		fmt.Printf("API ERROR: %v\n", e.Error())
 	} else {
 		// Log unknown errors for debugging
 		_ = c.Error(err)

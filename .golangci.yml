@@ -24,6 +24,7 @@ linters:
     - staticcheck
     - unused
     - ineffassign
+    - gocyclo
 
 issues:
   exclude-rules:

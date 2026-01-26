@@ -246,6 +246,7 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVarP(&outputJSON, "json", "j", false, "Output in JSON format")
 	rootCmd.PersistentFlags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
+	rootCmd.PersistentFlags().StringVar(&apiURL, "api-url", "http://localhost:8080", "URL of the API server")
 }
 
 func formatAccessPorts(ports string, status string) string {

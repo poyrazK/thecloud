@@ -16,30 +16,6 @@ import (
 	"github.com/poyrazk/thecloud/pkg/testutil"
 )
 
-const instancesPathFmt = "%s/instances/%s"
-
-// baseURL is now usually defined by constant, but let's assume we use the one from testutil
-// const baseURL = "http://localhost:8080"
-
-type RegisterRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	Name     string `json:"name"`
-}
-
-type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-type AuthResponse struct {
-	APIKey string `json:"api_key"`
-}
-
-type ResponseWrapper struct {
-	Data AuthResponse `json:"data"`
-}
-
 type Instance struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
@@ -72,19 +48,17 @@ func TestMultiTenancyE2E(t *testing.T) {
 	})
 
 	t.Run("User B cannot Get User A's instance", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf(instancesPathFmt, testutil.TestBaseURL, instA.ID), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/instances/%s", testutil.TestBaseURL, instA.ID), nil)
 		req.Header.Set(testutil.TestHeaderAPIKey, tokenB)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
 		defer func() { _ = resp.Body.Close() }()
 
-		// Expect 404 (Not Found) or 403 (Forbidden).
-		// Since repo filters by user_id, it likely returns Not Found (like it doesn't exist for them).
 		assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	})
 
 	t.Run("User A can see their instance", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf(instancesPathFmt, testutil.TestBaseURL, instA.ID), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/instances/%s", testutil.TestBaseURL, instA.ID), nil)
 		req.Header.Set(testutil.TestHeaderAPIKey, tokenA)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
@@ -95,44 +69,6 @@ func TestMultiTenancyE2E(t *testing.T) {
 
 	// Cleanup
 	deleteInstance(t, client, tokenA, instA.ID)
-}
-
-func waitForServer() error {
-	for i := 0; i < 30; i++ {
-		resp, err := http.Get(testutil.TestBaseURL + "/health")
-		if err == nil && resp.StatusCode == 200 {
-			_ = resp.Body.Close()
-			return nil
-		}
-		time.Sleep(1 * time.Second)
-	}
-	return fmt.Errorf("server not ready")
-}
-
-func registerAndLogin(t *testing.T, client *http.Client, email, name string) string {
-	// Register
-	regReq := RegisterRequest{Email: email, Password: testutil.TestPasswordStrong, Name: name}
-	body, _ := json.Marshal(regReq)
-	resp, err := client.Post(testutil.TestBaseURL+"/auth/register", testutil.TestContentTypeAppJSON, bytes.NewBuffer(body))
-	if err == nil {
-		_ = resp.Body.Close()
-	}
-	// Ignore error if already registered, proceed to login
-
-	// Login
-	loginReq := LoginRequest{Email: email, Password: testutil.TestPasswordStrong}
-	body, _ = json.Marshal(loginReq)
-	resp, err = client.Post(testutil.TestBaseURL+"/auth/login", testutil.TestContentTypeAppJSON, bytes.NewBuffer(body))
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("Login failed for %s: status %d", email, resp.StatusCode)
-	}
-
-	var authResp ResponseWrapper
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&authResp))
-	return authResp.Data.APIKey
 }
 
 func createInstance(t *testing.T, client *http.Client, token, name string) Instance {
@@ -154,7 +90,6 @@ func createInstance(t *testing.T, client *http.Client, token, name string) Insta
 		t.Fatalf("Create instance failed: status %d body %s", resp.StatusCode, body)
 	}
 
-	// Response is wrapped in data
 	type InstanceWrapper struct {
 		Data Instance `json:"data"`
 	}
@@ -182,7 +117,7 @@ func listInstances(t *testing.T, client *http.Client, token string) []Instance {
 }
 
 func deleteInstance(_ *testing.T, client *http.Client, token, id string) {
-	req, _ := http.NewRequest("DELETE", fmt.Sprintf(instancesPathFmt, testutil.TestBaseURL, id), nil)
+	req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/instances/%s", testutil.TestBaseURL, id), nil)
 	req.Header.Set(testutil.TestHeaderAPIKey, token)
 	_, _ = client.Do(req)
 }

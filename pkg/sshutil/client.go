@@ -177,6 +177,13 @@ func (c *Client) WaitForSSH(ctx context.Context, timeout time.Duration) error {
 		addr = net.JoinHostPort(addr, "22")
 	}
 
+	// Check immediately once
+	d := net.Dialer{Timeout: sshDialTimeout}
+	if conn, err := d.DialContext(ctx, "tcp", addr); err == nil {
+		conn.Close()
+		return nil
+	}
+
 	for {
 		select {
 		case <-ctx.Done():

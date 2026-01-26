@@ -55,9 +55,10 @@ func TestClient_UploadObject(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, "test-api-key")
-	err := client.UploadObject(bucket, key, strings.NewReader(content))
+	obj, err := client.UploadObject(bucket, key, strings.NewReader(content))
 
 	assert.NoError(t, err)
+	assert.NotNil(t, obj)
 }
 
 func TestClient_DownloadObject(t *testing.T) {

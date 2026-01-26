@@ -1,0 +1,69 @@
+package tests
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/pkg/testutil"
+)
+
+func TestSecretsE2E(t *testing.T) {
+	if err := waitForServer(); err != nil {
+		t.Skipf("Skipping Secrets E2E test: %v", err)
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	token := registerAndLogin(t, client, "secrets-tester@thecloud.local", "Secrets Tester")
+
+	var secretID string
+	secretName := fmt.Sprintf("e2e-secret-%d", time.Now().UnixNano()%1000)
+
+	// 1. Create Secret
+	t.Run("CreateSecret", func(t *testing.T) {
+		payload := map[string]string{
+			"name":  secretName,
+			"value": "super-secret-value",
+		}
+		resp := postRequest(t, client, testutil.TestBaseURL+"/secrets", token, payload)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+		var res struct {
+			Data domain.Secret `json:"data"`
+		}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
+		secretID = res.Data.ID.String()
+		assert.NotEmpty(t, secretID)
+	})
+
+	// 2. Get Secret
+	t.Run("GetSecret", func(t *testing.T) {
+		resp := getRequest(t, client, fmt.Sprintf("%s/secrets/%s", testutil.TestBaseURL, secretID), token)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var res struct {
+			Data domain.Secret `json:"data"`
+		}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
+		assert.Equal(t, secretName, res.Data.Name)
+		assert.Equal(t, "super-secret-value", res.Data.EncryptedValue)
+	})
+
+	// 3. Delete Secret
+	t.Run("DeleteSecret", func(t *testing.T) {
+		resp := deleteRequest(t, client, fmt.Sprintf("%s/secrets/%s", testutil.TestBaseURL, secretID), token)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+}

@@ -65,6 +65,19 @@ func (m *mockFileStore) Delete(ctx context.Context, bucket, key string) error {
 	return m.Called(ctx, bucket, key).Error(0)
 }
 
+func (m *mockFileStore) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.StorageCluster), args.Error(1)
+}
+
+func (m *mockFileStore) Assemble(ctx context.Context, bucket, key string, parts []string) (int64, error) {
+	args := m.Called(ctx, bucket, key, parts)
+	return args.Get(0).(int64), args.Error(1)
+}
+
 func TestImageService(t *testing.T) {
 	repo := new(mockImageRepo)
 	store := new(mockFileStore)
@@ -97,7 +110,7 @@ func TestImageService(t *testing.T) {
 		id := uuid.New()
 		expected := &domain.Image{ID: id}
 		repo.On("GetByID", mock.Anything, id).Return(expected, nil)
-		
+
 		img, err := svc.GetImage(ctx, id)
 		assert.NoError(t, err)
 		assert.Equal(t, id, img.ID)

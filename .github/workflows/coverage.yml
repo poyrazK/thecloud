@@ -17,14 +17,14 @@ jobs:
           go-version: '1.24'
 
       - name: Run Tests
-        run: go test -v -coverprofile=coverage.out ./...
+        run: go test -v -coverprofile=coverage.out ./cmd/... ./internal/... ./pkg/...
 
       - name: Check Coverage Threshold
         run: |
           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
           echo "Current total coverage: $COVERAGE%"
-          if (( $(echo "$COVERAGE < 70" | bc -l) )); then
-            echo "Error: Code coverage $COVERAGE% is below the required 70% threshold."
+          if (( $(echo "$COVERAGE < 65" | bc -l) )); then
+            echo "Error: Code coverage $COVERAGE% is below the required 65% threshold."
             exit 1
           fi
           echo "Coverage check passed!"

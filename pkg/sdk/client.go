@@ -116,3 +116,24 @@ func (c *Client) put(path string, body interface{}, result interface{}) error {
 
 	return nil
 }
+
+func (c *Client) patch(path string, body interface{}, result interface{}) error {
+	req := c.resty.R()
+	if body != nil {
+		req.SetBody(body)
+	}
+	if result != nil {
+		req.SetResult(result)
+	}
+
+	resp, err := req.Patch(c.apiURL + path)
+	if err != nil {
+		return fmt.Errorf(errRequestFailed, err)
+	}
+
+	if resp.IsError() {
+		return fmt.Errorf(errAPIError, resp.String())
+	}
+
+	return nil
+}
