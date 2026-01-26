@@ -62,6 +62,7 @@ func (s *SecurityGroupService) CreateGroup(ctx context.Context, vpcID uuid.UUID,
 	sg := &domain.SecurityGroup{
 		ID:          sgID,
 		UserID:      userID,
+		TenantID:    appcontext.TenantIDFromContext(ctx),
 		VPCID:       vpcID,
 		Name:        name,
 		Description: description,

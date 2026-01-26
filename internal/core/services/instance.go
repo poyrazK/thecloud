@@ -93,6 +93,7 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 	inst := &domain.Instance{
 		ID:        uuid.New(),
 		UserID:    appcontext.UserIDFromContext(ctx),
+		TenantID:  appcontext.TenantIDFromContext(ctx),
 		Name:      name,
 		Image:     image,
 		Status:    domain.StatusStarting,

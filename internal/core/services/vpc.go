@@ -75,6 +75,7 @@ func (s *VpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*do
 	vpc := &domain.VPC{
 		ID:        vpcID,
 		UserID:    userID,
+		TenantID:  appcontext.TenantIDFromContext(ctx),
 		Name:      name,
 		CIDRBlock: cidrBlock,
 		NetworkID: bridgeName,
