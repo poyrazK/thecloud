@@ -54,6 +54,11 @@ cloud storage delete photos cat.jpg
 ```
 
 ## How It Works
-- **Metadata**: Stored in PostgreSQL (`objects` table)
-- **File Bytes**: Stored in `./thecloud-data/local/storage/<bucket>/<key>`
-- **ARN Format**: `arn:thecloud:storage:local:default:object/<bucket>/<key>`
+The Cloud uses a multi-node **Distributed Object Storage (v2)** system:
+
+- **Metadata**: Managed via the API and stored in PostgreSQL (`objects` table).
+- **Architecture**: 
+  - **Coordinator**: Receives requests, identifies target nodes using a **Consistent Hash Ring**, and handles replication.
+  - **Storage Nodes**: Store the actual file bytes and participate in a **Gossip Protocol** for decentralized health tracking.
+- **Replication**: Configurable N+M replication with write-quorum for high availability.
+- **ARN Format**: `arn:thecloud:storage:distributed:default:object/<bucket>/<key>`
