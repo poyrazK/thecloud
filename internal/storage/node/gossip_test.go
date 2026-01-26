@@ -10,28 +10,34 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGossipProtocol_AddPeer(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	g := NewGossipProtocol("node1", "localhost:8080", logger)
+const (
+	testNode1Addr = "localhost:8080"
+	testNode2Addr = "localhost:8081"
+	testNode3Addr = "localhost:8082"
+)
 
-	g.AddPeer("node2", "localhost:8081")
+func TestGossipProtocolAddPeer(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	g := NewGossipProtocol("node1", testNode1Addr, logger)
+
+	g.AddPeer("node2", testNode2Addr)
 
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	assert.Contains(t, g.members, "node2")
-	assert.Equal(t, "localhost:8081", g.members["node2"].Address)
+	assert.Equal(t, testNode2Addr, g.members["node2"].Address)
 }
 
-func TestGossipProtocol_OnGossip(t *testing.T) {
+func TestGossipProtocolOnGossip(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	g := NewGossipProtocol("node1", "localhost:8080", logger)
+	g := NewGossipProtocol("node1", testNode1Addr, logger)
 
 	// Update coming from node2 about node3
 	msg := &pb.GossipMessage{
 		SenderId: "node2",
 		Members: map[string]*pb.MemberState{
 			"node3": {
-				Addr:      "localhost:8082",
+				Addr:      testNode3Addr,
 				Status:    "alive",
 				Heartbeat: 10,
 			},
@@ -45,14 +51,14 @@ func TestGossipProtocol_OnGossip(t *testing.T) {
 	g.mu.RUnlock()
 
 	assert.True(t, exists)
-	assert.Equal(t, "localhost:8082", node3.Address)
+	assert.Equal(t, testNode3Addr, node3.Address)
 	assert.Equal(t, uint64(10), node3.Heartbeat)
 
 	// Newer heartbeat
 	msg2 := &pb.GossipMessage{
 		Members: map[string]*pb.MemberState{
 			"node3": {
-				Addr:      "localhost:8082",
+				Addr:      testNode3Addr,
 				Status:    "alive",
 				Heartbeat: 15,
 			},
@@ -65,13 +71,13 @@ func TestGossipProtocol_OnGossip(t *testing.T) {
 	g.mu.RUnlock()
 }
 
-func TestGossipProtocol_DetectFailures(t *testing.T) {
+func TestGossipProtocolDetectFailures(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	g := NewGossipProtocol("node1", "localhost:8080", logger)
+	g := NewGossipProtocol("node1", testNode1Addr, logger)
 
 	// Add a node that was seen long ago
 	g.members["node2"] = &MemberState{
-		Address:  "localhost:8081",
+		Address:  testNode2Addr,
 		Status:   "alive",
 		LastSeen: time.Now().Add(-10 * time.Second), // Timeout is 5s
 	}
