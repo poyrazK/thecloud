@@ -334,6 +334,46 @@ func TestCheckQuota_Resources(t *testing.T) {
 	assert.Contains(t, err.Error(), "unknown resource type")
 }
 
+func TestCheckQuota_ResourcesWithinLimit(t *testing.T) {
+	tenantRepo, _, _, svc := setupTenantServiceTest(t)
+	ctx := context.Background()
+	tenantID := uuid.New()
+
+	quota := &domain.TenantQuota{
+		TenantID:       tenantID,
+		MaxStorageGB:   50,
+		UsedStorageGB:  10,
+		MaxMemoryGB:    16,
+		UsedMemoryGB:   8,
+		MaxVCPUs:       8,
+		UsedVCPUs:      4,
+		MaxVPCs:        2,
+		UsedVPCs:       1,
+		MaxInstances:   10,
+		UsedInstances:  3,
+	}
+	tenantRepo.On("GetQuota", mock.Anything, tenantID).Return(quota, nil)
+
+	assert.NoError(t, svc.CheckQuota(ctx, tenantID, "storage", 5))
+	assert.NoError(t, svc.CheckQuota(ctx, tenantID, "memory", 4))
+	assert.NoError(t, svc.CheckQuota(ctx, tenantID, "vcpus", 2))
+}
+
+func TestRemoveMember_RepoError(t *testing.T) {
+	tenantRepo, _, _, svc := setupTenantServiceTest(t)
+	ctx := context.Background()
+	tenantID := uuid.New()
+	userID := uuid.New()
+	ownerID := uuid.New()
+
+	tenant := &domain.Tenant{ID: tenantID, OwnerID: ownerID}
+	tenantRepo.On("GetByID", mock.Anything, tenantID).Return(tenant, nil)
+	tenantRepo.On("RemoveMember", mock.Anything, tenantID, userID).Return(assert.AnError)
+
+	err := svc.RemoveMember(ctx, tenantID, userID)
+	assert.Error(t, err)
+}
+
 func TestCheckQuota_GetQuotaError(t *testing.T) {
 	tenantRepo, _, _, svc := setupTenantServiceTest(t)
 	ctx := context.Background()

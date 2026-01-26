@@ -403,6 +403,20 @@ func TestStorageMultipart(t *testing.T) {
 		assert.Error(t, err)
 	})
 
+	t.Run("CompleteMultipartDeleteUploadError", func(t *testing.T) {
+		upload := &domain.MultipartUpload{ID: uploadID, Bucket: bucket, Key: key, UserID: userID}
+		repo.On("GetMultipartUpload", ctx, uploadID).Return(upload, nil).Once()
+		repo.On("ListParts", ctx, uploadID).Return([]*domain.Part{{PartNumber: 1}}, nil).Once()
+		store.On("Assemble", ctx, bucket, key, mock.Anything).Return(int64(10), nil).Once()
+		repo.On("SaveMeta", ctx, mock.Anything).Return(nil).Once()
+		repo.On("DeleteMultipartUpload", ctx, uploadID).Return(assert.AnError).Once()
+		auditSvc.On("Log", ctx, userID, "storage.multipart_complete", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+
+		obj, err := svc.CompleteMultipartUpload(ctx, uploadID)
+		assert.NoError(t, err)
+		assert.NotNil(t, obj)
+	})
+
 	t.Run("CompleteMultipartNoParts", func(t *testing.T) {
 		upload := &domain.MultipartUpload{ID: uploadID, Bucket: bucket, Key: key, UserID: userID}
 		repo.On("GetMultipartUpload", ctx, uploadID).Return(upload, nil).Once()
