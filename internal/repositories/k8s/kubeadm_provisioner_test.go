@@ -102,26 +102,44 @@ func (m *MockSecretService) Decrypt(ctx context.Context, userID uuid.UUID, ciphe
 type MockSecurityGroupService struct{ mock.Mock }
 
 func (m *MockSecurityGroupService) CreateGroup(ctx context.Context, vpcID uuid.UUID, name, description string) (*domain.SecurityGroup, error) {
-	return nil, nil
+	args := m.Called(ctx, vpcID, name, description)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.SecurityGroup), args.Error(1)
 }
 func (m *MockSecurityGroupService) GetGroup(ctx context.Context, idOrName string, vpcID uuid.UUID) (*domain.SecurityGroup, error) {
-	return nil, nil
+	args := m.Called(ctx, idOrName, vpcID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.SecurityGroup), args.Error(1)
 }
 func (m *MockSecurityGroupService) ListGroups(ctx context.Context, vpcID uuid.UUID) ([]*domain.SecurityGroup, error) {
-	return nil, nil
+	args := m.Called(ctx, vpcID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.SecurityGroup), args.Error(1)
 }
-func (m *MockSecurityGroupService) DeleteGroup(ctx context.Context, id uuid.UUID) error { return nil }
+func (m *MockSecurityGroupService) DeleteGroup(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
 func (m *MockSecurityGroupService) AddRule(ctx context.Context, groupID uuid.UUID, rule domain.SecurityRule) (*domain.SecurityRule, error) {
-	return &rule, nil
+	args := m.Called(ctx, groupID, rule)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.SecurityRule), args.Error(1)
 }
 func (m *MockSecurityGroupService) RemoveRule(ctx context.Context, ruleID uuid.UUID) error {
-	return nil
+	return m.Called(ctx, ruleID).Error(0)
 }
 func (m *MockSecurityGroupService) AttachToInstance(ctx context.Context, instanceID, groupID uuid.UUID) error {
-	return nil
+	return m.Called(ctx, instanceID, groupID).Error(0)
 }
 func (m *MockSecurityGroupService) DetachFromInstance(ctx context.Context, instanceID, groupID uuid.UUID) error {
-	return nil
+	return m.Called(ctx, instanceID, groupID).Error(0)
 }
 
 type MockStorageService struct{ mock.Mock }
@@ -230,6 +248,7 @@ func TestKubeadmProvisionerDeprovision(t *testing.T) {
 	repo.On("GetNodes", ctx, cluster.ID).Return(nodes, nil)
 	instSvc.On("TerminateInstance", ctx, instanceID.String()).Return(nil)
 	repo.On("DeleteNode", ctx, nodeID).Return(nil)
+	sgSvc.On("GetGroup", mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("not found"))
 
 	err := p.Deprovision(ctx, cluster)
 
@@ -259,6 +278,8 @@ func TestKubeadmProvisionerProvisionHA(t *testing.T) {
 	repo.On("Update", mock.Anything, mock.Anything).Return(nil).Maybe()
 	repo.On("AddNode", mock.Anything, mock.Anything).Return(nil).Maybe()
 	repo.On("UpdateNode", mock.Anything, mock.Anything).Return(nil).Maybe()
+	sgSvc.On("GetGroup", mock.Anything, mock.Anything, mock.Anything).Return(&domain.SecurityGroup{ID: uuid.New()}, nil)
+	sgSvc.On("AttachToInstance", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	// 1. LB Creation
 	lbID := uuid.New()
