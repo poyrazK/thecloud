@@ -94,7 +94,9 @@ func (m *MockProvisioner) Restore(ctx context.Context, c *domain.Cluster, path s
 	return m.Called(ctx, c, path).Error(0)
 }
 
-func TestClusterWorker_ProcessProvisionJob(t *testing.T) {
+const workerClusterName = "worker-test"
+
+func TestClusterWorkerProcessProvisionJob(t *testing.T) {
 	tq := new(MockTaskQueue)
 	repo := new(MockClusterRepo)
 	prov := new(MockProvisioner)
@@ -104,7 +106,7 @@ func TestClusterWorker_ProcessProvisionJob(t *testing.T) {
 
 	clusterID := uuid.New()
 	userID := uuid.New()
-	cluster := &domain.Cluster{ID: clusterID, UserID: userID, Name: "worker-test"}
+	cluster := &domain.Cluster{ID: clusterID, UserID: userID, Name: workerClusterName}
 
 	job := domain.ClusterJob{
 		Type:      domain.ClusterJobProvision,
@@ -124,7 +126,7 @@ func TestClusterWorker_ProcessProvisionJob(t *testing.T) {
 	prov.AssertExpectations(t)
 }
 
-func TestClusterWorker_ProcessDeprovisionJobSuccess(t *testing.T) {
+func TestClusterWorkerProcessDeprovisionJobSuccess(t *testing.T) {
 	tq := new(MockTaskQueue)
 	repo := new(MockClusterRepo)
 	prov := new(MockProvisioner)
@@ -134,7 +136,7 @@ func TestClusterWorker_ProcessDeprovisionJobSuccess(t *testing.T) {
 
 	clusterID := uuid.New()
 	userID := uuid.New()
-	cluster := &domain.Cluster{ID: clusterID, UserID: userID, Name: "worker-test"}
+	cluster := &domain.Cluster{ID: clusterID, UserID: userID, Name: workerClusterName}
 
 	job := domain.ClusterJob{
 		Type:      domain.ClusterJobDeprovision,
@@ -153,7 +155,7 @@ func TestClusterWorker_ProcessDeprovisionJobSuccess(t *testing.T) {
 	prov.AssertExpectations(t)
 }
 
-func TestClusterWorker_ProcessDeprovisionJobFailure(t *testing.T) {
+func TestClusterWorkerProcessDeprovisionJobFailure(t *testing.T) {
 	tq := new(MockTaskQueue)
 	repo := new(MockClusterRepo)
 	prov := new(MockProvisioner)
@@ -163,7 +165,7 @@ func TestClusterWorker_ProcessDeprovisionJobFailure(t *testing.T) {
 
 	clusterID := uuid.New()
 	userID := uuid.New()
-	cluster := &domain.Cluster{ID: clusterID, UserID: userID, Name: "worker-test"}
+	cluster := &domain.Cluster{ID: clusterID, UserID: userID, Name: workerClusterName}
 
 	job := domain.ClusterJob{
 		Type:      domain.ClusterJobDeprovision,
@@ -181,7 +183,7 @@ func TestClusterWorker_ProcessDeprovisionJobFailure(t *testing.T) {
 	prov.AssertExpectations(t)
 }
 
-func TestClusterWorker_ProcessUpgradeJob(t *testing.T) {
+func TestClusterWorkerProcessUpgradeJob(t *testing.T) {
 	tq := new(MockTaskQueue)
 	repo := new(MockClusterRepo)
 	prov := new(MockProvisioner)
@@ -192,7 +194,7 @@ func TestClusterWorker_ProcessUpgradeJob(t *testing.T) {
 	clusterID := uuid.New()
 	userID := uuid.New()
 	version := "1.30.0"
-	cluster := &domain.Cluster{ID: clusterID, UserID: userID, Name: "worker-test"}
+	cluster := &domain.Cluster{ID: clusterID, UserID: userID, Name: workerClusterName}
 
 	job := domain.ClusterJob{
 		Type:      domain.ClusterJobUpgrade,
@@ -213,7 +215,7 @@ func TestClusterWorker_ProcessUpgradeJob(t *testing.T) {
 	prov.AssertExpectations(t)
 }
 
-func TestClusterWorker_ProcessJobClusterNotFound(t *testing.T) {
+func TestClusterWorkerProcessJobClusterNotFound(t *testing.T) {
 	tq := new(MockTaskQueue)
 	repo := new(MockClusterRepo)
 	prov := new(MockProvisioner)

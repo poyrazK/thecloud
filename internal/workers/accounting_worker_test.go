@@ -45,7 +45,7 @@ func (t *countingAccountingService) ListUsage(ctx context.Context, userID uuid.U
 	return nil, nil
 }
 
-func TestAccountingWorker_Run(t *testing.T) {
+func TestAccountingWorkerRun(t *testing.T) {
 	fakeSvc := &countingAccountingService{}
 	worker := &AccountingWorker{
 		accountingSvc: fakeSvc,
@@ -68,7 +68,7 @@ func TestAccountingWorker_Run(t *testing.T) {
 	}
 }
 
-func TestAccountingWorker_RunLogsErrors(t *testing.T) {
+func TestAccountingWorkerRunLogsErrors(t *testing.T) {
 	svc := &countingAccountingService{err: errors.New("boom")}
 	worker := &AccountingWorker{
 		accountingSvc: svc,

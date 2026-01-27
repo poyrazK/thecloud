@@ -43,7 +43,7 @@ func TestLocalStore(t *testing.T) {
 	require.True(t, os.IsNotExist(err))
 }
 
-func TestLocalStore_PathTraversal(t *testing.T) {
+func TestLocalStorePathTraversal(t *testing.T) {
 	tmpDir := t.TempDir()
 	store, _ := NewLocalStore(tmpDir)
 
@@ -57,7 +57,7 @@ func TestLocalStore_PathTraversal(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestLocalStore_Assemble(t *testing.T) {
+func TestLocalStoreAssemble(t *testing.T) {
 	tmpDir := t.TempDir()
 	store, _ := NewLocalStore(tmpDir)
 
@@ -88,7 +88,7 @@ func TestLocalStore_Assemble(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestLocalStore_ReadFallbackToMtime(t *testing.T) {
+func TestLocalStoreReadFallbackToMtime(t *testing.T) {
 	tmpDir := t.TempDir()
 	store, _ := NewLocalStore(tmpDir)
 
@@ -110,7 +110,7 @@ func TestLocalStore_ReadFallbackToMtime(t *testing.T) {
 	assert.Equal(t, mtime.UnixNano(), ts)
 }
 
-func TestLocalStore_InvalidAbsolutePath(t *testing.T) {
+func TestLocalStoreInvalidAbsolutePath(t *testing.T) {
 	tmpDir := t.TempDir()
 	store, _ := NewLocalStore(tmpDir)
 
