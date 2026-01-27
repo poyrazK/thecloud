@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const subnetTestAZ = "us-east-1a"
+
 func setupSubnetServiceTest(_ *testing.T) (*MockSubnetRepo, *MockVpcRepo, *MockAuditService, ports.SubnetService) {
 	repo := new(MockSubnetRepo)
 	vpcRepo := new(MockVpcRepo)
@@ -45,7 +47,7 @@ func TestSubnetServiceCreateSubnetSuccess(t *testing.T) {
 	})).Return(nil)
 	auditSvc.On("Log", ctx, mock.Anything, "subnet.create", "subnet", mock.Anything, mock.Anything).Return(nil)
 
-	subnet, err := svc.CreateSubnet(ctx, vpcID, "test-subnet", testutil.TestSubnetCIDR, "us-east-1a")
+	subnet, err := svc.CreateSubnet(ctx, vpcID, "test-subnet", testutil.TestSubnetCIDR, subnetTestAZ)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, subnet)
@@ -64,7 +66,7 @@ func TestSubnetServiceCreateSubnetRepoError(t *testing.T) {
 	vpcRepo.On("GetByID", ctx, vpcID).Return(vpc, nil)
 	repo.On("Create", ctx, mock.Anything).Return(assert.AnError)
 
-	subnet, err := svc.CreateSubnet(ctx, vpcID, "test-subnet", testutil.TestSubnetCIDR, "us-east-1a")
+	subnet, err := svc.CreateSubnet(ctx, vpcID, "test-subnet", testutil.TestSubnetCIDR, subnetTestAZ)
 	assert.Error(t, err)
 	assert.Nil(t, subnet)
 }
@@ -84,7 +86,7 @@ func TestSubnetServiceCreateSubnetInvalidCIDR(t *testing.T) {
 	vpcRepo.On("GetByID", ctx, vpcID).Return(vpc, nil)
 
 	// Outside VPC range
-	subnet, err := svc.CreateSubnet(ctx, vpcID, "bad-subnet", testutil.TestOtherCIDR, "us-east-1a")
+	subnet, err := svc.CreateSubnet(ctx, vpcID, "bad-subnet", testutil.TestOtherCIDR, subnetTestAZ)
 
 	assert.Error(t, err)
 	assert.Nil(t, subnet)
@@ -101,7 +103,7 @@ func TestSubnetServiceCreateSubnetVpcRepoError(t *testing.T) {
 
 	vpcRepo.On("GetByID", ctx, vpcID).Return(nil, assert.AnError)
 
-	subnet, err := svc.CreateSubnet(ctx, vpcID, "bad-vpc", testutil.TestSubnetCIDR, "us-east-1a")
+	subnet, err := svc.CreateSubnet(ctx, vpcID, "bad-vpc", testutil.TestSubnetCIDR, subnetTestAZ)
 	assert.Error(t, err)
 	assert.Nil(t, subnet)
 }
@@ -120,7 +122,7 @@ func TestSubnetServiceCreateSubnetInvalidSubnetCIDRFormat(t *testing.T) {
 
 	vpcRepo.On("GetByID", ctx, vpcID).Return(vpc, nil)
 
-	subnet, err := svc.CreateSubnet(ctx, vpcID, "bad-subnet", "not-a-cidr", "us-east-1a")
+	subnet, err := svc.CreateSubnet(ctx, vpcID, "bad-subnet", "not-a-cidr", subnetTestAZ)
 
 	assert.Error(t, err)
 	assert.Nil(t, subnet)
@@ -140,7 +142,7 @@ func TestSubnetServiceCreateSubnetInvalidVPCCIDRFormat(t *testing.T) {
 
 	vpcRepo.On("GetByID", ctx, vpcID).Return(vpc, nil)
 
-	subnet, err := svc.CreateSubnet(ctx, vpcID, "bad-vpc", testutil.TestSubnetCIDR, "us-east-1a")
+	subnet, err := svc.CreateSubnet(ctx, vpcID, "bad-vpc", testutil.TestSubnetCIDR, subnetTestAZ)
 
 	assert.Error(t, err)
 	assert.Nil(t, subnet)

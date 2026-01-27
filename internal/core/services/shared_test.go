@@ -1931,7 +1931,10 @@ func (m *MockEncryptionService) CreateKey(ctx context.Context, bucket string) (s
 
 func (m *MockEncryptionService) RotateKey(ctx context.Context, bucket string) (string, error) {
 	args := m.Called(ctx, bucket)
-	return args.String(0), args.Error(1)
+	if args.Get(0) == nil {
+		return "", args.Error(1)
+	}
+	return args.Get(0).(string), args.Error(1)
 }
 
 // MockTenantRepo

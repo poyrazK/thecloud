@@ -22,13 +22,19 @@ import (
 const (
 	testBucket = "test-bucket"
 	testKey    = "test-key"
+	testSecretKey = "test-secret"
+	storageUploadAction = "storage.object_upload"
+	bucketNotFoundMsg = "bucket not found"
+	notFoundMsg = "not found"
+	partData = "part-data"
+	storageMultipartAbortAction = "storage.multipart_abort"
 )
 
 func setupStorageServiceTest(_ *testing.T) (*MockStorageRepo, *MockFileStore, *MockAuditService, ports.StorageService) {
 	repo := new(MockStorageRepo)
 	store := new(MockFileStore)
 	auditSvc := new(MockAuditService)
-	cfg := &platform.Config{SecretsEncryptionKey: "test-secret", Port: "8080"}
+	cfg := &platform.Config{SecretsEncryptionKey: testSecretKey, Port: "8080"}
 	svc := services.NewStorageService(repo, store, auditSvc, nil, cfg)
 	return repo, store, auditSvc, svc
 }
@@ -38,7 +44,7 @@ func setupStorageServiceWithEncryption(_ *testing.T) (*MockStorageRepo, *MockFil
 	store := new(MockFileStore)
 	auditSvc := new(MockAuditService)
 	encryptSvc := new(MockEncryptionService)
-	cfg := &platform.Config{SecretsEncryptionKey: "test-secret", Port: "8080"}
+	cfg := &platform.Config{SecretsEncryptionKey: testSecretKey, Port: "8080"}
 	svc := services.NewStorageService(repo, store, auditSvc, encryptSvc, cfg)
 	return repo, store, auditSvc, encryptSvc, svc
 }
@@ -67,7 +73,7 @@ func TestStorageUploadSuccess(t *testing.T) {
 	store.On("Write", ctx, bucket, key, reader).Return(int64(len(content)), nil)
 	repo.On("GetBucket", ctx, bucket).Return(&domain.Bucket{Name: bucket, VersioningEnabled: false, UserID: userID}, nil)
 	repo.On("SaveMeta", ctx, mock.AnythingOfType("*domain.Object")).Return(nil)
-	auditSvc.On("Log", ctx, userID, "storage.object_upload", "storage", mock.Anything, mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, userID, storageUploadAction, "storage", mock.Anything, mock.Anything).Return(nil)
 
 	obj, err := svc.Upload(ctx, bucket, key, reader)
 
@@ -83,7 +89,7 @@ func TestStorageUploadBucketNotFound(t *testing.T) {
 	defer repo.AssertExpectations(t)
 
 	ctx := context.Background()
-	repo.On("GetBucket", ctx, "missing").Return(nil, errors.New(errors.NotFound, "bucket not found")).Once()
+	repo.On("GetBucket", ctx, "missing").Return(nil, errors.New(errors.NotFound, bucketNotFoundMsg)).Once()
 
 	obj, err := svc.Upload(ctx, "missing", "key", strings.NewReader("data"))
 	assert.Error(t, err)
@@ -137,7 +143,7 @@ func TestStorageDownloadNotFound(t *testing.T) {
 	defer repo.AssertExpectations(t)
 
 	ctx := context.Background()
-	repo.On("GetMeta", ctx, testBucket, testKey).Return(nil, errors.New(errors.NotFound, "not found")).Once()
+	repo.On("GetMeta", ctx, testBucket, testKey).Return(nil, errors.New(errors.NotFound, notFoundMsg)).Once()
 
 	r, obj, err := svc.Download(ctx, testBucket, testKey)
 	assert.Error(t, err)
@@ -189,7 +195,7 @@ func TestStorageVersioning(t *testing.T) {
 			return o.Bucket == bucket && o.VersionID != "null"
 		})).Return(nil).Once()
 
-		auditSvc.On("Log", mock.Anything, userID, "storage.object_upload", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, storageUploadAction, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 		obj, err := svc.Upload(ctx, bucket, key, strings.NewReader("hello"))
 		assert.NoError(t, err)
@@ -210,7 +216,7 @@ func TestStorageVersioning(t *testing.T) {
 	})
 
 	t.Run("DownloadVersionNotFound", func(t *testing.T) {
-		repo.On("GetMetaByVersion", ctx, bucket, key, "v2").Return(nil, errors.New(errors.NotFound, "not found")).Once()
+		repo.On("GetMetaByVersion", ctx, bucket, key, "v2").Return(nil, errors.New(errors.NotFound, notFoundMsg)).Once()
 		_, _, err := svc.DownloadVersion(ctx, bucket, key, "v2")
 		assert.Error(t, err)
 	})
@@ -343,7 +349,7 @@ func TestStorageMultipart(t *testing.T) {
 		store.On("Write", ctx, bucket, mock.Anything, mock.Anything).Return(int64(10), nil).Once()
 		repo.On("SavePart", ctx, mock.Anything).Return(nil).Once()
 
-		part, err := svc.UploadPart(ctx, uploadID, 1, strings.NewReader("part-data"))
+		part, err := svc.UploadPart(ctx, uploadID, 1, strings.NewReader(partData))
 		assert.NoError(t, err)
 		assert.Equal(t, 1, part.PartNumber)
 	})
@@ -353,7 +359,7 @@ func TestStorageMultipart(t *testing.T) {
 		repo.On("GetMultipartUpload", ctx, uploadID).Return(upload, nil).Once()
 		store.On("Write", ctx, bucket, mock.Anything, mock.Anything).Return(int64(0), assert.AnError).Once()
 
-		_, err := svc.UploadPart(ctx, uploadID, 2, strings.NewReader("part-data"))
+		_, err := svc.UploadPart(ctx, uploadID, 2, strings.NewReader(partData))
 		assert.Error(t, err)
 	})
 
@@ -419,7 +425,7 @@ func TestStorageMultipart(t *testing.T) {
 	})
 
 	t.Run("CompleteMultipartNotFound", func(t *testing.T) {
-		repo.On("GetMultipartUpload", ctx, uploadID).Return(nil, errors.New(errors.NotFound, "not found")).Once()
+		repo.On("GetMultipartUpload", ctx, uploadID).Return(nil, errors.New(errors.NotFound, notFoundMsg)).Once()
 
 		_, err := svc.CompleteMultipartUpload(ctx, uploadID)
 		assert.Error(t, err)
@@ -439,7 +445,7 @@ func TestStorageMultipart(t *testing.T) {
 		repo.On("GetMultipartUpload", ctx, uploadID).Return(upload, nil).Once()
 		repo.On("ListParts", ctx, uploadID).Return([]*domain.Part{}, nil).Once()
 		repo.On("DeleteMultipartUpload", ctx, uploadID).Return(nil).Once()
-		auditSvc.On("Log", ctx, userID, "storage.multipart_abort", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		auditSvc.On("Log", ctx, userID, storageMultipartAbortAction, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 		err := svc.AbortMultipartUpload(ctx, uploadID)
 		assert.NoError(t, err)
@@ -460,7 +466,7 @@ func TestStorageMultipart(t *testing.T) {
 		repo.On("GetMultipartUpload", ctx, uploadID).Return(upload, nil).Once()
 		repo.On("ListParts", ctx, uploadID).Return(nil, assert.AnError).Once()
 		repo.On("DeleteMultipartUpload", ctx, uploadID).Return(nil).Once()
-		auditSvc.On("Log", ctx, userID, "storage.multipart_abort", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		auditSvc.On("Log", ctx, userID, storageMultipartAbortAction, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 		err := svc.AbortMultipartUpload(ctx, uploadID)
 		assert.NoError(t, err)
@@ -472,7 +478,7 @@ func TestStorageMultipart(t *testing.T) {
 		repo.On("ListParts", ctx, uploadID).Return([]*domain.Part{{PartNumber: 1}, {PartNumber: 2}}, nil).Once()
 		store.On("Delete", ctx, bucket, mock.Anything).Return(nil).Twice()
 		repo.On("DeleteMultipartUpload", ctx, uploadID).Return(nil).Once()
-		auditSvc.On("Log", ctx, userID, "storage.multipart_abort", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		auditSvc.On("Log", ctx, userID, storageMultipartAbortAction, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 		err := svc.AbortMultipartUpload(ctx, uploadID)
 		assert.NoError(t, err)
@@ -486,7 +492,7 @@ func TestStorageMultipart(t *testing.T) {
 	})
 
 	t.Run("UploadPartNotFound", func(t *testing.T) {
-		repo.On("GetMultipartUpload", ctx, uploadID).Return(nil, errors.New(errors.NotFound, "not found")).Once()
+		repo.On("GetMultipartUpload", ctx, uploadID).Return(nil, errors.New(errors.NotFound, notFoundMsg)).Once()
 		_, err := svc.UploadPart(ctx, uploadID, 1, nil)
 		assert.Error(t, err)
 	})
@@ -497,12 +503,12 @@ func TestStorageMultipart(t *testing.T) {
 		store.On("Write", ctx, bucket, mock.Anything, mock.Anything).Return(int64(10), nil).Once()
 		repo.On("SavePart", ctx, mock.Anything).Return(assert.AnError).Once()
 
-		_, err := svc.UploadPart(ctx, uploadID, 2, strings.NewReader("part-data"))
+		_, err := svc.UploadPart(ctx, uploadID, 2, strings.NewReader(partData))
 		assert.Error(t, err)
 	})
 
 	t.Run("CreateMultipartBucketMissing", func(t *testing.T) {
-		repo.On("GetBucket", ctx, bucket).Return(nil, errors.New(errors.NotFound, "bucket not found")).Once()
+		repo.On("GetBucket", ctx, bucket).Return(nil, errors.New(errors.NotFound, bucketNotFoundMsg)).Once()
 
 		_, err := svc.CreateMultipartUpload(ctx, bucket, key)
 		assert.Error(t, err)
@@ -620,7 +626,7 @@ func TestStoragePresignedURLBucketNotFound(t *testing.T) {
 	defer repo.AssertExpectations(t)
 
 	ctx := context.Background()
-	repo.On("GetBucket", ctx, testBucket).Return(nil, errors.New(errors.NotFound, "bucket not found")).Once()
+	repo.On("GetBucket", ctx, testBucket).Return(nil, errors.New(errors.NotFound, bucketNotFoundMsg)).Once()
 
 	_, err := svc.GeneratePresignedURL(ctx, testBucket, testKey, "GET", 0)
 	assert.Error(t, err)
@@ -638,7 +644,7 @@ func TestStoragePresignedURLMissingSecret(t *testing.T) {
 }
 
 func TestStoragePresignedURLInvalidBaseURL(t *testing.T) {
-	repo, _, _, svc := setupStorageServiceWithConfig(t, &platform.Config{SecretsEncryptionKey: "test-secret", Port: "%"})
+	repo, _, _, svc := setupStorageServiceWithConfig(t, &platform.Config{SecretsEncryptionKey: testSecretKey, Port: "%"})
 	defer repo.AssertExpectations(t)
 
 	ctx := context.Background()
@@ -649,7 +655,7 @@ func TestStoragePresignedURLInvalidBaseURL(t *testing.T) {
 }
 
 func TestStoragePresignedURLDefaultBaseURL(t *testing.T) {
-	repo, _, _, svc := setupStorageServiceWithConfig(t, &platform.Config{SecretsEncryptionKey: "test-secret"})
+	repo, _, _, svc := setupStorageServiceWithConfig(t, &platform.Config{SecretsEncryptionKey: testSecretKey})
 	defer repo.AssertExpectations(t)
 
 	ctx := context.Background()
@@ -689,7 +695,7 @@ func TestStorageEncryption(t *testing.T) {
 		})).Return(int64(len(encrypted)), nil).Once()
 
 		repo.On("SaveMeta", ctx, mock.Anything).Return(nil).Once()
-		auditSvc.On("Log", ctx, userID, "storage.object_upload", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		auditSvc.On("Log", ctx, userID, storageUploadAction, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 		obj, err := svc.Upload(ctx, bucket, key, bytes.NewReader(plaintext))
 		assert.NoError(t, err)
