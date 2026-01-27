@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const snapshotErrorFormat = "Error: %v\n"
+
 var snapshotCmd = &cobra.Command{
 	Use:   "snapshot",
 	Short: "Manage volume snapshots",
@@ -23,7 +25,7 @@ var snapshotListCmd = &cobra.Command{
 		client := getClient()
 		snapshots, err := client.ListSnapshots()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(snapshotErrorFormat, err)
 			return
 		}
 
@@ -64,7 +66,7 @@ var snapshotCreateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		volID, err := uuid.Parse(args[0])
 		if err != nil {
-			fmt.Printf("Error: invalid volume ID: %v\n", err)
+			fmt.Printf(snapshotErrorFormat, err)
 			return
 		}
 		desc, _ := cmd.Flags().GetString("desc")
@@ -72,7 +74,7 @@ var snapshotCreateCmd = &cobra.Command{
 		client := getClient()
 		snapshot, err := client.CreateSnapshot(volID, desc)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(snapshotErrorFormat, err)
 			return
 		}
 
@@ -90,7 +92,7 @@ var snapshotDeleteCmd = &cobra.Command{
 		id := args[0]
 		client := getClient()
 		if err := client.DeleteSnapshot(id); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(snapshotErrorFormat, err)
 			return
 		}
 		fmt.Printf("[SUCCESS] Snapshot %s deleted.\n", id)
@@ -108,7 +110,7 @@ var snapshotRestoreCmd = &cobra.Command{
 		client := getClient()
 		vol, err := client.RestoreSnapshot(id, name)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(snapshotErrorFormat, err)
 			return
 		}
 

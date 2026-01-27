@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const subnetErrorFormat = "Error: %v\n"
+
 var subnetCmd = &cobra.Command{
 	Use:   "subnet",
 	Short: "Manage Subnets within VPCs",
@@ -24,7 +26,7 @@ var subnetListCmd = &cobra.Command{
 		vpcID := args[0]
 		subnets, err := client.ListSubnets(vpcID)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(subnetErrorFormat, err)
 			return
 		}
 
@@ -65,7 +67,7 @@ var subnetCreateCmd = &cobra.Command{
 
 		subnet, err := client.CreateSubnet(vpcID, name, cidr, az)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(subnetErrorFormat, err)
 			return
 		}
 
@@ -83,7 +85,7 @@ var subnetDeleteCmd = &cobra.Command{
 
 		err := client.DeleteSubnet(subnetID)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(subnetErrorFormat, err)
 			return
 		}
 

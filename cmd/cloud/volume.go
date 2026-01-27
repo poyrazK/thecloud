@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const volumeErrorFormat = "Error: %v\n"
+
 var volumeCmd = &cobra.Command{
 	Use:   "volume",
 	Short: "Manage block storage volumes",
@@ -22,7 +24,7 @@ var volumeListCmd = &cobra.Command{
 		client := getClient()
 		volumes, err := client.ListVolumes()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(volumeErrorFormat, err)
 			return
 		}
 
@@ -66,7 +68,7 @@ var volumeCreateCmd = &cobra.Command{
 		client := getClient()
 		vol, err := client.CreateVolume(name, size)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(volumeErrorFormat, err)
 			return
 		}
 
@@ -84,7 +86,7 @@ var volumeDeleteCmd = &cobra.Command{
 		id := args[0]
 		client := getClient()
 		if err := client.DeleteVolume(id); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(volumeErrorFormat, err)
 			return
 		}
 		fmt.Printf("[SUCCESS] Volume %s deleted.\n", id)
