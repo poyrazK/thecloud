@@ -11,6 +11,8 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+const invalidLBIDFormatMsg = "invalid lb_id format"
+
 // LBHandler handles load balancer HTTP endpoints.
 type LBHandler struct {
 	svc ports.LBService
@@ -156,7 +158,7 @@ func (h *LBHandler) AddTarget(c *gin.Context) {
 	lbIDStr := c.Param("id")
 	lbID, err := uuid.Parse(lbIDStr)
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid lb_id format"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidLBIDFormatMsg))
 		return
 	}
 
@@ -195,7 +197,7 @@ func (h *LBHandler) RemoveTarget(c *gin.Context) {
 	lbIDStr := c.Param("id")
 	lbID, err := uuid.Parse(lbIDStr)
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid lb_id format"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidLBIDFormatMsg))
 		return
 	}
 

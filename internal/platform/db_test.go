@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewDatabase_InvalidURL(t *testing.T) {
+func TestNewDatabaseInvalidURL(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	pool, err := NewDatabase(context.Background(), &Config{DatabaseURL: "invalid-url"}, logger)
 	assert.Error(t, err)
@@ -17,7 +17,7 @@ func TestNewDatabase_InvalidURL(t *testing.T) {
 	assert.Contains(t, err.Error(), "unable to parse database url")
 }
 
-func TestNewDatabase_InvalidMaxConns(t *testing.T) {
+func TestNewDatabaseInvalidMaxConns(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	pool, err := NewDatabase(context.Background(), &Config{
 		DatabaseURL: "postgres://user:pass@localhost/db",
@@ -29,7 +29,7 @@ func TestNewDatabase_InvalidMaxConns(t *testing.T) {
 	}
 }
 
-func TestNewDatabase_InvalidMinConns(t *testing.T) {
+func TestNewDatabaseInvalidMinConns(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	pool, err := NewDatabase(context.Background(), &Config{
 		DatabaseURL: "postgres://user:pass@localhost/db",

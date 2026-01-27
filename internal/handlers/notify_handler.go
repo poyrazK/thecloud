@@ -12,6 +12,11 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+const (
+	invalidRequestBodyMsg = "Invalid request body"
+	invalidTopicIDMsg     = "Invalid topic ID"
+)
+
 // NotifyHandler handles notification HTTP endpoints.
 type NotifyHandler struct {
 	svc ports.NotifyService
@@ -27,7 +32,7 @@ func (h *NotifyHandler) CreateTopic(c *gin.Context) {
 		Name string `json:"name" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "Invalid request body"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidRequestBodyMsg))
 		return
 	}
 
@@ -52,7 +57,7 @@ func (h *NotifyHandler) ListTopics(c *gin.Context) {
 func (h *NotifyHandler) DeleteTopic(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "Invalid topic ID"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidTopicIDMsg))
 		return
 	}
 
@@ -67,7 +72,7 @@ func (h *NotifyHandler) DeleteTopic(c *gin.Context) {
 func (h *NotifyHandler) Subscribe(c *gin.Context) {
 	topicID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "Invalid topic ID"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidTopicIDMsg))
 		return
 	}
 
@@ -76,7 +81,7 @@ func (h *NotifyHandler) Subscribe(c *gin.Context) {
 		Endpoint string                      `json:"endpoint" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "Invalid request body"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidRequestBodyMsg))
 		return
 	}
 
@@ -92,7 +97,7 @@ func (h *NotifyHandler) Subscribe(c *gin.Context) {
 func (h *NotifyHandler) ListSubscriptions(c *gin.Context) {
 	topicID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "Invalid topic ID"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidTopicIDMsg))
 		return
 	}
 
@@ -130,7 +135,7 @@ func (h *NotifyHandler) Publish(c *gin.Context) {
 		Message string `json:"message" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "Invalid request body"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidRequestBodyMsg))
 		return
 	}
 
