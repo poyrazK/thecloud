@@ -34,6 +34,8 @@ type Invocation struct {
 	Logs       string     `json:"logs"`
 }
 
+const functionsPath = "/functions/"
+
 func (c *Client) CreateFunction(name, runtime, handler string, code []byte) (*Function, error) {
 	var resp Response[Function]
 	req := c.resty.R().
@@ -67,18 +69,18 @@ func (c *Client) ListFunctions() ([]*Function, error) {
 
 func (c *Client) GetFunction(id string) (*Function, error) {
 	var resp Response[Function]
-	if err := c.get("/functions/"+id, &resp); err != nil {
+	if err := c.get(functionsPath+id, &resp); err != nil {
 		return nil, err
 	}
 	return &resp.Data, nil
 }
 
 func (c *Client) DeleteFunction(id string) error {
-	return c.delete("/functions/"+id, nil)
+	return c.delete(functionsPath+id, nil)
 }
 
 func (c *Client) InvokeFunction(id string, payload []byte, async bool) (*Invocation, error) {
-	url := "/functions/" + id + "/invoke"
+	url := functionsPath + id + "/invoke"
 	if async {
 		url += "?async=true"
 	}
@@ -95,7 +97,7 @@ func (c *Client) InvokeFunction(id string, payload []byte, async bool) (*Invocat
 
 func (c *Client) GetFunctionLogs(id string) ([]*Invocation, error) {
 	var resp Response[[]*Invocation]
-	if err := c.get("/functions/"+id+"/logs", &resp); err != nil {
+	if err := c.get(functionsPath+id+"/logs", &resp); err != nil {
 		return nil, err
 	}
 	return resp.Data, nil

@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestClient_ListEvents(t *testing.T) {
+func TestClientListEvents(t *testing.T) {
 	expectedEvents := []Event{
 		{
 			ID:           uuid.New(),
@@ -50,7 +50,7 @@ func TestClient_ListEvents(t *testing.T) {
 	assert.Equal(t, "instance.created", events[0].Action)
 }
 
-func TestClient_ListEventsError(t *testing.T) {
+func TestClientListEventsError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("boom"))
