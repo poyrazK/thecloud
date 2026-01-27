@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const vpcErrorFormat = "Error: %v\n"
+
 var vpcCmd = &cobra.Command{
 	Use:   "vpc",
 	Short: "Manage Virtual Private Clouds (VPCs)",
@@ -22,7 +24,7 @@ var vpcListCmd = &cobra.Command{
 		client := getClient()
 		vpcs, err := client.ListVPCs()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(vpcErrorFormat, err)
 			return
 		}
 
@@ -59,7 +61,7 @@ var vpcCreateCmd = &cobra.Command{
 		client := getClient()
 		vpc, err := client.CreateVPC(name, cidr)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(vpcErrorFormat, err)
 			return
 		}
 
@@ -79,7 +81,7 @@ var vpcRmCmd = &cobra.Command{
 		id := args[0]
 		client := getClient()
 		if err := client.DeleteVPC(id); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(vpcErrorFormat, err)
 			return
 		}
 

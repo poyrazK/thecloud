@@ -8,6 +8,11 @@ import (
 	"github.com/poyrazk/thecloud/internal/platform"
 )
 
+const (
+	expectedNonNilBackendMsg = "expected non-nil backend"
+	expectedNoopBackendFmt   = "expected noop backend, got %s"
+)
+
 func TestInitComputeBackendNoop(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := &platform.Config{ComputeBackend: "noop"}
@@ -17,10 +22,10 @@ func TestInitComputeBackendNoop(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	if backend == nil {
-		t.Fatal("expected non-nil backend")
+		t.Fatal(expectedNonNilBackendMsg)
 	}
 	if backend.Type() != "noop" {
-		t.Fatalf("expected noop backend, got %s", backend.Type())
+		t.Fatalf(expectedNoopBackendFmt, backend.Type())
 	}
 }
 
@@ -33,7 +38,7 @@ func TestInitStorageBackendVariants(t *testing.T) {
 		t.Fatalf("noop backend error: %v", err)
 	}
 	if noopBackend.Type() != "noop" {
-		t.Fatalf("expected noop backend, got %s", noopBackend.Type())
+		t.Fatalf(expectedNoopBackendFmt, noopBackend.Type())
 	}
 
 	lvmCfg := &platform.Config{StorageBackend: "lvm", LvmVgName: "vg-test"}
@@ -61,16 +66,16 @@ func TestInitNetworkBackendNoopFallback(t *testing.T) {
 	noopCfg := &platform.Config{NetworkBackend: "noop"}
 	backend := InitNetworkBackend(noopCfg, logger)
 	if backend == nil {
-		t.Fatal("expected non-nil backend")
+		t.Fatal(expectedNonNilBackendMsg)
 	}
 	if backend.Type() != "noop" {
-		t.Fatalf("expected noop backend, got %s", backend.Type())
+		t.Fatalf(expectedNoopBackendFmt, backend.Type())
 	}
 
 	defaultCfg := &platform.Config{NetworkBackend: "ovs"}
 	fallbackBackend := InitNetworkBackend(defaultCfg, logger)
 	if fallbackBackend == nil {
-		t.Fatal("expected non-nil backend")
+		t.Fatal(expectedNonNilBackendMsg)
 	}
 	if fallbackBackend.Type() != "noop" && fallbackBackend.Type() != "ovs" {
 		t.Fatalf("unexpected backend type %s", fallbackBackend.Type())

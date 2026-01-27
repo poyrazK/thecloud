@@ -24,6 +24,11 @@ type finding struct {
 	file string
 }
 
+const (
+	missingPackageDocKind  = "missing-package-doc"
+	missingExportedDocKind = "missing-exported-doc"
+)
+
 func main() {
 	var root string
 	var fail bool
@@ -50,30 +55,19 @@ func main() {
 }
 
 func scan(root string, includeTests bool) ([]finding, error) {
-	var findings []finding
+	findings := make([]finding, 0)
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
-			base := filepath.Base(path)
-			switch base {
-			case ".git", "vendor", "bin", "node_modules", ".next":
+			if shouldSkipDir(path) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-
-		if !strings.HasSuffix(path, ".go") {
-			return nil
-		}
-		if !includeTests && strings.HasSuffix(path, "_test.go") {
-			return nil
-		}
-
-		// Ignore swagger generated Go sources.
-		if strings.Contains(filepath.ToSlash(path), "/docs/swagger/") {
+		if shouldSkipFile(path, includeTests) {
 			return nil
 		}
 
@@ -83,55 +77,9 @@ func scan(root string, includeTests bool) ([]finding, error) {
 			return fmt.Errorf("parse %s: %w", path, parseErr)
 		}
 
-		if !hasPackageComment(file) {
-			pos := fset.Position(file.Package)
-			findings = append(findings, finding{pos: pos, kind: "missing-package-doc", name: file.Name.Name, file: path})
-		}
-
-		for _, decl := range file.Decls {
-			gen, ok := decl.(*ast.GenDecl)
-			if !ok {
-				continue
-			}
-			for _, spec := range gen.Specs {
-				switch s := spec.(type) {
-				case *ast.TypeSpec:
-					if ast.IsExported(s.Name.Name) && !hasDoc(gen.Doc, s.Doc) {
-						pos := fset.Position(s.Pos())
-						findings = append(findings, finding{pos: pos, kind: "missing-exported-doc", name: "type " + s.Name.Name, file: path})
-					}
-				case *ast.ValueSpec:
-					for _, name := range s.Names {
-						if name == nil || !ast.IsExported(name.Name) {
-							continue
-						}
-						if !hasDoc(gen.Doc, s.Doc) {
-							pos := fset.Position(name.Pos())
-							findings = append(findings, finding{pos: pos, kind: "missing-exported-doc", name: "value " + name.Name, file: path})
-							break
-						}
-					}
-				}
-			}
-		}
-
-		for _, decl := range file.Decls {
-			fn, ok := decl.(*ast.FuncDecl)
-			if !ok {
-				continue
-			}
-			if fn.Recv != nil {
-				continue // methods are optional for now
-			}
-			if fn.Name == nil || !ast.IsExported(fn.Name.Name) {
-				continue
-			}
-			if fn.Doc == nil || len(fn.Doc.List) == 0 {
-				pos := fset.Position(fn.Pos())
-				findings = append(findings, finding{pos: pos, kind: "missing-exported-doc", name: "func " + fn.Name.Name, file: path})
-			}
-		}
-
+		appendMissingPackageDoc(&findings, fset, file, path)
+		appendMissingExportedDeclDocs(&findings, fset, file, path)
+		appendMissingExportedFuncDocs(&findings, fset, file, path)
 		return nil
 	})
 	if err != nil {
@@ -140,23 +88,121 @@ func scan(root string, includeTests bool) ([]finding, error) {
 	return findings, nil
 }
 
+func shouldSkipDir(path string) bool {
+	base := filepath.Base(path)
+	switch base {
+	case ".git", "vendor", "bin", "node_modules", ".next":
+		return true
+	default:
+		return false
+	}
+}
+
+func shouldSkipFile(path string, includeTests bool) bool {
+	if !strings.HasSuffix(path, ".go") {
+		return true
+	}
+	if !includeTests && strings.HasSuffix(path, "_test.go") {
+		return true
+	}
+	return strings.Contains(filepath.ToSlash(path), "/docs/swagger/")
+}
+
+func appendMissingPackageDoc(findings *[]finding, fset *token.FileSet, file *ast.File, path string) {
+	if hasPackageComment(file) {
+		return
+	}
+	pos := fset.Position(file.Package)
+	*findings = append(*findings, finding{pos: pos, kind: missingPackageDocKind, name: file.Name.Name, file: path})
+}
+
+func appendMissingExportedDeclDocs(findings *[]finding, fset *token.FileSet, file *ast.File, path string) {
+	for _, decl := range file.Decls {
+		gen, ok := decl.(*ast.GenDecl)
+		if !ok {
+			continue
+		}
+		for _, spec := range gen.Specs {
+			switch s := spec.(type) {
+			case *ast.TypeSpec:
+				appendMissingTypeDoc(findings, fset, gen, s, path)
+			case *ast.ValueSpec:
+				appendMissingValueDoc(findings, fset, gen, s, path)
+			}
+		}
+	}
+}
+
+func appendMissingTypeDoc(findings *[]finding, fset *token.FileSet, gen *ast.GenDecl, spec *ast.TypeSpec, path string) {
+	if !ast.IsExported(spec.Name.Name) || hasDoc(gen.Doc, spec.Doc) {
+		return
+	}
+	pos := fset.Position(spec.Pos())
+	*findings = append(*findings, finding{pos: pos, kind: missingExportedDocKind, name: "type " + spec.Name.Name, file: path})
+}
+
+func appendMissingValueDoc(findings *[]finding, fset *token.FileSet, gen *ast.GenDecl, spec *ast.ValueSpec, path string) {
+	if hasDoc(gen.Doc, spec.Doc) {
+		return
+	}
+	name := firstExportedName(spec.Names)
+	if name == nil {
+		return
+	}
+	pos := fset.Position(name.Pos())
+	*findings = append(*findings, finding{pos: pos, kind: missingExportedDocKind, name: "value " + name.Name, file: path})
+}
+
+func firstExportedName(names []*ast.Ident) *ast.Ident {
+	for _, name := range names {
+		if name != nil && ast.IsExported(name.Name) {
+			return name
+		}
+	}
+	return nil
+}
+
+func appendMissingExportedFuncDocs(findings *[]finding, fset *token.FileSet, file *ast.File, path string) {
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok {
+			continue
+		}
+		if fn.Recv != nil {
+			continue
+		}
+		if fn.Name == nil || !ast.IsExported(fn.Name.Name) {
+			continue
+		}
+		if fn.Doc == nil || len(fn.Doc.List) == 0 {
+			pos := fset.Position(fn.Pos())
+			*findings = append(*findings, finding{pos: pos, kind: missingExportedDocKind, name: "func " + fn.Name.Name, file: path})
+		}
+	}
+}
+
 func hasPackageComment(file *ast.File) bool {
 	if file == nil {
 		return false
 	}
 	for _, cg := range file.Comments {
-		if cg == nil {
+		if isPackageCommentGroup(file, cg) {
+			return true
+		}
+	}
+	return false
+}
+
+func isPackageCommentGroup(file *ast.File, group *ast.CommentGroup) bool {
+	if group == nil || group.End() >= file.Package {
+		return false
+	}
+	for _, c := range group.List {
+		if c == nil {
 			continue
 		}
-		if cg.End() < file.Package {
-			for _, c := range cg.List {
-				if c == nil {
-					continue
-				}
-				if strings.HasPrefix(strings.TrimSpace(c.Text), "// Package ") {
-					return true
-				}
-			}
+		if strings.HasPrefix(strings.TrimSpace(c.Text), "// Package ") {
+			return true
 		}
 	}
 	return false
