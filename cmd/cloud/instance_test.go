@@ -11,13 +11,22 @@ import (
 	"github.com/poyrazk/thecloud/pkg/sdk"
 )
 
-func TestListInstances_JSONOutput(t *testing.T) {
+const (
+	instanceTestContentType = "Content-Type"
+	instanceTestAppJSON     = "application/json"
+	instanceTestPorts       = "80:8080"
+	instanceTestSubnetID    = "subnet-1"
+	instanceTestVPCID       = "vpc-1"
+	instanceTestAPIKey      = "test-key"
+)
+
+func TestListInstancesJSONOutput(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/instances" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(instanceTestContentType, instanceTestAppJSON)
 		payload := map[string]interface{}{
 			"data": []map[string]interface{}{
 				{
@@ -25,9 +34,9 @@ func TestListInstances_JSONOutput(t *testing.T) {
 					"name":         "web",
 					"image":        "alpine",
 					"status":       "RUNNING",
-					"ports":        "80:8080",
-					"vpc_id":       "vpc-1",
-					"subnet_id":    "subnet-1",
+					"ports":        instanceTestPorts,
+					"vpc_id":       instanceTestVPCID,
+					"subnet_id":    instanceTestSubnetID,
 					"private_ip":   "10.0.0.2",
 					"container_id": "c-1",
 					"version":      1,
@@ -41,7 +50,7 @@ func TestListInstances_JSONOutput(t *testing.T) {
 	defer server.Close()
 
 	apiURL = server.URL
-	apiKey = "test-key"
+	apiKey = instanceTestAPIKey
 	outputJSON = true
 	defer func() { outputJSON = false }()
 
@@ -53,22 +62,22 @@ func TestListInstances_JSONOutput(t *testing.T) {
 	}
 }
 
-func TestLaunchInstance_VolumeParsing(t *testing.T) {
+func TestLaunchInstanceVolumeParsing(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/instances" || r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(instanceTestContentType, instanceTestAppJSON)
 		payload := map[string]interface{}{
 			"data": map[string]interface{}{
 				"id":           "i-2",
 				"name":         "app",
 				"image":        "alpine",
 				"status":       "RUNNING",
-				"ports":        "80:8080",
-				"vpc_id":       "vpc-1",
-				"subnet_id":    "subnet-1",
+				"ports":        instanceTestPorts,
+				"vpc_id":       instanceTestVPCID,
+				"subnet_id":    instanceTestSubnetID,
 				"private_ip":   "10.0.0.3",
 				"container_id": "c-2",
 				"version":      1,
@@ -81,13 +90,13 @@ func TestLaunchInstance_VolumeParsing(t *testing.T) {
 	defer server.Close()
 
 	apiURL = server.URL
-	apiKey = "test-key"
+	apiKey = instanceTestAPIKey
 
 	_ = launchCmd.Flags().Set("name", "app")
 	_ = launchCmd.Flags().Set("image", "alpine")
-	_ = launchCmd.Flags().Set("port", "80:8080")
-	_ = launchCmd.Flags().Set("vpc", "vpc-1")
-	_ = launchCmd.Flags().Set("subnet", "subnet-1")
+	_ = launchCmd.Flags().Set("port", instanceTestPorts)
+	_ = launchCmd.Flags().Set("vpc", instanceTestVPCID)
+	_ = launchCmd.Flags().Set("subnet", instanceTestSubnetID)
 	_ = launchCmd.Flags().Set("volume", "vol-1:/data")
 
 	out := captureStdout(t, func() {
@@ -101,7 +110,7 @@ func TestLaunchInstance_VolumeParsing(t *testing.T) {
 func TestGetClientWithApiKeyFlag(t *testing.T) {
 	oldKey := apiKey
 	defer func() { apiKey = oldKey }()
-	apiKey = "test-key"
+	apiKey = instanceTestAPIKey
 
 	client := getClient()
 	if client == nil {

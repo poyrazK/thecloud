@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const notifyErrorFormat = "Error: %v\n"
+
 var notifyCmd = &cobra.Command{
 	Use:   "notify",
 	Short: "Manage CloudNotify (Pub/Sub)",
@@ -22,7 +24,7 @@ var createTopicCmd = &cobra.Command{
 		client := getClient()
 		topic, err := client.CreateTopic(args[0])
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(notifyErrorFormat, err)
 			return
 		}
 
@@ -37,7 +39,7 @@ var listTopicsCmd = &cobra.Command{
 		client := getClient()
 		topics, err := client.ListTopics()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(notifyErrorFormat, err)
 			return
 		}
 
@@ -61,7 +63,7 @@ var subscribeCmd = &cobra.Command{
 		client := getClient()
 		sub, err := client.Subscribe(args[0], protocol, endpoint)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(notifyErrorFormat, err)
 			return
 		}
 
@@ -77,7 +79,7 @@ var publishCmd = &cobra.Command{
 		client := getClient()
 		err := client.Publish(args[0], args[1])
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(notifyErrorFormat, err)
 			return
 		}
 

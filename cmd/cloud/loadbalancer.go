@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const loadBalancerErrorFormat = "Error: %v\n"
+
 var lbCmd = &cobra.Command{
 	Use:   "lb",
 	Short: "Manage Load Balancers",
@@ -22,7 +24,7 @@ var lbListCmd = &cobra.Command{
 		client := getClient()
 		lbs, err := client.ListLBs()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(loadBalancerErrorFormat, err)
 			return
 		}
 
@@ -61,7 +63,7 @@ var lbCreateCmd = &cobra.Command{
 		client := getClient()
 		lb, err := client.CreateLB(name, vpcID, port, algo)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(loadBalancerErrorFormat, err)
 			return
 		}
 
@@ -79,7 +81,7 @@ var lbRmCmd = &cobra.Command{
 		id := args[0]
 		client := getClient()
 		if err := client.DeleteLB(id); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(loadBalancerErrorFormat, err)
 			return
 		}
 
@@ -99,7 +101,7 @@ var lbAddTargetCmd = &cobra.Command{
 
 		client := getClient()
 		if err := client.AddLBTarget(lbID, instID, port, weight); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(loadBalancerErrorFormat, err)
 			return
 		}
 
@@ -116,7 +118,7 @@ var lbRemoveTargetCmd = &cobra.Command{
 		instID := args[1]
 		client := getClient()
 		if err := client.RemoveLBTarget(lbID, instID); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(loadBalancerErrorFormat, err)
 			return
 		}
 
@@ -154,7 +156,7 @@ var lbListTargetsCmd = &cobra.Command{
 		client := getClient()
 		targets, err := client.ListLBTargets(args[0])
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(loadBalancerErrorFormat, err)
 			return
 		}
 
