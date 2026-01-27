@@ -87,7 +87,7 @@ const (
 	testBackupPath = "path/to/backup"
 )
 
-func TestKubeadmProvisioner_Upgrade(t *testing.T) {
+func TestKubeadmProvisionerUpgrade(t *testing.T) {
 	ctx := context.Background()
 	instSvc := new(MockInstanceService)
 	repo := new(MockClusterRepo)
@@ -128,7 +128,7 @@ func TestKubeadmProvisioner_Upgrade(t *testing.T) {
 	})
 }
 
-func TestKubeadmProvisioner_RotateSecrets(t *testing.T) {
+func TestKubeadmProvisionerRotateSecrets(t *testing.T) {
 	ctx := context.Background()
 	instSvc := new(MockInstanceService)
 	repo := new(MockClusterRepo)
@@ -166,7 +166,7 @@ func TestKubeadmProvisioner_RotateSecrets(t *testing.T) {
 	})
 }
 
-func TestKubeadmProvisioner_CreateBackup(t *testing.T) {
+func TestKubeadmProvisionerCreateBackup(t *testing.T) {
 	ctx := context.Background()
 	instSvc := new(MockInstanceService)
 	repo := new(MockClusterRepo)
@@ -196,7 +196,7 @@ func TestKubeadmProvisioner_CreateBackup(t *testing.T) {
 	})
 }
 
-func TestKubeadmProvisioner_Restore(t *testing.T) {
+func TestKubeadmProvisionerRestore(t *testing.T) {
 	ctx := context.Background()
 	instSvc := new(MockInstanceService)
 	repo := new(MockClusterRepo)

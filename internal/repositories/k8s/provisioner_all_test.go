@@ -41,10 +41,12 @@ func TestKubeadmProvisionerK8sOps(t *testing.T) {
 	masterID := uuid.New()
 	masterNode := &domain.ClusterNode{InstanceID: masterID, Role: domain.NodeRoleControlPlane}
 
+	const sgName = "sg-test-cluster"
+
 	t.Run("SecurityGroupOps", func(t *testing.T) {
 		p, _, _, _, sgSvc, _, _ := prepareProvisioner()
-		sgSvc.On("GetGroup", mock.Anything, "sg-test-cluster", vpcID).Return(nil, fmt.Errorf("not found")).Once()
-		sgSvc.On("CreateGroup", mock.Anything, vpcID, "sg-test-cluster", mock.Anything).Return(&domain.SecurityGroup{ID: uuid.New()}, nil).Once()
+		sgSvc.On("GetGroup", mock.Anything, sgName, vpcID).Return(nil, fmt.Errorf("not found")).Once()
+		sgSvc.On("CreateGroup", mock.Anything, vpcID, sgName, mock.Anything).Return(&domain.SecurityGroup{ID: uuid.New()}, nil).Once()
 		sgSvc.On("AddRule", mock.Anything, mock.Anything, mock.Anything).Return(&domain.SecurityRule{}, nil)
 
 		err := p.ExportEnsureClusterSecurityGroup(ctx, cluster)
@@ -54,7 +56,7 @@ func TestKubeadmProvisionerK8sOps(t *testing.T) {
 	t.Run("CreateNode", func(t *testing.T) {
 		p, instSvc, repo, _, sgSvc, _, _ := prepareProvisioner()
 		instSvc.On("LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&domain.Instance{ID: masterID}, nil).Once()
-		sgSvc.On("GetGroup", mock.Anything, "sg-test-cluster", vpcID).Return(&domain.SecurityGroup{ID: uuid.New()}, nil).Once()
+		sgSvc.On("GetGroup", mock.Anything, sgName, vpcID).Return(&domain.SecurityGroup{ID: uuid.New()}, nil).Once()
 		sgSvc.On("AttachToInstance", mock.Anything, masterID, mock.Anything).Return(nil).Once()
 		repo.On("AddNode", mock.Anything, mock.Anything).Return(nil).Once()
 
