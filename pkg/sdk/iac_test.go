@@ -12,11 +12,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestClient_CreateStack(t *testing.T) {
+const (
+	iacTestStackName     = "test-stack"
+	iacTestTemplate      = "version: 1.0\nresources: []"
+	iacTestAPIKey        = "test-api-key"
+	iacTestContentType   = "Content-Type"
+	iacTestAppJSON       = "application/json"
+	iacTestStackOneName  = "stack-1"
+	iacTestStackTwoName  = "stack-2"
+)
+
+func TestClientCreateStack(t *testing.T) {
 	expectedStack := domain.Stack{
 		ID:        uuid.New(),
-		Name:      "test-stack",
-		Template:  "version: 1.0\nresources: []",
+		Name:      iacTestStackName,
+		Template:  iacTestTemplate,
 		Status:    domain.StackStatusCreateInProgress,
 		CreatedAt: time.Now(),
 	}
@@ -31,13 +41,13 @@ func TestClient_CreateStack(t *testing.T) {
 		assert.Equal(t, expectedStack.Name, req["name"])
 		assert.Equal(t, expectedStack.Template, req["template"])
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(iacTestContentType, iacTestAppJSON)
 		json.NewEncoder(w).Encode(expectedStack)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
-	stack, err := client.CreateStack("test-stack", "version: 1.0\nresources: []", map[string]string{})
+	client := NewClient(server.URL, iacTestAPIKey)
+	stack, err := client.CreateStack(iacTestStackName, iacTestTemplate, map[string]string{})
 
 	assert.NoError(t, err)
 	assert.NotNil(t, stack)
@@ -45,22 +55,22 @@ func TestClient_CreateStack(t *testing.T) {
 	assert.Equal(t, expectedStack.Name, stack.Name)
 }
 
-func TestClient_ListStacks(t *testing.T) {
+func TestClientListStacks(t *testing.T) {
 	expectedStacks := []*domain.Stack{
-		{ID: uuid.New(), Name: "stack-1"},
-		{ID: uuid.New(), Name: "stack-2"},
+		{ID: uuid.New(), Name: iacTestStackOneName},
+		{ID: uuid.New(), Name: iacTestStackTwoName},
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/iac/stacks", r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(iacTestContentType, iacTestAppJSON)
 		json.NewEncoder(w).Encode(expectedStacks)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, iacTestAPIKey)
 	stacks, err := client.ListStacks()
 
 	assert.NoError(t, err)
@@ -68,23 +78,23 @@ func TestClient_ListStacks(t *testing.T) {
 	assert.Equal(t, expectedStacks[0].Name, stacks[0].Name)
 }
 
-func TestClient_GetStack(t *testing.T) {
+func TestClientGetStack(t *testing.T) {
 	id := uuid.New().String()
 	expectedStack := domain.Stack{
 		ID:   uuid.MustParse(id),
-		Name: "test-stack",
+		Name: iacTestStackName,
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/iac/stacks/"+id, r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(iacTestContentType, iacTestAppJSON)
 		json.NewEncoder(w).Encode(expectedStack)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, iacTestAPIKey)
 	stack, err := client.GetStack(id)
 
 	assert.NoError(t, err)
@@ -92,7 +102,7 @@ func TestClient_GetStack(t *testing.T) {
 	assert.Equal(t, expectedStack.ID, stack.ID)
 }
 
-func TestClient_DeleteStack(t *testing.T) {
+func TestClientDeleteStack(t *testing.T) {
 	id := uuid.New().String()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -103,14 +113,14 @@ func TestClient_DeleteStack(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, iacTestAPIKey)
 	err := client.DeleteStack(id)
 
 	assert.NoError(t, err)
 }
 
-func TestClient_ValidateTemplate(t *testing.T) {
-	template := "version: 1.0\nresources: []"
+func TestClientValidateTemplate(t *testing.T) {
+	template := iacTestTemplate
 	expectedResp := domain.TemplateValidateResponse{
 		Valid:  true,
 		Errors: []string{},
@@ -125,12 +135,12 @@ func TestClient_ValidateTemplate(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, template, req["template"])
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(iacTestContentType, iacTestAppJSON)
 		json.NewEncoder(w).Encode(expectedResp)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, iacTestAPIKey)
 	resp, err := client.ValidateTemplate(template)
 
 	assert.NoError(t, err)
@@ -138,58 +148,26 @@ func TestClient_ValidateTemplate(t *testing.T) {
 	assert.True(t, resp.Valid)
 }
 
-func TestClient_IacErrors(t *testing.T) {
+func TestClientIacErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, iacTestAPIKey)
+	_, err := client.CreateStack("stack", "template", map[string]string{})
+	assert.Error(t, err)
 
-	tests := []struct {
-		name string
-		call func() error
-	}{
-		{
-			name: "CreateStack",
-			call: func() error {
-				_, err := client.CreateStack("stack", "template", map[string]string{})
-				return err
-			},
-		},
-		{
-			name: "ListStacks",
-			call: func() error {
-				_, err := client.ListStacks()
-				return err
-			},
-		},
-		{
-			name: "GetStack",
-			call: func() error {
-				_, err := client.GetStack("stack-1")
-				return err
-			},
-		},
-		{
-			name: "DeleteStack",
-			call: func() error {
-				return client.DeleteStack("stack-1")
-			},
-		},
-		{
-			name: "ValidateTemplate",
-			call: func() error {
-				_, err := client.ValidateTemplate("template")
-				return err
-			},
-		},
-	}
+	_, err = client.ListStacks()
+	assert.Error(t, err)
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			assert.Error(t, tc.call())
-		})
-	}
+	_, err = client.GetStack(iacTestStackOneName)
+	assert.Error(t, err)
+
+	err = client.DeleteStack(iacTestStackOneName)
+	assert.Error(t, err)
+
+	_, err = client.ValidateTemplate("template")
+	assert.Error(t, err)
 }

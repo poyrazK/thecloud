@@ -10,14 +10,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestClient_ListClusters(t *testing.T) {
+const (
+	kubeTestContentType = "Content-Type"
+	kubeTestAppJSON     = "application/json"
+	kubeTestClusters    = "/clusters"
+	kubeTestClusterName = "c1"
+	kubeTestKubeconfig  = "kubeconfig"
+	kubeTestRoleAdmin   = "admin"
+	kubeTestBackupPath  = "s3://bucket/backup"
+)
+
+func TestClientListClusters(t *testing.T) {
 	clusterID := uuid.New()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodGet, r.Method)
-		assert.Equal(t, "/clusters", r.URL.Path)
+		assert.Equal(t, kubeTestClusters, r.URL.Path)
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Response[[]*Cluster]{Data: []*Cluster{{ID: clusterID, Name: "c1"}}})
+		w.Header().Set(kubeTestContentType, kubeTestAppJSON)
+		json.NewEncoder(w).Encode(Response[[]*Cluster]{Data: []*Cluster{{ID: clusterID, Name: kubeTestClusterName}}})
 	}))
 	defer server.Close()
 
@@ -29,29 +39,29 @@ func TestClient_ListClusters(t *testing.T) {
 	assert.Equal(t, clusterID, clusters[0].ID)
 }
 
-func TestClient_CreateCluster(t *testing.T) {
+func TestClientCreateCluster(t *testing.T) {
 	clusterID := uuid.New()
 	vpcID := uuid.New()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method)
-		assert.Equal(t, "/clusters", r.URL.Path)
+		assert.Equal(t, kubeTestClusters, r.URL.Path)
 
 		var payload CreateClusterInput
 		err := json.NewDecoder(r.Body).Decode(&payload)
 		assert.NoError(t, err)
-		assert.Equal(t, "c1", payload.Name)
+		assert.Equal(t, kubeTestClusterName, payload.Name)
 		assert.Equal(t, vpcID, payload.VpcID)
 		assert.Equal(t, 3, payload.WorkerCount)
 		assert.True(t, payload.HA)
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Response[*Cluster]{Data: &Cluster{ID: clusterID, Name: "c1"}})
+		w.Header().Set(kubeTestContentType, kubeTestAppJSON)
+		json.NewEncoder(w).Encode(Response[*Cluster]{Data: &Cluster{ID: clusterID, Name: kubeTestClusterName}})
 	}))
 	defer server.Close()
 
 	client := NewClient(server.URL, testAPIKey)
 	cluster, err := client.CreateCluster(&CreateClusterInput{
-		Name:        "c1",
+		Name:        kubeTestClusterName,
 		VpcID:       vpcID,
 		Version:     "1.29",
 		WorkerCount: 3,
@@ -62,14 +72,14 @@ func TestClient_CreateCluster(t *testing.T) {
 	assert.Equal(t, clusterID, cluster.ID)
 }
 
-func TestClient_GetCluster(t *testing.T) {
+func TestClientGetCluster(t *testing.T) {
 	clusterID := uuid.New()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodGet, r.Method)
-		assert.Equal(t, "/clusters/"+clusterID.String(), r.URL.Path)
+		assert.Equal(t, kubeTestClusters+"/"+clusterID.String(), r.URL.Path)
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Response[*Cluster]{Data: &Cluster{ID: clusterID, Name: "c1"}})
+		w.Header().Set(kubeTestContentType, kubeTestAppJSON)
+		json.NewEncoder(w).Encode(Response[*Cluster]{Data: &Cluster{ID: clusterID, Name: kubeTestClusterName}})
 	}))
 	defer server.Close()
 
@@ -80,11 +90,11 @@ func TestClient_GetCluster(t *testing.T) {
 	assert.Equal(t, clusterID, cluster.ID)
 }
 
-func TestClient_DeleteCluster(t *testing.T) {
+func TestClientDeleteCluster(t *testing.T) {
 	clusterID := uuid.New()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodDelete, r.Method)
-		assert.Equal(t, "/clusters/"+clusterID.String(), r.URL.Path)
+		assert.Equal(t, kubeTestClusters+"/"+clusterID.String(), r.URL.Path)
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
@@ -95,34 +105,34 @@ func TestClient_DeleteCluster(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestClient_GetKubeconfig(t *testing.T) {
+func TestClientGetKubeconfig(t *testing.T) {
 	clusterID := uuid.New()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodGet, r.Method)
-		assert.Equal(t, "/clusters/"+clusterID.String()+"/kubeconfig", r.URL.Path)
-		assert.Equal(t, "admin", r.URL.Query().Get("role"))
+		assert.Equal(t, kubeTestClusters+"/"+clusterID.String()+"/kubeconfig", r.URL.Path)
+		assert.Equal(t, kubeTestRoleAdmin, r.URL.Query().Get("role"))
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Response[string]{Data: "kubeconfig"})
+		w.Header().Set(kubeTestContentType, kubeTestAppJSON)
+		json.NewEncoder(w).Encode(Response[string]{Data: kubeTestKubeconfig})
 	}))
 	defer server.Close()
 
 	client := NewClient(server.URL, testAPIKey)
-	config, err := client.GetKubeconfig(clusterID.String(), "admin")
+	config, err := client.GetKubeconfig(clusterID.String(), kubeTestRoleAdmin)
 
 	assert.NoError(t, err)
-	assert.Equal(t, "kubeconfig", config)
+	assert.Equal(t, kubeTestKubeconfig, config)
 }
 
-func TestClient_GetKubeconfigNoRole(t *testing.T) {
+func TestClientGetKubeconfigNoRole(t *testing.T) {
 	clusterID := uuid.New()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodGet, r.Method)
-		assert.Equal(t, "/clusters/"+clusterID.String()+"/kubeconfig", r.URL.Path)
+		assert.Equal(t, kubeTestClusters+"/"+clusterID.String()+"/kubeconfig", r.URL.Path)
 		assert.Equal(t, "", r.URL.RawQuery)
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Response[string]{Data: "kubeconfig"})
+		w.Header().Set(kubeTestContentType, kubeTestAppJSON)
+		json.NewEncoder(w).Encode(Response[string]{Data: kubeTestKubeconfig})
 	}))
 	defer server.Close()
 
@@ -130,10 +140,10 @@ func TestClient_GetKubeconfigNoRole(t *testing.T) {
 	config, err := client.GetKubeconfig(clusterID.String(), "")
 
 	assert.NoError(t, err)
-	assert.Equal(t, "kubeconfig", config)
+	assert.Equal(t, kubeTestKubeconfig, config)
 }
 
-func TestClient_GetKubeconfigErrorStatus(t *testing.T) {
+func TestClientGetKubeconfigErrorStatus(t *testing.T) {
 	clusterID := uuid.New()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -142,39 +152,39 @@ func TestClient_GetKubeconfigErrorStatus(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, testAPIKey)
-	_, err := client.GetKubeconfig(clusterID.String(), "admin")
+	_, err := client.GetKubeconfig(clusterID.String(), kubeTestRoleAdmin)
 
 	assert.Error(t, err)
 }
 
-func TestClient_RepairScaleUpgradeRotateBackupRestoreCluster(t *testing.T) {
+func TestClientRepairScaleUpgradeRotateBackupRestoreCluster(t *testing.T) {
 	clusterID := uuid.New()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/clusters/" + clusterID.String() + "/repair":
+		case kubeTestClusters + "/" + clusterID.String() + "/repair":
 			assert.Equal(t, http.MethodPost, r.Method)
-		case "/clusters/" + clusterID.String() + "/scale":
+		case kubeTestClusters + "/" + clusterID.String() + "/scale":
 			assert.Equal(t, http.MethodPost, r.Method)
 			var payload ScaleClusterInput
 			err := json.NewDecoder(r.Body).Decode(&payload)
 			assert.NoError(t, err)
 			assert.Equal(t, 5, payload.Workers)
-		case "/clusters/" + clusterID.String() + "/upgrade":
+		case kubeTestClusters + "/" + clusterID.String() + "/upgrade":
 			assert.Equal(t, http.MethodPost, r.Method)
 			var payload UpgradeClusterInput
 			err := json.NewDecoder(r.Body).Decode(&payload)
 			assert.NoError(t, err)
 			assert.Equal(t, "1.30", payload.Version)
-		case "/clusters/" + clusterID.String() + "/rotate-secrets":
+		case kubeTestClusters + "/" + clusterID.String() + "/rotate-secrets":
 			assert.Equal(t, http.MethodPost, r.Method)
-		case "/clusters/" + clusterID.String() + "/backups":
+		case kubeTestClusters + "/" + clusterID.String() + "/backups":
 			assert.Equal(t, http.MethodPost, r.Method)
-		case "/clusters/" + clusterID.String() + "/restore":
+		case kubeTestClusters + "/" + clusterID.String() + "/restore":
 			assert.Equal(t, http.MethodPost, r.Method)
 			var payload RestoreBackupInput
 			err := json.NewDecoder(r.Body).Decode(&payload)
 			assert.NoError(t, err)
-			assert.Equal(t, "s3://bucket/backup", payload.BackupPath)
+			assert.Equal(t, kubeTestBackupPath, payload.BackupPath)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -190,16 +200,16 @@ func TestClient_RepairScaleUpgradeRotateBackupRestoreCluster(t *testing.T) {
 	assert.NoError(t, client.UpgradeCluster(clusterID.String(), "1.30"))
 	assert.NoError(t, client.RotateSecrets(clusterID.String()))
 	assert.NoError(t, client.CreateBackup(clusterID.String()))
-	assert.NoError(t, client.RestoreBackup(clusterID.String(), "s3://bucket/backup"))
+	assert.NoError(t, client.RestoreBackup(clusterID.String(), kubeTestBackupPath))
 }
 
-func TestClient_GetClusterHealth(t *testing.T) {
+func TestClientGetClusterHealth(t *testing.T) {
 	clusterID := uuid.New()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodGet, r.Method)
-		assert.Equal(t, "/clusters/"+clusterID.String()+"/health", r.URL.Path)
+		assert.Equal(t, kubeTestClusters+"/"+clusterID.String()+"/health", r.URL.Path)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(kubeTestContentType, kubeTestAppJSON)
 		json.NewEncoder(w).Encode(Response[*ClusterHealth]{Data: &ClusterHealth{Status: "ok", NodesReady: 3, NodesTotal: 3}})
 	}))
 	defer server.Close()
@@ -212,7 +222,7 @@ func TestClient_GetClusterHealth(t *testing.T) {
 	assert.Equal(t, 3, status.NodesReady)
 }
 
-func TestClient_ClusterErrors(t *testing.T) {
+func TestClientClusterErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("boom"))
@@ -223,7 +233,7 @@ func TestClient_ClusterErrors(t *testing.T) {
 	_, err := client.ListClusters()
 	assert.Error(t, err)
 
-	_, err = client.CreateCluster(&CreateClusterInput{Name: "c1"})
+	_, err = client.CreateCluster(&CreateClusterInput{Name: kubeTestClusterName})
 	assert.Error(t, err)
 
 	_, err = client.GetCluster("cluster-1")
