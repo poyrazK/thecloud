@@ -102,6 +102,47 @@ func TestCreateCacheSuccess(t *testing.T) {
 	assert.Equal(t, 128, cache.MemoryMB)
 }
 
+func TestCreateCacheWithVpc(t *testing.T) {
+	repo, docker, vpcRepo, eventSvc, auditSvc, svc := setupCacheServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer docker.AssertExpectations(t)
+	defer vpcRepo.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
+
+	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+	name := "test-cache"
+	version := "7.2"
+	memory := 128
+	vpcID := uuid.New()
+
+	vpcRepo.On("GetByID", ctx, vpcID).Return(&domain.VPC{ID: vpcID, NetworkID: "net-1"}, nil)
+	docker.On("CreateInstance", ctx, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
+		return opts.NetworkID == "net-1" && opts.ImageName == "redis:7.2-alpine"
+	})).Return(cacheContainerID, nil)
+	docker.On("GetInstancePort", ctx, cacheContainerID, "6379").Return(30000, nil)
+	repo.On("Create", ctx, mock.AnythingOfType("*domain.Cache")).Return(nil)
+	repo.On("Update", ctx, mock.AnythingOfType("*domain.Cache")).Return(nil)
+	eventSvc.On("RecordEvent", ctx, "CACHE_CREATE", mock.Anything, "CACHE", mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "cache.create", "cache", mock.Anything, mock.Anything).Return(nil)
+
+	cache, err := svc.CreateCache(ctx, name, version, memory, &vpcID)
+	assert.NoError(t, err)
+	assert.Equal(t, cacheContainerID, cache.ContainerID)
+}
+
+func TestCreateCacheVpcError(t *testing.T) {
+	repo, _, vpcRepo, _, _, svc := setupCacheServiceTest(t)
+	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+	vpcID := uuid.New()
+
+	repo.On("Create", ctx, mock.AnythingOfType("*domain.Cache")).Return(nil)
+	vpcRepo.On("GetByID", ctx, vpcID).Return(nil, assert.AnError)
+
+	_, err := svc.CreateCache(ctx, "test-cache", "7.2", 128, &vpcID)
+	assert.Error(t, err)
+}
+
 func TestDeleteCacheSuccess(t *testing.T) {
 	repo, docker, _, eventSvc, auditSvc, svc := setupCacheServiceTest(t)
 	defer repo.AssertExpectations(t)

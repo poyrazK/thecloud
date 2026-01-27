@@ -92,6 +92,77 @@ func TestCreateDatabaseSuccess(t *testing.T) {
 	assert.Equal(t, dbContainerID, db.ContainerID)
 }
 
+func TestCreateDatabaseWithVpc(t *testing.T) {
+	repo, docker, vpcRepo, eventSvc, auditSvc, svc := setupDatabaseServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer docker.AssertExpectations(t)
+	defer vpcRepo.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
+
+	ctx := context.Background()
+	name := testDBName
+	engine := "postgres"
+	version := "16"
+	vpcID := uuid.New()
+
+	vpcRepo.On("GetByID", ctx, vpcID).Return(&domain.VPC{ID: vpcID, NetworkID: "net-1"}, nil)
+	docker.On("CreateInstance", ctx, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
+		return opts.NetworkID == "net-1" && opts.ImageName == "postgres:16-alpine"
+	})).Return(dbContainerID, nil)
+	docker.On("GetInstancePort", ctx, dbContainerID, "5432").Return(54321, nil)
+	repo.On("Create", ctx, mock.AnythingOfType("*domain.Database")).Return(nil)
+	eventSvc.On("RecordEvent", ctx, "DATABASE_CREATE", mock.Anything, "DATABASE", mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "database.create", "database", mock.Anything, mock.Anything).Return(nil)
+
+	_, err := svc.CreateDatabase(ctx, name, engine, version, &vpcID)
+	assert.NoError(t, err)
+}
+
+func TestCreateDatabaseVpcNotFound(t *testing.T) {
+	_, _, vpcRepo, _, _, svc := setupDatabaseServiceTest(t)
+	ctx := context.Background()
+	vpcID := uuid.New()
+
+	vpcRepo.On("GetByID", ctx, vpcID).Return(nil, assert.AnError)
+
+	_, err := svc.CreateDatabase(ctx, testDBName, "postgres", "16", &vpcID)
+	assert.Error(t, err)
+}
+
+func TestCreateDatabaseInvalidEngine(t *testing.T) {
+	_, _, _, _, _, svc := setupDatabaseServiceTest(t)
+	ctx := context.Background()
+
+	_, err := svc.CreateDatabase(ctx, testDBName, "oracle", "16", nil)
+	assert.Error(t, err)
+}
+
+func TestCreateDatabaseMySQL(t *testing.T) {
+	repo, docker, _, eventSvc, auditSvc, svc := setupDatabaseServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer docker.AssertExpectations(t)
+	defer eventSvc.AssertExpectations(t)
+	defer auditSvc.AssertExpectations(t)
+
+	ctx := context.Background()
+	name := "mysql-db"
+	engine := "mysql"
+	version := "8.0"
+
+	docker.On("CreateInstance", ctx, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
+		return opts.ImageName == "mysql:8.0" && len(opts.Ports) == 1 && opts.Ports[0] == "0:3306"
+	})).Return(dbContainerID, nil)
+	docker.On("GetInstancePort", ctx, dbContainerID, "3306").Return(33060, nil)
+	repo.On("Create", ctx, mock.AnythingOfType("*domain.Database")).Return(nil)
+	eventSvc.On("RecordEvent", ctx, "DATABASE_CREATE", mock.Anything, "DATABASE", mock.Anything).Return(nil)
+	auditSvc.On("Log", ctx, mock.Anything, "database.create", "database", mock.Anything, mock.Anything).Return(nil)
+
+	db, err := svc.CreateDatabase(ctx, name, engine, version, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, domain.EngineMySQL, db.Engine)
+}
+
 func TestDeleteDatabaseSuccess(t *testing.T) {
 	repo, docker, _, eventSvc, auditSvc, svc := setupDatabaseServiceTest(t)
 	defer repo.AssertExpectations(t)

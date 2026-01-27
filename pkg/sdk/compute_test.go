@@ -137,6 +137,28 @@ func TestClient_GetInstanceLogs(t *testing.T) {
 	assert.Equal(t, mockLogs, logs)
 }
 
+func TestClient_GetInstanceLogsErrorStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/instances/inst-1/logs", r.URL.Path)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-key")
+	_, err := client.GetInstanceLogs("inst-1")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "api error")
+}
+
+func TestClient_GetInstanceLogsRequestError(t *testing.T) {
+	client := NewClient("http://127.0.0.1:0", "test-key")
+	_, err := client.GetInstanceLogs("inst-1")
+
+	assert.Error(t, err)
+}
+
 func TestClient_GetInstanceStats(t *testing.T) {
 	mockStats := InstanceStats{
 		CPUPercentage:    15.5,
@@ -156,6 +178,33 @@ func TestClient_GetInstanceStats(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, 15.5, stats.CPUPercentage)
+}
+
+func TestClient_ComputeErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-key")
+	_, err := client.GetInstance("inst-1")
+	assert.Error(t, err)
+
+	_, err = client.GetInstanceStats("inst-1")
+	assert.Error(t, err)
+}
+
+func TestClient_LaunchInstanceError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-key")
+	_, err := client.LaunchInstance("name", "img", "80", "", "", nil)
+	assert.Error(t, err)
 }
 
 func TestClient_ApiError(t *testing.T) {

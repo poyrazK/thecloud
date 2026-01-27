@@ -43,6 +43,7 @@ func TestFunctionsE2E(t *testing.T) {
 		req, _ := http.NewRequest("POST", testutil.TestBaseURL+"/functions", body)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		applyTenantHeader(t, req, token)
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
@@ -65,6 +66,7 @@ func TestFunctionsE2E(t *testing.T) {
 
 		req, _ := http.NewRequest("POST", fmt.Sprintf("%s/functions/%s/invoke", testutil.TestBaseURL, functionID), bytes.NewBuffer(b))
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		applyTenantHeader(t, req, token)
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)

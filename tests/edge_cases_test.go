@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"bytes"
 	"net/http"
 	"testing"
 	"time"
@@ -86,8 +87,14 @@ func TestEdgeCases(t *testing.T) {
 	})
 
 	t.Run("Malformed JSON", func(t *testing.T) {
-		resp := helpers.SendMalformedJSON(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, "POST", token)
+		malformedJSON := `{"name": "test", "incomplete": `
+		req, _ := http.NewRequest("POST", testutil.TestBaseURL+testutil.TestRouteInstances, bytes.NewBufferString(malformedJSON))
+		req.Header.Set("Content-Type", testutil.TestContentTypeAppJSON)
+		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		applyTenantHeader(t, req, token)
+		resp, err := client.Do(req)
+		assert.NoError(t, err)
 		defer resp.Body.Close()
-		helpers.AssertErrorCode(t, resp, http.StatusBadRequest)
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
 }

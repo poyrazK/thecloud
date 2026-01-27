@@ -60,14 +60,7 @@ func (h *ClusterHandler) CreateCluster(c *gin.Context) {
 
 	userID := appcontext.UserIDFromContext(c.Request.Context())
 
-	// Default version if not specified
-	if req.Version == "" {
-		req.Version = "v1.29.0"
-	}
-	if req.Workers == 0 {
-		req.Workers = 2 // Default 2 workers
-	}
-
+	// Default values are handled in the service layer
 	cluster, err := h.svc.CreateCluster(c.Request.Context(), ports.CreateClusterParams{
 		UserID:           userID,
 		Name:             req.Name,

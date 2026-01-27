@@ -71,6 +71,34 @@ func TestGossipProtocolOnGossip(t *testing.T) {
 	g.mu.RUnlock()
 }
 
+func TestGossipProtocolOnGossipIgnoresOlderHeartbeat(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	g := NewGossipProtocol("node1", testNode1Addr, logger)
+
+	g.members["node2"] = &MemberState{
+		Address:   testNode2Addr,
+		Status:    "alive",
+		LastSeen:  time.Now(),
+		Heartbeat: 10,
+	}
+
+	msg := &pb.GossipMessage{
+		Members: map[string]*pb.MemberState{
+			"node2": {
+				Addr:      testNode2Addr,
+				Status:    "alive",
+				Heartbeat: 5,
+			},
+		},
+	}
+
+	g.OnGossip(msg)
+
+	g.mu.RLock()
+	assert.Equal(t, uint64(10), g.members["node2"].Heartbeat)
+	g.mu.RUnlock()
+}
+
 func TestGossipProtocolDetectFailures(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 	g := NewGossipProtocol("node1", testNode1Addr, logger)

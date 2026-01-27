@@ -76,6 +76,11 @@ func (e *ServiceExecutor) WaitForReady(ctx context.Context, timeout time.Duratio
 	ctxTimeout, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	// Check immediately once
+	if _, err := e.Run(ctx, "echo ready"); err == nil {
+		return nil
+	}
+
 	ticker := time.NewTicker(sshRetryInterval)
 	defer ticker.Stop()
 

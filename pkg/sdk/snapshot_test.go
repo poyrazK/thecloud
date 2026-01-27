@@ -137,3 +137,27 @@ func TestClient_RestoreSnapshot(t *testing.T) {
 	assert.Equal(t, expectedVolume.ID, volume.ID)
 	assert.Equal(t, expectedVolume.Name, volume.Name)
 }
+
+func TestClient_SnapshotErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	_, err := client.CreateSnapshot(uuid.New(), "snap")
+	assert.Error(t, err)
+
+	_, err = client.ListSnapshots()
+	assert.Error(t, err)
+
+	_, err = client.GetSnapshot("snap-1")
+	assert.Error(t, err)
+
+	err = client.DeleteSnapshot("snap-1")
+	assert.Error(t, err)
+
+	_, err = client.RestoreSnapshot("snap-1", "vol")
+	assert.Error(t, err)
+}

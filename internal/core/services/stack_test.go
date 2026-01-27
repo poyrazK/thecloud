@@ -184,6 +184,115 @@ Resources:
 	// Wait for background processing
 	time.Sleep(150 * time.Millisecond)
 }
+
+func TestCreateStackRollbackDeletesResourcesAllTypes(t *testing.T) {
+	repo, instanceSvc, vpcSvc, volumeSvc, snapshotSvc, svc := setupStackServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer instanceSvc.AssertExpectations(t)
+	defer vpcSvc.AssertExpectations(t)
+	defer volumeSvc.AssertExpectations(t)
+	defer snapshotSvc.AssertExpectations(t)
+
+	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+	template := `
+Resources:
+  MyVPC:
+    Type: VPC
+    Properties:
+      Name: test-vpc
+  MyVolume:
+    Type: Volume
+    Properties:
+      Name: vol1
+      Size: 20
+`
+
+	repo.On("Create", ctx, mock.AnythingOfType(stackType)).Return(nil)
+
+	vpcID := uuid.New()
+	vpc := &domain.VPC{ID: vpcID, Name: stackTestVpc}
+	vpcSvc.On("CreateVPC", mock.Anything, stackTestVpc, "").Return(vpc, nil)
+	repo.On("AddResource", mock.Anything, mock.MatchedBy(func(r *domain.StackResource) bool {
+		return r.LogicalID == "MyVPC" && r.ResourceType == "VPC"
+	})).Return(nil)
+
+	volumeSvc.On("CreateVolume", mock.Anything, "vol1", 20).Return(nil, fmt.Errorf("volume failed"))
+
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(s *domain.Stack) bool {
+		return s.Status == domain.StackStatusRollbackInProgress
+	})).Return(nil)
+
+	instanceID := uuid.New()
+	volumeID := uuid.New()
+	snapshotID := uuid.New()
+	repo.On("ListResources", mock.Anything, mock.Anything).Return([]domain.StackResource{
+		{LogicalID: "MyVPC", PhysicalID: vpcID.String(), ResourceType: "VPC"},
+		{LogicalID: "MyVolume", PhysicalID: volumeID.String(), ResourceType: "Volume"},
+		{LogicalID: "MyInstance", PhysicalID: instanceID.String(), ResourceType: "Instance"},
+		{LogicalID: "MySnapshot", PhysicalID: snapshotID.String(), ResourceType: "Snapshot"},
+	}, nil)
+
+	instanceSvc.On("TerminateInstance", mock.Anything, instanceID.String()).Return(nil)
+	vpcSvc.On("DeleteVPC", mock.Anything, vpcID.String()).Return(nil)
+	volumeSvc.On("DeleteVolume", mock.Anything, volumeID.String()).Return(nil)
+	snapshotSvc.On("DeleteSnapshot", mock.Anything, snapshotID).Return(nil)
+	repo.On("DeleteResources", mock.Anything, mock.Anything).Return(nil)
+
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(s *domain.Stack) bool {
+		return s.Status == domain.StackStatusRollbackComplete
+	})).Return(nil)
+
+	_, err := svc.CreateStack(ctx, "test-stack-rollback-all", template, nil)
+	assert.NoError(t, err)
+
+	time.Sleep(150 * time.Millisecond)
+}
+
+func TestCreateStackRollbackFailureUpdatesStatus(t *testing.T) {
+	repo, instanceSvc, vpcSvc, volumeSvc, _, svc := setupStackServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer instanceSvc.AssertExpectations(t)
+	defer vpcSvc.AssertExpectations(t)
+	defer volumeSvc.AssertExpectations(t)
+
+	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+	template := `
+Resources:
+  MyVPC:
+    Type: VPC
+    Properties:
+      Name: test-vpc
+  MyVolume:
+    Type: Volume
+    Properties:
+      Name: vol1
+      Size: 20
+`
+
+	repo.On("Create", ctx, mock.AnythingOfType(stackType)).Return(nil)
+
+	vpcID := uuid.New()
+	vpc := &domain.VPC{ID: vpcID, Name: stackTestVpc}
+	vpcSvc.On("CreateVPC", mock.Anything, stackTestVpc, "").Return(vpc, nil)
+	repo.On("AddResource", mock.Anything, mock.MatchedBy(func(r *domain.StackResource) bool {
+		return r.LogicalID == "MyVPC" && r.ResourceType == "VPC"
+	})).Return(nil)
+
+	volumeSvc.On("CreateVolume", mock.Anything, "vol1", 20).Return(nil, fmt.Errorf("volume failed"))
+
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(s *domain.Stack) bool {
+		return s.Status == domain.StackStatusRollbackInProgress
+	})).Return(nil)
+	repo.On("ListResources", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("list error"))
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(s *domain.Stack) bool {
+		return s.Status == domain.StackStatusRollbackFailed
+	})).Return(nil)
+
+	_, err := svc.CreateStack(ctx, "test-stack-rollback-fail", template, nil)
+	assert.NoError(t, err)
+
+	time.Sleep(150 * time.Millisecond)
+}
 func TestGetStack(t *testing.T) {
 	repo, _, _, _, _, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)

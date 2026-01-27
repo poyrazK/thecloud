@@ -49,3 +49,26 @@ func TestMiddlewareBlocksWhenRateExceeded(t *testing.T) {
 
 	assert.Equal(t, http.StatusTooManyRequests, resp2.Code)
 }
+
+func TestMiddlewareUsesAPIKeyPrefix(t *testing.T) {
+	limiter := NewIPRateLimiter(rate.Limit(1), 1, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	ctx, resp := newTestContext("GET", "/", testutil.TestNoopIP3)
+	ctx.Request.Header.Set("X-API-Key", "1234567890")
+
+	Middleware(limiter)(ctx)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+	_, exists := limiter.ips["apikey:12345"]
+	assert.True(t, exists)
+}
+
+func TestMiddlewareUsesClientIPWhenNoKey(t *testing.T) {
+	limiter := NewIPRateLimiter(rate.Limit(1), 1, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	ctx, resp := newTestContext("GET", "/", "192.168.1.10")
+
+	Middleware(limiter)(ctx)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+	_, exists := limiter.ips["192.168.1.10"]
+	assert.True(t, exists)
+}

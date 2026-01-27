@@ -141,6 +141,48 @@ func TestCachedRBACService_HasPermissionCacheHit(t *testing.T) {
 	mockSvc.AssertNotCalled(t, "HasPermission", mock.Anything, mock.Anything, mock.Anything)
 }
 
+func TestCachedRBACService_HasPermissionCacheMiss(t *testing.T) {
+	mockSvc, cache, mr := setupCachedRBACTest(t)
+	defer mr.Close()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := services.NewCachedRBACService(mockSvc, cache, logger)
+
+	ctx := context.Background()
+	userID := uuid.New()
+	permission := domain.PermissionInstanceRead
+
+	mockSvc.On("HasPermission", mock.Anything, userID, permission).Return(true, nil).Once()
+
+	allowed, err := svc.HasPermission(ctx, userID, permission)
+	assert.NoError(t, err)
+	assert.True(t, allowed)
+
+	key := "rbac:perm:" + userID.String() + ":" + string(permission)
+	assert.Equal(t, "1", cache.Get(ctx, key).Val())
+}
+
+func TestCachedRBACService_HasPermissionError(t *testing.T) {
+	mockSvc, cache, mr := setupCachedRBACTest(t)
+	defer mr.Close()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := services.NewCachedRBACService(mockSvc, cache, logger)
+
+	ctx := context.Background()
+	userID := uuid.New()
+	permission := domain.PermissionInstanceRead
+
+	mockSvc.On("HasPermission", mock.Anything, userID, permission).Return(false, assert.AnError).Once()
+
+	allowed, err := svc.HasPermission(ctx, userID, permission)
+	assert.Error(t, err)
+	assert.False(t, allowed)
+
+	key := "rbac:perm:" + userID.String() + ":" + string(permission)
+	assert.False(t, cache.Exists(ctx, key).Val() > 0)
+}
+
 func TestCachedRBACService_CreateRoleDelegates(t *testing.T) {
 	mockSvc, cache, mr := setupCachedRBACTest(t)
 	defer mr.Close()

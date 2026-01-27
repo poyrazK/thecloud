@@ -210,6 +210,41 @@ func TestAutoScalingWorkerCleanupGroupDeletesGroup(t *testing.T) {
 	mockRepo.AssertCalled(t, "DeleteGroup", mock.Anything, groupID)
 }
 
+func TestAutoScalingWorkerCleanupGroupWithInstances(t *testing.T) {
+	mockRepo, mockInstSvc, _, mockEventSvc, _, worker := setupAutoScalingWorkerTest(t)
+	defer mockRepo.AssertExpectations(t)
+	defer mockInstSvc.AssertExpectations(t)
+	defer mockEventSvc.AssertExpectations(t)
+
+	ctx := context.Background()
+	groupID := uuid.New()
+	userID := uuid.New()
+	inst1ID := uuid.New()
+	inst2ID := uuid.New()
+	group := &domain.ScalingGroup{
+		ID:           groupID,
+		UserID:       userID,
+		Name:         "test-group",
+		Status:       domain.ScalingGroupStatusDeleting,
+		DesiredCount: 2,
+	}
+
+	mockRepo.On("ListAllGroups", ctx).Return([]*domain.ScalingGroup{group}, nil)
+	mockRepo.On("GetAllScalingGroupInstances", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]uuid.UUID{groupID: {inst1ID, inst2ID}}, nil)
+	mockRepo.On("GetAllPolicies", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]*domain.ScalingPolicy{}, nil)
+
+	mockRepo.On("RemoveInstanceFromGroup", mock.Anything, groupID, inst2ID).Return(nil)
+	mockRepo.On("RemoveInstanceFromGroup", mock.Anything, groupID, inst1ID).Return(nil)
+	mockInstSvc.On("TerminateInstance", mock.Anything, inst2ID.String()).Return(nil)
+	mockInstSvc.On("TerminateInstance", mock.Anything, inst1ID.String()).Return(nil)
+	mockEventSvc.On("RecordEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	worker.Evaluate(ctx)
+
+	mockRepo.AssertCalled(t, "RemoveInstanceFromGroup", mock.Anything, groupID, inst2ID)
+	mockRepo.AssertCalled(t, "RemoveInstanceFromGroup", mock.Anything, groupID, inst1ID)
+}
+
 func TestAutoScalingWorkerRecordFailure(t *testing.T) {
 	// This test verifies the worker logic handles failures properly
 	// by checking that UpdateGroup is called when there's a failure
@@ -252,6 +287,71 @@ func TestAutoScalingWorkerRecordFailure(t *testing.T) {
 	worker.Evaluate(ctx)
 
 	mockRepo.AssertCalled(t, "UpdateGroup", mock.Anything, mock.Anything)
+}
+
+func TestAutoScalingWorkerFailureBackoffSkipsScaleOut(t *testing.T) {
+	mockRepo, mockInstSvc, _, _, mockClock, worker := setupAutoScalingWorkerTest(t)
+	defer mockRepo.AssertExpectations(t)
+	defer mockClock.AssertExpectations(t)
+
+	ctx := context.Background()
+	groupID := uuid.New()
+	userID := uuid.New()
+	now := time.Now()
+
+	group := &domain.ScalingGroup{
+		ID:            groupID,
+		UserID:        userID,
+		Name:          "test-backoff",
+		MinInstances:  1,
+		MaxInstances:  5,
+		DesiredCount:  2,
+		CurrentCount:  1,
+		Status:        domain.ScalingGroupStatusActive,
+		FailureCount:  5,
+		LastFailureAt: &now,
+	}
+
+	mockClock.On("Now").Return(now)
+	mockRepo.On("ListAllGroups", ctx).Return([]*domain.ScalingGroup{group}, nil)
+	mockRepo.On("GetAllScalingGroupInstances", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]uuid.UUID{groupID: {uuid.New()}}, nil)
+	mockRepo.On("GetAllPolicies", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]*domain.ScalingPolicy{}, nil)
+
+	worker.Evaluate(ctx)
+
+	mockInstSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestAutoScalingWorkerAdjustDesiredBounds(t *testing.T) {
+	mockRepo, mockInstSvc, _, _, _, worker := setupAutoScalingWorkerTest(t)
+	defer mockRepo.AssertExpectations(t)
+	defer mockInstSvc.AssertExpectations(t)
+
+	ctx := context.Background()
+	groupID := uuid.New()
+	userID := uuid.New()
+	instanceID := uuid.New()
+
+	group := &domain.ScalingGroup{
+		ID:           groupID,
+		UserID:       userID,
+		Name:         "test-bounds",
+		MinInstances: 1,
+		MaxInstances: 2,
+		DesiredCount: 0,
+		CurrentCount: 1,
+		Status:       domain.ScalingGroupStatusActive,
+	}
+
+	mockRepo.On("ListAllGroups", ctx).Return([]*domain.ScalingGroup{group}, nil)
+	mockRepo.On("GetAllScalingGroupInstances", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]uuid.UUID{groupID: {instanceID}}, nil)
+	mockRepo.On("GetAllPolicies", ctx, []uuid.UUID{groupID}).Return(map[uuid.UUID][]*domain.ScalingPolicy{}, nil)
+
+	mockRepo.On("UpdateGroup", mock.Anything, mock.MatchedBy(func(g *domain.ScalingGroup) bool {
+		return g.DesiredCount == 1
+	})).Return(nil)
+
+	worker.Evaluate(ctx)
 }
 
 func TestAutoScalingWorkerResetFailures(t *testing.T) {

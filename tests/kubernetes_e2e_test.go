@@ -61,6 +61,7 @@ func TestKubernetesE2E(t *testing.T) {
 	t.Run("Get Kubeconfig", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/clusters/%s/kubeconfig", testutil.TestBaseURL, cluster.ID), nil)
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		applyTenantHeader(t, req, token)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
 		defer resp.Body.Close()
@@ -79,6 +80,7 @@ func TestKubernetesE2E(t *testing.T) {
 	t.Run("Delete Cluster", func(t *testing.T) {
 		req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/clusters/%s", testutil.TestBaseURL, cluster.ID), nil)
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		applyTenantHeader(t, req, token)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
 		defer resp.Body.Close()
@@ -95,6 +97,7 @@ func createVPC(t *testing.T, client *http.Client, token, name, cidr string) VPC 
 	req, _ := http.NewRequest("POST", testutil.TestBaseURL+testutil.TestRouteVpcs, bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", testutil.TestContentTypeAppJSON)
 	req.Header.Set(testutil.TestHeaderAPIKey, token)
+	applyTenantHeader(t, req, token)
 
 	resp, err := client.Do(req)
 	require.NoError(t, err)
@@ -122,6 +125,7 @@ func createCluster(t *testing.T, client *http.Client, token, name, vpcID string,
 	req, _ := http.NewRequest("POST", testutil.TestBaseURL+"/clusters", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", testutil.TestContentTypeAppJSON)
 	req.Header.Set(testutil.TestHeaderAPIKey, token)
+	applyTenantHeader(t, req, token)
 
 	resp, err := client.Do(req)
 	require.NoError(t, err)
@@ -143,6 +147,7 @@ func createCluster(t *testing.T, client *http.Client, token, name, vpcID string,
 func getCluster(t *testing.T, client *http.Client, token, id string) Cluster {
 	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/clusters/%s", testutil.TestBaseURL, id), nil)
 	req.Header.Set(testutil.TestHeaderAPIKey, token)
+	applyTenantHeader(t, req, token)
 	resp, err := client.Do(req)
 	require.NoError(t, err)
 	defer resp.Body.Close()

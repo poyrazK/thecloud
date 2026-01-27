@@ -110,7 +110,7 @@ func TestVpcRepositoryGetByID(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, vpc)
 		// Check if the error returned is of type errors.NotFound
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		theCloudErr, ok := err.(theclouderrors.Error)
 		if ok {
 			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
 		}

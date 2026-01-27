@@ -87,3 +87,34 @@ func TestLocalStore_Assemble(t *testing.T) {
 	_, _, err = store.Read(bucket, part1)
 	require.Error(t, err)
 }
+
+func TestLocalStore_ReadFallbackToMtime(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, _ := NewLocalStore(tmpDir)
+
+	bucket := "test-bucket"
+	key := "file.txt"
+	data := []byte("data")
+
+	require.NoError(t, store.Write(bucket, key, data, 1))
+
+	path := filepath.Join(tmpDir, bucket, key)
+	metaPath := path + ".meta"
+	require.NoError(t, os.Remove(metaPath))
+
+	mtime := time.Unix(1700000000, 0)
+	require.NoError(t, os.Chtimes(path, mtime, mtime))
+
+	_, ts, err := store.Read(bucket, key)
+	require.NoError(t, err)
+	assert.Equal(t, mtime.UnixNano(), ts)
+}
+
+func TestLocalStore_InvalidAbsolutePath(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, _ := NewLocalStore(tmpDir)
+
+	err := store.Write("bucket", "/abs/path", []byte("data"), 0)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, os.ErrInvalid)
+}

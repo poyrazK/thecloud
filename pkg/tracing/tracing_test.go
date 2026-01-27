@@ -32,3 +32,9 @@ func TestInitConsoleTracer(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, tp)
 }
+
+func TestEnvOr(t *testing.T) {
+	t.Setenv("ENV", "production")
+	require.Equal(t, "production", envOr("ENV", "development"))
+	require.Equal(t, "fallback", envOr("MISSING_ENV", "fallback"))
+}

@@ -22,6 +22,8 @@ type Instance struct {
 	Status string `json:"status"`
 }
 
+const instancePathFmt = "%s/instances/%s"
+
 func TestMultiTenancyE2E(t *testing.T) {
 	// Skip if server is not reachable (e.g., in CI without live services)
 	if err := waitForServer(); err != nil {
@@ -48,8 +50,9 @@ func TestMultiTenancyE2E(t *testing.T) {
 	})
 
 	t.Run("User B cannot Get User A's instance", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/instances/%s", testutil.TestBaseURL, instA.ID), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf(instancePathFmt, testutil.TestBaseURL, instA.ID), nil)
 		req.Header.Set(testutil.TestHeaderAPIKey, tokenB)
+		applyTenantHeader(t, req, tokenB)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
 		defer func() { _ = resp.Body.Close() }()
@@ -58,8 +61,9 @@ func TestMultiTenancyE2E(t *testing.T) {
 	})
 
 	t.Run("User A can see their instance", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/instances/%s", testutil.TestBaseURL, instA.ID), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf(instancePathFmt, testutil.TestBaseURL, instA.ID), nil)
 		req.Header.Set(testutil.TestHeaderAPIKey, tokenA)
+		applyTenantHeader(t, req, tokenA)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
 		defer func() { _ = resp.Body.Close() }()
@@ -80,6 +84,7 @@ func createInstance(t *testing.T, client *http.Client, token, name string) Insta
 	req, _ := http.NewRequest("POST", testutil.TestBaseURL+"/instances", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", testutil.TestContentTypeAppJSON)
 	req.Header.Set(testutil.TestHeaderAPIKey, token)
+	applyTenantHeader(t, req, token)
 
 	resp, err := client.Do(req)
 	require.NoError(t, err)
@@ -101,6 +106,7 @@ func createInstance(t *testing.T, client *http.Client, token, name string) Insta
 func listInstances(t *testing.T, client *http.Client, token string) []Instance {
 	req, _ := http.NewRequest("GET", testutil.TestBaseURL+"/instances", nil)
 	req.Header.Set(testutil.TestHeaderAPIKey, token)
+	applyTenantHeader(t, req, token)
 
 	resp, err := client.Do(req)
 	require.NoError(t, err)
@@ -116,8 +122,9 @@ func listInstances(t *testing.T, client *http.Client, token string) []Instance {
 	return listWrapper.Data
 }
 
-func deleteInstance(_ *testing.T, client *http.Client, token, id string) {
-	req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/instances/%s", testutil.TestBaseURL, id), nil)
+func deleteInstance(t *testing.T, client *http.Client, token, id string) {
+	req, _ := http.NewRequest("DELETE", fmt.Sprintf(instancePathFmt, testutil.TestBaseURL, id), nil)
 	req.Header.Set(testutil.TestHeaderAPIKey, token)
+	applyTenantHeader(t, req, token)
 	_, _ = client.Do(req)
 }

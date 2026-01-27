@@ -123,3 +123,115 @@ func TestClusterWorker_ProcessProvisionJob(t *testing.T) {
 	repo.AssertExpectations(t)
 	prov.AssertExpectations(t)
 }
+
+func TestClusterWorker_ProcessDeprovisionJobSuccess(t *testing.T) {
+	tq := new(MockTaskQueue)
+	repo := new(MockClusterRepo)
+	prov := new(MockProvisioner)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	worker := NewClusterWorker(repo, prov, tq, logger)
+
+	clusterID := uuid.New()
+	userID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, UserID: userID, Name: "worker-test"}
+
+	job := domain.ClusterJob{
+		Type:      domain.ClusterJobDeprovision,
+		ClusterID: clusterID,
+		UserID:    userID,
+	}
+
+	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
+	repo.On("Update", mock.Anything, mock.AnythingOfType("*domain.Cluster")).Return(nil)
+	prov.On("Deprovision", mock.Anything, cluster).Return(nil)
+	repo.On("Delete", mock.Anything, clusterID).Return(nil)
+
+	worker.processJob(job)
+
+	repo.AssertExpectations(t)
+	prov.AssertExpectations(t)
+}
+
+func TestClusterWorker_ProcessDeprovisionJobFailure(t *testing.T) {
+	tq := new(MockTaskQueue)
+	repo := new(MockClusterRepo)
+	prov := new(MockProvisioner)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	worker := NewClusterWorker(repo, prov, tq, logger)
+
+	clusterID := uuid.New()
+	userID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, UserID: userID, Name: "worker-test"}
+
+	job := domain.ClusterJob{
+		Type:      domain.ClusterJobDeprovision,
+		ClusterID: clusterID,
+		UserID:    userID,
+	}
+
+	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
+	repo.On("Update", mock.Anything, mock.AnythingOfType("*domain.Cluster")).Return(nil).Twice()
+	prov.On("Deprovision", mock.Anything, cluster).Return(io.EOF)
+
+	worker.processJob(job)
+
+	repo.AssertExpectations(t)
+	prov.AssertExpectations(t)
+}
+
+func TestClusterWorker_ProcessUpgradeJob(t *testing.T) {
+	tq := new(MockTaskQueue)
+	repo := new(MockClusterRepo)
+	prov := new(MockProvisioner)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	worker := NewClusterWorker(repo, prov, tq, logger)
+
+	clusterID := uuid.New()
+	userID := uuid.New()
+	version := "1.30.0"
+	cluster := &domain.Cluster{ID: clusterID, UserID: userID, Name: "worker-test"}
+
+	job := domain.ClusterJob{
+		Type:      domain.ClusterJobUpgrade,
+		ClusterID: clusterID,
+		UserID:    userID,
+		Version:   version,
+	}
+
+	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.Status == domain.ClusterStatusUpgrading || c.Status == domain.ClusterStatusRunning
+	})).Return(nil).Twice()
+	prov.On("Upgrade", mock.Anything, cluster, version).Return(nil)
+
+	worker.processJob(job)
+
+	repo.AssertExpectations(t)
+	prov.AssertExpectations(t)
+}
+
+func TestClusterWorker_ProcessJobClusterNotFound(t *testing.T) {
+	tq := new(MockTaskQueue)
+	repo := new(MockClusterRepo)
+	prov := new(MockProvisioner)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	worker := NewClusterWorker(repo, prov, tq, logger)
+
+	clusterID := uuid.New()
+	userID := uuid.New()
+	job := domain.ClusterJob{
+		Type:      domain.ClusterJobProvision,
+		ClusterID: clusterID,
+		UserID:    userID,
+	}
+
+	repo.On("GetByID", mock.Anything, clusterID).Return(nil, nil)
+
+	worker.processJob(job)
+
+	prov.AssertNotCalled(t, "Provision", mock.Anything, mock.Anything)
+}

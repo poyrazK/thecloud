@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const instancesPath = "/instances"
+
 func TestSecurityEdge(t *testing.T) {
 	if err := waitForServer(); err != nil {
 		t.Skipf("Skipping Security Edge test: %v", err)
@@ -20,7 +22,7 @@ func TestSecurityEdge(t *testing.T) {
 
 	t.Run("Authentication Bypass Attempts", func(t *testing.T) {
 		// 1. Missing API Key
-		req, _ := http.NewRequest("GET", testutil.TestBaseURL+"/instances", nil)
+		req, _ := http.NewRequest("GET", testutil.TestBaseURL+instancesPath, nil)
 		resp, err := client.Do(req)
 		if err == nil && resp != nil {
 			defer resp.Body.Close()
@@ -30,7 +32,7 @@ func TestSecurityEdge(t *testing.T) {
 		}
 
 		// 2. Invalid API Key format
-		req, _ = http.NewRequest("GET", testutil.TestBaseURL+"/instances", nil)
+		req, _ = http.NewRequest("GET", testutil.TestBaseURL+instancesPath, nil)
 		req.Header.Set(testutil.TestHeaderAPIKey, "invalid-key-format-123")
 		resp, err = client.Do(req)
 		if err == nil && resp != nil {
@@ -48,7 +50,7 @@ func TestSecurityEdge(t *testing.T) {
 			"name":  "user-a-instance",
 			"image": "alpine",
 		}
-		respA := postRequest(t, client, testutil.TestBaseURL+"/instances", tokenA, payload)
+		respA := postRequest(t, client, testutil.TestBaseURL+instancesPath, tokenA, payload)
 		defer respA.Body.Close()
 
 		type Wrapper struct {
@@ -62,8 +64,9 @@ func TestSecurityEdge(t *testing.T) {
 
 		// 2. Register User B and try to access User A's resource
 		tokenB := registerAndLogin(t, client, "userB-sec@thecloud.local", "User B Sec")
-		reqB, _ := http.NewRequest("GET", fmt.Sprintf("%s/instances/%s", testutil.TestBaseURL, instID), nil)
+		reqB, _ := http.NewRequest("GET", fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, instancesPath, instID), nil)
 		reqB.Header.Set(testutil.TestHeaderAPIKey, tokenB)
+		applyTenantHeader(t, reqB, tokenB)
 		respB, err := client.Do(reqB)
 		if err == nil && respB != nil {
 			defer respB.Body.Close()

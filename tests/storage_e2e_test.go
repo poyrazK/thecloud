@@ -35,6 +35,7 @@ func TestStorageE2E(t *testing.T) {
 		req, _ := http.NewRequest("POST", testutil.TestBaseURL+"/storage/buckets", bytes.NewBuffer(body))
 		req.Header.Set("Content-Type", testutil.TestContentTypeAppJSON)
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		applyTenantHeader(t, req, token)
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
@@ -46,6 +47,7 @@ func TestStorageE2E(t *testing.T) {
 	t.Run("UploadObject", func(t *testing.T) {
 		req, _ := http.NewRequest("PUT", fmt.Sprintf("%s/storage/%s/%s", testutil.TestBaseURL, bucketName, key), bytes.NewBufferString(content))
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		applyTenantHeader(t, req, token)
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
@@ -57,6 +59,7 @@ func TestStorageE2E(t *testing.T) {
 	t.Run("DownloadObject", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/storage/%s/%s", testutil.TestBaseURL, bucketName, key), nil)
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		applyTenantHeader(t, req, token)
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
@@ -75,6 +78,7 @@ func TestStorageE2E(t *testing.T) {
 		req, _ := http.NewRequest("PATCH", fmt.Sprintf("%s/storage/buckets/%s/versioning", testutil.TestBaseURL, bucketName), bytes.NewBuffer(body))
 		req.Header.Set("Content-Type", testutil.TestContentTypeAppJSON)
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		applyTenantHeader(t, req, token)
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
@@ -88,6 +92,7 @@ func TestStorageE2E(t *testing.T) {
 		newContent := "Hello World Version 2"
 		req, _ := http.NewRequest("PUT", fmt.Sprintf("%s/storage/%s/%s", testutil.TestBaseURL, bucketName, key), bytes.NewBufferString(newContent))
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		applyTenantHeader(t, req, token)
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
@@ -110,6 +115,7 @@ func TestStorageE2E(t *testing.T) {
 	t.Run("ListVersions", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/storage/versions/%s/%s", testutil.TestBaseURL, bucketName, key), nil)
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		applyTenantHeader(t, req, token)
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
@@ -130,12 +136,14 @@ func TestStorageE2E(t *testing.T) {
 		// Delete object
 		req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/storage/%s/%s", testutil.TestBaseURL, bucketName, key), nil)
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		applyTenantHeader(t, req, token)
 		resp, _ := client.Do(req)
 		resp.Body.Close()
 
 		// Delete bucket
 		req, _ = http.NewRequest("DELETE", fmt.Sprintf("%s/storage/buckets/%s", testutil.TestBaseURL, bucketName), nil)
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		applyTenantHeader(t, req, token)
 		resp, _ = client.Do(req)
 		resp.Body.Close()
 	})

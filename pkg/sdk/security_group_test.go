@@ -70,6 +70,38 @@ func TestClientListSecurityGroups(t *testing.T) {
 	assert.Len(t, sgs, 2)
 }
 
+func TestClientListSecurityGroups_NoVPC(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, sgBasePath, r.URL.Path)
+		assert.Equal(t, "", r.URL.RawQuery)
+		assert.Equal(t, http.MethodGet, r.Method)
+
+		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
+		resp := Response[[]SecurityGroup]{Data: []SecurityGroup{{ID: "sg-1"}}}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, testAPIKey)
+	groups, err := client.ListSecurityGroups("")
+
+	assert.NoError(t, err)
+	assert.Len(t, groups, 1)
+}
+
+func TestClientListSecurityGroups_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, testAPIKey)
+	_, err := client.ListSecurityGroups("vpc-1")
+
+	assert.Error(t, err)
+}
+
 func TestClientGetSecurityGroup(t *testing.T) {
 	id := sg123
 	expectedSG := SecurityGroup{
@@ -168,4 +200,72 @@ func TestClientAttachSecurityGroup(t *testing.T) {
 	err := client.AttachSecurityGroup(instanceID, groupID)
 
 	assert.NoError(t, err)
+}
+
+func TestClientRemoveSecurityRule(t *testing.T) {
+	ruleID := "rule-123"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/security-groups/rules/"+ruleID, r.URL.Path)
+		assert.Equal(t, http.MethodDelete, r.Method)
+
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, testAPIKey)
+	err := client.RemoveSecurityRule(ruleID)
+
+	assert.NoError(t, err)
+}
+
+func TestClientDetachSecurityGroup(t *testing.T) {
+	instanceID := "inst-123"
+	groupID := sg123
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/security-groups/detach", r.URL.Path)
+		assert.Equal(t, http.MethodPost, r.Method)
+
+		var req map[string]string
+		err := json.NewDecoder(r.Body).Decode(&req)
+		assert.NoError(t, err)
+		assert.Equal(t, instanceID, req["instance_id"])
+		assert.Equal(t, groupID, req["group_id"])
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, testAPIKey)
+	err := client.DetachSecurityGroup(instanceID, groupID)
+
+	assert.NoError(t, err)
+}
+
+func TestClient_SecurityGroupErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, testAPIKey)
+	_, err := client.GetSecurityGroup("sg-1")
+	assert.Error(t, err)
+
+	_, err = client.AddSecurityRule("sg-1", SecurityRule{Protocol: "tcp"})
+	assert.Error(t, err)
+}
+
+func TestClient_CreateSecurityGroupError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, testAPIKey)
+	_, err := client.CreateSecurityGroup("vpc-1", "sg", "desc")
+	assert.Error(t, err)
 }

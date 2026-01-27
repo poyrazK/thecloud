@@ -62,3 +62,21 @@ func TestDeriveKey_Consistency(t *testing.T) {
 
 	assert.Equal(t, hex.EncodeToString(k1), hex.EncodeToString(k2))
 }
+
+func TestEncrypt_InvalidKey(t *testing.T) {
+	_, err := Encrypt([]byte("secret"), []byte("short"))
+	assert.Error(t, err)
+}
+
+func TestDecrypt_InvalidBase64(t *testing.T) {
+	key := make([]byte, 32)
+	_, err := Decrypt("not-base64", key)
+	assert.Error(t, err)
+}
+
+func TestDecrypt_ShortCiphertext(t *testing.T) {
+	key := make([]byte, 32)
+	// base64 for a 3-byte payload, shorter than nonce size
+	_, err := Decrypt("AQID", key)
+	assert.Error(t, err)
+}

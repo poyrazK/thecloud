@@ -70,17 +70,18 @@ func (c *Client) Run(ctx context.Context, cmd string) (string, error) {
 	}
 	defer session.Close()
 
-	var b bytes.Buffer
-	session.Stdout = &b
-	session.Stderr = &b
+	// Capture stdout and stderr separately to avoid race conditions on bytes.Buffer
+	var stdout, stderr bytes.Buffer
+	session.Stdout = &stdout
+	session.Stderr = &stderr
 
-	// We can't easily cancel session.Run directly with context, but the underlying connection closure will abort it.
-	// Alternatively, we could start the command and wait for it or context.
 	if err := session.Run(cmd); err != nil {
-		return b.String(), fmt.Errorf("failed to run command %q: %w", cmd, err)
+		// Combine output for error context
+		output := stdout.String() + stderr.String()
+		return output, fmt.Errorf("failed to run command %q: %w", cmd, err)
 	}
 
-	return b.String(), nil
+	return stdout.String() + stderr.String(), nil
 }
 
 // WriteFile writes content to a remote file.

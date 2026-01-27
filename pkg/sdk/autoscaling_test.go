@@ -104,3 +104,53 @@ func TestClient_AutoScaling(t *testing.T) {
 		assert.NoError(t, err)
 	})
 }
+
+func TestClient_AutoScalingErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-key")
+
+	_, err := client.CreateScalingGroup(CreateScalingGroupRequest{Name: "test"})
+	assert.Error(t, err)
+
+	_, err = client.ListScalingGroups()
+	assert.Error(t, err)
+
+	_, err = client.GetScalingGroup("asg-1")
+	assert.Error(t, err)
+
+	err = client.DeleteScalingGroup("asg-1")
+	assert.Error(t, err)
+
+	err = client.CreateScalingPolicy("asg-1", CreatePolicyRequest{Name: "scale"})
+	assert.Error(t, err)
+
+	err = client.DeleteScalingPolicy("pol-1")
+	assert.Error(t, err)
+}
+
+func TestClient_AutoScalingRequestErrors(t *testing.T) {
+	client := NewClient("http://127.0.0.1:0", "test-key")
+
+	_, err := client.CreateScalingGroup(CreateScalingGroupRequest{Name: "asg"})
+	assert.Error(t, err)
+
+	_, err = client.ListScalingGroups()
+	assert.Error(t, err)
+
+	_, err = client.GetScalingGroup("asg-1")
+	assert.Error(t, err)
+
+	err = client.DeleteScalingGroup("asg-1")
+	assert.Error(t, err)
+
+	err = client.CreateScalingPolicy("asg-1", CreatePolicyRequest{Name: "scale"})
+	assert.Error(t, err)
+
+	err = client.DeleteScalingPolicy("pol-1")
+	assert.Error(t, err)
+}

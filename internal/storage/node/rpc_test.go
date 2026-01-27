@@ -2,6 +2,8 @@ package node
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -69,5 +71,46 @@ func TestRPCServerGetClusterStatus(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, resp.Members)
 
-	// TODO: Test with Gossiper populated
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	g := NewGossipProtocol("node1", testNode1Addr, logger)
+	g.AddPeer("node2", testNode2Addr)
+
+	server = NewRPCServer(nil, g)
+	resp, err = server.GetClusterStatus(context.Background(), &pb.Empty{})
+	require.NoError(t, err)
+	assert.Len(t, resp.Members, 2)
+	assert.Equal(t, testNode2Addr, resp.Members["node2"].Addr)
+}
+
+func TestRPCServerStoreError(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewLocalStore(tmpDir)
+	require.NoError(t, err)
+
+	server := NewRPCServer(store, nil)
+
+	resp, err := server.Store(context.Background(), &pb.StoreRequest{
+		Bucket:    "bucket",
+		Key:       "../bad",
+		Data:      []byte("data"),
+		Timestamp: time.Now().UnixNano(),
+	})
+	require.NoError(t, err)
+	assert.False(t, resp.Success)
+	assert.NotEmpty(t, resp.Error)
+}
+
+func TestRPCServerDeleteMissing(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewLocalStore(tmpDir)
+	require.NoError(t, err)
+
+	server := NewRPCServer(store, nil)
+
+	resp, err := server.Delete(context.Background(), &pb.DeleteRequest{
+		Bucket: "bucket",
+		Key:    "missing",
+	})
+	require.NoError(t, err)
+	assert.True(t, resp.Success)
 }

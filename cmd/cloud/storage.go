@@ -12,6 +12,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	headerCreatedAt = "CREATED AT"
+)
+
 var storageCmd = &cobra.Command{
 	Use:   "storage",
 	Short: "Manage object storage",
@@ -39,7 +43,7 @@ var storageListCmd = &cobra.Command{
 			}
 
 			table := tablewriter.NewWriter(os.Stdout)
-			table.Header([]string{"NAME", "PUBLIC", "CREATED AT"})
+			table.Header([]string{"NAME", "PUBLIC", headerCreatedAt})
 
 			for _, b := range buckets {
 				table.Append([]string{
@@ -67,7 +71,7 @@ var storageListCmd = &cobra.Command{
 		}
 
 		table := tablewriter.NewWriter(os.Stdout)
-		table.Header([]string{"KEY", "SIZE", "CREATED AT", "ARN"})
+		table.Header([]string{"KEY", "SIZE", headerCreatedAt, "ARN"})
 
 		for _, obj := range objects {
 			table.Append([]string{
@@ -301,7 +305,7 @@ var storageVersionsCmd = &cobra.Command{
 		}
 
 		table := tablewriter.NewWriter(os.Stdout)
-		table.Header([]string{"VERSION ID", "LATEST", "SIZE", "CREATED AT"})
+		table.Header([]string{"VERSION ID", "LATEST", "SIZE", headerCreatedAt})
 
 		for _, v := range versions {
 			table.Append([]string{
@@ -325,11 +329,12 @@ var storageVersioningCmd = &cobra.Command{
 		status := args[1]
 
 		enabled := false
-		if status == "on" || status == "enabled" || status == "true" {
+		switch status {
+		case "on", "enabled", "true":
 			enabled = true
-		} else if status == "off" || status == "disabled" || status == "false" {
+		case "off", "disabled", "false":
 			enabled = false
-		} else {
+		default:
 			fmt.Printf("Invalid status: %s. Use 'on' or 'off'.\n", status)
 			return
 		}

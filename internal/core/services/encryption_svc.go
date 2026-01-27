@@ -97,7 +97,7 @@ func (s *EncryptionService) Decrypt(ctx context.Context, bucket string, encrypte
 }
 
 // getAndDecryptDEK fetches the encrypted DEK from DB and decrypts it with Master Key
-func (s *EncryptionService) getAndDecryptDEK(ctx context.Context, bucket, versionID string) ([]byte, error) {
+func (s *EncryptionService) getAndDecryptDEK(ctx context.Context, bucket, _ string) ([]byte, error) {
 	// TODO: Update repo.GetKey to support optional versionID filters if needed.
 	// Currently repo.GetKey likely returns the latest.
 	// If versionID is provided, we should fetch that specific key.

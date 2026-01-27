@@ -49,21 +49,23 @@ func (s stubNetworkBackend) SetVethIP(_ context.Context, _ string, _ string, _ s
 func (s stubNetworkBackend) Ping(_ context.Context) error { return s.pingErr }
 func (s stubNetworkBackend) Type() string                 { return s.backendType }
 
-func TestOVSHealth_NoBackend(t *testing.T) {
+const ovsHealthPath = "/health/ovs"
+
+func TestOVSHealthNoBackend(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := &platform.Config{Environment: "test"}
 	svcs := &Services{}
 	handlers := InitHandlers(svcs, nil, logger)
 
 	router := SetupRouter(cfg, logger, handlers, svcs, nil)
-	req := httptest.NewRequest(http.MethodGet, "/health/ovs", nil)
+	req := httptest.NewRequest(http.MethodGet, ovsHealthPath, nil)
 	resp := httptest.NewRecorder()
 
 	router.ServeHTTP(resp, req)
 	assert.Equal(t, http.StatusServiceUnavailable, resp.Code)
 }
 
-func TestOVSHealth_NoopBackend(t *testing.T) {
+func TestOVSHealthNoopBackend(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := &platform.Config{Environment: "test"}
 	svcs := &Services{}
@@ -71,14 +73,14 @@ func TestOVSHealth_NoopBackend(t *testing.T) {
 	backend := noop.NewNoopNetworkAdapter(logger)
 
 	router := SetupRouter(cfg, logger, handlers, svcs, backend)
-	req := httptest.NewRequest(http.MethodGet, "/health/ovs", nil)
+	req := httptest.NewRequest(http.MethodGet, ovsHealthPath, nil)
 	resp := httptest.NewRecorder()
 
 	router.ServeHTTP(resp, req)
 	assert.Equal(t, http.StatusOK, resp.Code)
 }
 
-func TestOVSHealth_UnhealthyBackend(t *testing.T) {
+func TestOVSHealthUnhealthyBackend(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := &platform.Config{Environment: "test"}
 	svcs := &Services{}
@@ -86,14 +88,14 @@ func TestOVSHealth_UnhealthyBackend(t *testing.T) {
 	backend := stubNetworkBackend{backendType: "ovs", pingErr: errors.New("ping failed")}
 
 	router := SetupRouter(cfg, logger, handlers, svcs, backend)
-	req := httptest.NewRequest(http.MethodGet, "/health/ovs", nil)
+	req := httptest.NewRequest(http.MethodGet, ovsHealthPath, nil)
 	resp := httptest.NewRecorder()
 
 	router.ServeHTTP(resp, req)
 	assert.Equal(t, http.StatusServiceUnavailable, resp.Code)
 }
 
-func TestOVSHealth_HealthyBackend(t *testing.T) {
+func TestOVSHealthHealthyBackend(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := &platform.Config{Environment: "test"}
 	svcs := &Services{}
@@ -101,7 +103,7 @@ func TestOVSHealth_HealthyBackend(t *testing.T) {
 	backend := stubNetworkBackend{backendType: "ovs"}
 
 	router := SetupRouter(cfg, logger, handlers, svcs, backend)
-	req := httptest.NewRequest(http.MethodGet, "/health/ovs", nil)
+	req := httptest.NewRequest(http.MethodGet, ovsHealthPath, nil)
 	resp := httptest.NewRecorder()
 
 	router.ServeHTTP(resp, req)

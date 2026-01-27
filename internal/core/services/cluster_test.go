@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -73,6 +74,94 @@ func TestClusterServiceCreate(t *testing.T) {
 	taskQueue.AssertExpectations(t)
 }
 
+func TestClusterServiceCreateVpcNotFound(t *testing.T) {
+	_, _, vpcSvc, _, _, _, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	userID := uuid.New()
+	vpcID := uuid.New()
+
+	vpcSvc.On("GetVPC", mock.Anything, vpcID.String()).Return(nil, assert.AnError)
+
+	cluster, err := svc.CreateCluster(ctx, ports.CreateClusterParams{
+		UserID:  userID,
+		Name:    testClusterName,
+		VpcID:   vpcID,
+		Version: "v1.29.0",
+		Workers: 2,
+	})
+
+	assert.Error(t, err)
+	assert.Nil(t, cluster)
+}
+
+func TestClusterServiceCreateEncryptError(t *testing.T) {
+	repo, _, vpcSvc, _, _, secretSvc, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	userID := uuid.New()
+	vpcID := uuid.New()
+
+	vpcSvc.On("GetVPC", mock.Anything, vpcID.String()).Return(&domain.VPC{ID: vpcID}, nil)
+	secretSvc.On("Encrypt", mock.Anything, userID, mock.Anything).Return("", assert.AnError)
+
+	cluster, err := svc.CreateCluster(ctx, ports.CreateClusterParams{
+		UserID:  userID,
+		Name:    testClusterName,
+		VpcID:   vpcID,
+		Version: "v1.29.0",
+		Workers: 2,
+	})
+
+	assert.Error(t, err)
+	assert.Nil(t, cluster)
+	repo.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+}
+
+func TestClusterServiceCreateRepoError(t *testing.T) {
+	repo, _, vpcSvc, _, _, secretSvc, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	userID := uuid.New()
+	vpcID := uuid.New()
+
+	vpcSvc.On("GetVPC", mock.Anything, vpcID.String()).Return(&domain.VPC{ID: vpcID}, nil)
+	secretSvc.On("Encrypt", mock.Anything, userID, mock.Anything).Return("encrypted-key", nil)
+	repo.On("Create", mock.Anything, mock.Anything).Return(assert.AnError)
+
+	cluster, err := svc.CreateCluster(ctx, ports.CreateClusterParams{
+		UserID:  userID,
+		Name:    testClusterName,
+		VpcID:   vpcID,
+		Version: "v1.29.0",
+		Workers: 2,
+	})
+
+	assert.Error(t, err)
+	assert.Nil(t, cluster)
+}
+
+func TestClusterServiceCreateEnqueueError(t *testing.T) {
+	repo, _, vpcSvc, _, taskQueue, secretSvc, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	userID := uuid.New()
+	vpcID := uuid.New()
+
+	vpcSvc.On("GetVPC", mock.Anything, vpcID.String()).Return(&domain.VPC{ID: vpcID}, nil)
+	secretSvc.On("Encrypt", mock.Anything, userID, mock.Anything).Return("encrypted-key", nil)
+	repo.On("Create", mock.Anything, mock.Anything).Return(nil)
+	repo.On("Update", mock.Anything, mock.Anything).Return(nil)
+	taskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.Anything).Return(assert.AnError).Once()
+
+	cluster, err := svc.CreateCluster(ctx, ports.CreateClusterParams{
+		UserID:  userID,
+		Name:    testClusterName,
+		VpcID:   vpcID,
+		Version: "v1.29.0",
+		Workers: 2,
+	})
+
+	assert.Error(t, err)
+	assert.Nil(t, cluster)
+}
+
 func TestClusterServiceDelete(t *testing.T) {
 	repo, _, _, _, taskQueue, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
@@ -96,4 +185,203 @@ func TestClusterServiceDelete(t *testing.T) {
 	taskQueue.AssertExpectations(t)
 	repo.AssertCalled(t, "GetByID", mock.Anything, id)
 	repo.AssertCalled(t, "Update", mock.Anything, mock.Anything)
+}
+
+func TestClusterServiceListClusters(t *testing.T) {
+	repo, _, _, _, _, _, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	userID := uuid.New()
+
+	repo.On("ListByUserID", ctx, userID).Return([]*domain.Cluster{{ID: uuid.New()}}, nil)
+
+	clusters, err := svc.ListClusters(ctx, userID)
+	assert.NoError(t, err)
+	assert.Len(t, clusters, 1)
+}
+
+func TestClusterServiceGetKubeconfigAdmin(t *testing.T) {
+	repo, _, _, _, _, secretSvc, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	clusterID := uuid.New()
+	userID := uuid.New()
+	cluster := &domain.Cluster{
+		ID:         clusterID,
+		UserID:     userID,
+		Status:     domain.ClusterStatusRunning,
+		Kubeconfig: "encrypted",
+	}
+
+	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
+	secretSvc.On("Decrypt", ctx, userID, "encrypted").Return("decrypted", nil)
+
+	config, err := svc.GetKubeconfig(ctx, clusterID, "admin")
+	assert.NoError(t, err)
+	assert.Equal(t, "decrypted", config)
+}
+
+func TestClusterServiceGetKubeconfigNonAdmin(t *testing.T) {
+	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusRunning}
+
+	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
+	provisioner.On("GetKubeconfig", mock.Anything, cluster, "viewer").Return("generated", nil)
+
+	config, err := svc.GetKubeconfig(ctx, clusterID, "viewer")
+	assert.NoError(t, err)
+	assert.Equal(t, "generated", config)
+}
+
+func TestClusterServiceGetKubeconfigNotRunning(t *testing.T) {
+	repo, _, _, _, _, _, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusPending}
+
+	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
+
+	_, err := svc.GetKubeconfig(ctx, clusterID, "admin")
+	assert.Error(t, err)
+}
+
+func TestClusterServiceRepairCluster(t *testing.T) {
+	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, UserID: uuid.New()}
+
+	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
+
+	done := make(chan struct{})
+	provisioner.On("Repair", mock.Anything, cluster).Return(nil).Run(func(_ mock.Arguments) {
+		close(done)
+	})
+
+	err := svc.RepairCluster(ctx, clusterID)
+	assert.NoError(t, err)
+
+	select {
+	case <-done:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("expected repair to be invoked")
+	}
+}
+
+func TestClusterServiceScaleCluster(t *testing.T) {
+	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, UserID: uuid.New(), WorkerCount: 1}
+
+	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.ID == clusterID && c.WorkerCount == 3
+	})).Return(nil)
+
+	done := make(chan struct{})
+	provisioner.On("Scale", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.ID == clusterID && c.WorkerCount == 3
+	})).Return(nil).Run(func(_ mock.Arguments) {
+		close(done)
+	})
+
+	err := svc.ScaleCluster(ctx, clusterID, 3)
+	assert.NoError(t, err)
+
+	select {
+	case <-done:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("expected scale to be invoked")
+	}
+}
+
+func TestClusterServiceScaleClusterInvalidWorkers(t *testing.T) {
+	repo, _, _, _, _, _, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, WorkerCount: 1}
+
+	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
+
+	err := svc.ScaleCluster(ctx, clusterID, 0)
+	assert.Error(t, err)
+}
+
+func TestClusterServiceGetClusterHealth(t *testing.T) {
+	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID}
+	health := &ports.ClusterHealth{Status: domain.ClusterStatusRunning}
+
+	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
+	provisioner.On("GetHealth", ctx, cluster).Return(health, nil)
+
+	resp, err := svc.GetClusterHealth(ctx, clusterID)
+	assert.NoError(t, err)
+	assert.Equal(t, domain.ClusterStatusRunning, resp.Status)
+}
+
+func TestClusterServiceRotateSecretsSuccess(t *testing.T) {
+	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusRunning}
+
+	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.Status == domain.ClusterStatusUpdating
+	})).Return(nil).Once()
+	provisioner.On("RotateSecrets", ctx, cluster).Return(nil).Once()
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.Status == domain.ClusterStatusRunning
+	})).Return(nil).Once()
+
+	err := svc.RotateSecrets(ctx, clusterID)
+	assert.NoError(t, err)
+}
+
+func TestClusterServiceRotateSecretsNotRunning(t *testing.T) {
+	repo, _, _, _, _, _, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusPending}
+
+	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
+
+	err := svc.RotateSecrets(ctx, clusterID)
+	assert.Error(t, err)
+}
+
+func TestClusterServiceRestoreBackup(t *testing.T) {
+	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusRunning}
+	backupPath := "s3://bucket/backup"
+
+	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.Status == domain.ClusterStatusRepairing
+	})).Return(nil).Once()
+	provisioner.On("Restore", ctx, cluster, backupPath).Return(nil).Once()
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.Status == domain.ClusterStatusRunning
+	})).Return(nil).Once()
+
+	err := svc.RestoreBackup(ctx, clusterID, backupPath)
+	assert.NoError(t, err)
+}
+
+func TestClusterServiceRestoreBackupNotRunning(t *testing.T) {
+	repo, _, _, _, _, _, svc := setupClusterServiceTest()
+	ctx := context.Background()
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusPending}
+
+	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
+
+	err := svc.RestoreBackup(ctx, clusterID, "s3://bucket/backup")
+	assert.Error(t, err)
 }

@@ -164,3 +164,46 @@ func TestSecretServiceGetByName(t *testing.T) {
 	assert.NotNil(t, res)
 	assert.Equal(t, value, res.EncryptedValue)
 }
+
+func TestSecretServiceEncryptDecrypt(t *testing.T) {
+	_, _, _, svc := setupSecretServiceTest(t)
+	userID := uuid.New()
+	ctx := context.Background()
+
+	cipherText, err := svc.Encrypt(ctx, userID, "plain-text")
+	assert.NoError(t, err)
+	assert.NotEmpty(t, cipherText)
+
+	plainText, err := svc.Decrypt(ctx, userID, cipherText)
+	assert.NoError(t, err)
+	assert.Equal(t, "plain-text", plainText)
+}
+
+func TestSecretServiceDecryptInvalidCiphertext(t *testing.T) {
+	_, _, _, svc := setupSecretServiceTest(t)
+	userID := uuid.New()
+	ctx := context.Background()
+
+	_, err := svc.Decrypt(ctx, userID, "not-base64")
+	assert.Error(t, err)
+}
+
+func TestNewSecretServiceDefaultKey(t *testing.T) {
+	repo := new(MockSecretRepo)
+	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	svc := services.NewSecretService(repo, eventSvc, auditSvc, logger, "", "development")
+	assert.NotNil(t, svc)
+}
+
+func TestNewSecretServiceShortKey(t *testing.T) {
+	repo := new(MockSecretRepo)
+	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	svc := services.NewSecretService(repo, eventSvc, auditSvc, logger, "short", "development")
+	assert.NotNil(t, svc)
+}

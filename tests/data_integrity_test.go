@@ -57,6 +57,7 @@ func TestDataIntegrity(t *testing.T) {
 		req, _ := http.NewRequest("POST", testutil.TestBaseURL+testutil.TestRouteInstances, payload)
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded") // API expects JSON
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		applyTenantHeader(t, req, token)
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
@@ -103,6 +104,7 @@ func TestDataIntegrity(t *testing.T) {
 		req, _ := http.NewRequest("PATCH", vpcPath, bytes.NewBuffer(b))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		applyTenantHeader(t, req, token)
 		resp, _ = client.Do(req)
 		if resp != nil {
 			resp.Body.Close()

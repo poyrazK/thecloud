@@ -106,3 +106,33 @@ func TestClient_LoadBalancer(t *testing.T) {
 		assert.Len(t, targets, 1)
 	})
 }
+
+func TestClient_LoadBalancerErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-key")
+	_, err := client.CreateLB("lb", "vpc-1", 80, "round-robin")
+	assert.Error(t, err)
+
+	_, err = client.ListLBs()
+	assert.Error(t, err)
+
+	_, err = client.GetLB("lb-1")
+	assert.Error(t, err)
+
+	err = client.DeleteLB("lb-1")
+	assert.Error(t, err)
+
+	err = client.AddLBTarget("lb-1", "inst-1", 80, 1)
+	assert.Error(t, err)
+
+	err = client.RemoveLBTarget("lb-1", "inst-1")
+	assert.Error(t, err)
+
+	_, err = client.ListLBTargets("lb-1")
+	assert.Error(t, err)
+}

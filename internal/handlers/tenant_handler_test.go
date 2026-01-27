@@ -15,6 +15,13 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	tenantsPath       = "/tenants"
+	tenantsPrefix     = "/tenants/"
+	tenantMembersPath = "/tenants/:id/members"
+	tenantSwitchPath  = "/tenants/:id/switch"
+)
+
 type mockTenantService struct {
 	mock.Mock
 }
@@ -65,11 +72,11 @@ func setupTenantHandlerTest(userID uuid.UUID) (*mockTenantService, *TenantHandle
 	return svc, handler, r
 }
 
-func TestTenantHandler_Create(t *testing.T) {
+func TestTenantHandlerCreate(t *testing.T) {
 	userID := uuid.New()
 	svc, handler, r := setupTenantHandlerTest(userID)
 
-	r.POST("/tenants", handler.Create)
+	r.POST(tenantsPath, handler.Create)
 
 	reqBody := CreateTenantRequest{
 		Name: "My Tenant",
@@ -87,18 +94,18 @@ func TestTenantHandler_Create(t *testing.T) {
 	svc.On("CreateTenant", mock.Anything, reqBody.Name, reqBody.Slug, userID).Return(expectedTenant, nil)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/tenants", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("POST", tenantsPath, bytes.NewBuffer(body))
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 	assert.Contains(t, w.Body.String(), "My Tenant")
 }
 
-func TestTenantHandler_InviteMember(t *testing.T) {
+func TestTenantHandlerInviteMember(t *testing.T) {
 	userID := uuid.New()
 	svc, handler, r := setupTenantHandlerTest(userID)
 
-	r.POST("/tenants/:id/members", handler.InviteMember)
+	r.POST(tenantMembersPath, handler.InviteMember)
 
 	tenantID := uuid.New()
 	reqBody := InviteMemberRequest{
@@ -110,51 +117,51 @@ func TestTenantHandler_InviteMember(t *testing.T) {
 	svc.On("InviteMember", mock.Anything, tenantID, reqBody.Email, reqBody.Role).Return(nil)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/tenants/"+tenantID.String()+"/members", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("POST", tenantsPrefix+tenantID.String()+"/members", bytes.NewBuffer(body))
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "member invited")
 }
 
-func TestTenantHandler_SwitchTenant(t *testing.T) {
+func TestTenantHandlerSwitchTenant(t *testing.T) {
 	userID := uuid.New()
 	svc, handler, r := setupTenantHandlerTest(userID)
 
-	r.POST("/tenants/:id/switch", handler.SwitchTenant)
+	r.POST(tenantSwitchPath, handler.SwitchTenant)
 
 	tenantID := uuid.New()
 
 	svc.On("SwitchTenant", mock.Anything, userID, tenantID).Return(nil)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/tenants/"+tenantID.String()+"/switch", nil)
+	req, _ := http.NewRequest("POST", tenantsPrefix+tenantID.String()+"/switch", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "tenant switched")
 }
 
-func TestTenantHandler_Create_InvalidInput(t *testing.T) {
+func TestTenantHandlerCreateInvalidInput(t *testing.T) {
 	userID := uuid.New()
 	_, handler, r := setupTenantHandlerTest(userID)
 
-	r.POST("/tenants", handler.Create)
+	r.POST(tenantsPath, handler.Create)
 
 	body := []byte(`{"invalid": "json"}`) // Missing required fields
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/tenants", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("POST", tenantsPath, bytes.NewBuffer(body))
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestTenantHandler_Create_ServiceError(t *testing.T) {
+func TestTenantHandlerCreateServiceError(t *testing.T) {
 	userID := uuid.New()
 	svc, handler, r := setupTenantHandlerTest(userID)
 
-	r.POST("/tenants", handler.Create)
+	r.POST(tenantsPath, handler.Create)
 
 	reqBody := CreateTenantRequest{Name: "T", Slug: "t"}
 	body, _ := json.Marshal(reqBody)
@@ -162,31 +169,31 @@ func TestTenantHandler_Create_ServiceError(t *testing.T) {
 	svc.On("CreateTenant", mock.Anything, reqBody.Name, reqBody.Slug, userID).Return(nil, assert.AnError)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/tenants", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("POST", tenantsPath, bytes.NewBuffer(body))
 	r.ServeHTTP(w, req)
 
 	assert.NotEqual(t, http.StatusCreated, w.Code)
 	assert.NotEqual(t, http.StatusOK, w.Code)
 }
 
-func TestTenantHandler_InviteMember_InvalidID(t *testing.T) {
+func TestTenantHandlerInviteMemberInvalidID(t *testing.T) {
 	userID := uuid.New()
 	_, handler, r := setupTenantHandlerTest(userID)
 
-	r.POST("/tenants/:id/members", handler.InviteMember)
+	r.POST(tenantMembersPath, handler.InviteMember)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/tenants/invalid-uuid/members", nil)
+	req, _ := http.NewRequest("POST", tenantsPrefix+"invalid-uuid/members", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestTenantHandler_InviteMember_ServiceError(t *testing.T) {
+func TestTenantHandlerInviteMemberServiceError(t *testing.T) {
 	userID := uuid.New()
 	svc, handler, r := setupTenantHandlerTest(userID)
 
-	r.POST("/tenants/:id/members", handler.InviteMember)
+	r.POST(tenantMembersPath, handler.InviteMember)
 
 	tenantID := uuid.New()
 	reqBody := InviteMemberRequest{Email: "e", Role: "r"}
@@ -195,36 +202,36 @@ func TestTenantHandler_InviteMember_ServiceError(t *testing.T) {
 	svc.On("InviteMember", mock.Anything, tenantID, reqBody.Email, reqBody.Role).Return(assert.AnError)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/tenants/"+tenantID.String()+"/members", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("POST", tenantsPrefix+tenantID.String()+"/members", bytes.NewBuffer(body))
 	r.ServeHTTP(w, req)
 
 	assert.NotEqual(t, http.StatusOK, w.Code)
 }
 
-func TestTenantHandler_SwitchTenant_InvalidID(t *testing.T) {
+func TestTenantHandlerSwitchTenantInvalidID(t *testing.T) {
 	userID := uuid.New()
 	_, handler, r := setupTenantHandlerTest(userID)
 
-	r.POST("/tenants/:id/switch", handler.SwitchTenant)
+	r.POST(tenantSwitchPath, handler.SwitchTenant)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/tenants/invalid-uuid/switch", nil)
+	req, _ := http.NewRequest("POST", tenantsPrefix+"invalid-uuid/switch", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestTenantHandler_SwitchTenant_ServiceError(t *testing.T) {
+func TestTenantHandlerSwitchTenantServiceError(t *testing.T) {
 	userID := uuid.New()
 	svc, handler, r := setupTenantHandlerTest(userID)
 
-	r.POST("/tenants/:id/switch", handler.SwitchTenant)
+	r.POST(tenantSwitchPath, handler.SwitchTenant)
 
 	tenantID := uuid.New()
 	svc.On("SwitchTenant", mock.Anything, userID, tenantID).Return(assert.AnError)
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/tenants/"+tenantID.String()+"/switch", nil)
+	req, _ := http.NewRequest("POST", tenantsPrefix+tenantID.String()+"/switch", nil)
 	r.ServeHTTP(w, req)
 
 	assert.NotEqual(t, http.StatusOK, w.Code)

@@ -109,3 +109,24 @@ func TestClient_DeleteVolume(t *testing.T) {
 
 	assert.NoError(t, err)
 }
+
+func TestClient_VolumeErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-key")
+	_, err := client.ListVolumes()
+	assert.Error(t, err)
+
+	_, err = client.CreateVolume("vol", 10)
+	assert.Error(t, err)
+
+	_, err = client.GetVolume(uuid.New().String())
+	assert.Error(t, err)
+
+	err = client.DeleteVolume(uuid.New().String())
+	assert.Error(t, err)
+}

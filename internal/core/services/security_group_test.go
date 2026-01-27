@@ -166,6 +166,33 @@ func TestSecurityGroupServiceDetachFromInstance(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSecurityGroupServiceDetachRemovesFlows(t *testing.T) {
+	repo, vpcRepo, network, auditSvc, svc := setupSecurityGroupServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer network.AssertExpectations(t)
+
+	ctx := context.Background()
+	instID := uuid.New()
+	sgID := uuid.New()
+	vpcID := uuid.New()
+
+	sg := &domain.SecurityGroup{
+		ID:    sgID,
+		VPCID: vpcID,
+		Rules: []domain.SecurityRule{{ID: uuid.New(), Protocol: "tcp", PortMin: 80, PortMax: 80}},
+	}
+	vpc := &domain.VPC{ID: vpcID, NetworkID: "net1"}
+
+	repo.On("RemoveInstanceFromGroup", mock.Anything, instID, sgID).Return(nil)
+	repo.On("GetByID", mock.Anything, sgID).Return(sg, nil)
+	vpcRepo.On("GetByID", mock.Anything, vpcID).Return(vpc, nil)
+	network.On("DeleteFlowRule", mock.Anything, "net1", mock.Anything).Return(nil).Once()
+	auditSvc.On("Log", mock.Anything, mock.Anything, "security_group.detach", "instance", instID.String(), mock.Anything).Return(nil)
+
+	err := svc.DetachFromInstance(ctx, instID, sgID)
+	assert.NoError(t, err)
+}
+
 func TestSecurityGroupServiceRemoveRule(t *testing.T) {
 	repo, vpcRepo, network, auditSvc, svc := setupSecurityGroupServiceTest(t)
 	defer repo.AssertExpectations(t)

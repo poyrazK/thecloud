@@ -11,4 +11,9 @@ func TestMetrics_CollectorsAreUsable(t *testing.T) {
 	AuthAttemptsTotal.WithLabelValues("success").Inc()
 	VolumesTotal.WithLabelValues("available").Set(3)
 	QueueMessagesTotal.WithLabelValues("queue-1", "send").Inc()
+	StorageOperations.WithLabelValues("upload", "bucket-1", "success").Inc()
+	StorageLatency.WithLabelValues("upload", "bucket-1").Observe(0.05)
+	StorageBytesTransferred.WithLabelValues("upload").Add(123)
+	StorageBucketObjects.WithLabelValues("bucket-1").Set(10)
+	StorageBucketBytes.WithLabelValues("bucket-1").Set(2048)
 }

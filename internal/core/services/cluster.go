@@ -52,12 +52,26 @@ func NewClusterService(params ClusterServiceParams) (*ClusterService, error) {
 	}, nil
 }
 
+// Default cluster configuration values.
+const (
+	defaultClusterVersion = "v1.29.0"
+	defaultWorkerCount    = 2
+)
+
 // CreateCluster initiates the provisioning of a new Kubernetes cluster.
 func (s *ClusterService) CreateCluster(ctx context.Context, params ports.CreateClusterParams) (*domain.Cluster, error) {
 	// 1. Verify VPC exists and belongs to user
 	vpc, err := s.vpcSvc.GetVPC(ctx, params.VpcID.String())
 	if err != nil {
 		return nil, errors.Wrap(errors.NotFound, "vpc not found", err)
+	}
+
+	// Default version if not specified
+	if params.Version == "" {
+		params.Version = defaultClusterVersion
+	}
+	if params.Workers == 0 {
+		params.Workers = defaultWorkerCount
 	}
 
 	// 2. Generate SSH Key Pair for the cluster
