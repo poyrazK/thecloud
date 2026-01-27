@@ -10,13 +10,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestClient_CreateSecret(t *testing.T) {
+const (
+	secretTestID          = "sec-1"
+	secretTestUserID      = "user-1"
+	secretTestName        = "test-secret"
+	secretTestValue       = "test-value"
+	secretTestDescription = "test description"
+	secretTestAPIKey      = "test-api-key"
+	secretTestContentType = "Content-Type"
+	secretTestAppJSON     = "application/json"
+)
+
+func TestClientCreateSecret(t *testing.T) {
 	expectedSecret := Secret{
-		ID:             "sec-1",
-		UserID:         "user-1",
-		Name:           "test-secret",
-		EncryptedValue: "test-value",
-		Description:    "test description",
+		ID:             secretTestID,
+		UserID:         secretTestUserID,
+		Name:           secretTestName,
+		EncryptedValue: secretTestValue,
+		Description:    secretTestDescription,
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
@@ -29,18 +40,18 @@ func TestClient_CreateSecret(t *testing.T) {
 		err := json.NewDecoder(r.Body).Decode(&req)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedSecret.Name, req.Name)
-		assert.Equal(t, "test-value", req.Value)
+		assert.Equal(t, secretTestValue, req.Value)
 		assert.Equal(t, expectedSecret.Description, req.Description)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(secretTestContentType, secretTestAppJSON)
 		// Wrap in Response[Secret]
 		resp := Response[Secret]{Data: expectedSecret}
 		json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
-	secret, err := client.CreateSecret("test-secret", "test-value", "test description")
+	client := NewClient(server.URL, secretTestAPIKey)
+	secret, err := client.CreateSecret(secretTestName, secretTestValue, secretTestDescription)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, secret)
@@ -48,7 +59,7 @@ func TestClient_CreateSecret(t *testing.T) {
 	assert.Equal(t, expectedSecret.EncryptedValue, secret.EncryptedValue)
 }
 
-func TestClient_ListSecrets(t *testing.T) {
+func TestClientListSecrets(t *testing.T) {
 	expectedSecrets := []*Secret{
 		{ID: "sec-1", Name: "secret-1"},
 		{ID: "sec-2", Name: "secret-2"},
@@ -58,13 +69,13 @@ func TestClient_ListSecrets(t *testing.T) {
 		assert.Equal(t, "/secrets", r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(secretTestContentType, secretTestAppJSON)
 		resp := Response[[]*Secret]{Data: expectedSecrets}
 		json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, secretTestAPIKey)
 	secrets, err := client.ListSecrets()
 
 	assert.NoError(t, err)
@@ -72,62 +83,60 @@ func TestClient_ListSecrets(t *testing.T) {
 	assert.Equal(t, expectedSecrets[0].Name, secrets[0].Name)
 }
 
-func TestClient_GetSecret(t *testing.T) {
-	id := "sec-1"
-	expectedSecret := Secret{ID: id, Name: "test-secret"}
+func TestClientGetSecret(t *testing.T) {
+	expectedSecret := Secret{ID: secretTestID, Name: secretTestName}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/secrets/"+id, r.URL.Path)
+		assert.Equal(t, "/secrets/"+secretTestID, r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(secretTestContentType, secretTestAppJSON)
 		resp := Response[Secret]{Data: expectedSecret}
 		json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
-	secret, err := client.GetSecret(id)
+	client := NewClient(server.URL, secretTestAPIKey)
+	secret, err := client.GetSecret(secretTestID)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, secret)
 	assert.Equal(t, expectedSecret.ID, secret.ID)
 }
 
-func TestClient_DeleteSecret(t *testing.T) {
-	id := "sec-1"
+func TestClientDeleteSecret(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/secrets/"+id, r.URL.Path)
+		assert.Equal(t, "/secrets/"+secretTestID, r.URL.Path)
 		assert.Equal(t, http.MethodDelete, r.Method)
 
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
-	err := client.DeleteSecret(id)
+	client := NewClient(server.URL, secretTestAPIKey)
+	err := client.DeleteSecret(secretTestID)
 
 	assert.NoError(t, err)
 }
 
-func TestClient_SecretErrors(t *testing.T) {
+func TestClientSecretErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-api-key")
+	client := NewClient(server.URL, secretTestAPIKey)
 	_, err := client.CreateSecret("secret", "value", "desc")
 	assert.Error(t, err)
 
 	_, err = client.ListSecrets()
 	assert.Error(t, err)
 
-	_, err = client.GetSecret("sec-1")
+	_, err = client.GetSecret(secretTestID)
 	assert.Error(t, err)
 
-	err = client.DeleteSecret("sec-1")
+	err = client.DeleteSecret(secretTestID)
 	assert.Error(t, err)
 }

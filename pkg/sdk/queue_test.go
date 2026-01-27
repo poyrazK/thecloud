@@ -10,97 +10,141 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestQueueSDK(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+const (
+	queueTestAPIKey      = "test-api-key"
+	queueTestName        = "my-queue"
+	queueTestOptionsName = "my-queue-options"
+	queueTestID          = "q-1"
+	queueTestMessageID   = "msg-1"
+	queueTestHandleID    = "handle-1"
+	queueTestMessageBody = "hello"
+	queueTestBasePath    = "/api/v1/queues"
+	queueTestContentType = "Content-Type"
+	queueTestAppJSON     = "application/json"
+)
 
-		if r.URL.Path == "/api/v1/queues" && r.Method == "POST" {
-			var body map[string]interface{}
-			_ = json.NewDecoder(r.Body).Decode(&body)
-			if body["name"] == "my-queue" || body["name"] == "my-queue-options" {
-				w.WriteHeader(http.StatusCreated)
-				json.NewEncoder(w).Encode(map[string]interface{}{
-					"data": map[string]interface{}{
-						"id":   "q-1",
-						"name": body["name"],
-					},
-				})
-				return
-			}
-		}
+func newQueueTestServer(t *testing.T) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Helper()
+		w.Header().Set(queueTestContentType, queueTestAppJSON)
 
-		if r.URL.Path == "/api/v1/queues" && r.Method == "GET" {
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{
-					{"id": "q-1", "name": "my-queue"},
-				},
-			})
+		if handleQueueBase(w, r) {
 			return
 		}
-
-		if r.URL.Path == "/api/v1/queues/q-1" && r.Method == "GET" {
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": map[string]interface{}{
-					"id":   "q-1",
-					"name": "my-queue",
-				},
-			})
+		if handleQueueItem(w, r) {
 			return
 		}
-
-		if r.URL.Path == "/api/v1/queues/q-1" && r.Method == "DELETE" {
-			w.WriteHeader(http.StatusNoContent)
+		if handleQueueMessages(w, r) {
 			return
 		}
-
-		if r.URL.Path == "/api/v1/queues/q-1/messages" && r.Method == "POST" {
-			var body map[string]interface{}
-			_ = json.NewDecoder(r.Body).Decode(&body)
-			if body["body"] == "hello" {
-				w.WriteHeader(http.StatusCreated)
-				json.NewEncoder(w).Encode(map[string]interface{}{
-					"data": map[string]interface{}{
-						"id":   "msg-1",
-						"body": "hello",
-					},
-				})
-				return
-			}
-		}
-
-		if r.URL.Path == "/api/v1/queues/q-1/messages" && r.Method == "GET" {
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{
-					{"id": "msg-1", "body": "hello"},
-				},
-			})
+		if handleQueuePurge(w, r) {
 			return
 		}
-
-		if r.URL.Path == "/api/v1/queues/q-1/messages/handle-1" && r.Method == "DELETE" {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-
-		if r.URL.Path == "/api/v1/queues/q-1/purge" && r.Method == "POST" {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-
 		w.WriteHeader(http.StatusNotFound)
 	}))
+}
+
+func handleQueueBase(w http.ResponseWriter, r *http.Request) bool {
+	if r.URL.Path != queueTestBasePath {
+		return false
+	}
+	if r.Method == http.MethodPost {
+		var body map[string]interface{}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body["name"] == queueTestName || body["name"] == queueTestOptionsName {
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"data": map[string]interface{}{
+					"id":   queueTestID,
+					"name": body["name"],
+				},
+			})
+			return true
+		}
+		return false
+	}
+	if r.Method == http.MethodGet {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"data": []map[string]interface{}{{"id": queueTestID, "name": queueTestName}},
+		})
+		return true
+	}
+	return false
+}
+
+func handleQueueItem(w http.ResponseWriter, r *http.Request) bool {
+	path := queueTestBasePath + "/" + queueTestID
+	if r.URL.Path != path {
+		return false
+	}
+	if r.Method == http.MethodGet {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"data": map[string]interface{}{
+				"id":   queueTestID,
+				"name": queueTestName,
+			},
+		})
+		return true
+	}
+	if r.Method == http.MethodDelete {
+		w.WriteHeader(http.StatusNoContent)
+		return true
+	}
+	return false
+}
+
+func handleQueueMessages(w http.ResponseWriter, r *http.Request) bool {
+	messagesPath := queueTestBasePath + "/" + queueTestID + "/messages"
+	if r.URL.Path == messagesPath && r.Method == http.MethodPost {
+		var body map[string]interface{}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body["body"] == queueTestMessageBody {
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"data": map[string]interface{}{
+					"id":   queueTestMessageID,
+					"body": queueTestMessageBody,
+				},
+			})
+			return true
+		}
+		return false
+	}
+	if r.URL.Path == messagesPath && r.Method == http.MethodGet {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"data": []map[string]interface{}{{"id": queueTestMessageID, "body": queueTestMessageBody}},
+		})
+		return true
+	}
+	if r.URL.Path == messagesPath+"/"+queueTestHandleID && r.Method == http.MethodDelete {
+		w.WriteHeader(http.StatusNoContent)
+		return true
+	}
+	return false
+}
+
+func handleQueuePurge(w http.ResponseWriter, r *http.Request) bool {
+	if r.URL.Path == queueTestBasePath+"/"+queueTestID+"/purge" && r.Method == http.MethodPost {
+		w.WriteHeader(http.StatusNoContent)
+		return true
+	}
+	return false
+}
+
+func TestQueueSDK(t *testing.T) {
+	ts := newQueueTestServer(t)
 	defer ts.Close()
 
-	client := sdk.NewClient(ts.URL+"/api/v1", "test-api-key")
+	client := sdk.NewClient(ts.URL+"/api/v1", queueTestAPIKey)
 
 	t.Run("CreateQueue", func(t *testing.T) {
-		q, err := client.CreateQueue("my-queue", nil, nil, nil)
+		q, err := client.CreateQueue(queueTestName, nil, nil, nil)
 		assert.NoError(t, err)
 		if q != nil {
-			assert.Equal(t, "my-queue", q.Name)
+			assert.Equal(t, queueTestName, q.Name)
 		}
 	})
 
@@ -108,10 +152,10 @@ func TestQueueSDK(t *testing.T) {
 		vt := 30
 		rd := 7
 		mms := 1024
-		q, err := client.CreateQueue("my-queue-options", &vt, &rd, &mms)
+		q, err := client.CreateQueue(queueTestOptionsName, &vt, &rd, &mms)
 		assert.NoError(t, err)
 		if q != nil {
-			assert.Equal(t, "my-queue-options", q.Name)
+			assert.Equal(t, queueTestOptionsName, q.Name)
 		}
 	})
 
@@ -122,72 +166,72 @@ func TestQueueSDK(t *testing.T) {
 	})
 
 	t.Run("GetQueue", func(t *testing.T) {
-		q, err := client.GetQueue("q-1")
+		q, err := client.GetQueue(queueTestID)
 		assert.NoError(t, err)
 		if q != nil {
-			assert.Equal(t, "q-1", q.ID)
+			assert.Equal(t, queueTestID, q.ID)
 		}
 	})
 
 	t.Run("SendMessage", func(t *testing.T) {
-		msg, err := client.SendMessage("q-1", "hello")
+		msg, err := client.SendMessage(queueTestID, queueTestMessageBody)
 		assert.NoError(t, err)
 		if msg != nil {
-			assert.Equal(t, "hello", msg.Body)
+			assert.Equal(t, queueTestMessageBody, msg.Body)
 		}
 	})
 
 	t.Run("ReceiveMessages", func(t *testing.T) {
-		msgs, err := client.ReceiveMessages("q-1", 10)
+		msgs, err := client.ReceiveMessages(queueTestID, 10)
 		assert.NoError(t, err)
 		assert.Len(t, msgs, 1)
 	})
 
 	t.Run("DeleteMessage", func(t *testing.T) {
-		err := client.DeleteMessage("q-1", "handle-1")
+		err := client.DeleteMessage(queueTestID, queueTestHandleID)
 		assert.NoError(t, err)
 	})
 
 	t.Run("PurgeQueue", func(t *testing.T) {
-		err := client.PurgeQueue("q-1")
+		err := client.PurgeQueue(queueTestID)
 		assert.NoError(t, err)
 	})
 
 	t.Run("DeleteQueue", func(t *testing.T) {
-		err := client.DeleteQueue("q-1")
+		err := client.DeleteQueue(queueTestID)
 		assert.NoError(t, err)
 	})
 }
 
-func TestQueueSDK_Errors(t *testing.T) {
+func TestQueueSDKErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
-	client := sdk.NewClient(server.URL+"/api/v1", "test-api-key")
+	client := sdk.NewClient(server.URL+"/api/v1", queueTestAPIKey)
 	_, err := client.CreateQueue("q", nil, nil, nil)
 	assert.Error(t, err)
 
 	_, err = client.ListQueues()
 	assert.Error(t, err)
 
-	_, err = client.GetQueue("q-1")
+	_, err = client.GetQueue(queueTestID)
 	assert.Error(t, err)
 
-	err = client.DeleteQueue("q-1")
+	err = client.DeleteQueue(queueTestID)
 	assert.Error(t, err)
 
-	_, err = client.SendMessage("q-1", "hello")
+	_, err = client.SendMessage(queueTestID, queueTestMessageBody)
 	assert.Error(t, err)
 
-	_, err = client.ReceiveMessages("q-1", 10)
+	_, err = client.ReceiveMessages(queueTestID, 10)
 	assert.Error(t, err)
 
-	err = client.DeleteMessage("q-1", "handle-1")
+	err = client.DeleteMessage(queueTestID, queueTestHandleID)
 	assert.Error(t, err)
 
-	err = client.PurgeQueue("q-1")
+	err = client.PurgeQueue(queueTestID)
 	assert.Error(t, err)
 }
