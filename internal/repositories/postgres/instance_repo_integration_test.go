@@ -14,7 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestInstanceRepository_Integration(t *testing.T) {
+const integrationInstanceName = "integration-test-inst"
+
+func TestInstanceRepositoryIntegration(t *testing.T) {
 	db := setupDB(t)
 	defer db.Close()
 	repo := NewInstanceRepository(db)
@@ -36,7 +38,7 @@ func TestInstanceRepository_Integration(t *testing.T) {
 			ID:        id,
 			UserID:    userID,
 			TenantID:  tenantID,
-			Name:      "integration-test-inst",
+			Name:      integrationInstanceName,
 			Image:     "alpine",
 			Status:    domain.StatusStarting,
 			CreatedAt: time.Now(),
@@ -60,13 +62,13 @@ func TestInstanceRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("GetByName", func(t *testing.T) {
-		fetched, err := repo.GetByName(ctx, "integration-test-inst")
+		fetched, err := repo.GetByName(ctx, integrationInstanceName)
 		require.NoError(t, err)
-		assert.Equal(t, "integration-test-inst", fetched.Name)
+		assert.Equal(t, integrationInstanceName, fetched.Name)
 	})
 
 	t.Run("Update", func(t *testing.T) {
-		inst, err := repo.GetByName(ctx, "integration-test-inst")
+		inst, err := repo.GetByName(ctx, integrationInstanceName)
 		require.NoError(t, err)
 
 		inst.Status = domain.StatusRunning
@@ -80,7 +82,7 @@ func TestInstanceRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("Update Conflict", func(t *testing.T) {
-		inst, err := repo.GetByName(ctx, "integration-test-inst")
+		inst, err := repo.GetByName(ctx, integrationInstanceName)
 		require.NoError(t, err)
 
 		// Create a stale copy

@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTenantRepo_Create(t *testing.T) {
+func TestTenantRepoCreate(t *testing.T) {
 	mock, err := pgxmock.NewPool()
 	require.NoError(t, err)
 	defer mock.Close()
@@ -40,7 +40,7 @@ func TestTenantRepo_Create(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestTenantRepo_GetByID(t *testing.T) {
+func TestTenantRepoGetByID(t *testing.T) {
 	mock, err := pgxmock.NewPool()
 	require.NoError(t, err)
 	defer mock.Close()
@@ -69,7 +69,7 @@ func TestTenantRepo_GetByID(t *testing.T) {
 	assert.Nil(t, tenant)
 }
 
-func TestTenantRepo_GetBySlug(t *testing.T) {
+func TestTenantRepoGetBySlug(t *testing.T) {
 	mock, err := pgxmock.NewPool()
 	require.NoError(t, err)
 	defer mock.Close()
@@ -98,7 +98,7 @@ func TestTenantRepo_GetBySlug(t *testing.T) {
 	assert.Nil(t, tenant)
 }
 
-func TestTenantRepo_UpdateDelete(t *testing.T) {
+func TestTenantRepoUpdateDelete(t *testing.T) {
 	mock, err := pgxmock.NewPool()
 	require.NoError(t, err)
 	defer mock.Close()
@@ -130,7 +130,7 @@ func TestTenantRepo_UpdateDelete(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestTenantRepo_Members(t *testing.T) {
+func TestTenantRepoMembers(t *testing.T) {
 	mock, err := pgxmock.NewPool()
 	require.NoError(t, err)
 	defer mock.Close()
@@ -155,7 +155,7 @@ func TestTenantRepo_Members(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestTenantRepo_ListMembers(t *testing.T) {
+func TestTenantRepoListMembers(t *testing.T) {
 	mock, err := pgxmock.NewPool()
 	require.NoError(t, err)
 	defer mock.Close()
@@ -185,7 +185,7 @@ func TestTenantRepo_ListMembers(t *testing.T) {
 	assert.Nil(t, members)
 }
 
-func TestTenantRepo_GetMembership(t *testing.T) {
+func TestTenantRepoGetMembership(t *testing.T) {
 	mock, err := pgxmock.NewPool()
 	require.NoError(t, err)
 	defer mock.Close()
@@ -215,7 +215,7 @@ func TestTenantRepo_GetMembership(t *testing.T) {
 	assert.Nil(t, member)
 }
 
-func TestTenantRepo_ListUserTenants(t *testing.T) {
+func TestTenantRepoListUserTenants(t *testing.T) {
 	mock, err := pgxmock.NewPool()
 	require.NoError(t, err)
 	defer mock.Close()
@@ -245,7 +245,7 @@ func TestTenantRepo_ListUserTenants(t *testing.T) {
 	assert.Nil(t, tenants)
 }
 
-func TestTenantRepo_GetQuotaUpdateQuota(t *testing.T) {
+func TestTenantRepoGetQuotaUpdateQuota(t *testing.T) {
 	mock, err := pgxmock.NewPool()
 	require.NoError(t, err)
 	defer mock.Close()
@@ -301,7 +301,7 @@ func TestTenantRepo_GetQuotaUpdateQuota(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestTenantRepo_ExecErrors(t *testing.T) {
+func TestTenantRepoExecErrors(t *testing.T) {
 	mock, err := pgxmock.NewPool()
 	require.NoError(t, err)
 	defer mock.Close()
