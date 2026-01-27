@@ -15,7 +15,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-const testClusterName = "test-cluster"
+const (
+	testClusterName     = "test-cluster"
+	clusterEncryptedKey = "encrypted-key"
+	clusterVersion      = "v1.29.0"
+)
 
 func setupClusterServiceTest() (*MockClusterRepo, *MockClusterProvisioner, *MockVpcService, *MockInstanceService, *MockTaskQueue, *MockSecretService, ports.ClusterService) {
 	repo := new(MockClusterRepo)
@@ -50,7 +54,7 @@ func TestClusterServiceCreate(t *testing.T) {
 	})).Return(nil)
 	repo.On("Update", mock.Anything, mock.Anything).Return(nil)
 	repo.On("Update", mock.Anything, mock.Anything).Return(nil)
-	secretSvc.On("Encrypt", mock.Anything, userID, mock.Anything).Return("encrypted-key", nil)
+	secretSvc.On("Encrypt", mock.Anything, userID, mock.Anything).Return(clusterEncryptedKey, nil)
 
 	// Expect task queue enqueue
 	taskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.MatchedBy(func(job domain.ClusterJob) bool {
@@ -61,7 +65,7 @@ func TestClusterServiceCreate(t *testing.T) {
 		UserID:  userID,
 		Name:    testClusterName,
 		VpcID:   vpcID,
-		Version: "v1.29.0",
+		Version: clusterVersion,
 		Workers: 2,
 	})
 
@@ -86,7 +90,7 @@ func TestClusterServiceCreateVpcNotFound(t *testing.T) {
 		UserID:  userID,
 		Name:    testClusterName,
 		VpcID:   vpcID,
-		Version: "v1.29.0",
+		Version: clusterVersion,
 		Workers: 2,
 	})
 
@@ -107,7 +111,7 @@ func TestClusterServiceCreateEncryptError(t *testing.T) {
 		UserID:  userID,
 		Name:    testClusterName,
 		VpcID:   vpcID,
-		Version: "v1.29.0",
+		Version: clusterVersion,
 		Workers: 2,
 	})
 
@@ -123,14 +127,14 @@ func TestClusterServiceCreateRepoError(t *testing.T) {
 	vpcID := uuid.New()
 
 	vpcSvc.On("GetVPC", mock.Anything, vpcID.String()).Return(&domain.VPC{ID: vpcID}, nil)
-	secretSvc.On("Encrypt", mock.Anything, userID, mock.Anything).Return("encrypted-key", nil)
+	secretSvc.On("Encrypt", mock.Anything, userID, mock.Anything).Return(clusterEncryptedKey, nil)
 	repo.On("Create", mock.Anything, mock.Anything).Return(assert.AnError)
 
 	cluster, err := svc.CreateCluster(ctx, ports.CreateClusterParams{
 		UserID:  userID,
 		Name:    testClusterName,
 		VpcID:   vpcID,
-		Version: "v1.29.0",
+		Version: clusterVersion,
 		Workers: 2,
 	})
 
@@ -145,7 +149,7 @@ func TestClusterServiceCreateEnqueueError(t *testing.T) {
 	vpcID := uuid.New()
 
 	vpcSvc.On("GetVPC", mock.Anything, vpcID.String()).Return(&domain.VPC{ID: vpcID}, nil)
-	secretSvc.On("Encrypt", mock.Anything, userID, mock.Anything).Return("encrypted-key", nil)
+	secretSvc.On("Encrypt", mock.Anything, userID, mock.Anything).Return(clusterEncryptedKey, nil)
 	repo.On("Create", mock.Anything, mock.Anything).Return(nil)
 	repo.On("Update", mock.Anything, mock.Anything).Return(nil)
 	taskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.Anything).Return(assert.AnError).Once()
@@ -154,7 +158,7 @@ func TestClusterServiceCreateEnqueueError(t *testing.T) {
 		UserID:  userID,
 		Name:    testClusterName,
 		VpcID:   vpcID,
-		Version: "v1.29.0",
+		Version: clusterVersion,
 		Workers: 2,
 	})
 

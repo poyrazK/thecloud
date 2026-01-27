@@ -70,47 +70,67 @@ func (w *ContainerWorker) reconcileDeployment(ctx context.Context, dep *domain.D
 		return
 	}
 
-	current := len(containerIDs)
-
-	if dep.Status == domain.DeploymentStatusDeleting {
-		if current == 0 {
-			_ = w.repo.DeleteDeployment(uCtx, dep.ID)
-			return
-		}
-		for _, id := range containerIDs {
-			_ = w.terminateContainer(uCtx, dep, id)
-		}
+	if w.handleDeletingDeployment(uCtx, dep, containerIDs) {
 		return
 	}
 
+	current := len(containerIDs)
+	w.scaleDeployment(uCtx, dep, containerIDs, current)
+	w.updateDeploymentStatus(uCtx, dep, current)
+}
+
+func (w *ContainerWorker) handleDeletingDeployment(ctx context.Context, dep *domain.Deployment, containerIDs []uuid.UUID) bool {
+	if dep.Status != domain.DeploymentStatusDeleting {
+		return false
+	}
+	if len(containerIDs) == 0 {
+		_ = w.repo.DeleteDeployment(ctx, dep.ID)
+		return true
+	}
+	for _, id := range containerIDs {
+		_ = w.terminateContainer(ctx, dep, id)
+	}
+	return true
+}
+
+func (w *ContainerWorker) scaleDeployment(ctx context.Context, dep *domain.Deployment, containerIDs []uuid.UUID, current int) {
 	if current < dep.Replicas {
-		needed := dep.Replicas - current
-		for i := 0; i < needed; i++ {
-			if err := w.launchContainer(uCtx, dep); err != nil {
-				log.Printf("ContainerWorker: failed to launch container for %s: %v", dep.Name, err)
-				break
-			}
-		}
-	} else if current > dep.Replicas {
-		excess := current - dep.Replicas
-		for i := 0; i < excess; i++ {
-			if err := w.terminateContainer(uCtx, dep, containerIDs[i]); err != nil {
-				log.Printf("ContainerWorker: failed to terminate container for %s: %v", dep.Name, err)
-				break
-			}
+		w.launchMissingContainers(ctx, dep, dep.Replicas-current)
+		return
+	}
+	if current > dep.Replicas {
+		w.terminateExcessContainers(ctx, dep, containerIDs, current-dep.Replicas)
+	}
+}
+
+func (w *ContainerWorker) launchMissingContainers(ctx context.Context, dep *domain.Deployment, count int) {
+	for i := 0; i < count; i++ {
+		if err := w.launchContainer(ctx, dep); err != nil {
+			log.Printf("ContainerWorker: failed to launch container for %s: %v", dep.Name, err)
+			return
 		}
 	}
+}
 
-	// Update status
+func (w *ContainerWorker) terminateExcessContainers(ctx context.Context, dep *domain.Deployment, containerIDs []uuid.UUID, count int) {
+	for i := 0; i < count; i++ {
+		if err := w.terminateContainer(ctx, dep, containerIDs[i]); err != nil {
+			log.Printf("ContainerWorker: failed to terminate container for %s: %v", dep.Name, err)
+			return
+		}
+	}
+}
+
+func (w *ContainerWorker) updateDeploymentStatus(ctx context.Context, dep *domain.Deployment, current int) {
 	newStatus := domain.DeploymentStatusReady
-	if len(containerIDs) != dep.Replicas {
+	if current != dep.Replicas {
 		newStatus = domain.DeploymentStatusScaling
 	}
 
-	if dep.Status != newStatus || dep.CurrentCount != len(containerIDs) {
+	if dep.Status != newStatus || dep.CurrentCount != current {
 		dep.Status = newStatus
-		dep.CurrentCount = len(containerIDs)
-		_ = w.repo.UpdateDeployment(uCtx, dep)
+		dep.CurrentCount = current
+		_ = w.repo.UpdateDeployment(ctx, dep)
 	}
 }
 
