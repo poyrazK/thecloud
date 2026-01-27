@@ -17,7 +17,7 @@ func TestLoadConfig(t *testing.T) {
 	logger := InitLogger()
 
 	// Set some env vars for LoadConfig to potentially use
-	_ = os.Setenv("DATABASE_URL", "postgres://localhost:5432/test")
+	_ = os.Setenv("DATABASE_URL", "postgres://cloud:cloud@localhost:5433/thecloud")
 	defer func() { _ = os.Unsetenv("DATABASE_URL") }()
 
 	cfg, err := LoadConfig(logger)

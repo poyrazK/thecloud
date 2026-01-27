@@ -118,15 +118,15 @@ func (c *Client) WriteFile(ctx context.Context, path string, content []byte, mod
 	}
 	defer session.Close()
 
+	w, err := session.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("failed to get stdin pipe: %w", err)
+	}
+
 	errCh := make(chan error, 1)
 
 	go func() {
 		defer close(errCh)
-		w, err := session.StdinPipe()
-		if err != nil {
-			errCh <- fmt.Errorf("failed to get stdin pipe: %w", err)
-			return
-		}
 		defer w.Close()
 
 		filename := filepath.Base(path)
