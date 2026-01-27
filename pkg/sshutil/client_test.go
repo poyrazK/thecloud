@@ -97,7 +97,9 @@ func TestWaitForSSHContextCanceled(t *testing.T) {
 }
 
 func TestWaitForSSHHostWithoutPortTimeout(t *testing.T) {
-	client := &Client{Host: testLocalhostIP}
+	// Use a non-routable IP (TEST-NET-1) to ensure we timeout
+	// instead of potentially connecting to localhost:22 if an SSH server is running.
+	client := &Client{Host: "192.0.2.1"}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
