@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestClient_CreateKeySuccess(t *testing.T) {
+func TestClientCreateKeySuccess(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method)
 		assert.Equal(t, "/auth/keys", r.URL.Path)
@@ -32,7 +32,7 @@ func TestClient_CreateKeySuccess(t *testing.T) {
 	assert.Equal(t, "new-key", key)
 }
 
-func TestClient_CreateKeyStatusError(t *testing.T) {
+func TestClientCreateKeyStatusError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method)
 		assert.Equal(t, "/auth/keys", r.URL.Path)
@@ -49,7 +49,7 @@ func TestClient_CreateKeyStatusError(t *testing.T) {
 	assert.Contains(t, err.Error(), "api error")
 }
 
-func TestClient_CreateKeyRequestError(t *testing.T) {
+func TestClientCreateKeyRequestError(t *testing.T) {
 	client := NewClient("http://127.0.0.1:0", testAPIKey)
 	_, err := client.CreateKey("bootstrap")
 

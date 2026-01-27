@@ -17,6 +17,14 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	apiKeyHeader   = "X-API-Key"
+	protectedPath  = "/protected"
+	tenantPath     = "/tenant"
+	validAPIKey    = "valid-key"
+	invalidAPIKey  = "invalid-key"
+)
+
 type mockIdentityService struct {
 	mock.Mock
 }
@@ -100,97 +108,101 @@ func (m *mockRBACService) GetRoleByID(ctx context.Context, id uuid.UUID) (*domai
 func (m *mockRBACService) GetRoleByName(ctx context.Context, name string) (*domain.Role, error) {
 	return nil, nil
 }
-func (m *mockRBACService) ListRoles(ctx context.Context) ([]*domain.Role, error) { return nil, nil }
+func (m *mockRBACService) ListRoles(ctx context.Context) ([]*domain.Role, error)   { return nil, nil }
 func (m *mockRBACService) UpdateRole(ctx context.Context, role *domain.Role) error { return nil }
-func (m *mockRBACService) DeleteRole(ctx context.Context, id uuid.UUID) error { return nil }
+func (m *mockRBACService) DeleteRole(ctx context.Context, id uuid.UUID) error      { return nil }
 func (m *mockRBACService) AddPermissionToRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
 	return nil
 }
 func (m *mockRBACService) RemovePermissionFromRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
 	return nil
 }
-func (m *mockRBACService) BindRole(ctx context.Context, userIdentifier string, roleName string) error { return nil }
-func (m *mockRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User, error) { return nil, nil }
+func (m *mockRBACService) BindRole(ctx context.Context, userIdentifier string, roleName string) error {
+	return nil
+}
+func (m *mockRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User, error) {
+	return nil, nil
+}
 
-func TestAuth_Success(t *testing.T) {
+func TestAuthSuccess(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockIdentityService)
 	tenantSvc := new(mockTenantService)
 	userID := uuid.New()
-	svc.On("ValidateAPIKey", mock.Anything, "valid-key").Return(&domain.APIKey{UserID: userID}, nil)
+	svc.On("ValidateAPIKey", mock.Anything, validAPIKey).Return(&domain.APIKey{UserID: userID}, nil)
 
 	r := gin.New()
 	r.Use(Auth(svc, tenantSvc))
-	r.GET("/protected", func(c *gin.Context) {
+	r.GET(protectedPath, func(c *gin.Context) {
 		val, _ := c.Get("userID")
 		assert.Equal(t, userID, val)
 		c.Status(http.StatusOK)
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/protected", nil)
-	req.Header.Set("X-API-Key", "valid-key")
+	req, _ := http.NewRequest("GET", protectedPath, nil)
+	req.Header.Set(apiKeyHeader, validAPIKey)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestAuth_MissingKey(t *testing.T) {
+func TestAuthMissingKey(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockIdentityService)
 	tenantSvc := new(mockTenantService)
 
 	r := gin.New()
 	r.Use(Auth(svc, tenantSvc))
-	r.GET("/protected", func(c *gin.Context) {
+	r.GET(protectedPath, func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/protected", nil)
+	req, _ := http.NewRequest("GET", protectedPath, nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestAuth_InvalidKey(t *testing.T) {
+func TestAuthInvalidKey(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockIdentityService)
 	tenantSvc := new(mockTenantService)
-	svc.On("ValidateAPIKey", mock.Anything, "invalid-key").Return(nil, fmt.Errorf("invalid"))
+	svc.On("ValidateAPIKey", mock.Anything, invalidAPIKey).Return(nil, fmt.Errorf("invalid"))
 
 	r := gin.New()
 	r.Use(Auth(svc, tenantSvc))
-	r.GET("/protected", func(c *gin.Context) {
+	r.GET(protectedPath, func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/protected", nil)
-	req.Header.Set("X-API-Key", "invalid-key")
+	req, _ := http.NewRequest("GET", protectedPath, nil)
+	req.Header.Set(apiKeyHeader, invalidAPIKey)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestPermission_Unauthenticated(t *testing.T) {
+func TestPermissionUnauthenticated(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rbacSvc := new(mockRBACService)
 
 	r := gin.New()
 	r.Use(Permission(rbacSvc, domain.PermissionInstanceRead))
-	r.GET("/protected", func(c *gin.Context) {
+	r.GET(protectedPath, func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/protected", nil)
+	req, _ := http.NewRequest(http.MethodGet, protectedPath, nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestPermission_Forbidden(t *testing.T) {
+func TestPermissionForbidden(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rbacSvc := new(mockRBACService)
 	userID := uuid.New()
@@ -202,18 +214,18 @@ func TestPermission_Forbidden(t *testing.T) {
 		c.Next()
 	})
 	r.Use(Permission(rbacSvc, domain.PermissionInstanceRead))
-	r.GET("/protected", func(c *gin.Context) {
+	r.GET(protectedPath, func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/protected", nil)
+	req, _ := http.NewRequest(http.MethodGet, protectedPath, nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
-func TestPermission_Allowed(t *testing.T) {
+func TestPermissionAllowed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rbacSvc := new(mockRBACService)
 	userID := uuid.New()
@@ -225,12 +237,12 @@ func TestPermission_Allowed(t *testing.T) {
 		c.Next()
 	})
 	r.Use(Permission(rbacSvc, domain.PermissionInstanceRead))
-	r.GET("/protected", func(c *gin.Context) {
+	r.GET(protectedPath, func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodGet, "/protected", nil)
+	req, _ := http.NewRequest(http.MethodGet, protectedPath, nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -262,80 +274,80 @@ func TestGetUserID(t *testing.T) {
 	assert.Equal(t, uuid.Nil, GetUserID(c))
 }
 
-func TestAuth_InvalidTenantHeader(t *testing.T) {
+func TestAuthInvalidTenantHeader(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockIdentityService)
 	tenantSvc := new(mockTenantService)
 	userID := uuid.New()
-	svc.On("ValidateAPIKey", mock.Anything, "valid-key").Return(&domain.APIKey{UserID: userID}, nil)
+	svc.On("ValidateAPIKey", mock.Anything, validAPIKey).Return(&domain.APIKey{UserID: userID}, nil)
 
 	r := gin.New()
 	r.Use(Auth(svc, tenantSvc))
-	r.GET("/protected", func(c *gin.Context) {
+	r.GET(protectedPath, func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/protected", nil)
-	req.Header.Set("X-API-Key", "valid-key")
+	req, _ := http.NewRequest("GET", protectedPath, nil)
+	req.Header.Set(apiKeyHeader, validAPIKey)
 	req.Header.Set("X-Tenant-ID", "not-a-uuid")
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestAuth_TenantNotMember(t *testing.T) {
+func TestAuthTenantNotMember(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockIdentityService)
 	tenantSvc := new(mockTenantService)
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	svc.On("ValidateAPIKey", mock.Anything, "valid-key").Return(&domain.APIKey{UserID: userID}, nil)
+	svc.On("ValidateAPIKey", mock.Anything, validAPIKey).Return(&domain.APIKey{UserID: userID}, nil)
 	tenantSvc.On("GetMembership", mock.Anything, tenantID, userID).Return(nil, nil)
 
 	r := gin.New()
 	r.Use(Auth(svc, tenantSvc))
-	r.GET("/protected", func(c *gin.Context) {
+	r.GET(protectedPath, func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/protected", nil)
-	req.Header.Set("X-API-Key", "valid-key")
+	req, _ := http.NewRequest("GET", protectedPath, nil)
+	req.Header.Set(apiKeyHeader, validAPIKey)
 	req.Header.Set("X-Tenant-ID", tenantID.String())
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
-func TestAuth_DefaultTenantMembership(t *testing.T) {
+func TestAuthDefaultTenantMembership(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockIdentityService)
 	tenantSvc := new(mockTenantService)
 	userID := uuid.New()
 	tenantID := uuid.New()
 
-	svc.On("ValidateAPIKey", mock.Anything, "valid-key").Return(&domain.APIKey{UserID: userID, DefaultTenantID: &tenantID}, nil)
+	svc.On("ValidateAPIKey", mock.Anything, validAPIKey).Return(&domain.APIKey{UserID: userID, DefaultTenantID: &tenantID}, nil)
 	tenantSvc.On("GetMembership", mock.Anything, tenantID, userID).Return(&domain.TenantMember{TenantID: tenantID, UserID: userID}, nil)
 
 	r := gin.New()
 	r.Use(Auth(svc, tenantSvc))
-	r.GET("/protected", func(c *gin.Context) {
+	r.GET(protectedPath, func(c *gin.Context) {
 		val, _ := c.Get("tenantID")
 		assert.Equal(t, tenantID, val)
 		c.Status(http.StatusOK)
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/protected", nil)
-	req.Header.Set("X-API-Key", "valid-key")
+	req, _ := http.NewRequest("GET", protectedPath, nil)
+	req.Header.Set(apiKeyHeader, validAPIKey)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestResponse_Success(t *testing.T) {
+func TestResponseSuccess(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -349,7 +361,7 @@ func TestResponse_Success(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "abc")
 }
 
-func TestResponse_Error(t *testing.T) {
+func TestResponseError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
@@ -462,18 +474,18 @@ func TestRequireTenant(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(RequireTenant())
-	r.GET("/tenant", func(c *gin.Context) {
+	r.GET(tenantPath, func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/tenant", nil)
+	req, _ := http.NewRequest("GET", tenantPath, nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestRequireTenant_WithTenant(t *testing.T) {
+func TestRequireTenantWithTenant(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
@@ -481,35 +493,35 @@ func TestRequireTenant_WithTenant(t *testing.T) {
 		c.Next()
 	})
 	r.Use(RequireTenant())
-	r.GET("/tenant", func(c *gin.Context) {
+	r.GET(tenantPath, func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/tenant", nil)
+	req, _ := http.NewRequest("GET", tenantPath, nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestTenantMember_MissingContext(t *testing.T) {
+func TestTenantMemberMissingContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tenantSvc := new(mockTenantService)
 
 	r := gin.New()
 	r.Use(TenantMember(tenantSvc))
-	r.GET("/tenant", func(c *gin.Context) {
+	r.GET(tenantPath, func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/tenant", nil)
+	req, _ := http.NewRequest("GET", tenantPath, nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestTenantMember_NotMember(t *testing.T) {
+func TestTenantMemberNotMember(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tenantSvc := new(mockTenantService)
 	userID := uuid.New()
@@ -524,18 +536,18 @@ func TestTenantMember_NotMember(t *testing.T) {
 		c.Next()
 	})
 	r.Use(TenantMember(tenantSvc))
-	r.GET("/tenant", func(c *gin.Context) {
+	r.GET(tenantPath, func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/tenant", nil)
+	req, _ := http.NewRequest("GET", tenantPath, nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
-func TestTenantMember_SetsRole(t *testing.T) {
+func TestTenantMemberSetsRole(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tenantSvc := new(mockTenantService)
 	userID := uuid.New()
@@ -550,14 +562,14 @@ func TestTenantMember_SetsRole(t *testing.T) {
 		c.Next()
 	})
 	r.Use(TenantMember(tenantSvc))
-	r.GET("/tenant", func(c *gin.Context) {
+	r.GET(tenantPath, func(c *gin.Context) {
 		role, _ := c.Get("tenantRole")
 		assert.Equal(t, "admin", role)
 		c.Status(http.StatusOK)
 	})
 
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/tenant", nil)
+	req, _ := http.NewRequest("GET", tenantPath, nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)

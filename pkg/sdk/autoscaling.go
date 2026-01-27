@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const autoscalingAPIErrorFormat = "api error: %s"
+
 // ScalingGroup describes an autoscaling group.
 type ScalingGroup struct {
 	ID             string    `json:"id"`
@@ -45,7 +47,7 @@ func (c *Client) CreateScalingGroup(req CreateScalingGroupRequest) (*ScalingGrou
 		return nil, err
 	}
 	if resp.IsError() {
-		return nil, fmt.Errorf("api error: %s", resp.String())
+		return nil, fmt.Errorf(autoscalingAPIErrorFormat, resp.String())
 	}
 	return &respData.Data, nil
 }
@@ -60,7 +62,7 @@ func (c *Client) ListScalingGroups() ([]ScalingGroup, error) {
 		return nil, err
 	}
 	if resp.IsError() {
-		return nil, fmt.Errorf("api error: %s", resp.String())
+		return nil, fmt.Errorf(autoscalingAPIErrorFormat, resp.String())
 	}
 	return respData.Data, nil
 }
@@ -75,7 +77,7 @@ func (c *Client) GetScalingGroup(id string) (*ScalingGroup, error) {
 		return nil, err
 	}
 	if resp.IsError() {
-		return nil, fmt.Errorf("api error: %s", resp.String())
+		return nil, fmt.Errorf(autoscalingAPIErrorFormat, resp.String())
 	}
 	return &respData.Data, nil
 }
@@ -86,7 +88,7 @@ func (c *Client) DeleteScalingGroup(id string) error {
 		return err
 	}
 	if resp.IsError() {
-		return fmt.Errorf("api error: %s", resp.String())
+		return fmt.Errorf(autoscalingAPIErrorFormat, resp.String())
 	}
 	return nil
 }
@@ -110,7 +112,7 @@ func (c *Client) CreateScalingPolicy(groupID string, req CreatePolicyRequest) er
 		return err
 	}
 	if resp.IsError() {
-		return fmt.Errorf("api error: %s", resp.String())
+		return fmt.Errorf(autoscalingAPIErrorFormat, resp.String())
 	}
 	return nil
 }
@@ -121,7 +123,7 @@ func (c *Client) DeleteScalingPolicy(id string) error {
 		return err
 	}
 	if resp.IsError() {
-		return fmt.Errorf("api error: %s", resp.String())
+		return fmt.Errorf(autoscalingAPIErrorFormat, resp.String())
 	}
 	return nil
 }
