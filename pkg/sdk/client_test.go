@@ -8,13 +8,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	clientTestAPIKey = "key-123"
+	clientErrorURL   = "http://127.0.0.1:0"
+)
+
 func TestNewClientSetsAPIKey(t *testing.T) {
-	client := NewClient("http://localhost", "key-123")
-	assert.Equal(t, "key-123", client.resty.Header.Get("X-API-Key"))
+	client := NewClient("http://localhost", clientTestAPIKey)
+	assert.Equal(t, clientTestAPIKey, client.resty.Header.Get("X-API-Key"))
 }
 
 func TestClientGetError(t *testing.T) {
-	client := NewClient("http://127.0.0.1:0", "key-123")
+	client := NewClient(clientErrorURL, clientTestAPIKey)
 	var res Response[map[string]string]
 
 	err := client.get("/fail", &res)
@@ -28,7 +33,7 @@ func TestClientGetStatusError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key-123")
+	client := NewClient(server.URL, clientTestAPIKey)
 	var res Response[map[string]string]
 
 	err := client.get("/fail", &res)
@@ -36,7 +41,7 @@ func TestClientGetStatusError(t *testing.T) {
 }
 
 func TestClientPostError(t *testing.T) {
-	client := NewClient("http://127.0.0.1:0", "key-123")
+	client := NewClient(clientErrorURL, clientTestAPIKey)
 	var res Response[map[string]string]
 
 	err := client.post("/fail", map[string]string{"a": "b"}, &res)
@@ -50,7 +55,7 @@ func TestClientPostStatusError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key-123")
+	client := NewClient(server.URL, clientTestAPIKey)
 	var res Response[map[string]string]
 
 	err := client.post("/fail", map[string]string{"a": "b"}, &res)
@@ -58,7 +63,7 @@ func TestClientPostStatusError(t *testing.T) {
 }
 
 func TestClientDeleteError(t *testing.T) {
-	client := NewClient("http://127.0.0.1:0", "key-123")
+	client := NewClient(clientErrorURL, clientTestAPIKey)
 	var res Response[map[string]string]
 
 	err := client.delete("/fail", &res)
@@ -72,7 +77,7 @@ func TestClientDeleteStatusError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key-123")
+	client := NewClient(server.URL, clientTestAPIKey)
 	var res Response[map[string]string]
 
 	err := client.delete("/fail", &res)
@@ -80,7 +85,7 @@ func TestClientDeleteStatusError(t *testing.T) {
 }
 
 func TestClientPutError(t *testing.T) {
-	client := NewClient("http://127.0.0.1:0", "key-123")
+	client := NewClient(clientErrorURL, clientTestAPIKey)
 	var res Response[map[string]string]
 
 	err := client.put("/fail", map[string]string{"a": "b"}, &res)
@@ -94,7 +99,7 @@ func TestClientPutStatusError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key-123")
+	client := NewClient(server.URL, clientTestAPIKey)
 	var res Response[map[string]string]
 
 	err := client.put("/fail", map[string]string{"a": "b"}, &res)
@@ -102,7 +107,7 @@ func TestClientPutStatusError(t *testing.T) {
 }
 
 func TestClientPatchError(t *testing.T) {
-	client := NewClient("http://127.0.0.1:0", "key-123")
+	client := NewClient(clientErrorURL, clientTestAPIKey)
 	var res Response[map[string]string]
 
 	err := client.patch("/fail", map[string]string{"a": "b"}, &res)
@@ -116,7 +121,7 @@ func TestClientPatchStatusError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key-123")
+	client := NewClient(server.URL, clientTestAPIKey)
 	var res Response[map[string]string]
 
 	err := client.patch("/fail", map[string]string{"a": "b"}, &res)

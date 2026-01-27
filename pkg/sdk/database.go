@@ -28,6 +28,8 @@ type CreateDatabaseInput struct {
 	VpcID   *string `json:"vpc_id,omitempty"`
 }
 
+const databasesPath = "/databases/"
+
 func (c *Client) CreateDatabase(name, engine, version string, vpcID *string) (*Database, error) {
 	input := CreateDatabaseInput{
 		Name:    name,
@@ -52,19 +54,19 @@ func (c *Client) ListDatabases() ([]*Database, error) {
 
 func (c *Client) GetDatabase(id string) (*Database, error) {
 	var resp Response[Database]
-	if err := c.get("/databases/"+id, &resp); err != nil {
+	if err := c.get(databasesPath+id, &resp); err != nil {
 		return nil, err
 	}
 	return &resp.Data, nil
 }
 
 func (c *Client) DeleteDatabase(id string) error {
-	return c.delete("/databases/"+id, nil)
+	return c.delete(databasesPath+id, nil)
 }
 
 func (c *Client) GetDatabaseConnectionString(id string) (string, error) {
 	var resp Response[map[string]string]
-	if err := c.get("/databases/"+id+"/connection", &resp); err != nil {
+	if err := c.get(databasesPath+id+"/connection", &resp); err != nil {
 		return "", err
 	}
 	return resp.Data["connection_string"], nil
