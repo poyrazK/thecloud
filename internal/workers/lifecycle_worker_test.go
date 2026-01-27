@@ -102,7 +102,7 @@ func (f *fakeLifecycleStorageService) GeneratePresignedURL(ctx context.Context, 
 	return nil, nil
 }
 
-func TestLifecycleWorker_ProcessRulesDeletesExpired(t *testing.T) {
+func TestLifecycleWorkerProcessRulesDeletesExpired(t *testing.T) {
 	repo := &fakeLifecycleRepo{
 		rules: []*domain.LifecycleRule{
 			{
@@ -139,7 +139,7 @@ func TestLifecycleWorker_ProcessRulesDeletesExpired(t *testing.T) {
 	assert.Equal(t, []string{"app/old.log"}, deleted)
 }
 
-func TestLifecycleWorker_ProcessRulesListError(t *testing.T) {
+func TestLifecycleWorkerProcessRulesListError(t *testing.T) {
 	repo := &fakeLifecycleRepo{rules: []*domain.LifecycleRule{{ID: uuid.New(), BucketName: "logs", UserID: uuid.New()}}}
 	storageSvc := &fakeLifecycleStorageService{listErr: io.EOF}
 
@@ -155,7 +155,7 @@ func TestLifecycleWorker_ProcessRulesListError(t *testing.T) {
 	assert.Empty(t, storageSvc.DeletedKeys())
 }
 
-func TestLifecycleWorker_ProcessRulesRepoError(t *testing.T) {
+func TestLifecycleWorkerProcessRulesRepoError(t *testing.T) {
 	repo := &fakeLifecycleRepo{err: io.EOF}
 	storageSvc := &fakeLifecycleStorageService{}
 
@@ -171,7 +171,7 @@ func TestLifecycleWorker_ProcessRulesRepoError(t *testing.T) {
 	assert.Empty(t, storageSvc.DeletedKeys())
 }
 
-func TestLifecycleWorker_ProcessRulesDeleteError(t *testing.T) {
+func TestLifecycleWorkerProcessRulesDeleteError(t *testing.T) {
 	repo := &fakeLifecycleRepo{
 		rules: []*domain.LifecycleRule{
 			{

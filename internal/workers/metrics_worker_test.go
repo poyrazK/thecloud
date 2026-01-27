@@ -84,18 +84,13 @@ func (f *fakeStorageService) GeneratePresignedURL(ctx context.Context, bucket, k
 	return nil, nil
 }
 
-func TestMetricsCollectorWorker_Run(t *testing.T) {
-	const (
-		pollInterval = 10 * time.Millisecond
-		testTimeout  = 1 * time.Second
-	)
-
+func TestMetricsCollectorWorkerRun(t *testing.T) {
 	svc := &fakeStorageService{clusterStatus: &domain.StorageCluster{}}
 	worker := &MetricsCollectorWorker{
 		storageRepo: nil,
 		storageSvc:  svc,
 		logger:      slog.New(slog.NewTextHandler(io.Discard, nil)),
-		interval:    pollInterval,
+		interval:    10 * time.Millisecond,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -104,31 +99,16 @@ func TestMetricsCollectorWorker_Run(t *testing.T) {
 
 	go worker.Run(ctx, &wg)
 
-	// Ensure cleanup
-	defer func() {
-		cancel()
-		wg.Wait()
-	}()
+	time.Sleep(35 * time.Millisecond)
+	cancel()
+	wg.Wait()
 
-	// Poll until we see a call
-	ticker := time.NewTicker(pollInterval)
-	defer ticker.Stop()
-	timeout := time.After(testTimeout)
-
-	for {
-		select {
-		case <-timeout:
-			t.Fatalf("timed out waiting for GetClusterStatus to be called")
-		case <-ticker.C:
-			if svc.StatusCalls() > 0 {
-				// Success
-				return
-			}
-		}
+	if svc.StatusCalls() == 0 {
+		t.Fatalf("expected GetClusterStatus to be called")
 	}
 }
 
-func TestMetricsCollectorWorker_CollectMetricsHandlesError(t *testing.T) {
+func TestMetricsCollectorWorkerCollectMetricsHandlesError(t *testing.T) {
 	svc := &fakeStorageService{statusErr: io.EOF}
 	worker := &MetricsCollectorWorker{
 		storageRepo: nil,
@@ -143,7 +123,7 @@ func TestMetricsCollectorWorker_CollectMetricsHandlesError(t *testing.T) {
 	}
 }
 
-func TestMetricsCollectorWorker_CollectMetricsCountsUpNodes(t *testing.T) {
+func TestMetricsCollectorWorkerCollectMetricsCountsUpNodes(t *testing.T) {
 	svc := &fakeStorageService{clusterStatus: &domain.StorageCluster{
 		Nodes: []domain.StorageNode{
 			{Status: "up"},

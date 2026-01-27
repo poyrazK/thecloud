@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCrypto_EncryptDecrypt(t *testing.T) {
+func TestCryptoEncryptDecrypt(t *testing.T) {
 	masterKey := []byte("very-secure-master-key-32-chars!")
 	salt := []byte("some-salt")
 
@@ -36,7 +36,7 @@ func TestCrypto_EncryptDecrypt(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestCrypto_UniqueNonces(t *testing.T) {
+func TestCryptoUniqueNonces(t *testing.T) {
 	key := make([]byte, 32)
 	plaintext := []byte("consistent message")
 
@@ -50,7 +50,7 @@ func TestCrypto_UniqueNonces(t *testing.T) {
 	assert.NotEqual(t, c1, c2)
 }
 
-func TestDeriveKey_Consistency(t *testing.T) {
+func TestDeriveKeyConsistency(t *testing.T) {
 	masterKey := []byte("master")
 	salt := []byte("salt")
 
@@ -63,18 +63,18 @@ func TestDeriveKey_Consistency(t *testing.T) {
 	assert.Equal(t, hex.EncodeToString(k1), hex.EncodeToString(k2))
 }
 
-func TestEncrypt_InvalidKey(t *testing.T) {
+func TestEncryptInvalidKey(t *testing.T) {
 	_, err := Encrypt([]byte("secret"), []byte("short"))
 	assert.Error(t, err)
 }
 
-func TestDecrypt_InvalidBase64(t *testing.T) {
+func TestDecryptInvalidBase64(t *testing.T) {
 	key := make([]byte, 32)
 	_, err := Decrypt("not-base64", key)
 	assert.Error(t, err)
 }
 
-func TestDecrypt_ShortCiphertext(t *testing.T) {
+func TestDecryptShortCiphertext(t *testing.T) {
 	key := make([]byte, 32)
 	// base64 for a 3-byte payload, shorter than nonce size
 	_, err := Decrypt("AQID", key)
