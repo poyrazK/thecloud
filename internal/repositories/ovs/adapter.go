@@ -17,6 +17,8 @@ var (
 	bridgeNameRegex = regexp.MustCompile(`^[a-zA-Z0-9-]+$`)
 )
 
+const invalidBridgeNameMsg = "invalid bridge name"
+
 // OvsAdapter implements NetworkBackend using Open vSwitch commands.
 type OvsAdapter struct {
 	ovsPath   string // Path to ovs-vsctl
@@ -75,7 +77,7 @@ func (a *OvsAdapter) Type() string {
 
 func (a *OvsAdapter) CreateBridge(ctx context.Context, name string, vxlanID int) error {
 	if !bridgeNameRegex.MatchString(name) {
-		return errors.New(errors.InvalidInput, "invalid bridge name")
+		return errors.New(errors.InvalidInput, invalidBridgeNameMsg)
 	}
 
 	cmd := a.exec.CommandContext(ctx, a.ovsPath, "add-br", name)
@@ -88,7 +90,7 @@ func (a *OvsAdapter) CreateBridge(ctx context.Context, name string, vxlanID int)
 
 func (a *OvsAdapter) DeleteBridge(ctx context.Context, name string) error {
 	if !bridgeNameRegex.MatchString(name) {
-		return errors.New(errors.InvalidInput, "invalid bridge name")
+		return errors.New(errors.InvalidInput, invalidBridgeNameMsg)
 	}
 
 	cmd := a.exec.CommandContext(ctx, a.ovsPath, "del-br", name)
@@ -141,7 +143,7 @@ func (a *OvsAdapter) DeletePort(ctx context.Context, bridge, portName string) er
 
 func (a *OvsAdapter) CreateVXLANTunnel(ctx context.Context, bridge string, vni int, remoteIP string) error {
 	if !bridgeNameRegex.MatchString(bridge) {
-		return errors.New(errors.InvalidInput, "invalid bridge name")
+		return errors.New(errors.InvalidInput, invalidBridgeNameMsg)
 	}
 
 	tunnelName := fmt.Sprintf("vxlan-%s", strings.ReplaceAll(remoteIP, ".", "-"))
@@ -167,7 +169,7 @@ func (a *OvsAdapter) DeleteVXLANTunnel(ctx context.Context, bridge string, remot
 
 func (a *OvsAdapter) AddFlowRule(ctx context.Context, bridge string, rule ports.FlowRule) error {
 	if !bridgeNameRegex.MatchString(bridge) {
-		return errors.New(errors.InvalidInput, "invalid bridge name")
+		return errors.New(errors.InvalidInput, invalidBridgeNameMsg)
 	}
 
 	// Basic validation to prevent command/flow injection
@@ -187,7 +189,7 @@ func (a *OvsAdapter) AddFlowRule(ctx context.Context, bridge string, rule ports.
 
 func (a *OvsAdapter) DeleteFlowRule(ctx context.Context, bridge string, match string) error {
 	if !bridgeNameRegex.MatchString(bridge) {
-		return errors.New(errors.InvalidInput, "invalid bridge name")
+		return errors.New(errors.InvalidInput, invalidBridgeNameMsg)
 	}
 
 	cmd := a.exec.CommandContext(ctx, a.ofctlPath, "del-flows", bridge, match)

@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const testVolumeName = "test-vol"
+
 // fakeExecer for testing
 type fakeExecer struct {
 	// Map of command name to its behavior
@@ -32,14 +34,14 @@ func (f *fakeExecer) addCommand(name string, fn func(args ...string) ([]byte, er
 	f.commands[name] = fn
 }
 
-func TestLvmAdapter_Type(t *testing.T) {
+func TestLvmAdapterType(t *testing.T) {
 	adapter := NewLvmAdapter("testvg")
 	if adapter.Type() != "lvm" {
 		t.Errorf("expected type 'lvm', got %s", adapter.Type())
 	}
 }
 
-func TestLvmAdapter_Ping(t *testing.T) {
+func TestLvmAdapterPing(t *testing.T) {
 	adapter := NewLvmAdapter("testvg")
 	err := adapter.Ping(context.Background())
 	if err == nil {
@@ -51,7 +53,7 @@ func TestLvmAdapter_Ping(t *testing.T) {
 	}
 }
 
-func TestLvmAdapter_CreateVolume_InvalidName(t *testing.T) {
+func TestLvmAdapterCreateVolumeInvalidName(t *testing.T) {
 	adapter := NewLvmAdapter("testvg")
 	_, err := adapter.CreateVolume(context.Background(), "", 10)
 	if err == nil {
@@ -59,7 +61,7 @@ func TestLvmAdapter_CreateVolume_InvalidName(t *testing.T) {
 	}
 }
 
-func TestLvmAdapter_DeleteVolume_InvalidName(t *testing.T) {
+func TestLvmAdapterDeleteVolumeInvalidName(t *testing.T) {
 	adapter := NewLvmAdapter("testvg")
 	err := adapter.DeleteVolume(context.Background(), "")
 	if err == nil {
@@ -67,21 +69,21 @@ func TestLvmAdapter_DeleteVolume_InvalidName(t *testing.T) {
 	}
 }
 
-func TestLvmAdapter_CreateVolume_Success(t *testing.T) {
+func TestLvmAdapterCreateVolumeSuccess(t *testing.T) {
 	fake := newFakeExecer()
 	fake.addCommand("lvcreate", func(args ...string) ([]byte, error) {
-		assert.Equal(t, []string{"-L", "10G", "-n", "test-vol", "vg0"}, args)
-		return []byte("Logical volume \"test-vol\" created"), nil
+		assert.Equal(t, []string{"-L", "10G", "-n", testVolumeName, "vg0"}, args)
+		return []byte("Logical volume \""+testVolumeName+"\" created"), nil
 	})
 
 	adapter := &LvmAdapter{vgName: "vg0", execer: fake}
-	path, err := adapter.CreateVolume(context.Background(), "test-vol", 10)
+	path, err := adapter.CreateVolume(context.Background(), testVolumeName, 10)
 
 	assert.NoError(t, err)
-	assert.Equal(t, "/dev/vg0/test-vol", path)
+	assert.Equal(t, "/dev/vg0/"+testVolumeName, path)
 }
 
-func TestLvmAdapter_CreateVolume_Failure(t *testing.T) {
+func TestLvmAdapterCreateVolumeFailure(t *testing.T) {
 	fake := newFakeExecer()
 	fake.addCommand("lvcreate", func(args ...string) ([]byte, error) {
 		return []byte("Volume group \"vg0\" not found"), errors.New("exit status 5")
@@ -94,20 +96,20 @@ func TestLvmAdapter_CreateVolume_Failure(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to create logical volume")
 }
 
-func TestLvmAdapter_DeleteVolume_Success(t *testing.T) {
+func TestLvmAdapterDeleteVolumeSuccess(t *testing.T) {
 	fake := newFakeExecer()
 	fake.addCommand("lvremove", func(args ...string) ([]byte, error) {
-		assert.Equal(t, []string{"-f", "vg0/test-vol"}, args)
+		assert.Equal(t, []string{"-f", "vg0/"+testVolumeName}, args)
 		return nil, nil
 	})
 
 	adapter := &LvmAdapter{vgName: "vg0", execer: fake}
-	err := adapter.DeleteVolume(context.Background(), "test-vol")
+	err := adapter.DeleteVolume(context.Background(), testVolumeName)
 
 	assert.NoError(t, err)
 }
 
-func TestLvmAdapter_CreateSnapshot_Success(t *testing.T) {
+func TestLvmAdapterCreateSnapshotSuccess(t *testing.T) {
 	fake := newFakeExecer()
 	fake.addCommand("lvcreate", func(args ...string) ([]byte, error) {
 		expected := []string{"-s", "-n", "snap1", "-L", "1G", "/dev/vg0/data-vol"}
@@ -121,7 +123,7 @@ func TestLvmAdapter_CreateSnapshot_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestLvmAdapter_RestoreSnapshot_Success(t *testing.T) {
+func TestLvmAdapterRestoreSnapshotSuccess(t *testing.T) {
 	fake := newFakeExecer()
 	fake.addCommand("lvconvert", func(args ...string) ([]byte, error) {
 		expected := []string{"--merge", "vg0/snap1"}
@@ -135,7 +137,7 @@ func TestLvmAdapter_RestoreSnapshot_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestLvmAdapter_DeleteSnapshot_Success(t *testing.T) {
+func TestLvmAdapterDeleteSnapshotSuccess(t *testing.T) {
 	fake := newFakeExecer()
 	fake.addCommand("lvremove", func(args ...string) ([]byte, error) {
 		expected := []string{"-f", "vg0/snap1"}
@@ -149,13 +151,13 @@ func TestLvmAdapter_DeleteSnapshot_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestLvmAdapter_AttachVolume(t *testing.T) {
+func TestLvmAdapterAttachVolume(t *testing.T) {
 	adapter := NewLvmAdapter("vg0")
 	err := adapter.AttachVolume(context.Background(), "vol1", "inst1")
 	assert.NoError(t, err)
 }
 
-func TestLvmAdapter_DetachVolume(t *testing.T) {
+func TestLvmAdapterDetachVolume(t *testing.T) {
 	adapter := NewLvmAdapter("vg0")
 	err := adapter.DetachVolume(context.Background(), "vol1", "inst1")
 	assert.NoError(t, err)

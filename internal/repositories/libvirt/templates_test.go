@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const libvirtTestDiskPath = "/path/to/disk"
+
 func TestGenerateVolumeXML(t *testing.T) {
 	xml := generateVolumeXML("test-vol", 20)
 	assert.Contains(t, xml, "<name>test-vol</name>")
@@ -18,22 +20,22 @@ func TestGenerateVolumeXML(t *testing.T) {
 
 func TestGenerateDomainXML(t *testing.T) {
 	t.Run("basic", func(t *testing.T) {
-		xml := generateDomainXML("test-vm", "/path/to/disk", "default", "", 1024, 2, nil)
+		xml := generateDomainXML("test-vm", libvirtTestDiskPath, "default", "", 1024, 2, nil)
 		assert.Contains(t, xml, "<name>test-vm</name>")
 		assert.Contains(t, xml, "<memory unit='KiB'>1048576</memory>")
 		assert.Contains(t, xml, "<vcpu placement='static'>2</vcpu>")
-		assert.Contains(t, xml, "<source file='/path/to/disk'/>")
+		assert.Contains(t, xml, "<source file='"+libvirtTestDiskPath+"'/>")
 		assert.Contains(t, xml, "<source network='default'/>")
 	})
 
 	t.Run("default network when empty", func(t *testing.T) {
-		xml := generateDomainXML("vm-default", "/path/to/disk", "", "", 512, 1, nil)
+		xml := generateDomainXML("vm-default", libvirtTestDiskPath, "", "", 512, 1, nil)
 		assert.Contains(t, xml, "<source network='default'/>")
 	})
 
 	t.Run("with iso and disks", func(t *testing.T) {
 		additionalDisks := []string{"/path/to/vdb", "/dev/sdc"}
-		xml := generateDomainXML("test-vm", "/path/to/disk", "custom-net", "/path/to/iso", 512, 1, additionalDisks)
+		xml := generateDomainXML("test-vm", libvirtTestDiskPath, "custom-net", "/path/to/iso", 512, 1, additionalDisks)
 
 		assert.Contains(t, xml, "<source file='/path/to/iso'/>")
 		assert.Contains(t, xml, "<target dev='sda' bus='sata'/>")
