@@ -12,6 +12,8 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+const invalidFunctionIDMsg = "invalid function id"
+
 // FunctionHandler handles serverless function HTTP endpoints.
 type FunctionHandler struct {
 	svc ports.FunctionService
@@ -76,7 +78,7 @@ func (h *FunctionHandler) List(c *gin.Context) {
 func (h *FunctionHandler) Get(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid function id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidFunctionIDMsg))
 		return
 	}
 
@@ -91,7 +93,7 @@ func (h *FunctionHandler) Get(c *gin.Context) {
 func (h *FunctionHandler) Delete(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid function id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidFunctionIDMsg))
 		return
 	}
 
@@ -105,7 +107,7 @@ func (h *FunctionHandler) Delete(c *gin.Context) {
 func (h *FunctionHandler) Invoke(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid function id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidFunctionIDMsg))
 		return
 	}
 
@@ -133,7 +135,7 @@ func (h *FunctionHandler) Invoke(c *gin.Context) {
 func (h *FunctionHandler) GetLogs(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid function id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidFunctionIDMsg))
 		return
 	}
 

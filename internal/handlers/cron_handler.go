@@ -11,6 +11,8 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+const invalidJobIDMsg = "Invalid job ID"
+
 // CronHandler handles scheduled job HTTP endpoints.
 type CronHandler struct {
 	svc ports.CronService
@@ -59,7 +61,7 @@ func (h *CronHandler) ListJobs(c *gin.Context) {
 func (h *CronHandler) GetJob(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "Invalid job ID"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidJobIDMsg))
 		return
 	}
 
@@ -75,7 +77,7 @@ func (h *CronHandler) GetJob(c *gin.Context) {
 func (h *CronHandler) PauseJob(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "Invalid job ID"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidJobIDMsg))
 		return
 	}
 
@@ -90,7 +92,7 @@ func (h *CronHandler) PauseJob(c *gin.Context) {
 func (h *CronHandler) ResumeJob(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "Invalid job ID"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidJobIDMsg))
 		return
 	}
 
@@ -105,7 +107,7 @@ func (h *CronHandler) ResumeJob(c *gin.Context) {
 func (h *CronHandler) DeleteJob(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "Invalid job ID"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidJobIDMsg))
 		return
 	}
 

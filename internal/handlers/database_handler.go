@@ -11,6 +11,8 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+const invalidDatabaseIDMsg = "invalid database id"
+
 // DatabaseHandler handles database HTTP endpoints.
 type DatabaseHandler struct {
 	svc ports.DatabaseService
@@ -58,7 +60,7 @@ func (h *DatabaseHandler) List(c *gin.Context) {
 func (h *DatabaseHandler) Get(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid database id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidDatabaseIDMsg))
 		return
 	}
 
@@ -74,7 +76,7 @@ func (h *DatabaseHandler) Get(c *gin.Context) {
 func (h *DatabaseHandler) Delete(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid database id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidDatabaseIDMsg))
 		return
 	}
 
@@ -89,7 +91,7 @@ func (h *DatabaseHandler) Delete(c *gin.Context) {
 func (h *DatabaseHandler) GetConnectionString(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid database id"))
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidDatabaseIDMsg))
 		return
 	}
 
