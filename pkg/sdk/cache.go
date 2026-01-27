@@ -36,6 +36,8 @@ type CacheStats struct {
 	TotalKeys        int64 `json:"total_keys"`
 }
 
+const cachesPath = "/caches/"
+
 func (c *Client) CreateCache(name, version string, memoryMB int, vpcID *string) (*Cache, error) {
 	input := CreateCacheInput{
 		Name:     name,
@@ -60,31 +62,31 @@ func (c *Client) ListCaches() ([]*Cache, error) {
 
 func (c *Client) GetCache(id string) (*Cache, error) {
 	var resp Response[Cache]
-	if err := c.get("/caches/"+id, &resp); err != nil {
+	if err := c.get(cachesPath+id, &resp); err != nil {
 		return nil, err
 	}
 	return &resp.Data, nil
 }
 
 func (c *Client) DeleteCache(id string) error {
-	return c.delete("/caches/"+id, nil)
+	return c.delete(cachesPath+id, nil)
 }
 
 func (c *Client) GetCacheConnectionString(id string) (string, error) {
 	var resp Response[map[string]string]
-	if err := c.get("/caches/"+id+"/connection", &resp); err != nil {
+	if err := c.get(cachesPath+id+"/connection", &resp); err != nil {
 		return "", err
 	}
 	return resp.Data["connection_string"], nil
 }
 
 func (c *Client) FlushCache(id string) error {
-	return c.post("/caches/"+id+"/flush", nil, nil)
+	return c.post(cachesPath+id+"/flush", nil, nil)
 }
 
 func (c *Client) GetCacheStats(id string) (*CacheStats, error) {
 	var resp Response[CacheStats]
-	if err := c.get("/caches/"+id+"/stats", &resp); err != nil {
+	if err := c.get(cachesPath+id+"/stats", &resp); err != nil {
 		return nil, err
 	}
 	return &resp.Data, nil

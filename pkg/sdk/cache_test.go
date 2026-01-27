@@ -10,90 +10,95 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCacheSDK(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+const (
+	cacheTestAPIKey       = "test-api-key"
+	cacheTestName         = "my-cache"
+	cacheTestID           = "c-1"
+	cacheTestBasePath     = "/api/v1/caches"
+	cacheTestContentType  = "Content-Type"
+	cacheTestAppJSON      = "application/json"
+	cacheTestConnString   = "redis://localhost:6379"
+	cacheTestVersion      = "7.0"
+	cacheTestMemoryMB     = 128
+	cacheTestStatsTotal   = int64(10)
+)
 
-		if r.URL.Path == "/api/v1/caches" && r.Method == "POST" {
+func newCacheTestServer(t *testing.T) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Helper()
+		w.Header().Set(cacheTestContentType, cacheTestAppJSON)
+
+		switch {
+		case r.URL.Path == cacheTestBasePath && r.Method == http.MethodPost:
 			var body map[string]interface{}
 			_ = json.NewDecoder(r.Body).Decode(&body)
-			if body["name"] == "my-cache" {
+			if body["name"] == cacheTestName {
 				w.WriteHeader(http.StatusCreated)
 				json.NewEncoder(w).Encode(map[string]interface{}{
 					"data": map[string]interface{}{
-						"id":   "c-1",
-						"name": "my-cache",
+						"id":   cacheTestID,
+						"name": cacheTestName,
 					},
 				})
 				return
 			}
-		}
-
-		if r.URL.Path == "/api/v1/caches" && r.Method == "GET" {
+		case r.URL.Path == cacheTestBasePath && r.Method == http.MethodGet:
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{
-					{"id": "c-1", "name": "my-cache"},
-				},
+				"data": []map[string]interface{}{{"id": cacheTestID, "name": cacheTestName}},
 			})
 			return
-		}
-
-		if r.URL.Path == "/api/v1/caches/c-1" && r.Method == "GET" {
+		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID && r.Method == http.MethodGet:
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"data": map[string]interface{}{
-					"id":   "c-1",
-					"name": "my-cache",
+					"id":   cacheTestID,
+					"name": cacheTestName,
 				},
 			})
 			return
-		}
-
-		if r.URL.Path == "/api/v1/caches/c-1" && r.Method == "DELETE" {
+		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID && r.Method == http.MethodDelete:
 			w.WriteHeader(http.StatusNoContent)
 			return
-		}
-
-		if r.URL.Path == "/api/v1/caches/c-1/connection" {
+		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID+"/connection":
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"data": map[string]interface{}{
-					"connection_string": "redis://localhost:6379",
+					"connection_string": cacheTestConnString,
 				},
 			})
 			return
-		}
-
-		if r.URL.Path == "/api/v1/caches/c-1/flush" && r.Method == "POST" {
+		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID+"/flush" && r.Method == http.MethodPost:
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"data": map[string]string{"result": "OK"},
 			})
 			return
-		}
-
-		if r.URL.Path == "/api/v1/caches/c-1/stats" {
+		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID+"/stats":
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"data": map[string]interface{}{
-					"total_keys": 10,
+					"total_keys": cacheTestStatsTotal,
 				},
 			})
 			return
+		default:
+			w.WriteHeader(http.StatusNotFound)
 		}
-
-		w.WriteHeader(http.StatusNotFound)
 	}))
+}
+
+func TestCacheSDK(t *testing.T) {
+	ts := newCacheTestServer(t)
 	defer ts.Close()
 
-	client := sdk.NewClient(ts.URL+"/api/v1", "test-api-key")
+	client := sdk.NewClient(ts.URL+"/api/v1", cacheTestAPIKey)
 
 	t.Run("CreateCache", func(t *testing.T) {
-		cache, err := client.CreateCache("my-cache", "7.0", 128, nil)
+		cache, err := client.CreateCache(cacheTestName, cacheTestVersion, cacheTestMemoryMB, nil)
 		assert.NoError(t, err)
 		if cache != nil {
-			assert.Equal(t, "my-cache", cache.Name)
+			assert.Equal(t, cacheTestName, cache.Name)
 		}
 	})
 
@@ -106,65 +111,65 @@ func TestCacheSDK(t *testing.T) {
 	})
 
 	t.Run("GetCache", func(t *testing.T) {
-		cache, err := client.GetCache("c-1")
+		cache, err := client.GetCache(cacheTestID)
 		assert.NoError(t, err)
 		if cache != nil {
-			assert.Equal(t, "c-1", cache.ID)
+			assert.Equal(t, cacheTestID, cache.ID)
 		}
 	})
 
 	t.Run("GetConnectionString", func(t *testing.T) {
-		conn, err := client.GetCacheConnectionString("c-1")
+		conn, err := client.GetCacheConnectionString(cacheTestID)
 		assert.NoError(t, err)
-		assert.Equal(t, "redis://localhost:6379", conn)
+		assert.Equal(t, cacheTestConnString, conn)
 	})
 
 	t.Run("FlushCache", func(t *testing.T) {
-		err := client.FlushCache("c-1")
+		err := client.FlushCache(cacheTestID)
 		assert.NoError(t, err)
 	})
 
 	t.Run("GetStats", func(t *testing.T) {
-		stats, err := client.GetCacheStats("c-1")
+		stats, err := client.GetCacheStats(cacheTestID)
 		assert.NoError(t, err)
 		if stats != nil {
-			assert.Equal(t, int64(10), stats.TotalKeys)
+			assert.Equal(t, cacheTestStatsTotal, stats.TotalKeys)
 		}
 	})
 
 	t.Run("DeleteCache", func(t *testing.T) {
-		err := client.DeleteCache("c-1")
+		err := client.DeleteCache(cacheTestID)
 		assert.NoError(t, err)
 	})
 }
 
-func TestCacheSDK_Errors(t *testing.T) {
+func TestCacheSDKErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
-	client := sdk.NewClient(server.URL+"/api/v1", "test-api-key")
+	client := sdk.NewClient(server.URL+"/api/v1", cacheTestAPIKey)
 
-	_, err := client.CreateCache("my-cache", "7.0", 128, nil)
+	_, err := client.CreateCache(cacheTestName, cacheTestVersion, cacheTestMemoryMB, nil)
 	assert.Error(t, err)
 
 	_, err = client.ListCaches()
 	assert.Error(t, err)
 
-	_, err = client.GetCache("c-1")
+	_, err = client.GetCache(cacheTestID)
 	assert.Error(t, err)
 
-	err = client.DeleteCache("c-1")
+	err = client.DeleteCache(cacheTestID)
 	assert.Error(t, err)
 
-	_, err = client.GetCacheConnectionString("c-1")
+	_, err = client.GetCacheConnectionString(cacheTestID)
 	assert.Error(t, err)
 
-	err = client.FlushCache("c-1")
+	err = client.FlushCache(cacheTestID)
 	assert.Error(t, err)
 
-	_, err = client.GetCacheStats("c-1")
+	_, err = client.GetCacheStats(cacheTestID)
 	assert.Error(t, err)
 }
