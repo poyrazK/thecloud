@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const queueErrorFormat = "Error: %v\n"
+
 var queueCmd = &cobra.Command{
 	Use:   "queue",
 	Short: "Manage message queues",
@@ -22,7 +24,7 @@ var listQueuesCmd = &cobra.Command{
 		client := getClient()
 		queues, err := client.ListQueues()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(queueErrorFormat, err)
 			return
 		}
 
@@ -60,7 +62,7 @@ var createQueueCmd = &cobra.Command{
 		client := getClient()
 		q, err := client.CreateQueue(name, &vt, &rd, &ms)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(queueErrorFormat, err)
 			return
 		}
 
@@ -78,7 +80,7 @@ var deleteQueueCmd = &cobra.Command{
 		id := args[0]
 		client := getClient()
 		if err := client.DeleteQueue(id); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(queueErrorFormat, err)
 			return
 		}
 		fmt.Println("[SUCCESS] Queue deleted successfully.")
@@ -95,7 +97,7 @@ var sendMessageCmd = &cobra.Command{
 		client := getClient()
 		msg, err := client.SendMessage(id, body)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(queueErrorFormat, err)
 			return
 		}
 
@@ -113,7 +115,7 @@ var receiveMessagesCmd = &cobra.Command{
 		client := getClient()
 		msgs, err := client.ReceiveMessages(id, max)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(queueErrorFormat, err)
 			return
 		}
 
@@ -151,7 +153,7 @@ var ackMessageCmd = &cobra.Command{
 		handle := args[1]
 		client := getClient()
 		if err := client.DeleteMessage(id, handle); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(queueErrorFormat, err)
 			return
 		}
 		fmt.Println("[SUCCESS] Message acknowledged and deleted.")
@@ -166,7 +168,7 @@ var purgeQueueCmd = &cobra.Command{
 		id := args[0]
 		client := getClient()
 		if err := client.PurgeQueue(id); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(queueErrorFormat, err)
 			return
 		}
 		fmt.Println("[SUCCESS] Queue purged.")

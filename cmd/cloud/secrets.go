@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const secretsErrorFormat = "Error: %v\n"
+
 var secretsCmd = &cobra.Command{
 	Use:   "secrets",
 	Short: "Manage encrypted secrets and configurations",
@@ -22,7 +24,7 @@ var secretsListCmd = &cobra.Command{
 		client := getClient()
 		secrets, err := client.ListSecrets()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(secretsErrorFormat, err)
 			return
 		}
 
@@ -63,7 +65,7 @@ var secretsCreateCmd = &cobra.Command{
 		client := getClient()
 		secret, err := client.CreateSecret(name, value, desc)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(secretsErrorFormat, err)
 			return
 		}
 
@@ -84,7 +86,7 @@ var secretsGetCmd = &cobra.Command{
 		client := getClient()
 		secret, err := client.GetSecret(id)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(secretsErrorFormat, err)
 			return
 		}
 
@@ -111,7 +113,7 @@ var secretsRmCmd = &cobra.Command{
 		id := args[0]
 		client := getClient()
 		if err := client.DeleteSecret(id); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(secretsErrorFormat, err)
 			return
 		}
 		fmt.Println("[SUCCESS] Secret removed.")

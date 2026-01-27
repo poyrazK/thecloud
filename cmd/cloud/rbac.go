@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const rbacErrorFormat = "Error: %v\n"
+
 var rolesCmd = &cobra.Command{
 	Use:   "roles",
 	Short: "Manage RBAC roles and bindings",
@@ -35,7 +37,7 @@ var createRoleCmd = &cobra.Command{
 		client := sdk.NewClient(apiURL, loadConfig())
 		role, err := client.CreateRole(name, desc, permissions)
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(rbacErrorFormat, err)
 			return
 		}
 
@@ -50,7 +52,7 @@ var listRolesCmd = &cobra.Command{
 		client := sdk.NewClient(apiURL, loadConfig())
 		roles, err := client.ListRoles()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(rbacErrorFormat, err)
 			return
 		}
 
@@ -75,7 +77,7 @@ var bindRoleCmd = &cobra.Command{
 
 		client := sdk.NewClient(apiURL, loadConfig())
 		if err := client.BindRole(userIdentifier, roleName); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(rbacErrorFormat, err)
 			return
 		}
 
@@ -90,7 +92,7 @@ var listBindingsCmd = &cobra.Command{
 		client := sdk.NewClient(apiURL, loadConfig())
 		users, err := client.ListRoleBindings()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(rbacErrorFormat, err)
 			return
 		}
 
@@ -114,7 +116,7 @@ var deleteRoleCmd = &cobra.Command{
 
 		client := sdk.NewClient(apiURL, loadConfig())
 		if err := client.DeleteRole(id); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf(rbacErrorFormat, err)
 			return
 		}
 
