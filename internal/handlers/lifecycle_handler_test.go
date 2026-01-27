@@ -47,64 +47,81 @@ const (
 	testPrefix        = "logs/"
 )
 
-func setupLifecycleHandlerTest() (*mockLifecycleService, *LifecycleHandler, *gin.Engine) {
+func setupLifecycleHandlerTest(t *testing.T) (*mockLifecycleService, *LifecycleHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockLifecycleService)
+
+	// Automatically assert mock expectations after test cleanup
+	t.Cleanup(func() {
+		svc.AssertExpectations(t)
+	})
+
 	handler := NewLifecycleHandler(svc)
 	r := gin.New()
 	return svc, handler, r
 }
 
 func TestLifecycleHandlerCreateRule(t *testing.T) {
-	svc, handler, r := setupLifecycleHandlerTest()
-	r.POST("/storage/buckets/:bucket/lifecycle", handler.CreateRule)
+	tests := []struct {
+		name           string
+		body           interface{}
+		setupMock      func(*mockLifecycleService)
+		expectedStatus int
+	}{
+		{
+			name: "Success",
+			body: map[string]interface{}{
+				"prefix":          testPrefix,
+				"expiration_days": 30,
+				"enabled":         true,
+			},
+			setupMock: func(m *mockLifecycleService) {
+				rule := &domain.LifecycleRule{ID: uuid.New(), BucketName: testBucketName, Prefix: testPrefix, ExpirationDays: 30, Enabled: true}
+				m.On("CreateRule", mock.Anything, testBucketName, testPrefix, 30, true).Return(rule, nil).Once()
+			},
+			expectedStatus: http.StatusCreated,
+		},
+		{
+			name: "Invalid Input",
+			body: map[string]interface{}{},
+			setupMock: func(m *mockLifecycleService) {
+				// No calls expected
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "Service Error",
+			body: map[string]interface{}{
+				"prefix":          testPrefix,
+				"expiration_days": 30,
+				"enabled":         true,
+			},
+			setupMock: func(m *mockLifecycleService) {
+				m.On("CreateRule", mock.Anything, testBucketName, testPrefix, 30, true).Return(nil, errors.New(errors.Internal, "error")).Once()
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
+	}
 
-	t.Run("Success", func(t *testing.T) {
-		rule := &domain.LifecycleRule{ID: uuid.New(), BucketName: testBucketName, Prefix: testPrefix, ExpirationDays: 30, Enabled: true}
-		svc.On("CreateRule", mock.Anything, testBucketName, testPrefix, 30, true).Return(rule, nil).Once()
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, handler, r := setupLifecycleHandlerTest(t)
+			r.POST("/storage/buckets/:bucket/lifecycle", handler.CreateRule)
 
-		body, _ := json.Marshal(map[string]interface{}{
-			"prefix":          testPrefix,
-			"expiration_days": 30,
-			"enabled":         true,
+			tc.setupMock(svc)
+
+			bodyBytes, _ := json.Marshal(tc.body)
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", testLifecyclePath, bytes.NewBuffer(bodyBytes))
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tc.expectedStatus, w.Code)
 		})
-
-		w := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", testLifecyclePath, bytes.NewBuffer(body))
-		r.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusCreated, w.Code)
-	})
-
-	t.Run("Invalid Input", func(t *testing.T) {
-		body, _ := json.Marshal(map[string]interface{}{})
-
-		w := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", testLifecyclePath, bytes.NewBuffer(body))
-		r.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-	})
-
-	t.Run("Service Error", func(t *testing.T) {
-		svc.On("CreateRule", mock.Anything, testBucketName, testPrefix, 30, true).Return(nil, errors.New(errors.Internal, "error")).Once()
-
-		body, _ := json.Marshal(map[string]interface{}{
-			"prefix":          testPrefix,
-			"expiration_days": 30,
-			"enabled":         true,
-		})
-
-		w := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", testLifecyclePath, bytes.NewBuffer(body))
-		r.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusInternalServerError, w.Code)
-	})
+	}
 }
 
 func TestLifecycleHandlerListRules(t *testing.T) {
-	svc, handler, r := setupLifecycleHandlerTest()
+	svc, handler, r := setupLifecycleHandlerTest(t)
 	r.GET("/storage/buckets/:bucket/lifecycle", handler.ListRules)
 
 	t.Run("Success", func(t *testing.T) {
@@ -129,7 +146,7 @@ func TestLifecycleHandlerListRules(t *testing.T) {
 }
 
 func TestLifecycleHandlerDeleteRule(t *testing.T) {
-	svc, handler, r := setupLifecycleHandlerTest()
+	svc, handler, r := setupLifecycleHandlerTest(t)
 	r.DELETE("/storage/buckets/:bucket/lifecycle/:id", handler.DeleteRule)
 
 	ruleID := uuid.New().String()

@@ -85,12 +85,17 @@ func (f *fakeStorageService) GeneratePresignedURL(ctx context.Context, bucket, k
 }
 
 func TestMetricsCollectorWorker_Run(t *testing.T) {
+	const (
+		pollInterval = 10 * time.Millisecond
+		testTimeout  = 1 * time.Second
+	)
+
 	svc := &fakeStorageService{clusterStatus: &domain.StorageCluster{}}
 	worker := &MetricsCollectorWorker{
 		storageRepo: nil,
 		storageSvc:  svc,
 		logger:      slog.New(slog.NewTextHandler(io.Discard, nil)),
-		interval:    10 * time.Millisecond,
+		interval:    pollInterval,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -99,12 +104,27 @@ func TestMetricsCollectorWorker_Run(t *testing.T) {
 
 	go worker.Run(ctx, &wg)
 
-	time.Sleep(35 * time.Millisecond)
-	cancel()
-	wg.Wait()
+	// Ensure cleanup
+	defer func() {
+		cancel()
+		wg.Wait()
+	}()
 
-	if svc.StatusCalls() == 0 {
-		t.Fatalf("expected GetClusterStatus to be called")
+	// Poll until we see a call
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+	timeout := time.After(testTimeout)
+
+	for {
+		select {
+		case <-timeout:
+			t.Fatalf("timed out waiting for GetClusterStatus to be called")
+		case <-ticker.C:
+			if svc.StatusCalls() > 0 {
+				// Success
+				return
+			}
+		}
 	}
 }
 

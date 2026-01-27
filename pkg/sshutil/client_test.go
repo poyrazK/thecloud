@@ -82,7 +82,7 @@ func TestWaitForSSHTimeout(t *testing.T) {
 	// Use small timeout for test speed
 	err := client.WaitForSSH(context.Background(), 100*time.Millisecond)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), testErrTimedOut)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
 func TestWaitForSSHContextCanceled(t *testing.T) {
@@ -93,7 +93,7 @@ func TestWaitForSSHContextCanceled(t *testing.T) {
 
 	err := client.WaitForSSH(ctx, 2*time.Second)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), testErrTimedOut)
+	assert.ErrorIs(t, err, context.Canceled)
 }
 
 func TestWaitForSSHHostWithoutPortTimeout(t *testing.T) {
@@ -106,7 +106,7 @@ func TestWaitForSSHHostWithoutPortTimeout(t *testing.T) {
 
 	err := client.WaitForSSH(ctx, 2*time.Second)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), testErrTimedOut)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
 func TestRunConnectionRefused(t *testing.T) {

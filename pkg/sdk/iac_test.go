@@ -146,18 +146,50 @@ func TestClient_IacErrors(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, "test-api-key")
-	_, err := client.CreateStack("stack", "template", map[string]string{})
-	assert.Error(t, err)
 
-	_, err = client.ListStacks()
-	assert.Error(t, err)
+	tests := []struct {
+		name string
+		call func() error
+	}{
+		{
+			name: "CreateStack",
+			call: func() error {
+				_, err := client.CreateStack("stack", "template", map[string]string{})
+				return err
+			},
+		},
+		{
+			name: "ListStacks",
+			call: func() error {
+				_, err := client.ListStacks()
+				return err
+			},
+		},
+		{
+			name: "GetStack",
+			call: func() error {
+				_, err := client.GetStack("stack-1")
+				return err
+			},
+		},
+		{
+			name: "DeleteStack",
+			call: func() error {
+				return client.DeleteStack("stack-1")
+			},
+		},
+		{
+			name: "ValidateTemplate",
+			call: func() error {
+				_, err := client.ValidateTemplate("template")
+				return err
+			},
+		},
+	}
 
-	_, err = client.GetStack("stack-1")
-	assert.Error(t, err)
-
-	err = client.DeleteStack("stack-1")
-	assert.Error(t, err)
-
-	_, err = client.ValidateTemplate("template")
-	assert.Error(t, err)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Error(t, tc.call())
+		})
+	}
 }

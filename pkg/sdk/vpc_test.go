@@ -102,15 +102,43 @@ func TestClient_VPCErrors(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, testAPIKey)
-	_, err := client.ListVPCs()
-	assert.Error(t, err)
 
-	_, err = client.CreateVPC("vpc", testutil.TestCIDR)
-	assert.Error(t, err)
+	tests := []struct {
+		name string
+		call func() error
+	}{
+		{
+			name: "ListVPCs",
+			call: func() error {
+				_, err := client.ListVPCs()
+				return err
+			},
+		},
+		{
+			name: "CreateVPC",
+			call: func() error {
+				_, err := client.CreateVPC("vpc", testutil.TestCIDR)
+				return err
+			},
+		},
+		{
+			name: "GetVPC",
+			call: func() error {
+				_, err := client.GetVPC("vpc-1")
+				return err
+			},
+		},
+		{
+			name: "DeleteVPC",
+			call: func() error {
+				return client.DeleteVPC("vpc-1")
+			},
+		},
+	}
 
-	_, err = client.GetVPC("vpc-1")
-	assert.Error(t, err)
-
-	err = client.DeleteVPC("vpc-1")
-	assert.Error(t, err)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Error(t, tc.call())
+		})
+	}
 }

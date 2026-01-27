@@ -51,6 +51,7 @@ func TestKubeadmProvisionerK8sOps(t *testing.T) {
 
 		err := p.ExportEnsureClusterSecurityGroup(ctx, cluster)
 		assert.NoError(t, err)
+		sgSvc.AssertExpectations(t)
 	})
 
 	t.Run("CreateNode", func(t *testing.T) {
@@ -63,6 +64,9 @@ func TestKubeadmProvisionerK8sOps(t *testing.T) {
 		inst, err := p.ExportCreateNode(ctx, cluster, "master-0", domain.NodeRoleControlPlane)
 		assert.NoError(t, err)
 		assert.Equal(t, masterID, inst.ID)
+		instSvc.AssertExpectations(t)
+		sgSvc.AssertExpectations(t)
+		repo.AssertExpectations(t)
 	})
 
 	t.Run("HealthAndRepair", func(t *testing.T) {
@@ -90,6 +94,8 @@ func TestKubeadmProvisionerK8sOps(t *testing.T) {
 		instSvc.On("Exec", ctx, masterID.String(), mock.Anything).Return("success", nil)
 		err = p.Repair(ctx, cluster)
 		assert.NoError(t, err)
+		repo.AssertExpectations(t)
+		instSvc.AssertExpectations(t)
 	})
 
 	t.Run("KubeConfig", func(t *testing.T) {
@@ -105,6 +111,8 @@ func TestKubeadmProvisionerK8sOps(t *testing.T) {
 		conf, err := p.GetKubeconfig(ctx, cluster, "admin")
 		assert.NoError(t, err)
 		assert.Equal(t, "kubeconfig-content", conf)
+		repo.AssertExpectations(t)
+		instSvc.AssertExpectations(t)
 	})
 
 	t.Run("ScaleDown", func(t *testing.T) {
@@ -120,5 +128,7 @@ func TestKubeadmProvisionerK8sOps(t *testing.T) {
 
 		err := p.Scale(ctx, cluster)
 		assert.NoError(t, err)
+		repo.AssertExpectations(t)
+		instSvc.AssertExpectations(t)
 	})
 }

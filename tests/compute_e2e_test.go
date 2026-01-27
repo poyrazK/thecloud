@@ -120,7 +120,7 @@ func TestComputeE2E(t *testing.T) {
 		resp := postRequest(t, client, fmt.Sprintf("%s%s/%s/stop", testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token, nil)
 		defer resp.Body.Close()
 
-		assert.Contains(t, []int{http.StatusOK, http.StatusConflict, http.StatusInternalServerError}, resp.StatusCode)
+		assert.Contains(t, []int{http.StatusOK, http.StatusConflict}, resp.StatusCode)
 	})
 
 	// 6. Terminate Instance

@@ -70,12 +70,12 @@ func (s *CacheService) CreateCache(ctx context.Context, name, version string, me
 		UpdatedAt: time.Now(),
 	}
 
-	if err := s.repo.Create(ctx, cache); err != nil {
+	networkID, err := s.resolveNetworkID(ctx, vpcID)
+	if err != nil {
 		return nil, err
 	}
 
-	networkID, err := s.resolveNetworkID(ctx, vpcID)
-	if err != nil {
+	if err := s.repo.Create(ctx, cache); err != nil {
 		return nil, err
 	}
 
