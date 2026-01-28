@@ -29,6 +29,7 @@ type Bucket struct {
 	CreatedAt         time.Time `json:"created_at"`
 }
 
+// StorageNode describes a storage node in the cluster.
 type StorageNode struct {
 	ID       string    `json:"id"`
 	Address  string    `json:"address"`
@@ -36,10 +37,12 @@ type StorageNode struct {
 	LastSeen time.Time `json:"last_seen"`
 }
 
+// StorageCluster provides cluster status with node membership.
 type StorageCluster struct {
 	Nodes []StorageNode `json:"nodes"`
 }
 
+// LifecycleRule defines a storage lifecycle rule.
 type LifecycleRule struct {
 	ID             string    `json:"id"`
 	BucketName     string    `json:"bucket_name"`
@@ -57,6 +60,7 @@ func (c *Client) ListObjects(bucket string) ([]Object, error) {
 	return res.Data, nil
 }
 
+// UploadObject uploads data to a bucket and returns object metadata.
 func (c *Client) UploadObject(bucket, key string, body io.Reader) (*Object, error) {
 	var res Response[Object]
 	resp, err := c.resty.R().
@@ -73,6 +77,7 @@ func (c *Client) UploadObject(bucket, key string, body io.Reader) (*Object, erro
 	return &res.Data, nil
 }
 
+// ListVersions returns all versions for a bucket key.
 func (c *Client) ListVersions(bucket, key string) ([]Object, error) {
 	var res Response[[]Object]
 	if err := c.get(fmt.Sprintf("/storage/versions/%s/%s", bucket, key), &res); err != nil {
@@ -81,6 +86,7 @@ func (c *Client) ListVersions(bucket, key string) ([]Object, error) {
 	return res.Data, nil
 }
 
+// DownloadObject retrieves object data, optionally for a specific version.
 func (c *Client) DownloadObject(bucket, key string, versionID ...string) (io.ReadCloser, error) {
 	req := c.resty.R().SetDoNotParseResponse(true)
 	if len(versionID) > 0 {
@@ -99,6 +105,7 @@ func (c *Client) DownloadObject(bucket, key string, versionID ...string) (io.Rea
 	return resp.RawBody(), nil
 }
 
+// DeleteObject removes an object, optionally for a specific version.
 func (c *Client) DeleteObject(bucket, key string, versionID ...string) error {
 	path := fmt.Sprintf("/storage/%s/%s", bucket, key)
 	if len(versionID) > 0 {
@@ -107,6 +114,7 @@ func (c *Client) DeleteObject(bucket, key string, versionID ...string) error {
 	return c.delete(path, nil)
 }
 
+// CreateBucket creates a new storage bucket.
 func (c *Client) CreateBucket(name string, isPublic bool) (*Bucket, error) {
 	req := struct {
 		Name     string `json:"name"`
@@ -122,6 +130,7 @@ func (c *Client) CreateBucket(name string, isPublic bool) (*Bucket, error) {
 	return &res.Data, nil
 }
 
+// ListBuckets returns buckets visible to the API key.
 func (c *Client) ListBuckets() ([]Bucket, error) {
 	var res Response[[]Bucket]
 	if err := c.get("/storage/buckets", &res); err != nil {
@@ -130,10 +139,12 @@ func (c *Client) ListBuckets() ([]Bucket, error) {
 	return res.Data, nil
 }
 
+// DeleteBucket removes a bucket by name.
 func (c *Client) DeleteBucket(name string) error {
 	return c.delete(fmt.Sprintf("/storage/buckets/%s", name), nil)
 }
 
+// SetBucketVersioning toggles bucket versioning.
 func (c *Client) SetBucketVersioning(name string, enabled bool) error {
 	req := struct {
 		Enabled bool `json:"enabled"`
@@ -143,6 +154,7 @@ func (c *Client) SetBucketVersioning(name string, enabled bool) error {
 	return c.patch(fmt.Sprintf("/storage/buckets/%s/versioning", name), req, nil)
 }
 
+// GetStorageClusterStatus returns the storage cluster status and nodes.
 func (c *Client) GetStorageClusterStatus() (*StorageCluster, error) {
 	var res Response[StorageCluster]
 	if err := c.get("/storage/cluster/status", &res); err != nil {
@@ -151,6 +163,7 @@ func (c *Client) GetStorageClusterStatus() (*StorageCluster, error) {
 	return &res.Data, nil
 }
 
+// PresignedURL represents a temporary signed URL for object access.
 type PresignedURL struct {
 	URL       string    `json:"url"`
 	Method    string    `json:"method"`
@@ -173,6 +186,7 @@ func (c *Client) GeneratePresignedURL(bucket, key, method string, expirySeconds 
 	return &res.Data, nil
 }
 
+// CreateLifecycleRule creates or updates a lifecycle rule for a bucket.
 func (c *Client) CreateLifecycleRule(bucket, prefix string, expirationDays int, enabled bool) (*LifecycleRule, error) {
 	req := struct {
 		Prefix         string `json:"prefix"`
@@ -190,6 +204,7 @@ func (c *Client) CreateLifecycleRule(bucket, prefix string, expirationDays int, 
 	return &res.Data, nil
 }
 
+// ListLifecycleRules lists lifecycle rules for a bucket.
 func (c *Client) ListLifecycleRules(bucket string) ([]LifecycleRule, error) {
 	var res Response[[]LifecycleRule]
 	if err := c.get(fmt.Sprintf("/storage/buckets/%s/lifecycle", bucket), &res); err != nil {
@@ -198,6 +213,7 @@ func (c *Client) ListLifecycleRules(bucket string) ([]LifecycleRule, error) {
 	return res.Data, nil
 }
 
+// DeleteLifecycleRule removes a lifecycle rule by ID.
 func (c *Client) DeleteLifecycleRule(bucket, ruleID string) error {
 	return c.delete(fmt.Sprintf("/storage/buckets/%s/lifecycle/%s", bucket, ruleID), nil)
 }

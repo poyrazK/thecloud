@@ -1,3 +1,4 @@
+// Package helpers provides shared test helpers for E2E tests.
 package helpers
 
 import (

@@ -1,3 +1,4 @@
+// Package ports defines interfaces for adapters and services.
 package ports
 
 import (
@@ -17,6 +18,7 @@ type EncryptionService interface {
 	RotateKey(ctx context.Context, bucket string) (string, error)
 }
 
+// EncryptionKey stores metadata for a bucket encryption key.
 type EncryptionKey struct {
 	ID           string
 	BucketName   string
@@ -24,6 +26,7 @@ type EncryptionKey struct {
 	Algorithm    string
 }
 
+// EncryptionRepository persists encryption keys for buckets.
 type EncryptionRepository interface {
 	SaveKey(ctx context.Context, key EncryptionKey) error
 	GetKey(ctx context.Context, bucketName string) (*EncryptionKey, error)

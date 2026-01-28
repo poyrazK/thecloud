@@ -1,3 +1,4 @@
+// Package httputil provides HTTP helper utilities.
 package httputil
 
 import (

@@ -47,6 +47,7 @@ type AppDeps struct {
 	NotifySignals      func(chan<- os.Signal, ...os.Signal)
 }
 
+// DefaultDeps returns the production dependency wiring for the API server.
 func DefaultDeps() AppDeps {
 	return AppDeps{
 		LoadConfig:         setup.LoadConfig,

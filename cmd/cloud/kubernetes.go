@@ -1,3 +1,4 @@
+// Package main provides the cloud CLI commands.
 package main
 
 import (

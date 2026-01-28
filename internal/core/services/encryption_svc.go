@@ -1,3 +1,4 @@
+// Package services implements core business logic.
 package services
 
 import (
@@ -19,6 +20,7 @@ type EncryptionService struct {
 	masterKey []byte // 32-bytes
 }
 
+// NewEncryptionService constructs an EncryptionService from the repository and master key.
 func NewEncryptionService(repo ports.EncryptionRepository, masterKeyHex string) (*EncryptionService, error) {
 	key, err := hex.DecodeString(masterKeyHex)
 	if err != nil {

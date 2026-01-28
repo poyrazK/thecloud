@@ -24,6 +24,7 @@ type Object struct {
 	Data        io.Reader  `json:"-"` // Stream for reading/writing
 }
 
+// Bucket represents a storage bucket configuration and metadata.
 type Bucket struct {
 	ID                uuid.UUID `json:"id"`
 	Name              string    `json:"name"`
@@ -35,6 +36,7 @@ type Bucket struct {
 	CreatedAt         time.Time `json:"created_at"`
 }
 
+// StorageNode describes a node in the storage cluster.
 type StorageNode struct {
 	ID       string    `json:"id"`
 	Address  string    `json:"address"` // host:port
@@ -43,6 +45,7 @@ type StorageNode struct {
 	LastSeen time.Time `json:"last_seen"`
 }
 
+// StorageCluster aggregates storage nodes for cluster-level operations.
 type StorageCluster struct {
 	Nodes []StorageNode `json:"nodes"`
 }

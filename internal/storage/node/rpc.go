@@ -1,3 +1,4 @@
+// Package node implements storage node services.
 package node
 
 import (
@@ -7,12 +8,14 @@ import (
 	pb "github.com/poyrazk/thecloud/internal/storage/protocol"
 )
 
+// RPCServer exposes storage-node RPC endpoints.
 type RPCServer struct {
 	pb.UnimplementedStorageNodeServer
 	store    *LocalStore
 	gossiper *GossipProtocol
 }
 
+// NewRPCServer constructs an RPCServer for storage operations.
 func NewRPCServer(store *LocalStore, gossiper *GossipProtocol) *RPCServer {
 	return &RPCServer{store: store, gossiper: gossiper}
 }

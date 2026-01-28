@@ -1,3 +1,4 @@
+// Package platform provides shared infrastructure utilities.
 package platform
 
 import (

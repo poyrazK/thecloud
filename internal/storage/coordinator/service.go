@@ -1,3 +1,4 @@
+// Package coordinator manages distributed storage coordination.
 package coordinator
 
 import (

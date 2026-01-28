@@ -1,3 +1,4 @@
+// Package main provides the storage node entrypoint.
 package main
 
 import (

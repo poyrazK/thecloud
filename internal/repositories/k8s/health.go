@@ -1,3 +1,4 @@
+// Package k8s implements Kubernetes provisioning adapters.
 package k8s
 
 import (

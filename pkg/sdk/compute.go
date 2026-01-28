@@ -31,6 +31,7 @@ func (c *Client) ListInstances() ([]Instance, error) {
 	return res.Data, nil
 }
 
+// GetInstance retrieves a compute instance by ID or name.
 func (c *Client) GetInstance(idOrName string) (*Instance, error) {
 	var res Response[Instance]
 	if err := c.get(fmt.Sprintf("/instances/%s", idOrName), &res); err != nil {
@@ -45,6 +46,7 @@ type VolumeAttachmentInput struct {
 	MountPath string `json:"mount_path"`
 }
 
+// LaunchInstance provisions a new instance with optional volume attachments.
 func (c *Client) LaunchInstance(name, image, ports string, vpcID, subnetID string, volumes []VolumeAttachmentInput) (*Instance, error) {
 	body := map[string]interface{}{
 		"name":      name,
@@ -61,14 +63,17 @@ func (c *Client) LaunchInstance(name, image, ports string, vpcID, subnetID strin
 	return &res.Data, nil
 }
 
+// StopInstance stops a running instance by ID or name.
 func (c *Client) StopInstance(idOrName string) error {
 	return c.post(fmt.Sprintf("/instances/%s/stop", idOrName), nil, nil)
 }
 
+// TerminateInstance deletes an instance by ID or name.
 func (c *Client) TerminateInstance(idOrName string) error {
 	return c.delete(fmt.Sprintf("/instances/%s", idOrName), nil)
 }
 
+// GetInstanceLogs retrieves the raw log output for an instance.
 func (c *Client) GetInstanceLogs(idOrName string) (string, error) {
 	resp, err := c.resty.R().Get(c.apiURL + fmt.Sprintf("/instances/%s/logs", idOrName))
 	if err != nil {
@@ -88,6 +93,7 @@ type InstanceStats struct {
 	MemoryPercentage float64 `json:"memory_percentage"`
 }
 
+// GetInstanceStats returns resource usage metrics for an instance.
 func (c *Client) GetInstanceStats(idOrName string) (*InstanceStats, error) {
 	var res Response[InstanceStats]
 	if err := c.get(fmt.Sprintf("/instances/%s/stats", idOrName), &res); err != nil {

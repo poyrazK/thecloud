@@ -1,3 +1,4 @@
+// Package node implements storage node services.
 package node
 
 import (
@@ -12,6 +13,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// MemberState tracks a peer's status in the gossip ring.
 type MemberState struct {
 	Address   string
 	Status    string
@@ -19,6 +21,7 @@ type MemberState struct {
 	Heartbeat uint64
 }
 
+// GossipProtocol manages membership and health gossip between nodes.
 type GossipProtocol struct {
 	nodeID   string
 	address  string
@@ -30,6 +33,7 @@ type GossipProtocol struct {
 	peers    map[string]pb.StorageNodeClient
 }
 
+// NewGossipProtocol constructs a GossipProtocol for a node.
 func NewGossipProtocol(nodeID, address string, logger *slog.Logger) *GossipProtocol {
 	g := &GossipProtocol{
 		nodeID:   nodeID,

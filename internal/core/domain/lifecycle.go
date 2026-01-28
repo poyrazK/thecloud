@@ -1,3 +1,4 @@
+// Package domain defines core business entities.
 package domain
 
 import (
@@ -6,6 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// LifecycleRule describes expiration and prefix rules for bucket objects.
 type LifecycleRule struct {
 	ID             uuid.UUID `json:"id"`
 	UserID         uuid.UUID `json:"user_id"`

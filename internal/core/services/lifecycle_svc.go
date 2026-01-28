@@ -1,3 +1,4 @@
+// Package services implements core business logic.
 package services
 
 import (
@@ -11,11 +12,13 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// LifecycleService implements bucket lifecycle rule operations.
 type LifecycleService struct {
 	repo        ports.LifecycleRepository
 	storageRepo ports.StorageRepository
 }
 
+// NewLifecycleService constructs a LifecycleService.
 func NewLifecycleService(repo ports.LifecycleRepository, storageRepo ports.StorageRepository) *LifecycleService {
 	return &LifecycleService{
 		repo:        repo,

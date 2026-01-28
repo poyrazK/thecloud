@@ -1,3 +1,4 @@
+// Package postgres provides Postgres-backed repository implementations.
 package postgres
 
 import (
@@ -10,10 +11,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// LifecycleRepository stores lifecycle rules in Postgres.
 type LifecycleRepository struct {
 	db DB
 }
 
+// NewLifecycleRepository constructs a LifecycleRepository.
 func NewLifecycleRepository(db DB) *LifecycleRepository {
 	return &LifecycleRepository{db: db}
 }

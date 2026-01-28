@@ -1,3 +1,4 @@
+// Package coordinator manages distributed storage coordination.
 package coordinator
 
 import (
@@ -7,6 +8,7 @@ import (
 	"sync"
 )
 
+// ConsistentHashRing maps keys to storage nodes using consistent hashing.
 type ConsistentHashRing struct {
 	ring         []uint32
 	nodes        map[uint32]string
@@ -14,6 +16,7 @@ type ConsistentHashRing struct {
 	mu           sync.RWMutex
 }
 
+// NewConsistentHashRing constructs a ring with the given virtual node count.
 func NewConsistentHashRing(virtualNodes int) *ConsistentHashRing {
 	return &ConsistentHashRing{
 		nodes:        make(map[uint32]string),

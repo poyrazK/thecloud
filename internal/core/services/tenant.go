@@ -1,3 +1,4 @@
+// Package services implements core business logic.
 package services
 
 import (
@@ -11,12 +12,14 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// TenantService manages tenants, membership, and quota checks.
 type TenantService struct {
 	repo     ports.TenantRepository
 	userRepo ports.UserRepository
 	logger   *slog.Logger
 }
 
+// NewTenantService constructs a TenantService.
 func NewTenantService(repo ports.TenantRepository, userRepo ports.UserRepository, logger *slog.Logger) *TenantService {
 	return &TenantService{
 		repo:     repo,

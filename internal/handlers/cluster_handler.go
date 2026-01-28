@@ -1,3 +1,4 @@
+// Package httphandlers exposes HTTP handlers for the API.
 package httphandlers
 
 import (

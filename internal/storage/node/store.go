@@ -1,3 +1,4 @@
+// Package node implements storage node services.
 package node
 
 import (

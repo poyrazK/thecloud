@@ -1,3 +1,4 @@
+// Package httphandlers exposes HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -9,10 +10,12 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// LifecycleHandler handles lifecycle rule endpoints.
 type LifecycleHandler struct {
 	svc ports.LifecycleService
 }
 
+// NewLifecycleHandler constructs a LifecycleHandler.
 func NewLifecycleHandler(svc ports.LifecycleService) *LifecycleHandler {
 	return &LifecycleHandler{svc: svc}
 }

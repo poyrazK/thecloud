@@ -1,3 +1,4 @@
+// Package workers hosts background worker implementations.
 package workers
 
 import (
@@ -9,7 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
-// MetricsCollectorWorker collects and exports storage metrics occasionally
+// MetricsCollectorWorker collects and exports storage metrics occasionally.
 type MetricsCollectorWorker struct {
 	storageRepo ports.StorageRepository
 	storageSvc  ports.StorageService
@@ -17,6 +18,7 @@ type MetricsCollectorWorker struct {
 	interval    time.Duration
 }
 
+// NewMetricsCollectorWorker constructs a MetricsCollectorWorker.
 func NewMetricsCollectorWorker(storageRepo ports.StorageRepository, storageSvc ports.StorageService, logger *slog.Logger) *MetricsCollectorWorker {
 	return &MetricsCollectorWorker{
 		storageRepo: storageRepo,

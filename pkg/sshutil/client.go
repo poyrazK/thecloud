@@ -1,3 +1,4 @@
+// Package sshutil provides SSH helpers for remote operations.
 package sshutil
 
 import (

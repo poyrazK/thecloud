@@ -12,11 +12,15 @@ type ProvisionJob struct {
 	Volumes    []VolumeAttachment `json:"volumes"` // List of storage volumes to attach during initialization
 }
 
+// ClusterJobType describes the kind of cluster lifecycle operation.
 type ClusterJobType string
 
 const (
+	// ClusterJobProvision creates a new Kubernetes cluster.
 	ClusterJobProvision   ClusterJobType = "provision"
+	// ClusterJobDeprovision deletes an existing Kubernetes cluster.
 	ClusterJobDeprovision ClusterJobType = "deprovision"
+	// ClusterJobUpgrade upgrades a cluster to a new version.
 	ClusterJobUpgrade     ClusterJobType = "upgrade"
 )
 

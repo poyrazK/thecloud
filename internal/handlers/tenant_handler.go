@@ -1,3 +1,4 @@
+// Package httphandlers exposes HTTP handlers for the API.
 package httphandlers
 
 import (
@@ -10,19 +11,23 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+// TenantHandler handles tenant management endpoints.
 type TenantHandler struct {
 	svc ports.TenantService
 }
 
+// NewTenantHandler constructs a TenantHandler.
 func NewTenantHandler(svc ports.TenantService) *TenantHandler {
 	return &TenantHandler{svc: svc}
 }
 
+// CreateTenantRequest defines the payload for tenant creation.
 type CreateTenantRequest struct {
 	Name string `json:"name" binding:"required"`
 	Slug string `json:"slug" binding:"required"`
 }
 
+// InviteMemberRequest defines the payload for inviting a tenant member.
 type InviteMemberRequest struct {
 	Email string `json:"email" binding:"required,email"`
 	Role  string `json:"role" binding:"required"`

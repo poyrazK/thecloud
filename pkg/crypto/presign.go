@@ -1,3 +1,4 @@
+// Package crypto provides cryptographic helpers used by the platform.
 package crypto
 
 import (

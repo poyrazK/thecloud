@@ -1,3 +1,4 @@
+// Package ports defines interfaces for adapters and services.
 package ports
 
 import (
@@ -7,6 +8,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
+// LifecycleRepository stores lifecycle rules for buckets.
 type LifecycleRepository interface {
 	Create(ctx context.Context, rule *domain.LifecycleRule) error
 	Get(ctx context.Context, id uuid.UUID) (*domain.LifecycleRule, error)
@@ -15,6 +17,7 @@ type LifecycleRepository interface {
 	GetEnabledRules(ctx context.Context) ([]*domain.LifecycleRule, error)
 }
 
+// LifecycleService manages lifecycle rules for storage buckets.
 type LifecycleService interface {
 	CreateRule(ctx context.Context, bucket string, prefix string, expirationDays int, enabled bool) (*domain.LifecycleRule, error)
 	ListRules(ctx context.Context, bucket string) ([]*domain.LifecycleRule, error)

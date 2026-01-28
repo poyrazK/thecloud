@@ -1,3 +1,4 @@
+// Package postgres provides Postgres-backed repository implementations.
 package postgres
 
 import (
@@ -9,10 +10,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// TenantRepo persists tenant data in Postgres.
 type TenantRepo struct {
 	db DB
 }
 
+// NewTenantRepo constructs a TenantRepo.
 func NewTenantRepo(db DB) *TenantRepo {
 	return &TenantRepo{db: db}
 }

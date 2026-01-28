@@ -1,3 +1,4 @@
+// Package k8s implements Kubernetes provisioning adapters.
 package k8s
 
 import (
@@ -11,6 +12,7 @@ import (
 // MockProvisioner is a simulation provisioner for testing.
 type MockProvisioner struct{}
 
+// NewMockProvisioner constructs a MockProvisioner.
 func NewMockProvisioner() *MockProvisioner {
 	return &MockProvisioner{}
 }

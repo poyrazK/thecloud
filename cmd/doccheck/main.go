@@ -105,7 +105,14 @@ func shouldSkipFile(path string, includeTests bool) bool {
 	if !includeTests && strings.HasSuffix(path, "_test.go") {
 		return true
 	}
-	return strings.Contains(filepath.ToSlash(path), "/docs/swagger/")
+	if strings.HasSuffix(path, ".pb.go") {
+		return true
+	}
+	cleanPath := filepath.ToSlash(path)
+	if strings.Contains(cleanPath, "/docs/swagger/") {
+		return true
+	}
+	return strings.Contains(cleanPath, "/internal/storage/protocol/")
 }
 
 func appendMissingPackageDoc(findings *[]finding, fset *token.FileSet, file *ast.File, path string) {

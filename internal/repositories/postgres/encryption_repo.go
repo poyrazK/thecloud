@@ -1,3 +1,4 @@
+// Package postgres provides Postgres-backed repository implementations.
 package postgres
 
 import (
@@ -9,10 +10,12 @@ import (
 	cerr "github.com/poyrazk/thecloud/internal/errors"
 )
 
+// EncryptionRepository stores encryption keys in Postgres.
 type EncryptionRepository struct {
 	db DB
 }
 
+// NewEncryptionRepository constructs an EncryptionRepository.
 func NewEncryptionRepository(db DB) *EncryptionRepository {
 	return &EncryptionRepository{db: db}
 }

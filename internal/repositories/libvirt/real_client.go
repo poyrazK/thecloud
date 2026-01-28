@@ -1,3 +1,4 @@
+// Package libvirt provides Libvirt adapter implementations.
 package libvirt
 
 import (

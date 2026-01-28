@@ -1,3 +1,4 @@
+// Package workers hosts background worker implementations.
 package workers
 
 import (
@@ -12,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// LifecycleWorker periodically enforces bucket lifecycle rules.
 type LifecycleWorker struct {
 	lifecycleRepo ports.LifecycleRepository
 	storageSvc    ports.StorageService
@@ -20,6 +22,7 @@ type LifecycleWorker struct {
 	interval      time.Duration
 }
 
+// NewLifecycleWorker constructs a LifecycleWorker.
 func NewLifecycleWorker(lifecycleRepo ports.LifecycleRepository, storageSvc ports.StorageService, storageRepo ports.StorageRepository, logger *slog.Logger) *LifecycleWorker {
 	return &LifecycleWorker{
 		lifecycleRepo: lifecycleRepo,
