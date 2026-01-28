@@ -37,6 +37,7 @@ const (
 	testLocalhostSSH = "localhost:22"
 	testLoopbackAddr = "127.0.0.1:0"
 	testLocalhostIP  = "127.0.0.1"
+	testUnreachableIP = "192.0.2.1"
 	testErrTimedOut  = "timed out"
 	testCmdEcho      = "echo hello"
 	testTmpFile      = "/tmp/test"
@@ -97,12 +98,12 @@ func TestWaitForSSHContextCanceled(t *testing.T) {
 }
 
 func TestWaitForSSHHostWithoutPortTimeout(t *testing.T) {
-	client := &Client{Host: testLocalhostIP}
+	client := &Client{Host: testUnreachableIP}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	err := client.WaitForSSH(ctx, 2*time.Second)
+	err := client.WaitForSSH(ctx, 100*time.Millisecond)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), testErrTimedOut)
 }
