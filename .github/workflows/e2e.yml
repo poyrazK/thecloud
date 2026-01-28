@@ -1,0 +1,56 @@
+name: E2E Tests
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    name: End-to-End Suite
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Setup Infrastructure
+        env:
+          DB_PORT_MAPPING: 5433:5432 # Keep consistent with local tests
+          SECRETS_ENCRYPTION_KEY: 86694668270830491005527181313791 # Sample key for tests
+          JWT_SECRET: e2e-test-secret-key-that-is-long-enough-for-32-chars
+        run: |
+          # Start internal dependencies
+          docker compose up -d postgres redis jaeger
+          
+          # Wait for Postgres to be healthy using its container name
+          until docker exec cloud-db pg_isready -U cloud; do
+            echo "Waiting for postgres..."
+            sleep 2
+          done
+
+      - name: Start API
+        env:
+          DB_PORT_MAPPING: 5433:5432
+          SECRETS_ENCRYPTION_KEY: 86694668270830491005527181313791
+          JWT_SECRET: e2e-test-secret-key-that-is-long-enough-for-32-chars
+          TRACING_ENABLED: false
+        run: |
+          # Build and start API
+          docker compose up -d --build api
+          
+      - name: Run E2E Tests
+        env:
+          # The tests run on the HOST, connecting to the API at localhost:8080
+          # So we use the mapped DB port 5433 for direct DB tests if any
+          DATABASE_URL: postgres://cloud:cloud@localhost:5433/thecloud?sslmode=disable
+        run: |
+          # Run tests in parallel to achieve maximum speed.
+          # The 'sync.Once' logic in helpers_test.go ensures they won't all wait redundantly.
+          # We use -p 8 to allow high parallelism within the package.
+          go test -v -p 8 -timeout 10m ./tests/...
