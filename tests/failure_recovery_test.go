@@ -12,6 +12,7 @@ import (
 )
 
 func TestFailureRecovery(t *testing.T) {
+	t.Parallel()
 	if err := waitForServer(); err != nil {
 		t.Fatalf("Failing Failure Recovery test: %v", err)
 	}

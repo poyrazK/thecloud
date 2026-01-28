@@ -15,6 +15,7 @@ import (
 )
 
 func TestQueueE2E(t *testing.T) {
+	t.Parallel()
 	if err := waitForServer(); err != nil {
 		t.Fatalf("Failing Queue E2E test: %v", err)
 	}

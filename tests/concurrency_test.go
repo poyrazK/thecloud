@@ -12,6 +12,7 @@ import (
 )
 
 func TestConcurrency(t *testing.T) {
+	t.Parallel()
 	if err := waitForServer(); err != nil {
 		t.Fatalf("Failing Concurrency test: %v", err)
 	}

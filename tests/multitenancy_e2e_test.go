@@ -25,6 +25,7 @@ type Instance struct {
 const instancePathFmt = "%s/instances/%s"
 
 func TestMultiTenancyE2E(t *testing.T) {
+	t.Parallel()
 	// Skip if server is not reachable (e.g., in CI without live services)
 	if err := waitForServer(); err != nil {
 		t.Fatalf("Failing E2E test: %v (server at %s not available)", err, testutil.TestBaseURL)

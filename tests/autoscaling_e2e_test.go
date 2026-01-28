@@ -15,6 +15,7 @@ import (
 )
 
 func TestAutoScalingE2E(t *testing.T) {
+	t.Parallel()
 	if err := waitForServer(); err != nil {
 		t.Fatalf("Failing AutoScaling E2E test: %v", err)
 	}

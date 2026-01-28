@@ -15,6 +15,7 @@ import (
 )
 
 func TestDataIntegrity(t *testing.T) {
+	t.Parallel()
 	if err := waitForServer(); err != nil {
 		t.Fatalf("Failing Data Integrity test: %v", err)
 	}

@@ -12,6 +12,7 @@ import (
 )
 
 func TestEdgeCases(t *testing.T) {
+	t.Parallel()
 	if err := waitForServer(); err != nil {
 		t.Fatalf("Failing Edge Cases test: %v", err)
 	}

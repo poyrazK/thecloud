@@ -10,6 +10,7 @@ import (
 )
 
 func TestQuotaLimits(t *testing.T) {
+	t.Parallel()
 	if err := waitForServer(); err != nil {
 		t.Fatalf("Failing Quota Limits test: %v", err)
 	}

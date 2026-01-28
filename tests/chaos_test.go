@@ -13,6 +13,7 @@ import (
 )
 
 func TestChaos(t *testing.T) {
+	t.Parallel()
 	if err := waitForServer(); err != nil {
 		t.Fatalf("Failing Chaos test: %v", err)
 	}

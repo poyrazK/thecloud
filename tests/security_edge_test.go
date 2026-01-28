@@ -14,6 +14,7 @@ import (
 const instancesPath = "/instances"
 
 func TestSecurityEdge(t *testing.T) {
+	t.Parallel()
 	if err := waitForServer(); err != nil {
 		t.Fatalf("Failing Security Edge test: %v", err)
 	}

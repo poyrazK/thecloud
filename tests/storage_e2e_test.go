@@ -19,6 +19,7 @@ import (
 const storageObjectPathFormat = "%s/storage/%s/%s"
 
 func TestStorageE2E(t *testing.T) {
+	t.Parallel()
 	if err := waitForServer(); err != nil {
 		t.Fatalf("Failing Storage E2E test: %v (server at %s not available)", err, testutil.TestBaseURL)
 	}

@@ -28,6 +28,7 @@ type Cluster struct {
 }
 
 func TestKubernetesE2E(t *testing.T) {
+	t.Parallel()
 	if err := waitForServer(); err != nil {
 		t.Fatalf("Failing K8s E2E test: %v", err)
 	}
