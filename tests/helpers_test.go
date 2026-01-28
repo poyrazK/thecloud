@@ -21,21 +21,28 @@ const (
 	errTenantNotSet = "tenant ID not set for request"
 )
 
+var (
+	dockerCheckOnce sync.Once
+	dockerCheckErr  error
+)
+
 func waitForServer() error {
-	client := &http.Client{Timeout: 2 * time.Second}
+	// Check Docker status exactly once to fail fast if infrastructure is broken
+	dockerCheckOnce.Do(func() {
+		dockerCheckErr = checkDocker()
+	})
+
+	if dockerCheckErr != nil {
+		return fmt.Errorf("infrastructure error: %w (server not ready at %s)", dockerCheckErr, testutil.TestBaseURL)
+	}
+
+	client := &http.Client{Timeout: 1 * time.Second}
 	for i := 0; i < 30; i++ {
 		resp, err := client.Get(testutil.TestBaseURL + "/health")
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode == 200 {
 				return nil
-			}
-		}
-
-		// On first few failures, check if Docker is actually running to fail fast
-		if i == 5 {
-			if err := checkDocker(); err != nil {
-				return fmt.Errorf("infrastructure error: %w (server not ready at %s)", err, testutil.TestBaseURL)
 			}
 		}
 
