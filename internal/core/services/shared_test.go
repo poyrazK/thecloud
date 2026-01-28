@@ -2041,4 +2041,3 @@ func (m *MockTenantService) GetMembership(ctx context.Context, tenantID, userID 
 	}
 	return args.Get(0).(*domain.TenantMember), args.Error(1)
 }
-

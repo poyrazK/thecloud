@@ -18,11 +18,11 @@ import (
 )
 
 const (
-	apiKeyHeader   = "X-API-Key"
-	protectedPath  = "/protected"
-	tenantPath     = "/tenant"
-	validAPIKey    = "valid-key"
-	invalidAPIKey  = "invalid-key"
+	apiKeyHeader  = "X-API-Key"
+	protectedPath = "/protected"
+	tenantPath    = "/tenant"
+	validAPIKey   = "valid-key"
+	invalidAPIKey = "invalid-key"
 )
 
 type mockIdentityService struct {

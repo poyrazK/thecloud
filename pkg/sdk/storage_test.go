@@ -13,16 +13,16 @@ import (
 )
 
 const (
-	storageTestBucket       = "my-bucket"
-	storageTestKey          = "file.txt"
-	storageTestContent      = "hello world"
-	storageContentType      = "Content-Type"
-	storageApplicationJSON  = "application/json"
-	storageAPIKey           = "test-api-key"
-	storagePathPrefix       = "/storage/"
-	storageBucketName       = "bucket-1"
-	storageBucketsPath      = "/storage/buckets/"
-	storageRuleID           = "rule-1"
+	storageTestBucket      = "my-bucket"
+	storageTestKey         = "file.txt"
+	storageTestContent     = "hello world"
+	storageContentType     = "Content-Type"
+	storageApplicationJSON = "application/json"
+	storageAPIKey          = "test-api-key"
+	storagePathPrefix      = "/storage/"
+	storageBucketName      = "bucket-1"
+	storageBucketsPath     = "/storage/buckets/"
+	storageRuleID          = "rule-1"
 )
 
 func TestClientListObjects(t *testing.T) {

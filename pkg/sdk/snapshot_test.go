@@ -13,13 +13,13 @@ import (
 )
 
 const (
-	snapshotDescription   = "test snapshot"
-	snapshotAPIKey        = "test-api-key"
-	snapshotContentType   = "Content-Type"
+	snapshotDescription     = "test snapshot"
+	snapshotAPIKey          = "test-api-key"
+	snapshotContentType     = "Content-Type"
 	snapshotApplicationJSON = "application/json"
-	snapshotPath          = "/snapshots"
-	snapshotPathPrefix    = "/snapshots/"
-	snapshotExampleID     = "snap-1"
+	snapshotPath            = "/snapshots"
+	snapshotPathPrefix      = "/snapshots/"
+	snapshotExampleID       = "snap-1"
 )
 
 func TestClientCreateSnapshot(t *testing.T) {

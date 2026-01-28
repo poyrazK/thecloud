@@ -10,12 +10,12 @@ import (
 )
 
 const (
-	computeInstanceID     = "inst-1"
-	computeAPIKey         = "test-key"
-	computeContentType    = "Content-Type"
+	computeInstanceID      = "inst-1"
+	computeAPIKey          = "test-key"
+	computeContentType     = "Content-Type"
 	computeApplicationJSON = "application/json"
-	computeNewInstance    = "new-instance"
-	computeInstancesPath  = "/instances/"
+	computeNewInstance     = "new-instance"
+	computeInstancesPath   = "/instances/"
 )
 
 func TestClientListInstances(t *testing.T) {

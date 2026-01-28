@@ -34,14 +34,14 @@ func generateTestKey(t *testing.T) string {
 }
 
 const (
-	testLocalhostSSH = "localhost:22"
-	testLoopbackAddr = "127.0.0.1:0"
-	testLocalhostIP  = "127.0.0.1"
+	testLocalhostSSH  = "localhost:22"
+	testLoopbackAddr  = "127.0.0.1:0"
+	testLocalhostIP   = "127.0.0.1"
 	testUnreachableIP = "192.0.2.1"
-	testErrTimedOut  = "timed out"
-	testCmdEcho      = "echo hello"
-	testTmpFile      = "/tmp/test"
-	testScpCmdPrefix = "/usr/bin/scp -t "
+	testErrTimedOut   = "timed out"
+	testCmdEcho       = "echo hello"
+	testTmpFile       = "/tmp/test"
+	testScpCmdPrefix  = "/usr/bin/scp -t "
 )
 
 func TestNewClientWithKey(t *testing.T) {

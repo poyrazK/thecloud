@@ -12,18 +12,18 @@ import (
 )
 
 const (
-	functionContentType   = "Content-Type"
+	functionContentType     = "Content-Type"
 	functionApplicationJSON = "application/json"
-	functionAPIKey        = "test-api-key"
-	functionID            = "fn-1"
-	functionName          = "my-fn"
-	functionRuntime       = "nodejs20"
-	functionHandler       = "index.js"
-	functionCode          = "console.log('hi')"
-	functionInvokePayload = `{"key":"value"}`
-	functionInvocationID  = "inv-1"
-	functionPath          = "/api/v1/functions"
-	functionPathPrefix    = "/api/v1/functions/"
+	functionAPIKey          = "test-api-key"
+	functionID              = "fn-1"
+	functionName            = "my-fn"
+	functionRuntime         = "nodejs20"
+	functionHandler         = "index.js"
+	functionCode            = "console.log('hi')"
+	functionInvokePayload   = `{"key":"value"}`
+	functionInvocationID    = "inv-1"
+	functionPath            = "/api/v1/functions"
+	functionPathPrefix      = "/api/v1/functions/"
 )
 
 func newFunctionTestServer(t *testing.T) *httptest.Server {

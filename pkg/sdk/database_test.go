@@ -12,10 +12,10 @@ import (
 const (
 	dbTestName        = "test-db"
 	dbID              = "db-123"
-	dbAPIKey           = "test-api-key"
-	dbContentType      = "Content-Type"
-	dbApplicationJSON  = "application/json"
-	dbPathPrefix       = "/databases/"
+	dbAPIKey          = "test-api-key"
+	dbContentType     = "Content-Type"
+	dbApplicationJSON = "application/json"
+	dbPathPrefix      = "/databases/"
 )
 
 func TestClientCreateDatabase(t *testing.T) {
@@ -76,7 +76,6 @@ func TestClientListDatabases(t *testing.T) {
 	assert.Len(t, dbs, 2)
 }
 
-
 func TestClientGetDatabase(t *testing.T) {
 	id := dbID
 	expectedDB := Database{
@@ -102,7 +101,6 @@ func TestClientGetDatabase(t *testing.T) {
 	assert.Equal(t, expectedDB.ID, db.ID)
 }
 
-
 func TestClientDeleteDatabase(t *testing.T) {
 	id := dbID
 
@@ -119,7 +117,6 @@ func TestClientDeleteDatabase(t *testing.T) {
 
 	assert.NoError(t, err)
 }
-
 
 func TestClientGetDatabaseConnectionString(t *testing.T) {
 	id := dbID

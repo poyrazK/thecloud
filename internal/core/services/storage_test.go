@@ -20,13 +20,13 @@ import (
 )
 
 const (
-	testBucket = "test-bucket"
-	testKey    = "test-key"
-	testSecretKey = "test-secret"
-	storageUploadAction = "storage.object_upload"
-	bucketNotFoundMsg = "bucket not found"
-	notFoundMsg = "not found"
-	partData = "part-data"
+	testBucket                  = "test-bucket"
+	testKey                     = "test-key"
+	testSecretKey               = "test-secret"
+	storageUploadAction         = "storage.object_upload"
+	bucketNotFoundMsg           = "bucket not found"
+	notFoundMsg                 = "not found"
+	partData                    = "part-data"
 	storageMultipartAbortAction = "storage.multipart_abort"
 )
 

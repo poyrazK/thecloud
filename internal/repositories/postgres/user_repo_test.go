@@ -15,12 +15,12 @@ import (
 )
 
 const (
-	userRepoTestEmail         = "test@example.com"
-	userRepoTestName          = "Test User"
-	userRepoDBErrorMsg        = "db error"
-	userRepoSelectByEmailSQL  = "SELECT id, email, password_hash, name, role, created_at, updated_at FROM users WHERE email = \\$1"
-	userRepoSelectByIDSQL     = "SELECT id, email, password_hash, name, role, created_at, updated_at FROM users WHERE id = \\$1"
-	userRepoSelectAllSQL      = "SELECT id, email, password_hash, name, role, created_at, updated_at FROM users"
+	userRepoTestEmail        = "test@example.com"
+	userRepoTestName         = "Test User"
+	userRepoDBErrorMsg       = "db error"
+	userRepoSelectByEmailSQL = "SELECT id, email, password_hash, name, role, created_at, updated_at FROM users WHERE email = \\$1"
+	userRepoSelectByIDSQL    = "SELECT id, email, password_hash, name, role, created_at, updated_at FROM users WHERE id = \\$1"
+	userRepoSelectAllSQL     = "SELECT id, email, password_hash, name, role, created_at, updated_at FROM users"
 )
 
 func TestUserRepoCreate(t *testing.T) {

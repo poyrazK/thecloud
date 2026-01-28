@@ -13,13 +13,13 @@ import (
 )
 
 const (
-	iacTestStackName     = "test-stack"
-	iacTestTemplate      = "version: 1.0\nresources: []"
-	iacTestAPIKey        = "test-api-key"
-	iacTestContentType   = "Content-Type"
-	iacTestAppJSON       = "application/json"
-	iacTestStackOneName  = "stack-1"
-	iacTestStackTwoName  = "stack-2"
+	iacTestStackName    = "test-stack"
+	iacTestTemplate     = "version: 1.0\nresources: []"
+	iacTestAPIKey       = "test-api-key"
+	iacTestContentType  = "Content-Type"
+	iacTestAppJSON      = "application/json"
+	iacTestStackOneName = "stack-1"
+	iacTestStackTwoName = "stack-2"
 )
 
 func TestClientCreateStack(t *testing.T) {

@@ -10,14 +10,14 @@ import (
 )
 
 const (
-	lbContentType    = "Content-Type"
+	lbContentType     = "Content-Type"
 	lbApplicationJSON = "application/json"
-	lbID             = "lb-1"
-	lbName           = "test-lb"
-	lbInstanceID     = "inst-1"
-	lbAPIKey         = "test-key"
-	lbPath           = "/lb"
-	lbPathPrefix     = "/lb/"
+	lbID              = "lb-1"
+	lbName            = "test-lb"
+	lbInstanceID      = "inst-1"
+	lbAPIKey          = "test-key"
+	lbPath            = "/lb"
+	lbPathPrefix      = "/lb/"
 )
 
 func newLoadBalancerTestServer(t *testing.T) *httptest.Server {

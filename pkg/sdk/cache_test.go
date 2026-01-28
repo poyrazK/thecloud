@@ -11,16 +11,16 @@ import (
 )
 
 const (
-	cacheTestAPIKey       = "test-api-key"
-	cacheTestName         = "my-cache"
-	cacheTestID           = "c-1"
-	cacheTestBasePath     = "/api/v1/caches"
-	cacheTestContentType  = "Content-Type"
-	cacheTestAppJSON      = "application/json"
-	cacheTestConnString   = "redis://localhost:6379"
-	cacheTestVersion      = "7.0"
-	cacheTestMemoryMB     = 128
-	cacheTestStatsTotal   = int64(10)
+	cacheTestAPIKey      = "test-api-key"
+	cacheTestName        = "my-cache"
+	cacheTestID          = "c-1"
+	cacheTestBasePath    = "/api/v1/caches"
+	cacheTestContentType = "Content-Type"
+	cacheTestAppJSON     = "application/json"
+	cacheTestConnString  = "redis://localhost:6379"
+	cacheTestVersion     = "7.0"
+	cacheTestMemoryMB    = 128
+	cacheTestStatsTotal  = int64(10)
 )
 
 func newCacheTestServer(t *testing.T) *httptest.Server {

@@ -73,7 +73,7 @@ func TestLvmAdapterCreateVolumeSuccess(t *testing.T) {
 	fake := newFakeExecer()
 	fake.addCommand("lvcreate", func(args ...string) ([]byte, error) {
 		assert.Equal(t, []string{"-L", "10G", "-n", testVolumeName, "vg0"}, args)
-		return []byte("Logical volume \""+testVolumeName+"\" created"), nil
+		return []byte("Logical volume \"" + testVolumeName + "\" created"), nil
 	})
 
 	adapter := &LvmAdapter{vgName: "vg0", execer: fake}
@@ -99,7 +99,7 @@ func TestLvmAdapterCreateVolumeFailure(t *testing.T) {
 func TestLvmAdapterDeleteVolumeSuccess(t *testing.T) {
 	fake := newFakeExecer()
 	fake.addCommand("lvremove", func(args ...string) ([]byte, error) {
-		assert.Equal(t, []string{"-f", "vg0/"+testVolumeName}, args)
+		assert.Equal(t, []string{"-f", "vg0/" + testVolumeName}, args)
 		return nil, nil
 	})
 
