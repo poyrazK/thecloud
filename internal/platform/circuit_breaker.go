@@ -96,6 +96,11 @@ func (cb *CircuitBreaker) recordSuccess() {
 	cb.state = StateClosed
 }
 
+// Reset clears the circuit breaker state.
+func (cb *CircuitBreaker) Reset() {
+	cb.recordSuccess()
+}
+
 // GetState returns the current state of the circuit breaker.
 func (cb *CircuitBreaker) GetState() State {
 	cb.mu.RLock()
