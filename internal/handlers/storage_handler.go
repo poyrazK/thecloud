@@ -369,8 +369,10 @@ func (h *StorageHandler) AbortMultipartUpload(c *gin.Context) {
 
 // GeneratePresignedURL creates a time-limited signed URL
 func (h *StorageHandler) GeneratePresignedURL(c *gin.Context) {
-	bucket := c.Param("bucket")
-	key := c.Param("key")
+	bucket, key, ok := getBucketAndKeyRequired(c)
+	if !ok {
+		return
+	}
 
 	var req struct {
 		Method    string `json:"method"` // GET or PUT
@@ -401,8 +403,10 @@ func (h *StorageHandler) GeneratePresignedURL(c *gin.Context) {
 
 // ServePresignedDownload handles object download via signed URL (no auth needed)
 func (h *StorageHandler) ServePresignedDownload(c *gin.Context) {
-	bucket := c.Param("bucket")
-	key := c.Param("key")
+	bucket, key, ok := getBucketAndKeyRequired(c)
+	if !ok {
+		return
+	}
 	expires := c.Query("expires")
 	signature := c.Query("signature")
 
@@ -445,8 +449,10 @@ func (h *StorageHandler) ServePresignedDownload(c *gin.Context) {
 
 // ServePresignedUpload handles object upload via signed URL (no auth needed)
 func (h *StorageHandler) ServePresignedUpload(c *gin.Context) {
-	bucket := c.Param("bucket")
-	key := c.Param("key")
+	bucket, key, ok := getBucketAndKeyRequired(c)
+	if !ok {
+		return
+	}
 	expires := c.Query("expires")
 	signature := c.Query("signature")
 
@@ -496,7 +502,10 @@ func (h *StorageHandler) ServePresignedUpload(c *gin.Context) {
 // @Success 200
 // @Router /storage/buckets/{bucket}/versioning [patch]
 func (h *StorageHandler) SetBucketVersioning(c *gin.Context) {
-	bucket := c.Param("bucket")
+	bucket, ok := getBucket(c)
+	if !ok {
+		return
+	}
 	var req struct {
 		Enabled bool `json:"enabled"`
 	}
@@ -524,8 +533,10 @@ func (h *StorageHandler) SetBucketVersioning(c *gin.Context) {
 // @Success 200 {array} domain.Object
 // @Router /storage/versions/{bucket}/{key} [get]
 func (h *StorageHandler) ListVersions(c *gin.Context) {
-	bucket := c.Param("bucket")
-	key := c.Param("key")
+	bucket, key, ok := getBucketAndKeyRequired(c)
+	if !ok {
+		return
+	}
 
 	versions, err := h.svc.ListVersions(c.Request.Context(), bucket, key)
 	if err != nil {
