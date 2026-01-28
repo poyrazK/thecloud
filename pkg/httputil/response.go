@@ -76,6 +76,9 @@ func Error(c *gin.Context, err error) {
 		errors.PortConflict:          http.StatusConflict,
 		errors.TooManyPorts:          http.StatusConflict,
 		errors.ResourceLimitExceeded: http.StatusTooManyRequests,
+		errors.LBNotFound:            http.StatusNotFound,
+		errors.LBTargetExists:        http.StatusConflict,
+		errors.LBCrossVPC:            http.StatusBadRequest,
 	}
 
 	statusCode := http.StatusInternalServerError
