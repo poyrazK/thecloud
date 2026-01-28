@@ -1625,7 +1625,11 @@ func (m *MockLBRepo) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	return args.Get(0).([]*domain.LoadBalancer), args.Error(1)
 }
 func (m *MockLBRepo) ListAll(ctx context.Context) ([]*domain.LoadBalancer, error) {
-	return m.List(ctx)
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.LoadBalancer), args.Error(1)
 }
 func (m *MockLBRepo) Update(ctx context.Context, lb *domain.LoadBalancer) error {
 	return m.Called(ctx, lb).Error(0)

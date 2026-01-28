@@ -55,7 +55,14 @@ jobs:
         run: go test -v ./cmd/... ./internal/... ./pkg/...
 
       - name: Run Race Detection
-        run: go test -race -v ./cmd/... ./internal/... ./pkg/...
+        run: |
+          set -o pipefail
+          go test -race -v ./cmd/... ./internal/... ./pkg/... 2>&1 | tee race-output.txt || {
+            echo "Race detection found issues. See above for details."
+            grep -A 30 "WARNING: DATA RACE" race-output.txt || true
+            exit 1
+          }
+
         
       - name: Wait for Database
         run: |
