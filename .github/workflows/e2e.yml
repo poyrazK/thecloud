@@ -39,6 +39,7 @@ jobs:
           DB_PORT_MAPPING: 5433:5432
           SECRETS_ENCRYPTION_KEY: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789 # 32 bytes (64 hex chars)
           JWT_SECRET: e2e-test-secret-key-that-is-long-enough-for-32-chars
+          DATABASE_READ_URL: postgres://cloud:cloud@postgres:5432/cloud?sslmode=disable
           TRACING_ENABLED: false
         run: |
           # Build and start API
