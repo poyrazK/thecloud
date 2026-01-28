@@ -80,8 +80,13 @@ func (h *StorageHandler) Upload(c *gin.Context) {
 // @Failure 404 {object} httputil.Response
 // @Router /storage/{bucket}/{key} [get]
 func (h *StorageHandler) Download(c *gin.Context) {
-	bucket := c.Param("bucket")
-	key := c.Param("key")
+	bucket, key, ok := getBucketAndKey(c)
+	if !ok || key == "" {
+		if ok {
+			httputil.Error(c, errors.New(errors.InvalidInput, "key is required"))
+		}
+		return
+	}
 	versionID := c.Query("versionId")
 
 	var reader io.ReadCloser
@@ -143,8 +148,13 @@ func (h *StorageHandler) List(c *gin.Context) {
 // @Failure 404 {object} httputil.Response
 // @Router /storage/{bucket}/{key} [delete]
 func (h *StorageHandler) Delete(c *gin.Context) {
-	bucket := c.Param("bucket")
-	key := c.Param("key")
+	bucket, key, ok := getBucketAndKey(c)
+	if !ok || key == "" {
+		if ok {
+			httputil.Error(c, errors.New(errors.InvalidInput, "key is required"))
+		}
+		return
+	}
 	versionID := c.Query("versionId")
 
 	var err error
@@ -263,8 +273,13 @@ func (h *StorageHandler) GetClusterStatus(c *gin.Context) {
 // @Success 201 {object} domain.MultipartUpload
 // @Router /storage/{bucket}/{key}/multipart [post]
 func (h *StorageHandler) InitiateMultipartUpload(c *gin.Context) {
-	bucket := c.Param("bucket")
-	key := c.Param("key")
+	bucket, key, ok := getBucketAndKey(c)
+	if !ok || key == "" {
+		if ok {
+			httputil.Error(c, errors.New(errors.InvalidInput, "key is required"))
+		}
+		return
+	}
 
 	upload, err := h.svc.CreateMultipartUpload(c.Request.Context(), bucket, key)
 	if err != nil {
