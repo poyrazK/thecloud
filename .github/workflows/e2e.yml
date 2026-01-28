@@ -77,12 +77,13 @@ jobs:
           # Run tests in parallel to achieve maximum speed.
           # The 'sync.Once' logic in helpers_test.go ensures they won't all wait redundantly.
           # We use -p 8 to allow high parallelism within the package.
-          # Increase timeout to 15m as building and starting the stack can take time.
           # 1. Run standard parallel tests (excluding chaos tests due to build tag)
           go test -v -p 8 -timeout 10m ./tests/...
           
-          # 2. Run chaos tests sequentially to avoid disrupting other tests
-          go test -v -tags=chaos -timeout 5m ./tests/chaos_test.go
+          # 2. Run chaos tests sequentially (uses package path to include helpers)
+          # Note: Chaos tests are destructive and restart containers, so they run last
+          go test -v -tags=chaos -timeout 5m ./tests/...
+
 
       - name: Debug Logs on Failure
         if: failure()
