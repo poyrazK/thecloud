@@ -175,7 +175,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	eventSvc := services.NewEventService(c.Repos.Event, wsHub, c.Logger)
 
 	// 3. Cloud Infrastructure Services (VPC, Subnet, Instance, Volume, SG, LB)
-	vpcSvc := services.NewVpcService(c.Repos.Vpc, c.Network, auditSvc, c.Logger, c.Config.DefaultVPCCIDR)
+	vpcSvc := services.NewVpcService(c.Repos.Vpc, c.Repos.LB, c.Network, auditSvc, c.Logger, c.Config.DefaultVPCCIDR)
 	subnetSvc := services.NewSubnetService(c.Repos.Subnet, c.Repos.Vpc, auditSvc, c.Logger)
 	volumeSvc := services.NewVolumeService(c.Repos.Volume, c.Storage, eventSvc, auditSvc, c.Logger)
 	instSvcConcrete := services.NewInstanceService(services.InstanceServiceParams{
@@ -224,7 +224,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	imageSvc := services.NewImageService(c.Repos.Image, fileStore, c.Logger)
 	provisionWorker := workers.NewProvisionWorker(instSvcConcrete, c.Repos.TaskQueue, c.Logger)
 
-	clusterSvc, clusterProvisioner, err := initClusterServices(c, vpcSvc, instSvcConcrete, secretSvc, storageSvc, lbSvc)
+	clusterSvc, clusterProvisioner, err := initClusterServices(c, vpcSvc, instSvcConcrete, secretSvc, storageSvc, lbSvc, sgSvc)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -304,8 +304,8 @@ func initStorageServices(c ServiceConfig, audit ports.AuditService, encryption p
 	return storageSvc, fileStore, nil
 }
 
-func initClusterServices(c ServiceConfig, vpcSvc ports.VpcService, instSvc ports.InstanceService, secretSvc ports.SecretService, storageSvc ports.StorageService, lbSvc ports.LBService) (ports.ClusterService, ports.ClusterProvisioner, error) {
-	clusterProvisioner := k8s.NewKubeadmProvisioner(instSvc, c.Repos.Cluster, secretSvc, nil, storageSvc, lbSvc, c.Logger)
+func initClusterServices(c ServiceConfig, vpcSvc ports.VpcService, instSvc ports.InstanceService, secretSvc ports.SecretService, storageSvc ports.StorageService, lbSvc ports.LBService, sgSvc ports.SecurityGroupService) (ports.ClusterService, ports.ClusterProvisioner, error) {
+	clusterProvisioner := k8s.NewKubeadmProvisioner(instSvc, c.Repos.Cluster, secretSvc, sgSvc, storageSvc, lbSvc, c.Logger)
 	clusterSvc, err := services.NewClusterService(services.ClusterServiceParams{
 		Repo: c.Repos.Cluster, Provisioner: clusterProvisioner, VpcSvc: vpcSvc, InstanceSvc: instSvc, SecretSvc: secretSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
 	})

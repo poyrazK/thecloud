@@ -61,6 +61,13 @@ func (p *KubeadmProvisioner) GetSecretService() ports.SecretService {
 }
 
 func (p *KubeadmProvisioner) Provision(ctx context.Context, cluster *domain.Cluster) error {
+	if p.sgSvc == nil {
+		return fmt.Errorf("security group service not initialized")
+	}
+	if p.instSvc == nil {
+		return fmt.Errorf("instance service not initialized")
+	}
+
 	p.logger.Info("starting provisioning for cluster", "cluster_id", cluster.ID, "name", cluster.Name)
 
 	// Phase 0: Ensure Security Group
@@ -81,6 +88,9 @@ func (p *KubeadmProvisioner) Provision(ctx context.Context, cluster *domain.Clus
 	}
 
 	// Phase 3: Finalize (CNI, etc)
+	if len(cluster.ControlPlaneIPs) == 0 {
+		return p.failCluster(ctx, cluster, "no control plane IPs found after provisioning", nil)
+	}
 	masterIP := cluster.ControlPlaneIPs[0]
 	return p.finalizeCluster(ctx, cluster, masterIP)
 }

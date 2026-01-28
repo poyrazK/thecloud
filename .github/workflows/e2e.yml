@@ -24,6 +24,7 @@ jobs:
           DB_PORT_MAPPING: 5433:5432 # Keep consistent with local tests
           SECRETS_ENCRYPTION_KEY: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789 # 32 bytes (64 hex chars)
           JWT_SECRET: e2e-test-secret-key-that-is-long-enough-for-32-chars
+          DATABASE_READ_URL: postgres://cloud:cloud@postgres:5432/cloud?sslmode=disable
         run: |
           # Start internal dependencies
           docker compose up -d postgres redis jaeger
@@ -42,8 +43,23 @@ jobs:
           DATABASE_READ_URL: postgres://cloud:cloud@postgres:5432/cloud?sslmode=disable
           TRACING_ENABLED: false
         run: |
+          # Export variables so docker-compose can access them
+          export SECRETS_ENCRYPTION_KEY="${SECRETS_ENCRYPTION_KEY}"
+          export JWT_SECRET="${JWT_SECRET}"
+          export DATABASE_READ_URL="${DATABASE_READ_URL}"
+          export TRACING_ENABLED="${TRACING_ENABLED}"
+          export DB_PORT_MAPPING="${DB_PORT_MAPPING}"
+
           # Build and start API
           docker compose up -d --build api
+          
+          # Wait for API to be ready
+          echo "Waiting for API to be ready..."
+          timeout 60 bash -c 'until curl -sf http://localhost:8080/health > /dev/null; do sleep 2; done' || {
+            echo "API failed to start or become healthy within 60s"
+            docker compose logs api
+            exit 1
+          }
           
           # Check if API is running
           docker compose ps

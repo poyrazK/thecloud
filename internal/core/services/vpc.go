@@ -20,6 +20,7 @@ import (
 // including network isolation through OVS bridges and backend persistence.
 type VpcService struct {
 	repo        ports.VpcRepository
+	lbRepo      ports.LBRepository
 	network     ports.NetworkBackend
 	auditSvc    ports.AuditService
 	logger      *slog.Logger
@@ -28,12 +29,13 @@ type VpcService struct {
 
 // NewVpcService creates a new instance of VpcService.
 // If defaultCIDR is empty, it defaults to "10.0.0.0/16".
-func NewVpcService(repo ports.VpcRepository, network ports.NetworkBackend, auditSvc ports.AuditService, logger *slog.Logger, defaultCIDR string) *VpcService {
+func NewVpcService(repo ports.VpcRepository, lbRepo ports.LBRepository, network ports.NetworkBackend, auditSvc ports.AuditService, logger *slog.Logger, defaultCIDR string) *VpcService {
 	if defaultCIDR == "" {
 		defaultCIDR = "10.0.0.0/16" // Fallback if not provided
 	}
 	return &VpcService{
 		repo:        repo,
+		lbRepo:      lbRepo,
 		network:     network,
 		auditSvc:    auditSvc,
 		logger:      logger,
@@ -124,14 +126,24 @@ func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
 		return err
 	}
 
-	// 1. Remove OVS bridge
+	// 1. Check for dependent resources (Load Balancers)
+	lbs, err := s.lbRepo.ListAll(ctx)
+	if err == nil {
+		for _, lb := range lbs {
+			if lb.VpcID == vpc.ID && lb.Status != domain.LBStatusDeleted {
+				return errors.New(errors.Conflict, "cannot delete VPC: load balancers still exist")
+			}
+		}
+	}
+
+	// 2. Remove OVS bridge
 	if err := s.network.DeleteBridge(ctx, vpc.NetworkID); err != nil {
 		s.logger.Error("failed to remove OVS bridge", "bridge", vpc.NetworkID, "error", err)
 		return errors.Wrap(errors.Internal, "failed to remove OVS bridge", err)
 	}
 	s.logger.Info("vpc bridge removed", "bridge", vpc.NetworkID)
 
-	// 2. Delete from DB
+	// 3. Delete from DB
 	if err := s.repo.Delete(ctx, vpc.ID); err != nil {
 		return errors.Wrap(errors.Internal, "failed to delete VPC from database", err)
 	}

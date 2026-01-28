@@ -365,3 +365,37 @@ func (b *NoopStorageBackend) RestoreSnapshot(ctx context.Context, vol, snap stri
 func (b *NoopStorageBackend) DeleteSnapshot(ctx context.Context, snap string) error       { return nil }
 func (b *NoopStorageBackend) Ping(ctx context.Context) error                              { return nil }
 func (b *NoopStorageBackend) Type() string                                                { return "noop" }
+
+// NoopLBRepository is a no-op load balancer repository.
+type NoopLBRepository struct{}
+
+func (r *NoopLBRepository) Create(ctx context.Context, lb *domain.LoadBalancer) error { return nil }
+func (r *NoopLBRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.LoadBalancer, error) {
+	return &domain.LoadBalancer{ID: id}, nil
+}
+func (r *NoopLBRepository) GetByIdempotencyKey(ctx context.Context, key string) (*domain.LoadBalancer, error) {
+	return &domain.LoadBalancer{ID: uuid.New(), IdempotencyKey: key}, nil
+}
+func (r *NoopLBRepository) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
+	return []*domain.LoadBalancer{}, nil
+}
+func (r *NoopLBRepository) ListAll(ctx context.Context) ([]*domain.LoadBalancer, error) {
+	return []*domain.LoadBalancer{}, nil
+}
+func (r *NoopLBRepository) Update(ctx context.Context, lb *domain.LoadBalancer) error { return nil }
+func (r *NoopLBRepository) Delete(ctx context.Context, id uuid.UUID) error            { return nil }
+func (r *NoopLBRepository) AddTarget(ctx context.Context, target *domain.LBTarget) error {
+	return nil
+}
+func (r *NoopLBRepository) RemoveTarget(ctx context.Context, lbID, instanceID uuid.UUID) error {
+	return nil
+}
+func (r *NoopLBRepository) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*domain.LBTarget, error) {
+	return []*domain.LBTarget{}, nil
+}
+func (r *NoopLBRepository) UpdateTargetHealth(ctx context.Context, lbID, instanceID uuid.UUID, health string) error {
+	return nil
+}
+func (r *NoopLBRepository) GetTargetsForInstance(ctx context.Context, instanceID uuid.UUID) ([]*domain.LBTarget, error) {
+	return []*domain.LBTarget{}, nil
+}

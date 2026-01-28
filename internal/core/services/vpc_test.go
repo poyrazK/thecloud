@@ -18,18 +18,19 @@ import (
 
 const vpcDeleteName = "to-delete"
 
-func setupVpcServiceTest(cidr string) (*MockVpcRepo, *MockNetworkBackend, *MockAuditService, ports.VpcService) {
+func setupVpcServiceTest(cidr string) (*MockVpcRepo, *MockNetworkBackend, *MockAuditService, *MockLBRepo, ports.VpcService) {
 	vpcRepo := new(MockVpcRepo)
 	network := new(MockNetworkBackend)
 	auditSvc := new(MockAuditService)
+	lbRepo := new(MockLBRepo)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewVpcService(vpcRepo, network, auditSvc, logger, cidr)
-	return vpcRepo, network, auditSvc, svc
+	svc := services.NewVpcService(vpcRepo, lbRepo, network, auditSvc, logger, cidr)
+	return vpcRepo, network, auditSvc, lbRepo, svc
 }
 
 func TestVpcServiceCreateSuccess(t *testing.T) {
-	vpcRepo, network, auditSvc, svc := setupVpcServiceTest(testutil.TestCIDR)
+	vpcRepo, network, auditSvc, _, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 	defer network.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
@@ -55,7 +56,7 @@ func TestVpcServiceCreateSuccess(t *testing.T) {
 }
 
 func TestVpcServiceCreateDBFailureRollsBackBridge(t *testing.T) {
-	vpcRepo, network, _, svc := setupVpcServiceTest(testutil.TestCIDR)
+	vpcRepo, network, _, _, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 	defer network.AssertExpectations(t)
 
@@ -73,7 +74,7 @@ func TestVpcServiceCreateDBFailureRollsBackBridge(t *testing.T) {
 }
 
 func TestVpcServiceCreateDBFailureRollbackError(t *testing.T) {
-	vpcRepo, network, _, svc := setupVpcServiceTest(testutil.TestCIDR)
+	vpcRepo, network, _, _, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 	defer network.AssertExpectations(t)
 
@@ -90,7 +91,7 @@ func TestVpcServiceCreateDBFailureRollbackError(t *testing.T) {
 }
 
 func TestVpcServiceCreateBridgeError(t *testing.T) {
-	vpcRepo, network, _, svc := setupVpcServiceTest(testutil.TestCIDR)
+	vpcRepo, network, _, _, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 	defer network.AssertExpectations(t)
 
@@ -104,7 +105,7 @@ func TestVpcServiceCreateBridgeError(t *testing.T) {
 }
 
 func TestVpcServiceCreateDefaultCIDR(t *testing.T) {
-	vpcRepo, network, auditSvc, svc := setupVpcServiceTest("")
+	vpcRepo, network, auditSvc, _, svc := setupVpcServiceTest("")
 	defer vpcRepo.AssertExpectations(t)
 	defer network.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
@@ -124,10 +125,11 @@ func TestVpcServiceCreateDefaultCIDR(t *testing.T) {
 }
 
 func TestVpcServiceDeleteSuccess(t *testing.T) {
-	vpcRepo, network, auditSvc, svc := setupVpcServiceTest(testutil.TestCIDR)
+	vpcRepo, network, auditSvc, lbRepo, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 	defer network.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
+	defer lbRepo.AssertExpectations(t)
 
 	vpcID := uuid.New()
 	vpc := &domain.VPC{
@@ -137,6 +139,7 @@ func TestVpcServiceDeleteSuccess(t *testing.T) {
 	}
 
 	vpcRepo.On("GetByID", mock.Anything, vpcID).Return(vpc, nil)
+	lbRepo.On("ListAll", mock.Anything).Return([]*domain.LoadBalancer{}, nil)
 	network.On("DeleteBridge", mock.Anything, "br-vpc-123").Return(nil)
 	vpcRepo.On("Delete", mock.Anything, vpcID).Return(nil)
 	auditSvc.On("Log", mock.Anything, mock.Anything, "vpc.delete", "vpc", mock.Anything, mock.Anything).Return(nil)
@@ -147,7 +150,7 @@ func TestVpcServiceDeleteSuccess(t *testing.T) {
 }
 
 func TestVpcServiceDeleteBridgeError(t *testing.T) {
-	vpcRepo, network, _, svc := setupVpcServiceTest(testutil.TestCIDR)
+	vpcRepo, network, _, lbRepo, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 	defer network.AssertExpectations(t)
 
@@ -159,6 +162,7 @@ func TestVpcServiceDeleteBridgeError(t *testing.T) {
 	}
 
 	vpcRepo.On("GetByID", mock.Anything, vpcID).Return(vpc, nil)
+	lbRepo.On("ListAll", mock.Anything).Return([]*domain.LoadBalancer{}, nil)
 	network.On("DeleteBridge", mock.Anything, "br-vpc-err").Return(assert.AnError)
 
 	err := svc.DeleteVPC(context.Background(), vpcID.String())
@@ -168,7 +172,7 @@ func TestVpcServiceDeleteBridgeError(t *testing.T) {
 }
 
 func TestVpcServiceDeleteGetError(t *testing.T) {
-	vpcRepo, _, _, svc := setupVpcServiceTest(testutil.TestCIDR)
+	vpcRepo, _, _, _, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 
 	vpcRepo.On("GetByID", mock.Anything, mock.Anything).Return(nil, assert.AnError)
@@ -178,7 +182,7 @@ func TestVpcServiceDeleteGetError(t *testing.T) {
 }
 
 func TestVpcServiceDeleteRepoError(t *testing.T) {
-	vpcRepo, network, _, svc := setupVpcServiceTest(testutil.TestCIDR)
+	vpcRepo, network, _, lbRepo, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 	defer network.AssertExpectations(t)
 
@@ -190,6 +194,7 @@ func TestVpcServiceDeleteRepoError(t *testing.T) {
 	}
 
 	vpcRepo.On("GetByID", mock.Anything, vpcID).Return(vpc, nil)
+	lbRepo.On("ListAll", mock.Anything).Return([]*domain.LoadBalancer{}, nil)
 	network.On("DeleteBridge", mock.Anything, "br-vpc-ok").Return(nil)
 	vpcRepo.On("Delete", mock.Anything, vpcID).Return(assert.AnError)
 
@@ -199,7 +204,7 @@ func TestVpcServiceDeleteRepoError(t *testing.T) {
 }
 
 func TestVpcServiceDeleteByName(t *testing.T) {
-	vpcRepo, network, auditSvc, svc := setupVpcServiceTest(testutil.TestCIDR)
+	vpcRepo, network, auditSvc, lbRepo, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 	defer network.AssertExpectations(t)
 	defer auditSvc.AssertExpectations(t)
@@ -209,6 +214,7 @@ func TestVpcServiceDeleteByName(t *testing.T) {
 	vpc := &domain.VPC{ID: vpcID, Name: name, NetworkID: "br-vpc-name"}
 
 	vpcRepo.On("GetByName", mock.Anything, name).Return(vpc, nil)
+	lbRepo.On("ListAll", mock.Anything).Return([]*domain.LoadBalancer{}, nil)
 	network.On("DeleteBridge", mock.Anything, "br-vpc-name").Return(nil)
 	vpcRepo.On("Delete", mock.Anything, vpcID).Return(nil)
 	auditSvc.On("Log", mock.Anything, mock.Anything, "vpc.delete", "vpc", mock.Anything, mock.Anything).Return(nil)
@@ -218,7 +224,7 @@ func TestVpcServiceDeleteByName(t *testing.T) {
 }
 
 func TestVpcServiceListSuccess(t *testing.T) {
-	vpcRepo, _, _, svc := setupVpcServiceTest(testutil.TestCIDR)
+	vpcRepo, _, _, _, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 
 	vpcs := []*domain.VPC{{Name: "vpc1"}, {Name: "vpc2"}}
@@ -231,7 +237,7 @@ func TestVpcServiceListSuccess(t *testing.T) {
 }
 
 func TestVpcServiceGetByName(t *testing.T) {
-	vpcRepo, _, _, svc := setupVpcServiceTest(testutil.TestCIDR)
+	vpcRepo, _, _, _, svc := setupVpcServiceTest(testutil.TestCIDR)
 	defer vpcRepo.AssertExpectations(t)
 
 	name := "my-vpc"
@@ -243,4 +249,22 @@ func TestVpcServiceGetByName(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, name, result.Name)
+}
+
+func TestVpcServiceDeleteFailureWithLBs(t *testing.T) {
+	vpcRepo, _, _, lbRepo, svc := setupVpcServiceTest(testutil.TestCIDR)
+	defer vpcRepo.AssertExpectations(t)
+	defer lbRepo.AssertExpectations(t)
+
+	vpcID := uuid.New()
+	vpc := &domain.VPC{ID: vpcID, Name: "in-use"}
+
+	vpcRepo.On("GetByID", mock.Anything, vpcID).Return(vpc, nil)
+	lbRepo.On("ListAll", mock.Anything).Return([]*domain.LoadBalancer{
+		{ID: uuid.New(), VpcID: vpcID, Status: "active"},
+	}, nil)
+
+	err := svc.DeleteVPC(context.Background(), vpcID.String())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "load balancers still exist")
 }
