@@ -39,14 +39,6 @@ func (m *mockDB) Ping(ctx context.Context) error {
 	return m.Called(ctx).Error(0)
 }
 
-type mockHealthSetter struct {
-	mock.Mock
-}
-
-func (m *mockHealthSetter) SetReplicaHealthy(healthy bool) {
-	m.Called(healthy)
-}
-
 func TestReplicaMonitor(t *testing.T) {
 	ctx := context.Background()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
