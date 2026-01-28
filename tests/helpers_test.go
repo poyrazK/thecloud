@@ -37,7 +37,7 @@ func waitForServer() error {
 	}
 
 	client := &http.Client{Timeout: 1 * time.Second}
-	for i := 0; i < 30; i++ {
+	for i := 0; i < 60; i++ {
 		resp, err := client.Get(testutil.TestBaseURL + "/health")
 		if err == nil {
 			resp.Body.Close()
@@ -46,6 +46,9 @@ func waitForServer() error {
 			}
 		}
 
+		if i%10 == 0 {
+			fmt.Printf("Waiting for server at %s (attempt %d/60)...\n", testutil.TestBaseURL, i+1)
+		}
 		time.Sleep(1 * time.Second)
 	}
 	return fmt.Errorf("server not ready at %s", testutil.TestBaseURL)

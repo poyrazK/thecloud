@@ -44,6 +44,9 @@ jobs:
           # Build and start API
           docker compose up -d --build api
           
+          # Check if API is running
+          docker compose ps
+          
       - name: Run E2E Tests
         env:
           # The tests run on the HOST, connecting to the API at localhost:8080
@@ -53,4 +56,11 @@ jobs:
           # Run tests in parallel to achieve maximum speed.
           # The 'sync.Once' logic in helpers_test.go ensures they won't all wait redundantly.
           # We use -p 8 to allow high parallelism within the package.
-          go test -v -p 8 -timeout 10m ./tests/...
+          # Increase timeout to 15m as building and starting the stack can take time.
+          go test -v -p 8 -timeout 15m ./tests/...
+
+      - name: Debug Logs on Failure
+        if: failure()
+        run: |
+          echo "Dumping container logs for debugging..."
+          docker compose logs --tail=200
