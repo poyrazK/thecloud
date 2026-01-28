@@ -195,7 +195,80 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	}
 
 	// 4. Advanced Services (Storage, DB, Secrets, FaaS, Cache, Queue)
+	storageSvc, fileStore, err := initStorageServices(c, auditSvc, encryptionSvc)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	databaseSvc := services.NewDatabaseService(c.Repos.Database, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
+	secretSvc := services.NewSecretService(c.Repos.Secret, eventSvc, auditSvc, c.Logger, c.Config.SecretsEncryptionKey, c.Config.Environment)
+	fnSvc := services.NewFunctionService(c.Repos.Function, c.Compute, fileStore, auditSvc, c.Logger)
+	cacheSvc := services.NewCacheService(c.Repos.Cache, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
+	queueSvc := services.NewQueueService(c.Repos.Queue, eventSvc, auditSvc)
+	notifySvc := services.NewNotifyService(c.Repos.Notify, queueSvc, eventSvc, auditSvc, c.Logger)
+
+	// 5. DevOps & Automation Services
+	cronSvc := services.NewCronService(c.Repos.Cron, eventSvc, auditSvc)
+	cronWorker := services.NewCronWorker(c.Repos.Cron)
+	gwSvc := services.NewGatewayService(c.Repos.Gateway, auditSvc)
+	containerSvc := services.NewContainerService(c.Repos.Container, eventSvc, auditSvc)
+	containerWorker := services.NewContainerWorker(c.Repos.Container, instSvcConcrete, eventSvc)
+	snapshotSvc := services.NewSnapshotService(c.Repos.Snapshot, c.Repos.Volume, c.Storage, eventSvc, auditSvc, c.Logger)
+	stackSvc := services.NewStackService(c.Repos.Stack, instSvcConcrete, vpcSvc, volumeSvc, snapshotSvc, c.Logger)
+
+	// 6. Business & Scaling Services
+	asgSvc := services.NewAutoScalingService(c.Repos.AutoScaling, c.Repos.Vpc, auditSvc)
+	asgWorker := services.NewAutoScalingWorker(c.Repos.AutoScaling, instSvcConcrete, lbSvc, eventSvc, ports.RealClock{})
+	accountingSvc := services.NewAccountingService(c.Repos.Accounting, c.Repos.Instance, c.Logger)
+	accountingWorker := workers.NewAccountingWorker(accountingSvc, c.Logger)
+	imageSvc := services.NewImageService(c.Repos.Image, fileStore, c.Logger)
+	provisionWorker := workers.NewProvisionWorker(instSvcConcrete, c.Repos.TaskQueue, c.Logger)
+
+	clusterSvc, clusterProvisioner, err := initClusterServices(c, vpcSvc, instSvcConcrete, secretSvc, storageSvc, lbSvc)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	svcs := &Services{
+		WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Tenant: tenantSvc, Auth: authSvc, PasswordReset: pwdResetSvc, RBAC: rbacSvc,
+		Vpc: vpcSvc, Subnet: subnetSvc, Event: eventSvc, Volume: volumeSvc, Instance: instSvcConcrete,
+		SecurityGroup: sgSvc, LB: lbSvc, Snapshot: snapshotSvc, Stack: stackSvc,
+		Storage: storageSvc, Database: databaseSvc, Secret: secretSvc, Function: fnSvc, Cache: cacheSvc,
+		Queue: queueSvc, Notify: notifySvc, Cron: cronSvc, Gateway: gwSvc, Container: containerSvc,
+		Health: services.NewHealthServiceImpl(c.DB, c.Compute, clusterSvc), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc,
+		Cluster:   clusterSvc,
+		Dashboard: services.NewDashboardService(c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger),
+		Lifecycle: services.NewLifecycleService(c.Repos.Lifecycle, c.Repos.Storage),
+	}
+
+	// 7. High Availability & Monitoring
+	replicaMonitor := initReplicaMonitor(c)
+
+	workersCollection := &Workers{
+		LB: lbWorker, AutoScaling: asgWorker, Cron: cronWorker, Container: containerWorker,
+		Provision: provisionWorker, Accounting: accountingWorker,
+		Cluster:           workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.TaskQueue, c.Logger),
+		Lifecycle:         workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger),
+		ReplicaMonitor:    replicaMonitor,
+		ClusterReconciler: workers.NewClusterReconciler(c.Repos.Cluster, clusterProvisioner, c.Logger),
+	}
+
+	return svcs, workersCollection, nil
+}
+
+func initIdentityServices(c ServiceConfig, audit ports.AuditService) ports.IdentityService {
+	base := services.NewIdentityService(c.Repos.Identity, audit)
+	return services.NewCachedIdentityService(base, c.RDB, c.Logger)
+}
+
+func initRBACServices(c ServiceConfig) ports.RBACService {
+	base := services.NewRBACService(c.Repos.User, c.Repos.RBAC, c.Logger)
+	return services.NewCachedRBACService(base, c.RDB, c.Logger)
+}
+
+func initStorageServices(c ServiceConfig, audit ports.AuditService, encryption ports.EncryptionService) (ports.StorageService, ports.FileStore, error) {
 	var fileStore ports.FileStore
+	var err error
 
 	if c.Config.ObjectStorageMode == "distributed" {
 		c.Logger.Info("initializing distributed storage backend")
@@ -226,80 +299,29 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 			return nil, nil, err
 		}
 	}
-	storageSvc := services.NewStorageService(c.Repos.Storage, fileStore, auditSvc, encryptionSvc, c.Config)
 
-	databaseSvc := services.NewDatabaseService(c.Repos.Database, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
-	secretSvc := services.NewSecretService(c.Repos.Secret, eventSvc, auditSvc, c.Logger, c.Config.SecretsEncryptionKey, c.Config.Environment)
-	fnSvc := services.NewFunctionService(c.Repos.Function, c.Compute, fileStore, auditSvc, c.Logger)
-	cacheSvc := services.NewCacheService(c.Repos.Cache, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
-	queueSvc := services.NewQueueService(c.Repos.Queue, eventSvc, auditSvc)
-	notifySvc := services.NewNotifyService(c.Repos.Notify, queueSvc, eventSvc, auditSvc, c.Logger)
+	storageSvc := services.NewStorageService(c.Repos.Storage, fileStore, audit, encryption, c.Config)
+	return storageSvc, fileStore, nil
+}
 
-	// 5. DevOps & Automation Services
-	cronSvc := services.NewCronService(c.Repos.Cron, eventSvc, auditSvc)
-	cronWorker := services.NewCronWorker(c.Repos.Cron)
-	gwSvc := services.NewGatewayService(c.Repos.Gateway, auditSvc)
-	containerSvc := services.NewContainerService(c.Repos.Container, eventSvc, auditSvc)
-	containerWorker := services.NewContainerWorker(c.Repos.Container, instSvcConcrete, eventSvc)
-	snapshotSvc := services.NewSnapshotService(c.Repos.Snapshot, c.Repos.Volume, c.Storage, eventSvc, auditSvc, c.Logger)
-	stackSvc := services.NewStackService(c.Repos.Stack, instSvcConcrete, vpcSvc, volumeSvc, snapshotSvc, c.Logger)
-
-	// 6. Business & Scaling Services
-	asgSvc := services.NewAutoScalingService(c.Repos.AutoScaling, c.Repos.Vpc, auditSvc)
-	asgWorker := services.NewAutoScalingWorker(c.Repos.AutoScaling, instSvcConcrete, lbSvc, eventSvc, ports.RealClock{})
-	accountingSvc := services.NewAccountingService(c.Repos.Accounting, c.Repos.Instance, c.Logger)
-	accountingWorker := workers.NewAccountingWorker(accountingSvc, c.Logger)
-	imageSvc := services.NewImageService(c.Repos.Image, fileStore, c.Logger)
-	provisionWorker := workers.NewProvisionWorker(instSvcConcrete, c.Repos.TaskQueue, c.Logger)
-
-	clusterProvisioner := k8s.NewKubeadmProvisioner(instSvcConcrete, c.Repos.Cluster, secretSvc, sgSvc, storageSvc, lbSvc, c.Logger)
+func initClusterServices(c ServiceConfig, vpcSvc ports.VpcService, instSvc ports.InstanceService, secretSvc ports.SecretService, storageSvc ports.StorageService, lbSvc ports.LBService) (ports.ClusterService, ports.ClusterProvisioner, error) {
+	clusterProvisioner := k8s.NewKubeadmProvisioner(instSvc, c.Repos.Cluster, secretSvc, nil, storageSvc, lbSvc, c.Logger)
 	clusterSvc, err := services.NewClusterService(services.ClusterServiceParams{
-		Repo: c.Repos.Cluster, Provisioner: clusterProvisioner, VpcSvc: vpcSvc, InstanceSvc: instSvcConcrete, SecretSvc: secretSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
+		Repo: c.Repos.Cluster, Provisioner: clusterProvisioner, VpcSvc: vpcSvc, InstanceSvc: instSvc, SecretSvc: secretSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to init cluster service: %w", err)
 	}
+	return clusterSvc, clusterProvisioner, nil
+}
 
-	svcs := &Services{
-		WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Tenant: tenantSvc, Auth: authSvc, PasswordReset: pwdResetSvc, RBAC: rbacSvc,
-		Vpc: vpcSvc, Subnet: subnetSvc, Event: eventSvc, Volume: volumeSvc, Instance: instSvcConcrete,
-		SecurityGroup: sgSvc, LB: lbSvc, Snapshot: snapshotSvc, Stack: stackSvc,
-		Storage: storageSvc, Database: databaseSvc, Secret: secretSvc, Function: fnSvc, Cache: cacheSvc,
-		Queue: queueSvc, Notify: notifySvc, Cron: cronSvc, Gateway: gwSvc, Container: containerSvc,
-		Health: services.NewHealthServiceImpl(c.DB, c.Compute, clusterSvc), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc,
-		Cluster:   clusterSvc,
-		Dashboard: services.NewDashboardService(c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger),
-		Lifecycle: services.NewLifecycleService(c.Repos.Lifecycle, c.Repos.Storage),
-	}
-
-	// 7. High Availability & Monitoring
-	var replicaMonitor *workers.ReplicaMonitor
+func initReplicaMonitor(c ServiceConfig) *workers.ReplicaMonitor {
 	if dualDB, ok := c.DB.(*postgres.DualDB); ok {
 		replica := dualDB.GetReplica()
 		// Only monitor if we actually have a separate replica
 		if replica != nil && replica != dualDB {
-			replicaMonitor = workers.NewReplicaMonitor(dualDB, replica, c.Logger)
+			return workers.NewReplicaMonitor(dualDB, replica, c.Logger)
 		}
 	}
-
-	workersCollection := &Workers{
-		LB: lbWorker, AutoScaling: asgWorker, Cron: cronWorker, Container: containerWorker,
-		Provision: provisionWorker, Accounting: accountingWorker,
-		Cluster:           workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.TaskQueue, c.Logger),
-		Lifecycle:         workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger),
-		ReplicaMonitor:    replicaMonitor,
-		ClusterReconciler: workers.NewClusterReconciler(c.Repos.Cluster, clusterProvisioner, c.Logger),
-	}
-
-	return svcs, workersCollection, nil
-}
-
-func initIdentityServices(c ServiceConfig, audit ports.AuditService) ports.IdentityService {
-	base := services.NewIdentityService(c.Repos.Identity, audit)
-	return services.NewCachedIdentityService(base, c.RDB, c.Logger)
-}
-
-func initRBACServices(c ServiceConfig) ports.RBACService {
-	base := services.NewRBACService(c.Repos.User, c.Repos.RBAC, c.Logger)
-	return services.NewCachedRBACService(base, c.RDB, c.Logger)
+	return nil
 }

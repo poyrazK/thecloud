@@ -40,7 +40,11 @@ func (m *MockClusterRepo) ListByUserID(ctx context.Context, userID uuid.UUID) ([
 	return nil, nil
 }
 func (m *MockClusterRepo) ListAll(ctx context.Context) ([]*domain.Cluster, error) {
-	return nil, nil
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Cluster), args.Error(1)
 }
 func (m *MockClusterRepo) Update(ctx context.Context, c *domain.Cluster) error {
 	return m.Called(ctx, c).Error(0)
