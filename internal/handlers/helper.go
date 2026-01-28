@@ -25,16 +25,28 @@ func parseUUID(c *gin.Context, paramName string) (*uuid.UUID, bool) {
 	return &id, true
 }
 
-// getBucketAndKey extracts bucket and key from path params.
-func getBucketAndKey(c *gin.Context) (bucket, key string, ok bool) {
-	bucket = c.Param("bucket")
-	key = c.Param("key")
-
+// getBucket extracts bucket from path params.
+func getBucket(c *gin.Context) (string, bool) {
+	bucket := c.Param("bucket")
 	if bucket == "" {
 		httputil.Error(c, errors.New(errors.InvalidInput, "bucket is required"))
+		return "", false
+	}
+	return bucket, true
+}
+
+// getBucketAndKeyRequired extracts bucket and key from path params, requiring both.
+func getBucketAndKeyRequired(c *gin.Context) (bucket, key string, ok bool) {
+	bucket, ok = getBucket(c)
+	if !ok {
 		return "", "", false
 	}
 
-	// key can be empty for listing bucket
+	key = c.Param("key")
+	if key == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "key is required"))
+		return "", "", false
+	}
+
 	return bucket, key, true
 }

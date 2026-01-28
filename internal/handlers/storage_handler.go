@@ -50,11 +50,8 @@ const (
 // @Failure 400 {object} httputil.Response
 // @Router /storage/{bucket}/{key} [put]
 func (h *StorageHandler) Upload(c *gin.Context) {
-	bucket := c.Param("bucket")
-	key := c.Param("key")
-
-	if bucket == "" || key == "" {
-		httputil.Error(c, errors.New(errors.InvalidInput, "bucket and key are required"))
+	bucket, key, ok := getBucketAndKeyRequired(c)
+	if !ok {
 		return
 	}
 
@@ -80,11 +77,8 @@ func (h *StorageHandler) Upload(c *gin.Context) {
 // @Failure 404 {object} httputil.Response
 // @Router /storage/{bucket}/{key} [get]
 func (h *StorageHandler) Download(c *gin.Context) {
-	bucket, key, ok := getBucketAndKey(c)
-	if !ok || key == "" {
-		if ok {
-			httputil.Error(c, errors.New(errors.InvalidInput, "key is required"))
-		}
+	bucket, key, ok := getBucketAndKeyRequired(c)
+	if !ok {
 		return
 	}
 	versionID := c.Query("versionId")
@@ -125,7 +119,10 @@ func (h *StorageHandler) Download(c *gin.Context) {
 // @Failure 404 {object} httputil.Response
 // @Router /storage/{bucket} [get]
 func (h *StorageHandler) List(c *gin.Context) {
-	bucket := c.Param("bucket")
+	bucket, ok := getBucket(c)
+	if !ok {
+		return
+	}
 
 	objects, err := h.svc.ListObjects(c.Request.Context(), bucket)
 	if err != nil {
@@ -148,11 +145,8 @@ func (h *StorageHandler) List(c *gin.Context) {
 // @Failure 404 {object} httputil.Response
 // @Router /storage/{bucket}/{key} [delete]
 func (h *StorageHandler) Delete(c *gin.Context) {
-	bucket, key, ok := getBucketAndKey(c)
-	if !ok || key == "" {
-		if ok {
-			httputil.Error(c, errors.New(errors.InvalidInput, "key is required"))
-		}
+	bucket, key, ok := getBucketAndKeyRequired(c)
+	if !ok {
 		return
 	}
 	versionID := c.Query("versionId")
@@ -273,11 +267,8 @@ func (h *StorageHandler) GetClusterStatus(c *gin.Context) {
 // @Success 201 {object} domain.MultipartUpload
 // @Router /storage/{bucket}/{key}/multipart [post]
 func (h *StorageHandler) InitiateMultipartUpload(c *gin.Context) {
-	bucket, key, ok := getBucketAndKey(c)
-	if !ok || key == "" {
-		if ok {
-			httputil.Error(c, errors.New(errors.InvalidInput, "key is required"))
-		}
+	bucket, key, ok := getBucketAndKeyRequired(c)
+	if !ok {
 		return
 	}
 

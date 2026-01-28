@@ -193,9 +193,12 @@ func (h *InstanceHandler) List(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id}/stop [post]
 func (h *InstanceHandler) Stop(c *gin.Context) {
-	idStr := c.Param("id")
+	id, ok := parseUUID(c, "id")
+	if !ok {
+		return
+	}
 
-	if err := h.svc.StopInstance(c.Request.Context(), idStr); err != nil {
+	if err := h.svc.StopInstance(c.Request.Context(), id.String()); err != nil {
 		httputil.Error(c, err)
 		return
 	}
@@ -215,9 +218,12 @@ func (h *InstanceHandler) Stop(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id}/logs [get]
 func (h *InstanceHandler) GetLogs(c *gin.Context) {
-	idStr := c.Param("id")
+	id, ok := parseUUID(c, "id")
+	if !ok {
+		return
+	}
 
-	logs, err := h.svc.GetInstanceLogs(c.Request.Context(), idStr)
+	logs, err := h.svc.GetInstanceLogs(c.Request.Context(), id.String())
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -238,8 +244,12 @@ func (h *InstanceHandler) GetLogs(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id} [get]
 func (h *InstanceHandler) Get(c *gin.Context) {
-	idStr := c.Param("id")
-	inst, err := h.svc.GetInstance(c.Request.Context(), idStr)
+	id, ok := parseUUID(c, "id")
+	if !ok {
+		return
+	}
+
+	inst, err := h.svc.GetInstance(c.Request.Context(), id.String())
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -260,9 +270,12 @@ func (h *InstanceHandler) Get(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id} [delete]
 func (h *InstanceHandler) Terminate(c *gin.Context) {
-	idStr := c.Param("id")
+	id, ok := parseUUID(c, "id")
+	if !ok {
+		return
+	}
 
-	if err := h.svc.TerminateInstance(c.Request.Context(), idStr); err != nil {
+	if err := h.svc.TerminateInstance(c.Request.Context(), id.String()); err != nil {
 		httputil.Error(c, err)
 		return
 	}
@@ -282,8 +295,11 @@ func (h *InstanceHandler) Terminate(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id}/stats [get]
 func (h *InstanceHandler) GetStats(c *gin.Context) {
-	idStr := c.Param("id")
-	stats, err := h.svc.GetInstanceStats(c.Request.Context(), idStr)
+	id, ok := parseUUID(c, "id")
+	if !ok {
+		return
+	}
+	stats, err := h.svc.GetInstanceStats(c.Request.Context(), id.String())
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -303,8 +319,11 @@ func (h *InstanceHandler) GetStats(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id}/console [get]
 func (h *InstanceHandler) GetConsole(c *gin.Context) {
-	idStr := c.Param("id")
-	url, err := h.svc.GetConsoleURL(c.Request.Context(), idStr)
+	id, ok := parseUUID(c, "id")
+	if !ok {
+		return
+	}
+	url, err := h.svc.GetConsoleURL(c.Request.Context(), id.String())
 	if err != nil {
 		httputil.Error(c, err)
 		return
