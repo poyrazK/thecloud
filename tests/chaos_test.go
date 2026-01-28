@@ -1,3 +1,6 @@
+//go:build chaos
+// +build chaos
+
 package tests
 
 import (
@@ -13,7 +16,7 @@ import (
 )
 
 func TestChaos(t *testing.T) {
-	t.Parallel()
+	// t.Parallel() // Removed: This test restarts containers and cannot run in parallel
 	if err := waitForServer(); err != nil {
 		t.Fatalf("Failing Chaos test: %v", err)
 	}
