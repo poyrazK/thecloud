@@ -25,7 +25,9 @@ func TestNewDualDB(t *testing.T) {
 	assert.Equal(t, primary, dual2.replica)
 }
 
-func TestDualDB_Operations(t *testing.T) {
+const testQuery = "SELECT id FROM test"
+
+func TestDualDBOperations(t *testing.T) {
 	primary, _ := pgxmock.NewPool()
 	replica, _ := pgxmock.NewPool()
 	defer primary.Close()
@@ -41,7 +43,7 @@ func TestDualDB_Operations(t *testing.T) {
 
 	// Query should go to replica
 	replica.ExpectQuery("SELECT").WillReturnRows(pgxmock.NewRows([]string{"id"}).AddRow(1))
-	rows, err := dual.Query(ctx, "SELECT id FROM test")
+	rows, err := dual.Query(ctx, testQuery)
 	assert.NoError(t, err)
 	rows.Close()
 
@@ -68,7 +70,7 @@ func TestDualDB_Operations(t *testing.T) {
 	dual.Close()
 }
 
-func TestDualDB_CloseSame(t *testing.T) {
+func TestDualDBCloseSame(t *testing.T) {
 	primary, _ := pgxmock.NewPool()
 	defer primary.Close()
 
@@ -77,3 +79,73 @@ func TestDualDB_CloseSame(t *testing.T) {
 	dual.Close()
 }
 
+func TestDualDBStatus(t *testing.T) {
+	primary, _ := pgxmock.NewPool()
+	replica, _ := pgxmock.NewPool()
+	defer primary.Close()
+	defer replica.Close()
+
+	t.Run("Not Configured", func(t *testing.T) {
+		dual := NewDualDB(primary, nil)
+		status := dual.GetStatus(context.Background())
+		assert.Equal(t, "NOT_CONFIGURED", status["database_replica"])
+	})
+
+	t.Run("Healthy", func(t *testing.T) {
+		dual := NewDualDB(primary, replica)
+		dual.SetReplicaHealthy(true)
+		status := dual.GetStatus(context.Background())
+		assert.Equal(t, "CONNECTED", status["database_replica"])
+	})
+
+	t.Run("Unhealthy", func(t *testing.T) {
+		dual := NewDualDB(primary, replica)
+		dual.SetReplicaHealthy(false)
+		status := dual.GetStatus(context.Background())
+		assert.Equal(t, "UNHEALTHY", status["database_replica"])
+	})
+}
+
+func TestDualDBFailover(t *testing.T) {
+	primary, _ := pgxmock.NewPool()
+	replica, _ := pgxmock.NewPool()
+	defer primary.Close()
+	defer replica.Close()
+
+	dual := NewDualDB(primary, replica)
+	ctx := context.Background()
+
+	t.Run("Primary Fallback on Replica Error", func(t *testing.T) {
+		dual.SetReplicaHealthy(true) // Start healthy
+
+		// Replica returns error
+		replica.ExpectQuery("SELECT").WillReturnError(assert.AnError)
+		// Primary should be called as fallback
+		primary.ExpectQuery("SELECT").WillReturnRows(pgxmock.NewRows([]string{"id"}).AddRow(1))
+
+		rows, err := dual.Query(ctx, testQuery)
+		assert.NoError(t, err)
+		rows.Close()
+
+		assert.NoError(t, primary.ExpectationsWereMet())
+		assert.NoError(t, replica.ExpectationsWereMet())
+	})
+
+	t.Run("Wait for Circuit Breaker to Trip", func(t *testing.T) {
+		dual.SetReplicaHealthy(true)
+
+		// Trip it (threshold is 3)
+		for i := 0; i < 3; i++ {
+			replica.ExpectQuery("SELECT").WillReturnError(assert.AnError)
+			primary.ExpectQuery("SELECT").WillReturnRows(pgxmock.NewRows([]string{"id"}).AddRow(1))
+			_, _ = dual.Query(ctx, testQuery)
+		}
+
+		// Now it should go straight to primary without calling replica
+		primary.ExpectQuery("SELECT").WillReturnRows(pgxmock.NewRows([]string{"id"}).AddRow(1))
+		_, _ = dual.Query(ctx, testQuery)
+
+		assert.NoError(t, replica.ExpectationsWereMet()) // Replica should not have extra calls
+		assert.NoError(t, primary.ExpectationsWereMet())
+	})
+}

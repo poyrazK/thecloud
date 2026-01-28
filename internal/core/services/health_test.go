@@ -96,4 +96,20 @@ func TestHealthServiceCheck(t *testing.T) {
 		assert.Equal(t, "CONNECTED", res.Checks["database_primary"])
 		assert.Contains(t, res.Checks["docker"], "DISCONNECTED")
 	})
+
+	t.Run("Degraded_K8s", func(t *testing.T) {
+		db := new(mockCheckable)
+		compute := new(fullMockComputeBackend)
+		cluster := new(mockClusterService)
+		svc := NewHealthServiceImpl(db, compute, cluster)
+
+		db.On("Ping", mock.Anything).Return(nil)
+		compute.On("Ping", mock.Anything).Return(nil)
+		cluster.On("ListClusters", mock.Anything, mock.Anything).Return(nil, errors.New("k8s error"))
+
+		res := svc.Check(context.Background())
+
+		assert.Equal(t, "DEGRADED", res.Status)
+		assert.Equal(t, "DEGRADED", res.Checks["kubernetes_service"])
+	})
 }
