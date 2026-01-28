@@ -266,7 +266,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		SecurityGroup: sgSvc, LB: lbSvc, Snapshot: snapshotSvc, Stack: stackSvc,
 		Storage: storageSvc, Database: databaseSvc, Secret: secretSvc, Function: fnSvc, Cache: cacheSvc,
 		Queue: queueSvc, Notify: notifySvc, Cron: cronSvc, Gateway: gwSvc, Container: containerSvc,
-		Health: services.NewHealthServiceImpl(c.DB, c.Compute), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc,
+		Health: services.NewHealthServiceImpl(c.DB, c.Compute, clusterSvc), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc,
 		Cluster:   clusterSvc,
 		Dashboard: services.NewDashboardService(c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger),
 		Lifecycle: services.NewLifecycleService(c.Repos.Lifecycle, c.Repos.Storage),

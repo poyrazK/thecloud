@@ -50,6 +50,22 @@ func (d *DualDB) GetReplica() DB {
 	return d.replica
 }
 
+// GetStatus returns the health status of database components.
+func (d *DualDB) GetStatus(ctx context.Context) map[string]string {
+	status := make(map[string]string)
+	if d.replica == d.primary {
+		status["database_replica"] = "NOT_CONFIGURED"
+		return status
+	}
+
+	if d.replicaHealthy.Load() {
+		status["database_replica"] = "CONNECTED"
+	} else {
+		status["database_replica"] = "UNHEALTHY"
+	}
+	return status
+}
+
 func (d *DualDB) getReadDB() DB {
 	if d.replicaHealthy.Load() {
 		return d.replica
