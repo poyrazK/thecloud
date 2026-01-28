@@ -134,14 +134,15 @@ type Services struct {
 
 // Workers struct to return background workers
 type Workers struct {
-	LB          *services.LBWorker
-	AutoScaling *services.AutoScalingWorker
-	Cron        *services.CronWorker
-	Container   *services.ContainerWorker
-	Provision   *workers.ProvisionWorker
-	Accounting  *workers.AccountingWorker
-	Cluster     *workers.ClusterWorker
-	Lifecycle   *workers.LifecycleWorker
+	LB             *services.LBWorker
+	AutoScaling    *services.AutoScalingWorker
+	Cron           *services.CronWorker
+	Container      *services.ContainerWorker
+	Provision      *workers.ProvisionWorker
+	Accounting     *workers.AccountingWorker
+	Cluster        *workers.ClusterWorker
+	Lifecycle      *workers.LifecycleWorker
+	ReplicaMonitor *workers.ReplicaMonitor
 }
 
 // ServiceConfig holds the dependencies required to initialize services
@@ -270,11 +271,22 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		Lifecycle: services.NewLifecycleService(c.Repos.Lifecycle, c.Repos.Storage),
 	}
 
+	// 7. High Availability & Monitoring
+	var replicaMonitor *workers.ReplicaMonitor
+	if dualDB, ok := c.DB.(*postgres.DualDB); ok {
+		replica := dualDB.GetReplica()
+		// Only monitor if we actually have a separate replica
+		if replica != nil && replica != dualDB {
+			replicaMonitor = workers.NewReplicaMonitor(dualDB, replica, c.Logger)
+		}
+	}
+
 	workersCollection := &Workers{
 		LB: lbWorker, AutoScaling: asgWorker, Cron: cronWorker, Container: containerWorker,
 		Provision: provisionWorker, Accounting: accountingWorker,
-		Cluster:   workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.TaskQueue, c.Logger),
-		Lifecycle: workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger),
+		Cluster:        workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.TaskQueue, c.Logger),
+		Lifecycle:      workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger),
+		ReplicaMonitor: replicaMonitor,
 	}
 
 	return svcs, workersCollection, nil

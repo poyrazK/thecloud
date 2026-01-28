@@ -3,6 +3,7 @@ package postgres
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -21,16 +22,39 @@ type DB interface {
 
 // DualDB implements DB and routes reads to a replica if available.
 type DualDB struct {
-	primary DB
-	replica DB
+	primary        DB
+	replica        DB
+	replicaHealthy atomic.Bool
 }
 
 // NewDualDB creates a DualDB that routes reads to the replica when provided.
 func NewDualDB(primary, replica DB) *DualDB {
+	d := &DualDB{primary: primary, replica: replica}
+	d.replicaHealthy.Store(replica != nil)
 	if replica == nil {
-		replica = primary
+		d.replica = primary
 	}
-	return &DualDB{primary: primary, replica: replica}
+	return d
+}
+
+// SetReplicaHealthy updates the health status of the replica.
+func (d *DualDB) SetReplicaHealthy(healthy bool) {
+	if d.replica == d.primary {
+		return // No separate replica
+	}
+	d.replicaHealthy.Store(healthy)
+}
+
+// GetReplica returns the replica DB instance.
+func (d *DualDB) GetReplica() DB {
+	return d.replica
+}
+
+func (d *DualDB) getReadDB() DB {
+	if d.replicaHealthy.Load() {
+		return d.replica
+	}
+	return d.primary
 }
 
 func (d *DualDB) Exec(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error) {
@@ -38,11 +62,11 @@ func (d *DualDB) Exec(ctx context.Context, sql string, args ...interface{}) (pgc
 }
 
 func (d *DualDB) Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error) {
-	return d.replica.Query(ctx, sql, args...)
+	return d.getReadDB().Query(ctx, sql, args...)
 }
 
 func (d *DualDB) QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row {
-	return d.replica.QueryRow(ctx, sql, args...)
+	return d.getReadDB().QueryRow(ctx, sql, args...)
 }
 
 func (d *DualDB) Begin(ctx context.Context) (pgx.Tx, error) {
