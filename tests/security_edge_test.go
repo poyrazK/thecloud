@@ -15,7 +15,7 @@ const instancesPath = "/instances"
 
 func TestSecurityEdge(t *testing.T) {
 	if err := waitForServer(); err != nil {
-		t.Skipf("Skipping Security Edge test: %v", err)
+		t.Fatalf("Failing Security Edge test: %v", err)
 	}
 
 	client := &http.Client{Timeout: 5 * time.Second}

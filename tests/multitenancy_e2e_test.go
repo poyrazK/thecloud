@@ -27,7 +27,7 @@ const instancePathFmt = "%s/instances/%s"
 func TestMultiTenancyE2E(t *testing.T) {
 	// Skip if server is not reachable (e.g., in CI without live services)
 	if err := waitForServer(); err != nil {
-		t.Skipf("Skipping E2E test: %v (server at %s not available)", err, testutil.TestBaseURL)
+		t.Fatalf("Failing E2E test: %v (server at %s not available)", err, testutil.TestBaseURL)
 	}
 
 	client := &http.Client{Timeout: 5 * time.Second}

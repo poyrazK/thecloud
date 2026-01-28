@@ -13,7 +13,7 @@ import (
 
 func TestConcurrency(t *testing.T) {
 	if err := waitForServer(); err != nil {
-		t.Skipf("Skipping Concurrency test: %v", err)
+		t.Fatalf("Failing Concurrency test: %v", err)
 	}
 
 	client := &http.Client{Timeout: 15 * time.Second}

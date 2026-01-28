@@ -16,7 +16,7 @@ import (
 
 func TestSecretsE2E(t *testing.T) {
 	if err := waitForServer(); err != nil {
-		t.Skipf("Skipping Secrets E2E test: %v", err)
+		t.Fatalf("Failing Secrets E2E test: %v", err)
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}

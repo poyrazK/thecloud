@@ -16,7 +16,7 @@ import (
 
 func TestDataIntegrity(t *testing.T) {
 	if err := waitForServer(); err != nil {
-		t.Skipf("Skipping Data Integrity test: %v", err)
+		t.Fatalf("Failing Data Integrity test: %v", err)
 	}
 
 	client := &http.Client{Timeout: 30 * time.Second}

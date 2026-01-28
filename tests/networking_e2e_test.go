@@ -16,7 +16,7 @@ import (
 
 func TestNetworkingE2E(t *testing.T) {
 	if err := waitForServer(); err != nil {
-		t.Skipf("Skipping Networking E2E test: %v", err)
+		t.Fatalf("Failing Networking E2E test: %v", err)
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}

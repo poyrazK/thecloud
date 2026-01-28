@@ -13,7 +13,7 @@ import (
 
 func TestFailureRecovery(t *testing.T) {
 	if err := waitForServer(); err != nil {
-		t.Skipf("Skipping Failure Recovery test: %v", err)
+		t.Fatalf("Failing Failure Recovery test: %v", err)
 	}
 
 	client := &http.Client{Timeout: 5 * time.Second}

@@ -18,7 +18,7 @@ const rbacSkipMsg = "RBAC endpoints not accessible for this user"
 
 func TestRBACE2E(t *testing.T) {
 	if err := waitForServer(); err != nil {
-		t.Skipf("Skipping RBAC E2E test: %v", err)
+		t.Fatalf("Failing RBAC E2E test: %v", err)
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -40,7 +40,7 @@ func TestRBACE2E(t *testing.T) {
 		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusForbidden {
 			skipRBAC = true
-			t.Skip(rbacSkipMsg)
+			t.Fatal(rbacSkipMsg)
 		}
 
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
@@ -56,7 +56,7 @@ func TestRBACE2E(t *testing.T) {
 	// 2. Get Role
 	t.Run("GetRole", func(t *testing.T) {
 		if skipRBAC {
-			t.Skip(rbacSkipMsg)
+			t.Fatal(rbacSkipMsg)
 		}
 		resp := getRequest(t, client, fmt.Sprintf("%s/rbac/roles/%s", testutil.TestBaseURL, roleID), token)
 		defer resp.Body.Close()
@@ -73,7 +73,7 @@ func TestRBACE2E(t *testing.T) {
 	// 3. Add Permission
 	t.Run("AddPermission", func(t *testing.T) {
 		if skipRBAC {
-			t.Skip(rbacSkipMsg)
+			t.Fatal(rbacSkipMsg)
 		}
 		payload := map[string]interface{}{
 			"permission": domain.PermissionVpcRead,
@@ -87,7 +87,7 @@ func TestRBACE2E(t *testing.T) {
 	// 4. Bind Role to a second User
 	t.Run("BindRole", func(t *testing.T) {
 		if skipRBAC {
-			t.Skip(rbacSkipMsg)
+			t.Fatal(rbacSkipMsg)
 		}
 		// Register a second user to bind the role to, so we don't lose permissions for the main user
 		secondUserEmail := fmt.Sprintf("rbac-secondary-%d@thecloud.local", time.Now().UnixNano()%10000)
@@ -107,7 +107,7 @@ func TestRBACE2E(t *testing.T) {
 	// 5. List Bindings
 	t.Run("ListBindings", func(t *testing.T) {
 		if skipRBAC {
-			t.Skip(rbacSkipMsg)
+			t.Fatal(rbacSkipMsg)
 		}
 		resp := getRequest(t, client, testutil.TestBaseURL+"/rbac/bindings", token)
 		defer resp.Body.Close()
@@ -118,7 +118,7 @@ func TestRBACE2E(t *testing.T) {
 	// 6. Cleanup
 	t.Run("Cleanup", func(t *testing.T) {
 		if skipRBAC {
-			t.Skip(rbacSkipMsg)
+			t.Fatal(rbacSkipMsg)
 		}
 		resp := deleteRequest(t, client, fmt.Sprintf("%s/rbac/roles/%s", testutil.TestBaseURL, roleID), token)
 		defer resp.Body.Close()

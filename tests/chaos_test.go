@@ -14,7 +14,7 @@ import (
 
 func TestChaos(t *testing.T) {
 	if err := waitForServer(); err != nil {
-		t.Skipf("Skipping Chaos test: %v", err)
+		t.Fatalf("Failing Chaos test: %v", err)
 	}
 
 	client := &http.Client{Timeout: 5 * time.Second}

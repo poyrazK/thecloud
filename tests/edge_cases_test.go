@@ -13,7 +13,7 @@ import (
 
 func TestEdgeCases(t *testing.T) {
 	if err := waitForServer(); err != nil {
-		t.Skipf("Skipping Edge Cases test: %v", err)
+		t.Fatalf("Failing Edge Cases test: %v", err)
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}

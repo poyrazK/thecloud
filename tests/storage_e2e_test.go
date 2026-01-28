@@ -20,7 +20,7 @@ const storageObjectPathFormat = "%s/storage/%s/%s"
 
 func TestStorageE2E(t *testing.T) {
 	if err := waitForServer(); err != nil {
-		t.Skipf("Skipping Storage E2E test: %v (server at %s not available)", err, testutil.TestBaseURL)
+		t.Fatalf("Failing Storage E2E test: %v (server at %s not available)", err, testutil.TestBaseURL)
 	}
 
 	client := &http.Client{Timeout: 5 * time.Second}

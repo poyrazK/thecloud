@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os/exec"
 	"strings"
 	"sync"
 	"testing"
@@ -21,7 +22,7 @@ const (
 )
 
 func waitForServer() error {
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: 2 * time.Second}
 	for i := 0; i < 30; i++ {
 		resp, err := client.Get(testutil.TestBaseURL + "/health")
 		if err == nil {
@@ -30,9 +31,26 @@ func waitForServer() error {
 				return nil
 			}
 		}
+
+		// On first few failures, check if Docker is actually running to fail fast
+		if i == 5 {
+			if err := checkDocker(); err != nil {
+				return fmt.Errorf("infrastructure error: %w (server not ready at %s)", err, testutil.TestBaseURL)
+			}
+		}
+
 		time.Sleep(1 * time.Second)
 	}
 	return fmt.Errorf("server not ready at %s", testutil.TestBaseURL)
+}
+
+func checkDocker() error {
+	// Simple check to see if docker is responsive
+	cmd := exec.Command("docker", "info")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("docker is unavailable or paused")
+	}
+	return nil
 }
 
 var (

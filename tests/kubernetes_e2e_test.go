@@ -29,7 +29,7 @@ type Cluster struct {
 
 func TestKubernetesE2E(t *testing.T) {
 	if err := waitForServer(); err != nil {
-		t.Skipf("Skipping K8s E2E test: %v", err)
+		t.Fatalf("Failing K8s E2E test: %v", err)
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}

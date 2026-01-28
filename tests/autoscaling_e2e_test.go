@@ -16,7 +16,7 @@ import (
 
 func TestAutoScalingE2E(t *testing.T) {
 	if err := waitForServer(); err != nil {
-		t.Skipf("Skipping AutoScaling E2E test: %v", err)
+		t.Fatalf("Failing AutoScaling E2E test: %v", err)
 	}
 
 	client := &http.Client{Timeout: 15 * time.Second}

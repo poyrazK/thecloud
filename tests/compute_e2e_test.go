@@ -16,7 +16,7 @@ import (
 
 func TestComputeE2E(t *testing.T) {
 	if err := waitForServer(); err != nil {
-		t.Skipf("Skipping Compute E2E test: %v", err)
+		t.Fatalf("Failing Compute E2E test: %v", err)
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -81,7 +81,7 @@ func TestComputeE2E(t *testing.T) {
 			}
 			time.Sleep(2 * time.Second)
 		}
-		t.Skip("Instance did not reach running state within timeout; backend may be unavailable")
+		t.Fatal("Instance did not reach running state within timeout; backend may be unavailable")
 	})
 
 	// 3. List Instances
