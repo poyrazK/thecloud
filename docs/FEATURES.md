@@ -96,37 +96,57 @@ This document provides a comprehensive overview of every feature currently imple
 **What it is**: Provision fully managed PostgreSQL or MySQL databases.
 **Tech Stack**: Docker (Official Images), Go.
 **Implementation**:
-- **Provisioning**: Spawns a Docker container using official images (`postgres:alpine`, `mysql:debet`).
-- **Configuration**: Automatically sets up internal credentials and exposes standard ports (5432/3306).
-- **Persistence**: Automatically mounts a managed volume so data isn't lost on restart.
+- **Multi-Engine Support**: PostgreSQL and MySQL with configurable versions.
+- **Provisioning**: Spawns Docker containers using official images (`postgres:<version>-alpine`, `mysql:<version>`).
+- **Credentials**: Auto-generates secure passwords (16-char random) and default usernames.
+- **VPC Integration**: Databases can be deployed into specific VPCs for network isolation.
+- **Connection Strings**: `GetConnectionString()` API returns ready-to-use connection URLs.
+- **Event & Audit**: All operations logged for compliance tracking.
+- **Metrics**: Prometheus metrics for RDS instance counts by engine.
 
-### 6. Managed Caches (CloudCache) 🆕
+### 6. Managed Caches (CloudCache)
 **What it is**: Provision fully managed Redis instances.
 **Tech Stack**: Redis (Alpine), Go, Docker Exec.
 **Implementation**:
 - **Provisioning**: Launches `redis-server` with custom configuration (AOF enabled, RDB disabled).
 - **Security**: Generates a random password and enables `--requirepass`.
-- **Management**: Uses **Docker Exec** to run `redis-cli` commands (like `FLUSHALL` or `INFO`) safely inside the container for management and stats.
+- **VPC Integration**: Caches can be deployed into specific VPCs.
+- **Management Operations**:
+  - **FlushCache**: Executes `FLUSHALL` via Docker Exec.
+  - **GetCacheStats**: Parses `redis-cli INFO` for connected clients, memory usage, keys count, uptime.
+- **Connection Strings**: API returns ready-to-use Redis URLs with auth.
+- **Lookup**: Get cache by ID or name for flexibility.
 
 ### 7. Cloud Functions (Serverless)
 **What it is**: Run code snippets without provisioning servers.
 **Tech Stack**: Docker (Ephemeral Containers), Go.
 **Implementation**:
-- **Architecture**: "One-shot" containers.
-- **Execution**: When a function is invoked:
-    1.  A temporary container is spun up with the requested runtime (e.g., `node:20`).
-    2.  User code (injected via bind mount) is executed.
-    3.  Output is captured, and the container is destroyed immediately context.
-- **Async**: Supports background execution using Go routines.
+- **Multi-Runtime Support**:
+  - `nodejs20` - Node.js 20 Alpine
+  - `python312` - Python 3.12 Alpine
+  - `go122` - Go 1.22 Alpine
+  - `rust` - Rust 1.75 Alpine
+  - `java21` - Eclipse Temurin 21 Alpine
+- **Code Deployment**: Supports raw code or ZIP archives with auto-extraction.
+- **Execution**: One-shot containers with configurable timeouts.
+- **Async Invocation**: Background execution via Go routines.
+- **Invocation Logs**: Stored history of function executions with output/errors.
+- **Handler Configuration**: Specify entry point file for each function.
 
 ### 8. Load Balancer (ELB)
 **What it is**: Distribute incoming HTTP traffic across multiple instances.
-**Tech Stack**: Go (Reverse Proxy `httputil`), Round Robin Algorithm.
+**Tech Stack**: Go (Reverse Proxy `httputil`), Configurable Algorithms.
 **Implementation**:
-- **Proxy**: A pure Go reverse proxy server listening on a specific port.
-- **Routing**: Maintains a list of healthy targets (Instances).
-- **Algorithm**: Distributes requests sequentially (Round Robin) to targets.
-- **Health Checks**: Background workers ping targets to ensure availability.
+- **VPC-Aware**: Load balancers are scoped to VPCs for network isolation.
+- **Algorithms**: Supports `round-robin` (default) with architecture for additional algorithms.
+- **Target Management**:
+  - **AddTarget**: Register instances with port and weight.
+  - **RemoveTarget**: Deregister instances.
+  - **ListTargets**: View all registered targets.
+- **Cross-VPC Validation**: Prevents adding instances from different VPCs.
+- **Health Tracking**: Target health status tracking (`unknown`, `healthy`, `unhealthy`).
+- **Idempotency**: Idempotency keys prevent duplicate LB creation.
+- **Versioning**: Optimistic locking via version field for concurrent updates.
 
 ### 9. Managed Kubernetes (KaaS) 🆕
 **What it is**: Provision and manage production-ready Kubernetes clusters.
@@ -148,31 +168,48 @@ This document provides a comprehensive overview of every feature currently imple
 
 ### 11. Secrets Manager
 **What it is**: Store sensitive data (API keys, passwords) securely.
-**Tech Stack**: AES-GCM Encryption, Go `crypto/aes`.
+**Tech Stack**: AES-GCM Encryption, Go `crypto/aes`, HKDF Key Derivation.
 **Implementation**:
-- **Encryption**: Secrets are encrypted *before* writing to the database using AES-256-GCM.
-- **Key Management**: Uses a master key derived from environment configuration.
-- **Access**: Decryption only happens on-demand via the API.
+- **Encryption**: Secrets encrypted at rest using AES-256-GCM.
+- **Per-User Key Derivation**: Master key + user ID via HKDF for user-isolated encryption.
+- **Access Tracking**: `LastAccessedAt` updated on every secret read.
+- **Lookup**: Get secret by ID or by name.
+- **Redaction**: List operations return `[REDACTED]` values for security.
+- **Event & Audit Logging**: CREATE, ACCESS, DELETE events tracked.
+- **Production Safety**: Enforces encryption key requirement in production mode.
 
 ---
 
 ## 🧩 Platform Services
 
-### 11. Identity & Auth (IAM)
+### 12. Identity & Auth (IAM)
 **What it is**: Secure access to the platform.
-**Tech Stack**: JWT (JSON Web Tokens), BCrypt.
+**Tech Stack**: JWT (JSON Web Tokens), BCrypt, RBAC.
 **Implementation**:
 - **Passwords**: Hashed using `bcrypt` cost 12.
 - **Tokens**: Stateless JWTs signed with HMAC-SHA256.
-- **Middleware**: Go middleware validates the API Key or JWT on every authenticated route.
+- **API Keys**: Alternative authentication method with tenant context.
+- **Middleware**: Go middleware validates API Key or JWT on every authenticated route.
 
-### 12. Observability
+**Role-Based Access Control (RBAC)**:
+- **Built-in Roles**: `admin`, `developer`, `viewer` with default permissions.
+- **Custom Roles**: Create, update, delete custom roles via API.
+- **Permission System**: Fine-grained permissions (e.g., `instance:read`, `volume:write`).
+- **Role Binding**: Assign roles to users by ID or email.
+- **Authorization**: `Authorize()` checks user permissions before operations.
+- **Fallback Logic**: Default permissions apply if role not in DB.
+
+### 13. Observability
 **What it is**: Monitor system health and logs.
-**Tech Stack**: Docker API (Stats/Logs), WebSockets (`gorilla/websocket`).
+**Tech Stack**: Docker API, WebSockets, Prometheus, Grafana.
 **Implementation**:
-- **Stats**: Real-time stream of Docker container stats (CPU/Mem/Net).
-- **Logs**: Attaches to Docker container `stdout/stderr` streams.
-- **Dashboard**: Pushes real-time updates to the frontend via WebSockets.
+- **Real-time Stats**: Stream Docker container stats (CPU/Mem/Net) via WebSocket.
+- **Logs**: Attach to container `stdout/stderr` streams.
+- **Dashboard Service**: Aggregated system metrics and health status.
+- **Prometheus Metrics**: Custom metrics for instances, databases, caches, functions.
+- **Grafana Dashboards**: Pre-configured dashboards for visualization.
+- **Event System**: Event recording for all resource state changes.
+- **Audit Logs**: Comprehensive audit trail for compliance.
 
 ### 13. CLI (Command Line Interface)
 **What it is**: Terminal tool to manage "The Cloud".
