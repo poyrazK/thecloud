@@ -43,6 +43,28 @@ services:
     networks:
       - cloud-network
 
+  powerdns:
+    image: powerdns/pdns-auth-49:latest
+    container_name: thecloud-powerdns
+    restart: unless-stopped
+    ports:
+      - "5354:53/udp" # DNS queries (non-standard to avoid conflict)
+      - "5354:53/tcp"
+      - "8081:8081" # REST API
+    environment:
+      - PDNS_AUTH_API=yes
+      - PDNS_AUTH_API_KEY=${POWERDNS_API_KEY:-thecloud-dns-secret}
+      - PDNS_AUTH_WEBSERVER=yes
+      - PDNS_AUTH_WEBSERVER_ADDRESS=0.0.0.0
+      - PDNS_AUTH_WEBSERVER_PORT=8081
+      - PDNS_AUTH_WEBSERVER_ALLOW_FROM=0.0.0.0/0
+      - PDNS_AUTH_LAUNCH=gsqlite3
+      - PDNS_AUTH_GSQLITE3_DATABASE=/var/lib/powerdns/pdns.sqlite3
+    volumes:
+      - powerdns_data:/var/lib/powerdns
+    networks:
+      - cloud-network
+
   api:
     build:
       context: .
@@ -73,6 +95,8 @@ services:
       - RATE_LIMIT_AUTH=3000
       - TRACING_ENABLED=${TRACING_ENABLED:-false}
       - JAEGER_ENDPOINT=http://jaeger:4318
+      - POWERDNS_API_URL=http://powerdns:8081
+      - POWERDNS_API_KEY=${POWERDNS_API_KEY:-thecloud-dns-secret}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/run/openvswitch:/var/run/openvswitch
@@ -82,6 +106,7 @@ services:
 
 volumes:
   postgres_data:
+  powerdns_data:
 
 
 networks:

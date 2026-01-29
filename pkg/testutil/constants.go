@@ -90,6 +90,10 @@ const (
 	TestRouteSnapshots = "/snapshots"
 	// TestRouteStorageBuckets is the endpoint for storage buckets.
 	TestRouteStorageBuckets = "/storage/buckets"
+	// TestRouteDNSZones is the endpoint for DNS zones.
+	TestRouteDNSZones = "/dns/zones"
+	// TestRouteDNSRecords is the endpoint for DNS records (base).
+	TestRouteDNSRecords = "/dns/records"
 	// TestRouteFormat is the default template for specific resource routes.
 	TestRouteFormat = "%s%s/%s"
 )
