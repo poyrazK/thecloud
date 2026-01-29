@@ -9,6 +9,7 @@ import (
 type ProvisionJob struct {
 	InstanceID uuid.UUID          `json:"instance_id"`
 	UserID     uuid.UUID          `json:"user_id"`
+	TenantID   uuid.UUID          `json:"tenant_id"`
 	Volumes    []VolumeAttachment `json:"volumes"` // List of storage volumes to attach during initialization
 }
 
@@ -17,11 +18,11 @@ type ClusterJobType string
 
 const (
 	// ClusterJobProvision creates a new Kubernetes cluster.
-	ClusterJobProvision   ClusterJobType = "provision"
+	ClusterJobProvision ClusterJobType = "provision"
 	// ClusterJobDeprovision deletes an existing Kubernetes cluster.
 	ClusterJobDeprovision ClusterJobType = "deprovision"
 	// ClusterJobUpgrade upgrades a cluster to a new version.
-	ClusterJobUpgrade     ClusterJobType = "upgrade"
+	ClusterJobUpgrade ClusterJobType = "upgrade"
 )
 
 // ClusterJob represents a background task for Kubernetes cluster operations.

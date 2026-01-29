@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
@@ -57,7 +58,7 @@ func (w *ProvisionWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 				continue
 			}
 
-			w.logger.Debug("processing provision job", "instance_id", job.InstanceID)
+			w.logger.Info("processing provision job", "instance_id", job.InstanceID, "tenant_id", job.TenantID)
 
 			// Process job concurrently to handle high throughput in load tests
 			go w.processJob(job)
@@ -68,12 +69,18 @@ func (w *ProvisionWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 func (w *ProvisionWorker) processJob(job domain.ProvisionJob) {
 	// Root context for background task with 10-minute safety timeout
 	// We use context.Background() because the worker lifecycle context shouldn't necessarily cancel active provisioning unless the app is shutting down
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	baseCtx := context.Background()
+	ctx, cancel := context.WithTimeout(baseCtx, 10*time.Minute)
 	defer cancel()
 
+	// Inject User and Tenant IDs for repository access control
+	ctx = appcontext.WithUserID(ctx, job.UserID)
+	ctx = appcontext.WithTenantID(ctx, job.TenantID)
+
+	w.logger.Info("starting provision logic", "instance_id", job.InstanceID)
 	if err := w.instSvc.Provision(ctx, job.InstanceID, job.Volumes); err != nil {
 		w.logger.Error("failed to provision instance", "instance_id", job.InstanceID, "error", err)
 	} else {
-		w.logger.Debug("successfully provisioned instance", "instance_id", job.InstanceID)
+		w.logger.Info("successfully provisioned instance", "instance_id", job.InstanceID)
 	}
 }

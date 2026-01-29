@@ -37,6 +37,7 @@ type InstanceService struct {
 	network    ports.NetworkBackend
 	eventSvc   ports.EventService
 	auditSvc   ports.AuditService
+	dnsSvc     ports.DNSService
 	taskQueue  ports.TaskQueue
 	logger     *slog.Logger
 }
@@ -52,6 +53,7 @@ type InstanceServiceParams struct {
 	Network    ports.NetworkBackend
 	EventSvc   ports.EventService
 	AuditSvc   ports.AuditService
+	DNSSvc     ports.DNSService
 	TaskQueue  ports.TaskQueue // Optional
 	Logger     *slog.Logger
 }
@@ -67,6 +69,7 @@ func NewInstanceService(params InstanceServiceParams) *InstanceService {
 		network:    params.Network,
 		eventSvc:   params.EventSvc,
 		auditSvc:   params.AuditSvc,
+		dnsSvc:     params.DNSSvc,
 		taskQueue:  params.TaskQueue,
 		logger:     params.Logger,
 	}
@@ -113,9 +116,11 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 	job := domain.ProvisionJob{
 		InstanceID: inst.ID,
 		UserID:     inst.UserID,
+		TenantID:   inst.TenantID,
 		Volumes:    volumes,
 	}
 
+	s.logger.Info("enqueueing provision job", "instance_id", inst.ID, "queue", "provision_queue", "tenant_id", inst.TenantID)
 	if err := s.taskQueue.Enqueue(ctx, "provision_queue", job); err != nil {
 		s.logger.Error("failed to enqueue provision job", "instance_id", inst.ID, "error", err)
 		// Fallback to sync if queue fails or just return error
@@ -220,6 +225,14 @@ func (s *InstanceService) finalizeProvision(ctx context.Context, inst *domain.In
 		"image": inst.Image,
 		"ip":    inst.PrivateIP,
 	})
+
+	// 5. Register DNS (if applicable)
+	if s.dnsSvc != nil && inst.PrivateIP != "" {
+		if err := s.dnsSvc.RegisterInstance(ctx, inst, inst.PrivateIP); err != nil {
+			s.logger.Warn("failed to register instance DNS", "error", err, "instance", inst.Name)
+			// Don't fail provisioning for DNS failure
+		}
+	}
 
 	return nil
 }
@@ -416,6 +429,10 @@ func (s *InstanceService) updateTerminationMetrics(inst *domain.Instance) {
 		platform.InstancesTotal.WithLabelValues("stopped", s.compute.Type()).Dec()
 	}
 	platform.InstanceOperationsTotal.WithLabelValues("terminate", "success").Inc()
+
+	if s.dnsSvc != nil {
+		_ = s.dnsSvc.UnregisterInstance(context.Background(), inst.ID)
+	}
 }
 
 func (s *InstanceService) finalizeTermination(ctx context.Context, inst *domain.Instance) error {
