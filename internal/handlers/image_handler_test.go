@@ -22,7 +22,6 @@ const (
 	imagesAPI        = "/api/v1/images"
 	imageIDParam     = "id"
 	testImage        = "test-image"
-	errInvalidID     = "invalid id"
 	imagePathInvalid = "/invalid"
 	uploadSuffix     = "/upload"
 )

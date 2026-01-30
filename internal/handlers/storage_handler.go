@@ -32,8 +32,7 @@ func NewStorageHandler(svc ports.StorageService, cfg *platform.Config) *StorageH
 }
 
 const (
-	errInvalidUploadID    = "invalid upload id"
-	errInvalidRequestBody = "invalid request body"
+	errInvalidUploadID = "invalid upload id"
 )
 
 // Upload uploads an object to a bucket
