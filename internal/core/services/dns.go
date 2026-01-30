@@ -328,14 +328,16 @@ func (s *DNSService) DeleteRecord(ctx context.Context, id uuid.UUID) error {
 
 // RegisterInstance creates an A record for an instance in its VPC's private zone.
 func (s *DNSService) RegisterInstance(ctx context.Context, instance *domain.Instance, ipAddress string) error {
+	s.logger.Info("RegisterInstance called", "instance", instance.Name, "vpc_id", instance.VpcID, "ip", ipAddress)
 	if instance.VpcID == nil {
+		s.logger.Info("RegisterInstance skipped: no VPC ID")
 		return nil // No VPC, no private DNS
 	}
 
 	// Find zone for VPC
 	zone, err := s.repo.GetZoneByVPC(ctx, *instance.VpcID)
 	if err != nil {
-		s.logger.Debug("no private zone for VPC, skipping DNS registration", "vpc_id", instance.VpcID)
+		s.logger.Warn("no private zone for VPC, skipping DNS registration", "vpc_id", instance.VpcID, "error", err)
 		return nil // No zone configured, skip silently
 	}
 

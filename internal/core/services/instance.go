@@ -208,6 +208,14 @@ func (s *InstanceService) finalizeProvision(ctx context.Context, inst *domain.In
 		}
 	}
 
+	// 5. Register DNS (if applicable)
+	if s.dnsSvc != nil && inst.PrivateIP != "" {
+		if err := s.dnsSvc.RegisterInstance(ctx, inst, inst.PrivateIP); err != nil {
+			s.logger.Warn("failed to register instance DNS", "error", err, "instance", inst.Name)
+			// Don't fail provisioning for DNS failure
+		}
+	}
+
 	if err := s.repo.Update(ctx, inst); err != nil {
 		return err
 	}
@@ -225,14 +233,6 @@ func (s *InstanceService) finalizeProvision(ctx context.Context, inst *domain.In
 		"image": inst.Image,
 		"ip":    inst.PrivateIP,
 	})
-
-	// 5. Register DNS (if applicable)
-	if s.dnsSvc != nil && inst.PrivateIP != "" {
-		if err := s.dnsSvc.RegisterInstance(ctx, inst, inst.PrivateIP); err != nil {
-			s.logger.Warn("failed to register instance DNS", "error", err, "instance", inst.Name)
-			// Don't fail provisioning for DNS failure
-		}
-	}
 
 	return nil
 }

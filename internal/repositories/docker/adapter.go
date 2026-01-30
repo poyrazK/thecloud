@@ -125,7 +125,7 @@ func (a *DockerAdapter) CreateInstance(ctx context.Context, opts ports.CreateIns
 	// HACK: For kindest/node, we MUST NOT override the entrypoint/command as it starts systemd.
 	isKIND := strings.Contains(opts.ImageName, "kindest/node")
 	if len(config.Cmd) == 0 && !isKIND {
-		config.Cmd = []string{"/bin/bash", "-c", "tail -f /dev/null"}
+		config.Cmd = []string{"/bin/sh", "-c", "tail -f /dev/null"}
 	}
 
 	hostConfig := &container.HostConfig{

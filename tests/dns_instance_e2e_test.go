@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +28,7 @@ func TestDNSInstanceAutoRegistrationE2E(t *testing.T) {
 	const instRoute = "%s%s/%s"
 
 	var vpcID string
-	vpcName := fmt.Sprintf("dns-inst-vpc-%d", time.Now().UnixNano())
+	vpcName := fmt.Sprintf("dns-inst-vpc-%d-%s", time.Now().UnixNano(), uuid.New().String())
 
 	// 1. Create VPC
 	t.Run("CreateVPC", func(t *testing.T) {
@@ -93,12 +95,15 @@ func TestDNSInstanceAutoRegistrationE2E(t *testing.T) {
 	t.Run("VerifyAutoDNSCreation", func(t *testing.T) {
 		privateIP, err := waitForInstanceRunning(t, client, token, instanceID)
 		if err != nil {
-			t.Skipf("Skipping DNS verification due to provisioning issue: %v", err)
-			return
+			t.Fatalf("DNS verification failed due to provisioning issue: %v", err)
 		}
 		if privateIP == "" {
-			t.Skip("Instance did not reach RUNNING state... skipping DNS verification")
-			return
+			t.Fatal("Instance did not reach RUNNING state within timeout")
+		}
+
+		// Normalize PrivateIP (remove CIDR if present, e.g. from Postgres INET)
+		if idx := strings.Index(privateIP, "/"); idx != -1 {
+			privateIP = privateIP[:idx]
 		}
 
 		// Verify DNS record exists in DB
