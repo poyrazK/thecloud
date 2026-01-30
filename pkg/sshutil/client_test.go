@@ -63,7 +63,7 @@ func TestWaitForSSH(t *testing.T) {
 	// Start a dummy TCP server
 	l, err := net.Listen("tcp", testLoopbackAddr)
 	require.NoError(t, err)
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	port := l.Addr().(*net.TCPAddr).Port
 	host := fmt.Sprintf("%s:%d", testLocalhostIP, port)
@@ -113,7 +113,7 @@ func TestRunConnectionRefused(t *testing.T) {
 	l, err := net.Listen("tcp", testLoopbackAddr)
 	require.NoError(t, err)
 	port := l.Addr().(*net.TCPAddr).Port
-	l.Close() // Close immediately to ensure connection refused
+	_ = l.Close() // Close immediately to ensure connection refused
 
 	host := fmt.Sprintf("%s:%d", testLocalhostIP, port)
 	privKey := generateTestKey(t)
@@ -259,7 +259,7 @@ func startTestSSHServerWithHandler(t *testing.T, handler func(cmd string, ch ssh
 
 	return listener.Addr().String(), func() {
 		close(stop)
-		listener.Close()
+		_ = listener.Close()
 		wg.Wait()
 	}
 }
@@ -277,7 +277,7 @@ func handleSSHConn(conn net.Conn, config *ssh.ServerConfig, handler func(cmd str
 	if err != nil {
 		return
 	}
-	defer sshConn.Close()
+	defer func() { _ = sshConn.Close() }()
 	go ssh.DiscardRequests(reqs)
 
 	for newChannel := range chans {
@@ -296,7 +296,7 @@ func handleSSHConn(conn net.Conn, config *ssh.ServerConfig, handler func(cmd str
 }
 
 func handleSessionRequests(ch ssh.Channel, in <-chan *ssh.Request, handler func(cmd string, ch ssh.Channel) error) {
-	defer ch.Close()
+	defer func() { _ = ch.Close() }()
 	for req := range in {
 		if req.Type != "exec" {
 			_ = req.Reply(false, nil)

@@ -31,7 +31,7 @@ func TestAuthE2E(t *testing.T) {
 			"name":     "Auth Tester",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+"/auth/register", "", payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.True(t, resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusConflict)
 	})
@@ -44,7 +44,7 @@ func TestAuthE2E(t *testing.T) {
 			"password": password,
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+"/auth/login", "", payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -62,7 +62,7 @@ func TestAuthE2E(t *testing.T) {
 	t.Run("CreateKey", func(t *testing.T) {
 		payload := map[string]string{"name": "secondary-key"}
 		resp := postRequest(t, client, testutil.TestBaseURL+"/auth/keys", apiKey, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	})
@@ -70,7 +70,7 @@ func TestAuthE2E(t *testing.T) {
 	// 4. List Keys
 	t.Run("ListKeys", func(t *testing.T) {
 		resp := getRequest(t, client, testutil.TestBaseURL+"/auth/keys", apiKey)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})

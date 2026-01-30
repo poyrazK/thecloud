@@ -59,17 +59,17 @@ func (c *Client) Run(ctx context.Context, cmd string) (string, error) {
 
 	sshConn, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return "", fmt.Errorf("failed to create ssh client conn: %w", err)
 	}
 	client := ssh.NewClient(sshConn, chans, reqs)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	session, err := client.NewSession()
 	if err != nil {
 		return "", fmt.Errorf("failed to create session: %w", err)
 	}
-	defer session.Close()
+	defer func() { _ = session.Close() }()
 
 	// Capture stdout and stderr separately to avoid race conditions on bytes.Buffer
 	var stdout, stderr bytes.Buffer
@@ -107,17 +107,17 @@ func (c *Client) WriteFile(ctx context.Context, path string, content []byte, mod
 
 	sshConn, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return fmt.Errorf("failed to create ssh client conn: %w", err)
 	}
 	client := ssh.NewClient(sshConn, chans, reqs)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	session, err := client.NewSession()
 	if err != nil {
 		return fmt.Errorf("failed to create session: %w", err)
 	}
-	defer session.Close()
+	defer func() { _ = session.Close() }()
 
 	w, err := session.StdinPipe()
 	if err != nil {
@@ -128,10 +128,10 @@ func (c *Client) WriteFile(ctx context.Context, path string, content []byte, mod
 
 	go func() {
 		defer close(errCh)
-		defer w.Close()
+		defer func() { _ = w.Close() }()
 
 		filename := filepath.Base(path)
-		fmt.Fprintf(w, "C%s %d %s\n", mode, len(content), filename)
+		_, _ = fmt.Fprintf(w, "C%s %d %s\n", mode, len(content), filename)
 		if _, err := w.Write(content); err != nil {
 			errCh <- fmt.Errorf("failed to write content: %w", err)
 			return
@@ -184,7 +184,7 @@ func (c *Client) WaitForSSH(ctx context.Context, timeout time.Duration) error {
 	// Check immediately once
 	d := net.Dialer{Timeout: sshDialTimeout}
 	if conn, err := d.DialContext(ctx, "tcp", addr); err == nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil
 	}
 
@@ -196,7 +196,7 @@ func (c *Client) WaitForSSH(ctx context.Context, timeout time.Duration) error {
 			d := net.Dialer{Timeout: sshDialTimeout}
 			conn, err := d.DialContext(ctx, "tcp", addr)
 			if err == nil {
-				conn.Close()
+				_ = conn.Close()
 				return nil
 			}
 		}

@@ -28,7 +28,7 @@ func TestChaos(t *testing.T) {
 		// 1. Verify system works initially
 		resp := getRequest(t, client, testutil.TestBaseURL+"/instances", token)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		// 2. Kill Redis
 		t.Log("Killing Redis container...")
@@ -46,7 +46,7 @@ func TestChaos(t *testing.T) {
 
 		// 3. Verify API behavior without Redis
 		resp = getRequest(t, client, testutil.TestBaseURL+"/instances", token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		t.Logf("API response without Redis: %d", resp.StatusCode)
 		assert.NotEqual(t, 0, resp.StatusCode, "API should still respond")
@@ -54,7 +54,7 @@ func TestChaos(t *testing.T) {
 		// 4. Verify Health Check
 		respH, err := http.Get(testutil.TestBaseURL + "/health")
 		if err == nil {
-			defer respH.Body.Close()
+			defer func() { _ = respH.Body.Close() }()
 			body, _ := io.ReadAll(respH.Body)
 			t.Logf("Health check status without Redis: %d, body: %s", respH.StatusCode, string(body))
 		}
@@ -69,7 +69,7 @@ func TestChaos(t *testing.T) {
 			for i := 0; i < 60; i++ {
 				resp, err := http.Get(testutil.TestBaseURL + "/health")
 				if err == nil && resp.StatusCode == http.StatusOK {
-					resp.Body.Close()
+					_ = resp.Body.Close()
 					if errorCount > 0 {
 						// We recovered!
 						recoveryChan <- true
@@ -102,7 +102,7 @@ func TestChaos(t *testing.T) {
 		// 4. Verify system is still functional (new request)
 		token2 := registerAndLogin(t, client, "post-restart@thecloud.local", "Post Restart")
 		resp := getRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token2)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		assert.Equal(t, http.StatusOK, resp.StatusCode, "API should be functional after restart")
 	})
 }

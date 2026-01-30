@@ -35,7 +35,7 @@ func TestClientListVolumes(t *testing.T) {
 
 		w.Header().Set(volumeContentType, volumeApplicationJSON)
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Response[[]Volume]{Data: mockVolumes})
+		_ = json.NewEncoder(w).Encode(Response[[]Volume]{Data: mockVolumes})
 	}))
 	defer server.Close()
 
@@ -60,13 +60,13 @@ func TestClientCreateVolume(t *testing.T) {
 		assert.Equal(t, "POST", r.Method)
 
 		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 		assert.Equal(t, volumeNewName, body["name"])
 		assert.Equal(t, float64(20), body["size_gb"])
 
 		w.Header().Set(volumeContentType, volumeApplicationJSON)
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(Response[Volume]{Data: mockVolume})
+		_ = json.NewEncoder(w).Encode(Response[Volume]{Data: mockVolume})
 	}))
 	defer server.Close()
 
@@ -93,7 +93,7 @@ func TestClientGetVolume(t *testing.T) {
 
 		w.Header().Set(volumeContentType, volumeApplicationJSON)
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Response[Volume]{Data: mockVolume})
+		_ = json.NewEncoder(w).Encode(Response[Volume]{Data: mockVolume})
 	}))
 	defer server.Close()
 
@@ -122,7 +122,7 @@ func TestClientDeleteVolume(t *testing.T) {
 func TestClientVolumeErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 

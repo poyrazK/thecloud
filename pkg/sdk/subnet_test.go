@@ -24,7 +24,7 @@ func TestClientListSubnets(t *testing.T) {
 
 		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		resp := Response[[]*Subnet]{Data: expectedSubnets}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -61,7 +61,7 @@ func TestClientCreateSubnet(t *testing.T) {
 
 		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		resp := Response[*Subnet]{Data: expectedSubnet}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -105,7 +105,7 @@ func TestClientGetSubnet(t *testing.T) {
 
 		w.Header().Set("Content-Type", testutil.TestContentTypeAppJSON)
 		resp := Response[*Subnet]{Data: expectedSubnet}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 

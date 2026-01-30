@@ -24,7 +24,7 @@ func TestClientListVPCs(t *testing.T) {
 
 		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Response[[]VPC]{Data: mockVPCs})
+		_ = json.NewEncoder(w).Encode(Response[[]VPC]{Data: mockVPCs})
 	}))
 	defer server.Close()
 
@@ -47,13 +47,13 @@ func TestClientCreateVPC(t *testing.T) {
 		assert.Equal(t, "POST", r.Method)
 
 		var body map[string]string
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 		assert.Equal(t, testVpcName, body["name"])
 		assert.Equal(t, testutil.TestCIDR, body["cidr_block"])
 
 		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(Response[VPC]{Data: mockVPC})
+		_ = json.NewEncoder(w).Encode(Response[VPC]{Data: mockVPC})
 	}))
 	defer server.Close()
 
@@ -70,7 +70,7 @@ func TestClientGetVPC(t *testing.T) {
 		assert.Equal(t, "/vpcs/vpc-1", r.URL.Path)
 		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Response[VPC]{Data: VPC{ID: "vpc-1"}})
+		_ = json.NewEncoder(w).Encode(Response[VPC]{Data: VPC{ID: "vpc-1"}})
 	}))
 	defer server.Close()
 
@@ -97,7 +97,7 @@ func TestClientDeleteVPC(t *testing.T) {
 func TestClientVPCErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 

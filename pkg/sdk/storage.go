@@ -99,7 +99,7 @@ func (c *Client) DownloadObject(bucket, key string, versionID ...string) (io.Rea
 		return nil, err
 	}
 	if resp.IsError() {
-		resp.RawBody().Close()
+		_ = resp.RawBody().Close()
 		return nil, fmt.Errorf("api error: status %d", resp.StatusCode())
 	}
 	return resp.RawBody(), nil

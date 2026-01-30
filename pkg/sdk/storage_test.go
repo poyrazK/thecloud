@@ -38,7 +38,7 @@ func TestClientListObjects(t *testing.T) {
 
 		w.Header().Set(storageContentType, storageApplicationJSON)
 		resp := Response[[]Object]{Data: expectedObjects}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -82,7 +82,7 @@ func TestClientUploadObjectErrorStatus(t *testing.T) {
 		assert.Equal(t, storagePathPrefix+bucket+"/"+key, r.URL.Path)
 		assert.Equal(t, http.MethodPut, r.Method)
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
@@ -108,7 +108,7 @@ func TestClientDownloadObject(t *testing.T) {
 		assert.Equal(t, storagePathPrefix+bucket+"/"+key, r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 
-		w.Write([]byte(content))
+		_, _ = w.Write([]byte(content))
 	}))
 	defer server.Close()
 
@@ -116,7 +116,7 @@ func TestClientDownloadObject(t *testing.T) {
 	readCloser, err := client.DownloadObject(bucket, key)
 
 	assert.NoError(t, err)
-	defer readCloser.Close()
+	defer func() { _ = readCloser.Close() }()
 
 	body, err := io.ReadAll(readCloser)
 	assert.NoError(t, err)
@@ -151,7 +151,7 @@ func TestClientListVersions(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.Header().Set(storageContentType, storageApplicationJSON)
-		json.NewEncoder(w).Encode(Response[[]Object]{Data: expected})
+		_ = json.NewEncoder(w).Encode(Response[[]Object]{Data: expected})
 	}))
 	defer server.Close()
 
@@ -172,7 +172,7 @@ func TestClientDownloadObjectWithVersion(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, storagePathPrefix+bucket+"/"+key, r.URL.Path)
 		assert.Equal(t, version, r.URL.Query().Get("versionId"))
-		w.Write([]byte(content))
+		_, _ = w.Write([]byte(content))
 	}))
 	defer server.Close()
 
@@ -180,7 +180,7 @@ func TestClientDownloadObjectWithVersion(t *testing.T) {
 	readCloser, err := client.DownloadObject(bucket, key, version)
 
 	assert.NoError(t, err)
-	defer readCloser.Close()
+	defer func() { _ = readCloser.Close() }()
 
 	body, err := io.ReadAll(readCloser)
 	assert.NoError(t, err)
@@ -194,7 +194,7 @@ func TestClientDownloadObjectErrorStatus(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, storagePathPrefix+bucket+"/"+key, r.URL.Path)
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
@@ -246,7 +246,7 @@ func TestClientCreateBucket(t *testing.T) {
 		assert.True(t, payload.IsPublic)
 
 		w.Header().Set(storageContentType, storageApplicationJSON)
-		json.NewEncoder(w).Encode(Response[Bucket]{Data: Bucket{ID: "b1", Name: storageBucketName, IsPublic: true}})
+		_ = json.NewEncoder(w).Encode(Response[Bucket]{Data: Bucket{ID: "b1", Name: storageBucketName, IsPublic: true}})
 	}))
 	defer server.Close()
 
@@ -263,7 +263,7 @@ func TestClientListBuckets(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.Header().Set(storageContentType, storageApplicationJSON)
-		json.NewEncoder(w).Encode(Response[[]Bucket]{Data: []Bucket{{ID: "b1", Name: storageBucketName}}})
+		_ = json.NewEncoder(w).Encode(Response[[]Bucket]{Data: []Bucket{{ID: "b1", Name: storageBucketName}}})
 	}))
 	defer server.Close()
 
@@ -317,7 +317,7 @@ func TestClientGetStorageClusterStatus(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.Header().Set(storageContentType, storageApplicationJSON)
-		json.NewEncoder(w).Encode(Response[StorageCluster]{Data: StorageCluster{Nodes: []StorageNode{{ID: "node-1"}}}})
+		_ = json.NewEncoder(w).Encode(Response[StorageCluster]{Data: StorageCluster{Nodes: []StorageNode{{ID: "node-1"}}}})
 	}))
 	defer server.Close()
 
@@ -348,7 +348,7 @@ func TestClientGeneratePresignedURL(t *testing.T) {
 		assert.Equal(t, 60, payload.ExpirySec)
 
 		w.Header().Set(storageContentType, storageApplicationJSON)
-		json.NewEncoder(w).Encode(Response[PresignedURL]{Data: PresignedURL{URL: "http://example.com", Method: method}})
+		_ = json.NewEncoder(w).Encode(Response[PresignedURL]{Data: PresignedURL{URL: "http://example.com", Method: method}})
 	}))
 	defer server.Close()
 
@@ -376,10 +376,10 @@ func TestClientLifecycleRules(t *testing.T) {
 			assert.True(t, payload.Enabled)
 
 			w.Header().Set(storageContentType, storageApplicationJSON)
-			json.NewEncoder(w).Encode(Response[LifecycleRule]{Data: LifecycleRule{ID: storageRuleID, BucketName: bucket}})
+			_ = json.NewEncoder(w).Encode(Response[LifecycleRule]{Data: LifecycleRule{ID: storageRuleID, BucketName: bucket}})
 		case r.Method == http.MethodGet && r.URL.Path == storageBucketsPath+bucket+"/lifecycle":
 			w.Header().Set(storageContentType, storageApplicationJSON)
-			json.NewEncoder(w).Encode(Response[[]LifecycleRule]{Data: []LifecycleRule{{ID: storageRuleID, BucketName: bucket}}})
+			_ = json.NewEncoder(w).Encode(Response[[]LifecycleRule]{Data: []LifecycleRule{{ID: storageRuleID, BucketName: bucket}}})
 		case r.Method == http.MethodDelete && r.URL.Path == storageBucketsPath+bucket+"/lifecycle/"+storageRuleID:
 			w.WriteHeader(http.StatusNoContent)
 		default:
@@ -404,7 +404,7 @@ func TestClientLifecycleRules(t *testing.T) {
 func TestClientStorageListErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
@@ -428,7 +428,7 @@ func TestClientStorageListErrors(t *testing.T) {
 func TestClientStorageCreateErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 

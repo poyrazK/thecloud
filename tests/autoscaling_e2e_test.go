@@ -31,7 +31,7 @@ func TestAutoScalingE2E(t *testing.T) {
 			"cidr_block": "10.10.0.0/16",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteVpcs, token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		var res struct{ Data domain.VPC }
@@ -54,7 +54,7 @@ func TestAutoScalingE2E(t *testing.T) {
 			"desired_count": 2,
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+"/autoscaling/groups", token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -78,7 +78,7 @@ func TestAutoScalingE2E(t *testing.T) {
 			"cooldown_sec":   300,
 		}
 		resp := postRequest(t, client, fmt.Sprintf("%s/autoscaling/groups/%s/policies", testutil.TestBaseURL, groupID), token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -94,12 +94,12 @@ func TestAutoScalingE2E(t *testing.T) {
 	t.Run("Cleanup", func(t *testing.T) {
 		// Delete Policy
 		resp := deleteRequest(t, client, fmt.Sprintf("%s/autoscaling/policies/%s", testutil.TestBaseURL, policyID), token)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 
 		// Delete Group
 		resp = deleteRequest(t, client, fmt.Sprintf("%s/autoscaling/groups/%s", testutil.TestBaseURL, groupID), token)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 
 		// Wait for scaling group to be fully deleted from database
@@ -107,7 +107,7 @@ func TestAutoScalingE2E(t *testing.T) {
 		start := time.Now()
 		for time.Since(start) < timeout {
 			resp = getRequest(t, client, fmt.Sprintf("%s/autoscaling/groups/%s", testutil.TestBaseURL, groupID), token)
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusNotFound {
 				break
 			}
@@ -119,7 +119,7 @@ func TestAutoScalingE2E(t *testing.T) {
 		start = time.Now()
 		for time.Since(start) < timeout {
 			resp = deleteRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token)
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
 				return
 			}
