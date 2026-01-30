@@ -26,6 +26,13 @@ func NewDNSHandler(svc ports.DNSService) *DNSHandler {
 	return &DNSHandler{svc: svc}
 }
 
+// CreateZoneRequest defines the payload for creating a DNS zone.
+type CreateZoneRequest struct {
+	Name        string    `json:"name" binding:"required"`
+	Description string    `json:"description"`
+	VpcID       uuid.UUID `json:"vpc_id" binding:"required"`
+}
+
 // CreateZone creates a new DNS zone.
 // @Summary Create a new DNS zone
 // @Tags dns
@@ -34,14 +41,10 @@ func NewDNSHandler(svc ports.DNSService) *DNSHandler {
 // @Produce json
 // @Param request body CreateZoneRequest true "Create Zone Request"
 // @Success 201 {object} domain.DNSZone
-// @Failure 400,401,500 {object} httputil.ErrorResponse
+// @Failure 400,401,500 {object} httputil.Response
 // @Router /dns/zones [post]
 func (h *DNSHandler) CreateZone(c *gin.Context) {
-	var req struct {
-		Name        string    `json:"name" binding:"required"`
-		Description string    `json:"description"`
-		VpcID       uuid.UUID `json:"vpc_id" binding:"required"`
-	}
+	var req CreateZoneRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		httputil.Error(c, errs.New(errs.InvalidInput, errInvalidRequestBody))
@@ -63,7 +66,7 @@ func (h *DNSHandler) CreateZone(c *gin.Context) {
 // @Security APIKeyAuth
 // @Produce json
 // @Success 200 {array} domain.DNSZone
-// @Failure 401,500 {object} httputil.ErrorResponse
+// @Failure 401,500 {object} httputil.Response
 // @Router /dns/zones [get]
 func (h *DNSHandler) ListZones(c *gin.Context) {
 	zones, err := h.svc.ListZones(c.Request.Context())
@@ -82,7 +85,7 @@ func (h *DNSHandler) ListZones(c *gin.Context) {
 // @Produce json
 // @Param id path string true "Zone ID or Name"
 // @Success 200 {object} domain.DNSZone
-// @Failure 404,500 {object} httputil.ErrorResponse
+// @Failure 404,500 {object} httputil.Response
 // @Router /dns/zones/{id} [get]
 func (h *DNSHandler) GetZone(c *gin.Context) {
 	idOrName := c.Param("id")
@@ -101,7 +104,7 @@ func (h *DNSHandler) GetZone(c *gin.Context) {
 // @Security APIKeyAuth
 // @Param id path string true "Zone ID or Name"
 // @Success 204 "No Content"
-// @Failure 404,500 {object} httputil.ErrorResponse
+// @Failure 404,500 {object} httputil.Response
 // @Router /dns/zones/{id} [delete]
 func (h *DNSHandler) DeleteZone(c *gin.Context) {
 	idOrName := c.Param("id")
@@ -113,6 +116,15 @@ func (h *DNSHandler) DeleteZone(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// CreateRecordRequest defines the payload for creating a DNS record.
+type CreateRecordRequest struct {
+	Name     string            `json:"name" binding:"required"`
+	Type     domain.RecordType `json:"type" binding:"required"`
+	Content  string            `json:"content" binding:"required"`
+	TTL      int               `json:"ttl"`
+	Priority *int              `json:"priority"`
+}
+
 // CreateRecord creates a new DNS record.
 // @Summary Create a new DNS record
 // @Tags dns
@@ -122,7 +134,7 @@ func (h *DNSHandler) DeleteZone(c *gin.Context) {
 // @Param id path string true "Zone ID"
 // @Param request body CreateRecordRequest true "Create Record Request"
 // @Success 201 {object} domain.DNSRecord
-// @Failure 400,401,500 {object} httputil.ErrorResponse
+// @Failure 400,401,500 {object} httputil.Response
 // @Router /dns/zones/{id}/records [post]
 func (h *DNSHandler) CreateRecord(c *gin.Context) {
 	zoneID, ok := parseUUID(c, "id")
@@ -130,13 +142,7 @@ func (h *DNSHandler) CreateRecord(c *gin.Context) {
 		return
 	}
 
-	var req struct {
-		Name     string            `json:"name" binding:"required"`
-		Type     domain.RecordType `json:"type" binding:"required"`
-		Content  string            `json:"content" binding:"required"`
-		TTL      int               `json:"ttl"`
-		Priority *int              `json:"priority"`
-	}
+	var req CreateRecordRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		httputil.Error(c, errs.New(errs.InvalidInput, errInvalidRequestBody))
@@ -159,7 +165,7 @@ func (h *DNSHandler) CreateRecord(c *gin.Context) {
 // @Produce json
 // @Param id path string true "Zone ID"
 // @Success 200 {array} domain.DNSRecord
-// @Failure 404,500 {object} httputil.ErrorResponse
+// @Failure 404,500 {object} httputil.Response
 // @Router /dns/zones/{id}/records [get]
 func (h *DNSHandler) ListRecords(c *gin.Context) {
 	zoneID, ok := parseUUID(c, "id")
@@ -183,7 +189,7 @@ func (h *DNSHandler) ListRecords(c *gin.Context) {
 // @Produce json
 // @Param id path string true "Record ID"
 // @Success 200 {object} domain.DNSRecord
-// @Failure 404,500 {object} httputil.ErrorResponse
+// @Failure 404,500 {object} httputil.Response
 // @Router /dns/records/{id} [get]
 func (h *DNSHandler) GetRecord(c *gin.Context) {
 	id, ok := parseUUID(c, "id")
@@ -200,6 +206,13 @@ func (h *DNSHandler) GetRecord(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, record)
 }
 
+// UpdateRecordRequest defines the payload for updating a DNS record.
+type UpdateRecordRequest struct {
+	Content  string `json:"content" binding:"required"`
+	TTL      int    `json:"ttl"`
+	Priority *int   `json:"priority"`
+}
+
 // UpdateRecord updates a DNS record.
 // @Summary Update a DNS record
 // @Tags dns
@@ -209,7 +222,7 @@ func (h *DNSHandler) GetRecord(c *gin.Context) {
 // @Param id path string true "Record ID"
 // @Param request body UpdateRecordRequest true "Update Record Request"
 // @Success 200 {object} domain.DNSRecord
-// @Failure 400,404,500 {object} httputil.ErrorResponse
+// @Failure 400,404,500 {object} httputil.Response
 // @Router /dns/records/{id} [put]
 func (h *DNSHandler) UpdateRecord(c *gin.Context) {
 	id, ok := parseUUID(c, "id")
@@ -217,11 +230,7 @@ func (h *DNSHandler) UpdateRecord(c *gin.Context) {
 		return
 	}
 
-	var req struct {
-		Content  string `json:"content" binding:"required"`
-		TTL      int    `json:"ttl"`
-		Priority *int   `json:"priority"`
-	}
+	var req UpdateRecordRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		httputil.Error(c, errs.New(errs.InvalidInput, errInvalidRequestBody))
@@ -243,7 +252,7 @@ func (h *DNSHandler) UpdateRecord(c *gin.Context) {
 // @Security APIKeyAuth
 // @Param id path string true "Record ID"
 // @Success 204 "No Content"
-// @Failure 404,500 {object} httputil.ErrorResponse
+// @Failure 404,500 {object} httputil.Response
 // @Router /dns/records/{id} [delete]
 func (h *DNSHandler) DeleteRecord(c *gin.Context) {
 	id, ok := parseUUID(c, "id")

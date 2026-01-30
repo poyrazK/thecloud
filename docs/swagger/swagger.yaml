@@ -137,6 +137,70 @@ definitions:
     - ClusterStatusRepairing
     - ClusterStatusFailed
     - ClusterStatusDeleting
+  domain.DNSRecord:
+    properties:
+      auto_managed:
+        description: True for instance auto-registration
+        type: boolean
+      content:
+        description: IP, hostname, or value
+        type: string
+      created_at:
+        type: string
+      disabled:
+        type: boolean
+      id:
+        type: string
+      instance_id:
+        description: Link to instance if auto-managed
+        type: string
+      name:
+        description: e.g., "www", "api", "@"
+        type: string
+      priority:
+        description: For MX, SRV
+        type: integer
+      ttl:
+        type: integer
+      type:
+        allOf:
+        - $ref: '#/definitions/domain.RecordType'
+        description: A, AAAA, CNAME, MX, TXT, SRV
+      updated_at:
+        type: string
+      zone_id:
+        type: string
+    type: object
+  domain.DNSZone:
+    properties:
+      created_at:
+        type: string
+      default_ttl:
+        description: 'Default: 300'
+        type: integer
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        description: e.g., "myapp.internal"
+        type: string
+      powerdns_id:
+        description: Zone ID in PowerDNS (e.g., "myapp.internal.")
+        type: string
+      status:
+        description: ACTIVE, CREATING, DELETING, FAILED
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+      vpc_id:
+        description: Required for private zones
+        type: string
+    type: object
   domain.DashboardStats:
     properties:
       cpu_history:
@@ -566,6 +630,22 @@ definitions:
     - PermissionClusterRead
     - PermissionClusterUpdate
     - PermissionFullAccess
+  domain.RecordType:
+    enum:
+    - A
+    - AAAA
+    - CNAME
+    - MX
+    - TXT
+    - SRV
+    type: string
+    x-enum-varnames:
+    - RecordTypeA
+    - RecordTypeAAAA
+    - RecordTypeCNAME
+    - RecordTypeMX
+    - RecordTypeTXT
+    - RecordTypeSRV
   domain.ResourceSummary:
     properties:
       attached_volumes:
@@ -1125,6 +1205,23 @@ definitions:
     - port
     - vpc_id
     type: object
+  httphandlers.CreateRecordRequest:
+    properties:
+      content:
+        type: string
+      name:
+        type: string
+      priority:
+        type: integer
+      ttl:
+        type: integer
+      type:
+        $ref: '#/definitions/domain.RecordType'
+    required:
+    - content
+    - name
+    - type
+    type: object
   httphandlers.CreateRoleRequest:
     properties:
       description:
@@ -1186,6 +1283,18 @@ definitions:
     required:
     - name
     - size_gb
+    type: object
+  httphandlers.CreateZoneRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      vpc_id:
+        type: string
+    required:
+    - name
+    - vpc_id
     type: object
   httphandlers.ForgotPasswordRequest:
     properties:
@@ -1282,6 +1391,17 @@ definitions:
     properties:
       workers:
         type: integer
+    type: object
+  httphandlers.UpdateRecordRequest:
+    properties:
+      content:
+        type: string
+      priority:
+        type: integer
+      ttl:
+        type: integer
+    required:
+    - content
     type: object
   httphandlers.UpgradeClusterRequest:
     properties:
@@ -2164,6 +2284,274 @@ paths:
       summary: Upgrade cluster version
       tags:
       - K8s
+  /dns/records/{id}:
+    delete:
+      parameters:
+      - description: Record ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete a DNS record
+      tags:
+      - dns
+    get:
+      parameters:
+      - description: Record ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.DNSRecord'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get a DNS record
+      tags:
+      - dns
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Record ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update Record Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.UpdateRecordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.DNSRecord'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Update a DNS record
+      tags:
+      - dns
+  /dns/zones:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.DNSZone'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List all DNS zones
+      tags:
+      - dns
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Create Zone Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreateZoneRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.DNSZone'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create a new DNS zone
+      tags:
+      - dns
+  /dns/zones/{id}:
+    delete:
+      parameters:
+      - description: Zone ID or Name
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete a DNS zone
+      tags:
+      - dns
+    get:
+      parameters:
+      - description: Zone ID or Name
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.DNSZone'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get a DNS zone
+      tags:
+      - dns
+  /dns/zones/{id}/records:
+    get:
+      parameters:
+      - description: Zone ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.DNSRecord'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List records in a zone
+      tags:
+      - dns
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Zone ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Create Record Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreateRecordRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.DNSRecord'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create a new DNS record
+      tags:
+      - dns
   /health/live:
     get:
       responses:
