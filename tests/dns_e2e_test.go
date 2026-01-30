@@ -36,7 +36,7 @@ func TestDNSE2E(t *testing.T) {
 			"cidr_block": "10.10.0.0/16",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteVpcs, token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		var res struct {
@@ -61,7 +61,7 @@ func TestDNSE2E(t *testing.T) {
 			"vpc_id":      vpcID,
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteDNSZones, token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -84,7 +84,7 @@ func TestDNSE2E(t *testing.T) {
 			"vpc_id": vpcID,
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteDNSZones, token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		assert.Equal(t, http.StatusConflict, resp.StatusCode)
 	})
 
@@ -113,7 +113,7 @@ func TestDNSE2E(t *testing.T) {
 					"ttl":      300,
 				}
 				resp := postRequest(t, client, fmt.Sprintf(recordsRoute, testutil.TestBaseURL, zoneID), token, payload)
-				defer resp.Body.Close()
+				defer func() { _ = resp.Body.Close() }()
 
 				if resp.StatusCode != http.StatusCreated {
 					body, _ := io.ReadAll(resp.Body)
@@ -140,7 +140,7 @@ func TestDNSE2E(t *testing.T) {
 				"ttl":     10, // Should be clamped to min (e.g. 60)
 			}
 			resp := postRequest(t, client, fmt.Sprintf(recordsRoute, testutil.TestBaseURL, zoneID), token, payload)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 			var res struct {
@@ -157,7 +157,7 @@ func TestDNSE2E(t *testing.T) {
 				"content": "some content",
 			}
 			resp := postRequest(t, client, fmt.Sprintf("%s/dns/zones/%s/records", testutil.TestBaseURL, zoneID), token, payload)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 		})
 	})
@@ -166,17 +166,17 @@ func TestDNSE2E(t *testing.T) {
 	t.Run("Cleanup", func(t *testing.T) {
 		// Delete DNS Zone
 		resp := deleteRequest(t, client, fmt.Sprintf(zoneRoute, testutil.TestBaseURL, testutil.TestRouteDNSZones, zoneID), token)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 
 		// Verify deletion in PowerDNS (via GET)
 		getResp := getRequest(t, client, fmt.Sprintf(zoneRoute, testutil.TestBaseURL, testutil.TestRouteDNSZones, zoneID), token)
-		getResp.Body.Close()
+		_ = getResp.Body.Close()
 		assert.Equal(t, http.StatusNotFound, getResp.StatusCode)
 
 		// Delete VPC
 		resp = deleteRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		assert.Contains(t, []int{http.StatusOK, http.StatusNoContent}, resp.StatusCode)
 	})
 }

@@ -35,7 +35,7 @@ func TestDNSInstanceAutoRegistrationE2E(t *testing.T) {
 			"cidr_block": "10.20.0.0/16",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteVpcs, token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		var res struct {
@@ -56,7 +56,7 @@ func TestDNSInstanceAutoRegistrationE2E(t *testing.T) {
 			"vpc_id":      vpcID,
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteDNSZones, token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		var res struct {
@@ -77,7 +77,7 @@ func TestDNSInstanceAutoRegistrationE2E(t *testing.T) {
 			"vpc_id": vpcID,
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
 		var res struct {
@@ -99,7 +99,7 @@ func TestDNSInstanceAutoRegistrationE2E(t *testing.T) {
 
 		// Verify DNS record exists in DB
 		resp := getRequest(t, client, fmt.Sprintf("%s/dns/zones/%s/records", testutil.TestBaseURL, zoneID), token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
 		var recordsRes struct {
@@ -122,7 +122,7 @@ func TestDNSInstanceAutoRegistrationE2E(t *testing.T) {
 	t.Run("Cleanup", func(t *testing.T) {
 		// Terminate Instance
 		resp := deleteRequest(t, client, fmt.Sprintf(instRoute, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
 		// Wait a bit for async cleanup
@@ -130,7 +130,7 @@ func TestDNSInstanceAutoRegistrationE2E(t *testing.T) {
 
 		// Verify record is gone
 		getRecordsResp := getRequest(t, client, fmt.Sprintf("%s/dns/zones/%s/records", testutil.TestBaseURL, zoneID), token)
-		defer getRecordsResp.Body.Close()
+		defer func() { _ = getRecordsResp.Body.Close() }()
 
 		var recordsRes struct {
 			Data []domain.DNSRecord `json:"data"`
@@ -142,9 +142,9 @@ func TestDNSInstanceAutoRegistrationE2E(t *testing.T) {
 		}
 
 		// Delete Zone
-		deleteRequest(t, client, fmt.Sprintf(instRoute, testutil.TestBaseURL, testutil.TestRouteDNSZones, zoneID), token).Body.Close()
+		_ = deleteRequest(t, client, fmt.Sprintf(instRoute, testutil.TestBaseURL, testutil.TestRouteDNSZones, zoneID), token).Body.Close()
 		// Delete VPC
-		deleteRequest(t, client, fmt.Sprintf(instRoute, testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token).Body.Close()
+		_ = deleteRequest(t, client, fmt.Sprintf(instRoute, testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token).Body.Close()
 	})
 }
 
@@ -161,7 +161,7 @@ func waitForInstanceRunning(t *testing.T, client *http.Client, token, instanceID
 			Data domain.Instance `json:"data"`
 		}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		if res.Data.Status == domain.StatusRunning && res.Data.PrivateIP != "" {
 			privateIP = res.Data.PrivateIP
@@ -176,7 +176,7 @@ func waitForInstanceRunning(t *testing.T, client *http.Client, token, instanceID
 	if privateIP == "" {
 		resp := getRequest(t, client, fmt.Sprintf(instRoute, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
 		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		t.Logf("Final instance state: %s", string(body))
 	}
 

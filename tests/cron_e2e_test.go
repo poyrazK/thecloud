@@ -35,7 +35,7 @@ func TestCronE2E(t *testing.T) {
 			"target_method": "GET",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+"/cron/jobs", token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -50,7 +50,7 @@ func TestCronE2E(t *testing.T) {
 	// 2. Get Job
 	t.Run("GetJob", func(t *testing.T) {
 		resp := getRequest(t, client, fmt.Sprintf("%s/cron/jobs/%s", testutil.TestBaseURL, jobID), token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -64,7 +64,7 @@ func TestCronE2E(t *testing.T) {
 	// 3. Pause Job
 	t.Run("PauseJob", func(t *testing.T) {
 		resp := postRequest(t, client, fmt.Sprintf("%s/cron/jobs/%s/pause", testutil.TestBaseURL, jobID), token, nil)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
@@ -72,7 +72,7 @@ func TestCronE2E(t *testing.T) {
 	// 4. Resume Job
 	t.Run("ResumeJob", func(t *testing.T) {
 		resp := postRequest(t, client, fmt.Sprintf("%s/cron/jobs/%s/resume", testutil.TestBaseURL, jobID), token, nil)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
@@ -80,7 +80,7 @@ func TestCronE2E(t *testing.T) {
 	// 5. Cleanup
 	t.Run("Cleanup", func(t *testing.T) {
 		resp := deleteRequest(t, client, fmt.Sprintf("%s/cron/jobs/%s", testutil.TestBaseURL, jobID), token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})

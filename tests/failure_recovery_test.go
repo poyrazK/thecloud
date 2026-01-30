@@ -27,7 +27,7 @@ func TestFailureRecovery(t *testing.T) {
 			"image": "alpine",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+"/instances", token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusAccepted, resp.StatusCode)
 
@@ -43,7 +43,7 @@ func TestFailureRecovery(t *testing.T) {
 
 		// Immediately delete it
 		delResp := deleteRequest(t, client, fmt.Sprintf("%s/instances/%s", testutil.TestBaseURL, instID), token)
-		defer delResp.Body.Close()
+		defer func() { _ = delResp.Body.Close() }()
 
 		// Should succeed (200/204) or handle gracefully
 		assert.Contains(t, []int{http.StatusOK, http.StatusNoContent, http.StatusAccepted}, delResp.StatusCode)
@@ -52,7 +52,7 @@ func TestFailureRecovery(t *testing.T) {
 	t.Run("Invalid Service Endpoint", func(t *testing.T) {
 		// Test a hypothetical endpoint that might be broken
 		resp := getRequest(t, client, testutil.TestBaseURL+"/non-existent-service", token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	})
 }

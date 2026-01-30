@@ -27,7 +27,7 @@ func TestEdgeCases(t *testing.T) {
 			"image": "alpine",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		helpers.AssertErrorCode(t, resp, http.StatusBadRequest)
 
 		// 2. Create VPC with empty name
@@ -36,7 +36,7 @@ func TestEdgeCases(t *testing.T) {
 			"cidr_block": "10.0.0.0/16",
 		}
 		resp = postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteVpcs, token, vpcPayload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		helpers.AssertErrorCode(t, resp, http.StatusBadRequest)
 	})
 
@@ -51,14 +51,14 @@ func TestEdgeCases(t *testing.T) {
 			"image": "alpine",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		assert.Contains(t, []int{http.StatusCreated, http.StatusAccepted}, resp.StatusCode)
 
 		// 2. Instance name 65 chars (overflow)
 		tooLongName := longName + "a"
 		payload["name"] = tooLongName
 		resp = postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		helpers.AssertErrorCode(t, resp, http.StatusBadRequest)
 	})
 
@@ -69,7 +69,7 @@ func TestEdgeCases(t *testing.T) {
 			"image": "alpine",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		helpers.AssertErrorCode(t, resp, http.StatusBadRequest)
 
 		// 2. SQL Injection attempt in bucket name
@@ -77,7 +77,7 @@ func TestEdgeCases(t *testing.T) {
 			"name": "bucket'; DROP TABLE users;--",
 		}
 		resp = postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteStorageBuckets, token, bucketPayload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// If it returns 500, it might be vulnerable to SQL injection or at least unhandled database error
 		if resp.StatusCode == http.StatusInternalServerError {
@@ -95,7 +95,7 @@ func TestEdgeCases(t *testing.T) {
 		applyTenantHeader(t, req, token)
 		resp, err := client.Do(req)
 		assert.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
 }

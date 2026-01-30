@@ -32,7 +32,7 @@ func TestDataIntegrity(t *testing.T) {
 			"image": "alpine",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// Should receive 400 Bad Request due to strict name validation
 		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
@@ -47,7 +47,7 @@ func TestDataIntegrity(t *testing.T) {
 		}
 
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, largePayload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// Should either reject (413 Payload Too Large) or handle correctly (400 if missing required fields, but not 500)
 		assert.NotEqual(t, http.StatusInternalServerError, resp.StatusCode)
@@ -62,7 +62,7 @@ func TestDataIntegrity(t *testing.T) {
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// Should be 400 Bad Request or 415 Unsupported Media Type
 		assert.Contains(t, []int{http.StatusBadRequest, http.StatusUnsupportedMediaType}, resp.StatusCode)
@@ -75,7 +75,7 @@ func TestDataIntegrity(t *testing.T) {
 
 		// 1. Create
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteVpcs, token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		var w struct {
@@ -91,7 +91,7 @@ func TestDataIntegrity(t *testing.T) {
 		// 2. Read
 		vpcPath := fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteVpcs, id)
 		resp = getRequest(t, client, vpcPath, token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&w))
 		assert.Equal(t, name, w.Data.Name)
@@ -108,11 +108,11 @@ func TestDataIntegrity(t *testing.T) {
 		applyTenantHeader(t, req, token)
 		resp, _ = client.Do(req)
 		if resp != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
 				// 4. Verify Update
 				resp = getRequest(t, client, vpcPath, token)
-				defer resp.Body.Close()
+				defer func() { _ = resp.Body.Close() }()
 				require.NoError(t, json.NewDecoder(resp.Body).Decode(&w))
 				assert.Equal(t, newName, w.Data.Name)
 			}
@@ -120,12 +120,12 @@ func TestDataIntegrity(t *testing.T) {
 
 		// 5. Delete
 		resp = deleteRequest(t, client, vpcPath, token)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		assert.Contains(t, []int{http.StatusOK, http.StatusNoContent}, resp.StatusCode)
 
 		// 6. Verify Deleted
 		resp = getRequest(t, client, vpcPath, token)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	})
 }

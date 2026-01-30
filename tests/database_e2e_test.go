@@ -34,7 +34,7 @@ func TestDatabaseE2E(t *testing.T) {
 			"version": "16",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+"/databases", token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -49,7 +49,7 @@ func TestDatabaseE2E(t *testing.T) {
 	// 2. Get Connection String
 	t.Run("GetConnectionString", func(t *testing.T) {
 		resp := getRequest(t, client, fmt.Sprintf("%s/databases/%s/connection", testutil.TestBaseURL, dbID), token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
@@ -57,7 +57,7 @@ func TestDatabaseE2E(t *testing.T) {
 	// 3. Delete Database
 	t.Run("DeleteDatabase", func(t *testing.T) {
 		resp := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, dbID), token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})

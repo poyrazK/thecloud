@@ -29,7 +29,7 @@ func TestConcurrency(t *testing.T) {
 
 		results := helpers.RunConcurrently(5, func(i int) error {
 			resp := postRequest(t, client, testutil.TestBaseURL+"/vpcs", token, payload)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusAccepted {
 				return nil
@@ -52,7 +52,7 @@ func TestConcurrency(t *testing.T) {
 		// Read instances list concurrently
 		results := helpers.RunConcurrently(10, func(i int) error {
 			resp := getRequest(t, client, testutil.TestBaseURL+"/instances", token)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode == http.StatusOK {
 				return nil

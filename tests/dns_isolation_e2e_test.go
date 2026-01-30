@@ -38,14 +38,14 @@ func TestDNSIsolationE2E(t *testing.T) {
 			"content": "10.10.1.1",
 		}
 		resp := postRequest(t, client, fmt.Sprintf("%s/dns/zones/%s/records", testutil.TestBaseURL, zoneAID), token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 	})
 
 	// 2. Verify Zone B is empty/doesn't have the record
 	t.Run("VerifyIsolationInZoneB", func(t *testing.T) {
 		resp := getRequest(t, client, fmt.Sprintf("%s/dns/zones/%s/records", testutil.TestBaseURL, zoneBID), token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
 		var res struct {
@@ -60,10 +60,10 @@ func TestDNSIsolationE2E(t *testing.T) {
 
 	// Cleanup
 	t.Cleanup(func() {
-		deleteRequest(t, client, fmt.Sprintf("%s/dns/zones/%s", testutil.TestBaseURL, zoneAID), token).Body.Close()
-		deleteRequest(t, client, fmt.Sprintf("%s/dns/zones/%s", testutil.TestBaseURL, zoneBID), token).Body.Close()
-		deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpcAID), token).Body.Close()
-		deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpcBID), token).Body.Close()
+		_ = deleteRequest(t, client, fmt.Sprintf("%s/dns/zones/%s", testutil.TestBaseURL, zoneAID), token).Body.Close()
+		_ = deleteRequest(t, client, fmt.Sprintf("%s/dns/zones/%s", testutil.TestBaseURL, zoneBID), token).Body.Close()
+		_ = deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpcAID), token).Body.Close()
+		_ = deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpcBID), token).Body.Close()
 	})
 }
 
@@ -73,7 +73,7 @@ func createVPCForDNS(t *testing.T, client *http.Client, token, name string) stri
 		"cidr_block": "10.0.0.0/16",
 	}
 	resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteVpcs, token, payload)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	var res struct {
@@ -89,7 +89,7 @@ func createZoneForDNS(t *testing.T, client *http.Client, token, name, vpcID stri
 		"vpc_id": vpcID,
 	}
 	resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteDNSZones, token, payload)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	var res struct {
