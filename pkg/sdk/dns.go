@@ -50,7 +50,7 @@ func (c *Client) GetDNSZone(id string) (*domain.DNSZone, error) {
 
 // DeleteDNSZone deletes a DNS zone.
 func (c *Client) DeleteDNSZone(id string) error {
-	return c.delete(fmt.Sprintf("/dns/zones/%s", id))
+	return c.delete(fmt.Sprintf("/dns/zones/%s", id), nil)
 }
 
 // ListDNSRecords returns all records in a DNS zone.
@@ -84,5 +84,5 @@ func (c *Client) CreateDNSRecord(zoneID uuid.UUID, name string, recordType domai
 
 // DeleteDNSRecord deletes a DNS record.
 func (c *Client) DeleteDNSRecord(recordID string) error {
-	return c.delete(fmt.Sprintf("/dns/records/%s", recordID))
+	return c.delete(fmt.Sprintf("/dns/records/%s", recordID), nil)
 }
