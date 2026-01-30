@@ -3,7 +3,6 @@ package docker
 
 import (
 	"context"
-	encodingjson "encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -474,13 +473,7 @@ func (a *DockerAdapter) GetInstanceIP(ctx context.Context, id string) (string, e
 		}
 	}
 
-	// Marshaling might be expensive, only do on error path
-	status := "unknown"
-	if json.State != nil {
-		status = json.State.Status
-	}
-	debugBytes, _ := encodingjson.Marshal(json.NetworkSettings)
-	return "", fmt.Errorf("no IP address found for container %s (Status: %s, Networks: %s) after retries", id, status, string(debugBytes))
+	return "", fmt.Errorf("no IP address found for container %s after retries", id)
 }
 
 func (a *DockerAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
