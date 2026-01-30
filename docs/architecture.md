@@ -78,10 +78,11 @@ graph TB
 type Instance struct {
     ID        uuid.UUID
     UserID    uuid.UUID
-    Name      string
-    Image     string
-    Status    InstanceStatus
-    CreatedAt time.Time
+    Name         string
+    Image        string
+    InstanceType string
+    Status       InstanceStatus
+    CreatedAt    time.Time
 }
 
 type InstanceStatus string
@@ -93,7 +94,7 @@ const (
 ```
 
 **Key Entities**:
-- `Instance`, `Volume`, `VPC`, `LoadBalancer`
+- `Instance`, `InstanceType`, `Volume`, `VPC`, `LoadBalancer`
 - `Function`, `Queue`, `Topic`, `CronJob`
 - `User`, `Role`, `APIKey`, `Secret`
 - `ScalingGroup`, `ScalingPolicy`
@@ -105,7 +106,7 @@ const (
 **Primary Ports** (inbound - what the application offers):
 ```go
 type InstanceService interface {
-    Launch(ctx context.Context, req LaunchRequest) (*domain.Instance, error)
+    LaunchInstance(ctx context.Context, name, image, ports, instanceType string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error)
     List(ctx context.Context) ([]*domain.Instance, error)
     Stop(ctx context.Context, id uuid.UUID) error
     Terminate(ctx context.Context, id uuid.UUID) error

@@ -163,6 +163,7 @@ Launch a new instance.
 {
   "name": "web-01",
   "image": "nginx",
+  "instance_type": "basic-2",
   "vpc_id": "vpc-uuid",
   "subnet_id": "subnet-uuid",
   "ports": "80:80",
@@ -170,6 +171,21 @@ Launch a new instance.
     { "volume_id": "vol-uuid", "mount_path": "/data" }
   ]
 }
+```
+
+### GET /instance-types
+List all available instance types.
+**Response:**
+```json
+[
+  {
+    "id": "basic-2",
+    "name": "Basic 2",
+    "vcpus": 1,
+    "memory_mb": 1024,
+    "disk_gb": 10
+  }
+]
 ```
 
 ### GET /instances/:id

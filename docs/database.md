@@ -127,6 +127,7 @@ CREATE TABLE instances (
     container_id VARCHAR(255),
     ports TEXT,
     vpc_id UUID REFERENCES vpcs(id) ON DELETE SET NULL,
+    instance_type TEXT NOT NULL DEFAULT 'basic-2',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     version INT NOT NULL DEFAULT 1
@@ -134,6 +135,23 @@ CREATE TABLE instances (
 
 CREATE INDEX idx_instances_user_id ON instances(user_id);
 CREATE INDEX idx_instances_status ON instances(status);
+
+#### `instance_types` - Predefined Instance Specs
+```sql
+CREATE TABLE instance_types (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    vcpus INT NOT NULL,
+    memory_mb INT NOT NULL,
+    disk_gb INT NOT NULL,
+    network_mbps INT NOT NULL DEFAULT 1000,
+    price_per_hour NUMERIC(10,4) NOT NULL DEFAULT 0.01,
+    category TEXT NOT NULL DEFAULT 'general',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+**Seeded Types**: `basic-1`, `basic-2`, `standard-1`, `performance-2`, etc.
 ```
 
 **Optimistic Locking**: `version` column prevents concurrent update conflicts

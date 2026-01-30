@@ -115,6 +115,7 @@ cloud instance launch --name my-server --image nginx:alpine
 |------|-------|----------|---------|-------------|
 | `--name` | `-n` | Yes | - | Instance name |
 | `--image` | `-i` | No | `alpine` | Docker image or VM template |
+| `--type` | `-t` | No | `basic-2` | Instance type (e.g., basic-1, standard-1) |
 | `--port` | `-p` | No | - | Port mapping (host:container) |
 | `--vpc` | `-v` | No | - | VPC ID or name |
 | `--subnet` | `-s` | No | - | Subnet ID or name |
@@ -125,10 +126,10 @@ cloud instance launch --name my-server --image nginx:alpine
 **Examples**:
 ```bash
 # Basic instance
-cloud instance launch --name web --image nginx:alpine
+cloud instance launch --name web --image nginx:alpine --type basic-2
 
 # With port mapping
-cloud instance launch --name api --image node:20 --port 3000:3000
+cloud instance launch --name api --image node:20 --port 3000:3000 --type standard-1
 
 # With VPC, Subnet and volume
 cloud instance launch --name db --image postgres:16 \
