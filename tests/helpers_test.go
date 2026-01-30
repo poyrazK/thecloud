@@ -40,7 +40,7 @@ func waitForServer() error {
 	for i := 0; i < 60; i++ {
 		resp, err := client.Get(testutil.TestBaseURL + "/health/live")
 		if err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode == 200 {
 				return nil
 			}
@@ -192,27 +192,6 @@ func getRequest(t *testing.T, client *http.Client, url, token string) *http.Resp
 
 func deleteRequest(t *testing.T, client *http.Client, url, token string) *http.Response {
 	req, _ := http.NewRequest("DELETE", url, nil)
-	req.Header.Set(testutil.TestHeaderAPIKey, token)
-	if requiresTenantHeader(url) {
-		tenantID := tenantIDForToken(token)
-		if tenantID == "" {
-			t.Fatal(errTenantNotSet)
-		}
-		req.Header.Set(headerTenantID, tenantID)
-	}
-	resp, err := client.Do(req)
-	require.NoError(t, err)
-	return resp
-}
-
-func putRequest(t *testing.T, client *http.Client, url, token string, payload interface{}) *http.Response {
-	var body io.Reader
-	if payload != nil {
-		b, _ := json.Marshal(payload)
-		body = bytes.NewBuffer(b)
-	}
-	req, _ := http.NewRequest("PUT", url, body)
-	req.Header.Set("Content-Type", testutil.TestContentTypeAppJSON)
 	req.Header.Set(testutil.TestHeaderAPIKey, token)
 	if requiresTenantHeader(url) {
 		tenantID := tenantIDForToken(token)

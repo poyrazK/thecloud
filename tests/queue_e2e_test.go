@@ -30,7 +30,7 @@ func TestQueueE2E(t *testing.T) {
 	t.Run("CreateQueue", func(t *testing.T) {
 		payload := map[string]string{"name": queueName}
 		resp := postRequest(t, client, testutil.TestBaseURL+"/queues", token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -46,7 +46,7 @@ func TestQueueE2E(t *testing.T) {
 	t.Run("SendMessage", func(t *testing.T) {
 		payload := map[string]string{"body": "hello e2e"}
 		resp := postRequest(t, client, fmt.Sprintf("%s/queues/%s/messages", testutil.TestBaseURL, queueID), token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	})
@@ -55,7 +55,7 @@ func TestQueueE2E(t *testing.T) {
 	var receiptHandle string
 	t.Run("ReceiveMessages", func(t *testing.T) {
 		resp := getRequest(t, client, fmt.Sprintf("%s/queues/%s/messages", testutil.TestBaseURL, queueID), token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -71,7 +71,7 @@ func TestQueueE2E(t *testing.T) {
 	// 4. Delete Message
 	t.Run("DeleteMessage", func(t *testing.T) {
 		resp := deleteRequest(t, client, fmt.Sprintf("%s/queues/%s/messages/%s", testutil.TestBaseURL, queueID, receiptHandle), token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 	})
@@ -79,7 +79,7 @@ func TestQueueE2E(t *testing.T) {
 	// 5. Delete Queue
 	t.Run("DeleteQueue", func(t *testing.T) {
 		resp := deleteRequest(t, client, fmt.Sprintf("%s/queues/%s", testutil.TestBaseURL, queueID), token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 	})

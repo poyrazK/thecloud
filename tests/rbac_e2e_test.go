@@ -38,7 +38,7 @@ func TestRBACE2E(t *testing.T) {
 			"permissions": []domain.Permission{domain.PermissionInstanceRead, domain.PermissionVolumeRead},
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+"/rbac/roles", token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode == http.StatusForbidden {
 			skipRBAC = true
 			t.Fatal(rbacSkipMsg)
@@ -60,7 +60,7 @@ func TestRBACE2E(t *testing.T) {
 			t.Fatal(rbacSkipMsg)
 		}
 		resp := getRequest(t, client, fmt.Sprintf("%s/rbac/roles/%s", testutil.TestBaseURL, roleID), token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -80,7 +80,7 @@ func TestRBACE2E(t *testing.T) {
 			"permission": domain.PermissionVpcRead,
 		}
 		resp := postRequest(t, client, fmt.Sprintf("%s/rbac/roles/%s/permissions", testutil.TestBaseURL, roleID), token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 	})
@@ -100,7 +100,7 @@ func TestRBACE2E(t *testing.T) {
 		}
 		// Still use the primary token which has management permissions
 		resp := postRequest(t, client, testutil.TestBaseURL+"/rbac/bindings", token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 	})
@@ -111,7 +111,7 @@ func TestRBACE2E(t *testing.T) {
 			t.Fatal(rbacSkipMsg)
 		}
 		resp := getRequest(t, client, testutil.TestBaseURL+"/rbac/bindings", token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
@@ -122,7 +122,7 @@ func TestRBACE2E(t *testing.T) {
 			t.Fatal(rbacSkipMsg)
 		}
 		resp := deleteRequest(t, client, fmt.Sprintf("%s/rbac/roles/%s", testutil.TestBaseURL, roleID), token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 	})

@@ -26,7 +26,7 @@ func TestSecurityEdge(t *testing.T) {
 		req, _ := http.NewRequest("GET", testutil.TestBaseURL+instancesPath, nil)
 		resp, err := client.Do(req)
 		if err == nil && resp != nil {
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			assert.Contains(t, []int{http.StatusUnauthorized, http.StatusForbidden}, resp.StatusCode)
 		} else {
 			assert.NoError(t, err)
@@ -37,7 +37,7 @@ func TestSecurityEdge(t *testing.T) {
 		req.Header.Set(testutil.TestHeaderAPIKey, "invalid-key-format-123")
 		resp, err = client.Do(req)
 		if err == nil && resp != nil {
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			assert.Contains(t, []int{http.StatusUnauthorized, http.StatusForbidden}, resp.StatusCode)
 		} else {
 			assert.NoError(t, err)
@@ -52,7 +52,7 @@ func TestSecurityEdge(t *testing.T) {
 			"image": "alpine",
 		}
 		respA := postRequest(t, client, testutil.TestBaseURL+instancesPath, tokenA, payload)
-		defer respA.Body.Close()
+		defer func() { _ = respA.Body.Close() }()
 
 		type Wrapper struct {
 			Data struct {
@@ -70,7 +70,7 @@ func TestSecurityEdge(t *testing.T) {
 		applyTenantHeader(t, reqB, tokenB)
 		respB, err := client.Do(reqB)
 		if err == nil && respB != nil {
-			defer respB.Body.Close()
+			defer func() { _ = respB.Body.Close() }()
 			// Should be 404 (preferred for security to avoid ID discovery) or 403
 			assert.Contains(t, []int{http.StatusNotFound, http.StatusForbidden}, respB.StatusCode)
 		} else {

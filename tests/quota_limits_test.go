@@ -24,7 +24,7 @@ func TestQuotaLimits(t *testing.T) {
 		triggered := false
 		for i := 0; i < 50; i++ {
 			resp := getRequest(t, client, testutil.TestBaseURL+"/instances", token)
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusTooManyRequests {
 				triggered = true
 				break
@@ -54,10 +54,10 @@ func TestQuotaLimits(t *testing.T) {
 			if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusForbidden {
 				// Hit a quota!
 				maxHit = true
-				resp.Body.Close()
+				_ = resp.Body.Close()
 				break
 			}
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 
 		if maxHit {

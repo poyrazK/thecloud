@@ -35,7 +35,7 @@ func TestSnapshotE2E(t *testing.T) {
 			"size_gb": 10,
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+"/volumes", token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -54,7 +54,7 @@ func TestSnapshotE2E(t *testing.T) {
 			"description": "E2E snapshot",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+"/snapshots", token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -82,7 +82,7 @@ func TestSnapshotE2E(t *testing.T) {
 					Data domain.Snapshot `json:"data"`
 				}
 				_ = json.NewDecoder(resp.Body).Decode(&res)
-				resp.Body.Close()
+				_ = resp.Body.Close()
 
 				if res.Data.Status == domain.SnapshotStatusAvailable {
 					return
@@ -100,7 +100,7 @@ func TestSnapshotE2E(t *testing.T) {
 			"new_volume_name": fmt.Sprintf("restored-vol-%s", uuid.New().String()),
 		}
 		resp := postRequest(t, client, fmt.Sprintf("%s/snapshots/%s/restore", testutil.TestBaseURL, snapshotID), token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusCreated {
 			var body map[string]interface{}
@@ -113,11 +113,11 @@ func TestSnapshotE2E(t *testing.T) {
 	// 4. Cleanup
 	t.Run("Cleanup", func(t *testing.T) {
 		resp := deleteRequest(t, client, fmt.Sprintf("%s/snapshots/%s", testutil.TestBaseURL, snapshotID), token)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		resp = deleteRequest(t, client, fmt.Sprintf("%s/volumes/%s", testutil.TestBaseURL, volumeID), token)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 }

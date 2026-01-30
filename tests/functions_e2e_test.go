@@ -39,7 +39,7 @@ func TestFunctionsE2E(t *testing.T) {
 
 		part, _ := writer.CreateFormFile("code", "code.zip")
 		_, _ = part.Write([]byte("fake zip content"))
-		writer.Close()
+		_ = writer.Close()
 
 		req, _ := http.NewRequest("POST", testutil.TestBaseURL+"/functions", body)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
@@ -48,7 +48,7 @@ func TestFunctionsE2E(t *testing.T) {
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -71,7 +71,7 @@ func TestFunctionsE2E(t *testing.T) {
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// Note: Actual invocation might fail if backend doesn't support "fake zip content"
 		// but the endpoint should respond.
@@ -81,7 +81,7 @@ func TestFunctionsE2E(t *testing.T) {
 	// 3. Delete Function
 	t.Run("DeleteFunction", func(t *testing.T) {
 		resp := deleteRequest(t, client, fmt.Sprintf("%s/functions/%s", testutil.TestBaseURL, functionID), token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})

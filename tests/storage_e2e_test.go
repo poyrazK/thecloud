@@ -42,7 +42,7 @@ func TestStorageE2E(t *testing.T) {
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	})
 
@@ -54,7 +54,7 @@ func TestStorageE2E(t *testing.T) {
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	})
 
@@ -66,7 +66,7 @@ func TestStorageE2E(t *testing.T) {
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		data, err := io.ReadAll(resp.Body)
@@ -85,7 +85,7 @@ func TestStorageE2E(t *testing.T) {
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 
@@ -99,7 +99,7 @@ func TestStorageE2E(t *testing.T) {
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		// The response wrapper might be different, let's check httputil/Success
@@ -122,7 +122,7 @@ func TestStorageE2E(t *testing.T) {
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		type ListResp struct {
@@ -141,13 +141,13 @@ func TestStorageE2E(t *testing.T) {
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
 		applyTenantHeader(t, req, token)
 		resp, _ := client.Do(req)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		// Delete bucket
 		req, _ = http.NewRequest("DELETE", fmt.Sprintf("%s/storage/buckets/%s", testutil.TestBaseURL, bucketName), nil)
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
 		applyTenantHeader(t, req, token)
 		resp, _ = client.Do(req)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 	})
 }

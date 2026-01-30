@@ -33,7 +33,7 @@ func TestSecretsE2E(t *testing.T) {
 			"value": "super-secret-value",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+"/secrets", token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -48,7 +48,7 @@ func TestSecretsE2E(t *testing.T) {
 	// 2. Get Secret
 	t.Run("GetSecret", func(t *testing.T) {
 		resp := getRequest(t, client, fmt.Sprintf("%s/secrets/%s", testutil.TestBaseURL, secretID), token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -63,7 +63,7 @@ func TestSecretsE2E(t *testing.T) {
 	// 3. Delete Secret
 	t.Run("DeleteSecret", func(t *testing.T) {
 		resp := deleteRequest(t, client, fmt.Sprintf("%s/secrets/%s", testutil.TestBaseURL, secretID), token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})

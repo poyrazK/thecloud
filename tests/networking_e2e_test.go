@@ -41,7 +41,7 @@ func TestNetworkingE2E(t *testing.T) {
 			"cidr_block": "10.0.0.0/16",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteVpcs, token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -62,7 +62,7 @@ func TestNetworkingE2E(t *testing.T) {
 			"cidr_block": "10.0.1.0/24",
 		}
 		resp := postRequest(t, client, fmt.Sprintf(subRoute, testutil.TestBaseURL, vpcID), token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -77,7 +77,7 @@ func TestNetworkingE2E(t *testing.T) {
 	// 3. List Subnets
 	t.Run("ListSubnets", func(t *testing.T) {
 		resp := getRequest(t, client, fmt.Sprintf(subRoute, testutil.TestBaseURL, vpcID), token)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -97,7 +97,7 @@ func TestNetworkingE2E(t *testing.T) {
 			"vpc_id":      vpcID,
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+"/security-groups", token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -118,7 +118,7 @@ func TestNetworkingE2E(t *testing.T) {
 			"algorithm": "round-robin",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+"/lb", token, payload)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
@@ -134,17 +134,17 @@ func TestNetworkingE2E(t *testing.T) {
 	t.Run("Cleanup", func(t *testing.T) {
 		// Delete LB
 		resp := deleteRequest(t, client, fmt.Sprintf(lbRoute, testutil.TestBaseURL, lbID), token)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		// Delete Security Group
 		resp = deleteRequest(t, client, fmt.Sprintf(sgRoute, testutil.TestBaseURL, sgID), token)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		assert.Contains(t, []int{http.StatusOK, http.StatusNoContent}, resp.StatusCode)
 
 		// Delete Subnet
 		resp = deleteRequest(t, client, fmt.Sprintf(subSingle, testutil.TestBaseURL, subnetID), token)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		// Delete VPC with retry to account for asynchronous cleanup of resources like LBs
@@ -152,7 +152,7 @@ func TestNetworkingE2E(t *testing.T) {
 		start := time.Now()
 		for time.Since(start) < timeout {
 			resp = deleteRequest(t, client, fmt.Sprintf(vpcRoute, testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token)
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
 				return
 			}

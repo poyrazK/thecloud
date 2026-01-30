@@ -65,7 +65,7 @@ func TestKubernetesE2E(t *testing.T) {
 		applyTenantHeader(t, req, token)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// It might return 404 or empty if not ready, strictly speaking.
 		// But in our current impl, we return what's in DB. If provisioner hasn't updated it, it might be empty.
@@ -84,7 +84,7 @@ func TestKubernetesE2E(t *testing.T) {
 		applyTenantHeader(t, req, token)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		assert.Contains(t, []int{http.StatusOK, http.StatusAccepted}, resp.StatusCode)
 	})
 }
@@ -102,7 +102,7 @@ func createVPC(t *testing.T, client *http.Client, token, name, cidr string) VPC 
 
 	resp, err := client.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -130,7 +130,7 @@ func createCluster(t *testing.T, client *http.Client, token, name, vpcID string,
 
 	resp, err := client.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
 		t.Fatalf("Create cluster failed: status %d", resp.StatusCode)
@@ -151,7 +151,7 @@ func getCluster(t *testing.T, client *http.Client, token, id string) Cluster {
 	applyTenantHeader(t, req, token)
 	resp, err := client.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	type Wrapper struct {
