@@ -69,7 +69,7 @@ Resources:
 
 	instID := uuid.New()
 	inst := &domain.Instance{ID: instID, Name: stackTestInst}
-	instanceSvc.On("LaunchInstance", mock.Anything, stackTestInst, "alpine", "80", &vpcID, mock.Anything, mock.Anything).Return(inst, nil)
+	instanceSvc.On("LaunchInstance", mock.Anything, stackTestInst, "alpine", "80", "", &vpcID, mock.Anything, mock.Anything).Return(inst, nil)
 	repo.On("AddResource", mock.Anything, mock.MatchedBy(func(r *domain.StackResource) bool {
 		return r.LogicalID == "MyInstance" && r.ResourceType == "Instance"
 	})).Return(nil)
@@ -152,7 +152,7 @@ Resources:
 	})).Return(nil)
 
 	// 2. Instance Fail
-	instanceSvc.On("LaunchInstance", mock.Anything, stackTestInst, "alpine", "80", &vpcID, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("launch failed"))
+	instanceSvc.On("LaunchInstance", mock.Anything, stackTestInst, "alpine", "80", "", &vpcID, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("launch failed"))
 
 	// 3. Rollback
 	repo.On("Update", mock.Anything, mock.MatchedBy(func(s *domain.Stack) bool {

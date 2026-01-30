@@ -185,8 +185,8 @@ func (m *MockAutoScalingRepo) GetAverageCPU(ctx context.Context, instanceIDs []u
 // MockInstanceService
 type MockInstanceService struct{ mock.Mock }
 
-func (m *MockInstanceService) LaunchInstance(ctx context.Context, name, image, ports string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
-	args := m.Called(ctx, name, image, ports, vpcID, subnetID, volumes)
+func (m *MockInstanceService) LaunchInstance(ctx context.Context, name, image, ports, instanceType string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
+	args := m.Called(ctx, name, image, ports, instanceType, vpcID, subnetID, volumes)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -229,6 +229,24 @@ func (m *MockInstanceService) TerminateInstance(ctx context.Context, idOrName st
 func (m *MockInstanceService) Exec(ctx context.Context, idOrName string, cmd []string) (string, error) {
 	args := m.Called(ctx, idOrName, cmd)
 	return args.String(0), args.Error(1)
+}
+
+// MockInstanceTypeRepo
+type MockInstanceTypeRepo struct{ mock.Mock }
+
+func (m *MockInstanceTypeRepo) List(ctx context.Context) ([]*domain.InstanceType, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.InstanceType), args.Error(1)
+}
+func (m *MockInstanceTypeRepo) GetByID(ctx context.Context, id string) (*domain.InstanceType, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.InstanceType), args.Error(1)
 }
 
 // MockLBService

@@ -98,7 +98,7 @@ func BenchmarkInstanceServiceCreate(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = svc.LaunchInstance(ctx, "test", "alpine", "80:80", nil, &subnetID, nil)
+		_, _ = svc.LaunchInstance(ctx, "test", "alpine", "80:80", "basic-2", nil, &subnetID, nil)
 	}
 }
 
@@ -152,7 +152,7 @@ func BenchmarkInstanceServiceCreateParallel(b *testing.B) {
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			_, _ = svc.LaunchInstance(ctx, "test-inst", "alpine", "80:80", nil, nil, nil)
+			_, _ = svc.LaunchInstance(ctx, "test-inst", "alpine", "80:80", "basic-2", nil, nil, nil)
 		}
 	})
 }

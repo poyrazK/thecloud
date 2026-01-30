@@ -48,7 +48,7 @@ func BenchmarkRealWorldLifecycle(b *testing.B) {
 		vID := uuid.New()
 		sID := uuid.New()
 
-		inst, err := instSvc.LaunchInstance(pCtx, "test-server", "ubuntu", "22:22", &vID, &sID, nil)
+		inst, err := instSvc.LaunchInstance(pCtx, "test-server", "ubuntu", "22:22", "basic-2", &vID, &sID, nil)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -93,7 +93,7 @@ func BenchmarkRealWorldLifecycleParallel(b *testing.B) {
 			vID := uuid.New()
 			sID := uuid.New()
 
-			inst, _ := instSvc.LaunchInstance(pCtx, "test-server", "ubuntu", "22:22", &vID, &sID, nil)
+			inst, _ := instSvc.LaunchInstance(pCtx, "test-server", "ubuntu", "22:22", "basic-2", &vID, &sID, nil)
 			if inst != nil {
 				_, _ = instSvc.GetInstance(pCtx, inst.ID.String())
 				_ = instSvc.TerminateInstance(pCtx, inst.ID.String())
