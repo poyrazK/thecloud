@@ -29,55 +29,58 @@ import (
 //
 // All methods are safe for concurrent use and return domain errors.
 type InstanceService struct {
-	repo       ports.InstanceRepository
-	vpcRepo    ports.VpcRepository
-	subnetRepo ports.SubnetRepository
-	volumeRepo ports.VolumeRepository
-	compute    ports.ComputeBackend
-	network    ports.NetworkBackend
-	eventSvc   ports.EventService
-	auditSvc   ports.AuditService
-	dnsSvc     ports.DNSService
-	taskQueue  ports.TaskQueue
-	logger     *slog.Logger
+	repo             ports.InstanceRepository
+	vpcRepo          ports.VpcRepository
+	subnetRepo       ports.SubnetRepository
+	volumeRepo       ports.VolumeRepository
+	instanceTypeRepo ports.InstanceTypeRepository
+	compute          ports.ComputeBackend
+	network          ports.NetworkBackend
+	eventSvc         ports.EventService
+	auditSvc         ports.AuditService
+	dnsSvc           ports.DNSService
+	taskQueue        ports.TaskQueue
+	logger           *slog.Logger
 }
 
 // InstanceServiceParams holds dependencies for InstanceService creation.
 // Uses parameter object pattern for cleaner dependency injection.
 type InstanceServiceParams struct {
-	Repo       ports.InstanceRepository
-	VpcRepo    ports.VpcRepository
-	SubnetRepo ports.SubnetRepository
-	VolumeRepo ports.VolumeRepository
-	Compute    ports.ComputeBackend
-	Network    ports.NetworkBackend
-	EventSvc   ports.EventService
-	AuditSvc   ports.AuditService
-	DNSSvc     ports.DNSService
-	TaskQueue  ports.TaskQueue // Optional
-	Logger     *slog.Logger
+	Repo             ports.InstanceRepository
+	VpcRepo          ports.VpcRepository
+	SubnetRepo       ports.SubnetRepository
+	VolumeRepo       ports.VolumeRepository
+	InstanceTypeRepo ports.InstanceTypeRepository
+	Compute          ports.ComputeBackend
+	Network          ports.NetworkBackend
+	EventSvc         ports.EventService
+	AuditSvc         ports.AuditService
+	DNSSvc           ports.DNSService
+	TaskQueue        ports.TaskQueue // Optional
+	Logger           *slog.Logger
 }
 
 // NewInstanceService creates a new InstanceService with the given dependencies.
 func NewInstanceService(params InstanceServiceParams) *InstanceService {
 	return &InstanceService{
-		repo:       params.Repo,
-		vpcRepo:    params.VpcRepo,
-		subnetRepo: params.SubnetRepo,
-		volumeRepo: params.VolumeRepo,
-		compute:    params.Compute,
-		network:    params.Network,
-		eventSvc:   params.EventSvc,
-		auditSvc:   params.AuditSvc,
-		dnsSvc:     params.DNSSvc,
-		taskQueue:  params.TaskQueue,
-		logger:     params.Logger,
+		repo:             params.Repo,
+		vpcRepo:          params.VpcRepo,
+		subnetRepo:       params.SubnetRepo,
+		volumeRepo:       params.VolumeRepo,
+		instanceTypeRepo: params.InstanceTypeRepo,
+		compute:          params.Compute,
+		network:          params.Network,
+		eventSvc:         params.EventSvc,
+		auditSvc:         params.AuditSvc,
+		dnsSvc:           params.DNSSvc,
+		taskQueue:        params.TaskQueue,
+		logger:           params.Logger,
 	}
 }
 
 // LaunchInstance provisions a new instance, sets up its network (if VPC/Subnet provided),
 // and attaches any requested volumes.
-func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
+func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports, instanceType string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
 	ctx, span := otel.Tracer("instance-service").Start(ctx, "LaunchInstance")
 	defer span.End()
 
@@ -92,20 +95,30 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, name, image, ports
 		return nil, err
 	}
 
-	// 2. Create domain entity
+	// 2. Resolve Instance Type
+	if instanceType == "" {
+		instanceType = "basic-2"
+	}
+	_, err = s.instanceTypeRepo.GetByID(ctx, instanceType)
+	if err != nil {
+		return nil, errors.New(errors.InvalidInput, fmt.Sprintf("invalid instance type: %s", instanceType))
+	}
+
+	// 3. Create domain entity
 	inst := &domain.Instance{
-		ID:        uuid.New(),
-		UserID:    appcontext.UserIDFromContext(ctx),
-		TenantID:  appcontext.TenantIDFromContext(ctx),
-		Name:      name,
-		Image:     image,
-		Status:    domain.StatusStarting,
-		Ports:     ports,
-		VpcID:     vpcID,
-		SubnetID:  subnetID,
-		Version:   1,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:           uuid.New(),
+		UserID:       appcontext.UserIDFromContext(ctx),
+		TenantID:     appcontext.TenantIDFromContext(ctx),
+		Name:         name,
+		Image:        image,
+		Status:       domain.StatusStarting,
+		Ports:        ports,
+		VpcID:        vpcID,
+		SubnetID:     subnetID,
+		InstanceType: instanceType,
+		Version:      1,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}
 
 	if err := s.repo.Create(ctx, inst); err != nil {
@@ -153,6 +166,14 @@ func (s *InstanceService) Provision(ctx context.Context, instanceID uuid.UUID, v
 	}
 
 	// 3. Create Instance
+	it, itErr := s.instanceTypeRepo.GetByID(ctx, inst.InstanceType)
+	var cpuLimit, memLimit, diskLimit int64
+	if itErr == nil {
+		cpuLimit = int64(it.VCPUs)
+		memLimit = int64(it.MemoryMB) * 1024 * 1024
+		diskLimit = int64(it.DiskGB) * 1024 * 1024 * 1024
+	}
+
 	dockerName := s.formatContainerName(inst.ID)
 	portList, _ := s.parseAndValidatePorts(inst.Ports)
 	containerID, err := s.compute.CreateInstance(ctx, ports.CreateInstanceOptions{
@@ -163,6 +184,9 @@ func (s *InstanceService) Provision(ctx context.Context, instanceID uuid.UUID, v
 		VolumeBinds: volumeBinds,
 		Env:         nil,
 		Cmd:         nil,
+		CPULimit:    cpuLimit,
+		MemoryLimit: memLimit,
+		DiskLimit:   diskLimit,
 	})
 	if err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("launch", "failure").Inc()
