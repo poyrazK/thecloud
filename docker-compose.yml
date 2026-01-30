@@ -65,11 +65,11 @@ services:
     networks:
       - cloud-network
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8081/api/v1/servers" ]
+      test: [ "CMD-SHELL", "pdns_control ping || exit 1" ]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 10
+      start_period: 40s
 
   api:
     build:
