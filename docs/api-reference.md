@@ -183,7 +183,10 @@ List all available instance types.
     "name": "Basic 2",
     "vcpus": 1,
     "memory_mb": 1024,
-    "disk_gb": 10
+    "disk_gb": 10,
+    "network_mbps": 1000,
+    "price_per_hour": 0.02,
+    "category": "general-purpose"
   }
 ]
 ```

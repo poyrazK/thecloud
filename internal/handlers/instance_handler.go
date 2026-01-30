@@ -40,7 +40,7 @@ type VolumeAttachmentRequest struct {
 type LaunchRequest struct {
 	Name         string                    `json:"name" binding:"required"`
 	Image        string                    `json:"image" binding:"required"`
-	InstanceType string                    `json:"instance_type"`
+	InstanceType string                    `json:"instance_type,omitempty"`
 	Ports        string                    `json:"ports"`
 	VpcID        string                    `json:"vpc_id"`
 	SubnetID     string                    `json:"subnet_id"`

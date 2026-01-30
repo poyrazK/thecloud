@@ -248,6 +248,23 @@ func (m *MockInstanceTypeRepo) GetByID(ctx context.Context, id string) (*domain.
 	}
 	return args.Get(0).(*domain.InstanceType), args.Error(1)
 }
+func (m *MockInstanceTypeRepo) Create(ctx context.Context, it *domain.InstanceType) (*domain.InstanceType, error) {
+	args := m.Called(ctx, it)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.InstanceType), args.Error(1)
+}
+func (m *MockInstanceTypeRepo) Update(ctx context.Context, it *domain.InstanceType) (*domain.InstanceType, error) {
+	args := m.Called(ctx, it)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.InstanceType), args.Error(1)
+}
+func (m *MockInstanceTypeRepo) Delete(ctx context.Context, id string) error {
+	return m.Called(ctx, id).Error(0)
+}
 
 // MockLBService
 type MockLBService struct{ mock.Mock }

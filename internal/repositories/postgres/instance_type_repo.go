@@ -40,6 +40,9 @@ func (r *InstanceTypeRepository) List(ctx context.Context) ([]*domain.InstanceTy
 		}
 		types = append(types, t)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrap(errors.Internal, "iteration error in list instance types", err)
+	}
 	return types, nil
 }
 
@@ -51,6 +54,46 @@ func (r *InstanceTypeRepository) GetByID(ctx context.Context, id string) (*domai
 		WHERE id = $1
 	`
 	return r.scanInstanceType(r.db.QueryRow(ctx, query, id))
+}
+
+// Create persists a new instance type.
+func (r *InstanceTypeRepository) Create(ctx context.Context, it *domain.InstanceType) (*domain.InstanceType, error) {
+	query := `
+		INSERT INTO instance_types (id, name, vcpus, memory_mb, disk_gb, network_mbps, price_per_hour, category)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, name, vcpus, memory_mb, disk_gb, network_mbps, price_per_hour, category
+	`
+	row := r.db.QueryRow(ctx, query,
+		it.ID, it.Name, it.VCPUs, it.MemoryMB, it.DiskGB, it.NetworkMbps, it.PricePerHr, it.Category,
+	)
+	return r.scanInstanceType(row)
+}
+
+// Update modifies an existing instance type.
+func (r *InstanceTypeRepository) Update(ctx context.Context, it *domain.InstanceType) (*domain.InstanceType, error) {
+	query := `
+		UPDATE instance_types
+		SET name = $2, vcpus = $3, memory_mb = $4, disk_gb = $5, network_mbps = $6, price_per_hour = $7, category = $8
+		WHERE id = $1
+		RETURNING id, name, vcpus, memory_mb, disk_gb, network_mbps, price_per_hour, category
+	`
+	row := r.db.QueryRow(ctx, query,
+		it.ID, it.Name, it.VCPUs, it.MemoryMB, it.DiskGB, it.NetworkMbps, it.PricePerHr, it.Category,
+	)
+	return r.scanInstanceType(row)
+}
+
+// Delete removes an instance type by its ID.
+func (r *InstanceTypeRepository) Delete(ctx context.Context, id string) error {
+	query := `DELETE FROM instance_types WHERE id = $1`
+	tag, err := r.db.Exec(ctx, query, id)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to delete instance type", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return errors.New(errors.NotFound, "instance type not found")
+	}
+	return nil
 }
 
 func (r *InstanceTypeRepository) scanInstanceType(row pgx.Row) (*domain.InstanceType, error) {

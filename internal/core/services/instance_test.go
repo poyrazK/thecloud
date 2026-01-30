@@ -55,12 +55,13 @@ func setupInstanceServiceTest(_ *testing.T) (*MockInstanceRepo, *MockVpcRepo, *M
 func TestLaunchInstanceSuccess(t *testing.T) {
 	repo, _, _, _, _, _, _, _, itRepo, _, svc := setupInstanceServiceTest(t)
 	defer repo.AssertExpectations(t)
+	defer itRepo.AssertExpectations(t)
 
 	name := "test-inst"
 	image := "alpine"
 	ports := testPorts
 
-	itRepo.On("GetByID", mock.Anything, defaultInstanceType).Return(&domain.InstanceType{ID: defaultInstanceType}, nil).Maybe()
+	itRepo.On("GetByID", mock.Anything, defaultInstanceType).Return(&domain.InstanceType{ID: defaultInstanceType}, nil)
 	repo.On("Create", mock.Anything, mock.AnythingOfType("*domain.Instance")).Return(nil)
 
 	inst, err := svc.LaunchInstance(context.Background(), name, image, ports, "", nil, nil, nil)

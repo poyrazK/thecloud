@@ -50,6 +50,18 @@ func (r *NoopInstanceTypeRepository) GetByID(ctx context.Context, id string) (*d
 	return &domain.InstanceType{ID: id, Name: id, VCPUs: 1, MemoryMB: 1024, DiskGB: 10}, nil
 }
 
+func (r *NoopInstanceTypeRepository) Create(ctx context.Context, it *domain.InstanceType) (*domain.InstanceType, error) {
+	return it, nil
+}
+
+func (r *NoopInstanceTypeRepository) Update(ctx context.Context, it *domain.InstanceType) (*domain.InstanceType, error) {
+	return it, nil
+}
+
+func (r *NoopInstanceTypeRepository) Delete(ctx context.Context, id string) error {
+	return nil
+}
+
 // NoopVpcRepository is a no-op VPC repository.
 type NoopVpcRepository struct{}
 

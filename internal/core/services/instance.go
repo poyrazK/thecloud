@@ -167,12 +167,14 @@ func (s *InstanceService) Provision(ctx context.Context, instanceID uuid.UUID, v
 
 	// 3. Create Instance
 	it, itErr := s.instanceTypeRepo.GetByID(ctx, inst.InstanceType)
-	var cpuLimit, memLimit, diskLimit int64
-	if itErr == nil {
-		cpuLimit = int64(it.VCPUs)
-		memLimit = int64(it.MemoryMB) * 1024 * 1024
-		diskLimit = int64(it.DiskGB) * 1024 * 1024 * 1024
+	if itErr != nil {
+		s.updateStatus(ctx, inst, domain.StatusError)
+		return errors.Wrap(errors.Internal, "failed to resolve instance type for provisioning", itErr)
 	}
+
+	cpuLimit := int64(it.VCPUs)
+	memLimit := int64(it.MemoryMB) * 1024 * 1024
+	diskLimit := int64(it.DiskGB) * 1024 * 1024 * 1024
 
 	dockerName := s.formatContainerName(inst.ID)
 	portList, _ := s.parseAndValidatePorts(inst.Ports)

@@ -8,18 +8,19 @@ import (
 
 // Instance describes a compute instance.
 type Instance struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Image       string    `json:"image"`
-	Status      string    `json:"status"`
-	Ports       string    `json:"ports"`
-	VpcID       string    `json:"vpc_id,omitempty"`
-	SubnetID    string    `json:"subnet_id,omitempty"`
-	PrivateIP   string    `json:"private_ip,omitempty"`
-	ContainerID string    `json:"container_id"`
-	Version     int       `json:"version"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	Image        string    `json:"image"`
+	InstanceType string    `json:"instance_type,omitempty"`
+	Status       string    `json:"status"`
+	Ports        string    `json:"ports"`
+	VpcID        string    `json:"vpc_id,omitempty"`
+	SubnetID     string    `json:"subnet_id,omitempty"`
+	PrivateIP    string    `json:"private_ip,omitempty"`
+	ContainerID  string    `json:"container_id"`
+	Version      int       `json:"version"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // ListInstances returns all instances visible to the API key.
