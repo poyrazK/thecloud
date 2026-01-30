@@ -23,8 +23,16 @@ func TestNetworkingE2E(t *testing.T) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	token := registerAndLogin(t, client, "network-tester@thecloud.local", "Network Tester")
 
+	const (
+		vpcRoute  = "%s%s/%s"
+		subRoute  = "%s/vpcs/%s/subnets"
+		sgRoute   = "%s/security-groups/%s"
+		lbRoute   = "%s/lb/%s"
+		subSingle = "%s/subnets/%s"
+	)
+
 	var vpcID string
-	vpcName := fmt.Sprintf("e2e-vpc-%d", time.Now().UnixNano()%1000000)
+	vpcName := fmt.Sprintf("e2e-vpc-%d", time.Now().UnixNano())
 
 	// 1. Create VPC
 	t.Run("CreateVPC", func(t *testing.T) {
@@ -53,7 +61,7 @@ func TestNetworkingE2E(t *testing.T) {
 			"name":       "e2e-subnet",
 			"cidr_block": "10.0.1.0/24",
 		}
-		resp := postRequest(t, client, fmt.Sprintf("%s/vpcs/%s/subnets", testutil.TestBaseURL, vpcID), token, payload)
+		resp := postRequest(t, client, fmt.Sprintf(subRoute, testutil.TestBaseURL, vpcID), token, payload)
 		defer resp.Body.Close()
 
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
@@ -68,7 +76,7 @@ func TestNetworkingE2E(t *testing.T) {
 
 	// 3. List Subnets
 	t.Run("ListSubnets", func(t *testing.T) {
-		resp := getRequest(t, client, fmt.Sprintf("%s/vpcs/%s/subnets", testutil.TestBaseURL, vpcID), token)
+		resp := getRequest(t, client, fmt.Sprintf(subRoute, testutil.TestBaseURL, vpcID), token)
 		defer resp.Body.Close()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -125,17 +133,17 @@ func TestNetworkingE2E(t *testing.T) {
 	// 6. Cleanup
 	t.Run("Cleanup", func(t *testing.T) {
 		// Delete LB
-		resp := deleteRequest(t, client, fmt.Sprintf("%s/lb/%s", testutil.TestBaseURL, lbID), token)
+		resp := deleteRequest(t, client, fmt.Sprintf(lbRoute, testutil.TestBaseURL, lbID), token)
 		resp.Body.Close()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		// Delete Security Group
-		resp = deleteRequest(t, client, fmt.Sprintf("%s/security-groups/%s", testutil.TestBaseURL, sgID), token)
+		resp = deleteRequest(t, client, fmt.Sprintf(sgRoute, testutil.TestBaseURL, sgID), token)
 		resp.Body.Close()
 		assert.Contains(t, []int{http.StatusOK, http.StatusNoContent}, resp.StatusCode)
 
 		// Delete Subnet
-		resp = deleteRequest(t, client, fmt.Sprintf("%s/subnets/%s", testutil.TestBaseURL, subnetID), token)
+		resp = deleteRequest(t, client, fmt.Sprintf(subSingle, testutil.TestBaseURL, subnetID), token)
 		resp.Body.Close()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -143,7 +151,7 @@ func TestNetworkingE2E(t *testing.T) {
 		timeout := 30 * time.Second
 		start := time.Now()
 		for time.Since(start) < timeout {
-			resp = deleteRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token)
+			resp = deleteRequest(t, client, fmt.Sprintf(vpcRoute, testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token)
 			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
 				return

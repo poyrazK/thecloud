@@ -27,7 +27,7 @@ func TestDNSE2E(t *testing.T) {
 	const zoneRoute = "%s%s/%s"
 
 	var vpcID string
-	vpcName := fmt.Sprintf("dns-e2e-vpc-%d", time.Now().UnixNano()%1000000)
+	vpcName := fmt.Sprintf("dns-e2e-vpc-%d", time.Now().UnixNano())
 
 	// 1. Create VPC
 	t.Run("CreateVPC", func(t *testing.T) {
@@ -46,8 +46,12 @@ func TestDNSE2E(t *testing.T) {
 		vpcID = res.Data.ID.String()
 	})
 
+	if vpcID == "" {
+		t.Fatal("VPC creation failed, skipping dependent subtests")
+	}
+
 	var zoneID string
-	zoneName := fmt.Sprintf("e2e-%d.internal", time.Now().UnixNano()%1000)
+	zoneName := fmt.Sprintf("e2e-%d.internal", time.Now().UnixNano())
 
 	// 2. Create DNS Zone
 	t.Run("CreateZone", func(t *testing.T) {
@@ -68,6 +72,10 @@ func TestDNSE2E(t *testing.T) {
 		zoneID = res.Data.ID.String()
 		assert.Equal(t, zoneName, res.Data.Name)
 	})
+
+	if zoneID == "" {
+		t.Fatal("DNS Zone creation failed, skipping dependent subtests")
+	}
 
 	// 3. Duplicate Zone Rejection
 	t.Run("DuplicateZoneRejected", func(t *testing.T) {

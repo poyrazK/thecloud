@@ -23,8 +23,10 @@ func TestDNSInstanceAutoRegistrationE2E(t *testing.T) {
 	client := &http.Client{Timeout: 15 * time.Second}
 	token := registerAndLogin(t, client, "dns-inst-tester@thecloud.local", "DNS Instance Tester")
 
+	const instRoute = "%s%s/%s"
+
 	var vpcID string
-	vpcName := fmt.Sprintf("dns-inst-vpc-%d", time.Now().UnixNano()%1000000)
+	vpcName := fmt.Sprintf("dns-inst-vpc-%d", time.Now().UnixNano())
 
 	// 1. Create VPC
 	t.Run("CreateVPC", func(t *testing.T) {
@@ -44,7 +46,7 @@ func TestDNSInstanceAutoRegistrationE2E(t *testing.T) {
 	})
 
 	var zoneID string
-	zoneName := "inst.internal"
+	zoneName := fmt.Sprintf("inst-%d.internal", time.Now().UnixNano())
 
 	// 2. Create DNS Zone for VPC
 	t.Run("CreateZone", func(t *testing.T) {
@@ -65,7 +67,7 @@ func TestDNSInstanceAutoRegistrationE2E(t *testing.T) {
 	})
 
 	var instanceID string
-	instanceName := fmt.Sprintf("web-%d", time.Now().UnixNano()%1000)
+	instanceName := fmt.Sprintf("web-%d", time.Now().UnixNano())
 
 	// 3. Launch Instance in VPC
 	t.Run("LaunchInstanceWithDNS", func(t *testing.T) {
@@ -89,36 +91,8 @@ func TestDNSInstanceAutoRegistrationE2E(t *testing.T) {
 
 	// 4. Wait for Instance and Verify DNS Record
 	t.Run("VerifyAutoDNSCreation", func(t *testing.T) {
-		// Wait for running state and IP allocation (provisioning takes time)
-		timeout := 120 * time.Second
-		start := time.Now()
-		var privateIP string
-
-		for time.Since(start) < timeout {
-			resp := getRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
-			var res struct {
-				Data domain.Instance `json:"data"`
-			}
-			require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
-			resp.Body.Close()
-
-			if res.Data.Status == domain.StatusRunning && res.Data.PrivateIP != "" {
-				privateIP = res.Data.PrivateIP
-				break
-			}
-			if res.Data.Status == domain.StatusError {
-				t.Fatalf("Instance reached error state")
-			}
-			time.Sleep(2 * time.Second)
-		}
-
+		privateIP := waitForInstanceRunning(t, client, token, instanceID)
 		if privateIP == "" {
-			// Fetch one last time to log state
-			resp := getRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
-			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
-			t.Logf("Final instance state: %s", string(body))
-
 			t.Skip("Instance did... skipping DNS verification")
 			return
 		}
@@ -147,7 +121,7 @@ func TestDNSInstanceAutoRegistrationE2E(t *testing.T) {
 	// 5. Terminate and Verify Cleanup
 	t.Run("Cleanup", func(t *testing.T) {
 		// Terminate Instance
-		resp := deleteRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
+		resp := deleteRequest(t, client, fmt.Sprintf(instRoute, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
 		resp.Body.Close()
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -168,8 +142,43 @@ func TestDNSInstanceAutoRegistrationE2E(t *testing.T) {
 		}
 
 		// Delete Zone
-		deleteRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteDNSZones, zoneID), token).Body.Close()
+		deleteRequest(t, client, fmt.Sprintf(instRoute, testutil.TestBaseURL, testutil.TestRouteDNSZones, zoneID), token).Body.Close()
 		// Delete VPC
-		deleteRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token).Body.Close()
+		deleteRequest(t, client, fmt.Sprintf(instRoute, testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token).Body.Close()
 	})
+}
+
+func waitForInstanceRunning(t *testing.T, client *http.Client, token, instanceID string) string {
+	timeout := 120 * time.Second
+	start := time.Now()
+	var privateIP string
+
+	instRoute := "%s%s/%s"
+
+	for time.Since(start) < timeout {
+		resp := getRequest(t, client, fmt.Sprintf(instRoute, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
+		var res struct {
+			Data domain.Instance `json:"data"`
+		}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
+		resp.Body.Close()
+
+		if res.Data.Status == domain.StatusRunning && res.Data.PrivateIP != "" {
+			privateIP = res.Data.PrivateIP
+			break
+		}
+		if res.Data.Status == domain.StatusError {
+			t.Fatalf("Instance reached error state")
+		}
+		time.Sleep(2 * time.Second)
+	}
+
+	if privateIP == "" {
+		resp := getRequest(t, client, fmt.Sprintf(instRoute, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Logf("Final instance state: %s", string(body))
+	}
+
+	return privateIP
 }

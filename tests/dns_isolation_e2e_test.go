@@ -23,12 +23,12 @@ func TestDNSIsolationE2E(t *testing.T) {
 	token := registerAndLogin(t, client, "dns-iso-tester@thecloud.local", "DNS Isolation Tester")
 
 	// Create VPC A
-	vpc_A_ID := createVPCForDNS(t, client, token, "vpc-a")
-	zone_A_ID := createZoneForDNS(t, client, token, "a.internal", vpc_A_ID)
+	vpcAID := createVPCForDNS(t, client, token, "vpc-a")
+	zoneAID := createZoneForDNS(t, client, token, "a.internal", vpcAID)
 
 	// Create VPC B
-	vpc_B_ID := createVPCForDNS(t, client, token, "vpc-b")
-	zone_B_ID := createZoneForDNS(t, client, token, "b.internal", vpc_B_ID)
+	vpcBID := createVPCForDNS(t, client, token, "vpc-b")
+	zoneBID := createZoneForDNS(t, client, token, "b.internal", vpcBID)
 
 	// 1. Create record in Zone A
 	t.Run("CreateRecordInZoneA", func(t *testing.T) {
@@ -37,14 +37,14 @@ func TestDNSIsolationE2E(t *testing.T) {
 			"type":    "A",
 			"content": "10.10.1.1",
 		}
-		resp := postRequest(t, client, fmt.Sprintf("%s/dns/zones/%s/records", testutil.TestBaseURL, zone_A_ID), token, payload)
+		resp := postRequest(t, client, fmt.Sprintf("%s/dns/zones/%s/records", testutil.TestBaseURL, zoneAID), token, payload)
 		defer resp.Body.Close()
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 	})
 
 	// 2. Verify Zone B is empty/doesn't have the record
 	t.Run("VerifyIsolationInZoneB", func(t *testing.T) {
-		resp := getRequest(t, client, fmt.Sprintf("%s/dns/zones/%s/records", testutil.TestBaseURL, zone_B_ID), token)
+		resp := getRequest(t, client, fmt.Sprintf("%s/dns/zones/%s/records", testutil.TestBaseURL, zoneBID), token)
 		defer resp.Body.Close()
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -60,16 +60,16 @@ func TestDNSIsolationE2E(t *testing.T) {
 
 	// Cleanup
 	t.Cleanup(func() {
-		deleteRequest(t, client, fmt.Sprintf("%s/dns/zones/%s", testutil.TestBaseURL, zone_A_ID), token).Body.Close()
-		deleteRequest(t, client, fmt.Sprintf("%s/dns/zones/%s", testutil.TestBaseURL, zone_B_ID), token).Body.Close()
-		deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpc_A_ID), token).Body.Close()
-		deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpc_B_ID), token).Body.Close()
+		deleteRequest(t, client, fmt.Sprintf("%s/dns/zones/%s", testutil.TestBaseURL, zoneAID), token).Body.Close()
+		deleteRequest(t, client, fmt.Sprintf("%s/dns/zones/%s", testutil.TestBaseURL, zoneBID), token).Body.Close()
+		deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpcAID), token).Body.Close()
+		deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpcBID), token).Body.Close()
 	})
 }
 
 func createVPCForDNS(t *testing.T, client *http.Client, token, name string) string {
 	payload := map[string]string{
-		"name":       fmt.Sprintf("%s-%d", name, time.Now().UnixNano()%1000),
+		"name":       fmt.Sprintf("%s-%d", name, time.Now().UnixNano()),
 		"cidr_block": "10.0.0.0/16",
 	}
 	resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteVpcs, token, payload)
