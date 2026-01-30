@@ -42,7 +42,7 @@ func TestClientCreateStack(t *testing.T) {
 		assert.Equal(t, expectedStack.Template, req["template"])
 
 		w.Header().Set(iacTestContentType, iacTestAppJSON)
-		json.NewEncoder(w).Encode(expectedStack)
+		_ = json.NewEncoder(w).Encode(expectedStack)
 	}))
 	defer server.Close()
 
@@ -66,7 +66,7 @@ func TestClientListStacks(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.Header().Set(iacTestContentType, iacTestAppJSON)
-		json.NewEncoder(w).Encode(expectedStacks)
+		_ = json.NewEncoder(w).Encode(expectedStacks)
 	}))
 	defer server.Close()
 
@@ -90,7 +90,7 @@ func TestClientGetStack(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.Header().Set(iacTestContentType, iacTestAppJSON)
-		json.NewEncoder(w).Encode(expectedStack)
+		_ = json.NewEncoder(w).Encode(expectedStack)
 	}))
 	defer server.Close()
 
@@ -136,7 +136,7 @@ func TestClientValidateTemplate(t *testing.T) {
 		assert.Equal(t, template, req["template"])
 
 		w.Header().Set(iacTestContentType, iacTestAppJSON)
-		json.NewEncoder(w).Encode(expectedResp)
+		_ = json.NewEncoder(w).Encode(expectedResp)
 	}))
 	defer server.Close()
 
@@ -151,7 +151,7 @@ func TestClientValidateTemplate(t *testing.T) {
 func TestClientIacErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 

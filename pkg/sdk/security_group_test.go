@@ -33,7 +33,7 @@ func TestClientCreateSecurityGroup(t *testing.T) {
 
 		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		resp := Response[SecurityGroup]{Data: expectedSG}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -59,7 +59,7 @@ func TestClientListSecurityGroups(t *testing.T) {
 
 		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		resp := Response[[]SecurityGroup]{Data: expectedSGs}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -78,7 +78,7 @@ func TestClientListSecurityGroupsNoVPC(t *testing.T) {
 
 		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		resp := Response[[]SecurityGroup]{Data: []SecurityGroup{{ID: "sg-1"}}}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -92,7 +92,7 @@ func TestClientListSecurityGroupsNoVPC(t *testing.T) {
 func TestClientListSecurityGroupsError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
@@ -115,7 +115,7 @@ func TestClientGetSecurityGroup(t *testing.T) {
 
 		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		resp := Response[SecurityGroup]{Data: expectedSG}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -166,7 +166,7 @@ func TestClientAddSecurityRule(t *testing.T) {
 		w.Header().Set(contentType, testutil.TestContentTypeAppJSON)
 		rule.ID = "rule-1"
 		resp := Response[SecurityRule]{Data: rule}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -246,7 +246,7 @@ func TestClientDetachSecurityGroup(t *testing.T) {
 func TestClientSecurityGroupErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
@@ -261,7 +261,7 @@ func TestClientSecurityGroupErrors(t *testing.T) {
 func TestClientCreateSecurityGroupError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 

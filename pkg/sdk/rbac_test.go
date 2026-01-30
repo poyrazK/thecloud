@@ -31,7 +31,7 @@ func TestClient_CreateRole(t *testing.T) {
 		assert.Equal(t, expectedRole.Description, req["description"])
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Response[domain.Role]{Data: expectedRole})
+		_ = json.NewEncoder(w).Encode(Response[domain.Role]{Data: expectedRole})
 	}))
 	defer server.Close()
 
@@ -55,7 +55,7 @@ func TestClient_ListRoles(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Response[[]domain.Role]{Data: expectedRoles})
+		_ = json.NewEncoder(w).Encode(Response[[]domain.Role]{Data: expectedRoles})
 	}))
 	defer server.Close()
 
@@ -76,7 +76,7 @@ func TestClient_GetRole(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Response[domain.Role]{Data: expectedRole})
+		_ = json.NewEncoder(w).Encode(Response[domain.Role]{Data: expectedRole})
 	}))
 	defer server.Close()
 
@@ -124,7 +124,7 @@ func TestClient_UpdateRole(t *testing.T) {
 		assert.Equal(t, expectedRole.Name, req["name"])
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Response[domain.Role]{Data: expectedRole})
+		_ = json.NewEncoder(w).Encode(Response[domain.Role]{Data: expectedRole})
 	}))
 	defer server.Close()
 
@@ -171,7 +171,7 @@ func TestClient_ListRoleBindings(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Response[[]domain.User]{Data: expectedUsers})
+		_ = json.NewEncoder(w).Encode(Response[[]domain.User]{Data: expectedUsers})
 	}))
 	defer server.Close()
 

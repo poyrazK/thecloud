@@ -19,7 +19,7 @@ func TestNotifySDK(t *testing.T) {
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			if body["name"] == "my-topic" {
 				w.WriteHeader(http.StatusCreated)
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
 					"data": map[string]interface{}{
 						"id":   "topic-1",
 						"name": "my-topic",
@@ -31,7 +31,7 @@ func TestNotifySDK(t *testing.T) {
 
 		if r.URL.Path == "/api/v1/notify/topics" && r.Method == "GET" {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"data": []map[string]interface{}{
 					{"id": "topic-1", "name": "my-topic"},
 				},
@@ -49,7 +49,7 @@ func TestNotifySDK(t *testing.T) {
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			if body["protocol"] == "http" {
 				w.WriteHeader(http.StatusCreated)
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
 					"data": map[string]interface{}{
 						"id":       "sub-1",
 						"topic_id": "topic-1",
@@ -61,7 +61,7 @@ func TestNotifySDK(t *testing.T) {
 
 		if r.URL.Path == "/api/v1/notify/topics/topic-1/subscriptions" && r.Method == "GET" {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"data": []map[string]interface{}{
 					{"id": "sub-1", "topic_id": "topic-1"},
 				},

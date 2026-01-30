@@ -43,7 +43,7 @@ func TestClientCreateSnapshot(t *testing.T) {
 		assert.Equal(t, expectedSnapshot.Description, req["description"])
 
 		w.Header().Set(snapshotContentType, snapshotApplicationJSON)
-		json.NewEncoder(w).Encode(expectedSnapshot)
+		_ = json.NewEncoder(w).Encode(expectedSnapshot)
 	}))
 	defer server.Close()
 
@@ -67,7 +67,7 @@ func TestClientListSnapshots(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.Header().Set(snapshotContentType, snapshotApplicationJSON)
-		json.NewEncoder(w).Encode(expectedSnapshots)
+		_ = json.NewEncoder(w).Encode(expectedSnapshots)
 	}))
 	defer server.Close()
 
@@ -88,7 +88,7 @@ func TestClientGetSnapshot(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.Header().Set(snapshotContentType, snapshotApplicationJSON)
-		json.NewEncoder(w).Encode(expectedSnapshot)
+		_ = json.NewEncoder(w).Encode(expectedSnapshot)
 	}))
 	defer server.Close()
 
@@ -135,7 +135,7 @@ func TestClientRestoreSnapshot(t *testing.T) {
 		assert.Equal(t, newVolumeName, req["new_volume_name"])
 
 		w.Header().Set(snapshotContentType, snapshotApplicationJSON)
-		json.NewEncoder(w).Encode(expectedVolume)
+		_ = json.NewEncoder(w).Encode(expectedVolume)
 	}))
 	defer server.Close()
 
@@ -151,7 +151,7 @@ func TestClientRestoreSnapshot(t *testing.T) {
 func TestClientSnapshotErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 

@@ -27,7 +27,7 @@ func TestClientListClusters(t *testing.T) {
 		assert.Equal(t, kubeTestClusters, r.URL.Path)
 
 		w.Header().Set(kubeTestContentType, kubeTestAppJSON)
-		json.NewEncoder(w).Encode(Response[[]*Cluster]{Data: []*Cluster{{ID: clusterID, Name: kubeTestClusterName}}})
+		_ = json.NewEncoder(w).Encode(Response[[]*Cluster]{Data: []*Cluster{{ID: clusterID, Name: kubeTestClusterName}}})
 	}))
 	defer server.Close()
 
@@ -55,7 +55,7 @@ func TestClientCreateCluster(t *testing.T) {
 		assert.True(t, payload.HA)
 
 		w.Header().Set(kubeTestContentType, kubeTestAppJSON)
-		json.NewEncoder(w).Encode(Response[*Cluster]{Data: &Cluster{ID: clusterID, Name: kubeTestClusterName}})
+		_ = json.NewEncoder(w).Encode(Response[*Cluster]{Data: &Cluster{ID: clusterID, Name: kubeTestClusterName}})
 	}))
 	defer server.Close()
 
@@ -79,7 +79,7 @@ func TestClientGetCluster(t *testing.T) {
 		assert.Equal(t, kubeTestClusters+"/"+clusterID.String(), r.URL.Path)
 
 		w.Header().Set(kubeTestContentType, kubeTestAppJSON)
-		json.NewEncoder(w).Encode(Response[*Cluster]{Data: &Cluster{ID: clusterID, Name: kubeTestClusterName}})
+		_ = json.NewEncoder(w).Encode(Response[*Cluster]{Data: &Cluster{ID: clusterID, Name: kubeTestClusterName}})
 	}))
 	defer server.Close()
 
@@ -113,7 +113,7 @@ func TestClientGetKubeconfig(t *testing.T) {
 		assert.Equal(t, kubeTestRoleAdmin, r.URL.Query().Get("role"))
 
 		w.Header().Set(kubeTestContentType, kubeTestAppJSON)
-		json.NewEncoder(w).Encode(Response[string]{Data: kubeTestKubeconfig})
+		_ = json.NewEncoder(w).Encode(Response[string]{Data: kubeTestKubeconfig})
 	}))
 	defer server.Close()
 
@@ -132,7 +132,7 @@ func TestClientGetKubeconfigNoRole(t *testing.T) {
 		assert.Equal(t, "", r.URL.RawQuery)
 
 		w.Header().Set(kubeTestContentType, kubeTestAppJSON)
-		json.NewEncoder(w).Encode(Response[string]{Data: kubeTestKubeconfig})
+		_ = json.NewEncoder(w).Encode(Response[string]{Data: kubeTestKubeconfig})
 	}))
 	defer server.Close()
 
@@ -147,7 +147,7 @@ func TestClientGetKubeconfigErrorStatus(t *testing.T) {
 	clusterID := uuid.New()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
@@ -210,7 +210,7 @@ func TestClientGetClusterHealth(t *testing.T) {
 		assert.Equal(t, kubeTestClusters+"/"+clusterID.String()+"/health", r.URL.Path)
 
 		w.Header().Set(kubeTestContentType, kubeTestAppJSON)
-		json.NewEncoder(w).Encode(Response[*ClusterHealth]{Data: &ClusterHealth{Status: "ok", NodesReady: 3, NodesTotal: 3}})
+		_ = json.NewEncoder(w).Encode(Response[*ClusterHealth]{Data: &ClusterHealth{Status: "ok", NodesReady: 3, NodesTotal: 3}})
 	}))
 	defer server.Close()
 
@@ -225,7 +225,7 @@ func TestClientGetClusterHealth(t *testing.T) {
 func TestClientClusterErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 

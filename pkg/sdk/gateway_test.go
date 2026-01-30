@@ -36,7 +36,7 @@ func TestClient_CreateGatewayRoute(t *testing.T) {
 		assert.Equal(t, expectedRoute.PathPrefix, req.PathPrefix)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedRoute)
+		_ = json.NewEncoder(w).Encode(expectedRoute)
 	}))
 	defer server.Close()
 
@@ -59,7 +59,7 @@ func TestClient_ListGatewayRoutes(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(expectedRoutes)
+		_ = json.NewEncoder(w).Encode(expectedRoutes)
 	}))
 	defer server.Close()
 

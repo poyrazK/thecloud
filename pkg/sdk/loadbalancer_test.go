@@ -38,21 +38,21 @@ func newLoadBalancerTestServer(t *testing.T) *httptest.Server {
 func handleLBBase(w http.ResponseWriter, r *http.Request) bool {
 	if r.Method == http.MethodPost && r.URL.Path == lbPath {
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(Response[LoadBalancer]{
+		_ = json.NewEncoder(w).Encode(Response[LoadBalancer]{
 			Data: LoadBalancer{ID: lbID, Name: lbName, Status: "ACTIVE"},
 		})
 		return true
 	}
 	if r.Method == http.MethodGet && r.URL.Path == lbPath {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Response[[]LoadBalancer]{
+		_ = json.NewEncoder(w).Encode(Response[[]LoadBalancer]{
 			Data: []LoadBalancer{{ID: lbID, Name: lbName}},
 		})
 		return true
 	}
 	if r.Method == http.MethodGet && r.URL.Path == lbPathPrefix+lbID {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Response[LoadBalancer]{
+		_ = json.NewEncoder(w).Encode(Response[LoadBalancer]{
 			Data: LoadBalancer{ID: lbID, Name: lbName, Status: "ACTIVE"},
 		})
 		return true
@@ -75,7 +75,7 @@ func handleLBTargets(w http.ResponseWriter, r *http.Request) bool {
 	}
 	if r.Method == http.MethodGet && r.URL.Path == lbPathPrefix+lbID+"/targets" {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(Response[[]LBTarget]{
+		_ = json.NewEncoder(w).Encode(Response[[]LBTarget]{
 			Data: []LBTarget{{InstanceID: lbInstanceID, Port: 80}},
 		})
 		return true
@@ -133,7 +133,7 @@ func TestClientLoadBalancer(t *testing.T) {
 func TestClientLoadBalancerErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 

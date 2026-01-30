@@ -53,7 +53,7 @@ func handleQueueBase(w http.ResponseWriter, r *http.Request) bool {
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		if body["name"] == queueTestName || body["name"] == queueTestOptionsName {
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"data": map[string]interface{}{
 					"id":   queueTestID,
 					"name": body["name"],
@@ -65,7 +65,7 @@ func handleQueueBase(w http.ResponseWriter, r *http.Request) bool {
 	}
 	if r.Method == http.MethodGet {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"data": []map[string]interface{}{{"id": queueTestID, "name": queueTestName}},
 		})
 		return true
@@ -80,7 +80,7 @@ func handleQueueItem(w http.ResponseWriter, r *http.Request) bool {
 	}
 	if r.Method == http.MethodGet {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"data": map[string]interface{}{
 				"id":   queueTestID,
 				"name": queueTestName,
@@ -102,7 +102,7 @@ func handleQueueMessages(w http.ResponseWriter, r *http.Request) bool {
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		if body["body"] == queueTestMessageBody {
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"data": map[string]interface{}{
 					"id":   queueTestMessageID,
 					"body": queueTestMessageBody,
@@ -114,7 +114,7 @@ func handleQueueMessages(w http.ResponseWriter, r *http.Request) bool {
 	}
 	if r.URL.Path == messagesPath && r.Method == http.MethodGet {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"data": []map[string]interface{}{{"id": queueTestMessageID, "body": queueTestMessageBody}},
 		})
 		return true
@@ -206,7 +206,7 @@ func TestQueueSDK(t *testing.T) {
 func TestQueueSDKErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 

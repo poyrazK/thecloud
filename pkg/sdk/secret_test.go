@@ -46,7 +46,7 @@ func TestClientCreateSecret(t *testing.T) {
 		w.Header().Set(secretTestContentType, secretTestAppJSON)
 		// Wrap in Response[Secret]
 		resp := Response[Secret]{Data: expectedSecret}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -71,7 +71,7 @@ func TestClientListSecrets(t *testing.T) {
 
 		w.Header().Set(secretTestContentType, secretTestAppJSON)
 		resp := Response[[]*Secret]{Data: expectedSecrets}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -92,7 +92,7 @@ func TestClientGetSecret(t *testing.T) {
 
 		w.Header().Set(secretTestContentType, secretTestAppJSON)
 		resp := Response[Secret]{Data: expectedSecret}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -123,7 +123,7 @@ func TestClientDeleteSecret(t *testing.T) {
 func TestClientSecretErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("boom"))
+		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
