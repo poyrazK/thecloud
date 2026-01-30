@@ -59,9 +59,9 @@ Located in `internal/core/ports/instance.go`.
 ### Service Interface (Business Logic)
 ```go
 type InstanceService interface {
-    LaunchInstance(ctx context.Context, name, image string, ...) (*domain.Instance, error)
-    StopInstance(ctx context.Context, id uuid.UUID) error
-    GetConsoleURL(ctx context.Context, id uuid.UUID) (string, error)
+    LaunchInstance(ctx context.Context, name, image, ports, instanceType string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error)
+    StopInstance(ctx context.Context, idOrName string) error
+    GetConsoleURL(ctx context.Context, idOrName string) (string, error)
 }
 ```
 
