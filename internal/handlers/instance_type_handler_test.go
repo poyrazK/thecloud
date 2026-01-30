@@ -51,7 +51,8 @@ func TestInstanceTypeHandlerList(t *testing.T) {
 
 		data, _ := json.Marshal(resp.Data)
 		var actualTypes []*domain.InstanceType
-		json.Unmarshal(data, &actualTypes)
+		err = json.Unmarshal(data, &actualTypes)
+		assert.NoError(t, err)
 		assert.Len(t, actualTypes, 1)
 		assert.Equal(t, "basic-1", actualTypes[0].ID)
 
