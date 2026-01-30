@@ -177,7 +177,7 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 
 	// DNS Routes
 	dns := r.Group("/dns")
-	dns.Use(httputil.Auth(services.Identity, services.Tenant))
+	dns.Use(httputil.Auth(services.Identity, services.Tenant), httputil.RequireTenant())
 	{
 		dns.POST("/zones", handlers.DNS.CreateZone)
 		dns.GET("/zones", handlers.DNS.ListZones)
@@ -291,7 +291,7 @@ func registerNetworkRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	sgGroup := r.Group("/security-groups")
-	sgGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
+	sgGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant), httputil.RequireTenant())
 	{
 		sgGroup.POST("", handlers.SecurityGroup.Create)
 		sgGroup.GET("", handlers.SecurityGroup.List)

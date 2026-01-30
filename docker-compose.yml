@@ -64,6 +64,12 @@ services:
       - powerdns_data:/var/lib/powerdns
     networks:
       - cloud-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8081/api/v1/servers" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   api:
     build:
@@ -74,6 +80,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      powerdns:
         condition: service_healthy
     ports:
       - "${PORT:-8080}:${PORT:-8080}"
