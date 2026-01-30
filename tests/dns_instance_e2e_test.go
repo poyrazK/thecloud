@@ -3,7 +3,6 @@ package tests
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -146,37 +145,4 @@ func TestDNSInstanceAutoRegistrationE2E(t *testing.T) {
 		// Delete VPC
 		_ = deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpcID), token).Body.Close()
 	})
-}
-
-func waitForInstanceRunning(t *testing.T, client *http.Client, token, instanceID string) string {
-	timeout := 120 * time.Second
-	start := time.Now()
-	var privateIP string
-
-	for time.Since(start) < timeout {
-		resp := getRequest(t, client, fmt.Sprintf("%s/compute/instances/%s", testutil.TestBaseURL, instanceID), token)
-		var res struct {
-			Data domain.Instance `json:"data"`
-		}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
-		_ = resp.Body.Close()
-
-		if res.Data.Status == domain.StatusRunning && res.Data.PrivateIP != "" {
-			privateIP = res.Data.PrivateIP
-			break
-		}
-		if res.Data.Status == domain.StatusError {
-			t.Fatalf("Instance reached error state")
-		}
-		time.Sleep(2 * time.Second)
-	}
-
-	if privateIP == "" {
-		resp := getRequest(t, client, fmt.Sprintf("%s/compute/instances/%s", testutil.TestBaseURL, instanceID), token)
-		body, _ := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-		t.Logf("Final instance state: %s", string(body))
-	}
-
-	return privateIP
 }
