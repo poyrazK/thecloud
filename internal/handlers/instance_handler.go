@@ -38,12 +38,13 @@ type VolumeAttachmentRequest struct {
 
 // LaunchRequest is the payload for launching a new instance.
 type LaunchRequest struct {
-	Name     string                    `json:"name" binding:"required"`
-	Image    string                    `json:"image" binding:"required"`
-	Ports    string                    `json:"ports"`
-	VpcID    string                    `json:"vpc_id"`
-	SubnetID string                    `json:"subnet_id"`
-	Volumes  []VolumeAttachmentRequest `json:"volumes"`
+	Name         string                    `json:"name" binding:"required"`
+	Image        string                    `json:"image" binding:"required"`
+	InstanceType string                    `json:"instance_type"`
+	Ports        string                    `json:"ports"`
+	VpcID        string                    `json:"vpc_id"`
+	SubnetID     string                    `json:"subnet_id"`
+	Volumes      []VolumeAttachmentRequest `json:"volumes"`
 }
 
 // validateLaunchRequest performs custom validation beyond struct tags
@@ -124,7 +125,7 @@ func (h *InstanceHandler) Launch(c *gin.Context) {
 		return
 	}
 
-	inst, err := h.svc.LaunchInstance(c.Request.Context(), req.Name, req.Image, req.Ports, vpcUUID, subnetUUID, volumes)
+	inst, err := h.svc.LaunchInstance(c.Request.Context(), req.Name, req.Image, req.Ports, req.InstanceType, vpcUUID, subnetUUID, volumes)
 	if err != nil {
 		httputil.Error(c, err)
 		return

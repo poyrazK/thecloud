@@ -29,8 +29,8 @@ type instanceServiceMock struct {
 	mock.Mock
 }
 
-func (m *instanceServiceMock) LaunchInstance(ctx context.Context, name, image, ports string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
-	args := m.Called(ctx, name, image, ports, vpcID, subnetID, volumes)
+func (m *instanceServiceMock) LaunchInstance(ctx context.Context, name, image, ports, instanceType string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
+	args := m.Called(ctx, name, image, ports, instanceType, vpcID, subnetID, volumes)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -112,7 +112,7 @@ func TestInstanceHandlerLaunchRejectsEmptyImage(t *testing.T) {
 	}
 	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &wrapper))
 	assert.Equal(t, "INVALID_INPUT", wrapper.Error.Type)
-	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestInstanceHandlerLaunchRejectsInvalidJSON(t *testing.T) {
@@ -127,7 +127,7 @@ func TestInstanceHandlerLaunchRejectsInvalidJSON(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestInstanceHandlerLaunchRejectsInvalidNameCharacters(t *testing.T) {
@@ -143,7 +143,7 @@ func TestInstanceHandlerLaunchRejectsInvalidNameCharacters(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestInstanceHandlerLaunch(t *testing.T) {
@@ -152,7 +152,7 @@ func TestInstanceHandlerLaunch(t *testing.T) {
 	r.POST(instancesPath, handler.Launch)
 
 	inst := &domain.Instance{ID: uuid.New(), Name: testInstanceName}
-	mockSvc.On("LaunchInstance", mock.Anything, testInstanceName, "alpine", "", (*uuid.UUID)(nil), (*uuid.UUID)(nil), []domain.VolumeAttachment(nil)).Return(inst, nil)
+	mockSvc.On("LaunchInstance", mock.Anything, testInstanceName, "alpine", "", "", (*uuid.UUID)(nil), (*uuid.UUID)(nil), []domain.VolumeAttachment(nil)).Return(inst, nil)
 
 	body := `{"name":"` + testInstanceName + `","image":"alpine"}`
 	req := httptest.NewRequest(http.MethodPost, instancesPath, strings.NewReader(body))
@@ -177,7 +177,7 @@ func TestInstanceHandlerLaunchRejectsInvalidMountPath(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestInstanceHandlerList(t *testing.T) {
@@ -325,7 +325,7 @@ func TestInstanceHandlerLaunchWithVolumesAndVPC(t *testing.T) {
 		{VolumeIDOrName: volID, MountPath: "/mnt/data"},
 	}
 
-	mockSvc.On("LaunchInstance", mock.Anything, complexTestName, "ubuntu", "80:80", &vpcID, (*uuid.UUID)(nil), expectedVolumes).Return(inst, nil)
+	mockSvc.On("LaunchInstance", mock.Anything, complexTestName, "ubuntu", "80:80", "", &vpcID, (*uuid.UUID)(nil), expectedVolumes).Return(inst, nil)
 
 	body := map[string]interface{}{
 		"name":   complexTestName,
@@ -361,7 +361,7 @@ func TestInstanceHandlerLaunchRejectsInvalidVPCID(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestInstanceHandlerGetConsole(t *testing.T) {

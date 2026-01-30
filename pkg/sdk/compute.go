@@ -47,14 +47,15 @@ type VolumeAttachmentInput struct {
 }
 
 // LaunchInstance provisions a new instance with optional volume attachments.
-func (c *Client) LaunchInstance(name, image, ports string, vpcID, subnetID string, volumes []VolumeAttachmentInput) (*Instance, error) {
+func (c *Client) LaunchInstance(name, image, ports, instanceType string, vpcID, subnetID string, volumes []VolumeAttachmentInput) (*Instance, error) {
 	body := map[string]interface{}{
-		"name":      name,
-		"image":     image,
-		"ports":     ports,
-		"vpc_id":    vpcID,
-		"subnet_id": subnetID,
-		"volumes":   volumes,
+		"name":          name,
+		"image":         image,
+		"ports":         ports,
+		"instance_type": instanceType,
+		"vpc_id":        vpcID,
+		"subnet_id":     subnetID,
+		"volumes":       volumes,
 	}
 	var res Response[Instance]
 	if err := c.post("/instances", body, &res); err != nil {
