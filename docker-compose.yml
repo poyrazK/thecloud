@@ -65,11 +65,11 @@ services:
     networks:
       - cloud-network
     healthcheck:
-      test: [ "CMD-SHELL", "pgrep pdns_server || exit 1" ]
+      test: [ "CMD-SHELL", "curl -sf -H \"X-API-Key: $${POWERDNS_API_KEY:-thecloud-dns-secret}\" http://localhost:8081/api/v1/servers/localhost || exit 1" ]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 10
+      start_period: 40s
 
   api:
     build:

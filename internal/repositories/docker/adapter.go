@@ -436,7 +436,6 @@ func (a *DockerAdapter) GetConsoleURL(ctx context.Context, id string) (string, e
 }
 
 func (a *DockerAdapter) GetInstanceIP(ctx context.Context, id string) (string, error) {
-	// Inspect container
 	// Inspect container with retries to allow time for IP assignment
 	var json container.InspectResponse
 	var err error
@@ -448,16 +447,24 @@ func (a *DockerAdapter) GetInstanceIP(ctx context.Context, id string) (string, e
 			return "", fmt.Errorf("failed to inspect container: %w", err)
 		}
 
+		// Add nil check for NetworkSettings
+		if json.NetworkSettings == nil {
+			goto retry
+		}
+
+		// Add nil check for Networks map
+		if len(json.NetworkSettings.Networks) == 0 {
+			goto retry
+		}
+
 		// Try to get IP from first network
-		if json.NetworkSettings != nil {
-			for _, net := range json.NetworkSettings.Networks {
-				if net.IPAddress != "" {
-					return net.IPAddress, nil
-				}
+		for _, net := range json.NetworkSettings.Networks {
+			if net != nil && net.IPAddress != "" {
+				return net.IPAddress, nil
 			}
 		}
 
-		// If we are here, we found networks but no IP, or no networks.
+	retry:
 		// Wait and retry
 		select {
 		case <-ctx.Done():
