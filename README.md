@@ -24,6 +24,7 @@ An open-source cloud platform that anyone can run, modify, and own.
 - **CloudCron**: Managed scheduled tasks with execution history ([Guide](docs/services/cloud-cron.md))
 - **CloudGateway**: API Routing and Reverse Proxy with path stripping ([Guide](docs/services/cloud-gateway.md))
 - **CloudContainers**: Managed container deployments with replication and auto-healing ([Guide](docs/services/cloud-containers.md))
+- **CloudDNS**: Managed authoritative DNS with VPC auto-registration ([Guide](docs/guides/dns.md))
 - **Console**: Interactive Next.js Dashboard for visual resource management
 
 ## Authentication
@@ -152,6 +153,7 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed changes.
 | [CloudCron](docs/services/cloud-cron.md) | Scheduler internals |
 | [CloudGateway](docs/services/cloud-gateway.md) | Gateway & Proxy guide |
 | [CloudContainers](docs/services/cloud-containers.md) | Container Orchestration |
+| [CloudDNS](docs/services/cloud-dns.md) | Managed DNS Service |
 
 ### Guides
 | Guide | Description |
@@ -166,6 +168,7 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed changes.
 | [Storage](docs/guides/storage.md) | Object and Block storage |
 | [Managed Caches](docs/guides/cache.md) | Redis cache management |
 | [Cloud Functions](docs/guides/functions.md) | Serverless execution |
+| [CloudDNS](docs/guides/dns.md) | Managed DNS & Auto-Registration |
 
 ## KPIs
 - Time to Hello World: < 5 min

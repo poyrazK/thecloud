@@ -20,8 +20,11 @@ func TestDNSE2E(t *testing.T) {
 		t.Fatalf("Failing DNS E2E test: %v", err)
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
-	token := registerAndLogin(t, client, "dns-tester-comprehensive@thecloud.local", "DNS Comprehensive Tester")
+	client := &http.Client{Timeout: 15 * time.Second}
+	token := registerAndLogin(t, client, "dns-tester@thecloud.local", "DNS Tester")
+
+	const recordsRoute = "%s/dns/zones/%s/records"
+	const zoneRoute = "%s%s/%s"
 
 	var vpcID string
 	vpcName := fmt.Sprintf("dns-e2e-vpc-%d", time.Now().UnixNano()%1000000)
@@ -101,7 +104,7 @@ func TestDNSE2E(t *testing.T) {
 					"priority": rt.Priority,
 					"ttl":      300,
 				}
-				resp := postRequest(t, client, fmt.Sprintf("%s/dns/zones/%s/records", testutil.TestBaseURL, zoneID), token, payload)
+				resp := postRequest(t, client, fmt.Sprintf(recordsRoute, testutil.TestBaseURL, zoneID), token, payload)
 				defer resp.Body.Close()
 
 				if resp.StatusCode != http.StatusCreated {
@@ -128,7 +131,7 @@ func TestDNSE2E(t *testing.T) {
 				"content": "10.10.1.5",
 				"ttl":     10, // Should be clamped to min (e.g. 60)
 			}
-			resp := postRequest(t, client, fmt.Sprintf("%s/dns/zones/%s/records", testutil.TestBaseURL, zoneID), token, payload)
+			resp := postRequest(t, client, fmt.Sprintf(recordsRoute, testutil.TestBaseURL, zoneID), token, payload)
 			defer resp.Body.Close()
 			require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -154,12 +157,12 @@ func TestDNSE2E(t *testing.T) {
 	// 6. Cleanup
 	t.Run("Cleanup", func(t *testing.T) {
 		// Delete DNS Zone
-		resp := deleteRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteDNSZones, zoneID), token)
+		resp := deleteRequest(t, client, fmt.Sprintf(zoneRoute, testutil.TestBaseURL, testutil.TestRouteDNSZones, zoneID), token)
 		resp.Body.Close()
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 
 		// Verify deletion in PowerDNS (via GET)
-		getResp := getRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteDNSZones, zoneID), token)
+		getResp := getRequest(t, client, fmt.Sprintf(zoneRoute, testutil.TestBaseURL, testutil.TestRouteDNSZones, zoneID), token)
 		getResp.Body.Close()
 		assert.Equal(t, http.StatusNotFound, getResp.StatusCode)
 
