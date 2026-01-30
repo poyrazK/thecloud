@@ -15,7 +15,7 @@ type VpcRepository struct {
 
 func NewVpcRepository(t mock.TestingT) *VpcRepository {
 	m := &VpcRepository{}
-	m.Mock.Test(t)
+	m.Test(t)
 	return m
 }
 
@@ -60,7 +60,7 @@ type AuditService struct {
 
 func NewAuditService(t mock.TestingT) *AuditService {
 	m := &AuditService{}
-	m.Mock.Test(t)
+	m.Test(t)
 	return m
 }
 
@@ -84,7 +84,7 @@ type EventService struct {
 
 func NewEventService(t mock.TestingT) *EventService {
 	m := &EventService{}
-	m.Mock.Test(t)
+	m.Test(t)
 	return m
 }
 

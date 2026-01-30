@@ -21,9 +21,7 @@ type PowerDNSBackend struct {
 
 // NewPowerDNSBackend creates a new PowerDNS backend client.
 func NewPowerDNSBackend(apiURL, apiKey, serverID string, logger *slog.Logger) (*PowerDNSBackend, error) {
-	client := powerdns.NewClient(apiURL, serverID, map[string]string{
-		"X-API-Key": apiKey,
-	}, nil)
+	client := powerdns.New(apiURL, serverID, powerdns.WithAPIKey(apiKey))
 
 	restyClient := resty.New().
 		SetBaseURL(strings.TrimSuffix(apiURL, "/")+"/api/v1").

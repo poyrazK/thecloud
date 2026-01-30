@@ -25,12 +25,12 @@ func TestPowerDNSCreateZone(t *testing.T) {
 		assert.Equal(t, testPDNSKey, r.Header.Get("X-API-Key"))
 
 		var reqBody map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&reqBody)
+		_ = json.NewDecoder(r.Body).Decode(&reqBody)
 		assert.Equal(t, testPDNSZone, reqBody["name"])
 
 		w.WriteHeader(http.StatusCreated)
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"id": "example.com."}`))
+		_, _ = w.Write([]byte(`{"id": "example.com."}`))
 	}))
 	defer ts.Close()
 
@@ -48,7 +48,7 @@ func TestPowerDNSAddRecords(t *testing.T) {
 		assert.Equal(t, "PUT", r.Method)
 
 		var reqBody map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&reqBody)
+		_ = json.NewDecoder(r.Body).Decode(&reqBody)
 		rrsets := reqBody["rrsets"].([]interface{})
 		assert.Len(t, rrsets, 1)
 

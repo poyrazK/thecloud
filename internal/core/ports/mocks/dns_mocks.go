@@ -16,7 +16,7 @@ type DNSRepository struct {
 
 func NewDNSRepository(t mock.TestingT) *DNSRepository {
 	m := &DNSRepository{}
-	m.Mock.Test(t)
+	m.Test(t)
 	return m
 }
 
@@ -118,7 +118,7 @@ type DNSBackend struct {
 
 func NewDNSBackend(t mock.TestingT) *DNSBackend {
 	m := &DNSBackend{}
-	m.Mock.Test(t)
+	m.Test(t)
 	return m
 }
 
@@ -170,7 +170,7 @@ type DNSService struct {
 
 func NewDNSService(t mock.TestingT) *DNSService {
 	m := &DNSService{}
-	m.Mock.Test(t)
+	m.Test(t)
 	return m
 }
 

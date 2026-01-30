@@ -66,7 +66,7 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 	}
 
 	// Encryption
-	var finalReader io.Reader = r
+	finalReader := r
 	if bucket.EncryptionEnabled && s.encryptSvc != nil {
 		// Read entire content to encrypt (streaming encryption is better but complex for now)
 		data, err := io.ReadAll(r)
@@ -152,7 +152,7 @@ func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.R
 	b, err := s.repo.GetBucket(ctx, bucket)
 	if err == nil && b.EncryptionEnabled && s.encryptSvc != nil {
 		data, err := io.ReadAll(reader)
-		reader.Close() // Close underlying file stream
+		_ = reader.Close() // Close underlying file stream
 		if err != nil {
 			return nil, nil, err
 		}
