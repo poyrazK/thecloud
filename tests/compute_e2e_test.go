@@ -21,7 +21,7 @@ func TestComputeE2E(t *testing.T) {
 		t.Fatalf("Failing Compute E2E test: %v", err)
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 60 * time.Second}
 	token := registerAndLogin(t, client, "compute-tester@thecloud.local", "Compute Tester")
 
 	var instanceID string

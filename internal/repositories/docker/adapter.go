@@ -195,7 +195,10 @@ func (a *DockerAdapter) CreateInstance(ctx context.Context, opts ports.CreateIns
 }
 
 func (a *DockerAdapter) StopInstance(ctx context.Context, name string) error {
-	err := a.cli.ContainerStop(ctx, name, container.StopOptions{})
+	timeout := 30
+	err := a.cli.ContainerStop(ctx, name, container.StopOptions{
+		Timeout: &timeout,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to stop container %s: %w", name, err)
 	}
