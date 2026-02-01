@@ -1,6 +1,6 @@
 -- +goose Up
 
-CREATE TABLE security_groups (
+CREATE TABLE IF NOT EXISTS security_groups (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     vpc_id UUID NOT NULL REFERENCES vpcs(id) ON DELETE CASCADE,
@@ -11,7 +11,7 @@ CREATE TABLE security_groups (
     UNIQUE(vpc_id, name)
 );
 
-CREATE TABLE security_rules (
+CREATE TABLE IF NOT EXISTS security_rules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     group_id UUID NOT NULL REFERENCES security_groups(id) ON DELETE CASCADE,
     direction VARCHAR(10) NOT NULL CHECK (direction IN ('ingress', 'egress')),
@@ -23,11 +23,11 @@ CREATE TABLE security_rules (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE instance_security_groups (
+CREATE TABLE IF NOT EXISTS instance_security_groups (
     instance_id UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
     group_id UUID NOT NULL REFERENCES security_groups(id) ON DELETE CASCADE,
     PRIMARY KEY (instance_id, group_id)
 );
 
-CREATE INDEX idx_security_rules_group_id ON security_rules(group_id);
-CREATE INDEX idx_instance_security_groups_instance ON instance_security_groups(instance_id);
+CREATE INDEX IF NOT EXISTS idx_security_rules_group_id ON security_rules(group_id);
+CREATE INDEX IF NOT EXISTS idx_instance_security_groups_instance ON instance_security_groups(instance_id);

@@ -1,5 +1,5 @@
 -- +goose Up
-CREATE TABLE subnets (
+CREATE TABLE IF NOT EXISTS subnets (
     id UUID PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id),
     vpc_id UUID NOT NULL REFERENCES vpcs(id) ON DELETE CASCADE,
@@ -14,6 +14,6 @@ CREATE TABLE subnets (
     UNIQUE(vpc_id, cidr_block)
 );
 
-CREATE INDEX idx_subnets_vpc ON subnets(vpc_id);
-CREATE INDEX idx_subnets_user ON subnets(user_id);
+CREATE INDEX IF NOT EXISTS idx_subnets_vpc ON subnets(vpc_id);
+CREATE INDEX IF NOT EXISTS idx_subnets_user ON subnets(user_id);
 
