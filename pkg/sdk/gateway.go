@@ -5,15 +5,19 @@ import "fmt"
 
 // GatewayRoute describes an API gateway route.
 type GatewayRoute struct {
-	ID          string `json:"id"`
-	UserID      string `json:"user_id"`
-	Name        string `json:"name"`
-	PathPrefix  string `json:"path_prefix"`
-	TargetURL   string `json:"target_url"`
-	StripPrefix bool   `json:"strip_prefix"`
-	RateLimit   int    `json:"rate_limit"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
+	ID          string   `json:"id"`
+	UserID      string   `json:"user_id"`
+	Name        string   `json:"name"`
+	PathPrefix  string   `json:"path_prefix"`
+	PathPattern string   `json:"path_pattern"`
+	PatternType string   `json:"pattern_type"`
+	ParamNames  []string `json:"param_names"`
+	TargetURL   string   `json:"target_url"`
+	StripPrefix bool     `json:"strip_prefix"`
+	RateLimit   int      `json:"rate_limit"`
+	Priority    int      `json:"priority"`
+	CreatedAt   string   `json:"created_at"`
+	UpdatedAt   string   `json:"updated_at"`
 }
 
 func (c *Client) CreateGatewayRoute(name, prefix, target string, strip bool, rateLimit int) (*GatewayRoute, error) {
