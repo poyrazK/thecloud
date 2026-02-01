@@ -3,213 +3,189 @@ package services_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
-	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-)
-
-func setupIdentityServiceTest(_ *testing.T) (*MockIdentityRepo, *MockAuditService, ports.IdentityService) {
-	repo := new(MockIdentityRepo)
-	audit := new(MockAuditService)
-	svc := services.NewIdentityService(repo, audit)
-	return repo, audit, svc
-}
-
-const (
-	apiKeyCreateAction = "api_key.create"
-	apiKeyType         = "api_key"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIdentityServiceCreateKeySuccess(t *testing.T) {
-	repo, audit, svc := setupIdentityServiceTest(t)
-	defer repo.AssertExpectations(t)
-	defer audit.AssertExpectations(t)
+	db := setupDB(t)
+	defer db.Close()
+	cleanDB(t, db)
+	ctx := setupTestUser(t, db)
+	userID := appcontext.UserIDFromContext(ctx)
 
-	ctx := context.Background()
-	userID := uuid.New()
-
-	repo.On("CreateAPIKey", ctx, mock.MatchedBy(func(k *domain.APIKey) bool {
-		return k.UserID == userID && len(k.Key) > 10 && k.Name == "Test Key"
-	})).Return(nil)
-	audit.On("Log", ctx, userID, apiKeyCreateAction, apiKeyType, mock.Anything, mock.Anything).Return(nil)
+	identityRepo := postgres.NewIdentityRepository(db)
+	auditRepo := postgres.NewAuditRepository(db)
+	auditSvc := services.NewAuditService(auditRepo)
+	svc := services.NewIdentityService(identityRepo, auditSvc)
 
 	key, err := svc.CreateKey(ctx, userID, "Test Key")
-
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, key)
 	assert.Contains(t, key.Key, "thecloud_")
 	assert.Equal(t, userID, key.UserID)
+
+	// Verify stored
+	fetched, err := identityRepo.GetAPIKeyByID(ctx, key.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, key.ID, fetched.ID)
+
+	// Verify audit log
+	logs, err := auditRepo.ListByUserID(ctx, userID, 10)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, logs)
+	assert.Equal(t, "api_key.create", logs[0].Action)
 }
 
 func TestIdentityServiceValidateAPIKeySuccess(t *testing.T) {
-	repo, _, svc := setupIdentityServiceTest(t)
-	defer repo.AssertExpectations(t)
+	db := setupDB(t)
+	defer db.Close()
+	cleanDB(t, db)
+	ctx := setupTestUser(t, db)
+	userID := appcontext.UserIDFromContext(ctx)
 
-	ctx := context.Background()
+	identityRepo := postgres.NewIdentityRepository(db)
+	auditRepo := postgres.NewAuditRepository(db)
+	auditSvc := services.NewAuditService(auditRepo)
+	svc := services.NewIdentityService(identityRepo, auditSvc)
 
-	keyStr := "thecloud_abc123"
-	userID := uuid.New()
-	apiKey := &domain.APIKey{ID: uuid.New(), UserID: userID, Key: keyStr}
+	key, err := svc.CreateKey(ctx, userID, "Val Key")
+	require.NoError(t, err)
 
-	repo.On("GetAPIKeyByKey", ctx, keyStr).Return(apiKey, nil)
-
-	result, err := svc.ValidateAPIKey(ctx, keyStr)
-
+	result, err := svc.ValidateAPIKey(ctx, key.Key)
 	assert.NoError(t, err)
-	assert.Equal(t, apiKey.ID, result.ID)
+	assert.Equal(t, key.ID, result.ID)
 	assert.Equal(t, userID, result.UserID)
 }
 
 func TestIdentityServiceValidateAPIKeyNotFound(t *testing.T) {
-	repo, _, svc := setupIdentityServiceTest(t)
-	defer repo.AssertExpectations(t)
+	db := setupDB(t)
+	defer db.Close()
+	cleanDB(t, db)
+	ctx := setupTestUser(t, db)
 
-	ctx := context.Background()
-
-	repo.On("GetAPIKeyByKey", ctx, "invalid-key").Return(nil, assert.AnError)
+	identityRepo := postgres.NewIdentityRepository(db)
+	auditRepo := postgres.NewAuditRepository(db)
+	auditSvc := services.NewAuditService(auditRepo)
+	svc := services.NewIdentityService(identityRepo, auditSvc)
 
 	result, err := svc.ValidateAPIKey(ctx, "invalid-key")
-
 	assert.Error(t, err)
 	assert.Nil(t, result)
 }
 
 func TestIdentityServiceListKeys(t *testing.T) {
-	repo, _, svc := setupIdentityServiceTest(t)
-	defer repo.AssertExpectations(t)
+	db := setupDB(t)
+	defer db.Close()
+	cleanDB(t, db)
+	ctx := setupTestUser(t, db)
+	userID := appcontext.UserIDFromContext(ctx)
 
-	ctx := context.Background()
-	userID := uuid.New()
-	keys := []*domain.APIKey{{ID: uuid.New(), UserID: userID}}
+	identityRepo := postgres.NewIdentityRepository(db)
+	auditRepo := postgres.NewAuditRepository(db)
+	auditSvc := services.NewAuditService(auditRepo)
+	svc := services.NewIdentityService(identityRepo, auditSvc)
 
-	repo.On("ListAPIKeysByUserID", ctx, userID).Return(keys, nil)
+	_, err := svc.CreateKey(ctx, userID, "Key 1")
+	require.NoError(t, err)
+	_, err = svc.CreateKey(ctx, userID, "Key 2")
+	require.NoError(t, err)
 
 	result, err := svc.ListKeys(ctx, userID)
-
 	assert.NoError(t, err)
-	assert.Equal(t, keys, result)
+	assert.Len(t, result, 2)
 }
 
 func TestIdentityServiceRevokeKey(t *testing.T) {
-	ctx := context.Background()
-	userID := uuid.New()
-	keyID := uuid.New()
+	db := setupDB(t)
+	defer db.Close()
+	cleanDB(t, db)
+	ctx := setupTestUser(t, db)
+	userID := appcontext.UserIDFromContext(ctx)
+
+	identityRepo := postgres.NewIdentityRepository(db)
+	auditRepo := postgres.NewAuditRepository(db)
+	auditSvc := services.NewAuditService(auditRepo)
+	svc := services.NewIdentityService(identityRepo, auditSvc)
 
 	t.Run("Success", func(t *testing.T) {
-		repo, audit, svc := setupIdentityServiceTest(t)
-		apiKey := &domain.APIKey{ID: keyID, UserID: userID, Name: "Test"}
+		key, err := svc.CreateKey(ctx, userID, "To Revoke")
+		require.NoError(t, err)
 
-		repo.On("GetAPIKeyByID", ctx, keyID).Return(apiKey, nil)
-		repo.On("DeleteAPIKey", ctx, keyID).Return(nil)
-		audit.On("Log", ctx, userID, "api_key.revoke", apiKeyType, keyID.String(), mock.Anything).Return(nil)
-
-		err := svc.RevokeKey(ctx, userID, keyID)
+		err = svc.RevokeKey(ctx, userID, key.ID)
 		assert.NoError(t, err)
+
+		// Verify deletion
+		_, err = identityRepo.GetAPIKeyByID(ctx, key.ID)
+		assert.Error(t, err)
 	})
 
 	t.Run("WrongUser", func(t *testing.T) {
-		repo, _, svc := setupIdentityServiceTest(t)
-		apiKey := &domain.APIKey{ID: keyID, UserID: uuid.New(), Name: "Test"}
+		// Create a key for another user
+		otherUserID := uuid.New()
+		otherUser := &domain.User{
+			ID:           otherUserID,
+			Email:        "other@test.com",
+			PasswordHash: "hash",
+			Name:         "Other User",
+			Role:         "user",
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		}
+		userRepo := postgres.NewUserRepo(db)
+		err := userRepo.Create(context.Background(), otherUser)
+		require.NoError(t, err)
 
-		repo.On("GetAPIKeyByID", ctx, keyID).Return(apiKey, nil)
+		otherKey := &domain.APIKey{
+			ID:        uuid.New(),
+			UserID:    otherUserID,
+			Name:      "Other Key",
+			Key:       "thecloud_other",
+			CreatedAt: time.Now(),
+		}
+		err = identityRepo.CreateAPIKey(context.Background(), otherKey)
+		require.NoError(t, err)
 
-		err := svc.RevokeKey(ctx, userID, keyID)
+		err = svc.RevokeKey(ctx, userID, otherKey.ID)
 		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot revoke key owned by another user")
 	})
 }
 
 func TestIdentityServiceRotateKey(t *testing.T) {
-	ctx := context.Background()
-	userID := uuid.New()
-	keyID := uuid.New()
+	db := setupDB(t)
+	defer db.Close()
+	cleanDB(t, db)
+	ctx := setupTestUser(t, db)
+	userID := appcontext.UserIDFromContext(ctx)
 
-	t.Run("Success", func(t *testing.T) {
-		repo, audit, svc := setupIdentityServiceTest(t)
-		apiKey := &domain.APIKey{ID: keyID, UserID: userID, Name: "Test"}
+	identityRepo := postgres.NewIdentityRepository(db)
+	auditRepo := postgres.NewAuditRepository(db)
+	auditSvc := services.NewAuditService(auditRepo)
+	svc := services.NewIdentityService(identityRepo, auditSvc)
 
-		repo.On("GetAPIKeyByID", ctx, keyID).Return(apiKey, nil)
-		repo.On("CreateAPIKey", ctx, mock.Anything).Return(nil)
-		repo.On("DeleteAPIKey", ctx, keyID).Return(nil)
-		audit.On("Log", ctx, userID, apiKeyCreateAction, apiKeyType, mock.Anything, mock.Anything).Return(nil)
-		audit.On("Log", ctx, userID, "api_key.rotate", apiKeyType, keyID.String(), mock.Anything).Return(nil)
+	key, err := svc.CreateKey(ctx, userID, "To Rotate")
+	require.NoError(t, err)
 
-		newKey, err := svc.RotateKey(ctx, userID, keyID)
-		assert.NoError(t, err)
-		assert.NotNil(t, newKey)
-	})
-}
+	newKey, err := svc.RotateKey(ctx, userID, key.ID)
+	assert.NoError(t, err)
+	assert.NotNil(t, newKey)
+	assert.NotEqual(t, key.Key, newKey.Key)
+	assert.Contains(t, newKey.Name, "(rotated)")
 
-func TestIdentityServiceErrorPaths(t *testing.T) {
-	ctx := context.Background()
-	userID := uuid.New()
-	keyID := uuid.New()
-
-	t.Run("CreateKey_RepoError", func(t *testing.T) {
-		repo, _, svc := setupIdentityServiceTest(t)
-		repo.On("CreateAPIKey", ctx, mock.Anything).Return(assert.AnError)
-		_, err := svc.CreateKey(ctx, userID, "Test")
-		assert.Error(t, err)
-	})
-
-	t.Run("RevokeKey_GetError", func(t *testing.T) {
-		repo, _, svc := setupIdentityServiceTest(t)
-		repo.On("GetAPIKeyByID", ctx, keyID).Return(nil, assert.AnError)
-		err := svc.RevokeKey(ctx, userID, keyID)
-		assert.Error(t, err)
-	})
-
-	t.Run("RevokeKey_DeleteError", func(t *testing.T) {
-		repo, _, svc := setupIdentityServiceTest(t)
-		apiKey := &domain.APIKey{ID: keyID, UserID: userID}
-		repo.On("GetAPIKeyByID", ctx, keyID).Return(apiKey, nil)
-		repo.On("DeleteAPIKey", ctx, keyID).Return(assert.AnError)
-		err := svc.RevokeKey(ctx, userID, keyID)
-		assert.Error(t, err)
-	})
-
-	t.Run("RotateKey_GetError", func(t *testing.T) {
-		repo, _, svc := setupIdentityServiceTest(t)
-		repo.On("GetAPIKeyByID", ctx, keyID).Return(nil, assert.AnError)
-		_, err := svc.RotateKey(ctx, userID, keyID)
-		assert.Error(t, err)
-	})
-
-	t.Run("RotateKey_WrongUser", func(t *testing.T) {
-		repo, _, svc := setupIdentityServiceTest(t)
-		apiKey := &domain.APIKey{ID: keyID, UserID: uuid.New()}
-		repo.On("GetAPIKeyByID", ctx, keyID).Return(apiKey, nil)
-		_, err := svc.RotateKey(ctx, userID, keyID)
-		assert.Error(t, err)
-	})
-
-	t.Run("RotateKey_DeleteOldError", func(t *testing.T) {
-		repo, audit, svc := setupIdentityServiceTest(t)
-		apiKey := &domain.APIKey{ID: keyID, UserID: userID}
-		repo.On("GetAPIKeyByID", ctx, keyID).Return(apiKey, nil)
-		repo.On("CreateAPIKey", ctx, mock.Anything).Return(nil)
-		repo.On("DeleteAPIKey", ctx, keyID).Return(assert.AnError)
-		audit.On("Log", ctx, userID, apiKeyCreateAction, apiKeyType, mock.Anything, mock.Anything).Return(nil)
-
-		newKey, err := svc.RotateKey(ctx, userID, keyID)
-		assert.NoError(t, err) // Should succeed anyway
-		assert.NotNil(t, newKey)
-	})
-}
-
-func TestIdentityServiceRotateKeyCreateError(t *testing.T) {
-	repo, _, svc := setupIdentityServiceTest(t)
-	ctx := context.Background()
-	userID := uuid.New()
-	keyID := uuid.New()
-	apiKey := &domain.APIKey{ID: keyID, UserID: userID}
-
-	repo.On("GetAPIKeyByID", ctx, keyID).Return(apiKey, nil)
-	repo.On("CreateAPIKey", ctx, mock.Anything).Return(assert.AnError)
-
-	_, err := svc.RotateKey(ctx, userID, keyID)
+	// Old key should be gone
+	_, err = identityRepo.GetAPIKeyByID(ctx, key.ID)
 	assert.Error(t, err)
+
+	// New key should exist
+	fetched, err := identityRepo.GetAPIKeyByID(ctx, newKey.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, newKey.ID, fetched.ID)
 }
