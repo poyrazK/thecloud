@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -38,12 +39,20 @@ type mockGatewayService struct {
 	mock.Mock
 }
 
-func (m *mockGatewayService) CreateRoute(ctx context.Context, name, prefix, target string, strip bool, rateLimit int, priority int) (*domain.GatewayRoute, error) {
-	args := m.Called(ctx, name, prefix, target, strip, rateLimit, priority)
+func (m *mockGatewayService) CreateRoute(ctx context.Context, params ports.CreateRouteParams) (*domain.GatewayRoute, error) {
+	args := m.Called(ctx, params)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*domain.GatewayRoute), args.Error(1)
+}
+
+func (m *mockGatewayService) GetProxy(method, path string) (*httputil.ReverseProxy, map[string]string, bool) {
+	args := m.Called(method, path)
+	if args.Get(0) == nil {
+		return nil, nil, args.Bool(2)
+	}
+	return args.Get(0).(*httputil.ReverseProxy), args.Get(1).(map[string]string), args.Bool(2)
 }
 
 func (m *mockGatewayService) ListRoutes(ctx context.Context) ([]*domain.GatewayRoute, error) {
@@ -64,15 +73,6 @@ func (m *mockGatewayService) RefreshRoutes(ctx context.Context) error {
 	return args.Error(0)
 }
 
-func (m *mockGatewayService) GetProxy(path string) (*httputil.ReverseProxy, map[string]string, bool) {
-	args := m.Called(path)
-	params, _ := args.Get(1).(map[string]string)
-	if args.Get(0) == nil {
-		return nil, nil, args.Bool(2)
-	}
-	return args.Get(0).(*httputil.ReverseProxy), params, args.Bool(2)
-}
-
 func setupGatewayHandlerTest(_ *testing.T) (*mockGatewayService, *GatewayHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockGatewayService)
@@ -88,7 +88,16 @@ func TestGatewayHandlerCreateRoute(t *testing.T) {
 	r.POST(routesPath, handler.CreateRoute)
 
 	route := &domain.GatewayRoute{ID: uuid.New(), Name: testRouteName}
-	svc.On("CreateRoute", mock.Anything, testRouteName, "/api/v1", "http://example.com", false, 100, 0).Return(route, nil)
+	expectedParams := ports.CreateRouteParams{
+		Name:        testRouteName,
+		Pattern:     "/api/v1",
+		Target:      "http://example.com",
+		Methods:     nil,
+		StripPrefix: false,
+		RateLimit:   100,
+		Priority:    0,
+	}
+	svc.On("CreateRoute", mock.Anything, expectedParams).Return(route, nil)
 
 	body, err := json.Marshal(map[string]interface{}{
 		"name":        testRouteName,
@@ -143,7 +152,7 @@ func TestGatewayHandlerProxyNotFound(t *testing.T) {
 
 	r.Any(gwProxyPath, handler.Proxy)
 
-	svc.On("GetProxy", "/unknown").Return(nil, nil, false)
+	svc.On("GetProxy", "GET", "/unknown").Return(nil, nil, false)
 
 	req, err := http.NewRequest(http.MethodGet, "/gw/unknown", nil)
 	assert.NoError(t, err)
@@ -174,7 +183,7 @@ func TestGatewayHandlerProxySuccess(t *testing.T) {
 	// Gateway Handler implementation: c.Request.URL.Path = c.Param("proxy")? or just calls ServeHTTP.
 	// If GatewayHandler calls `proxy.ServeHTTP(w, c.Request)`, the request path "/gw/api" is sent to target.
 	// Test server expects any path.
-	svc.On("GetProxy", "/api").Return(proxy, nil, true)
+	svc.On("GetProxy", "GET", "/api").Return(proxy, nil, true)
 
 	req, err := http.NewRequest(http.MethodGet, gwAPITestPath, nil)
 	assert.NoError(t, err)
@@ -241,7 +250,7 @@ func TestGatewayHandlerCreateError(t *testing.T) {
 	t.Run("ServiceError", func(t *testing.T) {
 		svc, handler, r := setupGatewayHandlerTest(t)
 		r.POST(routesPath, handler.CreateRoute)
-		svc.On("CreateRoute", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		svc.On("CreateRoute", mock.Anything, mock.Anything).
 			Return(nil, errors.New(errors.Internal, "error"))
 		body, _ := json.Marshal(map[string]interface{}{"name": "n", "path_prefix": "/p", "target_url": "u"})
 		req, _ := http.NewRequest("POST", routesPath, bytes.NewBuffer(body))

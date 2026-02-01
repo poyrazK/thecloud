@@ -43,7 +43,7 @@ func NewGatewayService(repo ports.GatewayRepository, auditSvc ports.AuditService
 	return s
 }
 
-func (s *GatewayService) CreateRoute(ctx context.Context, name, pattern, target string, strip bool, rateLimit int, priority int) (*domain.GatewayRoute, error) {
+func (s *GatewayService) CreateRoute(ctx context.Context, params ports.CreateRouteParams) (*domain.GatewayRoute, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	if userID == uuid.Nil {
 		return nil, fmt.Errorf("unauthorized")
@@ -52,9 +52,9 @@ func (s *GatewayService) CreateRoute(ctx context.Context, name, pattern, target 
 	// Detect if it's a pattern or prefix
 	patternType := "prefix"
 	var paramNames []string
-	if strings.Contains(pattern, "{") || strings.Contains(pattern, "*") {
+	if strings.Contains(params.Pattern, "{") || strings.Contains(params.Pattern, "*") {
 		patternType = "pattern"
-		matcher, err := routing.CompilePattern(pattern)
+		matcher, err := routing.CompilePattern(params.Pattern)
 		if err != nil {
 			return nil, fmt.Errorf("invalid pattern: %w", err)
 		}
@@ -64,15 +64,16 @@ func (s *GatewayService) CreateRoute(ctx context.Context, name, pattern, target 
 	route := &domain.GatewayRoute{
 		ID:          uuid.New(),
 		UserID:      userID,
-		Name:        name,
-		PathPrefix:  pattern, // Use pattern as prefix for backward compatibility where possible
-		PathPattern: pattern,
+		Name:        params.Name,
+		PathPrefix:  params.Pattern, // Use pattern as prefix for backward compatibility where possible
+		PathPattern: params.Pattern,
 		PatternType: patternType,
 		ParamNames:  paramNames,
-		TargetURL:   target,
-		StripPrefix: strip,
-		RateLimit:   rateLimit,
-		Priority:    priority,
+		TargetURL:   params.Target,
+		Methods:     params.Methods,
+		StripPrefix: params.StripPrefix,
+		RateLimit:   params.RateLimit,
+		Priority:    params.Priority,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -84,6 +85,7 @@ func (s *GatewayService) CreateRoute(ctx context.Context, name, pattern, target 
 	_ = s.auditSvc.Log(ctx, route.UserID, "gateway.route_create", "gateway", route.ID.String(), map[string]interface{}{
 		"name":    route.Name,
 		"pattern": route.PathPattern,
+		"methods": route.Methods,
 	})
 
 	_ = s.RefreshRoutes(ctx)
@@ -125,31 +127,9 @@ func (s *GatewayService) RefreshRoutes(ctx context.Context) error {
 	newMatchers := make(map[uuid.UUID]*routing.PatternMatcher)
 
 	for _, r := range routes {
-		target, err := url.Parse(r.TargetURL)
+		proxy, err := s.createReverseProxy(r)
 		if err != nil {
 			continue
-		}
-
-		proxy := httputil.NewSingleHostReverseProxy(target)
-
-		// Create a local copy of route for closure
-		route := r
-
-		// Custom director to handle prefix stripping if needed
-		originalDirector := proxy.Director
-		proxy.Director = func(req *http.Request) {
-			if route.StripPrefix {
-				prefix := route.PathPrefix
-				if route.PatternType == "pattern" {
-					prefix = routing.GetLiteralPrefix(route.PathPattern)
-				}
-				req.URL.Path = strings.TrimPrefix(req.URL.Path, "/gw"+prefix)
-				if !strings.HasPrefix(req.URL.Path, "/") {
-					req.URL.Path = "/" + req.URL.Path
-				}
-			}
-			originalDirector(req)
-			req.Host = target.Host
 		}
 
 		newProxies[r.ID] = proxy
@@ -161,25 +141,7 @@ func (s *GatewayService) RefreshRoutes(ctx context.Context) error {
 		}
 	}
 
-	// Sort routes by specificity (longer literal prefixes and higher priority first)
-	sort.Slice(routes, func(i, j int) bool {
-		scoreI := len(routing.GetLiteralPrefix(routes[i].PathPattern))
-		if !strings.ContainsAny(routes[i].PathPattern, "{*") {
-			scoreI += 100
-		}
-		if routes[i].Priority > 0 {
-			scoreI += routes[i].Priority * 1000
-		}
-
-		scoreJ := len(routing.GetLiteralPrefix(routes[j].PathPattern))
-		if !strings.ContainsAny(routes[j].PathPattern, "{*") {
-			scoreJ += 100
-		}
-		if routes[j].Priority > 0 {
-			scoreJ += routes[j].Priority * 1000
-		}
-		return scoreI > scoreJ // Descending order
-	})
+	s.sortRoutes(routes)
 
 	s.proxyMu.Lock()
 	s.proxies = newProxies
@@ -190,39 +152,51 @@ func (s *GatewayService) RefreshRoutes(ctx context.Context) error {
 	return nil
 }
 
+func (s *GatewayService) createReverseProxy(route *domain.GatewayRoute) (*httputil.ReverseProxy, error) {
+	target, err := url.Parse(route.TargetURL)
+	if err != nil {
+		return nil, err
+	}
+
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	originalDirector := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		if route.StripPrefix {
+			prefix := route.PathPrefix
+			if route.PatternType == "pattern" {
+				prefix = routing.GetLiteralPrefix(route.PathPattern)
+			}
+			req.URL.Path = strings.TrimPrefix(req.URL.Path, "/gw"+prefix)
+			if !strings.HasPrefix(req.URL.Path, "/") {
+				req.URL.Path = "/" + req.URL.Path
+			}
+		}
+		originalDirector(req)
+		req.Host = target.Host
+	}
+
+	return proxy, nil
+}
+
+func (s *GatewayService) sortRoutes(routes []*domain.GatewayRoute) {
+	// Sort routes by specificity (longer literal prefixes and higher priority first)
+	sort.Slice(routes, func(i, j int) bool {
+		scoreI := calculateMatchScore(routes[i], "")
+		scoreJ := calculateMatchScore(routes[j], "")
+		return scoreI > scoreJ // Descending order
+	})
+}
+
 // ProxyHandler is handled in the API layer for now
 
-func (s *GatewayService) GetProxy(path string) (*httputil.ReverseProxy, map[string]string, bool) {
+func (s *GatewayService) GetProxy(method, path string) (*httputil.ReverseProxy, map[string]string, bool) {
 	s.proxyMu.RLock()
 	defer s.proxyMu.RUnlock()
 
 	var bestMatch *domain.RouteMatch
 
 	for _, route := range s.routes {
-		var match *domain.RouteMatch
-
-		if route.PatternType == "pattern" {
-			matcher, ok := s.matchers[route.ID]
-			if ok {
-				if params, ok := matcher.Match(path); ok {
-					match = &domain.RouteMatch{
-						Route:      route,
-						Params:     params,
-						MatchScore: calculateMatchScore(route, path),
-					}
-				}
-			}
-		} else {
-			// Legacy prefix matching
-			if strings.HasPrefix(path, route.PathPrefix) {
-				match = &domain.RouteMatch{
-					Route:      route,
-					Params:     nil,
-					MatchScore: calculateMatchScore(route, path),
-				}
-			}
-		}
-
+		match := s.checkRouteMatch(route, method, path)
 		if match != nil {
 			if bestMatch == nil || match.MatchScore > bestMatch.MatchScore {
 				bestMatch = match
@@ -235,6 +209,47 @@ func (s *GatewayService) GetProxy(path string) (*httputil.ReverseProxy, map[stri
 	}
 
 	return nil, nil, false
+}
+
+func (s *GatewayService) checkRouteMatch(route *domain.GatewayRoute, method, path string) *domain.RouteMatch {
+	// 1. Method filter
+	if !s.isMethodAllowed(route, method) {
+		return nil
+	}
+
+	// 2. Path matching
+	if route.PatternType == "pattern" {
+		matcher, ok := s.matchers[route.ID]
+		if ok {
+			if params, ok := matcher.Match(path); ok {
+				return &domain.RouteMatch{
+					Route:      route,
+					Params:     params,
+					MatchScore: calculateMatchScore(route, path),
+				}
+			}
+		}
+	} else if strings.HasPrefix(path, route.PathPrefix) {
+		return &domain.RouteMatch{
+			Route:      route,
+			Params:     nil,
+			MatchScore: calculateMatchScore(route, path),
+		}
+	}
+
+	return nil
+}
+
+func (s *GatewayService) isMethodAllowed(route *domain.GatewayRoute, method string) bool {
+	if len(route.Methods) == 0 {
+		return true
+	}
+	for _, m := range route.Methods {
+		if strings.EqualFold(m, method) {
+			return true
+		}
+	}
+	return false
 }
 
 func calculateMatchScore(route *domain.GatewayRoute, path string) int {

@@ -26,16 +26,27 @@ type GatewayRepository interface {
 	GetAllActiveRoutes(ctx context.Context) ([]*domain.GatewayRoute, error)
 }
 
+// CreateRouteParams holds parameters for creating a new route.
+type CreateRouteParams struct {
+	Name        string
+	Pattern     string
+	Target      string
+	Methods     []string
+	StripPrefix bool
+	RateLimit   int
+	Priority    int
+}
+
 // GatewayService provides business logic for managing the API gateway and ingress traffic.
 type GatewayService interface {
 	// CreateRoute establishes a new ingress mapping.
-	CreateRoute(ctx context.Context, name, pattern, target string, strip bool, rateLimit int, priority int) (*domain.GatewayRoute, error)
+	CreateRoute(ctx context.Context, params CreateRouteParams) (*domain.GatewayRoute, error)
 	// ListRoutes returns all ingress rules for the current user.
 	ListRoutes(ctx context.Context) ([]*domain.GatewayRoute, error)
 	// DeleteRoute decommission an existing ingress rule.
 	DeleteRoute(ctx context.Context, id uuid.UUID) error
-	// RefreshRoutes triggers a reload of the proxy's internal routing table from secondary storage.
+	// RefreshRoutes reloads all routes and pre-compiles matchers.
 	RefreshRoutes(ctx context.Context) error
-	// GetProxy looks up a pre-configured ReverseProxy for a given request path and extracts parameters.
-	GetProxy(path string) (*httputil.ReverseProxy, map[string]string, bool)
+	// GetProxy finds the appropriate backend for the given path and method.
+	GetProxy(method, path string) (*httputil.ReverseProxy, map[string]string, bool)
 }

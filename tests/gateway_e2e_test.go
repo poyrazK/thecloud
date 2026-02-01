@@ -238,7 +238,7 @@ func TestGatewayE2E(t *testing.T) {
 	t.Run("VerifyExtensionMatching", func(t *testing.T) {
 		pattern := fmt.Sprintf("/static-%d/*.{ext}", ts)
 		routeName := fmt.Sprintf("extension-route-%d", ts)
-		targetURL := "https://httpbin.org/anything"
+		targetURL := httpbinAnything
 
 		payload := map[string]interface{}{
 			"name":         routeName,
@@ -264,5 +264,61 @@ func TestGatewayE2E(t *testing.T) {
 		}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&httpbinResp))
 		assert.Contains(t, httpbinResp.URL, "/image.png")
+	})
+
+	t.Run("VerifyMethodMatching", func(t *testing.T) {
+		pattern := fmt.Sprintf("/method-test-%d", ts)
+
+		// 1. GET only route
+		payloadGet := map[string]interface{}{
+			"name":        fmt.Sprintf("get-route-%d", ts),
+			"path_prefix": pattern,
+			"target_url":  httpbinAnything + "/get-only",
+			"methods":     []string{"GET"},
+		}
+		postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payloadGet).Body.Close()
+
+		// 2. POST only route
+		payloadPost := map[string]interface{}{
+			"name":        fmt.Sprintf("post-route-%d", ts),
+			"path_prefix": pattern,
+			"target_url":  httpbinAnything + "/post-only",
+			"methods":     []string{"POST"},
+		}
+		postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payloadPost).Body.Close()
+
+		time.Sleep(2 * time.Second)
+
+		// Test GET request
+		reqGet, _ := http.NewRequest("GET", testutil.TestBaseURL+"/gw"+pattern, nil)
+		reqGet.Header.Set(testutil.TestHeaderAPIKey, token)
+		respGet, err := client.Do(reqGet)
+		require.NoError(t, err)
+		defer respGet.Body.Close()
+		var resGet struct {
+			URL string `json:"url"`
+		}
+		json.NewDecoder(respGet.Body).Decode(&resGet)
+		assert.Contains(t, resGet.URL, "/get-only")
+
+		// Test POST request
+		reqPost, _ := http.NewRequest("POST", testutil.TestBaseURL+"/gw"+pattern, nil)
+		reqPost.Header.Set(testutil.TestHeaderAPIKey, token)
+		respPost, err := client.Do(reqPost)
+		require.NoError(t, err)
+		defer respPost.Body.Close()
+		var resPost struct {
+			URL string `json:"url"`
+		}
+		json.NewDecoder(respPost.Body).Decode(&resPost)
+		assert.Contains(t, resPost.URL, "/post-only")
+
+		// Test DELETE request (should fail)
+		reqDel, _ := http.NewRequest("DELETE", testutil.TestBaseURL+"/gw"+pattern, nil)
+		reqDel.Header.Set(testutil.TestHeaderAPIKey, token)
+		respDel, err := client.Do(reqDel)
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusNotFound, respDel.StatusCode)
+		respDel.Body.Close()
 	})
 }

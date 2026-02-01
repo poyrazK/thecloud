@@ -17,6 +17,7 @@ type GatewayRoute struct {
 	PatternType string    `json:"pattern_type"` // "prefix" or "pattern"
 	ParamNames  []string  `json:"param_names"`  // Extracted parameter names
 	TargetURL   string    `json:"target_url"`   // Internal destination (e.g., "http://service-a:8080")
+	Methods     []string  `json:"methods"`      // New: HTTP methods to match (empty = all)
 	StripPrefix bool      `json:"strip_prefix"` // If true, removes path_prefix from request before forwarding
 	RateLimit   int       `json:"rate_limit"`   // Maximum allowed requests per second per IP
 	Priority    int       `json:"priority"`     // Manual priority for tie-breaking

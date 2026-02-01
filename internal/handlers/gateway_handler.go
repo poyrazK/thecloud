@@ -24,12 +24,13 @@ func NewGatewayHandler(svc ports.GatewayService) *GatewayHandler {
 
 func (h *GatewayHandler) CreateRoute(c *gin.Context) {
 	var req struct {
-		Name        string `json:"name" binding:"required"`
-		PathPrefix  string `json:"path_prefix" binding:"required"`
-		TargetURL   string `json:"target_url" binding:"required"`
-		StripPrefix bool   `json:"strip_prefix"`
-		RateLimit   int    `json:"rate_limit"`
-		Priority    int    `json:"priority"`
+		Name        string   `json:"name" binding:"required"`
+		PathPrefix  string   `json:"path_prefix" binding:"required"`
+		TargetURL   string   `json:"target_url" binding:"required"`
+		Methods     []string `json:"methods"`
+		StripPrefix bool     `json:"strip_prefix"`
+		RateLimit   int      `json:"rate_limit"`
+		Priority    int      `json:"priority"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		httputil.Error(c, errors.New(errors.InvalidInput, "Invalid request body"))
@@ -40,7 +41,17 @@ func (h *GatewayHandler) CreateRoute(c *gin.Context) {
 		req.RateLimit = 100
 	}
 
-	route, err := h.svc.CreateRoute(c.Request.Context(), req.Name, req.PathPrefix, req.TargetURL, req.StripPrefix, req.RateLimit, req.Priority)
+	params := ports.CreateRouteParams{
+		Name:        req.Name,
+		Pattern:     req.PathPrefix,
+		Target:      req.TargetURL,
+		Methods:     req.Methods,
+		StripPrefix: req.StripPrefix,
+		RateLimit:   req.RateLimit,
+		Priority:    req.Priority,
+	}
+
+	route, err := h.svc.CreateRoute(c.Request.Context(), params)
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -79,7 +90,7 @@ func (h *GatewayHandler) Proxy(c *gin.Context) {
 		path = "/" + path
 	}
 
-	proxy, params, ok := h.svc.GetProxy(path)
+	proxy, params, ok := h.svc.GetProxy(c.Request.Method, path)
 	if !ok {
 		c.JSON(http.StatusNotFound, gin.H{"error": "No route found for " + path})
 		return

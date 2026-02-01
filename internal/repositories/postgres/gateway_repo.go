@@ -24,9 +24,9 @@ func (r *PostgresGatewayRepository) CreateRoute(ctx context.Context, route *doma
 	query := `
 		INSERT INTO gateway_routes (
 			id, user_id, name, path_prefix, path_pattern, pattern_type, 
-			param_names, target_url, strip_prefix, rate_limit, priority, created_at, updated_at
+			param_names, target_url, methods, strip_prefix, rate_limit, priority, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	`
 	_, err := r.db.Exec(ctx, query,
 		route.ID,
@@ -37,6 +37,7 @@ func (r *PostgresGatewayRepository) CreateRoute(ctx context.Context, route *doma
 		route.PatternType,
 		route.ParamNames,
 		route.TargetURL,
+		route.Methods,
 		route.StripPrefix,
 		route.RateLimit,
 		route.Priority,
@@ -47,12 +48,12 @@ func (r *PostgresGatewayRepository) CreateRoute(ctx context.Context, route *doma
 }
 
 func (r *PostgresGatewayRepository) GetRouteByID(ctx context.Context, id, userID uuid.UUID) (*domain.GatewayRoute, error) {
-	query := `SELECT id, user_id, name, path_prefix, path_pattern, pattern_type, param_names, target_url, strip_prefix, rate_limit, priority, created_at, updated_at FROM gateway_routes WHERE id = $1 AND user_id = $2`
+	query := `SELECT id, user_id, name, path_prefix, path_pattern, pattern_type, param_names, target_url, methods, strip_prefix, rate_limit, priority, created_at, updated_at FROM gateway_routes WHERE id = $1 AND user_id = $2`
 	return r.scanRoute(r.db.QueryRow(ctx, query, id, userID))
 }
 
 func (r *PostgresGatewayRepository) ListRoutes(ctx context.Context, userID uuid.UUID) ([]*domain.GatewayRoute, error) {
-	query := `SELECT id, user_id, name, path_prefix, path_pattern, pattern_type, param_names, target_url, strip_prefix, rate_limit, priority, created_at, updated_at FROM gateway_routes WHERE user_id = $1 ORDER BY created_at DESC`
+	query := `SELECT id, user_id, name, path_prefix, path_pattern, pattern_type, param_names, target_url, methods, strip_prefix, rate_limit, priority, created_at, updated_at FROM gateway_routes WHERE user_id = $1 ORDER BY created_at DESC`
 	rows, err := r.db.Query(ctx, query, userID)
 	if err != nil {
 		return nil, err
@@ -67,7 +68,7 @@ func (r *PostgresGatewayRepository) DeleteRoute(ctx context.Context, id uuid.UUI
 }
 
 func (r *PostgresGatewayRepository) GetAllActiveRoutes(ctx context.Context) ([]*domain.GatewayRoute, error) {
-	query := `SELECT id, user_id, name, path_prefix, path_pattern, pattern_type, param_names, target_url, strip_prefix, rate_limit, priority, created_at, updated_at FROM gateway_routes`
+	query := `SELECT id, user_id, name, path_prefix, path_pattern, pattern_type, param_names, target_url, methods, strip_prefix, rate_limit, priority, created_at, updated_at FROM gateway_routes`
 	rows, err := r.db.Query(ctx, query)
 	if err != nil {
 		return nil, err
@@ -86,6 +87,7 @@ func (r *PostgresGatewayRepository) scanRoute(row pgx.Row) (*domain.GatewayRoute
 		&route.PatternType,
 		&route.ParamNames,
 		&route.TargetURL,
+		&route.Methods,
 		&route.StripPrefix,
 		&route.RateLimit,
 		&route.Priority,

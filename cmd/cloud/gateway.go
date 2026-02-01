@@ -35,15 +35,16 @@ Examples:
 		strip, _ := cmd.Flags().GetBool("strip")
 		limit, _ := cmd.Flags().GetInt("rate-limit")
 		priority, _ := cmd.Flags().GetInt("priority")
+		methods, _ := cmd.Flags().GetStringSlice("methods")
 
 		client := getClient()
-		route, err := client.CreateGatewayRoute(args[0], args[1], args[2], strip, limit, priority)
+		route, err := client.CreateGatewayRoute(args[0], args[1], args[2], methods, strip, limit, priority)
 		if err != nil {
 			fmt.Printf(gatewayErrorFormat, err)
 			return
 		}
 
-		fmt.Printf("[SUCCESS] Route created: %s (Pattern: %s -> %s)\n", route.Name, route.PathPattern, route.TargetURL)
+		fmt.Printf("[SUCCESS] Route created: %s (Pattern: %s -> %s, Methods: %v)\n", route.Name, route.PathPattern, route.TargetURL, route.Methods)
 	},
 }
 
@@ -86,6 +87,7 @@ func init() {
 	createRouteCmd.Flags().Bool("strip", true, "Strip prefix from target request")
 	createRouteCmd.Flags().Int("rate-limit", 100, "Rate limit (req/sec)")
 	createRouteCmd.Flags().Int("priority", 0, "Relative priority for overlapping routes (higher wins)")
+	createRouteCmd.Flags().StringSlice("methods", []string{}, "HTTP methods to match (comma-separated, empty = all)")
 
 	gatewayCmd.AddCommand(createRouteCmd)
 	gatewayCmd.AddCommand(listRoutesCmd)

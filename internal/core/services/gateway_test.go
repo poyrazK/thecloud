@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -32,7 +33,13 @@ func TestGatewayServiceCreateRoute(t *testing.T) {
 
 	auditSvc.On("Log", mock.Anything, userID, "gateway.route_create", "gateway", mock.Anything, mock.Anything).Return(nil)
 
-	route, err := svc.CreateRoute(ctx, testRouteName, "/test", "http://example.com", false, 100, 0)
+	params := ports.CreateRouteParams{
+		Name:      testRouteName,
+		Pattern:   "/test",
+		Target:    "http://example.com",
+		RateLimit: 100,
+	}
+	route, err := svc.CreateRoute(ctx, params)
 	assert.NoError(t, err)
 	assert.NotNil(t, route)
 	assert.Equal(t, testRouteName, route.Name)
@@ -92,12 +99,12 @@ func TestGatewayServiceGetProxy(t *testing.T) {
 
 	svc := services.NewGatewayService(repo, auditSvc)
 
-	proxy, params, ok := svc.GetProxy("/api/users")
+	proxy, params, ok := svc.GetProxy("GET", "/api/users")
 	assert.True(t, ok)
 	assert.NotNil(t, proxy)
 	assert.Nil(t, params)
 
-	_, _, ok = svc.GetProxy("/other")
+	_, _, ok = svc.GetProxy("GET", "/other")
 	assert.False(t, ok)
 }
 
@@ -115,11 +122,11 @@ func TestGatewayServiceGetProxyPattern(t *testing.T) {
 
 	svc := services.NewGatewayService(repo, auditSvc)
 
-	proxy, params, ok := svc.GetProxy("/users/123")
+	proxy, params, ok := svc.GetProxy("GET", "/users/123")
 	assert.True(t, ok)
 	assert.NotNil(t, proxy)
 	assert.Equal(t, "123", params["id"])
 
-	_, _, ok = svc.GetProxy("/users/123/posts")
+	_, _, ok = svc.GetProxy("GET", "/users/123/posts")
 	assert.False(t, ok)
 }
