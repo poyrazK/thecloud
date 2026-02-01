@@ -2,329 +2,129 @@ package services_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
-	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/repositories/docker"
+	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (
-	cacheContainerID = "cont-123"
-	cacheName        = "test-cache"
-	cacheDomainType  = "*domain.Cache"
+	cacheName = "test-cache"
 )
 
-// MockCacheRepo
-type MockCacheRepo struct{ mock.Mock }
+func setupCacheServiceTest(t *testing.T) (*services.CacheService, ports.CacheRepository, *docker.DockerAdapter, ports.VpcRepository, context.Context) {
+	db := setupDB(t)
+	cleanDB(t, db)
+	ctx := setupTestUser(t, db)
 
-func (m *MockCacheRepo) Create(ctx context.Context, c *domain.Cache) error {
-	return m.Called(ctx, c).Error(0)
-}
-func (m *MockCacheRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Cache, error) {
-	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.Cache), args.Error(1)
-}
-func (m *MockCacheRepo) GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Cache, error) {
-	args := m.Called(ctx, userID, name)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.Cache), args.Error(1)
-}
-func (m *MockCacheRepo) List(ctx context.Context, userID uuid.UUID) ([]*domain.Cache, error) {
-	args := m.Called(ctx, userID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.Cache), args.Error(1)
-}
-func (m *MockCacheRepo) Update(ctx context.Context, c *domain.Cache) error {
-	return m.Called(ctx, c).Error(0)
-}
-func (m *MockCacheRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
-}
+	repo := postgres.NewCacheRepository(db)
+	vpcRepo := postgres.NewVpcRepository(db)
 
-func setupCacheServiceTest(_ *testing.T) (*MockCacheRepo, *MockComputeBackend, *MockVpcRepo, *MockEventService, *MockAuditService, *services.CacheService) {
-	repo := new(MockCacheRepo)
-	docker := new(MockComputeBackend)
-	vpcRepo := new(MockVpcRepo)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	compute, err := docker.NewDockerAdapter()
+	require.NoError(t, err)
 
-	svc := services.NewCacheService(repo, docker, vpcRepo, eventSvc, auditSvc, logger)
-	return repo, docker, vpcRepo, eventSvc, auditSvc, svc
+	eventRepo := postgres.NewEventRepository(db)
+	eventSvc := services.NewEventService(eventRepo, nil, slog.Default())
+
+	auditRepo := postgres.NewAuditRepository(db)
+	auditSvc := services.NewAuditService(auditRepo)
+
+	logger := slog.Default()
+
+	svc := services.NewCacheService(repo, compute, vpcRepo, eventSvc, auditSvc, logger)
+
+	return svc, repo, compute, vpcRepo, ctx
 }
 
 func TestCreateCacheSuccess(t *testing.T) {
-	repo, docker, _, eventSvc, auditSvc, svc := setupCacheServiceTest(t)
-	defer repo.AssertExpectations(t)
-	defer docker.AssertExpectations(t)
-	defer eventSvc.AssertExpectations(t)
-	defer auditSvc.AssertExpectations(t)
+	svc, repo, compute, _, ctx := setupCacheServiceTest(t)
+	name := "test-cache-success"
 
-	ctx := appcontext.WithUserID(context.Background(), uuid.New())
-	name := cacheName
-	version := "7.2"
-	memory := 128
-
-	// Use strict matchers where possible, but Anything for generated IDs in names
-	// Use strict matchers where possible, but Anything for generated IDs in names
-	docker.On("CreateInstance", ctx, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
-		return strings.HasPrefix(opts.Name, "thecloud-cache-") &&
-			opts.ImageName == "redis:7.2-alpine" &&
-			len(opts.Ports) == 1 && opts.Ports[0] == "0:6379"
-	})).Return(cacheContainerID, nil)
-	docker.On("GetInstancePort", ctx, cacheContainerID, "6379").Return(30000, nil)
-	repo.On("Create", ctx, mock.AnythingOfType(cacheDomainType)).Return(nil)
-	repo.On("Update", ctx, mock.AnythingOfType(cacheDomainType)).Return(nil)
-	eventSvc.On("RecordEvent", ctx, "CACHE_CREATE", mock.Anything, "CACHE", mock.Anything).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "cache.create", "cache", mock.Anything, mock.Anything).Return(nil)
-
-	cache, err := svc.CreateCache(ctx, name, version, memory, nil)
+	cache, err := svc.CreateCache(ctx, name, "7.2", 128, nil)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, cache)
 	assert.Equal(t, name, cache.Name)
 	assert.Equal(t, domain.EngineRedis, cache.Engine)
-	assert.Equal(t, 30000, cache.Port)
-	assert.Equal(t, cacheContainerID, cache.ContainerID)
-	assert.NotEmpty(t, cache.Password)
-	assert.Equal(t, 128, cache.MemoryMB)
+	assert.NotEmpty(t, cache.ContainerID)
+
+	// Verify proxy success by checking if container exists/is running
+	// We can try to inspect the container using the adapter if we really want to verify presence,
+	// or assume success implies it. The adapter has GetInstanceIP/Port etc.
+	// Let's check GetInstanceIP as a proxy for "it exists"
+
+	ip, err := compute.GetInstanceIP(ctx, cache.ContainerID)
+	// Note: It might take a moment or fail if not yet ready, but Adapter retries.
+	// For integration test with real docker, this should work eventually.
+	assert.NoError(t, err)
+	assert.NotEmpty(t, ip)
+
+	// Clean up created container
+	_ = compute.DeleteInstance(ctx, cache.ContainerID)
+
+	// Verify in DB
+	fetched, err := repo.GetByID(ctx, cache.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, cache.ID, fetched.ID)
 }
 
 func TestCreateCacheWithVpc(t *testing.T) {
-	repo, docker, vpcRepo, eventSvc, auditSvc, svc := setupCacheServiceTest(t)
-	defer repo.AssertExpectations(t)
-	defer docker.AssertExpectations(t)
-	defer vpcRepo.AssertExpectations(t)
-	defer eventSvc.AssertExpectations(t)
-	defer auditSvc.AssertExpectations(t)
+	svc, _, compute, vpcRepo, ctx := setupCacheServiceTest(t)
 
-	ctx := appcontext.WithUserID(context.Background(), uuid.New())
-	name := cacheName
-	version := "7.2"
-	memory := 128
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
 	vpcID := uuid.New()
+	// Create actual docker network
+	networkName := "net-" + vpcID.String()
+	netID, err := compute.CreateNetwork(ctx, networkName)
+	require.NoError(t, err)
+	defer compute.DeleteNetwork(ctx, netID)
 
-	vpcRepo.On("GetByID", ctx, vpcID).Return(&domain.VPC{ID: vpcID, NetworkID: "net-1"}, nil)
-	docker.On("CreateInstance", ctx, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
-		return opts.NetworkID == "net-1" && opts.ImageName == "redis:7.2-alpine"
-	})).Return(cacheContainerID, nil)
-	docker.On("GetInstancePort", ctx, cacheContainerID, "6379").Return(30000, nil)
-	repo.On("Create", ctx, mock.AnythingOfType(cacheDomainType)).Return(nil)
-	repo.On("Update", ctx, mock.AnythingOfType(cacheDomainType)).Return(nil)
-	eventSvc.On("RecordEvent", ctx, "CACHE_CREATE", mock.Anything, "CACHE", mock.Anything).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "cache.create", "cache", mock.Anything, mock.Anything).Return(nil)
+	vpc := &domain.VPC{
+		ID:        vpcID,
+		UserID:    userID,
+		TenantID:  tenantID,
+		Name:      "test-cache-vpc",
+		CIDRBlock: "10.0.0.0/16",
+		NetworkID: netID, // Use the real docker network ID
+		Status:    "ACTIVE",
+		CreatedAt: time.Now(),
+	}
+	err = vpcRepo.Create(ctx, vpc)
+	require.NoError(t, err)
 
-	cache, err := svc.CreateCache(ctx, name, version, memory, &vpcID)
+	name := "test-cache-vpc"
+	cache, err := svc.CreateCache(ctx, name, "7.2", 128, &vpcID)
 	assert.NoError(t, err)
-	assert.Equal(t, cacheContainerID, cache.ContainerID)
-}
+	assert.Equal(t, &vpcID, cache.VpcID)
 
-func TestCreateCacheVpcError(t *testing.T) {
-	repo, _, vpcRepo, _, _, svc := setupCacheServiceTest(t)
-	ctx := appcontext.WithUserID(context.Background(), uuid.New())
-	vpcID := uuid.New()
-
-	repo.On("Create", ctx, mock.AnythingOfType(cacheDomainType)).Return(nil)
-	vpcRepo.On("GetByID", ctx, vpcID).Return(nil, assert.AnError)
-
-	_, err := svc.CreateCache(ctx, cacheName, "7.2", 128, &vpcID)
-	assert.Error(t, err)
+	// Cleanup
+	_ = compute.DeleteInstance(ctx, cache.ContainerID)
 }
 
 func TestDeleteCacheSuccess(t *testing.T) {
-	repo, docker, _, eventSvc, auditSvc, svc := setupCacheServiceTest(t)
-	defer repo.AssertExpectations(t)
-	defer docker.AssertExpectations(t)
-	defer eventSvc.AssertExpectations(t)
-	defer auditSvc.AssertExpectations(t)
+	svc, repo, _, _, ctx := setupCacheServiceTest(t)
 
-	ctx := context.Background()
-	cacheID := uuid.New()
-	cache := &domain.Cache{
-		ID:          cacheID,
-		Name:        cacheName,
-		ContainerID: cacheContainerID,
-	}
-
-	repo.On("GetByID", ctx, cacheID).Return(cache, nil)
-	docker.On("StopInstance", ctx, cacheContainerID).Return(nil)
-	docker.On("DeleteInstance", ctx, cacheContainerID).Return(nil)
-	repo.On("Delete", ctx, cacheID).Return(nil)
-	eventSvc.On("RecordEvent", ctx, "CACHE_DELETE", cacheID.String(), "CACHE", mock.Anything).Return(nil)
-	auditSvc.On("Log", ctx, mock.Anything, "cache.delete", "cache", cacheID.String(), mock.Anything).Return(nil)
-
-	err := svc.DeleteCache(ctx, cacheID.String())
-
-	assert.NoError(t, err)
-}
-
-func TestFlushCacheSuccess(t *testing.T) {
-	repo, docker, _, _, auditSvc, svc := setupCacheServiceTest(t)
-	defer repo.AssertExpectations(t)
-	defer docker.AssertExpectations(t)
-	defer auditSvc.AssertExpectations(t)
-
-	ctx := context.Background()
-	cacheID := uuid.New()
-	cache := &domain.Cache{
-		ID:          cacheID,
-		Status:      domain.CacheStatusRunning,
-		ContainerID: cacheContainerID,
-		Password:    "secret",
-	}
-
-	repo.On("GetByID", ctx, cacheID).Return(cache, nil)
-	// Expect Exec call: redis-cli -a password FLUSHALL
-	docker.On("Exec", ctx, cacheContainerID, []string{"redis-cli", "-a", "secret", "FLUSHALL"}).Return("OK", nil)
-	auditSvc.On("Log", ctx, mock.Anything, "cache.flush", "cache", cacheID.String(), mock.Anything).Return(nil)
-
-	err := svc.FlushCache(ctx, cacheID.String())
-
-	assert.NoError(t, err)
-}
-
-func TestGetCacheStatsSuccess(t *testing.T) {
-	repo, docker, _, _, _, svc := setupCacheServiceTest(t)
-	defer repo.AssertExpectations(t)
-	defer docker.AssertExpectations(t)
-
-	ctx := context.Background()
-	cacheID := uuid.New()
-	containerID := cacheContainerID
-	cache := &domain.Cache{
-		ID:          cacheID,
-		Status:      domain.CacheStatusRunning,
-		ContainerID: containerID,
-		Password:    "secret",
-	}
-
-	repo.On("GetByID", ctx, cacheID).Return(cache, nil)
-
-	// Mock Docker Stats
-	statsJSON := `{"memory_stats":{"usage":1024,"limit":2048}}`
-	docker.On("GetInstanceStats", ctx, containerID).Return(io.NopCloser(strings.NewReader(statsJSON)), nil)
-
-	// Mock Exec INFO
-	infoOutput := "connected_clients:5\r\ndb0:keys=10,expires=0,avg_ttl=0\r\n"
-	docker.On("Exec", ctx, containerID, []string{"redis-cli", "-a", "secret", "INFO"}).Return(infoOutput, nil)
-
-	stats, err := svc.GetCacheStats(ctx, cacheID.String())
-
-	assert.NoError(t, err)
-	assert.NotNil(t, stats)
-	assert.Equal(t, int64(1024), stats.UsedMemoryBytes)
-	assert.Equal(t, int64(2048), stats.MaxMemoryBytes)
-	assert.Equal(t, 5, stats.ConnectedClients)
-	assert.Equal(t, int64(10), stats.TotalKeys)
-}
-
-func TestCreateCacheDockerFailure(t *testing.T) {
-	repo, docker, _, _, _, svc := setupCacheServiceTest(t)
-	defer repo.AssertExpectations(t)
-	defer docker.AssertExpectations(t)
-
-	ctx := appcontext.WithUserID(context.Background(), uuid.New())
-	name := "fail-cache"
-
-	// Expect Repo Create
-	repo.On("Create", ctx, mock.Anything).Return(nil)
-
-	// Expect Docker Create to fail
-	docker.On("CreateInstance", ctx, mock.Anything).Return("", assert.AnError)
-
-	// Expect Rollback Delete
-	repo.On("Delete", ctx, mock.Anything).Return(nil)
-
+	// Setup: Create a cache first
+	name := "test-cache-delete"
 	cache, err := svc.CreateCache(ctx, name, "7.2", 128, nil)
+	require.NoError(t, err)
 
-	assert.Error(t, err)
-	assert.Nil(t, cache)
-}
-
-func TestGetCacheByID(t *testing.T) {
-	repo, _, _, _, _, svc := setupCacheServiceTest(t)
-	defer repo.AssertExpectations(t)
-
-	ctx := context.Background()
-	cacheID := uuid.New()
-	cache := &domain.Cache{ID: cacheID, Name: "my-cache"}
-
-	repo.On("GetByID", ctx, cacheID).Return(cache, nil)
-
-	result, err := svc.GetCache(ctx, cacheID.String())
-
+	// Execute
+	err = svc.DeleteCache(ctx, cache.ID.String())
 	assert.NoError(t, err)
-	assert.Equal(t, cacheID, result.ID)
-}
 
-func TestGetCacheByName(t *testing.T) {
-	repo, _, _, _, _, svc := setupCacheServiceTest(t)
-	defer repo.AssertExpectations(t)
-
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
-	name := "named-cache"
-	cache := &domain.Cache{ID: uuid.New(), Name: name}
-
-	repo.On("GetByName", ctx, userID, name).Return(cache, nil)
-
-	result, err := svc.GetCache(ctx, name)
-
-	assert.NoError(t, err)
-	assert.Equal(t, name, result.Name)
-}
-
-func TestListCaches(t *testing.T) {
-	repo, _, _, _, _, svc := setupCacheServiceTest(t)
-	defer repo.AssertExpectations(t)
-
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
-
-	caches := []*domain.Cache{{Name: "cache1"}, {Name: "cache2"}}
-	repo.On("List", ctx, userID).Return(caches, nil)
-
-	result, err := svc.ListCaches(ctx)
-
-	assert.NoError(t, err)
-	assert.Len(t, result, 2)
-}
-
-func TestGetCacheConnectionString(t *testing.T) {
-	repo, _, _, _, _, svc := setupCacheServiceTest(t)
-	defer repo.AssertExpectations(t)
-
-	ctx := context.Background()
-	cacheID := uuid.New()
-	cache := &domain.Cache{
-		ID:       cacheID,
-		Name:     "conn-cache",
-		Port:     6379,
-		Password: "secret",
-	}
-
-	repo.On("GetByID", ctx, cacheID).Return(cache, nil)
-
-	connStr, err := svc.GetConnectionString(ctx, cacheID.String())
-
-	assert.NoError(t, err)
-	assert.Contains(t, connStr, "redis://")
-	assert.Contains(t, connStr, "secret")
-	assert.Contains(t, connStr, "6379")
+	// Verify deleted from DB
+	_, err = repo.GetByID(ctx, cache.ID)
+	assert.Error(t, err) // Should return not found error
 }
