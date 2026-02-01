@@ -354,3 +354,22 @@ func TestDockerAdapterCreateNetworkError(t *testing.T) {
 	_, err := adapter.CreateNetwork(context.Background(), "net")
 	require.Error(t, err)
 }
+func TestDockerAdapterCreateInstanceError(t *testing.T) {
+	cli := &fakeDockerClient{containerCreateErr: errors.New("create error")}
+	adapter := &DockerAdapter{cli: cli}
+
+	opts := ports.CreateInstanceOptions{
+		Name:      "inst1",
+		ImageName: "alpine",
+	}
+	_, err := adapter.CreateInstance(context.Background(), opts)
+	require.Error(t, err)
+}
+
+func TestDockerAdapterDeleteNetworkError(t *testing.T) {
+	cli := &fakeDockerClient{networkRemoveErr: errors.New("network remove error")}
+	adapter := &DockerAdapter{cli: cli}
+
+	err := adapter.DeleteNetwork(context.Background(), "net1")
+	require.Error(t, err)
+}
