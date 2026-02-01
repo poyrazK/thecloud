@@ -57,11 +57,7 @@ func TestCreateCacheSuccess(t *testing.T) {
 	assert.Equal(t, domain.EngineRedis, cache.Engine)
 	assert.NotEmpty(t, cache.ContainerID)
 
-	// Verify proxy success by checking if container exists/is running
-	// We can try to inspect the container using the adapter if we really want to verify presence,
-	// or assume success implies it. The adapter has GetInstanceIP/Port etc.
-	// Let's check GetInstanceIP as a proxy for "it exists"
-
+	// Verify instance creation by checking connectivity
 	ip, err := compute.GetInstanceIP(ctx, cache.ContainerID)
 	// Note: It might take a moment or fail if not yet ready, but Adapter retries.
 	// For integration test with real docker, this should work eventually.

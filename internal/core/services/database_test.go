@@ -29,10 +29,6 @@ func setupDatabaseServiceTest(t *testing.T) (ports.DatabaseService, ports.Databa
 	repo := postgres.NewDatabaseRepository(db)
 	vpcRepo := postgres.NewVpcRepository(db)
 
-	// We need other repos for VpcService if we were testing VPC creation,
-	// but here we just need VpcRepo for DatabaseService to verify VPC existence?
-	// DatabaseService uses VpcRepo.GetByID.
-
 	compute, err := docker.NewDockerAdapter()
 	require.NoError(t, err)
 
@@ -60,12 +56,7 @@ func TestCreateDatabaseSuccess(t *testing.T) {
 	assert.Equal(t, domain.EnginePostgres, db.Engine)
 	assert.NotEmpty(t, db.ContainerID)
 
-	// Verify directly with docker adapter?
-	// The DockerAdapter doesn't expose internal state like Fake did.
-	// We can try to inspect the container using the adapter if we really want to verify presence,
-	// or assume success implies it. The adapter has GetInstanceIP/Port etc.
-	// Let's check GetInstanceIP as a proxy for "it exists"
-
+	// Verify instance creation by checking connectivity
 	ip, err := compute.GetInstanceIP(ctx, db.ContainerID)
 	// Note: It might take a moment or fail if not yet ready, but Adapter retries.
 	// For integration test with real docker, this should work eventually.
