@@ -1,4 +1,4 @@
-package handlers_test
+package httphandlers
 
 import (
 	"io"
@@ -13,19 +13,17 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	internalerrors "github.com/poyrazk/thecloud/internal/errors"
-	httphandlers "github.com/poyrazk/thecloud/internal/handlers"
-	mocks "github.com/poyrazk/thecloud/internal/handlers/mocks"
 	"github.com/poyrazk/thecloud/internal/platform"
 )
 
-func TestStorageHandlerErrors(t *testing.T) {
+func TestStorageHandlerErrors(t *testing.T) { //nolint:gocyclo
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
 		name       string
 		method     string
 		path       string
-		setupMock  func(*mocks.StorageService)
+		setupMock  func(*mockStorageService)
 		setupCtx   func(*gin.Context)
 		body       io.Reader
 		checkCode  int
@@ -35,7 +33,7 @@ func TestStorageHandlerErrors(t *testing.T) {
 			name:   "Upload Service Error",
 			method: http.MethodPut,
 			path:   "/storage/b1/key1",
-			setupMock: func(m *mocks.StorageService) {
+			setupMock: func(m *mockStorageService) {
 				m.On("Upload", mock.Anything, "b1", "/key1", mock.Anything).
 					Return(nil, internalerrors.New(internalerrors.Internal, "upload failed"))
 			},
@@ -45,7 +43,7 @@ func TestStorageHandlerErrors(t *testing.T) {
 			name:   "Download Service Error",
 			method: http.MethodGet,
 			path:   "/storage/b1/key1",
-			setupMock: func(m *mocks.StorageService) {
+			setupMock: func(m *mockStorageService) {
 				m.On("Download", mock.Anything, "b1", "/key1").
 					Return(nil, nil, internalerrors.New(internalerrors.Internal, "download failed"))
 			},
@@ -55,7 +53,7 @@ func TestStorageHandlerErrors(t *testing.T) {
 			name:   "ListBuckets Service Error",
 			method: http.MethodGet,
 			path:   "/storage/buckets",
-			setupMock: func(m *mocks.StorageService) {
+			setupMock: func(m *mockStorageService) {
 				m.On("ListBuckets", mock.Anything).
 					Return(nil, internalerrors.New(internalerrors.Internal, "list failed"))
 			},
@@ -65,7 +63,7 @@ func TestStorageHandlerErrors(t *testing.T) {
 			name:   "DeleteBucket Missing Name",
 			method: http.MethodDelete,
 			path:   "/storage/buckets/",
-			setupMock: func(m *mocks.StorageService) {
+			setupMock: func(m *mockStorageService) {
 				// No mock call expected
 			},
 			checkCode: http.StatusNotFound,
@@ -77,7 +75,7 @@ func TestStorageHandlerErrors(t *testing.T) {
 			setupCtx: func(c *gin.Context) {
 				c.Params = []gin.Param{{Key: "bucket", Value: "b1"}}
 			},
-			setupMock: func(m *mocks.StorageService) {
+			setupMock: func(m *mockStorageService) {
 				m.On("DeleteBucket", mock.Anything, "b1").
 					Return(internalerrors.New(internalerrors.Internal, "delete failed"))
 			},
@@ -87,7 +85,7 @@ func TestStorageHandlerErrors(t *testing.T) {
 			name:   "InitiateMultipartUpload Service Error",
 			method: http.MethodPost,
 			path:   "/storage/b1/key1/multipart",
-			setupMock: func(m *mocks.StorageService) {
+			setupMock: func(m *mockStorageService) {
 				m.On("CreateMultipartUpload", mock.Anything, "b1", "/key1").
 					Return(nil, internalerrors.New(internalerrors.Internal, "init failed"))
 			},
@@ -100,7 +98,7 @@ func TestStorageHandlerErrors(t *testing.T) {
 			setupCtx: func(c *gin.Context) {
 				c.Params = []gin.Param{{Key: "id", Value: "invalid-uuid"}}
 			},
-			setupMock: func(m *mocks.StorageService) {},
+			setupMock: func(m *mockStorageService) {},
 			checkCode: http.StatusBadRequest,
 		},
 		{
@@ -111,7 +109,7 @@ func TestStorageHandlerErrors(t *testing.T) {
 				c.Params = []gin.Param{{Key: "id", Value: uuid.New().String()}}
 				c.Request.URL.RawQuery = "part=1"
 			},
-			setupMock: func(m *mocks.StorageService) {
+			setupMock: func(m *mockStorageService) {
 				m.On("UploadPart", mock.Anything, mock.Anything, 1, mock.Anything).
 					Return(nil, internalerrors.New(internalerrors.Internal, "upload part failed"))
 			},
@@ -124,7 +122,7 @@ func TestStorageHandlerErrors(t *testing.T) {
 			setupCtx: func(c *gin.Context) {
 				c.Params = []gin.Param{{Key: "id", Value: "invalid-uuid"}}
 			},
-			setupMock: func(m *mocks.StorageService) {},
+			setupMock: func(m *mockStorageService) {},
 			checkCode: http.StatusBadRequest,
 		},
 		{
@@ -134,7 +132,7 @@ func TestStorageHandlerErrors(t *testing.T) {
 			setupCtx: func(c *gin.Context) {
 				c.Params = []gin.Param{{Key: "id", Value: uuid.New().String()}}
 			},
-			setupMock: func(m *mocks.StorageService) {
+			setupMock: func(m *mockStorageService) {
 				m.On("CompleteMultipartUpload", mock.Anything, mock.Anything).
 					Return(nil, internalerrors.New(internalerrors.Internal, "complete failed"))
 			},
@@ -147,7 +145,7 @@ func TestStorageHandlerErrors(t *testing.T) {
 			setupCtx: func(c *gin.Context) {
 				c.Params = []gin.Param{{Key: "id", Value: "invalid-uuid"}}
 			},
-			setupMock: func(m *mocks.StorageService) {},
+			setupMock: func(m *mockStorageService) {},
 			checkCode: http.StatusBadRequest,
 		},
 		{
@@ -157,7 +155,7 @@ func TestStorageHandlerErrors(t *testing.T) {
 			setupCtx: func(c *gin.Context) {
 				c.Params = []gin.Param{{Key: "id", Value: uuid.New().String()}}
 			},
-			setupMock: func(m *mocks.StorageService) {
+			setupMock: func(m *mockStorageService) {
 				m.On("AbortMultipartUpload", mock.Anything, mock.Anything).
 					Return(internalerrors.New(internalerrors.Internal, "abort failed"))
 			},
@@ -171,7 +169,7 @@ func TestStorageHandlerErrors(t *testing.T) {
 			setupCtx: func(c *gin.Context) {
 				c.Params = []gin.Param{{Key: "bucket", Value: "b1"}}
 			},
-			setupMock: func(m *mocks.StorageService) {},
+			setupMock: func(m *mockStorageService) {},
 			checkCode: http.StatusBadRequest,
 		},
 		{
@@ -182,7 +180,7 @@ func TestStorageHandlerErrors(t *testing.T) {
 			setupCtx: func(c *gin.Context) {
 				c.Params = []gin.Param{{Key: "bucket", Value: "b1"}}
 			},
-			setupMock: func(m *mocks.StorageService) {
+			setupMock: func(m *mockStorageService) {
 				m.On("SetBucketVersioning", mock.Anything, "b1", true).
 					Return(internalerrors.New(internalerrors.Internal, "versioning failed"))
 			},
@@ -192,7 +190,7 @@ func TestStorageHandlerErrors(t *testing.T) {
 			name:   "ListVersions Service Error",
 			method: http.MethodGet,
 			path:   "/storage/versions/b1/key1",
-			setupMock: func(m *mocks.StorageService) {
+			setupMock: func(m *mockStorageService) {
 				m.On("ListVersions", mock.Anything, "b1", "/key1").
 					Return(nil, internalerrors.New(internalerrors.Internal, "list versions failed"))
 			},
@@ -209,7 +207,7 @@ func TestStorageHandlerErrors(t *testing.T) {
 					{Key: "key", Value: "/key1"},
 				}
 			},
-			setupMock: func(m *mocks.StorageService) {},
+			setupMock: func(m *mockStorageService) {},
 			checkCode: http.StatusBadRequest,
 		},
 		{
@@ -223,7 +221,7 @@ func TestStorageHandlerErrors(t *testing.T) {
 					{Key: "key", Value: "/key1"},
 				}
 			},
-			setupMock: func(m *mocks.StorageService) {
+			setupMock: func(m *mockStorageService) {
 				m.On("GeneratePresignedURL", mock.Anything, "b1", "/key1", "GET", 0).
 					Return(nil, internalerrors.New(internalerrors.Internal, "presign failed"))
 			},
@@ -233,12 +231,12 @@ func TestStorageHandlerErrors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockSvc := new(mocks.StorageService)
+			mockSvc := new(mockStorageService)
 			if tc.setupMock != nil {
 				tc.setupMock(mockSvc)
 			}
 
-			handler := httphandlers.NewStorageHandler(mockSvc, &platform.Config{StorageSecret: "secret"})
+			handler := NewStorageHandler(mockSvc, &platform.Config{StorageSecret: "secret"})
 			w := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(w)
 

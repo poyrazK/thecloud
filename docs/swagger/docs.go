@@ -161,7 +161,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.registerImageRequest"
+                            "$ref": "#/definitions/_.registerImageRequest"
                         }
                     }
                 ],
@@ -329,7 +329,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.ForgotPasswordRequest"
+                            "$ref": "#/definitions/_.ForgotPasswordRequest"
                         }
                     }
                 ],
@@ -388,7 +388,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.CreateKeyRequest"
+                            "$ref": "#/definitions/_.CreateKeyRequest"
                         }
                     }
                 ],
@@ -536,7 +536,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.LoginRequest"
+                            "$ref": "#/definitions/_.LoginRequest"
                         }
                     }
                 ],
@@ -552,7 +552,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/httphandlers.LoginResponse"
+                                            "$ref": "#/definitions/_.LoginResponse"
                                         }
                                     }
                                 }
@@ -582,7 +582,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.RegisterRequest"
+                            "$ref": "#/definitions/_.RegisterRequest"
                         }
                     }
                 ],
@@ -627,7 +627,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.ResetPasswordRequest"
+                            "$ref": "#/definitions/_.ResetPasswordRequest"
                         }
                     }
                 ],
@@ -692,7 +692,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.CreateGroupRequest"
+                            "$ref": "#/definitions/_.CreateGroupRequest"
                         }
                     },
                     {
@@ -825,7 +825,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.CreateASPolicyRequest"
+                            "$ref": "#/definitions/_.CreateASPolicyRequest"
                         }
                     }
                 ],
@@ -1004,7 +1004,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.CreateClusterRequest"
+                            "$ref": "#/definitions/_.CreateClusterRequest"
                         }
                     }
                 ],
@@ -1199,7 +1199,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.RestoreBackupRequest"
+                            "$ref": "#/definitions/_.RestoreBackupRequest"
                         }
                     }
                 ],
@@ -1254,7 +1254,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.ScaleClusterRequest"
+                            "$ref": "#/definitions/_.ScaleClusterRequest"
                         }
                     }
                 ],
@@ -1286,7 +1286,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.UpgradeClusterRequest"
+                            "$ref": "#/definitions/_.UpgradeClusterRequest"
                         }
                     }
                 ],
@@ -1371,7 +1371,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.UpdateRecordRequest"
+                            "$ref": "#/definitions/_.UpdateRecordRequest"
                         }
                     }
                 ],
@@ -1501,7 +1501,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.CreateZoneRequest"
+                            "$ref": "#/definitions/_.CreateZoneRequest"
                         }
                     }
                 ],
@@ -1692,7 +1692,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.CreateRecordRequest"
+                            "$ref": "#/definitions/_.CreateRecordRequest"
                         }
                     }
                 ],
@@ -1808,7 +1808,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.CreateStackRequest"
+                            "$ref": "#/definitions/_.CreateStackRequest"
                         }
                     }
                 ],
@@ -1997,7 +1997,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.LaunchRequest"
+                            "$ref": "#/definitions/_.LaunchRequest"
                         }
                     }
                 ],
@@ -2351,7 +2351,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.CreateLBRequest"
+                            "$ref": "#/definitions/_.CreateLBRequest"
                         }
                     },
                     {
@@ -2522,7 +2522,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.AddTargetRequest"
+                            "$ref": "#/definitions/_.AddTargetRequest"
                         }
                     }
                 ],
@@ -2627,7 +2627,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.BindRoleRequest"
+                            "$ref": "#/definitions/_.BindRoleRequest"
                         }
                     }
                 ],
@@ -2679,7 +2679,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.CreateRoleRequest"
+                            "$ref": "#/definitions/_.CreateRoleRequest"
                         }
                     }
                 ],
@@ -2747,7 +2747,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.CreateRoleRequest"
+                            "$ref": "#/definitions/_.CreateRoleRequest"
                         }
                     }
                 ],
@@ -2806,7 +2806,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.AddPermissionRequest"
+                            "$ref": "#/definitions/_.AddPermissionRequest"
                         }
                     }
                 ],
@@ -2922,7 +2922,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.CreateSecurityGroupRequest"
+                            "$ref": "#/definitions/_.CreateSecurityGroupRequest"
                         }
                     }
                 ],
@@ -2973,7 +2973,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.AttachDetachSGRequest"
+                            "$ref": "#/definitions/_.AttachDetachSGRequest"
                         }
                     }
                 ],
@@ -3024,7 +3024,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.AttachDetachSGRequest"
+                            "$ref": "#/definitions/_.AttachDetachSGRequest"
                         }
                     }
                 ],
@@ -3301,7 +3301,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.CreateSnapshotRequest"
+                            "$ref": "#/definitions/_.CreateSnapshotRequest"
                         }
                     }
                 ],
@@ -3449,7 +3449,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.RestoreSnapshotRequest"
+                            "$ref": "#/definitions/_.RestoreSnapshotRequest"
                         }
                     }
                 ],
@@ -4262,7 +4262,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.CreateVolumeRequest"
+                            "$ref": "#/definitions/_.CreateVolumeRequest"
                         }
                     }
                 ],
@@ -4558,6 +4558,535 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "_.AddPermissionRequest": {
+            "type": "object",
+            "required": [
+                "permission"
+            ],
+            "properties": {
+                "permission": {
+                    "$ref": "#/definitions/domain.Permission"
+                }
+            }
+        },
+        "_.AddTargetRequest": {
+            "type": "object",
+            "required": [
+                "instance_id",
+                "port"
+            ],
+            "properties": {
+                "instance_id": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "weight": {
+                    "type": "integer"
+                }
+            }
+        },
+        "_.AttachDetachSGRequest": {
+            "type": "object",
+            "required": [
+                "group_id",
+                "instance_id"
+            ],
+            "properties": {
+                "group_id": {
+                    "type": "string"
+                },
+                "instance_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "_.BindRoleRequest": {
+            "type": "object",
+            "required": [
+                "role_name",
+                "user_identifier"
+            ],
+            "properties": {
+                "role_name": {
+                    "type": "string"
+                },
+                "user_identifier": {
+                    "type": "string"
+                }
+            }
+        },
+        "_.CreateASPolicyRequest": {
+            "type": "object",
+            "required": [
+                "cooldown_sec",
+                "metric_type",
+                "name",
+                "scale_in_step",
+                "scale_out_step",
+                "target_value"
+            ],
+            "properties": {
+                "cooldown_sec": {
+                    "type": "integer"
+                },
+                "metric_type": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "scale_in_step": {
+                    "type": "integer"
+                },
+                "scale_out_step": {
+                    "type": "integer"
+                },
+                "target_value": {
+                    "type": "number"
+                }
+            }
+        },
+        "_.CreateClusterRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "vpc_id"
+            ],
+            "properties": {
+                "ha": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "network_isolation": {
+                    "type": "boolean"
+                },
+                "version": {
+                    "type": "string"
+                },
+                "vpc_id": {
+                    "type": "string"
+                },
+                "workers": {
+                    "type": "integer"
+                }
+            }
+        },
+        "_.CreateGroupRequest": {
+            "type": "object",
+            "required": [
+                "desired_count",
+                "image",
+                "max_instances",
+                "name",
+                "vpc_id"
+            ],
+            "properties": {
+                "desired_count": {
+                    "type": "integer"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "load_balancer_id": {
+                    "type": "string"
+                },
+                "max_instances": {
+                    "type": "integer"
+                },
+                "min_instances": {
+                    "description": "0 is valid",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "ports": {
+                    "type": "string"
+                },
+                "vpc_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "_.CreateKeyRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "_.CreateLBRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "port",
+                "vpc_id"
+            ],
+            "properties": {
+                "algorithm": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "vpc_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "_.CreateRecordRequest": {
+            "type": "object",
+            "required": [
+                "content",
+                "name",
+                "type"
+            ],
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "ttl": {
+                    "type": "integer"
+                },
+                "type": {
+                    "$ref": "#/definitions/domain.RecordType"
+                }
+            }
+        },
+        "_.CreateRoleRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.Permission"
+                    }
+                }
+            }
+        },
+        "_.CreateSecurityGroupRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "vpc_id"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "vpc_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "_.CreateSnapshotRequest": {
+            "type": "object",
+            "required": [
+                "volume_id"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "volume_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "_.CreateStackRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "template"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "template": {
+                    "type": "string"
+                }
+            }
+        },
+        "_.CreateVolumeRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "size_gb"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "minLength": 3
+                },
+                "size_gb": {
+                    "type": "integer",
+                    "maximum": 16000,
+                    "minimum": 1
+                }
+            }
+        },
+        "_.CreateZoneRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "vpc_id"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "vpc_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "_.ForgotPasswordRequest": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "_.LaunchRequest": {
+            "type": "object",
+            "required": [
+                "image",
+                "name"
+            ],
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "instance_type": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "ports": {
+                    "type": "string"
+                },
+                "subnet_id": {
+                    "type": "string"
+                },
+                "volumes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/_.VolumeAttachmentRequest"
+                    }
+                },
+                "vpc_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "_.LoginRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "password": {
+                    "type": "string",
+                    "maxLength": 72
+                }
+            }
+        },
+        "_.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "type": "string"
+                },
+                "user": {}
+            }
+        },
+        "_.RegisterRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "name",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2
+                },
+                "password": {
+                    "type": "string",
+                    "maxLength": 72,
+                    "minLength": 8
+                }
+            }
+        },
+        "_.ResetPasswordRequest": {
+            "type": "object",
+            "required": [
+                "new_password",
+                "token"
+            ],
+            "properties": {
+                "new_password": {
+                    "type": "string",
+                    "maxLength": 72,
+                    "minLength": 8
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "_.RestoreBackupRequest": {
+            "type": "object",
+            "required": [
+                "backup_path"
+            ],
+            "properties": {
+                "backup_path": {
+                    "type": "string"
+                }
+            }
+        },
+        "_.RestoreSnapshotRequest": {
+            "type": "object",
+            "required": [
+                "new_volume_name"
+            ],
+            "properties": {
+                "new_volume_name": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "minLength": 3
+                }
+            }
+        },
+        "_.ScaleClusterRequest": {
+            "type": "object",
+            "properties": {
+                "workers": {
+                    "type": "integer"
+                }
+            }
+        },
+        "_.UpdateRecordRequest": {
+            "type": "object",
+            "required": [
+                "content"
+            ],
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "ttl": {
+                    "type": "integer"
+                }
+            }
+        },
+        "_.UpgradeClusterRequest": {
+            "type": "object",
+            "required": [
+                "version"
+            ],
+            "properties": {
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "_.VolumeAttachmentRequest": {
+            "type": "object",
+            "properties": {
+                "mount_path": {
+                    "type": "string"
+                },
+                "volume_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "_.registerImageRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "os",
+                "version"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "is_public": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "os": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.APIKey": {
             "type": "object",
             "properties": {
@@ -6083,535 +6612,6 @@ const docTemplate = `{
                 "VolumeStatusInUse",
                 "VolumeStatusDeleting"
             ]
-        },
-        "httphandlers.AddPermissionRequest": {
-            "type": "object",
-            "required": [
-                "permission"
-            ],
-            "properties": {
-                "permission": {
-                    "$ref": "#/definitions/domain.Permission"
-                }
-            }
-        },
-        "httphandlers.AddTargetRequest": {
-            "type": "object",
-            "required": [
-                "instance_id",
-                "port"
-            ],
-            "properties": {
-                "instance_id": {
-                    "type": "string"
-                },
-                "port": {
-                    "type": "integer"
-                },
-                "weight": {
-                    "type": "integer"
-                }
-            }
-        },
-        "httphandlers.AttachDetachSGRequest": {
-            "type": "object",
-            "required": [
-                "group_id",
-                "instance_id"
-            ],
-            "properties": {
-                "group_id": {
-                    "type": "string"
-                },
-                "instance_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "httphandlers.BindRoleRequest": {
-            "type": "object",
-            "required": [
-                "role_name",
-                "user_identifier"
-            ],
-            "properties": {
-                "role_name": {
-                    "type": "string"
-                },
-                "user_identifier": {
-                    "type": "string"
-                }
-            }
-        },
-        "httphandlers.CreateASPolicyRequest": {
-            "type": "object",
-            "required": [
-                "cooldown_sec",
-                "metric_type",
-                "name",
-                "scale_in_step",
-                "scale_out_step",
-                "target_value"
-            ],
-            "properties": {
-                "cooldown_sec": {
-                    "type": "integer"
-                },
-                "metric_type": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "scale_in_step": {
-                    "type": "integer"
-                },
-                "scale_out_step": {
-                    "type": "integer"
-                },
-                "target_value": {
-                    "type": "number"
-                }
-            }
-        },
-        "httphandlers.CreateClusterRequest": {
-            "type": "object",
-            "required": [
-                "name",
-                "vpc_id"
-            ],
-            "properties": {
-                "ha": {
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "network_isolation": {
-                    "type": "boolean"
-                },
-                "version": {
-                    "type": "string"
-                },
-                "vpc_id": {
-                    "type": "string"
-                },
-                "workers": {
-                    "type": "integer"
-                }
-            }
-        },
-        "httphandlers.CreateGroupRequest": {
-            "type": "object",
-            "required": [
-                "desired_count",
-                "image",
-                "max_instances",
-                "name",
-                "vpc_id"
-            ],
-            "properties": {
-                "desired_count": {
-                    "type": "integer"
-                },
-                "image": {
-                    "type": "string"
-                },
-                "load_balancer_id": {
-                    "type": "string"
-                },
-                "max_instances": {
-                    "type": "integer"
-                },
-                "min_instances": {
-                    "description": "0 is valid",
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "ports": {
-                    "type": "string"
-                },
-                "vpc_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "httphandlers.CreateKeyRequest": {
-            "type": "object",
-            "required": [
-                "name"
-            ],
-            "properties": {
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "httphandlers.CreateLBRequest": {
-            "type": "object",
-            "required": [
-                "name",
-                "port",
-                "vpc_id"
-            ],
-            "properties": {
-                "algorithm": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "port": {
-                    "type": "integer"
-                },
-                "vpc_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "httphandlers.CreateRecordRequest": {
-            "type": "object",
-            "required": [
-                "content",
-                "name",
-                "type"
-            ],
-            "properties": {
-                "content": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "priority": {
-                    "type": "integer"
-                },
-                "ttl": {
-                    "type": "integer"
-                },
-                "type": {
-                    "$ref": "#/definitions/domain.RecordType"
-                }
-            }
-        },
-        "httphandlers.CreateRoleRequest": {
-            "type": "object",
-            "required": [
-                "name"
-            ],
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "permissions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.Permission"
-                    }
-                }
-            }
-        },
-        "httphandlers.CreateSecurityGroupRequest": {
-            "type": "object",
-            "required": [
-                "name",
-                "vpc_id"
-            ],
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "vpc_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "httphandlers.CreateSnapshotRequest": {
-            "type": "object",
-            "required": [
-                "volume_id"
-            ],
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "volume_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "httphandlers.CreateStackRequest": {
-            "type": "object",
-            "required": [
-                "name",
-                "template"
-            ],
-            "properties": {
-                "name": {
-                    "type": "string"
-                },
-                "parameters": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "template": {
-                    "type": "string"
-                }
-            }
-        },
-        "httphandlers.CreateVolumeRequest": {
-            "type": "object",
-            "required": [
-                "name",
-                "size_gb"
-            ],
-            "properties": {
-                "name": {
-                    "type": "string",
-                    "maxLength": 64,
-                    "minLength": 3
-                },
-                "size_gb": {
-                    "type": "integer",
-                    "maximum": 16000,
-                    "minimum": 1
-                }
-            }
-        },
-        "httphandlers.CreateZoneRequest": {
-            "type": "object",
-            "required": [
-                "name",
-                "vpc_id"
-            ],
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "vpc_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "httphandlers.ForgotPasswordRequest": {
-            "type": "object",
-            "required": [
-                "email"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                }
-            }
-        },
-        "httphandlers.LaunchRequest": {
-            "type": "object",
-            "required": [
-                "image",
-                "name"
-            ],
-            "properties": {
-                "image": {
-                    "type": "string"
-                },
-                "instance_type": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "ports": {
-                    "type": "string"
-                },
-                "subnet_id": {
-                    "type": "string"
-                },
-                "volumes": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/httphandlers.VolumeAttachmentRequest"
-                    }
-                },
-                "vpc_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "httphandlers.LoginRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "password"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string",
-                    "maxLength": 255
-                },
-                "password": {
-                    "type": "string",
-                    "maxLength": 72
-                }
-            }
-        },
-        "httphandlers.LoginResponse": {
-            "type": "object",
-            "properties": {
-                "api_key": {
-                    "type": "string"
-                },
-                "user": {}
-            }
-        },
-        "httphandlers.RegisterRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "name",
-                "password"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string",
-                    "maxLength": 255
-                },
-                "name": {
-                    "type": "string",
-                    "maxLength": 100,
-                    "minLength": 2
-                },
-                "password": {
-                    "type": "string",
-                    "maxLength": 72,
-                    "minLength": 8
-                }
-            }
-        },
-        "httphandlers.ResetPasswordRequest": {
-            "type": "object",
-            "required": [
-                "new_password",
-                "token"
-            ],
-            "properties": {
-                "new_password": {
-                    "type": "string",
-                    "maxLength": 72,
-                    "minLength": 8
-                },
-                "token": {
-                    "type": "string"
-                }
-            }
-        },
-        "httphandlers.RestoreBackupRequest": {
-            "type": "object",
-            "required": [
-                "backup_path"
-            ],
-            "properties": {
-                "backup_path": {
-                    "type": "string"
-                }
-            }
-        },
-        "httphandlers.RestoreSnapshotRequest": {
-            "type": "object",
-            "required": [
-                "new_volume_name"
-            ],
-            "properties": {
-                "new_volume_name": {
-                    "type": "string",
-                    "maxLength": 64,
-                    "minLength": 3
-                }
-            }
-        },
-        "httphandlers.ScaleClusterRequest": {
-            "type": "object",
-            "properties": {
-                "workers": {
-                    "type": "integer"
-                }
-            }
-        },
-        "httphandlers.UpdateRecordRequest": {
-            "type": "object",
-            "required": [
-                "content"
-            ],
-            "properties": {
-                "content": {
-                    "type": "string"
-                },
-                "priority": {
-                    "type": "integer"
-                },
-                "ttl": {
-                    "type": "integer"
-                }
-            }
-        },
-        "httphandlers.UpgradeClusterRequest": {
-            "type": "object",
-            "required": [
-                "version"
-            ],
-            "properties": {
-                "version": {
-                    "type": "string"
-                }
-            }
-        },
-        "httphandlers.VolumeAttachmentRequest": {
-            "type": "object",
-            "properties": {
-                "mount_path": {
-                    "type": "string"
-                },
-                "volume_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "httphandlers.registerImageRequest": {
-            "type": "object",
-            "required": [
-                "name",
-                "os",
-                "version"
-            ],
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "is_public": {
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "os": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "string"
-                }
-            }
         },
         "httputil.Meta": {
             "type": "object",

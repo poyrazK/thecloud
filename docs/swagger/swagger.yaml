@@ -1,4 +1,362 @@
 definitions:
+  _.AddPermissionRequest:
+    properties:
+      permission:
+        $ref: '#/definitions/domain.Permission'
+    required:
+    - permission
+    type: object
+  _.AddTargetRequest:
+    properties:
+      instance_id:
+        type: string
+      port:
+        type: integer
+      weight:
+        type: integer
+    required:
+    - instance_id
+    - port
+    type: object
+  _.AttachDetachSGRequest:
+    properties:
+      group_id:
+        type: string
+      instance_id:
+        type: string
+    required:
+    - group_id
+    - instance_id
+    type: object
+  _.BindRoleRequest:
+    properties:
+      role_name:
+        type: string
+      user_identifier:
+        type: string
+    required:
+    - role_name
+    - user_identifier
+    type: object
+  _.CreateASPolicyRequest:
+    properties:
+      cooldown_sec:
+        type: integer
+      metric_type:
+        type: string
+      name:
+        type: string
+      scale_in_step:
+        type: integer
+      scale_out_step:
+        type: integer
+      target_value:
+        type: number
+    required:
+    - cooldown_sec
+    - metric_type
+    - name
+    - scale_in_step
+    - scale_out_step
+    - target_value
+    type: object
+  _.CreateClusterRequest:
+    properties:
+      ha:
+        type: boolean
+      name:
+        type: string
+      network_isolation:
+        type: boolean
+      version:
+        type: string
+      vpc_id:
+        type: string
+      workers:
+        type: integer
+    required:
+    - name
+    - vpc_id
+    type: object
+  _.CreateGroupRequest:
+    properties:
+      desired_count:
+        type: integer
+      image:
+        type: string
+      load_balancer_id:
+        type: string
+      max_instances:
+        type: integer
+      min_instances:
+        description: 0 is valid
+        type: integer
+      name:
+        type: string
+      ports:
+        type: string
+      vpc_id:
+        type: string
+    required:
+    - desired_count
+    - image
+    - max_instances
+    - name
+    - vpc_id
+    type: object
+  _.CreateKeyRequest:
+    properties:
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  _.CreateLBRequest:
+    properties:
+      algorithm:
+        type: string
+      name:
+        type: string
+      port:
+        type: integer
+      vpc_id:
+        type: string
+    required:
+    - name
+    - port
+    - vpc_id
+    type: object
+  _.CreateRecordRequest:
+    properties:
+      content:
+        type: string
+      name:
+        type: string
+      priority:
+        type: integer
+      ttl:
+        type: integer
+      type:
+        $ref: '#/definitions/domain.RecordType'
+    required:
+    - content
+    - name
+    - type
+    type: object
+  _.CreateRoleRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      permissions:
+        items:
+          $ref: '#/definitions/domain.Permission'
+        type: array
+    required:
+    - name
+    type: object
+  _.CreateSecurityGroupRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      vpc_id:
+        type: string
+    required:
+    - name
+    - vpc_id
+    type: object
+  _.CreateSnapshotRequest:
+    properties:
+      description:
+        type: string
+      volume_id:
+        type: string
+    required:
+    - volume_id
+    type: object
+  _.CreateStackRequest:
+    properties:
+      name:
+        type: string
+      parameters:
+        additionalProperties:
+          type: string
+        type: object
+      template:
+        type: string
+    required:
+    - name
+    - template
+    type: object
+  _.CreateVolumeRequest:
+    properties:
+      name:
+        maxLength: 64
+        minLength: 3
+        type: string
+      size_gb:
+        maximum: 16000
+        minimum: 1
+        type: integer
+    required:
+    - name
+    - size_gb
+    type: object
+  _.CreateZoneRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      vpc_id:
+        type: string
+    required:
+    - name
+    - vpc_id
+    type: object
+  _.ForgotPasswordRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  _.LaunchRequest:
+    properties:
+      image:
+        type: string
+      instance_type:
+        type: string
+      name:
+        type: string
+      ports:
+        type: string
+      subnet_id:
+        type: string
+      volumes:
+        items:
+          $ref: '#/definitions/_.VolumeAttachmentRequest'
+        type: array
+      vpc_id:
+        type: string
+    required:
+    - image
+    - name
+    type: object
+  _.LoginRequest:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      password:
+        maxLength: 72
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  _.LoginResponse:
+    properties:
+      api_key:
+        type: string
+      user: {}
+    type: object
+  _.RegisterRequest:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+      password:
+        maxLength: 72
+        minLength: 8
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  _.ResetPasswordRequest:
+    properties:
+      new_password:
+        maxLength: 72
+        minLength: 8
+        type: string
+      token:
+        type: string
+    required:
+    - new_password
+    - token
+    type: object
+  _.RestoreBackupRequest:
+    properties:
+      backup_path:
+        type: string
+    required:
+    - backup_path
+    type: object
+  _.RestoreSnapshotRequest:
+    properties:
+      new_volume_name:
+        maxLength: 64
+        minLength: 3
+        type: string
+    required:
+    - new_volume_name
+    type: object
+  _.ScaleClusterRequest:
+    properties:
+      workers:
+        type: integer
+    type: object
+  _.UpdateRecordRequest:
+    properties:
+      content:
+        type: string
+      priority:
+        type: integer
+      ttl:
+        type: integer
+    required:
+    - content
+    type: object
+  _.UpgradeClusterRequest:
+    properties:
+      version:
+        type: string
+    required:
+    - version
+    type: object
+  _.VolumeAttachmentRequest:
+    properties:
+      mount_path:
+        type: string
+      volume_id:
+        type: string
+    type: object
+  _.registerImageRequest:
+    properties:
+      description:
+        type: string
+      is_public:
+        type: boolean
+      name:
+        type: string
+      os:
+        type: string
+      version:
+        type: string
+    required:
+    - name
+    - os
+    - version
+    type: object
   domain.APIKey:
     properties:
       created_at:
@@ -1109,364 +1467,6 @@ definitions:
     - VolumeStatusAvailable
     - VolumeStatusInUse
     - VolumeStatusDeleting
-  httphandlers.AddPermissionRequest:
-    properties:
-      permission:
-        $ref: '#/definitions/domain.Permission'
-    required:
-    - permission
-    type: object
-  httphandlers.AddTargetRequest:
-    properties:
-      instance_id:
-        type: string
-      port:
-        type: integer
-      weight:
-        type: integer
-    required:
-    - instance_id
-    - port
-    type: object
-  httphandlers.AttachDetachSGRequest:
-    properties:
-      group_id:
-        type: string
-      instance_id:
-        type: string
-    required:
-    - group_id
-    - instance_id
-    type: object
-  httphandlers.BindRoleRequest:
-    properties:
-      role_name:
-        type: string
-      user_identifier:
-        type: string
-    required:
-    - role_name
-    - user_identifier
-    type: object
-  httphandlers.CreateASPolicyRequest:
-    properties:
-      cooldown_sec:
-        type: integer
-      metric_type:
-        type: string
-      name:
-        type: string
-      scale_in_step:
-        type: integer
-      scale_out_step:
-        type: integer
-      target_value:
-        type: number
-    required:
-    - cooldown_sec
-    - metric_type
-    - name
-    - scale_in_step
-    - scale_out_step
-    - target_value
-    type: object
-  httphandlers.CreateClusterRequest:
-    properties:
-      ha:
-        type: boolean
-      name:
-        type: string
-      network_isolation:
-        type: boolean
-      version:
-        type: string
-      vpc_id:
-        type: string
-      workers:
-        type: integer
-    required:
-    - name
-    - vpc_id
-    type: object
-  httphandlers.CreateGroupRequest:
-    properties:
-      desired_count:
-        type: integer
-      image:
-        type: string
-      load_balancer_id:
-        type: string
-      max_instances:
-        type: integer
-      min_instances:
-        description: 0 is valid
-        type: integer
-      name:
-        type: string
-      ports:
-        type: string
-      vpc_id:
-        type: string
-    required:
-    - desired_count
-    - image
-    - max_instances
-    - name
-    - vpc_id
-    type: object
-  httphandlers.CreateKeyRequest:
-    properties:
-      name:
-        type: string
-    required:
-    - name
-    type: object
-  httphandlers.CreateLBRequest:
-    properties:
-      algorithm:
-        type: string
-      name:
-        type: string
-      port:
-        type: integer
-      vpc_id:
-        type: string
-    required:
-    - name
-    - port
-    - vpc_id
-    type: object
-  httphandlers.CreateRecordRequest:
-    properties:
-      content:
-        type: string
-      name:
-        type: string
-      priority:
-        type: integer
-      ttl:
-        type: integer
-      type:
-        $ref: '#/definitions/domain.RecordType'
-    required:
-    - content
-    - name
-    - type
-    type: object
-  httphandlers.CreateRoleRequest:
-    properties:
-      description:
-        type: string
-      name:
-        type: string
-      permissions:
-        items:
-          $ref: '#/definitions/domain.Permission'
-        type: array
-    required:
-    - name
-    type: object
-  httphandlers.CreateSecurityGroupRequest:
-    properties:
-      description:
-        type: string
-      name:
-        type: string
-      vpc_id:
-        type: string
-    required:
-    - name
-    - vpc_id
-    type: object
-  httphandlers.CreateSnapshotRequest:
-    properties:
-      description:
-        type: string
-      volume_id:
-        type: string
-    required:
-    - volume_id
-    type: object
-  httphandlers.CreateStackRequest:
-    properties:
-      name:
-        type: string
-      parameters:
-        additionalProperties:
-          type: string
-        type: object
-      template:
-        type: string
-    required:
-    - name
-    - template
-    type: object
-  httphandlers.CreateVolumeRequest:
-    properties:
-      name:
-        maxLength: 64
-        minLength: 3
-        type: string
-      size_gb:
-        maximum: 16000
-        minimum: 1
-        type: integer
-    required:
-    - name
-    - size_gb
-    type: object
-  httphandlers.CreateZoneRequest:
-    properties:
-      description:
-        type: string
-      name:
-        type: string
-      vpc_id:
-        type: string
-    required:
-    - name
-    - vpc_id
-    type: object
-  httphandlers.ForgotPasswordRequest:
-    properties:
-      email:
-        type: string
-    required:
-    - email
-    type: object
-  httphandlers.LaunchRequest:
-    properties:
-      image:
-        type: string
-      instance_type:
-        type: string
-      name:
-        type: string
-      ports:
-        type: string
-      subnet_id:
-        type: string
-      volumes:
-        items:
-          $ref: '#/definitions/httphandlers.VolumeAttachmentRequest'
-        type: array
-      vpc_id:
-        type: string
-    required:
-    - image
-    - name
-    type: object
-  httphandlers.LoginRequest:
-    properties:
-      email:
-        maxLength: 255
-        type: string
-      password:
-        maxLength: 72
-        type: string
-    required:
-    - email
-    - password
-    type: object
-  httphandlers.LoginResponse:
-    properties:
-      api_key:
-        type: string
-      user: {}
-    type: object
-  httphandlers.RegisterRequest:
-    properties:
-      email:
-        maxLength: 255
-        type: string
-      name:
-        maxLength: 100
-        minLength: 2
-        type: string
-      password:
-        maxLength: 72
-        minLength: 8
-        type: string
-    required:
-    - email
-    - name
-    - password
-    type: object
-  httphandlers.ResetPasswordRequest:
-    properties:
-      new_password:
-        maxLength: 72
-        minLength: 8
-        type: string
-      token:
-        type: string
-    required:
-    - new_password
-    - token
-    type: object
-  httphandlers.RestoreBackupRequest:
-    properties:
-      backup_path:
-        type: string
-    required:
-    - backup_path
-    type: object
-  httphandlers.RestoreSnapshotRequest:
-    properties:
-      new_volume_name:
-        maxLength: 64
-        minLength: 3
-        type: string
-    required:
-    - new_volume_name
-    type: object
-  httphandlers.ScaleClusterRequest:
-    properties:
-      workers:
-        type: integer
-    type: object
-  httphandlers.UpdateRecordRequest:
-    properties:
-      content:
-        type: string
-      priority:
-        type: integer
-      ttl:
-        type: integer
-    required:
-    - content
-    type: object
-  httphandlers.UpgradeClusterRequest:
-    properties:
-      version:
-        type: string
-    required:
-    - version
-    type: object
-  httphandlers.VolumeAttachmentRequest:
-    properties:
-      mount_path:
-        type: string
-      volume_id:
-        type: string
-    type: object
-  httphandlers.registerImageRequest:
-    properties:
-      description:
-        type: string
-      is_public:
-        type: boolean
-      name:
-        type: string
-      os:
-        type: string
-      version:
-        type: string
-    required:
-    - name
-    - os
-    - version
-    type: object
   httputil.Meta:
     properties:
       request_id:
@@ -1586,7 +1586,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.registerImageRequest'
+          $ref: '#/definitions/_.registerImageRequest'
       produces:
       - application/json
       responses:
@@ -1696,7 +1696,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.ForgotPasswordRequest'
+          $ref: '#/definitions/_.ForgotPasswordRequest'
       produces:
       - application/json
       responses:
@@ -1734,7 +1734,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.CreateKeyRequest'
+          $ref: '#/definitions/_.CreateKeyRequest'
       produces:
       - application/json
       responses:
@@ -1830,7 +1830,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.LoginRequest'
+          $ref: '#/definitions/_.LoginRequest'
       produces:
       - application/json
       responses:
@@ -1841,7 +1841,7 @@ paths:
             - $ref: '#/definitions/httputil.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/httphandlers.LoginResponse'
+                  $ref: '#/definitions/_.LoginResponse'
               type: object
       summary: Login as a user
       tags:
@@ -1857,7 +1857,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.RegisterRequest'
+          $ref: '#/definitions/_.RegisterRequest'
       produces:
       - application/json
       responses:
@@ -1884,7 +1884,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.ResetPasswordRequest'
+          $ref: '#/definitions/_.ResetPasswordRequest'
       produces:
       - application/json
       responses:
@@ -1921,7 +1921,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.CreateGroupRequest'
+          $ref: '#/definitions/_.CreateGroupRequest'
       - description: Idempotency key
         in: header
         name: Idempotency-Key
@@ -2005,7 +2005,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.CreateASPolicyRequest'
+          $ref: '#/definitions/_.CreateASPolicyRequest'
       produces:
       - application/json
       responses:
@@ -2122,7 +2122,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.CreateClusterRequest'
+          $ref: '#/definitions/_.CreateClusterRequest'
       produces:
       - application/json
       responses:
@@ -2252,7 +2252,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.RestoreBackupRequest'
+          $ref: '#/definitions/_.RestoreBackupRequest'
       responses:
         "200":
           description: OK
@@ -2288,7 +2288,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.ScaleClusterRequest'
+          $ref: '#/definitions/_.ScaleClusterRequest'
       responses:
         "200":
           description: OK
@@ -2310,7 +2310,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.UpgradeClusterRequest'
+          $ref: '#/definitions/_.UpgradeClusterRequest'
       responses:
         "202":
           description: Accepted
@@ -2382,7 +2382,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.UpdateRecordRequest'
+          $ref: '#/definitions/_.UpdateRecordRequest'
       produces:
       - application/json
       responses:
@@ -2440,7 +2440,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.CreateZoneRequest'
+          $ref: '#/definitions/_.CreateZoneRequest'
       produces:
       - application/json
       responses:
@@ -2560,7 +2560,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.CreateRecordRequest'
+          $ref: '#/definitions/_.CreateRecordRequest'
       produces:
       - application/json
       responses:
@@ -2638,7 +2638,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.CreateStackRequest'
+          $ref: '#/definitions/_.CreateStackRequest'
       produces:
       - application/json
       responses:
@@ -2758,7 +2758,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.LaunchRequest'
+          $ref: '#/definitions/_.LaunchRequest'
       produces:
       - application/json
       responses:
@@ -2981,7 +2981,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.CreateLBRequest'
+          $ref: '#/definitions/_.CreateLBRequest'
       - description: Idempotency key
         in: header
         name: Idempotency-Key
@@ -3089,7 +3089,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.AddTargetRequest'
+          $ref: '#/definitions/_.AddTargetRequest'
       produces:
       - application/json
       responses:
@@ -3161,7 +3161,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.BindRoleRequest'
+          $ref: '#/definitions/_.BindRoleRequest'
       responses:
         "204":
           description: No Content
@@ -3193,7 +3193,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.CreateRoleRequest'
+          $ref: '#/definitions/_.CreateRoleRequest'
       produces:
       - application/json
       responses:
@@ -3252,7 +3252,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.CreateRoleRequest'
+          $ref: '#/definitions/_.CreateRoleRequest'
       produces:
       - application/json
       responses:
@@ -3279,7 +3279,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.AddPermissionRequest'
+          $ref: '#/definitions/_.AddPermissionRequest'
       responses:
         "204":
           description: No Content
@@ -3349,7 +3349,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.CreateSecurityGroupRequest'
+          $ref: '#/definitions/_.CreateSecurityGroupRequest'
       produces:
       - application/json
       responses:
@@ -3477,7 +3477,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.AttachDetachSGRequest'
+          $ref: '#/definitions/_.AttachDetachSGRequest'
       produces:
       - application/json
       responses:
@@ -3509,7 +3509,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.AttachDetachSGRequest'
+          $ref: '#/definitions/_.AttachDetachSGRequest'
       produces:
       - application/json
       responses:
@@ -3588,7 +3588,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.CreateSnapshotRequest'
+          $ref: '#/definitions/_.CreateSnapshotRequest'
       produces:
       - application/json
       responses:
@@ -3682,7 +3682,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.RestoreSnapshotRequest'
+          $ref: '#/definitions/_.RestoreSnapshotRequest'
       produces:
       - application/json
       responses:
@@ -4192,7 +4192,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.CreateVolumeRequest'
+          $ref: '#/definitions/_.CreateVolumeRequest'
       produces:
       - application/json
       responses:
