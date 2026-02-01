@@ -10,6 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	testBucket = "my-bucket"
+	testKey    = "my-key"
+)
+
 func TestParseUUID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -59,12 +64,12 @@ func TestGetBucket(t *testing.T) {
 	t.Run("valid bucket", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Params = []gin.Param{{Key: "bucket", Value: "my-bucket"}}
+		c.Params = []gin.Param{{Key: "bucket", Value: testBucket}}
 
 		bucket, ok := getBucket(c)
 
 		assert.True(t, ok)
-		assert.Equal(t, "my-bucket", bucket)
+		assert.Equal(t, testBucket, bucket)
 	})
 
 	t.Run("missing bucket", func(t *testing.T) {
@@ -86,15 +91,15 @@ func TestGetBucketAndKeyRequired(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Params = []gin.Param{
-			{Key: "bucket", Value: "my-bucket"},
-			{Key: "key", Value: "my-key"},
+			{Key: "bucket", Value: testBucket},
+			{Key: "key", Value: testKey},
 		}
 
 		bucket, key, ok := getBucketAndKeyRequired(c)
 
 		assert.True(t, ok)
-		assert.Equal(t, "my-bucket", bucket)
-		assert.Equal(t, "my-key", key)
+		assert.Equal(t, testBucket, bucket)
+		assert.Equal(t, testKey, key)
 	})
 
 	t.Run("missing key", func(t *testing.T) {

@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func TestClient_Batching(t *testing.T) {
+func TestClientBatching(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	hub := NewHub(logger)
@@ -54,7 +54,7 @@ func TestClient_Batching(t *testing.T) {
 	assert.True(t, strings.Contains(payload, "msg1") || strings.Contains(payload, "msg2") || strings.Contains(payload, "msg3"))
 }
 
-func TestClient_PingPong(t *testing.T) {
+func TestClientPingPong(t *testing.T) {
 	// This is hard to test deterministically without mocking time or the ticker
 	// but we can at least verify basic connectivity handles pongs.
 	gin.SetMode(gin.TestMode)
