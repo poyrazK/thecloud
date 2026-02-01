@@ -36,6 +36,6 @@ type GatewayService interface {
 	DeleteRoute(ctx context.Context, id uuid.UUID) error
 	// RefreshRoutes triggers a reload of the proxy's internal routing table from secondary storage.
 	RefreshRoutes(ctx context.Context) error
-	// GetProxy looks up a pre-configured ReverseProxy for a given request path.
-	GetProxy(path string) (*httputil.ReverseProxy, bool)
+	// GetProxy looks up a pre-configured ReverseProxy for a given request path and extracts parameters.
+	GetProxy(path string) (*httputil.ReverseProxy, map[string]string, bool)
 }
