@@ -1,6 +1,6 @@
 -- +goose Up
 
-CREATE TABLE caches (
+CREATE TABLE IF NOT EXISTS caches (
     id UUID PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id),
     name VARCHAR(255) NOT NULL,
@@ -17,4 +17,4 @@ CREATE TABLE caches (
     UNIQUE(user_id, name)
 );
 
-CREATE INDEX idx_caches_user_id ON caches(user_id);
+CREATE INDEX IF NOT EXISTS idx_caches_user_id ON caches(user_id);

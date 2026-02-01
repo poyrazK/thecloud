@@ -1,4 +1,4 @@
-CREATE TABLE dns_zones (
+CREATE TABLE IF NOT EXISTS dns_zones (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id),
     tenant_id UUID NOT NULL REFERENCES tenants(id),
@@ -15,5 +15,5 @@ CREATE TABLE dns_zones (
     UNIQUE(vpc_id)  -- One zone per VPC
 );
 
-CREATE INDEX idx_dns_zones_vpc ON dns_zones(vpc_id);
-CREATE INDEX idx_dns_zones_tenant ON dns_zones(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_dns_zones_vpc ON dns_zones(vpc_id);
+CREATE INDEX IF NOT EXISTS idx_dns_zones_tenant ON dns_zones(tenant_id);

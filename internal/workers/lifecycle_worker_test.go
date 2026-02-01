@@ -201,3 +201,22 @@ func TestLifecycleWorkerProcessRulesDeleteError(t *testing.T) {
 	deleted := storageSvc.DeletedKeys()
 	assert.Len(t, deleted, 1)
 }
+
+func TestLifecycleWorkerRun(t *testing.T) {
+	repo := &fakeLifecycleRepo{}
+	storageSvc := &fakeLifecycleStorageService{}
+	worker := NewLifecycleWorker(repo, storageSvc, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	worker.interval = 10 * time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go worker.Run(ctx, &wg)
+
+	// Let it run for a bit
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+
+	wg.Wait()
+}

@@ -1,6 +1,6 @@
 -- +goose Up
 
-CREATE TABLE secrets (
+CREATE TABLE IF NOT EXISTS secrets (
     id UUID PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -12,4 +12,4 @@ CREATE TABLE secrets (
     CONSTRAINT secrets_name_user_key UNIQUE (name, user_id)
 );
 
-CREATE INDEX idx_secrets_user ON secrets(user_id);
+CREATE INDEX IF NOT EXISTS idx_secrets_user ON secrets(user_id);

@@ -9,4 +9,4 @@ CREATE TABLE IF NOT EXISTS api_keys (
     last_used TIMESTAMPTZ
 );
 
-CREATE INDEX idx_api_keys_key ON api_keys(key);
+CREATE INDEX IF NOT EXISTS idx_api_keys_key ON api_keys(key);

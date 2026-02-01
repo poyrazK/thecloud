@@ -1,6 +1,6 @@
 -- +goose Up
 -- CloudCron: Scheduled Tasks Service
-CREATE TABLE cron_jobs (
+CREATE TABLE IF NOT EXISTS cron_jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -16,10 +16,10 @@ CREATE TABLE cron_jobs (
     UNIQUE(user_id, name)
 );
 
-CREATE INDEX idx_cron_jobs_user_id ON cron_jobs(user_id);
-CREATE INDEX idx_cron_jobs_status_next_run ON cron_jobs(status, next_run_at) WHERE status = 'ACTIVE';
+CREATE INDEX IF NOT EXISTS idx_cron_jobs_user_id ON cron_jobs(user_id);
+CREATE INDEX IF NOT EXISTS idx_cron_jobs_status_next_run ON cron_jobs(status, next_run_at) WHERE status = 'ACTIVE';
 
-CREATE TABLE cron_job_runs (
+CREATE TABLE IF NOT EXISTS cron_job_runs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     job_id UUID NOT NULL REFERENCES cron_jobs(id) ON DELETE CASCADE,
     status VARCHAR(50) NOT NULL,
@@ -29,4 +29,4 @@ CREATE TABLE cron_job_runs (
     started_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_cron_job_runs_job_id ON cron_job_runs(job_id);
+CREATE INDEX IF NOT EXISTS idx_cron_job_runs_job_id ON cron_job_runs(job_id);

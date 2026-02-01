@@ -1,7 +1,7 @@
 -- +goose Up
 
 -- CloudQueue: Message Queue Service
-CREATE TABLE queues (
+CREATE TABLE IF NOT EXISTS queues (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -15,9 +15,9 @@ CREATE TABLE queues (
     UNIQUE(user_id, name)
 );
 
-CREATE INDEX idx_queues_user_id ON queues(user_id);
+CREATE INDEX IF NOT EXISTS idx_queues_user_id ON queues(user_id);
 
-CREATE TABLE queue_messages (
+CREATE TABLE IF NOT EXISTS queue_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     queue_id UUID NOT NULL REFERENCES queues(id) ON DELETE CASCADE,
     body TEXT NOT NULL,
@@ -28,4 +28,4 @@ CREATE TABLE queue_messages (
 );
 
 -- Index for efficient polling
-CREATE INDEX idx_messages_queue_visible ON queue_messages(queue_id, visible_at);
+CREATE INDEX IF NOT EXISTS idx_messages_queue_visible ON queue_messages(queue_id, visible_at);

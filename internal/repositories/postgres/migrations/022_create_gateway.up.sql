@@ -1,7 +1,7 @@
 -- +goose Up
 
 -- CloudGateway: API Gateway Service
-CREATE TABLE gateway_routes (
+CREATE TABLE IF NOT EXISTS gateway_routes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -15,5 +15,5 @@ CREATE TABLE gateway_routes (
     UNIQUE(path_prefix)
 );
 
-CREATE INDEX idx_gateway_routes_user_id ON gateway_routes(user_id);
-CREATE INDEX idx_gateway_routes_path_prefix ON gateway_routes(path_prefix);
+CREATE INDEX IF NOT EXISTS idx_gateway_routes_user_id ON gateway_routes(user_id);
+CREATE INDEX IF NOT EXISTS idx_gateway_routes_path_prefix ON gateway_routes(path_prefix);

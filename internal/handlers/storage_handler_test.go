@@ -1,11 +1,11 @@
 package httphandlers
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -14,52 +14,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
+	"github.com/poyrazk/thecloud/internal/platform"
+	"github.com/poyrazk/thecloud/pkg/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-)
-
-const (
-	testFileName      = "test.txt"
-	storageBucketName = "b1"
-	storageObjectPath = "/storage/:bucket/:key"
-	storageBasePath   = "/storage/"
 )
 
 type mockStorageService struct {
 	mock.Mock
 }
 
-func (m *mockStorageService) CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error) {
-	args := m.Called(ctx, name, isPublic)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.Bucket), args.Error(1)
-}
-
-func (m *mockStorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {
-	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.Bucket), args.Error(1)
-}
-
-func (m *mockStorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
-	args := m.Called(ctx, name)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.Bucket), args.Error(1)
-}
-
-func (m *mockStorageService) DeleteBucket(ctx context.Context, name string) error {
-	args := m.Called(ctx, name)
-	return args.Error(0)
-}
-
-func (m *mockStorageService) Upload(ctx context.Context, bucket, key string, content io.Reader) (*domain.Object, error) {
-	args := m.Called(ctx, bucket, key, content)
+func (m *mockStorageService) Upload(ctx context.Context, bucket, key string, r io.Reader) (*domain.Object, error) {
+	args := m.Called(ctx, bucket, key, r)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -83,37 +49,27 @@ func (m *mockStorageService) ListObjects(ctx context.Context, bucket string) ([]
 }
 
 func (m *mockStorageService) DeleteObject(ctx context.Context, bucket, key string) error {
-	args := m.Called(ctx, bucket, key)
-	return args.Error(0)
+	return m.Called(ctx, bucket, key).Error(0)
 }
 
-func (m *mockStorageService) DownloadVersion(ctx context.Context, bucket, key, versionID string) (io.ReadCloser, *domain.Object, error) {
-	args := m.Called(ctx, bucket, key, versionID)
-	if args.Get(0) == nil {
-		return nil, nil, args.Error(2)
-	}
-	return args.Get(0).(io.ReadCloser), args.Get(1).(*domain.Object), args.Error(2)
-}
-
-func (m *mockStorageService) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
-	args := m.Called(ctx, bucket, key)
+func (m *mockStorageService) CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error) {
+	args := m.Called(ctx, name, isPublic)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Object), args.Error(1)
+	return args.Get(0).(*domain.Bucket), args.Error(1)
 }
 
-func (m *mockStorageService) DeleteVersion(ctx context.Context, bucket, key, versionID string) error {
-	args := m.Called(ctx, bucket, key, versionID)
-	return args.Error(0)
-}
-
-func (m *mockStorageService) GetObject(ctx context.Context, bucket, key string) (*domain.Object, error) {
-	args := m.Called(ctx, bucket, key)
+func (m *mockStorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {
+	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Object), args.Error(1)
+	return args.Get(0).([]*domain.Bucket), args.Error(1)
+}
+
+func (m *mockStorageService) DeleteBucket(ctx context.Context, name string) error {
+	return m.Called(ctx, name).Error(0)
 }
 
 func (m *mockStorageService) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
@@ -124,9 +80,28 @@ func (m *mockStorageService) GetClusterStatus(ctx context.Context) (*domain.Stor
 	return args.Get(0).(*domain.StorageCluster), args.Error(1)
 }
 
+func (m *mockStorageService) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
+	args := m.Called(ctx, bucket, key)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Object), args.Error(1)
+}
+
+func (m *mockStorageService) DownloadVersion(ctx context.Context, bucket, key, versionID string) (io.ReadCloser, *domain.Object, error) {
+	args := m.Called(ctx, bucket, key, versionID)
+	if args.Get(0) == nil {
+		return nil, nil, args.Error(2)
+	}
+	return args.Get(0).(io.ReadCloser), args.Get(1).(*domain.Object), args.Error(2)
+}
+
+func (m *mockStorageService) DeleteVersion(ctx context.Context, bucket, key, versionID string) error {
+	return m.Called(ctx, bucket, key, versionID).Error(0)
+}
+
 func (m *mockStorageService) SetBucketVersioning(ctx context.Context, name string, enabled bool) error {
-	args := m.Called(ctx, name, enabled)
-	return args.Error(0)
+	return m.Called(ctx, name, enabled).Error(0)
 }
 
 func (m *mockStorageService) CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error) {
@@ -136,6 +111,7 @@ func (m *mockStorageService) CreateMultipartUpload(ctx context.Context, bucket, 
 	}
 	return args.Get(0).(*domain.MultipartUpload), args.Error(1)
 }
+
 func (m *mockStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
 	args := m.Called(ctx, uploadID, partNumber, r)
 	if args.Get(0) == nil {
@@ -143,6 +119,7 @@ func (m *mockStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID,
 	}
 	return args.Get(0).(*domain.Part), args.Error(1)
 }
+
 func (m *mockStorageService) CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error) {
 	args := m.Called(ctx, uploadID)
 	if args.Get(0) == nil {
@@ -150,6 +127,7 @@ func (m *mockStorageService) CompleteMultipartUpload(ctx context.Context, upload
 	}
 	return args.Get(0).(*domain.Object), args.Error(1)
 }
+
 func (m *mockStorageService) AbortMultipartUpload(ctx context.Context, uploadID uuid.UUID) error {
 	return m.Called(ctx, uploadID).Error(0)
 }
@@ -162,155 +140,486 @@ func (m *mockStorageService) GeneratePresignedURL(ctx context.Context, bucket, k
 	return args.Get(0).(*domain.PresignedURL), args.Error(1)
 }
 
-func setupStorageHandlerTest(_ *testing.T) (*mockStorageService, *StorageHandler, *gin.Engine) {
-	gin.SetMode(gin.TestMode)
-	svc := new(mockStorageService)
-	handler := NewStorageHandler(svc, nil)
-	r := gin.New()
-	return svc, handler, r
+// I'll skip some complex ones like Presigned if the interface is tricky.
+func (m *mockStorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Bucket), args.Error(1)
 }
 
-func TestStorageHandlerUpload(t *testing.T) {
-	svc, handler, r := setupStorageHandlerTest(t)
-	defer svc.AssertExpectations(t)
+func (m *mockStorageService) UploadStream(ctx context.Context, bucket, key string, r io.Reader) (*domain.Object, error) {
+	return nil, nil
+}
 
-	r.PUT(storageObjectPath, handler.Upload)
+const (
+	bucketsPath        = "/storage/buckets"
+	bucketPath         = "/storage/:bucket"
+	bucketKeyPath      = "/storage/:bucket/*key"
+	testTxtKey         = "test.txt"
+	testTxtPath        = "/test.txt"
+	testTxtFullURL     = "/storage/b1/test.txt"
+	clusterStatusPath  = "/storage/cluster/status"
+	multipartInitPath  = "/storage/multipart/init/:bucket/*key"
+	multipartPartsPath = "/storage/multipart/upload/:id/parts"
+	multipartComplPath = "/storage/multipart/complete/:id"
+	multipartAbortPath = "/storage/multipart/abort/:id"
+	versioningPath     = "/storage/buckets/:bucket/versioning"
+	versionsPath       = "/storage/versions/:bucket/*key"
+	presignPath        = "/storage/presign/:bucket/*key"
+	presignedPath      = "/storage/presigned/:bucket/*key"
+	presignTestURL     = "/storage/presign/b1/test.txt"
+	contentTypeJSON    = "application/json"
+)
 
-	obj := &domain.Object{Key: testFileName, SizeBytes: 4}
-	svc.On("Upload", mock.Anything, storageBucketName, testFileName, mock.Anything).Return(obj, nil)
+func setupStorageHandlerTest() (*mockStorageService, *StorageHandler, *gin.Engine) {
+	gin.SetMode(gin.TestMode)
+	mockSvc := new(mockStorageService)
+	handler := NewStorageHandler(mockSvc, &platform.Config{})
+	r := gin.New()
+	return mockSvc, handler, r
+}
 
+func TestStorageHandlerCreateBucket(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	r.POST(bucketsPath, handler.CreateBucket)
+
+	mockSvc.On("CreateBucket", mock.Anything, "b1", false).Return(&domain.Bucket{Name: "b1"}, nil)
+
+	body := `{"name":"b1"}`
+	req := httptest.NewRequest(http.MethodPost, bucketsPath, strings.NewReader(body))
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("PUT", storageBasePath+storageBucketName+"/"+testFileName, strings.NewReader("data"))
-	assert.NoError(t, err)
+
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
-func TestStorageHandlerDownload(t *testing.T) {
-	svc, handler, r := setupStorageHandlerTest(t)
-	defer svc.AssertExpectations(t)
+func TestStorageHandlerCreateBucketError(t *testing.T) {
+	_, handler, r := setupStorageHandlerTest()
+	r.POST(bucketsPath, handler.CreateBucket)
 
-	r.GET(storageObjectPath, handler.Download)
-
-	content := io.NopCloser(bytes.NewBufferString("hello"))
-	obj := &domain.Object{Key: testFileName, SizeBytes: 5, ContentType: "text/plain"}
-	svc.On("Download", mock.Anything, storageBucketName, testFileName).Return(content, obj, nil)
-
+	body := `{"invalid":json}`
+	req := httptest.NewRequest(http.MethodPost, bucketsPath, strings.NewReader(body))
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", storageBasePath+storageBucketName+"/"+testFileName, nil)
-	assert.NoError(t, err)
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestStorageHandlerListBuckets(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	r.GET(bucketsPath, handler.ListBuckets)
+
+	buckets := []*domain.Bucket{{Name: "b1"}}
+	mockSvc.On("ListBuckets", mock.Anything).Return(buckets, nil)
+
+	req := httptest.NewRequest(http.MethodGet, bucketsPath, nil)
+	w := httptest.NewRecorder()
+
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "hello", w.Body.String())
+}
+
+func TestStorageHandlerUpload(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	r.PUT(bucketKeyPath, handler.Upload)
+
+	obj := &domain.Object{Key: testTxtKey}
+	mockSvc.On("Upload", mock.Anything, "b1", testTxtPath, mock.Anything).Return(obj, nil)
+
+	req := httptest.NewRequest(http.MethodPut, testTxtFullURL, strings.NewReader("hello"))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
 func TestStorageHandlerList(t *testing.T) {
-	svc, handler, r := setupStorageHandlerTest(t)
-	defer svc.AssertExpectations(t)
+	mockSvc, handler, r := setupStorageHandlerTest()
+	r.GET(bucketPath, handler.List)
 
-	r.GET("/storage/:bucket", handler.List)
+	objects := []*domain.Object{{Key: testTxtKey}}
+	mockSvc.On("ListObjects", mock.Anything, "b1").Return(objects, nil)
 
-	objects := []*domain.Object{{Key: testFileName, SizeBytes: 10}}
-	svc.On("ListObjects", mock.Anything, storageBucketName).Return(objects, nil)
-
+	req := httptest.NewRequest(http.MethodGet, "/storage/b1", nil)
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", storageBasePath+storageBucketName, nil)
-	assert.NoError(t, err)
+
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestStorageHandlerDelete(t *testing.T) {
-	svc, handler, r := setupStorageHandlerTest(t)
-	defer svc.AssertExpectations(t)
+func TestStorageHandlerDeleteBucket(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	r.DELETE(bucketsPath+"/:bucket", handler.DeleteBucket)
 
-	r.DELETE(storageObjectPath, handler.Delete)
+	mockSvc.On("DeleteBucket", mock.Anything, "b1").Return(nil)
 
-	svc.On("DeleteObject", mock.Anything, storageBucketName, testFileName).Return(nil)
-
+	req := httptest.NewRequest(http.MethodDelete, bucketsPath+"/b1", nil)
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("DELETE", storageBasePath+storageBucketName+"/"+testFileName, nil)
-	assert.NoError(t, err)
+
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNoContent, w.Code)
 }
 
-func TestStorageHandlerErrorPaths(t *testing.T) {
-	setup := func(_ *testing.T) (*mockStorageService, *StorageHandler, *gin.Engine) {
-		svc := new(mockStorageService)
-		handler := NewStorageHandler(svc, nil)
-		r := gin.New()
-		return svc, handler, r
-	}
+func TestStorageHandlerDelete(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	r.DELETE(bucketKeyPath, handler.Delete)
 
-	t.Run("UploadMissingBucketOrKey", func(t *testing.T) {
-		_, handler, r := setup(t)
-		r.PUT(storageObjectPath, handler.Upload)
-		req, _ := http.NewRequest("PUT", storageBasePath+storageBucketName, nil)
-		// This URL matching might be tricky with params if one is empty.
-		// Actually if I send /storage/b1 without key, it won't match :key path segment usually.
-		// But handler logic says: bucket := c.Param("bucket"), key := c.Param("key").
-		// If I use a route like /storage/:bucket/*key, maybe?
-		// The existing route is /storage/:bucket/:key.
-		// If I request /storage/b1/ then key is empty?
-		// Let's try explicit empty key if possible or verify param logic.
-		// Actually if Params are missing from context (e.g. if I don't use router but call handler directly), it fails.
-		// But using router, if I request /storage/b1/, it might match if trailing slash enabled?
-		// Let's rely on manually setting params for this specific test to ensure we hit the check.
+	mockSvc.On("DeleteObject", mock.Anything, "b1", testTxtPath).Return(nil)
 
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Params = gin.Params{{Key: "bucket", Value: "b1"}, {Key: "key", Value: ""}}
-		c.Request = req
-		handler.Upload(c)
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-	})
+	req := httptest.NewRequest(http.MethodDelete, testTxtFullURL, nil)
+	w := httptest.NewRecorder()
 
-	t.Run("UploadServiceError", func(t *testing.T) {
-		svc, handler, r := setup(t)
-		defer svc.AssertExpectations(t)
-		r.PUT(storageObjectPath, handler.Upload)
-		svc.On("Upload", mock.Anything, storageBucketName, testFileName, mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
-		req, _ := http.NewRequest("PUT", storageBasePath+storageBucketName+"/"+testFileName, strings.NewReader("data"))
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-		assert.Equal(t, http.StatusInternalServerError, w.Code)
-	})
+	r.ServeHTTP(w, req)
 
-	t.Run("DownloadServiceError", func(t *testing.T) {
-		svc, handler, r := setup(t)
-		defer svc.AssertExpectations(t)
-		r.GET(storageObjectPath, handler.Download)
-		svc.On("Download", mock.Anything, storageBucketName, testFileName).Return(nil, nil, errors.New(errors.Internal, "error"))
-		req, _ := http.NewRequest("GET", storageBasePath+storageBucketName+"/"+testFileName, nil)
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-		assert.Equal(t, http.StatusInternalServerError, w.Code)
-	})
+	assert.Equal(t, http.StatusNoContent, w.Code)
+}
 
-	t.Run("ListServiceError", func(t *testing.T) {
-		svc, handler, r := setup(t)
-		defer svc.AssertExpectations(t)
-		r.GET("/storage/:bucket", handler.List)
-		svc.On("ListObjects", mock.Anything, storageBucketName).Return(nil, errors.New(errors.Internal, "error"))
-		req, _ := http.NewRequest("GET", storageBasePath+storageBucketName, nil)
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-		assert.Equal(t, http.StatusInternalServerError, w.Code)
-	})
+func TestStorageHandlerDownload(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	r.GET(bucketKeyPath, handler.Download)
 
-	t.Run("DeleteServiceError", func(t *testing.T) {
-		svc, handler, r := setup(t)
-		defer svc.AssertExpectations(t)
-		r.DELETE(storageObjectPath, handler.Delete)
-		svc.On("DeleteObject", mock.Anything, storageBucketName, testFileName).Return(errors.New(errors.Internal, "error"))
-		req, _ := http.NewRequest("DELETE", storageBasePath+storageBucketName+"/"+testFileName, nil)
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-		assert.Equal(t, http.StatusInternalServerError, w.Code)
-	})
+	content := "hello world"
+	reader := io.NopCloser(strings.NewReader(content))
+	obj := &domain.Object{Key: testTxtKey, SizeBytes: int64(len(content)), ContentType: "text/plain"}
+
+	mockSvc.On("Download", mock.Anything, "b1", testTxtPath).Return(reader, obj, nil)
+
+	req := httptest.NewRequest(http.MethodGet, testTxtFullURL, nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, content, w.Body.String())
+}
+
+func TestStorageHandlerGetClusterStatus(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	r.GET(clusterStatusPath, handler.GetClusterStatus)
+
+	status := &domain.StorageCluster{Nodes: []domain.StorageNode{{ID: "n1"}}}
+	mockSvc.On("GetClusterStatus", mock.Anything).Return(status, nil)
+
+	req := httptest.NewRequest(http.MethodGet, clusterStatusPath, nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestStorageHandlerMultipartUpload(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	r.POST("/storage/multipart/init/:bucket/*key", handler.InitiateMultipartUpload)
+	r.PUT("/storage/multipart/upload/:id/parts", handler.UploadPart)
+	r.POST("/storage/multipart/complete/:id", handler.CompleteMultipartUpload)
+	r.DELETE("/storage/multipart/abort/:id", handler.AbortMultipartUpload)
+
+	uploadID := uuid.New()
+
+	// Initiate
+	mockSvc.On("CreateMultipartUpload", mock.Anything, "b1", testTxtPath).Return(&domain.MultipartUpload{ID: uploadID}, nil)
+	req := httptest.NewRequest(http.MethodPost, "/storage/multipart/init/b1/test.txt", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	// Upload Part
+	mockSvc.On("UploadPart", mock.Anything, uploadID, 1, mock.Anything).Return(&domain.Part{PartNumber: 1}, nil)
+	req = httptest.NewRequest(http.MethodPut, "/storage/multipart/upload/"+uploadID.String()+"/parts?part=1", strings.NewReader("data"))
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Complete
+	mockSvc.On("CompleteMultipartUpload", mock.Anything, uploadID).Return(&domain.Object{Key: testTxtKey}, nil)
+	req = httptest.NewRequest(http.MethodPost, "/storage/multipart/complete/"+uploadID.String(), nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Abort
+	mockSvc.On("AbortMultipartUpload", mock.Anything, uploadID).Return(nil)
+	req = httptest.NewRequest(http.MethodDelete, "/storage/multipart/abort/"+uploadID.String(), nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusNoContent, w.Code)
+}
+
+func TestStorageHandlerVersioning(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	r.PATCH("/storage/buckets/:bucket/versioning", handler.SetBucketVersioning)
+	r.GET("/storage/versions/:bucket/*key", handler.ListVersions)
+
+	// Set Versioning
+	mockSvc.On("SetBucketVersioning", mock.Anything, "b1", true).Return(nil)
+	body := `{"enabled":true}`
+	req := httptest.NewRequest(http.MethodPatch, "/storage/buckets/b1/versioning", strings.NewReader(body))
+	req.Header.Set(headerContentType, contentTypeJSON)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// List Versions
+	versions := []*domain.Object{{Key: testTxtKey, VersionID: "v1"}}
+	mockSvc.On("ListVersions", mock.Anything, "b1", testTxtPath).Return(versions, nil)
+	req = httptest.NewRequest(http.MethodGet, "/storage/versions/b1/test.txt", nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestStorageHandlerPresigned(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	// Set secret for signed URL verification
+	handler.cfg.StorageSecret = "secret"
+
+	r.POST(presignPath, handler.GeneratePresignedURL)
+	r.GET(presignedPath, handler.ServePresignedDownload)
+
+	// Generate
+	mockSvc.On("GeneratePresignedURL", mock.Anything, "b1", testTxtPath, "GET", mock.Anything).Return(&domain.PresignedURL{URL: "http://test.com"}, nil)
+	body := `{"method":"GET"}`
+	req := httptest.NewRequest(http.MethodPost, presignTestURL, strings.NewReader(body))
+	req.Header.Set(headerContentType, contentTypeJSON)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Serve (Download)
+
+	signedURL, _ := crypto.SignURL("secret", "http://localhost", "GET", "b1", testTxtKey, time.Now().Add(time.Hour))
+	u, _ := url.Parse(signedURL)
+
+	content := "presigned content"
+	reader := io.NopCloser(strings.NewReader(content))
+	obj := &domain.Object{Key: testTxtKey, SizeBytes: int64(len(content)), ContentType: "text/plain"}
+	mockSvc.On("Download", mock.Anything, "b1", testTxtPath).Return(reader, obj, nil)
+
+	req = httptest.NewRequest(http.MethodGet, u.String(), nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, content, w.Body.String())
+}
+
+func TestStorageHandlerPresignedUpload(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	handler.cfg.StorageSecret = "secret"
+	r.PUT(presignedPath, handler.ServePresignedUpload)
+
+	signedURL, _ := crypto.SignURL("secret", "http://localhost", "PUT", "b1", testTxtKey, time.Now().Add(time.Hour))
+	u, _ := url.Parse(signedURL)
+
+	obj := &domain.Object{Key: testTxtKey}
+	mockSvc.On("Upload", mock.Anything, "b1", testTxtPath, mock.Anything).Return(obj, nil)
+
+	req := httptest.NewRequest(http.MethodPut, u.String(), strings.NewReader("uploaded content"))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+}
+
+func TestStorageHandlerUploadError(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	r.PUT(bucketKeyPath, handler.Upload)
+
+	mockSvc.On("Upload", mock.Anything, "b1", testTxtPath, mock.Anything).Return(nil, errors.New(errors.Internal, "upload failed"))
+
+	req := httptest.NewRequest(http.MethodPut, testTxtFullURL, strings.NewReader("hello"))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestStorageHandlerListError(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	r.GET(bucketPath, handler.List)
+
+	mockSvc.On("ListObjects", mock.Anything, "b1").Return(nil, errors.New(errors.Internal, "list failed"))
+
+	req := httptest.NewRequest(http.MethodGet, "/storage/b1", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestStorageHandlerDeleteError(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	r.DELETE(bucketKeyPath, handler.Delete)
+
+	mockSvc.On("DeleteObject", mock.Anything, "b1", testTxtPath).Return(errors.New(errors.Internal, "delete failed"))
+
+	req := httptest.NewRequest(http.MethodDelete, testTxtFullURL, nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestStorageHandlerListBucketsError(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	r.GET(bucketsPath, handler.ListBuckets)
+
+	mockSvc.On("ListBuckets", mock.Anything).Return(nil, errors.New(errors.Internal, "list buckets failed"))
+
+	req := httptest.NewRequest(http.MethodGet, bucketsPath, nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestStorageHandlerDeleteBucketErrorCase(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	r.DELETE(bucketsPath+"/:bucket", handler.DeleteBucket)
+
+	mockSvc.On("DeleteBucket", mock.Anything, "b1").Return(errors.New(errors.Internal, "delete bucket failed"))
+
+	req := httptest.NewRequest(http.MethodDelete, bucketsPath+"/b1", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestStorageHandlerGetClusterStatusError(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	r.GET(clusterStatusPath, handler.GetClusterStatus)
+
+	mockSvc.On("GetClusterStatus", mock.Anything).Return(nil, errors.New(errors.Internal, "cluster status failed"))
+
+	req := httptest.NewRequest(http.MethodGet, clusterStatusPath, nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestStorageHandlerMultipartErrors(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	r.POST(multipartInitPath, handler.InitiateMultipartUpload)
+	r.PUT(multipartPartsPath, handler.UploadPart)
+	r.POST(multipartComplPath, handler.CompleteMultipartUpload)
+	r.DELETE(multipartAbortPath, handler.AbortMultipartUpload)
+
+	uploadID := uuid.New()
+
+	// Init Error
+	mockSvc.On("CreateMultipartUpload", mock.Anything, "b1", testTxtPath).Return(nil, errors.New(errors.Internal, "init failed"))
+	req := httptest.NewRequest(http.MethodPost, "/storage/multipart/init/b1/test.txt", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+	// Upload Part Error
+	mockSvc.On("UploadPart", mock.Anything, uploadID, 1, mock.Anything).Return(nil, errors.New(errors.Internal, "part failed"))
+	req = httptest.NewRequest(http.MethodPut, "/storage/multipart/upload/"+uploadID.String()+"/parts?part=1", strings.NewReader("data"))
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+	// Complete Error
+	mockSvc.On("CompleteMultipartUpload", mock.Anything, uploadID).Return(nil, errors.New(errors.Internal, "complete failed"))
+	req = httptest.NewRequest(http.MethodPost, "/storage/multipart/complete/"+uploadID.String(), nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+	// Abort Error
+	mockSvc.On("AbortMultipartUpload", mock.Anything, uploadID).Return(errors.New(errors.Internal, "abort failed"))
+	req = httptest.NewRequest(http.MethodDelete, "/storage/multipart/abort/"+uploadID.String(), nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestStorageHandlerVersioningErrors(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	r.PATCH(versioningPath, handler.SetBucketVersioning)
+	r.GET(versionsPath, handler.ListVersions)
+
+	// Set Error
+	mockSvc.On("SetBucketVersioning", mock.Anything, "b1", true).Return(errors.New(errors.Internal, "set versioning failed"))
+	body := `{"enabled":true}`
+	req := httptest.NewRequest(http.MethodPatch, "/storage/buckets/b1/versioning", strings.NewReader(body))
+	req.Header.Set(headerContentType, contentTypeJSON)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+	// List Error
+	mockSvc.On("ListVersions", mock.Anything, "b1", testTxtPath).Return(nil, errors.New(errors.Internal, "list versions failed"))
+	req = httptest.NewRequest(http.MethodGet, "/storage/versions/b1/test.txt", nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestStorageHandlerPresignedErrors(t *testing.T) {
+	mockSvc, handler, r := setupStorageHandlerTest()
+	handler.cfg.StorageSecret = "secret"
+
+	r.POST(presignPath, handler.GeneratePresignedURL)
+	r.GET(presignedPath, handler.ServePresignedDownload)
+	r.PUT(presignedPath, handler.ServePresignedUpload)
+
+	// Generate Error - Bind
+	req := httptest.NewRequest(http.MethodPost, presignTestURL, strings.NewReader("invalid"))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	// Generate Error - Svc
+	mockSvc.On("GeneratePresignedURL", mock.Anything, "b1", testTxtPath, "GET", mock.Anything).Return(nil, errors.New(errors.Internal, "presign failed"))
+	body := `{"method":"GET"}`
+	req = httptest.NewRequest(http.MethodPost, presignTestURL, strings.NewReader(body))
+	req.Header.Set(headerContentType, contentTypeJSON)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+	// Serve Download Error - Signature
+	req = httptest.NewRequest(http.MethodGet, "/storage/presigned/b1/test.txt?signature=invalid&expires=123", nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusForbidden, w.Code)
+
+	// Serve Upload Error - Signature
+	req = httptest.NewRequest(http.MethodPut, "/storage/presigned/b1/test.txt?signature=invalid&expires=123", nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestStorageHandlerPresignedMissingSecret(t *testing.T) {
+	_, handler, r := setupStorageHandlerTest()
+	// Ensure secret is empty (default in new config)
+	handler.cfg.StorageSecret = ""
+
+	r.GET(presignedPath, handler.ServePresignedDownload)
+	r.PUT(presignedPath, handler.ServePresignedUpload)
+
+	// Download - Missing Secret
+	req := httptest.NewRequest(http.MethodGet, "/storage/presigned/b1/test.txt?signature=sig&expires=123", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+	// Upload - Missing Secret
+	req = httptest.NewRequest(http.MethodPut, "/storage/presigned/b1/test.txt?signature=sig&expires=123", nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }

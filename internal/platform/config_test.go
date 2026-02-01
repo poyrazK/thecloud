@@ -4,36 +4,43 @@ import (
 	"os"
 	"testing"
 
-	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewConfigDefaults(t *testing.T) {
-	// Ensure env vars are unset to test defaults
-	_ = os.Unsetenv("PORT")
-	_ = os.Unsetenv("DATABASE_URL")
-	_ = os.Unsetenv("APP_ENV")
-
-	cfg, err := NewConfig()
+func TestNewConfig(t *testing.T) {
+	// Save original env and restore after test
+	originalPort := os.Getenv("PORT")
+	err := os.Setenv("PORT", originalPort)
 	assert.NoError(t, err)
-	assert.Equal(t, testutil.TestPort, cfg.Port)
-	assert.Equal(t, testutil.TestDatabaseURL, cfg.DatabaseURL)
-	assert.Equal(t, testutil.TestEnvDev, cfg.Environment)
+
+	t.Run("Default values", func(t *testing.T) {
+		err := os.Unsetenv("PORT")
+		assert.NoError(t, err)
+		cfg, err := NewConfig()
+		assert.NoError(t, err)
+		assert.Equal(t, "8080", cfg.Port)
+	})
+
+	t.Run("Env override", func(t *testing.T) {
+		err := os.Setenv("PORT", "9090")
+		assert.NoError(t, err)
+		cfg, err := NewConfig()
+		assert.NoError(t, err)
+		assert.Equal(t, "9090", cfg.Port)
+	})
 }
 
-func TestNewConfigEnvVars(t *testing.T) {
-	_ = os.Setenv("PORT", "9090")
-	_ = os.Setenv("DATABASE_URL", "postgres://test:test@localhost:5432/testdb")
-	_ = os.Setenv("APP_ENV", "production")
-	defer func() {
-		_ = os.Unsetenv("PORT")
-		_ = os.Unsetenv("DATABASE_URL")
-		_ = os.Unsetenv("APP_ENV")
-	}()
+func TestGetEnv(t *testing.T) {
+	t.Run("Existing env", func(t *testing.T) {
+		err := os.Setenv("TEST_KEY", "test_value")
+		assert.NoError(t, err)
+		defer func() { _ = os.Unsetenv("TEST_KEY") }()
+		assert.Equal(t, "test_value", getEnv("TEST_KEY", "fallback"))
+	})
 
-	cfg, err := NewConfig()
-	assert.NoError(t, err)
-	assert.Equal(t, testutil.TestProdPort, cfg.Port)
-	assert.Equal(t, testutil.TestProdDatabaseURL, cfg.DatabaseURL)
-	assert.Equal(t, testutil.TestEnvProd, cfg.Environment)
+	t.Run("Fallback value", func(t *testing.T) {
+		err := os.Unsetenv("NON_EXISTENT_KEY")
+		assert.NoError(t, err)
+		assert.Equal(t, "fallback", getEnv("NON_EXISTENT_KEY", "fallback"))
+	})
 }

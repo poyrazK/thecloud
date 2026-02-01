@@ -11,6 +11,6 @@ CREATE TABLE IF NOT EXISTS lifecycle_rules (
     UNIQUE(bucket_name, prefix)
 );
 
-CREATE INDEX idx_lifecycle_rules_enabled ON lifecycle_rules(enabled) WHERE enabled = TRUE;
-CREATE INDEX idx_lifecycle_rules_bucket ON lifecycle_rules(bucket_name);
+CREATE INDEX IF NOT EXISTS idx_lifecycle_rules_enabled ON lifecycle_rules(enabled) WHERE enabled = TRUE;
+CREATE INDEX IF NOT EXISTS idx_lifecycle_rules_bucket ON lifecycle_rules(bucket_name);
 

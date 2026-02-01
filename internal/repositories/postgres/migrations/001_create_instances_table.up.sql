@@ -14,5 +14,5 @@ CREATE TABLE IF NOT EXISTS instances (
 );
 
 -- Index for faster status-based filtering and listing
-CREATE INDEX idx_instances_status ON instances(status);
-CREATE INDEX idx_instances_created_at ON instances(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_instances_status ON instances(status);
+CREATE INDEX IF NOT EXISTS idx_instances_created_at ON instances(created_at DESC);

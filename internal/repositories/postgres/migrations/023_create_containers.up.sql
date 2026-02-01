@@ -1,7 +1,7 @@
 -- +goose Up
 
 -- CloudContainers: Container Orchestration Service
-CREATE TABLE deployments (
+CREATE TABLE IF NOT EXISTS deployments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -15,9 +15,9 @@ CREATE TABLE deployments (
     UNIQUE(user_id, name)
 );
 
-CREATE INDEX idx_deployments_user_id ON deployments(user_id);
+CREATE INDEX IF NOT EXISTS idx_deployments_user_id ON deployments(user_id);
 
-CREATE TABLE deployment_containers (
+CREATE TABLE IF NOT EXISTS deployment_containers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     deployment_id UUID NOT NULL REFERENCES deployments(id) ON DELETE CASCADE,
     instance_id UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
@@ -25,4 +25,4 @@ CREATE TABLE deployment_containers (
     UNIQUE(instance_id) -- An instance can only belong to one deployment
 );
 
-CREATE INDEX idx_deployment_containers_deployment_id ON deployment_containers(deployment_id);
+CREATE INDEX IF NOT EXISTS idx_deployment_containers_deployment_id ON deployment_containers(deployment_id);

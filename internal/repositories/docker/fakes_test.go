@@ -24,8 +24,10 @@ type fakeDockerClient struct {
 
 	inspect container.InspectResponse
 
-	removeErr error
-	stopErr   error
+	removeErr          error
+	stopErr            error
+	containerCreateErr error
+	containerStartErr  error
 
 	statsErr error
 	statsRC  io.ReadCloser
@@ -58,11 +60,11 @@ func (f *fakeDockerClient) ImagePull(ctx context.Context, ref string, options im
 }
 
 func (f *fakeDockerClient) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *v1.Platform, containerName string) (container.CreateResponse, error) {
-	return container.CreateResponse{ID: "cid"}, nil
+	return container.CreateResponse{ID: "cid"}, f.containerCreateErr
 }
 
 func (f *fakeDockerClient) ContainerStart(ctx context.Context, containerID string, options container.StartOptions) error {
-	return nil
+	return f.containerStartErr
 }
 
 func (f *fakeDockerClient) ContainerStop(ctx context.Context, containerID string, options container.StopOptions) error {

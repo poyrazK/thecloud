@@ -1,4 +1,4 @@
-CREATE TABLE dns_records (
+CREATE TABLE IF NOT EXISTS dns_records (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     zone_id UUID NOT NULL REFERENCES dns_zones(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -13,6 +13,6 @@ CREATE TABLE dns_records (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_dns_records_zone ON dns_records(zone_id);
-CREATE INDEX idx_dns_records_instance ON dns_records(instance_id) WHERE instance_id IS NOT NULL;
-CREATE INDEX idx_dns_records_lookup ON dns_records(zone_id, name, type);
+CREATE INDEX IF NOT EXISTS idx_dns_records_zone ON dns_records(zone_id);
+CREATE INDEX IF NOT EXISTS idx_dns_records_instance ON dns_records(instance_id) WHERE instance_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_dns_records_lookup ON dns_records(zone_id, name, type);

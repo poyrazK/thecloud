@@ -9,4 +9,4 @@ CREATE TABLE IF NOT EXISTS events (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_events_created_at ON events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at DESC);

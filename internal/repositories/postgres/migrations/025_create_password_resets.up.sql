@@ -9,4 +9,4 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_password_resets_token_hash ON password_reset_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_password_resets_token_hash ON password_reset_tokens(token_hash);

@@ -2087,3 +2087,16 @@ func (m *MockTenantService) GetMembership(ctx context.Context, tenantID, userID 
 	}
 	return args.Get(0).(*domain.TenantMember), args.Error(1)
 }
+
+// MockInstanceTypeService
+type MockInstanceTypeService struct {
+	mock.Mock
+}
+
+func (m *MockInstanceTypeService) List(ctx context.Context) ([]*domain.InstanceType, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.InstanceType), args.Error(1)
+}

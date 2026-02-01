@@ -1,4 +1,4 @@
-CREATE TABLE multipart_uploads (
+CREATE TABLE IF NOT EXISTS multipart_uploads (
     id UUID PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id),
     bucket TEXT NOT NULL,
@@ -6,7 +6,7 @@ CREATE TABLE multipart_uploads (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE multipart_parts (
+CREATE TABLE IF NOT EXISTS multipart_parts (
     upload_id UUID NOT NULL REFERENCES multipart_uploads(id) ON DELETE CASCADE,
     part_number INTEGER NOT NULL,
     size_bytes BIGINT NOT NULL,

@@ -1,6 +1,6 @@
 -- +goose Up
 
-CREATE TABLE objects (
+CREATE TABLE IF NOT EXISTS objects (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     arn VARCHAR(512) NOT NULL UNIQUE,
     bucket VARCHAR(255) NOT NULL,
@@ -11,4 +11,4 @@ CREATE TABLE objects (
     deleted_at TIMESTAMPTZ,
     UNIQUE (bucket, key)
 );
-CREATE INDEX idx_objects_bucket ON objects(bucket);
+CREATE INDEX IF NOT EXISTS idx_objects_bucket ON objects(bucket);

@@ -1,6 +1,6 @@
 -- +goose Up
 
-CREATE TABLE stacks (
+CREATE TABLE IF NOT EXISTS stacks (
     id UUID PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id),
     name TEXT NOT NULL,
@@ -13,7 +13,7 @@ CREATE TABLE stacks (
     UNIQUE(user_id, name)
 );
 
-CREATE TABLE stack_resources (
+CREATE TABLE IF NOT EXISTS stack_resources (
     id UUID PRIMARY KEY,
     stack_id UUID NOT NULL REFERENCES stacks(id) ON DELETE CASCADE,
     logical_id TEXT NOT NULL,

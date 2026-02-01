@@ -535,3 +535,36 @@ func TestInstanceServiceGetVolumeByIDOrName(t *testing.T) {
 	// But LaunchInstance/TerminateInstance/etc might call it?
 	// Actually, only LaunchInstance calls resolveVolumes which calls it.
 }
+
+func TestProvisionInstanceTypeResolutionError(t *testing.T) {
+	repo, _, _, _, compute, _, _, _, itRepo, _, svc := setupInstanceServiceTest(t)
+	defer repo.AssertExpectations(t)
+	defer itRepo.AssertExpectations(t)
+	defer compute.AssertExpectations(t)
+
+	id := uuid.New()
+	inst := &domain.Instance{
+		ID:           id,
+		InstanceType: "unknown-type",
+		Status:       domain.StatusStarting,
+	}
+
+	repo.On("GetByID", mock.Anything, id).Return(inst, nil)
+	compute.On("Type").Return("noop")
+
+	// Expect GetByID for instance type to fail
+	itRepo.On("GetByID", mock.Anything, "unknown-type").Return(nil, assert.AnError)
+
+	// Expect status update to Error
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
+		return i.ID == id && i.Status == domain.StatusError
+	})).Return(nil)
+
+	// Cast to concrete type to access Provision
+	realSvc, ok := svc.(*services.InstanceService)
+	assert.True(t, ok)
+
+	err := realSvc.Provision(context.Background(), id, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to resolve instance type")
+}

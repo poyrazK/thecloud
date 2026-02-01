@@ -3,7 +3,7 @@
 ALTER TABLE instances ADD COLUMN IF NOT EXISTS instance_type TEXT DEFAULT 'basic-2';
 
 -- Create instance_types reference table
-CREATE TABLE instance_types (
+CREATE TABLE IF NOT EXISTS instance_types (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     vcpus INT NOT NULL,

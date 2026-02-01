@@ -15,10 +15,10 @@ CREATE TABLE IF NOT EXISTS metrics_history (
 );
 
 -- Index for time-series queries (recent metrics first)
-CREATE INDEX idx_metrics_instance_time ON metrics_history(instance_id, recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_metrics_instance_time ON metrics_history(instance_id, recorded_at DESC);
 
 -- Index for cleanup queries (delete old metrics)
-CREATE INDEX idx_metrics_recorded_at ON metrics_history(recorded_at);
+CREATE INDEX IF NOT EXISTS idx_metrics_recorded_at ON metrics_history(recorded_at);
 
 -- Partitioning hint: In production, consider partitioning by recorded_at
 COMMENT ON TABLE metrics_history IS 'Stores time-series metrics for dashboard visualization';

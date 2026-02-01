@@ -337,3 +337,39 @@ func TestInstanceRepositoryDelete(t *testing.T) {
 		}
 	})
 }
+
+func TestInstanceRepositoryListAll(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewInstanceRepository(mock)
+	now := time.Now()
+
+	mock.ExpectQuery(selectQuery).
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "instance_type", "version", "created_at", "updated_at"}).
+			AddRow(uuid.New(), uuid.New(), uuid.New(), testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", testInstanceType, 1, now, now))
+
+	list, err := repo.ListAll(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, list, 1)
+}
+
+func TestInstanceRepositoryScanError(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewInstanceRepository(mock)
+	id := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(context.Background(), tenantID)
+
+	mock.ExpectQuery(selectQuery).
+		WithArgs(id, tenantID).
+		WillReturnError(errors.New("scan failed"))
+
+	inst, err := repo.GetByID(ctx, id)
+	assert.Error(t, err)
+	assert.Nil(t, inst)
+}

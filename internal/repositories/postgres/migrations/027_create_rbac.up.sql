@@ -1,13 +1,13 @@
 -- +goose Up
 
-CREATE TABLE roles (
+CREATE TABLE IF NOT EXISTS roles (
     id UUID PRIMARY KEY,
     name TEXT UNIQUE NOT NULL,
     description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE role_permissions (
+CREATE TABLE IF NOT EXISTS role_permissions (
     role_id UUID REFERENCES roles(id) ON DELETE CASCADE,
     permission TEXT NOT NULL,
     PRIMARY KEY (role_id, permission)

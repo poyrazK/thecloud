@@ -343,3 +343,37 @@ func TestVolumeRepositoryDelete(t *testing.T) {
 		}
 	})
 }
+func TestVolumeRepositoryConcurrentList(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	assert.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewVolumeRepository(mock)
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
+	now := time.Now()
+
+	// Expect multiple queries
+	concurrency := 10
+	for i := 0; i < concurrency; i++ {
+		mock.ExpectQuery(testSelectVolume).
+			WithArgs(tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "size_gb", "status", "instance_id", "backend_path", "mount_path", "created_at", "updated_at"}).
+				AddRow(uuid.New(), userID, tenantID, "vol-1", 10, string(domain.VolumeStatusAvailable), nil, "", testMountPath, now, now))
+	}
+
+	done := make(chan bool)
+	for i := 0; i < concurrency; i++ {
+		go func() {
+			vols, err := repo.List(ctx)
+			assert.NoError(t, err)
+			assert.NotNil(t, vols)
+			done <- true
+		}()
+	}
+
+	for i := 0; i < concurrency; i++ {
+		<-done
+	}
+}

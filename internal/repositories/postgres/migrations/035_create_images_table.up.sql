@@ -1,4 +1,4 @@
-CREATE TABLE images (
+CREATE TABLE IF NOT EXISTS images (
     id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -14,5 +14,5 @@ CREATE TABLE images (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_images_user_id ON images(user_id);
-CREATE INDEX idx_images_status ON images(status);
+CREATE INDEX IF NOT EXISTS idx_images_user_id ON images(user_id);
+CREATE INDEX IF NOT EXISTS idx_images_status ON images(status);

@@ -1,6 +1,6 @@
 -- +goose Up
 
-CREATE TABLE databases (
+CREATE TABLE IF NOT EXISTS databases (
     id UUID PRIMARY KEY,
     user_id UUID REFERENCES users(id) ON DELETE RESTRICT,
     name VARCHAR(255) NOT NULL,
@@ -16,5 +16,5 @@ CREATE TABLE databases (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_databases_user_id ON databases(user_id);
+CREATE INDEX IF NOT EXISTS idx_databases_user_id ON databases(user_id);
 CREATE UNIQUE INDEX idx_databases_name_user ON databases(name, user_id);

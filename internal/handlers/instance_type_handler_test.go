@@ -58,4 +58,15 @@ func TestInstanceTypeHandlerList(t *testing.T) {
 
 		mockSvc.AssertExpectations(t)
 	})
+
+	t.Run("error", func(t *testing.T) {
+		mockSvc.On("List", mock.Anything).Return(nil, assert.AnError).Once()
+
+		req, _ := http.NewRequest(http.MethodGet, "/instance-types", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		mockSvc.AssertExpectations(t)
+	})
 }

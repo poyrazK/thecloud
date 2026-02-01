@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -419,7 +420,7 @@ func (h *StorageHandler) ServePresignedDownload(c *gin.Context) {
 		httputil.Error(c, errors.New(errors.Internal, "storage secret not configured"))
 		return
 	}
-	path := fmt.Sprintf("/storage/presigned/%s/%s", bucket, key)
+	path := fmt.Sprintf("/storage/presigned/%s/%s", bucket, strings.TrimPrefix(key, "/"))
 
 	if err := crypto.VerifyURL(secret, http.MethodGet, path, expires, signature); err != nil {
 		httputil.Error(c, errors.New(errors.Forbidden, "invalid or expired signature"))
@@ -460,7 +461,7 @@ func (h *StorageHandler) ServePresignedUpload(c *gin.Context) {
 		httputil.Error(c, errors.New(errors.Internal, "storage secret not configured"))
 		return
 	}
-	path := fmt.Sprintf("/storage/presigned/%s/%s", bucket, key)
+	path := fmt.Sprintf("/storage/presigned/%s/%s", bucket, strings.TrimPrefix(key, "/"))
 
 	if err := crypto.VerifyURL(secret, http.MethodPut, path, expires, signature); err != nil {
 		httputil.Error(c, errors.New(errors.Forbidden, "invalid or expired signature"))

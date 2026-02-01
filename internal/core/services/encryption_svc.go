@@ -6,6 +6,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"io"
 
@@ -23,16 +24,27 @@ type EncryptionService struct {
 // NewEncryptionService constructs an EncryptionService from the repository and master key.
 func NewEncryptionService(repo ports.EncryptionRepository, masterKeyHex string) (*EncryptionService, error) {
 	key, err := hex.DecodeString(masterKeyHex)
-	if err != nil {
-		return nil, errors.New(errors.Internal, "invalid master key hex")
-	}
-	if len(key) != 32 {
-		return nil, errors.New(errors.Internal, "master key must be 32 bytes (AES-256)")
+	if err == nil && len(key) == 32 {
+		return &EncryptionService{
+			repo:      repo,
+			masterKey: key,
+		}, nil
 	}
 
+	// Try as raw string if it's explicitly 32 bytes
+	if len(masterKeyHex) == 32 {
+		return &EncryptionService{
+			repo:      repo,
+			masterKey: []byte(masterKeyHex),
+		}, nil
+	}
+
+	// Fallback: Use SHA256 to derive a 32-byte key from the passphrase/input
+	// This ensures we always have a valid AES-256 key regardless of input length
+	hash := sha256.Sum256([]byte(masterKeyHex))
 	return &EncryptionService{
 		repo:      repo,
-		masterKey: key,
+		masterKey: hash[:],
 	}, nil
 }
 

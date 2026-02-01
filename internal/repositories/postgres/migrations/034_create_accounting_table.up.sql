@@ -10,5 +10,5 @@ CREATE TABLE IF NOT EXISTS usage_records (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_usage_user_period ON usage_records(user_id, start_time, end_time);
-CREATE INDEX idx_usage_resource ON usage_records(resource_id);
+CREATE INDEX IF NOT EXISTS idx_usage_user_period ON usage_records(user_id, start_time, end_time);
+CREATE INDEX IF NOT EXISTS idx_usage_resource ON usage_records(resource_id);
