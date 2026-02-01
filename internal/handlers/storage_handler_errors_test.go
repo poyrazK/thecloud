@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -66,7 +67,7 @@ func TestStorageHandlerErrors(t *testing.T) { //nolint:gocyclo
 			setupMock: func(m *mockStorageService) {
 				// No mock call expected
 			},
-			checkCode: http.StatusNotFound,
+			checkCode: http.StatusBadRequest,
 		},
 		{
 			name:   "DeleteBucket Service Error",
@@ -85,6 +86,12 @@ func TestStorageHandlerErrors(t *testing.T) { //nolint:gocyclo
 			name:   "InitiateMultipartUpload Service Error",
 			method: http.MethodPost,
 			path:   "/storage/b1/key1/multipart",
+			setupCtx: func(c *gin.Context) {
+				c.Params = []gin.Param{
+					{Key: "bucket", Value: "b1"},
+					{Key: "key", Value: "/key1"},
+				}
+			},
 			setupMock: func(m *mockStorageService) {
 				m.On("CreateMultipartUpload", mock.Anything, "b1", "/key1").
 					Return(nil, internalerrors.New(internalerrors.Internal, "init failed"))
@@ -222,7 +229,7 @@ func TestStorageHandlerErrors(t *testing.T) { //nolint:gocyclo
 				}
 			},
 			setupMock: func(m *mockStorageService) {
-				m.On("GeneratePresignedURL", mock.Anything, "b1", "/key1", "GET", 0).
+				m.On("GeneratePresignedURL", mock.Anything, "b1", "/key1", "GET", time.Duration(0)).
 					Return(nil, internalerrors.New(internalerrors.Internal, "presign failed"))
 			},
 			checkCode: http.StatusInternalServerError,
