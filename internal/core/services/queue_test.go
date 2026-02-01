@@ -1,240 +1,182 @@
-package services
+package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
-	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
-	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-const testQueueName = "test-queue"
+func setupQueueServiceTest(t *testing.T) (ports.QueueService, ports.QueueRepository, context.Context, *pgxpool.Pool) {
+	db := setupDB(t)
+	// We don't close DB here, caller should do it via defer
 
-type mockQueueRepository struct {
-	mock.Mock
-}
+	cleanDB(t, db)
+	ctx := setupTestUser(t, db)
 
-func (m *mockQueueRepository) Create(ctx context.Context, q *domain.Queue) error {
-	args := m.Called(ctx, q)
-	return args.Error(0)
-}
+	repo := postgres.NewPostgresQueueRepository(db)
 
-func (m *mockQueueRepository) GetByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*domain.Queue, error) {
-	args := m.Called(ctx, id, userID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.Queue), args.Error(1)
-}
+	eventRepo := postgres.NewEventRepository(db)
+	eventSvc := services.NewEventService(eventRepo, nil, slog.Default())
 
-func (m *mockQueueRepository) GetByName(ctx context.Context, name string, userID uuid.UUID) (*domain.Queue, error) {
-	args := m.Called(ctx, name, userID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.Queue), args.Error(1)
-}
+	auditRepo := postgres.NewAuditRepository(db)
+	auditSvc := services.NewAuditService(auditRepo)
 
-func (m *mockQueueRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.Queue, error) {
-	args := m.Called(ctx, userID)
-	return args.Get(0).([]*domain.Queue), args.Error(1)
-}
+	svc := services.NewQueueService(repo, eventSvc, auditSvc)
 
-func (m *mockQueueRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
-}
-
-func (m *mockQueueRepository) PurgeMessages(ctx context.Context, queueID uuid.UUID) (int64, error) {
-	args := m.Called(ctx, queueID)
-	return args.Get(0).(int64), args.Error(1)
-}
-
-func (m *mockQueueRepository) SendMessage(ctx context.Context, queueID uuid.UUID, body string) (*domain.Message, error) {
-	args := m.Called(ctx, queueID, body)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.Message), args.Error(1)
-}
-
-func (m *mockQueueRepository) ReceiveMessages(ctx context.Context, queueID uuid.UUID, maxMessages int, visibilityTimeout int) ([]*domain.Message, error) {
-	args := m.Called(ctx, queueID, maxMessages, visibilityTimeout)
-	return args.Get(0).([]*domain.Message), args.Error(1)
-}
-
-func (m *mockQueueRepository) DeleteMessage(ctx context.Context, queueID uuid.UUID, receiptHandle string) error {
-	args := m.Called(ctx, queueID, receiptHandle)
-	return args.Error(0)
+	return svc, repo, ctx, db
 }
 
 func TestQueueServiceCreateQueue(t *testing.T) {
-	repo := new(mockQueueRepository)
-	eventSvc := new(mockEventService)
-	auditSvc := new(mockAuditService)
-	svc := NewQueueService(repo, eventSvc, auditSvc)
-
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
+	svc, repo, ctx, db := setupQueueServiceTest(t)
+	defer db.Close()
+	userID := appcontext.UserIDFromContext(ctx)
 
 	t.Run("success", func(t *testing.T) {
-		repo.On("GetByName", mock.Anything, testQueueName, userID).Return(nil, nil).Once()
-		repo.On("Create", mock.Anything, mock.MatchedBy(func(q *domain.Queue) bool {
-			return q.Name == testQueueName && q.UserID == userID
-		})).Return(nil).Once()
-		eventSvc.On("RecordEvent", mock.Anything, "QUEUE_CREATED", mock.Anything, "QUEUE", mock.Anything).Return(nil).Once()
-		auditSvc.On("Log", mock.Anything, userID, "queue.create", "queue", mock.Anything, mock.Anything).Return(nil).Once()
-
 		opts := &ports.CreateQueueOptions{}
-		q, err := svc.CreateQueue(ctx, testQueueName, opts)
+		q, err := svc.CreateQueue(ctx, "test-queue", opts)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, q)
-		assert.Equal(t, testQueueName, q.Name)
-		repo.AssertExpectations(t)
-	})
+		assert.Equal(t, "test-queue", q.Name)
+		assert.Equal(t, userID, q.UserID)
 
-	t.Run("unauthorized", func(t *testing.T) {
-		_, err := svc.CreateQueue(context.Background(), testQueueName, nil)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "unauthorized")
+		// Verify DB
+		fetched, err := repo.GetByName(ctx, "test-queue", userID)
+		assert.NoError(t, err)
+		assert.Equal(t, q.ID, fetched.ID)
 	})
 
 	t.Run("already exists", func(t *testing.T) {
-		repo.On("GetByName", mock.Anything, "existing", userID).Return(&domain.Queue{ID: uuid.New()}, nil).Once()
-
-		_, err := svc.CreateQueue(ctx, "existing", nil)
+		_, err := svc.CreateQueue(ctx, "test-queue", nil)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "already exists")
+	})
+
+	t.Run("unauthorized", func(t *testing.T) {
+		_, err := svc.CreateQueue(context.Background(), "no-auth", nil)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unauthorized")
 	})
 }
 
 func TestQueueServiceSendMessage(t *testing.T) {
-	repo := new(mockQueueRepository)
-	eventSvc := new(mockEventService)
-	auditSvc := new(mockAuditService)
-	svc := NewQueueService(repo, eventSvc, auditSvc)
+	svc, _, ctx, db := setupQueueServiceTest(t)
+	defer db.Close()
 
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
-	qID := uuid.New()
+	q, err := svc.CreateQueue(ctx, "msg-queue", nil)
+	require.NoError(t, err)
 
 	t.Run("success", func(t *testing.T) {
-		repo.On("GetByID", mock.Anything, qID, userID).Return(&domain.Queue{
-			ID:             qID,
-			UserID:         userID,
-			MaxMessageSize: 256 * 1024,
-		}, nil).Once()
-		repo.On("SendMessage", mock.Anything, qID, "hello").Return(&domain.Message{ID: uuid.New(), Body: "hello"}, nil).Once()
-		eventSvc.On("RecordEvent", mock.Anything, "MESSAGE_SENT", mock.Anything, "MESSAGE", mock.Anything).Return(nil).Once()
-
-		msg, err := svc.SendMessage(ctx, qID, "hello")
+		msg, err := svc.SendMessage(ctx, q.ID, "hello world")
 		assert.NoError(t, err)
 		assert.NotNil(t, msg)
-		repo.AssertExpectations(t)
+		assert.Equal(t, "hello world", msg.Body)
+		// Receipt handle is only present when received
 	})
 }
 
 func TestQueueServiceReceiveMessages(t *testing.T) {
-	repo := new(mockQueueRepository)
-	eventSvc := new(mockEventService)
-	auditSvc := new(mockAuditService)
-	svc := NewQueueService(repo, eventSvc, auditSvc)
+	svc, _, ctx, db := setupQueueServiceTest(t)
+	defer db.Close()
 
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
-	qID := uuid.New()
+	q, err := svc.CreateQueue(ctx, "recv-queue", nil)
+	require.NoError(t, err)
+
+	_, err = svc.SendMessage(ctx, q.ID, "msg1")
+	require.NoError(t, err)
+	_, err = svc.SendMessage(ctx, q.ID, "msg2")
+	require.NoError(t, err)
 
 	t.Run("success", func(t *testing.T) {
-		repo.On("GetByID", mock.Anything, qID, userID).Return(&domain.Queue{
-			ID:                qID,
-			UserID:            userID,
-			VisibilityTimeout: 30,
-		}, nil).Once()
-		msgs := []*domain.Message{{ID: uuid.New(), Body: "msg1"}}
-		repo.On("ReceiveMessages", mock.Anything, qID, 10, 30).Return(msgs, nil).Once()
-		eventSvc.On("RecordEvent", mock.Anything, "MESSAGE_RECEIVED", mock.Anything, "MESSAGE", mock.Anything).Return(nil).Once()
-
-		result, err := svc.ReceiveMessages(ctx, qID, 10)
+		msgs, err := svc.ReceiveMessages(ctx, q.ID, 10)
 		assert.NoError(t, err)
-		assert.Len(t, result, 1)
+		assert.Len(t, msgs, 2)
+
+		// Should be invisible now? Depends on repo impl (visibility timeout).
+		// Try receiving again immediately
+		msgs2, err := svc.ReceiveMessages(ctx, q.ID, 10)
+		assert.NoError(t, err)
+		assert.Len(t, msgs2, 0, "messages should be invisible")
 	})
 }
 
-func TestQueueServiceDeleteQueue(t *testing.T) {
-	repo := new(mockQueueRepository)
-	eventSvc := new(mockEventService)
-	auditSvc := new(mockAuditService)
-	svc := NewQueueService(repo, eventSvc, auditSvc)
-
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
-	qID := uuid.New()
-
-	repo.On("GetByID", mock.Anything, qID, userID).Return(&domain.Queue{ID: qID, UserID: userID, Name: "to-delete"}, nil).Once()
-	repo.On("Delete", mock.Anything, qID).Return(nil).Once()
-	eventSvc.On("RecordEvent", mock.Anything, "QUEUE_DELETED", qID.String(), "QUEUE", mock.Anything).Return(nil).Once()
-	auditSvc.On("Log", mock.Anything, userID, "queue.delete", "queue", qID.String(), mock.Anything).Return(nil).Once()
-
-	err := svc.DeleteQueue(ctx, qID)
-	assert.NoError(t, err)
-}
-
-func TestQueueServiceListQueues(t *testing.T) {
-	repo := new(mockQueueRepository)
-	eventSvc := new(mockEventService)
-	auditSvc := new(mockAuditService)
-	svc := NewQueueService(repo, eventSvc, auditSvc)
-
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
-
-	repo.On("List", mock.Anything, userID).Return([]*domain.Queue{{ID: uuid.New()}}, nil).Once()
-	queues, err := svc.ListQueues(ctx)
-	assert.NoError(t, err)
-	assert.Len(t, queues, 1)
-}
-
 func TestQueueServiceDeleteMessage(t *testing.T) {
-	repo := new(mockQueueRepository)
-	eventSvc := new(mockEventService)
-	auditSvc := new(mockAuditService)
-	svc := NewQueueService(repo, eventSvc, auditSvc)
+	svc, repo, ctx, db := setupQueueServiceTest(t)
+	defer db.Close()
 
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
-	qID := uuid.New()
-	receipt := "receipt-1"
+	q, err := svc.CreateQueue(ctx, "del-msg-queue", nil)
+	require.NoError(t, err)
 
-	queue := &domain.Queue{ID: qID, UserID: userID}
-	repo.On("GetByID", mock.Anything, qID, userID).Return(queue, nil).Once()
-	repo.On("DeleteMessage", mock.Anything, qID, receipt).Return(nil).Once()
-	eventSvc.On("RecordEvent", mock.Anything, "MESSAGE_DELETED", receipt, "MESSAGE", mock.Anything).Return(nil).Once()
+	_, err = svc.SendMessage(ctx, q.ID, "to delete")
+	require.NoError(t, err)
 
-	err := svc.DeleteMessage(ctx, qID, receipt)
+	msgs, err := svc.ReceiveMessages(ctx, q.ID, 1)
+	require.NoError(t, err)
+	require.Len(t, msgs, 1)
+	receipt := msgs[0].ReceiptHandle
+
+	err = svc.DeleteMessage(ctx, q.ID, receipt)
 	assert.NoError(t, err)
+
+	v, inv, err := repo.(*postgres.PostgresQueueRepository).GetQueueStats(ctx, q.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, v)
+	assert.Equal(t, 0, inv)
 }
 
 func TestQueueServicePurgeQueue(t *testing.T) {
-	repo := new(mockQueueRepository)
-	eventSvc := new(mockEventService)
-	auditSvc := new(mockAuditService)
-	svc := NewQueueService(repo, eventSvc, auditSvc)
+	svc, repo, ctx, db := setupQueueServiceTest(t)
+	defer db.Close()
 
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
-	qID := uuid.New()
+	q, err := svc.CreateQueue(ctx, "purge-queue", nil)
+	require.NoError(t, err)
 
-	queue := &domain.Queue{ID: qID, UserID: userID}
-	repo.On("GetByID", mock.Anything, qID, userID).Return(queue, nil).Once()
-	repo.On("PurgeMessages", mock.Anything, qID).Return(int64(2), nil).Once()
-	eventSvc.On("RecordEvent", mock.Anything, "QUEUE_PURGED", qID.String(), "QUEUE", mock.Anything).Return(nil).Once()
-	auditSvc.On("Log", mock.Anything, userID, "queue.purge", "queue", qID.String(), mock.Anything).Return(nil).Once()
+	_, _ = svc.SendMessage(ctx, q.ID, "m1")
+	_, _ = svc.SendMessage(ctx, q.ID, "m2")
 
-	err := svc.PurgeQueue(ctx, qID)
+	err = svc.PurgeQueue(ctx, q.ID)
 	assert.NoError(t, err)
+
+	v, inv, err := repo.(*postgres.PostgresQueueRepository).GetQueueStats(ctx, q.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, v)
+	assert.Equal(t, 0, inv)
+}
+
+func TestQueueServiceDeleteQueue(t *testing.T) {
+	svc, repo, ctx, db := setupQueueServiceTest(t)
+	defer db.Close()
+	userID := appcontext.UserIDFromContext(ctx)
+
+	q, err := svc.CreateQueue(ctx, "to-delete", nil)
+	require.NoError(t, err)
+
+	err = svc.DeleteQueue(ctx, q.ID)
+	assert.NoError(t, err)
+
+	fetched, err := repo.GetByID(ctx, q.ID, userID)
+	assert.NoError(t, err)
+	assert.Nil(t, fetched)
+}
+
+func TestQueueServiceListQueues(t *testing.T) {
+	svc, _, ctx, db := setupQueueServiceTest(t)
+	defer db.Close()
+
+	_, err := svc.CreateQueue(ctx, "q1", nil)
+	require.NoError(t, err)
+	_, err = svc.CreateQueue(ctx, "q2", nil)
+	require.NoError(t, err)
+
+	queues, err := svc.ListQueues(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, queues, 2)
 }
