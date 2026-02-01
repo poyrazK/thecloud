@@ -11,5 +11,5 @@ CREATE TABLE IF NOT EXISTS volumes (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_volumes_status ON volumes(status);
-CREATE INDEX idx_volumes_instance_id ON volumes(instance_id);
+CREATE INDEX IF NOT EXISTS idx_volumes_status ON volumes(status);
+CREATE INDEX IF NOT EXISTS idx_volumes_instance_id ON volumes(instance_id);

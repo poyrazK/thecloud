@@ -2,7 +2,7 @@
 
 -- Migration: 011_create_autoscaling.up.sql
 
-CREATE TABLE scaling_groups (
+CREATE TABLE IF NOT EXISTS scaling_groups (
     id UUID PRIMARY KEY,
     idempotency_key VARCHAR(64) UNIQUE,
     name VARCHAR(255) NOT NULL UNIQUE,
@@ -22,7 +22,7 @@ CREATE TABLE scaling_groups (
     CHECK (desired_count >= min_instances AND desired_count <= max_instances)
 );
 
-CREATE TABLE scaling_policies (
+CREATE TABLE IF NOT EXISTS scaling_policies (
     id UUID PRIMARY KEY,
     scaling_group_id UUID NOT NULL REFERENCES scaling_groups(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -35,7 +35,7 @@ CREATE TABLE scaling_policies (
     UNIQUE(scaling_group_id, name)
 );
 
-CREATE TABLE scaling_group_instances (
+CREATE TABLE IF NOT EXISTS scaling_group_instances (
     scaling_group_id UUID NOT NULL REFERENCES scaling_groups(id) ON DELETE CASCADE,
     instance_id UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
     joined_at TIMESTAMPTZ DEFAULT NOW(),
@@ -43,8 +43,8 @@ CREATE TABLE scaling_group_instances (
 );
 
 -- Indexes
-CREATE INDEX idx_sg_vpc ON scaling_groups(vpc_id);
-CREATE INDEX idx_sg_status ON scaling_groups(status);
-CREATE INDEX idx_sp_group ON scaling_policies(scaling_group_id);
-CREATE INDEX idx_sgi_instance ON scaling_group_instances(instance_id);
-CREATE INDEX idx_sgi_group_instance ON scaling_group_instances(scaling_group_id, instance_id);
+CREATE INDEX IF NOT EXISTS idx_sg_vpc ON scaling_groups(vpc_id);
+CREATE INDEX IF NOT EXISTS idx_sg_status ON scaling_groups(status);
+CREATE INDEX IF NOT EXISTS idx_sp_group ON scaling_policies(scaling_group_id);
+CREATE INDEX IF NOT EXISTS idx_sgi_instance ON scaling_group_instances(instance_id);
+CREATE INDEX IF NOT EXISTS idx_sgi_group_instance ON scaling_group_instances(scaling_group_id, instance_id);
