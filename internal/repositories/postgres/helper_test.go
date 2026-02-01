@@ -4,6 +4,7 @@ package postgres
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"testing"
 	"time"
@@ -12,16 +13,20 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/require"
 )
 
 func setupDB(t *testing.T) *pgxpool.Pool {
+	ctx := context.Background()
 	dbURL := os.Getenv("DATABASE_URL")
+
 	if dbURL == "" {
-		dbURL = "postgres://cloud:cloud@localhost:5433/thecloud"
+		container, cleanup := testutil.SetupPostgresContainer(t)
+		t.Cleanup(cleanup)
+		dbURL = container.ConnString
 	}
 
-	ctx := context.Background()
 	db, err := pgxpool.New(ctx, dbURL)
 	require.NoError(t, err)
 
@@ -29,6 +34,10 @@ func setupDB(t *testing.T) *pgxpool.Pool {
 	if err != nil {
 		t.Skipf("Skipping integration test: database not available: %v", err)
 	}
+
+	// Run migrations
+	err = RunMigrations(ctx, db, slog.Default())
+	require.NoError(t, err, "Failed to run migrations")
 
 	return db
 }
