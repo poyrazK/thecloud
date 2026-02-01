@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const testRouteName = "test-route"
+
 func TestGatewayServiceCreateRoute(t *testing.T) {
 	repo := new(MockGatewayRepo)
 	auditSvc := new(MockAuditService)
@@ -25,16 +27,75 @@ func TestGatewayServiceCreateRoute(t *testing.T) {
 	ctx := appcontext.WithUserID(context.Background(), userID)
 
 	repo.On("CreateRoute", mock.Anything, mock.MatchedBy(func(r *domain.GatewayRoute) bool {
-		return r.UserID == userID && r.Name == "test-route"
+		return r.UserID == userID && r.Name == testRouteName
 	})).Return(nil)
 
 	auditSvc.On("Log", mock.Anything, userID, "gateway.route_create", "gateway", mock.Anything, mock.Anything).Return(nil)
 
-	route, err := svc.CreateRoute(ctx, "test-route", "/test", "http://example.com", false, 100)
+	route, err := svc.CreateRoute(ctx, testRouteName, "/test", "http://example.com", false, 100)
 	assert.NoError(t, err)
 	assert.NotNil(t, route)
-	assert.Equal(t, "test-route", route.Name)
+	assert.Equal(t, testRouteName, route.Name)
 
 	repo.AssertExpectations(t)
 	auditSvc.AssertExpectations(t)
+}
+
+func TestGatewayServiceListRoutes(t *testing.T) {
+	repo := new(MockGatewayRepo)
+	auditSvc := new(MockAuditService)
+
+	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{}, nil)
+	svc := services.NewGatewayService(repo, auditSvc)
+
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+
+	routes := []*domain.GatewayRoute{{ID: uuid.New(), Name: "r1"}}
+	repo.On("ListRoutes", mock.Anything, userID).Return(routes, nil)
+
+	res, err := svc.ListRoutes(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, routes, res)
+}
+
+func TestGatewayServiceDeleteRoute(t *testing.T) {
+	repo := new(MockGatewayRepo)
+	auditSvc := new(MockAuditService)
+
+	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{}, nil)
+	svc := services.NewGatewayService(repo, auditSvc)
+
+	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	routeID := uuid.New()
+	route := &domain.GatewayRoute{ID: routeID, UserID: userID, Name: "r1"}
+
+	repo.On("GetRouteByID", mock.Anything, routeID, userID).Return(route, nil)
+	repo.On("DeleteRoute", mock.Anything, routeID).Return(nil)
+	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{}, nil)
+	auditSvc.On("Log", mock.Anything, userID, "gateway.route_delete", "gateway", routeID.String(), mock.Anything).Return(nil)
+
+	err := svc.DeleteRoute(ctx, routeID)
+	assert.NoError(t, err)
+}
+
+func TestGatewayServiceGetProxy(t *testing.T) {
+	repo := new(MockGatewayRepo)
+	auditSvc := new(MockAuditService)
+
+	route := &domain.GatewayRoute{
+		PathPrefix: "/api",
+		TargetURL:  "http://localhost:8080",
+	}
+	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{route}, nil)
+
+	svc := services.NewGatewayService(repo, auditSvc)
+
+	proxy, ok := svc.GetProxy("/api/users")
+	assert.True(t, ok)
+	assert.NotNil(t, proxy)
+
+	_, ok = svc.GetProxy("/other")
+	assert.False(t, ok)
 }

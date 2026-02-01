@@ -117,14 +117,15 @@ func TestEncryptionService(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("InvalidConstructor", func(t *testing.T) {
+	t.Run("RobustConstructor", func(t *testing.T) {
 		mockRepo := new(MockEncryptionRepository)
-		_, err := services.NewEncryptionService(mockRepo, "invalid hex")
-		assert.Error(t, err)
+		// Should accept non-hex string and hash it
+		_, err := services.NewEncryptionService(mockRepo, "invalid hex string")
+		assert.NoError(t, err)
 
+		// Should accept short key and hash it
 		shortKey := "000102"
 		_, err = services.NewEncryptionService(mockRepo, shortKey)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "32 bytes")
+		assert.NoError(t, err)
 	})
 }
