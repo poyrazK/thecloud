@@ -48,7 +48,7 @@ internal/
 - **Repositories**: Data persistence
 
 ### 3. Testability
-- **51.3% overall test coverage** (Services: 55.4%, Handlers: 52.8%, Repos: 57.5%)
+- **76.6% overall test coverage** (Services: 84.3%, Handlers: 90.8%, Repos: 75.0%)
 - Dependency injection enables easy mocking
 - Unit tests run without external dependencies
 - Integration tests verify real database interactions
@@ -169,13 +169,13 @@ if instance == nil {
 
 ## Testing
 
-### Test Coverage (51.3% Overall)
+### Test Coverage (76.6% Overall)
 
 | Layer | Current | Target | Test Type |
 |-------|---------|--------|-----------|
-| Services | 55.4% | 80% | Unit Tests |
-| Handlers | 52.8% | 80% | Unit Tests |
-| Repositories | 57.5% | 75% | Integration Tests |
+| Services | 84.3% | 85% | Unit Tests |
+| Handlers | 90.8% | 90% | Unit Tests |
+| Repositories | 75.0% | 80% | Integration Tests |
 | Errors | 100% | 100% | Unit Tests |
 | Context | 100% | 100% | Unit Tests |
 
