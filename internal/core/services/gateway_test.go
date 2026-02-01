@@ -101,7 +101,7 @@ func TestGatewayServiceGetProxy(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestGatewayServiceGetProxy_Pattern(t *testing.T) {
+func TestGatewayServiceGetProxyPattern(t *testing.T) {
 	repo := new(MockGatewayRepo)
 	auditSvc := new(MockAuditService)
 

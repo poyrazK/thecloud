@@ -79,7 +79,7 @@ func TestPatternMatcher(t *testing.T) {
 	}
 }
 
-func TestCompilePattern_Error(t *testing.T) {
+func TestCompilePatternError(t *testing.T) {
 	_, err := CompilePattern("/users/{id}/{id}")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate parameter name")
