@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769978065564,
+  "lastUpdate": 1769978662136,
   "repoUrl": "https://github.com/PoyrazK/thecloud",
   "entries": {
     "Go Benchmarks": [
@@ -59404,6 +59404,78 @@ window.BENCHMARK_DATA = {
             "value": 2,
             "unit": "allocs/op",
             "extra": "8734351 times\n4 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "83272398+PoyrazK@users.noreply.github.com",
+            "name": "Hüseyin Poyraz Küçükarslan",
+            "username": "PoyrazK"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "412ae3c62d1b28f8a9c3f7515f93708fca7641b1",
+          "message": "Merge pull request #44 from PoyrazK/feature/gateway-path-matching\n\nfeat(gateway): implement HTTP method matching and advanced routing",
+          "timestamp": "2026-02-01T23:43:50+03:00",
+          "tree_id": "bc44c9f532c959d6705cf5ac81fa71bb1434b131",
+          "url": "https://github.com/PoyrazK/thecloud/commit/412ae3c62d1b28f8a9c3f7515f93708fca7641b1"
+        },
+        "date": 1769978659079,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkInstanceServiceList",
+            "value": 1.866,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "641805633 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - ns/op",
+            "value": 1.866,
+            "unit": "ns/op",
+            "extra": "641805633 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "641805633 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "641805633 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet",
+            "value": 137.5,
+            "unit": "ns/op\t     208 B/op\t       2 allocs/op",
+            "extra": "8756192 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - ns/op",
+            "value": 137.5,
+            "unit": "ns/op",
+            "extra": "8756192 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - B/op",
+            "value": 208,
+            "unit": "B/op",
+            "extra": "8756192 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - allocs/op",
+            "value": 2,
+            "unit": "allocs/op",
+            "extra": "8756192 times\n4 procs"
           }
         ]
       }
