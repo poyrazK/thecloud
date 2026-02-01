@@ -60,3 +60,5 @@ api_test.log
 
 # Build artifacts
 /api
+coverage_report.txt
+coverage.html
