@@ -97,6 +97,8 @@ func cleanDB(t *testing.T, db *pgxpool.Pool) {
 		"gateway_routes",
 		"events",
 		"usage_records",
+		"role_permissions",
+		"roles",
 		"encryption_keys",
 		"api_keys",
 		"users",
