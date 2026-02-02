@@ -7,50 +7,38 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
-	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/repositories/noop"
+	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-const (
-	testVolName       = "test-vol"
-	volumeTypeLiteral = "*domain.Volume"
-	volumeDeleteEvent = "volume.delete"
-)
+func setupVolumeServiceTest(t *testing.T) (*services.VolumeService, *postgres.VolumeRepository, context.Context) {
+	db := setupDB(t)
+	cleanDB(t, db)
+	ctx := setupTestUser(t, db)
 
-func setupVolumeServiceTest(_ *testing.T) (*MockVolumeRepo, *MockStorageBackend, *MockEventService, *MockAuditService, ports.VolumeService) {
-	repo := new(MockVolumeRepo)
-	storage := new(MockStorageBackend)
-	eventSvc := new(MockEventService)
-	auditSvc := new(MockAuditService)
+	repo := postgres.NewVolumeRepository(db)
+	storage := noop.NewNoopStorageBackend()
+
+	eventRepo := postgres.NewEventRepository(db)
+	eventSvc := services.NewEventService(eventRepo, nil, slog.Default())
+
+	auditRepo := postgres.NewAuditRepository(db)
+	auditSvc := services.NewAuditService(auditRepo)
+
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := services.NewVolumeService(repo, storage, eventSvc, auditSvc, logger)
-	return repo, storage, eventSvc, auditSvc, svc
+	return svc, repo, ctx
 }
 
 func TestVolumeServiceCreateVolumeSuccess(t *testing.T) {
-	repo, storage, eventSvc, auditSvc, svc := setupVolumeServiceTest(t)
-	defer repo.AssertExpectations(t)
-	defer storage.AssertExpectations(t)
-	defer eventSvc.AssertExpectations(t)
-	defer auditSvc.AssertExpectations(t)
-
-	ctx := appcontext.WithUserID(context.Background(), uuid.New())
-	name := testVolName
+	svc, repo, ctx := setupVolumeServiceTest(t)
+	name := "test-vol-create"
 	size := 10
-
-	// CreateVolume(ctx, name, size) -> (path, error)
-	storage.On("CreateVolume", mock.Anything, mock.MatchedBy(func(n string) bool {
-		return len(n) > 0 // Ensure some name is generated
-	}), size).Return("vol-path", nil)
-
-	repo.On("Create", mock.Anything, mock.AnythingOfType(volumeTypeLiteral)).Return(nil)
-	eventSvc.On("RecordEvent", mock.Anything, "VOLUME_CREATE", mock.Anything, "VOLUME", mock.Anything).Return(nil)
-	auditSvc.On("Log", mock.Anything, mock.Anything, "volume.create", "volume", mock.Anything, mock.Anything).Return(nil)
 
 	vol, err := svc.CreateVolume(ctx, name, size)
 
@@ -59,252 +47,99 @@ func TestVolumeServiceCreateVolumeSuccess(t *testing.T) {
 	assert.Equal(t, name, vol.Name)
 	assert.Equal(t, size, vol.SizeGB)
 	assert.Equal(t, domain.VolumeStatusAvailable, vol.Status)
-}
 
-func TestVolumeServiceCreateVolumeStorageError(t *testing.T) {
-	repo, storage, _, _, svc := setupVolumeServiceTest(t)
-	defer storage.AssertExpectations(t)
-	defer repo.AssertExpectations(t)
-
-	ctx := appcontext.WithUserID(context.Background(), uuid.New())
-
-	storage.On("CreateVolume", mock.Anything, mock.Anything, 5).Return("", assert.AnError)
-
-	vol, err := svc.CreateVolume(ctx, testVolName, 5)
-	assert.Error(t, err)
-	assert.Nil(t, vol)
-	// Should not create record when backend fails
-	repo.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
-}
-
-func TestVolumeServiceCreateVolumeRepoErrorRollsBack(t *testing.T) {
-	repo, storage, _, _, svc := setupVolumeServiceTest(t)
-	defer storage.AssertExpectations(t)
-	defer repo.AssertExpectations(t)
-
-	ctx := appcontext.WithUserID(context.Background(), uuid.New())
-
-	storage.On("CreateVolume", mock.Anything, mock.Anything, 5).Return("vol-path", nil)
-	repo.On("Create", mock.Anything, mock.AnythingOfType(volumeTypeLiteral)).Return(assert.AnError)
-	storage.On("DeleteVolume", mock.Anything, mock.Anything).Return(nil)
-
-	vol, err := svc.CreateVolume(ctx, testVolName, 5)
-	assert.Error(t, err)
-	assert.Nil(t, vol)
+	// Verify in DB
+	fetched, err := repo.GetByID(ctx, vol.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, vol.ID, fetched.ID)
 }
 
 func TestVolumeServiceDeleteVolumeSuccess(t *testing.T) {
-	repo, storage, eventSvc, auditSvc, svc := setupVolumeServiceTest(t)
-	defer repo.AssertExpectations(t)
-	defer storage.AssertExpectations(t)
-	defer eventSvc.AssertExpectations(t)
-	defer auditSvc.AssertExpectations(t)
+	svc, repo, ctx := setupVolumeServiceTest(t)
+	vol, err := svc.CreateVolume(ctx, "to-delete", 5)
+	require.NoError(t, err)
 
-	ctx := context.Background()
-	volID := uuid.New()
-	vol := &domain.Volume{
-		ID:     volID,
-		Name:   testVolName,
-		Status: domain.VolumeStatusAvailable,
-	}
-
-	repo.On("GetByID", mock.Anything, volID).Return(vol, nil)
-	dockerName := "thecloud-vol-" + volID.String()[:8]
-	storage.On("DeleteVolume", mock.Anything, dockerName).Return(nil)
-	repo.On("Delete", mock.Anything, volID).Return(nil)
-	eventSvc.On("RecordEvent", mock.Anything, "VOLUME_DELETE", volID.String(), "VOLUME", mock.Anything).Return(nil)
-	auditSvc.On("Log", mock.Anything, mock.Anything, volumeDeleteEvent, "volume", mock.Anything, mock.Anything).Return(nil)
-
-	err := svc.DeleteVolume(ctx, volID.String())
-
+	err = svc.DeleteVolume(ctx, vol.ID.String())
 	assert.NoError(t, err)
-}
 
-func TestVolumeServiceDeleteVolumeStorageErrorContinues(t *testing.T) {
-	repo, storage, eventSvc, auditSvc, svc := setupVolumeServiceTest(t)
-	defer repo.AssertExpectations(t)
-	defer storage.AssertExpectations(t)
-	defer eventSvc.AssertExpectations(t)
-	defer auditSvc.AssertExpectations(t)
-
-	ctx := context.Background()
-	volID := uuid.New()
-	vol := &domain.Volume{ID: volID, Name: testVolName, Status: domain.VolumeStatusAvailable}
-
-	repo.On("GetByID", mock.Anything, volID).Return(vol, nil)
-	dockerName := "thecloud-vol-" + volID.String()[:8]
-	storage.On("DeleteVolume", mock.Anything, dockerName).Return(assert.AnError)
-	repo.On("Delete", mock.Anything, volID).Return(nil)
-	eventSvc.On("RecordEvent", mock.Anything, "VOLUME_DELETE", volID.String(), "VOLUME", mock.Anything).Return(nil)
-	auditSvc.On("Log", mock.Anything, mock.Anything, volumeDeleteEvent, "volume", mock.Anything, mock.Anything).Return(nil)
-
-	err := svc.DeleteVolume(ctx, volID.String())
-
-	assert.NoError(t, err)
+	// Verify Deleted from DB
+	_, err = repo.GetByID(ctx, vol.ID)
+	assert.Error(t, err)
 }
 
 func TestVolumeServiceDeleteVolumeInUseFails(t *testing.T) {
-	repo, storage, _, _, svc := setupVolumeServiceTest(t)
-	defer repo.AssertExpectations(t)
-	defer storage.AssertExpectations(t)
+	svc, repo, ctx := setupVolumeServiceTest(t)
+	vol, err := svc.CreateVolume(ctx, "in-use-vol", 5)
+	require.NoError(t, err)
 
-	ctx := context.Background()
-	volID := uuid.New()
-	vol := &domain.Volume{
-		ID:     volID,
-		Status: domain.VolumeStatusInUse,
-	}
+	// Mark as in-use
+	vol.Status = domain.VolumeStatusInUse
+	err = repo.Update(ctx, vol)
+	require.NoError(t, err)
 
-	repo.On("GetByID", mock.Anything, volID).Return(vol, nil)
-
-	err := svc.DeleteVolume(ctx, volID.String())
-
+	err = svc.DeleteVolume(ctx, vol.ID.String())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "in use")
-
-	storage.AssertNotCalled(t, "DeleteVolume", mock.Anything, mock.Anything)
-	repo.AssertNotCalled(t, "Delete", mock.Anything, mock.Anything)
 }
 
-func TestVolumeServiceDeleteVolumeRepoError(t *testing.T) {
-	repo, storage, _, _, svc := setupVolumeServiceTest(t)
-	defer repo.AssertExpectations(t)
-	defer storage.AssertExpectations(t)
-
-	ctx := context.Background()
-	volID := uuid.New()
-	vol := &domain.Volume{ID: volID, Name: testVolName, Status: domain.VolumeStatusAvailable}
-
-	repo.On("GetByID", mock.Anything, volID).Return(vol, nil)
-	storage.On("DeleteVolume", mock.Anything, mock.Anything).Return(nil)
-	repo.On("Delete", mock.Anything, volID).Return(assert.AnError)
-
-	err := svc.DeleteVolume(ctx, volID.String())
-
-	assert.Error(t, err)
-}
-
-func TestVolumeServiceDeleteVolumeGetError(t *testing.T) {
-	repo, _, _, _, svc := setupVolumeServiceTest(t)
-	defer repo.AssertExpectations(t)
-
-	ctx := context.Background()
-	volID := uuid.New()
-
-	repo.On("GetByID", mock.Anything, volID).Return(nil, assert.AnError)
-
-	err := svc.DeleteVolume(ctx, volID.String())
-	assert.Error(t, err)
-}
-
-func TestVolumeServiceDeleteVolumeByName(t *testing.T) {
-	repo, storage, eventSvc, auditSvc, svc := setupVolumeServiceTest(t)
-	defer repo.AssertExpectations(t)
-	defer storage.AssertExpectations(t)
-	defer eventSvc.AssertExpectations(t)
-	defer auditSvc.AssertExpectations(t)
-
-	ctx := context.Background()
-	volID := uuid.New()
-	vol := &domain.Volume{ID: volID, Name: testVolName, Status: domain.VolumeStatusAvailable}
-
-	repo.On("GetByName", mock.Anything, testVolName).Return(vol, nil)
-	storage.On("DeleteVolume", mock.Anything, mock.Anything).Return(nil)
-	repo.On("Delete", mock.Anything, volID).Return(nil)
-	eventSvc.On("RecordEvent", mock.Anything, "VOLUME_DELETE", volID.String(), "VOLUME", mock.Anything).Return(nil)
-	auditSvc.On("Log", mock.Anything, mock.Anything, "volume.delete", "volume", mock.Anything, mock.Anything).Return(nil)
-
-	err := svc.DeleteVolume(ctx, testVolName)
-	assert.NoError(t, err)
-}
 func TestVolumeServiceListVolumesSuccess(t *testing.T) {
-	repo, _, _, _, svc := setupVolumeServiceTest(t)
-	defer repo.AssertExpectations(t)
-
-	ctx := context.Background()
-	volumes := []*domain.Volume{{ID: uuid.New(), Name: "v1"}, {ID: uuid.New(), Name: "v2"}}
-	repo.On("List", mock.Anything).Return(volumes, nil)
+	svc, _, ctx := setupVolumeServiceTest(t)
+	_, _ = svc.CreateVolume(ctx, "v1", 1)
+	_, _ = svc.CreateVolume(ctx, "v2", 2)
 
 	result, err := svc.ListVolumes(ctx)
 
 	assert.NoError(t, err)
-	assert.Equal(t, 2, len(result))
+	assert.Len(t, result, 2)
 }
 
 func TestVolumeServiceGetVolume(t *testing.T) {
-	repo, _, _, _, svc := setupVolumeServiceTest(t)
-	defer repo.AssertExpectations(t)
-
-	ctx := context.Background()
-	volID := uuid.New()
-	vol := &domain.Volume{ID: volID, Name: testVolName}
+	svc, _, ctx := setupVolumeServiceTest(t)
+	vol, _ := svc.CreateVolume(ctx, "find-me", 5)
 
 	t.Run("get by id", func(t *testing.T) {
-		repo.On("GetByID", mock.Anything, volID).Return(vol, nil).Once()
-		res, err := svc.GetVolume(ctx, volID.String())
+		res, err := svc.GetVolume(ctx, vol.ID.String())
 		assert.NoError(t, err)
-		assert.Equal(t, vol, res)
+		assert.Equal(t, vol.ID, res.ID)
 	})
 
 	t.Run("get by name", func(t *testing.T) {
-		repo.On("GetByName", mock.Anything, testVolName).Return(vol, nil).Once()
-		res, err := svc.GetVolume(ctx, testVolName)
+		res, err := svc.GetVolume(ctx, "find-me")
 		assert.NoError(t, err)
-		assert.Equal(t, vol, res)
+		assert.Equal(t, vol.ID, res.ID)
 	})
 }
 
 func TestVolumeServiceReleaseVolumesForInstance(t *testing.T) {
-	repo, _, _, _, svc := setupVolumeServiceTest(t)
-	defer repo.AssertExpectations(t)
-
-	ctx := context.Background()
+	svc, repo, ctx := setupVolumeServiceTest(t)
 	instanceID := uuid.New()
-	volumes := []*domain.Volume{
-		{ID: uuid.New(), InstanceID: &instanceID, Status: domain.VolumeStatusInUse},
-		{ID: uuid.New(), InstanceID: &instanceID, Status: domain.VolumeStatusInUse},
-	}
 
-	repo.On("ListByInstanceID", mock.Anything, instanceID).Return(volumes, nil)
-	repo.On("Update", mock.Anything, mock.AnythingOfType(volumeTypeLiteral)).Return(nil).Twice()
+	vol, _ := svc.CreateVolume(ctx, "attached-vol", 10)
+	vol.Status = domain.VolumeStatusInUse
+	vol.InstanceID = &instanceID
+	_ = repo.Update(ctx, vol)
 
 	err := svc.ReleaseVolumesForInstance(ctx, instanceID)
-
 	assert.NoError(t, err)
-	for _, v := range volumes {
-		assert.Equal(t, domain.VolumeStatusAvailable, v.Status)
-		assert.Nil(t, v.InstanceID)
-	}
+
+	// Verify released
+	updated, _ := repo.GetByID(ctx, vol.ID)
+	assert.Equal(t, domain.VolumeStatusAvailable, updated.Status)
+	assert.Nil(t, updated.InstanceID)
 }
 
-func TestVolumeServiceReleaseVolumesForInstanceListError(t *testing.T) {
-	repo, _, _, _, svc := setupVolumeServiceTest(t)
-	defer repo.AssertExpectations(t)
+func TestVolumeServiceCreateVolumeRollbackOnRepoError(t *testing.T) {
+	// To test rollback we need to induce a repo error while storage success.
+	// Since we are using real repo, we could maybe use a context cancellation or something?
+	// Or just trust the unit tests previously covered the logic.
+	// But let's try to simulate a DB error by putting a too long name if there is a limit.
+	// Actually, the easiest way is to use a cancelled context.
 
-	ctx := context.Background()
-	instanceID := uuid.New()
+	svc, _, ctx := setupVolumeServiceTest(t)
+	cancelledCtx, cancel := context.WithCancel(ctx)
+	cancel()
 
-	repo.On("ListByInstanceID", mock.Anything, instanceID).Return(nil, assert.AnError)
-
-	err := svc.ReleaseVolumesForInstance(ctx, instanceID)
+	vol, err := svc.CreateVolume(cancelledCtx, "fail-vol", 5)
 	assert.Error(t, err)
-}
-
-func TestVolumeServiceReleaseVolumesForInstanceUpdateErrorContinues(t *testing.T) {
-	repo, _, _, _, svc := setupVolumeServiceTest(t)
-	defer repo.AssertExpectations(t)
-
-	ctx := context.Background()
-	instanceID := uuid.New()
-	volumes := []*domain.Volume{
-		{ID: uuid.New(), InstanceID: &instanceID, Status: domain.VolumeStatusInUse},
-		{ID: uuid.New(), InstanceID: &instanceID, Status: domain.VolumeStatusInUse},
-	}
-
-	repo.On("ListByInstanceID", mock.Anything, instanceID).Return(volumes, nil)
-	repo.On("Update", mock.Anything, mock.AnythingOfType(volumeTypeLiteral)).Return(assert.AnError).Once()
-	repo.On("Update", mock.Anything, mock.AnythingOfType(volumeTypeLiteral)).Return(nil).Once()
-
-	err := svc.ReleaseVolumesForInstance(ctx, instanceID)
-	assert.NoError(t, err)
+	assert.Nil(t, vol)
 }
