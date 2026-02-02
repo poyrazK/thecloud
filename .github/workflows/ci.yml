@@ -51,12 +51,23 @@ jobs:
         with:
           version: v1.64.8
 
+      - name: Wait for Database
+        run: |
+          until pg_isready -h localhost -p 5433 -U cloud; do
+            echo "Waiting for postgres..."
+            sleep 2
+          done
+
       - name: Run Unit Tests
+        env:
+          DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
         run: |
           docker network create cloud-network || true
           go test -v ./cmd/... ./internal/... ./pkg/...
 
       - name: Run Race Detection
+        env:
+          DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
         run: |
           set -o pipefail
           go test -race -v ./cmd/... ./internal/... ./pkg/... 2>&1 | tee race-output.txt || {
@@ -64,14 +75,6 @@ jobs:
             grep -A 30 "WARNING: DATA RACE" race-output.txt || true
             exit 1
           }
-
-        
-      - name: Wait for Database
-        run: |
-          until pg_isready -h localhost -p 5433 -U cloud; do
-            echo "Waiting for postgres..."
-            sleep 2
-          done
 
       - name: Run Database Migrations
         env:
@@ -172,7 +175,16 @@ jobs:
       - name: Install Dependencies
         run: go mod download
 
+      - name: Wait for Database
+        run: |
+          until pg_isready -h localhost -p 5433 -U cloud; do
+            echo "Waiting for postgres..."
+            sleep 2
+          done
+
       - name: Run Libvirt Unit Tests
+        env:
+          DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
         run: |
           docker network create cloud-network || true
           go test -v ./internal/repositories/libvirt/...
