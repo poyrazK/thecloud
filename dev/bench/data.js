@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1770041923893,
+  "lastUpdate": 1770041969201,
   "repoUrl": "https://github.com/PoyrazK/thecloud",
   "entries": {
     "Go Benchmarks": [
@@ -59612,6 +59612,74 @@ window.BENCHMARK_DATA = {
             "value": 2,
             "unit": "allocs/op",
             "extra": "7467130 times\n4 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "PoyrazK",
+            "username": "PoyrazK"
+          },
+          "committer": {
+            "name": "PoyrazK",
+            "username": "PoyrazK"
+          },
+          "id": "1dc3079f352679aeed4c820c10c8369ecf434ceb",
+          "message": "feat: enhance test coverage and robustness for core services",
+          "timestamp": "2026-02-01T20:43:55Z",
+          "url": "https://github.com/PoyrazK/thecloud/pull/45/commits/1dc3079f352679aeed4c820c10c8369ecf434ceb"
+        },
+        "date": 1770041965156,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkInstanceServiceList",
+            "value": 1.458,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "826898791 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - ns/op",
+            "value": 1.458,
+            "unit": "ns/op",
+            "extra": "826898791 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "826898791 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "826898791 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet",
+            "value": 168.5,
+            "unit": "ns/op\t     208 B/op\t       2 allocs/op",
+            "extra": "6854431 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - ns/op",
+            "value": 168.5,
+            "unit": "ns/op",
+            "extra": "6854431 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - B/op",
+            "value": 208,
+            "unit": "B/op",
+            "extra": "6854431 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - allocs/op",
+            "value": 2,
+            "unit": "allocs/op",
+            "extra": "6854431 times\n4 procs"
           }
         ]
       }
