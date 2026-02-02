@@ -17,10 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	cacheName = "test-cache"
-)
-
 func setupCacheServiceTest(t *testing.T) (*services.CacheService, ports.CacheRepository, *docker.DockerAdapter, ports.VpcRepository, context.Context) {
 	db := setupDB(t)
 	cleanDB(t, db)
@@ -84,7 +80,7 @@ func TestCreateCacheWithVpc(t *testing.T) {
 	networkName := "net-" + vpcID.String()
 	netID, err := compute.CreateNetwork(ctx, networkName)
 	require.NoError(t, err)
-	defer compute.DeleteNetwork(ctx, netID)
+	defer func() { _ = compute.DeleteNetwork(ctx, netID) }()
 
 	vpc := &domain.VPC{
 		ID:        vpcID,

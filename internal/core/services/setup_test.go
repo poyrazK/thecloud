@@ -112,10 +112,6 @@ func cleanDB(t *testing.T, db *pgxpool.Pool) {
 	}
 
 	for _, table := range tables {
-		_, err := db.Exec(ctx, "DELETE FROM "+table+" CASCADE")
-		if err != nil {
-			// Some tables might not exist or have different names in migrations
-			// t.Logf("Cleanup failed for table %s: %v", table, err)
-		}
+		_, _ = db.Exec(ctx, "DELETE FROM "+table+" CASCADE")
 	}
 }

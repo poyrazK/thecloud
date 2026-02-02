@@ -85,7 +85,7 @@ func TestCreateDatabaseWithVpc(t *testing.T) {
 	networkName := "net-" + vpcID.String()
 	netID, err := compute.CreateNetwork(ctx, networkName)
 	require.NoError(t, err)
-	defer compute.DeleteNetwork(ctx, netID)
+	defer func() { _ = compute.DeleteNetwork(ctx, netID) }()
 
 	vpc := &domain.VPC{
 		ID:        vpcID,
