@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/poyrazk/thecloud/pkg/testutil"
@@ -12,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupAuthServiceTest(t *testing.T) (*services.AuthService, *postgres.UserRepo, *services.IdentityService, *services.AuditService, *services.TenantService) {
+func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *postgres.UserRepo, *services.IdentityService, *services.AuditService, *services.TenantService) {
 	db := setupDB(t)
 	cleanDB(t, db)
 
@@ -26,11 +27,11 @@ func setupAuthServiceTest(t *testing.T) (*services.AuthService, *postgres.UserRe
 	tenantSvc := services.NewTenantService(tenantRepo, userRepo, slog.Default())
 	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc)
 
-	return svc, userRepo, identitySvc, auditSvc, tenantSvc
+	return db, svc, userRepo, identitySvc, auditSvc, tenantSvc
 }
 
 func TestAuthServiceRegisterSuccess(t *testing.T) {
-	svc, userRepo, _, _, _ := setupAuthServiceTest(t)
+	_, svc, userRepo, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
 	email := "test@example.com"
@@ -54,7 +55,7 @@ func TestAuthServiceRegisterSuccess(t *testing.T) {
 }
 
 func TestAuthServiceRegisterWeakPassword(t *testing.T) {
-	svc, _, _, _, _ := setupAuthServiceTest(t)
+	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
 	user, err := svc.Register(ctx, "test@example.com", testutil.TestPasswordWeak, "User")
@@ -65,7 +66,7 @@ func TestAuthServiceRegisterWeakPassword(t *testing.T) {
 }
 
 func TestAuthServiceRegisterDuplicateEmail(t *testing.T) {
-	svc, _, _, _, _ := setupAuthServiceTest(t)
+	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
 	email := "existing@example.com"
@@ -80,7 +81,7 @@ func TestAuthServiceRegisterDuplicateEmail(t *testing.T) {
 }
 
 func TestAuthServiceLoginSuccess(t *testing.T) {
-	svc, _, identitySvc, _, _ := setupAuthServiceTest(t)
+	_, svc, _, identitySvc, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
 	email := "login@example.com"
@@ -104,7 +105,7 @@ func TestAuthServiceLoginSuccess(t *testing.T) {
 }
 
 func TestAuthServiceLoginWrongPassword(t *testing.T) {
-	svc, _, _, _, _ := setupAuthServiceTest(t)
+	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
 	email := "wrong@example.com"
@@ -121,7 +122,7 @@ func TestAuthServiceLoginWrongPassword(t *testing.T) {
 }
 
 func TestAuthServiceValidateUser(t *testing.T) {
-	svc, _, _, _, _ := setupAuthServiceTest(t)
+	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
 	user, err := svc.Register(ctx, "val@example.com", testutil.TestPasswordStrong, "User")
@@ -134,7 +135,7 @@ func TestAuthServiceValidateUser(t *testing.T) {
 }
 
 func TestAuthServiceLoginUserNotFound(t *testing.T) {
-	svc, _, _, _, _ := setupAuthServiceTest(t)
+	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
 	resultUser, apiKey, err := svc.Login(ctx, "notfound@example.com", "anypassword")
@@ -146,7 +147,7 @@ func TestAuthServiceLoginUserNotFound(t *testing.T) {
 }
 
 func TestAuthServiceLoginAccountLockout(t *testing.T) {
-	svc, _, _, _, _ := setupAuthServiceTest(t)
+	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
 	email := "lockout@example.com"
@@ -167,4 +168,31 @@ func TestAuthServiceLoginAccountLockout(t *testing.T) {
 	assert.Nil(t, resultUser)
 	assert.Empty(t, apiKey)
 	assert.Contains(t, err.Error(), "locked")
+}
+
+func TestAuthService_TokenExpiry(t *testing.T) {
+	db, svc, _, identitySvc, _, _ := setupAuthServiceTest(t)
+	ctx := context.Background()
+
+	email := "expiry@example.com"
+	password := testutil.TestPasswordStrong
+	user, err := svc.Register(ctx, email, password, "Expiry User")
+	require.NoError(t, err)
+
+	_, apiKey, err := svc.Login(ctx, email, password)
+	require.NoError(t, err)
+
+	// Verify Valid
+	_, err = identitySvc.ValidateAPIKey(ctx, apiKey)
+	require.NoError(t, err)
+
+	// Expire Token Manually
+	// We update using user_id which is simpler and robust for this test
+	_, err = db.Exec(ctx, "UPDATE api_keys SET expires_at = NOW() - INTERVAL '1 minute' WHERE user_id = $1", user.ID)
+	require.NoError(t, err)
+
+	// Verify Expired
+	_, err = identitySvc.ValidateAPIKey(ctx, apiKey)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "expired") // Assuming error message
 }
