@@ -70,12 +70,24 @@ func (w *ContainerWorker) reconcileDeployment(ctx context.Context, dep *domain.D
 		return
 	}
 
-	if w.handleDeletingDeployment(uCtx, dep, containerIDs) {
+	// Filter out unhealthy or missing instances
+	var healthyContainerIDs []uuid.UUID
+	for _, id := range containerIDs {
+		inst, err := w.instanceSvc.GetInstance(uCtx, id.String())
+		if err != nil || inst.Status == domain.StatusError || inst.Status == domain.StatusDeleted {
+			log.Printf("ContainerWorker: instance %s for deployment %s is unhealthy or missing, removing from group", id, dep.Name)
+			_ = w.repo.RemoveContainer(uCtx, dep.ID, id)
+			continue
+		}
+		healthyContainerIDs = append(healthyContainerIDs, id)
+	}
+
+	if w.handleDeletingDeployment(uCtx, dep, healthyContainerIDs) {
 		return
 	}
 
-	current := len(containerIDs)
-	w.scaleDeployment(uCtx, dep, containerIDs, current)
+	current := len(healthyContainerIDs)
+	w.scaleDeployment(uCtx, dep, healthyContainerIDs, current)
 	w.updateDeploymentStatus(uCtx, dep, current)
 }
 
