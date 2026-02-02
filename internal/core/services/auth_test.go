@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
@@ -34,7 +35,7 @@ func TestAuthServiceRegisterSuccess(t *testing.T) {
 	_, svc, userRepo, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "test@example.com"
+	email := "test-" + uuid.New().String() + "@example.com"
 	password := testutil.TestPasswordStrong
 	name := "Test User"
 
@@ -58,7 +59,7 @@ func TestAuthServiceRegisterWeakPassword(t *testing.T) {
 	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	user, err := svc.Register(ctx, "test@example.com", testutil.TestPasswordWeak, "User")
+	user, err := svc.Register(ctx, "test-"+uuid.New().String()+"@example.com", testutil.TestPasswordWeak, "User")
 
 	assert.Error(t, err)
 	assert.Nil(t, user)
@@ -69,7 +70,7 @@ func TestAuthServiceRegisterDuplicateEmail(t *testing.T) {
 	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "existing@example.com"
+	email := "existing-" + uuid.New().String() + "@example.com"
 	_, err := svc.Register(ctx, email, testutil.TestPasswordStrong, "name")
 	require.NoError(t, err)
 
@@ -84,7 +85,7 @@ func TestAuthServiceLoginSuccess(t *testing.T) {
 	_, svc, _, identitySvc, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "login@example.com"
+	email := "login-" + uuid.New().String() + "@example.com"
 	password := testutil.TestPasswordStrong
 	name := "Login User"
 
@@ -108,7 +109,7 @@ func TestAuthServiceLoginWrongPassword(t *testing.T) {
 	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "wrong@example.com"
+	email := "wrong-" + uuid.New().String() + "@example.com"
 	password := testutil.TestPasswordStrong
 	_, err := svc.Register(ctx, email, password, "name")
 	require.NoError(t, err)
@@ -125,7 +126,7 @@ func TestAuthServiceValidateUser(t *testing.T) {
 	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	user, err := svc.Register(ctx, "val@example.com", testutil.TestPasswordStrong, "User")
+	user, err := svc.Register(ctx, "val-"+uuid.New().String()+"@example.com", testutil.TestPasswordStrong, "User")
 	require.NoError(t, err)
 
 	result, err := svc.ValidateUser(ctx, user.ID)
@@ -138,7 +139,7 @@ func TestAuthServiceLoginUserNotFound(t *testing.T) {
 	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	resultUser, apiKey, err := svc.Login(ctx, "notfound@example.com", "anypassword")
+	resultUser, apiKey, err := svc.Login(ctx, "notfound-"+uuid.New().String()+"@example.com", "anypassword")
 
 	assert.Error(t, err)
 	assert.Nil(t, resultUser)
@@ -150,7 +151,7 @@ func TestAuthServiceLoginAccountLockout(t *testing.T) {
 	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "lockout@example.com"
+	email := "lockout-" + uuid.New().String() + "@example.com"
 	password := testutil.TestPasswordStrong
 	_, err := svc.Register(ctx, email, password, "User")
 	require.NoError(t, err)
@@ -174,7 +175,7 @@ func TestAuthService_TokenExpiry(t *testing.T) {
 	db, svc, _, identitySvc, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "expiry@example.com"
+	email := "expiry-" + uuid.New().String() + "@example.com"
 	password := testutil.TestPasswordStrong
 	user, err := svc.Register(ctx, email, password, "Expiry User")
 	require.NoError(t, err)
