@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/docker"
+	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -81,6 +82,7 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 	auditSvc := services.NewAuditService(auditRepo)
 
 	taskQueue := &InMemoryTaskQueue{}
+	network := noop.NewNoopNetworkAdapter(slog.Default())
 
 	svc := services.NewInstanceService(services.InstanceServiceParams{
 		Repo:             repo,
@@ -89,7 +91,7 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 		VolumeRepo:       volumeRepo,
 		InstanceTypeRepo: itRepo,
 		Compute:          compute,
-		Network:          nil,
+		Network:          network,
 		EventSvc:         eventSvc,
 		AuditSvc:         auditSvc,
 		TaskQueue:        taskQueue,
@@ -307,4 +309,46 @@ func TestInstanceService_GetStats_Real(t *testing.T) {
 	// Clean up
 	_ = svc.TerminateInstance(ctx, inst.ID.String())
 	// compute.DeleteInstance(ctx, ...) happens in Terminate
+}
+
+func TestNetworking_CIDRExhaustion(t *testing.T) {
+	db, svc, _, _, vpcRepo, _, ctx := setupInstanceServiceTest(t)
+	subnetRepo := postgres.NewSubnetRepository(db)
+	auditSvc := services.NewAuditService(postgres.NewAuditRepository(db))
+	subnetSvc := services.NewSubnetService(subnetRepo, vpcRepo, auditSvc, slog.Default())
+
+	// 1. Create VPC and a very small subnet (/30)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	userID := appcontext.UserIDFromContext(ctx)
+	vpc := &domain.VPC{
+		ID:        uuid.New(),
+		UserID:    userID,
+		TenantID:  tenantID,
+		Name:      "exhaust-vpc",
+		CIDRBlock: "10.10.0.0/16",
+		Status:    "available",
+	}
+	err := vpcRepo.Create(ctx, vpc)
+	require.NoError(t, err)
+
+	subnet, err := subnetSvc.CreateSubnet(ctx, vpc.ID, "tiny-subnet", "10.10.1.0/30", "us-east-1a")
+	require.NoError(t, err)
+
+	// 2. Launch 1st instance (Should succeed in DB)
+	inst1, err := svc.LaunchInstance(ctx, "inst-1", "alpine", "", "basic-2", &vpc.ID, &subnet.ID, nil)
+	require.NoError(t, err)
+
+	// Manually provision to trigger network allocation
+	err = svc.Provision(ctx, inst1.ID, nil)
+	assert.NoError(t, err)
+
+	// 3. Launch 2nd instance (Should succeed in DB)
+	inst2, err := svc.LaunchInstance(ctx, "inst-2", "alpine", "", "basic-2", &vpc.ID, &subnet.ID, nil)
+	require.NoError(t, err)
+
+	// Provision 2nd instance (Should fail with CIDR exhaustion)
+	err = svc.Provision(ctx, inst2.ID, nil)
+	require.Error(t, err, "Expected error due to CIDR exhaustion")
+	t.Logf("Got expected error: %v", err)
+	assert.Contains(t, err.Error(), "allocate IP")
 }

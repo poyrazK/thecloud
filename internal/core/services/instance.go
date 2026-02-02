@@ -606,11 +606,9 @@ func (s *InstanceService) allocateIP(ctx context.Context, subnet *domain.Subnet)
 		gw = gw[:idx]
 	}
 	usedIPs[gw] = true
-	s.logger.Info("allocating IP", "subnet", subnet.ID, "gateway", subnet.GatewayIP, "usedIPs_init", len(usedIPs))
 
 	// Find first available IP
 	ip, err := s.findAvailableIP(ipNet, usedIPs)
-	s.logger.Info("allocateIP", "subnet", subnet.CIDRBlock, "ip", ip, "err", err, "usedIPs", len(usedIPs))
 	if err != nil {
 		return "", err
 	}
