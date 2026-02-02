@@ -83,15 +83,31 @@ func setupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
 
 func cleanDB(t *testing.T, db *pgxpool.Pool) {
 	ctx := context.Background()
-	queries := []string{
-		"DELETE FROM gateway_routes",
-		"DELETE FROM audit_logs", // Assuming audit_logs table exists and might have data
+	tables := []string{
+		"invocations",
+		"functions",
+		"instance_types",
+		"instances",
+		"subnets",
+		"vpcs",
+		"volumes",
+		"load_balancers",
+		"lb_targets",
+		"audit_logs",
+		"gateway_routes",
+		"events",
+		"usage_records",
+		"encryption_keys",
+		"api_keys",
+		"users",
+		"tenants",
 	}
 
-	for _, q := range queries {
-		_, err := db.Exec(ctx, q)
+	for _, table := range tables {
+		_, err := db.Exec(ctx, "DELETE FROM "+table+" CASCADE")
 		if err != nil {
-			t.Logf("Cleanup query failed (ignoring): %s - %v", q, err)
+			// Some tables might not exist or have different names in migrations
+			// t.Logf("Cleanup failed for table %s: %v", table, err)
 		}
 	}
 }
