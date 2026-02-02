@@ -68,7 +68,7 @@ jobs:
           docker network create cloud-network || true
           go test -p 1 -v ./cmd/... ./internal/... ./pkg/...
 
-  race-check:
+  core-services-race:
     runs-on: ubuntu-latest
     services: *postgres-service
     steps:
@@ -86,15 +86,76 @@ jobs:
             echo "Waiting for postgres..."
             sleep 2
           done
-      - name: Run Race Detection
+      - name: Run Core Services Race Detection
         env:
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
         run: |
           set -o pipefail
-          go test -race -p 1 -v ./cmd/... ./internal/... ./pkg/... 2>&1 | tee race-output.txt || {
-            echo "Race detection found issues. See above for details."
-            grep -A 30 "WARNING: DATA RACE" race-output.txt || true
-            exit 1
+          docker network create cloud-network || true
+          go test -race -p 1 -v ./internal/core/services/... 2>&1 | tee race-core-output.txt || {
+             echo "Race detection (Core) found issues."
+             grep -A 30 "WARNING: DATA RACE" race-core-output.txt || true
+             exit 1
+          }
+
+  repositories-race:
+    runs-on: ubuntu-latest
+    services: *postgres-service
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.24'
+          cache: true
+      - name: Install Dependencies
+        run: go mod download
+      - name: Wait for Database
+        run: |
+          until pg_isready -h localhost -p 5433 -U cloud; do
+            echo "Waiting for postgres..."
+            sleep 2
+          done
+      - name: Run Repositories Race Detection
+        env:
+          DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
+        run: |
+          set -o pipefail
+          docker network create cloud-network || true
+          go test -race -p 1 -v ./internal/repositories/... 2>&1 | tee race-repos-output.txt || {
+             echo "Race detection (Repos) found issues."
+             grep -A 30 "WARNING: DATA RACE" race-repos-output.txt || true
+             exit 1
+          }
+
+  cmd-pkg-race:
+    runs-on: ubuntu-latest
+    services: *postgres-service
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.24'
+          cache: true
+      - name: Install Dependencies
+        run: go mod download
+      - name: Wait for Database
+        run: |
+          until pg_isready -h localhost -p 5433 -U cloud; do
+            echo "Waiting for postgres..."
+            sleep 2
+          done
+      - name: Run Cmd/Pkg Race Detection
+        env:
+          DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
+        run: |
+          set -o pipefail
+          docker network create cloud-network || true
+          go test -race -p 1 -v ./cmd/... ./pkg/... 2>&1 | tee race-cmd-pkg-output.txt || {
+             echo "Race detection (Cmd/Pkg) found issues."
+             grep -A 30 "WARNING: DATA RACE" race-cmd-pkg-output.txt || true
+             exit 1
           }
 
   integration-tests:
@@ -249,7 +310,7 @@ jobs:
           go test -v -run TestInstanceService ./internal/core/services/...
 
   build:
-    needs: [lint, unit-tests, race-check, integration-tests, test-libvirt]
+    needs: [lint, unit-tests, core-services-race, repositories-race, cmd-pkg-race, integration-tests, test-libvirt]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
