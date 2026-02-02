@@ -18,9 +18,9 @@ const (
 	userRepoTestEmail        = "test@example.com"
 	userRepoTestName         = "Test User"
 	userRepoDBErrorMsg       = "db error"
-	userRepoSelectByEmailSQL = "SELECT id, email, password_hash, name, role, created_at, updated_at FROM users WHERE email = \\$1"
-	userRepoSelectByIDSQL    = "SELECT id, email, password_hash, name, role, created_at, updated_at FROM users WHERE id = \\$1"
-	userRepoSelectAllSQL     = "SELECT id, email, password_hash, name, role, created_at, updated_at FROM users"
+	userRepoSelectByEmailSQL = "SELECT id, email, password_hash, name, role, default_tenant_id, created_at, updated_at FROM users WHERE email = \\$1"
+	userRepoSelectByIDSQL    = "SELECT id, email, password_hash, name, role, default_tenant_id, created_at, updated_at FROM users WHERE id = \\$1"
+	userRepoSelectAllSQL     = "SELECT id, email, password_hash, name, role, default_tenant_id, created_at, updated_at FROM users"
 )
 
 func TestUserRepoCreate(t *testing.T) {
@@ -41,7 +41,7 @@ func TestUserRepoCreate(t *testing.T) {
 		}
 
 		mock.ExpectExec("INSERT INTO users").
-			WithArgs(user.ID, user.Email, user.PasswordHash, user.Name, user.Role, user.CreatedAt, user.UpdatedAt).
+			WithArgs(user.ID, user.Email, user.PasswordHash, user.Name, user.Role, user.DefaultTenantID, user.CreatedAt, user.UpdatedAt).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), user)
@@ -80,8 +80,8 @@ func TestUserRepoGetByEmail(t *testing.T) {
 
 		mock.ExpectQuery(userRepoSelectByEmailSQL).
 			WithArgs(email).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "email", "password_hash", "name", "role", "created_at", "updated_at"}).
-				AddRow(id, email, "hashed", userRepoTestName, "user", now, now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "email", "password_hash", "name", "role", "default_tenant_id", "created_at", "updated_at"}).
+				AddRow(id, email, "hashed", userRepoTestName, "user", nil, now, now))
 
 		user, err := repo.GetByEmail(context.Background(), email)
 		assert.NoError(t, err)
@@ -141,8 +141,8 @@ func TestUserRepoGetByID(t *testing.T) {
 
 		mock.ExpectQuery(userRepoSelectByIDSQL).
 			WithArgs(id).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "email", "password_hash", "name", "role", "created_at", "updated_at"}).
-				AddRow(id, email, "hashed", userRepoTestName, "user", now, now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "email", "password_hash", "name", "role", "default_tenant_id", "created_at", "updated_at"}).
+				AddRow(id, email, "hashed", userRepoTestName, "user", nil, now, now))
 
 		user, err := repo.GetByID(context.Background(), id)
 		assert.NoError(t, err)
@@ -207,7 +207,7 @@ func TestUserRepoUpdate(t *testing.T) {
 		}
 
 		mock.ExpectExec("UPDATE users").
-			WithArgs(user.Email, user.PasswordHash, user.Name, user.Role, user.UpdatedAt, user.ID).
+			WithArgs(user.Email, user.PasswordHash, user.Name, user.Role, user.DefaultTenantID, user.UpdatedAt, user.ID).
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		err = repo.Update(context.Background(), user)
@@ -245,9 +245,9 @@ func TestUserRepoList(t *testing.T) {
 		now := time.Now()
 
 		mock.ExpectQuery(userRepoSelectAllSQL).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "email", "password_hash", "name", "role", "created_at", "updated_at"}).
-				AddRow(id1, "u1@ex.com", "h1", "U1", "user", now, now).
-				AddRow(id2, "u2@ex.com", "h2", "U2", "admin", now, now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "email", "password_hash", "name", "role", "default_tenant_id", "created_at", "updated_at"}).
+				AddRow(id1, "u1@ex.com", "h1", "U1", "user", nil, now, now).
+				AddRow(id2, "u2@ex.com", "h2", "U2", "admin", nil, now, now))
 
 		users, err := repo.List(context.Background())
 		assert.NoError(t, err)
