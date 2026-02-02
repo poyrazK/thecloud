@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1770048127517,
+  "lastUpdate": 1770048826476,
   "repoUrl": "https://github.com/PoyrazK/thecloud",
   "entries": {
     "Go Benchmarks": [
@@ -60360,6 +60360,78 @@ window.BENCHMARK_DATA = {
             "value": 2,
             "unit": "allocs/op",
             "extra": "7141291 times\n4 procs"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "83272398+PoyrazK@users.noreply.github.com",
+            "name": "Hüseyin Poyraz Küçükarslan",
+            "username": "PoyrazK"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9ef365d70d27f30af14752c1d2ef28b7a9f90084",
+          "message": "Merge pull request #45 from PoyrazK/test/integration-migration\n\nfeat: enhance test coverage and robustness for core services",
+          "timestamp": "2026-02-02T19:08:40+03:00",
+          "tree_id": "89953e1175faa14f16ba76122d7dfb6e16b0a66f",
+          "url": "https://github.com/PoyrazK/thecloud/commit/9ef365d70d27f30af14752c1d2ef28b7a9f90084"
+        },
+        "date": 1770048822998,
+        "tool": "go",
+        "benches": [
+          {
+            "name": "BenchmarkInstanceServiceList",
+            "value": 1.869,
+            "unit": "ns/op\t       0 B/op\t       0 allocs/op",
+            "extra": "634248636 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - ns/op",
+            "value": 1.869,
+            "unit": "ns/op",
+            "extra": "634248636 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - B/op",
+            "value": 0,
+            "unit": "B/op",
+            "extra": "634248636 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkInstanceServiceList - allocs/op",
+            "value": 0,
+            "unit": "allocs/op",
+            "extra": "634248636 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet",
+            "value": 165.6,
+            "unit": "ns/op\t     208 B/op\t       2 allocs/op",
+            "extra": "7188918 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - ns/op",
+            "value": 165.6,
+            "unit": "ns/op",
+            "extra": "7188918 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - B/op",
+            "value": 208,
+            "unit": "B/op",
+            "extra": "7188918 times\n4 procs"
+          },
+          {
+            "name": "BenchmarkVPCServiceGet - allocs/op",
+            "value": 2,
+            "unit": "allocs/op",
+            "extra": "7188918 times\n4 procs"
           }
         ]
       }
