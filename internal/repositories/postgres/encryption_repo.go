@@ -25,6 +25,7 @@ func (r *EncryptionRepository) SaveKey(ctx context.Context, key ports.Encryption
 		INSERT INTO encryption_keys (id, bucket_name, encrypted_key, algorithm)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (bucket_name) DO UPDATE SET
+			id = EXCLUDED.id,
 			encrypted_key = EXCLUDED.encrypted_key,
 			algorithm = EXCLUDED.algorithm
 	`
