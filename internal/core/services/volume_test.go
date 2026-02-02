@@ -129,11 +129,9 @@ func TestVolumeServiceReleaseVolumesForInstance(t *testing.T) {
 }
 
 func TestVolumeServiceCreateVolumeRollbackOnRepoError(t *testing.T) {
-	// To test rollback we need to induce a repo error while storage success.
-	// Since we are using real repo, we could maybe use a context cancellation or something?
-	// Or just trust the unit tests previously covered the logic.
-	// But let's try to simulate a DB error by putting a too long name if there is a limit.
-	// Actually, the easiest way is to use a cancelled context.
+	// In order to verify rollback functionality, we need to trigger a repository failure
+	// after the storage operation has succeeded. Using a cancelled context provides
+	// a deterministic way to simulate this failure scenario during the repository assertion phase.
 
 	svc, _, ctx := setupVolumeServiceTest(t)
 	cancelledCtx, cancel := context.WithCancel(ctx)
