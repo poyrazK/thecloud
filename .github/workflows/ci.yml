@@ -8,9 +8,31 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
-    services:
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.24'
+          cache: true
+      - name: Verify Swagger
+        run: |
+          go install github.com/swaggo/swag/cmd/swag@latest
+          swag init -g cmd/api/main.go --output docs/swagger
+          if [ -n "$(git status --porcelain docs/swagger)" ]; then
+            echo "Swagger docs are out of sync. Run 'swag init' and commit changes."
+            exit 1
+          fi
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.64.8
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    services: &postgres-service
       postgres:
         image: postgres:16-alpine
         env:
@@ -24,40 +46,21 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     steps:
       - uses: actions/checkout@v6
-      
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
           go-version: '1.24'
           cache: true
-          
       - name: Install Dependencies
         run: go mod download
-        
-      - name: Verify Swagger
-        run: |
-          go install github.com/swaggo/swag/cmd/swag@latest
-          swag init -g cmd/api/main.go --output docs/swagger
-          if [ -n "$(git status --porcelain docs/swagger)" ]; then
-            echo "Swagger docs are out of sync. Run 'swag init' and commit changes."
-            exit 1
-          fi
-
-      - name: Lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: v1.64.8
-
       - name: Wait for Database
         run: |
           until pg_isready -h localhost -p 5433 -U cloud; do
             echo "Waiting for postgres..."
             sleep 2
           done
-
       - name: Run Unit Tests
         env:
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
@@ -65,6 +68,24 @@ jobs:
           docker network create cloud-network || true
           go test -p 1 -v ./cmd/... ./internal/... ./pkg/...
 
+  race-check:
+    runs-on: ubuntu-latest
+    services: *postgres-service
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.24'
+          cache: true
+      - name: Install Dependencies
+        run: go mod download
+      - name: Wait for Database
+        run: |
+          until pg_isready -h localhost -p 5433 -U cloud; do
+            echo "Waiting for postgres..."
+            sleep 2
+          done
       - name: Run Race Detection
         env:
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
@@ -76,6 +97,24 @@ jobs:
             exit 1
           }
 
+  integration-tests:
+    runs-on: ubuntu-latest
+    services: *postgres-service
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.24'
+          cache: true
+      - name: Install Dependencies
+        run: go mod download
+      - name: Wait for Database
+        run: |
+          until pg_isready -h localhost -p 5433 -U cloud; do
+            echo "Waiting for postgres..."
+            sleep 2
+          done
       - name: Run Database Migrations
         env:
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
@@ -83,7 +122,6 @@ jobs:
           PGPASSWORD=cloud psql -h localhost -p 5433 -U cloud -d postgres -c "DROP DATABASE IF EXISTS cloud;"
           PGPASSWORD=cloud psql -h localhost -p 5433 -U cloud -d postgres -c "CREATE DATABASE cloud;"
           go run ./cmd/api -migrate-only
-        
       - name: Run Integration Tests
         env:
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
@@ -211,7 +249,7 @@ jobs:
           go test -v -run TestInstanceService ./internal/core/services/...
 
   build:
-    needs: [test, test-libvirt]
+    needs: [lint, unit-tests, race-check, integration-tests, test-libvirt]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
