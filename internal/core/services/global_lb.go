@@ -97,14 +97,19 @@ func (s *GlobalLBService) Get(ctx context.Context, id uuid.UUID) (*domain.Global
 	return glb, nil
 }
 
-func (s *GlobalLBService) List(ctx context.Context) ([]*domain.GlobalLoadBalancer, error) {
-	return s.repo.List(ctx)
+func (s *GlobalLBService) List(ctx context.Context, userID uuid.UUID) ([]*domain.GlobalLoadBalancer, error) {
+	return s.repo.List(ctx, userID)
 }
 
-func (s *GlobalLBService) Delete(ctx context.Context, id uuid.UUID) error {
+func (s *GlobalLBService) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
 	glb, err := s.Get(ctx, id)
 	if err != nil {
 		return err
+	}
+
+	// Verify ownership
+	if glb.UserID != userID {
+		return errors.New(errors.Unauthorized, "unauthorized access to global load balancer")
 	}
 
 	// Synchronously remove the associated GeoDNS record set.
@@ -113,7 +118,7 @@ func (s *GlobalLBService) Delete(ctx context.Context, id uuid.UUID) error {
 		// Proceed with database deletion to maintain system consistency and prevent orphaned resources.
 	}
 
-	if err := s.repo.Delete(ctx, id); err != nil {
+	if err := s.repo.Delete(ctx, id, userID); err != nil {
 		return errors.Wrap(errors.Internal, "failed to delete global load balancer", err)
 	}
 
@@ -129,13 +134,18 @@ func (s *GlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, regi
 	}
 
 	// Validate target
+	userID := appcontext.UserIDFromContext(ctx)
 	if targetType == "LB" {
 		if targetID == nil {
 			return nil, errors.New(errors.InvalidInput, "target_id required for LB endpoint")
 		}
-		// Verify LB exists
-		if _, err := s.lbRepo.GetByID(ctx, *targetID); err != nil {
+		// Verify LB exists and belongs to user
+		lb, err := s.lbRepo.GetByID(ctx, *targetID)
+		if err != nil {
 			return nil, errors.Wrap(errors.NotFound, "target load balancer not found", err)
+		}
+		if lb.UserID != userID {
+			return nil, errors.New(errors.Unauthorized, "unauthorized access to regional load balancer")
 		}
 	} else if targetType == "IP" {
 		if targetIP == nil || *targetIP == "" {
@@ -185,18 +195,45 @@ func (s *GlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, regi
 }
 
 func (s *GlobalLBService) RemoveEndpoint(ctx context.Context, endpointID uuid.UUID) error {
-	// Resource removal involves updating the persistent state followed by a DNS synchronization.
-	// Current Limitation: DNS updates require the parent Global Load Balancer ID.
-	// Future Iteration: Refactor repository to support atomic retrieval of parent contexts or
-	// update signature to include glbID.
-	// Actually, let's just implement `RemoveEndpoint` to return the deleted ep or parent ID?
-	// The interface is `RemoveEndpoint(ctx, id) error`.
+	userID := appcontext.UserIDFromContext(ctx)
 
+	// 1. Get endpoint to find parent GLB and verify ownership
+	ep, err := s.repo.GetEndpointByID(ctx, endpointID)
+	if err != nil {
+		return err
+	}
+
+	glb, err := s.Get(ctx, ep.GlobalLBID)
+	if err != nil {
+		return err
+	}
+
+	if glb.UserID != userID {
+		return errors.New(errors.Unauthorized, "unauthorized access to global load balancer endpoint")
+	}
+
+	// 2. Remove from repo
 	if err := s.repo.RemoveEndpoint(ctx, endpointID); err != nil {
 		return err
 	}
 
-	// Note: Explicit DNS synchronization is deferred until the GLB context is provided.
+	// 3. Sync DNS
+	updatedGLB, err := s.Get(ctx, glb.ID)
+	if err == nil {
+		eps := make([]domain.GlobalEndpoint, len(updatedGLB.Endpoints))
+		for i, e := range updatedGLB.Endpoints {
+			eps[i] = *e
+		}
+
+		if err := s.geoDNS.CreateGeoRecord(ctx, updatedGLB.Hostname, eps); err != nil {
+			s.logger.Error("failed to update geo dns after endpoint removal", "hostname", updatedGLB.Hostname, "error", err)
+		}
+	}
+
+	_ = s.auditSvc.Log(ctx, userID, "global_lb.endpoint_remove", "global_lb", glb.ID.String(), map[string]interface{}{
+		"endpoint_id": endpointID.String(),
+	})
+
 	return nil
 }
 
