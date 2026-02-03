@@ -109,6 +109,8 @@ func cleanDB(t *testing.T, db *pgxpool.Pool) {
 		"metrics_history",
 		"deployment_containers",
 		"deployments",
+		"global_lb_endpoints",
+		"global_load_balancers",
 	}
 
 	for _, table := range tables {
