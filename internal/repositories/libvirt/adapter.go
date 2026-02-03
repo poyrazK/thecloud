@@ -104,7 +104,7 @@ func (a *LibvirtAdapter) Type() string {
 	return "libvirt"
 }
 
-func (a *LibvirtAdapter) CreateInstance(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
+func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
 	name := a.sanitizeDomainName(opts.Name)
 
 	diskPath, vol, err := a.prepareRootVolume(ctx, name)
@@ -112,7 +112,7 @@ func (a *LibvirtAdapter) CreateInstance(ctx context.Context, opts ports.CreateIn
 		return "", err
 	}
 
-	isoPath := a.prepareCloudInit(ctx, name, opts.Env, opts.Cmd)
+	isoPath := a.prepareCloudInit(ctx, name, opts.Env, opts.Cmd, opts.UserData)
 	additionalDisks := a.resolveBinds(ctx, opts.VolumeBinds)
 
 	networkID := opts.NetworkID
@@ -148,11 +148,11 @@ func (a *LibvirtAdapter) sanitizeDomainName(name string) string {
 	return name
 }
 
-func (a *LibvirtAdapter) prepareCloudInit(ctx context.Context, name string, env []string, cmd []string) string {
-	if len(env) == 0 && len(cmd) == 0 {
+func (a *LibvirtAdapter) prepareCloudInit(ctx context.Context, name string, env []string, cmd []string, userData string) string {
+	if len(env) == 0 && len(cmd) == 0 && userData == "" {
 		return ""
 	}
-	isoPath, err := a.generateCloudInitISO(ctx, name, env, cmd)
+	isoPath, err := a.generateCloudInitISO(ctx, name, env, cmd, userData)
 	if err != nil {
 		a.logger.Warn("failed to generate cloud-init iso, proceeding without it", "error", err)
 		return ""
@@ -474,7 +474,7 @@ func (a *LibvirtAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions)
 		return "", fmt.Errorf(errGetVolumePath, err)
 	}
 
-	isoPath := a.prepareCloudInit(ctx, name, nil, opts.Command)
+	isoPath := a.prepareCloudInit(ctx, name, nil, opts.Command, "")
 	additionalDisks := a.resolveBinds(ctx, opts.Binds)
 	domainXML := generateDomainXML(name, diskPath, "default", isoPath, int(opts.MemoryMB), 1, additionalDisks)
 
@@ -688,7 +688,7 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 
 	return nil
 }
-func (a *LibvirtAdapter) generateCloudInitISO(_ context.Context, name string, env []string, cmd []string) (string, error) {
+func (a *LibvirtAdapter) generateCloudInitISO(_ context.Context, name string, env []string, cmd []string, userData string) (string, error) {
 	safeName := a.sanitizeDomainName(name)
 
 	// Additional security: ensure the sanitized name doesn't contain path separators
@@ -704,7 +704,7 @@ func (a *LibvirtAdapter) generateCloudInitISO(_ context.Context, name string, en
 	}
 	defer a.cleanupTempDir(tmpDir)
 
-	if err := a.writeCloudInitFiles(tmpDir, name, env, cmd); err != nil {
+	if err := a.writeCloudInitFiles(tmpDir, name, env, cmd, userData); err != nil {
 		return "", err
 	}
 
@@ -719,17 +719,21 @@ func (a *LibvirtAdapter) cleanupTempDir(tmpDir string) {
 	}
 }
 
-func (a *LibvirtAdapter) writeCloudInitFiles(tmpDir, name string, env, cmd []string) error {
+func (a *LibvirtAdapter) writeCloudInitFiles(tmpDir, name string, env, cmd []string, userDataRaw string) error {
 	metaData := fmt.Sprintf("instance-id: %s\nlocal-hostname: %s\n", name, name)
 	if err := os.WriteFile(filepath.Join(tmpDir, metaDataFileName), []byte(metaData), 0644); err != nil {
 		return err
 	}
 
-	userData := a.generateUserData(env, cmd)
+	userData := a.generateUserData(env, cmd, userDataRaw)
 	return os.WriteFile(filepath.Join(tmpDir, userDataFileName), userData, 0644)
 }
 
-func (a *LibvirtAdapter) generateUserData(env, cmd []string) []byte {
+func (a *LibvirtAdapter) generateUserData(env, cmd []string, userDataRaw string) []byte {
+	if userDataRaw != "" {
+		return []byte(userDataRaw)
+	}
+
 	var userData bytes.Buffer
 	userData.WriteString("#cloud-config\n")
 
