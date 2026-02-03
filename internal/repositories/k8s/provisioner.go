@@ -280,17 +280,39 @@ func (p *KubeadmProvisioner) waitForKubeconfig(ctx context.Context, cluster *dom
 	}
 
 	for i := 0; i < 60; i++ { // Wait up to 10 mins
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+
 		out, err := exec.Run(ctx, "cat "+adminKubeconfig)
 		if err == nil {
 			return out, nil
 		}
-		time.Sleep(10 * time.Second)
+
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(10 * time.Second):
+			continue
+		}
 	}
 	return "", fmt.Errorf("timed out waiting for kubeconfig")
 }
 
 func (p *KubeadmProvisioner) getExecutor(ctx context.Context, cluster *domain.Cluster, ip string) (NodeExecutor, error) {
-	// Decrypt SSH Key
+	// 1. Try to find instance by IP to use ServiceExecutor (preferred for Docker/Local/Managed)
+	// This avoids needing SSH access if we have direct control via the backend.
+	instances, err := p.instSvc.ListInstances(ctx)
+	if err == nil {
+		for _, inst := range instances {
+			if inst.PrivateIP == ip {
+				// We found the managed instance! Use the ServiceExecutor.
+				return NewServiceExecutor(p.instSvc, inst.ID), nil
+			}
+		}
+	}
+
+	// 2. Fallback to SSH
 	decryptedKey := cluster.SSHPrivateKeyEncrypted // Fallback or if not encrypted
 	if p.secretSvc != nil && cluster.SSHPrivateKeyEncrypted != "" {
 		key, err := p.secretSvc.Decrypt(ctx, cluster.UserID, cluster.SSHPrivateKeyEncrypted)
