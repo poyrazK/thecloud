@@ -30,3 +30,9 @@ We decided to implement a **Global Load Balancer (GLB)** service with the follow
 *   **Positive**: Increased resilience against regional outages.
 *   **Neutral**: Increased complexity in DNS management and health-check synchronization.
 *   **Negative**: Dependency on PowerDNS advanced features (LUA records) for granular steering accuracy in future phases.
+
+## Post-Implementation Refinements (Feb 2026)
+We introduced several critical refinements to the original design to ensure production readiness:
+1.  **Enforced Multi-tenancy**: All repository and service methods were updated to require and filter by `UserID`.
+2.  **Cross-Resource Ownership Checks**: Implemented logic to verify that regional load balancer endpoints are owned by the same user as the GLB.
+3.  **Strict DNS Synchronization**: Fixed a gap where removing individual endpoints did not update the DNS backend; synchronization is now triggered on every state change.
