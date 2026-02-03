@@ -211,7 +211,9 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 
 	// Global LB Service
 	// We use the same PowerDNS backend which now implements GeoDNSBackend
-	glbSvc := services.NewGlobalLBService(c.Repos.GlobalLB, c.Repos.LB, pdnsBackend, auditSvc, c.Logger)
+	glbSvc := services.NewGlobalLBService(services.GlobalLBServiceParams{
+		Repo: c.Repos.GlobalLB, LBRepo: c.Repos.LB, GeoDNS: pdnsBackend, AuditSvc: auditSvc, Logger: c.Logger,
+	})
 
 	// Encryption Service
 	encryptionRepo := postgres.NewEncryptionRepository(c.DB)
