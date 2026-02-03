@@ -70,7 +70,7 @@ func TestGlobalLBRepositoryIntegration(t *testing.T) {
 	})
 
 	t.Run("List", func(t *testing.T) {
-		list, err := repo.List(ctx)
+		list, err := repo.List(ctx, userID)
 		require.NoError(t, err)
 		assert.NotEmpty(t, list)
 		found := false
@@ -121,7 +121,7 @@ func TestGlobalLBRepositoryIntegration(t *testing.T) {
 	})
 
 	t.Run("Delete", func(t *testing.T) {
-		err := repo.Delete(ctx, glbID)
+		err := repo.Delete(ctx, glbID, userID)
 		require.NoError(t, err)
 
 		_, err = repo.GetByID(ctx, glbID)
