@@ -374,3 +374,32 @@ func TestDockerAdapterDeleteNetworkError(t *testing.T) {
 	err := adapter.DeleteNetwork(context.Background(), "net1")
 	require.Error(t, err)
 }
+func TestDockerAdapterLaunchWithUserData(t *testing.T) {
+	cli := &fakeDockerClient{}
+	adapter, err := NewDockerAdapter(slog.Default())
+	require.NoError(t, err)
+	adapter.cli = cli
+
+	opts := ports.CreateInstanceOptions{
+		Name:      "test-userdata",
+		ImageName: "alpine",
+		UserData:  "#!/bin/sh\necho 'hello world' > /tmp/output",
+	}
+
+	id, err := adapter.LaunchInstanceWithOptions(context.Background(), opts)
+	require.NoError(t, err)
+	require.Equal(t, "cid", id)
+
+	// Since handleUserData runs the script in background, we wait a tiny bit
+	time.Sleep(50 * time.Millisecond)
+
+	// handleUserData does:
+	// 1. Exec (Write file) -> Create + (Attach or Start)
+	// 2. Exec (Run script) -> Create + (Attach or Start)
+	// Currently DockerAdapter.Exec calls: ContainerExecCreate, then ContainerExecAttach, then ContainerExecInspect.
+	// ContainerExecStart is NOT called by Exec implementation but is available in fake.
+
+	require.Equal(t, 2, cli.Calls["ContainerExecCreate"], "Expected 2 ExecCreate calls (write + run)")
+	require.Equal(t, 2, cli.Calls["ContainerExecAttach"], "Expected 2 ExecAttach calls")
+	require.Equal(t, 2, cli.Calls["ContainerExecInspect"], "Expected 2 ExecInspect calls")
+}
