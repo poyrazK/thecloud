@@ -15,7 +15,7 @@ import (
 )
 
 func TestMultiTenancy_TenantIsolation(t *testing.T) {
-	db := setupDB(t)
+	db := SetupDB(t)
 	defer db.Close()
 
 	// Clear tables in correct order using TRUNCATE CASCADE to handle circular dependencies

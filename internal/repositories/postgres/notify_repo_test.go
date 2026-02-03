@@ -14,10 +14,10 @@ import (
 )
 
 func TestPostgresNotifyRepository(t *testing.T) {
-	db := setupDB(t)
+	db := SetupDB(t)
 	defer db.Close()
 	repo := NewPostgresNotifyRepository(db)
-	ctx := setupTestUser(t, db)
+	ctx := SetupTestUser(t, db)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	t.Run("CreateAndGetTopic", func(t *testing.T) {
