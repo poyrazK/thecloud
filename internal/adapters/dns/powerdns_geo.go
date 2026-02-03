@@ -12,6 +12,8 @@ import (
 // Ensure PowerDNSBackend implements GeoDNSBackend
 var _ ports.GeoDNSBackend = (*PowerDNSBackend)(nil)
 
+const MaxDNSRecordTTL = 60
+
 // Currently, this implements a Weighted Round-Robin strategy via standard A records
 // for all healthy IP-based endpoints. Implementation of advanced LUA records
 // for latency-based or geo-location routing is planned for future iterations.
@@ -39,7 +41,7 @@ func (b *PowerDNSBackend) CreateGeoRecord(ctx context.Context, hostname string, 
 	}
 
 	if len(records) == 0 {
-		return nil
+		return b.DeleteGeoRecord(ctx, hostname)
 	}
 
 	// 3. Commit Resource Record Set (RRSet)
@@ -47,7 +49,7 @@ func (b *PowerDNSBackend) CreateGeoRecord(ctx context.Context, hostname string, 
 	rs := ports.RecordSet{
 		Name:    hostname,
 		Type:    "A",
-		TTL:     60, // Short TTL for dynamic responses
+		TTL:     MaxDNSRecordTTL, // Short TTL for dynamic responses
 		Records: records,
 	}
 
@@ -58,7 +60,7 @@ func (b *PowerDNSBackend) CreateGeoRecord(ctx context.Context, hostname string, 
 func (b *PowerDNSBackend) DeleteGeoRecord(ctx context.Context, hostname string) error {
 	parts := strings.Split(hostname, ".")
 	if len(parts) < 2 {
-		return nil
+		return fmt.Errorf("invalid hostname: %s", hostname)
 	}
 	zoneName := strings.Join(parts[len(parts)-2:], ".")
 
