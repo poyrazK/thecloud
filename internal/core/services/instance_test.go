@@ -68,7 +68,7 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 	volumeRepo := postgres.NewVolumeRepository(db)
 	itRepo := postgres.NewInstanceTypeRepository(db)
 
-	compute, err := docker.NewDockerAdapter()
+	compute, err := docker.NewDockerAdapter(slog.Default())
 	require.NoError(t, err)
 
 	// In integration tests, we frequently rely on a shared Docker network named 'cloud-network'.
@@ -185,7 +185,7 @@ func TestInstanceService_Launch_DBFailure(t *testing.T) {
 	subnetRepo := postgres.NewSubnetRepository(db)
 	volumeRepo := postgres.NewVolumeRepository(db)
 	itRepo := postgres.NewInstanceTypeRepository(db)
-	compute, _ := docker.NewDockerAdapter()
+	compute, _ := docker.NewDockerAdapter(slog.Default())
 
 	defaultType := &domain.InstanceType{ID: "basic-2", Name: "Basic 2", VCPUs: 1, MemoryMB: 128, DiskGB: 1}
 	_, _ = itRepo.Create(ctx, defaultType)

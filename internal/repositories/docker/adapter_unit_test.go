@@ -390,16 +390,16 @@ func TestDockerAdapterLaunchWithUserData(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "cid", id)
 
-	// Since handleUserData runs the script in background, we wait a tiny bit
+	// UserData execution occurs asynchronously in a background goroutine.
+	// A brief pause ensures that the goroutine has sufficient time to initiate its Exec calls.
 	time.Sleep(50 * time.Millisecond)
 
-	// handleUserData does:
-	// 1. Exec (Write file) -> Create + (Attach or Start)
-	// 2. Exec (Run script) -> Create + (Attach or Start)
-	// Currently DockerAdapter.Exec calls: ContainerExecCreate, then ContainerExecAttach, then ContainerExecInspect.
-	// ContainerExecStart is NOT called by Exec implementation but is available in fake.
-
-	require.Equal(t, 2, cli.Calls["ContainerExecCreate"], "Expected 2 ExecCreate calls (write + run)")
-	require.Equal(t, 2, cli.Calls["ContainerExecAttach"], "Expected 2 ExecAttach calls")
-	require.Equal(t, 2, cli.Calls["ContainerExecInspect"], "Expected 2 ExecInspect calls")
+	// Verify the two-stage bootstrap sequence:
+	// Stage 1: Payload delivery (writing the bootstrap script to the container filesystem).
+	// Stage 2: Bootstrap execution (invoking the script via a background Exec operation).
+	// Each 'Exec' operation sequentially triggers ContainerExecCreate, ContainerExecAttach,
+	// and ContainerExecInspect according to the adapter's implementation.
+	require.Equal(t, 2, cli.Calls["ContainerExecCreate"], "Expected dual Stage (delivery + execution) Exec invocations")
+	require.Equal(t, 2, cli.Calls["ContainerExecAttach"], "Expected associated ExecAttach calls for I/O")
+	require.Equal(t, 2, cli.Calls["ContainerExecInspect"], "Expected ExecInspect calls to verify termination state")
 }

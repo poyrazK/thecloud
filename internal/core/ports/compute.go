@@ -13,6 +13,8 @@ type ComputeBackend interface {
 
 	// LaunchInstanceWithOptions provisions a new compute entity based on the provided options.
 	LaunchInstanceWithOptions(ctx context.Context, opts CreateInstanceOptions) (string, error)
+	// StartInstance boots up a stopped instance.
+	StartInstance(ctx context.Context, id string) error
 	// StopInstance gracefully shuts down or forcibly terminates a running instance.
 	StopInstance(ctx context.Context, id string) error
 	// DeleteInstance removes an instance and its ephemeral resources.

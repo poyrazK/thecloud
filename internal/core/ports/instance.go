@@ -34,6 +34,8 @@ type InstanceService interface {
 	LaunchInstance(ctx context.Context, name, image, ports, instanceType string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error)
 	// LaunchInstanceWithOptions provisions an instance using structured options (useful for Cloud-Init).
 	LaunchInstanceWithOptions(ctx context.Context, opts CreateInstanceOptions) (*domain.Instance, error)
+	// StartInstance boots up a stopped instance.
+	StartInstance(ctx context.Context, idOrName string) error
 	// StopInstance gracefully shuts down or halts a running compute resource.
 	StopInstance(ctx context.Context, idOrName string) error
 	// ListInstances returns a slice of all compute resources accessible to the caller.

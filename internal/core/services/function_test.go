@@ -27,7 +27,7 @@ func setupFunctionServiceTest(t *testing.T) (*services.FunctionService, ports.Fu
 
 	repo := postgres.NewFunctionRepository(db)
 
-	compute, err := docker.NewDockerAdapter()
+	compute, err := docker.NewDockerAdapter(slog.Default())
 	require.NoError(t, err)
 
 	tmpStorage := t.TempDir()

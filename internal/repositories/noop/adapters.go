@@ -86,6 +86,10 @@ func (r *NoopSubnetRepository) GetByID(ctx context.Context, id uuid.UUID) (*doma
 func (r *NoopSubnetRepository) GetByName(ctx context.Context, vpcID uuid.UUID, name string) (*domain.Subnet, error) {
 	return &domain.Subnet{ID: uuid.New(), Name: name, VPCID: vpcID}, nil
 }
+func (r *NoopSubnetRepository) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*domain.Subnet, error) {
+	return []*domain.Subnet{}, nil
+}
+func (r *NoopSubnetRepository) Delete(ctx context.Context, id uuid.UUID) error { return nil }
 
 // NoopComputeBackend is a no-op compute backend.
 type NoopComputeBackend struct{}
@@ -93,6 +97,7 @@ type NoopComputeBackend struct{}
 func (c *NoopComputeBackend) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
 	return "cid", nil
 }
+func (c *NoopComputeBackend) StartInstance(ctx context.Context, id string) error  { return nil }
 func (c *NoopComputeBackend) StopInstance(ctx context.Context, id string) error   { return nil }
 func (c *NoopComputeBackend) DeleteInstance(ctx context.Context, id string) error { return nil }
 func (c *NoopComputeBackend) GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error) {
@@ -173,6 +178,29 @@ func (r *NoopClusterRepository) UpdateNode(ctx context.Context, n *domain.Cluste
 	return nil
 }
 func (r *NoopClusterRepository) DeleteNode(ctx context.Context, id uuid.UUID) error { return nil }
+
+// NoopClusterService
+type NoopClusterService struct{}
+
+func (s *NoopClusterService) CreateCluster(ctx context.Context, name string, vpcID uuid.UUID) (*domain.Cluster, error) {
+	return nil, nil
+}
+func (s *NoopClusterService) DeleteCluster(ctx context.Context, id uuid.UUID) error { return nil }
+func (s *NoopClusterService) GetCluster(ctx context.Context, id uuid.UUID) (*domain.Cluster, error) {
+	return nil, nil
+}
+func (s *NoopClusterService) ListClusters(ctx context.Context) ([]*domain.Cluster, error) {
+	return nil, nil
+}
+func (s *NoopClusterService) AddNode(ctx context.Context, clusterID uuid.UUID, role string) (*domain.ClusterNode, error) {
+	return nil, nil
+}
+func (s *NoopClusterService) RemoveNode(ctx context.Context, clusterID, nodeID uuid.UUID) error {
+	return nil
+}
+func (s *NoopClusterService) GetKubeconfig(ctx context.Context, clusterID uuid.UUID) (string, error) {
+	return "", nil
+}
 
 // NoopSecretService is a no-op secret service.
 type NoopSecretService struct{}
@@ -266,3 +294,186 @@ func (q *NoopTaskQueue) Enqueue(ctx context.Context, queue string, payload inter
 	return nil
 }
 func (q *NoopTaskQueue) Dequeue(ctx context.Context, queue string) (string, error) { return "", nil }
+
+// --- New No-Ops (for benchmarks and system tests) ---
+
+type NoopVolumeRepository struct{}
+
+func (r *NoopVolumeRepository) Create(ctx context.Context, v *domain.Volume) error { return nil }
+func (r *NoopVolumeRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Volume, error) {
+	return &domain.Volume{ID: id}, nil
+}
+func (r *NoopVolumeRepository) GetByName(ctx context.Context, name string) (*domain.Volume, error) {
+	return &domain.Volume{ID: uuid.New(), Name: name}, nil
+}
+func (r *NoopVolumeRepository) List(ctx context.Context) ([]*domain.Volume, error) {
+	return []*domain.Volume{}, nil
+}
+func (r *NoopVolumeRepository) ListByInstanceID(ctx context.Context, id uuid.UUID) ([]*domain.Volume, error) {
+	return []*domain.Volume{}, nil
+}
+func (r *NoopVolumeRepository) Update(ctx context.Context, v *domain.Volume) error { return nil }
+func (r *NoopVolumeRepository) Delete(ctx context.Context, id uuid.UUID) error     { return nil }
+
+type NoopFunctionRepository struct{}
+
+func (r *NoopFunctionRepository) Create(ctx context.Context, fn *domain.Function) error { return nil }
+func (r *NoopFunctionRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Function, error) {
+	return &domain.Function{ID: id}, nil
+}
+func (r *NoopFunctionRepository) GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Function, error) {
+	return &domain.Function{ID: uuid.New(), Name: name}, nil
+}
+func (r *NoopFunctionRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.Function, error) {
+	return []*domain.Function{}, nil
+}
+func (r *NoopFunctionRepository) Update(ctx context.Context, fn *domain.Function) error { return nil }
+func (r *NoopFunctionRepository) Delete(ctx context.Context, id uuid.UUID) error        { return nil }
+func (r *NoopFunctionRepository) GetInvocations(ctx context.Context, fnID uuid.UUID, limit int) ([]*domain.Invocation, error) {
+	return []*domain.Invocation{}, nil
+}
+func (r *NoopFunctionRepository) CreateInvocation(ctx context.Context, inv *domain.Invocation) error {
+	return nil
+}
+
+type NoopFileStore struct{}
+
+func (s *NoopFileStore) Write(ctx context.Context, bucket, key string, r io.Reader) (int64, error) {
+	return 0, nil
+}
+func (s *NoopFileStore) Read(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader("")), nil
+}
+func (s *NoopFileStore) Delete(ctx context.Context, bucket, key string) error { return nil }
+func (s *NoopFileStore) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
+	return &domain.StorageCluster{}, nil
+}
+func (s *NoopFileStore) Assemble(ctx context.Context, bucket, key string, parts []string) (int64, error) {
+	return 0, nil
+}
+
+type NoopDatabaseRepository struct{}
+
+func (r *NoopDatabaseRepository) Create(ctx context.Context, db *domain.Database) error { return nil }
+func (r *NoopDatabaseRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
+	return &domain.Database{ID: id}, nil
+}
+func (r *NoopDatabaseRepository) List(ctx context.Context) ([]*domain.Database, error) {
+	return []*domain.Database{}, nil
+}
+func (r *NoopDatabaseRepository) Update(ctx context.Context, db *domain.Database) error { return nil }
+func (r *NoopDatabaseRepository) Delete(ctx context.Context, id uuid.UUID) error        { return nil }
+
+type NoopUserRepository struct{}
+
+func (r *NoopUserRepository) Create(ctx context.Context, u *domain.User) error { return nil }
+func (r *NoopUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+	return &domain.User{ID: id}, nil
+}
+func (r *NoopUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+	return &domain.User{ID: uuid.New(), Email: email}, nil
+}
+func (r *NoopUserRepository) Update(ctx context.Context, u *domain.User) error { return nil }
+func (r *NoopUserRepository) List(ctx context.Context) ([]*domain.User, error) {
+	return []*domain.User{}, nil
+}
+func (r *NoopUserRepository) Delete(ctx context.Context, id uuid.UUID) error { return nil }
+
+type NoopIdentityService struct{}
+
+func (s *NoopIdentityService) CreateKey(ctx context.Context, userID uuid.UUID, name string) (*domain.APIKey, error) {
+	return &domain.APIKey{ID: uuid.New()}, nil
+}
+func (s *NoopIdentityService) ValidateAPIKey(ctx context.Context, key string) (*domain.APIKey, error) {
+	return &domain.APIKey{ID: uuid.New()}, nil
+}
+func (s *NoopIdentityService) ListKeys(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
+	return []*domain.APIKey{}, nil
+}
+func (s *NoopIdentityService) RevokeKey(ctx context.Context, userID, id uuid.UUID) error { return nil }
+func (s *NoopIdentityService) RotateKey(ctx context.Context, userID, id uuid.UUID) (*domain.APIKey, error) {
+	return &domain.APIKey{ID: id}, nil
+}
+
+type NoopCacheRepository struct{}
+
+func (r *NoopCacheRepository) Create(ctx context.Context, c *domain.Cache) error { return nil }
+func (r *NoopCacheRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Cache, error) {
+	return &domain.Cache{ID: id}, nil
+}
+func (r *NoopCacheRepository) List(ctx context.Context) ([]*domain.Cache, error) {
+	return []*domain.Cache{}, nil
+}
+func (r *NoopCacheRepository) Update(ctx context.Context, c *domain.Cache) error { return nil }
+func (r *NoopCacheRepository) Delete(ctx context.Context, id uuid.UUID) error    { return nil }
+
+type NoopStorageRepository struct{}
+
+func (r *NoopStorageRepository) SaveMeta(ctx context.Context, obj *domain.Object) error { return nil }
+func (r *NoopStorageRepository) GetMeta(ctx context.Context, bucket, key string) (*domain.Object, error) {
+	return &domain.Object{Bucket: bucket, Key: key}, nil
+}
+func (r *NoopStorageRepository) List(ctx context.Context, bucket string) ([]*domain.Object, error) {
+	return []*domain.Object{}, nil
+}
+func (r *NoopStorageRepository) SoftDelete(ctx context.Context, bucket, key string) error { return nil }
+func (r *NoopStorageRepository) DeleteVersion(ctx context.Context, bucket, key, ver string) error {
+	return nil
+}
+func (r *NoopStorageRepository) GetMetaByVersion(ctx context.Context, bucket, key, ver string) (*domain.Object, error) {
+	return &domain.Object{}, nil
+}
+func (r *NoopStorageRepository) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
+	return []*domain.Object{}, nil
+}
+func (r *NoopStorageRepository) CreateBucket(ctx context.Context, b *domain.Bucket) error { return nil }
+func (r *NoopStorageRepository) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
+	return &domain.Bucket{Name: name}, nil
+}
+func (r *NoopStorageRepository) DeleteBucket(ctx context.Context, name string) error { return nil }
+func (r *NoopStorageRepository) ListBuckets(ctx context.Context, uid string) ([]*domain.Bucket, error) {
+	return []*domain.Bucket{}, nil
+}
+func (r *NoopStorageRepository) SetBucketVersioning(ctx context.Context, name string, enabled bool) error {
+	return nil
+}
+func (r *NoopStorageRepository) SaveMultipartUpload(ctx context.Context, u *domain.MultipartUpload) error {
+	return nil
+}
+func (r *NoopStorageRepository) GetMultipartUpload(ctx context.Context, id uuid.UUID) (*domain.MultipartUpload, error) {
+	return &domain.MultipartUpload{}, nil
+}
+func (r *NoopStorageRepository) DeleteMultipartUpload(ctx context.Context, id uuid.UUID) error {
+	return nil
+}
+func (r *NoopStorageRepository) SavePart(ctx context.Context, p *domain.Part) error { return nil }
+func (r *NoopStorageRepository) ListParts(ctx context.Context, uid uuid.UUID) ([]*domain.Part, error) {
+	return []*domain.Part{}, nil
+}
+
+// NoopStorageBackend
+type NoopStorageBackend struct{}
+
+func NewNoopStorageBackend() *NoopStorageBackend { return &NoopStorageBackend{} }
+func (s *NoopStorageBackend) CreateSnapshot(ctx context.Context, volumeID, name string) error {
+	return nil
+}
+func (s *NoopStorageBackend) DeleteSnapshot(ctx context.Context, snapshotID string) error { return nil }
+func (s *NoopStorageBackend) RestoreSnapshot(ctx context.Context, snapshotID string) (string, error) {
+	return "vol-restored", nil
+}
+func (s *NoopStorageBackend) CreateVolume(ctx context.Context, size int64) (string, error) {
+	return "vol-1", nil
+}
+func (s *NoopStorageBackend) DeleteVolume(ctx context.Context, id string) error { return nil }
+func (s *NoopStorageBackend) ResizeVolume(ctx context.Context, id string, newSize int64) error {
+	return nil
+}
+func (s *NoopStorageBackend) AttachVolume(ctx context.Context, volID, instanceID string) error {
+	return nil
+}
+func (s *NoopStorageBackend) DetachVolume(ctx context.Context, volID, instanceID string) error {
+	return nil
+}
+func (s *NoopStorageBackend) Ping(ctx context.Context) error { return nil }
+func (s *NoopStorageBackend) Type() string                   { return "noop" }

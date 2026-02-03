@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/poyrazk/thecloud/internal/core/services"
@@ -16,7 +17,7 @@ func setupHealthServiceTest(t *testing.T) (*services.HealthServiceImpl, context.
 	// No cleanDB needed for health check as it only pings.
 	ctx := setupTestUser(t, db)
 
-	compute, err := docker.NewDockerAdapter()
+	compute, err := docker.NewDockerAdapter(slog.Default())
 	require.NoError(t, err)
 
 	// Use noop for cluster as we don't have a simple way to test k8s ping without a real cluster.

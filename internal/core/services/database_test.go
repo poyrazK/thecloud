@@ -29,7 +29,7 @@ func setupDatabaseServiceTest(t *testing.T) (ports.DatabaseService, ports.Databa
 	repo := postgres.NewDatabaseRepository(db)
 	vpcRepo := postgres.NewVpcRepository(db)
 
-	compute, err := docker.NewDockerAdapter()
+	compute, err := docker.NewDockerAdapter(slog.Default())
 	require.NoError(t, err)
 
 	eventRepo := postgres.NewEventRepository(db)

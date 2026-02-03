@@ -25,7 +25,7 @@ func setupCacheServiceTest(t *testing.T) (*services.CacheService, ports.CacheRep
 	repo := postgres.NewCacheRepository(db)
 	vpcRepo := postgres.NewVpcRepository(db)
 
-	compute, err := docker.NewDockerAdapter()
+	compute, err := docker.NewDockerAdapter(slog.Default())
 	require.NoError(t, err)
 
 	eventRepo := postgres.NewEventRepository(db)

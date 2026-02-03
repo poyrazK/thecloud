@@ -372,6 +372,50 @@ func parsePort(s string) (int, error) {
 	return port, nil
 }
 
+// StartInstance boots up a stopped instance.
+func (s *InstanceService) StartInstance(ctx context.Context, idOrName string) error {
+	// 1. Get from DB
+	inst, err := s.GetInstance(ctx, idOrName)
+	if err != nil {
+		return err
+	}
+
+	if inst.Status == domain.StatusRunning {
+		return nil // Already running
+	}
+
+	// 2. Call Compute backend
+	target := inst.ContainerID
+	if target == "" {
+		// Try to recover ID from name if missing
+		target = s.formatContainerName(inst.ID)
+	}
+
+	if err := s.compute.StartInstance(ctx, target); err != nil {
+		platform.InstanceOperationsTotal.WithLabelValues("start", "failure").Inc()
+		s.logger.Error("failed to start instance", "instance_id", inst.ID, "container_id", target, "error", err)
+		return errors.Wrap(errors.Internal, "failed to start instance", err)
+	}
+
+	// 3. Update Metrics & Status
+	platform.InstancesTotal.WithLabelValues("stopped", s.compute.Type()).Dec()
+	platform.InstancesTotal.WithLabelValues("running", s.compute.Type()).Inc()
+	platform.InstanceOperationsTotal.WithLabelValues("start", "success").Inc()
+
+	s.logger.Info("instance started", "instance_id", inst.ID)
+
+	inst.Status = domain.StatusRunning
+	if err := s.repo.Update(ctx, inst); err != nil {
+		return err
+	}
+
+	_ = s.auditSvc.Log(ctx, inst.UserID, "instance.start", "instance", inst.ID.String(), map[string]interface{}{
+		"name": inst.Name,
+	})
+
+	return nil
+}
+
 // StopInstance halts a running instance's associated compute resource (e.g., container).
 func (s *InstanceService) StopInstance(ctx context.Context, idOrName string) error {
 	// 1. Get from DB (handles both Name and UUID)

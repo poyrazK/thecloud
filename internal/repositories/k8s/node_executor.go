@@ -15,6 +15,7 @@ import (
 // NodeExecutor defines an interface for executing commands on a cluster node.
 type NodeExecutor interface {
 	Run(ctx context.Context, cmd string) (string, error)
+	WaitForReady(ctx context.Context, timeout time.Duration) error
 }
 
 // ServiceExecutor uses the InstanceService.Exec (for Docker backend).
@@ -29,6 +30,26 @@ func NewServiceExecutor(svc ports.InstanceService, instID uuid.UUID) *ServiceExe
 
 func (e *ServiceExecutor) Run(ctx context.Context, cmd string) (string, error) {
 	return e.svc.Exec(ctx, e.instID.String(), []string{"sh", "-c", cmd})
+}
+
+func (e *ServiceExecutor) WaitForReady(ctx context.Context, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for node to be ready: %w", ctx.Err())
+		case <-ticker.C:
+			_, err := e.Run(ctx, "echo ready")
+			if err == nil {
+				return nil
+			}
+		}
+	}
 }
 
 // SSHExecutor uses SSH to run commands on a node.
@@ -80,4 +101,24 @@ func (e *SSHExecutor) Run(ctx context.Context, cmd string) (string, error) {
 	}
 
 	return stdout.String(), nil
+}
+
+func (e *SSHExecutor) WaitForReady(ctx context.Context, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for node to be ready: %w", ctx.Err())
+		case <-ticker.C:
+			_, err := e.Run(ctx, "echo ready")
+			if err == nil {
+				return nil
+			}
+		}
+	}
 }

@@ -3,6 +3,7 @@ package docker
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"log/slog"
@@ -24,6 +25,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -205,45 +207,131 @@ func (a *DockerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts port
 
 func (a *DockerAdapter) handleUserData(ctx context.Context, containerID string, userData string) error {
 	// For Docker, we simulate Cloud-Init by writing the script to the container and executing it.
-	// If it's a #cloud-config, we'd need a parser. For now, we support shell scripts.
+	if strings.HasPrefix(userData, "#cloud-config") {
+		return a.processCloudConfig(ctx, containerID, userData)
+	}
 
-	var scriptPath string
-	var cmd []string
-
+	// Default fallback: treat as shell script
+	scriptPath := "/tmp/bootstrap.sh"
 	if strings.HasPrefix(userData, "#!") {
-		scriptPath = "/tmp/bootstrap.sh"
-		cmd = []string{"/bin/sh", scriptPath}
-	} else if strings.HasPrefix(userData, "#cloud-config") {
-		// Minimum support for cloud-config in Docker: write it to a standard location
-		scriptPath = "/var/lib/cloud/instance/user-data.txt"
-		// If we wanted to be fancy, we could parse runcmd here.
-		// For now, just write it.
-	} else {
-		// Assume it's a simple script
-		scriptPath = "/tmp/bootstrap.sh"
-		cmd = []string{"/bin/sh", scriptPath}
+		// e.g. /bin/bash or /bin/python specified
 	}
 
 	// Write file to container
-	writeCmd := []string{"sh", "-c", fmt.Sprintf("mkdir -p %s && cat <<'EOF' > %s\n%s\nEOF\nchmod +x %s",
-		filepath.Dir(scriptPath), scriptPath, userData, scriptPath)}
+	// Note: We use base64 encoding to avoid escaping issues with complex scripts
+	encoded := base64.StdEncoding.EncodeToString([]byte(userData))
+	writeCmd := []string{"sh", "-c", fmt.Sprintf("mkdir -p %s && echo %s | base64 -d > %s && chmod +x %s",
+		filepath.Dir(scriptPath), encoded, scriptPath, scriptPath)}
 
 	if _, err := a.Exec(ctx, containerID, writeCmd); err != nil {
 		return fmt.Errorf("failed to write userdata to container: %w", err)
 	}
 
-	// If it's a script, run it in background
-	if len(cmd) > 0 {
-		go func() {
-			// Using a background context as the creation context might expire
-			bgCtx := context.Background()
-			_, err := a.Exec(bgCtx, containerID, cmd)
-			if err != nil {
-				a.logger.Error("failed to execute userdata script", "container_id", containerID, "error", err)
-			}
-		}()
+	// Run in background
+	go func() {
+		bgCtx := context.Background()
+		_, err := a.Exec(bgCtx, containerID, []string{"/bin/sh", scriptPath})
+		if err != nil {
+			a.logger.Error("failed to execute userdata script", "container_id", containerID, "error", err)
+		}
+	}()
+
+	return nil
+}
+
+type cloudConfig struct {
+	PackageUpdate  bool              `yaml:"package_update"`
+	PackageUpgrade bool              `yaml:"package_upgrade"`
+	Packages       []string          `yaml:"packages"`
+	WriteFiles     []cloudConfigFile `yaml:"write_files"`
+	RunCmd         []interface{}     `yaml:"runcmd"` // Can be string or list
+}
+
+type cloudConfigFile struct {
+	Path        string `yaml:"path"`
+	Content     string `yaml:"content"`
+	Permissions string `yaml:"permissions"`
+}
+
+func (a *DockerAdapter) processCloudConfig(ctx context.Context, containerID string, userData string) error {
+	var cfg cloudConfig
+	if err := yaml.Unmarshal([]byte(userData), &cfg); err != nil {
+		return fmt.Errorf("failed to parse cloud-config: %w", err)
 	}
 
+	// We'll build a single giant shell script to execute these steps
+	var scriptBuilder strings.Builder
+	scriptBuilder.WriteString("#!/bin/sh\n")
+	scriptBuilder.WriteString("set -e\n") // Exit on error
+	scriptBuilder.WriteString("export DEBIAN_FRONTEND=noninteractive\n")
+
+	// 1. Packages
+	if cfg.PackageUpdate {
+		scriptBuilder.WriteString("apt-get update -y\n")
+	}
+	if cfg.PackageUpgrade {
+		scriptBuilder.WriteString("apt-get upgrade -y\n")
+	}
+	if len(cfg.Packages) > 0 {
+		scriptBuilder.WriteString("apt-get install -y " + strings.Join(cfg.Packages, " ") + "\n")
+	}
+
+	// 2. Write Files
+	for _, f := range cfg.WriteFiles {
+		encodedContent := base64.StdEncoding.EncodeToString([]byte(f.Content))
+		scriptBuilder.WriteString(fmt.Sprintf("mkdir -p $(dirname %s)\n", f.Path))
+		scriptBuilder.WriteString(fmt.Sprintf("echo %s | base64 -d > %s\n", encodedContent, f.Path))
+		if f.Permissions != "" {
+			scriptBuilder.WriteString(fmt.Sprintf("chmod %s %s\n", f.Permissions, f.Path))
+		}
+	}
+
+	// 3. RunCmd
+	for _, cmd := range cfg.RunCmd {
+		switch v := cmd.(type) {
+		case string:
+			scriptBuilder.WriteString(v + "\n")
+		case []interface{}:
+			// Convert ["echo", "hello"] to "echo hello"
+			var parts []string
+			for _, p := range v {
+				parts = append(parts, fmt.Sprintf("%v", p))
+			}
+			scriptBuilder.WriteString(strings.Join(parts, " ") + "\n")
+		}
+	}
+
+	// Upload and Execute the generated script
+	finalScript := scriptBuilder.String()
+	bootstrapPath := "/tmp/cloud-init-bootstrap.sh"
+
+	encodedScript := base64.StdEncoding.EncodeToString([]byte(finalScript))
+	writeCmd := []string{"sh", "-c", fmt.Sprintf("echo %s | base64 -d > %s && chmod +x %s",
+		encodedScript, bootstrapPath, bootstrapPath)}
+
+	if _, err := a.Exec(ctx, containerID, writeCmd); err != nil {
+		return fmt.Errorf("failed to upload cloud-init bootstrap: %w", err)
+	}
+
+	// Execute in background
+	go func() {
+		bgCtx := context.Background()
+		// We stream output to logs ideally, but here just run it
+		out, err := a.Exec(bgCtx, containerID, []string{"/bin/sh", bootstrapPath})
+		if err != nil {
+			a.logger.Error("cloud-init execution failed", "container_id", containerID, "error", err, "output", out)
+		} else {
+			a.logger.Info("cloud-init execution success", "container_id", containerID)
+		}
+	}()
+
+	return nil
+}
+
+func (a *DockerAdapter) StartInstance(ctx context.Context, id string) error {
+	if err := a.cli.ContainerStart(ctx, id, container.StartOptions{}); err != nil {
+		return fmt.Errorf("failed to start container %s: %w", id, err)
+	}
 	return nil
 }
 
