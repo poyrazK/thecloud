@@ -45,6 +45,8 @@ type fakeDockerClient struct {
 
 	networkCreateErr error
 	networkRemoveErr error
+
+	Calls map[string]int
 }
 
 func (f *fakeDockerClient) Ping(ctx context.Context) (types.Ping, error) {
@@ -60,10 +62,12 @@ func (f *fakeDockerClient) ImagePull(ctx context.Context, ref string, options im
 }
 
 func (f *fakeDockerClient) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *v1.Platform, containerName string) (container.CreateResponse, error) {
+	f.inc("ContainerCreate")
 	return container.CreateResponse{ID: "cid"}, f.containerCreateErr
 }
 
 func (f *fakeDockerClient) ContainerStart(ctx context.Context, containerID string, options container.StartOptions) error {
+	f.inc("ContainerStart")
 	return f.containerStartErr
 }
 
@@ -124,6 +128,7 @@ func (f *fakeDockerClient) ContainerWait(ctx context.Context, containerID string
 }
 
 func (f *fakeDockerClient) ContainerExecCreate(ctx context.Context, containerID string, config container.ExecOptions) (container.ExecCreateResponse, error) {
+	f.inc("ContainerExecCreate")
 	if f.execCreateErr != nil {
 		return container.ExecCreateResponse{}, f.execCreateErr
 	}
@@ -135,10 +140,12 @@ func (f *fakeDockerClient) ContainerExecCreate(ctx context.Context, containerID 
 }
 
 func (f *fakeDockerClient) ContainerExecStart(ctx context.Context, execID string, config container.ExecStartOptions) error {
+	f.inc("ContainerExecStart")
 	return nil
 }
 
 func (f *fakeDockerClient) ContainerExecAttach(ctx context.Context, execID string, config container.ExecStartOptions) (types.HijackedResponse, error) {
+	f.inc("ContainerExecAttach")
 	if f.execAttachErr != nil {
 		return types.HijackedResponse{}, f.execAttachErr
 	}
@@ -153,6 +160,7 @@ func (f *fakeDockerClient) ContainerExecAttach(ctx context.Context, execID strin
 }
 
 func (f *fakeDockerClient) ContainerExecInspect(ctx context.Context, execID string) (container.ExecInspect, error) {
+	f.inc("ContainerExecInspect")
 	if f.execInspectErr != nil {
 		return container.ExecInspect{}, f.execInspectErr
 	}
@@ -160,3 +168,10 @@ func (f *fakeDockerClient) ContainerExecInspect(ctx context.Context, execID stri
 }
 
 var errFakeNotFound = errors.New("not found")
+
+func (f *fakeDockerClient) inc(name string) {
+	if f.Calls == nil {
+		f.Calls = make(map[string]int)
+	}
+	f.Calls[name]++
+}
