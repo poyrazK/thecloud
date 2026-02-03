@@ -4,6 +4,7 @@ package docker
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 )
 
 func TestDockerAdapterIntegration(t *testing.T) {
-	adapter, err := NewDockerAdapter()
+	adapter, err := NewDockerAdapter(slog.Default())
 	require.NoError(t, err)
 	ctx := context.Background()
 
@@ -25,7 +26,7 @@ func TestDockerAdapterIntegration(t *testing.T) {
 		// 1. Create
 		// Using a minimal sleep command so it stays running but exits eventually
 		// Signature: CreateInstance(ctx, opts)
-		id, err := adapter.CreateInstance(ctx, ports.CreateInstanceOptions{
+		id, err := adapter.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 			Name:      name,
 			ImageName: image,
 			Cmd:       []string{"sleep", "10"},
