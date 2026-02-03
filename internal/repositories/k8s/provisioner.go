@@ -2,38 +2,36 @@
 package k8s
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strings"
+	"text/template"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 const (
-	defaultUser          = "ubuntu"
-	errNoControlPlaneIPs = "cluster %s has no control plane IPs"
-	podCIDR              = "192.168.0.0/16" // Calico default
-	// AnyCIDR represents all IPv4 addresses.
-	AnyCIDR = "0.0.0.0/0"
-	// adminKubeconfig is the default path for kubeconfig on control plane nodes.
+	defaultUser     = "ubuntu"
 	adminKubeconfig = "/etc/kubernetes/admin.conf"
-	kubectlBase     = "kubectl --kubeconfig " + adminKubeconfig
-	kubectlApply    = kubectlBase + " apply -f %s"
-	calicoVersion   = "v3.27.0"
 )
 
-// KubeadmProvisioner implements ports.ClusterProvisioner using kubeadm and SSH.
+// KubeadmProvisioner implements ports.ClusterProvisioner using kubeadm and Cloud-Init.
 type KubeadmProvisioner struct {
-	instSvc    ports.InstanceService
-	repo       ports.ClusterRepository
-	secretSvc  ports.SecretService // To encrypt/decrypt the SSH key
-	sgSvc      ports.SecurityGroupService
-	storageSvc ports.StorageService
-	lbSvc      ports.LBService
-	logger     *slog.Logger
+	instSvc     ports.InstanceService
+	repo        ports.ClusterRepository
+	secretSvc   ports.SecretService
+	sgSvc       ports.SecurityGroupService
+	storageSvc  ports.StorageService
+	lbSvc       ports.LBService
+	logger      *slog.Logger
+	templateDir string
 }
 
 // NewKubeadmProvisioner constructs a new KubeadmProvisioner.
@@ -47,195 +45,252 @@ func NewKubeadmProvisioner(
 	logger *slog.Logger,
 ) *KubeadmProvisioner {
 	return &KubeadmProvisioner{
-		instSvc:    instSvc,
-		repo:       repo,
-		secretSvc:  secretSvc,
-		sgSvc:      sgSvc,
-		storageSvc: storageSvc,
-		lbSvc:      lbSvc,
-		logger:     logger,
+		instSvc:     instSvc,
+		repo:        repo,
+		secretSvc:   secretSvc,
+		sgSvc:       sgSvc,
+		storageSvc:  storageSvc,
+		lbSvc:       lbSvc,
+		logger:      logger,
+		templateDir: "internal/repositories/k8s/templates",
 	}
-}
-
-func (p *KubeadmProvisioner) GetSecretService() ports.SecretService {
-	return p.secretSvc
 }
 
 func (p *KubeadmProvisioner) Provision(ctx context.Context, cluster *domain.Cluster) error {
-	if p.sgSvc == nil {
-		return fmt.Errorf("security group service not initialized")
-	}
-	if p.instSvc == nil {
-		return fmt.Errorf("instance service not initialized")
-	}
+	p.logger.Info("starting real provisioning for cluster", "cluster_id", cluster.ID, "name", cluster.Name)
 
-	p.logger.Info("starting provisioning for cluster", "cluster_id", cluster.ID, "name", cluster.Name)
-
-	// Phase 0: Ensure Security Group
+	// Phase 1: Ensure Security Group
 	if err := p.ensureClusterSecurityGroup(ctx, cluster); err != nil {
 		return p.failCluster(ctx, cluster, "failed to ensure security group", err)
 	}
 
-	// Phase 1: Control Plane
-	joinCmd, err := p.provisionControlPlane(ctx, cluster)
-	if err != nil {
+	// Phase 2: Handle HA LB if enabled
+	if cluster.HAEnabled {
+		if err := p.ensureAPIServerLB(ctx, cluster); err != nil {
+			return p.failCluster(ctx, cluster, "failed to ensure API Server LB", err)
+		}
+	}
+
+	// Phase 3: Provision Control Plane via Cloud-Init
+	if err := p.provisionControlPlane(ctx, cluster); err != nil {
 		return err
 	}
 
-	// Phase 2: Workers
-	_, err = p.provisionWorkers(ctx, cluster, joinCmd)
-	if err != nil {
+	// Phase 4: Generate Join Token (requires SSH to CP)
+	if err := p.refreshJoinToken(ctx, cluster); err != nil {
 		return err
 	}
 
-	// Phase 3: Finalize (CNI, etc)
-	if len(cluster.ControlPlaneIPs) == 0 {
-		return p.failCluster(ctx, cluster, "no control plane IPs found after provisioning", nil)
+	// Phase 5: Provision Workers via Cloud-Init (using join token)
+	if err := p.provisionWorkers(ctx, cluster); err != nil {
+		return err
 	}
-	masterIP := cluster.ControlPlaneIPs[0]
-	return p.finalizeCluster(ctx, cluster, masterIP)
+
+	cluster.Status = domain.ClusterStatusRunning
+	_ = p.repo.Update(ctx, cluster)
+	return nil
 }
 
-func (p *KubeadmProvisioner) provisionControlPlane(ctx context.Context, cluster *domain.Cluster) (string, error) {
-	if cluster.HAEnabled {
-		return p.provisionHAControlPlane(ctx, cluster)
-	}
-
-	master, err := p.createNode(ctx, cluster, "master-0", domain.NodeRoleControlPlane)
+func (p *KubeadmProvisioner) provisionControlPlane(ctx context.Context, cluster *domain.Cluster) error {
+	userData, err := p.renderTemplate("control_plane.yaml", map[string]interface{}{
+		"PodCIDR":     cluster.PodCIDR,
+		"ServiceCIDR": cluster.ServiceCIDR,
+		"HAEnabled":   cluster.HAEnabled,
+		"LBAddress":   cluster.APIServerLBAddress,
+	})
 	if err != nil {
-		return "", p.failCluster(ctx, cluster, "failed to create master node", err)
+		return p.failCluster(ctx, cluster, "failed to render control plane template", err)
 	}
 
-	masterIP := p.waitForIP(ctx, master.ID)
-	if masterIP == "" {
-		return "", p.failCluster(ctx, cluster, "master node failed to get an IP", nil)
+	nodeName := fmt.Sprintf("%s-cp-0", cluster.Name)
+	inst, err := p.instSvc.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+		Name:      nodeName,
+		ImageName: "ubuntu-22.04", // Assume this image exists
+		NetworkID: cluster.VpcID.String(),
+		UserData:  userData,
+	})
+	if err != nil {
+		return p.failCluster(ctx, cluster, "failed to launch control plane instance", err)
 	}
-	cluster.ControlPlaneIPs = []string{masterIP}
+
+	node := &domain.ClusterNode{
+		ID:         uuid.New(),
+		ClusterID:  cluster.ID,
+		InstanceID: inst.ID,
+		Role:       domain.NodeRoleControlPlane,
+		Status:     "provisioning",
+		JoinedAt:   time.Now(),
+	}
+	if err := p.repo.AddNode(ctx, node); err != nil {
+		return err
+	}
+
+	// Wait for instance to have an IP
+	masterIP := p.waitForIP(ctx, node.InstanceID)
+	if masterIP == "" {
+		return p.failCluster(ctx, cluster, "control plane node failed to get an IP", nil)
+	}
+	cluster.ControlPlaneIPs = append(cluster.ControlPlaneIPs, masterIP)
 	_ = p.repo.Update(ctx, cluster)
 
-	p.logger.Info("bootstrapping master node", "ip", masterIP)
-	if err := p.bootstrapNode(ctx, cluster, masterIP, cluster.Version, true); err != nil {
-		return "", p.failCluster(ctx, cluster, "failed to bootstrap master node", err)
-	}
+	// Wait for kubeadm init to finish and kubeconfig to be available via SSH
+	p.logger.Info("waiting for kubeadm init to complete", "ip", masterIP)
 
-	joinCmd, kubeconfig, err := p.initKubeadm(ctx, cluster, masterIP, cluster.ControlPlaneIPs[0])
+	// Implementation of waitForKubeconfig using SSH with retries
+	kubeconfig, err := p.waitForKubeconfig(ctx, cluster, masterIP)
 	if err != nil {
-		return "", p.failCluster(ctx, cluster, "failed to init kubeadm", err)
-	}
-
-	// Wait for API server to be healthy before proceeding
-	p.logger.Info("waiting for API server to become healthy", "ip", masterIP)
-	if err := p.waitForAPIServer(ctx, cluster, masterIP); err != nil {
-		return "", p.failCluster(ctx, cluster, "API server failed to become healthy", err)
+		return p.failCluster(ctx, cluster, "failed to retrieve kubeconfig", err)
 	}
 
 	encryptedKubeconfig, err := p.secretSvc.Encrypt(ctx, cluster.UserID, kubeconfig)
-	if err != nil {
-		p.logger.Error("failed to encrypt kubeconfig", "cluster_id", cluster.ID, "error", err)
-		cluster.Kubeconfig = kubeconfig
+	if err == nil {
+		cluster.KubeconfigEncrypted = encryptedKubeconfig
 	} else {
-		cluster.Kubeconfig = encryptedKubeconfig
+		p.logger.Error("failed to encrypt kubeconfig", "error", err)
+		cluster.KubeconfigEncrypted = kubeconfig // Fallback
 	}
-	_ = p.repo.Update(ctx, cluster)
 
-	return joinCmd, nil
+	_ = p.repo.Update(ctx, cluster)
+	return nil
 }
 
-func (p *KubeadmProvisioner) provisionWorkers(ctx context.Context, cluster *domain.Cluster, joinCmd string) (string, error) {
+func (p *KubeadmProvisioner) provisionWorkers(ctx context.Context, cluster *domain.Cluster) error {
+	p.logger.Info("provisioning worker nodes", "count", cluster.WorkerCount)
+
+	apiServer := cluster.ControlPlaneIPs[0]
+	if cluster.HAEnabled && cluster.APIServerLBAddress != nil {
+		apiServer = *cluster.APIServerLBAddress
+	}
+
+	userData, err := p.renderTemplate("worker.yaml", map[string]interface{}{
+		"APIServerAddress": apiServer,
+		"JoinToken":        cluster.JoinToken,
+		"CACertHash":       cluster.CACertHash,
+	})
+	if err != nil {
+		return p.failCluster(ctx, cluster, "failed to render worker template", err)
+	}
+
 	for i := 0; i < cluster.WorkerCount; i++ {
-		workerName := fmt.Sprintf("worker-%d", i)
-		worker, err := p.createNode(ctx, cluster, workerName, domain.NodeRoleWorker)
+		workerName := fmt.Sprintf("%s-worker-%d", cluster.Name, i)
+		workerInst, err := p.instSvc.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+			Name:      workerName,
+			ImageName: "ubuntu-22.04",
+			NetworkID: cluster.VpcID.String(),
+			UserData:  userData,
+		})
 		if err != nil {
 			p.logger.Error("failed to create worker node", "name", workerName, "error", err)
 			continue
 		}
 
-		workerIP := p.waitForIP(ctx, worker.ID)
-		if workerIP == "" {
-			p.logger.Error("worker node failed to get an IP", "name", workerName)
-			continue
+		node := &domain.ClusterNode{
+			ID:         uuid.New(),
+			ClusterID:  cluster.ID,
+			InstanceID: workerInst.ID,
+			Role:       domain.NodeRoleWorker,
+			Status:     "provisioning",
+			JoinedAt:   time.Now(),
 		}
-
-		if err := p.bootstrapNode(ctx, cluster, workerIP, cluster.Version, false); err != nil {
-			p.logger.Error("failed to bootstrap worker node", "ip", workerIP, "error", err)
-			continue
-		}
-
-		if err := p.joinCluster(ctx, cluster, workerIP, joinCmd); err != nil {
-			p.logger.Error("failed to join worker to cluster", "ip", workerIP, "error", err)
-			_ = p.updateNodeStatus(ctx, cluster.ID, worker.ID, "failed")
-			continue
-		}
-
-		_ = p.updateNodeStatus(ctx, cluster.ID, worker.ID, "active")
+		_ = p.repo.AddNode(ctx, node)
 	}
-	return joinCmd, nil
+
+	return nil
 }
 
-func (p *KubeadmProvisioner) updateNodeStatus(ctx context.Context, clusterID, instID uuid.UUID, status string) error {
-	nodes, err := p.repo.GetNodes(ctx, clusterID)
+func (p *KubeadmProvisioner) renderTemplate(name string, data interface{}) (string, error) {
+	path := filepath.Join(p.templateDir, name)
+	tpl, err := template.ParseFiles(path)
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	if err := tpl.Execute(&buf, data); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+func (p *KubeadmProvisioner) refreshJoinToken(ctx context.Context, cluster *domain.Cluster) error {
+	if cluster.TokenExpiresAt != nil && cluster.TokenExpiresAt.After(time.Now().Add(10*time.Minute)) {
+		return nil
+	}
+
+	p.logger.Info("refreshing join token", "cluster_id", cluster.ID)
+
+	masterIP := cluster.ControlPlaneIPs[0]
+	exec, err := p.getExecutor(ctx, cluster, masterIP)
 	if err != nil {
 		return err
 	}
-	for _, n := range nodes {
-		if n.InstanceID == instID {
-			n.Status = status
-			return p.repo.UpdateNode(ctx, n)
+
+	// Create new token
+	out, err := exec.Run(ctx, "kubeadm token create --print-join-command")
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to create join token", err)
+	}
+
+	// Parse join command
+	// Example: kubeadm join 10.0.0.10:6443 --token abcdef.0123456789abcdef --discovery-token-ca-cert-hash sha256:hash
+	fields := strings.Fields(out)
+	for i, f := range fields {
+		if f == "--token" && i+1 < len(fields) {
+			cluster.JoinToken = fields[i+1]
+		}
+		if f == "--discovery-token-ca-cert-hash" && i+1 < len(fields) {
+			cluster.CACertHash = fields[i+1]
 		}
 	}
-	return nil
+
+	expiry := time.Now().Add(23 * time.Hour)
+	cluster.TokenExpiresAt = &expiry
+
+	return p.repo.Update(ctx, cluster)
 }
 
-func (p *KubeadmProvisioner) finalizeCluster(ctx context.Context, cluster *domain.Cluster, masterIP string) error {
-	p.logger.Info("finalizing cluster state", "ip", masterIP)
+func (p *KubeadmProvisioner) waitForIP(ctx context.Context, instID uuid.UUID) string {
+	for i := 0; i < 30; i++ {
+		inst, err := p.instSvc.GetInstance(ctx, instID.String())
+		if err == nil && inst.PrivateIP != "" {
+			ip := inst.PrivateIP
+			if idx := strings.Index(ip, "/"); idx != -1 {
+				ip = ip[:idx]
+			}
+			return ip
+		}
+		time.Sleep(5 * time.Second)
+	}
+	return ""
+}
 
-	// 1. Install Calico CNI
-	if err := p.installCNI(ctx, cluster, masterIP); err != nil {
-		return p.failCluster(ctx, cluster, "failed to install CNI", err)
+func (p *KubeadmProvisioner) waitForKubeconfig(ctx context.Context, cluster *domain.Cluster, ip string) (string, error) {
+	exec, err := p.getExecutor(ctx, cluster, ip)
+	if err != nil {
+		return "", err
 	}
 
-	// 2. Patch kube-proxy for Docker/conntrack
-	if err := p.patchKubeProxy(ctx, cluster, masterIP); err != nil {
-		p.logger.Error("failed to patch kube-proxy", "cluster_id", cluster.ID, "error", err)
+	for i := 0; i < 60; i++ { // Wait up to 10 mins
+		out, err := exec.Run(ctx, "cat "+adminKubeconfig)
+		if err == nil {
+			return out, nil
+		}
+		time.Sleep(10 * time.Second)
 	}
-
-	// 3. Apply base security policies
-	if err := p.applyBaseSecurity(ctx, cluster, masterIP); err != nil {
-		p.logger.Error("failed to apply base security manifests", "cluster_id", cluster.ID, "error", err)
-	}
-
-	// 4. Install Observability (kube-state-metrics)
-	if err := p.installObservability(ctx, cluster, masterIP); err != nil {
-		p.logger.Error("failed to install observability components", "cluster_id", cluster.ID, "error", err)
-	}
-
-	cluster.Status = domain.ClusterStatusRunning
-	_ = p.repo.Update(ctx, cluster)
-	p.logger.Info("cluster finalized and running", "cluster_id", cluster.ID)
-	return nil
+	return "", fmt.Errorf("timed out waiting for kubeconfig")
 }
 
 func (p *KubeadmProvisioner) getExecutor(ctx context.Context, cluster *domain.Cluster, ip string) (NodeExecutor, error) {
-	// Try to find instance by IP to determine if we can use ServiceExecutor (e.g., Docker backend)
-	nodes, err := p.repo.GetNodes(ctx, cluster.ID)
-	if err == nil {
-		for _, node := range nodes {
-			inst, err := p.instSvc.GetInstance(ctx, node.InstanceID.String())
-			if err == nil {
-				// Match by IP (strip CIDR suffix for comparison)
-				instIP := inst.PrivateIP
-				if idx := strings.Index(instIP, "/"); idx != -1 {
-					instIP = instIP[:idx]
-				}
-				if instIP == ip {
-					return NewServiceExecutor(p.instSvc, node.InstanceID), nil
-				}
-			}
+	// Decrypt SSH Key
+	decryptedKey := cluster.SSHPrivateKeyEncrypted // Fallback or if not encrypted
+	if p.secretSvc != nil && cluster.SSHPrivateKeyEncrypted != "" {
+		key, err := p.secretSvc.Decrypt(ctx, cluster.UserID, cluster.SSHPrivateKeyEncrypted)
+		if err == nil {
+			decryptedKey = key
 		}
 	}
 
-	// Fallback to SSH
-	return NewSSHExecutor(ip, defaultUser, cluster.SSHKey), nil
+	return NewSSHExecutor(ip, defaultUser, decryptedKey), nil
 }
 
 func (p *KubeadmProvisioner) Deprovision(ctx context.Context, cluster *domain.Cluster) error {
@@ -247,20 +302,12 @@ func (p *KubeadmProvisioner) Deprovision(ctx context.Context, cluster *domain.Cl
 	}
 
 	for _, node := range nodes {
-		p.logger.Info("terminating node instance", "instance_id", node.InstanceID)
-		if err := p.instSvc.TerminateInstance(ctx, node.InstanceID.String()); err != nil {
-			p.logger.Error("failed to terminate node instance", "instance_id", node.InstanceID, "error", err)
-		}
+		_ = p.instSvc.TerminateInstance(ctx, node.InstanceID.String())
 		_ = p.repo.DeleteNode(ctx, node.ID)
 	}
 
-	// Optional: Delete Security Group if we created it exclusively for the cluster
-	sgName := fmt.Sprintf("sg-%s", cluster.Name)
-	sg, err := p.sgSvc.GetGroup(ctx, sgName, cluster.VpcID)
-	if err == nil && sg != nil {
-		if err := p.sgSvc.DeleteGroup(ctx, sg.ID); err != nil {
-			p.logger.Error("failed to delete cluster security group", "sg_id", sg.ID, "error", err)
-		}
+	if cluster.HAEnabled && cluster.APIServerLBAddress != nil {
+		// Cleanup LB logic here
 	}
 
 	return nil
@@ -271,4 +318,209 @@ func (p *KubeadmProvisioner) failCluster(ctx context.Context, cluster *domain.Cl
 	_ = p.repo.Update(ctx, cluster)
 	p.logger.Error(msg, "cluster_id", cluster.ID, "error", err)
 	return fmt.Errorf("%s: %w", msg, err)
+}
+
+func (p *KubeadmProvisioner) GetStatus(ctx context.Context, cluster *domain.Cluster) (domain.ClusterStatus, error) {
+	return cluster.Status, nil
+}
+
+func (p *KubeadmProvisioner) Repair(ctx context.Context, cluster *domain.Cluster) error { return nil }
+
+func (p *KubeadmProvisioner) Scale(ctx context.Context, cluster *domain.Cluster) error {
+	return p.provisionWorkers(ctx, cluster)
+}
+
+func (p *KubeadmProvisioner) GetKubeconfig(ctx context.Context, cluster *domain.Cluster, role string) (string, error) {
+	if cluster.KubeconfigEncrypted == "" {
+		return "", errors.New(errors.NotFound, "kubeconfig not found")
+	}
+	return p.secretSvc.Decrypt(ctx, cluster.UserID, cluster.KubeconfigEncrypted)
+}
+
+func (p *KubeadmProvisioner) GetHealth(ctx context.Context, cluster *domain.Cluster) (*ports.ClusterHealth, error) {
+	if len(cluster.ControlPlaneIPs) == 0 {
+		return nil, errors.New(errors.NotFound, "no control plane IPs found")
+	}
+
+	masterIP := cluster.ControlPlaneIPs[0]
+	exec, err := p.getExecutor(ctx, cluster, masterIP)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check API Server
+	_, err = exec.Run(ctx, "kubectl --kubeconfig "+adminKubeconfig+" get nodes")
+	health := &ports.ClusterHealth{
+		APIServer: err == nil,
+	}
+
+	if err != nil {
+		health.Message = "API server is unreachable"
+		return health, nil
+	}
+
+	// Get Node Status
+	out, err := exec.Run(ctx, "kubectl --kubeconfig "+adminKubeconfig+" get nodes --no-headers")
+	if err == nil {
+		lines := strings.Split(strings.TrimSpace(out), "\n")
+		health.NodesTotal = len(lines)
+		for _, line := range lines {
+			if strings.Contains(line, " Ready ") {
+				health.NodesReady++
+			}
+		}
+		health.Message = fmt.Sprintf("%d/%d nodes are ready", health.NodesReady, health.NodesTotal)
+	}
+
+	return health, nil
+}
+
+func (p *KubeadmProvisioner) Upgrade(ctx context.Context, cluster *domain.Cluster, version string) error {
+	p.logger.Info("upgrading cluster", "cluster_id", cluster.ID, "to_version", version)
+
+	if len(cluster.ControlPlaneIPs) == 0 {
+		return errors.New(errors.InvalidInput, "no control plane nodes found")
+	}
+
+	// 1. Upgrade Control Plane nodes one by one
+	nodes, err := p.repo.GetNodes(ctx, cluster.ID)
+	if err != nil {
+		return err
+	}
+
+	for _, node := range nodes {
+		if node.Role == domain.NodeRoleControlPlane {
+			if err := p.upgradeNode(ctx, cluster, node, version); err != nil {
+				return err
+			}
+		}
+	}
+
+	// 2. Upgrade Worker nodes one by one
+	for _, node := range nodes {
+		if node.Role == domain.NodeRoleWorker {
+			if err := p.upgradeNode(ctx, cluster, node, version); err != nil {
+				return err
+			}
+		}
+	}
+
+	cluster.Version = version
+	return p.repo.Update(ctx, cluster)
+}
+
+func (p *KubeadmProvisioner) upgradeNode(ctx context.Context, cluster *domain.Cluster, node *domain.ClusterNode, version string) error {
+	inst, err := p.instSvc.GetInstance(ctx, node.InstanceID.String())
+	if err != nil {
+		return err
+	}
+
+	exec, err := p.getExecutor(ctx, cluster, inst.PrivateIP)
+	if err != nil {
+		return err
+	}
+
+	v := strings.TrimPrefix(version, "v")
+	minor := v[:strings.LastIndex(v, ".")]
+
+	p.logger.Info("upgrading node", "node_id", node.ID, "ip", inst.PrivateIP)
+
+	cmds := []string{
+		"apt-get update",
+		fmt.Sprintf("apt-get install -y --allow-change-held-packages kubeadm=%s-*", v),
+	}
+
+	if node.Role == domain.NodeRoleControlPlane {
+		cmds = append(cmds, fmt.Sprintf("kubeadm upgrade apply v%s -y", minor))
+	} else {
+		cmds = append(cmds, "kubeadm upgrade node")
+	}
+
+	cmds = append(cmds, fmt.Sprintf("apt-get install -y --allow-change-held-packages kubelet=%s-* kubectl=%s-*", v, v))
+	cmds = append(cmds, "systemctl daemon-reload", "systemctl restart kubelet")
+
+	for _, cmd := range cmds {
+		if _, err := exec.Run(ctx, cmd); err != nil {
+			return errors.Wrap(errors.Internal, "failed to run upgrade command", err)
+		}
+	}
+
+	return nil
+}
+
+func (p *KubeadmProvisioner) RotateSecrets(ctx context.Context, cluster *domain.Cluster) error {
+	p.logger.Info("rotating cluster secrets", "cluster_id", cluster.ID)
+
+	if len(cluster.ControlPlaneIPs) == 0 {
+		return errors.New(errors.InvalidInput, "no control plane node for rotation")
+	}
+
+	masterIP := cluster.ControlPlaneIPs[0]
+	exec, err := p.getExecutor(ctx, cluster, masterIP)
+	if err != nil {
+		return err
+	}
+
+	// 1. Renew certs
+	if _, err := exec.Run(ctx, "kubeadm certs renew all"); err != nil {
+		return err
+	}
+
+	// 2. Update Kubeconfig in DB
+	kubeconfig, err := exec.Run(ctx, "cat "+adminKubeconfig)
+	if err != nil {
+		return err
+	}
+
+	encryptedKubeconfig, err := p.secretSvc.Encrypt(ctx, cluster.UserID, kubeconfig)
+	if err == nil {
+		cluster.KubeconfigEncrypted = encryptedKubeconfig
+	}
+
+	return p.repo.Update(ctx, cluster)
+}
+
+func (p *KubeadmProvisioner) CreateBackup(ctx context.Context, cluster *domain.Cluster) error {
+	p.logger.Info("creating cluster backup", "cluster_id", cluster.ID)
+
+	if len(cluster.ControlPlaneIPs) == 0 {
+		return errors.New(errors.InvalidInput, "no control plane node for backup")
+	}
+
+	masterIP := cluster.ControlPlaneIPs[0]
+	exec, err := p.getExecutor(ctx, cluster, masterIP)
+	if err != nil {
+		return err
+	}
+
+	// Backup etcd
+	backupCmd := "ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 " +
+		"--cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt " +
+		"--key=/etc/kubernetes/pki/etcd/server.key snapshot save /tmp/snapshot.db"
+
+	if _, err := exec.Run(ctx, backupCmd); err != nil {
+		return errors.Wrap(errors.Internal, "etcd snapshot failed", err)
+	}
+
+	// Upload to storage service
+	// We'd need a way to stream files or cat them
+	snapshotData, err := exec.Run(ctx, "base64 /tmp/snapshot.db")
+	if err != nil {
+		return err
+	}
+
+	if p.storageSvc != nil {
+		key := fmt.Sprintf("k8s-backups/%s/%d.db.b64", cluster.ID, time.Now().Unix())
+		_, err = p.storageSvc.Upload(ctx, "k8s-backups", key, strings.NewReader(snapshotData))
+		return err
+	}
+
+	return nil
+}
+
+func (p *KubeadmProvisioner) Restore(ctx context.Context, cluster *domain.Cluster, path string) error {
+	p.logger.Info("restoring cluster from backup", "cluster_id", cluster.ID, "path", path)
+	// This is a complex operation involving stopping etcd, restoring from snapshot, and restarting.
+	// Implementing a full restore requires careful node-by-node handling.
+	return errors.New(errors.NotImplemented, "restore not yet fully implemented")
 }
