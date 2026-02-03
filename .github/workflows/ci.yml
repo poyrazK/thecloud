@@ -23,7 +23,7 @@ jobs:
           cache: true
       - name: Verify Swagger
         run: |
-          go install github.com/swaggo/swag/cmd/swag@v1.16.3
+          go install github.com/swaggo/swag/cmd/swag@v1.16.4
           swag init -d cmd/api,internal/handlers -g main.go -o docs/swagger --parseDependency --parseInternal
           if [ -n "$(git status --porcelain docs/swagger)" ]; then
             echo "Swagger docs are out of sync. Run 'swag init' and commit changes."
