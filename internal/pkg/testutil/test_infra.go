@@ -32,7 +32,7 @@ func KillContainer(ctx context.Context, containerID string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create docker client: %w", err)
 	}
-	defer cli.Close()
+	defer func() { _ = cli.Close() }()
 
 	return cli.ContainerKill(ctx, containerID, "SIGKILL")
 }

@@ -44,7 +44,7 @@ func TestGatewayE2E(t *testing.T) {
 
 		resp := postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payload)
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		var res struct {
 			Data domain.GatewayRoute `json:"data"`
@@ -56,7 +56,7 @@ func TestGatewayE2E(t *testing.T) {
 		// 2. List routes and verify it's there
 		listResp := getRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token)
 		require.Equal(t, http.StatusOK, listResp.StatusCode)
-		defer listResp.Body.Close()
+		defer func() { _ = listResp.Body.Close() }()
 
 		var listRes struct {
 			Data []domain.GatewayRoute `json:"data"`
@@ -83,7 +83,7 @@ func TestGatewayE2E(t *testing.T) {
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -109,7 +109,7 @@ func TestGatewayE2E(t *testing.T) {
 
 		resp := postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payload)
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		time.Sleep(2 * time.Second)
 
@@ -118,14 +118,14 @@ func TestGatewayE2E(t *testing.T) {
 		resp, err := client.Do(req)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		// This should NOT match (letters instead of numbers)
 		req, _ = http.NewRequest("GET", fmt.Sprintf("%s/gw/status-%d/abc", testutil.TestBaseURL, ts), nil)
 		resp, err = client.Do(req)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusNotFound, resp.StatusCode)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 	})
 
 	t.Run("VerifyWildcardProxying", func(t *testing.T) {
@@ -143,14 +143,14 @@ func TestGatewayE2E(t *testing.T) {
 
 		resp := postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payload)
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		time.Sleep(2 * time.Second)
 
 		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/gw/wild-%d/foo/bar", testutil.TestBaseURL, ts), nil)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -176,7 +176,7 @@ func TestGatewayE2E(t *testing.T) {
 
 		resp := postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payload)
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		time.Sleep(2 * time.Second)
 
@@ -184,7 +184,7 @@ func TestGatewayE2E(t *testing.T) {
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -206,7 +206,8 @@ func TestGatewayE2E(t *testing.T) {
 			"strip_prefix": true,
 			"priority":     1,
 		}
-		postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payloadGen).Body.Close()
+		resGen := postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payloadGen)
+		_ = resGen.Body.Close()
 
 		// 2. Specific exact route (High priority implied by length or explicit)
 		patternSpec := fmt.Sprintf("/users-%d/me", ts)
@@ -217,7 +218,8 @@ func TestGatewayE2E(t *testing.T) {
 			"strip_prefix": true,
 			"priority":     10,
 		}
-		postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payloadSpec).Body.Close()
+		resSpec := postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payloadSpec)
+		_ = resSpec.Body.Close()
 
 		time.Sleep(2 * time.Second)
 
@@ -226,7 +228,7 @@ func TestGatewayE2E(t *testing.T) {
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		var httpbinResp struct {
 			URL string `json:"url"`
@@ -247,7 +249,8 @@ func TestGatewayE2E(t *testing.T) {
 			"strip_prefix": true,
 		}
 
-		postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payload).Body.Close()
+		resExt := postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payload)
+		_ = resExt.Body.Close()
 
 		time.Sleep(2 * time.Second)
 
@@ -255,7 +258,7 @@ func TestGatewayE2E(t *testing.T) {
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -276,7 +279,8 @@ func TestGatewayE2E(t *testing.T) {
 			"target_url":  httpbinAnything + "/get-only",
 			"methods":     []string{"GET"},
 		}
-		postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payloadGet).Body.Close()
+		resMethodGet := postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payloadGet)
+		_ = resMethodGet.Body.Close()
 
 		// 2. POST only route
 		payloadPost := map[string]interface{}{
@@ -285,7 +289,8 @@ func TestGatewayE2E(t *testing.T) {
 			"target_url":  httpbinAnything + "/post-only",
 			"methods":     []string{"POST"},
 		}
-		postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payloadPost).Body.Close()
+		resMethodPost := postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payloadPost)
+		_ = resMethodPost.Body.Close()
 
 		time.Sleep(2 * time.Second)
 
@@ -294,7 +299,7 @@ func TestGatewayE2E(t *testing.T) {
 		reqGet.Header.Set(testutil.TestHeaderAPIKey, token)
 		respGet, err := client.Do(reqGet)
 		require.NoError(t, err)
-		defer respGet.Body.Close()
+		defer func() { _ = respGet.Body.Close() }()
 		var resGet struct {
 			URL string `json:"url"`
 		}
@@ -307,7 +312,7 @@ func TestGatewayE2E(t *testing.T) {
 		reqPost.Header.Set(testutil.TestHeaderAPIKey, token)
 		respPost, err := client.Do(reqPost)
 		require.NoError(t, err)
-		defer respPost.Body.Close()
+		defer func() { _ = respPost.Body.Close() }()
 		var resPost struct {
 			URL string `json:"url"`
 		}
@@ -321,6 +326,6 @@ func TestGatewayE2E(t *testing.T) {
 		respDel, err := client.Do(reqDel)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusNotFound, respDel.StatusCode)
-		respDel.Body.Close()
+		_ = respDel.Body.Close()
 	})
 }

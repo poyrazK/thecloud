@@ -156,12 +156,13 @@ func TestGlobalLBServiceIntegration(t *testing.T) {
 		ip1 := "1.2.3.4"
 		ip2 := "5.6.7.8"
 		ep1, _ := svc.AddEndpoint(ctx, glb.ID, "us-east-1", "IP", nil, &ip1, 1, 1)
-		svc.AddEndpoint(ctx, glb.ID, "eu-west-1", "IP", nil, &ip2, 1, 1)
+		_, err := svc.AddEndpoint(ctx, glb.ID, "eu-west-1", "IP", nil, &ip2, 1, 1)
+		require.NoError(t, err)
 
 		assert.Len(t, geoDNS.CreatedRecords[hostname], 2)
 
 		// Remove 1 endpoint
-		err := svc.RemoveEndpoint(ctx, ep1.ID)
+		err = svc.RemoveEndpoint(ctx, ep1.ID)
 		assert.NoError(t, err)
 
 		// Verify DNS has exactly 1 remaining record

@@ -131,14 +131,10 @@ func (s *GlobalLBService) Delete(ctx context.Context, id uuid.UUID, userID uuid.
 }
 
 func (s *GlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, region string, targetType string, targetID *uuid.UUID, targetIP *string, weight, priority int) (*domain.GlobalEndpoint, error) {
-	glb, err := s.Get(ctx, glbID)
-	if err != nil {
-		return nil, err
-	}
-
 	// Validate target
 	userID := appcontext.UserIDFromContext(ctx)
-	if targetType == "LB" {
+	switch targetType {
+	case "LB":
 		if targetID == nil {
 			return nil, errors.New(errors.InvalidInput, "target_id required for LB endpoint")
 		}
@@ -150,11 +146,11 @@ func (s *GlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, regi
 		if lb.UserID != userID {
 			return nil, errors.New(errors.Unauthorized, "unauthorized access to regional load balancer")
 		}
-	} else if targetType == "IP" {
+	case "IP":
 		if targetIP == nil || *targetIP == "" {
 			return nil, errors.New(errors.InvalidInput, "target_ip required for IP endpoint")
 		}
-	} else {
+	default:
 		return nil, errors.New(errors.InvalidInput, "invalid target type")
 	}
 
@@ -176,7 +172,7 @@ func (s *GlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, regi
 	}
 
 	// Refresh the Global Load Balancer state to synchronize endpoints with the DNS backend.
-	glb, err = s.Get(ctx, glbID)
+	glb, err := s.Get(ctx, glbID)
 	if err == nil {
 		// Note: The interface currently expects a slice of domain.GlobalEndpoint values.
 		eps := make([]domain.GlobalEndpoint, len(glb.Endpoints))
