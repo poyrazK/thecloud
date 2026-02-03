@@ -133,7 +133,7 @@ func NewNoopComputeBackend() ports.ComputeBackend {
 // NoopComputeBackend is a no-op compute backend implementation.
 type NoopComputeBackend struct{}
 
-func (c *NoopComputeBackend) CreateInstance(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
+func (c *NoopComputeBackend) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
 	return "noop-id", nil
 }
 func (c *NoopComputeBackend) StopInstance(ctx context.Context, id string) error   { return nil }
