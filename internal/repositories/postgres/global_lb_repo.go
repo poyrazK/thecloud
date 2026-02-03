@@ -2,20 +2,21 @@ package postgres
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/domain"
-	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 type globalLBRepository struct {
-	db DB
+	db *pgxpool.Pool
 }
 
-func NewGlobalLBRepository(db DB) ports.GlobalLBRepository {
-	return &globalLBRepository{
-		db: db,
-	}
+func NewGlobalLBRepository(db *pgxpool.Pool) *globalLBRepository {
+	return &globalLBRepository{db: db}
 }
 
 func (r *globalLBRepository) Create(ctx context.Context, glb *domain.GlobalLoadBalancer) error {
@@ -38,9 +39,9 @@ func (r *globalLBRepository) Create(ctx context.Context, glb *domain.GlobalLoadB
 
 func (r *globalLBRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.GlobalLoadBalancer, error) {
 	query := `SELECT * FROM global_load_balancers WHERE id = $1`
-	var glb domain.GlobalLoadBalancer
-	// Scan struct logic would be needed here, simplified for brevity as we usually list fields
-	// Using manual scan for robustness
+
+	// Implementation Note: Manual field mapping is utilized here to ensure
+	// schema robustness and decoupled domain-to-storage mapping.
 	row := r.db.QueryRow(ctx, query, id)
 	return scanGlobalLB(row)
 }
@@ -59,33 +60,42 @@ func (r *globalLBRepository) List(ctx context.Context) ([]*domain.GlobalLoadBala
 	}
 	defer rows.Close()
 
-	var glbs []*domain.GlobalLoadBalancer
+	var list []*domain.GlobalLoadBalancer
 	for rows.Next() {
 		glb, err := scanGlobalLB(rows)
 		if err != nil {
 			return nil, err
 		}
-		glbs = append(glbs, glb)
+		list = append(list, glb)
 	}
-	return glbs, nil
+	return list, nil
 }
 
 func (r *globalLBRepository) Update(ctx context.Context, glb *domain.GlobalLoadBalancer) error {
 	query := `
-		UPDATE global_load_balancers SET 
-			name=$2, hostname=$3, policy=$4, status=$5, updated_at=$6
-		WHERE id=$1
+		UPDATE global_load_balancers SET
+			name = $1, policy = $2, 
+			health_check_protocol = $3, health_check_port = $4, health_check_path = $5,
+			health_check_interval = $6, health_check_timeout = $7, 
+			health_check_healthy_count = $8, health_check_unhealthy_count = $9,
+			status = $10, updated_at = $11
+		WHERE id = $12
 	`
-	_, err := r.db.Exec(ctx, query, glb.ID, glb.Name, glb.Hostname, glb.Policy, glb.Status, glb.UpdatedAt)
+	_, err := r.db.Exec(ctx, query,
+		glb.Name, glb.Policy,
+		glb.HealthCheck.Protocol, glb.HealthCheck.Port, glb.HealthCheck.Path,
+		glb.HealthCheck.IntervalSec, glb.HealthCheck.TimeoutSec,
+		glb.HealthCheck.HealthyCount, glb.HealthCheck.UnhealthyCount,
+		glb.Status, glb.UpdatedAt, glb.ID,
+	)
 	return err
 }
 
 func (r *globalLBRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.Exec(ctx, "DELETE FROM global_load_balancers WHERE id=$1", id)
+	query := `DELETE FROM global_load_balancers WHERE id = $1`
+	_, err := r.db.Exec(ctx, query, id)
 	return err
 }
-
-// Endpoint methods
 
 func (r *globalLBRepository) AddEndpoint(ctx context.Context, ep *domain.GlobalEndpoint) error {
 	query := `
@@ -102,31 +112,37 @@ func (r *globalLBRepository) AddEndpoint(ctx context.Context, ep *domain.GlobalE
 }
 
 func (r *globalLBRepository) RemoveEndpoint(ctx context.Context, endpointID uuid.UUID) error {
-	_, err := r.db.Exec(ctx, "DELETE FROM global_lb_endpoints WHERE id=$1", endpointID)
+	query := `DELETE FROM global_lb_endpoints WHERE id = $1`
+	_, err := r.db.Exec(ctx, query, endpointID)
 	return err
 }
 
 func (r *globalLBRepository) ListEndpoints(ctx context.Context, glbID uuid.UUID) ([]*domain.GlobalEndpoint, error) {
-	query := `SELECT * FROM global_lb_endpoints WHERE global_lb_id = $1`
-	rows, err := r.db.Query(ctx, query)
+	query := `
+		SELECT id, global_lb_id, region, target_type, target_id, HOST(target_ip),
+		       weight, priority, healthy, last_health_check, created_at
+		FROM global_lb_endpoints WHERE global_lb_id = $1
+	`
+	rows, err := r.db.Query(ctx, query, glbID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var endpoints []*domain.GlobalEndpoint
+	var list []*domain.GlobalEndpoint
 	for rows.Next() {
 		ep, err := scanEndpoint(rows)
 		if err != nil {
 			return nil, err
 		}
-		endpoints = append(endpoints, ep)
+		list = append(list, ep)
 	}
-	return endpoints, nil
+	return list, nil
 }
 
 func (r *globalLBRepository) UpdateEndpointHealth(ctx context.Context, epID uuid.UUID, healthy bool) error {
-	_, err := r.db.Exec(ctx, "UPDATE global_lb_endpoints SET healthy=$2, last_health_check=NOW() WHERE id=$1", epID, healthy)
+	query := `UPDATE global_lb_endpoints SET healthy = $1, last_health_check = $2 WHERE id = $3`
+	_, err := r.db.Exec(ctx, query, healthy, time.Now(), epID)
 	return err
 }
 
@@ -138,17 +154,19 @@ type scanner interface {
 
 func scanGlobalLB(s scanner) (*domain.GlobalLoadBalancer, error) {
 	var glb domain.GlobalLoadBalancer
-	var hc domain.HealthCheckConfig
-	// Assuming order matches SELECT * (bad practice usually, but standard for these chunks)
-	// Or explicitly listing cols is better. sticking to * for speed, but ordering assumes table def
-	// id, user_id, tenant_id, name, hostname, policy, hc_proto, hc_port, hc_path, hc_int, hc_to, hc_hc, hc_uhc, status, created, updated
+	var hc domain.GlobalHealthCheckConfig
+	// Explicit field mapping is required to ensure consistent row scanning.
+	// Column order is assumed based on the current table definition.
 	err := s.Scan(
 		&glb.ID, &glb.UserID, &glb.TenantID, &glb.Name, &glb.Hostname, &glb.Policy,
 		&hc.Protocol, &hc.Port, &hc.Path, &hc.IntervalSec, &hc.TimeoutSec, &hc.HealthyCount, &hc.UnhealthyCount,
 		&glb.Status, &glb.CreatedAt, &glb.UpdatedAt,
 	)
 	if err != nil {
-		return nil, err
+		if err == pgx.ErrNoRows {
+			return nil, errors.New(errors.NotFound, "global load balancer not found")
+		}
+		return nil, errors.Wrap(errors.Internal, "failed to scan global load balancer", err)
 	}
 	glb.HealthCheck = hc
 	return &glb, nil
@@ -156,13 +174,20 @@ func scanGlobalLB(s scanner) (*domain.GlobalLoadBalancer, error) {
 
 func scanEndpoint(s scanner) (*domain.GlobalEndpoint, error) {
 	var ep domain.GlobalEndpoint
+	var lastHealthCheck *time.Time
 	// id, glb_id, region, type, tid, tip, weight, prio, healthy, last_hc, created
 	err := s.Scan(
 		&ep.ID, &ep.GlobalLBID, &ep.Region, &ep.TargetType, &ep.TargetID, &ep.TargetIP,
-		&ep.Weight, &ep.Priority, &ep.Healthy, &ep.LastHealthCheck, &ep.CreatedAt,
+		&ep.Weight, &ep.Priority, &ep.Healthy, &lastHealthCheck, &ep.CreatedAt,
 	)
 	if err != nil {
-		return nil, err
+		if err == pgx.ErrNoRows {
+			return nil, errors.New(errors.NotFound, "endpoint not found")
+		}
+		return nil, errors.Wrap(errors.Internal, "failed to scan endpoint", err)
+	}
+	if lastHealthCheck != nil {
+		ep.LastHealthCheck = *lastHealthCheck
 	}
 	return &ep, nil
 }

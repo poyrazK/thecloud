@@ -14,10 +14,10 @@ import (
 )
 
 func TestIdentityRepository_Integration(t *testing.T) {
-	db := setupDB(t)
+	db := SetupDB(t)
 	defer db.Close()
 	repo := NewIdentityRepository(db)
-	ctx := setupTestUser(t, db)
+	ctx := SetupTestUser(t, db)
 
 	// Cleanup
 	_, _ = db.Exec(context.Background(), "DELETE FROM api_keys")
