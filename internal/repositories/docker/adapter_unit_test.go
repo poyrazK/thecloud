@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -215,7 +216,7 @@ func TestDockerAdapterCreateInstance(t *testing.T) {
 		Cmd:       []string{"/bin/sh"},
 		Ports:     []string{"8080:80"},
 	}
-	id, err := adapter.CreateInstance(context.Background(), opts)
+	id, err := adapter.LaunchInstanceWithOptions(context.Background(), opts)
 	require.NoError(t, err)
 	require.Equal(t, "cid", id)
 }
@@ -251,7 +252,7 @@ func TestDockerAdapterPing(t *testing.T) {
 func TestDockerAdapterNewDockerAdapterError(t *testing.T) {
 	// Triggering error by setting an invalid DOCKER_HOST
 	t.Setenv("DOCKER_HOST", "invalid-proto://")
-	_, err := NewDockerAdapter()
+	_, err := NewDockerAdapter(slog.Default())
 	require.Error(t, err)
 }
 
@@ -362,7 +363,7 @@ func TestDockerAdapterCreateInstanceError(t *testing.T) {
 		Name:      "inst1",
 		ImageName: "alpine",
 	}
-	_, err := adapter.CreateInstance(context.Background(), opts)
+	_, err := adapter.LaunchInstanceWithOptions(context.Background(), opts)
 	require.Error(t, err)
 }
 
