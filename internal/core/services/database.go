@@ -69,7 +69,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	}
 
 	dockerName := fmt.Sprintf("cloud-db-%s-%s", name, db.ID.String()[:8])
-	containerID, err := s.compute.CreateInstance(ctx, ports.CreateInstanceOptions{
+	containerID, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 		Name:        dockerName,
 		ImageName:   imageName,
 		Ports:       []string{"0:" + defaultPort},
