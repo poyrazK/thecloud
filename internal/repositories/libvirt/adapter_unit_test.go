@@ -142,7 +142,7 @@ func TestGenerateUserData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := a.generateUserData(tt.env, tt.cmd)
+			result := a.generateUserData(tt.env, tt.cmd, "")
 			content := string(result)
 
 			assert.Contains(t, content, "#cloud-config")
@@ -220,7 +220,7 @@ func TestPrepareCloudInit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := a.prepareCloudInit(context.Background(), "test", tt.env, tt.cmd)
+			result := a.prepareCloudInit(context.Background(), "test", tt.env, tt.cmd, "")
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -537,7 +537,7 @@ func TestGenerateCloudInitISO(t *testing.T) {
 	env := []string{testEnvVar}
 	cmd := []string{"ls -la"}
 
-	isoPath, err := a.generateCloudInitISO(ctx, name, env, cmd)
+	isoPath, err := a.generateCloudInitISO(ctx, name, env, cmd, "")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, isoPath)
 	assert.Contains(t, isoPath, ".iso")
