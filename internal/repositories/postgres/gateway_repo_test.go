@@ -14,12 +14,12 @@ import (
 )
 
 func TestPostgresGatewayRepository(t *testing.T) {
-	db := setupDB(t)
+	db := SetupDB(t)
 	defer db.Close()
 	repo := NewPostgresGatewayRepository(db)
 
-	cleanDB(t, db)
-	ctx := setupTestUser(t, db)
+	CleanDB(t, db)
+	ctx := SetupTestUser(t, db)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	t.Run("CreateAndListRoutes", func(t *testing.T) {

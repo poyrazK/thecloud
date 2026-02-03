@@ -15,10 +15,10 @@ import (
 )
 
 func TestDatabaseRepository_Integration(t *testing.T) {
-	dbPool := setupDB(t)
+	dbPool := SetupDB(t)
 	defer dbPool.Close()
 	repo := NewDatabaseRepository(dbPool)
-	ctx := setupTestUser(t, dbPool)
+	ctx := SetupTestUser(t, dbPool)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	// Cleanup before test
