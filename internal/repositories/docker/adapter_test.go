@@ -59,4 +59,24 @@ func TestDockerAdapterIntegration(t *testing.T) {
 		err = adapter.DeleteNetwork(ctx, id)
 		assert.NoError(t, err)
 	})
+	t.Run("UserData Bootstrap", func(t *testing.T) {
+		name := "integration-test-userdata-" + time.Now().Format("20060102150405")
+		const expectedContent = "hello from bootstrap"
+		userData := "#!/bin/sh\necho '" + expectedContent + "' > /tmp/bootstrap_test.txt"
+
+		// 1. Launch with UserData
+		id, err := adapter.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+			Name:      name,
+			ImageName: "alpine",
+			UserData:  userData,
+		})
+		require.NoError(t, err)
+		defer func() { _ = adapter.DeleteInstance(ctx, id) }()
+
+		// 2. Wait for bootstrap (asynchronous)
+		require.Eventually(t, func() bool {
+			out, err := adapter.Exec(ctx, id, []string{"cat", "/tmp/bootstrap_test.txt"})
+			return err == nil && assert.ObjectsAreEqual(expectedContent+"\n", out)
+		}, 10*time.Second, 500*time.Millisecond, "Bootstrap script failed to execute or write file")
+	})
 }
