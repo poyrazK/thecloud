@@ -3,6 +3,7 @@ package httphandlers
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -94,7 +95,8 @@ func (h *GlobalLBHandler) Get(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /global-lb [get]
 func (h *GlobalLBHandler) List(c *gin.Context) {
-	glbs, err := h.svc.List(c.Request.Context())
+	userID := appcontext.UserIDFromContext(c.Request.Context())
+	glbs, err := h.svc.List(c.Request.Context(), userID)
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -118,7 +120,8 @@ func (h *GlobalLBHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
+	userID := appcontext.UserIDFromContext(c.Request.Context())
+	if err := h.svc.Delete(c.Request.Context(), id, userID); err != nil {
 		httputil.Error(c, err)
 		return
 	}
