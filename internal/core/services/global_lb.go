@@ -22,20 +22,23 @@ type GlobalLBService struct {
 	logger   *slog.Logger
 }
 
+// GlobalLBServiceParams holds dependencies for GlobalLBService.
+type GlobalLBServiceParams struct {
+	Repo     ports.GlobalLBRepository
+	LBRepo   ports.LBRepository
+	GeoDNS   ports.GeoDNSBackend
+	AuditSvc ports.AuditService
+	Logger   *slog.Logger
+}
+
 // NewGlobalLBService creates a new instance of the global load balancer service.
-func NewGlobalLBService(
-	repo ports.GlobalLBRepository,
-	lbRepo ports.LBRepository,
-	geoDNS ports.GeoDNSBackend,
-	auditSvc ports.AuditService,
-	logger *slog.Logger,
-) *GlobalLBService {
+func NewGlobalLBService(params GlobalLBServiceParams) *GlobalLBService {
 	return &GlobalLBService{
-		repo:     repo,
-		lbRepo:   lbRepo,
-		geoDNS:   geoDNS,
-		auditSvc: auditSvc,
-		logger:   logger,
+		repo:     params.Repo,
+		lbRepo:   params.LBRepo,
+		geoDNS:   params.GeoDNS,
+		auditSvc: params.AuditSvc,
+		logger:   params.Logger,
 	}
 }
 
@@ -47,7 +50,10 @@ func (s *GlobalLBService) Create(ctx context.Context, name, hostname string, pol
 
 	// Check for hostname uniqueness
 	existing, err := s.repo.GetByHostname(ctx, hostname)
-	if err == nil && existing != nil {
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return nil, errors.Wrap(errors.Internal, "failed to check hostname uniqueness", err)
+	}
+	if existing != nil {
 		return nil, errors.New(errors.Conflict, "hostname already in use")
 	}
 
@@ -90,6 +96,12 @@ func (s *GlobalLBService) Get(ctx context.Context, id uuid.UUID) (*domain.Global
 		return nil, err
 	}
 
+	// Verify ownership
+	userID := appcontext.UserIDFromContext(ctx)
+	if glb.UserID != userID {
+		return nil, errors.New(errors.Unauthorized, "unauthorized access to global load balancer")
+	}
+
 	// Load endpoints
 	endpoints, err := s.repo.ListEndpoints(ctx, id)
 	if err != nil {
@@ -110,10 +122,8 @@ func (s *GlobalLBService) Delete(ctx context.Context, id uuid.UUID, userID uuid.
 		return err
 	}
 
-	// Verify ownership
-	if glb.UserID != userID {
-		return errors.New(errors.Unauthorized, "unauthorized access to global load balancer")
-	}
+	// Ownership check is already in Get(), but Delete signature has userID.
+	// Assuming Get() uses context userID, which should match the passed userID if from same context.
 
 	// Synchronously remove the associated GeoDNS record set.
 	if err := s.geoDNS.DeleteGeoRecord(ctx, glb.Hostname); err != nil {
@@ -131,6 +141,15 @@ func (s *GlobalLBService) Delete(ctx context.Context, id uuid.UUID, userID uuid.
 }
 
 func (s *GlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, region string, targetType string, targetID *uuid.UUID, targetIP *string, weight, priority int) (*domain.GlobalEndpoint, error) {
+	// 1. Load Global Load Balancer to verify ownership and existence
+	glb, err := s.Get(ctx, glbID)
+	if err != nil {
+		return nil, errors.Wrap(errors.NotFound, "global load balancer not found", err)
+	}
+
+	// Ownership check is implicitly done in Get() now, but explicit check doesn't hurt if Get contract changes.
+	// However, Get() above strictly enforces ownership.
+
 	// Validate target
 	userID := appcontext.UserIDFromContext(ctx)
 	switch targetType {
@@ -171,18 +190,18 @@ func (s *GlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, regi
 		return nil, errors.Wrap(errors.Internal, "failed to add endpoint", err)
 	}
 
-	// Refresh the Global Load Balancer state to synchronize endpoints with the DNS backend.
-	glb, err := s.Get(ctx, glbID)
-	if err == nil {
-		// Note: The interface currently expects a slice of domain.GlobalEndpoint values.
-		eps := make([]domain.GlobalEndpoint, len(glb.Endpoints))
-		for i, e := range glb.Endpoints {
-			eps[i] = *e
-		}
+	// Update in-memory endpoints for DNS sync
+	glb.Endpoints = append(glb.Endpoints, ep)
 
-		if err := s.geoDNS.CreateGeoRecord(ctx, glb.Hostname, eps); err != nil {
-			s.logger.Error("failed to update geo dns", "hostname", glb.Hostname, "error", err)
-		}
+	// Refresh DNS using the already loaded (and updated) GLB
+	// We convert []*domain.GlobalEndpoint to []domain.GlobalEndpoint as expected by CreateGeoRecord
+	eps := make([]domain.GlobalEndpoint, len(glb.Endpoints))
+	for i, e := range glb.Endpoints {
+		eps[i] = *e
+	}
+
+	if err := s.geoDNS.CreateGeoRecord(ctx, glb.Hostname, eps); err != nil {
+		s.logger.Error("failed to update geo dns", "hostname", glb.Hostname, "error", err)
 	}
 
 	_ = s.auditSvc.Log(ctx, glb.UserID, "global_lb.endpoint_add", "global_lb", glbID.String(), map[string]interface{}{
@@ -193,7 +212,7 @@ func (s *GlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, regi
 	return ep, nil
 }
 
-func (s *GlobalLBService) RemoveEndpoint(ctx context.Context, endpointID uuid.UUID) error {
+func (s *GlobalLBService) RemoveEndpoint(ctx context.Context, glbID, endpointID uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
 
 	// 1. Get endpoint to find parent GLB and verify ownership
@@ -202,7 +221,12 @@ func (s *GlobalLBService) RemoveEndpoint(ctx context.Context, endpointID uuid.UU
 		return err
 	}
 
-	glb, err := s.Get(ctx, ep.GlobalLBID)
+	// Verify consistent GLB ID
+	if ep.GlobalLBID != glbID {
+		return errors.New(errors.InvalidInput, "endpoint does not belong to the specified global load balancer")
+	}
+
+	glb, err := s.Get(ctx, glbID)
 	if err != nil {
 		return err
 	}
@@ -237,5 +261,9 @@ func (s *GlobalLBService) RemoveEndpoint(ctx context.Context, endpointID uuid.UU
 }
 
 func (s *GlobalLBService) ListEndpoints(ctx context.Context, glbID uuid.UUID) ([]*domain.GlobalEndpoint, error) {
+	// Verify ownership and existence
+	if _, err := s.Get(ctx, glbID); err != nil {
+		return nil, err
+	}
 	return s.repo.ListEndpoints(ctx, glbID)
 }

@@ -39,7 +39,13 @@ func (r *globalLBRepository) Create(ctx context.Context, glb *domain.GlobalLoadB
 }
 
 func (r *globalLBRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.GlobalLoadBalancer, error) {
-	query := `SELECT * FROM global_load_balancers WHERE id = $1`
+	query := `
+		SELECT id, user_id, tenant_id, name, hostname, policy, 
+		health_check_protocol, health_check_port, health_check_path,
+		health_check_interval, health_check_timeout, health_check_healthy_count, health_check_unhealthy_count,
+		status, created_at, updated_at
+		FROM global_load_balancers WHERE id = $1
+	`
 
 	// Implementation Note: Manual field mapping is utilized here to ensure
 	// schema robustness and decoupled domain-to-storage mapping.
@@ -48,13 +54,25 @@ func (r *globalLBRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 }
 
 func (r *globalLBRepository) GetByHostname(ctx context.Context, hostname string) (*domain.GlobalLoadBalancer, error) {
-	query := `SELECT * FROM global_load_balancers WHERE hostname = $1`
+	query := `
+		SELECT id, user_id, tenant_id, name, hostname, policy, 
+		health_check_protocol, health_check_port, health_check_path,
+		health_check_interval, health_check_timeout, health_check_healthy_count, health_check_unhealthy_count,
+		status, created_at, updated_at
+		FROM global_load_balancers WHERE hostname = $1
+	`
 	row := r.db.QueryRow(ctx, query, hostname)
 	return scanGlobalLB(row)
 }
 
 func (r *globalLBRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.GlobalLoadBalancer, error) {
-	query := `SELECT * FROM global_load_balancers WHERE user_id = $1`
+	query := `
+		SELECT id, user_id, tenant_id, name, hostname, policy, 
+		health_check_protocol, health_check_port, health_check_path,
+		health_check_interval, health_check_timeout, health_check_healthy_count, health_check_unhealthy_count,
+		status, created_at, updated_at
+		FROM global_load_balancers WHERE user_id = $1
+	`
 	rows, err := r.db.Query(ctx, query, userID)
 	if err != nil {
 		return nil, err
@@ -69,6 +87,11 @@ func (r *globalLBRepository) List(ctx context.Context, userID uuid.UUID) ([]*dom
 		}
 		list = append(list, glb)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrap(errors.Internal, "iteration error", err)
+	}
+
 	return list, nil
 }
 
@@ -148,6 +171,10 @@ func (r *globalLBRepository) ListEndpoints(ctx context.Context, glbID uuid.UUID)
 		}
 		list = append(list, ep)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrap(errors.Internal, "iteration error", err)
+	}
+
 	return list, nil
 }
 

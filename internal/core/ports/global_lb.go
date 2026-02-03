@@ -33,7 +33,7 @@ type GlobalLBService interface {
 	Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 
 	AddEndpoint(ctx context.Context, glbID uuid.UUID, region string, targetType string, targetID *uuid.UUID, targetIP *string, weight, priority int) (*domain.GlobalEndpoint, error)
-	RemoveEndpoint(ctx context.Context, endpointID uuid.UUID) error
+	RemoveEndpoint(ctx context.Context, glbID, endpointID uuid.UUID) error
 	ListEndpoints(ctx context.Context, glbID uuid.UUID) ([]*domain.GlobalEndpoint, error)
 }
 
