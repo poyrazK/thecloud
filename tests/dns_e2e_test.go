@@ -63,7 +63,10 @@ func TestDNSE2E(t *testing.T) {
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteDNSZones, token, payload)
 		defer func() { _ = resp.Body.Close() }()
 
-		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		if resp.StatusCode != http.StatusCreated {
+			body, _ := io.ReadAll(resp.Body)
+			t.Fatalf("DNS Zone creation failed: status %d, body: %s", resp.StatusCode, string(body))
+		}
 
 		var res struct {
 			Data domain.DNSZone `json:"data"`
