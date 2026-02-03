@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -12,7 +13,10 @@ import (
 // InitRedis initializes the Redis client
 func InitRedis(ctx context.Context, cfg *Config, logger *slog.Logger) (*redis.Client, error) {
 	rdb := redis.NewClient(&redis.Options{
-		Addr: cfg.RedisURL,
+		Addr:         cfg.RedisURL,
+		DialTimeout:  1 * time.Second,
+		ReadTimeout:  1 * time.Second,
+		WriteTimeout: 1 * time.Second,
 	})
 
 	// Ping the Redis server to verify connectivity
