@@ -339,7 +339,7 @@ Create a new volume.
 **Headers Required:** `X-API-Key: <your-api-key>`
 
 ### GET /global-lb
-List all global load balancers.
+List all global load balancers owned by the authenticated user.
 
 ### POST /global-lb
 Create a new global load balancer.
@@ -360,7 +360,7 @@ Create a new global load balancer.
 Get details of a GLB including its endpoints.
 
 ### DELETE /global-lb/:id
-Delete a global load balancer and its DNS records.
+Delete a global load balancer and its DNS records. Only the owner can delete the resource.
 
 ### POST /global-lb/:id/endpoints
 Add a regional endpoint to the GLB.
