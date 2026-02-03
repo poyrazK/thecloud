@@ -237,7 +237,7 @@ func TestAutoScaling_TriggerScaleUp(t *testing.T) {
 
 	// Wait for instance to be running (provision job)
 	// We manually provision it since we don't have the task worker running
-	err = instSvc.Provision(ctx, instID, nil)
+	err = instSvc.Provision(ctx, instID, nil, "")
 	require.NoError(t, err)
 
 	// 5. Create Scaling Policy (CPU > 50%)
