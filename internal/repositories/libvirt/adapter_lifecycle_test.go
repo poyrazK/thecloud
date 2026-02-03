@@ -239,7 +239,7 @@ func TestCreateInstanceSuccess(t *testing.T) {
 		ImageName: "ubuntu",
 	}
 
-	id, err := a.CreateInstance(ctx, opts)
+	id, err := a.LaunchInstanceWithOptions(ctx, opts)
 	assert.NoError(t, err)
 	assert.Equal(t, testInstanceName, id)
 	m.AssertExpectations(t)
