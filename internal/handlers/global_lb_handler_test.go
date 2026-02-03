@@ -37,13 +37,13 @@ func (m *mockGlobalLBService) Get(ctx context.Context, id uuid.UUID) (*domain.Gl
 	return args.Get(0).(*domain.GlobalLoadBalancer), args.Error(1)
 }
 
-func (m *mockGlobalLBService) List(ctx context.Context) ([]*domain.GlobalLoadBalancer, error) {
-	args := m.Called(ctx)
+func (m *mockGlobalLBService) List(ctx context.Context, userID uuid.UUID) ([]*domain.GlobalLoadBalancer, error) {
+	args := m.Called(ctx, userID)
 	return args.Get(0).([]*domain.GlobalLoadBalancer), args.Error(1)
 }
 
-func (m *mockGlobalLBService) Delete(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
+func (m *mockGlobalLBService) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	args := m.Called(ctx, id, userID)
 	return args.Error(0)
 }
 
