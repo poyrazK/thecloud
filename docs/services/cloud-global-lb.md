@@ -28,10 +28,18 @@ GLB performs synthesized health checks from multiple points of presence. Configu
 - **Interval**: Frequency of probes (default 30s).
 - **Thresholds**: Number of consecutive successes/failures to change health status.
 
-### Endpoints
-Endpoints can be:
-- **Regional Load Balancers**: Linked by ID to existing platform resource.
+- **Regional Load Balancers**: Linked by ID to existing platform resource. **Security**: GLB verifies that the regional LB belongs to the same user.
 - **External IPs**: Arbitrary static IPs for hybrid-cloud scenarios.
+
+## Security & Multi-tenancy
+GLB is a multi-tenant service. Security is enforced at several layers:
+- **Data Isolation**: Users can only see and manage Global Load Balancers they have created. `List` and `Get` operations are scoped to the authenticated user's ID.
+- **Resource Ownership Verification**: When adding a Regional Load Balancer as an endpoint, the system verifies that the target LB belongs to the user attempting to add it. This prevents unauthorized traffic steering of other users' resources.
+
+## Resource Synchronization
+The service ensures that the authoritative DNS state always reflects the database state:
+- **Transactional Consistency**: Changes in the database are followed by immediate synchronization calls to the GeoDNS backend.
+- **Removal Logic**: Deleting an endpoint or the entire GLB automatically triggers the removal of associated DNS records, preventing orphaned routing entries.
 
 ## API Usage
 Create a GLB:
