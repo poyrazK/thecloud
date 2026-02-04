@@ -63,6 +63,7 @@ func setupCachedIdentityTest(t *testing.T) (*mockIdentityService, *redis.Client,
 }
 
 func TestCachedIdentityServiceValidateAPIKey(t *testing.T) {
+	t.Parallel()
 	base, client, _ := setupCachedIdentityTest(t)
 	svc := NewCachedIdentityService(base, client, slog.Default())
 	ctx := context.Background()
@@ -99,6 +100,7 @@ func TestCachedIdentityServiceValidateAPIKey(t *testing.T) {
 }
 
 func TestCachedIdentityServicePassthrough(t *testing.T) {
+	t.Parallel()
 	base, client, _ := setupCachedIdentityTest(t)
 	svc := NewCachedIdentityService(base, client, slog.Default())
 	ctx := context.Background()

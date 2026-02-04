@@ -13,6 +13,7 @@ const (
 )
 
 func TestSecurityGroupValidate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		sg      SecurityGroup
@@ -76,6 +77,7 @@ func TestSecurityGroupValidate(t *testing.T) {
 }
 
 func TestSecurityRuleValidate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		rule    SecurityRule

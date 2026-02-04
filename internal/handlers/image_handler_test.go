@@ -65,6 +65,7 @@ func (m *mockImageService) DeleteImage(ctx context.Context, id uuid.UUID) error 
 }
 
 func TestImageHandlerRegisterImage(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -114,6 +115,7 @@ func TestImageHandlerRegisterImage(t *testing.T) {
 }
 
 func TestImageHandlerUploadImage(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -161,6 +163,7 @@ func TestImageHandlerUploadImage(t *testing.T) {
 }
 
 func TestImageHandlerListImages(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -185,6 +188,7 @@ func TestImageHandlerListImages(t *testing.T) {
 }
 
 func TestImageHandlerGetImage(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -236,6 +240,7 @@ func TestImageHandlerGetImage(t *testing.T) {
 }
 
 func TestImageHandlerDeleteImage(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -286,6 +291,7 @@ func TestImageHandlerDeleteImage(t *testing.T) {
 }
 
 func TestImageHandlerAdditionalErrors(t *testing.T) {
+	t.Parallel()
 	t.Run("RegisterImageServiceError", func(t *testing.T) {
 		svc := new(mockImageService)
 		handler := NewImageHandler(svc)

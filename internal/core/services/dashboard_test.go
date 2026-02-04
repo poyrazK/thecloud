@@ -184,6 +184,7 @@ func setupDashboardServiceTest(_ *testing.T) (*mockInstanceRepo, *mockVolumeRepo
 }
 
 func TestDashboardServiceGetSummary(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		instances   []*domain.Instance
@@ -248,6 +249,7 @@ func TestDashboardServiceGetSummary(t *testing.T) {
 }
 
 func TestDashboardServiceGetRecentEvents(t *testing.T) {
+	t.Parallel()
 	_, _, _, eventRepo, svc := setupDashboardServiceTest(t)
 	defer eventRepo.AssertExpectations(t)
 
@@ -264,6 +266,7 @@ func TestDashboardServiceGetRecentEvents(t *testing.T) {
 }
 
 func TestDashboardServiceGetStats(t *testing.T) {
+	t.Parallel()
 	instanceRepo, volumeRepo, vpcRepo, eventRepo, svc := setupDashboardServiceTest(t)
 	defer instanceRepo.AssertExpectations(t)
 	defer volumeRepo.AssertExpectations(t)

@@ -12,7 +12,9 @@ import (
 )
 
 func TestContainerRepository_CreateDeployment(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -41,7 +43,9 @@ func TestContainerRepository_CreateDeployment(t *testing.T) {
 }
 
 func TestContainerRepository_GetDeploymentByID(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -65,7 +69,9 @@ func TestContainerRepository_GetDeploymentByID(t *testing.T) {
 }
 
 func TestContainerRepository_ListDeployments(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -87,7 +93,9 @@ func TestContainerRepository_ListDeployments(t *testing.T) {
 }
 
 func TestContainerRepository_UpdateDeployment(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -110,7 +118,9 @@ func TestContainerRepository_UpdateDeployment(t *testing.T) {
 }
 
 func TestContainerRepository_DeleteDeployment(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -128,7 +138,9 @@ func TestContainerRepository_DeleteDeployment(t *testing.T) {
 }
 
 func TestContainerRepository_AddContainer(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -147,7 +159,9 @@ func TestContainerRepository_AddContainer(t *testing.T) {
 }
 
 func TestContainerRepository_RemoveContainer(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -166,7 +180,9 @@ func TestContainerRepository_RemoveContainer(t *testing.T) {
 }
 
 func TestContainerRepository_GetContainers(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -187,7 +203,9 @@ func TestContainerRepository_GetContainers(t *testing.T) {
 }
 
 func TestContainerRepository_ListAllDeployments(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()

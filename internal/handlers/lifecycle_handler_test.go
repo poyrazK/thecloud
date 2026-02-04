@@ -62,6 +62,7 @@ func setupLifecycleHandlerTest(t *testing.T) (*mockLifecycleService, *LifecycleH
 }
 
 func TestLifecycleHandlerCreateRule(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		body           interface{}
@@ -121,6 +122,7 @@ func TestLifecycleHandlerCreateRule(t *testing.T) {
 }
 
 func TestLifecycleHandlerListRules(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupLifecycleHandlerTest(t)
 	r.GET("/storage/buckets/:bucket/lifecycle", handler.ListRules)
 
@@ -146,6 +148,7 @@ func TestLifecycleHandlerListRules(t *testing.T) {
 }
 
 func TestLifecycleHandlerDeleteRule(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupLifecycleHandlerTest(t)
 	r.DELETE("/storage/buckets/:bucket/lifecycle/:id", handler.DeleteRule)
 

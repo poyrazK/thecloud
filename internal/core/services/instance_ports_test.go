@@ -11,6 +11,7 @@ import (
 )
 
 func TestParseAndValidatePortsTooMany(t *testing.T) {
+	t.Parallel()
 	svc := &InstanceService{}
 	var builder strings.Builder
 	for i := 0; i < domain.MaxPortsPerInstance+1; i++ {
@@ -26,6 +27,7 @@ func TestParseAndValidatePortsTooMany(t *testing.T) {
 }
 
 func TestValidatePortMappingFormatErrors(t *testing.T) {
+	t.Parallel()
 	tests := []string{
 		"",          // missing colon
 		"8080",      // no mapping
@@ -46,6 +48,7 @@ func TestValidatePortMappingFormatErrors(t *testing.T) {
 }
 
 func TestParsePortEmptyFails(t *testing.T) {
+	t.Parallel()
 	_, err := parsePort("   ")
 	assert.Error(t, err)
 }

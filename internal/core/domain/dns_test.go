@@ -8,6 +8,7 @@ import (
 )
 
 func TestValidRecordTypes(t *testing.T) {
+	t.Parallel()
 	types := domain.ValidRecordTypes()
 	assert.NotEmpty(t, types)
 	assert.Contains(t, types, domain.RecordTypeA)
@@ -19,6 +20,7 @@ func TestValidRecordTypes(t *testing.T) {
 }
 
 func TestIsValidRecordType(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		record   domain.RecordType

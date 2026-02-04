@@ -12,6 +12,7 @@ import (
 )
 
 func TestContainerWorkerReconcile(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 
 	t.Run("Reconcile Scale Up", func(t *testing.T) {
@@ -137,6 +138,7 @@ func TestContainerWorkerReconcile(t *testing.T) {
 }
 
 func TestContainerWorkerLaunchError(t *testing.T) {
+	t.Parallel()
 	repo := new(MockContainerRepo)
 	instSvc := new(MockInstanceService)
 	eventSvc := new(MockEventService)
@@ -168,6 +170,7 @@ func TestContainerWorkerLaunchError(t *testing.T) {
 }
 
 func TestContainerWorkerRun(t *testing.T) {
+	t.Parallel()
 	repo := new(MockContainerRepo)
 	instSvc := new(MockInstanceService)
 	eventSvc := new(MockEventService)

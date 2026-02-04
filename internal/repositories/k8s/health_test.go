@@ -61,6 +61,9 @@ func (m *mockInstanceService) LaunchInstanceWithOptions(ctx context.Context, opt
 	}
 	return args.Get(0).(*domain.Instance), args.Error(1)
 }
+func (m *mockInstanceService) StartInstance(ctx context.Context, idOrName string) error {
+	return nil
+}
 func (m *mockInstanceService) StopInstance(ctx context.Context, idOrName string) error {
 	return nil
 }

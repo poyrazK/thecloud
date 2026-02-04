@@ -69,6 +69,7 @@ const (
 )
 
 func TestSnapshotHandlerCreate(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSnapshotService)
 	handler := NewSnapshotHandler(svc)
@@ -96,6 +97,7 @@ func TestSnapshotHandlerCreate(t *testing.T) {
 }
 
 func TestSnapshotHandlerList(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSnapshotService)
 	handler := NewSnapshotHandler(svc)
@@ -118,6 +120,7 @@ func TestSnapshotHandlerList(t *testing.T) {
 }
 
 func TestSnapshotHandlerGet(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSnapshotService)
 	handler := NewSnapshotHandler(svc)
@@ -139,6 +142,7 @@ func TestSnapshotHandlerGet(t *testing.T) {
 }
 
 func TestSnapshotHandlerDelete(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSnapshotService)
 	handler := NewSnapshotHandler(svc)
@@ -159,6 +163,7 @@ func TestSnapshotHandlerDelete(t *testing.T) {
 }
 
 func TestSnapshotHandlerRestore(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSnapshotService)
 	handler := NewSnapshotHandler(svc)
@@ -186,6 +191,7 @@ func TestSnapshotHandlerRestore(t *testing.T) {
 }
 
 func TestSnapshotHandlerErrorPaths(t *testing.T) {
+	t.Parallel()
 	setup := func(_ *testing.T) (*mockSnapshotService, *SnapshotHandler, *gin.Engine) {
 		svc := new(mockSnapshotService)
 		handler := NewSnapshotHandler(svc)

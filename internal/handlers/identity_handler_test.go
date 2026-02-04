@@ -72,6 +72,7 @@ func setupIdentityHandlerTest(userID uuid.UUID) (*mockIdentityService, *Identity
 }
 
 func TestIdentityHandlerCreateKey(t *testing.T) {
+	t.Parallel()
 	userID := uuid.New()
 	svc, handler, r := setupIdentityHandlerTest(userID)
 	defer svc.AssertExpectations(t)
@@ -93,6 +94,7 @@ func TestIdentityHandlerCreateKey(t *testing.T) {
 }
 
 func TestIdentityHandlerListKeys(t *testing.T) {
+	t.Parallel()
 	userID := uuid.New()
 	svc, handler, r := setupIdentityHandlerTest(userID)
 	defer svc.AssertExpectations(t)
@@ -113,6 +115,7 @@ func TestIdentityHandlerListKeys(t *testing.T) {
 }
 
 func TestIdentityHandlerRevokeKey(t *testing.T) {
+	t.Parallel()
 	userID := uuid.New()
 	svc, handler, r := setupIdentityHandlerTest(userID)
 	defer svc.AssertExpectations(t)
@@ -131,6 +134,7 @@ func TestIdentityHandlerRevokeKey(t *testing.T) {
 }
 
 func TestIdentityHandlerRotateKey(t *testing.T) {
+	t.Parallel()
 	userID := uuid.New()
 	svc, handler, r := setupIdentityHandlerTest(userID)
 	defer svc.AssertExpectations(t)
@@ -151,6 +155,7 @@ func TestIdentityHandlerRotateKey(t *testing.T) {
 }
 
 func TestIdentityHandlerRegenerateKey(t *testing.T) {
+	t.Parallel()
 	userID := uuid.New()
 	svc, handler, r := setupIdentityHandlerTest(userID)
 	defer svc.AssertExpectations(t)

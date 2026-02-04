@@ -98,6 +98,7 @@ func setupRBACHandlerTest(_ *testing.T) (*mockRBACService, *RBACHandler, *gin.En
 }
 
 func TestRBACHandlerCreateRole(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -124,6 +125,7 @@ func TestRBACHandlerCreateRole(t *testing.T) {
 }
 
 func TestRBACHandlerListRoles(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -147,6 +149,7 @@ func TestRBACHandlerListRoles(t *testing.T) {
 }
 
 func TestRBACHandlerGetRoleByID(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -167,6 +170,7 @@ func TestRBACHandlerGetRoleByID(t *testing.T) {
 }
 
 func TestRBACHandlerGetRoleByName(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -187,6 +191,7 @@ func TestRBACHandlerGetRoleByName(t *testing.T) {
 }
 
 func TestRBACHandlerDeleteRole(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -205,6 +210,7 @@ func TestRBACHandlerDeleteRole(t *testing.T) {
 }
 
 func TestRBACHandlerAddPermission(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -229,6 +235,7 @@ func TestRBACHandlerAddPermission(t *testing.T) {
 }
 
 func TestRBACHandlerBindRole(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -254,6 +261,7 @@ func TestRBACHandlerBindRole(t *testing.T) {
 }
 
 func TestRBACHandlerUpdateRole(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -280,6 +288,7 @@ func TestRBACHandlerUpdateRole(t *testing.T) {
 }
 
 func TestRBACHandlerRemovePermission(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -298,6 +307,7 @@ func TestRBACHandlerRemovePermission(t *testing.T) {
 }
 
 func TestRBACHandlerListRoleBindings(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupRBACHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -313,6 +323,7 @@ func TestRBACHandlerListRoleBindings(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 func TestRBACHandlerErrorPaths(t *testing.T) {
+	t.Parallel()
 	t.Run("CreateRoleInvalidJSON", func(t *testing.T) {
 		_, handler, r := setupRBACHandlerTest(t)
 		r.POST(rolesPath, handler.CreateRole)

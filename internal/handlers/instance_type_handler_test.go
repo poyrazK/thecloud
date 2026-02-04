@@ -27,6 +27,7 @@ func (m *instanceTypeServiceMock) List(ctx context.Context) ([]*domain.InstanceT
 }
 
 func TestInstanceTypeHandlerList(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	mockSvc := new(instanceTypeServiceMock)
 	handler := NewInstanceTypeHandler(mockSvc)

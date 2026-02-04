@@ -68,6 +68,7 @@ func setupVolumeHandlerTest(_ *testing.T) (*mockVolumeService, *VolumeHandler, *
 }
 
 func TestVolumeHandlerCreate(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupVolumeHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -90,6 +91,7 @@ func TestVolumeHandlerCreate(t *testing.T) {
 }
 
 func TestVolumeHandlerCreateInvalidJSON(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupVolumeHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -106,6 +108,7 @@ func TestVolumeHandlerCreateInvalidJSON(t *testing.T) {
 }
 
 func TestVolumeHandlerCreateInvalidInputFromService(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupVolumeHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -129,6 +132,7 @@ func TestVolumeHandlerCreateInvalidInputFromService(t *testing.T) {
 }
 
 func TestVolumeHandlerList(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupVolumeHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -146,6 +150,7 @@ func TestVolumeHandlerList(t *testing.T) {
 }
 
 func TestVolumeHandlerListError(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupVolumeHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -162,6 +167,7 @@ func TestVolumeHandlerListError(t *testing.T) {
 }
 
 func TestVolumeHandlerGet(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupVolumeHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -180,6 +186,7 @@ func TestVolumeHandlerGet(t *testing.T) {
 }
 
 func TestVolumeHandlerGetNotFound(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupVolumeHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -197,6 +204,7 @@ func TestVolumeHandlerGetNotFound(t *testing.T) {
 }
 
 func TestVolumeHandlerDelete(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupVolumeHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -214,6 +222,7 @@ func TestVolumeHandlerDelete(t *testing.T) {
 }
 
 func TestVolumeHandlerDeleteNotFound(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupVolumeHandlerTest(t)
 	defer svc.AssertExpectations(t)
 

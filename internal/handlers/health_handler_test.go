@@ -23,6 +23,7 @@ func (m *mockHealthService) Check(ctx context.Context) ports.HealthCheckResult {
 }
 
 func TestHealthHandler_Live(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	h := NewHealthHandler(nil)
 
@@ -37,6 +38,7 @@ func TestHealthHandler_Live(t *testing.T) {
 }
 
 func TestHealthHandler_Ready(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("Healthy", func(t *testing.T) {

@@ -50,6 +50,7 @@ func createTestVPC(t *testing.T, ctx context.Context, vpcRepo *postgres.VpcRepos
 }
 
 func TestSubnetServiceCreateSubnetSuccess(t *testing.T) {
+	t.Parallel()
 	svc, repo, vpcRepo, ctx := setupSubnetServiceTest(t)
 	vpc := createTestVPC(t, ctx, vpcRepo)
 
@@ -66,6 +67,7 @@ func TestSubnetServiceCreateSubnetSuccess(t *testing.T) {
 }
 
 func TestSubnetServiceCreateSubnetInvalidCIDR(t *testing.T) {
+	t.Parallel()
 	svc, _, vpcRepo, ctx := setupSubnetServiceTest(t)
 	vpc := createTestVPC(t, ctx, vpcRepo)
 
@@ -78,6 +80,7 @@ func TestSubnetServiceCreateSubnetInvalidCIDR(t *testing.T) {
 }
 
 func TestSubnetServiceDeleteSubnetSuccess(t *testing.T) {
+	t.Parallel()
 	svc, repo, vpcRepo, ctx := setupSubnetServiceTest(t)
 	vpc := createTestVPC(t, ctx, vpcRepo)
 
@@ -94,6 +97,7 @@ func TestSubnetServiceDeleteSubnetSuccess(t *testing.T) {
 }
 
 func TestSubnetServiceGetSubnet(t *testing.T) {
+	t.Parallel()
 	svc, _, vpcRepo, ctx := setupSubnetServiceTest(t)
 	vpc := createTestVPC(t, ctx, vpcRepo)
 
@@ -114,6 +118,7 @@ func TestSubnetServiceGetSubnet(t *testing.T) {
 }
 
 func TestSubnetServiceListSubnets(t *testing.T) {
+	t.Parallel()
 	svc, _, vpcRepo, ctx := setupSubnetServiceTest(t)
 	vpc := createTestVPC(t, ctx, vpcRepo)
 

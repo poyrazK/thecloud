@@ -73,6 +73,7 @@ func setupTenantHandlerTest(userID uuid.UUID) (*mockTenantService, *TenantHandle
 }
 
 func TestTenantHandlerCreate(t *testing.T) {
+	t.Parallel()
 	userID := uuid.New()
 	svc, handler, r := setupTenantHandlerTest(userID)
 
@@ -102,6 +103,7 @@ func TestTenantHandlerCreate(t *testing.T) {
 }
 
 func TestTenantHandlerInviteMember(t *testing.T) {
+	t.Parallel()
 	userID := uuid.New()
 	svc, handler, r := setupTenantHandlerTest(userID)
 
@@ -125,6 +127,7 @@ func TestTenantHandlerInviteMember(t *testing.T) {
 }
 
 func TestTenantHandlerSwitchTenant(t *testing.T) {
+	t.Parallel()
 	userID := uuid.New()
 	svc, handler, r := setupTenantHandlerTest(userID)
 
@@ -143,6 +146,7 @@ func TestTenantHandlerSwitchTenant(t *testing.T) {
 }
 
 func TestTenantHandlerCreateInvalidInput(t *testing.T) {
+	t.Parallel()
 	userID := uuid.New()
 	_, handler, r := setupTenantHandlerTest(userID)
 
@@ -158,6 +162,7 @@ func TestTenantHandlerCreateInvalidInput(t *testing.T) {
 }
 
 func TestTenantHandlerCreateServiceError(t *testing.T) {
+	t.Parallel()
 	userID := uuid.New()
 	svc, handler, r := setupTenantHandlerTest(userID)
 
@@ -177,6 +182,7 @@ func TestTenantHandlerCreateServiceError(t *testing.T) {
 }
 
 func TestTenantHandlerInviteMemberInvalidID(t *testing.T) {
+	t.Parallel()
 	userID := uuid.New()
 	_, handler, r := setupTenantHandlerTest(userID)
 
@@ -190,6 +196,7 @@ func TestTenantHandlerInviteMemberInvalidID(t *testing.T) {
 }
 
 func TestTenantHandlerInviteMemberServiceError(t *testing.T) {
+	t.Parallel()
 	userID := uuid.New()
 	svc, handler, r := setupTenantHandlerTest(userID)
 
@@ -209,6 +216,7 @@ func TestTenantHandlerInviteMemberServiceError(t *testing.T) {
 }
 
 func TestTenantHandlerSwitchTenantInvalidID(t *testing.T) {
+	t.Parallel()
 	userID := uuid.New()
 	_, handler, r := setupTenantHandlerTest(userID)
 
@@ -222,6 +230,7 @@ func TestTenantHandlerSwitchTenantInvalidID(t *testing.T) {
 }
 
 func TestTenantHandlerSwitchTenantServiceError(t *testing.T) {
+	t.Parallel()
 	userID := uuid.New()
 	svc, handler, r := setupTenantHandlerTest(userID)
 

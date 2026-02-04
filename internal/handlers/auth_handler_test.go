@@ -76,6 +76,7 @@ func setupAuthHandlerTest(_ *testing.T) (*mockAuthService, *mockPasswordResetSer
 }
 
 func TestAuthHandlerRegister(t *testing.T) {
+	t.Parallel()
 	svc, _, handler, r := setupAuthHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -99,6 +100,7 @@ func TestAuthHandlerRegister(t *testing.T) {
 }
 
 func TestAuthHandlerRegisterInvalidJSON(t *testing.T) {
+	t.Parallel()
 	svc, _, handler, r := setupAuthHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -115,6 +117,7 @@ func TestAuthHandlerRegisterInvalidJSON(t *testing.T) {
 }
 
 func TestAuthHandlerRegisterInvalidInputFromService(t *testing.T) {
+	t.Parallel()
 	svc, _, handler, r := setupAuthHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -139,6 +142,7 @@ func TestAuthHandlerRegisterInvalidInputFromService(t *testing.T) {
 }
 
 func TestAuthHandlerLogin(t *testing.T) {
+	t.Parallel()
 	svc, _, handler, r := setupAuthHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -162,6 +166,7 @@ func TestAuthHandlerLogin(t *testing.T) {
 }
 
 func TestAuthHandlerLoginInvalidJSON(t *testing.T) {
+	t.Parallel()
 	svc, _, handler, r := setupAuthHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -178,6 +183,7 @@ func TestAuthHandlerLoginInvalidJSON(t *testing.T) {
 }
 
 func TestAuthHandlerLoginInvalidCredentials(t *testing.T) {
+	t.Parallel()
 	svc, _, handler, r := setupAuthHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -201,6 +207,7 @@ func TestAuthHandlerLoginInvalidCredentials(t *testing.T) {
 }
 
 func TestAuthHandlerForgotPassword(t *testing.T) {
+	t.Parallel()
 	_, pwdSvc, handler, r := setupAuthHandlerTest(t)
 	defer pwdSvc.AssertExpectations(t)
 
@@ -221,6 +228,7 @@ func TestAuthHandlerForgotPassword(t *testing.T) {
 }
 
 func TestAuthHandlerResetPassword(t *testing.T) {
+	t.Parallel()
 	_, pwdSvc, handler, r := setupAuthHandlerTest(t)
 	defer pwdSvc.AssertExpectations(t)
 

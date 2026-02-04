@@ -26,6 +26,7 @@ func setupGatewayServiceTest(t *testing.T) (*services.GatewayService, *postgres.
 }
 
 func TestGatewayServiceCreateRoute(t *testing.T) {
+	t.Parallel()
 	svc, repo, ctx := setupGatewayServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
@@ -47,6 +48,7 @@ func TestGatewayServiceCreateRoute(t *testing.T) {
 }
 
 func TestGatewayServiceListRoutes(t *testing.T) {
+	t.Parallel()
 	svc, _, ctx := setupGatewayServiceTest(t)
 
 	_, _ = svc.CreateRoute(ctx, ports.CreateRouteParams{Name: "r1", Pattern: "/r1", Target: "http://e.com"})
@@ -58,6 +60,7 @@ func TestGatewayServiceListRoutes(t *testing.T) {
 }
 
 func TestGatewayServiceDeleteRoute(t *testing.T) {
+	t.Parallel()
 	svc, repo, ctx := setupGatewayServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
@@ -72,6 +75,7 @@ func TestGatewayServiceDeleteRoute(t *testing.T) {
 }
 
 func TestGatewayServiceGetProxy(t *testing.T) {
+	t.Parallel()
 	svc, _, ctx := setupGatewayServiceTest(t)
 
 	_, _ = svc.CreateRoute(ctx, ports.CreateRouteParams{Name: "api", Pattern: "/api", Target: "http://localhost:8080"})
@@ -83,6 +87,7 @@ func TestGatewayServiceGetProxy(t *testing.T) {
 }
 
 func TestGatewayServiceGetProxyPattern(t *testing.T) {
+	t.Parallel()
 	svc, _, ctx := setupGatewayServiceTest(t)
 
 	_, _ = svc.CreateRoute(ctx, ports.CreateRouteParams{Name: "users", Pattern: "/users/{id}", Target: "http://localhost:8080"})

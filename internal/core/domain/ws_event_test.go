@@ -3,6 +3,7 @@ package domain
 import "testing"
 
 func TestNewWSEvent_Success(t *testing.T) {
+	t.Parallel()
 	event, err := NewWSEvent(WSEventInstanceCreated, map[string]string{"id": "i-1"})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -16,6 +17,7 @@ func TestNewWSEvent_Success(t *testing.T) {
 }
 
 func TestNewWSEvent_InvalidPayload(t *testing.T) {
+	t.Parallel()
 	_, err := NewWSEvent(WSEventMetricUpdate, make(chan int))
 	if err == nil {
 		t.Fatalf("expected error for invalid payload")

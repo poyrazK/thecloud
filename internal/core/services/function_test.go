@@ -56,6 +56,7 @@ func createZip(t *testing.T, filename, content string) []byte {
 }
 
 func TestFunctionService_CreateFunction_Success(t *testing.T) {
+	t.Parallel()
 	svc, repo, _, _, ctx := setupFunctionServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
@@ -79,6 +80,7 @@ func TestFunctionService_CreateFunction_Success(t *testing.T) {
 }
 
 func TestFunctionService_InvokeFunction_Success(t *testing.T) {
+	t.Parallel()
 	// Skip if we don't want to actually run docker in all environments,
 	// but here we are aiming for real integration.
 	svc, _, _, _, ctx := setupFunctionServiceTest(t)
@@ -100,6 +102,7 @@ process.exit(0);
 }
 
 func TestFunctionService_DeleteFunction_Success(t *testing.T) {
+	t.Parallel()
 	svc, repo, _, _, ctx := setupFunctionServiceTest(t)
 
 	code := createZip(t, "index.js", "console.log(1)")
@@ -114,6 +117,7 @@ func TestFunctionService_DeleteFunction_Success(t *testing.T) {
 }
 
 func TestFunctionService_ListFunctions(t *testing.T) {
+	t.Parallel()
 	svc, _, _, _, ctx := setupFunctionServiceTest(t)
 	code := createZip(t, "index.js", "1")
 	_, _ = svc.CreateFunction(ctx, "fn1", "nodejs20", "index.js", code)
@@ -125,6 +129,7 @@ func TestFunctionService_ListFunctions(t *testing.T) {
 }
 
 func TestFunctionService_GetFunction(t *testing.T) {
+	t.Parallel()
 	svc, _, _, _, ctx := setupFunctionServiceTest(t)
 	code := createZip(t, "index.js", "1")
 	f, _ := svc.CreateFunction(ctx, "get-me", "nodejs20", "index.js", code)
@@ -135,6 +140,7 @@ func TestFunctionService_GetFunction(t *testing.T) {
 }
 
 func TestFunctionService_InvokeAsync(t *testing.T) {
+	t.Parallel()
 	svc, repo, _, _, ctx := setupFunctionServiceTest(t)
 	code := createZip(t, "index.js", "console.log('async')")
 	f, _ := svc.CreateFunction(ctx, "async-test", "nodejs20", "index.js", code)
@@ -159,6 +165,7 @@ func TestFunctionService_InvokeAsync(t *testing.T) {
 }
 
 func TestFunctionService_ZipSlipProtection(t *testing.T) {
+	t.Parallel()
 	svc, _, _, _, ctx := setupFunctionServiceTest(t)
 
 	// Create malicious zip

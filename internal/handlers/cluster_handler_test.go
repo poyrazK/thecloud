@@ -123,6 +123,7 @@ func setupClusterHandlerTest() (*mockClusterService, *ClusterHandler, *gin.Engin
 }
 
 func TestClusterHandlerCreateCluster(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupClusterHandlerTest()
 	r.POST(testClustersPath, handler.CreateCluster)
 
@@ -180,6 +181,7 @@ func TestClusterHandlerCreateCluster(t *testing.T) {
 }
 
 func TestClusterHandlerGetCluster(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupClusterHandlerTest()
 	r.GET(testClusterIDPath, handler.GetCluster)
 	clusterID := uuid.New()
@@ -210,6 +212,7 @@ func TestClusterHandlerGetCluster(t *testing.T) {
 }
 
 func TestClusterHandlerListClusters(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupClusterHandlerTest()
 	r.GET(testClustersPath, handler.ListClusters)
 
@@ -231,6 +234,7 @@ func TestClusterHandlerListClusters(t *testing.T) {
 }
 
 func TestClusterHandlerDeleteCluster(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupClusterHandlerTest()
 	r.DELETE(testClusterIDPath, handler.DeleteCluster)
 	clusterID := uuid.New()
@@ -260,6 +264,7 @@ func TestClusterHandlerDeleteCluster(t *testing.T) {
 }
 
 func TestClusterHandlerGetKubeconfig(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupClusterHandlerTest()
 	r.GET("/clusters/:id/kubeconfig", handler.GetKubeconfig)
 	clusterID := uuid.New()
@@ -290,6 +295,7 @@ func TestClusterHandlerGetKubeconfig(t *testing.T) {
 }
 
 func TestClusterHandlerRepairCluster(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupClusterHandlerTest()
 	r.POST("/clusters/:id/repair", handler.RepairCluster)
 	clusterID := uuid.New()
@@ -319,6 +325,7 @@ func TestClusterHandlerRepairCluster(t *testing.T) {
 }
 
 func TestClusterHandlerScaleCluster(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupClusterHandlerTest()
 	r.POST("/clusters/:id/scale", handler.ScaleCluster)
 	clusterID := uuid.New()
@@ -357,6 +364,7 @@ func TestClusterHandlerScaleCluster(t *testing.T) {
 }
 
 func TestClusterHandlerGetClusterHealth(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupClusterHandlerTest()
 	r.GET("/clusters/:id/health", handler.GetClusterHealth)
 	clusterID := uuid.New()
@@ -386,6 +394,7 @@ func TestClusterHandlerGetClusterHealth(t *testing.T) {
 }
 
 func TestClusterHandlerUpgradeCluster(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupClusterHandlerTest()
 	r.POST("/clusters/:id/upgrade", handler.UpgradeCluster)
 	clusterID := uuid.New()
@@ -424,6 +433,7 @@ func TestClusterHandlerUpgradeCluster(t *testing.T) {
 }
 
 func TestClusterHandlerRotateSecrets(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupClusterHandlerTest()
 	r.POST("/clusters/:id/rotate-secrets", handler.RotateSecrets)
 	clusterID := uuid.New()
@@ -453,6 +463,7 @@ func TestClusterHandlerRotateSecrets(t *testing.T) {
 }
 
 func TestClusterHandlerCreateBackup(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupClusterHandlerTest()
 	r.POST("/clusters/:id/backups", handler.CreateBackup)
 	clusterID := uuid.New()
@@ -482,6 +493,7 @@ func TestClusterHandlerCreateBackup(t *testing.T) {
 }
 
 func TestClusterHandlerRestoreBackup(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupClusterHandlerTest()
 	r.POST("/clusters/:id/restore", handler.RestoreBackup)
 	clusterID := uuid.New()

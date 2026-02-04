@@ -35,6 +35,7 @@ func setupQueueServiceTest(t *testing.T) (ports.QueueService, ports.QueueReposit
 }
 
 func TestQueueServiceCreateQueue(t *testing.T) {
+	t.Parallel()
 	svc, repo, ctx, db := setupQueueServiceTest(t)
 	defer db.Close()
 	userID := appcontext.UserIDFromContext(ctx)
@@ -68,6 +69,7 @@ func TestQueueServiceCreateQueue(t *testing.T) {
 }
 
 func TestQueueServiceSendMessage(t *testing.T) {
+	t.Parallel()
 	svc, _, ctx, db := setupQueueServiceTest(t)
 	defer db.Close()
 
@@ -84,6 +86,7 @@ func TestQueueServiceSendMessage(t *testing.T) {
 }
 
 func TestQueueServiceReceiveMessages(t *testing.T) {
+	t.Parallel()
 	svc, _, ctx, db := setupQueueServiceTest(t)
 	defer db.Close()
 
@@ -109,6 +112,7 @@ func TestQueueServiceReceiveMessages(t *testing.T) {
 }
 
 func TestQueueServiceDeleteMessage(t *testing.T) {
+	t.Parallel()
 	svc, repo, ctx, db := setupQueueServiceTest(t)
 	defer db.Close()
 
@@ -133,6 +137,7 @@ func TestQueueServiceDeleteMessage(t *testing.T) {
 }
 
 func TestQueueServicePurgeQueue(t *testing.T) {
+	t.Parallel()
 	svc, repo, ctx, db := setupQueueServiceTest(t)
 	defer db.Close()
 
@@ -152,6 +157,7 @@ func TestQueueServicePurgeQueue(t *testing.T) {
 }
 
 func TestQueueServiceDeleteQueue(t *testing.T) {
+	t.Parallel()
 	svc, repo, ctx, db := setupQueueServiceTest(t)
 	defer db.Close()
 	userID := appcontext.UserIDFromContext(ctx)
@@ -168,6 +174,7 @@ func TestQueueServiceDeleteQueue(t *testing.T) {
 }
 
 func TestQueueServiceListQueues(t *testing.T) {
+	t.Parallel()
 	svc, _, ctx, db := setupQueueServiceTest(t)
 	defer db.Close()
 

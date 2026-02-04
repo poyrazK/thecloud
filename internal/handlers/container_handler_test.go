@@ -73,6 +73,7 @@ func setupContainerHandlerTest(_ *testing.T) (*mockContainerService, *ContainerH
 }
 
 func TestContainerHandlerCreateDeployment(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupContainerHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -97,6 +98,7 @@ func TestContainerHandlerCreateDeployment(t *testing.T) {
 }
 
 func TestContainerHandlerListDeployments(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupContainerHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -114,6 +116,7 @@ func TestContainerHandlerListDeployments(t *testing.T) {
 }
 
 func TestContainerHandlerGetDeployment(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupContainerHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -132,6 +135,7 @@ func TestContainerHandlerGetDeployment(t *testing.T) {
 }
 
 func TestContainerHandlerScaleDeployment(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupContainerHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -151,6 +155,7 @@ func TestContainerHandlerScaleDeployment(t *testing.T) {
 }
 
 func TestContainerHandlerDeleteDeployment(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupContainerHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -168,6 +173,7 @@ func TestContainerHandlerDeleteDeployment(t *testing.T) {
 }
 
 func TestContainerHandlerCreateError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidJSON", func(t *testing.T) {
 		_, handler, r := setupContainerHandlerTest(t)
 		r.POST(deploymentsPath, handler.CreateDeployment)
@@ -192,6 +198,7 @@ func TestContainerHandlerCreateError(t *testing.T) {
 }
 
 func TestContainerHandlerListError(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupContainerHandlerTest(t)
 	r.GET(deploymentsPath, handler.ListDeployments)
 	svc.On("ListDeployments", mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
@@ -203,6 +210,7 @@ func TestContainerHandlerListError(t *testing.T) {
 }
 
 func TestContainerHandlerGetError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupContainerHandlerTest(t)
 		r.GET(deploymentsPath+"/:id", handler.GetDeployment)
@@ -226,6 +234,7 @@ func TestContainerHandlerGetError(t *testing.T) {
 }
 
 func TestContainerHandlerScaleError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupContainerHandlerTest(t)
 		r.POST(deploymentsPath+scalePath, handler.ScaleDeployment)
@@ -259,6 +268,7 @@ func TestContainerHandlerScaleError(t *testing.T) {
 }
 
 func TestContainerHandlerDeleteError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupContainerHandlerTest(t)
 		r.DELETE(deploymentsPath+"/:id", handler.DeleteDeployment)

@@ -81,6 +81,7 @@ func (m *mockSecurityGroupService) RemoveRule(ctx context.Context, ruleID uuid.U
 }
 
 func TestSecurityGroupHandlerCreate(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSecurityGroupService)
 	h := NewSecurityGroupHandler(svc)
@@ -108,6 +109,7 @@ func TestSecurityGroupHandlerCreate(t *testing.T) {
 }
 
 func TestSecurityGroupHandlerList(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSecurityGroupService)
 	h := NewSecurityGroupHandler(svc)
@@ -128,6 +130,7 @@ func TestSecurityGroupHandlerList(t *testing.T) {
 }
 
 func TestSecurityGroupHandlerGet(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSecurityGroupService)
 	h := NewSecurityGroupHandler(svc)
@@ -150,6 +153,7 @@ func TestSecurityGroupHandlerGet(t *testing.T) {
 }
 
 func TestSecurityGroupHandlerDelete(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupSecurityGroupHandlerTest(t)
 	r.DELETE(testSgDetailPath+":id", handler.Delete)
 	id := uuid.New()
@@ -164,6 +168,7 @@ func TestSecurityGroupHandlerDelete(t *testing.T) {
 }
 
 func TestSecurityGroupHandlerAddRule(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSecurityGroupService)
 	h := NewSecurityGroupHandler(svc)
@@ -187,6 +192,7 @@ func TestSecurityGroupHandlerAddRule(t *testing.T) {
 }
 
 func TestSecurityGroupHandlerAttach(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSecurityGroupService)
 	h := NewSecurityGroupHandler(svc)
@@ -214,6 +220,7 @@ func TestSecurityGroupHandlerAttach(t *testing.T) {
 }
 
 func TestSecurityGroupHandlerRemoveRule(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupSecurityGroupHandlerTest(t)
 	r.DELETE(testSgPath+"/rules/:rule_id", handler.RemoveRule)
 	ruleID := uuid.New()
@@ -227,6 +234,7 @@ func TestSecurityGroupHandlerRemoveRule(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 func TestSecurityGroupHandlerDetach(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSecurityGroupService)
 	h := NewSecurityGroupHandler(svc)
@@ -254,6 +262,7 @@ func TestSecurityGroupHandlerDetach(t *testing.T) {
 }
 
 func TestSecurityGroupHandlerAttachError(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSecurityGroupService)
 	h := NewSecurityGroupHandler(svc)
@@ -281,6 +290,7 @@ func TestSecurityGroupHandlerAttachError(t *testing.T) {
 }
 
 func TestSecurityGroupHandlerDetachError(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSecurityGroupService)
 	h := NewSecurityGroupHandler(svc)
@@ -307,6 +317,7 @@ func TestSecurityGroupHandlerDetachError(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 func TestSecurityGroupHandlerErrorPaths(t *testing.T) {
+	t.Parallel()
 	t.Run("CreateInvalidJSON", func(t *testing.T) {
 		_, handler, _ := setupSecurityGroupHandlerTest(t)
 		w := httptest.NewRecorder()

@@ -50,6 +50,7 @@ func setupDNSServiceTest(t *testing.T) (*services.DNSService, ports.DNSRepositor
 }
 
 func TestDNSServiceCreateZone(t *testing.T) {
+	t.Parallel()
 	svc, repo, vpcRepo, _, _, ctx := setupDNSServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
@@ -86,6 +87,7 @@ func TestDNSServiceCreateZone(t *testing.T) {
 }
 
 func TestDNSServiceRegisterInstance_NoZone(t *testing.T) {
+	t.Parallel()
 	svc, _, vpcRepo, instRepo, _, ctx := setupDNSServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
@@ -110,6 +112,7 @@ func TestDNSServiceRegisterInstance_NoZone(t *testing.T) {
 }
 
 func TestDNSServiceDeleteZone(t *testing.T) {
+	t.Parallel()
 	svc, repo, vpcRepo, _, _, ctx := setupDNSServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
@@ -129,6 +132,7 @@ func TestDNSServiceDeleteZone(t *testing.T) {
 }
 
 func TestDNSServiceRecords(t *testing.T) {
+	t.Parallel()
 	svc, _, vpcRepo, _, _, ctx := setupDNSServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
@@ -179,6 +183,7 @@ func TestDNSServiceRecords(t *testing.T) {
 }
 
 func TestDNSServiceRegisterInstance(t *testing.T) {
+	t.Parallel()
 	svc, repo, vpcRepo, instRepo, _, ctx := setupDNSServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
@@ -263,6 +268,7 @@ func (f *FaultyDNSBackend) AddRecords(ctx context.Context, zoneName string, reco
 }
 
 func TestDNSService_BackendError(t *testing.T) {
+	t.Parallel()
 	_, repo, vpcRepo, _, db, ctx := setupDNSServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)

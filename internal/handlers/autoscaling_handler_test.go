@@ -88,6 +88,7 @@ func setupAutoScalingHandlerTest(_ *testing.T) (*mockAutoScalingService, *AutoSc
 }
 
 func TestAutoScalingHandlerCreateGroup(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -126,6 +127,7 @@ func TestAutoScalingHandlerCreateGroup(t *testing.T) {
 }
 
 func TestAutoScalingHandlerListGroups(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -143,6 +145,7 @@ func TestAutoScalingHandlerListGroups(t *testing.T) {
 }
 
 func TestAutoScalingHandlerGetGroup(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -161,6 +164,7 @@ func TestAutoScalingHandlerGetGroup(t *testing.T) {
 }
 
 func TestAutoScalingHandlerDeleteGroup(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -178,6 +182,7 @@ func TestAutoScalingHandlerDeleteGroup(t *testing.T) {
 }
 
 func TestAutoScalingHandlerCreatePolicy(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -213,6 +218,7 @@ func TestAutoScalingHandlerCreatePolicy(t *testing.T) {
 }
 
 func TestAutoScalingHandlerDeletePolicy(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -230,6 +236,7 @@ func TestAutoScalingHandlerDeletePolicy(t *testing.T) {
 }
 
 func TestAutoScalingHandlerCreateGroupErrors(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
 	r.POST(asgPath, handler.CreateGroup)
@@ -259,6 +266,7 @@ func TestAutoScalingHandlerCreateGroupErrors(t *testing.T) {
 }
 
 func TestAutoScalingHandlerGetGroupErrors(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
 	r.GET(asgPath+"/:id", handler.GetGroup)
@@ -283,6 +291,7 @@ func TestAutoScalingHandlerGetGroupErrors(t *testing.T) {
 }
 
 func TestAutoScalingHandlerDeleteGroupErrors(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
 	r.DELETE(asgPath+"/:id", handler.DeleteGroup)
@@ -307,6 +316,7 @@ func TestAutoScalingHandlerDeleteGroupErrors(t *testing.T) {
 }
 
 func TestAutoScalingHandlerListGroupsError(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
 	r.GET(asgPath, handler.ListGroups)
@@ -320,6 +330,7 @@ func TestAutoScalingHandlerListGroupsError(t *testing.T) {
 }
 
 func TestAutoScalingHandlerCreatePolicyErrors(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
 	r.POST(asgPath+"/:id"+policiesSuffix, handler.CreatePolicy)
@@ -358,6 +369,7 @@ func TestAutoScalingHandlerCreatePolicyErrors(t *testing.T) {
 }
 
 func TestAutoScalingHandlerDeletePolicyErrors(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupAutoScalingHandlerTest(t)
 	defer svc.AssertExpectations(t)
 	r.DELETE(policyPath+"/:id", handler.DeletePolicy)

@@ -75,6 +75,7 @@ func setupLBHandlerTest(_ *testing.T) (*mockLBService, *LBHandler, *gin.Engine) 
 }
 
 func TestLBHandlerCreate(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupLBHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -100,6 +101,7 @@ func TestLBHandlerCreate(t *testing.T) {
 }
 
 func TestLBHandlerList(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupLBHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -117,6 +119,7 @@ func TestLBHandlerList(t *testing.T) {
 }
 
 func TestLBHandlerGet(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupLBHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -135,6 +138,7 @@ func TestLBHandlerGet(t *testing.T) {
 }
 
 func TestLBHandlerDelete(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupLBHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -152,6 +156,7 @@ func TestLBHandlerDelete(t *testing.T) {
 }
 
 func TestLBHandlerAddTarget(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupLBHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -176,6 +181,7 @@ func TestLBHandlerAddTarget(t *testing.T) {
 }
 
 func TestLBHandlerRemoveTarget(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupLBHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -194,6 +200,7 @@ func TestLBHandlerRemoveTarget(t *testing.T) {
 }
 
 func TestLBHandlerListTargets(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupLBHandlerTest(t)
 	defer svc.AssertExpectations(t)
 

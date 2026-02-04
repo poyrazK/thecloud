@@ -31,6 +31,7 @@ func (m *mockAuditService) ListLogs(ctx context.Context, userID uuid.UUID, limit
 }
 
 func TestAuditHandler_ListLogs(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("Success", func(t *testing.T) {

@@ -43,6 +43,7 @@ func setupClusterServiceTest() (*MockClusterRepo, *MockClusterProvisioner, *Mock
 }
 
 func TestClusterServiceCreate(t *testing.T) {
+	t.Parallel()
 	repo, _, vpcSvc, _, taskQueue, secretSvc, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	userID := uuid.New()
@@ -79,6 +80,7 @@ func TestClusterServiceCreate(t *testing.T) {
 }
 
 func TestClusterServiceCreateVpcNotFound(t *testing.T) {
+	t.Parallel()
 	_, _, vpcSvc, _, _, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	userID := uuid.New()
@@ -99,6 +101,7 @@ func TestClusterServiceCreateVpcNotFound(t *testing.T) {
 }
 
 func TestClusterServiceCreateEncryptError(t *testing.T) {
+	t.Parallel()
 	repo, _, vpcSvc, _, _, secretSvc, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	userID := uuid.New()
@@ -121,6 +124,7 @@ func TestClusterServiceCreateEncryptError(t *testing.T) {
 }
 
 func TestClusterServiceCreateRepoError(t *testing.T) {
+	t.Parallel()
 	repo, _, vpcSvc, _, _, secretSvc, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	userID := uuid.New()
@@ -143,6 +147,7 @@ func TestClusterServiceCreateRepoError(t *testing.T) {
 }
 
 func TestClusterServiceCreateEnqueueError(t *testing.T) {
+	t.Parallel()
 	repo, _, vpcSvc, _, taskQueue, secretSvc, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	userID := uuid.New()
@@ -167,6 +172,7 @@ func TestClusterServiceCreateEnqueueError(t *testing.T) {
 }
 
 func TestClusterServiceDelete(t *testing.T) {
+	t.Parallel()
 	repo, _, _, _, taskQueue, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	id := uuid.New()
@@ -192,6 +198,7 @@ func TestClusterServiceDelete(t *testing.T) {
 }
 
 func TestClusterServiceListClusters(t *testing.T) {
+	t.Parallel()
 	repo, _, _, _, _, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	userID := uuid.New()
@@ -204,6 +211,7 @@ func TestClusterServiceListClusters(t *testing.T) {
 }
 
 func TestClusterServiceGetKubeconfigAdmin(t *testing.T) {
+	t.Parallel()
 	repo, _, _, _, _, secretSvc, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	clusterID := uuid.New()
@@ -224,6 +232,7 @@ func TestClusterServiceGetKubeconfigAdmin(t *testing.T) {
 }
 
 func TestClusterServiceGetKubeconfigNonAdmin(t *testing.T) {
+	t.Parallel()
 	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	clusterID := uuid.New()
@@ -238,6 +247,7 @@ func TestClusterServiceGetKubeconfigNonAdmin(t *testing.T) {
 }
 
 func TestClusterServiceGetKubeconfigNotRunning(t *testing.T) {
+	t.Parallel()
 	repo, _, _, _, _, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	clusterID := uuid.New()
@@ -250,6 +260,7 @@ func TestClusterServiceGetKubeconfigNotRunning(t *testing.T) {
 }
 
 func TestClusterServiceRepairCluster(t *testing.T) {
+	t.Parallel()
 	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	clusterID := uuid.New()
@@ -273,6 +284,7 @@ func TestClusterServiceRepairCluster(t *testing.T) {
 }
 
 func TestClusterServiceScaleCluster(t *testing.T) {
+	t.Parallel()
 	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	clusterID := uuid.New()
@@ -301,6 +313,7 @@ func TestClusterServiceScaleCluster(t *testing.T) {
 }
 
 func TestClusterServiceScaleClusterInvalidWorkers(t *testing.T) {
+	t.Parallel()
 	repo, _, _, _, _, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	clusterID := uuid.New()
@@ -313,6 +326,7 @@ func TestClusterServiceScaleClusterInvalidWorkers(t *testing.T) {
 }
 
 func TestClusterServiceGetClusterHealth(t *testing.T) {
+	t.Parallel()
 	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	clusterID := uuid.New()
@@ -328,6 +342,7 @@ func TestClusterServiceGetClusterHealth(t *testing.T) {
 }
 
 func TestClusterServiceRotateSecretsSuccess(t *testing.T) {
+	t.Parallel()
 	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	clusterID := uuid.New()
@@ -347,6 +362,7 @@ func TestClusterServiceRotateSecretsSuccess(t *testing.T) {
 }
 
 func TestClusterServiceRotateSecretsNotRunning(t *testing.T) {
+	t.Parallel()
 	repo, _, _, _, _, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	clusterID := uuid.New()
@@ -359,6 +375,7 @@ func TestClusterServiceRotateSecretsNotRunning(t *testing.T) {
 }
 
 func TestClusterServiceRestoreBackup(t *testing.T) {
+	t.Parallel()
 	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	clusterID := uuid.New()
@@ -379,6 +396,7 @@ func TestClusterServiceRestoreBackup(t *testing.T) {
 }
 
 func TestClusterServiceRestoreBackupNotRunning(t *testing.T) {
+	t.Parallel()
 	repo, _, _, _, _, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	clusterID := uuid.New()

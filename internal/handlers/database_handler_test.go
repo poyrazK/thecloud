@@ -76,6 +76,7 @@ func setupDatabaseHandlerTest(_ *testing.T) (*mockDatabaseService, *DatabaseHand
 }
 
 func TestDatabaseHandlerCreate(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupDatabaseHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -99,6 +100,7 @@ func TestDatabaseHandlerCreate(t *testing.T) {
 }
 
 func TestDatabaseHandlerList(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupDatabaseHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -116,6 +118,7 @@ func TestDatabaseHandlerList(t *testing.T) {
 }
 
 func TestDatabaseHandlerGet(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupDatabaseHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -134,6 +137,7 @@ func TestDatabaseHandlerGet(t *testing.T) {
 }
 
 func TestDatabaseHandlerDelete(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupDatabaseHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -151,6 +155,7 @@ func TestDatabaseHandlerDelete(t *testing.T) {
 }
 
 func TestDatabaseHandlerGetConnectionString(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupDatabaseHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -169,6 +174,7 @@ func TestDatabaseHandlerGetConnectionString(t *testing.T) {
 }
 
 func TestDatabaseHandlerCreateError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidJSON", func(t *testing.T) {
 		_, handler, r := setupDatabaseHandlerTest(t)
 		r.POST(databasesPath, handler.Create)
@@ -193,6 +199,7 @@ func TestDatabaseHandlerCreateError(t *testing.T) {
 }
 
 func TestDatabaseHandlerListError(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupDatabaseHandlerTest(t)
 	r.GET(databasesPath, handler.List)
 	svc.On("ListDatabases", mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
@@ -204,6 +211,7 @@ func TestDatabaseHandlerListError(t *testing.T) {
 }
 
 func TestDatabaseHandlerGetError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupDatabaseHandlerTest(t)
 		r.GET(databasesPath+"/:id", handler.Get)
@@ -227,6 +235,7 @@ func TestDatabaseHandlerGetError(t *testing.T) {
 }
 
 func TestDatabaseHandlerDeleteError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupDatabaseHandlerTest(t)
 		r.DELETE(databasesPath+"/:id", handler.Delete)
@@ -250,6 +259,7 @@ func TestDatabaseHandlerDeleteError(t *testing.T) {
 }
 
 func TestDatabaseHandlerGetConnectionStringError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupDatabaseHandlerTest(t)
 		r.GET(databasesPath+connPath, handler.GetConnectionString)

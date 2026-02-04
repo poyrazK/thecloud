@@ -54,6 +54,7 @@ func setupDashboardHandlerTest(_ *testing.T) (*dashboardServiceMock, *DashboardH
 }
 
 func TestDashboardHandlerGetSummary(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupDashboardHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 
@@ -76,6 +77,7 @@ func TestDashboardHandlerGetSummary(t *testing.T) {
 }
 
 func TestDashboardHandlerGetRecentEvents(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupDashboardHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 
@@ -98,6 +100,7 @@ func TestDashboardHandlerGetRecentEvents(t *testing.T) {
 }
 
 func TestDashboardHandlerGetStats(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupDashboardHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 
@@ -123,6 +126,7 @@ func TestDashboardHandlerGetStats(t *testing.T) {
 }
 
 func TestDashboardHandlerStreamEvents(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupDashboardHandlerTest(t)
 	defer mockSvc.AssertExpectations(t)
 
@@ -147,6 +151,7 @@ func TestDashboardHandlerStreamEvents(t *testing.T) {
 }
 
 func TestDashboardHandlerGetRecentEvents_Limits(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupDashboardHandlerTest(t)
 	r.GET("/events", handler.GetRecentEvents)
 
@@ -176,6 +181,7 @@ func TestDashboardHandlerGetRecentEvents_Limits(t *testing.T) {
 }
 
 func TestDashboardHandler_Errors(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupDashboardHandlerTest(t)
 	r.GET("/summary", handler.GetSummary)
 	r.GET("/events", handler.GetRecentEvents)

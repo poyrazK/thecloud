@@ -17,6 +17,7 @@ const (
 )
 
 func TestClusterServiceUpgrade(t *testing.T) {
+	t.Parallel()
 	repo, provisioner, _, _, taskQueue, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	id := uuid.New()
@@ -125,6 +126,7 @@ func TestClusterServiceUpgrade(t *testing.T) {
 }
 
 func TestClusterServiceRotateSecrets(t *testing.T) {
+	t.Parallel()
 	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	id := uuid.New()
@@ -153,6 +155,7 @@ func TestClusterServiceRotateSecrets(t *testing.T) {
 }
 
 func TestClusterServiceBackup(t *testing.T) {
+	t.Parallel()
 	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	id := uuid.New()
@@ -180,6 +183,7 @@ func TestClusterServiceBackup(t *testing.T) {
 }
 
 func TestClusterServiceRestore(t *testing.T) {
+	t.Parallel()
 	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
 	ctx := context.Background()
 	id := uuid.New()

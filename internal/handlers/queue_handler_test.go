@@ -88,6 +88,7 @@ func setupQueueHandlerTest(_ *testing.T) (*mockQueueService, *QueueHandler, *gin
 }
 
 func TestQueueHandlerCreate(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupQueueHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -110,6 +111,7 @@ func TestQueueHandlerCreate(t *testing.T) {
 }
 
 func TestQueueHandlerList(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupQueueHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -127,6 +129,7 @@ func TestQueueHandlerList(t *testing.T) {
 }
 
 func TestQueueHandlerGet(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupQueueHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -145,6 +148,7 @@ func TestQueueHandlerGet(t *testing.T) {
 }
 
 func TestQueueHandlerDelete(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupQueueHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -162,6 +166,7 @@ func TestQueueHandlerDelete(t *testing.T) {
 }
 
 func TestQueueHandlerSendMessage(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupQueueHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -182,6 +187,7 @@ func TestQueueHandlerSendMessage(t *testing.T) {
 }
 
 func TestQueueHandlerReceiveMessages(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupQueueHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -200,6 +206,7 @@ func TestQueueHandlerReceiveMessages(t *testing.T) {
 }
 
 func TestQueueHandlerDeleteMessage(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupQueueHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -218,6 +225,7 @@ func TestQueueHandlerDeleteMessage(t *testing.T) {
 }
 
 func TestQueueHandlerPurge(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupQueueHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -235,6 +243,7 @@ func TestQueueHandlerPurge(t *testing.T) {
 }
 
 func TestQueueHandlerReceiveMessages_Defaults(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupQueueHandlerTest(t)
 	r.GET(queuesPath+"/:id/messages", handler.ReceiveMessages)
 
@@ -249,6 +258,7 @@ func TestQueueHandlerReceiveMessages_Defaults(t *testing.T) {
 }
 
 func TestQueueHandler_Errors(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupQueueHandlerTest(t)
 	r.POST(queuesPath, handler.Create)
 	r.GET(queuesPath+"/:id", handler.Get)
@@ -320,6 +330,7 @@ func TestQueueHandler_Errors(t *testing.T) {
 }
 
 func TestQueueHandler_InvalidUUIDs(t *testing.T) {
+	t.Parallel()
 	_, handler, r := setupQueueHandlerTest(t)
 	r.GET(queuesPath+"/:id", handler.Get)
 	r.DELETE(queuesPath+"/:id", handler.Delete)
@@ -349,6 +360,7 @@ func TestQueueHandler_InvalidUUIDs(t *testing.T) {
 }
 
 func TestQueueHandlerDeleteMessage_NoHandle(t *testing.T) {
+	t.Parallel()
 	_, handler, r := setupQueueHandlerTest(t)
 	r.DELETE(queuesPath+"/:id/messages", handler.DeleteMessage) // Note: handle param is empty here
 
@@ -361,6 +373,7 @@ func TestQueueHandlerDeleteMessage_NoHandle(t *testing.T) {
 }
 
 func TestQueueHandlerList_Error(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupQueueHandlerTest(t)
 	r.GET(queuesPath, handler.List)
 
@@ -374,6 +387,7 @@ func TestQueueHandlerList_Error(t *testing.T) {
 }
 
 func TestQueueHandler_InvalidJSON(t *testing.T) {
+	t.Parallel()
 	_, handler, r := setupQueueHandlerTest(t)
 	r.POST(queuesPath, handler.Create)
 	r.POST(queuesPath+"/:id/messages", handler.SendMessage)

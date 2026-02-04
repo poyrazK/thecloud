@@ -40,6 +40,7 @@ func setupSnapshotServiceIntegrationTest(t *testing.T) (ports.SnapshotService, p
 }
 
 func TestSnapshotService_Integration(t *testing.T) {
+	t.Parallel()
 	svc, repo, volRepo, ctx := setupSnapshotServiceIntegrationTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 

@@ -84,6 +84,7 @@ func setupFunctionHandlerTest(_ *testing.T) (*mockFunctionService, *FunctionHand
 }
 
 func TestFunctionHandlerCreate(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupFunctionHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -117,6 +118,7 @@ func TestFunctionHandlerCreate(t *testing.T) {
 }
 
 func TestFunctionHandlerList(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupFunctionHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -134,6 +136,7 @@ func TestFunctionHandlerList(t *testing.T) {
 }
 
 func TestFunctionHandlerGet(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupFunctionHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -152,6 +155,7 @@ func TestFunctionHandlerGet(t *testing.T) {
 }
 
 func TestFunctionHandlerDelete(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupFunctionHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -169,6 +173,7 @@ func TestFunctionHandlerDelete(t *testing.T) {
 }
 
 func TestFunctionHandlerInvoke(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupFunctionHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -187,6 +192,7 @@ func TestFunctionHandlerInvoke(t *testing.T) {
 }
 
 func TestFunctionHandlerGetLogs(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupFunctionHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -204,6 +210,7 @@ func TestFunctionHandlerGetLogs(t *testing.T) {
 }
 
 func TestFunctionHandlerCreateError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidForm", func(t *testing.T) {
 		_, handler, r := setupFunctionHandlerTest(t)
 		r.POST(functionsPath, handler.Create)
@@ -254,6 +261,7 @@ func TestFunctionHandlerCreateError(t *testing.T) {
 }
 
 func TestFunctionHandlerListError(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupFunctionHandlerTest(t)
 	r.GET(functionsPath, handler.List)
 	svc.On("ListFunctions", mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
@@ -265,6 +273,7 @@ func TestFunctionHandlerListError(t *testing.T) {
 }
 
 func TestFunctionHandlerGetError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupFunctionHandlerTest(t)
 		r.GET(functionsPath+"/:id", handler.Get)
@@ -288,6 +297,7 @@ func TestFunctionHandlerGetError(t *testing.T) {
 }
 
 func TestFunctionHandlerInvokeError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupFunctionHandlerTest(t)
 		r.POST(functionsPath+"/:id"+invokeSuffix, handler.Invoke)
@@ -324,6 +334,7 @@ func TestFunctionHandlerInvokeError(t *testing.T) {
 }
 
 func TestFunctionHandlerGetLogsError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupFunctionHandlerTest(t)
 		r.GET(functionsPath+"/:id"+logsSuffix, handler.GetLogs)
@@ -347,6 +358,7 @@ func TestFunctionHandlerGetLogsError(t *testing.T) {
 }
 
 func TestFunctionHandlerDeleteError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupFunctionHandlerTest(t)
 		r.DELETE(functionsPath+"/:id", handler.Delete)

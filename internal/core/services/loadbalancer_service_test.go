@@ -14,6 +14,7 @@ import (
 const lbMainName = "lb-main"
 
 func TestLBServiceGet(t *testing.T) {
+	t.Parallel()
 	lbRepo := new(MockLBRepo)
 	vpcRepo := new(MockVpcRepo)
 	instanceRepo := new(MockInstanceRepo)
@@ -31,6 +32,7 @@ func TestLBServiceGet(t *testing.T) {
 }
 
 func TestLBServiceList(t *testing.T) {
+	t.Parallel()
 	lbRepo := new(MockLBRepo)
 	vpcRepo := new(MockVpcRepo)
 	instanceRepo := new(MockInstanceRepo)
@@ -46,6 +48,7 @@ func TestLBServiceList(t *testing.T) {
 }
 
 func TestLBServiceRemoveTarget(t *testing.T) {
+	t.Parallel()
 	lbRepo := new(MockLBRepo)
 	vpcRepo := new(MockVpcRepo)
 	instanceRepo := new(MockInstanceRepo)
@@ -67,6 +70,7 @@ func TestLBServiceRemoveTarget(t *testing.T) {
 }
 
 func TestLBServiceListTargets(t *testing.T) {
+	t.Parallel()
 	lbRepo := new(MockLBRepo)
 	vpcRepo := new(MockVpcRepo)
 	instanceRepo := new(MockInstanceRepo)
@@ -84,6 +88,7 @@ func TestLBServiceListTargets(t *testing.T) {
 }
 
 func TestLBServiceDelete(t *testing.T) {
+	t.Parallel()
 	lbRepo := new(MockLBRepo)
 	vpcRepo := new(MockVpcRepo)
 	instanceRepo := new(MockInstanceRepo)

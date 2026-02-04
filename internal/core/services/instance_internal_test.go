@@ -17,6 +17,7 @@ const testVolumeName = "test-vol"
 // mockVolumeRepo is already defined in dashboard_test.go (package services)
 
 func TestInstanceServiceInternalGetVolumeByIDOrName(t *testing.T) {
+	t.Parallel()
 	repo := new(mockVolumeRepo)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := &InstanceService{volumeRepo: repo, logger: logger}
@@ -39,6 +40,7 @@ func TestInstanceServiceInternalGetVolumeByIDOrName(t *testing.T) {
 }
 
 func TestInstanceServiceInternalResolveVolumes(t *testing.T) {
+	t.Parallel()
 	repo := new(mockVolumeRepo)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := &InstanceService{volumeRepo: repo, logger: logger}
@@ -54,6 +56,7 @@ func TestInstanceServiceInternalResolveVolumes(t *testing.T) {
 }
 
 func TestInstanceServiceInternalResolveVolumesUnavailable(t *testing.T) {
+	t.Parallel()
 	repo := new(mockVolumeRepo)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := &InstanceService{volumeRepo: repo, logger: logger}
@@ -67,6 +70,7 @@ func TestInstanceServiceInternalResolveVolumesUnavailable(t *testing.T) {
 }
 
 func TestInstanceServiceInternalUpdateVolumesAfterLaunch(t *testing.T) {
+	t.Parallel()
 	repo := new(mockVolumeRepo)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := &InstanceService{volumeRepo: repo, logger: logger}

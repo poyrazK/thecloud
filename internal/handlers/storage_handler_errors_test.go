@@ -18,6 +18,7 @@ import (
 )
 
 func TestStorageHandlerErrors(t *testing.T) { //nolint:gocyclo
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
@@ -238,6 +239,7 @@ func TestStorageHandlerErrors(t *testing.T) { //nolint:gocyclo
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			mockSvc := new(mockStorageService)
 			if tc.setupMock != nil {
 				tc.setupMock(mockSvc)

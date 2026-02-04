@@ -29,6 +29,7 @@ func setupTenantServiceIntegrationTest(t *testing.T) (ports.TenantService, ports
 }
 
 func TestTenantService_Integration(t *testing.T) {
+	t.Parallel()
 	svc, tenantRepo, userRepo, ctx := setupTenantServiceIntegrationTest(t)
 
 	t.Run("CreateTenant", func(t *testing.T) {

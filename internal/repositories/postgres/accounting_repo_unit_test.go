@@ -12,6 +12,7 @@ import (
 )
 
 func TestAccountingRepository_CreateRecord(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -37,6 +38,7 @@ func TestAccountingRepository_CreateRecord(t *testing.T) {
 }
 
 func TestAccountingRepository_GetUsageSummary(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -60,6 +62,7 @@ func TestAccountingRepository_GetUsageSummary(t *testing.T) {
 }
 
 func TestAccountingRepository_ListRecords(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()

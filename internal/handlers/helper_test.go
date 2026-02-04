@@ -16,6 +16,7 @@ const (
 )
 
 func TestParseUUID(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("valid uuid", func(t *testing.T) {
@@ -59,6 +60,7 @@ func TestParseUUID(t *testing.T) {
 }
 
 func TestGetBucket(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("valid bucket", func(t *testing.T) {
@@ -85,6 +87,7 @@ func TestGetBucket(t *testing.T) {
 }
 
 func TestGetBucketAndKeyRequired(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("valid bucket and key", func(t *testing.T) {

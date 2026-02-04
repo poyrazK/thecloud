@@ -78,6 +78,7 @@ func setupCronHandlerTest(_ *testing.T) (*mockCronService, *CronHandler, *gin.En
 }
 
 func TestCronHandlerCreateJob(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupCronHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -103,6 +104,7 @@ func TestCronHandlerCreateJob(t *testing.T) {
 }
 
 func TestCronHandlerListJobs(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupCronHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -120,6 +122,7 @@ func TestCronHandlerListJobs(t *testing.T) {
 }
 
 func TestCronHandlerGetJob(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupCronHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -138,6 +141,7 @@ func TestCronHandlerGetJob(t *testing.T) {
 }
 
 func TestCronHandlerPauseJob(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupCronHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -155,6 +159,7 @@ func TestCronHandlerPauseJob(t *testing.T) {
 }
 
 func TestCronHandlerResumeJob(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupCronHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -172,6 +177,7 @@ func TestCronHandlerResumeJob(t *testing.T) {
 }
 
 func TestCronHandlerDeleteJob(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupCronHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -189,6 +195,7 @@ func TestCronHandlerDeleteJob(t *testing.T) {
 }
 
 func TestCronHandlerCreateError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidJSON", func(t *testing.T) {
 		_, handler, r := setupCronHandlerTest(t)
 		r.POST(cronPath, handler.CreateJob)
@@ -213,6 +220,7 @@ func TestCronHandlerCreateError(t *testing.T) {
 }
 
 func TestCronHandlerListError(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupCronHandlerTest(t)
 	r.GET(cronPath, handler.ListJobs)
 	svc.On("ListJobs", mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
@@ -224,6 +232,7 @@ func TestCronHandlerListError(t *testing.T) {
 }
 
 func TestCronHandlerGetError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupCronHandlerTest(t)
 		r.GET(cronPath+"/:id", handler.GetJob)
@@ -247,6 +256,7 @@ func TestCronHandlerGetError(t *testing.T) {
 }
 
 func TestCronHandlerPauseError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupCronHandlerTest(t)
 		r.POST(cronPath+pausePath, handler.PauseJob)
@@ -270,6 +280,7 @@ func TestCronHandlerPauseError(t *testing.T) {
 }
 
 func TestCronHandlerResumeError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupCronHandlerTest(t)
 		r.POST(cronPath+resumePath, handler.ResumeJob)
@@ -293,6 +304,7 @@ func TestCronHandlerResumeError(t *testing.T) {
 }
 
 func TestCronHandlerDeleteError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupCronHandlerTest(t)
 		r.DELETE(cronPath+"/:id", handler.DeleteJob)

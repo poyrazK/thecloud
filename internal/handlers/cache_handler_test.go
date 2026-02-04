@@ -80,6 +80,7 @@ func setupCacheHandlerTest(_ *testing.T) (*mockCacheService, *CacheHandler, *gin
 }
 
 func TestCacheHandlerCreate(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupCacheHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -103,6 +104,7 @@ func TestCacheHandlerCreate(t *testing.T) {
 }
 
 func TestCacheHandlerList(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupCacheHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -120,6 +122,7 @@ func TestCacheHandlerList(t *testing.T) {
 }
 
 func TestCacheHandlerGet(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupCacheHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -138,6 +141,7 @@ func TestCacheHandlerGet(t *testing.T) {
 }
 
 func TestCacheHandlerDelete(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupCacheHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -155,6 +159,7 @@ func TestCacheHandlerDelete(t *testing.T) {
 }
 
 func TestCacheHandlerGetConnectionString(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupCacheHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -173,6 +178,7 @@ func TestCacheHandlerGetConnectionString(t *testing.T) {
 }
 
 func TestCacheHandlerFlush(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupCacheHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -190,6 +196,7 @@ func TestCacheHandlerFlush(t *testing.T) {
 }
 
 func TestCacheHandlerGetStats(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupCacheHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -208,6 +215,7 @@ func TestCacheHandlerGetStats(t *testing.T) {
 }
 
 func TestCacheHandlerErrors(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupCacheHandlerTest(t)
 	r.POST(cachesPath, handler.Create)
 	r.GET(cachesPath, handler.List)

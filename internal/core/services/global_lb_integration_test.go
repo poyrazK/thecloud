@@ -39,6 +39,7 @@ func (s *StubGeoDNSBackend) DeleteGeoRecord(ctx context.Context, hostname string
 }
 
 func TestGlobalLBServiceIntegration(t *testing.T) {
+	t.Parallel()
 	db := setupDB(t)
 	// Add global lb tables to cleanup if needed, but cleanDB in setup_test.go should be updated
 	// For now we manually clean them or ensure cleanDB is updated.

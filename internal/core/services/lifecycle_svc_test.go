@@ -13,6 +13,7 @@ import (
 )
 
 func TestCreateRule(t *testing.T) {
+	t.Parallel()
 	mockRepo := new(MockLifecycleRepository)
 	mockStorageRepo := new(MockStorageRepo)
 	svc := services.NewLifecycleService(mockRepo, mockStorageRepo)
@@ -64,6 +65,7 @@ func TestCreateRule(t *testing.T) {
 }
 
 func TestListRules(t *testing.T) {
+	t.Parallel()
 	mockRepo := new(MockLifecycleRepository)
 	mockStorageRepo := new(MockStorageRepo)
 	svc := services.NewLifecycleService(mockRepo, mockStorageRepo)
@@ -104,6 +106,7 @@ func TestListRules(t *testing.T) {
 }
 
 func TestDeleteRule(t *testing.T) {
+	t.Parallel()
 	mockRepo := new(MockLifecycleRepository)
 	mockStorageRepo := new(MockStorageRepo)
 	svc := services.NewLifecycleService(mockRepo, mockStorageRepo)

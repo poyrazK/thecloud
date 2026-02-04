@@ -32,6 +32,7 @@ func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *
 }
 
 func TestAuthServiceRegisterSuccess(t *testing.T) {
+	t.Parallel()
 	_, svc, userRepo, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
@@ -55,6 +56,7 @@ func TestAuthServiceRegisterSuccess(t *testing.T) {
 }
 
 func TestAuthServiceRegisterWeakPassword(t *testing.T) {
+	t.Parallel()
 	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
@@ -66,6 +68,7 @@ func TestAuthServiceRegisterWeakPassword(t *testing.T) {
 }
 
 func TestAuthServiceRegisterDuplicateEmail(t *testing.T) {
+	t.Parallel()
 	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
@@ -81,6 +84,7 @@ func TestAuthServiceRegisterDuplicateEmail(t *testing.T) {
 }
 
 func TestAuthServiceLoginSuccess(t *testing.T) {
+	t.Parallel()
 	_, svc, _, identitySvc, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
@@ -104,6 +108,7 @@ func TestAuthServiceLoginSuccess(t *testing.T) {
 }
 
 func TestAuthServiceLoginWrongPassword(t *testing.T) {
+	t.Parallel()
 	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
@@ -121,6 +126,7 @@ func TestAuthServiceLoginWrongPassword(t *testing.T) {
 }
 
 func TestAuthServiceValidateUser(t *testing.T) {
+	t.Parallel()
 	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
@@ -133,6 +139,7 @@ func TestAuthServiceValidateUser(t *testing.T) {
 }
 
 func TestAuthServiceLoginUserNotFound(t *testing.T) {
+	t.Parallel()
 	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
@@ -145,6 +152,7 @@ func TestAuthServiceLoginUserNotFound(t *testing.T) {
 }
 
 func TestAuthServiceLoginAccountLockout(t *testing.T) {
+	t.Parallel()
 	_, svc, _, _, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
@@ -169,6 +177,7 @@ func TestAuthServiceLoginAccountLockout(t *testing.T) {
 }
 
 func TestAuthService_TokenExpiry(t *testing.T) {
+	t.Parallel()
 	db, svc, _, identitySvc, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 

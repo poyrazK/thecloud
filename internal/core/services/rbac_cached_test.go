@@ -113,6 +113,7 @@ func setupCachedRBACTest(t *testing.T) (*mockRBACService, *redis.Client, *minire
 }
 
 func TestCachedRBACServiceListRoles(t *testing.T) {
+	t.Parallel()
 	mockSvc, cache, mr := setupCachedRBACTest(t)
 	defer mr.Close()
 
@@ -129,6 +130,7 @@ func TestCachedRBACServiceListRoles(t *testing.T) {
 }
 
 func TestCachedRBACServiceAuthorizeDelegates(t *testing.T) {
+	t.Parallel()
 	mockSvc, cache, mr := setupCachedRBACTest(t)
 	defer mr.Close()
 
@@ -144,6 +146,7 @@ func TestCachedRBACServiceAuthorizeDelegates(t *testing.T) {
 }
 
 func TestCachedRBACServiceHasPermissionCacheHit(t *testing.T) {
+	t.Parallel()
 	mockSvc, cache, mr := setupCachedRBACTest(t)
 	defer mr.Close()
 
@@ -162,6 +165,7 @@ func TestCachedRBACServiceHasPermissionCacheHit(t *testing.T) {
 }
 
 func TestCachedRBACServiceHasPermissionCacheMiss(t *testing.T) {
+	t.Parallel()
 	mockSvc, cache, mr := setupCachedRBACTest(t)
 	defer mr.Close()
 
@@ -183,6 +187,7 @@ func TestCachedRBACServiceHasPermissionCacheMiss(t *testing.T) {
 }
 
 func TestCachedRBACServiceHasPermissionError(t *testing.T) {
+	t.Parallel()
 	mockSvc, cache, mr := setupCachedRBACTest(t)
 	defer mr.Close()
 
@@ -204,6 +209,7 @@ func TestCachedRBACServiceHasPermissionError(t *testing.T) {
 }
 
 func TestCachedRBACServiceCreateRoleDelegates(t *testing.T) {
+	t.Parallel()
 	mockSvc, cache, mr := setupCachedRBACTest(t)
 	defer mr.Close()
 
@@ -219,6 +225,7 @@ func TestCachedRBACServiceCreateRoleDelegates(t *testing.T) {
 }
 
 func TestCachedRBACServiceGetRoleByIDCaches(t *testing.T) {
+	t.Parallel()
 	mockSvc, cache, mr := setupCachedRBACTest(t)
 	defer mr.Close()
 
@@ -238,6 +245,7 @@ func TestCachedRBACServiceGetRoleByIDCaches(t *testing.T) {
 }
 
 func TestCachedRBACServiceGetRoleByNameCaches(t *testing.T) {
+	t.Parallel()
 	mockSvc, cache, mr := setupCachedRBACTest(t)
 	defer mr.Close()
 
@@ -256,6 +264,7 @@ func TestCachedRBACServiceGetRoleByNameCaches(t *testing.T) {
 }
 
 func TestCachedRBACServiceUpdateRoleInvalidatesCache(t *testing.T) {
+	t.Parallel()
 	mockSvc, cache, mr := setupCachedRBACTest(t)
 	defer mr.Close()
 
@@ -281,6 +290,7 @@ func TestCachedRBACServiceUpdateRoleInvalidatesCache(t *testing.T) {
 }
 
 func TestCachedRBACServiceDeleteRoleInvalidatesCache(t *testing.T) {
+	t.Parallel()
 	mockSvc, cache, mr := setupCachedRBACTest(t)
 	defer mr.Close()
 
@@ -307,6 +317,7 @@ func TestCachedRBACServiceDeleteRoleInvalidatesCache(t *testing.T) {
 }
 
 func TestCachedRBACServiceAddPermissionInvalidatesCache(t *testing.T) {
+	t.Parallel()
 	mockSvc, cache, mr := setupCachedRBACTest(t)
 	defer mr.Close()
 
@@ -333,6 +344,7 @@ func TestCachedRBACServiceAddPermissionInvalidatesCache(t *testing.T) {
 }
 
 func TestCachedRBACServiceRemovePermissionInvalidatesCache(t *testing.T) {
+	t.Parallel()
 	mockSvc, cache, mr := setupCachedRBACTest(t)
 	defer mr.Close()
 
@@ -359,6 +371,7 @@ func TestCachedRBACServiceRemovePermissionInvalidatesCache(t *testing.T) {
 }
 
 func TestCachedRBACServiceBindRoleDelegates(t *testing.T) {
+	t.Parallel()
 	mockSvc, cache, mr := setupCachedRBACTest(t)
 	defer mr.Close()
 
@@ -373,6 +386,7 @@ func TestCachedRBACServiceBindRoleDelegates(t *testing.T) {
 }
 
 func TestCachedRBACServiceListRoleBindings(t *testing.T) {
+	t.Parallel()
 	mockSvc, cache, mr := setupCachedRBACTest(t)
 	defer mr.Close()
 

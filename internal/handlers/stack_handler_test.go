@@ -68,6 +68,7 @@ const (
 )
 
 func TestStackHandlerCreate(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockStackService)
 	handler := NewStackHandler(svc)
@@ -94,6 +95,7 @@ func TestStackHandlerCreate(t *testing.T) {
 }
 
 func TestStackHandlerList(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockStackService)
 	handler := NewStackHandler(svc)
@@ -115,6 +117,7 @@ func TestStackHandlerList(t *testing.T) {
 }
 
 func TestStackHandlerGet(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockStackService)
 	handler := NewStackHandler(svc)
@@ -136,6 +139,7 @@ func TestStackHandlerGet(t *testing.T) {
 }
 
 func TestStackHandlerDelete(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockStackService)
 	handler := NewStackHandler(svc)
@@ -156,6 +160,7 @@ func TestStackHandlerDelete(t *testing.T) {
 }
 
 func TestStackHandlerValidate(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockStackService)
 	handler := NewStackHandler(svc)
@@ -181,6 +186,7 @@ func TestStackHandlerValidate(t *testing.T) {
 }
 
 func TestStackHandlerErrorPaths(t *testing.T) {
+	t.Parallel()
 	setup := func(_ *testing.T) (*mockStackService, *StackHandler, *gin.Engine) {
 		svc := new(mockStackService)
 		handler := NewStackHandler(svc)

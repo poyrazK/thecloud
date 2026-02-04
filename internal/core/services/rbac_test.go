@@ -29,6 +29,7 @@ func setupRBACServiceIntegrationTest(t *testing.T) (ports.RBACService, ports.Rol
 }
 
 func TestRBACService_Integration(t *testing.T) {
+	t.Parallel()
 	svc, roleRepo, userRepo, ctx := setupRBACServiceIntegrationTest(t)
 
 	t.Run("Authorize_Success", func(t *testing.T) {

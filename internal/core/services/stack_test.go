@@ -36,6 +36,7 @@ func setupStackServiceTest(_ *testing.T) (*MockStackRepo, *MockInstanceService, 
 }
 
 func TestCreateStackSuccess(t *testing.T) {
+	t.Parallel()
 	repo, instanceSvc, vpcSvc, _, _, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer instanceSvc.AssertExpectations(t)
@@ -90,6 +91,7 @@ Resources:
 }
 
 func TestDeleteStackSuccess(t *testing.T) {
+	t.Parallel()
 	repo, instanceSvc, vpcSvc, _, _, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer instanceSvc.AssertExpectations(t)
@@ -120,6 +122,7 @@ func TestDeleteStackSuccess(t *testing.T) {
 }
 
 func TestCreateStackRollback(t *testing.T) {
+	t.Parallel()
 	repo, instanceSvc, vpcSvc, _, _, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer instanceSvc.AssertExpectations(t)
@@ -186,6 +189,7 @@ Resources:
 }
 
 func TestCreateStackRollbackDeletesResourcesAllTypes(t *testing.T) {
+	t.Parallel()
 	repo, instanceSvc, vpcSvc, volumeSvc, snapshotSvc, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer instanceSvc.AssertExpectations(t)
@@ -249,6 +253,7 @@ Resources:
 }
 
 func TestCreateStackRollbackFailureUpdatesStatus(t *testing.T) {
+	t.Parallel()
 	repo, instanceSvc, vpcSvc, volumeSvc, _, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer instanceSvc.AssertExpectations(t)
@@ -294,6 +299,7 @@ Resources:
 	time.Sleep(150 * time.Millisecond)
 }
 func TestGetStack(t *testing.T) {
+	t.Parallel()
 	repo, _, _, _, _, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -309,6 +315,7 @@ func TestGetStack(t *testing.T) {
 }
 
 func TestListStacks(t *testing.T) {
+	t.Parallel()
 	repo, _, _, _, _, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 
@@ -324,6 +331,7 @@ func TestListStacks(t *testing.T) {
 }
 
 func TestValidateTemplate(t *testing.T) {
+	t.Parallel()
 	_, _, _, _, _, svc := setupStackServiceTest(t)
 
 	t.Run("valid template", func(t *testing.T) {
@@ -361,6 +369,7 @@ Resources:
 }
 
 func TestCreateStackComplex(t *testing.T) {
+	t.Parallel()
 	repo, instanceSvc, vpcSvc, volumeSvc, snapshotSvc, svc := setupStackServiceTest(t)
 	defer repo.AssertExpectations(t)
 	defer instanceSvc.AssertExpectations(t)

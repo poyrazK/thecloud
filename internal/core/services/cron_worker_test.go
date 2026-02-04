@@ -15,6 +15,7 @@ import (
 )
 
 func TestCronWorkerProcessJobs(t *testing.T) {
+	t.Parallel()
 	repo := new(MockCronRepo)
 	worker := services.NewCronWorker(repo)
 
@@ -54,6 +55,7 @@ func TestCronWorkerProcessJobs(t *testing.T) {
 }
 
 func TestCronWorkerProcessJobs_RequestFailure(t *testing.T) {
+	t.Parallel()
 	repo := new(MockCronRepo)
 	worker := services.NewCronWorker(repo)
 
@@ -86,6 +88,7 @@ func TestCronWorkerProcessJobs_RequestFailure(t *testing.T) {
 }
 
 func TestCronWorkerProcessJobs_HTTPError(t *testing.T) {
+	t.Parallel()
 	repo := new(MockCronRepo)
 	worker := services.NewCronWorker(repo)
 
@@ -120,6 +123,7 @@ func TestCronWorkerProcessJobs_HTTPError(t *testing.T) {
 }
 
 func TestCronWorkerRun(t *testing.T) {
+	t.Parallel()
 	repo := new(MockCronRepo)
 	worker := services.NewCronWorker(repo)
 

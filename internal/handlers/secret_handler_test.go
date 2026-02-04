@@ -82,6 +82,7 @@ func setupSecretHandlerTest(_ *testing.T) (*mockSecretService, *SecretHandler, *
 }
 
 func TestSecretHandlerCreate(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupSecretHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -105,6 +106,7 @@ func TestSecretHandlerCreate(t *testing.T) {
 }
 
 func TestSecretHandlerList(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupSecretHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -122,6 +124,7 @@ func TestSecretHandlerList(t *testing.T) {
 }
 
 func TestSecretHandlerGetByID(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupSecretHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -140,6 +143,7 @@ func TestSecretHandlerGetByID(t *testing.T) {
 }
 
 func TestSecretHandlerGetByName(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupSecretHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -157,6 +161,7 @@ func TestSecretHandlerGetByName(t *testing.T) {
 }
 
 func TestSecretHandlerDelete(t *testing.T) {
+	t.Parallel()
 	t.Run("SuccessByID", func(t *testing.T) {
 		svc, handler, r := setupSecretHandlerTest(t)
 		r.DELETE(secretsPath+"/:id", handler.Delete)
@@ -207,6 +212,7 @@ func TestSecretHandlerDelete(t *testing.T) {
 }
 
 func TestSecretHandlerCreateError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidJSON", func(t *testing.T) {
 		_, handler, r := setupSecretHandlerTest(t)
 		r.POST(secretsPath, handler.Create)
@@ -230,6 +236,7 @@ func TestSecretHandlerCreateError(t *testing.T) {
 }
 
 func TestSecretHandlerListError(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupSecretHandlerTest(t)
 	r.GET(secretsPath, handler.List)
 	svc.On("ListSecrets", mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
@@ -241,6 +248,7 @@ func TestSecretHandlerListError(t *testing.T) {
 }
 
 func TestSecretHandlerGetError(t *testing.T) {
+	t.Parallel()
 	t.Run("NotFoundByID", func(t *testing.T) {
 		svc, handler, r := setupSecretHandlerTest(t)
 		r.GET(secretsPath+"/:id", handler.Get)

@@ -28,6 +28,7 @@ func setupHealthServiceTest(t *testing.T) (*services.HealthServiceImpl, context.
 }
 
 func TestHealthServiceCheck(t *testing.T) {
+	t.Parallel()
 	svc, ctx := setupHealthServiceTest(t)
 
 	res := svc.Check(ctx)

@@ -86,6 +86,7 @@ func setupGatewayHandlerTest(_ *testing.T) (*mockGatewayService, *GatewayHandler
 }
 
 func TestGatewayHandlerCreateRoute(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupGatewayHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -119,6 +120,7 @@ func TestGatewayHandlerCreateRoute(t *testing.T) {
 }
 
 func TestGatewayHandlerListRoutes(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupGatewayHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -135,6 +137,7 @@ func TestGatewayHandlerListRoutes(t *testing.T) {
 }
 
 func TestGatewayHandlerDeleteRoute(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupGatewayHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -151,6 +154,7 @@ func TestGatewayHandlerDeleteRoute(t *testing.T) {
 }
 
 func TestGatewayHandlerProxyNotFound(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupGatewayHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -167,6 +171,7 @@ func TestGatewayHandlerProxyNotFound(t *testing.T) {
 }
 
 func TestGatewayHandlerProxySuccess(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupGatewayHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -197,6 +202,7 @@ func TestGatewayHandlerProxySuccess(t *testing.T) {
 }
 
 func TestGatewayHandlerProxyWithoutSlash(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupGatewayHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -219,6 +225,7 @@ func TestGatewayHandlerProxyWithoutSlash(t *testing.T) {
 }
 
 func TestGatewayHandlerProxyWithSlash(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupGatewayHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -242,6 +249,7 @@ func TestGatewayHandlerProxyWithSlash(t *testing.T) {
 }
 
 func TestGatewayHandlerCreateError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidJSON", func(t *testing.T) {
 		_, handler, r := setupGatewayHandlerTest(t)
 		r.POST(routesPath, handler.CreateRoute)
@@ -266,6 +274,7 @@ func TestGatewayHandlerCreateError(t *testing.T) {
 }
 
 func TestGatewayHandlerListError(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupGatewayHandlerTest(t)
 	r.GET(routesPath, handler.ListRoutes)
 	svc.On("ListRoutes", mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
@@ -277,6 +286,7 @@ func TestGatewayHandlerListError(t *testing.T) {
 }
 
 func TestGatewayHandlerProxyParamWithoutSlash(t *testing.T) {
+	t.Parallel()
 	mockSvc := new(mockGatewayService)
 	handler := NewGatewayHandler(mockSvc)
 	gin.SetMode(gin.TestMode)
@@ -304,6 +314,7 @@ func TestGatewayHandlerProxyParamWithoutSlash(t *testing.T) {
 }
 
 func TestGatewayHandlerDeleteError(t *testing.T) {
+	t.Parallel()
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupGatewayHandlerTest(t)
 		r.DELETE(routesPath+"/:id", handler.DeleteRoute)

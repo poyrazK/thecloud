@@ -39,6 +39,7 @@ func setupEventHandlerTest(_ *testing.T) (*mockEventService, *EventHandler, *gin
 }
 
 func TestEventHandlerList(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupEventHandlerTest(t)
 	defer svc.AssertExpectations(t)
 

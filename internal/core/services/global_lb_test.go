@@ -27,6 +27,7 @@ func setupGlobalLBTest(t *testing.T) (*services.GlobalLBService, *mock.MockGloba
 }
 
 func TestGlobalLBCreate(t *testing.T) {
+	t.Parallel()
 	svc, repo, _, geoDNS := setupGlobalLBTest(t)
 	// Fix context usage
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), uuid.New()), uuid.New())
@@ -89,6 +90,7 @@ func TestGlobalLBCreate(t *testing.T) {
 }
 
 func TestGlobalLBAddEndpoint(t *testing.T) {
+	t.Parallel()
 	svc, repo, lbRepo, geoDNS := setupGlobalLBTest(t)
 	// Fix context usage
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), uuid.New()), uuid.New())
@@ -145,6 +147,7 @@ func TestGlobalLBAddEndpoint(t *testing.T) {
 }
 
 func TestGlobalLBRemoveEndpoint(t *testing.T) {
+	t.Parallel()
 	svc, repo, _, geoDNS := setupGlobalLBTest(t)
 	userID := uuid.New()
 	ctx := appcontext.WithUserID(context.Background(), userID)

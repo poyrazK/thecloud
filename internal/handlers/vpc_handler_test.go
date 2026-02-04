@@ -63,6 +63,7 @@ func setupVpcHandlerTest(_ *testing.T) (*mockVpcService, *VpcHandler, *gin.Engin
 }
 
 func TestVpcHandlerCreate(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupVpcHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -82,6 +83,7 @@ func TestVpcHandlerCreate(t *testing.T) {
 }
 
 func TestVpcHandlerCreateErrors(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupVpcHandlerTest(t)
 	r.POST(vpcsPath, handler.Create)
 
@@ -103,6 +105,7 @@ func TestVpcHandlerCreateErrors(t *testing.T) {
 }
 
 func TestVpcHandlerList(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupVpcHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -120,6 +123,7 @@ func TestVpcHandlerList(t *testing.T) {
 }
 
 func TestVpcHandlerGet(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupVpcHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -138,6 +142,7 @@ func TestVpcHandlerGet(t *testing.T) {
 }
 
 func TestVpcHandlerGetError(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupVpcHandlerTest(t)
 	r.GET(vpcsPath+"/:id", handler.Get)
 
@@ -151,6 +156,7 @@ func TestVpcHandlerGetError(t *testing.T) {
 }
 
 func TestVpcHandlerDelete(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupVpcHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -168,6 +174,7 @@ func TestVpcHandlerDelete(t *testing.T) {
 }
 
 func TestVpcHandlerListError(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupVpcHandlerTest(t)
 	r.GET(vpcsPath, handler.List)
 
@@ -181,6 +188,7 @@ func TestVpcHandlerListError(t *testing.T) {
 }
 
 func TestVpcHandlerDeleteError(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupVpcHandlerTest(t)
 	r.DELETE(vpcsPath+"/:id", handler.Delete)
 

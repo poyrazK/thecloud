@@ -33,6 +33,7 @@ func setupPasswordResetServiceIntegrationTest(t *testing.T) (ports.PasswordReset
 }
 
 func TestPasswordResetService_Integration(t *testing.T) {
+	t.Parallel()
 	svc, repo, userRepo, ctx := setupPasswordResetServiceIntegrationTest(t)
 
 	t.Run("RequestAndReset", func(t *testing.T) {

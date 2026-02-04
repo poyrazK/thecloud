@@ -139,6 +139,7 @@ func (m *mockInstRepo) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func TestLBWorkerProcessCreatingLBs(t *testing.T) {
+	t.Parallel()
 	lbRepo := new(mockLBRepo)
 	instRepo := new(mockInstRepo)
 	proxy := new(MockLBProxyAdapter)
@@ -167,6 +168,7 @@ func TestLBWorkerProcessCreatingLBs(t *testing.T) {
 }
 
 func TestLBWorkerProcessDeletingLBs(t *testing.T) {
+	t.Parallel()
 	lbRepo := new(mockLBRepo)
 	instRepo := new(mockInstRepo)
 	proxy := new(MockLBProxyAdapter)
@@ -191,6 +193,7 @@ func TestLBWorkerProcessDeletingLBs(t *testing.T) {
 }
 
 func TestLBWorkerProcessActiveLBs(t *testing.T) {
+	t.Parallel()
 	lbRepo := new(mockLBRepo)
 	instRepo := new(mockInstRepo)
 	proxy := new(MockLBProxyAdapter)
@@ -214,6 +217,7 @@ func TestLBWorkerProcessActiveLBs(t *testing.T) {
 }
 
 func TestLBWorkerProcessHealthChecks(t *testing.T) {
+	t.Parallel()
 	lbRepo := new(mockLBRepo)
 	instRepo := new(mockInstRepo)
 	proxy := new(MockLBProxyAdapter)
@@ -257,6 +261,7 @@ func TestLBWorkerProcessHealthChecks(t *testing.T) {
 }
 
 func TestLBWorkerIsPortOpen(t *testing.T) {
+	t.Parallel()
 	lbRepo := new(mockLBRepo)
 	instRepo := new(mockInstRepo)
 	proxy := new(MockLBProxyAdapter)
@@ -270,6 +275,7 @@ func TestLBWorkerIsPortOpen(t *testing.T) {
 }
 
 func TestLBWorkerCheckTargetHealthUpdates(t *testing.T) {
+	t.Parallel()
 	lbRepo := new(mockLBRepo)
 	instRepo := new(mockInstRepo)
 	proxy := new(MockLBProxyAdapter)
@@ -294,6 +300,7 @@ func TestLBWorkerCheckTargetHealthUpdates(t *testing.T) {
 }
 
 func TestRealDialerDialTimeout(t *testing.T) {
+	t.Parallel()
 	d := &realDialer{}
 	conn, err := d.DialTimeout("tcp", "127.0.0.1:0", 10*time.Millisecond)
 	if err == nil {
@@ -303,6 +310,7 @@ func TestRealDialerDialTimeout(t *testing.T) {
 }
 
 func TestLBWorkerRun(t *testing.T) {
+	t.Parallel()
 	lbRepo := new(mockLBRepo)
 	instRepo := new(mockInstRepo)
 	proxy := new(MockLBProxyAdapter)

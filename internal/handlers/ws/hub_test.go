@@ -8,6 +8,7 @@ import (
 )
 
 func TestHubRegisterUnregister(t *testing.T) {
+	t.Parallel()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	go hub.Run()
@@ -31,6 +32,7 @@ func TestHubRegisterUnregister(t *testing.T) {
 }
 
 func TestHubBroadcast(t *testing.T) {
+	t.Parallel()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	hub := NewHub(logger)
 	go hub.Run()

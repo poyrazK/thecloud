@@ -85,6 +85,7 @@ func setupNotifyHandlerTest(_ *testing.T) (*mockNotifyService, *NotifyHandler, *
 }
 
 func TestNotifyHandlerCreateTopic(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupNotifyHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -104,6 +105,7 @@ func TestNotifyHandlerCreateTopic(t *testing.T) {
 }
 
 func TestNotifyHandlerListTopics(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupNotifyHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -121,6 +123,7 @@ func TestNotifyHandlerListTopics(t *testing.T) {
 }
 
 func TestNotifyHandlerDeleteTopic(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupNotifyHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -138,6 +141,7 @@ func TestNotifyHandlerDeleteTopic(t *testing.T) {
 }
 
 func TestNotifyHandlerSubscribe(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupNotifyHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -161,6 +165,7 @@ func TestNotifyHandlerSubscribe(t *testing.T) {
 }
 
 func TestNotifyHandlerListSubscriptions(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupNotifyHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -179,6 +184,7 @@ func TestNotifyHandlerListSubscriptions(t *testing.T) {
 }
 
 func TestNotifyHandlerUnsubscribe(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupNotifyHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -196,6 +202,7 @@ func TestNotifyHandlerUnsubscribe(t *testing.T) {
 }
 
 func TestNotifyHandlerPublish(t *testing.T) {
+	t.Parallel()
 	svc, handler, r := setupNotifyHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
@@ -214,6 +221,7 @@ func TestNotifyHandlerPublish(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 func TestNotifyHandlerTopicErrors(t *testing.T) {
+	t.Parallel()
 	t.Run("CreateInvalidJSON", func(t *testing.T) {
 		_, handler, r := setupNotifyHandlerTest(t)
 		r.POST(topicsPath, handler.CreateTopic)
@@ -266,6 +274,7 @@ func TestNotifyHandlerTopicErrors(t *testing.T) {
 }
 
 func TestNotifyHandlerSubscriptionErrors(t *testing.T) {
+	t.Parallel()
 	t.Run("SubscribeInvalidID", func(t *testing.T) {
 		_, handler, r := setupNotifyHandlerTest(t)
 		r.POST(topicsPath+"/:id"+subSuffix, handler.Subscribe)
@@ -339,6 +348,7 @@ func TestNotifyHandlerSubscriptionErrors(t *testing.T) {
 }
 
 func TestNotifyHandlerPublishErrors(t *testing.T) {
+	t.Parallel()
 	t.Run("PublishInvalidID", func(t *testing.T) {
 		_, handler, r := setupNotifyHandlerTest(t)
 		r.POST(topicsPath+"/:id"+publishSuffix, handler.Publish)

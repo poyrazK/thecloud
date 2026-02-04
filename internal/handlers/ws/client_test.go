@@ -17,6 +17,7 @@ import (
 )
 
 func TestClientBatching(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	hub := NewHub(logger)
@@ -55,6 +56,7 @@ func TestClientBatching(t *testing.T) {
 }
 
 func TestClientPingPong(t *testing.T) {
+	t.Parallel()
 	// This is hard to test deterministically without mocking time or the ticker
 	// but we can at least verify basic connectivity handles pongs.
 	gin.SetMode(gin.TestMode)

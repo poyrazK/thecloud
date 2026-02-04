@@ -57,6 +57,7 @@ func (m *mockSubnetService) DeleteSubnet(ctx context.Context, id uuid.UUID) erro
 }
 
 func TestSubnetHandlerCreateSuccess(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
@@ -93,6 +94,7 @@ func TestSubnetHandlerCreateSuccess(t *testing.T) {
 }
 
 func TestSubnetHandlerCreateInvalidVpcID(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
@@ -109,6 +111,7 @@ func TestSubnetHandlerCreateInvalidVpcID(t *testing.T) {
 }
 
 func TestSubnetHandlerCreateInvalidRequest(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
@@ -133,6 +136,7 @@ func TestSubnetHandlerCreateInvalidRequest(t *testing.T) {
 }
 
 func TestSubnetHandlerCreateServiceError(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
@@ -160,6 +164,7 @@ func TestSubnetHandlerCreateServiceError(t *testing.T) {
 }
 
 func TestSubnetHandlerListSuccess(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
@@ -185,6 +190,7 @@ func TestSubnetHandlerListSuccess(t *testing.T) {
 }
 
 func TestSubnetHandlerListInvalidVpcID(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
@@ -201,6 +207,7 @@ func TestSubnetHandlerListInvalidVpcID(t *testing.T) {
 }
 
 func TestSubnetHandlerListServiceError(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
@@ -221,6 +228,7 @@ func TestSubnetHandlerListServiceError(t *testing.T) {
 }
 
 func TestSubnetHandlerGetSuccess(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
@@ -246,6 +254,7 @@ func TestSubnetHandlerGetSuccess(t *testing.T) {
 }
 
 func TestSubnetHandlerGetServiceError(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
@@ -266,6 +275,7 @@ func TestSubnetHandlerGetServiceError(t *testing.T) {
 }
 
 func TestSubnetHandlerDeleteSuccess(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
@@ -286,6 +296,7 @@ func TestSubnetHandlerDeleteSuccess(t *testing.T) {
 }
 
 func TestSubnetHandlerDeleteInvalidID(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)
@@ -302,6 +313,7 @@ func TestSubnetHandlerDeleteInvalidID(t *testing.T) {
 }
 
 func TestSubnetHandlerDeleteServiceError(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockSubnetService)
 	handler := NewSubnetHandler(svc)

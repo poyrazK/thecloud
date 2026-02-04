@@ -21,6 +21,7 @@ func setupAuditServiceTest(t *testing.T) (*services.AuditService, *postgres.Audi
 }
 
 func TestAuditServiceLog(t *testing.T) {
+	t.Parallel()
 	svc, repo, ctx := setupAuditServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
@@ -41,6 +42,7 @@ func TestAuditServiceLog(t *testing.T) {
 }
 
 func TestAuditServiceListLogs(t *testing.T) {
+	t.Parallel()
 	svc, _, ctx := setupAuditServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 

@@ -67,6 +67,7 @@ func (m *mockGlobalLBService) ListEndpoints(ctx context.Context, glbID uuid.UUID
 
 // TestGlobalLBHandlerCreate verifies the behavior of the Create endpoint for Global Load Balancers.
 func TestGlobalLBHandlerCreate(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {

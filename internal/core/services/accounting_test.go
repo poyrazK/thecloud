@@ -32,6 +32,7 @@ func setupAccountingServiceTest(t *testing.T) (ports.AccountingService, ports.Ac
 }
 
 func TestTrackUsage(t *testing.T) {
+	t.Parallel()
 	svc, repo, _, ctx, db := setupAccountingServiceTest(t)
 	defer db.Close()
 	userID := appcontext.UserIDFromContext(ctx)
@@ -56,6 +57,7 @@ func TestTrackUsage(t *testing.T) {
 }
 
 func TestProcessHourlyBilling(t *testing.T) {
+	t.Parallel()
 	svc, repo, instRepo, ctx, db := setupAccountingServiceTest(t)
 	defer db.Close()
 	userID := appcontext.UserIDFromContext(ctx)
@@ -96,6 +98,7 @@ func TestProcessHourlyBilling(t *testing.T) {
 }
 
 func TestGetSummary(t *testing.T) {
+	t.Parallel()
 	svc, _, _, ctx, db := setupAccountingServiceTest(t)
 	defer db.Close()
 	userID := appcontext.UserIDFromContext(ctx)
@@ -136,6 +139,7 @@ func TestGetSummary(t *testing.T) {
 }
 
 func TestListUsage(t *testing.T) {
+	t.Parallel()
 	svc, _, _, ctx, db := setupAccountingServiceTest(t)
 	defer db.Close()
 	userID := appcontext.UserIDFromContext(ctx)

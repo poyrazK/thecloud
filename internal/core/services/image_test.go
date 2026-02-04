@@ -31,6 +31,7 @@ func setupImageServiceTest(t *testing.T) (ports.ImageService, ports.ImageReposit
 }
 
 func TestImageService(t *testing.T) {
+	t.Parallel()
 	svc, repo, ctx := setupImageServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 

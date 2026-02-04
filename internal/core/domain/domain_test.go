@@ -3,6 +3,7 @@ package domain
 import "testing"
 
 func TestDomainConstantsSmoke(t *testing.T) {
+	t.Parallel()
 	// These are intentionally lightweight tests whose main purpose is to mark
 	// domain/package statements as covered in the global coverage report.
 	if RuleIngress != "ingress" {

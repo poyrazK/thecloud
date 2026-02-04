@@ -182,6 +182,7 @@ func setupStorageHandlerTest() (*mockStorageService, *StorageHandler, *gin.Engin
 }
 
 func TestStorageHandlerCreateBucket(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.POST(bucketsPath, handler.CreateBucket)
 
@@ -197,6 +198,7 @@ func TestStorageHandlerCreateBucket(t *testing.T) {
 }
 
 func TestStorageHandlerCreateBucketError(t *testing.T) {
+	t.Parallel()
 	_, handler, r := setupStorageHandlerTest()
 	r.POST(bucketsPath, handler.CreateBucket)
 
@@ -210,6 +212,7 @@ func TestStorageHandlerCreateBucketError(t *testing.T) {
 }
 
 func TestStorageHandlerListBuckets(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.GET(bucketsPath, handler.ListBuckets)
 
@@ -225,6 +228,7 @@ func TestStorageHandlerListBuckets(t *testing.T) {
 }
 
 func TestStorageHandlerUpload(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.PUT(bucketKeyPath, handler.Upload)
 
@@ -240,6 +244,7 @@ func TestStorageHandlerUpload(t *testing.T) {
 }
 
 func TestStorageHandlerList(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.GET(bucketPath, handler.List)
 
@@ -255,6 +260,7 @@ func TestStorageHandlerList(t *testing.T) {
 }
 
 func TestStorageHandlerDeleteBucket(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.DELETE(bucketsPath+"/:bucket", handler.DeleteBucket)
 
@@ -269,6 +275,7 @@ func TestStorageHandlerDeleteBucket(t *testing.T) {
 }
 
 func TestStorageHandlerDelete(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.DELETE(bucketKeyPath, handler.Delete)
 
@@ -283,6 +290,7 @@ func TestStorageHandlerDelete(t *testing.T) {
 }
 
 func TestStorageHandlerDownload(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.GET(bucketKeyPath, handler.Download)
 
@@ -302,6 +310,7 @@ func TestStorageHandlerDownload(t *testing.T) {
 }
 
 func TestStorageHandlerGetClusterStatus(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.GET(clusterStatusPath, handler.GetClusterStatus)
 
@@ -317,6 +326,7 @@ func TestStorageHandlerGetClusterStatus(t *testing.T) {
 }
 
 func TestStorageHandlerMultipartUpload(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.POST("/storage/multipart/init/:bucket/*key", handler.InitiateMultipartUpload)
 	r.PUT("/storage/multipart/upload/:id/parts", handler.UploadPart)
@@ -355,6 +365,7 @@ func TestStorageHandlerMultipartUpload(t *testing.T) {
 }
 
 func TestStorageHandlerVersioning(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.PATCH("/storage/buckets/:bucket/versioning", handler.SetBucketVersioning)
 	r.GET("/storage/versions/:bucket/*key", handler.ListVersions)
@@ -378,6 +389,7 @@ func TestStorageHandlerVersioning(t *testing.T) {
 }
 
 func TestStorageHandlerPresigned(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	// Set secret for signed URL verification
 	handler.cfg.StorageSecret = "secret"
@@ -412,6 +424,7 @@ func TestStorageHandlerPresigned(t *testing.T) {
 }
 
 func TestStorageHandlerPresignedUpload(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	handler.cfg.StorageSecret = "secret"
 	r.PUT(presignedPath, handler.ServePresignedUpload)
@@ -430,6 +443,7 @@ func TestStorageHandlerPresignedUpload(t *testing.T) {
 }
 
 func TestStorageHandlerUploadError(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.PUT(bucketKeyPath, handler.Upload)
 
@@ -443,6 +457,7 @@ func TestStorageHandlerUploadError(t *testing.T) {
 }
 
 func TestStorageHandlerListError(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.GET(bucketPath, handler.List)
 
@@ -456,6 +471,7 @@ func TestStorageHandlerListError(t *testing.T) {
 }
 
 func TestStorageHandlerDeleteError(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.DELETE(bucketKeyPath, handler.Delete)
 
@@ -469,6 +485,7 @@ func TestStorageHandlerDeleteError(t *testing.T) {
 }
 
 func TestStorageHandlerListBucketsError(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.GET(bucketsPath, handler.ListBuckets)
 
@@ -482,6 +499,7 @@ func TestStorageHandlerListBucketsError(t *testing.T) {
 }
 
 func TestStorageHandlerDeleteBucketErrorCase(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.DELETE(bucketsPath+"/:bucket", handler.DeleteBucket)
 
@@ -495,6 +513,7 @@ func TestStorageHandlerDeleteBucketErrorCase(t *testing.T) {
 }
 
 func TestStorageHandlerGetClusterStatusError(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.GET(clusterStatusPath, handler.GetClusterStatus)
 
@@ -508,6 +527,7 @@ func TestStorageHandlerGetClusterStatusError(t *testing.T) {
 }
 
 func TestStorageHandlerMultipartErrors(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.POST(multipartInitPath, handler.InitiateMultipartUpload)
 	r.PUT(multipartPartsPath, handler.UploadPart)
@@ -546,6 +566,7 @@ func TestStorageHandlerMultipartErrors(t *testing.T) {
 }
 
 func TestStorageHandlerVersioningErrors(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.PATCH(versioningPath, handler.SetBucketVersioning)
 	r.GET(versionsPath, handler.ListVersions)
@@ -568,6 +589,7 @@ func TestStorageHandlerVersioningErrors(t *testing.T) {
 }
 
 func TestStorageHandlerPresignedErrors(t *testing.T) {
+	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
 	handler.cfg.StorageSecret = "secret"
 
@@ -604,6 +626,7 @@ func TestStorageHandlerPresignedErrors(t *testing.T) {
 }
 
 func TestStorageHandlerPresignedMissingSecret(t *testing.T) {
+	t.Parallel()
 	_, handler, r := setupStorageHandlerTest()
 	// Ensure secret is empty (default in new config)
 	handler.cfg.StorageSecret = ""

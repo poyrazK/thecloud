@@ -24,6 +24,7 @@ const (
 )
 
 func TestCreateZoneHandler(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -79,6 +80,7 @@ func TestCreateZoneHandler(t *testing.T) {
 }
 
 func TestGetZoneHandler(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -100,6 +102,7 @@ func TestGetZoneHandler(t *testing.T) {
 }
 
 func TestDeleteZoneHandler(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -120,6 +123,7 @@ func TestDeleteZoneHandler(t *testing.T) {
 }
 
 func TestListZonesHandler(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -150,6 +154,7 @@ func TestListZonesHandler(t *testing.T) {
 }
 
 func TestCreateRecordHandler(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -179,6 +184,7 @@ func TestCreateRecordHandler(t *testing.T) {
 }
 
 func TestListRecordsHandler(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -200,6 +206,7 @@ func TestListRecordsHandler(t *testing.T) {
 }
 
 func TestGetRecordHandler(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -221,6 +228,7 @@ func TestGetRecordHandler(t *testing.T) {
 }
 
 func TestUpdateRecordHandler(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {
@@ -248,6 +256,7 @@ func TestUpdateRecordHandler(t *testing.T) {
 }
 
 func TestDeleteRecordHandler(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	t.Run("success", func(t *testing.T) {

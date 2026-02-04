@@ -36,6 +36,9 @@ func (m *MockInstanceService) GetInstance(ctx context.Context, id string) (*doma
 func (m *MockInstanceService) TerminateInstance(ctx context.Context, id string) error {
 	return m.Called(ctx, id).Error(0)
 }
+func (m *MockInstanceService) StartInstance(ctx context.Context, id string) error {
+	return nil
+}
 func (m *MockInstanceService) StopInstance(ctx context.Context, id string) error {
 	return nil
 }
