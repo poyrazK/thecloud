@@ -3,6 +3,7 @@ package tests
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -280,6 +281,7 @@ func TestGatewayE2E(t *testing.T) {
 			"methods":     []string{"GET"},
 		}
 		resMethodGet := postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payloadGet)
+		require.Equal(t, http.StatusCreated, resMethodGet.StatusCode, "GET route creation failed")
 		_ = resMethodGet.Body.Close()
 
 		// 2. POST only route
@@ -290,6 +292,7 @@ func TestGatewayE2E(t *testing.T) {
 			"methods":     []string{"POST"},
 		}
 		resMethodPost := postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payloadPost)
+		require.Equal(t, http.StatusCreated, resMethodPost.StatusCode, "POST route creation failed")
 		_ = resMethodPost.Body.Close()
 
 		time.Sleep(2 * time.Second)
@@ -300,11 +303,14 @@ func TestGatewayE2E(t *testing.T) {
 		respGet, err := client.Do(reqGet)
 		require.NoError(t, err)
 		defer func() { _ = respGet.Body.Close() }()
+		bodyBytesGet, err := io.ReadAll(respGet.Body)
+		require.NoError(t, err)
 		var resGet struct {
 			URL string `json:"url"`
 		}
-		err = json.NewDecoder(respGet.Body).Decode(&resGet)
-		require.NoError(t, err)
+		if err := json.Unmarshal(bodyBytesGet, &resGet); err != nil {
+			t.Fatalf("Failed to decode GET response: %v. Body: %s", err, string(bodyBytesGet))
+		}
 		assert.Contains(t, resGet.URL, "/get-only")
 
 		// Test POST request
@@ -313,11 +319,14 @@ func TestGatewayE2E(t *testing.T) {
 		respPost, err := client.Do(reqPost)
 		require.NoError(t, err)
 		defer func() { _ = respPost.Body.Close() }()
+		bodyBytes, err := io.ReadAll(respPost.Body)
+		require.NoError(t, err)
 		var resPost struct {
 			URL string `json:"url"`
 		}
-		err = json.NewDecoder(respPost.Body).Decode(&resPost)
-		require.NoError(t, err)
+		if err := json.Unmarshal(bodyBytes, &resPost); err != nil {
+			t.Fatalf("Failed to decode POST response: %v. Body: %s", err, string(bodyBytes))
+		}
 		assert.Contains(t, resPost.URL, "/post-only")
 
 		// Test DELETE request (should fail)
