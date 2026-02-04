@@ -1,3 +1,5 @@
+//go:build integration
+
 package libvirt
 
 import (
@@ -22,6 +24,7 @@ const (
 )
 
 func TestSanitizeDomainName(t *testing.T) {
+	t.Parallel()
 	a := &LibvirtAdapter{}
 
 	tests := []struct {
@@ -58,6 +61,7 @@ func TestSanitizeDomainName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+		t.Parallel()
 			result := a.sanitizeDomainName(tt.input)
 			if tt.input == "" {
 				// Empty string generates UUID
@@ -71,6 +75,7 @@ func TestSanitizeDomainName(t *testing.T) {
 }
 
 func TestSanitizeDomainNameEmptyString(t *testing.T) {
+	t.Parallel()
 	a := &LibvirtAdapter{}
 	result := a.sanitizeDomainName("")
 
@@ -79,6 +84,7 @@ func TestSanitizeDomainNameEmptyString(t *testing.T) {
 }
 
 func TestParseAndValidatePort(t *testing.T) {
+	t.Parallel()
 	a := &LibvirtAdapter{}
 
 	tests := []struct {
@@ -106,6 +112,7 @@ func TestParseAndValidatePort(t *testing.T) {
 }
 
 func TestGenerateUserData(t *testing.T) {
+	t.Parallel()
 	a := &LibvirtAdapter{}
 
 	tests := []struct {
@@ -142,6 +149,7 @@ func TestGenerateUserData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+		t.Parallel()
 			result := a.generateUserData(tt.env, tt.cmd, "")
 			content := string(result)
 
@@ -154,6 +162,7 @@ func TestGenerateUserData(t *testing.T) {
 }
 
 func TestResolveBinds(t *testing.T) {
+	t.Parallel()
 	a := &LibvirtAdapter{}
 
 	tests := []struct {
@@ -172,12 +181,14 @@ func TestResolveBinds(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+		t.Parallel()
 			result := a.resolveBinds(context.Background(), tt.binds)
 			assert.Empty(t, result)
 		})
 	}
 
 	t.Run("successful pool lookup", func(t *testing.T) {
+		t.Parallel()
 		m := new(MockLibvirtClient)
 		a := &LibvirtAdapter{client: m}
 		ctx := context.Background()
@@ -196,6 +207,7 @@ func TestResolveBinds(t *testing.T) {
 }
 
 func TestPrepareCloudInit(t *testing.T) {
+	t.Parallel()
 	a := &LibvirtAdapter{}
 
 	tests := []struct {
@@ -220,6 +232,7 @@ func TestPrepareCloudInit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+		t.Parallel()
 			result := a.prepareCloudInit(context.Background(), "test", tt.env, tt.cmd, "")
 			assert.Equal(t, tt.expected, result)
 		})
@@ -227,6 +240,7 @@ func TestPrepareCloudInit(t *testing.T) {
 }
 
 func TestValidateID(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		id      string
@@ -261,6 +275,7 @@ func TestValidateID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+		t.Parallel()
 			err := validateID(tt.id)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -272,6 +287,7 @@ func TestValidateID(t *testing.T) {
 }
 
 func TestParseAndValidatePortExtended(t *testing.T) {
+	t.Parallel()
 	a := &LibvirtAdapter{}
 
 	tests := []struct {
@@ -326,6 +342,7 @@ func TestParseAndValidatePortExtended(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+		t.Parallel()
 			host, cont, err := a.parseAndValidatePort(tt.port)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -339,26 +356,31 @@ func TestParseAndValidatePortExtended(t *testing.T) {
 }
 
 func TestResolveVolumePath(t *testing.T) {
+	t.Parallel()
 	a := &LibvirtAdapter{}
 	skipLibvirt := fmt.Errorf("skip libvirt")
 
 	t.Run("LVM path", func(t *testing.T) {
+		t.Parallel()
 		path := a.resolveVolumePath(context.Background(), "/dev/vg0/lv0", libvirt.StoragePool{}, skipLibvirt)
 		assert.Equal(t, "/dev/vg0/lv0", path)
 	})
 
 	t.Run("Direct file path", func(t *testing.T) {
+		t.Parallel()
 		// Use a file that definitely exists
 		path := a.resolveVolumePath(context.Background(), "/etc/hosts", libvirt.StoragePool{}, skipLibvirt)
 		assert.Equal(t, "/etc/hosts", path)
 	})
 
 	t.Run("Non-existent path", func(t *testing.T) {
+		t.Parallel()
 		path := a.resolveVolumePath(context.Background(), "/non/existent/path", libvirt.StoragePool{}, skipLibvirt)
 		assert.Equal(t, "", path)
 	})
 
 	t.Run("Libvirt pool lookup success", func(t *testing.T) {
+		t.Parallel()
 		m := new(MockLibvirtClient)
 		a := &LibvirtAdapter{client: m}
 		ctx := context.Background()
@@ -375,6 +397,7 @@ func TestResolveVolumePath(t *testing.T) {
 }
 
 func TestCleanupCreateFailure(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := &LibvirtAdapter{
 		client: m,
@@ -395,6 +418,7 @@ func TestCleanupCreateFailure(t *testing.T) {
 }
 
 func TestGetInstanceLogs(t *testing.T) {
+	t.Parallel()
 	// Mock osOpen
 	tmpFile, _ := os.CreateTemp("", "log")
 	defer func() { _ = os.Remove(tmpFile.Name()) }()
@@ -418,6 +442,7 @@ func TestGetInstanceLogs(t *testing.T) {
 }
 
 func TestGetInstancePort(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := &LibvirtAdapter{
 		client:       m,
@@ -434,11 +459,13 @@ func TestGetInstancePort(t *testing.T) {
 }
 
 func TestNewLibvirtAdapter(t *testing.T) {
+	t.Parallel()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	_, _ = NewLibvirtAdapter(logger, "qemu:///system")
 }
 
 func TestClose(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := &LibvirtAdapter{client: m}
 	m.On("Close").Return(nil)
@@ -448,6 +475,7 @@ func TestClose(t *testing.T) {
 }
 
 func TestWaitInitialIPContextCancellation(t *testing.T) {
+	t.Parallel()
 	a := &LibvirtAdapter{
 		ipWaitInterval: time.Millisecond,
 	}
@@ -461,6 +489,7 @@ func TestWaitInitialIPContextCancellation(t *testing.T) {
 }
 
 func TestGetNextNetworkRange(t *testing.T) {
+	t.Parallel()
 	a := &LibvirtAdapter{
 		networkCounter: 0,
 		poolStart:      net.ParseIP(testutil.TestLibvirtPoolStart),
@@ -480,6 +509,7 @@ func TestGetNextNetworkRange(t *testing.T) {
 }
 
 func TestGetNextNetworkRangePoolExhaustion(t *testing.T) {
+	t.Parallel()
 	a := &LibvirtAdapter{
 		networkCounter: 254, // The 255th /24 network
 		// Test IPs for private network calculation
@@ -498,6 +528,7 @@ func TestGetNextNetworkRangePoolExhaustion(t *testing.T) {
 }
 
 func TestExecNotSupported(t *testing.T) {
+	t.Parallel()
 	a := &LibvirtAdapter{}
 	_, err := a.Exec(context.Background(), "instance-id", []string{"echo", "test"})
 	assert.Error(t, err)
@@ -505,6 +536,7 @@ func TestExecNotSupported(t *testing.T) {
 }
 
 func TestCleanupPortMappings(t *testing.T) {
+	t.Parallel()
 	// Stub execCommand to avoid sudo/real command execution
 	oldExec := execCommand
 	defer func() { execCommand = oldExec }()
@@ -524,6 +556,7 @@ func TestCleanupPortMappings(t *testing.T) {
 }
 
 func TestGenerateCloudInitISO(t *testing.T) {
+	t.Parallel()
 	oldExec := execCommand
 	defer func() { execCommand = oldExec }()
 	execCommand = func(name string, arg ...string) *exec.Cmd {

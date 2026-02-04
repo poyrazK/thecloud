@@ -1,3 +1,5 @@
+//go:build integration
+
 package libvirt
 
 import (
@@ -12,6 +14,7 @@ import (
 const libvirtTestDiskPath = "/path/to/disk"
 
 func TestGenerateVolumeXML(t *testing.T) {
+	t.Parallel()
 	xml := generateVolumeXML("test-vol", 20)
 	assert.Contains(t, xml, "<name>test-vol</name>")
 	assert.Contains(t, xml, "<capacity unit=\"G\">20</capacity>")
@@ -19,7 +22,9 @@ func TestGenerateVolumeXML(t *testing.T) {
 }
 
 func TestGenerateDomainXML(t *testing.T) {
+	t.Parallel()
 	t.Run("basic", func(t *testing.T) {
+		t.Parallel()
 		xml := generateDomainXML("test-vm", libvirtTestDiskPath, "default", "", 1024, 2, nil)
 		assert.Contains(t, xml, "<name>test-vm</name>")
 		assert.Contains(t, xml, "<memory unit='KiB'>1048576</memory>")
@@ -29,11 +34,13 @@ func TestGenerateDomainXML(t *testing.T) {
 	})
 
 	t.Run("default network when empty", func(t *testing.T) {
+		t.Parallel()
 		xml := generateDomainXML("vm-default", libvirtTestDiskPath, "", "", 512, 1, nil)
 		assert.Contains(t, xml, "<source network='default'/>")
 	})
 
 	t.Run("with iso and disks", func(t *testing.T) {
+		t.Parallel()
 		additionalDisks := []string{"/path/to/vdb", "/dev/sdc"}
 		xml := generateDomainXML("test-vm", libvirtTestDiskPath, "custom-net", "/path/to/iso", 512, 1, additionalDisks)
 
@@ -50,6 +57,7 @@ func TestGenerateDomainXML(t *testing.T) {
 }
 
 func TestGenerateNetworkXML(t *testing.T) {
+	t.Parallel()
 	xml := generateNetworkXML("test-net", "test-br", testutil.TestIPHost, testutil.TestLibvirtDHCPStart, testutil.TestLibvirtDHCPEnd)
 	assert.Contains(t, xml, "<name>test-net</name>")
 	assert.Contains(t, xml, "<bridge name='test-br' stp='on' delay='0'/>")

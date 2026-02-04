@@ -1,3 +1,5 @@
+//go:build integration
+
 package libvirt
 
 import (
@@ -35,6 +37,7 @@ func newTestAdapter(m *MockLibvirtClient) *LibvirtAdapter {
 }
 
 func TestStopInstanceSuccess(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
@@ -50,6 +53,7 @@ func TestStopInstanceSuccess(t *testing.T) {
 }
 
 func TestStopInstanceNotFound(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
@@ -63,6 +67,7 @@ func TestStopInstanceNotFound(t *testing.T) {
 }
 
 func TestDeleteInstanceSuccess(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
@@ -92,6 +97,7 @@ func TestDeleteInstanceSuccess(t *testing.T) {
 }
 
 func TestGetInstanceIPSuccess(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
@@ -118,6 +124,7 @@ func TestGetInstanceIPSuccess(t *testing.T) {
 }
 
 func TestWaitInitialIPSuccess(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
@@ -149,6 +156,7 @@ func TestWaitInitialIPSuccess(t *testing.T) {
 }
 
 func TestAttachVolumeSuccess(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
@@ -166,6 +174,7 @@ func TestAttachVolumeSuccess(t *testing.T) {
 }
 
 func TestDetachVolumeSuccess(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
@@ -183,6 +192,7 @@ func TestDetachVolumeSuccess(t *testing.T) {
 }
 
 func TestGetConsoleURLSuccess(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
@@ -200,6 +210,7 @@ func TestGetConsoleURLSuccess(t *testing.T) {
 }
 
 func TestGetInstanceStatsSuccess(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
@@ -220,6 +231,7 @@ func TestGetInstanceStatsSuccess(t *testing.T) {
 }
 
 func TestCreateInstanceSuccess(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
@@ -246,6 +258,7 @@ func TestCreateInstanceSuccess(t *testing.T) {
 }
 
 func TestRunTaskSuccess(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
@@ -273,6 +286,7 @@ func TestRunTaskSuccess(t *testing.T) {
 }
 
 func TestCreateNetworkSuccess(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
@@ -290,6 +304,7 @@ func TestCreateNetworkSuccess(t *testing.T) {
 }
 
 func TestDeleteNetworkSuccess(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
@@ -307,6 +322,7 @@ func TestDeleteNetworkSuccess(t *testing.T) {
 }
 
 func TestWaitTaskSuccess(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
@@ -322,6 +338,7 @@ func TestWaitTaskSuccess(t *testing.T) {
 }
 
 func TestWaitTaskDomainNotFound(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
@@ -335,6 +352,7 @@ func TestWaitTaskDomainNotFound(t *testing.T) {
 }
 
 func TestRunTaskFailures(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()

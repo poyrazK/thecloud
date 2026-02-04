@@ -1,3 +1,5 @@
+//go:build integration
+
 package libvirt
 
 import (
@@ -30,16 +32,19 @@ const (
 )
 
 func TestLibvirtAdapterType(t *testing.T) {
+	t.Parallel()
 	a := &LibvirtAdapter{}
 	assert.Equal(t, "libvirt", a.Type())
 }
 
 func TestLibvirtAdapterValidateID(t *testing.T) {
+	t.Parallel()
 	assert.NoError(t, validateID("valid-id"))
 	assert.Error(t, validateID("../traversal"))
 }
 
 func TestLibvirtAdapterParseAndValidatePort(t *testing.T) {
+	t.Parallel()
 	a := &LibvirtAdapter{}
 
 	tests := []struct {
@@ -67,6 +72,7 @@ func TestLibvirtAdapterParseAndValidatePort(t *testing.T) {
 }
 
 func TestLibvirtAdapterResolveBinds(t *testing.T) {
+	t.Parallel()
 	a := &LibvirtAdapter{}
 	// Test empty binds
 	resolved := a.resolveBinds(context.Background(), nil)
@@ -76,7 +82,9 @@ func TestLibvirtAdapterResolveBinds(t *testing.T) {
 }
 
 func TestGenerateNginxConfig(t *testing.T) {
+	t.Parallel()
 	t.Run("round-robin with targets", func(t *testing.T) {
+		t.Parallel()
 		mockCompute := new(mockComputeBackend)
 		a := NewLBProxyAdapter(mockCompute)
 
@@ -99,6 +107,7 @@ func TestGenerateNginxConfig(t *testing.T) {
 	})
 
 	t.Run("least-conn with targets", func(t *testing.T) {
+		t.Parallel()
 		mockCompute := new(mockComputeBackend)
 		a := NewLBProxyAdapter(mockCompute)
 
@@ -120,6 +129,7 @@ func TestGenerateNginxConfig(t *testing.T) {
 	})
 
 	t.Run("no targets", func(t *testing.T) {
+		t.Parallel()
 		mockCompute := new(mockComputeBackend)
 		a := NewLBProxyAdapter(mockCompute)
 
@@ -136,6 +146,7 @@ func TestGenerateNginxConfig(t *testing.T) {
 	})
 
 	t.Run("compute error", func(t *testing.T) {
+		t.Parallel()
 		mockCompute := new(mockComputeBackend)
 		a := NewLBProxyAdapter(mockCompute)
 
@@ -159,6 +170,7 @@ func TestGenerateNginxConfig(t *testing.T) {
 }
 
 func TestLBProxyAdapterOperations(t *testing.T) {
+	t.Parallel()
 	// Mock execCommandContext using a hermetic helper process
 	oldExec := execCommandContext
 	defer func() { execCommandContext = oldExec }()
@@ -181,17 +193,20 @@ func TestLBProxyAdapterOperations(t *testing.T) {
 	}
 
 	t.Run("DeployProxy", func(t *testing.T) {
+		t.Parallel()
 		id, err := a.DeployProxy(ctx, lb, nil)
 		assert.NoError(t, err)
 		assert.Equal(t, lb.ID.String(), id)
 	})
 
 	t.Run("UpdateProxyConfig", func(t *testing.T) {
+		t.Parallel()
 		err := a.UpdateProxyConfig(ctx, lb, nil)
 		assert.NoError(t, err)
 	})
 
 	t.Run("RemoveProxy", func(t *testing.T) {
+		t.Parallel()
 		err := a.RemoveProxy(ctx, lb.ID)
 		assert.NoError(t, err)
 	})
@@ -199,6 +214,7 @@ func TestLBProxyAdapterOperations(t *testing.T) {
 
 // TestHelperProcess isn't a real test. It's used as a helper process for TestLBProxyAdapterOperations.
 func TestHelperProcess(t *testing.T) {
+	t.Parallel()
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}

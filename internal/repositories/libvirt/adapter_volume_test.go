@@ -1,3 +1,5 @@
+//go:build integration
+
 package libvirt
 
 import (
@@ -18,6 +20,7 @@ const (
 )
 
 func TestCreateVolumeSuccess(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
@@ -35,6 +38,7 @@ func TestCreateVolumeSuccess(t *testing.T) {
 }
 
 func TestDeleteVolumeSuccess(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
@@ -52,6 +56,7 @@ func TestDeleteVolumeSuccess(t *testing.T) {
 }
 
 func TestStoragePoolNotFound(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
@@ -63,6 +68,7 @@ func TestStoragePoolNotFound(t *testing.T) {
 }
 
 func TestCreateVolumeSnapshotSuccess(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS != "linux" {
 		t.Skip("Snapshot tests require Linux with QEMU/KVM")
 	}
@@ -91,6 +97,7 @@ func TestCreateVolumeSnapshotSuccess(t *testing.T) {
 }
 
 func TestRestoreVolumeSnapshotSuccess(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS != "linux" {
 		t.Skip("Snapshot tests require Linux with QEMU/KVM")
 	}
@@ -132,6 +139,7 @@ func TestRestoreVolumeSnapshotSuccess(t *testing.T) {
 }
 
 func TestDeleteVolumeFailures(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()

@@ -1,3 +1,5 @@
+//go:build integration
+
 package libvirt
 
 import (
@@ -11,6 +13,7 @@ import (
 )
 
 func TestCreateInstanceContextCancelled(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -30,6 +33,7 @@ func TestCreateInstanceContextCancelled(t *testing.T) {
 }
 
 func TestStopInstanceContextCancelled(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -43,6 +47,7 @@ func TestStopInstanceContextCancelled(t *testing.T) {
 }
 
 func TestGetInstanceIPContextCancelled(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -56,6 +61,7 @@ func TestGetInstanceIPContextCancelled(t *testing.T) {
 }
 
 func TestCreateNetworkContextCancelled(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -69,6 +75,7 @@ func TestCreateNetworkContextCancelled(t *testing.T) {
 }
 
 func TestCreateVolumeContextCancelled(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -82,6 +89,7 @@ func TestCreateVolumeContextCancelled(t *testing.T) {
 }
 
 func TestWaitTaskContextCancelled(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -93,6 +101,7 @@ func TestWaitTaskContextCancelled(t *testing.T) {
 }
 
 func TestPingContextCancelled(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx, cancel := context.WithCancel(context.Background())

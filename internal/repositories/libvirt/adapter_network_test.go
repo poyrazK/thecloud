@@ -1,3 +1,5 @@
+//go:build integration
+
 package libvirt
 
 import (
@@ -18,6 +20,7 @@ const (
 )
 
 func TestSetupPortForwardingSuccess(t *testing.T) {
+	t.Parallel()
 	// Mock execCommand
 	oldExec := execCommand
 	defer func() { execCommand = oldExec }()
@@ -59,6 +62,7 @@ func TestSetupPortForwardingSuccess(t *testing.T) {
 }
 
 func TestSetupPortForwardingErrors(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	a.ipWaitInterval = 1 * time.Microsecond
@@ -89,6 +93,7 @@ func TestSetupPortForwardingErrors(t *testing.T) {
 }
 
 func TestConfigureIptablesNoPath(t *testing.T) {
+	t.Parallel()
 	// This test depends on environment, but we can verify it doesn't crash
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
@@ -98,17 +103,20 @@ func TestConfigureIptablesNoPath(t *testing.T) {
 }
 
 func TestGetInstanceIPErrors(t *testing.T) {
+	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	ctx := context.Background()
 
 	t.Run("DomainNotFound", func(t *testing.T) {
+		t.Parallel()
 		m.On("DomainLookupByName", ctx, "missing").Return(libvirt.Domain{}, libvirt.Error{Code: 1})
 		_, err := a.GetInstanceIP(ctx, "missing")
 		assert.Error(t, err)
 	})
 
 	t.Run("NoMAC", func(t *testing.T) {
+		t.Parallel()
 		dom := libvirt.Domain{Name: "nomac"}
 		m.On("DomainLookupByName", ctx, "nomac").Return(dom, nil)
 		m.On("DomainGetXMLDesc", ctx, dom, libvirt.DomainXMLFlags(0)).Return("<domain></domain>", nil)
