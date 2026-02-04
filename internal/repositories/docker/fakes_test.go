@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -47,6 +48,16 @@ type fakeDockerClient struct {
 	networkRemoveErr error
 
 	Calls map[string]int
+	mu    sync.Mutex
+}
+
+func (f *fakeDockerClient) CallCount(name string) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.Calls == nil {
+		return 0
+	}
+	return f.Calls[name]
 }
 
 func (f *fakeDockerClient) Ping(ctx context.Context) (types.Ping, error) {
@@ -64,6 +75,15 @@ func (f *fakeDockerClient) ImagePull(ctx context.Context, ref string, options im
 func (f *fakeDockerClient) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *v1.Platform, containerName string) (container.CreateResponse, error) {
 	f.inc("ContainerCreate")
 	return container.CreateResponse{ID: "cid"}, f.containerCreateErr
+}
+
+func (f *fakeDockerClient) inc(name string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.Calls == nil {
+		f.Calls = make(map[string]int)
+	}
+	f.Calls[name]++
 }
 
 func (f *fakeDockerClient) ContainerStart(ctx context.Context, containerID string, options container.StartOptions) error {
@@ -168,10 +188,3 @@ func (f *fakeDockerClient) ContainerExecInspect(ctx context.Context, execID stri
 }
 
 var errFakeNotFound = errors.New("not found")
-
-func (f *fakeDockerClient) inc(name string) {
-	if f.Calls == nil {
-		f.Calls = make(map[string]int)
-	}
-	f.Calls[name]++
-}

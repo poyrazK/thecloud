@@ -399,7 +399,7 @@ func TestDockerAdapterLaunchWithUserData(t *testing.T) {
 	// Stage 2: Bootstrap execution (invoking the script via a background Exec operation).
 	// Each 'Exec' operation sequentially triggers ContainerExecCreate, ContainerExecAttach,
 	// and ContainerExecInspect according to the adapter's implementation.
-	require.Equal(t, 2, cli.Calls["ContainerExecCreate"], "Expected dual Stage (delivery + execution) Exec invocations")
-	require.Equal(t, 2, cli.Calls["ContainerExecAttach"], "Expected associated ExecAttach calls for I/O")
-	require.Equal(t, 2, cli.Calls["ContainerExecInspect"], "Expected ExecInspect calls to verify termination state")
+	require.Equal(t, 2, cli.CallCount("ContainerExecCreate"), "Expected dual Stage (delivery + execution) Exec invocations")
+	require.Equal(t, 2, cli.CallCount("ContainerExecAttach"), "Expected associated ExecAttach calls for I/O")
+	require.Equal(t, 2, cli.CallCount("ContainerExecInspect"), "Expected ExecInspect calls to verify termination state")
 }
