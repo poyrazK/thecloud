@@ -190,6 +190,18 @@ func (a *LibvirtAdapter) waitInitialIP(ctx context.Context, id string) (string, 
 	}
 }
 
+func (a *LibvirtAdapter) StartInstance(ctx context.Context, id string) error {
+	dom, err := a.client.DomainLookupByName(ctx, id)
+	if err != nil {
+		return fmt.Errorf(errDomainNotFound, err)
+	}
+
+	if err := a.client.DomainCreate(ctx, dom); err != nil {
+		return fmt.Errorf("failed to start domain: %w", err)
+	}
+	return nil
+}
+
 func (a *LibvirtAdapter) StopInstance(ctx context.Context, id string) error {
 	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
