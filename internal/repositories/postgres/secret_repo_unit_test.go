@@ -16,7 +16,9 @@ import (
 )
 
 func TestSecretRepository_Create(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -41,6 +43,7 @@ func TestSecretRepository_Create(t *testing.T) {
 	})
 
 	t.Run("db error", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -59,7 +62,9 @@ func TestSecretRepository_Create(t *testing.T) {
 }
 
 func TestSecretRepository_GetByID(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -83,6 +88,7 @@ func TestSecretRepository_GetByID(t *testing.T) {
 	})
 
 	t.Run("not found", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -107,7 +113,9 @@ func TestSecretRepository_GetByID(t *testing.T) {
 }
 
 func TestSecretRepository_List(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -129,6 +137,7 @@ func TestSecretRepository_List(t *testing.T) {
 	})
 
 	t.Run("db error", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -148,7 +157,9 @@ func TestSecretRepository_List(t *testing.T) {
 }
 
 func TestSecretRepository_Update(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -171,6 +182,7 @@ func TestSecretRepository_Update(t *testing.T) {
 	})
 
 	t.Run("db error", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -189,7 +201,9 @@ func TestSecretRepository_Update(t *testing.T) {
 }
 
 func TestSecretRepository_Delete(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -208,6 +222,7 @@ func TestSecretRepository_Delete(t *testing.T) {
 	})
 
 	t.Run("db error", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()

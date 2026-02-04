@@ -22,7 +22,9 @@ const (
 )
 
 func TestVpcRepositoryCreate(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -50,6 +52,7 @@ func TestVpcRepositoryCreate(t *testing.T) {
 	})
 
 	t.Run("failure", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -68,7 +71,9 @@ func TestVpcRepositoryCreate(t *testing.T) {
 }
 
 func TestVpcRepositoryGetByID(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -92,6 +97,7 @@ func TestVpcRepositoryGetByID(t *testing.T) {
 	})
 
 	t.Run(testNotFound, func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -120,6 +126,7 @@ func TestVpcRepositoryGetByID(t *testing.T) {
 	})
 
 	t.Run(testDBError, func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -141,7 +148,9 @@ func TestVpcRepositoryGetByID(t *testing.T) {
 }
 
 func TestVpcRepositoryGetByName(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -166,6 +175,7 @@ func TestVpcRepositoryGetByName(t *testing.T) {
 	})
 
 	t.Run(testNotFound, func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -187,7 +197,9 @@ func TestVpcRepositoryGetByName(t *testing.T) {
 }
 
 func TestVpcRepositoryList(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -209,6 +221,7 @@ func TestVpcRepositoryList(t *testing.T) {
 	})
 
 	t.Run(testDBError, func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -228,6 +241,7 @@ func TestVpcRepositoryList(t *testing.T) {
 	})
 
 	t.Run("scan error", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -251,7 +265,9 @@ func TestVpcRepositoryList(t *testing.T) {
 }
 
 func TestVpcRepositoryDelete(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()
@@ -271,6 +287,7 @@ func TestVpcRepositoryDelete(t *testing.T) {
 	})
 
 	t.Run(testNotFound, func(t *testing.T) {
+		t.Parallel()
 		mock, err := pgxmock.NewPool()
 		assert.NoError(t, err)
 		defer mock.Close()

@@ -13,6 +13,7 @@ import (
 )
 
 func TestDatabaseRepository_Create(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -43,6 +44,7 @@ func TestDatabaseRepository_Create(t *testing.T) {
 }
 
 func TestDatabaseRepository_GetByID(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -66,6 +68,7 @@ func TestDatabaseRepository_GetByID(t *testing.T) {
 }
 
 func TestDatabaseRepository_List(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()

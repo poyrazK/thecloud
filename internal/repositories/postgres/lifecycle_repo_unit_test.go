@@ -18,12 +18,14 @@ const (
 )
 
 func TestLifecycleRepository(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	userID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
 	bucketName := "test-bucket"
 
 	t.Run("Create", func(t *testing.T) {
+		t.Parallel()
 		mock, _ := pgxmock.NewPool()
 		defer mock.Close()
 		repo := NewLifecycleRepository(mock)
@@ -47,6 +49,7 @@ func TestLifecycleRepository(t *testing.T) {
 	})
 
 	t.Run("Get", func(t *testing.T) {
+		t.Parallel()
 		mock, _ := pgxmock.NewPool()
 		defer mock.Close()
 		repo := NewLifecycleRepository(mock)
@@ -63,6 +66,7 @@ func TestLifecycleRepository(t *testing.T) {
 	})
 
 	t.Run("Delete", func(t *testing.T) {
+		t.Parallel()
 		mock, _ := pgxmock.NewPool()
 		defer mock.Close()
 		repo := NewLifecycleRepository(mock)

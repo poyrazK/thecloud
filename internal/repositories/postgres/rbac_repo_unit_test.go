@@ -11,6 +11,7 @@ import (
 )
 
 func TestRBACRepository_CreateRole(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -37,6 +38,7 @@ func TestRBACRepository_CreateRole(t *testing.T) {
 }
 
 func TestRBACRepository_GetRoleByID(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -62,6 +64,7 @@ func TestRBACRepository_GetRoleByID(t *testing.T) {
 }
 
 func TestRBACRepository_ListRoles(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()

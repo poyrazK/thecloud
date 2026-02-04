@@ -12,6 +12,7 @@ import (
 )
 
 func TestNotifyRepository_CreateTopic(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -35,6 +36,7 @@ func TestNotifyRepository_CreateTopic(t *testing.T) {
 }
 
 func TestNotifyRepository_GetSubscriptionByID(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -57,6 +59,7 @@ func TestNotifyRepository_GetSubscriptionByID(t *testing.T) {
 }
 
 func TestNotifyRepository_ListSubscriptions(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()

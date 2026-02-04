@@ -12,6 +12,7 @@ import (
 )
 
 func TestImageRepository_Create(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -42,6 +43,7 @@ func TestImageRepository_Create(t *testing.T) {
 }
 
 func TestImageRepository_GetByID(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -62,6 +64,7 @@ func TestImageRepository_GetByID(t *testing.T) {
 }
 
 func TestImageRepository_List(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -81,6 +84,7 @@ func TestImageRepository_List(t *testing.T) {
 }
 
 func TestImageRepository_Update(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -109,6 +113,7 @@ func TestImageRepository_Update(t *testing.T) {
 }
 
 func TestImageRepository_Delete(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()

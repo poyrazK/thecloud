@@ -16,10 +16,12 @@ const (
 )
 
 func TestEncryptionRepository(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	bucketName := "encrypted-bucket"
 
 	t.Run("SaveKey", func(t *testing.T) {
+		t.Parallel()
 		mock, _ := pgxmock.NewPool()
 		defer mock.Close()
 		repo := NewEncryptionRepository(mock)
@@ -39,6 +41,7 @@ func TestEncryptionRepository(t *testing.T) {
 	})
 
 	t.Run("GetKey", func(t *testing.T) {
+		t.Parallel()
 		mock, _ := pgxmock.NewPool()
 		defer mock.Close()
 		repo := NewEncryptionRepository(mock)

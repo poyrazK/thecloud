@@ -12,6 +12,7 @@ import (
 )
 
 func TestRunMigrations(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()

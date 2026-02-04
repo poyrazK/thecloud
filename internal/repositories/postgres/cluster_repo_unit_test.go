@@ -19,11 +19,13 @@ const (
 
 func TestClusterRepository(t *testing.T) {
 	t.Parallel()
+	t.Parallel()
 	ctx := context.Background()
 	userID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
 
 	t.Run("Create", func(t *testing.T) {
+		t.Parallel()
 		t.Parallel()
 		mock, _ := pgxmock.NewPool()
 		defer mock.Close()
@@ -62,6 +64,7 @@ func TestClusterRepository(t *testing.T) {
 
 	t.Run("GetByID", func(t *testing.T) {
 		t.Parallel()
+		t.Parallel()
 		mock, _ := pgxmock.NewPool()
 		defer mock.Close()
 		repo := NewClusterRepository(mock)
@@ -77,6 +80,7 @@ func TestClusterRepository(t *testing.T) {
 	})
 
 	t.Run("NodeOps", func(t *testing.T) {
+		t.Parallel()
 		t.Parallel()
 		mock, _ := pgxmock.NewPool()
 		defer mock.Close()

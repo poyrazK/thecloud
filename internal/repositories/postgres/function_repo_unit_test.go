@@ -12,6 +12,7 @@ import (
 )
 
 func TestFunctionRepository_Create(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -40,6 +41,7 @@ func TestFunctionRepository_Create(t *testing.T) {
 }
 
 func TestFunctionRepository_GetByID(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -60,6 +62,7 @@ func TestFunctionRepository_GetByID(t *testing.T) {
 }
 
 func TestFunctionRepository_List(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -79,6 +82,7 @@ func TestFunctionRepository_List(t *testing.T) {
 }
 
 func TestFunctionRepository_Delete(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()

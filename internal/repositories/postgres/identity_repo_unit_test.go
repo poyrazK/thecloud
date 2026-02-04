@@ -12,6 +12,7 @@ import (
 )
 
 func TestIdentityRepository_CreateAPIKey(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -34,6 +35,7 @@ func TestIdentityRepository_CreateAPIKey(t *testing.T) {
 }
 
 func TestIdentityRepository_GetAPIKeyByKey(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -57,6 +59,7 @@ func TestIdentityRepository_GetAPIKeyByKey(t *testing.T) {
 }
 
 func TestIdentityRepository_ListAPIKeysByUserID(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()

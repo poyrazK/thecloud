@@ -12,6 +12,7 @@ import (
 )
 
 func TestCronRepository_CreateJob(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -40,6 +41,7 @@ func TestCronRepository_CreateJob(t *testing.T) {
 }
 
 func TestCronRepository_GetJobByID(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
@@ -63,6 +65,7 @@ func TestCronRepository_GetJobByID(t *testing.T) {
 }
 
 func TestCronRepository_ListJobs(t *testing.T) {
+	t.Parallel()
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()
