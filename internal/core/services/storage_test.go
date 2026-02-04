@@ -31,7 +31,6 @@ func setupStorageServiceIntegrationTest(t *testing.T) (ports.StorageService, por
 }
 
 func TestStorageService_Integration(t *testing.T) {
-	t.Parallel()
 	svc, _, ctx := setupStorageServiceIntegrationTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 

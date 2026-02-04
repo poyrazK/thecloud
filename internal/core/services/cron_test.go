@@ -31,7 +31,6 @@ func setupCronServiceIntegrationTest(t *testing.T) (ports.CronService, ports.Cro
 }
 
 func TestCronService_Integration(t *testing.T) {
-	t.Parallel()
 	svc, repo, ctx := setupCronServiceIntegrationTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 

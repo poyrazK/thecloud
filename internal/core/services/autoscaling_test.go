@@ -32,7 +32,6 @@ func setupAutoScalingServiceIntegrationTest(t *testing.T) (ports.AutoScalingServ
 }
 
 func TestAutoScalingService_Integration(t *testing.T) {
-	t.Parallel()
 	svc, vpcRepo, ctx := setupAutoScalingServiceIntegrationTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
@@ -189,7 +188,6 @@ func (s *NoopLBService) CreateListener(ctx context.Context, lbID uuid.UUID, port
 }
 
 func TestAutoScaling_TriggerScaleUp(t *testing.T) {
-	t.Parallel()
 	// 1. Setup Infra using InstanceService helper (provides Docker + Postgres)
 	db, instSvc, compute, instRepo, vpcRepo, _, ctx := setupInstanceServiceTest(t)
 	// db := setupDB(t) // Reuse db from helper

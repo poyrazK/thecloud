@@ -34,7 +34,6 @@ func setupContainerServiceIntegrationTest(t *testing.T) (ports.ContainerService,
 }
 
 func TestContainerService_Integration(t *testing.T) {
-	t.Parallel()
 	svc, repo, db, ctx := setupContainerServiceIntegrationTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
@@ -106,7 +105,6 @@ func TestContainerService_Integration(t *testing.T) {
 }
 
 func TestContainer_ChaosRestart(t *testing.T) {
-	t.Parallel()
 	// 1. Setup
 	db, instSvc, compute, instRepo, _, _, ctx := setupInstanceServiceTest(t)
 

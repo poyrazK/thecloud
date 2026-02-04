@@ -40,7 +40,6 @@ func setupNotifyServiceIntegrationTest(t *testing.T) (ports.NotifyService, ports
 }
 
 func TestNotifyService_Integration(t *testing.T) {
-	t.Parallel()
 	svc, _, queueSvc, ctx := setupNotifyServiceIntegrationTest(t)
 	_ = appcontext.UserIDFromContext(ctx)
 

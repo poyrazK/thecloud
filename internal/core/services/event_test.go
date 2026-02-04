@@ -24,7 +24,6 @@ func setupEventServiceTest(t *testing.T) (*services.EventService, *postgres.Even
 }
 
 func TestEventServiceRecordEventSuccess(t *testing.T) {
-	t.Parallel()
 	svc, repo, ctx := setupEventServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
@@ -46,7 +45,6 @@ func TestEventServiceRecordEventSuccess(t *testing.T) {
 }
 
 func TestEventServiceListEvents(t *testing.T) {
-	t.Parallel()
 	svc, _, ctx := setupEventServiceTest(t)
 
 	_ = svc.RecordEvent(ctx, "A1", "r1", "T1", nil)

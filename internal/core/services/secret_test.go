@@ -33,7 +33,6 @@ func setupSecretServiceIntegrationTest(t *testing.T) (ports.SecretService, ports
 }
 
 func TestSecretService_Integration(t *testing.T) {
-	t.Parallel()
 	svc, _, ctx := setupSecretServiceIntegrationTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 

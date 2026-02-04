@@ -46,7 +46,6 @@ func setupDatabaseServiceTest(t *testing.T) (ports.DatabaseService, ports.Databa
 }
 
 func TestCreateDatabaseSuccess(t *testing.T) {
-	t.Parallel()
 	svc, repo, compute, _, ctx := setupDatabaseServiceTest(t)
 
 	db, err := svc.CreateDatabase(ctx, testDBName, "postgres", "16", nil)
@@ -74,7 +73,6 @@ func TestCreateDatabaseSuccess(t *testing.T) {
 }
 
 func TestCreateDatabaseWithVpc(t *testing.T) {
-	t.Parallel()
 	svc, _, compute, vpcRepo, ctx := setupDatabaseServiceTest(t)
 
 	// Create a real VPC first

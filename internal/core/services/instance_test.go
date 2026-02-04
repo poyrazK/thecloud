@@ -114,7 +114,6 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 }
 
 func TestLaunchInstanceSuccess(t *testing.T) {
-	t.Parallel()
 	_, svc, compute, repo, _, _, ctx := setupInstanceServiceTest(t)
 	name := "test-inst-launch"
 	image := "alpine:latest"
@@ -146,7 +145,6 @@ func TestLaunchInstanceSuccess(t *testing.T) {
 }
 
 func TestTerminateInstanceSuccess(t *testing.T) {
-	t.Parallel()
 	_, svc, compute, repo, _, _, ctx := setupInstanceServiceTest(t)
 	name := "test-inst-term"
 	image := "alpine:latest"
@@ -174,7 +172,6 @@ func TestTerminateInstanceSuccess(t *testing.T) {
 }
 
 func TestInstanceService_Launch_DBFailure(t *testing.T) {
-	t.Parallel()
 	// Custom setup with Faulty Repo
 	db := setupDB(t)
 	cleanDB(t, db)
@@ -224,7 +221,6 @@ func TestInstanceService_Launch_DBFailure(t *testing.T) {
 }
 
 func TestInstanceNetworking(t *testing.T) {
-	t.Parallel()
 	_, svc, compute, _, vpcRepo, _, ctx := setupInstanceServiceTest(t)
 
 	vpcID := uuid.New()
@@ -266,7 +262,6 @@ func TestInstanceNetworking(t *testing.T) {
 }
 
 func TestInstanceService_Launch_Concurrency(t *testing.T) {
-	t.Parallel()
 	_, svc, compute, repo, _, _, ctx := setupInstanceServiceTest(t)
 	concurrency := 5
 	errChan := make(chan error, concurrency)
@@ -296,7 +291,6 @@ func TestInstanceService_Launch_Concurrency(t *testing.T) {
 }
 
 func TestInstanceService_GetStats_Real(t *testing.T) {
-	t.Parallel()
 	_, svc, _, _, _, _, ctx := setupInstanceServiceTest(t)
 	name := "stats-inst"
 	image := "alpine:latest"
@@ -330,7 +324,6 @@ func TestInstanceService_GetStats_Real(t *testing.T) {
 }
 
 func TestNetworking_CIDRExhaustion(t *testing.T) {
-	t.Parallel()
 	db, svc, _, _, vpcRepo, _, ctx := setupInstanceServiceTest(t)
 	subnetRepo := postgres.NewSubnetRepository(db)
 	auditSvc := services.NewAuditService(postgres.NewAuditRepository(db))

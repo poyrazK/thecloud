@@ -36,7 +36,6 @@ func setupVpcServiceTest(t *testing.T, cidr string) (*services.VpcService, *post
 }
 
 func TestVpcServiceCreateSuccess(t *testing.T) {
-	t.Parallel()
 	svc, repo, _, ctx := setupVpcServiceTest(t, testutil.TestCIDR)
 	name := "test-vpc-" + uuid.New().String()
 	cidr := testutil.TestCIDR
@@ -55,7 +54,6 @@ func TestVpcServiceCreateSuccess(t *testing.T) {
 }
 
 func TestVpcServiceCreateDBFailureRollback(t *testing.T) {
-	t.Parallel()
 	// Induced failure via context cancellation
 	svc, _, _, ctx := setupVpcServiceTest(t, testutil.TestCIDR)
 	cancelledCtx, cancel := context.WithCancel(ctx)
@@ -67,7 +65,6 @@ func TestVpcServiceCreateDBFailureRollback(t *testing.T) {
 }
 
 func TestVpcServiceCreateDefaultCIDR(t *testing.T) {
-	t.Parallel()
 	svc, _, _, ctx := setupVpcServiceTest(t, "")
 
 	vpc, err := svc.CreateVPC(ctx, "default-cidr-"+uuid.New().String(), "")
@@ -78,7 +75,6 @@ func TestVpcServiceCreateDefaultCIDR(t *testing.T) {
 }
 
 func TestVpcServiceDeleteSuccess(t *testing.T) {
-	t.Parallel()
 	svc, repo, _, ctx := setupVpcServiceTest(t, testutil.TestCIDR)
 	vpc, err := svc.CreateVPC(ctx, "to-delete-"+uuid.New().String(), testutil.TestCIDR)
 	require.NoError(t, err)
@@ -92,7 +88,6 @@ func TestVpcServiceDeleteSuccess(t *testing.T) {
 }
 
 func TestVpcServiceDeleteFailureWithLBs(t *testing.T) {
-	t.Parallel()
 	svc, _, lbRepo, ctx := setupVpcServiceTest(t, testutil.TestCIDR)
 	vpc, err := svc.CreateVPC(ctx, "in-use-"+uuid.New().String(), testutil.TestCIDR)
 	require.NoError(t, err)
@@ -114,7 +109,6 @@ func TestVpcServiceDeleteFailureWithLBs(t *testing.T) {
 }
 
 func TestVpcServiceListSuccess(t *testing.T) {
-	t.Parallel()
 	svc, _, _, ctx := setupVpcServiceTest(t, testutil.TestCIDR)
 	_, _ = svc.CreateVPC(ctx, "vpc1-"+uuid.New().String(), testutil.TestCIDR)
 	_, _ = svc.CreateVPC(ctx, "vpc2-"+uuid.New().String(), testutil.TestCIDR)
@@ -126,7 +120,6 @@ func TestVpcServiceListSuccess(t *testing.T) {
 }
 
 func TestVpcServiceGetByName(t *testing.T) {
-	t.Parallel()
 	svc, _, _, ctx := setupVpcServiceTest(t, testutil.TestCIDR)
 	name := "my-vpc-" + uuid.New().String()
 	vpc, _ := svc.CreateVPC(ctx, name, testutil.TestCIDR)

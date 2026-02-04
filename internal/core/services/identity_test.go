@@ -15,7 +15,6 @@ import (
 )
 
 func TestIdentityServiceCreateKeySuccess(t *testing.T) {
-	t.Parallel()
 	db := setupDB(t)
 	defer db.Close()
 	cleanDB(t, db)
@@ -46,7 +45,6 @@ func TestIdentityServiceCreateKeySuccess(t *testing.T) {
 }
 
 func TestIdentityServiceValidateAPIKeySuccess(t *testing.T) {
-	t.Parallel()
 	db := setupDB(t)
 	defer db.Close()
 	cleanDB(t, db)
@@ -68,7 +66,6 @@ func TestIdentityServiceValidateAPIKeySuccess(t *testing.T) {
 }
 
 func TestIdentityServiceValidateAPIKeyNotFound(t *testing.T) {
-	t.Parallel()
 	db := setupDB(t)
 	defer db.Close()
 	cleanDB(t, db)
@@ -85,7 +82,6 @@ func TestIdentityServiceValidateAPIKeyNotFound(t *testing.T) {
 }
 
 func TestIdentityServiceListKeys(t *testing.T) {
-	t.Parallel()
 	db := setupDB(t)
 	defer db.Close()
 	cleanDB(t, db)
@@ -108,7 +104,6 @@ func TestIdentityServiceListKeys(t *testing.T) {
 }
 
 func TestIdentityServiceRevokeKey(t *testing.T) {
-	t.Parallel()
 	db := setupDB(t)
 	defer db.Close()
 	cleanDB(t, db)
@@ -165,7 +160,6 @@ func TestIdentityServiceRevokeKey(t *testing.T) {
 }
 
 func TestIdentityServiceRotateKey(t *testing.T) {
-	t.Parallel()
 	db := setupDB(t)
 	defer db.Close()
 	cleanDB(t, db)

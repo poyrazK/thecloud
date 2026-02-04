@@ -40,7 +40,6 @@ func setupSecurityGroupServiceIntegrationTest(t *testing.T) (ports.SecurityGroup
 }
 
 func TestSecurityGroupService_Integration(t *testing.T) {
-	t.Parallel()
 	svc, _, vpcRepo, ctx := setupSecurityGroupServiceIntegrationTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)

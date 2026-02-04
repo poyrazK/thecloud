@@ -42,7 +42,6 @@ func setupCacheServiceTest(t *testing.T) (*services.CacheService, ports.CacheRep
 }
 
 func TestCreateCacheSuccess(t *testing.T) {
-	t.Parallel()
 	svc, repo, compute, _, ctx := setupCacheServiceTest(t)
 	name := "test-cache-success"
 
@@ -71,7 +70,6 @@ func TestCreateCacheSuccess(t *testing.T) {
 }
 
 func TestCreateCacheWithVpc(t *testing.T) {
-	t.Parallel()
 	svc, _, compute, vpcRepo, ctx := setupCacheServiceTest(t)
 
 	userID := appcontext.UserIDFromContext(ctx)
@@ -107,7 +105,6 @@ func TestCreateCacheWithVpc(t *testing.T) {
 }
 
 func TestDeleteCacheSuccess(t *testing.T) {
-	t.Parallel()
 	svc, repo, _, _, ctx := setupCacheServiceTest(t)
 
 	// Setup: Create a cache first

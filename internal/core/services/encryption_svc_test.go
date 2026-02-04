@@ -24,7 +24,6 @@ func setupEncryptionServiceTest(t *testing.T) (*services.EncryptionService, *pos
 }
 
 func TestEncryptionService(t *testing.T) {
-	t.Parallel()
 	svc, repo, ctx := setupEncryptionServiceTest(t)
 	bucket := "test-bucket"
 

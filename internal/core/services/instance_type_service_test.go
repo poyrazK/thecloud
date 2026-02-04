@@ -23,7 +23,6 @@ func setupInstanceTypeServiceTest(t *testing.T) (ports.InstanceTypeService, *pos
 }
 
 func TestInstanceTypeService_List(t *testing.T) {
-	t.Parallel()
 	svc, repo, ctx := setupInstanceTypeServiceTest(t)
 
 	it1 := &domain.InstanceType{ID: "c1.medium", Name: "Medium", VCPUs: 2, MemoryMB: 4096}

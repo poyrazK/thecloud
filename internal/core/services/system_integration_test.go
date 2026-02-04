@@ -54,7 +54,6 @@ func (q *SyncTaskQueue) Dequeue(ctx context.Context, queueName string) (string, 
 }
 
 func TestSystem_ComputeLifecycle_Full(t *testing.T) {
-	t.Parallel()
 	if testing.Short() {
 		t.Skip("Skipping long-running system integration test")
 	}

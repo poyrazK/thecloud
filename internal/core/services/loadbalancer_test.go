@@ -30,7 +30,6 @@ func setupLBServiceIntegrationTest(t *testing.T) (ports.LBService, *postgres.LBR
 }
 
 func TestLBService_Integration(t *testing.T) {
-	t.Parallel()
 	svc, lbRepo, vpcRepo, instRepo, ctx := setupLBServiceIntegrationTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)

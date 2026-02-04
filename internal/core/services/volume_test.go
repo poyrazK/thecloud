@@ -36,7 +36,6 @@ func setupVolumeServiceTest(t *testing.T) (*services.VolumeService, *postgres.Vo
 }
 
 func TestVolumeServiceCreateVolumeSuccess(t *testing.T) {
-	t.Parallel()
 	svc, repo, ctx := setupVolumeServiceTest(t)
 	name := "test-vol-create-" + uuid.New().String()
 	size := 10
@@ -56,7 +55,6 @@ func TestVolumeServiceCreateVolumeSuccess(t *testing.T) {
 }
 
 func TestVolumeServiceDeleteVolumeSuccess(t *testing.T) {
-	t.Parallel()
 	svc, repo, ctx := setupVolumeServiceTest(t)
 	vol, err := svc.CreateVolume(ctx, "to-delete-"+uuid.New().String(), 5)
 	require.NoError(t, err)
@@ -70,7 +68,6 @@ func TestVolumeServiceDeleteVolumeSuccess(t *testing.T) {
 }
 
 func TestVolumeServiceDeleteVolumeInUseFails(t *testing.T) {
-	t.Parallel()
 	svc, repo, ctx := setupVolumeServiceTest(t)
 	vol, err := svc.CreateVolume(ctx, "in-use-vol-"+uuid.New().String(), 5)
 	require.NoError(t, err)
@@ -86,7 +83,6 @@ func TestVolumeServiceDeleteVolumeInUseFails(t *testing.T) {
 }
 
 func TestVolumeServiceListVolumesSuccess(t *testing.T) {
-	t.Parallel()
 	svc, _, ctx := setupVolumeServiceTest(t)
 	_, _ = svc.CreateVolume(ctx, "v1-"+uuid.New().String(), 1)
 	_, _ = svc.CreateVolume(ctx, "v2-"+uuid.New().String(), 2)
@@ -98,7 +94,6 @@ func TestVolumeServiceListVolumesSuccess(t *testing.T) {
 }
 
 func TestVolumeServiceGetVolume(t *testing.T) {
-	t.Parallel()
 	svc, _, ctx := setupVolumeServiceTest(t)
 	vol, _ := svc.CreateVolume(ctx, "find-me-"+uuid.New().String(), 5)
 
@@ -116,7 +111,6 @@ func TestVolumeServiceGetVolume(t *testing.T) {
 }
 
 func TestVolumeServiceReleaseVolumesForInstance(t *testing.T) {
-	t.Parallel()
 	svc, repo, ctx := setupVolumeServiceTest(t)
 	instanceID := uuid.New()
 
@@ -135,7 +129,6 @@ func TestVolumeServiceReleaseVolumesForInstance(t *testing.T) {
 }
 
 func TestVolumeServiceCreateVolumeRollbackOnRepoError(t *testing.T) {
-	t.Parallel()
 	// In order to verify rollback functionality, we need to trigger a repository failure
 	// after the storage operation has succeeded. Using a cancelled context provides
 	// a deterministic way to simulate this failure scenario during the repository assertion phase.
@@ -150,7 +143,6 @@ func TestVolumeServiceCreateVolumeRollbackOnRepoError(t *testing.T) {
 }
 
 func TestVolume_LaunchAttach_Conflict(t *testing.T) {
-	t.Parallel()
 	// Use InstanceService setup because we need LaunchInstance
 	db, svc, _, _, _, volRepo, ctx := setupInstanceServiceTest(t)
 	// We also need VolumeService to create volumes elegantly
