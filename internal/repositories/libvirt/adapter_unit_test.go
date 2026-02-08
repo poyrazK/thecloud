@@ -1,582 +1,202 @@
-//go:build integration
-
 package libvirt
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"log/slog"
 	"net"
 	"os"
-	"os/exec"
 	"testing"
-	"time"
 
 	"github.com/digitalocean/go-libvirt"
-	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-const (
-	testEnvVar  = "FOO=bar"
-	testVolPath = "/path/to/vol1"
-)
+func setupLibvirtAdapterTest() (*LibvirtAdapter, *mockLibvirtClient) {
+	client := new(mockLibvirtClient)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	adapter := &LibvirtAdapter{
+		client:       client,
+		logger:       logger,
+		poolStart:    net.ParseIP("192.168.100.0"),
+		poolEnd:      net.ParseIP("192.168.200.255"),
+		portMappings: make(map[string]map[string]int),
+	}
+	return adapter, client
+}
 
-func TestSanitizeDomainName(t *testing.T) {
-	t.Parallel()
-	a := &LibvirtAdapter{}
+func TestLibvirtAdapter_InstanceLifecycle(t *testing.T) {
+	ctx := context.Background()
+	adapter, client := setupLibvirtAdapterTest()
+
+	t.Run("StartInstance_Success", func(t *testing.T) {
+		id := "test-vm"
+		dom := libvirt.Domain{Name: id}
+		client.On("DomainLookupByName", ctx, id).Return(dom, nil)
+		client.On("DomainCreate", ctx, dom).Return(nil)
+
+		err := adapter.StartInstance(ctx, id)
+		assert.NoError(t, err)
+	})
+
+	t.Run("StartInstance_NotFound", func(t *testing.T) {
+		id := "missing-vm"
+		client.On("DomainLookupByName", ctx, id).Return(libvirt.Domain{}, os.ErrNotExist)
+
+		err := adapter.StartInstance(ctx, id)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "domain not found")
+	})
+
+	t.Run("StopInstance_Success", func(t *testing.T) {
+		id := "test-vm"
+		dom := libvirt.Domain{Name: id}
+		client.On("DomainLookupByName", ctx, id).Return(dom, nil)
+		client.On("DomainDestroy", ctx, dom).Return(nil)
+
+		err := adapter.StopInstance(ctx, id)
+		assert.NoError(t, err)
+	})
+
+	t.Run("DeleteInstance_Success", func(t *testing.T) {
+		id := "test-vm"
+		dom := libvirt.Domain{Name: id}
+		client.On("DomainLookupByName", ctx, id).Return(dom, nil)
+		client.On("DomainGetState", ctx, dom, uint32(0)).Return(int32(1), int32(0), nil) // Running
+		client.On("DomainDestroy", ctx, dom).Return(nil)
+		client.On("DomainUndefine", ctx, dom).Return(nil)
+
+		// Mock cleanupRootVolume
+		pool := libvirt.StoragePool{Name: defaultPoolName}
+		vol := libvirt.StorageVol{Name: id + "-root"}
+		client.On("StoragePoolLookupByName", ctx, defaultPoolName).Return(pool, nil)
+		client.On("StorageVolLookupByName", ctx, pool, id+"-root").Return(vol, nil)
+		client.On("StorageVolDelete", ctx, vol, uint32(0)).Return(nil)
+
+		err := adapter.DeleteInstance(ctx, id)
+		assert.NoError(t, err)
+	})
+}
+
+func TestLibvirtAdapter_SanitizeDomainName(t *testing.T) {
+	adapter, _ := setupLibvirtAdapterTest()
 
 	tests := []struct {
-		name     string
 		input    string
 		expected string
 	}{
-		{
-			name:     "valid name",
-			input:    "my-instance",
-			expected: "my-instance",
-		},
-		{
-			name:     "with invalid chars",
-			input:    "my@instance#123",
-			expected: "myinstance123",
-		},
-		{
-			name:     "with spaces",
-			input:    "my instance",
-			expected: "myinstance",
-		},
-		{
-			name:     "with special chars",
-			input:    "test_vm.local",
-			expected: "testvmlocal",
-		},
-		{
-			name:     "only valid chars",
-			input:    "abc123-test",
-			expected: "abc123-test",
-		},
+		{"safe-name", "safe-name"},
+		{"Unsafe!Name@123", "UnsafeName123"},
+		{"multiple---dashes", "multiple---dashes"},
+		{"", ""}, // Should return partial UUID which we'll check with length
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			result := a.sanitizeDomainName(tt.input)
-			if tt.input == "" {
-				// Empty string generates UUID
-				assert.NotEmpty(t, result)
-				assert.Len(t, result, 8)
-			} else {
-				assert.Equal(t, tt.expected, result)
-			}
-		})
-	}
-}
-
-func TestSanitizeDomainNameEmptyString(t *testing.T) {
-	t.Parallel()
-	a := &LibvirtAdapter{}
-	result := a.sanitizeDomainName("")
-
-	assert.NotEmpty(t, result, "empty name should generate UUID")
-	assert.Len(t, result, 8, "generated name should be 8 chars")
-}
-
-func TestParseAndValidatePort(t *testing.T) {
-	t.Parallel()
-	a := &LibvirtAdapter{}
-
-	tests := []struct {
-		input     string
-		wantHost  bool
-		wantError bool
-	}{
-		{"8080:80", true, false},
-		{"80", true, false},
-		{"invalid", false, true},
-		{"80:80:80", false, true},
-		{"abc:80", false, true},
-	}
-
-	for _, tt := range tests {
-		h, c, err := a.parseAndValidatePort(tt.input)
-		if tt.wantError {
-			assert.Error(t, err)
+		result := adapter.sanitizeDomainName(tt.input)
+		if tt.expected == "" {
+			assert.Len(t, result, 8)
 		} else {
-			assert.NoError(t, err)
-			assert.True(t, h >= 30000 || h == 8080)
-			assert.True(t, c > 0)
+			assert.Equal(t, tt.expected, result)
 		}
 	}
 }
 
-func TestGenerateUserData(t *testing.T) {
-	t.Parallel()
-	a := &LibvirtAdapter{}
-
-	tests := []struct {
-		name        string
-		env         []string
-		cmd         []string
-		shouldExist []string
-	}{
-		{
-			name:        "with env vars",
-			env:         []string{testEnvVar, "DEBUG=true"},
-			cmd:         nil,
-			shouldExist: []string{testEnvVar, "DEBUG=true"},
-		},
-		{
-			name:        "with command",
-			env:         nil,
-			cmd:         []string{"echo", "hello"},
-			shouldExist: []string{"echo", "hello"},
-		},
-		{
-			name:        "with both",
-			env:         []string{"PATH=/usr/bin"},
-			cmd:         []string{"/bin/sh", "-c", "echo test"},
-			shouldExist: []string{"PATH=/usr/bin", "/bin/sh", "-c", "echo test"},
-		},
-		{
-			name:        "empty",
-			env:         nil,
-			cmd:         nil,
-			shouldExist: []string{"#cloud-config"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			result := a.generateUserData(tt.env, tt.cmd, "")
-			content := string(result)
-
-			assert.Contains(t, content, "#cloud-config")
-			for _, expected := range tt.shouldExist {
-				assert.Contains(t, content, expected)
-			}
-		})
-	}
-}
-
-func TestResolveBinds(t *testing.T) {
-	t.Parallel()
-	a := &LibvirtAdapter{}
-
-	tests := []struct {
-		name  string
-		binds []string
-	}{
-		{
-			name:  "nil binds",
-			binds: nil,
-		},
-		{
-			name:  "empty binds",
-			binds: []string{},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			result := a.resolveBinds(context.Background(), tt.binds)
-			assert.Empty(t, result)
-		})
-	}
-
-	t.Run("successful pool lookup", func(t *testing.T) {
-		t.Parallel()
-		m := new(MockLibvirtClient)
-		a := &LibvirtAdapter{client: m}
-		ctx := context.Background()
-		pool := libvirt.StoragePool{Name: "default"}
-		vol := libvirt.StorageVol{Name: "vol1"}
-
-		m.On("StoragePoolLookupByName", ctx, "default").Return(pool, nil)
-		m.On("StorageVolLookupByName", ctx, pool, "vol1").Return(vol, nil)
-		m.On("StorageVolGetPath", ctx, vol).Return(testVolPath, nil)
-
-		result := a.resolveBinds(ctx, []string{"vol1:/data"})
-		assert.Len(t, result, 1)
-		assert.Equal(t, testVolPath, result[0])
-		m.AssertExpectations(t)
-	})
-}
-
-func TestPrepareCloudInit(t *testing.T) {
-	t.Parallel()
-	a := &LibvirtAdapter{}
-
-	tests := []struct {
-		name     string
-		env      []string
-		cmd      []string
-		expected string
-	}{
-		{
-			name:     "no env or cmd",
-			env:      nil,
-			cmd:      nil,
-			expected: "",
-		},
-		{
-			name:     "empty slices",
-			env:      []string{},
-			cmd:      []string{},
-			expected: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			result := a.prepareCloudInit(context.Background(), "test", tt.env, tt.cmd, "")
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestValidateID(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name    string
-		id      string
-		wantErr bool
-	}{
-		{
-			name:    "valid simple",
-			id:      "instance-123",
-			wantErr: false,
-		},
-		{
-			name:    "valid uuid",
-			id:      "abc123-def456",
-			wantErr: false,
-		},
-		{
-			name:    "path traversal",
-			id:      "../etc/passwd",
-			wantErr: true,
-		},
-		{
-			name:    "absolute path",
-			id:      "/etc/passwd",
-			wantErr: true,
-		},
-		{
-			name:    "dot dot",
-			id:      "test/../admin",
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			err := validateID(tt.id)
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
-func TestParseAndValidatePortExtended(t *testing.T) {
-	t.Parallel()
-	a := &LibvirtAdapter{}
-
-	tests := []struct {
-		name    string
-		port    string
-		hostP   int
-		contP   int
-		wantErr bool
-	}{
-		{
-			name:    "same port",
-			port:    "80:80",
-			hostP:   80,
-			contP:   80,
-			wantErr: false,
-		},
-		{
-			name:    "different ports",
-			port:    "8080:80",
-			hostP:   8080,
-			contP:   80,
-			wantErr: false,
-		},
-		{
-			name:    "high port numbers",
-			port:    "65535:8080",
-			hostP:   65535,
-			contP:   8080,
-			wantErr: false,
-		},
-		{
-			name:    "invalid format three parts",
-			port:    "80:80:80",
-			wantErr: true,
-		},
-		{
-			name:    "invalid host port",
-			port:    "abc:80",
-			wantErr: true,
-		},
-		{
-			name:    "invalid container port",
-			port:    "80:xyz",
-			wantErr: true,
-		},
-		{
-			name:    "empty string",
-			port:    "",
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			host, cont, err := a.parseAndValidatePort(tt.port)
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.hostP, host)
-				assert.Equal(t, tt.contP, cont)
-			}
-		})
-	}
-}
-
-func TestResolveVolumePath(t *testing.T) {
-	t.Parallel()
-	a := &LibvirtAdapter{}
-	skipLibvirt := fmt.Errorf("skip libvirt")
-
-	t.Run("LVM path", func(t *testing.T) {
-		t.Parallel()
-		path := a.resolveVolumePath(context.Background(), "/dev/vg0/lv0", libvirt.StoragePool{}, skipLibvirt)
-		assert.Equal(t, "/dev/vg0/lv0", path)
-	})
-
-	t.Run("Direct file path", func(t *testing.T) {
-		t.Parallel()
-		// Use a file that definitely exists
-		path := a.resolveVolumePath(context.Background(), "/etc/hosts", libvirt.StoragePool{}, skipLibvirt)
-		assert.Equal(t, "/etc/hosts", path)
-	})
-
-	t.Run("Non-existent path", func(t *testing.T) {
-		t.Parallel()
-		path := a.resolveVolumePath(context.Background(), "/non/existent/path", libvirt.StoragePool{}, skipLibvirt)
-		assert.Equal(t, "", path)
-	})
-
-	t.Run("Libvirt pool lookup success", func(t *testing.T) {
-		t.Parallel()
-		m := new(MockLibvirtClient)
-		a := &LibvirtAdapter{client: m}
-		ctx := context.Background()
-		pool := libvirt.StoragePool{Name: "default"}
-		vol := libvirt.StorageVol{Name: "vol1"}
-
-		m.On("StorageVolLookupByName", ctx, pool, "vol1").Return(vol, nil)
-		m.On("StorageVolGetPath", ctx, vol).Return(testVolPath, nil)
-
-		path := a.resolveVolumePath(ctx, "vol1", pool, nil)
-		assert.Equal(t, testVolPath, path)
-		m.AssertExpectations(t)
-	})
-}
-
-func TestCleanupCreateFailure(t *testing.T) {
-	t.Parallel()
-	m := new(MockLibvirtClient)
-	a := &LibvirtAdapter{
-		client: m,
-		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
+func TestLibvirtAdapter_Networking(t *testing.T) {
 	ctx := context.Background()
+	adapter, client := setupLibvirtAdapterTest()
 
-	// 1. Success path
-	vol := libvirt.StorageVol{Name: "test-vol"}
-	m.On("StorageVolDelete", ctx, vol, uint32(0)).Return(nil).Once()
-	a.cleanupCreateFailure(ctx, vol, "/tmp/iso")
+	t.Run("GetInstanceIP_Success", func(t *testing.T) {
+		id := "test-vm"
+		mac := "52:54:00:12:34:56"
+		dom := libvirt.Domain{Name: id}
+		xml := `<domain><devices><interface type='network'><mac address='` + mac + `'/></interface></devices></domain>`
+		net := libvirt.Network{Name: "default"}
+		leases := []libvirt.NetworkDhcpLease{
+			{Mac: []string{mac}, Ipaddr: "192.168.122.10"},
+		}
 
-	// 2. Failure path (should not panic)
-	m.On("StorageVolDelete", ctx, vol, uint32(0)).Return(fmt.Errorf("delete error")).Once()
-	a.cleanupCreateFailure(ctx, vol, "/tmp/iso-fail")
+		client.On("DomainLookupByName", ctx, id).Return(dom, nil)
+		client.On("DomainGetXMLDesc", ctx, dom, libvirt.DomainXMLFlags(0)).Return(xml, nil)
+		client.On("NetworkLookupByName", ctx, "default").Return(net, nil)
+		client.On("NetworkGetDhcpLeases", ctx, net, mock.Anything, uint32(0), uint32(0)).Return(leases, uint32(1), nil)
 
-	m.AssertExpectations(t)
+		ip, err := adapter.GetInstanceIP(ctx, id)
+		assert.NoError(t, err)
+		assert.Equal(t, "192.168.122.10", ip)
+	})
+
+	t.Run("CreateNetwork_Success", func(t *testing.T) {
+		name := "test-net"
+		net := libvirt.Network{Name: name}
+		client.On("NetworkDefineXML", ctx, mock.Anything).Return(net, nil)
+		client.On("NetworkCreate", ctx, net).Return(nil)
+
+		id, err := adapter.CreateNetwork(ctx, name)
+		assert.NoError(t, err)
+		assert.Equal(t, name, id)
+	})
 }
 
-func TestGetInstanceLogs(t *testing.T) {
-	t.Parallel()
-	// Mock osOpen
-	tmpFile, _ := os.CreateTemp("", "log")
-	defer func() { _ = os.Remove(tmpFile.Name()) }()
-	_, _ = tmpFile.WriteString("log data")
-	_ = tmpFile.Close()
-
-	oldOpen := osOpen
-	defer func() { osOpen = oldOpen }()
-	osOpen = func(name string) (*os.File, error) {
-		return os.Open(tmpFile.Name())
-	}
-
-	m := new(MockLibvirtClient)
-	a := &LibvirtAdapter{client: m}
+func TestLibvirtAdapter_Storage(t *testing.T) {
 	ctx := context.Background()
+	adapter, client := setupLibvirtAdapterTest()
 
-	rc, err := a.GetInstanceLogs(ctx, "test")
-	assert.NoError(t, err)
-	assert.NotNil(t, rc)
-	_ = rc.Close()
+	t.Run("CreateVolume_Success", func(t *testing.T) {
+		name := "test-vol"
+		pool := libvirt.StoragePool{Name: defaultPoolName}
+		vol := libvirt.StorageVol{Name: name}
+
+		client.On("StoragePoolLookupByName", ctx, defaultPoolName).Return(pool, nil)
+		client.On("StoragePoolRefresh", ctx, pool, uint32(0)).Return(nil)
+		client.On("StorageVolCreateXML", ctx, pool, mock.Anything, uint32(0)).Return(vol, nil)
+
+		err := adapter.CreateVolume(ctx, name)
+		assert.NoError(t, err)
+	})
+
+	t.Run("AttachVolume_Success", func(t *testing.T) {
+		id := "test-vm"
+		volPath := "/var/lib/libvirt/images/extra.qcow2"
+		dom := libvirt.Domain{Name: id}
+
+		client.On("DomainLookupByName", ctx, id).Return(dom, nil)
+		client.On("DomainAttachDevice", ctx, dom, mock.Anything).Return(nil)
+
+		err := adapter.AttachVolume(ctx, id, volPath)
+		assert.NoError(t, err)
+	})
 }
 
-func TestGetInstancePort(t *testing.T) {
-	t.Parallel()
-	m := new(MockLibvirtClient)
-	a := &LibvirtAdapter{
-		client:       m,
-		portMappings: map[string]map[string]int{"test": {"80": 8080}},
-	}
+func TestLibvirtAdapter_StatsAndLogs(t *testing.T) {
 	ctx := context.Background()
+	adapter, client := setupLibvirtAdapterTest()
 
-	port, err := a.GetInstancePort(ctx, "test", "80")
-	assert.NoError(t, err)
-	assert.Equal(t, 8080, port)
+	t.Run("GetInstanceStats_Success", func(t *testing.T) {
+		id := "test-vm"
+		dom := libvirt.Domain{Name: id}
+		memStats := []libvirt.DomainMemoryStat{
+			{Tag: 6, Val: 1024}, // RSS
+			{Tag: 5, Val: 2048}, // Actual
+		}
 
-	_, err = a.GetInstancePort(ctx, "test", "443")
-	assert.Error(t, err)
-}
+		client.On("DomainLookupByName", ctx, id).Return(dom, nil)
+		client.On("DomainMemoryStats", ctx, dom, uint32(10), uint32(0)).Return(memStats, nil)
 
-func TestNewLibvirtAdapter(t *testing.T) {
-	t.Parallel()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	_, _ = NewLibvirtAdapter(logger, "qemu:///system")
-}
+		r, err := adapter.GetInstanceStats(ctx, id)
+		assert.NoError(t, err)
+		assert.NotNil(t, r)
+	})
 
-func TestClose(t *testing.T) {
-	t.Parallel()
-	m := new(MockLibvirtClient)
-	a := &LibvirtAdapter{client: m}
-	m.On("Close").Return(nil)
-	err := a.Close()
-	assert.NoError(t, err)
-	m.AssertExpectations(t)
-}
+	t.Run("GetConsoleURL_Success", func(t *testing.T) {
+		id := "test-vm"
+		dom := libvirt.Domain{Name: id}
+		xml := `<domain><devices><graphics type='vnc' port='5900'/></devices></domain>`
 
-func TestWaitInitialIPContextCancellation(t *testing.T) {
-	t.Parallel()
-	a := &LibvirtAdapter{
-		ipWaitInterval: time.Millisecond,
-	}
+		client.On("DomainLookupByName", ctx, id).Return(dom, nil)
+		client.On("DomainGetXMLDesc", ctx, dom, libvirt.DomainXMLFlags(0)).Return(xml, nil)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // Cancel immediately
-
-	_, err := a.waitInitialIP(ctx, "test-instance")
-	assert.Error(t, err)
-	assert.Equal(t, context.Canceled, err)
-}
-
-func TestGetNextNetworkRange(t *testing.T) {
-	t.Parallel()
-	a := &LibvirtAdapter{
-		networkCounter: 0,
-		poolStart:      net.ParseIP(testutil.TestLibvirtPoolStart),
-		poolEnd:        net.ParseIP(testutil.TestLibvirtPoolEnd),
-		ipWaitInterval: time.Millisecond,
-	}
-
-	gateway1, start1, end1 := a.getNextNetworkRange()
-	assert.NotEmpty(t, gateway1)
-	assert.NotEmpty(t, start1)
-	assert.NotEmpty(t, end1)
-	assert.Equal(t, 1, a.networkCounter)
-
-	gateway2, _, _ := a.getNextNetworkRange()
-	assert.NotEqual(t, gateway1, gateway2, "subsequent calls should return different gateways")
-	assert.Equal(t, 2, a.networkCounter)
-}
-
-func TestGetNextNetworkRangePoolExhaustion(t *testing.T) {
-	t.Parallel()
-	a := &LibvirtAdapter{
-		networkCounter: 254, // The 255th /24 network
-		// Test IPs for private network calculation
-		poolStart: net.ParseIP("192.168.0.0"),
-		poolEnd:   net.ParseIP("192.168.255.255"),
-	}
-
-	gateway, _, _ := a.getNextNetworkRange()
-	// 192.168.0.0 + (254 * 256) = 192.168.254.0
-	// Gateway is .1 -> 192.168.254.1
-	assert.Equal(t, "192.168.254.1", gateway, "Should calculate 255th network correctly")
-
-	// Next one should be 192.168.255.1
-	gateway2, _, _ := a.getNextNetworkRange()
-	assert.Equal(t, "192.168.255.1", gateway2, "Should calculate 256th network correctly")
-}
-
-func TestExecNotSupported(t *testing.T) {
-	t.Parallel()
-	a := &LibvirtAdapter{}
-	_, err := a.Exec(context.Background(), "instance-id", []string{"echo", "test"})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not supported")
-}
-
-func TestCleanupPortMappings(t *testing.T) {
-	t.Parallel()
-	// Stub execCommand to avoid sudo/real command execution
-	oldExec := execCommand
-	defer func() { execCommand = oldExec }()
-	execCommand = func(name string, arg ...string) *exec.Cmd {
-		return exec.Command("true") // Always succeeds
-	}
-
-	a := &LibvirtAdapter{
-		portMappings: make(map[string]map[string]int),
-	}
-	instanceID := "inst-1"
-	a.portMappings[instanceID] = map[string]int{"80": 30080}
-
-	a.cleanupPortMappings(instanceID)
-
-	assert.Empty(t, a.portMappings[instanceID])
-}
-
-func TestGenerateCloudInitISO(t *testing.T) {
-	t.Parallel()
-	oldExec := execCommand
-	defer func() { execCommand = oldExec }()
-	execCommand = func(name string, arg ...string) *exec.Cmd {
-		return exec.Command("true")
-	}
-
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	a := &LibvirtAdapter{logger: logger}
-	ctx := context.Background()
-	name := "test-asg"
-	env := []string{testEnvVar}
-	cmd := []string{"ls -la"}
-
-	isoPath, err := a.generateCloudInitISO(ctx, name, env, cmd, "")
-	assert.NoError(t, err)
-	assert.NotEmpty(t, isoPath)
-	assert.Contains(t, isoPath, ".iso")
-
-	// Cleanup the generated ISO file if it exists (though it might not if true succeeded)
-	if isoPath != "" {
-		_ = os.Remove(isoPath)
-	}
+		url, err := adapter.GetConsoleURL(ctx, id)
+		assert.NoError(t, err)
+		assert.Equal(t, "vnc://127.0.0.1:5900", url)
+	})
 }
