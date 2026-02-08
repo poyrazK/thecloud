@@ -623,6 +623,37 @@ func TestStorageHandlerPresignedErrors(t *testing.T) {
 	w = httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusForbidden, w.Code)
+
+	// Generate Error - Method
+	body = `{"method":"DELETE"}`
+	req = httptest.NewRequest(http.MethodPost, presignTestURL, strings.NewReader(body))
+	req.Header.Set(headerContentType, contentTypeJSON)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestStorageHandlerMultipartInvalidID(t *testing.T) {
+	t.Parallel()
+	_, handler, r := setupStorageHandlerTest()
+	r.PUT("/storage/multipart/upload/:id/parts", handler.UploadPart)
+
+	req := httptest.NewRequest(http.MethodPut, "/storage/multipart/upload/invalid/parts?part=1", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestStorageHandlerMultipartInvalidPart(t *testing.T) {
+	t.Parallel()
+	_, handler, r := setupStorageHandlerTest()
+	r.PUT("/storage/multipart/upload/:id/parts", handler.UploadPart)
+
+	id := uuid.New().String()
+	req := httptest.NewRequest(http.MethodPut, "/storage/multipart/upload/"+id+"/parts?part=abc", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestStorageHandlerPresignedMissingSecret(t *testing.T) {
