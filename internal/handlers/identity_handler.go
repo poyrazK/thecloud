@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	errs "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
@@ -37,7 +38,7 @@ type CreateKeyRequest struct {
 func (h *IdentityHandler) CreateKey(c *gin.Context) {
 	var req CreateKeyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errs.New(errs.InvalidInput, "invalid request body"))
 		return
 	}
 
@@ -80,7 +81,7 @@ func (h *IdentityHandler) ListKeys(c *gin.Context) {
 func (h *IdentityHandler) RevokeKey(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errs.New(errs.InvalidInput, "invalid id"))
 		return
 	}
 
@@ -104,7 +105,7 @@ func (h *IdentityHandler) RevokeKey(c *gin.Context) {
 func (h *IdentityHandler) RotateKey(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errs.New(errs.InvalidInput, "invalid id"))
 		return
 	}
 
