@@ -110,3 +110,169 @@ func TestGlobalLBHandlerCreate(t *testing.T) {
 		assert.Equal(t, glb.ID, resp.Data.ID)
 	})
 }
+
+func TestGlobalLBHandlerGet(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+
+	t.Run("success", func(t *testing.T) {
+		svc := new(mockGlobalLBService)
+		handler := NewGlobalLBHandler(svc)
+		id := uuid.New()
+
+		glb := &domain.GlobalLoadBalancer{
+			ID:   id,
+			Name: "test-glb",
+		}
+
+		svc.On("Get", mock.Anything, id).Return(glb, nil)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Params = gin.Params{{Key: "id", Value: id.String()}}
+		c.Request = httptest.NewRequest("GET", "/global-lb/"+id.String(), nil)
+
+		handler.Get(c)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var resp struct {
+			Data domain.GlobalLoadBalancer `json:"data"`
+		}
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.Equal(t, id, resp.Data.ID)
+	})
+
+	t.Run("invalid-id", func(t *testing.T) {
+		svc := new(mockGlobalLBService)
+		handler := NewGlobalLBHandler(svc)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Params = gin.Params{{Key: "id", Value: "invalid-uuid"}}
+		c.Request = httptest.NewRequest("GET", "/global-lb/invalid-uuid", nil)
+
+		handler.Get(c)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+}
+
+func TestGlobalLBHandlerList(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+
+	t.Run("success", func(t *testing.T) {
+		svc := new(mockGlobalLBService)
+		handler := NewGlobalLBHandler(svc)
+
+		glbs := []*domain.GlobalLoadBalancer{
+			{ID: uuid.New(), Name: "glb-1"},
+			{ID: uuid.New(), Name: "glb-2"},
+		}
+
+		svc.On("List", mock.Anything, mock.Anything).Return(glbs, nil)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest("GET", "/global-lb", nil)
+
+		handler.List(c)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var resp struct {
+			Data []domain.GlobalLoadBalancer `json:"data"`
+		}
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.Len(t, resp.Data, 2)
+	})
+}
+
+func TestGlobalLBHandlerDelete(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+
+	t.Run("success", func(t *testing.T) {
+		svc := new(mockGlobalLBService)
+		handler := NewGlobalLBHandler(svc)
+		id := uuid.New()
+
+		svc.On("Delete", mock.Anything, id, mock.Anything).Return(nil)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Params = gin.Params{{Key: "id", Value: id.String()}}
+		c.Request = httptest.NewRequest("DELETE", "/global-lb/"+id.String(), nil)
+
+		handler.Delete(c)
+
+		assert.Equal(t, http.StatusNoContent, w.Code)
+	})
+}
+
+func TestGlobalLBHandlerAddEndpoint(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+
+	t.Run("success", func(t *testing.T) {
+		svc := new(mockGlobalLBService)
+		handler := NewGlobalLBHandler(svc)
+		id := uuid.New()
+
+		req := AddGlobalEndpointRequest{
+			Region:     "us-east-1",
+			TargetType: "IP",
+			TargetIP:   func(s string) *string { return &s }("1.2.3.4"),
+			Weight:     10,
+		}
+
+		ep := &domain.GlobalEndpoint{
+			ID:     uuid.New(),
+			Region: req.Region,
+		}
+
+		svc.On("AddEndpoint", mock.Anything, id, req.Region, req.TargetType, mock.Anything, mock.MatchedBy(func(s *string) bool {
+			return s != nil && *s == "1.2.3.4"
+		}), 10, 1).Return(ep, nil)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Params = gin.Params{{Key: "id", Value: id.String()}}
+		body, _ := json.Marshal(req)
+		c.Request = httptest.NewRequest("POST", "/global-lb/"+id.String()+"/endpoints", bytes.NewBuffer(body))
+
+		handler.AddEndpoint(c)
+
+		assert.Equal(t, http.StatusCreated, w.Code)
+		var resp struct {
+			Data domain.GlobalEndpoint `json:"data"`
+		}
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.Equal(t, ep.ID, resp.Data.ID)
+	})
+}
+
+func TestGlobalLBHandlerRemoveEndpoint(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+
+	t.Run("success", func(t *testing.T) {
+		svc := new(mockGlobalLBService)
+		handler := NewGlobalLBHandler(svc)
+		id := uuid.New()
+		epID := uuid.New()
+
+		svc.On("RemoveEndpoint", mock.Anything, id, epID).Return(nil)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Params = gin.Params{
+			{Key: "id", Value: id.String()},
+			{Key: "epID", Value: epID.String()},
+		}
+		c.Request = httptest.NewRequest("DELETE", "/global-lb/"+id.String()+"/endpoints/"+epID.String(), nil)
+
+		handler.RemoveEndpoint(c)
+
+		assert.Equal(t, http.StatusNoContent, w.Code)
+	})
+}
