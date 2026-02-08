@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	mocks "github.com/poyrazk/thecloud/internal/core/ports/mocks"
+	errs "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/pkg/httputil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -273,5 +274,72 @@ func TestDeleteRecordHandler(t *testing.T) {
 		r.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusNoContent, w.Code)
+	})
+}
+
+func TestDNSHandlerErrors(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+
+	t.Run("CreateZoneInvalidInput", func(t *testing.T) {
+		svc := mocks.NewDNSService(t)
+		handler := NewDNSHandler(svc)
+		r := gin.New()
+		r.POST(zonesPath, handler.CreateZone)
+
+		req, _ := http.NewRequest(http.MethodPost, zonesPath, bytes.NewBufferString("{invalid}"))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("GetZoneNotFound", func(t *testing.T) {
+		svc := mocks.NewDNSService(t)
+		handler := NewDNSHandler(svc)
+		r := gin.New()
+		r.GET(zonesPath+"/:id", handler.GetZone)
+
+		svc.On("GetZone", mock.Anything, "non-existent").Return(nil, errs.New(errs.NotFound, "not found"))
+
+		req, _ := http.NewRequest(http.MethodGet, zonesPath+"/non-existent", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusNotFound, w.Code)
+	})
+
+	t.Run("CreateRecordInvalidZoneID", func(t *testing.T) {
+		svc := mocks.NewDNSService(t)
+		handler := NewDNSHandler(svc)
+		r := gin.New()
+		r.POST(zonesPath+"/:id/records", handler.CreateRecord)
+
+		req, _ := http.NewRequest(http.MethodPost, zonesPath+"/invalid/records", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("UpdateRecordInvalidID", func(t *testing.T) {
+		svc := mocks.NewDNSService(t)
+		handler := NewDNSHandler(svc)
+		r := gin.New()
+		r.PUT(recordsPath+"/:id", handler.UpdateRecord)
+
+		req, _ := http.NewRequest(http.MethodPut, recordsPath+"/invalid", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("DeleteRecordInvalidID", func(t *testing.T) {
+		svc := mocks.NewDNSService(t)
+		handler := NewDNSHandler(svc)
+		r := gin.New()
+		r.DELETE(recordsPath+"/:id", handler.DeleteRecord)
+
+		req, _ := http.NewRequest(http.MethodDelete, recordsPath+"/invalid", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 }
