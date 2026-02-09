@@ -45,6 +45,12 @@ type LaunchRequest struct {
 	VpcID        string                    `json:"vpc_id"`
 	SubnetID     string                    `json:"subnet_id"`
 	Volumes      []VolumeAttachmentRequest `json:"volumes"`
+	VolumeBinds  []string                  `json:"volume_binds"`
+	Env          []string                  `json:"env"`
+	Cmd          []string                  `json:"cmd"`
+	CPULimit     int64                     `json:"cpu_limit"`
+	MemoryLimit  int64                     `json:"memory_limit"`
+	DiskLimit    int64                     `json:"disk_limit"`
 }
 
 // validateLaunchRequest performs custom validation beyond struct tags
@@ -97,7 +103,7 @@ func isValidResourceName(name string) bool {
 
 // Launch launches a new instance
 // @Summary Launch a new instance
-// @Description Creates and starts a new compute instance with optional volumes and VPC
+// @Description Creates and starts a new compute instance with optional volumes, VPC, environment variables, commands, and resource limits
 // @Tags instances
 // @Accept json
 // @Produce json
@@ -125,7 +131,21 @@ func (h *InstanceHandler) Launch(c *gin.Context) {
 		return
 	}
 
-	inst, err := h.svc.LaunchInstance(c.Request.Context(), req.Name, req.Image, req.Ports, req.InstanceType, vpcUUID, subnetUUID, volumes)
+	inst, err := h.svc.LaunchInstance(c.Request.Context(), ports.LaunchParams{
+		Name:         req.Name,
+		Image:        req.Image,
+		Ports:        req.Ports,
+		InstanceType: req.InstanceType,
+		VpcID:        vpcUUID,
+		SubnetID:     subnetUUID,
+		Volumes:      volumes,
+		VolumeBinds:  req.VolumeBinds,
+		Env:          req.Env,
+		Cmd:          req.Cmd,
+		CPULimit:     req.CPULimit,
+		MemoryLimit:  req.MemoryLimit,
+		DiskLimit:    req.DiskLimit,
+	})
 	if err != nil {
 		httputil.Error(c, err)
 		return
