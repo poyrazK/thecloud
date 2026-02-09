@@ -287,7 +287,12 @@ func (s *stackService) createInstance(ctx context.Context, stackID uuid.UUID, lo
 		vpcIDPtr = &vpcID
 	}
 
-	inst, err := s.instanceSvc.LaunchInstance(ctx, name, image, "80", "", vpcIDPtr, nil, nil)
+	inst, err := s.instanceSvc.LaunchInstance(ctx, ports.LaunchParams{
+		Name:  name,
+		Image: image,
+		Ports: "80",
+		VpcID: vpcIDPtr,
+	})
 	if err != nil {
 		return uuid.Nil, err
 	}
