@@ -2098,6 +2098,14 @@ func (m *MockTenantService) GetMembership(ctx context.Context, tenantID, userID 
 	return args.Get(0).(*domain.TenantMember), args.Error(1)
 }
 
+func (m *MockTenantService) IncrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error {
+	return m.Called(ctx, tenantID, resource, amount).Error(0)
+}
+
+func (m *MockTenantService) DecrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error {
+	return m.Called(ctx, tenantID, resource, amount).Error(0)
+}
+
 // MockInstanceTypeService
 type MockInstanceTypeService struct {
 	mock.Mock
