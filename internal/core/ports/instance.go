@@ -43,6 +43,7 @@ type LaunchParams struct {
 	CPULimit     int64
 	MemoryLimit  int64
 	DiskLimit    int64
+	SSHKeyID     *uuid.UUID
 }
 
 // InstanceService defines the business logic for managing the lifecycle of compute instances.
