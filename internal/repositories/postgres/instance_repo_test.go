@@ -232,7 +232,7 @@ func TestInstanceRepositoryListBySubnet(t *testing.T) {
 		mock.ExpectQuery(selectQuery).
 			WithArgs(subnetID, tenantID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "instance_type", "volume_binds", "env", "cmd", "cpu_limit", "memory_limit", "disk_limit", "version", "created_at", "updated_at"}).
-				AddRow(uuid.New(), userID, tenantID, testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, subnetID, testutil.TestIPHost, "ovs-1", "basic-2", []string{}, []string{}, []string{}, int64(0), int64(0), int64(0), 1, now, now))
+				AddRow(uuid.New(), userID, tenantID, testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, &subnetID, testutil.TestIPHost, "ovs-1", "basic-2", []string{}, []string{}, []string{}, int64(0), int64(0), int64(0), 1, now, now))
 
 		list, err := repo.ListBySubnet(ctx, subnetID)
 		assert.NoError(t, err)
