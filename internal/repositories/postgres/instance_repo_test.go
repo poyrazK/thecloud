@@ -50,7 +50,7 @@ func TestInstanceRepositoryCreate(t *testing.T) {
 		}
 
 		mock.ExpectExec("(?s)INSERT INTO instances.*").
-			WithArgs(inst.ID, inst.UserID, inst.TenantID, inst.Name, inst.Image, inst.ContainerID, string(inst.Status), inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.InstanceType, inst.Version, inst.CreatedAt, inst.UpdatedAt).
+			WithArgs(inst.ID, inst.UserID, inst.TenantID, inst.Name, inst.Image, inst.ContainerID, string(inst.Status), inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.InstanceType, inst.VolumeBinds, inst.Env, inst.Cmd, inst.CPULimit, inst.MemoryLimit, inst.DiskLimit, inst.Version, inst.CreatedAt, inst.UpdatedAt).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), inst)
@@ -88,8 +88,8 @@ func TestInstanceRepositoryGetByID(t *testing.T) {
 
 		mock.ExpectQuery(selectQuery).
 			WithArgs(id, tenantID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "instance_type", "version", "created_at", "updated_at"}).
-				AddRow(id, userID, tenantID, testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", testInstanceType, 1, now, now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "instance_type", "volume_binds", "env", "cmd", "cpu_limit", "memory_limit", "disk_limit", "version", "created_at", "updated_at"}).
+				AddRow(id, userID, tenantID, testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", testInstanceType, []string{}, []string{}, []string{}, int64(0), int64(0), int64(0), 1, now, now))
 
 		inst, err := repo.GetByID(ctx, id)
 		assert.NoError(t, err)
@@ -139,8 +139,8 @@ func TestInstanceRepositoryGetByName(t *testing.T) {
 
 		mock.ExpectQuery(selectQuery).
 			WithArgs(name, tenantID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "instance_type", "version", "created_at", "updated_at"}).
-				AddRow(id, userID, tenantID, name, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", testInstanceType, 1, now, now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "instance_type", "volume_binds", "env", "cmd", "cpu_limit", "memory_limit", "disk_limit", "version", "created_at", "updated_at"}).
+				AddRow(id, userID, tenantID, name, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", testInstanceType, []string{}, []string{}, []string{}, int64(0), int64(0), int64(0), 1, now, now))
 
 		inst, err := repo.GetByName(ctx, name)
 		assert.NoError(t, err)
@@ -188,8 +188,8 @@ func TestInstanceRepositoryList(t *testing.T) {
 
 		mock.ExpectQuery(selectQuery).
 			WithArgs(tenantID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "instance_type", "version", "created_at", "updated_at"}).
-				AddRow(uuid.New(), userID, tenantID, testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", testInstanceType, 1, now, now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "instance_type", "volume_binds", "env", "cmd", "cpu_limit", "memory_limit", "disk_limit", "version", "created_at", "updated_at"}).
+				AddRow(uuid.New(), userID, tenantID, testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", testInstanceType, []string{}, []string{}, []string{}, int64(0), int64(0), int64(0), 1, now, now))
 
 		list, err := repo.List(ctx)
 		assert.NoError(t, err)
@@ -231,8 +231,8 @@ func TestInstanceRepositoryListBySubnet(t *testing.T) {
 
 		mock.ExpectQuery(selectQuery).
 			WithArgs(subnetID, tenantID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "instance_type", "version", "created_at", "updated_at"}).
-				AddRow(uuid.New(), userID, tenantID, testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", "basic-2", 1, now, now))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "instance_type", "volume_binds", "env", "cmd", "cpu_limit", "memory_limit", "disk_limit", "version", "created_at", "updated_at"}).
+				AddRow(uuid.New(), userID, tenantID, testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, subnetID, testutil.TestIPHost, "ovs-1", "basic-2", []string{}, []string{}, []string{}, int64(0), int64(0), int64(0), 1, now, now))
 
 		list, err := repo.ListBySubnet(ctx, subnetID)
 		assert.NoError(t, err)
@@ -261,7 +261,7 @@ func TestInstanceRepositoryUpdate(t *testing.T) {
 		}
 
 		mock.ExpectExec("(?s)UPDATE instances.*").
-			WithArgs(inst.Name, string(inst.Status), pgxmock.AnyArg(), inst.ContainerID, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, testInstanceType, inst.ID, inst.Version, inst.TenantID).
+			WithArgs(inst.Name, string(inst.Status), pgxmock.AnyArg(), inst.ContainerID, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, testInstanceType, inst.VolumeBinds, inst.Env, inst.Cmd, inst.CPULimit, inst.MemoryLimit, inst.DiskLimit, inst.ID, inst.Version, inst.TenantID).
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		err = repo.Update(context.Background(), inst)
@@ -285,7 +285,7 @@ func TestInstanceRepositoryUpdate(t *testing.T) {
 		}
 
 		mock.ExpectExec("(?s)UPDATE instances.*").
-			WithArgs(inst.Name, string(inst.Status), pgxmock.AnyArg(), inst.ContainerID, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, testInstanceType, inst.ID, inst.Version, inst.TenantID).
+			WithArgs(inst.Name, string(inst.Status), pgxmock.AnyArg(), inst.ContainerID, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, testInstanceType, inst.VolumeBinds, inst.Env, inst.Cmd, inst.CPULimit, inst.MemoryLimit, inst.DiskLimit, inst.ID, inst.Version, inst.TenantID).
 			WillReturnResult(pgxmock.NewResult("UPDATE", 0))
 
 		err = repo.Update(context.Background(), inst)
@@ -347,8 +347,8 @@ func TestInstanceRepositoryListAll(t *testing.T) {
 	now := time.Now()
 
 	mock.ExpectQuery(selectQuery).
-		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "instance_type", "version", "created_at", "updated_at"}).
-			AddRow(uuid.New(), uuid.New(), uuid.New(), testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", testInstanceType, 1, now, now))
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "image", "container_id", "status", "ports", "vpc_id", "subnet_id", "private_ip", "ovs_port", "instance_type", "volume_binds", "env", "cmd", "cpu_limit", "memory_limit", "disk_limit", "version", "created_at", "updated_at"}).
+			AddRow(uuid.New(), uuid.New(), uuid.New(), testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", testInstanceType, []string{}, []string{}, []string{}, int64(0), int64(0), int64(0), 1, now, now))
 
 	list, err := repo.ListAll(context.Background())
 	assert.NoError(t, err)
