@@ -169,3 +169,11 @@ func (s *TenantService) CheckQuota(ctx context.Context, tenantID uuid.UUID, reso
 func (s *TenantService) GetMembership(ctx context.Context, tenantID, userID uuid.UUID) (*domain.TenantMember, error) {
 	return s.repo.GetMembership(ctx, tenantID, userID)
 }
+
+func (s *TenantService) IncrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error {
+	return s.repo.IncrementUsage(ctx, tenantID, resource, amount)
+}
+
+func (s *TenantService) DecrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error {
+	return s.repo.DecrementUsage(ctx, tenantID, resource, amount)
+}
