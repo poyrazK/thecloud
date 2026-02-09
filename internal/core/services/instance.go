@@ -40,6 +40,7 @@ type InstanceService struct {
 	auditSvc         ports.AuditService
 	dnsSvc           ports.DNSService
 	taskQueue        ports.TaskQueue
+	tenantSvc        ports.TenantService
 	logger           *slog.Logger
 }
 
@@ -57,6 +58,7 @@ type InstanceServiceParams struct {
 	AuditSvc         ports.AuditService
 	DNSSvc           ports.DNSService
 	TaskQueue        ports.TaskQueue // Optional
+	TenantSvc        ports.TenantService
 	Logger           *slog.Logger
 }
 
@@ -74,6 +76,7 @@ func NewInstanceService(params InstanceServiceParams) *InstanceService {
 		auditSvc:         params.AuditSvc,
 		dnsSvc:           params.DNSSvc,
 		taskQueue:        params.TaskQueue,
+		tenantSvc:        params.TenantSvc,
 		logger:           params.Logger,
 	}
 }
@@ -100,16 +103,43 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, params ports.Launc
 	if instanceType == "" {
 		instanceType = "basic-2"
 	}
-	_, err = s.instanceTypeRepo.GetByID(ctx, instanceType)
+	it, err := s.instanceTypeRepo.GetByID(ctx, instanceType)
 	if err != nil {
 		return nil, errors.New(errors.InvalidInput, fmt.Sprintf("invalid instance type: %s", instanceType))
 	}
 
-	// 3. Create domain entity
+	// 3. Quota Check & Reservation
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	// Check instances quota
+	if err := s.tenantSvc.CheckQuota(ctx, tenantID, "instances", 1); err != nil {
+		return nil, err
+	}
+
+	// Check & Reserve vCPU/Memory quota
+	// Note: We use atomic increment/decrement to manage usage state
+	if err := s.tenantSvc.CheckQuota(ctx, tenantID, "vcpus", it.VCPUs); err != nil {
+		return nil, err
+	}
+	if err := s.tenantSvc.CheckQuota(ctx, tenantID, "memory", it.MemoryMB/1024); err != nil {
+		return nil, err
+	}
+
+	// Reserve resources
+	if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "vcpus", it.VCPUs); err != nil {
+		return nil, err
+	}
+	if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", it.MemoryMB/1024); err != nil {
+		// Rollback vCPUs if memory fails
+		_ = s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", it.VCPUs)
+		return nil, err
+	}
+
+	// 4. Create domain entity
 	inst := &domain.Instance{
 		ID:           uuid.New(),
 		UserID:       appcontext.UserIDFromContext(ctx),
-		TenantID:     appcontext.TenantIDFromContext(ctx),
+		TenantID:     tenantID,
 		Name:         params.Name,
 		Image:        params.Image,
 		Status:       domain.StatusStarting,
@@ -129,6 +159,9 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, params ports.Launc
 	}
 
 	if err := s.repo.Create(ctx, inst); err != nil {
+		// Rollback quota reservation
+		_ = s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", it.VCPUs)
+		_ = s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", it.MemoryMB/1024)
 		return nil, err
 	}
 
@@ -598,10 +631,20 @@ func (s *InstanceService) finalizeTermination(ctx context.Context, inst *domain.
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "INSTANCE_TERMINATE", inst.ID.String(), "INSTANCE", map[string]interface{}{})
-
 	_ = s.auditSvc.Log(ctx, inst.UserID, "instance.terminate", "instance", inst.ID.String(), map[string]interface{}{
 		"name": inst.Name,
 	})
+
+	// Release Quota
+	// Best effort - if instance type is not found, we can't decrement, but we shouldn't fail termination.
+	// In a perfect world we'd store exact resource allocation on the instance record to release it.
+	it, err := s.instanceTypeRepo.GetByID(ctx, inst.InstanceType)
+	if err == nil {
+		_ = s.tenantSvc.DecrementUsage(ctx, inst.TenantID, "vcpus", it.VCPUs)
+		_ = s.tenantSvc.DecrementUsage(ctx, inst.TenantID, "memory", it.MemoryMB/1024)
+	} else {
+		s.logger.Warn("failed to resolve instance type for quota release", "instance_id", inst.ID, "type", inst.InstanceType, "error", err)
+	}
 
 	return nil
 }
