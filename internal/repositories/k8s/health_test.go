@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -126,7 +127,7 @@ func TestKubeadmProvisionerGetKubeconfigAdmin(t *testing.T) {
 	masterIP := kubeMasterIP
 	cluster := &domain.Cluster{ID: clusterID, ControlPlaneIPs: []string{masterIP}, KubeconfigEncrypted: "kubeconfig", UserID: uuid.New()}
 
-	mockSecret := new(MockSecretService)
+	mockSecret := new(mocks.SecretService)
 	p.secretSvc = mockSecret
 	mockSecret.On("Decrypt", mock.Anything, cluster.UserID, "kubeconfig").Return("kubeconfig", nil)
 
