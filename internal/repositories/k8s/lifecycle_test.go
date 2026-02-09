@@ -199,7 +199,7 @@ type syncTaskQueue struct {
 func (q *syncTaskQueue) Enqueue(ctx context.Context, queue string, payload interface{}) error {
 	if job, ok := payload.(domain.ProvisionJob); ok {
 		// Run synchronously for integration test
-		return q.svc.Provision(ctx, job.InstanceID, nil, job.UserData)
+		return q.svc.Provision(ctx, job)
 	}
 	return nil
 }
