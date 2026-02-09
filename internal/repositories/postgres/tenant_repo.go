@@ -174,8 +174,8 @@ func (r *TenantRepo) GetQuota(ctx context.Context, tenantID uuid.UUID) (*domain.
 			(SELECT COUNT(*) FROM instances WHERE tenant_id = tq.tenant_id AND status != 'DELETED') as used_instances,
 			(SELECT COUNT(*) FROM vpcs WHERE tenant_id = tq.tenant_id) as used_vpcs,
 			(SELECT COALESCE(SUM(size_gb), 0) FROM volumes WHERE tenant_id = tq.tenant_id AND status != 'deleted') as used_storage_gb,
-			0 as used_memory_gb, -- Placeholder as instance sizing is not yet normalized
-			0 as used_vcpus      -- Placeholder
+			tq.used_memory_gb,
+			tq.used_vcpus
 		FROM tenant_quotas tq 
 		WHERE tq.tenant_id = $1
 	`
@@ -214,6 +214,46 @@ func (r *TenantRepo) UpdateQuota(ctx context.Context, quota *domain.TenantQuota)
 	)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to update quota", err)
+	}
+	return nil
+}
+
+func (r *TenantRepo) IncrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error {
+	var query string
+	switch resource {
+	case "vcpus":
+		query = `UPDATE tenant_quotas SET used_vcpus = used_vcpus + $1 WHERE tenant_id = $2`
+	case "memory":
+		query = `UPDATE tenant_quotas SET used_memory_gb = used_memory_gb + $1 WHERE tenant_id = $2`
+	// For instances, vpcs, storage we rely on live counts for now, but if we wanted to switch:
+	// case "instances":
+	// 	query = `UPDATE tenant_quotas SET used_instances = used_instances + $1 WHERE tenant_id = $2`
+	default:
+		// No-op for resources tracked via live count
+		return nil
+	}
+
+	_, err := r.db.Exec(ctx, query, amount, tenantID)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to increment quota usage", err)
+	}
+	return nil
+}
+
+func (r *TenantRepo) DecrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error {
+	var query string
+	switch resource {
+	case "vcpus":
+		query = `UPDATE tenant_quotas SET used_vcpus = GREATEST(0, used_vcpus - $1) WHERE tenant_id = $2`
+	case "memory":
+		query = `UPDATE tenant_quotas SET used_memory_gb = GREATEST(0, used_memory_gb - $1) WHERE tenant_id = $2`
+	default:
+		return nil
+	}
+
+	_, err := r.db.Exec(ctx, query, amount, tenantID)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to decrement quota usage", err)
 	}
 	return nil
 }
