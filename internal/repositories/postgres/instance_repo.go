@@ -26,12 +26,17 @@ func NewInstanceRepository(db DB) *InstanceRepository {
 // Create inserts a new instance record into the database.
 func (r *InstanceRepository) Create(ctx context.Context, inst *domain.Instance) error {
 	query := `
-		INSERT INTO instances (id, user_id, tenant_id, name, image, container_id, status, ports, vpc_id, subnet_id, private_ip, ovs_port, instance_type, version, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULLIF($11, '')::inet, $12, $13, $14, $15, $16)
+		INSERT INTO instances (
+			id, user_id, tenant_id, name, image, container_id, status, ports, vpc_id, subnet_id, 
+			private_ip, ovs_port, instance_type, volume_binds, env, cmd, cpu_limit, memory_limit, disk_limit,
+			version, created_at, updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULLIF($11, '')::inet, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
 	`
 	_, err := r.db.Exec(ctx, query,
 		inst.ID, inst.UserID, inst.TenantID, inst.Name, inst.Image, inst.ContainerID, string(inst.Status), inst.Ports, inst.VpcID, inst.SubnetID,
-		inst.PrivateIP, inst.OvsPort, inst.InstanceType, inst.Version, inst.CreatedAt, inst.UpdatedAt,
+		inst.PrivateIP, inst.OvsPort, inst.InstanceType, inst.VolumeBinds, inst.Env, inst.Cmd, inst.CPULimit, inst.MemoryLimit, inst.DiskLimit,
+		inst.Version, inst.CreatedAt, inst.UpdatedAt,
 	)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to create instance", err)
@@ -43,7 +48,9 @@ func (r *InstanceRepository) Create(ctx context.Context, inst *domain.Instance) 
 func (r *InstanceRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Instance, error) {
 	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), version, created_at, updated_at
+		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), 
+		       volume_binds, env, cmd, cpu_limit, memory_limit, disk_limit,
+		       version, created_at, updated_at
 		FROM instances
 		WHERE id = $1 AND tenant_id = $2
 	`
@@ -54,7 +61,9 @@ func (r *InstanceRepository) scanInstance(row pgx.Row) (*domain.Instance, error)
 	var inst domain.Instance
 	var status string
 	err := row.Scan(
-		&inst.ID, &inst.UserID, &inst.TenantID, &inst.Name, &inst.Image, &inst.ContainerID, &status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.InstanceType, &inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
+		&inst.ID, &inst.UserID, &inst.TenantID, &inst.Name, &inst.Image, &inst.ContainerID, &status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.InstanceType,
+		&inst.VolumeBinds, &inst.Env, &inst.Cmd, &inst.CPULimit, &inst.MemoryLimit, &inst.DiskLimit,
+		&inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -70,7 +79,9 @@ func (r *InstanceRepository) scanInstance(row pgx.Row) (*domain.Instance, error)
 func (r *InstanceRepository) GetByName(ctx context.Context, name string) (*domain.Instance, error) {
 	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), version, created_at, updated_at
+		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), 
+		       volume_binds, env, cmd, cpu_limit, memory_limit, disk_limit,
+		       version, created_at, updated_at
 		FROM instances
 		WHERE name = $1 AND tenant_id = $2
 	`
@@ -81,7 +92,9 @@ func (r *InstanceRepository) GetByName(ctx context.Context, name string) (*domai
 func (r *InstanceRepository) List(ctx context.Context) ([]*domain.Instance, error) {
 	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), version, created_at, updated_at
+		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), 
+		       volume_binds, env, cmd, cpu_limit, memory_limit, disk_limit,
+		       version, created_at, updated_at
 		FROM instances
 		WHERE tenant_id = $1
 		ORDER BY created_at DESC
@@ -95,7 +108,9 @@ func (r *InstanceRepository) List(ctx context.Context) ([]*domain.Instance, erro
 
 func (r *InstanceRepository) ListAll(ctx context.Context) ([]*domain.Instance, error) {
 	query := `
-		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), version, created_at, updated_at
+		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), 
+		       volume_binds, env, cmd, cpu_limit, memory_limit, disk_limit,
+		       version, created_at, updated_at
 		FROM instances
 		ORDER BY created_at DESC
 	`
@@ -111,11 +126,14 @@ func (r *InstanceRepository) Update(ctx context.Context, inst *domain.Instance) 
 	// Implements Optimistic Locking via 'version'
 	query := `
 		UPDATE instances
-		SET name = $1, status = $2, version = version + 1, updated_at = $3, container_id = $4, ports = $5, vpc_id = $6, subnet_id = $7, private_ip = NULLIF($8, '')::inet, ovs_port = $9, instance_type = $10
-		WHERE id = $11 AND version = $12 AND tenant_id = $13
+		SET name = $1, status = $2, version = version + 1, updated_at = $3, container_id = $4, ports = $5, vpc_id = $6, subnet_id = $7, private_ip = NULLIF($8, '')::inet, ovs_port = $9, instance_type = $10,
+		    volume_binds = $11, env = $12, cmd = $13, cpu_limit = $14, memory_limit = $15, disk_limit = $16
+		WHERE id = $17 AND version = $18 AND tenant_id = $19
 	`
 	now := time.Now()
-	cmd, err := r.db.Exec(ctx, query, inst.Name, string(inst.Status), now, inst.ContainerID, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.InstanceType, inst.ID, inst.Version, inst.TenantID)
+	cmd, err := r.db.Exec(ctx, query, inst.Name, string(inst.Status), now, inst.ContainerID, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.InstanceType,
+		inst.VolumeBinds, inst.Env, inst.Cmd, inst.CPULimit, inst.MemoryLimit, inst.DiskLimit,
+		inst.ID, inst.Version, inst.TenantID)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to update instance", err)
 	}
@@ -133,7 +151,9 @@ func (r *InstanceRepository) Update(ctx context.Context, inst *domain.Instance) 
 func (r *InstanceRepository) ListBySubnet(ctx context.Context, subnetID uuid.UUID) ([]*domain.Instance, error) {
 	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), version, created_at, updated_at
+		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), 
+		       volume_binds, env, cmd, cpu_limit, memory_limit, disk_limit,
+		       version, created_at, updated_at
 		FROM instances
 		WHERE subnet_id = $1 AND tenant_id = $2
 		ORDER BY created_at DESC
