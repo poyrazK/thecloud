@@ -100,3 +100,61 @@ func (m *EventService) ListEvents(ctx context.Context, limit int) ([]*domain.Eve
 	}
 	return args.Get(0).([]*domain.Event), args.Error(1)
 }
+
+// SecretService is a mock for ports.SecretService
+type SecretService struct {
+	mock.Mock
+}
+
+func NewSecretService(t mock.TestingT) *SecretService {
+	m := &SecretService{}
+	m.Test(t)
+	return m
+}
+
+func (m *SecretService) CreateSecret(ctx context.Context, name, value, description string) (*domain.Secret, error) {
+	args := m.Called(ctx, name, value, description)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Secret), args.Error(1)
+}
+
+func (m *SecretService) GetSecret(ctx context.Context, id uuid.UUID) (*domain.Secret, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Secret), args.Error(1)
+}
+
+func (m *SecretService) GetSecretByName(ctx context.Context, name string) (*domain.Secret, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Secret), args.Error(1)
+}
+
+func (m *SecretService) ListSecrets(ctx context.Context) ([]*domain.Secret, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Secret), args.Error(1)
+}
+
+func (m *SecretService) DeleteSecret(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *SecretService) Encrypt(ctx context.Context, userID uuid.UUID, plainText string) (string, error) {
+	args := m.Called(ctx, userID, plainText)
+	return args.String(0), args.Error(1)
+}
+
+func (m *SecretService) Decrypt(ctx context.Context, userID uuid.UUID, cipherText string) (string, error) {
+	args := m.Called(ctx, userID, cipherText)
+	return args.String(0), args.Error(1)
+}
