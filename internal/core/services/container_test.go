@@ -129,7 +129,7 @@ func TestContainer_ChaosRestart(t *testing.T) {
 	instID := ids[0]
 
 	// Manually provision it (simulating worker)
-	err = instSvc.Provision(ctx, instID, nil, "")
+	err = instSvc.Provision(ctx, domain.ProvisionJob{InstanceID: instID})
 	require.NoError(t, err)
 
 	// Get container ID
