@@ -24,9 +24,10 @@ jobs:
       - name: Verify Swagger
         run: |
           go install github.com/swaggo/swag/cmd/swag@v1.16.4
-          $(go env GOPATH)/bin/swag init -d ./ -g cmd/api/main.go -o docs/swagger --parseDependency --parseInternal
+          make swagger
           if [ -n "$(git status --porcelain docs/swagger)" ]; then
             echo "Swagger docs are out of sync. Run 'swag init' and commit changes."
+            git diff docs/swagger
             exit 1
           fi
       - name: Lint
