@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/core/ports/mocks"
 	"github.com/poyrazk/thecloud/internal/repositories/k8s"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -18,8 +19,8 @@ import (
 
 type MockInstanceService struct{ mock.Mock }
 
-func (m *MockInstanceService) LaunchInstance(ctx context.Context, name, image, ports, instanceType string, vpcID, subnetID *uuid.UUID, volumes []domain.VolumeAttachment) (*domain.Instance, error) {
-	args := m.Called(ctx, name, image, ports, instanceType, vpcID, subnetID, volumes)
+func (m *MockInstanceService) LaunchInstance(ctx context.Context, params ports.LaunchParams) (*domain.Instance, error) {
+	args := m.Called(ctx, params)
 	return args.Get(0).(*domain.Instance), args.Error(1)
 }
 func (m *MockInstanceService) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (*domain.Instance, error) {
@@ -28,6 +29,9 @@ func (m *MockInstanceService) LaunchInstanceWithOptions(ctx context.Context, opt
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*domain.Instance), args.Error(1)
+}
+func (m *MockInstanceService) Provision(ctx context.Context, job domain.ProvisionJob) error {
+	return m.Called(ctx, job).Error(0)
 }
 func (m *MockInstanceService) GetInstance(ctx context.Context, id string) (*domain.Instance, error) {
 	args := m.Called(ctx, id)
@@ -91,30 +95,6 @@ func (m *MockClusterRepo) DeleteNode(ctx context.Context, nodeID uuid.UUID) erro
 }
 func (m *MockClusterRepo) UpdateNode(ctx context.Context, n *domain.ClusterNode) error {
 	return m.Called(ctx, n).Error(0)
-}
-
-type MockSecretService struct{ mock.Mock }
-
-func (m *MockSecretService) CreateSecret(ctx context.Context, name, value, description string) (*domain.Secret, error) {
-	return nil, nil
-}
-func (m *MockSecretService) GetSecret(ctx context.Context, id uuid.UUID) (*domain.Secret, error) {
-	return nil, nil
-}
-func (m *MockSecretService) GetSecretByName(ctx context.Context, name string) (*domain.Secret, error) {
-	return nil, nil
-}
-func (m *MockSecretService) ListSecrets(ctx context.Context) ([]*domain.Secret, error) {
-	return nil, nil
-}
-func (m *MockSecretService) DeleteSecret(ctx context.Context, id uuid.UUID) error {
-	return nil
-}
-func (m *MockSecretService) Encrypt(ctx context.Context, userID uuid.UUID, plainText string) (string, error) {
-	return plainText, nil
-}
-func (m *MockSecretService) Decrypt(ctx context.Context, userID uuid.UUID, cipherText string) (string, error) {
-	return cipherText, nil
 }
 
 type MockSecurityGroupService struct{ mock.Mock }
@@ -248,7 +228,7 @@ func TestKubeadmProvisionerDeprovision(t *testing.T) {
 	ctx := context.Background()
 	instSvc := new(MockInstanceService)
 	repo := new(MockClusterRepo)
-	secretSvc := new(MockSecretService)
+	secretSvc := new(mocks.SecretService)
 	sgSvc := new(MockSecurityGroupService)
 	storageSvc := new(MockStorageService)
 	lbSvc := new(MockLBService)
@@ -277,7 +257,7 @@ func TestKubeadmProvisionerProvisionHA(t *testing.T) {
 	ctx := context.Background()
 	instSvc := new(MockInstanceService)
 	repo := new(MockClusterRepo)
-	secretSvc := new(MockSecretService)
+	secretSvc := new(mocks.SecretService)
 	sgSvc := new(MockSecurityGroupService)
 	storageSvc := new(MockStorageService)
 	lbSvc := new(MockLBService)
@@ -298,6 +278,7 @@ func TestKubeadmProvisionerProvisionHA(t *testing.T) {
 	repo.On("UpdateNode", mock.Anything, mock.Anything).Return(nil).Maybe()
 	sgSvc.On("GetGroup", mock.Anything, mock.Anything, mock.Anything).Return(&domain.SecurityGroup{ID: uuid.New()}, nil)
 	sgSvc.On("AttachToInstance", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	secretSvc.On("Encrypt", mock.Anything, mock.Anything, mock.Anything).Return("encrypted", nil).Maybe()
 
 	// 1. LB Creation
 	lbID := uuid.New()
