@@ -65,15 +65,22 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
     </disk>`, diskType, driverType, sourceAttr, dPath, dev)
 	}
 
+	arch := "x86_64"
+	machine := "pc"
+	if strings.Contains(isoPath, "arm64") || strings.Contains(diskPath, "arm64") {
+		arch = "aarch64"
+		machine = "virt"
+	}
+
 	return fmt.Sprintf(`
-<domain type='kvm'>
+<domain type='qemu'>
   <name>%s</name>
   <memory unit='KiB'>%d</memory>
   <vcpu placement='static'>%d</vcpu>
   <os>
-    <type arch='x86_64' machine='pc'>hvm</type>
+    <type arch='%s' machine='%s'>hvm</type>
     <boot dev='hd'/>
-  </os>
+  </os>`, name, memoryKB, vcpu, arch, machine) + fmt.Sprintf(`
   <features>
     <acpi/>
     <apic/>
@@ -84,8 +91,7 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
       <source file='%s'/>
       <target dev='vda' bus='virtio'/>
     </disk>%s%s
-    <interface type='network'>
-      <source network='%s'/>
+    <interface type='user'>
       <model type='virtio'/>
     </interface>
     <graphics type='vnc' port='-1' autoport='yes' listen='0.0.0.0'>
@@ -101,7 +107,7 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
       <backend model='random'>/dev/urandom</backend>
     </rng>
   </devices>
-</domain>`, name, memoryKB, vcpu, diskPath, isoXML, additionalDisksXML, networkID)
+</domain>`, diskPath, isoXML, additionalDisksXML, networkID)
 }
 
 func generateNetworkXML(name, bridgeName, gatewayIP, rangeStart, rangeEnd string) string {
