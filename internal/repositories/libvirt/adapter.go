@@ -107,7 +107,7 @@ func (a *LibvirtAdapter) Type() string {
 func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
 	name := a.sanitizeDomainName(opts.Name)
 
-	diskPath, vol, err := a.prepareRootVolume(ctx, name)
+	diskPath, vol, err := a.prepareRootVolume(ctx, name, opts.ImageName)
 	if err != nil {
 		return "", err
 	}
@@ -474,7 +474,7 @@ func (a *LibvirtAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions)
 		return "", fmt.Errorf("failed to find default pool: %w", err)
 	}
 
-	volXML := generateVolumeXML(name+"-root", 1)
+	volXML := generateVolumeXML(name+"-root", 1, "")
 	vol, err := a.client.StorageVolCreateXML(ctx, pool, volXML, 0)
 	if err != nil {
 		return "", fmt.Errorf("failed to create root volume: %w", err)
@@ -582,7 +582,7 @@ func (a *LibvirtAdapter) CreateVolume(ctx context.Context, name string) error {
 	}
 
 	// 10GB default
-	xml := generateVolumeXML(name, 10)
+	xml := generateVolumeXML(name, 10, "")
 
 	// Refresh pool first
 	if err := a.client.StoragePoolRefresh(ctx, pool, 0); err != nil {
@@ -613,6 +613,45 @@ func (a *LibvirtAdapter) DeleteVolume(ctx context.Context, name string) error {
 		return fmt.Errorf("failed to delete volume: %w", err)
 	}
 	return nil
+}
+
+func (a *LibvirtAdapter) prepareRootVolume(ctx context.Context, name string, imageName string) (string, libvirt.StorageVol, error) {
+	// We assume 'imageName' is a backing volume in the default pool.
+	pool, err := a.client.StoragePoolLookupByName(ctx, defaultPoolName)
+	if err != nil {
+		return "", libvirt.StorageVol{}, fmt.Errorf("default pool not found: %w", err)
+	}
+
+	var backingXML string
+	if imageName != "" {
+		// Check if backing image exists
+		backingVol, err := a.client.StorageVolLookupByName(ctx, pool, imageName)
+		if err == nil {
+			backingPath, err := a.client.StorageVolGetPath(ctx, backingVol)
+			if err == nil {
+				backingXML = backingPath
+			}
+		} else {
+			a.logger.Warn("backing image not found, creating empty volume", "image", imageName)
+		}
+	}
+
+	// Create root disk for the VM
+	volXML := generateVolumeXML(name+"-root", 10, backingXML)
+
+	vol, err := a.client.StorageVolCreateXML(ctx, pool, volXML, 0)
+	if err != nil {
+		return "", libvirt.StorageVol{}, fmt.Errorf("failed to create root volume: %w", err)
+	}
+
+	// Get volume path from libvirt
+	diskPath, err := a.client.StorageVolGetPath(ctx, vol)
+	if err != nil {
+		_ = a.client.StorageVolDelete(ctx, vol, 0)
+		return "", libvirt.StorageVol{}, fmt.Errorf(errGetVolumePath, err)
+	}
+
+	return diskPath, vol, nil
 }
 
 func (a *LibvirtAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID string, destinationPath string) error {
@@ -768,12 +807,16 @@ func (a *LibvirtAdapter) generateUserData(env, cmd []string, userDataRaw string)
 }
 
 func (a *LibvirtAdapter) runIsoCommand(isoPath, tmpDir string) error {
-	genCmd := execCommand("genisoimage", "-output", isoPath, "-volid", "config-2", "-joliet", "-rock",
-		filepath.Join(tmpDir, userDataFileName), filepath.Join(tmpDir, metaDataFileName))
+	// We pass tmpDir as the source directory for the ISO.
+	// This ensures files like user-data and meta-data are at the root.
+	// -l: allow long filenames
+	// -R: rational rock ridge (preserves long names, sets permissions)
+	// -J: Joliet (for compatibility)
+	fmt.Println("DEBUG: Generating ISO with volid cidata")
+	genCmd := execCommand("genisoimage", "-output", isoPath, "-volid", "cidata", "-l", "-R", "-J", tmpDir)
 
 	if _, err := genCmd.CombinedOutput(); err != nil {
-		genCmd = execCommand("mkisofs", "-output", isoPath, "-volid", "config-2", "-joliet", "-rock",
-			filepath.Join(tmpDir, userDataFileName), filepath.Join(tmpDir, metaDataFileName))
+		genCmd = execCommand("mkisofs", "-output", isoPath, "-volid", "cidata", "-l", "-R", "-J", tmpDir)
 		if _, err2 := genCmd.CombinedOutput(); err2 != nil {
 			return fmt.Errorf("failed to generate iso (genisoimage/mkisofs): %w", err2)
 		}
@@ -877,32 +920,6 @@ func (a *LibvirtAdapter) configureIptables(name, ip, containerPort string, hPort
 			a.logger.Error("failed to set up iptables rule", "command", cmd.String(), "error", err)
 		}
 	}
-}
-
-func (a *LibvirtAdapter) prepareRootVolume(ctx context.Context, name string) (string, libvirt.StorageVol, error) {
-	// We assume 'imageName' is a backing volume in the default pool.
-	pool, err := a.client.StoragePoolLookupByName(ctx, defaultPoolName)
-	if err != nil {
-		return "", libvirt.StorageVol{}, fmt.Errorf("default pool not found: %w", err)
-	}
-
-	// Create root disk for the VM
-	// For simplicity, we just create an empty 10GB qcows if image not found, or clone if we knew how
-	volXML := generateVolumeXML(name+"-root", 10)
-
-	vol, err := a.client.StorageVolCreateXML(ctx, pool, volXML, 0)
-	if err != nil {
-		return "", libvirt.StorageVol{}, fmt.Errorf("failed to create root volume: %w", err)
-	}
-
-	// Get volume path from libvirt
-	diskPath, err := a.client.StorageVolGetPath(ctx, vol)
-	if err != nil {
-		_ = a.client.StorageVolDelete(ctx, vol, 0)
-		return "", libvirt.StorageVol{}, fmt.Errorf(errGetVolumePath, err)
-	}
-
-	return diskPath, vol, nil
 }
 
 func (a *LibvirtAdapter) parseAndValidatePort(p string) (int, int, error) {

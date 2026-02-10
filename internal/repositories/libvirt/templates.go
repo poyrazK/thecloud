@@ -6,15 +6,24 @@ import (
 	"strings"
 )
 
-func generateVolumeXML(name string, sizeGB int) string {
+func generateVolumeXML(name string, sizeGB int, backingStorePath string) string {
+	backingXML := ""
+	if backingStorePath != "" {
+		backingXML = fmt.Sprintf(`
+  <backingStore>
+    <path>%s</path>
+    <format type='qcow2'/>
+  </backingStore>`, backingStorePath)
+	}
+
 	return fmt.Sprintf(`
 <volume>
   <name>%s</name>
   <capacity unit="G">%d</capacity>
   <target>
     <format type='qcow2'/>
-  </target>
-</volume>`, name, sizeGB)
+  </target>%s
+</volume>`, name, sizeGB, backingXML)
 }
 
 func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu int, additionalDisks []string) string {
@@ -24,13 +33,13 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
 	// Convert MB to KB for libvirt
 	memoryKB := memoryMB * 1024
 
-	isoXML := ""
+	var isoXML string
 	if isoPath != "" {
 		isoXML = fmt.Sprintf(`
     <disk type='file' device='cdrom'>
       <driver name='qemu' type='raw'/>
       <source file='%s'/>
-      <target dev='sda' bus='sata'/>
+      <target dev='hda' bus='ide'/>
       <readonly/>
     </disk>`, isoPath)
 	}
@@ -62,9 +71,13 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
   <memory unit='KiB'>%d</memory>
   <vcpu placement='static'>%d</vcpu>
   <os>
-    <type arch='x86_64' machine='pc-q35-4.2'>hvm</type>
+    <type arch='x86_64' machine='pc'>hvm</type>
     <boot dev='hd'/>
   </os>
+  <features>
+    <acpi/>
+    <apic/>
+  </features>
   <devices>
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
@@ -84,6 +97,9 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
     <console type='pty'>
       <target type='serial' port='0'/>
     </console>
+    <rng model='virtio'>
+      <backend model='random'>/dev/urandom</backend>
+    </rng>
   </devices>
 </domain>`, name, memoryKB, vcpu, diskPath, isoXML, additionalDisksXML, networkID)
 }
