@@ -79,6 +79,7 @@ type Instance struct {
 	DiskLimit    int64             `json:"disk_limit,omitempty"`
 	Metadata     map[string]string `json:"metadata,omitempty"`
 	Labels       map[string]string `json:"labels,omitempty"`
+	SSHKeyID     *uuid.UUID        `json:"ssh_key_id,omitempty"`
 	Version      int               `json:"version"` // Optimistic locking
 	CreatedAt    time.Time         `json:"created_at"`
 	UpdatedAt    time.Time         `json:"updated_at"`

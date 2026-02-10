@@ -29,15 +29,15 @@ func (r *InstanceRepository) Create(ctx context.Context, inst *domain.Instance) 
 		INSERT INTO instances (
 			id, user_id, tenant_id, name, image, container_id, status, ports, vpc_id, subnet_id, 
 			private_ip, ovs_port, instance_type, volume_binds, env, cmd, cpu_limit, memory_limit, disk_limit,
-			metadata, labels,
+			metadata, labels, ssh_key_id,
 			version, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULLIF($11, '')::inet, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULLIF($11, '')::inet, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
 	`
 	_, err := r.db.Exec(ctx, query,
 		inst.ID, inst.UserID, inst.TenantID, inst.Name, inst.Image, inst.ContainerID, string(inst.Status), inst.Ports, inst.VpcID, inst.SubnetID,
 		inst.PrivateIP, inst.OvsPort, inst.InstanceType, inst.VolumeBinds, inst.Env, inst.Cmd, inst.CPULimit, inst.MemoryLimit, inst.DiskLimit,
-		inst.Metadata, inst.Labels,
+		inst.Metadata, inst.Labels, inst.SSHKeyID,
 		inst.Version, inst.CreatedAt, inst.UpdatedAt,
 	)
 	if err != nil {
@@ -52,7 +52,7 @@ func (r *InstanceRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 	query := `
 		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), 
 		       volume_binds, env, cmd, cpu_limit, memory_limit, disk_limit,
-		       COALESCE(metadata, '{}'::jsonb), COALESCE(labels, '{}'::jsonb),
+		       COALESCE(metadata, '{}'::jsonb), COALESCE(labels, '{}'::jsonb), ssh_key_id,
 		       version, created_at, updated_at
 		FROM instances
 		WHERE id = $1 AND tenant_id = $2
@@ -66,7 +66,7 @@ func (r *InstanceRepository) scanInstance(row pgx.Row) (*domain.Instance, error)
 	err := row.Scan(
 		&inst.ID, &inst.UserID, &inst.TenantID, &inst.Name, &inst.Image, &inst.ContainerID, &status, &inst.Ports, &inst.VpcID, &inst.SubnetID, &inst.PrivateIP, &inst.OvsPort, &inst.InstanceType,
 		&inst.VolumeBinds, &inst.Env, &inst.Cmd, &inst.CPULimit, &inst.MemoryLimit, &inst.DiskLimit,
-		&inst.Metadata, &inst.Labels,
+		&inst.Metadata, &inst.Labels, &inst.SSHKeyID,
 		&inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
 	)
 	if err != nil {
@@ -85,7 +85,7 @@ func (r *InstanceRepository) GetByName(ctx context.Context, name string) (*domai
 	query := `
 		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), 
 		       volume_binds, env, cmd, cpu_limit, memory_limit, disk_limit,
-		       COALESCE(metadata, '{}'::jsonb), COALESCE(labels, '{}'::jsonb),
+		       COALESCE(metadata, '{}'::jsonb), COALESCE(labels, '{}'::jsonb), ssh_key_id,
 		       version, created_at, updated_at
 		FROM instances
 		WHERE name = $1 AND tenant_id = $2
@@ -99,7 +99,7 @@ func (r *InstanceRepository) List(ctx context.Context) ([]*domain.Instance, erro
 	query := `
 		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), 
 		       volume_binds, env, cmd, cpu_limit, memory_limit, disk_limit,
-		       COALESCE(metadata, '{}'::jsonb), COALESCE(labels, '{}'::jsonb),
+		       COALESCE(metadata, '{}'::jsonb), COALESCE(labels, '{}'::jsonb), ssh_key_id,
 		       version, created_at, updated_at
 		FROM instances
 		WHERE tenant_id = $1
@@ -116,7 +116,7 @@ func (r *InstanceRepository) ListAll(ctx context.Context) ([]*domain.Instance, e
 	query := `
 		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), 
 		       volume_binds, env, cmd, cpu_limit, memory_limit, disk_limit,
-		       COALESCE(metadata, '{}'::jsonb), COALESCE(labels, '{}'::jsonb),
+		       COALESCE(metadata, '{}'::jsonb), COALESCE(labels, '{}'::jsonb), ssh_key_id,
 		       version, created_at, updated_at
 		FROM instances
 		ORDER BY created_at DESC
@@ -141,7 +141,7 @@ func (r *InstanceRepository) Update(ctx context.Context, inst *domain.Instance) 
 	now := time.Now()
 	cmd, err := r.db.Exec(ctx, query, inst.Name, string(inst.Status), now, inst.ContainerID, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.InstanceType,
 		inst.VolumeBinds, inst.Env, inst.Cmd, inst.CPULimit, inst.MemoryLimit, inst.DiskLimit,
-		inst.Metadata, inst.Labels,
+		inst.Metadata, inst.Labels, inst.SSHKeyID,
 		inst.ID, inst.Version, inst.TenantID)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to update instance", err)
@@ -162,7 +162,7 @@ func (r *InstanceRepository) ListBySubnet(ctx context.Context, subnetID uuid.UUI
 	query := `
 		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), 
 		       volume_binds, env, cmd, cpu_limit, memory_limit, disk_limit,
-		       COALESCE(metadata, '{}'::jsonb), COALESCE(labels, '{}'::jsonb),
+		       COALESCE(metadata, '{}'::jsonb), COALESCE(labels, '{}'::jsonb), ssh_key_id,
 		       version, created_at, updated_at
 		FROM instances
 		WHERE subnet_id = $1 AND tenant_id = $2
