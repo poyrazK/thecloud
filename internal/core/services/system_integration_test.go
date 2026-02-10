@@ -88,6 +88,12 @@ func TestSystem_ComputeLifecycle_Full(t *testing.T) {
 	taskQueue := &SyncTaskQueue{}
 	network := noop.NewNoopNetworkAdapter(logger)
 
+	tenantRepo := postgres.NewTenantRepo(db)
+	userRepo := postgres.NewUserRepo(db)
+	tenantSvc := services.NewTenantService(tenantRepo, userRepo, logger)
+	sshKeyRepo := postgres.NewSSHKeyRepo(db)
+	sshKeySvc := services.NewSSHKeyService(sshKeyRepo)
+
 	svc := services.NewInstanceService(services.InstanceServiceParams{
 		Repo:             repo,
 		VpcRepo:          vpcRepo,
@@ -99,6 +105,8 @@ func TestSystem_ComputeLifecycle_Full(t *testing.T) {
 		EventSvc:         eventSvc,
 		AuditSvc:         auditSvc,
 		TaskQueue:        taskQueue,
+		TenantSvc:        tenantSvc,
+		SSHKeySvc:        sshKeySvc,
 		Logger:           logger,
 	})
 
@@ -153,7 +161,10 @@ runcmd:
 	// In a real system, a worker would pick this up. Here we call it directly.
 	t.Log("Step 8: Provisioning Instance...")
 	// Provision signature: func (s *InstanceService) Provision(ctx context.Context, instanceID uuid.UUID, volumes []domain.VolumeAttachment, userData string) error
-	err = svc.Provision(ctx, inst.ID, nil, userData)
+	err = svc.Provision(ctx, domain.ProvisionJob{
+		InstanceID: inst.ID,
+		UserData:   userData,
+	})
 	require.NoError(t, err)
 
 	// 9. VERIFY RUNNING

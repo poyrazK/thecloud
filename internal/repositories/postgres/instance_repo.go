@@ -51,7 +51,7 @@ func (r *InstanceRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
 		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), 
-		       volume_binds, env, cmd, cpu_limit, memory_limit, disk_limit,
+		       volume_binds, env, cmd, COALESCE(cpu_limit, 0), COALESCE(memory_limit, 0), COALESCE(disk_limit, 0),
 		       COALESCE(metadata, '{}'::jsonb), COALESCE(labels, '{}'::jsonb), ssh_key_id,
 		       version, created_at, updated_at
 		FROM instances
@@ -84,7 +84,7 @@ func (r *InstanceRepository) GetByName(ctx context.Context, name string) (*domai
 	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
 		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), 
-		       volume_binds, env, cmd, cpu_limit, memory_limit, disk_limit,
+		       volume_binds, env, cmd, COALESCE(cpu_limit, 0), COALESCE(memory_limit, 0), COALESCE(disk_limit, 0),
 		       COALESCE(metadata, '{}'::jsonb), COALESCE(labels, '{}'::jsonb), ssh_key_id,
 		       version, created_at, updated_at
 		FROM instances
@@ -98,7 +98,7 @@ func (r *InstanceRepository) List(ctx context.Context) ([]*domain.Instance, erro
 	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
 		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), 
-		       volume_binds, env, cmd, cpu_limit, memory_limit, disk_limit,
+		       volume_binds, env, cmd, COALESCE(cpu_limit, 0), COALESCE(memory_limit, 0), COALESCE(disk_limit, 0),
 		       COALESCE(metadata, '{}'::jsonb), COALESCE(labels, '{}'::jsonb), ssh_key_id,
 		       version, created_at, updated_at
 		FROM instances
@@ -115,7 +115,7 @@ func (r *InstanceRepository) List(ctx context.Context) ([]*domain.Instance, erro
 func (r *InstanceRepository) ListAll(ctx context.Context) ([]*domain.Instance, error) {
 	query := `
 		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), 
-		       volume_binds, env, cmd, cpu_limit, memory_limit, disk_limit,
+		       volume_binds, env, cmd, COALESCE(cpu_limit, 0), COALESCE(memory_limit, 0), COALESCE(disk_limit, 0),
 		       COALESCE(metadata, '{}'::jsonb), COALESCE(labels, '{}'::jsonb), ssh_key_id,
 		       version, created_at, updated_at
 		FROM instances
@@ -135,8 +135,8 @@ func (r *InstanceRepository) Update(ctx context.Context, inst *domain.Instance) 
 		UPDATE instances
 		SET name = $1, status = $2, version = version + 1, updated_at = $3, container_id = $4, ports = $5, vpc_id = $6, subnet_id = $7, private_ip = NULLIF($8, '')::inet, ovs_port = $9, instance_type = $10,
 		    volume_binds = $11, env = $12, cmd = $13, cpu_limit = $14, memory_limit = $15, disk_limit = $16,
-		    metadata = $17, labels = $18
-		WHERE id = $19 AND version = $20 AND tenant_id = $21
+		    metadata = $17, labels = $18, ssh_key_id = $19
+		WHERE id = $20 AND version = $21 AND tenant_id = $22
 	`
 	now := time.Now()
 	cmd, err := r.db.Exec(ctx, query, inst.Name, string(inst.Status), now, inst.ContainerID, inst.Ports, inst.VpcID, inst.SubnetID, inst.PrivateIP, inst.OvsPort, inst.InstanceType,
@@ -161,7 +161,7 @@ func (r *InstanceRepository) ListBySubnet(ctx context.Context, subnetID uuid.UUI
 	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
 		SELECT id, user_id, tenant_id, name, image, COALESCE(container_id, ''), status, COALESCE(ports, ''), vpc_id, subnet_id, COALESCE(private_ip::text, ''), COALESCE(ovs_port, ''), COALESCE(instance_type, ''), 
-		       volume_binds, env, cmd, cpu_limit, memory_limit, disk_limit,
+		       volume_binds, env, cmd, COALESCE(cpu_limit, 0), COALESCE(memory_limit, 0), COALESCE(disk_limit, 0),
 		       COALESCE(metadata, '{}'::jsonb), COALESCE(labels, '{}'::jsonb), ssh_key_id,
 		       version, created_at, updated_at
 		FROM instances

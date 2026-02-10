@@ -87,10 +87,12 @@ func TestSSHKeyHandlerCreate(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 
-	var response domain.SSHKey
+	var response struct {
+		Data domain.SSHKey `json:"data"`
+	}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, expectedKey.Name, response.Name)
+	assert.Equal(t, expectedKey.Name, response.Data.Name)
 }
 
 func TestSSHKeyHandlerList(t *testing.T) {
@@ -118,10 +120,12 @@ func TestSSHKeyHandlerList(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var response []*domain.SSHKey
+	var response struct {
+		Data []*domain.SSHKey `json:"data"`
+	}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Len(t, response, 2)
+	assert.Len(t, response.Data, 2)
 }
 
 func TestSSHKeyHandlerGet(t *testing.T) {
@@ -144,10 +148,12 @@ func TestSSHKeyHandlerGet(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var response domain.SSHKey
+	var response struct {
+		Data domain.SSHKey `json:"data"`
+	}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
-	assert.Equal(t, expectedKey.ID, response.ID)
+	assert.Equal(t, expectedKey.ID, response.Data.ID)
 }
 
 func TestSSHKeyHandlerDelete(t *testing.T) {

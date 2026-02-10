@@ -97,6 +97,7 @@ func cleanDB(t *testing.T, db *pgxpool.Pool) {
 		"subnets",
 		"vpcs",
 		"volumes",
+		"ssh_keys",
 		"load_balancers",
 		"lb_targets",
 		"audit_logs",
