@@ -236,6 +236,7 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		instanceGroup.GET("/:id/logs", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.GetLogs)
 		instanceGroup.GET("/:id/stats", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.GetStats)
 		instanceGroup.GET("/:id/console", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.GetConsole)
+		instanceGroup.PUT("/:id/metadata", httputil.Permission(svcs.RBAC, domain.PermissionInstanceUpdate), handlers.Instance.UpdateMetadata)
 		instanceGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionInstanceTerminate), handlers.Instance.Terminate)
 	}
 

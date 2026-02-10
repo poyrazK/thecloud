@@ -157,6 +157,7 @@ type Workers struct {
 	Lifecycle         *workers.LifecycleWorker
 	ReplicaMonitor    *workers.ReplicaMonitor
 	ClusterReconciler *workers.ClusterReconciler
+	Healing           *workers.HealingWorker
 }
 
 // ServiceConfig holds the dependencies required to initialize services
@@ -257,6 +258,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	accountingWorker := workers.NewAccountingWorker(accountingSvc, c.Logger)
 	imageSvc := services.NewImageService(c.Repos.Image, fileStore, c.Logger)
 	provisionWorker := workers.NewProvisionWorker(instSvcConcrete, c.Repos.TaskQueue, c.Logger)
+	healingWorker := workers.NewHealingWorker(instSvcConcrete, c.Repos.Instance, c.Logger)
 
 	clusterSvc, clusterProvisioner, err := initClusterServices(c, vpcSvc, instSvcConcrete, secretSvc, storageSvc, lbSvc, sgSvc)
 	if err != nil {
@@ -289,6 +291,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		Lifecycle:         workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger),
 		ReplicaMonitor:    replicaMonitor,
 		ClusterReconciler: workers.NewClusterReconciler(c.Repos.Cluster, clusterProvisioner, c.Logger),
+		Healing:           healingWorker,
 	}
 
 	return svcs, workersCollection, nil
