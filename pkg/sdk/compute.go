@@ -21,6 +21,7 @@ type Instance struct {
 	Version      int               `json:"version"`
 	Metadata     map[string]string `json:"metadata,omitempty"`
 	Labels       map[string]string `json:"labels,omitempty"`
+	SSHKeyID     string            `json:"ssh_key_id,omitempty"`
 	CreatedAt    time.Time         `json:"created_at"`
 	UpdatedAt    time.Time         `json:"updated_at"`
 }

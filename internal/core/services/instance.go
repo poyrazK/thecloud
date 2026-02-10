@@ -169,6 +169,7 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, params ports.Launc
 		DiskLimit:    params.DiskLimit,
 		Metadata:     params.Metadata,
 		Labels:       params.Labels,
+		SSHKeyID:     params.SSHKeyID,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
