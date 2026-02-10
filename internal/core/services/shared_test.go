@@ -240,6 +240,10 @@ func (m *MockInstanceService) Exec(ctx context.Context, idOrName string, cmd []s
 	args := m.Called(ctx, idOrName, cmd)
 	return args.String(0), args.Error(1)
 }
+func (m *MockInstanceService) UpdateInstanceMetadata(ctx context.Context, id uuid.UUID, metadata, labels map[string]string) error {
+	args := m.Called(ctx, id, metadata, labels)
+	return args.Error(0)
+}
 
 // MockInstanceTypeRepo
 type MockInstanceTypeRepo struct{ mock.Mock }
