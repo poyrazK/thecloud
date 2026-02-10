@@ -52,6 +52,8 @@ type LaunchRequest struct {
 	MemoryLimit  int64                     `json:"memory_limit"`
 	DiskLimit    int64                     `json:"disk_limit"`
 	SSHKeyID     string                    `json:"ssh_key_id,omitempty"`
+	Metadata     map[string]string         `json:"metadata,omitempty"`
+	Labels       map[string]string         `json:"labels,omitempty"`
 }
 
 // validateLaunchRequest performs custom validation beyond struct tags
@@ -157,6 +159,8 @@ func (h *InstanceHandler) Launch(c *gin.Context) {
 
 		DiskLimit: req.DiskLimit,
 		SSHKeyID:  sshKeyID,
+		Metadata:  req.Metadata,
+		Labels:    req.Labels,
 	})
 	if err != nil {
 		httputil.Error(c, err)
@@ -362,4 +366,41 @@ func (h *InstanceHandler) GetConsole(c *gin.Context) {
 		return
 	}
 	httputil.Success(c, http.StatusOK, gin.H{"url": url})
+}
+
+// UpdateMetadata updates instance metadata
+// @Summary Update instance metadata
+// @Description Updates the metadata and labels for a compute instance
+// @Tags instances
+// @Accept json
+// @Produce json
+// @Security APIKeyAuth
+// @Param id path string true "Instance ID"
+// @Param request body map[string]interface{} true "Metadata and Labels"
+// @Success 200 {object} httputil.Response
+// @Failure 400 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
+// @Router /instances/{id}/metadata [put]
+func (h *InstanceHandler) UpdateMetadata(c *gin.Context) {
+	id, ok := parseUUID(c, "id")
+	if !ok {
+		return
+	}
+
+	var req struct {
+		Metadata map[string]string `json:"metadata"`
+		Labels   map[string]string `json:"labels"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid request body"))
+		return
+	}
+
+	if err := h.svc.UpdateInstanceMetadata(c.Request.Context(), *id, req.Metadata, req.Labels); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, gin.H{"message": "metadata updated"})
 }
