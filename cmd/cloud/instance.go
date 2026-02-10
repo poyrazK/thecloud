@@ -98,6 +98,7 @@ var launchCmd = &cobra.Command{
 		vpc, _ := cmd.Flags().GetString("vpc")
 		subnetID, _ := cmd.Flags().GetString("subnet")
 		volumeStrs, _ := cmd.Flags().GetStringSlice("volume")
+		sshKeyID, _ := cmd.Flags().GetString("ssh-key")
 
 		// Parse volume strings like "vol-name:/path"
 		var volumes []sdk.VolumeAttachmentInput
@@ -110,9 +111,26 @@ var launchCmd = &cobra.Command{
 				})
 			}
 		}
+		metaStrs, _ := cmd.Flags().GetStringSlice("metadata")
+		metadata := make(map[string]string)
+		for _, s := range metaStrs {
+			parts := strings.SplitN(s, "=", 2)
+			if len(parts) == 2 {
+				metadata[parts[0]] = parts[1]
+			}
+		}
+
+		labelStrs, _ := cmd.Flags().GetStringSlice("label")
+		labels := make(map[string]string)
+		for _, s := range labelStrs {
+			parts := strings.SplitN(s, "=", 2)
+			if len(parts) == 2 {
+				labels[parts[0]] = parts[1]
+			}
+		}
 
 		client := getClient()
-		inst, err := client.LaunchInstance(name, image, ports, instanceType, vpc, subnetID, volumes)
+		inst, err := client.LaunchInstance(name, image, ports, instanceType, vpc, subnetID, volumes, metadata, labels, sshKeyID)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
@@ -169,6 +187,12 @@ var showCmd = &cobra.Command{
 			return
 		}
 
+		if outputJSON {
+			data, _ := json.MarshalIndent(inst, "", "  ")
+			fmt.Println(string(data))
+			return
+		}
+
 		fmt.Print("\nInstance Details\n")
 		fmt.Println(strings.Repeat("-", 40))
 		fmt.Printf(fmtDetailRow, "ID:", inst.ID)
@@ -179,6 +203,14 @@ var showCmd = &cobra.Command{
 		fmt.Printf(fmtDetailRow, "Created At:", inst.CreatedAt)
 		fmt.Printf(fmtDetailRow, "Version:", inst.Version)
 		fmt.Printf(fmtDetailRow, "Container ID:", inst.ContainerID)
+		if len(inst.Metadata) > 0 {
+			metaStr, _ := json.Marshal(inst.Metadata)
+			fmt.Printf(fmtDetailRow, "Metadata:", string(metaStr))
+		}
+		if len(inst.Labels) > 0 {
+			labelStr, _ := json.Marshal(inst.Labels)
+			fmt.Printf(fmtDetailRow, "Labels:", string(labelStr))
+		}
 		fmt.Println(strings.Repeat("-", 40))
 		fmt.Println("")
 	},
@@ -228,6 +260,40 @@ var statsCmd = &cobra.Command{
 	},
 }
 
+var metadataCmd = &cobra.Command{
+	Use:   "metadata [id/name]",
+	Short: "Update instance metadata or labels",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		id := args[0]
+		metaStrs, _ := cmd.Flags().GetStringSlice("metadata")
+		labelStrs, _ := cmd.Flags().GetStringSlice("label")
+
+		metadata := make(map[string]string)
+		for _, s := range metaStrs {
+			parts := strings.SplitN(s, "=", 2)
+			if len(parts) == 2 {
+				metadata[parts[0]] = parts[1]
+			}
+		}
+
+		labels := make(map[string]string)
+		for _, s := range labelStrs {
+			parts := strings.SplitN(s, "=", 2)
+			if len(parts) == 2 {
+				labels[parts[0]] = parts[1]
+			}
+		}
+
+		client := getClient()
+		if err := client.UpdateInstanceMetadata(id, metadata, labels); err != nil {
+			fmt.Printf(fmtErrorLog, err)
+			return
+		}
+		fmt.Println("[SUCCESS] Metadata updated.")
+	},
+}
+
 func init() {
 	instanceCmd.AddCommand(listCmd)
 	instanceCmd.AddCommand(launchCmd)
@@ -236,6 +302,7 @@ func init() {
 	instanceCmd.AddCommand(showCmd)
 	instanceCmd.AddCommand(rmCmd)
 	instanceCmd.AddCommand(statsCmd)
+	instanceCmd.AddCommand(metadataCmd)
 
 	launchCmd.Flags().StringP("name", "n", "", "Name of the instance (required)")
 	launchCmd.Flags().StringP("image", "i", "alpine", "Image to use")
@@ -244,7 +311,13 @@ func init() {
 	launchCmd.Flags().StringP("vpc", "v", "", "VPC ID or Name to attach to")
 	launchCmd.Flags().StringP("subnet", "s", "", "Subnet ID or Name to attach to")
 	launchCmd.Flags().StringSliceP("volume", "V", nil, "Volume attachment (vol-name:/path)")
+	launchCmd.Flags().StringSliceP("metadata", "m", nil, "Metadata (key=value)")
+	launchCmd.Flags().StringSliceP("label", "l", nil, "Labels (key=value)")
+	launchCmd.Flags().String("ssh-key", "", "SSH Key ID to inject")
 	_ = launchCmd.MarkFlagRequired("name")
+
+	metadataCmd.Flags().StringSliceP("metadata", "m", nil, "Metadata (key=value)")
+	metadataCmd.Flags().StringSliceP("label", "l", nil, "Labels (key=value)")
 
 	rootCmd.PersistentFlags().BoolVarP(&outputJSON, "json", "j", false, "Output in JSON format")
 	rootCmd.PersistentFlags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")

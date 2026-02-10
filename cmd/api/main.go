@@ -312,4 +312,8 @@ func runWorkers(ctx context.Context, wg *sync.WaitGroup, workers *setup.Workers)
 		wg.Add(1)
 		go workers.ClusterReconciler.Run(ctx, wg)
 	}
+	if workers.Healing != nil {
+		wg.Add(1)
+		go workers.Healing.Run(ctx, wg)
+	}
 }
