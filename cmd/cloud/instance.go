@@ -8,6 +8,9 @@ import (
 
 	"strings"
 
+	"os/exec"
+	"syscall"
+
 	"github.com/olekukonko/tablewriter"
 	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/spf13/cobra"
@@ -294,6 +297,68 @@ var metadataCmd = &cobra.Command{
 	},
 }
 
+var sshCmd = &cobra.Command{
+	Use:   "ssh [id/name]",
+	Short: "SSH into an instance",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		id := args[0]
+		keyPath, _ := cmd.Flags().GetString("i")
+		user, _ := cmd.Flags().GetString("user")
+
+		client := getClient()
+		inst, err := client.GetInstance(id)
+		if err != nil {
+			fmt.Printf(fmtErrorLog, err)
+			return
+		}
+
+		if inst.Status != "RUNNING" {
+			fmt.Printf("Error: Instance is in %s state, must be RUNNING to SSH\n", inst.Status)
+			return
+		}
+
+		// Find SSH port (22)
+		var hostPort string
+		pList := strings.Split(inst.Ports, ",")
+		for _, mapping := range pList {
+			parts := strings.Split(mapping, ":")
+			if len(parts) == 2 && parts[1] == "22" {
+				hostPort = parts[0]
+				break
+			}
+		}
+
+		if hostPort == "" {
+			fmt.Println("Error: No port mapping for SSH (22) found. Did you launch with --port 22?")
+			return
+		}
+
+		sshArgs := []string{"-p", hostPort, "-o", "StrictHostKeyChecking=no"}
+		if keyPath != "" {
+			sshArgs = append(sshArgs, "-i", keyPath)
+		}
+		sshArgs = append(sshArgs, fmt.Sprintf("%s@localhost", user))
+
+		fmt.Printf("[INFO] Connecting to %s (localhost:%s)...\n", inst.Name, hostPort)
+
+		binary, err := exec.LookPath("ssh")
+		if err != nil {
+			fmt.Printf("Error: ssh client not found in PATH: %v\n", err)
+			return
+		}
+
+		// Use syscall.Exec to replace CLI process with ssh process
+		// This handles interactive terminal correctly.
+		env := os.Environ()
+		allArgs := append([]string{"ssh"}, sshArgs...)
+		err = syscall.Exec(binary, allArgs, env)
+		if err != nil {
+			fmt.Printf("Error executing ssh: %v\n", err)
+		}
+	},
+}
+
 func init() {
 	instanceCmd.AddCommand(listCmd)
 	instanceCmd.AddCommand(launchCmd)
@@ -303,6 +368,7 @@ func init() {
 	instanceCmd.AddCommand(rmCmd)
 	instanceCmd.AddCommand(statsCmd)
 	instanceCmd.AddCommand(metadataCmd)
+	instanceCmd.AddCommand(sshCmd)
 
 	launchCmd.Flags().StringP("name", "n", "", "Name of the instance (required)")
 	launchCmd.Flags().StringP("image", "i", "alpine", "Image to use")
@@ -318,6 +384,9 @@ func init() {
 
 	metadataCmd.Flags().StringSliceP("metadata", "m", nil, "Metadata (key=value)")
 	metadataCmd.Flags().StringSliceP("label", "l", nil, "Labels (key=value)")
+
+	sshCmd.Flags().StringP("i", "i", "", "Identity file (private key path)")
+	sshCmd.Flags().StringP("user", "u", "root", "User to log in as")
 
 	rootCmd.PersistentFlags().BoolVarP(&outputJSON, "json", "j", false, "Output in JSON format")
 	rootCmd.PersistentFlags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
