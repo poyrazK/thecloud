@@ -19,6 +19,8 @@ type ProvisionJob struct {
 	CPULimit    int64              `json:"cpu_limit,omitempty"`
 	MemoryLimit int64              `json:"memory_limit,omitempty"`
 	DiskLimit   int64              `json:"disk_limit,omitempty"`
+	Metadata    map[string]string  `json:"metadata,omitempty"`
+	Labels      map[string]string  `json:"labels,omitempty"`
 }
 
 // ClusterJobType describes the kind of cluster lifecycle operation.

@@ -167,6 +167,8 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, params ports.Launc
 		CPULimit:     params.CPULimit,
 		MemoryLimit:  params.MemoryLimit,
 		DiskLimit:    params.DiskLimit,
+		Metadata:     params.Metadata,
+		Labels:       params.Labels,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -190,6 +192,8 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, params ports.Launc
 		CPULimit:    params.CPULimit,
 		MemoryLimit: params.MemoryLimit,
 		DiskLimit:   params.DiskLimit,
+		Metadata:    params.Metadata,
+		Labels:      params.Labels,
 		UserData:    userData,
 	}
 
@@ -991,4 +995,40 @@ func (s *InstanceService) Exec(ctx context.Context, idOrName string, cmd []strin
 	}
 
 	return output, nil
+}
+
+// UpdateInstanceMetadata updates the metadata and labels of an instance.
+func (s *InstanceService) UpdateInstanceMetadata(ctx context.Context, id uuid.UUID, metadata, labels map[string]string) error {
+	inst, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if metadata != nil {
+		if inst.Metadata == nil {
+			inst.Metadata = make(map[string]string)
+		}
+		for k, v := range metadata {
+			if v == "" {
+				delete(inst.Metadata, k)
+			} else {
+				inst.Metadata[k] = v
+			}
+		}
+	}
+
+	if labels != nil {
+		if inst.Labels == nil {
+			inst.Labels = make(map[string]string)
+		}
+		for k, v := range labels {
+			if v == "" {
+				delete(inst.Labels, k)
+			} else {
+				inst.Labels[k] = v
+			}
+		}
+	}
+
+	return s.repo.Update(ctx, inst)
 }
