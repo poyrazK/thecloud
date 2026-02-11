@@ -228,6 +228,40 @@ definitions:
       summary:
         $ref: '#/definitions/domain.ResourceSummary'
     type: object
+  domain.ElasticIP:
+    properties:
+      arn:
+        description: arn:thecloud:vpc:{region}:{user}:eip/{id}
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      instance_id:
+        type: string
+      public_ip:
+        type: string
+      status:
+        $ref: '#/definitions/domain.ElasticIPStatus'
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+      vpc_id:
+        type: string
+    type: object
+  domain.ElasticIPStatus:
+    enum:
+    - allocated
+    - associated
+    - released
+    type: string
+    x-enum-varnames:
+    - EIPStatusAllocated
+    - EIPStatusAssociated
+    - EIPStatusReleased
   domain.Event:
     properties:
       action:
@@ -680,6 +714,10 @@ definitions:
     - vpc:delete
     - vpc:read
     - vpc:update
+    - eip:allocate
+    - eip:release
+    - eip:read
+    - eip:associate
     - volume:create
     - volume:delete
     - volume:read
@@ -749,6 +787,10 @@ definitions:
     - PermissionVpcDelete
     - PermissionVpcRead
     - PermissionVpcUpdate
+    - PermissionEipAllocate
+    - PermissionEipRelease
+    - PermissionEipRead
+    - PermissionEipAssociate
     - PermissionVolumeCreate
     - PermissionVolumeDelete
     - PermissionVolumeRead
@@ -2835,6 +2877,121 @@ paths:
       summary: Create a new DNS record
       tags:
       - dns
+  /elastic-ips:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.ElasticIP'
+            type: array
+      security:
+      - APIKeyAuth: []
+      summary: List Elastic IPs
+      tags:
+      - elastic-ips
+    post:
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.ElasticIP'
+      security:
+      - APIKeyAuth: []
+      summary: Allocate an Elastic IP
+      tags:
+      - elastic-ips
+  /elastic-ips/{id}:
+    delete:
+      parameters:
+      - description: EIP ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Release Elastic IP
+      tags:
+      - elastic-ips
+    get:
+      parameters:
+      - description: EIP ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.ElasticIP'
+      security:
+      - APIKeyAuth: []
+      summary: Get Elastic IP
+      tags:
+      - elastic-ips
+  /elastic-ips/{id}/associate:
+    post:
+      parameters:
+      - description: EIP ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Association Request
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            instance_id:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.ElasticIP'
+      security:
+      - APIKeyAuth: []
+      summary: Associate Elastic IP
+      tags:
+      - elastic-ips
+  /elastic-ips/{id}/disassociate:
+    post:
+      parameters:
+      - description: EIP ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.ElasticIP'
+      security:
+      - APIKeyAuth: []
+      summary: Disassociate Elastic IP
+      tags:
+      - elastic-ips
   /gateway/routes:
     get:
       description: Gets a list of all registered API gateway routes
