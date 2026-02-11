@@ -26,13 +26,14 @@ type Config struct {
 	RateLimitAuth        string
 	StorageBackend       string
 	// StorageSecret is the secret key used for signing presigned URLs
-	StorageSecret      string
-	LvmVgName          string
-	ObjectStorageMode  string
-	ObjectStorageNodes string
-	PowerDNSAPIURL     string
-	PowerDNSAPIKey     string
-	PowerDNSServerID   string
+	StorageSecret        string
+	LvmVgName            string
+	ObjectStorageMode    string
+	ObjectStorageNodes   string
+	PowerDNSAPIURL       string
+	PowerDNSAPIKey       string
+	PowerDNSServerID     string
+	DockerDefaultNetwork string
 }
 
 // NewConfig loads configuration from the environment with defaults.
@@ -60,10 +61,11 @@ func NewConfig() (*Config, error) {
 		LvmVgName:            getEnv("LVM_VG_NAME", "thecloud-vg"),
 		ObjectStorageMode:    getEnv("OBJECT_STORAGE_MODE", "local"),
 
-		ObjectStorageNodes: getEnv("OBJECT_STORAGE_NODES", ""),
-		PowerDNSAPIURL:     getEnv("POWERDNS_API_URL", "http://localhost:8081"),
-		PowerDNSAPIKey:     getEnv("POWERDNS_API_KEY", "thecloud-dns-secret"),
-		PowerDNSServerID:   getEnv("POWERDNS_SERVER_ID", "localhost"),
+		ObjectStorageNodes:   getEnv("OBJECT_STORAGE_NODES", ""),
+		PowerDNSAPIURL:       getEnv("POWERDNS_API_URL", "http://localhost:8081"),
+		PowerDNSAPIKey:       getEnv("POWERDNS_API_KEY", "thecloud-dns-secret"),
+		PowerDNSServerID:     getEnv("POWERDNS_SERVER_ID", "localhost"),
+		DockerDefaultNetwork: getEnv("DOCKER_DEFAULT_NETWORK", "cloud-network"),
 	}, nil
 }
 

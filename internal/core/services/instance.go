@@ -40,6 +40,7 @@ type InstanceService struct {
 	auditSvc         ports.AuditService
 	dnsSvc           ports.DNSService
 	taskQueue        ports.TaskQueue
+	dockerNetwork    string
 	logger           *slog.Logger
 }
 
@@ -57,6 +58,7 @@ type InstanceServiceParams struct {
 	AuditSvc         ports.AuditService
 	DNSSvc           ports.DNSService
 	TaskQueue        ports.TaskQueue // Optional
+	DockerNetwork    string          // Optional
 	Logger           *slog.Logger
 }
 
@@ -74,6 +76,7 @@ func NewInstanceService(params InstanceServiceParams) *InstanceService {
 		auditSvc:         params.AuditSvc,
 		dnsSvc:           params.DNSSvc,
 		taskQueue:        params.TaskQueue,
+		dockerNetwork:    params.DockerNetwork,
 		logger:           params.Logger,
 	}
 }
@@ -788,6 +791,9 @@ func (s *InstanceService) resolveNetworkConfig(ctx context.Context, vpcID, subne
 	// because 'br-vpc-xxx' OVS bridge doesn't exist as a Docker network.
 	if s.compute.Type() == "docker" {
 		networkID = "cloud-network"
+		if s.dockerNetwork != "" {
+			networkID = s.dockerNetwork
+		}
 
 		// If no subnet is configured, we let the backend assign an IP (dynamic).
 		// We return empty string here, and LaunchInstance should fetch the real IP later.

@@ -18,6 +18,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/docker"
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -77,10 +78,10 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 	compute, err := docker.NewDockerAdapter(slog.Default())
 	require.NoError(t, err)
 
-	// In integration tests, we frequently rely on a shared Docker network named 'cloud-network'.
+	// In integration tests, we frequently rely on a shared Docker network.
 	// We ensure it exists here so that Provisioning (which uses it as a fallback) succeeds.
 	if compute.Type() == "docker" {
-		_, _ = compute.CreateNetwork(ctx, "cloud-network")
+		_, _ = compute.CreateNetwork(ctx, testutil.TestDockerNetwork)
 		// Pre-pull test image to prevent flakes in CI environments with slow registries or restrictive daemons
 		_, _ = compute.LaunchInstanceWithOptions(ctx, coreports.CreateInstanceOptions{
 			Name:      "pre-pull-image",

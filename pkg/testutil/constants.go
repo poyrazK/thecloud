@@ -107,4 +107,6 @@ var (
 	TestRouteDNSRecords = "/dns/records"
 	// TestRouteFormat is the default template for specific resource routes.
 	TestRouteFormat = "%s%s/%s"
+	// TestDockerNetwork is the name of the Docker network used in tests.
+	TestDockerNetwork = getEnvVar("TEST_DOCKER_NETWORK", "cloud-network")
 )

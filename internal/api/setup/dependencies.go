@@ -205,7 +205,9 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	instSvcConcrete := services.NewInstanceService(services.InstanceServiceParams{
 		Repo: c.Repos.Instance, VpcRepo: c.Repos.Vpc, SubnetRepo: c.Repos.Subnet, VolumeRepo: c.Repos.Volume,
 		InstanceTypeRepo: c.Repos.InstanceType,
-		Compute:          c.Compute, Network: c.Network, EventSvc: eventSvc, AuditSvc: auditSvc, DNSSvc: dnsSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
+		Compute:          c.Compute, Network: c.Network, EventSvc: eventSvc, AuditSvc: auditSvc, DNSSvc: dnsSvc, TaskQueue: c.Repos.TaskQueue,
+		DockerNetwork: c.Config.DockerDefaultNetwork,
+		Logger:        c.Logger,
 	})
 	sgSvc := services.NewSecurityGroupService(c.Repos.SecurityGroup, c.Repos.Vpc, c.Network, auditSvc, c.Logger)
 
