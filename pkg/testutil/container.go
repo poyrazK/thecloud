@@ -36,7 +36,7 @@ func SetupPostgresContainer(t *testing.T) (*PostgresContainer, func()) {
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").
 				WithOccurrence(2).
-				WithStartupTimeout(10*time.Second)),
+				WithStartupTimeout(60*time.Second)),
 	)
 	if err != nil {
 		t.Fatalf("failed to start postgres container: %v", err)
