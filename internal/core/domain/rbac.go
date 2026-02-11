@@ -23,6 +23,12 @@ const (
 	PermissionVpcRead   Permission = "vpc:read"
 	PermissionVpcUpdate Permission = "vpc:update"
 
+	// Elastic IP Permissions
+	PermissionEipAllocate  Permission = "eip:allocate"
+	PermissionEipRelease   Permission = "eip:release"
+	PermissionEipRead      Permission = "eip:read"
+	PermissionEipAssociate Permission = "eip:associate"
+
 	// Storage Permissions
 	PermissionVolumeCreate Permission = "volume:create"
 	PermissionVolumeDelete Permission = "volume:delete"
