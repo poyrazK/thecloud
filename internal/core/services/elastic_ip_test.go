@@ -100,3 +100,33 @@ func TestElasticIPReleaseFailureAssociated(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "disassociate it first")
 }
+
+func TestElasticIPReleaseSuccess(t *testing.T) {
+	svc, repo, _, ctx := setupElasticIPServiceTest(t)
+	eip, _ := svc.AllocateIP(ctx)
+
+	err := svc.ReleaseIP(ctx, eip.ID)
+	assert.NoError(t, err)
+
+	_, err = repo.GetByID(ctx, eip.ID)
+	assert.Error(t, err)
+}
+
+func TestElasticIPListSuccess(t *testing.T) {
+	svc, _, _, ctx := setupElasticIPServiceTest(t)
+	_, _ = svc.AllocateIP(ctx)
+	_, _ = svc.AllocateIP(ctx)
+
+	eips, err := svc.ListElasticIPs(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, eips, 2)
+}
+
+func TestElasticIPGetSuccess(t *testing.T) {
+	svc, _, _, ctx := setupElasticIPServiceTest(t)
+	eip, _ := svc.AllocateIP(ctx)
+
+	fetched, err := svc.GetElasticIP(ctx, eip.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, eip.ID, fetched.ID)
+}
