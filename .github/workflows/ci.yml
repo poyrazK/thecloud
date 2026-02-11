@@ -317,7 +317,6 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:staging
-            ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:${{ github.ref_name }}
             ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -354,7 +353,6 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:latest
-            ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:${{ github.ref_name }}
             ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

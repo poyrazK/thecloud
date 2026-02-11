@@ -32,14 +32,14 @@ func TestChaos(t *testing.T) {
 
 		// 2. Kill Redis
 		t.Log("Killing Redis container...")
-		cmd := exec.Command("docker", "stop", "cloud-redis")
+		cmd := exec.Command("docker", "compose", "stop", "redis")
 		err := cmd.Run()
 		require.NoError(t, err, "Failed to stop Redis container")
 
 		// Ensure Redis is stopped
 		defer func() {
 			t.Log("Restarting Redis container...")
-			_ = exec.Command("docker", "start", "cloud-redis").Run()
+			_ = exec.Command("docker", "compose", "start", "redis").Run()
 			// Wait for Redis to be ready again
 			time.Sleep(2 * time.Second)
 		}()
@@ -85,7 +85,7 @@ func TestChaos(t *testing.T) {
 
 		// 2. Sudden Restart
 		t.Log("Restarting API container mid-operation...")
-		cmd := exec.Command("docker", "restart", "thecloud-api-1")
+		cmd := exec.Command("docker", "compose", "restart", "api")
 		err := cmd.Run()
 		require.NoError(t, err, "Failed to restart API container")
 

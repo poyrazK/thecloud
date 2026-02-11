@@ -35,8 +35,8 @@ jobs:
           # Start internal dependencies
           docker compose up -d postgres redis jaeger
           
-          # Wait for Postgres to be healthy using its container name
-          until docker exec cloud-db pg_isready -U cloud; do
+          # Wait for Postgres to be healthy
+          until docker compose exec -T postgres pg_isready -U cloud; do
             echo "Waiting for postgres..."
             sleep 2
           done
