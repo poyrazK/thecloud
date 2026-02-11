@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -128,7 +129,11 @@ func TestLaunchInstanceSuccess(t *testing.T) {
 	_, svc, compute, repo, _, _, ctx := setupInstanceServiceTest(t)
 	name := "test-inst-launch"
 	image := testImage
-	portsStr := "8888:80"
+	testPort := os.Getenv("TEST_INSTANCE_PORT")
+	if testPort == "" {
+		testPort = "8888"
+	}
+	portsStr := fmt.Sprintf("%s:80", testPort)
 
 	// 1. Launch (Enqueue)
 	inst, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
