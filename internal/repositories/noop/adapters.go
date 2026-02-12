@@ -98,8 +98,8 @@ func NewNoopComputeBackend() *NoopComputeBackend {
 	return &NoopComputeBackend{}
 }
 
-func (c *NoopComputeBackend) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
-	return "cid", nil
+func (c *NoopComputeBackend) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
+	return "cid", nil, nil
 }
 func (c *NoopComputeBackend) StartInstance(ctx context.Context, id string) error  { return nil }
 func (c *NoopComputeBackend) StopInstance(ctx context.Context, id string) error   { return nil }
@@ -122,8 +122,8 @@ func (c *NoopComputeBackend) GetConsoleURL(ctx context.Context, id string) (stri
 func (c *NoopComputeBackend) Exec(ctx context.Context, id string, cmd []string) (string, error) {
 	return "", nil
 }
-func (c *NoopComputeBackend) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
-	return "task-id", nil
+func (c *NoopComputeBackend) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, []string, error) {
+	return "task-id", nil, nil
 }
 func (c *NoopComputeBackend) WaitTask(ctx context.Context, id string) (int64, error) { return 0, nil }
 func (c *NoopComputeBackend) CreateNetwork(ctx context.Context, name string) (string, error) {
@@ -290,13 +290,14 @@ type NoopLBService struct{}
 func (s *NoopLBService) Create(ctx context.Context, name string, vpcID uuid.UUID, port int, algo string, idempotencyKey string) (*domain.LoadBalancer, error) {
 	return &domain.LoadBalancer{ID: uuid.New(), Name: name}, nil
 }
-func (s *NoopLBService) Get(ctx context.Context, id uuid.UUID) (*domain.LoadBalancer, error) {
-	return &domain.LoadBalancer{ID: id}, nil
+func (s *NoopLBService) Get(ctx context.Context, id string) (*domain.LoadBalancer, error) {
+	uid, _ := uuid.Parse(id)
+	return &domain.LoadBalancer{ID: uid}, nil
 }
 func (s *NoopLBService) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	return []*domain.LoadBalancer{}, nil
 }
-func (s *NoopLBService) Delete(ctx context.Context, id uuid.UUID) error { return nil }
+func (s *NoopLBService) Delete(ctx context.Context, id string) error { return nil }
 func (s *NoopLBService) AddTarget(ctx context.Context, lbID, instanceID uuid.UUID, port int, weight int) error {
 	return nil
 }
@@ -454,6 +455,9 @@ type NoopLBRepository struct{}
 func (r *NoopLBRepository) Create(ctx context.Context, lb *domain.LoadBalancer) error { return nil }
 func (r *NoopLBRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.LoadBalancer, error) {
 	return &domain.LoadBalancer{ID: id}, nil
+}
+func (r *NoopLBRepository) GetByName(ctx context.Context, name string) (*domain.LoadBalancer, error) {
+	return &domain.LoadBalancer{ID: uuid.New(), Name: name}, nil
 }
 func (r *NoopLBRepository) GetByIdempotencyKey(ctx context.Context, key string) (*domain.LoadBalancer, error) {
 	return nil, nil

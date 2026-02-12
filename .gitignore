@@ -62,3 +62,6 @@ api_test.log
 /api
 coverage_report.txt
 coverage.html
+
+.gemini/
+gha-creds-*.json
