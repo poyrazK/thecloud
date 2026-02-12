@@ -319,10 +319,7 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:staging
-<<<<<<< HEAD
             ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:${{ steps.repo_name.outputs.REF_NAME }}
-=======
->>>>>>> main
             ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
