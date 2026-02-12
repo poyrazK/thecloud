@@ -179,7 +179,7 @@ func initInfrastructure(deps AppDeps, logger *slog.Logger, migrateOnly bool) (*p
 		return nil, nil, nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), dbInitTimeout)
 	defer cancel()
 
 	db, err := deps.InitDatabase(ctx, cfg, logger)
