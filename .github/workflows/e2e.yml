@@ -59,7 +59,7 @@ jobs:
         env:
           DB_PORT_MAPPING: 5433:5432
           COMPOSE_PROJECT_NAME: thecloud-${{ github.run_id }}
-          DOCKER_DEFAULT_NETWORK: thecloud-${{ github.run_id }}_cloud-network
+          DOCKER_DEFAULT_NETWORK: cloud-network
           SECRETS_ENCRYPTION_KEY: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
           JWT_SECRET: e2e-test-secret-key-that-is-long-enough-for-32-chars
           DATABASE_READ_URL: postgres://cloud:cloud@postgres:5432/cloud?sslmode=disable
@@ -96,7 +96,7 @@ jobs:
           # The tests run on the HOST, connecting to the API at localhost:8080
           # So we use the mapped DB port 5433 for direct DB tests if any
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
-          TEST_DOCKER_NETWORK: thecloud-${{ github.run_id }}_cloud-network
+          TEST_DOCKER_NETWORK: cloud-network
           COMPOSE_PROJECT_NAME: thecloud-${{ github.run_id }}
         run: |
           # Run tests in parallel to achieve maximum speed.
