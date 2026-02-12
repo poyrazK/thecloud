@@ -26,11 +26,10 @@ func generateVolumeXML(name string, sizeGB int, backingStorePath string) string 
 </volume>`, name, sizeGB, backingXML)
 }
 
-func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu int, additionalDisks []string) string {
+func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu int, additionalDisks []string, ports []string) string {
 	if networkID == "" {
 		networkID = "default"
 	}
-	// Convert MB to KB for libvirt
 	memoryKB := memoryMB * 1024
 
 	var isoXML string
@@ -65,13 +64,50 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
     </disk>`, diskType, driverType, sourceAttr, dPath, dev)
 	}
 
+	qemuArgsXML := ""
+	hasNetworkMapping := false
+	for _, p := range ports {
+		parts := strings.Split(p, ":")
+		if len(parts) == 2 {
+			hPort := parts[0]
+			cPort := parts[1]
+			qemuArgsXML += fmt.Sprintf(`
+    <qemu:arg value='-netdev'/>
+    <qemu:arg value='user,id=net0,hostfwd=tcp::%s-:%s'/>
+    <qemu:arg value='-device'/>
+    <qemu:arg value='virtio-net-pci,netdev=net0,bus=pci.0,addr=0x8'/>`, hPort, cPort)
+			hasNetworkMapping = true
+			break 
+		}
+	}
+	
+	qemuArgsXML += fmt.Sprintf(`
+    <qemu:arg value='-serial'/>
+    <qemu:arg value='file:/tmp/%s-console.log'/>`, name)
+
+	interfaceXML := ""
+	if !hasNetworkMapping {
+		interfaceXML = fmt.Sprintf(`
+    <interface type='network'>
+      <source network='%s'/>
+      <model type='virtio'/>
+    </interface>`, networkID)
+	}
+
+	arch := "x86_64"
+	machine := "pc"
+	if strings.Contains(isoPath, "arm64") || strings.Contains(diskPath, "arm64") {
+		arch = "aarch64"
+		machine = "virt"
+	}
+
 	return fmt.Sprintf(`
-<domain type='kvm'>
+<domain type='qemu' xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'>
   <name>%s</name>
   <memory unit='KiB'>%d</memory>
   <vcpu placement='static'>%d</vcpu>
   <os>
-    <type arch='x86_64' machine='pc'>hvm</type>
+    <type arch='%s' machine='%s'>hvm</type>
     <boot dev='hd'/>
   </os>
   <features>
@@ -83,25 +119,17 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
       <driver name='qemu' type='qcow2'/>
       <source file='%s'/>
       <target dev='vda' bus='virtio'/>
-    </disk>%s%s
-    <interface type='network'>
-      <source network='%s'/>
-      <model type='virtio'/>
-    </interface>
+    </disk>%s%s%s
     <graphics type='vnc' port='-1' autoport='yes' listen='0.0.0.0'>
       <listen type='address' address='0.0.0.0'/>
     </graphics>
-    <serial type='pty'>
-      <target port='0'/>
-    </serial>
-    <console type='pty'>
-      <target type='serial' port='0'/>
-    </console>
     <rng model='virtio'>
       <backend model='random'>/dev/urandom</backend>
     </rng>
   </devices>
-</domain>`, name, memoryKB, vcpu, diskPath, isoXML, additionalDisksXML, networkID)
+  <qemu:commandline>%s
+  </qemu:commandline>
+</domain>`, name, memoryKB, vcpu, arch, machine, diskPath, isoXML, additionalDisksXML, interfaceXML, qemuArgsXML)
 }
 
 func generateNetworkXML(name, bridgeName, gatewayIP, rangeStart, rangeEnd string) string {

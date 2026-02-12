@@ -79,16 +79,20 @@ func (s *CacheService) CreateCache(ctx context.Context, name, version string, me
 		return nil, err
 	}
 
-	containerID, err := s.launchCacheContainer(ctx, cache, networkID)
+	containerID, allocatedPorts, err := s.launchCacheContainer(ctx, cache, networkID)
 	if err != nil {
 		cache.Status = domain.CacheStatusFailed
 		_ = s.repo.Delete(ctx, cache.ID)
 		return nil, errors.Wrap(errors.Internal, "failed to launch cache container", err)
 	}
 
-	port, err := s.compute.GetInstancePort(ctx, containerID, "6379")
-	if err != nil {
-		s.logger.Error("failed to get cache port", "error", err)
+	port := s.parseAllocatedPort(allocatedPorts, "6379")
+	if port == 0 {
+		var portErr error
+		port, portErr = s.compute.GetInstancePort(ctx, containerID, "6379")
+		if portErr != nil {
+			s.logger.Error("failed to get cache port", "error", portErr)
+		}
 	}
 
 	cache.Status = domain.CacheStatusRunning
@@ -104,6 +108,17 @@ func (s *CacheService) CreateCache(ctx context.Context, name, version string, me
 	return cache, nil
 }
 
+func (s *CacheService) parseAllocatedPort(allocatedPorts []string, targetPort string) int {
+	for _, p := range allocatedPorts {
+		parts := strings.Split(p, ":")
+		if len(parts) == 2 && parts[1] == targetPort {
+			hp, _ := strconv.Atoi(parts[0])
+			return hp
+		}
+	}
+	return 0
+}
+
 func (s *CacheService) resolveNetworkID(ctx context.Context, vpcID *uuid.UUID) (string, error) {
 	if vpcID == nil {
 		return "", nil
@@ -116,7 +131,7 @@ func (s *CacheService) resolveNetworkID(ctx context.Context, vpcID *uuid.UUID) (
 	return vpc.NetworkID, nil
 }
 
-func (s *CacheService) launchCacheContainer(ctx context.Context, cache *domain.Cache, networkID string) (string, error) {
+func (s *CacheService) launchCacheContainer(ctx context.Context, cache *domain.Cache, networkID string) (string, []string, error) {
 	dockerName := fmt.Sprintf("thecloud-cache-%s", cache.ID.String()[:8])
 	imageName := fmt.Sprintf("redis:%s-alpine", cache.Version)
 
@@ -130,7 +145,7 @@ func (s *CacheService) launchCacheContainer(ctx context.Context, cache *domain.C
 		"--tcp-keepalive", "300",
 	}
 
-	containerID, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+	containerID, allocatedPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 		Name:      dockerName,
 		ImageName: imageName,
 		Ports:     []string{"0:6379"},
@@ -139,9 +154,9 @@ func (s *CacheService) launchCacheContainer(ctx context.Context, cache *domain.C
 	})
 	if err != nil {
 		s.logger.Error("failed to create cache container", "error", err)
-		return "", err
+		return "", nil, err
 	}
-	return containerID, nil
+	return containerID, allocatedPorts, nil
 }
 
 func (s *CacheService) logCacheCreation(ctx context.Context, cache *domain.Cache, originalName string) {

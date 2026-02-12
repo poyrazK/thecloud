@@ -77,6 +77,7 @@ func TestDeleteInstanceSuccess(t *testing.T) {
 	vol := libvirt.StorageVol{Name: testInstanceName + "-root"}
 
 	// 1. Lookup
+	m.On("ConnectToURI", mock.Anything, mock.Anything).Return(nil)
 	m.On("DomainLookupByName", mock.Anything, testInstanceName).Return(dom, nil)
 
 	// 2. Stop check (Running = 1)
@@ -89,6 +90,7 @@ func TestDeleteInstanceSuccess(t *testing.T) {
 	// 4. Cleanup Root Volume
 	m.On("StoragePoolLookupByName", mock.Anything, "default").Return(pool, nil)
 	m.On("StorageVolLookupByName", mock.Anything, pool, testInstanceName+"-root").Return(vol, nil)
+	m.On("StorageVolGetPath", mock.Anything, vol).Return("/path/to/disk", nil)
 	m.On("StorageVolDelete", mock.Anything, vol, uint32(0)).Return(nil)
 
 	err := a.DeleteInstance(ctx, testInstanceName)
@@ -241,6 +243,7 @@ func TestCreateInstanceSuccess(t *testing.T) {
 	dom := libvirt.Domain{Name: testInstanceName}
 
 	m.On("StoragePoolLookupByName", mock.Anything, "default").Return(pool, nil)
+	m.On("StorageVolLookupByName", mock.Anything, pool, "ubuntu").Return(libvirt.StorageVol{}, errors.New("not found"))
 	m.On("StorageVolCreateXML", mock.Anything, pool, mock.Anything, uint32(0)).Return(vol, nil)
 	m.On("StorageVolGetPath", mock.Anything, vol).Return("/path/to/disk", nil)
 	m.On("DomainDefineXML", mock.Anything, mock.Anything).Return(dom, nil)
@@ -251,7 +254,7 @@ func TestCreateInstanceSuccess(t *testing.T) {
 		ImageName: "ubuntu",
 	}
 
-	id, err := a.LaunchInstanceWithOptions(ctx, opts)
+	id, _, err := a.LaunchInstanceWithOptions(ctx, opts)
 	assert.NoError(t, err)
 	assert.Equal(t, testInstanceName, id)
 	m.AssertExpectations(t)
@@ -268,6 +271,7 @@ func TestRunTaskSuccess(t *testing.T) {
 	dom := libvirt.Domain{Name: "task-instance"}
 
 	m.On("StoragePoolLookupByName", mock.Anything, "default").Return(pool, nil)
+	m.On("StorageVolLookupByName", mock.Anything, pool, "ubuntu").Return(libvirt.StorageVol{}, errors.New("not found"))
 	m.On("StorageVolCreateXML", mock.Anything, pool, mock.Anything, uint32(0)).Return(vol, nil)
 	m.On("StorageVolGetPath", mock.Anything, vol).Return("/path/to/task-disk", nil)
 	m.On("DomainDefineXML", mock.Anything, mock.Anything).Return(dom, nil)
@@ -279,7 +283,7 @@ func TestRunTaskSuccess(t *testing.T) {
 		MemoryMB: 512,
 	}
 
-	id, err := a.RunTask(ctx, opts)
+	id, _, err := a.RunTask(ctx, opts)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, id)
 	m.AssertExpectations(t)
@@ -365,12 +369,12 @@ func TestRunTaskFailures(t *testing.T) {
 
 	// 1. Pool lookup failure
 	m.On("StoragePoolLookupByName", ctx, "default").Return(libvirt.StoragePool{}, libvirt.Error{Code: 1}).Once()
-	_, err := a.RunTask(ctx, opts)
+	_, _, err := a.RunTask(ctx, opts)
 	assert.Error(t, err)
 
 	// 2. Vol creation failure
 	m.On("StoragePoolLookupByName", ctx, "default").Return(pool, nil).Once()
 	m.On("StorageVolCreateXML", ctx, pool, mock.Anything, uint32(0)).Return(libvirt.StorageVol{}, libvirt.Error{Code: 1}).Once()
-	_, err = a.RunTask(ctx, opts)
+	_, _, err = a.RunTask(ctx, opts)
 	assert.Error(t, err)
 }

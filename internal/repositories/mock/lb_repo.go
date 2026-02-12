@@ -30,6 +30,15 @@ func (m *MockLBRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.LoadBal
 	return nil, nil
 }
 
+func (m *MockLBRepo) GetByName(ctx context.Context, name string) (*domain.LoadBalancer, error) {
+	for _, lb := range m.LBs {
+		if lb.Name == name {
+			return lb, nil
+		}
+	}
+	return nil, nil
+}
+
 func (m *MockLBRepo) Update(ctx context.Context, lb *domain.LoadBalancer) error {
 	m.LBs[lb.ID] = lb
 	return nil

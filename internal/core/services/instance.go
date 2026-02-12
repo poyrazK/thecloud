@@ -121,7 +121,19 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, params ports.Launc
 		if err != nil {
 			return nil, err
 		}
-		userData = fmt.Sprintf("#cloud-config\nssh_authorized_keys:\n  - %s\npassword: password\nchpasswd: { expire: False }\nssh_pwauth: True\n", key.PublicKey)
+		// Use a shell script for maximum compatibility with CirrOS and Ubuntu
+		userData = fmt.Sprintf("#!/bin/sh\n"+
+			"for user in cirros ubuntu root; do\n"+
+			"  home=\"/home/$user\"\n"+
+			"  if [ \"$user\" = \"root\" ]; then home=\"/root\"; fi\n"+
+			"  if [ -d \"$home\" ]; then\n"+
+			"    mkdir -p \"$home/.ssh\"\n"+
+			"    echo '%s' >> \"$home/.ssh/authorized_keys\"\n"+
+			"    chown -R \"$user:$user\" \"$home/.ssh\" 2>/dev/null || true\n"+
+			"    chmod 700 \"$home/.ssh\"\n"+
+			"    chmod 600 \"$home/.ssh/authorized_keys\"\n"+
+			"  fi\n"+
+			"done\n", key.PublicKey)
 	}
 
 	// Check instances quota
@@ -316,7 +328,7 @@ func (s *InstanceService) Provision(ctx context.Context, job domain.ProvisionJob
 
 	dockerName := s.formatContainerName(inst.ID)
 	portList, _ := s.parseAndValidatePorts(inst.Ports)
-	containerID, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+	containerID, allocatedPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 		Name:        dockerName,
 		ImageName:   inst.Image,
 		Ports:       portList,
@@ -333,6 +345,11 @@ func (s *InstanceService) Provision(ctx context.Context, job domain.ProvisionJob
 		platform.InstanceOperationsTotal.WithLabelValues("launch", "failure").Inc()
 		s.updateStatus(ctx, inst, domain.StatusError)
 		return errors.Wrap(errors.Internal, "failed to launch container", err)
+	}
+
+	// Update ports with actually allocated ones if any
+	if len(allocatedPorts) > 0 {
+		inst.Ports = strings.Join(allocatedPorts, ",")
 	}
 
 	// 4. Finalize

@@ -81,7 +81,7 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 	if compute.Type() == "docker" {
 		_, _ = compute.CreateNetwork(ctx, "cloud-network")
 		// Pre-pull test image to prevent flakes in CI environments with slow registries or restrictive daemons
-		_, _ = compute.LaunchInstanceWithOptions(ctx, coreports.CreateInstanceOptions{
+		_, _, _ = compute.LaunchInstanceWithOptions(ctx, coreports.CreateInstanceOptions{
 			Name:      "pre-pull-image",
 			ImageName: testImage,
 		})

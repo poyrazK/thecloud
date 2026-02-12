@@ -167,7 +167,7 @@ func TestDockerAdapterRunTask(t *testing.T) {
 		Image:   "alpine",
 		Command: []string{"echo", "hello"},
 	}
-	id, err := adapter.RunTask(context.Background(), opts)
+	id, _, err := adapter.RunTask(context.Background(), opts)
 	require.NoError(t, err)
 	require.Equal(t, "cid", id)
 }
@@ -216,7 +216,7 @@ func TestDockerAdapterCreateInstance(t *testing.T) {
 		Cmd:       []string{"/bin/sh"},
 		Ports:     []string{"8080:80"},
 	}
-	id, err := adapter.LaunchInstanceWithOptions(context.Background(), opts)
+	id, _, err := adapter.LaunchInstanceWithOptions(context.Background(), opts)
 	require.NoError(t, err)
 	require.Equal(t, "cid", id)
 }
@@ -363,7 +363,7 @@ func TestDockerAdapterCreateInstanceError(t *testing.T) {
 		Name:      "inst1",
 		ImageName: "alpine",
 	}
-	_, err := adapter.LaunchInstanceWithOptions(context.Background(), opts)
+	_, _, err := adapter.LaunchInstanceWithOptions(context.Background(), opts)
 	require.Error(t, err)
 }
 
@@ -386,7 +386,7 @@ func TestDockerAdapterLaunchWithUserData(t *testing.T) {
 		UserData:  "#!/bin/sh\necho 'hello world' > /tmp/output",
 	}
 
-	id, err := adapter.LaunchInstanceWithOptions(context.Background(), opts)
+	id, _, err := adapter.LaunchInstanceWithOptions(context.Background(), opts)
 	require.NoError(t, err)
 	require.Equal(t, "cid", id)
 

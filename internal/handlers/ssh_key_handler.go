@@ -30,8 +30,8 @@ type CreateSSHKeyRequest struct {
 // @Produce json
 // @Param request body CreateSSHKeyRequest true "SSH Key details"
 // @Success 201 {object} domain.SSHKey
-// @Failure 400 {object} httputil.ErrorResponse
-// @Failure 500 {object} httputil.ErrorResponse
+// @Failure 400 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
 // @Router /ssh-keys [post]
 func (h *SSHKeyHandler) Create(c *gin.Context) {
 	var req CreateSSHKeyRequest
@@ -54,7 +54,7 @@ func (h *SSHKeyHandler) Create(c *gin.Context) {
 // @Tags ssh_keys
 // @Produce json
 // @Success 200 {array} domain.SSHKey
-// @Failure 500 {object} httputil.ErrorResponse
+// @Failure 500 {object} httputil.Response
 // @Router /ssh-keys [get]
 func (h *SSHKeyHandler) List(c *gin.Context) {
 	keys, err := h.svc.ListKeys(c.Request.Context())
@@ -71,9 +71,9 @@ func (h *SSHKeyHandler) List(c *gin.Context) {
 // @Produce json
 // @Param id path string true "SSH Key ID"
 // @Success 200 {object} domain.SSHKey
-// @Failure 400 {object} httputil.ErrorResponse
-// @Failure 404 {object} httputil.ErrorResponse
-// @Failure 500 {object} httputil.ErrorResponse
+// @Failure 400 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
 // @Router /ssh-keys/{id} [get]
 func (h *SSHKeyHandler) Get(c *gin.Context) {
 	idStr := c.Param("id")
@@ -96,9 +96,9 @@ func (h *SSHKeyHandler) Get(c *gin.Context) {
 // @Tags ssh_keys
 // @Param id path string true "SSH Key ID"
 // @Success 204 "No Content"
-// @Failure 400 {object} httputil.ErrorResponse
-// @Failure 404 {object} httputil.ErrorResponse
-// @Failure 500 {object} httputil.ErrorResponse
+// @Failure 400 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
 // @Router /ssh-keys/{id} [delete]
 func (h *SSHKeyHandler) Delete(c *gin.Context) {
 	idStr := c.Param("id")

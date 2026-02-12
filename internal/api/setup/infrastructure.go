@@ -61,8 +61,8 @@ func InitComputeBackend(cfg *platform.Config, logger *slog.Logger) (ports.Comput
 		return noop.NewNoopComputeBackend(), nil
 	}
 	if cfg.ComputeBackend == "libvirt" {
-		logger.Info("using libvirt compute backend")
-		return libvirt.NewLibvirtAdapter(logger, "")
+		logger.Info("using libvirt compute backend", "uri", cfg.LibvirtURI)
+		return libvirt.NewLibvirtAdapter(logger, cfg.LibvirtURI)
 	}
 	logger.Info("using docker compute backend")
 	return docker.NewDockerAdapter(logger)

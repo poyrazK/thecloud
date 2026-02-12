@@ -44,6 +44,14 @@ func (c *Client) GetInstance(idOrName string) (*Instance, error) {
 	return &res.Data, nil
 }
 
+func (c *Client) GetConsoleURL(idOrName string) (string, error) {
+	var res Response[string]
+	if err := c.get(fmt.Sprintf("/instances/%s/console", idOrName), &res); err != nil {
+		return "", err
+	}
+	return res.Data, nil
+}
+
 // VolumeAttachmentInput defines a volume attachment for instance launch.
 type VolumeAttachmentInput struct {
 	VolumeID  string `json:"volume_id"`
@@ -51,7 +59,7 @@ type VolumeAttachmentInput struct {
 }
 
 // LaunchInstance provisions a new instance with optional metadata, labels, and volume attachments.
-func (c *Client) LaunchInstance(name, image, ports, instanceType string, vpcID, subnetID string, volumes []VolumeAttachmentInput, metadata, labels map[string]string, sshKeyID string) (*Instance, error) {
+func (c *Client) LaunchInstance(name, image, ports, instanceType string, vpcID, subnetID string, volumes []VolumeAttachmentInput, metadata, labels map[string]string, sshKeyID string, cmd []string) (*Instance, error) {
 	body := map[string]interface{}{
 		"name":          name,
 		"image":         image,
@@ -63,6 +71,7 @@ func (c *Client) LaunchInstance(name, image, ports, instanceType string, vpcID, 
 		"metadata":      metadata,
 		"labels":        labels,
 		"ssh_key_id":    sshKeyID,
+		"cmd":           cmd,
 	}
 	var res Response[Instance]
 	if err := c.post("/instances", body, &res); err != nil {

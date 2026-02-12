@@ -26,7 +26,6 @@ import (
 
 var execCommand = exec.Command
 var execCommandContext = exec.CommandContext
-var mkdirTemp = os.MkdirTemp
 var lookPath = exec.LookPath
 var osOpen = os.Open
 
@@ -46,6 +45,7 @@ type LibvirtAdapter struct {
 	logger *slog.Logger
 	uri    string
 
+	isSession    bool
 	mu           sync.RWMutex
 	portMappings map[string]map[string]int // instanceID -> internalPort -> hostPort
 
@@ -60,34 +60,63 @@ type LibvirtAdapter struct {
 // NewLibvirtAdapter creates a LibvirtAdapter connected to the provided URI.
 func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error) {
 	if uri == "" {
+		uri = os.Getenv("LIBVIRT_URI")
+	}
+	if uri == "" {
 		uri = "/var/run/libvirt/libvirt-sock"
 	}
 
-	// Connect to libvirt
-	// We use a dialer for the unix socket
+	// Connect to libvirt socket
 	c, err := net.DialTimeout("unix", uri, 2*time.Second)
 	if err != nil {
-		return nil, fmt.Errorf("failed to dial libvirt: %w", err)
+		// Fallback to session mode if system socket fails
+		if !strings.Contains(uri, "session") {
+			sessionUri := filepath.Join(os.Getenv("HOME"), ".cache/libvirt/libvirt-sock")
+			if c2, err2 := net.DialTimeout("unix", sessionUri, 2*time.Second); err2 == nil {
+				c = c2
+				uri = sessionUri
+			} else {
+				return nil, fmt.Errorf("failed to dial libvirt (system and session): %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to dial libvirt: %w", err)
+		}
 	}
 
-	//nolint:staticcheck // libvirt.New is deprecated but NewWithDialer doesn't work with our setup
+	//nolint:staticcheck 
 	l := libvirt.New(c)
-	if err := l.Connect(); err != nil {
-		return nil, fmt.Errorf("failed to connect to libvirt: %w", err)
-	}
-
-	return &LibvirtAdapter{
-		client:         &RealLibvirtClient{conn: l},
-		logger:         logger,
-		uri:            uri,
-		portMappings:   make(map[string]map[string]int),
-		networkCounter: 0,
-		// Local private network range for VM pools - safe for internal usage
+	adapter := &LibvirtAdapter{
+		client:           &RealLibvirtClient{conn: l},
+		logger:           logger,
+		uri:              uri,
+		portMappings:     make(map[string]map[string]int),
+		networkCounter:   0,
 		poolStart:        net.ParseIP("192.168.100.0"),
 		poolEnd:          net.ParseIP("192.168.200.255"),
 		ipWaitInterval:   5 * time.Second,
 		taskWaitInterval: 2 * time.Second,
-	}, nil
+	}
+
+	connectCtx, connectCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer connectCancel()
+
+	// Inferred URI for the hypervisor connection
+	hypervisorUri := "qemu:///session"
+	adapter.isSession = true
+	if strings.Contains(uri, "/var/run/libvirt/libvirt-sock") {
+		hypervisorUri = "qemu:///system"
+		adapter.isSession = false
+	}
+
+	if err := adapter.client.ConnectToURI(connectCtx, hypervisorUri); err != nil {
+		logger.Warn("failed to connect to hypervisor URI, trying session fallback", "uri", hypervisorUri, "error", err)
+		if err2 := adapter.client.ConnectToURI(connectCtx, "qemu:///session"); err2 != nil {
+			return nil, fmt.Errorf("failed to connect to libvirt hypervisor: %v", err2)
+		}
+		adapter.isSession = true
+	}
+
+	return adapter, nil
 }
 
 // Close gracefully disconnects from libvirt
@@ -104,12 +133,12 @@ func (a *LibvirtAdapter) Type() string {
 	return "libvirt"
 }
 
-func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
+func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
 	name := a.sanitizeDomainName(opts.Name)
 
 	diskPath, vol, err := a.prepareRootVolume(ctx, name, opts.ImageName)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	isoPath := a.prepareCloudInit(ctx, name, opts.Env, opts.Cmd, opts.UserData)
@@ -120,24 +149,67 @@ func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts por
 		networkID = "default"
 	}
 
-	domainXML := generateDomainXML(name, diskPath, networkID, isoPath, 512, 1, additionalDisks)
+	allocatedPorts := make([]string, 0, len(opts.Ports))
+	for _, p := range opts.Ports {
+		parts := strings.Split(p, ":")
+		if len(parts) == 2 {
+			hPort := parts[0]
+			cPort := parts[1]
+			if hPort == "0" {
+				freePort, err := findFreePort()
+				if err != nil {
+					a.logger.Warn("failed to auto-allocate port", "container_port", cPort, "error", err)
+					continue
+				}
+				hPort = strconv.Itoa(freePort)
+			}
+			allocatedPorts = append(allocatedPorts, fmt.Sprintf("%s:%s", hPort, cPort))
+
+			a.mu.Lock()
+			if a.portMappings[name] == nil {
+				a.portMappings[name] = make(map[string]int)
+			}
+			hp, _ := strconv.Atoi(hPort)
+			a.portMappings[name][cPort] = hp
+			a.mu.Unlock()
+		} else if len(parts) == 1 {
+			cPort := parts[0]
+			freePort, err := findFreePort()
+			if err != nil {
+				a.logger.Warn("failed to auto-allocate port", "container_port", cPort, "error", err)
+				continue
+			}
+			hPort := strconv.Itoa(freePort)
+			allocatedPorts = append(allocatedPorts, fmt.Sprintf("%s:%s", hPort, cPort))
+
+			a.mu.Lock()
+			if a.portMappings[name] == nil {
+				a.portMappings[name] = make(map[string]int)
+			}
+			a.portMappings[name][cPort] = freePort
+			a.mu.Unlock()
+		}
+	}
+	opts.Ports = allocatedPorts
+
+	domainXML := generateDomainXML(name, diskPath, networkID, isoPath, 512, 1, additionalDisks, allocatedPorts)
 	dom, err := a.client.DomainDefineXML(ctx, domainXML)
 	if err != nil {
 		a.cleanupCreateFailure(ctx, vol, isoPath)
-		return "", fmt.Errorf("failed to define domain: %w", err)
+		return "", nil, fmt.Errorf("failed to define domain: %w", err)
 	}
 
 	if err := a.client.DomainCreate(ctx, dom); err != nil {
 		_ = a.client.DomainUndefine(ctx, dom)
 		_ = a.client.StorageVolDelete(ctx, vol, 0)
-		return "", fmt.Errorf("failed to start domain: %w", err)
+		return "", nil, fmt.Errorf("failed to start domain: %w", err)
 	}
 
-	if len(opts.Ports) > 0 {
-		go a.setupPortForwarding(name, opts.Ports)
+	if len(allocatedPorts) > 0 {
+		go a.setupPortForwarding(name, allocatedPorts)
 	}
 
-	return name, nil
+	return name, allocatedPorts, nil
 }
 
 func (a *LibvirtAdapter) sanitizeDomainName(name string) string {
@@ -163,7 +235,6 @@ func (a *LibvirtAdapter) prepareCloudInit(ctx context.Context, name string, env 
 func (a *LibvirtAdapter) cleanupCreateFailure(ctx context.Context, vol libvirt.StorageVol, isoPath string) {
 	_ = a.client.StorageVolDelete(ctx, vol, 0)
 	if isoPath != "" {
-		// Strictly validate that we only remove files in the temp directory with our prefix
 		if !strings.HasPrefix(filepath.Clean(isoPath), filepath.Clean(os.TempDir())) || !strings.Contains(filepath.Base(isoPath), prefixCloudInit) {
 			a.logger.Warn("skipping removal of non-temp ISO path for security", "path", isoPath)
 			return
@@ -243,14 +314,7 @@ func (a *LibvirtAdapter) stopDomainIfRunning(ctx context.Context, dom libvirt.Do
 func (a *LibvirtAdapter) cleanupPortMappings(id string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if mappings, ok := a.portMappings[id]; ok {
-		for _, hPort := range mappings {
-			hPortStr := fmt.Sprintf("%d", hPort)
-			_ = execCommand("sudo", "iptables", "-t", "nat", "-D", "PREROUTING", "-p", "tcp", "--dport", hPortStr, "-j", "DNAT").Run()
-			_ = execCommand("sudo", "iptables", "-t", "nat", "-D", "OUTPUT", "-o", "lo", "-p", "tcp", "--dport", hPortStr, "-j", "DNAT").Run()
-		}
-		delete(a.portMappings, id)
-	}
+	delete(a.portMappings, id)
 }
 
 func (a *LibvirtAdapter) cleanupDomainISO(id string) {
@@ -278,17 +342,23 @@ func (a *LibvirtAdapter) GetInstanceLogs(ctx context.Context, id string) (io.Rea
 	if err := validateID(id); err != nil {
 		return nil, err
 	}
-	// Read from standard qemu log location
-	// Note: This contains QEMU output, not necessarily guest console output unless serial is redirected there.
-	// To get guest console, we'd need to attach to console or read a file if defined in XML.
-	// Our XML defined <console type='pty'> which goes to a PTY. Reading PTY from outside is complex.
-	// We'll fall back to QEMU log for debug info.
-	logPath := fmt.Sprintf("/var/log/libvirt/qemu/%s.log", id)
-	f, err := osOpen(logPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open log file: %w", err)
+	logPaths := []string{
+		fmt.Sprintf("/tmp/%s-console.log", id),
+		fmt.Sprintf("/tmp/%s-qemu.log", id),
+		fmt.Sprintf("/var/log/libvirt/qemu/%s.log", id),
+		filepath.Join(os.Getenv("HOME"), ".cache/libvirt/qemu/log", id+".log"),
 	}
-	return f, nil
+
+	var f *os.File
+	var err error
+	for _, logPath := range logPaths {
+		f, err = osOpen(logPath)
+		if err == nil {
+			return f, nil
+		}
+	}
+
+	return nil, fmt.Errorf("failed to open log file in any known location: %w", err)
 }
 
 func (a *LibvirtAdapter) GetInstanceStats(ctx context.Context, id string) (io.ReadCloser, error) {
@@ -297,9 +367,6 @@ func (a *LibvirtAdapter) GetInstanceStats(ctx context.Context, id string) (io.Re
 		return nil, fmt.Errorf(errDomainNotFound, err)
 	}
 
-	// Memory stats
-	// We use standard libvirt stats. The format for ComputeBackend expects JSON.
-	// We'll construct a simple JSON.
 	memStats, err := a.client.DomainMemoryStats(ctx, dom, 10, 0)
 	if err != nil {
 		return nil, err
@@ -338,10 +405,7 @@ func (a *LibvirtAdapter) AttachVolume(ctx context.Context, id string, volumePath
 		return fmt.Errorf(errDomainNotFound, err)
 	}
 
-	// We need to find an available device name (vdb, vdc, etc.)
-	// For simplicity, we'll try to get XML and check existing disks.
-	// In a real implementation we'd have a counter or better logic.
-	dev := "vdb" // Hardcoded for POC
+	dev := "vdb" 
 
 	diskType := "file"
 	driverType := "qcow2"
@@ -369,9 +433,6 @@ func (a *LibvirtAdapter) DetachVolume(ctx context.Context, id string, volumePath
 		return fmt.Errorf(errDomainNotFound, err)
 	}
 
-	// To detach, we technically only need the target device or a matching XML.
-	// For simplicity, we construct a matching XML.
-	// Note: We'd need the same XML or at least target/source.
 	xml := fmt.Sprintf("<disk type='file' device='disk'><source file='%s'/><target dev='vdb' bus='virtio'/></disk>", volumePath)
 	if strings.HasPrefix(volumePath, "/dev/") {
 		xml = fmt.Sprintf("<disk type='block' device='disk'><source dev='%s'/><target dev='vdb' bus='virtio'/></disk>", volumePath)
@@ -398,8 +459,6 @@ func (a *LibvirtAdapter) GetConsoleURL(ctx context.Context, id string) (string, 
 		return "", fmt.Errorf("failed to get domain xml: %w", err)
 	}
 
-	// Simple string parsing for VNC port as we don't want to import heavy XML decoders if not needed
-	// XML looks like: <graphics type='vnc' port='5900' ... />
 	startIdx := strings.Index(xml, "<graphics type='vnc' port='")
 	if startIdx == -1 {
 		return "", fmt.Errorf("vnc graphics not found in domain xml")
@@ -415,22 +474,16 @@ func (a *LibvirtAdapter) GetConsoleURL(ctx context.Context, id string) (string, 
 }
 
 func (a *LibvirtAdapter) GetInstanceIP(ctx context.Context, id string) (string, error) {
-	// 1. Get Domain
 	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
 		return "", fmt.Errorf(errDomainNotFound, err)
 	}
 
-	// 2. We need the MAC address to look up DHCP leases.
-	// We can get XML desc and parse it.
 	xmlDesc, err := a.client.DomainGetXMLDesc(ctx, dom, 0)
 	if err != nil {
 		return "", fmt.Errorf("failed to get domain xml: %w", err)
 	}
 
-	// Extract MAC using string parsing (dirty but lighter than XML decoder for one field)
-	// Look for <mac address='XX:XX:XX:XX:XX:XX'/>
-	// This assumes one interface.
 	start := strings.Index(xmlDesc, "<mac address='")
 	if start == -1 {
 		return "", fmt.Errorf("no mac address found in xml")
@@ -442,14 +495,11 @@ func (a *LibvirtAdapter) GetInstanceIP(ctx context.Context, id string) (string, 
 	}
 	mac := xmlDesc[start : start+end]
 
-	// 3. Lookup leases in default network
-	// We assume "default" network
 	net, err := a.client.NetworkLookupByName(ctx, "default")
 	if err != nil {
 		return "", fmt.Errorf("default network not found: %w", err)
 	}
 
-	// Pass nil for mac to get all leases (simplifies type handling of OptString)
 	leases, _, err := a.client.NetworkGetDhcpLeases(ctx, net, nil, 0, 0)
 	if err != nil {
 		return "", fmt.Errorf("failed to get leases: %w", err)
@@ -468,50 +518,46 @@ func (a *LibvirtAdapter) Exec(ctx context.Context, id string, cmd []string) (str
 	return "", fmt.Errorf("exec not supported in libvirt adapter")
 }
 
-func (a *LibvirtAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
+func (a *LibvirtAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, []string, error) {
 	name := "task-" + uuid.New().String()[:8]
 
 	pool, err := a.client.StoragePoolLookupByName(ctx, defaultPoolName)
 	if err != nil {
-		return "", fmt.Errorf("failed to find default pool: %w", err)
+		return "", nil, fmt.Errorf("failed to find default pool: %w", err)
 	}
 
 	volXML := generateVolumeXML(name+"-root", 1, "")
 	vol, err := a.client.StorageVolCreateXML(ctx, pool, volXML, 0)
 	if err != nil {
-		return "", fmt.Errorf("failed to create root volume: %w", err)
+		return "", nil, fmt.Errorf("failed to create root volume: %w", err)
 	}
 
 	diskPath, err := a.client.StorageVolGetPath(ctx, vol)
 	if err != nil {
 		_ = a.client.StorageVolDelete(ctx, vol, 0)
-		return "", fmt.Errorf(errGetVolumePath, err)
+		return "", nil, fmt.Errorf(errGetVolumePath, err)
 	}
 
 	isoPath := a.prepareCloudInit(ctx, name, nil, opts.Command, "")
 	additionalDisks := a.resolveBinds(ctx, opts.Binds)
-	domainXML := generateDomainXML(name, diskPath, "default", isoPath, int(opts.MemoryMB), 1, additionalDisks)
+	domainXML := generateDomainXML(name, diskPath, "default", isoPath, int(opts.MemoryMB), 1, additionalDisks, nil)
 
 	dom, err := a.client.DomainDefineXML(ctx, domainXML)
 	if err != nil {
 		a.cleanupCreateFailure(ctx, vol, isoPath)
-		return "", fmt.Errorf("failed to define domain: %w", err)
+		return "", nil, fmt.Errorf("failed to define domain: %w", err)
 	}
 
 	if err := a.client.DomainCreate(ctx, dom); err != nil {
 		_ = a.client.DomainUndefine(ctx, dom)
 		_ = a.client.StorageVolDelete(ctx, vol, 0)
-		return "", fmt.Errorf("failed to start domain: %w", err)
+		return "", nil, fmt.Errorf("failed to start domain: %w", err)
 	}
 
-	return name, nil
+	return name, nil, nil
 }
 
 func (a *LibvirtAdapter) WaitTask(ctx context.Context, id string) (int64, error) {
-	// Poll for domain state to be Shutoff
-	// Since we can't easily get the exit code from inside the VM without qemu-agent,
-	// we assume 0 if it shuts down gracefully (state Shutoff).
-
 	interval := a.taskWaitInterval
 	if interval == 0 {
 		interval = 2 * time.Second
@@ -526,7 +572,6 @@ func (a *LibvirtAdapter) WaitTask(ctx context.Context, id string) (int64, error)
 		case <-ticker.C:
 			dom, err := a.client.DomainLookupByName(ctx, id)
 			if err != nil {
-				// If domain is gone, maybe it was deleted?
 				return -1, fmt.Errorf(errDomainNotFound, err)
 			}
 
@@ -535,7 +580,6 @@ func (a *LibvirtAdapter) WaitTask(ctx context.Context, id string) (int64, error)
 				continue
 			}
 
-			// libvirt.DomainShutoff = 5
 			if state == 5 {
 				return 0, nil
 			}
@@ -544,10 +588,7 @@ func (a *LibvirtAdapter) WaitTask(ctx context.Context, id string) (int64, error)
 }
 
 func (a *LibvirtAdapter) CreateNetwork(ctx context.Context, name string) (string, error) {
-	// Allocate network range from pool
 	gateway, rangeStart, rangeEnd := a.getNextNetworkRange()
-
-	// Simple NAT network
 	xml := generateNetworkXML(name, "virbr-"+name, gateway, rangeStart, rangeEnd)
 
 	net, err := a.client.NetworkDefineXML(ctx, xml)
@@ -565,7 +606,7 @@ func (a *LibvirtAdapter) CreateNetwork(ctx context.Context, name string) (string
 func (a *LibvirtAdapter) DeleteNetwork(ctx context.Context, id string) error {
 	net, err := a.client.NetworkLookupByName(ctx, id)
 	if err != nil {
-		return nil // assume deleted
+		return nil 
 	}
 
 	if err := a.client.NetworkDestroy(ctx, net); err != nil {
@@ -583,12 +624,9 @@ func (a *LibvirtAdapter) CreateVolume(ctx context.Context, name string) error {
 		return fmt.Errorf(errPoolNotFound, err)
 	}
 
-	// 10GB default
 	xml := generateVolumeXML(name, 10, "")
 
-	// Refresh pool first
 	if err := a.client.StoragePoolRefresh(ctx, pool, 0); err != nil {
-		// Log but continue
 		a.logger.Warn("failed to refresh pool", "error", err)
 	}
 
@@ -607,7 +645,6 @@ func (a *LibvirtAdapter) DeleteVolume(ctx context.Context, name string) error {
 
 	vol, err := a.client.StorageVolLookupByName(ctx, pool, name)
 	if err != nil {
-		// Check if not found
 		return nil
 	}
 
@@ -618,7 +655,6 @@ func (a *LibvirtAdapter) DeleteVolume(ctx context.Context, name string) error {
 }
 
 func (a *LibvirtAdapter) prepareRootVolume(ctx context.Context, name string, imageName string) (string, libvirt.StorageVol, error) {
-	// We assume 'imageName' is a backing volume in the default pool.
 	pool, err := a.client.StoragePoolLookupByName(ctx, defaultPoolName)
 	if err != nil {
 		return "", libvirt.StorageVol{}, fmt.Errorf("default pool not found: %w", err)
@@ -626,7 +662,6 @@ func (a *LibvirtAdapter) prepareRootVolume(ctx context.Context, name string, ima
 
 	var backingXML string
 	if imageName != "" {
-		// Check if backing image exists
 		backingVol, err := a.client.StorageVolLookupByName(ctx, pool, imageName)
 		if err == nil {
 			backingPath, err := a.client.StorageVolGetPath(ctx, backingVol)
@@ -638,7 +673,6 @@ func (a *LibvirtAdapter) prepareRootVolume(ctx context.Context, name string, ima
 		}
 	}
 
-	// Create root disk for the VM
 	volXML := generateVolumeXML(name+"-root", 10, backingXML)
 
 	vol, err := a.client.StorageVolCreateXML(ctx, pool, volXML, 0)
@@ -646,7 +680,6 @@ func (a *LibvirtAdapter) prepareRootVolume(ctx context.Context, name string, ima
 		return "", libvirt.StorageVol{}, fmt.Errorf("failed to create root volume: %w", err)
 	}
 
-	// Get volume path from libvirt
 	diskPath, err := a.client.StorageVolGetPath(ctx, vol)
 	if err != nil {
 		_ = a.client.StorageVolDelete(ctx, vol, 0)
@@ -657,7 +690,6 @@ func (a *LibvirtAdapter) prepareRootVolume(ctx context.Context, name string, ima
 }
 
 func (a *LibvirtAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID string, destinationPath string) error {
-	// volumeID is the libvirt volume name
 	pool, err := a.client.StoragePoolLookupByName(ctx, defaultPoolName)
 	if err != nil {
 		return fmt.Errorf(errPoolNotFound, err)
@@ -673,7 +705,6 @@ func (a *LibvirtAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID stri
 		return fmt.Errorf(errGetVolumePath, err)
 	}
 
-	// Use qemu-img to convert the volume to a temporary qcow2
 	tmpQcow2 := destinationPath + ".qcow2"
 	cmd := execCommand("qemu-img", "convert", "-O", "qcow2", volPath, tmpQcow2)
 	if err := cmd.Run(); err != nil {
@@ -685,8 +716,6 @@ func (a *LibvirtAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID stri
 		}
 	}()
 
-	// Now tar it to match the SnapshotService expectation (tarball of contents)
-	// Actually, if we just want a "blob", a tarred qcow2 is fine.
 	tarCmd := execCommand("tar", "czf", destinationPath, "-C", filepath.Dir(tmpQcow2), filepath.Base(tmpQcow2))
 	if err := tarCmd.Run(); err != nil {
 		return fmt.Errorf("tar archive failed: %w", err)
@@ -711,8 +740,7 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 		return fmt.Errorf(errGetVolumePath, err)
 	}
 
-	// 1. Untar
-	tmpDir, err := mkdirTemp("", "restore-")
+	tmpDir, err := os.MkdirTemp("", "restore-")
 	if err != nil {
 		return err
 	}
@@ -733,7 +761,6 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 	}
 	tmpQcow2 := filepath.Join(tmpDir, files[0].Name())
 
-	// 2. Restore using qemu-img
 	cmd := execCommand("qemu-img", "convert", "-O", "qcow2", tmpQcow2, volPath)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("qemu-img restore failed: %w", err)
@@ -741,16 +768,14 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 
 	return nil
 }
+
 func (a *LibvirtAdapter) generateCloudInitISO(_ context.Context, name string, env []string, cmd []string, userData string) (string, error) {
 	safeName := a.sanitizeDomainName(name)
-
-	// Additional security: ensure the sanitized name doesn't contain path separators
 	safeName = filepath.Base(safeName)
 	if safeName == "." || safeName == ".." || safeName == "/" {
 		safeName = fmt.Sprintf("cloudinit-%d", time.Now().UnixNano())
 	}
 
-	// Use a fixed pattern for temp dir to satisfy security scans
 	tmpDir, err := os.MkdirTemp(os.TempDir(), "thecloud-cloudinit-*")
 	if err != nil {
 		return "", err
@@ -761,7 +786,6 @@ func (a *LibvirtAdapter) generateCloudInitISO(_ context.Context, name string, en
 		return "", err
 	}
 
-	// Use filepath.Join to safely construct the ISO path
 	isoPath := filepath.Join(os.TempDir(), filepath.Clean(prefixCloudInit+safeName+".iso"))
 	return isoPath, a.runIsoCommand(isoPath, tmpDir)
 }
@@ -773,7 +797,7 @@ func (a *LibvirtAdapter) cleanupTempDir(tmpDir string) {
 }
 
 func (a *LibvirtAdapter) writeCloudInitFiles(tmpDir, name string, env, cmd []string, userDataRaw string) error {
-	metaData := fmt.Sprintf("instance-id: %s\nlocal-hostname: %s\n", name, name)
+	metaData := fmt.Sprintf("{\n  \"instance-id\": \"%s\",\n  \"local-hostname\": \"%s\"\n}\n", name, name)
 	if err := os.WriteFile(filepath.Join(tmpDir, metaDataFileName), []byte(metaData), 0644); err != nil {
 		return err
 	}
@@ -794,7 +818,6 @@ func (a *LibvirtAdapter) generateUserData(env, cmd []string, userDataRaw string)
 	}
 
 	if len(env) > 0 {
-		// If userDataRaw already has write_files, we might have issues, but for POC we append
 		userData.WriteString("write_files:\n")
 		userData.WriteString("  - path: /etc/profile.d/cloud-env.sh\n")
 		userData.WriteString("    content: |\n")
@@ -804,7 +827,6 @@ func (a *LibvirtAdapter) generateUserData(env, cmd []string, userDataRaw string)
 	}
 
 	if len(cmd) > 0 {
-		// If userDataRaw already has runcmd, we might have issues, but for POC we append
 		userData.WriteString("runcmd:\n")
 		for _, c := range cmd {
 			userData.WriteString(fmt.Sprintf("  - [ sh, -c, %q ]\n", c))
@@ -814,33 +836,29 @@ func (a *LibvirtAdapter) generateUserData(env, cmd []string, userDataRaw string)
 }
 
 func (a *LibvirtAdapter) runIsoCommand(isoPath, tmpDir string) error {
-	// We pass tmpDir as the source directory for the ISO.
-	// This ensures files like user-data and meta-data are at the root.
-	// -l: allow long filenames
-	// -R: rational rock ridge (preserves long names, sets permissions)
-	// -J: Joliet (for compatibility)
-	fmt.Println("DEBUG: Generating ISO with volid cidata")
-	genCmd := execCommand("genisoimage", "-output", isoPath, "-volid", "cidata", "-l", "-R", "-J", tmpDir)
+	var tool string
+	if p, err := lookPath("mkisofs"); err == nil {
+		tool = p
+	} else if p, err := lookPath("genisoimage"); err == nil {
+		tool = p
+	} else {
+		return fmt.Errorf("neither mkisofs nor genisoimage found in PATH")
+	}
 
-	if _, err := genCmd.CombinedOutput(); err != nil {
-		genCmd = execCommand("mkisofs", "-output", isoPath, "-volid", "cidata", "-l", "-R", "-J", tmpDir)
-		if _, err2 := genCmd.CombinedOutput(); err2 != nil {
-			return fmt.Errorf("failed to generate iso (genisoimage/mkisofs): %w", err2)
-		}
+	genCmd := execCommand(tool, "-output", isoPath, "-volid", "cidata", "-l", "-R", "-J", tmpDir)
+	if output, err := genCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to generate iso using %s: %w (output: %s)", tool, err, string(output))
 	}
 	return nil
 }
 
-// getNextNetworkRange allocates the next /24 network from the pool
 func (a *LibvirtAdapter) getNextNetworkRange() (gateway, rangeStart, rangeEnd string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	// Calculate base IP: poolStart + (networkCounter * 256)
 	baseIP := make(net.IP, len(a.poolStart))
 	copy(baseIP, a.poolStart)
 
-	// Add offset for this network (each network gets a /24)
 	offset := a.networkCounter * 256
 	for i := len(baseIP) - 1; i >= 0 && offset > 0; i-- {
 		sum := int(baseIP[i]) + offset
@@ -850,7 +868,6 @@ func (a *LibvirtAdapter) getNextNetworkRange() (gateway, rangeStart, rangeEnd st
 
 	a.networkCounter++
 
-	// Gateway is .1, DHCP range is .2 to .254
 	gw := make(net.IP, len(baseIP))
 	copy(gw, baseIP)
 	gw[len(gw)-1] = 1
@@ -874,7 +891,6 @@ func validateID(id string) error {
 }
 
 func (a *LibvirtAdapter) setupPortForwarding(name string, ports []string) {
-	// Wait for VM to get an IP
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
@@ -884,21 +900,17 @@ func (a *LibvirtAdapter) setupPortForwarding(name string, ports []string) {
 		return
 	}
 
+	a.logger.Info("setting up port mapping record", "instance", name, "ip", ip, "ports", ports)
+
 	for _, p := range ports {
-		hPort, cP, err := a.parseAndValidatePort(p)
+		hP, cP, err := a.parseAndValidatePort(p)
 		if err != nil {
 			a.logger.Warn("skipping invalid port forwarding configuration", "port", p, "error", err)
 			continue
 		}
 
-		// Validate IP format
-		if net.ParseIP(ip) == nil {
-			a.logger.Error("invalid vm ip for port forwarding", "ip", ip)
-			return
-		}
-
-		if hPort > 0 {
-			a.configureIptables(name, ip, strconv.Itoa(cP), hPort, cP)
+		if hP > 0 {
+			a.configureIptables(name, ip, strconv.Itoa(cP), hP, cP)
 		}
 	}
 }
@@ -911,31 +923,10 @@ func (a *LibvirtAdapter) configureIptables(name, ip, containerPort string, hPort
 	a.portMappings[name][containerPort] = hPort
 	a.mu.Unlock()
 
-	a.logger.Info("setting up port forwarding", "host", hPort, "vm", containerPort, "ip", ip)
-	// iptables -t nat -A PREROUTING -p tcp --dport <hPort> -j DNAT --to <ip>:<containerPort>
-	path, err := lookPath("iptables")
-	if err != nil {
-		a.logger.Error("iptables not found, cannot set up port forwarding", "error", err)
-		return
-	}
-	if path != "" {
-		// Security: Use numeric values to avoid injection
-		hPortStr := strconv.Itoa(hPort)
-		cPortStr := strconv.Itoa(cP)
-		cmd := execCommand("sudo", "iptables", "-t", "nat", "-A", "PREROUTING", "-p", "tcp", "--dport", hPortStr, "-j", "DNAT", "--to", ip+":"+cPortStr)
-		if err := cmd.Run(); err != nil {
-			a.logger.Error("failed to set up iptables PREROUTING rule", "command", cmd.String(), "error", err)
-		}
-		// Also add OUTPUT rule for localhost access
-		cmdOutput := execCommand("sudo", "iptables", "-t", "nat", "-A", "OUTPUT", "-o", "lo", "-p", "tcp", "--dport", hPortStr, "-j", "DNAT", "--to", ip+":"+cPortStr)
-		if err := cmdOutput.Run(); err != nil {
-			a.logger.Error("failed to set up iptables OUTPUT rule (localhost)", "command", cmdOutput.String(), "error", err)
-		}
-	}
+	a.logger.Info("setting up port forwarding record", "host", hPort, "vm", containerPort, "ip", ip)
 }
 
 func (a *LibvirtAdapter) parseAndValidatePort(p string) (int, int, error) {
-	// Format: [hostPort:]containerPort
 	parts := strings.Split(p, ":")
 	var hostPort, containerPort string
 	if len(parts) == 2 {
@@ -948,7 +939,6 @@ func (a *LibvirtAdapter) parseAndValidatePort(p string) (int, int, error) {
 		return 0, 0, fmt.Errorf("invalid port format: too many colons")
 	}
 
-	// Security: Validate ports are numeric
 	var hP, cP int
 	_, errH := fmt.Sscanf(hostPort, "%d", &hP)
 	_, errC := fmt.Sscanf(containerPort, "%d", &cP)
@@ -958,11 +948,9 @@ func (a *LibvirtAdapter) parseAndValidatePort(p string) (int, int, error) {
 
 	hPort := 0
 	if hostPort == "0" {
-		// Allocate random port (deterministic for simplicity in this POC)
-		hPort = 30000 + int(uuid.New().ID()%10000)
+		hPort, _ = findFreePort()
 	} else {
-		// Parse host port, ignore error as we validate hPort > 0 below
-		_, _ = fmt.Sscanf(hostPort, "%d", &hPort)
+		hPort = hP
 	}
 
 	return hPort, cP, nil
@@ -977,7 +965,6 @@ func (a *LibvirtAdapter) resolveBinds(ctx context.Context, volumeBinds []string)
 	pool, poolErr := a.client.StoragePoolLookupByName(ctx, defaultPoolName)
 
 	for _, bind := range volumeBinds {
-		// Format is name:mountPath
 		parts := strings.Split(bind, ":")
 		volName := parts[0]
 
@@ -989,12 +976,10 @@ func (a *LibvirtAdapter) resolveBinds(ctx context.Context, volumeBinds []string)
 }
 
 func (a *LibvirtAdapter) resolveVolumePath(ctx context.Context, volName string, pool libvirt.StoragePool, poolErr error) string {
-	// 1. Check if it's an LVM path
 	if strings.HasPrefix(volName, "/dev/") {
 		return volName
 	}
 
-	// 2. Try libvirt pool lookup (legacy/file-based)
 	if poolErr == nil {
 		v, err := a.client.StorageVolLookupByName(ctx, pool, volName)
 		if err == nil {
@@ -1005,11 +990,24 @@ func (a *LibvirtAdapter) resolveVolumePath(ctx context.Context, volName string, 
 		}
 	}
 
-	// 3. Fallback: Check if it's a direct file path
 	if strings.HasPrefix(volName, "/") {
 		if _, statErr := os.Stat(volName); statErr == nil {
 			return volName
 		}
 	}
 	return ""
+}
+
+func findFreePort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return 0, err
+	}
+
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
 }

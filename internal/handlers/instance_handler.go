@@ -230,12 +230,13 @@ func (h *InstanceHandler) List(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id}/stop [post]
 func (h *InstanceHandler) Stop(c *gin.Context) {
-	id, ok := parseUUID(c, "id")
-	if !ok {
+	id := c.Param("id")
+	if id == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
 		return
 	}
 
-	if err := h.svc.StopInstance(c.Request.Context(), id.String()); err != nil {
+	if err := h.svc.StopInstance(c.Request.Context(), id); err != nil {
 		httputil.Error(c, err)
 		return
 	}
@@ -255,12 +256,13 @@ func (h *InstanceHandler) Stop(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id}/logs [get]
 func (h *InstanceHandler) GetLogs(c *gin.Context) {
-	id, ok := parseUUID(c, "id")
-	if !ok {
+	id := c.Param("id")
+	if id == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
 		return
 	}
 
-	logs, err := h.svc.GetInstanceLogs(c.Request.Context(), id.String())
+	logs, err := h.svc.GetInstanceLogs(c.Request.Context(), id)
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -281,12 +283,13 @@ func (h *InstanceHandler) GetLogs(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id} [get]
 func (h *InstanceHandler) Get(c *gin.Context) {
-	id, ok := parseUUID(c, "id")
-	if !ok {
+	id := c.Param("id")
+	if id == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
 		return
 	}
 
-	inst, err := h.svc.GetInstance(c.Request.Context(), id.String())
+	inst, err := h.svc.GetInstance(c.Request.Context(), id)
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -307,12 +310,13 @@ func (h *InstanceHandler) Get(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id} [delete]
 func (h *InstanceHandler) Terminate(c *gin.Context) {
-	id, ok := parseUUID(c, "id")
-	if !ok {
+	id := c.Param("id")
+	if id == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
 		return
 	}
 
-	if err := h.svc.TerminateInstance(c.Request.Context(), id.String()); err != nil {
+	if err := h.svc.TerminateInstance(c.Request.Context(), id); err != nil {
 		httputil.Error(c, err)
 		return
 	}
@@ -332,11 +336,12 @@ func (h *InstanceHandler) Terminate(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id}/stats [get]
 func (h *InstanceHandler) GetStats(c *gin.Context) {
-	id, ok := parseUUID(c, "id")
-	if !ok {
+	id := c.Param("id")
+	if id == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
 		return
 	}
-	stats, err := h.svc.GetInstanceStats(c.Request.Context(), id.String())
+	stats, err := h.svc.GetInstanceStats(c.Request.Context(), id)
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -356,11 +361,12 @@ func (h *InstanceHandler) GetStats(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id}/console [get]
 func (h *InstanceHandler) GetConsole(c *gin.Context) {
-	id, ok := parseUUID(c, "id")
-	if !ok {
+	id := c.Param("id")
+	if id == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
 		return
 	}
-	url, err := h.svc.GetConsoleURL(c.Request.Context(), id.String())
+	url, err := h.svc.GetConsoleURL(c.Request.Context(), id)
 	if err != nil {
 		httputil.Error(c, err)
 		return

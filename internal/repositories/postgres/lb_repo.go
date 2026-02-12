@@ -46,6 +46,16 @@ func (r *LBRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.LoadB
 	return r.scanLB(r.db.QueryRow(ctx, query, id, userID))
 }
 
+func (r *LBRepository) GetByName(ctx context.Context, name string) (*domain.LoadBalancer, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	query := `
+		SELECT id, user_id, COALESCE(idempotency_key, ''), name, vpc_id, port, algorithm, COALESCE(ip, ''), status, version, created_at
+		FROM load_balancers
+		WHERE name = $1 AND user_id = $2
+	`
+	return r.scanLB(r.db.QueryRow(ctx, query, name, userID))
+}
+
 func (r *LBRepository) GetByIdempotencyKey(ctx context.Context, key string) (*domain.LoadBalancer, error) {
 	if key == "" {
 		return nil, errors.New(errors.NotFound, "idempotency key empty")

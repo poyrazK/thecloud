@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -69,7 +71,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	}
 
 	dockerName := fmt.Sprintf("cloud-db-%s-%s", name, db.ID.String()[:8])
-	containerID, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+	containerID, allocatedPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 		Name:        dockerName,
 		ImageName:   imageName,
 		Ports:       []string{"0:" + defaultPort},
@@ -83,7 +85,11 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 		return nil, errors.Wrap(errors.Internal, "failed to launch database container", err)
 	}
 
-	hostPort, _ := s.compute.GetInstancePort(ctx, containerID, defaultPort)
+	hostPort := s.parseAllocatedPort(allocatedPorts, defaultPort)
+	if hostPort == 0 {
+		hostPort, _ = s.compute.GetInstancePort(ctx, containerID, defaultPort)
+	}
+
 	db.ContainerID = containerID
 	db.Port = hostPort
 	db.Status = domain.DatabaseStatusRunning
@@ -95,6 +101,17 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 
 	s.recordDatabaseCreation(ctx, userID, db, engine)
 	return db, nil
+}
+
+func (s *DatabaseService) parseAllocatedPort(allocatedPorts []string, targetPort string) int {
+	for _, p := range allocatedPorts {
+		parts := strings.Split(p, ":")
+		if len(parts) == 2 && parts[1] == targetPort {
+			hp, _ := strconv.Atoi(parts[0])
+			return hp
+		}
+	}
+	return 0
 }
 
 func (s *DatabaseService) isValidEngine(engine domain.DatabaseEngine) bool {

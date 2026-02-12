@@ -38,16 +38,16 @@ func (m *mockLBService) List(ctx context.Context) ([]*domain.LoadBalancer, error
 	return args.Get(0).([]*domain.LoadBalancer), args.Error(1)
 }
 
-func (m *mockLBService) Get(ctx context.Context, id uuid.UUID) (*domain.LoadBalancer, error) {
-	args := m.Called(ctx, id)
+func (m *mockLBService) Get(ctx context.Context, idOrName string) (*domain.LoadBalancer, error) {
+	args := m.Called(ctx, idOrName)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
 }
 
-func (m *mockLBService) Delete(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
+func (m *mockLBService) Delete(ctx context.Context, idOrName string) error {
+	args := m.Called(ctx, idOrName)
 	return args.Error(0)
 }
 
@@ -127,7 +127,7 @@ func TestLBHandlerGet(t *testing.T) {
 
 	id := uuid.New()
 	lb := &domain.LoadBalancer{ID: id, Name: "lb1"}
-	svc.On("Get", mock.Anything, id).Return(lb, nil)
+	svc.On("Get", mock.Anything, id.String()).Return(lb, nil)
 
 	req := httptest.NewRequest(http.MethodGet, lbPath+"/"+id.String(), nil)
 	w := httptest.NewRecorder()
@@ -145,7 +145,7 @@ func TestLBHandlerDelete(t *testing.T) {
 	r.DELETE(lbPath+"/:id", handler.Delete)
 
 	id := uuid.New()
-	svc.On("Delete", mock.Anything, id).Return(nil)
+	svc.On("Delete", mock.Anything, id.String()).Return(nil)
 
 	req := httptest.NewRequest(http.MethodDelete, lbPath+"/"+id.String(), nil)
 	w := httptest.NewRecorder()

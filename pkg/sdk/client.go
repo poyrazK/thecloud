@@ -11,6 +11,7 @@ import (
 type Client struct {
 	resty  *resty.Client
 	apiURL string
+	tenant string
 }
 
 const (
@@ -26,6 +27,12 @@ func NewClient(apiURL, apiKey string) *Client {
 		resty:  client,
 		apiURL: apiURL,
 	}
+}
+
+// SetTenant sets the X-Tenant-ID header for subsequent requests.
+func (c *Client) SetTenant(id string) {
+	c.tenant = id
+	c.resty.SetHeader("X-Tenant-ID", id)
 }
 
 // Response wraps API responses returned by the platform.

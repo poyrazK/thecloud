@@ -93,7 +93,7 @@ func (a *DockerAdapter) Type() string {
 	return "docker"
 }
 
-func (a *DockerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
+func (a *DockerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
 	ctx, span := otel.Tracer(tracerName).Start(ctx, "CreateInstance")
 	defer span.End()
 
@@ -113,7 +113,7 @@ func (a *DockerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts port
 	pullSpan.End()
 
 	if err != nil {
-		return "", fmt.Errorf("failed to pull image: %w", err)
+		return "", nil, fmt.Errorf("failed to pull image: %w", err)
 	}
 	defer func() { _ = reader.Close() }()
 	_, _ = io.Copy(io.Discard, reader)
@@ -186,14 +186,14 @@ func (a *DockerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts port
 	resp, err := a.cli.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, opts.Name)
 	createSpan.End()
 	if err != nil {
-		return "", fmt.Errorf("failed to create container: %w", err)
+		return "", nil, fmt.Errorf("failed to create container: %w", err)
 	}
 
 	// 4. Start container
 	_, startSpan := otel.Tracer(tracerName).Start(ctx, "ContainerStart")
 	if err := a.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		startSpan.End()
-		return "", fmt.Errorf("failed to start container: %w", err)
+		return "", nil, fmt.Errorf("failed to start container: %w", err)
 	}
 	startSpan.End()
 
@@ -204,7 +204,7 @@ func (a *DockerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts port
 		}
 	}
 
-	return resp.ID, nil
+	return resp.ID, opts.Ports, nil
 }
 
 func (a *DockerAdapter) handleUserData(ctx context.Context, containerID string, userData string) error {
@@ -633,14 +633,14 @@ func (a *DockerAdapter) GetInstanceIP(ctx context.Context, id string) (string, e
 	return "", fmt.Errorf("no IP address found for container %s after retries", id)
 }
 
-func (a *DockerAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, error) {
+func (a *DockerAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, []string, error) {
 	// 1. Ensure image exists
 	pullCtx, pullCancel := context.WithTimeout(ctx, ImagePullTimeout)
 	defer pullCancel()
 
 	reader, err := a.cli.ImagePull(pullCtx, opts.Image, image.PullOptions{})
 	if err != nil {
-		return "", fmt.Errorf("failed to pull image: %w", err)
+		return "", nil, fmt.Errorf("failed to pull image: %w", err)
 	}
 	defer func() { _ = reader.Close() }()
 	_, _ = io.Copy(io.Discard, reader)
@@ -671,15 +671,15 @@ func (a *DockerAdapter) RunTask(ctx context.Context, opts ports.RunTaskOptions) 
 	// 3. Create container
 	resp, err := a.cli.ContainerCreate(ctx, config, hostConfig, nil, nil, opts.Name)
 	if err != nil {
-		return "", fmt.Errorf("failed to create task container: %w", err)
+		return "", nil, fmt.Errorf("failed to create task container: %w", err)
 	}
 
 	// 4. Start container
 	if err := a.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		return "", fmt.Errorf("failed to start task container: %w", err)
+		return "", nil, fmt.Errorf("failed to start task container: %w", err)
 	}
 
-	return resp.ID, nil
+	return resp.ID, nil, nil
 }
 
 func (a *DockerAdapter) WaitTask(ctx context.Context, containerID string) (int64, error) {

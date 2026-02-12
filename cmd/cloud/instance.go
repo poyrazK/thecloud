@@ -47,7 +47,11 @@ func getClient() *sdk.Client {
 		os.Exit(1)
 	}
 
-	return sdk.NewClient(apiURL, key)
+	client := sdk.NewClient(apiURL, key)
+	if tenant := os.Getenv("CLOUD_TENANT_ID"); tenant != "" {
+		client.SetTenant(tenant)
+	}
+	return client
 }
 
 var listCmd = &cobra.Command{
@@ -132,8 +136,9 @@ var launchCmd = &cobra.Command{
 			}
 		}
 
+		runCmd, _ := cmd.Flags().GetStringSlice("cmd")
 		client := getClient()
-		inst, err := client.LaunchInstance(name, image, ports, instanceType, vpc, subnetID, volumes, metadata, labels, sshKeyID)
+		inst, err := client.LaunchInstance(name, image, ports, instanceType, vpc, subnetID, volumes, metadata, labels, sshKeyID, runCmd)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
@@ -216,6 +221,23 @@ var showCmd = &cobra.Command{
 		}
 		fmt.Println(strings.Repeat("-", 40))
 		fmt.Println("")
+	},
+}
+
+var consoleCmd = &cobra.Command{
+	Use:   "console [id/name]",
+	Short: "Get the VNC console URL for an instance",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		id := args[0]
+		client := getClient()
+		url, err := client.GetConsoleURL(id)
+		if err != nil {
+			fmt.Printf(fmtErrorLog, err)
+			return
+		}
+
+		fmt.Printf("VNC Console URL: %s\n", url)
 	},
 }
 
@@ -329,18 +351,27 @@ var sshCmd = &cobra.Command{
 			}
 		}
 
-		if hostPort == "" {
-			fmt.Println("Error: No port mapping for SSH (22) found. Did you launch with --port 22?")
+		var targetHost string
+		var targetPort string
+
+		if hostPort != "" {
+			targetHost = "localhost"
+			targetPort = hostPort
+		} else if inst.PrivateIP != "" {
+			targetHost = inst.PrivateIP
+			targetPort = "22"
+		} else {
+			fmt.Println("Error: No SSH access available. Neither port mapping for 22 nor Private IP found.")
 			return
 		}
 
-		sshArgs := []string{"-p", hostPort, "-o", "StrictHostKeyChecking=no"}
+		sshArgs := []string{"-p", targetPort, "-o", "StrictHostKeyChecking=no"}
 		if keyPath != "" {
 			sshArgs = append(sshArgs, "-i", keyPath)
 		}
-		sshArgs = append(sshArgs, fmt.Sprintf("%s@localhost", user))
+		sshArgs = append(sshArgs, fmt.Sprintf("%s@%s", user, targetHost))
 
-		fmt.Printf("[INFO] Connecting to %s (localhost:%s)...\n", inst.Name, hostPort)
+		fmt.Printf("[INFO] Connecting to %s (%s:%s)...\n", inst.Name, targetHost, targetPort)
 
 		binary, err := exec.LookPath("ssh")
 		if err != nil {
@@ -365,6 +396,7 @@ func init() {
 	instanceCmd.AddCommand(stopCmd)
 	instanceCmd.AddCommand(logsCmd)
 	instanceCmd.AddCommand(showCmd)
+	instanceCmd.AddCommand(consoleCmd)
 	instanceCmd.AddCommand(rmCmd)
 	instanceCmd.AddCommand(statsCmd)
 	instanceCmd.AddCommand(metadataCmd)
@@ -380,6 +412,7 @@ func init() {
 	launchCmd.Flags().StringSliceP("metadata", "m", nil, "Metadata (key=value)")
 	launchCmd.Flags().StringSliceP("label", "l", nil, "Labels (key=value)")
 	launchCmd.Flags().String("ssh-key", "", "SSH Key ID to inject")
+	launchCmd.Flags().StringSlice("cmd", nil, "Command to run (e.g. --cmd 'sh' --cmd '-c' --cmd 'echo hello')")
 	_ = launchCmd.MarkFlagRequired("name")
 
 	metadataCmd.Flags().StringSliceP("metadata", "m", nil, "Metadata (key=value)")

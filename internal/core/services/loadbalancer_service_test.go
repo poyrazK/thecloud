@@ -25,7 +25,7 @@ func TestLBServiceGet(t *testing.T) {
 	lb := &domain.LoadBalancer{ID: lbID, Name: lbMainName}
 	lbRepo.On("GetByID", mock.Anything, lbID).Return(lb, nil).Once()
 
-	res, err := svc.Get(context.Background(), lbID)
+	res, err := svc.Get(context.Background(), lbID.String())
 	assert.NoError(t, err)
 	assert.Equal(t, lbID, res.ID)
 	lbRepo.AssertExpectations(t)
@@ -104,7 +104,7 @@ func TestLBServiceDelete(t *testing.T) {
 	})).Return(nil).Once()
 	auditSvc.On("Log", mock.Anything, lb.UserID, "lb.delete", "loadbalancer", lb.ID.String(), mock.Anything).Return(nil).Once()
 
-	err := svc.Delete(context.Background(), lbID)
+	err := svc.Delete(context.Background(), lbID.String())
 	assert.NoError(t, err)
 	lbRepo.AssertExpectations(t)
 	auditSvc.AssertExpectations(t)

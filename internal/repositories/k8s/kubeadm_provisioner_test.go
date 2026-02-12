@@ -208,15 +208,18 @@ func (m *MockLBService) Create(ctx context.Context, name string, vpcID uuid.UUID
 	args := m.Called(ctx, name, vpcID, port, algo, idempotencyKey)
 	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
 }
-func (m *MockLBService) Get(ctx context.Context, id uuid.UUID) (*domain.LoadBalancer, error) {
-	args := m.Called(ctx, id)
+func (m *MockLBService) Get(ctx context.Context, idOrName string) (*domain.LoadBalancer, error) {
+	args := m.Called(ctx, idOrName)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
 }
 func (m *MockLBService) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	return nil, nil
 }
-func (m *MockLBService) Delete(ctx context.Context, id uuid.UUID) error {
-	return nil
+func (m *MockLBService) Delete(ctx context.Context, idOrName string) error {
+	return m.Called(ctx, idOrName).Error(0)
 }
 func (m *MockLBService) AddTarget(ctx context.Context, lbID, instanceID uuid.UUID, port int, weight int) error {
 	return m.Called(ctx, lbID, instanceID, port, weight).Error(0)

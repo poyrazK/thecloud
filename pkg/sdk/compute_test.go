@@ -93,7 +93,7 @@ func TestClientLaunchInstance(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, computeAPIKey)
-	instance, err := client.LaunchInstance(computeNewInstance, "nginx", "80:80", "basic-2", "", "", nil, nil, nil, "")
+	instance, err := client.LaunchInstance(computeNewInstance, "nginx", "80:80", "basic-2", "", "", nil, nil, nil, "", nil)
 
 	assert.NoError(t, err)
 	assert.Equal(t, computeInstanceID, instance.ID)
@@ -212,7 +212,7 @@ func TestClientLaunchInstanceError(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, computeAPIKey)
-	_, err := client.LaunchInstance("name", "img", "80", "basic-2", "", "", nil, nil, nil, "")
+	_, err := client.LaunchInstance("name", "img", "80", "basic-2", "", "", nil, nil, nil, "", nil)
 	assert.Error(t, err)
 }
 

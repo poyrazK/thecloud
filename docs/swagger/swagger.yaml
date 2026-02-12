@@ -447,8 +447,16 @@ definitions:
         type: string
       instance_type:
         type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
       memory_limit:
         type: integer
+      metadata:
+        additionalProperties:
+          type: string
+        type: object
       name:
         description: Unique per tenant
         type: string
@@ -460,6 +468,8 @@ definitions:
         type: string
       private_ip:
         description: VPC private IP
+        type: string
+      ssh_key_id:
         type: string
       status:
         $ref: '#/definitions/domain.InstanceStatus'
@@ -891,6 +901,23 @@ definitions:
     x-enum-varnames:
     - RuleIngress
     - RuleEgress
+  domain.SSHKey:
+    properties:
+      created_at:
+        type: string
+      fingerprint:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      public_key:
+        type: string
+      tenant_id:
+        type: string
+      user_id:
+        type: string
+    type: object
   domain.ScalingGroup:
     properties:
       created_at:
@@ -1495,6 +1522,16 @@ definitions:
     - path_prefix
     - target_url
     type: object
+  httphandlers.CreateSSHKeyRequest:
+    properties:
+      name:
+        type: string
+      public_key:
+        type: string
+    required:
+    - name
+    - public_key
+    type: object
   httphandlers.CreateSecurityGroupRequest:
     properties:
       description:
@@ -1581,11 +1618,21 @@ definitions:
         type: string
       instance_type:
         type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
       memory_limit:
         type: integer
+      metadata:
+        additionalProperties:
+          type: string
+        type: object
       name:
         type: string
       ports:
+        type: string
+      ssh_key_id:
         type: string
       subnet_id:
         type: string
@@ -3398,6 +3445,48 @@ paths:
       summary: Get instance logs
       tags:
       - instances
+  /instances/{id}/metadata:
+    put:
+      consumes:
+      - application/json
+      description: Updates the metadata and labels for a compute instance
+      parameters:
+      - description: Instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Metadata and Labels
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Update instance metadata
+      tags:
+      - instances
   /instances/{id}/stats:
     get:
       description: Gets real-time CPU and Memory usage for a compute instance
@@ -4205,6 +4294,107 @@ paths:
       summary: Restore snapshot to volume
       tags:
       - snapshots
+  /ssh-keys:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.SSHKey'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      summary: List SSH Keys
+      tags:
+      - ssh_keys
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: SSH Key details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreateSSHKeyRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.SSHKey'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      summary: Create SSH Key
+      tags:
+      - ssh_keys
+  /ssh-keys/{id}:
+    delete:
+      parameters:
+      - description: SSH Key ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      summary: Delete SSH Key
+      tags:
+      - ssh_keys
+    get:
+      parameters:
+      - description: SSH Key ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.SSHKey'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      summary: Get SSH Key
+      tags:
+      - ssh_keys
   /storage/{bucket}:
     get:
       description: Gets a list of all objects within a specific bucket
