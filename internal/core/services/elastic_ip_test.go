@@ -90,22 +90,27 @@ func TestElasticIPReleaseFailureAssociated(t *testing.T) {
 		Status:    domain.StatusRunning,
 		CreatedAt: time.Now(),
 	}
-	_ = instRepo.Create(ctx, inst)
+	err := instRepo.Create(ctx, inst)
+	require.NoError(t, err)
 
-	eip, _ := svc.AllocateIP(ctx)
-	_, _ = svc.AssociateIP(ctx, eip.ID, inst.ID)
+	eip, err := svc.AllocateIP(ctx)
+	require.NoError(t, err)
+
+	_, err = svc.AssociateIP(ctx, eip.ID, inst.ID)
+	require.NoError(t, err)
 
 	// Should fail release because associated
-	err := svc.ReleaseIP(ctx, eip.ID)
+	err = svc.ReleaseIP(ctx, eip.ID)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "disassociate it first")
 }
 
 func TestElasticIPReleaseSuccess(t *testing.T) {
 	svc, repo, _, ctx := setupElasticIPServiceTest(t)
-	eip, _ := svc.AllocateIP(ctx)
+	eip, err := svc.AllocateIP(ctx)
+	require.NoError(t, err)
 
-	err := svc.ReleaseIP(ctx, eip.ID)
+	err = svc.ReleaseIP(ctx, eip.ID)
 	assert.NoError(t, err)
 
 	_, err = repo.GetByID(ctx, eip.ID)
@@ -114,8 +119,10 @@ func TestElasticIPReleaseSuccess(t *testing.T) {
 
 func TestElasticIPListSuccess(t *testing.T) {
 	svc, _, _, ctx := setupElasticIPServiceTest(t)
-	_, _ = svc.AllocateIP(ctx)
-	_, _ = svc.AllocateIP(ctx)
+	_, err := svc.AllocateIP(ctx)
+	require.NoError(t, err)
+	_, err = svc.AllocateIP(ctx)
+	require.NoError(t, err)
 
 	eips, err := svc.ListElasticIPs(ctx)
 	assert.NoError(t, err)
@@ -124,7 +131,8 @@ func TestElasticIPListSuccess(t *testing.T) {
 
 func TestElasticIPGetSuccess(t *testing.T) {
 	svc, _, _, ctx := setupElasticIPServiceTest(t)
-	eip, _ := svc.AllocateIP(ctx)
+	eip, err := svc.AllocateIP(ctx)
+	require.NoError(t, err)
 
 	fetched, err := svc.GetElasticIP(ctx, eip.ID)
 	assert.NoError(t, err)

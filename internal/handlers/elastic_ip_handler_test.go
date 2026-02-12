@@ -72,45 +72,72 @@ func setupElasticIPHandlerTest() (*mockElasticIPService, *ElasticIPHandler, *gin
 	return svc, handler, r
 }
 
-func TestElasticIPHandlerAllocate(t *testing.T) {
-	svc, handler, r := setupElasticIPHandlerTest()
-	r.POST("/elastic-ips", handler.Allocate)
+func TestElasticIPHandler(t *testing.T) {
+	tests := []struct {
+		name           string
+		method         string
+		url            string
+		setupMock      func(svc *mockElasticIPService, eipID, instID uuid.UUID)
+		body           interface{}
+		expectedStatus int
+	}{
+		{
+			name:   "Allocate",
+			method: "POST",
+			url:    "/elastic-ips",
+			setupMock: func(svc *mockElasticIPService, eipID, instID uuid.UUID) {
+				svc.On("AllocateIP", mock.Anything).Return(&domain.ElasticIP{ID: eipID, PublicIP: "1.2.3.4"}, nil).Once()
+			},
+			expectedStatus: http.StatusCreated,
+		},
+		{
+			name:   "List",
+			method: "GET",
+			url:    "/elastic-ips",
+			setupMock: func(svc *mockElasticIPService, eipID, instID uuid.UUID) {
+				svc.On("ListElasticIPs", mock.Anything).Return([]*domain.ElasticIP{}, nil).Once()
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:   "Associate",
+			method: "POST",
+			url:    "/elastic-ips/{id}/associate",
+			setupMock: func(svc *mockElasticIPService, eipID, instID uuid.UUID) {
+				svc.On("AssociateIP", mock.Anything, eipID, instID).Return(&domain.ElasticIP{}, nil).Once()
+			},
+			body:           map[string]string{"instance_id": ""}, // Filled in loop
+			expectedStatus: http.StatusOK,
+		},
+	}
 
-	eip := &domain.ElasticIP{ID: uuid.New(), PublicIP: "1.2.3.4"}
-	svc.On("AllocateIP", mock.Anything).Return(eip, nil)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, handler, r := setupElasticIPHandlerTest()
+			r.POST("/elastic-ips", handler.Allocate)
+			r.GET("/elastic-ips", handler.List)
+			r.POST("/elastic-ips/:id/associate", handler.Associate)
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/elastic-ips", nil)
-	r.ServeHTTP(w, req)
+			eipID := uuid.New()
+			instID := uuid.New()
+			tt.setupMock(svc, eipID, instID)
 
-	assert.Equal(t, http.StatusCreated, w.Code)
-}
+			url := tt.url
+			if url == "/elastic-ips/{id}/associate" {
+				url = "/elastic-ips/" + eipID.String() + "/associate"
+			}
 
-func TestElasticIPHandlerList(t *testing.T) {
-	svc, handler, r := setupElasticIPHandlerTest()
-	r.GET("/elastic-ips", handler.List)
+			var body []byte
+			if tt.name == "Associate" {
+				body, _ = json.Marshal(map[string]string{"instance_id": instID.String()})
+			}
 
-	svc.On("ListElasticIPs", mock.Anything).Return([]*domain.ElasticIP{}, nil)
+			w := httptest.NewRecorder()
+			req, _ := http.NewRequest(tt.method, url, bytes.NewBuffer(body))
+			r.ServeHTTP(w, req)
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/elastic-ips", nil)
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-func TestElasticIPHandlerAssociate(t *testing.T) {
-	svc, handler, r := setupElasticIPHandlerTest()
-	r.POST("/elastic-ips/:id/associate", handler.Associate)
-
-	eipID := uuid.New()
-	instID := uuid.New()
-	svc.On("AssociateIP", mock.Anything, eipID, instID).Return(&domain.ElasticIP{}, nil)
-
-	body, _ := json.Marshal(map[string]string{"instance_id": instID.String()})
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/elastic-ips/"+eipID.String()+"/associate", bytes.NewBuffer(body))
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			svc.AssertExpectations(t)
+		})
+	}
 }
