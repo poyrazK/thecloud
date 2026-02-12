@@ -6,6 +6,7 @@ package tests
 import (
 	"io"
 	"net/http"
+	"os"
 	"os/exec"
 	"testing"
 	"time"
@@ -17,8 +18,16 @@ import (
 
 const (
 	composeFile = "../docker-compose.yml"
-	projectName = "cloud"
 )
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
+var projectName = getEnv("COMPOSE_PROJECT_NAME", "cloud")
 
 func TestChaos(t *testing.T) {
 	// t.Parallel() // Removed: This test restarts containers and cannot run in parallel
