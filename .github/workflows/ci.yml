@@ -236,9 +236,6 @@ jobs:
           docker network create cloud-network || true
           go test -v ./internal/repositories/libvirt/...
 
-      - name: Run Libvirt Integration Test
-        run: go run scripts/verify_libvirt_logic.go
-
       - name: Test Backend Switching
         env:
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable

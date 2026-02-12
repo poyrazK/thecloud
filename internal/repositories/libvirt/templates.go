@@ -27,9 +27,6 @@ func generateVolumeXML(name string, sizeGB int, backingStorePath string) string 
 }
 
 func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu int, additionalDisks []string, ports []string) string {
-	if networkID == "" {
-		networkID = "default"
-	}
 	memoryKB := memoryMB * 1024
 
 	var isoXML string

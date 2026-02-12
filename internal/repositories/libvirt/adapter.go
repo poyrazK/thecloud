@@ -46,7 +46,6 @@ type LibvirtAdapter struct {
 	logger *slog.Logger
 	uri    string
 
-	isSession bool
 	mu        sync.RWMutex
 	portMappings map[string]map[string]int // instanceID -> internalPort -> hostPort
 
