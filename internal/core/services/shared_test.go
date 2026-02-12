@@ -276,7 +276,7 @@ func (m *MockInstanceTypeRepo) Update(ctx context.Context, it *domain.InstanceTy
 	}
 	return args.Get(0).(*domain.InstanceType), args.Error(1)
 }
-func (m *MockInstanceTypeRepo) Delete(ctx context.Context, id string) error {
+func (m *MockInstanceTypeRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
 
@@ -290,8 +290,8 @@ func (m *MockLBService) Create(ctx context.Context, name string, vpcID uuid.UUID
 	}
 	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
 }
-func (m *MockLBService) Get(ctx context.Context, id uuid.UUID) (*domain.LoadBalancer, error) {
-	args := m.Called(ctx, id)
+func (m *MockLBService) Get(ctx context.Context, idOrName string) (*domain.LoadBalancer, error) {
+	args := m.Called(ctx, idOrName)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -304,8 +304,8 @@ func (m *MockLBService) List(ctx context.Context) ([]*domain.LoadBalancer, error
 	}
 	return args.Get(0).([]*domain.LoadBalancer), args.Error(1)
 }
-func (m *MockLBService) Delete(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
+func (m *MockLBService) Delete(ctx context.Context, idOrName string) error {
+	args := m.Called(ctx, idOrName)
 	return args.Error(0)
 }
 func (m *MockLBService) AddTarget(ctx context.Context, lbID, instanceID uuid.UUID, port, weight int) error {
@@ -1045,9 +1045,9 @@ func (m *MockInstanceRepo) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*d
 // MockDockerClient
 type MockComputeBackend struct{ mock.Mock }
 
-func (m *MockComputeBackend) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
+func (m *MockComputeBackend) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
 	args := m.Called(ctx, opts)
-	return args.String(0), args.Error(1)
+	return args.String(0), args.Get(1).([]string), args.Error(2)
 }
 func (m *MockComputeBackend) StopInstance(ctx context.Context, id string) error {
 	return m.Called(ctx, id).Error(0)
@@ -1654,6 +1654,13 @@ func (m *MockLBRepo) Create(ctx context.Context, lb *domain.LoadBalancer) error 
 }
 func (m *MockLBRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.LoadBalancer, error) {
 	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
+}
+func (m *MockLBRepo) GetByName(ctx context.Context, name string) (*domain.LoadBalancer, error) {
+	args := m.Called(ctx, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

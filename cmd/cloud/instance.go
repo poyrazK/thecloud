@@ -224,6 +224,23 @@ var showCmd = &cobra.Command{
 	},
 }
 
+var consoleCmd = &cobra.Command{
+	Use:   "console [id/name]",
+	Short: "Get the VNC console URL for an instance",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		id := args[0]
+		client := getClient()
+		url, err := client.GetConsoleURL(id)
+		if err != nil {
+			fmt.Printf(fmtErrorLog, err)
+			return
+		}
+
+		fmt.Printf("VNC Console URL: %s\n", url)
+	},
+}
+
 var rmCmd = &cobra.Command{
 	Use:   "rm [id/name]",
 	Short: "Remove an instance and its resources",
@@ -379,6 +396,7 @@ func init() {
 	instanceCmd.AddCommand(stopCmd)
 	instanceCmd.AddCommand(logsCmd)
 	instanceCmd.AddCommand(showCmd)
+	instanceCmd.AddCommand(consoleCmd)
 	instanceCmd.AddCommand(rmCmd)
 	instanceCmd.AddCommand(statsCmd)
 	instanceCmd.AddCommand(metadataCmd)

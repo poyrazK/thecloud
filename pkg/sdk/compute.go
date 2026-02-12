@@ -44,6 +44,14 @@ func (c *Client) GetInstance(idOrName string) (*Instance, error) {
 	return &res.Data, nil
 }
 
+func (c *Client) GetConsoleURL(idOrName string) (string, error) {
+	var res Response[string]
+	if err := c.get(fmt.Sprintf("/instances/%s/console", idOrName), &res); err != nil {
+		return "", err
+	}
+	return res.Data, nil
+}
+
 // VolumeAttachmentInput defines a volume attachment for instance launch.
 type VolumeAttachmentInput struct {
 	VolumeID  string `json:"volume_id"`

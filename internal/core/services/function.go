@@ -178,7 +178,7 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 
 	opts := s.buildTaskOptions(f, tmpDir, payload)
 
-	containerID, err := s.compute.RunTask(ctx, opts)
+	containerID, _, err := s.compute.RunTask(ctx, opts)
 	if err != nil {
 		return s.failInvocation(i, fmt.Sprintf("Error running task: %v", err), err)
 	}
