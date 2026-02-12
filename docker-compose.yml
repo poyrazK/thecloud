@@ -120,4 +120,5 @@ volumes:
 
 
 networks:
-  cloud-network: # name: cloud-network
+  cloud-network:
+    name: cloud-network
