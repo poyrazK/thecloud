@@ -275,7 +275,12 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		InstanceType: services.NewInstanceTypeService(c.Repos.InstanceType),
 		GlobalLB:     glbSvc,
 		DNS:          dnsSvc,
-		ElasticIP:    services.NewElasticIPService(c.Repos.ElasticIP, c.Repos.Instance, auditSvc, c.Logger),
+		ElasticIP: services.NewElasticIPService(services.ElasticIPServiceParams{
+			Repo:         c.Repos.ElasticIP,
+			InstanceRepo: c.Repos.Instance,
+			AuditSvc:     auditSvc,
+			Logger:       c.Logger,
+		}),
 	}
 
 	// 7. High Availability & Monitoring

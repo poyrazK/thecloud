@@ -22,13 +22,21 @@ type elasticIPService struct {
 	logger       *slog.Logger
 }
 
-// NewElasticIPService constructs an ElasticIPService.
-func NewElasticIPService(repo ports.ElasticIPRepository, instanceRepo ports.InstanceRepository, auditSvc ports.AuditService, logger *slog.Logger) ports.ElasticIPService {
+// ElasticIPServiceParams holds the dependencies for creating an ElasticIPService.
+type ElasticIPServiceParams struct {
+	Repo         ports.ElasticIPRepository
+	InstanceRepo ports.InstanceRepository
+	AuditSvc     ports.AuditService
+	Logger       *slog.Logger
+}
+
+// NewElasticIPService constructs an ElasticIPService using the provided parameters.
+func NewElasticIPService(params ElasticIPServiceParams) ports.ElasticIPService {
 	return &elasticIPService{
-		repo:         repo,
-		instanceRepo: instanceRepo,
-		auditSvc:     auditSvc,
-		logger:       logger,
+		repo:         params.Repo,
+		instanceRepo: params.InstanceRepo,
+		auditSvc:     params.AuditSvc,
+		logger:       params.Logger,
 	}
 }
 
@@ -180,9 +188,25 @@ func (s *elasticIPService) GetElasticIP(ctx context.Context, id uuid.UUID) (*dom
 	return s.repo.GetByID(ctx, id)
 }
 
+const (
+	// CGNAT_FIRST_OCTET is the first octet of the Carrier-Grade NAT range (100.64.0.0/10).
+	CGNAT_FIRST_OCTET = 100
+	// CGNAT_SECOND_OCTET_BASE is the starting second octet of the CGNAT range.
+	CGNAT_SECOND_OCTET_BASE = 64
+	// CGNAT_SECOND_OCTET_MASK is the number of addresses in the /10 range (within the second octet).
+	CGNAT_SECOND_OCTET_MASK = 64
+
+	// UUID byte indices used for deterministic IP generation.
+	UUID_IP_BYTE_1 = 12
+	// UUID_IP_BYTE_2 is the second byte index from UUID.
+	UUID_IP_BYTE_2 = 13
+	// UUID_IP_BYTE_3 is the third byte index from UUID.
+	UUID_IP_BYTE_3 = 14
+)
+
 // generateDeterministicIP creates a consistent "public" IP for a given UUID within the 100.64.0.0/10 range.
 func (s *elasticIPService) generateDeterministicIP(u uuid.UUID) string {
 	// 100.64.0.0 + bytes 12-15 of UUID
-	ip := net.IPv4(100, 64+u[12]%64, u[13], u[14])
+	ip := net.IPv4(CGNAT_FIRST_OCTET, CGNAT_SECOND_OCTET_BASE+u[UUID_IP_BYTE_1]%CGNAT_SECOND_OCTET_MASK, u[UUID_IP_BYTE_2], u[UUID_IP_BYTE_3])
 	return ip.String()
 }

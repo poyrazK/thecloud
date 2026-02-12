@@ -28,7 +28,12 @@ func setupElasticIPServiceTest(t *testing.T) (ports.ElasticIPService, ports.Elas
 	auditSvc := services.NewAuditService(auditRepo)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewElasticIPService(eipRepo, instRepo, auditSvc, logger)
+	svc := services.NewElasticIPService(services.ElasticIPServiceParams{
+		Repo:         eipRepo,
+		InstanceRepo: instRepo,
+		AuditSvc:     auditSvc,
+		Logger:       logger,
+	})
 	return svc, eipRepo, instRepo, ctx
 }
 
