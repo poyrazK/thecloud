@@ -156,6 +156,7 @@ Adding enterprise capabilities:
 - Multi-node clustering
 - Database replication
 - Security groups
+- Elastic IP Management 🆕
 - Multi-tenancy
 
 ### Phase 11-12: Developer Experience (📋 Planned Q3 2026)

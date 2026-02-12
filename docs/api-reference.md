@@ -316,6 +316,45 @@ Delete a subnet.
 
 ---
 
+## Elastic IPs (Static IPs) 🆕
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /elastic-ips
+List all allocated elastic IPs for the tenant.
+
+### POST /elastic-ips
+Allocate a new elastic IP. No body required.
+**Response:**
+```json
+{
+  "id": "uuid",
+  "public_ip": "100.64.x.y",
+  "status": "allocated",
+  "arn": "arn:thecloud:vpc:local:tenant:eip/uuid"
+}
+```
+
+### GET /elastic-ips/:id
+Get details of a specific elastic IP.
+
+### DELETE /elastic-ips/:id
+Release an elastic IP back to the pool. Fails if still associated.
+
+### POST /elastic-ips/:id/associate
+Associate an elastic IP with a compute instance.
+**Request:**
+```json
+{
+  "instance_id": "inst-uuid"
+}
+```
+
+### POST /elastic-ips/:id/disassociate
+Disassociate an elastic IP from its current instance.
+
+---
+
 ## Volumes
 
 **Headers Required:** `X-API-Key: <your-api-key>`

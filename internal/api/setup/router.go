@@ -6,13 +6,12 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
+	"github.com/poyrazk/thecloud/internal/api/setup/ws"
 	_ "github.com/poyrazk/thecloud/docs/swagger"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	httphandlers "github.com/poyrazk/thecloud/internal/handlers"
-	"github.com/poyrazk/thecloud/internal/handlers/ws"
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/pkg/httputil"
 	"github.com/poyrazk/thecloud/pkg/ratelimit"
@@ -64,6 +63,7 @@ type Handlers struct {
 	InstanceType  *httphandlers.InstanceTypeHandler
 	GlobalLB      *httphandlers.GlobalLBHandler
 	SSHKey        *httphandlers.SSHKeyHandler
+	ElasticIP     *httphandlers.ElasticIPHandler
 	Ws            *ws.Handler
 }
 
@@ -108,6 +108,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		InstanceType:  httphandlers.NewInstanceTypeHandler(svcs.InstanceType),
 		GlobalLB:      httphandlers.NewGlobalLBHandler(svcs.GlobalLB),
 		SSHKey:        httphandlers.NewSSHKeyHandler(svcs.SSHKey),
+		ElasticIP:     httphandlers.NewElasticIPHandler(svcs.ElasticIP),
 		Ws:            ws.NewHandler(hub, svcs.Identity, logger),
 	}
 }
@@ -337,6 +338,17 @@ func registerNetworkRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		lbGroup.GET("/:id/targets", httputil.Permission(svcs.RBAC, domain.PermissionLbRead), handlers.LB.ListTargets)
 		lbGroup.DELETE("/:id/targets/:instanceId", httputil.Permission(svcs.RBAC, domain.PermissionLbUpdate), handlers.LB.RemoveTarget)
 	}
+
+	eipGroup := r.Group("/elastic-ips")
+	eipGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant), httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant))
+	{
+		eipGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionEipAllocate), handlers.ElasticIP.Allocate)
+		eipGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionEipRead), handlers.ElasticIP.List)
+		eipGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionEipRead), handlers.ElasticIP.Get)
+		eipGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionEipRelease), handlers.ElasticIP.Release)
+		eipGroup.POST("/:id/associate", httputil.Permission(svcs.RBAC, domain.PermissionEipAssociate), handlers.ElasticIP.Associate)
+		eipGroup.POST("/:id/disassociate", httputil.Permission(svcs.RBAC, domain.PermissionEipAssociate), handlers.ElasticIP.Disassociate)
+	}
 }
 
 func registerGlobalLBRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
@@ -483,7 +495,7 @@ func registerDevOpsRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	}
 
 	gatewayGroup := r.Group("/gateway")
-	gatewayGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
+	gatewayGroup.Use(httputil.Auth(services.Identity, services.Tenant), httputil.RequireTenant())
 	{
 		gatewayGroup.POST("/routes", httputil.Permission(svcs.RBAC, domain.PermissionGatewayCreate), handlers.Gateway.CreateRoute)
 		gatewayGroup.GET("/routes", httputil.Permission(svcs.RBAC, domain.PermissionGatewayRead), handlers.Gateway.ListRoutes)

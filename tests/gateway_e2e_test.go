@@ -303,13 +303,15 @@ func TestGatewayE2E(t *testing.T) {
 		respGet, err := client.Do(reqGet)
 		require.NoError(t, err)
 		defer func() { _ = respGet.Body.Close() }()
+		require.Equal(t, http.StatusOK, respGet.StatusCode, "GET request failed")
+
 		bodyBytesGet, err := io.ReadAll(respGet.Body)
 		require.NoError(t, err)
 		var resGet struct {
 			URL string `json:"url"`
 		}
 		if err := json.Unmarshal(bodyBytesGet, &resGet); err != nil {
-			t.Fatalf("Failed to decode GET response: %v. Body: %s", err, string(bodyBytesGet))
+			t.Fatalf("Failed to decode GET response (Status: %d): %v. Body: %s", respGet.StatusCode, err, string(bodyBytesGet))
 		}
 		assert.Contains(t, resGet.URL, "/get-only")
 
@@ -319,13 +321,15 @@ func TestGatewayE2E(t *testing.T) {
 		respPost, err := client.Do(reqPost)
 		require.NoError(t, err)
 		defer func() { _ = respPost.Body.Close() }()
+		require.Equal(t, http.StatusOK, respPost.StatusCode, "POST request failed")
+
 		bodyBytes, err := io.ReadAll(respPost.Body)
 		require.NoError(t, err)
 		var resPost struct {
 			URL string `json:"url"`
 		}
 		if err := json.Unmarshal(bodyBytes, &resPost); err != nil {
-			t.Fatalf("Failed to decode POST response: %v. Body: %s", err, string(bodyBytes))
+			t.Fatalf("Failed to decode POST response (Status: %d): %v. Body: %s", respPost.StatusCode, err, string(bodyBytes))
 		}
 		assert.Contains(t, resPost.URL, "/post-only")
 

@@ -69,8 +69,9 @@ jobs:
       - name: Run Unit Tests
         env:
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
+          TEST_DOCKER_NETWORK: cloud-network
         run: |
-          docker network create cloud-network || true
+          docker network create ${TEST_DOCKER_NETWORK} || true
           go test -p 1 -v ./cmd/... ./internal/... ./pkg/...
 
   race-detection:
@@ -101,9 +102,10 @@ jobs:
       - name: Run Race Detection (${{ matrix.package }})
         env:
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
+          TEST_DOCKER_NETWORK: cloud-network
         run: |
           set -o pipefail
-          docker network create cloud-network || true
+          docker network create ${TEST_DOCKER_NETWORK} || true
           go test -race -p 1 -v ${{ matrix.package }}
 
   integration-tests:
@@ -232,8 +234,9 @@ jobs:
       - name: Run Libvirt Unit Tests
         env:
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
+          TEST_DOCKER_NETWORK: cloud-network
         run: |
-          docker network create cloud-network || true
+          docker network create ${TEST_DOCKER_NETWORK} || true
           go test -v ./internal/repositories/libvirt/...
 
       - name: Test Backend Switching
@@ -246,7 +249,8 @@ jobs:
           go run ./cmd/api -migrate-only
           
           # Test with Docker backend (default)
-          docker network create cloud-network || true
+          export TEST_DOCKER_NETWORK=cloud-network
+          docker network create ${TEST_DOCKER_NETWORK} || true
           export COMPUTE_BACKEND=docker
           go test -v -run TestInstanceService ./internal/core/services/...
           
@@ -315,7 +319,10 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:staging
+<<<<<<< HEAD
             ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:${{ steps.repo_name.outputs.REF_NAME }}
+=======
+>>>>>>> main
             ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -352,7 +359,6 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:latest
-            ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:${{ github.ref_name }}
             ghcr.io/${{ steps.repo_name.outputs.REPO_LC }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

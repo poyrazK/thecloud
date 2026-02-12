@@ -6,6 +6,7 @@ package tests
 import (
 	"io"
 	"net/http"
+	"os"
 	"os/exec"
 	"testing"
 	"time"
@@ -14,6 +15,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const (
+	composeFile = "../docker-compose.yml"
+)
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
+var projectName = getEnv("COMPOSE_PROJECT_NAME", "cloud")
 
 func TestChaos(t *testing.T) {
 	// t.Parallel() // Removed: This test restarts containers and cannot run in parallel
@@ -32,14 +46,15 @@ func TestChaos(t *testing.T) {
 
 		// 2. Kill Redis
 		t.Log("Killing Redis container...")
-		cmd := exec.Command("docker", "stop", "cloud-redis")
+		cmd := exec.Command("docker", "compose", "-f", composeFile, "-p", projectName, "stop", "redis")
 		err := cmd.Run()
 		require.NoError(t, err, "Failed to stop Redis container")
 
 		// Ensure Redis is stopped
 		defer func() {
 			t.Log("Restarting Redis container...")
-			_ = exec.Command("docker", "start", "cloud-redis").Run()
+			err := exec.Command("docker", "compose", "-f", composeFile, "-p", projectName, "start", "redis").Run()
+			require.NoError(t, err, "Failed to start Redis container")
 			// Wait for Redis to be ready again
 			time.Sleep(2 * time.Second)
 		}()
@@ -85,7 +100,7 @@ func TestChaos(t *testing.T) {
 
 		// 2. Sudden Restart
 		t.Log("Restarting API container mid-operation...")
-		cmd := exec.Command("docker", "restart", "thecloud-api-1")
+		cmd := exec.Command("docker", "compose", "-f", composeFile, "-p", projectName, "restart", "api")
 		err := cmd.Run()
 		require.NoError(t, err, "Failed to restart API container")
 

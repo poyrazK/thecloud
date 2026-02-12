@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: cloud-db
+    # container_name: cloud-db
     environment:
       POSTGRES_USER: ${DB_USER:-cloud}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-cloud}
@@ -20,9 +20,9 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: cloud-redis
+    # container_name: cloud-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
@@ -33,7 +33,7 @@ services:
 
   jaeger:
     image: jaegertracing/all-in-one:1.54
-    container_name: cloud-jaeger
+    # container_name: cloud-jaeger
     ports:
       - "16686:16686" # Web UI
       - "4317:4317" # OTLP gRPC
@@ -45,12 +45,12 @@ services:
 
   powerdns:
     image: powerdns/pdns-auth-49:latest
-    container_name: thecloud-powerdns
+    # container_name: thecloud-powerdns
     restart: unless-stopped
     ports:
-      - "5354:53/udp" # DNS queries (non-standard to avoid conflict)
-      - "5354:53/tcp"
-      - "8081:8081" # REST API
+      - "${DNS_PORT:-5354}:53/udp" # DNS queries (non-standard to avoid conflict)
+      - "${DNS_PORT:-5354}:53/tcp"
+      - "${POWERDNS_PORT:-8081}:8081" # REST API
     environment:
       - PDNS_AUTH_API=yes
       - PDNS_AUTH_API_KEY=${POWERDNS_API_KEY:-thecloud-dns-secret}
@@ -106,6 +106,7 @@ services:
       - JAEGER_ENDPOINT=http://jaeger:4318
       - POWERDNS_API_URL=http://powerdns:8081
       - POWERDNS_API_KEY=${POWERDNS_API_KEY:-thecloud-dns-secret}
+      - DOCKER_DEFAULT_NETWORK=${DOCKER_DEFAULT_NETWORK:-cloud-network}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/run/openvswitch:/var/run/openvswitch

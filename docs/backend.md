@@ -61,6 +61,7 @@ internal/
 - `InstanceService` - Compute instance lifecycle management
 - `VolumeService` - Block storage operations
 - `VPCService` - Network isolation and management
+- `ElasticIPService` - Static IP management 🆕
 - `LoadBalancerService` - Layer 7 traffic distribution
 - `AutoScalingService` - Dynamic resource scaling
 - `RBACService` - Role-based access control (100% coverage)
@@ -79,6 +80,7 @@ internal/
 
 **REST API Endpoints:**
 - `/instances` - Compute management
+- `/elastic-ips` - Static IP management 🆕
 - `/volumes` - Block storage
 - `/vpcs` - Networking
 - `/loadbalancers` - Load balancing

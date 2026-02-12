@@ -61,6 +61,7 @@ type Repositories struct {
 	InstanceType  ports.InstanceTypeRepository
 	GlobalLB      ports.GlobalLBRepository
 	SSHKey        ports.SSHKeyRepository
+	ElasticIP     ports.ElasticIPRepository
 }
 
 // InitRepositories constructs repositories using the provided database clients.
@@ -101,6 +102,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		InstanceType:  postgres.NewInstanceTypeRepository(db),
 		GlobalLB:      postgres.NewGlobalLBRepository(db),
 		SSHKey:        postgres.NewSSHKeyRepo(db),
+		ElasticIP:     postgres.NewElasticIPRepository(db),
 	}
 }
 
@@ -143,6 +145,7 @@ type Services struct {
 	InstanceType  ports.InstanceTypeService
 	GlobalLB      ports.GlobalLBService
 	SSHKey        ports.SSHKeyService
+	ElasticIP     ports.ElasticIPService
 }
 
 // Workers struct to return background workers
@@ -208,8 +211,11 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	instSvcConcrete := services.NewInstanceService(services.InstanceServiceParams{
 		Repo: c.Repos.Instance, VpcRepo: c.Repos.Vpc, SubnetRepo: c.Repos.Subnet, VolumeRepo: c.Repos.Volume,
 		InstanceTypeRepo: c.Repos.InstanceType,
-		Compute:          c.Compute, Network: c.Network, EventSvc: eventSvc, AuditSvc: auditSvc, DNSSvc: dnsSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
-		TenantSvc: tenantSvc, SSHKeySvc: sshKeySvc,
+		Compute:          c.Compute, Network: c.Network, EventSvc: eventSvc, AuditSvc: auditSvc, DNSSvc: dnsSvc, TaskQueue: c.Repos.TaskQueue,
+		DockerNetwork:    c.Config.DockerDefaultNetwork,
+		Logger:           c.Logger,
+		TenantSvc:        tenantSvc,
+		SSHKeySvc:        sshKeySvc,
 	})
 	sgSvc := services.NewSecurityGroupService(c.Repos.SecurityGroup, c.Repos.Vpc, c.Network, auditSvc, c.Logger)
 
@@ -279,6 +285,12 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		GlobalLB:     glbSvc,
 		DNS:          dnsSvc,
 		SSHKey:       sshKeySvc,
+		ElasticIP: services.NewElasticIPService(services.ElasticIPServiceParams{
+			Repo:         c.Repos.ElasticIP,
+			InstanceRepo: c.Repos.Instance,
+			AuditSvc:     auditSvc,
+			Logger:       c.Logger,
+		}),
 	}
 
 	// 7. High Availability & Monitoring
@@ -348,7 +360,7 @@ func initStorageServices(c ServiceConfig, audit ports.AuditService, encryption p
 func initClusterServices(c ServiceConfig, vpcSvc ports.VpcService, instSvc ports.InstanceService, secretSvc ports.SecretService, storageSvc ports.StorageService, lbSvc ports.LBService, sgSvc ports.SecurityGroupService) (ports.ClusterService, ports.ClusterProvisioner, error) {
 	clusterProvisioner := k8s.NewKubeadmProvisioner(instSvc, c.Repos.Cluster, secretSvc, sgSvc, storageSvc, lbSvc, c.Logger)
 	clusterSvc, err := services.NewClusterService(services.ClusterServiceParams{
-		Repo: c.Repos.Cluster, Provisioner: clusterProvisioner, VpcSvc: vpcSvc, InstanceSvc: instSvc, SecretSvc: secretSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
+		Repo: c.Repos.Cluster, Provisioner: clusterProvisioner, vpcSvc: vpcSvc, InstanceSvc: instSvc, SecretSvc: secretSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to init cluster service: %w", err)

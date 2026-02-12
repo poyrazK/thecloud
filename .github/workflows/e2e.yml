@@ -27,16 +27,17 @@ jobs:
 
       - name: Setup Infrastructure
         env:
-          DB_PORT_MAPPING: 5433:5432 # Keep consistent with local tests
-          SECRETS_ENCRYPTION_KEY: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789 # 32 bytes (64 hex chars)
+          DB_PORT_MAPPING: 5433:5432
+          COMPOSE_PROJECT_NAME: thecloud-${{ github.run_id }}
+          SECRETS_ENCRYPTION_KEY: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
           JWT_SECRET: e2e-test-secret-key-that-is-long-enough-for-32-chars
           DATABASE_READ_URL: postgres://cloud:cloud@postgres:5432/cloud?sslmode=disable
         run: |
           # Start internal dependencies
           docker compose up -d postgres redis jaeger
           
-          # Wait for Postgres to be healthy using its container name
-          until docker exec cloud-db pg_isready -U cloud; do
+          # Wait for Postgres to be healthy
+          until docker compose exec -T postgres pg_isready -U cloud; do
             echo "Waiting for postgres..."
             sleep 2
           done
@@ -57,7 +58,9 @@ jobs:
       - name: Start API
         env:
           DB_PORT_MAPPING: 5433:5432
-          SECRETS_ENCRYPTION_KEY: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789 # 32 bytes (64 hex chars)
+          COMPOSE_PROJECT_NAME: thecloud-${{ github.run_id }}
+          DOCKER_DEFAULT_NETWORK: cloud-network
+          SECRETS_ENCRYPTION_KEY: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
           JWT_SECRET: e2e-test-secret-key-that-is-long-enough-for-32-chars
           DATABASE_READ_URL: postgres://cloud:cloud@postgres:5432/cloud?sslmode=disable
           TRACING_ENABLED: false
@@ -68,6 +71,8 @@ jobs:
           export DATABASE_READ_URL="${DATABASE_READ_URL}"
           export TRACING_ENABLED="${TRACING_ENABLED}"
           export DB_PORT_MAPPING="${DB_PORT_MAPPING}"
+          export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME}"
+          export DOCKER_DEFAULT_NETWORK="${DOCKER_DEFAULT_NETWORK}"
 
           # Ensure Docker socket has proper permissions for API to create containers
           sudo chmod 666 /var/run/docker.sock
@@ -86,12 +91,13 @@ jobs:
           # Check if API is running
           docker compose ps
 
-          
       - name: Run E2E Tests
         env:
           # The tests run on the HOST, connecting to the API at localhost:8080
           # So we use the mapped DB port 5433 for direct DB tests if any
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
+          TEST_DOCKER_NETWORK: cloud-network
+          COMPOSE_PROJECT_NAME: thecloud-${{ github.run_id }}
         run: |
           # Run tests in parallel to achieve maximum speed.
           # The 'sync.Once' logic in helpers_test.go ensures they won't all wait redundantly.
@@ -102,6 +108,15 @@ jobs:
           # 2. Run chaos tests sequentially (uses package path to include helpers)
           # Note: Chaos tests are destructive and restart containers, so they run last
           go test -v -tags=chaos -timeout 5m ./tests/...
+
+      - name: Show API Logs on Failure
+        if: failure()
+        env:
+          COMPOSE_PROJECT_NAME: thecloud-${{ github.run_id }}
+        run: |
+          docker compose logs api
+          docker network ls
+          docker ps -a
 
 
       - name: Debug Logs on Failure

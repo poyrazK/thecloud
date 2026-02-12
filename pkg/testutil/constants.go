@@ -1,7 +1,18 @@
 // Package testutil provides shared constants and helpers for testing.
 package testutil
 
-const (
+import (
+	"os"
+)
+
+func getEnvVar(key, fallback string) string {
+	if val := os.Getenv(key); val != "" {
+		return val
+	}
+	return fallback
+}
+
+var (
 	// TestIPLocalhost is the loopback address used in tests.
 	TestIPLocalhost = "127.0.0.1"
 	// TestIPHost is a sample host IP used in tests.
@@ -57,14 +68,14 @@ const (
 	TestEmail = "test@example.com"
 	// TestUserAgent is a sample user agent string.
 	TestUserAgent = "test-agent"
-	// TestBaseURL is a sample API base URL.
-	TestBaseURL = "http://localhost:8080"
+	// TestBaseURL is the API base URL used in tests.
+	TestBaseURL = getEnvVar("TEST_BASE_URL", "http://localhost:8080")
 	// TestHeaderAPIKey is the header name used for API keys.
 	TestHeaderAPIKey = "X-API-Key"
 	// TestContentTypeAppJSON is the JSON content type used in tests.
 	TestContentTypeAppJSON = "application/json"
-	// TestDatabaseURL is a sample local database URL.
-	TestDatabaseURL = "postgres://cloud:cloud@localhost:5433/thecloud"
+	// TestDatabaseURL is the local database URL used in tests.
+	TestDatabaseURL = getEnvVar("TEST_DATABASE_URL", "postgres://cloud:cloud@localhost:5433/thecloud")
 	// TestProdDatabaseURL is a sample production database URL.
 	TestProdDatabaseURL = "postgres://test:test@localhost:5432/testdb"
 	// TestEnvDev is the development environment name.
@@ -72,9 +83,9 @@ const (
 	// TestEnvProd is the production environment name.
 	TestEnvProd = "production"
 	// TestPort is a default port used in tests.
-	TestPort = "8080"
+	TestPort = getEnvVar("TEST_PORT", "8080")
 	// TestProdPort is a production port used in tests.
-	TestProdPort = "9090"
+	TestProdPort = getEnvVar("TEST_PROD_PORT", "9090")
 	// TestCacheID is a default cache ID used in tests.
 	TestCacheID = "cache-1"
 	// TestQueueID is a default queue ID used in tests.
@@ -96,4 +107,6 @@ const (
 	TestRouteDNSRecords = "/dns/records"
 	// TestRouteFormat is the default template for specific resource routes.
 	TestRouteFormat = "%s%s/%s"
+	// TestDockerNetwork is the name of the Docker network used in tests.
+	TestDockerNetwork = getEnvVar("TEST_DOCKER_NETWORK", "cloud-network")
 )

@@ -1724,6 +1724,302 @@ const docTemplate = `{
                 }
             }
         },
+        "/elastic-ips": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "elastic-ips"
+                ],
+                "summary": "List Elastic IPs",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.ElasticIP"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "elastic-ips"
+                ],
+                "summary": "Allocate an Elastic IP",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ElasticIP"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/elastic-ips/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "elastic-ips"
+                ],
+                "summary": "Get Elastic IP",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "EIP ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ElasticIP"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "elastic-ips"
+                ],
+                "summary": "Release Elastic IP",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "EIP ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/elastic-ips/{id}/associate": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "elastic-ips"
+                ],
+                "summary": "Associate Elastic IP",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "EIP ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Association Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.AssociateIPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ElasticIP"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/elastic-ips/{id}/disassociate": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "elastic-ips"
+                ],
+                "summary": "Disassociate Elastic IP",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "EIP ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ElasticIP"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/gateway/routes": {
             "get": {
                 "security": [
@@ -5509,6 +5805,55 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.ElasticIP": {
+            "type": "object",
+            "properties": {
+                "arn": {
+                    "description": "arn:thecloud:vpc:{region}:{user}:eip/{id}",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instance_id": {
+                    "type": "string"
+                },
+                "public_ip": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/domain.ElasticIPStatus"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "vpc_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.ElasticIPStatus": {
+            "type": "string",
+            "enum": [
+                "allocated",
+                "associated",
+                "released"
+            ],
+            "x-enum-varnames": [
+                "EIPStatusAllocated",
+                "EIPStatusAssociated",
+                "EIPStatusReleased"
+            ]
+        },
         "domain.Event": {
             "type": "object",
             "properties": {
@@ -6172,6 +6517,10 @@ const docTemplate = `{
                 "vpc:delete",
                 "vpc:read",
                 "vpc:update",
+                "eip:allocate",
+                "eip:release",
+                "eip:read",
+                "eip:associate",
                 "volume:create",
                 "volume:delete",
                 "volume:read",
@@ -6241,6 +6590,10 @@ const docTemplate = `{
                 "PermissionVpcDelete",
                 "PermissionVpcRead",
                 "PermissionVpcUpdate",
+                "PermissionEipAllocate",
+                "PermissionEipRelease",
+                "PermissionEipRead",
+                "PermissionEipAssociate",
                 "PermissionVolumeCreate",
                 "PermissionVolumeDelete",
                 "PermissionVolumeRead",
@@ -7038,6 +7391,17 @@ const docTemplate = `{
                 },
                 "weight": {
                     "type": "integer"
+                }
+            }
+        },
+        "httphandlers.AssociateIPRequest": {
+            "type": "object",
+            "required": [
+                "instance_id"
+            ],
+            "properties": {
+                "instance_id": {
+                    "type": "string"
                 }
             }
         },

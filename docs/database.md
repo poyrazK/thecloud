@@ -202,6 +202,26 @@ CREATE TABLE vpcs (
 CREATE INDEX idx_vpcs_user_id ON vpcs(user_id);
 ```
 
+#### `elastic_ips` - Static/Elastic IPs
+```sql
+CREATE TABLE elastic_ips (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    instance_id UUID REFERENCES instances(id) ON DELETE SET NULL,
+    vpc_id UUID REFERENCES vpcs(id) ON DELETE SET NULL,
+    public_ip VARCHAR(45) NOT NULL UNIQUE,
+    status VARCHAR(50) NOT NULL DEFAULT 'allocated',
+    arn VARCHAR(255) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX idx_elastic_ips_instance_id_unique 
+ON elastic_ips(instance_id) 
+WHERE instance_id IS NOT NULL;
+CREATE INDEX idx_elastic_ips_tenant_id ON elastic_ips(tenant_id);
+```
 #### `load_balancers` - Load Balancers
 ```sql
 CREATE TABLE load_balancers (

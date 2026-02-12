@@ -42,6 +42,7 @@ type InstanceService struct {
 	taskQueue        ports.TaskQueue
 	tenantSvc        ports.TenantService
 	sshKeySvc        ports.SSHKeyService
+	dockerNetwork    string
 	logger           *slog.Logger
 }
 
@@ -61,6 +62,7 @@ type InstanceServiceParams struct {
 	TaskQueue        ports.TaskQueue // Optional
 	TenantSvc        ports.TenantService
 	SSHKeySvc        ports.SSHKeyService
+	DockerNetwork    string // Optional
 	Logger           *slog.Logger
 }
 
@@ -80,6 +82,7 @@ func NewInstanceService(params InstanceServiceParams) *InstanceService {
 		taskQueue:        params.TaskQueue,
 		tenantSvc:        params.TenantSvc,
 		sshKeySvc:        params.SSHKeySvc,
+		dockerNetwork:    params.DockerNetwork,
 		logger:           params.Logger,
 	}
 }
@@ -867,6 +870,9 @@ func (s *InstanceService) resolveNetworkConfig(ctx context.Context, vpcID, subne
 	// to simulate VPC isolation pending full Open vSwitch (OVS) integration.
 	if s.compute.Type() == "docker" {
 		networkID = "cloud-network"
+		if s.dockerNetwork != "" {
+			networkID = s.dockerNetwork
+		}
 
 		// If no subnet is configured, we let the backend assign an IP (dynamic).
 		// We return empty string here, and LaunchInstance should fetch the real IP later.

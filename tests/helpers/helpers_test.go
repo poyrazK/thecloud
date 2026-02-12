@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -96,10 +97,10 @@ func TestSendWithContentType(t *testing.T) {
 
 func TestGetBaseURL(t *testing.T) {
 	url := GetBaseURL()
-	assert.Equal(t, "http://localhost:8080", url)
+	assert.Equal(t, testutil.TestBaseURL, url)
 }
 
 func TestFormatURL(t *testing.T) {
 	url := FormatURL("/users")
-	assert.Equal(t, "http://localhost:8080/users", url)
+	assert.Equal(t, testutil.TestBaseURL+"/users", url)
 }

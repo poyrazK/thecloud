@@ -36,13 +36,21 @@ This document provides a comprehensive overview of every feature currently imple
 - **Cloud-Init (Docker Simulation)**: Simulates Cloud-Init configuration injection in containers (SSH keys, script execution).
 - **Self-Healing**: Automated background worker that detects instances in `ERROR` state and attempts recovery via restart.
 
-### 2. Networking (VPC)
-**What it is**: Isolated virtual networks to secure resources.
-**Tech Stack**: Docker Networks (Bridge) or Open vSwitch (OVS).
-**Implementation**:
+### 2. Networking (VPC & Elastic IPs)
+**What it is**: Isolated virtual networks and static public IP addresses.
+**Tech Stack**: Docker Networks, Open vSwitch (OVS), pgx.
+
+**VPC Implementation**:
 - **Docker Mode**: A "VPC" maps directly to a **Docker Bridge Network**.
 - **Libvirt Mode**: Uses **Open vSwitch (OVS)** bridges and VXLANs for tenant isolation.
-- **Isolation**: strict traffic segregation rules enforced by generic or OVS flow rules.
+
+**Elastic IP Implementation**:
+- **Static Reservation**: Reserve static IPv4 addresses from a public pool (simulated via 100.64.0.0/10).
+- **Dynamic Association**: Attach/detach IPs to any compute instance without changing the instance's private setup.
+- **Persistence**: IPs remain reserved to the tenant even when not associated with a resource.
+- **Constraints**: Enforces one Elastic IP per instance via partial unique database indexes.
+
+**Isolation**: strict traffic segregation rules enforced by generic or OVS flow rules.
 
 ### 3. Block Storage (Volumes)
 **What it is**: Persistent disks that can be attached/detached from instances.
