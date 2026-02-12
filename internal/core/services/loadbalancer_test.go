@@ -92,7 +92,7 @@ func TestLBService_Integration(t *testing.T) {
 		assert.GreaterOrEqual(t, len(lbs), 1)
 
 		lbID := lbs[0].ID
-		fetched, err := svc.Get(ctx, lbID)
+		fetched, err := svc.Get(ctx, lbID.String())
 		assert.NoError(t, err)
 		assert.Equal(t, lbID, fetched.ID)
 	})
@@ -100,11 +100,11 @@ func TestLBService_Integration(t *testing.T) {
 	t.Run("Delete", func(t *testing.T) {
 		lb, _ := svc.Create(ctx, "to-delete", vpc.ID, 9000, "round-robin", "key-del")
 
-		err := svc.Delete(ctx, lb.ID)
+		err := svc.Delete(ctx, lb.ID.String())
 		assert.NoError(t, err)
 
 		// Soft delete check - should be updated to StatusDeleted
-		fetched, err := svc.Get(ctx, lb.ID)
+		fetched, err := svc.Get(ctx, lb.ID.String())
 		assert.NoError(t, err)
 		assert.Equal(t, domain.LBStatusDeleted, fetched.Status)
 	})

@@ -74,20 +74,22 @@ func (s *LBService) Create(ctx context.Context, name string, vpcID uuid.UUID, po
 	return lb, nil
 }
 
-func (s *LBService) Get(ctx context.Context, id uuid.UUID) (*domain.LoadBalancer, error) {
-	return s.lbRepo.GetByID(ctx, id)
+func (s *LBService) Get(ctx context.Context, idOrName string) (*domain.LoadBalancer, error) {
+	// 1. Try UUID lookup
+	if id, err := uuid.Parse(idOrName); err == nil {
+		return s.lbRepo.GetByID(ctx, id)
+	}
+	// 2. Fallback to name lookup
+	return s.lbRepo.GetByName(ctx, idOrName)
 }
 
 func (s *LBService) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	return s.lbRepo.List(ctx)
 }
 
-func (s *LBService) Delete(ctx context.Context, id uuid.UUID) error {
-	// Mark as deleted first or just delete?
-	// Plan says "DRAINING | DELETED". For now let's just delete or mark DELETED.
-	// Since we are async, maybe mark as DELETED and let worker cleanup?
-	// For simplicity, let's mark as DELETED.
-	lb, err := s.lbRepo.GetByID(ctx, id)
+func (s *LBService) Delete(ctx context.Context, idOrName string) error {
+	// 1. Get from DB (handles both Name and UUID)
+	lb, err := s.Get(ctx, idOrName)
 	if err != nil {
 		return err
 	}

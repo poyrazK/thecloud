@@ -62,6 +62,13 @@ func (m *mockLBRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.LoadBal
 	args := m.Called(ctx, id)
 	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
 }
+func (m *mockLBRepo) GetByName(ctx context.Context, name string) (*domain.LoadBalancer, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
+}
 func (m *mockLBRepo) GetByIdempotencyKey(ctx context.Context, key string) (*domain.LoadBalancer, error) {
 	args := m.Called(ctx, key)
 	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
