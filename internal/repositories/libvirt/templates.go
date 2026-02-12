@@ -7,9 +7,11 @@ import (
 	"strings"
 )
 
+var xmlEscape = html.EscapeString
+
 func generateVolumeXML(name string, sizeGB int, backingStorePath string) string {
-	name = html.EscapeString(name)
-	backingStorePath = html.EscapeString(backingStorePath)
+	escapedName := xmlEscape(name)
+	escapedBackingPath := xmlEscape(backingStorePath)
 
 	backingXML := ""
 	if backingStorePath != "" {
@@ -17,7 +19,7 @@ func generateVolumeXML(name string, sizeGB int, backingStorePath string) string 
   <backingStore>
     <path>%s</path>
     <format type='qcow2'/>
-  </backingStore>`, backingStorePath)
+  </backingStore>`, escapedBackingPath)
 	}
 
 	return fmt.Sprintf(`
@@ -27,17 +29,17 @@ func generateVolumeXML(name string, sizeGB int, backingStorePath string) string 
   <target>
     <format type='qcow2'/>
   </target>%s
-</volume>`, name, sizeGB, backingXML)
+</volume>`, escapedName, sizeGB, backingXML)
 }
 
-func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu int, additionalDisks []string, ports []string) string {
-	name = html.EscapeString(name)
-	diskPath = html.EscapeString(diskPath)
-	networkID = html.EscapeString(networkID)
-	isoPath = html.EscapeString(isoPath)
+func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu int, additionalDisks []string, ports []string, arch string) string {
+	escapedName := xmlEscape(name)
+	escapedDiskPath := xmlEscape(diskPath)
+	escapedNetworkID := xmlEscape(networkID)
+	escapedIsoPath := xmlEscape(isoPath)
 
 	if networkID == "" {
-		networkID = "default"
+		escapedNetworkID = "default"
 	}
 	memoryKB := memoryMB * 1024
 
@@ -49,12 +51,15 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
       <source file='%s'/>
       <target dev='hda' bus='ide'/>
       <readonly/>
-    </disk>`, isoPath)
+    </disk>`, escapedIsoPath)
 	}
 
 	additionalDisksXML := ""
 	for i, dPath := range additionalDisks {
-		dPath = html.EscapeString(dPath)
+		if i >= 25 { // Limit to vd[b-z]
+			break
+		}
+		escapedDPath := xmlEscape(dPath)
 		dev := fmt.Sprintf("vd%c", 'b'+i)
 		diskType := "file"
 		driverType := "qcow2"
@@ -71,7 +76,7 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
       <driver name='qemu' type='%s'/>
       <source %s='%s'/>
       <target dev='%s' bus='virtio'/>
-    </disk>`, diskType, driverType, sourceAttr, dPath, dev)
+    </disk>`, diskType, driverType, sourceAttr, escapedDPath, dev)
 	}
 
 	qemuArgsXML := ""
@@ -81,8 +86,9 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
 	for _, p := range ports {
 		parts := strings.Split(p, ":")
 		if len(parts) == 2 {
-			hPort := html.EscapeString(parts[0])
-			cPort := html.EscapeString(parts[1])
+			// Validation is expected at the caller (adapter)
+			hPort := xmlEscape(parts[0])
+			cPort := xmlEscape(parts[1])
 			hostfwds = append(hostfwds, fmt.Sprintf("hostfwd=tcp::%s-:%s", hPort, cPort))
 			hasNetworkMapping = true
 		}
@@ -96,23 +102,20 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
     <qemu:arg value='virtio-net-pci,netdev=net0,bus=pci.0,addr=0x8'/>`, strings.Join(hostfwds, ","))
 	}
 
+	// Use the unescaped name for the log file path to avoid malformed filenames
 	qemuArgsXML += fmt.Sprintf(`
     <qemu:arg value='-serial'/>
     <qemu:arg value='file:/tmp/%s-console.log'/>`, name)
 
-	interfaceXML := ""
-	if !hasNetworkMapping {
-		interfaceXML = fmt.Sprintf(`
-    <interface type='network'>
-      <source network='%s'/>
-      <model type='virtio'/>
-    </interface>`, networkID)
+	if arch == "" {
+		arch = "x86_64"
+		if strings.Contains(isoPath, "arm64") || strings.Contains(diskPath, "arm64") {
+			arch = "aarch64"
+		}
 	}
 
-	arch := "x86_64"
 	machine := "pc"
-	if strings.Contains(isoPath, "arm64") || strings.Contains(diskPath, "arm64") {
-		arch = "aarch64"
+	if arch == "aarch64" {
 		machine = "virt"
 	}
 
@@ -144,15 +147,15 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
   </devices>
   <qemu:commandline>%s
   </qemu:commandline>
-</domain>`, name, memoryKB, vcpu, arch, machine, diskPath, isoXML, additionalDisksXML, interfaceXML, qemuArgsXML)
+</domain>`, escapedName, memoryKB, vcpu, arch, machine, escapedDiskPath, isoXML, additionalDisksXML, interfaceXML, qemuArgsXML)
 }
 
 func generateNetworkXML(name, bridgeName, gatewayIP, rangeStart, rangeEnd string) string {
-	name = html.EscapeString(name)
-	bridgeName = html.EscapeString(bridgeName)
-	gatewayIP = html.EscapeString(gatewayIP)
-	rangeStart = html.EscapeString(rangeStart)
-	rangeEnd = html.EscapeString(rangeEnd)
+	escapedName := xmlEscape(name)
+	escapedBridgeName := xmlEscape(bridgeName)
+	escapedGatewayIP := xmlEscape(gatewayIP)
+	escapedRangeStart := xmlEscape(rangeStart)
+	escapedRangeEnd := xmlEscape(rangeEnd)
 
 	return fmt.Sprintf(`
 <network>
@@ -164,5 +167,5 @@ func generateNetworkXML(name, bridgeName, gatewayIP, rangeStart, rangeEnd string
       <range start='%s' end='%s'/>
     </dhcp>
   </ip>
-</network>`, name, bridgeName, gatewayIP, rangeStart, rangeEnd)
+</network>`, escapedName, escapedBridgeName, escapedGatewayIP, escapedRangeStart, escapedRangeEnd)
 }
