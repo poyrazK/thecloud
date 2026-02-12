@@ -27,6 +27,9 @@ func generateVolumeXML(name string, sizeGB int, backingStorePath string) string 
 }
 
 func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu int, additionalDisks []string, ports []string) string {
+	if networkID == "" {
+		networkID = "default"
+	}
 	memoryKB := memoryMB * 1024
 
 	var isoXML string
@@ -84,10 +87,11 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
 
 	interfaceXML := ""
 	if !hasNetworkMapping {
-		interfaceXML = `
-    <interface type='user'>
+		interfaceXML = fmt.Sprintf(`
+    <interface type='network'>
+      <source network='%s'/>
       <model type='virtio'/>
-    </interface>`
+    </interface>`, networkID)
 	}
 
 	arch := "x86_64"

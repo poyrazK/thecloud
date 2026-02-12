@@ -25,8 +25,6 @@ import (
 )
 
 var execCommand = exec.Command
-var execCommandContext = exec.CommandContext
-var mkdirTemp = os.MkdirTemp
 var lookPath = exec.LookPath
 var osOpen = os.Open
 
@@ -46,7 +44,8 @@ type LibvirtAdapter struct {
 	logger *slog.Logger
 	uri    string
 
-	mu        sync.RWMutex
+	isSession    bool
+	mu           sync.RWMutex
 	portMappings map[string]map[string]int // instanceID -> internalPort -> hostPort
 
 	// Network pool configuration
@@ -86,11 +85,11 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 	//nolint:staticcheck 
 	l := libvirt.New(c)
 	adapter := &LibvirtAdapter{
-		client:         &RealLibvirtClient{conn: l},
-		logger:         logger,
-		uri:            uri,
-		portMappings:   make(map[string]map[string]int),
-		networkCounter: 0,
+		client:           &RealLibvirtClient{conn: l},
+		logger:           logger,
+		uri:              uri,
+		portMappings:     make(map[string]map[string]int),
+		networkCounter:   0,
 		poolStart:        net.ParseIP("192.168.100.0"),
 		poolEnd:          net.ParseIP("192.168.200.255"),
 		ipWaitInterval:   5 * time.Second,
@@ -102,8 +101,10 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 
 	// Inferred URI for the hypervisor connection
 	hypervisorUri := "qemu:///session"
+	adapter.isSession = true
 	if strings.Contains(uri, "/var/run/libvirt/libvirt-sock") {
 		hypervisorUri = "qemu:///system"
+		adapter.isSession = false
 	}
 
 	if err := adapter.client.ConnectToURI(connectCtx, hypervisorUri); err != nil {
@@ -111,6 +112,7 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 		if err2 := adapter.client.ConnectToURI(connectCtx, "qemu:///session"); err2 != nil {
 			return nil, fmt.Errorf("failed to connect to libvirt hypervisor: %v", err2)
 		}
+		adapter.isSession = true
 	}
 
 	return adapter, nil
@@ -202,6 +204,10 @@ func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts por
 		return "", nil, fmt.Errorf("failed to start domain: %w", err)
 	}
 
+	if len(allocatedPorts) > 0 {
+		go a.setupPortForwarding(name, allocatedPorts)
+	}
+
 	return name, allocatedPorts, nil
 }
 
@@ -234,6 +240,22 @@ func (a *LibvirtAdapter) cleanupCreateFailure(ctx context.Context, vol libvirt.S
 		}
 		if err := os.Remove(isoPath); err != nil {
 			a.logger.Warn("failed to remove ISO", "path", isoPath, "error", err)
+		}
+	}
+}
+
+func (a *LibvirtAdapter) waitInitialIP(ctx context.Context, id string) (string, error) {
+	ticker := time.NewTicker(a.ipWaitInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-ticker.C:
+			ip, err := a.GetInstanceIP(ctx, id)
+			if err == nil && ip != "" {
+				return ip, nil
+			}
 		}
 	}
 }
@@ -717,7 +739,7 @@ func (a *LibvirtAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID str
 		return fmt.Errorf(errGetVolumePath, err)
 	}
 
-	tmpDir, err := mkdirTemp("", "restore-")
+	tmpDir, err := os.MkdirTemp("", "restore-")
 	if err != nil {
 		return err
 	}
@@ -865,6 +887,72 @@ func validateID(id string) error {
 		return fmt.Errorf("invalid id: contains path traversal characters")
 	}
 	return nil
+}
+
+func (a *LibvirtAdapter) setupPortForwarding(name string, ports []string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	ip, err := a.waitInitialIP(ctx, name)
+	if err != nil {
+		a.logger.Error("failed to get ip for port forwarding", "instance", name, "error", err)
+		return
+	}
+
+	a.logger.Info("setting up port mapping record", "instance", name, "ip", ip, "ports", ports)
+
+	for _, p := range ports {
+		hP, cP, err := a.parseAndValidatePort(p)
+		if err != nil {
+			a.logger.Warn("skipping invalid port forwarding configuration", "port", p, "error", err)
+			continue
+		}
+
+		if hP > 0 {
+			a.configureIptables(name, ip, strconv.Itoa(cP), hP, cP)
+		}
+	}
+}
+
+func (a *LibvirtAdapter) configureIptables(name, ip, containerPort string, hPort, cP int) {
+	a.mu.Lock()
+	if a.portMappings[name] == nil {
+		a.portMappings[name] = make(map[string]int)
+	}
+	a.portMappings[name][containerPort] = hPort
+	a.mu.Unlock()
+
+	a.logger.Info("setting up port forwarding record", "host", hPort, "vm", containerPort, "ip", ip)
+}
+
+func (a *LibvirtAdapter) parseAndValidatePort(p string) (int, int, error) {
+	parts := strings.Split(p, ":")
+	var hostPort, containerPort string
+	if len(parts) == 2 {
+		hostPort = parts[0]
+		containerPort = parts[1]
+	} else if len(parts) == 1 {
+		hostPort = "0"
+		containerPort = parts[0]
+	} else {
+		return 0, 0, fmt.Errorf("invalid port format: too many colons")
+	}
+
+	var hP, cP int
+	_, errH := fmt.Sscanf(hostPort, "%d", &hP)
+	_, errC := fmt.Sscanf(containerPort, "%d", &cP)
+	if (hostPort != "0" && errH != nil) || errC != nil {
+		return 0, 0, fmt.Errorf("invalid port format")
+	}
+
+	hPort := 0
+	if hostPort == "0" {
+		hPort, _ = findFreePort()
+	} else {
+		hPort = hP
+	}
+
+	return hPort, cP, nil
 }
 
 func (a *LibvirtAdapter) resolveBinds(ctx context.Context, volumeBinds []string) []string {
