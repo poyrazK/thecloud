@@ -720,6 +720,9 @@ definitions:
     - instance:terminate
     - instance:read
     - instance:update
+    - ssh_key:create
+    - ssh_key:read
+    - ssh_key:delete
     - vpc:create
     - vpc:delete
     - vpc:read
@@ -793,6 +796,9 @@ definitions:
     - PermissionInstanceTerminate
     - PermissionInstanceRead
     - PermissionInstanceUpdate
+    - PermissionSSHKeyCreate
+    - PermissionSSHKeyRead
+    - PermissionSSHKeyDelete
     - PermissionVpcCreate
     - PermissionVpcDelete
     - PermissionVpcRead
