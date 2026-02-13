@@ -35,6 +35,9 @@ type Config struct {
 	PowerDNSServerID     string
 	LibvirtURI           string
 	DockerDefaultNetwork string
+	FirecrackerBinary    string
+	FirecrackerKernel    string
+	FirecrackerRootfs    string
 }
 
 // NewConfig loads configuration from the environment with defaults.
@@ -68,6 +71,9 @@ func NewConfig() (*Config, error) {
 		PowerDNSServerID:     getEnv("POWERDNS_SERVER_ID", "localhost"),
 		LibvirtURI:           getEnv("LIBVIRT_URI", ""),
 		DockerDefaultNetwork: getEnv("DOCKER_DEFAULT_NETWORK", "cloud-network"),
+		FirecrackerBinary:    getEnv("FIRECRACKER_BINARY", "/usr/local/bin/firecracker"),
+		FirecrackerKernel:    getEnv("FIRECRACKER_KERNEL", "/var/lib/thecloud/vmlinux"),
+		FirecrackerRootfs:    getEnv("FIRECRACKER_ROOTFS", "/var/lib/thecloud/rootfs.ext4"),
 	}, nil
 }
 
