@@ -60,6 +60,7 @@ type Repositories struct {
 	DNS           ports.DNSRepository
 	InstanceType  ports.InstanceTypeRepository
 	GlobalLB      ports.GlobalLBRepository
+	SSHKey        ports.SSHKeyRepository
 	ElasticIP     ports.ElasticIPRepository
 }
 
@@ -100,6 +101,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		DNS:           postgres.NewDNSRepository(db),
 		InstanceType:  postgres.NewInstanceTypeRepository(db),
 		GlobalLB:      postgres.NewGlobalLBRepository(db),
+		SSHKey:        postgres.NewSSHKeyRepo(db),
 		ElasticIP:     postgres.NewElasticIPRepository(db),
 	}
 }
@@ -142,6 +144,7 @@ type Services struct {
 	DNS           ports.DNSService
 	InstanceType  ports.InstanceTypeService
 	GlobalLB      ports.GlobalLBService
+	SSHKey        ports.SSHKeyService
 	ElasticIP     ports.ElasticIPService
 }
 
@@ -157,6 +160,7 @@ type Workers struct {
 	Lifecycle         *workers.LifecycleWorker
 	ReplicaMonitor    *workers.ReplicaMonitor
 	ClusterReconciler *workers.ClusterReconciler
+	Healing           *workers.HealingWorker
 }
 
 // ServiceConfig holds the dependencies required to initialize services
@@ -202,12 +206,16 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		AuditSvc: auditSvc, EventSvc: eventSvc, Logger: c.Logger,
 	})
 
+	sshKeySvc := services.NewSSHKeyService(c.Repos.SSHKey)
+
 	instSvcConcrete := services.NewInstanceService(services.InstanceServiceParams{
 		Repo: c.Repos.Instance, VpcRepo: c.Repos.Vpc, SubnetRepo: c.Repos.Subnet, VolumeRepo: c.Repos.Volume,
 		InstanceTypeRepo: c.Repos.InstanceType,
 		Compute:          c.Compute, Network: c.Network, EventSvc: eventSvc, AuditSvc: auditSvc, DNSSvc: dnsSvc, TaskQueue: c.Repos.TaskQueue,
-		DockerNetwork: c.Config.DockerDefaultNetwork,
-		Logger:        c.Logger,
+		DockerNetwork:    c.Config.DockerDefaultNetwork,
+		Logger:           c.Logger,
+		TenantSvc:        tenantSvc,
+		SSHKeySvc:        sshKeySvc,
 	})
 	sgSvc := services.NewSecurityGroupService(c.Repos.SecurityGroup, c.Repos.Vpc, c.Network, auditSvc, c.Logger)
 
@@ -233,7 +241,14 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		return nil, nil, err
 	}
 
-	databaseSvc := services.NewDatabaseService(c.Repos.Database, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
+	databaseSvc := services.NewDatabaseService(services.DatabaseServiceParams{
+		Repo:     c.Repos.Database,
+		Compute:  c.Compute,
+		VpcRepo:  c.Repos.Vpc,
+		EventSvc: eventSvc,
+		AuditSvc: auditSvc,
+		Logger:   c.Logger,
+	})
 	secretSvc := services.NewSecretService(c.Repos.Secret, eventSvc, auditSvc, c.Logger, c.Config.SecretsEncryptionKey, c.Config.Environment)
 	fnSvc := services.NewFunctionService(c.Repos.Function, c.Compute, fileStore, auditSvc, c.Logger)
 	cacheSvc := services.NewCacheService(c.Repos.Cache, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
@@ -256,6 +271,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	accountingWorker := workers.NewAccountingWorker(accountingSvc, c.Logger)
 	imageSvc := services.NewImageService(c.Repos.Image, fileStore, c.Logger)
 	provisionWorker := workers.NewProvisionWorker(instSvcConcrete, c.Repos.TaskQueue, c.Logger)
+	healingWorker := workers.NewHealingWorker(instSvcConcrete, c.Repos.Instance, c.Logger)
 
 	clusterSvc, clusterProvisioner, err := initClusterServices(c, vpcSvc, instSvcConcrete, secretSvc, storageSvc, lbSvc, sgSvc)
 	if err != nil {
@@ -275,6 +291,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		InstanceType: services.NewInstanceTypeService(c.Repos.InstanceType),
 		GlobalLB:     glbSvc,
 		DNS:          dnsSvc,
+		SSHKey:       sshKeySvc,
 		ElasticIP: services.NewElasticIPService(services.ElasticIPServiceParams{
 			Repo:         c.Repos.ElasticIP,
 			InstanceRepo: c.Repos.Instance,
@@ -293,6 +310,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		Lifecycle:         workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger),
 		ReplicaMonitor:    replicaMonitor,
 		ClusterReconciler: workers.NewClusterReconciler(c.Repos.Cluster, clusterProvisioner, c.Logger),
+		Healing:           healingWorker,
 	}
 
 	return svcs, workersCollection, nil

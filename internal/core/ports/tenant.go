@@ -24,6 +24,8 @@ type TenantRepository interface {
 
 	GetQuota(ctx context.Context, tenantID uuid.UUID) (*domain.TenantQuota, error)
 	UpdateQuota(ctx context.Context, quota *domain.TenantQuota) error
+	IncrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error
+	DecrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error
 }
 
 // TenantService defines the business logic for tenant management.
@@ -35,4 +37,6 @@ type TenantService interface {
 	SwitchTenant(ctx context.Context, userID, tenantID uuid.UUID) error
 	CheckQuota(ctx context.Context, tenantID uuid.UUID, resource string, requested int) error
 	GetMembership(ctx context.Context, tenantID, userID uuid.UUID) (*domain.TenantMember, error)
+	IncrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error
+	DecrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error
 }

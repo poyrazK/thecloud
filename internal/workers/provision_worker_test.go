@@ -47,8 +47,8 @@ type failingComputeBackend struct {
 	noop.NoopComputeBackend
 }
 
-func (f *failingComputeBackend) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, error) {
-	return "", errors.New("provisioning failed")
+func (f *failingComputeBackend) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
+	return "", nil, errors.New("provisioning failed")
 }
 
 func TestProvisionWorkerRun(t *testing.T) {

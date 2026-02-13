@@ -36,7 +36,7 @@ func (p *KubeadmProvisioner) ensureAPIServerLB(ctx context.Context, cluster *dom
 			break
 		}
 		time.Sleep(2 * time.Second)
-		if lbNew, err := p.lbSvc.Get(ctx, lb.ID); err == nil {
+		if lbNew, err := p.lbSvc.Get(ctx, lb.ID.String()); err == nil {
 			lb = lbNew
 		}
 	}

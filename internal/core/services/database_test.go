@@ -40,7 +40,14 @@ func setupDatabaseServiceTest(t *testing.T) (ports.DatabaseService, ports.Databa
 
 	logger := slog.Default()
 
-	svc := services.NewDatabaseService(repo, compute, vpcRepo, eventSvc, auditSvc, logger)
+	svc := services.NewDatabaseService(services.DatabaseServiceParams{
+		Repo:     repo,
+		Compute:  compute,
+		VpcRepo:  vpcRepo,
+		EventSvc: eventSvc,
+		AuditSvc: auditSvc,
+		Logger:   logger,
+	})
 
 	return svc, repo, compute, vpcRepo, ctx
 }

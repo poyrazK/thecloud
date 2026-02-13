@@ -12,7 +12,8 @@ type ComputeBackend interface {
 	// Instance Lifecycle
 
 	// LaunchInstanceWithOptions provisions a new compute entity based on the provided options.
-	LaunchInstanceWithOptions(ctx context.Context, opts CreateInstanceOptions) (string, error)
+	// Returns the unique identifier of the instance and any allocated ports.
+	LaunchInstanceWithOptions(ctx context.Context, opts CreateInstanceOptions) (string, []string, error)
 	// StartInstance boots up a stopped instance.
 	StartInstance(ctx context.Context, id string) error
 	// StopInstance gracefully shuts down or forcibly terminates a running instance.
@@ -35,7 +36,7 @@ type ComputeBackend interface {
 	// Exec runs a command within the context of a running instance and returns its output.
 	Exec(ctx context.Context, id string, cmd []string) (string, error)
 	// RunTask launches a short-lived execution task.
-	RunTask(ctx context.Context, opts RunTaskOptions) (string, error)
+	RunTask(ctx context.Context, opts RunTaskOptions) (string, []string, error)
 	// WaitTask blocks until a specific task completes and returns its exit code.
 	WaitTask(ctx context.Context, id string) (int64, error)
 

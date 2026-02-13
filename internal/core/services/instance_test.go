@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -83,7 +82,7 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 	if compute.Type() == "docker" {
 		_, _ = compute.CreateNetwork(ctx, testutil.TestDockerNetwork)
 		// Pre-pull test image to prevent flakes in CI environments with slow registries or restrictive daemons
-		_, _ = compute.LaunchInstanceWithOptions(ctx, coreports.CreateInstanceOptions{
+		_, _, _ = compute.LaunchInstanceWithOptions(ctx, coreports.CreateInstanceOptions{
 			Name:      "pre-pull-image",
 			ImageName: testImage,
 		})
@@ -106,8 +105,15 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(auditRepo)
 
+	tenantRepo := postgres.NewTenantRepo(db)
+	userRepo := postgres.NewUserRepo(db)
+	tenantSvc := services.NewTenantService(tenantRepo, userRepo, slog.Default())
+
 	taskQueue := &InMemoryTaskQueue{}
 	network := noop.NewNoopNetworkAdapter(slog.Default())
+
+	sshKeyRepo := postgres.NewSSHKeyRepo(db)
+	sshKeySvc := services.NewSSHKeyService(sshKeyRepo)
 
 	svc := services.NewInstanceService(services.InstanceServiceParams{
 		Repo:             repo,
@@ -121,6 +127,8 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 		AuditSvc:         auditSvc,
 		TaskQueue:        taskQueue,
 		Logger:           slog.Default(),
+		TenantSvc:        tenantSvc,
+		SSHKeySvc:        sshKeySvc,
 	})
 
 	return db, svc, compute, repo, vpcRepo, volumeRepo, ctx
@@ -130,11 +138,7 @@ func TestLaunchInstanceSuccess(t *testing.T) {
 	_, svc, compute, repo, _, _, ctx := setupInstanceServiceTest(t)
 	name := "test-inst-launch"
 	image := testImage
-	testPort := os.Getenv("TEST_INSTANCE_PORT")
-	if testPort == "" {
-		testPort = "8888"
-	}
-	portsStr := fmt.Sprintf("%s:80", testPort)
+	portsStr := "0:80"
 
 	// 1. Launch (Enqueue)
 	inst, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
@@ -231,6 +235,8 @@ func TestInstanceServiceLaunchDBFailure(t *testing.T) {
 		AuditSvc:         auditSvc,
 		TaskQueue:        taskQueue,
 		Logger:           slog.Default(),
+		TenantSvc:        services.NewTenantService(postgres.NewTenantRepo(db), postgres.NewUserRepo(db), slog.Default()),
+		SSHKeySvc:        services.NewSSHKeyService(postgres.NewSSHKeyRepo(db)),
 	})
 
 	// Attempt Launch
@@ -418,4 +424,81 @@ func TestNetworkingCIDRExhaustion(t *testing.T) {
 	require.Error(t, err, "Expected error due to CIDR exhaustion")
 	t.Logf("Got expected error: %v", err)
 	assert.Contains(t, err.Error(), "allocate IP")
+}
+
+func TestInstanceMetadataAndLabels(t *testing.T) {
+	_, svc, _, repo, _, _, ctx := setupInstanceServiceTest(t)
+
+	t.Run("Launch with Metadata", func(t *testing.T) {
+		name := "meta-launch"
+		metadata := map[string]string{"env": "prod", "version": "1.0"}
+		labels := map[string]string{"tier": "frontend"}
+
+		inst, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
+			Name:         name,
+			Image:        testImage,
+			InstanceType: testInstanceType,
+			Metadata:     metadata,
+			Labels:       labels,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, metadata, inst.Metadata)
+		assert.Equal(t, labels, inst.Labels)
+
+		// Verify in DB
+		dbInst, err := repo.GetByID(ctx, inst.ID)
+		require.NoError(t, err)
+		assert.Equal(t, metadata, dbInst.Metadata)
+		assert.Equal(t, labels, dbInst.Labels)
+	})
+
+	t.Run("Update Metadata", func(t *testing.T) {
+		inst, _ := svc.LaunchInstance(ctx, coreports.LaunchParams{
+			Name:         "meta-update",
+			Image:        testImage,
+			InstanceType: testInstanceType,
+			Metadata:     map[string]string{"key1": "val1"},
+		})
+
+		// 1. Add and Update
+		err := svc.UpdateInstanceMetadata(ctx, inst.ID, map[string]string{"key1": "newval", "key2": "val2"}, nil)
+		require.NoError(t, err)
+
+		// 2. Delete (empty value)
+		err = svc.UpdateInstanceMetadata(ctx, inst.ID, map[string]string{"key1": ""}, map[string]string{"l1": "v1"})
+		require.NoError(t, err)
+
+		dbInst, _ := repo.GetByID(ctx, inst.ID)
+		assert.Equal(t, "val2", dbInst.Metadata["key2"])
+		_, ok := dbInst.Metadata["key1"]
+		assert.False(t, ok)
+		assert.Equal(t, "v1", dbInst.Labels["l1"])
+	})
+}
+
+func TestSSHKeyInjection(t *testing.T) {
+	db, svc, _, _, _, _, ctx := setupInstanceServiceTest(t)
+	sshKeyRepo := postgres.NewSSHKeyRepo(db)
+
+	// 1. Create SSH Key
+	key := &domain.SSHKey{
+		ID:        uuid.New(),
+		UserID:    appcontext.UserIDFromContext(ctx),
+		TenantID:  appcontext.TenantIDFromContext(ctx),
+		Name:      "test-injection-key",
+		PublicKey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC...",
+	}
+	err := sshKeyRepo.Create(ctx, key)
+	require.NoError(t, err)
+
+	// 2. Launch with SSH Key
+	inst, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
+		Name:         "ssh-inst",
+		Image:        testImage,
+		InstanceType: testInstanceType,
+		SSHKeyID:     &key.ID,
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, &key.ID, inst.SSHKeyID)
 }

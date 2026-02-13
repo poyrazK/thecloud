@@ -27,16 +27,18 @@ func BenchmarkRealWorldLifecycle(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 
 	instSvc := services.NewInstanceService(services.InstanceServiceParams{
-		Repo:       instRepo,
-		VpcRepo:    vpcRepo,
-		SubnetRepo: subnetRepo,
-		VolumeRepo: volumeRepo,
-		Compute:    compute,
-		Network:    network,
-		EventSvc:   eventSvc,
-		AuditSvc:   auditSvc,
-		TaskQueue:  &services.TaskQueueStub{},
-		Logger:     logger,
+		Repo:             instRepo,
+		VpcRepo:          vpcRepo,
+		SubnetRepo:       subnetRepo,
+		VolumeRepo:       volumeRepo,
+		Compute:          compute,
+		Network:          network,
+		EventSvc:         eventSvc,
+		AuditSvc:         auditSvc,
+		TaskQueue:        &services.TaskQueueStub{},
+		Logger:           logger,
+		TenantSvc:        &NoopTenantService{},
+		InstanceTypeRepo: &noop.NoopInstanceTypeRepository{},
 	})
 
 	ctx := context.Background()
@@ -79,16 +81,18 @@ func BenchmarkRealWorldLifecycleParallel(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 
 	instSvc := services.NewInstanceService(services.InstanceServiceParams{
-		Repo:       instRepo,
-		VpcRepo:    vpcRepo,
-		SubnetRepo: subnetRepo,
-		VolumeRepo: volumeRepo,
-		Compute:    compute,
-		Network:    network,
-		EventSvc:   eventSvc,
-		AuditSvc:   auditSvc,
-		TaskQueue:  &services.TaskQueueStub{},
-		Logger:     logger,
+		Repo:             instRepo,
+		VpcRepo:          vpcRepo,
+		SubnetRepo:       subnetRepo,
+		VolumeRepo:       volumeRepo,
+		Compute:          compute,
+		Network:          network,
+		EventSvc:         eventSvc,
+		AuditSvc:         auditSvc,
+		TaskQueue:        &services.TaskQueueStub{},
+		Logger:           logger,
+		TenantSvc:        &NoopTenantService{},
+		InstanceTypeRepo: &noop.NoopInstanceTypeRepository{},
 	})
 
 	ctx := context.Background()

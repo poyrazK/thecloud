@@ -8,19 +8,22 @@ import (
 
 // Instance describes a compute instance.
 type Instance struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name"`
-	Image        string    `json:"image"`
-	InstanceType string    `json:"instance_type,omitempty"`
-	Status       string    `json:"status"`
-	Ports        string    `json:"ports"`
-	VpcID        string    `json:"vpc_id,omitempty"`
-	SubnetID     string    `json:"subnet_id,omitempty"`
-	PrivateIP    string    `json:"private_ip,omitempty"`
-	ContainerID  string    `json:"container_id"`
-	Version      int       `json:"version"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           string            `json:"id"`
+	Name         string            `json:"name"`
+	Image        string            `json:"image"`
+	InstanceType string            `json:"instance_type,omitempty"`
+	Status       string            `json:"status"`
+	Ports        string            `json:"ports"`
+	VpcID        string            `json:"vpc_id,omitempty"`
+	SubnetID     string            `json:"subnet_id,omitempty"`
+	PrivateIP    string            `json:"private_ip,omitempty"`
+	ContainerID  string            `json:"container_id"`
+	Version      int               `json:"version"`
+	Metadata     map[string]string `json:"metadata,omitempty"`
+	Labels       map[string]string `json:"labels,omitempty"`
+	SSHKeyID     string            `json:"ssh_key_id,omitempty"`
+	CreatedAt    time.Time         `json:"created_at"`
+	UpdatedAt    time.Time         `json:"updated_at"`
 }
 
 // ListInstances returns all instances visible to the API key.
@@ -41,14 +44,22 @@ func (c *Client) GetInstance(idOrName string) (*Instance, error) {
 	return &res.Data, nil
 }
 
+func (c *Client) GetConsoleURL(idOrName string) (string, error) {
+	var res Response[string]
+	if err := c.get(fmt.Sprintf("/instances/%s/console", idOrName), &res); err != nil {
+		return "", err
+	}
+	return res.Data, nil
+}
+
 // VolumeAttachmentInput defines a volume attachment for instance launch.
 type VolumeAttachmentInput struct {
 	VolumeID  string `json:"volume_id"`
 	MountPath string `json:"mount_path"`
 }
 
-// LaunchInstance provisions a new instance with optional volume attachments.
-func (c *Client) LaunchInstance(name, image, ports, instanceType string, vpcID, subnetID string, volumes []VolumeAttachmentInput) (*Instance, error) {
+// LaunchInstance provisions a new instance with optional metadata, labels, and volume attachments.
+func (c *Client) LaunchInstance(name, image, ports, instanceType string, vpcID, subnetID string, volumes []VolumeAttachmentInput, metadata, labels map[string]string, sshKeyID string, cmd []string) (*Instance, error) {
 	body := map[string]interface{}{
 		"name":          name,
 		"image":         image,
@@ -57,12 +68,25 @@ func (c *Client) LaunchInstance(name, image, ports, instanceType string, vpcID, 
 		"vpc_id":        vpcID,
 		"subnet_id":     subnetID,
 		"volumes":       volumes,
+		"metadata":      metadata,
+		"labels":        labels,
+		"ssh_key_id":    sshKeyID,
+		"cmd":           cmd,
 	}
 	var res Response[Instance]
 	if err := c.post("/instances", body, &res); err != nil {
 		return nil, err
 	}
 	return &res.Data, nil
+}
+
+// UpdateInstanceMetadata updates the metadata and labels of an instance.
+func (c *Client) UpdateInstanceMetadata(id string, metadata, labels map[string]string) error {
+	body := map[string]interface{}{
+		"metadata": metadata,
+		"labels":   labels,
+	}
+	return c.put(fmt.Sprintf("/instances/%s/metadata", id), body, nil)
 }
 
 // StopInstance stops a running instance by ID or name.
@@ -102,4 +126,33 @@ func (c *Client) GetInstanceStats(idOrName string) (*InstanceStats, error) {
 		return nil, err
 	}
 	return &res.Data, nil
+}
+
+// SSHKey represents a registered SSH public key.
+type SSHKey struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	PublicKey string `json:"public_key"`
+}
+
+// RegisterSSHKey registers a new SSH public key.
+func (c *Client) RegisterSSHKey(name, publicKey string) (*SSHKey, error) {
+	body := map[string]string{
+		"name":       name,
+		"public_key": publicKey,
+	}
+	var res Response[SSHKey]
+	if err := c.post("/ssh-keys", body, &res); err != nil {
+		return nil, err
+	}
+	return &res.Data, nil
+}
+
+// ListSSHKeys returns all registered SSH keys.
+func (c *Client) ListSSHKeys() ([]SSHKey, error) {
+	var res Response[[]SSHKey]
+	if err := c.get("/ssh-keys", &res); err != nil {
+		return nil, err
+	}
+	return res.Data, nil
 }

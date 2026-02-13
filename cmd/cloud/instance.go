@@ -8,6 +8,9 @@ import (
 
 	"strings"
 
+	"os/exec"
+	"syscall"
+
 	"github.com/olekukonko/tablewriter"
 	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/spf13/cobra"
@@ -44,7 +47,11 @@ func getClient() *sdk.Client {
 		os.Exit(1)
 	}
 
-	return sdk.NewClient(apiURL, key)
+	client := sdk.NewClient(apiURL, key)
+	if tenant := os.Getenv("CLOUD_TENANT_ID"); tenant != "" {
+		client.SetTenant(tenant)
+	}
+	return client
 }
 
 var listCmd = &cobra.Command{
@@ -98,6 +105,7 @@ var launchCmd = &cobra.Command{
 		vpc, _ := cmd.Flags().GetString("vpc")
 		subnetID, _ := cmd.Flags().GetString("subnet")
 		volumeStrs, _ := cmd.Flags().GetStringSlice("volume")
+		sshKeyID, _ := cmd.Flags().GetString("ssh-key")
 
 		// Parse volume strings like "vol-name:/path"
 		var volumes []sdk.VolumeAttachmentInput
@@ -110,9 +118,27 @@ var launchCmd = &cobra.Command{
 				})
 			}
 		}
+		metaStrs, _ := cmd.Flags().GetStringSlice("metadata")
+		metadata := make(map[string]string)
+		for _, s := range metaStrs {
+			parts := strings.SplitN(s, "=", 2)
+			if len(parts) == 2 {
+				metadata[parts[0]] = parts[1]
+			}
+		}
 
+		labelStrs, _ := cmd.Flags().GetStringSlice("label")
+		labels := make(map[string]string)
+		for _, s := range labelStrs {
+			parts := strings.SplitN(s, "=", 2)
+			if len(parts) == 2 {
+				labels[parts[0]] = parts[1]
+			}
+		}
+
+		runCmd, _ := cmd.Flags().GetStringSlice("cmd")
 		client := getClient()
-		inst, err := client.LaunchInstance(name, image, ports, instanceType, vpc, subnetID, volumes)
+		inst, err := client.LaunchInstance(name, image, ports, instanceType, vpc, subnetID, volumes, metadata, labels, sshKeyID, runCmd)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
@@ -169,6 +195,12 @@ var showCmd = &cobra.Command{
 			return
 		}
 
+		if outputJSON {
+			data, _ := json.MarshalIndent(inst, "", "  ")
+			fmt.Println(string(data))
+			return
+		}
+
 		fmt.Print("\nInstance Details\n")
 		fmt.Println(strings.Repeat("-", 40))
 		fmt.Printf(fmtDetailRow, "ID:", inst.ID)
@@ -179,8 +211,33 @@ var showCmd = &cobra.Command{
 		fmt.Printf(fmtDetailRow, "Created At:", inst.CreatedAt)
 		fmt.Printf(fmtDetailRow, "Version:", inst.Version)
 		fmt.Printf(fmtDetailRow, "Container ID:", inst.ContainerID)
+		if len(inst.Metadata) > 0 {
+			metaStr, _ := json.Marshal(inst.Metadata)
+			fmt.Printf(fmtDetailRow, "Metadata:", string(metaStr))
+		}
+		if len(inst.Labels) > 0 {
+			labelStr, _ := json.Marshal(inst.Labels)
+			fmt.Printf(fmtDetailRow, "Labels:", string(labelStr))
+		}
 		fmt.Println(strings.Repeat("-", 40))
 		fmt.Println("")
+	},
+}
+
+var consoleCmd = &cobra.Command{
+	Use:   "console [id/name]",
+	Short: "Get the VNC console URL for an instance",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		id := args[0]
+		client := getClient()
+		url, err := client.GetConsoleURL(id)
+		if err != nil {
+			fmt.Printf(fmtErrorLog, err)
+			return
+		}
+
+		fmt.Printf("VNC Console URL: %s\n", url)
 	},
 }
 
@@ -228,14 +285,122 @@ var statsCmd = &cobra.Command{
 	},
 }
 
+var metadataCmd = &cobra.Command{
+	Use:   "metadata [id/name]",
+	Short: "Update instance metadata or labels",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		id := args[0]
+		metaStrs, _ := cmd.Flags().GetStringSlice("metadata")
+		labelStrs, _ := cmd.Flags().GetStringSlice("label")
+
+		metadata := make(map[string]string)
+		for _, s := range metaStrs {
+			parts := strings.SplitN(s, "=", 2)
+			if len(parts) == 2 {
+				metadata[parts[0]] = parts[1]
+			}
+		}
+
+		labels := make(map[string]string)
+		for _, s := range labelStrs {
+			parts := strings.SplitN(s, "=", 2)
+			if len(parts) == 2 {
+				labels[parts[0]] = parts[1]
+			}
+		}
+
+		client := getClient()
+		if err := client.UpdateInstanceMetadata(id, metadata, labels); err != nil {
+			fmt.Printf(fmtErrorLog, err)
+			return
+		}
+		fmt.Println("[SUCCESS] Metadata updated.")
+	},
+}
+
+var sshCmd = &cobra.Command{
+	Use:   "ssh [id/name]",
+	Short: "SSH into an instance",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		id := args[0]
+		keyPath, _ := cmd.Flags().GetString("i")
+		user, _ := cmd.Flags().GetString("user")
+
+		client := getClient()
+		inst, err := client.GetInstance(id)
+		if err != nil {
+			fmt.Printf(fmtErrorLog, err)
+			return
+		}
+
+		if inst.Status != "RUNNING" {
+			fmt.Printf("Error: Instance is in %s state, must be RUNNING to SSH\n", inst.Status)
+			return
+		}
+
+		// Find SSH port (22)
+		var hostPort string
+		pList := strings.Split(inst.Ports, ",")
+		for _, mapping := range pList {
+			parts := strings.Split(mapping, ":")
+			if len(parts) == 2 && parts[1] == "22" {
+				hostPort = parts[0]
+				break
+			}
+		}
+
+		var targetHost string
+		var targetPort string
+
+		if hostPort != "" {
+			targetHost = "localhost"
+			targetPort = hostPort
+		} else if inst.PrivateIP != "" {
+			targetHost = inst.PrivateIP
+			targetPort = "22"
+		} else {
+			fmt.Println("Error: No SSH access available. Neither port mapping for 22 nor Private IP found.")
+			return
+		}
+
+		sshArgs := []string{"-p", targetPort, "-o", "StrictHostKeyChecking=no"}
+		if keyPath != "" {
+			sshArgs = append(sshArgs, "-i", keyPath)
+		}
+		sshArgs = append(sshArgs, fmt.Sprintf("%s@%s", user, targetHost))
+
+		fmt.Printf("[INFO] Connecting to %s (%s:%s)...\n", inst.Name, targetHost, targetPort)
+
+		binary, err := exec.LookPath("ssh")
+		if err != nil {
+			fmt.Printf("Error: ssh client not found in PATH: %v\n", err)
+			return
+		}
+
+		// Use syscall.Exec to replace CLI process with ssh process
+		// This handles interactive terminal correctly.
+		env := os.Environ()
+		allArgs := append([]string{"ssh"}, sshArgs...)
+		err = syscall.Exec(binary, allArgs, env)
+		if err != nil {
+			fmt.Printf("Error executing ssh: %v\n", err)
+		}
+	},
+}
+
 func init() {
 	instanceCmd.AddCommand(listCmd)
 	instanceCmd.AddCommand(launchCmd)
 	instanceCmd.AddCommand(stopCmd)
 	instanceCmd.AddCommand(logsCmd)
 	instanceCmd.AddCommand(showCmd)
+	instanceCmd.AddCommand(consoleCmd)
 	instanceCmd.AddCommand(rmCmd)
 	instanceCmd.AddCommand(statsCmd)
+	instanceCmd.AddCommand(metadataCmd)
+	instanceCmd.AddCommand(sshCmd)
 
 	launchCmd.Flags().StringP("name", "n", "", "Name of the instance (required)")
 	launchCmd.Flags().StringP("image", "i", "alpine", "Image to use")
@@ -244,7 +409,17 @@ func init() {
 	launchCmd.Flags().StringP("vpc", "v", "", "VPC ID or Name to attach to")
 	launchCmd.Flags().StringP("subnet", "s", "", "Subnet ID or Name to attach to")
 	launchCmd.Flags().StringSliceP("volume", "V", nil, "Volume attachment (vol-name:/path)")
+	launchCmd.Flags().StringSliceP("metadata", "m", nil, "Metadata (key=value)")
+	launchCmd.Flags().StringSliceP("label", "l", nil, "Labels (key=value)")
+	launchCmd.Flags().String("ssh-key", "", "SSH Key ID to inject")
+	launchCmd.Flags().StringSlice("cmd", nil, "Command to run (e.g. --cmd 'sh' --cmd '-c' --cmd 'echo hello')")
 	_ = launchCmd.MarkFlagRequired("name")
+
+	metadataCmd.Flags().StringSliceP("metadata", "m", nil, "Metadata (key=value)")
+	metadataCmd.Flags().StringSliceP("label", "l", nil, "Labels (key=value)")
+
+	sshCmd.Flags().StringP("i", "i", "", "Identity file (private key path)")
+	sshCmd.Flags().StringP("user", "u", "root", "User to log in as")
 
 	rootCmd.PersistentFlags().BoolVarP(&outputJSON, "json", "j", false, "Output in JSON format")
 	rootCmd.PersistentFlags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")

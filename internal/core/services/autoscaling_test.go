@@ -169,7 +169,7 @@ type NoopLBService struct{}
 func (s *NoopLBService) Create(ctx context.Context, name string, vpcID uuid.UUID, port int, protocol, algo string) (*domain.LoadBalancer, error) {
 	return nil, nil
 }
-func (s *NoopLBService) Get(ctx context.Context, id uuid.UUID) (*domain.LoadBalancer, error) {
+func (s *NoopLBService) Get(ctx context.Context, id string) (*domain.LoadBalancer, error) {
 	return nil, nil
 }
 func (s *NoopLBService) AddTarget(ctx context.Context, lbID, instanceID uuid.UUID, port, weight int) error {
@@ -182,7 +182,7 @@ func (s *NoopLBService) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*dom
 	return nil, nil
 }
 func (s *NoopLBService) List(ctx context.Context) ([]*domain.LoadBalancer, error) { return nil, nil }
-func (s *NoopLBService) Delete(ctx context.Context, id uuid.UUID) error           { return nil }
+func (s *NoopLBService) Delete(ctx context.Context, id string) error           { return nil }
 func (s *NoopLBService) CreateListener(ctx context.Context, lbID uuid.UUID, port int, protocol string) error {
 	return nil
 }

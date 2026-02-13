@@ -59,6 +59,12 @@ func (m *mockTenantService) GetMembership(ctx context.Context, tenantID, userID 
 	}
 	return args.Get(0).(*domain.TenantMember), args.Error(1)
 }
+func (m *mockTenantService) IncrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error {
+	return m.Called(ctx, tenantID, resource, amount).Error(0)
+}
+func (m *mockTenantService) DecrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error {
+	return m.Called(ctx, tenantID, resource, amount).Error(0)
+}
 
 func setupTenantHandlerTest(userID uuid.UUID) (*mockTenantService, *TenantHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)

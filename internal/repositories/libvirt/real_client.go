@@ -28,6 +28,20 @@ func (r *RealLibvirtClient) Connect(ctx context.Context) error {
 	}
 }
 
+func (r *RealLibvirtClient) ConnectToURI(ctx context.Context, uri string) error {
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- r.conn.ConnectToURI(libvirt.ConnectURI(uri))
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-errChan:
+		return err
+	}
+}
+
 func (r *RealLibvirtClient) Close() error {
 	return r.conn.Disconnect()
 }

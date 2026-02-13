@@ -31,6 +31,10 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
+const (
+	defaultDBInitTimeout = 120 * time.Second
+)
+
 // ErrMigrationDone signals that migrations have already completed.
 var ErrMigrationDone = errors.New("migrations done")
 
@@ -175,7 +179,14 @@ func initInfrastructure(deps AppDeps, logger *slog.Logger, migrateOnly bool) (*p
 		return nil, nil, nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	timeout := defaultDBInitTimeout
+	if os.Getenv("DB_INIT_TIMEOUT") != "" {
+		if t, err := time.ParseDuration(os.Getenv("DB_INIT_TIMEOUT")); err == nil {
+			timeout = t
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	db, err := deps.InitDatabase(ctx, cfg, logger)
@@ -271,45 +282,27 @@ func runApplication(deps AppDeps, cfg *platform.Config, logger *slog.Logger, r *
 	logger.Info("server exited")
 }
 
+type runner interface {
+	Run(context.Context, *sync.WaitGroup)
+}
+
+func startWorker(ctx context.Context, wg *sync.WaitGroup, w runner) {
+	if w != nil {
+		wg.Add(1)
+		go w.Run(ctx, wg)
+	}
+}
+
 func runWorkers(ctx context.Context, wg *sync.WaitGroup, workers *setup.Workers) {
-	if workers.LB != nil {
-		wg.Add(1)
-		go workers.LB.Run(ctx, wg)
-	}
-	if workers.AutoScaling != nil {
-		wg.Add(1)
-		go workers.AutoScaling.Run(ctx, wg)
-	}
-	if workers.Cron != nil {
-		wg.Add(1)
-		go workers.Cron.Run(ctx, wg)
-	}
-	if workers.Container != nil {
-		wg.Add(1)
-		go workers.Container.Run(ctx, wg)
-	}
-	if workers.Provision != nil {
-		wg.Add(1)
-		go workers.Provision.Run(ctx, wg)
-	}
-	if workers.Accounting != nil {
-		wg.Add(1)
-		go workers.Accounting.Run(ctx, wg)
-	}
-	if workers.Cluster != nil {
-		wg.Add(1)
-		go workers.Cluster.Run(ctx, wg)
-	}
-	if workers.Lifecycle != nil {
-		wg.Add(1)
-		go workers.Lifecycle.Run(ctx, wg)
-	}
-	if workers.ReplicaMonitor != nil {
-		wg.Add(1)
-		go workers.ReplicaMonitor.Run(ctx, wg)
-	}
-	if workers.ClusterReconciler != nil {
-		wg.Add(1)
-		go workers.ClusterReconciler.Run(ctx, wg)
-	}
+	startWorker(ctx, wg, workers.LB)
+	startWorker(ctx, wg, workers.AutoScaling)
+	startWorker(ctx, wg, workers.Cron)
+	startWorker(ctx, wg, workers.Container)
+	startWorker(ctx, wg, workers.Provision)
+	startWorker(ctx, wg, workers.Accounting)
+	startWorker(ctx, wg, workers.Cluster)
+	startWorker(ctx, wg, workers.Lifecycle)
+	startWorker(ctx, wg, workers.ReplicaMonitor)
+	startWorker(ctx, wg, workers.ClusterReconciler)
+	startWorker(ctx, wg, workers.Healing)
 }

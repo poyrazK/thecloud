@@ -64,6 +64,11 @@ func (m *mockInstanceService) Exec(ctx context.Context, idOrName string, cmd []s
 	return args.String(0), args.Error(1)
 }
 
+func (m *mockInstanceService) UpdateInstanceMetadata(ctx context.Context, id uuid.UUID, metadata, labels map[string]string) error {
+	args := m.Called(ctx, id, metadata, labels)
+	return args.Error(0)
+}
+
 type mockClusterRepo struct{ mock.Mock }
 
 func (m *mockClusterRepo) Create(ctx context.Context, c *domain.Cluster) error { return nil }

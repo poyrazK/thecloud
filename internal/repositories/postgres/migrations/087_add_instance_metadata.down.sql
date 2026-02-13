@@ -1,0 +1,2 @@
+ALTER TABLE instances DROP COLUMN IF EXISTS metadata;
+ALTER TABLE instances DROP COLUMN IF EXISTS labels;

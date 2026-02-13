@@ -32,6 +32,9 @@ This document provides a comprehensive overview of every feature currently imple
 
 - **Backend Selection**: Set via `COMPUTE_BACKEND` environment variable (`docker` or `libvirt`).
 - **Lifecycle**: The `InstanceService` manages the backend API to Create, Start, Stop, and Remove instances.
+- **Instance Metadata & Labels**: Support for arbitrary key-value pairs assigned to instances for organization and filtering.
+- **Cloud-Init (Docker Simulation)**: Simulates Cloud-Init configuration injection in containers (SSH keys, script execution).
+- **Self-Healing**: Automated background worker that detects instances in `ERROR` state and attempts recovery via restart.
 
 ### 2. Networking (VPC & Elastic IPs)
 **What it is**: Isolated virtual networks and static public IP addresses.

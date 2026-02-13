@@ -43,6 +43,9 @@ type LaunchParams struct {
 	CPULimit     int64
 	MemoryLimit  int64
 	DiskLimit    int64
+	SSHKeyID     *uuid.UUID
+	Metadata     map[string]string
+	Labels       map[string]string
 }
 
 // InstanceService defines the business logic for managing the lifecycle of compute instances.
@@ -69,4 +72,6 @@ type InstanceService interface {
 	TerminateInstance(ctx context.Context, idOrName string) error
 	// Exec runs a command inside the instance and returns the output.
 	Exec(ctx context.Context, idOrName string, cmd []string) (string, error)
+	// UpdateInstanceMetadata updates the metadata and labels of an instance.
+	UpdateInstanceMetadata(ctx context.Context, id uuid.UUID, metadata, labels map[string]string) error
 }

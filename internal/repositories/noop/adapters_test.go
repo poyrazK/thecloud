@@ -66,7 +66,7 @@ func TestNoopComputeBackend(t *testing.T) {
 	require.Equal(t, "noop", backend.Type())
 
 	t.Run("InstanceLifecycle", func(t *testing.T) {
-		id, err := backend.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{})
+		id, _, err := backend.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{})
 		require.NoError(t, err)
 		require.NotEmpty(t, id)
 
@@ -98,7 +98,7 @@ func TestNoopComputeBackend(t *testing.T) {
 		_, err := backend.Exec(ctx, "id", []string{"echo", "hi"})
 		require.NoError(t, err)
 
-		taskID, err := backend.RunTask(ctx, ports.RunTaskOptions{})
+		taskID, _, err := backend.RunTask(ctx, ports.RunTaskOptions{})
 		require.NoError(t, err)
 		require.NotEmpty(t, taskID)
 

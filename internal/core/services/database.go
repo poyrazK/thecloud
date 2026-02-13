@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,22 +28,25 @@ type DatabaseService struct {
 	logger   *slog.Logger
 }
 
+// DatabaseServiceParams holds dependencies for DatabaseService creation.
+type DatabaseServiceParams struct {
+	Repo     ports.DatabaseRepository
+	Compute  ports.ComputeBackend
+	VpcRepo  ports.VpcRepository
+	EventSvc ports.EventService
+	AuditSvc ports.AuditService
+	Logger   *slog.Logger
+}
+
 // NewDatabaseService constructs a DatabaseService with its dependencies.
-func NewDatabaseService(
-	repo ports.DatabaseRepository,
-	compute ports.ComputeBackend,
-	vpcRepo ports.VpcRepository,
-	eventSvc ports.EventService,
-	auditSvc ports.AuditService,
-	logger *slog.Logger,
-) *DatabaseService {
+func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 	return &DatabaseService{
-		repo:     repo,
-		compute:  compute,
-		vpcRepo:  vpcRepo,
-		eventSvc: eventSvc,
-		auditSvc: auditSvc,
-		logger:   logger,
+		repo:     params.Repo,
+		compute:  params.Compute,
+		vpcRepo:  params.VpcRepo,
+		eventSvc: params.EventSvc,
+		auditSvc: params.AuditSvc,
+		logger:   params.Logger,
 	}
 }
 
@@ -69,7 +74,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	}
 
 	dockerName := fmt.Sprintf("cloud-db-%s-%s", name, db.ID.String()[:8])
-	containerID, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+	containerID, allocatedPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 		Name:        dockerName,
 		ImageName:   imageName,
 		Ports:       []string{"0:" + defaultPort},
@@ -79,22 +84,54 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 		Cmd:         nil,
 	})
 	if err != nil {
-		s.logger.Error("failed to create database container", "error", err)
+		s.logger.Error("failed to launch database container", "error", err)
 		return nil, errors.Wrap(errors.Internal, "failed to launch database container", err)
 	}
 
-	hostPort, _ := s.compute.GetInstancePort(ctx, containerID, defaultPort)
+	hostPort, err := s.parseAllocatedPort(allocatedPorts, defaultPort)
+	if err != nil || hostPort == 0 {
+		hostPort, err = s.compute.GetInstancePort(ctx, containerID, defaultPort)
+		if err != nil {
+			s.logger.Error("failed to resolve database port", "container_id", containerID, "error", err)
+			if delErr := s.compute.DeleteInstance(ctx, containerID); delErr != nil {
+				s.logger.Error("failed to clean up database container after port resolution failure", "container_id", containerID, "error", delErr)
+			}
+			return nil, errors.Wrap(errors.Internal, "failed to resolve database port", err)
+		}
+	}
+
 	db.ContainerID = containerID
 	db.Port = hostPort
 	db.Status = domain.DatabaseStatusRunning
 
 	if err := s.repo.Create(ctx, db); err != nil {
-		_ = s.compute.DeleteInstance(ctx, containerID)
+		if delErr := s.compute.DeleteInstance(ctx, containerID); delErr != nil {
+			s.logger.Error("failed to clean up database container after repo create failure", "container_id", containerID, "error", delErr)
+		}
 		return nil, err
 	}
 
 	s.recordDatabaseCreation(ctx, userID, db, engine)
 	return db, nil
+}
+
+func (s *DatabaseService) parseAllocatedPort(allocatedPorts []string, targetPort string) (int, error) {
+	for _, p := range allocatedPorts {
+		parts := strings.Split(p, ":")
+		// handle host:port or host:containerPort:hostPort or containerPort:hostPort
+		if len(parts) >= 2 && parts[len(parts)-1] == targetPort {
+			portStr := parts[0]
+			if len(parts) == 3 {
+				portStr = parts[1]
+			}
+			hp, err := strconv.Atoi(portStr)
+			if err != nil {
+				return 0, err
+			}
+			return hp, nil
+		}
+	}
+	return 0, nil
 }
 
 func (s *DatabaseService) isValidEngine(engine domain.DatabaseEngine) bool {
@@ -150,15 +187,19 @@ func (s *DatabaseService) initialDatabaseRecord(userID uuid.UUID, name string, e
 }
 
 func (s *DatabaseService) recordDatabaseCreation(ctx context.Context, userID uuid.UUID, db *domain.Database, originalEngine string) {
-	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_CREATE", db.ID.String(), "DATABASE", map[string]interface{}{
+	if err := s.eventSvc.RecordEvent(ctx, "DATABASE_CREATE", db.ID.String(), "DATABASE", map[string]interface{}{
 		"name":   db.Name,
 		"engine": db.Engine,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to record database creation event", "id", db.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, userID, "database.create", "database", db.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, userID, "database.create", "database", db.ID.String(), map[string]interface{}{
 		"name":   db.Name,
 		"engine": originalEngine,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log database creation to audit", "id", db.ID, "error", err)
+	}
 
 	platform.RDSInstancesTotal.WithLabelValues(originalEngine, "running").Inc()
 }

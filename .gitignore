@@ -62,3 +62,14 @@ api_test.log
 /api
 coverage_report.txt
 coverage.html
+
+# Sensitive keys and environment scripts
+libvirt_key
+libvirt_key.pub
+auth_env.sh
+
+# Coverage data
+*.cov
+
+.gemini/
+gha-creds-*.json

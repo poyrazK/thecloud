@@ -101,6 +101,10 @@ func (m *instanceServiceMock) Exec(ctx context.Context, idOrName string, cmd []s
 	return args.String(0), args.Error(1)
 }
 
+func (m *instanceServiceMock) UpdateInstanceMetadata(ctx context.Context, id uuid.UUID, metadata, labels map[string]string) error {
+	return m.Called(ctx, id, metadata, labels).Error(0)
+}
+
 func setupInstanceHandlerTest(_ *testing.T) (*instanceServiceMock, *InstanceHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	mockSvc := new(instanceServiceMock)
@@ -443,4 +447,29 @@ func TestInstanceHandlerGetConsoleError(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestInstanceHandlerUpdateMetadata(t *testing.T) {
+	t.Parallel()
+	mockSvc, handler, r := setupInstanceHandlerTest(t)
+	defer mockSvc.AssertExpectations(t)
+	r.PUT(instancesPath+"/:id/metadata", handler.UpdateMetadata)
+
+	id := uuid.New()
+	metadata := map[string]string{"key": "val"}
+
+	mockSvc.On("UpdateInstanceMetadata", mock.Anything, id, metadata, mock.Anything).Return(nil)
+
+	body := map[string]interface{}{
+		"metadata": metadata,
+	}
+	jsonBody, _ := json.Marshal(body)
+
+	req := httptest.NewRequest(http.MethodPut, instancesPath+"/"+id.String()+"/metadata", bytes.NewBuffer(jsonBody))
+	req.Header.Set(contentType, applicationJSON)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
 }

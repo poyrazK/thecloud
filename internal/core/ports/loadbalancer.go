@@ -14,6 +14,8 @@ type LBRepository interface {
 	Create(ctx context.Context, lb *domain.LoadBalancer) error
 	// GetByID retrieves a load balancer by its unique UUID.
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.LoadBalancer, error)
+	// GetByName retrieves a load balancer by its name.
+	GetByName(ctx context.Context, name string) (*domain.LoadBalancer, error)
 	// GetByIdempotencyKey retrieves a load balancer using its idempotency key to prevent duplicate creation.
 	GetByIdempotencyKey(ctx context.Context, key string) (*domain.LoadBalancer, error)
 	// List returns load balancers authorized for the current user.
@@ -42,11 +44,11 @@ type LBService interface {
 	// Create establishes a new managed load balancer.
 	Create(ctx context.Context, name string, vpcID uuid.UUID, port int, algo string, idempotencyKey string) (*domain.LoadBalancer, error)
 	// Get retrieves details and current status for a specific load balancer.
-	Get(ctx context.Context, id uuid.UUID) (*domain.LoadBalancer, error)
+	Get(ctx context.Context, idOrName string) (*domain.LoadBalancer, error)
 	// List returns all load balancers belonging to the current authorized context.
 	List(ctx context.Context) ([]*domain.LoadBalancer, error)
 	// Delete decommission a load balancer and stops its proxy traffic distribution.
-	Delete(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, idOrName string) error
 
 	// AddTarget registers a new backend instance into the load balancer's rotation.
 	AddTarget(ctx context.Context, lbID, instanceID uuid.UUID, port int, weight int) error

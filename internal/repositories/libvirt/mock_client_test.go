@@ -17,6 +17,10 @@ func (m *MockLibvirtClient) Connect(ctx context.Context) error {
 	return m.Called(ctx).Error(0)
 }
 
+func (m *MockLibvirtClient) ConnectToURI(ctx context.Context, uri string) error {
+	return m.Called(ctx, uri).Error(0)
+}
+
 func (m *MockLibvirtClient) Close() error {
 	return m.Called().Error(0)
 }

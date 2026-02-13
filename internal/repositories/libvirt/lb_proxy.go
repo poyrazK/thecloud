@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"text/template"
 
@@ -21,13 +22,15 @@ const (
 
 // LBProxyAdapter manages host-level Nginx load balancer proxies.
 type LBProxyAdapter struct {
-	compute ports.ComputeBackend
+	compute            ports.ComputeBackend
+	execCommandContext func(ctx context.Context, name string, arg ...string) *exec.Cmd
 }
 
 // NewLBProxyAdapter constructs an LBProxyAdapter for the given compute backend.
 func NewLBProxyAdapter(compute ports.ComputeBackend) *LBProxyAdapter {
 	return &LBProxyAdapter{
-		compute: compute,
+		compute:            compute,
+		execCommandContext: exec.CommandContext,
 	}
 }
 
@@ -50,7 +53,7 @@ func (a *LBProxyAdapter) DeployProxy(ctx context.Context, lb *domain.LoadBalance
 	pidPath := filepath.Join(configDir, nginxPidFileName)
 	// Start nginx
 	// nginx -c /path/to/conf -g "pid /path/to/pid; daemon on;"
-	cmd := execCommandContext(ctx, "nginx", "-c", configPath, "-g", fmt.Sprintf("pid %s; daemon on;", pidPath))
+	cmd := a.execCommandContext(ctx, "nginx", "-c", configPath, "-g", fmt.Sprintf("pid %s; daemon on;", pidPath))
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to start nginx: %w", err)
 	}
@@ -65,7 +68,7 @@ func (a *LBProxyAdapter) RemoveProxy(ctx context.Context, lbID uuid.UUID) error 
 	if _, err := os.Stat(pidPath); err == nil {
 		// Stop nginx: nginx -s stop -c ...
 		configPath := filepath.Join(configDir, nginxConfigFileName)
-		cmd := execCommandContext(ctx, "nginx", "-c", configPath, "-g", fmt.Sprintf("pid %s;", pidPath), "-s", "stop")
+		cmd := a.execCommandContext(ctx, "nginx", "-c", configPath, "-g", fmt.Sprintf("pid %s;", pidPath), "-s", "stop")
 		_ = cmd.Run()
 	}
 
@@ -87,7 +90,7 @@ func (a *LBProxyAdapter) UpdateProxyConfig(ctx context.Context, lb *domain.LoadB
 
 	pidPath := filepath.Join(configDir, nginxPidFileName)
 	// Reload nginx
-	cmd := execCommandContext(ctx, "nginx", "-c", configPath, "-g", fmt.Sprintf("pid %s;", pidPath), "-s", "reload")
+	cmd := a.execCommandContext(ctx, "nginx", "-c", configPath, "-g", fmt.Sprintf("pid %s;", pidPath), "-s", "reload")
 	return cmd.Run()
 }
 

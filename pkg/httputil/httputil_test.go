@@ -90,6 +90,12 @@ func (m *mockTenantService) GetMembership(ctx context.Context, tenantID, userID 
 	}
 	return args.Get(0).(*domain.TenantMember), args.Error(1)
 }
+func (m *mockTenantService) IncrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error {
+	return nil
+}
+func (m *mockTenantService) DecrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error {
+	return nil
+}
 
 func (m *mockRBACService) Authorize(ctx context.Context, userID uuid.UUID, permission domain.Permission) error {
 	args := m.Called(ctx, userID, permission)

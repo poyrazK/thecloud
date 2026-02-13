@@ -2905,6 +2905,71 @@ const docTemplate = `{
                 }
             }
         },
+        "/instances/{id}/metadata": {
+            "put": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Updates the metadata and labels for a compute instance",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "instances"
+                ],
+                "summary": "Update instance metadata",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Metadata and Labels",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/instances/{id}/stats": {
             "get": {
                 "security": [
@@ -4159,6 +4224,161 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/ssh-keys": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ssh_keys"
+                ],
+                "summary": "List SSH Keys",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.SSHKey"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ssh_keys"
+                ],
+                "summary": "Create SSH Key",
+                "parameters": [
+                    {
+                        "description": "SSH Key details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.CreateSSHKeyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.SSHKey"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/ssh-keys/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ssh_keys"
+                ],
+                "summary": "Get SSH Key",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "SSH Key ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.SSHKey"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "ssh_keys"
+                ],
+                "summary": "Delete SSH Key",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "SSH Key ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/httputil.Response"
                         }
@@ -5949,8 +6169,20 @@ const docTemplate = `{
                 "instance_type": {
                     "type": "string"
                 },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "memory_limit": {
                     "type": "integer"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "name": {
                     "description": "Unique per tenant",
@@ -5966,6 +6198,9 @@ const docTemplate = `{
                 },
                 "private_ip": {
                     "description": "VPC private IP",
+                    "type": "string"
+                },
+                "ssh_key_id": {
                     "type": "string"
                 },
                 "status": {
@@ -6278,6 +6513,9 @@ const docTemplate = `{
                 "instance:terminate",
                 "instance:read",
                 "instance:update",
+                "ssh_key:create",
+                "ssh_key:read",
+                "ssh_key:delete",
                 "vpc:create",
                 "vpc:delete",
                 "vpc:read",
@@ -6351,6 +6589,9 @@ const docTemplate = `{
                 "PermissionInstanceTerminate",
                 "PermissionInstanceRead",
                 "PermissionInstanceUpdate",
+                "PermissionSSHKeyCreate",
+                "PermissionSSHKeyRead",
+                "PermissionSSHKeyDelete",
                 "PermissionVpcCreate",
                 "PermissionVpcDelete",
                 "PermissionVpcRead",
@@ -6530,6 +6771,32 @@ const docTemplate = `{
                 "RuleIngress",
                 "RuleEgress"
             ]
+        },
+        "domain.SSHKey": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "fingerprint": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "public_key": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
         },
         "domain.ScalingGroup": {
             "type": "object",
@@ -7414,6 +7681,21 @@ const docTemplate = `{
                 }
             }
         },
+        "httphandlers.CreateSSHKeyRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "public_key"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "public_key": {
+                    "type": "string"
+                }
+            }
+        },
         "httphandlers.CreateSecurityGroupRequest": {
             "type": "object",
             "required": [
@@ -7546,13 +7828,28 @@ const docTemplate = `{
                 "instance_type": {
                     "type": "string"
                 },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "memory_limit": {
                     "type": "integer"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "name": {
                     "type": "string"
                 },
                 "ports": {
+                    "type": "string"
+                },
+                "ssh_key_id": {
                     "type": "string"
                 },
                 "subnet_id": {

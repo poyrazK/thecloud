@@ -11,6 +11,7 @@ import (
 // This allows mocking the underlying libvirt connection for testing.
 type LibvirtClient interface {
 	Connect(ctx context.Context) error
+	ConnectToURI(ctx context.Context, uri string) error
 	Close() error
 
 	// Domain

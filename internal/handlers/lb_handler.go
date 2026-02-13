@@ -102,10 +102,9 @@ func (h *LBHandler) List(c *gin.Context) {
 // @Failure 404 {object} httputil.Response
 // @Router /lb/{id} [get]
 func (h *LBHandler) Get(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid id format"))
+	id := c.Param("id")
+	if id == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
 		return
 	}
 
@@ -128,10 +127,9 @@ func (h *LBHandler) Get(c *gin.Context) {
 // @Failure 404 {object} httputil.Response
 // @Router /lb/{id} [delete]
 func (h *LBHandler) Delete(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid id format"))
+	id := c.Param("id")
+	if id == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
 		return
 	}
 

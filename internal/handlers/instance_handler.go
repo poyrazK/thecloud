@@ -51,6 +51,9 @@ type LaunchRequest struct {
 	CPULimit     int64                     `json:"cpu_limit"`
 	MemoryLimit  int64                     `json:"memory_limit"`
 	DiskLimit    int64                     `json:"disk_limit"`
+	SSHKeyID     string                    `json:"ssh_key_id,omitempty"`
+	Metadata     map[string]string         `json:"metadata,omitempty"`
+	Labels       map[string]string         `json:"labels,omitempty"`
 }
 
 // validateLaunchRequest performs custom validation beyond struct tags
@@ -130,6 +133,15 @@ func (h *InstanceHandler) Launch(c *gin.Context) {
 		httputil.Error(c, errors.New(errors.InvalidInput, err.Error()))
 		return
 	}
+	var sshKeyID *uuid.UUID
+	if req.SSHKeyID != "" {
+		id, err := uuid.Parse(req.SSHKeyID)
+		if err != nil {
+			httputil.Error(c, errors.New(errors.InvalidInput, "invalid ssh_key_id format"))
+			return
+		}
+		sshKeyID = &id
+	}
 
 	inst, err := h.svc.LaunchInstance(c.Request.Context(), ports.LaunchParams{
 		Name:         req.Name,
@@ -144,7 +156,11 @@ func (h *InstanceHandler) Launch(c *gin.Context) {
 		Cmd:          req.Cmd,
 		CPULimit:     req.CPULimit,
 		MemoryLimit:  req.MemoryLimit,
-		DiskLimit:    req.DiskLimit,
+
+		DiskLimit: req.DiskLimit,
+		SSHKeyID:  sshKeyID,
+		Metadata:  req.Metadata,
+		Labels:    req.Labels,
 	})
 	if err != nil {
 		httputil.Error(c, err)
@@ -214,12 +230,13 @@ func (h *InstanceHandler) List(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id}/stop [post]
 func (h *InstanceHandler) Stop(c *gin.Context) {
-	id, ok := parseUUID(c, "id")
-	if !ok {
+	id := c.Param("id")
+	if id == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
 		return
 	}
 
-	if err := h.svc.StopInstance(c.Request.Context(), id.String()); err != nil {
+	if err := h.svc.StopInstance(c.Request.Context(), id); err != nil {
 		httputil.Error(c, err)
 		return
 	}
@@ -239,12 +256,13 @@ func (h *InstanceHandler) Stop(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id}/logs [get]
 func (h *InstanceHandler) GetLogs(c *gin.Context) {
-	id, ok := parseUUID(c, "id")
-	if !ok {
+	id := c.Param("id")
+	if id == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
 		return
 	}
 
-	logs, err := h.svc.GetInstanceLogs(c.Request.Context(), id.String())
+	logs, err := h.svc.GetInstanceLogs(c.Request.Context(), id)
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -265,12 +283,13 @@ func (h *InstanceHandler) GetLogs(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id} [get]
 func (h *InstanceHandler) Get(c *gin.Context) {
-	id, ok := parseUUID(c, "id")
-	if !ok {
+	id := c.Param("id")
+	if id == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
 		return
 	}
 
-	inst, err := h.svc.GetInstance(c.Request.Context(), id.String())
+	inst, err := h.svc.GetInstance(c.Request.Context(), id)
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -291,12 +310,13 @@ func (h *InstanceHandler) Get(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id} [delete]
 func (h *InstanceHandler) Terminate(c *gin.Context) {
-	id, ok := parseUUID(c, "id")
-	if !ok {
+	id := c.Param("id")
+	if id == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
 		return
 	}
 
-	if err := h.svc.TerminateInstance(c.Request.Context(), id.String()); err != nil {
+	if err := h.svc.TerminateInstance(c.Request.Context(), id); err != nil {
 		httputil.Error(c, err)
 		return
 	}
@@ -316,11 +336,12 @@ func (h *InstanceHandler) Terminate(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id}/stats [get]
 func (h *InstanceHandler) GetStats(c *gin.Context) {
-	id, ok := parseUUID(c, "id")
-	if !ok {
+	id := c.Param("id")
+	if id == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
 		return
 	}
-	stats, err := h.svc.GetInstanceStats(c.Request.Context(), id.String())
+	stats, err := h.svc.GetInstanceStats(c.Request.Context(), id)
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -340,14 +361,52 @@ func (h *InstanceHandler) GetStats(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id}/console [get]
 func (h *InstanceHandler) GetConsole(c *gin.Context) {
-	id, ok := parseUUID(c, "id")
-	if !ok {
+	id := c.Param("id")
+	if id == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
 		return
 	}
-	url, err := h.svc.GetConsoleURL(c.Request.Context(), id.String())
+	url, err := h.svc.GetConsoleURL(c.Request.Context(), id)
 	if err != nil {
 		httputil.Error(c, err)
 		return
 	}
 	httputil.Success(c, http.StatusOK, gin.H{"url": url})
+}
+
+// UpdateMetadata updates instance metadata
+// @Summary Update instance metadata
+// @Description Updates the metadata and labels for a compute instance
+// @Tags instances
+// @Accept json
+// @Produce json
+// @Security APIKeyAuth
+// @Param id path string true "Instance ID"
+// @Param request body map[string]interface{} true "Metadata and Labels"
+// @Success 200 {object} httputil.Response
+// @Failure 400 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
+// @Router /instances/{id}/metadata [put]
+func (h *InstanceHandler) UpdateMetadata(c *gin.Context) {
+	id, ok := parseUUID(c, "id")
+	if !ok {
+		return
+	}
+
+	var req struct {
+		Metadata map[string]string `json:"metadata"`
+		Labels   map[string]string `json:"labels"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid request body"))
+		return
+	}
+
+	if err := h.svc.UpdateInstanceMetadata(c.Request.Context(), *id, req.Metadata, req.Labels); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, gin.H{"message": "metadata updated"})
 }

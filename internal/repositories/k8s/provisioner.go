@@ -343,7 +343,7 @@ func (p *KubeadmProvisioner) Deprovision(ctx context.Context, cluster *domain.Cl
 			for _, lb := range lbs {
 				if lb.Name == lbName && lb.VpcID == cluster.VpcID {
 					p.logger.Info("cleaning up cluster load balancer", "cluster_id", cluster.ID, "lb_id", lb.ID)
-					_ = p.lbSvc.Delete(ctx, lb.ID)
+					_ = p.lbSvc.Delete(ctx, lb.ID.String())
 				}
 			}
 		}

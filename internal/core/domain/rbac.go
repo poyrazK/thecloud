@@ -17,6 +17,11 @@ const (
 	PermissionInstanceRead      Permission = "instance:read"
 	PermissionInstanceUpdate    Permission = "instance:update"
 
+	// SSH Key Permissions
+	PermissionSSHKeyCreate Permission = "ssh_key:create"
+	PermissionSSHKeyRead   Permission = "ssh_key:read"
+	PermissionSSHKeyDelete Permission = "ssh_key:delete"
+
 	// VPC Permissions
 	PermissionVpcCreate Permission = "vpc:create"
 	PermissionVpcDelete Permission = "vpc:delete"

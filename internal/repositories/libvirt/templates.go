@@ -3,40 +3,63 @@ package libvirt
 
 import (
 	"fmt"
+	"html"
 	"strings"
 )
 
-func generateVolumeXML(name string, sizeGB int) string {
+var xmlEscape = html.EscapeString
+
+func generateVolumeXML(name string, sizeGB int, backingStorePath string) string {
+	escapedName := xmlEscape(name)
+	escapedBackingPath := xmlEscape(backingStorePath)
+
+	backingXML := ""
+	if backingStorePath != "" {
+		backingXML = fmt.Sprintf(`
+  <backingStore>
+    <path>%s</path>
+    <format type='qcow2'/>
+  </backingStore>`, escapedBackingPath)
+	}
+
 	return fmt.Sprintf(`
 <volume>
   <name>%s</name>
   <capacity unit="G">%d</capacity>
   <target>
     <format type='qcow2'/>
-  </target>
-</volume>`, name, sizeGB)
+  </target>%s
+</volume>`, escapedName, sizeGB, backingXML)
 }
 
-func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu int, additionalDisks []string) string {
+func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu int, additionalDisks []string, ports []string, arch string) string {
+	escapedName := xmlEscape(name)
+	escapedDiskPath := xmlEscape(diskPath)
+	escapedNetworkID := xmlEscape(networkID)
+	escapedIsoPath := xmlEscape(isoPath)
+
 	if networkID == "" {
-		networkID = "default"
+		escapedNetworkID = "default"
 	}
-	// Convert MB to KB for libvirt
 	memoryKB := memoryMB * 1024
 
-	isoXML := ""
+	var isoXML string
 	if isoPath != "" {
 		isoXML = fmt.Sprintf(`
     <disk type='file' device='cdrom'>
       <driver name='qemu' type='raw'/>
       <source file='%s'/>
-      <target dev='sda' bus='sata'/>
+      <target dev='hda' bus='ide'/>
       <readonly/>
-    </disk>`, isoPath)
+    </disk>`, escapedIsoPath)
 	}
 
 	additionalDisksXML := ""
 	for i, dPath := range additionalDisks {
+		if i >= 25 { // Limit to vd[b-z]
+			break
+		}
+		escapedDPath := xmlEscape(dPath)
 		dev := fmt.Sprintf("vd%c", 'b'+i)
 		diskType := "file"
 		driverType := "qcow2"
@@ -53,42 +76,96 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
       <driver name='qemu' type='%s'/>
       <source %s='%s'/>
       <target dev='%s' bus='virtio'/>
-    </disk>`, diskType, driverType, sourceAttr, dPath, dev)
+    </disk>`, diskType, driverType, sourceAttr, escapedDPath, dev)
+	}
+
+	qemuArgsXML := ""
+	hasNetworkMapping := false
+	var hostfwds []string
+
+	for _, p := range ports {
+		parts := strings.Split(p, ":")
+		if len(parts) == 2 {
+			// Validation is expected at the caller (adapter)
+			hPort := xmlEscape(parts[0])
+			cPort := xmlEscape(parts[1])
+			hostfwds = append(hostfwds, fmt.Sprintf("hostfwd=tcp::%s-:%s", hPort, cPort))
+			hasNetworkMapping = true
+		}
+	}
+
+	if hasNetworkMapping {
+		qemuArgsXML += fmt.Sprintf(`
+    <qemu:arg value='-netdev'/>
+    <qemu:arg value='user,id=net0,%s'/>
+    <qemu:arg value='-device'/>
+    <qemu:arg value='virtio-net-pci,netdev=net0,bus=pci.0,addr=0x8'/>`, strings.Join(hostfwds, ","))
+	}
+
+	// Use the unescaped name for the log file path to avoid malformed filenames
+	qemuArgsXML += fmt.Sprintf(`
+    <qemu:arg value='-serial'/>
+    <qemu:arg value='file:/tmp/%s-console.log'/>`, name)
+
+	if arch == "" {
+		arch = "x86_64"
+		if strings.Contains(isoPath, "arm64") || strings.Contains(diskPath, "arm64") {
+			arch = "aarch64"
+		}
+	}
+
+	machine := "pc"
+	if arch == "aarch64" {
+		machine = "virt"
+	}
+
+	interfaceXML := ""
+	if !hasNetworkMapping {
+		interfaceXML = fmt.Sprintf(`
+    <interface type='network'>
+      <source network='%s'/>
+      <model type='virtio'/>
+    </interface>`, escapedNetworkID)
 	}
 
 	return fmt.Sprintf(`
-<domain type='kvm'>
+<domain type='qemu' xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'>
   <name>%s</name>
   <memory unit='KiB'>%d</memory>
   <vcpu placement='static'>%d</vcpu>
   <os>
-    <type arch='x86_64' machine='pc-q35-4.2'>hvm</type>
+    <type arch='%s' machine='%s'>hvm</type>
     <boot dev='hd'/>
   </os>
+  <features>
+    <acpi/>
+    <apic/>
+  </features>
   <devices>
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
       <source file='%s'/>
       <target dev='vda' bus='virtio'/>
-    </disk>%s%s
-    <interface type='network'>
-      <source network='%s'/>
-      <model type='virtio'/>
-    </interface>
+    </disk>%s%s%s
     <graphics type='vnc' port='-1' autoport='yes' listen='0.0.0.0'>
       <listen type='address' address='0.0.0.0'/>
     </graphics>
-    <serial type='pty'>
-      <target port='0'/>
-    </serial>
-    <console type='pty'>
-      <target type='serial' port='0'/>
-    </console>
+    <rng model='virtio'>
+      <backend model='random'>/dev/urandom</backend>
+    </rng>
   </devices>
-</domain>`, name, memoryKB, vcpu, diskPath, isoXML, additionalDisksXML, networkID)
+  <qemu:commandline>%s
+  </qemu:commandline>
+</domain>`, escapedName, memoryKB, vcpu, arch, machine, escapedDiskPath, isoXML, additionalDisksXML, interfaceXML, qemuArgsXML)
 }
 
 func generateNetworkXML(name, bridgeName, gatewayIP, rangeStart, rangeEnd string) string {
+	escapedName := xmlEscape(name)
+	escapedBridgeName := xmlEscape(bridgeName)
+	escapedGatewayIP := xmlEscape(gatewayIP)
+	escapedRangeStart := xmlEscape(rangeStart)
+	escapedRangeEnd := xmlEscape(rangeEnd)
+
 	return fmt.Sprintf(`
 <network>
   <name>%s</name>
@@ -99,5 +176,5 @@ func generateNetworkXML(name, bridgeName, gatewayIP, rangeStart, rangeEnd string
       <range start='%s' end='%s'/>
     </dhcp>
   </ip>
-</network>`, name, bridgeName, gatewayIP, rangeStart, rangeEnd)
+</network>`, escapedName, escapedBridgeName, escapedGatewayIP, escapedRangeStart, escapedRangeEnd)
 }

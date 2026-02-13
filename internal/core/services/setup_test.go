@@ -78,6 +78,12 @@ func setupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
 	`, tenantID, userID)
 	require.NoError(t, err)
 
+	_, err = db.Exec(ctx, `
+		INSERT INTO tenant_quotas (tenant_id, max_instances, max_vpcs, max_storage_gb, max_memory_gb, max_vcpus, used_vcpus, used_memory_gb)
+		VALUES ($1, 10, 5, 100, 32, 16, 0, 0)
+	`, tenantID)
+	require.NoError(t, err)
+
 	return appcontext.WithTenantID(appcontext.WithUserID(ctx, userID), tenantID)
 }
 
@@ -91,6 +97,7 @@ func cleanDB(t *testing.T, db *pgxpool.Pool) {
 		"subnets",
 		"vpcs",
 		"volumes",
+		"ssh_keys",
 		"load_balancers",
 		"lb_targets",
 		"audit_logs",

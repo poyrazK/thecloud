@@ -31,16 +31,18 @@ func BenchmarkInstanceServiceList(b *testing.B) {
 	logger := slog.Default()
 
 	svc := services.NewInstanceService(services.InstanceServiceParams{
-		Repo:       repo,
-		VpcRepo:    vpcRepo,
-		SubnetRepo: subnetRepo,
-		VolumeRepo: volumeRepo,
-		Compute:    compute,
-		Network:    network,
-		EventSvc:   eventSvc,
-		AuditSvc:   auditSvc,
-		TaskQueue:  &services.TaskQueueStub{},
-		Logger:     logger,
+		Repo:             repo,
+		VpcRepo:          vpcRepo,
+		SubnetRepo:       subnetRepo,
+		VolumeRepo:       volumeRepo,
+		Compute:          compute,
+		Network:          network,
+		EventSvc:         eventSvc,
+		AuditSvc:         auditSvc,
+		TaskQueue:        &services.TaskQueueStub{},
+		Logger:           logger,
+		TenantSvc:        &NoopTenantService{},
+		InstanceTypeRepo: &noop.NoopInstanceTypeRepository{},
 	})
 
 	ctx := context.Background()
@@ -79,16 +81,18 @@ func BenchmarkInstanceServiceCreate(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 
 	svc := services.NewInstanceService(services.InstanceServiceParams{
-		Repo:       repo,
-		VpcRepo:    vpcRepo,
-		SubnetRepo: subnetRepo,
-		VolumeRepo: volumeRepo,
-		Compute:    compute,
-		Network:    network,
-		EventSvc:   eventSvc,
-		AuditSvc:   auditSvc,
-		TaskQueue:  &services.TaskQueueStub{},
-		Logger:     logger,
+		Repo:             repo,
+		VpcRepo:          vpcRepo,
+		SubnetRepo:       subnetRepo,
+		VolumeRepo:       volumeRepo,
+		Compute:          compute,
+		Network:          network,
+		EventSvc:         eventSvc,
+		AuditSvc:         auditSvc,
+		TaskQueue:        &services.TaskQueueStub{},
+		Logger:           logger,
+		TenantSvc:        &NoopTenantService{},
+		InstanceTypeRepo: &noop.NoopInstanceTypeRepository{},
 	})
 
 	ctx := context.Background()
@@ -142,16 +146,18 @@ func BenchmarkInstanceServiceCreateParallel(b *testing.B) {
 	_ = os.Setenv("TRACING_ENABLED", "false")
 
 	svc := services.NewInstanceService(services.InstanceServiceParams{
-		Repo:       repo,
-		VpcRepo:    vpcRepo,
-		SubnetRepo: subnetRepo,
-		VolumeRepo: volumeRepo,
-		Compute:    compute,
-		Network:    network,
-		EventSvc:   eventSvc,
-		AuditSvc:   auditSvc,
-		TaskQueue:  &services.TaskQueueStub{},
-		Logger:     logger,
+		Repo:             repo,
+		VpcRepo:          vpcRepo,
+		SubnetRepo:       subnetRepo,
+		VolumeRepo:       volumeRepo,
+		Compute:          compute,
+		Network:          network,
+		EventSvc:         eventSvc,
+		AuditSvc:         auditSvc,
+		TaskQueue:        &services.TaskQueueStub{},
+		Logger:           logger,
+		TenantSvc:        &NoopTenantService{},
+		InstanceTypeRepo: &noop.NoopInstanceTypeRepository{},
 	})
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
@@ -192,6 +198,12 @@ func (s *NoopTenantService) CheckQuota(ctx context.Context, tenantID uuid.UUID, 
 func (s *NoopTenantService) GetMembership(ctx context.Context, tenantID, userID uuid.UUID) (*domain.TenantMember, error) {
 	return &domain.TenantMember{}, nil
 }
+func (s *NoopTenantService) IncrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error {
+	return nil
+}
+func (s *NoopTenantService) DecrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error {
+	return nil
+}
 
 func BenchmarkAuthServiceLoginParallel(b *testing.B) {
 	userRepo := &BenchUserRepository{}
@@ -221,7 +233,14 @@ func BenchmarkDatabaseServiceList(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	logger := slog.Default()
 
-	svc := services.NewDatabaseService(repo, compute, vpcRepo, eventSvc, auditSvc, logger)
+	svc := services.NewDatabaseService(services.DatabaseServiceParams{
+		Repo:     repo,
+		Compute:  compute,
+		VpcRepo:  vpcRepo,
+		EventSvc: eventSvc,
+		AuditSvc: auditSvc,
+		Logger:   logger,
+	})
 
 	ctx := context.Background()
 
@@ -250,7 +269,14 @@ func BenchmarkDatabaseContentionParallel(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	logger := slog.Default()
 
-	svc := services.NewDatabaseService(repo, compute, vpcRepo, eventSvc, auditSvc, logger)
+	svc := services.NewDatabaseService(services.DatabaseServiceParams{
+		Repo:     repo,
+		Compute:  compute,
+		VpcRepo:  vpcRepo,
+		EventSvc: eventSvc,
+		AuditSvc: auditSvc,
+		Logger:   logger,
+	})
 	ctx := context.Background()
 	id := uuid.New()
 
