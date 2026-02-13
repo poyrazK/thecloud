@@ -269,9 +269,11 @@ jobs:
           cache: true
       - name: Install Firecracker
         run: |
-          release_url=$(curl -s https://api.github.com/repos/firecracker-microvm/firecracker/releases/latest | grep "browser_download_url.*$(uname -m).tgz" | head -n 1 | cut -d : -f 2,3 | tr -d \")
-          curl -L ${release_url} | tar -xz
-          sudo mv release-*/firecracker-v* /usr/local/bin/firecracker
+          FC_VERSION=$(curl -s https://api.github.com/repos/firecracker-microvm/firecracker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d \" | tr -d " ," | xargs)
+          echo "Installing Firecracker $FC_VERSION"
+          curl -L -o firecracker.tgz "https://github.com/firecracker-microvm/firecracker/releases/download/${FC_VERSION}/firecracker-${FC_VERSION}-$(uname -m).tgz"
+          tar -xzf firecracker.tgz
+          sudo mv release-${FC_VERSION}-$(uname -m)/firecracker-${FC_VERSION}-$(uname -m) /usr/local/bin/firecracker
           sudo chmod +x /usr/local/bin/firecracker
           firecracker --version
       - name: Install Dependencies

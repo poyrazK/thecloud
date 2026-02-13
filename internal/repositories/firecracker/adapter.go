@@ -68,7 +68,7 @@ func (a *FirecrackerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts
 				DriveID:      firecracker.String("1"),
 				IsRootDevice: firecracker.Bool(true),
 				IsReadOnly:   firecracker.Bool(false),
-				PathOnHost:   firecracker.String(a.cfg.RootfsPath), // In a real cloud, we'd clone a template
+				PathOnHost:   firecracker.String(a.cfg.RootfsPath),
 			},
 		},
 		MachineCfg: models.MachineConfiguration{
@@ -77,10 +77,12 @@ func (a *FirecrackerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts
 		},
 	}
 
-	// In this MVP, we don't handle complex networking/TAP allocation yet.
-	// We just start the VM process.
+	cmd := firecracker.VMCommandBuilder{}.
+		WithBin(a.cfg.BinaryPath).
+		WithSocketPath(socketPath).
+		Build(ctx)
 
-	m, err := firecracker.NewMachine(ctx, fcCfg, firecracker.WithProcessRunner(firecracker.NewStaticProcessRunner(a.cfg.BinaryPath)))
+	m, err := firecracker.NewMachine(ctx, fcCfg, firecracker.WithProcessRunner(cmd))
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create machine: %w", err)
 	}
@@ -137,8 +139,6 @@ func (a *FirecrackerAdapter) DeleteInstance(ctx context.Context, id string) erro
 }
 
 func (a *FirecrackerAdapter) GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error) {
-	// Firecracker doesn't provide logs like Docker. 
-	// We'd need to pipe serial console to a file.
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -151,7 +151,7 @@ func (a *FirecrackerAdapter) GetInstancePort(ctx context.Context, id string, int
 }
 
 func (a *FirecrackerAdapter) GetInstanceIP(ctx context.Context, id string) (string, error) {
-	return "0.0.0.0", nil // Placeholder
+	return "0.0.0.0", nil
 }
 
 func (a *FirecrackerAdapter) GetConsoleURL(ctx context.Context, id string) (string, error) {
@@ -184,9 +184,9 @@ func (a *FirecrackerAdapter) WaitTask(ctx context.Context, id string) (int64, er
 
 	err := m.Wait(ctx)
 	if err != nil {
-		return 1, nil // Failed
+		return 1, nil
 	}
-	return 0, nil // Success
+	return 0, nil
 }
 
 func (a *FirecrackerAdapter) CreateNetwork(ctx context.Context, name string) (string, error) {
