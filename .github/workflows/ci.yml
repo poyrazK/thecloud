@@ -260,6 +260,7 @@ jobs:
 
   test-firecracker:
     runs-on: ubuntu-latest
+    services: *postgres-service
     steps:
       - uses: actions/checkout@v6
       - name: Setup Go
