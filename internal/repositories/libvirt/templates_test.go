@@ -25,24 +25,25 @@ func TestGenerateDomainXML(t *testing.T) {
 	t.Parallel()
 	t.Run("basic", func(t *testing.T) {
 		t.Parallel()
-		xml := generateDomainXML("test-vm", libvirtTestDiskPath, "default", "", 1024, 2, nil, nil)
+		xml := generateDomainXML("test-vm", libvirtTestDiskPath, "default", "", 1024, 2, nil, nil, "")
 		assert.Contains(t, xml, "<name>test-vm</name>")
 		assert.Contains(t, xml, "<memory unit='KiB'>1048576</memory>")
 		assert.Contains(t, xml, "<vcpu placement='static'>2</vcpu>")
 		assert.Contains(t, xml, "<source file='"+libvirtTestDiskPath+"'/>")
+		assert.Contains(t, xml, "<type arch='x86_64' machine='pc'>hvm</type>")
 	})
 
 	t.Run("default network when empty", func(t *testing.T) {
 		t.Parallel()
-		xml := generateDomainXML("vm-default", libvirtTestDiskPath, "", "", 512, 1, nil, nil)
-		// Now we use SLIRP by default if no ports, so we look for type='user'
-		assert.Contains(t, xml, "<interface type='user'>")
+		xml := generateDomainXML("vm-default", libvirtTestDiskPath, "", "", 512, 1, nil, nil, "")
+		assert.Contains(t, xml, "<interface type='network'>")
+		assert.Contains(t, xml, "<source network='default'/>")
 	})
 
 	t.Run("with iso and disks", func(t *testing.T) {
 		t.Parallel()
 		additionalDisks := []string{"/path/to/vdb", "/dev/sdc"}
-		xml := generateDomainXML("test-vm", libvirtTestDiskPath, "custom-net", "/path/to/iso", 512, 1, additionalDisks, nil)
+		xml := generateDomainXML("test-vm", libvirtTestDiskPath, "custom-net", "/path/to/iso", 512, 1, additionalDisks, nil, "")
 
 		assert.Contains(t, xml, "<source file='/path/to/iso'/>")
 		assert.Contains(t, xml, "<target dev='hda' bus='ide'/>")
@@ -56,10 +57,25 @@ func TestGenerateDomainXML(t *testing.T) {
 	
 	t.Run("with port mapping", func(t *testing.T) {
 		t.Parallel()
-		ports := []string{"8080:80"}
-		xml := generateDomainXML("test-port-vm", libvirtTestDiskPath, "default", "", 512, 1, nil, ports)
+		ports := []string{"8080:80", "443:443"}
+		xml := generateDomainXML("test-port-vm", libvirtTestDiskPath, "default", "", 512, 1, nil, ports, "")
 		assert.Contains(t, xml, "hostfwd=tcp::8080-:80")
+		assert.Contains(t, xml, "hostfwd=tcp::443-:443")
 		assert.Contains(t, xml, "virtio-net-pci,netdev=net0,bus=pci.0,addr=0x8")
+		// interface XML should be empty when port mapping is used (SLIRP)
+		assert.NotContains(t, xml, "<interface type='network'>")
+	})
+
+	t.Run("arch auto-detection aarch64", func(t *testing.T) {
+		t.Parallel()
+		xml := generateDomainXML("test-arm", "ubuntu-arm64.qcow2", "default", "", 1024, 2, nil, nil, "")
+		assert.Contains(t, xml, "<type arch='aarch64' machine='virt'>hvm</type>")
+	})
+
+	t.Run("explicit arch", func(t *testing.T) {
+		t.Parallel()
+		xml := generateDomainXML("test-arch", "disk.qcow2", "default", "", 1024, 2, nil, nil, "aarch64")
+		assert.Contains(t, xml, "<type arch='aarch64' machine='virt'>hvm</type>")
 	})
 }
 
