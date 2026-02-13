@@ -34,8 +34,6 @@ func TestNewFirecrackerAdapter(t *testing.T) {
 	assert.Equal(t, cfg.SocketDir, adapter.cfg.SocketDir)
 
 	t.Run("InvalidSocketDir", func(t *testing.T) {
-		// Use a path that is likely to fail on linux (permission denied or similar)
-		// Or a path that cannot be created because a file exists with the same name.
 		tmpFile, err := os.CreateTemp("", "fc-not-a-dir")
 		require.NoError(t, err)
 		defer os.Remove(tmpFile.Name())
@@ -80,4 +78,58 @@ func TestFirecrackerAdapter_WaitTask_Mock(t *testing.T) {
 	exitCode, err := adapter.WaitTask(ctx, "any")
 	assert.NoError(t, err)
 	assert.Equal(t, int64(0), exitCode)
+}
+
+func TestFirecrackerAdapter_UnimplementedMethods(t *testing.T) {
+	logger := slog.Default()
+	adapter, err := NewFirecrackerAdapter(logger, Config{MockMode: true})
+	require.NoError(t, err)
+	ctx := context.Background()
+
+	t.Run("GetInstanceLogs", func(t *testing.T) {
+		_, err := adapter.GetInstanceLogs(ctx, "id")
+		assert.Error(t, err)
+	})
+
+	t.Run("GetInstanceStats", func(t *testing.T) {
+		_, err := adapter.GetInstanceStats(ctx, "id")
+		assert.Error(t, err)
+	})
+
+	t.Run("GetInstancePort", func(t *testing.T) {
+		_, err := adapter.GetInstancePort(ctx, "id", "80")
+		assert.Error(t, err)
+	})
+
+	t.Run("GetInstanceIP", func(t *testing.T) {
+		ip, err := adapter.GetInstanceIP(ctx, "id")
+		assert.NoError(t, err)
+		assert.Equal(t, "0.0.0.0", ip)
+	})
+
+	t.Run("GetConsoleURL", func(t *testing.T) {
+		_, err := adapter.GetConsoleURL(ctx, "id")
+		assert.Error(t, err)
+	})
+
+	t.Run("Exec", func(t *testing.T) {
+		_, err := adapter.Exec(ctx, "id", []string{"ls"})
+		assert.Error(t, err)
+	})
+
+	t.Run("AttachDetachVolume", func(t *testing.T) {
+		err := adapter.AttachVolume(ctx, "id", "path")
+		assert.Error(t, err)
+		err = adapter.DetachVolume(ctx, "id", "path")
+		assert.Error(t, err)
+	})
+
+	t.Run("Ping", func(t *testing.T) {
+		err := adapter.Ping(ctx)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Type", func(t *testing.T) {
+		assert.Equal(t, "firecracker-mock", adapter.Type())
+	})
 }
