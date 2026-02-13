@@ -258,6 +258,29 @@ jobs:
           export COMPUTE_BACKEND=libvirt
           go test -v -run TestInstanceService ./internal/core/services/...
 
+  test-firecracker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.24'
+          cache: true
+      - name: Install Firecracker
+        run: |
+          release_url=$(curl -s https://api.github.com/repos/firecracker-microvm/firecracker/releases/latest | grep "browser_download_url.*$(uname -m).tgz" | head -n 1 | cut -d : -f 2,3 | tr -d \")
+          curl -L ${release_url} | tar -xz
+          sudo mv release-*/firecracker-v* /usr/local/bin/firecracker
+          sudo chmod +x /usr/local/bin/firecracker
+          firecracker --version
+      - name: Install Dependencies
+        run: go mod download
+      - name: Run Firecracker Unit Tests
+        run: go test -v ./internal/repositories/firecracker/...
+      - name: Run Firecracker E2E Test
+        run: go test -v -run TestFirecrackerBackend_E2E ./tests/...
+
   build:
     needs: [lint, unit-tests, race-detection, integration-tests, test-libvirt]
     runs-on: ubuntu-latest
