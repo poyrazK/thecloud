@@ -38,6 +38,7 @@ type Config struct {
 	FirecrackerBinary    string
 	FirecrackerKernel    string
 	FirecrackerRootfs    string
+	FirecrackerMockMode  bool
 }
 
 // NewConfig loads configuration from the environment with defaults.
@@ -74,6 +75,7 @@ func NewConfig() (*Config, error) {
 		FirecrackerBinary:    getEnv("FIRECRACKER_BINARY", "/usr/local/bin/firecracker"),
 		FirecrackerKernel:    getEnv("FIRECRACKER_KERNEL", "/var/lib/thecloud/vmlinux"),
 		FirecrackerRootfs:    getEnv("FIRECRACKER_ROOTFS", "/var/lib/thecloud/rootfs.ext4"),
+		FirecrackerMockMode:  getEnv("FIRECRACKER_MOCK_MODE", "false") == "true",
 	}, nil
 }
 

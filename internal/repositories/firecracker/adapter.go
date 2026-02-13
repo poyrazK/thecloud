@@ -22,6 +22,7 @@ type Config struct {
 	KernelPath string
 	RootfsPath string
 	SocketDir  string
+	MockMode   bool // If true, don't start real Firecracker process
 }
 
 // FirecrackerAdapter implements ports.ComputeBackend using Firecracker.
@@ -58,6 +59,14 @@ func (a *FirecrackerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts
 	mem := int64(512)
 	if opts.MemoryLimit > 0 {
 		mem = opts.MemoryLimit / 1024 / 1024 // Convert to MB
+	}
+
+	if a.cfg.MockMode {
+		a.logger.Info("Mock mode enabled, skipping real Firecracker start", "instance_id", id)
+		a.mu.Lock()
+		a.machines[id] = &firecracker.Machine{} // Minimal mock
+		a.mu.Unlock()
+		return id, nil, nil
 	}
 
 	fcCfg := firecracker.Config{
@@ -99,6 +108,9 @@ func (a *FirecrackerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts
 }
 
 func (a *FirecrackerAdapter) StartInstance(ctx context.Context, id string) error {
+	if a.cfg.MockMode {
+		return nil
+	}
 	a.mu.RLock()
 	m, ok := a.machines[id]
 	a.mu.RUnlock()
@@ -111,6 +123,9 @@ func (a *FirecrackerAdapter) StartInstance(ctx context.Context, id string) error
 }
 
 func (a *FirecrackerAdapter) StopInstance(ctx context.Context, id string) error {
+	if a.cfg.MockMode {
+		return nil
+	}
 	a.mu.RLock()
 	m, ok := a.machines[id]
 	a.mu.RUnlock()
@@ -131,7 +146,9 @@ func (a *FirecrackerAdapter) DeleteInstance(ctx context.Context, id string) erro
 		return nil // Already gone
 	}
 
-	_ = m.StopVMM()
+	if !a.cfg.MockMode {
+		_ = m.StopVMM()
+	}
 	delete(a.machines, id)
 	_ = os.Remove(fmt.Sprintf("%s/%s.socket", a.cfg.SocketDir, id))
 
@@ -174,6 +191,9 @@ func (a *FirecrackerAdapter) RunTask(ctx context.Context, opts ports.RunTaskOpti
 }
 
 func (a *FirecrackerAdapter) WaitTask(ctx context.Context, id string) (int64, error) {
+	if a.cfg.MockMode {
+		return 0, nil
+	}
 	a.mu.RLock()
 	m, ok := a.machines[id]
 	a.mu.RUnlock()

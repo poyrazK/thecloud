@@ -66,11 +66,12 @@ func InitComputeBackend(cfg *platform.Config, logger *slog.Logger) (ports.Comput
 		return libvirt.NewLibvirtAdapter(logger, cfg.LibvirtURI)
 	}
 	if cfg.ComputeBackend == "firecracker" {
-		logger.Info("using firecracker compute backend", "binary", cfg.FirecrackerBinary)
+		logger.Info("using firecracker compute backend", "binary", cfg.FirecrackerBinary, "mock_mode", cfg.FirecrackerMockMode)
 		return firecracker.NewFirecrackerAdapter(logger, firecracker.Config{
 			BinaryPath: cfg.FirecrackerBinary,
 			KernelPath: cfg.FirecrackerKernel,
 			RootfsPath: cfg.FirecrackerRootfs,
+			MockMode:   cfg.FirecrackerMockMode,
 		}), nil
 	}
 	logger.Info("using docker compute backend")
