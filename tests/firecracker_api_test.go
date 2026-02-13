@@ -17,8 +17,9 @@ import (
 func TestFirecrackerAPI_E2E(t *testing.T) {
 	// Only run this if we are in an environment that supports firecracker 
 	// or explicitly enabled for CI.
-	if os.Getenv("COMPUTE_BACKEND") != "firecracker" {
-		t.Skip("Skipping firecracker API test: COMPUTE_BACKEND != firecracker")
+	backend := os.Getenv("COMPUTE_BACKEND")
+	if backend != "firecracker" && backend != "firecracker-mock" {
+		t.Skipf("Skipping firecracker API test: COMPUTE_BACKEND (%s) is not firecracker or firecracker-mock", backend)
 	}
 
 	if err := waitForServer(); err != nil {
