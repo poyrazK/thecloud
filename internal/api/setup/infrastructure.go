@@ -72,7 +72,7 @@ func InitComputeBackend(cfg *platform.Config, logger *slog.Logger) (ports.Comput
 			KernelPath: cfg.FirecrackerKernel,
 			RootfsPath: cfg.FirecrackerRootfs,
 			MockMode:   cfg.FirecrackerMockMode,
-		}), nil
+		})
 	}
 	logger.Info("using docker compute backend")
 	return docker.NewDockerAdapter(logger)

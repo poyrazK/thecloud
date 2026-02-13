@@ -8,6 +8,7 @@ import (
 
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFirecrackerAdapter_InterfaceCompliance(t *testing.T) {
@@ -23,7 +24,8 @@ func TestNewFirecrackerAdapter(t *testing.T) {
 		SocketDir:  "/tmp/firecracker-test",
 	}
 
-	adapter := NewFirecrackerAdapter(logger, cfg)
+	adapter, err := NewFirecrackerAdapter(logger, cfg)
+	require.NoError(t, err)
 
 	assert.NotNil(t, adapter)
 	assert.Equal(t, "firecracker", adapter.Type())
