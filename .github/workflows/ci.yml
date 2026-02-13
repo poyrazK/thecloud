@@ -312,6 +312,7 @@ jobs:
           FIRECRACKER_BINARY: /usr/local/bin/firecracker
           FIRECRACKER_KERNEL: /tmp/vmlinux
           FIRECRACKER_ROOTFS: /tmp/rootfs.ext4
+          FIRECRACKER_MOCK_MODE: "true"
         run: |
           # Create dummy artifacts for Go logic path testing
           touch /tmp/vmlinux /tmp/rootfs.ext4
@@ -321,8 +322,8 @@ jobs:
           PGPASSWORD=cloud psql -h localhost -p 5433 -U cloud -d postgres -c "CREATE DATABASE cloud;"
           go run ./cmd/api -migrate-only
           
-          # Start API in background
-          go run ./cmd/api &
+          # Start API in background with mock mode
+          FIRECRACKER_MOCK_MODE=true COMPUTE_BACKEND=firecracker go run ./cmd/api &
           
           # Run API E2E tests for firecracker
           go test -v -run TestFirecrackerAPI_E2E ./tests/...

@@ -48,10 +48,9 @@ func TestFirecrackerAPI_E2E(t *testing.T) {
 		require.NoError(t, err)
 		defer resp.Body.Close()
 
-		// If artifacts are missing, the service might return 500 or 400.
-		// We want to see the status.
-		if resp.StatusCode != http.StatusCreated {
-			t.Logf("Launch failed with status %d (expected in some CI environments)", resp.StatusCode)
+		// status 202 is expected for async provisioning
+		if resp.StatusCode != http.StatusAccepted {
+			t.Logf("Launch failed with status %d (expected 202)", resp.StatusCode)
 			return
 		}
 
@@ -61,6 +60,9 @@ func TestFirecrackerAPI_E2E(t *testing.T) {
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
 		instanceID = res.Data.ID.String()
 		assert.NotEmpty(t, instanceID)
+
+		// Wait for provision worker to finish (especially in mock mode)
+		time.Sleep(5 * time.Second)
 	})
 
 	if instanceID == "" {
@@ -77,6 +79,13 @@ func TestFirecrackerAPI_E2E(t *testing.T) {
 		defer resp.Body.Close()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var res struct {
+			Data domain.Instance `json:"data"`
+		}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
+		// In mock mode, the status should transition to RUNNING quickly
+		assert.Equal(t, domain.StatusRunning, res.Data.Status)
 	})
 
 	t.Run("Terminate Firecracker Instance", func(t *testing.T) {
