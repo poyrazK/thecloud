@@ -89,6 +89,11 @@ func (m *mockRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User,
 	return args.Get(0).([]*domain.User), args.Error(1)
 }
 
+func (m *mockRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error) {
+	args := m.Called(ctx, userID, action, resource, context)
+	return args.Bool(0), args.Error(1)
+}
+
 func setupRBACHandlerTest(_ *testing.T) (*mockRBACService, *RBACHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockRBACService)

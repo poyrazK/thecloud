@@ -502,3 +502,75 @@ func TestSSHKeyInjection(t *testing.T) {
 
 	assert.Equal(t, &key.ID, inst.SSHKeyID)
 }
+
+func TestInstanceService_LifecycleMethods(t *testing.T) {
+	_, svc, compute, repo, _, _, ctx := setupInstanceServiceTest(t)
+	
+	// Setup instance
+	inst, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
+		Name:         "lifecycle-test",
+		Image:        testImage,
+		InstanceType: testInstanceType,
+	})
+	require.NoError(t, err)
+	err = svc.Provision(ctx, domain.ProvisionJob{InstanceID: inst.ID})
+	require.NoError(t, err)
+
+	t.Run("StopInstance", func(t *testing.T) {
+		err := svc.StopInstance(ctx, inst.ID.String())
+		assert.NoError(t, err)
+		
+		dbInst, _ := repo.GetByID(ctx, inst.ID)
+		assert.Equal(t, domain.StatusStopped, dbInst.Status)
+	})
+
+	t.Run("StartInstance", func(t *testing.T) {
+		err := svc.StartInstance(ctx, inst.ID.String())
+		assert.NoError(t, err)
+		
+		dbInst, _ := repo.GetByID(ctx, inst.ID)
+		assert.Equal(t, domain.StatusRunning, dbInst.Status)
+	})
+
+	t.Run("GetInstanceLogs", func(t *testing.T) {
+		logs, err := svc.GetInstanceLogs(ctx, inst.ID.String())
+		assert.NoError(t, err)
+		assert.NotNil(t, logs)
+	})
+
+	t.Run("Exec", func(t *testing.T) {
+		output, err := svc.Exec(ctx, inst.ID.String(), []string{"echo", "hello"})
+		assert.NoError(t, err)
+		assert.Contains(t, output, "hello")
+	})
+
+	t.Run("GetConsoleURL", func(t *testing.T) {
+		url, err := svc.GetConsoleURL(ctx, inst.ID.String())
+		assert.NoError(t, err)
+		assert.NotNil(t, url)
+	})
+
+	// Cleanup
+	_ = compute.DeleteInstance(ctx, inst.ContainerID)
+}
+
+func TestLaunchInstanceWithOptions(t *testing.T) {
+	_, svc, compute, _, _, _, ctx := setupInstanceServiceTest(t)
+
+	opts := coreports.CreateInstanceOptions{
+		Name:      "opts-launch",
+		ImageName: testImage,
+		Ports:     []string{"8080:80"},
+		Env:       []string{"FOO=BAR"},
+	}
+
+	inst, err := svc.LaunchInstanceWithOptions(ctx, opts)
+	require.NoError(t, err)
+	assert.Equal(t, "opts-launch", inst.Name)
+	assert.Equal(t, "8080:80", inst.Ports)
+
+	// Cleanup
+	if inst.ContainerID != "" {
+		_ = compute.DeleteInstance(ctx, inst.ContainerID)
+	}
+}

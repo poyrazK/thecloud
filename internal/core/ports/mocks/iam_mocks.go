@@ -1,0 +1,213 @@
+package mocks
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/stretchr/testify/mock"
+)
+
+// IAMRepository is a mock for ports.IAMRepository
+type IAMRepository struct {
+	mock.Mock
+}
+
+func (m *IAMRepository) CreatePolicy(ctx context.Context, policy *domain.Policy) error {
+	args := m.Called(ctx, policy)
+	return args.Error(0)
+}
+
+func (m *IAMRepository) GetPolicyByID(ctx context.Context, id uuid.UUID) (*domain.Policy, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Policy), args.Error(1)
+}
+
+func (m *IAMRepository) ListPolicies(ctx context.Context) ([]*domain.Policy, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Policy), args.Error(1)
+}
+
+func (m *IAMRepository) DeletePolicy(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *IAMRepository) AttachPolicyToUser(ctx context.Context, userID uuid.UUID, policyID uuid.UUID) error {
+	args := m.Called(ctx, userID, policyID)
+	return args.Error(0)
+}
+
+func (m *IAMRepository) DetachPolicyFromUser(ctx context.Context, userID uuid.UUID, policyID uuid.UUID) error {
+	args := m.Called(ctx, userID, policyID)
+	return args.Error(0)
+}
+
+func (m *IAMRepository) GetPoliciesForUser(ctx context.Context, userID uuid.UUID) ([]*domain.Policy, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Policy), args.Error(1)
+}
+
+// IAMService is a mock for ports.IAMService
+type IAMService struct {
+	mock.Mock
+}
+
+func (m *IAMService) CreatePolicy(ctx context.Context, policy *domain.Policy) error {
+	args := m.Called(ctx, policy)
+	return args.Error(0)
+}
+
+func (m *IAMService) GetPolicyByID(ctx context.Context, id uuid.UUID) (*domain.Policy, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Policy), args.Error(1)
+}
+
+func (m *IAMService) ListPolicies(ctx context.Context) ([]*domain.Policy, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Policy), args.Error(1)
+}
+
+func (m *IAMService) DeletePolicy(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *IAMService) AttachPolicyToUser(ctx context.Context, userID uuid.UUID, policyID uuid.UUID) error {
+	args := m.Called(ctx, userID, policyID)
+	return args.Error(0)
+}
+
+func (m *IAMService) DetachPolicyFromUser(ctx context.Context, userID uuid.UUID, policyID uuid.UUID) error {
+	args := m.Called(ctx, userID, policyID)
+	return args.Error(0)
+}
+
+func (m *IAMService) GetPoliciesForUser(ctx context.Context, userID uuid.UUID) ([]*domain.Policy, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Policy), args.Error(1)
+}
+
+// UserRepository is a mock for ports.UserRepository
+type UserRepository struct {
+	mock.Mock
+}
+
+func (m *UserRepository) Create(ctx context.Context, user *domain.User) error {
+	args := m.Called(ctx, user)
+	return args.Error(0)
+}
+
+func (m *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.User), args.Error(1)
+}
+
+func (m *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+	args := m.Called(ctx, email)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.User), args.Error(1)
+}
+
+func (m *UserRepository) Update(ctx context.Context, user *domain.User) error {
+	args := m.Called(ctx, user)
+	return args.Error(0)
+}
+
+func (m *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *UserRepository) List(ctx context.Context) ([]*domain.User, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.User), args.Error(1)
+}
+
+// RoleRepository is a mock for ports.RoleRepository
+type RoleRepository struct {
+	mock.Mock
+}
+
+func (m *RoleRepository) CreateRole(ctx context.Context, role *domain.Role) error {
+	args := m.Called(ctx, role)
+	return args.Error(0)
+}
+
+func (m *RoleRepository) GetRoleByID(ctx context.Context, id uuid.UUID) (*domain.Role, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Role), args.Error(1)
+}
+
+func (m *RoleRepository) GetRoleByName(ctx context.Context, name string) (*domain.Role, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Role), args.Error(1)
+}
+
+func (m *RoleRepository) ListRoles(ctx context.Context) ([]*domain.Role, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Role), args.Error(1)
+}
+
+func (m *RoleRepository) UpdateRole(ctx context.Context, role *domain.Role) error {
+	args := m.Called(ctx, role)
+	return args.Error(0)
+}
+
+func (m *RoleRepository) DeleteRole(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *RoleRepository) AddPermissionToRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
+	args := m.Called(ctx, roleID, permission)
+	return args.Error(0)
+}
+
+func (m *RoleRepository) RemovePermissionFromRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
+	args := m.Called(ctx, roleID, permission)
+	return args.Error(0)
+}
+
+func (m *RoleRepository) GetPermissionsForRole(ctx context.Context, roleID uuid.UUID) ([]domain.Permission, error) {
+	args := m.Called(ctx, roleID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.Permission), args.Error(1)
+}
