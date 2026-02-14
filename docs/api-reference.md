@@ -496,6 +496,28 @@ Get execution logs.
 
 ---
 
+## CloudLogs (Persistent Logs) 🆕
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /logs
+Search and filter historical platform logs.
+
+**Query Parameters:**
+- `resource_id`: Filter by specific resource UUID.
+- `resource_type`: Filter by type (`instance`, `function`).
+- `level`: Filter by severity (`INFO`, `WARN`, `ERROR`).
+- `search`: Keyword search in log messages.
+- `start_time`: RFC3339 start timestamp.
+- `end_time`: RFC3339 end timestamp.
+- `limit`: Max results (default 100).
+- `offset`: Pagination offset.
+
+### GET /logs/:id
+Get historical logs for a specific resource.
+
+---
+
 ## Cloud Cache (Redis)
 
 **Headers Required:** `X-API-Key: <your-api-key>`
