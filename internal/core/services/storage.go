@@ -22,7 +22,18 @@ const (
 	errMultipartNotFound = "multipart upload not found"
 	partPathFormat       = ".uploads/%s/part-%d"
 	versionQueryFormat   = "%s?versionId=%s"
+	versionEpochBit      = 1 << 62
 )
+
+// generateVersionID generates a timestamp-based version ID (reverse chronological).
+func generateVersionID() string {
+	return fmt.Sprintf("%d", versionEpochBit-time.Now().UnixNano())
+}
+
+// versionedStoreKey returns the store key with version ID suffix.
+func versionedStoreKey(key, versionID string) string {
+	return fmt.Sprintf(versionQueryFormat, key, versionID)
+}
 
 // StorageService manages object storage metadata and files.
 type StorageService struct {
@@ -53,16 +64,14 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 
 	versionID := "null" // Default version ID when versioning is disabled
 	if bucket.VersioningEnabled {
-		// Generate a timestamp-based version ID (reverse chronological)
-		// 1<<62 is large enough to keep the result positive for a long time
-		versionID = fmt.Sprintf("%d", (1<<62)-time.Now().UnixNano())
+		versionID = generateVersionID()
 	}
 
 	// 2. Write file to store
 	// In the store, we'll prefix versions with versionID to avoid overwrites
 	storeKey := key
 	if bucket.VersioningEnabled {
-		storeKey = fmt.Sprintf(versionQueryFormat, key, versionID)
+		storeKey = versionedStoreKey(key, versionID)
 	}
 
 	// Encryption
@@ -140,14 +149,6 @@ func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.R
 	}
 
 	// Decryption
-	// We need to check if object is encrypted?
-	// Currently we check bucket setting but valid approach is: if bucket has encryption enabled, we try to decrypt.
-	// OR we assume everything in an encrypted bucket is encrypted.
-	// Ideally Object metadata should flag "IsEncrypted".
-	// For now, let's rely on checking the bucket config again or just if we can decrypt.
-	// BUT wait, Read returns io.ReadCloser (stream). We implemented full read for encryption.
-	// So we must read all, decrypt, wrap in Reader.
-
 	// Check bucket status for efficiency (though key lookup is fast)
 	b, err := s.repo.GetBucket(ctx, bucket)
 	if err == nil && b.EncryptionEnabled && s.encryptSvc != nil {
@@ -159,9 +160,6 @@ func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.R
 
 		decryptedData, err := s.encryptSvc.Decrypt(ctx, bucket, data)
 		if err != nil {
-			// Fallback: maybe it wasn't encrypted (legacy objects before encryption enabled)
-			// In a real system we'd check metadata.
-			// Re-wrap original data if decrypt failed? No, AES-GCM fails clearly.
 			return nil, nil, err
 		}
 		reader = io.NopCloser(bytes.NewReader(decryptedData))
@@ -189,7 +187,7 @@ func (s *StorageService) DownloadVersion(ctx context.Context, bucket, key, versi
 	// 2. Open file
 	storeKey := key
 	if obj.VersionID != "null" {
-		storeKey = fmt.Sprintf(versionQueryFormat, key, obj.VersionID)
+		storeKey = versionedStoreKey(key, obj.VersionID)
 	}
 
 	reader, err := s.store.Read(ctx, bucket, storeKey)
@@ -213,7 +211,7 @@ func (s *StorageService) DeleteVersion(ctx context.Context, bucket, key, version
 	// 2. Delete from store
 	storeKey := key
 	if versionID != "null" {
-		storeKey = fmt.Sprintf(versionQueryFormat, key, versionID)
+		storeKey = versionedStoreKey(key, versionID)
 	}
 
 	if err := s.store.Delete(ctx, bucket, storeKey); err != nil {
@@ -379,8 +377,24 @@ func (s *StorageService) CompleteMultipartUpload(ctx context.Context, uploadID u
 		partKeys[i] = fmt.Sprintf(partPathFormat, upload.ID.String(), p.PartNumber)
 	}
 
+	// Check bucket versioning status
+	bucket, err := s.repo.GetBucket(ctx, upload.Bucket)
+	if err != nil {
+		return nil, err
+	}
+
+	versionID := "null"
+	if bucket.VersioningEnabled {
+		versionID = generateVersionID()
+	}
+
 	// 4. Assemble in store
-	actualSize, err := s.store.Assemble(ctx, upload.Bucket, upload.Key, partKeys)
+	storeKey := upload.Key
+	if bucket.VersioningEnabled {
+		storeKey = versionedStoreKey(upload.Key, versionID)
+	}
+
+	actualSize, err := s.store.Assemble(ctx, upload.Bucket, storeKey, partKeys)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to assemble object", err)
 	}
@@ -391,10 +405,16 @@ func (s *StorageService) CompleteMultipartUpload(ctx context.Context, uploadID u
 		UserID:      upload.UserID,
 		Bucket:      upload.Bucket,
 		Key:         upload.Key,
+		VersionID:   versionID,
+		IsLatest:    true,
 		SizeBytes:   actualSize,
 		ContentType: "application/octet-stream",
 		CreatedAt:   time.Now(),
 		ARN:         fmt.Sprintf("arn:thecloud:storage:local:default:object/%s/%s", upload.Bucket, upload.Key),
+	}
+
+	if bucket.VersioningEnabled {
+		obj.ARN += fmt.Sprintf("?versionId=%s", versionID)
 	}
 
 	// 6. Save metadata
