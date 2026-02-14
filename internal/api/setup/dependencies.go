@@ -62,6 +62,7 @@ type Repositories struct {
 	GlobalLB      ports.GlobalLBRepository
 	SSHKey        ports.SSHKeyRepository
 	ElasticIP     ports.ElasticIPRepository
+	IAM           ports.IAMRepository
 }
 
 // InitRepositories constructs repositories using the provided database clients.
@@ -103,6 +104,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		GlobalLB:      postgres.NewGlobalLBRepository(db),
 		SSHKey:        postgres.NewSSHKeyRepo(db),
 		ElasticIP:     postgres.NewElasticIPRepository(db),
+		IAM:           postgres.NewIAMRepository(db),
 	}
 }
 
@@ -146,6 +148,7 @@ type Services struct {
 	GlobalLB      ports.GlobalLBService
 	SSHKey        ports.SSHKeyService
 	ElasticIP     ports.ElasticIPService
+	IAM           ports.IAMService
 }
 
 // Workers struct to return background workers
@@ -270,6 +273,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	accountingSvc := services.NewAccountingService(c.Repos.Accounting, c.Repos.Instance, c.Logger)
 	accountingWorker := workers.NewAccountingWorker(accountingSvc, c.Logger)
 	imageSvc := services.NewImageService(c.Repos.Image, fileStore, c.Logger)
+	iamSvc := services.NewIAMService(c.Repos.IAM, auditSvc, eventSvc, c.Logger)
 	provisionWorker := workers.NewProvisionWorker(instSvcConcrete, c.Repos.TaskQueue, c.Logger)
 	healingWorker := workers.NewHealingWorker(instSvcConcrete, c.Repos.Instance, c.Logger)
 
@@ -322,7 +326,9 @@ func initIdentityServices(c ServiceConfig, audit ports.AuditService) ports.Ident
 }
 
 func initRBACServices(c ServiceConfig) ports.RBACService {
-	base := services.NewRBACService(c.Repos.User, c.Repos.RBAC, c.Logger)
+	iamRepo := postgres.NewIAMRepository(c.DB)
+	evaluator := services.NewIAMEvaluator()
+	base := services.NewRBACService(c.Repos.User, c.Repos.RBAC, iamRepo, evaluator, c.Logger)
 	return services.NewCachedRBACService(base, c.RDB, c.Logger)
 }
 
