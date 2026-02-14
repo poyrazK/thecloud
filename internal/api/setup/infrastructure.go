@@ -9,6 +9,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/internal/repositories/docker"
+	"github.com/poyrazk/thecloud/internal/repositories/firecracker"
 	"github.com/poyrazk/thecloud/internal/repositories/libvirt"
 	"github.com/poyrazk/thecloud/internal/repositories/lvm"
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
@@ -64,6 +65,15 @@ func InitComputeBackend(cfg *platform.Config, logger *slog.Logger) (ports.Comput
 		logger.Info("using libvirt compute backend", "uri", cfg.LibvirtURI)
 		return libvirt.NewLibvirtAdapter(logger, cfg.LibvirtURI)
 	}
+	if cfg.ComputeBackend == "firecracker" {
+		logger.Info("using firecracker compute backend", "binary", cfg.FirecrackerBinary, "mock_mode", cfg.FirecrackerMockMode)
+		return firecracker.NewFirecrackerAdapter(logger, firecracker.Config{
+			BinaryPath: cfg.FirecrackerBinary,
+			KernelPath: cfg.FirecrackerKernel,
+			RootfsPath: cfg.FirecrackerRootfs,
+			MockMode:   cfg.FirecrackerMockMode,
+		})
+	}
 	logger.Info("using docker compute backend")
 	return docker.NewDockerAdapter(logger)
 }
@@ -104,5 +114,7 @@ func InitLBProxy(cfg *platform.Config, computeBackend ports.ComputeBackend, inst
 	if cfg.ComputeBackend == "libvirt" {
 		return libvirt.NewLBProxyAdapter(computeBackend), nil
 	}
+	// Firecracker currently uses basic SLIRP or TAP which might not work with host-level nginx yet,
+	// but we fallback to docker-style proxy logic for now or could implement a dedicated one.
 	return docker.NewLBProxyAdapter(instanceRepo, vpcRepo)
 }

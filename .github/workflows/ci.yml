@@ -258,8 +258,80 @@ jobs:
           export COMPUTE_BACKEND=libvirt
           go test -v -run TestInstanceService ./internal/core/services/...
 
+  test-firecracker:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cloud
+          POSTGRES_PASSWORD: cloud
+          POSTGRES_DB: cloud
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U cloud"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.24'
+          cache: true
+      - name: Install Firecracker
+        run: |
+          FC_VERSION=$(curl -s https://api.github.com/repos/firecracker-microvm/firecracker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d \" | tr -d " ," | xargs)
+          echo "Installing Firecracker $FC_VERSION"
+          curl -L -o firecracker.tgz "https://github.com/firecracker-microvm/firecracker/releases/download/${FC_VERSION}/firecracker-${FC_VERSION}-$(uname -m).tgz"
+          tar -xzf firecracker.tgz
+          sudo mv release-${FC_VERSION}-$(uname -m)/firecracker-${FC_VERSION}-$(uname -m) /usr/local/bin/firecracker
+          sudo chmod +x /usr/local/bin/firecracker
+          firecracker --version
+      - name: Install Dependencies
+        run: go mod download
+      - name: Run Firecracker Unit Tests
+        run: go test -v ./internal/repositories/firecracker/...
+      - name: Run Firecracker E2E Test
+        env:
+          FIRECRACKER_MOCK_MODE: "true"
+        run: go test -v -run TestFirecrackerBackend_E2E ./tests/...
+      - name: Run Firecracker API Integration
+        env:
+          DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
+          COMPUTE_BACKEND: firecracker
+          FIRECRACKER_BINARY: /usr/local/bin/firecracker
+          FIRECRACKER_KERNEL: /tmp/vmlinux
+          FIRECRACKER_ROOTFS: /tmp/rootfs.ext4
+          FIRECRACKER_MOCK_MODE: "true"
+        run: |
+          # Create dummy artifacts for Go logic path testing
+          touch /tmp/vmlinux /tmp/rootfs.ext4
+          
+          # Ensure clean DB
+          PGPASSWORD=cloud psql -h localhost -p 5433 -U cloud -d postgres -c "DROP DATABASE IF EXISTS cloud;"
+          PGPASSWORD=cloud psql -h localhost -p 5433 -U cloud -d postgres -c "CREATE DATABASE cloud;"
+          go run ./cmd/api -migrate-only
+          
+          # Start API in background with mock mode
+          FIRECRACKER_MOCK_MODE=true COMPUTE_BACKEND=firecracker go run ./cmd/api &
+          
+          # Run API E2E tests for firecracker
+          go test -v -run TestFirecrackerAPI_E2E ./tests/...
+
   build:
-    needs: [lint, unit-tests, race-detection, integration-tests, test-libvirt]
+    needs: [lint, unit-tests, race-detection, integration-tests, test-libvirt, test-firecracker]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
