@@ -116,27 +116,3 @@ func TestCreateDatabaseWithVpc(t *testing.T) {
 	// Cleanup
 	_ = compute.DeleteInstance(ctx, db.ContainerID)
 }
-
-func TestCreateReplica(t *testing.T) {
-	svc, repo, compute, _, ctx := setupDatabaseServiceTest(t)
-
-	// 1. Create primary
-	primary, err := svc.CreateDatabase(ctx, "primary-db", "postgres", "16", nil)
-	require.NoError(t, err)
-	defer func() { _ = compute.DeleteInstance(ctx, primary.ContainerID) }()
-
-	// 2. Create replica
-	replica, err := svc.CreateReplica(ctx, primary.ID, "replica-db")
-	assert.NoError(t, err)
-	assert.NotNil(t, replica)
-	assert.Equal(t, domain.RoleReplica, replica.Role)
-	assert.Equal(t, &primary.ID, replica.PrimaryID)
-	assert.NotEmpty(t, replica.ContainerID)
-
-	defer func() { _ = compute.DeleteInstance(ctx, replica.ContainerID) }()
-
-	// 3. Verify in repo
-	fetched, err := repo.GetByID(ctx, replica.ID)
-	assert.NoError(t, err)
-	assert.Equal(t, domain.RoleReplica, fetched.Role)
-}

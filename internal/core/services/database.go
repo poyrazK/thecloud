@@ -65,9 +65,8 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 
 	username := s.getDefaultUsername(dbEngine)
 	db := s.initialDatabaseRecord(userID, name, dbEngine, version, username, password, vpcID)
-	db.Role = domain.RolePrimary
 
-	imageName, env, defaultPort := s.getEngineConfig(dbEngine, version, username, password, name, db.Role, "")
+	imageName, env, defaultPort := s.getEngineConfig(dbEngine, version, username, password, name)
 
 	networkID, err := s.resolveVpcNetwork(ctx, vpcID)
 	if err != nil {
@@ -116,66 +115,6 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	return db, nil
 }
 
-func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error) {
-	userID := appcontext.UserIDFromContext(ctx)
-
-	primary, err := s.repo.GetByID(ctx, primaryID)
-	if err != nil {
-		return nil, err
-	}
-
-	primaryIP, err := s.compute.GetInstanceIP(ctx, primary.ContainerID)
-	if err != nil {
-		return nil, errors.Wrap(errors.Internal, "failed to get primary IP", err)
-	}
-
-	db := s.initialDatabaseRecord(userID, name, primary.Engine, primary.Version, primary.Username, primary.Password, primary.VpcID)
-	db.Role = domain.RoleReplica
-	db.PrimaryID = &primaryID
-
-	imageName, env, defaultPort := s.getEngineConfig(primary.Engine, primary.Version, primary.Username, primary.Password, name, db.Role, primaryIP)
-
-	networkID, err := s.resolveVpcNetwork(ctx, db.VpcID)
-	if err != nil {
-		return nil, err
-	}
-
-	dockerName := fmt.Sprintf("cloud-db-replica-%s-%s", name, db.ID.String()[:8])
-	containerID, allocatedPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
-		Name:        dockerName,
-		ImageName:   imageName,
-		Ports:       []string{"0:" + defaultPort},
-		NetworkID:   networkID,
-		VolumeBinds: nil,
-		Env:         env,
-		Cmd:         nil,
-	})
-	if err != nil {
-		return nil, errors.Wrap(errors.Internal, "failed to launch replica container", err)
-	}
-
-	hostPort, err := s.parseAllocatedPort(allocatedPorts, defaultPort)
-	if err != nil || hostPort == 0 {
-		hostPort, _ = s.compute.GetInstancePort(ctx, containerID, defaultPort)
-	}
-
-	db.ContainerID = containerID
-	db.Port = hostPort
-	db.Status = domain.DatabaseStatusRunning
-
-	if err := s.repo.Create(ctx, db); err != nil {
-		_ = s.compute.DeleteInstance(ctx, containerID)
-		return nil, err
-	}
-
-	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_REPLICA_CREATE", db.ID.String(), "DATABASE", map[string]interface{}{
-		"primary_id": primaryID,
-		"name":       name,
-	})
-
-	return db, nil
-}
-
 func (s *DatabaseService) parseAllocatedPort(allocatedPorts []string, targetPort string) (int, error) {
 	for _, p := range allocatedPorts {
 		parts := strings.Split(p, ":")
@@ -206,30 +145,16 @@ func (s *DatabaseService) getDefaultUsername(engine domain.DatabaseEngine) strin
 	return "cloud_user"
 }
 
-func (s *DatabaseService) getEngineConfig(engine domain.DatabaseEngine, version, username, password, name string, role domain.DatabaseRole, primaryIP string) (string, []string, string) {
+func (s *DatabaseService) getEngineConfig(engine domain.DatabaseEngine, version, username, password, name string) (string, []string, string) {
 	switch engine {
 	case domain.EnginePostgres:
-		env := []string{
-			"POSTGRES_USER=" + username,
-			"POSTGRES_PASSWORD=" + password,
-			"POSTGRES_DB=" + name,
-		}
-		// Using official postgres image logic for simplicity in simulation.
-		// In a real scenario, we might use bitnami/postgresql which has better built-in replication env vars.
-		if role == domain.RoleReplica {
-			// Simulating replication setup
-			env = append(env, "PRIMARY_HOST="+primaryIP)
-		}
-		return fmt.Sprintf("postgres:%s-alpine", version), env, "5432"
+		return fmt.Sprintf("postgres:%s-alpine", version),
+			[]string{"POSTGRES_USER=" + username, "POSTGRES_PASSWORD=" + password, "POSTGRES_DB=" + name},
+			"5432"
 	case domain.EngineMySQL:
-		env := []string{
-			"MYSQL_ROOT_PASSWORD=" + password,
-			"MYSQL_DATABASE=" + name,
-		}
-		if role == domain.RoleReplica {
-			env = append(env, "MYSQL_MASTER_HOST="+primaryIP)
-		}
-		return fmt.Sprintf("mysql:%s", version), env, "3306"
+		return fmt.Sprintf("mysql:%s", version),
+			[]string{"MYSQL_ROOT_PASSWORD=" + password, "MYSQL_DATABASE=" + name},
+			"3306"
 	}
 	return "", nil, ""
 }

@@ -25,11 +25,11 @@ func NewDatabaseRepository(db DB) *DatabaseRepository {
 
 func (r *DatabaseRepository) Create(ctx context.Context, db *domain.Database) error {
 	query := `
-		INSERT INTO databases (id, user_id, name, engine, version, status, role, primary_id, vpc_id, container_id, port, username, password, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+		INSERT INTO databases (id, user_id, name, engine, version, status, vpc_id, container_id, port, username, password, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 	_, err := r.db.Exec(ctx, query,
-		db.ID, db.UserID, db.Name, db.Engine, db.Version, db.Status, db.Role, db.PrimaryID, db.VpcID, db.ContainerID, db.Port, db.Username, db.Password, db.CreatedAt, db.UpdatedAt,
+		db.ID, db.UserID, db.Name, db.Engine, db.Version, db.Status, db.VpcID, db.ContainerID, db.Port, db.Username, db.Password, db.CreatedAt, db.UpdatedAt,
 	)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to create database", err)
@@ -40,7 +40,7 @@ func (r *DatabaseRepository) Create(ctx context.Context, db *domain.Database) er
 func (r *DatabaseRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, name, engine, version, status, role, primary_id, vpc_id, COALESCE(container_id, ''), port, username, password, created_at, updated_at
+		SELECT id, user_id, name, engine, version, status, vpc_id, COALESCE(container_id, ''), port, username, password, created_at, updated_at
 		FROM databases
 		WHERE id = $1 AND user_id = $2
 	`
@@ -50,7 +50,7 @@ func (r *DatabaseRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 func (r *DatabaseRepository) List(ctx context.Context) ([]*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, name, engine, version, status, role, primary_id, vpc_id, COALESCE(container_id, ''), port, username, password, created_at, updated_at
+		SELECT id, user_id, name, engine, version, status, vpc_id, COALESCE(container_id, ''), port, username, password, created_at, updated_at
 		FROM databases
 		WHERE user_id = $1
 		ORDER BY created_at DESC
@@ -64,9 +64,9 @@ func (r *DatabaseRepository) List(ctx context.Context) ([]*domain.Database, erro
 
 func (r *DatabaseRepository) scanDatabase(row pgx.Row) (*domain.Database, error) {
 	var db domain.Database
-	var engine, status, role string
+	var engine, status string
 	err := row.Scan(
-		&db.ID, &db.UserID, &db.Name, &engine, &db.Version, &status, &role, &db.PrimaryID, &db.VpcID, &db.ContainerID, &db.Port, &db.Username, &db.Password, &db.CreatedAt, &db.UpdatedAt,
+		&db.ID, &db.UserID, &db.Name, &engine, &db.Version, &status, &db.VpcID, &db.ContainerID, &db.Port, &db.Username, &db.Password, &db.CreatedAt, &db.UpdatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -76,7 +76,6 @@ func (r *DatabaseRepository) scanDatabase(row pgx.Row) (*domain.Database, error)
 	}
 	db.Engine = domain.DatabaseEngine(engine)
 	db.Status = domain.DatabaseStatus(status)
-	db.Role = domain.DatabaseRole(role)
 	return &db, nil
 }
 

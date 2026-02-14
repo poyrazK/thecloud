@@ -423,7 +423,6 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		dbGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionDBRead), handlers.Database.Get)
 		dbGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionDBDelete), handlers.Database.Delete)
 		dbGroup.GET("/:id/connection", httputil.Permission(svcs.RBAC, domain.PermissionDBRead), handlers.Database.GetConnectionString)
-		dbGroup.POST("/:id/replicas", httputil.Permission(svcs.RBAC, domain.PermissionDBCreate), handlers.Database.CreateReplica)
 	}
 
 	cacheGroup := r.Group("/caches")

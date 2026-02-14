@@ -41,14 +41,6 @@ func (m *mockDatabaseService) CreateDatabase(ctx context.Context, name, engine, 
 	return args.Get(0).(*domain.Database), args.Error(1)
 }
 
-func (m *mockDatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error) {
-	args := m.Called(ctx, primaryID, name)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.Database), args.Error(1)
-}
-
 func (m *mockDatabaseService) ListDatabases(ctx context.Context) ([]*domain.Database, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {

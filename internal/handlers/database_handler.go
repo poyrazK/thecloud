@@ -47,33 +47,6 @@ func (h *DatabaseHandler) Create(c *gin.Context) {
 	httputil.Success(c, http.StatusCreated, db)
 }
 
-// CreateReplicaRequest is the payload for creating a database replica.
-type CreateReplicaRequest struct {
-	Name string `json:"name" binding:"required"`
-}
-
-func (h *DatabaseHandler) CreateReplica(c *gin.Context) {
-	primaryID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, invalidDatabaseIDMsg))
-		return
-	}
-
-	var req CreateReplicaRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, err.Error()))
-		return
-	}
-
-	db, err := h.svc.CreateReplica(c.Request.Context(), primaryID, req.Name)
-	if err != nil {
-		httputil.Error(c, err)
-		return
-	}
-
-	httputil.Success(c, http.StatusCreated, db)
-}
-
 func (h *DatabaseHandler) List(c *gin.Context) {
 	dbs, err := h.svc.ListDatabases(c.Request.Context())
 	if err != nil {
