@@ -68,4 +68,7 @@ type RBACService interface {
 	BindRole(ctx context.Context, userIdentifier string, roleName string) error
 	// ListRoleBindings returns users along with their assigned role information.
 	ListRoleBindings(ctx context.Context) ([]*domain.User, error)
+
+	// IAM Policy Support
+	EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error)
 }
