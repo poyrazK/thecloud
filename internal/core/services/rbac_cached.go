@@ -170,6 +170,10 @@ func (s *cachedRBACService) ListRoleBindings(ctx context.Context) ([]*domain.Use
 	return s.rbac.ListRoleBindings(ctx)
 }
 
+func (s *cachedRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error) {
+	return s.rbac.EvaluatePolicy(ctx, userID, action, resource, context)
+}
+
 func (s *cachedRBACService) invalidateRoleCache(ctx context.Context, id uuid.UUID, name string) {
 	s.cache.Del(ctx, fmt.Sprintf("rbac:role:id:%s", id))
 	s.cache.Del(ctx, fmt.Sprintf("rbac:role:name:%s", name))

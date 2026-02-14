@@ -234,8 +234,8 @@ This document provides a comprehensive overview of every feature currently imple
 ## 🧩 Platform Services
 
 ### 15. Identity & Auth (IAM)
-**What it is**: Secure access to the platform.
-**Tech Stack**: JWT (JSON Web Tokens), BCrypt, RBAC.
+**What it is**: Secure access to the platform via RBAC and Granular IAM Policies.
+**Tech Stack**: JWT (JSON Web Tokens), BCrypt, ABAC (Attribute-Based Access Control).
 **Implementation**:
 - **Passwords**: Hashed using `bcrypt` cost 12.
 - **Tokens**: Stateless JWTs signed with HMAC-SHA256.
@@ -250,7 +250,16 @@ This document provides a comprehensive overview of every feature currently imple
 - **Authorization**: `Authorize()` checks user permissions before operations.
 - **Fallback Logic**: Default permissions apply if role not in DB.
 
-### 16. Observability
+### 16. IAM Policies (ABAC) 🆕
+**What it is**: Fine-grained, document-based authorization supplementing legacy RBAC.
+**Implementation**:
+- **JSON Policy Documents**: Supports AWS-style JSON policies with `Effect`, `Action`, `Resource`, and `Condition`.
+- **Policy Evaluation**: The `IAMEvaluator` uses wildcard pattern matching for granular resource targeting.
+- **Security-First**: "Explicit Deny" logic ensures that any Deny statement overrides all Allows, and presence of policies stops fallthrough to legacy roles unless evaluation is "Allow".
+- **Dynamic Context**: Infrastructure ready for attribute-based evaluation via statement conditions.
+- **User Attachment**: Policies can be dynamically attached to or detached from users without modifying their primary role.
+
+### 17. Observability
 **What it is**: Monitor system health and logs.
 **Tech Stack**: Docker API, WebSockets, Prometheus, Grafana.
 **Implementation**:

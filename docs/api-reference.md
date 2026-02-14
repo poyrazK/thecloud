@@ -594,6 +594,46 @@ Resume a job.
 
 ---
 
+## Cloud IAM (Policies) 🆕
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+**Constraint**: These endpoints require `PermissionFullAccess` (Admin).
+
+### GET /iam/policies
+List all IAM policies.
+
+### POST /iam/policies
+Create a new granular IAM policy.
+```json
+{
+  "name": "ReadOnlyS3",
+  "statements": [
+    {
+      "effect": "Allow",
+      "action": ["storage:list", "storage:get"],
+      "resource": ["*"]
+    }
+  ]
+}
+```
+
+### GET /iam/policies/:id
+Get details of a specific policy.
+
+### DELETE /iam/policies/:id
+Delete a policy.
+
+### POST /iam/users/:userId/policies/:policyId
+Attach a policy to a specific user.
+
+### DELETE /iam/users/:userId/policies/:policyId
+Detach a policy from a user.
+
+### GET /iam/users/:userId/policies
+List all policies attached to a specific user.
+
+---
+
 ## Managed Kubernetes (KaaS)
 
 **Headers Required:** `X-API-Key: <your-api-key>`

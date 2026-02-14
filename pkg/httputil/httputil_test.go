@@ -130,6 +130,11 @@ func (m *mockRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User,
 	return nil, nil
 }
 
+func (m *mockRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error) {
+	args := m.Called(ctx, userID, action, resource, context)
+	return args.Bool(0), args.Error(1)
+}
+
 func TestAuthSuccess(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockIdentityService)

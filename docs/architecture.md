@@ -96,7 +96,7 @@ const (
 **Key Entities**:
 - `Instance`, `InstanceType`, `Volume`, `VPC`, `LoadBalancer`
 - `Function`, `Queue`, `Topic`, `CronJob`
-- `User`, `Role`, `APIKey`, `Secret`
+- `User`, `Role`, `APIKey`, `Secret`, `Policy`
 - `ScalingGroup`, `ScalingPolicy`
 
 ### 2. Ports Layer (`internal/core/ports`)
@@ -160,7 +160,8 @@ type StorageBackend interface {
 - `LoadBalancerService` - Traffic distribution (Regional)
 - `GlobalLBService` - Multi-region traffic steering (DNS-based) 🆕
 - `AutoScalingService` - Dynamic scaling
-- `RBACService` - Access control (100% coverage)
+- `RBACService` - Access control (Integration with IAM Policies)
+- `IAMService` - Granular policy lifecycle and evaluation 🆕
 - `FunctionService` - Serverless execution
 - `QueueService` - Message queuing
 - `NotifyService` - Pub/Sub messaging
@@ -521,6 +522,7 @@ Business logic lives in services:
 ```go
 type Service interface {
     PerformBusinessOperation(ctx context.Context, req Request) (*Response, error)
+    EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error)
 }
 ```
 

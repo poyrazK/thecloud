@@ -22,8 +22,10 @@ func setupRBACServiceIntegrationTest(t *testing.T) (ports.RBACService, ports.Rol
 
 	userRepo := postgres.NewUserRepo(db)
 	roleRepo := postgres.NewRBACRepository(db)
+	iamRepo := postgres.NewIAMRepository(db)
+	evaluator := services.NewIAMEvaluator()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewRBACService(userRepo, roleRepo, logger)
+	svc := services.NewRBACService(userRepo, roleRepo, iamRepo, evaluator, logger)
 
 	return svc, roleRepo, userRepo, ctx
 }

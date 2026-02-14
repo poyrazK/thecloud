@@ -50,7 +50,7 @@ func TestFirecrackerAPI_E2E(t *testing.T) {
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// status 202 is expected for async provisioning
 		if resp.StatusCode != http.StatusAccepted {
@@ -81,7 +81,7 @@ func TestFirecrackerAPI_E2E(t *testing.T) {
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -102,7 +102,7 @@ func TestFirecrackerAPI_E2E(t *testing.T) {
 
 		resp, err := client.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
