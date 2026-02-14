@@ -104,16 +104,19 @@ This document provides a comprehensive overview of every feature currently imple
 ## 🛠️ Managed Services
 
 ### 5. Managed Databases (RDS)
-**What it is**: Provision fully managed PostgreSQL or MySQL databases.
-**Tech Stack**: Docker (Official Images), Go.
+**What it is**: Provision fully managed PostgreSQL or MySQL databases with high availability.
+**Tech Stack**: Docker (Official Images), Go, TCP Health Checks.
 **Implementation**:
 - **Multi-Engine Support**: PostgreSQL and MySQL with configurable versions.
 - **Provisioning**: Spawns Docker containers using official images (`postgres:<version>-alpine`, `mysql:<version>`).
+- **Read Replicas**: Support for creating read-only replicas linked to a primary instance. Replicas are automatically configured to follow the primary via engine-specific environment variables.
+- **Automated Failover**: A dedicated `DatabaseFailoverWorker` performs periodic TCP health checks on primary instances. If a primary becomes unreachable, the worker automatically selects and promotes the most suitable replica to the primary role.
+- **Manual Promotion**: API support for manually promoting a replica to primary status for maintenance or planned transitions.
 - **Credentials**: Auto-generates secure passwords (16-char random) and default usernames.
 - **VPC Integration**: Databases can be deployed into specific VPCs for network isolation.
 - **Connection Strings**: `GetConnectionString()` API returns ready-to-use connection URLs.
-- **Event & Audit**: All operations logged for compliance tracking.
-- **Metrics**: Prometheus metrics for RDS instance counts by engine.
+- **Event & Audit**: All operations, including failover events and role changes, are logged for compliance tracking.
+- **Metrics**: Prometheus metrics for RDS instance counts by engine and role.
 
 ### 6. Managed Caches (CloudCache)
 **What it is**: Provision fully managed Redis instances.

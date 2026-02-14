@@ -8,6 +8,7 @@ The Cloud provides managed database instances, allowing you to launch PostgreSQL
 - **Isolation**: Supports attachment to a VPC for private networking.
 - **Port Mapping**: Automatically assigns a dynamic host port if not in a VPC, or uses standard ports if internal.
 - **Credentials**: Automatically generates a secure random password if not provided.
+- **High Availability**: Supports primary-replica replication with automated failover.
 
 ## CLI Usage
 
@@ -45,7 +46,21 @@ To get a ready-to-use connection string:
 cloud db connection <id>
 ```
 
-### 4. Delete a Database
+### 4. High Availability & Replication
+
+#### Create a Read Replica
+Launch a new read-only replica from an existing primary:
+```bash
+cloud db create-replica --primary <primary-id> --name my-replica
+```
+
+#### Manual Promotion
+Promote a replica to become a standalone primary:
+```bash
+cloud db promote <replica-id>
+```
+
+### 5. Delete a Database
 
 ```bash
 cloud db rm <id>
@@ -55,12 +70,14 @@ cloud db rm <id>
 
 1. **Service Layer**: Handles Docker container lifecycle and credential generation.
 2. **Docker Adapter**: Pulls the appropriate image (e.g., `postgres:16-alpine`) and launches it with environment variables for database setup.
-3. **Storage**: Currently uses ephemeral storage within the container. (Future plan: Persistent Volume attachment).
-4. **Networking**: Uses bridge network or VPC-defined network.
+3. **Replication**: Replicas are provisioned with engine-specific environment variables (`PRIMARY_HOST` for Postgres, `MYSQL_MASTER_HOST` for MySQL) to establish streaming replication.
+4. **Failover Worker**: An automated background worker monitors Primary instances via TCP health checks. If a Primary fails, it automatically promotes the first available healthy replica.
+5. **Storage**: Currently uses ephemeral storage within the container. (Future plan: Persistent Volume attachment).
+6. **Networking**: Uses bridge network or VPC-defined network.
 
 ## Roadmap
 
 - [ ] **Snapshots**: Backup and restore database state.
 - [ ] **Volume Persistence**: Attach persistent volumes for data durability.
-- [ ] **Read Replicas**: Support for horizontal read scaling.
+- [x] **Read Replicas**: Support for horizontal read scaling.
 - [ ] **Custom Config**: Support for custom `postgresql.conf` or `my.cnf`.

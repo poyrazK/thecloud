@@ -373,6 +373,46 @@ Create a new volume.
 
 ---
 
+## Managed Databases (RDS)
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /databases
+List all managed databases.
+
+### POST /databases
+Provision a new primary database.
+```json
+{
+  "name": "prod-db",
+  "engine": "postgres",
+  "version": "16",
+  "vpc_id": "vpc-uuid"
+}
+```
+
+### GET /databases/:id
+Get details of a specific database.
+
+### DELETE /databases/:id
+Terminate a database instance.
+
+### GET /databases/:id/connection
+Get the connection string for the database.
+
+### POST /databases/:id/replicas
+Create a read-replica for a primary database.
+```json
+{
+  "name": "prod-db-replica-1"
+}
+```
+
+### POST /databases/:id/promote
+Promote a replica to a standalone primary database.
+
+---
+
 ## Global Load Balancers 🆕
 
 **Headers Required:** `X-API-Key: <your-api-key>`

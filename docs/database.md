@@ -297,6 +297,8 @@ CREATE TABLE databases (
     engine VARCHAR(50) NOT NULL,
     version VARCHAR(50) NOT NULL,
     status VARCHAR(50) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'PRIMARY',
+    primary_id UUID REFERENCES databases(id) ON DELETE CASCADE,
     host VARCHAR(255),
     port INT,
     username VARCHAR(255),
@@ -307,7 +309,26 @@ CREATE TABLE databases (
 );
 ```
 
-**Engines**: `postgres`, `mysql`
+**Engines**: `postgres`, `mysql`  
+**Roles**: `PRIMARY`, `REPLICA`
+
+### Database Replication
+
+The Cloud platform supports asynchronous replication for managed databases to provide high availability and read scaling.
+
+#### Replication Architecture
+- **Primary**: The main read-write instance. All databases start as Primary by default.
+- **Replica**: Read-only instances that follow a specific Primary. Replicas are provisioned with engine-specific configurations (e.g., `PRIMARY_HOST` for PostgreSQL) to establish the replication stream.
+
+#### Automated Failover
+The `DatabaseFailoverWorker` provides automated recovery for failed primary instances:
+1. **Health Monitoring**: Performs periodic TCP health checks on all instances with the `PRIMARY` role.
+2. **Failure Detection**: If a Primary is unreachable, it is marked as failed.
+3. **Replica Selection**: The worker identifies all healthy replicas linked to the failed Primary.
+4. **Promotion**: The first available healthy replica is automatically promoted to the `PRIMARY` role using the `PromoteToPrimary` logic, which reconfigures the underlying engine and updates the metadata.
+
+#### Manual Promotion
+Replicas can be promoted manually via the API. Promoting a replica removes its link to the previous primary and converts it into a standalone Primary instance.
 
 #### `caches` - Redis Instances
 ```sql
