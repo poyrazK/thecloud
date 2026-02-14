@@ -3968,6 +3968,79 @@ paths:
       summary: Remove a target from a load balancer
       tags:
       - loadbalancers
+  /logs:
+    get:
+      description: Search and filter resource logs
+      parameters:
+      - description: Resource ID
+        in: query
+        name: resource_id
+        type: string
+      - description: Resource Type
+        in: query
+        name: resource_type
+        type: string
+      - description: Log Level
+        in: query
+        name: level
+        type: string
+      - description: Search Keyword
+        in: query
+        name: search
+        type: string
+      - description: Start Time (RFC3339)
+        in: query
+        name: start_time
+        type: string
+      - description: End Time (RFC3339)
+        in: query
+        name: end_time
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Search logs
+      tags:
+      - logs
+  /logs/{id}:
+    get:
+      description: Gets logs for a specific resource ID
+      parameters:
+      - description: Resource ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get logs by resource
+      tags:
+      - logs
   /rbac/bindings:
     get:
       description: Returns all user-role assignments

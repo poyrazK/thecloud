@@ -49,6 +49,7 @@ func init() {
 	rootCmd.AddCommand(subnetCmd)
 	rootCmd.AddCommand(kubernetesCmd)
 	rootCmd.AddCommand(dnsCmd)
+	rootCmd.AddCommand(cloudLogsCmd)
 }
 
 func main() {

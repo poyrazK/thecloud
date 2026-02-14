@@ -119,7 +119,7 @@ cloud instance launch --name my-server --image nginx:alpine
 | `--port` | `-p` | No | - | Port mapping (host:container) |
 | `--vpc` | `-v` | No | - | VPC ID or name |
 | `--subnet` | `-s` | No | - | Subnet ID or name |
-| `--volume` | `-V` | No | - | Volume attachment (vol-name:/path) |
+| `--volume" | `-V` | No | - | Volume attachment (vol-name:/path) |
 | `--env` | `-e` | No | - | Environment variable (KEY=VALUE) |
 | `--backend` | | No | `docker` | Backend (docker/libvirt) |
 
@@ -848,6 +848,38 @@ Delete a function.
 
 ```bash
 cloud function rm my-function
+```
+
+---
+
+## CloudLogs Commands (Persistent Logs) 🆕
+
+Manage and view historical platform logs.
+
+### `logs search`
+
+Search and filter historical logs across the platform.
+
+```bash
+cloud logs search --resource-type instance --query "error"
+```
+
+**Flags**:
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--resource-id` | - | Filter by resource UUID |
+| `--resource-type` | - | Type (`instance`, `function`) |
+| `--level` | - | Severity (`INFO`, `WARN`, `ERROR`) |
+| `--query` | - | Keyword search in message |
+| `--limit` | `100` | Max logs to show |
+| `--offset` | `0` | Pagination offset |
+
+### `logs show <resource-id>`
+
+Quickly show logs for a specific resource.
+
+```bash
+cloud logs show a1b2c3d4
 ```
 
 ---

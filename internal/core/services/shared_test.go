@@ -2141,3 +2141,41 @@ func (m *MockInstanceTypeService) List(ctx context.Context) ([]*domain.InstanceT
 	}
 	return args.Get(0).([]*domain.InstanceType), args.Error(1)
 }
+
+// MockLogRepository
+type MockLogRepository struct {
+	mock.Mock
+}
+
+func (m *MockLogRepository) Create(ctx context.Context, entries []*domain.LogEntry) error {
+	return m.Called(ctx, entries).Error(0)
+}
+func (m *MockLogRepository) List(ctx context.Context, query domain.LogQuery) ([]*domain.LogEntry, int, error) {
+	args := m.Called(ctx, query)
+	if args.Get(0) == nil {
+		return nil, args.Int(1), args.Error(2)
+	}
+	return args.Get(0).([]*domain.LogEntry), args.Int(1), args.Error(2)
+}
+func (m *MockLogRepository) DeleteByAge(ctx context.Context, days int) error {
+	return m.Called(ctx, days).Error(0)
+}
+
+// MockLogService
+type MockLogService struct {
+	mock.Mock
+}
+
+func (m *MockLogService) IngestLogs(ctx context.Context, entries []*domain.LogEntry) error {
+	return m.Called(ctx, entries).Error(0)
+}
+func (m *MockLogService) SearchLogs(ctx context.Context, query domain.LogQuery) ([]*domain.LogEntry, int, error) {
+	args := m.Called(ctx, query)
+	if args.Get(0) == nil {
+		return nil, args.Int(1), args.Error(2)
+	}
+	return args.Get(0).([]*domain.LogEntry), args.Int(1), args.Error(2)
+}
+func (m *MockLogService) RunRetentionPolicy(ctx context.Context, days int) error {
+	return m.Called(ctx, days).Error(0)
+}
