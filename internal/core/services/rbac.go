@@ -13,17 +13,21 @@ import (
 )
 
 type rbacService struct {
-	userRepo ports.UserRepository
-	roleRepo ports.RoleRepository
-	logger   *slog.Logger
+	userRepo  ports.UserRepository
+	roleRepo  ports.RoleRepository
+	iamRepo   ports.IAMRepository
+	evaluator ports.PolicyEvaluator
+	logger    *slog.Logger
 }
 
 // NewRBACService constructs an RBAC service for role-based authorization.
-func NewRBACService(userRepo ports.UserRepository, roleRepo ports.RoleRepository, logger *slog.Logger) *rbacService {
+func NewRBACService(userRepo ports.UserRepository, roleRepo ports.RoleRepository, iamRepo ports.IAMRepository, evaluator ports.PolicyEvaluator, logger *slog.Logger) *rbacService {
 	return &rbacService{
-		userRepo: userRepo,
-		roleRepo: roleRepo,
-		logger:   logger,
+		userRepo:  userRepo,
+		roleRepo:  roleRepo,
+		iamRepo:   iamRepo,
+		evaluator: evaluator,
+		logger:    logger,
 	}
 }
 
@@ -42,22 +46,36 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, permi
 	// 1. Get user
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
-		s.logger.Error("RBAC: failed to get user", "user_id", userID, "error", err)
+		s.logger.Error("IAM: failed to get user", "user_id", userID, "error", err)
 		return false, fmt.Errorf("failed to get user: %w", err)
 	}
 
-	s.logger.Debug("RBAC: checking permission", "user_id", userID, "user_role", user.Role, "permission", permission)
+	s.logger.Debug("IAM: checking permission", "user_id", userID, "user_role", user.Role, "permission", permission)
 
-	// 2. Get role from DB
+	// 2. Check Attached IAM Policies (New Logic)
+	policies, err := s.iamRepo.GetPoliciesForUser(ctx, userID)
+	if err == nil && len(policies) > 0 {
+		allowed, evalErr := s.evaluator.Evaluate(policies, string(permission), "*", nil)
+		if evalErr == nil {
+			if allowed {
+				return true, nil
+			}
+			// If policies exist and evaluation resulted in Deny (explicit or implicit),
+			// we do NOT fall through to legacy roles. Deny always wins.
+			return false, nil
+		}
+	}
+
+	// 3. Fallback to Role-based logic (Legacy/Compatibility)
 	role, err := s.roleRepo.GetRoleByName(ctx, user.Role)
 	if err != nil {
-		s.logger.Debug("RBAC: role not found in DB, using default permissions", "role", user.Role, "error", err)
+		s.logger.Debug("IAM: role not found in DB, using default permissions", "role", user.Role, "error", err)
 		return s.hasDefaultPermission(user.Role, permission)
 	}
 
-	s.logger.Debug("RBAC: found role in DB", "role", role.Name, "permissions_count", len(role.Permissions))
+	s.logger.Debug("IAM: found role in DB", "role", role.Name, "permissions_count", len(role.Permissions))
 
-	// 3. Check permissions
+	// 4. Check permissions
 	for _, p := range role.Permissions {
 		if p == domain.PermissionFullAccess {
 			return true, nil
@@ -67,7 +85,7 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, permi
 		}
 	}
 
-	s.logger.Warn("RBAC: permission denied (role in DB but permission not listed)", "role", role.Name, "permission", permission)
+	s.logger.Warn("IAM: permission denied (role in DB but permission not listed)", "role", role.Name, "permission", permission)
 	return false, nil
 }
 
@@ -134,6 +152,17 @@ func (s *rbacService) BindRole(ctx context.Context, userIdentifier string, roleN
 func (s *rbacService) ListRoleBindings(ctx context.Context) ([]*domain.User, error) {
 	// In this implementation, bindings are just users with their roles
 	return s.userRepo.List(ctx)
+}
+
+func (s *rbacService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error) {
+	policies, err := s.iamRepo.GetPoliciesForUser(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	if len(policies) == 0 {
+		return false, nil
+	}
+	return s.evaluator.Evaluate(policies, action, resource, context)
 }
 
 func (s *rbacService) hasDefaultPermission(roleName string, permission domain.Permission) (bool, error) {
