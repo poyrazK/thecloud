@@ -49,6 +49,11 @@ func (m *mockDatabaseService) CreateReplica(ctx context.Context, primaryID uuid.
 	return args.Get(0).(*domain.Database), args.Error(1)
 }
 
+func (m *mockDatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
 func (m *mockDatabaseService) ListDatabases(ctx context.Context) ([]*domain.Database, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
@@ -286,6 +291,42 @@ func TestDatabaseHandlerGetConnectionStringError(t *testing.T) {
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		svc.AssertExpectations(t)
+	})
+}
+
+func TestDatabaseHandlerReplication(t *testing.T) {
+	t.Parallel()
+
+	t.Run("CreateReplicaSuccess", func(t *testing.T) {
+		svc, handler, r := setupDatabaseHandlerTest(t)
+		r.POST(databasesPath+"/:id/replicas", handler.CreateReplica)
+
+		primaryID := uuid.New()
+		replica := &domain.Database{ID: uuid.New(), Name: "replica-1", PrimaryID: &primaryID, Role: domain.RoleReplica}
+		svc.On("CreateReplica", mock.Anything, primaryID, "replica-1").Return(replica, nil)
+
+		body, _ := json.Marshal(map[string]interface{}{"name": "replica-1"})
+		req, _ := http.NewRequest("POST", databasesPath+"/"+primaryID.String()+"/replicas", bytes.NewBuffer(body))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusCreated, w.Code)
+		svc.AssertExpectations(t)
+	})
+
+	t.Run("PromoteSuccess", func(t *testing.T) {
+		svc, handler, r := setupDatabaseHandlerTest(t)
+		r.POST(databasesPath+"/:id/promote", handler.Promote)
+
+		id := uuid.New()
+		svc.On("PromoteToPrimary", mock.Anything, id).Return(nil)
+
+		req, _ := http.NewRequest("POST", databasesPath+"/"+id.String()+"/promote", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
 		svc.AssertExpectations(t)
 	})
 }

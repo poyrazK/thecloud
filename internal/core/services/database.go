@@ -176,6 +176,38 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 	return db, nil
 }
 
+func (s *DatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) error {
+	db, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if db.Role == domain.RolePrimary {
+		return errors.New(errors.InvalidInput, "database is already a primary")
+	}
+
+	// 1. Update metadata
+	db.Role = domain.RolePrimary
+	db.PrimaryID = nil
+
+	// 2. Potentially update container (complex in Docker without restart)
+	// For now, we'll assume the application logic handles the role change
+	// or we'd need to re-launch/signal the container.
+	// We'll record an event for manual/automated orchestration.
+
+	if err := s.repo.Update(ctx, db); err != nil {
+		return err
+	}
+
+	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_PROMOTED", db.ID.String(), "DATABASE", nil)
+
+	_ = s.auditSvc.Log(ctx, db.UserID, "database.promote", "database", db.ID.String(), map[string]interface{}{
+		"name": db.Name,
+	})
+
+	return nil
+}
+
 func (s *DatabaseService) parseAllocatedPort(allocatedPorts []string, targetPort string) (int, error) {
 	for _, p := range allocatedPorts {
 		parts := strings.Split(p, ":")

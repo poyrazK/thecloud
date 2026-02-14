@@ -96,11 +96,11 @@ func (r *DatabaseRepository) scanDatabases(rows pgx.Rows) ([]*domain.Database, e
 func (r *DatabaseRepository) Update(ctx context.Context, db *domain.Database) error {
 	query := `
 		UPDATE databases
-		SET name = $1, status = $2, container_id = $3, port = $4, updated_at = $5
-		WHERE id = $6 AND user_id = $7
+		SET name = $1, status = $2, role = $3, primary_id = $4, container_id = $5, port = $6, updated_at = $7
+		WHERE id = $8 AND user_id = $9
 	`
 	now := time.Now()
-	cmd, err := r.db.Exec(ctx, query, db.Name, db.Status, db.ContainerID, db.Port, now, db.ID, db.UserID)
+	cmd, err := r.db.Exec(ctx, query, db.Name, db.Status, db.Role, db.PrimaryID, db.ContainerID, db.Port, now, db.ID, db.UserID)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to update database", err)
 	}

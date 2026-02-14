@@ -606,3 +606,24 @@ func (s *NoopStorageBackend) DetachVolume(ctx context.Context, volumeName, insta
 }
 func (s *NoopStorageBackend) Ping(ctx context.Context) error { return nil }
 func (s *NoopStorageBackend) Type() string                   { return "noop" }
+
+// NoopDatabaseService is a no-op database service.
+type NoopDatabaseService struct{}
+
+func (s *NoopDatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID) (*domain.Database, error) {
+	return &domain.Database{ID: uuid.New(), Name: name, Role: domain.RolePrimary}, nil
+}
+func (s *NoopDatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error) {
+	return &domain.Database{ID: uuid.New(), Name: name, PrimaryID: &primaryID, Role: domain.RoleReplica}, nil
+}
+func (s *NoopDatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) error { return nil }
+func (s *NoopDatabaseService) GetDatabase(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
+	return &domain.Database{ID: id}, nil
+}
+func (s *NoopDatabaseService) ListDatabases(ctx context.Context) ([]*domain.Database, error) {
+	return []*domain.Database{}, nil
+}
+func (s *NoopDatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) error { return nil }
+func (s *NoopDatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
+	return "postgres://localhost:5432/db", nil
+}

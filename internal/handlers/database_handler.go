@@ -74,6 +74,21 @@ func (h *DatabaseHandler) CreateReplica(c *gin.Context) {
 	httputil.Success(c, http.StatusCreated, db)
 }
 
+func (h *DatabaseHandler) Promote(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidDatabaseIDMsg))
+		return
+	}
+
+	if err := h.svc.PromoteToPrimary(c.Request.Context(), id); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, gin.H{"message": "database promoted to primary"})
+}
+
 func (h *DatabaseHandler) List(c *gin.Context) {
 	dbs, err := h.svc.ListDatabases(c.Request.Context())
 	if err != nil {
