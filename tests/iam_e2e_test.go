@@ -1,79 +1,55 @@
 package tests
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"testing"
+	"time"
 
-	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
-	"github.com/poyrazk/thecloud/internal/core/ports"
-	"github.com/poyrazk/thecloud/internal/repositories/postgres"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestIAM_E2E(t *testing.T) {
-	// 1. Setup
-	db := setupDB(t)
-	cleanDB(t, db)
-	
-	// Create a test user and tenant
-	ctx := setupTestUser(t, db)
-	userID := userIDFromContext(ctx)
-	
-	// Initialize Services for manual verification
-	iamRepo := postgres.NewIAMRepository(db)
-	
-	// 2. Create a Policy via API (or repo for speed in E2E)
-	policy := &domain.Policy{
-		ID:   uuid.New(),
-		Name: "RestrictToRead",
-		Statements: []domain.Statement{
-			{
-				Effect: domain.EffectAllow,
-				Action: []string{"instance:read"},
-				Resource: []string{"*"},
-			},
-			{
-				Effect: domain.EffectDeny,
-				Action: []string{"instance:launch"},
-				Resource: []string{"*"},
-			},
-		},
+	if err := waitForServer(); err != nil {
+		t.Fatalf("Failing IAM E2E test: %v", err)
 	}
-	err := iamRepo.CreatePolicy(context.Background(), policy)
-	require.NoError(t, err)
 
-	// 3. Attach Policy to User
-	err = iamRepo.AttachPolicyToUser(context.Background(), userID, policy.ID)
-	require.NoError(t, err)
+	client := &http.Client{Timeout: 60 * time.Second}
+	token := registerAndLogin(t, client, "iam-tester@thecloud.local", "IAM Tester")
 
-	// 4. Verify Authorization Logic
-	// We need the rbac service to check this
-	// For E2E we might want to trigger an actual request to /instances
-	// But first let's verify the service logic directly
-	
-	// Re-init services to get the updated RBAC with IAM
-	// (In a real E2E we'd use the running API server)
-	
-	t.Run("PolicyEnforcement", func(t *testing.T) {
-		// Mock dependencies for RBAC
-		userRepo := postgres.NewUserRepo(db)
-		roleRepo := postgres.NewRBACRepository(db)
-		// We already have iamRepo
-		evaluator := NewIAMEvaluator() // Need to import or define locally if package mismatch
-		
-		// This is getting complex due to internal package boundaries in tests.
-		// Let's assume the wiring in SetupRouter works and test via HTTP if possible.
+	var policyID string
+
+	// 1. Create Policy
+	t.Run("CreatePolicy", func(t *testing.T) {
+		payload := domain.Policy{
+			Name: "E2E-Test-Policy",
+			Statements: []domain.Statement{
+				{
+					Effect:   domain.EffectDeny,
+					Action:   []string{"instance:launch"},
+					Resource: []string{"*"},
+				},
+			},
+		}
+		resp := postRequest(t, client, testutil.TestBaseURL+"/iam/policies", token, payload)
+		defer func() { _ = resp.Body.Close() }()
+
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+		var res struct {
+			Data struct {
+				ID string `json:"id"`
+			} `json:"data"`
+		}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
+		policyID = res.Data.ID
+		assert.NotEmpty(t, policyID)
 	})
-}
 
-// userIDFromContext is a helper to extract userID from the test context
-func userIDFromContext(ctx context.Context) uuid.UUID {
-	// Implementation depends on how appcontext stores it
-	return uuid.MustParse("00000000-0000-0000-0000-000000000001") // Mock for now if not easily extractable
+	// 2. Get Current User ID (via some profile endpoint if it exists, or just login resp)
+	// For this test, we need the userID. In a real scenario, we might have a /auth/me
+	// Assuming registerAndLogin gives us a token for a user we just created.
 }
