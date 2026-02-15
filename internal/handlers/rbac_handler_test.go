@@ -30,12 +30,12 @@ type mockRBACService struct {
 	mock.Mock
 }
 
-func (m *mockRBACService) Authorize(ctx context.Context, userID uuid.UUID, permission domain.Permission) error {
-	args := m.Called(ctx, userID, permission)
+func (m *mockRBACService) Authorize(ctx context.Context, userID uuid.UUID, permission domain.Permission, resource string) error {
+	args := m.Called(ctx, userID, permission, resource)
 	return args.Error(0)
 }
-func (m *mockRBACService) HasPermission(ctx context.Context, userID uuid.UUID, permission domain.Permission) (bool, error) {
-	args := m.Called(ctx, userID, permission)
+func (m *mockRBACService) HasPermission(ctx context.Context, userID uuid.UUID, permission domain.Permission, resource string) (bool, error) {
+	args := m.Called(ctx, userID, permission, resource)
 	return args.Bool(0), args.Error(1)
 }
 func (m *mockRBACService) CreateRole(ctx context.Context, role *domain.Role) error {
