@@ -1,4 +1,4 @@
-CREATE TABLE ssh_keys (
+CREATE TABLE IF NOT EXISTS ssh_keys (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,

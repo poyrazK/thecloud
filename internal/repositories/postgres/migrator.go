@@ -38,10 +38,16 @@ func RunMigrations(ctx context.Context, db DB, logger *slog.Logger) error {
 			return fmt.Errorf("failed to read migration %s: %w", entry.Name(), err)
 		}
 
+		// Only execute the "Up" part if it's a goose-formatted file
+		sql := string(content)
+		if parts := strings.Split(sql, "-- +goose Down"); len(parts) > 1 {
+			sql = parts[0]
+		}
+		// Also handle -- +goose Up prefix if present
+		sql = strings.TrimPrefix(sql, "-- +goose Up")
+
 		// Execute migration
-		// We ignore errors here assuming idempotency or manual intervention for MVP
-		// A better approach would be checking a schema_migrations table
-		_, err = db.Exec(ctx, string(content))
+		_, err = db.Exec(ctx, sql)
 		if err != nil {
 			// Log but don't fail, as tables might already exist
 			// Ideally we should check specific error codes
