@@ -87,7 +87,7 @@ func Permission(rbac ports.RBACService, permission domain.Permission) gin.Handle
 			return
 		}
 
-		if err := rbac.Authorize(c.Request.Context(), userID, permission); err != nil {
+		if err := rbac.Authorize(c.Request.Context(), userID, permission, "*"); err != nil {
 			Error(c, errors.New(errors.Forbidden, "permission denied"))
 			c.Abort()
 			return
