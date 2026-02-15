@@ -27,10 +27,10 @@ func TestLogsE2E(t *testing.T) {
 
 	// 1. Launch Instance
 	t.Run("LaunchInstance", func(t *testing.T) {
-		payload := map[string]string{
+		payload := map[string]interface{}{
 			"name":  instanceName,
 			"image": "alpine",
-			"cmd":   "echo 'hello-cloudlogs-e2e'",
+			"cmd":   []string{"sh", "-c", "echo 'hello-cloudlogs-e2e'"},
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
 		defer func() { _ = resp.Body.Close() }()
