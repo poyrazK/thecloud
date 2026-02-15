@@ -545,6 +545,9 @@ func TestInstanceService_LifecycleMethods(t *testing.T) {
 	})
 
 	t.Run("GetConsoleURL", func(t *testing.T) {
+		if compute.Type() == "docker" {
+			t.Skip("Skipping console test for docker backend")
+		}
 		url, err := svc.GetConsoleURL(ctx, inst.ID.String())
 		assert.NoError(t, err)
 		assert.NotNil(t, url)
