@@ -306,4 +306,5 @@ func runWorkers(ctx context.Context, wg *sync.WaitGroup, workers *setup.Workers)
 	startWorker(ctx, wg, workers.ClusterReconciler)
 	startWorker(ctx, wg, workers.Healing)
 	startWorker(ctx, wg, workers.DatabaseFailover)
+	startWorker(ctx, wg, workers.Log)
 }

@@ -2,6 +2,7 @@
 package sdk
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/go-resty/resty/v2"
@@ -49,7 +50,12 @@ type ErrorResponse struct {
 
 // get performs a GET request against the API.
 func (c *Client) get(path string, result interface{}) error {
+	return c.getWithContext(context.Background(), path, result)
+}
+
+func (c *Client) getWithContext(ctx context.Context, path string, result interface{}) error {
 	resp, err := c.resty.R().
+		SetContext(ctx).
 		SetResult(result).
 		Get(c.apiURL + path)
 
@@ -65,7 +71,11 @@ func (c *Client) get(path string, result interface{}) error {
 }
 
 func (c *Client) post(path string, body interface{}, result interface{}) error {
-	req := c.resty.R()
+	return c.postWithContext(context.Background(), path, body, result)
+}
+
+func (c *Client) postWithContext(ctx context.Context, path string, body interface{}, result interface{}) error {
+	req := c.resty.R().SetContext(ctx)
 	if body != nil {
 		req.SetBody(body)
 	}
@@ -86,7 +96,11 @@ func (c *Client) post(path string, body interface{}, result interface{}) error {
 }
 
 func (c *Client) delete(path string, result interface{}) error {
-	req := c.resty.R()
+	return c.deleteWithContext(context.Background(), path, result)
+}
+
+func (c *Client) deleteWithContext(ctx context.Context, path string, result interface{}) error {
+	req := c.resty.R().SetContext(ctx)
 	if result != nil {
 		req.SetResult(result)
 	}
@@ -104,7 +118,11 @@ func (c *Client) delete(path string, result interface{}) error {
 }
 
 func (c *Client) put(path string, body interface{}, result interface{}) error {
-	req := c.resty.R()
+	return c.putWithContext(context.Background(), path, body, result)
+}
+
+func (c *Client) putWithContext(ctx context.Context, path string, body interface{}, result interface{}) error {
+	req := c.resty.R().SetContext(ctx)
 	if body != nil {
 		req.SetBody(body)
 	}
@@ -125,7 +143,11 @@ func (c *Client) put(path string, body interface{}, result interface{}) error {
 }
 
 func (c *Client) patch(path string, body interface{}, result interface{}) error {
-	req := c.resty.R()
+	return c.patchWithContext(context.Background(), path, body, result)
+}
+
+func (c *Client) patchWithContext(ctx context.Context, path string, body interface{}, result interface{}) error {
+	req := c.resty.R().SetContext(ctx)
 	if body != nil {
 		req.SetBody(body)
 	}

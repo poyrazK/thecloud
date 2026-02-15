@@ -255,10 +255,15 @@ This document provides a comprehensive overview of every feature currently imple
 
 ### 16. Observability
 **What it is**: Monitor system health and logs.
-**Tech Stack**: Docker API, WebSockets, Prometheus, Grafana.
+**Tech Stack**: Docker API, WebSockets, Prometheus, Grafana, PostgreSQL (CloudLogs).
 **Implementation**:
 - **Real-time Stats**: Stream Docker container stats (CPU/Mem/Net) via WebSocket.
-- **Logs**: Attach to container `stdout/stderr` streams.
+- **Instance Logs**: Attach to container `stdout/stderr` streams for real-time viewing.
+- **CloudLogs (Persistent Logs) 🆕**:
+    - **Persistence**: Automatically ingests and stores logs in PostgreSQL upon instance termination.
+    - **Search & Filter**: API and CLI support for searching historical logs by resource, time range, and keywords.
+    - **Trace correlation**: Links logs to request TraceIDs for integrated debugging with Jaeger.
+    - **Retention**: Configurable background worker that automatically purges logs older than X days.
 - **Dashboard Service**: Aggregated system metrics and health status.
 - **Prometheus Metrics**: Custom metrics for instances, databases, caches, functions.
 - **Grafana Dashboards**: Pre-configured dashboards for visualization.
