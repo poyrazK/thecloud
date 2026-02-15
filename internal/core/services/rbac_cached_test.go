@@ -26,8 +26,8 @@ const (
 	rbacRoleNamePrefix = "rbac:role:name:"
 )
 
-func rbacPermKey(userID uuid.UUID, permission domain.Permission) string {
-	return rbacPermPrefix + userID.String() + ":" + string(permission)
+func rbacPermKey(userID uuid.UUID, permission domain.Permission, resource string) string {
+	return rbacPermPrefix + userID.String() + ":" + string(permission) + ":" + resource
 }
 
 func rbacRoleIDKey(roleID uuid.UUID) string {
@@ -160,7 +160,7 @@ func TestCachedRBACServiceHasPermissionCacheHit(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.New()
-	key := rbacPermKey(userID, domain.PermissionInstanceRead)
+	key := rbacPermKey(userID, domain.PermissionInstanceRead, "*")
 	cache.Set(ctx, key, "1", time.Minute)
 
 	allowed, err := svc.HasPermission(ctx, userID, domain.PermissionInstanceRead, "*")
@@ -187,7 +187,7 @@ func TestCachedRBACServiceHasPermissionCacheMiss(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, allowed)
 
-	key := rbacPermKey(userID, permission)
+	key := rbacPermKey(userID, permission, "*")
 	assert.Equal(t, "1", cache.Get(ctx, key).Val())
 }
 

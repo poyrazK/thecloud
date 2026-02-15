@@ -144,6 +144,11 @@ definitions:
     - ClusterStatusRepairing
     - ClusterStatusFailed
     - ClusterStatusDeleting
+  domain.Condition:
+    additionalProperties:
+      additionalProperties: true
+      type: object
+    type: object
   domain.DNSRecord:
     properties:
       auto_managed:
@@ -866,6 +871,29 @@ definitions:
     - PermissionClusterRead
     - PermissionClusterUpdate
     - PermissionFullAccess
+  domain.Policy:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      statements:
+        items:
+          $ref: '#/definitions/domain.Statement'
+        type: array
+      tenant_id:
+        type: string
+    type: object
+  domain.PolicyEffect:
+    enum:
+    - Allow
+    - Deny
+    type: string
+    x-enum-varnames:
+    - EffectAllow
+    - EffectDeny
   domain.RecordType:
     enum:
     - A
@@ -1206,6 +1234,23 @@ definitions:
     - StackStatusRollbackInProgress
     - StackStatusRollbackComplete
     - StackStatusRollbackFailed
+  domain.Statement:
+    properties:
+      action:
+        items:
+          type: string
+        type: array
+      condition:
+        $ref: '#/definitions/domain.Condition'
+      effect:
+        $ref: '#/definitions/domain.PolicyEffect'
+      resource:
+        items:
+          type: string
+        type: array
+      sid:
+        type: string
+    type: object
   domain.StorageCluster:
     properties:
       nodes:
@@ -1276,6 +1321,8 @@ definitions:
         type: string
       role:
         description: '"admin" or "user"'
+        type: string
+      tenant_id:
         type: string
       updated_at:
         type: string
@@ -3494,6 +3541,287 @@ paths:
       summary: Validate template
       tags:
       - IaC
+  /iam/policies:
+    get:
+      description: List all IAM policies for the tenant.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Policy'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List IAM Policies
+      tags:
+      - iam
+    post:
+      consumes:
+      - application/json
+      description: Create a new granular IAM policy with specified statements.
+      parameters:
+      - description: Policy configuration
+        in: body
+        name: policy
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Policy'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Policy'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create IAM Policy
+      tags:
+      - iam
+  /iam/policies/{id}:
+    delete:
+      description: Delete an existing IAM policy by its ID.
+      parameters:
+      - description: Policy ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete IAM Policy
+      tags:
+      - iam
+    get:
+      description: Get details of a specific IAM policy by its ID.
+      parameters:
+      - description: Policy ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Policy'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get IAM Policy
+      tags:
+      - iam
+    put:
+      consumes:
+      - application/json
+      description: Update the configuration of an existing IAM policy.
+      parameters:
+      - description: Policy ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated policy configuration
+        in: body
+        name: policy
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Policy'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Policy'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Update IAM Policy
+      tags:
+      - iam
+  /iam/users/{userId}/policies:
+    get:
+      description: List all IAM policies currently attached to a specific user.
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Policy'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List User IAM Policies
+      tags:
+      - iam
+  /iam/users/{userId}/policies/{policyId}:
+    delete:
+      description: Remove a specific IAM policy assignment from a user.
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        type: string
+      - description: Policy ID
+        in: path
+        name: policyId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Detach IAM Policy from User
+      tags:
+      - iam
+    post:
+      description: Attach a specific IAM policy to a user.
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        type: string
+      - description: Policy ID
+        in: path
+        name: policyId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Attach IAM Policy to User
+      tags:
+      - iam
   /instance-types:
     get:
       description: Gets a list of all available instance types with their resource

@@ -31,9 +31,9 @@ func NewIAMHandler(svc ports.IAMService) *IAMHandler {
 // @Produce json
 // @Param policy body domain.Policy true "Policy configuration"
 // @Success 201 {object} domain.Policy
-// @Failure 400 {object} httputil.HTTPError
-// @Failure 401 {object} httputil.HTTPError
-// @Failure 403 {object} httputil.HTTPError
+// @Failure 400 {object} httputil.Response
+// @Failure 401 {object} httputil.Response
+// @Failure 403 {object} httputil.Response
 // @Router /iam/policies [post]
 func (h *IAMHandler) CreatePolicy(c *gin.Context) {
 	var policy domain.Policy
@@ -63,9 +63,9 @@ func (h *IAMHandler) CreatePolicy(c *gin.Context) {
 // @Produce json
 // @Param id path string true "Policy ID"
 // @Success 200 {object} domain.Policy
-// @Failure 401 {object} httputil.HTTPError
-// @Failure 403 {object} httputil.HTTPError
-// @Failure 404 {object} httputil.HTTPError
+// @Failure 401 {object} httputil.Response
+// @Failure 403 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
 // @Router /iam/policies/{id} [get]
 func (h *IAMHandler) GetPolicyByID(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
@@ -90,8 +90,8 @@ func (h *IAMHandler) GetPolicyByID(c *gin.Context) {
 // @Security APIKeyAuth
 // @Produce json
 // @Success 200 {array} domain.Policy
-// @Failure 401 {object} httputil.HTTPError
-// @Failure 403 {object} httputil.HTTPError
+// @Failure 401 {object} httputil.Response
+// @Failure 403 {object} httputil.Response
 // @Router /iam/policies [get]
 func (h *IAMHandler) ListPolicies(c *gin.Context) {
 	policies, err := h.svc.ListPolicies(c.Request.Context())
@@ -112,10 +112,10 @@ func (h *IAMHandler) ListPolicies(c *gin.Context) {
 // @Param id path string true "Policy ID"
 // @Param policy body domain.Policy true "Updated policy configuration"
 // @Success 200 {object} domain.Policy
-// @Failure 400 {object} httputil.HTTPError
-// @Failure 401 {object} httputil.HTTPError
-// @Failure 403 {object} httputil.HTTPError
-// @Failure 404 {object} httputil.HTTPError
+// @Failure 400 {object} httputil.Response
+// @Failure 401 {object} httputil.Response
+// @Failure 403 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
 // @Router /iam/policies/{id} [put]
 func (h *IAMHandler) UpdatePolicy(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
@@ -152,9 +152,9 @@ func (h *IAMHandler) UpdatePolicy(c *gin.Context) {
 // @Produce json
 // @Param id path string true "Policy ID"
 // @Success 200 {object} map[string]string
-// @Failure 401 {object} httputil.HTTPError
-// @Failure 403 {object} httputil.HTTPError
-// @Failure 404 {object} httputil.HTTPError
+// @Failure 401 {object} httputil.Response
+// @Failure 403 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
 // @Router /iam/policies/{id} [delete]
 func (h *IAMHandler) DeletePolicy(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
@@ -180,9 +180,9 @@ func (h *IAMHandler) DeletePolicy(c *gin.Context) {
 // @Param userId path string true "User ID"
 // @Param policyId path string true "Policy ID"
 // @Success 200 {object} map[string]string
-// @Failure 401 {object} httputil.HTTPError
-// @Failure 403 {object} httputil.HTTPError
-// @Failure 404 {object} httputil.HTTPError
+// @Failure 401 {object} httputil.Response
+// @Failure 403 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
 // @Router /iam/users/{userId}/policies/{policyId} [post]
 func (h *IAMHandler) AttachPolicyToUser(c *gin.Context) {
 	userID, err := uuid.Parse(c.Param("userId"))
@@ -213,9 +213,9 @@ func (h *IAMHandler) AttachPolicyToUser(c *gin.Context) {
 // @Param userId path string true "User ID"
 // @Param policyId path string true "Policy ID"
 // @Success 200 {object} map[string]string
-// @Failure 401 {object} httputil.HTTPError
-// @Failure 403 {object} httputil.HTTPError
-// @Failure 404 {object} httputil.HTTPError
+// @Failure 401 {object} httputil.Response
+// @Failure 403 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
 // @Router /iam/users/{userId}/policies/{policyId} [delete]
 func (h *IAMHandler) DetachPolicyFromUser(c *gin.Context) {
 	userID, err := uuid.Parse(c.Param("userId"))
@@ -245,8 +245,8 @@ func (h *IAMHandler) DetachPolicyFromUser(c *gin.Context) {
 // @Produce json
 // @Param userId path string true "User ID"
 // @Success 200 {array} domain.Policy
-// @Failure 401 {object} httputil.HTTPError
-// @Failure 403 {object} httputil.HTTPError
+// @Failure 401 {object} httputil.Response
+// @Failure 403 {object} httputil.Response
 // @Router /iam/users/{userId}/policies [get]
 func (h *IAMHandler) GetUserPolicies(c *gin.Context) {
 	userID, err := uuid.Parse(c.Param("userId"))

@@ -30,7 +30,7 @@ func TestIAMHandler_CreatePolicy(t *testing.T) {
 	policy := domain.Policy{
 		Name: "TestPolicy",
 		Statements: []domain.Statement{
-			{Effect: domain.EffectAllow, Action: []string{"*"}},
+			{Effect: domain.EffectAllow, Action: []string{"*"}, Resource: []string{"*"}},
 		},
 	}
 	body, _ := json.Marshal(policy)
