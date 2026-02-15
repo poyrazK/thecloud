@@ -31,12 +31,12 @@ func NewCachedRBACService(rbac ports.RBACService, cache *redis.Client, logger *s
 	}
 }
 
-func (s *cachedRBACService) Authorize(ctx context.Context, userID uuid.UUID, permission domain.Permission) error {
-	return s.rbac.Authorize(ctx, userID, permission)
+func (s *cachedRBACService) Authorize(ctx context.Context, userID uuid.UUID, permission domain.Permission, resource string) error {
+	return s.rbac.Authorize(ctx, userID, permission, resource)
 }
 
-func (s *cachedRBACService) HasPermission(ctx context.Context, userID uuid.UUID, permission domain.Permission) (bool, error) {
-	key := fmt.Sprintf("rbac:perm:%s:%s", userID, permission)
+func (s *cachedRBACService) HasPermission(ctx context.Context, userID uuid.UUID, permission domain.Permission, resource string) (bool, error) {
+	key := fmt.Sprintf("rbac:perm:%s:%s:%s", userID, permission, resource)
 
 	// Try cache
 	val, err := s.cache.Get(ctx, key).Result()
@@ -45,7 +45,7 @@ func (s *cachedRBACService) HasPermission(ctx context.Context, userID uuid.UUID,
 	}
 
 	// Cache miss
-	allowed, err := s.rbac.HasPermission(ctx, userID, permission)
+	allowed, err := s.rbac.HasPermission(ctx, userID, permission, resource)
 	if err != nil {
 		return false, err
 	}
