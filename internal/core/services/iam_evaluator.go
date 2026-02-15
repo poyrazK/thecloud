@@ -13,11 +13,16 @@ func NewIAMEvaluator() *iamEvaluator {
 	return &iamEvaluator{}
 }
 
-func (e *iamEvaluator) Evaluate(policies []*domain.Policy, action string, resource string, context map[string]interface{}) (bool, error) {
+func (e *iamEvaluator) Evaluate(ctx context.Context, policies []*domain.Policy, action string, resource string, evalCtx map[string]interface{}) (bool, error) {
 	allowFound := false
 
 	for _, policy := range policies {
 		for _, statement := range policy.Statements {
+			// Skip statements with conditions for now
+			if statement.Condition != nil && len(statement.Condition) > 0 {
+				continue
+			}
+
 			if e.matches(statement, action, resource) {
 				if statement.Effect == domain.EffectDeny {
 					// Explicit Deny always wins
