@@ -13,44 +13,49 @@ type IAMRepository struct {
 	mock.Mock
 }
 
-func (m *IAMRepository) CreatePolicy(ctx context.Context, policy *domain.Policy) error {
-	args := m.Called(ctx, policy)
+func (m *IAMRepository) CreatePolicy(ctx context.Context, tenantID uuid.UUID, policy *domain.Policy) error {
+	args := m.Called(ctx, tenantID, policy)
 	return args.Error(0)
 }
 
-func (m *IAMRepository) GetPolicyByID(ctx context.Context, id uuid.UUID) (*domain.Policy, error) {
-	args := m.Called(ctx, id)
+func (m *IAMRepository) GetPolicyByID(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (*domain.Policy, error) {
+	args := m.Called(ctx, tenantID, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*domain.Policy), args.Error(1)
 }
 
-func (m *IAMRepository) ListPolicies(ctx context.Context) ([]*domain.Policy, error) {
-	args := m.Called(ctx)
+func (m *IAMRepository) ListPolicies(ctx context.Context, tenantID uuid.UUID) ([]*domain.Policy, error) {
+	args := m.Called(ctx, tenantID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]*domain.Policy), args.Error(1)
 }
 
-func (m *IAMRepository) DeletePolicy(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
+func (m *IAMRepository) UpdatePolicy(ctx context.Context, tenantID uuid.UUID, policy *domain.Policy) error {
+	args := m.Called(ctx, tenantID, policy)
 	return args.Error(0)
 }
 
-func (m *IAMRepository) AttachPolicyToUser(ctx context.Context, userID uuid.UUID, policyID uuid.UUID) error {
-	args := m.Called(ctx, userID, policyID)
+func (m *IAMRepository) DeletePolicy(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) error {
+	args := m.Called(ctx, tenantID, id)
 	return args.Error(0)
 }
 
-func (m *IAMRepository) DetachPolicyFromUser(ctx context.Context, userID uuid.UUID, policyID uuid.UUID) error {
-	args := m.Called(ctx, userID, policyID)
+func (m *IAMRepository) AttachPolicyToUser(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, policyID uuid.UUID) error {
+	args := m.Called(ctx, tenantID, userID, policyID)
 	return args.Error(0)
 }
 
-func (m *IAMRepository) GetPoliciesForUser(ctx context.Context, userID uuid.UUID) ([]*domain.Policy, error) {
-	args := m.Called(ctx, userID)
+func (m *IAMRepository) DetachPolicyFromUser(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, policyID uuid.UUID) error {
+	args := m.Called(ctx, tenantID, userID, policyID)
+	return args.Error(0)
+}
+
+func (m *IAMRepository) GetPoliciesForUser(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID) ([]*domain.Policy, error) {
+	args := m.Called(ctx, tenantID, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -81,6 +86,11 @@ func (m *IAMService) ListPolicies(ctx context.Context) ([]*domain.Policy, error)
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]*domain.Policy), args.Error(1)
+}
+
+func (m *IAMService) UpdatePolicy(ctx context.Context, policy *domain.Policy) error {
+	args := m.Called(ctx, policy)
+	return args.Error(0)
 }
 
 func (m *IAMService) DeletePolicy(ctx context.Context, id uuid.UUID) error {
