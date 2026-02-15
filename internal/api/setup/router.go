@@ -65,6 +65,7 @@ type Handlers struct {
 	GlobalLB      *httphandlers.GlobalLBHandler
 	SSHKey        *httphandlers.SSHKeyHandler
 	ElasticIP     *httphandlers.ElasticIPHandler
+	Log           *httphandlers.LogHandler
 	Ws            *ws.Handler
 }
 
@@ -110,6 +111,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		GlobalLB:      httphandlers.NewGlobalLBHandler(svcs.GlobalLB),
 		SSHKey:        httphandlers.NewSSHKeyHandler(svcs.SSHKey),
 		ElasticIP:     httphandlers.NewElasticIPHandler(svcs.ElasticIP),
+		Log:           httphandlers.NewLogHandler(svcs.Log),
 		Ws:            ws.NewHandler(hub, svcs.Identity, logger),
 	}
 }
@@ -180,6 +182,7 @@ func SetupRouter(cfg *platform.Config, logger *slog.Logger, handlers *Handlers, 
 	registerDevOpsRoutes(r, handlers, services)
 	registerTenantRoutes(r, handlers, services)
 	registerAdminRoutes(r, handlers, services)
+	registerLogRoutes(r, handlers, services)
 
 	// The actual Gateway Proxy (Public)
 	r.Any("/gw/*proxy", handlers.Gateway.Proxy)
@@ -577,6 +580,15 @@ func registerAdminRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	{
 		billingGroup.GET("/summary", handlers.Accounting.GetSummary)
 		billingGroup.GET("/usage", handlers.Accounting.ListUsage)
+	}
+}
+
+func registerLogRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
+	logGroup := r.Group("/logs")
+	logGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant), httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant))
+	{
+		logGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Log.Search)
+		logGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Log.GetByResource)
 	}
 }
 

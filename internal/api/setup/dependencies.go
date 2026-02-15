@@ -62,6 +62,7 @@ type Repositories struct {
 	GlobalLB      ports.GlobalLBRepository
 	SSHKey        ports.SSHKeyRepository
 	ElasticIP     ports.ElasticIPRepository
+	Log           ports.LogRepository
 }
 
 // InitRepositories constructs repositories using the provided database clients.
@@ -103,6 +104,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		GlobalLB:      postgres.NewGlobalLBRepository(db),
 		SSHKey:        postgres.NewSSHKeyRepo(db),
 		ElasticIP:     postgres.NewElasticIPRepository(db),
+		Log:           postgres.NewLogRepository(db),
 	}
 }
 
@@ -146,6 +148,7 @@ type Services struct {
 	GlobalLB      ports.GlobalLBService
 	SSHKey        ports.SSHKeyService
 	ElasticIP     ports.ElasticIPService
+	Log           ports.LogService
 }
 
 // Workers struct to return background workers
@@ -161,6 +164,7 @@ type Workers struct {
 	ReplicaMonitor    *workers.ReplicaMonitor
 	ClusterReconciler *workers.ClusterReconciler
 	Healing           *workers.HealingWorker
+	Log               *workers.LogWorker
 }
 
 // ServiceConfig holds the dependencies required to initialize services
@@ -208,6 +212,8 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 
 	sshKeySvc := services.NewSSHKeyService(c.Repos.SSHKey)
 
+	logSvc := services.NewCloudLogsService(c.Repos.Log, c.Logger)
+
 	instSvcConcrete := services.NewInstanceService(services.InstanceServiceParams{
 		Repo: c.Repos.Instance, VpcRepo: c.Repos.Vpc, SubnetRepo: c.Repos.Subnet, VolumeRepo: c.Repos.Volume,
 		InstanceTypeRepo: c.Repos.InstanceType,
@@ -216,6 +222,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		Logger:           c.Logger,
 		TenantSvc:        tenantSvc,
 		SSHKeySvc:        sshKeySvc,
+		LogSvc:           logSvc,
 	})
 	sgSvc := services.NewSecurityGroupService(c.Repos.SecurityGroup, c.Repos.Vpc, c.Network, auditSvc, c.Logger)
 
@@ -298,6 +305,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 			AuditSvc:     auditSvc,
 			Logger:       c.Logger,
 		}),
+		Log: logSvc,
 	}
 
 	// 7. High Availability & Monitoring
@@ -311,6 +319,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		ReplicaMonitor:    replicaMonitor,
 		ClusterReconciler: workers.NewClusterReconciler(c.Repos.Cluster, clusterProvisioner, c.Logger),
 		Healing:           healingWorker,
+		Log:               workers.NewLogWorker(logSvc, c.Logger),
 	}
 
 	return svcs, workersCollection, nil

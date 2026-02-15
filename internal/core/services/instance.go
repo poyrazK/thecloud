@@ -39,6 +39,7 @@ type InstanceService struct {
 	eventSvc         ports.EventService
 	auditSvc         ports.AuditService
 	dnsSvc           ports.DNSService
+	logSvc           ports.LogService
 	taskQueue        ports.TaskQueue
 	tenantSvc        ports.TenantService
 	sshKeySvc        ports.SSHKeyService
@@ -59,6 +60,7 @@ type InstanceServiceParams struct {
 	EventSvc         ports.EventService
 	AuditSvc         ports.AuditService
 	DNSSvc           ports.DNSService
+	LogSvc           ports.LogService
 	TaskQueue        ports.TaskQueue // Optional
 	TenantSvc        ports.TenantService
 	SSHKeySvc        ports.SSHKeyService
@@ -79,6 +81,7 @@ func NewInstanceService(params InstanceServiceParams) *InstanceService {
 		eventSvc:         params.EventSvc,
 		auditSvc:         params.AuditSvc,
 		dnsSvc:           params.DNSSvc,
+		logSvc:           params.LogSvc,
 		taskQueue:        params.TaskQueue,
 		tenantSvc:        params.TenantSvc,
 		sshKeySvc:        params.SSHKeySvc,
@@ -633,6 +636,34 @@ func (s *InstanceService) TerminateInstance(ctx context.Context, idOrName string
 	inst, err := s.GetInstance(ctx, idOrName)
 	if err != nil {
 		return err
+	}
+
+	// Ingest logs before termination if LogService is available
+	if s.logSvc != nil && inst.ContainerID != "" {
+		logs, err := s.GetInstanceLogs(ctx, idOrName)
+		if err == nil && logs != "" {
+			lines := strings.Split(logs, "\n")
+			entries := make([]*domain.LogEntry, 0, len(lines))
+			for _, line := range lines {
+				if strings.TrimSpace(line) == "" {
+					continue
+				}
+				entries = append(entries, &domain.LogEntry{
+					ID:           uuid.New(),
+					TenantID:     inst.TenantID,
+					ResourceID:   inst.ID.String(),
+					ResourceType: "instance",
+					Level:        "INFO",
+					Message:      line,
+					Timestamp:    time.Now(),
+				})
+			}
+			if len(entries) > 0 {
+				if ingestErr := s.logSvc.IngestLogs(ctx, entries); ingestErr != nil {
+					s.logger.Warn("failed to ingest logs during termination", "instance_id", inst.ID, "error", ingestErr)
+				}
+			}
+		}
 	}
 
 	if err := s.removeInstanceContainer(ctx, inst); err != nil {
