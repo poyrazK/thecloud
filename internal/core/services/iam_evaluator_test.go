@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/uuid"
@@ -10,6 +11,7 @@ import (
 
 func TestIAMEvaluator_Evaluate(t *testing.T) {
 	evaluator := NewIAMEvaluator()
+	ctx := context.Background()
 
 	policy1 := &domain.Policy{
 		ID:   uuid.New(),
@@ -38,25 +40,25 @@ func TestIAMEvaluator_Evaluate(t *testing.T) {
 	policies := []*domain.Policy{policy1, policy2}
 
 	t.Run("AllowByWildcard", func(t *testing.T) {
-		allowed, err := evaluator.Evaluate(policies, "instance:launch", "any", nil)
+		allowed, err := evaluator.Evaluate(ctx, policies, "instance:launch", "any", nil)
 		assert.NoError(t, err)
 		assert.True(t, allowed)
 	})
 
 	t.Run("ExplicitDenyWins", func(t *testing.T) {
-		allowed, err := evaluator.Evaluate(policies, "instance:terminate", "arn:thecloud:compute:instance:prod-123", nil)
+		allowed, err := evaluator.Evaluate(ctx, policies, "instance:terminate", "arn:thecloud:compute:instance:prod-123", nil)
 		assert.NoError(t, err)
 		assert.False(t, allowed)
 	})
 
 	t.Run("AllowOtherInstanceTerminate", func(t *testing.T) {
-		allowed, err := evaluator.Evaluate(policies, "instance:terminate", "arn:thecloud:compute:instance:dev-456", nil)
+		allowed, err := evaluator.Evaluate(ctx, policies, "instance:terminate", "arn:thecloud:compute:instance:dev-456", nil)
 		assert.NoError(t, err)
 		assert.True(t, allowed)
 	})
 
 	t.Run("DefaultDeny", func(t *testing.T) {
-		allowed, err := evaluator.Evaluate(policies, "vpc:create", "*", nil)
+		allowed, err := evaluator.Evaluate(ctx, policies, "vpc:create", "*", nil)
 		assert.NoError(t, err)
 		assert.False(t, allowed)
 	})
