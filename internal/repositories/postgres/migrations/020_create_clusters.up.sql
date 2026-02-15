@@ -34,5 +34,5 @@ CREATE TABLE IF NOT EXISTS cluster_nodes (
     joined_at TIMESTAMPTZ
 );
 
-CREATE INDEX idx_clusters_user_id ON clusters(user_id);
-CREATE INDEX idx_cluster_nodes_cluster_id ON cluster_nodes(cluster_id);
+CREATE INDEX IF NOT EXISTS idx_clusters_user_id ON clusters(user_id);
+CREATE INDEX IF NOT EXISTS idx_cluster_nodes_cluster_id ON cluster_nodes(cluster_id);

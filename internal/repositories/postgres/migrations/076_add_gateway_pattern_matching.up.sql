@@ -11,7 +11,7 @@ SET path_pattern = path_prefix
 WHERE pattern_type = 'prefix';
 
 -- Add index for pattern lookups
-CREATE INDEX idx_gateway_routes_pattern_type ON gateway_routes(pattern_type);
+CREATE INDEX IF NOT EXISTS idx_gateway_routes_pattern_type ON gateway_routes(pattern_type);
 
 -- Add constraint: pattern_type must be 'prefix' or 'pattern'
 ALTER TABLE gateway_routes 
