@@ -67,7 +67,7 @@ func TestCloudLogsService_IngestLogs_Unit(t *testing.T) {
 
 	t.Run("no trace id in context", func(t *testing.T) {
 		// Use a context with a no-op span (no trace ID)
-		ctxNoTrace := trace.ContextWithSpan(ctx, trace.SpanFromContext(nil))
+		ctxNoTrace := trace.ContextWithSpan(ctx, trace.SpanFromContext(context.Background()))
 		
 		entries := []*domain.LogEntry{
 			{ID: uuid.New(), Message: "no trace"},
