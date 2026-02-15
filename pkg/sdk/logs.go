@@ -40,7 +40,7 @@ type LogQuery struct {
 }
 
 // SearchLogs searches and filters platform logs.
-func (c *Client) SearchLogs(query LogQuery) (*LogSearchResponse, error) {
+func (c *Client) SearchLogs(ctx context.Context, query LogQuery) (*LogSearchResponse, error) {
 	params := url.Values{}
 	if query.ResourceID != "" {
 		params.Add("resource_id", query.ResourceID)
@@ -73,21 +73,21 @@ func (c *Client) SearchLogs(query LogQuery) (*LogSearchResponse, error) {
 	}
 
 	var res Response[LogSearchResponse]
-	if err := c.get(path, &res); err != nil {
+	if err := c.get(ctx, path, &res); err != nil {
 		return nil, err
 	}
 	return &res.Data, nil
 }
 
 // GetLogsByResource retrieves logs for a specific resource ID.
-func (c *Client) GetLogsByResource(resourceID string, limit int) (*LogSearchResponse, error) {
+func (c *Client) GetLogsByResource(ctx context.Context, resourceID string, limit int) (*LogSearchResponse, error) {
 	path := fmt.Sprintf("/logs/%s", resourceID)
 	if limit > 0 {
 		path += "?limit=" + strconv.Itoa(limit)
 	}
 
 	var res Response[LogSearchResponse]
-	if err := c.get(path, &res); err != nil {
+	if err := c.get(ctx, path, &res); err != nil {
 		return nil, err
 	}
 	return &res.Data, nil

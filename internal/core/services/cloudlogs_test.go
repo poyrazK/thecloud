@@ -63,7 +63,7 @@ func TestCloudLogsService_SearchLogs(t *testing.T) {
 	svc, _, ctx := setupCloudLogsServiceTest(t)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	_ = svc.IngestLogs(ctx, []*domain.LogEntry{
+	err := svc.IngestLogs(ctx, []*domain.LogEntry{
 		{
 			ID:           uuid.New(),
 			TenantID:     tenantID,
@@ -83,6 +83,7 @@ func TestCloudLogsService_SearchLogs(t *testing.T) {
 			Timestamp:    time.Now(),
 		},
 	})
+	assert.NoError(t, err)
 
 	// Test 1: Search by resource type
 	logs, total, err := svc.SearchLogs(ctx, domain.LogQuery{TenantID: tenantID, ResourceType: "function"})
@@ -102,7 +103,7 @@ func TestCloudLogsService_Retention(t *testing.T) {
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	// Ingest one old log and one new log
-	_ = svc.IngestLogs(ctx, []*domain.LogEntry{
+	err := svc.IngestLogs(ctx, []*domain.LogEntry{
 		{
 			ID:           uuid.New(),
 			TenantID:     tenantID,
@@ -122,9 +123,10 @@ func TestCloudLogsService_Retention(t *testing.T) {
 			Timestamp:    time.Now(),
 		},
 	})
+	assert.NoError(t, err)
 
 	// Run retention for 30 days
-	err := svc.RunRetentionPolicy(ctx, 30)
+	err = svc.RunRetentionPolicy(ctx, 30)
 	assert.NoError(t, err)
 
 	// Verify only new log remains

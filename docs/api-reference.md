@@ -513,8 +513,19 @@ Search and filter historical platform logs.
 - `limit`: Max results (default 100).
 - `offset`: Pagination offset.
 
-### GET /logs/:id
+### GET /logs/:resource_id
 Get historical logs for a specific resource.
+
+**Parameters:**
+| Name | In | Type | Required | Description |
+|------|----|------|----------|-------------|
+| `resource_id` | path | string | Yes | The UUID of the resource (instance or function) |
+| `limit` | query | integer | No | Max logs to return |
+
+**Example:**
+```bash
+curl -H "X-API-Key: $API_KEY" http://api.thecloud.local/logs/a1b2c3d4-5678-90ab-cdef-1234567890ab?limit=10
+```
 
 ---
 

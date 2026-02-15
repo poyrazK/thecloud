@@ -35,6 +35,8 @@ This plan outlines the steps to implement the CloudLogs service, providing persi
 - [x] Add `cmd/cloud/logs.go` with `search` and `show` commands.
 
 ## Phase 6: Verification
-- [ ] Unit tests for `LogService`.
+- [x] Unit tests for `LogService`.
+- [x] Unit tests for `LogHandler`.
+- [x] Unit tests for `LogWorker`.
 - [ ] Integration tests for `LogRepository`.
 - [ ] Smoke test: Launch instance -> generate logs -> terminate -> verify logs still exist in CloudLogs.

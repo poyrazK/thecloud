@@ -50,6 +50,9 @@ func (s *CloudLogsService) SearchLogs(ctx context.Context, query domain.LogQuery
 }
 
 func (s *CloudLogsService) RunRetentionPolicy(ctx context.Context, days int) error {
+	if days <= 0 {
+		return errors.New(errors.InvalidInput, "invalid retention days; must be > 0")
+	}
 	s.logger.Info("running log retention policy", "days", days)
 	return s.repo.DeleteByAge(ctx, days)
 }

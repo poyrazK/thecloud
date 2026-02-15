@@ -119,7 +119,7 @@ cloud instance launch --name my-server --image nginx:alpine
 | `--port` | `-p` | No | - | Port mapping (host:container) |
 | `--vpc` | `-v` | No | - | VPC ID or name |
 | `--subnet` | `-s` | No | - | Subnet ID or name |
-| `--volume" | `-V` | No | - | Volume attachment (vol-name:/path) |
+| `--volume` | `-V` | No | - | Volume attachment (vol-name:/path) |
 | `--env` | `-e` | No | - | Environment variable (KEY=VALUE) |
 | `--backend` | | No | `docker` | Backend (docker/libvirt) |
 

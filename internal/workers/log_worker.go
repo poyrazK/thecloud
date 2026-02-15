@@ -32,7 +32,9 @@ func (w *LogWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 	w.logger.Info("log worker started")
 
 	// Initial run
-	_ = w.logSvc.RunRetentionPolicy(ctx, w.retentionDays)
+	if err := w.logSvc.RunRetentionPolicy(ctx, w.retentionDays); err != nil {
+		w.logger.Error("failed to run initial log retention policy", "error", err)
+	}
 
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()

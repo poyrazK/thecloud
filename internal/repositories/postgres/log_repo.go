@@ -121,6 +121,10 @@ func (r *LogRepository) List(ctx context.Context, query domain.LogQuery) ([]*dom
 		entries = append(entries, &entry)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, 0, errors.Wrap(errors.Internal, "error iterating log rows", err)
+	}
+
 	return entries, total, nil
 }
 

@@ -51,20 +51,36 @@ func (h *LogHandler) Search(c *gin.Context) {
 
 	if st := c.Query("start_time"); st != "" {
 		t, err := time.Parse(time.RFC3339, st)
-		if err == nil {
-			query.StartTime = &t
+		if err != nil {
+			httputil.Error(c, errors.New(errors.InvalidInput, "invalid start_time format; expected RFC3339"))
+			return
 		}
+		query.StartTime = &t
 	}
 	if et := c.Query("end_time"); et != "" {
 		t, err := time.Parse(time.RFC3339, et)
-		if err == nil {
-			query.EndTime = &t
+		if err != nil {
+			httputil.Error(c, errors.New(errors.InvalidInput, "invalid end_time format; expected RFC3339"))
+			return
 		}
+		query.EndTime = &t
 	}
 
 	// Pagination
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	limitStr := c.DefaultQuery("limit", "100")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid limit; must be a number"))
+		return
+	}
+
+	offsetStr := c.DefaultQuery("offset", "0")
+	offset, err := strconv.Atoi(offsetStr)
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid offset; must be a number"))
+		return
+	}
+
 	query.Limit = limit
 	query.Offset = offset
 

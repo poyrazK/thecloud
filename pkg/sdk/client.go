@@ -2,6 +2,7 @@
 package sdk
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/go-resty/resty/v2"
@@ -48,8 +49,9 @@ type ErrorResponse struct {
 }
 
 // get performs a GET request against the API.
-func (c *Client) get(path string, result interface{}) error {
+func (c *Client) get(ctx context.Context, path string, result interface{}) error {
 	resp, err := c.resty.R().
+		SetContext(ctx).
 		SetResult(result).
 		Get(c.apiURL + path)
 
@@ -64,8 +66,8 @@ func (c *Client) get(path string, result interface{}) error {
 	return nil
 }
 
-func (c *Client) post(path string, body interface{}, result interface{}) error {
-	req := c.resty.R()
+func (c *Client) post(ctx context.Context, path string, body interface{}, result interface{}) error {
+	req := c.resty.R().SetContext(ctx)
 	if body != nil {
 		req.SetBody(body)
 	}
@@ -85,8 +87,8 @@ func (c *Client) post(path string, body interface{}, result interface{}) error {
 	return nil
 }
 
-func (c *Client) delete(path string, result interface{}) error {
-	req := c.resty.R()
+func (c *Client) delete(ctx context.Context, path string, result interface{}) error {
+	req := c.resty.R().SetContext(ctx)
 	if result != nil {
 		req.SetResult(result)
 	}
@@ -103,8 +105,8 @@ func (c *Client) delete(path string, result interface{}) error {
 	return nil
 }
 
-func (c *Client) put(path string, body interface{}, result interface{}) error {
-	req := c.resty.R()
+func (c *Client) put(ctx context.Context, path string, body interface{}, result interface{}) error {
+	req := c.resty.R().SetContext(ctx)
 	if body != nil {
 		req.SetBody(body)
 	}
@@ -124,8 +126,8 @@ func (c *Client) put(path string, body interface{}, result interface{}) error {
 	return nil
 }
 
-func (c *Client) patch(path string, body interface{}, result interface{}) error {
-	req := c.resty.R()
+func (c *Client) patch(ctx context.Context, path string, body interface{}, result interface{}) error {
+	req := c.resty.R().SetContext(ctx)
 	if body != nil {
 		req.SetBody(body)
 	}

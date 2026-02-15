@@ -51,6 +51,7 @@ func TestLogsE2E(t *testing.T) {
 
 	// 3. Terminate Instance (triggers log ingestion)
 	t.Run("TerminateInstance", func(t *testing.T) {
+		require.NotEmpty(t, instanceID, "depends on LaunchInstance")
 		resp := deleteRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
 		defer func() { _ = resp.Body.Close() }()
 		require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -58,6 +59,7 @@ func TestLogsE2E(t *testing.T) {
 
 	// 4. Verify logs in CloudLogs
 	t.Run("VerifyHistoricalLogs", func(t *testing.T) {
+		require.NotEmpty(t, instanceID, "depends on LaunchInstance")
 		// Wait a bit for async cleanup/ingestion
 		time.Sleep(2 * time.Second)
 
