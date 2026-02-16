@@ -107,7 +107,13 @@ func TestDatabaseReplicationE2E(t *testing.T) {
 
 	// Cleanup
 	t.Run("Cleanup", func(t *testing.T) {
-		_ = deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, primaryID), token)
-		_ = deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, replicaID), token)
+		resp1 := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, primaryID), token)
+		if resp1 != nil {
+			defer func() { _ = resp1.Body.Close() }()
+		}
+		resp2 := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, replicaID), token)
+		if resp2 != nil {
+			defer func() { _ = resp2.Body.Close() }()
+		}
 	})
 }
