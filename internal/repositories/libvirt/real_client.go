@@ -232,7 +232,10 @@ func (r *RealLibvirtClient) StorageVolCreateXML(ctx context.Context, pool libvir
 		return libvirt.StorageVol{}, ctx.Err()
 	default:
 	}
-	return r.conn.StorageVolCreateXML(pool, xml, libvirt.StorageVolCreateFlags(flags))
+	if flags > math.MaxInt32 {
+		return libvirt.StorageVol{}, fmt.Errorf("flags overflow int32: %d", flags)
+	}
+	return r.conn.StorageVolCreateXML(pool, xml, libvirt.StorageVolCreateFlags(int32(flags)))
 }
 
 func (r *RealLibvirtClient) StorageVolDelete(ctx context.Context, vol libvirt.StorageVol, flags uint32) error {
@@ -241,7 +244,10 @@ func (r *RealLibvirtClient) StorageVolDelete(ctx context.Context, vol libvirt.St
 		return ctx.Err()
 	default:
 	}
-	return r.conn.StorageVolDelete(vol, libvirt.StorageVolDeleteFlags(flags))
+	if flags > math.MaxInt32 {
+		return fmt.Errorf("flags overflow int32: %d", flags)
+	}
+	return r.conn.StorageVolDelete(vol, libvirt.StorageVolDeleteFlags(int32(flags)))
 }
 
 func (r *RealLibvirtClient) StorageVolGetPath(ctx context.Context, vol libvirt.StorageVol) (string, error) {

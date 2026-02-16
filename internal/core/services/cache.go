@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -304,9 +305,26 @@ func (s *CacheService) GetCacheStats(ctx context.Context, idOrName string) (*por
 		return nil, errors.Wrap(errors.Internal, "failed to decode stats", err)
 	}
 
+	used := dockerStats.MemoryStats.Usage
+	limit := dockerStats.MemoryStats.Limit
+
+	var usedInt64 int64
+	if used > math.MaxInt64 {
+		usedInt64 = math.MaxInt64
+	} else {
+		usedInt64 = int64(used)
+	}
+
+	var limitInt64 int64
+	if limit > math.MaxInt64 {
+		limitInt64 = math.MaxInt64
+	} else {
+		limitInt64 = int64(limit)
+	}
+
 	result := &ports.CacheStats{
-		UsedMemoryBytes:  int64(dockerStats.MemoryStats.Usage),
-		MaxMemoryBytes:   int64(dockerStats.MemoryStats.Limit),
+		UsedMemoryBytes:  usedInt64,
+		MaxMemoryBytes:   limitInt64,
 		ConnectedClients: 0,
 		TotalKeys:        0,
 	}
