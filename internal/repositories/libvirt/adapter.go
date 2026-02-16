@@ -281,10 +281,16 @@ func (a *LibvirtAdapter) cleanupCreateFailure(ctx context.Context, vol libvirt.S
 func (a *LibvirtAdapter) waitInitialIP(ctx context.Context, id string) (string, error) {
 	ticker := time.NewTicker(a.ipWaitInterval)
 	defer ticker.Stop()
+	
+	// Safety limit: max 5 minutes regardless of context
+	timeout := time.After(5 * time.Minute)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
+		case <-timeout:
+			return "", fmt.Errorf("timed out waiting for IP for instance %s", id)
 		case <-ticker.C:
 			ip, err := a.GetInstanceIP(ctx, id)
 			if err == nil && ip != "" {

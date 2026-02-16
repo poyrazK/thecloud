@@ -125,6 +125,26 @@ func TestGetInstanceIPSuccess(t *testing.T) {
 	m.AssertExpectations(t)
 }
 
+func TestWaitTaskTimeout(t *testing.T) {
+	t.Parallel()
+	m := new(MockLibvirtClient)
+	a := newTestAdapter(m)
+	a.taskWaitInterval = 1 * time.Millisecond
+	
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	dom := libvirt.Domain{Name: testTaskID}
+	m.On("DomainLookupByName", mock.Anything, testTaskID).Return(dom, nil)
+	// Return a state that is NOT Shutoff
+	m.On("DomainGetState", mock.Anything, dom, uint32(0)).Return(int32(libvirt.DomainRunning), int32(1), nil)
+
+	status, err := a.WaitTask(ctx, testTaskID)
+	assert.Error(t, err)
+	assert.Equal(t, int64(-1), status)
+	assert.True(t, errors.Is(err, context.DeadlineExceeded) || err == context.DeadlineExceeded)
+}
+
 func TestWaitInitialIPSuccess(t *testing.T) {
 	t.Parallel()
 	m := new(MockLibvirtClient)
