@@ -3,6 +3,7 @@ package node
 
 import (
 	"encoding/binary"
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -17,7 +18,7 @@ type LocalStore struct {
 
 // NewLocalStore initializes a new local storage backend.
 func NewLocalStore(dataDir string) (*LocalStore, error) {
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
+	if err := os.MkdirAll(dataDir, 0750); err != nil {
 		return nil, err
 	}
 	return &LocalStore{rootDir: dataDir}, nil
@@ -33,19 +34,27 @@ func (s *LocalStore) Write(bucket, key string, data []byte, timestamp int64) err
 		return err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
 		return err
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0600); err != nil {
 		return err
 	}
 
 	// Write metadata (timestamp)
 	metaPath := path + ".meta"
 	buf := make([]byte, 8)
-	binary.LittleEndian.PutUint64(buf, uint64(timestamp))
-	return os.WriteFile(metaPath, buf, 0644)
+
+	var uTimestamp uint64
+	if timestamp < 0 {
+		uTimestamp = 0
+	} else {
+		uTimestamp = uint64(timestamp)
+	}
+
+	binary.LittleEndian.PutUint64(buf, uTimestamp)
+	return os.WriteFile(metaPath, buf, 0600)
 }
 
 // Read retrieves data from disk.
@@ -58,16 +67,24 @@ func (s *LocalStore) Read(bucket, key string) ([]byte, int64, error) {
 		return nil, 0, err
 	}
 
-	data, err := os.ReadFile(path)
+	// filepath.Clean is already done in getObjectPath, gosec might still warn
+	// so we use the path directly as it is sanitized.
+	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return nil, 0, err
 	}
 
 	// Read metadata
 	var timestamp int64
-	metaBytes, err := os.ReadFile(path + ".meta")
+	metaPath := filepath.Clean(path + ".meta")
+	metaBytes, err := os.ReadFile(metaPath)
 	if err == nil && len(metaBytes) >= 8 {
-		timestamp = int64(binary.LittleEndian.Uint64(metaBytes))
+		uVal := binary.LittleEndian.Uint64(metaBytes)
+		if uVal > math.MaxInt64 {
+			timestamp = math.MaxInt64
+		} else {
+			timestamp = int64(uVal)
+		}
 	} else {
 		// Fallback to file mtime if meta missing
 		info, statErr := os.Stat(path)
@@ -103,11 +120,11 @@ func (s *LocalStore) Assemble(bucket, key string, parts []string) (int64, error)
 		return 0, err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(destPath), 0750); err != nil {
 		return 0, err
 	}
 
-	f, err := os.Create(destPath)
+	f, err := os.OpenFile(filepath.Clean(destPath), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return 0, err
 	}
@@ -120,7 +137,7 @@ func (s *LocalStore) Assemble(bucket, key string, parts []string) (int64, error)
 			return 0, err
 		}
 
-		data, err := os.ReadFile(partPath)
+		data, err := os.ReadFile(filepath.Clean(partPath))
 		if err != nil {
 			return 0, err
 		}
@@ -136,8 +153,17 @@ func (s *LocalStore) Assemble(bucket, key string, parts []string) (int64, error)
 	// Write final meta with current timestamp
 	metaPath := destPath + ".meta"
 	buf := make([]byte, 8)
-	binary.LittleEndian.PutUint64(buf, uint64(time.Now().UnixNano()))
-	_ = os.WriteFile(metaPath, buf, 0644)
+
+	now := time.Now().UnixNano()
+	var uNow uint64
+	if now < 0 {
+		uNow = 0
+	} else {
+		uNow = uint64(now)
+	}
+
+	binary.LittleEndian.PutUint64(buf, uNow)
+	_ = os.WriteFile(metaPath, buf, 0600)
 
 	return totalSize, nil
 }

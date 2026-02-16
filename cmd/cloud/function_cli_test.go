@@ -38,7 +38,7 @@ func TestFunctionCreateCmd(t *testing.T) {
 	defer server.Close()
 
 	codePath := filepath.Join(t.TempDir(), "fn.zip")
-	if err := os.WriteFile(codePath, []byte("zip"), 0644); err != nil {
+	if err := os.WriteFile(codePath, []byte("zip"), 0600); err != nil {
 		t.Fatalf("write code: %v", err)
 	}
 

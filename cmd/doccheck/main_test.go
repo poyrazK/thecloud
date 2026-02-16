@@ -17,7 +17,7 @@ type ExportedType struct{}
 // ExportedFunc has docs.
 func ExportedFunc() {}
 `
-	if err := os.WriteFile(badFile, []byte(badSource), 0644); err != nil {
+	if err := os.WriteFile(badFile, []byte(badSource), 0600); err != nil {
 		t.Fatalf("write bad.go: %v", err)
 	}
 
@@ -27,7 +27,7 @@ package badtype
 
 type MissingDoc struct{}
 `
-	if err := os.WriteFile(badTypeFile, []byte(badTypeSource), 0644); err != nil {
+	if err := os.WriteFile(badTypeFile, []byte(badTypeSource), 0600); err != nil {
 		t.Fatalf("write badtype.go: %v", err)
 	}
 
@@ -36,7 +36,7 @@ type MissingDoc struct{}
 
 type IgnoredType struct{}
 `
-	if err := os.WriteFile(badTestFile, []byte(badTestSource), 0644); err != nil {
+	if err := os.WriteFile(badTestFile, []byte(badTestSource), 0600); err != nil {
 		t.Fatalf("write ignored_test.go: %v", err)
 	}
 
@@ -64,7 +64,7 @@ func TestScanIncludesTestsWhenEnabled(t *testing.T) {
 
 type MissingDoc struct{}
 `
-	if err := os.WriteFile(badTestFile, []byte(badTestSource), 0644); err != nil {
+	if err := os.WriteFile(badTestFile, []byte(badTestSource), 0600); err != nil {
 		t.Fatalf("write included_test.go: %v", err)
 	}
 

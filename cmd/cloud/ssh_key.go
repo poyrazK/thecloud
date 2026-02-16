@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -20,7 +21,7 @@ var registerKeyCmd = &cobra.Command{
 		name := args[0]
 		keyFile := args[1]
 
-		keyData, err := os.ReadFile(keyFile)
+		keyData, err := os.ReadFile(filepath.Clean(keyFile))
 		if err != nil {
 			fmt.Printf("Error reading key file: %v\n", err)
 			return

@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
@@ -23,7 +24,7 @@ var createFnCmd = &cobra.Command{
 		handler, _ := cmd.Flags().GetString("handler")
 		codePath, _ := cmd.Flags().GetString("code")
 
-		code, err := os.ReadFile(codePath)
+		code, err := os.ReadFile(filepath.Clean(codePath))
 		if err != nil {
 			return fmt.Errorf("failed to read code file: %w", err)
 		}
@@ -77,7 +78,7 @@ var invokeFnCmd = &cobra.Command{
 		var payload []byte
 		var err error
 		if payloadFile != "" {
-			payload, err = os.ReadFile(payloadFile)
+			payload, err = os.ReadFile(filepath.Clean(payloadFile))
 			if err != nil {
 				return err
 			}

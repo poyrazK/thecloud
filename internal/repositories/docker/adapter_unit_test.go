@@ -335,7 +335,7 @@ func TestLBProxyAdapterUpdateProxyConfig(t *testing.T) {
 
 	// Ensure directory exists for test
 	configPath := filepath.Join("/tmp", "thecloud", "lb", lb.ID.String())
-	_ = os.MkdirAll(configPath, 0755)
+	_ = os.MkdirAll(configPath, 0750)
 	defer func() { _ = os.RemoveAll(configPath) }()
 
 	err := adapter.UpdateProxyConfig(context.Background(), lb, targets)

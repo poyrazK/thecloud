@@ -70,7 +70,7 @@ func TestIACValidateTemplateSuccess(t *testing.T) {
 	defer server.Close()
 
 	templatePath := filepath.Join(t.TempDir(), "template.yaml")
-	if err := os.WriteFile(templatePath, []byte("resources: []"), 0644); err != nil {
+	if err := os.WriteFile(templatePath, []byte("resources: []"), 0600); err != nil {
 		t.Fatalf("write template: %v", err)
 	}
 

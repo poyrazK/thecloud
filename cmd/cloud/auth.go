@@ -59,7 +59,7 @@ func getConfigPath() string {
 
 func saveConfig(key string) {
 	path := getConfigPath()
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
 		fmt.Printf("Warning: failed to create config directory: %v\n", err)
 	}
 
@@ -69,14 +69,14 @@ func saveConfig(key string) {
 		fmt.Printf("Error: failed to marshal config: %v\n", err)
 		return
 	}
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0600); err != nil {
 		fmt.Printf("Error: failed to write config file: %v\n", err)
 	}
 }
 
 func loadConfig() string {
 	path := getConfigPath()
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return ""
 	}

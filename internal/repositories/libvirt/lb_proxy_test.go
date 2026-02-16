@@ -93,7 +93,7 @@ func TestLBProxyAdapter(t *testing.T) {
 		_, err = os.Stat(configPath)
 		assert.NoError(t, err)
 		
-		content, _ := os.ReadFile(configPath)
+		content, _ := os.ReadFile(filepath.Clean(configPath))
 		assert.Contains(t, string(content), "server 10.0.0.1:8080 weight=1;")
 	})
 
@@ -109,8 +109,8 @@ func TestLBProxyAdapter(t *testing.T) {
 		
 		// Create a dummy pid file to trigger stop command
 		configDir := filepath.Join("/tmp", "thecloud", "lb", lb.ID.String())
-		_ = os.MkdirAll(configDir, 0755)
-		_ = os.WriteFile(filepath.Join(configDir, "nginx.pid"), []byte("1234"), 0644)
+		_ = os.MkdirAll(configDir, 0750)
+		_ = os.WriteFile(filepath.Join(configDir, "nginx.pid"), []byte("1234"), 0600)
 
 		err := adapter.RemoveProxy(ctx, lb.ID)
 		assert.NoError(t, err)

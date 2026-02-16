@@ -38,10 +38,10 @@ func TestLoadConfigWhenInvalidJSONReturnsEmptyString(t *testing.T) {
 	t.Setenv("HOME", dir)
 
 	path := filepath.Join(dir, ".cloud", "config.json")
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(path, []byte("{not json"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("{not json"), 0o600); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
@@ -57,7 +58,7 @@ var iacCreateCmd = &cobra.Command{
 		name := args[0]
 		templatePath := args[1]
 
-		templateData, err := os.ReadFile(templatePath)
+		templateData, err := os.ReadFile(filepath.Clean(templatePath))
 		if err != nil {
 			fmt.Printf("Error reading template file: %v\n", err)
 			return
@@ -141,7 +142,7 @@ var iacValidateCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		templatePath := args[0]
-		templateData, err := os.ReadFile(templatePath)
+		templateData, err := os.ReadFile(filepath.Clean(templatePath))
 		if err != nil {
 			fmt.Printf("Error reading template file: %v\n", err)
 			return

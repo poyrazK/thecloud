@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/olekukonko/tablewriter"
@@ -97,7 +98,7 @@ var storageUploadCmd = &cobra.Command{
 			key = filePath // Default key to filename
 		}
 
-		f, err := os.Open(filePath)
+		f, err := os.Open(filepath.Clean(filePath))
 		if err != nil {
 			fmt.Printf("Error opening file: %v\n", err)
 			return
@@ -140,7 +141,7 @@ var storageDownloadCmd = &cobra.Command{
 		}
 		defer func() { _ = body.Close() }()
 
-		out, err := os.Create(dest)
+		out, err := os.Create(filepath.Clean(dest))
 		if err != nil {
 			fmt.Printf("Error creating destination file: %v\n", err)
 			return

@@ -20,7 +20,7 @@ type LocalFileStore struct {
 
 // NewLocalFileStore creates a LocalFileStore and ensures the base path exists.
 func NewLocalFileStore(basePath string) (*LocalFileStore, error) {
-	if err := os.MkdirAll(basePath, 0755); err != nil {
+	if err := os.MkdirAll(basePath, 0750); err != nil {
 		return nil, fmt.Errorf("failed to create storage base path: %w", err)
 	}
 	return &LocalFileStore{basePath: basePath}, nil
@@ -36,11 +36,11 @@ func (s *LocalFileStore) Write(ctx context.Context, bucket, key string, r io.Rea
 		return 0, errors.New(errors.InvalidInput, errTraversal)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(filePath), 0750); err != nil {
 		return 0, errors.Wrap(errors.Internal, "failed to create directories", err)
 	}
 
-	f, err := os.Create(filePath)
+	f, err := os.OpenFile(filepath.Clean(filePath), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return 0, errors.Wrap(errors.Internal, "failed to create file", err)
 	}
@@ -59,7 +59,8 @@ func (s *LocalFileStore) Read(ctx context.Context, bucket, key string) (io.ReadC
 	if !strings.HasPrefix(filePath, filepath.Clean(s.basePath)) {
 		return nil, errors.New(errors.InvalidInput, errTraversal)
 	}
-	f, err := os.Open(filePath)
+	// filepath.Clean is used above, but calling it again inside Open to satisfy gosec G304 explicitly
+	f, err := os.Open(filepath.Clean(filePath))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, errors.New(errors.ObjectNotFound, "object not found on disk")
@@ -104,7 +105,8 @@ func (s *LocalFileStore) Assemble(ctx context.Context, bucket, key string, parts
 		return 0, errors.New(errors.InvalidInput, errTraversal)
 	}
 
-	f, err := os.Create(destPath)
+	// G304: Explicitly clean path before creation
+	f, err := os.Create(filepath.Clean(destPath))
 	if err != nil {
 		return 0, errors.Wrap(errors.Internal, "failed to create dest file", err)
 	}
@@ -116,7 +118,8 @@ func (s *LocalFileStore) Assemble(ctx context.Context, bucket, key string, parts
 		if !strings.HasPrefix(partPath, filepath.Clean(s.basePath)) {
 			return 0, errors.New(errors.InvalidInput, errTraversal)
 		}
-		pf, err := os.Open(partPath)
+		// G304: Explicitly clean path before opening
+		pf, err := os.Open(filepath.Clean(partPath))
 		if err != nil {
 			return 0, errors.Wrap(errors.Internal, "failed to open part file", err)
 		}
