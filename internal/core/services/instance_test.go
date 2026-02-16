@@ -523,6 +523,10 @@ func TestInstanceService_LifecycleMethods(t *testing.T) {
 		dbInst, err := repo.GetByID(ctx, inst.ID)
 		require.NoError(t, err)
 		assert.Equal(t, domain.StatusStopped, dbInst.Status)
+
+		// Test stopping again (idempotency)
+		err = svc.StopInstance(ctx, inst.ID.String())
+		assert.NoError(t, err)
 	})
 
 	t.Run("StartInstance", func(t *testing.T) {
@@ -532,6 +536,10 @@ func TestInstanceService_LifecycleMethods(t *testing.T) {
 		dbInst, err := repo.GetByID(ctx, inst.ID)
 		require.NoError(t, err)
 		assert.Equal(t, domain.StatusRunning, dbInst.Status)
+
+		// Test starting again (idempotency)
+		err = svc.StartInstance(ctx, inst.ID.String())
+		assert.NoError(t, err)
 	})
 
 	t.Run("GetInstanceLogs", func(t *testing.T) {
