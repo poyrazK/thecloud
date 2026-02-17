@@ -1,5 +1,3 @@
-//go:build integration
-
 package libvirt
 
 import (
@@ -425,14 +423,13 @@ func TestGetInstanceLogs(t *testing.T) {
 	_, _ = tmpFile.WriteString("log data")
 	_ = tmpFile.Close()
 
-	oldOpen := osOpen
-	defer func() { osOpen = oldOpen }()
-	osOpen = func(name string) (*os.File, error) {
-		return os.Open(tmpFile.Name())
-	}
-
 	m := new(MockLibvirtClient)
-	a := &LibvirtAdapter{client: m}
+	a := &LibvirtAdapter{
+		client: m,
+		osOpen: func(name string) (*os.File, error) {
+			return os.Open(tmpFile.Name())
+		},
+	}
 	ctx := context.Background()
 
 	rc, err := a.GetInstanceLogs(ctx, "test")
@@ -537,13 +534,6 @@ func TestExecNotSupported(t *testing.T) {
 
 func TestCleanupPortMappings(t *testing.T) {
 	t.Parallel()
-	// Stub execCommand to avoid sudo/real command execution
-	oldExec := execCommand
-	defer func() { execCommand = oldExec }()
-	execCommand = func(name string, arg ...string) *exec.Cmd {
-		return exec.Command("true") // Always succeeds
-	}
-
 	a := &LibvirtAdapter{
 		portMappings: make(map[string]map[string]int),
 	}
@@ -557,14 +547,16 @@ func TestCleanupPortMappings(t *testing.T) {
 
 func TestGenerateCloudInitISO(t *testing.T) {
 	t.Parallel()
-	oldExec := execCommand
-	defer func() { execCommand = oldExec }()
-	execCommand = func(name string, arg ...string) *exec.Cmd {
-		return exec.Command("true")
-	}
-
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	a := &LibvirtAdapter{logger: logger}
+	a := &LibvirtAdapter{
+		logger: logger,
+		execCommand: func(name string, arg ...string) *exec.Cmd {
+			return exec.Command("true")
+		},
+		lookPath: func(file string) (string, error) {
+			return "/usr/bin/true", nil
+		},
+	}
 	ctx := context.Background()
 	name := "test-asg"
 	env := []string{testEnvVar}
