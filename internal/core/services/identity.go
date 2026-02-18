@@ -114,7 +114,6 @@ func (s *IdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uu
 
 	// Delete old key
 	if err := s.repo.DeleteAPIKey(ctx, id); err != nil {
-		s.logger.Error("failed to delete old API key during rotation", "id", id, "error", err)
 		return newKey, err
 	}
 

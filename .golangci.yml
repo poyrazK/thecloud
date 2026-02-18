@@ -27,6 +27,10 @@ linters:
     - thelper
 
 linters-settings:
+  revive:
+    rules:
+      - name: exported
+        disabled: true
   errcheck:
     exclude-functions:
       - fmt.Fprintln
