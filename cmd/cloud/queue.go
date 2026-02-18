@@ -41,7 +41,7 @@ var listQueuesCmd = &cobra.Command{
 			_ = table.Append([]string{
 				q.ID[:8],
 				q.Name,
-				string(q.Status),
+				q.Status,
 				q.ARN,
 			})
 		}
