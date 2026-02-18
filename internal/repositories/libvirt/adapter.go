@@ -43,13 +43,6 @@ const (
 	memStatTagRSS    = 6
 )
 
-var (
-	execCommand        = exec.Command
-	execCommandContext = exec.CommandContext
-	lookPath           = exec.LookPath
-	osOpen             = os.Open
-)
-
 // LibvirtAdapter implements compute backend operations using libvirt/KVM.
 type LibvirtAdapter struct {
 	client LibvirtClient
