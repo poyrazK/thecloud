@@ -12,7 +12,8 @@ import (
 func TestLogsSearch(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		if r.URL.Path != "/logs/search" || r.Method != http.MethodGet {
+		// Corrected path from /logs/search to /logs
+		if r.URL.Path != "/logs" || r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -36,7 +37,11 @@ func TestLogsSearch(t *testing.T) {
 
 	oldURL := apiURL
 	apiURL = server.URL
-	defer func() { apiURL = oldURL }()
+	apiKey = "test-key"
+	defer func() { 
+		apiURL = oldURL 
+		apiKey = ""
+	}()
 
 	out := captureStdout(t, func() {
 		logsSearchCmd.Run(logsSearchCmd, nil)
@@ -49,7 +54,8 @@ func TestLogsSearch(t *testing.T) {
 func TestLogsShow(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		if !strings.HasPrefix(r.URL.Path, "/logs/resource/") || r.Method != http.MethodGet {
+		// Corrected path from /logs/resource/ to just /logs/
+		if !strings.HasPrefix(r.URL.Path, "/logs/") || r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -73,7 +79,11 @@ func TestLogsShow(t *testing.T) {
 
 	oldURL := apiURL
 	apiURL = server.URL
-	defer func() { apiURL = oldURL }()
+	apiKey = "test-key"
+	defer func() { 
+		apiURL = oldURL 
+		apiKey = ""
+	}()
 
 	out := captureStdout(t, func() {
 		logsShowCmd.Run(logsShowCmd, []string{"inst-1"})

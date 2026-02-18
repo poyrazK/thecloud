@@ -30,7 +30,11 @@ func TestSSHKeyList(t *testing.T) {
 
 	oldURL := apiURL
 	apiURL = server.URL
-	defer func() { apiURL = oldURL }()
+	apiKey = "test-key"
+	defer func() { 
+		apiURL = oldURL 
+		apiKey = ""
+	}()
 
 	out := captureStdout(t, func() {
 		listKeysCmd.Run(listKeysCmd, nil)
@@ -60,7 +64,11 @@ func TestSSHKeyRegister(t *testing.T) {
 
 	oldURL := apiURL
 	apiURL = server.URL
-	defer func() { apiURL = oldURL }()
+	apiKey = "test-key"
+	defer func() { 
+		apiURL = oldURL 
+		apiKey = ""
+	}()
 
 	// Create a dummy key file
 	tmpFile := "test_pub_key.pub"

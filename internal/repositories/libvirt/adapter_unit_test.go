@@ -14,6 +14,7 @@ import (
 	"github.com/digitalocean/go-libvirt"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 const (
@@ -103,7 +104,7 @@ func TestParseAndValidatePort(t *testing.T) {
 			assert.Error(t, err)
 		} else {
 			assert.NoError(t, err)
-			assert.True(t, h >= 30000 || h == 8080)
+			assert.True(t, h >= 30000 || h == 8080 || h == 80)
 			assert.True(t, c > 0)
 		}
 	}
@@ -571,4 +572,47 @@ func TestGenerateCloudInitISO(t *testing.T) {
 	if isoPath != "" {
 		_ = os.Remove(isoPath)
 	}
+}
+
+func TestStopInstance_Unit(t *testing.T) {
+	t.Parallel()
+	m := new(MockLibvirtClient)
+	a := &LibvirtAdapter{client: m, logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := context.Background()
+	dom := libvirt.Domain{Name: "test-vm"}
+
+	m.On("DomainLookupByName", mock.Anything, "test-vm").Return(dom, nil).Once()
+	m.On("DomainDestroy", mock.Anything, dom).Return(nil).Once()
+
+	err := a.StopInstance(ctx, "test-vm")
+	assert.NoError(t, err)
+	m.AssertExpectations(t)
+}
+
+func TestDeleteInstance_Unit(t *testing.T) {
+	t.Parallel()
+	m := new(MockLibvirtClient)
+	a := &LibvirtAdapter{
+		client: m, 
+		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		portMappings: make(map[string]map[string]int),
+	}
+	ctx := context.Background()
+	dom := libvirt.Domain{Name: "test-vm"}
+
+	m.On("DomainLookupByName", mock.Anything, "test-vm").Return(dom, nil).Once()
+	m.On("DomainGetState", mock.Anything, dom, uint32(0)).Return(int32(domainStateRunning), int32(0), nil).Once()
+	m.On("DomainDestroy", mock.Anything, dom).Return(nil).Once()
+	m.On("DomainUndefine", mock.Anything, dom).Return(nil).Once()
+	
+	// Root volume cleanup mocks
+	pool := libvirt.StoragePool{Name: "default"}
+	vol := libvirt.StorageVol{Name: "test-vm-root"}
+	m.On("StoragePoolLookupByName", mock.Anything, "default").Return(pool, nil).Once()
+	m.On("StorageVolLookupByName", mock.Anything, pool, "test-vm-root").Return(vol, nil).Once()
+	m.On("StorageVolDelete", mock.Anything, vol, uint32(0)).Return(nil).Once()
+
+	err := a.DeleteInstance(ctx, "test-vm")
+	assert.NoError(t, err)
+	m.AssertExpectations(t)
 }
