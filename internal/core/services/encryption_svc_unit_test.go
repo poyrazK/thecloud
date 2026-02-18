@@ -33,7 +33,9 @@ func TestEncryptionService_Unit(t *testing.T) {
 	
 	// Create a valid 32-byte hex master key
 	masterKey := make([]byte, 32)
-	rand.Read(masterKey)
+	_, err := rand.Read(masterKey)
+	assert.NoError(t, err)
+	
 	masterKeyHex := hex.EncodeToString(masterKey)
 
 	svc, err := services.NewEncryptionService(mockRepo, masterKeyHex)
@@ -54,16 +56,6 @@ func TestEncryptionService_Unit(t *testing.T) {
 	})
 
 	t.Run("Encrypt_Decrypt", func(t *testing.T) {
-		// Mock SaveKey indirectly via CreateKey first to get a valid encrypted DEK
-		// But here we need to mock GetKey returning a valid encrypted DEK
-		
-		// 1. Manually encrypt a random DEK using the service's internal helper (not accessible)
-		// Instead, rely on CreateKey logic but capture the DEK?
-		// We can't easily. So let's mock GetKey by using the service to create a valid encrypted DEK first.
-		
-		// Create a separate service instance to generate the encrypted DEK we need for the mock
-		// Using the same master key is crucial.
-		
 		// Helper: create an encrypted DEK payload using the service's logic
 		// Since encryptData is private, we can use CreateKey's logic:
 		// We mock SaveKey to capture the argument passed to it
