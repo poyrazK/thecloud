@@ -33,6 +33,26 @@ func TestContainerService_Unit(t *testing.T) {
 		repo.AssertExpectations(t)
 	})
 
+	t.Run("ListDeployments", func(t *testing.T) {
+		expectedDeps := []*domain.Deployment{{ID: uuid.New(), Name: "dep1"}}
+		repo.On("ListDeployments", mock.Anything, userID).Return(expectedDeps, nil).Once()
+
+		deps, err := svc.ListDeployments(ctx)
+		assert.NoError(t, err)
+		assert.Len(t, deps, 1)
+		assert.Equal(t, "dep1", deps[0].Name)
+	})
+
+	t.Run("GetDeployment", func(t *testing.T) {
+		depID := uuid.New()
+		expectedDep := &domain.Deployment{ID: depID, Name: "dep1"}
+		repo.On("GetDeploymentByID", mock.Anything, depID, userID).Return(expectedDep, nil).Once()
+
+		dep, err := svc.GetDeployment(ctx, depID)
+		assert.NoError(t, err)
+		assert.Equal(t, depID, dep.ID)
+	})
+
 	t.Run("ScaleDeployment", func(t *testing.T) {
 		depID := uuid.New()
 		dep := &domain.Deployment{ID: depID, UserID: userID, Replicas: 2}
