@@ -76,7 +76,7 @@ func TestCloudLogsService_IngestLogs_Unit(t *testing.T) {
 		
 		err := svc.IngestLogs(ctxNoTrace, entries)
 		assert.NoError(t, err)
-		assert.Equal(t, "", entries[0].TraceID)
+		assert.Empty(t, entries[0].TraceID)
 	})
 
 	mockRepo.AssertExpectations(t)
