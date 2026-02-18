@@ -2182,3 +2182,76 @@ func (m *MockLogService) SearchLogs(ctx context.Context, query domain.LogQuery) 
 func (m *MockLogService) RunRetentionPolicy(ctx context.Context, days int) error {
 	return m.Called(ctx, days).Error(0)
 }
+
+// MockSSHKeyRepo
+type MockSSHKeyRepo struct{ mock.Mock }
+
+func (m *MockSSHKeyRepo) Create(ctx context.Context, key *domain.SSHKey) error {
+	return m.Called(ctx, key).Error(0)
+}
+func (m *MockSSHKeyRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.SSHKey, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.SSHKey), args.Error(1)
+}
+func (m *MockSSHKeyRepo) GetByName(ctx context.Context, tenantID uuid.UUID, name string) (*domain.SSHKey, error) {
+	args := m.Called(ctx, tenantID, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.SSHKey), args.Error(1)
+}
+func (m *MockSSHKeyRepo) List(ctx context.Context, tenantID uuid.UUID) ([]*domain.SSHKey, error) {
+	args := m.Called(ctx, tenantID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.SSHKey), args.Error(1)
+}
+func (m *MockSSHKeyRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+
+// MockElasticIPRepo
+type MockElasticIPRepo struct{ mock.Mock }
+
+func (m *MockElasticIPRepo) Create(ctx context.Context, eip *domain.ElasticIP) error {
+	return m.Called(ctx, eip).Error(0)
+}
+func (m *MockElasticIPRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.ElasticIP, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.ElasticIP), args.Error(1)
+}
+func (m *MockElasticIPRepo) GetByPublicIP(ctx context.Context, ip string) (*domain.ElasticIP, error) {
+	args := m.Called(ctx, ip)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.ElasticIP), args.Error(1)
+}
+func (m *MockElasticIPRepo) GetByInstanceID(ctx context.Context, id uuid.UUID) (*domain.ElasticIP, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.ElasticIP), args.Error(1)
+}
+func (m *MockElasticIPRepo) List(ctx context.Context) ([]*domain.ElasticIP, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.ElasticIP), args.Error(1)
+}
+func (m *MockElasticIPRepo) Update(ctx context.Context, eip *domain.ElasticIP) error {
+	return m.Called(ctx, eip).Error(0)
+}
+func (m *MockElasticIPRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+
