@@ -12,8 +12,23 @@ linters:
     - gocyclo
     - gosec
     - bodyclose
+    - revive
+    - errorlint
+    - nilerr
+    - gocritic
+    - unparam
+    - prealloc
+    - nolintlint
+    - misspell
+    - unconvert
+    - testifylint
+    - thelper
 
 linters-settings:
+  revive:
+    rules:
+      - name: exported
+        disabled: true
   errcheck:
     exclude-functions:
       - fmt.Fprintln
