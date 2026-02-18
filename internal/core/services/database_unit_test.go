@@ -68,6 +68,7 @@ func TestDatabaseService_Unit_Extended(t *testing.T) {
 	t.Run("CreateDatabase_Success", func(t *testing.T) {
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).
 			Return("cid", []string{"30001:5432"}, nil).Once()
+		mockCompute.On("GetInstanceIP", mock.Anything, "cid").Return("10.0.0.5", nil).Once()
 		mockRepo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 		mockEventSvc.On("RecordEvent", mock.Anything, "DATABASE_CREATE", mock.Anything, "DATABASE", mock.Anything).
 			Return(nil).Once()
@@ -78,6 +79,26 @@ func TestDatabaseService_Unit_Extended(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, db)
 		assert.Equal(t, 30001, db.Port)
+	})
+
+	t.Run("CreateReplica", func(t *testing.T) {
+		primaryID := uuid.New()
+		primary := &domain.Database{ID: primaryID, Engine: "postgres", Version: "16", Port: 5432, ContainerID: "primary-cid"}
+		mockRepo.On("GetByID", mock.Anything, primaryID).Return(primary, nil).Once()
+		mockCompute.On("GetInstanceIP", mock.Anything, "primary-cid").Return("10.0.0.5", nil).Once()
+		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).
+			Return("cid-rep", []string{"30002:5432"}, nil).Once()
+		mockCompute.On("GetInstanceIP", mock.Anything, "cid-rep").Return("10.0.0.6", nil).Once()
+		mockRepo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
+		mockEventSvc.On("RecordEvent", mock.Anything, "DATABASE_REPLICA_CREATE", mock.Anything, "DATABASE", mock.Anything).
+			Return(nil).Once()
+		mockAuditSvc.On("Log", mock.Anything, mock.Anything, "database.create_replica", "database", mock.Anything, mock.Anything).
+			Return(nil).Once()
+
+		replica, err := svc.CreateReplica(ctx, primaryID, "test-rep")
+		assert.NoError(t, err)
+		assert.NotNil(t, replica)
+		assert.Equal(t, domain.RoleReplica, replica.Role)
 	})
 
 	t.Run("PromoteToPrimary", func(t *testing.T) {
@@ -111,5 +132,20 @@ func TestDatabaseService_Unit_Extended(t *testing.T) {
 		conn, err := svc.GetConnectionString(ctx, dbID)
 		assert.NoError(t, err)
 		assert.Contains(t, conn, "postgres://user:pass@localhost:5432/mydb")
+	})
+
+	t.Run("DeleteDatabase", func(t *testing.T) {
+		dbID := uuid.New()
+		db := &domain.Database{ID: dbID, ContainerID: "cid"}
+		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
+		mockCompute.On("DeleteInstance", mock.Anything, "cid").Return(nil).Once()
+		mockRepo.On("Delete", mock.Anything, dbID).Return(nil).Once()
+		mockEventSvc.On("RecordEvent", mock.Anything, "DATABASE_DELETE", dbID.String(), "DATABASE", mock.Anything).
+			Return(nil).Once()
+		mockAuditSvc.On("Log", mock.Anything, mock.Anything, "database.delete", "database", dbID.String(), mock.Anything).
+			Return(nil).Once()
+
+		err := svc.DeleteDatabase(ctx, dbID)
+		assert.NoError(t, err)
 	})
 }
