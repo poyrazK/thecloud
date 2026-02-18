@@ -52,7 +52,7 @@ func TestTrackUsage(t *testing.T) {
 	records, err := repo.ListRecords(ctx, userID, time.Now().Add(-1*time.Hour), time.Now().Add(1*time.Hour))
 	assert.NoError(t, err)
 	assert.Len(t, records, 1)
-	assert.Equal(t, float64(10), records[0].Quantity)
+	assert.InDelta(t, 10.0, records[0].Quantity, 0.001)
 }
 
 func TestProcessHourlyBilling(t *testing.T) {
