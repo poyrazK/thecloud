@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	stdlib_errors "errors"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -83,7 +84,7 @@ func (r *DatabaseRepository) scanDatabase(row pgx.Row) (*domain.Database, error)
 		&db.ID, &db.UserID, &db.Name, &engine, &db.Version, &status, &role, &db.PrimaryID, &db.VpcID, &db.ContainerID, &db.Port, &db.Username, &db.Password, &db.CreatedAt, &db.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "database not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to scan database", err)

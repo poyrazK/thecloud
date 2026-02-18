@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	stdlib_errors "errors"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -130,7 +131,7 @@ func (r *ElasticIPRepository) scanElasticIP(row pgx.Row) (*domain.ElasticIP, err
 		&eip.CreatedAt, &eip.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "elastic ip not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to scan elastic ip", err)

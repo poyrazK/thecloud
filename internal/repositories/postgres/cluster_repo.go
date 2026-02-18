@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	stdlib_errors "errors"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -209,7 +210,7 @@ func (r *ClusterRepository) scanCluster(row pgx.Row) (*domain.Cluster, error) {
 		&c.JoinToken, &c.TokenExpiresAt, &c.CACertHash, &c.JobID, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to scan cluster", err)

@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	stdlib_errors "errors"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -59,7 +60,7 @@ func (r *DNSRepository) GetZoneByID(ctx context.Context, id uuid.UUID) (*domain.
 		&z.Status, &z.DefaultTTL, &z.PowerDNSID, &z.CreatedAt, &z.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "dns zone not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to get dns zone", err)
@@ -81,7 +82,7 @@ func (r *DNSRepository) GetZoneByName(ctx context.Context, name string) (*domain
 		&z.Status, &z.DefaultTTL, &z.PowerDNSID, &z.CreatedAt, &z.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "dns zone not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to get dns zone by name", err)
@@ -102,7 +103,7 @@ func (r *DNSRepository) GetZoneByVPC(ctx context.Context, vpcID uuid.UUID) (*dom
 		&z.Status, &z.DefaultTTL, &z.PowerDNSID, &z.CreatedAt, &z.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "dns zone for vpc not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to get dns zone by vpc", err)
@@ -196,7 +197,7 @@ func (r *DNSRepository) GetRecordByID(ctx context.Context, id uuid.UUID) (*domai
 		&rec.Disabled, &rec.AutoManaged, &rec.InstanceID, &rec.CreatedAt, &rec.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "dns record not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to get dns record", err)

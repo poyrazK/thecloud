@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	stdlib_errors "errors"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
@@ -201,7 +202,7 @@ func scanGlobalLB(s scanner) (*domain.GlobalLoadBalancer, error) {
 		&glb.Status, &glb.CreatedAt, &glb.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "global load balancer not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to scan global load balancer", err)
@@ -219,7 +220,7 @@ func scanEndpoint(s scanner) (*domain.GlobalEndpoint, error) {
 		&ep.Weight, &ep.Priority, &ep.Healthy, &lastHealthCheck, &ep.CreatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "endpoint not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to scan endpoint", err)
