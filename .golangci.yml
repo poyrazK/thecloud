@@ -23,6 +23,7 @@ linters:
     - unconvert
     - testifylint
     - thelper
+    - forcetypeassert
 
 linters-settings:
   revive:
