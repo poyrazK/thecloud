@@ -3,6 +3,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log/slog"
 	"net"
 	"os"
@@ -18,6 +19,13 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	port := flag.String("port", "9101", "Port to listen on")
 	dataDir := flag.String("data-dir", "./data/storage-node", "Directory to store data")
 	peers := flag.String("peers", "", "Comma-separated list of peer addresses (e.g. localhost:9102)")
@@ -35,18 +43,13 @@ func main() {
 	store, err := node.NewLocalStore(*dataDir)
 	if err != nil {
 		logger.Error("failed to init store", "error", err)
-		os.Exit(1)
+		return err
 	}
 
 	// 2. Init Gossiper
 	gossiper := node.NewGossipProtocol(*nodeID, "localhost:"+*port, logger)
 	if *peers != "" {
 		for _, peerAddr := range strings.Split(*peers, ",") {
-			// For simplicity we use address as ID for initial peers until we know better
-			// In reality we'd need to know ID, or exchange it.
-			// Let's assume user provides ID? No, simplification: ID is unknown.
-			// GossipProtocol needs flexible AddPeer.
-			// For now, let's just add them with a temp ID or same as addr.
 			gossiper.AddPeer(peerAddr, peerAddr)
 		}
 	}
@@ -62,7 +65,7 @@ func main() {
 	lis, err := net.Listen("tcp", ":"+*port)
 	if err != nil {
 		logger.Error("failed to listen", "error", err)
-		os.Exit(1)
+		return err
 	}
 
 	// 4. Handle Shutdown
@@ -77,6 +80,7 @@ func main() {
 	logger.Info("storage node ready")
 	if err := grpcServer.Serve(lis); err != nil {
 		logger.Error("server failed", "error", err)
-		os.Exit(1)
+		return err
 	}
+	return nil
 }
