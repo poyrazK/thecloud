@@ -31,7 +31,8 @@ func (m *mockSecretService) CreateSecret(ctx context.Context, name, value, descr
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Secret), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Secret)
+	return r0, args.Error(1)
 }
 
 func (m *mockSecretService) ListSecrets(ctx context.Context) ([]*domain.Secret, error) {
@@ -39,7 +40,8 @@ func (m *mockSecretService) ListSecrets(ctx context.Context) ([]*domain.Secret, 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Secret), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Secret)
+	return r0, args.Error(1)
 }
 
 func (m *mockSecretService) GetSecret(ctx context.Context, id uuid.UUID) (*domain.Secret, error) {
@@ -47,7 +49,8 @@ func (m *mockSecretService) GetSecret(ctx context.Context, id uuid.UUID) (*domai
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Secret), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Secret)
+	return r0, args.Error(1)
 }
 
 func (m *mockSecretService) GetSecretByName(ctx context.Context, name string) (*domain.Secret, error) {
@@ -55,7 +58,8 @@ func (m *mockSecretService) GetSecretByName(ctx context.Context, name string) (*
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Secret), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Secret)
+	return r0, args.Error(1)
 }
 
 func (m *mockSecretService) DeleteSecret(ctx context.Context, id uuid.UUID) error {

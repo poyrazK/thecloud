@@ -30,7 +30,8 @@ func (m *mockQueueService) CreateQueue(ctx context.Context, name string, opts *p
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Queue), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Queue)
+	return r0, args.Error(1)
 }
 
 func (m *mockQueueService) ListQueues(ctx context.Context) ([]*domain.Queue, error) {
@@ -38,7 +39,8 @@ func (m *mockQueueService) ListQueues(ctx context.Context) ([]*domain.Queue, err
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Queue), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Queue)
+	return r0, args.Error(1)
 }
 
 func (m *mockQueueService) GetQueue(ctx context.Context, id uuid.UUID) (*domain.Queue, error) {
@@ -46,7 +48,8 @@ func (m *mockQueueService) GetQueue(ctx context.Context, id uuid.UUID) (*domain.
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Queue), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Queue)
+	return r0, args.Error(1)
 }
 
 func (m *mockQueueService) DeleteQueue(ctx context.Context, id uuid.UUID) error {
@@ -59,7 +62,8 @@ func (m *mockQueueService) SendMessage(ctx context.Context, queueID uuid.UUID, b
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Message), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Message)
+	return r0, args.Error(1)
 }
 
 func (m *mockQueueService) ReceiveMessages(ctx context.Context, queueID uuid.UUID, max int) ([]*domain.Message, error) {
@@ -67,7 +71,8 @@ func (m *mockQueueService) ReceiveMessages(ctx context.Context, queueID uuid.UUI
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Message), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Message)
+	return r0, args.Error(1)
 }
 
 func (m *mockQueueService) DeleteMessage(ctx context.Context, queueID uuid.UUID, receiptHandle string) error {
