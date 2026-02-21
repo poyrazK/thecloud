@@ -70,10 +70,10 @@ func TestElasticIP_Validate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.eip.Validate()
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Equal(t, tt.msg, err.Error())
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}

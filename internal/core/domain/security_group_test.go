@@ -65,12 +65,12 @@ func TestSecurityGroupValidate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.sg.Validate()
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				if tt.msg != "" {
 					assert.Contains(t, err.Error(), tt.msg)
 				}
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -210,12 +210,12 @@ func TestSecurityRuleValidate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.rule.Validate()
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				if tt.msg != "" {
 					assert.Contains(t, err.Error(), tt.msg)
 				}
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
