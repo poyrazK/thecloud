@@ -116,9 +116,9 @@ func TestSecurityGroupRepositoryGetByID(t *testing.T) {
 		sg, err := repo.GetByID(ctx, id)
 		assert.Error(t, err)
 		assert.Nil(t, sg)
-		theCloudErr, ok := err.(*theclouderrors.Error)
-		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+		var target *theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }
@@ -173,9 +173,10 @@ func TestSecurityGroupRepositoryGetByName(t *testing.T) {
 		sg, err := repo.GetByName(ctx, vpcID, name)
 		assert.Error(t, err)
 		assert.Nil(t, sg)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }
@@ -352,8 +353,10 @@ func TestSecurityGroupRepositoryGetRuleByID(t *testing.T) {
 		rule, err := repo.GetRuleByID(ctx, ruleID)
 		assert.Error(t, err)
 		assert.Nil(t, rule)
-		assert.IsType(t, theclouderrors.Error{}, err)
-		assert.Equal(t, theclouderrors.NotFound, err.(theclouderrors.Error).Type)
+		var target theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
+		}
 	})
 }
 
@@ -446,9 +449,10 @@ func TestSecurityGroupRepositoryAddInstanceToGroup(t *testing.T) {
 
 		err = repo.AddInstanceToGroup(ctx, instanceID, groupID)
 		assert.Error(t, err)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 
@@ -475,9 +479,10 @@ func TestSecurityGroupRepositoryAddInstanceToGroup(t *testing.T) {
 
 		err = repo.AddInstanceToGroup(ctx, instanceID, groupID)
 		assert.Error(t, err)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }
@@ -531,9 +536,10 @@ func TestSecurityGroupRepositoryRemoveInstanceFromGroup(t *testing.T) {
 
 		err = repo.RemoveInstanceFromGroup(ctx, instanceID, groupID)
 		assert.Error(t, err)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }

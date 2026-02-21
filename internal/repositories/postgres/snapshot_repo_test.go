@@ -100,9 +100,9 @@ func TestSnapshotRepository_GetByID(t *testing.T) {
 		s, err := repo.GetByID(ctx, id)
 		assert.Error(t, err)
 		assert.Nil(t, s)
-		theCloudErr, ok := err.(*theclouderrors.Error)
-		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+		var target *theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }
@@ -262,9 +262,9 @@ func TestSnapshotRepository_Delete(t *testing.T) {
 
 		err = repo.Delete(ctx, id)
 		assert.Error(t, err)
-		theCloudErr, ok := err.(*theclouderrors.Error)
-		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+		var target *theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }

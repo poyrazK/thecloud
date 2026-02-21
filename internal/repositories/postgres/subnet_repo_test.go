@@ -110,9 +110,10 @@ func TestSubnetRepositoryGetByID(t *testing.T) {
 		s, err := repo.GetByID(ctx, id)
 		assert.Error(t, err)
 		assert.Nil(t, s)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 
@@ -180,9 +181,10 @@ func TestSubnetRepositoryGetByName(t *testing.T) {
 		s, err := repo.GetByName(ctx, vpcID, name)
 		assert.Error(t, err)
 		assert.Nil(t, s)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }
@@ -286,9 +288,10 @@ func TestSubnetRepositoryDelete(t *testing.T) {
 
 		err = repo.Delete(ctx, id)
 		assert.Error(t, err)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 

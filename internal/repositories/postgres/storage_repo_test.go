@@ -98,9 +98,10 @@ func TestStorageRepository_GetMeta(t *testing.T) {
 		obj, err := repo.GetMeta(ctx, "mybucket", "mykey")
 		assert.Error(t, err)
 		assert.Nil(t, obj)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 
@@ -200,9 +201,10 @@ func TestStorageRepository_SoftDelete(t *testing.T) {
 
 		err = repo.SoftDelete(ctx, bucket, key)
 		assert.Error(t, err)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 
