@@ -991,13 +991,14 @@ func (a *LibvirtAdapter) configureIptables(name, ip, containerPort string, hPort
 func (a *LibvirtAdapter) parseAndValidatePort(p string) (int, int, error) {
 	parts := strings.Split(p, ":")
 	var hostPort, containerPort string
-	if len(parts) == 2 {
+	switch len(parts) {
+	case 2:
 		hostPort = parts[0]
 		containerPort = parts[1]
-	} else if len(parts) == 1 {
+	case 1:
 		hostPort = "0"
 		containerPort = parts[0]
-	} else {
+	default:
 		return 0, 0, fmt.Errorf("invalid port format: too many colons")
 	}
 
