@@ -100,9 +100,9 @@ func TestStackRepository_GetByID(t *testing.T) {
 		s, err := repo.GetByID(context.Background(), id)
 		assert.Error(t, err)
 		assert.Nil(t, s)
-		theCloudErr, ok := err.(*theclouderrors.Error)
-		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+		var target *theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }
@@ -151,9 +151,10 @@ func TestStackRepository_GetByName(t *testing.T) {
 		s, err := repo.GetByName(context.Background(), userID, name)
 		assert.Error(t, err)
 		assert.Nil(t, s)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }

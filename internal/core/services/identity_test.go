@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -24,7 +25,7 @@ func TestIdentityServiceCreateKeySuccess(t *testing.T) {
 	identityRepo := postgres.NewIdentityRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(auditRepo)
-	svc := services.NewIdentityService(identityRepo, auditSvc)
+	svc := services.NewIdentityService(identityRepo, auditSvc, slog.Default())
 
 	key, err := svc.CreateKey(ctx, userID, "Test Key")
 	require.NoError(t, err)
@@ -54,7 +55,7 @@ func TestIdentityServiceValidateAPIKeySuccess(t *testing.T) {
 	identityRepo := postgres.NewIdentityRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(auditRepo)
-	svc := services.NewIdentityService(identityRepo, auditSvc)
+	svc := services.NewIdentityService(identityRepo, auditSvc, slog.Default())
 
 	key, err := svc.CreateKey(ctx, userID, "Val Key")
 	require.NoError(t, err)
@@ -74,7 +75,7 @@ func TestIdentityServiceValidateAPIKeyNotFound(t *testing.T) {
 	identityRepo := postgres.NewIdentityRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(auditRepo)
-	svc := services.NewIdentityService(identityRepo, auditSvc)
+	svc := services.NewIdentityService(identityRepo, auditSvc, slog.Default())
 
 	result, err := svc.ValidateAPIKey(ctx, "invalid-key")
 	assert.Error(t, err)
@@ -91,7 +92,7 @@ func TestIdentityServiceListKeys(t *testing.T) {
 	identityRepo := postgres.NewIdentityRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(auditRepo)
-	svc := services.NewIdentityService(identityRepo, auditSvc)
+	svc := services.NewIdentityService(identityRepo, auditSvc, slog.Default())
 
 	_, err := svc.CreateKey(ctx, userID, "Key 1")
 	require.NoError(t, err)
@@ -113,7 +114,7 @@ func TestIdentityServiceRevokeKey(t *testing.T) {
 	identityRepo := postgres.NewIdentityRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(auditRepo)
-	svc := services.NewIdentityService(identityRepo, auditSvc)
+	svc := services.NewIdentityService(identityRepo, auditSvc, slog.Default())
 
 	t.Run("Success", func(t *testing.T) {
 		key, err := svc.CreateKey(ctx, userID, "To Revoke")
@@ -169,7 +170,7 @@ func TestIdentityServiceRotateKey(t *testing.T) {
 	identityRepo := postgres.NewIdentityRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(auditRepo)
-	svc := services.NewIdentityService(identityRepo, auditSvc)
+	svc := services.NewIdentityService(identityRepo, auditSvc, slog.Default())
 
 	key, err := svc.CreateKey(ctx, userID, "To Rotate")
 	require.NoError(t, err)

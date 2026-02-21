@@ -333,7 +333,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 }
 
 func initIdentityServices(c ServiceConfig, audit ports.AuditService) ports.IdentityService {
-	base := services.NewIdentityService(c.Repos.Identity, audit)
+	base := services.NewIdentityService(c.Repos.Identity, audit, c.Logger)
 	return services.NewCachedIdentityService(base, c.RDB, c.Logger)
 }
 
