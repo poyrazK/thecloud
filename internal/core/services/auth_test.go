@@ -24,7 +24,7 @@ func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *
 	tenantRepo := postgres.NewTenantRepo(db)
 
 	auditSvc := services.NewAuditService(auditRepo)
-	identitySvc := services.NewIdentityService(identityRepo, auditSvc)
+	identitySvc := services.NewIdentityService(identityRepo, auditSvc, slog.Default())
 	tenantSvc := services.NewTenantService(tenantRepo, userRepo, slog.Default())
 	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc)
 
