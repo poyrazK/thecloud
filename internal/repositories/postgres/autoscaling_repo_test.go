@@ -116,9 +116,9 @@ func TestAutoScalingRepo_GetGroupByID(t *testing.T) {
 		g, err := repo.GetGroupByID(ctx, id)
 		assert.Error(t, err)
 		assert.Nil(t, g)
-		theCloudErr, ok := err.(*theclouderrors.Error)
-		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+		var target *theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }
@@ -200,9 +200,9 @@ func TestAutoScalingRepo_UpdateGroup(t *testing.T) {
 
 		err = repo.UpdateGroup(context.Background(), group)
 		assert.Error(t, err)
-		theCloudErr, ok := err.(*theclouderrors.Error)
-		if ok {
-			assert.Equal(t, theclouderrors.Conflict, theCloudErr.Type)
+		var target *theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.Conflict, target.Type)
 		}
 	})
 }
@@ -242,9 +242,10 @@ func TestAutoScalingRepo_DeleteGroup(t *testing.T) {
 
 		err = repo.DeleteGroup(ctx, id)
 		assert.Error(t, err)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }

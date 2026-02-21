@@ -7,62 +7,96 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pashagolub/pgxmock/v3"
-	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAutoScalingRepo_ListAllGroups(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+func TestAutoScalingRepo_Extra(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	t.Run("GroupInstances", func(t *testing.T) {
+		t.Parallel()
+		mock, _ := pgxmock.NewPool()
 		defer mock.Close()
-
 		repo := NewAutoScalingRepo(mock)
-		now := time.Now()
+		groupID := uuid.New()
+		instanceID := uuid.New()
 
-		mock.ExpectQuery("(?s)SELECT.*FROM scaling_groups").
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "idempotency_key", "name", "vpc_id", "load_balancer_id", "image", "ports", "min_instances", "max_instances", "desired_count", "current_count", "status", "version", "created_at", "updated_at"}).
-				AddRow(uuid.New(), uuid.New(), nil, "group-1", uuid.New(), nil, "image", nil, 1, 10, 2, 2, string(domain.ScalingGroupStatusActive), 1, now, now))
-
-		groups, err := repo.ListAllGroups(context.Background())
+		// AddInstanceToGroup
+		mock.ExpectExec("INSERT INTO scaling_group_instances").
+			WithArgs(groupID, instanceID).
+			WillReturnResult(pgxmock.NewResult("INSERT", 1))
+		err := repo.AddInstanceToGroup(ctx, groupID, instanceID)
 		assert.NoError(t, err)
-		assert.Len(t, groups, 1)
-	})
-}
 
-func TestAutoScalingRepo_DeletePolicy(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		mock, err := pgxmock.NewPool()
+		// GetInstancesInGroup
+		mock.ExpectQuery("SELECT instance_id FROM scaling_group_instances").
+			WithArgs(groupID).
+			WillReturnRows(pgxmock.NewRows([]string{"instance_id"}).AddRow(instanceID))
+		ids, err := repo.GetInstancesInGroup(ctx, groupID)
 		assert.NoError(t, err)
-		defer mock.Close()
+		assert.Len(t, ids, 1)
+		assert.Equal(t, instanceID, ids[0])
 
-		repo := NewAutoScalingRepo(mock)
-		id := uuid.New()
-
-		mock.ExpectExec("DELETE FROM scaling_policies").
-			WithArgs(id).
+		// RemoveInstanceFromGroup
+		mock.ExpectExec("DELETE FROM scaling_group_instances").
+			WithArgs(groupID, instanceID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
-
-		err = repo.DeletePolicy(context.Background(), id)
+		err = repo.RemoveInstanceFromGroup(ctx, groupID, instanceID)
 		assert.NoError(t, err)
 	})
-}
 
-func TestAutoScalingRepo_UpdatePolicyLastScaled(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+	t.Run("GetAllScalingGroupInstances", func(t *testing.T) {
+		t.Parallel()
+		mock, _ := pgxmock.NewPool()
 		defer mock.Close()
-
 		repo := NewAutoScalingRepo(mock)
-		id := uuid.New()
-		now := time.Now()
+		groupID := uuid.New()
+		instanceID := uuid.New()
 
-		mock.ExpectExec("UPDATE scaling_policies").
-			WithArgs(pgxmock.AnyArg(), id).
-			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
-
-		err = repo.UpdatePolicyLastScaled(context.Background(), id, now)
+		mock.ExpectQuery("SELECT scaling_group_id, instance_id FROM scaling_group_instances").
+			WithArgs([]uuid.UUID{groupID}).
+			WillReturnRows(pgxmock.NewRows([]string{"scaling_group_id", "instance_id"}).AddRow(groupID, instanceID))
+		
+		result, err := repo.GetAllScalingGroupInstances(ctx, []uuid.UUID{groupID})
 		assert.NoError(t, err)
+		assert.Len(t, result[groupID], 1)
+		assert.Equal(t, instanceID, result[groupID][0])
+	})
+
+	t.Run("GetAverageCPU", func(t *testing.T) {
+		t.Parallel()
+		mock, _ := pgxmock.NewPool()
+		defer mock.Close()
+		repo := NewAutoScalingRepo(mock)
+		instanceID := uuid.New()
+		since := time.Now().Add(-time.Hour)
+
+		mock.ExpectQuery("SELECT COALESCE").
+			WithArgs([]uuid.UUID{instanceID}, since).
+			WillReturnRows(pgxmock.NewRows([]string{"avg"}).AddRow(45.5))
+		
+		avg, err := repo.GetAverageCPU(ctx, []uuid.UUID{instanceID}, since)
+		assert.NoError(t, err)
+		assert.Equal(t, 45.5, avg)
+	})
+	
+	t.Run("GetAllPolicies", func(t *testing.T) {
+		t.Parallel()
+		mock, _ := pgxmock.NewPool()
+		defer mock.Close()
+		repo := NewAutoScalingRepo(mock)
+		groupID := uuid.New()
+		policyID := uuid.New()
+
+		mock.ExpectQuery("SELECT id, scaling_group_id, name, metric_type, target_value, scale_out_step, scale_in_step, cooldown_sec, last_scaled_at FROM scaling_policies").
+			WithArgs([]uuid.UUID{groupID}).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "scaling_group_id", "name", "metric_type", "target_value", "scale_out_step", "scale_in_step", "cooldown_sec", "last_scaled_at"}).
+				AddRow(policyID, groupID, "p1", "cpu", 70.0, 1, 1, 300, nil))
+		
+		result, err := repo.GetAllPolicies(ctx, []uuid.UUID{groupID})
+		assert.NoError(t, err)
+		assert.Len(t, result[groupID], 1)
+		assert.Equal(t, policyID, result[groupID][0].ID)
 	})
 }
