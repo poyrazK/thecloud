@@ -4,6 +4,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	stdlib_errors "errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -105,7 +106,7 @@ func (r *AutoScalingRepo) scanScalingGroup(row pgx.Row) (*domain.ScalingGroup, e
 		&g.MinInstances, &g.MaxInstances, &g.DesiredCount, &g.CurrentCount,
 		&status, &g.Version, &g.CreatedAt, &g.UpdatedAt,
 	)
-	if err == pgx.ErrNoRows {
+	if stdlib_errors.Is(err, pgx.ErrNoRows) {
 		return nil, errs.New(errs.NotFound, "scaling group not found")
 	}
 	if err != nil {

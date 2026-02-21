@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	stdlib_errors "errors"
 	"encoding/json"
 	"fmt"
 
@@ -41,7 +42,7 @@ func (r *iamRepository) GetPolicyByID(ctx context.Context, tenantID uuid.UUID, i
 
 	err := r.db.QueryRow(ctx, query, id, tenantID).Scan(&p.ID, &p.TenantID, &p.Name, &p.Description, &statementsJSON)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "policy not found")
 		}
 		return nil, err
