@@ -105,9 +105,9 @@ func TestSecretRepository_GetByID(t *testing.T) {
 		secret, err := repo.GetByID(ctx, id)
 		assert.Error(t, err)
 		assert.Nil(t, secret)
-		theCloudErr, ok := err.(*theclouderrors.Error)
-		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+		var target *theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestQueueRepository_Create(t *testing.T) {
@@ -163,8 +164,8 @@ func TestQueueRepository_Delete(t *testing.T) {
 
 		err = repo.Delete(context.Background(), id)
 		assert.Error(t, err)
-		theCloudErr, ok := err.(*theclouderrors.Error)
-		if ok {
+		var theCloudErr *theclouderrors.Error
+		if errors.As(err, &theCloudErr) {
 			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
 		}
 	})
@@ -272,7 +273,9 @@ func TestQueueRepository_GetQueueStats(t *testing.T) {
 			WillReturnRows(pgxmock.NewRows([]string{"visible", "in_flight"}).
 				AddRow(10, 5))
 
-		visible, inFlight, err := repo.(*PostgresQueueRepository).GetQueueStats(context.Background(), queueID)
+		postgresRepo, ok := repo.(*PostgresQueueRepository)
+		require.True(t, ok)
+		visible, inFlight, err := postgresRepo.GetQueueStats(context.Background(), queueID)
 		assert.NoError(t, err)
 		assert.Equal(t, 10, visible)
 		assert.Equal(t, 5, inFlight)
