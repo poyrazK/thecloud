@@ -332,7 +332,7 @@ kubeadm join 10.0.0.100:6443 --token abc --discovery-token-ca-cert-hash sha256:1
 kubeadm join 10.0.0.100:6443 --token abc --discovery-token-ca-cert-hash sha256:123 --control-plane --certificate-key xyz
 `
 	// Collect instances for ListInstances mock
-	instances := make([]*domain.Instance, 0, len(clusters))
+	instances := make([]*domain.Instance, 0, len(allNodes))
 	for _, n := range allNodes {
 		inst, _ := instSvc.GetInstance(ctx, n.InstanceID.String())
 		instances = append(instances, inst)
