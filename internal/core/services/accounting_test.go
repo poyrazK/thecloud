@@ -52,7 +52,7 @@ func TestTrackUsage(t *testing.T) {
 	records, err := repo.ListRecords(ctx, userID, time.Now().Add(-1*time.Hour), time.Now().Add(1*time.Hour))
 	assert.NoError(t, err)
 	assert.Len(t, records, 1)
-	assert.Equal(t, float64(10), records[0].Quantity)
+	assert.InDelta(t, 10.0, records[0].Quantity, 0.001)
 }
 
 func TestProcessHourlyBilling(t *testing.T) {
@@ -121,7 +121,7 @@ func TestGetSummary(t *testing.T) {
 		StartTime:    now.Add(-2 * time.Hour),
 		EndTime:      now.Add(-1 * time.Hour),
 	}
-	err = svc.TrackUsage(ctx, rec2) // Fix: use svc.TrackUsage instead of repo directly to be consistent or just use svc
+	err = svc.TrackUsage(ctx, rec2)
 	require.NoError(t, err)
 
 	// Get Summary
@@ -129,10 +129,8 @@ func TestGetSummary(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, summary)
 
-	// Check logic. Instance: $0.01 per minute? Storage: $0.005 per unit?
-	// Need to verify pricing model in service implementation.
-	// Failing that, just verify TotalAmount > 0
-	assert.Greater(t, summary.TotalAmount, 0.0)
+	// Verify TotalAmount
+	assert.Positive(t, summary.TotalAmount)
 }
 
 func TestListUsage(t *testing.T) {
