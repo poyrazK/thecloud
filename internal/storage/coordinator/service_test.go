@@ -28,32 +28,38 @@ type MockStorageNodeClient struct {
 
 func (m *MockStorageNodeClient) Store(ctx context.Context, in *pb.StoreRequest, opts ...grpc.CallOption) (*pb.StoreResponse, error) {
 	args := m.Called(ctx, in)
-	return args.Get(0).(*pb.StoreResponse), args.Error(1)
+	r0, _ := args.Get(0).(*pb.StoreResponse)
+	return r0, args.Error(1)
 }
 
 func (m *MockStorageNodeClient) Retrieve(ctx context.Context, in *pb.RetrieveRequest, opts ...grpc.CallOption) (*pb.RetrieveResponse, error) {
 	args := m.Called(ctx, in)
-	return args.Get(0).(*pb.RetrieveResponse), args.Error(1)
+	r0, _ := args.Get(0).(*pb.RetrieveResponse)
+	return r0, args.Error(1)
 }
 
 func (m *MockStorageNodeClient) Delete(ctx context.Context, in *pb.DeleteRequest, opts ...grpc.CallOption) (*pb.DeleteResponse, error) {
 	args := m.Called(ctx, in)
-	return args.Get(0).(*pb.DeleteResponse), args.Error(1)
+	r0, _ := args.Get(0).(*pb.DeleteResponse)
+	return r0, args.Error(1)
 }
 
 func (m *MockStorageNodeClient) Gossip(ctx context.Context, in *pb.GossipMessage, opts ...grpc.CallOption) (*pb.GossipResponse, error) {
 	args := m.Called(ctx, in)
-	return args.Get(0).(*pb.GossipResponse), args.Error(1)
+	r0, _ := args.Get(0).(*pb.GossipResponse)
+	return r0, args.Error(1)
 }
 
 func (m *MockStorageNodeClient) GetClusterStatus(ctx context.Context, in *pb.Empty, opts ...grpc.CallOption) (*pb.ClusterStatusResponse, error) {
 	args := m.Called(ctx, in)
-	return args.Get(0).(*pb.ClusterStatusResponse), args.Error(1)
+	r0, _ := args.Get(0).(*pb.ClusterStatusResponse)
+	return r0, args.Error(1)
 }
 
 func (m *MockStorageNodeClient) Assemble(ctx context.Context, in *pb.AssembleRequest, opts ...grpc.CallOption) (*pb.AssembleResponse, error) {
 	args := m.Called(ctx, in)
-	return args.Get(0).(*pb.AssembleResponse), args.Error(1)
+	r0, _ := args.Get(0).(*pb.AssembleResponse)
+	return r0, args.Error(1)
 }
 
 func TestCoordinatorWriteQuorum(t *testing.T) {

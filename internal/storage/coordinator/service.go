@@ -164,7 +164,7 @@ func (c *Coordinator) Assemble(ctx context.Context, bucket, key string, parts []
 
 	// 3. Quorum check
 	if successCount < c.writeQuorum {
-		return 0, fmt.Errorf("assemble quorum failed (%d/%d): %v", successCount, c.writeQuorum, lastErr)
+		return 0, fmt.Errorf("assemble quorum failed (%d/%d): %w", successCount, c.writeQuorum, lastErr)
 	}
 
 	return size, nil
@@ -221,7 +221,7 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 	// 4. Check Quorum
 	if successCount < c.writeQuorum {
 		platform.StorageOperations.WithLabelValues("cluster_write", bucket, "quorum_failure").Inc()
-		return 0, fmt.Errorf("write quorum failed (%d/%d): %v", successCount, c.writeQuorum, lastErr)
+		return 0, fmt.Errorf("write quorum failed (%d/%d): %w", successCount, c.writeQuorum, lastErr)
 	}
 
 	platform.StorageOperations.WithLabelValues("cluster_write", bucket, "success").Inc()

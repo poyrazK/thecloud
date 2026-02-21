@@ -65,7 +65,9 @@ func TestWaitForSSH(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = l.Close() }()
 
-	port := l.Addr().(*net.TCPAddr).Port
+	tcpAddr, ok := l.Addr().(*net.TCPAddr)
+	require.True(t, ok)
+	port := tcpAddr.Port
 	host := fmt.Sprintf("%s:%d", testLocalhostIP, port)
 
 	client := &Client{Host: host}
@@ -112,7 +114,9 @@ func TestRunConnectionRefused(t *testing.T) {
 	// Ensure we pick a port that rejects connection
 	l, err := net.Listen("tcp", testLoopbackAddr)
 	require.NoError(t, err)
-	port := l.Addr().(*net.TCPAddr).Port
+	tcpAddr, ok := l.Addr().(*net.TCPAddr)
+	require.True(t, ok)
+	port := tcpAddr.Port
 	_ = l.Close() // Close immediately to ensure connection refused
 
 	host := fmt.Sprintf("%s:%d", testLocalhostIP, port)

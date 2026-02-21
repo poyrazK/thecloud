@@ -35,7 +35,8 @@ func (m *mockIdentityService) CreateKey(ctx context.Context, userID uuid.UUID, n
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).(*domain.APIKey)
+	return r0, args.Error(1)
 }
 
 func (m *mockIdentityService) ValidateAPIKey(ctx context.Context, key string) (*domain.APIKey, error) {
@@ -43,11 +44,13 @@ func (m *mockIdentityService) ValidateAPIKey(ctx context.Context, key string) (*
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).(*domain.APIKey)
+	return r0, args.Error(1)
 }
 func (m *mockIdentityService) ListKeys(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
 	args := m.Called(ctx, userID)
-	return args.Get(0).([]*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.APIKey)
+	return r0, args.Error(1)
 }
 func (m *mockIdentityService) RevokeKey(ctx context.Context, userID, id uuid.UUID) error {
 	args := m.Called(ctx, userID, id)
@@ -55,7 +58,8 @@ func (m *mockIdentityService) RevokeKey(ctx context.Context, userID, id uuid.UUI
 }
 func (m *mockIdentityService) RotateKey(ctx context.Context, userID, id uuid.UUID) (*domain.APIKey, error) {
 	args := m.Called(ctx, userID, id)
-	return args.Get(0).(*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).(*domain.APIKey)
+	return r0, args.Error(1)
 }
 
 type mockTenantService struct {
@@ -89,7 +93,8 @@ func (m *mockTenantService) GetMembership(ctx context.Context, tenantID, userID 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.TenantMember), args.Error(1)
+	r0, _ := args.Get(0).(*domain.TenantMember)
+	return r0, args.Error(1)
 }
 func (m *mockTenantService) IncrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error {
 	return nil
