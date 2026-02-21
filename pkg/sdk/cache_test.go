@@ -15,8 +15,6 @@ const (
 	cacheTestAPIKey      = "test-api-key"
 	cacheTestName        = "my-cache"
 	cacheTestID          = "cache-1"
-	cacheTestKey         = "foo"
-	cacheTestVal         = "bar"
 	cacheTestBasePath    = "/api/v1/caches"
 	cacheTestContentType = "Content-Type"
 	cacheTestAppJSON     = "application/json"
@@ -47,19 +45,28 @@ func newCacheTestServer(t *testing.T) *httptest.Server {
 					{"id": cacheTestID, "name": cacheTestName},
 				},
 			})
+		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID && r.Method == http.MethodGet:
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"data": map[string]interface{}{
+					"id":   cacheTestID,
+					"name": cacheTestName,
+				},
+			})
 		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID && r.Method == http.MethodDelete:
 			w.WriteHeader(http.StatusNoContent)
-		case r.URL.Path == fmt.Sprintf("%s/%s/items/%s", cacheTestBasePath, cacheTestID, cacheTestKey):
-			if r.Method == http.MethodPut {
-				w.WriteHeader(http.StatusNoContent)
-			} else if r.Method == http.MethodGet {
-				w.WriteHeader(http.StatusOK)
-				_ = json.NewEncoder(w).Encode(map[string]interface{}{
-					"data": cacheTestVal,
-				})
-			} else if r.Method == http.MethodDelete {
-				w.WriteHeader(http.StatusNoContent)
-			}
+		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID+"/connection" && r.Method == http.MethodGet:
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"data": "redis://localhost:6379",
+			})
+		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID+"/flush" && r.Method == http.MethodPost:
+			w.WriteHeader(http.StatusNoContent)
+		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID+"/stats" && r.Method == http.MethodGet:
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"data": map[string]interface{}{"hits": 100, "misses": 5},
+			})
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -86,20 +93,29 @@ func TestCacheSDK(t *testing.T) {
 		assert.Len(t, cs, 1)
 	})
 
-	t.Run("SetCacheItem", func(t *testing.T) {
-		err := client.SetCacheItem(cacheTestID, cacheTestKey, cacheTestVal, 0)
+	t.Run("GetCache", func(t *testing.T) {
+		c, err := client.GetCache(cacheTestID)
+		assert.NoError(t, err)
+		if c != nil {
+			assert.Equal(t, cacheTestID, c.ID)
+		}
+	})
+
+	t.Run("GetCacheConnectionString", func(t *testing.T) {
+		conn, err := client.GetCacheConnectionString(cacheTestID)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, conn)
+	})
+
+	t.Run("FlushCache", func(t *testing.T) {
+		err := client.FlushCache(cacheTestID)
 		assert.NoError(t, err)
 	})
 
-	t.Run("GetCacheItem", func(t *testing.T) {
-		val, err := client.GetCacheItem(cacheTestID, cacheTestKey)
+	t.Run("GetCacheStats", func(t *testing.T) {
+		stats, err := client.GetCacheStats(cacheTestID)
 		assert.NoError(t, err)
-		assert.Equal(t, cacheTestVal, val)
-	})
-
-	t.Run("DeleteCacheItem", func(t *testing.T) {
-		err := client.DeleteCacheItem(cacheTestID, cacheTestKey)
-		assert.NoError(t, err)
+		assert.NotNil(t, stats)
 	})
 
 	t.Run("DeleteCache", func(t *testing.T) {
@@ -122,13 +138,16 @@ func TestCacheSDKErrors(t *testing.T) {
 	_, err = client.ListCaches()
 	assert.Error(t, err)
 
-	err = client.SetCacheItem(cacheTestID, "k", "v", 0)
+	_, err = client.GetCache(cacheTestID)
 	assert.Error(t, err)
 
-	_, err = client.GetCacheItem(cacheTestID, "k")
+	_, err = client.GetCacheConnectionString(cacheTestID)
 	assert.Error(t, err)
 
-	err = client.DeleteCacheItem(cacheTestID, "k")
+	err = client.FlushCache(cacheTestID)
+	assert.Error(t, err)
+
+	_, err = client.GetCacheStats(cacheTestID)
 	assert.Error(t, err)
 
 	err = client.DeleteCache(cacheTestID)
