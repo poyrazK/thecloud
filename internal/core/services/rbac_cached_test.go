@@ -55,21 +55,24 @@ func (m *mockRBACService) GetRoleByID(ctx context.Context, id uuid.UUID) (*domai
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Role), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Role)
+	return r0, args.Error(1)
 }
 func (m *mockRBACService) GetRoleByName(ctx context.Context, name string) (*domain.Role, error) {
 	args := m.Called(ctx, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Role), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Role)
+	return r0, args.Error(1)
 }
 func (m *mockRBACService) ListRoles(ctx context.Context) ([]*domain.Role, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Role), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Role)
+	return r0, args.Error(1)
 }
 func (m *mockRBACService) UpdateRole(ctx context.Context, role *domain.Role) error {
 	_ = "UpdateRole"
@@ -98,7 +101,8 @@ func (m *mockRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User,
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.User), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.User)
+	return r0, args.Error(1)
 }
 
 func (m *mockRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error) {
