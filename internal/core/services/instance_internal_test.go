@@ -101,8 +101,8 @@ func TestInstanceService_CalculateInstanceStats(t *testing.T) {
 	stats.MemoryStats.Limit = 2048
 
 	res := svc.calculateInstanceStats(stats)
-	assert.Equal(t, 10.0, res.CPUPercentage) // (1000-500)/(10000-5000) * 100 = 10%
-	assert.Equal(t, 50.0, res.MemoryPercentage)
+	assert.InDelta(t, 10.0, res.CPUPercentage, 0.01) // (1000-500)/(10000-5000) * 100 = 10%
+	assert.InDelta(t, 50.0, res.MemoryPercentage, 0.01)
 }
 
 func TestInstanceService_FormatContainerName(t *testing.T) {

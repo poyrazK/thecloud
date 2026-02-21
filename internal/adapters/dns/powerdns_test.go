@@ -44,7 +44,8 @@ func TestPowerDNSCreateZone(t *testing.T) {
 			var reqBody map[string]interface{}
 			_ = json.Unmarshal(body, &reqBody)
 			rrsets, ok := reqBody["rrsets"].([]interface{})
-			if !assert.True(t, ok, "rrsets must be present in request") {
+			if !ok {
+				t.Errorf("expected rrsets in request body")
 				return
 			}
 			assert.Len(t, rrsets, 1) // Expect SOA record
@@ -73,7 +74,10 @@ func TestPowerDNSAddRecords(t *testing.T) {
 		var reqBody map[string]interface{}
 		_ = json.NewDecoder(r.Body).Decode(&reqBody)
 		rrsets, ok := reqBody["rrsets"].([]interface{})
-		require.True(t, ok)
+		if !ok {
+			t.Errorf("expected rrsets in request body")
+			return
+		}
 		assert.Len(t, rrsets, 1)
 
 		w.WriteHeader(http.StatusNoContent)
@@ -122,11 +126,17 @@ func TestPowerDNSUpdateRecords(t *testing.T) {
 		var reqBody map[string]interface{}
 		_ = json.NewDecoder(r.Body).Decode(&reqBody)
 		rrsets, ok := reqBody["rrsets"].([]interface{})
-		require.True(t, ok)
+		if !ok {
+			t.Errorf("expected rrsets in request body")
+			return
+		}
 		assert.Len(t, rrsets, 1)
 
 		rrset, ok := rrsets[0].(map[string]interface{})
-		require.True(t, ok)
+		if !ok {
+			t.Errorf("expected rrset to be map[string]interface{}")
+			return
+		}
 		assert.Equal(t, "REPLACE", rrset["changetype"])
 
 		w.WriteHeader(http.StatusNoContent)
@@ -158,11 +168,17 @@ func TestPowerDNSDeleteRecords(t *testing.T) {
 		var reqBody map[string]interface{}
 		_ = json.NewDecoder(r.Body).Decode(&reqBody)
 		rrsets, ok := reqBody["rrsets"].([]interface{})
-		require.True(t, ok)
+		if !ok {
+			t.Errorf("expected rrsets in request body")
+			return
+		}
 		assert.Len(t, rrsets, 1)
 
 		rrset, ok := rrsets[0].(map[string]interface{})
-		require.True(t, ok)
+		if !ok {
+			t.Errorf("expected rrset to be map[string]interface{}")
+			return
+		}
 		assert.Equal(t, "DELETE", rrset["changetype"])
 		assert.Equal(t, "www."+testPDNSZone, rrset["name"])
 
