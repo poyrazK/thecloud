@@ -25,35 +25,40 @@ func (m *mockInstanceRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.I
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceRepo) GetByName(ctx context.Context, name string) (*domain.Instance, error) {
 	args := m.Called(ctx, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceRepo) List(ctx context.Context) ([]*domain.Instance, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceRepo) ListAll(ctx context.Context) ([]*domain.Instance, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceRepo) ListBySubnet(ctx context.Context, subnetID uuid.UUID) ([]*domain.Instance, error) {
 	args := m.Called(ctx, subnetID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceRepo) Update(ctx context.Context, instance *domain.Instance) error {
 	return m.Called(ctx, instance).Error(0)
@@ -71,14 +76,16 @@ func (m *mockInstanceSvc) LaunchInstance(ctx context.Context, params ports.Launc
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceSvc) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (*domain.Instance, error) {
 	args := m.Called(ctx, opts)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceSvc) StartInstance(ctx context.Context, idOrName string) error {
 	return m.Called(ctx, idOrName).Error(0)
@@ -91,14 +98,16 @@ func (m *mockInstanceSvc) ListInstances(ctx context.Context) ([]*domain.Instance
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceSvc) GetInstance(ctx context.Context, idOrName string) (*domain.Instance, error) {
 	args := m.Called(ctx, idOrName)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceSvc) GetInstanceLogs(ctx context.Context, idOrName string) (string, error) {
 	args := m.Called(ctx, idOrName)
@@ -109,7 +118,8 @@ func (m *mockInstanceSvc) GetInstanceStats(ctx context.Context, idOrName string)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.InstanceStats), args.Error(1)
+	r0, _ := args.Get(0).(*domain.InstanceStats)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceSvc) GetConsoleURL(ctx context.Context, idOrName string) (string, error) {
 	args := m.Called(ctx, idOrName)
