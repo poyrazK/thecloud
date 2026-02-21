@@ -79,6 +79,11 @@ func Is(err error, t Type) bool {
 	return false
 }
 
+// As finds the first error in err's chain that matches target.
+func As(err error, target any) bool {
+	return stdlib_errors.As(err, target)
+}
+
 // GetCause returns the underlying cause for logging purposes (not for client exposure)
 func GetCause(err error) error {
 	var e Error
