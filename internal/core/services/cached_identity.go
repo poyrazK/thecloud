@@ -23,6 +23,9 @@ type cachedIdentityService struct {
 
 // NewCachedIdentityService wraps an IdentityService with a redis-backed cache.
 func NewCachedIdentityService(base ports.IdentityService, redis *redis.Client, logger *slog.Logger) ports.IdentityService {
+	if redis == nil {
+		return base
+	}
 	return &cachedIdentityService{
 		base:   base,
 		redis:  redis,
@@ -30,7 +33,6 @@ func NewCachedIdentityService(base ports.IdentityService, redis *redis.Client, l
 		ttl:    5 * time.Minute,
 	}
 }
-
 func (s *cachedIdentityService) CreateKey(ctx context.Context, userID uuid.UUID, name string) (*domain.APIKey, error) {
 	return s.base.CreateKey(ctx, userID, name)
 }
