@@ -35,7 +35,8 @@ func (m *mockImageService) RegisterImage(ctx context.Context, name, description,
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Image), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Image)
+	return r0, args.Error(1)
 }
 
 func (m *mockImageService) UploadImage(ctx context.Context, id uuid.UUID, reader io.Reader) error {
@@ -48,7 +49,8 @@ func (m *mockImageService) GetImage(ctx context.Context, id uuid.UUID) (*domain.
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Image), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Image)
+	return r0, args.Error(1)
 }
 
 func (m *mockImageService) ListImages(ctx context.Context, userID uuid.UUID, includePublic bool) ([]*domain.Image, error) {
@@ -56,7 +58,8 @@ func (m *mockImageService) ListImages(ctx context.Context, userID uuid.UUID, inc
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Image), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Image)
+	return r0, args.Error(1)
 }
 
 func (m *mockImageService) DeleteImage(ctx context.Context, id uuid.UUID) error {
