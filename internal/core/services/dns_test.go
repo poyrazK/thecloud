@@ -128,6 +128,48 @@ func TestDNSServiceDeleteZone(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestDNSServiceGetZoneByVPC(t *testing.T) {
+	svc, _, vpcRepo, _, _, ctx := setupDNSServiceTest(t)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	vpc := &domain.VPC{ID: uuid.New(), UserID: userID, TenantID: tenantID, Name: "vpc-zone-" + uuid.New().String()}
+	_ = vpcRepo.Create(ctx, vpc)
+
+	_, err := svc.CreateZone(ctx, vpc.ID, "vpc-zone.com", "")
+	require.NoError(t, err)
+
+	t.Run("success", func(t *testing.T) {
+		zone, err := svc.GetZoneByVPC(ctx, vpc.ID)
+		assert.NoError(t, err)
+		assert.NotNil(t, zone)
+		assert.Equal(t, "vpc-zone.com", zone.Name)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		_, err := svc.GetZoneByVPC(ctx, uuid.New())
+		assert.Error(t, err)
+	})
+}
+
+func TestDNSServiceListZones(t *testing.T) {
+	svc, _, vpcRepo, _, _, ctx := setupDNSServiceTest(t)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	vpc1 := &domain.VPC{ID: uuid.New(), UserID: userID, TenantID: tenantID, Name: "vpc1"}
+	vpc2 := &domain.VPC{ID: uuid.New(), UserID: userID, TenantID: tenantID, Name: "vpc2"}
+	_ = vpcRepo.Create(ctx, vpc1)
+	_ = vpcRepo.Create(ctx, vpc2)
+
+	_, _ = svc.CreateZone(ctx, vpc1.ID, "z1.com", "")
+	_, _ = svc.CreateZone(ctx, vpc2.ID, "z2.com", "")
+
+	zones, err := svc.ListZones(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, zones, 2)
+}
+
 func TestDNSServiceRecords(t *testing.T) {
 	svc, _, vpcRepo, _, _, ctx := setupDNSServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
