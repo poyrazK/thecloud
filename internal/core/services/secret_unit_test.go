@@ -25,21 +25,24 @@ func (m *MockSecretRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Sec
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Secret), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Secret)
+	return r0, args.Error(1)
 }
 func (m *MockSecretRepo) GetByName(ctx context.Context, name string) (*domain.Secret, error) {
 	args := m.Called(ctx, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Secret), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Secret)
+	return r0, args.Error(1)
 }
 func (m *MockSecretRepo) List(ctx context.Context) ([]*domain.Secret, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Secret), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Secret)
+	return r0, args.Error(1)
 }
 func (m *MockSecretRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
