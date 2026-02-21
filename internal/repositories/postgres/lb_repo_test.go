@@ -193,8 +193,8 @@ func TestLBRepositoryUpdate(t *testing.T) {
 
 		err = repo.Update(context.Background(), lb)
 		assert.Error(t, err)
-		theCloudErr, ok := err.(*theclouderrors.Error)
-		if ok {
+		var theCloudErr *theclouderrors.Error
+		if errors.As(err, &theCloudErr) {
 			assert.Equal(t, theclouderrors.Conflict, theCloudErr.Type)
 		}
 	})

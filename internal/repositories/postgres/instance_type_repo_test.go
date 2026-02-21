@@ -80,7 +80,10 @@ func TestInstanceTypeRepositoryGetByID(t *testing.T) {
 		it, err := repo.GetByID(context.Background(), id)
 		assert.Error(t, err)
 		assert.Nil(t, it)
-		assert.Equal(t, theclouderrors.NotFound, err.(theclouderrors.Error).Type)
+		var target *theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
+		}
 	})
 }
 
@@ -156,7 +159,10 @@ func TestInstanceTypeRepositoryUpdate(t *testing.T) {
 		updated, err := repo.Update(context.Background(), it)
 		assert.Error(t, err)
 		assert.Nil(t, updated)
-		assert.Equal(t, theclouderrors.NotFound, err.(theclouderrors.Error).Type)
+		var target *theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
+		}
 	})
 }
 
@@ -191,6 +197,9 @@ func TestInstanceTypeRepositoryDelete(t *testing.T) {
 
 		err = repo.Delete(context.Background(), id)
 		assert.Error(t, err)
-		assert.Equal(t, theclouderrors.NotFound, err.(theclouderrors.Error).Type)
+		var target *theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
+		}
 	})
 }
