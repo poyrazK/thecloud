@@ -21,8 +21,9 @@ const (
 )
 
 func newLoadBalancerTestServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Helper()
 		w.Header().Set(lbContentType, lbApplicationJSON)
 
 		if handleLBBase(w, r) {

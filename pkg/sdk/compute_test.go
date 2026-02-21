@@ -186,7 +186,7 @@ func TestClientGetInstanceStats(t *testing.T) {
 	stats, err := client.GetInstanceStats(computeInstanceID)
 
 	assert.NoError(t, err)
-	assert.Equal(t, 15.5, stats.CPUPercentage)
+	assert.InDelta(t, 15.5, stats.CPUPercentage, 0.01)
 }
 
 func TestClientComputeErrors(t *testing.T) {
