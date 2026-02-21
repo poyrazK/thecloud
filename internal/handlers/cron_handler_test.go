@@ -36,7 +36,8 @@ func (m *mockCronService) CreateJob(ctx context.Context, name, schedule, targetU
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.CronJob), args.Error(1)
+	r0, _ := args.Get(0).(*domain.CronJob)
+	return r0, args.Error(1)
 }
 
 func (m *mockCronService) ListJobs(ctx context.Context) ([]*domain.CronJob, error) {
@@ -44,7 +45,8 @@ func (m *mockCronService) ListJobs(ctx context.Context) ([]*domain.CronJob, erro
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.CronJob), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.CronJob)
+	return r0, args.Error(1)
 }
 
 func (m *mockCronService) GetJob(ctx context.Context, id uuid.UUID) (*domain.CronJob, error) {
@@ -52,7 +54,8 @@ func (m *mockCronService) GetJob(ctx context.Context, id uuid.UUID) (*domain.Cro
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.CronJob), args.Error(1)
+	r0, _ := args.Get(0).(*domain.CronJob)
+	return r0, args.Error(1)
 }
 
 func (m *mockCronService) PauseJob(ctx context.Context, id uuid.UUID) error {

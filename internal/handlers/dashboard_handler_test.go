@@ -25,7 +25,8 @@ func (m *dashboardServiceMock) GetSummary(ctx context.Context) (*domain.Resource
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.ResourceSummary), args.Error(1)
+	r0, _ := args.Get(0).(*domain.ResourceSummary)
+	return r0, args.Error(1)
 }
 
 func (m *dashboardServiceMock) GetRecentEvents(ctx context.Context, limit int) ([]*domain.Event, error) {
@@ -33,7 +34,8 @@ func (m *dashboardServiceMock) GetRecentEvents(ctx context.Context, limit int) (
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Event), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Event)
+	return r0, args.Error(1)
 }
 
 func (m *dashboardServiceMock) GetStats(ctx context.Context) (*domain.DashboardStats, error) {
@@ -42,7 +44,8 @@ func (m *dashboardServiceMock) GetStats(ctx context.Context) (*domain.DashboardS
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.DashboardStats), args.Error(1)
+	r0, _ := args.Get(0).(*domain.DashboardStats)
+	return r0, args.Error(1)
 }
 
 func setupDashboardHandlerTest(_ *testing.T) (*dashboardServiceMock, *DashboardHandler, *gin.Engine) {

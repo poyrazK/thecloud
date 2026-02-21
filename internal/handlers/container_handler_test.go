@@ -35,7 +35,8 @@ func (m *mockContainerService) CreateDeployment(ctx context.Context, name, image
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Deployment), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Deployment)
+	return r0, args.Error(1)
 }
 
 func (m *mockContainerService) ListDeployments(ctx context.Context) ([]*domain.Deployment, error) {
@@ -43,7 +44,8 @@ func (m *mockContainerService) ListDeployments(ctx context.Context) ([]*domain.D
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Deployment), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Deployment)
+	return r0, args.Error(1)
 }
 
 func (m *mockContainerService) GetDeployment(ctx context.Context, id uuid.UUID) (*domain.Deployment, error) {
@@ -51,7 +53,8 @@ func (m *mockContainerService) GetDeployment(ctx context.Context, id uuid.UUID) 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Deployment), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Deployment)
+	return r0, args.Error(1)
 }
 
 func (m *mockContainerService) ScaleDeployment(ctx context.Context, id uuid.UUID, replicas int) error {
