@@ -15,18 +15,19 @@ import (
 func TestFunctionService_InternalExtract(t *testing.T) {
 	s := &FunctionService{logger: slog.Default()}
 	tmpDir, _ := os.MkdirTemp("", "test-extract-*")
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	t.Run("extractZip successful", func(t *testing.T) {
 		buf := new(bytes.Buffer)
 		zw := zip.NewWriter(buf)
 		f, _ := zw.Create("hello.txt")
 		_, _ = f.Write([]byte("hello world"))
-		zw.Close()
+		_ = zw.Close()
 
 		err := s.extractZip(bytes.NewReader(buf.Bytes()), tmpDir)
 		assert.NoError(t, err)
 
+		//nolint:gosec
 		content, _ := os.ReadFile(filepath.Join(tmpDir, "hello.txt"))
 		assert.Equal(t, "hello world", string(content))
 	})
@@ -36,7 +37,7 @@ func TestFunctionService_InternalExtract(t *testing.T) {
 		zw := zip.NewWriter(buf)
 		// Zip file with relative path attempting traversal
 		_, _ = zw.Create("../traversal.txt")
-		zw.Close()
+		_ = zw.Close()
 
 		err := s.extractZip(bytes.NewReader(buf.Bytes()), tmpDir)
 		assert.Error(t, err)
