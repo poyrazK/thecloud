@@ -472,6 +472,21 @@ func TestClose(t *testing.T) {
 	m.AssertExpectations(t)
 }
 
+func TestPing(t *testing.T) {
+	t.Parallel()
+	m := new(MockLibvirtClient)
+	a := &LibvirtAdapter{client: m}
+	m.On("Connect", mock.Anything).Return(nil).Once()
+	err := a.Ping(context.Background())
+	assert.NoError(t, err)
+}
+
+func TestType(t *testing.T) {
+	t.Parallel()
+	a := &LibvirtAdapter{}
+	assert.Equal(t, "libvirt", a.Type())
+}
+
 func TestWaitInitialIPContextCancellation(t *testing.T) {
 	t.Parallel()
 	a := &LibvirtAdapter{
@@ -615,4 +630,199 @@ func TestDeleteInstance_Unit(t *testing.T) {
 	err := a.DeleteInstance(ctx, "test-vm")
 	assert.NoError(t, err)
 	m.AssertExpectations(t)
+}
+
+func TestLibvirtAdapter_StartInstance(t *testing.T) {
+	t.Parallel()
+	m := new(MockLibvirtClient)
+	a := &LibvirtAdapter{client: m, logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := context.Background()
+	dom := libvirt.Domain{Name: "test-vm"}
+
+	m.On("DomainLookupByName", mock.Anything, "test-vm").Return(dom, nil).Once()
+	m.On("DomainCreate", mock.Anything, dom).Return(nil).Once()
+
+	err := a.StartInstance(ctx, "test-vm")
+	assert.NoError(t, err)
+	m.AssertExpectations(t)
+}
+
+func TestLibvirtAdapter_VolumeOps(t *testing.T) {
+	t.Parallel()
+	m := new(MockLibvirtClient)
+	a := &LibvirtAdapter{client: m, logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := context.Background()
+	dom := libvirt.Domain{Name: "test-vm"}
+	volPath := "/path/to/vol"
+
+	t.Run("AttachVolume", func(t *testing.T) {
+		m.On("DomainLookupByName", mock.Anything, "test-vm").Return(dom, nil).Once()
+		m.On("DomainAttachDevice", mock.Anything, dom, mock.Anything).Return(nil).Once()
+		err := a.AttachVolume(ctx, "test-vm", volPath)
+		assert.NoError(t, err)
+	})
+
+	t.Run("DetachVolume", func(t *testing.T) {
+		m.On("DomainLookupByName", mock.Anything, "test-vm").Return(dom, nil).Once()
+		m.On("DomainDetachDevice", mock.Anything, dom, mock.Anything).Return(nil).Once()
+		err := a.DetachVolume(ctx, "test-vm", volPath)
+		assert.NoError(t, err)
+	})
+	m.AssertExpectations(t)
+}
+
+func TestLibvirtAdapter_WaitInitialIP(t *testing.T) {
+	t.Parallel()
+	m := new(MockLibvirtClient)
+	a := &LibvirtAdapter{
+		client:         m,
+		ipWaitInterval: time.Millisecond,
+		logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	ctx := context.Background()
+	id := "test-vm"
+	dom := libvirt.Domain{Name: id}
+	mac := "52:54:00:12:34:56"
+	xml := fmt.Sprintf("<domain><devices><interface type='network'><mac address='%s'/></interface></devices></domain>", mac)
+	network := libvirt.Network{Name: "default"}
+
+	t.Run("success after retry", func(t *testing.T) {
+		m.On("DomainLookupByName", mock.Anything, id).Return(dom, nil)
+		m.On("DomainGetXMLDesc", mock.Anything, dom, mock.Anything).Return(xml, nil)
+		m.On("NetworkLookupByName", mock.Anything, "default").Return(network, nil)
+		
+		// First call returns no lease, second returns lease
+		m.On("NetworkGetDhcpLeases", mock.Anything, network, mock.Anything, uint32(0), uint32(0)).
+			Return([]libvirt.NetworkDhcpLease{}, uint32(0), nil).Once()
+		m.On("NetworkGetDhcpLeases", mock.Anything, network, mock.Anything, uint32(0), uint32(0)).
+			Return([]libvirt.NetworkDhcpLease{{Mac: []string{mac}, Ipaddr: "10.0.0.5"}}, uint32(1), nil).Once()
+
+		ip, err := a.waitInitialIP(ctx, id)
+		assert.NoError(t, err)
+		assert.Equal(t, "10.0.0.5", ip)
+	})
+}
+
+func TestLibvirtAdapter_GetInstanceIP(t *testing.T) {
+	t.Parallel()
+	m := new(MockLibvirtClient)
+	a := &LibvirtAdapter{client: m, logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := context.Background()
+	id := "test-vm"
+	dom := libvirt.Domain{Name: id}
+	mac := "52:54:00:12:34:56"
+	xml := fmt.Sprintf("<domain><devices><interface type='network'><mac address='%s'/></interface></devices></domain>", mac)
+	network := libvirt.Network{Name: "default"}
+
+	t.Run("success", func(t *testing.T) {
+		m.On("DomainLookupByName", mock.Anything, id).Return(dom, nil).Once()
+		m.On("DomainGetXMLDesc", mock.Anything, dom, mock.Anything).Return(xml, nil).Once()
+		m.On("NetworkLookupByName", mock.Anything, "default").Return(network, nil).Once()
+		m.On("NetworkGetDhcpLeases", mock.Anything, network, mock.Anything, uint32(0), uint32(0)).
+			Return([]libvirt.NetworkDhcpLease{{Mac: []string{mac}, Ipaddr: "10.0.0.5"}}, uint32(1), nil).Once()
+
+		ip, err := a.GetInstanceIP(ctx, id)
+		assert.NoError(t, err)
+		assert.Equal(t, "10.0.0.5", ip)
+	})
+}
+
+func TestLibvirtAdapter_StatsAndConsole(t *testing.T) {
+	t.Parallel()
+	m := new(MockLibvirtClient)
+	a := &LibvirtAdapter{client: m, logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := context.Background()
+	id := "test-vm"
+	dom := libvirt.Domain{Name: id}
+
+	t.Run("GetInstanceStats", func(t *testing.T) {
+		m.On("DomainLookupByName", mock.Anything, id).Return(dom, nil).Once()
+		m.On("DomainMemoryStats", mock.Anything, dom, uint32(10), uint32(0)).Return([]libvirt.DomainMemoryStat{}, nil).Once()
+		m.On("DomainGetState", mock.Anything, dom, uint32(0)).Return(int32(1), int32(0), nil).Once()
+		
+		stats, err := a.GetInstanceStats(ctx, id)
+		assert.NoError(t, err)
+		assert.NotNil(t, stats)
+	})
+
+	t.Run("GetConsoleURL", func(t *testing.T) {
+		xml := "<domain><devices><graphics type='vnc' port='5900'/></devices></domain>"
+		m.On("DomainLookupByName", mock.Anything, id).Return(dom, nil).Once()
+		m.On("DomainGetXMLDesc", mock.Anything, dom, mock.Anything).Return(xml, nil).Once()
+		url, err := a.GetConsoleURL(ctx, id)
+		assert.NoError(t, err)
+		assert.Equal(t, "vnc://127.0.0.1:5900", url)
+	})
+}
+
+func TestLibvirtAdapter_NetworkAndVolume(t *testing.T) {
+	t.Parallel()
+	m := new(MockLibvirtClient)
+	a := &LibvirtAdapter{
+		client:    m,
+		logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
+		poolStart: net.ParseIP("192.168.100.0"),
+		poolEnd:   net.ParseIP("192.168.255.255"),
+	}
+	ctx := context.Background()
+
+	t.Run("CreateNetwork", func(t *testing.T) {
+		m.On("NetworkDefineXML", mock.Anything, mock.Anything).Return(libvirt.Network{Name: "test-net"}, nil).Once()
+		m.On("NetworkCreate", mock.Anything, mock.Anything).Return(nil).Once()
+		
+		id, err := a.CreateNetwork(ctx, "10.0.0.0/24")
+		assert.NoError(t, err)
+		assert.NotEmpty(t, id)
+	})
+
+	t.Run("DeleteNetwork", func(t *testing.T) {
+		net := libvirt.Network{Name: "test-net"}
+		m.On("NetworkLookupByName", mock.Anything, "test-net").Return(net, nil).Once()
+		m.On("NetworkDestroy", mock.Anything, net).Return(nil).Once()
+		m.On("NetworkUndefine", mock.Anything, net).Return(nil).Once()
+		
+		err := a.DeleteNetwork(ctx, "test-net")
+		assert.NoError(t, err)
+	})
+
+	t.Run("CreateVolume", func(t *testing.T) {
+		pool := libvirt.StoragePool{Name: "default"}
+		m.On("StoragePoolLookupByName", mock.Anything, "default").Return(pool, nil).Once()
+		m.On("StoragePoolRefresh", mock.Anything, pool, uint32(0)).Return(nil).Once()
+		m.On("StorageVolCreateXML", mock.Anything, pool, mock.Anything, uint32(0)).Return(libvirt.StorageVol{Name: "v1"}, nil).Once()
+		
+		err := a.CreateVolume(ctx, "v1")
+		assert.NoError(t, err)
+	})
+
+	t.Run("DeleteVolume", func(t *testing.T) {
+		pool := libvirt.StoragePool{Name: "default"}
+		vol := libvirt.StorageVol{Name: "v1"}
+		m.On("StoragePoolLookupByName", mock.Anything, "default").Return(pool, nil).Once()
+		m.On("StorageVolLookupByName", mock.Anything, pool, "v1").Return(vol, nil).Once()
+		m.On("StorageVolDelete", mock.Anything, vol, uint32(0)).Return(nil).Once()
+		
+		err := a.DeleteVolume(ctx, "v1")
+		assert.NoError(t, err)
+	})
+}
+
+func TestLibvirtAdapter_IsNotFound(t *testing.T) {
+	t.Parallel()
+	a := &LibvirtAdapter{}
+
+	t.Run("Libvirt Error 42", func(t *testing.T) {
+		err := libvirt.Error{Code: 42}
+		assert.True(t, a.isNotFound(err))
+	})
+
+	t.Run("String Match", func(t *testing.T) {
+		err := fmt.Errorf("something was not found")
+		assert.True(t, a.isNotFound(err))
+	})
+
+	t.Run("No Match", func(t *testing.T) {
+		err := fmt.Errorf("some other error")
+		assert.False(t, a.isNotFound(err))
+	})
 }

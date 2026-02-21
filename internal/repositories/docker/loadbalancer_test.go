@@ -24,7 +24,8 @@ func (m *mockInstanceRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.I
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 
 func (m *mockInstanceRepo) GetByName(ctx context.Context, name string) (*domain.Instance, error) {
@@ -32,7 +33,8 @@ func (m *mockInstanceRepo) GetByName(ctx context.Context, name string) (*domain.
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 
 func (m *mockInstanceRepo) List(ctx context.Context) ([]*domain.Instance, error) {
@@ -40,21 +42,24 @@ func (m *mockInstanceRepo) List(ctx context.Context) ([]*domain.Instance, error)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceRepo) ListAll(ctx context.Context) ([]*domain.Instance, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceRepo) ListBySubnet(ctx context.Context, subnetID uuid.UUID) ([]*domain.Instance, error) {
 	args := m.Called(ctx, subnetID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 
 func (m *mockInstanceRepo) Update(ctx context.Context, instance *domain.Instance) error {
@@ -81,7 +86,8 @@ func (m *mockVpcRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.VPC, e
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.VPC), args.Error(1)
+	r0, _ := args.Get(0).(*domain.VPC)
+	return r0, args.Error(1)
 }
 
 func (m *mockVpcRepo) GetByName(ctx context.Context, name string) (*domain.VPC, error) {
@@ -89,7 +95,8 @@ func (m *mockVpcRepo) GetByName(ctx context.Context, name string) (*domain.VPC, 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.VPC), args.Error(1)
+	r0, _ := args.Get(0).(*domain.VPC)
+	return r0, args.Error(1)
 }
 
 func (m *mockVpcRepo) List(ctx context.Context) ([]*domain.VPC, error) {
@@ -97,7 +104,8 @@ func (m *mockVpcRepo) List(ctx context.Context) ([]*domain.VPC, error) {
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.VPC), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.VPC)
+	return r0, args.Error(1)
 }
 
 func (m *mockVpcRepo) Delete(ctx context.Context, id uuid.UUID) error {

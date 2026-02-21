@@ -27,12 +27,14 @@ func (m *MockLibvirtClient) Close() error {
 
 func (m *MockLibvirtClient) DomainLookupByName(ctx context.Context, name string) (libvirt.Domain, error) {
 	args := m.Called(ctx, name)
-	return args.Get(0).(libvirt.Domain), args.Error(1)
+	r0, _ := args.Get(0).(libvirt.Domain)
+	return r0, args.Error(1)
 }
 
 func (m *MockLibvirtClient) DomainDefineXML(ctx context.Context, xml string) (libvirt.Domain, error) {
 	args := m.Called(ctx, xml)
-	return args.Get(0).(libvirt.Domain), args.Error(1)
+	r0, _ := args.Get(0).(libvirt.Domain)
+	return r0, args.Error(1)
 }
 
 func (m *MockLibvirtClient) DomainCreate(ctx context.Context, dom libvirt.Domain) error {
@@ -49,7 +51,9 @@ func (m *MockLibvirtClient) DomainUndefine(ctx context.Context, dom libvirt.Doma
 
 func (m *MockLibvirtClient) DomainGetState(ctx context.Context, dom libvirt.Domain, flags uint32) (int32, int32, error) {
 	args := m.Called(ctx, dom, flags)
-	return args.Get(0).(int32), args.Get(1).(int32), args.Error(2)
+	r0, _ := args.Get(0).(int32)
+	r1, _ := args.Get(1).(int32)
+	return r0, r1, args.Error(2)
 }
 
 func (m *MockLibvirtClient) DomainGetXMLDesc(ctx context.Context, dom libvirt.Domain, flags libvirt.DomainXMLFlags) (string, error) {
@@ -67,19 +71,22 @@ func (m *MockLibvirtClient) DomainDetachDevice(ctx context.Context, dom libvirt.
 
 func (m *MockLibvirtClient) DomainMemoryStats(ctx context.Context, dom libvirt.Domain, maxStats uint32, flags uint32) ([]libvirt.DomainMemoryStat, error) {
 	args := m.Called(ctx, dom, maxStats, flags)
-	return args.Get(0).([]libvirt.DomainMemoryStat), args.Error(1)
+	r0, _ := args.Get(0).([]libvirt.DomainMemoryStat)
+	return r0, args.Error(1)
 }
 
 // Network
 
 func (m *MockLibvirtClient) NetworkLookupByName(ctx context.Context, name string) (libvirt.Network, error) {
 	args := m.Called(ctx, name)
-	return args.Get(0).(libvirt.Network), args.Error(1)
+	r0, _ := args.Get(0).(libvirt.Network)
+	return r0, args.Error(1)
 }
 
 func (m *MockLibvirtClient) NetworkDefineXML(ctx context.Context, xml string) (libvirt.Network, error) {
 	args := m.Called(ctx, xml)
-	return args.Get(0).(libvirt.Network), args.Error(1)
+	r0, _ := args.Get(0).(libvirt.Network)
+	return r0, args.Error(1)
 }
 
 func (m *MockLibvirtClient) NetworkCreate(ctx context.Context, net libvirt.Network) error {
@@ -96,14 +103,17 @@ func (m *MockLibvirtClient) NetworkUndefine(ctx context.Context, net libvirt.Net
 
 func (m *MockLibvirtClient) NetworkGetDhcpLeases(ctx context.Context, net libvirt.Network, mac libvirt.OptString, needResults uint32, flags uint32) ([]libvirt.NetworkDhcpLease, uint32, error) {
 	args := m.Called(ctx, net, mac, needResults, flags)
-	return args.Get(0).([]libvirt.NetworkDhcpLease), args.Get(1).(uint32), args.Error(2)
+	r0, _ := args.Get(0).([]libvirt.NetworkDhcpLease)
+	r1, _ := args.Get(1).(uint32)
+	return r0, r1, args.Error(2)
 }
 
 // Storage
 
 func (m *MockLibvirtClient) StoragePoolLookupByName(ctx context.Context, name string) (libvirt.StoragePool, error) {
 	args := m.Called(ctx, name)
-	return args.Get(0).(libvirt.StoragePool), args.Error(1)
+	r0, _ := args.Get(0).(libvirt.StoragePool)
+	return r0, args.Error(1)
 }
 
 func (m *MockLibvirtClient) StoragePoolRefresh(ctx context.Context, pool libvirt.StoragePool, flags uint32) error {
@@ -112,12 +122,14 @@ func (m *MockLibvirtClient) StoragePoolRefresh(ctx context.Context, pool libvirt
 
 func (m *MockLibvirtClient) StorageVolLookupByName(ctx context.Context, pool libvirt.StoragePool, name string) (libvirt.StorageVol, error) {
 	args := m.Called(ctx, pool, name)
-	return args.Get(0).(libvirt.StorageVol), args.Error(1)
+	r0, _ := args.Get(0).(libvirt.StorageVol)
+	return r0, args.Error(1)
 }
 
 func (m *MockLibvirtClient) StorageVolCreateXML(ctx context.Context, pool libvirt.StoragePool, xml string, flags uint32) (libvirt.StorageVol, error) {
 	args := m.Called(ctx, pool, xml, flags)
-	return args.Get(0).(libvirt.StorageVol), args.Error(1)
+	r0, _ := args.Get(0).(libvirt.StorageVol)
+	return r0, args.Error(1)
 }
 
 func (m *MockLibvirtClient) StorageVolDelete(ctx context.Context, vol libvirt.StorageVol, flags uint32) error {
