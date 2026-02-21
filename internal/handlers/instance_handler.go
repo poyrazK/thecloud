@@ -188,7 +188,7 @@ func (h *InstanceHandler) mapLaunchRequest(req LaunchRequest) (*uuid.UUID, *uuid
 		}
 	}
 
-	var volumes []domain.VolumeAttachment
+	volumes := make([]domain.VolumeAttachment, 0, len(req.Volumes))
 	for _, v := range req.Volumes {
 		volumes = append(volumes, domain.VolumeAttachment{
 			VolumeIDOrName: v.VolumeID,

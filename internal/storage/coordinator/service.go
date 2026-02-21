@@ -67,7 +67,7 @@ func (c *Coordinator) SyncClusterState() {
 	}
 
 	// Convert map values to slice for random selection
-	var clients []pb.StorageNodeClient
+	clients := make([]pb.StorageNodeClient, 0, len(c.clients))
 	for _, cl := range c.clients {
 		clients = append(clients, cl)
 	}

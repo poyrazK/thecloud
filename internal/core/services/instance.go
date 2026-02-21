@@ -932,8 +932,8 @@ func (s *InstanceService) resolveNetworkConfig(ctx context.Context, vpcID, subne
 }
 
 func (s *InstanceService) resolveVolumes(ctx context.Context, volumes []domain.VolumeAttachment) ([]string, []*domain.Volume, error) {
-	var volumeBinds []string
-	var attachedVolumes []*domain.Volume
+	volumeBinds := make([]string, 0, len(opts.VolumeBinds))
+	attachedVolumes := make([]*domain.Volume, 0, len(opts.VolumeBinds))
 	for _, va := range volumes {
 		vol, err := s.getVolumeByIDOrName(ctx, va.VolumeIDOrName)
 		if err != nil {
