@@ -2,7 +2,6 @@ package sdk_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -58,7 +57,7 @@ func newCacheTestServer(t *testing.T) *httptest.Server {
 		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID+"/connection" && r.Method == http.MethodGet:
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": "redis://localhost:6379",
+				"data": map[string]string{"connection_string": "redis://localhost:6379"},
 			})
 		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID+"/flush" && r.Method == http.MethodPost:
 			w.WriteHeader(http.StatusNoContent)
