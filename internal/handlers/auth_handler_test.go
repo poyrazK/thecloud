@@ -33,7 +33,8 @@ func (m *mockAuthService) Register(ctx context.Context, email, password, name st
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.User), args.Error(1)
+	r0, _ := args.Get(0).(*domain.User)
+	return r0, args.Error(1)
 }
 
 func (m *mockAuthService) Login(ctx context.Context, email, password string) (*domain.User, string, error) {
@@ -41,7 +42,8 @@ func (m *mockAuthService) Login(ctx context.Context, email, password string) (*d
 	if args.Get(0) == nil {
 		return nil, "", args.Error(2)
 	}
-	return args.Get(0).(*domain.User), args.String(1), args.Error(2)
+	r0, _ := args.Get(0).(*domain.User)
+	return r0, args.String(1), args.Error(2)
 }
 
 func (m *mockAuthService) ValidateUser(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
@@ -49,7 +51,8 @@ func (m *mockAuthService) ValidateUser(ctx context.Context, userID uuid.UUID) (*
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.User), args.Error(1)
+	r0, _ := args.Get(0).(*domain.User)
+	return r0, args.Error(1)
 }
 
 type mockPasswordResetService struct {
