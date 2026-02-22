@@ -71,7 +71,7 @@ func TestClusterServiceCreate(t *testing.T) {
 		Workers: 2,
 	})
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, cluster)
 	assert.Equal(t, testClusterName, cluster.Name)
 	assert.Equal(t, domain.ClusterStatusPending, cluster.Status)
@@ -97,7 +97,7 @@ func TestClusterServiceCreateVpcNotFound(t *testing.T) {
 		Workers: 2,
 	})
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, cluster)
 }
 
@@ -119,7 +119,7 @@ func TestClusterServiceCreateEncryptError(t *testing.T) {
 		Workers: 2,
 	})
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, cluster)
 	repo.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
 }
@@ -143,7 +143,7 @@ func TestClusterServiceCreateRepoError(t *testing.T) {
 		Workers: 2,
 	})
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, cluster)
 }
 
@@ -168,7 +168,7 @@ func TestClusterServiceCreateEnqueueError(t *testing.T) {
 		Workers: 2,
 	})
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, cluster)
 }
 
@@ -191,7 +191,7 @@ func TestClusterServiceDelete(t *testing.T) {
 
 	err := svc.DeleteCluster(ctx, id)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	taskQueue.AssertExpectations(t)
 	repo.AssertCalled(t, "GetByID", mock.Anything, id)
@@ -207,7 +207,7 @@ func TestClusterServiceListClusters(t *testing.T) {
 	repo.On("ListByUserID", ctx, userID).Return([]*domain.Cluster{{ID: uuid.New()}}, nil)
 
 	clusters, err := svc.ListClusters(ctx, userID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, clusters, 1)
 }
 
@@ -228,7 +228,7 @@ func TestClusterServiceGetKubeconfigAdmin(t *testing.T) {
 	secretSvc.On("Decrypt", ctx, userID, "encrypted").Return("decrypted", nil)
 
 	config, err := svc.GetKubeconfig(ctx, clusterID, "admin")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "decrypted", config)
 }
 
@@ -243,7 +243,7 @@ func TestClusterServiceGetKubeconfigNonAdmin(t *testing.T) {
 	provisioner.On("GetKubeconfig", mock.Anything, cluster, "viewer").Return("generated", nil)
 
 	config, err := svc.GetKubeconfig(ctx, clusterID, "viewer")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "generated", config)
 }
 
@@ -257,7 +257,7 @@ func TestClusterServiceGetKubeconfigNotRunning(t *testing.T) {
 	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
 
 	_, err := svc.GetKubeconfig(ctx, clusterID, "admin")
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestClusterServiceRepairCluster(t *testing.T) {
@@ -275,7 +275,7 @@ func TestClusterServiceRepairCluster(t *testing.T) {
 	})
 
 	err := svc.RepairCluster(ctx, clusterID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	select {
 	case <-done:
@@ -304,7 +304,7 @@ func TestClusterServiceScaleCluster(t *testing.T) {
 	})
 
 	err := svc.ScaleCluster(ctx, clusterID, 3)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	select {
 	case <-done:
@@ -323,7 +323,7 @@ func TestClusterServiceScaleClusterInvalidWorkers(t *testing.T) {
 	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
 
 	err := svc.ScaleCluster(ctx, clusterID, 0)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestClusterServiceGetClusterHealth(t *testing.T) {
@@ -338,7 +338,7 @@ func TestClusterServiceGetClusterHealth(t *testing.T) {
 	provisioner.On("GetHealth", ctx, cluster).Return(health, nil)
 
 	resp, err := svc.GetClusterHealth(ctx, clusterID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, domain.ClusterStatusRunning, resp.Status)
 }
 
@@ -359,7 +359,7 @@ func TestClusterServiceRotateSecretsSuccess(t *testing.T) {
 	})).Return(nil).Once()
 
 	err := svc.RotateSecrets(ctx, clusterID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClusterServiceRotateSecretsNotRunning(t *testing.T) {
@@ -372,7 +372,7 @@ func TestClusterServiceRotateSecretsNotRunning(t *testing.T) {
 	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
 
 	err := svc.RotateSecrets(ctx, clusterID)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestClusterServiceRestoreBackup(t *testing.T) {
@@ -393,7 +393,7 @@ func TestClusterServiceRestoreBackup(t *testing.T) {
 	})).Return(nil).Once()
 
 	err := svc.RestoreBackup(ctx, clusterID, backupPath)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClusterServiceRestoreBackupNotRunning(t *testing.T) {
@@ -406,5 +406,5 @@ func TestClusterServiceRestoreBackupNotRunning(t *testing.T) {
 	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
 
 	err := svc.RestoreBackup(ctx, clusterID, "s3://bucket/backup")
-	assert.Error(t, err)
+	require.Error(t, err)
 }

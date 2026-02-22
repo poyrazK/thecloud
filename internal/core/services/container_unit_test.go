@@ -9,6 +9,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -28,7 +29,7 @@ func TestContainerService_Unit(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "container.deployment_create", "deployment", mock.Anything, mock.Anything).Return(nil).Once()
 
 		dep, err := svc.CreateDeployment(ctx, "test-dep", "nginx", 2, "80:80")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, dep)
 		repo.AssertExpectations(t)
 	})
@@ -38,7 +39,7 @@ func TestContainerService_Unit(t *testing.T) {
 		repo.On("ListDeployments", mock.Anything, userID).Return(expectedDeps, nil).Once()
 
 		deps, err := svc.ListDeployments(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, deps, 1)
 		assert.Equal(t, "dep1", deps[0].Name)
 	})
@@ -49,7 +50,7 @@ func TestContainerService_Unit(t *testing.T) {
 		repo.On("GetDeploymentByID", mock.Anything, depID, userID).Return(expectedDep, nil).Once()
 
 		dep, err := svc.GetDeployment(ctx, depID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, depID, dep.ID)
 	})
 
@@ -63,7 +64,7 @@ func TestContainerService_Unit(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "container.deployment_scale", "deployment", depID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.ScaleDeployment(ctx, depID, 5)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("DeleteDeployment", func(t *testing.T) {
@@ -76,6 +77,6 @@ func TestContainerService_Unit(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "container.deployment_delete", "deployment", depID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.DeleteDeployment(ctx, depID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

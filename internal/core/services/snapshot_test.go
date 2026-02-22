@@ -19,6 +19,7 @@ import (
 )
 
 func setupSnapshotServiceIntegrationTest(t *testing.T) (ports.SnapshotService, ports.SnapshotRepository, ports.VolumeRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
