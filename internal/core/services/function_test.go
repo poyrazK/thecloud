@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupFunctionServiceTest(t *testing.T) (*services.FunctionService, ports.FunctionRepository, ports.ComputeBackend, ports.FileStore, context.Context) {
+func setupFunctionServiceTest(t *testing.T) (*services.FunctionService, ports.FunctionRepository, ports.FileStore, context.Context) {
 	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
@@ -41,10 +41,11 @@ func setupFunctionServiceTest(t *testing.T) (*services.FunctionService, ports.Fu
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := services.NewFunctionService(repo, compute, fileStore, auditSvc, logger)
-	return svc, repo, compute, fileStore, ctx
+	return svc, repo, fileStore, ctx
 }
 
 func createZip(t *testing.T, filename, content string) []byte {
+	t.Helper()
 	buf := new(bytes.Buffer)
 	w := zip.NewWriter(buf)
 	f, err := w.Create(filename)
@@ -57,7 +58,7 @@ func createZip(t *testing.T, filename, content string) []byte {
 }
 
 func TestFunctionService_CreateFunction_Success(t *testing.T) {
-	svc, repo, _, _, ctx := setupFunctionServiceTest(t)
+	svc, repo, _, ctx := setupFunctionServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	name := "test-func"
@@ -82,7 +83,7 @@ func TestFunctionService_CreateFunction_Success(t *testing.T) {
 func TestFunctionService_InvokeFunction_Success(t *testing.T) {
 	// Skip if we don't want to actually run docker in all environments,
 	// but here we are aiming for real integration.
-	svc, _, _, _, ctx := setupFunctionServiceTest(t)
+	svc, _, _, ctx := setupFunctionServiceTest(t)
 
 	code := createZip(t, "index.js", `
 const payload = process.env.PAYLOAD;
@@ -101,7 +102,7 @@ process.exit(0);
 }
 
 func TestFunctionService_DeleteFunction_Success(t *testing.T) {
-	svc, repo, _, _, ctx := setupFunctionServiceTest(t)
+	svc, repo, _, ctx := setupFunctionServiceTest(t)
 
 	code := createZip(t, "index.js", "console.log(1)")
 	f, _ := svc.CreateFunction(ctx, "to-delete", "nodejs20", "index.js", code)
@@ -115,7 +116,7 @@ func TestFunctionService_DeleteFunction_Success(t *testing.T) {
 }
 
 func TestFunctionService_ListFunctions(t *testing.T) {
-	svc, _, _, _, ctx := setupFunctionServiceTest(t)
+	svc, _, _, ctx := setupFunctionServiceTest(t)
 	code := createZip(t, "index.js", "1")
 	_, _ = svc.CreateFunction(ctx, "fn1", "nodejs20", "index.js", code)
 	_, _ = svc.CreateFunction(ctx, "fn2", "nodejs20", "index.js", code)
@@ -126,7 +127,7 @@ func TestFunctionService_ListFunctions(t *testing.T) {
 }
 
 func TestFunctionService_GetFunction(t *testing.T) {
-	svc, _, _, _, ctx := setupFunctionServiceTest(t)
+	svc, _, _, ctx := setupFunctionServiceTest(t)
 	code := createZip(t, "index.js", "1")
 	f, _ := svc.CreateFunction(ctx, "get-me", "nodejs20", "index.js", code)
 
@@ -136,7 +137,7 @@ func TestFunctionService_GetFunction(t *testing.T) {
 }
 
 func TestFunctionService_InvokeAsync(t *testing.T) {
-	svc, repo, _, _, ctx := setupFunctionServiceTest(t)
+	svc, repo, _, ctx := setupFunctionServiceTest(t)
 	code := createZip(t, "index.js", "console.log('async')")
 	f, _ := svc.CreateFunction(ctx, "async-test", "nodejs20", "index.js", code)
 
@@ -160,7 +161,7 @@ func TestFunctionService_InvokeAsync(t *testing.T) {
 }
 
 func TestFunctionService_ZipSlipProtection(t *testing.T) {
-	svc, _, _, _, ctx := setupFunctionServiceTest(t)
+	svc, _, _, ctx := setupFunctionServiceTest(t)
 
 	// Create malicious zip
 	buf := new(bytes.Buffer)

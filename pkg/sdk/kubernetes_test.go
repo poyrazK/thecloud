@@ -35,7 +35,7 @@ func TestClientListClusters(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	clusters, err := client.ListClusters()
 
-	require.NoError(t, err)
+	if err != nil { t.Errorf("failed to decode: %v", err); return }
 	assert.Len(t, clusters, 1)
 	assert.Equal(t, clusterID, clusters[0].ID)
 }
@@ -49,7 +49,7 @@ func TestClientCreateCluster(t *testing.T) {
 
 		var payload CreateClusterInput
 		err := json.NewDecoder(r.Body).Decode(&payload)
-		require.NoError(t, err)
+		if err != nil { t.Errorf("failed to decode: %v", err); return }
 		assert.Equal(t, kubeTestClusterName, payload.Name)
 		assert.Equal(t, vpcID, payload.VpcID)
 		assert.Equal(t, 3, payload.WorkerCount)
@@ -69,7 +69,7 @@ func TestClientCreateCluster(t *testing.T) {
 		HA:          true,
 	})
 
-	require.NoError(t, err)
+	if err != nil { t.Errorf("failed to decode: %v", err); return }
 	assert.Equal(t, clusterID, cluster.ID)
 }
 
@@ -87,7 +87,7 @@ func TestClientGetCluster(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	cluster, err := client.GetCluster(clusterID.String())
 
-	require.NoError(t, err)
+	if err != nil { t.Errorf("failed to decode: %v", err); return }
 	assert.Equal(t, clusterID, cluster.ID)
 }
 
@@ -103,7 +103,7 @@ func TestClientDeleteCluster(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	err := client.DeleteCluster(clusterID.String())
 
-	require.NoError(t, err)
+	if err != nil { t.Errorf("failed to decode: %v", err); return }
 }
 
 func TestClientGetKubeconfig(t *testing.T) {
@@ -121,7 +121,7 @@ func TestClientGetKubeconfig(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	config, err := client.GetKubeconfig(clusterID.String(), kubeTestRoleAdmin)
 
-	require.NoError(t, err)
+	if err != nil { t.Errorf("failed to decode: %v", err); return }
 	assert.Equal(t, kubeTestKubeconfig, config)
 }
 
@@ -140,7 +140,7 @@ func TestClientGetKubeconfigNoRole(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	config, err := client.GetKubeconfig(clusterID.String(), "")
 
-	require.NoError(t, err)
+	if err != nil { t.Errorf("failed to decode: %v", err); return }
 	assert.Equal(t, kubeTestKubeconfig, config)
 }
 
@@ -168,13 +168,13 @@ func TestClientRepairScaleUpgradeRotateBackupRestoreCluster(t *testing.T) {
 			assert.Equal(t, http.MethodPost, r.Method)
 			var payload ScaleClusterInput
 			err := json.NewDecoder(r.Body).Decode(&payload)
-			require.NoError(t, err)
+			if err != nil { t.Errorf("failed to decode: %v", err); return }
 			assert.Equal(t, 5, payload.Workers)
 		case kubeTestClusters + "/" + clusterID.String() + "/upgrade":
 			assert.Equal(t, http.MethodPost, r.Method)
 			var payload UpgradeClusterInput
 			err := json.NewDecoder(r.Body).Decode(&payload)
-			require.NoError(t, err)
+			if err != nil { t.Errorf("failed to decode: %v", err); return }
 			assert.Equal(t, "1.30", payload.Version)
 		case kubeTestClusters + "/" + clusterID.String() + "/rotate-secrets":
 			assert.Equal(t, http.MethodPost, r.Method)
@@ -184,7 +184,7 @@ func TestClientRepairScaleUpgradeRotateBackupRestoreCluster(t *testing.T) {
 			assert.Equal(t, http.MethodPost, r.Method)
 			var payload RestoreBackupInput
 			err := json.NewDecoder(r.Body).Decode(&payload)
-			require.NoError(t, err)
+			if err != nil { t.Errorf("failed to decode: %v", err); return }
 			assert.Equal(t, kubeTestBackupPath, payload.BackupPath)
 		default:
 			w.WriteHeader(http.StatusNotFound)
@@ -218,7 +218,7 @@ func TestClientGetClusterHealth(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	status, err := client.GetClusterHealth(clusterID.String())
 
-	require.NoError(t, err)
+	if err != nil { t.Errorf("failed to decode: %v", err); return }
 	assert.Equal(t, "ok", status.Status)
 	assert.Equal(t, 3, status.NodesReady)
 }

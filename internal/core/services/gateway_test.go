@@ -13,6 +13,7 @@ import (
 )
 
 func setupGatewayServiceTest(t *testing.T) (*services.GatewayService, *postgres.PostgresGatewayRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)

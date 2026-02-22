@@ -14,6 +14,7 @@ import (
 )
 
 func setupGlobalLBTest(t *testing.T) (*services.GlobalLBService, *mock.MockGlobalLBRepo, *mock.MockLBRepo, *mock.MockGeoDNS) {
+	t.Helper()
 	repo := mock.NewMockGlobalLBRepo()
 	lbRepo := mock.NewMockLBRepo()
 	geoDNS := mock.NewMockGeoDNS()
