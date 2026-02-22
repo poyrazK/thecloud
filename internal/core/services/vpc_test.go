@@ -18,6 +18,7 @@ import (
 )
 
 func setupVpcServiceTest(t *testing.T, cidr string) (*services.VpcService, *postgres.VpcRepository, *postgres.LBRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)

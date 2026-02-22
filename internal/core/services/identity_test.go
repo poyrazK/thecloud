@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIdentityServiceCreateKeySuccess(t *testing.T) {
@@ -35,12 +36,12 @@ func TestIdentityServiceCreateKeySuccess(t *testing.T) {
 
 	// Verify stored
 	fetched, err := identityRepo.GetAPIKeyByID(ctx, key.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, key.ID, fetched.ID)
 
 	// Verify audit log
 	logs, err := auditRepo.ListByUserID(ctx, userID, 10)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, logs)
 	assert.Equal(t, "api_key.create", logs[0].Action)
 }
@@ -61,7 +62,7 @@ func TestIdentityServiceValidateAPIKeySuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	result, err := svc.ValidateAPIKey(ctx, key.Key)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, key.ID, result.ID)
 	assert.Equal(t, userID, result.UserID)
 }
@@ -78,7 +79,7 @@ func TestIdentityServiceValidateAPIKeyNotFound(t *testing.T) {
 	svc := services.NewIdentityService(identityRepo, auditSvc, slog.Default())
 
 	result, err := svc.ValidateAPIKey(ctx, "invalid-key")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, result)
 }
 
@@ -100,7 +101,7 @@ func TestIdentityServiceListKeys(t *testing.T) {
 	require.NoError(t, err)
 
 	result, err := svc.ListKeys(ctx, userID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, result, 2)
 }
 
@@ -121,11 +122,11 @@ func TestIdentityServiceRevokeKey(t *testing.T) {
 		require.NoError(t, err)
 
 		err = svc.RevokeKey(ctx, userID, key.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Verify deletion
 		_, err = identityRepo.GetAPIKeyByID(ctx, key.ID)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("WrongUser", func(t *testing.T) {
@@ -155,7 +156,7 @@ func TestIdentityServiceRevokeKey(t *testing.T) {
 		require.NoError(t, err)
 
 		err = svc.RevokeKey(ctx, userID, otherKey.ID)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot revoke key owned by another user")
 	})
 }
@@ -176,17 +177,17 @@ func TestIdentityServiceRotateKey(t *testing.T) {
 	require.NoError(t, err)
 
 	newKey, err := svc.RotateKey(ctx, userID, key.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, newKey)
 	assert.NotEqual(t, key.Key, newKey.Key)
 	assert.Contains(t, newKey.Name, "(rotated)")
 
 	// Old key should be gone
 	_, err = identityRepo.GetAPIKeyByID(ctx, key.ID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// New key should exist
 	fetched, err := identityRepo.GetAPIKeyByID(ctx, newKey.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, newKey.ID, fetched.ID)
 }

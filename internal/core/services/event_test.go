@@ -10,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setupEventServiceTest(t *testing.T) (*services.EventService, *postgres.EventRepository, context.Context) {
@@ -34,12 +35,12 @@ func TestEventServiceRecordEventSuccess(t *testing.T) {
 	details := map[string]interface{}{"key": "value"}
 
 	err := svc.RecordEvent(ctx, action, resID, resType, details)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify in DB - wait, List doesn't filter by user ID in this implementation?
 	// Let's check postgres.EventRepository.List
 	result, err := repo.List(ctx, 10)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, result, 1)
 	assert.Equal(t, action, result[0].Action)
 	assert.Equal(t, userID, result[0].UserID)
@@ -53,6 +54,6 @@ func TestEventServiceListEvents(t *testing.T) {
 
 	result, err := svc.ListEvents(ctx, 10)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, result, 2)
 }
