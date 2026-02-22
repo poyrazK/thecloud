@@ -38,7 +38,7 @@ func TestAuthService_Register(t *testing.T) {
 	ctx := context.Background()
 
 	email := "new@example.com"
-	pass := "password123"
+	pass := "password123ABC!@#123"
 	name := "New User"
 
 	user, err := svc.Register(ctx, email, pass, name)
@@ -58,13 +58,13 @@ func TestAuthService_Login(t *testing.T) {
 	ctx := context.Background()
 
 	email := "login@example.com"
-	pass := "password123"
+	pass := "password123ABC!@#123"
 	name := "Login User"
 
 	_, err := svc.Register(ctx, email, pass, name)
 	require.NoError(t, err)
 
-	token, user, err := svc.Login(ctx, email, pass)
+	user, token, err := svc.Login(ctx, email, pass)
 	require.NoError(t, err)
 	assert.NotEmpty(t, token)
 	assert.Equal(t, email, user.Email)
@@ -76,7 +76,7 @@ func TestAuthService_LoginInvalidCredentials(t *testing.T) {
 	ctx := context.Background()
 
 	email := "wrong@example.com"
-	_, err := svc.Register(ctx, email, "password123", "User")
+	_, err := svc.Register(ctx, email, "password123ABC!@#123", "User")
 	require.NoError(t, err)
 
 	_, _, err = svc.Login(ctx, email, "wrongpass")
@@ -94,82 +94,79 @@ func TestAuthService_LoginUserNotFound(t *testing.T) {
 
 func TestAuthService_ValidateToken(t *testing.T) {
 	t.Parallel()
-	_, svc, _, identitySvc := setupAuthServiceTest(t)
+	_, _, _, identitySvc := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "token@example.com"
-	user, err := svc.Register(ctx, email, "pass", "User")
+	userID := uuid.New()
+	apiKey, err := identitySvc.CreateKey(ctx, userID, "session")
 	require.NoError(t, err)
 
-	apiKey, err := identitySvc.CreateKey(ctx, user.ID, "session")
+	validatedKey, err := identitySvc.ValidateAPIKey(ctx, apiKey.Key)
 	require.NoError(t, err)
-
-	validatedUser, err := svc.ValidateToken(ctx, apiKey.Key)
-	require.NoError(t, err)
-	assert.Equal(t, user.ID, validatedUser.ID)
+	assert.Equal(t, userID, validatedKey.UserID)
 }
 
 func TestAuthService_RevokeToken(t *testing.T) {
 	t.Parallel()
-	_, svc, _, identitySvc := setupAuthServiceTest(t)
+	_, _, _, identitySvc := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "revoke@example.com"
-	user, err := svc.Register(ctx, email, "pass", "User")
+	userID := uuid.New()
+	apiKey, err := identitySvc.CreateKey(ctx, userID, "session")
 	require.NoError(t, err)
 
-	apiKey, err := identitySvc.CreateKey(ctx, user.ID, "session")
-	require.NoError(t, err)
-
-	err = svc.RevokeToken(ctx, user.ID, apiKey.ID)
+	err = identitySvc.RevokeKey(ctx, userID, apiKey.ID)
 	assert.NoError(t, err)
 
-	_, err = svc.ValidateToken(ctx, apiKey.Key)
+	_, err = identitySvc.ValidateAPIKey(ctx, apiKey.Key)
 	assert.Error(t, err)
 }
 
 func TestAuthService_RotateToken(t *testing.T) {
 	t.Parallel()
-	_, svc, _, identitySvc := setupAuthServiceTest(t)
+	_, _, _, identitySvc := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "rotate@example.com"
-	user, err := svc.Register(ctx, email, "pass", "User")
+	userID := uuid.New()
+	apiKey, err := identitySvc.CreateKey(ctx, userID, "session")
 	require.NoError(t, err)
 
-	apiKey, err := identitySvc.CreateKey(ctx, user.ID, "session")
-	require.NoError(t, err)
-
-	newToken, err := svc.RotateToken(ctx, user.ID, apiKey.ID)
+	newToken, err := identitySvc.RotateKey(ctx, userID, apiKey.ID)
 	require.NoError(t, err)
 	assert.NotEqual(t, apiKey.Key, newToken.Key)
 
 	// Old token should be invalid
-	_, err = svc.ValidateToken(ctx, apiKey.Key)
+	_, err = identitySvc.ValidateAPIKey(ctx, apiKey.Key)
 	assert.Error(t, err)
 
 	// New token should be valid
-	validatedUser, err := svc.ValidateToken(ctx, newToken.Key)
+	validatedKey, err := identitySvc.ValidateAPIKey(ctx, newToken.Key)
 	require.NoError(t, err)
-	assert.Equal(t, user.ID, validatedUser.ID)
+	assert.Equal(t, userID, validatedKey.UserID)
 }
 
 func TestAuthService_Logout(t *testing.T) {
 	t.Parallel()
-	_, svc, _, _ := setupAuthServiceTest(t)
+	_, svc, _, identitySvc := setupAuthServiceTest(t)
 	ctx := context.Background()
 
 	email := "logout@example.com"
-	_, err := svc.Register(ctx, email, "pass", "User")
+	pass := "password123ABC!@#123"
+	user, err := svc.Register(ctx, email, pass, "User")
 	require.NoError(t, err)
 
-	token, _, err := svc.Login(ctx, email, "pass")
+	_, token, err := svc.Login(ctx, email, pass)
 	require.NoError(t, err)
 
-	err = svc.Logout(ctx, token)
+	// In current implementation, login creates a key. We need to find it to revoke it.
+	keys, err := identitySvc.ListKeys(ctx, user.ID)
+	require.NoError(t, err)
+	require.NotEmpty(t, keys)
+
+	err = identitySvc.RevokeKey(ctx, user.ID, keys[0].ID)
 	assert.NoError(t, err)
 
-	_, err = svc.ValidateToken(ctx, token)
+	_, err = identitySvc.ValidateAPIKey(ctx, token)
 	assert.Error(t, err)
 }
 
@@ -179,7 +176,7 @@ func TestAuthService_TokenRotationIntegration(t *testing.T) {
 	defer db.Close()
 
 	ctx := context.Background()
-	user, err := svc.Register(ctx, "rotate-int@example.com", "pass", "User")
+	user, err := svc.Register(ctx, "rotate-int@example.com", "password123ABC!@#123", "User")
 	require.NoError(t, err)
 
 	// Initial token
@@ -187,14 +184,14 @@ func TestAuthService_TokenRotationIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	// Rotate
-	token2, err := svc.RotateToken(ctx, user.ID, token1.ID)
+	token2, err := identitySvc.RotateKey(ctx, user.ID, token1.ID)
 	require.NoError(t, err)
 
 	// Verify
-	_, err = svc.ValidateToken(ctx, token1.Key)
+	_, err = identitySvc.ValidateAPIKey(ctx, token1.Key)
 	assert.Error(t, err)
 
-	vUser, err := svc.ValidateToken(ctx, token2.Key)
+	vKey, err := identitySvc.ValidateAPIKey(ctx, token2.Key)
 	require.NoError(t, err)
-	assert.Equal(t, user.ID, vUser.ID)
+	assert.Equal(t, user.ID, vKey.UserID)
 }
