@@ -45,22 +45,24 @@ func (m *mockIdentityService) RotateKey(ctx context.Context, userID uuid.UUID, i
 	return r0, args.Error(1)
 }
 
-func setupCachedIdentityTest(t *testing.T) (*mockIdentityService, *redis.Client, *miniredis.Miniredis) {
+func setupCachedIdentityTest(t *testing.T) (*mockIdentityService, *redis.Client) {
 	t.Helper()
 	mr, err := miniredis.Run()
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(mr.Close)
+
 	client := redis.NewClient(&redis.Options{
 		Addr: mr.Addr(),
 	})
 	base := new(mockIdentityService)
-	return base, client, mr
+	return base, client
 }
 
 func TestCachedIdentityServiceValidateAPIKey(t *testing.T) {
 	t.Parallel()
-	base, client, _ := setupCachedIdentityTest(t)
+	base, client := setupCachedIdentityTest(t)
 	svc := NewCachedIdentityService(base, client, slog.Default())
 	ctx := context.Background()
 	key := "test-key"
@@ -97,7 +99,7 @@ func TestCachedIdentityServiceValidateAPIKey(t *testing.T) {
 
 func TestCachedIdentityServicePassthrough(t *testing.T) {
 	t.Parallel()
-	base, client, _ := setupCachedIdentityTest(t)
+	base, client := setupCachedIdentityTest(t)
 	svc := NewCachedIdentityService(base, client, slog.Default())
 	ctx := context.Background()
 	userID := uuid.New()
