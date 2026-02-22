@@ -250,7 +250,7 @@ func TestCachedRBACServiceGetRoleByIDCaches(t *testing.T) {
 	assert.Equal(t, roleID, res.ID)
 
 	key := rbacRoleIDKey(roleID)
-	assert.True(t, cache.Exists(context.Background(), key).Val() > 0)
+	assert.Positive(t, cache.Exists(context.Background(), key).Val())
 }
 
 func TestCachedRBACServiceGetRoleByNameCaches(t *testing.T) {
@@ -269,7 +269,7 @@ func TestCachedRBACServiceGetRoleByNameCaches(t *testing.T) {
 	assert.Equal(t, "ops", res.Name)
 
 	key := rbacRoleNameKey("ops")
-	assert.True(t, cache.Exists(context.Background(), key).Val() > 0)
+	assert.Positive(t, cache.Exists(context.Background(), key).Val())
 }
 
 func TestCachedRBACServiceUpdateRoleInvalidatesCache(t *testing.T) {

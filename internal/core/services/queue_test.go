@@ -104,7 +104,7 @@ func TestQueueServiceReceiveMessages(t *testing.T) {
 		// Try receiving again immediately
 		msgs2, err := svc.ReceiveMessages(ctx, q.ID, 10)
 		assert.NoError(t, err)
-		assert.Len(t, msgs2, 0, "messages should be invisible")
+		assert.Empty(t, msgs2, "messages should be invisible")
 	})
 }
 
