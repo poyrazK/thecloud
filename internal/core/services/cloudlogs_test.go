@@ -12,6 +12,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setupCloudLogsServiceTest(t *testing.T) (*services.CloudLogsService, *postgres.LogRepository, context.Context) {
@@ -51,11 +52,11 @@ func TestCloudLogsService_IngestLogs(t *testing.T) {
 	}
 
 	err := svc.IngestLogs(ctx, entries)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify persistence via repo
 	logs, total, err := repo.List(ctx, domain.LogQuery{TenantID: tenantID, ResourceID: "res-1"})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 2, total)
 	assert.Len(t, logs, 2)
 }
@@ -84,17 +85,17 @@ func TestCloudLogsService_SearchLogs(t *testing.T) {
 			Timestamp:    time.Now(),
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test 1: Search by resource type
 	logs, total, err := svc.SearchLogs(ctx, domain.LogQuery{TenantID: tenantID, ResourceType: "function"})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 1, total)
 	assert.Equal(t, "Critical failure", logs[0].Message)
 
 	// Test 2: Search by message
 	logs, total, err = svc.SearchLogs(ctx, domain.LogQuery{TenantID: tenantID, Search: "world"})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 1, total)
 	assert.Equal(t, "Hello world", logs[0].Message)
 }
@@ -124,15 +125,15 @@ func TestCloudLogsService_Retention(t *testing.T) {
 			Timestamp:    time.Now(),
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Run retention for 30 days
 	err = svc.RunRetentionPolicy(ctx, 30)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify only new log remains
 	logs, total, err := repo.List(ctx, domain.LogQuery{TenantID: tenantID})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 1, total)
 	assert.Equal(t, "new", logs[0].ResourceID)
 }

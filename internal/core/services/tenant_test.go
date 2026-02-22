@@ -16,6 +16,7 @@ import (
 )
 
 func setupTenantServiceIntegrationTest(t *testing.T) (ports.TenantService, ports.TenantRepository, ports.UserRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)

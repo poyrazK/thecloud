@@ -18,6 +18,7 @@ import (
 
 func setupSubnetServiceTest(t *testing.T) (*services.SubnetService, *postgres.SubnetRepository, *postgres.VpcRepository, context.Context) {
 	t.Helper()
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
@@ -35,6 +36,7 @@ func setupSubnetServiceTest(t *testing.T) (*services.SubnetService, *postgres.Su
 }
 
 func createTestVPC(t *testing.T, ctx context.Context, vpcRepo *postgres.VpcRepository) *domain.VPC {
+	t.Helper()
 	tenantID := appcontext.TenantIDFromContext(ctx)
 	userID := appcontext.UserIDFromContext(ctx)
 	vpc := &domain.VPC{
