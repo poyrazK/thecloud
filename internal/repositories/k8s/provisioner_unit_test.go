@@ -63,6 +63,7 @@ func (m *mockLBSvc) RemoveTarget(ctx context.Context, lbID, instanceID uuid.UUID
 func (m *mockLBSvc) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*domain.LBTarget, error) { return nil, nil }
 
 func setupProvisionerUnit(t *testing.T) (*KubeadmProvisioner, *mockInstanceService, *mockClusterRepo) {
+	t.Helper()
 	mockInst := new(mockInstanceService)
 	mockRepo := new(mockClusterRepo)
 	mockSecret := new(mockSecretSvc)

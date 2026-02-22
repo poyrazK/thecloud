@@ -74,7 +74,7 @@ func (w *DatabaseFailoverWorker) checkDatabases(ctx context.Context) {
 	}
 }
 
-func (w *DatabaseFailoverWorker) isHealthy(ctx context.Context, db *domain.Database) bool {
+func (w *DatabaseFailoverWorker) isHealthy(_ context.Context, db *domain.Database) bool {
 	// Simple TCP check for the mapped port on localhost (since it's a simulator)
 	address := fmt.Sprintf("localhost:%d", db.Port)
 	conn, err := net.DialTimeout("tcp", address, databaseCheckTimeout)

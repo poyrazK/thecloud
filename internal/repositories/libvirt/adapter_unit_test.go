@@ -101,9 +101,9 @@ func TestParseAndValidatePort(t *testing.T) {
 	for _, tt := range tests {
 		h, c, err := a.parseAndValidatePort(tt.input)
 		if tt.wantError {
-			assert.Error(t, err)
+			require.Error(t, err)
 		} else {
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Positive(t, h)
 			assert.Positive(t, c)
 		}
@@ -277,9 +277,9 @@ func TestValidateID(t *testing.T) {
 			t.Parallel()
 			err := validateID(tt.id)
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -344,9 +344,9 @@ func TestParseAndValidatePortExtended(t *testing.T) {
 			t.Parallel()
 			host, cont, err := a.parseAndValidatePort(tt.port)
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tt.hostP, host)
 				assert.Equal(t, tt.contP, cont)
 			}
@@ -434,7 +434,7 @@ func TestGetInstanceLogs(t *testing.T) {
 	ctx := context.Background()
 
 	rc, err := a.GetInstanceLogs(ctx, "test")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, rc)
 	_ = rc.Close()
 }
@@ -449,11 +449,11 @@ func TestGetInstancePort(t *testing.T) {
 	ctx := context.Background()
 
 	port, err := a.GetInstancePort(ctx, "test", "80")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 8080, port)
 
 	_, err = a.GetInstancePort(ctx, "test", "443")
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestNewLibvirtAdapter(t *testing.T) {
@@ -468,7 +468,7 @@ func TestClose(t *testing.T) {
 	a := &LibvirtAdapter{client: m}
 	m.On("Close").Return(nil)
 	err := a.Close()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	m.AssertExpectations(t)
 }
 
@@ -478,7 +478,7 @@ func TestPing(t *testing.T) {
 	a := &LibvirtAdapter{client: m}
 	m.On("Connect", mock.Anything).Return(nil).Once()
 	err := a.Ping(context.Background())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestType(t *testing.T) {
@@ -497,7 +497,7 @@ func TestWaitInitialIPContextCancellation(t *testing.T) {
 	cancel() // Cancel immediately
 
 	_, err := a.waitInitialIP(ctx, "test-instance")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Equal(t, context.Canceled, err)
 }
 
@@ -544,7 +544,7 @@ func TestExecNotSupported(t *testing.T) {
 	t.Parallel()
 	a := &LibvirtAdapter{}
 	_, err := a.Exec(context.Background(), "instance-id", []string{"echo", "test"})
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not supported")
 }
 
@@ -579,7 +579,7 @@ func TestGenerateCloudInitISO(t *testing.T) {
 	cmd := []string{"ls -la"}
 
 	isoPath, err := a.generateCloudInitISO(ctx, name, env, cmd, "")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, isoPath)
 	assert.Contains(t, isoPath, ".iso")
 
@@ -600,7 +600,7 @@ func TestStopInstance_Unit(t *testing.T) {
 	m.On("DomainDestroy", mock.Anything, dom).Return(nil).Once()
 
 	err := a.StopInstance(ctx, "test-vm")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	m.AssertExpectations(t)
 }
 
@@ -628,7 +628,7 @@ func TestDeleteInstance_Unit(t *testing.T) {
 	m.On("StorageVolDelete", mock.Anything, vol, uint32(0)).Return(nil).Once()
 
 	err := a.DeleteInstance(ctx, "test-vm")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	m.AssertExpectations(t)
 }
 
@@ -643,7 +643,7 @@ func TestLibvirtAdapter_StartInstance(t *testing.T) {
 	m.On("DomainCreate", mock.Anything, dom).Return(nil).Once()
 
 	err := a.StartInstance(ctx, "test-vm")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	m.AssertExpectations(t)
 }
 
@@ -659,14 +659,14 @@ func TestLibvirtAdapter_VolumeOps(t *testing.T) {
 		m.On("DomainLookupByName", mock.Anything, "test-vm").Return(dom, nil).Once()
 		m.On("DomainAttachDevice", mock.Anything, dom, mock.Anything).Return(nil).Once()
 		err := a.AttachVolume(ctx, "test-vm", volPath)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("DetachVolume", func(t *testing.T) {
 		m.On("DomainLookupByName", mock.Anything, "test-vm").Return(dom, nil).Once()
 		m.On("DomainDetachDevice", mock.Anything, dom, mock.Anything).Return(nil).Once()
 		err := a.DetachVolume(ctx, "test-vm", volPath)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 	m.AssertExpectations(t)
 }
@@ -698,7 +698,7 @@ func TestLibvirtAdapter_WaitInitialIP(t *testing.T) {
 			Return([]libvirt.NetworkDhcpLease{{Mac: []string{mac}, Ipaddr: "10.0.0.5"}}, uint32(1), nil).Once()
 
 		ip, err := a.waitInitialIP(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "10.0.0.5", ip)
 	})
 }
@@ -722,7 +722,7 @@ func TestLibvirtAdapter_GetInstanceIP(t *testing.T) {
 			Return([]libvirt.NetworkDhcpLease{{Mac: []string{mac}, Ipaddr: "10.0.0.5"}}, uint32(1), nil).Once()
 
 		ip, err := a.GetInstanceIP(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "10.0.0.5", ip)
 	})
 }
@@ -741,7 +741,7 @@ func TestLibvirtAdapter_StatsAndConsole(t *testing.T) {
 		m.On("DomainGetState", mock.Anything, dom, uint32(0)).Return(int32(1), int32(0), nil).Once()
 		
 		stats, err := a.GetInstanceStats(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, stats)
 	})
 
@@ -750,7 +750,7 @@ func TestLibvirtAdapter_StatsAndConsole(t *testing.T) {
 		m.On("DomainLookupByName", mock.Anything, id).Return(dom, nil).Once()
 		m.On("DomainGetXMLDesc", mock.Anything, dom, mock.Anything).Return(xml, nil).Once()
 		url, err := a.GetConsoleURL(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "vnc://127.0.0.1:5900", url)
 	})
 }
@@ -771,7 +771,7 @@ func TestLibvirtAdapter_NetworkAndVolume(t *testing.T) {
 		m.On("NetworkCreate", mock.Anything, mock.Anything).Return(nil).Once()
 		
 		id, err := a.CreateNetwork(ctx, "10.0.0.0/24")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, id)
 	})
 
@@ -782,7 +782,7 @@ func TestLibvirtAdapter_NetworkAndVolume(t *testing.T) {
 		m.On("NetworkUndefine", mock.Anything, net).Return(nil).Once()
 		
 		err := a.DeleteNetwork(ctx, "test-net")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("CreateVolume", func(t *testing.T) {
@@ -792,7 +792,7 @@ func TestLibvirtAdapter_NetworkAndVolume(t *testing.T) {
 		m.On("StorageVolCreateXML", mock.Anything, pool, mock.Anything, uint32(0)).Return(libvirt.StorageVol{Name: "v1"}, nil).Once()
 		
 		err := a.CreateVolume(ctx, "v1")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("DeleteVolume", func(t *testing.T) {
@@ -803,7 +803,7 @@ func TestLibvirtAdapter_NetworkAndVolume(t *testing.T) {
 		m.On("StorageVolDelete", mock.Anything, vol, uint32(0)).Return(nil).Once()
 		
 		err := a.DeleteVolume(ctx, "v1")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 

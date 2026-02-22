@@ -972,12 +972,12 @@ func (a *LibvirtAdapter) setupPortForwarding(name string, ports []string) {
 		}
 
 		if hP > 0 {
-			a.configureIptables(name, ip, strconv.Itoa(cP), hP, cP)
+			a.configureIptables(name, ip, strconv.Itoa(cP), hP)
 		}
 	}
 }
 
-func (a *LibvirtAdapter) configureIptables(name, ip, containerPort string, hPort, cP int) {
+func (a *LibvirtAdapter) configureIptables(name, ip, containerPort string, hPort int) {
 	a.mu.Lock()
 	if a.portMappings[name] == nil {
 		a.portMappings[name] = make(map[string]int)

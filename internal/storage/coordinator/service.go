@@ -141,7 +141,7 @@ func (c *Coordinator) Assemble(ctx context.Context, bucket, key string, parts []
 		}
 
 		wg.Add(1)
-		go func(id string, cl pb.StorageNodeClient) {
+		go func(_ string, cl pb.StorageNodeClient) {
 			defer wg.Done()
 			resp, err := cl.Assemble(ctx, &pb.AssembleRequest{
 				Bucket: bucket,
@@ -203,7 +203,7 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 		}
 
 		wg.Add(1)
-		go func(id string, cl pb.StorageNodeClient) {
+		go func(_ string, cl pb.StorageNodeClient) {
 			defer wg.Done()
 			// Use current time as timestamp for LWW
 			ts := time.Now().UnixNano()
@@ -278,7 +278,7 @@ func (c *Coordinator) collectReadResults(ctx context.Context, bucket, key string
 			continue
 		}
 		wg.Add(1)
-		go func(id string, cl pb.StorageNodeClient) {
+		go func(_ string, cl pb.StorageNodeClient) {
 			defer wg.Done()
 			resp, err := cl.Retrieve(ctx, &pb.RetrieveRequest{Bucket: bucket, Key: key})
 			if err != nil {

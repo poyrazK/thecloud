@@ -84,14 +84,14 @@ func TestLBProxyAdapter(t *testing.T) {
 
 	t.Run("DeployProxy", func(t *testing.T) {
 		id, err := adapter.DeployProxy(ctx, lb, targets)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, lb.ID.String(), id)
 		assert.Contains(t, executedCommands, "nginx")
 
 		// Verify config file exists
 		configPath := filepath.Join("/tmp", "thecloud", "lb", lb.ID.String(), "nginx.conf")
 		_, err = os.Stat(configPath)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		
 		content, _ := os.ReadFile(filepath.Clean(configPath))
 		assert.Contains(t, string(content), "server 10.0.0.1:8080 weight=1;")
@@ -100,7 +100,7 @@ func TestLBProxyAdapter(t *testing.T) {
 	t.Run("UpdateProxyConfig", func(t *testing.T) {
 		executedCommands = []string{}
 		err := adapter.UpdateProxyConfig(ctx, lb, targets)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Contains(t, executedCommands, "nginx")
 	})
 
@@ -113,7 +113,7 @@ func TestLBProxyAdapter(t *testing.T) {
 		_ = os.WriteFile(filepath.Join(configDir, "nginx.pid"), []byte("1234"), 0600)
 
 		err := adapter.RemoveProxy(ctx, lb.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Contains(t, executedCommands, "nginx")
 
 		// Verify directory removed
