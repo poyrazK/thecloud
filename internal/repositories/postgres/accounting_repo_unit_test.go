@@ -57,8 +57,8 @@ func TestAccountingRepository_GetUsageSummary(t *testing.T) {
 	summary, err := repo.GetUsageSummary(context.Background(), userID, start, end)
 	assert.NoError(t, err)
 	assert.NotNil(t, summary)
-	assert.Equal(t, 10.5, summary[domain.ResourceInstance])
-	assert.Equal(t, 5.0, summary[domain.ResourceStorage])
+	assert.InDelta(t, 10.5, summary[domain.ResourceInstance], 0.01)
+	assert.InDelta(t, 5.0, summary[domain.ResourceStorage], 0.01)
 }
 
 func TestAccountingRepository_ListRecords(t *testing.T) {

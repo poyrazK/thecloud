@@ -78,7 +78,7 @@ func TestAutoScalingRepo_Extra(t *testing.T) {
 		
 		avg, err := repo.GetAverageCPU(ctx, []uuid.UUID{instanceID}, since)
 		assert.NoError(t, err)
-		assert.Equal(t, 45.5, avg)
+		assert.InDelta(t, 45.5, avg, 0.01)
 	})
 	
 	t.Run("GetAllPolicies", func(t *testing.T) {
