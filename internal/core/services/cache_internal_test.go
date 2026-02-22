@@ -4,13 +4,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCacheService_InternalParsers(t *testing.T) {
 	t.Run("parseAllocatedPort", func(t *testing.T) {
 		s := &CacheService{}
 		port, err := s.parseAllocatedPort([]string{"30001:6379"}, "6379")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, 30001, port)
 
 		port, _ = s.parseAllocatedPort([]string{"80:80"}, "6379")

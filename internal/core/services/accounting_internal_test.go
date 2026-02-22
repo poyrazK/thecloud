@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -37,7 +38,7 @@ func TestAccountingService_Internal(t *testing.T) {
 		})).Return(nil).Once()
 
 		err := s.TrackUsage(ctx, record)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		repo.AssertExpectations(t)
 	})
 }
