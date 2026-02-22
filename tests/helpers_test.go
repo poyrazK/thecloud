@@ -73,6 +73,7 @@ type ResponseWrapper struct {
 }
 
 func registerAndLogin(t *testing.T, client *http.Client, email, name string) string {
+	t.Helper()
 	// Register
 	regReq := map[string]string{
 		"email":    email,

@@ -35,6 +35,7 @@ func closeResponse(t *testing.T, resp *http.Response) {
 }
 
 func waitForInstanceReady(t *testing.T, client *http.Client, token, instanceID string) bool {
+	t.Helper()
 	deadline := time.Now().Add(eipInstanceReadyTimeout)
 	for time.Now().Before(deadline) {
 		checkResp := getRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances+"/"+instanceID, token)
