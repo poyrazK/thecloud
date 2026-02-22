@@ -18,6 +18,7 @@ import (
 )
 
 func setupCacheServiceTest(t *testing.T) (*services.CacheService, ports.CacheRepository, *docker.DockerAdapter, ports.VpcRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
