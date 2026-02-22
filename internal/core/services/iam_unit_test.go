@@ -10,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -73,7 +74,7 @@ func TestIAMService_Unit(t *testing.T) {
 		mockEventSvc.On("RecordEvent", mock.Anything, "IAM_POLICY_CREATE", mock.Anything, "POLICY", mock.Anything).Return(nil).Once()
 
 		err := svc.CreatePolicy(ctx, policy)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		mockRepo.AssertExpectations(t)
 	})
 
@@ -84,7 +85,7 @@ func TestIAMService_Unit(t *testing.T) {
 		mockAuditSvc.On("Log", mock.Anything, userID, "iam.policy_attach", "user", mock.Anything, mock.Anything).Return(nil).Once()
 
 		err := svc.AttachPolicyToUser(ctx, userID, policyID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 	
 	t.Run("GetPoliciesForUser", func(t *testing.T) {
@@ -92,7 +93,7 @@ func TestIAMService_Unit(t *testing.T) {
 		mockRepo.On("GetPoliciesForUser", mock.Anything, tenantID, userID).Return([]*domain.Policy{}, nil).Once()
 		
 		res, err := svc.GetPoliciesForUser(ctx, userID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, res)
 	})
 }

@@ -47,6 +47,7 @@ func setupDB(t *testing.T) *pgxpool.Pool {
 func setupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
 	t.Helper()
 	t.Helper()
+	t.Helper()
 	ctx := context.Background()
 	userRepo := postgres.NewUserRepo(db)
 

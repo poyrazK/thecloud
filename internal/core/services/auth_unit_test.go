@@ -8,6 +8,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -36,7 +37,7 @@ func TestAuthService_Unit_Extended(t *testing.T) {
 
 		user, err := svc.Register(ctx, email, password, name)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, user)
 		assert.Equal(t, email, user.Email)
 		mockUserRepo.AssertExpectations(t)
@@ -59,7 +60,7 @@ func TestAuthService_Unit_Extended(t *testing.T) {
 
 		resultUser, token, err := svc.Login(ctx, email, password)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, resultUser)
 		assert.Equal(t, "test-key", token)
 	})
@@ -70,7 +71,7 @@ func TestAuthService_Unit_Extended(t *testing.T) {
 		mockUserRepo.On("GetByID", mock.Anything, userID).Return(user, nil).Once()
 		
 		res, err := svc.ValidateUser(ctx, userID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, user, res)
 	})
 }

@@ -17,6 +17,7 @@ import (
 )
 
 func setupSubnetServiceTest(t *testing.T) (*services.SubnetService, *postgres.SubnetRepository, *postgres.VpcRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
