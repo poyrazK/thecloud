@@ -46,6 +46,7 @@ func (m *mockIdentityService) RotateKey(ctx context.Context, userID uuid.UUID, i
 }
 
 func setupCachedIdentityTest(t *testing.T) (*mockIdentityService, *redis.Client, *miniredis.Miniredis) {
+	t.Helper()
 	mr, err := miniredis.Run()
 	if err != nil {
 		t.Fatal(err)

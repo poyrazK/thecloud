@@ -18,6 +18,7 @@ import (
 )
 
 func setupAccountingServiceTest(t *testing.T) (ports.AccountingService, ports.AccountingRepository, *postgres.InstanceRepository, context.Context, *pgxpool.Pool) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)

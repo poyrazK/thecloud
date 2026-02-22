@@ -63,7 +63,7 @@ func TestQueueE2E(t *testing.T) {
 			Data []domain.Message `json:"data"`
 		}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
-		assert.Positive(t, len(res.Data))
+		assert.NotEmpty(t, res.Data)
 		assert.Equal(t, "hello e2e", res.Data[0].Body)
 		receiptHandle = res.Data[0].ReceiptHandle
 	})

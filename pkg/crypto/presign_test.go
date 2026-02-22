@@ -18,7 +18,7 @@ func TestSignAndVerifyURL(t *testing.T) {
 
 	// Test Signing
 	signedURL, err := SignURL(secret, baseURL, method, bucket, key, expires)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Contains(t, signedURL, "signature=")
 	assert.Contains(t, signedURL, "expires=")
 
@@ -49,16 +49,16 @@ func TestSignAndVerifyURL(t *testing.T) {
 	exp := q.Get("expires")
 
 	err = VerifyURL(secret, method, path, exp, sig)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// 2. Tampered Path
 	err = VerifyURL(secret, method, "/other/path", exp, sig)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Equal(t, "invalid signature", err.Error())
 
 	// 3. Tampered Expiration
 	err = VerifyURL(secret, method, path, "12345", sig)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// 4. Expired URL
 	expiredTime := time.Now().Add(-1 * time.Hour)
@@ -66,10 +66,10 @@ func TestSignAndVerifyURL(t *testing.T) {
 	uExp, _ := url.Parse(expiredURL)
 	qExp := uExp.Query()
 	err = VerifyURL(secret, method, path, qExp.Get("expires"), qExp.Get("signature"))
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Equal(t, "URL expired", err.Error())
 
 	// 5. Wrong Method (e.g. tried PUT on a GET signature)
 	err = VerifyURL(secret, "PUT", path, exp, sig)
-	assert.Error(t, err)
+	require.Error(t, err)
 }

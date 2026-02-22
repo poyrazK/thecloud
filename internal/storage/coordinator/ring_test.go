@@ -63,6 +63,6 @@ func TestRingDistribution(t *testing.T) {
 	// Ideally, with 100 virtual nodes, variance should be acceptable.
 	// We just assert that every node got *some* keys.
 	for _, n := range nodes {
-		assert.Greater(t, counts[n], 0, "Node %s received 0 keys", n)
+		assert.Positive(t, counts[n], "Node %s received 0 keys", n)
 	}
 }

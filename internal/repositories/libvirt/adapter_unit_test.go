@@ -105,7 +105,7 @@ func TestParseAndValidatePort(t *testing.T) {
 		} else {
 			assert.NoError(t, err)
 			assert.Positive(t, h)
-			assert.True(t, c > 0)
+			assert.Positive(t, c)
 		}
 	}
 }
