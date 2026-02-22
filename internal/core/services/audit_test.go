@@ -11,6 +11,7 @@ import (
 )
 
 func setupAuditServiceTest(t *testing.T) (*services.AuditService, *postgres.AuditRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)

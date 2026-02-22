@@ -15,6 +15,7 @@ import (
 )
 
 func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *postgres.UserRepo, *services.IdentityService, *services.AuditService, *services.TenantService) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 
