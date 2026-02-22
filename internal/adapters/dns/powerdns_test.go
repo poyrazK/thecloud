@@ -11,7 +11,6 @@ import (
 
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -60,10 +59,10 @@ func TestPowerDNSCreateZone(t *testing.T) {
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	backend, err := NewPowerDNSBackend(ts.URL, testPDNSKey, "localhost", logger)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	err = backend.CreateZone(context.Background(), testPDNSZone, []string{"ns1.example.com."})
-	require.NoError(t, err)
+	assert.NoError(t, err)
 }
 
 func TestPowerDNSAddRecords(t *testing.T) {
@@ -86,7 +85,7 @@ func TestPowerDNSAddRecords(t *testing.T) {
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	backend, err := NewPowerDNSBackend(ts.URL, testPDNSKey, "localhost", logger)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	records := []ports.RecordSet{
 		{
@@ -98,7 +97,7 @@ func TestPowerDNSAddRecords(t *testing.T) {
 	}
 
 	err = backend.AddRecords(context.Background(), testPDNSZone, records)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 }
 
 func TestPowerDNSDeleteZone(t *testing.T) {
@@ -112,10 +111,10 @@ func TestPowerDNSDeleteZone(t *testing.T) {
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	backend, err := NewPowerDNSBackend(ts.URL, testPDNSKey, "localhost", logger)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	err = backend.DeleteZone(context.Background(), testPDNSZone)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 }
 
 func TestPowerDNSUpdateRecords(t *testing.T) {
@@ -145,7 +144,7 @@ func TestPowerDNSUpdateRecords(t *testing.T) {
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	backend, err := NewPowerDNSBackend(ts.URL, testPDNSKey, "localhost", logger)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	records := []ports.RecordSet{
 		{
@@ -157,7 +156,7 @@ func TestPowerDNSUpdateRecords(t *testing.T) {
 	}
 
 	err = backend.UpdateRecords(context.Background(), testPDNSZone, records)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 }
 
 func TestPowerDNSDeleteRecords(t *testing.T) {
@@ -188,10 +187,10 @@ func TestPowerDNSDeleteRecords(t *testing.T) {
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	backend, err := NewPowerDNSBackend(ts.URL, testPDNSKey, "localhost", logger)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	err = backend.DeleteRecords(context.Background(), testPDNSZone, "www."+testPDNSZone, "A")
-	require.NoError(t, err)
+	assert.NoError(t, err)
 }
 
 func TestPowerDNSGetZone(t *testing.T) {
@@ -212,10 +211,10 @@ func TestPowerDNSGetZone(t *testing.T) {
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	backend, err := NewPowerDNSBackend(ts.URL, testPDNSKey, "localhost", logger)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	zone, err := backend.GetZone(context.Background(), testPDNSZone)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, zone)
 	assert.Equal(t, testPDNSZone, zone.Name)
 	assert.Equal(t, "Native", zone.Kind)
@@ -246,10 +245,10 @@ func TestPowerDNSListRecords(t *testing.T) {
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	backend, err := NewPowerDNSBackend(ts.URL, testPDNSKey, "localhost", logger)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	records, err := backend.ListRecords(context.Background(), testPDNSZone)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 	assert.Len(t, records, 1)
 	assert.Equal(t, "www."+testPDNSZone, records[0].Name)
 	assert.Equal(t, "A", records[0].Type)
