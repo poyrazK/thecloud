@@ -16,6 +16,7 @@ import (
 )
 
 func setupRBACServiceIntegrationTest(t *testing.T) (ports.RBACService, ports.RoleRepository, ports.UserRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)

@@ -10,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -32,7 +33,7 @@ func TestIAMService(t *testing.T) {
 		eventSvc.On("RecordEvent", ctx, "IAM_POLICY_CREATE", mock.Anything, "POLICY", mock.Anything).Return(nil).Once()
 
 		err := svc.CreatePolicy(ctx, policy)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		repo.AssertExpectations(t)
 	})
 
@@ -42,7 +43,7 @@ func TestIAMService(t *testing.T) {
 		auditSvc.On("Log", ctx, userID, "iam.policy_attach", "user", userID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.AttachPolicyToUser(ctx, userID, policy.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		repo.AssertExpectations(t)
 	})
 }

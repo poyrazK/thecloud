@@ -15,6 +15,7 @@ import (
 )
 
 func setupQueueServiceTest(t *testing.T) (ports.QueueService, ports.QueueRepository, context.Context, *pgxpool.Pool) {
+	t.Helper()
 	db := setupDB(t)
 	// We don't close DB here, caller should do it via defer
 

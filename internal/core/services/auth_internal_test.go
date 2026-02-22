@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -47,7 +48,7 @@ func TestAuthService_Internal(t *testing.T) {
 		user := &domain.User{ID: userID}
 		repo.On("GetByID", mock.Anything, userID).Return(user, nil).Once()
 		res, err := svc.ValidateUser(ctx, userID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, user, res)
 	})
 }
