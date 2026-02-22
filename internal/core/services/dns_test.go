@@ -20,6 +20,7 @@ import (
 )
 
 func setupDNSServiceTest(t *testing.T) (*services.DNSService, ports.DNSRepository, ports.VpcRepository, *postgres.InstanceRepository, *pgxpool.Pool, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)

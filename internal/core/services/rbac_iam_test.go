@@ -36,7 +36,7 @@ func TestRBACService_IAMIntegration(t *testing.T) {
 		iamRepo.On("GetPoliciesForUser", ctx, tenantID, userID).Return(policies, nil).Once()
 
 		allowed, err := svc.HasPermission(ctx, userID, domain.PermissionInstanceLaunch, "*")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, allowed)
 	})
 
@@ -53,7 +53,7 @@ func TestRBACService_IAMIntegration(t *testing.T) {
 
 		// Admin would normally have this, but policy Deny should stop it
 		allowed, err := svc.HasPermission(ctx, userID, domain.PermissionInstanceTerminate, "*")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, allowed)
 	})
 
@@ -65,7 +65,7 @@ func TestRBACService_IAMIntegration(t *testing.T) {
 		
 		// Fallback logic for custom role
 		allowed, err := svc.HasPermission(ctx, userID, domain.PermissionInstanceLaunch, "*")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, allowed)
 	})
 }

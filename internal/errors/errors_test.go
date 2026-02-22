@@ -64,5 +64,5 @@ func TestGetCause(t *testing.T) {
 	cause := fmt.Errorf("root cause")
 	err := Wrap(Internal, "msg", cause)
 	assert.Equal(t, cause, GetCause(err))
-	assert.Nil(t, GetCause(fmt.Errorf("regular error")))
+	assert.NoError(t, GetCause(fmt.Errorf("regular error")))
 }

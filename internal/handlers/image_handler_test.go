@@ -312,7 +312,7 @@ func TestImageHandlerAdditionalErrors(t *testing.T) {
 	})
 
 	t.Run("UploadImageInvalidID", func(t *testing.T) {
-		_, handler, r := setupImageHandlerTest(t)
+		handler, r := setupImageHandlerTest(t)
 		r.POST("/images/:id"+uploadSuffix, handler.UploadImage)
 		req, _ := http.NewRequest("POST", "/images/invalid/upload", nil)
 		w := httptest.NewRecorder()
@@ -321,7 +321,7 @@ func TestImageHandlerAdditionalErrors(t *testing.T) {
 	})
 
 	t.Run("UploadImageNoFile", func(t *testing.T) {
-		_, handler, _ := setupImageHandlerTest(t)
+		handler, _ := setupImageHandlerTest(t)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Params = []gin.Param{{Key: imageIDParam, Value: uuid.New().String()}}
@@ -365,9 +365,10 @@ func TestImageHandlerAdditionalErrors(t *testing.T) {
 	})
 }
 
-func setupImageHandlerTest(_ *testing.T) (*mockImageService, *ImageHandler, *gin.Engine) {
+func setupImageHandlerTest(t *testing.T) (*ImageHandler, *gin.Engine) {
+	t.Helper()
 	svc := new(mockImageService)
 	handler := NewImageHandler(svc)
 	r := gin.New()
-	return svc, handler, r
+	return handler, r
 }

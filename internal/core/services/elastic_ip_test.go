@@ -18,6 +18,7 @@ import (
 )
 
 func setupElasticIPServiceTest(t *testing.T) (ports.ElasticIPService, ports.ElasticIPRepository, ports.InstanceRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)

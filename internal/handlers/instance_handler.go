@@ -389,7 +389,7 @@ func (h *InstanceHandler) GetConsole(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id}/metadata [put]
 func (h *InstanceHandler) UpdateMetadata(c *gin.Context) {
-	id, ok := parseUUID(c, "id")
+	id, ok := parseUUID(c)
 	if !ok {
 		return
 	}

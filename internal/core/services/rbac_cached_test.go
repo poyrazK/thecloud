@@ -212,7 +212,7 @@ func TestCachedRBACServiceHasPermissionError(t *testing.T) {
 	assert.False(t, allowed)
 
 	key := "rbac:perm:" + userID.String() + ":" + string(permission)
-	assert.False(t, cache.Exists(ctx, key).Val() > 0)
+	assert.LessOrEqual(t, cache.Exists(ctx, key).Val(), int64(0))
 }
 
 func TestCachedRBACServiceCreateRoleDelegates(t *testing.T) {

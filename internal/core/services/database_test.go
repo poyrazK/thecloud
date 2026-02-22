@@ -22,6 +22,7 @@ const (
 )
 
 func setupDatabaseServiceTest(t *testing.T) (ports.DatabaseService, ports.DatabaseRepository, *docker.DockerAdapter, ports.VpcRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
