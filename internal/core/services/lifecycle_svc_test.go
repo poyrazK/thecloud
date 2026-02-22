@@ -85,7 +85,7 @@ func TestListRules(t *testing.T) {
 
 		result, err := svc.ListRules(ctx, bucketName)
 		assert.NoError(t, err)
-		assert.Equal(t, 1, len(result))
+		assert.Len(t, result, 1)
 		mockStorageRepo.AssertExpectations(t)
 		mockRepo.AssertExpectations(t)
 	})

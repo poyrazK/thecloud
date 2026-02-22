@@ -167,10 +167,10 @@ func TestGlobalLBRemoveEndpoint(t *testing.T) {
 
 		// Verify repo
 		eps, _ := repo.ListEndpoints(ctx, glb.ID)
-		assert.Len(t, eps, 0)
+		assert.Empty(t, eps)
 
 		// Verify DNS sync (should be empty now)
 		dnsRecs := geoDNS.Records[glb.Hostname]
-		assert.Len(t, dnsRecs, 0)
+		assert.Empty(t, dnsRecs)
 	})
 }

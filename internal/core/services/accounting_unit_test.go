@@ -66,7 +66,7 @@ func TestAccountingService_Unit(t *testing.T) {
 
 		summary, err := svc.GetSummary(ctx, userID, start, end)
 		assert.NoError(t, err)
-		assert.Equal(t, 2.0, summary.TotalAmount)
+		assert.InDelta(t, 2.0, summary.TotalAmount, 0.01)
 		assert.Equal(t, userID, summary.UserID)
 	})
 

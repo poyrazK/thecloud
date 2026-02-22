@@ -60,7 +60,7 @@ func TestNotifyService_Integration(t *testing.T) {
 		assert.NoError(t, err)
 
 		topics, _ = svc.ListTopics(ctx)
-		assert.Len(t, topics, 0)
+		assert.Empty(t, topics)
 	})
 
 	t.Run("SubscriptionAndPublishing", func(t *testing.T) {
