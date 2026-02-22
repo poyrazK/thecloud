@@ -30,18 +30,18 @@ func TestPowerDNSGeo(t *testing.T) {
 		}
 
 		err := backend.CreateGeoRecord(ctx, hostname, endpoints)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("CreateGeoRecord Empty", func(t *testing.T) {
 		// Should call DeleteGeoRecord
 		err := backend.CreateGeoRecord(ctx, hostname, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("DeleteGeoRecord", func(t *testing.T) {
 		err := backend.DeleteGeoRecord(ctx, hostname)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("Invalid Hostname", func(t *testing.T) {
