@@ -125,7 +125,7 @@ func TestDashboardHandlerGetStats(t *testing.T) {
 	}
 	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &wrapper))
 	assert.Len(t, wrapper.Data.CPUHistory, 1)
-	assert.Equal(t, 10.1, wrapper.Data.CPUHistory[0].Value)
+	assert.InDelta(t, 10.1, wrapper.Data.CPUHistory[0].Value, 0.01)
 }
 
 func TestDashboardHandlerStreamEvents(t *testing.T) {

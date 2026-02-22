@@ -3,6 +3,7 @@ package platform
 import (
 	"errors"
 	"testing"
+	"github.com/stretchr/testify/require"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,7 @@ func TestCircuitBreaker(t *testing.T) {
 		err := cb.Execute(func() error {
 			return nil
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, StateClosed, cb.GetState())
 	})
 
@@ -25,14 +26,14 @@ func TestCircuitBreaker(t *testing.T) {
 		err := cb.Execute(func() error {
 			return errors.New("fail")
 		})
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Equal(t, StateClosed, cb.GetState())
 
 		// Second failure - trips circuit
 		err = cb.Execute(func() error {
 			return errors.New("fail")
 		})
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Equal(t, StateOpen, cb.GetState())
 
 		// Subsequent call returns ErrCircuitOpen
@@ -56,7 +57,7 @@ func TestCircuitBreaker(t *testing.T) {
 		err := cb.Execute(func() error {
 			return nil
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, StateClosed, cb.GetState())
 	})
 
@@ -74,7 +75,7 @@ func TestCircuitBreaker(t *testing.T) {
 		err := cb.Execute(func() error {
 			return errors.New("fail")
 		})
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.NotEqual(t, ErrCircuitOpen, err)
 		assert.Equal(t, StateOpen, cb.GetState())
 	})

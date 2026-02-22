@@ -76,7 +76,7 @@ func TestAccountingHandlerGetSummary(t *testing.T) {
 		}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		assert.NoError(t, err)
-		assert.Equal(t, 10.5, resp.Data.TotalAmount)
+		assert.InDelta(t, 10.5, resp.Data.TotalAmount, 0.01)
 	})
 }
 
