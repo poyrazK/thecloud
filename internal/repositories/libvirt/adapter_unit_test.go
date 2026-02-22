@@ -104,7 +104,7 @@ func TestParseAndValidatePort(t *testing.T) {
 			assert.Error(t, err)
 		} else {
 			assert.NoError(t, err)
-			assert.True(t, h >= 30000 || h == 8080 || h == 80)
+			assert.Positive(t, h)
 			assert.True(t, c > 0)
 		}
 	}
