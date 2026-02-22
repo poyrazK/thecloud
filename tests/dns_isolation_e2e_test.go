@@ -85,6 +85,7 @@ func createVPCForDNS(t *testing.T, client *http.Client, token, name string) stri
 }
 
 func createZoneForDNS(t *testing.T, client *http.Client, token, name, vpcID string) string {
+	t.Helper()
 	payload := map[string]interface{}{
 		"name":   name,
 		"vpc_id": vpcID,

@@ -10,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -27,7 +28,7 @@ func TestElasticIPService_AllocateIP(t *testing.T) {
 	auditSvc.On("Log", mock.Anything, userID, "eip.allocate", "eip", mock.Anything, mock.Anything).Return(nil).Once()
 
 	eip, err := svc.AllocateIP(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, eip)
 	assert.Equal(t, userID, eip.UserID)
 	repo.AssertExpectations(t)
@@ -50,7 +51,7 @@ func TestElasticIPService_ReleaseIP(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "eip.release", "eip", id.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.ReleaseIP(context.Background(), id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("associated failure", func(t *testing.T) {
@@ -58,7 +59,7 @@ func TestElasticIPService_ReleaseIP(t *testing.T) {
 		repo.On("GetByID", mock.Anything, id).Return(eipAssoc, nil).Once()
 
 		err := svc.ReleaseIP(context.Background(), id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "disassociate it first")
 	})
 }
@@ -85,7 +86,7 @@ func TestElasticIPService_AssociateIP(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "eip.associate", "eip", id.String(), mock.Anything).Return(nil).Once()
 
 		result, err := svc.AssociateIP(context.Background(), id, instID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, domain.EIPStatusAssociated, result.Status)
 	})
 }
@@ -107,7 +108,7 @@ func TestElasticIPService_DisassociateIP(t *testing.T) {
 	auditSvc.On("Log", mock.Anything, userID, "eip.disassociate", "eip", id.String(), mock.Anything).Return(nil).Once()
 
 	result, err := svc.DisassociateIP(context.Background(), id)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, domain.EIPStatusAllocated, result.Status)
 	assert.Nil(t, result.InstanceID)
 }
@@ -123,10 +124,10 @@ func TestElasticIPService_ListAndGet(t *testing.T) {
 	repo.On("GetByID", mock.Anything, id).Return(&domain.ElasticIP{ID: id}, nil).Once()
 
 	list, err := svc.ListElasticIPs(context.Background())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, list, 1)
 
 	eip, err := svc.GetElasticIP(context.Background(), id)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, id, eip.ID)
 }

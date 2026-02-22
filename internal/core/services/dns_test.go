@@ -67,14 +67,14 @@ func TestDNSServiceCreateZone(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		name := "example.com"
 		zone, err := svc.CreateZone(ctx, vpc.ID, name, "Test Zone")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, zone)
 		assert.Equal(t, name, zone.Name)
 		assert.Equal(t, vpc.ID, zone.VpcID)
 
 		// Verify DB
 		fetched, err := repo.GetZoneByID(ctx, zone.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, zone.ID, fetched.ID)
 	})
 
@@ -82,7 +82,7 @@ func TestDNSServiceCreateZone(t *testing.T) {
 		// Attempting to create a zone that already exists for the same VPC should result in a failure.
 		// This verifies that the service enforcing unique constraints or handling DB unique violations correctly.
 		_, err := svc.CreateZone(ctx, vpc.ID, "example.com", "Duplicate")
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
@@ -107,7 +107,7 @@ func TestDNSServiceRegisterInstance_NoZone(t *testing.T) {
 
 	// Should not error, just silence
 	err := svc.RegisterInstance(ctx, inst, "1.2.3.4")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestDNSServiceDeleteZone(t *testing.T) {
@@ -122,11 +122,11 @@ func TestDNSServiceDeleteZone(t *testing.T) {
 	require.NoError(t, err)
 
 	err = svc.DeleteZone(ctx, zone.ID.String())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify Deleted
 	_, err = repo.GetZoneByID(ctx, zone.ID)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestDNSServiceGetZoneByVPC(t *testing.T) {
@@ -142,14 +142,14 @@ func TestDNSServiceGetZoneByVPC(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		zone, err := svc.GetZoneByVPC(ctx, vpc.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, zone)
 		assert.Equal(t, "vpc-zone.com", zone.Name)
 	})
 
 	t.Run("not found", func(t *testing.T) {
 		_, err := svc.GetZoneByVPC(ctx, uuid.New())
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
@@ -167,7 +167,7 @@ func TestDNSServiceListZones(t *testing.T) {
 	_, _ = svc.CreateZone(ctx, vpc2.ID, "z2.com", "")
 
 	zones, err := svc.ListZones(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, zones, 2)
 }
 
@@ -184,13 +184,13 @@ func TestDNSServiceRecords(t *testing.T) {
 
 	t.Run("Create A Record", func(t *testing.T) {
 		rec, err := svc.CreateRecord(ctx, zone.ID, "www", domain.RecordTypeA, "1.2.3.4", 300, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "www", rec.Name)
 		assert.Equal(t, "1.2.3.4", rec.Content)
 
 		// Get
 		fetched, err := svc.GetRecord(ctx, rec.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, rec.ID, fetched.ID)
 	})
 
@@ -198,7 +198,7 @@ func TestDNSServiceRecords(t *testing.T) {
 		rec, _ := svc.CreateRecord(ctx, zone.ID, "api", domain.RecordTypeA, "5.6.7.8", 300, nil)
 
 		updated, err := svc.UpdateRecord(ctx, rec.ID, "9.9.9.9", 600, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "9.9.9.9", updated.Content)
 		assert.Equal(t, 600, updated.TTL)
 	})
@@ -207,15 +207,15 @@ func TestDNSServiceRecords(t *testing.T) {
 		rec, _ := svc.CreateRecord(ctx, zone.ID, "del", domain.RecordTypeA, "1.1.1.1", 300, nil)
 
 		err := svc.DeleteRecord(ctx, rec.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		_, err = svc.GetRecord(ctx, rec.ID)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("List Records", func(t *testing.T) {
 		list, err := svc.ListRecords(ctx, zone.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		// We created 'www', 'api' (updated), and 'del' (deleted). So 2 remaining.
 		assert.Len(t, list, 2)
 	})
@@ -249,14 +249,14 @@ func TestDNSServiceRegisterInstance(t *testing.T) {
 
 	// Register
 	err = svc.RegisterInstance(ctx, inst, "10.0.0.5")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify Record Created
 	zone, err := repo.GetZoneByName(ctx, zoneName)
 	require.NoError(t, err, "GetZoneByName failed")
 
 	records, err := repo.ListRecordsByZone(ctx, zone.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	t.Logf("Found %d records in zone %s", len(records), zone.ID)
 
 	found := false
@@ -271,7 +271,7 @@ func TestDNSServiceRegisterInstance(t *testing.T) {
 
 	// Unregister
 	err = svc.UnregisterInstance(ctx, inst.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify gone
 	recordsAfter, _ := repo.ListRecordsByZone(ctx, zone.ID)
@@ -330,7 +330,7 @@ func TestDNSService_BackendError(t *testing.T) {
 
 	t.Run("CreateZone Failure", func(t *testing.T) {
 		_, err := faultySvc.CreateZone(ctx, vpc.ID, "fail.com", "")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "DNS backend")
 	})
 
@@ -352,6 +352,6 @@ func TestDNSService_BackendError(t *testing.T) {
 		faulty.FailAdd = true
 		inst := &domain.Instance{ID: uuid.New(), VpcID: &vpc.ID, Name: "fail-inst"}
 		err = faultySvc.RegisterInstance(ctx, inst, "1.1.1.1")
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }

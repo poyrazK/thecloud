@@ -25,6 +25,7 @@ const (
 )
 
 func closeResponse(t *testing.T, resp *http.Response) {
+	t.Helper()
 	if resp == nil {
 		return
 	}
