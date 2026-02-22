@@ -16,6 +16,7 @@ import (
 )
 
 func setupImageServiceTest(t *testing.T) (ports.ImageService, ports.ImageRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)

@@ -252,7 +252,7 @@ func TestDashboardServiceGetSummary(t *testing.T) {
 
 			summary, err := svc.GetSummary(context.Background())
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, tt.wantRunning, summary.RunningInstances)
 			assert.Equal(t, tt.wantStopped, summary.StoppedInstances)
 			assert.Equal(t, tt.wantVolumes, summary.TotalVolumes)
@@ -274,7 +274,7 @@ func TestDashboardServiceGetRecentEvents(t *testing.T) {
 
 	result, err := svc.GetRecentEvents(context.Background(), 10)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, result, 2)
 }
 
@@ -297,7 +297,7 @@ func TestDashboardServiceGetStats(t *testing.T) {
 
 	stats, err := svc.GetStats(context.Background())
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, stats)
 	assert.Equal(t, 1, stats.Summary.RunningInstances)
 	assert.Len(t, stats.RecentEvents, 1)

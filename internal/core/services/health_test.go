@@ -13,6 +13,7 @@ import (
 )
 
 func setupHealthServiceTest(t *testing.T) (*services.HealthServiceImpl, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	// No cleanDB needed for health check as it only pings.
 	ctx := setupTestUser(t, db)

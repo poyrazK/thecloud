@@ -64,6 +64,7 @@ func (q *InMemoryTaskQueue) Dequeue(ctx context.Context, queueName string) (stri
 }
 
 func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceService, *docker.DockerAdapter, coreports.InstanceRepository, coreports.VpcRepository, coreports.VolumeRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)

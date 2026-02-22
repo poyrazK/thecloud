@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupFunctionServiceTest(t *testing.T) (*services.FunctionService, ports.FunctionRepository, ports.FileStore, context.Context) {
+func setupFunctionServiceTest(t *testing.T) (*services.FunctionService, ports.FunctionRepository, context.Context) {
 	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
@@ -41,14 +41,14 @@ func setupFunctionServiceTest(t *testing.T) (*services.FunctionService, ports.Fu
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := services.NewFunctionService(repo, compute, fileStore, auditSvc, logger)
-	return svc, repo, fileStore, ctx
+	return svc, repo, ctx
 }
 
-func createZip(t *testing.T, filename, content string) []byte {
+func createZip(t *testing.T, content string) []byte {
 	t.Helper()
 	buf := new(bytes.Buffer)
 	w := zip.NewWriter(buf)
-	f, err := w.Create(filename)
+	f, err := w.Create("index.js")
 	require.NoError(t, err)
 	_, err = f.Write([]byte(content))
 	require.NoError(t, err)
@@ -58,13 +58,13 @@ func createZip(t *testing.T, filename, content string) []byte {
 }
 
 func TestFunctionService_CreateFunction_Success(t *testing.T) {
-	svc, repo, _, ctx := setupFunctionServiceTest(t)
+	svc, repo, ctx := setupFunctionServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	name := "test-func"
 	runtime := "nodejs20"
 	handler := "index.js"
-	code := createZip(t, "index.js", "console.log('hello world')")
+	code := createZip(t, "console.log('hello world')")
 
 	f, err := svc.CreateFunction(ctx, name, runtime, handler, code)
 
@@ -83,9 +83,9 @@ func TestFunctionService_CreateFunction_Success(t *testing.T) {
 func TestFunctionService_InvokeFunction_Success(t *testing.T) {
 	// Skip if we don't want to actually run docker in all environments,
 	// but here we are aiming for real integration.
-	svc, _, _, ctx := setupFunctionServiceTest(t)
+	svc, _, ctx := setupFunctionServiceTest(t)
 
-	code := createZip(t, "index.js", `
+	code := createZip(t, `
 const payload = process.env.PAYLOAD;
 console.log("Input: " + payload);
 process.exit(0);
@@ -102,9 +102,9 @@ process.exit(0);
 }
 
 func TestFunctionService_DeleteFunction_Success(t *testing.T) {
-	svc, repo, _, ctx := setupFunctionServiceTest(t)
+	svc, repo, ctx := setupFunctionServiceTest(t)
 
-	code := createZip(t, "index.js", "console.log(1)")
+	code := createZip(t, "console.log(1)")
 	f, _ := svc.CreateFunction(ctx, "to-delete", "nodejs20", "index.js", code)
 
 	err := svc.DeleteFunction(ctx, f.ID)
@@ -116,8 +116,8 @@ func TestFunctionService_DeleteFunction_Success(t *testing.T) {
 }
 
 func TestFunctionService_ListFunctions(t *testing.T) {
-	svc, _, _, ctx := setupFunctionServiceTest(t)
-	code := createZip(t, "index.js", "1")
+	svc, _, ctx := setupFunctionServiceTest(t)
+	code := createZip(t, "1")
 	_, _ = svc.CreateFunction(ctx, "fn1", "nodejs20", "index.js", code)
 	_, _ = svc.CreateFunction(ctx, "fn2", "nodejs20", "index.js", code)
 
@@ -127,8 +127,8 @@ func TestFunctionService_ListFunctions(t *testing.T) {
 }
 
 func TestFunctionService_GetFunction(t *testing.T) {
-	svc, _, _, ctx := setupFunctionServiceTest(t)
-	code := createZip(t, "index.js", "1")
+	svc, _, ctx := setupFunctionServiceTest(t)
+	code := createZip(t, "1")
 	f, _ := svc.CreateFunction(ctx, "get-me", "nodejs20", "index.js", code)
 
 	res, err := svc.GetFunction(ctx, f.ID)
@@ -137,8 +137,8 @@ func TestFunctionService_GetFunction(t *testing.T) {
 }
 
 func TestFunctionService_InvokeAsync(t *testing.T) {
-	svc, repo, _, ctx := setupFunctionServiceTest(t)
-	code := createZip(t, "index.js", "console.log('async')")
+	svc, repo, ctx := setupFunctionServiceTest(t)
+	code := createZip(t, "console.log('async')")
 	f, _ := svc.CreateFunction(ctx, "async-test", "nodejs20", "index.js", code)
 
 	inv, err := svc.InvokeFunction(ctx, f.ID, []byte("{}"), true)
@@ -161,7 +161,7 @@ func TestFunctionService_InvokeAsync(t *testing.T) {
 }
 
 func TestFunctionService_ZipSlipProtection(t *testing.T) {
-	svc, _, _, ctx := setupFunctionServiceTest(t)
+	svc, _, ctx := setupFunctionServiceTest(t)
 
 	// Create malicious zip
 	buf := new(bytes.Buffer)

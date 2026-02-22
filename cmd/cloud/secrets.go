@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-//nolint:gosec // G101: This is a format string, not a credential
 const secretsErrorFormat = "Error: %v\n"
 
 var secretsCmd = &cobra.Command{

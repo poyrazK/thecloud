@@ -25,7 +25,7 @@ func TestFunctionService_InternalExtract(t *testing.T) {
 		_ = zw.Close()
 
 		err := s.extractZip(bytes.NewReader(buf.Bytes()), tmpDir)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		//nolint:gosec
 		content, _ := os.ReadFile(filepath.Join(tmpDir, "hello.txt"))
@@ -40,7 +40,7 @@ func TestFunctionService_InternalExtract(t *testing.T) {
 		_ = zw.Close()
 
 		err := s.extractZip(bytes.NewReader(buf.Bytes()), tmpDir)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid file path")
 	})
 }
