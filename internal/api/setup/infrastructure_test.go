@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 	"testing"
+	"github.com/stretchr/testify/require"
 
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/stretchr/testify/assert"
