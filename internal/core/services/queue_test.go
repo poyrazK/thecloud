@@ -44,26 +44,26 @@ func TestQueueServiceCreateQueue(t *testing.T) {
 		opts := &ports.CreateQueueOptions{}
 		q, err := svc.CreateQueue(ctx, "test-queue", opts)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, q)
 		assert.Equal(t, "test-queue", q.Name)
 		assert.Equal(t, userID, q.UserID)
 
 		// Verify DB
 		fetched, err := repo.GetByName(ctx, "test-queue", userID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, q.ID, fetched.ID)
 	})
 
 	t.Run("already exists", func(t *testing.T) {
 		_, err := svc.CreateQueue(ctx, "test-queue", nil)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "already exists")
 	})
 
 	t.Run("unauthorized", func(t *testing.T) {
 		_, err := svc.CreateQueue(context.Background(), "no-auth", nil)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unauthorized")
 	})
 }
@@ -77,7 +77,7 @@ func TestQueueServiceSendMessage(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		msg, err := svc.SendMessage(ctx, q.ID, "hello world")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, msg)
 		assert.Equal(t, "hello world", msg.Body)
 		// Receipt handle is only present when received
@@ -98,13 +98,13 @@ func TestQueueServiceReceiveMessages(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		msgs, err := svc.ReceiveMessages(ctx, q.ID, 10)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, msgs, 2)
 
 		// Should be invisible now? Depends on repo impl (visibility timeout).
 		// Try receiving again immediately
 		msgs2, err := svc.ReceiveMessages(ctx, q.ID, 10)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Empty(t, msgs2, "messages should be invisible")
 	})
 }
@@ -125,12 +125,12 @@ func TestQueueServiceDeleteMessage(t *testing.T) {
 	receipt := msgs[0].ReceiptHandle
 
 	err = svc.DeleteMessage(ctx, q.ID, receipt)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	postgresRepo, ok := repo.(*postgres.PostgresQueueRepository)
 	require.True(t, ok)
 	v, inv, err := postgresRepo.GetQueueStats(ctx, q.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 0, v)
 	assert.Equal(t, 0, inv)
 }
@@ -146,12 +146,12 @@ func TestQueueServicePurgeQueue(t *testing.T) {
 	_, _ = svc.SendMessage(ctx, q.ID, "m2")
 
 	err = svc.PurgeQueue(ctx, q.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	postgresRepo, ok := repo.(*postgres.PostgresQueueRepository)
 	require.True(t, ok)
 	v, inv, err := postgresRepo.GetQueueStats(ctx, q.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 0, v)
 	assert.Equal(t, 0, inv)
 }
@@ -165,10 +165,10 @@ func TestQueueServiceDeleteQueue(t *testing.T) {
 	require.NoError(t, err)
 
 	err = svc.DeleteQueue(ctx, q.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	fetched, err := repo.GetByID(ctx, q.ID, userID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Nil(t, fetched)
 }
 
@@ -182,6 +182,6 @@ func TestQueueServiceListQueues(t *testing.T) {
 	require.NoError(t, err)
 
 	queues, err := svc.ListQueues(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, queues, 2)
 }

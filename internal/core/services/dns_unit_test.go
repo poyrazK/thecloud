@@ -11,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -134,7 +135,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "dns.zone.create", "dns_zone", mock.Anything, mock.Anything).Return(nil).Once()
 
 		zone, err := svc.CreateZone(ctx, vpcID, "example.com", "my zone")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, zone)
 		assert.Equal(t, "example.com", zone.Name)
 	})
@@ -148,7 +149,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "dns.zone.delete", "dns_zone", zoneID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.DeleteZone(ctx, zoneID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("CreateRecord", func(t *testing.T) {
@@ -159,7 +160,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		repo.On("CreateRecord", mock.Anything, mock.Anything).Return(nil).Once()
 
 		record, err := svc.CreateRecord(ctx, zoneID, "www", domain.RecordTypeA, "1.2.3.4", 3600, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, record)
 		assert.Equal(t, "www", record.Name)
 	})
@@ -176,7 +177,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		repo.On("UpdateRecord", mock.Anything, mock.Anything).Return(nil).Once()
 
 		updated, err := svc.UpdateRecord(ctx, recordID, "5.6.7.8", 3600, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "5.6.7.8", updated.Content)
 	})
 
@@ -186,7 +187,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		repo.On("GetZoneByVPC", mock.Anything, vpcID).Return(expectedZone, nil).Once()
 
 		zone, err := svc.GetZoneByVPC(ctx, vpcID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, expectedZone, zone)
 	})
 
@@ -195,7 +196,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		repo.On("ListZones", mock.Anything).Return(expectedZones, nil).Once()
 
 		zones, err := svc.ListZones(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, expectedZones, zones)
 	})
 
@@ -205,7 +206,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		repo.On("GetRecordByID", mock.Anything, recordID).Return(expectedRecord, nil).Once()
 
 		record, err := svc.GetRecord(ctx, recordID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, expectedRecord, record)
 	})
 
@@ -215,7 +216,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		repo.On("ListRecordsByZone", mock.Anything, zoneID).Return(expectedRecords, nil).Once()
 
 		records, err := svc.ListRecords(ctx, zoneID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, expectedRecords, records)
 	})
 
@@ -231,7 +232,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		repo.On("DeleteRecord", mock.Anything, recordID).Return(nil).Once()
 
 		err := svc.DeleteRecord(ctx, recordID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("UnregisterInstance", func(t *testing.T) {
@@ -248,6 +249,6 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		repo.On("DeleteRecordsByInstance", mock.Anything, instID).Return(nil).Once()
 
 		err := svc.UnregisterInstance(ctx, instID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

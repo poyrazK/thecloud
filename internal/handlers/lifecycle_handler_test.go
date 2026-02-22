@@ -50,6 +50,7 @@ const (
 )
 
 func setupLifecycleHandlerTest(t *testing.T) (*mockLifecycleService, *LifecycleHandler, *gin.Engine) {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockLifecycleService)
 
