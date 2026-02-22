@@ -15,6 +15,7 @@ import (
 )
 
 func setupCloudLogsServiceTest(t *testing.T) (*services.CloudLogsService, *postgres.LogRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)

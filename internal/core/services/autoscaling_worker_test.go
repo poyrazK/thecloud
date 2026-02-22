@@ -16,7 +16,8 @@ import (
 
 const testGroupName = "test-group"
 
-func setupAutoScalingWorkerTest(_ *testing.T) (*MockAutoScalingRepo, *MockInstanceService, *MockLBService, *MockEventService, *MockClock, *services.AutoScalingWorker) {
+func setupAutoScalingWorkerTest(t *testing.T) (*MockAutoScalingRepo, *MockInstanceService, *MockLBService, *MockEventService, *MockClock, *services.AutoScalingWorker) {
+	t.Helper()
 	mockRepo := new(MockAutoScalingRepo)
 	mockInstSvc := new(MockInstanceService)
 	mockLBSvc := new(MockLBService)

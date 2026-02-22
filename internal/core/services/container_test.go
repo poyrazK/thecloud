@@ -18,6 +18,7 @@ import (
 )
 
 func setupContainerServiceIntegrationTest(t *testing.T) (ports.ContainerService, ports.ContainerRepository, *pgxpool.Pool, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)

@@ -15,6 +15,7 @@ import (
 )
 
 func setupCronServiceIntegrationTest(t *testing.T) (ports.CronService, ports.CronRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
