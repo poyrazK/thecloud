@@ -15,6 +15,7 @@ import (
 )
 
 func setupLBServiceIntegrationTest(t *testing.T) (ports.LBService, *postgres.LBRepository, *postgres.VpcRepository, *postgres.InstanceRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)

@@ -13,6 +13,8 @@ import (
 )
 
 func setupInstanceTypeServiceTest(t *testing.T) (ports.InstanceTypeService, *postgres.InstanceTypeRepository, context.Context) {
+	t.Helper()
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)

@@ -22,7 +22,7 @@ func TestParseAndValidatePortsTooMany(t *testing.T) {
 	}
 
 	_, err := svc.parseAndValidatePorts(builder.String())
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.True(t, errors.Is(err, errors.TooManyPorts))
 }
 
@@ -41,7 +41,7 @@ func TestValidatePortMappingFormatErrors(t *testing.T) {
 	for _, input := range tests {
 		t.Run(input, func(t *testing.T) {
 			err := validatePortMapping(input)
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.True(t, errors.Is(err, errors.InvalidPortFormat))
 		})
 	}
@@ -50,5 +50,5 @@ func TestValidatePortMappingFormatErrors(t *testing.T) {
 func TestParsePortEmptyFails(t *testing.T) {
 	t.Parallel()
 	_, err := parsePort("   ")
-	assert.Error(t, err)
+	require.Error(t, err)
 }

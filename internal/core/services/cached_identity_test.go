@@ -72,7 +72,7 @@ func TestCachedIdentityServiceValidateAPIKey(t *testing.T) {
 		base.On("ValidateAPIKey", mock.Anything, key).Return(apiKey, nil).Once()
 
 		res, err := svc.ValidateAPIKey(ctx, key)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, apiKey.ID, res.ID)
 		base.AssertExpectations(t)
 	})
@@ -80,7 +80,7 @@ func TestCachedIdentityServiceValidateAPIKey(t *testing.T) {
 	t.Run("cache hit", func(t *testing.T) {
 		// Should not call base service
 		res, err := svc.ValidateAPIKey(ctx, key)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, apiKey.ID, res.ID)
 		base.AssertExpectations(t)
 	})
@@ -91,7 +91,7 @@ func TestCachedIdentityServiceValidateAPIKey(t *testing.T) {
 		base.On("ValidateAPIKey", mock.Anything, "invalid").Return(apiKey, nil).Once()
 
 		res, err := svc.ValidateAPIKey(ctx, "invalid")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, res)
 		base.AssertExpectations(t)
 	})
@@ -108,28 +108,28 @@ func TestCachedIdentityServicePassthrough(t *testing.T) {
 	t.Run("CreateKey", func(t *testing.T) {
 		base.On("CreateKey", mock.Anything, userID, "name").Return(&domain.APIKey{}, nil)
 		_, err := svc.CreateKey(ctx, userID, "name")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		base.AssertExpectations(t)
 	})
 
 	t.Run("ListKeys", func(t *testing.T) {
 		base.On("ListKeys", mock.Anything, userID).Return([]*domain.APIKey{}, nil)
 		_, err := svc.ListKeys(ctx, userID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		base.AssertExpectations(t)
 	})
 
 	t.Run("RevokeKey", func(t *testing.T) {
 		base.On("RevokeKey", mock.Anything, userID, keyID).Return(nil)
 		err := svc.RevokeKey(ctx, userID, keyID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		base.AssertExpectations(t)
 	})
 
 	t.Run("RotateKey", func(t *testing.T) {
 		base.On("RotateKey", mock.Anything, userID, keyID).Return(&domain.APIKey{}, nil)
 		_, err := svc.RotateKey(ctx, userID, keyID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		base.AssertExpectations(t)
 	})
 }

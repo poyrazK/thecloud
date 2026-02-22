@@ -19,6 +19,7 @@ import (
 )
 
 func setupNotifyServiceIntegrationTest(t *testing.T) (ports.NotifyService, ports.NotifyRepository, ports.QueueService, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)

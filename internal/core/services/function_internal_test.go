@@ -28,7 +28,6 @@ func TestFunctionService_InternalExtract(t *testing.T) {
 		err := s.extractZip(bytes.NewReader(buf.Bytes()), tmpDir)
 		require.NoError(t, err)
 
-		//nolint:gosec
 		content, _ := os.ReadFile(filepath.Join(tmpDir, "hello.txt"))
 		assert.Equal(t, "hello world", string(content))
 	})
