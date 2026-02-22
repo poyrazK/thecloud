@@ -56,8 +56,7 @@ func TestWrap(t *testing.T) {
 
 func TestIs(t *testing.T) {
 	err := New(Conflict, "conflict")
-	assert.NoError(t, err)
-	assert.NoError(t, err)
+	assert.True(t, Is(err, Conflict))
 	assert.False(t, Is(fmt.Errorf("regular error"), Conflict))
 }
 

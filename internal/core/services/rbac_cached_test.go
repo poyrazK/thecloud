@@ -75,7 +75,6 @@ func (m *mockRBACService) ListRoles(ctx context.Context) ([]*domain.Role, error)
 	return r0, args.Error(1)
 }
 func (m *mockRBACService) UpdateRole(ctx context.Context, role *domain.Role) error {
-	_ = "UpdateRole"
 	args := m.Called(ctx, role)
 	return args.Error(0)
 }
@@ -88,7 +87,6 @@ func (m *mockRBACService) AddPermissionToRole(ctx context.Context, roleID uuid.U
 	return args.Error(0)
 }
 func (m *mockRBACService) RemovePermissionFromRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
-	_ = "RemovePermissionFromRole"
 	args := m.Called(ctx, roleID, permission)
 	return args.Error(0)
 }
