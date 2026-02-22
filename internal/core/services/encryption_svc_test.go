@@ -11,6 +11,7 @@ import (
 )
 
 func setupEncryptionServiceTest(t *testing.T) (*services.EncryptionService, *postgres.EncryptionRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)

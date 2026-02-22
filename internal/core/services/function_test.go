@@ -21,6 +21,7 @@ import (
 )
 
 func setupFunctionServiceTest(t *testing.T) (*services.FunctionService, ports.FunctionRepository, ports.ComputeBackend, ports.FileStore, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)

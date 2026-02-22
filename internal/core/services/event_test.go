@@ -13,6 +13,7 @@ import (
 )
 
 func setupEventServiceTest(t *testing.T) (*services.EventService, *postgres.EventRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)

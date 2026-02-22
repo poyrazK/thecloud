@@ -33,7 +33,6 @@ func NewClientWithKey(host, user, privateKey string) (*Client, error) {
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
-		//nolint:gosec // G106: Default to insecure for legacy compatibility, but now configurable
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}, nil
 }
