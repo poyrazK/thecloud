@@ -2,6 +2,7 @@ package domain
 
 import (
 	"testing"
+	"github.com/stretchr/testify/require"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
