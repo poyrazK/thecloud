@@ -278,7 +278,7 @@ func (c *Coordinator) collectReadResults(ctx context.Context, bucket, key string
 			continue
 		}
 		wg.Add(1)
-		go func(_ string, cl pb.StorageNodeClient) {
+		go func(id string, cl pb.StorageNodeClient) {
 			defer wg.Done()
 			resp, err := cl.Retrieve(ctx, &pb.RetrieveRequest{Bucket: bucket, Key: key})
 			if err != nil {
