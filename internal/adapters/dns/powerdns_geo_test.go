@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/poyrazk/thecloud/internal/core/domain"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
