@@ -183,8 +183,9 @@ func TestInstanceHandlerLaunch(t *testing.T) {
 
 	inst := &domain.Instance{ID: uuid.New(), Name: testInstanceName}
 	mockSvc.On("LaunchInstance", mock.Anything, ports.LaunchParams{
-		Name:  testInstanceName,
-		Image: "alpine",
+		Name:    testInstanceName,
+		Image:   "alpine",
+		Volumes: []domain.VolumeAttachment{},
 	}).Return(inst, nil)
 
 	body := `{"name":"` + testInstanceName + `","image":"alpine"}`

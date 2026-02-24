@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testPassword = testPassword
+
 func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *postgres.UserRepo, *services.IdentityService) {
 	t.Helper()
 	db := setupDB(t)
@@ -30,12 +32,12 @@ func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *
 	return db, svc, userRepo, identitySvc
 }
 
-func TestAuthService_Register(t *testing.T) {
+func TestAuthServiceRegister(t *testing.T) {
 	_, svc, userRepo, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
 	email := "new@example.com"
-	pass := "password123ABC!@#123"
+	pass := testPassword
 	name := "New User"
 
 	user, err := svc.Register(ctx, email, pass, name)
@@ -49,12 +51,12 @@ func TestAuthService_Register(t *testing.T) {
 	assert.Equal(t, user.ID, dbUser.ID)
 }
 
-func TestAuthService_Login(t *testing.T) {
+func TestAuthServiceLogin(t *testing.T) {
 	_, svc, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
 	email := "login@example.com"
-	pass := "password123ABC!@#123"
+	pass := testPassword
 	name := "Login User"
 
 	_, err := svc.Register(ctx, email, pass, name)
@@ -66,32 +68,31 @@ func TestAuthService_Login(t *testing.T) {
 	assert.Equal(t, email, user.Email)
 }
 
-func TestAuthService_LoginInvalidCredentials(t *testing.T) {
+func TestAuthServiceLoginInvalidCredentials(t *testing.T) {
 	_, svc, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
 	email := "wrong@example.com"
-	_, err := svc.Register(ctx, email, "password123ABC!@#123", "User")
+	_, err := svc.Register(ctx, email, testPassword, "User")
 	require.NoError(t, err)
 
 	_, _, err = svc.Login(ctx, email, "wrongpass")
 	require.Error(t, err)
 }
 
-func TestAuthService_LoginUserNotFound(t *testing.T) {
+func TestAuthServiceLoginUserNotFound(t *testing.T) {
 	_, svc, _, _ := setupAuthServiceTest(t)
-	ctx := context.Background()
 
-	_, _, err := svc.Login(ctx, "nonexistent@example.com", "pass")
+	_, _, err := svc.Login(context.Background(), "user@example.com", "wrong")
 	require.Error(t, err)
 }
 
-func TestAuthService_ValidateToken(t *testing.T) {
+func TestAuthServiceValidateToken(t *testing.T) {
 	_, svc, _, identitySvc := setupAuthServiceTest(t)
 	ctx := context.Background()
 
 	email := "session@example.com"
-	user, err := svc.Register(ctx, email, "password123ABC!@#123", "User")
+	user, err := svc.Register(ctx, email, testPassword, "User")
 	require.NoError(t, err)
 
 	apiKey, err := identitySvc.CreateKey(ctx, user.ID, "session")
@@ -102,12 +103,12 @@ func TestAuthService_ValidateToken(t *testing.T) {
 	assert.Equal(t, user.ID, validatedKey.UserID)
 }
 
-func TestAuthService_RevokeToken(t *testing.T) {
+func TestAuthServiceRevokeToken(t *testing.T) {
 	_, svc, _, identitySvc := setupAuthServiceTest(t)
 	ctx := context.Background()
 
 	email := "revoke@example.com"
-	user, err := svc.Register(ctx, email, "password123ABC!@#123", "User")
+	user, err := svc.Register(ctx, email, testPassword, "User")
 	require.NoError(t, err)
 
 	apiKey, err := identitySvc.CreateKey(ctx, user.ID, "session")
@@ -120,12 +121,12 @@ func TestAuthService_RevokeToken(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestAuthService_RotateToken(t *testing.T) {
+func TestAuthServiceRotateToken(t *testing.T) {
 	_, svc, _, identitySvc := setupAuthServiceTest(t)
 	ctx := context.Background()
 
 	email := "rotate@example.com"
-	user, err := svc.Register(ctx, email, "password123ABC!@#123", "User")
+	user, err := svc.Register(ctx, email, testPassword, "User")
 	require.NoError(t, err)
 
 	apiKey, err := identitySvc.CreateKey(ctx, user.ID, "session")
@@ -145,12 +146,12 @@ func TestAuthService_RotateToken(t *testing.T) {
 	assert.Equal(t, user.ID, validatedKey.UserID)
 }
 
-func TestAuthService_Logout(t *testing.T) {
+func TestAuthServiceLogout(t *testing.T) {
 	_, svc, _, identitySvc := setupAuthServiceTest(t)
 	ctx := context.Background()
 
 	email := "logout@example.com"
-	pass := "password123ABC!@#123"
+	pass := testPassword
 	user, err := svc.Register(ctx, email, pass, "User")
 	require.NoError(t, err)
 
@@ -169,12 +170,12 @@ func TestAuthService_Logout(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestAuthService_TokenRotationIntegration(t *testing.T) {
+func TestAuthServiceTokenRotationIntegration(t *testing.T) {
 	db, svc, _, identitySvc := setupAuthServiceTest(t)
 	defer db.Close()
 
 	ctx := context.Background()
-	user, err := svc.Register(ctx, "rotate-int@example.com", "password123ABC!@#123", "User")
+	user, err := svc.Register(ctx, "rotate-int@example.com", testPassword, "User")
 	require.NoError(t, err)
 
 	// Initial token
