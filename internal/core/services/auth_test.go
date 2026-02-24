@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testPassword = testPassword
+const testPassword = "password123ABC!@#123"
 
 func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *postgres.UserRepo, *services.IdentityService) {
 	t.Helper()
