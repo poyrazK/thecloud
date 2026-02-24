@@ -64,7 +64,7 @@ func TestAssertAllFail(t *testing.T) {
 func TestSendMalformedJSON(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
-		assert.JSONEq(t, `{"name": "test", "incomplete": ""}`, string(body))
+		assert.Equal(t, `{"name": "test", "incomplete": `, string(body))
 		w.WriteHeader(http.StatusBadRequest)
 	}))
 	defer ts.Close()
