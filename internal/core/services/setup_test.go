@@ -17,6 +17,7 @@ import (
 )
 
 func setupDB(t *testing.T) *pgxpool.Pool {
+	t.Helper()
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
@@ -41,10 +42,15 @@ func setupDB(t *testing.T) *pgxpool.Pool {
 	err = postgres.RunMigrations(ctx, db, slog.Default())
 	require.NoError(t, err, "Failed to run migrations")
 
+	t.Cleanup(func() {
+		db.Close()
+	})
+
 	return db
 }
 
 func setupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
+	t.Helper()
 	ctx := context.Background()
 	userRepo := postgres.NewUserRepo(db)
 
@@ -91,6 +97,7 @@ func setupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
 }
 
 func cleanDB(t *testing.T, db *pgxpool.Pool) {
+	t.Helper()
 	ctx := context.Background()
 	tables := []string{
 		"invocations",
@@ -123,6 +130,16 @@ func cleanDB(t *testing.T, db *pgxpool.Pool) {
 		"global_load_balancers",
 		"elastic_ips",
 		"log_entries",
+		"policies",
+		"user_policies",
+		"caches",
+		"secrets",
+		"backups",
+		"bucket_lifecycle_rules",
+		"buckets",
+		"multipart_uploads",
+		"object_versions",
+		"objects",
 	}
 
 	for _, table := range tables {

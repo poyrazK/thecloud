@@ -161,6 +161,7 @@ func TestDNSInstanceAutoRegistrationE2E(t *testing.T) {
 }
 
 func waitForInstanceRunning(t *testing.T, client *http.Client, token, instanceID string) (string, error) {
+	t.Helper()
 	timeout := 120 * time.Second
 	start := time.Now()
 	var privateIP string

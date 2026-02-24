@@ -10,14 +10,15 @@ import (
 	"github.com/pashagolub/pgxmock/v3"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSSHKeyRepo_Unit(t *testing.T) {
 	t.Parallel()
-	
+
 	t.Run("Create", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSSHKeyRepo(mock)
@@ -37,12 +38,12 @@ func TestSSHKeyRepo_Unit(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(ctx, key)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("GetByID_NotFound", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSSHKeyRepo(mock)
@@ -54,7 +55,7 @@ func TestSSHKeyRepo_Unit(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		res, err := repo.GetByID(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, res)
 	})
 }

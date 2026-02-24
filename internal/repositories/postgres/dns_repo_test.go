@@ -10,11 +10,12 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDNSRepositoryCreateZone(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewDNSRepository(mock)
@@ -34,12 +35,12 @@ func TestDNSRepositoryCreateZone(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.CreateZone(context.Background(), zone)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestDNSRepositoryGetZoneByID(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewDNSRepository(mock)
@@ -53,14 +54,14 @@ func TestDNSRepositoryGetZoneByID(t *testing.T) {
 		WillReturnRows(rows)
 
 	zone, err := repo.GetZoneByID(context.Background(), id)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, zone)
 	assert.Equal(t, id, zone.ID)
 }
 
 func TestDNSRepositoryListZones(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewDNSRepository(mock)
@@ -75,13 +76,13 @@ func TestDNSRepositoryListZones(t *testing.T) {
 		WillReturnRows(rows)
 
 	zones, err := repo.ListZones(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, zones, 1)
 }
 
 func TestDNSRepositoryCreateRecord(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewDNSRepository(mock)
@@ -101,12 +102,12 @@ func TestDNSRepositoryCreateRecord(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.CreateRecord(context.Background(), record)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestDNSRepositoryDeleteRecord(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewDNSRepository(mock)
@@ -117,5 +118,5 @@ func TestDNSRepositoryDeleteRecord(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 	err = repo.DeleteRecord(context.Background(), id)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }

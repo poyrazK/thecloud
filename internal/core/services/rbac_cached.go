@@ -161,7 +161,7 @@ func (s *cachedRBACService) BindRole(ctx context.Context, userIdentifier, roleNa
 		// Invalidate user permission cache
 		// Since we don't know the exact userID if email was used, we'd need to fetch it first or use a pattern delete
 		// For simplicity, let's just clear the rbac perms pattern
-		s.cache.Del(ctx, "rbac:perm:*") // In a real system, use more targetted invalidation
+		s.cache.Del(ctx, "rbac:perm:*") // In a real system, use more targeted invalidation
 	}
 	return err
 }

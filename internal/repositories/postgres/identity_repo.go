@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	stdlib_errors "errors"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
@@ -70,7 +71,7 @@ func (r *IdentityRepository) scanAPIKey(row pgx.Row, notFoundType errors.Type) (
 		&key.ID, &key.UserID, &key.Key, &key.Name, &key.CreatedAt, &lastUsed, &key.DefaultTenantID, &key.ExpiresAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			msg := "api key not found"
 			if notFoundType == errors.Unauthorized {
 				msg = "invalid api key"

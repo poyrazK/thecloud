@@ -59,7 +59,7 @@ func (m *MockLBRepo) GetByIdempotencyKey(ctx context.Context, key string) (*doma
 }
 
 func (m *MockLBRepo) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
-	var list []*domain.LoadBalancer
+	list := make([]*domain.LoadBalancer, 0, len(m.LBs))
 	for _, lb := range m.LBs {
 		list = append(list, lb)
 	}

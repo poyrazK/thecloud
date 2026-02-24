@@ -71,7 +71,6 @@ var (
 	// TestBaseURL is the API base URL used in tests.
 	TestBaseURL = getEnvVar("TEST_BASE_URL", "http://localhost:8080")
 	// TestHeaderAPIKey is the header name used for API keys.
-	//nolint:gosec // G101: Test constant, not a credential
 	TestHeaderAPIKey = "X-API-Key"
 	// TestContentTypeAppJSON is the JSON content type used in tests.
 	TestContentTypeAppJSON = "application/json"

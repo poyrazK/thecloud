@@ -16,6 +16,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -35,7 +36,8 @@ func (m *instanceServiceMock) LaunchInstance(ctx context.Context, params ports.L
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 
 func (m *instanceServiceMock) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (*domain.Instance, error) {
@@ -43,7 +45,8 @@ func (m *instanceServiceMock) LaunchInstanceWithOptions(ctx context.Context, opt
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 
 func (m *instanceServiceMock) Provision(ctx context.Context, job domain.ProvisionJob) error {
@@ -60,7 +63,8 @@ func (m *instanceServiceMock) StopInstance(ctx context.Context, idOrName string)
 
 func (m *instanceServiceMock) ListInstances(ctx context.Context) ([]*domain.Instance, error) {
 	args := m.Called(ctx)
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 
 func (m *instanceServiceMock) GetInstance(ctx context.Context, idOrName string) (*domain.Instance, error) {
@@ -68,7 +72,8 @@ func (m *instanceServiceMock) GetInstance(ctx context.Context, idOrName string) 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 
 func (m *instanceServiceMock) GetInstanceLogs(ctx context.Context, idOrName string) (string, error) {
@@ -82,7 +87,8 @@ func (m *instanceServiceMock) GetInstanceStats(ctx context.Context, idOrName str
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.InstanceStats), args.Error(1)
+	r0, _ := args.Get(0).(*domain.InstanceStats)
+	return r0, args.Error(1)
 }
 
 func (m *instanceServiceMock) GetConsoleURL(ctx context.Context, idOrName string) (string, error) {
@@ -132,7 +138,7 @@ func TestInstanceHandlerLaunchRejectsEmptyImage(t *testing.T) {
 			Type string `json:"type"`
 		} `json:"error"`
 	}
-	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &wrapper))
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &wrapper))
 	assert.Equal(t, "INVALID_INPUT", wrapper.Error.Type)
 	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything)
 }
@@ -178,8 +184,9 @@ func TestInstanceHandlerLaunch(t *testing.T) {
 
 	inst := &domain.Instance{ID: uuid.New(), Name: testInstanceName}
 	mockSvc.On("LaunchInstance", mock.Anything, ports.LaunchParams{
-		Name:  testInstanceName,
-		Image: "alpine",
+		Name:    testInstanceName,
+		Image:   "alpine",
+		Volumes: []domain.VolumeAttachment{},
 	}).Return(inst, nil)
 
 	body := `{"name":"` + testInstanceName + `","image":"alpine"}`
@@ -381,7 +388,7 @@ func TestInstanceHandlerLaunchWithVolumesAndVPC(t *testing.T) {
 		},
 	}
 	jsonBody, err := json.Marshal(body)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodPost, instancesPath, bytes.NewBuffer(jsonBody))
 	req.Header.Set(contentType, applicationJSON)
@@ -428,7 +435,7 @@ func TestInstanceHandlerGetConsole(t *testing.T) {
 	var resp struct {
 		Data map[string]string `json:"data"`
 	}
-	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, url, resp.Data["url"])
 }
 

@@ -27,7 +27,8 @@ func (m *mockElasticIPService) AllocateIP(ctx context.Context) (*domain.ElasticI
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.ElasticIP), args.Error(1)
+	r0, _ := args.Get(0).(*domain.ElasticIP)
+	return r0, args.Error(1)
 }
 
 func (m *mockElasticIPService) ReleaseIP(ctx context.Context, id uuid.UUID) error {
@@ -40,7 +41,8 @@ func (m *mockElasticIPService) AssociateIP(ctx context.Context, id uuid.UUID, in
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.ElasticIP), args.Error(1)
+	r0, _ := args.Get(0).(*domain.ElasticIP)
+	return r0, args.Error(1)
 }
 
 func (m *mockElasticIPService) DisassociateIP(ctx context.Context, id uuid.UUID) (*domain.ElasticIP, error) {
@@ -48,7 +50,8 @@ func (m *mockElasticIPService) DisassociateIP(ctx context.Context, id uuid.UUID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.ElasticIP), args.Error(1)
+	r0, _ := args.Get(0).(*domain.ElasticIP)
+	return r0, args.Error(1)
 }
 
 func (m *mockElasticIPService) ListElasticIPs(ctx context.Context) ([]*domain.ElasticIP, error) {
@@ -56,7 +59,8 @@ func (m *mockElasticIPService) ListElasticIPs(ctx context.Context) ([]*domain.El
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.ElasticIP), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.ElasticIP)
+	return r0, args.Error(1)
 }
 
 func (m *mockElasticIPService) GetElasticIP(ctx context.Context, id uuid.UUID) (*domain.ElasticIP, error) {
@@ -64,7 +68,8 @@ func (m *mockElasticIPService) GetElasticIP(ctx context.Context, id uuid.UUID) (
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.ElasticIP), args.Error(1)
+	r0, _ := args.Get(0).(*domain.ElasticIP)
+	return r0, args.Error(1)
 }
 
 func setupElasticIPHandlerTest() (*mockElasticIPService, *ElasticIPHandler, *gin.Engine) {

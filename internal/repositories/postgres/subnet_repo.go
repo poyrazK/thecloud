@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	stdlib_errors "errors"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -59,7 +60,7 @@ func (r *SubnetRepository) scanSubnet(row pgx.Row) (*domain.Subnet, error) {
 	var s domain.Subnet
 	err := row.Scan(&s.ID, &s.UserID, &s.VPCID, &s.Name, &s.CIDRBlock, &s.AvailabilityZone, &s.GatewayIP, &s.ARN, &s.Status, &s.CreatedAt)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "subnet not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to scan subnet", err)

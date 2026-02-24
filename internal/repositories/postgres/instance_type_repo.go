@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5"
+	stdlib_errors "errors"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
@@ -102,7 +103,7 @@ func (r *InstanceTypeRepository) scanInstanceType(row pgx.Row) (*domain.Instance
 		&t.ID, &t.Name, &t.VCPUs, &t.MemoryMB, &t.DiskGB, &t.NetworkMbps, &t.PricePerHr, &t.Category,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "instance type not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to scan instance type", err)

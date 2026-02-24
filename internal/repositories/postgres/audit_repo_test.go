@@ -10,11 +10,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAuditRepositoryCreate(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewAuditRepository(mock)
@@ -35,13 +36,13 @@ func TestAuditRepositoryCreate(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.Create(context.Background(), log)
-	assert.NoError(t, err)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestAuditRepositoryListByUserID(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewAuditRepository(mock)
@@ -56,8 +57,8 @@ func TestAuditRepositoryListByUserID(t *testing.T) {
 			AddRow(uuid.New(), userID, "ACTION2", "RES2", "ID2", nil, "IP2", "UA2", now))
 
 	logs, err := repo.ListByUserID(context.Background(), userID, limit)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, logs, 2)
 	assert.Equal(t, userID, logs[0].UserID)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, mock.ExpectationsWereMet())
 }

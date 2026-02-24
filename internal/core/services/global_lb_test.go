@@ -14,6 +14,7 @@ import (
 )
 
 func setupGlobalLBTest(t *testing.T) (*services.GlobalLBService, *mock.MockGlobalLBRepo, *mock.MockLBRepo, *mock.MockGeoDNS) {
+	t.Helper()
 	repo := mock.NewMockGlobalLBRepo()
 	lbRepo := mock.NewMockLBRepo()
 	geoDNS := mock.NewMockGeoDNS()
@@ -23,7 +24,9 @@ func setupGlobalLBTest(t *testing.T) (*services.GlobalLBService, *mock.MockGloba
 	svc := services.NewGlobalLBService(services.GlobalLBServiceParams{
 		Repo: repo, LBRepo: lbRepo, GeoDNS: geoDNS, AuditSvc: audit, Logger: logger,
 	})
-	return svc, repo, lbRepo, geoDNS.(*mock.MockGeoDNS)
+	mockGeoDNS, ok := geoDNS.(*mock.MockGeoDNS)
+	require.True(t, ok)
+	return svc, repo, lbRepo, mockGeoDNS
 }
 
 func TestGlobalLBCreate(t *testing.T) {
@@ -67,7 +70,7 @@ func TestGlobalLBCreate(t *testing.T) {
 		repo.GLBs[existing.ID] = existing
 
 		_, err := svc.Create(ctx, "new", "duplicate.com", domain.RoutingLatency, domain.GlobalHealthCheckConfig{})
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("list filtering", func(t *testing.T) {
@@ -141,7 +144,7 @@ func TestGlobalLBAddEndpoint(t *testing.T) {
 		lbRepo.LBs[lbID] = &domain.LoadBalancer{ID: lbID, UserID: otherUserID}
 
 		_, err := svc.AddEndpoint(ctx, glb.ID, "us-west-2", "LB", &lbID, nil, 1, 1)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unauthorized access")
 	})
 }
@@ -161,14 +164,14 @@ func TestGlobalLBRemoveEndpoint(t *testing.T) {
 
 	t.Run("success with dns sync", func(t *testing.T) {
 		err := svc.RemoveEndpoint(ctx, glb.ID, ep.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Verify repo
 		eps, _ := repo.ListEndpoints(ctx, glb.ID)
-		assert.Len(t, eps, 0)
+		assert.Empty(t, eps)
 
 		// Verify DNS sync (should be empty now)
 		dnsRecs := geoDNS.Records[glb.Hostname]
-		assert.Len(t, dnsRecs, 0)
+		assert.Empty(t, dnsRecs)
 	})
 }

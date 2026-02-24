@@ -11,9 +11,10 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-func TestVolumeService_Unit(t *testing.T) {
+func TestVolumeServiceUnit(t *testing.T) {
 	mockRepo := new(MockVolumeRepo)
 	mockStorage := new(MockStorageBackend)
 	mockEventSvc := new(MockEventService)
@@ -31,7 +32,7 @@ func TestVolumeService_Unit(t *testing.T) {
 		mockAuditSvc.On("Log", mock.Anything, userID, "volume.create", "volume", mock.Anything, mock.Anything).Return(nil).Once()
 
 		vol, err := svc.CreateVolume(ctx, "test-vol", 10)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, vol)
 		assert.Equal(t, "/dev/vdb", vol.BackendPath)
 		mockRepo.AssertExpectations(t)
@@ -46,6 +47,6 @@ func TestVolumeService_Unit(t *testing.T) {
 		})).Return(nil).Once()
 
 		err := svc.ReleaseVolumesForInstance(ctx, instID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

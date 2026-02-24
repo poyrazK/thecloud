@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -30,7 +31,8 @@ func (m *mockCacheService) CreateCache(ctx context.Context, name, version string
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Cache), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Cache)
+	return r0, args.Error(1)
 }
 
 func (m *mockCacheService) ListCaches(ctx context.Context) ([]*domain.Cache, error) {
@@ -38,7 +40,8 @@ func (m *mockCacheService) ListCaches(ctx context.Context) ([]*domain.Cache, err
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Cache), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Cache)
+	return r0, args.Error(1)
 }
 
 func (m *mockCacheService) GetCache(ctx context.Context, idOrName string) (*domain.Cache, error) {
@@ -46,7 +49,8 @@ func (m *mockCacheService) GetCache(ctx context.Context, idOrName string) (*doma
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Cache), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Cache)
+	return r0, args.Error(1)
 }
 
 func (m *mockCacheService) DeleteCache(ctx context.Context, idOrName string) error {
@@ -68,7 +72,8 @@ func (m *mockCacheService) GetCacheStats(ctx context.Context, idOrName string) (
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*ports.CacheStats), args.Error(1)
+	r0, _ := args.Get(0).(*ports.CacheStats)
+	return r0, args.Error(1)
 }
 
 func setupCacheHandlerTest(_ *testing.T) (*mockCacheService, *CacheHandler, *gin.Engine) {
@@ -94,10 +99,10 @@ func TestCacheHandlerCreate(t *testing.T) {
 		"version":   "redis6",
 		"memory_mb": 128,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", cachesPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)

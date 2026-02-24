@@ -6,6 +6,7 @@ package libvirt
 import (
 	"bytes"
 	"context"
+	stdlib_errors "errors"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -327,7 +328,10 @@ func (a *LibvirtAdapter) StopInstance(ctx context.Context, id string) error {
 func (a *LibvirtAdapter) DeleteInstance(ctx context.Context, id string) error {
 	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
-		return nil
+		if a.isNotFound(err) {
+			return nil
+		}
+		return err
 	}
 
 	a.stopDomainIfRunning(ctx, dom)
@@ -650,7 +654,10 @@ func (a *LibvirtAdapter) CreateNetwork(ctx context.Context, name string) (string
 func (a *LibvirtAdapter) DeleteNetwork(ctx context.Context, id string) error {
 	net, err := a.client.NetworkLookupByName(ctx, id)
 	if err != nil {
-		return nil 
+		if a.isNotFound(err) {
+			return nil
+		}
+		return err
 	}
 
 	if err := a.client.NetworkDestroy(ctx, net); err != nil {
@@ -689,7 +696,10 @@ func (a *LibvirtAdapter) DeleteVolume(ctx context.Context, name string) error {
 
 	vol, err := a.client.StorageVolLookupByName(ctx, pool, name)
 	if err != nil {
-		return nil
+		if a.isNotFound(err) {
+			return nil
+		}
+		return err
 	}
 
 	if err := a.client.StorageVolDelete(ctx, vol, 0); err != nil {
@@ -962,12 +972,12 @@ func (a *LibvirtAdapter) setupPortForwarding(name string, ports []string) {
 		}
 
 		if hP > 0 {
-			a.configureIptables(name, ip, strconv.Itoa(cP), hP, cP)
+			a.configureIptables(name, ip, strconv.Itoa(cP), hP)
 		}
 	}
 }
 
-func (a *LibvirtAdapter) configureIptables(name, ip, containerPort string, hPort, cP int) {
+func (a *LibvirtAdapter) configureIptables(name, ip, containerPort string, hPort int) {
 	a.mu.Lock()
 	if a.portMappings[name] == nil {
 		a.portMappings[name] = make(map[string]int)
@@ -981,13 +991,14 @@ func (a *LibvirtAdapter) configureIptables(name, ip, containerPort string, hPort
 func (a *LibvirtAdapter) parseAndValidatePort(p string) (int, int, error) {
 	parts := strings.Split(p, ":")
 	var hostPort, containerPort string
-	if len(parts) == 2 {
+	switch len(parts) {
+	case 2:
 		hostPort = parts[0]
 		containerPort = parts[1]
-	} else if len(parts) == 1 {
+	case 1:
 		hostPort = "0"
 		containerPort = parts[0]
-	} else {
+	default:
 		return 0, 0, fmt.Errorf("invalid port format: too many colons")
 	}
 
@@ -1065,5 +1076,21 @@ func findFreePort() (int, error) {
 		return 0, err
 	}
 	defer func() { _ = l.Close() }()
-	return l.Addr().(*net.TCPAddr).Port, nil
+	tcpAddr, ok := l.Addr().(*net.TCPAddr)
+	if !ok {
+		return 0, stdlib_errors.New("failed to get TCP address")
+	}
+	return tcpAddr.Port, nil
+}
+
+func (a *LibvirtAdapter) isNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	var libvirtErr libvirt.Error
+	if stdlib_errors.As(err, &libvirtErr) {
+		// 42: Domain not found, 43: Network not found, 45: Storage vol not found
+		return libvirtErr.Code == 42 || libvirtErr.Code == 43 || libvirtErr.Code == 45
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "not found")
 }

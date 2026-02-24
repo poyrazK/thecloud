@@ -131,7 +131,7 @@ func TestStorageE2E(t *testing.T) {
 		var l ListResp
 		err = json.NewDecoder(resp.Body).Decode(&l)
 		require.NoError(t, err)
-		assert.True(t, len(l.Data) >= 2)
+		assert.GreaterOrEqual(t, len(l.Data), 2)
 	})
 
 	// 7. Cleanup

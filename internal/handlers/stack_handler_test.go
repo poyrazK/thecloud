@@ -25,7 +25,8 @@ func (m *mockStackService) CreateStack(ctx context.Context, name, template strin
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Stack), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Stack)
+	return r0, args.Error(1)
 }
 
 func (m *mockStackService) ListStacks(ctx context.Context) ([]*domain.Stack, error) {
@@ -33,7 +34,8 @@ func (m *mockStackService) ListStacks(ctx context.Context) ([]*domain.Stack, err
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Stack), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Stack)
+	return r0, args.Error(1)
 }
 
 func (m *mockStackService) GetStack(ctx context.Context, id uuid.UUID) (*domain.Stack, error) {
@@ -41,7 +43,8 @@ func (m *mockStackService) GetStack(ctx context.Context, id uuid.UUID) (*domain.
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Stack), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Stack)
+	return r0, args.Error(1)
 }
 
 func (m *mockStackService) DeleteStack(ctx context.Context, id uuid.UUID) error {
@@ -54,7 +57,8 @@ func (m *mockStackService) ValidateTemplate(ctx context.Context, template string
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.TemplateValidateResponse), args.Error(1)
+	r0, _ := args.Get(0).(*domain.TemplateValidateResponse)
+	return r0, args.Error(1)
 }
 
 const (

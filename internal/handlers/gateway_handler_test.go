@@ -17,6 +17,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type closeNotifierRecorder struct {
@@ -44,7 +45,8 @@ func (m *mockGatewayService) CreateRoute(ctx context.Context, params ports.Creat
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.GatewayRoute), args.Error(1)
+	r0, _ := args.Get(0).(*domain.GatewayRoute)
+	return r0, args.Error(1)
 }
 
 func (m *mockGatewayService) GetProxy(method, path string) (*httputil.ReverseProxy, map[string]string, bool) {
@@ -54,9 +56,14 @@ func (m *mockGatewayService) GetProxy(method, path string) (*httputil.ReversePro
 	}
 	var params map[string]string
 	if p := args.Get(1); p != nil {
-		params = p.(map[string]string)
+		var ok bool
+		params, ok = p.(map[string]string)
+		if !ok {
+			params = nil
+		}
 	}
-	return args.Get(0).(*httputil.ReverseProxy), params, args.Bool(2)
+	r0, _ := args.Get(0).(*httputil.ReverseProxy)
+	return r0, params, args.Bool(2)
 }
 
 func (m *mockGatewayService) ListRoutes(ctx context.Context) ([]*domain.GatewayRoute, error) {
@@ -64,7 +71,8 @@ func (m *mockGatewayService) ListRoutes(ctx context.Context) ([]*domain.GatewayR
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.GatewayRoute), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.GatewayRoute)
+	return r0, args.Error(1)
 }
 
 func (m *mockGatewayService) DeleteRoute(ctx context.Context, id uuid.UUID) error {
@@ -110,10 +118,10 @@ func TestGatewayHandlerCreateRoute(t *testing.T) {
 		"target_url":  "http://example.com",
 		"rate_limit":  100,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", routesPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -130,7 +138,7 @@ func TestGatewayHandlerListRoutes(t *testing.T) {
 	svc.On("ListRoutes", mock.Anything).Return(routes, nil)
 
 	req, err := http.NewRequest(http.MethodGet, routesPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -147,7 +155,7 @@ func TestGatewayHandlerDeleteRoute(t *testing.T) {
 	svc.On("DeleteRoute", mock.Anything, id).Return(nil)
 
 	req, err := http.NewRequest(http.MethodDelete, routesPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -163,7 +171,7 @@ func TestGatewayHandlerProxyNotFound(t *testing.T) {
 	svc.On("GetProxy", "GET", "/unknown").Return(nil, nil, false)
 
 	req, err := http.NewRequest(http.MethodGet, "/gw/unknown", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -195,7 +203,7 @@ func TestGatewayHandlerProxySuccess(t *testing.T) {
 	svc.On("GetProxy", "GET", "/api").Return(proxy, map[string]string{}, true)
 
 	req, err := http.NewRequest(http.MethodGet, gwAPITestPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := &closeNotifierRecorder{httptest.NewRecorder()}
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -218,7 +226,7 @@ func TestGatewayHandlerProxyWithoutSlash(t *testing.T) {
 	svc.On("GetProxy", "GET", "/api").Return(httputil.NewSingleHostReverseProxy(targetURL), map[string]string{}, true)
 
 	req, err := http.NewRequest(http.MethodGet, gwAPITestPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := &closeNotifierRecorder{httptest.NewRecorder()}
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -241,7 +249,7 @@ func TestGatewayHandlerProxyWithSlash(t *testing.T) {
 	svc.On("GetProxy", "GET", "//api").Return(httputil.NewSingleHostReverseProxy(targetURL), map[string]string{}, true)
 
 	req, err := http.NewRequest(http.MethodGet, "/gw//api", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := &closeNotifierRecorder{httptest.NewRecorder()}
 	r.ServeHTTP(w, req)
 

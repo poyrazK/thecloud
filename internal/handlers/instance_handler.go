@@ -188,7 +188,7 @@ func (h *InstanceHandler) mapLaunchRequest(req LaunchRequest) (*uuid.UUID, *uuid
 		}
 	}
 
-	var volumes []domain.VolumeAttachment
+	volumes := make([]domain.VolumeAttachment, 0, len(req.Volumes))
 	for _, v := range req.Volumes {
 		volumes = append(volumes, domain.VolumeAttachment{
 			VolumeIDOrName: v.VolumeID,
@@ -389,7 +389,7 @@ func (h *InstanceHandler) GetConsole(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id}/metadata [put]
 func (h *InstanceHandler) UpdateMetadata(c *gin.Context) {
-	id, ok := parseUUID(c, "id")
+	id, ok := parseUUID(c)
 	if !ok {
 		return
 	}

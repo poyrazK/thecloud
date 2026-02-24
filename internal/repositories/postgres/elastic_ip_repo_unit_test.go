@@ -10,14 +10,15 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestElasticIPRepository_Unit(t *testing.T) {
+func TestElasticIPRepositoryUnit(t *testing.T) {
 	t.Parallel()
 
 	t.Run("Create", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewElasticIPRepository(mock)
@@ -37,12 +38,12 @@ func TestElasticIPRepository_Unit(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(ctx, eip)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("GetByID", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewElasticIPRepository(mock)
@@ -57,7 +58,7 @@ func TestElasticIPRepository_Unit(t *testing.T) {
 				AddRow(id, uuid.New(), tenantID, "1.2.3.4", nil, nil, "allocated", "arn", now, now))
 
 		res, err := repo.GetByID(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, res)
 		assert.Equal(t, id, res.ID)
 	})

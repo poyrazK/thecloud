@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -38,7 +39,8 @@ func (m *mockDatabaseService) CreateDatabase(ctx context.Context, name, engine, 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Database), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Database)
+	return r0, args.Error(1)
 }
 
 func (m *mockDatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error) {
@@ -46,7 +48,8 @@ func (m *mockDatabaseService) CreateReplica(ctx context.Context, primaryID uuid.
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Database), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Database)
+	return r0, args.Error(1)
 }
 
 func (m *mockDatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) error {
@@ -59,7 +62,8 @@ func (m *mockDatabaseService) ListDatabases(ctx context.Context) ([]*domain.Data
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Database), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Database)
+	return r0, args.Error(1)
 }
 
 func (m *mockDatabaseService) GetDatabase(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
@@ -67,7 +71,8 @@ func (m *mockDatabaseService) GetDatabase(ctx context.Context, id uuid.UUID) (*d
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Database), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Database)
+	return r0, args.Error(1)
 }
 
 func (m *mockDatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) error {
@@ -103,10 +108,10 @@ func TestDatabaseHandlerCreate(t *testing.T) {
 		"engine":  "postgres",
 		"version": "15",
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", databasesPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -123,7 +128,7 @@ func TestDatabaseHandlerList(t *testing.T) {
 	svc.On("ListDatabases", mock.Anything).Return(dbs, nil)
 
 	req, err := http.NewRequest(http.MethodGet, databasesPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -142,7 +147,7 @@ func TestDatabaseHandlerGet(t *testing.T) {
 	svc.On("GetDatabase", mock.Anything, id).Return(db, nil)
 
 	req, err := http.NewRequest(http.MethodGet, databasesPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -160,7 +165,7 @@ func TestDatabaseHandlerDelete(t *testing.T) {
 	svc.On("DeleteDatabase", mock.Anything, id).Return(nil)
 
 	req, err := http.NewRequest(http.MethodDelete, databasesPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -178,7 +183,7 @@ func TestDatabaseHandlerGetConnectionString(t *testing.T) {
 	svc.On("GetConnectionString", mock.Anything, id).Return(testDBConnStr, nil)
 
 	req, err := http.NewRequest(http.MethodGet, databasesPath+"/"+id.String()+connSuffix, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

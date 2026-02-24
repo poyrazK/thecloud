@@ -10,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -25,21 +26,24 @@ func (m *MockSecretRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Sec
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Secret), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Secret)
+	return r0, args.Error(1)
 }
 func (m *MockSecretRepo) GetByName(ctx context.Context, name string) (*domain.Secret, error) {
 	args := m.Called(ctx, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Secret), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Secret)
+	return r0, args.Error(1)
 }
 func (m *MockSecretRepo) List(ctx context.Context) ([]*domain.Secret, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Secret), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Secret)
+	return r0, args.Error(1)
 }
 func (m *MockSecretRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
@@ -48,7 +52,7 @@ func (m *MockSecretRepo) Update(ctx context.Context, secret *domain.Secret) erro
 	return m.Called(ctx, secret).Error(0)
 }
 
-func TestSecretService_Unit(t *testing.T) {
+func TestSecretServiceUnit(t *testing.T) {
 	mockRepo := new(MockSecretRepo)
 	mockEventSvc := new(MockEventService)
 	mockAuditSvc := new(MockAuditService)
@@ -68,7 +72,7 @@ func TestSecretService_Unit(t *testing.T) {
 		mockAuditSvc.On("Log", mock.Anything, userID, "secret.create", "secret", mock.Anything, mock.Anything).Return(nil).Once()
 
 		sec, err := svc.CreateSecret(ctx, "api-key", "my-secret", "test secret")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, sec)
 		assert.Equal(t, "api-key", sec.Name)
 	})
@@ -87,7 +91,7 @@ func TestSecretService_Unit(t *testing.T) {
 		mockAuditSvc.On("Log", mock.Anything, userID, "secret.access", "secret", id.String(), mock.Anything).Return(nil).Once()
 
 		res, err := svc.GetSecret(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		// Verify that the service correctly decrypts and returns the plaintext value
 		assert.Equal(t, "decrypted", res.EncryptedValue)
 	})
@@ -97,7 +101,7 @@ func TestSecretService_Unit(t *testing.T) {
 		mockRepo.On("List", mock.Anything).Return(secrets, nil).Once()
 		
 		res, err := svc.ListSecrets(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, res, 2)
 		// Ensure values are redacted in list view for security
 		assert.Equal(t, "[REDACTED]", res[0].EncryptedValue)
@@ -113,6 +117,6 @@ func TestSecretService_Unit(t *testing.T) {
 		mockAuditSvc.On("Log", mock.Anything, userID, "secret.delete", "secret", id.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.DeleteSecret(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

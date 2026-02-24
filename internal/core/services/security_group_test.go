@@ -18,6 +18,7 @@ import (
 )
 
 func setupSecurityGroupServiceIntegrationTest(t *testing.T) (ports.SecurityGroupService, ports.SecurityGroupRepository, ports.VpcRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
@@ -62,25 +63,25 @@ func TestSecurityGroupService_Integration(t *testing.T) {
 	t.Run("GroupLifecycle", func(t *testing.T) {
 		name := "web-sg"
 		sg, err := svc.CreateGroup(ctx, vpc.ID, name, "web servers")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, name, sg.Name)
 
 		// Get
 		fetched, err := svc.GetGroup(ctx, sg.ID.String(), vpc.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, sg.ID, fetched.ID)
 
 		// List
 		groups, err := svc.ListGroups(ctx, vpc.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, groups, 1)
 
 		// Delete
 		err = svc.DeleteGroup(ctx, sg.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		_, err = svc.GetGroup(ctx, sg.ID.String(), vpc.ID)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("Rules", func(t *testing.T) {
@@ -104,11 +105,11 @@ func TestSecurityGroupService_Integration(t *testing.T) {
 			return
 		}
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, res)
 
 		// Remove rule
 		err = svc.RemoveRule(ctx, res.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

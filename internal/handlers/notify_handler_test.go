@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -35,7 +36,8 @@ func (m *mockNotifyService) CreateTopic(ctx context.Context, name string) (*doma
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Topic), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Topic)
+	return r0, args.Error(1)
 }
 
 func (m *mockNotifyService) ListTopics(ctx context.Context) ([]*domain.Topic, error) {
@@ -43,7 +45,8 @@ func (m *mockNotifyService) ListTopics(ctx context.Context) ([]*domain.Topic, er
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Topic), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Topic)
+	return r0, args.Error(1)
 }
 
 func (m *mockNotifyService) DeleteTopic(ctx context.Context, id uuid.UUID) error {
@@ -56,7 +59,8 @@ func (m *mockNotifyService) Subscribe(ctx context.Context, topicID uuid.UUID, pr
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Subscription), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Subscription)
+	return r0, args.Error(1)
 }
 
 func (m *mockNotifyService) ListSubscriptions(ctx context.Context, topicID uuid.UUID) ([]*domain.Subscription, error) {
@@ -64,7 +68,8 @@ func (m *mockNotifyService) ListSubscriptions(ctx context.Context, topicID uuid.
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Subscription), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Subscription)
+	return r0, args.Error(1)
 }
 
 func (m *mockNotifyService) Unsubscribe(ctx context.Context, id uuid.UUID) error {
@@ -95,10 +100,10 @@ func TestNotifyHandlerCreateTopic(t *testing.T) {
 	svc.On("CreateTopic", mock.Anything, testTopicName).Return(topic, nil)
 
 	body, err := json.Marshal(map[string]interface{}{"name": testTopicName})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", topicsPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -155,10 +160,10 @@ func TestNotifyHandlerSubscribe(t *testing.T) {
 		"protocol": "http",
 		"endpoint": testExampleURL2,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", topicsPath+"/"+id.String()+subSuffix, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -212,10 +217,10 @@ func TestNotifyHandlerPublish(t *testing.T) {
 	svc.On("Publish", mock.Anything, id, "hello").Return(nil)
 
 	body, err := json.Marshal(map[string]interface{}{"message": "hello"})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", topicsPath+"/"+id.String()+publishSuffix, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)

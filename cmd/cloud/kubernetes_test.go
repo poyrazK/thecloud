@@ -14,7 +14,6 @@ import (
 const (
 	kubernetesTestContentType = "Content-Type"
 	kubernetesTestAppJSON     = "application/json"
-	//nolint:gosec // G101: Test constant
 	kubernetesTestAPIKey = "kube-test-key"
 )
 

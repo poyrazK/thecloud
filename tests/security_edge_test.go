@@ -9,6 +9,7 @@ import (
 
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const instancesPath = "/instances"
@@ -29,7 +30,7 @@ func TestSecurityEdge(t *testing.T) {
 			defer func() { _ = resp.Body.Close() }()
 			assert.Contains(t, []int{http.StatusUnauthorized, http.StatusForbidden}, resp.StatusCode)
 		} else {
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 
 		// 2. Invalid API Key format
@@ -40,7 +41,7 @@ func TestSecurityEdge(t *testing.T) {
 			defer func() { _ = resp.Body.Close() }()
 			assert.Contains(t, []int{http.StatusUnauthorized, http.StatusForbidden}, resp.StatusCode)
 		} else {
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 	})
 
@@ -74,7 +75,7 @@ func TestSecurityEdge(t *testing.T) {
 			// Should be 404 (preferred for security to avoid ID discovery) or 403
 			assert.Contains(t, []int{http.StatusNotFound, http.StatusForbidden}, respB.StatusCode)
 		} else {
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 	})
 }

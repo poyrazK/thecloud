@@ -73,6 +73,7 @@ type ResponseWrapper struct {
 }
 
 func registerAndLogin(t *testing.T, client *http.Client, email, name string) string {
+	t.Helper()
 	// Register
 	regReq := map[string]string{
 		"email":    email,
@@ -112,6 +113,7 @@ func registerAndLogin(t *testing.T, client *http.Client, email, name string) str
 }
 
 func createTenant(t *testing.T, client *http.Client, token, name string) string {
+	t.Helper()
 	payload := map[string]string{
 		"name": name,
 		"slug": fmt.Sprintf("%s-%d", name, time.Now().UnixNano()),
@@ -139,6 +141,7 @@ func createTenant(t *testing.T, client *http.Client, token, name string) string 
 }
 
 func switchTenant(t *testing.T, client *http.Client, token, tenantID string) {
+	t.Helper()
 	if tenantID == "" {
 		t.Fatalf("tenant ID not set before switch")
 	}
@@ -155,6 +158,7 @@ func switchTenant(t *testing.T, client *http.Client, token, tenantID string) {
 }
 
 func postRequest(t *testing.T, client *http.Client, url, token string, payload interface{}) *http.Response {
+	t.Helper()
 	var body io.Reader
 	if payload != nil {
 		b, _ := json.Marshal(payload)
@@ -176,6 +180,7 @@ func postRequest(t *testing.T, client *http.Client, url, token string, payload i
 }
 
 func getRequest(t *testing.T, client *http.Client, url, token string) *http.Response {
+	t.Helper()
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set(testutil.TestHeaderAPIKey, token)
 	if requiresTenantHeader(url) {
@@ -191,6 +196,7 @@ func getRequest(t *testing.T, client *http.Client, url, token string) *http.Resp
 }
 
 func deleteRequest(t *testing.T, client *http.Client, url, token string) *http.Response {
+	t.Helper()
 	req, _ := http.NewRequest("DELETE", url, nil)
 	req.Header.Set(testutil.TestHeaderAPIKey, token)
 	if requiresTenantHeader(url) {
@@ -206,6 +212,7 @@ func deleteRequest(t *testing.T, client *http.Client, url, token string) *http.R
 }
 
 func applyTenantHeader(t *testing.T, req *http.Request, token string) {
+	t.Helper()
 	if !requiresTenantHeader(req.URL.Path) {
 		return
 	}

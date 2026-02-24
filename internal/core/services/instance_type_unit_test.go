@@ -8,6 +8,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestInstanceTypeService_Unit(t *testing.T) {
@@ -19,7 +20,7 @@ func TestInstanceTypeService_Unit(t *testing.T) {
 		mockRepo.On("List", mock.Anything).Return(expected, nil).Once()
 
 		res, err := svc.List(context.Background())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, expected, res)
 		mockRepo.AssertExpectations(t)
 	})

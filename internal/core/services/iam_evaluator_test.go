@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIAMEvaluator_Evaluate(t *testing.T) {
@@ -41,25 +42,25 @@ func TestIAMEvaluator_Evaluate(t *testing.T) {
 
 	t.Run("AllowByWildcard", func(t *testing.T) {
 		allowed, err := evaluator.Evaluate(ctx, policies, "instance:launch", "any", nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, allowed)
 	})
 
 	t.Run("ExplicitDenyWins", func(t *testing.T) {
 		allowed, err := evaluator.Evaluate(ctx, policies, "instance:terminate", "arn:thecloud:compute:instance:prod-123", nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, allowed)
 	})
 
 	t.Run("AllowOtherInstanceTerminate", func(t *testing.T) {
 		allowed, err := evaluator.Evaluate(ctx, policies, "instance:terminate", "arn:thecloud:compute:instance:dev-456", nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, allowed)
 	})
 
 	t.Run("DefaultDeny", func(t *testing.T) {
 		allowed, err := evaluator.Evaluate(ctx, policies, "vpc:create", "*", nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, allowed)
 	})
 }

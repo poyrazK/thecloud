@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -29,7 +30,8 @@ func (m *mockIdentityService) CreateKey(ctx context.Context, userID uuid.UUID, n
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).(*domain.APIKey)
+	return r0, args.Error(1)
 }
 
 func (m *mockIdentityService) ValidateAPIKey(ctx context.Context, key string) (*domain.APIKey, error) {
@@ -37,14 +39,16 @@ func (m *mockIdentityService) ValidateAPIKey(ctx context.Context, key string) (*
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).(*domain.APIKey)
+	return r0, args.Error(1)
 }
 func (m *mockIdentityService) ListKeys(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.APIKey)
+	return r0, args.Error(1)
 }
 func (m *mockIdentityService) RevokeKey(ctx context.Context, userID, id uuid.UUID) error {
 	args := m.Called(ctx, userID, id)
@@ -55,7 +59,8 @@ func (m *mockIdentityService) RotateKey(ctx context.Context, userID, id uuid.UUI
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).(*domain.APIKey)
+	return r0, args.Error(1)
 }
 
 func setupIdentityHandlerTest(userID uuid.UUID) (*mockIdentityService, *IdentityHandler, *gin.Engine) {
@@ -83,10 +88,10 @@ func TestIdentityHandlerCreateKey(t *testing.T) {
 	svc.On("CreateKey", mock.Anything, userID, testKeyName).Return(key, nil)
 
 	body, err := json.Marshal(map[string]string{"name": testKeyName})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", authKeysPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -106,7 +111,7 @@ func TestIdentityHandlerListKeys(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", authKeysPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -127,7 +132,7 @@ func TestIdentityHandlerRevokeKey(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("DELETE", authKeysPath+"/"+keyID.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNoContent, w.Code)
@@ -147,7 +152,7 @@ func TestIdentityHandlerRotateKey(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", authKeysPath+"/"+keyID.String()+"/rotate", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -168,7 +173,7 @@ func TestIdentityHandlerRegenerateKey(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", authKeysPath+"/"+keyID.String()+"/regenerate", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)

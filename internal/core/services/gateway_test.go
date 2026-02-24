@@ -9,9 +9,11 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setupGatewayServiceTest(t *testing.T) (*services.GatewayService, *postgres.PostgresGatewayRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
@@ -22,7 +24,9 @@ func setupGatewayServiceTest(t *testing.T) (*services.GatewayService, *postgres.
 	auditSvc := services.NewAuditService(auditRepo)
 
 	svc := services.NewGatewayService(repo, auditSvc)
-	return svc, repo.(*postgres.PostgresGatewayRepository), ctx
+	pgRepo, ok := repo.(*postgres.PostgresGatewayRepository)
+	require.True(t, ok)
+	return svc, pgRepo, ctx
 }
 
 func TestGatewayServiceCreateRoute(t *testing.T) {
@@ -36,13 +40,13 @@ func TestGatewayServiceCreateRoute(t *testing.T) {
 		RateLimit: 100,
 	}
 	route, err := svc.CreateRoute(ctx, params)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, route)
 	assert.Equal(t, "test-route", route.Name)
 
 	// Verify in DB
 	fetched, err := repo.GetRouteByID(ctx, route.ID, userID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, route.ID, fetched.ID)
 }
 
@@ -53,7 +57,7 @@ func TestGatewayServiceListRoutes(t *testing.T) {
 	_, _ = svc.CreateRoute(ctx, ports.CreateRouteParams{Name: "r2", Pattern: "/r2", Target: "http://e.com"})
 
 	res, err := svc.ListRoutes(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, res, 2)
 }
 
@@ -64,11 +68,11 @@ func TestGatewayServiceDeleteRoute(t *testing.T) {
 	route, _ := svc.CreateRoute(ctx, ports.CreateRouteParams{Name: "r1", Pattern: "/r1", Target: "http://e.com"})
 
 	err := svc.DeleteRoute(ctx, route.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify deleted
 	_, err = repo.GetRouteByID(ctx, route.ID, userID)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestGatewayServiceGetProxy(t *testing.T) {
@@ -91,4 +95,13 @@ func TestGatewayServiceGetProxyPattern(t *testing.T) {
 	assert.True(t, ok)
 	assert.NotNil(t, proxy)
 	assert.Equal(t, "123", paramsMap["id"])
+}
+
+func TestGatewayServiceRefreshRoutes(t *testing.T) {
+	svc, _, ctx := setupGatewayServiceTest(t)
+
+	// Create routes directly in DB to bypass in-memory sync
+	// Then call RefreshRoutes
+	err := svc.RefreshRoutes(ctx)
+	require.NoError(t, err)
 }

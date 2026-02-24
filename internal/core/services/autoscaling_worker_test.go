@@ -16,7 +16,8 @@ import (
 
 const testGroupName = "test-group"
 
-func setupAutoScalingWorkerTest(_ *testing.T) (*MockAutoScalingRepo, *MockInstanceService, *MockLBService, *MockEventService, *MockClock, *services.AutoScalingWorker) {
+func setupAutoScalingWorkerTest(t *testing.T) (*MockAutoScalingRepo, *MockInstanceService, *MockEventService, *MockClock, *services.AutoScalingWorker) {
+	t.Helper()
 	mockRepo := new(MockAutoScalingRepo)
 	mockInstSvc := new(MockInstanceService)
 	mockLBSvc := new(MockLBService)
@@ -24,12 +25,12 @@ func setupAutoScalingWorkerTest(_ *testing.T) (*MockAutoScalingRepo, *MockInstan
 	mockClock := new(MockClock)
 
 	worker := services.NewAutoScalingWorker(mockRepo, mockInstSvc, mockLBSvc, mockEventSvc, mockClock)
-	return mockRepo, mockInstSvc, mockLBSvc, mockEventSvc, mockClock, worker
+	return mockRepo, mockInstSvc, mockEventSvc, mockClock, worker
 }
 
 func TestAutoScalingWorkerEvaluateScaleOut(t *testing.T) {
 	t.Parallel()
-	mockRepo, mockInstSvc, _, mockEventSvc, mockClock, worker := setupAutoScalingWorkerTest(t)
+	mockRepo, mockInstSvc, mockEventSvc, mockClock, worker := setupAutoScalingWorkerTest(t)
 	defer mockRepo.AssertExpectations(t)
 	defer mockInstSvc.AssertExpectations(t)
 	defer mockEventSvc.AssertExpectations(t)
@@ -77,7 +78,7 @@ func TestAutoScalingWorkerEvaluateScaleOut(t *testing.T) {
 
 func TestAutoScalingWorkerEvaluateScaleIn(t *testing.T) {
 	t.Parallel()
-	mockRepo, mockInstSvc, _, mockEventSvc, mockClock, worker := setupAutoScalingWorkerTest(t)
+	mockRepo, mockInstSvc, mockEventSvc, mockClock, worker := setupAutoScalingWorkerTest(t)
 	defer mockRepo.AssertExpectations(t)
 	defer mockInstSvc.AssertExpectations(t)
 	defer mockClock.AssertExpectations(t)
@@ -117,7 +118,7 @@ func TestAutoScalingWorkerEvaluateScaleIn(t *testing.T) {
 
 func TestAutoScalingWorkerEvaluatePolicyTrigger(t *testing.T) {
 	t.Parallel()
-	mockRepo, _, _, _, mockClock, worker := setupAutoScalingWorkerTest(t)
+	mockRepo, _, _, mockClock, worker := setupAutoScalingWorkerTest(t)
 	defer mockRepo.AssertExpectations(t)
 	defer mockClock.AssertExpectations(t)
 
@@ -169,7 +170,7 @@ func TestAutoScalingWorkerEvaluatePolicyTrigger(t *testing.T) {
 
 func TestAutoScalingWorkerRunContextCancellation(t *testing.T) {
 	t.Parallel()
-	mockRepo, _, _, _, _, worker := setupAutoScalingWorkerTest(t)
+	mockRepo, _, _, _, worker := setupAutoScalingWorkerTest(t)
 	defer mockRepo.AssertExpectations(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -198,7 +199,7 @@ func TestAutoScalingWorkerRunContextCancellation(t *testing.T) {
 
 func TestAutoScalingWorkerCleanupGroupDeletesGroup(t *testing.T) {
 	t.Parallel()
-	mockRepo, _, _, _, _, worker := setupAutoScalingWorkerTest(t)
+	mockRepo, _, _, _, worker := setupAutoScalingWorkerTest(t)
 	defer mockRepo.AssertExpectations(t)
 
 	ctx := context.Background()
@@ -222,7 +223,7 @@ func TestAutoScalingWorkerCleanupGroupDeletesGroup(t *testing.T) {
 
 func TestAutoScalingWorkerCleanupGroupWithInstances(t *testing.T) {
 	t.Parallel()
-	mockRepo, mockInstSvc, _, mockEventSvc, _, worker := setupAutoScalingWorkerTest(t)
+	mockRepo, mockInstSvc, mockEventSvc, _, worker := setupAutoScalingWorkerTest(t)
 	defer mockRepo.AssertExpectations(t)
 	defer mockInstSvc.AssertExpectations(t)
 	defer mockEventSvc.AssertExpectations(t)
@@ -260,7 +261,7 @@ func TestAutoScalingWorkerRecordFailure(t *testing.T) {
 	t.Parallel()
 	// This test verifies the worker logic handles failures properly
 	// by checking that UpdateGroup is called when there's a failure
-	mockRepo, mockInstSvc, _, _, mockClock, worker := setupAutoScalingWorkerTest(t)
+	mockRepo, mockInstSvc, _, mockClock, worker := setupAutoScalingWorkerTest(t)
 	defer mockRepo.AssertExpectations(t)
 	defer mockInstSvc.AssertExpectations(t)
 	defer mockClock.AssertExpectations(t)
@@ -304,7 +305,7 @@ func TestAutoScalingWorkerRecordFailure(t *testing.T) {
 
 func TestAutoScalingWorkerFailureBackoffSkipsScaleOut(t *testing.T) {
 	t.Parallel()
-	mockRepo, mockInstSvc, _, _, mockClock, worker := setupAutoScalingWorkerTest(t)
+	mockRepo, mockInstSvc, _, mockClock, worker := setupAutoScalingWorkerTest(t)
 	defer mockRepo.AssertExpectations(t)
 	defer mockClock.AssertExpectations(t)
 
@@ -338,7 +339,7 @@ func TestAutoScalingWorkerFailureBackoffSkipsScaleOut(t *testing.T) {
 
 func TestAutoScalingWorkerAdjustDesiredBounds(t *testing.T) {
 	t.Parallel()
-	mockRepo, mockInstSvc, _, _, _, worker := setupAutoScalingWorkerTest(t)
+	mockRepo, mockInstSvc, _, _, worker := setupAutoScalingWorkerTest(t)
 	defer mockRepo.AssertExpectations(t)
 	defer mockInstSvc.AssertExpectations(t)
 
@@ -372,7 +373,7 @@ func TestAutoScalingWorkerAdjustDesiredBounds(t *testing.T) {
 func TestAutoScalingWorkerResetFailures(t *testing.T) {
 	t.Parallel()
 	// This test verifies that successful operations reset the failure count
-	mockRepo, mockInstSvc, _, mockEventSvc, mockClock, worker := setupAutoScalingWorkerTest(t)
+	mockRepo, mockInstSvc, mockEventSvc, mockClock, worker := setupAutoScalingWorkerTest(t)
 	defer mockRepo.AssertExpectations(t)
 	defer mockInstSvc.AssertExpectations(t)
 	defer mockEventSvc.AssertExpectations(t)
@@ -422,7 +423,7 @@ func TestAutoScalingWorkerResetFailures(t *testing.T) {
 
 func TestAutoScalingWorkerEvaluatePolicyTriggerScaleIn(t *testing.T) {
 	t.Parallel()
-	mockRepo, _, _, _, mockClock, worker := setupAutoScalingWorkerTest(t)
+	mockRepo, _, _, mockClock, worker := setupAutoScalingWorkerTest(t)
 	defer mockRepo.AssertExpectations(t)
 	defer mockClock.AssertExpectations(t)
 

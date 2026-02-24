@@ -15,6 +15,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -83,7 +84,7 @@ Resources:
 
 	stack, err := svc.CreateStack(ctx, stackTestStack, template, nil)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, stack)
 	assert.Equal(t, stackTestStack, stack.Name)
 	assert.Equal(t, domain.StackStatusCreateInProgress, stack.Status)
@@ -117,7 +118,7 @@ func TestDeleteStackSuccess(t *testing.T) {
 
 	err := svc.DeleteStack(ctx, stackID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Wait for background processing
 	time.Sleep(150 * time.Millisecond)
@@ -186,7 +187,7 @@ Resources:
 	})).Return(nil)
 
 	_, err := svc.CreateStack(ctx, "test-stack-rb", template, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Wait for background processing
 	time.Sleep(150 * time.Millisecond)
@@ -251,7 +252,7 @@ Resources:
 	})).Return(nil)
 
 	_, err := svc.CreateStack(ctx, "test-stack-rollback-all", template, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	time.Sleep(150 * time.Millisecond)
 }
@@ -298,7 +299,7 @@ Resources:
 	})).Return(nil)
 
 	_, err := svc.CreateStack(ctx, "test-stack-rollback-fail", template, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	time.Sleep(150 * time.Millisecond)
 }
@@ -314,7 +315,7 @@ func TestGetStack(t *testing.T) {
 	repo.On("GetByID", ctx, stackID).Return(stack, nil)
 
 	res, err := svc.GetStack(ctx, stackID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, stack, res)
 }
 
@@ -330,7 +331,7 @@ func TestListStacks(t *testing.T) {
 	repo.On("ListByUserID", ctx, userID).Return(stacks, nil)
 
 	res, err := svc.ListStacks(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, stacks, res)
 }
 
@@ -347,7 +348,7 @@ Resources:
       Name: test-vpc
 `
 		res, err := svc.ValidateTemplate(context.Background(), template)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, res.Valid)
 	})
 
@@ -359,7 +360,7 @@ Resources:
   - invalid
 `
 		res, err := svc.ValidateTemplate(context.Background(), template)
-		assert.NoError(t, err) // It returns error in response object
+		require.NoError(t, err) // It returns error in response object
 		assert.False(t, res.Valid)
 		assert.NotEmpty(t, res.Errors)
 	})
@@ -367,7 +368,7 @@ Resources:
 	t.Run("missing resources", func(t *testing.T) {
 		template := "Parameters: {}"
 		res, err := svc.ValidateTemplate(context.Background(), template)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, res.Valid)
 	})
 }
@@ -417,7 +418,7 @@ Resources:
 	})).Return(nil)
 
 	_, err := svc.CreateStack(ctx, "complex-stack", template, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	time.Sleep(150 * time.Millisecond)
 }

@@ -22,4 +22,4 @@ CREATE TABLE IF NOT EXISTS user_policies (
 );
 
 -- Index for faster policy lookups per user
-CREATE INDEX idx_user_policies_user_id ON user_policies(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_policies_user_id ON user_policies(user_id);

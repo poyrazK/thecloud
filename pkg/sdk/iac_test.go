@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -37,7 +38,7 @@ func TestClientCreateStack(t *testing.T) {
 
 		var req map[string]interface{}
 		err := json.NewDecoder(r.Body).Decode(&req)
-		assert.NoError(t, err)
+		if err != nil { t.Errorf("failed to decode: %v", err); return }
 		assert.Equal(t, expectedStack.Name, req["name"])
 		assert.Equal(t, expectedStack.Template, req["template"])
 
@@ -49,7 +50,7 @@ func TestClientCreateStack(t *testing.T) {
 	client := NewClient(server.URL, iacTestAPIKey)
 	stack, err := client.CreateStack(iacTestStackName, iacTestTemplate, map[string]string{})
 
-	assert.NoError(t, err)
+	if err != nil { t.Errorf("failed to decode: %v", err); return }
 	assert.NotNil(t, stack)
 	assert.Equal(t, expectedStack.ID, stack.ID)
 	assert.Equal(t, expectedStack.Name, stack.Name)
@@ -73,7 +74,7 @@ func TestClientListStacks(t *testing.T) {
 	client := NewClient(server.URL, iacTestAPIKey)
 	stacks, err := client.ListStacks()
 
-	assert.NoError(t, err)
+	if err != nil { t.Errorf("failed to decode: %v", err); return }
 	assert.Len(t, stacks, 2)
 	assert.Equal(t, expectedStacks[0].Name, stacks[0].Name)
 }
@@ -97,7 +98,7 @@ func TestClientGetStack(t *testing.T) {
 	client := NewClient(server.URL, iacTestAPIKey)
 	stack, err := client.GetStack(id)
 
-	assert.NoError(t, err)
+	if err != nil { t.Errorf("failed to decode: %v", err); return }
 	assert.NotNil(t, stack)
 	assert.Equal(t, expectedStack.ID, stack.ID)
 }
@@ -116,7 +117,7 @@ func TestClientDeleteStack(t *testing.T) {
 	client := NewClient(server.URL, iacTestAPIKey)
 	err := client.DeleteStack(id)
 
-	assert.NoError(t, err)
+	if err != nil { t.Errorf("failed to decode: %v", err); return }
 }
 
 func TestClientValidateTemplate(t *testing.T) {
@@ -132,7 +133,7 @@ func TestClientValidateTemplate(t *testing.T) {
 
 		var req map[string]interface{}
 		err := json.NewDecoder(r.Body).Decode(&req)
-		assert.NoError(t, err)
+		if err != nil { t.Errorf("failed to decode: %v", err); return }
 		assert.Equal(t, template, req["template"])
 
 		w.Header().Set(iacTestContentType, iacTestAppJSON)
@@ -143,7 +144,7 @@ func TestClientValidateTemplate(t *testing.T) {
 	client := NewClient(server.URL, iacTestAPIKey)
 	resp, err := client.ValidateTemplate(template)
 
-	assert.NoError(t, err)
+	if err != nil { t.Errorf("failed to decode: %v", err); return }
 	assert.NotNil(t, resp)
 	assert.True(t, resp.Valid)
 }
@@ -157,17 +158,17 @@ func TestClientIacErrors(t *testing.T) {
 
 	client := NewClient(server.URL, iacTestAPIKey)
 	_, err := client.CreateStack("stack", "template", map[string]string{})
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.ListStacks()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetStack(iacTestStackOneName)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.DeleteStack(iacTestStackOneName)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.ValidateTemplate("template")
-	assert.Error(t, err)
+	require.Error(t, err)
 }

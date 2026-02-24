@@ -9,6 +9,7 @@ import (
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/poyrazk/thecloud/tests/helpers"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEdgeCases(t *testing.T) {
@@ -94,7 +95,7 @@ func TestEdgeCases(t *testing.T) {
 		req.Header.Set(testutil.TestHeaderAPIKey, token)
 		applyTenantHeader(t, req, token)
 		resp, err := client.Do(req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer func() { _ = resp.Body.Close() }()
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})

@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	stdlib_errors "errors"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
@@ -106,7 +107,7 @@ func (r *SSHKeyRepo) scanSSHKey(row pgx.Row) (*domain.SSHKey, error) {
 		&key.CreatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "ssh key not found")
 		}
 		return nil, fmt.Errorf("failed to scan ssh key: %w", err)

@@ -29,7 +29,8 @@ func (m *mockStorageService) Upload(ctx context.Context, bucket, key string, r i
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Object), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Object)
+	return r0, args.Error(1)
 }
 
 func (m *mockStorageService) Download(ctx context.Context, bucket, key string) (io.ReadCloser, *domain.Object, error) {
@@ -37,7 +38,9 @@ func (m *mockStorageService) Download(ctx context.Context, bucket, key string) (
 	if args.Get(0) == nil {
 		return nil, nil, args.Error(2)
 	}
-	return args.Get(0).(io.ReadCloser), args.Get(1).(*domain.Object), args.Error(2)
+	r0, _ := args.Get(0).(io.ReadCloser)
+	r1, _ := args.Get(1).(*domain.Object)
+	return r0, r1, args.Error(2)
 }
 
 func (m *mockStorageService) ListObjects(ctx context.Context, bucket string) ([]*domain.Object, error) {
@@ -45,7 +48,8 @@ func (m *mockStorageService) ListObjects(ctx context.Context, bucket string) ([]
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Object), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Object)
+	return r0, args.Error(1)
 }
 
 func (m *mockStorageService) DeleteObject(ctx context.Context, bucket, key string) error {
@@ -57,7 +61,8 @@ func (m *mockStorageService) CreateBucket(ctx context.Context, name string, isPu
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Bucket), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Bucket)
+	return r0, args.Error(1)
 }
 
 func (m *mockStorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {
@@ -65,7 +70,8 @@ func (m *mockStorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket,
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Bucket), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Bucket)
+	return r0, args.Error(1)
 }
 
 func (m *mockStorageService) DeleteBucket(ctx context.Context, name string) error {
@@ -77,7 +83,8 @@ func (m *mockStorageService) GetClusterStatus(ctx context.Context) (*domain.Stor
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.StorageCluster), args.Error(1)
+	r0, _ := args.Get(0).(*domain.StorageCluster)
+	return r0, args.Error(1)
 }
 
 func (m *mockStorageService) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
@@ -85,7 +92,8 @@ func (m *mockStorageService) ListVersions(ctx context.Context, bucket, key strin
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Object), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Object)
+	return r0, args.Error(1)
 }
 
 func (m *mockStorageService) DownloadVersion(ctx context.Context, bucket, key, versionID string) (io.ReadCloser, *domain.Object, error) {
@@ -93,7 +101,9 @@ func (m *mockStorageService) DownloadVersion(ctx context.Context, bucket, key, v
 	if args.Get(0) == nil {
 		return nil, nil, args.Error(2)
 	}
-	return args.Get(0).(io.ReadCloser), args.Get(1).(*domain.Object), args.Error(2)
+	r0, _ := args.Get(0).(io.ReadCloser)
+	r1, _ := args.Get(1).(*domain.Object)
+	return r0, r1, args.Error(2)
 }
 
 func (m *mockStorageService) DeleteVersion(ctx context.Context, bucket, key, versionID string) error {
@@ -109,7 +119,8 @@ func (m *mockStorageService) CreateMultipartUpload(ctx context.Context, bucket, 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.MultipartUpload), args.Error(1)
+	r0, _ := args.Get(0).(*domain.MultipartUpload)
+	return r0, args.Error(1)
 }
 
 func (m *mockStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
@@ -117,7 +128,8 @@ func (m *mockStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID,
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Part), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Part)
+	return r0, args.Error(1)
 }
 
 func (m *mockStorageService) CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error) {
@@ -125,7 +137,8 @@ func (m *mockStorageService) CompleteMultipartUpload(ctx context.Context, upload
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Object), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Object)
+	return r0, args.Error(1)
 }
 
 func (m *mockStorageService) AbortMultipartUpload(ctx context.Context, uploadID uuid.UUID) error {
@@ -142,16 +155,17 @@ func (m *mockStorageService) GeneratePresignedURL(ctx context.Context, bucket, k
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.PresignedURL), args.Error(1)
+	r0, _ := args.Get(0).(*domain.PresignedURL)
+	return r0, args.Error(1)
 }
 
-// I'll skip some complex ones like Presigned if the interface is tricky.
 func (m *mockStorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
 	args := m.Called(ctx, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Bucket), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Bucket)
+	return r0, args.Error(1)
 }
 
 func (m *mockStorageService) UploadStream(ctx context.Context, bucket, key string, r io.Reader) (*domain.Object, error) {
@@ -379,7 +393,7 @@ func TestStorageHandlerVersioning(t *testing.T) {
 	mockSvc.On("SetBucketVersioning", mock.Anything, "b1", true).Return(nil)
 	body := `{"enabled":true}`
 	req := httptest.NewRequest(http.MethodPatch, "/storage/buckets/b1/versioning", strings.NewReader(body))
-	req.Header.Set(headerContentType, contentTypeJSON)
+	req.Header.Set("Content-Type", contentTypeJSON)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -406,7 +420,7 @@ func TestStorageHandlerPresigned(t *testing.T) {
 	mockSvc.On("GeneratePresignedURL", mock.Anything, "b1", testTxtPath, "GET", mock.Anything).Return(&domain.PresignedURL{URL: "http://test.com"}, nil)
 	body := `{"method":"GET"}`
 	req := httptest.NewRequest(http.MethodPost, presignTestURL, strings.NewReader(body))
-	req.Header.Set(headerContentType, contentTypeJSON)
+	req.Header.Set("Content-Type", contentTypeJSON)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -498,6 +512,7 @@ func TestStorageHandlerListBucketsError(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, bucketsPath, nil)
 	w := httptest.NewRecorder()
+
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -512,6 +527,7 @@ func TestStorageHandlerDeleteBucketErrorCase(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodDelete, bucketsPath+"/b1", nil)
 	w := httptest.NewRecorder()
+
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -526,6 +542,7 @@ func TestStorageHandlerGetClusterStatusError(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, clusterStatusPath, nil)
 	w := httptest.NewRecorder()
+
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -573,14 +590,14 @@ func TestStorageHandlerMultipartErrors(t *testing.T) {
 func TestStorageHandlerVersioningErrors(t *testing.T) {
 	t.Parallel()
 	mockSvc, handler, r := setupStorageHandlerTest()
-	r.PATCH(versioningPath, handler.SetBucketVersioning)
-	r.GET(versionsPath, handler.ListVersions)
+	r.PATCH("/storage/buckets/:bucket/versioning", handler.SetBucketVersioning)
+	r.GET("/storage/versions/:bucket/*key", handler.ListVersions)
 
 	// Set Error
 	mockSvc.On("SetBucketVersioning", mock.Anything, "b1", true).Return(errors.New(errors.Internal, "set versioning failed"))
 	body := `{"enabled":true}`
 	req := httptest.NewRequest(http.MethodPatch, "/storage/buckets/b1/versioning", strings.NewReader(body))
-	req.Header.Set(headerContentType, contentTypeJSON)
+	req.Header.Set("Content-Type", contentTypeJSON)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -612,7 +629,7 @@ func TestStorageHandlerPresignedErrors(t *testing.T) {
 	mockSvc.On("GeneratePresignedURL", mock.Anything, "b1", testTxtPath, "GET", mock.Anything).Return(nil, errors.New(errors.Internal, "presign failed"))
 	body := `{"method":"GET"}`
 	req = httptest.NewRequest(http.MethodPost, presignTestURL, strings.NewReader(body))
-	req.Header.Set(headerContentType, contentTypeJSON)
+	req.Header.Set("Content-Type", contentTypeJSON)
 	w = httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)

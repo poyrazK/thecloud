@@ -13,6 +13,8 @@ import (
 )
 
 func setupInstanceTypeServiceTest(t *testing.T) (ports.InstanceTypeService, *postgres.InstanceTypeRepository, context.Context) {
+	t.Helper()
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
@@ -22,7 +24,7 @@ func setupInstanceTypeServiceTest(t *testing.T) (ports.InstanceTypeService, *pos
 	return svc, repo, ctx
 }
 
-func TestInstanceTypeService_List(t *testing.T) {
+func TestInstanceTypeServiceList(t *testing.T) {
 	svc, repo, ctx := setupInstanceTypeServiceTest(t)
 
 	it1 := &domain.InstanceType{ID: "c1.medium", Name: "Medium", VCPUs: 2, MemoryMB: 4096}
@@ -34,6 +36,6 @@ func TestInstanceTypeService_List(t *testing.T) {
 	require.NoError(t, err)
 
 	result, err := svc.List(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, result, 2)
 }

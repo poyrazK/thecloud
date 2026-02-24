@@ -10,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLifecycleService_Unit(t *testing.T) {
@@ -27,7 +28,7 @@ func TestLifecycleService_Unit(t *testing.T) {
 		mockRepo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 
 		rule, err := svc.CreateRule(ctx, "my-bucket", "logs/", 30, true)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, rule)
 		assert.Equal(t, 30, rule.ExpirationDays)
 		mockRepo.AssertExpectations(t)
@@ -38,7 +39,7 @@ func TestLifecycleService_Unit(t *testing.T) {
 		mockStorageRepo.On("GetBucket", mock.Anything, "other-bucket").Return(bucket, nil).Once()
 
 		rule, err := svc.CreateRule(ctx, "other-bucket", "", 10, true)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, rule)
 		// Fix: Check for uppercase "FORBIDDEN" as returned by the internal/errors package
 		assert.Contains(t, err.Error(), "FORBIDDEN")

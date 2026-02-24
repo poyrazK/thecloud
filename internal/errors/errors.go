@@ -2,6 +2,7 @@
 package errors
 
 import (
+	stdlib_errors "errors"
 	"fmt"
 )
 
@@ -54,7 +55,7 @@ func (e Error) Error() string {
 	return fmt.Sprintf("%s: %s", e.Type, e.Message)
 }
 
-// Unwrap implements the errors.Unwrap interface for error chain support
+// Unwrap implements the stdlib_errors.Unwrap interface for error chain support
 func (e Error) Unwrap() error {
 	return e.Cause
 }
@@ -71,15 +72,22 @@ func Wrap(t Type, msg string, err error) error {
 
 // Is checks whether an error is of the given Type.
 func Is(err error, t Type) bool {
-	if e, ok := err.(Error); ok {
+	var e Error
+	if stdlib_errors.As(err, &e) {
 		return e.Type == t
 	}
 	return false
 }
 
+// As finds the first error in err's chain that matches target.
+func As(err error, target any) bool {
+	return stdlib_errors.As(err, target)
+}
+
 // GetCause returns the underlying cause for logging purposes (not for client exposure)
 func GetCause(err error) error {
-	if e, ok := err.(Error); ok {
+	var e Error
+	if stdlib_errors.As(err, &e) {
 		return e.Cause
 	}
 	return nil

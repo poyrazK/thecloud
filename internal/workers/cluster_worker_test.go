@@ -34,7 +34,8 @@ func (m *MockClusterRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Cl
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Cluster), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Cluster)
+	return r0, args.Error(1)
 }
 func (m *MockClusterRepo) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Cluster, error) {
 	return nil, nil
@@ -44,7 +45,8 @@ func (m *MockClusterRepo) ListAll(ctx context.Context) ([]*domain.Cluster, error
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Cluster), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Cluster)
+	return r0, args.Error(1)
 }
 func (m *MockClusterRepo) Update(ctx context.Context, c *domain.Cluster) error {
 	return m.Called(ctx, c).Error(0)
@@ -72,7 +74,8 @@ func (m *MockProvisioner) Upgrade(ctx context.Context, c *domain.Cluster, versio
 }
 func (m *MockProvisioner) GetStatus(ctx context.Context, c *domain.Cluster) (domain.ClusterStatus, error) {
 	args := m.Called(ctx, c)
-	return args.Get(0).(domain.ClusterStatus), args.Error(1)
+	r0, _ := args.Get(0).(domain.ClusterStatus)
+	return r0, args.Error(1)
 }
 func (m *MockProvisioner) Repair(ctx context.Context, c *domain.Cluster) error {
 	return m.Called(ctx, c).Error(0)
@@ -89,7 +92,8 @@ func (m *MockProvisioner) GetHealth(ctx context.Context, c *domain.Cluster) (*po
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*ports.ClusterHealth), args.Error(1)
+	r0, _ := args.Get(0).(*ports.ClusterHealth)
+	return r0, args.Error(1)
 }
 func (m *MockProvisioner) RotateSecrets(ctx context.Context, c *domain.Cluster) error {
 	return m.Called(ctx, c).Error(0)

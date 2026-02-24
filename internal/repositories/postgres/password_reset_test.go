@@ -9,11 +9,12 @@ import (
 	"github.com/pashagolub/pgxmock/v3"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPasswordResetRepository_Create(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewPasswordResetRepository(mock)
@@ -31,13 +32,13 @@ func TestPasswordResetRepository_Create(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.Create(context.Background(), token)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestPasswordResetRepository_GetByTokenHash(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewPasswordResetRepository(mock)
@@ -51,7 +52,7 @@ func TestPasswordResetRepository_GetByTokenHash(t *testing.T) {
 			AddRow(uuid.New(), userID, hash, now.Add(time.Hour), false, now))
 
 	token, err := repo.GetByTokenHash(context.Background(), hash)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, token)
 	assert.Equal(t, hash, token.TokenHash)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -59,7 +60,7 @@ func TestPasswordResetRepository_GetByTokenHash(t *testing.T) {
 
 func TestPasswordResetRepository_MarkAsUsed(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewPasswordResetRepository(mock)
@@ -70,13 +71,13 @@ func TestPasswordResetRepository_MarkAsUsed(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 	err = repo.MarkAsUsed(context.Background(), tokenID.String())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestPasswordResetRepository_DeleteExpired(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewPasswordResetRepository(mock)
@@ -86,6 +87,6 @@ func TestPasswordResetRepository_DeleteExpired(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("DELETE", 5))
 
 	err = repo.DeleteExpired(context.Background())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }

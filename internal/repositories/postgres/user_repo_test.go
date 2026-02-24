@@ -12,6 +12,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -26,7 +27,7 @@ const (
 func TestUserRepoCreate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewUserRepo(mock)
@@ -45,13 +46,13 @@ func TestUserRepoCreate(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), user)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	t.Run(userRepoDBErrorMsg, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewUserRepo(mock)
@@ -63,14 +64,14 @@ func TestUserRepoCreate(t *testing.T) {
 			WillReturnError(errors.New(userRepoDBErrorMsg))
 
 		err = repo.Create(context.Background(), user)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
 func TestUserRepoGetByEmail(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewUserRepo(mock)
@@ -84,7 +85,7 @@ func TestUserRepoGetByEmail(t *testing.T) {
 				AddRow(id, email, "hashed", userRepoTestName, "user", nil, now, now))
 
 		user, err := repo.GetByEmail(context.Background(), email)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, user)
 		assert.Equal(t, id, user.ID)
 		assert.Equal(t, email, user.Email)
@@ -93,7 +94,7 @@ func TestUserRepoGetByEmail(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewUserRepo(mock)
@@ -104,7 +105,7 @@ func TestUserRepoGetByEmail(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		user, err := repo.GetByEmail(context.Background(), email)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, user)
 		// Assuming repo returns custom error or native error
 		// Checking if it matches domain logic. Usually repo wraps error.
@@ -112,7 +113,7 @@ func TestUserRepoGetByEmail(t *testing.T) {
 
 	t.Run(userRepoDBErrorMsg, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewUserRepo(mock)
@@ -123,7 +124,7 @@ func TestUserRepoGetByEmail(t *testing.T) {
 			WillReturnError(errors.New(userRepoDBErrorMsg))
 
 		user, err := repo.GetByEmail(context.Background(), email)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, user)
 	})
 }
@@ -131,7 +132,7 @@ func TestUserRepoGetByEmail(t *testing.T) {
 func TestUserRepoGetByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewUserRepo(mock)
@@ -145,7 +146,7 @@ func TestUserRepoGetByID(t *testing.T) {
 				AddRow(id, email, "hashed", userRepoTestName, "user", nil, now, now))
 
 		user, err := repo.GetByID(context.Background(), id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, user)
 		assert.Equal(t, id, user.ID)
 		assert.NoError(t, mock.ExpectationsWereMet())
@@ -153,7 +154,7 @@ func TestUserRepoGetByID(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewUserRepo(mock)
@@ -164,17 +165,17 @@ func TestUserRepoGetByID(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		user, err := repo.GetByID(context.Background(), id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, user)
-		theCloudErr, ok := err.(*theclouderrors.Error)
-		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+		var target *theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 
 	t.Run(userRepoDBErrorMsg, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewUserRepo(mock)
@@ -185,7 +186,7 @@ func TestUserRepoGetByID(t *testing.T) {
 			WillReturnError(errors.New(userRepoDBErrorMsg))
 
 		user, err := repo.GetByID(context.Background(), id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, user)
 	})
 }
@@ -193,7 +194,7 @@ func TestUserRepoGetByID(t *testing.T) {
 func TestUserRepoUpdate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewUserRepo(mock)
@@ -211,13 +212,13 @@ func TestUserRepoUpdate(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		err = repo.Update(context.Background(), user)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	t.Run(userRepoDBErrorMsg, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewUserRepo(mock)
@@ -229,14 +230,14 @@ func TestUserRepoUpdate(t *testing.T) {
 			WillReturnError(errors.New(userRepoDBErrorMsg))
 
 		err = repo.Update(context.Background(), user)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
 func TestUserRepoList(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewUserRepo(mock)
@@ -250,7 +251,7 @@ func TestUserRepoList(t *testing.T) {
 				AddRow(id2, "u2@ex.com", "h2", "U2", "admin", nil, now, now))
 
 		users, err := repo.List(context.Background())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, users, 2)
 		assert.Equal(t, id1, users[0].ID)
 		assert.Equal(t, id2, users[1].ID)
@@ -259,7 +260,7 @@ func TestUserRepoList(t *testing.T) {
 
 	t.Run(userRepoDBErrorMsg, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewUserRepo(mock)
@@ -268,13 +269,13 @@ func TestUserRepoList(t *testing.T) {
 			WillReturnError(errors.New(userRepoDBErrorMsg))
 
 		users, err := repo.List(context.Background())
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, users)
 	})
 
 	t.Run("scan error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewUserRepo(mock)
@@ -285,7 +286,7 @@ func TestUserRepoList(t *testing.T) {
 				AddRow("invalid-uuid", "u1@ex.com", "h1", "U1", "user", now, now))
 
 		users, err := repo.List(context.Background())
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, users)
 	})
 }
@@ -293,7 +294,7 @@ func TestUserRepoList(t *testing.T) {
 func TestUserRepoDelete(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewUserRepo(mock)
@@ -304,13 +305,13 @@ func TestUserRepoDelete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.Delete(context.Background(), id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	t.Run(userRepoDBErrorMsg, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewUserRepo(mock)
@@ -321,6 +322,6 @@ func TestUserRepoDelete(t *testing.T) {
 			WillReturnError(errors.New(userRepoDBErrorMsg))
 
 		err = repo.Delete(context.Background(), id)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }

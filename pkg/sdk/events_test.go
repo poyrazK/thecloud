@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClientListEvents(t *testing.T) {
@@ -45,7 +46,7 @@ func TestClientListEvents(t *testing.T) {
 	client := NewClient(server.URL, "test-api-key")
 	events, err := client.ListEvents()
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, events, 2)
 	assert.Equal(t, "instance.created", events[0].Action)
 }
@@ -60,5 +61,5 @@ func TestClientListEventsError(t *testing.T) {
 	client := NewClient(server.URL, "test-api-key")
 	_, err := client.ListEvents()
 
-	assert.Error(t, err)
+	require.Error(t, err)
 }

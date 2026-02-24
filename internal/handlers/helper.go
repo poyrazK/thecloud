@@ -14,16 +14,16 @@ const (
 )
 
 // parseUUID extracts a UUID from a path parameter and handles error reporting.
-func parseUUID(c *gin.Context, paramName string) (*uuid.UUID, bool) {
-	val := c.Param(paramName)
+func parseUUID(c *gin.Context) (*uuid.UUID, bool) {
+	val := c.Param("id")
 	if val == "" {
-		httputil.Error(c, errors.New(errors.InvalidInput, paramName+" is required"))
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
 		return nil, false
 	}
 
 	id, err := uuid.Parse(val)
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid "+paramName+" format"))
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid id format"))
 		return nil, false
 	}
 

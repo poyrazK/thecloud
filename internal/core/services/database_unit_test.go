@@ -10,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type MockDatabaseRepo struct {
@@ -24,21 +25,24 @@ func (m *MockDatabaseRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.D
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Database), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Database)
+	return r0, args.Error(1)
 }
 func (m *MockDatabaseRepo) List(ctx context.Context) ([]*domain.Database, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Database), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Database)
+	return r0, args.Error(1)
 }
 func (m *MockDatabaseRepo) ListReplicas(ctx context.Context, primaryID uuid.UUID) ([]*domain.Database, error) {
 	args := m.Called(ctx, primaryID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Database), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Database)
+	return r0, args.Error(1)
 }
 func (m *MockDatabaseRepo) Update(ctx context.Context, db *domain.Database) error {
 	return m.Called(ctx, db).Error(0)
@@ -47,13 +51,13 @@ func (m *MockDatabaseRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
 
-func TestDatabaseService_Unit_Extended(t *testing.T) {
+func TestDatabaseServiceUnitExtended(t *testing.T) {
 	mockRepo := new(MockDatabaseRepo)
 	mockCompute := new(MockComputeBackend)
 	mockVpcRepo := new(MockVpcRepo)
 	mockEventSvc := new(MockEventService)
 	mockAuditSvc := new(MockAuditService)
-	
+
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
 		Repo:     mockRepo,
 		Compute:  mockCompute,
@@ -76,7 +80,7 @@ func TestDatabaseService_Unit_Extended(t *testing.T) {
 			Return(nil).Once()
 
 		db, err := svc.CreateDatabase(ctx, "test-db", "postgres", "16", nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, db)
 		assert.Equal(t, 30001, db.Port)
 	})
@@ -96,7 +100,7 @@ func TestDatabaseService_Unit_Extended(t *testing.T) {
 			Return(nil).Once()
 
 		replica, err := svc.CreateReplica(ctx, primaryID, "test-rep")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, replica)
 		assert.Equal(t, domain.RoleReplica, replica.Role)
 	})
@@ -114,9 +118,9 @@ func TestDatabaseService_Unit_Extended(t *testing.T) {
 			Return(nil).Once()
 
 		err := svc.PromoteToPrimary(ctx, dbID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
-	
+
 	t.Run("GetConnectionString", func(t *testing.T) {
 		dbID := uuid.New()
 		db := &domain.Database{
@@ -128,9 +132,9 @@ func TestDatabaseService_Unit_Extended(t *testing.T) {
 			Name:     "mydb",
 		}
 		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
-		
+
 		conn, err := svc.GetConnectionString(ctx, dbID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Contains(t, conn, "postgres://user:pass@localhost:5432/mydb")
 	})
 
@@ -146,6 +150,25 @@ func TestDatabaseService_Unit_Extended(t *testing.T) {
 			Return(nil).Once()
 
 		err := svc.DeleteDatabase(ctx, dbID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
+	})
+
+	t.Run("GetDatabase", func(t *testing.T) {
+		dbID := uuid.New()
+		expected := &domain.Database{ID: dbID, Name: "test-db"}
+		mockRepo.On("GetByID", mock.Anything, dbID).Return(expected, nil).Once()
+
+		result, err := svc.GetDatabase(ctx, dbID)
+		require.NoError(t, err)
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("ListDatabases", func(t *testing.T) {
+		expected := []*domain.Database{{ID: uuid.New()}}
+		mockRepo.On("List", mock.Anything).Return(expected, nil).Once()
+
+		result, err := svc.ListDatabases(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, expected, result)
 	})
 }

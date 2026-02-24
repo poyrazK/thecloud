@@ -20,18 +20,14 @@ func (m *IAMRepository) CreatePolicy(ctx context.Context, tenantID uuid.UUID, po
 
 func (m *IAMRepository) GetPolicyByID(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (*domain.Policy, error) {
 	args := m.Called(ctx, tenantID, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.Policy), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Policy)
+	return r0, args.Error(1)
 }
 
 func (m *IAMRepository) ListPolicies(ctx context.Context, tenantID uuid.UUID) ([]*domain.Policy, error) {
 	args := m.Called(ctx, tenantID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.Policy), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Policy)
+	return r0, args.Error(1)
 }
 
 func (m *IAMRepository) UpdatePolicy(ctx context.Context, tenantID uuid.UUID, policy *domain.Policy) error {
@@ -56,10 +52,8 @@ func (m *IAMRepository) DetachPolicyFromUser(ctx context.Context, tenantID uuid.
 
 func (m *IAMRepository) GetPoliciesForUser(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID) ([]*domain.Policy, error) {
 	args := m.Called(ctx, tenantID, userID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.Policy), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Policy)
+	return r0, args.Error(1)
 }
 
 // IAMService is a mock for ports.IAMService
@@ -74,18 +68,14 @@ func (m *IAMService) CreatePolicy(ctx context.Context, policy *domain.Policy) er
 
 func (m *IAMService) GetPolicyByID(ctx context.Context, id uuid.UUID) (*domain.Policy, error) {
 	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.Policy), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Policy)
+	return r0, args.Error(1)
 }
 
 func (m *IAMService) ListPolicies(ctx context.Context) ([]*domain.Policy, error) {
 	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.Policy), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Policy)
+	return r0, args.Error(1)
 }
 
 func (m *IAMService) UpdatePolicy(ctx context.Context, policy *domain.Policy) error {
@@ -110,10 +100,8 @@ func (m *IAMService) DetachPolicyFromUser(ctx context.Context, userID uuid.UUID,
 
 func (m *IAMService) GetPoliciesForUser(ctx context.Context, userID uuid.UUID) ([]*domain.Policy, error) {
 	args := m.Called(ctx, userID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.Policy), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Policy)
+	return r0, args.Error(1)
 }
 
 // UserRepository is a mock for ports.UserRepository
@@ -128,18 +116,14 @@ func (m *UserRepository) Create(ctx context.Context, user *domain.User) error {
 
 func (m *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.User), args.Error(1)
+	r0, _ := args.Get(0).(*domain.User)
+	return r0, args.Error(1)
 }
 
 func (m *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	args := m.Called(ctx, email)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.User), args.Error(1)
+	r0, _ := args.Get(0).(*domain.User)
+	return r0, args.Error(1)
 }
 
 func (m *UserRepository) Update(ctx context.Context, user *domain.User) error {
@@ -154,10 +138,8 @@ func (m *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
 
 func (m *UserRepository) List(ctx context.Context) ([]*domain.User, error) {
 	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.User), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.User)
+	return r0, args.Error(1)
 }
 
 // RoleRepository is a mock for ports.RoleRepository
@@ -172,26 +154,20 @@ func (m *RoleRepository) CreateRole(ctx context.Context, role *domain.Role) erro
 
 func (m *RoleRepository) GetRoleByID(ctx context.Context, id uuid.UUID) (*domain.Role, error) {
 	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.Role), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Role)
+	return r0, args.Error(1)
 }
 
 func (m *RoleRepository) GetRoleByName(ctx context.Context, name string) (*domain.Role, error) {
 	args := m.Called(ctx, name)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.Role), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Role)
+	return r0, args.Error(1)
 }
 
 func (m *RoleRepository) ListRoles(ctx context.Context) ([]*domain.Role, error) {
 	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.Role), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Role)
+	return r0, args.Error(1)
 }
 
 func (m *RoleRepository) UpdateRole(ctx context.Context, role *domain.Role) error {
@@ -216,8 +192,6 @@ func (m *RoleRepository) RemovePermissionFromRole(ctx context.Context, roleID uu
 
 func (m *RoleRepository) GetPermissionsForRole(ctx context.Context, roleID uuid.UUID) ([]domain.Permission, error) {
 	args := m.Called(ctx, roleID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]domain.Permission), args.Error(1)
+	r0, _ := args.Get(0).([]domain.Permission)
+	return r0, args.Error(1)
 }

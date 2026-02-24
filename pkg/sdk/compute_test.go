@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -41,7 +42,7 @@ func TestClientListInstances(t *testing.T) {
 	client := NewClient(server.URL, computeAPIKey)
 	instances, err := client.ListInstances()
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, instances, 1)
 	assert.Equal(t, computeInstanceID, instances[0].ID)
 }
@@ -66,7 +67,7 @@ func TestClientGetInstance(t *testing.T) {
 	client := NewClient(server.URL, computeAPIKey)
 	instance, err := client.GetInstance(computeInstanceID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, computeInstanceID, instance.ID)
 }
 
@@ -95,7 +96,7 @@ func TestClientLaunchInstance(t *testing.T) {
 	client := NewClient(server.URL, computeAPIKey)
 	instance, err := client.LaunchInstance(computeNewInstance, "nginx", "80:80", "basic-2", "", "", nil, nil, nil, "", nil)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, computeInstanceID, instance.ID)
 	assert.Equal(t, computeNewInstance, instance.Name)
 }
@@ -112,7 +113,7 @@ func TestClientStopInstance(t *testing.T) {
 	client := NewClient(server.URL, computeAPIKey)
 	err := client.StopInstance(computeInstanceID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClientTerminateInstance(t *testing.T) {
@@ -126,7 +127,7 @@ func TestClientTerminateInstance(t *testing.T) {
 	client := NewClient(server.URL, computeAPIKey)
 	err := client.TerminateInstance(computeInstanceID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClientGetInstanceLogs(t *testing.T) {
@@ -142,7 +143,7 @@ func TestClientGetInstanceLogs(t *testing.T) {
 	client := NewClient(server.URL, computeAPIKey)
 	logs, err := client.GetInstanceLogs(computeInstanceID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, mockLogs, logs)
 }
 
@@ -157,7 +158,7 @@ func TestClientGetInstanceLogsErrorStatus(t *testing.T) {
 	client := NewClient(server.URL, computeAPIKey)
 	_, err := client.GetInstanceLogs(computeInstanceID)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "api error")
 }
 
@@ -165,7 +166,7 @@ func TestClientGetInstanceLogsRequestError(t *testing.T) {
 	client := NewClient("http://127.0.0.1:0", computeAPIKey)
 	_, err := client.GetInstanceLogs(computeInstanceID)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestClientGetInstanceStats(t *testing.T) {
@@ -185,8 +186,8 @@ func TestClientGetInstanceStats(t *testing.T) {
 	client := NewClient(server.URL, computeAPIKey)
 	stats, err := client.GetInstanceStats(computeInstanceID)
 
-	assert.NoError(t, err)
-	assert.Equal(t, 15.5, stats.CPUPercentage)
+	require.NoError(t, err)
+	assert.InDelta(t, 15.5, stats.CPUPercentage, 0.01)
 }
 
 func TestClientComputeErrors(t *testing.T) {
@@ -198,10 +199,10 @@ func TestClientComputeErrors(t *testing.T) {
 
 	client := NewClient(server.URL, computeAPIKey)
 	_, err := client.GetInstance(computeInstanceID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetInstanceStats(computeInstanceID)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestClientLaunchInstanceError(t *testing.T) {
@@ -213,7 +214,7 @@ func TestClientLaunchInstanceError(t *testing.T) {
 
 	client := NewClient(server.URL, computeAPIKey)
 	_, err := client.LaunchInstance("name", "img", "80", "basic-2", "", "", nil, nil, nil, "", nil)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestClientAPIError(t *testing.T) {
@@ -227,7 +228,7 @@ func TestClientAPIError(t *testing.T) {
 	client := NewClient(server.URL, computeAPIKey)
 	_, err := client.ListInstances()
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "api error")
 	assert.Contains(t, err.Error(), "invalid input")
 }

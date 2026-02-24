@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -32,13 +33,13 @@ type mockAutoScalingService struct {
 	mock.Mock
 }
 
-//nolint:gocritic // Mock function signature matches interface, cannot reduce parameters
 func (m *mockAutoScalingService) CreateGroup(ctx context.Context, params ports.CreateScalingGroupParams) (*domain.ScalingGroup, error) {
 	args := m.Called(ctx, params)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.ScalingGroup), args.Error(1)
+	r0, _ := args.Get(0).(*domain.ScalingGroup)
+	return r0, args.Error(1)
 }
 
 func (m *mockAutoScalingService) ListGroups(ctx context.Context) ([]*domain.ScalingGroup, error) {
@@ -46,7 +47,8 @@ func (m *mockAutoScalingService) ListGroups(ctx context.Context) ([]*domain.Scal
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.ScalingGroup), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.ScalingGroup)
+	return r0, args.Error(1)
 }
 
 func (m *mockAutoScalingService) GetGroup(ctx context.Context, id uuid.UUID) (*domain.ScalingGroup, error) {
@@ -54,20 +56,21 @@ func (m *mockAutoScalingService) GetGroup(ctx context.Context, id uuid.UUID) (*d
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.ScalingGroup), args.Error(1)
+	r0, _ := args.Get(0).(*domain.ScalingGroup)
+	return r0, args.Error(1)
 }
 
 func (m *mockAutoScalingService) DeleteGroup(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
 
-//nolint:gocritic // Mock function signature matches interface, cannot reduce parameters
 func (m *mockAutoScalingService) CreatePolicy(ctx context.Context, params ports.CreateScalingPolicyParams) (*domain.ScalingPolicy, error) {
 	args := m.Called(ctx, params)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.ScalingPolicy), args.Error(1)
+	r0, _ := args.Get(0).(*domain.ScalingPolicy)
+	return r0, args.Error(1)
 }
 
 func (m *mockAutoScalingService) DeletePolicy(ctx context.Context, id uuid.UUID) error {
@@ -117,10 +120,10 @@ func TestAutoScalingHandlerCreateGroup(t *testing.T) {
 		"max_instances": 5,
 		"desired_count": 2,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", asgPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -137,7 +140,7 @@ func TestAutoScalingHandlerListGroups(t *testing.T) {
 	svc.On("ListGroups", mock.Anything).Return(groups, nil)
 
 	req, err := http.NewRequest(http.MethodGet, asgPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -156,7 +159,7 @@ func TestAutoScalingHandlerGetGroup(t *testing.T) {
 	svc.On("GetGroup", mock.Anything, id).Return(group, nil)
 
 	req, err := http.NewRequest(http.MethodGet, asgPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -174,7 +177,7 @@ func TestAutoScalingHandlerDeleteGroup(t *testing.T) {
 	svc.On("DeleteGroup", mock.Anything, id).Return(nil)
 
 	req, err := http.NewRequest(http.MethodDelete, asgPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -208,10 +211,10 @@ func TestAutoScalingHandlerCreatePolicy(t *testing.T) {
 		"scale_in_step":  1,
 		"cooldown_sec":   60,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", asgPath+"/"+groupID.String()+policiesSuffix, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -228,7 +231,7 @@ func TestAutoScalingHandlerDeletePolicy(t *testing.T) {
 	svc.On("DeletePolicy", mock.Anything, id).Return(nil)
 
 	req, err := http.NewRequest(http.MethodDelete, policyPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -243,7 +246,7 @@ func TestAutoScalingHandlerCreateGroupErrors(t *testing.T) {
 
 	t.Run("InvalidInput", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, asgPath, bytes.NewBufferString("invalid json"))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -256,9 +259,9 @@ func TestAutoScalingHandlerCreateGroupErrors(t *testing.T) {
 			"name": "asg-err", "vpc_id": uuid.New().String(), "image": imageAlpine,
 			"ports": port8080, "min_instances": 1, "max_instances": 5, "desired_count": 2,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, asgPath, bytes.NewBuffer(body))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -273,7 +276,7 @@ func TestAutoScalingHandlerGetGroupErrors(t *testing.T) {
 
 	t.Run("InvalidID", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodGet, asgPath+invalidIDPath, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -283,7 +286,7 @@ func TestAutoScalingHandlerGetGroupErrors(t *testing.T) {
 		id := uuid.New()
 		svc.On("GetGroup", mock.Anything, id).Return(nil, assert.AnError).Once()
 		req, err := http.NewRequest(http.MethodGet, asgPath+"/"+id.String(), nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -298,7 +301,7 @@ func TestAutoScalingHandlerDeleteGroupErrors(t *testing.T) {
 
 	t.Run("InvalidID", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodDelete, asgPath+invalidIDPath, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -308,7 +311,7 @@ func TestAutoScalingHandlerDeleteGroupErrors(t *testing.T) {
 		id := uuid.New()
 		svc.On("DeleteGroup", mock.Anything, id).Return(assert.AnError).Once()
 		req, err := http.NewRequest(http.MethodDelete, asgPath+"/"+id.String(), nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -323,7 +326,7 @@ func TestAutoScalingHandlerListGroupsError(t *testing.T) {
 
 	svc.On("ListGroups", mock.Anything).Return(nil, assert.AnError).Once()
 	req, err := http.NewRequest(http.MethodGet, asgPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -337,7 +340,7 @@ func TestAutoScalingHandlerCreatePolicyErrors(t *testing.T) {
 
 	t.Run("InvalidGroupID", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, asgPath+invalidIDPath+policiesSuffix, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -346,7 +349,7 @@ func TestAutoScalingHandlerCreatePolicyErrors(t *testing.T) {
 	t.Run("InvalidInput", func(t *testing.T) {
 		id := uuid.New()
 		req, err := http.NewRequest(http.MethodPost, asgPath+"/"+id.String()+policiesSuffix, bytes.NewBufferString("invalid"))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -359,9 +362,9 @@ func TestAutoScalingHandlerCreatePolicyErrors(t *testing.T) {
 		body, err := json.Marshal(map[string]interface{}{
 			"name": "p1", "metric_type": metricCPU, "target_value": 50, "scale_out_step": 1, "scale_in_step": 1, "cooldown_sec": 60,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, asgPath+"/"+id.String()+policiesSuffix, bytes.NewBuffer(body))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -376,7 +379,7 @@ func TestAutoScalingHandlerDeletePolicyErrors(t *testing.T) {
 
 	t.Run("InvalidID", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodDelete, policyPath+invalidIDPath, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -386,7 +389,7 @@ func TestAutoScalingHandlerDeletePolicyErrors(t *testing.T) {
 		id := uuid.New()
 		svc.On("DeletePolicy", mock.Anything, id).Return(assert.AnError).Once()
 		req, err := http.NewRequest(http.MethodDelete, policyPath+"/"+id.String(), nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusInternalServerError, w.Code)

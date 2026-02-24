@@ -22,6 +22,7 @@ const (
 )
 
 func setupDatabaseServiceTest(t *testing.T) (ports.DatabaseService, ports.DatabaseRepository, *docker.DockerAdapter, ports.VpcRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
@@ -57,7 +58,7 @@ func TestCreateDatabaseSuccess(t *testing.T) {
 
 	db, err := svc.CreateDatabase(ctx, testDBName, "postgres", "16", nil)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, db)
 	assert.Equal(t, testDBName, db.Name)
 	assert.Equal(t, domain.EnginePostgres, db.Engine)
@@ -67,7 +68,7 @@ func TestCreateDatabaseSuccess(t *testing.T) {
 	ip, err := compute.GetInstanceIP(ctx, db.ContainerID)
 	// Note: It might take a moment or fail if not yet ready, but Adapter retries.
 	// For integration test with real docker, this should work eventually.
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, ip)
 
 	// Clean up created container
@@ -75,7 +76,7 @@ func TestCreateDatabaseSuccess(t *testing.T) {
 
 	// Verify in DB
 	fetched, err := repo.GetByID(ctx, db.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, db.ID, fetched.ID)
 }
 
@@ -127,7 +128,7 @@ func TestCreateReplica(t *testing.T) {
 
 	// 2. Create replica
 	replica, err := svc.CreateReplica(ctx, primary.ID, "replica-db")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, replica)
 	assert.Equal(t, domain.RoleReplica, replica.Role)
 	assert.Equal(t, &primary.ID, replica.PrimaryID)
@@ -137,6 +138,6 @@ func TestCreateReplica(t *testing.T) {
 
 	// 3. Verify in repo
 	fetched, err := repo.GetByID(ctx, replica.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, domain.RoleReplica, fetched.Role)
 }

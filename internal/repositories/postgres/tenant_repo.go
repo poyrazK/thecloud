@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	stdlib_errors "errors"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
@@ -42,7 +43,7 @@ func (r *TenantRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Tenant,
 		&t.ID, &t.Name, &t.Slug, &t.OwnerID, &t.Plan, &t.Status, &t.CreatedAt, &t.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "tenant not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to get tenant", err)
@@ -57,7 +58,7 @@ func (r *TenantRepo) GetBySlug(ctx context.Context, slug string) (*domain.Tenant
 		&t.ID, &t.Name, &t.Slug, &t.OwnerID, &t.Plan, &t.Status, &t.CreatedAt, &t.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "tenant not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to get tenant by slug", err)
@@ -130,7 +131,7 @@ func (r *TenantRepo) GetMembership(ctx context.Context, tenantID, userID uuid.UU
 	var m domain.TenantMember
 	err := r.db.QueryRow(ctx, query, tenantID, userID).Scan(&m.TenantID, &m.UserID, &m.Role, &m.JoinedAt)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil // No membership is not an error here
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to get membership", err)
@@ -194,7 +195,7 @@ func (r *TenantRepo) GetQuota(ctx context.Context, tenantID uuid.UUID) (*domain.
 		&q.UsedVCPUs,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "quota not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to get quota", err)

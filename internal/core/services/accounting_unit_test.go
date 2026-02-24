@@ -11,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type MockAccountingRepo struct {
@@ -22,20 +23,16 @@ func (m *MockAccountingRepo) CreateRecord(ctx context.Context, record domain.Usa
 }
 func (m *MockAccountingRepo) ListRecords(ctx context.Context, userID uuid.UUID, start, end time.Time) ([]domain.UsageRecord, error) {
 	args := m.Called(ctx, userID, start, end)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]domain.UsageRecord), args.Error(1)
+	r0, _ := args.Get(0).([]domain.UsageRecord)
+	return r0, args.Error(1)
 }
 func (m *MockAccountingRepo) GetUsageSummary(ctx context.Context, userID uuid.UUID, start, end time.Time) (map[domain.ResourceType]float64, error) {
 	args := m.Called(ctx, userID, start, end)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(map[domain.ResourceType]float64), args.Error(1)
+	r0, _ := args.Get(0).(map[domain.ResourceType]float64)
+	return r0, args.Error(1)
 }
 
-func TestAccountingService_Unit(t *testing.T) {
+func TestAccountingServiceUnit(t *testing.T) {
 	mockRepo := new(MockAccountingRepo)
 	mockInstRepo := new(MockInstanceRepo)
 	svc := services.NewAccountingService(mockRepo, mockInstRepo, slog.Default())
@@ -43,7 +40,7 @@ func TestAccountingService_Unit(t *testing.T) {
 
 	t.Run("TrackUsage", func(t *testing.T) {
 		record := domain.UsageRecord{
-			UserID: uuid.New(),
+			UserID:   uuid.New(),
 			Quantity: 10,
 		}
 
@@ -52,7 +49,7 @@ func TestAccountingService_Unit(t *testing.T) {
 		})).Return(nil).Once()
 
 		err := svc.TrackUsage(ctx, record)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		mockRepo.AssertExpectations(t)
 	})
 
@@ -69,8 +66,8 @@ func TestAccountingService_Unit(t *testing.T) {
 		mockRepo.On("GetUsageSummary", mock.Anything, userID, start, end).Return(usage, nil).Once()
 
 		summary, err := svc.GetSummary(ctx, userID, start, end)
-		assert.NoError(t, err)
-		assert.Equal(t, 2.0, summary.TotalAmount)
+		require.NoError(t, err)
+		assert.InDelta(t, 2.0, summary.TotalAmount, 0.01)
 		assert.Equal(t, userID, summary.UserID)
 	})
 
@@ -78,11 +75,11 @@ func TestAccountingService_Unit(t *testing.T) {
 		userID := uuid.New()
 		start := time.Now().Add(-24 * time.Hour)
 		end := time.Now()
-		
+
 		mockRepo.On("ListRecords", mock.Anything, userID, start, end).Return([]domain.UsageRecord{}, nil).Once()
-		
+
 		res, err := svc.ListUsage(ctx, userID, start, end)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, res)
 	})
 
@@ -98,7 +95,7 @@ func TestAccountingService_Unit(t *testing.T) {
 		})).Return(nil).Once()
 
 		err := svc.ProcessHourlyBilling(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		mockInstRepo.AssertExpectations(t)
 		mockRepo.AssertExpectations(t)
 	})

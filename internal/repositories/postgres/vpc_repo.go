@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	stdlib_errors "errors"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -63,7 +64,7 @@ func (r *VpcRepository) scanVPC(row pgx.Row) (*domain.VPC, error) {
 	var vpc domain.VPC
 	err := row.Scan(&vpc.ID, &vpc.UserID, &vpc.TenantID, &vpc.Name, &vpc.CIDRBlock, &vpc.NetworkID, &vpc.VXLANID, &vpc.Status, &vpc.ARN, &vpc.CreatedAt)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "vpc not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to scan vpc", err)

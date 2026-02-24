@@ -68,6 +68,7 @@ func TestDNSIsolationE2E(t *testing.T) {
 }
 
 func createVPCForDNS(t *testing.T, client *http.Client, token, name string) string {
+	t.Helper()
 	payload := map[string]string{
 		"name":       fmt.Sprintf("%s-%d", name, time.Now().UnixNano()),
 		"cidr_block": "10.0.0.0/16",
@@ -84,6 +85,7 @@ func createVPCForDNS(t *testing.T, client *http.Client, token, name string) stri
 }
 
 func createZoneForDNS(t *testing.T, client *http.Client, token, name, vpcID string) string {
+	t.Helper()
 	payload := map[string]interface{}{
 		"name":   name,
 		"vpc_id": vpcID,

@@ -11,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClusterService_Unit(t *testing.T) {
@@ -20,7 +21,7 @@ func TestClusterService_Unit(t *testing.T) {
 	mockInstSvc := new(MockInstanceService)
 	mockSecretSvc := new(MockSecretService)
 	mockTaskQueue := new(MockTaskQueue)
-	
+
 	params := services.ClusterServiceParams{
 		Repo:        mockRepo,
 		Provisioner: mockProv,
@@ -30,9 +31,9 @@ func TestClusterService_Unit(t *testing.T) {
 		TaskQueue:   mockTaskQueue,
 		Logger:      slog.Default(),
 	}
-	
+
 	svc, err := services.NewClusterService(params)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -52,7 +53,7 @@ func TestClusterService_Unit(t *testing.T) {
 		}
 
 		cluster, err := svc.CreateCluster(ctx, params)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, cluster)
 		assert.Equal(t, "test-cluster", cluster.Name)
 		assert.Equal(t, 3, cluster.WorkerCount)
@@ -72,7 +73,7 @@ func TestClusterService_Unit(t *testing.T) {
 		mockTaskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.Anything).Return(nil).Once()
 
 		err := svc.UpgradeCluster(ctx, clusterID, "v1.29.0")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("UpgradeCluster_InvalidVersion", func(t *testing.T) {
@@ -86,7 +87,7 @@ func TestClusterService_Unit(t *testing.T) {
 		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
 
 		err := svc.UpgradeCluster(ctx, clusterID, "v1.27.0")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "higher than current")
 	})
 }

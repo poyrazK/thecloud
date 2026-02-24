@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -9,12 +10,13 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIdentityService_Unit(t *testing.T) {
 	mockRepo := new(MockIdentityRepo)
 	mockAuditSvc := new(MockAuditService)
-	svc := services.NewIdentityService(mockRepo, mockAuditSvc)
+	svc := services.NewIdentityService(mockRepo, mockAuditSvc, slog.Default())
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -24,7 +26,7 @@ func TestIdentityService_Unit(t *testing.T) {
 		mockAuditSvc.On("Log", mock.Anything, userID, "api_key.create", "api_key", mock.Anything, mock.Anything).Return(nil).Once()
 
 		key, err := svc.CreateKey(ctx, userID, "my-key")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, key)
 		assert.Contains(t, key.Key, "thecloud_")
 		mockRepo.AssertExpectations(t)
@@ -36,7 +38,7 @@ func TestIdentityService_Unit(t *testing.T) {
 		mockRepo.On("GetAPIKeyByKey", mock.Anything, keyStr).Return(apiKey, nil).Once()
 
 		res, err := svc.ValidateAPIKey(ctx, keyStr)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, userID, res.UserID)
 	})
 
@@ -48,6 +50,6 @@ func TestIdentityService_Unit(t *testing.T) {
 		mockAuditSvc.On("Log", mock.Anything, userID, "api_key.revoke", "api_key", keyID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.RevokeKey(ctx, userID, keyID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

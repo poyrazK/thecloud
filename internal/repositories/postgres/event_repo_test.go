@@ -10,11 +10,12 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestEventRepository_Create(t *testing.T) {
+func TestEventRepositoryCreate(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewEventRepository(mock)
@@ -33,13 +34,13 @@ func TestEventRepository_Create(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.Create(context.Background(), e)
-	assert.NoError(t, err)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestEventRepository_List(t *testing.T) {
+func TestEventRepositoryList(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewEventRepository(mock)
@@ -55,7 +56,7 @@ func TestEventRepository_List(t *testing.T) {
 			AddRow(uuid.New(), userID, "A2", "RID2", "RT2", nil, now))
 
 	events, err := repo.List(ctx, limit)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, events, 2)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, mock.ExpectationsWereMet())
 }

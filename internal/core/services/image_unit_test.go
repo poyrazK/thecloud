@@ -12,6 +12,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type MockImageRepo struct {
@@ -26,14 +27,16 @@ func (m *MockImageRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Imag
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Image), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Image)
+	return r0, args.Error(1)
 }
 func (m *MockImageRepo) List(ctx context.Context, userID uuid.UUID, includePublic bool) ([]*domain.Image, error) {
 	args := m.Called(ctx, userID, includePublic)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Image), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Image)
+	return r0, args.Error(1)
 }
 func (m *MockImageRepo) Update(ctx context.Context, img *domain.Image) error {
 	return m.Called(ctx, img).Error(0)
@@ -54,7 +57,7 @@ func TestImageService_Unit(t *testing.T) {
 	t.Run("RegisterImage", func(t *testing.T) {
 		repo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 		img, err := svc.RegisterImage(ctx, "ubuntu-custom", "desc", "linux", "22.04", false)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, img)
 		assert.Equal(t, "ubuntu-custom", img.Name)
 	})
@@ -69,6 +72,6 @@ func TestImageService_Unit(t *testing.T) {
 		})).Return(nil).Once()
 
 		err := svc.UploadImage(ctx, imgID, bytes.NewReader([]byte("dummy content")))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

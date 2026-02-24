@@ -380,7 +380,10 @@ func (s *DNSService) RegisterInstance(ctx context.Context, instance *domain.Inst
 // UnregisterInstance removes DNS records for an instance.
 func (s *DNSService) UnregisterInstance(ctx context.Context, instanceID uuid.UUID) error {
 	records, err := s.repo.GetRecordsByInstance(ctx, instanceID)
-	if err != nil || len(records) == 0 {
+	if err != nil {
+		return fmt.Errorf("failed to get records for instance: %w", err)
+	}
+	if len(records) == 0 {
 		return nil // No records to remove
 	}
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"github.com/stretchr/testify/require"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -79,7 +80,7 @@ func TestLvmAdapterCreateVolumeSuccess(t *testing.T) {
 	adapter := &LvmAdapter{vgName: "vg0", execer: fake}
 	path, err := adapter.CreateVolume(context.Background(), testVolumeName, 10)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "/dev/vg0/"+testVolumeName, path)
 }
 
@@ -92,7 +93,7 @@ func TestLvmAdapterCreateVolumeFailure(t *testing.T) {
 	adapter := &LvmAdapter{vgName: "vg0", execer: fake}
 	_, err := adapter.CreateVolume(context.Background(), "bad-vol", 5)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create logical volume")
 }
 
@@ -106,7 +107,7 @@ func TestLvmAdapterDeleteVolumeSuccess(t *testing.T) {
 	adapter := &LvmAdapter{vgName: "vg0", execer: fake}
 	err := adapter.DeleteVolume(context.Background(), testVolumeName)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestLvmAdapterCreateSnapshotSuccess(t *testing.T) {
@@ -120,7 +121,7 @@ func TestLvmAdapterCreateSnapshotSuccess(t *testing.T) {
 	adapter := &LvmAdapter{vgName: "vg0", execer: fake}
 	err := adapter.CreateSnapshot(context.Background(), "data-vol", "snap1")
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestLvmAdapterRestoreSnapshotSuccess(t *testing.T) {
@@ -134,7 +135,7 @@ func TestLvmAdapterRestoreSnapshotSuccess(t *testing.T) {
 	adapter := &LvmAdapter{vgName: "vg0", execer: fake}
 	err := adapter.RestoreSnapshot(context.Background(), "data-vol", "snap1")
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestLvmAdapterDeleteSnapshotSuccess(t *testing.T) {
@@ -148,17 +149,17 @@ func TestLvmAdapterDeleteSnapshotSuccess(t *testing.T) {
 	adapter := &LvmAdapter{vgName: "vg0", execer: fake}
 	err := adapter.DeleteSnapshot(context.Background(), "snap1")
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestLvmAdapterAttachVolume(t *testing.T) {
 	adapter := NewLvmAdapter("vg0")
 	err := adapter.AttachVolume(context.Background(), "vol1", "inst1")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestLvmAdapterDetachVolume(t *testing.T) {
 	adapter := NewLvmAdapter("vg0")
 	err := adapter.DetachVolume(context.Background(), "vol1", "inst1")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }

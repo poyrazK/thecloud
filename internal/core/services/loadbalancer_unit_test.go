@@ -9,6 +9,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -30,7 +31,7 @@ func TestLBService_Unit(t *testing.T) {
 		mockAuditSvc.On("Log", mock.Anything, userID, "lb.create", "loadbalancer", mock.Anything, mock.Anything).Return(nil).Once()
 
 		lb, err := svc.Create(ctx, "test-lb", vpcID, 80, "round-robin", "")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, lb)
 		assert.Equal(t, "test-lb", lb.Name)
 		mockRepo.AssertExpectations(t)
@@ -50,6 +51,6 @@ func TestLBService_Unit(t *testing.T) {
 		mockAuditSvc.On("Log", mock.Anything, userID, "lb.target_add", "loadbalancer", lbID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.AddTarget(ctx, lbID, instID, 8080, 1)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

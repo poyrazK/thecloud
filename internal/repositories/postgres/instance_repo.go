@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	stdlib_errors "errors"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -70,7 +71,7 @@ func (r *InstanceRepository) scanInstance(row pgx.Row) (*domain.Instance, error)
 		&inst.Version, &inst.CreatedAt, &inst.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "instance not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to scan instance", err)

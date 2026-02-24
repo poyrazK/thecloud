@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClientCreateKeySuccess(t *testing.T) {
@@ -28,7 +29,7 @@ func TestClientCreateKeySuccess(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	key, err := client.CreateKey("bootstrap")
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "new-key", key)
 }
 
@@ -45,7 +46,7 @@ func TestClientCreateKeyStatusError(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	_, err := client.CreateKey("bootstrap")
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "api error")
 }
 
@@ -53,5 +54,5 @@ func TestClientCreateKeyRequestError(t *testing.T) {
 	client := NewClient("http://127.0.0.1:0", testAPIKey)
 	_, err := client.CreateKey("bootstrap")
 
-	assert.Error(t, err)
+	require.Error(t, err)
 }

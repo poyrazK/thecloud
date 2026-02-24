@@ -12,9 +12,11 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setupCronServiceIntegrationTest(t *testing.T) (ports.CronService, ports.CronRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
@@ -38,7 +40,7 @@ func TestCronService_Integration(t *testing.T) {
 		name := "backup-job"
 		schedule := "0 0 * * *"
 		job, err := svc.CreateJob(ctx, name, schedule, "http://api/backup", "POST", "")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, job)
 		assert.Equal(t, name, job.Name)
 		assert.Equal(t, domain.CronStatusActive, job.Status)
@@ -46,17 +48,17 @@ func TestCronService_Integration(t *testing.T) {
 
 		// Get
 		fetched, err := svc.GetJob(ctx, job.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, job.ID, fetched.ID)
 
 		// List
 		jobs, err := svc.ListJobs(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, jobs, 1)
 
 		// Pause
 		err = svc.PauseJob(ctx, job.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		paused, _ := repo.GetJobByID(ctx, job.ID, userID)
 		assert.Equal(t, domain.CronStatusPaused, paused.Status)
@@ -64,7 +66,7 @@ func TestCronService_Integration(t *testing.T) {
 
 		// Resume
 		err = svc.ResumeJob(ctx, job.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		resumed, _ := repo.GetJobByID(ctx, job.ID, userID)
 		assert.Equal(t, domain.CronStatusActive, resumed.Status)
@@ -72,16 +74,16 @@ func TestCronService_Integration(t *testing.T) {
 
 		// Delete
 		err = svc.DeleteJob(ctx, job.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		_, err = repo.GetJobByID(ctx, job.ID, userID)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("Validation", func(t *testing.T) {
 		// Invalid cron
 		_, err := svc.CreateJob(ctx, "bad", "invalid schedule", "http://u", "GET", "")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid schedule")
 	})
 }

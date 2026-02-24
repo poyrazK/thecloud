@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -18,7 +19,7 @@ const (
 
 func TestClusterServiceUpgrade(t *testing.T) {
 	t.Parallel()
-	repo, provisioner, _, _, taskQueue, _, svc := setupClusterServiceTest()
+	repo, provisioner, _, taskQueue, _, svc := setupClusterServiceTest(t)
 	ctx := context.Background()
 	id := uuid.New()
 	cluster := &domain.Cluster{
@@ -40,7 +41,7 @@ func TestClusterServiceUpgrade(t *testing.T) {
 		})).Return(nil).Once()
 
 		err := svc.UpgradeCluster(ctx, id, testK8sVersion)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Wait for async upgrade
 		time.Sleep(100 * time.Millisecond)
@@ -54,7 +55,7 @@ func TestClusterServiceUpgrade(t *testing.T) {
 		repo.On("GetByID", mock.Anything, id).Return(cluster, nil).Once()
 
 		err := svc.UpgradeCluster(ctx, id, testK8sVersion)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "must be in running state")
 	})
 
@@ -64,7 +65,7 @@ func TestClusterServiceUpgrade(t *testing.T) {
 		repo.On("GetByID", mock.Anything, id).Return(cluster, nil).Once()
 
 		err := svc.UpgradeCluster(ctx, id, testK8sVersion)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "already at this version")
 	})
 
@@ -74,7 +75,7 @@ func TestClusterServiceUpgrade(t *testing.T) {
 		repo.On("GetByID", mock.Anything, id).Return(cluster, nil).Once()
 
 		err := svc.UpgradeCluster(ctx, id, testK8sVersion)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot skip minor versions")
 	})
 
@@ -84,7 +85,7 @@ func TestClusterServiceUpgrade(t *testing.T) {
 		repo.On("GetByID", mock.Anything, id).Return(cluster, nil).Once()
 
 		err := svc.UpgradeCluster(ctx, id, testK8sBase)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "must be higher than current")
 	})
 
@@ -94,7 +95,7 @@ func TestClusterServiceUpgrade(t *testing.T) {
 		repo.On("GetByID", mock.Anything, id).Return(cluster, nil).Once()
 
 		err := svc.UpgradeCluster(ctx, id, "not-a-version")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid target version")
 	})
 
@@ -110,7 +111,7 @@ func TestClusterServiceUpgrade(t *testing.T) {
 		})).Return(nil).Once()
 
 		err := svc.UpgradeCluster(ctx, id, testK8sVersion)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("fails when enqueue fails", func(t *testing.T) {
@@ -121,13 +122,13 @@ func TestClusterServiceUpgrade(t *testing.T) {
 		taskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.Anything).Return(assert.AnError).Once()
 
 		err := svc.UpgradeCluster(ctx, id, testK8sVersion)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
 func TestClusterServiceRotateSecrets(t *testing.T) {
 	t.Parallel()
-	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
+	repo, provisioner, _, _, _, svc := setupClusterServiceTest(t)
 	ctx := context.Background()
 	id := uuid.New()
 	cluster := &domain.Cluster{
@@ -147,7 +148,7 @@ func TestClusterServiceRotateSecrets(t *testing.T) {
 		})).Return(nil).Once()
 
 		err := svc.RotateSecrets(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		provisioner.AssertExpectations(t)
 		repo.AssertExpectations(t)
@@ -156,7 +157,7 @@ func TestClusterServiceRotateSecrets(t *testing.T) {
 
 func TestClusterServiceBackup(t *testing.T) {
 	t.Parallel()
-	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
+	repo, provisioner, _, _, _, svc := setupClusterServiceTest(t)
 	ctx := context.Background()
 	id := uuid.New()
 	cluster := &domain.Cluster{
@@ -169,7 +170,7 @@ func TestClusterServiceBackup(t *testing.T) {
 		provisioner.On("CreateBackup", mock.Anything, mock.Anything).Return(nil).Once()
 
 		err := svc.CreateBackup(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		provisioner.AssertExpectations(t)
 	})
 
@@ -178,13 +179,13 @@ func TestClusterServiceBackup(t *testing.T) {
 		repo.On("GetByID", mock.Anything, id).Return(cluster, nil).Once()
 
 		err := svc.CreateBackup(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
 func TestClusterServiceRestore(t *testing.T) {
 	t.Parallel()
-	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest()
+	repo, provisioner, _, _, _, svc := setupClusterServiceTest(t)
 	ctx := context.Background()
 	id := uuid.New()
 	cluster := &domain.Cluster{
@@ -205,7 +206,7 @@ func TestClusterServiceRestore(t *testing.T) {
 		})).Return(nil).Once()
 
 		err := svc.RestoreBackup(ctx, id, backupPath)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		provisioner.AssertExpectations(t)
 		repo.AssertExpectations(t)

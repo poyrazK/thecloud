@@ -11,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestVpcService_Unit(t *testing.T) {
@@ -30,7 +31,7 @@ func TestVpcService_Unit(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "vpc.create", "vpc", mock.Anything, mock.Anything).Return(nil).Once()
 
 		vpc, err := svc.CreateVPC(ctx, "test-vpc", "10.1.0.0/16")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, vpc)
 		assert.Equal(t, "10.1.0.0/16", vpc.CIDRBlock)
 		repo.AssertExpectations(t)
@@ -39,7 +40,7 @@ func TestVpcService_Unit(t *testing.T) {
 	t.Run("DeleteVPC", func(t *testing.T) {
 		vpcID := uuid.New()
 		vpc := &domain.VPC{ID: vpcID, UserID: userID, NetworkID: "br-1"}
-		
+
 		repo.On("GetByID", mock.Anything, vpcID).Return(vpc, nil).Once()
 		lbRepo.On("ListAll", mock.Anything).Return([]*domain.LoadBalancer{}, nil).Once()
 		network.On("DeleteBridge", mock.Anything, "br-1").Return(nil).Once()
@@ -47,6 +48,6 @@ func TestVpcService_Unit(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "vpc.delete", "vpc", vpcID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.DeleteVPC(ctx, vpcID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

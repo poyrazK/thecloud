@@ -11,10 +11,11 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
-func TestStorageService_Unit(t *testing.T) {
+func TestStorageServiceUnit(t *testing.T) {
 	mockRepo := new(MockStorageRepo)
 	mockStore := new(MockFileStore)
 	mockAuditSvc := new(MockAuditService)
@@ -30,7 +31,7 @@ func TestStorageService_Unit(t *testing.T) {
 		mockAuditSvc.On("Log", mock.Anything, userID, "storage.bucket_create", "bucket", mock.Anything, mock.Anything).Return(nil).Once()
 
 		bucket, err := svc.CreateBucket(ctx, "my-bucket", false)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, bucket)
 		assert.Equal(t, "my-bucket", bucket.Name)
 		mockRepo.AssertExpectations(t)
@@ -44,7 +45,7 @@ func TestStorageService_Unit(t *testing.T) {
 		mockAuditSvc.On("Log", mock.Anything, userID, "storage.object_upload", "storage", mock.Anything, mock.Anything).Return(nil).Once()
 
 		obj, err := svc.Upload(ctx, "my-bucket", "test.txt", strings.NewReader("hello world!"))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, obj)
 		assert.Equal(t, int64(12), obj.SizeBytes)
 	})

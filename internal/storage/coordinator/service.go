@@ -67,7 +67,7 @@ func (c *Coordinator) SyncClusterState() {
 	}
 
 	// Convert map values to slice for random selection
-	var clients []pb.StorageNodeClient
+	clients := make([]pb.StorageNodeClient, 0, len(c.clients))
 	for _, cl := range c.clients {
 		clients = append(clients, cl)
 	}
@@ -141,7 +141,7 @@ func (c *Coordinator) Assemble(ctx context.Context, bucket, key string, parts []
 		}
 
 		wg.Add(1)
-		go func(id string, cl pb.StorageNodeClient) {
+		go func(_ string, cl pb.StorageNodeClient) {
 			defer wg.Done()
 			resp, err := cl.Assemble(ctx, &pb.AssembleRequest{
 				Bucket: bucket,
@@ -150,11 +150,12 @@ func (c *Coordinator) Assemble(ctx context.Context, bucket, key string, parts []
 			})
 			mu.Lock()
 			defer mu.Unlock()
-			if err != nil {
+			switch {
+			case err != nil:
 				lastErr = err
-			} else if resp.Error != "" {
+			case resp.Error != "":
 				lastErr = fmt.Errorf("%s", resp.Error)
-			} else {
+			default:
 				successCount++
 				size = resp.Size
 			}
@@ -164,7 +165,7 @@ func (c *Coordinator) Assemble(ctx context.Context, bucket, key string, parts []
 
 	// 3. Quorum check
 	if successCount < c.writeQuorum {
-		return 0, fmt.Errorf("assemble quorum failed (%d/%d): %v", successCount, c.writeQuorum, lastErr)
+		return 0, fmt.Errorf("assemble quorum failed (%d/%d): %w", successCount, c.writeQuorum, lastErr)
 	}
 
 	return size, nil
@@ -202,7 +203,7 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 		}
 
 		wg.Add(1)
-		go func(id string, cl pb.StorageNodeClient) {
+		go func(_ string, cl pb.StorageNodeClient) {
 			defer wg.Done()
 			// Use current time as timestamp for LWW
 			ts := time.Now().UnixNano()
@@ -221,7 +222,7 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 	// 4. Check Quorum
 	if successCount < c.writeQuorum {
 		platform.StorageOperations.WithLabelValues("cluster_write", bucket, "quorum_failure").Inc()
-		return 0, fmt.Errorf("write quorum failed (%d/%d): %v", successCount, c.writeQuorum, lastErr)
+		return 0, fmt.Errorf("write quorum failed (%d/%d): %w", successCount, c.writeQuorum, lastErr)
 	}
 
 	platform.StorageOperations.WithLabelValues("cluster_write", bucket, "success").Inc()
@@ -300,7 +301,7 @@ func (c *Coordinator) processReadResults(results chan readResult) (readResult, [
 	var latest readResult
 	foundCount := 0
 	var repairNodes []string
-	var validResults []readResult
+	validResults := make([]readResult, 0, cap(results))
 
 	for res := range results {
 		if res.err != nil || !res.found {

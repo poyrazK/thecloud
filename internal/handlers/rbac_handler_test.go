@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -47,21 +48,24 @@ func (m *mockRBACService) GetRoleByID(ctx context.Context, id uuid.UUID) (*domai
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Role), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Role)
+	return r0, args.Error(1)
 }
 func (m *mockRBACService) GetRoleByName(ctx context.Context, name string) (*domain.Role, error) {
 	args := m.Called(ctx, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Role), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Role)
+	return r0, args.Error(1)
 }
 func (m *mockRBACService) ListRoles(ctx context.Context) ([]*domain.Role, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Role), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Role)
+	return r0, args.Error(1)
 }
 func (m *mockRBACService) UpdateRole(ctx context.Context, role *domain.Role) error {
 	return m.Called(ctx, role).Error(0)
@@ -86,7 +90,8 @@ func (m *mockRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User,
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.User), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.User)
+	return r0, args.Error(1)
 }
 
 func (m *mockRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error) {
@@ -115,7 +120,7 @@ func TestRBACHandlerCreateRole(t *testing.T) {
 		Permissions: []domain.Permission{domain.PermissionInstanceRead},
 	}
 	body, err := json.Marshal(req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	svc.On("CreateRole", mock.Anything, mock.MatchedBy(func(r *domain.Role) bool {
 		return r.Name == req.Name && len(r.Permissions) == 1
@@ -123,7 +128,7 @@ func TestRBACHandlerCreateRole(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	httpReq, err := http.NewRequest("POST", rolesPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -145,7 +150,7 @@ func TestRBACHandlerListRoles(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	httpReq, err := http.NewRequest("GET", rolesPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -167,7 +172,7 @@ func TestRBACHandlerGetRoleByID(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	httpReq, err := http.NewRequest("GET", rolesPath+"/"+roleID.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -188,7 +193,7 @@ func TestRBACHandlerGetRoleByName(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	httpReq, err := http.NewRequest("GET", rolesPath+"/"+roleName, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -208,7 +213,7 @@ func TestRBACHandlerDeleteRole(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	httpReq, err := http.NewRequest("DELETE", rolesPath+"/"+roleID.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusNoContent, w.Code)
@@ -227,13 +232,13 @@ func TestRBACHandlerAddPermission(t *testing.T) {
 	body, err := json.Marshal(map[string]interface{}{
 		"permission": domain.PermissionInstanceLaunch,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	svc.On("AddPermissionToRole", mock.Anything, roleID, domain.PermissionInstanceLaunch).Return(nil)
 
 	w := httptest.NewRecorder()
 	httpReq, err := http.NewRequest("POST", rolesPath+"/"+roleID.String()+permSuffix, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusNoContent, w.Code)
@@ -253,13 +258,13 @@ func TestRBACHandlerBindRole(t *testing.T) {
 		"user_identifier": userEmail,
 		"role_name":       roleName,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	svc.On("BindRole", mock.Anything, userEmail, roleName).Return(nil)
 
 	w := httptest.NewRecorder()
 	httpReq, err := http.NewRequest("POST", bindPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusNoContent, w.Code)

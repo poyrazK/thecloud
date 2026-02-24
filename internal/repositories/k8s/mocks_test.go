@@ -16,7 +16,8 @@ func (m *mockInstanceService) LaunchInstance(ctx context.Context, params ports.L
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceService) Provision(ctx context.Context, job domain.ProvisionJob) error {
 	return m.Called(ctx, job).Error(0)
@@ -26,7 +27,8 @@ func (m *mockInstanceService) LaunchInstanceWithOptions(ctx context.Context, opt
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceService) StartInstance(ctx context.Context, idOrName string) error { return nil }
 func (m *mockInstanceService) StopInstance(ctx context.Context, idOrName string) error  { return nil }
@@ -35,14 +37,16 @@ func (m *mockInstanceService) ListInstances(ctx context.Context) ([]*domain.Inst
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceService) GetInstance(ctx context.Context, idOrName string) (*domain.Instance, error) {
 	args := m.Called(ctx, idOrName)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceService) GetInstanceLogs(ctx context.Context, idOrName string) (string, error) {
 	return "", nil
@@ -89,7 +93,8 @@ func (m *mockClusterRepo) GetNodes(ctx context.Context, clusterID uuid.UUID) ([]
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.ClusterNode), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.ClusterNode)
+	return r0, args.Error(1)
 }
 func (m *mockClusterRepo) DeleteNode(ctx context.Context, nodeID uuid.UUID) error      { return nil }
 func (m *mockClusterRepo) UpdateNode(ctx context.Context, n *domain.ClusterNode) error { return nil }

@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -30,7 +31,8 @@ func (m *mockVolumeService) CreateVolume(ctx context.Context, name string, sizeG
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Volume), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Volume)
+	return r0, args.Error(1)
 }
 
 func (m *mockVolumeService) ListVolumes(ctx context.Context) ([]*domain.Volume, error) {
@@ -38,7 +40,8 @@ func (m *mockVolumeService) ListVolumes(ctx context.Context) ([]*domain.Volume, 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Volume), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Volume)
+	return r0, args.Error(1)
 }
 
 func (m *mockVolumeService) GetVolume(ctx context.Context, idOrName string) (*domain.Volume, error) {
@@ -46,7 +49,8 @@ func (m *mockVolumeService) GetVolume(ctx context.Context, idOrName string) (*do
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Volume), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Volume)
+	return r0, args.Error(1)
 }
 
 func (m *mockVolumeService) DeleteVolume(ctx context.Context, idOrName string) error {
@@ -81,10 +85,10 @@ func TestVolumeHandlerCreate(t *testing.T) {
 		"name":    testVolumeName,
 		"size_gb": 10,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", volumesPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -118,7 +122,7 @@ func TestVolumeHandlerCreateInvalidInputFromService(t *testing.T) {
 		"name":    testVolumeName,
 		"size_gb": 10,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	svc.On("CreateVolume", mock.Anything, testVolumeName, 10).Return(nil, errors.New(errors.InvalidInput, "duplicate"))
 
@@ -142,7 +146,7 @@ func TestVolumeHandlerList(t *testing.T) {
 	svc.On("ListVolumes", mock.Anything).Return(vols, nil)
 
 	req, err := http.NewRequest(http.MethodGet, volumesPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -159,7 +163,7 @@ func TestVolumeHandlerListError(t *testing.T) {
 	svc.On("ListVolumes", mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
 
 	req, err := http.NewRequest(http.MethodGet, volumesPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -178,7 +182,7 @@ func TestVolumeHandlerGet(t *testing.T) {
 	svc.On("GetVolume", mock.Anything, id).Return(vol, nil)
 
 	req, err := http.NewRequest(http.MethodGet, volumesPath+"/"+id, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -214,7 +218,7 @@ func TestVolumeHandlerDelete(t *testing.T) {
 	svc.On("DeleteVolume", mock.Anything, id).Return(nil)
 
 	req, err := http.NewRequest(http.MethodDelete, volumesPath+"/"+id, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

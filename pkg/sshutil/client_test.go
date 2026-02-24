@@ -21,7 +21,7 @@ import (
 )
 
 // generateTestKey generates a private key for testing
-func generateTestKey(t *testing.T) string {
+func generateTestKey(t *testing.T) string { t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 
@@ -65,7 +65,9 @@ func TestWaitForSSH(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = l.Close() }()
 
-	port := l.Addr().(*net.TCPAddr).Port
+	tcpAddr, ok := l.Addr().(*net.TCPAddr)
+	require.True(t, ok)
+	port := tcpAddr.Port
 	host := fmt.Sprintf("%s:%d", testLocalhostIP, port)
 
 	client := &Client{Host: host}
@@ -112,7 +114,9 @@ func TestRunConnectionRefused(t *testing.T) {
 	// Ensure we pick a port that rejects connection
 	l, err := net.Listen("tcp", testLoopbackAddr)
 	require.NoError(t, err)
-	port := l.Addr().(*net.TCPAddr).Port
+	tcpAddr, ok := l.Addr().(*net.TCPAddr)
+	require.True(t, ok)
+	port := tcpAddr.Port
 	_ = l.Close() // Close immediately to ensure connection refused
 
 	host := fmt.Sprintf("%s:%d", testLocalhostIP, port)
@@ -222,10 +226,12 @@ func TestWriteFileScpError(t *testing.T) {
 }
 
 func startTestSSHServer(t *testing.T) (string, func()) {
+	t.Helper()
 	return startTestSSHServerWithHandler(t, handleExecCommand)
 }
 
 func startTestSSHServerWithHandler(t *testing.T, handler func(cmd string, ch ssh.Channel) error) (string, func()) {
+	t.Helper()
 	listener, err := net.Listen("tcp", testLoopbackAddr)
 	require.NoError(t, err)
 

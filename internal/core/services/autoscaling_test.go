@@ -17,6 +17,7 @@ import (
 )
 
 func setupAutoScalingServiceIntegrationTest(t *testing.T) (ports.AutoScalingService, ports.VpcRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
@@ -61,14 +62,14 @@ func TestAutoScalingService_Integration(t *testing.T) {
 			DesiredCount: 2,
 		})
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, group)
 		assert.Equal(t, name, group.Name)
 		assert.Equal(t, 2, group.DesiredCount)
 
 		// List
 		groups, err := svc.ListGroups(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, groups, 1)
 	})
 
@@ -92,12 +93,12 @@ func TestAutoScalingService_Integration(t *testing.T) {
 			ScaleIn:     1,
 			CooldownSec: 300,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, policy)
 
 		// Delete
 		err = svc.DeletePolicy(ctx, policy.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("CapacityUpdate", func(t *testing.T) {
@@ -111,7 +112,7 @@ func TestAutoScalingService_Integration(t *testing.T) {
 		})
 
 		err := svc.SetDesiredCapacity(ctx, group.ID, 5)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		updated, _ := svc.GetGroup(ctx, group.ID)
 		assert.Equal(t, 5, updated.DesiredCount)
@@ -128,7 +129,7 @@ func TestAutoScalingService_Integration(t *testing.T) {
 		})
 
 		err := svc.DeleteGroup(ctx, group.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		updated, _ := svc.GetGroup(ctx, group.ID)
 		assert.Equal(t, domain.ScalingGroupStatusDeleting, updated.Status)
@@ -145,7 +146,7 @@ func TestAutoScalingService_Integration(t *testing.T) {
 			MaxInstances: 2,
 			DesiredCount: 3,
 		})
-		assert.Error(t, err)
+		require.Error(t, err)
 
 		// Desired < Min
 		_, err = svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
@@ -156,7 +157,7 @@ func TestAutoScalingService_Integration(t *testing.T) {
 			MaxInstances: 5,
 			DesiredCount: 1,
 		})
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 

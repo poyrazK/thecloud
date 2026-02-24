@@ -13,6 +13,7 @@ import (
 	mocks "github.com/poyrazk/thecloud/internal/core/ports/mocks"
 	"github.com/poyrazk/thecloud/pkg/httputil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -51,12 +52,12 @@ func TestCreateZoneHandler(t *testing.T) {
 
 		var resp httputil.Response
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		dataJSON, _ := json.Marshal(resp.Data)
 		var response domain.DNSZone
 		err = json.Unmarshal(dataJSON, &response)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, testZoneName, response.Name)
 	})
 
@@ -143,12 +144,12 @@ func TestListZonesHandler(t *testing.T) {
 
 		var resp httputil.Response
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		dataJSON, _ := json.Marshal(resp.Data)
 		var response []*domain.DNSZone
 		err = json.Unmarshal(dataJSON, &response)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, response, 1)
 	})
 }

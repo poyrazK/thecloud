@@ -39,7 +39,7 @@ func TestNewFirecrackerAdapter(t *testing.T) {
 		defer os.Remove(tmpFile.Name())
 
 		_, err = NewFirecrackerAdapter(logger, Config{SocketDir: tmpFile.Name()})
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
@@ -56,13 +56,13 @@ func TestFirecrackerAdapter_DeleteInstance(t *testing.T) {
 
 	t.Run("InvalidID", func(t *testing.T) {
 		err := adapter.DeleteInstance(ctx, "../invalid")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid instance ID format")
 	})
 
 	t.Run("NonExistentInstance", func(t *testing.T) {
 		err := adapter.DeleteInstance(ctx, "nonexistent")
-		assert.NoError(t, err) // Should return nil if not found
+		require.NoError(t, err) // Should return nil if not found
 	})
 }
 
@@ -76,7 +76,7 @@ func TestFirecrackerAdapter_WaitTask_Mock(t *testing.T) {
 
 	ctx := context.Background()
 	exitCode, err := adapter.WaitTask(ctx, "any")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, int64(0), exitCode)
 }
 
@@ -88,45 +88,45 @@ func TestFirecrackerAdapter_UnimplementedMethods(t *testing.T) {
 
 	t.Run("GetInstanceLogs", func(t *testing.T) {
 		_, err := adapter.GetInstanceLogs(ctx, "id")
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("GetInstanceStats", func(t *testing.T) {
 		_, err := adapter.GetInstanceStats(ctx, "id")
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("GetInstancePort", func(t *testing.T) {
 		_, err := adapter.GetInstancePort(ctx, "id", "80")
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("GetInstanceIP", func(t *testing.T) {
 		ip, err := adapter.GetInstanceIP(ctx, "id")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "0.0.0.0", ip)
 	})
 
 	t.Run("GetConsoleURL", func(t *testing.T) {
 		_, err := adapter.GetConsoleURL(ctx, "id")
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("Exec", func(t *testing.T) {
 		_, err := adapter.Exec(ctx, "id", []string{"ls"})
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("AttachDetachVolume", func(t *testing.T) {
 		err := adapter.AttachVolume(ctx, "id", "path")
-		assert.Error(t, err)
+		require.Error(t, err)
 		err = adapter.DetachVolume(ctx, "id", "path")
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("Ping", func(t *testing.T) {
 		err := adapter.Ping(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("Type", func(t *testing.T) {

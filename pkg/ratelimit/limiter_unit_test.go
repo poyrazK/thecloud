@@ -40,11 +40,12 @@ func TestMiddlewareAllowsFirstRequest(t *testing.T) {
 }
 
 func TestMiddlewareBlocksWhenRateExceeded(t *testing.T) {
-	limiter := NewIPRateLimiter(rate.Limit(1), 1, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	ctx, _ := newTestContext("GET", "/", testutil.TestNoopIP4)
-	Middleware(limiter)(ctx)
+        limiter := NewIPRateLimiter(rate.Limit(1), 1, slog.New(slog.NewTextHandler(io.Discard, nil)))
+        ctx, _ := newTestContext("POST", "/submit", testutil.TestNoopIP4)
+        Middleware(limiter)(ctx)
 
-	ctx2, resp2 := newTestContext("GET", "/", testutil.TestNoopIP4)
+        ctx2, resp2 := newTestContext("GET", "/", testutil.TestNoopIP4)
+
 	Middleware(limiter)(ctx2)
 
 	assert.Equal(t, http.StatusTooManyRequests, resp2.Code)

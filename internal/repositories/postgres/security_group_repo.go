@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	stdlib_errors "errors"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -84,7 +85,7 @@ func (r *SecurityGroupRepository) scanSecurityGroup(row pgx.Row) (*domain.Securi
 	var sg domain.SecurityGroup
 	err := row.Scan(&sg.ID, &sg.UserID, &sg.TenantID, &sg.VPCID, &sg.Name, &sg.Description, &sg.ARN, &sg.CreatedAt)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "security group not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to scan security group", err)
@@ -127,7 +128,7 @@ func (r *SecurityGroupRepository) GetRuleByID(ctx context.Context, ruleID uuid.U
 	`
 	rule, err := r.scanSecurityRule(r.db.QueryRow(ctx, query, ruleID, tenantID))
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "security rule not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to get security rule", err)
@@ -207,7 +208,7 @@ func (r *SecurityGroupRepository) verifyTenantOwnership(ctx context.Context, tx 
 	var instanceTenant uuid.UUID
 	err := tx.QueryRow(ctx, "SELECT tenant_id FROM instances WHERE id = $1", instanceID).Scan(&instanceTenant)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return errors.New(errors.NotFound, "instance not found")
 		}
 		return errors.Wrap(errors.Internal, "failed to verify instance ownership", err)
@@ -218,7 +219,7 @@ func (r *SecurityGroupRepository) verifyTenantOwnership(ctx context.Context, tx 
 	var groupTenant uuid.UUID
 	err = tx.QueryRow(ctx, "SELECT tenant_id FROM security_groups WHERE id = $1", groupID).Scan(&groupTenant)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return errors.New(errors.NotFound, "security group not found")
 		}
 		return errors.Wrap(errors.Internal, "failed to verify security group ownership", err)

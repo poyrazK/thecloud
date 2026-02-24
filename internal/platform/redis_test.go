@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"testing"
+	"github.com/stretchr/testify/require"
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
@@ -22,7 +23,7 @@ func TestInitRedis_Success(t *testing.T) {
 	cfg := &Config{RedisURL: server.Addr()}
 
 	client, err := InitRedis(context.Background(), cfg, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	if assert.NotNil(t, client) {
 		assert.NoError(t, client.Close())
 	}
@@ -36,6 +37,6 @@ func TestInitRedis_InvalidAddress(t *testing.T) {
 	defer cancel()
 
 	client, err := InitRedis(ctx, cfg, logger)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, client)
 }

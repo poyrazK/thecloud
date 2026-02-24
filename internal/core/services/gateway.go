@@ -252,7 +252,7 @@ func (s *GatewayService) isMethodAllowed(route *domain.GatewayRoute, method stri
 	return false
 }
 
-func calculateMatchScore(route *domain.GatewayRoute, path string) int {
+func calculateMatchScore(route *domain.GatewayRoute, _ string) int {
 	// 1. Literal prefix length is a good indicator of specificity
 	score := len(routing.GetLiteralPrefix(route.PathPattern))
 

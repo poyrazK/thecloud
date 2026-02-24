@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	stdlib_errors "errors"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -144,7 +145,7 @@ func (r *StorageRepository) scanObject(row pgx.Row) (*domain.Object, error) {
 		&obj.ID, &obj.UserID, &obj.ARN, &obj.Bucket, &obj.Key, &obj.VersionID, &obj.IsLatest, &obj.SizeBytes, &obj.ContentType, &obj.CreatedAt, &obj.DeletedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.ObjectNotFound, "object metadata not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to scan object metadata", err)
@@ -208,7 +209,7 @@ func (r *StorageRepository) GetBucket(ctx context.Context, name string) (*domain
 		&bucket.EncryptionEnabled, &bucket.EncryptionKeyID, &bucket.CreatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.ObjectNotFound, "bucket not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to get bucket", err)

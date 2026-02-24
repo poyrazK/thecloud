@@ -5,6 +5,7 @@ import (
 
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDatabaseService_Internal(t *testing.T) {
@@ -12,7 +13,7 @@ func TestDatabaseService_Internal(t *testing.T) {
 
 	t.Run("parseAllocatedPort", func(t *testing.T) {
 		port, err := s.parseAllocatedPort([]string{"30001:5432"}, "5432")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, 30001, port)
 
 		port, _ = s.parseAllocatedPort([]string{"80:80"}, "5432")

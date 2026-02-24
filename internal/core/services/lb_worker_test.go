@@ -60,29 +60,28 @@ func (m *mockLBRepo) Create(ctx context.Context, lb *domain.LoadBalancer) error 
 }
 func (m *mockLBRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.LoadBalancer, error) {
 	args := m.Called(ctx, id)
-	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
+	r0, _ := args.Get(0).(*domain.LoadBalancer)
+	return r0, args.Error(1)
 }
 func (m *mockLBRepo) GetByName(ctx context.Context, name string) (*domain.LoadBalancer, error) {
 	args := m.Called(ctx, name)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
+	r0, _ := args.Get(0).(*domain.LoadBalancer)
+	return r0, args.Error(1)
 }
 func (m *mockLBRepo) GetByIdempotencyKey(ctx context.Context, key string) (*domain.LoadBalancer, error) {
 	args := m.Called(ctx, key)
-	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
+	r0, _ := args.Get(0).(*domain.LoadBalancer)
+	return r0, args.Error(1)
 }
 func (m *mockLBRepo) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	args := m.Called(ctx)
-	return args.Get(0).([]*domain.LoadBalancer), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.LoadBalancer)
+	return r0, args.Error(1)
 }
 func (m *mockLBRepo) ListAll(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.LoadBalancer), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.LoadBalancer)
+	return r0, args.Error(1)
 }
 func (m *mockLBRepo) Update(ctx context.Context, lb *domain.LoadBalancer) error {
 	return m.Called(ctx, lb).Error(0)
@@ -98,14 +97,16 @@ func (m *mockLBRepo) RemoveTarget(ctx context.Context, lbID, instanceID uuid.UUI
 }
 func (m *mockLBRepo) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*domain.LBTarget, error) {
 	args := m.Called(ctx, lbID)
-	return args.Get(0).([]*domain.LBTarget), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.LBTarget)
+	return r0, args.Error(1)
 }
 func (m *mockLBRepo) UpdateTargetHealth(ctx context.Context, lbID, instanceID uuid.UUID, status string) error {
 	return m.Called(ctx, lbID, instanceID, status).Error(0)
 }
 func (m *mockLBRepo) GetTargetsForInstance(ctx context.Context, instanceID uuid.UUID) ([]*domain.LBTarget, error) {
 	args := m.Called(ctx, instanceID)
-	return args.Get(0).([]*domain.LBTarget), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.LBTarget)
+	return r0, args.Error(1)
 }
 
 type mockInstRepo struct {
@@ -117,26 +118,28 @@ func (m *mockInstRepo) Create(ctx context.Context, inst *domain.Instance) error 
 }
 func (m *mockInstRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Instance, error) {
 	args := m.Called(ctx, id)
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstRepo) GetByName(ctx context.Context, name string) (*domain.Instance, error) {
 	args := m.Called(ctx, name)
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstRepo) List(ctx context.Context) ([]*domain.Instance, error) {
 	args := m.Called(ctx)
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstRepo) ListAll(ctx context.Context) ([]*domain.Instance, error) {
 	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstRepo) ListBySubnet(ctx context.Context, id uuid.UUID) ([]*domain.Instance, error) {
 	args := m.Called(ctx, id)
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstRepo) Update(ctx context.Context, inst *domain.Instance) error {
 	return m.Called(ctx, inst).Error(0)

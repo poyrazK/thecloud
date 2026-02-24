@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -30,12 +31,14 @@ func (m *mockLBService) Create(ctx context.Context, name string, vpcID uuid.UUID
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
+	r0, _ := args.Get(0).(*domain.LoadBalancer)
+	return r0, args.Error(1)
 }
 
 func (m *mockLBService) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	args := m.Called(ctx)
-	return args.Get(0).([]*domain.LoadBalancer), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.LoadBalancer)
+	return r0, args.Error(1)
 }
 
 func (m *mockLBService) Get(ctx context.Context, idOrName string) (*domain.LoadBalancer, error) {
@@ -43,7 +46,8 @@ func (m *mockLBService) Get(ctx context.Context, idOrName string) (*domain.LoadB
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
+	r0, _ := args.Get(0).(*domain.LoadBalancer)
+	return r0, args.Error(1)
 }
 
 func (m *mockLBService) Delete(ctx context.Context, idOrName string) error {
@@ -63,7 +67,8 @@ func (m *mockLBService) RemoveTarget(ctx context.Context, lbID, instanceID uuid.
 
 func (m *mockLBService) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*domain.LBTarget, error) {
 	args := m.Called(ctx, lbID)
-	return args.Get(0).([]*domain.LBTarget), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.LBTarget)
+	return r0, args.Error(1)
 }
 
 func setupLBHandlerTest(_ *testing.T) (*mockLBService, *LBHandler, *gin.Engine) {
@@ -91,10 +96,10 @@ func TestLBHandlerCreate(t *testing.T) {
 		"port":      80,
 		"algorithm": algoRoundRobin,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", lbPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusAccepted, w.Code)
@@ -171,10 +176,10 @@ func TestLBHandlerAddTarget(t *testing.T) {
 		"port":        8080,
 		"weight":      10,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", lbPath+"/"+lbID.String()+"/targets", bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)

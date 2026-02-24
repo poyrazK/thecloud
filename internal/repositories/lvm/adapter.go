@@ -45,7 +45,7 @@ func (a *LvmAdapter) CreateVolume(ctx context.Context, name string, sizeGB int) 
 
 	out, err := a.execer.Run("lvcreate", "-L", fmt.Sprintf("%dG", sizeGB), "-n", name, a.vgName)
 	if err != nil {
-		return "", fmt.Errorf("failed to create logical volume: %v, output: %s", err, string(out))
+		return "", fmt.Errorf("failed to create logical volume: %w, output: %s", err, string(out))
 	}
 	return fmt.Sprintf("/dev/%s/%s", a.vgName, name), nil
 }
@@ -57,7 +57,7 @@ func (a *LvmAdapter) DeleteVolume(ctx context.Context, name string) error {
 
 	out, err := a.execer.Run("lvremove", "-f", fmt.Sprintf("%s/%s", a.vgName, name))
 	if err != nil {
-		return fmt.Errorf("failed to remove logical volume: %v, output: %s", err, string(out))
+		return fmt.Errorf("failed to remove logical volume: %w, output: %s", err, string(out))
 	}
 	return nil
 }
@@ -81,7 +81,7 @@ func (a *LvmAdapter) CreateSnapshot(ctx context.Context, volumeName, snapshotNam
 
 	out, err := a.execer.Run("lvcreate", "-s", "-n", snapshotName, "-L", "1G", fmt.Sprintf("/dev/%s/%s", a.vgName, volumeName))
 	if err != nil {
-		return fmt.Errorf("failed to create lvm snapshot: %v, output: %s", err, string(out))
+		return fmt.Errorf("failed to create lvm snapshot: %w, output: %s", err, string(out))
 	}
 	return nil
 }
@@ -93,7 +93,7 @@ func (a *LvmAdapter) RestoreSnapshot(ctx context.Context, volumeName, snapshotNa
 
 	out, err := a.execer.Run("lvconvert", "--merge", fmt.Sprintf("%s/%s", a.vgName, snapshotName))
 	if err != nil {
-		return fmt.Errorf("failed to restore lvm snapshot: %v, output: %s", err, string(out))
+		return fmt.Errorf("failed to restore lvm snapshot: %w, output: %s", err, string(out))
 	}
 	return nil
 }
@@ -105,7 +105,7 @@ func (a *LvmAdapter) DeleteSnapshot(ctx context.Context, snapshotName string) er
 
 	out, err := a.execer.Run("lvremove", "-f", fmt.Sprintf("%s/%s", a.vgName, snapshotName))
 	if err != nil {
-		return fmt.Errorf("failed to remove lvm snapshot: %v, output: %s", err, string(out))
+		return fmt.Errorf("failed to remove lvm snapshot: %w, output: %s", err, string(out))
 	}
 	return nil
 }

@@ -21,21 +21,24 @@ func (m *mockDatabaseRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.D
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Database), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Database)
+	return r0, args.Error(1)
 }
 func (m *mockDatabaseRepo) List(ctx context.Context) ([]*domain.Database, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Database), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Database)
+	return r0, args.Error(1)
 }
 func (m *mockDatabaseRepo) ListReplicas(ctx context.Context, primaryID uuid.UUID) ([]*domain.Database, error) {
 	args := m.Called(ctx, primaryID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Database), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Database)
+	return r0, args.Error(1)
 }
 func (m *mockDatabaseRepo) Update(ctx context.Context, db *domain.Database) error {
 	return m.Called(ctx, db).Error(0)

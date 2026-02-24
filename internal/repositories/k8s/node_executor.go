@@ -75,7 +75,6 @@ func (e *SSHExecutor) Run(ctx context.Context, cmd string) (string, error) {
 			ssh.PublicKeys(signer),
 		},
 		// Ephemeral nodes have dynamic keys, so strict checking isn't feasible here without a central CA.
-		//nolint:gosec // G106: Use of ssh InsecureIgnoreHostKey should be audited
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         10 * time.Second,
 	}

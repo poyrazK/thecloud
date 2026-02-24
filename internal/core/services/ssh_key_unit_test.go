@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -36,7 +37,7 @@ func TestSSHKeyService_Unit(t *testing.T) {
 		mockRepo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 
 		key, err := svc.CreateKey(ctx, "test-key", pubKey)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, key)
 		assert.Equal(t, "test-key", key.Name)
 		mockRepo.AssertExpectations(t)
@@ -46,7 +47,7 @@ func TestSSHKeyService_Unit(t *testing.T) {
 		mockRepo.On("GetByName", mock.Anything, tenantID, "test-key").Return(&domain.SSHKey{}, nil).Once()
 
 		key, err := svc.CreateKey(ctx, "test-key", pubKey)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "already exists")
 		assert.Nil(t, key)
 	})

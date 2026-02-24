@@ -35,7 +35,8 @@ func (m *MockClusterService) ListClusters(ctx context.Context, userID uuid.UUID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Cluster), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Cluster)
+	return r0, args.Error(1)
 }
 func (m *MockClusterService) DeleteCluster(ctx context.Context, id uuid.UUID) error {
 	return nil

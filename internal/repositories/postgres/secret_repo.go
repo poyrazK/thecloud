@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	stdlib_errors "errors"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -76,7 +77,7 @@ func (r *SecretRepository) scanSecret(row pgx.Row) (*domain.Secret, error) {
 		&s.ID, &s.UserID, &s.Name, &s.EncryptedValue, &s.Description, &s.CreatedAt, &s.UpdatedAt, &s.LastAccessedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "secret not found")
 		}
 		return nil, fmt.Errorf("failed to scan secret: %w", err)

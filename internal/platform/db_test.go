@@ -7,12 +7,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewDatabaseInvalidURL(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	pool, err := NewDatabase(context.Background(), &Config{DatabaseURL: "invalid-url"}, logger)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, pool)
 	assert.Contains(t, err.Error(), "unable to parse database url")
 }

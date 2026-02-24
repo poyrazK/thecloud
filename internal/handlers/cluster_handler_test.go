@@ -27,7 +27,8 @@ func (m *mockClusterService) CreateCluster(ctx context.Context, params ports.Cre
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Cluster), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Cluster)
+	return r0, args.Error(1)
 }
 
 func (m *mockClusterService) GetCluster(ctx context.Context, id uuid.UUID) (*domain.Cluster, error) {
@@ -35,7 +36,8 @@ func (m *mockClusterService) GetCluster(ctx context.Context, id uuid.UUID) (*dom
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Cluster), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Cluster)
+	return r0, args.Error(1)
 }
 
 func (m *mockClusterService) ListClusters(ctx context.Context, userID uuid.UUID) ([]*domain.Cluster, error) {
@@ -43,7 +45,8 @@ func (m *mockClusterService) ListClusters(ctx context.Context, userID uuid.UUID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Cluster), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Cluster)
+	return r0, args.Error(1)
 }
 
 func (m *mockClusterService) DeleteCluster(ctx context.Context, id uuid.UUID) error {
@@ -73,7 +76,8 @@ func (m *mockClusterService) GetClusterHealth(ctx context.Context, id uuid.UUID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*ports.ClusterHealth), args.Error(1)
+	r0, _ := args.Get(0).(*ports.ClusterHealth)
+	return r0, args.Error(1)
 }
 
 func (m *mockClusterService) UpgradeCluster(ctx context.Context, id uuid.UUID, version string) error {

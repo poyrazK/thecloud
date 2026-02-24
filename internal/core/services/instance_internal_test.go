@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -28,14 +29,14 @@ func TestInstanceServiceInternalGetVolumeByIDOrName(t *testing.T) {
 	t.Run("ByID", func(t *testing.T) {
 		repo.On("GetByID", ctx, volID).Return(&domain.Volume{ID: volID}, nil).Once()
 		res, err := svc.getVolumeByIDOrName(ctx, volID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, volID, res.ID)
 	})
 
 	t.Run("ByName", func(t *testing.T) {
 		repo.On("GetByName", ctx, testVolumeName).Return(&domain.Volume{Name: testVolumeName}, nil).Once()
 		res, err := svc.getVolumeByIDOrName(ctx, testVolumeName)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, testVolumeName, res.Name)
 	})
 }
@@ -51,7 +52,7 @@ func TestInstanceServiceInternalResolveVolumes(t *testing.T) {
 	repo.On("GetByID", ctx, volID).Return(&domain.Volume{ID: volID, Name: "vol1", Status: domain.VolumeStatusAvailable}, nil).Once()
 
 	binds, vols, err := svc.resolveVolumes(ctx, []domain.VolumeAttachment{{VolumeIDOrName: volID.String(), MountPath: "/data"}})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, binds, 1)
 	assert.Len(t, vols, 1)
 }
@@ -67,7 +68,7 @@ func TestInstanceServiceInternalResolveVolumesUnavailable(t *testing.T) {
 	repo.On("GetByID", ctx, volID).Return(&domain.Volume{ID: volID, Name: "vol1", Status: domain.VolumeStatusInUse}, nil).Once()
 
 	_, _, err := svc.resolveVolumes(ctx, []domain.VolumeAttachment{{VolumeIDOrName: volID.String(), MountPath: "/data"}})
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestInstanceServiceInternalUpdateVolumesAfterLaunch(t *testing.T) {
@@ -101,8 +102,8 @@ func TestInstanceService_CalculateInstanceStats(t *testing.T) {
 	stats.MemoryStats.Limit = 2048
 
 	res := svc.calculateInstanceStats(stats)
-	assert.Equal(t, 10.0, res.CPUPercentage) // (1000-500)/(10000-5000) * 100 = 10%
-	assert.Equal(t, 50.0, res.MemoryPercentage)
+	assert.InDelta(t, 10.0, res.CPUPercentage, 0.01) // (1000-500)/(10000-5000) * 100 = 10%
+	assert.InDelta(t, 50.0, res.MemoryPercentage, 0.01)
 }
 
 func TestInstanceService_FormatContainerName(t *testing.T) {
@@ -136,18 +137,18 @@ func TestInstanceService_IsValidHostIP(t *testing.T) {
 func TestParsePort(t *testing.T) {
 	t.Run("Valid", func(t *testing.T) {
 		p, err := parsePort("80")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, 80, p)
 	})
 
 	t.Run("Empty", func(t *testing.T) {
 		_, err := parsePort("")
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("Invalid", func(t *testing.T) {
 		_, err := parsePort("abc")
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
@@ -169,7 +170,7 @@ func TestInstanceService_UpdateInstanceMetadata(t *testing.T) {
 	labels := map[string]string{"l2": "v2"}
 
 	err := svc.UpdateInstanceMetadata(ctx, id, metadata, labels)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "val", inst.Metadata["new"])
 	assert.Equal(t, "v2", inst.Labels["l2"])
 	assert.Equal(t, "v1", inst.Labels["l1"])

@@ -14,6 +14,7 @@ import (
 	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -27,7 +28,7 @@ const (
 func TestSecurityGroupRepositoryCreate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -47,12 +48,12 @@ func TestSecurityGroupRepositoryCreate(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), sg)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -64,14 +65,14 @@ func TestSecurityGroupRepositoryCreate(t *testing.T) {
 			WillReturnError(errors.New(testDBError))
 
 		err = repo.Create(context.Background(), sg)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
 func TestSecurityGroupRepositoryGetByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -92,7 +93,7 @@ func TestSecurityGroupRepositoryGetByID(t *testing.T) {
 				AddRow(uuid.New(), id, string(domain.RuleIngress), "tcp", 80, 80, testutil.TestAnyCIDR, 100, now))
 
 		sg, err := repo.GetByID(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if sg != nil {
 			assert.Len(t, sg.Rules, 1)
 		}
@@ -100,7 +101,7 @@ func TestSecurityGroupRepositoryGetByID(t *testing.T) {
 
 	t.Run(testNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -114,11 +115,11 @@ func TestSecurityGroupRepositoryGetByID(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		sg, err := repo.GetByID(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, sg)
-		theCloudErr, ok := err.(*theclouderrors.Error)
-		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+		var target *theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }
@@ -126,7 +127,7 @@ func TestSecurityGroupRepositoryGetByID(t *testing.T) {
 func TestSecurityGroupRepositoryGetByName(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -149,14 +150,14 @@ func TestSecurityGroupRepositoryGetByName(t *testing.T) {
 				AddRow(uuid.New(), id, string(domain.RuleIngress), "tcp", 80, 80, testutil.TestAnyCIDR, 100, now))
 
 		sg, err := repo.GetByName(ctx, vpcID, name)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, sg)
 		assert.Equal(t, id, sg.ID)
 	})
 
 	t.Run(testNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -171,11 +172,12 @@ func TestSecurityGroupRepositoryGetByName(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		sg, err := repo.GetByName(ctx, vpcID, name)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, sg)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }
@@ -183,7 +185,7 @@ func TestSecurityGroupRepositoryGetByName(t *testing.T) {
 func TestSecurityGroupRepositoryListByVPC(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -199,13 +201,13 @@ func TestSecurityGroupRepositoryListByVPC(t *testing.T) {
 				AddRow(uuid.New(), userID, tenantID, vpcID, testSgName, "desc", "arn", now))
 
 		groups, err := repo.ListByVPC(ctx, vpcID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, groups, 1)
 	})
 
 	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -219,7 +221,7 @@ func TestSecurityGroupRepositoryListByVPC(t *testing.T) {
 			WillReturnError(errors.New(testDBError))
 
 		groups, err := repo.ListByVPC(ctx, vpcID)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, groups)
 	})
 }
@@ -227,7 +229,7 @@ func TestSecurityGroupRepositoryListByVPC(t *testing.T) {
 func TestSecurityGroupRepositoryAddRule(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -248,12 +250,12 @@ func TestSecurityGroupRepositoryAddRule(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.AddRule(context.Background(), rule)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -265,14 +267,14 @@ func TestSecurityGroupRepositoryAddRule(t *testing.T) {
 			WillReturnError(errors.New(testDBError))
 
 		err = repo.AddRule(context.Background(), rule)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
 func TestSecurityGroupRepositoryDeleteRule(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -286,12 +288,12 @@ func TestSecurityGroupRepositoryDeleteRule(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.DeleteRule(ctx, ruleID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -304,14 +306,14 @@ func TestSecurityGroupRepositoryDeleteRule(t *testing.T) {
 
 		ctx := appcontext.WithTenantID(context.Background(), tenantID)
 		err = repo.DeleteRule(ctx, ruleID)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
 func TestSecurityGroupRepositoryGetRuleByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -329,14 +331,14 @@ func TestSecurityGroupRepositoryGetRuleByID(t *testing.T) {
 			WillReturnRows(rows)
 
 		rule, err := repo.GetRuleByID(ctx, ruleID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, rule)
 		assert.Equal(t, ruleID, rule.ID)
 	})
 
 	t.Run("not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -350,17 +352,19 @@ func TestSecurityGroupRepositoryGetRuleByID(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		rule, err := repo.GetRuleByID(ctx, ruleID)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, rule)
-		assert.IsType(t, theclouderrors.Error{}, err)
-		assert.Equal(t, theclouderrors.NotFound, err.(theclouderrors.Error).Type)
+		var target theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
+		}
 	})
 }
 
 func TestSecurityGroupRepositoryDelete(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -374,12 +378,12 @@ func TestSecurityGroupRepositoryDelete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.Delete(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -393,14 +397,14 @@ func TestSecurityGroupRepositoryDelete(t *testing.T) {
 			WillReturnError(errors.New(testDBError))
 
 		err = repo.Delete(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
 func TestSecurityGroupRepositoryAddInstanceToGroup(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -423,12 +427,12 @@ func TestSecurityGroupRepositoryAddInstanceToGroup(t *testing.T) {
 		mock.ExpectCommit()
 
 		err = repo.AddInstanceToGroup(ctx, instanceID, groupID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("instance not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -445,16 +449,17 @@ func TestSecurityGroupRepositoryAddInstanceToGroup(t *testing.T) {
 		mock.ExpectRollback()
 
 		err = repo.AddInstanceToGroup(ctx, instanceID, groupID)
-		assert.Error(t, err)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		require.Error(t, err)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 
 	t.Run("security group not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -474,10 +479,11 @@ func TestSecurityGroupRepositoryAddInstanceToGroup(t *testing.T) {
 		mock.ExpectRollback()
 
 		err = repo.AddInstanceToGroup(ctx, instanceID, groupID)
-		assert.Error(t, err)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		require.Error(t, err)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }
@@ -485,7 +491,7 @@ func TestSecurityGroupRepositoryAddInstanceToGroup(t *testing.T) {
 func TestSecurityGroupRepositoryRemoveInstanceFromGroup(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -508,12 +514,12 @@ func TestSecurityGroupRepositoryRemoveInstanceFromGroup(t *testing.T) {
 		mock.ExpectCommit()
 
 		err = repo.RemoveInstanceFromGroup(ctx, instanceID, groupID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("instance not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -530,10 +536,11 @@ func TestSecurityGroupRepositoryRemoveInstanceFromGroup(t *testing.T) {
 		mock.ExpectRollback()
 
 		err = repo.RemoveInstanceFromGroup(ctx, instanceID, groupID)
-		assert.Error(t, err)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		require.Error(t, err)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }
@@ -541,7 +548,7 @@ func TestSecurityGroupRepositoryRemoveInstanceFromGroup(t *testing.T) {
 func TestSecurityGroupRepositoryListInstanceGroups(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -554,13 +561,13 @@ func TestSecurityGroupRepositoryListInstanceGroups(t *testing.T) {
 				AddRow(uuid.New(), uuid.New(), uuid.New(), uuid.New(), testSgName, "desc", "arn", now))
 
 		groups, err := repo.ListInstanceGroups(context.Background(), instanceID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, groups, 1)
 	})
 
 	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecurityGroupRepository(mock)
@@ -571,7 +578,7 @@ func TestSecurityGroupRepositoryListInstanceGroups(t *testing.T) {
 			WillReturnError(errors.New(testDBError))
 
 		groups, err := repo.ListInstanceGroups(context.Background(), instanceID)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, groups)
 	})
 }

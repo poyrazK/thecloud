@@ -71,7 +71,7 @@ func (w *ContainerWorker) reconcileDeployment(ctx context.Context, dep *domain.D
 	}
 
 	// Filter out unhealthy or missing instances
-	var healthyContainerIDs []uuid.UUID
+	healthyContainerIDs := make([]uuid.UUID, 0, len(containerIDs))
 	for _, id := range containerIDs {
 		inst, err := w.instanceSvc.GetInstance(uCtx, id.String())
 		if err != nil || inst.Status == domain.StatusError || inst.Status == domain.StatusDeleted {

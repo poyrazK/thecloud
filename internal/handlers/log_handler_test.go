@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -27,7 +28,8 @@ func (m *mockLogService) SearchLogs(ctx context.Context, query domain.LogQuery) 
 	if args.Get(0) == nil {
 		return nil, args.Int(1), args.Error(2)
 	}
-	return args.Get(0).([]*domain.LogEntry), args.Int(1), args.Error(2)
+	r0, _ := args.Get(0).([]*domain.LogEntry)
+	return r0, args.Int(1), args.Error(2)
 }
 func (m *mockLogService) RunRetentionPolicy(ctx context.Context, days int) error {
 	return m.Called(ctx, days).Error(0)
@@ -41,7 +43,7 @@ func setupLogHandlerTest() (*mockLogService, *LogHandler, *gin.Engine) {
 	return mockSvc, handler, r
 }
 
-func TestLogHandler_Search(t *testing.T) {
+func TestLogHandlerSearch(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mockSvc, handler, r := setupLogHandlerTest()
 		r.GET("/logs", handler.Search)
@@ -67,7 +69,7 @@ func TestLogHandler_Search(t *testing.T) {
 			} `json:"data"`
 		}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, 1, resp.Data.Total)
 	})
 
@@ -100,7 +102,7 @@ func TestLogHandler_Search(t *testing.T) {
 	})
 }
 
-func TestLogHandler_GetByResource(t *testing.T) {
+func TestLogHandlerGetByResource(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mockSvc, handler, r := setupLogHandlerTest()
 		r.GET("/logs/:id", handler.GetByResource)

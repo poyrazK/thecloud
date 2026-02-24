@@ -300,21 +300,21 @@ func (s *InstanceService) Provision(ctx context.Context, job domain.ProvisionJob
 	// 1. Resolve Networking
 	networkID, err := s.provisionNetwork(ctx, inst)
 	if err != nil {
-		s.updateStatus(ctx, inst, domain.StatusError)
+		s.updateStatus(ctx, inst)
 		return err
 	}
 
 	// 2. Resolve Volumes
 	volumeBinds, attachedVolumes, err := s.resolveVolumes(ctx, volumes)
 	if err != nil {
-		s.updateStatus(ctx, inst, domain.StatusError)
+		s.updateStatus(ctx, inst)
 		return err
 	}
 
 	// 3. Create Instance
 	it, itErr := s.instanceTypeRepo.GetByID(ctx, inst.InstanceType)
 	if itErr != nil {
-		s.updateStatus(ctx, inst, domain.StatusError)
+		s.updateStatus(ctx, inst)
 		return errors.Wrap(errors.Internal, "failed to resolve instance type for provisioning", itErr)
 	}
 
@@ -349,7 +349,7 @@ func (s *InstanceService) Provision(ctx context.Context, job domain.ProvisionJob
 	})
 	if err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("launch", "failure").Inc()
-		s.updateStatus(ctx, inst, domain.StatusError)
+		s.updateStatus(ctx, inst)
 		return errors.Wrap(errors.Internal, "failed to launch container", err)
 	}
 
@@ -424,8 +424,8 @@ func (s *InstanceService) finalizeProvision(ctx context.Context, inst *domain.In
 	return nil
 }
 
-func (s *InstanceService) updateStatus(ctx context.Context, inst *domain.Instance, status domain.InstanceStatus) {
-	inst.Status = status
+func (s *InstanceService) updateStatus(ctx context.Context, inst *domain.Instance) {
+	inst.Status = domain.StatusError
 	_ = s.repo.Update(ctx, inst)
 }
 
@@ -932,8 +932,8 @@ func (s *InstanceService) resolveNetworkConfig(ctx context.Context, vpcID, subne
 }
 
 func (s *InstanceService) resolveVolumes(ctx context.Context, volumes []domain.VolumeAttachment) ([]string, []*domain.Volume, error) {
-	var volumeBinds []string
-	var attachedVolumes []*domain.Volume
+	volumeBinds := make([]string, 0, len(volumes))
+	attachedVolumes := make([]*domain.Volume, 0, len(volumes))
 	for _, va := range volumes {
 		vol, err := s.getVolumeByIDOrName(ctx, va.VolumeIDOrName)
 		if err != nil {

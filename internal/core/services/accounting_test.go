@@ -18,6 +18,7 @@ import (
 )
 
 func setupAccountingServiceTest(t *testing.T) (ports.AccountingService, ports.AccountingRepository, *postgres.InstanceRepository, context.Context, *pgxpool.Pool) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
@@ -46,13 +47,13 @@ func TestTrackUsage(t *testing.T) {
 	}
 
 	err := svc.TrackUsage(ctx, record)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify in DB
 	records, err := repo.ListRecords(ctx, userID, time.Now().Add(-1*time.Hour), time.Now().Add(1*time.Hour))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, records, 1)
-	assert.Equal(t, float64(10), records[0].Quantity)
+	assert.InDelta(t, 10.0, records[0].Quantity, 0.001)
 }
 
 func TestProcessHourlyBilling(t *testing.T) {
@@ -77,11 +78,11 @@ func TestProcessHourlyBilling(t *testing.T) {
 	require.NoError(t, err)
 
 	err = svc.ProcessHourlyBilling(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify usage record created
 	records, err := repo.ListRecords(ctx, userID, time.Now().Add(-2*time.Hour), time.Now().Add(2*time.Hour))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, records)
 
 	// We expect one record for the running instance
@@ -121,18 +122,16 @@ func TestGetSummary(t *testing.T) {
 		StartTime:    now.Add(-2 * time.Hour),
 		EndTime:      now.Add(-1 * time.Hour),
 	}
-	err = svc.TrackUsage(ctx, rec2) // Fix: use svc.TrackUsage instead of repo directly to be consistent or just use svc
+	err = svc.TrackUsage(ctx, rec2)
 	require.NoError(t, err)
 
 	// Get Summary
 	summary, err := svc.GetSummary(ctx, userID, now.Add(-24*time.Hour), now)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, summary)
 
-	// Check logic. Instance: $0.01 per minute? Storage: $0.005 per unit?
-	// Need to verify pricing model in service implementation.
-	// Failing that, just verify TotalAmount > 0
-	assert.Greater(t, summary.TotalAmount, 0.0)
+	// Verify TotalAmount
+	assert.Positive(t, summary.TotalAmount)
 }
 
 func TestListUsage(t *testing.T) {
@@ -151,6 +150,6 @@ func TestListUsage(t *testing.T) {
 	_ = svc.TrackUsage(ctx, rec)
 
 	res, err := svc.ListUsage(ctx, userID, time.Now().Add(-1*time.Hour), time.Now().Add(1*time.Hour))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, res, 1)
 }

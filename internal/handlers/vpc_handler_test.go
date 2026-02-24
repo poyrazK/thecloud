@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -30,7 +31,8 @@ func (m *mockVpcService) CreateVPC(ctx context.Context, name, cidrBlock string) 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.VPC), args.Error(1)
+	r0, _ := args.Get(0).(*domain.VPC)
+	return r0, args.Error(1)
 }
 
 func (m *mockVpcService) ListVPCs(ctx context.Context) ([]*domain.VPC, error) {
@@ -38,7 +40,8 @@ func (m *mockVpcService) ListVPCs(ctx context.Context) ([]*domain.VPC, error) {
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.VPC), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.VPC)
+	return r0, args.Error(1)
 }
 
 func (m *mockVpcService) GetVPC(ctx context.Context, idOrName string) (*domain.VPC, error) {
@@ -46,7 +49,8 @@ func (m *mockVpcService) GetVPC(ctx context.Context, idOrName string) (*domain.V
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.VPC), args.Error(1)
+	r0, _ := args.Get(0).(*domain.VPC)
+	return r0, args.Error(1)
 }
 
 func (m *mockVpcService) DeleteVPC(ctx context.Context, idOrName string) error {
@@ -73,10 +77,10 @@ func TestVpcHandlerCreate(t *testing.T) {
 	svc.On("CreateVPC", mock.Anything, testVpcName, testutil.TestCIDR).Return(vpc, nil)
 
 	body, err := json.Marshal(map[string]string{"name": testVpcName, "cidr_block": testutil.TestCIDR})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", vpcsPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -116,7 +120,7 @@ func TestVpcHandlerList(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", vpcsPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -135,7 +139,7 @@ func TestVpcHandlerGet(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("GET", vpcsPath+"/"+vpcID, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -167,7 +171,7 @@ func TestVpcHandlerDelete(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("DELETE", vpcsPath+"/"+vpcID, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)

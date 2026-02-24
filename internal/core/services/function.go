@@ -233,16 +233,17 @@ func (s *FunctionService) captureInvocationResults(i *domain.Invocation, contain
 	i.DurationMs = int(i.EndedAt.Sub(i.StartedAt).Milliseconds())
 	i.StatusCode = int(statusCode)
 
-	if waitErr != nil {
+	switch {
+	case waitErr != nil:
 		i.Status = "FAILED"
 		if stdlib_errors.Is(waitErr, context.DeadlineExceeded) {
 			i.Logs += "\nError: Execution timed out"
 		} else {
 			i.Logs += fmt.Sprintf("\nError: %v", waitErr)
 		}
-	} else if statusCode != 0 {
+	case statusCode != 0:
 		i.Status = "FAILED"
-	} else {
+	default:
 		i.Status = "SUCCESS"
 	}
 }

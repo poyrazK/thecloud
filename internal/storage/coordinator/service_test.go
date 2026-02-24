@@ -11,6 +11,7 @@ import (
 
 	pb "github.com/poyrazk/thecloud/internal/storage/protocol"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
 )
@@ -28,32 +29,38 @@ type MockStorageNodeClient struct {
 
 func (m *MockStorageNodeClient) Store(ctx context.Context, in *pb.StoreRequest, opts ...grpc.CallOption) (*pb.StoreResponse, error) {
 	args := m.Called(ctx, in)
-	return args.Get(0).(*pb.StoreResponse), args.Error(1)
+	r0, _ := args.Get(0).(*pb.StoreResponse)
+	return r0, args.Error(1)
 }
 
 func (m *MockStorageNodeClient) Retrieve(ctx context.Context, in *pb.RetrieveRequest, opts ...grpc.CallOption) (*pb.RetrieveResponse, error) {
 	args := m.Called(ctx, in)
-	return args.Get(0).(*pb.RetrieveResponse), args.Error(1)
+	r0, _ := args.Get(0).(*pb.RetrieveResponse)
+	return r0, args.Error(1)
 }
 
 func (m *MockStorageNodeClient) Delete(ctx context.Context, in *pb.DeleteRequest, opts ...grpc.CallOption) (*pb.DeleteResponse, error) {
 	args := m.Called(ctx, in)
-	return args.Get(0).(*pb.DeleteResponse), args.Error(1)
+	r0, _ := args.Get(0).(*pb.DeleteResponse)
+	return r0, args.Error(1)
 }
 
 func (m *MockStorageNodeClient) Gossip(ctx context.Context, in *pb.GossipMessage, opts ...grpc.CallOption) (*pb.GossipResponse, error) {
 	args := m.Called(ctx, in)
-	return args.Get(0).(*pb.GossipResponse), args.Error(1)
+	r0, _ := args.Get(0).(*pb.GossipResponse)
+	return r0, args.Error(1)
 }
 
 func (m *MockStorageNodeClient) GetClusterStatus(ctx context.Context, in *pb.Empty, opts ...grpc.CallOption) (*pb.ClusterStatusResponse, error) {
 	args := m.Called(ctx, in)
-	return args.Get(0).(*pb.ClusterStatusResponse), args.Error(1)
+	r0, _ := args.Get(0).(*pb.ClusterStatusResponse)
+	return r0, args.Error(1)
 }
 
 func (m *MockStorageNodeClient) Assemble(ctx context.Context, in *pb.AssembleRequest, opts ...grpc.CallOption) (*pb.AssembleResponse, error) {
 	args := m.Called(ctx, in)
-	return args.Get(0).(*pb.AssembleResponse), args.Error(1)
+	r0, _ := args.Get(0).(*pb.AssembleResponse)
+	return r0, args.Error(1)
 }
 
 func TestCoordinatorWriteQuorum(t *testing.T) {
@@ -89,7 +96,7 @@ func TestCoordinatorWriteQuorum(t *testing.T) {
 	client3.On("Store", mock.Anything, mock.Anything).Return(&pb.StoreResponse{Success: true}, nil)
 
 	n, err := coord.Write(context.Background(), "b", "k", bytes.NewReader(data))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, int64(5), n)
 }
 
@@ -118,7 +125,7 @@ func TestCoordinatorWriteQuorumFailure(t *testing.T) {
 	client3.On("Store", mock.Anything, mock.Anything).Return(&pb.StoreResponse{Success: true}, nil)
 
 	_, err := coord.Write(context.Background(), "b", "k", strings.NewReader("hello"))
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "write quorum failed")
 }
 
@@ -164,7 +171,7 @@ func TestCoordinatorReadRepair(t *testing.T) {
 	})).Return(&pb.StoreResponse{Success: true}, nil)
 
 	r, err := coord.Read(context.Background(), "b", "k")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	data, _ := io.ReadAll(r)
 	assert.Equal(t, "new", string(data))
@@ -195,7 +202,7 @@ func TestCoordinatorDelete(t *testing.T) {
 	c3.On("Delete", mock.Anything, mock.Anything).Return(&pb.DeleteResponse{Success: true}, nil)
 
 	err := coord.Delete(context.Background(), "b", "k")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestCoordinatorAssemble(t *testing.T) {
@@ -218,7 +225,7 @@ func TestCoordinatorAssemble(t *testing.T) {
 	c3.On("Assemble", mock.Anything, mock.Anything).Return(&pb.AssembleResponse{Size: 100}, nil)
 
 	size, err := coord.Assemble(context.Background(), "b", "k", []string{"p1", "p2"})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, int64(100), size)
 }
 
@@ -229,6 +236,6 @@ func TestCoordinatorGetClusterStatus(t *testing.T) {
 	defer coord.Stop()
 
 	status, err := coord.GetClusterStatus(context.Background())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, status)
 }

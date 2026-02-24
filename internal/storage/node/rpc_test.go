@@ -93,9 +93,10 @@ func TestRPCServerStoreError(t *testing.T) {
 		Data:      []byte("data"),
 		Timestamp: time.Now().UnixNano(),
 	})
-	require.NoError(t, err)
-	assert.False(t, resp.Success)
-	assert.NotEmpty(t, resp.Error)
+	require.Error(t, err)
+	if resp != nil {
+		assert.False(t, resp.Success)
+	}
 }
 
 func TestRPCServerDeleteMissing(t *testing.T) {

@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 // mockGlobalLBService provides a mocked implementation of the ports.GlobalLBService interface
@@ -26,7 +27,8 @@ func (m *mockGlobalLBService) Create(ctx context.Context, name, hostname string,
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.GlobalLoadBalancer), args.Error(1)
+	r0, _ := args.Get(0).(*domain.GlobalLoadBalancer)
+	return r0, args.Error(1)
 }
 
 func (m *mockGlobalLBService) Get(ctx context.Context, id uuid.UUID) (*domain.GlobalLoadBalancer, error) {
@@ -34,12 +36,14 @@ func (m *mockGlobalLBService) Get(ctx context.Context, id uuid.UUID) (*domain.Gl
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.GlobalLoadBalancer), args.Error(1)
+	r0, _ := args.Get(0).(*domain.GlobalLoadBalancer)
+	return r0, args.Error(1)
 }
 
 func (m *mockGlobalLBService) List(ctx context.Context, userID uuid.UUID) ([]*domain.GlobalLoadBalancer, error) {
 	args := m.Called(ctx, userID)
-	return args.Get(0).([]*domain.GlobalLoadBalancer), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.GlobalLoadBalancer)
+	return r0, args.Error(1)
 }
 
 func (m *mockGlobalLBService) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
@@ -52,7 +56,8 @@ func (m *mockGlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.GlobalEndpoint), args.Error(1)
+	r0, _ := args.Get(0).(*domain.GlobalEndpoint)
+	return r0, args.Error(1)
 }
 
 func (m *mockGlobalLBService) RemoveEndpoint(ctx context.Context, glbID, endpointID uuid.UUID) error {
@@ -62,7 +67,8 @@ func (m *mockGlobalLBService) RemoveEndpoint(ctx context.Context, glbID, endpoin
 
 func (m *mockGlobalLBService) ListEndpoints(ctx context.Context, glbID uuid.UUID) ([]*domain.GlobalEndpoint, error) {
 	args := m.Called(ctx, glbID)
-	return args.Get(0).([]*domain.GlobalEndpoint), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.GlobalEndpoint)
+	return r0, args.Error(1)
 }
 
 // TestGlobalLBHandlerCreate verifies the behavior of the Create endpoint for Global Load Balancers.
@@ -106,7 +112,7 @@ func TestGlobalLBHandlerCreate(t *testing.T) {
 			Data domain.GlobalLoadBalancer `json:"data"`
 		}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, glb.ID, resp.Data.ID)
 	})
 }

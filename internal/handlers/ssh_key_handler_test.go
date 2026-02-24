@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -29,7 +30,8 @@ func (m *mockSSHKeyService) CreateKey(ctx context.Context, name, publicKey strin
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.SSHKey), args.Error(1)
+	r0, _ := args.Get(0).(*domain.SSHKey)
+	return r0, args.Error(1)
 }
 
 func (m *mockSSHKeyService) GetKey(ctx context.Context, id uuid.UUID) (*domain.SSHKey, error) {
@@ -37,7 +39,8 @@ func (m *mockSSHKeyService) GetKey(ctx context.Context, id uuid.UUID) (*domain.S
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.SSHKey), args.Error(1)
+	r0, _ := args.Get(0).(*domain.SSHKey)
+	return r0, args.Error(1)
 }
 
 func (m *mockSSHKeyService) ListKeys(ctx context.Context) ([]*domain.SSHKey, error) {
@@ -45,7 +48,8 @@ func (m *mockSSHKeyService) ListKeys(ctx context.Context) ([]*domain.SSHKey, err
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.SSHKey), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.SSHKey)
+	return r0, args.Error(1)
 }
 
 func (m *mockSSHKeyService) DeleteKey(ctx context.Context, id uuid.UUID) error {
@@ -91,7 +95,7 @@ func TestSSHKeyHandlerCreate(t *testing.T) {
 		Data domain.SSHKey `json:"data"`
 	}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expectedKey.Name, response.Data.Name)
 }
 
@@ -124,7 +128,7 @@ func TestSSHKeyHandlerList(t *testing.T) {
 		Data []*domain.SSHKey `json:"data"`
 	}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, response.Data, 2)
 }
 
@@ -152,7 +156,7 @@ func TestSSHKeyHandlerGet(t *testing.T) {
 		Data domain.SSHKey `json:"data"`
 	}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expectedKey.ID, response.Data.ID)
 }
 
