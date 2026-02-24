@@ -1,0 +1,587 @@
+replication-test	Set up job	﻿2026-02-24T14:32:30.5145639Z Current runner version: '2.331.0'
+replication-test	Set up job	2026-02-24T14:32:30.5180507Z ##[group]Runner Image Provisioner
+replication-test	Set up job	2026-02-24T14:32:30.5181620Z Hosted Compute Agent
+replication-test	Set up job	2026-02-24T14:32:30.5182396Z Version: 20260123.484
+replication-test	Set up job	2026-02-24T14:32:30.5183459Z Commit: 6bd6555ca37d84114959e1c76d2c01448ff61c5d
+replication-test	Set up job	2026-02-24T14:32:30.5184515Z Build Date: 2026-01-23T19:41:17Z
+replication-test	Set up job	2026-02-24T14:32:30.5185384Z Worker ID: {34c22047-da80-4baa-bcbc-63904be0fad9}
+replication-test	Set up job	2026-02-24T14:32:30.5186511Z Azure Region: northcentralus
+replication-test	Set up job	2026-02-24T14:32:30.5187303Z ##[endgroup]
+replication-test	Set up job	2026-02-24T14:32:30.5189326Z ##[group]Operating System
+replication-test	Set up job	2026-02-24T14:32:30.5190245Z Ubuntu
+replication-test	Set up job	2026-02-24T14:32:30.5190972Z 24.04.3
+replication-test	Set up job	2026-02-24T14:32:30.5191657Z LTS
+replication-test	Set up job	2026-02-24T14:32:30.5192359Z ##[endgroup]
+replication-test	Set up job	2026-02-24T14:32:30.5193102Z ##[group]Runner Image
+replication-test	Set up job	2026-02-24T14:32:30.5194106Z Image: ubuntu-24.04
+replication-test	Set up job	2026-02-24T14:32:30.5195011Z Version: 20260201.15.1
+replication-test	Set up job	2026-02-24T14:32:30.5196525Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260201.15/images/ubuntu/Ubuntu2404-Readme.md
+replication-test	Set up job	2026-02-24T14:32:30.5199151Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260201.15
+replication-test	Set up job	2026-02-24T14:32:30.5200555Z ##[endgroup]
+replication-test	Set up job	2026-02-24T14:32:30.5202144Z ##[group]GITHUB_TOKEN Permissions
+replication-test	Set up job	2026-02-24T14:32:30.5204927Z Contents: read
+replication-test	Set up job	2026-02-24T14:32:30.5205723Z Metadata: read
+replication-test	Set up job	2026-02-24T14:32:30.5206475Z Packages: read
+replication-test	Set up job	2026-02-24T14:32:30.5207247Z ##[endgroup]
+replication-test	Set up job	2026-02-24T14:32:30.5209818Z Secret source: Actions
+replication-test	Set up job	2026-02-24T14:32:30.5211074Z Prepare workflow directory
+replication-test	Set up job	2026-02-24T14:32:30.5709239Z Prepare all required actions
+replication-test	Set up job	2026-02-24T14:32:30.5765627Z Getting action download info
+replication-test	Set up job	2026-02-24T14:32:30.9238816Z Download action repository 'actions/checkout@v6' (SHA:de0fac2e4500dabe0009e67214ff5f5447ce83dd)
+replication-test	Set up job	2026-02-24T14:32:31.0027997Z Download action repository 'actions/setup-go@v6' (SHA:7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5)
+replication-test	Set up job	2026-02-24T14:32:31.5753663Z Complete job name: replication-test
+replication-test	Initialize containers	﻿2026-02-24T14:32:31.6248762Z ##[group]Checking docker version
+replication-test	Initialize containers	2026-02-24T14:32:31.6263240Z ##[command]/usr/bin/docker version --format '{{.Server.APIVersion}}'
+replication-test	Initialize containers	2026-02-24T14:32:31.7052681Z '1.48'
+replication-test	Initialize containers	2026-02-24T14:32:31.7063046Z Docker daemon API version: '1.48'
+replication-test	Initialize containers	2026-02-24T14:32:31.7065138Z ##[command]/usr/bin/docker version --format '{{.Client.APIVersion}}'
+replication-test	Initialize containers	2026-02-24T14:32:31.7235688Z '1.48'
+replication-test	Initialize containers	2026-02-24T14:32:31.7244250Z Docker client API version: '1.48'
+replication-test	Initialize containers	2026-02-24T14:32:31.7250314Z ##[endgroup]
+replication-test	Initialize containers	2026-02-24T14:32:31.7253825Z ##[group]Clean up resources from previous jobs
+replication-test	Initialize containers	2026-02-24T14:32:31.7260365Z ##[command]/usr/bin/docker ps --all --quiet --no-trunc --filter "label=25cbfa"
+replication-test	Initialize containers	2026-02-24T14:32:31.7399036Z ##[command]/usr/bin/docker network prune --force --filter "label=25cbfa"
+replication-test	Initialize containers	2026-02-24T14:32:31.7528023Z ##[endgroup]
+replication-test	Initialize containers	2026-02-24T14:32:31.7529036Z ##[group]Create local container network
+replication-test	Initialize containers	2026-02-24T14:32:31.7540390Z ##[command]/usr/bin/docker network create --label 25cbfa github_network_a553e1056c7b4615ad90d9d85296c2b4
+replication-test	Initialize containers	2026-02-24T14:32:31.7971679Z dddfd345a90ebcf2eb785adc12408fe98be54de0d1edcd656a081337de07d28a
+replication-test	Initialize containers	2026-02-24T14:32:31.7986168Z ##[endgroup]
+replication-test	Initialize containers	2026-02-24T14:32:31.8013904Z ##[group]Starting postgres service container
+replication-test	Initialize containers	2026-02-24T14:32:31.8034982Z ##[command]/usr/bin/docker pull postgres:16-alpine
+replication-test	Initialize containers	2026-02-24T14:32:32.2686013Z 16-alpine: Pulling from library/postgres
+replication-test	Initialize containers	2026-02-24T14:32:32.3852051Z 589002ba0eae: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:32.3857946Z 5ffb427686b6: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:32.3859680Z 630177b00352: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:32.3861814Z 6c18ff1f33d0: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:32.3967990Z 13e46e455d3b: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:32.3969575Z b4403f29458a: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:32.3970873Z 40aaa75af6ce: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:32.3972270Z 162bdab1e0a7: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:32.3973775Z ebff7b0ec73e: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:32.3975002Z c02179436571: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:32.3975846Z 8243369e9866: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:32.3976739Z 40aaa75af6ce: Waiting
+replication-test	Initialize containers	2026-02-24T14:32:32.3977462Z 162bdab1e0a7: Waiting
+replication-test	Initialize containers	2026-02-24T14:32:32.3978595Z ebff7b0ec73e: Waiting
+replication-test	Initialize containers	2026-02-24T14:32:32.3979385Z c02179436571: Waiting
+replication-test	Initialize containers	2026-02-24T14:32:32.3980090Z 8243369e9866: Waiting
+replication-test	Initialize containers	2026-02-24T14:32:32.3980786Z 6c18ff1f33d0: Waiting
+replication-test	Initialize containers	2026-02-24T14:32:32.3981480Z 13e46e455d3b: Waiting
+replication-test	Initialize containers	2026-02-24T14:32:32.3982183Z b4403f29458a: Waiting
+replication-test	Initialize containers	2026-02-24T14:32:32.4975021Z 630177b00352: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:32.4976376Z 630177b00352: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:32.5352370Z 5ffb427686b6: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:32.5354131Z 5ffb427686b6: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:32.5676448Z 589002ba0eae: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:32.5678624Z 589002ba0eae: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:32.6212381Z 6c18ff1f33d0: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:32.6214228Z 6c18ff1f33d0: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:32.6591853Z 589002ba0eae: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:32.6625608Z 13e46e455d3b: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:32.6627037Z 13e46e455d3b: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:32.7431479Z 40aaa75af6ce: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:32.7433393Z 40aaa75af6ce: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:32.7682513Z 162bdab1e0a7: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:32.7684077Z 162bdab1e0a7: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:32.8888895Z ebff7b0ec73e: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:32.8890477Z ebff7b0ec73e: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:32.9304952Z c02179436571: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:32.9307021Z c02179436571: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:33.0237336Z 8243369e9866: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:33.0238359Z 8243369e9866: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:33.5699532Z 5ffb427686b6: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:33.5909714Z b4403f29458a: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:33.5910414Z b4403f29458a: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:33.8079048Z 630177b00352: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:33.8182928Z 6c18ff1f33d0: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:33.8267296Z 13e46e455d3b: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:35.8143905Z b4403f29458a: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:35.8309103Z 40aaa75af6ce: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:35.8403021Z 162bdab1e0a7: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:35.8493736Z ebff7b0ec73e: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:35.8606357Z c02179436571: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:35.8707178Z 8243369e9866: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:35.8743573Z Digest: sha256:97ff59a4e30e08d1c11bdcd9455e7832368c0572b576c9092cde2df4ae5552a3
+replication-test	Initialize containers	2026-02-24T14:32:35.8758034Z Status: Downloaded newer image for postgres:16-alpine
+replication-test	Initialize containers	2026-02-24T14:32:35.8766725Z docker.io/library/postgres:16-alpine
+replication-test	Initialize containers	2026-02-24T14:32:35.8824825Z ##[command]/usr/bin/docker create --name c39b6a37aa294640acaea0b867ac300d_postgres16alpine_8686de --label 25cbfa --network github_network_a553e1056c7b4615ad90d9d85296c2b4 --network-alias postgres -p 5433:5432 --health-cmd "pg_isready -U cloud" --health-interval 10s --health-timeout 5s --health-retries 5 -e "POSTGRES_USER=cloud" -e "POSTGRES_PASSWORD=cloud" -e "POSTGRES_DB=cloud" -e GITHUB_ACTIONS=true -e CI=true postgres:16-alpine
+replication-test	Initialize containers	2026-02-24T14:32:35.9079975Z 2006fca0040a251c3192927730ab9c61c2ca07b7b735f5cdb131dd5d87b97e84
+replication-test	Initialize containers	2026-02-24T14:32:35.9098729Z ##[command]/usr/bin/docker start 2006fca0040a251c3192927730ab9c61c2ca07b7b735f5cdb131dd5d87b97e84
+replication-test	Initialize containers	2026-02-24T14:32:36.0846594Z 2006fca0040a251c3192927730ab9c61c2ca07b7b735f5cdb131dd5d87b97e84
+replication-test	Initialize containers	2026-02-24T14:32:36.0861669Z ##[command]/usr/bin/docker ps --all --filter id=2006fca0040a251c3192927730ab9c61c2ca07b7b735f5cdb131dd5d87b97e84 --filter status=running --no-trunc --format "{{.ID}} {{.Status}}"
+replication-test	Initialize containers	2026-02-24T14:32:36.0989699Z 2006fca0040a251c3192927730ab9c61c2ca07b7b735f5cdb131dd5d87b97e84 Up Less than a second (health: starting)
+replication-test	Initialize containers	2026-02-24T14:32:36.1006323Z ##[command]/usr/bin/docker port 2006fca0040a251c3192927730ab9c61c2ca07b7b735f5cdb131dd5d87b97e84
+replication-test	Initialize containers	2026-02-24T14:32:36.1136859Z 5432/tcp -> 0.0.0.0:5433
+replication-test	Initialize containers	2026-02-24T14:32:36.1138826Z 5432/tcp -> [::]:5433
+replication-test	Initialize containers	2026-02-24T14:32:36.1177687Z ##[endgroup]
+replication-test	Initialize containers	2026-02-24T14:32:36.1178960Z ##[group]Starting postgres-replica service container
+replication-test	Initialize containers	2026-02-24T14:32:36.1180457Z ##[command]/usr/bin/docker pull postgres:16-alpine
+replication-test	Initialize containers	2026-02-24T14:32:36.4114150Z 16-alpine: Pulling from library/postgres
+replication-test	Initialize containers	2026-02-24T14:32:36.4166522Z Digest: sha256:97ff59a4e30e08d1c11bdcd9455e7832368c0572b576c9092cde2df4ae5552a3
+replication-test	Initialize containers	2026-02-24T14:32:36.4168113Z Status: Image is up to date for postgres:16-alpine
+replication-test	Initialize containers	2026-02-24T14:32:36.4177338Z docker.io/library/postgres:16-alpine
+replication-test	Initialize containers	2026-02-24T14:32:36.4192414Z ##[command]/usr/bin/docker create --name 1fd6bf2f3f4a4d20af1c5a5c76b635cd_postgres16alpine_53b431 --label 25cbfa --network github_network_a553e1056c7b4615ad90d9d85296c2b4 --network-alias postgres-replica -p 5434:5432 --health-cmd "pg_isready -U cloud" --health-interval 10s --health-timeout 5s --health-retries 5 -e "POSTGRES_USER=cloud" -e "POSTGRES_PASSWORD=cloud" -e "POSTGRES_DB=cloud" -e GITHUB_ACTIONS=true -e CI=true postgres:16-alpine
+replication-test	Initialize containers	2026-02-24T14:32:36.4610686Z 6e4895ce0d4532ad42acad0c48e593ae6d3d1befd4c33e9dfa859488c253f20a
+replication-test	Initialize containers	2026-02-24T14:32:36.4624206Z ##[command]/usr/bin/docker start 6e4895ce0d4532ad42acad0c48e593ae6d3d1befd4c33e9dfa859488c253f20a
+replication-test	Initialize containers	2026-02-24T14:32:36.5918636Z 6e4895ce0d4532ad42acad0c48e593ae6d3d1befd4c33e9dfa859488c253f20a
+replication-test	Initialize containers	2026-02-24T14:32:36.5929090Z ##[command]/usr/bin/docker ps --all --filter id=6e4895ce0d4532ad42acad0c48e593ae6d3d1befd4c33e9dfa859488c253f20a --filter status=running --no-trunc --format "{{.ID}} {{.Status}}"
+replication-test	Initialize containers	2026-02-24T14:32:36.6082380Z 6e4895ce0d4532ad42acad0c48e593ae6d3d1befd4c33e9dfa859488c253f20a Up Less than a second (health: starting)
+replication-test	Initialize containers	2026-02-24T14:32:36.6095094Z ##[command]/usr/bin/docker port 6e4895ce0d4532ad42acad0c48e593ae6d3d1befd4c33e9dfa859488c253f20a
+replication-test	Initialize containers	2026-02-24T14:32:36.6279008Z 5432/tcp -> 0.0.0.0:5434
+replication-test	Initialize containers	2026-02-24T14:32:36.6279690Z 5432/tcp -> [::]:5434
+replication-test	Initialize containers	2026-02-24T14:32:36.6297234Z ##[endgroup]
+replication-test	Initialize containers	2026-02-24T14:32:36.6298760Z ##[group]Starting redis service container
+replication-test	Initialize containers	2026-02-24T14:32:36.6299560Z ##[command]/usr/bin/docker pull redis:7-alpine
+replication-test	Initialize containers	2026-02-24T14:32:37.0193519Z 7-alpine: Pulling from library/redis
+replication-test	Initialize containers	2026-02-24T14:32:37.1420960Z bc1da058f299: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:37.1427175Z 09a5a0c32a23: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:37.1427830Z bd53938b1271: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:37.1428512Z 9fe3744a2eac: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:37.1429017Z 7ad54b3c4cef: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:37.1429856Z 2a97533d89ca: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:37.1431027Z 4f4fb700ef54: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:37.1431515Z 1c2c8d1ee428: Pulling fs layer
+replication-test	Initialize containers	2026-02-24T14:32:37.1431855Z 7ad54b3c4cef: Waiting
+replication-test	Initialize containers	2026-02-24T14:32:37.1432271Z 2a97533d89ca: Waiting
+replication-test	Initialize containers	2026-02-24T14:32:37.1432553Z 4f4fb700ef54: Waiting
+replication-test	Initialize containers	2026-02-24T14:32:37.1432814Z 1c2c8d1ee428: Waiting
+replication-test	Initialize containers	2026-02-24T14:32:37.1433187Z 9fe3744a2eac: Waiting
+replication-test	Initialize containers	2026-02-24T14:32:37.2620793Z 09a5a0c32a23: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:37.2622301Z 09a5a0c32a23: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:37.2659865Z bd53938b1271: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:37.2660375Z bd53938b1271: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:37.2738282Z bc1da058f299: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:37.2740477Z bc1da058f299: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:37.3852724Z 9fe3744a2eac: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:37.3853218Z 9fe3744a2eac: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:37.4046636Z 2a97533d89ca: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:37.4050043Z 2a97533d89ca: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:37.4072147Z bc1da058f299: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:37.4277140Z 09a5a0c32a23: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:37.4911289Z 7ad54b3c4cef: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:37.4911640Z 7ad54b3c4cef: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:37.5144607Z 1c2c8d1ee428: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:37.5144990Z 1c2c8d1ee428: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:37.5309140Z bd53938b1271: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:37.5421921Z 4f4fb700ef54: Verifying Checksum
+replication-test	Initialize containers	2026-02-24T14:32:37.5422988Z 4f4fb700ef54: Download complete
+replication-test	Initialize containers	2026-02-24T14:32:37.5579776Z 9fe3744a2eac: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:37.7505932Z 7ad54b3c4cef: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:37.7596827Z 2a97533d89ca: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:37.7674695Z 4f4fb700ef54: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:37.7775620Z 1c2c8d1ee428: Pull complete
+replication-test	Initialize containers	2026-02-24T14:32:37.7821706Z Digest: sha256:8b81dd37ff027bec4e516d41acfbe9fe2460070dc6d4a4570a2ac5b9d59df065
+replication-test	Initialize containers	2026-02-24T14:32:37.7835290Z Status: Downloaded newer image for redis:7-alpine
+replication-test	Initialize containers	2026-02-24T14:32:37.7842530Z docker.io/library/redis:7-alpine
+replication-test	Initialize containers	2026-02-24T14:32:37.7852197Z ##[command]/usr/bin/docker create --name 9a96390bb1ba42eba5e8cce938b6087f_redis7alpine_8627c9 --label 25cbfa --network github_network_a553e1056c7b4615ad90d9d85296c2b4 --network-alias redis -p 6379:6379 --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5 -e GITHUB_ACTIONS=true -e CI=true redis:7-alpine
+replication-test	Initialize containers	2026-02-24T14:32:37.8066113Z 1c428a39e08410e71507669f3f47e64a9dc6404184641d270d89a2613bb77e71
+replication-test	Initialize containers	2026-02-24T14:32:37.8073177Z ##[command]/usr/bin/docker start 1c428a39e08410e71507669f3f47e64a9dc6404184641d270d89a2613bb77e71
+replication-test	Initialize containers	2026-02-24T14:32:37.9255320Z 1c428a39e08410e71507669f3f47e64a9dc6404184641d270d89a2613bb77e71
+replication-test	Initialize containers	2026-02-24T14:32:37.9266395Z ##[command]/usr/bin/docker ps --all --filter id=1c428a39e08410e71507669f3f47e64a9dc6404184641d270d89a2613bb77e71 --filter status=running --no-trunc --format "{{.ID}} {{.Status}}"
+replication-test	Initialize containers	2026-02-24T14:32:37.9391207Z 1c428a39e08410e71507669f3f47e64a9dc6404184641d270d89a2613bb77e71 Up Less than a second (health: starting)
+replication-test	Initialize containers	2026-02-24T14:32:37.9398165Z ##[command]/usr/bin/docker port 1c428a39e08410e71507669f3f47e64a9dc6404184641d270d89a2613bb77e71
+replication-test	Initialize containers	2026-02-24T14:32:37.9511633Z 6379/tcp -> 0.0.0.0:6379
+replication-test	Initialize containers	2026-02-24T14:32:37.9512315Z 6379/tcp -> [::]:6379
+replication-test	Initialize containers	2026-02-24T14:32:37.9525086Z ##[endgroup]
+replication-test	Initialize containers	2026-02-24T14:32:37.9535609Z ##[group]Waiting for all services to be ready
+replication-test	Initialize containers	2026-02-24T14:32:37.9549039Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 2006fca0040a251c3192927730ab9c61c2ca07b7b735f5cdb131dd5d87b97e84
+replication-test	Initialize containers	2026-02-24T14:32:37.9656347Z starting
+replication-test	Initialize containers	2026-02-24T14:32:37.9671407Z postgres service is starting, waiting 2 seconds before checking again.
+replication-test	Initialize containers	2026-02-24T14:32:39.9660843Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 2006fca0040a251c3192927730ab9c61c2ca07b7b735f5cdb131dd5d87b97e84
+replication-test	Initialize containers	2026-02-24T14:32:39.9797106Z starting
+replication-test	Initialize containers	2026-02-24T14:32:39.9805973Z postgres service is starting, waiting 4 seconds before checking again.
+replication-test	Initialize containers	2026-02-24T14:32:44.3701361Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 2006fca0040a251c3192927730ab9c61c2ca07b7b735f5cdb131dd5d87b97e84
+replication-test	Initialize containers	2026-02-24T14:32:44.3833913Z starting
+replication-test	Initialize containers	2026-02-24T14:32:44.3842003Z postgres service is starting, waiting 9 seconds before checking again.
+replication-test	Initialize containers	2026-02-24T14:32:53.4283609Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 2006fca0040a251c3192927730ab9c61c2ca07b7b735f5cdb131dd5d87b97e84
+replication-test	Initialize containers	2026-02-24T14:32:53.4415208Z healthy
+replication-test	Initialize containers	2026-02-24T14:32:53.4427268Z postgres service is healthy.
+replication-test	Initialize containers	2026-02-24T14:32:53.4428115Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 6e4895ce0d4532ad42acad0c48e593ae6d3d1befd4c33e9dfa859488c253f20a
+replication-test	Initialize containers	2026-02-24T14:32:53.4544024Z healthy
+replication-test	Initialize containers	2026-02-24T14:32:53.4552296Z postgres-replica service is healthy.
+replication-test	Initialize containers	2026-02-24T14:32:53.4553053Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 1c428a39e08410e71507669f3f47e64a9dc6404184641d270d89a2613bb77e71
+replication-test	Initialize containers	2026-02-24T14:32:53.4667890Z healthy
+replication-test	Initialize containers	2026-02-24T14:32:53.4675157Z redis service is healthy.
+replication-test	Initialize containers	2026-02-24T14:32:53.4675888Z ##[endgroup]
+replication-test	Run actions/checkout@v6	﻿2026-02-24T14:32:53.4923094Z ##[group]Run actions/checkout@v6
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.4923787Z with:
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.4923990Z   repository: poyrazK/thecloud
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.4924426Z   token: ***
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.4924615Z   ssh-strict: true
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.4924800Z   ssh-user: git
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.4925014Z   persist-credentials: true
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.4925247Z   clean: true
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.4925457Z   sparse-checkout-cone-mode: true
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.4925870Z   fetch-depth: 1
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.4926062Z   fetch-tags: false
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.4926252Z   show-progress: true
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.4926452Z   lfs: false
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.4926616Z   submodules: false
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.4926823Z   set-safe-directory: true
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.4927215Z ##[endgroup]
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.5794226Z Syncing repository: poyrazK/thecloud
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.5795647Z ##[group]Getting Git version info
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.5796029Z Working directory is '/home/runner/work/thecloud/thecloud'
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.5796536Z [command]/usr/bin/git version
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.5852487Z git version 2.52.0
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.5871334Z ##[endgroup]
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.5883850Z Temporarily overriding HOME='/home/runner/work/_temp/0348c58a-73a7-4e72-b766-18fdee0e5f01' before making global git config changes
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.5885140Z Adding repository directory to the temporary git global config as a safe directory
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.5888624Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/thecloud/thecloud
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.5922997Z Deleting the contents of '/home/runner/work/thecloud/thecloud'
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.5926723Z ##[group]Initializing the repository
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.5931032Z [command]/usr/bin/git init /home/runner/work/thecloud/thecloud
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6057906Z hint: Using 'master' as the name for the initial branch. This default branch name
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6058688Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6059209Z hint: to use in all of your new repositories, which will suppress this warning,
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6059589Z hint: call:
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6059754Z hint:
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6060020Z hint: 	git config --global init.defaultBranch <name>
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6060281Z hint:
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6060560Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6060998Z hint: 'development'. The just-created branch can be renamed via this command:
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6061332Z hint:
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6061540Z hint: 	git branch -m <name>
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6061776Z hint:
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6062214Z hint: Disable this message with "git config set advice.defaultBranchName false"
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6063021Z Initialized empty Git repository in /home/runner/work/thecloud/thecloud/.git/
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6072977Z [command]/usr/bin/git remote add origin https://github.com/poyrazK/thecloud
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6101628Z ##[endgroup]
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6102006Z ##[group]Disabling automatic garbage collection
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6105323Z [command]/usr/bin/git config --local gc.auto 0
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6126859Z ##[endgroup]
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6127199Z ##[group]Setting up auth
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6128340Z Removing SSH command configuration
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6133857Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6158564Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6452122Z Removing HTTP extra header
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6456669Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6480501Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6646590Z Removing includeIf entries pointing to credentials config files
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6652538Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6677812Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6850337Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-d719c560-8b48-42b5-9869-c550fb130cf4.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6879233Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/thecloud/thecloud/.git.path /home/runner/work/_temp/git-credentials-d719c560-8b48-42b5-9869-c550fb130cf4.config
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6902613Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/thecloud/thecloud/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-d719c560-8b48-42b5-9869-c550fb130cf4.config
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6925753Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-d719c560-8b48-42b5-9869-c550fb130cf4.config
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6949371Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-d719c560-8b48-42b5-9869-c550fb130cf4.config
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6968983Z ##[endgroup]
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6969531Z ##[group]Fetching the repository
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:53.6977718Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +d1f5d4bb4e68ffb39edd80f69a1caed483335981:refs/remotes/origin/main
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:54.0678935Z From https://github.com/poyrazK/thecloud
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:54.0679981Z  * [new ref]         d1f5d4bb4e68ffb39edd80f69a1caed483335981 -> origin/main
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:54.0714923Z [command]/usr/bin/git branch --list --remote origin/main
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:54.0736411Z   origin/main
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:54.0744154Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:54.0764462Z d1f5d4bb4e68ffb39edd80f69a1caed483335981
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:54.0767103Z ##[endgroup]
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:54.0767657Z ##[group]Determining the checkout info
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:54.0768266Z ##[endgroup]
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:54.0772963Z [command]/usr/bin/git sparse-checkout disable
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:54.0809019Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:54.0832110Z ##[group]Checking out the ref
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:54.0837504Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:54.1242786Z Switched to a new branch 'main'
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:54.1243803Z branch 'main' set up to track 'origin/main'.
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:54.1250856Z ##[endgroup]
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:54.1291116Z [command]/usr/bin/git log -1 --format=%H
+replication-test	Run actions/checkout@v6	2026-02-24T14:32:54.1313959Z d1f5d4bb4e68ffb39edd80f69a1caed483335981
+replication-test	Setup Go	﻿2026-02-24T14:32:54.1488722Z ##[group]Run actions/setup-go@v6
+replication-test	Setup Go	2026-02-24T14:32:54.1488961Z with:
+replication-test	Setup Go	2026-02-24T14:32:54.1489136Z   go-version: 1.24
+replication-test	Setup Go	2026-02-24T14:32:54.1489312Z   cache: true
+replication-test	Setup Go	2026-02-24T14:32:54.1489494Z   check-latest: false
+replication-test	Setup Go	2026-02-24T14:32:54.1489798Z   token: ***
+replication-test	Setup Go	2026-02-24T14:32:54.1489971Z ##[endgroup]
+replication-test	Setup Go	2026-02-24T14:32:54.2632799Z Setup go version spec 1.24
+replication-test	Setup Go	2026-02-24T14:32:54.4047754Z Found in cache @ /opt/hostedtoolcache/go/1.24.12/x64
+replication-test	Setup Go	2026-02-24T14:32:54.4050731Z Added go to the path
+replication-test	Setup Go	2026-02-24T14:32:54.4054812Z Successfully set up Go version 1.24
+replication-test	Setup Go	2026-02-24T14:32:57.4817147Z [command]/opt/hostedtoolcache/go/1.24.12/x64/bin/go env GOMODCACHE
+replication-test	Setup Go	2026-02-24T14:32:57.4842212Z [command]/opt/hostedtoolcache/go/1.24.12/x64/bin/go env GOCACHE
+replication-test	Setup Go	2026-02-24T14:32:57.4862337Z /home/runner/go/pkg/mod
+replication-test	Setup Go	2026-02-24T14:32:57.4881139Z /home/runner/.cache/go-build
+replication-test	Setup Go	2026-02-24T14:32:57.6160202Z Cache is not found
+replication-test	Setup Go	2026-02-24T14:32:57.6181806Z go version go1.24.12 linux/amd64
+replication-test	Setup Go	2026-02-24T14:32:57.6182058Z 
+replication-test	Setup Go	2026-02-24T14:32:57.6182388Z ##[group]go env
+replication-test	Setup Go	2026-02-24T14:32:58.3823693Z AR='ar'
+replication-test	Setup Go	2026-02-24T14:32:58.3824118Z CC='gcc'
+replication-test	Setup Go	2026-02-24T14:32:58.3824404Z CGO_CFLAGS='-O2 -g'
+replication-test	Setup Go	2026-02-24T14:32:58.3824738Z CGO_CPPFLAGS=''
+replication-test	Setup Go	2026-02-24T14:32:58.3825030Z CGO_CXXFLAGS='-O2 -g'
+replication-test	Setup Go	2026-02-24T14:32:58.3825315Z CGO_ENABLED='1'
+replication-test	Setup Go	2026-02-24T14:32:58.3825493Z CGO_FFLAGS='-O2 -g'
+replication-test	Setup Go	2026-02-24T14:32:58.3825682Z CGO_LDFLAGS='-O2 -g'
+replication-test	Setup Go	2026-02-24T14:32:58.3825861Z CXX='g++'
+replication-test	Setup Go	2026-02-24T14:32:58.3826035Z GCCGO='gccgo'
+replication-test	Setup Go	2026-02-24T14:32:58.3826219Z GO111MODULE=''
+replication-test	Setup Go	2026-02-24T14:32:58.3826590Z GOAMD64='v1'
+replication-test	Setup Go	2026-02-24T14:32:58.3826765Z GOARCH='amd64'
+replication-test	Setup Go	2026-02-24T14:32:58.3826929Z GOAUTH='netrc'
+replication-test	Setup Go	2026-02-24T14:32:58.3827409Z GOBIN=''
+replication-test	Setup Go	2026-02-24T14:32:58.3827628Z GOCACHE='/home/runner/.cache/go-build'
+replication-test	Setup Go	2026-02-24T14:32:58.3827893Z GOCACHEPROG=''
+replication-test	Setup Go	2026-02-24T14:32:58.3828065Z GODEBUG=''
+replication-test	Setup Go	2026-02-24T14:32:58.3828272Z GOENV='/home/runner/.config/go/env'
+replication-test	Setup Go	2026-02-24T14:32:58.3828504Z GOEXE=''
+replication-test	Setup Go	2026-02-24T14:32:58.3828674Z GOEXPERIMENT=''
+replication-test	Setup Go	2026-02-24T14:32:58.3828854Z GOFIPS140='off'
+replication-test	Setup Go	2026-02-24T14:32:58.3829045Z GOFLAGS=''
+replication-test	Setup Go	2026-02-24T14:32:58.3829655Z GOGCCFLAGS='-fPIC -m64 -pthread -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=/tmp/go-build2781585161=/tmp/go-build -gno-record-gcc-switches'
+replication-test	Setup Go	2026-02-24T14:32:58.3830250Z GOHOSTARCH='amd64'
+replication-test	Setup Go	2026-02-24T14:32:58.3830436Z GOHOSTOS='linux'
+replication-test	Setup Go	2026-02-24T14:32:58.3830609Z GOINSECURE=''
+replication-test	Setup Go	2026-02-24T14:32:58.3830841Z GOMOD='/home/runner/work/thecloud/thecloud/go.mod'
+replication-test	Setup Go	2026-02-24T14:32:58.3831126Z GOMODCACHE='/home/runner/go/pkg/mod'
+replication-test	Setup Go	2026-02-24T14:32:58.3831362Z GONOPROXY=''
+replication-test	Setup Go	2026-02-24T14:32:58.3831524Z GONOSUMDB=''
+replication-test	Setup Go	2026-02-24T14:32:58.3831686Z GOOS='linux'
+replication-test	Setup Go	2026-02-24T14:32:58.3831864Z GOPATH='/home/runner/go'
+replication-test	Setup Go	2026-02-24T14:32:58.3832057Z GOPRIVATE=''
+replication-test	Setup Go	2026-02-24T14:32:58.3832287Z GOPROXY='https://proxy.golang.org,direct'
+replication-test	Setup Go	2026-02-24T14:32:58.3832569Z GOROOT='/opt/hostedtoolcache/go/1.24.12/x64'
+replication-test	Setup Go	2026-02-24T14:32:58.3832829Z GOSUMDB='sum.golang.org'
+replication-test	Setup Go	2026-02-24T14:32:58.3833024Z GOTELEMETRY='local'
+replication-test	Setup Go	2026-02-24T14:32:58.3833435Z GOTELEMETRYDIR='/home/runner/.config/go/telemetry'
+replication-test	Setup Go	2026-02-24T14:32:58.3833728Z GOTMPDIR=''
+replication-test	Setup Go	2026-02-24T14:32:58.3833910Z GOTOOLCHAIN='local'
+replication-test	Setup Go	2026-02-24T14:32:58.3834195Z GOTOOLDIR='/opt/hostedtoolcache/go/1.24.12/x64/pkg/tool/linux_amd64'
+replication-test	Setup Go	2026-02-24T14:32:58.3834517Z GOVCS=''
+replication-test	Setup Go	2026-02-24T14:32:58.3834688Z GOVERSION='go1.24.12'
+replication-test	Setup Go	2026-02-24T14:32:58.3834870Z GOWORK=''
+replication-test	Setup Go	2026-02-24T14:32:58.3835059Z PKG_CONFIG='pkg-config'
+replication-test	Setup Go	2026-02-24T14:32:58.3835189Z 
+replication-test	Setup Go	2026-02-24T14:32:58.3835578Z ##[endgroup]
+replication-test	Install Dependencies	﻿2026-02-24T14:32:58.3943125Z ##[group]Run go mod download
+replication-test	Install Dependencies	2026-02-24T14:32:58.3943915Z [36;1mgo mod download[0m
+replication-test	Install Dependencies	2026-02-24T14:32:58.3969478Z shell: /usr/bin/bash -e {0}
+replication-test	Install Dependencies	2026-02-24T14:32:58.3969733Z env:
+replication-test	Install Dependencies	2026-02-24T14:32:58.3969914Z   GOTOOLCHAIN: local
+replication-test	Install Dependencies	2026-02-24T14:32:58.3970098Z ##[endgroup]
+replication-test	Wait for Services	﻿2026-02-24T14:33:04.7439757Z ##[group]Run echo "Waiting for primary postgres..."
+replication-test	Wait for Services	2026-02-24T14:33:04.7440243Z [36;1mecho "Waiting for primary postgres..."[0m
+replication-test	Wait for Services	2026-02-24T14:33:04.7440947Z [36;1mtimeout 60s bash -c 'until pg_isready -h localhost -p 5433 -U cloud; do sleep 2; done' || (echo "Primary postgres failed to start" && exit 1)[0m
+replication-test	Wait for Services	2026-02-24T14:33:04.7441566Z [36;1m[0m
+replication-test	Wait for Services	2026-02-24T14:33:04.7441809Z [36;1mecho "Waiting for replica postgres..."[0m
+replication-test	Wait for Services	2026-02-24T14:33:04.7442455Z [36;1mtimeout 60s bash -c 'until pg_isready -h localhost -p 5434 -U cloud; do sleep 2; done' || (echo "Replica postgres failed to start" && exit 1)[0m
+replication-test	Wait for Services	2026-02-24T14:33:04.7443046Z [36;1m[0m
+replication-test	Wait for Services	2026-02-24T14:33:04.7443542Z [36;1mecho "Waiting for redis..."[0m
+replication-test	Wait for Services	2026-02-24T14:33:04.7444086Z [36;1mtimeout 60s bash -c 'until nc -z localhost 6379; do sleep 2; done' || (echo "Redis failed to start" && exit 1)[0m
+replication-test	Wait for Services	2026-02-24T14:33:04.7464466Z shell: /usr/bin/bash -e {0}
+replication-test	Wait for Services	2026-02-24T14:33:04.7464726Z env:
+replication-test	Wait for Services	2026-02-24T14:33:04.7464896Z   GOTOOLCHAIN: local
+replication-test	Wait for Services	2026-02-24T14:33:04.7465145Z ##[endgroup]
+replication-test	Wait for Services	2026-02-24T14:33:04.7501667Z Waiting for primary postgres...
+replication-test	Wait for Services	2026-02-24T14:33:04.8242561Z localhost:5433 - accepting connections
+replication-test	Wait for Services	2026-02-24T14:33:04.8250871Z Waiting for replica postgres...
+replication-test	Wait for Services	2026-02-24T14:33:04.8518335Z localhost:5434 - accepting connections
+replication-test	Wait for Services	2026-02-24T14:33:04.8527476Z Waiting for redis...
+replication-test	Wait for Services	2026-02-24T14:33:04.8565233Z Connection to localhost (::1) 6379 port [tcp/redis] succeeded!
+replication-test	Reset Database	﻿2026-02-24T14:33:04.8597176Z ##[group]Run # Ensure a completely fresh database for the metadata
+replication-test	Reset Database	2026-02-24T14:33:04.8674169Z [36;1m# Ensure a completely fresh database for the metadata[0m
+replication-test	Reset Database	2026-02-24T14:33:04.8675104Z [36;1mPGPASSWORD=cloud psql -h localhost -p 5433 -U cloud -d postgres -c "DROP DATABASE IF EXISTS cloud;"[0m
+replication-test	Reset Database	2026-02-24T14:33:04.8676376Z [36;1mPGPASSWORD=cloud psql -h localhost -p 5433 -U cloud -d postgres -c "CREATE DATABASE cloud;"[0m
+replication-test	Reset Database	2026-02-24T14:33:04.8704752Z shell: /usr/bin/bash -e {0}
+replication-test	Reset Database	2026-02-24T14:33:04.8705006Z env:
+replication-test	Reset Database	2026-02-24T14:33:04.8705186Z   GOTOOLCHAIN: local
+replication-test	Reset Database	2026-02-24T14:33:04.8705706Z   DATABASE_URL: ***localhost:5433/cloud?sslmode=disable
+replication-test	Reset Database	2026-02-24T14:33:04.8705993Z ##[endgroup]
+replication-test	Reset Database	2026-02-24T14:33:05.0597131Z DROP DATABASE
+replication-test	Reset Database	2026-02-24T14:33:05.1328618Z CREATE DATABASE
+replication-test	Start API Server	﻿2026-02-24T14:33:05.1361776Z ##[group]Run # Start the API server in the background
+replication-test	Start API Server	2026-02-24T14:33:05.1362173Z [36;1m# Start the API server in the background[0m
+replication-test	Start API Server	2026-02-24T14:33:05.1362503Z [36;1m# The server will run migrations automatically on startup[0m
+replication-test	Start API Server	2026-02-24T14:33:05.1362833Z [36;1mgo run ./cmd/api > api.log 2>&1 &[0m
+replication-test	Start API Server	2026-02-24T14:33:05.1363080Z [36;1mecho $! > api.pid[0m
+replication-test	Start API Server	2026-02-24T14:33:05.1363474Z [36;1m[0m
+replication-test	Start API Server	2026-02-24T14:33:05.1363667Z [36;1m# Wait for the server to be ready[0m
+replication-test	Start API Server	2026-02-24T14:33:05.1363955Z [36;1mecho "Waiting for API server to start..."[0m
+replication-test	Start API Server	2026-02-24T14:33:05.1364486Z [36;1mtimeout 60s bash -c 'until curl -s http://localhost:8080/health/live; do sleep 1; done' || (cat api.log && exit 1)[0m
+replication-test	Start API Server	2026-02-24T14:33:05.1364971Z [36;1mecho "API server started."[0m
+replication-test	Start API Server	2026-02-24T14:33:05.1382952Z shell: /usr/bin/bash -e {0}
+replication-test	Start API Server	2026-02-24T14:33:05.1383195Z env:
+replication-test	Start API Server	2026-02-24T14:33:05.1383565Z   GOTOOLCHAIN: local
+replication-test	Start API Server	2026-02-24T14:33:05.1384270Z   DATABASE_URL: ***localhost:5433/cloud?sslmode=disable
+replication-test	Start API Server	2026-02-24T14:33:05.1384597Z   COMPUTE_BACKEND: docker
+replication-test	Start API Server	2026-02-24T14:33:05.1384816Z   TEST_DOCKER_NETWORK: cloud-network
+replication-test	Start API Server	2026-02-24T14:33:05.1385054Z ##[endgroup]
+replication-test	Start API Server	2026-02-24T14:33:05.1422202Z Waiting for API server to start...
+replication-test	Start API Server	2026-02-24T14:34:05.1466252Z ##[error]Process completed with exit code 1.
+replication-test	Post Run actions/checkout@v6	﻿2026-02-24T14:34:05.1551271Z Post job cleanup.
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2308108Z [command]/usr/bin/git version
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2343906Z git version 2.52.0
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2381146Z Temporarily overriding HOME='/home/runner/work/_temp/e3f08b9c-4003-48f2-adda-0de722176152' before making global git config changes
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2382236Z Adding repository directory to the temporary git global config as a safe directory
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2386431Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/thecloud/thecloud
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2414549Z Removing SSH command configuration
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2420599Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2451039Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2644215Z Removing HTTP extra header
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2650211Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2679969Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2863157Z Removing includeIf entries pointing to credentials config files
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2869025Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2890372Z includeif.gitdir:/home/runner/work/thecloud/thecloud/.git.path
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2891742Z includeif.gitdir:/home/runner/work/thecloud/thecloud/.git/worktrees/*.path
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2892312Z includeif.gitdir:/github/workspace/.git.path
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2892798Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2900961Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/thecloud/thecloud/.git.path
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2918484Z /home/runner/work/_temp/git-credentials-d719c560-8b48-42b5-9869-c550fb130cf4.config
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2927837Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/thecloud/thecloud/.git.path /home/runner/work/_temp/git-credentials-d719c560-8b48-42b5-9869-c550fb130cf4.config
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2955874Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/thecloud/thecloud/.git/worktrees/*.path
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2974025Z /home/runner/work/_temp/git-credentials-d719c560-8b48-42b5-9869-c550fb130cf4.config
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.2982813Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/thecloud/thecloud/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-d719c560-8b48-42b5-9869-c550fb130cf4.config
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.3009447Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.3027526Z /github/runner_temp/git-credentials-d719c560-8b48-42b5-9869-c550fb130cf4.config
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.3034970Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-d719c560-8b48-42b5-9869-c550fb130cf4.config
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.3059451Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.3078874Z /github/runner_temp/git-credentials-d719c560-8b48-42b5-9869-c550fb130cf4.config
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.3083830Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-d719c560-8b48-42b5-9869-c550fb130cf4.config
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.3109818Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+replication-test	Post Run actions/checkout@v6	2026-02-24T14:34:05.3309906Z Removing credentials config '/home/runner/work/_temp/git-credentials-d719c560-8b48-42b5-9869-c550fb130cf4.config'
+replication-test	Stop containers	﻿2026-02-24T14:34:05.3404525Z Print service container logs: c39b6a37aa294640acaea0b867ac300d_postgres16alpine_8686de
+replication-test	Stop containers	2026-02-24T14:34:05.3410725Z ##[command]/usr/bin/docker logs --details 2006fca0040a251c3192927730ab9c61c2ca07b7b735f5cdb131dd5d87b97e84
+replication-test	Stop containers	2026-02-24T14:34:05.3550910Z  The files belonging to this database system will be owned by user "postgres".
+replication-test	Stop containers	2026-02-24T14:34:05.3563863Z  This user must also own the server process.
+replication-test	Stop containers	2026-02-24T14:34:05.3564302Z  
+replication-test	Stop containers	2026-02-24T14:34:05.3564698Z  The database cluster will be initialized with locale "en_US.utf8".
+replication-test	Stop containers	2026-02-24T14:34:05.3565347Z  The default database encoding has accordingly been set to "UTF8".
+replication-test	Stop containers	2026-02-24T14:34:05.3565991Z  The default text search configuration will be set to "english".
+replication-test	Stop containers	2026-02-24T14:34:05.3566504Z  
+replication-test	Stop containers	2026-02-24T14:34:05.3566779Z  Data page checksums are disabled.
+replication-test	Stop containers	2026-02-24T14:34:05.3567149Z  
+replication-test	Stop containers	2026-02-24T14:34:05.3567615Z  fixing permissions on existing directory /var/lib/postgresql/data ... ok
+replication-test	Stop containers	2026-02-24T14:34:05.3568261Z  creating subdirectories ... ok
+replication-test	Stop containers	2026-02-24T14:34:05.3568825Z  selecting dynamic shared memory implementation ... posix
+replication-test	Stop containers	2026-02-24T14:34:05.3569380Z  selecting default max_connections ... 100
+replication-test	Stop containers	2026-02-24T14:34:05.3569818Z  selecting default shared_buffers ... 128MB
+replication-test	Stop containers	2026-02-24T14:34:05.3570208Z  selecting default time zone ... UTC
+replication-test	Stop containers	2026-02-24T14:34:05.3572063Z  sh: locale: not found
+replication-test	Stop containers	2026-02-24T14:34:05.3572546Z  2026-02-24 14:32:36.432 UTC [35] WARNING:  no usable system locales were found
+replication-test	Stop containers	2026-02-24T14:34:05.3573450Z  initdb: warning: enabling "trust" authentication for local connections
+replication-test	Stop containers	2026-02-24T14:34:05.3574646Z  initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+replication-test	Stop containers	2026-02-24T14:34:05.3576075Z  2026-02-24 14:32:37.118 UTC [1] LOG:  starting PostgreSQL 16.12 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+replication-test	Stop containers	2026-02-24T14:34:05.3577109Z  2026-02-24 14:32:37.118 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+replication-test	Stop containers	2026-02-24T14:34:05.3577886Z  2026-02-24 14:32:37.118 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+replication-test	Stop containers	2026-02-24T14:34:05.3578673Z  2026-02-24 14:32:37.119 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+replication-test	Stop containers	2026-02-24T14:34:05.3579814Z  2026-02-24 14:32:37.122 UTC [57] LOG:  database system was shut down at 2026-02-24 14:32:37 UTC
+replication-test	Stop containers	2026-02-24T14:34:05.3580668Z  2026-02-24 14:32:37.126 UTC [1] LOG:  database system is ready to accept connections
+replication-test	Stop containers	2026-02-24T14:34:05.3581451Z  2026-02-24 14:33:05.042 UTC [55] LOG:  checkpoint starting: immediate force wait
+replication-test	Stop containers	2026-02-24T14:34:05.3583193Z  2026-02-24 14:33:05.053 UTC [55] LOG:  checkpoint complete: wrote 4 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.001 s, total=0.012 s; sync files=3, longest=0.001 s, average=0.001 s; distance=1 kB, estimate=1 kB; lsn=0/191ED80, redo lsn=0/191ED48
+replication-test	Stop containers	2026-02-24T14:34:05.3584978Z  creating configuration files ... ok
+replication-test	Stop containers	2026-02-24T14:34:05.3585395Z  running bootstrap script ... ok
+replication-test	Stop containers	2026-02-24T14:34:05.3585872Z  performing post-bootstrap initialization ... ok
+replication-test	Stop containers	2026-02-24T14:34:05.3586362Z  syncing data to disk ... ok
+replication-test	Stop containers	2026-02-24T14:34:05.3586763Z  
+replication-test	Stop containers	2026-02-24T14:34:05.3587064Z  
+replication-test	Stop containers	2026-02-24T14:34:05.3587426Z  Success. You can now start the database server using:
+replication-test	Stop containers	2026-02-24T14:34:05.3587909Z  
+replication-test	Stop containers	2026-02-24T14:34:05.3588239Z      pg_ctl -D /var/lib/postgresql/data -l logfile start
+replication-test	Stop containers	2026-02-24T14:34:05.3588651Z  
+replication-test	Stop containers	2026-02-24T14:34:05.3589542Z  waiting for server to start....2026-02-24 14:32:36.869 UTC [41] LOG:  starting PostgreSQL 16.12 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+replication-test	Stop containers	2026-02-24T14:34:05.3590891Z  2026-02-24 14:32:36.869 UTC [41] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+replication-test	Stop containers	2026-02-24T14:34:05.3591825Z  2026-02-24 14:32:36.872 UTC [44] LOG:  database system was shut down at 2026-02-24 14:32:36 UTC
+replication-test	Stop containers	2026-02-24T14:34:05.3592684Z  2026-02-24 14:32:36.875 UTC [41] LOG:  database system is ready to accept connections
+replication-test	Stop containers	2026-02-24T14:34:05.3593202Z   done
+replication-test	Stop containers	2026-02-24T14:34:05.3593811Z  server started
+replication-test	Stop containers	2026-02-24T14:34:05.3594076Z  CREATE DATABASE
+replication-test	Stop containers	2026-02-24T14:34:05.3594318Z  
+replication-test	Stop containers	2026-02-24T14:34:05.3594545Z  
+replication-test	Stop containers	2026-02-24T14:34:05.3595008Z  /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+replication-test	Stop containers	2026-02-24T14:34:05.3595581Z  
+replication-test	Stop containers	2026-02-24T14:34:05.3596131Z  waiting for server to shut down....2026-02-24 14:32:37.000 UTC [41] LOG:  received fast shutdown request
+replication-test	Stop containers	2026-02-24T14:34:05.3597017Z  2026-02-24 14:32:37.000 UTC [41] LOG:  aborting any active transactions
+replication-test	Stop containers	2026-02-24T14:34:05.3597885Z  2026-02-24 14:32:37.003 UTC [41] LOG:  background worker "logical replication launcher" (PID 47) exited with exit code 1
+replication-test	Stop containers	2026-02-24T14:34:05.3598782Z  2026-02-24 14:32:37.004 UTC [42] LOG:  shutting down
+replication-test	Stop containers	2026-02-24T14:34:05.3599390Z  2026-02-24 14:32:37.005 UTC [42] LOG:  checkpoint starting: shutdown immediate
+replication-test	Stop containers	2026-02-24T14:34:05.3601251Z  2026-02-24 14:32:37.017 UTC [42] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.008 s, sync=0.003 s, total=0.014 s; sync files=301, longest=0.002 s, average=0.001 s; distance=4272 kB, estimate=4272 kB; lsn=0/191E928, redo lsn=0/191E928
+replication-test	Stop containers	2026-02-24T14:34:05.3603051Z  2026-02-24 14:32:37.024 UTC [41] LOG:  database system is shut down
+replication-test	Stop containers	2026-02-24T14:34:05.3603687Z   done
+replication-test	Stop containers	2026-02-24T14:34:05.3603949Z  server stopped
+replication-test	Stop containers	2026-02-24T14:34:05.3604230Z  
+replication-test	Stop containers	2026-02-24T14:34:05.3604573Z  PostgreSQL init process complete; ready for start up.
+replication-test	Stop containers	2026-02-24T14:34:05.3605035Z  
+replication-test	Stop containers	2026-02-24T14:34:05.3613595Z Stop and remove container: c39b6a37aa294640acaea0b867ac300d_postgres16alpine_8686de
+replication-test	Stop containers	2026-02-24T14:34:05.3620031Z ##[command]/usr/bin/docker rm --force 2006fca0040a251c3192927730ab9c61c2ca07b7b735f5cdb131dd5d87b97e84
+replication-test	Stop containers	2026-02-24T14:34:06.6628315Z 2006fca0040a251c3192927730ab9c61c2ca07b7b735f5cdb131dd5d87b97e84
+replication-test	Stop containers	2026-02-24T14:34:06.6648947Z Print service container logs: 1fd6bf2f3f4a4d20af1c5a5c76b635cd_postgres16alpine_53b431
+replication-test	Stop containers	2026-02-24T14:34:06.6650177Z ##[command]/usr/bin/docker logs --details 6e4895ce0d4532ad42acad0c48e593ae6d3d1befd4c33e9dfa859488c253f20a
+replication-test	Stop containers	2026-02-24T14:34:06.6782412Z  The files belonging to this database system will be owned by user "postgres".
+replication-test	Stop containers	2026-02-24T14:34:06.6783969Z  sh: locale: not found
+replication-test	Stop containers	2026-02-24T14:34:06.6784826Z  This user must also own the server process.
+replication-test	Stop containers	2026-02-24T14:34:06.6786781Z  2026-02-24 14:32:36.976 UTC [35] WARNING:  no usable system locales were found
+replication-test	Stop containers	2026-02-24T14:34:06.6787556Z  initdb: warning: enabling "trust" authentication for local connections
+replication-test	Stop containers	2026-02-24T14:34:06.6788580Z  initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+replication-test	Stop containers	2026-02-24T14:34:06.6789888Z  2026-02-24 14:32:37.723 UTC [1] LOG:  starting PostgreSQL 16.12 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+replication-test	Stop containers	2026-02-24T14:34:06.6790857Z  2026-02-24 14:32:37.723 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+replication-test	Stop containers	2026-02-24T14:34:06.6791563Z  2026-02-24 14:32:37.723 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+replication-test	Stop containers	2026-02-24T14:34:06.6792352Z  2026-02-24 14:32:37.724 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+replication-test	Stop containers	2026-02-24T14:34:06.6793184Z  2026-02-24 14:32:37.727 UTC [57] LOG:  database system was shut down at 2026-02-24 14:32:37 UTC
+replication-test	Stop containers	2026-02-24T14:34:06.6794179Z  2026-02-24 14:32:37.731 UTC [1] LOG:  database system is ready to accept connections
+replication-test	Stop containers	2026-02-24T14:34:06.6794731Z  
+replication-test	Stop containers	2026-02-24T14:34:06.6795138Z  The database cluster will be initialized with locale "en_US.utf8".
+replication-test	Stop containers	2026-02-24T14:34:06.6795895Z  The default database encoding has accordingly been set to "UTF8".
+replication-test	Stop containers	2026-02-24T14:34:06.6796590Z  The default text search configuration will be set to "english".
+replication-test	Stop containers	2026-02-24T14:34:06.6797137Z  
+replication-test	Stop containers	2026-02-24T14:34:06.6797410Z  Data page checksums are disabled.
+replication-test	Stop containers	2026-02-24T14:34:06.6797781Z  
+replication-test	Stop containers	2026-02-24T14:34:06.6798217Z  fixing permissions on existing directory /var/lib/postgresql/data ... ok
+replication-test	Stop containers	2026-02-24T14:34:06.6798795Z  creating subdirectories ... ok
+replication-test	Stop containers	2026-02-24T14:34:06.6799493Z  selecting dynamic shared memory implementation ... posix
+replication-test	Stop containers	2026-02-24T14:34:06.6799964Z  selecting default max_connections ... 100
+replication-test	Stop containers	2026-02-24T14:34:06.6800425Z  selecting default shared_buffers ... 128MB
+replication-test	Stop containers	2026-02-24T14:34:06.6800860Z  selecting default time zone ... UTC
+replication-test	Stop containers	2026-02-24T14:34:06.6801260Z  creating configuration files ... ok
+replication-test	Stop containers	2026-02-24T14:34:06.6801648Z  running bootstrap script ... ok
+replication-test	Stop containers	2026-02-24T14:34:06.6801911Z  performing post-bootstrap initialization ... ok
+replication-test	Stop containers	2026-02-24T14:34:06.6802182Z  syncing data to disk ... ok
+replication-test	Stop containers	2026-02-24T14:34:06.6802382Z  
+replication-test	Stop containers	2026-02-24T14:34:06.6802519Z  
+replication-test	Stop containers	2026-02-24T14:34:06.6802722Z  Success. You can now start the database server using:
+replication-test	Stop containers	2026-02-24T14:34:06.6802979Z  
+replication-test	Stop containers	2026-02-24T14:34:06.6803186Z      pg_ctl -D /var/lib/postgresql/data -l logfile start
+replication-test	Stop containers	2026-02-24T14:34:06.6803615Z  
+replication-test	Stop containers	2026-02-24T14:34:06.6804107Z  waiting for server to start....2026-02-24 14:32:37.460 UTC [41] LOG:  starting PostgreSQL 16.12 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+replication-test	Stop containers	2026-02-24T14:34:06.6804822Z  2026-02-24 14:32:37.461 UTC [41] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+replication-test	Stop containers	2026-02-24T14:34:06.6805325Z  2026-02-24 14:32:37.464 UTC [44] LOG:  database system was shut down at 2026-02-24 14:32:37 UTC
+replication-test	Stop containers	2026-02-24T14:34:06.6805790Z  2026-02-24 14:32:37.469 UTC [41] LOG:  database system is ready to accept connections
+replication-test	Stop containers	2026-02-24T14:34:06.6806122Z   done
+replication-test	Stop containers	2026-02-24T14:34:06.6806277Z  server started
+replication-test	Stop containers	2026-02-24T14:34:06.6806455Z  CREATE DATABASE
+replication-test	Stop containers	2026-02-24T14:34:06.6806626Z  
+replication-test	Stop containers	2026-02-24T14:34:06.6806762Z  
+replication-test	Stop containers	2026-02-24T14:34:06.6807043Z  /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+replication-test	Stop containers	2026-02-24T14:34:06.6807393Z  
+replication-test	Stop containers	2026-02-24T14:34:06.6807704Z  waiting for server to shut down...2026-02-24 14:32:37.603 UTC [41] LOG:  received fast shutdown request
+replication-test	Stop containers	2026-02-24T14:34:06.6808171Z  .2026-02-24 14:32:37.604 UTC [41] LOG:  aborting any active transactions
+replication-test	Stop containers	2026-02-24T14:34:06.6808676Z  2026-02-24 14:32:37.607 UTC [41] LOG:  background worker "logical replication launcher" (PID 47) exited with exit code 1
+replication-test	Stop containers	2026-02-24T14:34:06.6809153Z  2026-02-24 14:32:37.607 UTC [42] LOG:  shutting down
+replication-test	Stop containers	2026-02-24T14:34:06.6809664Z  2026-02-24 14:32:37.608 UTC [42] LOG:  checkpoint starting: shutdown immediate
+replication-test	Stop containers	2026-02-24T14:34:06.6810614Z  2026-02-24 14:32:37.623 UTC [42] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.011 s, sync=0.003 s, total=0.016 s; sync files=301, longest=0.001 s, average=0.001 s; distance=4272 kB, estimate=4272 kB; lsn=0/191E928, redo lsn=0/191E928
+replication-test	Stop containers	2026-02-24T14:34:06.6811569Z  2026-02-24 14:32:37.629 UTC [41] LOG:  database system is shut down
+replication-test	Stop containers	2026-02-24T14:34:06.6811857Z   done
+replication-test	Stop containers	2026-02-24T14:34:06.6812012Z  server stopped
+replication-test	Stop containers	2026-02-24T14:34:06.6812187Z  
+replication-test	Stop containers	2026-02-24T14:34:06.6812394Z  PostgreSQL init process complete; ready for start up.
+replication-test	Stop containers	2026-02-24T14:34:06.6812656Z  
+replication-test	Stop containers	2026-02-24T14:34:06.6813772Z Stop and remove container: 1fd6bf2f3f4a4d20af1c5a5c76b635cd_postgres16alpine_53b431
+replication-test	Stop containers	2026-02-24T14:34:06.6814615Z ##[command]/usr/bin/docker rm --force 6e4895ce0d4532ad42acad0c48e593ae6d3d1befd4c33e9dfa859488c253f20a
+replication-test	Stop containers	2026-02-24T14:34:06.9120787Z 6e4895ce0d4532ad42acad0c48e593ae6d3d1befd4c33e9dfa859488c253f20a
+replication-test	Stop containers	2026-02-24T14:34:06.9130537Z Print service container logs: 9a96390bb1ba42eba5e8cce938b6087f_redis7alpine_8627c9
+replication-test	Stop containers	2026-02-24T14:34:06.9131191Z ##[command]/usr/bin/docker logs --details 1c428a39e08410e71507669f3f47e64a9dc6404184641d270d89a2613bb77e71
+replication-test	Stop containers	2026-02-24T14:34:06.9263819Z  1:C 24 Feb 2026 14:32:37.932 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+replication-test	Stop containers	2026-02-24T14:34:06.9274153Z  1:C 24 Feb 2026 14:32:37.932 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+replication-test	Stop containers	2026-02-24T14:34:06.9275360Z  1:C 24 Feb 2026 14:32:37.932 * Redis version=7.4.8, bits=64, commit=00000000, modified=0, pid=1, just started
+replication-test	Stop containers	2026-02-24T14:34:06.9276209Z  1:C 24 Feb 2026 14:32:37.932 # Warning: no config file specified, using the default config. In order to specify a config file use redis-server /path/to/redis.conf
+replication-test	Stop containers	2026-02-24T14:34:06.9277066Z  1:M 24 Feb 2026 14:32:37.932 * monotonic clock: POSIX clock_gettime
+replication-test	Stop containers	2026-02-24T14:34:06.9277637Z  1:M 24 Feb 2026 14:32:37.933 * Running mode=standalone, port=6379.
+replication-test	Stop containers	2026-02-24T14:34:06.9278099Z  1:M 24 Feb 2026 14:32:37.933 * Server initialized
+replication-test	Stop containers	2026-02-24T14:34:06.9278580Z  1:M 24 Feb 2026 14:32:37.933 * Ready to accept connections tcp
+replication-test	Stop containers	2026-02-24T14:34:06.9279536Z Stop and remove container: 9a96390bb1ba42eba5e8cce938b6087f_redis7alpine_8627c9
+replication-test	Stop containers	2026-02-24T14:34:06.9280140Z ##[command]/usr/bin/docker rm --force 1c428a39e08410e71507669f3f47e64a9dc6404184641d270d89a2613bb77e71
+replication-test	Stop containers	2026-02-24T14:34:07.0779998Z 1c428a39e08410e71507669f3f47e64a9dc6404184641d270d89a2613bb77e71
+replication-test	Stop containers	2026-02-24T14:34:07.0799256Z Remove container network: github_network_a553e1056c7b4615ad90d9d85296c2b4
+replication-test	Stop containers	2026-02-24T14:34:07.0804780Z ##[command]/usr/bin/docker network rm github_network_a553e1056c7b4615ad90d9d85296c2b4
+replication-test	Stop containers	2026-02-24T14:34:07.2001761Z github_network_a553e1056c7b4615ad90d9d85296c2b4
+replication-test	Complete job	﻿2026-02-24T14:34:07.2059109Z Cleaning up orphan processes
