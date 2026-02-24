@@ -49,7 +49,7 @@ func TestElasticIPAllocateSuccess(t *testing.T) {
 
 	// Verify in DB
 	fetched, err := repo.GetByID(ctx, eip.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, eip.ID, fetched.ID)
 }
 
@@ -107,7 +107,7 @@ func TestElasticIPReleaseFailureAssociated(t *testing.T) {
 
 	// Should fail release because associated
 	err = svc.ReleaseIP(ctx, eip.ID)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "disassociate it first")
 }
 
@@ -117,10 +117,10 @@ func TestElasticIPReleaseSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	err = svc.ReleaseIP(ctx, eip.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	_, err = repo.GetByID(ctx, eip.ID)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestElasticIPListSuccess(t *testing.T) {
@@ -131,7 +131,7 @@ func TestElasticIPListSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	eips, err := svc.ListElasticIPs(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, eips, 2)
 }
 

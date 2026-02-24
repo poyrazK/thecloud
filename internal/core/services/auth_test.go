@@ -78,7 +78,7 @@ func TestAuthService_LoginInvalidCredentials(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = svc.Login(ctx, email, "wrongpass")
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestAuthService_LoginUserNotFound(t *testing.T) {
@@ -87,7 +87,7 @@ func TestAuthService_LoginUserNotFound(t *testing.T) {
 	ctx := context.Background()
 
 	_, _, err := svc.Login(ctx, "nonexistent@example.com", "pass")
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestAuthService_ValidateToken(t *testing.T) {
@@ -120,10 +120,10 @@ func TestAuthService_RevokeToken(t *testing.T) {
 	require.NoError(t, err)
 
 	err = identitySvc.RevokeKey(ctx, user.ID, apiKey.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	_, err = identitySvc.ValidateAPIKey(ctx, apiKey.Key)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestAuthService_RotateToken(t *testing.T) {
@@ -144,7 +144,7 @@ func TestAuthService_RotateToken(t *testing.T) {
 
 	// Old token should be invalid
 	_, err = identitySvc.ValidateAPIKey(ctx, apiKey.Key)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// New token should be valid
 	validatedKey, err := identitySvc.ValidateAPIKey(ctx, newToken.Key)
@@ -171,10 +171,10 @@ func TestAuthService_Logout(t *testing.T) {
 	require.NotEmpty(t, keys)
 
 	err = identitySvc.RevokeKey(ctx, user.ID, keys[0].ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	_, err = identitySvc.ValidateAPIKey(ctx, token)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestAuthService_TokenRotationIntegration(t *testing.T) {
@@ -196,7 +196,7 @@ func TestAuthService_TokenRotationIntegration(t *testing.T) {
 
 	// Verify
 	_, err = identitySvc.ValidateAPIKey(ctx, token1.Key)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	vKey, err := identitySvc.ValidateAPIKey(ctx, token2.Key)
 	require.NoError(t, err)

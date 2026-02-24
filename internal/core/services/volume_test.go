@@ -44,7 +44,7 @@ func TestVolumeServiceCreateVolumeSuccess(t *testing.T) {
 
 	vol, err := svc.CreateVolume(ctx, name, size)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, vol)
 	assert.Equal(t, name, vol.Name)
 	assert.Equal(t, size, vol.SizeGB)
@@ -52,7 +52,7 @@ func TestVolumeServiceCreateVolumeSuccess(t *testing.T) {
 
 	// Verify in DB
 	fetched, err := repo.GetByID(ctx, vol.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, vol.ID, fetched.ID)
 }
 
@@ -66,7 +66,7 @@ func TestVolumeServiceDeleteVolumeSuccess(t *testing.T) {
 
 	// Verify Deleted from DB
 	_, err = repo.GetByID(ctx, vol.ID)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestVolumeServiceDeleteVolumeInUseFails(t *testing.T) {
@@ -80,7 +80,7 @@ func TestVolumeServiceDeleteVolumeInUseFails(t *testing.T) {
 	require.NoError(t, err)
 
 	err = svc.DeleteVolume(ctx, vol.ID.String())
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "in use")
 }
 
@@ -91,7 +91,7 @@ func TestVolumeServiceListVolumesSuccess(t *testing.T) {
 
 	result, err := svc.ListVolumes(ctx)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, result, 2)
 }
 
@@ -101,13 +101,13 @@ func TestVolumeServiceGetVolume(t *testing.T) {
 
 	t.Run("get by id", func(t *testing.T) {
 		res, err := svc.GetVolume(ctx, vol.ID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, vol.ID, res.ID)
 	})
 
 	t.Run("get by name", func(t *testing.T) {
 		res, err := svc.GetVolume(ctx, vol.Name)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, vol.ID, res.ID)
 	})
 }
@@ -122,7 +122,7 @@ func TestVolumeServiceReleaseVolumesForInstance(t *testing.T) {
 	_ = repo.Update(ctx, vol)
 
 	err := svc.ReleaseVolumesForInstance(ctx, instanceID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify released
 	updated, _ := repo.GetByID(ctx, vol.ID)
@@ -140,7 +140,7 @@ func TestVolumeServiceCreateVolumeRollbackOnRepoError(t *testing.T) {
 	cancel()
 
 	vol, err := svc.CreateVolume(cancelledCtx, "fail-vol-"+uuid.New().String(), 5)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, vol)
 }
 
@@ -193,13 +193,13 @@ func TestVolume_LaunchAttach_Conflict(t *testing.T) {
 	if err == nil {
 		// If Launch succeeded (maybe only validation passed?), try Provision
 		err = svc.Provision(ctx, domain.ProvisionJob{InstanceID: instB.ID, Volumes: volsA})
-		assert.Error(t, err, "Provisioning second instance with same volume should fail")
+		require.Error(t, err, "Provisioning second instance with same volume should fail")
 		if err == nil {
 			// Cleanup B
 			_ = svc.TerminateInstance(ctx, instB.ID.String())
 		}
 	} else {
-		assert.Error(t, err, "Launching second instance with in-use volume should fail")
+		require.Error(t, err, "Launching second instance with in-use volume should fail")
 	}
 
 	// Cleanup
