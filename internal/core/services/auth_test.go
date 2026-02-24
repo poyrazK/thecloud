@@ -31,7 +31,6 @@ func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *
 }
 
 func TestAuthService_Register(t *testing.T) {
-	t.Parallel()
 	_, svc, userRepo, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
@@ -51,7 +50,6 @@ func TestAuthService_Register(t *testing.T) {
 }
 
 func TestAuthService_Login(t *testing.T) {
-	t.Parallel()
 	_, svc, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
@@ -69,7 +67,6 @@ func TestAuthService_Login(t *testing.T) {
 }
 
 func TestAuthService_LoginInvalidCredentials(t *testing.T) {
-	t.Parallel()
 	_, svc, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
@@ -82,7 +79,6 @@ func TestAuthService_LoginInvalidCredentials(t *testing.T) {
 }
 
 func TestAuthService_LoginUserNotFound(t *testing.T) {
-	t.Parallel()
 	_, svc, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
@@ -91,7 +87,6 @@ func TestAuthService_LoginUserNotFound(t *testing.T) {
 }
 
 func TestAuthService_ValidateToken(t *testing.T) {
-	t.Parallel()
 	_, svc, _, identitySvc := setupAuthServiceTest(t)
 	ctx := context.Background()
 
@@ -108,7 +103,6 @@ func TestAuthService_ValidateToken(t *testing.T) {
 }
 
 func TestAuthService_RevokeToken(t *testing.T) {
-	t.Parallel()
 	_, svc, _, identitySvc := setupAuthServiceTest(t)
 	ctx := context.Background()
 
@@ -127,7 +121,6 @@ func TestAuthService_RevokeToken(t *testing.T) {
 }
 
 func TestAuthService_RotateToken(t *testing.T) {
-	t.Parallel()
 	_, svc, _, identitySvc := setupAuthServiceTest(t)
 	ctx := context.Background()
 
@@ -153,7 +146,6 @@ func TestAuthService_RotateToken(t *testing.T) {
 }
 
 func TestAuthService_Logout(t *testing.T) {
-	t.Parallel()
 	_, svc, _, identitySvc := setupAuthServiceTest(t)
 	ctx := context.Background()
 
@@ -178,7 +170,6 @@ func TestAuthService_Logout(t *testing.T) {
 }
 
 func TestAuthService_TokenRotationIntegration(t *testing.T) {
-	t.Parallel()
 	db, svc, _, identitySvc := setupAuthServiceTest(t)
 	defer db.Close()
 
