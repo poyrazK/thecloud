@@ -9,6 +9,7 @@ import (
 
 	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -169,7 +170,7 @@ func TestFunctionSDK(t *testing.T) {
 
 	t.Run("CreateFunction", func(t *testing.T) {
 		fn, err := client.CreateFunction(functionName, functionRuntime, functionHandler, []byte(functionCode))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if fn != nil {
 			assert.Equal(t, functionName, fn.Name)
 		}
@@ -177,7 +178,7 @@ func TestFunctionSDK(t *testing.T) {
 
 	t.Run("ListFunctions", func(t *testing.T) {
 		fns, err := client.ListFunctions()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if fns != nil {
 			assert.Len(t, fns, 1)
 		}
@@ -185,7 +186,7 @@ func TestFunctionSDK(t *testing.T) {
 
 	t.Run("GetFunction", func(t *testing.T) {
 		fn, err := client.GetFunction(functionID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if fn != nil {
 			assert.Equal(t, functionID, fn.ID)
 		}
@@ -193,7 +194,7 @@ func TestFunctionSDK(t *testing.T) {
 
 	t.Run("InvokeFunction", func(t *testing.T) {
 		inv, err := client.InvokeFunction(functionID, []byte(functionInvokePayload), false)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if inv != nil {
 			assert.Equal(t, functionInvocationID, inv.ID)
 		}
@@ -201,7 +202,7 @@ func TestFunctionSDK(t *testing.T) {
 
 	t.Run("GetFunctionLogs", func(t *testing.T) {
 		logs, err := client.GetFunctionLogs(functionID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if logs != nil {
 			assert.Len(t, logs, 1)
 		}
@@ -209,7 +210,7 @@ func TestFunctionSDK(t *testing.T) {
 
 	t.Run("DeleteFunction", func(t *testing.T) {
 		err := client.DeleteFunction(functionID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -223,27 +224,27 @@ func TestFunctionSDKErrors(t *testing.T) {
 	client := sdk.NewClient(server.URL+"/api/v1", functionAPIKey)
 
 	_, err := client.CreateFunction(functionName, functionRuntime, functionHandler, []byte("code"))
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.ListFunctions()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetFunction(functionID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.DeleteFunction(functionID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.InvokeFunction(functionID, []byte(functionInvokePayload), true)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetFunctionLogs(functionID)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestFunctionSDKRequestError(t *testing.T) {
 	client := sdk.NewClient("http://127.0.0.1:0/api/v1", functionAPIKey)
 	_, err := client.CreateFunction(functionName, functionRuntime, functionHandler, []byte("code"))
 
-	assert.Error(t, err)
+	require.Error(t, err)
 }

@@ -13,12 +13,13 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestStorageRepository_SaveMeta(t *testing.T) {
+func TestStorageRepositorySaveMeta(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStorageRepository(mock)
@@ -38,12 +39,12 @@ func TestStorageRepository_SaveMeta(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.SaveMeta(context.Background(), obj)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStorageRepository(mock)
@@ -55,14 +56,14 @@ func TestStorageRepository_SaveMeta(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		err = repo.SaveMeta(context.Background(), obj)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
-func TestStorageRepository_GetMeta(t *testing.T) {
+func TestStorageRepositoryGetMeta(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStorageRepository(mock)
@@ -77,14 +78,14 @@ func TestStorageRepository_GetMeta(t *testing.T) {
 				AddRow(id, userID, "arn", "mybucket", "mykey", "v1", true, int64(1024), "text/plain", now, nil))
 
 		obj, err := repo.GetMeta(ctx, "mybucket", "mykey")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, obj)
 		assert.Equal(t, id, obj.ID)
 	})
 
 	t.Run("not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStorageRepository(mock)
@@ -96,7 +97,7 @@ func TestStorageRepository_GetMeta(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		obj, err := repo.GetMeta(ctx, "mybucket", "mykey")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, obj)
 		var target *theclouderrors.Error
 		ok := errors.As(err, &target)
@@ -107,7 +108,7 @@ func TestStorageRepository_GetMeta(t *testing.T) {
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStorageRepository(mock)
@@ -119,15 +120,15 @@ func TestStorageRepository_GetMeta(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		obj, err := repo.GetMeta(ctx, "mybucket", "mykey")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, obj)
 	})
 }
 
-func TestStorageRepository_List(t *testing.T) {
+func TestStorageRepositoryList(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStorageRepository(mock)
@@ -141,13 +142,13 @@ func TestStorageRepository_List(t *testing.T) {
 				AddRow(uuid.New(), userID, "arn", "mybucket", "mykey", "v1", true, int64(1024), "text/plain", now, nil))
 
 		objects, err := repo.List(ctx, "mybucket")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, objects, 1)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStorageRepository(mock)
@@ -159,15 +160,15 @@ func TestStorageRepository_List(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		objects, err := repo.List(ctx, "mybucket")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, objects)
 	})
 }
 
-func TestStorageRepository_SoftDelete(t *testing.T) {
+func TestStorageRepositorySoftDelete(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStorageRepository(mock)
@@ -181,12 +182,12 @@ func TestStorageRepository_SoftDelete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		err = repo.SoftDelete(ctx, bucket, key)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStorageRepository(mock)
@@ -200,7 +201,7 @@ func TestStorageRepository_SoftDelete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("UPDATE", 0))
 
 		err = repo.SoftDelete(ctx, bucket, key)
-		assert.Error(t, err)
+		require.Error(t, err)
 		var target *theclouderrors.Error
 		ok := errors.As(err, &target)
 		if ok {
@@ -210,7 +211,7 @@ func TestStorageRepository_SoftDelete(t *testing.T) {
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStorageRepository(mock)
@@ -224,6 +225,6 @@ func TestStorageRepository_SoftDelete(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		err = repo.SoftDelete(ctx, bucket, key)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }

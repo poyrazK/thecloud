@@ -9,19 +9,20 @@ import (
 	"github.com/pashagolub/pgxmock/v3"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLogRepository_Create(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewLogRepository(mock)
 	tenantID := uuid.New()
-	
+
 	t.Run("empty entries", func(t *testing.T) {
 		err := repo.Create(context.Background(), nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("success batch", func(t *testing.T) {
@@ -36,19 +37,19 @@ func TestLogRepository_Create(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), entries)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
 func TestLogRepository_List_Complex(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewLogRepository(mock)
 	tenantID := uuid.New()
 	now := time.Now()
-	
+
 	query := domain.LogQuery{
 		TenantID:     tenantID,
 		ResourceID:   "res-1",
@@ -71,7 +72,7 @@ func TestLogRepository_List_Complex(t *testing.T) {
 			AddRow(uuid.New(), tenantID, "res-1", "instance", "ERROR", "fail fast", now, "trace"))
 
 	entries, total, err := repo.List(context.Background(), query)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 1, total)
 	assert.Len(t, entries, 1)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -79,7 +80,7 @@ func TestLogRepository_List_Complex(t *testing.T) {
 
 func TestLogRepository_DeleteByAge(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewLogRepository(mock)
@@ -90,6 +91,6 @@ func TestLogRepository_DeleteByAge(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 	err = repo.DeleteByAge(context.Background(), days)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }

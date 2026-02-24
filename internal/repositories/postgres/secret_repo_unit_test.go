@@ -13,14 +13,15 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestSecretRepository_Create(t *testing.T) {
+func TestSecretRepositoryCreate(t *testing.T) {
 	t.Parallel()
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecretRepository(mock)
@@ -39,13 +40,13 @@ func TestSecretRepository_Create(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), secret)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecretRepository(mock)
@@ -57,16 +58,16 @@ func TestSecretRepository_Create(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		err = repo.Create(context.Background(), secret)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
-func TestSecretRepository_GetByID(t *testing.T) {
+func TestSecretRepositoryGetByID(t *testing.T) {
 	t.Parallel()
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecretRepository(mock)
@@ -82,7 +83,7 @@ func TestSecretRepository_GetByID(t *testing.T) {
 				AddRow(id, userID, "test-secret", "encrypted", "desc", now, now, lastAccessedAt))
 
 		secret, err := repo.GetByID(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, secret)
 		assert.Equal(t, id, secret.ID)
 	})
@@ -90,7 +91,7 @@ func TestSecretRepository_GetByID(t *testing.T) {
 	t.Run("not found", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecretRepository(mock)
@@ -103,7 +104,7 @@ func TestSecretRepository_GetByID(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		secret, err := repo.GetByID(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, secret)
 		var target *theclouderrors.Error
 		if errors.As(err, &target) {
@@ -112,12 +113,12 @@ func TestSecretRepository_GetByID(t *testing.T) {
 	})
 }
 
-func TestSecretRepository_List(t *testing.T) {
+func TestSecretRepositoryList(t *testing.T) {
 	t.Parallel()
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecretRepository(mock)
@@ -132,14 +133,14 @@ func TestSecretRepository_List(t *testing.T) {
 				AddRow(uuid.New(), userID, "test-secret", "encrypted", "desc", now, now, lastAccessedAt))
 
 		secrets, err := repo.List(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, secrets, 1)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecretRepository(mock)
@@ -151,17 +152,17 @@ func TestSecretRepository_List(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		secrets, err := repo.List(ctx)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, secrets)
 	})
 }
 
-func TestSecretRepository_Update(t *testing.T) {
+func TestSecretRepositoryUpdate(t *testing.T) {
 	t.Parallel()
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecretRepository(mock)
@@ -178,13 +179,13 @@ func TestSecretRepository_Update(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		err = repo.Update(context.Background(), secret)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecretRepository(mock)
@@ -196,16 +197,16 @@ func TestSecretRepository_Update(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		err = repo.Update(context.Background(), secret)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
-func TestSecretRepository_Delete(t *testing.T) {
+func TestSecretRepositoryDelete(t *testing.T) {
 	t.Parallel()
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecretRepository(mock)
@@ -218,13 +219,13 @@ func TestSecretRepository_Delete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.Delete(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSecretRepository(mock)
@@ -237,6 +238,6 @@ func TestSecretRepository_Delete(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		err = repo.Delete(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }

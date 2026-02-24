@@ -14,6 +14,7 @@ import (
 	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -26,7 +27,7 @@ func TestVpcRepositoryCreate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVpcRepository(mock)
@@ -48,13 +49,13 @@ func TestVpcRepositoryCreate(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), vpc)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("failure", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVpcRepository(mock)
@@ -66,7 +67,7 @@ func TestVpcRepositoryCreate(t *testing.T) {
 			WillReturnError(errors.New(testDBError))
 
 		err = repo.Create(context.Background(), vpc)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
@@ -75,7 +76,7 @@ func TestVpcRepositoryGetByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVpcRepository(mock)
@@ -91,7 +92,7 @@ func TestVpcRepositoryGetByID(t *testing.T) {
 				AddRow(id, userID, tenantID, testVpcName, testutil.TestCIDR, "net-1", 100, "available", "arn", now))
 
 		vpc, err := repo.GetByID(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, vpc)
 		assert.Equal(t, id, vpc.ID)
 	})
@@ -99,7 +100,7 @@ func TestVpcRepositoryGetByID(t *testing.T) {
 	t.Run(testNotFound, func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVpcRepository(mock)
@@ -113,7 +114,7 @@ func TestVpcRepositoryGetByID(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		vpc, err := repo.GetByID(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, vpc)
 		// Check if the error returned is of type errors.NotFound
 		var target theclouderrors.Error
@@ -128,7 +129,7 @@ func TestVpcRepositoryGetByID(t *testing.T) {
 	t.Run(testDBError, func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVpcRepository(mock)
@@ -142,7 +143,7 @@ func TestVpcRepositoryGetByID(t *testing.T) {
 			WillReturnError(errors.New(testDBError))
 
 		vpc, err := repo.GetByID(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, vpc)
 	})
 }
@@ -152,7 +153,7 @@ func TestVpcRepositoryGetByName(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVpcRepository(mock)
@@ -169,7 +170,7 @@ func TestVpcRepositoryGetByName(t *testing.T) {
 				AddRow(id, userID, tenantID, name, testutil.TestCIDR, "net-1", 100, "available", "arn", now))
 
 		vpc, err := repo.GetByName(ctx, name)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, vpc)
 		assert.Equal(t, id, vpc.ID)
 	})
@@ -177,7 +178,7 @@ func TestVpcRepositoryGetByName(t *testing.T) {
 	t.Run(testNotFound, func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVpcRepository(mock)
@@ -191,7 +192,7 @@ func TestVpcRepositoryGetByName(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		vpc, err := repo.GetByName(ctx, name)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, vpc)
 	})
 }
@@ -201,7 +202,7 @@ func TestVpcRepositoryList(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVpcRepository(mock)
@@ -216,14 +217,14 @@ func TestVpcRepositoryList(t *testing.T) {
 				AddRow(uuid.New(), userID, tenantID, testVpcName, testutil.TestCIDR, "net-1", 100, "available", "arn", now))
 
 		vpcs, err := repo.List(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, vpcs, 1)
 	})
 
 	t.Run(testDBError, func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVpcRepository(mock)
@@ -236,14 +237,14 @@ func TestVpcRepositoryList(t *testing.T) {
 			WillReturnError(errors.New(testDBError))
 
 		vpcs, err := repo.List(ctx)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, vpcs)
 	})
 
 	t.Run("scan error", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVpcRepository(mock)
@@ -259,7 +260,7 @@ func TestVpcRepositoryList(t *testing.T) {
 				AddRow("invalid-uuid", userID, tenantID, testVpcName, testutil.TestCIDR, "net-1", 100, "available", "arn", now))
 
 		vpcs, err := repo.List(ctx)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, vpcs)
 	})
 }
@@ -269,7 +270,7 @@ func TestVpcRepositoryDelete(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVpcRepository(mock)
@@ -283,13 +284,13 @@ func TestVpcRepositoryDelete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.Delete(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run(testNotFound, func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVpcRepository(mock)
@@ -303,6 +304,6 @@ func TestVpcRepositoryDelete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 0))
 
 		err = repo.Delete(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }

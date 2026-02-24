@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -92,41 +93,41 @@ func TestClientLoadBalancer(t *testing.T) {
 
 	t.Run("CreateLB", func(t *testing.T) {
 		lb, err := client.CreateLB(lbName, "vpc-1", 80, "round-robin")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, lbID, lb.ID)
 	})
 
 	t.Run("ListLBs", func(t *testing.T) {
 		lbs, err := client.ListLBs()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, lbs, 1)
 	})
 
 	t.Run("GetLB", func(t *testing.T) {
 		lb, err := client.GetLB(lbID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, lb)
 		assert.Equal(t, lbID, lb.ID)
 	})
 
 	t.Run("DeleteLB", func(t *testing.T) {
 		err := client.DeleteLB(lbID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("AddLBTarget", func(t *testing.T) {
 		err := client.AddLBTarget(lbID, lbInstanceID, 80, 1)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("RemoveLBTarget", func(t *testing.T) {
 		err := client.RemoveLBTarget(lbID, lbInstanceID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("ListLBTargets", func(t *testing.T) {
 		targets, err := client.ListLBTargets(lbID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, targets, 1)
 	})
 }
@@ -140,23 +141,23 @@ func TestClientLoadBalancerErrors(t *testing.T) {
 
 	client := NewClient(server.URL, lbAPIKey)
 	_, err := client.CreateLB("lb", "vpc-1", 80, "round-robin")
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.ListLBs()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetLB(lbID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.DeleteLB(lbID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.AddLBTarget(lbID, lbInstanceID, 80, 1)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.RemoveLBTarget(lbID, lbInstanceID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.ListLBTargets(lbID)
-	assert.Error(t, err)
+	require.Error(t, err)
 }

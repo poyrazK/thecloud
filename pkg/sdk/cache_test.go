@@ -8,6 +8,7 @@ import (
 
 	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -21,7 +22,8 @@ const (
 
 func newCacheTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Helper()
 		w.Header().Set(cacheTestContentType, cacheTestAppJSON)
 
 		switch {
@@ -80,7 +82,7 @@ func TestCacheSDK(t *testing.T) {
 
 	t.Run("CreateCache", func(t *testing.T) {
 		c, err := client.CreateCache(cacheTestName, "redis", 100, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if c != nil {
 			assert.Equal(t, cacheTestName, c.Name)
 		}
@@ -88,13 +90,13 @@ func TestCacheSDK(t *testing.T) {
 
 	t.Run("ListCaches", func(t *testing.T) {
 		cs, err := client.ListCaches()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, cs, 1)
 	})
 
 	t.Run("GetCache", func(t *testing.T) {
 		c, err := client.GetCache(cacheTestID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if c != nil {
 			assert.Equal(t, cacheTestID, c.ID)
 		}
@@ -102,24 +104,24 @@ func TestCacheSDK(t *testing.T) {
 
 	t.Run("GetCacheConnectionString", func(t *testing.T) {
 		conn, err := client.GetCacheConnectionString(cacheTestID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, conn)
 	})
 
 	t.Run("FlushCache", func(t *testing.T) {
 		err := client.FlushCache(cacheTestID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("GetCacheStats", func(t *testing.T) {
 		stats, err := client.GetCacheStats(cacheTestID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, stats)
 	})
 
 	t.Run("DeleteCache", func(t *testing.T) {
 		err := client.DeleteCache(cacheTestID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -132,23 +134,23 @@ func TestCacheSDKErrors(t *testing.T) {
 	client := sdk.NewClient(server.URL+"/api/v1", cacheTestAPIKey)
 
 	_, err := client.CreateCache("c", "redis", 10, nil)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.ListCaches()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetCache(cacheTestID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetCacheConnectionString(cacheTestID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.FlushCache(cacheTestID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetCacheStats(cacheTestID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.DeleteCache(cacheTestID)
-	assert.Error(t, err)
+	require.Error(t, err)
 }

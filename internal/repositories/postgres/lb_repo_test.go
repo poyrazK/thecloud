@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -24,7 +25,7 @@ const (
 func TestLBRepositoryCreate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewLBRepository(mock)
@@ -46,12 +47,12 @@ func TestLBRepositoryCreate(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), lb)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run(errDbMessage, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewLBRepository(mock)
@@ -61,14 +62,14 @@ func TestLBRepositoryCreate(t *testing.T) {
 			WillReturnError(errors.New(errDbMessage))
 
 		err = repo.Create(context.Background(), lb)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
 func TestLBRepositoryGetByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewLBRepository(mock)
@@ -83,14 +84,14 @@ func TestLBRepositoryGetByID(t *testing.T) {
 				AddRow(id, userID, "key-1", "lb-1", uuid.New(), 80, "round_robin", "10.0.0.1", string(domain.LBStatusActive), 1, now))
 
 		lb, err := repo.GetByID(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, lb)
 		assert.Equal(t, id, lb.ID)
 	})
 
 	t.Run(errNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewLBRepository(mock)
@@ -103,7 +104,7 @@ func TestLBRepositoryGetByID(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		lb, err := repo.GetByID(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, lb)
 		assert.Equal(t, theclouderrors.ErrLBNotFound, err)
 	})
@@ -112,7 +113,7 @@ func TestLBRepositoryGetByID(t *testing.T) {
 func TestLBRepositoryList(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewLBRepository(mock)
@@ -126,13 +127,13 @@ func TestLBRepositoryList(t *testing.T) {
 				AddRow(uuid.New(), userID, "key-1", "lb-1", uuid.New(), 80, "round_robin", "10.0.0.1", string(domain.LBStatusActive), 1, now))
 
 		lbs, err := repo.List(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, lbs, 1)
 	})
 
 	t.Run(errDbMessage, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewLBRepository(mock)
@@ -144,7 +145,7 @@ func TestLBRepositoryList(t *testing.T) {
 			WillReturnError(errors.New(errDbMessage))
 
 		list, err := repo.List(ctx)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, list)
 	})
 }
@@ -152,7 +153,7 @@ func TestLBRepositoryList(t *testing.T) {
 func TestLBRepositoryUpdate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewLBRepository(mock)
@@ -171,13 +172,13 @@ func TestLBRepositoryUpdate(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		err = repo.Update(context.Background(), lb)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, 2, lb.Version)
 	})
 
 	t.Run("conflict", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewLBRepository(mock)
@@ -192,7 +193,7 @@ func TestLBRepositoryUpdate(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("UPDATE", 0))
 
 		err = repo.Update(context.Background(), lb)
-		assert.Error(t, err)
+		require.Error(t, err)
 		var theCloudErr *theclouderrors.Error
 		if errors.As(err, &theCloudErr) {
 			assert.Equal(t, theclouderrors.Conflict, theCloudErr.Type)
@@ -203,7 +204,7 @@ func TestLBRepositoryUpdate(t *testing.T) {
 func TestLBRepositoryDelete(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewLBRepository(mock)
@@ -216,12 +217,12 @@ func TestLBRepositoryDelete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.Delete(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run(errNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewLBRepository(mock)
@@ -234,7 +235,7 @@ func TestLBRepositoryDelete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 0))
 
 		err = repo.Delete(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Equal(t, theclouderrors.ErrLBNotFound, err)
 	})
 }
@@ -242,7 +243,7 @@ func TestLBRepositoryDelete(t *testing.T) {
 func TestLBRepositoryAddTarget(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewLBRepository(mock)
@@ -260,14 +261,14 @@ func TestLBRepositoryAddTarget(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.AddTarget(context.Background(), target)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
 func TestLBRepositoryRemoveTarget(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewLBRepository(mock)
@@ -279,12 +280,12 @@ func TestLBRepositoryRemoveTarget(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.RemoveTarget(context.Background(), lbID, instanceID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run(errNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewLBRepository(mock)
@@ -296,14 +297,14 @@ func TestLBRepositoryRemoveTarget(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 0))
 
 		err = repo.RemoveTarget(context.Background(), lbID, instanceID)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
 func TestLBRepositoryListTargets(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewLBRepository(mock)
@@ -315,7 +316,7 @@ func TestLBRepositoryListTargets(t *testing.T) {
 				AddRow(uuid.New(), lbID, uuid.New(), 80, 1, "healthy"))
 
 		targets, err := repo.ListTargets(context.Background(), lbID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, targets, 1)
 	})
 }
@@ -323,7 +324,7 @@ func TestLBRepositoryListTargets(t *testing.T) {
 func TestLBRepositoryUpdateTargetHealth(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewLBRepository(mock)
@@ -336,6 +337,6 @@ func TestLBRepositoryUpdateTargetHealth(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		err = repo.UpdateTargetHealth(context.Background(), lbID, instanceID, health)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

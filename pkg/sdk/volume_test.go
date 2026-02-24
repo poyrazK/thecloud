@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -41,7 +42,7 @@ func TestClientVolume(t *testing.T) {
 
 		client := NewClient(server.URL+"/api/v1", volumeAPIKey)
 		vols, err := client.ListVolumes()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, vols, 1)
 		assert.Equal(t, volumeID, vols[0].ID)
 	})
@@ -57,7 +58,7 @@ func TestClientVolume(t *testing.T) {
 
 		client := NewClient(server.URL+"/api/v1", volumeAPIKey)
 		vol, err := client.GetVolume(volumeID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, volumeID, vol.ID)
 	})
 
@@ -79,7 +80,7 @@ func TestClientVolume(t *testing.T) {
 
 		client := NewClient(server.URL+"/api/v1", volumeAPIKey)
 		vol, err := client.CreateVolume(volumeNewName, 20)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, vol)
 	})
 
@@ -93,7 +94,7 @@ func TestClientVolume(t *testing.T) {
 
 		client := NewClient(server.URL+"/api/v1", volumeAPIKey)
 		err := client.DeleteVolume(volumeID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -107,14 +108,14 @@ func TestClientVolumeErrors(t *testing.T) {
 	client := NewClient(server.URL+"/api/v1", volumeAPIKey)
 
 	_, err := client.ListVolumes()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetVolume(volumeID.String())
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.CreateVolume("v", 10)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.DeleteVolume(volumeID.String())
-	assert.Error(t, err)
+	require.Error(t, err)
 }

@@ -10,12 +10,13 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDatabaseRepository_Create(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewDatabaseRepository(mock)
@@ -42,13 +43,13 @@ func TestDatabaseRepository_Create(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.Create(context.Background(), db)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestDatabaseRepository_GetByID(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewDatabaseRepository(mock)
@@ -63,7 +64,7 @@ func TestDatabaseRepository_GetByID(t *testing.T) {
 			AddRow(id, userID, "test-db", string(domain.EnginePostgres), "16", string(domain.DatabaseStatusCreating), string(domain.RolePrimary), nil, nil, "cid-1", 5432, "admin", "password", now, now))
 
 	db, err := repo.GetByID(ctx, id)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, db)
 	assert.Equal(t, id, db.ID)
 	assert.Equal(t, domain.EnginePostgres, db.Engine)
@@ -72,7 +73,7 @@ func TestDatabaseRepository_GetByID(t *testing.T) {
 func TestDatabaseRepository_List(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewDatabaseRepository(mock)
@@ -86,7 +87,7 @@ func TestDatabaseRepository_List(t *testing.T) {
 			AddRow(uuid.New(), userID, "test-db", string(domain.EnginePostgres), "16", string(domain.DatabaseStatusCreating), string(domain.RolePrimary), nil, nil, "cid-1", 5432, "admin", "password", now, now))
 
 	databases, err := repo.List(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, databases, 1)
 	assert.Equal(t, domain.EnginePostgres, databases[0].Engine)
 }
@@ -94,7 +95,7 @@ func TestDatabaseRepository_List(t *testing.T) {
 func TestDatabaseRepository_ListReplicas(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewDatabaseRepository(mock)
@@ -107,7 +108,7 @@ func TestDatabaseRepository_ListReplicas(t *testing.T) {
 			AddRow(uuid.New(), uuid.New(), "replica-1", string(domain.EnginePostgres), "16", string(domain.DatabaseStatusRunning), string(domain.RoleReplica), &primaryID, nil, "cid-2", 5432, "admin", "password", now, now))
 
 	replicas, err := repo.ListReplicas(context.Background(), primaryID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, replicas, 1)
 	assert.Equal(t, domain.RoleReplica, replicas[0].Role)
 }
@@ -115,7 +116,7 @@ func TestDatabaseRepository_ListReplicas(t *testing.T) {
 func TestDatabaseRepository_Update(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewDatabaseRepository(mock)
@@ -134,13 +135,13 @@ func TestDatabaseRepository_Update(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 	err = repo.Update(context.Background(), db)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestDatabaseRepository_Delete(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewDatabaseRepository(mock)
@@ -153,5 +154,5 @@ func TestDatabaseRepository_Delete(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 	err = repo.Delete(ctx, id)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }

@@ -8,20 +8,20 @@ import (
 	"testing"
 
 	"github.com/pashagolub/pgxmock/v3"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRunMigrations(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	// Get the migration files to know how many Execs to expect
 	entries, err := migrationsFS.ReadDir("migrations")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	for _, entry := range entries {
 		if !strings.HasSuffix(entry.Name(), ".up.sql") {
@@ -32,8 +32,8 @@ func TestRunMigrations(t *testing.T) {
 	}
 
 	err = RunMigrations(context.Background(), mock, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Ensure all expectations were met
-	assert.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, mock.ExpectationsWereMet())
 }

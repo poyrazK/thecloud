@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -45,7 +46,7 @@ func TestClientListObjects(t *testing.T) {
 	client := NewClient(server.URL, storageAPIKey)
 	objects, err := client.ListObjects(bucket)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, objects, 2)
 	assert.Equal(t, expectedObjects[0].Key, objects[0].Key)
 }
@@ -70,7 +71,7 @@ func TestClientUploadObject(t *testing.T) {
 	client := NewClient(server.URL, storageAPIKey)
 	obj, err := client.UploadObject(bucket, key, strings.NewReader(content))
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, obj)
 }
 
@@ -89,14 +90,14 @@ func TestClientUploadObjectErrorStatus(t *testing.T) {
 	client := NewClient(server.URL, storageAPIKey)
 	_, err := client.UploadObject(bucket, key, strings.NewReader("data"))
 
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestClientUploadObjectRequestError(t *testing.T) {
 	client := NewClient("http://127.0.0.1:0", storageAPIKey)
 	_, err := client.UploadObject("bucket", "key", strings.NewReader("data"))
 
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestClientDownloadObject(t *testing.T) {
@@ -115,11 +116,11 @@ func TestClientDownloadObject(t *testing.T) {
 	client := NewClient(server.URL, storageAPIKey)
 	readCloser, err := client.DownloadObject(bucket, key)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer func() { _ = readCloser.Close() }()
 
 	body, err := io.ReadAll(readCloser)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, content, string(body))
 }
 
@@ -138,7 +139,7 @@ func TestClientDeleteObject(t *testing.T) {
 	client := NewClient(server.URL, storageAPIKey)
 	err := client.DeleteObject(bucket, key)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClientListVersions(t *testing.T) {
@@ -158,7 +159,7 @@ func TestClientListVersions(t *testing.T) {
 	client := NewClient(server.URL, storageAPIKey)
 	versions, err := client.ListVersions(bucket, key)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, versions, 1)
 	assert.Equal(t, "v1", versions[0].VersionID)
 }
@@ -179,11 +180,11 @@ func TestClientDownloadObjectWithVersion(t *testing.T) {
 	client := NewClient(server.URL, storageAPIKey)
 	readCloser, err := client.DownloadObject(bucket, key, version)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer func() { _ = readCloser.Close() }()
 
 	body, err := io.ReadAll(readCloser)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, content, string(body))
 }
 
@@ -201,7 +202,7 @@ func TestClientDownloadObjectErrorStatus(t *testing.T) {
 	client := NewClient(server.URL, storageAPIKey)
 	_, err := client.DownloadObject(bucket, key)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "api error")
 }
 
@@ -209,7 +210,7 @@ func TestClientDownloadObjectRequestError(t *testing.T) {
 	client := NewClient("http://127.0.0.1:0", storageAPIKey)
 	_, err := client.DownloadObject("bucket", "key")
 
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestClientDeleteObjectWithVersion(t *testing.T) {
@@ -228,7 +229,7 @@ func TestClientDeleteObjectWithVersion(t *testing.T) {
 	client := NewClient(server.URL, storageAPIKey)
 	err := client.DeleteObject(bucket, key, version)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClientCreateBucket(t *testing.T) {
@@ -253,7 +254,7 @@ func TestClientCreateBucket(t *testing.T) {
 	client := NewClient(server.URL, storageAPIKey)
 	bucket, err := client.CreateBucket(storageBucketName, true)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "b1", bucket.ID)
 }
 
@@ -270,7 +271,7 @@ func TestClientListBuckets(t *testing.T) {
 	client := NewClient(server.URL, storageAPIKey)
 	buckets, err := client.ListBuckets()
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, buckets, 1)
 	assert.Equal(t, storageBucketName, buckets[0].Name)
 }
@@ -286,7 +287,7 @@ func TestClientDeleteBucket(t *testing.T) {
 	client := NewClient(server.URL, storageAPIKey)
 	err := client.DeleteBucket(storageBucketName)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClientSetBucketVersioning(t *testing.T) {
@@ -308,7 +309,7 @@ func TestClientSetBucketVersioning(t *testing.T) {
 	client := NewClient(server.URL, storageAPIKey)
 	err := client.SetBucketVersioning(storageBucketName, true)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClientGetStorageClusterStatus(t *testing.T) {
@@ -324,7 +325,7 @@ func TestClientGetStorageClusterStatus(t *testing.T) {
 	client := NewClient(server.URL, storageAPIKey)
 	status, err := client.GetStorageClusterStatus()
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, status.Nodes, 1)
 	assert.Equal(t, "node-1", status.Nodes[0].ID)
 }
@@ -355,7 +356,7 @@ func TestClientGeneratePresignedURL(t *testing.T) {
 	client := NewClient(server.URL, storageAPIKey)
 	url, err := client.GeneratePresignedURL(bucket, key, method, 60)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "http://example.com", url.URL)
 }
 
@@ -390,15 +391,15 @@ func TestClientLifecycleRules(t *testing.T) {
 
 	client := NewClient(server.URL, storageAPIKey)
 	created, err := client.CreateLifecycleRule(bucket, "logs/", 30, true)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, storageRuleID, created.ID)
 
 	rules, err := client.ListLifecycleRules(bucket)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, rules, 1)
 
 	err = client.DeleteLifecycleRule(bucket, storageRuleID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClientStorageListErrors(t *testing.T) {
@@ -410,19 +411,19 @@ func TestClientStorageListErrors(t *testing.T) {
 
 	client := NewClient(server.URL, storageAPIKey)
 	_, err := client.ListObjects("bucket")
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.ListVersions("bucket", "key")
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.ListBuckets()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetStorageClusterStatus()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.ListLifecycleRules("bucket")
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestClientStorageCreateErrors(t *testing.T) {
@@ -434,11 +435,11 @@ func TestClientStorageCreateErrors(t *testing.T) {
 
 	client := NewClient(server.URL, storageAPIKey)
 	_, err := client.CreateBucket("bucket", true)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GeneratePresignedURL("bucket", "key", http.MethodGet, 60)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.CreateLifecycleRule("bucket", "logs/", 7, true)
-	assert.Error(t, err)
+	require.Error(t, err)
 }

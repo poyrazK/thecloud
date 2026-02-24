@@ -9,6 +9,7 @@ import (
 
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClientCreateSecurityGroup(t *testing.T) {
@@ -40,7 +41,7 @@ func TestClientCreateSecurityGroup(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	sg, err := client.CreateSecurityGroup(vpcID, testSgName, "test security group")
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, sg)
 	assert.Equal(t, expectedSG.ID, sg.ID)
 }
@@ -66,7 +67,7 @@ func TestClientListSecurityGroups(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	sgs, err := client.ListSecurityGroups(vpcID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, sgs, 2)
 }
 
@@ -85,7 +86,7 @@ func TestClientListSecurityGroupsNoVPC(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	groups, err := client.ListSecurityGroups("")
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, groups, 1)
 }
 
@@ -122,7 +123,7 @@ func TestClientGetSecurityGroup(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	sg, err := client.GetSecurityGroup(id)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, sg)
 	assert.Equal(t, expectedSG.ID, sg.ID)
 }
@@ -141,7 +142,7 @@ func TestClientDeleteSecurityGroup(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	err := client.DeleteSecurityGroup(id)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClientAddSecurityRule(t *testing.T) {
@@ -173,7 +174,7 @@ func TestClientAddSecurityRule(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	result, err := client.AddSecurityRule(groupID, rule)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, "rule-1", result.ID)
 }
@@ -199,7 +200,7 @@ func TestClientAttachSecurityGroup(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	err := client.AttachSecurityGroup(instanceID, groupID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClientRemoveSecurityRule(t *testing.T) {
@@ -216,7 +217,7 @@ func TestClientRemoveSecurityRule(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	err := client.RemoveSecurityRule(ruleID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClientDetachSecurityGroup(t *testing.T) {
@@ -240,7 +241,7 @@ func TestClientDetachSecurityGroup(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	err := client.DetachSecurityGroup(instanceID, groupID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClientSecurityGroupErrors(t *testing.T) {
@@ -252,10 +253,10 @@ func TestClientSecurityGroupErrors(t *testing.T) {
 
 	client := NewClient(server.URL, testAPIKey)
 	_, err := client.GetSecurityGroup("sg-1")
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.AddSecurityRule("sg-1", SecurityRule{Protocol: "tcp"})
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestClientCreateSecurityGroupError(t *testing.T) {
@@ -267,5 +268,5 @@ func TestClientCreateSecurityGroupError(t *testing.T) {
 
 	client := NewClient(server.URL, testAPIKey)
 	_, err := client.CreateSecurityGroup("vpc-1", "sg", "desc")
-	assert.Error(t, err)
+	require.Error(t, err)
 }

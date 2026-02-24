@@ -12,6 +12,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -37,7 +38,7 @@ func TestKubeadmProvisionerGetHealthNoControlPlaneIPs(t *testing.T) {
 
 	health, err := p.GetHealth(context.Background(), cluster)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, health)
 }
 
@@ -59,7 +60,7 @@ func TestKubeadmProvisionerGetHealthServiceExecutor(t *testing.T) {
 
 	health, err := p.GetHealth(context.Background(), cluster)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, health.APIServer)
 	assert.Equal(t, 2, health.NodesTotal)
 	assert.Equal(t, 1, health.NodesReady)
@@ -84,7 +85,7 @@ func TestKubeadmProvisionerGetHealthAPIServerDown(t *testing.T) {
 
 	health, err := p.GetHealth(context.Background(), cluster)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.False(t, health.APIServer)
 	assert.Equal(t, "API server is unreachable", health.Message)
 }
@@ -98,7 +99,7 @@ func TestKubeadmProvisionerGetKubeconfigNoControlPlaneIPs(t *testing.T) {
 
 	kubeconfig, err := p.GetKubeconfig(context.Background(), cluster, "admin")
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Empty(t, kubeconfig)
 }
 
@@ -114,7 +115,7 @@ func TestKubeadmProvisionerGetKubeconfigViewerNotImplemented(t *testing.T) {
 
 	kubeconfig, err := p.GetKubeconfig(context.Background(), cluster, "viewer")
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Empty(t, kubeconfig)
 }
 
@@ -133,6 +134,6 @@ func TestKubeadmProvisionerGetKubeconfigAdmin(t *testing.T) {
 
 	kubeconfig, err := p.GetKubeconfig(context.Background(), cluster, "admin")
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "kubeconfig", kubeconfig)
 }

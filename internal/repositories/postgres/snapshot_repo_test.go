@@ -13,12 +13,13 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestSnapshotRepository_Create(t *testing.T) {
+func TestSnapshotRepositoryCreate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSnapshotRepository(mock)
@@ -38,12 +39,12 @@ func TestSnapshotRepository_Create(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), s)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSnapshotRepository(mock)
@@ -55,14 +56,14 @@ func TestSnapshotRepository_Create(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		err = repo.Create(context.Background(), s)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
-func TestSnapshotRepository_GetByID(t *testing.T) {
+func TestSnapshotRepositoryGetByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSnapshotRepository(mock)
@@ -77,7 +78,7 @@ func TestSnapshotRepository_GetByID(t *testing.T) {
 				AddRow(id, userID, uuid.New(), "vol1", 10, string(domain.SnapshotStatusAvailable), "desc", now))
 
 		s, err := repo.GetByID(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, s)
 		assert.Equal(t, id, s.ID)
 
@@ -85,7 +86,7 @@ func TestSnapshotRepository_GetByID(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSnapshotRepository(mock)
@@ -98,7 +99,7 @@ func TestSnapshotRepository_GetByID(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		s, err := repo.GetByID(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, s)
 		var target *theclouderrors.Error
 		if errors.As(err, &target) {
@@ -107,10 +108,10 @@ func TestSnapshotRepository_GetByID(t *testing.T) {
 	})
 }
 
-func TestSnapshotRepository_ListByUserID(t *testing.T) {
+func TestSnapshotRepositoryListByUserID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSnapshotRepository(mock)
@@ -123,13 +124,13 @@ func TestSnapshotRepository_ListByUserID(t *testing.T) {
 				AddRow(uuid.New(), userID, uuid.New(), "vol1", 10, string(domain.SnapshotStatusAvailable), "desc", now))
 
 		snapshots, err := repo.ListByUserID(context.Background(), userID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, snapshots, 1)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSnapshotRepository(mock)
@@ -140,15 +141,15 @@ func TestSnapshotRepository_ListByUserID(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		snapshots, err := repo.ListByUserID(context.Background(), userID)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, snapshots)
 	})
 }
 
-func TestSnapshotRepository_ListByVolumeID(t *testing.T) {
+func TestSnapshotRepositoryListByVolumeID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSnapshotRepository(mock)
@@ -163,13 +164,13 @@ func TestSnapshotRepository_ListByVolumeID(t *testing.T) {
 				AddRow(uuid.New(), userID, volumeID, "vol1", 10, string(domain.SnapshotStatusAvailable), "desc", now))
 
 		snapshots, err := repo.ListByVolumeID(ctx, volumeID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, snapshots, 1)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSnapshotRepository(mock)
@@ -182,15 +183,15 @@ func TestSnapshotRepository_ListByVolumeID(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		snapshots, err := repo.ListByVolumeID(ctx, volumeID)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, snapshots)
 	})
 }
 
-func TestSnapshotRepository_Update(t *testing.T) {
+func TestSnapshotRepositoryUpdate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSnapshotRepository(mock)
@@ -206,12 +207,12 @@ func TestSnapshotRepository_Update(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		err = repo.Update(context.Background(), s)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSnapshotRepository(mock)
@@ -223,14 +224,14 @@ func TestSnapshotRepository_Update(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		err = repo.Update(context.Background(), s)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
-func TestSnapshotRepository_Delete(t *testing.T) {
+func TestSnapshotRepositoryDelete(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSnapshotRepository(mock)
@@ -243,12 +244,12 @@ func TestSnapshotRepository_Delete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.Delete(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSnapshotRepository(mock)
@@ -261,7 +262,7 @@ func TestSnapshotRepository_Delete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 0))
 
 		err = repo.Delete(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		var target *theclouderrors.Error
 		if errors.As(err, &target) {
 			assert.Equal(t, theclouderrors.NotFound, target.Type)

@@ -7,21 +7,23 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
-	autoScaleContentType     = "Content-Type"
-	autoScaleAppJSON         = "application/json"
-	autoScaleAPIKey          = "test-key"
-	autoScaleGroupID         = "group-1"
-	autoScalePolicyID        = "policy-1"
-	autoScaleGroupName       = "test-group"
-	autoScalePath            = "/autoscaling/groups"
-	autoScalePathPrefix      = "/autoscaling/groups/"
-	policyPathSuffix         = "/policies"
+	autoScaleContentType = "Content-Type"
+	autoScaleAppJSON     = "application/json"
+	autoScaleAPIKey      = "test-key"
+	autoScaleGroupID     = "group-1"
+	autoScalePolicyID    = "policy-1"
+	autoScaleGroupName   = "test-group"
+	autoScalePath        = "/autoscaling/groups"
+	autoScalePathPrefix  = "/autoscaling/groups/"
+	policyPathSuffix     = "/policies"
 )
 
-func newAutoscalingTestServer(t *testing.T) *httptest.Server { t.Helper()
+func newAutoscalingTestServer(t *testing.T) *httptest.Server {
+	t.Helper()
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(autoScaleContentType, autoScaleAppJSON)
@@ -97,7 +99,7 @@ func TestClientAutoscaling(t *testing.T) {
 			DesiredCount: 2,
 		}
 		g, err := client.CreateScalingGroup(req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if g != nil {
 			assert.Equal(t, autoScaleGroupID, g.ID)
 		}
@@ -105,20 +107,20 @@ func TestClientAutoscaling(t *testing.T) {
 
 	t.Run("ListScalingGroups", func(t *testing.T) {
 		gs, err := client.ListScalingGroups()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, gs, 1)
 	})
 
 	t.Run("GetScalingGroup", func(t *testing.T) {
 		g, err := client.GetScalingGroup(autoScaleGroupID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, g)
 		assert.Equal(t, autoScaleGroupID, g.ID)
 	})
 
 	t.Run("DeleteScalingGroup", func(t *testing.T) {
 		err := client.DeleteScalingGroup(autoScaleGroupID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("CreateScalingPolicy", func(t *testing.T) {
@@ -131,12 +133,12 @@ func TestClientAutoscaling(t *testing.T) {
 			CooldownSec: 300,
 		}
 		err := client.CreateScalingPolicy(autoScaleGroupID, req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("DeleteScalingPolicy", func(t *testing.T) {
 		err := client.DeleteScalingPolicy(autoScalePolicyID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -149,20 +151,20 @@ func TestClientAutoscalingErrors(t *testing.T) {
 
 	client := NewClient(server.URL, autoScaleAPIKey)
 	_, err := client.CreateScalingGroup(CreateScalingGroupRequest{Name: "g"})
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.ListScalingGroups()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetScalingGroup(autoScaleGroupID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.DeleteScalingGroup(autoScaleGroupID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.CreateScalingPolicy(autoScaleGroupID, CreatePolicyRequest{Name: "p"})
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.DeleteScalingPolicy(autoScalePolicyID)
-	assert.Error(t, err)
+	require.Error(t, err)
 }

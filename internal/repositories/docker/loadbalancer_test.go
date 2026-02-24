@@ -8,6 +8,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockInstanceRepo struct {
@@ -113,7 +114,7 @@ func (m *mockVpcRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return args.Error(0)
 }
 
-func TestLBProxyAdapter_GenerateNginxConfig(t *testing.T) {
+func TestLBProxyAdapterGenerateNginxConfig(t *testing.T) {
 	instRepo := new(mockInstanceRepo)
 	vpcRepo := new(mockVpcRepo)
 	adapter := &LBProxyAdapter{
@@ -144,7 +145,7 @@ func TestLBProxyAdapter_GenerateNginxConfig(t *testing.T) {
 
 	t.Run("round-robin config", func(t *testing.T) {
 		conf, err := adapter.generateNginxConfig(ctx, lb, targets)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Contains(t, conf, "server thecloud-"+inst1ID.String()[:8]+":8080 weight=1;")
 		assert.Contains(t, conf, "server thecloud-"+inst2ID.String()[:8]+":9090 weight=2;")
 		assert.Contains(t, conf, "listen 80;")
@@ -154,7 +155,7 @@ func TestLBProxyAdapter_GenerateNginxConfig(t *testing.T) {
 	t.Run("least-conn config", func(t *testing.T) {
 		lb.Algorithm = "least-conn"
 		conf, err := adapter.generateNginxConfig(ctx, lb, targets)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Contains(t, conf, "least_conn;")
 	})
 }

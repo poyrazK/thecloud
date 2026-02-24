@@ -11,12 +11,13 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCacheRepository_Create(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewCacheRepository(mock)
@@ -44,12 +45,12 @@ func TestCacheRepository_Create(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), cache)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("db_error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewCacheRepository(mock)
@@ -59,7 +60,7 @@ func TestCacheRepository_Create(t *testing.T) {
 			WillReturnError(assert.AnError)
 
 		err = repo.Create(context.Background(), cache)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.True(t, errors.Is(err, errors.Internal))
 	})
 }
@@ -67,7 +68,7 @@ func TestCacheRepository_Create(t *testing.T) {
 func TestCacheRepository_GetByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewCacheRepository(mock)
@@ -82,7 +83,7 @@ func TestCacheRepository_GetByID(t *testing.T) {
 					"cid-1", 6379, "pass", 1024, now, now))
 
 		cache, err := repo.GetByID(context.Background(), id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, cache)
 		assert.Equal(t, id, cache.ID)
 		assert.Equal(t, domain.EngineRedis, cache.Engine)
@@ -90,7 +91,7 @@ func TestCacheRepository_GetByID(t *testing.T) {
 
 	t.Run("not_found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewCacheRepository(mock)
@@ -101,7 +102,7 @@ func TestCacheRepository_GetByID(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		cache, err := repo.GetByID(context.Background(), id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, cache)
 		assert.True(t, errors.Is(err, errors.NotFound))
 	})
@@ -110,7 +111,7 @@ func TestCacheRepository_GetByID(t *testing.T) {
 func TestCacheRepository_GetByName(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewCacheRepository(mock)
@@ -125,14 +126,14 @@ func TestCacheRepository_GetByName(t *testing.T) {
 					"cid-1", 6379, "pass", 1024, now, now))
 
 		cache, err := repo.GetByName(context.Background(), userID, name)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, cache)
 		assert.Equal(t, name, cache.Name)
 	})
 
 	t.Run("not_found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewCacheRepository(mock)
@@ -144,7 +145,7 @@ func TestCacheRepository_GetByName(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		cache, err := repo.GetByName(context.Background(), userID, name)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, cache)
 		assert.True(t, errors.Is(err, errors.NotFound))
 	})
@@ -153,7 +154,7 @@ func TestCacheRepository_GetByName(t *testing.T) {
 func TestCacheRepository_List(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewCacheRepository(mock)
@@ -167,13 +168,13 @@ func TestCacheRepository_List(t *testing.T) {
 				AddRow(uuid.New(), userID, "cache-2", string(domain.EngineRedis), "6.2", string(domain.CacheStatusStopped), nil, "cid-2", 6380, "pass", 1024, now, now))
 
 		caches, err := repo.List(context.Background(), userID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, caches, 2)
 	})
 
 	t.Run("db_error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewCacheRepository(mock)
@@ -184,7 +185,7 @@ func TestCacheRepository_List(t *testing.T) {
 			WillReturnError(assert.AnError)
 
 		caches, err := repo.List(context.Background(), userID)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, caches)
 		assert.True(t, errors.Is(err, errors.Internal))
 	})
@@ -193,7 +194,7 @@ func TestCacheRepository_List(t *testing.T) {
 func TestCacheRepository_Update(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewCacheRepository(mock)
@@ -210,11 +211,11 @@ func TestCacheRepository_Update(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		err = repo.Update(context.Background(), cache)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 	t.Run("db_error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewCacheRepository(mock)
@@ -224,7 +225,7 @@ func TestCacheRepository_Update(t *testing.T) {
 			WillReturnError(assert.AnError)
 
 		err = repo.Update(context.Background(), cache)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.True(t, errors.Is(err, errors.Internal))
 	})
 }
@@ -232,7 +233,7 @@ func TestCacheRepository_Update(t *testing.T) {
 func TestCacheRepository_Delete(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewCacheRepository(mock)
@@ -243,12 +244,12 @@ func TestCacheRepository_Delete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.Delete(context.Background(), id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("db_error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewCacheRepository(mock)
@@ -259,7 +260,7 @@ func TestCacheRepository_Delete(t *testing.T) {
 			WillReturnError(assert.AnError)
 
 		err = repo.Delete(context.Background(), id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.True(t, errors.Is(err, errors.Internal))
 	})
 }

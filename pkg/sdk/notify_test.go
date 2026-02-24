@@ -8,6 +8,7 @@ import (
 
 	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNotifySDK(t *testing.T) {
@@ -91,7 +92,7 @@ func TestNotifySDK(t *testing.T) {
 
 	t.Run("CreateTopic", func(t *testing.T) {
 		topic, err := client.CreateTopic("my-topic")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if topic != nil {
 			assert.Equal(t, "my-topic", topic.Name)
 		}
@@ -99,18 +100,18 @@ func TestNotifySDK(t *testing.T) {
 
 	t.Run("ListTopics", func(t *testing.T) {
 		topics, err := client.ListTopics()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, topics, 1)
 	})
 
 	t.Run("DeleteTopic", func(t *testing.T) {
 		err := client.DeleteTopic("topic-1")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("Subscribe", func(t *testing.T) {
 		sub, err := client.Subscribe("topic-1", "http", "http://example.com")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if sub != nil {
 			assert.Equal(t, "sub-1", sub.ID)
 		}
@@ -118,17 +119,17 @@ func TestNotifySDK(t *testing.T) {
 
 	t.Run("ListSubscriptions", func(t *testing.T) {
 		subs, err := client.ListSubscriptions("topic-1")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, subs, 1)
 	})
 
 	t.Run("Unsubscribe", func(t *testing.T) {
 		err := client.Unsubscribe("sub-1")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("Publish", func(t *testing.T) {
 		err := client.Publish("topic-1", "hello")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

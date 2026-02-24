@@ -14,12 +14,13 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestAutoScalingRepo_CreateGroup(t *testing.T) {
+func TestAutoScalingRepoCreateGroup(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewAutoScalingRepo(mock)
@@ -49,12 +50,12 @@ func TestAutoScalingRepo_CreateGroup(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.CreateGroup(context.Background(), group)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewAutoScalingRepo(mock)
@@ -64,14 +65,14 @@ func TestAutoScalingRepo_CreateGroup(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		err = repo.CreateGroup(context.Background(), group)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
-func TestAutoScalingRepo_GetGroupByID(t *testing.T) {
+func TestAutoScalingRepoGetGroupByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewAutoScalingRepo(mock)
@@ -94,14 +95,14 @@ func TestAutoScalingRepo_GetGroupByID(t *testing.T) {
 					1, 5, 2, 0, string(domain.ScalingGroupStatusActive), 1, now, now))
 
 		g, err := repo.GetGroupByID(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, g)
 		assert.Equal(t, id, g.ID)
 	})
 
 	t.Run("not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewAutoScalingRepo(mock)
@@ -114,7 +115,7 @@ func TestAutoScalingRepo_GetGroupByID(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		g, err := repo.GetGroupByID(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, g)
 		var target *theclouderrors.Error
 		if errors.As(err, &target) {
@@ -123,10 +124,10 @@ func TestAutoScalingRepo_GetGroupByID(t *testing.T) {
 	})
 }
 
-func TestAutoScalingRepo_ListGroups(t *testing.T) {
+func TestAutoScalingRepoListGroups(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewAutoScalingRepo(mock)
@@ -148,15 +149,15 @@ func TestAutoScalingRepo_ListGroups(t *testing.T) {
 					1, 5, 2, 0, string(domain.ScalingGroupStatusActive), 1, now, now))
 
 		groups, err := repo.ListGroups(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, groups, 1)
 	})
 }
 
-func TestAutoScalingRepo_UpdateGroup(t *testing.T) {
+func TestAutoScalingRepoUpdateGroup(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewAutoScalingRepo(mock)
@@ -178,13 +179,13 @@ func TestAutoScalingRepo_UpdateGroup(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		err = repo.UpdateGroup(context.Background(), group)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, 2, group.Version)
 	})
 
 	t.Run("conflict", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewAutoScalingRepo(mock)
@@ -199,7 +200,7 @@ func TestAutoScalingRepo_UpdateGroup(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("UPDATE", 0))
 
 		err = repo.UpdateGroup(context.Background(), group)
-		assert.Error(t, err)
+		require.Error(t, err)
 		var target *theclouderrors.Error
 		if errors.As(err, &target) {
 			assert.Equal(t, theclouderrors.Conflict, target.Type)
@@ -207,10 +208,10 @@ func TestAutoScalingRepo_UpdateGroup(t *testing.T) {
 	})
 }
 
-func TestAutoScalingRepo_DeleteGroup(t *testing.T) {
+func TestAutoScalingRepoDeleteGroup(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewAutoScalingRepo(mock)
@@ -223,12 +224,12 @@ func TestAutoScalingRepo_DeleteGroup(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.DeleteGroup(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewAutoScalingRepo(mock)
@@ -241,7 +242,7 @@ func TestAutoScalingRepo_DeleteGroup(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 0))
 
 		err = repo.DeleteGroup(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		var target *theclouderrors.Error
 		ok := errors.As(err, &target)
 		if ok {
@@ -250,10 +251,10 @@ func TestAutoScalingRepo_DeleteGroup(t *testing.T) {
 	})
 }
 
-func TestAutoScalingRepo_CreatePolicy(t *testing.T) {
+func TestAutoScalingRepoCreatePolicy(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewAutoScalingRepo(mock)
@@ -275,14 +276,14 @@ func TestAutoScalingRepo_CreatePolicy(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.CreatePolicy(context.Background(), policy)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
-func TestAutoScalingRepo_GetPoliciesForGroup(t *testing.T) {
+func TestAutoScalingRepoGetPoliciesForGroup(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewAutoScalingRepo(mock)
@@ -295,7 +296,7 @@ func TestAutoScalingRepo_GetPoliciesForGroup(t *testing.T) {
 				AddRow(uuid.New(), groupID, "policy-1", "cpu", 50.0, 1, 1, 300, now))
 
 		policies, err := repo.GetPoliciesForGroup(context.Background(), groupID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, policies, 1)
 	})
 }

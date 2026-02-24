@@ -12,12 +12,13 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestStackRepository_Create(t *testing.T) {
+func TestStackRepositoryCreate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStackRepository(mock)
@@ -37,12 +38,12 @@ func TestStackRepository_Create(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), s)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStackRepository(mock)
@@ -54,14 +55,14 @@ func TestStackRepository_Create(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		err = repo.Create(context.Background(), s)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
-func TestStackRepository_GetByID(t *testing.T) {
+func TestStackRepositoryGetByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStackRepository(mock)
@@ -80,14 +81,14 @@ func TestStackRepository_GetByID(t *testing.T) {
 				AddRow(uuid.New(), id, "res1", "phys1", "type1", "status1", now))
 
 		s, err := repo.GetByID(context.Background(), id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, s)
 		assert.Len(t, s.Resources, 1)
 	})
 
 	t.Run("not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStackRepository(mock)
@@ -98,7 +99,7 @@ func TestStackRepository_GetByID(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		s, err := repo.GetByID(context.Background(), id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, s)
 		var target *theclouderrors.Error
 		if errors.As(err, &target) {
@@ -107,10 +108,10 @@ func TestStackRepository_GetByID(t *testing.T) {
 	})
 }
 
-func TestStackRepository_GetByName(t *testing.T) {
+func TestStackRepositoryGetByName(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStackRepository(mock)
@@ -130,14 +131,14 @@ func TestStackRepository_GetByName(t *testing.T) {
 				AddRow(uuid.New(), id, "res1", "phys1", "type1", "status1", now))
 
 		s, err := repo.GetByName(context.Background(), userID, name)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, s)
 		assert.Equal(t, id, s.ID)
 	})
 
 	t.Run("not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStackRepository(mock)
@@ -149,7 +150,7 @@ func TestStackRepository_GetByName(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		s, err := repo.GetByName(context.Background(), userID, name)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, s)
 		var target *theclouderrors.Error
 		ok := errors.As(err, &target)
@@ -159,10 +160,10 @@ func TestStackRepository_GetByName(t *testing.T) {
 	})
 }
 
-func TestStackRepository_ListByUserID(t *testing.T) {
+func TestStackRepositoryListByUserID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStackRepository(mock)
@@ -175,13 +176,13 @@ func TestStackRepository_ListByUserID(t *testing.T) {
 				AddRow(uuid.New(), userID, "s1", "{}", nil, "ACTIVE", "", now, now))
 
 		stacks, err := repo.ListByUserID(context.Background(), userID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, stacks, 1)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStackRepository(mock)
@@ -192,15 +193,15 @@ func TestStackRepository_ListByUserID(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		stacks, err := repo.ListByUserID(context.Background(), userID)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, stacks)
 	})
 }
 
-func TestStackRepository_AddResource(t *testing.T) {
+func TestStackRepositoryAddResource(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStackRepository(mock)
@@ -219,12 +220,12 @@ func TestStackRepository_AddResource(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.AddResource(context.Background(), res)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStackRepository(mock)
@@ -236,14 +237,14 @@ func TestStackRepository_AddResource(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		err = repo.AddResource(context.Background(), res)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
-func TestStackRepository_Update(t *testing.T) {
+func TestStackRepositoryUpdate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStackRepository(mock)
@@ -259,12 +260,12 @@ func TestStackRepository_Update(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		err = repo.Update(context.Background(), s)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStackRepository(mock)
@@ -276,14 +277,14 @@ func TestStackRepository_Update(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		err = repo.Update(context.Background(), s)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
-func TestStackRepository_Delete(t *testing.T) {
+func TestStackRepositoryDelete(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStackRepository(mock)
@@ -294,12 +295,12 @@ func TestStackRepository_Delete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.Delete(context.Background(), id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStackRepository(mock)
@@ -310,14 +311,14 @@ func TestStackRepository_Delete(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		err = repo.Delete(context.Background(), id)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
-func TestStackRepository_DeleteResources(t *testing.T) {
+func TestStackRepositoryDeleteResources(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStackRepository(mock)
@@ -328,12 +329,12 @@ func TestStackRepository_DeleteResources(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.DeleteResources(context.Background(), stackID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewStackRepository(mock)
@@ -344,6 +345,6 @@ func TestStackRepository_DeleteResources(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		err = repo.DeleteResources(context.Background(), stackID)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }

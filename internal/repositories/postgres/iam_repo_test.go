@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIAMRepository_Unit(t *testing.T) {
+func TestIAMRepositoryUnit(t *testing.T) {
 	mock, err := pgxmock.NewPool()
 	require.NoError(t, err)
 	defer mock.Close()
@@ -37,7 +37,7 @@ func TestIAMRepository_Unit(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err := repo.CreatePolicy(ctx, tenantID, policy)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("GetPolicyByID", func(t *testing.T) {
@@ -51,14 +51,14 @@ func TestIAMRepository_Unit(t *testing.T) {
 			WillReturnRows(rows)
 
 		fetched, err := repo.GetPolicyByID(ctx, policy.TenantID, policy.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, policy.ID, fetched.ID)
 		assert.Equal(t, policy.Name, fetched.Name)
 	})
 
 	t.Run("AttachPolicyToUser", func(t *testing.T) {
 		userID := uuid.New()
-		
+
 		// AttachPolicyToUser calls GetPolicyByID first
 		statementsJSON, _ := json.Marshal(policy.Statements)
 		policyRows := pgxmock.NewRows([]string{"id", "tenant_id", "name", "description", "statements"}).
@@ -72,7 +72,7 @@ func TestIAMRepository_Unit(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err := repo.AttachPolicyToUser(ctx, tenantID, userID, policy.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("GetPoliciesForUser", func(t *testing.T) {
@@ -86,10 +86,10 @@ func TestIAMRepository_Unit(t *testing.T) {
 			WillReturnRows(rows)
 
 		userPolicies, err := repo.GetPoliciesForUser(ctx, tenantID, userID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, userPolicies, 1)
 		assert.Equal(t, policy.ID, userPolicies[0].ID)
 	})
 
-	assert.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, mock.ExpectationsWereMet())
 }

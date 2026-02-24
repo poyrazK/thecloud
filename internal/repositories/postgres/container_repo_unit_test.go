@@ -9,6 +9,7 @@ import (
 	"github.com/pashagolub/pgxmock/v3"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestContainerRepository_CreateDeployment(t *testing.T) {
@@ -16,7 +17,7 @@ func TestContainerRepository_CreateDeployment(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresContainerRepository(mock)
@@ -38,7 +39,7 @@ func TestContainerRepository_CreateDeployment(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.CreateDeployment(context.Background(), deployment)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -47,7 +48,7 @@ func TestContainerRepository_GetDeploymentByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresContainerRepository(mock)
@@ -61,7 +62,7 @@ func TestContainerRepository_GetDeploymentByID(t *testing.T) {
 				AddRow(id, userID, "test-dep", "nginx", 3, 0, "80:80", string(domain.DeploymentStatusScaling), now, now))
 
 		d, err := repo.GetDeploymentByID(context.Background(), id, userID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, d)
 		assert.Equal(t, id, d.ID)
 		assert.Equal(t, domain.DeploymentStatusScaling, d.Status)
@@ -73,7 +74,7 @@ func TestContainerRepository_ListDeployments(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresContainerRepository(mock)
@@ -86,7 +87,7 @@ func TestContainerRepository_ListDeployments(t *testing.T) {
 				AddRow(uuid.New(), userID, "test-dep", "nginx", 3, 0, "80:80", string(domain.DeploymentStatusScaling), now, now))
 
 		deps, err := repo.ListDeployments(context.Background(), userID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, deps, 1)
 		assert.Equal(t, domain.DeploymentStatusScaling, deps[0].Status)
 	})
@@ -97,7 +98,7 @@ func TestContainerRepository_UpdateDeployment(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresContainerRepository(mock)
@@ -113,7 +114,7 @@ func TestContainerRepository_UpdateDeployment(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		err = repo.UpdateDeployment(context.Background(), deployment)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -122,7 +123,7 @@ func TestContainerRepository_DeleteDeployment(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresContainerRepository(mock)
@@ -133,7 +134,7 @@ func TestContainerRepository_DeleteDeployment(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.DeleteDeployment(context.Background(), id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -142,7 +143,7 @@ func TestContainerRepository_AddContainer(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresContainerRepository(mock)
@@ -154,7 +155,7 @@ func TestContainerRepository_AddContainer(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.AddContainer(context.Background(), depID, instID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -163,7 +164,7 @@ func TestContainerRepository_RemoveContainer(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresContainerRepository(mock)
@@ -175,7 +176,7 @@ func TestContainerRepository_RemoveContainer(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.RemoveContainer(context.Background(), depID, instID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -184,7 +185,7 @@ func TestContainerRepository_GetContainers(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresContainerRepository(mock)
@@ -196,7 +197,7 @@ func TestContainerRepository_GetContainers(t *testing.T) {
 			WillReturnRows(pgxmock.NewRows([]string{"instance_id"}).AddRow(instID))
 
 		ids, err := repo.GetContainers(context.Background(), depID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, ids, 1)
 		assert.Equal(t, instID, ids[0])
 	})
@@ -207,7 +208,7 @@ func TestContainerRepository_ListAllDeployments(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresContainerRepository(mock)
@@ -218,7 +219,7 @@ func TestContainerRepository_ListAllDeployments(t *testing.T) {
 				AddRow(uuid.New(), uuid.New(), "test-dep", "nginx", 3, 0, "80:80", string(domain.DeploymentStatusScaling), now, now))
 
 		deps, err := repo.ListAllDeployments(context.Background())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, deps, 1)
 	})
 }

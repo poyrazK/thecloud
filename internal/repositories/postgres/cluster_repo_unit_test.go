@@ -10,6 +10,7 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -55,7 +56,7 @@ func TestClusterRepository(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err := repo.Create(ctx, cluster)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("GetByID", func(t *testing.T) {
@@ -69,7 +70,7 @@ func TestClusterRepository(t *testing.T) {
 				AddRow(id, userID, uuid.New(), testClusterName, testClusterVersion, string(domain.ClusterStatusRunning), 3, false, false, "10.244.0.0/16", "10.96.0.0/12", nil, "", "", "", nil, "", nil, time.Now(), time.Now()))
 
 		cluster, err := repo.GetByID(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, cluster)
 	})
 
@@ -83,7 +84,7 @@ func TestClusterRepository(t *testing.T) {
 				AddRow(uuid.New(), userID, uuid.New(), "c1", "v1", "RUNNING", 3, false, false, "", "", nil, "", "", "", nil, "", nil, time.Now(), time.Now()))
 
 		clusters, err := repo.ListAll(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, clusters, 1)
 	})
 
@@ -104,7 +105,7 @@ func TestClusterRepository(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		err := repo.Update(ctx, cluster)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("Delete", func(t *testing.T) {
@@ -117,7 +118,7 @@ func TestClusterRepository(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err := repo.Delete(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("NodeOps", func(t *testing.T) {
@@ -133,14 +134,14 @@ func TestClusterRepository(t *testing.T) {
 			WithArgs(nodeID, clusterID, pgxmock.AnyArg(), "worker", "active", pgxmock.AnyArg(), pgxmock.AnyArg()).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 		err := repo.AddNode(ctx, &domain.ClusterNode{ID: nodeID, ClusterID: clusterID, Role: domain.NodeRoleWorker, Status: "active", JoinedAt: now, InstanceID: uuid.New()})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// GetNodes
 		mock.ExpectQuery("SELECT .* FROM cluster_nodes").WithArgs(clusterID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "cluster_id", "instance_id", "role", "status", "joined_at", "last_heartbeat"}).
 				AddRow(nodeID, clusterID, uuid.New(), "worker", "active", now, nil))
 		nodes, err := repo.GetNodes(ctx, clusterID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, nodes, 1)
 
 		// UpdateNode
@@ -148,12 +149,12 @@ func TestClusterRepository(t *testing.T) {
 			WithArgs("error", pgxmock.AnyArg(), pgxmock.AnyArg(), nodeID).
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 		err = repo.UpdateNode(ctx, &domain.ClusterNode{ID: nodeID, Status: "error"})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// DeleteNode
 		mock.ExpectExec("DELETE FROM cluster_nodes").WithArgs(nodeID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 		err = repo.DeleteNode(ctx, nodeID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

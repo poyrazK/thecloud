@@ -8,6 +8,7 @@ import (
 
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClientListVPCs(t *testing.T) {
@@ -31,7 +32,7 @@ func TestClientListVPCs(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	vpcs, err := client.ListVPCs()
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, vpcs, 1)
 	assert.Equal(t, "vpc-1", vpcs[0].ID)
 }
@@ -60,7 +61,7 @@ func TestClientCreateVPC(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	vpc, err := client.CreateVPC(testVpcName, testutil.TestCIDR)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "vpc-1", vpc.ID)
 	assert.Equal(t, testVpcName, vpc.Name)
 }
@@ -77,7 +78,7 @@ func TestClientGetVPC(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	vpc, err := client.GetVPC("vpc-1")
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "vpc-1", vpc.ID)
 }
 
@@ -91,7 +92,7 @@ func TestClientDeleteVPC(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	err := client.DeleteVPC("vpc-1")
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClientVPCErrors(t *testing.T) {
@@ -103,14 +104,14 @@ func TestClientVPCErrors(t *testing.T) {
 
 	client := NewClient(server.URL, testAPIKey)
 	_, err := client.ListVPCs()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.CreateVPC("vpc", testutil.TestCIDR)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetVPC("vpc-1")
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.DeleteVPC("vpc-1")
-	assert.Error(t, err)
+	require.Error(t, err)
 }

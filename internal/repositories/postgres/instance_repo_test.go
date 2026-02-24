@@ -14,6 +14,7 @@ import (
 	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -26,7 +27,7 @@ const (
 func TestInstanceRepositoryCreate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceRepository(mock)
@@ -54,12 +55,12 @@ func TestInstanceRepositoryCreate(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), inst)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceRepository(mock)
@@ -69,14 +70,14 @@ func TestInstanceRepositoryCreate(t *testing.T) {
 			WillReturnError(errors.New(testDBError))
 
 		err = repo.Create(context.Background(), inst)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
 func TestInstanceRepositoryGetByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceRepository(mock)
@@ -92,7 +93,7 @@ func TestInstanceRepositoryGetByID(t *testing.T) {
 				AddRow(id, userID, tenantID, testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", testInstanceType, []string{}, []string{}, []string{}, int64(0), int64(0), int64(0), map[string]string{}, map[string]string{}, nil, 1, now, now))
 
 		inst, err := repo.GetByID(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if assert.NotNil(t, inst) {
 			assert.Equal(t, id, inst.ID)
 		}
@@ -100,7 +101,7 @@ func TestInstanceRepositoryGetByID(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceRepository(mock)
@@ -114,7 +115,7 @@ func TestInstanceRepositoryGetByID(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		inst, err := repo.GetByID(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, inst)
 		var target *theclouderrors.Error
 		if errors.As(err, &target) {
@@ -126,7 +127,7 @@ func TestInstanceRepositoryGetByID(t *testing.T) {
 func TestInstanceRepositoryGetByName(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceRepository(mock)
@@ -143,7 +144,7 @@ func TestInstanceRepositoryGetByName(t *testing.T) {
 				AddRow(id, userID, tenantID, name, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", testInstanceType, []string{}, []string{}, []string{}, int64(0), int64(0), int64(0), map[string]string{}, map[string]string{}, nil, 1, now, now))
 
 		inst, err := repo.GetByName(ctx, name)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if assert.NotNil(t, inst) {
 			assert.Equal(t, id, inst.ID)
 		}
@@ -151,7 +152,7 @@ func TestInstanceRepositoryGetByName(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceRepository(mock)
@@ -165,7 +166,7 @@ func TestInstanceRepositoryGetByName(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		inst, err := repo.GetByName(ctx, name)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, inst)
 		var target *theclouderrors.Error
 		ok := errors.As(err, &target)
@@ -178,7 +179,7 @@ func TestInstanceRepositoryGetByName(t *testing.T) {
 func TestInstanceRepositoryList(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceRepository(mock)
@@ -193,13 +194,13 @@ func TestInstanceRepositoryList(t *testing.T) {
 				AddRow(uuid.New(), userID, tenantID, testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", testInstanceType, []string{}, []string{}, []string{}, int64(0), int64(0), int64(0), map[string]string{}, map[string]string{}, nil, 1, now, now))
 
 		list, err := repo.List(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, list, 1)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceRepository(mock)
@@ -212,7 +213,7 @@ func TestInstanceRepositoryList(t *testing.T) {
 			WillReturnError(errors.New(testDBError))
 
 		list, err := repo.List(ctx)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, list)
 	})
 }
@@ -220,7 +221,7 @@ func TestInstanceRepositoryList(t *testing.T) {
 func TestInstanceRepositoryListBySubnet(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceRepository(mock)
@@ -236,7 +237,7 @@ func TestInstanceRepositoryListBySubnet(t *testing.T) {
 				AddRow(uuid.New(), userID, tenantID, testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, &subnetID, testutil.TestIPHost, "ovs-1", "basic-2", []string{}, []string{}, []string{}, int64(0), int64(0), int64(0), map[string]string{}, map[string]string{}, nil, 1, now, now))
 
 		list, err := repo.ListBySubnet(ctx, subnetID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, list, 1)
 	})
 }
@@ -244,7 +245,7 @@ func TestInstanceRepositoryListBySubnet(t *testing.T) {
 func TestInstanceRepositoryUpdate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceRepository(mock)
@@ -266,13 +267,13 @@ func TestInstanceRepositoryUpdate(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		err = repo.Update(context.Background(), inst)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, 2, inst.Version)
 	})
 
 	t.Run("concurrency conflict", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceRepository(mock)
@@ -290,7 +291,7 @@ func TestInstanceRepositoryUpdate(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("UPDATE", 0))
 
 		err = repo.Update(context.Background(), inst)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "conflict")
 	})
 }
@@ -298,7 +299,7 @@ func TestInstanceRepositoryUpdate(t *testing.T) {
 func TestInstanceRepositoryDelete(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceRepository(mock)
@@ -312,12 +313,12 @@ func TestInstanceRepositoryDelete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.Delete(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run(testNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceRepository(mock)
@@ -331,7 +332,7 @@ func TestInstanceRepositoryDelete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 0))
 
 		err = repo.Delete(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		var target *theclouderrors.Error
 		ok := errors.As(err, &target)
 		if ok {
@@ -342,7 +343,7 @@ func TestInstanceRepositoryDelete(t *testing.T) {
 
 func TestInstanceRepositoryListAll(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewInstanceRepository(mock)
@@ -353,13 +354,13 @@ func TestInstanceRepositoryListAll(t *testing.T) {
 			AddRow(uuid.New(), uuid.New(), uuid.New(), testInstanceName, testInstanceImg, "cid-1", string(domain.StatusRunning), "80:80", nil, nil, testutil.TestIPHost, "ovs-1", testInstanceType, []string{}, []string{}, []string{}, int64(0), int64(0), int64(0), map[string]string{}, map[string]string{}, nil, 1, now, now))
 
 	list, err := repo.ListAll(context.Background())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, list, 1)
 }
 
 func TestInstanceRepositoryScanError(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewInstanceRepository(mock)
@@ -372,6 +373,6 @@ func TestInstanceRepositoryScanError(t *testing.T) {
 		WillReturnError(errors.New("scan failed"))
 
 	inst, err := repo.GetByID(ctx, id)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, inst)
 }

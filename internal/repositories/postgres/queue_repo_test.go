@@ -15,10 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestQueueRepository_Create(t *testing.T) {
+func TestQueueRepositoryCreate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresQueueRepository(mock)
@@ -40,12 +40,12 @@ func TestQueueRepository_Create(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), q)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresQueueRepository(mock)
@@ -55,14 +55,14 @@ func TestQueueRepository_Create(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		err = repo.Create(context.Background(), q)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
-func TestQueueRepository_GetByID(t *testing.T) {
+func TestQueueRepositoryGetByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresQueueRepository(mock)
@@ -76,14 +76,14 @@ func TestQueueRepository_GetByID(t *testing.T) {
 				AddRow(id, userID, "test-queue", "arn", 30, 4, 262144, string(domain.QueueStatusActive), now, now))
 
 		q, err := repo.GetByID(context.Background(), id, userID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, q)
 		assert.Equal(t, id, q.ID)
 	})
 
 	t.Run("not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresQueueRepository(mock)
@@ -95,15 +95,15 @@ func TestQueueRepository_GetByID(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		q, err := repo.GetByID(context.Background(), id, userID)
-		assert.NoError(t, err) // It returns nil, nil for not found based on current implementation
+		require.NoError(t, err) // It returns nil, nil for not found based on current implementation
 		assert.Nil(t, q)
 	})
 }
 
-func TestQueueRepository_List(t *testing.T) {
+func TestQueueRepositoryList(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresQueueRepository(mock)
@@ -128,15 +128,15 @@ func TestQueueRepository_List(t *testing.T) {
 				AddRow(uuid.New(), userID, "test-queue", "arn", 30, 4, 262144, string(domain.QueueStatusActive), now, now))
 
 		queues, err := repo.List(context.Background(), userID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, queues, 1)
 	})
 }
 
-func TestQueueRepository_Delete(t *testing.T) {
+func TestQueueRepositoryDelete(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresQueueRepository(mock)
@@ -147,12 +147,12 @@ func TestQueueRepository_Delete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.Delete(context.Background(), id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresQueueRepository(mock)
@@ -163,7 +163,7 @@ func TestQueueRepository_Delete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 0))
 
 		err = repo.Delete(context.Background(), id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		var theCloudErr *theclouderrors.Error
 		if errors.As(err, &theCloudErr) {
 			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
@@ -171,10 +171,10 @@ func TestQueueRepository_Delete(t *testing.T) {
 	})
 }
 
-func TestQueueRepository_SendMessage(t *testing.T) {
+func TestQueueRepositorySendMessage(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresQueueRepository(mock)
@@ -187,16 +187,16 @@ func TestQueueRepository_SendMessage(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		m, err := repo.SendMessage(context.Background(), queueID, body)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, m)
 		assert.Equal(t, body, m.Body)
 	})
 }
 
-func TestQueueRepository_ReceiveMessages(t *testing.T) {
+func TestQueueRepositoryReceiveMessages(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresQueueRepository(mock)
@@ -216,15 +216,15 @@ func TestQueueRepository_ReceiveMessages(t *testing.T) {
 		mock.ExpectCommit()
 
 		messages, err := repo.ReceiveMessages(context.Background(), queueID, maxMessages, visibilityTimeout)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, messages, 1)
 	})
 }
 
-func TestQueueRepository_DeleteMessage(t *testing.T) {
+func TestQueueRepositoryDeleteMessage(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresQueueRepository(mock)
@@ -236,14 +236,14 @@ func TestQueueRepository_DeleteMessage(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.DeleteMessage(context.Background(), queueID, receiptHandle)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
-func TestQueueRepository_PurgeMessages(t *testing.T) {
+func TestQueueRepositoryPurgeMessages(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresQueueRepository(mock)
@@ -254,15 +254,15 @@ func TestQueueRepository_PurgeMessages(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 5))
 
 		count, err := repo.PurgeMessages(context.Background(), queueID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, int64(5), count)
 	})
 }
 
-func TestQueueRepository_GetQueueStats(t *testing.T) {
+func TestQueueRepositoryGetQueueStats(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewPostgresQueueRepository(mock)
@@ -276,7 +276,7 @@ func TestQueueRepository_GetQueueStats(t *testing.T) {
 		postgresRepo, ok := repo.(*PostgresQueueRepository)
 		require.True(t, ok)
 		visible, inFlight, err := postgresRepo.GetQueueStats(context.Background(), queueID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, 10, visible)
 		assert.Equal(t, 5, inFlight)
 	})

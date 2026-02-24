@@ -90,6 +90,7 @@ func TestKubernetesE2E(t *testing.T) {
 }
 
 func createVPC(t *testing.T, client *http.Client, token, name, cidr string) VPC {
+	t.Helper()
 	reqBody := map[string]string{
 		"name":       name,
 		"cidr_block": cidr,
@@ -116,6 +117,7 @@ func createVPC(t *testing.T, client *http.Client, token, name, cidr string) VPC 
 }
 
 func createCluster(t *testing.T, client *http.Client, token, name, vpcID string, workers int) Cluster {
+	t.Helper()
 	reqBody := map[string]interface{}{
 		"name":         name,
 		"vpc_id":       vpcID,
@@ -146,6 +148,7 @@ func createCluster(t *testing.T, client *http.Client, token, name, vpcID string,
 }
 
 func getCluster(t *testing.T, client *http.Client, token, id string) Cluster {
+	t.Helper()
 	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/clusters/%s", testutil.TestBaseURL, id), nil)
 	req.Header.Set(testutil.TestHeaderAPIKey, token)
 	applyTenantHeader(t, req, token)

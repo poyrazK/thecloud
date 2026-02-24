@@ -8,9 +8,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/pashagolub/pgxmock/v3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestAutoScalingRepo_Extra(t *testing.T) {
+func TestAutoScalingRepoExtra(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
@@ -27,14 +28,14 @@ func TestAutoScalingRepo_Extra(t *testing.T) {
 			WithArgs(groupID, instanceID).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 		err := repo.AddInstanceToGroup(ctx, groupID, instanceID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// GetInstancesInGroup
 		mock.ExpectQuery("SELECT instance_id FROM scaling_group_instances").
 			WithArgs(groupID).
 			WillReturnRows(pgxmock.NewRows([]string{"instance_id"}).AddRow(instanceID))
 		ids, err := repo.GetInstancesInGroup(ctx, groupID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, ids, 1)
 		assert.Equal(t, instanceID, ids[0])
 
@@ -43,7 +44,7 @@ func TestAutoScalingRepo_Extra(t *testing.T) {
 			WithArgs(groupID, instanceID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 		err = repo.RemoveInstanceFromGroup(ctx, groupID, instanceID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("GetAllScalingGroupInstances", func(t *testing.T) {
@@ -59,7 +60,7 @@ func TestAutoScalingRepo_Extra(t *testing.T) {
 			WillReturnRows(pgxmock.NewRows([]string{"scaling_group_id", "instance_id"}).AddRow(groupID, instanceID))
 		
 		result, err := repo.GetAllScalingGroupInstances(ctx, []uuid.UUID{groupID})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, result[groupID], 1)
 		assert.Equal(t, instanceID, result[groupID][0])
 	})
@@ -77,7 +78,7 @@ func TestAutoScalingRepo_Extra(t *testing.T) {
 			WillReturnRows(pgxmock.NewRows([]string{"avg"}).AddRow(45.5))
 		
 		avg, err := repo.GetAverageCPU(ctx, []uuid.UUID{instanceID}, since)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.InDelta(t, 45.5, avg, 0.01)
 	})
 	
@@ -95,7 +96,7 @@ func TestAutoScalingRepo_Extra(t *testing.T) {
 				AddRow(policyID, groupID, "p1", "cpu", 70.0, 1, 1, 300, nil))
 		
 		result, err := repo.GetAllPolicies(ctx, []uuid.UUID{groupID})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, result[groupID], 1)
 		assert.Equal(t, policyID, result[groupID][0].ID)
 	})

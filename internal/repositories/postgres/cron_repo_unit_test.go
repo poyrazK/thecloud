@@ -9,12 +9,13 @@ import (
 	"github.com/pashagolub/pgxmock/v3"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCronRepository_CreateJob(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewPostgresCronRepository(mock)
@@ -37,13 +38,13 @@ func TestCronRepository_CreateJob(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.CreateJob(context.Background(), job)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestCronRepository_GetJobByID(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewPostgresCronRepository(mock)
@@ -58,7 +59,7 @@ func TestCronRepository_GetJobByID(t *testing.T) {
 			AddRow(id, userID, "test-job", "* * * * *", "http://test", "POST", "{}", string(domain.CronStatusActive), lastRunAt, nextRunAt, now, now))
 
 	job, err := repo.GetJobByID(context.Background(), id, userID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, job)
 	assert.Equal(t, id, job.ID)
 	assert.Equal(t, domain.CronStatusActive, job.Status)
@@ -67,7 +68,7 @@ func TestCronRepository_GetJobByID(t *testing.T) {
 func TestCronRepository_ListJobs(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewPostgresCronRepository(mock)
@@ -81,7 +82,7 @@ func TestCronRepository_ListJobs(t *testing.T) {
 			AddRow(uuid.New(), userID, "test-job", "* * * * *", "http://test", "POST", "{}", string(domain.CronStatusActive), lastRunAt, nextRunAt, now, now))
 
 	jobs, err := repo.ListJobs(context.Background(), userID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, jobs, 1)
 	assert.Equal(t, domain.CronStatusActive, jobs[0].Status)
 }
