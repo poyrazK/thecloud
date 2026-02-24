@@ -137,7 +137,7 @@ func run() error {
 	repos := deps.InitRepositories(db, rdb)
 	svcs, workers, err := deps.InitServices(setup.ServiceConfig{
 		Config: cfg, Repos: repos, Compute: compute, Storage: storage,
-		Network: network, LBProxy: lbProxy, Logger: logger,
+		Network: network, LBProxy: lbProxy, DB: db, RDB: rdb, Logger: logger,
 	})
 	if err != nil {
 		logger.Error("service initialization failed", "error", err)
