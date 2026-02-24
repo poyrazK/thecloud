@@ -113,6 +113,7 @@ func registerAndLogin(t *testing.T, client *http.Client, email, name string) str
 }
 
 func createTenant(t *testing.T, client *http.Client, token, name string) string {
+	t.Helper()
 	payload := map[string]string{
 		"name": name,
 		"slug": fmt.Sprintf("%s-%d", name, time.Now().UnixNano()),
@@ -140,6 +141,7 @@ func createTenant(t *testing.T, client *http.Client, token, name string) string 
 }
 
 func switchTenant(t *testing.T, client *http.Client, token, tenantID string) {
+	t.Helper()
 	if tenantID == "" {
 		t.Fatalf("tenant ID not set before switch")
 	}

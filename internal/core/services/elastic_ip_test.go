@@ -141,6 +141,6 @@ func TestElasticIPGetSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	fetched, err := svc.GetElasticIP(ctx, eip.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, eip.ID, fetched.ID)
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setupCronServiceIntegrationTest(t *testing.T) (ports.CronService, ports.CronRepository, context.Context) {
@@ -82,7 +83,7 @@ func TestCronService_Integration(t *testing.T) {
 	t.Run("Validation", func(t *testing.T) {
 		// Invalid cron
 		_, err := svc.CreateJob(ctx, "bad", "invalid schedule", "http://u", "GET", "")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid schedule")
 	})
 }

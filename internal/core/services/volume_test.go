@@ -62,7 +62,7 @@ func TestVolumeServiceDeleteVolumeSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	err = svc.DeleteVolume(ctx, vol.ID.String())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify Deleted from DB
 	_, err = repo.GetByID(ctx, vol.ID)

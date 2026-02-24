@@ -10,5 +10,5 @@ CREATE TABLE IF NOT EXISTS log_entries (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_logs_tenant_resource ON log_entries(tenant_id, resource_id);
-CREATE INDEX idx_logs_timestamp ON log_entries(timestamp);
+CREATE INDEX IF NOT EXISTS idx_logs_tenant_resource ON log_entries(tenant_id, resource_id);
+CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON log_entries(timestamp);
