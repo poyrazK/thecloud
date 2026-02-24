@@ -94,6 +94,9 @@ jobs:
           PGPASSWORD=cloud psql -h localhost -p 5433 -U cloud -d postgres -c "DROP DATABASE IF EXISTS cloud;"
           PGPASSWORD=cloud psql -h localhost -p 5433 -U cloud -d postgres -c "CREATE DATABASE cloud;"
 
+      - name: Build API
+        run: go build -v -o api ./cmd/api
+
       - name: Start API Server
         env:
           DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
@@ -102,12 +105,12 @@ jobs:
         run: |
           # Start the API server in the background
           # The server will run migrations automatically on startup
-          go run ./cmd/api > api.log 2>&1 &
+          ./api > api.log 2>&1 &
           echo $! > api.pid
           
           # Wait for the server to be ready
           echo "Waiting for API server to start..."
-          timeout 60s bash -c 'until curl -s http://localhost:8080/health/live; do sleep 1; done' || (cat api.log && exit 1)
+          timeout 90s bash -c 'until curl -s http://localhost:8080/health/live; do sleep 2; done' || (echo "API Server Logs:" && cat api.log && exit 1)
           echo "API server started."
 
       - name: Run Replication E2E Tests
