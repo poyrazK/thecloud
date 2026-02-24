@@ -40,13 +40,13 @@ func TestGatewayServiceCreateRoute(t *testing.T) {
 		RateLimit: 100,
 	}
 	route, err := svc.CreateRoute(ctx, params)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, route)
 	assert.Equal(t, "test-route", route.Name)
 
 	// Verify in DB
 	fetched, err := repo.GetRouteByID(ctx, route.ID, userID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, route.ID, fetched.ID)
 }
 
@@ -57,7 +57,7 @@ func TestGatewayServiceListRoutes(t *testing.T) {
 	_, _ = svc.CreateRoute(ctx, ports.CreateRouteParams{Name: "r2", Pattern: "/r2", Target: "http://e.com"})
 
 	res, err := svc.ListRoutes(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, res, 2)
 }
 
@@ -68,11 +68,11 @@ func TestGatewayServiceDeleteRoute(t *testing.T) {
 	route, _ := svc.CreateRoute(ctx, ports.CreateRouteParams{Name: "r1", Pattern: "/r1", Target: "http://e.com"})
 
 	err := svc.DeleteRoute(ctx, route.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify deleted
 	_, err = repo.GetRouteByID(ctx, route.ID, userID)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestGatewayServiceGetProxy(t *testing.T) {
@@ -103,5 +103,5 @@ func TestGatewayServiceRefreshRoutes(t *testing.T) {
 	// Create routes directly in DB to bypass in-memory sync
 	// Then call RefreshRoutes
 	err := svc.RefreshRoutes(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }

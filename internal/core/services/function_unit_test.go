@@ -15,6 +15,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockFunctionRepo struct {
@@ -82,7 +83,7 @@ func (m *mockFileStore) Assemble(ctx context.Context, bucket, key string, parts 
 	return r0, args.Error(1)
 }
 
-func TestFunctionService_BasicOps(t *testing.T) {
+func TestFunctionServiceBasicOps(t *testing.T) {
 	repo := new(mockFunctionRepo)
 	compute := new(MockComputeBackend)
 	fileStore := new(mockFileStore)
@@ -99,7 +100,7 @@ func TestFunctionService_BasicOps(t *testing.T) {
 		repo.On("GetByID", ctx, id).Return(expected, nil).Once()
 
 		result, err := svc.GetFunction(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, expected, result)
 	})
 
@@ -108,7 +109,7 @@ func TestFunctionService_BasicOps(t *testing.T) {
 		repo.On("List", ctx, userID).Return(expected, nil).Once()
 
 		result, err := svc.ListFunctions(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, expected, result)
 	})
 
@@ -120,7 +121,7 @@ func TestFunctionService_BasicOps(t *testing.T) {
 		fileStore.On("Delete", mock.Anything, "functions", "path/to/code").Return(nil).Maybe()
 
 		err := svc.DeleteFunction(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("GetFunctionLogs", func(t *testing.T) {
@@ -128,12 +129,12 @@ func TestFunctionService_BasicOps(t *testing.T) {
 		repo.On("GetInvocations", ctx, id, 10).Return(expected, nil).Once()
 
 		result, err := svc.GetFunctionLogs(ctx, id, 10)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, expected, result)
 	})
 }
 
-func TestFunctionService_CreateFunction(t *testing.T) {
+func TestFunctionServiceCreateFunction(t *testing.T) {
 	repo := new(mockFunctionRepo)
 	compute := new(MockComputeBackend)
 	fileStore := new(mockFileStore)
@@ -155,13 +156,13 @@ func TestFunctionService_CreateFunction(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "function.create", "function", mock.Anything, mock.Anything).Return(nil).Once()
 
 		f, err := svc.CreateFunction(ctx, name, runtime, handler, code)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, f)
 		assert.Equal(t, name, f.Name)
 	})
 }
 
-func TestFunctionService_InvokeFunction(t *testing.T) {
+func TestFunctionServiceInvokeFunction(t *testing.T) {
 	repo := new(mockFunctionRepo)
 	compute := new(MockComputeBackend)
 	fileStore := new(mockFileStore)
@@ -172,12 +173,12 @@ func TestFunctionService_InvokeFunction(t *testing.T) {
 	id := uuid.New()
 	userID := uuid.New()
 	f := &domain.Function{
-		ID: id, 
-		UserID: userID, 
-		Name: "test-fn", 
-		Runtime: "nodejs20", 
+		ID:       id,
+		UserID:   userID,
+		Name:     "test-fn",
+		Runtime:  "nodejs20",
 		CodePath: "path/v1.zip",
-		Timeout: 30,
+		Timeout:  30,
 	}
 
 	// Create valid dummy zip
@@ -190,7 +191,7 @@ func TestFunctionService_InvokeFunction(t *testing.T) {
 	t.Run("sync success", func(t *testing.T) {
 		repo.On("GetByID", mock.Anything, id).Return(f, nil).Once()
 		auditSvc.On("Log", mock.Anything, userID, "function.invoke", "function", id.String(), mock.Anything).Return(nil).Once()
-		
+
 		// runInvocation details
 		fileStore.On("Read", mock.Anything, "functions", f.CodePath).Return(io.NopCloser(bytes.NewReader(buf.Bytes())), nil).Once()
 		compute.On("RunTask", mock.Anything, mock.Anything).Return("task-1", []string{}, nil).Once()
@@ -200,7 +201,7 @@ func TestFunctionService_InvokeFunction(t *testing.T) {
 		repo.On("CreateInvocation", mock.Anything, mock.Anything).Return(nil).Once()
 
 		inv, err := svc.InvokeFunction(ctx, id, []byte("{}"), false)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, inv)
 		assert.Equal(t, "SUCCESS", inv.Status)
 	})

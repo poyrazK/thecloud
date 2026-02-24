@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -93,10 +94,10 @@ func TestAuthHandlerRegister(t *testing.T) {
 		"password": testPassword,
 		"name":     testName,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", registerPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -131,7 +132,7 @@ func TestAuthHandlerRegisterInvalidInputFromService(t *testing.T) {
 		"password": testPassword,
 		"name":     "Test User",
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	svc.On("Register", mock.Anything, testEmail, testPassword, testName).Return(nil, errors.New(errors.InvalidInput, "duplicate"))
 
@@ -158,10 +159,10 @@ func TestAuthHandlerLogin(t *testing.T) {
 		"email":    testEmail,
 		"password": testPassword,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", loginPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -196,7 +197,7 @@ func TestAuthHandlerLoginInvalidCredentials(t *testing.T) {
 		"email":    testEmail,
 		"password": testPassword,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	svc.On("Login", mock.Anything, testEmail, testPassword).Return(nil, "", errors.New(errors.Unauthorized, "invalid credentials"))
 

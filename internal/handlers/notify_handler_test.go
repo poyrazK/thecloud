@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -99,10 +100,10 @@ func TestNotifyHandlerCreateTopic(t *testing.T) {
 	svc.On("CreateTopic", mock.Anything, testTopicName).Return(topic, nil)
 
 	body, err := json.Marshal(map[string]interface{}{"name": testTopicName})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", topicsPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -159,10 +160,10 @@ func TestNotifyHandlerSubscribe(t *testing.T) {
 		"protocol": "http",
 		"endpoint": testExampleURL2,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", topicsPath+"/"+id.String()+subSuffix, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -216,10 +217,10 @@ func TestNotifyHandlerPublish(t *testing.T) {
 	svc.On("Publish", mock.Anything, id, "hello").Return(nil)
 
 	body, err := json.Marshal(map[string]interface{}{"message": "hello"})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", topicsPath+"/"+id.String()+publishSuffix, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)

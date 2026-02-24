@@ -8,6 +8,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setupAuditServiceTest(t *testing.T) (*services.AuditService, *postgres.AuditRepository, context.Context) {
@@ -31,11 +32,11 @@ func TestAuditServiceLog(t *testing.T) {
 	details := map[string]interface{}{"key": "value"}
 
 	err := svc.Log(ctx, userID, action, resType, resID, details)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify in DB
 	logs, err := repo.ListByUserID(ctx, userID, 10)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, logs, 1)
 	assert.Equal(t, action, logs[0].Action)
 	assert.Equal(t, resID, logs[0].ResourceID)
@@ -49,6 +50,6 @@ func TestAuditServiceListLogs(t *testing.T) {
 	_ = svc.Log(ctx, userID, "action2", "res", "2", nil)
 
 	logs, err := svc.ListLogs(ctx, userID, 10)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, logs, 2)
 }

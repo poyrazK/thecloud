@@ -16,6 +16,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -136,9 +137,9 @@ func TestImageHandlerUploadImage(t *testing.T) {
 		writer := multipart.NewWriter(body)
 		part, _ := writer.CreateFormFile("file", "image.qcow2")
 		_, err := part.Write([]byte("image content"))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		err = writer.Close()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		c.Request = httptest.NewRequest("POST", imagesAPI+"/"+imageID.String()+uploadSuffix, body)
 		c.Request.Header.Set("Content-Type", writer.FormDataContentType())

@@ -16,6 +16,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -137,7 +138,7 @@ func TestInstanceHandlerLaunchRejectsEmptyImage(t *testing.T) {
 			Type string `json:"type"`
 		} `json:"error"`
 	}
-	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &wrapper))
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &wrapper))
 	assert.Equal(t, "INVALID_INPUT", wrapper.Error.Type)
 	mockSvc.AssertNotCalled(t, "LaunchInstance", mock.Anything, mock.Anything)
 }
@@ -387,7 +388,7 @@ func TestInstanceHandlerLaunchWithVolumesAndVPC(t *testing.T) {
 		},
 	}
 	jsonBody, err := json.Marshal(body)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodPost, instancesPath, bytes.NewBuffer(jsonBody))
 	req.Header.Set(contentType, applicationJSON)
@@ -434,7 +435,7 @@ func TestInstanceHandlerGetConsole(t *testing.T) {
 	var resp struct {
 		Data map[string]string `json:"data"`
 	}
-	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, url, resp.Data["url"])
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockGatewayRepo struct {
@@ -45,7 +46,7 @@ func (m *mockGatewayRepo) DeleteRoute(ctx context.Context, id uuid.UUID) error {
 func TestGatewayService_Unit(t *testing.T) {
 	repo := new(mockGatewayRepo)
 	auditSvc := new(MockAuditService)
-	
+
 	// NewGatewayService calls RefreshRoutes, and so do other methods
 	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{}, nil)
 	svc := services.NewGatewayService(repo, auditSvc)
@@ -59,25 +60,25 @@ func TestGatewayService_Unit(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "gateway.route_create", "gateway", mock.Anything, mock.Anything).Return(nil).Once()
 
 		res, err := svc.CreateRoute(ctx, params)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, res)
 	})
 
 	t.Run("RefreshRoutes", func(t *testing.T) {
 		// Already mocked in setup for multiple calls
 		err := svc.RefreshRoutes(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("DeleteRoute", func(t *testing.T) {
 		id := uuid.New()
 		route := &domain.GatewayRoute{ID: id, UserID: userID, Name: "r1"}
-		
+
 		repo.On("GetRouteByID", mock.Anything, id, userID).Return(route, nil).Once()
 		repo.On("DeleteRoute", ctx, id).Return(nil).Once()
 		auditSvc.On("Log", mock.Anything, userID, "gateway.route_delete", "gateway", id.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.DeleteRoute(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

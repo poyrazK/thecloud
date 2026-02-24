@@ -12,6 +12,7 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type instanceTypeServiceMock struct {
@@ -48,13 +49,13 @@ func TestInstanceTypeHandlerList(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 		var resp httputil.Response
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, resp.Data)
 
 		data, _ := json.Marshal(resp.Data)
 		var actualTypes []*domain.InstanceType
 		err = json.Unmarshal(data, &actualTypes)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, actualTypes, 1)
 		assert.Equal(t, "basic-1", actualTypes[0].ID)
 

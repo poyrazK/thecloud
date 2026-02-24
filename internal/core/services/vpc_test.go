@@ -50,7 +50,7 @@ func TestVpcServiceCreateSuccess(t *testing.T) {
 
 	// Verify in DB
 	fetched, err := repo.GetByID(ctx, vpc.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, vpc.ID, fetched.ID)
 }
 
@@ -61,7 +61,7 @@ func TestVpcServiceCreateDBFailureRollback(t *testing.T) {
 	cancel()
 
 	vpc, err := svc.CreateVPC(cancelledCtx, "fail-vpc", "")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, vpc)
 }
 
@@ -70,7 +70,7 @@ func TestVpcServiceCreateDefaultCIDR(t *testing.T) {
 
 	vpc, err := svc.CreateVPC(ctx, "default-cidr-"+uuid.New().String(), "")
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, vpc)
 	assert.Equal(t, "10.0.0.0/16", vpc.CIDRBlock)
 }
@@ -81,11 +81,11 @@ func TestVpcServiceDeleteSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	err = svc.DeleteVPC(ctx, vpc.ID.String())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify Deleted from DB
 	_, err = repo.GetByID(ctx, vpc.ID)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestVpcServiceDeleteFailureWithLBs(t *testing.T) {
@@ -105,7 +105,7 @@ func TestVpcServiceDeleteFailureWithLBs(t *testing.T) {
 	require.NoError(t, err)
 
 	err = svc.DeleteVPC(ctx, vpc.ID.String())
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "load balancers still exist")
 }
 
@@ -116,7 +116,7 @@ func TestVpcServiceListSuccess(t *testing.T) {
 
 	result, err := svc.ListVPCs(ctx)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, result, 2)
 }
 
@@ -127,6 +127,6 @@ func TestVpcServiceGetByName(t *testing.T) {
 
 	result, err := svc.GetVPC(ctx, name)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, vpc.ID, result.ID)
 }

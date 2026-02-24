@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type MockDNSService struct{ mock.Mock }
@@ -137,7 +138,7 @@ func TestInstanceService_LaunchInstance_Unit(t *testing.T) {
 
 		inst, err := svc.LaunchInstance(ctx, params)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, inst)
 		assert.Equal(t, params.Name, inst.Name)
 		repo.AssertExpectations(t)
@@ -158,7 +159,7 @@ func TestInstanceService_LaunchInstance_Unit(t *testing.T) {
 
 		inst, err := svc.LaunchInstance(ctx, params)
 
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, inst)
 	})
 }
@@ -214,7 +215,7 @@ func TestInstanceService_Lifecycle_Unit(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "instance.start", "instance", instanceID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.StartInstance(ctx, instanceID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("StopInstance", func(t *testing.T) {
@@ -228,7 +229,7 @@ func TestInstanceService_Lifecycle_Unit(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "instance.stop", "instance", instanceID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.StopInstance(ctx, instanceID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("TerminateInstance", func(t *testing.T) {
@@ -242,16 +243,16 @@ func TestInstanceService_Lifecycle_Unit(t *testing.T) {
 		compute.On("Type").Return("docker").Maybe()
 		volRepo.On("ListByInstanceID", mock.Anything, instanceID).Return([]*domain.Volume{}, nil).Once()
 		repo.On("Delete", mock.Anything, instanceID).Return(nil).Once()
-		
+
 		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "instances", 1).Return(nil).Once()
 		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 1).Return(nil).Once()
 		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "memory", 1).Return(nil).Once()
-		
+
 		dnsSvc.On("UnregisterInstance", mock.Anything, instanceID).Return(nil).Maybe()
 		eventSvc.On("RecordEvent", mock.Anything, "INSTANCE_TERMINATE", instanceID.String(), "INSTANCE", mock.Anything).Return(nil).Once()
 		auditSvc.On("Log", mock.Anything, userID, "instance.terminate", "instance", instanceID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.TerminateInstance(ctx, instanceID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

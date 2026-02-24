@@ -41,24 +41,24 @@ func TestContainerService_Integration(t *testing.T) {
 	t.Run("DeploymentLifecycle", func(t *testing.T) {
 		name := "web-deployment"
 		dep, err := svc.CreateDeployment(ctx, name, "nginx:latest", 3, "80:80")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, dep)
 		assert.Equal(t, name, dep.Name)
 		assert.Equal(t, 3, dep.Replicas)
 
 		// Get
 		fetched, err := svc.GetDeployment(ctx, dep.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, dep.ID, fetched.ID)
 
 		// List
 		deps, err := svc.ListDeployments(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, deps, 1)
 
 		// Scale
 		err = svc.ScaleDeployment(ctx, dep.ID, 5)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		scaled, _ := repo.GetDeploymentByID(ctx, dep.ID, userID)
 		assert.Equal(t, 5, scaled.Replicas)
@@ -66,7 +66,7 @@ func TestContainerService_Integration(t *testing.T) {
 
 		// Delete
 		err = svc.DeleteDeployment(ctx, dep.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		deleting, _ := repo.GetDeploymentByID(ctx, dep.ID, userID)
 		assert.Equal(t, domain.DeploymentStatusDeleting, deleting.Status)
@@ -93,12 +93,12 @@ func TestContainerService_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		containers, err := repo.GetContainers(ctx, dep.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		require.Len(t, containers, 1)
 		assert.Equal(t, instID, containers[0])
 
 		err = repo.RemoveContainer(ctx, dep.ID, instID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		containers, _ = repo.GetContainers(ctx, dep.ID)
 		assert.Empty(t, containers)

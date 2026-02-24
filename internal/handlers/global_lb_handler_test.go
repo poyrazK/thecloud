@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 // mockGlobalLBService provides a mocked implementation of the ports.GlobalLBService interface
@@ -111,7 +112,7 @@ func TestGlobalLBHandlerCreate(t *testing.T) {
 			Data domain.GlobalLoadBalancer `json:"data"`
 		}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, glb.ID, resp.Data.ID)
 	})
 }

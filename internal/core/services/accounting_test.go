@@ -47,11 +47,11 @@ func TestTrackUsage(t *testing.T) {
 	}
 
 	err := svc.TrackUsage(ctx, record)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify in DB
 	records, err := repo.ListRecords(ctx, userID, time.Now().Add(-1*time.Hour), time.Now().Add(1*time.Hour))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, records, 1)
 	assert.InDelta(t, 10.0, records[0].Quantity, 0.001)
 }
@@ -78,11 +78,11 @@ func TestProcessHourlyBilling(t *testing.T) {
 	require.NoError(t, err)
 
 	err = svc.ProcessHourlyBilling(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify usage record created
 	records, err := repo.ListRecords(ctx, userID, time.Now().Add(-2*time.Hour), time.Now().Add(2*time.Hour))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, records)
 
 	// We expect one record for the running instance
@@ -127,7 +127,7 @@ func TestGetSummary(t *testing.T) {
 
 	// Get Summary
 	summary, err := svc.GetSummary(ctx, userID, now.Add(-24*time.Hour), now)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, summary)
 
 	// Verify TotalAmount
@@ -150,6 +150,6 @@ func TestListUsage(t *testing.T) {
 	_ = svc.TrackUsage(ctx, rec)
 
 	res, err := svc.ListUsage(ctx, userID, time.Now().Add(-1*time.Hour), time.Now().Add(1*time.Hour))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, res, 1)
 }

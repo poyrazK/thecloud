@@ -44,7 +44,7 @@ func TestPasswordResetService_Integration(t *testing.T) {
 
 		// 1. Request Reset
 		err = svc.RequestReset(ctx, email)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// In an integration environment, we verify the token creation indirectly via success status,
 		// as email interception is outside the scope of this test.
@@ -68,16 +68,16 @@ func TestPasswordResetService_Integration(t *testing.T) {
 		// 2. Reset Password
 		newPass := "new-secure-password"
 		err = svc.ResetPassword(ctx, tokenStr, newPass)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Verify user password updated
 		updatedUser, err := userRepo.GetByID(ctx, userID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEqual(t, "old", updatedUser.PasswordHash)
 
 		// Verify token used
 		usedToken, err := repo.GetByTokenHash(ctx, tokenHash)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, usedToken.Used)
 	})
 
@@ -100,7 +100,7 @@ func TestPasswordResetService_Integration(t *testing.T) {
 		_ = repo.Create(ctx, resetToken)
 
 		err := svc.ResetPassword(ctx, tokenStr, "new-pass")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "expired")
 	})
 }

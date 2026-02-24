@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -42,7 +43,7 @@ func setupLogHandlerTest() (*mockLogService, *LogHandler, *gin.Engine) {
 	return mockSvc, handler, r
 }
 
-func TestLogHandler_Search(t *testing.T) {
+func TestLogHandlerSearch(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mockSvc, handler, r := setupLogHandlerTest()
 		r.GET("/logs", handler.Search)
@@ -68,7 +69,7 @@ func TestLogHandler_Search(t *testing.T) {
 			} `json:"data"`
 		}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, 1, resp.Data.Total)
 	})
 
@@ -101,7 +102,7 @@ func TestLogHandler_Search(t *testing.T) {
 	})
 }
 
-func TestLogHandler_GetByResource(t *testing.T) {
+func TestLogHandlerGetByResource(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mockSvc, handler, r := setupLogHandlerTest()
 		r.GET("/logs/:id", handler.GetByResource)

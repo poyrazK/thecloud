@@ -12,6 +12,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type MockImageRepo struct {
@@ -56,7 +57,7 @@ func TestImageService_Unit(t *testing.T) {
 	t.Run("RegisterImage", func(t *testing.T) {
 		repo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 		img, err := svc.RegisterImage(ctx, "ubuntu-custom", "desc", "linux", "22.04", false)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, img)
 		assert.Equal(t, "ubuntu-custom", img.Name)
 	})
@@ -71,6 +72,6 @@ func TestImageService_Unit(t *testing.T) {
 		})).Return(nil).Once()
 
 		err := svc.UploadImage(ctx, imgID, bytes.NewReader([]byte("dummy content")))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

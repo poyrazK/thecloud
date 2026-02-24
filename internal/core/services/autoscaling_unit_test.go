@@ -10,9 +10,10 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-func TestAutoScalingService_Unit(t *testing.T) {
+func TestAutoScalingServiceUnit(t *testing.T) {
 	repo := new(MockAutoScalingRepo)
 	vpcRepo := new(MockVpcRepo)
 	auditSvc := new(MockAuditService)
@@ -27,14 +28,14 @@ func TestAutoScalingService_Unit(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 		group, err := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{
-			Name: "test-group",
-			VpcID: vpcID,
-			Image: "ami-123",
+			Name:         "test-group",
+			VpcID:        vpcID,
+			Image:        "ami-123",
 			MinInstances: 1,
 			MaxInstances: 5,
 			DesiredCount: 2,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, group)
 	})
 
@@ -43,7 +44,7 @@ func TestAutoScalingService_Unit(t *testing.T) {
 		repo.On("GetGroupByID", mock.Anything, groupID).Return(&domain.ScalingGroup{ID: groupID}, nil).Once()
 
 		group, err := svc.GetGroup(ctx, groupID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, group)
 		assert.Equal(t, groupID, group.ID)
 	})
@@ -52,7 +53,7 @@ func TestAutoScalingService_Unit(t *testing.T) {
 		repo.On("ListGroups", mock.Anything).Return([]*domain.ScalingGroup{{ID: uuid.New()}}, nil).Once()
 
 		groups, err := svc.ListGroups(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, groups, 1)
 	})
 
@@ -66,7 +67,7 @@ func TestAutoScalingService_Unit(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 		err := svc.DeleteGroup(ctx, groupID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("SetDesiredCapacity", func(t *testing.T) {
@@ -77,7 +78,7 @@ func TestAutoScalingService_Unit(t *testing.T) {
 		})).Return(nil).Once()
 
 		err := svc.SetDesiredCapacity(ctx, groupID, 5)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("CreatePolicy", func(t *testing.T) {
@@ -86,13 +87,13 @@ func TestAutoScalingService_Unit(t *testing.T) {
 		repo.On("CreatePolicy", mock.Anything, mock.Anything).Return(nil).Once()
 
 		policy, err := svc.CreatePolicy(ctx, ports.CreateScalingPolicyParams{
-			GroupID: groupID,
-			Name: "cpu-high",
-			MetricType: "cpu",
+			GroupID:     groupID,
+			Name:        "cpu-high",
+			MetricType:  "cpu",
 			TargetValue: 70.0,
 			CooldownSec: 60,
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, policy)
 	})
 
@@ -101,6 +102,6 @@ func TestAutoScalingService_Unit(t *testing.T) {
 		repo.On("DeletePolicy", mock.Anything, policyID).Return(nil).Once()
 
 		err := svc.DeletePolicy(ctx, policyID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

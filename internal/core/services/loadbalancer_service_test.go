@@ -9,6 +9,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const lbMainName = "lb-main"
@@ -26,7 +27,7 @@ func TestLBServiceGet(t *testing.T) {
 	lbRepo.On("GetByID", mock.Anything, lbID).Return(lb, nil).Once()
 
 	res, err := svc.Get(context.Background(), lbID.String())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, lbID, res.ID)
 	lbRepo.AssertExpectations(t)
 }
@@ -42,7 +43,7 @@ func TestLBServiceList(t *testing.T) {
 	lbRepo.On("List", mock.Anything).Return([]*domain.LoadBalancer{{ID: uuid.New()}}, nil).Once()
 
 	lbs, err := svc.List(context.Background())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, lbs, 1)
 	lbRepo.AssertExpectations(t)
 }
@@ -64,7 +65,7 @@ func TestLBServiceRemoveTarget(t *testing.T) {
 	auditSvc.On("Log", mock.Anything, lb.UserID, "lb.target_remove", "loadbalancer", lb.ID.String(), mock.Anything).Return(nil).Once()
 
 	err := svc.RemoveTarget(context.Background(), lbID, instanceID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	lbRepo.AssertExpectations(t)
 	auditSvc.AssertExpectations(t)
 }
@@ -82,7 +83,7 @@ func TestLBServiceListTargets(t *testing.T) {
 	lbRepo.On("ListTargets", mock.Anything, lbID).Return(targets, nil).Once()
 
 	res, err := svc.ListTargets(context.Background(), lbID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, res, 1)
 	lbRepo.AssertExpectations(t)
 }
@@ -105,7 +106,7 @@ func TestLBServiceDelete(t *testing.T) {
 	auditSvc.On("Log", mock.Anything, lb.UserID, "lb.delete", "loadbalancer", lb.ID.String(), mock.Anything).Return(nil).Once()
 
 	err := svc.Delete(context.Background(), lbID.String())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	lbRepo.AssertExpectations(t)
 	auditSvc.AssertExpectations(t)
 }

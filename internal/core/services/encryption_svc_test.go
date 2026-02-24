@@ -30,12 +30,12 @@ func TestEncryptionService(t *testing.T) {
 
 	t.Run("CreateKey", func(t *testing.T) {
 		keyID, err := svc.CreateKey(ctx, bucket)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, keyID)
 
 		// Verify in DB
 		fetched, err := repo.GetKey(ctx, bucket)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, keyID, fetched.ID)
 	})
 
@@ -43,7 +43,7 @@ func TestEncryptionService(t *testing.T) {
 		oldID, _ := svc.CreateKey(ctx, bucket)
 
 		newID, err := svc.RotateKey(ctx, bucket)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEqual(t, oldID, newID)
 
 		// Verify in DB
@@ -56,22 +56,22 @@ func TestEncryptionService(t *testing.T) {
 		_, _ = svc.CreateKey(ctx, bucket)
 
 		ciphertext, err := svc.Encrypt(ctx, bucket, plaintext)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEqual(t, plaintext, ciphertext)
 
 		decrypted, err := svc.Decrypt(ctx, bucket, ciphertext)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, plaintext, decrypted)
 	})
 
 	t.Run("DecryptInvalidData", func(t *testing.T) {
 		_, _ = svc.CreateKey(ctx, bucket)
 		_, err := svc.Decrypt(ctx, bucket, []byte("short"))
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("KeyNotFound", func(t *testing.T) {
 		_, err := svc.Encrypt(ctx, "non-existent", []byte("data"))
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }

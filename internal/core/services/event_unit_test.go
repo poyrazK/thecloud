@@ -10,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -28,7 +29,7 @@ func (m *mockEventRepository) List(ctx context.Context, limit int) ([]*domain.Ev
 	return r0, args.Error(1)
 }
 
-func TestEventService_RecordEvent(t *testing.T) {
+func TestEventServiceRecordEvent(t *testing.T) {
 	repo := new(mockEventRepository)
 	logger := slog.Default()
 	svc := services.NewEventService(repo, nil, logger)
@@ -44,11 +45,11 @@ func TestEventService_RecordEvent(t *testing.T) {
 	})).Return(nil)
 
 	err := svc.RecordEvent(ctx, action, resourceID, resourceType, metadata)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	repo.AssertExpectations(t)
 }
 
-func TestEventService_ListEvents(t *testing.T) {
+func TestEventServiceListEventsUnit(t *testing.T) {
 	repo := new(mockEventRepository)
 	svc := services.NewEventService(repo, nil, slog.Default())
 
@@ -59,12 +60,12 @@ func TestEventService_ListEvents(t *testing.T) {
 	repo.On("List", ctx, limit).Return(expectedEvents, nil)
 
 	events, err := svc.ListEvents(ctx, limit)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, expectedEvents, events)
 	repo.AssertExpectations(t)
 }
 
-func TestEventService_ListEventsDefaultLimit(t *testing.T) {
+func TestEventServiceListEventsUnitDefaultLimit(t *testing.T) {
 	repo := new(mockEventRepository)
 	svc := services.NewEventService(repo, nil, slog.Default())
 
@@ -72,6 +73,6 @@ func TestEventService_ListEventsDefaultLimit(t *testing.T) {
 	repo.On("List", ctx, 50).Return([]*domain.Event{}, nil)
 
 	_, err := svc.ListEvents(ctx, 0)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	repo.AssertExpectations(t)
 }

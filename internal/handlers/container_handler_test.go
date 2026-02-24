@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -91,10 +92,10 @@ func TestContainerHandlerCreateDeployment(t *testing.T) {
 		"replicas": 3,
 		"ports":    containerPort8080,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", deploymentsPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -111,7 +112,7 @@ func TestContainerHandlerListDeployments(t *testing.T) {
 	svc.On("ListDeployments", mock.Anything).Return(deps, nil)
 
 	req, err := http.NewRequest(http.MethodGet, deploymentsPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -130,7 +131,7 @@ func TestContainerHandlerGetDeployment(t *testing.T) {
 	svc.On("GetDeployment", mock.Anything, id).Return(dep, nil)
 
 	req, err := http.NewRequest(http.MethodGet, deploymentsPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -148,10 +149,10 @@ func TestContainerHandlerScaleDeployment(t *testing.T) {
 	svc.On("ScaleDeployment", mock.Anything, id, 5).Return(nil)
 
 	body, err := json.Marshal(map[string]interface{}{"replicas": 5})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", deploymentsPath+"/"+id.String()+scaleSuffix, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -168,7 +169,7 @@ func TestContainerHandlerDeleteDeployment(t *testing.T) {
 	svc.On("DeleteDeployment", mock.Anything, id).Return(nil)
 
 	req, err := http.NewRequest(http.MethodDelete, deploymentsPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

@@ -17,6 +17,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockIdentityService struct {
@@ -76,7 +77,7 @@ func TestWebSocketLifecycle(t *testing.T) {
 
 	dialer := websocket.Dialer{}
 	conn, resp, err := dialer.Dial(wsURL, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	if resp != nil {
 		defer func() { _ = resp.Body.Close() }()
 	}
@@ -89,7 +90,7 @@ func TestWebSocketLifecycle(t *testing.T) {
 	hub.BroadcastEvent(event)
 
 	_, p, err := conn.ReadMessage()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Contains(t, string(p), "INSTANCE_CREATED")
 
 	_ = conn.Close()
@@ -115,7 +116,7 @@ func TestWebSocketAuthFailure(t *testing.T) {
 		wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws"
 		dialer := websocket.Dialer{}
 		_, resp, err := dialer.Dial(wsURL, nil)
-		assert.Error(t, err)
+		require.Error(t, err)
 		if resp != nil {
 			assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 			_ = resp.Body.Close()
@@ -127,7 +128,7 @@ func TestWebSocketAuthFailure(t *testing.T) {
 		mockID.On("ValidateAPIKey", mock.Anything, "invalid").Return(nil, errors.New(errors.Unauthorized, "invalid key"))
 		dialer := websocket.Dialer{}
 		_, resp, err := dialer.Dial(wsURL, nil)
-		assert.Error(t, err)
+		require.Error(t, err)
 		if resp != nil {
 			assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 			_ = resp.Body.Close()

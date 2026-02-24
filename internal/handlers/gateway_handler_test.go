@@ -17,6 +17,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type closeNotifierRecorder struct {
@@ -117,10 +118,10 @@ func TestGatewayHandlerCreateRoute(t *testing.T) {
 		"target_url":  "http://example.com",
 		"rate_limit":  100,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", routesPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -137,7 +138,7 @@ func TestGatewayHandlerListRoutes(t *testing.T) {
 	svc.On("ListRoutes", mock.Anything).Return(routes, nil)
 
 	req, err := http.NewRequest(http.MethodGet, routesPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -154,7 +155,7 @@ func TestGatewayHandlerDeleteRoute(t *testing.T) {
 	svc.On("DeleteRoute", mock.Anything, id).Return(nil)
 
 	req, err := http.NewRequest(http.MethodDelete, routesPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -170,7 +171,7 @@ func TestGatewayHandlerProxyNotFound(t *testing.T) {
 	svc.On("GetProxy", "GET", "/unknown").Return(nil, nil, false)
 
 	req, err := http.NewRequest(http.MethodGet, "/gw/unknown", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -202,7 +203,7 @@ func TestGatewayHandlerProxySuccess(t *testing.T) {
 	svc.On("GetProxy", "GET", "/api").Return(proxy, map[string]string{}, true)
 
 	req, err := http.NewRequest(http.MethodGet, gwAPITestPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := &closeNotifierRecorder{httptest.NewRecorder()}
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -225,7 +226,7 @@ func TestGatewayHandlerProxyWithoutSlash(t *testing.T) {
 	svc.On("GetProxy", "GET", "/api").Return(httputil.NewSingleHostReverseProxy(targetURL), map[string]string{}, true)
 
 	req, err := http.NewRequest(http.MethodGet, gwAPITestPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := &closeNotifierRecorder{httptest.NewRecorder()}
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -248,7 +249,7 @@ func TestGatewayHandlerProxyWithSlash(t *testing.T) {
 	svc.On("GetProxy", "GET", "//api").Return(httputil.NewSingleHostReverseProxy(targetURL), map[string]string{}, true)
 
 	req, err := http.NewRequest(http.MethodGet, "/gw//api", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := &closeNotifierRecorder{httptest.NewRecorder()}
 	r.ServeHTTP(w, req)
 

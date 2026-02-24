@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -119,7 +120,7 @@ func TestRBACHandlerCreateRole(t *testing.T) {
 		Permissions: []domain.Permission{domain.PermissionInstanceRead},
 	}
 	body, err := json.Marshal(req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	svc.On("CreateRole", mock.Anything, mock.MatchedBy(func(r *domain.Role) bool {
 		return r.Name == req.Name && len(r.Permissions) == 1
@@ -127,7 +128,7 @@ func TestRBACHandlerCreateRole(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	httpReq, err := http.NewRequest("POST", rolesPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -149,7 +150,7 @@ func TestRBACHandlerListRoles(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	httpReq, err := http.NewRequest("GET", rolesPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -171,7 +172,7 @@ func TestRBACHandlerGetRoleByID(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	httpReq, err := http.NewRequest("GET", rolesPath+"/"+roleID.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -192,7 +193,7 @@ func TestRBACHandlerGetRoleByName(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	httpReq, err := http.NewRequest("GET", rolesPath+"/"+roleName, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -212,7 +213,7 @@ func TestRBACHandlerDeleteRole(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	httpReq, err := http.NewRequest("DELETE", rolesPath+"/"+roleID.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusNoContent, w.Code)
@@ -231,13 +232,13 @@ func TestRBACHandlerAddPermission(t *testing.T) {
 	body, err := json.Marshal(map[string]interface{}{
 		"permission": domain.PermissionInstanceLaunch,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	svc.On("AddPermissionToRole", mock.Anything, roleID, domain.PermissionInstanceLaunch).Return(nil)
 
 	w := httptest.NewRecorder()
 	httpReq, err := http.NewRequest("POST", rolesPath+"/"+roleID.String()+permSuffix, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusNoContent, w.Code)
@@ -257,13 +258,13 @@ func TestRBACHandlerBindRole(t *testing.T) {
 		"user_identifier": userEmail,
 		"role_name":       roleName,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	svc.On("BindRole", mock.Anything, userEmail, roleName).Return(nil)
 
 	w := httptest.NewRecorder()
 	httpReq, err := http.NewRequest("POST", bindPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, httpReq)
 
 	assert.Equal(t, http.StatusNoContent, w.Code)

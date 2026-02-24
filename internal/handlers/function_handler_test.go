@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -101,20 +102,20 @@ func TestFunctionHandlerCreate(t *testing.T) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	err := writer.WriteField("name", testFunctionName)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = writer.WriteField("runtime", "nodejs18")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = writer.WriteField("handler", "index.handler")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	part, err := writer.CreateFormFile("code", "index.js")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	_, err = part.Write([]byte("code"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = writer.Close()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPost, functionsPath, body)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	req.Header.Set(hdrContentType, writer.FormDataContentType())
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -133,7 +134,7 @@ func TestFunctionHandlerList(t *testing.T) {
 	svc.On("ListFunctions", mock.Anything).Return(fns, nil)
 
 	req, err := http.NewRequest(http.MethodGet, functionsPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -152,7 +153,7 @@ func TestFunctionHandlerGet(t *testing.T) {
 	svc.On("GetFunction", mock.Anything, id).Return(fn, nil)
 
 	req, err := http.NewRequest(http.MethodGet, functionsPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -170,7 +171,7 @@ func TestFunctionHandlerDelete(t *testing.T) {
 	svc.On("DeleteFunction", mock.Anything, id).Return(nil)
 
 	req, err := http.NewRequest(http.MethodDelete, functionsPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -189,7 +190,7 @@ func TestFunctionHandlerInvoke(t *testing.T) {
 	svc.On("InvokeFunction", mock.Anything, id, []byte("{}"), false).Return(inv, nil)
 
 	req, err := http.NewRequest(http.MethodPost, functionsPath+"/"+id.String()+invokeSuffix, strings.NewReader("{}"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -207,7 +208,7 @@ func TestFunctionHandlerGetLogs(t *testing.T) {
 	svc.On("GetFunctionLogs", mock.Anything, id, 100).Return([]*domain.Invocation{}, nil)
 
 	req, err := http.NewRequest(http.MethodGet, functionsPath+"/"+id.String()+logsSuffix, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

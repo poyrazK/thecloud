@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -106,10 +107,10 @@ func TestQueueHandlerCreate(t *testing.T) {
 	})).Return(q, nil)
 
 	body, err := json.Marshal(map[string]interface{}{"name": testQueueName})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", queuesPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -126,7 +127,7 @@ func TestQueueHandlerList(t *testing.T) {
 	svc.On("ListQueues", mock.Anything).Return(queues, nil)
 
 	req, err := http.NewRequest(http.MethodGet, queuesPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -145,7 +146,7 @@ func TestQueueHandlerGet(t *testing.T) {
 	svc.On("GetQueue", mock.Anything, id).Return(q, nil)
 
 	req, err := http.NewRequest(http.MethodGet, queuesPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -163,7 +164,7 @@ func TestQueueHandlerDelete(t *testing.T) {
 	svc.On("DeleteQueue", mock.Anything, id).Return(nil)
 
 	req, err := http.NewRequest(http.MethodDelete, queuesPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -182,10 +183,10 @@ func TestQueueHandlerSendMessage(t *testing.T) {
 	svc.On("SendMessage", mock.Anything, id, "hello").Return(msg, nil)
 
 	body, err := json.Marshal(map[string]interface{}{"body": "hello"})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", queuesPath+"/"+id.String()+"/messages", bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -203,7 +204,7 @@ func TestQueueHandlerReceiveMessages(t *testing.T) {
 	svc.On("ReceiveMessages", mock.Anything, id, 10).Return(msgs, nil)
 
 	req, err := http.NewRequest(http.MethodGet, queuesPath+"/"+id.String()+"/messages?max_messages=10", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -222,7 +223,7 @@ func TestQueueHandlerDeleteMessage(t *testing.T) {
 	svc.On("DeleteMessage", mock.Anything, id, handle).Return(nil)
 
 	req, err := http.NewRequest(http.MethodDelete, queuesPath+"/"+id.String()+"/messages/"+handle, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -240,7 +241,7 @@ func TestQueueHandlerPurge(t *testing.T) {
 	svc.On("PurgeQueue", mock.Anything, id).Return(nil)
 
 	req, err := http.NewRequest(http.MethodPost, queuesPath+"/"+id.String()+"/purge", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

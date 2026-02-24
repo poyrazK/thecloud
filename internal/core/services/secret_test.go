@@ -11,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setupSecretServiceIntegrationTest(t *testing.T) (ports.SecretService, ports.SecretRepository, context.Context) {
@@ -42,19 +43,19 @@ func TestSecretService_Integration(t *testing.T) {
 		value := "super-secret-value"
 
 		secret, err := svc.CreateSecret(ctx, name, value, "test secret")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, secret)
 		assert.NotEqual(t, value, secret.EncryptedValue)
 
 		// Get by ID
 		fetched, err := svc.GetSecret(ctx, secret.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, value, fetched.EncryptedValue) // Should be decrypted
 		assert.Equal(t, userID, fetched.UserID)
 
 		// Get by Name
 		fetchedByName, err := svc.GetSecretByName(ctx, name)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, value, fetchedByName.EncryptedValue)
 	})
 
@@ -63,19 +64,19 @@ func TestSecretService_Integration(t *testing.T) {
 		_, _ = svc.CreateSecret(ctx, "S2", "V2", "")
 
 		secrets, err := svc.ListSecrets(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.GreaterOrEqual(t, len(secrets), 2)
 	})
 
 	t.Run("EncryptDecrypt", func(t *testing.T) {
 		plain := "hello secret"
 		cipher, err := svc.Encrypt(ctx, userID, plain)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, cipher)
 		assert.NotEqual(t, plain, cipher)
 
 		decrypted, err := svc.Decrypt(ctx, userID, cipher)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, plain, decrypted)
 	})
 
@@ -83,9 +84,9 @@ func TestSecretService_Integration(t *testing.T) {
 		secret, _ := svc.CreateSecret(ctx, "DEL_ME", "val", "")
 
 		err := svc.DeleteSecret(ctx, secret.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		_, err = svc.GetSecret(ctx, secret.ID)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }

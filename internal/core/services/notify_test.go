@@ -48,17 +48,17 @@ func TestNotifyService_Integration(t *testing.T) {
 		name := "integration-topic"
 
 		topic, err := svc.CreateTopic(ctx, name)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, name, topic.Name)
 
 		// List
 		topics, err := svc.ListTopics(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, topics, 1)
 
 		// Delete
 		err = svc.DeleteTopic(ctx, topic.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		topics, _ = svc.ListTopics(ctx)
 		assert.Empty(t, topics)
@@ -72,7 +72,7 @@ func TestNotifyService_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		sub, err := svc.Subscribe(ctx, topic.ID, domain.ProtocolQueue, q.ID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, sub)
 
 		// 2. Webhook Subscription
@@ -85,12 +85,12 @@ func TestNotifyService_Integration(t *testing.T) {
 		defer server.Close()
 
 		_, err = svc.Subscribe(ctx, topic.ID, domain.ProtocolWebhook, server.URL)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// 3. Publish
 		msgBody := "hello integration"
 		err = svc.Publish(ctx, topic.ID, msgBody)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Wait for async delivery
 		time.Sleep(200 * time.Millisecond)
@@ -105,13 +105,13 @@ func TestNotifyService_Integration(t *testing.T) {
 
 		// Verify Queue delivery
 		msgs, err := queueSvc.ReceiveMessages(ctx, q.ID, 1)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, msgs, 1)
 		assert.Equal(t, msgBody, msgs[0].Body)
 
 		// Unsubscribe
 		err = svc.Unsubscribe(ctx, sub.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		subs, _ := svc.ListSubscriptions(ctx, topic.ID)
 		assert.Len(t, subs, 1) // Only webhook left

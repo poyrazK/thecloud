@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockAccountingService struct {
@@ -75,7 +76,7 @@ func TestAccountingHandlerGetSummary(t *testing.T) {
 			Data domain.BillSummary `json:"data"`
 		}
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.InDelta(t, 10.5, resp.Data.TotalAmount, 0.01)
 	})
 }

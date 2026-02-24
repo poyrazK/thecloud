@@ -37,13 +37,13 @@ func TestImageService(t *testing.T) {
 
 	t.Run("RegisterImage", func(t *testing.T) {
 		img, err := svc.RegisterImage(ctx, "ubuntu", "Ubuntu 22.04", "linux", "22.04", true)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, img)
 		assert.Equal(t, "ubuntu", img.Name)
 
 		// Verify in DB
 		fetched, err := repo.GetByID(ctx, img.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, img.ID, fetched.ID)
 	})
 
@@ -52,7 +52,7 @@ func TestImageService(t *testing.T) {
 		require.NotNil(t, img)
 
 		err := svc.UploadImage(ctx, img.ID, strings.NewReader("fake content"))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		fetched, _ := repo.GetByID(ctx, img.ID)
 		assert.Equal(t, domain.ImageStatusActive, fetched.Status)
@@ -62,7 +62,7 @@ func TestImageService(t *testing.T) {
 		img, _ := svc.RegisterImage(ctx, "get-test", "desc", "linux", "v1", false)
 
 		res, err := svc.GetImage(ctx, img.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, img.ID, res.ID)
 	})
 
@@ -71,7 +71,7 @@ func TestImageService(t *testing.T) {
 		_, _ = svc.RegisterImage(ctx, "list2", "desc", "linux", "v1", false)
 
 		imgs, err := svc.ListImages(ctx, userID, true)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.GreaterOrEqual(t, len(imgs), 2)
 	})
 
@@ -79,9 +79,9 @@ func TestImageService(t *testing.T) {
 		img, _ := svc.RegisterImage(ctx, "del-test", "desc", "linux", "v1", false)
 
 		err := svc.DeleteImage(ctx, img.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		_, err = repo.GetByID(ctx, img.ID)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }

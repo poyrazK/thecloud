@@ -9,6 +9,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAuditService_Unit(t *testing.T) {
@@ -20,13 +21,13 @@ func TestAuditService_Unit(t *testing.T) {
 	t.Run("Log", func(t *testing.T) {
 		repo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 		err := svc.Log(ctx, userID, "test.action", "instance", "123", nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("ListLogs", func(t *testing.T) {
 		repo.On("ListByUserID", mock.Anything, userID, 10).Return([]*domain.AuditLog{}, nil).Once()
 		logs, err := svc.ListLogs(ctx, userID, 10)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, logs)
 	})
 }

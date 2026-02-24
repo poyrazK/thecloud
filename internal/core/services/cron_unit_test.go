@@ -10,9 +10,10 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-func TestCronService_Unit(t *testing.T) {
+func TestCronServiceUnit(t *testing.T) {
 	repo := new(MockCronRepository)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
@@ -28,7 +29,7 @@ func TestCronService_Unit(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "cron.job_create", "cron_job", mock.Anything, mock.Anything).Return(nil).Once()
 
 		job, err := svc.CreateJob(ctx, "test-job", "* * * * *", "http://example.com", "GET", "")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, job)
 		assert.Equal(t, "test-job", job.Name)
 		repo.AssertExpectations(t)
@@ -39,7 +40,7 @@ func TestCronService_Unit(t *testing.T) {
 		repo.On("ListJobs", mock.Anything, userID).Return(expectedJobs, nil).Once()
 
 		jobs, err := svc.ListJobs(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, jobs, 1)
 		assert.Equal(t, "job1", jobs[0].Name)
 	})
@@ -50,7 +51,7 @@ func TestCronService_Unit(t *testing.T) {
 		repo.On("GetJobByID", mock.Anything, jobID, userID).Return(expectedJob, nil).Once()
 
 		job, err := svc.GetJob(ctx, jobID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, jobID, job.ID)
 	})
 
@@ -64,7 +65,7 @@ func TestCronService_Unit(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "cron.job_pause", "cron_job", jobID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.PauseJob(ctx, jobID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("ResumeJob", func(t *testing.T) {
@@ -77,7 +78,7 @@ func TestCronService_Unit(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "cron.job_resume", "cron_job", jobID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.ResumeJob(ctx, jobID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("DeleteJob", func(t *testing.T) {
@@ -88,6 +89,6 @@ func TestCronService_Unit(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "cron.job_delete", "cron_job", jobID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.DeleteJob(ctx, jobID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

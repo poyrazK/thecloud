@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -100,10 +101,10 @@ func TestSecretHandlerCreate(t *testing.T) {
 		"value":       "value",
 		"description": "desc",
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", secretsPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -120,7 +121,7 @@ func TestSecretHandlerList(t *testing.T) {
 	svc.On("ListSecrets", mock.Anything).Return(secrets, nil)
 
 	req, err := http.NewRequest(http.MethodGet, secretsPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -139,7 +140,7 @@ func TestSecretHandlerGetByID(t *testing.T) {
 	svc.On("GetSecret", mock.Anything, id).Return(secret, nil)
 
 	req, err := http.NewRequest(http.MethodGet, secretsPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -157,7 +158,7 @@ func TestSecretHandlerGetByName(t *testing.T) {
 	svc.On("GetSecretByName", mock.Anything, testSecretName).Return(secret, nil)
 
 	req, err := http.NewRequest(http.MethodGet, secretsPath+"/"+testSecretName, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

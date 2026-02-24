@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClientBatching(t *testing.T) {
@@ -37,7 +38,7 @@ func TestClientBatching(t *testing.T) {
 
 	dialer := websocket.Dialer{}
 	conn, resp, err := dialer.Dial(wsURL, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	if resp != nil {
 		defer func() { _ = resp.Body.Close() }()
 	}
@@ -51,7 +52,7 @@ func TestClientBatching(t *testing.T) {
 	hub.broadcast <- []byte("msg3")
 
 	_, p, err := conn.ReadMessage()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	payload := string(p)
 	// It might be combined with newlines if they hit the same WritePump tick
@@ -81,7 +82,7 @@ func TestClientPingPong(t *testing.T) {
 
 	dialer := websocket.Dialer{}
 	conn, resp, err := dialer.Dial(wsURL, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	if resp != nil {
 		defer func() { _ = resp.Body.Close() }()
 	}

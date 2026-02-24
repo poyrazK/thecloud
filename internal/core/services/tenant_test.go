@@ -41,14 +41,14 @@ func TestTenantService_Integration(t *testing.T) {
 		slug := "integration-tenant"
 
 		tenant, err := svc.CreateTenant(ctx, name, slug, ownerID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, tenant)
 		assert.Equal(t, name, tenant.Name)
 		assert.Equal(t, slug, tenant.Slug)
 
 		// Verify membership
 		members, err := tenantRepo.ListMembers(ctx, tenant.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, members, 1)
 		assert.Equal(t, ownerID, members[0].UserID)
 		assert.Equal(t, "owner", members[0].Role)
@@ -70,11 +70,11 @@ func TestTenantService_Integration(t *testing.T) {
 
 		// Invite
 		err := svc.InviteMember(ctx, tenant.ID, inviteeEmail, "member")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Switch
 		err = svc.SwitchTenant(ctx, inviteeID, tenant.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		updatedInvitee, _ := userRepo.GetByID(ctx, inviteeID)
 		assert.NotNil(t, updatedInvitee.DefaultTenantID)
@@ -92,15 +92,15 @@ func TestTenantService_Integration(t *testing.T) {
 			MaxInstances: 5,
 		}
 		err := tenantRepo.UpdateQuota(ctx, quota)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check within limit
 		err = svc.CheckQuota(ctx, tenant.ID, "instances", 1)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Check over limit (used instances is 0 in DB)
 		err = svc.CheckQuota(ctx, tenant.ID, "instances", 10)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "quota exceeded")
 	})
 
@@ -115,7 +115,7 @@ func TestTenantService_Integration(t *testing.T) {
 
 		// Remove member
 		err := svc.RemoveMember(ctx, tenant.ID, memberID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Verify gone
 		mem, _ := tenantRepo.GetMembership(ctx, tenant.ID, memberID)
@@ -123,7 +123,7 @@ func TestTenantService_Integration(t *testing.T) {
 
 		// Cannot remove owner
 		err = svc.RemoveMember(ctx, tenant.ID, ownerID)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot remove tenant owner")
 	})
 }

@@ -10,9 +10,10 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-func TestQueueService_Unit(t *testing.T) {
+func TestQueueServiceUnit(t *testing.T) {
 	mockRepo := new(MockQueueRepository)
 	mockEventSvc := new(MockEventService)
 	mockAuditSvc := new(MockAuditService)
@@ -29,7 +30,7 @@ func TestQueueService_Unit(t *testing.T) {
 		mockAuditSvc.On("Log", mock.Anything, userID, "queue.create", "queue", mock.Anything, mock.Anything).Return(nil).Once()
 
 		q, err := svc.CreateQueue(ctx, "my-queue", nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, q)
 		assert.Equal(t, "my-queue", q.Name)
 		mockRepo.AssertExpectations(t)
@@ -42,7 +43,7 @@ func TestQueueService_Unit(t *testing.T) {
 		mockEventSvc.On("RecordEvent", mock.Anything, "MESSAGE_SENT", mock.Anything, "MESSAGE", mock.Anything).Return(nil).Once()
 
 		msg, err := svc.SendMessage(ctx, qID, "hello")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, msg)
 		mockRepo.AssertExpectations(t)
 	})
@@ -54,7 +55,7 @@ func TestQueueService_Unit(t *testing.T) {
 		mockEventSvc.On("RecordEvent", mock.Anything, "MESSAGE_RECEIVED", mock.Anything, "MESSAGE", mock.Anything).Return(nil).Once()
 
 		msgs, err := svc.ReceiveMessages(ctx, qID, 5)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, msgs, 1)
 	})
 }

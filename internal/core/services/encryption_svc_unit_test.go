@@ -10,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type MockEncryptionRepo struct {
@@ -31,16 +32,16 @@ func (m *MockEncryptionRepo) GetKey(ctx context.Context, bucketName string) (*po
 
 func TestEncryptionService_Unit(t *testing.T) {
 	mockRepo := new(MockEncryptionRepo)
-	
+
 	// Create a valid 32-byte hex master key
 	masterKey := make([]byte, 32)
 	_, err := rand.Read(masterKey)
-	assert.NoError(t, err)
-	
+	require.NoError(t, err)
+
 	masterKeyHex := hex.EncodeToString(masterKey)
 
 	svc, err := services.NewEncryptionService(mockRepo, masterKeyHex)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	ctx := context.Background()
 	bucket := "my-bucket"
@@ -51,7 +52,7 @@ func TestEncryptionService_Unit(t *testing.T) {
 		})).Return(nil).Once()
 
 		keyID, err := svc.CreateKey(ctx, bucket)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, keyID)
 		mockRepo.AssertExpectations(t)
 	})
@@ -66,19 +67,19 @@ func TestEncryptionService_Unit(t *testing.T) {
 		}).Return(nil).Once()
 
 		_, err := svc.CreateKey(ctx, bucket)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Now mock GetKey to return this valid key
 		mockRepo.On("GetKey", mock.Anything, bucket).Return(&savedKey, nil)
 
 		data := []byte("secret message")
 		encrypted, err := svc.Encrypt(ctx, bucket, data)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, encrypted)
 		assert.NotEqual(t, data, encrypted)
 
 		decrypted, err := svc.Decrypt(ctx, bucket, encrypted)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, data, decrypted)
 	})
 
@@ -88,7 +89,7 @@ func TestEncryptionService_Unit(t *testing.T) {
 		})).Return(nil).Once()
 
 		keyID, err := svc.RotateKey(ctx, bucket)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, keyID)
 	})
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -31,13 +32,13 @@ func TestAuthService_LockoutLogic(t *testing.T) {
 		// 5 failed attempts
 		for i := 0; i < 5; i++ {
 			_, _, err := svc.Login(ctx, email, "wrong-password")
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Contains(t, err.Error(), "invalid email or password")
 		}
 
 		// 6th attempt should be locked out
 		_, _, err := svc.Login(ctx, email, password)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "account is locked")
 	})
 
@@ -51,11 +52,11 @@ func TestAuthService_LockoutLogic(t *testing.T) {
 		// 2 failed attempts
 		for i := 0; i < 2; i++ {
 			_, _, err := svc.Login(ctx, email2, "wrong")
-			assert.Error(t, err)
+			require.Error(t, err)
 		}
 
 		// Success
 		_, _, err := svc.Login(ctx, email2, password)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

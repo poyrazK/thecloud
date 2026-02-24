@@ -10,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockEventRepo struct {
@@ -35,7 +36,7 @@ func TestDashboardService_GetStats(t *testing.T) {
 	volRepo := new(MockVolumeRepo)
 	vpcRepo := new(MockVpcRepo)
 	eventRepo := new(mockEventRepo)
-	
+
 	svc := services.NewDashboardService(instRepo, volRepo, vpcRepo, eventRepo, slog.Default())
 	ctx := context.Background()
 
@@ -58,9 +59,9 @@ func TestDashboardService_GetStats(t *testing.T) {
 		eventRepo.On("List", ctx, 10).Return(events, nil).Once()
 
 		stats, err := svc.GetStats(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, stats)
-		
+
 		assert.Equal(t, 2, stats.Summary.TotalInstances)
 		assert.Equal(t, 1, stats.Summary.RunningInstances)
 		assert.Equal(t, 1, stats.Summary.StoppedInstances)

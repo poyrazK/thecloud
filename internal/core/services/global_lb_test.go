@@ -70,7 +70,7 @@ func TestGlobalLBCreate(t *testing.T) {
 		repo.GLBs[existing.ID] = existing
 
 		_, err := svc.Create(ctx, "new", "duplicate.com", domain.RoutingLatency, domain.GlobalHealthCheckConfig{})
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("list filtering", func(t *testing.T) {
@@ -144,7 +144,7 @@ func TestGlobalLBAddEndpoint(t *testing.T) {
 		lbRepo.LBs[lbID] = &domain.LoadBalancer{ID: lbID, UserID: otherUserID}
 
 		_, err := svc.AddEndpoint(ctx, glb.ID, "us-west-2", "LB", &lbID, nil, 1, 1)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unauthorized access")
 	})
 }
@@ -164,7 +164,7 @@ func TestGlobalLBRemoveEndpoint(t *testing.T) {
 
 	t.Run("success with dns sync", func(t *testing.T) {
 		err := svc.RemoveEndpoint(ctx, glb.ID, ep.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Verify repo
 		eps, _ := repo.ListEndpoints(ctx, glb.ID)

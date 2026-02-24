@@ -10,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type MockRoleRepository struct {
@@ -77,7 +78,7 @@ func TestRBACService_Unit(t *testing.T) {
 		mockRoleRepo.On("GetRoleByName", mock.Anything, domain.RoleAdmin).Return(nil, assert.AnError).Once() // Fallback to hardcoded
 
 		allowed, err := svc.HasPermission(ctx, userID, domain.PermissionInstanceRead, "*")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, allowed)
 	})
 
@@ -90,7 +91,7 @@ func TestRBACService_Unit(t *testing.T) {
 			Return(true, nil).Once()
 
 		allowed, err := svc.HasPermission(ctx, userID, domain.PermissionInstanceLaunch, "*")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, allowed)
 	})
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -107,10 +108,10 @@ func TestDatabaseHandlerCreate(t *testing.T) {
 		"engine":  "postgres",
 		"version": "15",
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", databasesPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -127,7 +128,7 @@ func TestDatabaseHandlerList(t *testing.T) {
 	svc.On("ListDatabases", mock.Anything).Return(dbs, nil)
 
 	req, err := http.NewRequest(http.MethodGet, databasesPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -146,7 +147,7 @@ func TestDatabaseHandlerGet(t *testing.T) {
 	svc.On("GetDatabase", mock.Anything, id).Return(db, nil)
 
 	req, err := http.NewRequest(http.MethodGet, databasesPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -164,7 +165,7 @@ func TestDatabaseHandlerDelete(t *testing.T) {
 	svc.On("DeleteDatabase", mock.Anything, id).Return(nil)
 
 	req, err := http.NewRequest(http.MethodDelete, databasesPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -182,7 +183,7 @@ func TestDatabaseHandlerGetConnectionString(t *testing.T) {
 	svc.On("GetConnectionString", mock.Anything, id).Return(testDBConnStr, nil)
 
 	req, err := http.NewRequest(http.MethodGet, databasesPath+"/"+id.String()+connSuffix, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

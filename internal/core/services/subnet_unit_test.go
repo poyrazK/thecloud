@@ -11,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSubnetService_Unit(t *testing.T) {
@@ -30,7 +31,7 @@ func TestSubnetService_Unit(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "subnet.create", "subnet", mock.Anything, mock.Anything).Return(nil).Once()
 
 		subnet, err := svc.CreateSubnet(ctx, vpcID, "test-subnet", "10.0.1.0/24", "us-east-1a")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, subnet)
 		assert.Equal(t, "10.0.1.1", subnet.GatewayIP)
 		repo.AssertExpectations(t)
@@ -43,6 +44,6 @@ func TestSubnetService_Unit(t *testing.T) {
 		auditSvc.On("Log", mock.Anything, userID, "subnet.delete", "subnet", id.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.DeleteSubnet(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

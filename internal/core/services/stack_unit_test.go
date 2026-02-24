@@ -10,10 +10,11 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 )
 
-func TestStackService_Unit(t *testing.T) {
+func TestStackServiceUnit(t *testing.T) {
 	mockRepo := new(MockStackRepo)
 	mockInstSvc := new(MockInstanceService)
 	mockVpcSvc := new(MockVpcService)
@@ -31,7 +32,7 @@ func TestStackService_Unit(t *testing.T) {
 		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Maybe()
 		
 		stack, err := svc.CreateStack(ctx, "my-stack", "Resources: {}", nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, stack)
 		assert.Equal(t, "my-stack", stack.Name)
 		
@@ -48,13 +49,13 @@ Resources:
       CIDRBlock: 10.0.0.0/16
 `
 		res, err := svc.ValidateTemplate(ctx, template)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, res.Valid)
 	})
 
 	t.Run("ValidateTemplate_Invalid", func(t *testing.T) {
 		res, err := svc.ValidateTemplate(ctx, "invalid: yaml: :")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, res.Valid)
 		assert.NotEmpty(t, res.Errors)
 	})

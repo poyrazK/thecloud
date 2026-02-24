@@ -11,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockEventService struct {
@@ -50,7 +51,7 @@ func TestEventHandlerList(t *testing.T) {
 	svc.On("ListEvents", mock.Anything, 50).Return(events, nil)
 
 	req, err := http.NewRequest(http.MethodGet, "/events", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

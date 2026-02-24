@@ -164,7 +164,7 @@ func TestLaunchInstanceSuccess(t *testing.T) {
 
 	// 4. Verify connectivity
 	ip, err := compute.GetInstanceIP(ctx, updatedInst.ContainerID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, ip)
 
 	// Cleanup
@@ -191,15 +191,15 @@ func TestTerminateInstanceSuccess(t *testing.T) {
 
 	// Execute Terminate
 	err = svc.TerminateInstance(ctx, updatedInst.ID.String())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify Deleted from DB
 	_, err = repo.GetByID(ctx, updatedInst.ID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// Verify container is gone
 	_, err = compute.GetInstanceIP(ctx, updatedInst.ContainerID)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestInstanceServiceLaunchDBFailure(t *testing.T) {
@@ -248,12 +248,12 @@ func TestInstanceServiceLaunchDBFailure(t *testing.T) {
 	})
 
 	// Verify Failure
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "simulated database failure")
 
 	// Verify no junk in DB (using real repo to check)
 	list, err := realRepo.List(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Empty(t, list)
 }
 
@@ -322,12 +322,12 @@ func TestInstanceServiceLaunchConcurrency(t *testing.T) {
 
 	for i := 0; i < concurrency; i++ {
 		err := <-errChan
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 
 	// Verify all created
 	list, err := repo.List(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, list, concurrency)
 
 	// Verify provision triggers (optional execution)
@@ -408,7 +408,7 @@ func TestNetworkingCIDRExhaustion(t *testing.T) {
 
 	// Manually provision to trigger network allocation
 	err = svc.Provision(ctx, domain.ProvisionJob{InstanceID: inst1.ID})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// 3. Launch 2nd instance (Should succeed in DB)
 	inst2, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
@@ -504,9 +504,9 @@ func TestSSHKeyInjection(t *testing.T) {
 	assert.Equal(t, &key.ID, inst.SSHKeyID)
 }
 
-func TestInstanceService_LifecycleMethods(t *testing.T) {
+func TestInstanceServiceLifecycleMethods(t *testing.T) {
 	_, svc, compute, repo, _, _, ctx := setupInstanceServiceTest(t)
-	
+
 	// Setup instance
 	inst, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
 		Name:         "lifecycle-test",
@@ -519,39 +519,39 @@ func TestInstanceService_LifecycleMethods(t *testing.T) {
 
 	t.Run("StopInstance", func(t *testing.T) {
 		err := svc.StopInstance(ctx, inst.ID.String())
-		assert.NoError(t, err)
-		
+		require.NoError(t, err)
+
 		dbInst, err := repo.GetByID(ctx, inst.ID)
 		require.NoError(t, err)
 		assert.Equal(t, domain.StatusStopped, dbInst.Status)
 
 		// Test stopping again (idempotency)
 		err = svc.StopInstance(ctx, inst.ID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("StartInstance", func(t *testing.T) {
 		err := svc.StartInstance(ctx, inst.ID.String())
-		assert.NoError(t, err)
-		
+		require.NoError(t, err)
+
 		dbInst, err := repo.GetByID(ctx, inst.ID)
 		require.NoError(t, err)
 		assert.Equal(t, domain.StatusRunning, dbInst.Status)
 
 		// Test starting again (idempotency)
 		err = svc.StartInstance(ctx, inst.ID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("GetInstanceLogs", func(t *testing.T) {
 		logs, err := svc.GetInstanceLogs(ctx, inst.ID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, logs)
 	})
 
 	t.Run("Exec", func(t *testing.T) {
 		output, err := svc.Exec(ctx, inst.ID.String(), []string{"echo", "hello"})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Contains(t, output, "hello")
 	})
 
@@ -560,7 +560,7 @@ func TestInstanceService_LifecycleMethods(t *testing.T) {
 			t.Skip("Skipping console test for docker backend")
 		}
 		url, err := svc.GetConsoleURL(ctx, inst.ID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, url)
 	})
 
