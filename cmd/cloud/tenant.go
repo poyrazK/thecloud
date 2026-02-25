@@ -20,8 +20,7 @@ var tenantListCmd = &cobra.Command{
 		client := createClient()
 		tenants, err := client.ListTenants()
 		if err != nil {
-			fmt.Printf("Error: %v
-", err)
+			fmt.Printf("Error: %v\n", err)
 			return
 		}
 
@@ -36,7 +35,7 @@ var tenantListCmd = &cobra.Command{
 		}
 
 		table := tablewriter.NewWriter(cmd.OutOrStdout())
-		table.Header([]string{"ID", "NAME", "SLUG", "STATUS", "CREATED AT"})
+		table.SetHeader([]string{"ID", "NAME", "SLUG", "STATUS", "CREATED AT"})
 
 		for _, t := range tenants {
 			table.Append([]string{
@@ -60,13 +59,11 @@ var tenantCreateCmd = &cobra.Command{
 		client := createClient()
 		tenant, err := client.CreateTenant(name, slug)
 		if err != nil {
-			fmt.Printf("Error: %v
-", err)
+			fmt.Printf("Error: %v\n", err)
 			return
 		}
 
-		fmt.Printf("[SUCCESS] Tenant %s (%s) created successfully!
-", tenant.Name, tenant.ID)
+		fmt.Printf("[SUCCESS] Tenant %s (%s) created successfully!\n", tenant.Name, tenant.ID)
 	},
 }
 
@@ -78,13 +75,11 @@ var tenantSwitchCmd = &cobra.Command{
 		id := args[0]
 		client := createClient()
 		if err := client.SwitchTenant(id); err != nil {
-			fmt.Printf("Error: %v
-", err)
+			fmt.Printf("Error: %v\n", err)
 			return
 		}
 
-		fmt.Printf("[SUCCESS] Switched to tenant %s.
-", id)
+		fmt.Printf("[SUCCESS] Switched to tenant %s.\n", id)
 	},
 }
 

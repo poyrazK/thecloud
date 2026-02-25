@@ -44,10 +44,10 @@ func TestAuthService_Internal(t *testing.T) {
 	ctx := context.Background()
 	userID := uuid.New()
 
-	t.Run("ValidateUser", func(t *testing.T) {
+	t.Run("GetUserByID", func(t *testing.T) {
 		user := &domain.User{ID: userID}
 		repo.On("GetByID", mock.Anything, userID).Return(user, nil).Once()
-		res, err := svc.ValidateUser(ctx, userID)
+		res, err := svc.GetUserByID(ctx, userID)
 		require.NoError(t, err)
 		assert.Equal(t, user, res)
 	})

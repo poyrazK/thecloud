@@ -20,8 +20,7 @@ var instanceTypeListCmd = &cobra.Command{
 		client := createClient()
 		types, err := client.ListInstanceTypes()
 		if err != nil {
-			fmt.Printf("Error: %v
-", err)
+			fmt.Printf("Error: %v\n", err)
 			return
 		}
 
@@ -36,7 +35,7 @@ var instanceTypeListCmd = &cobra.Command{
 		}
 
 		table := tablewriter.NewWriter(cmd.OutOrStdout())
-		table.Header([]string{"ID", "NAME", "VCPUS", "MEMORY", "DISK", "PRICE/HR", "CATEGORY"})
+		table.SetHeader([]string{"ID", "NAME", "VCPUS", "MEMORY", "DISK", "PRICE/HR", "CATEGORY"})
 
 		for _, t := range types {
 			table.Append([]string{

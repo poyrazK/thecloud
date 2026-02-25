@@ -98,3 +98,24 @@ func (h *TenantHandler) List(c *gin.Context) {
 
 	httputil.Success(c, http.StatusOK, tenants)
 }
+
+// SwitchTenant godoc
+// @Summary Switch active tenant
+// @Tags Tenant
+// @Security APIKeyAuth
+// @Router /tenants/:id/switch [post]
+func (h *TenantHandler) SwitchTenant(c *gin.Context) {
+	tenantID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid tenant ID"))
+		return
+	}
+
+	userID := httputil.GetUserID(c)
+	if err := h.svc.SwitchTenant(c.Request.Context(), userID, tenantID); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, gin.H{"message": "tenant switched"})
+}
