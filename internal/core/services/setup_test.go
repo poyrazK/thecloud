@@ -118,8 +118,6 @@ func cleanDB(t *testing.T, db *pgxpool.Pool) {
 		"roles",
 		"encryption_keys",
 		"api_keys",
-		"users",
-		"tenants",
 		"scaling_group_instances",
 		"scaling_policies",
 		"scaling_groups",
@@ -140,6 +138,10 @@ func cleanDB(t *testing.T, db *pgxpool.Pool) {
 		"multipart_uploads",
 		"object_versions",
 		"objects",
+		"tenant_members",
+		"tenant_quotas",
+		"tenants",
+		"users",
 	}
 
 	for _, table := range tables {
