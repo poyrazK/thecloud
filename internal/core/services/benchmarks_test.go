@@ -30,7 +30,7 @@ func BenchmarkInstanceServiceList(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	logger := slog.Default()
 
-	svc := NewInstanceService(InstanceServiceParams{
+	svc := services.NewInstanceService(services.InstanceServiceParams{
 		Repo:             repo,
 		VpcRepo:          vpcRepo,
 		SubnetRepo:       subnetRepo,
@@ -58,7 +58,7 @@ func BenchmarkVPCServiceGet(b *testing.B) {
 	network := &noop.NoopNetworkAdapter{}
 	auditSvc := &noop.NoopAuditService{}
 	logger := slog.Default()
-	svc := NewVpcService(repo, &noop.NoopLBRepository{}, network, auditSvc, logger, testutil.TestCIDR)
+	svc := services.NewVpcService(repo, &noop.NoopLBRepository{}, network, auditSvc, logger, testutil.TestCIDR)
 
 	ctx := context.Background()
 	id := uuid.New()
@@ -80,7 +80,7 @@ func BenchmarkInstanceServiceCreate(b *testing.B) {
 	eventSvc := &noop.NoopEventService{}
 	auditSvc := &noop.NoopAuditService{}
 
-	svc := NewInstanceService(InstanceServiceParams{
+	svc := services.NewInstanceService(services.InstanceServiceParams{
 		Repo:             repo,
 		VpcRepo:          vpcRepo,
 		SubnetRepo:       subnetRepo,
@@ -120,7 +120,7 @@ func BenchmarkFunctionServiceInvoke(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	logger := slog.Default()
 
-	svc := NewFunctionService(repo, compute, fileStore, auditSvc, logger)
+	svc := services.NewFunctionService(repo, compute, fileStore, auditSvc, logger)
 
 	ctx := context.Background()
 	id := uuid.New()
@@ -145,7 +145,7 @@ func BenchmarkInstanceServiceCreateParallel(b *testing.B) {
 	// Disable tracing for benchmarks to avoid overhead
 	_ = os.Setenv("TRACING_ENABLED", "false")
 
-	svc := NewInstanceService(InstanceServiceParams{
+	svc := services.NewInstanceService(services.InstanceServiceParams{
 		Repo:             repo,
 		VpcRepo:          vpcRepo,
 		SubnetRepo:       subnetRepo,
@@ -214,7 +214,7 @@ func BenchmarkAuthServiceLoginParallel(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	tenantSvc := &NoopTenantService{}
 
-	svc := NewAuthService(userRepo, idSvc, auditSvc, tenantSvc)
+	svc := services.NewAuthService(userRepo, idSvc, auditSvc, tenantSvc)
 
 	ctx := context.Background()
 	email := "admin@thecloud.local"
@@ -236,7 +236,7 @@ func BenchmarkDatabaseServiceList(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	logger := slog.Default()
 
-	svc := NewDatabaseService(DatabaseServiceParams{
+	svc := services.NewDatabaseService(services.DatabaseServiceParams{
 		Repo:     repo,
 		Compute:  compute,
 		VpcRepo:  vpcRepo,
@@ -272,7 +272,7 @@ func BenchmarkDatabaseContentionParallel(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	logger := slog.Default()
 
-	svc := NewDatabaseService(DatabaseServiceParams{
+	svc := services.NewDatabaseService(services.DatabaseServiceParams{
 		Repo:     repo,
 		Compute:  compute,
 		VpcRepo:  vpcRepo,
@@ -299,7 +299,7 @@ func BenchmarkCacheServiceList(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	logger := slog.Default()
 
-	svc := NewCacheService(repo, compute, vpcRepo, eventSvc, auditSvc, logger)
+	svc := services.NewCacheService(repo, compute, vpcRepo, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 
@@ -314,7 +314,7 @@ func BenchmarkStorageServiceList(b *testing.B) {
 	fileStore := &noop.NoopFileStore{}
 	auditSvc := &noop.NoopAuditService{}
 
-	svc := NewStorageService(repo, fileStore, auditSvc, nil, nil)
+	svc := services.NewStorageService(repo, fileStore, auditSvc, nil, nil)
 
 	ctx := context.Background()
 
@@ -331,7 +331,7 @@ func BenchmarkFunctionServiceList(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	logger := slog.Default()
 
-	svc := NewFunctionService(repo, compute, fileStore, auditSvc, logger)
+	svc := services.NewFunctionService(repo, compute, fileStore, auditSvc, logger)
 
 	ctx := context.Background()
 
@@ -347,7 +347,7 @@ func BenchmarkAuthServiceRegister(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	tenantSvc := &NoopTenantService{}
 
-	svc := NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc)
+	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc)
 
 	ctx := context.Background()
 
@@ -390,7 +390,7 @@ func BenchmarkAuthServiceLogin(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	tenantSvc := &NoopTenantService{}
 
-	svc := NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc)
+	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc)
 
 	ctx := context.Background()
 
