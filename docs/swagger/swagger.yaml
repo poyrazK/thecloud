@@ -1288,6 +1288,28 @@ definitions:
       valid:
         type: boolean
     type: object
+  domain.Tenant:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      owner_id:
+        type: string
+      plan:
+        description: '"free", "pro", "enterprise"'
+        type: string
+      slug:
+        description: URL-friendly identifier
+        type: string
+      status:
+        description: '"active", "suspended"'
+        type: string
+      updated_at:
+        type: string
+    type: object
   domain.UsageRecord:
     properties:
       end_time:
@@ -2245,6 +2267,26 @@ paths:
                   $ref: '#/definitions/httphandlers.LoginResponse'
               type: object
       summary: Login as a user
+      tags:
+      - Auth
+  /auth/me:
+    get:
+      description: Returns the profile of the currently authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputil.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.User'
+              type: object
+      security:
+      - APIKeyAuth: []
+      summary: Get current user info
       tags:
       - Auth
   /auth/register:
@@ -5474,6 +5516,21 @@ paths:
       tags:
       - storage
   /tenants:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Tenant'
+            type: array
+      security:
+      - APIKeyAuth: []
+      summary: List user's tenants
+      tags:
+      - Tenant
     post:
       responses: {}
       security:
