@@ -50,6 +50,13 @@ func init() {
 	rootCmd.AddCommand(kubernetesCmd)
 	rootCmd.AddCommand(dnsCmd)
 	rootCmd.AddCommand(cloudLogsCmd)
+	rootCmd.AddCommand(tenantCmd)
+	rootCmd.AddCommand(instanceTypeCmd)
+
+	rootCmd.PersistentFlags().BoolVarP(&jsonOutput, "json", "j", false, "Output in JSON format")
+	rootCmd.PersistentFlags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
+	rootCmd.PersistentFlags().StringVar(&apiURL, "api-url", "http://localhost:8080", "URL of the API server")
+	rootCmd.PersistentFlags().StringVar(&tenantID, "tenant", "", "Tenant ID to use for requests")
 }
 
 func main() {
