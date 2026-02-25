@@ -62,6 +62,11 @@ func (m *mockTenantService) GetMembership(ctx context.Context, tenantID, userID 
 	r0, _ := args.Get(0).(*domain.TenantMember)
 	return r0, args.Error(1)
 }
+func (m *mockTenantService) ListUserTenants(ctx context.Context, userID uuid.UUID) ([]domain.Tenant, error) { 
+	args := m.Called(ctx, userID) 
+	if args.Get(0) == nil { return nil, args.Error(1) } 
+	return args.Get(0).([]domain.Tenant), args.Error(1) 
+}
 func (m *mockTenantService) IncrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error {
 	return m.Called(ctx, tenantID, resource, amount).Error(0)
 }

@@ -39,6 +39,11 @@ func (m *mockAuthService) Register(ctx context.Context, email, password, name st
 }
 
 func (m *mockAuthService) Login(ctx context.Context, email, password string) (*domain.User, string, error) {
+func (m *mockAuthService) GetUserByID(ctx context.Context, userID uuid.UUID) (*domain.User, error) { 
+	args := m.Called(ctx, userID) 
+	if args.Get(0) == nil { return nil, args.Error(1) } 
+	return args.Get(0).(*domain.User), args.Error(1) 
+}
 	args := m.Called(ctx, email, password)
 	if args.Get(0) == nil {
 		return nil, "", args.Error(2)
