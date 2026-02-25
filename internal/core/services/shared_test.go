@@ -1795,11 +1795,17 @@ type MockTenantService struct {
 
 func (m *MockTenantService) CreateTenant(ctx context.Context, name, slug string, ownerID uuid.UUID) (*domain.Tenant, error) {
 	args := m.Called(ctx, name, slug, ownerID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	r0, _ := args.Get(0).(*domain.Tenant)
 	return r0, args.Error(1)
 }
 func (m *MockTenantService) GetTenant(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) {
 	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	r0, _ := args.Get(0).(*domain.Tenant)
 	return r0, args.Error(1)
 }
@@ -1816,18 +1822,20 @@ func (m *MockTenantService) CheckQuota(ctx context.Context, tenantID uuid.UUID, 
 	return m.Called(ctx, tenantID, resource, requested).Error(0)
 }
 func (m *MockTenantService) GetMembership(ctx context.Context, tenantID, userID uuid.UUID) (*domain.TenantMember, error) {
-func (m *MockTenantService) ListUserTenants(ctx context.Context, userID uuid.UUID) ([]domain.Tenant, error) { 
-	args := m.Called(ctx, userID) 
-	if args.Get(0) == nil { return nil, args.Error(1) } 
-	return args.Get(0).([]domain.Tenant), args.Error(1) 
-}
-func (m *MockTenantService) ListUserTenants(ctx context.Context, userID uuid.UUID) ([]domain.Tenant, error) { 
-	args := m.Called(ctx, userID) 
-	if args.Get(0) == nil { return nil, args.Error(1) } 
-	return args.Get(0).([]domain.Tenant), args.Error(1) 
-}
 	args := m.Called(ctx, tenantID, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	r0, _ := args.Get(0).(*domain.TenantMember)
+	return r0, args.Error(1)
+}
+
+func (m *MockTenantService) ListUserTenants(ctx context.Context, userID uuid.UUID) ([]domain.Tenant, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	r0, _ := args.Get(0).([]domain.Tenant)
 	return r0, args.Error(1)
 }
 
@@ -1947,4 +1955,3 @@ func (m *MockElasticIPRepo) Update(ctx context.Context, eip *domain.ElasticIP) e
 func (m *MockElasticIPRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
-
