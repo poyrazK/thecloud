@@ -99,52 +99,38 @@ func setupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
 func cleanDB(t *testing.T, db *pgxpool.Pool) {
 	t.Helper()
 	ctx := context.Background()
-	tables := []string{
-		"invocations",
-		"functions",
-		"instance_types",
-		"instances",
-		"subnets",
-		"vpcs",
-		"volumes",
-		"ssh_keys",
-		"load_balancers",
-		"lb_targets",
-		"audit_logs",
-		"gateway_routes",
-		"events",
-		"usage_records",
-		"role_permissions",
-		"roles",
-		"encryption_keys",
-		"api_keys",
-		"scaling_group_instances",
-		"scaling_policies",
-		"scaling_groups",
-		"metrics_history",
-		"deployment_containers",
-		"deployments",
-		"global_lb_endpoints",
-		"global_load_balancers",
-		"elastic_ips",
-		"log_entries",
-		"policies",
-		"user_policies",
-		"caches",
-		"secrets",
-		"backups",
-		"bucket_lifecycle_rules",
-		"buckets",
-		"multipart_uploads",
-		"object_versions",
-		"objects",
-		"tenant_members",
-		"tenant_quotas",
-		"tenants",
-		"users",
+
+	// Query to get all tables in the public schema
+	query := `
+		SELECT table_name 
+		FROM information_schema.tables 
+		WHERE table_schema = 'public' 
+		AND table_type = 'BASE TABLE'
+		AND table_name != 'schema_migrations'
+	`
+	rows, err := db.Query(ctx, query)
+	if err != nil {
+		t.Logf("Warning: failed to query tables for cleanup: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	var tables []string
+	for rows.Next() {
+		var table string
+		if err := rows.Scan(&table); err == nil {
+			tables = append(tables, table)
+		}
 	}
 
-	for _, table := range tables {
-		_, _ = db.Exec(ctx, "DELETE FROM "+table+" CASCADE")
+	if len(tables) == 0 {
+		return
+	}
+
+	// Truncate all tables in one command with CASCADE to handle foreign keys
+	truncateQuery := "TRUNCATE " + strings.Join(tables, ", ") + " RESTART IDENTITY CASCADE"
+	_, err = db.Exec(ctx, truncateQuery)
+	if err != nil {
+		t.Logf("Warning: failed to truncate tables: %v", err)
 	}
 }
