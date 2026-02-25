@@ -21,14 +21,14 @@ var secretsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all secrets (values redacted)",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient()
 		secrets, err := client.ListSecrets()
 		if err != nil {
 			fmt.Printf(secretsErrorFormat, err)
 			return
 		}
 
-		if outputJSON {
+		if jsonOutput {
 			data, _ := json.MarshalIndent(secrets, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -62,7 +62,7 @@ var secretsCreateCmd = &cobra.Command{
 		value, _ := cmd.Flags().GetString("value")
 		desc, _ := cmd.Flags().GetString("description")
 
-		client := getClient()
+		client := createClient()
 		secret, err := client.CreateSecret(name, value, desc)
 		if err != nil {
 			fmt.Printf(secretsErrorFormat, err)
@@ -70,7 +70,7 @@ var secretsCreateCmd = &cobra.Command{
 		}
 
 		fmt.Printf("[SUCCESS] Secret %s created.\n", name)
-		if outputJSON {
+		if jsonOutput {
 			data, _ := json.MarshalIndent(secret, "", "  ")
 			fmt.Println(string(data))
 		}
@@ -83,14 +83,14 @@ var secretsGetCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient()
 		secret, err := client.GetSecret(id)
 		if err != nil {
 			fmt.Printf(secretsErrorFormat, err)
 			return
 		}
 
-		if outputJSON {
+		if jsonOutput {
 			data, _ := json.MarshalIndent(secret, "", "  ")
 			fmt.Println(string(data))
 		} else {
@@ -111,7 +111,7 @@ var secretsRmCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient()
 		if err := client.DeleteSecret(id); err != nil {
 			fmt.Printf(secretsErrorFormat, err)
 			return

@@ -34,8 +34,8 @@ func TestDNSListZones(t *testing.T) {
 
 	apiURL = server.URL
 	apiKey = "test-key"
-	outputJSON = true
-	defer func() { outputJSON = false }()
+	jsonOutput = true
+	defer func() { jsonOutput = false }()
 
 	out := captureStdout(t, func() {
 		dnsListZonesCmd.Run(dnsListZonesCmd, nil)

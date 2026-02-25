@@ -22,7 +22,7 @@ var subnetListCmd = &cobra.Command{
 	Short: "List subnets in a VPC",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient()
 		vpcID := args[0]
 		subnets, err := client.ListSubnets(vpcID)
 		if err != nil {
@@ -30,7 +30,7 @@ var subnetListCmd = &cobra.Command{
 			return
 		}
 
-		if outputJSON {
+		if jsonOutput {
 			data, _ := json.MarshalIndent(subnets, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -59,7 +59,7 @@ var subnetCreateCmd = &cobra.Command{
 	Short: "Create a new subnet in a VPC",
 	Args:  cobra.ExactArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient()
 		vpcID := args[0]
 		name := args[1]
 		cidr := args[2]
@@ -80,7 +80,7 @@ var subnetDeleteCmd = &cobra.Command{
 	Short: "Remove a subnet",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient()
 		subnetID := args[0]
 
 		err := client.DeleteSubnet(subnetID)

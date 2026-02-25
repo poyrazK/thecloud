@@ -51,8 +51,8 @@ func TestListInstancesJSONOutput(t *testing.T) {
 
 	apiURL = server.URL
 	apiKey = instanceTestAPIKey
-	outputJSON = true
-	defer func() { outputJSON = false }()
+	jsonOutput = true
+	defer func() { jsonOutput = false }()
 
 	out := captureStdout(t, func() {
 		listCmd.Run(listCmd, nil)
@@ -112,7 +112,7 @@ func TestGetClientWithApiKeyFlag(t *testing.T) {
 	defer func() { apiKey = oldKey }()
 	apiKey = instanceTestAPIKey
 
-	client := getClient()
+	client := createClient()
 	if client == nil {
 		t.Fatal("expected non-nil client")
 	}
@@ -125,7 +125,7 @@ func TestGetClientWithEnvVar(t *testing.T) {
 
 	t.Setenv("CLOUD_API_KEY", "env-key")
 
-	client := getClient()
+	client := createClient()
 	if client == nil {
 		t.Fatal("expected non-nil client")
 	}

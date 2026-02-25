@@ -41,11 +41,11 @@ func TestSnapshotListJSONOutput(t *testing.T) {
 	oldKey := apiKey
 	apiURL = server.URL
 	apiKey = snapshotTestAPIKey
-	outputJSON = true
+	jsonOutput = true
 	defer func() {
 		apiURL = oldURL
 		apiKey = oldKey
-		outputJSON = false
+		jsonOutput = false
 	}()
 
 	out := captureStdout(t, func() {

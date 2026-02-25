@@ -29,7 +29,7 @@ var createFnCmd = &cobra.Command{
 			return fmt.Errorf("failed to read code file: %w", err)
 		}
 
-		client := getClient()
+		client := createClient()
 		fn, err := client.CreateFunction(name, runtime, handler, code)
 		if err != nil {
 			return err
@@ -44,7 +44,7 @@ var listFnCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all functions",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getClient()
+		client := createClient()
 		functions, err := client.ListFunctions()
 		if err != nil {
 			return err
@@ -86,7 +86,7 @@ var invokeFnCmd = &cobra.Command{
 			payload = []byte(payloadStr)
 		}
 
-		client := getClient()
+		client := createClient()
 
 		// Map name to ID if needed
 		targetID := id
@@ -124,7 +124,7 @@ var logsFnCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id := args[0]
-		client := getClient()
+		client := createClient()
 
 		targetID := id
 		functions, err := client.ListFunctions()
@@ -158,7 +158,7 @@ var rmFnCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id := args[0]
-		client := getClient()
+		client := createClient()
 
 		targetID := id
 		functions, err := client.ListFunctions()

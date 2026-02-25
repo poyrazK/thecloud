@@ -46,11 +46,7 @@ var listCmd = &cobra.Command{
 		}
 
 		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"ID", "NAME", "IMAGE", "STATUS", "ACCESS"})
-		table.SetBorder(false)
-		table.SetColumnSeparator("")
-		table.SetAlignment(tablewriter.ALIGN_LEFT)
-		table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+		table.Header([]string{"ID", "NAME", "IMAGE", "STATUS", "ACCESS"})
 
 		for _, inst := range instances {
 			id := inst.ID
@@ -60,15 +56,15 @@ var listCmd = &cobra.Command{
 
 			access := formatAccessPorts(inst.Ports, inst.Status)
 
-			table.Append([]string{
+			cobra.CheckErr(table.Append([]string{
 				id,
 				inst.Name,
 				inst.Image,
 				inst.Status,
 				access,
-			})
+			}))
 		}
-		table.Render()
+		cobra.CheckErr(table.Render())
 	},
 }
 

@@ -35,7 +35,7 @@ var tenantListCmd = &cobra.Command{
 		}
 
 		table := tablewriter.NewWriter(cmd.OutOrStdout())
-		table.SetHeader([]string{"ID", "NAME", "SLUG", "STATUS", "CREATED AT"})
+		table.Header([]string{"ID", "NAME", "SLUG", "STATUS", "CREATED AT"})
 
 		for _, t := range tenants {
 			table.Append([]string{

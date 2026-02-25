@@ -1816,6 +1816,11 @@ func (m *MockTenantService) CheckQuota(ctx context.Context, tenantID uuid.UUID, 
 	return m.Called(ctx, tenantID, resource, requested).Error(0)
 }
 func (m *MockTenantService) GetMembership(ctx context.Context, tenantID, userID uuid.UUID) (*domain.TenantMember, error) {
+func (m *MockTenantService) ListUserTenants(ctx context.Context, userID uuid.UUID) ([]domain.Tenant, error) { 
+	args := m.Called(ctx, userID) 
+	if args.Get(0) == nil { return nil, args.Error(1) } 
+	return args.Get(0).([]domain.Tenant), args.Error(1) 
+}
 	args := m.Called(ctx, tenantID, userID)
 	r0, _ := args.Get(0).(*domain.TenantMember)
 	return r0, args.Error(1)

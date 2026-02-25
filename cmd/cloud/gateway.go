@@ -37,7 +37,7 @@ Examples:
 		priority, _ := cmd.Flags().GetInt("priority")
 		methods, _ := cmd.Flags().GetStringSlice("methods")
 
-		client := getClient()
+		client := createClient()
 		route, err := client.CreateGatewayRoute(args[0], args[1], args[2], methods, strip, limit, priority)
 		if err != nil {
 			fmt.Printf(gatewayErrorFormat, err)
@@ -52,7 +52,7 @@ var listRoutesCmd = &cobra.Command{
 	Use:   "list-routes",
 	Short: "List all gateway routes",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient()
 		routes, err := client.ListGatewayRoutes()
 		if err != nil {
 			fmt.Printf(gatewayErrorFormat, err)
@@ -73,7 +73,7 @@ var deleteRouteCmd = &cobra.Command{
 	Short: "Delete a gateway route",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient()
 		err := client.DeleteGatewayRoute(args[0])
 		if err != nil {
 			fmt.Printf(gatewayErrorFormat, err)

@@ -35,7 +35,7 @@ var instanceTypeListCmd = &cobra.Command{
 		}
 
 		table := tablewriter.NewWriter(cmd.OutOrStdout())
-		table.SetHeader([]string{"ID", "NAME", "VCPUS", "MEMORY", "DISK", "PRICE/HR", "CATEGORY"})
+		table.Header([]string{"ID", "NAME", "VCPUS", "MEMORY", "DISK", "PRICE/HR", "CATEGORY"})
 
 		for _, t := range types {
 			table.Append([]string{

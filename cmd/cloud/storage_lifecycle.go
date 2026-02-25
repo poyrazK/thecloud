@@ -31,14 +31,14 @@ var lifecycleSetCmd = &cobra.Command{
 			return
 		}
 
-		client := getClient()
+		client := createClient()
 		rule, err := client.CreateLifecycleRule(bucket, prefix, days, enabled)
 		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
 		}
 
-		if outputJSON {
+		if jsonOutput {
 			data, _ := json.MarshalIndent(rule, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -55,14 +55,14 @@ var lifecycleListCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		bucket := args[0]
-		client := getClient()
+		client := createClient()
 		rules, err := client.ListLifecycleRules(bucket)
 		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
 		}
 
-		if outputJSON {
+		if jsonOutput {
 			data, _ := json.MarshalIndent(rules, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -91,7 +91,7 @@ var lifecycleDeleteCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		bucket := args[0]
 		ruleID := args[1]
-		client := getClient()
+		client := createClient()
 		if err := client.DeleteLifecycleRule(bucket, ruleID); err != nil {
 			fmt.Printf(errFmt, err)
 			return

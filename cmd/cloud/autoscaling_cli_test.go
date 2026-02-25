@@ -44,11 +44,11 @@ func TestASGCreateJSONOutput(t *testing.T) {
 	oldKey := apiKey
 	apiURL = server.URL
 	apiKey = asgTestAPIKey
-	outputJSON = true
+	jsonOutput = true
 	defer func() {
 		apiURL = oldURL
 		apiKey = oldKey
-		outputJSON = false
+		jsonOutput = false
 	}()
 
 	_ = asgCreateCmd.Flags().Set("name", asgTestName)
@@ -97,11 +97,11 @@ func TestASGListJSONOutput(t *testing.T) {
 	oldKey := apiKey
 	apiURL = server.URL
 	apiKey = asgTestAPIKey
-	outputJSON = true
+	jsonOutput = true
 	defer func() {
 		apiURL = oldURL
 		apiKey = oldKey
-		outputJSON = false
+		jsonOutput = false
 	}()
 
 	out := captureStdout(t, func() {

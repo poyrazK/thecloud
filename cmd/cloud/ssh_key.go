@@ -27,7 +27,7 @@ var registerKeyCmd = &cobra.Command{
 			return
 		}
 
-		client := getClient()
+		client := createClient()
 		key, err := client.RegisterSSHKey(name, string(keyData))
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -43,7 +43,7 @@ var listKeysCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all registered SSH keys",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient()
 		keys, err := client.ListSSHKeys()
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)

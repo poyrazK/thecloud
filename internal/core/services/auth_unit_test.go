@@ -65,12 +65,12 @@ func TestAuthService_Unit_Extended(t *testing.T) {
 		assert.Equal(t, "test-key", token)
 	})
 
-	t.Run("ValidateUser", func(t *testing.T) {
+	t.Run("GetUserByID", func(t *testing.T) {
 		userID := uuid.New()
 		user := &domain.User{ID: userID}
 		mockUserRepo.On("GetByID", mock.Anything, userID).Return(user, nil).Once()
 		
-		res, err := svc.ValidateUser(ctx, userID)
+		res, err := svc.GetUserByID(ctx, userID)
 		require.NoError(t, err)
 		assert.Equal(t, user, res)
 	})

@@ -45,11 +45,11 @@ func TestDBListJSONOutput(t *testing.T) {
 	oldKey := apiKey
 	apiURL = server.URL
 	apiKey = dbTestAPIKey
-	outputJSON = true
+	jsonOutput = true
 	defer func() {
 		apiURL = oldURL
 		apiKey = oldKey
-		outputJSON = false
+		jsonOutput = false
 	}()
 
 	out := captureStdout(t, func() {
@@ -89,11 +89,11 @@ func TestDBCreateJSONMasksPassword(t *testing.T) {
 	oldKey := apiKey
 	apiURL = server.URL
 	apiKey = dbTestAPIKey
-	outputJSON = true
+	jsonOutput = true
 	defer func() {
 		apiURL = oldURL
 		apiKey = oldKey
-		outputJSON = false
+		jsonOutput = false
 	}()
 
 	_ = dbCreateCmd.Flags().Set("name", dbTestName)

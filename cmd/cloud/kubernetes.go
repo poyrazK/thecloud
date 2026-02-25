@@ -23,14 +23,14 @@ var listClustersCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all Kubernetes clusters",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient()
 		clusters, err := client.ListClusters()
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
 		}
 
-		if outputJSON {
+		if jsonOutput {
 			data, _ := json.MarshalIndent(clusters, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -78,7 +78,7 @@ var createClusterCmd = &cobra.Command{
 
 		ha, _ := cmd.Flags().GetBool("ha")
 
-		client := getClient()
+		client := createClient()
 		cluster, err := client.CreateCluster(&sdk.CreateClusterInput{
 			Name:             name,
 			VpcID:            vpcID,
@@ -104,7 +104,7 @@ var deleteClusterCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient()
 		if err := client.DeleteCluster(id); err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
@@ -121,7 +121,7 @@ var getKubeconfigCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 		role, _ := cmd.Flags().GetString("role")
-		client := getClient()
+		client := createClient()
 		kubeconfig, err := client.GetKubeconfig(id, role)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
@@ -138,7 +138,7 @@ var repairClusterCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient()
 		if err := client.RepairCluster(id); err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
@@ -154,7 +154,7 @@ var scaleClusterCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 		workers, _ := cmd.Flags().GetInt("workers")
-		client := getClient()
+		client := createClient()
 		if err := client.ScaleCluster(id, workers); err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
@@ -169,7 +169,7 @@ var clusterHealthCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient()
 		health, err := client.GetClusterHealth(id)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
@@ -193,7 +193,7 @@ var showClusterCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient()
 		cluster, err := client.GetCluster(id)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
@@ -226,7 +226,7 @@ var upgradeClusterCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 		version, _ := cmd.Flags().GetString("version")
-		client := getClient()
+		client := createClient()
 		if err := client.UpgradeCluster(id, version); err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
@@ -241,7 +241,7 @@ var rotateSecretsCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient()
 		if err := client.RotateSecrets(id); err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
@@ -256,7 +256,7 @@ var backupClusterCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient()
 		if err := client.CreateBackup(id); err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
@@ -272,7 +272,7 @@ var restoreClusterCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 		path, _ := cmd.Flags().GetString("path")
-		client := getClient()
+		client := createClient()
 		if err := client.RestoreBackup(id, path); err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return

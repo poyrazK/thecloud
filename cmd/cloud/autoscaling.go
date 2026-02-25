@@ -32,7 +32,7 @@ var asgCreateCmd = &cobra.Command{
 		lbID, _ := cmd.Flags().GetString("lb")
 		ports, _ := cmd.Flags().GetString("ports")
 
-		client := getClient()
+		client := createClient()
 
 		req := sdk.CreateScalingGroupRequest{
 			Name:         name,
@@ -53,7 +53,7 @@ var asgCreateCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if outputJSON {
+		if jsonOutput {
 			data, _ := json.MarshalIndent(group, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -67,14 +67,14 @@ var asgListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List scaling groups",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient()
 		groups, err := client.ListScalingGroups()
 		if err != nil {
 			fmt.Printf(autoscalingErrorFormat, err)
 			os.Exit(1)
 		}
 
-		if outputJSON {
+		if jsonOutput {
 			data, _ := json.MarshalIndent(groups, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -96,7 +96,7 @@ var asgRmCmd = &cobra.Command{
 	Short: "Delete a scaling group",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient()
 		if err := client.DeleteScalingGroup(args[0]); err != nil {
 			fmt.Printf(autoscalingErrorFormat, err)
 			os.Exit(1)
@@ -117,7 +117,7 @@ var asgPolicyAddCmd = &cobra.Command{
 		scaleIn, _ := cmd.Flags().GetInt("scale-in")
 		cooldown, _ := cmd.Flags().GetInt("cooldown")
 
-		client := getClient()
+		client := createClient()
 		req := sdk.CreatePolicyRequest{
 			Name:        name,
 			MetricType:  metric,

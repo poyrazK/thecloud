@@ -21,14 +21,14 @@ var vpcListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all VPCs",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient()
 		vpcs, err := client.ListVPCs()
 		if err != nil {
 			fmt.Printf(vpcErrorFormat, err)
 			return
 		}
 
-		if outputJSON {
+		if jsonOutput {
 			data, _ := json.MarshalIndent(vpcs, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -58,7 +58,7 @@ var vpcCreateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
 		cidr, _ := cmd.Flags().GetString("cidr-block")
-		client := getClient()
+		client := createClient()
 		vpc, err := client.CreateVPC(name, cidr)
 		if err != nil {
 			fmt.Printf(vpcErrorFormat, err)
@@ -79,7 +79,7 @@ var vpcRmCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient()
 		if err := client.DeleteVPC(id); err != nil {
 			fmt.Printf(vpcErrorFormat, err)
 			return
