@@ -197,6 +197,7 @@ func (s *NoopTenantService) CheckQuota(ctx context.Context, tenantID uuid.UUID, 
 }
 func (s *NoopTenantService) GetMembership(ctx context.Context, tenantID, userID uuid.UUID) (*domain.TenantMember, error) {
 func (s *NoopTenantService) ListUserTenants(ctx context.Context, userID uuid.UUID) ([]domain.Tenant, error) { return nil, nil }
+func (s *NoopTenantService) ListUserTenants(ctx context.Context, userID uuid.UUID) ([]domain.Tenant, error) { return nil, nil }
 	return &domain.TenantMember{}, nil
 }
 func (s *NoopTenantService) IncrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error {

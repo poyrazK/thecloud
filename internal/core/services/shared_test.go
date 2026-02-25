@@ -1821,6 +1821,11 @@ func (m *MockTenantService) ListUserTenants(ctx context.Context, userID uuid.UUI
 	if args.Get(0) == nil { return nil, args.Error(1) } 
 	return args.Get(0).([]domain.Tenant), args.Error(1) 
 }
+func (m *MockTenantService) ListUserTenants(ctx context.Context, userID uuid.UUID) ([]domain.Tenant, error) { 
+	args := m.Called(ctx, userID) 
+	if args.Get(0) == nil { return nil, args.Error(1) } 
+	return args.Get(0).([]domain.Tenant), args.Error(1) 
+}
 	args := m.Called(ctx, tenantID, userID)
 	r0, _ := args.Get(0).(*domain.TenantMember)
 	return r0, args.Error(1)
