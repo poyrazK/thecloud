@@ -14,8 +14,8 @@ type AuthService interface {
 	Register(ctx context.Context, email, password, name string) (*domain.User, error)
 	// Login validates credentials and returns the user along with an initial programmatic API key.
 	Login(ctx context.Context, email, password string) (*domain.User, string, error)
-	// ValidateUser ensures a user exists and is authorized to perform actions.
-	ValidateUser(ctx context.Context, userID uuid.UUID) (*domain.User, error)
+	// GetUserByID ensures a user exists and is authorized to perform actions.
+	GetUserByID(ctx context.Context, userID uuid.UUID) (*domain.User, error)
 }
 
 // UserRepository handles the persistence and retrieval of User entities.

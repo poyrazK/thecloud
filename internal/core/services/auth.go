@@ -189,6 +189,6 @@ func (s *AuthService) incrementFailure(email string) {
 	}
 }
 
-func (s *AuthService) ValidateUser(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
+func (s *AuthService) GetUserByID(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
 	return s.userRepo.GetByID(ctx, userID)
 }
