@@ -47,6 +47,67 @@ var loginCmd = &cobra.Command{
 	},
 }
 
+var registerCmd = &cobra.Command{
+	Use:   "register [email] [password] [name]",
+	Short: "Register a new user account",
+	Args:  cobra.ExactArgs(3),
+	Run: func(cmd *cobra.Command, args []string) {
+		email, password, name := args[0], args[1], args[2]
+		client := sdk.NewClient(apiURL, "")
+		user, err := client.Register(email, password, name)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+		fmt.Printf("[SUCCESS] User %s (%s) registered successfully!\n", user.Name, user.Email)
+		fmt.Println("[INFO] Please log in with 'cloud auth login-user <email> <password>' to get an API key.")
+	},
+}
+
+var loginUserCmd = &cobra.Command{
+	Use:   "login-user [email] [password]",
+	Short: "Login with email and password to get an API key",
+	Args:  cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		email, password := args[0], args[1]
+		client := sdk.NewClient(apiURL, "")
+		res, err := client.Login(email, password)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+		saveConfig(res.APIKey)
+		fmt.Printf("[SUCCESS] Logged in as %s. Key saved to configuration.\n", res.User.Email)
+	},
+}
+
+var whoamiCmd = &cobra.Command{
+	Use:   "whoami",
+	Short: "Show current session information",
+	Run: func(cmd *cobra.Command, args []string) {
+		client := createClient()
+		user, err := client.WhoAmI()
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+
+		if jsonOutput {
+			printJSON(user)
+			return
+		}
+
+		fmt.Println("Current User:")
+		fmt.Printf("  ID:       %s\n", user.ID)
+		fmt.Printf("  Name:     %s\n", user.Name)
+		fmt.Printf("  Email:    %s\n", user.Email)
+		fmt.Printf("  Role:     %s\n", user.Role)
+		if user.DefaultTenantID != nil {
+			fmt.Printf("  TenantID: %s\n", *user.DefaultTenantID)
+		}
+	},
+}
+
 // Config persistence
 type Config struct {
 	APIKey string `json:"api_key"`
@@ -90,4 +151,7 @@ func loadConfig() string {
 func init() {
 	authCmd.AddCommand(createDemoCmd)
 	authCmd.AddCommand(loginCmd)
+	authCmd.AddCommand(registerCmd)
+	authCmd.AddCommand(loginUserCmd)
+	authCmd.AddCommand(whoamiCmd)
 }
