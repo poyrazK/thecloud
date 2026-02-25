@@ -239,7 +239,11 @@ func TestAuthService_LockoutLogicReal(t *testing.T) {
 
 	t.Run("Lockout Expiration", func(t *testing.T) {
 		email3 := "expire_" + uuid.NewString() + "@example.com"
-		_, _ = svc.Register(ctx, email3, pass, "Expire User")
+		_, err := svc.Register(ctx, email3, pass, "Expire User")
+		require.NoError(t, err)
+
+		// Set a very short lockout
+		svc.SetLockoutDuration(100 * time.Millisecond)
 
 		// Trigger lockout
 		for i := 0; i < 5; i++ {
@@ -247,14 +251,12 @@ func TestAuthService_LockoutLogicReal(t *testing.T) {
 		}
 
 		// Verify locked
-		_, _, err := svc.Login(ctx, email3, pass)
+		_, _, err = svc.Login(ctx, email3, pass)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "locked")
 
-		// Manually expire lockout via reflection
-		v := reflect.ValueOf(svc).Elem()
-		lockoutsField := v.FieldByName("lockouts")
-		lockoutsField.SetMapIndex(reflect.ValueOf(email3), reflect.ValueOf(time.Now().Add(-1*time.Minute)))
+		// Wait for expiration
+		time.Sleep(150 * time.Millisecond)
 
 		// Login should now work
 		_, _, err = svc.Login(ctx, email3, pass)
