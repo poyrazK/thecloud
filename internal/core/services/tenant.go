@@ -88,6 +88,10 @@ func (s *TenantService) GetTenant(ctx context.Context, id uuid.UUID) (*domain.Te
 	return s.repo.GetByID(ctx, id)
 }
 
+func (s *TenantService) ListUserTenants(ctx context.Context, userID uuid.UUID) ([]domain.Tenant, error) {
+	return s.repo.ListUserTenants(ctx, userID)
+}
+
 func (s *TenantService) InviteMember(ctx context.Context, tenantID uuid.UUID, email, role string) error {
 	// In a real system, this would send an invitation email.
 	// For now, we'll try to find the user by email and add them directly if they exist.
