@@ -246,6 +246,8 @@ func registerAuthRoutes(r *gin.Engine, handlers *Handlers, svcs *Services, cfg *
 		keyGroup.POST("/:id/rotate", handlers.Identity.RotateKey)
 		keyGroup.POST("/:id/regenerate", handlers.Identity.RegenerateKey)
 	}
+
+	r.GET("/auth/me", httputil.Auth(svcs.Identity, svcs.Tenant), handlers.Auth.Me)
 }
 
 func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
@@ -616,6 +618,7 @@ func registerTenantRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	tenantGroup := r.Group("/tenants")
 	tenantGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
+		tenantGroup.GET("", handlers.Tenant.List)
 		tenantGroup.POST("", handlers.Tenant.Create)
 		tenantGroup.POST("/:id/members", httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant), handlers.Tenant.InviteMember)
 		tenantGroup.POST("/:id/switch", handlers.Tenant.SwitchTenant)

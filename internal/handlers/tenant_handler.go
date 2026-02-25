@@ -81,23 +81,20 @@ func (h *TenantHandler) InviteMember(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, gin.H{"message": "member invited"})
 }
 
-// SwitchTenant godoc
-// @Summary Switch active tenant
+// List godoc
+// @Summary List user's tenants
 // @Tags Tenant
 // @Security APIKeyAuth
-// @Router /tenants/:id/switch [post]
-func (h *TenantHandler) SwitchTenant(c *gin.Context) {
-	tenantID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid tenant ID"))
-		return
-	}
-
+// @Produce json
+// @Success 200 {array} domain.Tenant
+// @Router /tenants [get]
+func (h *TenantHandler) List(c *gin.Context) {
 	userID := httputil.GetUserID(c)
-	if err := h.svc.SwitchTenant(c.Request.Context(), userID, tenantID); err != nil {
+	tenants, err := h.svc.ListUserTenants(c.Request.Context(), userID)
+	if err != nil {
 		httputil.Error(c, err)
 		return
 	}
 
-	httputil.Success(c, http.StatusOK, gin.H{"message": "tenant switched"})
+	httputil.Success(c, http.StatusOK, tenants)
 }
