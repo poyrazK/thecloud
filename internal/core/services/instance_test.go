@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	coreports "github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/docker"
+	"github.com/poyrazk/thecloud/internal/repositories/libvirt"
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/poyrazk/thecloud/pkg/testutil"
@@ -63,7 +65,7 @@ func (q *InMemoryTaskQueue) Dequeue(ctx context.Context, queueName string) (stri
 	return job, nil
 }
 
-func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceService, *docker.DockerAdapter, coreports.InstanceRepository, coreports.VpcRepository, coreports.VolumeRepository, context.Context) {
+func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceService, coreports.ComputeBackend, coreports.InstanceRepository, coreports.VpcRepository, coreports.VolumeRepository, context.Context) {
 	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
@@ -75,19 +77,28 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 	volumeRepo := postgres.NewVolumeRepository(db)
 	itRepo := postgres.NewInstanceTypeRepository(db)
 
-	compute, err := docker.NewDockerAdapter(slog.Default())
+	var compute coreports.ComputeBackend
+	var err error
+	
+	backend := os.Getenv("COMPUTE_BACKEND")
+	if backend == "libvirt" {
+		compute, err = libvirt.NewLibvirtAdapter(slog.Default())
+	} else {
+		compute, err = docker.NewDockerAdapter(slog.Default())
+	}
 	require.NoError(t, err)
 
 	// In integration tests, we frequently rely on a shared Docker network.
 	// We ensure it exists here so that Provisioning (which uses it as a fallback) succeeds.
 	if compute.Type() == "docker" {
-		_, _ = compute.CreateNetwork(ctx, testutil.TestDockerNetwork)
+		dockerCompute := compute.(*docker.DockerAdapter)
+		_, _ = dockerCompute.CreateNetwork(ctx, testutil.TestDockerNetwork)
 		// Pre-pull test image to prevent flakes in CI environments with slow registries or restrictive daemons
-		_, _, _ = compute.LaunchInstanceWithOptions(ctx, coreports.CreateInstanceOptions{
+		_, _, _ = dockerCompute.LaunchInstanceWithOptions(ctx, coreports.CreateInstanceOptions{
 			Name:      "pre-pull-image",
 			ImageName: testImage,
 		})
-		_ = compute.DeleteInstance(ctx, "pre-pull-image")
+		_ = dockerCompute.DeleteInstance(ctx, "pre-pull-image")
 	}
 
 	// Ensure default instance type exists

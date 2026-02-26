@@ -61,10 +61,37 @@ func setupDB(t *testing.T) *pgxpool.Pool {
 		t.Skipf("Skipping integration test: database not available: %v", err)
 	}
 
-	// Run migrations with Discard logger to keep stdout clean for benchmarks
-	discardLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	err = postgres.RunMigrations(ctx, db, discardLogger)
+	// Ensure search_path is set for the current connection too (redundant but safe)
+	_, err = db.Exec(ctx, fmt.Sprintf("SET search_path TO %s", schema))
+	require.NoError(t, err)
+
+	// Verify we are actually in the correct schema
+	var currentSchema string
+	err = db.QueryRow(ctx, "SELECT current_schema()").Scan(&currentSchema)
+	require.NoError(t, err)
+	require.Equal(t, schema, currentSchema, "Search path not set correctly on pool")
+
+	// Run migrations
+	var logger *slog.Logger
+	if os.Getenv("CI") != "" {
+		logger = slog.Default() // Use real logger in CI to debug failures
+	} else {
+		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+	
+	err = postgres.RunMigrations(ctx, db, logger)
 	require.NoError(t, err, "Failed to run migrations")
+
+	// Final verification: does users table exist in this schema?
+	var exists bool
+	err = db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT FROM information_schema.tables 
+			WHERE table_schema = $1 
+			AND table_name = 'users'
+		)`, schema).Scan(&exists)
+	require.NoError(t, err)
+	require.True(t, exists, "Users table does not exist in schema %s after migrations", schema)
 
 	t.Cleanup(func() {
 		db.Close()
