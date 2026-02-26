@@ -216,11 +216,12 @@ func (h *StorageHandler) ListBuckets(c *gin.Context) {
 
 // DeleteBucket deletes a bucket
 // @Summary Delete a bucket
-// @Description Deletes a storage bucket
+// @Description Deletes a storage bucket. Use force=true to delete a non-empty bucket.
 // @Tags storage
 // @Produce json
 // @Security APIKeyAuth
 // @Param bucket path string true "Bucket name"
+// @Param force query bool false "Force delete even if non-empty"
 // @Success 204
 // @Failure 400 {object} httputil.Response
 // @Router /storage/buckets/{bucket} [delete]
@@ -231,7 +232,9 @@ func (h *StorageHandler) DeleteBucket(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.DeleteBucket(c.Request.Context(), bucket); err != nil {
+	force := c.Query("force") == "true"
+
+	if err := h.svc.DeleteBucket(c.Request.Context(), bucket, force); err != nil {
 		httputil.Error(c, err)
 		return
 	}

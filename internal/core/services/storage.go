@@ -271,8 +271,26 @@ func (s *StorageService) GetBucket(ctx context.Context, name string) (*domain.Bu
 }
 
 // DeleteBucket deletes a bucket.
-func (s *StorageService) DeleteBucket(ctx context.Context, name string) error {
-	// Check if bucket is empty? (Logic improvement for later)
+func (s *StorageService) DeleteBucket(ctx context.Context, name string, force bool) error {
+	// 1. Check if bucket is empty
+	objects, err := s.repo.List(ctx, name)
+	if err != nil {
+		return err
+	}
+
+	if len(objects) > 0 {
+		if !force {
+			return errors.New(errors.InvalidInput, "bucket is not empty")
+		}
+
+		// Delete all objects (this could be slow for many objects, but fine for now)
+		for _, obj := range objects {
+			if err := s.DeleteObject(ctx, name, obj.Key); err != nil {
+				return fmt.Errorf("failed to delete object %s: %w", obj.Key, err)
+			}
+		}
+	}
+
 	return s.repo.DeleteBucket(ctx, name)
 }
 
