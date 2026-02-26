@@ -30,9 +30,63 @@ var createDemoCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("[INFO] Generated Key: %s\n", key)
-		saveConfig(key)
+		fmt.Printf("[INFO] Generated Key: %s\n", key.Key)
+		saveConfig(key.Key)
 		fmt.Println("[SUCCESS] Key saved to configuration. You can now use 'cloud' commands without flags.")
+	},
+}
+
+var listApiKeysCmd = &cobra.Command{
+	Use:   "list-keys",
+	Short: "List your API keys",
+	Run: func(cmd *cobra.Command, args []string) {
+		client := createClient()
+		keys, err := client.ListKeys()
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+
+		if jsonOutput {
+			printJSON(keys)
+			return
+		}
+
+		fmt.Printf("%-36s %-20s %-20s %s\n", "ID", "NAME", "CREATED AT", "LAST USED")
+		for _, k := range keys {
+			fmt.Printf("%-36s %-20s %-20s %s\n", 
+				k.ID, k.Name, k.CreatedAt.Format("2006-01-02"), k.LastUsed.Format("2006-01-02"))
+		}
+	},
+}
+
+var revokeKeyCmd = &cobra.Command{
+	Use:   "revoke-key [id]",
+	Short: "Revoke an API key",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		client := createClient()
+		if err := client.RevokeKey(args[0]); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+		fmt.Println("[SUCCESS] Key revoked.")
+	},
+}
+
+var rotateKeyCmd = &cobra.Command{
+	Use:   "rotate-key [id]",
+	Short: "Rotate an API key",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		client := createClient()
+		key, err := client.RotateKey(args[0])
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+		fmt.Printf("[SUCCESS] Key rotated. New Key: %s\n", key.Key)
+		fmt.Println("[INFO] Remember to update your saved config if this was your active key.")
 	},
 }
 
@@ -150,6 +204,9 @@ func loadConfig() string {
 
 func init() {
 	authCmd.AddCommand(createDemoCmd)
+	authCmd.AddCommand(listApiKeysCmd)
+	authCmd.AddCommand(revokeKeyCmd)
+	authCmd.AddCommand(rotateKeyCmd)
 	authCmd.AddCommand(loginCmd)
 	authCmd.AddCommand(registerCmd)
 	authCmd.AddCommand(loginUserCmd)
