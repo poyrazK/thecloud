@@ -5917,6 +5917,277 @@ const docTemplate = `{
                 }
             }
         },
+        "/vpc-peerings": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vpc-peerings"
+                ],
+                "summary": "List VPC Peerings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.VPCPeering"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vpc-peerings"
+                ],
+                "summary": "Create VPC Peering",
+                "parameters": [
+                    {
+                        "description": "Peering Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.CreatePeeringRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.VPCPeering"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/vpc-peerings/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vpc-peerings"
+                ],
+                "summary": "Get VPC Peering",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Peering ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.VPCPeering"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "vpc-peerings"
+                ],
+                "summary": "Delete VPC Peering",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Peering ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/vpc-peerings/{id}/accept": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vpc-peerings"
+                ],
+                "summary": "Accept VPC Peering",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Peering ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.VPCPeering"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/vpc-peerings/{id}/reject": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "vpc-peerings"
+                ],
+                "summary": "Reject VPC Peering",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Peering ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/vpcs": {
             "get": {
                 "security": [
@@ -7149,6 +7420,10 @@ const docTemplate = `{
                 "vpc:delete",
                 "vpc:read",
                 "vpc:update",
+                "vpc_peering:create",
+                "vpc_peering:accept",
+                "vpc_peering:delete",
+                "vpc_peering:read",
                 "eip:allocate",
                 "eip:release",
                 "eip:read",
@@ -7205,6 +7480,12 @@ const docTemplate = `{
                 "container:delete",
                 "container:read",
                 "container:scale",
+                "pipeline:create",
+                "pipeline:delete",
+                "pipeline:read",
+                "pipeline:update",
+                "pipeline:run",
+                "pipeline:webhook",
                 "image:create",
                 "image:read",
                 "image:delete",
@@ -7226,6 +7507,10 @@ const docTemplate = `{
                 "PermissionVpcDelete",
                 "PermissionVpcRead",
                 "PermissionVpcUpdate",
+                "PermissionVpcPeeringCreate",
+                "PermissionVpcPeeringAccept",
+                "PermissionVpcPeeringDelete",
+                "PermissionVpcPeeringRead",
                 "PermissionEipAllocate",
                 "PermissionEipRelease",
                 "PermissionEipRead",
@@ -7282,6 +7567,12 @@ const docTemplate = `{
                 "PermissionContainerDelete",
                 "PermissionContainerRead",
                 "PermissionContainerUpdate",
+                "PermissionPipelineCreate",
+                "PermissionPipelineDelete",
+                "PermissionPipelineRead",
+                "PermissionPipelineUpdate",
+                "PermissionPipelineRun",
+                "PermissionPipelineWebhook",
                 "PermissionImageCreate",
                 "PermissionImageRead",
                 "PermissionImageDelete",
@@ -8011,6 +8302,35 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.VPCPeering": {
+            "type": "object",
+            "properties": {
+                "accepter_vpc_id": {
+                    "type": "string"
+                },
+                "arn": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "requester_vpc_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.Volume": {
             "type": "object",
             "properties": {
@@ -8324,6 +8644,21 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "vpc_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httphandlers.CreatePeeringRequest": {
+            "type": "object",
+            "required": [
+                "accepter_vpc_id",
+                "requester_vpc_id"
+            ],
+            "properties": {
+                "accepter_vpc_id": {
+                    "type": "string"
+                },
+                "requester_vpc_id": {
                     "type": "string"
                 }
             }

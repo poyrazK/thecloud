@@ -21,30 +21,39 @@ import (
 
 const (
 	maxFailedAttempts = 5
-	lockoutDuration   = 15 * time.Minute
+	defaultLockout    = 15 * time.Minute
 )
 
 // AuthService handles registration and authentication workflows.
 type AuthService struct {
-	userRepo       ports.UserRepository
-	apiKeySvc      ports.IdentityService
-	auditSvc       ports.AuditService
-	tenantSvc      ports.TenantService
-	failedAttempts map[string]int
-	lockouts       map[string]time.Time
-	mu             sync.Mutex
+	userRepo        ports.UserRepository
+	apiKeySvc       ports.IdentityService
+	auditSvc        ports.AuditService
+	tenantSvc       ports.TenantService
+	failedAttempts  map[string]int
+	lockouts        map[string]time.Time
+	lockoutDuration time.Duration
+	mu              sync.Mutex
 }
 
 // NewAuthService constructs an AuthService with its dependencies.
 func NewAuthService(userRepo ports.UserRepository, apiKeySvc ports.IdentityService, auditSvc ports.AuditService, tenantSvc ports.TenantService) *AuthService {
 	return &AuthService{
-		userRepo:       userRepo,
-		apiKeySvc:      apiKeySvc,
-		auditSvc:       auditSvc,
-		tenantSvc:      tenantSvc,
-		failedAttempts: make(map[string]int),
-		lockouts:       make(map[string]time.Time),
+		userRepo:        userRepo,
+		apiKeySvc:       apiKeySvc,
+		auditSvc:        auditSvc,
+		tenantSvc:       tenantSvc,
+		failedAttempts:  make(map[string]int),
+		lockouts:        make(map[string]time.Time),
+		lockoutDuration: defaultLockout,
 	}
+}
+
+// SetLockoutDuration overrides the default lockout duration. Useful for testing.
+func (s *AuthService) SetLockoutDuration(d time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lockoutDuration = d
 }
 
 func (s *AuthService) Register(ctx context.Context, email, password, name string) (*domain.User, error) {
@@ -184,7 +193,7 @@ func (s *AuthService) incrementFailure(email string) {
 	s.failedAttempts[email]++
 	platform.AuthAttemptsTotal.WithLabelValues("failure_incorrect_password").Inc()
 	if s.failedAttempts[email] >= maxFailedAttempts {
-		s.lockouts[email] = time.Now().Add(lockoutDuration)
+		s.lockouts[email] = time.Now().Add(s.lockoutDuration)
 		platform.AuthAttemptsTotal.WithLabelValues("failure_lockout").Inc()
 	}
 }

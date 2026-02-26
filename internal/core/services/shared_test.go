@@ -317,6 +317,39 @@ func (m *MockVpcRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
 
+// MockVPCPeeringRepo
+type MockVPCPeeringRepo struct{ mock.Mock }
+
+func (m *MockVPCPeeringRepo) Create(ctx context.Context, peering *domain.VPCPeering) error {
+	return m.Called(ctx, peering).Error(0)
+}
+func (m *MockVPCPeeringRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.VPCPeering, error) {
+	args := m.Called(ctx, id)
+	r0, _ := args.Get(0).(*domain.VPCPeering)
+	return r0, args.Error(1)
+}
+func (m *MockVPCPeeringRepo) List(ctx context.Context, tenantID uuid.UUID) ([]*domain.VPCPeering, error) {
+	args := m.Called(ctx, tenantID)
+	r0, _ := args.Get(0).([]*domain.VPCPeering)
+	return r0, args.Error(1)
+}
+func (m *MockVPCPeeringRepo) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*domain.VPCPeering, error) {
+	args := m.Called(ctx, vpcID)
+	r0, _ := args.Get(0).([]*domain.VPCPeering)
+	return r0, args.Error(1)
+}
+func (m *MockVPCPeeringRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
+	return m.Called(ctx, id, status).Error(0)
+}
+func (m *MockVPCPeeringRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockVPCPeeringRepo) GetActiveByVPCPair(ctx context.Context, vpc1, vpc2 uuid.UUID) (*domain.VPCPeering, error) {
+	args := m.Called(ctx, vpc1, vpc2)
+	r0, _ := args.Get(0).(*domain.VPCPeering)
+	return r0, args.Error(1)
+}
+
 // MockSubnetRepo
 type MockSubnetRepo struct{ mock.Mock }
 

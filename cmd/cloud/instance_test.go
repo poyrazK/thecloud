@@ -327,7 +327,7 @@ func TestTruncateID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := truncateID(tt.id, 8)
+			result := truncateID(tt.id)
 			if result != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, result)
 			}

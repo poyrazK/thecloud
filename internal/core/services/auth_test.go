@@ -4,7 +4,9 @@ import (
 	"context"
 	"log/slog"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
@@ -32,11 +34,25 @@ func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *
 	return db, svc, userRepo, identitySvc
 }
 
+func TestAuthServiceGetUserByID(t *testing.T) {
+	_, svc, userRepo, _ := setupAuthServiceTest(t)
+	ctx := context.Background()
+
+	email := "getbyid_" + uuid.NewString() + "@example.com"
+	user, err := svc.Register(ctx, email, testPassword, "GetByID User")
+	require.NoError(t, err)
+
+	fetched, err := svc.GetUserByID(ctx, user.ID)
+	require.NoError(t, err)
+	assert.Equal(t, user.ID, fetched.ID)
+	assert.Equal(t, email, fetched.Email)
+}
+
 func TestAuthServiceRegister(t *testing.T) {
 	_, svc, userRepo, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "new@example.com"
+	email := "new_" + uuid.NewString() + "@example.com"
 	pass := testPassword
 	name := "New User"
 
@@ -55,7 +71,7 @@ func TestAuthServiceLogin(t *testing.T) {
 	_, svc, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "login@example.com"
+	email := "login_" + uuid.NewString() + "@example.com"
 	pass := testPassword
 	name := "Login User"
 
@@ -72,7 +88,7 @@ func TestAuthServiceLoginInvalidCredentials(t *testing.T) {
 	_, svc, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "wrong@example.com"
+	email := "wrong_" + uuid.NewString() + "@example.com"
 	_, err := svc.Register(ctx, email, testPassword, "User")
 	require.NoError(t, err)
 
@@ -83,7 +99,7 @@ func TestAuthServiceLoginInvalidCredentials(t *testing.T) {
 func TestAuthServiceLoginUserNotFound(t *testing.T) {
 	_, svc, _, _ := setupAuthServiceTest(t)
 
-	_, _, err := svc.Login(context.Background(), "user@example.com", "wrong")
+	_, _, err := svc.Login(context.Background(), "notfound_"+uuid.NewString()+"@example.com", "wrong")
 	require.Error(t, err)
 }
 
@@ -91,7 +107,7 @@ func TestAuthServiceValidateToken(t *testing.T) {
 	_, svc, _, identitySvc := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "session@example.com"
+	email := "session_" + uuid.NewString() + "@example.com"
 	user, err := svc.Register(ctx, email, testPassword, "User")
 	require.NoError(t, err)
 
@@ -107,7 +123,7 @@ func TestAuthServiceRevokeToken(t *testing.T) {
 	_, svc, _, identitySvc := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "revoke@example.com"
+	email := "revoke_" + uuid.NewString() + "@example.com"
 	user, err := svc.Register(ctx, email, testPassword, "User")
 	require.NoError(t, err)
 
@@ -125,7 +141,7 @@ func TestAuthServiceRotateToken(t *testing.T) {
 	_, svc, _, identitySvc := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "rotate@example.com"
+	email := "rotate_" + uuid.NewString() + "@example.com"
 	user, err := svc.Register(ctx, email, testPassword, "User")
 	require.NoError(t, err)
 
@@ -150,7 +166,7 @@ func TestAuthServiceLogout(t *testing.T) {
 	_, svc, _, identitySvc := setupAuthServiceTest(t)
 	ctx := context.Background()
 
-	email := "logout@example.com"
+	email := "logout_" + uuid.NewString() + "@example.com"
 	pass := testPassword
 	user, err := svc.Register(ctx, email, pass, "User")
 	require.NoError(t, err)
@@ -175,7 +191,8 @@ func TestAuthServiceTokenRotationIntegration(t *testing.T) {
 	defer db.Close()
 
 	ctx := context.Background()
-	user, err := svc.Register(ctx, "rotate-int@example.com", testPassword, "User")
+	email := "rotate_int_" + uuid.NewString() + "@example.com"
+	user, err := svc.Register(ctx, email, testPassword, "User")
 	require.NoError(t, err)
 
 	// Initial token
@@ -193,4 +210,69 @@ func TestAuthServiceTokenRotationIntegration(t *testing.T) {
 	vKey, err := identitySvc.ValidateAPIKey(ctx, token2.Key)
 	require.NoError(t, err)
 	assert.Equal(t, user.ID, vKey.UserID)
+}
+
+func TestAuthService_LockoutLogicReal(t *testing.T) {
+	_, svc, _, _ := setupAuthServiceTest(t)
+	ctx := context.Background()
+	email := "locked_" + uuid.NewString() + "@example.com"
+	pass := testPassword
+	_, err := svc.Register(ctx, email, pass, "Locked User")
+	require.NoError(t, err)
+
+	t.Run("Lockout after 5 attempts", func(t *testing.T) {
+		// 5 failed attempts
+		for i := 0; i < 5; i++ {
+			_, _, err := svc.Login(ctx, email, "wrong-password")
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "invalid email or password")
+		}
+
+		// 6th attempt should be locked out
+		_, _, err = svc.Login(ctx, email, pass)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "account is locked")
+	})
+
+	t.Run("Success clears failures", func(t *testing.T) {
+		email2 := "clean_" + uuid.NewString() + "@example.com"
+		_, err := svc.Register(ctx, email2, pass, "Clean User")
+		require.NoError(t, err)
+
+		// 2 failed attempts
+		for i := 0; i < 2; i++ {
+			_, _, err := svc.Login(ctx, email2, "wrong")
+			require.Error(t, err)
+		}
+
+		// Success
+		_, _, err = svc.Login(ctx, email2, pass)
+		require.NoError(t, err)
+	})
+
+	t.Run("Lockout Expiration", func(t *testing.T) {
+		email3 := "expire_" + uuid.NewString() + "@example.com"
+		_, err := svc.Register(ctx, email3, pass, "Expire User")
+		require.NoError(t, err)
+
+		// Set a very short lockout
+		svc.SetLockoutDuration(100 * time.Millisecond)
+
+		// Trigger lockout
+		for i := 0; i < 5; i++ {
+			_, _, _ = svc.Login(ctx, email3, "wrong")
+		}
+
+		// Verify locked
+		_, _, err = svc.Login(ctx, email3, pass)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "locked")
+
+		// Wait for expiration
+		time.Sleep(150 * time.Millisecond)
+
+		// Login should now work
+		_, _, err = svc.Login(ctx, email3, pass)
+		require.NoError(t, err)
+	})
 }
