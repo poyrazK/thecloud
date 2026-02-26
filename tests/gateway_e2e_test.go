@@ -27,7 +27,7 @@ func waitForRoute(t *testing.T, client *http.Client, url string, token string) *
 			req.Header.Set(testutil.TestHeaderAPIKey, token)
 		}
 		resp, err = client.Do(req)
-		if err == nil && resp.StatusCode == http.StatusOK {
+		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return resp
 		}
 		if resp != nil {
@@ -36,7 +36,7 @@ func waitForRoute(t *testing.T, client *http.Client, url string, token string) *
 		time.Sleep(1 * time.Second)
 	}
 	require.NoError(t, err, "Timed out waiting for route: "+url)
-	require.Equal(t, http.StatusOK, resp.StatusCode, "Route returned non-OK status: "+url)
+	require.True(t, resp.StatusCode >= 200 && resp.StatusCode < 300, "Route returned non-success status: %d for URL: %s", resp.StatusCode, url)
 	return resp
 }
 

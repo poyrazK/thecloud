@@ -44,25 +44,22 @@ func setupDB(t *testing.T) *pgxpool.Pool {
 	_, err = baseDB.Exec(ctx, fmt.Sprintf("CREATE SCHEMA %s", schema))
 	require.NoError(t, err)
 
-	// New connection pool scoped to this schema
-	scopedURL := dbURL
-	if strings.Contains(dbURL, "?") {
-		scopedURL += "&search_path=" + schema
-	} else {
-		scopedURL += "?search_path=" + schema
+	// Configure pool to use the schema for ALL connections
+	config, err := pgxpool.ParseConfig(dbURL)
+	require.NoError(t, err)
+	
+	if config.ConnConfig.RuntimeParams == nil {
+		config.ConnConfig.RuntimeParams = make(map[string]string)
 	}
+	config.ConnConfig.RuntimeParams["search_path"] = schema
 
-	db, err := pgxpool.New(ctx, scopedURL)
+	db, err := pgxpool.NewWithConfig(ctx, config)
 	require.NoError(t, err)
 
 	err = db.Ping(ctx)
 	if err != nil {
 		t.Skipf("Skipping integration test: database not available: %v", err)
 	}
-
-	// Ensure the search_path is set for migrations
-	_, err = db.Exec(ctx, fmt.Sprintf("SET search_path TO %s", schema))
-	require.NoError(t, err)
 
 	// Run migrations with Discard logger to keep stdout clean for benchmarks
 	discardLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
