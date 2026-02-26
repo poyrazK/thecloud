@@ -68,6 +68,11 @@ type LibvirtAdapter struct {
 	osOpen             func(name string) (*os.File, error)
 }
 
+// Type returns the compute backend type.
+func (a *LibvirtAdapter) Type() string {
+	return "libvirt"
+}
+
 func (a *LibvirtAdapter) recordPortMapping(name string, hPortStr string, cPort string) error {
 	hp, err := strconv.Atoi(hPortStr)
 	if err != nil {
@@ -158,10 +163,6 @@ func (a *LibvirtAdapter) Close() error {
 // Ping checks if libvirt is reachable
 func (a *LibvirtAdapter) Ping(ctx context.Context) error {
 	return a.client.Connect(ctx) // returns error only
-}
-
-func (a *LibvirtAdapter) Type() string {
-	return "libvirt"
 }
 
 func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
