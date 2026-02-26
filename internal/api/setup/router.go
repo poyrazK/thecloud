@@ -67,6 +67,7 @@ type Handlers struct {
 	ElasticIP     *httphandlers.ElasticIPHandler
 	Log           *httphandlers.LogHandler
 	IAM           *httphandlers.IAMHandler
+	VPCPeering    *httphandlers.VPCPeeringHandler
 	Ws            *ws.Handler
 }
 
@@ -114,6 +115,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		ElasticIP:     httphandlers.NewElasticIPHandler(svcs.ElasticIP),
 		Log:           httphandlers.NewLogHandler(svcs.Log),
 		IAM:           httphandlers.NewIAMHandler(svcs.IAM),
+		VPCPeering:    httphandlers.NewVPCPeeringHandler(svcs.VPCPeering),
 		Ws:            ws.NewHandler(hub, svcs.Identity, logger),
 	}
 }
@@ -370,6 +372,17 @@ func registerNetworkRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		eipGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionEipRelease), handlers.ElasticIP.Release)
 		eipGroup.POST("/:id/associate", httputil.Permission(svcs.RBAC, domain.PermissionEipAssociate), handlers.ElasticIP.Associate)
 		eipGroup.POST("/:id/disassociate", httputil.Permission(svcs.RBAC, domain.PermissionEipAssociate), handlers.ElasticIP.Disassociate)
+	}
+
+	peeringGroup := r.Group("/vpc-peerings")
+	peeringGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant), httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant))
+	{
+		peeringGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionVpcPeeringCreate), handlers.VPCPeering.Create)
+		peeringGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionVpcPeeringRead), handlers.VPCPeering.List)
+		peeringGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionVpcPeeringRead), handlers.VPCPeering.Get)
+		peeringGroup.POST("/:id/accept", httputil.Permission(svcs.RBAC, domain.PermissionVpcPeeringAccept), handlers.VPCPeering.Accept)
+		peeringGroup.POST("/:id/reject", httputil.Permission(svcs.RBAC, domain.PermissionVpcPeeringAccept), handlers.VPCPeering.Reject)
+		peeringGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionVpcPeeringDelete), handlers.VPCPeering.Delete)
 	}
 }
 
