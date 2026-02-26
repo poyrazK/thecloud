@@ -56,6 +56,8 @@ func init() {
 	rootCmd.AddCommand(billingCmd)
 	rootCmd.AddCommand(tenantCmd)
 	rootCmd.AddCommand(instanceTypeCmd)
+	rootCmd.AddCommand(sshKeyCmd)
+	rootCmd.AddCommand(vpcPeeringCmd)
 
 	rootCmd.PersistentFlags().BoolVarP(&jsonOutput, "json", "j", false, "Output in JSON format")
 	rootCmd.PersistentFlags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")

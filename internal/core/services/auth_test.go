@@ -35,7 +35,7 @@ func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *
 }
 
 func TestAuthServiceGetUserByID(t *testing.T) {
-	_, svc, userRepo, _ := setupAuthServiceTest(t)
+	_, svc, _, _ := setupAuthServiceTest(t)
 	ctx := context.Background()
 
 	email := "getbyid_" + uuid.NewString() + "@example.com"
