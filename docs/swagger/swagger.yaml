@@ -5277,13 +5277,18 @@ paths:
       - storage
   /storage/buckets/{bucket}:
     delete:
-      description: Deletes a storage bucket
+      description: Deletes a storage bucket. Use force=true to delete a non-empty
+        bucket.
       parameters:
       - description: Bucket name
         in: path
         name: bucket
         required: true
         type: string
+      - description: Force delete even if non-empty
+        in: query
+        name: force
+        type: boolean
       produces:
       - application/json
       responses:

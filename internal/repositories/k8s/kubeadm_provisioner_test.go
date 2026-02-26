@@ -182,7 +182,7 @@ func (m *MockStorageService) CreateBucket(ctx context.Context, name string, isPu
 func (m *MockStorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
 	return &domain.Bucket{Name: name}, nil
 }
-func (m *MockStorageService) DeleteBucket(ctx context.Context, name string) error {
+func (m *MockStorageService) DeleteBucket(ctx context.Context, name string, force bool) error {
 	return nil
 }
 func (m *MockStorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {

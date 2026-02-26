@@ -5067,7 +5067,7 @@ const docTemplate = `{
                         "APIKeyAuth": []
                     }
                 ],
-                "description": "Deletes a storage bucket",
+                "description": "Deletes a storage bucket. Use force=true to delete a non-empty bucket.",
                 "produces": [
                     "application/json"
                 ],
@@ -5082,6 +5082,12 @@ const docTemplate = `{
                         "name": "bucket",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Force delete even if non-empty",
+                        "name": "force",
+                        "in": "query"
                     }
                 ],
                 "responses": {
