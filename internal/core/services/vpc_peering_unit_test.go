@@ -17,8 +17,6 @@ import (
 const (
 	testCIDR1 = "10.0.0.0/16"
 	testCIDR2 = "10.1.0.0/16"
-	brReq     = "br-req"
-	brAcc     = "br-acc"
 )
 
 func TestVPCPeeringServiceUnit(t *testing.T) {
@@ -74,7 +72,7 @@ func TestVPCPeeringServiceUnit(t *testing.T) {
 		vpcRepo.On("GetByID", mock.Anything, accVPCID).Return(accVPC, nil).Once()
 
 		_, err := svc.CreatePeering(ctx, reqVPCID, accVPCID)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "VPC CIDR blocks overlap")
 	})
 

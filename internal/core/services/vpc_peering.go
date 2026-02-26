@@ -288,24 +288,32 @@ func (s *VPCPeeringService) addPeeringFlows(ctx context.Context, requesterVPC, a
 
 // removePeeringFlows removes OVS flow rules for a peering connection.
 func (s *VPCPeeringService) removePeeringFlows(ctx context.Context, requesterVPC, accepterVPC *domain.VPC) error {
+	var firstErr error
+
 	// Remove flow from requester bridge
 	requesterMatch := fmt.Sprintf(peeringFlowFormat, accepterVPC.CIDRBlock)
 	if err := s.network.DeleteFlowRule(ctx, requesterVPC.NetworkID, requesterMatch); err != nil {
 		s.logger.Error("failed to remove flow from requester bridge", "bridge", requesterVPC.NetworkID, "error", err)
+		firstErr = err
 	}
 
 	// Remove flow from accepter bridge
 	accepterMatch := fmt.Sprintf(peeringFlowFormat, requesterVPC.CIDRBlock)
 	if err := s.network.DeleteFlowRule(ctx, accepterVPC.NetworkID, accepterMatch); err != nil {
 		s.logger.Error("failed to remove flow from accepter bridge", "bridge", accepterVPC.NetworkID, "error", err)
+		if firstErr == nil {
+			firstErr = err
+		}
 	}
 
-	s.logger.Info("peering OVS flows removed",
-		"requester_bridge", requesterVPC.NetworkID,
-		"accepter_bridge", accepterVPC.NetworkID,
-	)
+	if firstErr == nil {
+		s.logger.Info("peering OVS flows removed",
+			"requester_bridge", requesterVPC.NetworkID,
+			"accepter_bridge", accepterVPC.NetworkID,
+		)
+	}
 
-	return nil
+	return firstErr
 }
 
 // validateNonOverlappingCIDRs checks that two CIDR blocks do not overlap.

@@ -64,7 +64,7 @@ func TestVpcService_Unit(t *testing.T) {
 		}, nil).Once()
 
 		err := svc.DeleteVPC(ctx, vpcID.String())
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "active peering connections")
 	})
 }
