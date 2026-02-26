@@ -226,7 +226,8 @@ func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts por
 		vcpu = int(opts.CPULimit)
 	}
 
-	domainXML := generateDomainXML(name, diskPath, networkID, isoPath, memMB, vcpu, additionalDisks, allocatedPorts, "")
+	consoleLog := a.getLogPath(name)
+	domainXML := generateDomainXML(name, diskPath, networkID, isoPath, memMB, vcpu, additionalDisks, allocatedPorts, consoleLog)
 	dom, err := a.client.DomainDefineXML(ctx, domainXML)
 	if err != nil {
 		a.cleanupCreateFailure(ctx, vol, isoPath)
