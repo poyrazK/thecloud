@@ -1095,3 +1095,14 @@ func (a *LibvirtAdapter) isNotFound(err error) bool {
 	}
 	return strings.Contains(strings.ToLower(err.Error()), "not found")
 }
+
+func (a *LibvirtAdapter) getLogPath(id string) string {
+	// Use home directory for logs to avoid permission issues in CI /tmp
+	home := os.Getenv("HOME")
+	if home == "" {
+		home = "/tmp"
+	}
+	logDir := filepath.Join(home, ".cache", "thecloud", "logs")
+	_ = os.MkdirAll(logDir, 0755)
+	return filepath.Join(logDir, id+"-console.log")
+}
