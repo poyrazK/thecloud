@@ -227,6 +227,9 @@ func runWorkers(ctx context.Context, wg *sync.WaitGroup, workers *setup.Workers)
 	if workers.Container != nil {
 		startWorker(ctx, wg, workers.Container)
 	}
+	if workers.Pipeline != nil {
+		startWorker(ctx, wg, workers.Pipeline)
+	}
 	if workers.Provision != nil {
 		startWorker(ctx, wg, workers.Provision)
 	}
