@@ -199,7 +199,6 @@ func TestGatewayE2E(t *testing.T) {
 			URL string `json:"url"`
 		}
 		require.NoError(t, json.NewDecoder(retryResp.Body).Decode(&httpbinResp))
-		// httpbin /anything echoes everything. The path should be /google/projects/chrome if stripped correctly
 		assert.Contains(t, httpbinResp.URL, "/google/projects/chrome")
 	})
 
