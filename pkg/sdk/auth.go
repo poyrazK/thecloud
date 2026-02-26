@@ -63,22 +63,34 @@ func (c *Client) WhoAmI() (*domain.User, error) {
 }
 
 // CreateKey requests a new API key for the given name.
-func (c *Client) CreateKey(name string) (string, error) {
+func (c *Client) CreateKey(name string) (*domain.APIKey, error) {
 	body := map[string]string{"name": name}
-	var res Response[struct {
-		Key string `json:"key"`
-	}]
-
-	resp, err := c.resty.R().
-		SetBody(body).
-		SetResult(&res).
-		Post(c.apiURL + "/auth/keys")
-
-	if err != nil {
-		return "", err
+	var res Response[*domain.APIKey]
+	if err := c.post("/auth/keys", body, &res); err != nil {
+		return nil, err
 	}
-	if resp.IsError() {
-		return "", fmt.Errorf("api error: %s", resp.String())
+	return res.Data, nil
+}
+
+// ListKeys returns all API keys for the current user.
+func (c *Client) ListKeys() ([]*domain.APIKey, error) {
+	var res Response[[]*domain.APIKey]
+	if err := c.get("/auth/keys", &res); err != nil {
+		return nil, err
 	}
-	return res.Data.Key, nil
+	return res.Data, nil
+}
+
+// RevokeKey deletes an API key.
+func (c *Client) RevokeKey(id string) error {
+	return c.delete(fmt.Sprintf("/auth/keys/%s", id), nil)
+}
+
+// RotateKey rotates an API key.
+func (c *Client) RotateKey(id string) (*domain.APIKey, error) {
+	var res Response[*domain.APIKey]
+	if err := c.post(fmt.Sprintf("/auth/keys/%s/rotate", id), nil, &res); err != nil {
+		return nil, err
+	}
+	return res.Data, nil
 }
