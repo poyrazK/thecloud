@@ -32,7 +32,7 @@ func setupVpcServiceTest(t *testing.T, cidr string) (*services.VpcService, *post
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	network := noop.NewNoopNetworkAdapter(logger)
 
-	svc := services.NewVpcService(vpcRepo, lbRepo, network, auditSvc, logger, cidr)
+	svc := services.NewVpcService(vpcRepo, lbRepo, nil, network, auditSvc, logger, cidr)
 	return svc, vpcRepo, lbRepo, ctx
 }
 

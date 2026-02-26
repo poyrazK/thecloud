@@ -28,6 +28,12 @@ const (
 	PermissionVpcRead   Permission = "vpc:read"
 	PermissionVpcUpdate Permission = "vpc:update"
 
+	// VPC Peering Permissions
+	PermissionVpcPeeringCreate Permission = "vpc_peering:create"
+	PermissionVpcPeeringAccept Permission = "vpc_peering:accept"
+	PermissionVpcPeeringDelete Permission = "vpc_peering:delete"
+	PermissionVpcPeeringRead   Permission = "vpc_peering:read"
+
 	// Elastic IP Permissions
 	PermissionEipAllocate  Permission = "eip:allocate"
 	PermissionEipRelease   Permission = "eip:release"

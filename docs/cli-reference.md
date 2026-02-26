@@ -327,6 +327,58 @@ Delete a VPC.
 ```bash
 cloud vpc rm my-network
 ```
+ 
+ ---
+ 
+ ## VPC Peering Commands
+ 
+ Manage private connectivity between VPCs.
+ 
+ ### `vpc-peering list`
+ 
+ List all VPC peering connections for the tenant.
+ 
+ ```bash
+ cloud vpc-peering list
+ ```
+ 
+ ### `vpc-peering create`
+ 
+ Initiate a peering request between two VPCs.
+ 
+ ```bash
+ cloud vpc-peering create --requester-vpc <vpc1-id> --accepter-vpc <vpc2-id>
+ ```
+ 
+ **Flags**:
+ | Flag | Required | Description |
+ |------|----------|-------------|
+ | `--requester-vpc` | Yes | ID or name of the initiating VPC |
+ | `--accepter-vpc` | Yes | ID or name of the accepting VPC |
+ 
+ ### `vpc-peering accept <peering-id>`
+ 
+ Accept a pending peering request and establish connectivity.
+ 
+ ```bash
+ cloud vpc-peering accept peering-1234
+ ```
+ 
+ ### `vpc-peering reject <peering-id>`
+ 
+ Reject a pending peering request.
+ 
+ ```bash
+ cloud vpc-peering reject peering-1234
+ ```
+ 
+ ### `vpc-peering rm <peering-id>`
+ 
+ Delete a peering connection and tear down network routes.
+ 
+ ```bash
+ cloud vpc-peering rm peering-1234
+ ```
 
 ---
 

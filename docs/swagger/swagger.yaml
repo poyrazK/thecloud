@@ -732,6 +732,10 @@ definitions:
     - vpc:delete
     - vpc:read
     - vpc:update
+    - vpc_peering:create
+    - vpc_peering:accept
+    - vpc_peering:delete
+    - vpc_peering:read
     - eip:allocate
     - eip:release
     - eip:read
@@ -815,6 +819,10 @@ definitions:
     - PermissionVpcDelete
     - PermissionVpcRead
     - PermissionVpcUpdate
+    - PermissionVpcPeeringCreate
+    - PermissionVpcPeeringAccept
+    - PermissionVpcPeeringDelete
+    - PermissionVpcPeeringRead
     - PermissionEipAllocate
     - PermissionEipRelease
     - PermissionEipRead
@@ -1369,6 +1377,25 @@ definitions:
         description: Tunnel ID for isolation
         type: integer
     type: object
+  domain.VPCPeering:
+    properties:
+      accepter_vpc_id:
+        type: string
+      arn:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      requester_vpc_id:
+        type: string
+      status:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
   domain.Volume:
     properties:
       backend_path:
@@ -1584,6 +1611,16 @@ definitions:
     - name
     - port
     - vpc_id
+    type: object
+  httphandlers.CreatePeeringRequest:
+    properties:
+      accepter_vpc_id:
+        type: string
+      requester_vpc_id:
+        type: string
+    required:
+    - accepter_vpc_id
+    - requester_vpc_id
     type: object
   httphandlers.CreateRecordRequest:
     properties:
@@ -5618,6 +5655,175 @@ paths:
       summary: Get volume details
       tags:
       - volumes
+  /vpc-peerings:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.VPCPeering'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List VPC Peerings
+      tags:
+      - vpc-peerings
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Peering Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreatePeeringRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.VPCPeering'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create VPC Peering
+      tags:
+      - vpc-peerings
+  /vpc-peerings/{id}:
+    delete:
+      parameters:
+      - description: Peering ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete VPC Peering
+      tags:
+      - vpc-peerings
+    get:
+      parameters:
+      - description: Peering ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.VPCPeering'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get VPC Peering
+      tags:
+      - vpc-peerings
+  /vpc-peerings/{id}/accept:
+    post:
+      parameters:
+      - description: Peering ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.VPCPeering'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Accept VPC Peering
+      tags:
+      - vpc-peerings
+  /vpc-peerings/{id}/reject:
+    post:
+      parameters:
+      - description: Peering ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Reject VPC Peering
+      tags:
+      - vpc-peerings
   /vpcs:
     get:
       description: Gets a list of all existing VPCs

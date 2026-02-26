@@ -21,6 +21,7 @@ import (
 type VpcService struct {
 	repo        ports.VpcRepository
 	lbRepo      ports.LBRepository
+	peeringRepo ports.VPCPeeringRepository
 	network     ports.NetworkBackend
 	auditSvc    ports.AuditService
 	logger      *slog.Logger
@@ -29,13 +30,14 @@ type VpcService struct {
 
 // NewVpcService creates a new instance of VpcService.
 // If defaultCIDR is empty, it defaults to "10.0.0.0/16".
-func NewVpcService(repo ports.VpcRepository, lbRepo ports.LBRepository, network ports.NetworkBackend, auditSvc ports.AuditService, logger *slog.Logger, defaultCIDR string) *VpcService {
+func NewVpcService(repo ports.VpcRepository, lbRepo ports.LBRepository, peeringRepo ports.VPCPeeringRepository, network ports.NetworkBackend, auditSvc ports.AuditService, logger *slog.Logger, defaultCIDR string) *VpcService {
 	if defaultCIDR == "" {
 		defaultCIDR = "10.0.0.0/16" // Fallback if not provided
 	}
 	return &VpcService{
 		repo:        repo,
 		lbRepo:      lbRepo,
+		peeringRepo: peeringRepo,
 		network:     network,
 		auditSvc:    auditSvc,
 		logger:      logger,
@@ -126,14 +128,9 @@ func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
 		return err
 	}
 
-	// 1. Check for dependent resources (Load Balancers)
-	lbs, err := s.lbRepo.ListAll(ctx)
-	if err == nil {
-		for _, lb := range lbs {
-			if lb.VpcID == vpc.ID && lb.Status != domain.LBStatusDeleted {
-				return errors.New(errors.Conflict, "cannot delete VPC: load balancers still exist")
-			}
-		}
+	// 1. Check for dependent resources
+	if err := s.checkDeleteDependencies(ctx, vpc.ID); err != nil {
+		return err
 	}
 
 	// 2. Remove OVS bridge
@@ -151,6 +148,32 @@ func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
 	_ = s.auditSvc.Log(ctx, vpc.UserID, "vpc.delete", "vpc", vpc.ID.String(), map[string]interface{}{
 		"name": vpc.Name,
 	})
+
+	return nil
+}
+
+func (s *VpcService) checkDeleteDependencies(ctx context.Context, vpcID uuid.UUID) error {
+	// Check for Load Balancers
+	lbs, err := s.lbRepo.ListAll(ctx)
+	if err == nil {
+		for _, lb := range lbs {
+			if lb.VpcID == vpcID && lb.Status != domain.LBStatusDeleted {
+				return errors.New(errors.Conflict, "cannot delete VPC: load balancers still exist")
+			}
+		}
+	}
+
+	// Check for active VPC peering connections
+	if s.peeringRepo != nil {
+		peerings, peerErr := s.peeringRepo.ListByVPC(ctx, vpcID)
+		if peerErr == nil {
+			for _, p := range peerings {
+				if p.Status == domain.PeeringStatusActive || p.Status == domain.PeeringStatusPendingAcceptance {
+					return errors.New(errors.Conflict, "cannot delete VPC: active peering connections exist")
+				}
+			}
+		}
+	}
 
 	return nil
 }
