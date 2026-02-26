@@ -159,9 +159,10 @@ var storageDownloadCmd = &cobra.Command{
 }
 
 var storageDeleteCmd = &cobra.Command{
-	Use:   "delete [bucket] [key]",
-	Short: "Delete an object from a bucket",
-	Args:  cobra.ExactArgs(2),
+	Use:     "rm [bucket] [key]",
+	Short:   "Delete an object from a bucket",
+	Aliases: []string{"delete"},
+	Args:    cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		bucket := args[0]
 		key := args[1]
@@ -190,9 +191,10 @@ var storageDeleteCmd = &cobra.Command{
 }
 
 var createBucketCmd = &cobra.Command{
-	Use:   "create-bucket [name]",
-	Short: "Create a new storage bucket",
-	Args:  cobra.ExactArgs(1),
+	Use:     "mb [name]",
+	Aliases: []string{"create-bucket"},
+	Short:   "Create a new storage bucket",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
 		public, _ := cmd.Flags().GetBool("public")
@@ -215,14 +217,16 @@ var createBucketCmd = &cobra.Command{
 }
 
 var deleteBucketCmd = &cobra.Command{
-	Use:   "delete-bucket [name]",
-	Short: "Delete a storage bucket",
-	Args:  cobra.ExactArgs(1),
+	Use:     "rb [name]",
+	Aliases: []string{"delete-bucket"},
+	Short:   "Delete a storage bucket",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
+		force, _ := cmd.Flags().GetBool("force")
 
 		client := createClient()
-		if err := client.DeleteBucket(name); err != nil {
+		if err := client.DeleteBucket(name, force); err != nil {
 			fmt.Printf(errFmt, err)
 			return
 		}
@@ -276,6 +280,7 @@ func init() {
 	storageCmd.AddCommand(storagePresignCmd)
 
 	createBucketCmd.Flags().Bool("public", false, "Make bucket public")
+	deleteBucketCmd.Flags().BoolP("force", "f", false, "Delete bucket even if not empty")
 
 	storageUploadCmd.Flags().String("key", "", "Custom key for the object")
 	storageDownloadCmd.Flags().String("version", "", "Specific version to download")
