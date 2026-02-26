@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestVpcService_Unit(t *testing.T) {
+func TestVpcServiceUnit(t *testing.T) {
 	repo := new(MockVpcRepo)
 	lbRepo := new(MockLBRepo)
 	network := new(MockNetworkBackend)

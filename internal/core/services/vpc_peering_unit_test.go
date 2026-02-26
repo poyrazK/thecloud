@@ -17,6 +17,8 @@ import (
 const (
 	testCIDR1 = "10.0.0.0/16"
 	testCIDR2 = "10.1.0.0/16"
+	testBrReq = "br-req"
+	testBrAcc = "br-acc"
 )
 
 func TestVPCPeeringServiceUnit(t *testing.T) {
@@ -44,8 +46,8 @@ func TestVPCPeeringServiceUnit(t *testing.T) {
 		reqVPCID := uuid.New()
 		accVPCID := uuid.New()
 
-		reqVPC := &domain.VPC{ID: reqVPCID, TenantID: tenantID, CIDRBlock: "10.0.0.0/16"}
-		accVPC := &domain.VPC{ID: accVPCID, TenantID: tenantID, CIDRBlock: "10.1.0.0/16"}
+		reqVPC := &domain.VPC{ID: reqVPCID, TenantID: tenantID, CIDRBlock: testCIDR1}
+		accVPC := &domain.VPC{ID: accVPCID, TenantID: tenantID, CIDRBlock: testCIDR2}
 
 		vpcRepo.On("GetByID", mock.Anything, reqVPCID).Return(reqVPC, nil).Once()
 		vpcRepo.On("GetByID", mock.Anything, accVPCID).Return(accVPC, nil).Once()
@@ -65,7 +67,7 @@ func TestVPCPeeringServiceUnit(t *testing.T) {
 		reqVPCID := uuid.New()
 		accVPCID := uuid.New()
 
-		reqVPC := &domain.VPC{ID: reqVPCID, TenantID: tenantID, CIDRBlock: "10.0.0.0/16"}
+		reqVPC := &domain.VPC{ID: reqVPCID, TenantID: tenantID, CIDRBlock: testCIDR1}
 		accVPC := &domain.VPC{ID: accVPCID, TenantID: tenantID, CIDRBlock: "10.0.1.0/24"} // Overlaps
 
 		vpcRepo.On("GetByID", mock.Anything, reqVPCID).Return(reqVPC, nil).Once()
@@ -89,16 +91,16 @@ func TestVPCPeeringServiceUnit(t *testing.T) {
 			TenantID:       tenantID,
 		}
 
-		reqVPC := &domain.VPC{ID: reqVPCID, NetworkID: "br-req", CIDRBlock: "10.0.0.0/16"}
-		accVPC := &domain.VPC{ID: accVPCID, NetworkID: "br-acc", CIDRBlock: "10.1.0.0/16"}
+		reqVPC := &domain.VPC{ID: reqVPCID, NetworkID: testBrReq, CIDRBlock: testCIDR1}
+		accVPC := &domain.VPC{ID: accVPCID, NetworkID: testBrAcc, CIDRBlock: testCIDR2}
 
 		repo.On("GetByID", mock.Anything, peeringID).Return(peering, nil).Once()
 		vpcRepo.On("GetByID", mock.Anything, reqVPCID).Return(reqVPC, nil).Once()
 		vpcRepo.On("GetByID", mock.Anything, accVPCID).Return(accVPC, nil).Once()
 
 		// OVS flows
-		network.On("AddFlowRule", mock.Anything, "br-req", mock.Anything).Return(nil).Once()
-		network.On("AddFlowRule", mock.Anything, "br-acc", mock.Anything).Return(nil).Once()
+		network.On("AddFlowRule", mock.Anything, testBrReq, mock.Anything).Return(nil).Once()
+		network.On("AddFlowRule", mock.Anything, testBrAcc, mock.Anything).Return(nil).Once()
 
 		repo.On("UpdateStatus", mock.Anything, peeringID, domain.PeeringStatusActive).Return(nil).Once()
 		auditSvc.On("Log", mock.Anything, userID, "vpc_peering.accept", "vpc_peering", peeringID.String(), mock.Anything).Return(nil).Once()
@@ -121,16 +123,16 @@ func TestVPCPeeringServiceUnit(t *testing.T) {
 			TenantID:       tenantID,
 		}
 
-		reqVPC := &domain.VPC{ID: reqVPCID, NetworkID: "br-req", CIDRBlock: "10.0.0.0/16"}
-		accVPC := &domain.VPC{ID: accVPCID, NetworkID: "br-acc", CIDRBlock: "10.1.0.0/16"}
+		reqVPC := &domain.VPC{ID: reqVPCID, NetworkID: testBrReq, CIDRBlock: testCIDR1}
+		accVPC := &domain.VPC{ID: accVPCID, NetworkID: testBrAcc, CIDRBlock: testCIDR2}
 
 		repo.On("GetByID", mock.Anything, peeringID).Return(peering, nil).Once()
 		vpcRepo.On("GetByID", mock.Anything, reqVPCID).Return(reqVPC, nil).Once()
 		vpcRepo.On("GetByID", mock.Anything, accVPCID).Return(accVPC, nil).Once()
 
 		// OVS flows removal
-		network.On("DeleteFlowRule", mock.Anything, "br-req", mock.Anything).Return(nil).Once()
-		network.On("DeleteFlowRule", mock.Anything, "br-acc", mock.Anything).Return(nil).Once()
+		network.On("DeleteFlowRule", mock.Anything, testBrReq, mock.Anything).Return(nil).Once()
+		network.On("DeleteFlowRule", mock.Anything, testBrAcc, mock.Anything).Return(nil).Once()
 
 		repo.On("Delete", mock.Anything, peeringID).Return(nil).Once()
 		auditSvc.On("Log", mock.Anything, userID, "vpc_peering.delete", "vpc_peering", peeringID.String(), mock.Anything).Return(nil).Once()
