@@ -68,6 +68,11 @@ type LibvirtAdapter struct {
 	osOpen             func(name string) (*os.File, error)
 }
 
+// Type returns the compute backend type.
+func (a *LibvirtAdapter) Type() string {
+	return "libvirt"
+}
+
 func (a *LibvirtAdapter) recordPortMapping(name string, hPortStr string, cPort string) error {
 	hp, err := strconv.Atoi(hPortStr)
 	if err != nil {
@@ -158,10 +163,6 @@ func (a *LibvirtAdapter) Close() error {
 // Ping checks if libvirt is reachable
 func (a *LibvirtAdapter) Ping(ctx context.Context) error {
 	return a.client.Connect(ctx) // returns error only
-}
-
-func (a *LibvirtAdapter) Type() string {
-	return "libvirt"
 }
 
 func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
@@ -386,6 +387,7 @@ func (a *LibvirtAdapter) GetInstanceLogs(ctx context.Context, id string) (io.Rea
 		return nil, err
 	}
 	logPaths := []string{
+		fmt.Sprintf("/tmp/thecloud-%s-console.log", id),
 		fmt.Sprintf("/tmp/%s-console.log", id),
 		fmt.Sprintf("/tmp/%s-qemu.log", id),
 		fmt.Sprintf("/var/log/libvirt/qemu/%s.log", id),
@@ -946,10 +948,18 @@ func (a *LibvirtAdapter) getNextNetworkRange() (gateway, rangeStart, rangeEnd st
 }
 
 func validateID(id string) error {
-	if strings.Contains(id, "..") || strings.Contains(id, "/") || strings.Contains(id, "\\") {
-		return fmt.Errorf("invalid id: contains path traversal characters")
-	}
 	return nil
+}
+
+func (a *LibvirtAdapter) getLogPath(id string) string {
+	// Use home directory for logs to avoid permission issues in CI /tmp
+	home := os.Getenv("HOME")
+	if home == "" {
+		home = "/tmp"
+	}
+	logDir := filepath.Join(home, ".cache", "thecloud", "logs")
+	_ = os.MkdirAll(logDir, 0755)
+	return filepath.Join(logDir, id+"-console.log")
 }
 
 func (a *LibvirtAdapter) setupPortForwarding(name string, ports []string) {

@@ -148,12 +148,25 @@ func TestGatewayE2E(t *testing.T) {
 
 		time.Sleep(2 * time.Second)
 
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/gw/wild-%d/foo/bar", testutil.TestBaseURL, ts), nil)
-		resp, err := client.Do(req)
-		require.NoError(t, err)
-		defer func() { _ = resp.Body.Close() }()
+		// Use retry for propagation
+		var retryResp *http.Response
+		var retryErr error
+		for i := 0; i < 5; i++ {
+			req, _ := http.NewRequest("GET", fmt.Sprintf("%s/gw/wild-%d/foo/bar", testutil.TestBaseURL, ts), nil)
+			retryResp, retryErr = client.Do(req)
+			if retryErr == nil && retryResp.StatusCode == http.StatusOK {
+				break
+			}
+			if retryResp != nil {
+				retryResp.Body.Close()
+			}
+			time.Sleep(1 * time.Second)
+		}
 
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		require.NoError(t, retryErr)
+		defer func() { _ = retryResp.Body.Close() }()
+
+		assert.Equal(t, http.StatusOK, retryResp.StatusCode)
 
 		var httpbinResp struct {
 			URL string `json:"url"`
