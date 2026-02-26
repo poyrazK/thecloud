@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
-	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -34,7 +33,7 @@ var createRoleCmd = &cobra.Command{
 			}
 		}
 
-		client := sdk.NewClient(apiURL, loadConfig())
+		client := createClient()
 		role, err := client.CreateRole(name, desc, permissions)
 		if err != nil {
 			fmt.Printf(rbacErrorFormat, err)
@@ -49,7 +48,7 @@ var listRolesCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all roles",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := sdk.NewClient(apiURL, loadConfig())
+		client := createClient()
 		roles, err := client.ListRoles()
 		if err != nil {
 			fmt.Printf(rbacErrorFormat, err)
@@ -75,7 +74,7 @@ var bindRoleCmd = &cobra.Command{
 		userIdentifier := args[0]
 		roleName := args[1]
 
-		client := sdk.NewClient(apiURL, loadConfig())
+		client := createClient()
 		if err := client.BindRole(userIdentifier, roleName); err != nil {
 			fmt.Printf(rbacErrorFormat, err)
 			return
@@ -89,7 +88,7 @@ var listBindingsCmd = &cobra.Command{
 	Use:   "list-bindings",
 	Short: "List all role bindings",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := sdk.NewClient(apiURL, loadConfig())
+		client := createClient()
 		users, err := client.ListRoleBindings()
 		if err != nil {
 			fmt.Printf(rbacErrorFormat, err)
@@ -114,7 +113,7 @@ var deleteRoleCmd = &cobra.Command{
 			return
 		}
 
-		client := sdk.NewClient(apiURL, loadConfig())
+		client := createClient()
 		if err := client.DeleteRole(id); err != nil {
 			fmt.Printf(rbacErrorFormat, err)
 			return
