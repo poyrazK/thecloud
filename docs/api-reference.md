@@ -379,6 +379,97 @@ Allocate a new elastic IP. No body required.
 ### GET /elastic-ips/:id
 Get details of a specific elastic IP.
 
+---
+
+## Pipelines (CI/CD) 🆕
+
+**Headers Required:** `X-API-Key: <your-api-key>` for protected endpoints.
+
+### GET /pipelines
+List pipelines for the authenticated user.
+
+### POST /pipelines
+Create a pipeline definition.
+
+```json
+{
+  "name": "lint-thecloud",
+  "repository_url": "https://github.com/poyrazK/thecloud.git",
+  "branch": "main",
+  "webhook_secret": "your-secret",
+  "config": {
+    "stages": [
+      {
+        "name": "lint",
+        "steps": [
+          {
+            "name": "golangci",
+            "image": "golang:1.24",
+            "commands": [
+              "git clone https://github.com/poyrazK/thecloud.git /workspace/thecloud",
+              "cd /workspace/thecloud",
+              "go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60.3",
+              "/go/bin/golangci-lint run ./..."
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### GET /pipelines/:id
+Get a pipeline by ID.
+
+### PUT /pipelines/:id
+Update mutable fields of a pipeline.
+
+### DELETE /pipelines/:id
+Delete a pipeline.
+
+### POST /pipelines/:id/runs
+Trigger a manual run.
+
+```json
+{
+  "commit_hash": "abc123",
+  "trigger_type": "MANUAL"
+}
+```
+
+### GET /pipelines/:id/runs
+List runs for a pipeline.
+
+### GET /pipelines/runs/:buildID
+Get run details.
+
+### GET /pipelines/runs/:buildID/steps
+List step results for a run.
+
+### GET /pipelines/runs/:buildID/logs?limit=200
+List logs for a run.
+
+### POST /pipelines/:id/webhook/:provider
+Public webhook trigger endpoint.
+
+- `provider`: `github` or `gitlab`
+- No API key required (validated by webhook secret/signature).
+
+#### GitHub headers
+- `X-GitHub-Event` (supported: `push`)
+- `X-Hub-Signature-256` (HMAC SHA-256)
+- `X-GitHub-Delivery` (used for idempotency)
+
+#### GitLab headers
+- `X-Gitlab-Event` (supported: `Push Hook`)
+- `X-Gitlab-Token`
+- `X-Gitlab-Event-UUID` (used for idempotency)
+
+#### Webhook response behavior
+- `202 accepted` with build payload when a run is queued.
+- `202 accepted` with `{ "status": "ignored" }` for duplicate/non-matching events.
+
 ### DELETE /elastic-ips/:id
 Release an elastic IP back to the pool. Fails if still associated.
 

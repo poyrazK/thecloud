@@ -64,6 +64,7 @@ type Repositories struct {
 	ElasticIP     ports.ElasticIPRepository
 	Log           ports.LogRepository
 	IAM           ports.IAMRepository
+	Pipeline      ports.PipelineRepository
 	VPCPeering    ports.VPCPeeringRepository
 }
 
@@ -108,6 +109,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		ElasticIP:     postgres.NewElasticIPRepository(db),
 		Log:           postgres.NewLogRepository(db),
 		IAM:           postgres.NewIAMRepository(db),
+		Pipeline:      postgres.NewPipelineRepository(db),
 		VPCPeering:    postgres.NewVPCPeeringRepository(db),
 	}
 }
@@ -154,6 +156,7 @@ type Services struct {
 	ElasticIP     ports.ElasticIPService
 	Log           ports.LogService
 	IAM           ports.IAMService
+	Pipeline      ports.PipelineService
 	VPCPeering    ports.VPCPeeringService
 }
 
@@ -163,6 +166,7 @@ type Workers struct {
 	AutoScaling       *services.AutoScalingWorker
 	Cron              *services.CronWorker
 	Container         *services.ContainerWorker
+	Pipeline          *workers.PipelineWorker
 	Provision         *workers.ProvisionWorker
 	Accounting        *workers.AccountingWorker
 	Cluster           *workers.ClusterWorker
@@ -267,6 +271,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	fnSvc := services.NewFunctionService(c.Repos.Function, c.Compute, fileStore, auditSvc, c.Logger)
 	cacheSvc := services.NewCacheService(c.Repos.Cache, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
 	queueSvc := services.NewQueueService(c.Repos.Queue, eventSvc, auditSvc)
+	pipelineSvc := services.NewPipelineService(c.Repos.Pipeline, c.Repos.TaskQueue, eventSvc, auditSvc)
 	notifySvc := services.NewNotifyService(c.Repos.Notify, queueSvc, eventSvc, auditSvc, c.Logger)
 
 	// 5. DevOps & Automation Services
@@ -299,6 +304,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		SecurityGroup: sgSvc, LB: lbSvc, Snapshot: snapshotSvc, Stack: stackSvc,
 		Storage: storageSvc, Database: databaseSvc, Secret: secretSvc, Function: fnSvc, Cache: cacheSvc,
 		Queue: queueSvc, Notify: notifySvc, Cron: cronSvc, Gateway: gwSvc, Container: containerSvc,
+		Pipeline: pipelineSvc,
 		Health: services.NewHealthServiceImpl(c.DB, c.Compute, clusterSvc), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc,
 		Cluster:      clusterSvc,
 		Dashboard:    services.NewDashboardService(c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger),
@@ -326,6 +332,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 
 	workersCollection := &Workers{
 		LB: lbWorker, AutoScaling: asgWorker, Cron: cronWorker, Container: containerWorker,
+		Pipeline:          workers.NewPipelineWorker(c.Repos.Pipeline, c.Repos.TaskQueue, c.Compute, c.Logger),
 		Provision: provisionWorker, Accounting: accountingWorker,
 		Cluster:           workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.TaskQueue, c.Logger),
 		Lifecycle:         workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger),

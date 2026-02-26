@@ -42,3 +42,12 @@ type ClusterJob struct {
 	Type      ClusterJobType `json:"type"`
 	Version   string         `json:"version,omitempty"` // For upgrades
 }
+
+// BuildJob represents a background task for pipeline build execution.
+type BuildJob struct {
+	BuildID    uuid.UUID        `json:"build_id"`
+	PipelineID uuid.UUID        `json:"pipeline_id"`
+	UserID     uuid.UUID        `json:"user_id"`
+	CommitHash string           `json:"commit_hash,omitempty"`
+	Trigger    BuildTriggerType `json:"trigger"`
+}

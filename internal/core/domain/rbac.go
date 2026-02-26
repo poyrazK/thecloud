@@ -120,6 +120,14 @@ const (
 	PermissionContainerRead   Permission = "container:read"
 	PermissionContainerUpdate Permission = "container:scale"
 
+	// Pipeline Permissions
+	PermissionPipelineCreate  Permission = "pipeline:create"
+	PermissionPipelineDelete  Permission = "pipeline:delete"
+	PermissionPipelineRead    Permission = "pipeline:read"
+	PermissionPipelineUpdate  Permission = "pipeline:update"
+	PermissionPipelineRun     Permission = "pipeline:run"
+	PermissionPipelineWebhook Permission = "pipeline:webhook"
+
 	// Image Permissions
 	PermissionImageCreate Permission = "image:create"
 	PermissionImageRead   Permission = "image:read"
