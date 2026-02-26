@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"strings"
 
@@ -80,6 +81,7 @@ var launchCmd = &cobra.Command{
 		subnetID, _ := cmd.Flags().GetString("subnet")
 		volumeStrs, _ := cmd.Flags().GetStringSlice("volume")
 		sshKeyID, _ := cmd.Flags().GetString("ssh-key")
+		wait, _ := cmd.Flags().GetBool("wait")
 
 		// Parse volume strings like "vol-name:/path"
 		var volumes []sdk.VolumeAttachmentInput
@@ -119,6 +121,29 @@ var launchCmd = &cobra.Command{
 		}
 
 		fmt.Print(successInstance)
+
+		if wait {
+			fmt.Printf("[INFO] Waiting for instance %s to be RUNNING...\n", inst.ID[:8])
+			for {
+				updated, err := client.GetInstance(inst.ID)
+				if err != nil {
+					fmt.Printf("\nError polling status: %v\n", err)
+					return
+				}
+				if updated.Status == "RUNNING" {
+					inst = updated
+					fmt.Println("\n[SUCCESS] Instance is now RUNNING.")
+					break
+				}
+				if updated.Status == "FAILED" || updated.Status == "TERMINATED" {
+					fmt.Printf("\n[ERROR] Instance entered state: %s\n", updated.Status)
+					return
+				}
+				fmt.Print(".")
+				time.Sleep(2 * time.Second)
+			}
+		}
+
 		if jsonOutput {
 			printJSON(inst)
 		} else {
@@ -389,6 +414,7 @@ func init() {
 	launchCmd.Flags().StringSliceP("label", "l", nil, "Labels (key=value)")
 	launchCmd.Flags().String("ssh-key", "", "SSH Key ID to inject")
 	launchCmd.Flags().StringSlice("cmd", nil, "Command to run (e.g. --cmd 'sh' --cmd '-c' --cmd 'echo hello')")
+	launchCmd.Flags().BoolP("wait", "w", false, "Wait for instance to be RUNNING")
 	_ = launchCmd.MarkFlagRequired("name")
 
 	metadataCmd.Flags().StringSliceP("metadata", "m", nil, "Metadata (key=value)")
