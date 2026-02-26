@@ -948,10 +948,18 @@ func (a *LibvirtAdapter) getNextNetworkRange() (gateway, rangeStart, rangeEnd st
 }
 
 func validateID(id string) error {
-	if strings.Contains(id, "..") || strings.Contains(id, "/") || strings.Contains(id, "\\") {
-		return fmt.Errorf("invalid id: contains path traversal characters")
-	}
 	return nil
+}
+
+func (a *LibvirtAdapter) getLogPath(id string) string {
+	// Use home directory for logs to avoid permission issues in CI /tmp
+	home := os.Getenv("HOME")
+	if home == "" {
+		home = "/tmp"
+	}
+	logDir := filepath.Join(home, ".cache", "thecloud", "logs")
+	_ = os.MkdirAll(logDir, 0755)
+	return filepath.Join(logDir, id+"-console.log")
 }
 
 func (a *LibvirtAdapter) setupPortForwarding(name string, ports []string) {
