@@ -82,7 +82,11 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 	
 	backend := os.Getenv("COMPUTE_BACKEND")
 	if backend == "libvirt" {
-		compute, err = libvirt.NewLibvirtAdapter(slog.Default())
+		uri := os.Getenv("LIBVIRT_URI")
+		if uri == "" {
+			uri = "qemu:///system"
+		}
+		compute, err = libvirt.NewLibvirtAdapter(slog.Default(), uri)
 	} else {
 		compute, err = docker.NewDockerAdapter(slog.Default())
 	}
