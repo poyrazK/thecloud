@@ -205,7 +205,7 @@ func TestTerminateInstanceSuccess(t *testing.T) {
 func TestInstanceServiceLaunchDBFailure(t *testing.T) {
 	// Custom setup with Faulty Repo
 	db := setupDB(t)
-	cleanDB(t, db)
+	// No cleanDB needed here as setupDB gives us a fresh unique schema
 	ctx := setupTestUser(t, db)
 
 	realRepo := postgres.NewInstanceRepository(db)
@@ -216,6 +216,8 @@ func TestInstanceServiceLaunchDBFailure(t *testing.T) {
 	subnetRepo := postgres.NewSubnetRepository(db)
 	volumeRepo := postgres.NewVolumeRepository(db)
 	itRepo := postgres.NewInstanceTypeRepository(db)
+	
+	// We must use the same db connection pool for all repositories to ensure they use the same schema
 	compute, _ := docker.NewDockerAdapter(slog.Default())
 
 	defaultType := &domain.InstanceType{ID: testInstanceType, Name: "Basic 2", VCPUs: 1, MemoryMB: 128, DiskGB: 1}

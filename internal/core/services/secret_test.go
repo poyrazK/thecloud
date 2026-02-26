@@ -6,7 +6,9 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
@@ -35,7 +37,7 @@ func setupSecretServiceIntegrationTest(t *testing.T) (ports.SecretService, ports
 }
 
 func TestSecretService_Integration(t *testing.T) {
-	svc, _, ctx := setupSecretServiceIntegrationTest(t)
+	svc, repo, ctx := setupSecretServiceIntegrationTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	t.Run("CreateAndGet", func(t *testing.T) {
@@ -50,13 +52,29 @@ func TestSecretService_Integration(t *testing.T) {
 		// Get by ID
 		fetched, err := svc.GetSecret(ctx, secret.ID)
 		require.NoError(t, err)
-		assert.Equal(t, value, fetched.EncryptedValue) // Should be decrypted
+		assert.Equal(t, secret.ID, fetched.ID)
+		assert.Equal(t, value, fetched.EncryptedValue) // Should be decrypted into plaintext field
 		assert.Equal(t, userID, fetched.UserID)
 
 		// Get by Name
 		fetchedByName, err := svc.GetSecretByName(ctx, name)
 		require.NoError(t, err)
 		assert.Equal(t, value, fetchedByName.EncryptedValue)
+	})
+
+	t.Run("DuplicateName", func(t *testing.T) {
+		_, err := svc.CreateSecret(ctx, "DUP", "v1", "")
+		require.NoError(t, err)
+		_, err = svc.CreateSecret(ctx, "DUP", "v2", "")
+		require.Error(t, err)
+	})
+
+	t.Run("GetNotFound", func(t *testing.T) {
+		_, err := svc.GetSecret(ctx, uuid.New())
+		require.Error(t, err)
+
+		_, err = svc.GetSecretByName(ctx, "NON_EXISTENT")
+		require.Error(t, err)
 	})
 
 	t.Run("List", func(t *testing.T) {
@@ -66,6 +84,8 @@ func TestSecretService_Integration(t *testing.T) {
 		secrets, err := svc.ListSecrets(ctx)
 		require.NoError(t, err)
 		assert.GreaterOrEqual(t, len(secrets), 2)
+		// Ensure redaction
+		assert.Equal(t, "[REDACTED]", secrets[0].EncryptedValue)
 	})
 
 	t.Run("EncryptDecrypt", func(t *testing.T) {
@@ -88,5 +108,37 @@ func TestSecretService_Integration(t *testing.T) {
 
 		_, err = svc.GetSecret(ctx, secret.ID)
 		require.Error(t, err)
+
+		// Delete again - should fail because it's not found
+		err = svc.DeleteSecret(ctx, secret.ID)
+		require.Error(t, err)
+	})
+
+	t.Run("DecryptionFailure", func(t *testing.T) {
+		secret := &domain.Secret{
+			ID:             uuid.New(),
+			UserID:         userID,
+			Name:           "corrupt",
+			EncryptedValue: "not-a-valid-cipher",
+		}
+		_ = repo.Create(ctx, secret)
+
+		_, err := svc.GetSecret(ctx, secret.ID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to decrypt")
+	})
+}
+
+func TestNewSecretService_Variants(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	t.Run("DefaultKeyDevelopment", func(t *testing.T) {
+		svc := services.NewSecretService(nil, nil, nil, logger, "", "development")
+		assert.NotNil(t, svc)
+	})
+
+	t.Run("ShortKeyWarning", func(t *testing.T) {
+		svc := services.NewSecretService(nil, nil, nil, logger, "short", "development")
+		assert.NotNil(t, svc)
 	})
 }

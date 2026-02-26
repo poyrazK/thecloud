@@ -2,6 +2,8 @@ package services_test
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"strings"
@@ -31,7 +33,26 @@ func setupDB(t *testing.T) *pgxpool.Pool {
 		dbURL = container.ConnString
 	}
 
-	db, err := pgxpool.New(ctx, dbURL)
+	// Use a unique schema for this test run to allow parallel execution in CI
+	schema := "test_" + strings.ReplaceAll(uuid.New().String(), "-", "_")
+	
+	// Create base connection to initialize schema
+	baseDB, err := pgxpool.New(ctx, dbURL)
+	require.NoError(t, err)
+	defer baseDB.Close()
+
+	_, err = baseDB.Exec(ctx, fmt.Sprintf("CREATE SCHEMA %s", schema))
+	require.NoError(t, err)
+
+	// New connection pool scoped to this schema
+	scopedURL := dbURL
+	if strings.Contains(dbURL, "?") {
+		scopedURL += "&search_path=" + schema
+	} else {
+		scopedURL += "?search_path=" + schema
+	}
+
+	db, err := pgxpool.New(ctx, scopedURL)
 	require.NoError(t, err)
 
 	err = db.Ping(ctx)
@@ -39,12 +60,23 @@ func setupDB(t *testing.T) *pgxpool.Pool {
 		t.Skipf("Skipping integration test: database not available: %v", err)
 	}
 
-	// Run migrations
-	err = postgres.RunMigrations(ctx, db, slog.Default())
+	// Ensure the search_path is set for migrations
+	_, err = db.Exec(ctx, fmt.Sprintf("SET search_path TO %s", schema))
+	require.NoError(t, err)
+
+	// Run migrations with Discard logger to keep stdout clean for benchmarks
+	discardLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	err = postgres.RunMigrations(ctx, db, discardLogger)
 	require.NoError(t, err, "Failed to run migrations")
 
 	t.Cleanup(func() {
 		db.Close()
+		// Clean up the schema
+		cleanupDB, _ := pgxpool.New(ctx, dbURL)
+		if cleanupDB != nil {
+			_, _ = cleanupDB.Exec(ctx, fmt.Sprintf("DROP SCHEMA %s CASCADE", schema))
+			cleanupDB.Close()
+		}
 	})
 
 	return db
@@ -101,14 +133,24 @@ func cleanDB(t *testing.T, db *pgxpool.Pool) {
 	t.Helper()
 	ctx := context.Background()
 
-	// Query to get all tables in the public schema
-	query := `
+	// Get current schema from search_path
+	var schema string
+	err := db.QueryRow(ctx, "SHOW search_path").Scan(&schema)
+	if err != nil {
+		schema = "public"
+	}
+	// SHOW might return "schema, public" or similar
+	schema = strings.Split(schema, ",")[0]
+	schema = strings.TrimSpace(schema)
+
+	query := fmt.Sprintf(`
 		SELECT table_name 
 		FROM information_schema.tables 
-		WHERE table_schema = 'public' 
+		WHERE table_schema = '%s' 
 		AND table_type = 'BASE TABLE'
 		AND table_name != 'schema_migrations'
-	`
+	`, schema)
+	
 	rows, err := db.Query(ctx, query)
 	if err != nil {
 		t.Logf("Warning: failed to query tables for cleanup: %v", err)
@@ -128,7 +170,6 @@ func cleanDB(t *testing.T, db *pgxpool.Pool) {
 		return
 	}
 
-	// Truncate all tables in one command with CASCADE to handle foreign keys
 	truncateQuery := "TRUNCATE " + strings.Join(tables, ", ") + " RESTART IDENTITY CASCADE"
 	_, err = db.Exec(ctx, truncateQuery)
 	if err != nil {
