@@ -788,6 +788,12 @@ definitions:
     - container:delete
     - container:read
     - container:scale
+    - pipeline:create
+    - pipeline:delete
+    - pipeline:read
+    - pipeline:update
+    - pipeline:run
+    - pipeline:webhook
     - image:create
     - image:read
     - image:delete
@@ -865,6 +871,12 @@ definitions:
     - PermissionContainerDelete
     - PermissionContainerRead
     - PermissionContainerUpdate
+    - PermissionPipelineCreate
+    - PermissionPipelineDelete
+    - PermissionPipelineRead
+    - PermissionPipelineUpdate
+    - PermissionPipelineRun
+    - PermissionPipelineWebhook
     - PermissionImageCreate
     - PermissionImageRead
     - PermissionImageDelete
