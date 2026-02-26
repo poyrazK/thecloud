@@ -148,8 +148,21 @@ func TestGatewayE2E(t *testing.T) {
 
 		time.Sleep(2 * time.Second)
 
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/gw/wild-%d/foo/bar", testutil.TestBaseURL, ts), nil)
-		resp, err := client.Do(req)
+		// Use retry for propagation
+		var resp *http.Response
+		var err error
+		for i := 0; i < 5; i++ {
+			req, _ := http.NewRequest("GET", fmt.Sprintf("%s/gw/wild-%d/foo/bar", testutil.TestBaseURL, ts), nil)
+			resp, err = client.Do(req)
+			if err == nil && resp.StatusCode == http.StatusOK {
+				break
+			}
+			if resp != nil {
+				resp.Body.Close()
+			}
+			time.Sleep(1 * time.Second)
+		}
+
 		require.NoError(t, err)
 		defer func() { _ = resp.Body.Close() }()
 
