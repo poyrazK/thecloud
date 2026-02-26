@@ -20,14 +20,14 @@ var listEventsCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List system events",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		events, err := client.ListEvents()
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(events, "", "  ")
 			fmt.Println(string(data))
 			return

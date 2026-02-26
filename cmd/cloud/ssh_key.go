@@ -8,55 +8,60 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var sshKeyCmd = &cobra.Command{
-	Use:   "ssh-key",
-	Short: "Manage SSH public keys",
+func newSSHKeyCmd(o *CLIOptions) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "ssh-key",
+		Short: "Manage SSH public keys",
+	}
+
+	cmd.AddCommand(newSSHKeyRegisterCmd(o))
+	cmd.AddCommand(newSSHKeyListCmd(o))
+	return cmd
 }
 
-var registerKeyCmd = &cobra.Command{
-	Use:   "register [name] [public_key_file]",
-	Short: "Register a new SSH public key",
-	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
-		name := args[0]
-		keyFile := args[1]
+func newSSHKeyRegisterCmd(o *CLIOptions) *cobra.Command {
+	return &cobra.Command{
+		Use:   "register [name] [public_key_file]",
+		Short: "Register a new SSH public key",
+		Args:  cobra.ExactArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			name := args[0]
+			keyFile := args[1]
 
-		keyData, err := os.ReadFile(filepath.Clean(keyFile))
-		if err != nil {
-			fmt.Printf("Error reading key file: %v\n", err)
-			return
-		}
+			keyData, err := os.ReadFile(filepath.Clean(keyFile))
+			if err != nil {
+				fmt.Printf("Error reading key file: %v\n", err)
+				return
+			}
 
-		client := createClient()
-		key, err := client.RegisterSSHKey(name, string(keyData))
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
-		}
+			client := createClient(*o)
+			key, err := client.RegisterSSHKey(name, string(keyData))
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				return
+			}
 
-		fmt.Println("[SUCCESS] SSH Key registered.")
-		fmt.Printf("ID: %s\n", key.ID)
-	},
+			fmt.Println("[SUCCESS] SSH Key registered.")
+			fmt.Printf("ID: %s\n", key.ID)
+		},
+	}
 }
 
-var listSshKeysCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List all registered SSH keys",
-	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
-		keys, err := client.ListSSHKeys()
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
-		}
+func newSSHKeyListCmd(o *CLIOptions) *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List all registered SSH keys",
+		Run: func(cmd *cobra.Command, args []string) {
+			client := createClient(*o)
+			keys, err := client.ListSSHKeys()
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				return
+			}
 
-		for _, k := range keys {
-			fmt.Printf("%-36s %s\n", k.ID, k.Name)
-		}
-	},
-}
-
-func init() {
-	sshKeyCmd.AddCommand(registerKeyCmd)
-	sshKeyCmd.AddCommand(listSshKeysCmd)
+			for _, k := range keys {
+				fmt.Printf("%-36s %s\n", k.ID, k.Name)
+			}
+		},
+	}
 }

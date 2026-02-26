@@ -23,8 +23,16 @@ var createRoleCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
-		desc, _ := cmd.Flags().GetString("description")
-		permsStr, _ := cmd.Flags().GetString("permissions")
+		desc, err := cmd.Flags().GetString("description")
+		if err != nil {
+			fmt.Printf("Error getting description flag: %v\n", err)
+			return
+		}
+		permsStr, err := cmd.Flags().GetString("permissions")
+		if err != nil {
+			fmt.Printf("Error getting permissions flag: %v\n", err)
+			return
+		}
 
 		var permissions []domain.Permission
 		if permsStr != "" {
@@ -33,7 +41,7 @@ var createRoleCmd = &cobra.Command{
 			}
 		}
 
-		client := createClient()
+		client := createClient(opts)
 		role, err := client.CreateRole(name, desc, permissions)
 		if err != nil {
 			fmt.Printf(rbacErrorFormat, err)
@@ -48,7 +56,7 @@ var listRolesCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all roles",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		roles, err := client.ListRoles()
 		if err != nil {
 			fmt.Printf(rbacErrorFormat, err)
@@ -74,7 +82,7 @@ var bindRoleCmd = &cobra.Command{
 		userIdentifier := args[0]
 		roleName := args[1]
 
-		client := createClient()
+		client := createClient(opts)
 		if err := client.BindRole(userIdentifier, roleName); err != nil {
 			fmt.Printf(rbacErrorFormat, err)
 			return
@@ -88,7 +96,7 @@ var listBindingsCmd = &cobra.Command{
 	Use:   "list-bindings",
 	Short: "List all role bindings",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		users, err := client.ListRoleBindings()
 		if err != nil {
 			fmt.Printf(rbacErrorFormat, err)
@@ -103,9 +111,10 @@ var listBindingsCmd = &cobra.Command{
 }
 
 var deleteRoleCmd = &cobra.Command{
-	Use:   "delete [id]",
-	Short: "Delete a role",
-	Args:  cobra.ExactArgs(1),
+	Use:     "rm [id]",
+	Aliases: []string{"delete"},
+	Short:   "Delete a role",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id, err := uuid.Parse(args[0])
 		if err != nil {
@@ -113,7 +122,7 @@ var deleteRoleCmd = &cobra.Command{
 			return
 		}
 
-		client := createClient()
+		client := createClient(opts)
 		if err := client.DeleteRole(id); err != nil {
 			fmt.Printf(rbacErrorFormat, err)
 			return

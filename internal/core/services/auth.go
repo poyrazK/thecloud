@@ -199,5 +199,12 @@ func (s *AuthService) incrementFailure(email string) {
 }
 
 func (s *AuthService) GetUserByID(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
-	return s.userRepo.GetByID(ctx, userID)
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, errors.NotFound) {
+			return nil, errors.New(errors.NotFound, "user not found")
+		}
+		return nil, errors.Wrap(errors.Internal, "failed to fetch user", err)
+	}
+	return user, nil
 }

@@ -283,15 +283,28 @@ func (s *StorageService) DeleteBucket(ctx context.Context, name string, force bo
 			return errors.New(errors.InvalidInput, "bucket is not empty")
 		}
 
-		// Delete all objects (this could be slow for many objects, but fine for now)
+		// Delete all objects (including all versions)
 		for _, obj := range objects {
-			if err := s.DeleteObject(ctx, name, obj.Key); err != nil {
-				return fmt.Errorf("failed to delete object %s: %w", obj.Key, err)
+			if err := s.deleteObjectPermanent(ctx, name, obj.Key); err != nil {
+				return errors.Wrap(errors.Internal, fmt.Sprintf("failed to delete object %s", obj.Key), err)
 			}
 		}
 	}
 
 	return s.repo.DeleteBucket(ctx, name)
+}
+
+func (s *StorageService) deleteObjectPermanent(ctx context.Context, bucket, key string) error {
+	versions, err := s.repo.ListVersions(ctx, bucket, key)
+	if err != nil {
+		return err
+	}
+	for _, v := range versions {
+		if err := s.DeleteVersion(ctx, bucket, key, v.VersionID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ListBuckets list buckets for the current user.

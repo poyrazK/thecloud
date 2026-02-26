@@ -19,7 +19,10 @@ func TestClientCreateKeySuccess(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(Response[*domain.APIKey]{Data: &domain.APIKey{Key: "new-key"}})
+		err := json.NewEncoder(w).Encode(Response[*domain.APIKey]{Data: &domain.APIKey{Key: "new-key"}})
+		if err != nil {
+			t.Errorf("failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 

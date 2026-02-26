@@ -9,6 +9,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	shortIDLength = 8
+)
+
 var billingCmd = &cobra.Command{
 	Use:   "billing",
 	Short: "View billing and usage information",
@@ -18,14 +22,14 @@ var billingSummaryCmd = &cobra.Command{
 	Use:   "summary",
 	Short: "Get billing summary for the current period",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
-		summary, err := client.GetBillingSummary(nil, nil)
+		client := createClient(opts)
+		summary, err := client.GetBillingSummary(cmd.Context(), nil, nil)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			printJSON(summary)
 			return
 		}
@@ -36,9 +40,14 @@ var billingSummaryCmd = &cobra.Command{
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header([]string{"RESOURCE TYPE", "AMOUNT"})
 		for t, amt := range summary.UsageByType {
-			_ = table.Append([]string{string(t), fmt.Sprintf("%.2f", amt)})
+			if err := table.Append([]string{string(t), fmt.Sprintf("%.2f", amt)}); err != nil {
+				fmt.Printf("Error appending to table: %v\n", err)
+				return
+			}
 		}
-		_ = table.Render()
+		if err := table.Render(); err != nil {
+			fmt.Printf("Error rendering table: %v\n", err)
+		}
 	},
 }
 
@@ -46,14 +55,14 @@ var billingUsageCmd = &cobra.Command{
 	Use:   "usage",
 	Short: "List detailed usage records",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
-		records, err := client.ListUsageRecords(nil, nil)
+		client := createClient(opts)
+		records, err := client.ListUsageRecords(cmd.Context(), nil, nil)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			printJSON(records)
 			return
 		}
@@ -67,15 +76,24 @@ var billingUsageCmd = &cobra.Command{
 		table.Header([]string{"RESOURCE ID", "TYPE", "QUANTITY", "UNIT", "START TIME"})
 
 		for _, r := range records {
-			_ = table.Append([]string{
-				r.ResourceID.String()[:8],
+			idStr := r.ResourceID.String()
+			if len(idStr) > shortIDLength {
+				idStr = idStr[:shortIDLength]
+			}
+			if err := table.Append([]string{
+				idStr,
 				string(r.ResourceType),
 				fmt.Sprintf("%.2f", r.Quantity),
 				r.Unit,
 				r.StartTime.Format("2006-01-02 15:04"),
-			})
+			}); err != nil {
+				fmt.Printf("Error appending to table: %v\n", err)
+				return
+			}
 		}
-		_ = table.Render()
+		if err := table.Render(); err != nil {
+			fmt.Printf("Error rendering table: %v\n", err)
+		}
 	},
 }
 

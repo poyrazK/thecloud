@@ -595,6 +595,12 @@ const docTemplate = `{
                                 }
                             ]
                         }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
                     }
                 }
             }
@@ -5099,6 +5105,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/httputil.Response"
                         }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
                     }
                 }
             }
@@ -5700,6 +5712,18 @@ const docTemplate = `{
                                 "$ref": "#/definitions/domain.Tenant"
                             }
                         }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
                     }
                 }
             },
@@ -5713,7 +5737,20 @@ const docTemplate = `{
                     "Tenant"
                 ],
                 "summary": "Create a new tenant",
-                "responses": {}
+                "responses": {
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
             }
         },
         "/tenants/:id/members": {
@@ -5727,7 +5764,20 @@ const docTemplate = `{
                     "Tenant"
                 ],
                 "summary": "Invite member to tenant",
-                "responses": {}
+                "responses": {
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
             }
         },
         "/tenants/:id/switch": {
@@ -5741,7 +5791,20 @@ const docTemplate = `{
                     "Tenant"
                 ],
                 "summary": "Switch active tenant",
-                "responses": {}
+                "responses": {
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
             }
         },
         "/volumes": {
@@ -8186,7 +8249,12 @@ const docTemplate = `{
                 },
                 "plan": {
                     "description": "\"free\", \"pro\", \"enterprise\"",
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "free",
+                        "pro",
+                        "enterprise"
+                    ]
                 },
                 "slug": {
                     "description": "URL-friendly identifier",
@@ -8194,7 +8262,11 @@ const docTemplate = `{
                 },
                 "status": {
                     "description": "\"active\", \"suspended\"",
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "active",
+                        "suspended"
+                    ]
                 },
                 "updated_at": {
                     "type": "string"

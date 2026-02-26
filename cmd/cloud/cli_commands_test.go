@@ -368,18 +368,18 @@ func setupAPIServer(t *testing.T) *httptest.Server {
 func setAPIContext(t *testing.T, server *httptest.Server) {
 	t.Helper()
 
-	oldURL := apiURL
-	oldKey := apiKey
-	oldJSON := jsonOutput
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	oldJSON := opts.JSON
 
-	apiURL = server.URL
-	apiKey = "test-key"
-	jsonOutput = false
+	opts.APIURL = server.URL
+	opts.APIKey = "test-key"
+	opts.JSON = false
 
 	t.Cleanup(func() {
-		apiURL = oldURL
-		apiKey = oldKey
-		jsonOutput = oldJSON
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
+		opts.JSON = oldJSON
 	})
 }
 
@@ -389,10 +389,10 @@ func TestSGListCommandJSONOutput(t *testing.T) {
 	setAPIContext(t, server)
 
 	_ = sgListCmd.Flags().Set(flagVPCID, "vpc-1")
-	jsonOutput = true
+	opts.JSON = true
 	t.Cleanup(func() {
 		_ = sgListCmd.Flags().Set(flagVPCID, "")
-		jsonOutput = false
+		opts.JSON = false
 	})
 
 	out := captureStdout(t, func() {
@@ -430,8 +430,8 @@ func TestVPCListCommandJSONOutput(t *testing.T) {
 	defer server.Close()
 	setAPIContext(t, server)
 
-	jsonOutput = true
-	t.Cleanup(func() { jsonOutput = false })
+	opts.JSON = true
+	t.Cleanup(func() { opts.JSON = false })
 
 	out := captureStdout(t, func() {
 		vpcListCmd.Run(vpcListCmd, nil)
@@ -446,8 +446,8 @@ func TestSubnetListCommandJSONOutput(t *testing.T) {
 	defer server.Close()
 	setAPIContext(t, server)
 
-	jsonOutput = true
-	t.Cleanup(func() { jsonOutput = false })
+	opts.JSON = true
+	t.Cleanup(func() { opts.JSON = false })
 
 	out := captureStdout(t, func() {
 		subnetListCmd.Run(subnetListCmd, []string{"vpc-1"})
@@ -485,8 +485,8 @@ func TestVolumeListCommandJSONOutput(t *testing.T) {
 	defer server.Close()
 	setAPIContext(t, server)
 
-	jsonOutput = true
-	t.Cleanup(func() { jsonOutput = false })
+	opts.JSON = true
+	t.Cleanup(func() { opts.JSON = false })
 
 	out := captureStdout(t, func() {
 		volumeListCmd.Run(volumeListCmd, nil)
@@ -649,8 +649,8 @@ func TestQueueListCommandJSONOutput(t *testing.T) {
 	defer server.Close()
 	setAPIContext(t, server)
 
-	jsonOutput = true
-	t.Cleanup(func() { jsonOutput = false })
+	opts.JSON = true
+	t.Cleanup(func() { opts.JSON = false })
 
 	out := captureStdout(t, func() {
 		listQueuesCmd.Run(listQueuesCmd, nil)
@@ -705,10 +705,10 @@ func TestQueueReceiveMessagesJSONOutput(t *testing.T) {
 	setAPIContext(t, server)
 
 	_ = receiveMessagesCmd.Flags().Set("max", "1")
-	jsonOutput = true
+	opts.JSON = true
 	t.Cleanup(func() {
 		_ = receiveMessagesCmd.Flags().Set("max", "1")
-		jsonOutput = false
+		opts.JSON = false
 	})
 
 	out := captureStdout(t, func() {

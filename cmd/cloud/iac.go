@@ -22,14 +22,14 @@ var iacListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all stacks",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		stacks, err := client.ListStacks()
 		if err != nil {
 			fmt.Printf(cliErrorFormat, err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(stacks, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -64,7 +64,7 @@ var iacCreateCmd = &cobra.Command{
 			return
 		}
 
-		client := createClient()
+		client := createClient(opts)
 		stack, err := client.CreateStack(name, string(templateData), nil)
 		if err != nil {
 			fmt.Printf(cliErrorFormat, err)
@@ -83,14 +83,14 @@ var iacGetCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := createClient()
+		client := createClient(opts)
 		stack, err := client.GetStack(id)
 		if err != nil {
 			fmt.Printf(cliErrorFormat, err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(stack, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -126,7 +126,7 @@ var iacRmCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := createClient()
+		client := createClient(opts)
 		if err := client.DeleteStack(id); err != nil {
 			fmt.Printf(cliErrorFormat, err)
 			return
@@ -148,7 +148,7 @@ var iacValidateCmd = &cobra.Command{
 			return
 		}
 
-		client := createClient()
+		client := createClient(opts)
 		resp, err := client.ValidateTemplate(string(templateData))
 		if err != nil {
 			fmt.Printf(cliErrorFormat, err)

@@ -8,15 +8,17 @@ import (
 	"github.com/poyrazk/thecloud/pkg/sdk"
 )
 
-var (
-	apiURL     = "http://localhost:8080"
-	jsonOutput bool
-	apiKey     string
-	tenantID   string
-)
+type CLIOptions struct {
+	JSON     bool
+	APIKey   string
+	APIURL   string
+	TenantID string
+}
 
-func createClient() *sdk.Client {
-	key := apiKey
+var opts CLIOptions
+
+func createClient(o CLIOptions) *sdk.Client {
+	key := o.APIKey
 	if key == "" {
 		key = os.Getenv("CLOUD_API_KEY")
 	}
@@ -29,9 +31,9 @@ func createClient() *sdk.Client {
 		os.Exit(1)
 	}
 
-	client := sdk.NewClient(apiURL, key)
+	client := sdk.NewClient(o.APIURL, key)
 
-	tenant := tenantID
+	tenant := o.TenantID
 	if tenant == "" {
 		tenant = os.Getenv("CLOUD_TENANT_ID")
 	}

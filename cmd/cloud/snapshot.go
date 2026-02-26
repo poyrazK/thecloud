@@ -22,14 +22,14 @@ var snapshotListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all snapshots",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		snapshots, err := client.ListSnapshots()
 		if err != nil {
 			fmt.Printf(snapshotErrorFormat, err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(snapshots, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -71,7 +71,7 @@ var snapshotCreateCmd = &cobra.Command{
 		}
 		desc, _ := cmd.Flags().GetString("desc")
 
-		client := createClient()
+		client := createClient(opts)
 		snapshot, err := client.CreateSnapshot(volID, desc)
 		if err != nil {
 			fmt.Printf(snapshotErrorFormat, err)
@@ -90,7 +90,7 @@ var snapshotDeleteCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := createClient()
+		client := createClient(opts)
 		if err := client.DeleteSnapshot(id); err != nil {
 			fmt.Printf(snapshotErrorFormat, err)
 			return
@@ -107,7 +107,7 @@ var snapshotRestoreCmd = &cobra.Command{
 		id := args[0]
 		name, _ := cmd.Flags().GetString("name")
 
-		client := createClient()
+		client := createClient(opts)
 		vol, err := client.RestoreSnapshot(id, name)
 		if err != nil {
 			fmt.Printf(snapshotErrorFormat, err)

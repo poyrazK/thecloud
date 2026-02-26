@@ -56,13 +56,13 @@ func init() {
 	rootCmd.AddCommand(billingCmd)
 	rootCmd.AddCommand(tenantCmd)
 	rootCmd.AddCommand(instanceTypeCmd)
-	rootCmd.AddCommand(sshKeyCmd)
+	rootCmd.AddCommand(newSSHKeyCmd(&opts))
 	rootCmd.AddCommand(vpcPeeringCmd)
 
-	rootCmd.PersistentFlags().BoolVarP(&jsonOutput, "json", "j", false, "Output in JSON format")
-	rootCmd.PersistentFlags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
-	rootCmd.PersistentFlags().StringVar(&apiURL, "api-url", "http://localhost:8080", "URL of the API server")
-	rootCmd.PersistentFlags().StringVar(&tenantID, "tenant", "", "Tenant ID to use for requests")
+	rootCmd.PersistentFlags().BoolVarP(&opts.JSON, "json", "j", false, "Output in JSON format")
+	rootCmd.PersistentFlags().StringVarP(&opts.APIKey, "api-key", "k", "", "API key for authentication")
+	rootCmd.PersistentFlags().StringVar(&opts.APIURL, "api-url", "http://localhost:8080", "URL of the API server")
+	rootCmd.PersistentFlags().StringVar(&opts.TenantID, "tenant", "", "Tenant ID to use for requests")
 }
 
 func main() {

@@ -37,7 +37,7 @@ var sgCreateCmd = &cobra.Command{
 			return
 		}
 
-		client := createClient()
+		client := createClient(opts)
 		sg, err := client.CreateSecurityGroup(vpcID, args[0], desc)
 		if err != nil {
 			fmt.Printf(errFmt, err)
@@ -60,15 +60,19 @@ var sgListCmd = &cobra.Command{
 			return
 		}
 
-		client := createClient()
+		client := createClient(opts)
 		groups, err := client.ListSecurityGroups(vpcID)
 		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
 		}
 
-		if jsonOutput {
-			data, _ := json.MarshalIndent(groups, "", "  ")
+		if opts.JSON {
+			data, err := json.MarshalIndent(groups, "", "  ")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to marshal groups to JSON: %v\n", err)
+				return
+			}
 			fmt.Println(string(data))
 			return
 		}
@@ -100,7 +104,7 @@ var sgAddRuleCmd = &cobra.Command{
 		cidr, _ := cmd.Flags().GetString("cidr")
 		priority, _ := cmd.Flags().GetInt("priority")
 
-		client := createClient()
+		client := createClient(opts)
 		rule := sdk.SecurityRule{
 			Direction: direction,
 			Protocol:  protocol,
@@ -125,7 +129,7 @@ var sgAttachCmd = &cobra.Command{
 	Short: "Attach a security group to an instance",
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		if err := client.AttachSecurityGroup(args[0], args[1]); err != nil {
 			fmt.Printf(errFmt, err)
 			return
@@ -140,7 +144,7 @@ var sgRemoveRuleCmd = &cobra.Command{
 	Short: "Remove a rule from a security group",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		if err := client.RemoveSecurityRule(args[0]); err != nil {
 			fmt.Printf(errFmt, err)
 			return
@@ -154,7 +158,7 @@ var sgDetachCmd = &cobra.Command{
 	Short: "Detach a security group from an instance",
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		if err := client.DetachSecurityGroup(args[0], args[1]); err != nil {
 			fmt.Printf(errFmt, err)
 			return
@@ -168,15 +172,19 @@ var sgGetCmd = &cobra.Command{
 	Short: "Get security group details and rules",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		sg, err := client.GetSecurityGroup(args[0])
 		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
 		}
 
-		if jsonOutput {
-			data, _ := json.MarshalIndent(sg, "", "  ")
+		if opts.JSON {
+			data, err := json.MarshalIndent(sg, "", "  ")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to marshal security group to JSON: %v\n", err)
+				return
+			}
 			fmt.Println(string(data))
 			return
 		}
@@ -214,7 +222,7 @@ var sgDeleteCmd = &cobra.Command{
 	Short:   "Delete a security group",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		if err := client.DeleteSecurityGroup(args[0]); err != nil {
 			fmt.Printf(errFmt, err)
 			return

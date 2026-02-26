@@ -21,14 +21,14 @@ var lbListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all load balancers",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		lbs, err := client.ListLBs()
 		if err != nil {
 			fmt.Printf(loadBalancerErrorFormat, err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(lbs, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -60,7 +60,7 @@ var lbCreateCmd = &cobra.Command{
 		port, _ := cmd.Flags().GetInt("port")
 		algo, _ := cmd.Flags().GetString("algorithm")
 
-		client := createClient()
+		client := createClient(opts)
 		lb, err := client.CreateLB(name, vpcID, port, algo)
 		if err != nil {
 			fmt.Printf(loadBalancerErrorFormat, err)
@@ -79,7 +79,7 @@ var lbRmCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := createClient()
+		client := createClient(opts)
 		if err := client.DeleteLB(id); err != nil {
 			fmt.Printf(loadBalancerErrorFormat, err)
 			return
@@ -99,7 +99,7 @@ var lbAddTargetCmd = &cobra.Command{
 		port, _ := cmd.Flags().GetInt("port")
 		weight, _ := cmd.Flags().GetInt("weight")
 
-		client := createClient()
+		client := createClient(opts)
 		if err := client.AddLBTarget(lbID, instID, port, weight); err != nil {
 			fmt.Printf(loadBalancerErrorFormat, err)
 			return
@@ -116,7 +116,7 @@ var lbRemoveTargetCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		lbID := args[0]
 		instID := args[1]
-		client := createClient()
+		client := createClient(opts)
 		if err := client.RemoveLBTarget(lbID, instID); err != nil {
 			fmt.Printf(loadBalancerErrorFormat, err)
 			return
@@ -153,14 +153,14 @@ var lbListTargetsCmd = &cobra.Command{
 	Short: "List targets for a load balancer",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		targets, err := client.ListLBTargets(args[0])
 		if err != nil {
 			fmt.Printf(loadBalancerErrorFormat, err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(targets, "", "  ")
 			fmt.Println(string(data))
 			return

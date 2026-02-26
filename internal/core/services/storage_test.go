@@ -185,11 +185,13 @@ func TestStorageService_Integration(t *testing.T) {
 
 	t.Run("DeleteNonEmptyBucket", func(t *testing.T) {
 		name := "non-empty-bucket"
-		_, _ = svc.CreateBucket(ctx, name, false)
-		_, _ = svc.Upload(ctx, name, "file.txt", strings.NewReader("data"))
+		_, err := svc.CreateBucket(ctx, name, false)
+		require.NoError(t, err)
+		_, err = svc.Upload(ctx, name, "file.txt", strings.NewReader("data"))
+		require.NoError(t, err)
 
 		// Should fail without force
-		err := svc.DeleteBucket(ctx, name, false)
+		err = svc.DeleteBucket(ctx, name, false)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "bucket is not empty")
 

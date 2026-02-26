@@ -21,14 +21,14 @@ var iamPolicyListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all IAM policies",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
-		policies, err := client.ListPolicies()
+		client := createClient(opts)
+		policies, err := client.ListPolicies(cmd.Context())
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			printJSON(policies)
 			return
 		}
@@ -37,13 +37,18 @@ var iamPolicyListCmd = &cobra.Command{
 		table.Header([]string{"ID", "NAME", "DESCRIPTION"})
 
 		for _, p := range policies {
-			_ = table.Append([]string{
+			if err := table.Append([]string{
 				p.ID.String()[:8],
 				p.Name,
 				p.Description,
-			})
+			}); err != nil {
+				fmt.Printf("Error appending to table: %v\n", err)
+				return
+			}
 		}
-		_ = table.Render()
+		if err := table.Render(); err != nil {
+			fmt.Printf("Error rendering table: %v\n", err)
+		}
 	},
 }
 
@@ -75,8 +80,8 @@ var iamPolicyCreateCmd = &cobra.Command{
 			Statements:  statements,
 		}
 
-		client := createClient()
-		newPolicy, err := client.CreatePolicy(policy)
+		client := createClient(opts)
+		newPolicy, err := client.CreatePolicy(cmd.Context(), policy)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
@@ -102,8 +107,8 @@ var iamPolicyAttachCmd = &cobra.Command{
 			return
 		}
 
-		client := createClient()
-		if err := client.AttachPolicyToUser(userID, policyID); err != nil {
+		client := createClient(opts)
+		if err := client.AttachPolicyToUser(cmd.Context(), userID, policyID); err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
@@ -128,8 +133,8 @@ var iamPolicyDetachCmd = &cobra.Command{
 			return
 		}
 
-		client := createClient()
-		if err := client.DetachPolicyFromUser(userID, policyID); err != nil {
+		client := createClient(opts)
+		if err := client.DetachPolicyFromUser(cmd.Context(), userID, policyID); err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}

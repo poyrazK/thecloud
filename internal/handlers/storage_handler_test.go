@@ -283,14 +283,29 @@ func TestStorageHandlerDeleteBucket(t *testing.T) {
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.DELETE(bucketsPath+"/:bucket", handler.DeleteBucket)
 
-	mockSvc.On("DeleteBucket", mock.Anything, "b1", false).Return(nil)
+	t.Run("Normal Delete", func(t *testing.T) {
+		mockSvc.On("DeleteBucket", mock.Anything, "b1", false).Return(nil).Once()
+		req := httptest.NewRequest(http.MethodDelete, bucketsPath+"/b1", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusNoContent, w.Code)
+	})
 
-	req := httptest.NewRequest(http.MethodDelete, bucketsPath+"/b1", nil)
-	w := httptest.NewRecorder()
+	t.Run("Force Delete", func(t *testing.T) {
+		mockSvc.On("DeleteBucket", mock.Anything, "b2", true).Return(nil).Once()
+		req := httptest.NewRequest(http.MethodDelete, bucketsPath+"/b2?force=true", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusNoContent, w.Code)
+	})
 
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusNoContent, w.Code)
+	t.Run("Service Error", func(t *testing.T) {
+		mockSvc.On("DeleteBucket", mock.Anything, "b3", false).Return(errors.New(errors.Internal, "fail")).Once()
+		req := httptest.NewRequest(http.MethodDelete, bucketsPath+"/b3", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
 }
 
 func TestStorageHandlerDelete(t *testing.T) {

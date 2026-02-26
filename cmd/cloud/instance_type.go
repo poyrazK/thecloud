@@ -17,14 +17,14 @@ var instanceTypeListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all available instance types",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		types, err := client.ListInstanceTypes()
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			printJSON(types)
 			return
 		}

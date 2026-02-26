@@ -1320,12 +1320,19 @@ definitions:
         type: string
       plan:
         description: '"free", "pro", "enterprise"'
+        enum:
+        - free
+        - pro
+        - enterprise
         type: string
       slug:
         description: URL-friendly identifier
         type: string
       status:
         description: '"active", "suspended"'
+        enum:
+        - active
+        - suspended
         type: string
       updated_at:
         type: string
@@ -2333,6 +2340,10 @@ paths:
                 data:
                   $ref: '#/definitions/domain.User'
               type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
       security:
       - APIKeyAuth: []
       summary: Get current user info
@@ -5347,6 +5358,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/httputil.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
       security:
       - APIKeyAuth: []
       summary: Delete a bucket
@@ -5580,13 +5595,29 @@ paths:
             items:
               $ref: '#/definitions/domain.Tenant'
             type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
       security:
       - APIKeyAuth: []
       summary: List user's tenants
       tags:
       - Tenant
     post:
-      responses: {}
+      responses:
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
       security:
       - APIKeyAuth: []
       summary: Create a new tenant
@@ -5594,7 +5625,15 @@ paths:
       - Tenant
   /tenants/:id/members:
     post:
-      responses: {}
+      responses:
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
       security:
       - APIKeyAuth: []
       summary: Invite member to tenant
@@ -5602,7 +5641,15 @@ paths:
       - Tenant
   /tenants/:id/switch:
     post:
-      responses: {}
+      responses:
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
       security:
       - APIKeyAuth: []
       summary: Switch active tenant

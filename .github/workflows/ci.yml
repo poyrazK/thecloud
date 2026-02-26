@@ -292,8 +292,8 @@ jobs:
           cache: true
       - name: Install Firecracker
         run: |
-          FC_VERSION=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/firecracker-microvm/firecracker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d \" | tr -d " ," | xargs)
-          if [ -z "$FC_VERSION" ]; then
+          FC_VERSION=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/firecracker-microvm/firecracker/releases/latest | jq -r '.tag_name')
+          if [ -z "$FC_VERSION" ] || [ "$FC_VERSION" == "null" ]; then
             echo "Failed to fetch latest version, using fallback v1.14.1"
             FC_VERSION="v1.14.1"
           fi

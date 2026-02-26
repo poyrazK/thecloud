@@ -10,6 +10,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	defaultAuditLimit = 50
+)
+
 var auditCmd = &cobra.Command{
 	Use:   "audit",
 	Short: "View platform audit logs",
@@ -19,16 +23,24 @@ var auditListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List recent audit logs",
 	Run: func(cmd *cobra.Command, args []string) {
-		limit, _ := cmd.Flags().GetInt("limit")
+		limit, err := cmd.Flags().GetInt("limit")
+		if err != nil {
+			fmt.Printf("Error parsing limit: %v\n", err)
+			return
+		}
+		if limit <= 0 {
+			fmt.Println("Error: limit must be a positive integer")
+			return
+		}
 
-		client := createClient()
-		logs, err := client.ListAuditLogs(limit)
+		client := createClient(opts)
+		logs, err := client.ListAuditLogs(cmd.Context(), limit)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			printJSON(logs)
 			return
 		}
@@ -51,18 +63,23 @@ var auditListCmd = &cobra.Command{
 				resource = fmt.Sprintf("%s/%s", l.ResourceType, shortID)
 			}
 
-			_ = table.Append([]string{
+			if err := table.Append([]string{
 				l.CreatedAt.Format(time.RFC3339),
 				l.Action,
 				resource,
 				l.IPAddress,
-			})
+			}); err != nil {
+				fmt.Printf("Error appending to table: %v\n", err)
+				return
+			}
 		}
-		_ = table.Render()
+		if err := table.Render(); err != nil {
+			fmt.Printf("Error rendering table: %v\n", err)
+		}
 	},
 }
 
 func init() {
-	auditListCmd.Flags().Int("limit", 50, "Limit number of logs")
+	auditListCmd.Flags().Int("limit", defaultAuditLimit, "Limit number of logs")
 	auditCmd.AddCommand(auditListCmd)
 }

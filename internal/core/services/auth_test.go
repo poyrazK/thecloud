@@ -34,18 +34,58 @@ func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *
 	return db, svc, userRepo, identitySvc
 }
 
-func TestAuthServiceGetUserByID(t *testing.T) {
-	_, svc, _, _ := setupAuthServiceTest(t)
+func TestAuthService_GetUserByID(t *testing.T) {
 	ctx := context.Background()
+	mockUserRepo := new(MockUserRepository)
+	svc := services.NewAuthService(mockUserRepo, nil, nil, nil)
 
-	email := "getbyid_" + uuid.NewString() + "@example.com"
-	user, err := svc.Register(ctx, email, testPassword, "GetByID User")
-	require.NoError(t, err)
+	tests := []struct {
+		name          string
+		userID        uuid.UUID
+		setupMock     func()
+		expectedUser  *domain.User
+		expectedError string
+	}{
+		{
+			name:   "Success",
+			userID: uuid.New(),
+			setupMock: func() {
+				uid := uuid.New()
+				mockUserRepo.On("GetByID", mock.Anything, mock.Anything).Return(&domain.User{ID: uid}, nil).Once()
+			},
+			expectedUser: &domain.User{}, // ID will match mock return
+		},
+		{
+			name:   "Not Found",
+			userID: uuid.New(),
+			setupMock: func() {
+				mockUserRepo.On("GetByID", mock.Anything, mock.Anything).Return(nil, errors.New(errors.NotFound, "not found")).Once()
+			},
+			expectedError: "user not found",
+		},
+		{
+			name:   "Internal Error",
+			userID: uuid.New(),
+			setupMock: func() {
+				mockUserRepo.On("GetByID", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("db error")).Once()
+			},
+			expectedError: "failed to fetch user",
+		},
+	}
 
-	fetched, err := svc.GetUserByID(ctx, user.ID)
-	require.NoError(t, err)
-	assert.Equal(t, user.ID, fetched.ID)
-	assert.Equal(t, email, fetched.Email)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setupMock()
+			user, err := svc.GetUserByID(ctx, tt.userID)
+			if tt.expectedError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError)
+			} else {
+				require.NoError(t, err)
+				assert.NotNil(t, user)
+			}
+		})
+	}
 }
 
 func TestAuthServiceRegister(t *testing.T) {

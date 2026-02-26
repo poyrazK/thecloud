@@ -36,14 +36,14 @@ var logsSearchCmd = &cobra.Command{
 			Offset:       offset,
 		}
 
-		client := createClient()
+		client := createClient(opts)
 		res, err := client.SearchLogs(cmd.Context(), query)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			data, err := json.MarshalIndent(res, "", "  ")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error marshaling response: %v\n", err)
@@ -65,14 +65,14 @@ var logsShowCmd = &cobra.Command{
 		id := args[0]
 		limit, _ := cmd.Flags().GetInt("limit")
 
-		client := createClient()
+		client := createClient(opts)
 		res, err := client.GetLogsByResource(cmd.Context(), id, limit)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			data, err := json.MarshalIndent(res, "", "  ")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error marshaling response: %v\n", err)

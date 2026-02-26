@@ -23,6 +23,7 @@ const (
 	demoPrompt      = "[WARN] No API Key found. Run 'cloud auth create-demo <name>' to get one."
 	successInstance = "[SUCCESS] Instance launched successfully!\n"
 	infoStop        = "[INFO] Instance stop initiated."
+	pollInterval    = 2 * time.Second
 )
 
 var instanceCmd = &cobra.Command{
@@ -34,14 +35,14 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all instances",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		instances, err := client.ListInstances()
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			printJSON(instances)
 			return
 		}
@@ -113,7 +114,7 @@ var launchCmd = &cobra.Command{
 		}
 
 		runCmd, _ := cmd.Flags().GetStringSlice("cmd")
-		client := createClient()
+		client := createClient(opts)
 		inst, err := client.LaunchInstance(name, image, ports, instanceType, vpc, subnetID, volumes, metadata, labels, sshKeyID, runCmd)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
@@ -123,7 +124,11 @@ var launchCmd = &cobra.Command{
 		fmt.Print(successInstance)
 
 		if wait {
-			fmt.Printf("[INFO] Waiting for instance %s to be RUNNING...\n", inst.ID[:8])
+			shortID := inst.ID
+			if len(shortID) > 8 {
+				shortID = shortID[:8]
+			}
+			fmt.Printf("[INFO] Waiting for instance %s to be RUNNING...\n", shortID)
 			for {
 				updated, err := client.GetInstance(inst.ID)
 				if err != nil {
@@ -140,11 +145,11 @@ var launchCmd = &cobra.Command{
 					return
 				}
 				fmt.Print(".")
-				time.Sleep(2 * time.Second)
+				time.Sleep(pollInterval)
 			}
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			printJSON(inst)
 		} else {
 			data, _ := json.MarshalIndent(inst, "", "  ")
@@ -158,7 +163,7 @@ var stopCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := createClient()
+		client := createClient(opts)
 		if err := client.StopInstance(id); err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
@@ -174,7 +179,7 @@ var logsCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := createClient()
+		client := createClient(opts)
 		logs, err := client.GetInstanceLogs(id)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
@@ -191,14 +196,14 @@ var showCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := createClient()
+		client := createClient(opts)
 		inst, err := client.GetInstance(id)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			printJSON(inst)
 			return
 		}
@@ -232,7 +237,7 @@ var consoleCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := createClient()
+		client := createClient(opts)
 		url, err := client.GetConsoleURL(id)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
@@ -249,7 +254,7 @@ var rmCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := createClient()
+		client := createClient(opts)
 		if err := client.TerminateInstance(id); err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
@@ -264,14 +269,14 @@ var statsCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := createClient()
+		client := createClient(opts)
 		stats, err := client.GetInstanceStats(id)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			printJSON(stats)
 			return
 		}
@@ -311,7 +316,7 @@ var metadataCmd = &cobra.Command{
 			}
 		}
 
-		client := createClient()
+		client := createClient(opts)
 		if err := client.UpdateInstanceMetadata(id, metadata, labels); err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
@@ -329,7 +334,7 @@ var sshCmd = &cobra.Command{
 		keyPath, _ := cmd.Flags().GetString("i")
 		user, _ := cmd.Flags().GetString("user")
 
-		client := createClient()
+		client := createClient(opts)
 		inst, err := client.GetInstance(id)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)

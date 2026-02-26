@@ -21,7 +21,7 @@ var createTopicCmd = &cobra.Command{
 	Short: "Create a new notification topic",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		topic, err := client.CreateTopic(args[0])
 		if err != nil {
 			fmt.Printf(notifyErrorFormat, err)
@@ -36,7 +36,7 @@ var listTopicsCmd = &cobra.Command{
 	Use:   "list-topics",
 	Short: "List all notification topics",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		topics, err := client.ListTopics()
 		if err != nil {
 			fmt.Printf(notifyErrorFormat, err)
@@ -60,7 +60,7 @@ var subscribeCmd = &cobra.Command{
 		protocol, _ := cmd.Flags().GetString("protocol")
 		endpoint, _ := cmd.Flags().GetString("endpoint")
 
-		client := createClient()
+		client := createClient(opts)
 		sub, err := client.Subscribe(args[0], protocol, endpoint)
 		if err != nil {
 			fmt.Printf(notifyErrorFormat, err)
@@ -76,7 +76,7 @@ var publishCmd = &cobra.Command{
 	Short: "Publish a message to a topic",
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		err := client.Publish(args[0], args[1])
 		if err != nil {
 			fmt.Printf(notifyErrorFormat, err)

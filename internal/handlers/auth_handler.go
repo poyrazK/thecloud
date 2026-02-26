@@ -162,6 +162,7 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 // @Security APIKeyAuth
 // @Produce json
 // @Success 200 {object} httputil.Response{data=domain.User}
+// @Failure 401 {object} httputil.Response
 // @Router /auth/me [get]
 func (h *AuthHandler) Me(c *gin.Context) {
 	userID := httputil.GetUserID(c)

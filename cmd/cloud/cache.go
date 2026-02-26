@@ -25,7 +25,7 @@ var createCacheCmd = &cobra.Command{
 		vpcID, _ := cmd.Flags().GetString("vpc")
 		wait, _ := cmd.Flags().GetBool("wait")
 
-		client := createClient()
+		client := createClient(opts)
 		var vpcPtr *string
 		if vpcID != "" {
 			vpcPtr = &vpcID
@@ -60,7 +60,7 @@ var listCacheCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all cache instances",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		caches, err := client.ListCaches()
 		if err != nil {
 			fmt.Printf("Error listing caches: %v\n", err)
@@ -81,7 +81,7 @@ var getCacheCmd = &cobra.Command{
 	Short: "Show details of a cache instance",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		cache, err := client.GetCache(args[0])
 		if err != nil {
 			fmt.Printf("Error getting cache: %v\n", err)
@@ -108,7 +108,7 @@ var deleteCacheCmd = &cobra.Command{
 	Short: "Delete a cache instance",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		if err := client.DeleteCache(args[0]); err != nil {
 			fmt.Printf("Error deleting cache: %v\n", err)
 			return
@@ -122,7 +122,7 @@ var connectionCacheCmd = &cobra.Command{
 	Short: "Get connection string",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		connStr, err := client.GetCacheConnectionString(args[0])
 		if err != nil {
 			fmt.Printf("Error getting connection string: %v\n", err)
@@ -137,7 +137,7 @@ var statsCacheCmd = &cobra.Command{
 	Short: "Get cache statistics",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		stats, err := client.GetCacheStats(args[0])
 		if err != nil {
 			fmt.Printf("Error getting stats: %v\n", err)
@@ -162,7 +162,7 @@ var flushCacheCmd = &cobra.Command{
 			return
 		}
 
-		client := createClient()
+		client := createClient(opts)
 		if err := client.FlushCache(args[0]); err != nil {
 			fmt.Printf("Error flushing cache: %v\n", err)
 			return

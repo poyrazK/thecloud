@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/olekukonko/tablewriter"
 	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -22,7 +23,7 @@ var createDemoCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
-		client := sdk.NewClient(apiURL, "") // Key not needed for creation usually
+		client := sdk.NewClient(opts.APIURL, "") // Key not needed for creation usually
 		key, err := client.CreateKey(name)
 
 		if err != nil {
@@ -40,22 +41,33 @@ var listApiKeysCmd = &cobra.Command{
 	Use:   "list-keys",
 	Short: "List your API keys",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		keys, err := client.ListKeys()
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			printJSON(keys)
 			return
 		}
 
-		fmt.Printf("%-36s %-20s %-20s %s\n", "ID", "NAME", "CREATED AT", "LAST USED")
+		table := tablewriter.NewWriter(os.Stdout)
+		table.Header([]string{"ID", "NAME", "CREATED AT", "LAST USED"})
 		for _, k := range keys {
-			fmt.Printf("%-36s %-20s %-20s %s\n", 
-				k.ID, k.Name, k.CreatedAt.Format("2006-01-02"), k.LastUsed.Format("2006-01-02"))
+			if err := table.Append([]string{
+				k.ID.String(),
+				k.Name,
+				k.CreatedAt.Format("2006-01-02"),
+				k.LastUsed.Format("2006-01-02"),
+			}); err != nil {
+				fmt.Printf("Error appending to table: %v\n", err)
+				return
+			}
+		}
+		if err := table.Render(); err != nil {
+			fmt.Printf("Error rendering table: %v\n", err)
 		}
 	},
 }
@@ -65,7 +77,7 @@ var revokeKeyCmd = &cobra.Command{
 	Short: "Revoke an API key",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		if err := client.RevokeKey(args[0]); err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
@@ -79,7 +91,7 @@ var rotateKeyCmd = &cobra.Command{
 	Short: "Rotate an API key",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		key, err := client.RotateKey(args[0])
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -107,7 +119,7 @@ var registerCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
 		email, password, name := args[0], args[1], args[2]
-		client := sdk.NewClient(apiURL, "")
+		client := sdk.NewClient(opts.APIURL, "")
 		user, err := client.Register(email, password, name)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -124,7 +136,7 @@ var loginUserCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		email, password := args[0], args[1]
-		client := sdk.NewClient(apiURL, "")
+		client := sdk.NewClient(opts.APIURL, "")
 		res, err := client.Login(email, password)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -139,14 +151,14 @@ var whoamiCmd = &cobra.Command{
 	Use:   "whoami",
 	Short: "Show current session information",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		user, err := client.WhoAmI()
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			printJSON(user)
 			return
 		}

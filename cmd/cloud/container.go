@@ -24,7 +24,7 @@ var createDeploymentCmd = &cobra.Command{
 		replicas, _ := cmd.Flags().GetInt("replicas")
 		ports, _ := cmd.Flags().GetString("ports")
 
-		client := createClient()
+		client := createClient(opts)
 		dep, err := client.CreateDeployment(args[0], args[1], replicas, ports)
 		if err != nil {
 			fmt.Printf(containerErrorFormat, err)
@@ -39,7 +39,7 @@ var listDeploymentsCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all deployments",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		deps, err := client.ListDeployments()
 		if err != nil {
 			fmt.Printf(containerErrorFormat, err)
@@ -74,7 +74,7 @@ var scaleDeploymentCmd = &cobra.Command{
 			return
 		}
 
-		client := createClient()
+		client := createClient(opts)
 		err = client.ScaleDeployment(args[0], replicas)
 		if err != nil {
 			fmt.Printf(containerErrorFormat, err)
@@ -89,7 +89,7 @@ var deleteDeploymentCmd = &cobra.Command{
 	Short: "Delete a deployment",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		err := client.DeleteDeployment(args[0])
 		if err != nil {
 			fmt.Printf(containerErrorFormat, err)

@@ -27,7 +27,7 @@ var vpcPeeringCreateCmd = &cobra.Command{
 			return
 		}
 
-		client := createClient()
+		client := createClient(opts)
 		peering, err := client.CreateVPCPeering(reqVpc, accVpc)
 		if err != nil {
 			fmt.Printf(errFmt, err)
@@ -44,15 +44,19 @@ var vpcPeeringListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all VPC peering connections",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		peerings, err := client.ListVPCPeerings()
 		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
 		}
 
-		if jsonOutput {
-			data, _ := json.MarshalIndent(peerings, "", "  ")
+		if opts.JSON {
+			data, err := json.MarshalIndent(peerings, "", "  ")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error marshaling JSON: %v\n", err)
+				return
+			}
 			fmt.Println(string(data))
 			return
 		}
@@ -78,15 +82,19 @@ var vpcPeeringGetCmd = &cobra.Command{
 	Short: "Get details of a VPC peering connection",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		p, err := client.GetVPCPeering(args[0])
 		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
 		}
 
-		if jsonOutput {
-			data, _ := json.MarshalIndent(p, "", "  ")
+		if opts.JSON {
+			data, err := json.MarshalIndent(p, "", "  ")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error marshaling JSON: %v\n", err)
+				return
+			}
 			fmt.Println(string(data))
 			return
 		}
@@ -106,7 +114,7 @@ var vpcPeeringAcceptCmd = &cobra.Command{
 	Short: "Accept a pending VPC peering connection",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		peering, err := client.AcceptVPCPeering(args[0])
 		if err != nil {
 			fmt.Printf(errFmt, err)
@@ -122,7 +130,7 @@ var vpcPeeringRejectCmd = &cobra.Command{
 	Short: "Reject a pending VPC peering connection",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		if err := client.RejectVPCPeering(args[0]); err != nil {
 			fmt.Printf(errFmt, err)
 			return
@@ -138,7 +146,7 @@ var vpcPeeringRmCmd = &cobra.Command{
 	Short:   "Delete/Disconnect a VPC peering connection",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		if err := client.DeleteVPCPeering(args[0]); err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return

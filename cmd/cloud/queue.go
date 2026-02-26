@@ -21,14 +21,14 @@ var listQueuesCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all queues",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		queues, err := client.ListQueues()
 		if err != nil {
 			fmt.Printf(queueErrorFormat, err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(queues, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -59,7 +59,7 @@ var createQueueCmd = &cobra.Command{
 		rd, _ := cmd.Flags().GetInt("retention-days")
 		ms, _ := cmd.Flags().GetInt("max-message-size")
 
-		client := createClient()
+		client := createClient(opts)
 		q, err := client.CreateQueue(name, &vt, &rd, &ms)
 		if err != nil {
 			fmt.Printf(queueErrorFormat, err)
@@ -78,7 +78,7 @@ var deleteQueueCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := createClient()
+		client := createClient(opts)
 		if err := client.DeleteQueue(id); err != nil {
 			fmt.Printf(queueErrorFormat, err)
 			return
@@ -94,7 +94,7 @@ var sendMessageCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 		body := args[1]
-		client := createClient()
+		client := createClient(opts)
 		msg, err := client.SendMessage(id, body)
 		if err != nil {
 			fmt.Printf(queueErrorFormat, err)
@@ -112,7 +112,7 @@ var receiveMessagesCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 		max, _ := cmd.Flags().GetInt("max")
-		client := createClient()
+		client := createClient(opts)
 		msgs, err := client.ReceiveMessages(id, max)
 		if err != nil {
 			fmt.Printf(queueErrorFormat, err)
@@ -124,7 +124,7 @@ var receiveMessagesCmd = &cobra.Command{
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(msgs, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -151,7 +151,7 @@ var ackMessageCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 		handle := args[1]
-		client := createClient()
+		client := createClient(opts)
 		if err := client.DeleteMessage(id, handle); err != nil {
 			fmt.Printf(queueErrorFormat, err)
 			return
@@ -166,7 +166,7 @@ var purgeQueueCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := createClient()
+		client := createClient(opts)
 		if err := client.PurgeQueue(id); err != nil {
 			fmt.Printf(queueErrorFormat, err)
 			return

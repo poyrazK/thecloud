@@ -224,6 +224,7 @@ func (h *StorageHandler) ListBuckets(c *gin.Context) {
 // @Param force query bool false "Force delete even if non-empty"
 // @Success 204
 // @Failure 400 {object} httputil.Response
+// @Failure 401 {object} httputil.Response
 // @Router /storage/buckets/{bucket} [delete]
 func (h *StorageHandler) DeleteBucket(c *gin.Context) {
 	bucket := c.Param("bucket")

@@ -17,14 +17,14 @@ var tenantListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all tenants you belong to",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		tenants, err := client.ListTenants()
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			printJSON(tenants)
 			return
 		}
@@ -56,7 +56,7 @@ var tenantCreateCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		name, slug := args[0], args[1]
-		client := createClient()
+		client := createClient(opts)
 		tenant, err := client.CreateTenant(name, slug)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -73,7 +73,7 @@ var tenantSwitchCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := createClient()
+		client := createClient(opts)
 		if err := client.SwitchTenant(id); err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return

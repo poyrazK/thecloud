@@ -23,14 +23,14 @@ var dnsListZonesCmd = &cobra.Command{
 	Use:   "list-zones",
 	Short: "List all DNS zones",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		zones, err := client.ListDNSZones()
 		if err != nil {
 			fmt.Printf(dnsErrorFormat, err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(zones, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -74,7 +74,7 @@ var dnsCreateZoneCmd = &cobra.Command{
 			vpcID = &uid
 		}
 
-		client := createClient()
+		client := createClient(opts)
 		zone, err := client.CreateDNSZone(name, desc, vpcID)
 		if err != nil {
 			fmt.Printf(dnsErrorFormat, err)
@@ -92,7 +92,7 @@ var dnsDeleteZoneCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := createClient()
+		client := createClient(opts)
 		if err := client.DeleteDNSZone(id); err != nil {
 			fmt.Printf(dnsErrorFormat, err)
 			return
@@ -107,14 +107,14 @@ var dnsListRecordsCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		zoneID := args[0]
-		client := createClient()
+		client := createClient(opts)
 		records, err := client.ListDNSRecords(zoneID)
 		if err != nil {
 			fmt.Printf(dnsErrorFormat, err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(records, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -169,7 +169,7 @@ var dnsCreateRecordCmd = &cobra.Command{
 			prioPtr = &priority
 		}
 
-		client := createClient()
+		client := createClient(opts)
 		record, err := client.CreateDNSRecord(zoneID, name, domain.RecordType(recordType), content, ttl, prioPtr)
 		if err != nil {
 			fmt.Printf(dnsErrorFormat, err)
@@ -187,7 +187,7 @@ var dnsDeleteRecordCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := createClient()
+		client := createClient(opts)
 		if err := client.DeleteDNSRecord(id); err != nil {
 			fmt.Printf(dnsErrorFormat, err)
 			return

@@ -25,14 +25,14 @@ var dbListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all database instances",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := createClient()
+		client := createClient(opts)
 		databases, err := client.ListDatabases()
 		if err != nil {
 			fmt.Printf(errorFormat, err)
 			return
 		}
 
-		if jsonOutput {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(databases, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -74,7 +74,7 @@ var dbCreateCmd = &cobra.Command{
 			vpcPtr = &vpc
 		}
 
-		client := createClient()
+		client := createClient(opts)
 		db, err := client.CreateDatabase(name, engine, version, vpcPtr)
 		if err != nil {
 			fmt.Printf(errorFormat, err)
@@ -82,7 +82,7 @@ var dbCreateCmd = &cobra.Command{
 		}
 
 		fmt.Printf("[SUCCESS] Database %s created successfully!\n", name)
-		if jsonOutput {
+		if opts.JSON {
 			// Mask password for JSON output
 			dbCopy := *db
 			dbCopy.Password = "********"
@@ -111,7 +111,7 @@ var dbShowCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := createClient()
+		client := createClient(opts)
 		db, err := client.GetDatabase(id)
 		if err != nil {
 			fmt.Printf(errorFormat, err)
@@ -140,7 +140,7 @@ var dbRmCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := createClient()
+		client := createClient(opts)
 		if err := client.DeleteDatabase(id); err != nil {
 			fmt.Printf(errorFormat, err)
 			return
@@ -155,7 +155,7 @@ var dbConnCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := createClient()
+		client := createClient(opts)
 		connStr, err := client.GetDatabaseConnectionString(id)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
