@@ -387,6 +387,7 @@ func (a *LibvirtAdapter) GetInstanceLogs(ctx context.Context, id string) (io.Rea
 		return nil, err
 	}
 	logPaths := []string{
+		fmt.Sprintf("/tmp/thecloud-%s-console.log", id),
 		fmt.Sprintf("/tmp/%s-console.log", id),
 		fmt.Sprintf("/tmp/%s-qemu.log", id),
 		fmt.Sprintf("/var/log/libvirt/qemu/%s.log", id),
