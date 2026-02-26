@@ -2,15 +2,19 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	internalerrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,7 +40,7 @@ func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *
 
 func TestAuthService_GetUserByID(t *testing.T) {
 	ctx := context.Background()
-	mockUserRepo := new(MockUserRepository)
+	mockUserRepo := new(MockUserRepo)
 	svc := services.NewAuthService(mockUserRepo, nil, nil, nil)
 
 	tests := []struct {
@@ -59,7 +63,7 @@ func TestAuthService_GetUserByID(t *testing.T) {
 			name:   "Not Found",
 			userID: uuid.New(),
 			setupMock: func() {
-				mockUserRepo.On("GetByID", mock.Anything, mock.Anything).Return(nil, errors.New(errors.NotFound, "not found")).Once()
+				mockUserRepo.On("GetByID", mock.Anything, mock.Anything).Return(nil, internalerrors.New(internalerrors.NotFound, "not found")).Once()
 			},
 			expectedError: "user not found",
 		},
