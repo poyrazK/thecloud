@@ -227,6 +227,9 @@ func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts por
 	}
 
 	consoleLog := a.getLogPath(name)
+	if os.Getenv("CI") != "" {
+		consoleLog = "" // Disable in CI to avoid permission issues with /tmp or other system paths
+	}
 	domainXML := generateDomainXML(name, diskPath, networkID, isoPath, memMB, vcpu, additionalDisks, allocatedPorts, consoleLog)
 	dom, err := a.client.DomainDefineXML(ctx, domainXML)
 	if err != nil {

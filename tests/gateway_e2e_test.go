@@ -17,6 +17,28 @@ import (
 const gatewayRoutesPath = "/gateway/routes"
 const httpbinAnything = "https://httpbin.org/anything"
 
+func waitForRoute(t *testing.T, client *http.Client, url string, token string) *http.Response {
+	var resp *http.Response
+	var err error
+	for i := 0; i < 10; i++ {
+		req, _ := http.NewRequest("GET", url, nil)
+		if token != "" {
+			req.Header.Set(testutil.TestHeaderAPIKey, token)
+		}
+		resp, err = client.Do(req)
+		if err == nil && resp.StatusCode == http.StatusOK {
+			return resp
+		}
+		if resp != nil {
+			resp.Body.Close()
+		}
+		time.Sleep(1 * time.Second)
+	}
+	require.NoError(t, err, "Timed out waiting for route: "+url)
+	require.Equal(t, http.StatusOK, resp.StatusCode, "Route returned non-OK status: "+url)
+	return resp
+}
+
 func TestGatewayE2E(t *testing.T) {
 	if err := waitForServer(); err != nil {
 		t.Fatalf("Failing Gateway E2E test: %v", err)
@@ -75,15 +97,9 @@ func TestGatewayE2E(t *testing.T) {
 	})
 
 	t.Run("VerifyPatternProxying", func(t *testing.T) {
-		// Give the gateway a moment to refresh routes
-		time.Sleep(2 * time.Second)
-
 		// Test GET request through gateway
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/gw/httpbin-%d/get", testutil.TestBaseURL, ts), nil)
-		req.Header.Set(testutil.TestHeaderAPIKey, token)
-
-		resp, err := client.Do(req)
-		require.NoError(t, err)
+		url := fmt.Sprintf("%s/gw/httpbin-%d/get", testutil.TestBaseURL, ts)
+		resp := waitForRoute(t, client, url, token)
 		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -112,18 +128,15 @@ func TestGatewayE2E(t *testing.T) {
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 		_ = resp.Body.Close()
 
-		time.Sleep(2 * time.Second)
-
 		// This should match
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/gw/status-%d/201", testutil.TestBaseURL, ts), nil)
-		resp, err := client.Do(req)
-		require.NoError(t, err)
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
-		_ = resp.Body.Close()
+		url := fmt.Sprintf("%s/gw/status-%d/201", testutil.TestBaseURL, ts)
+		respMatch := waitForRoute(t, client, url, "")
+		assert.Equal(t, http.StatusCreated, respMatch.StatusCode)
+		_ = respMatch.Body.Close()
 
 		// This should NOT match (letters instead of numbers)
-		req, _ = http.NewRequest("GET", fmt.Sprintf("%s/gw/status-%d/abc", testutil.TestBaseURL, ts), nil)
-		resp, err = client.Do(req)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/gw/status-%d/abc", testutil.TestBaseURL, ts), nil)
+		resp, err := client.Do(req)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 		_ = resp.Body.Close()
@@ -146,19 +159,16 @@ func TestGatewayE2E(t *testing.T) {
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 		_ = resp.Body.Close()
 
-		time.Sleep(2 * time.Second)
+		url := fmt.Sprintf("%s/gw/wild-%d/foo/bar", testutil.TestBaseURL, ts)
+		retryResp := waitForRoute(t, client, url, "")
+		defer func() { _ = retryResp.Body.Close() }()
 
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/gw/wild-%d/foo/bar", testutil.TestBaseURL, ts), nil)
-		resp, err := client.Do(req)
-		require.NoError(t, err)
-		defer func() { _ = resp.Body.Close() }()
-
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Equal(t, http.StatusOK, retryResp.StatusCode)
 
 		var httpbinResp struct {
 			URL string `json:"url"`
 		}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&httpbinResp))
+		require.NoError(t, json.NewDecoder(retryResp.Body).Decode(&httpbinResp))
 		assert.Contains(t, httpbinResp.URL, "/anything/foo/bar")
 	})
 
@@ -179,20 +189,16 @@ func TestGatewayE2E(t *testing.T) {
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 		_ = resp.Body.Close()
 
-		time.Sleep(2 * time.Second)
+		url := fmt.Sprintf("%s/gw/orgs-%d/google/projects/chrome", testutil.TestBaseURL, ts)
+		retryResp := waitForRoute(t, client, url, token)
+		defer func() { _ = retryResp.Body.Close() }()
 
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/gw/orgs-%d/google/projects/chrome", testutil.TestBaseURL, ts), nil)
-		req.Header.Set(testutil.TestHeaderAPIKey, token)
-		resp, err := client.Do(req)
-		require.NoError(t, err)
-		defer func() { _ = resp.Body.Close() }()
-
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Equal(t, http.StatusOK, retryResp.StatusCode)
 
 		var httpbinResp struct {
 			URL string `json:"url"`
 		}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&httpbinResp))
+		require.NoError(t, json.NewDecoder(retryResp.Body).Decode(&httpbinResp))
 		// httpbin /anything echoes everything. The path should be /google/projects/chrome if stripped correctly
 		assert.Contains(t, httpbinResp.URL, "/google/projects/chrome")
 	})
@@ -222,20 +228,28 @@ func TestGatewayE2E(t *testing.T) {
 		resSpec := postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payloadSpec)
 		_ = resSpec.Body.Close()
 
-		time.Sleep(2 * time.Second)
-
-		// Test matching "me" -> should hit the specific route because of higher priority
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/gw/users-%d/me", testutil.TestBaseURL, ts), nil)
-		req.Header.Set(testutil.TestHeaderAPIKey, token)
-		resp, err := client.Do(req)
-		require.NoError(t, err)
-		defer func() { _ = resp.Body.Close() }()
-
-		var httpbinResp struct {
-			URL string `json:"url"`
+		url := fmt.Sprintf("%s/gw/users-%d/me", testutil.TestBaseURL, ts)
+		// We expect it to eventually hit "specific"
+		var finalURL string
+		for i := 0; i < 10; i++ {
+			req, _ := http.NewRequest("GET", url, nil)
+			req.Header.Set(testutil.TestHeaderAPIKey, token)
+			resp, err := client.Do(req)
+			if err == nil && resp.StatusCode == http.StatusOK {
+				var res struct {
+					URL string `json:"url"`
+				}
+				_ = json.NewDecoder(resp.Body).Decode(&res)
+				resp.Body.Close()
+				if finalURL = res.URL; finalURL != "" && (finalURL == httpbinAnything+"/specific" || finalURL == httpbinAnything+"/general") {
+					if finalURL == httpbinAnything+"/specific" {
+						break
+					}
+				}
+			}
+			time.Sleep(1 * time.Second)
 		}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&httpbinResp))
-		assert.Contains(t, httpbinResp.URL, "/specific")
+		assert.Contains(t, finalURL, "/specific")
 	})
 
 	t.Run("VerifyExtensionMatching", func(t *testing.T) {
@@ -253,20 +267,16 @@ func TestGatewayE2E(t *testing.T) {
 		resExt := postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payload)
 		_ = resExt.Body.Close()
 
-		time.Sleep(2 * time.Second)
+		url := fmt.Sprintf("%s/gw/static-%d/image.png", testutil.TestBaseURL, ts)
+		retryResp := waitForRoute(t, client, url, token)
+		defer func() { _ = retryResp.Body.Close() }()
 
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/gw/static-%d/image.png", testutil.TestBaseURL, ts), nil)
-		req.Header.Set(testutil.TestHeaderAPIKey, token)
-		resp, err := client.Do(req)
-		require.NoError(t, err)
-		defer func() { _ = resp.Body.Close() }()
-
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Equal(t, http.StatusOK, retryResp.StatusCode)
 
 		var httpbinResp struct {
 			URL string `json:"url"`
 		}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&httpbinResp))
+		require.NoError(t, json.NewDecoder(retryResp.Body).Decode(&httpbinResp))
 		assert.Contains(t, httpbinResp.URL, "/image.png")
 	})
 
@@ -295,13 +305,9 @@ func TestGatewayE2E(t *testing.T) {
 		require.Equal(t, http.StatusCreated, resMethodPost.StatusCode, "POST route creation failed")
 		_ = resMethodPost.Body.Close()
 
-		time.Sleep(2 * time.Second)
-
 		// Test GET request
-		reqGet, _ := http.NewRequest("GET", testutil.TestBaseURL+"/gw"+pattern, nil)
-		reqGet.Header.Set(testutil.TestHeaderAPIKey, token)
-		respGet, err := client.Do(reqGet)
-		require.NoError(t, err)
+		url := testutil.TestBaseURL + "/gw" + pattern
+		respGet := waitForRoute(t, client, url, token)
 		defer func() { _ = respGet.Body.Close() }()
 		require.Equal(t, http.StatusOK, respGet.StatusCode, "GET request failed")
 
@@ -316,7 +322,7 @@ func TestGatewayE2E(t *testing.T) {
 		assert.Contains(t, resGet.URL, "/get-only")
 
 		// Test POST request
-		reqPost, _ := http.NewRequest("POST", testutil.TestBaseURL+"/gw"+pattern, nil)
+		reqPost, _ := http.NewRequest("POST", url, nil)
 		reqPost.Header.Set(testutil.TestHeaderAPIKey, token)
 		respPost, err := client.Do(reqPost)
 		require.NoError(t, err)
@@ -334,7 +340,7 @@ func TestGatewayE2E(t *testing.T) {
 		assert.Contains(t, resPost.URL, "/post-only")
 
 		// Test DELETE request (should fail)
-		reqDel, _ := http.NewRequest("DELETE", testutil.TestBaseURL+"/gw"+pattern, nil)
+		reqDel, _ := http.NewRequest("DELETE", url, nil)
 		reqDel.Header.Set(testutil.TestHeaderAPIKey, token)
 		respDel, err := client.Do(reqDel)
 		require.NoError(t, err)
