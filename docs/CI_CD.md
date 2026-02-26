@@ -4,6 +4,67 @@
 
 The Cloud uses GitHub Actions for continuous integration and deployment. The pipeline is designed to test both Docker and Libvirt compute backends, ensuring compatibility across different infrastructure providers.
 
+In addition to GitHub Actions, The Cloud now provides a **platform-native CI/CD pipeline service** exposed by API endpoints under `/pipelines`. This enables tenants to define and run build/lint/test jobs directly inside The Cloud.
+
+## Platform-Native Pipelines (New)
+
+### What users can do
+
+- Create pipeline definitions with stages and steps.
+- Trigger runs manually (`POST /pipelines/:id/runs`).
+- Trigger runs from GitHub/GitLab webhooks (`POST /pipelines/:id/webhook/:provider`).
+- View run status, step status, and logs.
+
+### Execution model
+
+- Pipeline builds are queued to `pipeline_build_queue`.
+- `PipelineWorker` consumes jobs asynchronously.
+- Each step is executed in an isolated task container via the compute backend.
+- Build state transitions: `QUEUED -> RUNNING -> SUCCEEDED|FAILED`.
+
+### Webhook security and reliability
+
+- GitHub signature verification via `X-Hub-Signature-256` (HMAC SHA-256).
+- GitLab token verification via `X-Gitlab-Token`.
+- Delivery idempotency implemented with persisted delivery IDs to avoid duplicate runs.
+
+### Example: Lint this repository
+
+The following step configuration can lint `github.com/poyrazK/thecloud.git`:
+
+```json
+{
+   "name": "lint-thecloud",
+   "repository_url": "https://github.com/poyrazK/thecloud.git",
+   "branch": "main",
+   "webhook_secret": "lint-secret",
+   "config": {
+      "stages": [
+         {
+            "name": "lint",
+            "steps": [
+               {
+                  "name": "golangci-report",
+                  "image": "golang:1.24",
+                  "commands": [
+                     "export PATH=\"$PATH:/usr/local/go/bin\"",
+                     "go version",
+                     "apt-get update && apt-get install -y git",
+                     "git clone https://github.com/poyrazK/thecloud.git /workspace/thecloud",
+                     "cd /workspace/thecloud",
+                     "go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60.3",
+                     "/go/bin/golangci-lint run ./... || true"
+                  ]
+               }
+            ]
+         }
+      ]
+   }
+}
+```
+
+Use strict mode by removing `|| true` to make lint findings fail the build.
+
 ## Pipeline Structure
 
 ### Workflows
