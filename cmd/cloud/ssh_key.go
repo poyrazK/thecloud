@@ -39,7 +39,7 @@ var registerKeyCmd = &cobra.Command{
 	},
 }
 
-var listKeysCmd = &cobra.Command{
+var listSshKeysCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all registered SSH keys",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -58,6 +58,5 @@ var listKeysCmd = &cobra.Command{
 
 func init() {
 	sshKeyCmd.AddCommand(registerKeyCmd)
-	sshKeyCmd.AddCommand(listKeysCmd)
-	rootCmd.AddCommand(sshKeyCmd)
+	sshKeyCmd.AddCommand(listSshKeysCmd)
 }

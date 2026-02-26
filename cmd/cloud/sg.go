@@ -209,9 +209,10 @@ var sgGetCmd = &cobra.Command{
 }
 
 var sgDeleteCmd = &cobra.Command{
-	Use:   "delete [sg-id]",
-	Short: "Delete a security group",
-	Args:  cobra.ExactArgs(1),
+	Use:     "rm [sg-id]",
+	Aliases: []string{"delete"},
+	Short:   "Delete a security group",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		client := createClient()
 		if err := client.DeleteSecurityGroup(args[0]); err != nil {
@@ -236,7 +237,6 @@ func init() {
 	sgAddRuleCmd.Flags().Int("priority", 100, "Priority")
 
 	sgCmd.AddCommand(sgCreateCmd, sgListCmd, sgGetCmd, sgDeleteCmd, sgAddRuleCmd, sgRemoveRuleCmd, sgAttachCmd, sgDetachCmd)
-	rootCmd.AddCommand(sgCmd)
 }
 
 func truncateID(id string, n int) string {
