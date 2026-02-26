@@ -18,6 +18,7 @@ const gatewayRoutesPath = "/gateway/routes"
 const httpbinAnything = "https://httpbin.org/anything"
 
 func waitForRoute(t *testing.T, client *http.Client, url string, token string) *http.Response {
+	t.Helper()
 	var resp *http.Response
 	var err error
 	for i := 0; i < 10; i++ {
