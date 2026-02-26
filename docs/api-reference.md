@@ -228,10 +228,51 @@ Create a new VPC.
 
 ### DELETE /vpcs/:id
 Delete a VPC.
-
----
-
-## Security Groups
+ 
+ ---
+ 
+ ## VPC Peering 🆕
+ 
+ **Headers Required:** `X-API-Key: <your-api-key>`
+ 
+ ### GET /vpc-peerings
+ List all VPC peering connections for the tenant.
+ 
+ ### POST /vpc-peerings
+ Initiate a new VPC peering request.
+ ```json
+ {
+   "requester_vpc_id": "uuid",
+   "accepter_vpc_id": "uuid"
+ }
+ ```
+ 
+ **Response (201 Created):**
+ ```json
+ {
+   "id": "uuid",
+   "status": "pending-acceptance",
+   "requester_vpc_id": "uuid",
+   "accepter_vpc_id": "uuid",
+   "arn": "arn:thecloud:vpc-peering:..."
+ }
+ ```
+ 
+ ### GET /vpc-peerings/:id
+ Get details of a specific peering connection.
+ 
+ ### POST /vpc-peerings/:id/accept
+ Accept a pending peering request. This activates cross-bridge routing via OVS.
+ 
+ ### POST /vpc-peerings/:id/reject
+ Reject a pending peering request.
+ 
+ ### DELETE /vpc-peerings/:id
+ Delete a peering connection and remove all associated network routes.
+ 
+ ---
+ 
+ ## Security Groups
 
 **Headers Required:** `X-API-Key: <your-api-key>`
 

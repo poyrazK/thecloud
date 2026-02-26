@@ -9,7 +9,7 @@ An open-source cloud platform that anyone can run, modify, and own.
 - **RBAC**: Role-Based Access Control with fine-grained permissions ([Guide](docs/guides/rbac.md))
 - **Storage**: Distributed S3-compatible object storage with **Consistent Hashing** and **Gossip Protocol** ([Guide](docs/guides/storage.md))
 - **Block Storage**: Persistent volumes via **LVM** (Production) or Docker Volumes (Simulation)
-- **Networking**: Advanced VPC with SDN (Open vSwitch), Subnet isolation, and IPAM.
+- **Networking**: Advanced VPC with SDN (Open vSwitch), Subnet isolation, IPAM, and **VPC Peering**.
 - **Identity**: API Key authentication ([Guide](docs/guides/authentication.md))
 - **Observability**: Prometheus metrics and Grafana dashboards ([Guide](docs/guides/observability.md)) with **Distributed Tracing** (Jaeger).
 - **Load Balancer**: Layer 7 HTTP traffic distribution (Regional)
@@ -113,6 +113,7 @@ npm run dev
 - **Enhanced Storage**: Added support for **LVM Block Storage** and **VNC Console** access.
 - **Asynchronous Core**: Refactored long-running operations (K8s clusters, instance deletions) to use a durable **Redis Task Queue**.
 - **HA Control Plane**: Supported 1-click **High-Availability** Kubernetes clusters with 3 control plane nodes and automated API Server Load Balancers.
+- **VPC Peering**: Implemented inter-VPC connectivity using Open vSwitch (OVS) flow rules, including automated CIDR overlap validation and VPC deletion guards.
 - **Distributed Storage (v2)**: Replaced local filesystem storage with a multi-node **Distributed Object Store** featuring:
     - **Consistent Hash Ring**: Dynamic data distribution across nodes.
     - **Gossip Protocol**: Fully decentralized node discovery and health tracking.

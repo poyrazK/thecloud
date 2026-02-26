@@ -50,6 +50,12 @@ This document provides a comprehensive overview of every feature currently imple
 - **Persistence**: IPs remain reserved to the tenant even when not associated with a resource.
 - **Constraints**: Enforces one Elastic IP per instance via partial unique database indexes.
 
+**VPC Peering 🆕**:
+- **Same-Tenant Connectivity**: Securely connect two VPCs within the same tenant to allow private IP communication.
+- **CIDR Validation**: Prevents peering between VPCs with overlapping CIDR blocks to avoid routing conflicts.
+- **OVS Flow Rules**: Dynamically programs Open vSwitch flow rules for cross-bridge routing between VPC bridges.
+- **VPC Guard**: Prevents deletion of VPCs that have active peering connections.
+
 **Isolation**: strict traffic segregation rules enforced by generic or OVS flow rules.
 
 ### 3. Block Storage (Volumes)
