@@ -64,6 +64,7 @@ type Repositories struct {
 	ElasticIP     ports.ElasticIPRepository
 	Log           ports.LogRepository
 	IAM           ports.IAMRepository
+	VPCPeering    ports.VPCPeeringRepository
 }
 
 // InitRepositories constructs repositories using the provided database clients.
@@ -107,6 +108,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		ElasticIP:     postgres.NewElasticIPRepository(db),
 		Log:           postgres.NewLogRepository(db),
 		IAM:           postgres.NewIAMRepository(db),
+		VPCPeering:    postgres.NewVPCPeeringRepository(db),
 	}
 }
 
@@ -152,6 +154,7 @@ type Services struct {
 	ElasticIP     ports.ElasticIPService
 	Log           ports.LogService
 	IAM           ports.IAMService
+	VPCPeering    ports.VPCPeeringService
 }
 
 // Workers struct to return background workers
@@ -200,7 +203,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	eventSvc := services.NewEventService(c.Repos.Event, wsHub, c.Logger)
 
 	// 3. Cloud Infrastructure Services (VPC, Subnet, Instance, Volume, SG, LB)
-	vpcSvc := services.NewVpcService(c.Repos.Vpc, c.Repos.LB, c.Network, auditSvc, c.Logger, c.Config.DefaultVPCCIDR)
+	vpcSvc := services.NewVpcService(c.Repos.Vpc, c.Repos.LB, c.Repos.VPCPeering, c.Network, auditSvc, c.Logger, c.Config.DefaultVPCCIDR)
 	subnetSvc := services.NewSubnetService(c.Repos.Subnet, c.Repos.Vpc, auditSvc, c.Logger)
 	volumeSvc := services.NewVolumeService(c.Repos.Volume, c.Storage, eventSvc, auditSvc, c.Logger)
 
@@ -222,11 +225,11 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		Repo: c.Repos.Instance, VpcRepo: c.Repos.Vpc, SubnetRepo: c.Repos.Subnet, VolumeRepo: c.Repos.Volume,
 		InstanceTypeRepo: c.Repos.InstanceType,
 		Compute:          c.Compute, Network: c.Network, EventSvc: eventSvc, AuditSvc: auditSvc, DNSSvc: dnsSvc, TaskQueue: c.Repos.TaskQueue,
-		DockerNetwork:    c.Config.DockerDefaultNetwork,
-		Logger:           c.Logger,
-		TenantSvc:        tenantSvc,
-		SSHKeySvc:        sshKeySvc,
-		LogSvc:           logSvc,
+		DockerNetwork: c.Config.DockerDefaultNetwork,
+		Logger:        c.Logger,
+		TenantSvc:     tenantSvc,
+		SSHKeySvc:     sshKeySvc,
+		LogSvc:        logSvc,
 	})
 	sgSvc := services.NewSecurityGroupService(c.Repos.SecurityGroup, c.Repos.Vpc, c.Network, auditSvc, c.Logger)
 
@@ -312,6 +315,10 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		}),
 		Log: logSvc,
 		IAM: iamSvc,
+		VPCPeering: services.NewVPCPeeringService(services.VPCPeeringServiceParams{
+			Repo: c.Repos.VPCPeering, VpcRepo: c.Repos.Vpc, Network: c.Network,
+			AuditSvc: auditSvc, Logger: c.Logger,
+		}),
 	}
 
 	// 7. High Availability & Monitoring
