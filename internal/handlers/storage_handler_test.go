@@ -74,8 +74,8 @@ func (m *mockStorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket,
 	return r0, args.Error(1)
 }
 
-func (m *mockStorageService) DeleteBucket(ctx context.Context, name string) error {
-	return m.Called(ctx, name).Error(0)
+func (m *mockStorageService) DeleteBucket(ctx context.Context, name string, force bool) error {
+	return m.Called(ctx, name, force).Error(0)
 }
 
 func (m *mockStorageService) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
@@ -283,7 +283,7 @@ func TestStorageHandlerDeleteBucket(t *testing.T) {
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.DELETE(bucketsPath+"/:bucket", handler.DeleteBucket)
 
-	mockSvc.On("DeleteBucket", mock.Anything, "b1").Return(nil)
+	mockSvc.On("DeleteBucket", mock.Anything, "b1", false).Return(nil)
 
 	req := httptest.NewRequest(http.MethodDelete, bucketsPath+"/b1", nil)
 	w := httptest.NewRecorder()
@@ -523,7 +523,7 @@ func TestStorageHandlerDeleteBucketErrorCase(t *testing.T) {
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.DELETE(bucketsPath+"/:bucket", handler.DeleteBucket)
 
-	mockSvc.On("DeleteBucket", mock.Anything, "b1").Return(errors.New(errors.Internal, "delete bucket failed"))
+	mockSvc.On("DeleteBucket", mock.Anything, "b1", false).Return(errors.New(errors.Internal, "delete bucket failed"))
 
 	req := httptest.NewRequest(http.MethodDelete, bucketsPath+"/b1", nil)
 	w := httptest.NewRecorder()

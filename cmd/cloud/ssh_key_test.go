@@ -37,7 +37,7 @@ func TestSSHKeyList(t *testing.T) {
 	}()
 
 	out := captureStdout(t, func() {
-		listKeysCmd.Run(listKeysCmd, nil)
+		listSshKeysCmd.Run(listSshKeysCmd, nil)
 	})
 	if !strings.Contains(out, "key-1") || !strings.Contains(out, "my-laptop") {
 		t.Fatalf("unexpected output: %s", out)
