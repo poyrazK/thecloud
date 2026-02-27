@@ -44,7 +44,7 @@ var listClustersCmd = &cobra.Command{
 			if len(id) > 8 {
 				id = truncateID(id)
 			}
-			_ = table.Append([]string{
+			table.Append([]string{
 				id,
 				c.Name,
 				c.Version,
@@ -52,7 +52,7 @@ var listClustersCmd = &cobra.Command{
 				c.Status,
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 

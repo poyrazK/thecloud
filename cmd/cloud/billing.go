@@ -36,9 +36,9 @@ var billingSummaryCmd = &cobra.Command{
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header([]string{"RESOURCE TYPE", "AMOUNT"})
 		for t, amt := range summary.UsageByType {
-			cobra.CheckErr(table.Append([]string{string(t), fmt.Sprintf("%.2f", amt)}))
+			table.Append([]string{string(t), fmt.Sprintf("%.2f", amt)})
 		}
-		cobra.CheckErr(table.Render())
+		table.Render()
 	},
 }
 
@@ -67,15 +67,15 @@ var billingUsageCmd = &cobra.Command{
 		table.Header([]string{"RESOURCE ID", "TYPE", "QUANTITY", "UNIT", "START TIME"})
 
 		for _, r := range records {
-			cobra.CheckErr(table.Append([]string{
+			table.Append([]string{
 				truncateID(r.ResourceID.String()),
 				string(r.ResourceType),
 				fmt.Sprintf("%.2f", r.Quantity),
 				r.Unit,
 				r.StartTime.Format("2006-01-02 15:04"),
-			}))
+			})
 		}
-		cobra.CheckErr(table.Render())
+		table.Render()
 	},
 }
 

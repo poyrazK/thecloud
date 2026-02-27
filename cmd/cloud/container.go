@@ -49,7 +49,7 @@ var listDeploymentsCmd = &cobra.Command{
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header([]string{"ID", "NAME", "IMAGE", "REPLICAS", "CURRENT", "STATUS"})
 		for _, d := range deps {
-			_ = table.Append([]string{
+			table.Append([]string{
 				d.ID,
 				d.Name,
 				d.Image,
@@ -58,7 +58,7 @@ var listDeploymentsCmd = &cobra.Command{
 				d.Status,
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 

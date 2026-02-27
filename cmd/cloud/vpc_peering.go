@@ -65,7 +65,7 @@ var vpcPeeringListCmd = &cobra.Command{
 		table.Header([]string{"ID", "REQUESTER VPC", "ACCEPTER VPC", "STATUS", "CREATED AT"})
 
 		for _, p := range peerings {
-			_ = table.Append([]string{
+			table.Append([]string{
 				truncateID(p.ID),
 				truncateID(p.RequesterVPCID),
 				truncateID(p.AccepterVPCID),
@@ -73,7 +73,7 @@ var vpcPeeringListCmd = &cobra.Command{
 				p.CreatedAt.Format("2006-01-02 15:04"),
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 

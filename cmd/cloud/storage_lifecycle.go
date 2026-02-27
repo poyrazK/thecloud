@@ -72,7 +72,7 @@ var lifecycleListCmd = &cobra.Command{
 		table.Header([]string{"ID", "PREFIX", "DAYS", "ENABLED", "CREATED AT"})
 
 		for _, r := range rules {
-			_ = table.Append([]string{
+			table.Append([]string{
 				r.ID,
 				r.Prefix,
 				fmt.Sprintf("%d", r.ExpirationDays),
@@ -80,7 +80,7 @@ var lifecycleListCmd = &cobra.Command{
 				r.CreatedAt.Format(time.RFC3339),
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 

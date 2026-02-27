@@ -55,15 +55,15 @@ var listCmd = &cobra.Command{
 
 			access := formatAccessPorts(inst.Ports, inst.Status)
 
-			cobra.CheckErr(table.Append([]string{
+			table.Append([]string{
 				id,
 				inst.Name,
 				inst.Image,
 				inst.Status,
 				access,
-			}))
+			})
 		}
-		cobra.CheckErr(table.Render())
+		table.Render()
 	},
 }
 

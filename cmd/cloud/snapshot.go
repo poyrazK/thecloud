@@ -47,15 +47,15 @@ var snapshotListCmd = &cobra.Command{
 			if vol == "" {
 				vol = truncateID(s.VolumeID.String())
 			}
-			cobra.CheckErr(table.Append([]string{
+			table.Append([]string{
 				id,
 				vol,
 				fmt.Sprintf("%d GB", s.SizeGB),
 				string(s.Status),
 				s.CreatedAt.Format("2006-01-02 15:04"),
-			}))
+			})
 		}
-		cobra.CheckErr(table.Render())
+		table.Render()
 	},
 }
 

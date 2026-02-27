@@ -46,9 +46,9 @@ var listTopicsCmd = &cobra.Command{
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header([]string{"ID", "NAME", "ARN"})
 		for _, t := range topics {
-			_ = table.Append([]string{t.ID, t.Name, t.ARN})
+			table.Append([]string{t.ID, t.Name, t.ARN})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 

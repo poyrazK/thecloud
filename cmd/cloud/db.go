@@ -44,7 +44,7 @@ var dbListCmd = &cobra.Command{
 		for _, db := range databases {
 			id := truncateID(db.ID)
 
-			_ = table.Append([]string{
+			table.Append([]string{
 				id,
 				db.Name,
 				db.Engine,
@@ -53,7 +53,7 @@ var dbListCmd = &cobra.Command{
 				fmt.Sprintf("%d", db.Port),
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 

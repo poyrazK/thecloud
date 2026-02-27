@@ -58,9 +58,9 @@ var listFnCmd = &cobra.Command{
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header([]string{"ID", "Name", "Runtime", "Status", "Created At"})
 		for _, f := range functions {
-			_ = table.Append([]string{f.ID, f.Name, f.Runtime, f.Status, f.CreatedAt.Format("2006-01-02 15:04:05")})
+			table.Append([]string{f.ID, f.Name, f.Runtime, f.Status, f.CreatedAt.Format("2006-01-02 15:04:05")})
 		}
-		_ = table.Render()
+		table.Render()
 		return nil
 	},
 }

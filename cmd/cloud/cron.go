@@ -48,9 +48,9 @@ var listCronCmd = &cobra.Command{
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header([]string{"ID", "NAME", "SCHEDULE", "STATUS", "NEXT RUN"})
 		for _, j := range jobs {
-			_ = table.Append([]string{j.ID, j.Name, j.Schedule, j.Status, j.NextRunAt})
+			table.Append([]string{j.ID, j.Name, j.Schedule, j.Status, j.NextRunAt})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 

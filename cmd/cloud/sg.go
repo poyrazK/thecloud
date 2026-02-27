@@ -79,14 +79,14 @@ var sgListCmd = &cobra.Command{
 		table.Header([]string{"ID", "NAME", descVPCID, "ARN"})
 
 		for _, g := range groups {
-			cobra.CheckErr(table.Append([]string{
+			table.Append([]string{
 				truncateID(g.ID),
 				g.Name,
 				truncateID(g.VPCID),
 				g.ARN,
-			}))
+			})
 		}
-		cobra.CheckErr(table.Render())
+		table.Render()
 	},
 }
 
@@ -196,16 +196,16 @@ var sgGetCmd = &cobra.Command{
 			if r.PortMin == r.PortMax {
 				ports = fmt.Sprintf("%d", r.PortMin)
 			}
-			cobra.CheckErr(table.Append([]string{
+			table.Append([]string{
 				truncateID(r.ID),
 				r.Direction,
 				r.Protocol,
 				ports,
 				r.CIDR,
 				fmt.Sprintf("%d", r.Priority),
-			}))
+			})
 		}
-		cobra.CheckErr(table.Render())
+		table.Render()
 	},
 }
 

@@ -42,14 +42,14 @@ var dnsListZonesCmd = &cobra.Command{
 			if z.VpcID != uuid.Nil {
 				vpcID = truncateID(z.VpcID.String())
 			}
-			cobra.CheckErr(table.Append([]string{
+			table.Append([]string{
 				truncateID(z.ID.String()),
 				z.Name,
 				vpcID,
 				z.CreatedAt.Format("2006-01-02 15:04:05"),
-			}))
+			})
 		}
-		cobra.CheckErr(table.Render())
+		table.Render()
 	},
 }
 
@@ -134,7 +134,7 @@ var dnsListRecordsCmd = &cobra.Command{
 			if r.AutoManaged {
 				auto = "Yes"
 			}
-			cobra.CheckErr(table.Append([]string{
+			table.Append([]string{
 				truncateID(r.ID.String()),
 				r.Name,
 				string(r.Type),
@@ -142,9 +142,9 @@ var dnsListRecordsCmd = &cobra.Command{
 				strconv.Itoa(r.TTL),
 				prio,
 				auto,
-			}))
+			})
 		}
-		cobra.CheckErr(table.Render())
+		table.Render()
 	},
 }
 

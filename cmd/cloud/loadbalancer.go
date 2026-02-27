@@ -41,16 +41,16 @@ var lbListCmd = &cobra.Command{
 		table.Header([]string{"ID", "NAME", "VPC ID", "PORT", "ALGO", "STATUS"})
 
 		for _, v := range lbs {
-			cobra.CheckErr(table.Append([]string{
+			table.Append([]string{
 				truncateID(v.ID),
 				v.Name,
 				truncateID(v.VpcID),
 				fmt.Sprintf("%d", v.Port),
 				v.Algorithm,
 				string(v.Status),
-			}))
+			})
 		}
-		cobra.CheckErr(table.Render())
+		table.Render()
 	},
 }
 
@@ -181,13 +181,13 @@ var lbListTargetsCmd = &cobra.Command{
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header([]string{"INSTANCE ID", "PORT", "WEIGHT", "HEALTH"})
 		for _, t := range targets {
-			cobra.CheckErr(table.Append([]string{
+			table.Append([]string{
 				truncateID(t.InstanceID),
 				fmt.Sprintf("%d", t.Port),
 				fmt.Sprintf("%d", t.Weight),
 				t.Health,
-			}))
+			})
 		}
-		cobra.CheckErr(table.Render())
+		table.Render()
 	},
 }

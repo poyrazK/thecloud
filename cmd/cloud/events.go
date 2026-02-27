@@ -49,15 +49,15 @@ var listEventsCmd = &cobra.Command{
 				meta = meta[:47] + "..."
 			}
 
-			cobra.CheckErr(table.Append([]string{
+			table.Append([]string{
 				val,
 				e.Action,
 				truncateID(e.ResourceID),
 				e.ResourceType,
 				meta,
-			}))
+			})
 		}
-		cobra.CheckErr(table.Render())
+		table.Render()
 	},
 }
 

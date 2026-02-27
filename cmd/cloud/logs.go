@@ -105,14 +105,14 @@ func displayLogs(entries []sdk.LogEntry) {
 			resource = fmt.Sprintf("%s/%s", e.ResourceType, shortID)
 		}
 
-		_ = table.Append([]string{
+		table.Append([]string{
 			e.Timestamp.Format(time.RFC3339),
 			e.Level,
 			resource,
 			e.Message,
 		})
 	}
-	_ = table.Render()
+	table.Render()
 }
 
 func init() {
