@@ -23,19 +23,13 @@ func TestRunMigrations(t *testing.T) {
 	entries, err := migrationFiles.ReadDir("migrations")
 	require.NoError(t, err)
 
-	// Expect a transaction
-	mock.ExpectBegin()
-
 	for _, entry := range entries {
 		if !strings.HasSuffix(entry.Name(), ".up.sql") {
 			continue
 		}
-		// Each migration file in the loop will trigger an Exec call within the transaction
+		// Each migration file in the loop will trigger an Exec call
 		mock.ExpectExec(".*").WillReturnResult(pgxmock.NewResult("EXECUTE", 1))
 	}
-
-	// Expect commit
-	mock.ExpectCommit()
 
 	err = RunMigrations(context.Background(), mock, logger)
 	require.NoError(t, err)
