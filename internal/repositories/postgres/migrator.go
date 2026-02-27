@@ -8,8 +8,6 @@ import (
 	"log/slog"
 	"sort"
 	"strings"
-
-	"github.com/jackc/pgx/v5"
 )
 
 //go:embed migrations/*.up.sql

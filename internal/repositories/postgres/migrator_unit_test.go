@@ -20,16 +20,22 @@ func TestRunMigrations(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	// Get the migration files to know how many Execs to expect
-	entries, err := migrationsFS.ReadDir("migrations")
+	entries, err := migrationFiles.ReadDir("migrations")
 	require.NoError(t, err)
+
+	// Expect a transaction
+	mock.ExpectBegin()
 
 	for _, entry := range entries {
 		if !strings.HasSuffix(entry.Name(), ".up.sql") {
 			continue
 		}
-		// Each migration file in the loop will trigger an Exec call
+		// Each migration file in the loop will trigger an Exec call within the transaction
 		mock.ExpectExec(".*").WillReturnResult(pgxmock.NewResult("EXECUTE", 1))
 	}
+
+	// Expect commit
+	mock.ExpectCommit()
 
 	err = RunMigrations(context.Background(), mock, logger)
 	require.NoError(t, err)
