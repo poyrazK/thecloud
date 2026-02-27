@@ -14,7 +14,7 @@ import (
 )
 
 func TestVpcRepositoryIntegration(t *testing.T) {
-	db := SetupDB(t)
+	db, _ := SetupDB(t)
 	defer db.Close()
 	repo := NewVpcRepository(db)
 	// Cleanup

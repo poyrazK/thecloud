@@ -22,7 +22,8 @@ import (
 // SetupDB initializes the database connection for integration tests.
 // It prioritizes the DATABASE_URL environment variable, falling back to a
 // temporary Docker container via Testcontainers if the variable is not set.
-func SetupDB(t *testing.T) *pgxpool.Pool {
+// It returns both the connection pool and the unique schema name created for the test.
+func SetupDB(t *testing.T) (*pgxpool.Pool, string) {
 	t.Helper()
 	ctx := context.Background()
 	dbURL := os.Getenv("DATABASE_URL")
@@ -81,7 +82,7 @@ func SetupDB(t *testing.T) *pgxpool.Pool {
 		}
 	})
 
-	return db
+	return db, schema
 }
 
 // SetupTestUser creates a dedicated test user and tenant context for a test run.

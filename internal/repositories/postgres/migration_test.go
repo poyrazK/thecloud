@@ -13,7 +13,7 @@ import (
 )
 
 func TestMigrationRollback(t *testing.T) {
-	db := SetupDB(t)
+	db, _ := SetupDB(t)
 	defer db.Close()
 	ctx := context.Background()
 	conn, err := db.Acquire(ctx)

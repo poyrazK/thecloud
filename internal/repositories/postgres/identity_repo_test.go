@@ -14,7 +14,7 @@ import (
 )
 
 func TestIdentityRepository_Integration(t *testing.T) {
-	db := SetupDB(t)
+	db, _ := SetupDB(t)
 	defer db.Close()
 	repo := NewIdentityRepository(db)
 	ctx := SetupTestUser(t, db)

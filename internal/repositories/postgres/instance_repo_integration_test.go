@@ -17,7 +17,7 @@ import (
 const integrationInstanceName = "integration-test-inst"
 
 func TestInstanceRepositoryIntegration(t *testing.T) {
-	db := SetupDB(t)
+	db, _ := SetupDB(t)
 	defer db.Close()
 	repo := NewInstanceRepository(db)
 	ctx := SetupTestUser(t, db)
