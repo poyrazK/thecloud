@@ -298,12 +298,24 @@ func TestGatewayE2E(t *testing.T) {
 		time.Sleep(2 * time.Second)
 
 		// Test GET request
-		reqGet, _ := http.NewRequest("GET", testutil.TestBaseURL+"/gw"+pattern, nil)
-		reqGet.Header.Set(testutil.TestHeaderAPIKey, token)
-		respGet, err := client.Do(reqGet)
+		var respGet *http.Response
+		var err error
+		for i := 0; i < 3; i++ {
+			reqGet, _ := http.NewRequest("GET", testutil.TestBaseURL+"/gw"+pattern, nil)
+			reqGet.Header.Set(testutil.TestHeaderAPIKey, token)
+			respGet, err = client.Do(reqGet)
+			if err == nil && respGet.StatusCode == http.StatusOK {
+				break
+			}
+			if respGet != nil {
+				_ = respGet.Body.Close()
+			}
+			time.Sleep(2 * time.Second)
+		}
+
 		require.NoError(t, err)
 		defer func() { _ = respGet.Body.Close() }()
-		require.Equal(t, http.StatusOK, respGet.StatusCode, "GET request failed")
+		require.Equal(t, http.StatusOK, respGet.StatusCode, "GET request failed after retries")
 
 		bodyBytesGet, err := io.ReadAll(respGet.Body)
 		require.NoError(t, err)
