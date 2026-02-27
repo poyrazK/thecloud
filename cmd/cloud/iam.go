@@ -38,7 +38,7 @@ var iamPolicyListCmd = &cobra.Command{
 
 		for _, p := range policies {
 			if err := table.Append([]string{
-				p.ID.String()[:8],
+				truncateID(p.ID.String()),
 				p.Name,
 				p.Description,
 			}); err != nil {

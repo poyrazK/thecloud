@@ -39,7 +39,7 @@ var listQueuesCmd = &cobra.Command{
 
 		for _, q := range queues {
 			_ = table.Append([]string{
-				q.ID[:8],
+				truncateID(q.ID),
 				q.Name,
 				q.Status,
 				q.ARN,
@@ -73,9 +73,10 @@ var createQueueCmd = &cobra.Command{
 }
 
 var deleteQueueCmd = &cobra.Command{
-	Use:   "delete [id]",
-	Short: "Delete a message queue",
-	Args:  cobra.ExactArgs(1),
+	Use:     "rm [id]",
+	Aliases: []string{"delete"},
+	Short:   "Delete a message queue",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 		client := createClient(opts)
@@ -135,7 +136,7 @@ var receiveMessagesCmd = &cobra.Command{
 
 		for _, m := range msgs {
 			_ = table.Append([]string{
-				m.ID[:8],
+				truncateID(m.ID),
 				m.Body,
 				m.ReceiptHandle,
 			})

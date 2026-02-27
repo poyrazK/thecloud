@@ -85,9 +85,10 @@ var lifecycleListCmd = &cobra.Command{
 }
 
 var lifecycleDeleteCmd = &cobra.Command{
-	Use:   "delete [bucket] [rule-id]",
-	Short: "Delete a lifecycle rule",
-	Args:  cobra.ExactArgs(2),
+	Use:     "rm [bucket] [rule-id]",
+	Aliases: []string{"delete"},
+	Short:   "Delete a lifecycle rule",
+	Args:    cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		bucket := args[0]
 		ruleID := args[1]

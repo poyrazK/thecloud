@@ -42,10 +42,10 @@ var dnsListZonesCmd = &cobra.Command{
 		for _, z := range zones {
 			vpcID := "Public"
 			if z.VpcID != uuid.Nil {
-				vpcID = z.VpcID.String()[:8]
+				vpcID = truncateID(z.VpcID.String())
 			}
 			_ = table.Append([]string{
-				z.ID.String()[:8],
+				truncateID(z.ID.String()),
 				z.Name,
 				vpcID,
 				z.CreatedAt.Format("2006-01-02 15:04:05"),
@@ -87,8 +87,9 @@ var dnsCreateZoneCmd = &cobra.Command{
 }
 
 var dnsDeleteZoneCmd = &cobra.Command{
-	Use:   "delete-zone [id]",
-	Short: "Delete a DNS zone",
+	Use:     "rm-zone [id]",
+	Aliases: []string{"delete-zone"},
+	Short:   "Delete a DNS zone",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
@@ -133,7 +134,7 @@ var dnsListRecordsCmd = &cobra.Command{
 				auto = "Yes"
 			}
 			_ = table.Append([]string{
-				r.ID.String()[:8],
+				truncateID(r.ID.String()),
 				r.Name,
 				string(r.Type),
 				r.Content,

@@ -42,10 +42,7 @@ var dbListCmd = &cobra.Command{
 		table.Header([]string{"ID", "NAME", "ENGINE", "VERSION", "STATUS", "PORT"})
 
 		for _, db := range databases {
-			id := db.ID
-			if len(id) > 8 {
-				id = id[:8]
-			}
+			id := truncateID(db.ID)
 
 			_ = table.Append([]string{
 				id,

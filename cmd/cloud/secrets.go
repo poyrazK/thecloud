@@ -40,7 +40,7 @@ var secretsListCmd = &cobra.Command{
 		for _, s := range secrets {
 			id := s.ID
 			if len(id) > 8 {
-				id = id[:8]
+				id = truncateID(id)
 			}
 
 			_ = table.Append([]string{

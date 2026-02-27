@@ -40,11 +40,11 @@ var volumeListCmd = &cobra.Command{
 		for _, v := range volumes {
 			id := v.ID.String()
 			if len(id) > 8 {
-				id = id[:8]
+				id = truncateID(id)
 			}
 			attachedTo := "-"
 			if v.InstanceID != nil {
-				attachedTo = v.InstanceID.String()[:8]
+				attachedTo = truncateID(v.InstanceID.String())
 			}
 			cobra.CheckErr(table.Append([]string{
 				id,

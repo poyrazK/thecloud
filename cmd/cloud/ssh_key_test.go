@@ -10,7 +10,6 @@ import (
 )
 
 func TestSSHKeyList(t *testing.T) {
-	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/ssh-keys" || r.Method != http.MethodGet {
@@ -45,7 +44,6 @@ func TestSSHKeyList(t *testing.T) {
 }
 
 func TestSSHKeyRegister(t *testing.T) {
-	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/ssh-keys" || r.Method != http.MethodPost {

@@ -40,7 +40,7 @@ var iacListCmd = &cobra.Command{
 
 		for _, s := range stacks {
 			_ = table.Append([]string{
-				s.ID.String()[:8],
+				truncateID(s.ID.String()),
 				s.Name,
 				string(s.Status),
 				s.CreatedAt.Format("2006-01-02 15:04:05"),

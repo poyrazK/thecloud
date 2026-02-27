@@ -39,9 +39,9 @@ var lbListCmd = &cobra.Command{
 
 		for _, v := range lbs {
 			_ = table.Append([]string{
-				v.ID[:8],
+				truncateID(v.ID),
 				v.Name,
-				v.VpcID[:8],
+				truncateID(v.VpcID),
 				fmt.Sprintf("%d", v.Port),
 				v.Algorithm,
 				string(v.Status),
@@ -171,7 +171,7 @@ var lbListTargetsCmd = &cobra.Command{
 		for _, t := range targets {
 			id := t.InstanceID
 			if len(id) > 8 {
-				id = id[:8]
+				id = truncateID(id)
 			}
 			_ = table.Append([]string{
 				id,

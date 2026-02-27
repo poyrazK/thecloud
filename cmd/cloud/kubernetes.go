@@ -42,7 +42,7 @@ var listClustersCmd = &cobra.Command{
 		for _, c := range clusters {
 			id := c.ID.String()
 			if len(id) > 8 {
-				id = id[:8]
+				id = truncateID(id)
 			}
 			_ = table.Append([]string{
 				id,
@@ -99,9 +99,10 @@ var createClusterCmd = &cobra.Command{
 }
 
 var deleteClusterCmd = &cobra.Command{
-	Use:   "delete [id]",
-	Short: "Delete a Kubernetes cluster",
-	Args:  cobra.ExactArgs(1),
+	Use:     "rm [id]",
+	Aliases: []string{"delete"},
+	Short:   "Delete a Kubernetes cluster",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 		client := createClient(opts)

@@ -56,10 +56,7 @@ var auditListCmd = &cobra.Command{
 		for _, l := range logs {
 			resource := l.ResourceType
 			if l.ResourceID != "" {
-				shortID := l.ResourceID
-				if len(shortID) > 8 {
-					shortID = shortID[:8]
-				}
+				shortID := truncateID(l.ResourceID)
 				resource = fmt.Sprintf("%s/%s", l.ResourceType, shortID)
 			}
 

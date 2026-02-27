@@ -41,11 +41,11 @@ var snapshotListCmd = &cobra.Command{
 		for _, s := range snapshots {
 			id := s.ID.String()
 			if len(id) > 8 {
-				id = id[:8]
+				id = truncateID(id)
 			}
 			vol := s.VolumeName
 			if vol == "" {
-				vol = s.VolumeID.String()[:8]
+				vol = truncateID(s.VolumeID.String())
 			}
 			cobra.CheckErr(table.Append([]string{
 				id,

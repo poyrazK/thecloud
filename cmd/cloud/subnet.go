@@ -41,7 +41,7 @@ var subnetListCmd = &cobra.Command{
 
 		for _, s := range subnets {
 			_ = table.Append([]string{
-				s.ID[:8],
+				truncateID(s.ID),
 				s.Name,
 				s.CIDRBlock,
 				s.AZ,

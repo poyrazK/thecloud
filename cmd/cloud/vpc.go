@@ -39,7 +39,7 @@ var vpcListCmd = &cobra.Command{
 
 		for _, v := range vpcs {
 			_ = table.Append([]string{
-				v.ID[:8],
+				truncateID(v.ID),
 				v.Name,
 				v.CIDRBlock,
 				fmt.Sprintf("%d", v.VXLANID),

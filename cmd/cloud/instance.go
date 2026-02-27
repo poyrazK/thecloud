@@ -51,10 +51,7 @@ var listCmd = &cobra.Command{
 		table.Header([]string{"ID", "NAME", "IMAGE", "STATUS", "ACCESS"})
 
 		for _, inst := range instances {
-			id := inst.ID
-			if len(id) > 8 {
-				id = id[:8]
-			}
+			id := truncateID(inst.ID)
 
 			access := formatAccessPorts(inst.Ports, inst.Status)
 
@@ -124,10 +121,7 @@ var launchCmd = &cobra.Command{
 		fmt.Print(successInstance)
 
 		if wait {
-			shortID := inst.ID
-			if len(shortID) > 8 {
-				shortID = shortID[:8]
-			}
+			shortID := truncateID(inst.ID)
 			fmt.Printf("[INFO] Waiting for instance %s to be RUNNING...\n", shortID)
 			for {
 				updated, err := client.GetInstance(inst.ID)

@@ -82,9 +82,9 @@ var sgListCmd = &cobra.Command{
 
 		for _, g := range groups {
 			_ = table.Append([]string{
-				g.ID[:8],
+				truncateID(g.ID),
 				g.Name,
-				g.VPCID[:8],
+				truncateID(g.VPCID),
 				g.ARN,
 			})
 		}
@@ -245,12 +245,4 @@ func init() {
 	sgAddRuleCmd.Flags().Int("priority", 100, "Priority")
 
 	sgCmd.AddCommand(sgCreateCmd, sgListCmd, sgGetCmd, sgDeleteCmd, sgAddRuleCmd, sgRemoveRuleCmd, sgAttachCmd, sgDetachCmd)
-}
-
-func truncateID(id string) string {
-	const n = 8
-	if len(id) <= n {
-		return id
-	}
-	return id[:n]
 }

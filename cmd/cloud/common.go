@@ -52,3 +52,11 @@ func printJSON(data interface{}) {
 	}
 	fmt.Println(string(b))
 }
+
+func truncateID(id string) string {
+	const n = 8
+	if len(id) <= n {
+		return id
+	}
+	return id[:n]
+}

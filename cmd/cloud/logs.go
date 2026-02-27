@@ -100,7 +100,7 @@ func displayLogs(entries []sdk.LogEntry) {
 		if e.ResourceID != "" {
 			shortID := e.ResourceID
 			if len(shortID) > 8 {
-				shortID = shortID[:8]
+				shortID = truncateID(shortID)
 			}
 			resource = fmt.Sprintf("%s/%s", e.ResourceType, shortID)
 		}
