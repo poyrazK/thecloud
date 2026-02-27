@@ -13,13 +13,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-//go:embed migrations/*.up.sql
-var migrationFiles embed.FS
+//go:embed migrations/*.up.sql migrations/*.down.sql
+var MigrationFiles embed.FS
 
 // RunMigrations executes all SQL migration files in order.
 // It tries to be idempotent by using IF NOT EXISTS where possible in SQL files.
 func RunMigrations(ctx context.Context, db any, logger *slog.Logger) error {
-	entries, err := migrationFiles.ReadDir("migrations")
+	entries, err := MigrationFiles.ReadDir("migrations")
 	if err != nil {
 		return fmt.Errorf("failed to read migrations: %w", err)
 	}
@@ -54,7 +54,7 @@ func RunMigrations(ctx context.Context, db any, logger *slog.Logger) error {
 			continue
 		}
 
-		content, err := migrationFiles.ReadFile("migrations/" + entry.Name())
+		content, err := MigrationFiles.ReadFile("migrations/" + entry.Name())
 		if err != nil {
 			return fmt.Errorf("failed to read migration %s: %w", entry.Name(), err)
 		}
