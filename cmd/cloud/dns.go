@@ -183,9 +183,10 @@ var dnsCreateRecordCmd = &cobra.Command{
 }
 
 var dnsDeleteRecordCmd = &cobra.Command{
-	Use:   "delete-record [id]",
-	Short: "Delete a DNS record",
-	Args:  cobra.ExactArgs(1),
+	Use:     "rm-record [id]",
+	Aliases: []string{"delete-record"},
+	Short:   "Delete a DNS record",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 		client := createClient(opts)
