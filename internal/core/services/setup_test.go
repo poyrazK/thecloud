@@ -45,13 +45,15 @@ func setupDB(t *testing.T) *pgxpool.Pool {
 	require.NoError(t, err)
 
 	// Configure pool to use the schema for ALL connections
+	// We MUST include 'public' in search_path because extensions like uuid-ossp 
+	// are usually installed there and functions like uuid_generate_v4() won't be found otherwise.
 	config, err := pgxpool.ParseConfig(dbURL)
 	require.NoError(t, err)
 	
 	if config.ConnConfig.RuntimeParams == nil {
 		config.ConnConfig.RuntimeParams = make(map[string]string)
 	}
-	config.ConnConfig.RuntimeParams["search_path"] = schema
+	config.ConnConfig.RuntimeParams["search_path"] = fmt.Sprintf("%s, public", schema)
 
 	db, err := pgxpool.NewWithConfig(ctx, config)
 	require.NoError(t, err)
@@ -62,7 +64,7 @@ func setupDB(t *testing.T) *pgxpool.Pool {
 	}
 
 	// Ensure search_path is set for the current connection too (redundant but safe)
-	_, err = db.Exec(ctx, fmt.Sprintf("SET search_path TO %s", schema))
+	_, err = db.Exec(ctx, fmt.Sprintf("SET search_path TO %s, public", schema))
 	require.NoError(t, err)
 
 	// Verify we are actually in the correct schema

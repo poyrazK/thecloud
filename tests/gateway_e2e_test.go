@@ -115,22 +115,28 @@ func TestGatewayE2E(t *testing.T) {
 	t.Run("VerifyRegexPatternProxying", func(t *testing.T) {
 		pattern := fmt.Sprintf("/status-%d/{code:[0-9]+}", ts)
 		routeName := fmt.Sprintf("status-code-%d", ts)
-		targetURL := "https://httpbin.org/status"
+		targetURL := "https://httpbin.org" // Use base URL
 
 		payload := map[string]interface{}{
 			"name":         routeName,
 			"path_prefix":  pattern,
 			"target_url":   targetURL,
-			"strip_prefix": true,
-			"rate_limit":   100,
+			"strip_prefix": false, // Don't strip, let it pass /status-ts/201 to target if we use prefix
+			// Actually, if we use pattern matching, the whole path matched is usually handled.
+			// Let's use a simpler one:
 		}
+		// Redefine for clarity
+		pattern = fmt.Sprintf("/gw-status-%d/{code:[0-9]+}", ts)
+		payload["path_prefix"] = pattern
+		payload["target_url"] = "https://httpbin.org/status"
+		payload["strip_prefix"] = true
 
 		resp := postRequest(t, client, testutil.TestBaseURL+gatewayRoutesPath, token, payload)
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 		_ = resp.Body.Close()
 
-		// This should match
-		url := fmt.Sprintf("%s/gw/status-%d/201", testutil.TestBaseURL, ts)
+		// This should match and return 201
+		url := fmt.Sprintf("%s/gw/gw-status-%d/201", testutil.TestBaseURL, ts)
 		respMatch := waitForRoute(t, client, url, "")
 		assert.Equal(t, http.StatusCreated, respMatch.StatusCode)
 		_ = respMatch.Body.Close()
