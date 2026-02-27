@@ -192,7 +192,7 @@ var storageDeleteCmd = &cobra.Command{
 
 var createBucketCmd = &cobra.Command{
 	Use:     "mb [name]",
-	Aliases: []string{"create-bucket"},
+	Aliases: []string{"create-bucket", "create"},
 	Short:   "Create a new storage bucket",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -218,7 +218,7 @@ var createBucketCmd = &cobra.Command{
 
 var deleteBucketCmd = &cobra.Command{
 	Use:     "rb [name]",
-	Aliases: []string{"delete-bucket"},
+	Aliases: []string{"delete-bucket", "rm", "delete"},
 	Short:   "Delete a storage bucket",
 	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
