@@ -244,7 +244,9 @@ This document provides a comprehensive overview of every feature currently imple
 
 ### 15. Identity & Auth (IAM)
 **What it is**: Secure access to the platform via RBAC and Granular IAM Policies.
+
 **Tech Stack**: JWT (JSON Web Tokens), BCrypt, ABAC (Attribute-Based Access Control).
+
 **Implementation**:
 - **Passwords**: Hashed using `bcrypt` cost 12.
 - **Tokens**: Stateless JWTs signed with HMAC-SHA256.
@@ -259,7 +261,16 @@ This document provides a comprehensive overview of every feature currently imple
 - **Authorization**: `Authorize()` checks user permissions before operations.
 - **Fallback Logic**: Default permissions apply if role not in DB.
 
-### 16. IAM Policies (ABAC) 🆕
+### 16. Multitenancy & Organizations 🆕
+**What it is**: Logical grouping of resources into "Tenants" (organizations) for isolated management.
+
+**Implementation**:
+- **Tenant Context**: All resources (Instances, VPCs, Buckets) are scoped to a `TenantID`.
+- **Default Tenant**: Users have a default tenant but can belong to multiple organizations.
+- **CLI Support**: Global `--tenant` flag and `cloud tenant switch` command to manage active context.
+- **Isolation**: Shared database with row-level logical isolation enforced by service-layer filters.
+
+### 17. IAM Policies (ABAC) 🆕
 **What it is**: Fine-grained, document-based authorization supplementing legacy RBAC.
 **Implementation**:
 - **JSON Policy Documents**: Supports AWS-style JSON policies with `Effect`, `Action`, `Resource`, and `Condition`.

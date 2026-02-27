@@ -2,15 +2,19 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	internalerrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,6 +36,60 @@ func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *
 	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc)
 
 	return db, svc, userRepo, identitySvc
+}
+
+func TestAuthService_GetUserByID(t *testing.T) {
+	ctx := context.Background()
+	mockUserRepo := new(MockUserRepo)
+	svc := services.NewAuthService(mockUserRepo, nil, nil, nil)
+
+	tests := []struct {
+		name          string
+		userID        uuid.UUID
+		setupMock     func()
+		expectedUser  *domain.User
+		expectedError string
+	}{
+		{
+			name:   "Success",
+			userID: uuid.New(),
+			setupMock: func() {
+				uid := uuid.New()
+				mockUserRepo.On("GetByID", mock.Anything, mock.Anything).Return(&domain.User{ID: uid}, nil).Once()
+			},
+			expectedUser: &domain.User{}, // ID will match mock return
+		},
+		{
+			name:   "Not Found",
+			userID: uuid.New(),
+			setupMock: func() {
+				mockUserRepo.On("GetByID", mock.Anything, mock.Anything).Return(nil, internalerrors.New(internalerrors.NotFound, "not found")).Once()
+			},
+			expectedError: "user not found",
+		},
+		{
+			name:   "Internal Error",
+			userID: uuid.New(),
+			setupMock: func() {
+				mockUserRepo.On("GetByID", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("db error")).Once()
+			},
+			expectedError: "failed to fetch user",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setupMock()
+			user, err := svc.GetUserByID(ctx, tt.userID)
+			if tt.expectedError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError)
+			} else {
+				require.NoError(t, err)
+				assert.NotNil(t, user)
+			}
+		})
+	}
 }
 
 func TestAuthServiceRegister(t *testing.T) {

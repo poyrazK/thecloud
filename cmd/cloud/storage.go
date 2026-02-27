@@ -27,7 +27,7 @@ var storageListCmd = &cobra.Command{
 	Short: "List buckets or objects in a bucket",
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 
 		// List Buckets
 		if len(args) == 0 {
@@ -37,7 +37,7 @@ var storageListCmd = &cobra.Command{
 				return
 			}
 
-			if outputJSON {
+			if opts.JSON {
 				data, _ := json.MarshalIndent(buckets, "", "  ")
 				fmt.Println(string(data))
 				return
@@ -47,13 +47,13 @@ var storageListCmd = &cobra.Command{
 			table.Header([]string{"NAME", "PUBLIC", headerCreatedAt})
 
 			for _, b := range buckets {
-				_ = table.Append([]string{
+				table.Append([]string{
 					b.Name,
 					fmt.Sprintf("%v", b.IsPublic),
 					b.CreatedAt.Format(time.RFC3339),
 				})
 			}
-			_ = table.Render()
+			table.Render()
 			return
 		}
 
@@ -65,7 +65,7 @@ var storageListCmd = &cobra.Command{
 			return
 		}
 
-		if outputJSON {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(objects, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -75,14 +75,14 @@ var storageListCmd = &cobra.Command{
 		table.Header([]string{"KEY", "SIZE", headerCreatedAt, "ARN"})
 
 		for _, obj := range objects {
-			_ = table.Append([]string{
+			table.Append([]string{
 				obj.Key,
 				fmt.Sprintf("%d", obj.SizeBytes),
 				obj.CreatedAt.Format(time.RFC3339),
 				obj.ARN,
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 
@@ -105,7 +105,7 @@ var storageUploadCmd = &cobra.Command{
 		}
 		defer func() { _ = f.Close() }()
 
-		client := getClient()
+		client := createClient(opts)
 		obj, err := client.UploadObject(bucket, key, f)
 		if err != nil {
 			fmt.Printf(errFmt, err)
@@ -127,7 +127,7 @@ var storageDownloadCmd = &cobra.Command{
 
 		versionID, _ := cmd.Flags().GetString("version")
 
-		client := getClient()
+		client := createClient(opts)
 		var body io.ReadCloser
 		var err error
 		if versionID != "" {
@@ -159,16 +159,17 @@ var storageDownloadCmd = &cobra.Command{
 }
 
 var storageDeleteCmd = &cobra.Command{
-	Use:   "delete [bucket] [key]",
-	Short: "Delete an object from a bucket",
-	Args:  cobra.ExactArgs(2),
+	Use:     "rm [bucket] [key]",
+	Short:   "Delete an object from a bucket",
+	Aliases: []string{"delete"},
+	Args:    cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		bucket := args[0]
 		key := args[1]
 
 		versionID, _ := cmd.Flags().GetString("version")
 
-		client := getClient()
+		client := createClient(opts)
 		var err error
 		if versionID != "" {
 			err = client.DeleteObject(bucket, key, versionID)
@@ -190,21 +191,22 @@ var storageDeleteCmd = &cobra.Command{
 }
 
 var createBucketCmd = &cobra.Command{
-	Use:   "create-bucket [name]",
-	Short: "Create a new storage bucket",
-	Args:  cobra.ExactArgs(1),
+	Use:     "mb [name]",
+	Aliases: []string{"create-bucket", "create"},
+	Short:   "Create a new storage bucket",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
 		public, _ := cmd.Flags().GetBool("public")
 
-		client := getClient()
+		client := createClient(opts)
 		bucket, err := client.CreateBucket(name, public)
 		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
 		}
 
-		if outputJSON {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(bucket, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -215,14 +217,16 @@ var createBucketCmd = &cobra.Command{
 }
 
 var deleteBucketCmd = &cobra.Command{
-	Use:   "delete-bucket [name]",
-	Short: "Delete a storage bucket",
-	Args:  cobra.ExactArgs(1),
+	Use:     "rb [name]",
+	Aliases: []string{"delete-bucket", "rm", "delete"},
+	Short:   "Delete a storage bucket",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
+		force, _ := cmd.Flags().GetBool("force")
 
-		client := getClient()
-		if err := client.DeleteBucket(name); err != nil {
+		client := createClient(opts)
+		if err := client.DeleteBucket(cmd.Context(), name, force); err != nil {
 			fmt.Printf(errFmt, err)
 			return
 		}
@@ -235,14 +239,14 @@ var storageClusterStatusCmd = &cobra.Command{
 	Use:   "cluster-status",
 	Short: "Get storage cluster status",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		status, err := client.GetStorageClusterStatus()
 		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
 		}
 
-		if outputJSON {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(status, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -252,14 +256,14 @@ var storageClusterStatusCmd = &cobra.Command{
 		table.Header([]string{"NODE ID", "ADDRESS", "STATUS", "LAST SEEN"})
 
 		for _, n := range status.Nodes {
-			_ = table.Append([]string{
+			table.Append([]string{
 				n.ID,
 				n.Address,
 				n.Status,
 				n.LastSeen.Format(time.RFC3339),
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 
@@ -276,6 +280,7 @@ func init() {
 	storageCmd.AddCommand(storagePresignCmd)
 
 	createBucketCmd.Flags().Bool("public", false, "Make bucket public")
+	deleteBucketCmd.Flags().BoolP("force", "f", false, "Delete bucket even if not empty")
 
 	storageUploadCmd.Flags().String("key", "", "Custom key for the object")
 	storageDownloadCmd.Flags().String("version", "", "Specific version to download")
@@ -292,14 +297,14 @@ var storageVersionsCmd = &cobra.Command{
 		bucket := args[0]
 		key := args[1]
 
-		client := getClient()
+		client := createClient(opts)
 		versions, err := client.ListVersions(bucket, key)
 		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
 		}
 
-		if outputJSON {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(versions, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -309,14 +314,14 @@ var storageVersionsCmd = &cobra.Command{
 		table.Header([]string{"VERSION ID", "LATEST", "SIZE", headerCreatedAt})
 
 		for _, v := range versions {
-			_ = table.Append([]string{
+			table.Append([]string{
 				v.VersionID,
 				fmt.Sprintf("%v", v.IsLatest),
 				fmt.Sprintf("%d", v.SizeBytes),
 				v.CreatedAt.Format(time.RFC3339),
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 
@@ -340,7 +345,7 @@ var storageVersioningCmd = &cobra.Command{
 			return
 		}
 
-		client := getClient()
+		client := createClient(opts)
 		if err := client.SetBucketVersioning(bucket, enabled); err != nil {
 			fmt.Printf(errFmt, err)
 			return
@@ -360,14 +365,14 @@ var storagePresignCmd = &cobra.Command{
 		method, _ := cmd.Flags().GetString("method")
 		expires, _ := cmd.Flags().GetInt("expires")
 
-		client := getClient()
+		client := createClient(opts)
 		url, err := client.GeneratePresignedURL(bucket, key, method, expires)
 		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
 		}
 
-		if outputJSON {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(url, "", "  ")
 			fmt.Println(string(data))
 			return

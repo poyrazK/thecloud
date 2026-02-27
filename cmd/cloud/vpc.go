@@ -2,7 +2,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -21,16 +20,20 @@ var vpcListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all VPCs",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		vpcs, err := client.ListVPCs()
 		if err != nil {
 			fmt.Printf(vpcErrorFormat, err)
 			return
 		}
 
-		if outputJSON {
-			data, _ := json.MarshalIndent(vpcs, "", "  ")
-			fmt.Println(string(data))
+		if opts.JSON {
+			printJSON(vpcs)
+			return
+		}
+
+		if len(vpcs) == 0 {
+			fmt.Println("No VPCs found.")
 			return
 		}
 
@@ -38,8 +41,8 @@ var vpcListCmd = &cobra.Command{
 		table.Header([]string{"ID", "NAME", "CIDR", "VXLAN", "STATUS", "CREATED AT"})
 
 		for _, v := range vpcs {
-			_ = table.Append([]string{
-				v.ID[:8],
+			table.Append([]string{
+				truncateID(v.ID),
 				v.Name,
 				v.CIDRBlock,
 				fmt.Sprintf("%d", v.VXLANID),
@@ -47,7 +50,7 @@ var vpcListCmd = &cobra.Command{
 				v.CreatedAt.Format("2006-01-02 15:04:05"),
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 
@@ -58,28 +61,33 @@ var vpcCreateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
 		cidr, _ := cmd.Flags().GetString("cidr-block")
-		client := getClient()
+		client := createClient(opts)
 		vpc, err := client.CreateVPC(name, cidr)
 		if err != nil {
 			fmt.Printf(vpcErrorFormat, err)
 			return
 		}
 
-		fmt.Printf("[SUCCESS] VPC %s created successfully!\n", vpc.Name)
-		fmt.Printf("ID: %s\n", vpc.ID)
-		fmt.Printf("CIDR: %s\n", vpc.CIDRBlock)
-		fmt.Printf("VXLAN ID: %d\n", vpc.VXLANID)
-		fmt.Printf("Network ID: %s\n", vpc.NetworkID)
+		if opts.JSON {
+			printJSON(vpc)
+		} else {
+			fmt.Printf("[SUCCESS] VPC %s created successfully!\n", vpc.Name)
+			fmt.Printf("ID: %s\n", vpc.ID)
+			fmt.Printf("CIDR: %s\n", vpc.CIDRBlock)
+			fmt.Printf("VXLAN ID: %d\n", vpc.VXLANID)
+			fmt.Printf("Network ID: %s\n", vpc.NetworkID)
+		}
 	},
 }
 
 var vpcRmCmd = &cobra.Command{
-	Use:   "rm [id/name]",
-	Short: "Remove a VPC",
-	Args:  cobra.ExactArgs(1),
+	Use:     "rm [id/name]",
+	Aliases: []string{"delete"},
+	Short:   "Remove a VPC",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient(opts)
 		if err := client.DeleteVPC(id); err != nil {
 			fmt.Printf(vpcErrorFormat, err)
 			return

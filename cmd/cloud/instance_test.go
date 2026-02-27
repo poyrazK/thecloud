@@ -49,10 +49,10 @@ func TestListInstancesJSONOutput(t *testing.T) {
 	}))
 	defer server.Close()
 
-	apiURL = server.URL
-	apiKey = instanceTestAPIKey
-	outputJSON = true
-	defer func() { outputJSON = false }()
+	opts.APIURL = server.URL
+	opts.APIKey = instanceTestAPIKey
+	opts.JSON = true
+	defer func() { opts.JSON = false }()
 
 	out := captureStdout(t, func() {
 		listCmd.Run(listCmd, nil)
@@ -89,8 +89,8 @@ func TestLaunchInstanceVolumeParsing(t *testing.T) {
 	}))
 	defer server.Close()
 
-	apiURL = server.URL
-	apiKey = instanceTestAPIKey
+	opts.APIURL = server.URL
+	opts.APIKey = instanceTestAPIKey
 
 	_ = launchCmd.Flags().Set("name", "app")
 	_ = launchCmd.Flags().Set("image", "alpine")
@@ -108,24 +108,24 @@ func TestLaunchInstanceVolumeParsing(t *testing.T) {
 }
 
 func TestGetClientWithApiKeyFlag(t *testing.T) {
-	oldKey := apiKey
-	defer func() { apiKey = oldKey }()
-	apiKey = instanceTestAPIKey
+	oldKey := opts.APIKey
+	defer func() { opts.APIKey = oldKey }()
+	opts.APIKey = instanceTestAPIKey
 
-	client := getClient()
+	client := createClient(opts)
 	if client == nil {
 		t.Fatal("expected non-nil client")
 	}
 }
 
 func TestGetClientWithEnvVar(t *testing.T) {
-	oldKey := apiKey
-	defer func() { apiKey = oldKey }()
-	apiKey = ""
+	oldKey := opts.APIKey
+	defer func() { opts.APIKey = oldKey }()
+	opts.APIKey = ""
 
 	t.Setenv("CLOUD_API_KEY", "env-key")
 
-	client := getClient()
+	client := createClient(opts)
 	if client == nil {
 		t.Fatal("expected non-nil client")
 	}

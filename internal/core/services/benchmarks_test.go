@@ -39,7 +39,7 @@ func BenchmarkInstanceServiceList(b *testing.B) {
 		Network:          network,
 		EventSvc:         eventSvc,
 		AuditSvc:         auditSvc,
-		TaskQueue:        &services.TaskQueueStub{},
+		TaskQueue:        &TaskQueueStub{},
 		Logger:           logger,
 		TenantSvc:        &NoopTenantService{},
 		InstanceTypeRepo: &noop.NoopInstanceTypeRepository{},
@@ -89,7 +89,7 @@ func BenchmarkInstanceServiceCreate(b *testing.B) {
 		Network:          network,
 		EventSvc:         eventSvc,
 		AuditSvc:         auditSvc,
-		TaskQueue:        &services.TaskQueueStub{},
+		TaskQueue:        &TaskQueueStub{},
 		Logger:           logger,
 		TenantSvc:        &NoopTenantService{},
 		InstanceTypeRepo: &noop.NoopInstanceTypeRepository{},
@@ -154,7 +154,7 @@ func BenchmarkInstanceServiceCreateParallel(b *testing.B) {
 		Network:          network,
 		EventSvc:         eventSvc,
 		AuditSvc:         auditSvc,
-		TaskQueue:        &services.TaskQueueStub{},
+		TaskQueue:        &TaskQueueStub{},
 		Logger:           logger,
 		TenantSvc:        &NoopTenantService{},
 		InstanceTypeRepo: &noop.NoopInstanceTypeRepository{},
@@ -182,6 +182,9 @@ func (s *NoopTenantService) CreateTenant(ctx context.Context, name, slug string,
 }
 func (s *NoopTenantService) GetTenant(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) {
 	return &domain.Tenant{ID: id}, nil
+}
+func (s *NoopTenantService) ListUserTenants(ctx context.Context, userID uuid.UUID) ([]domain.Tenant, error) {
+	return nil, nil
 }
 func (s *NoopTenantService) InviteMember(ctx context.Context, tenantID uuid.UUID, email, role string) error {
 	return nil

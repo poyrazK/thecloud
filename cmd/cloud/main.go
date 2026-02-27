@@ -46,10 +46,23 @@ func init() {
 	rootCmd.AddCommand(volumeCmd)
 	rootCmd.AddCommand(iacCmd)
 	rootCmd.AddCommand(rolesCmd)
+	rootCmd.AddCommand(sgCmd)
 	rootCmd.AddCommand(subnetCmd)
 	rootCmd.AddCommand(kubernetesCmd)
 	rootCmd.AddCommand(dnsCmd)
 	rootCmd.AddCommand(cloudLogsCmd)
+	rootCmd.AddCommand(iamCmd)
+	rootCmd.AddCommand(auditCmd)
+	rootCmd.AddCommand(billingCmd)
+	rootCmd.AddCommand(tenantCmd)
+	rootCmd.AddCommand(instanceTypeCmd)
+	rootCmd.AddCommand(newSSHKeyCmd(&opts))
+	rootCmd.AddCommand(vpcPeeringCmd)
+
+	rootCmd.PersistentFlags().BoolVarP(&opts.JSON, "json", "j", false, "Output in JSON format")
+	rootCmd.PersistentFlags().StringVarP(&opts.APIKey, "api-key", "k", "", "API key for authentication")
+	rootCmd.PersistentFlags().StringVar(&opts.APIURL, "api-url", "http://localhost:8080", "URL of the API server")
+	rootCmd.PersistentFlags().StringVar(&opts.TenantID, "tenant", "", "Tenant ID to use for requests")
 }
 
 func main() {

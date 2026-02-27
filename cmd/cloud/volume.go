@@ -21,14 +21,14 @@ var volumeListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all volumes",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		volumes, err := client.ListVolumes()
 		if err != nil {
 			fmt.Printf(volumeErrorFormat, err)
 			return
 		}
 
-		if outputJSON {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(volumes, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -40,21 +40,21 @@ var volumeListCmd = &cobra.Command{
 		for _, v := range volumes {
 			id := v.ID.String()
 			if len(id) > 8 {
-				id = id[:8]
+				id = truncateID(id)
 			}
 			attachedTo := "-"
 			if v.InstanceID != nil {
-				attachedTo = v.InstanceID.String()[:8]
+				attachedTo = truncateID(v.InstanceID.String())
 			}
-			cobra.CheckErr(table.Append([]string{
+			table.Append([]string{
 				id,
 				v.Name,
 				fmt.Sprintf("%d GB", v.SizeGB),
 				v.Status,
 				attachedTo,
-			}))
+			})
 		}
-		cobra.CheckErr(table.Render())
+		table.Render()
 	},
 }
 
@@ -65,7 +65,7 @@ var volumeCreateCmd = &cobra.Command{
 		name, _ := cmd.Flags().GetString("name")
 		size, _ := cmd.Flags().GetInt("size")
 
-		client := getClient()
+		client := createClient(opts)
 		vol, err := client.CreateVolume(name, size)
 		if err != nil {
 			fmt.Printf(volumeErrorFormat, err)
@@ -84,7 +84,7 @@ var volumeDeleteCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient(opts)
 		if err := client.DeleteVolume(id); err != nil {
 			fmt.Printf(volumeErrorFormat, err)
 			return

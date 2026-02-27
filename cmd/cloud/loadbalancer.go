@@ -2,7 +2,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -21,16 +20,20 @@ var lbListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all load balancers",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		lbs, err := client.ListLBs()
 		if err != nil {
 			fmt.Printf(loadBalancerErrorFormat, err)
 			return
 		}
 
-		if outputJSON {
-			data, _ := json.MarshalIndent(lbs, "", "  ")
-			fmt.Println(string(data))
+		if opts.JSON {
+			printJSON(lbs)
+			return
+		}
+
+		if len(lbs) == 0 {
+			fmt.Println("No load balancers found.")
 			return
 		}
 
@@ -38,16 +41,16 @@ var lbListCmd = &cobra.Command{
 		table.Header([]string{"ID", "NAME", "VPC ID", "PORT", "ALGO", "STATUS"})
 
 		for _, v := range lbs {
-			_ = table.Append([]string{
-				v.ID[:8],
+			table.Append([]string{
+				truncateID(v.ID),
 				v.Name,
-				v.VpcID[:8],
+				truncateID(v.VpcID),
 				fmt.Sprintf("%d", v.Port),
 				v.Algorithm,
 				string(v.Status),
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 
@@ -60,26 +63,31 @@ var lbCreateCmd = &cobra.Command{
 		port, _ := cmd.Flags().GetInt("port")
 		algo, _ := cmd.Flags().GetString("algorithm")
 
-		client := getClient()
+		client := createClient(opts)
 		lb, err := client.CreateLB(name, vpcID, port, algo)
 		if err != nil {
 			fmt.Printf(loadBalancerErrorFormat, err)
 			return
 		}
 
-		fmt.Printf("[SUCCESS] Load Balancer %s creation initiated!\n", lb.Name)
-		fmt.Printf("ID: %s\n", lb.ID)
-		fmt.Printf("Status: %s (It will be ACTIVE shortly)\n", lb.Status)
+		if opts.JSON {
+			printJSON(lb)
+		} else {
+			fmt.Printf("[SUCCESS] Load Balancer %s creation initiated!\n", lb.Name)
+			fmt.Printf("ID: %s\n", lb.ID)
+			fmt.Printf("Status: %s (It will be ACTIVE shortly)\n", lb.Status)
+		}
 	},
 }
 
 var lbRmCmd = &cobra.Command{
-	Use:   "rm [id]",
-	Short: "Remove a load balancer",
-	Args:  cobra.ExactArgs(1),
+	Use:     "rm [id]",
+	Aliases: []string{"delete"},
+	Short:   "Remove a load balancer",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient(opts)
 		if err := client.DeleteLB(id); err != nil {
 			fmt.Printf(loadBalancerErrorFormat, err)
 			return
@@ -99,7 +107,7 @@ var lbAddTargetCmd = &cobra.Command{
 		port, _ := cmd.Flags().GetInt("port")
 		weight, _ := cmd.Flags().GetInt("weight")
 
-		client := getClient()
+		client := createClient(opts)
 		if err := client.AddLBTarget(lbID, instID, port, weight); err != nil {
 			fmt.Printf(loadBalancerErrorFormat, err)
 			return
@@ -116,7 +124,7 @@ var lbRemoveTargetCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		lbID := args[0]
 		instID := args[1]
-		client := getClient()
+		client := createClient(opts)
 		if err := client.RemoveLBTarget(lbID, instID); err != nil {
 			fmt.Printf(loadBalancerErrorFormat, err)
 			return
@@ -153,33 +161,33 @@ var lbListTargetsCmd = &cobra.Command{
 	Short: "List targets for a load balancer",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		targets, err := client.ListLBTargets(args[0])
 		if err != nil {
 			fmt.Printf(loadBalancerErrorFormat, err)
 			return
 		}
 
-		if outputJSON {
-			data, _ := json.MarshalIndent(targets, "", "  ")
-			fmt.Println(string(data))
+		if opts.JSON {
+			printJSON(targets)
+			return
+		}
+
+		if len(targets) == 0 {
+			fmt.Println("No targets found for this load balancer.")
 			return
 		}
 
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header([]string{"INSTANCE ID", "PORT", "WEIGHT", "HEALTH"})
 		for _, t := range targets {
-			id := t.InstanceID
-			if len(id) > 8 {
-				id = id[:8]
-			}
-			_ = table.Append([]string{
-				id,
+			table.Append([]string{
+				truncateID(t.InstanceID),
 				fmt.Sprintf("%d", t.Port),
 				fmt.Sprintf("%d", t.Weight),
 				t.Health,
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }

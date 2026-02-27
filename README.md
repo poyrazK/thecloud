@@ -47,12 +47,13 @@ The Cloud uses API Key authentication with comprehensive security features.
 - **Regenerate Key**: `POST /auth/keys/:id/regenerate`
 - **Revoke Key**: `DELETE /auth/keys/:id`
 
-## Role-Based Access Control (RBAC)
-Manage users and permissions via the CLI or API.
+## Role-Based Access Control (RBAC) & IAM
+Manage users, roles, and granular policies via the CLI or API.
 
 - **Create Role**: `cloud roles create developer --permissions "instance:read,volume:read"`
 - **Bind Role**: `cloud roles bind user@example.com developer`
-- **List Bindings**: `cloud roles list-bindings`
+- **IAM Policy**: `cloud iam create ReadOnlyS3 ./policy.json`
+- **Attach Policy**: `cloud iam attach user-uuid policy-uuid`
 
 ## System Health
 - **Liveness**: `GET /health/live` (Returns 200 OK)

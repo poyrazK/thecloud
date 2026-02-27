@@ -2,7 +2,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -37,16 +36,20 @@ var sgCreateCmd = &cobra.Command{
 			return
 		}
 
-		client := getClient()
+		client := createClient(opts)
 		sg, err := client.CreateSecurityGroup(vpcID, args[0], desc)
 		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
 		}
 
-		fmt.Printf("[SUCCESS] Security Group %s created successfully!\n", sg.Name)
-		fmt.Printf("ID: %s\n", sg.ID)
-		fmt.Printf("ARN: %s\n", sg.ARN)
+		if opts.JSON {
+			printJSON(sg)
+		} else {
+			fmt.Printf("[SUCCESS] Security Group %s created successfully!\n", sg.Name)
+			fmt.Printf("ID: %s\n", sg.ID)
+			fmt.Printf("ARN: %s\n", sg.ARN)
+		}
 	},
 }
 
@@ -60,16 +63,15 @@ var sgListCmd = &cobra.Command{
 			return
 		}
 
-		client := getClient()
+		client := createClient(opts)
 		groups, err := client.ListSecurityGroups(vpcID)
 		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
 		}
 
-		if outputJSON {
-			data, _ := json.MarshalIndent(groups, "", "  ")
-			fmt.Println(string(data))
+		if opts.JSON {
+			printJSON(groups)
 			return
 		}
 
@@ -77,14 +79,14 @@ var sgListCmd = &cobra.Command{
 		table.Header([]string{"ID", "NAME", descVPCID, "ARN"})
 
 		for _, g := range groups {
-			_ = table.Append([]string{
-				g.ID[:8],
+			table.Append([]string{
+				truncateID(g.ID),
 				g.Name,
-				g.VPCID[:8],
+				truncateID(g.VPCID),
 				g.ARN,
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 
@@ -100,7 +102,7 @@ var sgAddRuleCmd = &cobra.Command{
 		cidr, _ := cmd.Flags().GetString("cidr")
 		priority, _ := cmd.Flags().GetInt("priority")
 
-		client := getClient()
+		client := createClient(opts)
 		rule := sdk.SecurityRule{
 			Direction: direction,
 			Protocol:  protocol,
@@ -125,7 +127,7 @@ var sgAttachCmd = &cobra.Command{
 	Short: "Attach a security group to an instance",
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		if err := client.AttachSecurityGroup(args[0], args[1]); err != nil {
 			fmt.Printf(errFmt, err)
 			return
@@ -140,7 +142,7 @@ var sgRemoveRuleCmd = &cobra.Command{
 	Short: "Remove a rule from a security group",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		if err := client.RemoveSecurityRule(args[0]); err != nil {
 			fmt.Printf(errFmt, err)
 			return
@@ -154,7 +156,7 @@ var sgDetachCmd = &cobra.Command{
 	Short: "Detach a security group from an instance",
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		if err := client.DetachSecurityGroup(args[0], args[1]); err != nil {
 			fmt.Printf(errFmt, err)
 			return
@@ -168,16 +170,15 @@ var sgGetCmd = &cobra.Command{
 	Short: "Get security group details and rules",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		sg, err := client.GetSecurityGroup(args[0])
 		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
 		}
 
-		if outputJSON {
-			data, _ := json.MarshalIndent(sg, "", "  ")
-			fmt.Println(string(data))
+		if opts.JSON {
+			printJSON(sg)
 			return
 		}
 
@@ -195,7 +196,7 @@ var sgGetCmd = &cobra.Command{
 			if r.PortMin == r.PortMax {
 				ports = fmt.Sprintf("%d", r.PortMin)
 			}
-			_ = table.Append([]string{
+			table.Append([]string{
 				truncateID(r.ID),
 				r.Direction,
 				r.Protocol,
@@ -204,16 +205,17 @@ var sgGetCmd = &cobra.Command{
 				fmt.Sprintf("%d", r.Priority),
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 
 var sgDeleteCmd = &cobra.Command{
-	Use:   "delete [sg-id]",
-	Short: "Delete a security group",
-	Args:  cobra.ExactArgs(1),
+	Use:     "rm [sg-id]",
+	Aliases: []string{"delete"},
+	Short:   "Delete a security group",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		if err := client.DeleteSecurityGroup(args[0]); err != nil {
 			fmt.Printf(errFmt, err)
 			return
@@ -236,13 +238,4 @@ func init() {
 	sgAddRuleCmd.Flags().Int("priority", 100, "Priority")
 
 	sgCmd.AddCommand(sgCreateCmd, sgListCmd, sgGetCmd, sgDeleteCmd, sgAddRuleCmd, sgRemoveRuleCmd, sgAttachCmd, sgDetachCmd)
-	rootCmd.AddCommand(sgCmd)
-}
-
-func truncateID(id string) string {
-	const n = 8
-	if len(id) <= n {
-		return id
-	}
-	return id[:n]
 }

@@ -81,7 +81,7 @@ type StorageService interface {
 	// Bucket operations
 	CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error)
 	GetBucket(ctx context.Context, name string) (*domain.Bucket, error)
-	DeleteBucket(ctx context.Context, name string) error
+	DeleteBucket(ctx context.Context, name string, force bool) error
 	ListBuckets(ctx context.Context) ([]*domain.Bucket, error)
 	// SetBucketVersioning enables or disables versioning for a bucket.
 	SetBucketVersioning(ctx context.Context, name string, enabled bool) error

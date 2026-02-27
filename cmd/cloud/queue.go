@@ -21,14 +21,14 @@ var listQueuesCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all queues",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		queues, err := client.ListQueues()
 		if err != nil {
 			fmt.Printf(queueErrorFormat, err)
 			return
 		}
 
-		if outputJSON {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(queues, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -38,14 +38,14 @@ var listQueuesCmd = &cobra.Command{
 		table.Header([]string{"ID", "NAME", "STATUS", "ARN"})
 
 		for _, q := range queues {
-			_ = table.Append([]string{
-				q.ID[:8],
+			table.Append([]string{
+				truncateID(q.ID),
 				q.Name,
 				q.Status,
 				q.ARN,
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 
@@ -59,7 +59,7 @@ var createQueueCmd = &cobra.Command{
 		rd, _ := cmd.Flags().GetInt("retention-days")
 		ms, _ := cmd.Flags().GetInt("max-message-size")
 
-		client := getClient()
+		client := createClient(opts)
 		q, err := client.CreateQueue(name, &vt, &rd, &ms)
 		if err != nil {
 			fmt.Printf(queueErrorFormat, err)
@@ -73,12 +73,13 @@ var createQueueCmd = &cobra.Command{
 }
 
 var deleteQueueCmd = &cobra.Command{
-	Use:   "delete [id]",
-	Short: "Delete a message queue",
-	Args:  cobra.ExactArgs(1),
+	Use:     "rm [id]",
+	Aliases: []string{"delete"},
+	Short:   "Delete a message queue",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient(opts)
 		if err := client.DeleteQueue(id); err != nil {
 			fmt.Printf(queueErrorFormat, err)
 			return
@@ -94,7 +95,7 @@ var sendMessageCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 		body := args[1]
-		client := getClient()
+		client := createClient(opts)
 		msg, err := client.SendMessage(id, body)
 		if err != nil {
 			fmt.Printf(queueErrorFormat, err)
@@ -112,7 +113,7 @@ var receiveMessagesCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 		max, _ := cmd.Flags().GetInt("max")
-		client := getClient()
+		client := createClient(opts)
 		msgs, err := client.ReceiveMessages(id, max)
 		if err != nil {
 			fmt.Printf(queueErrorFormat, err)
@@ -124,7 +125,7 @@ var receiveMessagesCmd = &cobra.Command{
 			return
 		}
 
-		if outputJSON {
+		if opts.JSON {
 			data, _ := json.MarshalIndent(msgs, "", "  ")
 			fmt.Println(string(data))
 			return
@@ -134,13 +135,13 @@ var receiveMessagesCmd = &cobra.Command{
 		table.Header([]string{"ID", "BODY", "RECEIPT HANDLE"})
 
 		for _, m := range msgs {
-			_ = table.Append([]string{
-				m.ID[:8],
+			table.Append([]string{
+				truncateID(m.ID),
 				m.Body,
 				m.ReceiptHandle,
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 
@@ -151,7 +152,7 @@ var ackMessageCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 		handle := args[1]
-		client := getClient()
+		client := createClient(opts)
 		if err := client.DeleteMessage(id, handle); err != nil {
 			fmt.Printf(queueErrorFormat, err)
 			return
@@ -166,7 +167,7 @@ var purgeQueueCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient(opts)
 		if err := client.PurgeQueue(id); err != nil {
 			fmt.Printf(queueErrorFormat, err)
 			return

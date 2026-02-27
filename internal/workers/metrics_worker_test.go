@@ -59,7 +59,7 @@ func (f *fakeStorageService) CreateBucket(ctx context.Context, name string, isPu
 func (f *fakeStorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
 	return nil, nil
 }
-func (f *fakeStorageService) DeleteBucket(ctx context.Context, name string) error {
+func (f *fakeStorageService) DeleteBucket(ctx context.Context, name string, force bool) error {
 	return nil
 }
 func (f *fakeStorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {

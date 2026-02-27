@@ -35,12 +35,12 @@ func TestLogsSearch(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	apiURL = server.URL
-	apiKey = "test-key"
+	oldURL := opts.APIURL
+	opts.APIURL = server.URL
+	opts.APIKey = "test-key"
 	defer func() { 
-		apiURL = oldURL 
-		apiKey = ""
+		opts.APIURL = oldURL 
+		opts.APIKey = ""
 	}()
 
 	out := captureStdout(t, func() {
@@ -77,12 +77,12 @@ func TestLogsShow(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	apiURL = server.URL
-	apiKey = "test-key"
+	oldURL := opts.APIURL
+	opts.APIURL = server.URL
+	opts.APIKey = "test-key"
 	defer func() { 
-		apiURL = oldURL 
-		apiKey = ""
+		opts.APIURL = oldURL 
+		opts.APIKey = ""
 	}()
 
 	out := captureStdout(t, func() {

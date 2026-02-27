@@ -74,7 +74,7 @@ func (f *fakeLifecycleStorageService) CreateBucket(ctx context.Context, name str
 func (f *fakeLifecycleStorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
 	return nil, nil
 }
-func (f *fakeLifecycleStorageService) DeleteBucket(ctx context.Context, name string) error {
+func (f *fakeLifecycleStorageService) DeleteBucket(ctx context.Context, name string, force bool) error {
 	return nil
 }
 func (f *fakeLifecycleStorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {

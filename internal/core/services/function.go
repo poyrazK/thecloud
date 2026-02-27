@@ -198,9 +198,12 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 func (s *FunctionService) buildTaskOptions(f *domain.Function, tmpDir string, payload []byte) ports.RunTaskOptions {
 	config := runtimes[f.Runtime]
 	pidsLimit := int64(50)
+
+	handler := s.normalizeHandler(f.Runtime, f.Handler)
+
 	return ports.RunTaskOptions{
 		Image:           config.Image,
-		Command:         append(config.Entrypoint, f.Handler),
+		Command:         append(config.Entrypoint, handler),
 		Env:             []string{fmt.Sprintf("PAYLOAD=%s", string(payload))},
 		MemoryMB:        int64(f.MemoryMB),
 		CPUs:            0.5,
@@ -210,6 +213,29 @@ func (s *FunctionService) buildTaskOptions(f *domain.Function, tmpDir string, pa
 		Binds:           []string{fmt.Sprintf("%s:/var/task:ro", tmpDir)},
 		PidsLimit:       &pidsLimit,
 	}
+}
+
+// normalizeHandler ensures the handler path is friendly for the runtime execution.
+func (s *FunctionService) normalizeHandler(runtime, handler string) string {
+	config, ok := runtimes[runtime]
+	if !ok {
+		return handler
+	}
+
+	// 1. If it doesn't have the extension, add it
+	if !strings.HasSuffix(handler, config.Extension) {
+		// If it has a dot but wrong extension, we don't know what to do, keep as is
+		if !strings.Contains(handler, ".") {
+			handler += config.Extension
+		}
+	}
+
+	// 2. For Node.js/Python, they usually work best with ./
+	if (runtime == "nodejs20" || runtime == "python312") && !strings.HasPrefix(handler, "./") && !strings.HasPrefix(handler, "/") {
+		return "./" + handler
+	}
+
+	return handler
 }
 
 func (s *FunctionService) waitForTask(ctx context.Context, containerID string, timeout int) (int64, error) {

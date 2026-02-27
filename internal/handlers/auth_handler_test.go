@@ -47,7 +47,7 @@ func (m *mockAuthService) Login(ctx context.Context, email, password string) (*d
 	return r0, args.String(1), args.Error(2)
 }
 
-func (m *mockAuthService) ValidateUser(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
+func (m *mockAuthService) GetUserByID(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -77,6 +77,27 @@ func setupAuthHandlerTest(_ *testing.T) (*mockAuthService, *mockPasswordResetSer
 	handler := NewAuthHandler(svc, pwdSvc)
 	r := gin.New()
 	return svc, pwdSvc, handler, r
+}
+
+func TestAuthHandlerMe(t *testing.T) {
+	t.Parallel()
+	svc, _, handler, r := setupAuthHandlerTest(t)
+	userID := uuid.New()
+
+	r.GET("/auth/me", func(c *gin.Context) {
+		c.Set("userID", userID)
+		c.Next()
+	}, handler.Me)
+
+	expectedUser := &domain.User{ID: userID, Email: testEmail}
+	svc.On("GetUserByID", mock.Anything, userID).Return(expectedUser, nil)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/auth/me", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), testEmail)
 }
 
 func TestAuthHandlerRegister(t *testing.T) {
