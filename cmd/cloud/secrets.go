@@ -2,7 +2,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -29,8 +28,7 @@ var secretsListCmd = &cobra.Command{
 		}
 
 		if opts.JSON {
-			data, _ := json.MarshalIndent(secrets, "", "  ")
-			fmt.Println(string(data))
+			printJSON(secrets)
 			return
 		}
 
@@ -38,19 +36,16 @@ var secretsListCmd = &cobra.Command{
 		table.Header([]string{"ID", "NAME", "DESCRIPTION", "CREATED AT"})
 
 		for _, s := range secrets {
-			id := s.ID
-			if len(id) > 8 {
-				id = truncateID(id)
-			}
+			id := truncateID(s.ID)
 
-			_ = table.Append([]string{
+			cobra.CheckErr(table.Append([]string{
 				id,
 				s.Name,
 				s.Description,
 				s.CreatedAt.Format("2006-01-02 15:04:05"),
-			})
+			}))
 		}
-		_ = table.Render()
+		cobra.CheckErr(table.Render())
 	},
 }
 
@@ -69,10 +64,10 @@ var secretsCreateCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("[SUCCESS] Secret %s created.\n", name)
 		if opts.JSON {
-			data, _ := json.MarshalIndent(secret, "", "  ")
-			fmt.Println(string(data))
+			printJSON(secret)
+		} else {
+			fmt.Printf("[SUCCESS] Secret %s created.\n", name)
 		}
 	},
 }
@@ -91,8 +86,7 @@ var secretsGetCmd = &cobra.Command{
 		}
 
 		if opts.JSON {
-			data, _ := json.MarshalIndent(secret, "", "  ")
-			fmt.Println(string(data))
+			printJSON(secret)
 		} else {
 			fmt.Printf("Name:        %s\n", secret.Name)
 			fmt.Printf("Value:       %s\n", secret.EncryptedValue) // This is the decrypted value from service
@@ -106,9 +100,10 @@ var secretsGetCmd = &cobra.Command{
 }
 
 var secretsRmCmd = &cobra.Command{
-	Use:   "rm [id/name]",
-	Short: "Remove a secret",
-	Args:  cobra.ExactArgs(1),
+	Use:     "rm [id/name]",
+	Aliases: []string{"delete"},
+	Short:   "Remove a secret",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 		client := createClient(opts)
@@ -116,7 +111,7 @@ var secretsRmCmd = &cobra.Command{
 			fmt.Printf(secretsErrorFormat, err)
 			return
 		}
-		fmt.Println("[SUCCESS] Secret removed.")
+		fmt.Printf("[SUCCESS] Secret %s removed.\n", id)
 	},
 }
 

@@ -2,7 +2,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -29,8 +28,12 @@ var lbListCmd = &cobra.Command{
 		}
 
 		if opts.JSON {
-			data, _ := json.MarshalIndent(lbs, "", "  ")
-			fmt.Println(string(data))
+			printJSON(lbs)
+			return
+		}
+
+		if len(lbs) == 0 {
+			fmt.Println("No load balancers found.")
 			return
 		}
 
@@ -38,16 +41,16 @@ var lbListCmd = &cobra.Command{
 		table.Header([]string{"ID", "NAME", "VPC ID", "PORT", "ALGO", "STATUS"})
 
 		for _, v := range lbs {
-			_ = table.Append([]string{
+			cobra.CheckErr(table.Append([]string{
 				truncateID(v.ID),
 				v.Name,
 				truncateID(v.VpcID),
 				fmt.Sprintf("%d", v.Port),
 				v.Algorithm,
 				string(v.Status),
-			})
+			}))
 		}
-		_ = table.Render()
+		cobra.CheckErr(table.Render())
 	},
 }
 
@@ -67,16 +70,21 @@ var lbCreateCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("[SUCCESS] Load Balancer %s creation initiated!\n", lb.Name)
-		fmt.Printf("ID: %s\n", lb.ID)
-		fmt.Printf("Status: %s (It will be ACTIVE shortly)\n", lb.Status)
+		if opts.JSON {
+			printJSON(lb)
+		} else {
+			fmt.Printf("[SUCCESS] Load Balancer %s creation initiated!\n", lb.Name)
+			fmt.Printf("ID: %s\n", lb.ID)
+			fmt.Printf("Status: %s (It will be ACTIVE shortly)\n", lb.Status)
+		}
 	},
 }
 
 var lbRmCmd = &cobra.Command{
-	Use:   "rm [id]",
-	Short: "Remove a load balancer",
-	Args:  cobra.ExactArgs(1),
+	Use:     "rm [id]",
+	Aliases: []string{"delete"},
+	Short:   "Remove a load balancer",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 		client := createClient(opts)
@@ -161,25 +169,25 @@ var lbListTargetsCmd = &cobra.Command{
 		}
 
 		if opts.JSON {
-			data, _ := json.MarshalIndent(targets, "", "  ")
-			fmt.Println(string(data))
+			printJSON(targets)
+			return
+		}
+
+		if len(targets) == 0 {
+			fmt.Println("No targets found for this load balancer.")
 			return
 		}
 
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header([]string{"INSTANCE ID", "PORT", "WEIGHT", "HEALTH"})
 		for _, t := range targets {
-			id := t.InstanceID
-			if len(id) > 8 {
-				id = truncateID(id)
-			}
-			_ = table.Append([]string{
-				id,
+			cobra.CheckErr(table.Append([]string{
+				truncateID(t.InstanceID),
 				fmt.Sprintf("%d", t.Port),
 				fmt.Sprintf("%d", t.Weight),
 				t.Health,
-			})
+			}))
 		}
-		_ = table.Render()
+		cobra.CheckErr(table.Render())
 	},
 }

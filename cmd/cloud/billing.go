@@ -9,10 +9,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	shortIDLength = 8
-)
-
 var billingCmd = &cobra.Command{
 	Use:   "billing",
 	Short: "View billing and usage information",
@@ -40,14 +36,9 @@ var billingSummaryCmd = &cobra.Command{
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header([]string{"RESOURCE TYPE", "AMOUNT"})
 		for t, amt := range summary.UsageByType {
-			if err := table.Append([]string{string(t), fmt.Sprintf("%.2f", amt)}); err != nil {
-				fmt.Printf("Error appending to table: %v\n", err)
-				return
-			}
+			cobra.CheckErr(table.Append([]string{string(t), fmt.Sprintf("%.2f", amt)}))
 		}
-		if err := table.Render(); err != nil {
-			fmt.Printf("Error rendering table: %v\n", err)
-		}
+		cobra.CheckErr(table.Render())
 	},
 }
 
@@ -76,24 +67,15 @@ var billingUsageCmd = &cobra.Command{
 		table.Header([]string{"RESOURCE ID", "TYPE", "QUANTITY", "UNIT", "START TIME"})
 
 		for _, r := range records {
-			idStr := r.ResourceID.String()
-			if len(idStr) > shortIDLength {
-				idStr = idStr[:shortIDLength]
-			}
-			if err := table.Append([]string{
-				idStr,
+			cobra.CheckErr(table.Append([]string{
+				truncateID(r.ResourceID.String()),
 				string(r.ResourceType),
 				fmt.Sprintf("%.2f", r.Quantity),
 				r.Unit,
 				r.StartTime.Format("2006-01-02 15:04"),
-			}); err != nil {
-				fmt.Printf("Error appending to table: %v\n", err)
-				return
-			}
+			}))
 		}
-		if err := table.Render(); err != nil {
-			fmt.Printf("Error rendering table: %v\n", err)
-		}
+		cobra.CheckErr(table.Render())
 	},
 }
 

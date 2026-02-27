@@ -2,7 +2,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -30,8 +29,12 @@ var snapshotListCmd = &cobra.Command{
 		}
 
 		if opts.JSON {
-			data, _ := json.MarshalIndent(snapshots, "", "  ")
-			fmt.Println(string(data))
+			printJSON(snapshots)
+			return
+		}
+
+		if len(snapshots) == 0 {
+			fmt.Println("No snapshots found.")
 			return
 		}
 
@@ -39,10 +42,7 @@ var snapshotListCmd = &cobra.Command{
 		table.Header([]string{"ID", "VOLUME", "SIZE", "STATUS", "CREATED AT"})
 
 		for _, s := range snapshots {
-			id := s.ID.String()
-			if len(id) > 8 {
-				id = truncateID(id)
-			}
+			id := truncateID(s.ID.String())
 			vol := s.VolumeName
 			if vol == "" {
 				vol = truncateID(s.VolumeID.String())
@@ -78,16 +78,21 @@ var snapshotCreateCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("[SUCCESS] Snapshot creation started!\n")
-		data, _ := json.MarshalIndent(snapshot, "", "  ")
-		fmt.Println(string(data))
+		if opts.JSON {
+			printJSON(snapshot)
+		} else {
+			fmt.Printf("[SUCCESS] Snapshot creation started!\n")
+			fmt.Printf("ID: %s\n", snapshot.ID)
+			fmt.Printf("Status: %s\n", snapshot.Status)
+		}
 	},
 }
 
 var snapshotDeleteCmd = &cobra.Command{
-	Use:   "rm [id]",
-	Short: "Delete a snapshot",
-	Args:  cobra.ExactArgs(1),
+	Use:     "rm [id]",
+	Aliases: []string{"delete"},
+	Short:   "Delete a snapshot",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 		client := createClient(opts)
@@ -114,9 +119,12 @@ var snapshotRestoreCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("[SUCCESS] Snapshot restored to volume %s!\n", vol.Name)
-		data, _ := json.MarshalIndent(vol, "", "  ")
-		fmt.Println(string(data))
+		if opts.JSON {
+			printJSON(vol)
+		} else {
+			fmt.Printf("[SUCCESS] Snapshot restored to volume %s!\n", vol.Name)
+			fmt.Printf("Volume ID: %s\n", vol.ID)
+		}
 	},
 }
 

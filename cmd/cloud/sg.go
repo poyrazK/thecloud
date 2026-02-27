@@ -2,7 +2,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -44,9 +43,13 @@ var sgCreateCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("[SUCCESS] Security Group %s created successfully!\n", sg.Name)
-		fmt.Printf("ID: %s\n", sg.ID)
-		fmt.Printf("ARN: %s\n", sg.ARN)
+		if opts.JSON {
+			printJSON(sg)
+		} else {
+			fmt.Printf("[SUCCESS] Security Group %s created successfully!\n", sg.Name)
+			fmt.Printf("ID: %s\n", sg.ID)
+			fmt.Printf("ARN: %s\n", sg.ARN)
+		}
 	},
 }
 
@@ -68,12 +71,7 @@ var sgListCmd = &cobra.Command{
 		}
 
 		if opts.JSON {
-			data, err := json.MarshalIndent(groups, "", "  ")
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to marshal groups to JSON: %v\n", err)
-				return
-			}
-			fmt.Println(string(data))
+			printJSON(groups)
 			return
 		}
 
@@ -81,14 +79,14 @@ var sgListCmd = &cobra.Command{
 		table.Header([]string{"ID", "NAME", descVPCID, "ARN"})
 
 		for _, g := range groups {
-			_ = table.Append([]string{
+			cobra.CheckErr(table.Append([]string{
 				truncateID(g.ID),
 				g.Name,
 				truncateID(g.VPCID),
 				g.ARN,
-			})
+			}))
 		}
-		_ = table.Render()
+		cobra.CheckErr(table.Render())
 	},
 }
 
@@ -180,12 +178,7 @@ var sgGetCmd = &cobra.Command{
 		}
 
 		if opts.JSON {
-			data, err := json.MarshalIndent(sg, "", "  ")
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to marshal security group to JSON: %v\n", err)
-				return
-			}
-			fmt.Println(string(data))
+			printJSON(sg)
 			return
 		}
 
@@ -203,16 +196,16 @@ var sgGetCmd = &cobra.Command{
 			if r.PortMin == r.PortMax {
 				ports = fmt.Sprintf("%d", r.PortMin)
 			}
-			_ = table.Append([]string{
+			cobra.CheckErr(table.Append([]string{
 				truncateID(r.ID),
 				r.Direction,
 				r.Protocol,
 				ports,
 				r.CIDR,
 				fmt.Sprintf("%d", r.Priority),
-			})
+			}))
 		}
-		_ = table.Render()
+		cobra.CheckErr(table.Render())
 	},
 }
 

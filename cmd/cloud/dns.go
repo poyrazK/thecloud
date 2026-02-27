@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -31,8 +30,7 @@ var dnsListZonesCmd = &cobra.Command{
 		}
 
 		if opts.JSON {
-			data, _ := json.MarshalIndent(zones, "", "  ")
-			fmt.Println(string(data))
+			printJSON(zones)
 			return
 		}
 
@@ -44,14 +42,14 @@ var dnsListZonesCmd = &cobra.Command{
 			if z.VpcID != uuid.Nil {
 				vpcID = truncateID(z.VpcID.String())
 			}
-			_ = table.Append([]string{
+			cobra.CheckErr(table.Append([]string{
 				truncateID(z.ID.String()),
 				z.Name,
 				vpcID,
 				z.CreatedAt.Format("2006-01-02 15:04:05"),
-			})
+			}))
 		}
-		_ = table.Render()
+		cobra.CheckErr(table.Render())
 	},
 }
 
@@ -81,8 +79,12 @@ var dnsCreateZoneCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("[SUCCESS] DNS Zone %s created successfully!\n", zone.Name)
-		fmt.Printf("ID: %s\n", zone.ID)
+		if opts.JSON {
+			printJSON(zone)
+		} else {
+			fmt.Printf("[SUCCESS] DNS Zone %s created successfully!\n", zone.Name)
+			fmt.Printf("ID: %s\n", zone.ID)
+		}
 	},
 }
 
@@ -116,8 +118,7 @@ var dnsListRecordsCmd = &cobra.Command{
 		}
 
 		if opts.JSON {
-			data, _ := json.MarshalIndent(records, "", "  ")
-			fmt.Println(string(data))
+			printJSON(records)
 			return
 		}
 
@@ -133,7 +134,7 @@ var dnsListRecordsCmd = &cobra.Command{
 			if r.AutoManaged {
 				auto = "Yes"
 			}
-			_ = table.Append([]string{
+			cobra.CheckErr(table.Append([]string{
 				truncateID(r.ID.String()),
 				r.Name,
 				string(r.Type),
@@ -141,9 +142,9 @@ var dnsListRecordsCmd = &cobra.Command{
 				strconv.Itoa(r.TTL),
 				prio,
 				auto,
-			})
+			}))
 		}
-		_ = table.Render()
+		cobra.CheckErr(table.Render())
 	},
 }
 
@@ -177,8 +178,12 @@ var dnsCreateRecordCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("[SUCCESS] DNS Record %s (%s) created!\n", record.Name, record.Type)
-		fmt.Printf("ID: %s\n", record.ID)
+		if opts.JSON {
+			printJSON(record)
+		} else {
+			fmt.Printf("[SUCCESS] DNS Record %s (%s) created!\n", record.Name, record.Type)
+			fmt.Printf("ID: %s\n", record.ID)
+		}
 	},
 }
 
