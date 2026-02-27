@@ -42,13 +42,21 @@ func RunMigrations(ctx context.Context, db DB, logger *slog.Logger) error {
 			continue
 		}
 
-		sql, err := migrationFiles.ReadFile("migrations/" + entry.Name())
+		content, err := migrationFiles.ReadFile("migrations/" + entry.Name())
 		if err != nil {
 			return fmt.Errorf("failed to read migration %s: %w", entry.Name(), err)
 		}
 
+		// Only execute the "Up" part if it's a goose-formatted file
+		sql := string(content)
+		if parts := strings.Split(sql, "-- +goose Down"); len(parts) > 1 {
+			sql = parts[0]
+		}
+		// Also handle -- +goose Up prefix if present
+		sql = strings.TrimPrefix(sql, "-- +goose Up")
+
 		// Execute migration within the transaction
-		_, err = tx.Exec(ctx, string(sql))
+		_, err = tx.Exec(ctx, sql)
 		if err != nil {
 			// Log but don't fail, as tables might already exist
 			// Ideally we should check specific error codes
