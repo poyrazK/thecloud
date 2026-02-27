@@ -21,17 +21,19 @@ Available for all commands:
 
 | Flag | Short | Description | Example |
 |------|-------|-------------|---------|
-| `--api-key` | `-k` | API key for authentication | `-k sk_abc123...` |
+| `--api-key` | `-k` | API key for authentication | `-k thecloud_abc123...` |
+| `--tenant` | | Tenant ID to use for requests | `--tenant uuid` |
 | `--json` | `-j` | Output in JSON format | `-j` |
 | `--help` | `-h` | Show command help | `-h` |
 
 ## Configuration
 
-The CLI stores configuration in `~/.cloud/config.yaml`:
+The CLI stores configuration in `~/.cloud/config.json`:
 
-```yaml
-api_key: sk_abc123...
-api_url: http://localhost:8080
+```json
+{
+  "api_key": "thecloud_xxxxx"
+}
 ```
 
 ---
@@ -43,34 +45,47 @@ api_url: http://localhost:8080
 Register a new user account.
 
 ```bash
-cloud auth register
-# Interactive prompts for email, password, name
+cloud auth register <email> <password> <name>
 ```
 
-**Flags**:
-| Flag | Description |
-|------|-------------|
-| `--email` | Email address |
-| `--password` | Password (min 8 chars) |
-| `--name` | Display name |
+### `auth login-user`
 
-**Example**:
+Login with email and password to receive and save an API key.
+
 ```bash
-cloud auth register --email user@example.com --password SecurePass123! --name "John Doe"
+cloud auth login-user <email> <password>
 ```
 
-### `auth login`
+### `auth whoami`
 
-Login and save API key.
+Show current session information (user ID, email, role, default tenant).
 
 ```bash
-cloud auth login
-# Interactive prompts for email and password
+cloud auth whoami
 ```
 
-**Example**:
+### `auth list-keys`
+
+List your active API keys.
+
 ```bash
-cloud auth login --email user@example.com --password SecurePass123!
+cloud auth list-keys
+```
+
+### `auth revoke-key <id>`
+
+Revoke an API key.
+
+```bash
+cloud auth revoke-key <id>
+```
+
+### `auth rotate-key <id>`
+
+Rotate an API key (replaces it with a new one).
+
+```bash
+cloud auth rotate-key <id>
 ```
 
 ### `auth create-demo <name>`
@@ -83,23 +98,51 @@ cloud auth create-demo my-user
 
 ---
 
+## Tenant Commands 🆕
+
+### `tenant list`
+
+List all organizations (tenants) you belong to.
+
+```bash
+cloud tenant list
+```
+
+### `tenant create <name> <slug>`
+
+Create a new organization.
+
+```bash
+cloud tenant create "My Org" my-org
+```
+
+### `tenant switch <id>`
+
+Switch your default tenant for future CLI operations.
+
+```bash
+cloud tenant switch <id>
+```
+
+---
+
 ## Instance Commands
 
 Manage compute instances (containers or VMs).
 
 ### `instance list`
 
-List all instances.
+List all instances in the current tenant.
 
 ```bash
 cloud instance list
 cloud instance list --json  # JSON output
 ```
 
-**Output**:
+**Standard Output**:
 ```
-ID                                   NAME        IMAGE          STATUS    CREATED
-a1b2c3d4-5678-90ab-cdef-1234567890ab my-server   nginx:alpine   running   2h ago
+ID        NAME        IMAGE          STATUS    ACCESS
+a1b2c3d4  my-server   nginx:alpine   RUNNING   localhost:8080->80
 ```
 
 ### `instance launch`
@@ -119,31 +162,22 @@ cloud instance launch --name my-server --image nginx:alpine
 | `--port` | `-p` | No | - | Port mapping (host:container) |
 | `--vpc` | `-v` | No | - | VPC ID or name |
 | `--subnet` | `-s` | No | - | Subnet ID or name |
-| `--volume` | `-V` | No | - | Volume attachment (vol-name:/path) |
-| `--env` | `-e` | No | - | Environment variable (KEY=VALUE) |
-| `--backend` | | No | `docker` | Backend (docker/libvirt) |
+| `--volume` | `-V` | No | - | Volume attachment (vol-id:/path) |
+| `--ssh-key` | | No | - | SSH Key ID to inject |
+| `--wait` | `-w` | No | `false` | Wait for instance to reach RUNNING state |
 
 **Examples**:
 ```bash
 # Basic instance
-cloud instance launch --name web --image nginx:alpine --type basic-2
+cloud instance launch --name web --image nginx:alpine --type basic-2 --wait
 
 # With port mapping
 cloud instance launch --name api --image node:20 --port 3000:3000 --type standard-1
 
-# With VPC, Subnet and volume
+# With VPC and Subnet
 cloud instance launch --name db --image postgres:16 \
-  --vpc my-network \
-  --subnet my-private-subnet \
-  --volume db-data:/var/lib/postgresql/data
-
-# With environment variables
-cloud instance launch --name app --image myapp:latest \
-  --env DATABASE_URL=postgres://... \
-  --env API_KEY=secret
-
-# Using KVM backend
-cloud instance launch --name vm --image ubuntu-22.04 --backend libvirt
+  --vpc vpc-uuid \
+  --subnet subnet-uuid
 ```
 
 ### `instance stop <id>`
@@ -152,42 +186,14 @@ Stop a running instance.
 
 ```bash
 cloud instance stop my-server
-cloud instance stop a1b2c3d4  # By ID
-```
-
-### `instance start <id>`
-
-Start a stopped instance.
-
-```bash
-cloud instance start my-server
-```
-
-### `instance restart <id>`
-
-Restart an instance.
-
-```bash
-cloud instance restart my-server
-```
-
-### `instance rm <id>`
-
-Terminate and remove an instance.
-
-```bash
-cloud instance rm my-server
-cloud instance rm my-server --force  # Skip confirmation
 ```
 
 ### `instance logs <id>`
 
-View instance logs.
+View real-time instance logs.
 
 ```bash
 cloud instance logs my-server
-cloud instance logs my-server --follow  # Stream logs
-cloud instance logs my-server --tail 100  # Last 100 lines
 ```
 
 ### `instance show <id>`
@@ -198,15 +204,12 @@ Show detailed instance information.
 cloud instance show my-server
 ```
 
-**Output**:
-```yaml
-ID: a1b2c3d4-5678-90ab-cdef-1234567890ab
-Name: my-server
-Image: nginx:alpine
-Status: running
-Ports: 8080:80
-VPC: my-network
-Created: 2024-01-07 10:30:00
+### `instance rm <id>`
+
+Terminate and remove an instance. (Alias: `delete`)
+
+```bash
+cloud instance rm my-server
 ```
 
 ### `instance stats <id>`
@@ -217,11 +220,24 @@ Show real-time resource usage.
 cloud instance stats my-server
 ```
 
-**Output**:
+---
+
+## SSH Key Commands 🆕
+
+### `ssh-key register <name> <file>`
+
+Register a public SSH key for use with instances.
+
+```bash
+cloud ssh-key register my-laptop ~/.ssh/id_rsa.pub
 ```
-CPU: 15.3%
-Memory: 256MB / 512MB (50%)
-Network: ↓ 1.2 MB/s ↑ 0.8 MB/s
+
+### `ssh-key list`
+
+List all registered SSH keys.
+
+```bash
+cloud ssh-key list
 ```
 
 ---
@@ -247,41 +263,55 @@ cloud volume create --name my-data --size 10
 ```
 
 **Flags**:
-| Flag | Required | Default | Description |
-|------|----------|---------|-------------|
-| `--name` | Yes | - | Volume name |
-| `--size` | No | `1` | Size in GB |
-
-### `volume attach <volume-id> <instance-id>`
-
-Attach volume to instance.
-
-```bash
-cloud volume attach my-data my-server --mount /data
-```
-
-### `volume detach <volume-id>`
-
-Detach volume from instance.
-
-```bash
-cloud volume detach my-data
-```
-
-### `volume snapshot <volume-id>`
-
-Create a snapshot of a volume.
-
-```bash
-cloud volume snapshot my-data --name backup-2024-01-07
-```
+| Flag | Short | Required | Default | Description |
+|------|-------|----------|---------|-------------|
+| `--name` | `-n` | Yes | - | Volume name |
+| `--size` | `-s` | No | `1` | Size in GB |
 
 ### `volume rm <id>`
 
-Delete a volume.
+Delete a volume. (Alias: `delete`)
 
 ```bash
 cloud volume rm my-data
+```
+
+---
+
+## Snapshot Commands 🆕
+
+Manage volume snapshots.
+
+### `snapshot list`
+
+List all snapshots.
+
+```bash
+cloud snapshot list
+```
+
+### `snapshot create <volume-id>`
+
+Create a snapshot from a volume.
+
+```bash
+cloud snapshot create vol-uuid --desc "Backup before upgrade"
+```
+
+### `snapshot restore <snapshot-id>`
+
+Restore a snapshot to a new volume.
+
+```bash
+cloud snapshot restore snap-uuid --name restored-vol
+```
+
+### `snapshot rm <id>`
+
+Delete a snapshot. (Alias: `delete`)
+
+```bash
+cloud snapshot rm snap-uuid
 ```
 
 ---
@@ -298,19 +328,13 @@ List all VPCs.
 cloud vpc list
 ```
 
-### `vpc create`
+### `vpc create <name>`
 
 Create a new VPC.
 
 ```bash
-cloud vpc create --name my-network --cidr 10.0.0.0/16
+cloud vpc create my-network --cidr-block 10.0.0.0/16
 ```
-
-**Flags**:
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--name` | (required) | VPC name |
-| `--cidr` | `10.0.0.0/16` | CIDR block |
 
 ### `vpc show <id>`
 
@@ -322,7 +346,7 @@ cloud vpc show my-network
 
 ### `vpc rm <id>`
 
-Delete a VPC.
+Delete a VPC. (Alias: `delete`)
 
 ```bash
 cloud vpc rm my-network
@@ -330,13 +354,13 @@ cloud vpc rm my-network
  
  ---
  
- ## VPC Peering Commands
+ ## VPC Peering Commands 🆕
  
  Manage private connectivity between VPCs.
  
  ### `vpc-peering list`
  
- List all VPC peering connections for the tenant.
+ List all VPC peering connections.
  
  ```bash
  cloud vpc-peering list
@@ -350,110 +374,94 @@ cloud vpc rm my-network
  cloud vpc-peering create --requester-vpc <vpc1-id> --accepter-vpc <vpc2-id>
  ```
  
- **Flags**:
- | Flag | Required | Description |
- |------|----------|-------------|
- | `--requester-vpc` | Yes | ID or name of the initiating VPC |
- | `--accepter-vpc` | Yes | ID or name of the accepting VPC |
+ ### `vpc-peering accept <id>`
  
- ### `vpc-peering accept <peering-id>`
- 
- Accept a pending peering request and establish connectivity.
+ Accept a pending peering request.
  
  ```bash
- cloud vpc-peering accept peering-1234
+ cloud vpc-peering accept peering-uuid
  ```
  
- ### `vpc-peering reject <peering-id>`
+ ### `vpc-peering reject <id>`
  
  Reject a pending peering request.
  
  ```bash
- cloud vpc-peering reject peering-1234
+ cloud vpc-peering reject peering-uuid
  ```
  
- ### `vpc-peering rm <peering-id>`
+ ### `vpc-peering rm <id>`
  
- Delete a peering connection and tear down network routes.
+ Delete a peering connection. (Alias: `delete`)
  
  ```bash
- cloud vpc-peering rm peering-1234
+ cloud vpc-peering rm peering-uuid
  ```
 
 ---
 
 ## Subnet Commands
 
-Manage VPC subnets (internal network segments).
+Manage VPC subnets.
 
-### `subnet list`
+### `subnet list <vpc-id>`
 
 List all subnets in a VPC.
 
 ```bash
-cloud subnet list --vpc my-network
+cloud subnet list vpc-uuid
 ```
 
-### `subnet create`
+### `subnet create <vpc-id> <name> <cidr>`
 
 Create a new subnet in a VPC.
 
 ```bash
-cloud subnet create --name my-private-subnet --vpc my-network --cidr 10.0.1.0/24 --az us-east-1a
+cloud subnet create vpc-uuid my-private-subnet 10.0.1.0/24 --az us-east-1a
 ```
-
-**Flags**:
-| Flag | Required | Default | Description |
-|------|----------|---------|-------------|
-| `--name` | Yes | - | Subnet name |
-| `--vpc` | Yes | - | VPC ID or name |
-| `--cidr` | Yes | - | CIDR block (must be within VPC range) |
-| `--az` | No | - | Availability Zone |
 
 ### `subnet rm <id>`
 
-Delete a subnet.
+Delete a subnet. (Alias: `delete`)
 
 ```bash
-cloud subnet rm my-private-subnet --vpc my-network
+cloud subnet rm subnet-uuid
 ```
 
 ---
 
 ## Security Group Commands
 
-Manage network security groups (firewall rules).
-
 ### `sg list`
 
-List all security groups.
+List all security groups in a VPC.
 
 ```bash
-cloud sg list --vpc my-network
+cloud sg list --vpc-id <vpc-id>
 ```
 
-### `sg get [sg-id]`
+### `sg get <sg-id>`
 
-Get detailed information and rules for a security group.
+Get details and rules for a security group.
 
 ```bash
-cloud sg get my-sg
+cloud sg get sg-uuid
 ```
 
-### `sg create`
+### `sg create <name>`
 
 Create a new security group.
 
 ```bash
-cloud sg create my-sg --vpc my-network --description "Web servers"
+cloud sg create my-sg --vpc-id vpc-uuid --description "Web servers"
 ```
 
-### `sg delete [sg-id]`
+### `sg rm <sg-id>`
 
-Delete a security group.
+Delete a security group. (Alias: `delete`)
 
 ```bash
-cloud sg delete my-sg
+cloud sg rm sg-uuid
 ```
 
 ### `sg add-rule <sg-id>`
@@ -461,199 +469,45 @@ cloud sg delete my-sg
 Add a rule to a security group.
 
 ```bash
-cloud sg add-rule my-sg --protocol tcp --port-min 80 --port-max 80 --cidr 0.0.0.0/0
-```
-
-**Flags**:
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--direction` | `ingress` | Direction (ingress/egress) |
-| `--protocol` | `tcp` | Protocol (tcp/udp/icmp/all) |
-| `--port-min` | `0` | Minimum port |
-| `--port-max` | `0` | Maximum port |
-| `--cidr` | `0.0.0.0/0` | CIDR block |
-| `--priority` | `100` | Rule priority |
-
-### `sg remove-rule <rule-id>`
-
-Remove a rule from a security group.
-
-```bash
-cloud sg remove-rule rule-1234
-```
-
-### `sg attach <instance-id> <sg-id>`
-
-Attach a security group to an instance.
-
-```bash
-cloud sg attach my-server my-sg
-```
-
-### `sg detach <instance-id> <sg-id>`
-
-Detach a security group from an instance.
-
-```bash
-cloud sg detach my-server my-sg
-```
-
----
-
-## Load Balancer Commands
-
-Manage Layer 7 load balancers.
-
-### `lb list`
-
-List all load balancers.
-
-```bash
-cloud lb list
-```
-
-### `lb create`
-
-Create a new load balancer.
-
-```bash
-cloud lb create --name my-lb --vpc my-network --port 8080
-```
-
-**Flags**:
-| Flag | Required | Description |
-|------|----------|-------------|
-| `--name` | Yes | Load balancer name |
-| `--vpc` | Yes | VPC ID or name |
-| `--port` | Yes | Listener port |
-| `--type` | No | Type (HTTP/TCP) |
-
-### `lb add-target <lb-id> <instance-id>`
-
-Register instance as target.
-
-```bash
-cloud lb add-target my-lb my-server --port 80
-```
-
-### `lb remove-target <lb-id> <instance-id>`
-
-Deregister instance.
-
-```bash
-cloud lb remove-target my-lb my-server
-```
-
-### `lb show <id>`
-
-Show load balancer details and health.
-
-```bash
-cloud lb show my-lb
-```
-
-### `lb rm <id>`
-
-Delete a load balancer.
-
-```bash
-cloud lb rm my-lb
-```
-
----
-
-## Auto-Scaling Commands
-
-Manage auto-scaling groups.
-
-### `autoscaling list`
-
-List all scaling groups.
-
-```bash
-cloud autoscaling list
-```
-
-### `autoscaling create`
-
-Create a new auto-scaling group.
-
-```bash
-cloud autoscaling create \
-  --name web-asg \
-  --vpc my-network \
-  --image nginx:alpine \
-  --ports 80:80 \
-  --min 1 --max 5 --desired 2
-```
-
-**Flags**:
-| Flag | Required | Description |
-|------|----------|-------------|
-| `--name` | Yes | Group name |
-| `--vpc` | Yes | VPC ID |
-| `--image` | Yes | Docker image |
-| `--ports` | No | Port mappings |
-| `--min` | Yes | Minimum instances |
-| `--max` | Yes | Maximum instances |
-| `--desired` | Yes | Desired count |
-
-### `autoscaling add-policy <id>`
-
-Add a scaling policy.
-
-```bash
-cloud autoscaling add-policy web-asg \
-  --name cpu-policy \
-  --metric cpu \
-  --threshold 70 \
-  --adjustment 1
-```
-
-**Metrics**: `cpu`, `memory`, `requests`
-
-### `autoscaling show <id>`
-
-Show group details and instances.
-
-```bash
-cloud autoscaling show web-asg
-```
-
-### `autoscaling rm <id>`
-
-Delete scaling group and terminate instances.
-
-```bash
-cloud autoscaling rm web-asg
+cloud sg add-rule sg-uuid --direction ingress --protocol tcp --port-min 80 --port-max 80 --cidr 0.0.0.0/0
 ```
 
 ---
 
 ## Storage Commands
 
-Manage S3-compatible object storage.
+Manage distributed object storage.
+
+### `storage mb <name>`
+
+Make bucket (Create a new bucket). (Alias: `create-bucket`)
+
+```bash
+cloud storage mb my-bucket --public
+```
+
+### `storage rb <name>`
+
+Remove bucket. (Alias: `delete-bucket`)
+
+```bash
+cloud storage rb my-bucket --force
+```
 
 ### `storage upload <bucket> <file>`
 
 Upload a file to object storage.
 
 ```bash
-cloud storage upload my-bucket README.md
-cloud storage upload my-bucket ./data.json --key custom-name.json
+cloud storage upload my-bucket ./local-file.txt --key remote-key.txt
 ```
 
-**Flags**:
-| Flag | Description |
-|------|-------------|
-| `--key` | Custom object key (default: filename) |
+### `storage list [bucket]`
 
-### `storage list <bucket>`
-
-List objects in a bucket.
+List all buckets, or objects within a specific bucket.
 
 ```bash
+cloud storage list
 cloud storage list my-bucket
 ```
 
@@ -662,22 +516,103 @@ cloud storage list my-bucket
 Download an object.
 
 ```bash
-cloud storage download my-bucket file.txt ./local.txt
+cloud storage download my-bucket remote-key.txt ./local-file.txt
 ```
 
-### `storage delete <bucket> <key>`
+### `storage rm <bucket> <key>`
 
-Delete an object.
+Delete an object. (Alias: `delete`)
 
 ```bash
-cloud storage delete my-bucket file.txt
+cloud storage rm my-bucket my-file.txt
+```
+
+### `storage lifecycle`
+
+Manage bucket lifecycle rules (expiration).
+
+```bash
+# List rules
+cloud storage lifecycle list my-bucket
+
+# Set expiration rule
+cloud storage lifecycle set my-bucket --prefix logs/ --days 30
+
+# Remove rule
+cloud storage lifecycle rm my-bucket rule-uuid
+```
+
+---
+
+## IAM Commands (Policies) 🆕
+
+Manage granular IAM policies.
+
+### `iam list`
+
+List all platform IAM policies.
+
+```bash
+cloud iam list
+```
+
+### `iam create <name> <json-file>`
+
+Create a new policy from a JSON file.
+
+```bash
+cloud iam create ReadOnlyS3 ./policy.json
+```
+
+### `iam attach <user-id> <policy-id>`
+
+Attach a policy to a user.
+
+```bash
+cloud iam attach user-uuid policy-uuid
+```
+
+### `iam detach <user-id> <policy-id>`
+
+Detach a policy from a user.
+
+```bash
+cloud iam detach user-uuid policy-uuid
+```
+
+---
+
+## Audit & Billing Commands 🆕
+
+### `audit list`
+
+List recent platform audit logs.
+
+```bash
+cloud audit list --limit 20
+```
+
+### `billing summary`
+
+Get billing summary for the current period.
+
+```bash
+cloud billing summary
+```
+
+### `billing usage`
+
+List detailed usage records.
+
+```bash
+cloud billing usage
 ```
 
 ---
 
 ## Database Commands (RDS)
 
-Manage managed database instances.
+Manage managed databases.
 
 ### `db list`
 
@@ -695,46 +630,28 @@ Create a new managed database.
 cloud db create --name my-db --engine postgres --version 16
 ```
 
-**Flags**:
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--name` | (required) | Database name |
-| `--engine` | `postgres` | Engine (postgres/mysql) |
-| `--version` | `16` | Engine version |
-| `--vpc` | - | VPC ID |
-| `--storage` | `10` | Storage size in GB |
-
-**Supported Engines**:
-- PostgreSQL: `14`, `15`, `16`
-- MySQL: `8.0`, `8.2`
-
 ### `db connection <id>`
 
 Get database connection string.
 
 ```bash
-cloud db connection my-db
-```
-
-**Output**:
-```
-postgresql://admin:password@db-host:5432/mydb
+cloud db connection db-uuid
 ```
 
 ### `db show <id>`
 
-Show database details.
+Show detailed database information.
 
 ```bash
-cloud db show my-db
+cloud db show db-uuid
 ```
 
 ### `db rm <id>`
 
-Delete a database instance.
+Delete a database instance. (Alias: `delete`)
 
 ```bash
-cloud db rm my-db
+cloud db rm db-uuid
 ```
 
 ---
@@ -756,102 +673,90 @@ cloud cache list
 Create a new Redis cache.
 
 ```bash
-cloud cache create --name my-redis --memory 256
-```
-
-**Flags**:
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--name` | (required) | Cache name |
-| `--version` | `7.2` | Redis version |
-| `--memory` | `128` | Memory limit (MB) |
-| `--vpc` | - | VPC ID |
-| `--wait` | `false` | Wait for ready |
-
-### `cache connection <id>`
-
-Get Redis connection string.
-
-```bash
-cloud cache connection my-redis
-```
-
-### `cache stats <id>`
-
-Show cache statistics.
-
-```bash
-cloud cache stats my-redis
-```
-
-### `cache flush <id>`
-
-Flush all keys (dangerous!).
-
-```bash
-cloud cache flush my-redis --yes
+cloud cache create --name my-redis --memory 256 --wait
 ```
 
 ### `cache rm <id>`
 
-Delete a cache instance.
+Delete a cache instance. (Alias: `delete`)
 
 ```bash
-cloud cache rm my-redis
+cloud cache rm redis-uuid
 ```
 
 ---
 
-## Secrets Commands
+## Kubernetes Commands (KaaS)
 
-Manage encrypted secrets.
+Manage managed Kubernetes clusters.
 
-### `secrets list`
+### `k8s list`
 
-List all secrets (values redacted).
+List all Kubernetes clusters.
 
 ```bash
-cloud secrets list
+cloud k8s list
 ```
 
-### `secrets create`
+### `k8s create`
 
-Store a new encrypted secret.
+Create a new Kubernetes cluster.
 
 ```bash
-cloud secrets create --name api-key --value sk_12345
-cloud secrets create --name db-password --value "$(cat password.txt)"
+cloud k8s create --name my-cluster --vpc vpc-uuid --ha --workers 3
 ```
 
-### `secrets get <id>`
+### `k8s kubeconfig <id>`
 
-Decrypt and show secret value.
+Get kubeconfig for a cluster.
 
 ```bash
-cloud secrets get api-key
+cloud k8s kubeconfig cluster-uuid > kubeconfig.yaml
 ```
 
-### `secrets update <id>`
+### `k8s rm <id>`
 
-Update a secret value.
-
-```bash
-cloud secrets update api-key --value new_value
-```
-
-### `secrets rm <id>`
-
-Delete a secret.
+Delete a Kubernetes cluster. (Alias: `delete`)
 
 ```bash
-cloud secrets rm api-key
+cloud k8s rm cluster-uuid
 ```
 
 ---
 
-## Function Commands (Serverless)
+## Cloud Gateway Commands 🆕
 
-Manage CloudFunctions.
+Manage API gateway routes.
+
+### `gateway list-routes`
+
+List all registered routes.
+
+```bash
+cloud gateway list-routes
+```
+
+### `gateway create-route <name> <pattern> <target>`
+
+Create a new gateway route.
+
+```bash
+cloud gateway create-route my-api "/users/{id}" http://my-instance:8080 --strip --methods GET,POST
+```
+
+### `gateway rm-route <id>`
+
+Delete a route. (Alias: `delete`)
+
+```bash
+cloud gateway rm-route route-uuid
+```
+
+---
+
+## Cloud Functions Commands 🆕
+
+Manage serverless functions.
 
 ### `function list`
 
@@ -866,481 +771,45 @@ cloud function list
 Create a new function.
 
 ```bash
-cloud function create \
-  --name my-function \
-  --runtime nodejs20 \
-  --code ./function.zip \
-  --handler index.handler
+cloud function create --name my-func --runtime nodejs20 --code ./code.zip --handler index.handler
 ```
-
-**Supported Runtimes**:
-- `nodejs18`, `nodejs20`
-- `python3.9`, `python3.10`, `python3.11`
-- `go1.21`
 
 ### `function invoke <id>`
 
 Invoke a function.
 
 ```bash
-cloud function invoke my-function --payload '{"key":"value"}'
-```
-
-### `function logs <id>`
-
-Get function execution logs.
-
-```bash
-cloud function logs my-function --limit 50
+cloud function invoke my-func --payload '{"key":"value"}'
 ```
 
 ### `function rm <id>`
 
-Delete a function.
+Delete a function. (Alias: `delete`)
 
 ```bash
-cloud function rm my-function
-```
-
----
-
-## CloudLogs Commands (Persistent Logs) 🆕
-
-Manage and view historical platform logs.
-
-### `logs search`
-
-Search and filter historical logs across the platform.
-
-```bash
-cloud logs search --resource-type instance --query "error"
-```
-
-**Flags**:
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--resource-id` | - | Filter by resource UUID |
-| `--resource-type` | - | Type (`instance`, `function`) |
-| `--level` | - | Severity (`INFO`, `WARN`, `ERROR`) |
-| `--query` | - | Keyword search in message |
-| `--limit` | `100` | Max logs to show |
-| `--offset` | `0` | Pagination offset |
-
-### `logs show <resource-id>`
-
-Quickly show logs for a specific resource.
-
-```bash
-cloud logs show a1b2c3d4
-```
-
----
-
-## Queue Commands
-
-Manage message queues.
-
-### `queue create <name>`
-
-Create a new queue.
-
-```bash
-cloud queue create my-queue
-```
-
-### `queue list`
-
-List all queues.
-
-```bash
-cloud queue list
-```
-
-### `queue send <id> <message>`
-
-Send a message to queue.
-
-```bash
-cloud queue send my-queue "Hello, World!"
-```
-
-### `queue receive <id>`
-
-Receive messages from queue.
-
-```bash
-cloud queue receive my-queue --max 10
-```
-
-### `queue rm <id>`
-
-Delete a queue.
-
-```bash
-cloud queue rm my-queue
-```
-
----
-
-## Notify Commands (Pub/Sub)
-
-Manage topics and subscriptions.
-
-### `notify create-topic <name>`
-
-Create a notification topic.
-
-```bash
-cloud notify create-topic my-updates
-```
-
-### `notify list-topics`
-
-List all topics.
-
-```bash
-cloud notify list-topics
-```
-
-### `notify subscribe <topic-id>`
-
-Subscribe to a topic.
-
-```bash
-cloud notify subscribe my-updates \
-  --protocol webhook \
-  --endpoint https://example.com/hook
-```
-
-**Protocols**: `webhook`, `queue`
-
-### `notify publish <topic-id> <message>`
-
-Publish message to all subscribers.
-
-```bash
-cloud notify publish my-updates "System update complete"
-```
-
-### `notify rm-topic <id>`
-
-Delete a topic.
-
-```bash
-cloud notify rm-topic my-updates
-```
-
----
-
-## Cron Commands (Scheduled Tasks)
-
-Manage scheduled tasks.
-
-### `cron create <name> <schedule> <url>`
-
-Create a scheduled task.
-
-```bash
-cloud cron create cleanup "0 0 * * *" https://api.example.com/cleanup
-```
-
-**Schedule Format**: Standard cron syntax
-- `* * * * *` - Every minute
-- `0 * * * *` - Every hour
-- `0 0 * * *` - Daily at midnight
-- `0 0 * * 0` - Weekly on Sunday
-
-### `cron list`
-
-List all scheduled tasks.
-
-```bash
-cloud cron list
-```
-
-### `cron pause <id>`
-
-Pause a task.
-
-```bash
-cloud cron pause cleanup
-```
-
-### `cron resume <id>`
-
-Resume a paused task.
-
-```bash
-cloud cron resume cleanup
-```
-
-### `cron rm <id>`
-
-Delete a scheduled task.
-
-```bash
-cloud cron rm cleanup
-```
-
----
-
-## Gateway Commands (API Gateway)
-
-Manage API gateway routes.
-
-### `gateway create-route <name> <pattern> <target>`
-
-Create a new gateway route with pattern matching and HTTP method support.
-
-```bash
-cloud gateway create-route my-api "/users/{id}" http://my-instance:8080 --strip --methods GET,POST
-```
-
-**Pattern Syntax**:
-- `/api/v1/*`: Simple wildcard
-- `/users/{id}`: Named parameter (available as `path_param_id` in downstream)
-- `/id/{id:[0-9]+}`: Regex-constrained parameter
-- `/static/*.{ext}`: Named wildcard for extensions
-
-**Flags**:
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--strip` | `true` | Strip matched prefix before forwarding |
-| `--rate-limit` | `100` | Requests per second |
-| `--methods` | `[]` | HTTP methods to match (comma-separated, e.g., GET,POST) |
-| `--priority` | `0` | Route priority (higher wins on overlapping patterns) |
-
-**Access**: Routes are available via the gateway at `http://api-host/gw/<path>`
-
-### `gateway list-routes`
-
-List all routes.
-
-```bash
-cloud gateway list-routes
-```
-
-### `gateway rm-route <id>`
-
-Delete a route.
-
-```bash
-cloud gateway rm-route my-api
-```
-
----
-
-## Kubernetes Commands
- 
- Manage managed Kubernetes clusters.
- 
- ### `k8s list`
- 
- List all Kubernetes clusters.
- 
- ```bash
- cloud k8s list
- ```
- 
- ### `k8s create`
- 
- Create a new Kubernetes cluster.
- 
- ```bash
- # Standard cluster (1 master, 2 workers)
- cloud k8s create --name my-cluster --vpc my-vpc
- 
- # High-Availability cluster (3 masters, load balancer, 3 workers)
- cloud k8s create --name ha-cluster --vpc my-vpc --ha --workers 3
- ```
- 
- **Flags**:
- | Flag | Required | Default | Description |
- |------|----------|---------|-------------|
- | `--name` | Yes | - | Cluster name |
- | `--vpc` | Yes | - | VPC ID |
- | `--ha` | No | `false` | Enable 3-node HA control plane |
- | `--version` | No | `v1.29.0` | K8s version |
- | `--workers` | No | `2` | Worker node count |
- 
- ### `k8s show <id>`
- 
- Show detailed cluster information including HA status and API Server address.
- 
- ```bash
- cloud k8s show my-cluster
- ```
- 
- ### `k8s kubeconfig <id>`
- 
- Get kubeconfig for a cluster.
- 
- ```bash
- cloud k8s kubeconfig my-cluster > kubeconfig.yaml
- ```
- 
- ### `k8s delete <id>`
- 
- Delete a Kubernetes cluster.
- 
- ```bash
- cloud k8s delete my-cluster
- ```
- 
- ---
- 
- ## Container Commands (Orchestration)
-
-Manage container deployments with auto-healing.
-
-### `container deploy <name> <image>`
-
-Create a new deployment.
-
-```bash
-cloud container deploy my-web nginx:latest --replicas 3 --ports 80:80
-```
-
-**Flags**:
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--replicas` | `1` | Number of instances |
-| `--ports` | - | Port mappings |
-| `--env` | - | Environment variables |
-
-### `container list`
-
-List all deployments.
-
-```bash
-cloud container list
-```
-
-### `container scale <id> <replicas>`
-
-Scale a deployment.
-
-```bash
-cloud container scale my-web 5
-```
-
-### `container rm <id>`
-
-Delete deployment and all containers.
-
-```bash
-cloud container rm my-web
-```
-
----
-
-## RBAC Commands
-
-Manage roles and permissions.
-
-### `roles list`
-
-List all roles.
-
-```bash
-cloud roles list
-```
-
-### `roles create <name>`
-
-Create a new role.
-
-```bash
-cloud roles create developer --permissions "instance:read,instance:launch,volume:create"
-```
-
-**Available Permissions**:
-- `instance:read`, `instance:launch`, `instance:stop`, `instance:terminate`
-- `volume:read`, `volume:create`, `volume:delete`
-- `vpc:read`, `vpc:create`, `vpc:delete`
-- `full_access` - All permissions
-
-### `roles bind <email> <role>`
-
-Assign role to user.
-
-```bash
-cloud roles bind user@example.com developer
-```
-
-### `roles unbind <email> <role>`
-
-Remove role from user.
-
-```bash
-cloud roles unbind user@example.com developer
-```
-
-### `roles list-bindings`
-
-List all role bindings.
-
-```bash
-cloud roles list-bindings
-```
-
-### `roles delete <name>`
-
-Delete a role.
-
-```bash
-cloud roles delete developer
-```
-
----
-
-## Events Commands
-
-View system events and audit logs.
-
-### `events list`
-
-List recent events.
-
-```bash
-cloud events list
-cloud events list --limit 100
-cloud events list --type INSTANCE_LAUNCHED
+cloud function rm my-func
 ```
 
 ---
 
 ## Tips & Tricks
 
-### Using JSON Output
+### Standardized IDs
+All CLI table outputs truncate UUIDs to the first **8 characters** for readability. You can use either the full UUID or the truncated version in commands.
 
-All list commands support `--json` for programmatic access:
-
+### JSON Output
+Use `--json` (or `-j`) with any list/get command for programmatic integration:
 ```bash
-cloud instance list --json | jq '.[] | select(.status=="running")'
+cloud instance list --json | jq '.[].id'
 ```
 
 ### Environment Variables
-
-Set default API key:
-
-```bash
-export CLOUD_API_KEY=sk_abc123...
-cloud instance list  # No need for --api-key flag
-```
-
-### Batch Operations
-
-```bash
-# Stop all running instances
-cloud instance list --json | jq -r '.[] | select(.status=="running") | .id' | \
-  xargs -I {} cloud instance stop {}
-```
+- `CLOUD_API_KEY`: Default API key for all commands.
+- `CLOUD_TENANT_ID`: Default tenant context.
+- `CLOUD_API_URL`: Override API server URL.
 
 ### Aliases
-
-Add to your shell config:
-
+Add to your shell config for faster access:
 ```bash
 alias ci='cloud instance'
 alias cv='cloud volume'
@@ -1357,11 +826,3 @@ alias cdb='cloud db'
 - `3` - Authentication error
 - `4` - Resource not found
 - `5` - Permission denied
-
----
-
-## Further Reading
-
-- [Backend Guide](backend.md) - API implementation
-- [Architecture Guide](architecture.md) - System design
-- [Development Guide](development.md) - Setup and testing

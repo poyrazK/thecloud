@@ -124,6 +124,38 @@ Regenerate an API key (alias for rotate).
 
 ---
 
+## Tenants & Organizations 🆕
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /tenants
+List all tenants (organizations) the authenticated user belongs to.
+
+### POST /tenants
+Create a new tenant.
+**Request:**
+```json
+{
+  "name": "Acme Corp",
+  "slug": "acme"
+}
+```
+
+### POST /tenants/:id/switch
+Switch the user's active/default tenant. This affects which resources are visible in subsequent requests.
+
+### POST /tenants/:id/members
+Add a new member to a tenant.
+**Request:**
+```json
+{
+  "user_id": "uuid",
+  "role": "member"
+}
+```
+
+---
+
 ## System Health
 
 ### GET /health/live
@@ -836,6 +868,60 @@ Detach a policy from a user.
 
 ### GET /iam/users/:userId/policies
 List all policies attached to a specific user.
+
+---
+
+## Accounting & Billing 🆕
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /billing/summary
+Get billing summary for the current period.
+
+**Response:**
+```json
+{
+  "period_start": "2026-01-01T00:00:00Z",
+  "period_end": "2026-01-31T23:59:59Z",
+  "total_amount": 150.25,
+  "currency": "USD",
+  "usage_by_type": {
+    "compute": 45.50,
+    "storage": 12.75,
+    "database": 92.00
+  }
+}
+```
+
+### GET /billing/usage
+List detailed usage records.
+
+---
+
+## Audit Logs 🆕
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /audit
+List platform audit logs for the authenticated user/tenant.
+
+**Query Parameters:**
+- `limit`: Max results (default 50).
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid",
+    "timestamp": "2026-01-05T23:00:00Z",
+    "actor": "user@example.com",
+    "action": "INSTANCE_LAUNCH",
+    "resource": "instance/a1b2c3d4",
+    "status": "success",
+    "ip_address": "1.2.3.4"
+  }
+]
+```
 
 ---
 
