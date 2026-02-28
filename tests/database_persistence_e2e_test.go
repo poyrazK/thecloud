@@ -64,10 +64,11 @@ func TestDatabasePersistenceE2E(t *testing.T) {
 
 			// 1. Create Database
 			t.Run("CreateDatabase_ProvisionsVolume", func(t *testing.T) {
-				payload := map[string]string{
-					"name":    dbName,
-					"engine":  tc.engine,
-					"version": tc.version,
+				payload := map[string]interface{}{
+					"name":              dbName,
+					"engine":            tc.engine,
+					"version":           tc.version,
+					"allocated_storage": 20,
 				}
 				resp := postRequest(t, client, testutil.TestBaseURL+"/databases", token, payload)
 				defer closeBody(t, resp)
@@ -80,6 +81,7 @@ func TestDatabasePersistenceE2E(t *testing.T) {
 				require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
 				dbID = res.Data.ID.String()
 				assert.NotEmpty(t, dbID)
+				assert.Equal(t, 20, res.Data.AllocatedStorage)
 
 				// 2. Verify Volume exists
 				respVols := getRequest(t, client, testutil.TestBaseURL+"/volumes", token)
@@ -96,6 +98,7 @@ func TestDatabasePersistenceE2E(t *testing.T) {
 				for _, v := range volsRes.Data {
 					if strings.HasPrefix(v.Name, expectedPrefix) {
 						found = true
+						assert.Equal(t, 20, v.SizeGB)
 						break
 					}
 				}
