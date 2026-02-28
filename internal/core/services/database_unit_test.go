@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 
@@ -57,19 +58,23 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 	mockVpcRepo := new(MockVpcRepo)
 	mockEventSvc := new(MockEventService)
 	mockAuditSvc := new(MockAuditService)
+	mockVolumeSvc := new(MockVolumeService)
 
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
-		Repo:     mockRepo,
-		Compute:  mockCompute,
-		VpcRepo:  mockVpcRepo,
-		EventSvc: mockEventSvc,
-		AuditSvc: mockAuditSvc,
-		Logger:   slog.Default(),
+		Repo:      mockRepo,
+		Compute:   mockCompute,
+		VpcRepo:   mockVpcRepo,
+		VolumeSvc: mockVolumeSvc,
+		EventSvc:  mockEventSvc,
+		AuditSvc:  mockAuditSvc,
+		Logger:    slog.Default(),
 	})
 
 	ctx := context.Background()
 
 	t.Run("CreateDatabase_Success", func(t *testing.T) {
+		mockVolumeSvc.On("CreateVolume", mock.Anything, mock.Anything, 10).
+			Return(&domain.Volume{ID: uuid.New(), Name: "db-vol"}, nil).Once()
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).
 			Return("cid", []string{"30001:5432"}, nil).Once()
 		mockCompute.On("GetInstanceIP", mock.Anything, "cid").Return("10.0.0.5", nil).Once()
@@ -90,6 +95,8 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		primary := &domain.Database{ID: primaryID, Engine: "postgres", Version: "16", Port: 5432, ContainerID: "primary-cid"}
 		mockRepo.On("GetByID", mock.Anything, primaryID).Return(primary, nil).Once()
 		mockCompute.On("GetInstanceIP", mock.Anything, "primary-cid").Return("10.0.0.5", nil).Once()
+		mockVolumeSvc.On("CreateVolume", mock.Anything, mock.Anything, 10).
+			Return(&domain.Volume{ID: uuid.New(), Name: "db-replica-vol"}, nil).Once()
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).
 			Return("cid-rep", []string{"30002:5432"}, nil).Once()
 		mockCompute.On("GetInstanceIP", mock.Anything, "cid-rep").Return("10.0.0.6", nil).Once()
@@ -140,9 +147,16 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 
 	t.Run("DeleteDatabase", func(t *testing.T) {
 		dbID := uuid.New()
-		db := &domain.Database{ID: dbID, ContainerID: "cid"}
+		db := &domain.Database{ID: dbID, ContainerID: "cid", Role: domain.RolePrimary}
 		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
 		mockCompute.On("DeleteInstance", mock.Anything, "cid").Return(nil).Once()
+
+		volID := uuid.New()
+		mockVolumeSvc.On("ListVolumes", mock.Anything).Return([]*domain.Volume{
+			{ID: volID, Name: fmt.Sprintf("db-vol-%s", dbID.String()[:8])},
+		}, nil).Once()
+		mockVolumeSvc.On("DeleteVolume", mock.Anything, volID.String()).Return(nil).Once()
+
 		mockRepo.On("Delete", mock.Anything, dbID).Return(nil).Once()
 		mockEventSvc.On("RecordEvent", mock.Anything, "DATABASE_DELETE", dbID.String(), "DATABASE", mock.Anything).
 			Return(nil).Once()

@@ -260,12 +260,13 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	}
 
 	databaseSvc := services.NewDatabaseService(services.DatabaseServiceParams{
-		Repo:     c.Repos.Database,
-		Compute:  c.Compute,
-		VpcRepo:  c.Repos.Vpc,
-		EventSvc: eventSvc,
-		AuditSvc: auditSvc,
-		Logger:   c.Logger,
+		Repo:      c.Repos.Database,
+		Compute:   c.Compute,
+		VpcRepo:   c.Repos.Vpc,
+		VolumeSvc: volumeSvc,
+		EventSvc:  eventSvc,
+		AuditSvc:  auditSvc,
+		Logger:    c.Logger,
 	})
 	secretSvc := services.NewSecretService(c.Repos.Secret, eventSvc, auditSvc, c.Logger, c.Config.SecretsEncryptionKey, c.Config.Environment)
 	fnSvc := services.NewFunctionService(c.Repos.Function, c.Compute, fileStore, auditSvc, c.Logger)

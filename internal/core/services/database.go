@@ -20,33 +20,36 @@ import (
 
 // DatabaseService manages database instances and lifecycle.
 type DatabaseService struct {
-	repo     ports.DatabaseRepository
-	compute  ports.ComputeBackend
-	vpcRepo  ports.VpcRepository
-	eventSvc ports.EventService
-	auditSvc ports.AuditService
-	logger   *slog.Logger
+	repo      ports.DatabaseRepository
+	compute   ports.ComputeBackend
+	vpcRepo   ports.VpcRepository
+	volumeSvc ports.VolumeService
+	eventSvc  ports.EventService
+	auditSvc  ports.AuditService
+	logger    *slog.Logger
 }
 
 // DatabaseServiceParams holds dependencies for DatabaseService creation.
 type DatabaseServiceParams struct {
-	Repo     ports.DatabaseRepository
-	Compute  ports.ComputeBackend
-	VpcRepo  ports.VpcRepository
-	EventSvc ports.EventService
-	AuditSvc ports.AuditService
-	Logger   *slog.Logger
+	Repo      ports.DatabaseRepository
+	Compute   ports.ComputeBackend
+	VpcRepo   ports.VpcRepository
+	VolumeSvc ports.VolumeService
+	EventSvc  ports.EventService
+	AuditSvc  ports.AuditService
+	Logger    *slog.Logger
 }
 
 // NewDatabaseService constructs a DatabaseService with its dependencies.
 func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 	return &DatabaseService{
-		repo:     params.Repo,
-		compute:  params.Compute,
-		vpcRepo:  params.VpcRepo,
-		eventSvc: params.EventSvc,
-		auditSvc: params.AuditSvc,
-		logger:   params.Logger,
+		repo:      params.Repo,
+		compute:   params.Compute,
+		vpcRepo:   params.VpcRepo,
+		volumeSvc: params.VolumeSvc,
+		eventSvc:  params.EventSvc,
+		auditSvc:  params.AuditSvc,
+		logger:    params.Logger,
 	}
 }
 
@@ -74,17 +77,36 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 		return nil, err
 	}
 
+	// Create persistent volume for the database
+	volName := fmt.Sprintf("db-vol-%s", db.ID.String()[:8])
+	vol, err := s.volumeSvc.CreateVolume(ctx, volName, 10) // 10GB default
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to create persistent volume", err)
+	}
+
+	backendVolName := "thecloud-vol-" + vol.ID.String()[:8]
+	if vol.BackendPath != "" {
+		backendVolName = vol.BackendPath
+	}
+
+	mountPath := "/var/lib/postgresql/data"
+	if dbEngine == domain.EngineMySQL {
+		mountPath = "/var/lib/mysql"
+	}
+	volumeBinds := []string{fmt.Sprintf("%s:%s", backendVolName, mountPath)}
+
 	dockerName := fmt.Sprintf("cloud-db-%s-%s", name, db.ID.String()[:8])
 	containerID, allocatedPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 		Name:        dockerName,
 		ImageName:   imageName,
 		Ports:       []string{"0:" + defaultPort},
 		NetworkID:   networkID,
-		VolumeBinds: nil,
+		VolumeBinds: volumeBinds,
 		Env:         env,
 		Cmd:         nil,
 	})
 	if err != nil {
+		_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
 		s.logger.Error("failed to launch database container", "error", err)
 		return nil, errors.Wrap(errors.Internal, "failed to launch database container", err)
 	}
@@ -97,6 +119,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 			if delErr := s.compute.DeleteInstance(ctx, containerID); delErr != nil {
 				s.logger.Error("failed to clean up database container after port resolution failure", "container_id", containerID, "error", delErr)
 			}
+			_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
 			return nil, errors.Wrap(errors.Internal, "failed to resolve database port", err)
 		}
 	}
@@ -109,6 +132,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 		if delErr := s.compute.DeleteInstance(ctx, containerID); delErr != nil {
 			s.logger.Error("failed to clean up database container after repo create failure", "container_id", containerID, "error", delErr)
 		}
+		_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
 		return nil, err
 	}
 
@@ -140,17 +164,36 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 		return nil, err
 	}
 
+	// Create persistent volume for the replica
+	volName := fmt.Sprintf("db-replica-vol-%s", db.ID.String()[:8])
+	vol, err := s.volumeSvc.CreateVolume(ctx, volName, 10) // 10GB default
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to create persistent volume for replica", err)
+	}
+
+	backendVolName := "thecloud-vol-" + vol.ID.String()[:8]
+	if vol.BackendPath != "" {
+		backendVolName = vol.BackendPath
+	}
+
+	mountPath := "/var/lib/postgresql/data"
+	if db.Engine == domain.EngineMySQL {
+		mountPath = "/var/lib/mysql"
+	}
+	volumeBinds := []string{fmt.Sprintf("%s:%s", backendVolName, mountPath)}
+
 	dockerName := fmt.Sprintf("cloud-db-replica-%s-%s", name, db.ID.String()[:8])
 	containerID, allocatedPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 		Name:        dockerName,
 		ImageName:   imageName,
 		Ports:       []string{"0:" + defaultPort},
 		NetworkID:   networkID,
-		VolumeBinds: nil,
+		VolumeBinds: volumeBinds,
 		Env:         env,
 		Cmd:         nil,
 	})
 	if err != nil {
+		_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
 		return nil, errors.Wrap(errors.Internal, "failed to launch replica container", err)
 	}
 
@@ -165,6 +208,7 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 
 	if err := s.repo.Create(ctx, db); err != nil {
 		_ = s.compute.DeleteInstance(ctx, containerID)
+		_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
 		return nil, err
 	}
 
@@ -332,7 +376,25 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 		}
 	}
 
-	// 2. Delete from repo
+	// 2. Clean up volume
+	// We try to find the volume by the expected name
+	vols, err := s.volumeSvc.ListVolumes(ctx)
+	if err == nil {
+		expectedPrefix := fmt.Sprintf("db-vol-%s", db.ID.String()[:8])
+		if db.Role == domain.RoleReplica {
+			expectedPrefix = fmt.Sprintf("db-replica-vol-%s", db.ID.String()[:8])
+		}
+		for _, v := range vols {
+			if strings.HasPrefix(v.Name, expectedPrefix) {
+				if err := s.volumeSvc.DeleteVolume(ctx, v.ID.String()); err != nil {
+					s.logger.Warn("failed to delete database volume", "volume_id", v.ID, "error", err)
+				}
+				break
+			}
+		}
+	}
+
+	// 3. Delete from repo
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return err
 	}

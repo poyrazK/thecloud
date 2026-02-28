@@ -12,6 +12,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/docker"
+	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,15 +40,20 @@ func setupDatabaseServiceTest(t *testing.T) (ports.DatabaseService, ports.Databa
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(auditRepo)
 
+	volRepo := postgres.NewVolumeRepository(db)
+	storage := noop.NewNoopStorageBackend()
+	volumeSvc := services.NewVolumeService(volRepo, storage, eventSvc, auditSvc, slog.Default())
+
 	logger := slog.Default()
 
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
-		Repo:     repo,
-		Compute:  compute,
-		VpcRepo:  vpcRepo,
-		EventSvc: eventSvc,
-		AuditSvc: auditSvc,
-		Logger:   logger,
+		Repo:      repo,
+		Compute:   compute,
+		VpcRepo:   vpcRepo,
+		VolumeSvc: volumeSvc,
+		EventSvc:  eventSvc,
+		AuditSvc:  auditSvc,
+		Logger:    logger,
 	})
 
 	return svc, repo, compute, vpcRepo, ctx
