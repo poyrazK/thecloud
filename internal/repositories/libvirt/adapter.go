@@ -226,11 +226,11 @@ func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts por
 		vcpu = int(opts.CPULimit)
 	}
 
-	consoleLog := a.getLogPath(name)
-	if os.Getenv("CI") != "" {
-		consoleLog = "" // Disable in CI to avoid permission issues with /tmp or other system paths
+	arch := ""
+	if os.Getenv("GOARCH") == "arm64" || strings.Contains(diskPath, "arm64") {
+		arch = "aarch64"
 	}
-	domainXML := generateDomainXML(name, diskPath, networkID, isoPath, memMB, vcpu, additionalDisks, allocatedPorts, consoleLog)
+	domainXML := generateDomainXML(name, diskPath, networkID, isoPath, memMB, vcpu, additionalDisks, allocatedPorts, arch)
 	dom, err := a.client.DomainDefineXML(ctx, domainXML)
 	if err != nil {
 		a.cleanupCreateFailure(ctx, vol, isoPath)
