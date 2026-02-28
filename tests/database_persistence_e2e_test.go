@@ -22,11 +22,11 @@ const (
 	pollTimeout  = 5 * time.Second
 )
 
-func safePrefix(id string, n int) string {
-	if len(id) < n {
+func safePrefix(id string) string {
+	if len(id) < dbPrefixLen {
 		return id
 	}
-	return id[:n]
+	return id[:dbPrefixLen]
 }
 
 func closeBody(t *testing.T, resp *http.Response) {
@@ -94,7 +94,7 @@ func TestDatabasePersistenceE2E(t *testing.T) {
 				require.NoError(t, json.NewDecoder(respVols.Body).Decode(&volsRes))
 
 				found := false
-				expectedPrefix := fmt.Sprintf("db-vol-%s", safePrefix(dbID, dbPrefixLen))
+				expectedPrefix := fmt.Sprintf("db-vol-%s", safePrefix(dbID))
 				for _, v := range volsRes.Data {
 					if strings.HasPrefix(v.Name, expectedPrefix) {
 						found = true
@@ -138,7 +138,7 @@ func TestDatabasePersistenceE2E(t *testing.T) {
 				require.NoError(t, json.NewDecoder(respVols.Body).Decode(&volsRes))
 
 				found := false
-				expectedPrefix := fmt.Sprintf("db-replica-vol-%s", safePrefix(replicaID, dbPrefixLen))
+				expectedPrefix := fmt.Sprintf("db-replica-vol-%s", safePrefix(replicaID))
 				for _, v := range volsRes.Data {
 					if strings.HasPrefix(v.Name, expectedPrefix) {
 						found = true
@@ -179,14 +179,14 @@ func TestDatabasePersistenceE2E(t *testing.T) {
 						return false
 					}
 
-					expectedPrefix := fmt.Sprintf("db-vol-%s", safePrefix(dbID, dbPrefixLen))
+					expectedPrefix := fmt.Sprintf("db-vol-%s", safePrefix(dbID))
 					for _, v := range volsRes.Data {
 						if strings.HasPrefix(v.Name, expectedPrefix) {
 							return false
 						}
 					}
 					return true
-				}, pollTimeout, pollInterval, "Volume with prefix db-vol-%s should have been deleted", safePrefix(dbID, dbPrefixLen))
+				}, pollTimeout, pollInterval, "Volume with prefix db-vol-%s should have been deleted", safePrefix(dbID))
 			})
 		})
 	}

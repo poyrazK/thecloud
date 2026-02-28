@@ -197,7 +197,7 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		mockVolumeSvc.On("DeleteVolume", mock.Anything, volID.String()).Return(nil).Once()
 
 		db, err := svc.CreateDatabase(ctx, "fail-db", "postgres", "16", nil, 10)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, db)
 		assert.Contains(t, err.Error(), "launch failed")
 	})
@@ -217,7 +217,7 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		mockVolumeSvc.On("DeleteVolume", mock.Anything, volID.String()).Return(nil).Once()
 
 		db, err := svc.CreateDatabase(ctx, "repo-fail-db", "postgres", "16", nil, 10)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, db)
 		assert.Contains(t, err.Error(), "repo failed")
 	})
@@ -228,7 +228,7 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 			Return(nil, fmt.Errorf("not found")).Once()
 
 		replica, err := svc.CreateReplica(ctx, primaryID, "fail-rep")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, replica)
 	})
 }
