@@ -2,6 +2,8 @@ package services_test
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"strings"
@@ -31,7 +33,29 @@ func setupDB(t *testing.T) *pgxpool.Pool {
 		dbURL = container.ConnString
 	}
 
-	db, err := pgxpool.New(ctx, dbURL)
+	// Use a unique schema for this test run to allow parallel execution in CI
+	schema := "test_" + strings.ReplaceAll(uuid.New().String(), "-", "_")
+	
+	// Create base connection to initialize schema
+	baseDB, err := pgxpool.New(ctx, dbURL)
+	require.NoError(t, err)
+	defer baseDB.Close()
+
+	_, err = baseDB.Exec(ctx, fmt.Sprintf("CREATE SCHEMA %s", schema))
+	require.NoError(t, err)
+
+	// Configure pool to use the schema for ALL connections
+	// We MUST include 'public' in search_path because extensions like uuid-ossp 
+	// are usually installed there and functions like uuid_generate_v4() won't be found otherwise.
+	config, err := pgxpool.ParseConfig(dbURL)
+	require.NoError(t, err)
+	
+	if config.ConnConfig.RuntimeParams == nil {
+		config.ConnConfig.RuntimeParams = make(map[string]string)
+	}
+	config.ConnConfig.RuntimeParams["search_path"] = fmt.Sprintf("%s, public", schema)
+
+	db, err := pgxpool.NewWithConfig(ctx, config)
 	require.NoError(t, err)
 
 	err = db.Ping(ctx)
@@ -39,12 +63,46 @@ func setupDB(t *testing.T) *pgxpool.Pool {
 		t.Skipf("Skipping integration test: database not available: %v", err)
 	}
 
+	// Ensure search_path is set for the current connection too (redundant but safe)
+	_, err = db.Exec(ctx, fmt.Sprintf("SET search_path TO %s, public", schema))
+	require.NoError(t, err)
+
+	// Verify we are actually in the correct schema
+	var currentSchema string
+	err = db.QueryRow(ctx, "SELECT current_schema()").Scan(&currentSchema)
+	require.NoError(t, err)
+	require.Equal(t, schema, currentSchema, "Search path not set correctly on pool")
+
 	// Run migrations
-	err = postgres.RunMigrations(ctx, db, slog.Default())
+	var logger *slog.Logger
+	if os.Getenv("CI") != "" {
+		logger = slog.Default() // Use real logger in CI to debug failures
+	} else {
+		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+	
+	err = postgres.RunMigrations(ctx, db, logger)
 	require.NoError(t, err, "Failed to run migrations")
+
+	// Final verification: does users table exist in this schema?
+	var exists bool
+	err = db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT FROM information_schema.tables 
+			WHERE table_schema = $1 
+			AND table_name = 'users'
+		)`, schema).Scan(&exists)
+	require.NoError(t, err)
+	require.True(t, exists, "Users table does not exist in schema %s after migrations", schema)
 
 	t.Cleanup(func() {
 		db.Close()
+		// Clean up the schema
+		cleanupDB, _ := pgxpool.New(ctx, dbURL)
+		if cleanupDB != nil {
+			_, _ = cleanupDB.Exec(ctx, fmt.Sprintf("DROP SCHEMA %s CASCADE", schema))
+			cleanupDB.Close()
+		}
 	})
 
 	return db
@@ -101,14 +159,24 @@ func cleanDB(t *testing.T, db *pgxpool.Pool) {
 	t.Helper()
 	ctx := context.Background()
 
-	// Query to get all tables in the public schema
-	query := `
+	// Get current schema from search_path
+	var schema string
+	err := db.QueryRow(ctx, "SHOW search_path").Scan(&schema)
+	if err != nil {
+		schema = "public"
+	}
+	// SHOW might return "schema, public" or similar
+	schema = strings.Split(schema, ",")[0]
+	schema = strings.TrimSpace(schema)
+
+	query := fmt.Sprintf(`
 		SELECT table_name 
 		FROM information_schema.tables 
-		WHERE table_schema = 'public' 
+		WHERE table_schema = '%s' 
 		AND table_type = 'BASE TABLE'
 		AND table_name != 'schema_migrations'
-	`
+	`, schema)
+	
 	rows, err := db.Query(ctx, query)
 	if err != nil {
 		t.Logf("Warning: failed to query tables for cleanup: %v", err)
@@ -128,7 +196,6 @@ func cleanDB(t *testing.T, db *pgxpool.Pool) {
 		return
 	}
 
-	// Truncate all tables in one command with CASCADE to handle foreign keys
 	truncateQuery := "TRUNCATE " + strings.Join(tables, ", ") + " RESTART IDENTITY CASCADE"
 	_, err = db.Exec(ctx, truncateQuery)
 	if err != nil {

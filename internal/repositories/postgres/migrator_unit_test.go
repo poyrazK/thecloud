@@ -20,7 +20,7 @@ func TestRunMigrations(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	// Get the migration files to know how many Execs to expect
-	entries, err := migrationsFS.ReadDir("migrations")
+	entries, err := MigrationFiles.ReadDir("migrations")
 	require.NoError(t, err)
 
 	for _, entry := range entries {

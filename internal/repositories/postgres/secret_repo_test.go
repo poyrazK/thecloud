@@ -15,7 +15,7 @@ import (
 )
 
 func TestSecretRepository_Integration(t *testing.T) {
-	db := SetupDB(t)
+	db, _ := SetupDB(t)
 	defer db.Close()
 	repo := NewSecretRepository(db)
 	ctx := SetupTestUser(t, db)

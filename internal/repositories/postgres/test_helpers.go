@@ -4,8 +4,10 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,7 +22,9 @@ import (
 // SetupDB initializes the database connection for integration tests.
 // It prioritizes the DATABASE_URL environment variable, falling back to a
 // temporary Docker container via Testcontainers if the variable is not set.
-func SetupDB(t *testing.T) *pgxpool.Pool {
+// It returns both the connection pool and the unique schema name created for the test.
+func SetupDB(t *testing.T) (*pgxpool.Pool, string) {
+	t.Helper()
 	ctx := context.Background()
 	dbURL := os.Getenv("DATABASE_URL")
 
@@ -31,7 +35,28 @@ func SetupDB(t *testing.T) *pgxpool.Pool {
 		dbURL = container.ConnString
 	}
 
-	db, err := pgxpool.New(ctx, dbURL)
+	// Use a unique schema for this test run to allow parallel execution in CI
+	schema := "test_repo_" + strings.ReplaceAll(uuid.New().String(), "-", "_")
+	
+	// Create base connection to initialize schema
+	baseDB, err := pgxpool.New(ctx, dbURL)
+	require.NoError(t, err)
+	defer baseDB.Close()
+
+	_, err = baseDB.Exec(ctx, fmt.Sprintf("CREATE SCHEMA %s", schema))
+	require.NoError(t, err)
+
+	// Configure pool to use the schema for ALL connections
+	// We include 'public' for extensions like uuid-ossp
+	config, err := pgxpool.ParseConfig(dbURL)
+	require.NoError(t, err)
+	
+	if config.ConnConfig.RuntimeParams == nil {
+		config.ConnConfig.RuntimeParams = make(map[string]string)
+	}
+	config.ConnConfig.RuntimeParams["search_path"] = fmt.Sprintf("%s, public", schema)
+
+	db, err := pgxpool.NewWithConfig(ctx, config)
 	require.NoError(t, err)
 
 	err = db.Ping(ctx)
@@ -39,16 +64,31 @@ func SetupDB(t *testing.T) *pgxpool.Pool {
 		t.Skipf("Skipping integration test: database not available: %v", err)
 	}
 
+	// Ensure search_path is set for the current connection too (redundant but safe)
+	_, err = db.Exec(ctx, fmt.Sprintf("SET search_path TO %s, public", schema))
+	require.NoError(t, err)
+
 	// Run migrations
 	err = RunMigrations(ctx, db, slog.Default())
 	require.NoError(t, err, "Failed to run migrations")
 
-	return db
+	t.Cleanup(func() {
+		db.Close()
+		// Clean up the schema
+		cleanupDB, _ := pgxpool.New(ctx, dbURL)
+		if cleanupDB != nil {
+			_, _ = cleanupDB.Exec(ctx, fmt.Sprintf("DROP SCHEMA %s CASCADE", schema))
+			cleanupDB.Close()
+		}
+	})
+
+	return db, schema
 }
 
 // SetupTestUser creates a dedicated test user and tenant context for a test run.
 // It returns a context containing both the UserID and TenantID for multi-tenant isolation.
 func SetupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
+	t.Helper()
 	ctx := context.Background()
 	userRepo := NewUserRepo(db)
 
@@ -91,38 +131,48 @@ func SetupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
 // CleanDB removes test data from the database to ensure test isolation.
 // This function executes a series of DELETE operations on standard resource tables.
 func CleanDB(t *testing.T, db *pgxpool.Pool) {
+	t.Helper()
 	ctx := context.Background()
-	queries := []string{
-		"DELETE FROM cron_job_runs",
-		"DELETE FROM cron_jobs",
-		"DELETE FROM gateway_routes",
-		"DELETE FROM deployment_containers",
-		"DELETE FROM deployments",
-		"DELETE FROM subscriptions",
-		"DELETE FROM topics",
-		"DELETE FROM queue_messages",
-		"DELETE FROM queues",
-		"DELETE FROM lb_targets",
-		"DELETE FROM scaling_group_instances",
-		"DELETE FROM scaling_policies",
-		"DELETE FROM scaling_groups",
-		"DELETE FROM load_balancers",
-		"DELETE FROM volumes",
-		"DELETE FROM instances",
-		"DELETE FROM vpcs",
-		"DELETE FROM tenant_members",
-		"DELETE FROM tenant_quotas",
-		"DELETE FROM tenants",
-		// Users are intentionally preserved to ensure the established identity context
-		// remains valid for subsequent test executions within the same container.
+
+	// Get current schema from search_path
+	var schema string
+	err := db.QueryRow(ctx, "SHOW search_path").Scan(&schema)
+	if err != nil {
+		schema = "public"
+	}
+	schema = strings.Split(schema, ",")[0]
+	schema = strings.TrimSpace(schema)
+
+	query := fmt.Sprintf(`
+		SELECT table_name 
+		FROM information_schema.tables 
+		WHERE table_schema = '%s' 
+		AND table_type = 'BASE TABLE'
+		AND table_name != 'schema_migrations'
+	`, schema)
+	
+	rows, err := db.Query(ctx, query)
+	if err != nil {
+		t.Logf("Warning: failed to query tables for cleanup: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	var tables []string
+	for rows.Next() {
+		var table string
+		if err := rows.Scan(&table); err == nil {
+			tables = append(tables, table)
+		}
 	}
 
-	for _, q := range queries {
-		_, err := db.Exec(ctx, q)
-		// Suppress errors if a table does not exist (PostgreSQL error 42P01).
-		// This ensures stability when migrations are partially applied.
-		if err != nil {
-			t.Logf("Cleanup query failed (ignoring): %s - %v", q, err)
-		}
+	if len(tables) == 0 {
+		return
+	}
+
+	truncateQuery := "TRUNCATE " + strings.Join(tables, ", ") + " RESTART IDENTITY CASCADE"
+	_, err = db.Exec(ctx, truncateQuery)
+	if err != nil {
+		t.Logf("Warning: failed to truncate tables: %v", err)
 	}
 }

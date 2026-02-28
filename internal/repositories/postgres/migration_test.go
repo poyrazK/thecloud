@@ -4,8 +4,6 @@ package postgres
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -15,7 +13,7 @@ import (
 )
 
 func TestMigrationRollback(t *testing.T) {
-	db := SetupDB(t)
+	db, _ := SetupDB(t)
 	defer db.Close()
 	ctx := context.Background()
 	conn, err := db.Acquire(ctx)
@@ -35,8 +33,8 @@ func TestMigrationRollback(t *testing.T) {
 	_, err = conn.Exec(ctx, "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"")
 	require.NoError(t, err)
 
-	// Get all migration files
-	files, err := os.ReadDir("migrations")
+	// Get all migration files from embedded FS
+	files, err := MigrationFiles.ReadDir("migrations")
 	require.NoError(t, err)
 
 	var upMigrations []string
@@ -55,7 +53,7 @@ func TestMigrationRollback(t *testing.T) {
 
 	// Function to run a migration file
 	runFile := func(name string, isDown bool) error {
-		content, err := os.ReadFile(filepath.Join("migrations", name))
+		content, err := MigrationFiles.ReadFile("migrations/" + name)
 		if err != nil {
 			return err
 		}

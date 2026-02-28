@@ -4,36 +4,58 @@ package postgres
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
 	"strings"
+
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-//go:embed migrations/*.up.sql
-var migrationsFS embed.FS
+//go:embed migrations/*.up.sql migrations/*.down.sql
+var MigrationFiles embed.FS
 
-// RunMigrations applies all embedded up migrations.
-// In a real production system, this should track applied migrations in a table.
-// For The Cloud, we'll use IF NOT EXISTS in SQL to make them idempotent-ish,
-// or just run them and ignore "already exists" errors for simplicity in this MVP.
-func RunMigrations(ctx context.Context, db DB, logger *slog.Logger) error {
-	entries, err := migrationsFS.ReadDir("migrations")
+// RunMigrations executes all SQL migration files in order.
+// It tries to be idempotent by using IF NOT EXISTS where possible in SQL files.
+func RunMigrations(ctx context.Context, db any, logger *slog.Logger) error {
+	entries, err := MigrationFiles.ReadDir("migrations")
 	if err != nil {
 		return fmt.Errorf("failed to read migrations: %w", err)
 	}
 
-	// Sort by validation (filename)
+	// Sort entries to ensure deterministic execution order
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].Name() < entries[j].Name()
 	})
 
+	// We need a single connection to ensure session state (like search_path) persists
+	// if the caller passed a pool.
+	var executor interface {
+		Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+	}
+
+	switch d := db.(type) {
+	case *pgxpool.Pool:
+		conn, err := d.Acquire(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to acquire connection for migrations: %w", err)
+		}
+		defer conn.Release()
+		executor = conn
+	case DB:
+		executor = d
+	default:
+		return fmt.Errorf("provided db does not support Exec")
+	}
+
 	for _, entry := range entries {
-		if !strings.HasSuffix(entry.Name(), ".up.sql") {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".up.sql") {
 			continue
 		}
 
-		content, err := migrationsFS.ReadFile("migrations/" + entry.Name())
+		content, err := MigrationFiles.ReadFile("migrations/" + entry.Name())
 		if err != nil {
 			return fmt.Errorf("failed to read migration %s: %w", entry.Name(), err)
 		}
@@ -47,14 +69,24 @@ func RunMigrations(ctx context.Context, db DB, logger *slog.Logger) error {
 		sql = strings.TrimPrefix(sql, "-- +goose Up")
 
 		// Execute migration
-		_, err = db.Exec(ctx, sql)
+		_, err = executor.Exec(ctx, sql)
 		if err != nil {
-			// Log but don't fail, as tables might already exist
-			// Ideally we should check specific error codes
-			logger.Warn("migration result", "migration", entry.Name(), "error", err)
-		} else {
-			logger.Info("applied migration", "migration", entry.Name())
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) {
+				// Specific error codes we can safely ignore during idempotent migrations:
+				// 42P07 - duplicate_table
+				// 42701 - duplicate_column
+				// 42P05 - duplicate_prepared_statement
+				// 23505 - unique_violation
+				// 42P16 - invalid_table_definition (duplicate constraint)
+				if pgErr.Code == "42P07" || pgErr.Code == "42701" || pgErr.Code == "42P05" || pgErr.Code == "23505" || pgErr.Code == "42P16" {
+					logger.Debug("ignoring idempotent migration error", "migration", entry.Name(), "code", pgErr.Code, "error", pgErr.Message)
+					continue
+				}
+			}
+			return fmt.Errorf("failed to execute migration %s: %w", entry.Name(), err)
 		}
+		logger.Info("applied migration", "migration", entry.Name())
 	}
 
 	return nil

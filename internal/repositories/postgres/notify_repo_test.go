@@ -14,7 +14,7 @@ import (
 )
 
 func TestPostgresNotifyRepository(t *testing.T) {
-	db := SetupDB(t)
+	db, _ := SetupDB(t)
 	defer db.Close()
 	repo := NewPostgresNotifyRepository(db)
 	ctx := SetupTestUser(t, db)

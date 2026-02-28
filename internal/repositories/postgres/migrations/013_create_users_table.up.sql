@@ -17,7 +17,7 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 -- For now we assume we start fresh or the migration handles it
 DO $$ 
 BEGIN 
-    IF NOT EXISTS (SELECT 1 FROM information_schema.constraint_column_usage WHERE constraint_name = 'fk_api_keys_user') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.constraint_column_usage WHERE table_schema = current_schema() AND constraint_name = 'fk_api_keys_user') THEN
         ALTER TABLE api_keys ADD CONSTRAINT fk_api_keys_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT;
     END IF;
 END $$;
