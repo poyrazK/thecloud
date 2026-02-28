@@ -28,10 +28,11 @@ func TestDatabaseE2E(t *testing.T) {
 
 	// 1. Create Database
 	t.Run("CreateDatabase", func(t *testing.T) {
-		payload := map[string]string{
-			"name":    dbName,
-			"engine":  "postgres",
-			"version": "16",
+		payload := map[string]interface{}{
+			"name":              dbName,
+			"engine":            "postgres",
+			"version":           "16",
+			"allocated_storage": 10,
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+"/databases", token, payload)
 		defer func() { _ = resp.Body.Close() }()

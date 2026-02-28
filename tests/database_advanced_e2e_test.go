@@ -64,9 +64,10 @@ func TestDatabaseAdvancedE2E(t *testing.T) {
 		// 1. Create a Primary DB
 		dbName := fmt.Sprintf("promo-edge-db-%d", time.Now().UnixNano()%1000)
 		payload := map[string]interface{}{
-			"name":    dbName,
-			"engine":  "postgres",
-			"version": "16",
+			"name":              dbName,
+			"engine":            "postgres",
+			"version":           "16",
+			"allocated_storage": 10,
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+"/databases", token, payload)
 		defer closeBody(t, resp)
@@ -94,7 +95,8 @@ func TestDatabaseAdvancedE2E(t *testing.T) {
 		})
 
 		// Cleanup
-		deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, dbID), token)
+		respDel := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, dbID), token)
+		closeBody(t, respDel)
 	})
 
 	t.Run("VpcIntegration", func(t *testing.T) {
@@ -116,10 +118,11 @@ func TestDatabaseAdvancedE2E(t *testing.T) {
 		// 2. Create DB in VPC
 		dbName := "vpc-integrated-db"
 		dbPayload := map[string]interface{}{
-			"name":    dbName,
-			"engine":  "postgres",
-			"version": "16",
-			"vpc_id":  vpcID,
+			"name":              dbName,
+			"engine":            "postgres",
+			"version":           "16",
+			"vpc_id":            vpcID,
+			"allocated_storage": 10,
 		}
 		respDb := postRequest(t, client, testutil.TestBaseURL+"/databases", token, dbPayload)
 		defer closeBody(t, respDb)
@@ -132,16 +135,19 @@ func TestDatabaseAdvancedE2E(t *testing.T) {
 		assert.Equal(t, vpcID, *dbRes.Data.VpcID)
 
 		// Cleanup
-		deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, dbRes.Data.ID), token)
-		deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpcID), token)
+		respDel1 := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, dbRes.Data.ID), token)
+		closeBody(t, respDel1)
+		respDel2 := deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpcID), token)
+		closeBody(t, respDel2)
 	})
 
 	t.Run("MultiReplicaPromotion", func(t *testing.T) {
 		// 1. Create Primary
 		payload := map[string]interface{}{
-			"name":    "multi-rep-primary",
-			"engine":  "postgres",
-			"version": "16",
+			"name":              "multi-rep-primary",
+			"engine":            "postgres",
+			"version":           "16",
+			"allocated_storage": 10,
 		}
 		respP := postRequest(t, client, testutil.TestBaseURL+"/databases", token, payload)
 		defer closeBody(t, respP)
@@ -199,27 +205,32 @@ func TestDatabaseAdvancedE2E(t *testing.T) {
 		assert.Equal(t, primaryID, *g2Res.Data.PrimaryID)
 
 		// Cleanup
-		deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, primaryID), token)
-		deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, replicaIDs[0]), token)
-		deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, replicaIDs[1]), token)
+		respDelP := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, primaryID), token)
+		closeBody(t, respDelP)
+		respDelR1 := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, replicaIDs[0]), token)
+		closeBody(t, respDelR1)
+		respDelR2 := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, replicaIDs[1]), token)
+		closeBody(t, respDelR2)
 	})
 
 	t.Run("ConnectionStringFormats", func(t *testing.T) {
 		engines := []struct {
-			engine string
-			prefix string
+			engine  string
+			version string
+			prefix  string
 		}{
-			{"postgres", "postgres://"},
-			{"mysql", ""}, // MySQL format is user:pass@tcp(host:port)/db
+			{"postgres", "16", "postgres://"},
+			{"mysql", "8.0", ""}, // MySQL format is user:pass@tcp(host:port)/db
 		}
 
 		for _, tc := range engines {
 			t.Run(tc.engine, func(t *testing.T) {
 				dbName := fmt.Sprintf("conn-str-%s-%d", tc.engine, time.Now().UnixNano()%1000)
 				payload := map[string]interface{}{
-					"name":    dbName,
-					"engine":  tc.engine,
-					"version": "16",
+					"name":              dbName,
+					"engine":            tc.engine,
+					"version":           tc.version,
+					"allocated_storage": 10,
 				}
 				resp := postRequest(t, client, testutil.TestBaseURL+"/databases", token, payload)
 				if resp.StatusCode != http.StatusCreated {
@@ -230,7 +241,7 @@ func TestDatabaseAdvancedE2E(t *testing.T) {
 				var res struct {
 					Data domain.Database `json:"data"`
 				}
-				json.NewDecoder(resp.Body).Decode(&res)
+				require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
 				dbID := res.Data.ID.String()
 				closeBody(t, resp)
 
@@ -247,7 +258,8 @@ func TestDatabaseAdvancedE2E(t *testing.T) {
 				assert.Contains(t, connRes.Data.ConnectionString, dbName)
 
 				// Cleanup
-				deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, dbID), token)
+				respDel := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, dbID), token)
+				closeBody(t, respDel)
 			})
 		}
 	})
