@@ -15,6 +15,27 @@ import (
 	"github.com/poyrazk/thecloud/pkg/testutil"
 )
 
+const (
+	dbSuffixMod  = 1000
+	dbPrefixLen  = 8
+	pollInterval = 200 * time.Millisecond
+	pollTimeout  = 5 * time.Second
+)
+
+func safePrefix(id string, n int) string {
+	if len(id) < n {
+		return id
+	}
+	return id[:n]
+}
+
+func closeBody(t *testing.T, resp *http.Response) {
+	if resp != nil && resp.Body != nil {
+		err := resp.Body.Close()
+		require.NoError(t, err, "failed to close response body")
+	}
+}
+
 func TestDatabasePersistenceE2E(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping database persistence E2E test in short mode")
@@ -27,76 +48,93 @@ func TestDatabasePersistenceE2E(t *testing.T) {
 	client := &http.Client{Timeout: 30 * time.Second}
 	token := registerAndLogin(t, client, "db-persistence@thecloud.local", "Persistence Tester")
 
-	var dbID string
-	dbName := fmt.Sprintf("e2e-persistent-db-%d", time.Now().UnixNano()%1000)
+	testCases := []struct {
+		engine  string
+		version string
+	}{
+		{"postgres", "16"},
+		{"mysql", "8.0"},
+	}
 
-	// 1. Create Database
-	t.Run("CreateDatabase_ProvisionsVolume", func(t *testing.T) {
-		payload := map[string]string{
-			"name":    dbName,
-			"engine":  "postgres",
-			"version": "16",
-		}
-		resp := postRequest(t, client, testutil.TestBaseURL+"/databases", token, payload)
-		defer func() { _ = resp.Body.Close() }()
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("Engine/%s", tc.engine), func(t *testing.T) {
+			var dbID string
+			dbName := fmt.Sprintf("e2e-persistent-%s-%d", tc.engine, time.Now().UnixNano()%dbSuffixMod)
 
-		require.Equal(t, http.StatusCreated, resp.StatusCode)
+			// 1. Create Database
+			t.Run("CreateDatabase_ProvisionsVolume", func(t *testing.T) {
+				payload := map[string]string{
+					"name":    dbName,
+					"engine":  tc.engine,
+					"version": tc.version,
+				}
+				resp := postRequest(t, client, testutil.TestBaseURL+"/databases", token, payload)
+				defer closeBody(t, resp)
 
-		var res struct {
-			Data domain.Database `json:"data"`
-		}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
-		dbID = res.Data.ID.String()
-		assert.NotEmpty(t, dbID)
+				require.Equal(t, http.StatusCreated, resp.StatusCode)
 
-		// 2. Verify Volume exists
-		respVols := getRequest(t, client, testutil.TestBaseURL+"/volumes", token)
-		defer func() { _ = respVols.Body.Close() }()
-		require.Equal(t, http.StatusOK, respVols.StatusCode)
+				var res struct {
+					Data domain.Database `json:"data"`
+				}
+				require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
+				dbID = res.Data.ID.String()
+				assert.NotEmpty(t, dbID)
 
-		var volsRes struct {
-			Data []domain.Volume `json:"data"`
-		}
-		require.NoError(t, json.NewDecoder(respVols.Body).Decode(&volsRes))
+				// 2. Verify Volume exists
+				respVols := getRequest(t, client, testutil.TestBaseURL+"/volumes", token)
+				defer closeBody(t, respVols)
+				require.Equal(t, http.StatusOK, respVols.StatusCode)
 
-		found := false
-		expectedPrefix := fmt.Sprintf("db-vol-%s", dbID[:8])
-		for _, v := range volsRes.Data {
-			if strings.HasPrefix(v.Name, expectedPrefix) {
-				found = true
-				break
-			}
-		}
-		assert.True(t, found, "Expected volume with prefix %s not found", expectedPrefix)
-	})
+				var volsRes struct {
+					Data []domain.Volume `json:"data"`
+				}
+				require.NoError(t, json.NewDecoder(respVols.Body).Decode(&volsRes))
 
-	// 3. Delete Database and verify Volume cleanup
-	t.Run("DeleteDatabase_CleansUpVolume", func(t *testing.T) {
-		resp := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, dbID), token)
-		defer func() { _ = resp.Body.Close() }()
-		require.Equal(t, http.StatusOK, resp.StatusCode)
+				found := false
+				expectedPrefix := fmt.Sprintf("db-vol-%s", safePrefix(dbID, dbPrefixLen))
+				for _, v := range volsRes.Data {
+					if strings.HasPrefix(v.Name, expectedPrefix) {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "Expected volume with prefix %s not found", expectedPrefix)
+			})
 
-		// Wait a bit for async cleanup if any
-		time.Sleep(1 * time.Second)
+			// 3. Delete Database and verify Volume cleanup
+			t.Run("DeleteDatabase_CleansUpVolume", func(t *testing.T) {
+				if dbID == "" {
+					t.Skip("skipping delete test as dbID is empty")
+				}
 
-		// Verify Volume is gone
-		respVols := getRequest(t, client, testutil.TestBaseURL+"/volumes", token)
-		defer func() { _ = respVols.Body.Close() }()
-		require.Equal(t, http.StatusOK, respVols.StatusCode)
+				resp := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, dbID), token)
+				defer closeBody(t, resp)
+				require.Equal(t, http.StatusOK, resp.StatusCode)
 
-		var volsRes struct {
-			Data []domain.Volume `json:"data"`
-		}
-		require.NoError(t, json.NewDecoder(respVols.Body).Decode(&volsRes))
+				// Polling verify Volume is gone
+				require.Eventually(t, func() bool {
+					respVols := getRequest(t, client, testutil.TestBaseURL+"/volumes", token)
+					defer closeBody(t, respVols)
+					if respVols.StatusCode != http.StatusOK {
+						return false
+					}
 
-		found := false
-		expectedPrefix := fmt.Sprintf("db-vol-%s", dbID[:8])
-		for _, v := range volsRes.Data {
-			if strings.HasPrefix(v.Name, expectedPrefix) {
-				found = true
-				break
-			}
-		}
-		assert.False(t, found, "Volume with prefix %s should have been deleted", expectedPrefix)
-	})
+					var volsRes struct {
+						Data []domain.Volume `json:"data"`
+					}
+					if err := json.NewDecoder(respVols.Body).Decode(&volsRes); err != nil {
+						return false
+					}
+
+					expectedPrefix := fmt.Sprintf("db-vol-%s", safePrefix(dbID, dbPrefixLen))
+					for _, v := range volsRes.Data {
+						if strings.HasPrefix(v.Name, expectedPrefix) {
+							return false
+						}
+					}
+					return true
+				}, pollTimeout, pollInterval, "Volume with prefix db-vol-%s should have been deleted", safePrefix(dbID, dbPrefixLen))
+			})
+		})
+	}
 }
