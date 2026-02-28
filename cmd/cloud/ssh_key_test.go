@@ -28,16 +28,15 @@ func TestSSHKeyList(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	apiURL = server.URL
-	apiKey = "test-key"
-	defer func() { 
-		apiURL = oldURL 
-		apiKey = ""
-	}()
+	testOpts := &CLIOptions{
+		APIURL: server.URL,
+		APIKey: "test-key",
+	}
+
+	cmd := newSSHKeyListCmd(testOpts)
 
 	out := captureStdout(t, func() {
-		listKeysCmd.Run(listKeysCmd, nil)
+		cmd.Run(cmd, nil)
 	})
 	if !strings.Contains(out, "key-1") || !strings.Contains(out, "my-laptop") {
 		t.Fatalf("unexpected output: %s", out)
@@ -62,21 +61,22 @@ func TestSSHKeyRegister(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	apiURL = server.URL
-	apiKey = "test-key"
-	defer func() { 
-		apiURL = oldURL 
-		apiKey = ""
-	}()
+	testOpts := &CLIOptions{
+		APIURL: server.URL,
+		APIKey: "test-key",
+	}
 
 	// Create a dummy key file
 	tmpFile := "test_pub_key.pub"
-	_ = os.WriteFile(tmpFile, []byte("ssh-rsa AAA..."), 0600)
+	if err := os.WriteFile(tmpFile, []byte("ssh-rsa AAA..."), 0600); err != nil {
+		t.Fatalf("unable to create %s: %v", tmpFile, err)
+	}
 	defer func() { _ = os.Remove(tmpFile) }()
 
+	cmd := newSSHKeyRegisterCmd(testOpts)
+
 	out := captureStdout(t, func() {
-		registerKeyCmd.Run(registerKeyCmd, []string{"test-key", tmpFile})
+		cmd.Run(cmd, []string{"test-key", tmpFile})
 	})
 	if !strings.Contains(out, "[SUCCESS]") || !strings.Contains(out, "new-key-id") {
 		t.Fatalf("unexpected output: %s", out)

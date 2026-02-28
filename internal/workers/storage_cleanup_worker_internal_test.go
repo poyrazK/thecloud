@@ -26,12 +26,23 @@ func (m *mockStorageService) Download(ctx context.Context, bucket, key string) (
 func (m *mockStorageService) ListObjects(ctx context.Context, bucket string) ([]*domain.Object, error) { return nil, nil }
 func (m *mockStorageService) DeleteObject(ctx context.Context, bucket, key string) error { return nil }
 func (m *mockStorageService) DownloadVersion(ctx context.Context, bucket, key, versionID string) (io.ReadCloser, *domain.Object, error) { return nil, nil, nil }
-func (m *mockStorageService) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) { return nil, nil }
-func (m *mockStorageService) DeleteVersion(ctx context.Context, bucket, key, versionID string) error { return nil }
-func (m *mockStorageService) CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error) { return nil, nil }
-func (m *mockStorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) { return nil, nil }
-func (m *mockStorageService) DeleteBucket(ctx context.Context, name string) error { return nil }
-func (m *mockStorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) { return nil, nil }
+func (m *mockStorageService) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
+	return nil, nil
+}
+func (m *mockStorageService) DeleteVersion(ctx context.Context, bucket, key, versionID string) error {
+	return nil
+}
+func (m *mockStorageService) CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error) {
+	return nil, nil
+}
+func (m *mockStorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
+	return nil, nil
+}
+func (m *mockStorageService) DeleteBucket(ctx context.Context, name string, force bool) error { return nil }
+func (m *mockStorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {
+	return nil, nil
+}
+
 func (m *mockStorageService) SetBucketVersioning(ctx context.Context, name string, enabled bool) error { return nil }
 func (m *mockStorageService) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) { return nil, nil }
 func (m *mockStorageService) CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error) { return nil, nil }

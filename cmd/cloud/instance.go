@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"strings"
 
@@ -16,16 +17,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var apiURL = "http://localhost:8080"
-var outputJSON bool
-var apiKey string
-
 const (
 	fmtErrorLog     = "Error: %v\n"
 	fmtDetailRow    = "%-15s %v\n"
 	demoPrompt      = "[WARN] No API Key found. Run 'cloud auth create-demo <name>' to get one."
 	successInstance = "[SUCCESS] Instance launched successfully!\n"
 	infoStop        = "[INFO] Instance stop initiated."
+	pollInterval    = 2 * time.Second
 )
 
 var instanceCmd = &cobra.Command{
@@ -33,41 +31,19 @@ var instanceCmd = &cobra.Command{
 	Short: "Manage compute instances",
 }
 
-func getClient() *sdk.Client {
-	key := apiKey // 1. Flag
-	if key == "" {
-		key = os.Getenv("CLOUD_API_KEY") // 2. Env Var
-	}
-	if key == "" {
-		key = loadConfig() // 3. Config File
-	}
-
-	if key == "" {
-		fmt.Println(demoPrompt)
-		os.Exit(1)
-	}
-
-	client := sdk.NewClient(apiURL, key)
-	if tenant := os.Getenv("CLOUD_TENANT_ID"); tenant != "" {
-		client.SetTenant(tenant)
-	}
-	return client
-}
-
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all instances",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		instances, err := client.ListInstances()
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
 		}
 
-		if outputJSON {
-			data, _ := json.MarshalIndent(instances, "", "  ")
-			fmt.Println(string(data))
+		if opts.JSON {
+			printJSON(instances)
 			return
 		}
 
@@ -75,14 +51,11 @@ var listCmd = &cobra.Command{
 		table.Header([]string{"ID", "NAME", "IMAGE", "STATUS", "ACCESS"})
 
 		for _, inst := range instances {
-			id := inst.ID
-			if len(id) > 8 {
-				id = id[:8]
-			}
+			id := truncateID(inst.ID)
 
 			access := formatAccessPorts(inst.Ports, inst.Status)
 
-			_ = table.Append([]string{
+			table.Append([]string{
 				id,
 				inst.Name,
 				inst.Image,
@@ -90,7 +63,7 @@ var listCmd = &cobra.Command{
 				access,
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 
@@ -106,6 +79,7 @@ var launchCmd = &cobra.Command{
 		subnetID, _ := cmd.Flags().GetString("subnet")
 		volumeStrs, _ := cmd.Flags().GetStringSlice("volume")
 		sshKeyID, _ := cmd.Flags().GetString("ssh-key")
+		wait, _ := cmd.Flags().GetBool("wait")
 
 		// Parse volume strings like "vol-name:/path"
 		var volumes []sdk.VolumeAttachmentInput
@@ -137,7 +111,7 @@ var launchCmd = &cobra.Command{
 		}
 
 		runCmd, _ := cmd.Flags().GetStringSlice("cmd")
-		client := getClient()
+		client := createClient(opts)
 		inst, err := client.LaunchInstance(name, image, ports, instanceType, vpc, subnetID, volumes, metadata, labels, sshKeyID, runCmd)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
@@ -145,8 +119,36 @@ var launchCmd = &cobra.Command{
 		}
 
 		fmt.Print(successInstance)
-		data, _ := json.MarshalIndent(inst, "", "  ")
-		fmt.Println(string(data))
+
+		if wait {
+			shortID := truncateID(inst.ID)
+			fmt.Printf("[INFO] Waiting for instance %s to be RUNNING...\n", shortID)
+			for {
+				updated, err := client.GetInstance(inst.ID)
+				if err != nil {
+					fmt.Printf("\nError polling status: %v\n", err)
+					return
+				}
+				if updated.Status == "RUNNING" {
+					inst = updated
+					fmt.Println("\n[SUCCESS] Instance is now RUNNING.")
+					break
+				}
+				if updated.Status == "FAILED" || updated.Status == "TERMINATED" {
+					fmt.Printf("\n[ERROR] Instance entered state: %s\n", updated.Status)
+					return
+				}
+				fmt.Print(".")
+				time.Sleep(pollInterval)
+			}
+		}
+
+		if opts.JSON {
+			printJSON(inst)
+		} else {
+			data, _ := json.MarshalIndent(inst, "", "  ")
+			fmt.Println(string(data))
+		}
 	},
 }
 var stopCmd = &cobra.Command{
@@ -155,7 +157,7 @@ var stopCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient(opts)
 		if err := client.StopInstance(id); err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
@@ -171,7 +173,7 @@ var logsCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient(opts)
 		logs, err := client.GetInstanceLogs(id)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
@@ -188,16 +190,15 @@ var showCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient(opts)
 		inst, err := client.GetInstance(id)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
 		}
 
-		if outputJSON {
-			data, _ := json.MarshalIndent(inst, "", "  ")
-			fmt.Println(string(data))
+		if opts.JSON {
+			printJSON(inst)
 			return
 		}
 
@@ -230,7 +231,7 @@ var consoleCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient(opts)
 		url, err := client.GetConsoleURL(id)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
@@ -247,7 +248,7 @@ var rmCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient(opts)
 		if err := client.TerminateInstance(id); err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
@@ -262,16 +263,15 @@ var statsCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient(opts)
 		stats, err := client.GetInstanceStats(id)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
 		}
 
-		if outputJSON {
-			data, _ := json.MarshalIndent(stats, "", "  ")
-			fmt.Println(string(data))
+		if opts.JSON {
+			printJSON(stats)
 			return
 		}
 
@@ -310,7 +310,7 @@ var metadataCmd = &cobra.Command{
 			}
 		}
 
-		client := getClient()
+		client := createClient(opts)
 		if err := client.UpdateInstanceMetadata(id, metadata, labels); err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
@@ -328,7 +328,7 @@ var sshCmd = &cobra.Command{
 		keyPath, _ := cmd.Flags().GetString("i")
 		user, _ := cmd.Flags().GetString("user")
 
-		client := getClient()
+		client := createClient(opts)
 		inst, err := client.GetInstance(id)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
@@ -413,6 +413,7 @@ func init() {
 	launchCmd.Flags().StringSliceP("label", "l", nil, "Labels (key=value)")
 	launchCmd.Flags().String("ssh-key", "", "SSH Key ID to inject")
 	launchCmd.Flags().StringSlice("cmd", nil, "Command to run (e.g. --cmd 'sh' --cmd '-c' --cmd 'echo hello')")
+	launchCmd.Flags().BoolP("wait", "w", false, "Wait for instance to be RUNNING")
 	_ = launchCmd.MarkFlagRequired("name")
 
 	metadataCmd.Flags().StringSliceP("metadata", "m", nil, "Metadata (key=value)")
@@ -420,10 +421,6 @@ func init() {
 
 	sshCmd.Flags().StringP("i", "i", "", "Identity file (private key path)")
 	sshCmd.Flags().StringP("user", "u", "root", "User to log in as")
-
-	rootCmd.PersistentFlags().BoolVarP(&outputJSON, "json", "j", false, "Output in JSON format")
-	rootCmd.PersistentFlags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
-	rootCmd.PersistentFlags().StringVar(&apiURL, "api-url", "http://localhost:8080", "URL of the API server")
 }
 
 func formatAccessPorts(ports string, status string) string {

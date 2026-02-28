@@ -97,6 +97,12 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, permi
 }
 
 func (s *rbacService) CreateRole(ctx context.Context, role *domain.Role) error {
+	// Check if role name already exists to provide a better error than 500
+	existing, _ := s.roleRepo.GetRoleByName(ctx, role.Name)
+	if existing != nil {
+		return errors.New(errors.Conflict, fmt.Sprintf("role with name '%s' already exists", role.Name))
+	}
+
 	if role.ID == uuid.Nil {
 		role.ID = uuid.New()
 	}

@@ -22,7 +22,7 @@ var createCronCmd = &cobra.Command{
 		method, _ := cmd.Flags().GetString("method")
 		payload, _ := cmd.Flags().GetString("payload")
 
-		client := getClient()
+		client := createClient(opts)
 		job, err := client.CreateCronJob(args[0], args[1], args[2], method, payload)
 		if err != nil {
 			fmt.Printf(errFmt, err)
@@ -38,7 +38,7 @@ var listCronCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all scheduled tasks",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		jobs, err := client.ListCronJobs()
 		if err != nil {
 			fmt.Printf(errFmt, err)
@@ -48,9 +48,9 @@ var listCronCmd = &cobra.Command{
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header([]string{"ID", "NAME", "SCHEDULE", "STATUS", "NEXT RUN"})
 		for _, j := range jobs {
-			_ = table.Append([]string{j.ID, j.Name, j.Schedule, j.Status, j.NextRunAt})
+			table.Append([]string{j.ID, j.Name, j.Schedule, j.Status, j.NextRunAt})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 
@@ -59,7 +59,7 @@ var pauseCronCmd = &cobra.Command{
 	Short: "Pause a scheduled task",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		err := client.PauseCronJob(args[0])
 		if err != nil {
 			fmt.Printf(errFmt, err)
@@ -74,7 +74,7 @@ var resumeCronCmd = &cobra.Command{
 	Short: "Resume a scheduled task",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		err := client.ResumeCronJob(args[0])
 		if err != nil {
 			fmt.Printf(errFmt, err)
@@ -89,7 +89,7 @@ var deleteCronCmd = &cobra.Command{
 	Short: "Delete a scheduled task",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		err := client.DeleteCronJob(args[0])
 		if err != nil {
 			fmt.Printf(errFmt, err)

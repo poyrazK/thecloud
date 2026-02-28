@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -285,7 +286,7 @@ func TestClientDeleteBucket(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, storageAPIKey)
-	err := client.DeleteBucket(storageBucketName)
+	err := client.DeleteBucket(context.Background(), storageBucketName)
 
 	require.NoError(t, err)
 }

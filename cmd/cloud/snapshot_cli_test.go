@@ -37,15 +37,15 @@ func TestSnapshotListJSONOutput(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = snapshotTestAPIKey
-	outputJSON = true
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = snapshotTestAPIKey
+	opts.JSON = true
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
-		outputJSON = false
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
+		opts.JSON = false
 	}()
 
 	out := captureStdout(t, func() {
@@ -76,13 +76,13 @@ func TestSnapshotCreateCmd(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = snapshotTestAPIKey
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = snapshotTestAPIKey
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
 	}()
 
 	_ = snapshotCreateCmd.Flags().Set("desc", "daily")
@@ -114,13 +114,13 @@ func TestSnapshotRestoreCmd(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = snapshotTestAPIKey
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = snapshotTestAPIKey
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
 	}()
 
 	_ = snapshotRestoreCmd.Flags().Set("name", "restore-vol")
@@ -144,13 +144,13 @@ func TestSnapshotDeleteCmd(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = snapshotTestAPIKey
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = snapshotTestAPIKey
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
 	}()
 
 	out := captureStdout(t, func() {

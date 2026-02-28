@@ -52,9 +52,12 @@ func (m *mockStorageSvc) DownloadVersion(ctx context.Context, bucket, key, versi
 func (m *mockStorageSvc) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) { return nil, nil }
 func (m *mockStorageSvc) DeleteVersion(ctx context.Context, bucket, key, versionID string) error { return nil }
 func (m *mockStorageSvc) CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error) { return nil, nil }
-func (m *mockStorageSvc) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) { return nil, nil }
-func (m *mockStorageSvc) DeleteBucket(ctx context.Context, name string) error { return nil }
-func (m *mockStorageSvc) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) { return nil, nil }
+func (m *mockStorageSvc) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
+	return nil, nil
+}
+func (m *mockStorageSvc) DeleteBucket(ctx context.Context, name string, force bool) error { return nil }
+func (m *mockStorageSvc) ListBuckets(ctx context.Context) ([]*domain.Bucket, error)       { return nil, nil }
+
 func (m *mockStorageSvc) SetBucketVersioning(ctx context.Context, name string, enabled bool) error { return nil }
 func (m *mockStorageSvc) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
 	args := m.Called(ctx)

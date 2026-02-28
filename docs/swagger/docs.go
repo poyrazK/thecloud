@@ -562,6 +562,49 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/me": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Returns the profile of the currently authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Get current user info",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httputil.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.User"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/register": {
             "post": {
                 "description": "Create a new account on The Cloud",
@@ -5030,7 +5073,7 @@ const docTemplate = `{
                         "APIKeyAuth": []
                     }
                 ],
-                "description": "Deletes a storage bucket",
+                "description": "Deletes a storage bucket. Use force=true to delete a non-empty bucket.",
                 "produces": [
                     "application/json"
                 ],
@@ -5045,6 +5088,12 @@ const docTemplate = `{
                         "name": "bucket",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Force delete even if non-empty",
+                        "name": "force",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -5053,6 +5102,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/httputil.Response"
                         }
@@ -5635,6 +5690,43 @@ const docTemplate = `{
             }
         },
         "/tenants": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tenant"
+                ],
+                "summary": "List user's tenants",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.Tenant"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
             "post": {
                 "security": [
                     {
@@ -5645,7 +5737,20 @@ const docTemplate = `{
                     "Tenant"
                 ],
                 "summary": "Create a new tenant",
-                "responses": {}
+                "responses": {
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
             }
         },
         "/tenants/:id/members": {
@@ -5659,7 +5764,20 @@ const docTemplate = `{
                     "Tenant"
                 ],
                 "summary": "Invite member to tenant",
-                "responses": {}
+                "responses": {
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
             }
         },
         "/tenants/:id/switch": {
@@ -5673,7 +5791,20 @@ const docTemplate = `{
                     "Tenant"
                 ],
                 "summary": "Switch active tenant",
-                "responses": {}
+                "responses": {
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
             }
         },
         "/volumes": {
@@ -8098,6 +8229,47 @@ const docTemplate = `{
                 },
                 "valid": {
                     "type": "boolean"
+                }
+            }
+        },
+        "domain.Tenant": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "owner_id": {
+                    "type": "string"
+                },
+                "plan": {
+                    "description": "\"free\", \"pro\", \"enterprise\"",
+                    "type": "string",
+                    "enum": [
+                        "free",
+                        "pro",
+                        "enterprise"
+                    ]
+                },
+                "slug": {
+                    "description": "URL-friendly identifier",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "\"active\", \"suspended\"",
+                    "type": "string",
+                    "enum": [
+                        "active",
+                        "suspended"
+                    ]
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },

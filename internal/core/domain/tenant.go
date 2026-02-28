@@ -13,8 +13,8 @@ type Tenant struct {
 	Name      string    `json:"name"`
 	Slug      string    `json:"slug"` // URL-friendly identifier
 	OwnerID   uuid.UUID `json:"owner_id"`
-	Plan      string    `json:"plan"`   // "free", "pro", "enterprise"
-	Status    string    `json:"status"` // "active", "suspended"
+	Plan      string    `json:"plan" enums:"free,pro,enterprise"` // "free", "pro", "enterprise"
+	Status    string    `json:"status" enums:"active,suspended"` // "active", "suspended"
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

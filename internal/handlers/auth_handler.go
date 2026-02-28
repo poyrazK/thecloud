@@ -154,3 +154,22 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 
 	httputil.Success(c, http.StatusOK, gin.H{"message": "password updated successfully"})
 }
+
+// Me godoc
+// @Summary Get current user info
+// @Description Returns the profile of the currently authenticated user
+// @Tags Auth
+// @Security APIKeyAuth
+// @Produce json
+// @Success 200 {object} httputil.Response{data=domain.User}
+// @Failure 401 {object} httputil.Response
+// @Router /auth/me [get]
+func (h *AuthHandler) Me(c *gin.Context) {
+	userID := httputil.GetUserID(c)
+	user, err := h.authSvc.GetUserByID(c.Request.Context(), userID)
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+	httputil.Success(c, http.StatusOK, user)
+}

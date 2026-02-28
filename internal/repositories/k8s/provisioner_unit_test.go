@@ -78,7 +78,7 @@ func (m *mockStorageSvc) CreateBucket(ctx context.Context, n string, p bool) (*d
 func (m *mockStorageSvc) GetBucket(ctx context.Context, n string) (*domain.Bucket, error) {
 	return nil, nil
 }
-func (m *mockStorageSvc) DeleteBucket(ctx context.Context, n string) error                { return nil }
+func (m *mockStorageSvc) DeleteBucket(ctx context.Context, n string, force bool) error { return nil }
 func (m *mockStorageSvc) ListBuckets(ctx context.Context) ([]*domain.Bucket, error)       { return nil, nil }
 func (m *mockStorageSvc) SetBucketVersioning(ctx context.Context, n string, e bool) error { return nil }
 func (m *mockStorageSvc) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {

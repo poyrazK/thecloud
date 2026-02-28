@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -23,16 +22,15 @@ var dnsListZonesCmd = &cobra.Command{
 	Use:   "list-zones",
 	Short: "List all DNS zones",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		zones, err := client.ListDNSZones()
 		if err != nil {
 			fmt.Printf(dnsErrorFormat, err)
 			return
 		}
 
-		if outputJSON {
-			data, _ := json.MarshalIndent(zones, "", "  ")
-			fmt.Println(string(data))
+		if opts.JSON {
+			printJSON(zones)
 			return
 		}
 
@@ -42,16 +40,16 @@ var dnsListZonesCmd = &cobra.Command{
 		for _, z := range zones {
 			vpcID := "Public"
 			if z.VpcID != uuid.Nil {
-				vpcID = z.VpcID.String()[:8]
+				vpcID = truncateID(z.VpcID.String())
 			}
-			_ = table.Append([]string{
-				z.ID.String()[:8],
+			table.Append([]string{
+				truncateID(z.ID.String()),
 				z.Name,
 				vpcID,
 				z.CreatedAt.Format("2006-01-02 15:04:05"),
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 
@@ -74,25 +72,30 @@ var dnsCreateZoneCmd = &cobra.Command{
 			vpcID = &uid
 		}
 
-		client := getClient()
+		client := createClient(opts)
 		zone, err := client.CreateDNSZone(name, desc, vpcID)
 		if err != nil {
 			fmt.Printf(dnsErrorFormat, err)
 			return
 		}
 
-		fmt.Printf("[SUCCESS] DNS Zone %s created successfully!\n", zone.Name)
-		fmt.Printf("ID: %s\n", zone.ID)
+		if opts.JSON {
+			printJSON(zone)
+		} else {
+			fmt.Printf("[SUCCESS] DNS Zone %s created successfully!\n", zone.Name)
+			fmt.Printf("ID: %s\n", zone.ID)
+		}
 	},
 }
 
 var dnsDeleteZoneCmd = &cobra.Command{
-	Use:   "delete-zone [id]",
-	Short: "Delete a DNS zone",
+	Use:     "rm-zone [id]",
+	Aliases: []string{"delete-zone"},
+	Short:   "Delete a DNS zone",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient(opts)
 		if err := client.DeleteDNSZone(id); err != nil {
 			fmt.Printf(dnsErrorFormat, err)
 			return
@@ -107,16 +110,15 @@ var dnsListRecordsCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		zoneID := args[0]
-		client := getClient()
+		client := createClient(opts)
 		records, err := client.ListDNSRecords(zoneID)
 		if err != nil {
 			fmt.Printf(dnsErrorFormat, err)
 			return
 		}
 
-		if outputJSON {
-			data, _ := json.MarshalIndent(records, "", "  ")
-			fmt.Println(string(data))
+		if opts.JSON {
+			printJSON(records)
 			return
 		}
 
@@ -132,8 +134,8 @@ var dnsListRecordsCmd = &cobra.Command{
 			if r.AutoManaged {
 				auto = "Yes"
 			}
-			_ = table.Append([]string{
-				r.ID.String()[:8],
+			table.Append([]string{
+				truncateID(r.ID.String()),
 				r.Name,
 				string(r.Type),
 				r.Content,
@@ -142,7 +144,7 @@ var dnsListRecordsCmd = &cobra.Command{
 				auto,
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 
@@ -169,25 +171,30 @@ var dnsCreateRecordCmd = &cobra.Command{
 			prioPtr = &priority
 		}
 
-		client := getClient()
+		client := createClient(opts)
 		record, err := client.CreateDNSRecord(zoneID, name, domain.RecordType(recordType), content, ttl, prioPtr)
 		if err != nil {
 			fmt.Printf(dnsErrorFormat, err)
 			return
 		}
 
-		fmt.Printf("[SUCCESS] DNS Record %s (%s) created!\n", record.Name, record.Type)
-		fmt.Printf("ID: %s\n", record.ID)
+		if opts.JSON {
+			printJSON(record)
+		} else {
+			fmt.Printf("[SUCCESS] DNS Record %s (%s) created!\n", record.Name, record.Type)
+			fmt.Printf("ID: %s\n", record.ID)
+		}
 	},
 }
 
 var dnsDeleteRecordCmd = &cobra.Command{
-	Use:   "delete-record [id]",
-	Short: "Delete a DNS record",
-	Args:  cobra.ExactArgs(1),
+	Use:     "rm-record [id]",
+	Aliases: []string{"delete-record"},
+	Short:   "Delete a DNS record",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient(opts)
 		if err := client.DeleteDNSRecord(id); err != nil {
 			fmt.Printf(dnsErrorFormat, err)
 			return

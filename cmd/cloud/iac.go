@@ -2,7 +2,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -22,16 +21,20 @@ var iacListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all stacks",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		stacks, err := client.ListStacks()
 		if err != nil {
 			fmt.Printf(cliErrorFormat, err)
 			return
 		}
 
-		if outputJSON {
-			data, _ := json.MarshalIndent(stacks, "", "  ")
-			fmt.Println(string(data))
+		if opts.JSON {
+			printJSON(stacks)
+			return
+		}
+
+		if len(stacks) == 0 {
+			fmt.Println("No stacks found.")
 			return
 		}
 
@@ -39,14 +42,14 @@ var iacListCmd = &cobra.Command{
 		table.Header([]string{"ID", "NAME", "STATUS", "CREATED AT"})
 
 		for _, s := range stacks {
-			_ = table.Append([]string{
-				s.ID.String()[:8],
+			table.Append([]string{
+				truncateID(s.ID.String()),
 				s.Name,
 				string(s.Status),
 				s.CreatedAt.Format("2006-01-02 15:04:05"),
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 
@@ -64,16 +67,20 @@ var iacCreateCmd = &cobra.Command{
 			return
 		}
 
-		client := getClient()
+		client := createClient(opts)
 		stack, err := client.CreateStack(name, string(templateData), nil)
 		if err != nil {
 			fmt.Printf(cliErrorFormat, err)
 			return
 		}
 
-		fmt.Printf("[SUCCESS] Stack %s creation initiated!\n", stack.Name)
-		fmt.Printf("ID: %s\n", stack.ID)
-		fmt.Printf("Status: %s\n", stack.Status)
+		if opts.JSON {
+			printJSON(stack)
+		} else {
+			fmt.Printf("[SUCCESS] Stack %s creation initiated!\n", stack.Name)
+			fmt.Printf("ID: %s\n", stack.ID)
+			fmt.Printf("Status: %s\n", stack.Status)
+		}
 	},
 }
 
@@ -82,17 +89,15 @@ var iacGetCmd = &cobra.Command{
 	Short: "Get stack details and resources",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		id := args[0]
-		client := getClient()
-		stack, err := client.GetStack(id)
+		client := createClient(opts)
+		stack, err := client.GetStack(args[0])
 		if err != nil {
 			fmt.Printf(cliErrorFormat, err)
 			return
 		}
 
-		if outputJSON {
-			data, _ := json.MarshalIndent(stack, "", "  ")
-			fmt.Println(string(data))
+		if opts.JSON {
+			printJSON(stack)
 			return
 		}
 
@@ -108,25 +113,26 @@ var iacGetCmd = &cobra.Command{
 			table := tablewriter.NewWriter(os.Stdout)
 			table.Header([]string{"LOGICAL ID", "PHYSICAL ID", "TYPE", "STATUS"})
 			for _, r := range stack.Resources {
-				_ = table.Append([]string{
+				table.Append([]string{
 					r.LogicalID,
 					r.PhysicalID,
 					r.ResourceType,
 					r.Status,
 				})
 			}
-			_ = table.Render()
+			table.Render()
 		}
 	},
 }
 
 var iacRmCmd = &cobra.Command{
-	Use:   "rm [id]",
-	Short: "Remove a stack and its resources",
-	Args:  cobra.ExactArgs(1),
+	Use:     "rm [id]",
+	Aliases: []string{"delete"},
+	Short:   "Remove a stack and its resources",
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		client := getClient()
+		client := createClient(opts)
 		if err := client.DeleteStack(id); err != nil {
 			fmt.Printf(cliErrorFormat, err)
 			return
@@ -148,7 +154,7 @@ var iacValidateCmd = &cobra.Command{
 			return
 		}
 
-		client := getClient()
+		client := createClient(opts)
 		resp, err := client.ValidateTemplate(string(templateData))
 		if err != nil {
 			fmt.Printf(cliErrorFormat, err)

@@ -36,14 +36,14 @@ var logsSearchCmd = &cobra.Command{
 			Offset:       offset,
 		}
 
-		client := getClient()
+		client := createClient(opts)
 		res, err := client.SearchLogs(cmd.Context(), query)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
 
-		if outputJSON {
+		if opts.JSON {
 			data, err := json.MarshalIndent(res, "", "  ")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error marshaling response: %v\n", err)
@@ -65,14 +65,14 @@ var logsShowCmd = &cobra.Command{
 		id := args[0]
 		limit, _ := cmd.Flags().GetInt("limit")
 
-		client := getClient()
+		client := createClient(opts)
 		res, err := client.GetLogsByResource(cmd.Context(), id, limit)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
 
-		if outputJSON {
+		if opts.JSON {
 			data, err := json.MarshalIndent(res, "", "  ")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error marshaling response: %v\n", err)
@@ -100,19 +100,19 @@ func displayLogs(entries []sdk.LogEntry) {
 		if e.ResourceID != "" {
 			shortID := e.ResourceID
 			if len(shortID) > 8 {
-				shortID = shortID[:8]
+				shortID = truncateID(shortID)
 			}
 			resource = fmt.Sprintf("%s/%s", e.ResourceType, shortID)
 		}
 
-		_ = table.Append([]string{
+		table.Append([]string{
 			e.Timestamp.Format(time.RFC3339),
 			e.Level,
 			resource,
 			e.Message,
 		})
 	}
-	_ = table.Render()
+	table.Render()
 }
 
 func init() {

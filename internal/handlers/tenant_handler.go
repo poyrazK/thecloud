@@ -38,6 +38,8 @@ type InviteMemberRequest struct {
 // @Tags Tenant
 // @Security APIKeyAuth
 // @Router /tenants [post]
+// @Failure 401 {object} httputil.Response
+// @Failure 403 {object} httputil.Response
 func (h *TenantHandler) Create(c *gin.Context) {
 	var req CreateTenantRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -60,6 +62,8 @@ func (h *TenantHandler) Create(c *gin.Context) {
 // @Tags Tenant
 // @Security APIKeyAuth
 // @Router /tenants/:id/members [post]
+// @Failure 401 {object} httputil.Response
+// @Failure 403 {object} httputil.Response
 func (h *TenantHandler) InviteMember(c *gin.Context) {
 	tenantID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -81,10 +85,32 @@ func (h *TenantHandler) InviteMember(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, gin.H{"message": "member invited"})
 }
 
+// List godoc
+// @Summary List user's tenants
+// @Tags Tenant
+// @Security APIKeyAuth
+// @Produce json
+// @Success 200 {array} domain.Tenant
+// @Failure 401 {object} httputil.Response
+// @Failure 403 {object} httputil.Response
+// @Router /tenants [get]
+func (h *TenantHandler) List(c *gin.Context) {
+	userID := httputil.GetUserID(c)
+	tenants, err := h.svc.ListUserTenants(c.Request.Context(), userID)
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, tenants)
+}
+
 // SwitchTenant godoc
 // @Summary Switch active tenant
 // @Tags Tenant
 // @Security APIKeyAuth
+// @Failure 401 {object} httputil.Response
+// @Failure 403 {object} httputil.Response
 // @Router /tenants/:id/switch [post]
 func (h *TenantHandler) SwitchTenant(c *gin.Context) {
 	tenantID, err := uuid.Parse(c.Param("id"))

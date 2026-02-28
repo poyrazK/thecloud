@@ -121,9 +121,7 @@ func TestGatewayE2E(t *testing.T) {
 			"name":         routeName,
 			"path_prefix":  pattern,
 			"target_url":   targetURL,
-			"strip_prefix": false, // Don't strip, let it pass /status-ts/201 to target if we use prefix
-			// Actually, if we use pattern matching, the whole path matched is usually handled.
-			// Let's use a simpler one:
+			"strip_prefix": false,
 		}
 		// Redefine for clarity
 		pattern = fmt.Sprintf("/gw-status-%d/{code:[0-9]+}", ts)
@@ -315,7 +313,7 @@ func TestGatewayE2E(t *testing.T) {
 		urlGet := testutil.TestBaseURL + "/gw" + pattern + "/get"
 		respGet := waitForRoute(t, client, urlGet, token)
 		defer func() { _ = respGet.Body.Close() }()
-		require.Equal(t, http.StatusOK, respGet.StatusCode, "GET request failed")
+		require.Equal(t, http.StatusOK, respGet.StatusCode, "GET request failed after retries")
 
 		bodyBytesGet, err := io.ReadAll(respGet.Body)
 		require.NoError(t, err)
@@ -331,12 +329,23 @@ func TestGatewayE2E(t *testing.T) {
 		urlPost := testutil.TestBaseURL + "/gw" + pattern + "/post"
 		reqPost, _ := http.NewRequest("POST", urlPost, nil)
 		reqPost.Header.Set(testutil.TestHeaderAPIKey, token)
-		// We can't use waitForRoute here easily because it's hardcoded to GET
-		// But usually the propagation is consistent if previous subtests passed
-		respPost, err := client.Do(reqPost)
+		
+		// Use a simple retry for POST since waitForRoute is GET only
+		var respPost *http.Response
+		for i := 0; i < 5; i++ {
+			respPost, err = client.Do(reqPost)
+			if err == nil && respPost.StatusCode == http.StatusOK {
+				break
+			}
+			if respPost != nil {
+				respPost.Body.Close()
+			}
+			time.Sleep(1 * time.Second)
+		}
+		
 		require.NoError(t, err)
 		defer func() { _ = respPost.Body.Close() }()
-		require.Equal(t, http.StatusOK, respPost.StatusCode, "POST request failed")
+		require.Equal(t, http.StatusOK, respPost.StatusCode, "POST request failed after retries")
 
 		bodyBytes, err := io.ReadAll(respPost.Body)
 		require.NoError(t, err)
