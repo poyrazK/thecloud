@@ -334,4 +334,46 @@ func TestDatabaseHandlerReplication(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 		svc.AssertExpectations(t)
 	})
+
+	t.Run("CreateReplica_InvalidID", func(t *testing.T) {
+		_, handler, r := setupDatabaseHandlerTest(t)
+		r.POST(databasesPath+"/:id/replicas", handler.CreateReplica)
+
+		req, _ := http.NewRequest("POST", databasesPath+"/invalid-uuid/replicas", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("CreateReplica_ServiceError", func(t *testing.T) {
+		svc, handler, r := setupDatabaseHandlerTest(t)
+		r.POST(databasesPath+"/:id/replicas", handler.CreateReplica)
+
+		primaryID := uuid.New()
+		svc.On("CreateReplica", mock.Anything, primaryID, "rep-1").
+			Return(nil, errors.New(errors.Internal, "error"))
+
+		body, _ := json.Marshal(map[string]interface{}{"name": "rep-1"})
+		req, _ := http.NewRequest("POST", databasesPath+"/"+primaryID.String()+"/replicas", bytes.NewBuffer(body))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("Promote_ServiceError", func(t *testing.T) {
+		svc, handler, r := setupDatabaseHandlerTest(t)
+		r.POST(databasesPath+"/:id/promote", handler.Promote)
+
+		id := uuid.New()
+		svc.On("PromoteToPrimary", mock.Anything, id).
+			Return(errors.New(errors.Internal, "error"))
+
+		req, _ := http.NewRequest("POST", databasesPath+"/"+id.String()+"/promote", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
 }

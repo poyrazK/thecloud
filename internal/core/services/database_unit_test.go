@@ -185,4 +185,50 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)
 	})
+
+	t.Run("CreateDatabase_RollbackOnLaunchFailure", func(t *testing.T) {
+		volID := uuid.New()
+		mockVolumeSvc.On("CreateVolume", mock.Anything, mock.Anything, 10).
+			Return(&domain.Volume{ID: volID, Name: "db-vol"}, nil).Once()
+		
+		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).
+			Return("", nil, fmt.Errorf("launch failed")).Once()
+		
+		mockVolumeSvc.On("DeleteVolume", mock.Anything, volID.String()).Return(nil).Once()
+
+		db, err := svc.CreateDatabase(ctx, "fail-db", "postgres", "16", nil, 10)
+		assert.Error(t, err)
+		assert.Nil(t, db)
+		assert.Contains(t, err.Error(), "launch failed")
+	})
+
+	t.Run("CreateDatabase_RollbackOnRepoFailure", func(t *testing.T) {
+		volID := uuid.New()
+		mockVolumeSvc.On("CreateVolume", mock.Anything, mock.Anything, 10).
+			Return(&domain.Volume{ID: volID, Name: "db-vol"}, nil).Once()
+		
+		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).
+			Return("cid-123", []string{"30001:5432"}, nil).Once()
+		
+		mockRepo.On("Create", mock.Anything, mock.Anything).
+			Return(fmt.Errorf("repo failed")).Once()
+		
+		mockCompute.On("DeleteInstance", mock.Anything, "cid-123").Return(nil).Once()
+		mockVolumeSvc.On("DeleteVolume", mock.Anything, volID.String()).Return(nil).Once()
+
+		db, err := svc.CreateDatabase(ctx, "repo-fail-db", "postgres", "16", nil, 10)
+		assert.Error(t, err)
+		assert.Nil(t, db)
+		assert.Contains(t, err.Error(), "repo failed")
+	})
+
+	t.Run("CreateReplica_Failure_PrimaryNotFound", func(t *testing.T) {
+		primaryID := uuid.New()
+		mockRepo.On("GetByID", mock.Anything, primaryID).
+			Return(nil, fmt.Errorf("not found")).Once()
+
+		replica, err := svc.CreateReplica(ctx, primaryID, "fail-rep")
+		assert.Error(t, err)
+		assert.Nil(t, replica)
+	})
 }

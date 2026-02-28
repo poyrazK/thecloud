@@ -105,7 +105,56 @@ func TestDatabasePersistenceE2E(t *testing.T) {
 				assert.True(t, found, "Expected volume with prefix %s not found", expectedPrefix)
 			})
 
-			// 3. Delete Database and verify Volume cleanup
+			// 3. Create Replica and verify its Volume
+			t.Run("CreateReplica_ProvisionsVolume", func(t *testing.T) {
+				if dbID == "" {
+					t.Skip("skipping replica test as primary dbID is empty")
+				}
+
+				replicaName := fmt.Sprintf("e2e-persistent-rep-%s-%d", tc.engine, time.Now().UnixNano()%dbSuffixMod)
+				payload := map[string]string{
+					"name": replicaName,
+				}
+				resp := postRequest(t, client, fmt.Sprintf("%s/databases/%s/replicas", testutil.TestBaseURL, dbID), token, payload)
+				defer closeBody(t, resp)
+
+				require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+				var res struct {
+					Data domain.Database `json:"data"`
+				}
+				require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
+				replicaID := res.Data.ID.String()
+				assert.NotEmpty(t, replicaID)
+
+				// Verify Replica Volume exists
+				respVols := getRequest(t, client, testutil.TestBaseURL+"/volumes", token)
+				defer closeBody(t, respVols)
+				require.Equal(t, http.StatusOK, respVols.StatusCode)
+
+				var volsRes struct {
+					Data []domain.Volume `json:"data"`
+				}
+				require.NoError(t, json.NewDecoder(respVols.Body).Decode(&volsRes))
+
+				found := false
+				expectedPrefix := fmt.Sprintf("db-replica-vol-%s", safePrefix(replicaID, dbPrefixLen))
+				for _, v := range volsRes.Data {
+					if strings.HasPrefix(v.Name, expectedPrefix) {
+						found = true
+						assert.Equal(t, 20, v.SizeGB) // Should inherit 20GB from primary in previous subtest
+						break
+					}
+				}
+				assert.True(t, found, "Expected replica volume with prefix %s not found", expectedPrefix)
+
+				// Cleanup replica
+				respDel := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, replicaID), token)
+				defer closeBody(t, respDel)
+				assert.Equal(t, http.StatusOK, respDel.StatusCode)
+			})
+
+			// 4. Delete Database and verify Volume cleanup
 			t.Run("DeleteDatabase_CleansUpVolume", func(t *testing.T) {
 				if dbID == "" {
 					t.Skip("skipping delete test as dbID is empty")
