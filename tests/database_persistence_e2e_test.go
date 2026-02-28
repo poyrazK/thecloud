@@ -17,25 +17,9 @@ import (
 
 const (
 	dbSuffixMod  = 1000
-	dbPrefixLen  = 8
 	pollInterval = 200 * time.Millisecond
 	pollTimeout  = 5 * time.Second
 )
-
-func safePrefix(id string) string {
-	if len(id) < dbPrefixLen {
-		return id
-	}
-	return id[:dbPrefixLen]
-}
-
-func closeBody(t *testing.T, resp *http.Response) {
-	t.Helper()
-	if resp != nil && resp.Body != nil {
-		err := resp.Body.Close()
-		require.NoError(t, err, "failed to close response body")
-	}
-}
 
 func TestDatabasePersistenceE2E(t *testing.T) {
 	if testing.Short() {
