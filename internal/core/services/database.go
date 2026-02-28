@@ -62,7 +62,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	}
 
 	if allocatedStorage < 10 {
-		allocatedStorage = 10
+		return nil, errors.New(errors.InvalidInput, "allocated storage must be at least 10GB")
 	}
 
 	password, err := util.GenerateRandomPassword(16)

@@ -96,7 +96,7 @@ func TestDatabaseAdvancedE2E(t *testing.T) {
 
 		// Cleanup
 		respDel := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, dbID), token)
-		closeBody(t, respDel)
+		defer closeBody(t, respDel)
 	})
 
 	t.Run("VpcIntegration", func(t *testing.T) {
@@ -136,9 +136,9 @@ func TestDatabaseAdvancedE2E(t *testing.T) {
 
 		// Cleanup
 		respDel1 := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, dbRes.Data.ID), token)
-		closeBody(t, respDel1)
+		defer closeBody(t, respDel1)
 		respDel2 := deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpcID), token)
-		closeBody(t, respDel2)
+		defer closeBody(t, respDel2)
 	})
 
 	t.Run("MultiReplicaPromotion", func(t *testing.T) {
@@ -206,11 +206,11 @@ func TestDatabaseAdvancedE2E(t *testing.T) {
 
 		// Cleanup
 		respDelP := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, primaryID), token)
-		closeBody(t, respDelP)
+		defer closeBody(t, respDelP)
 		respDelR1 := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, replicaIDs[0]), token)
-		closeBody(t, respDelR1)
+		defer closeBody(t, respDelR1)
 		respDelR2 := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, replicaIDs[1]), token)
-		closeBody(t, respDelR2)
+		defer closeBody(t, respDelR2)
 	})
 
 	t.Run("ConnectionStringFormats", func(t *testing.T) {
@@ -259,7 +259,7 @@ func TestDatabaseAdvancedE2E(t *testing.T) {
 
 				// Cleanup
 				respDel := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, dbID), token)
-				closeBody(t, respDel)
+				defer closeBody(t, respDel)
 			})
 		}
 	})
