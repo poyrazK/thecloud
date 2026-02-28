@@ -44,6 +44,7 @@ const (
 	PermissionVolumeCreate Permission = "volume:create"
 	PermissionVolumeDelete Permission = "volume:delete"
 	PermissionVolumeRead   Permission = "volume:read"
+	PermissionVolumeUpdate Permission = "volume:update"
 
 	// Snapshot Permissions
 	PermissionSnapshotCreate  Permission = "snapshot:create"
