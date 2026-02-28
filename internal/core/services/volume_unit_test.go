@@ -41,7 +41,7 @@ func TestVolumeServiceUnit(t *testing.T) {
 	t.Run("CreateVolume Storage Error", func(t *testing.T) {
 		mockStorage.On("CreateVolume", mock.Anything, mock.Anything, 10).Return("", errors.New("storage fail")).Once()
 		_, err := svc.CreateVolume(ctx, "test-vol", 10)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("CreateVolume Repo Error Rollback", func(t *testing.T) {
@@ -50,13 +50,13 @@ func TestVolumeServiceUnit(t *testing.T) {
 		mockStorage.On("DeleteVolume", mock.Anything, mock.Anything).Return(nil).Once()
 
 		_, err := svc.CreateVolume(ctx, "test-vol", 10)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("ListVolumes", func(t *testing.T) {
 		mockRepo.On("List", mock.Anything).Return([]*domain.Volume{{ID: uuid.New()}}, nil).Once()
 		vols, err := svc.ListVolumes(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, vols, 1)
 	})
 
@@ -64,14 +64,14 @@ func TestVolumeServiceUnit(t *testing.T) {
 		id := uuid.New()
 		mockRepo.On("GetByID", mock.Anything, id).Return(&domain.Volume{ID: id}, nil).Once()
 		vol, err := svc.GetVolume(ctx, id.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, id, vol.ID)
 	})
 
 	t.Run("GetVolume by Name", func(t *testing.T) {
 		mockRepo.On("GetByName", mock.Anything, "myvol").Return(&domain.Volume{Name: "myvol"}, nil).Once()
 		vol, err := svc.GetVolume(ctx, "myvol")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "myvol", vol.Name)
 	})
 
@@ -85,7 +85,7 @@ func TestVolumeServiceUnit(t *testing.T) {
 		mockAuditSvc.On("Log", mock.Anything, userID, "volume.delete", "volume", volID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.DeleteVolume(ctx, volID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("DeleteVolume Storage Success Repo Fail", func(t *testing.T) {
@@ -96,7 +96,7 @@ func TestVolumeServiceUnit(t *testing.T) {
 		mockRepo.On("Delete", mock.Anything, volID).Return(errors.New("repo fail")).Once()
 
 		err := svc.DeleteVolume(ctx, volID.String())
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("DeleteVolume In Use Error", func(t *testing.T) {
@@ -104,7 +104,7 @@ func TestVolumeServiceUnit(t *testing.T) {
 		vol := &domain.Volume{ID: volID, Status: domain.VolumeStatusInUse}
 		mockRepo.On("GetByID", mock.Anything, volID).Return(vol, nil).Once()
 		err := svc.DeleteVolume(ctx, volID.String())
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("AttachVolume Success", func(t *testing.T) {
@@ -135,7 +135,7 @@ func TestVolumeServiceUnit(t *testing.T) {
 		mockStorage.On("DetachVolume", mock.Anything, mock.Anything, instID.String()).Return(nil).Once()
 
 		err := svc.AttachVolume(ctx, volID.String(), instID.String(), "/mnt/data")
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("AttachVolume Storage Fail", func(t *testing.T) {
@@ -147,7 +147,7 @@ func TestVolumeServiceUnit(t *testing.T) {
 		mockStorage.On("AttachVolume", mock.Anything, mock.Anything, instID.String()).Return(errors.New("storage fail")).Once()
 
 		err := svc.AttachVolume(ctx, volID.String(), instID.String(), "/mnt/data")
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("AttachVolume Already In Use", func(t *testing.T) {
@@ -155,7 +155,7 @@ func TestVolumeServiceUnit(t *testing.T) {
 		vol := &domain.Volume{ID: volID, Status: domain.VolumeStatusInUse}
 		mockRepo.On("GetByID", mock.Anything, volID).Return(vol, nil).Once()
 		err := svc.AttachVolume(ctx, volID.String(), uuid.New().String(), "/m")
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("DetachVolume Success", func(t *testing.T) {
@@ -184,7 +184,7 @@ func TestVolumeServiceUnit(t *testing.T) {
 		mockRepo.On("Update", mock.Anything, mock.Anything).Return(errors.New("db update fail")).Once()
 
 		err := svc.DetachVolume(ctx, volID.String())
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("DetachVolume Storage Fail", func(t *testing.T) {
@@ -196,7 +196,7 @@ func TestVolumeServiceUnit(t *testing.T) {
 		mockStorage.On("DetachVolume", mock.Anything, mock.Anything, instID.String()).Return(errors.New("storage fail")).Once()
 
 		err := svc.DetachVolume(ctx, volID.String())
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("DetachVolume Not Attached", func(t *testing.T) {
@@ -204,7 +204,7 @@ func TestVolumeServiceUnit(t *testing.T) {
 		vol := &domain.Volume{ID: volID, Status: domain.VolumeStatusAvailable}
 		mockRepo.On("GetByID", mock.Anything, volID).Return(vol, nil).Once()
 		err := svc.DetachVolume(ctx, volID.String())
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("ReleaseVolumesForInstance", func(t *testing.T) {
@@ -224,7 +224,7 @@ func TestVolumeServiceUnit(t *testing.T) {
 		instID := uuid.New()
 		mockRepo.On("ListByInstanceID", mock.Anything, instID).Return(nil, errors.New("list fail")).Once()
 		err := svc.ReleaseVolumesForInstance(ctx, instID)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("ReleaseVolumesForInstance Partial Update Fail", func(t *testing.T) {
@@ -238,6 +238,6 @@ func TestVolumeServiceUnit(t *testing.T) {
 		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Once() // Succeed second
 
 		err := svc.ReleaseVolumesForInstance(ctx, instID)
-		assert.NoError(t, err) // It continues on partial failure
+		require.NoError(t, err) // It continues on partial failure
 	})
 }

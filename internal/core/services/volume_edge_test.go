@@ -36,8 +36,8 @@ func TestVolumeService_EdgeCases(t *testing.T) {
 		mockRepo.On("GetByID", mock.Anything, volID).Return(vol, nil).Once()
 
 		err := svc.AttachVolume(ctx, volID.String(), instID.String(), "/mnt/data")
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "already attached")
+		require.Error(t, err)
+		require.ErrorContains(t, err, "already attached")
 	})
 
 	t.Run("AttachVolume Backend Error Rollback", func(t *testing.T) {
@@ -52,8 +52,8 @@ func TestVolumeService_EdgeCases(t *testing.T) {
 		mockStorage.On("AttachVolume", mock.Anything, mock.Anything, instID.String()).Return(errors.New("backend failure")).Once()
 
 		err := svc.AttachVolume(ctx, volID.String(), instID.String(), "/mnt/data")
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "backend failure")
+		require.Error(t, err)
+		require.ErrorContains(t, err, "backend failure")
 	})
 
 	t.Run("DetachVolume Not Attached", func(t *testing.T) {
@@ -66,8 +66,8 @@ func TestVolumeService_EdgeCases(t *testing.T) {
 		mockRepo.On("GetByID", mock.Anything, volID).Return(vol, nil).Once()
 
 		err := svc.DetachVolume(ctx, volID.String())
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "not attached")
+		require.Error(t, err)
+		require.ErrorContains(t, err, "not attached")
 	})
 
 	t.Run("DeleteVolume In Use Fails", func(t *testing.T) {
@@ -80,7 +80,7 @@ func TestVolumeService_EdgeCases(t *testing.T) {
 		mockRepo.On("GetByID", mock.Anything, volID).Return(vol, nil).Once()
 
 		err := svc.DeleteVolume(ctx, volID.String())
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "cannot delete volume that is in use")
+		require.Error(t, err)
+		require.ErrorContains(t, err, "cannot delete volume that is in use")
 	})
 }
