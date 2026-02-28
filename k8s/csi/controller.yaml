@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: csi-thecloud-controller
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: csi-thecloud-controller
+  template:
+    metadata:
+      labels:
+        app: csi-thecloud-controller
+    spec:
+      serviceAccountName: csi-thecloud-controller
+      containers:
+        - name: csi-provisioner
+          image: registry.k8s.io/sig-storage/csi-provisioner:v5.0.1
+          args:
+            - "--csi-address=$(ADDRESS)"
+            - "--v=2"
+          env:
+            - name: ADDRESS
+              value: /var/lib/csi/sockets/pluginproxy/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/csi/sockets/pluginproxy/
+        - name: csi-attacher
+          image: registry.k8s.io/sig-storage/csi-attacher:v4.6.1
+          args:
+            - "--csi-address=$(ADDRESS)"
+            - "--v=2"
+          env:
+            - name: ADDRESS
+              value: /var/lib/csi/sockets/pluginproxy/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/csi/sockets/pluginproxy/
+        - name: thecloud-csi-driver
+          image: ghcr.io/poyrazk/thecloud-csi-driver:latest # Placeholder
+          args:
+            - "--endpoint=unix:/var/lib/csi/sockets/pluginproxy/csi.sock"
+            - "--nodeid=$(NODE_ID)"
+            - "--api-url=http://thecloud-api.kube-system.svc.cluster.local:8080"
+          env:
+            - name: NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: CLOUD_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: thecloud-api-credentials
+                  key: api-key
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/csi/sockets/pluginproxy/
+      volumes:
+        - name: socket-dir
+          emptyDir: {}
