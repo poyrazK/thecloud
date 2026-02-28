@@ -312,6 +312,23 @@ CREATE TABLE databases (
 **Engines**: `postgres`, `mysql`  
 **Roles**: `PRIMARY`, `REPLICA`
 
+### Managed Database Persistence
+
+Managed databases in The Cloud platform utilize persistent block storage to ensure data durability across container lifecycles.
+
+#### Storage Architecture
+When a managed database is provisioned, the service automatically:
+1.  **Creates a Block Volume**: A 10GB persistent volume is provisioned via the `VolumeService`.
+2.  **Mounts the Volume**: The volume is attached to the compute instance and mounted to the appropriate data directory:
+    -   **PostgreSQL**: `/var/lib/postgresql/data`
+    -   **MySQL**: `/var/lib/mysql`
+
+This integration ensures that all database state (tables, indexes, logs) is stored on durable block storage rather than the container's ephemeral layer.
+
+#### Volume Lifecycle
+-   **Automated Provisioning**: Volumes are created synchronously during the `CreateDatabase` and `CreateReplica` calls.
+-   **Automated Cleanup**: When a database is deleted via the API, the service identifies and deletes the associated block volumes to prevent storage leaks.
+
 ### Database Replication
 
 The Cloud platform supports asynchronous replication for managed databases to provide high availability and read scaling.

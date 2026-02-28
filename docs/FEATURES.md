@@ -115,7 +115,9 @@ This document provides a comprehensive overview of every feature currently imple
 **Implementation**:
 - **Multi-Engine Support**: PostgreSQL and MySQL with configurable versions.
 - **Provisioning**: Spawns Docker containers using official images (`postgres:<version>-alpine`, `mysql:<version>`).
-- **Read Replicas**: Support for creating read-only replicas linked to a primary instance. Replicas are automatically configured to follow the primary via engine-specific environment variables.
+- **Data Persistence**: Automatically provisions and attaches 10GB persistent block volumes to every database instance. Data is stored on durable block devices, ensuring survival across container lifecycles.
+- **Read Replicas**: Support for creating read-only replicas linked to a primary instance. Replicas are automatically configured to follow the primary via engine-specific environment variables. Replicas also utilize persistent volumes.
+- **Automated Cleanup**: Deleting a database automatically triggers the removal of associated persistent volumes to prevent storage leaks.
 - **Automated Failover**: A dedicated `DatabaseFailoverWorker` performs periodic TCP health checks on primary instances. If a primary becomes unreachable, the worker automatically selects and promotes the most suitable replica to the primary role.
 - **Manual Promotion**: API support for manually promoting a replica to primary status for maintenance or planned transitions.
 - **Credentials**: Auto-generates secure passwords (16-char random) and default usernames.
