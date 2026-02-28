@@ -60,4 +60,5 @@ type Database struct {
 	Password    string         `json:"-"` // Never serialize password to JSON
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
+	AllocatedStorage int       `json:"allocated_storage"`
 }
