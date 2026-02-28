@@ -62,12 +62,13 @@ func setupDatabaseServiceTest(t *testing.T) (ports.DatabaseService, ports.Databa
 func TestCreateDatabaseSuccess(t *testing.T) {
 	svc, repo, compute, _, ctx := setupDatabaseServiceTest(t)
 
-	db, err := svc.CreateDatabase(ctx, testDBName, "postgres", "16", nil)
+	db, err := svc.CreateDatabase(ctx, testDBName, "postgres", "16", nil, 20)
 
 	require.NoError(t, err)
 	assert.NotNil(t, db)
 	assert.Equal(t, testDBName, db.Name)
 	assert.Equal(t, domain.EnginePostgres, db.Engine)
+	assert.Equal(t, 20, db.AllocatedStorage)
 	assert.NotEmpty(t, db.ContainerID)
 
 	// Verify instance creation by checking connectivity
@@ -84,6 +85,7 @@ func TestCreateDatabaseSuccess(t *testing.T) {
 	fetched, err := repo.GetByID(ctx, db.ID)
 	require.NoError(t, err)
 	assert.Equal(t, db.ID, fetched.ID)
+	assert.Equal(t, 20, fetched.AllocatedStorage)
 }
 
 func TestCreateDatabaseWithVpc(t *testing.T) {
@@ -115,7 +117,7 @@ func TestCreateDatabaseWithVpc(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now create DB in this VPC
-	db, err := svc.CreateDatabase(ctx, testDBName, "postgres", "16", &vpcID)
+	db, err := svc.CreateDatabase(ctx, testDBName, "postgres", "16", &vpcID, 10)
 	require.NoError(t, err)
 	require.NotNil(t, db)
 	assert.Equal(t, &vpcID, db.VpcID)
@@ -128,7 +130,7 @@ func TestCreateReplica(t *testing.T) {
 	svc, repo, compute, _, ctx := setupDatabaseServiceTest(t)
 
 	// 1. Create primary
-	primary, err := svc.CreateDatabase(ctx, "primary-db", "postgres", "16", nil)
+	primary, err := svc.CreateDatabase(ctx, "primary-db", "postgres", "16", nil, 20)
 	require.NoError(t, err)
 	defer func() { _ = compute.DeleteInstance(ctx, primary.ContainerID) }()
 
@@ -138,6 +140,7 @@ func TestCreateReplica(t *testing.T) {
 	assert.NotNil(t, replica)
 	assert.Equal(t, domain.RoleReplica, replica.Role)
 	assert.Equal(t, &primary.ID, replica.PrimaryID)
+	assert.Equal(t, 20, replica.AllocatedStorage)
 	assert.NotEmpty(t, replica.ContainerID)
 
 	defer func() { _ = compute.DeleteInstance(ctx, replica.ContainerID) }()
@@ -146,4 +149,5 @@ func TestCreateReplica(t *testing.T) {
 	fetched, err := repo.GetByID(ctx, replica.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.RoleReplica, fetched.Role)
+	assert.Equal(t, 20, fetched.AllocatedStorage)
 }
