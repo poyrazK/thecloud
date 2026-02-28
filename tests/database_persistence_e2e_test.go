@@ -30,6 +30,7 @@ func safePrefix(id string, n int) string {
 }
 
 func closeBody(t *testing.T, resp *http.Response) {
+	t.Helper()
 	if resp != nil && resp.Body != nil {
 		err := resp.Body.Close()
 		require.NoError(t, err, "failed to close response body")
