@@ -743,6 +743,7 @@ definitions:
     - volume:create
     - volume:delete
     - volume:read
+    - volume:update
     - snapshot:create
     - snapshot:delete
     - snapshot:read
@@ -830,6 +831,7 @@ definitions:
     - PermissionVolumeCreate
     - PermissionVolumeDelete
     - PermissionVolumeRead
+    - PermissionVolumeUpdate
     - PermissionSnapshotCreate
     - PermissionSnapshotDelete
     - PermissionSnapshotRead
