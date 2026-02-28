@@ -67,7 +67,7 @@ func TestDatabasePersistenceE2E(t *testing.T) {
 				break
 			}
 		}
-		assert.True(t, found, fmt.Sprintf("Expected volume with prefix %s not found", expectedPrefix))
+		assert.True(t, found, "Expected volume with prefix %s not found", expectedPrefix)
 	})
 
 	// 3. Delete Database and verify Volume cleanup
@@ -97,6 +97,6 @@ func TestDatabasePersistenceE2E(t *testing.T) {
 				break
 			}
 		}
-		assert.False(t, found, fmt.Sprintf("Volume with prefix %s should have been deleted", expectedPrefix))
+		assert.False(t, found, "Volume with prefix %s should have been deleted", expectedPrefix)
 	})
 }
