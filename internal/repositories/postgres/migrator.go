@@ -4,6 +4,7 @@ package postgres
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -70,12 +71,22 @@ func RunMigrations(ctx context.Context, db any, logger *slog.Logger) error {
 		// Execute migration
 		_, err = executor.Exec(ctx, sql)
 		if err != nil {
-			// Log but don't fail, as tables might already exist
-			// Ideally we should check specific error codes
-			logger.Warn("migration result", "migration", entry.Name(), "error", err)
-		} else {
-			logger.Info("applied migration", "migration", entry.Name())
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) {
+				// Specific error codes we can safely ignore during idempotent migrations:
+				// 42P07 - duplicate_table
+				// 42701 - duplicate_column
+				// 42P05 - duplicate_prepared_statement
+				// 23505 - unique_violation
+				// 42P16 - invalid_table_definition (duplicate constraint)
+				if pgErr.Code == "42P07" || pgErr.Code == "42701" || pgErr.Code == "42P05" || pgErr.Code == "23505" || pgErr.Code == "42P16" {
+					logger.Debug("ignoring idempotent migration error", "migration", entry.Name(), "code", pgErr.Code, "error", pgErr.Message)
+					continue
+				}
+			}
+			return fmt.Errorf("failed to execute migration %s: %w", entry.Name(), err)
 		}
+		logger.Info("applied migration", "migration", entry.Name())
 	}
 
 	return nil
