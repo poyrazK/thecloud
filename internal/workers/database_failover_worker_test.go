@@ -49,8 +49,13 @@ type mockDatabaseService struct {
 	mock.Mock
 }
 
-func (m *mockDatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID) (*domain.Database, error) {
-	return nil, nil
+func (m *mockDatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int) (*domain.Database, error) {
+	args := m.Called(ctx, name, engine, version, vpcID, allocatedStorage)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	r0, _ := args.Get(0).(*domain.Database)
+	return r0, args.Error(1)
 }
 func (m *mockDatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error) {
 	return nil, nil
