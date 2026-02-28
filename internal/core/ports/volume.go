@@ -36,6 +36,10 @@ type VolumeService interface {
 	GetVolume(ctx context.Context, idOrName string) (*domain.Volume, error)
 	// DeleteVolume decommissioning a block storage device.
 	DeleteVolume(ctx context.Context, idOrName string) error
+	// AttachVolume connects a block storage device to a specific compute instance.
+	AttachVolume(ctx context.Context, volumeID string, instanceID string, mountPath string) error
+	// DetachVolume disconnects a block storage device from a compute instance.
+	DetachVolume(ctx context.Context, volumeID string) error
 	// ReleaseVolumesForInstance detaches every volume currently linked to a specific instance.
 	ReleaseVolumesForInstance(ctx context.Context, instanceID uuid.UUID) error
 }
