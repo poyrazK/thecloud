@@ -259,11 +259,14 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		return nil, nil, err
 	}
 
+        snapshotSvc := services.NewSnapshotService(c.Repos.Snapshot, c.Repos.Volume, c.Storage, eventSvc, auditSvc, c.Logger)
 	databaseSvc := services.NewDatabaseService(services.DatabaseServiceParams{
 		Repo:      c.Repos.Database,
 		Compute:   c.Compute,
 		VpcRepo:   c.Repos.Vpc,
 		VolumeSvc: volumeSvc,
+                SnapshotSvc:  snapshotSvc,
+                SnapshotRepo: c.Repos.Snapshot,
 		EventSvc:  eventSvc,
 		AuditSvc:  auditSvc,
 		Logger:    c.Logger,
@@ -281,7 +284,6 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	gwSvc := services.NewGatewayService(c.Repos.Gateway, auditSvc)
 	containerSvc := services.NewContainerService(c.Repos.Container, eventSvc, auditSvc)
 	containerWorker := services.NewContainerWorker(c.Repos.Container, instSvcConcrete, eventSvc)
-	snapshotSvc := services.NewSnapshotService(c.Repos.Snapshot, c.Repos.Volume, c.Storage, eventSvc, auditSvc, c.Logger)
 	stackSvc := services.NewStackService(c.Repos.Stack, instSvcConcrete, vpcSvc, volumeSvc, snapshotSvc, c.Logger)
 
 	// 6. Business & Scaling Services
