@@ -37,17 +37,17 @@ type LinuxMounter struct {
 	execer func(ctx context.Context, name string, arg ...string) *exec.Cmd
 }
 
-func (m *LinuxMounter) run(ctx context.Context, name string, arg ...string) ([]byte, error) {
+func (m *LinuxMounter) run(ctx context.Context, name string, arg ...string) error {
 	cmd := m.execer(ctx, name, arg...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return output, fmt.Errorf("command %s %v failed: %w; output: %s", name, arg, err, string(output))
+		return fmt.Errorf("command %s %v failed: %w; output: %s", name, arg, err, string(output))
 	}
-	return output, nil
+	return nil
 }
 
 func (m *LinuxMounter) IsFormatted(ctx context.Context, device string) bool {
-	_, err := m.run(ctx, "blkid", device)
+	err := m.run(ctx, "blkid", device)
 	return err == nil
 }
 
@@ -55,23 +55,19 @@ func (m *LinuxMounter) FormatDevice(ctx context.Context, device, fsType string) 
 	if m.IsFormatted(ctx, device) {
 		return nil
 	}
-	_, err := m.run(ctx, "mkfs", "-t", fsType, device)
-	return err
+	return m.run(ctx, "mkfs", "-t", fsType, device)
 }
 
 func (m *LinuxMounter) Mount(ctx context.Context, source, target, fsType string) error {
-	_, err := m.run(ctx, "mount", "-t", fsType, source, target)
-	return err
+	return m.run(ctx, "mount", "-t", fsType, source, target)
 }
 
 func (m *LinuxMounter) BindMount(ctx context.Context, source, target string) error {
-	_, err := m.run(ctx, "mount", "--bind", source, target)
-	return err
+	return m.run(ctx, "mount", "--bind", source, target)
 }
 
 func (m *LinuxMounter) Unmount(ctx context.Context, target string) error {
-	_, err := m.run(ctx, "umount", target)
-	return err
+	return m.run(ctx, "umount", target)
 }
 
 func (m *LinuxMounter) MkdirAll(path string, perm os.FileMode) error {
