@@ -16,48 +16,62 @@ import (
 	"log/slog"
 )
 
+const (
+	// DefaultVolumeSizeGB is the fallback size if not specified
+	DefaultVolumeSizeGB = 10
+)
+
 // Mounter defines OS-level operations for volume management
 type Mounter interface {
-	FormatDevice(device, fsType string) error
-	Mount(source, target, fsType string) error
-	BindMount(source, target string) error
-	Unmount(target string) error
-	IsFormatted(device string) bool
+	FormatDevice(ctx context.Context, device, fsType string) error
+	Mount(ctx context.Context, source, target, fsType string) error
+	BindMount(ctx context.Context, source, target string) error
+	Unmount(ctx context.Context, target string) error
+	IsFormatted(ctx context.Context, device string) bool
 	MkdirAll(path string, perm os.FileMode) error
 }
 
 // LinuxMounter implements Mounter using standard shell commands
 type LinuxMounter struct {
 	logger *slog.Logger
-	execer func(name string, arg ...string) *exec.Cmd
+	execer func(ctx context.Context, name string, arg ...string) *exec.Cmd
 }
 
-func (m *LinuxMounter) IsFormatted(device string) bool {
-	cmd := m.execer("blkid", device)
-	return cmd.Run() == nil
+func (m *LinuxMounter) run(ctx context.Context, name string, arg ...string) ([]byte, error) {
+	cmd := m.execer(ctx, name, arg...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return output, fmt.Errorf("command %s %v failed: %w; output: %s", name, arg, err, string(output))
+	}
+	return output, nil
 }
 
-func (m *LinuxMounter) FormatDevice(device, fsType string) error {
-	if m.IsFormatted(device) {
+func (m *LinuxMounter) IsFormatted(ctx context.Context, device string) bool {
+	_, err := m.run(ctx, "blkid", device)
+	return err == nil
+}
+
+func (m *LinuxMounter) FormatDevice(ctx context.Context, device, fsType string) error {
+	if m.IsFormatted(ctx, device) {
 		return nil
 	}
-	cmd := m.execer("mkfs", "-t", fsType, device)
-	return cmd.Run()
+	_, err := m.run(ctx, "mkfs", "-t", fsType, device)
+	return err
 }
 
-func (m *LinuxMounter) Mount(source, target, fsType string) error {
-	cmd := m.execer("mount", "-t", fsType, source, target)
-	return cmd.Run()
+func (m *LinuxMounter) Mount(ctx context.Context, source, target, fsType string) error {
+	_, err := m.run(ctx, "mount", "-t", fsType, source, target)
+	return err
 }
 
-func (m *LinuxMounter) BindMount(source, target string) error {
-	cmd := m.execer("mount", "--bind", source, target)
-	return cmd.Run()
+func (m *LinuxMounter) BindMount(ctx context.Context, source, target string) error {
+	_, err := m.run(ctx, "mount", "--bind", source, target)
+	return err
 }
 
-func (m *LinuxMounter) Unmount(target string) error {
-	cmd := m.execer("umount", target)
-	return cmd.Run()
+func (m *LinuxMounter) Unmount(ctx context.Context, target string) error {
+	_, err := m.run(ctx, "umount", target)
+	return err
 }
 
 func (m *LinuxMounter) MkdirAll(path string, perm os.FileMode) error {
@@ -91,7 +105,7 @@ func NewDriver(name, version, nodeID, endpoint string, cloud *sdk.Client, logger
 		endpoint: endpoint,
 		cloud:    cloud,
 		logger:   logger,
-		mounter:  &LinuxMounter{logger: logger, execer: exec.Command},
+		mounter:  &LinuxMounter{logger: logger, execer: exec.CommandContext},
 	}
 }
 
@@ -126,7 +140,10 @@ func (d *Driver) Run() error {
 
 // Stop stops the gRPC server
 func (d *Driver) Stop() {
-	d.srv.Stop()
+	if d.srv != nil {
+		d.srv.Stop()
+		d.srv = nil
+	}
 }
 
 func parseEndpoint(ep string) (string, string, error) {
@@ -172,7 +189,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	cap := req.GetCapacityRange()
-	sizeGB := 10 // Default
+	sizeGB := DefaultVolumeSizeGB
 	if cap != nil {
 		sizeGB = int(cap.GetRequiredBytes() / 1024 / 1024 / 1024)
 		if sizeGB < 1 {
@@ -221,15 +238,14 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 	}
 
 	// 2. Attach via API using the UUID
-	// For CSI, we usually don't care about the mount path at the controller level,
-	// but our API requires it. We'll use a placeholder or let the backend decide.
-	if err := d.cloud.AttachVolume(req.VolumeId, instance.ID, "/dev/vdb"); err != nil {
+	devicePath, err := d.cloud.AttachVolume(req.VolumeId, instance.ID, "/dev/vdb")
+	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to attach volume: %v", err)
 	}
 
 	return &csi.ControllerPublishVolumeResponse{
 		PublishContext: map[string]string{
-			"device": "/dev/vdb",
+			"device": devicePath,
 		},
 	}, nil
 }
@@ -329,7 +345,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	d.logger.Info("NodeStageVolume", "volumeID", req.VolumeId, "stagingPath", req.StagingTargetPath, "device", devicePath)
 
-	if err := d.mounter.FormatDevice(devicePath, "ext4"); err != nil {
+	if err := d.mounter.FormatDevice(ctx, devicePath, "ext4"); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to format device: %v", err)
 	}
 
@@ -337,7 +353,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		return nil, status.Errorf(codes.Internal, "failed to create staging path: %v", err)
 	}
 
-	if err := d.mounter.Mount(devicePath, req.StagingTargetPath, "ext4"); err != nil {
+	if err := d.mounter.Mount(ctx, devicePath, req.StagingTargetPath, "ext4"); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to mount device: %v", err)
 	}
 
@@ -349,7 +365,7 @@ func (d *Driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolu
 		return nil, status.Error(codes.InvalidArgument, "VolumeId and StagingTargetPath are required")
 	}
 
-	if err := d.mounter.Unmount(req.StagingTargetPath); err != nil {
+	if err := d.mounter.Unmount(ctx, req.StagingTargetPath); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to unmount: %v", err)
 	}
 
@@ -367,7 +383,7 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		return nil, status.Errorf(codes.Internal, "failed to create target path: %v", err)
 	}
 
-	if err := d.mounter.BindMount(req.StagingTargetPath, req.TargetPath); err != nil {
+	if err := d.mounter.BindMount(ctx, req.StagingTargetPath, req.TargetPath); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to bind mount: %v", err)
 	}
 
@@ -381,7 +397,7 @@ func (d *Driver) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublish
 
 	d.logger.Info("NodeUnpublishVolume", "volumeID", req.VolumeId, "targetPath", req.TargetPath)
 
-	if err := d.mounter.Unmount(req.TargetPath); err != nil {
+	if err := d.mounter.Unmount(ctx, req.TargetPath); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to unmount target: %v", err)
 	}
 
