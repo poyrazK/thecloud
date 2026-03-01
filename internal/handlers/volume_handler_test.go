@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -62,8 +64,9 @@ func (m *mockVolumeService) ReleaseVolumesForInstance(ctx context.Context, insta
 	return m.Called(ctx, instanceID).Error(0)
 }
 
-func (m *mockVolumeService) AttachVolume(ctx context.Context, volumeID string, instanceID string, mountPath string) error {
-	return m.Called(ctx, volumeID, instanceID, mountPath).Error(0)
+func (m *mockVolumeService) AttachVolume(ctx context.Context, volumeID string, instanceID string, mountPath string) (string, error) {
+	args := m.Called(ctx, volumeID, instanceID, mountPath)
+	return args.String(0), args.Error(1)
 }
 
 func (m *mockVolumeService) DetachVolume(ctx context.Context, volumeID string) error {
@@ -114,7 +117,7 @@ func TestVolumeHandlerCreateInvalidJSON(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 	svc.AssertNotCalled(t, "CreateVolume", mock.Anything, mock.Anything, mock.Anything)
 }
 
@@ -250,100 +253,102 @@ func TestVolumeHandlerDeleteNotFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
-func TestVolumeHandlerAttach(t *testing.T) {
+func TestVolumeHandlerAttachDetach(t *testing.T) {
 	t.Parallel()
-	svc, handler, r := setupVolumeHandlerTest(t)
-	defer svc.AssertExpectations(t)
 
-	r.POST(volumesPath+"/:id/attach", handler.Attach)
+	type testCase struct {
+		name           string
+		method         string
+		path           string
+		body           interface{}
+		setupMock      func(m *mockVolumeService)
+		expectedStatus int
+	}
 
 	volID := uuid.New().String()
 	instID := uuid.New().String()
 	mountPath := "/mnt/data"
+	devicePath := "/dev/vdb"
 
-	svc.On("AttachVolume", mock.Anything, volID, instID, mountPath).Return(nil)
+	testCases := []testCase{
+		{
+			name:   "Attach Success",
+			method: http.MethodPost,
+			path:   volumesPath + "/" + volID + "/attach",
+			body:   AttachRequest{InstanceID: instID, MountPath: mountPath},
+			setupMock: func(m *mockVolumeService) {
+				m.On("AttachVolume", mock.Anything, volID, instID, mountPath).Return(devicePath, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:   "Attach Invalid JSON",
+			method: http.MethodPost,
+			path:   volumesPath + "/" + volID + "/attach",
+			body:   "{invalid",
+			setupMock: func(m *mockVolumeService) {
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:   "Attach Service Error",
+			method: http.MethodPost,
+			path:   volumesPath + "/" + volID + "/attach",
+			body:   AttachRequest{InstanceID: instID, MountPath: mountPath},
+			setupMock: func(m *mockVolumeService) {
+				m.On("AttachVolume", mock.Anything, volID, instID, mountPath).Return("", errors.New(errors.Internal, "fail"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
+		{
+			name:   "Detach Success",
+			method: http.MethodPost,
+			path:   volumesPath + "/" + volID + "/detach",
+			setupMock: func(m *mockVolumeService) {
+				m.On("DetachVolume", mock.Anything, volID).Return(nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:   "Detach Service Error",
+			method: http.MethodPost,
+			path:   volumesPath + "/" + volID + "/detach",
+			setupMock: func(m *mockVolumeService) {
+				m.On("DetachVolume", mock.Anything, volID).Return(errors.New(errors.Internal, "fail"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
+	}
 
-	body, _ := json.Marshal(AttachRequest{
-		InstanceID: instID,
-		MountPath:  mountPath,
-	})
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, handler, r := setupVolumeHandlerTest(t)
+			tc.setupMock(svc)
 
-	req := httptest.NewRequest(http.MethodPost, volumesPath+"/"+volID+"/attach", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
+			r.POST(volumesPath+"/:id/attach", handler.Attach)
+			r.POST(volumesPath+"/:id/detach", handler.Detach)
 
-	r.ServeHTTP(w, req)
+			var reqBody io.Reader
+			if tc.body != nil {
+				if s, ok := tc.body.(string); ok {
+					reqBody = strings.NewReader(s)
+				} else {
+					b, err := json.Marshal(tc.body)
+					require.NoError(t, err)
+					reqBody = bytes.NewBuffer(b)
+				}
+			}
 
-	assert.Equal(t, http.StatusOK, w.Code)
-}
+			req := httptest.NewRequest(tc.method, tc.path, reqBody)
+			if tc.body != nil {
+				req.Header.Set("Content-Type", "application/json")
+			}
+			w := httptest.NewRecorder()
 
-func TestVolumeHandlerAttachInvalidJSON(t *testing.T) {
-	t.Parallel()
-	_, handler, r := setupVolumeHandlerTest(t)
+			r.ServeHTTP(w, req)
 
-	r.POST(volumesPath+"/:id/attach", handler.Attach)
-
-	req := httptest.NewRequest(http.MethodPost, volumesPath+"/vol-123/attach", bytes.NewBufferString("{bad"))
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func TestVolumeHandlerAttachServiceError(t *testing.T) {
-	t.Parallel()
-	svc, handler, r := setupVolumeHandlerTest(t)
-	defer svc.AssertExpectations(t)
-
-	r.POST(volumesPath+"/:id/attach", handler.Attach)
-
-	volID := "vol-123"
-	instID := "inst-123"
-	mountPath := "/m"
-	svc.On("AttachVolume", mock.Anything, volID, instID, mountPath).Return(errors.New(errors.Internal, "fail"))
-
-	body, _ := json.Marshal(AttachRequest{InstanceID: instID, MountPath: mountPath})
-	req := httptest.NewRequest(http.MethodPost, volumesPath+"/"+volID+"/attach", bytes.NewBuffer(body))
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func TestVolumeHandlerDetach(t *testing.T) {
-	t.Parallel()
-	svc, handler, r := setupVolumeHandlerTest(t)
-	defer svc.AssertExpectations(t)
-
-	r.POST(volumesPath+"/:id/detach", handler.Detach)
-
-	volID := uuid.New().String()
-	svc.On("DetachVolume", mock.Anything, volID).Return(nil)
-
-	req := httptest.NewRequest(http.MethodPost, volumesPath+"/"+volID+"/detach", nil)
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-func TestVolumeHandlerDetachServiceError(t *testing.T) {
-	t.Parallel()
-	svc, handler, r := setupVolumeHandlerTest(t)
-	defer svc.AssertExpectations(t)
-
-	r.POST(volumesPath+"/:id/detach", handler.Detach)
-
-	volID := "vol-123"
-	svc.On("DetachVolume", mock.Anything, volID).Return(errors.New(errors.Internal, "fail"))
-
-	req := httptest.NewRequest(http.MethodPost, volumesPath+"/"+volID+"/detach", nil)
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+			assert.Equal(t, tc.expectedStatus, w.Code)
+			svc.AssertExpectations(t)
+		})
+	}
 }
