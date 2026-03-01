@@ -51,6 +51,8 @@ func setupDatabaseServiceTest(t *testing.T) (ports.DatabaseService, ports.Databa
 		Compute:   compute,
 		VpcRepo:   vpcRepo,
 		VolumeSvc: volumeSvc,
+		SnapshotSvc:  nil,
+		SnapshotRepo: nil,
 		EventSvc:  eventSvc,
 		AuditSvc:  auditSvc,
 		Logger:    logger,

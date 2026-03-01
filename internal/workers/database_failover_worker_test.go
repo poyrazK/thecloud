@@ -70,6 +70,16 @@ func (m *mockDatabaseService) ListDatabases(ctx context.Context) ([]*domain.Data
 	return nil, nil
 }
 func (m *mockDatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) error { return nil }
+
+func (m *mockDatabaseService) CreateDatabaseSnapshot(ctx context.Context, databaseID uuid.UUID, description string) (*domain.Snapshot, error) {
+	return nil, nil
+}
+func (m *mockDatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID uuid.UUID) ([]*domain.Snapshot, error) {
+	return nil, nil
+}
+func (m *mockDatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.UUID, newName, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string) (*domain.Database, error) {
+	return nil, nil
+}
 func (m *mockDatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
 	return "", nil
 }
