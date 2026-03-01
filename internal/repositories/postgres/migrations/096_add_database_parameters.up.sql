@@ -1,1 +1,2 @@
--- +goose Up\nALTER TABLE databases ADD COLUMN parameters JSONB DEFAULT '{}'::jsonb;
+-- +goose Up
+ALTER TABLE databases ADD COLUMN parameters JSONB DEFAULT '{}'::jsonb;

@@ -1,1 +1,2 @@
--- +goose Down\nALTER TABLE databases DROP COLUMN parameters;
+-- +goose Down
+ALTER TABLE databases DROP COLUMN parameters;
