@@ -306,7 +306,8 @@ CREATE TABLE databases (
     container_id VARCHAR(255),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    allocated_storage INT NOT NULL DEFAULT 10
+    allocated_storage INT NOT NULL DEFAULT 10,
+    parameters JSONB DEFAULT '{}'::jsonb
 );
 ```
 
@@ -329,6 +330,18 @@ This integration ensures that all database state (tables, indexes, logs) is stor
 #### Volume Lifecycle
 -   **Automated Provisioning**: Volumes are created synchronously during the `CreateDatabase` and `CreateReplica` calls. Replicas inherit the `allocated_storage` size of their primary.
 -   **Automated Cleanup**: When a database is deleted via the API, the service identifies and deletes the associated block volumes to prevent storage leaks.
+
+### Managed Database Configuration (Parameter Groups)
+
+The platform supports dynamic engine configuration via a `parameters` map provided at creation time.
+
+#### Configuration Mechanism
+Parameters are injected directly into the database engine entrypoint via CLI arguments:
+-   **PostgreSQL**: Passed as `-c key=value`.
+-   **MySQL**: Passed as `--key=value`.
+
+#### Replication Consistency
+Read replicas automatically inherit the exact same parameter set as their primary instance, ensuring consistent behavior and performance across the database cluster.
 
 ### Database Replication
 

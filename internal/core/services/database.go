@@ -53,7 +53,7 @@ func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 	}
 }
 
-func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int) (*domain.Database, error) {
+func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 
 	dbEngine := domain.DatabaseEngine(engine)
@@ -74,6 +74,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	db := s.initialDatabaseRecord(userID, name, dbEngine, version, username, password, vpcID)
 	db.Role = domain.RolePrimary
 	db.AllocatedStorage = allocatedStorage
+	db.Parameters = parameters
 
 	imageName, env, defaultPort := s.getEngineConfig(dbEngine, version, username, password, name, db.Role, "")
 
@@ -99,6 +100,8 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 		mountPath = "/var/lib/mysql"
 	}
 	volumeBinds := []string{fmt.Sprintf("%s:%s", backendVolName, mountPath)}
+	
+	cmd := s.buildEngineCmd(dbEngine, parameters)
 
 	dockerName := fmt.Sprintf("cloud-db-%s-%s", name, db.ID.String()[:8])
 	containerID, allocatedPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
@@ -108,8 +111,9 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 		NetworkID:   networkID,
 		VolumeBinds: volumeBinds,
 		Env:         env,
-		Cmd:         nil,
+		Cmd:         cmd,
 	})
+
 	if err != nil {
 		_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
 		s.logger.Error("failed to launch database container", "error", err)
@@ -286,6 +290,31 @@ func (s *DatabaseService) getDefaultUsername(engine domain.DatabaseEngine) strin
 		return "root"
 	}
 	return "cloud_user"
+}
+
+func (s *DatabaseService) buildEngineCmd(engine domain.DatabaseEngine, parameters map[string]string) []string {
+	if len(parameters) == 0 {
+		return nil
+	}
+
+	var cmd []string
+
+	switch engine {
+	case domain.EnginePostgres:
+		cmd = append(cmd, "postgres")
+		for k, v := range parameters {
+			// postgres uses -c key=value
+			cmd = append(cmd, "-c", fmt.Sprintf("%s=%s", k, v))
+		}
+	case domain.EngineMySQL:
+		cmd = append(cmd, "mysqld")
+		for k, v := range parameters {
+			// mysql uses --key=value
+			cmd = append(cmd, fmt.Sprintf("--%s=%s", k, v))
+		}
+	}
+
+	return cmd
 }
 
 func (s *DatabaseService) getEngineConfig(engine domain.DatabaseEngine, version, username, password, name string, role domain.DatabaseRole, primaryIP string) (string, []string, string) {

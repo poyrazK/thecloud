@@ -62,7 +62,7 @@ func setupDatabaseServiceTest(t *testing.T) (ports.DatabaseService, ports.Databa
 func TestCreateDatabaseSuccess(t *testing.T) {
 	svc, repo, compute, _, ctx := setupDatabaseServiceTest(t)
 
-	db, err := svc.CreateDatabase(ctx, testDBName, "postgres", "16", nil, 20)
+	db, err := svc.CreateDatabase(ctx, testDBName, "postgres", "16", nil, 20, nil)
 
 	require.NoError(t, err)
 	assert.NotNil(t, db)
@@ -117,7 +117,7 @@ func TestCreateDatabaseWithVpc(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now create DB in this VPC
-	db, err := svc.CreateDatabase(ctx, testDBName, "postgres", "16", &vpcID, 10)
+	db, err := svc.CreateDatabase(ctx, testDBName, "postgres", "16", &vpcID, 10, nil)
 	require.NoError(t, err)
 	require.NotNil(t, db)
 	assert.Equal(t, &vpcID, db.VpcID)
@@ -130,7 +130,7 @@ func TestCreateReplica(t *testing.T) {
 	svc, repo, compute, _, ctx := setupDatabaseServiceTest(t)
 
 	// 1. Create primary
-	primary, err := svc.CreateDatabase(ctx, "primary-db", "postgres", "16", nil, 20)
+	primary, err := svc.CreateDatabase(ctx, "primary-db", "postgres", "16", nil, 20, nil)
 	require.NoError(t, err)
 	defer func() { _ = compute.DeleteInstance(ctx, primary.ContainerID) }()
 
