@@ -147,3 +147,73 @@ func (h *DatabaseHandler) GetConnectionString(c *gin.Context) {
 
 	httputil.Success(c, http.StatusOK, gin.H{"connection_string": connStr})
 }
+
+// CreateDatabaseSnapshotRequest is the payload for creating a database snapshot.
+type CreateDatabaseSnapshotRequest struct {
+	Description string `json:"description"`
+}
+
+// RestoreDatabaseRequest is the payload for restoring a database from a snapshot.
+type RestoreDatabaseRequest struct {
+	SnapshotID       uuid.UUID         `json:"snapshot_id" binding:"required"`
+	Name             string            `json:"name" binding:"required"`
+	Engine           string            `json:"engine" binding:"required"`
+	Version          string            `json:"version" binding:"required"`
+	VpcID            *uuid.UUID        `json:"vpc_id"`
+	AllocatedStorage int               `json:"allocated_storage" binding:"required"`
+	Parameters       map[string]string `json:"parameters"`
+}
+
+func (h *DatabaseHandler) CreateSnapshot(c *gin.Context) {
+	databaseID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidDatabaseIDMsg))
+		return
+	}
+
+	var req CreateDatabaseSnapshotRequest
+	if err := c.ShouldBindJSON(&req); err != nil && err.Error() != "EOF" { // Allow empty body
+		httputil.Error(c, errors.New(errors.InvalidInput, err.Error()))
+		return
+	}
+
+	snap, err := h.svc.CreateDatabaseSnapshot(c.Request.Context(), databaseID, req.Description)
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusCreated, snap)
+}
+
+func (h *DatabaseHandler) ListSnapshots(c *gin.Context) {
+	databaseID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidDatabaseIDMsg))
+		return
+	}
+
+	snaps, err := h.svc.ListDatabaseSnapshots(c.Request.Context(), databaseID)
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, snaps)
+}
+
+func (h *DatabaseHandler) Restore(c *gin.Context) {
+	var req RestoreDatabaseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, err.Error()))
+		return
+	}
+
+	db, err := h.svc.RestoreDatabase(c.Request.Context(), req.SnapshotID, req.Name, req.Engine, req.Version, req.VpcID, req.AllocatedStorage, req.Parameters)
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusCreated, db)
+}

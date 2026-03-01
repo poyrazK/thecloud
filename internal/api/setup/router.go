@@ -460,12 +460,15 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	dbGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
 		dbGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionDBCreate), handlers.Database.Create)
+		dbGroup.POST("/restore", httputil.Permission(svcs.RBAC, domain.PermissionDBCreate), handlers.Database.Restore)
 		dbGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionDBRead), handlers.Database.List)
 		dbGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionDBRead), handlers.Database.Get)
 		dbGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionDBDelete), handlers.Database.Delete)
 		dbGroup.GET("/:id/connection", httputil.Permission(svcs.RBAC, domain.PermissionDBRead), handlers.Database.GetConnectionString)
 		dbGroup.POST("/:id/replicas", httputil.Permission(svcs.RBAC, domain.PermissionDBCreate), handlers.Database.CreateReplica)
 		dbGroup.POST("/:id/promote", httputil.Permission(svcs.RBAC, domain.PermissionDBUpdate), handlers.Database.Promote)
+		dbGroup.POST("/:id/snapshots", httputil.Permission(svcs.RBAC, domain.PermissionDBCreate), handlers.Database.CreateSnapshot)
+		dbGroup.GET("/:id/snapshots", httputil.Permission(svcs.RBAC, domain.PermissionDBRead), handlers.Database.ListSnapshots)
 	}
 
 	cacheGroup := r.Group("/caches")
