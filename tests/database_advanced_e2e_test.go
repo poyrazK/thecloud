@@ -57,6 +57,7 @@ func TestDatabaseAdvancedE2E(t *testing.T) {
 }
 
 func runInvalidConfigsTest(t *testing.T, client *http.Client, token string) {
+	t.Helper()
 	testCases := []struct {
 		name    string
 		payload map[string]interface{}
@@ -93,6 +94,7 @@ func runInvalidConfigsTest(t *testing.T, client *http.Client, token string) {
 }
 
 func runPromotionEdgeCasesTest(t *testing.T, client *http.Client, token string) {
+	t.Helper()
 	// 1. Create a Primary DB
 	dbName := fmt.Sprintf("promo-edge-db-%d", time.Now().UnixNano()%1000)
 	payload := map[string]interface{}{
@@ -139,6 +141,7 @@ func runPromotionEdgeCasesTest(t *testing.T, client *http.Client, token string) 
 }
 
 func runVpcIntegrationTest(t *testing.T, client *http.Client, token string) {
+	t.Helper()
 	// 1. Create a VPC
 	vpcPayload := map[string]string{
 		"name":       "db-vpc",
@@ -197,6 +200,7 @@ func runVpcIntegrationTest(t *testing.T, client *http.Client, token string) {
 }
 
 func runMultiReplicaPromotionTest(t *testing.T, client *http.Client, token string) {
+	t.Helper()
 	// 1. Create Primary
 	payload := map[string]interface{}{
 		"name":              "multi-rep-primary",
@@ -281,6 +285,7 @@ func runMultiReplicaPromotionTest(t *testing.T, client *http.Client, token strin
 }
 
 func runConnectionStringFormatsTest(t *testing.T, client *http.Client, token string) {
+	t.Helper()
 	engines := []struct {
 		engine  string
 		version string
@@ -337,6 +342,7 @@ func runConnectionStringFormatsTest(t *testing.T, client *http.Client, token str
 }
 
 func runUnauthorizedAccessTest(t *testing.T, client *http.Client) {
+	t.Helper()
 	// Test request without token
 	req, err := http.NewRequest(http.MethodGet, testutil.TestBaseURL+"/databases", nil)
 	require.NoError(t, err)
@@ -350,6 +356,7 @@ func runUnauthorizedAccessTest(t *testing.T, client *http.Client) {
 }
 
 func runResourceNotFoundTest(t *testing.T, client *http.Client, token string) {
+	t.Helper()
 	fakeID := uuid.New().String()
 	
 	// 1. Get non-existent DB
