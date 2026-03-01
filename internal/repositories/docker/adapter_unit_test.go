@@ -121,7 +121,7 @@ func TestDockerAdapterDeleteVolume(t *testing.T) {
 
 func TestDockerAdapterAttachVolume(t *testing.T) {
 	adapter := &DockerAdapter{}
-	err := adapter.AttachVolume(context.Background(), "inst1", "/data")
+	_, err := adapter.AttachVolume(context.Background(), "inst1", "/data")
 	// AttachVolume is not supported in docker
 	require.Error(t, err)
 }

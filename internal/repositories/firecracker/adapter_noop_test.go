@@ -71,7 +71,7 @@ func TestFirecrackerAdapterNoopMethods(t *testing.T) {
 	})
 
 	t.Run("AttachVolume", func(t *testing.T) {
-		err := adapter.AttachVolume(ctx, "id", "path")
+		_, err := adapter.AttachVolume(ctx, "id", "path")
 		require.Error(t, err)
 	})
 

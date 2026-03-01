@@ -118,7 +118,7 @@ func TestFirecrackerAdapter_UnimplementedMethods(t *testing.T) {
 	})
 
 	t.Run("AttachDetachVolume", func(t *testing.T) {
-		err := adapter.AttachVolume(ctx, "id", "path")
+		_, err := adapter.AttachVolume(ctx, "id", "path")
 		require.Error(t, err)
 		err = adapter.DetachVolume(ctx, "id", "path")
 		require.Error(t, err)
