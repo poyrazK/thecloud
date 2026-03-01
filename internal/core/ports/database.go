@@ -40,4 +40,10 @@ type DatabaseService interface {
 	DeleteDatabase(ctx context.Context, id uuid.UUID) error
 	// GetConnectionString constructs and returns the authorized URI for connecting to the database.
 	GetConnectionString(ctx context.Context, id uuid.UUID) (string, error)
+	// CreateDatabaseSnapshot initiates a point-in-time copy of a database's underlying volume.
+	CreateDatabaseSnapshot(ctx context.Context, databaseID uuid.UUID, description string) (*domain.Snapshot, error)
+	// ListDatabaseSnapshots returns all snapshots belonging to a specific database.
+	ListDatabaseSnapshots(ctx context.Context, databaseID uuid.UUID) ([]*domain.Snapshot, error)
+	// RestoreDatabase creates a new database instance from an existing snapshot.
+	RestoreDatabase(ctx context.Context, snapshotID uuid.UUID, newName, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string) (*domain.Database, error)
 }
