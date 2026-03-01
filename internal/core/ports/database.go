@@ -27,7 +27,7 @@ type DatabaseRepository interface {
 // DatabaseService provides business logic for managing relational database instances (DBaaS).
 type DatabaseService interface {
 	// CreateDatabase provisions a new managed database instance.
-	CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID) (*domain.Database, error)
+	CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int) (*domain.Database, error)
 	// CreateReplica provisions a new read-only replica of an existing database.
 	CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error)
 	// PromoteToPrimary promotes a replica to be a primary instance.

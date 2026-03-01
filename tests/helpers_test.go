@@ -19,6 +19,7 @@ import (
 const (
 	headerTenantID  = "X-Tenant-ID"
 	errTenantNotSet = "tenant ID not set for request"
+	dbPrefixLen     = 8
 )
 
 var (
@@ -237,4 +238,19 @@ func tenantIDForToken(token string) string {
 	tenantMu.RLock()
 	defer tenantMu.RUnlock()
 	return tenantIDByToken[token]
+}
+
+func safePrefix(id string) string {
+	if len(id) < dbPrefixLen {
+		return id
+	}
+	return id[:dbPrefixLen]
+}
+
+func closeBody(t *testing.T, resp *http.Response) {
+	t.Helper()
+	if resp != nil && resp.Body != nil {
+		err := resp.Body.Close()
+		require.NoError(t, err, "failed to close response body")
+	}
 }

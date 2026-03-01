@@ -53,12 +53,16 @@ func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 	}
 }
 
-func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID) (*domain.Database, error) {
+func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 
 	dbEngine := domain.DatabaseEngine(engine)
 	if !s.isValidEngine(dbEngine) {
 		return nil, errors.New(errors.InvalidInput, "unsupported database engine")
+	}
+
+	if allocatedStorage < 10 {
+		return nil, errors.New(errors.InvalidInput, "allocated storage must be at least 10GB")
 	}
 
 	password, err := util.GenerateRandomPassword(16)
@@ -69,6 +73,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	username := s.getDefaultUsername(dbEngine)
 	db := s.initialDatabaseRecord(userID, name, dbEngine, version, username, password, vpcID)
 	db.Role = domain.RolePrimary
+	db.AllocatedStorage = allocatedStorage
 
 	imageName, env, defaultPort := s.getEngineConfig(dbEngine, version, username, password, name, db.Role, "")
 
@@ -79,7 +84,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 
 	// Create persistent volume for the database
 	volName := fmt.Sprintf("db-vol-%s", db.ID.String()[:8])
-	vol, err := s.volumeSvc.CreateVolume(ctx, volName, 10) // 10GB default
+	vol, err := s.volumeSvc.CreateVolume(ctx, volName, allocatedStorage)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to create persistent volume", err)
 	}
@@ -156,6 +161,7 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 	db := s.initialDatabaseRecord(userID, name, primary.Engine, primary.Version, primary.Username, primary.Password, primary.VpcID)
 	db.Role = domain.RoleReplica
 	db.PrimaryID = &primaryID
+	db.AllocatedStorage = primary.AllocatedStorage
 
 	imageName, env, defaultPort := s.getEngineConfig(primary.Engine, primary.Version, primary.Username, primary.Password, name, db.Role, primaryIP)
 
@@ -166,7 +172,7 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 
 	// Create persistent volume for the replica
 	volName := fmt.Sprintf("db-replica-vol-%s", db.ID.String()[:8])
-	vol, err := s.volumeSvc.CreateVolume(ctx, volName, 10) // 10GB default
+	vol, err := s.volumeSvc.CreateVolume(ctx, volName, db.AllocatedStorage)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to create persistent volume for replica", err)
 	}

@@ -25,10 +25,11 @@ func NewDatabaseHandler(svc ports.DatabaseService) *DatabaseHandler {
 
 // CreateDatabaseRequest is the payload for database creation.
 type CreateDatabaseRequest struct {
-	Name    string     `json:"name" binding:"required"`
-	Engine  string     `json:"engine" binding:"required"`
-	Version string     `json:"version" binding:"required"`
-	VpcID   *uuid.UUID `json:"vpc_id"`
+	Name             string     `json:"name" binding:"required"`
+	Engine           string     `json:"engine" binding:"required"`
+	Version          string     `json:"version" binding:"required"`
+	VpcID            *uuid.UUID `json:"vpc_id"`
+	AllocatedStorage int        `json:"allocated_storage"`
 }
 
 func (h *DatabaseHandler) Create(c *gin.Context) {
@@ -38,7 +39,7 @@ func (h *DatabaseHandler) Create(c *gin.Context) {
 		return
 	}
 
-	db, err := h.svc.CreateDatabase(c.Request.Context(), req.Name, req.Engine, req.Version, req.VpcID)
+	db, err := h.svc.CreateDatabase(c.Request.Context(), req.Name, req.Engine, req.Version, req.VpcID, req.AllocatedStorage)
 	if err != nil {
 		httputil.Error(c, err)
 		return

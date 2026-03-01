@@ -305,7 +305,8 @@ CREATE TABLE databases (
     password TEXT,
     container_id VARCHAR(255),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    allocated_storage INT NOT NULL DEFAULT 10
 );
 ```
 
@@ -318,7 +319,7 @@ Managed databases in The Cloud platform utilize persistent block storage to ensu
 
 #### Storage Architecture
 When a managed database is provisioned, the service automatically:
-1.  **Creates a Block Volume**: A 10GB persistent volume is provisioned via the `VolumeService`.
+1.  **Creates a Block Volume**: A persistent volume is provisioned via the `VolumeService`. The size is determined by the `allocated_storage` parameter (default 10GB).
 2.  **Mounts the Volume**: The volume is attached to the compute instance and mounted to the appropriate data directory:
     -   **PostgreSQL**: `/var/lib/postgresql/data`
     -   **MySQL**: `/var/lib/mysql`
@@ -326,7 +327,7 @@ When a managed database is provisioned, the service automatically:
 This integration ensures that all database state (tables, indexes, logs) is stored on durable block storage rather than the container's ephemeral layer.
 
 #### Volume Lifecycle
--   **Automated Provisioning**: Volumes are created synchronously during the `CreateDatabase` and `CreateReplica` calls.
+-   **Automated Provisioning**: Volumes are created synchronously during the `CreateDatabase` and `CreateReplica` calls. Replicas inherit the `allocated_storage` size of their primary.
 -   **Automated Cleanup**: When a database is deleted via the API, the service identifies and deletes the associated block volumes to prevent storage leaks.
 
 ### Database Replication
