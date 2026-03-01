@@ -959,8 +959,9 @@ func (m *MockComputeBackend) CreateNetwork(ctx context.Context, name string) (st
 func (m *MockComputeBackend) DeleteNetwork(ctx context.Context, id string) error {
 	return m.Called(ctx, id).Error(0)
 }
-func (m *MockComputeBackend) AttachVolume(ctx context.Context, id string, volumePath string) error {
-	return m.Called(ctx, id, volumePath).Error(0)
+func (m *MockComputeBackend) AttachVolume(ctx context.Context, id string, volumePath string) (string, error) {
+	args := m.Called(ctx, id, volumePath)
+	return args.String(0), args.Error(1)
 }
 func (m *MockComputeBackend) DetachVolume(ctx context.Context, id string, volumePath string) error {
 	args := m.Called(ctx, id, volumePath)
@@ -1272,9 +1273,9 @@ func (m *MockVolumeService) ReleaseVolumesForInstance(ctx context.Context, insta
 	return args.Error(0)
 }
 
-func (m *MockVolumeService) AttachVolume(ctx context.Context, volumeID string, instanceID string, mountPath string) error {
+func (m *MockVolumeService) AttachVolume(ctx context.Context, volumeID string, instanceID string, mountPath string) (string, error) {
 	args := m.Called(ctx, volumeID, instanceID, mountPath)
-	return args.Error(0)
+	return args.String(0), args.Error(1)
 }
 
 func (m *MockVolumeService) DetachVolume(ctx context.Context, volumeID string) error {
@@ -1625,12 +1626,13 @@ func (m *MockStorageBackend) DeleteVolume(ctx context.Context, name string) erro
 	args := m.Called(ctx, name)
 	return args.Error(0)
 }
-func (m *MockStorageBackend) AttachVolume(ctx context.Context, volumeName, instanceID string) error {
+func (m *MockStorageBackend) AttachVolume(ctx context.Context, volumeName, instanceID string) (string, error) {
 	args := m.Called(ctx, volumeName, instanceID)
-	return args.Error(0)
+	return args.String(0), args.Error(1)
 }
 func (m *MockStorageBackend) DetachVolume(ctx context.Context, volumeName, instanceID string) error {
-	return m.Called(ctx, volumeName, instanceID).Error(0)
+	args := m.Called(ctx, volumeName, instanceID)
+	return args.Error(0)
 }
 func (m *MockStorageBackend) CreateSnapshot(ctx context.Context, volumeName, snapshotName string) error {
 	args := m.Called(ctx, volumeName, snapshotName)
