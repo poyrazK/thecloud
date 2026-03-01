@@ -743,6 +743,7 @@ definitions:
     - volume:create
     - volume:delete
     - volume:read
+    - volume:update
     - snapshot:create
     - snapshot:delete
     - snapshot:read
@@ -830,6 +831,7 @@ definitions:
     - PermissionVolumeCreate
     - PermissionVolumeDelete
     - PermissionVolumeRead
+    - PermissionVolumeUpdate
     - PermissionSnapshotCreate
     - PermissionSnapshotDelete
     - PermissionSnapshotRead
@@ -1520,6 +1522,16 @@ definitions:
     required:
     - group_id
     - instance_id
+    type: object
+  httphandlers.AttachRequest:
+    properties:
+      instance_id:
+        type: string
+      mount_path:
+        type: string
+    required:
+    - instance_id
+    - mount_path
     type: object
   httphandlers.BindRoleRequest:
     properties:
@@ -5762,6 +5774,76 @@ paths:
       security:
       - APIKeyAuth: []
       summary: Get volume details
+      tags:
+      - volumes
+  /volumes/{id}/attach:
+    post:
+      consumes:
+      - application/json
+      description: Attaches a block storage volume to a compute instance
+      parameters:
+      - description: Volume ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Attachment request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.AttachRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Attach volume
+      tags:
+      - volumes
+  /volumes/{id}/detach:
+    post:
+      description: Detaches a block storage volume from its current compute instance
+      parameters:
+      - description: Volume ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Detach volume
       tags:
       - volumes
   /vpc-peerings:

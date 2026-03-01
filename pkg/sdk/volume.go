@@ -51,3 +51,16 @@ func (c *Client) GetVolume(idOrName string) (*Volume, error) {
 func (c *Client) DeleteVolume(idOrName string) error {
 	return c.delete(fmt.Sprintf("/volumes/%s", idOrName), nil)
 }
+
+func (c *Client) AttachVolume(volumeID, instanceID, mountPath string) error {
+	body := map[string]string{
+		"instance_id": instanceID,
+		"mount_path":  mountPath,
+	}
+	return c.post(fmt.Sprintf("/volumes/%s/attach", volumeID), body, nil)
+}
+
+func (c *Client) DetachVolume(volumeID string) error {
+	return c.post(fmt.Sprintf("/volumes/%s/detach", volumeID), nil, nil)
+}
+

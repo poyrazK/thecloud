@@ -142,6 +142,81 @@ func (s *VolumeService) DeleteVolume(ctx context.Context, idOrName string) error
 	return nil
 }
 
+func (s *VolumeService) AttachVolume(ctx context.Context, volumeID string, instanceID string, mountPath string) error {
+	vol, err := s.GetVolume(ctx, volumeID)
+	if err != nil {
+		return err
+	}
+
+	if vol.Status == domain.VolumeStatusInUse {
+		return errors.New(errors.Conflict, "volume is already attached to an instance")
+	}
+
+	instUUID, err := uuid.Parse(instanceID)
+	if err != nil {
+		return errors.New(errors.InvalidInput, "invalid instance ID")
+	}
+
+	// 1. Attach via Backend
+	backendName := "thecloud-vol-" + vol.ID.String()[:8]
+	if err := s.storage.AttachVolume(ctx, backendName, instanceID); err != nil {
+		return errors.Wrap(errors.Internal, "failed to attach volume in backend", err)
+	}
+
+	// 2. Update DB
+	vol.Status = domain.VolumeStatusInUse
+	vol.InstanceID = &instUUID
+	vol.MountPath = mountPath
+	vol.UpdatedAt = time.Now()
+
+	if err := s.repo.Update(ctx, vol); err != nil {
+		_ = s.storage.DetachVolume(ctx, backendName, instanceID)
+		return err
+	}
+
+	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.attach", "volume", vol.ID.String(), map[string]interface{}{
+		"instance_id": instanceID,
+		"mount_path":  mountPath,
+	})
+
+	return nil
+}
+
+func (s *VolumeService) DetachVolume(ctx context.Context, volumeID string) error {
+	vol, err := s.GetVolume(ctx, volumeID)
+	if err != nil {
+		return err
+	}
+
+	if vol.Status != domain.VolumeStatusInUse || vol.InstanceID == nil {
+		return errors.New(errors.InvalidInput, "volume is not attached")
+	}
+
+	instanceID := vol.InstanceID.String()
+
+	// 1. Detach via Backend
+	backendName := "thecloud-vol-" + vol.ID.String()[:8]
+	if err := s.storage.DetachVolume(ctx, backendName, instanceID); err != nil {
+		return errors.Wrap(errors.Internal, "failed to detach volume in backend", err)
+	}
+
+	// 2. Update DB
+	vol.Status = domain.VolumeStatusAvailable
+	vol.InstanceID = nil
+	vol.MountPath = ""
+	vol.UpdatedAt = time.Now()
+
+	if err := s.repo.Update(ctx, vol); err != nil {
+		return err
+	}
+
+	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.detach", "volume", vol.ID.String(), map[string]interface{}{
+		"instance_id": instanceID,
+	})
+
+	return nil
+}
+
 // ReleaseVolumesForInstance detaches all volumes attached to an instance and marks them as available.
 // This should be called when an instance is terminated to free up its volumes.
 func (s *VolumeService) ReleaseVolumesForInstance(ctx context.Context, instanceID uuid.UUID) error {
@@ -152,6 +227,9 @@ func (s *VolumeService) ReleaseVolumesForInstance(ctx context.Context, instanceI
 	}
 
 	for _, vol := range volumes {
+		backendName := "thecloud-vol-" + vol.ID.String()[:8]
+		_ = s.storage.DetachVolume(ctx, backendName, instanceID.String())
+
 		vol.Status = domain.VolumeStatusAvailable
 		vol.InstanceID = nil
 		vol.MountPath = ""

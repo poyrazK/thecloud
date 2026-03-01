@@ -114,3 +114,60 @@ func (h *VolumeHandler) Delete(c *gin.Context) {
 
 	httputil.Success(c, http.StatusOK, gin.H{"message": "volume deleted"})
 }
+
+// AttachRequest is the payload for attaching a volume.
+type AttachRequest struct {
+	InstanceID string `json:"instance_id" binding:"required"`
+	MountPath  string `json:"mount_path" binding:"required"`
+}
+
+// Attach attaches a volume to an instance
+// @Summary Attach volume
+// @Description Attaches a block storage volume to a compute instance
+// @Tags volumes
+// @Accept json
+// @Produce json
+// @Security APIKeyAuth
+// @Param id path string true "Volume ID"
+// @Param request body AttachRequest true "Attachment request"
+// @Success 200 {object} httputil.Response
+// @Failure 400 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
+// @Router /volumes/{id}/attach [post]
+func (h *VolumeHandler) Attach(c *gin.Context) {
+	idStr := c.Param("id")
+	var req AttachRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	if err := h.svc.AttachVolume(c.Request.Context(), idStr, req.InstanceID, req.MountPath); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, gin.H{"message": "volume attached"})
+}
+
+// Detach detaches a volume from an instance
+// @Summary Detach volume
+// @Description Detaches a block storage volume from its current compute instance
+// @Tags volumes
+// @Produce json
+// @Security APIKeyAuth
+// @Param id path string true "Volume ID"
+// @Success 200 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
+// @Router /volumes/{id}/detach [post]
+func (h *VolumeHandler) Detach(c *gin.Context) {
+	idStr := c.Param("id")
+	if err := h.svc.DetachVolume(c.Request.Context(), idStr); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, gin.H{"message": "volume detached"})
+}

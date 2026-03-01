@@ -1272,6 +1272,16 @@ func (m *MockVolumeService) ReleaseVolumesForInstance(ctx context.Context, insta
 	return args.Error(0)
 }
 
+func (m *MockVolumeService) AttachVolume(ctx context.Context, volumeID string, instanceID string, mountPath string) error {
+	args := m.Called(ctx, volumeID, instanceID, mountPath)
+	return args.Error(0)
+}
+
+func (m *MockVolumeService) DetachVolume(ctx context.Context, volumeID string) error {
+	args := m.Called(ctx, volumeID)
+	return args.Error(0)
+}
+
 // MockSnapshotService
 type MockSnapshotService struct {
 	mock.Mock

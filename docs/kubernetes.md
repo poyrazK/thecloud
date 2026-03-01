@@ -87,6 +87,31 @@ kubectl get pods -A
 
 ## Advanced Usage
 
+### Persistent Volumes (CSI)
+The Cloud supports dynamic volume provisioning via its custom CSI driver.
+
+#### How it works:
+1.  **StorageClass**: The `thecloud-block` storage class is pre-configured in every cluster.
+2.  **Dynamic Provisioning**: When a user creates a `PersistentVolumeClaim` (PVC), the Cloud's CSI Controller sidecar detects it and calls our platform API to create a block device.
+3.  **Attachment**: When a Pod using the PVC is scheduled, the CSI Attacher sidecar calls our API to attach the volume to the corresponding virtual machine.
+4.  **Hostname Resolution**: Since Kubernetes identifies nodes by hostname, the CSI driver automatically resolves hostnames to internal platform Instance UUIDs before performing any operations.
+5.  **Formatting & Mounting**: The CSI Node service running on the worker node automatically formats the raw device (ext4) and mounts it into the Pod's filesystem.
+
+#### PVC Example:
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pv-claim
+spec:
+  storageClassName: thecloud-block
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+```
+
 ### Node Access (SSH)
 You can SSH into your cluster nodes using the private key stored securely in The Cloud. Currently, this requires retrieving specific node IP addresses via `cloud instance list`.
 
@@ -109,5 +134,5 @@ spec:
 ```
 
 ## Limitations (MVP)
-*   **Persistent Volumes**: Dynamic storage provisioning (CSI) is planned for Phase 7.
+*   **Persistent Volumes**: Dynamic storage provisioning (CSI) is now available in Phase 7.
 *   **Multi-Master**: While we have self-healing for single master, multi-control plane HA is a future roadmap item.
