@@ -5980,6 +5980,128 @@ const docTemplate = `{
                 }
             }
         },
+        "/volumes/{id}/attach": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Attaches a block storage volume to a compute instance",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "volumes"
+                ],
+                "summary": "Attach volume",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Volume ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Attachment request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.AttachRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/volumes/{id}/detach": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Detaches a block storage volume from its current compute instance",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "volumes"
+                ],
+                "summary": "Detach volume",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Volume ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/vpc-peerings": {
             "get": {
                 "security": [
@@ -7494,6 +7616,7 @@ const docTemplate = `{
                 "volume:create",
                 "volume:delete",
                 "volume:read",
+                "volume:update",
                 "snapshot:create",
                 "snapshot:delete",
                 "snapshot:read",
@@ -7581,6 +7704,7 @@ const docTemplate = `{
                 "PermissionVolumeCreate",
                 "PermissionVolumeDelete",
                 "PermissionVolumeRead",
+                "PermissionVolumeUpdate",
                 "PermissionSnapshotCreate",
                 "PermissionSnapshotDelete",
                 "PermissionSnapshotRead",
@@ -8541,6 +8665,23 @@ const docTemplate = `{
                 },
                 "instance_id": {
                     "type": "string"
+                }
+            }
+        },
+        "httphandlers.AttachRequest": {
+            "type": "object",
+            "required": [
+                "instance_id",
+                "mount_path"
+            ],
+            "properties": {
+                "instance_id": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "mount_path": {
+                    "type": "string",
+                    "minLength": 1
                 }
             }
         },

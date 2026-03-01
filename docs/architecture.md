@@ -36,6 +36,7 @@ graph TB
         RepoLVM[LVM<br/>Block Storage Backend]
         RepoFS[Filesystem<br/>Object/Image Storage]
         RepoOVS[Open vSwitch<br/>SDN Networking]
+        RepoCSI[CSI Driver<br/>K8s Storage Interface]
     end
 
     User --> Console
@@ -55,6 +56,7 @@ graph TB
     Ports --> RepoLVM
     Ports --> RepoFS
     Ports --> RepoOVS
+    Ports --> RepoCSI
     Service --> ASWorker
     Service --> CronWorker
     Service --> ContainerWorker
@@ -160,6 +162,7 @@ type StorageBackend interface {
 - `LoadBalancerService` - Traffic distribution (Regional)
 - `GlobalLBService` - Multi-region traffic steering (DNS-based) 🆕
 - `AutoScalingService` - Dynamic scaling
+- `VolumeCSIService` - Kubernetes CSI interaction layer 🆕
 - `RBACService` - Access control (Integration with IAM Policies)
 - `IAMService` - Granular policy lifecycle and evaluation 🆕
 - `FunctionService` - Serverless execution
@@ -201,10 +204,10 @@ func (s *instanceService) Launch(ctx context.Context, req LaunchRequest) (*domai
         return nil, err
     }
     
-    // 4. Record event
+    // 4. Record event (best effort)
     _ = s.eventSvc.RecordEvent(ctx, "INSTANCE_LAUNCHED", inst.ID.String(), "INSTANCE", nil)
     
-    // 5. Audit log
+    // 5. Audit log (best effort)
     _ = s.auditSvc.Log(ctx, inst.UserID, "instance.launch", "instance", inst.ID.String(), nil)
     
     return inst, nil
@@ -264,10 +267,9 @@ func (h *InstanceHandler) Launch(c *gin.Context) {
 - Function, Queue, Topic state
 - Audit logs and events
 
-**OVS Adapter**:
-- SDN management (Bridges, Ports, Flow rules)
-- VXLAN tunnel orchestration
-- IPAM and veth plumbing for instances
+**OVS Adapter**: SDN management (Bridges, Ports, Flow rules)
+- **CSI Driver**: Kubernetes storage backend implementation resolving Node hostnames to Instance UUIDs.
+- **Libvirt Adapter**: Modernized to support **ARM64 (UEFI)** guests using `virt` machine type and `AAVMF` firmware.
 
 **Example Repository**:
 ```go

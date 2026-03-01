@@ -190,8 +190,9 @@ func TestAttachVolumeSuccess(t *testing.T) {
 	// We expect DomainAttachDevice with an XML for the disk
 	m.On("DomainAttachDevice", mock.Anything, dom, mock.AnythingOfType("string")).Return(nil)
 
-	err := a.AttachVolume(ctx, testInstanceName, volumePath)
+	path, err := a.AttachVolume(ctx, testInstanceName, volumePath)
 	assert.NoError(t, err)
+	assert.Equal(t, "/dev/vdb", path)
 	m.AssertExpectations(t)
 }
 

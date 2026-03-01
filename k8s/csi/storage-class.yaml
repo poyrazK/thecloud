@@ -1,0 +1,21 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: thecloud-block
+provisioner: csi.thecloud.io
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: false
+parameters:
+  csi.storage.k8s.io/fstype: ext4
+---
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  name: csi.thecloud.io
+spec:
+  attachRequired: true
+  podInfoOnMount: false
+  storageCapacity: true
+  volumeLifecycleModes:
+    - Persistent

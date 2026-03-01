@@ -111,7 +111,8 @@ func TestNoopComputeBackend(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, backend.DeleteNetwork(ctx, "net"))
 
-		require.NoError(t, backend.AttachVolume(ctx, "id", "vol"))
+		_, err = backend.AttachVolume(ctx, "id", "vol")
+		require.NoError(t, err)
 		require.NoError(t, backend.DetachVolume(ctx, "id", "vol"))
 		require.NoError(t, backend.Ping(ctx))
 	})
@@ -159,7 +160,7 @@ func TestNoopStorage(t *testing.T) {
 	if _, err := backend.CreateVolume(ctx, "vol", 1); err != nil {
 		t.Fatalf("CreateVolume error: %v", err)
 	}
-	if err := backend.AttachVolume(ctx, "vol", "inst"); err != nil {
+	if _, err := backend.AttachVolume(ctx, "vol", "inst"); err != nil {
 		t.Fatalf("AttachVolume error: %v", err)
 	}
 	if err := backend.DetachVolume(ctx, "vol", "inst"); err != nil {

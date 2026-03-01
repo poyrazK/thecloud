@@ -12,7 +12,8 @@ type StorageBackend interface {
 	// DeleteVolume permanently removes a block storage device (only if not currently attached).
 	DeleteVolume(ctx context.Context, name string) error
 	// AttachVolume connects a block storage device to a specific compute instance.
-	AttachVolume(ctx context.Context, volumeName, instanceID string) error
+	// Returns the guest-assigned device path (e.g., "/dev/vdb").
+	AttachVolume(ctx context.Context, volumeName, instanceID string) (string, error)
 	// DetachVolume disconnects a block storage device from a compute instance.
 	DetachVolume(ctx context.Context, volumeName, instanceID string) error
 	// CreateSnapshot establishes a point-in-time copy of a block volume on the backend.

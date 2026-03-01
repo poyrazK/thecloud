@@ -154,7 +154,7 @@ func TestLvmAdapterDeleteSnapshotSuccess(t *testing.T) {
 
 func TestLvmAdapterAttachVolume(t *testing.T) {
 	adapter := NewLvmAdapter("vg0")
-	err := adapter.AttachVolume(context.Background(), "vol1", "inst1")
+	_, err := adapter.AttachVolume(context.Background(), "vol1", "inst1")
 	require.NoError(t, err)
 }
 
