@@ -1,12 +1,12 @@
 package crypto
 
 import (
-	"github.com/stretchr/testify/require"
 	"net/url"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSignAndVerifyURL(t *testing.T) {

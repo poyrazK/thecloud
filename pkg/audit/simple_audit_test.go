@@ -3,7 +3,6 @@ package simpleaudit
 import (
 	"bytes"
 	"context"
-	"github.com/stretchr/testify/require"
 	"log/slog"
 	"testing"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSimpleAuditLoggerLog(t *testing.T) {
