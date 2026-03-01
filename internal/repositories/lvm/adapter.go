@@ -62,12 +62,12 @@ func (a *LvmAdapter) DeleteVolume(ctx context.Context, name string) error {
 	return nil
 }
 
-func (a *LvmAdapter) AttachVolume(ctx context.Context, volumeName, instanceID string) error {
+func (a *LvmAdapter) AttachVolume(ctx context.Context, volumeName, instanceID string) (string, error) {
 	// Attaching in LVM context usually means making it available to the hypervisor.
 	// For Libvirt, it's about adding the disk to the XML.
 	// This might be better handled in the Compute Service or by a direct Libvirt call.
 	// For now, we'll consider it a no-op if the volume is already in /dev/vg/vol.
-	return nil
+	return "/dev/" + a.vgName + "/" + volumeName, nil
 }
 
 func (a *LvmAdapter) DetachVolume(ctx context.Context, volumeName, instanceID string) error {

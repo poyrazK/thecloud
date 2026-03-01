@@ -131,12 +131,14 @@ func (c *NoopComputeBackend) CreateNetwork(ctx context.Context, name string) (st
 	return "net-id", nil
 }
 func (c *NoopComputeBackend) DeleteNetwork(ctx context.Context, id string) error { return nil }
-func (c *NoopComputeBackend) AttachVolume(ctx context.Context, id string, volumePath string) error {
-	return nil
+func (c *NoopComputeBackend) AttachVolume(ctx context.Context, id string, volumePath string) (string, error) {
+	return "/dev/vdb", nil
 }
+
 func (c *NoopComputeBackend) DetachVolume(ctx context.Context, id string, volumePath string) error {
 	return nil
 }
+
 func (c *NoopComputeBackend) Ping(ctx context.Context) error { return nil }
 func (c *NoopComputeBackend) Type() string                   { return "noop" }
 
@@ -601,8 +603,8 @@ func (s *NoopStorageBackend) CreateVolume(ctx context.Context, name string, size
 	return "vol-1", nil
 }
 func (s *NoopStorageBackend) DeleteVolume(ctx context.Context, name string) error { return nil }
-func (s *NoopStorageBackend) AttachVolume(ctx context.Context, volumeName, instanceID string) error {
-	return nil
+func (s *NoopStorageBackend) AttachVolume(ctx context.Context, volumeName, instanceID string) (string, error) {
+	return "vol-1", nil
 }
 func (s *NoopStorageBackend) DetachVolume(ctx context.Context, volumeName, instanceID string) error {
 	return nil

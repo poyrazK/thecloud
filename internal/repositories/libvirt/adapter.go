@@ -451,10 +451,10 @@ func (a *LibvirtAdapter) GetInstancePort(ctx context.Context, id string, interna
 	return 0, fmt.Errorf("no host port mapping found for instance %s port %s", id, internalPort)
 }
 
-func (a *LibvirtAdapter) AttachVolume(ctx context.Context, id string, volumePath string) error {
+func (a *LibvirtAdapter) AttachVolume(ctx context.Context, id string, volumePath string) (string, error) {
 	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
-		return fmt.Errorf(errDomainNotFound, err)
+		return "", fmt.Errorf(errDomainNotFound, err)
 	}
 
 	dev := "vdb" 
@@ -476,7 +476,10 @@ func (a *LibvirtAdapter) AttachVolume(ctx context.Context, id string, volumePath
       <target dev='%s' bus='virtio'/>
     </disk>`, diskType, driverType, sourceAttr, volumePath, dev)
 
-	return a.client.DomainAttachDevice(ctx, dom, xml)
+	if err := a.client.DomainAttachDevice(ctx, dom, xml); err != nil {
+		return "", err
+	}
+	return "/dev/" + dev, nil
 }
 
 func (a *LibvirtAdapter) DetachVolume(ctx context.Context, id string, volumePath string) error {

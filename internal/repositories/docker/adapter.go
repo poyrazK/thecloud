@@ -579,8 +579,8 @@ func (a *DockerAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID stri
 	return nil
 }
 
-func (a *DockerAdapter) AttachVolume(ctx context.Context, id string, volumePath string) error {
-	return errors.New(errors.NotImplemented, "attaching volumes to running containers is not supported in docker adapter")
+func (a *DockerAdapter) AttachVolume(ctx context.Context, id string, volumePath string) (string, error) {
+	return "", errors.New(errors.NotImplemented, "attaching volumes to running containers is not supported in docker adapter")
 }
 
 func (a *DockerAdapter) DetachVolume(ctx context.Context, id string, volumePath string) error {

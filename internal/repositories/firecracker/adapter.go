@@ -239,8 +239,8 @@ func (a *FirecrackerAdapter) DeleteNetwork(ctx context.Context, id string) error
 	return nil
 }
 
-func (a *FirecrackerAdapter) AttachVolume(ctx context.Context, id string, volumePath string) error {
-	return fmt.Errorf("attach volume not implemented for firecracker")
+func (a *FirecrackerAdapter) AttachVolume(ctx context.Context, id string, volumePath string) (string, error) {
+	return "", fmt.Errorf("attach volume not implemented for firecracker")
 }
 
 func (a *FirecrackerAdapter) DetachVolume(ctx context.Context, id string, volumePath string) error {
