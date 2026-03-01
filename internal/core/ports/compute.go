@@ -50,7 +50,8 @@ type ComputeBackend interface {
 	// Volume/Disk Attachment (Physical/Block)
 
 	// AttachVolume connects a storage resource to the instance.
-	AttachVolume(ctx context.Context, id string, volumePath string) error
+	// Returns the guest-assigned device path (e.g., "/dev/vdb").
+	AttachVolume(ctx context.Context, id string, volumePath string) (string, error)
 	// DetachVolume disconnects a storage resource from the instance.
 	DetachVolume(ctx context.Context, id string, volumePath string) error
 
