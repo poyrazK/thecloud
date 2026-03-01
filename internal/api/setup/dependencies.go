@@ -259,17 +259,17 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		return nil, nil, err
 	}
 
-        snapshotSvc := services.NewSnapshotService(c.Repos.Snapshot, c.Repos.Volume, c.Storage, eventSvc, auditSvc, c.Logger)
+	snapshotSvc := services.NewSnapshotService(c.Repos.Snapshot, c.Repos.Volume, c.Storage, eventSvc, auditSvc, c.Logger)
 	databaseSvc := services.NewDatabaseService(services.DatabaseServiceParams{
-		Repo:      c.Repos.Database,
-		Compute:   c.Compute,
-		VpcRepo:   c.Repos.Vpc,
-		VolumeSvc: volumeSvc,
-                SnapshotSvc:  snapshotSvc,
-                SnapshotRepo: c.Repos.Snapshot,
-		EventSvc:  eventSvc,
-		AuditSvc:  auditSvc,
-		Logger:    c.Logger,
+		Repo:         c.Repos.Database,
+		Compute:      c.Compute,
+		VpcRepo:      c.Repos.Vpc,
+		VolumeSvc:    volumeSvc,
+		SnapshotSvc:  snapshotSvc,
+		SnapshotRepo: c.Repos.Snapshot,
+		EventSvc:     eventSvc,
+		AuditSvc:     auditSvc,
+		Logger:       c.Logger,
 	})
 	secretSvc := services.NewSecretService(c.Repos.Secret, eventSvc, auditSvc, c.Logger, c.Config.SecretsEncryptionKey, c.Config.Environment)
 	fnSvc := services.NewFunctionService(c.Repos.Function, c.Compute, fileStore, auditSvc, c.Logger)
@@ -308,7 +308,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		Storage: storageSvc, Database: databaseSvc, Secret: secretSvc, Function: fnSvc, Cache: cacheSvc,
 		Queue: queueSvc, Notify: notifySvc, Cron: cronSvc, Gateway: gwSvc, Container: containerSvc,
 		Pipeline: pipelineSvc,
-		Health: services.NewHealthServiceImpl(c.DB, c.Compute, clusterSvc), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc,
+		Health:   services.NewHealthServiceImpl(c.DB, c.Compute, clusterSvc), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc,
 		Cluster:      clusterSvc,
 		Dashboard:    services.NewDashboardService(c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger),
 		Lifecycle:    services.NewLifecycleService(c.Repos.Lifecycle, c.Repos.Storage),
@@ -335,7 +335,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 
 	workersCollection := &Workers{
 		LB: lbWorker, AutoScaling: asgWorker, Cron: cronWorker, Container: containerWorker,
-		Pipeline:          workers.NewPipelineWorker(c.Repos.Pipeline, c.Repos.TaskQueue, c.Compute, c.Logger),
+		Pipeline:  workers.NewPipelineWorker(c.Repos.Pipeline, c.Repos.TaskQueue, c.Compute, c.Logger),
 		Provision: provisionWorker, Accounting: accountingWorker,
 		Cluster:           workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.TaskQueue, c.Logger),
 		Lifecycle:         workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger),

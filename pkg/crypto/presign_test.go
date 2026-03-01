@@ -1,9 +1,9 @@
 package crypto
 
 import (
+	"github.com/stretchr/testify/require"
 	"net/url"
 	"testing"
-	"github.com/stretchr/testify/require"
 	"time"
 
 	"github.com/stretchr/testify/assert"

@@ -61,15 +61,15 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 	mockVolumeSvc := new(MockVolumeService)
 
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
-		Repo:      mockRepo,
-		Compute:   mockCompute,
-		VpcRepo:   mockVpcRepo,
-		VolumeSvc: mockVolumeSvc,
+		Repo:         mockRepo,
+		Compute:      mockCompute,
+		VpcRepo:      mockVpcRepo,
+		VolumeSvc:    mockVolumeSvc,
 		SnapshotSvc:  new(mockSnapshotService),
 		SnapshotRepo: new(mockSnapshotRepository),
 		EventSvc:     mockEventSvc,
-		AuditSvc:  mockAuditSvc,
-		Logger:    slog.Default(),
+		AuditSvc:     mockAuditSvc,
+		Logger:       slog.Default(),
 	})
 
 	ctx := context.Background()
@@ -193,10 +193,10 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		volID := uuid.New()
 		mockVolumeSvc.On("CreateVolume", mock.Anything, mock.Anything, 10).
 			Return(&domain.Volume{ID: volID, Name: "db-vol"}, nil).Once()
-		
+
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).
 			Return("", nil, fmt.Errorf("launch failed")).Once()
-		
+
 		mockVolumeSvc.On("DeleteVolume", mock.Anything, volID.String()).Return(nil).Once()
 
 		db, err := svc.CreateDatabase(ctx, "fail-db", "postgres", "16", nil, 10, nil)
@@ -209,13 +209,13 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		volID := uuid.New()
 		mockVolumeSvc.On("CreateVolume", mock.Anything, mock.Anything, 10).
 			Return(&domain.Volume{ID: volID, Name: "db-vol"}, nil).Once()
-		
+
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).
 			Return("cid-123", []string{"30001:5432"}, nil).Once()
-		
+
 		mockRepo.On("Create", mock.Anything, mock.Anything).
 			Return(fmt.Errorf("repo failed")).Once()
-		
+
 		mockCompute.On("DeleteInstance", mock.Anything, "cid-123").Return(nil).Once()
 		mockVolumeSvc.On("DeleteVolume", mock.Anything, volID.String()).Return(nil).Once()
 
@@ -239,9 +239,12 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 type mockSnapshotService struct {
 	mock.Mock
 }
+
 func (m *mockSnapshotService) CreateSnapshot(ctx context.Context, volumeID uuid.UUID, description string) (*domain.Snapshot, error) {
 	args := m.Called(ctx, volumeID, description)
-	if args.Get(0) == nil { return nil, args.Error(1) }
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*domain.Snapshot), args.Error(1)
 }
 func (m *mockSnapshotService) ListSnapshots(ctx context.Context) ([]*domain.Snapshot, error) {
@@ -250,7 +253,9 @@ func (m *mockSnapshotService) ListSnapshots(ctx context.Context) ([]*domain.Snap
 }
 func (m *mockSnapshotService) GetSnapshot(ctx context.Context, id uuid.UUID) (*domain.Snapshot, error) {
 	args := m.Called(ctx, id)
-	if args.Get(0) == nil { return nil, args.Error(1) }
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*domain.Snapshot), args.Error(1)
 }
 func (m *mockSnapshotService) DeleteSnapshot(ctx context.Context, id uuid.UUID) error {
@@ -258,17 +263,24 @@ func (m *mockSnapshotService) DeleteSnapshot(ctx context.Context, id uuid.UUID) 
 }
 func (m *mockSnapshotService) RestoreSnapshot(ctx context.Context, snapshotID uuid.UUID, newVolumeName string) (*domain.Volume, error) {
 	args := m.Called(ctx, snapshotID, newVolumeName)
-	if args.Get(0) == nil { return nil, args.Error(1) }
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*domain.Volume), args.Error(1)
 }
 
 type mockSnapshotRepository struct {
 	mock.Mock
 }
-func (m *mockSnapshotRepository) Create(ctx context.Context, s *domain.Snapshot) error { return m.Called(ctx, s).Error(0) }
+
+func (m *mockSnapshotRepository) Create(ctx context.Context, s *domain.Snapshot) error {
+	return m.Called(ctx, s).Error(0)
+}
 func (m *mockSnapshotRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Snapshot, error) {
 	args := m.Called(ctx, id)
-	if args.Get(0) == nil { return nil, args.Error(1) }
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*domain.Snapshot), args.Error(1)
 }
 func (m *mockSnapshotRepository) ListByVolumeID(ctx context.Context, volumeID uuid.UUID) ([]*domain.Snapshot, error) {
@@ -279,5 +291,9 @@ func (m *mockSnapshotRepository) ListByUserID(ctx context.Context, userID uuid.U
 	args := m.Called(ctx, userID)
 	return args.Get(0).([]*domain.Snapshot), args.Error(1)
 }
-func (m *mockSnapshotRepository) Update(ctx context.Context, s *domain.Snapshot) error { return m.Called(ctx, s).Error(0) }
-func (m *mockSnapshotRepository) Delete(ctx context.Context, id uuid.UUID) error { return m.Called(ctx, id).Error(0) }
+func (m *mockSnapshotRepository) Update(ctx context.Context, s *domain.Snapshot) error {
+	return m.Called(ctx, s).Error(0)
+}
+func (m *mockSnapshotRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}

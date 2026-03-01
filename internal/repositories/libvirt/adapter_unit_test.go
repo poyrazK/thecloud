@@ -14,8 +14,8 @@ import (
 	"github.com/digitalocean/go-libvirt"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -609,8 +609,8 @@ func TestDeleteInstance_Unit(t *testing.T) {
 	t.Parallel()
 	m := new(MockLibvirtClient)
 	a := &LibvirtAdapter{
-		client: m, 
-		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		client:       m,
+		logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
 		portMappings: make(map[string]map[string]int),
 	}
 	ctx := context.Background()
@@ -620,7 +620,7 @@ func TestDeleteInstance_Unit(t *testing.T) {
 	m.On("DomainGetState", mock.Anything, dom, uint32(0)).Return(int32(domainStateRunning), int32(0), nil).Once()
 	m.On("DomainDestroy", mock.Anything, dom).Return(nil).Once()
 	m.On("DomainUndefine", mock.Anything, dom).Return(nil).Once()
-	
+
 	// Root volume cleanup mocks
 	pool := libvirt.StoragePool{Name: "default"}
 	vol := libvirt.StorageVol{Name: "test-vm-root"}
@@ -691,7 +691,7 @@ func TestLibvirtAdapter_WaitInitialIP(t *testing.T) {
 		m.On("DomainLookupByName", mock.Anything, id).Return(dom, nil)
 		m.On("DomainGetXMLDesc", mock.Anything, dom, mock.Anything).Return(xml, nil)
 		m.On("NetworkLookupByName", mock.Anything, "default").Return(network, nil)
-		
+
 		// First call returns no lease, second returns lease
 		m.On("NetworkGetDhcpLeases", mock.Anything, network, mock.Anything, uint32(0), uint32(0)).
 			Return([]libvirt.NetworkDhcpLease{}, uint32(0), nil).Once()
@@ -740,7 +740,7 @@ func TestLibvirtAdapter_StatsAndConsole(t *testing.T) {
 		m.On("DomainLookupByName", mock.Anything, id).Return(dom, nil).Once()
 		m.On("DomainMemoryStats", mock.Anything, dom, uint32(10), uint32(0)).Return([]libvirt.DomainMemoryStat{}, nil).Once()
 		m.On("DomainGetState", mock.Anything, dom, uint32(0)).Return(int32(1), int32(0), nil).Once()
-		
+
 		stats, err := a.GetInstanceStats(ctx, id)
 		require.NoError(t, err)
 		assert.NotNil(t, stats)
@@ -770,7 +770,7 @@ func TestLibvirtAdapter_NetworkAndVolume(t *testing.T) {
 	t.Run("CreateNetwork", func(t *testing.T) {
 		m.On("NetworkDefineXML", mock.Anything, mock.Anything).Return(libvirt.Network{Name: "test-net"}, nil).Once()
 		m.On("NetworkCreate", mock.Anything, mock.Anything).Return(nil).Once()
-		
+
 		id, err := a.CreateNetwork(ctx, "10.0.0.0/24")
 		require.NoError(t, err)
 		assert.NotEmpty(t, id)
@@ -781,7 +781,7 @@ func TestLibvirtAdapter_NetworkAndVolume(t *testing.T) {
 		m.On("NetworkLookupByName", mock.Anything, "test-net").Return(net, nil).Once()
 		m.On("NetworkDestroy", mock.Anything, net).Return(nil).Once()
 		m.On("NetworkUndefine", mock.Anything, net).Return(nil).Once()
-		
+
 		err := a.DeleteNetwork(ctx, "test-net")
 		require.NoError(t, err)
 	})
@@ -791,7 +791,7 @@ func TestLibvirtAdapter_NetworkAndVolume(t *testing.T) {
 		m.On("StoragePoolLookupByName", mock.Anything, "default").Return(pool, nil).Once()
 		m.On("StoragePoolRefresh", mock.Anything, pool, uint32(0)).Return(nil).Once()
 		m.On("StorageVolCreateXML", mock.Anything, pool, mock.Anything, uint32(0)).Return(libvirt.StorageVol{Name: "v1"}, nil).Once()
-		
+
 		err := a.CreateVolume(ctx, "v1")
 		require.NoError(t, err)
 	})
@@ -802,7 +802,7 @@ func TestLibvirtAdapter_NetworkAndVolume(t *testing.T) {
 		m.On("StoragePoolLookupByName", mock.Anything, "default").Return(pool, nil).Once()
 		m.On("StorageVolLookupByName", mock.Anything, pool, "v1").Return(vol, nil).Once()
 		m.On("StorageVolDelete", mock.Anything, vol, uint32(0)).Return(nil).Once()
-		
+
 		err := a.DeleteVolume(ctx, "v1")
 		require.NoError(t, err)
 	})

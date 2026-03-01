@@ -106,7 +106,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 		mountPath = "/var/lib/mysql"
 	}
 	volumeBinds := []string{fmt.Sprintf("%s:%s", backendVolName, mountPath)}
-	
+
 	cmd := s.buildEngineCmd(dbEngine, parameters)
 
 	dockerName := fmt.Sprintf("cloud-db-%s-%s", name, db.ID.String()[:8])
@@ -574,7 +574,7 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.U
 		mountPath = "/var/lib/mysql"
 	}
 	volumeBinds := []string{fmt.Sprintf("%s:%s", backendVolName, mountPath)}
-	
+
 	cmd := s.buildEngineCmd(dbEngine, parameters)
 
 	dockerName := fmt.Sprintf("cloud-db-%s-%s", newName, db.ID.String()[:8])

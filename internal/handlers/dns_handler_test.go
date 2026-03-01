@@ -13,8 +13,8 @@ import (
 	mocks "github.com/poyrazk/thecloud/internal/core/ports/mocks"
 	"github.com/poyrazk/thecloud/pkg/httputil"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (

@@ -12,8 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockLogService struct {
@@ -61,7 +61,7 @@ func TestLogHandlerSearch(t *testing.T) {
 		r.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		
+
 		var resp struct {
 			Data struct {
 				Entries []domain.LogEntry `json:"entries"`

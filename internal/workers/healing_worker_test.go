@@ -140,12 +140,12 @@ func TestHealingWorker(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name          string
-		instances     []*domain.Instance
-		listErr       error
-		stopErr       error
-		startErr      error
-		expectedStops []string
+		name           string
+		instances      []*domain.Instance
+		listErr        error
+		stopErr        error
+		startErr       error
+		expectedStops  []string
 		expectedStarts []string
 	}{
 		{

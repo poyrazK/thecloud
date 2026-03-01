@@ -30,7 +30,7 @@ func (r *LogRepository) Create(ctx context.Context, entries []*domain.LogEntry) 
 
 	for i, entry := range entries {
 		offset := i * 8
-		placeholders = append(placeholders, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)", 
+		placeholders = append(placeholders, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)",
 			offset+1, offset+2, offset+3, offset+4, offset+5, offset+6, offset+7, offset+8))
 		values = append(values, entry.ID, entry.TenantID, entry.ResourceID, entry.ResourceType, entry.Level, entry.Message, entry.Timestamp, entry.TraceID)
 	}
@@ -91,7 +91,7 @@ func (r *LogRepository) List(ctx context.Context, query domain.LogQuery) ([]*dom
 	}
 
 	sqlQuery += " ORDER BY timestamp DESC"
-	
+
 	limit := query.Limit
 	if limit <= 0 {
 		limit = 100

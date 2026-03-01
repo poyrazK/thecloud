@@ -99,7 +99,7 @@ func TestVPCPeeringServiceIntegration(t *testing.T) {
 		vpc2 := createVPC("vpc-reject-2", "10.50.0.0/16")
 
 		peering, _ := svc.CreatePeering(ctx, vpc1.ID, vpc2.ID)
-		
+
 		err := svc.RejectPeering(ctx, peering.ID)
 		require.NoError(t, err)
 
@@ -114,7 +114,7 @@ func TestVPCPeeringServiceIntegration(t *testing.T) {
 
 		// Create another user/tenant
 		ctx2 := setupTestUser(t, db)
-		
+
 		// Should not be able to see peering from first tenant
 		list, err := svc.ListPeerings(ctx2)
 		require.NoError(t, err)

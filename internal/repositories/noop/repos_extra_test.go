@@ -2,8 +2,8 @@ package noop
 
 import (
 	"context"
-	"testing"
 	"github.com/stretchr/testify/require"
+	"testing"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"

@@ -3,9 +3,9 @@ package simpleaudit
 import (
 	"bytes"
 	"context"
+	"github.com/stretchr/testify/require"
 	"log/slog"
 	"testing"
-	"github.com/stretchr/testify/require"
 	"time"
 
 	"github.com/google/uuid"

@@ -137,14 +137,14 @@ type SSHKey struct {
 
 // InstanceType describes available resource sizing.
 type InstanceType struct {
-	ID           string  `json:"id"`
-	Name         string  `json:"name"`
-	VCPUs        int     `json:"vcpus"`
-	MemoryMB     int     `json:"memory_mb"`
-	DiskGB       int     `json:"disk_gb"`
-	NetworkMbps  int     `json:"network_mbps"`
-	PricePerHr   float64 `json:"price_per_hour"`
-	Category     string  `json:"category"`
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	VCPUs       int     `json:"vcpus"`
+	MemoryMB    int     `json:"memory_mb"`
+	DiskGB      int     `json:"disk_gb"`
+	NetworkMbps int     `json:"network_mbps"`
+	PricePerHr  float64 `json:"price_per_hour"`
+	Category    string  `json:"category"`
 }
 
 // ListInstanceTypes returns all available instance sizes.

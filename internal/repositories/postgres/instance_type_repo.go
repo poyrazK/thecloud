@@ -4,8 +4,8 @@ package postgres
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5"
 	stdlib_errors "errors"
+	"github.com/jackc/pgx/v5"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )

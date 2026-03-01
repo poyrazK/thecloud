@@ -75,7 +75,7 @@ func TestLogsE2E(t *testing.T) {
 			} `json:"data"`
 		}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
-		
+
 		// In a real environment with Docker, we'd expect entries > 0.
 		// In CI/Dev without real execution, we at least verify the service returns 200 OK.
 		t.Logf("Found %d historical logs for terminated instance", res.Data.Total)

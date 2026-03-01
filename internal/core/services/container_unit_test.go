@@ -9,8 +9,8 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestContainerService_Unit(t *testing.T) {
@@ -18,7 +18,7 @@ func TestContainerService_Unit(t *testing.T) {
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	svc := services.NewContainerService(repo, eventSvc, auditSvc)
-	
+
 	ctx := context.Background()
 	userID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)

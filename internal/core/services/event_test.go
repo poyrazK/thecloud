@@ -41,7 +41,7 @@ func TestEventService_Integration(t *testing.T) {
 		// Verify in DB
 		result, err := repo.List(ctx, 10)
 		require.NoError(t, err)
-		
+
 		found := false
 		for _, e := range result {
 			if e.Action == action {
@@ -57,7 +57,7 @@ func TestEventService_Integration(t *testing.T) {
 
 	t.Run("ListEvents_Limits", func(t *testing.T) {
 		uniqueType := "LIMIT_TEST_" + uuid.New().String()[:8]
-		
+
 		for i := 0; i < 5; i++ {
 			_ = svc.RecordEvent(ctx, "ACTION", "res", uniqueType, nil)
 		}
@@ -71,7 +71,7 @@ func TestEventService_Integration(t *testing.T) {
 		t.Run("DefaultLimit", func(t *testing.T) {
 			result, err := svc.ListEvents(ctx, 0)
 			require.NoError(t, err)
-			
+
 			count := 0
 			for _, e := range result {
 				if e.ResourceType == uniqueType {

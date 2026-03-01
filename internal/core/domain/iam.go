@@ -18,11 +18,11 @@ type Condition map[string]map[string]interface{}
 
 // Statement is a single rule within a policy.
 type Statement struct {
-	Sid       string    `json:"sid,omitempty"`
+	Sid       string       `json:"sid,omitempty"`
 	Effect    PolicyEffect `json:"effect"`
-	Action    []string  `json:"action"`
-	Resource  []string  `json:"resource"`
-	Condition Condition `json:"condition,omitempty"`
+	Action    []string     `json:"action"`
+	Resource  []string     `json:"resource"`
+	Condition Condition    `json:"condition,omitempty"`
 }
 
 // Policy represents a JSON-based identity policy.

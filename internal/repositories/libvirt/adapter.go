@@ -6,8 +6,8 @@ package libvirt
 import (
 	"bytes"
 	"context"
-	stdlib_errors "errors"
 	"encoding/json"
+	stdlib_errors "errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -110,7 +110,7 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 		}
 	}
 
-	//nolint:staticcheck 
+	//nolint:staticcheck
 	l := libvirt.New(c)
 	adapter := &LibvirtAdapter{
 		client:             &RealLibvirtClient{conn: l},
@@ -286,7 +286,7 @@ func (a *LibvirtAdapter) cleanupCreateFailure(ctx context.Context, vol libvirt.S
 func (a *LibvirtAdapter) waitInitialIP(ctx context.Context, id string) (string, error) {
 	ticker := time.NewTicker(a.ipWaitInterval)
 	defer ticker.Stop()
-	
+
 	// Safety limit: max 5 minutes regardless of context
 	timeout := time.After(5 * time.Minute)
 
@@ -457,7 +457,7 @@ func (a *LibvirtAdapter) AttachVolume(ctx context.Context, id string, volumePath
 		return fmt.Errorf(errDomainNotFound, err)
 	}
 
-	dev := "vdb" 
+	dev := "vdb"
 
 	diskType := "file"
 	driverType := "qcow2"

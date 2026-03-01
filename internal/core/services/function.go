@@ -346,7 +346,7 @@ func (s *FunctionService) extractZipFile(file *zip.File, tmpDir string) error {
 		return err
 	}
 
-	// Use O_EXCL to prevent overwriting existing files if applicable, 
+	// Use O_EXCL to prevent overwriting existing files if applicable,
 	// though here it's a fresh tmpDir.
 	dst, err := os.OpenFile(filepath.Clean(path), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600) // G306: tighten permissions
 	if err != nil {

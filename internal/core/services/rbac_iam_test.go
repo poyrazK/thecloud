@@ -19,7 +19,7 @@ func TestRBACService_IAMIntegration(t *testing.T) {
 	iamRepo := new(mocks.IAMRepository)
 	evaluator := NewIAMEvaluator()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	
+
 	svc := NewRBACService(userRepo, roleRepo, iamRepo, evaluator, logger)
 	ctx := context.Background()
 	userID := uuid.New()
@@ -63,7 +63,7 @@ func TestRBACService_IAMIntegration(t *testing.T) {
 		userRepo.On("GetByID", ctx, userID).Return(&domain.User{ID: userID, TenantID: tenantID, Role: "custom-dev"}, nil).Once()
 		iamRepo.On("GetPoliciesForUser", ctx, tenantID, userID).Return([]*domain.Policy{}, nil).Once()
 		roleRepo.On("GetRoleByName", ctx, "custom-dev").Return(&domain.Role{ID: uuid.New(), Name: "custom-dev", Permissions: []domain.Permission{domain.PermissionInstanceLaunch}}, nil).Once()
-		
+
 		// Fallback logic for custom role
 		allowed, err := svc.HasPermission(ctx, userID, domain.PermissionInstanceLaunch, "*")
 		require.NoError(t, err)

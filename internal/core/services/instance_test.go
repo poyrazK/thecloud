@@ -79,7 +79,7 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 
 	var compute coreports.ComputeBackend
 	var err error
-	
+
 	backend := os.Getenv("COMPUTE_BACKEND")
 	if backend == "libvirt" {
 		uri := os.Getenv("LIBVIRT_URI")
@@ -182,7 +182,7 @@ func TestLaunchInstanceSuccess(t *testing.T) {
 	updatedInst, err := repo.GetByID(ctx, inst.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.StatusRunning, updatedInst.Status)
-	
+
 	// Only verify container/IP if compute is actually functional
 	if compute.Type() != "noop" {
 		assert.NotEmpty(t, updatedInst.ContainerID)
@@ -239,7 +239,7 @@ func TestInstanceServiceLaunchDBFailure(t *testing.T) {
 	subnetRepo := postgres.NewSubnetRepository(db)
 	volumeRepo := postgres.NewVolumeRepository(db)
 	itRepo := postgres.NewInstanceTypeRepository(db)
-	
+
 	// Use noop for compute to focus on DB failure logic
 	compute := noop.NewNoopComputeBackend()
 
@@ -370,7 +370,7 @@ func TestInstanceServiceLaunchConcurrency(t *testing.T) {
 
 func TestInstanceServiceGetStatsReal(t *testing.T) {
 	_, svc, compute, _, _, _, ctx := setupInstanceServiceTest(t)
-	
+
 	// Skip if noop compute
 	if compute.Type() == "noop" {
 		t.Skip("Skipping stats test for noop compute")
@@ -413,7 +413,7 @@ func TestInstanceServiceGetStatsReal(t *testing.T) {
 
 func TestNetworkingCIDRExhaustion(t *testing.T) {
 	db, svc, compute, _, vpcRepo, _, ctx := setupInstanceServiceTest(t)
-	
+
 	// Skip if noop compute
 	if compute.Type() == "noop" {
 		t.Skip("Skipping CIDR exhaustion test for noop compute")

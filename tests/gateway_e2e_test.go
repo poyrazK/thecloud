@@ -329,7 +329,7 @@ func TestGatewayE2E(t *testing.T) {
 		urlPost := testutil.TestBaseURL + "/gw" + pattern + "/post"
 		reqPost, _ := http.NewRequest("POST", urlPost, nil)
 		reqPost.Header.Set(testutil.TestHeaderAPIKey, token)
-		
+
 		// Use a simple retry for POST since waitForRoute is GET only
 		var respPost *http.Response
 		for i := 0; i < 5; i++ {
@@ -342,7 +342,7 @@ func TestGatewayE2E(t *testing.T) {
 			}
 			time.Sleep(1 * time.Second)
 		}
-		
+
 		require.NoError(t, err)
 		defer func() { _ = respPost.Body.Close() }()
 		require.Equal(t, http.StatusOK, respPost.StatusCode, "POST request failed after retries")

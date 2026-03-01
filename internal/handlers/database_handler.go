@@ -164,6 +164,17 @@ type RestoreDatabaseRequest struct {
 	Parameters       map[string]string `json:"parameters"`
 }
 
+// CreateSnapshot creates a point-in-time backup of the database.
+// @Summary Create database snapshot
+// @Description Creates a point-in-time backup of the database underlying volume
+// @Tags databases
+// @Accept json
+// @Produce json
+// @Security APIKeyAuth
+// @Param id path string true "Database ID"
+// @Param request body CreateDatabaseSnapshotRequest false "Snapshot description"
+// @Success 201 {object} domain.Snapshot
+// @Router /databases/{id}/snapshots [post]
 func (h *DatabaseHandler) CreateSnapshot(c *gin.Context) {
 	databaseID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -186,6 +197,15 @@ func (h *DatabaseHandler) CreateSnapshot(c *gin.Context) {
 	httputil.Success(c, http.StatusCreated, snap)
 }
 
+// ListSnapshots returns all snapshots for a database.
+// @Summary List database snapshots
+// @Description Returns all snapshots belonging to a specific database
+// @Tags databases
+// @Produce json
+// @Security APIKeyAuth
+// @Param id path string true "Database ID"
+// @Success 200 {array} domain.Snapshot
+// @Router /databases/{id}/snapshots [get]
 func (h *DatabaseHandler) ListSnapshots(c *gin.Context) {
 	databaseID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -202,6 +222,16 @@ func (h *DatabaseHandler) ListSnapshots(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, snaps)
 }
 
+// Restore provisions a new database from a snapshot.
+// @Summary Restore database from snapshot
+// @Description Creates a new database instance from an existing volume snapshot
+// @Tags databases
+// @Accept json
+// @Produce json
+// @Security APIKeyAuth
+// @Param request body RestoreDatabaseRequest true "Restore parameters"
+// @Success 201 {object} domain.Database
+// @Router /databases/restore [post]
 func (h *DatabaseHandler) Restore(c *gin.Context) {
 	var req RestoreDatabaseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

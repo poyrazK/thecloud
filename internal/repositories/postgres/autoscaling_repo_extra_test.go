@@ -58,7 +58,7 @@ func TestAutoScalingRepoExtra(t *testing.T) {
 		mock.ExpectQuery("SELECT scaling_group_id, instance_id FROM scaling_group_instances").
 			WithArgs([]uuid.UUID{groupID}).
 			WillReturnRows(pgxmock.NewRows([]string{"scaling_group_id", "instance_id"}).AddRow(groupID, instanceID))
-		
+
 		result, err := repo.GetAllScalingGroupInstances(ctx, []uuid.UUID{groupID})
 		require.NoError(t, err)
 		assert.Len(t, result[groupID], 1)
@@ -76,12 +76,12 @@ func TestAutoScalingRepoExtra(t *testing.T) {
 		mock.ExpectQuery("SELECT COALESCE").
 			WithArgs([]uuid.UUID{instanceID}, since).
 			WillReturnRows(pgxmock.NewRows([]string{"avg"}).AddRow(45.5))
-		
+
 		avg, err := repo.GetAverageCPU(ctx, []uuid.UUID{instanceID}, since)
 		require.NoError(t, err)
 		assert.InDelta(t, 45.5, avg, 0.01)
 	})
-	
+
 	t.Run("GetAllPolicies", func(t *testing.T) {
 		t.Parallel()
 		mock, _ := pgxmock.NewPool()
@@ -94,7 +94,7 @@ func TestAutoScalingRepoExtra(t *testing.T) {
 			WithArgs([]uuid.UUID{groupID}).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "scaling_group_id", "name", "metric_type", "target_value", "scale_out_step", "scale_in_step", "cooldown_sec", "last_scaled_at"}).
 				AddRow(policyID, groupID, "p1", "cpu", 70.0, 1, 1, 300, nil))
-		
+
 		result, err := repo.GetAllPolicies(ctx, []uuid.UUID{groupID})
 		require.NoError(t, err)
 		assert.Len(t, result[groupID], 1)

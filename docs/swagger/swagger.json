@@ -1332,6 +1332,125 @@
                 }
             }
         },
+        "/databases/restore": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Creates a new database instance from an existing volume snapshot",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "databases"
+                ],
+                "summary": "Restore database from snapshot",
+                "parameters": [
+                    {
+                        "description": "Restore parameters",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.RestoreDatabaseRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Database"
+                        }
+                    }
+                }
+            }
+        },
+        "/databases/{id}/snapshots": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Returns all snapshots belonging to a specific database",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "databases"
+                ],
+                "summary": "List database snapshots",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Database ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.Snapshot"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Creates a point-in-time backup of the database underlying volume",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "databases"
+                ],
+                "summary": "Create database snapshot",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Database ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Snapshot description",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.CreateDatabaseSnapshotRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Snapshot"
+                        }
+                    }
+                }
+            }
+        },
         "/dns/records/{id}": {
             "get": {
                 "security": [
@@ -6760,6 +6879,104 @@
                 }
             }
         },
+        "domain.Database": {
+            "type": "object",
+            "properties": {
+                "allocated_storage": {
+                    "type": "integer"
+                },
+                "container_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "engine": {
+                    "$ref": "#/definitions/domain.DatabaseEngine"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "primary_id": {
+                    "description": "ID of the primary if this is a replica",
+                    "type": "string"
+                },
+                "role": {
+                    "$ref": "#/definitions/domain.DatabaseRole"
+                },
+                "status": {
+                    "$ref": "#/definitions/domain.DatabaseStatus"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                },
+                "version": {
+                    "description": "Engine version (e.g. \"15\", \"8.0\")",
+                    "type": "string"
+                },
+                "vpc_id": {
+                    "description": "Optional private networking",
+                    "type": "string"
+                }
+            }
+        },
+        "domain.DatabaseEngine": {
+            "type": "string",
+            "enum": [
+                "postgres",
+                "mysql"
+            ],
+            "x-enum-varnames": [
+                "EnginePostgres",
+                "EngineMySQL"
+            ]
+        },
+        "domain.DatabaseRole": {
+            "type": "string",
+            "enum": [
+                "PRIMARY",
+                "REPLICA"
+            ],
+            "x-enum-varnames": [
+                "RolePrimary",
+                "RoleReplica"
+            ]
+        },
+        "domain.DatabaseStatus": {
+            "type": "string",
+            "enum": [
+                "CREATING",
+                "RUNNING",
+                "STOPPED",
+                "DELETING",
+                "FAILED"
+            ],
+            "x-enum-varnames": [
+                "DatabaseStatusCreating",
+                "DatabaseStatusRunning",
+                "DatabaseStatusStopped",
+                "DatabaseStatusDeleting",
+                "DatabaseStatusFailed"
+            ]
+        },
         "domain.ElasticIP": {
             "type": "object",
             "properties": {
@@ -8609,6 +8826,14 @@
                 }
             }
         },
+        "httphandlers.CreateDatabaseSnapshotRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                }
+            }
+        },
         "httphandlers.CreateGlobalLBRequest": {
             "type": "object",
             "required": [
@@ -9071,6 +9296,42 @@
             ],
             "properties": {
                 "backup_path": {
+                    "type": "string"
+                }
+            }
+        },
+        "httphandlers.RestoreDatabaseRequest": {
+            "type": "object",
+            "required": [
+                "allocated_storage",
+                "engine",
+                "name",
+                "snapshot_id",
+                "version"
+            ],
+            "properties": {
+                "allocated_storage": {
+                    "type": "integer"
+                },
+                "engine": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "snapshot_id": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                },
+                "vpc_id": {
                     "type": "string"
                 }
             }
