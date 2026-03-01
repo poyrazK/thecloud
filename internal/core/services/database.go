@@ -20,36 +20,42 @@ import (
 
 // DatabaseService manages database instances and lifecycle.
 type DatabaseService struct {
-	repo      ports.DatabaseRepository
-	compute   ports.ComputeBackend
-	vpcRepo   ports.VpcRepository
-	volumeSvc ports.VolumeService
-	eventSvc  ports.EventService
-	auditSvc  ports.AuditService
-	logger    *slog.Logger
+	repo         ports.DatabaseRepository
+	compute      ports.ComputeBackend
+	vpcRepo      ports.VpcRepository
+	volumeSvc    ports.VolumeService
+	snapshotSvc  ports.SnapshotService
+	snapshotRepo ports.SnapshotRepository
+	eventSvc     ports.EventService
+	auditSvc     ports.AuditService
+	logger       *slog.Logger
 }
 
 // DatabaseServiceParams holds dependencies for DatabaseService creation.
 type DatabaseServiceParams struct {
-	Repo      ports.DatabaseRepository
-	Compute   ports.ComputeBackend
-	VpcRepo   ports.VpcRepository
-	VolumeSvc ports.VolumeService
-	EventSvc  ports.EventService
-	AuditSvc  ports.AuditService
-	Logger    *slog.Logger
+	Repo         ports.DatabaseRepository
+	Compute      ports.ComputeBackend
+	VpcRepo      ports.VpcRepository
+	VolumeSvc    ports.VolumeService
+	SnapshotSvc  ports.SnapshotService
+	SnapshotRepo ports.SnapshotRepository
+	EventSvc     ports.EventService
+	AuditSvc     ports.AuditService
+	Logger       *slog.Logger
 }
 
 // NewDatabaseService constructs a DatabaseService with its dependencies.
 func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 	return &DatabaseService{
-		repo:      params.Repo,
-		compute:   params.Compute,
-		vpcRepo:   params.VpcRepo,
-		volumeSvc: params.VolumeSvc,
-		eventSvc:  params.EventSvc,
-		auditSvc:  params.AuditSvc,
-		logger:    params.Logger,
+		repo:         params.Repo,
+		compute:      params.Compute,
+		vpcRepo:      params.VpcRepo,
+		volumeSvc:    params.VolumeSvc,
+		snapshotSvc:  params.SnapshotSvc,
+		snapshotRepo: params.SnapshotRepo,
+		eventSvc:     params.EventSvc,
+		auditSvc:     params.AuditSvc,
+		logger:       params.Logger,
 	}
 }
 
@@ -100,7 +106,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 		mountPath = "/var/lib/mysql"
 	}
 	volumeBinds := []string{fmt.Sprintf("%s:%s", backendVolName, mountPath)}
-	
+
 	cmd := s.buildEngineCmd(dbEngine, parameters)
 
 	dockerName := fmt.Sprintf("cloud-db-%s-%s", name, db.ID.String()[:8])
@@ -443,6 +449,177 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 	platform.RDSInstancesTotal.WithLabelValues(string(db.Engine), "running").Dec()
 
 	return nil
+}
+
+func (s *DatabaseService) getVolumeForDatabase(ctx context.Context, db *domain.Database) (*domain.Volume, error) {
+	vols, err := s.volumeSvc.ListVolumes(ctx)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to list volumes", err)
+	}
+
+	expectedPrefix := fmt.Sprintf("db-vol-%s", db.ID.String()[:8])
+	if db.Role == domain.RoleReplica {
+		expectedPrefix = fmt.Sprintf("db-replica-vol-%s", db.ID.String()[:8])
+	}
+
+	for _, v := range vols {
+		if strings.HasPrefix(v.Name, expectedPrefix) {
+			return v, nil
+		}
+	}
+
+	return nil, errors.New(errors.NotFound, "underlying database volume not found")
+}
+
+func (s *DatabaseService) CreateDatabaseSnapshot(ctx context.Context, databaseID uuid.UUID, description string) (*domain.Snapshot, error) {
+	db, err := s.repo.GetByID(ctx, databaseID)
+	if err != nil {
+		return nil, err
+	}
+
+	if db.Status != domain.DatabaseStatusRunning && db.Status != domain.DatabaseStatusStopped {
+		return nil, errors.New(errors.InvalidInput, "database must be running or stopped to create a snapshot")
+	}
+
+	vol, err := s.getVolumeForDatabase(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	snapshotName := fmt.Sprintf("db-snap-%s-%s", db.Name, time.Now().Format("20060102150405"))
+	if description != "" {
+		snapshotName = fmt.Sprintf("%s-%s", snapshotName, description)
+	}
+
+	snap, err := s.snapshotSvc.CreateSnapshot(ctx, vol.ID, snapshotName)
+	if err != nil {
+		return nil, err
+	}
+
+	_ = s.auditSvc.Log(ctx, db.UserID, "database.snapshot.create", "database", db.ID.String(), map[string]interface{}{
+		"snapshot_id": snap.ID,
+	})
+
+	return snap, nil
+}
+
+func (s *DatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID uuid.UUID) ([]*domain.Snapshot, error) {
+	db, err := s.repo.GetByID(ctx, databaseID)
+	if err != nil {
+		return nil, err
+	}
+
+	vol, err := s.getVolumeForDatabase(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.snapshotRepo.ListByVolumeID(ctx, vol.ID)
+}
+
+func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.UUID, newName, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string) (*domain.Database, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+
+	snap, err := s.snapshotSvc.GetSnapshot(ctx, snapshotID)
+	if err != nil {
+		return nil, err
+	}
+
+	if allocatedStorage < snap.SizeGB {
+		return nil, errors.New(errors.InvalidInput, fmt.Sprintf("allocated storage (%dGB) must be at least the snapshot size (%dGB)", allocatedStorage, snap.SizeGB))
+	}
+
+	dbEngine := domain.DatabaseEngine(engine)
+	if !s.isValidEngine(dbEngine) {
+		return nil, errors.New(errors.InvalidInput, "unsupported database engine")
+	}
+
+	password, err := util.GenerateRandomPassword(16)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to generate password", err)
+	}
+
+	username := s.getDefaultUsername(dbEngine)
+	db := s.initialDatabaseRecord(userID, newName, dbEngine, version, username, password, vpcID)
+	db.Role = domain.RolePrimary
+	db.AllocatedStorage = allocatedStorage
+	db.Parameters = parameters
+
+	imageName, env, defaultPort := s.getEngineConfig(dbEngine, version, username, password, newName, db.Role, "")
+
+	networkID, err := s.resolveVpcNetwork(ctx, vpcID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create persistent volume FOR THE NEW DATABASE from the snapshot
+	volName := fmt.Sprintf("db-vol-%s", db.ID.String()[:8])
+	vol, err := s.snapshotSvc.RestoreSnapshot(ctx, snapshotID, volName)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to restore volume from snapshot", err)
+	}
+
+	// If the user requested MORE storage than the snapshot, we might need to resize the volume here.
+	// For V1, we assume the restored volume inherits the snapshot size initially, and resizing is handled by volumeSvc.
+	// We'll update our internal tracking to what the volume actually is if we couldn't resize.
+	db.AllocatedStorage = vol.SizeGB // Ensure DB record matches actual volume
+
+	backendVolName := "thecloud-vol-" + vol.ID.String()[:8]
+	if vol.BackendPath != "" {
+		backendVolName = vol.BackendPath
+	}
+
+	mountPath := "/var/lib/postgresql/data"
+	if dbEngine == domain.EngineMySQL {
+		mountPath = "/var/lib/mysql"
+	}
+	volumeBinds := []string{fmt.Sprintf("%s:%s", backendVolName, mountPath)}
+
+	cmd := s.buildEngineCmd(dbEngine, parameters)
+
+	dockerName := fmt.Sprintf("cloud-db-%s-%s", newName, db.ID.String()[:8])
+	containerID, allocatedPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+		Name:        dockerName,
+		ImageName:   imageName,
+		Ports:       []string{"0:" + defaultPort},
+		NetworkID:   networkID,
+		VolumeBinds: volumeBinds,
+		Env:         env,
+		Cmd:         cmd,
+	})
+
+	if err != nil {
+		_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
+		s.logger.Error("failed to launch restored database container", "error", err)
+		return nil, errors.Wrap(errors.Internal, "failed to launch restored database container", err)
+	}
+
+	hostPort, err := s.parseAllocatedPort(allocatedPorts, defaultPort)
+	if err != nil || hostPort == 0 {
+		hostPort, _ = s.compute.GetInstancePort(ctx, containerID, defaultPort)
+	}
+
+	db.ContainerID = containerID
+	db.Port = hostPort
+	db.Status = domain.DatabaseStatusRunning
+
+	if err := s.repo.Create(ctx, db); err != nil {
+		_ = s.compute.DeleteInstance(ctx, containerID)
+		_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
+		return nil, err
+	}
+
+	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_RESTORE", db.ID.String(), "DATABASE", map[string]interface{}{
+		"snapshot_id": snapshotID,
+	})
+
+	_ = s.auditSvc.Log(ctx, userID, "database.restore", "database", db.ID.String(), map[string]interface{}{
+		"snapshot_id": snapshotID,
+	})
+
+	platform.RDSInstancesTotal.WithLabelValues(engine, "running").Inc()
+
+	return db, nil
 }
 
 func (s *DatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {

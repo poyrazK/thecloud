@@ -391,7 +391,7 @@ func runUnauthorizedAccessTest(t *testing.T, client *http.Client) {
 func runResourceNotFoundTest(t *testing.T, client *http.Client, token string) {
 	t.Helper()
 	fakeID := uuid.New().String()
-	
+
 	// 1. Get non-existent DB
 	respG := getRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, fakeID), token)
 	if respG != nil && respG.Body != nil {

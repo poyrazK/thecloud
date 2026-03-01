@@ -37,7 +37,7 @@ func SetupDB(t *testing.T) (*pgxpool.Pool, string) {
 
 	// Use a unique schema for this test run to allow parallel execution in CI
 	schema := "test_repo_" + strings.ReplaceAll(uuid.New().String(), "-", "_")
-	
+
 	// Create base connection to initialize schema
 	baseDB, err := pgxpool.New(ctx, dbURL)
 	require.NoError(t, err)
@@ -50,7 +50,7 @@ func SetupDB(t *testing.T) (*pgxpool.Pool, string) {
 	// We include 'public' for extensions like uuid-ossp
 	config, err := pgxpool.ParseConfig(dbURL)
 	require.NoError(t, err)
-	
+
 	if config.ConnConfig.RuntimeParams == nil {
 		config.ConnConfig.RuntimeParams = make(map[string]string)
 	}
@@ -150,7 +150,7 @@ func CleanDB(t *testing.T, db *pgxpool.Pool) {
 		AND table_type = 'BASE TABLE'
 		AND table_name != 'schema_migrations'
 	`, schema)
-	
+
 	rows, err := db.Query(ctx, query)
 	if err != nil {
 		t.Logf("Warning: failed to query tables for cleanup: %v", err)

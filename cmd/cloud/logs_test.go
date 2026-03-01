@@ -38,8 +38,8 @@ func TestLogsSearch(t *testing.T) {
 	oldURL := opts.APIURL
 	opts.APIURL = server.URL
 	opts.APIKey = "test-key"
-	defer func() { 
-		opts.APIURL = oldURL 
+	defer func() {
+		opts.APIURL = oldURL
 		opts.APIKey = ""
 	}()
 
@@ -80,8 +80,8 @@ func TestLogsShow(t *testing.T) {
 	oldURL := opts.APIURL
 	opts.APIURL = server.URL
 	opts.APIKey = "test-key"
-	defer func() { 
-		opts.APIURL = oldURL 
+	defer func() {
+		opts.APIURL = oldURL
 		opts.APIKey = ""
 	}()
 

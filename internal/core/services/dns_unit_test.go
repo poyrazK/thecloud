@@ -11,8 +11,8 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type MockDNSRepository struct {
@@ -112,7 +112,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 	vpcRepo := new(MockVpcRepo)
 	auditSvc := new(MockAuditService)
 	eventSvc := new(MockEventService)
-	
+
 	svc := services.NewDNSService(services.DNSServiceParams{
 		Repo:     repo,
 		Backend:  backend,
@@ -170,7 +170,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		zoneID := uuid.New()
 		record := &domain.DNSRecord{ID: recordID, ZoneID: zoneID, Name: "www", Type: domain.RecordTypeA, Content: "1.2.3.4"}
 		zone := &domain.DNSZone{ID: zoneID, Name: "example.com", PowerDNSID: "example.com."}
-		
+
 		repo.On("GetRecordByID", mock.Anything, recordID).Return(record, nil).Once()
 		repo.On("GetZoneByID", mock.Anything, zoneID).Return(zone, nil).Once()
 		backend.On("UpdateRecords", mock.Anything, "example.com.", mock.Anything).Return(nil).Once()

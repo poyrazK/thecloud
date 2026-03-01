@@ -63,7 +63,7 @@ func TestDatabaseRepository_GetByID(t *testing.T) {
 	mock.ExpectQuery("SELECT id, user_id, name, engine, version, status, role, primary_id, vpc_id, COALESCE\\(container_id, ''\\), port, username, password, created_at, updated_at, allocated_storage, parameters FROM databases").
 		WithArgs(id, userID).
 		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "engine", "version", "status", "role", "primary_id", "vpc_id", "container_id", "port", "username", "password", "created_at", "updated_at", "allocated_storage", "parameters"}).
-			AddRow(id, userID, "test-db", string(domain.EnginePostgres), "16", string(domain.DatabaseStatusCreating), string(domain.RolePrimary), nil, nil, "cid-1", 5432, "admin", "password", now, now, 10, map[string]string{"k":"v"}))
+			AddRow(id, userID, "test-db", string(domain.EnginePostgres), "16", string(domain.DatabaseStatusCreating), string(domain.RolePrimary), nil, nil, "cid-1", 5432, "admin", "password", now, now, 10, map[string]string{"k": "v"}))
 
 	db, err := repo.GetByID(ctx, id)
 	require.NoError(t, err)

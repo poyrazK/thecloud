@@ -71,7 +71,7 @@ func TestAuditService_Integration(t *testing.T) {
 
 		logs, err := svc.ListLogs(ctx, userID, 10)
 		require.NoError(t, err)
-		
+
 		for _, log := range logs {
 			assert.Equal(t, userID, log.UserID)
 			assert.NotEqual(t, otherUserID, log.UserID)

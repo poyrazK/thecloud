@@ -21,7 +21,8 @@ import (
 )
 
 // generateTestKey generates a private key for testing
-func generateTestKey(t *testing.T) string { t.Helper()
+func generateTestKey(t *testing.T) string {
+	t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 

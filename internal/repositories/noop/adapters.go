@@ -302,7 +302,9 @@ func (s *NoopStorageService) CreateBucket(ctx context.Context, name string, isPu
 func (s *NoopStorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
 	return &domain.Bucket{Name: name}, nil
 }
-func (s *NoopStorageService) DeleteBucket(ctx context.Context, name string, force bool) error { return nil }
+func (s *NoopStorageService) DeleteBucket(ctx context.Context, name string, force bool) error {
+	return nil
+}
 func (s *NoopStorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {
 	return []*domain.Bucket{}, nil
 }

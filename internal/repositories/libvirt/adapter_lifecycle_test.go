@@ -130,7 +130,7 @@ func TestWaitTaskTimeout(t *testing.T) {
 	m := new(MockLibvirtClient)
 	a := newTestAdapter(m)
 	a.taskWaitInterval = 1 * time.Millisecond
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
 

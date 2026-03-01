@@ -183,7 +183,7 @@ func (s *NoopLBService) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*dom
 	return nil, nil
 }
 func (s *NoopLBService) List(ctx context.Context) ([]*domain.LoadBalancer, error) { return nil, nil }
-func (s *NoopLBService) Delete(ctx context.Context, id string) error           { return nil }
+func (s *NoopLBService) Delete(ctx context.Context, id string) error              { return nil }
 func (s *NoopLBService) CreateListener(ctx context.Context, lbID uuid.UUID, port int, protocol string) error {
 	return nil
 }

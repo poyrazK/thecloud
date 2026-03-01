@@ -10,8 +10,8 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStackServiceUnit(t *testing.T) {
@@ -30,12 +30,12 @@ func TestStackServiceUnit(t *testing.T) {
 		mockRepo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 		// Allow background updates
 		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Maybe()
-		
+
 		stack, err := svc.CreateStack(ctx, "my-stack", "Resources: {}", nil)
 		require.NoError(t, err)
 		assert.NotNil(t, stack)
 		assert.Equal(t, "my-stack", stack.Name)
-		
+
 		// Give background processing a tiny bit of time
 		time.Sleep(10 * time.Millisecond)
 	})

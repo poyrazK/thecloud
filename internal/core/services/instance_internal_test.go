@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const testVolumeName = "test-vol"
@@ -91,13 +91,13 @@ func TestInstanceServiceInternalUpdateVolumesAfterLaunch(t *testing.T) {
 func TestInstanceService_CalculateInstanceStats(t *testing.T) {
 	svc := &InstanceService{}
 	stats := &domain.RawDockerStats{}
-	
+
 	stats.CPUStats.CPUUsage.TotalUsage = 1000
 	stats.CPUStats.SystemCPUUsage = 10000
-	
+
 	stats.PreCPUStats.CPUUsage.TotalUsage = 500
 	stats.PreCPUStats.SystemCPUUsage = 5000
-	
+
 	stats.MemoryStats.Usage = 1024
 	stats.MemoryStats.Limit = 2048
 

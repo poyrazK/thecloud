@@ -5,13 +5,13 @@ import (
 	"context"
 	"log/slog"
 	"testing"
-	"github.com/stretchr/testify/require"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSimpleAuditLoggerLog(t *testing.T) {

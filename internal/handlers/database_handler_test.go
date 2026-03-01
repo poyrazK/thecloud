@@ -13,8 +13,8 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -80,6 +80,24 @@ func (m *mockDatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) 
 	return args.Error(0)
 }
 
+func (m *mockDatabaseService) CreateDatabaseSnapshot(ctx context.Context, databaseID uuid.UUID, description string) (*domain.Snapshot, error) {
+	args := m.Called(ctx, databaseID, description)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Snapshot), args.Error(1)
+}
+func (m *mockDatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID uuid.UUID) ([]*domain.Snapshot, error) {
+	args := m.Called(ctx, databaseID)
+	return args.Get(0).([]*domain.Snapshot), args.Error(1)
+}
+func (m *mockDatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.UUID, newName, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string) (*domain.Database, error) {
+	args := m.Called(ctx, snapshotID, newName, engine, version, vpcID, allocatedStorage, parameters)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Database), args.Error(1)
+}
 func (m *mockDatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
 	args := m.Called(ctx, id)
 	return args.String(0), args.Error(1)

@@ -41,7 +41,7 @@ func NewLogHandler(svc ports.LogService) *LogHandler {
 // @Router /logs [get]
 func (h *LogHandler) Search(c *gin.Context) {
 	tenantID := appcontext.TenantIDFromContext(c.Request.Context())
-	
+
 	query := domain.LogQuery{
 		TenantID:     tenantID,
 		ResourceID:   c.Query("resource_id"),

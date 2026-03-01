@@ -12,8 +12,8 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type MockCacheRepository struct {
@@ -114,7 +114,7 @@ func TestCacheService_Unit_Extended(t *testing.T) {
 			Port:     6379,
 		}
 		repo.On("GetByID", mock.Anything, cacheID).Return(cache, nil).Once()
-		
+
 		conn, err := svc.GetConnectionString(ctx, cacheID.String())
 		require.NoError(t, err)
 		assert.Contains(t, conn, "redis://:pass@localhost:6379")
@@ -135,7 +135,7 @@ func TestCacheService_Unit_Extended(t *testing.T) {
 		cacheID := uuid.New()
 		cache := &domain.Cache{ID: cacheID, ContainerID: "cid", Status: domain.CacheStatusRunning}
 		repo.On("GetByID", mock.Anything, cacheID).Return(cache, nil).Once()
-		
+
 		statsJSON := `{"memory_stats": {"usage": 1024, "limit": 2048}}`
 		compute.On("GetInstanceStats", mock.Anything, "cid").Return(io.NopCloser(strings.NewReader(statsJSON)), nil).Once()
 		compute.On("Exec", mock.Anything, "cid", mock.Anything).Return("connected_clients:1\r\ndb0:keys=5,expires=0,avg_ttl=0", nil).Once()

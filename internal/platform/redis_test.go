@@ -2,10 +2,10 @@ package platform
 
 import (
 	"context"
+	"github.com/stretchr/testify/require"
 	"io"
 	"log/slog"
 	"testing"
-	"github.com/stretchr/testify/require"
 	"time"
 
 	"github.com/alicebob/miniredis/v2"

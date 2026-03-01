@@ -1,10 +1,10 @@
 package setup
 
 import (
+	"github.com/stretchr/testify/require"
 	"log/slog"
 	"os"
 	"testing"
-	"github.com/stretchr/testify/require"
 
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/stretchr/testify/assert"
@@ -91,7 +91,7 @@ func TestInitNetworkBackend(t *testing.T) {
 
 func TestInitLBProxy(t *testing.T) {
 	cfg := &platform.Config{}
-	
+
 	t.Run("default", func(t *testing.T) {
 		proxy, err := InitLBProxy(cfg, nil, nil, nil)
 		require.NoError(t, err)

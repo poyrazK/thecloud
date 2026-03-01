@@ -15,7 +15,7 @@ import (
 )
 
 func TestFirecrackerAPI_E2E(t *testing.T) {
-	// Only run this if we are in an environment that supports firecracker 
+	// Only run this if we are in an environment that supports firecracker
 	// or explicitly enabled for CI.
 	backend := os.Getenv("COMPUTE_BACKEND")
 	if backend != "firecracker" && backend != "firecracker-mock" {
@@ -37,7 +37,7 @@ func TestFirecrackerAPI_E2E(t *testing.T) {
 			"image":         "alpine",
 			"instance_type": "basic-2", // Matches defaults in setup_test.go
 		}
-		
+
 		body, err := json.Marshal(payload)
 		require.NoError(t, err, "failed to marshal payload")
 

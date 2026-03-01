@@ -48,7 +48,7 @@ func (w *StorageCleanupWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 
 func (w *StorageCleanupWorker) cleanup(ctx context.Context) {
 	w.logger.Info("running storage cleanup")
-	
+
 	totalDeleted := 0
 	for {
 		count, err := w.storageSvc.CleanupDeleted(ctx, w.batchSize)
@@ -56,12 +56,12 @@ func (w *StorageCleanupWorker) cleanup(ctx context.Context) {
 			w.logger.Error("failed to cleanup deleted objects", "error", err)
 			break
 		}
-		
+
 		totalDeleted += count
 		if count < w.batchSize {
 			break
 		}
-		
+
 		w.logger.Debug("processed cleanup batch", "count", count)
 	}
 

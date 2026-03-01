@@ -331,6 +331,20 @@ This integration ensures that all database state (tables, indexes, logs) is stor
 -   **Automated Provisioning**: Volumes are created synchronously during the `CreateDatabase` and `CreateReplica` calls. Replicas inherit the `allocated_storage` size of their primary.
 -   **Automated Cleanup**: When a database is deleted via the API, the service identifies and deletes the associated block volumes to prevent storage leaks.
 
+### Managed Database Backups & Snapshots
+
+The platform provides a native backup and recovery mechanism leveraging volume snapshots.
+
+#### Backup Creation (Snapshots)
+Users can create manual point-in-time backups of their databases. The system takes a crash-consistent snapshot of the underlying block volume, ensuring all persisted data is captured.
+- **Endpoint**: `POST /databases/:id/snapshots`
+- **Mechanism**: Integrated with core `SnapshotService`.
+
+#### Data Recovery (Restore)
+Databases can be restored from any valid snapshot. The restore process provisions a **completely new database instance** using a volume initialized from the snapshot data. This allows for safe verification of restored data without affecting the source database.
+- **Endpoint**: `POST /databases/restore`
+- **Flexibility**: Users can specify new names, VPCs, and configurations during the restore process.
+
 ### Managed Database Configuration (Parameter Groups)
 
 The platform supports dynamic engine configuration via a `parameters` map provided at creation time.

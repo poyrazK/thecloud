@@ -9,8 +9,8 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLBService_Unit(t *testing.T) {
@@ -41,10 +41,10 @@ func TestLBService_Unit(t *testing.T) {
 		lbID := uuid.New()
 		vpcID := uuid.New()
 		instID := uuid.New()
-		
+
 		lb := &domain.LoadBalancer{ID: lbID, VpcID: vpcID, UserID: userID}
 		inst := &domain.Instance{ID: instID, VpcID: &vpcID}
-		
+
 		mockRepo.On("GetByID", mock.Anything, lbID).Return(lb, nil).Once()
 		mockInstRepo.On("GetByID", mock.Anything, instID).Return(inst, nil).Once()
 		mockRepo.On("AddTarget", mock.Anything, mock.Anything).Return(nil).Once()

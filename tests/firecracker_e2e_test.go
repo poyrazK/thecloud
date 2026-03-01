@@ -36,7 +36,7 @@ func TestFirecrackerBackend_E2E(t *testing.T) {
 
 	adapter, err := firecracker.NewFirecrackerAdapter(logger, cfg)
 	require.NoError(t, err, "failed to create adapter")
-	
+
 	// If we are on non-linux, this will return the firecracker-noop type
 	if adapter.Type() != "firecracker" && adapter.Type() != "firecracker-mock" {
 		t.Skipf("Skipping real firecracker test on %s platform", adapter.Type())
@@ -52,14 +52,14 @@ func TestFirecrackerBackend_E2E(t *testing.T) {
 
 	t.Run("Launch and Delete", func(t *testing.T) {
 		id, _, err := adapter.LaunchInstanceWithOptions(ctx, opts)
-		// We expect an error if the kernel/rootfs are missing, 
+		// We expect an error if the kernel/rootfs are missing,
 		// but we want to see HOW it fails in CI.
 		if err != nil {
 			t.Skipf("Launch failed, skipping test (likely missing artifacts or KVM access): %v", err)
 		}
 
 		require.NotEmpty(t, id)
-		
+
 		err = adapter.DeleteInstance(ctx, id)
 		assert.NoError(t, err)
 	})

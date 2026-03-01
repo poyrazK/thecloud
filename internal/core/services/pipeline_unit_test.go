@@ -155,12 +155,12 @@ func TestPipelineServiceTriggerBuildWebhookDuplicateDeliveryIgnored(t *testing.T
 	repo.On("ReserveWebhookDelivery", mock.Anything, pipelineID, "github", "push", "delivery-1").Return(false, nil).Once()
 
 	build, err := svc.TriggerBuildWebhook(context.Background(), ports.WebhookTriggerOptions{
-		PipelineID:  pipelineID,
-		Provider:    "github",
-		Event:       "push",
-		Signature:   githubSignature(testWebhookSecret, payload),
-		DeliveryID:  "delivery-1",
-		Payload:     payload,
+		PipelineID: pipelineID,
+		Provider:   "github",
+		Event:      "push",
+		Signature:  githubSignature(testWebhookSecret, payload),
+		DeliveryID: "delivery-1",
+		Payload:    payload,
 	})
 
 	require.NoError(t, err)
@@ -188,12 +188,12 @@ func TestPipelineServiceTriggerBuildWebhookBranchMismatchIgnored(t *testing.T) {
 	repo.On("ReserveWebhookDelivery", mock.Anything, pipelineID, "github", "push", "delivery-2").Return(true, nil).Once()
 
 	build, err := svc.TriggerBuildWebhook(context.Background(), ports.WebhookTriggerOptions{
-		PipelineID:  pipelineID,
-		Provider:    "github",
-		Event:       "push",
-		Signature:   githubSignature(testWebhookSecret, payload),
-		DeliveryID:  "delivery-2",
-		Payload:     payload,
+		PipelineID: pipelineID,
+		Provider:   "github",
+		Event:      "push",
+		Signature:  githubSignature(testWebhookSecret, payload),
+		DeliveryID: "delivery-2",
+		Payload:    payload,
 	})
 
 	require.NoError(t, err)
@@ -228,12 +228,12 @@ func TestPipelineServiceTriggerBuildWebhookSuccessQueuesBuild(t *testing.T) {
 	auditSvc.On("Log", mock.Anything, userID, "pipeline.run", "pipeline_build", mock.Anything, mock.Anything).Return(nil).Once()
 
 	build, err := svc.TriggerBuildWebhook(context.Background(), ports.WebhookTriggerOptions{
-		PipelineID:  pipelineID,
-		Provider:    "github",
-		Event:       "push",
-		Signature:   githubSignature(testWebhookSecret, payload),
-		DeliveryID:  "delivery-3",
-		Payload:     payload,
+		PipelineID: pipelineID,
+		Provider:   "github",
+		Event:      "push",
+		Signature:  githubSignature(testWebhookSecret, payload),
+		DeliveryID: "delivery-3",
+		Payload:    payload,
 	})
 
 	require.NoError(t, err)

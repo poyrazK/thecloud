@@ -9,8 +9,8 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
@@ -50,17 +50,17 @@ func TestCloudLogsServiceIngestLogsUnit(t *testing.T) {
 		res, _ := resource.New(ctx, resource.WithAttributes(semconv.ServiceNameKey.String("test")))
 		tp := sdktrace.NewTracerProvider(sdktrace.WithResource(res))
 		tr := tp.Tracer("test")
-		
+
 		ctxWithTrace, span := tr.Start(ctx, "test-span")
 		defer span.End()
-		
+
 		traceID := span.SpanContext().TraceID().String()
 
 		entries := []*domain.LogEntry{
 			{ID: uuid.New(), Message: "test context trace"},
 		}
 		mockRepo.On("Create", mock.Anything, entries).Return(nil).Once()
-		
+
 		err := svc.IngestLogs(ctxWithTrace, entries)
 		require.NoError(t, err)
 		assert.Equal(t, traceID, entries[0].TraceID)
@@ -69,12 +69,12 @@ func TestCloudLogsServiceIngestLogsUnit(t *testing.T) {
 	t.Run("no trace id in context", func(t *testing.T) {
 		// Use a context with a no-op span (no trace ID)
 		ctxNoTrace := trace.ContextWithSpan(ctx, trace.SpanFromContext(context.Background()))
-		
+
 		entries := []*domain.LogEntry{
 			{ID: uuid.New(), Message: "no trace"},
 		}
 		mockRepo.On("Create", mock.Anything, entries).Return(nil).Once()
-		
+
 		err := svc.IngestLogs(ctxNoTrace, entries)
 		require.NoError(t, err)
 		assert.Empty(t, entries[0].TraceID)
@@ -90,7 +90,7 @@ func TestCloudLogsServiceSearchLogsUnit(t *testing.T) {
 
 	query := domain.LogQuery{ResourceID: "res-1"}
 	expectedLogs := []*domain.LogEntry{{Message: "found"}}
-	
+
 	mockRepo.On("List", mock.Anything, query).Return(expectedLogs, 1, nil)
 
 	logs, total, err := svc.SearchLogs(ctx, query)

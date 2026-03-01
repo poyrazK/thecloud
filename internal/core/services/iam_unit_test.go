@@ -10,8 +10,8 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type MockIAMRepository struct {
@@ -87,11 +87,11 @@ func TestIAMService_Unit(t *testing.T) {
 		err := svc.AttachPolicyToUser(ctx, userID, policyID)
 		require.NoError(t, err)
 	})
-	
+
 	t.Run("GetPoliciesForUser", func(t *testing.T) {
 		userID := uuid.New()
 		mockRepo.On("GetPoliciesForUser", mock.Anything, tenantID, userID).Return([]*domain.Policy{}, nil).Once()
-		
+
 		res, err := svc.GetPoliciesForUser(ctx, userID)
 		require.NoError(t, err)
 		assert.NotNil(t, res)

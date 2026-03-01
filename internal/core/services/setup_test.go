@@ -35,7 +35,7 @@ func setupDB(t *testing.T) *pgxpool.Pool {
 
 	// Use a unique schema for this test run to allow parallel execution in CI
 	schema := "test_" + strings.ReplaceAll(uuid.New().String(), "-", "_")
-	
+
 	// Create base connection to initialize schema
 	baseDB, err := pgxpool.New(ctx, dbURL)
 	require.NoError(t, err)
@@ -45,11 +45,11 @@ func setupDB(t *testing.T) *pgxpool.Pool {
 	require.NoError(t, err)
 
 	// Configure pool to use the schema for ALL connections
-	// We MUST include 'public' in search_path because extensions like uuid-ossp 
+	// We MUST include 'public' in search_path because extensions like uuid-ossp
 	// are usually installed there and functions like uuid_generate_v4() won't be found otherwise.
 	config, err := pgxpool.ParseConfig(dbURL)
 	require.NoError(t, err)
-	
+
 	if config.ConnConfig.RuntimeParams == nil {
 		config.ConnConfig.RuntimeParams = make(map[string]string)
 	}
@@ -80,7 +80,7 @@ func setupDB(t *testing.T) *pgxpool.Pool {
 	} else {
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
-	
+
 	err = postgres.RunMigrations(ctx, db, logger)
 	require.NoError(t, err, "Failed to run migrations")
 
@@ -176,7 +176,7 @@ func cleanDB(t *testing.T, db *pgxpool.Pool) {
 		AND table_type = 'BASE TABLE'
 		AND table_name != 'schema_migrations'
 	`, schema)
-	
+
 	rows, err := db.Query(ctx, query)
 	if err != nil {
 		t.Logf("Warning: failed to query tables for cleanup: %v", err)
