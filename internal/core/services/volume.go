@@ -183,7 +183,8 @@ func (s *VolumeService) AttachVolume(ctx context.Context, volumeID string, insta
 
 	if err := s.repo.Update(ctx, vol); err != nil {
 		if detachErr := s.storage.DetachVolume(ctx, backendName, instanceID); detachErr != nil {
-			return "", errors.Wrap(errors.Internal, "failed to rollback attachment", detachErr)
+			s.logger.Error("failed to rollback attachment after DB update failure", "volume_id", vol.ID, "error", detachErr)
+			return "", fmt.Errorf("failed to attach volume (DB error: %v) and rollback failed: %w", err, detachErr)
 		}
 		return "", err
 	}

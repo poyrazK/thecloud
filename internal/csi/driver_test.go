@@ -110,11 +110,16 @@ func TestDriver_RunError(t *testing.T) {
 		// Just to cover the tcp branch in parseEndpoint and net.Listen
 		socket := "tcp://127.0.0.1:0"
 		d := NewDriver("test", "1", "node", socket, nil, slog.Default())
+		errCh := make(chan error, 1)
 		go func() {
-			_ = d.Run()
+			errCh <- d.Run()
 		}()
 		time.Sleep(100 * time.Millisecond)
 		d.Stop()
+		err := <-errCh
+		if err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
+			require.NoError(t, err)
+		}
 	})
 }
 
