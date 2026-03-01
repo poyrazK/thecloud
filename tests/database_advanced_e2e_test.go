@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -304,5 +305,35 @@ func TestDatabaseAdvancedE2E(t *testing.T) {
 				}
 			})
 		}
+	})
+
+	t.Run("UnauthorizedAccess", func(t *testing.T) {
+		// Test request without token
+		req, err := http.NewRequest(http.MethodGet, testutil.TestBaseURL+"/databases", nil)
+		require.NoError(t, err)
+		resp, err := client.Do(req)
+		require.NoError(t, err)
+		defer closeBody(t, resp)
+
+		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	})
+
+	t.Run("ResourceNotFound", func(t *testing.T) {
+		fakeID := uuid.New().String()
+		
+		// 1. Get non-existent DB
+		respG := getRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, fakeID), token)
+		defer closeBody(t, respG)
+		assert.Equal(t, http.StatusNotFound, respG.StatusCode)
+
+		// 2. Delete non-existent DB
+		respD := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, fakeID), token)
+		defer closeBody(t, respD)
+		assert.Equal(t, http.StatusNotFound, respD.StatusCode)
+
+		// 3. Get connection string for non-existent DB
+		respC := getRequest(t, client, fmt.Sprintf("%s/databases/%s/connection", testutil.TestBaseURL, fakeID), token)
+		defer closeBody(t, respC)
+		assert.Equal(t, http.StatusNotFound, respC.StatusCode)
 	})
 }
