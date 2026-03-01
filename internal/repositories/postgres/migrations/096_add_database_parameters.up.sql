@@ -1,0 +1,1 @@
+-- +goose Up\nALTER TABLE databases ADD COLUMN parameters JSONB DEFAULT '{}'::jsonb;

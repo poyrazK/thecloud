@@ -27,7 +27,40 @@ func TestDatabaseAdvancedE2E(t *testing.T) {
 	client := &http.Client{Timeout: 30 * time.Second}
 	token := registerAndLogin(t, client, "db-advanced@thecloud.local", "Advanced Tester")
 
+	t.Run("CreateDatabaseWithParameters", func(t *testing.T) {
+		payload := map[string]interface{}{
+			"name":              "e2e-db-with-params",
+			"engine":            "postgres",
+			"version":           "16",
+			"allocated_storage": 10,
+			"parameters": map[string]string{
+				"max_connections": "200",
+			},
+		}
+		resp := postRequest(t, client, testutil.TestBaseURL+"/databases", token, payload)
+		if resp != nil && resp.Body != nil {
+			defer resp.Body.Close()
+		}
+
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+		var res struct {
+			Data domain.Database `json:"data"`
+		}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
+		dbID := res.Data.ID.String()
+		assert.NotEmpty(t, dbID)
+		assert.Equal(t, "200", res.Data.Parameters["max_connections"])
+
+		// Cleanup
+		respDel := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, dbID), token)
+		if respDel != nil && respDel.Body != nil {
+			defer respDel.Body.Close()
+		}
+	})
+
 	t.Run("InvalidConfigurations", func(t *testing.T) {
+
 		runInvalidConfigsTest(t, client, token)
 	})
 

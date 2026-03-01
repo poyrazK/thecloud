@@ -84,11 +84,12 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		mockAuditSvc.On("Log", mock.Anything, mock.Anything, "database.create", "database", mock.Anything, mock.Anything).
 			Return(nil).Once()
 
-		db, err := svc.CreateDatabase(ctx, "test-db", "postgres", "16", nil, 20)
+		db, err := svc.CreateDatabase(ctx, "test-db", "postgres", "16", nil, 20, map[string]string{"max_connections": "100"})
 		require.NoError(t, err)
 		assert.NotNil(t, db)
 		assert.Equal(t, 30001, db.Port)
 		assert.Equal(t, 20, db.AllocatedStorage)
+		assert.Equal(t, "100", db.Parameters["max_connections"])
 	})
 
 	t.Run("CreateReplica", func(t *testing.T) {
@@ -196,7 +197,7 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		
 		mockVolumeSvc.On("DeleteVolume", mock.Anything, volID.String()).Return(nil).Once()
 
-		db, err := svc.CreateDatabase(ctx, "fail-db", "postgres", "16", nil, 10)
+		db, err := svc.CreateDatabase(ctx, "fail-db", "postgres", "16", nil, 10, nil)
 		require.Error(t, err)
 		assert.Nil(t, db)
 		assert.Contains(t, err.Error(), "launch failed")
@@ -216,7 +217,7 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		mockCompute.On("DeleteInstance", mock.Anything, "cid-123").Return(nil).Once()
 		mockVolumeSvc.On("DeleteVolume", mock.Anything, volID.String()).Return(nil).Once()
 
-		db, err := svc.CreateDatabase(ctx, "repo-fail-db", "postgres", "16", nil, 10)
+		db, err := svc.CreateDatabase(ctx, "repo-fail-db", "postgres", "16", nil, 10, nil)
 		require.Error(t, err)
 		assert.Nil(t, db)
 		assert.Contains(t, err.Error(), "repo failed")

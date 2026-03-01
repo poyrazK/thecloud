@@ -1,0 +1,1 @@
+-- +goose Down\nALTER TABLE databases DROP COLUMN parameters;
