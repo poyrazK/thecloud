@@ -6035,6 +6035,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/httputil.Response"
                         }
                     },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -6071,6 +6077,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/httputil.Response"
                         }
@@ -8664,10 +8676,12 @@ const docTemplate = `{
             ],
             "properties": {
                 "instance_id": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 1
                 },
                 "mount_path": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 1
                 }
             }
         },

@@ -13,7 +13,7 @@ spec:
         app: csi-thecloud-node
     spec:
       serviceAccountName: csi-thecloud-node
-      hostNetwork: true
+      hostNetwork: false
       containers:
         - name: csi-node-driver-registrar
           image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.10.1
@@ -32,14 +32,14 @@ spec:
             - name: registration-dir
               mountPath: /registration
         - name: thecloud-csi-driver
-          image: ghcr.io/poyrazk/thecloud-csi-driver:latest # Placeholder
+          image: ghcr.io/poyrazk/thecloud-csi-driver:v1.0.0
           securityContext:
-            privileged: true
+            privileged: false
             capabilities:
               add: ["SYS_ADMIN"]
-            allowPrivilegeEscalation: true
+            allowPrivilegeEscalation: false
           args:
-            - "--endpoint=unix:/csi/csi.sock"
+            - "--endpoint=unix:///csi/csi.sock"
             - "--nodeid=$(NODE_ID)"
             - "--api-url=http://thecloud-api.kube-system.svc.cluster.local:8080"
           env:

@@ -38,6 +38,11 @@ func main() {
 		*apiKey = os.Getenv("CLOUD_API_KEY")
 	}
 
+	if *apiKey == "" {
+		logger.Error("CLOUD_API_KEY is required")
+		os.Exit(1)
+	}
+
 	cloudClient := sdk.NewClient(*apiURL, *apiKey)
 	d := csi.NewDriver(*driverName, *version, *nodeID, *endpoint, cloudClient, logger)
 
@@ -46,7 +51,6 @@ func main() {
 	go func() {
 		<-c
 		d.Stop()
-		os.Exit(0)
 	}()
 
 	if err := d.Run(); err != nil {

@@ -1526,8 +1526,10 @@ definitions:
   httphandlers.AttachRequest:
     properties:
       instance_id:
+        minLength: 1
         type: string
       mount_path:
+        minLength: 1
         type: string
     required:
     - instance_id
@@ -5808,6 +5810,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/httputil.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httputil.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -5831,6 +5837,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/httputil.Response'
         "404":

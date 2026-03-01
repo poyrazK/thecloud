@@ -14,12 +14,21 @@ spec:
         app: csi-thecloud-controller
     spec:
       serviceAccountName: csi-thecloud-controller
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
       containers:
         - name: csi-provisioner
           image: registry.k8s.io/sig-storage/csi-provisioner:v5.0.1
           args:
             - "--csi-address=$(ADDRESS)"
             - "--v=2"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           env:
             - name: ADDRESS
               value: /var/lib/csi/sockets/pluginproxy/csi.sock
@@ -31,6 +40,11 @@ spec:
           args:
             - "--csi-address=$(ADDRESS)"
             - "--v=2"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           env:
             - name: ADDRESS
               value: /var/lib/csi/sockets/pluginproxy/csi.sock
@@ -38,11 +52,16 @@ spec:
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
         - name: thecloud-csi-driver
-          image: ghcr.io/poyrazk/thecloud-csi-driver:latest # Placeholder
+          image: ghcr.io/poyrazk/thecloud-csi-driver:v1.0.0
           args:
-            - "--endpoint=unix:/var/lib/csi/sockets/pluginproxy/csi.sock"
+            - "--endpoint=unix:///var/lib/csi/sockets/pluginproxy/csi.sock"
             - "--nodeid=$(NODE_ID)"
             - "--api-url=http://thecloud-api.kube-system.svc.cluster.local:8080"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           env:
             - name: NODE_ID
               valueFrom:
