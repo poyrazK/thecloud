@@ -16,7 +16,16 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-const tracerName = "volume-service"
+const (
+	tracerName          = "volume-service"
+	BackendVolumePrefix = "thecloud-vol-"
+	BackendIDPrefixLen  = 8
+)
+
+// FormatBackendVolumeName returns the formatted name for the storage backend.
+func FormatBackendVolumeName(id uuid.UUID) string {
+	return BackendVolumePrefix + id.String()[:BackendIDPrefixLen]
+}
 
 // VolumeService manages block volume lifecycle and attachments.
 type VolumeService struct {
@@ -58,7 +67,7 @@ func (s *VolumeService) CreateVolume(ctx context.Context, name string, sizeGB in
 	}
 
 	// 2. Create Block Volume
-	backendName := "thecloud-vol-" + vol.ID.String()[:8]
+	backendName := FormatBackendVolumeName(vol.ID)
 	path, err := s.storage.CreateVolume(ctx, backendName, sizeGB)
 	if err != nil {
 		s.logger.Error("failed to create storage volume", "name", backendName, "error", err)
@@ -69,7 +78,9 @@ func (s *VolumeService) CreateVolume(ctx context.Context, name string, sizeGB in
 	// 3. Persist to DB
 	if err := s.repo.Create(ctx, vol); err != nil {
 		// Rollback Storage Volume
-		_ = s.storage.DeleteVolume(ctx, backendName)
+		if delErr := s.storage.DeleteVolume(ctx, backendName); delErr != nil {
+			s.logger.Error("failed to rollback storage volume", "name", backendName, "error", delErr)
+		}
 		return nil, err
 	}
 
@@ -118,7 +129,7 @@ func (s *VolumeService) DeleteVolume(ctx context.Context, idOrName string) error
 	}
 
 	// 1. Delete Storage Volume
-	backendName := "thecloud-vol-" + vol.ID.String()[:8]
+	backendName := FormatBackendVolumeName(vol.ID)
 	if err := s.storage.DeleteVolume(ctx, backendName); err != nil {
 		s.logger.Warn("failed to delete storage volume", "name", backendName, "error", err)
 	}
@@ -142,25 +153,26 @@ func (s *VolumeService) DeleteVolume(ctx context.Context, idOrName string) error
 	return nil
 }
 
-func (s *VolumeService) AttachVolume(ctx context.Context, volumeID string, instanceID string, mountPath string) error {
+func (s *VolumeService) AttachVolume(ctx context.Context, volumeID string, instanceID string, mountPath string) (string, error) {
 	vol, err := s.GetVolume(ctx, volumeID)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if vol.Status == domain.VolumeStatusInUse {
-		return errors.New(errors.Conflict, "volume is already attached to an instance")
+		return "", errors.New(errors.Conflict, "volume is already attached to an instance")
 	}
 
 	instUUID, err := uuid.Parse(instanceID)
 	if err != nil {
-		return errors.New(errors.InvalidInput, "invalid instance ID")
+		return "", errors.New(errors.InvalidInput, "invalid instance ID")
 	}
 
 	// 1. Attach via Backend
-	backendName := "thecloud-vol-" + vol.ID.String()[:8]
-	if err := s.storage.AttachVolume(ctx, backendName, instanceID); err != nil {
-		return errors.Wrap(errors.Internal, "failed to attach volume in backend", err)
+	backendName := FormatBackendVolumeName(vol.ID)
+	devicePath, err := s.storage.AttachVolume(ctx, backendName, instanceID)
+	if err != nil {
+		return "", errors.Wrap(errors.Internal, "failed to attach volume in backend", err)
 	}
 
 	// 2. Update DB
@@ -170,16 +182,19 @@ func (s *VolumeService) AttachVolume(ctx context.Context, volumeID string, insta
 	vol.UpdatedAt = time.Now()
 
 	if err := s.repo.Update(ctx, vol); err != nil {
-		_ = s.storage.DetachVolume(ctx, backendName, instanceID)
-		return err
+		if detachErr := s.storage.DetachVolume(ctx, backendName, instanceID); detachErr != nil {
+			return "", errors.Wrap(errors.Internal, "failed to rollback attachment", detachErr)
+		}
+		return "", err
 	}
 
 	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.attach", "volume", vol.ID.String(), map[string]interface{}{
 		"instance_id": instanceID,
 		"mount_path":  mountPath,
+		"device_path": devicePath,
 	})
 
-	return nil
+	return devicePath, nil
 }
 
 func (s *VolumeService) DetachVolume(ctx context.Context, volumeID string) error {
@@ -195,7 +210,7 @@ func (s *VolumeService) DetachVolume(ctx context.Context, volumeID string) error
 	instanceID := vol.InstanceID.String()
 
 	// 1. Detach via Backend
-	backendName := "thecloud-vol-" + vol.ID.String()[:8]
+	backendName := FormatBackendVolumeName(vol.ID)
 	if err := s.storage.DetachVolume(ctx, backendName, instanceID); err != nil {
 		return errors.Wrap(errors.Internal, "failed to detach volume in backend", err)
 	}
@@ -227,8 +242,11 @@ func (s *VolumeService) ReleaseVolumesForInstance(ctx context.Context, instanceI
 	}
 
 	for _, vol := range volumes {
-		backendName := "thecloud-vol-" + vol.ID.String()[:8]
-		_ = s.storage.DetachVolume(ctx, backendName, instanceID.String())
+		backendName := FormatBackendVolumeName(vol.ID)
+		if err := s.storage.DetachVolume(ctx, backendName, instanceID.String()); err != nil {
+			s.logger.Error("failed to detach volume during release", "volume_id", vol.ID, "instance_id", instanceID, "error", err)
+			continue
+		}
 
 		vol.Status = domain.VolumeStatusAvailable
 		vol.InstanceID = nil
@@ -236,7 +254,7 @@ func (s *VolumeService) ReleaseVolumesForInstance(ctx context.Context, instanceI
 		vol.UpdatedAt = time.Now()
 
 		if err := s.repo.Update(ctx, vol); err != nil {
-			s.logger.Warn("failed to release volume", "volume_id", vol.ID, "error", err)
+			s.logger.Warn("failed to release volume record in DB", "volume_id", vol.ID, "error", err)
 			continue // Continue releasing other volumes even if one fails
 		}
 
