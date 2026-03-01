@@ -29,28 +29,28 @@ type MockMounter struct {
 	mock.Mock
 }
 
-func (m *MockMounter) FormatDevice(device, fsType string) error {
-	args := m.Called(device, fsType)
+func (m *MockMounter) FormatDevice(ctx context.Context, device, fsType string) error {
+	args := m.Called(ctx, device, fsType)
 	return args.Error(0)
 }
 
-func (m *MockMounter) Mount(source, target, fsType string) error {
-	args := m.Called(source, target, fsType)
+func (m *MockMounter) Mount(ctx context.Context, source, target, fsType string) error {
+	args := m.Called(ctx, source, target, fsType)
 	return args.Error(0)
 }
 
-func (m *MockMounter) BindMount(source, target string) error {
-	args := m.Called(source, target)
+func (m *MockMounter) BindMount(ctx context.Context, source, target string) error {
+	args := m.Called(ctx, source, target)
 	return args.Error(0)
 }
 
-func (m *MockMounter) Unmount(target string) error {
-	args := m.Called(target)
+func (m *MockMounter) Unmount(ctx context.Context, target string) error {
+	args := m.Called(ctx, target)
 	return args.Error(0)
 }
 
-func (m *MockMounter) IsFormatted(device string) bool {
-	args := m.Called(device)
+func (m *MockMounter) IsFormatted(ctx context.Context, device string) bool {
+	args := m.Called(ctx, device)
 	return args.Bool(0)
 }
 
@@ -63,8 +63,9 @@ func TestDriver_RunStop(t *testing.T) {
 	socket := fmt.Sprintf("unix:///tmp/csi-test-%d.sock", time.Now().UnixNano())
 	d := NewDriver("test", "1", "node", socket, nil, slog.Default())
 
+	errCh := make(chan error, 1)
 	go func() {
-		_ = d.Run()
+		errCh <- d.Run()
 	}()
 
 	// Wait for socket
@@ -82,6 +83,13 @@ func TestDriver_RunStop(t *testing.T) {
 
 	d.Stop()
 	conn.Close()
+
+	select {
+	case err := <-errCh:
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for driver to stop")
+	}
 }
 
 func TestDriver_RunError(t *testing.T) {
@@ -154,7 +162,7 @@ func TestDriver_ControllerServer(t *testing.T) {
 		}
 		if r.Method == "POST" && r.URL.Path == "/volumes/83adaa62-ddb6-48ad-8a6b-b8e4816735e3/attach" {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"data": "success"}`))
+			w.Write([]byte(`{"data": {"device_path": "/dev/vdb"}}`))
 			return
 		}
 		if r.Method == "POST" && r.URL.Path == "/volumes/83adaa62-ddb6-48ad-8a6b-b8e4816735e3/detach" {
@@ -366,9 +374,9 @@ func TestDriver_NodeServer(t *testing.T) {
 			VolumeCapability:  &csi.VolumeCapability{},
 			PublishContext:    map[string]string{"device": "/dev/vdb"},
 		}
-		mockMounter.On("FormatDevice", "/dev/vdb", "ext4").Return(nil).Once()
+		mockMounter.On("FormatDevice", mock.Anything, "/dev/vdb", "ext4").Return(nil).Once()
 		mockMounter.On("MkdirAll", "/staging/vol-123", os.FileMode(0750)).Return(nil).Once()
-		mockMounter.On("Mount", "/dev/vdb", "/staging/vol-123", "ext4").Return(nil).Once()
+		mockMounter.On("Mount", mock.Anything, "/dev/vdb", "/staging/vol-123", "ext4").Return(nil).Once()
 
 		_, err := d.NodeStageVolume(context.Background(), req)
 		require.NoError(t, err)
@@ -381,7 +389,7 @@ func TestDriver_NodeServer(t *testing.T) {
 			VolumeCapability:  &csi.VolumeCapability{},
 			PublishContext:    map[string]string{"device": "/dev/vdb"},
 		}
-		mockMounter.On("FormatDevice", "/dev/vdb", "ext4").Return(errors.New("format failed")).Once()
+		mockMounter.On("FormatDevice", mock.Anything, "/dev/vdb", "ext4").Return(errors.New("format failed")).Once()
 		_, err := d.NodeStageVolume(context.Background(), req)
 		require.Error(t, err)
 	})
@@ -393,7 +401,7 @@ func TestDriver_NodeServer(t *testing.T) {
 			VolumeCapability:  &csi.VolumeCapability{},
 			PublishContext:    map[string]string{"device": "/dev/vdb"},
 		}
-		mockMounter.On("FormatDevice", "/dev/vdb", "ext4").Return(nil).Once()
+		mockMounter.On("FormatDevice", mock.Anything, "/dev/vdb", "ext4").Return(nil).Once()
 		mockMounter.On("MkdirAll", "/staging/vol-123", os.FileMode(0750)).Return(errors.New("mkdir failed")).Once()
 		_, err := d.NodeStageVolume(context.Background(), req)
 		require.Error(t, err)
@@ -406,9 +414,9 @@ func TestDriver_NodeServer(t *testing.T) {
 			VolumeCapability:  &csi.VolumeCapability{},
 			PublishContext:    map[string]string{"device": "/dev/vdb"},
 		}
-		mockMounter.On("FormatDevice", "/dev/vdb", "ext4").Return(nil).Once()
+		mockMounter.On("FormatDevice", mock.Anything, "/dev/vdb", "ext4").Return(nil).Once()
 		mockMounter.On("MkdirAll", "/staging/vol-123", os.FileMode(0750)).Return(nil).Once()
-		mockMounter.On("Mount", "/dev/vdb", "/staging/vol-123", "ext4").Return(errors.New("mount fail")).Once()
+		mockMounter.On("Mount", mock.Anything, "/dev/vdb", "/staging/vol-123", "ext4").Return(errors.New("mount fail")).Once()
 		_, err := d.NodeStageVolume(context.Background(), req)
 		require.Error(t, err)
 	})
@@ -423,7 +431,7 @@ func TestDriver_NodeServer(t *testing.T) {
 			VolumeId:          "vol-123",
 			StagingTargetPath: "/staging/vol-123",
 		}
-		mockMounter.On("Unmount", "/staging/vol-123").Return(nil).Once()
+		mockMounter.On("Unmount", mock.Anything, "/staging/vol-123").Return(nil).Once()
 		_, err := d.NodeUnstageVolume(context.Background(), req)
 		require.NoError(t, err)
 	})
@@ -433,7 +441,7 @@ func TestDriver_NodeServer(t *testing.T) {
 			VolumeId:          "vol-123",
 			StagingTargetPath: "/staging/vol-123",
 		}
-		mockMounter.On("Unmount", "/staging/vol-123").Return(errors.New("unmount failed")).Once()
+		mockMounter.On("Unmount", mock.Anything, "/staging/vol-123").Return(errors.New("unmount failed")).Once()
 		_, err := d.NodeUnstageVolume(context.Background(), req)
 		require.Error(t, err)
 	})
@@ -450,7 +458,7 @@ func TestDriver_NodeServer(t *testing.T) {
 			TargetPath:        "/target/vol-123",
 		}
 		mockMounter.On("MkdirAll", "/target/vol-123", os.FileMode(0750)).Return(nil).Once()
-		mockMounter.On("BindMount", "/staging/vol-123", "/target/vol-123").Return(nil).Once()
+		mockMounter.On("BindMount", mock.Anything, "/staging/vol-123", "/target/vol-123").Return(nil).Once()
 		_, err := d.NodePublishVolume(context.Background(), req)
 		require.NoError(t, err)
 	})
@@ -474,7 +482,7 @@ func TestDriver_NodeServer(t *testing.T) {
 			TargetPath:        "/target/vol-123",
 		}
 		mockMounter.On("MkdirAll", "/target/vol-123", os.FileMode(0750)).Return(nil).Once()
-		mockMounter.On("BindMount", "/staging/vol-123", "/target/vol-123").Return(errors.New("bind fail")).Once()
+		mockMounter.On("BindMount", mock.Anything, "/staging/vol-123", "/target/vol-123").Return(errors.New("bind fail")).Once()
 		_, err := d.NodePublishVolume(context.Background(), req)
 		require.Error(t, err)
 	})
@@ -489,7 +497,7 @@ func TestDriver_NodeServer(t *testing.T) {
 			VolumeId:   "vol-123",
 			TargetPath: "/target/vol-123",
 		}
-		mockMounter.On("Unmount", "/target/vol-123").Return(nil).Once()
+		mockMounter.On("Unmount", mock.Anything, "/target/vol-123").Return(nil).Once()
 		_, err := d.NodeUnpublishVolume(context.Background(), req)
 		require.NoError(t, err)
 	})
@@ -499,7 +507,7 @@ func TestDriver_NodeServer(t *testing.T) {
 			VolumeId:   "vol-123",
 			TargetPath: "/target/vol-123",
 		}
-		mockMounter.On("Unmount", "/target/vol-123").Return(errors.New("unmount failed")).Once()
+		mockMounter.On("Unmount", mock.Anything, "/target/vol-123").Return(errors.New("unmount failed")).Once()
 		_, err := d.NodeUnpublishVolume(context.Background(), req)
 		require.Error(t, err)
 	})
@@ -533,9 +541,9 @@ func TestLinuxMounter_Implementation(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	// Mock execer that calls a helper process
-	mockExecer := func(name string, arg ...string) *exec.Cmd {
+	mockExecer := func(ctx context.Context, name string, arg ...string) *exec.Cmd {
 		args := append([]string{"-test.run=TestHelperProcess", "--", name}, arg...)
-		cmd := exec.Command(os.Args[0], args...)
+		cmd := exec.CommandContext(ctx, os.Args[0], args...)
 		cmd.Env = append(os.Environ(), "GO_WANT_HELPER_PROCESS=1")
 		// Use env to pass expected command behavior
 		exitCode := "1"
@@ -551,28 +559,30 @@ func TestLinuxMounter_Implementation(t *testing.T) {
 
 	m := &LinuxMounter{logger: logger, execer: mockExecer}
 
+	ctx := context.Background()
+
 	t.Run("IsFormatted", func(t *testing.T) {
-		assert.True(t, m.IsFormatted("/dev/vdb"))
-		assert.False(t, m.IsFormatted("/dev/nonexistent"))
+		assert.True(t, m.IsFormatted(ctx, "/dev/vdb"))
+		assert.False(t, m.IsFormatted(ctx, "/dev/nonexistent"))
 	})
 
 	t.Run("FormatDevice", func(t *testing.T) {
 		// Already formatted
-		require.NoError(t, m.FormatDevice("/dev/vdb", "ext4"))
+		require.NoError(t, m.FormatDevice(ctx, "/dev/vdb", "ext4"))
 		// Not formatted
-		require.NoError(t, m.FormatDevice("/dev/vdc", "ext4"))
+		require.NoError(t, m.FormatDevice(ctx, "/dev/vdc", "ext4"))
 	})
 
 	t.Run("Mount", func(t *testing.T) {
-		require.NoError(t, m.Mount("/dev/vdb", "/mnt", "ext4"))
+		require.NoError(t, m.Mount(ctx, "/dev/vdb", "/mnt", "ext4"))
 	})
 
 	t.Run("BindMount", func(t *testing.T) {
-		require.NoError(t, m.BindMount("/src", "/dst"))
+		require.NoError(t, m.BindMount(ctx, "/src", "/dst"))
 	})
 
 	t.Run("Unmount", func(t *testing.T) {
-		require.NoError(t, m.Unmount("/mnt"))
+		require.NoError(t, m.Unmount(ctx, "/mnt"))
 	})
 
 	t.Run("MkdirAll", func(t *testing.T) {
