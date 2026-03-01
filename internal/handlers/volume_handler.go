@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
@@ -40,7 +41,7 @@ type CreateVolumeRequest struct {
 func (h *VolumeHandler) Create(c *gin.Context) {
 	var req CreateVolumeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, err)
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid request body"))
 		return
 	}
 
@@ -117,8 +118,8 @@ func (h *VolumeHandler) Delete(c *gin.Context) {
 
 // AttachRequest is the payload for attaching a volume.
 type AttachRequest struct {
-	InstanceID string `json:"instance_id" binding:"required"`
-	MountPath  string `json:"mount_path" binding:"required"`
+	InstanceID string `json:"instance_id" binding:"required,min=1"`
+	MountPath  string `json:"mount_path" binding:"required,min=1"`
 }
 
 // Attach attaches a volume to an instance
@@ -133,22 +134,27 @@ type AttachRequest struct {
 // @Success 200 {object} httputil.Response
 // @Failure 400 {object} httputil.Response
 // @Failure 404 {object} httputil.Response
+// @Failure 409 {object} httputil.Response
 // @Failure 500 {object} httputil.Response
 // @Router /volumes/{id}/attach [post]
 func (h *VolumeHandler) Attach(c *gin.Context) {
 	idStr := c.Param("id")
 	var req AttachRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid request body"))
+		return
+	}
+
+	devicePath, err := h.svc.AttachVolume(c.Request.Context(), idStr, req.InstanceID, req.MountPath)
+	if err != nil {
 		httputil.Error(c, err)
 		return
 	}
 
-	if err := h.svc.AttachVolume(c.Request.Context(), idStr, req.InstanceID, req.MountPath); err != nil {
-		httputil.Error(c, err)
-		return
-	}
-
-	httputil.Success(c, http.StatusOK, gin.H{"message": "volume attached"})
+	httputil.Success(c, http.StatusOK, gin.H{
+		"message":     "volume attached",
+		"device_path": devicePath,
+	})
 }
 
 // Detach detaches a volume from an instance
@@ -159,6 +165,7 @@ func (h *VolumeHandler) Attach(c *gin.Context) {
 // @Security APIKeyAuth
 // @Param id path string true "Volume ID"
 // @Success 200 {object} httputil.Response
+// @Failure 400 {object} httputil.Response
 // @Failure 404 {object} httputil.Response
 // @Failure 500 {object} httputil.Response
 // @Router /volumes/{id}/detach [post]
