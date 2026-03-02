@@ -27,8 +27,16 @@ spec:
         node-role.kubernetes.io/control-plane: ""
       containers:
         - name: thecloud-cloud-controller-manager
-          image: ghcr.io/poyrazk/thecloud-ccm:latest
-          imagePullPolicy: Always
+          image: ghcr.io/poyrazk/thecloud-ccm:v1.0.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
           command:
             - /bin/thecloud-ccm
             - --cloud-provider=thecloud
@@ -44,4 +52,4 @@ spec:
                   name: thecloud-api-credentials
                   key: api-key
             - name: CLOUD_API_URL
-              value: "http://thecloud-api.kube-system.svc.cluster.local:8080"
+              value: "https://thecloud-api.kube-system.svc.cluster.local:443"
