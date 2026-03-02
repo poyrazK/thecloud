@@ -61,13 +61,43 @@ write_files:
         namespace: kube-system
       ---
       apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRole
+      metadata:
+        name: system:cloud-controller-manager
+      rules:
+        - apiGroups: [""]
+          resources: ["nodes"]
+          verbs: ["get", "list", "watch", "update", "patch"]
+        - apiGroups: [""]
+          resources: ["nodes/status"]
+          verbs: ["patch"]
+        - apiGroups: [""]
+          resources: ["services"]
+          verbs: ["get", "list", "watch", "update", "patch"]
+        - apiGroups: [""]
+          resources: ["services/status"]
+          verbs: ["update", "patch"]
+        - apiGroups: [""]
+          resources: ["endpoints"]
+          verbs: ["create", "get", "list", "watch", "update", "patch"]
+        - apiGroups: [""]
+          resources: ["events"]
+          verbs: ["create", "patch", "update"]
+        - apiGroups: [""]
+          resources: ["configmaps"]
+          verbs: ["get", "list", "watch", "create", "update", "patch"]
+        - apiGroups: [""]
+          resources: ["secrets"]
+          verbs: ["get", "list", "watch"]
+      ---
+      apiVersion: rbac.authorization.k8s.io/v1
       kind: ClusterRoleBinding
       metadata:
         name: system:cloud-controller-manager
       roleRef:
         apiGroup: rbac.authorization.k8s.io
         kind: ClusterRole
-        name: cluster-admin
+        name: system:cloud-controller-manager
       subjects:
         - kind: ServiceAccount
           name: cloud-controller-manager
@@ -114,8 +144,16 @@ write_files:
               node-role.kubernetes.io/control-plane: ""
             containers:
               - name: thecloud-cloud-controller-manager
-                image: ghcr.io/poyrazk/thecloud-ccm:latest
-                imagePullPolicy: Always
+                image: ghcr.io/poyrazk/thecloud-ccm:v1.0.0
+                imagePullPolicy: IfNotPresent
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  runAsNonRoot: true
+                  runAsUser: 1000
+                  readOnlyRootFilesystem: true
+                  capabilities:
+                    drop:
+                      - ALL
                 command:
                   - /bin/thecloud-ccm
                   - --cloud-provider=thecloud
@@ -152,8 +190,10 @@ runcmd:
   - apt-get update
   - apt-get install -y kubelet kubeadm kubectl
   - apt-mark hold kubelet kubeadm kubectl
-  # Configure kubelet to use external cloud provider
-  - echo 'KUBELET_EXTRA_ARGS="--cloud-provider=external"' > /etc/default/kubelet
+  # Configure kubelet to use external cloud provider via drop-in
+  - mkdir -p /etc/systemd/system/kubelet.service.d
+  - echo '[Service]' > /etc/systemd/system/kubelet.service.d/20-cloud-provider.conf
+  - echo 'Environment="KUBELET_EXTRA_ARGS=--cloud-provider=external"' >> /etc/systemd/system/kubelet.service.d/20-cloud-provider.conf
   - systemctl daemon-reload
   - systemctl restart kubelet
   # Init
