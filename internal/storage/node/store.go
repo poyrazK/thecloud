@@ -2,7 +2,9 @@
 package node
 
 import (
+	"bytes"
 	"encoding/binary"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -24,22 +26,29 @@ func NewLocalStore(dataDir string) (*LocalStore, error) {
 	return &LocalStore{rootDir: dataDir}, nil
 }
 
-// Write saves data to disk. Overwrites if exists.
-func (s *LocalStore) Write(bucket, key string, data []byte, timestamp int64) error {
+// WriteStream saves data from a reader to disk.
+func (s *LocalStore) WriteStream(bucket, key string, r io.Reader, timestamp int64) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	path, err := s.getObjectPath(bucket, key)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
-		return err
+		return 0, err
 	}
 
-	if err := os.WriteFile(path, data, 0600); err != nil {
-		return err
+	f, err := os.OpenFile(filepath.Clean(path), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = f.Close() }()
+
+	n, err := io.Copy(f, r)
+	if err != nil {
+		return n, err
 	}
 
 	// Write metadata (timestamp)
@@ -54,11 +63,17 @@ func (s *LocalStore) Write(bucket, key string, data []byte, timestamp int64) err
 	}
 
 	binary.LittleEndian.PutUint64(buf, uTimestamp)
-	return os.WriteFile(metaPath, buf, 0600)
+	return n, os.WriteFile(metaPath, buf, 0600)
 }
 
-// Read retrieves data from disk.
-func (s *LocalStore) Read(bucket, key string) ([]byte, int64, error) {
+// Write saves data to disk. Overwrites if exists.
+func (s *LocalStore) Write(bucket, key string, data []byte, timestamp int64) error {
+	_, err := s.WriteStream(bucket, key, bytes.NewReader(data), timestamp)
+	return err
+}
+
+// ReadStream retrieves a reader for data on disk.
+func (s *LocalStore) ReadStream(bucket, key string) (io.ReadCloser, int64, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -67,9 +82,7 @@ func (s *LocalStore) Read(bucket, key string) ([]byte, int64, error) {
 		return nil, 0, err
 	}
 
-	// filepath.Clean is already done in getObjectPath, gosec might still warn
-	// so we use the path directly as it is sanitized.
-	data, err := os.ReadFile(filepath.Clean(path))
+	f, err := os.Open(filepath.Clean(path))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -91,6 +104,22 @@ func (s *LocalStore) Read(bucket, key string) ([]byte, int64, error) {
 		if statErr == nil {
 			timestamp = info.ModTime().UnixNano()
 		}
+	}
+
+	return f, timestamp, nil
+}
+
+// Read retrieves data from disk.
+func (s *LocalStore) Read(bucket, key string) ([]byte, int64, error) {
+	rc, timestamp, err := s.ReadStream(bucket, key)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer func() { _ = rc.Close() }()
+
+	data, err := io.ReadAll(rc)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	return data, timestamp, nil
@@ -137,15 +166,16 @@ func (s *LocalStore) Assemble(bucket, key string, parts []string) (int64, error)
 			return 0, err
 		}
 
-		data, err := os.ReadFile(filepath.Clean(partPath))
+		pf, err := os.Open(filepath.Clean(partPath))
 		if err != nil {
 			return 0, err
 		}
-		n, err := f.Write(data)
+		n, err := io.Copy(f, pf)
+		_ = pf.Close()
 		if err != nil {
 			return 0, err
 		}
-		totalSize += int64(n)
+		totalSize += n
 		_ = os.Remove(partPath)
 		_ = os.Remove(partPath + ".meta")
 	}
