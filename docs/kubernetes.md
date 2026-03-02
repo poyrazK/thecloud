@@ -134,5 +134,5 @@ spec:
 ```
 
 ## Limitations (MVP)
-*   **Persistent Volumes**: Dynamic storage provisioning (CSI) is now available in Phase 7.
-*   **Multi-Master**: While we have self-healing for single master, multi-control plane HA is a future roadmap item.
+*   **Persistent Volumes**: Dynamic storage provisioning (CSI) is fully supported.
+*   **Multi-Master**: Multi-control plane HA (3 masters + LB) is fully supported via the `--ha` flag.
