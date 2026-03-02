@@ -11,6 +11,12 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	StatusStopped    = "STOPPED"
+	StatusTerminated = "TERMINATED"
+	MachineTypeStd1  = "standard-1"
+)
+
 type instances struct {
 	client *sdk.Client
 }
@@ -40,7 +46,7 @@ func (i *instances) InstanceShutdown(ctx context.Context, node *v1.Node) (bool, 
 		return false, err
 	}
 	// Assuming Status == "STOPPED" or "TERMINATED" means shutdown
-	return inst.Status == "STOPPED" || inst.Status == "TERMINATED", nil
+	return inst.Status == StatusStopped || inst.Status == StatusTerminated, nil
 }
 
 // InstanceMetadata returns the instance's metadata.
@@ -51,7 +57,7 @@ func (i *instances) InstanceMetadata(ctx context.Context, node *v1.Node) (*cloud
 	}
 
 	addresses := []v1.NodeAddress{}
-	
+
 	// Private IP (Internal)
 	if inst.PrivateIP != "" {
 		addresses = append(addresses, v1.NodeAddress{
@@ -59,7 +65,7 @@ func (i *instances) InstanceMetadata(ctx context.Context, node *v1.Node) (*cloud
 			Address: inst.PrivateIP,
 		})
 	}
-	
+
 	// Add Hostname
 	addresses = append(addresses, v1.NodeAddress{
 		Type:    v1.NodeHostName,
@@ -69,7 +75,7 @@ func (i *instances) InstanceMetadata(ctx context.Context, node *v1.Node) (*cloud
 	// InstanceType
 	instanceType := inst.InstanceType
 	if instanceType == "" {
-		instanceType = "standard-1" // fallback
+		instanceType = MachineTypeStd1
 	}
 
 	return &cloudprovider.InstanceMetadata{
@@ -82,7 +88,7 @@ func (i *instances) InstanceMetadata(ctx context.Context, node *v1.Node) (*cloud
 }
 
 // Helper to get an instance by node's ProviderID or Name
-func (i *instances) getInstance(_ context.Context, node *v1.Node) (*sdk.Instance, error) {
+func (i *instances) getInstance(ctx context.Context, node *v1.Node) (*sdk.Instance, error) {
 	id := ""
 	if node.Spec.ProviderID != "" {
 		id = strings.TrimPrefix(node.Spec.ProviderID, ProviderName+"://")
@@ -92,7 +98,8 @@ func (i *instances) getInstance(_ context.Context, node *v1.Node) (*sdk.Instance
 
 	klog.V(4).Infof("Resolving instance for node %s (resolved ID/Name: %s)", node.Name, id)
 
-	inst, err := i.client.GetInstance(id)
+	// Propagate context to SDK call
+	inst, err := i.client.GetInstanceWithContext(ctx, id)
 	if err != nil {
 		return nil, err
 	}
