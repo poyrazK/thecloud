@@ -49,6 +49,15 @@ type RestoreDatabaseRequest struct {
 	PoolingEnabled   bool
 }
 
+// ModifyDatabaseRequest defines the parameters for updating an existing database.
+type ModifyDatabaseRequest struct {
+	ID               uuid.UUID
+	Parameters       map[string]string
+	MetricsEnabled   *bool
+	PoolingEnabled   *bool
+	AllocatedStorage *int
+}
+
 // DatabaseService provides business logic for managing relational database instances (DBaaS).
 type DatabaseService interface {
 	// CreateDatabase provisions a new managed database instance.
@@ -63,6 +72,8 @@ type DatabaseService interface {
 	ListDatabases(ctx context.Context) ([]*domain.Database, error)
 	// DeleteDatabase terminates and deletes a database instance.
 	DeleteDatabase(ctx context.Context, id uuid.UUID) error
+	// ModifyDatabase updates an existing database's configuration.
+	ModifyDatabase(ctx context.Context, req ModifyDatabaseRequest) (*domain.Database, error)
 	// GetConnectionString constructs and returns the authorized URI for connecting to the database.
 	GetConnectionString(ctx context.Context, id uuid.UUID) (string, error)
 	// CreateDatabaseSnapshot initiates a point-in-time copy of a database's underlying volume.
