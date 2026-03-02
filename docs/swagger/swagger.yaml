@@ -106,6 +106,11 @@ definitions:
         type: string
       network_isolation:
         type: boolean
+      node_groups:
+        description: NodeGroups contains the node pools for this cluster.
+        items:
+          $ref: '#/definitions/domain.NodeGroup'
+        type: array
       pod_cidr:
         description: Networking
         type: string
@@ -755,6 +760,27 @@ definitions:
       key:
         type: string
       user_id:
+        type: string
+    type: object
+  domain.NodeGroup:
+    properties:
+      cluster_id:
+        type: string
+      created_at:
+        type: string
+      current_size:
+        type: integer
+      id:
+        type: string
+      instance_type:
+        type: string
+      max_size:
+        type: integer
+      min_size:
+        type: integer
+      name:
+        type: string
+      updated_at:
         type: string
     type: object
   domain.Object:
@@ -1943,6 +1969,21 @@ definitions:
         type: string
       user: {}
     type: object
+  httphandlers.NodeGroupRequest:
+    properties:
+      desired_size:
+        type: integer
+      instance_type:
+        type: string
+      max_size:
+        type: integer
+      min_size:
+        type: integer
+      name:
+        type: string
+    required:
+    - name
+    type: object
   httphandlers.RegisterRequest:
     properties:
       email:
@@ -2019,6 +2060,15 @@ definitions:
   httphandlers.ScaleClusterRequest:
     properties:
       workers:
+        type: integer
+    type: object
+  httphandlers.UpdateNodeGroupRequest:
+    properties:
+      desired_size:
+        type: integer
+      max_size:
+        type: integer
+      min_size:
         type: integer
     type: object
   httphandlers.UpdateRecordRequest:
@@ -2844,6 +2894,76 @@ paths:
           schema:
             type: string
       summary: Download kubeconfig
+      tags:
+      - K8s
+  /clusters/{id}/nodegroups:
+    post:
+      description: Creates a new pool of worker nodes
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Node Group details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.NodeGroupRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.NodeGroup'
+      summary: Add a node group to a cluster
+      tags:
+      - K8s
+  /clusters/{id}/nodegroups/{name}:
+    delete:
+      description: Removes a node pool and terminates its nodes
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Node Group Name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "202":
+          description: Accepted
+      summary: Delete a node group
+      tags:
+      - K8s
+    put:
+      description: Modifies scaling boundaries or desired size of a node pool
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Node Group Name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Update details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.UpdateNodeGroupRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.NodeGroup'
+      summary: Update a node group
       tags:
       - K8s
   /clusters/{id}/repair:

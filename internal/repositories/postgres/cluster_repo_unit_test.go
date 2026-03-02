@@ -69,23 +69,54 @@ func TestClusterRepository(t *testing.T) {
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "version", "status", "worker_count", "ha_enabled", "network_isolation", "pod_cidr", "service_cidr", "api_server_lb_address", "kubeconfig_encrypted", "ssh_private_key_encrypted", "join_token", "token_expires_at", "ca_cert_hash", "job_id", "created_at", "updated_at"}).
 				AddRow(id, userID, uuid.New(), testClusterName, testClusterVersion, string(domain.ClusterStatusRunning), 3, false, false, "10.244.0.0/16", "10.96.0.0/12", nil, "", "", "", nil, "", nil, time.Now(), time.Now()))
 
+		mock.ExpectQuery("SELECT .* FROM cluster_node_groups").WithArgs(id).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "cluster_id", "name", "instance_type", "min_size", "max_size", "current_size", "created_at", "updated_at"}).
+				AddRow(uuid.New(), id, "default-pool", "standard-1", 1, 10, 3, time.Now(), time.Now()))
+
 		cluster, err := repo.GetByID(ctx, id)
 		require.NoError(t, err)
 		assert.NotNil(t, cluster)
+		assert.Len(t, cluster.NodeGroups, 1)
 	})
 
 	t.Run("ListAll", func(t *testing.T) {
 		mock, _ := pgxmock.NewPool()
 		defer mock.Close()
 		repo := NewClusterRepository(mock)
+		id := uuid.New()
 
 		mock.ExpectQuery("SELECT .* FROM clusters").
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "version", "status", "worker_count", "ha_enabled", "network_isolation", "pod_cidr", "service_cidr", "api_server_lb_address", "kubeconfig_encrypted", "ssh_private_key_encrypted", "join_token", "token_expires_at", "ca_cert_hash", "job_id", "created_at", "updated_at"}).
-				AddRow(uuid.New(), userID, uuid.New(), "c1", "v1", "RUNNING", 3, false, false, "", "", nil, "", "", "", nil, "", nil, time.Now(), time.Now()))
+				AddRow(id, userID, uuid.New(), "c1", "v1", "RUNNING", 3, false, false, "", "", nil, "", "", "", nil, "", nil, time.Now(), time.Now()))
+
+		mock.ExpectQuery("SELECT .* FROM cluster_node_groups").WithArgs(id).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "cluster_id", "name", "instance_type", "min_size", "max_size", "current_size", "created_at", "updated_at"}).
+				AddRow(uuid.New(), id, "default-pool", "standard-1", 1, 10, 3, time.Now(), time.Now()))
 
 		clusters, err := repo.ListAll(ctx)
 		require.NoError(t, err)
 		assert.Len(t, clusters, 1)
+		assert.Len(t, clusters[0].NodeGroups, 1)
+	})
+
+	t.Run("ListByUserID", func(t *testing.T) {
+		mock, _ := pgxmock.NewPool()
+		defer mock.Close()
+		repo := NewClusterRepository(mock)
+		id := uuid.New()
+
+		mock.ExpectQuery("SELECT .* FROM clusters WHERE user_id = \\$1").WithArgs(userID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "version", "status", "worker_count", "ha_enabled", "network_isolation", "pod_cidr", "service_cidr", "api_server_lb_address", "kubeconfig_encrypted", "ssh_private_key_encrypted", "join_token", "token_expires_at", "ca_cert_hash", "job_id", "created_at", "updated_at"}).
+				AddRow(id, userID, uuid.New(), "c1", "v1", "RUNNING", 3, false, false, "", "", nil, "", "", "", nil, "", nil, time.Now(), time.Now()))
+
+		mock.ExpectQuery("SELECT .* FROM cluster_node_groups").WithArgs(id).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "cluster_id", "name", "instance_type", "min_size", "max_size", "current_size", "created_at", "updated_at"}).
+				AddRow(uuid.New(), id, "default-pool", "standard-1", 1, 10, 3, time.Now(), time.Now()))
+
+		clusters, err := repo.ListByUserID(ctx, userID)
+		require.NoError(t, err)
+		assert.Len(t, clusters, 1)
+		assert.Len(t, clusters[0].NodeGroups, 1)
 	})
 
 	t.Run("Update", func(t *testing.T) {

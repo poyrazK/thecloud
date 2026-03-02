@@ -1198,6 +1198,111 @@ const docTemplate = `{
                 }
             }
         },
+        "/clusters/{id}/nodegroups": {
+            "post": {
+                "description": "Creates a new pool of worker nodes",
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "Add a node group to a cluster",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Node Group details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.NodeGroupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.NodeGroup"
+                        }
+                    }
+                }
+            }
+        },
+        "/clusters/{id}/nodegroups/{name}": {
+            "put": {
+                "description": "Modifies scaling boundaries or desired size of a node pool",
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "Update a node group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Node Group Name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.UpdateNodeGroupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.NodeGroup"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Removes a node pool and terminates its nodes",
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "Delete a node group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Node Group Name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted"
+                    }
+                }
+            }
+        },
         "/clusters/{id}/repair": {
             "post": {
                 "description": "Re-applies CNI and kube-proxy patches to a running cluster",
@@ -6829,6 +6934,13 @@ const docTemplate = `{
                 "network_isolation": {
                     "type": "boolean"
                 },
+                "node_groups": {
+                    "description": "NodeGroups contains the node pools for this cluster.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.NodeGroup"
+                    }
+                },
                 "pod_cidr": {
                     "description": "Networking",
                     "type": "string"
@@ -7755,6 +7867,38 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.NodeGroup": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "current_size": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instance_type": {
+                    "type": "string"
+                },
+                "max_size": {
+                    "type": "integer"
+                },
+                "min_size": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }
@@ -9403,6 +9547,29 @@ const docTemplate = `{
                 "user": {}
             }
         },
+        "httphandlers.NodeGroupRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "desired_size": {
+                    "type": "integer"
+                },
+                "instance_type": {
+                    "type": "string"
+                },
+                "max_size": {
+                    "type": "integer"
+                },
+                "min_size": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "httphandlers.RegisterRequest": {
             "type": "object",
             "required": [
@@ -9511,6 +9678,20 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "workers": {
+                    "type": "integer"
+                }
+            }
+        },
+        "httphandlers.UpdateNodeGroupRequest": {
+            "type": "object",
+            "properties": {
+                "desired_size": {
+                    "type": "integer"
+                },
+                "max_size": {
+                    "type": "integer"
+                },
+                "min_size": {
                     "type": "integer"
                 }
             }
