@@ -24,7 +24,8 @@ func init() {
 		apiKey := os.Getenv("CLOUD_API_KEY")
 
 		if apiURL == "" {
-			apiURL = "http://thecloud-api.kube-system.svc.cluster.local:8080"
+			// Use HTTPS by default for security
+			apiURL = "https://thecloud-api.kube-system.svc.cluster.local:443"
 		}
 		if apiKey == "" {
 			return nil, fmt.Errorf("CLOUD_API_KEY is required for the cloud controller manager")
