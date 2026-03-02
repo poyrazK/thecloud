@@ -100,20 +100,20 @@ type FailingEncryptionService struct {
 	failNext bool
 }
 
-func (f *FailingEncryptionService) Encrypt(ctx context.Context, bucket string, data []byte) ([]byte, error) {
+func (f *FailingEncryptionService) Encrypt(ctx context.Context, bucket string, r io.Reader) (io.Reader, error) {
 	if f.failNext {
 		f.failNext = false
 		return nil, fmt.Errorf("injected failure")
 	}
-	return f.EncryptionService.Encrypt(ctx, bucket, data)
+	return f.EncryptionService.Encrypt(ctx, bucket, r)
 }
 
-func (f *FailingEncryptionService) Decrypt(ctx context.Context, bucket string, data []byte) ([]byte, error) {
+func (f *FailingEncryptionService) Decrypt(ctx context.Context, bucket string, r io.Reader) (io.Reader, error) {
 	if f.failNext {
 		f.failNext = false
 		return nil, fmt.Errorf("injected failure")
 	}
-	return f.EncryptionService.Decrypt(ctx, bucket, data)
+	return f.EncryptionService.Decrypt(ctx, bucket, r)
 }
 
 func setupStorageServiceIntegrationTest(t *testing.T) (ports.StorageService, ports.StorageRepository, *InMemFileStore, *FailingEncryptionService, postgres.DB, context.Context) {

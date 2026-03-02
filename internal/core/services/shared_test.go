@@ -1753,15 +1753,15 @@ type MockEncryptionService struct {
 	mock.Mock
 }
 
-func (m *MockEncryptionService) Encrypt(ctx context.Context, bucket string, data []byte) ([]byte, error) {
-	args := m.Called(ctx, bucket, data)
-	r0, _ := args.Get(0).([]byte)
+func (m *MockEncryptionService) Encrypt(ctx context.Context, bucket string, r io.Reader) (io.Reader, error) {
+	args := m.Called(ctx, bucket, r)
+	r0, _ := args.Get(0).(io.Reader)
 	return r0, args.Error(1)
 }
 
-func (m *MockEncryptionService) Decrypt(ctx context.Context, bucket string, encryptedData []byte) ([]byte, error) {
-	args := m.Called(ctx, bucket, encryptedData)
-	r0, _ := args.Get(0).([]byte)
+func (m *MockEncryptionService) Decrypt(ctx context.Context, bucket string, r io.Reader) (io.Reader, error) {
+	args := m.Called(ctx, bucket, r)
+	r0, _ := args.Get(0).(io.Reader)
 	return r0, args.Error(1)
 }
 

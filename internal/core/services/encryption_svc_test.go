@@ -1,7 +1,9 @@
 package services_test
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"testing"
 
 	"github.com/poyrazk/thecloud/internal/core/services"
@@ -55,23 +57,30 @@ func TestEncryptionService(t *testing.T) {
 		plaintext := []byte("top secret data")
 		_, _ = svc.CreateKey(ctx, bucket)
 
-		ciphertext, err := svc.Encrypt(ctx, bucket, plaintext)
+		cipherReader, err := svc.Encrypt(ctx, bucket, bytes.NewReader(plaintext))
+		require.NoError(t, err)
+
+		ciphertext, err := io.ReadAll(cipherReader)
 		require.NoError(t, err)
 		assert.NotEqual(t, plaintext, ciphertext)
 
-		decrypted, err := svc.Decrypt(ctx, bucket, ciphertext)
+		plainReader, err := svc.Decrypt(ctx, bucket, bytes.NewReader(ciphertext))
+		require.NoError(t, err)
+
+		decrypted, err := io.ReadAll(plainReader)
 		require.NoError(t, err)
 		assert.Equal(t, plaintext, decrypted)
 	})
 
 	t.Run("DecryptInvalidData", func(t *testing.T) {
 		_, _ = svc.CreateKey(ctx, bucket)
-		_, err := svc.Decrypt(ctx, bucket, []byte("short"))
+		_, err := svc.Decrypt(ctx, bucket, bytes.NewReader([]byte("short")))
 		require.Error(t, err)
 	})
 
 	t.Run("KeyNotFound", func(t *testing.T) {
-		_, err := svc.Encrypt(ctx, "non-existent", []byte("data"))
+		_, err := svc.Encrypt(ctx, "non-existent", bytes.NewReader([]byte("data")))
 		require.Error(t, err)
 	})
 }
+
