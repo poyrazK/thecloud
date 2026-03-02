@@ -360,3 +360,115 @@ func (h *ClusterHandler) RestoreBackup(c *gin.Context) {
 
 	httputil.Success(c, http.StatusOK, nil)
 }
+
+// NodeGroupRequest is the payload for adding/updating a node group.
+type NodeGroupRequest struct {
+	Name         string `json:"name" binding:"required"`
+	InstanceType string `json:"instance_type"`
+	MinSize      int    `json:"min_size"`
+	MaxSize      int    `json:"max_size"`
+	DesiredSize  int    `json:"desired_size"`
+}
+
+// UpdateNodeGroupRequest is the payload for updating a node group.
+type UpdateNodeGroupRequest struct {
+	MinSize     *int `json:"min_size"`
+	MaxSize     *int `json:"max_size"`
+	DesiredSize *int `json:"desired_size"`
+}
+
+// AddNodeGroup godoc
+// @Summary Add a node group to a cluster
+// @Description Creates a new pool of worker nodes
+// @Tags K8s
+// @Param id path string true "Cluster ID"
+// @Param request body NodeGroupRequest true "Node Group details"
+// @Success 201 {object} domain.NodeGroup
+// @Router /clusters/{id}/nodegroups [post]
+func (h *ClusterHandler) AddNodeGroup(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidClusterID))
+		return
+	}
+
+	var req NodeGroupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidRequest))
+		return
+	}
+
+	ng, err := h.svc.AddNodeGroup(c.Request.Context(), id, ports.NodeGroupParams{
+		Name:         req.Name,
+		InstanceType: req.InstanceType,
+		MinSize:      req.MinSize,
+		MaxSize:      req.MaxSize,
+		DesiredSize:  req.DesiredSize,
+	})
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusCreated, ng)
+}
+
+// UpdateNodeGroup godoc
+// @Summary Update a node group
+// @Description Modifies scaling boundaries or desired size of a node pool
+// @Tags K8s
+// @Param id path string true "Cluster ID"
+// @Param name path string true "Node Group Name"
+// @Param request body UpdateNodeGroupRequest true "Update details"
+// @Success 200 {object} domain.NodeGroup
+// @Router /clusters/{id}/nodegroups/{name} [put]
+func (h *ClusterHandler) UpdateNodeGroup(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidClusterID))
+		return
+	}
+
+	name := c.Param("name")
+	var req UpdateNodeGroupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidRequest))
+		return
+	}
+
+	ng, err := h.svc.UpdateNodeGroup(c.Request.Context(), id, name, ports.UpdateNodeGroupParams{
+		MinSize:     req.MinSize,
+		MaxSize:     req.MaxSize,
+		DesiredSize: req.DesiredSize,
+	})
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, ng)
+}
+
+// DeleteNodeGroup godoc
+// @Summary Delete a node group
+// @Description Removes a node pool and terminates its nodes
+// @Tags K8s
+// @Param id path string true "Cluster ID"
+// @Param name path string true "Node Group Name"
+// @Success 202
+// @Router /clusters/{id}/nodegroups/{name} [delete]
+func (h *ClusterHandler) DeleteNodeGroup(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidClusterID))
+		return
+	}
+
+	name := c.Param("name")
+	if err := h.svc.DeleteNodeGroup(c.Request.Context(), id, name); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusAccepted, nil)
+}

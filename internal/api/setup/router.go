@@ -322,6 +322,11 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		clusterGroup.POST("/:id/rotate-secrets", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.RotateSecrets)
 		clusterGroup.POST("/:id/backups", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.CreateBackup)
 		clusterGroup.POST("/:id/restore", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.RestoreBackup)
+
+		// Node Group management
+		clusterGroup.POST("/:id/nodegroups", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.AddNodeGroup)
+		clusterGroup.PUT("/:id/nodegroups/:name", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.UpdateNodeGroup)
+		clusterGroup.DELETE("/:id/nodegroups/:name", httputil.Permission(svcs.RBAC, domain.PermissionClusterDelete), handlers.Cluster.DeleteNodeGroup)
 	}
 }
 
