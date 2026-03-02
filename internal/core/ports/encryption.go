@@ -3,14 +3,15 @@ package ports
 
 import (
 	"context"
+	"io"
 )
 
 // EncryptionService handles encryption and decryption of data streams.
 type EncryptionService interface {
 	// Encrypt returns an encrypted version of the key and an initialization vector.
 	// For object storage, it might return a key ID or wrapper.
-	Encrypt(ctx context.Context, bucket string, data []byte) ([]byte, error)
-	Decrypt(ctx context.Context, bucket string, encryptedData []byte) ([]byte, error)
+	Encrypt(ctx context.Context, bucket string, r io.Reader) (io.Reader, error)
+	Decrypt(ctx context.Context, bucket string, r io.Reader) (io.Reader, error)
 
 	// CreateKey creates a new encryption key for a bucket
 	CreateKey(ctx context.Context, bucket string) (string, error)
