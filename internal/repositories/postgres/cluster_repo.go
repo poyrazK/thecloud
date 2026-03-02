@@ -58,7 +58,19 @@ func (r *ClusterRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 		FROM clusters
 		WHERE id = $1 AND user_id = $2
 	`
-	return r.scanCluster(r.db.QueryRow(ctx, query, id, userID))
+	cluster, err := r.scanCluster(r.db.QueryRow(ctx, query, id, userID))
+	if err != nil || cluster == nil {
+		return cluster, err
+	}
+
+	// Fetch Node Groups
+	ngs, err := r.GetNodeGroups(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	cluster.NodeGroups = ngs
+
+	return cluster, nil
 }
 
 func (r *ClusterRepository) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Cluster, error) {
@@ -100,6 +112,11 @@ func (r *ClusterRepository) list(ctx context.Context, query string, args ...any)
 		c, err := r.scanCluster(rows)
 		if err != nil {
 			return nil, err
+		}
+		// Fetch Node Groups for each cluster in the list
+		ngs, err := r.GetNodeGroups(ctx, c.ID)
+		if err == nil {
+			c.NodeGroups = ngs
 		}
 		clusters = append(clusters, c)
 	}
@@ -196,6 +213,63 @@ func (r *ClusterRepository) DeleteNode(ctx context.Context, nodeID uuid.UUID) er
 	_, err := r.db.Exec(ctx, query, nodeID)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to delete cluster node", err)
+	}
+	return nil
+}
+
+func (r *ClusterRepository) AddNodeGroup(ctx context.Context, ng *domain.NodeGroup) error {
+	query := `
+		INSERT INTO cluster_node_groups (id, cluster_id, name, instance_type, min_size, max_size, current_size, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`
+	_, err := r.db.Exec(ctx, query, ng.ID, ng.ClusterID, ng.Name, ng.InstanceType, ng.MinSize, ng.MaxSize, ng.CurrentSize, ng.CreatedAt, ng.UpdatedAt)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to add node group", err)
+	}
+	return nil
+}
+
+func (r *ClusterRepository) GetNodeGroups(ctx context.Context, clusterID uuid.UUID) ([]domain.NodeGroup, error) {
+	query := `
+		SELECT id, cluster_id, name, instance_type, min_size, max_size, current_size, created_at, updated_at
+		FROM cluster_node_groups
+		WHERE cluster_id = $1
+	`
+	rows, err := r.db.Query(ctx, query, clusterID)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to get node groups", err)
+	}
+	defer rows.Close()
+
+	var groups []domain.NodeGroup
+	for rows.Next() {
+		var ng domain.NodeGroup
+		if err := rows.Scan(&ng.ID, &ng.ClusterID, &ng.Name, &ng.InstanceType, &ng.MinSize, &ng.MaxSize, &ng.CurrentSize, &ng.CreatedAt, &ng.UpdatedAt); err != nil {
+			return nil, errors.Wrap(errors.Internal, "failed to scan node group", err)
+		}
+		groups = append(groups, ng)
+	}
+	return groups, nil
+}
+
+func (r *ClusterRepository) UpdateNodeGroup(ctx context.Context, ng *domain.NodeGroup) error {
+	query := `
+		UPDATE cluster_node_groups
+		SET instance_type = $1, min_size = $2, max_size = $3, current_size = $4, updated_at = $5
+		WHERE cluster_id = $6 AND name = $7
+	`
+	_, err := r.db.Exec(ctx, query, ng.InstanceType, ng.MinSize, ng.MaxSize, ng.CurrentSize, time.Now(), ng.ClusterID, ng.Name)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to update node group", err)
+	}
+	return nil
+}
+
+func (r *ClusterRepository) DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error {
+	query := `DELETE FROM cluster_node_groups WHERE cluster_id = $1 AND name = $2`
+	_, err := r.db.Exec(ctx, query, clusterID, name)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to delete node group", err)
 	}
 	return nil
 }
