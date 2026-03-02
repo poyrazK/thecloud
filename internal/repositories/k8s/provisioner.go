@@ -120,6 +120,7 @@ func (p *KubeadmProvisioner) provisionControlPlane(ctx context.Context, cluster 
 	}
 
 	userData, err := p.renderTemplate("control_plane.yaml", map[string]interface{}{
+		"ClusterID":   cluster.ID.String(),
 		"PodCIDR":     cluster.PodCIDR,
 		"ServiceCIDR": cluster.ServiceCIDR,
 		"HAEnabled":   cluster.HAEnabled,
@@ -198,28 +199,45 @@ func (p *KubeadmProvisioner) provisionWorkers(ctx context.Context, cluster *doma
 		return p.failCluster(ctx, cluster, "failed to render worker template", err)
 	}
 
-	for i := 0; i < cluster.WorkerCount; i++ {
-		workerName := fmt.Sprintf("%s-worker-%d", cluster.Name, i)
-		workerInst, err := p.instSvc.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
-			Name:      workerName,
-			ImageName: "ubuntu-22.04",
-			NetworkID: cluster.VpcID.String(),
-			UserData:  userData,
-		})
-		if err != nil {
-			p.logger.Error("failed to create worker node", "name", workerName, "error", err)
-			continue
+	// For legacy compatibility, if no NodeGroups exist, create them from cluster.WorkerCount
+	if len(cluster.NodeGroups) == 0 {
+		cluster.NodeGroups = []domain.NodeGroup{
+			{
+				Name:         "default-pool",
+				InstanceType: "standard-1",
+				CurrentSize:  cluster.WorkerCount,
+			},
 		}
+	}
 
-		node := &domain.ClusterNode{
-			ID:         uuid.New(),
-			ClusterID:  cluster.ID,
-			InstanceID: workerInst.ID,
-			Role:       domain.NodeRoleWorker,
-			Status:     "provisioning",
-			JoinedAt:   time.Now(),
+	for _, ng := range cluster.NodeGroups {
+		for i := 0; i < ng.CurrentSize; i++ {
+			workerName := fmt.Sprintf("%s-%s-%d", cluster.Name, ng.Name, i)
+			workerInst, err := p.instSvc.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+				Name:      workerName,
+				ImageName: "ubuntu-22.04",
+				NetworkID: cluster.VpcID.String(),
+				UserData:  userData,
+				Metadata: map[string]string{
+					"thecloud.io/cluster-id": cluster.ID.String(),
+					"thecloud.io/node-group": ng.Name,
+				},
+			})
+			if err != nil {
+				p.logger.Error("failed to create worker node", "name", workerName, "error", err)
+				continue
+			}
+
+			node := &domain.ClusterNode{
+				ID:         uuid.New(),
+				ClusterID:  cluster.ID,
+				InstanceID: workerInst.ID,
+				Role:       domain.NodeRoleWorker,
+				Status:     "provisioning",
+				JoinedAt:   time.Now(),
+			}
+			_ = p.repo.AddNode(ctx, node)
 		}
-		_ = p.repo.AddNode(ctx, node)
 	}
 
 	return nil
@@ -585,3 +603,4 @@ func (p *KubeadmProvisioner) Restore(ctx context.Context, cluster *domain.Cluste
 	// Implementing a full restore requires careful node-by-node handling.
 	return errors.New(errors.NotImplemented, "restore not yet fully implemented")
 }
+
