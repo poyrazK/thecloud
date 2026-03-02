@@ -17,7 +17,10 @@ import (
 	pb "github.com/poyrazk/thecloud/internal/storage/protocol"
 )
 
-const errNoNodesAvailable = "no storage nodes available"
+const (
+	errNoNodesAvailable = "no storage nodes available"
+	chunkSize           = 1024 * 1024 // 1MB chunks
+)
 
 // Coordinator implements ports.FileStore to manage distributed storage.
 type Coordinator struct {
@@ -175,61 +178,106 @@ func (c *Coordinator) Stop() {
 	close(c.stopCh)
 }
 
-// Write saves data to the cluster with replication.
+// Write saves data to the cluster with replication using gRPC streaming.
 func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader) (int64, error) {
-	// 1. Read all data (Phase 1 simplification)
-	b, err := io.ReadAll(r)
-	if err != nil {
-		return 0, err
-	}
-	size := int64(len(b))
-
-	// 2. Get target nodes
 	nodes := c.ring.GetNodes(bucket+"/"+key, c.replicaCount)
 	if len(nodes) == 0 {
 		return 0, fmt.Errorf("%s", errNoNodesAvailable)
 	}
 
-	// 3. Parallel Write
-	var wg sync.WaitGroup
-	successCount := 0
-	var mu sync.Mutex
-	var lastErr error
+	ts := time.Now().UnixNano()
 
+	// 1. Initialize streams to all target nodes
+	type nodeStream struct {
+		id     string
+		stream pb.StorageNode_StoreClient
+	}
+	streams := make([]nodeStream, 0, len(nodes))
 	for _, nodeID := range nodes {
 		client, ok := c.clients[nodeID]
 		if !ok {
 			continue
 		}
-
-		wg.Add(1)
-		go func(_ string, cl pb.StorageNodeClient) {
-			defer wg.Done()
-			// Use current time as timestamp for LWW
-			ts := time.Now().UnixNano()
-			_, err := cl.Store(ctx, &pb.StoreRequest{Bucket: bucket, Key: key, Data: b, Timestamp: ts})
-			mu.Lock()
-			defer mu.Unlock()
-			if err != nil {
-				lastErr = err
-			} else {
-				successCount++
-			}
-		}(nodeID, client)
+		st, err := client.Store(ctx)
+		if err != nil {
+			continue
+		}
+		// Send metadata first
+		err = st.Send(&pb.StoreRequest{
+			Payload: &pb.StoreRequest_Metadata{
+				Metadata: &pb.StoreMetadata{
+					Bucket:    bucket,
+					Key:       key,
+					Timestamp: ts,
+				},
+			},
+		})
+		if err != nil {
+			continue
+		}
+		streams = append(streams, nodeStream{id: nodeID, stream: st})
 	}
-	wg.Wait()
 
-	// 4. Check Quorum
+	if len(streams) == 0 {
+		return 0, fmt.Errorf("failed to initialize any streams")
+	}
+
+	// 2. Pipe chunks to all streams
+	buf := make([]byte, chunkSize)
+	var totalSize int64
+	for {
+		n, err := r.Read(buf)
+		if n > 0 {
+			totalSize += int64(n)
+			// Broadcast chunk
+			for i := 0; i < len(streams); i++ {
+				errSend := streams[i].stream.Send(&pb.StoreRequest{
+					Payload: &pb.StoreRequest_ChunkData{
+						ChunkData: buf[:n],
+					},
+				})
+				if errSend != nil {
+					// Remove failed stream
+					streams = append(streams[:i], streams[i+1:]...)
+					i--
+				}
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return totalSize, err
+		}
+	}
+
+	// 3. Close streams and check responses
+	successCount := 0
+	var lastErr error
+	for _, ns := range streams {
+		resp, err := ns.stream.CloseAndRecv()
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if resp.Success {
+			successCount++
+		} else {
+			lastErr = fmt.Errorf("%s: %s", ns.id, resp.Error)
+		}
+	}
+
+	// 4. Quorum check
 	if successCount < c.writeQuorum {
 		platform.StorageOperations.WithLabelValues("cluster_write", bucket, "quorum_failure").Inc()
-		return 0, fmt.Errorf("write quorum failed (%d/%d): %w", successCount, c.writeQuorum, lastErr)
+		return totalSize, fmt.Errorf("write quorum failed (%d/%d): %w", successCount, c.writeQuorum, lastErr)
 	}
 
 	platform.StorageOperations.WithLabelValues("cluster_write", bucket, "success").Inc()
-	return size, nil
+	return totalSize, nil
 }
 
-// Read retrieves data from the cluster with Read Repair.
+// Read retrieves data from the cluster using gRPC streaming and Read Repair.
 func (c *Coordinator) Read(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
 	nodes := c.ring.GetNodes(bucket+"/"+key, c.replicaCount)
 	if len(nodes) == 0 {
@@ -237,21 +285,14 @@ func (c *Coordinator) Read(ctx context.Context, bucket, key string) (io.ReadClos
 	}
 
 	results := c.collectReadResults(ctx, bucket, key, nodes)
-	latest, validResults, repairNodes, foundCount := c.processReadResults(results)
+	latest, _, repairNodes, foundCount := c.processReadResults(results)
 
 	if foundCount == 0 {
 		platform.StorageOperations.WithLabelValues("cluster_read", bucket, "not_found").Inc()
 		return nil, fmt.Errorf("object not found")
 	}
 
-	// Read Repair: Check for stale nodes
-	for _, res := range validResults {
-		if res.timestamp < latest.timestamp {
-			repairNodes = append(repairNodes, res.nodeID)
-		}
-	}
-
-	// Async Repair
+	// Async Repair for nodes that were missing/stale
 	if len(repairNodes) > 0 {
 		go c.repairNodes(context.Background(), bucket, key, latest.data, latest.timestamp, repairNodes)
 	}
@@ -280,12 +321,34 @@ func (c *Coordinator) collectReadResults(ctx context.Context, bucket, key string
 		wg.Add(1)
 		go func(id string, cl pb.StorageNodeClient) {
 			defer wg.Done()
-			resp, err := cl.Retrieve(ctx, &pb.RetrieveRequest{Bucket: bucket, Key: key})
+			st, err := cl.Retrieve(ctx, &pb.RetrieveRequest{Bucket: bucket, Key: key})
 			if err != nil {
 				results <- readResult{nodeID: id, err: err}
 				return
 			}
-			results <- readResult{nodeID: id, data: resp.Data, timestamp: resp.Timestamp, found: resp.Found}
+
+			var fullData bytes.Buffer
+			var ts int64
+			found := false
+			for {
+				resp, err := st.Recv()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					results <- readResult{nodeID: id, err: err}
+					return
+				}
+
+				switch p := resp.Payload.(type) {
+				case *pb.RetrieveResponse_Metadata:
+					found = p.Metadata.Found
+					ts = p.Metadata.Timestamp
+				case *pb.RetrieveResponse_ChunkData:
+					fullData.Write(p.ChunkData)
+				}
+			}
+			results <- readResult{nodeID: id, data: fullData.Bytes(), timestamp: ts, found: found}
 		}(nodeID, client)
 	}
 
@@ -319,20 +382,39 @@ func (c *Coordinator) processReadResults(results chan readResult) (readResult, [
 		}
 	}
 
+	// Read Repair: Add stale nodes to repair list
+	for _, res := range validResults {
+		if res.timestamp < latest.timestamp {
+			repairNodes = append(repairNodes, res.nodeID)
+		}
+	}
+
 	return latest, validResults, repairNodes, foundCount
 }
 
 func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, data []byte, timestamp int64, nodes []string) {
-	// Simple repair: write latest data to stale/missing nodes
+	// Refactored repair to use streaming write
 	for _, nodeID := range nodes {
 		if client, ok := c.clients[nodeID]; ok {
-			// Use background context or detached context
-			_, _ = client.Store(ctx, &pb.StoreRequest{
-				Bucket:    bucket,
-				Key:       key,
-				Data:      data,
-				Timestamp: timestamp,
+			st, err := client.Store(ctx)
+			if err != nil {
+				continue
+			}
+			_ = st.Send(&pb.StoreRequest{
+				Payload: &pb.StoreRequest_Metadata{
+					Metadata: &pb.StoreMetadata{
+						Bucket:    bucket,
+						Key:       key,
+						Timestamp: timestamp,
+					},
+				},
 			})
+			_ = st.Send(&pb.StoreRequest{
+				Payload: &pb.StoreRequest_ChunkData{
+					ChunkData: data,
+				},
+			})
+			_, _ = st.CloseAndRecv()
 		}
 	}
 }
