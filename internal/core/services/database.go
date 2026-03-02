@@ -375,7 +375,7 @@ func (s *DatabaseService) getPoolerConfig(engine domain.DatabaseEngine, dbIP, us
 			"MAX_CLIENT_CONN=1000",
 			"DEFAULT_POOL_SIZE=20",
 		}
-		return "bitnami/pgbouncer:latest", env, "6432"
+		return "edoburu/pgbouncer:latest", env, "5432"
 	}
 	return "", nil, ""
 }

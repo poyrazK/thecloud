@@ -319,6 +319,9 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 			return strings.Contains(opts.Name, "exporter")
 		})).Return("exp-cid", []string{"30002:9187"}, nil).Once()
 
+		// Mock GetInstancePort because parseAllocatedPort might fail if ports are empty or formatted differently
+		mockCompute.On("GetInstancePort", mock.Anything, "exp-cid", "9187").Return(30002, nil).Maybe()
+
 		mockRepo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 		mockEventSvc.On("RecordEvent", mock.Anything, "DATABASE_CREATE", mock.Anything, "DATABASE", mock.Anything).Return(nil).Once()
 		mockAuditSvc.On("Log", mock.Anything, mock.Anything, "database.create", "database", mock.Anything, mock.Anything).Return(nil).Once()
@@ -341,10 +344,13 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 
 		mockCompute.On("GetInstanceIP", mock.Anything, "db-cid").Return("10.0.0.5", nil).Once()
 
-		// Pooler sidecar container
+		// Pooler sidecar container - internal port is now 5432
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
 			return strings.Contains(opts.Name, "pooler")
-		})).Return("pooler-cid", []string{"30003:6432"}, nil).Once()
+		})).Return("pooler-cid", []string{"30003:5432"}, nil).Once()
+
+		// Mock GetInstancePort for the pooler sidecar
+		mockCompute.On("GetInstancePort", mock.Anything, "pooler-cid", "5432").Return(30003, nil).Maybe()
 
 		mockRepo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 		mockEventSvc.On("RecordEvent", mock.Anything, "DATABASE_CREATE", mock.Anything, "DATABASE", mock.Anything).Return(nil).Once()
