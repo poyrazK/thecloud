@@ -2,9 +2,7 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
-	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	cloudprovider "k8s.io/cloud-provider"
@@ -22,15 +20,19 @@ import (
 )
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+}
 
+func run() error {
 	logs.InitLogs()
 	defer logs.FlushLogs()
 
 	ccmOptions, err := options.NewCloudControllerManagerOptions()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "unable to initialize command options: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("unable to initialize command options: %w", err)
 	}
 
 	command := app.NewCloudControllerManagerCommand(
@@ -45,10 +47,7 @@ func main() {
 	// Explicitly add Go flags to the command (for klog)
 	pflag.CommandLine.AddGoFlagSet(nil)
 
-	if err := command.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
+	return command.Execute()
 }
 
 func cloudInitializer(config *config.CompletedConfig) cloudprovider.Interface {

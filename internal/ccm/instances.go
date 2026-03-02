@@ -82,7 +82,7 @@ func (i *instances) InstanceMetadata(ctx context.Context, node *v1.Node) (*cloud
 }
 
 // Helper to get an instance by node's ProviderID or Name
-func (i *instances) getInstance(ctx context.Context, node *v1.Node) (*sdk.Instance, error) {
+func (i *instances) getInstance(_ context.Context, node *v1.Node) (*sdk.Instance, error) {
 	id := ""
 	if node.Spec.ProviderID != "" {
 		id = strings.TrimPrefix(node.Spec.ProviderID, ProviderName+"://")

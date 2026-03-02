@@ -71,7 +71,7 @@ func (l *loadbalancer) EnsureLoadBalancer(ctx context.Context, clusterName strin
 
 	inst, err := l.client.GetInstance(nodes[0].Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get instance for node %s to determine VPC: %v", nodes[0].Name, err)
+		return nil, fmt.Errorf("failed to get instance for node %s to determine VPC: %w", nodes[0].Name, err)
 	}
 	vpcID := inst.VpcID
 	if vpcID == "" {
@@ -87,7 +87,7 @@ func (l *loadbalancer) EnsureLoadBalancer(ctx context.Context, clusterName strin
 		klog.Infof("Creating new LB %s in VPC %s for port %d", name, vpcID, port)
 		lb, err = l.client.CreateLB(name, vpcID, port, "round-robin")
 		if err != nil {
-			return nil, fmt.Errorf("failed to create LB: %v", err)
+			return nil, fmt.Errorf("failed to create LB: %w", err)
 		}
 	}
 
@@ -141,7 +141,7 @@ func (l *loadbalancer) EnsureLoadBalancerDeleted(ctx context.Context, clusterNam
 
 	err = l.client.DeleteLB(lb.ID)
 	if err != nil {
-		return fmt.Errorf("failed to delete LB %s: %v", lb.ID, err)
+		return fmt.Errorf("failed to delete LB %s: %w", lb.ID, err)
 	}
 
 	return nil
@@ -152,7 +152,7 @@ func (l *loadbalancer) EnsureLoadBalancerDeleted(ctx context.Context, clusterNam
 func (l *loadbalancer) findLBByName(name string) (*sdk.LoadBalancer, error) {
 	lbs, err := l.client.ListLBs()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list LBs: %v", err)
+		return nil, fmt.Errorf("failed to list LBs: %w", err)
 	}
 
 	for _, lb := range lbs {
@@ -169,7 +169,7 @@ func (l *loadbalancer) findLBByName(name string) (*sdk.LoadBalancer, error) {
 func (l *loadbalancer) reconcileTargets(lbID string, nodePort int32, nodes []*v1.Node) error {
 	existingTargets, err := l.client.ListLBTargets(lbID)
 	if err != nil {
-		return fmt.Errorf("failed to list LB targets: %v", err)
+		return fmt.Errorf("failed to list LB targets: %w", err)
 	}
 
 	// Build sets for quick lookup
@@ -188,7 +188,7 @@ func (l *loadbalancer) reconcileTargets(lbID string, nodePort int32, nodes []*v1
 	// We need instances to match Names to IDs
 	instances, err := l.client.ListInstances()
 	if err != nil {
-		return fmt.Errorf("failed to list instances for target reconciliation: %v", err)
+		return fmt.Errorf("failed to list instances for target reconciliation: %w", err)
 	}
 
 	instanceNameToID := make(map[string]string)
@@ -208,7 +208,7 @@ func (l *loadbalancer) reconcileTargets(lbID string, nodePort int32, nodes []*v1
 			klog.Infof("Adding node %s (ID: %s) to LB %s", nodeName, instID, lbID)
 			err := l.client.AddLBTarget(lbID, instID, int(nodePort), 1)
 			if err != nil && !strings.Contains(err.Error(), "already exists") {
-				return fmt.Errorf("failed to add target %s: %v", instID, err)
+				return fmt.Errorf("failed to add target %s: %w", instID, err)
 			}
 		}
 	}
@@ -226,7 +226,7 @@ func (l *loadbalancer) reconcileTargets(lbID string, nodePort int32, nodes []*v1
 			klog.Infof("Removing stale node (ID: %s) from LB %s", instID, lbID)
 			err := l.client.RemoveLBTarget(lbID, instID)
 			if err != nil && !strings.Contains(err.Error(), "not found") {
-				return fmt.Errorf("failed to remove target %s: %v", instID, err)
+				return fmt.Errorf("failed to remove target %s: %w", instID, err)
 			}
 		}
 	}

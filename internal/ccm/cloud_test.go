@@ -5,13 +5,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	cloudprovider "k8s.io/cloud-provider"
 )
 
 func TestProviderRegistration(t *testing.T) {
 	os.Setenv("CLOUD_API_KEY", "dummy")
 	cloud, err := cloudprovider.GetCloudProvider(ProviderName, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, cloud)
 	assert.Equal(t, ProviderName, cloud.ProviderName())
 	

@@ -27,7 +27,7 @@ func TestInstancesV2(t *testing.T) {
 				InstanceType: "standard-2",
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(sdk.Response[sdk.Instance]{Data: inst})
+			_ = json.NewEncoder(w).Encode(sdk.Response[sdk.Instance]{Data: inst})
 			return
 		}
 		if r.URL.Path == "/instances/stopped-node" {
@@ -36,7 +36,7 @@ func TestInstancesV2(t *testing.T) {
 				Status: "STOPPED",
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(sdk.Response[sdk.Instance]{Data: inst})
+			_ = json.NewEncoder(w).Encode(sdk.Response[sdk.Instance]{Data: inst})
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -59,24 +59,24 @@ func TestInstancesV2(t *testing.T) {
 	t.Run("InstanceExists", func(t *testing.T) {
 		node := &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "test-node"}}
 		exists, err := insts.InstanceExists(context.Background(), node)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists)
 
 		nodeMissing := &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "missing-node"}}
 		exists, err = insts.InstanceExists(context.Background(), nodeMissing)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, exists)
 	})
 
 	t.Run("InstanceShutdown", func(t *testing.T) {
 		nodeRunning := &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "test-node"}}
 		shutdown, err := insts.InstanceShutdown(context.Background(), nodeRunning)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, shutdown)
 
 		nodeStopped := &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "stopped-node"}}
 		shutdown, err = insts.InstanceShutdown(context.Background(), nodeStopped)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, shutdown)
 	})
 }

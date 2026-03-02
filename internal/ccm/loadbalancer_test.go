@@ -29,7 +29,7 @@ func TestLoadBalancer(t *testing.T) {
 		
 		// List LBs
 		if r.Method == "GET" && r.URL.Path == "/lb" {
-			json.NewEncoder(w).Encode(sdk.Response[[]sdk.LoadBalancer]{Data: lbs})
+			_ = json.NewEncoder(w).Encode(sdk.Response[[]sdk.LoadBalancer]{Data: lbs})
 			return
 		}
 		
@@ -40,7 +40,7 @@ func TestLoadBalancer(t *testing.T) {
 				VpcID string `json:"vpc_id"`
 				Port  int    `json:"port"`
 			}
-			json.NewDecoder(r.Body).Decode(&input)
+			_ = json.NewDecoder(r.Body).Decode(&input)
 			newLB := sdk.LoadBalancer{
 				ID:    uuid.New().String(),
 				Name:  input.Name,
@@ -48,7 +48,7 @@ func TestLoadBalancer(t *testing.T) {
 				Port:  input.Port,
 			}
 			lbs = append(lbs, newLB)
-			json.NewEncoder(w).Encode(sdk.Response[sdk.LoadBalancer]{Data: newLB})
+			_ = json.NewEncoder(w).Encode(sdk.Response[sdk.LoadBalancer]{Data: newLB})
 			return
 		}
 
@@ -61,7 +61,7 @@ func TestLoadBalancer(t *testing.T) {
 					break
 				}
 			}
-			json.NewEncoder(w).Encode(sdk.Response[any]{})
+			_ = json.NewEncoder(w).Encode(sdk.Response[any]{})
 			return
 		}
 		
@@ -73,7 +73,7 @@ func TestLoadBalancer(t *testing.T) {
 				Name:  id,
 				VpcID: vpcID,
 			}
-			json.NewEncoder(w).Encode(sdk.Response[sdk.Instance]{Data: inst})
+			_ = json.NewEncoder(w).Encode(sdk.Response[sdk.Instance]{Data: inst})
 			return
 		}
 		
@@ -84,7 +84,7 @@ func TestLoadBalancer(t *testing.T) {
 				{ID: "inst-2", Name: "node-2", VpcID: vpcID},
 				{ID: "inst-3", Name: "node-3", VpcID: vpcID},
 			}
-			json.NewEncoder(w).Encode(sdk.Response[[]sdk.Instance]{Data: insts})
+			_ = json.NewEncoder(w).Encode(sdk.Response[[]sdk.Instance]{Data: insts})
 			return
 		}
 		
@@ -92,7 +92,7 @@ func TestLoadBalancer(t *testing.T) {
 		if r.Method == "GET" && strings.HasSuffix(r.URL.Path, "/targets") {
 			parts := strings.Split(r.URL.Path, "/")
 			lbID := parts[2]
-			json.NewEncoder(w).Encode(sdk.Response[[]sdk.LBTarget]{Data: targets[lbID]})
+			_ = json.NewEncoder(w).Encode(sdk.Response[[]sdk.LBTarget]{Data: targets[lbID]})
 			return
 		}
 		
@@ -105,13 +105,13 @@ func TestLoadBalancer(t *testing.T) {
 				Port       int    `json:"port"`
 				Weight     int    `json:"weight"`
 			}
-			json.NewDecoder(r.Body).Decode(&input)
+			_ = json.NewDecoder(r.Body).Decode(&input)
 			targets[lbID] = append(targets[lbID], sdk.LBTarget{
 				InstanceID: input.InstanceID,
 				Port:       input.Port,
 				Weight:     input.Weight,
 			})
-			json.NewEncoder(w).Encode(sdk.Response[any]{})
+			_ = json.NewEncoder(w).Encode(sdk.Response[any]{})
 			return
 		}
 
@@ -128,7 +128,7 @@ func TestLoadBalancer(t *testing.T) {
 				}
 			}
 			targets[lbID] = filtered
-			json.NewEncoder(w).Encode(sdk.Response[any]{})
+			_ = json.NewEncoder(w).Encode(sdk.Response[any]{})
 			return
 		}
 
@@ -198,6 +198,6 @@ func TestLoadBalancer(t *testing.T) {
 	t.Run("EnsureLoadBalancerDeleted", func(t *testing.T) {
 		err := lbProvider.EnsureLoadBalancerDeleted(context.Background(), "test-cluster", svc)
 		require.NoError(t, err)
-		assert.Len(t, lbs, 0)
+		assert.Empty(t, lbs)
 	})
 }
