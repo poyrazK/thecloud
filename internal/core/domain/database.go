@@ -65,4 +65,7 @@ type Database struct {
 	MetricsEnabled      bool              `json:"metrics_enabled"`
 	MetricsPort         int               `json:"metrics_port,omitempty"`
 	ExporterContainerID string            `json:"-"`
+	PoolingEnabled      bool              `json:"pooling_enabled"`
+	PoolingPort         int               `json:"pooling_port,omitempty"`
+	PoolerContainerID   string            `json:"-"`
 }
