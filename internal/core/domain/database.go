@@ -60,6 +60,9 @@ type Database struct {
 	Password         string            `json:"-"` // Never serialize password to JSON
 	CreatedAt        time.Time         `json:"created_at"`
 	UpdatedAt        time.Time         `json:"updated_at"`
-	AllocatedStorage int               `json:"allocated_storage"`
-	Parameters       map[string]string `json:"parameters,omitempty"`
+	AllocatedStorage    int               `json:"allocated_storage"`
+	Parameters          map[string]string `json:"parameters,omitempty"`
+	MetricsEnabled      bool              `json:"metrics_enabled"`
+	MetricsPort         int               `json:"metrics_port,omitempty"`
+	ExporterContainerID string            `json:"-"`
 }
