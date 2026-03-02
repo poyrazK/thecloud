@@ -13,12 +13,15 @@ import (
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	cloudprovider "k8s.io/cloud-provider"
 )
 
 func TestInstancesV2(t *testing.T) {
 	// Setup a real HTTP server to act as the Cloud API
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/instances/test-node" {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/instances/test-node":
 			inst := sdk.Instance{
 				ID:           "inst-123",
 				Name:         "test-node",
@@ -26,57 +29,97 @@ func TestInstancesV2(t *testing.T) {
 				Status:       "RUNNING",
 				InstanceType: "standard-2",
 			}
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(sdk.Response[sdk.Instance]{Data: inst})
-			return
-		}
-		if r.URL.Path == "/instances/stopped-node" {
+			if err := json.NewEncoder(w).Encode(sdk.Response[sdk.Instance]{Data: inst}); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+		case "/instances/stopped-node":
 			inst := sdk.Instance{
 				ID:     "inst-456",
-				Status: "STOPPED",
+				Status: StatusStopped,
 			}
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(sdk.Response[sdk.Instance]{Data: inst})
-			return
+			if err := json.NewEncoder(w).Encode(sdk.Response[sdk.Instance]{Data: inst}); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = fmt.Fprint(w, `{"error": {"message": "not found"}}`)
 		}
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprint(w, `{"error": {"message": "not found"}}`)
 	}))
 	defer server.Close()
 
 	client := sdk.NewClient(server.URL, "test-key")
 	insts := newInstancesV2(client)
 
-	t.Run("InstanceMetadata", func(t *testing.T) {
-		node := &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "test-node"}}
-		meta, err := insts.InstanceMetadata(context.Background(), node)
-		require.NoError(t, err)
-		assert.Equal(t, "thecloud://inst-123", meta.ProviderID)
-		assert.Equal(t, "standard-2", meta.InstanceType)
-		assert.Contains(t, meta.NodeAddresses, v1.NodeAddress{Type: v1.NodeInternalIP, Address: "10.0.0.5"})
-	})
+	type testCase struct {
+		name           string
+		nodeName       string
+		testFn         func(context.Context, *v1.Node) (interface{}, error)
+		expectedResult interface{}
+		expectError    bool
+	}
 
-	t.Run("InstanceExists", func(t *testing.T) {
-		node := &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "test-node"}}
-		exists, err := insts.InstanceExists(context.Background(), node)
-		require.NoError(t, err)
-		assert.True(t, exists)
+	tests := []testCase{
+		{
+			name:     "InstanceMetadata_Success",
+			nodeName: "test-node",
+			testFn: func(ctx context.Context, n *v1.Node) (interface{}, error) {
+				return insts.InstanceMetadata(ctx, n)
+			},
+			expectedResult: &cloudprovider.InstanceMetadata{
+				ProviderID:   "thecloud://inst-123",
+				InstanceType: "standard-2",
+				NodeAddresses: []v1.NodeAddress{
+					{Type: v1.NodeInternalIP, Address: "10.0.0.5"},
+					{Type: v1.NodeHostName, Address: "test-node"},
+				},
+				Zone:   "local",
+				Region: "local",
+			},
+		},
+		{
+			name:     "InstanceExists_True",
+			nodeName: "test-node",
+			testFn: func(ctx context.Context, n *v1.Node) (interface{}, error) {
+				return insts.InstanceExists(ctx, n)
+			},
+			expectedResult: true,
+		},
+		{
+			name:     "InstanceExists_False",
+			nodeName: "missing-node",
+			testFn: func(ctx context.Context, n *v1.Node) (interface{}, error) {
+				return insts.InstanceExists(ctx, n)
+			},
+			expectedResult: false,
+		},
+		{
+			name:     "InstanceShutdown_False",
+			nodeName: "test-node",
+			testFn: func(ctx context.Context, n *v1.Node) (interface{}, error) {
+				return insts.InstanceShutdown(ctx, n)
+			},
+			expectedResult: false,
+		},
+		{
+			name:     "InstanceShutdown_True",
+			nodeName: "stopped-node",
+			testFn: func(ctx context.Context, n *v1.Node) (interface{}, error) {
+				return insts.InstanceShutdown(ctx, n)
+			},
+			expectedResult: true,
+		},
+	}
 
-		nodeMissing := &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "missing-node"}}
-		exists, err = insts.InstanceExists(context.Background(), nodeMissing)
-		require.NoError(t, err)
-		assert.False(t, exists)
-	})
-
-	t.Run("InstanceShutdown", func(t *testing.T) {
-		nodeRunning := &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "test-node"}}
-		shutdown, err := insts.InstanceShutdown(context.Background(), nodeRunning)
-		require.NoError(t, err)
-		assert.False(t, shutdown)
-
-		nodeStopped := &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "stopped-node"}}
-		shutdown, err = insts.InstanceShutdown(context.Background(), nodeStopped)
-		require.NoError(t, err)
-		assert.True(t, shutdown)
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			node := &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: tt.nodeName}}
+			res, err := tt.testFn(context.Background(), node)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.expectedResult, res)
+			}
+		})
+	}
 }

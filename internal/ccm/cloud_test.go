@@ -1,7 +1,6 @@
 package ccm
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,39 +9,81 @@ import (
 )
 
 func TestProviderRegistration(t *testing.T) {
-	os.Setenv("CLOUD_API_KEY", "dummy")
+	t.Setenv("CLOUD_API_KEY", "dummy")
 	cloud, err := cloudprovider.GetCloudProvider(ProviderName, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, cloud)
 	assert.Equal(t, ProviderName, cloud.ProviderName())
-	
-	// Test other interface methods
-	lb, supported := cloud.LoadBalancer()
-	assert.True(t, supported)
-	assert.NotNil(t, lb)
 
-	inst, supported := cloud.Instances()
-	assert.False(t, supported)
-	assert.Nil(t, inst)
+	tests := []struct {
+		name      string
+		fn        func() (interface{}, bool)
+		supported bool
+	}{
+		{
+			name: "LoadBalancer",
+			fn: func() (interface{}, bool) {
+				lb, ok := cloud.LoadBalancer()
+				return lb, ok
+			},
+			supported: true,
+		},
+		{
+			name: "Instances",
+			fn: func() (interface{}, bool) {
+				inst, ok := cloud.Instances()
+				return inst, ok
+			},
+			supported: false,
+		},
+		{
+			name: "InstancesV2",
+			fn: func() (interface{}, bool) {
+				instV2, ok := cloud.InstancesV2()
+				return instV2, ok
+			},
+			supported: true,
+		},
+		{
+			name: "Zones",
+			fn: func() (interface{}, bool) {
+				zones, ok := cloud.Zones()
+				return zones, ok
+			},
+			supported: false,
+		},
+		{
+			name: "Clusters",
+			fn: func() (interface{}, bool) {
+				clusters, ok := cloud.Clusters()
+				return clusters, ok
+			},
+			supported: false,
+		},
+		{
+			name: "Routes",
+			fn: func() (interface{}, bool) {
+				routes, ok := cloud.Routes()
+				return routes, ok
+			},
+			supported: false,
+		},
+	}
 
-	instV2, supported := cloud.InstancesV2()
-	assert.True(t, supported)
-	assert.NotNil(t, instV2)
-
-	zones, supported := cloud.Zones()
-	assert.False(t, supported)
-	assert.Nil(t, zones)
-
-	clusters, supported := cloud.Clusters()
-	assert.False(t, supported)
-	assert.Nil(t, clusters)
-
-	routes, supported := cloud.Routes()
-	assert.False(t, supported)
-	assert.Nil(t, routes)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			obj, ok := tt.fn()
+			assert.Equal(t, tt.supported, ok)
+			if tt.supported {
+				assert.NotNil(t, obj)
+			} else {
+				assert.Nil(t, obj)
+			}
+		})
+	}
 
 	assert.False(t, cloud.HasClusterID())
-	
+
 	// Initialize shouldn't crash
 	cloud.Initialize(nil, nil)
 }
