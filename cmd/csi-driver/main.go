@@ -14,12 +14,12 @@ import (
 
 func main() {
 	var (
-		endpoint = flag.String("endpoint", "unix:///tmp/csi.sock", "CSI endpoint")
+		endpoint   = flag.String("endpoint", "unix:///tmp/csi.sock", "CSI endpoint")
 		driverName = flag.String("drivername", "csi.thecloud.io", "name of the driver")
-		nodeID = flag.String("nodeid", "", "node id")
-		version = flag.String("version", "1.0.0", "driver version")
-		apiURL = flag.String("api-url", "http://localhost:8080", "Cloud API URL")
-		apiKey = flag.String("api-key", "", "Cloud API Key")
+		nodeID     = flag.String("nodeid", "", "node id")
+		version    = flag.String("version", "1.0.0", "driver version")
+		apiURL     = flag.String("api-url", "http://localhost:8080", "Cloud API URL")
+		apiKey     = flag.String("api-key", "", "Cloud API Key")
 	)
 	flag.Parse()
 

@@ -357,6 +357,18 @@ Parameters are injected directly into the database engine entrypoint via CLI arg
 #### Replication Consistency
 Read replicas automatically inherit the exact same parameter set as their primary instance, ensuring consistent behavior and performance across the database cluster.
 
+### Managed Database Observability
+
+The Managed Database Service includes built-in observability via sidecar exporters.
+
+#### Metrics Sidecars
+Users can enable native engine metrics by setting the `metrics_enabled` flag to `true` during provisioning. The platform will automatically launch a Prometheus-compatible exporter sidecar:
+-   **PostgreSQL**: Uses `postgres-exporter` (port 9187).
+-   **MySQL**: Uses `mysqld-exporter` (port 9104).
+
+#### Scraping & Monitoring
+Once enabled, the exporter's port is mapped to a host port (available in the `metrics_port` field of the database object). These endpoints are automatically registered with the platform's central Prometheus instance for dashboarding and alerting.
+
 ### Database Replication
 
 The Cloud platform supports asynchronous replication for managed databases to provide high availability and read scaling.

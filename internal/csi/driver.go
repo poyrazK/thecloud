@@ -80,13 +80,13 @@ type Driver struct {
 	csi.UnimplementedControllerServer
 	csi.UnimplementedNodeServer
 
-	name    string
-	version string
-	nodeID  string
+	name     string
+	version  string
+	nodeID   string
 	endpoint string
 
-	logger *slog.Logger
-	cloud  *sdk.Client
+	logger  *slog.Logger
+	cloud   *sdk.Client
 	mounter Mounter
 
 	srv *grpc.Server

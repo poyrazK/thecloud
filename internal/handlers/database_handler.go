@@ -31,6 +31,7 @@ type CreateDatabaseRequest struct {
 	VpcID            *uuid.UUID        `json:"vpc_id"`
 	AllocatedStorage int               `json:"allocated_storage"`
 	Parameters       map[string]string `json:"parameters"`
+	MetricsEnabled   bool              `json:"metrics_enabled"`
 }
 
 func (h *DatabaseHandler) Create(c *gin.Context) {
@@ -40,7 +41,7 @@ func (h *DatabaseHandler) Create(c *gin.Context) {
 		return
 	}
 
-	db, err := h.svc.CreateDatabase(c.Request.Context(), req.Name, req.Engine, req.Version, req.VpcID, req.AllocatedStorage, req.Parameters)
+	db, err := h.svc.CreateDatabase(c.Request.Context(), req.Name, req.Engine, req.Version, req.VpcID, req.AllocatedStorage, req.Parameters, req.MetricsEnabled)
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -162,6 +163,7 @@ type RestoreDatabaseRequest struct {
 	VpcID            *uuid.UUID        `json:"vpc_id"`
 	AllocatedStorage int               `json:"allocated_storage" binding:"required"`
 	Parameters       map[string]string `json:"parameters"`
+	MetricsEnabled   bool              `json:"metrics_enabled"`
 }
 
 // CreateSnapshot creates a point-in-time backup of the database.
@@ -239,7 +241,7 @@ func (h *DatabaseHandler) Restore(c *gin.Context) {
 		return
 	}
 
-	db, err := h.svc.RestoreDatabase(c.Request.Context(), req.SnapshotID, req.Name, req.Engine, req.Version, req.VpcID, req.AllocatedStorage, req.Parameters)
+	db, err := h.svc.RestoreDatabase(c.Request.Context(), req.SnapshotID, req.Name, req.Engine, req.Version, req.VpcID, req.AllocatedStorage, req.Parameters, req.MetricsEnabled)
 	if err != nil {
 		httputil.Error(c, err)
 		return

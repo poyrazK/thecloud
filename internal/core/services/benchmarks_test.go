@@ -237,12 +237,15 @@ func BenchmarkDatabaseServiceList(b *testing.B) {
 	logger := slog.Default()
 
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
-		Repo:     repo,
-		Compute:  compute,
-		VpcRepo:  vpcRepo,
-		EventSvc: eventSvc,
-		AuditSvc: auditSvc,
-		Logger:   logger,
+		Repo:         repo,
+		Compute:      compute,
+		VpcRepo:      vpcRepo,
+		VolumeSvc:    nil,
+		SnapshotSvc:  nil,
+		SnapshotRepo: nil,
+		EventSvc:     eventSvc,
+		AuditSvc:     auditSvc,
+		Logger:       logger,
 	})
 
 	ctx := context.Background()
@@ -273,12 +276,15 @@ func BenchmarkDatabaseContentionParallel(b *testing.B) {
 	logger := slog.Default()
 
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
-		Repo:     repo,
-		Compute:  compute,
-		VpcRepo:  vpcRepo,
-		EventSvc: eventSvc,
-		AuditSvc: auditSvc,
-		Logger:   logger,
+		Repo:         repo,
+		Compute:      compute,
+		VpcRepo:      vpcRepo,
+		VolumeSvc:    nil,
+		SnapshotSvc:  nil,
+		SnapshotRepo: nil,
+		EventSvc:     eventSvc,
+		AuditSvc:     auditSvc,
+		Logger:       logger,
 	})
 	ctx := context.Background()
 	id := uuid.New()
