@@ -101,17 +101,22 @@ func (p *KubeadmProvisioner) Provision(ctx context.Context, cluster *domain.Clus
 }
 
 func (p *KubeadmProvisioner) provisionControlPlane(ctx context.Context, cluster *domain.Cluster) error {
-	// Generate a dedicated API key for this cluster
-	// In a real implementation, we should use the identity service. 
-	// For now, we will simulate a key or fetch the system one.
+	// Securely fetch API credentials
 	apiKey := os.Getenv("CLOUD_API_KEY")
 	if apiKey == "" {
-		apiKey = "dev-key"
+		return p.failCluster(ctx, cluster, "CLOUD_API_KEY is required but not set in environment", nil)
 	}
 	apiURL := os.Getenv("CLOUD_API_URL")
 	if apiURL == "" {
-		// Fallback for docker-based test environments
-		apiURL = "http://10.0.0.1:8080" 
+		return p.failCluster(ctx, cluster, "CLOUD_API_URL is required but not set in environment", nil)
+	}
+
+	// Validate API URL is HTTPS for production safety
+	if !strings.HasPrefix(apiURL, "https://") {
+		// We allow http for localhost/local testing environments, but enforce https for others
+		if !strings.Contains(apiURL, "localhost") && !strings.Contains(apiURL, "127.0.0.1") && !strings.Contains(apiURL, "local") {
+			return p.failCluster(ctx, cluster, "CLOUD_API_URL must use HTTPS for production environments", nil)
+		}
 	}
 
 	userData, err := p.renderTemplate("control_plane.yaml", map[string]interface{}{
