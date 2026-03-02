@@ -25,6 +25,7 @@ func TestLoadBalancer(t *testing.T) {
 	}
 
 	setupFakeAPI := func(t *testing.T, state *apiState) *httptest.Server {
+		t.Helper()
 		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 
