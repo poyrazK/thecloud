@@ -1,7 +1,7 @@
 // Package sdk provides the official Go SDK for the platform.
 package sdk
-
 import (
+	"context"
 	"time"
 
 	"github.com/google/uuid"
@@ -9,20 +9,34 @@ import (
 
 const clustersPath = "/clusters"
 
+// NodeGroup represents a pool of similar worker nodes in a cluster.
+type NodeGroup struct {
+	ID           uuid.UUID `json:"id"`
+	ClusterID    uuid.UUID `json:"cluster_id"`
+	Name         string    `json:"name"`
+	InstanceType string    `json:"instance_type"`
+	MinSize      int       `json:"min_size"`
+	MaxSize      int       `json:"max_size"`
+	CurrentSize  int       `json:"current_size"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
 // Cluster represents a managed Kubernetes cluster in the SDK.
 type Cluster struct {
-	ID                 uuid.UUID `json:"id"`
-	Name               string    `json:"name"`
-	UserID             uuid.UUID `json:"user_id"`
-	VpcID              uuid.UUID `json:"vpc_id"`
-	Version            string    `json:"version"`
-	ControlPlaneIPs    []string  `json:"control_plane_ips"`
-	WorkerCount        int       `json:"worker_count"`
-	HAEnabled          bool      `json:"ha_enabled"`
-	APIServerLBAddress *string   `json:"api_server_lb_address,omitempty"`
-	Status             string    `json:"status"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	ID                 uuid.UUID   `json:"id"`
+	Name               string      `json:"name"`
+	UserID             uuid.UUID   `json:"user_id"`
+	VpcID              uuid.UUID   `json:"vpc_id"`
+	Version            string      `json:"version"`
+	ControlPlaneIPs    []string    `json:"control_plane_ips"`
+	WorkerCount        int         `json:"worker_count"`
+	HAEnabled          bool        `json:"ha_enabled"`
+	APIServerLBAddress *string     `json:"api_server_lb_address,omitempty"`
+	Status             string      `json:"status"`
+	NodeGroups         []NodeGroup `json:"node_groups,omitempty"`
+	CreatedAt          time.Time   `json:"created_at"`
+	UpdatedAt          time.Time   `json:"updated_at"`
 }
 
 // CreateClusterInput defines the input for creating a cluster.
@@ -33,6 +47,22 @@ type CreateClusterInput struct {
 	WorkerCount      int       `json:"workers"`
 	NetworkIsolation bool      `json:"network_isolation"`
 	HA               bool      `json:"ha"`
+}
+
+// NodeGroupInput defines the input for adding a node group.
+type NodeGroupInput struct {
+	Name         string `json:"name"`
+	InstanceType string `json:"instance_type"`
+	MinSize      int    `json:"min_size"`
+	MaxSize      int    `json:"max_size"`
+	DesiredSize  int    `json:"desired_size"`
+}
+
+// UpdateNodeGroupInput defines the input for updating a node group.
+type UpdateNodeGroupInput struct {
+	DesiredSize *int `json:"desired_size"`
+	MinSize     *int `json:"min_size"`
+	MaxSize     *int `json:"max_size"`
 }
 
 // ClusterHealth represents the operational status of a cluster.
@@ -69,8 +99,13 @@ func (c *Client) CreateCluster(input *CreateClusterInput) (*Cluster, error) {
 
 // GetCluster retrieves cluster details by ID.
 func (c *Client) GetCluster(id string) (*Cluster, error) {
+	return c.GetClusterWithContext(context.Background(), id)
+}
+
+// GetClusterWithContext retrieves cluster details by ID with context support.
+func (c *Client) GetClusterWithContext(ctx context.Context, id string) (*Cluster, error) {
 	var resp Response[*Cluster]
-	if err := c.get(clustersPath+"/"+id, &resp); err != nil {
+	if err := c.getWithContext(ctx, clustersPath+"/"+id, &resp); err != nil {
 		return nil, err
 	}
 	return resp.Data, nil
@@ -151,4 +186,28 @@ func (c *Client) RestoreBackup(id string, backupPath string) error {
 	var resp Response[any]
 	input := &RestoreBackupInput{BackupPath: backupPath}
 	return c.post(clustersPath+"/"+id+"/restore", input, &resp)
+}
+
+// AddNodeGroup adds a new node pool to the cluster.
+func (c *Client) AddNodeGroup(clusterID string, input NodeGroupInput) (*NodeGroup, error) {
+	var resp Response[*NodeGroup]
+	if err := c.post(clustersPath+"/"+clusterID+"/nodegroups", input, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Data, nil
+}
+
+// UpdateNodeGroupWithContext updates a node group's parameters with context support.
+func (c *Client) UpdateNodeGroupWithContext(ctx context.Context, clusterID string, name string, input UpdateNodeGroupInput) (*NodeGroup, error) {
+	var resp Response[*NodeGroup]
+	if err := c.putWithContext(ctx, clustersPath+"/"+clusterID+"/nodegroups/"+name, input, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Data, nil
+}
+
+// DeleteNodeGroup removes a node group.
+func (c *Client) DeleteNodeGroup(clusterID string, name string) error {
+	var resp Response[any]
+	return c.delete(clustersPath+"/"+clusterID+"/nodegroups/"+name, &resp)
 }
