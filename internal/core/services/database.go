@@ -370,7 +370,7 @@ func (s *DatabaseService) getExporterConfig(engine domain.DatabaseEngine, dbIP, 
 		return "prometheuscommunity/postgres-exporter", []string{"DATA_SOURCE_NAME=" + dsn}, "9187"
 	case domain.EngineMySQL:
 		// mysqld-exporter uses DATA_SOURCE_NAME
-		dsn := fmt.Sprintf("%s:%s@(%s:3306)/", username, password, dbIP)
+		dsn := fmt.Sprintf("%s:%s@(%s:3306)/%s", username, password, dbIP, dbName)
 		return "prom/mysqld-exporter", []string{"DATA_SOURCE_NAME=" + dsn}, "9104"
 	}
 	return "", nil, ""

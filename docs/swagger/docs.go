@@ -7027,6 +7027,12 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "metrics_enabled": {
+                    "type": "boolean"
+                },
+                "metrics_port": {
+                    "type": "integer"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -9464,6 +9470,9 @@ const docTemplate = `{
                 },
                 "engine": {
                     "type": "string"
+                },
+                "metrics_enabled": {
+                    "type": "boolean"
                 },
                 "name": {
                     "type": "string"
