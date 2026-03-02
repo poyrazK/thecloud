@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 	"time"
@@ -64,7 +65,7 @@ func setupDatabaseServiceTest(t *testing.T) (ports.DatabaseService, ports.Databa
 func TestCreateDatabaseSuccess(t *testing.T) {
 	svc, repo, compute, _, ctx := setupDatabaseServiceTest(t)
 
-	db, err := svc.CreateDatabase(ctx, testDBName, "postgres", "16", nil, 20, nil, false)
+	db, err := svc.CreateDatabase(ctx, testDBName, "postgres", "16", nil, 20, nil, false, false)
 
 	require.NoError(t, err)
 	assert.NotNil(t, db)
@@ -119,7 +120,7 @@ func TestCreateDatabaseWithVpc(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now create DB in this VPC
-	db, err := svc.CreateDatabase(ctx, testDBName, "postgres", "16", &vpcID, 10, nil, false)
+	db, err := svc.CreateDatabase(ctx, testDBName, "postgres", "16", &vpcID, 10, nil, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, db)
 	assert.Equal(t, &vpcID, db.VpcID)
@@ -132,7 +133,7 @@ func TestCreateReplica(t *testing.T) {
 	svc, repo, compute, _, ctx := setupDatabaseServiceTest(t)
 
 	// 1. Create primary
-	primary, err := svc.CreateDatabase(ctx, "primary-db", "postgres", "16", nil, 20, nil, false)
+	primary, err := svc.CreateDatabase(ctx, "primary-db", "postgres", "16", nil, 20, nil, false, false)
 	require.NoError(t, err)
 	defer func() { _ = compute.DeleteInstance(ctx, primary.ContainerID) }()
 
@@ -152,4 +153,33 @@ func TestCreateReplica(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.RoleReplica, fetched.Role)
 	assert.Equal(t, 20, fetched.AllocatedStorage)
+}
+
+func TestCreateDatabaseWithPooling(t *testing.T) {
+	svc, repo, compute, _, ctx := setupDatabaseServiceTest(t)
+
+	db, err := svc.CreateDatabase(ctx, "pooling-db", "postgres", "16", nil, 10, nil, false, true)
+	require.NoError(t, err)
+	require.NotNil(t, db)
+	assert.True(t, db.PoolingEnabled)
+	assert.NotEmpty(t, db.PoolerContainerID)
+	assert.NotZero(t, db.PoolingPort)
+
+	// Verify connection string uses pooling port
+	connStr, err := svc.GetConnectionString(ctx, db.ID)
+	require.NoError(t, err)
+	assert.Contains(t, connStr, fmt.Sprintf(":%d", db.PoolingPort))
+
+	// Cleanup
+	_ = compute.DeleteInstance(ctx, db.ContainerID)
+	if db.PoolerContainerID != "" {
+		_ = compute.DeleteInstance(ctx, db.PoolerContainerID)
+	}
+
+	// Verify in repo
+	fetched, err := repo.GetByID(ctx, db.ID)
+	require.NoError(t, err)
+	assert.True(t, fetched.PoolingEnabled)
+	assert.Equal(t, db.PoolerContainerID, fetched.PoolerContainerID)
+	assert.Equal(t, db.PoolingPort, fetched.PoolingPort)
 }

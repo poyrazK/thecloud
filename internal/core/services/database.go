@@ -59,7 +59,7 @@ func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 	}
 }
 
-func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool) (*domain.Database, error) {
+func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool, poolingEnabled bool) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 
 	dbEngine := domain.DatabaseEngine(engine)
@@ -69,6 +69,11 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 
 	if allocatedStorage < 10 {
 		return nil, errors.New(errors.InvalidInput, "allocated storage must be at least 10GB")
+	}
+
+	// Verify pooling support (PgBouncer only for Postgres currently)
+	if poolingEnabled && dbEngine != domain.EnginePostgres {
+		return nil, errors.New(errors.InvalidInput, "connection pooling is currently only supported for PostgreSQL")
 	}
 
 	password, err := util.GenerateRandomPassword(16)
@@ -82,6 +87,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	db.AllocatedStorage = allocatedStorage
 	db.Parameters = parameters
 	db.MetricsEnabled = metricsEnabled
+	db.PoolingEnabled = poolingEnabled
 
 	imageName, env, defaultPort := s.getEngineConfig(dbEngine, version, username, password, name, db.Role, "")
 
@@ -144,32 +150,58 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	db.Port = hostPort
 	db.Status = domain.DatabaseStatusRunning
 
-	// Launch metrics sidecar if enabled
-	if metricsEnabled {
-		dbIP, err := s.compute.GetInstanceIP(ctx, containerID)
-		if err == nil {
-			exporterImage, exporterEnv, exporterPort := s.getExporterConfig(dbEngine, dbIP, username, password, name)
-			exporterName := fmt.Sprintf("cloud-db-exporter-%s-%s", name, db.ID.String()[:8])
+	// Sidecars require the DB IP
+	dbIP, _ := s.compute.GetInstanceIP(ctx, containerID)
 
-			expCID, expPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
-				Name:      exporterName,
-				ImageName: exporterImage,
-				Ports:     []string{"0:" + exporterPort},
-				NetworkID: networkID,
-				Env:       exporterEnv,
-			})
-			if err == nil {
-				db.ExporterContainerID = expCID
-				expHostPort, err := s.parseAllocatedPort(expPorts, exporterPort)
-				if err == nil && expHostPort != 0 {
-					db.MetricsPort = expHostPort
-				} else {
-					expHostPort, _ = s.compute.GetInstancePort(ctx, expCID, exporterPort)
-					db.MetricsPort = expHostPort
-				}
+	// Launch metrics sidecar if enabled
+	if metricsEnabled && dbIP != "" {
+		exporterImage, exporterEnv, exporterPort := s.getExporterConfig(dbEngine, dbIP, username, password, name)
+		exporterName := fmt.Sprintf("cloud-db-exporter-%s-%s", name, db.ID.String()[:8])
+
+		expCID, expPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+			Name:      exporterName,
+			ImageName: exporterImage,
+			Ports:     []string{"0:" + exporterPort},
+			NetworkID: networkID,
+			Env:       exporterEnv,
+		})
+		if err == nil {
+			db.ExporterContainerID = expCID
+			expHostPort, err := s.parseAllocatedPort(expPorts, exporterPort)
+			if err == nil && expHostPort != 0 {
+				db.MetricsPort = expHostPort
 			} else {
-				s.logger.Warn("failed to launch metrics exporter", "database_id", db.ID, "error", err)
+				expHostPort, _ = s.compute.GetInstancePort(ctx, expCID, exporterPort)
+				db.MetricsPort = expHostPort
 			}
+		} else {
+			s.logger.Warn("failed to launch metrics exporter", "database_id", db.ID, "error", err)
+		}
+	}
+
+	// Launch pooler sidecar if enabled
+	if poolingEnabled && dbIP != "" {
+		poolerImage, poolerEnv, poolerPort := s.getPoolerConfig(dbEngine, dbIP, username, password, name)
+		poolerName := fmt.Sprintf("cloud-db-pooler-%s-%s", name, db.ID.String()[:8])
+
+		pCID, pPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+			Name:      poolerName,
+			ImageName: poolerImage,
+			Ports:     []string{"0:" + poolerPort},
+			NetworkID: networkID,
+			Env:       poolerEnv,
+		})
+		if err == nil {
+			db.PoolerContainerID = pCID
+			pHostPort, err := s.parseAllocatedPort(pPorts, poolerPort)
+			if err == nil && pHostPort != 0 {
+				db.PoolingPort = pHostPort
+			} else {
+				pHostPort, _ = s.compute.GetInstancePort(ctx, pCID, poolerPort)
+				db.PoolingPort = pHostPort
+			}
+		} else {
+			s.logger.Warn("failed to launch connection pooler", "database_id", db.ID, "error", err)
 		}
 	}
 
@@ -180,6 +212,9 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 		if db.ExporterContainerID != "" {
 			_ = s.compute.DeleteInstance(ctx, db.ExporterContainerID)
 		}
+		if db.PoolerContainerID != "" {
+			_ = s.compute.DeleteInstance(ctx, db.PoolerContainerID)
+		}
 		_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
 		return nil, err
 	}
@@ -187,7 +222,6 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	s.recordDatabaseCreation(ctx, userID, db, engine)
 	return db, nil
 }
-
 func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 
@@ -206,6 +240,9 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 	db.PrimaryID = &primaryID
 	db.AllocatedStorage = primary.AllocatedStorage
 	db.MetricsEnabled = primary.MetricsEnabled
+	db.PoolingEnabled = primary.PoolingEnabled
+
+	db.PoolingEnabled = primary.PoolingEnabled
 
 	imageName, env, defaultPort := s.getEngineConfig(primary.Engine, primary.Version, primary.Username, primary.Password, name, db.Role, primaryIP)
 
@@ -256,29 +293,52 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 	db.Port = hostPort
 	db.Status = domain.DatabaseStatusRunning
 
-	// Launch metrics sidecar for replica if enabled on primary
-	if db.MetricsEnabled {
-		dbIP, err := s.compute.GetInstanceIP(ctx, containerID)
-		if err == nil {
-			exporterImage, exporterEnv, exporterPort := s.getExporterConfig(db.Engine, dbIP, db.Username, db.Password, name)
-			exporterName := fmt.Sprintf("cloud-db-replica-exporter-%s-%s", name, db.ID.String()[:8])
+	dbIP, _ := s.compute.GetInstanceIP(ctx, containerID)
 
-			expCID, expPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
-				Name:      exporterName,
-				ImageName: exporterImage,
-				Ports:     []string{"0:" + exporterPort},
-				NetworkID: networkID,
-				Env:       exporterEnv,
-			})
-			if err == nil {
-				db.ExporterContainerID = expCID
-				expHostPort, err := s.parseAllocatedPort(expPorts, exporterPort)
-				if err == nil && expHostPort != 0 {
-					db.MetricsPort = expHostPort
-				} else {
-					expHostPort, _ = s.compute.GetInstancePort(ctx, expCID, exporterPort)
-					db.MetricsPort = expHostPort
-				}
+	// Launch metrics sidecar for replica if enabled on primary
+	if db.MetricsEnabled && dbIP != "" {
+		exporterImage, exporterEnv, exporterPort := s.getExporterConfig(db.Engine, dbIP, db.Username, db.Password, name)
+		exporterName := fmt.Sprintf("cloud-db-replica-exporter-%s-%s", name, db.ID.String()[:8])
+
+		expCID, expPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+			Name:      exporterName,
+			ImageName: exporterImage,
+			Ports:     []string{"0:" + exporterPort},
+			NetworkID: networkID,
+			Env:       exporterEnv,
+		})
+		if err == nil {
+			db.ExporterContainerID = expCID
+			expHostPort, err := s.parseAllocatedPort(expPorts, exporterPort)
+			if err == nil && expHostPort != 0 {
+				db.MetricsPort = expHostPort
+			} else {
+				expHostPort, _ = s.compute.GetInstancePort(ctx, expCID, exporterPort)
+				db.MetricsPort = expHostPort
+			}
+		}
+	}
+
+	// Launch pooler sidecar for replica if enabled
+	if db.PoolingEnabled && dbIP != "" {
+		poolerImage, poolerEnv, poolerPort := s.getPoolerConfig(db.Engine, dbIP, db.Username, db.Password, name)
+		poolerName := fmt.Sprintf("cloud-db-replica-pooler-%s-%s", name, db.ID.String()[:8])
+
+		pCID, pPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+			Name:      poolerName,
+			ImageName: poolerImage,
+			Ports:     []string{"0:" + poolerPort},
+			NetworkID: networkID,
+			Env:       poolerEnv,
+		})
+		if err == nil {
+			db.PoolerContainerID = pCID
+			pHostPort, err := s.parseAllocatedPort(pPorts, poolerPort)
+			if err == nil && pHostPort != 0 {
+				db.PoolingPort = pHostPort
+			} else {
+				pHostPort, _ = s.compute.GetInstancePort(ctx, pCID, poolerPort)
+				db.PoolingPort = pHostPort
 			}
 		}
 	}
@@ -287,6 +347,9 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 		_ = s.compute.DeleteInstance(ctx, containerID)
 		if db.ExporterContainerID != "" {
 			_ = s.compute.DeleteInstance(ctx, db.ExporterContainerID)
+		}
+		if db.PoolerContainerID != "" {
+			_ = s.compute.DeleteInstance(ctx, db.PoolerContainerID)
 		}
 		_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
 		return nil, err
@@ -298,6 +361,23 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 	})
 
 	return db, nil
+}
+
+func (s *DatabaseService) getPoolerConfig(engine domain.DatabaseEngine, dbIP, username, password, dbName string) (string, []string, string) {
+	if engine == domain.EnginePostgres {
+		env := []string{
+			"DB_HOST=" + dbIP,
+			"DB_PORT=5432",
+			"DB_USER=" + username,
+			"DB_PASSWORD=" + password,
+			"DB_NAME=" + dbName,
+			"POOL_MODE=transaction",
+			"MAX_CLIENT_CONN=1000",
+			"DEFAULT_POOL_SIZE=20",
+		}
+		return "bitnami/pgbouncer:latest", env, "6432"
+	}
+	return "", nil, ""
 }
 
 func (s *DatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) error {
@@ -499,6 +579,11 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 			s.logger.Warn("failed to remove metrics exporter container", "container_id", db.ExporterContainerID, "error", err)
 		}
 	}
+	if db.PoolerContainerID != "" {
+		if err := s.compute.DeleteInstance(ctx, db.PoolerContainerID); err != nil {
+			s.logger.Warn("failed to remove connection pooler container", "container_id", db.PoolerContainerID, "error", err)
+		}
+	}
 
 	// 2. Clean up volume
 	// We try to find the volume by the expected name
@@ -600,7 +685,7 @@ func (s *DatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID 
 	return s.snapshotRepo.ListByVolumeID(ctx, vol.ID)
 }
 
-func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.UUID, newName, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool) (*domain.Database, error) {
+func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.UUID, newName, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool, poolingEnabled bool) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 
 	snap, err := s.snapshotSvc.GetSnapshot(ctx, snapshotID)
@@ -617,6 +702,10 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.U
 		return nil, errors.New(errors.InvalidInput, "unsupported database engine")
 	}
 
+	if poolingEnabled && dbEngine != domain.EnginePostgres {
+		return nil, errors.New(errors.InvalidInput, "connection pooling is currently only supported for PostgreSQL")
+	}
+
 	password, err := util.GenerateRandomPassword(16)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to generate password", err)
@@ -628,6 +717,7 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.U
 	db.AllocatedStorage = allocatedStorage
 	db.Parameters = parameters
 	db.MetricsEnabled = metricsEnabled
+	db.PoolingEnabled = poolingEnabled
 
 	imageName, env, defaultPort := s.getEngineConfig(dbEngine, version, username, password, newName, db.Role, "")
 
@@ -687,29 +777,52 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.U
 	db.Port = hostPort
 	db.Status = domain.DatabaseStatusRunning
 
-	// Launch metrics sidecar if enabled
-	if metricsEnabled {
-		dbIP, err := s.compute.GetInstanceIP(ctx, containerID)
-		if err == nil {
-			exporterImage, exporterEnv, exporterPort := s.getExporterConfig(dbEngine, dbIP, username, password, newName)
-			exporterName := fmt.Sprintf("cloud-db-exporter-%s-%s", newName, db.ID.String()[:8])
+	dbIP, _ := s.compute.GetInstanceIP(ctx, containerID)
 
-			expCID, expPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
-				Name:      exporterName,
-				ImageName: exporterImage,
-				Ports:     []string{"0:" + exporterPort},
-				NetworkID: networkID,
-				Env:       exporterEnv,
-			})
-			if err == nil {
-				db.ExporterContainerID = expCID
-				expHostPort, err := s.parseAllocatedPort(expPorts, exporterPort)
-				if err == nil && expHostPort != 0 {
-					db.MetricsPort = expHostPort
-				} else {
-					expHostPort, _ = s.compute.GetInstancePort(ctx, expCID, exporterPort)
-					db.MetricsPort = expHostPort
-				}
+	// Launch metrics sidecar if enabled
+	if metricsEnabled && dbIP != "" {
+		exporterImage, exporterEnv, exporterPort := s.getExporterConfig(dbEngine, dbIP, username, password, newName)
+		exporterName := fmt.Sprintf("cloud-db-exporter-%s-%s", newName, db.ID.String()[:8])
+
+		expCID, expPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+			Name:      exporterName,
+			ImageName: exporterImage,
+			Ports:     []string{"0:" + exporterPort},
+			NetworkID: networkID,
+			Env:       exporterEnv,
+		})
+		if err == nil {
+			db.ExporterContainerID = expCID
+			expHostPort, err := s.parseAllocatedPort(expPorts, exporterPort)
+			if err == nil && expHostPort != 0 {
+				db.MetricsPort = expHostPort
+			} else {
+				expHostPort, _ = s.compute.GetInstancePort(ctx, expCID, exporterPort)
+				db.MetricsPort = expHostPort
+			}
+		}
+	}
+
+	// Launch pooler sidecar if enabled
+	if poolingEnabled && dbIP != "" {
+		poolerImage, poolerEnv, poolerPort := s.getPoolerConfig(dbEngine, dbIP, username, password, newName)
+		poolerName := fmt.Sprintf("cloud-db-pooler-%s-%s", newName, db.ID.String()[:8])
+
+		pCID, pPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+			Name:      poolerName,
+			ImageName: poolerImage,
+			Ports:     []string{"0:" + poolerPort},
+			NetworkID: networkID,
+			Env:       poolerEnv,
+		})
+		if err == nil {
+			db.PoolerContainerID = pCID
+			pHostPort, err := s.parseAllocatedPort(pPorts, poolerPort)
+			if err == nil && pHostPort != 0 {
+				db.PoolingPort = pHostPort
+			} else {
+				pHostPort, _ = s.compute.GetInstancePort(ctx, pCID, poolerPort)
+				db.PoolingPort = pHostPort
 			}
 		}
 	}
@@ -718,6 +831,9 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.U
 		_ = s.compute.DeleteInstance(ctx, containerID)
 		if db.ExporterContainerID != "" {
 			_ = s.compute.DeleteInstance(ctx, db.ExporterContainerID)
+		}
+		if db.PoolerContainerID != "" {
+			_ = s.compute.DeleteInstance(ctx, db.PoolerContainerID)
 		}
 		_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
 		return nil, err
@@ -735,23 +851,22 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.U
 
 	return db, nil
 }
-
 func (s *DatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
 	db, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return "", err
 	}
 
-	// In a real cloud, this would be the LB endpoint or internal VPC IP.
-	// For this simulation, we'll return a localhost connection string with the mapped port.
-	// Note: We need to get the mapped port from Docker if we don't store it accurately.
-	// For now, let's assume we store it in db.Port (I should probably implement a way to retrieve it).
+	port := db.Port
+	if db.PoolingEnabled && db.PoolingPort != 0 {
+		port = db.PoolingPort
+	}
 
 	switch db.Engine {
 	case domain.EnginePostgres:
-		return fmt.Sprintf("postgres://%s:%s@localhost:%d/%s", db.Username, db.Password, db.Port, db.Name), nil
+		return fmt.Sprintf("postgres://%s:%s@localhost:%d/%s", db.Username, db.Password, port, db.Name), nil
 	case domain.EngineMySQL:
-		return fmt.Sprintf("%s:%s@tcp(localhost:%d)/%s", db.Username, db.Password, db.Port, db.Name), nil
+		return fmt.Sprintf("%s:%s@tcp(localhost:%d)/%s", db.Username, db.Password, port, db.Name), nil
 	default:
 		return "", errors.New(errors.Internal, "unknown engine")
 	}

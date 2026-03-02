@@ -49,8 +49,8 @@ type mockDatabaseService struct {
 	mock.Mock
 }
 
-func (m *mockDatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool) (*domain.Database, error) {
-	args := m.Called(ctx, name, engine, version, vpcID, allocatedStorage, parameters, metricsEnabled)
+func (m *mockDatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool, poolingEnabled bool) (*domain.Database, error) {
+	args := m.Called(ctx, name, engine, version, vpcID, allocatedStorage, parameters, metricsEnabled, poolingEnabled)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -77,7 +77,7 @@ func (m *mockDatabaseService) CreateDatabaseSnapshot(ctx context.Context, databa
 func (m *mockDatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID uuid.UUID) ([]*domain.Snapshot, error) {
 	return nil, nil
 }
-func (m *mockDatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.UUID, newName, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool) (*domain.Database, error) {
+func (m *mockDatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.UUID, newName, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool, poolingEnabled bool) (*domain.Database, error) {
 	return nil, nil
 }
 func (m *mockDatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {

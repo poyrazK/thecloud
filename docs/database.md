@@ -307,7 +307,10 @@ CREATE TABLE databases (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     allocated_storage INT NOT NULL DEFAULT 10,
-    parameters JSONB DEFAULT '{}'::jsonb
+    parameters JSONB DEFAULT '{}'::jsonb,
+    pooling_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    pooling_port INT,
+    pooler_container_id VARCHAR(255)
 );
 ```
 
@@ -368,6 +371,24 @@ Users can enable native engine metrics by setting the `metrics_enabled` flag to 
 
 #### Scraping & Monitoring
 Once enabled, the exporter's port is mapped to a host port (available in the `metrics_port` field of the database object). These endpoints are automatically registered with the platform's central Prometheus instance for dashboarding and alerting.
+
+### Managed Database Connection Pooling
+
+The platform supports high-performance connection pooling via sidecar containers for PostgreSQL.
+
+#### Pooling Architecture
+When `pooling_enabled` is set to `true`, the service provisions a **PgBouncer** sidecar:
+1.  **Dedicated Instance**: Each database gets a private pooler instance.
+2.  **Transaction Mode**: Optimized for high-throughput, short-lived connections common in web applications.
+3.  **Automatic Routing**: The `GetConnectionString` API automatically returns the pooler's endpoint instead of the direct database port.
+
+#### Configuration
+- **Engine Support**: PostgreSQL (PgBouncer)
+- **Max Client Connections**: 1000
+- **Internal Port**: 6432
+- **Image**: `bitnami/pgbouncer`
+
+This ensures that applications can scale to hundreds of concurrent clients without exhausting the database engine's backend connection limit.
 
 ### Database Replication
 
