@@ -101,11 +101,26 @@ func (p *KubeadmProvisioner) Provision(ctx context.Context, cluster *domain.Clus
 }
 
 func (p *KubeadmProvisioner) provisionControlPlane(ctx context.Context, cluster *domain.Cluster) error {
+	// Generate a dedicated API key for this cluster
+	// In a real implementation, we should use the identity service. 
+	// For now, we will simulate a key or fetch the system one.
+	apiKey := os.Getenv("CLOUD_API_KEY")
+	if apiKey == "" {
+		apiKey = "dev-key"
+	}
+	apiURL := os.Getenv("CLOUD_API_URL")
+	if apiURL == "" {
+		// Fallback for docker-based test environments
+		apiURL = "http://10.0.0.1:8080" 
+	}
+
 	userData, err := p.renderTemplate("control_plane.yaml", map[string]interface{}{
 		"PodCIDR":     cluster.PodCIDR,
 		"ServiceCIDR": cluster.ServiceCIDR,
 		"HAEnabled":   cluster.HAEnabled,
 		"LBAddress":   cluster.APIServerLBAddress,
+		"CloudAPIKey": apiKey,
+		"CloudAPIURL": apiURL,
 	})
 	if err != nil {
 		return p.failCluster(ctx, cluster, "failed to render control plane template", err)
