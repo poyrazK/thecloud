@@ -31,6 +31,12 @@ type ClusterRepository interface {
 	GetNodes(ctx context.Context, clusterID uuid.UUID) ([]*domain.ClusterNode, error)
 	UpdateNode(ctx context.Context, node *domain.ClusterNode) error
 	DeleteNode(ctx context.Context, nodeID uuid.UUID) error
+
+	// Node Group operations
+	AddNodeGroup(ctx context.Context, ng *domain.NodeGroup) error
+	GetNodeGroups(ctx context.Context, clusterID uuid.UUID) ([]domain.NodeGroup, error)
+	UpdateNodeGroup(ctx context.Context, ng *domain.NodeGroup) error
+	DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error
 }
 
 // CreateClusterParams defines the options for cluster creation.
@@ -44,6 +50,22 @@ type CreateClusterParams struct {
 	ServiceCIDR      string
 	NetworkIsolation bool
 	HAEnabled        bool
+}
+
+// NodeGroupParams defines options for adding a node group.
+type NodeGroupParams struct {
+	Name         string
+	InstanceType string
+	MinSize      int
+	MaxSize      int
+	DesiredSize  int
+}
+
+// UpdateNodeGroupParams defines options for updating a node group.
+type UpdateNodeGroupParams struct {
+	MinSize     *int
+	MaxSize     *int
+	DesiredSize *int
 }
 
 // ClusterService defines the business logic layer for Kubernetes clusters.
@@ -60,6 +82,11 @@ type ClusterService interface {
 	RotateSecrets(ctx context.Context, id uuid.UUID) error
 	CreateBackup(ctx context.Context, id uuid.UUID) error
 	RestoreBackup(ctx context.Context, id uuid.UUID, backupPath string) error
+
+	// Node Group management
+	AddNodeGroup(ctx context.Context, clusterID uuid.UUID, params NodeGroupParams) (*domain.NodeGroup, error)
+	UpdateNodeGroup(ctx context.Context, clusterID uuid.UUID, name string, params UpdateNodeGroupParams) (*domain.NodeGroup, error)
+	DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error
 }
 
 // ClusterProvisioner defines the interface for bootstrapping a K8s cluster.
