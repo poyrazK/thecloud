@@ -34,8 +34,8 @@ type mockDatabaseService struct {
 	mock.Mock
 }
 
-func (m *mockDatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string) (*domain.Database, error) {
-	args := m.Called(ctx, name, engine, version, vpcID, allocatedStorage, parameters)
+func (m *mockDatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool) (*domain.Database, error) {
+	args := m.Called(ctx, name, engine, version, vpcID, allocatedStorage, parameters, metricsEnabled)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -91,8 +91,8 @@ func (m *mockDatabaseService) ListDatabaseSnapshots(ctx context.Context, databas
 	args := m.Called(ctx, databaseID)
 	return args.Get(0).([]*domain.Snapshot), args.Error(1)
 }
-func (m *mockDatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.UUID, newName, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string) (*domain.Database, error) {
-	args := m.Called(ctx, snapshotID, newName, engine, version, vpcID, allocatedStorage, parameters)
+func (m *mockDatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.UUID, newName, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool) (*domain.Database, error) {
+	args := m.Called(ctx, snapshotID, newName, engine, version, vpcID, allocatedStorage, parameters, metricsEnabled)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -119,7 +119,7 @@ func TestDatabaseHandlerCreate(t *testing.T) {
 	r.POST(databasesPath, handler.Create)
 
 	db := &domain.Database{ID: uuid.New(), Name: testDBName}
-	svc.On("CreateDatabase", mock.Anything, testDBName, "postgres", "15", (*uuid.UUID)(nil), mock.Anything, mock.Anything).Return(db, nil)
+	svc.On("CreateDatabase", mock.Anything, testDBName, "postgres", "15", (*uuid.UUID)(nil), mock.Anything, mock.Anything, mock.Anything).Return(db, nil)
 
 	body, err := json.Marshal(map[string]interface{}{
 		"name":    testDBName,
@@ -133,6 +133,39 @@ func TestDatabaseHandlerCreate(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
+}
+
+func TestDatabaseHandlerCreateWithMetrics(t *testing.T) {
+	t.Parallel()
+	svc, handler, r := setupDatabaseHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.POST(databasesPath, handler.Create)
+
+	db := &domain.Database{ID: uuid.New(), Name: testDBName, MetricsEnabled: true, MetricsPort: 9187}
+	svc.On("CreateDatabase", mock.Anything, testDBName, "postgres", "15", (*uuid.UUID)(nil), 20, map[string]string(nil), true).Return(db, nil)
+
+	body, err := json.Marshal(map[string]interface{}{
+		"name":              testDBName,
+		"engine":            "postgres",
+		"version":           "15",
+		"allocated_storage": 20,
+		"metrics_enabled":   true,
+	})
+	require.NoError(t, err)
+	w := httptest.NewRecorder()
+	req, err := http.NewRequest("POST", databasesPath, bytes.NewBuffer(body))
+	require.NoError(t, err)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+	var resp struct {
+		Data domain.Database `json:"data"`
+	}
+	err = json.NewDecoder(w.Body).Decode(&resp)
+	require.NoError(t, err)
+	assert.True(t, resp.Data.MetricsEnabled)
+	assert.Equal(t, 9187, resp.Data.MetricsPort)
 }
 
 func TestDatabaseHandlerList(t *testing.T) {
@@ -223,7 +256,7 @@ func TestDatabaseHandlerCreateError(t *testing.T) {
 	t.Run("ServiceError", func(t *testing.T) {
 		svc, handler, r := setupDatabaseHandlerTest(t)
 		r.POST(databasesPath, handler.Create)
-		svc.On("CreateDatabase", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		svc.On("CreateDatabase", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Return(nil, errors.New(errors.Internal, "error"))
 		body, _ := json.Marshal(map[string]interface{}{"name": "n", "engine": "e", "version": "v"})
 		req, _ := http.NewRequest("POST", databasesPath, bytes.NewBuffer(body))
