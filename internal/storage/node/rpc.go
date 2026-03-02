@@ -3,6 +3,7 @@ package node
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 
@@ -56,7 +57,7 @@ func (r *grpcStoreReader) Read(p []byte) (n int, err error) {
 	}
 
 	req, err := r.stream.Recv()
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return 0, io.EOF
 	}
 	if err != nil {
@@ -116,7 +117,7 @@ func (s *RPCServer) Retrieve(req *pb.RetrieveRequest, stream pb.StorageNode_Retr
 				return errSend
 			}
 		}
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

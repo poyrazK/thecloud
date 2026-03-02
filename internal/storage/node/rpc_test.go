@@ -41,7 +41,6 @@ type mockRetrieveServer struct {
 	grpc.ServerStream
 	ctx    context.Context
 	resps  []*pb.RetrieveResponse
-	closed bool
 }
 
 func (m *mockRetrieveServer) Context() context.Context { return m.ctx }

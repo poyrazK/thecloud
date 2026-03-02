@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -243,7 +244,7 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 				}
 			}
 		}
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -332,7 +333,7 @@ func (c *Coordinator) collectReadResults(ctx context.Context, bucket, key string
 			found := false
 			for {
 				resp, err := st.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				if err != nil {
