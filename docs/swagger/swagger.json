@@ -7019,6 +7019,12 @@
                 "id": {
                     "type": "string"
                 },
+                "metrics_enabled": {
+                    "type": "boolean"
+                },
+                "metrics_port": {
+                    "type": "integer"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -9456,6 +9462,9 @@
                 },
                 "engine": {
                     "type": "string"
+                },
+                "metrics_enabled": {
+                    "type": "boolean"
                 },
                 "name": {
                     "type": "string"

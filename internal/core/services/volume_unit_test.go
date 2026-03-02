@@ -20,7 +20,7 @@ func TestVolumeServiceUnit(t *testing.T) {
 	mockStorage := new(MockStorageBackend)
 	mockEventSvc := new(MockEventService)
 	mockAuditSvc := new(MockAuditService)
-	
+
 	defer mockRepo.AssertExpectations(t)
 	defer mockStorage.AssertExpectations(t)
 	defer mockEventSvc.AssertExpectations(t)
@@ -100,11 +100,11 @@ func TestVolumeServiceUnit(t *testing.T) {
 		t.Run("GetVolume", func(t *testing.T) {
 			id := uuid.New()
 			tests := []struct {
-				name      string
-				idOrName  string
-				setup     func()
-				wantID    uuid.UUID
-				wantName  string
+				name     string
+				idOrName string
+				setup    func()
+				wantID   uuid.UUID
+				wantName string
 			}{
 				{
 					name:     "By ID",
@@ -188,7 +188,7 @@ func TestVolumeServiceUnit(t *testing.T) {
 	t.Run("AttachDetach", func(t *testing.T) {
 		volID := uuid.New()
 		instID := uuid.New()
-		
+
 		t.Run("Attach", func(t *testing.T) {
 			tests := []struct {
 				name      string

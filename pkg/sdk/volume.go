@@ -67,4 +67,3 @@ func (c *Client) AttachVolume(volumeID, instanceID, mountPath string) (string, e
 func (c *Client) DetachVolume(volumeID string) error {
 	return c.post(fmt.Sprintf("/volumes/%s/detach", volumeID), nil, nil)
 }
-
