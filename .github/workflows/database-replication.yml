@@ -78,7 +78,7 @@ jobs:
       - name: Wait for Services
         run: |
           echo "Waiting for primary postgres..."
-          timeout 60s bash -c 'until pg_isready -h localhost -p 5433 -U cloud; do sleep 2; done' || (echo "Primary postgres failed to start" && exit 1)
+          timeout 60s bash -c 'until pg_isready -h 127.0.0.1 -p 5433 -U cloud; do sleep 2; done' || (echo "Primary postgres failed to start" && exit 1)
           
           echo "Waiting for replica postgres..."
           timeout 60s bash -c 'until pg_isready -h localhost -p 5434 -U cloud; do sleep 2; done' || (echo "Replica postgres failed to start" && exit 1)
@@ -88,18 +88,18 @@ jobs:
 
       - name: Reset Database
         env:
-          DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
+          DATABASE_URL: postgres://cloud:cloud@127.0.0.1:5433/cloud?sslmode=disable
         run: |
           # Ensure a completely fresh database for the metadata
-          PGPASSWORD=cloud psql -h localhost -p 5433 -U cloud -d postgres -c "DROP DATABASE IF EXISTS cloud;"
-          PGPASSWORD=cloud psql -h localhost -p 5433 -U cloud -d postgres -c "CREATE DATABASE cloud;"
+          PGPASSWORD=cloud psql -h 127.0.0.1 -p 5433 -U cloud -d postgres -c "DROP DATABASE IF EXISTS cloud;"
+          PGPASSWORD=cloud psql -h 127.0.0.1 -p 5433 -U cloud -d postgres -c "CREATE DATABASE cloud;"
 
       - name: Build API
         run: go build -v -o api ./cmd/api
 
       - name: Start API Server
         env:
-          DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
+          DATABASE_URL: postgres://cloud:cloud@127.0.0.1:5433/cloud?sslmode=disable
           COMPUTE_BACKEND: docker
           TEST_DOCKER_NETWORK: cloud-network
         run: |
@@ -115,7 +115,7 @@ jobs:
 
       - name: Run Replication E2E Tests
         env:
-          DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
+          DATABASE_URL: postgres://cloud:cloud@127.0.0.1:5433/cloud?sslmode=disable
           TEST_DOCKER_NETWORK: cloud-network
         run: |
           # Create the network the API will use
