@@ -2,6 +2,7 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -80,34 +81,54 @@ func (s *EncryptionService) RotateKey(ctx context.Context, bucket string) (strin
 	return s.CreateKey(ctx, bucket)
 }
 
-// Encrypt encrypts data using the bucket's active key
-func (s *EncryptionService) Encrypt(ctx context.Context, bucket string, data []byte) ([]byte, error) {
+// Encrypt encrypts data stream using the bucket's active key
+func (s *EncryptionService) Encrypt(ctx context.Context, bucket string, r io.Reader) (io.Reader, error) {
 	// For encryption, always use the latest key (versionID="")
 	dek, err := s.getAndDecryptDEK(ctx, bucket, "")
 	if err != nil {
 		return nil, err
 	}
-	return s.encryptData(dek, data)
+
+	block, err := aes.NewCipher(dek)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to create cipher", err)
+	}
+
+	iv := make([]byte, aes.BlockSize)
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to generate IV", err)
+	}
+
+	stream := cipher.NewCTR(block, iv)
+	
+	// The output stream should be: IV + EncryptedData
+	return io.MultiReader(
+		bytes.NewReader(iv),
+		&cipher.StreamReader{S: stream, R: r},
+	), nil
 }
 
-// Decrypt decrypts data using the bucket's active key
-func (s *EncryptionService) Decrypt(ctx context.Context, bucket string, encryptedData []byte) ([]byte, error) {
-	// For decryption, ideally we need the specific key version used for encryption.
-	// Since we don't have metadata here, we try the latest active key first.
-	// If that fails, in a real scenario we'd check object metadata.
-	// Implementing fallback logic as requested: if latest fails, search/try others?
-	// For now, let's keep it simple as per signature: try latest.
-	// NOTE: To fully support rotation, Decrypt needs the keyID from the object metadata.
+// Decrypt decrypts data stream using the bucket's active key
+func (s *EncryptionService) Decrypt(ctx context.Context, bucket string, r io.Reader) (io.Reader, error) {
 	dek, err := s.getAndDecryptDEK(ctx, bucket, "")
 	if err != nil {
 		return nil, err
 	}
-	plaintext, err := s.decryptData(dek, encryptedData)
+
+	block, err := aes.NewCipher(dek)
 	if err != nil {
-		// Fallback logic could go here if we had a way to list all keys.
-		return nil, err
+		return nil, errors.Wrap(errors.Internal, "failed to create cipher", err)
 	}
-	return plaintext, nil
+
+	// Read IV from the start of the stream
+	iv := make([]byte, aes.BlockSize)
+	if _, err := io.ReadFull(r, iv); err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to read IV", err)
+	}
+
+	stream := cipher.NewCTR(block, iv)
+
+	return &cipher.StreamReader{S: stream, R: r}, nil
 }
 
 // getAndDecryptDEK fetches the encrypted DEK from DB and decrypts it with Master Key
