@@ -11,6 +11,11 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	DefaultLBAlgorithm  = "round-robin"
+	DefaultTargetWeight = 1
+)
+
 type loadbalancer struct {
 	client *sdk.Client
 }
@@ -21,15 +26,15 @@ func newLoadBalancer(client *sdk.Client) cloudprovider.LoadBalancer {
 	}
 }
 
-func (l *loadbalancer) GetLoadBalancerName(ctx context.Context, clusterName string, service *v1.Service) string {
+func (l *loadbalancer) GetLoadBalancerName(_ context.Context, clusterName string, service *v1.Service) string {
 	// LB names must be unique within the tenant, so include cluster and service details.
 	return fmt.Sprintf("k8s-%s-%s-%s", clusterName, service.Namespace, service.Name)
 }
 
 func (l *loadbalancer) GetLoadBalancer(ctx context.Context, clusterName string, service *v1.Service) (*v1.LoadBalancerStatus, bool, error) {
 	name := l.GetLoadBalancerName(ctx, clusterName, service)
-	
-	lb, err := l.findLBByName(name)
+
+	lb, err := l.findLBByName(ctx, name)
 	if err != nil {
 		return nil, false, err
 	}
@@ -41,7 +46,7 @@ func (l *loadbalancer) GetLoadBalancer(ctx context.Context, clusterName string, 
 		Ingress: []v1.LoadBalancerIngress{
 			{
 				// In a real scenario we'd return the LB's external IP or DNS name.
-				// Currently, The Cloud API returns a LoadBalancer struct. 
+				// Currently, The Cloud API returns a LoadBalancer struct.
 				// For the sake of the CCM, if there's no public IP field yet, we fallback to its name or a dummy.
 				Hostname: fmt.Sprintf("%s.thecloud.local", lb.ID),
 			},
@@ -57,11 +62,17 @@ func (l *loadbalancer) EnsureLoadBalancer(ctx context.Context, clusterName strin
 	if len(service.Spec.Ports) == 0 {
 		return nil, fmt.Errorf("service has no ports")
 	}
-	
-	// We map the first port as a simplification. 
+
+	// We map the first port as a simplification.
 	// A production CCM would handle multiple ports by creating multiple LBs or listeners.
 	svcPort := service.Spec.Ports[0]
 	port := int(svcPort.Port)
+
+	// Validate NodePort
+	if svcPort.NodePort == 0 {
+		klog.Infof("NodePort not yet allocated for service %s/%s, skipping reconciliation", service.Namespace, service.Name)
+		return nil, nil
+	}
 
 	// We need the VPC ID for the LB. In our architecture, the nodes are in a VPC.
 	// We can fetch one of the nodes to find its VPC ID.
@@ -69,7 +80,7 @@ func (l *loadbalancer) EnsureLoadBalancer(ctx context.Context, clusterName strin
 		return nil, fmt.Errorf("no nodes available to attach to load balancer")
 	}
 
-	inst, err := l.client.GetInstance(nodes[0].Name)
+	inst, err := l.client.GetInstanceWithContext(ctx, nodes[0].Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get instance for node %s to determine VPC: %w", nodes[0].Name, err)
 	}
@@ -78,21 +89,21 @@ func (l *loadbalancer) EnsureLoadBalancer(ctx context.Context, clusterName strin
 		return nil, fmt.Errorf("node %s is not in a VPC", nodes[0].Name)
 	}
 
-	lb, err := l.findLBByName(name)
+	lb, err := l.findLBByName(ctx, name)
 	if err != nil {
 		return nil, err
 	}
 
 	if lb == nil {
 		klog.Infof("Creating new LB %s in VPC %s for port %d", name, vpcID, port)
-		lb, err = l.client.CreateLB(name, vpcID, port, "round-robin")
+		lb, err = l.client.CreateLBWithContext(ctx, name, vpcID, port, DefaultLBAlgorithm)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create LB: %w", err)
 		}
 	}
 
 	// Reconcile targets
-	err = l.reconcileTargets(lb.ID, svcPort.NodePort, nodes)
+	err = l.reconcileTargets(ctx, lb.ID, svcPort.NodePort, nodes)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +121,7 @@ func (l *loadbalancer) UpdateLoadBalancer(ctx context.Context, clusterName strin
 	name := l.GetLoadBalancerName(ctx, clusterName, service)
 	klog.Infof("UpdateLoadBalancer(%s)", name)
 
-	lb, err := l.findLBByName(name)
+	lb, err := l.findLBByName(ctx, name)
 	if err != nil {
 		return err
 	}
@@ -121,16 +132,22 @@ func (l *loadbalancer) UpdateLoadBalancer(ctx context.Context, clusterName strin
 	if len(service.Spec.Ports) == 0 {
 		return nil
 	}
-	nodePort := service.Spec.Ports[0].NodePort
+	svcPort := service.Spec.Ports[0]
 
-	return l.reconcileTargets(lb.ID, nodePort, nodes)
+	// Validate NodePort
+	if svcPort.NodePort == 0 {
+		klog.Infof("NodePort not yet allocated for service %s/%s during update, skipping reconciliation", service.Namespace, service.Name)
+		return nil
+	}
+
+	return l.reconcileTargets(ctx, lb.ID, svcPort.NodePort, nodes)
 }
 
 func (l *loadbalancer) EnsureLoadBalancerDeleted(ctx context.Context, clusterName string, service *v1.Service) error {
 	name := l.GetLoadBalancerName(ctx, clusterName, service)
 	klog.Infof("EnsureLoadBalancerDeleted(%s)", name)
 
-	lb, err := l.findLBByName(name)
+	lb, err := l.findLBByName(ctx, name)
 	if err != nil {
 		return err
 	}
@@ -139,7 +156,7 @@ func (l *loadbalancer) EnsureLoadBalancerDeleted(ctx context.Context, clusterNam
 		return nil
 	}
 
-	err = l.client.DeleteLB(lb.ID)
+	err = l.client.DeleteLBWithContext(ctx, lb.ID)
 	if err != nil {
 		return fmt.Errorf("failed to delete LB %s: %w", lb.ID, err)
 	}
@@ -149,8 +166,8 @@ func (l *loadbalancer) EnsureLoadBalancerDeleted(ctx context.Context, clusterNam
 
 // Helpers
 
-func (l *loadbalancer) findLBByName(name string) (*sdk.LoadBalancer, error) {
-	lbs, err := l.client.ListLBs()
+func (l *loadbalancer) findLBByName(ctx context.Context, name string) (*sdk.LoadBalancer, error) {
+	lbs, err := l.client.ListLBsWithContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list LBs: %w", err)
 	}
@@ -166,8 +183,8 @@ func (l *loadbalancer) findLBByName(name string) (*sdk.LoadBalancer, error) {
 	return nil, nil
 }
 
-func (l *loadbalancer) reconcileTargets(lbID string, nodePort int32, nodes []*v1.Node) error {
-	existingTargets, err := l.client.ListLBTargets(lbID)
+func (l *loadbalancer) reconcileTargets(ctx context.Context, lbID string, nodePort int32, nodes []*v1.Node) error {
+	existingTargets, err := l.client.ListLBTargetsWithContext(ctx, lbID)
 	if err != nil {
 		return fmt.Errorf("failed to list LB targets: %w", err)
 	}
@@ -186,7 +203,7 @@ func (l *loadbalancer) reconcileTargets(lbID string, nodePort int32, nodes []*v1
 	}
 
 	// We need instances to match Names to IDs
-	instances, err := l.client.ListInstances()
+	instances, err := l.client.ListInstancesWithContext(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list instances for target reconciliation: %w", err)
 	}
@@ -206,7 +223,7 @@ func (l *loadbalancer) reconcileTargets(lbID string, nodePort int32, nodes []*v1
 
 		if _, exists := existingNodes[instID]; !exists {
 			klog.Infof("Adding node %s (ID: %s) to LB %s", nodeName, instID, lbID)
-			err := l.client.AddLBTarget(lbID, instID, int(nodePort), 1)
+			err := l.client.AddLBTargetWithContext(ctx, lbID, instID, int(nodePort), DefaultTargetWeight)
 			if err != nil && !strings.Contains(err.Error(), "already exists") {
 				return fmt.Errorf("failed to add target %s: %w", instID, err)
 			}
@@ -224,7 +241,7 @@ func (l *loadbalancer) reconcileTargets(lbID string, nodePort int32, nodes []*v1
 	for instID := range existingNodes {
 		if !desiredInstanceIDs[instID] {
 			klog.Infof("Removing stale node (ID: %s) from LB %s", instID, lbID)
-			err := l.client.RemoveLBTarget(lbID, instID)
+			err := l.client.RemoveLBTargetWithContext(ctx, lbID, instID)
 			if err != nil && !strings.Contains(err.Error(), "not found") {
 				return fmt.Errorf("failed to remove target %s: %w", instID, err)
 			}
