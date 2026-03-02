@@ -86,6 +86,14 @@ func (m *mockDatabaseService) RestoreDatabase(ctx context.Context, req ports.Res
 	r0, _ := args.Get(0).(*domain.Database)
 	return r0, args.Error(1)
 }
+func (m *mockDatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDatabaseRequest) (*domain.Database, error) {
+	args := m.Called(ctx, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	r0, _ := args.Get(0).(*domain.Database)
+	return r0, args.Error(1)
+}
 func (m *mockDatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
 	return "", nil
 }

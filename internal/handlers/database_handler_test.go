@@ -99,6 +99,13 @@ func (m *mockDatabaseService) RestoreDatabase(ctx context.Context, req ports.Res
 	}
 	return args.Get(0).(*domain.Database), args.Error(1)
 }
+func (m *mockDatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDatabaseRequest) (*domain.Database, error) {
+	args := m.Called(ctx, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Database), args.Error(1)
+}
 func (m *mockDatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
 	args := m.Called(ctx, id)
 	return args.String(0), args.Error(1)
@@ -110,6 +117,31 @@ func setupDatabaseHandlerTest(_ *testing.T) (*mockDatabaseService, *DatabaseHand
 	handler := NewDatabaseHandler(svc)
 	r := gin.New()
 	return svc, handler, r
+}
+
+func TestDatabaseHandlerModify(t *testing.T) {
+	t.Parallel()
+	svc, handler, r := setupDatabaseHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.PATCH(databasesPath+"/:id", handler.Modify)
+
+	id := uuid.New()
+	db := &domain.Database{ID: id, Name: testDBName, PoolingEnabled: true}
+	svc.On("ModifyDatabase", mock.Anything, mock.MatchedBy(func(req ports.ModifyDatabaseRequest) bool {
+		return req.ID == id && *req.PoolingEnabled == true
+	})).Return(db, nil)
+
+	poolingEnabled := true
+	body, _ := json.Marshal(map[string]interface{}{
+		"pooling_enabled": &poolingEnabled,
+	})
+	w := httptest.NewRecorder()
+	req, err := http.NewRequest("PATCH", databasesPath+"/"+id.String(), bytes.NewBuffer(body))
+	require.NoError(t, err)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestDatabaseHandlerCreate(t *testing.T) {
@@ -332,7 +364,7 @@ func TestDatabaseHandlerGetError(t *testing.T) {
 		svc, handler, r := setupDatabaseHandlerTest(t)
 		r.GET(databasesPath+"/:id", handler.Get)
 		id := uuid.New()
-		svc.On("GetDatabase", mock.Anything, id).Return(nil, errors.New(errors.NotFound, errNotFound))
+		svc.On("GetDatabase", mock.Anything, id).Return(nil, errors.New(errors.NotFound, "not found"))
 		req, _ := http.NewRequest(http.MethodGet, databasesPath+"/"+id.String(), nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
