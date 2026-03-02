@@ -112,8 +112,28 @@ func (s *ClusterService) CreateCluster(ctx context.Context, params ports.CreateC
 		cluster.ServiceCIDR = "10.96.0.0/12"
 	}
 
+	// Add default Node Group
+	cluster.NodeGroups = []domain.NodeGroup{
+		{
+			ID:           uuid.New(),
+			ClusterID:    cluster.ID,
+			Name:         "default-pool",
+			InstanceType: "standard-1",
+			MinSize:      1,
+			MaxSize:      10,
+			CurrentSize:  params.Workers,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		},
+	}
+
 	if err := s.repo.Create(ctx, cluster); err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to create cluster record", err)
+	}
+
+	// Persist Node Group
+	if err := s.repo.AddNodeGroup(ctx, &cluster.NodeGroups[0]); err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to create default node group", err)
 	}
 
 	// 3. Enqueue provisioning job
@@ -385,6 +405,100 @@ func (s *ClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, backup
 	}
 
 	cluster.Status = domain.ClusterStatusRunning
+	return s.repo.Update(ctx, cluster)
+}
+
+func (s *ClusterService) AddNodeGroup(ctx context.Context, clusterID uuid.UUID, params ports.NodeGroupParams) (*domain.NodeGroup, error) {
+	cluster, err := s.GetCluster(ctx, clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	ng := &domain.NodeGroup{
+		ID:           uuid.New(),
+		ClusterID:    cluster.ID,
+		Name:         params.Name,
+		InstanceType: params.InstanceType,
+		MinSize:      params.MinSize,
+		MaxSize:      params.MaxSize,
+		CurrentSize:  params.DesiredSize,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	if err := s.repo.AddNodeGroup(ctx, ng); err != nil {
+		return nil, err
+	}
+
+	// If desired size > 0, we should trigger a scale operation for this specific group.
+	// For now, we will update the global worker count to reflect the addition.
+	cluster.WorkerCount += params.DesiredSize
+	_ = s.repo.Update(ctx, cluster)
+
+	return ng, nil
+}
+
+func (s *ClusterService) UpdateNodeGroup(ctx context.Context, clusterID uuid.UUID, name string, params ports.UpdateNodeGroupParams) (*domain.NodeGroup, error) {
+	cluster, err := s.GetCluster(ctx, clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	var targetGroup *domain.NodeGroup
+	for i := range cluster.NodeGroups {
+		if cluster.NodeGroups[i].Name == name {
+			targetGroup = &cluster.NodeGroups[i]
+			break
+		}
+	}
+
+	if targetGroup == nil {
+		return nil, errors.New(errors.NotFound, "node group not found")
+	}
+
+	if params.MinSize != nil {
+		targetGroup.MinSize = *params.MinSize
+	}
+	if params.MaxSize != nil {
+		targetGroup.MaxSize = *params.MaxSize
+	}
+	if params.DesiredSize != nil {
+		// Update global worker count
+		diff := *params.DesiredSize - targetGroup.CurrentSize
+		cluster.WorkerCount += diff
+		targetGroup.CurrentSize = *params.DesiredSize
+	}
+
+	if err := s.repo.UpdateNodeGroup(ctx, targetGroup); err != nil {
+		return nil, err
+	}
+	_ = s.repo.Update(ctx, cluster)
+
+	return targetGroup, nil
+}
+
+func (s *ClusterService) DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error {
+	cluster, err := s.GetCluster(ctx, clusterID)
+	if err != nil {
+		return err
+	}
+
+	if name == "default-pool" {
+		return errors.New(errors.InvalidInput, "cannot delete default node group")
+	}
+
+	// Calculate worker count reduction
+	for _, ng := range cluster.NodeGroups {
+		if ng.Name == name {
+			cluster.WorkerCount -= ng.CurrentSize
+			break
+		}
+	}
+
+	if err := s.repo.DeleteNodeGroup(ctx, clusterID, name); err != nil {
+		return err
+	}
+
 	return s.repo.Update(ctx, cluster)
 }
 
