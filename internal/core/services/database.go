@@ -59,7 +59,7 @@ func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 	}
 }
 
-func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string) (*domain.Database, error) {
+func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 
 	dbEngine := domain.DatabaseEngine(engine)
@@ -81,6 +81,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	db.Role = domain.RolePrimary
 	db.AllocatedStorage = allocatedStorage
 	db.Parameters = parameters
+	db.MetricsEnabled = metricsEnabled
 
 	imageName, env, defaultPort := s.getEngineConfig(dbEngine, version, username, password, name, db.Role, "")
 
@@ -143,9 +144,41 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	db.Port = hostPort
 	db.Status = domain.DatabaseStatusRunning
 
+	// Launch metrics sidecar if enabled
+	if metricsEnabled {
+		dbIP, err := s.compute.GetInstanceIP(ctx, containerID)
+		if err == nil {
+			exporterImage, exporterEnv, exporterPort := s.getExporterConfig(dbEngine, dbIP, username, password, name)
+			exporterName := fmt.Sprintf("cloud-db-exporter-%s-%s", name, db.ID.String()[:8])
+
+			expCID, expPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+				Name:      exporterName,
+				ImageName: exporterImage,
+				Ports:     []string{"0:" + exporterPort},
+				NetworkID: networkID,
+				Env:       exporterEnv,
+			})
+			if err == nil {
+				db.ExporterContainerID = expCID
+				expHostPort, err := s.parseAllocatedPort(expPorts, exporterPort)
+				if err == nil && expHostPort != 0 {
+					db.MetricsPort = expHostPort
+				} else {
+					expHostPort, _ = s.compute.GetInstancePort(ctx, expCID, exporterPort)
+					db.MetricsPort = expHostPort
+				}
+			} else {
+				s.logger.Warn("failed to launch metrics exporter", "database_id", db.ID, "error", err)
+			}
+		}
+	}
+
 	if err := s.repo.Create(ctx, db); err != nil {
 		if delErr := s.compute.DeleteInstance(ctx, containerID); delErr != nil {
 			s.logger.Error("failed to clean up database container after repo create failure", "container_id", containerID, "error", delErr)
+		}
+		if db.ExporterContainerID != "" {
+			_ = s.compute.DeleteInstance(ctx, db.ExporterContainerID)
 		}
 		_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
 		return nil, err
@@ -172,6 +205,7 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 	db.Role = domain.RoleReplica
 	db.PrimaryID = &primaryID
 	db.AllocatedStorage = primary.AllocatedStorage
+	db.MetricsEnabled = primary.MetricsEnabled
 
 	imageName, env, defaultPort := s.getEngineConfig(primary.Engine, primary.Version, primary.Username, primary.Password, name, db.Role, primaryIP)
 
@@ -222,8 +256,38 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 	db.Port = hostPort
 	db.Status = domain.DatabaseStatusRunning
 
+	// Launch metrics sidecar for replica if enabled on primary
+	if db.MetricsEnabled {
+		dbIP, err := s.compute.GetInstanceIP(ctx, containerID)
+		if err == nil {
+			exporterImage, exporterEnv, exporterPort := s.getExporterConfig(db.Engine, dbIP, db.Username, db.Password, name)
+			exporterName := fmt.Sprintf("cloud-db-replica-exporter-%s-%s", name, db.ID.String()[:8])
+
+			expCID, expPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+				Name:      exporterName,
+				ImageName: exporterImage,
+				Ports:     []string{"0:" + exporterPort},
+				NetworkID: networkID,
+				Env:       exporterEnv,
+			})
+			if err == nil {
+				db.ExporterContainerID = expCID
+				expHostPort, err := s.parseAllocatedPort(expPorts, exporterPort)
+				if err == nil && expHostPort != 0 {
+					db.MetricsPort = expHostPort
+				} else {
+					expHostPort, _ = s.compute.GetInstancePort(ctx, expCID, exporterPort)
+					db.MetricsPort = expHostPort
+				}
+			}
+		}
+	}
+
 	if err := s.repo.Create(ctx, db); err != nil {
 		_ = s.compute.DeleteInstance(ctx, containerID)
+		if db.ExporterContainerID != "" {
+			_ = s.compute.DeleteInstance(ctx, db.ExporterContainerID)
+		}
 		_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
 		return nil, err
 	}
@@ -296,6 +360,20 @@ func (s *DatabaseService) getDefaultUsername(engine domain.DatabaseEngine) strin
 		return "root"
 	}
 	return "cloud_user"
+}
+
+func (s *DatabaseService) getExporterConfig(engine domain.DatabaseEngine, dbIP, username, password, dbName string) (string, []string, string) {
+	switch engine {
+	case domain.EnginePostgres:
+		// postgres-exporter uses DATA_SOURCE_NAME
+		dsn := fmt.Sprintf("postgresql://%s:%s@%s:5432/%s?sslmode=disable", username, password, dbIP, dbName)
+		return "prometheuscommunity/postgres-exporter", []string{"DATA_SOURCE_NAME=" + dsn}, "9187"
+	case domain.EngineMySQL:
+		// mysqld-exporter uses DATA_SOURCE_NAME
+		dsn := fmt.Sprintf("%s:%s@(%s:3306)/%s", username, password, dbIP, dbName)
+		return "prom/mysqld-exporter", []string{"DATA_SOURCE_NAME=" + dsn}, "9104"
+	}
+	return "", nil, ""
 }
 
 func (s *DatabaseService) buildEngineCmd(engine domain.DatabaseEngine, parameters map[string]string) []string {
@@ -410,10 +488,15 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 		return err
 	}
 
-	// 1. Remove container
+	// 1. Remove containers
 	if db.ContainerID != "" {
 		if err := s.compute.DeleteInstance(ctx, db.ContainerID); err != nil {
 			s.logger.Warn("failed to remove database container", "container_id", db.ContainerID, "error", err)
+		}
+	}
+	if db.ExporterContainerID != "" {
+		if err := s.compute.DeleteInstance(ctx, db.ExporterContainerID); err != nil {
+			s.logger.Warn("failed to remove metrics exporter container", "container_id", db.ExporterContainerID, "error", err)
 		}
 	}
 
@@ -517,7 +600,7 @@ func (s *DatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID 
 	return s.snapshotRepo.ListByVolumeID(ctx, vol.ID)
 }
 
-func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.UUID, newName, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string) (*domain.Database, error) {
+func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.UUID, newName, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 
 	snap, err := s.snapshotSvc.GetSnapshot(ctx, snapshotID)
@@ -544,6 +627,7 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.U
 	db.Role = domain.RolePrimary
 	db.AllocatedStorage = allocatedStorage
 	db.Parameters = parameters
+	db.MetricsEnabled = metricsEnabled
 
 	imageName, env, defaultPort := s.getEngineConfig(dbEngine, version, username, password, newName, db.Role, "")
 
@@ -603,8 +687,38 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.U
 	db.Port = hostPort
 	db.Status = domain.DatabaseStatusRunning
 
+	// Launch metrics sidecar if enabled
+	if metricsEnabled {
+		dbIP, err := s.compute.GetInstanceIP(ctx, containerID)
+		if err == nil {
+			exporterImage, exporterEnv, exporterPort := s.getExporterConfig(dbEngine, dbIP, username, password, newName)
+			exporterName := fmt.Sprintf("cloud-db-exporter-%s-%s", newName, db.ID.String()[:8])
+
+			expCID, expPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+				Name:      exporterName,
+				ImageName: exporterImage,
+				Ports:     []string{"0:" + exporterPort},
+				NetworkID: networkID,
+				Env:       exporterEnv,
+			})
+			if err == nil {
+				db.ExporterContainerID = expCID
+				expHostPort, err := s.parseAllocatedPort(expPorts, exporterPort)
+				if err == nil && expHostPort != 0 {
+					db.MetricsPort = expHostPort
+				} else {
+					expHostPort, _ = s.compute.GetInstancePort(ctx, expCID, exporterPort)
+					db.MetricsPort = expHostPort
+				}
+			}
+		}
+	}
+
 	if err := s.repo.Create(ctx, db); err != nil {
 		_ = s.compute.DeleteInstance(ctx, containerID)
+		if db.ExporterContainerID != "" {
+			_ = s.compute.DeleteInstance(ctx, db.ExporterContainerID)
+		}
 		_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
 		return nil, err
 	}
