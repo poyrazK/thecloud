@@ -27,7 +27,7 @@ type DatabaseRepository interface {
 // DatabaseService provides business logic for managing relational database instances (DBaaS).
 type DatabaseService interface {
 	// CreateDatabase provisions a new managed database instance.
-	CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string) (*domain.Database, error)
+	CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool) (*domain.Database, error)
 	// CreateReplica provisions a new read-only replica of an existing database.
 	CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error)
 	// PromoteToPrimary promotes a replica to be a primary instance.
@@ -45,5 +45,5 @@ type DatabaseService interface {
 	// ListDatabaseSnapshots returns all snapshots belonging to a specific database.
 	ListDatabaseSnapshots(ctx context.Context, databaseID uuid.UUID) ([]*domain.Snapshot, error)
 	// RestoreDatabase creates a new database instance from an existing snapshot.
-	RestoreDatabase(ctx context.Context, snapshotID uuid.UUID, newName, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string) (*domain.Database, error)
+	RestoreDatabase(ctx context.Context, snapshotID uuid.UUID, newName, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool) (*domain.Database, error)
 }
