@@ -275,6 +275,9 @@ func TestKubeadmProvisionerDeprovision(t *testing.T) {
 }
 
 func TestKubeadmProvisionerProvisionHA(t *testing.T) {
+	t.Setenv("CLOUD_API_KEY", "test-key")
+	t.Setenv("CLOUD_API_URL", "https://api.local")
+
 	ctx := context.Background()
 	instSvc := new(MockInstanceService)
 	repo := new(MockClusterRepo)
