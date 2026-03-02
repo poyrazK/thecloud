@@ -30,9 +30,146 @@ write_files:
       networking:
         podSubnet: "{{ .PodCIDR }}"
         serviceSubnet: "{{ .ServiceCIDR }}"
+      apiServer:
+        extraArgs:
+          cloud-provider: external
+      controllerManager:
+        extraArgs:
+          cloud-provider: external
       ---
       apiVersion: kubeadm.k8s.io/v1beta3
       kind: InitConfiguration
+      nodeRegistration:
+        kubeletExtraArgs:
+          cloud-provider: external
+  - path: /etc/kubernetes/addons/ccm.yaml
+    content: |
+      ---
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: thecloud-api-credentials
+        namespace: kube-system
+      type: Opaque
+      stringData:
+        api-key: "{{ .CloudAPIKey }}"
+      ---
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: cloud-controller-manager
+        namespace: kube-system
+      ---
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRole
+      metadata:
+        name: system:cloud-controller-manager
+      rules:
+        - apiGroups: [""]
+          resources: ["nodes"]
+          verbs: ["get", "list", "watch", "update", "patch"]
+        - apiGroups: [""]
+          resources: ["nodes/status"]
+          verbs: ["patch"]
+        - apiGroups: [""]
+          resources: ["services"]
+          verbs: ["get", "list", "watch", "update", "patch"]
+        - apiGroups: [""]
+          resources: ["services/status"]
+          verbs: ["update", "patch"]
+        - apiGroups: [""]
+          resources: ["endpoints"]
+          verbs: ["create", "get", "list", "watch", "update", "patch"]
+        - apiGroups: [""]
+          resources: ["events"]
+          verbs: ["create", "patch", "update"]
+        - apiGroups: [""]
+          resources: ["configmaps"]
+          verbs: ["get", "list", "watch", "create", "update", "patch"]
+        - apiGroups: [""]
+          resources: ["secrets"]
+          verbs: ["get", "list", "watch"]
+      ---
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: system:cloud-controller-manager
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: system:cloud-controller-manager
+      subjects:
+        - kind: ServiceAccount
+          name: cloud-controller-manager
+          namespace: kube-system
+      ---
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        name: system:cloud-controller-manager:extension-apiserver-authentication-reader
+        namespace: kube-system
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: Role
+        name: extension-apiserver-authentication-reader
+      subjects:
+        - kind: ServiceAccount
+          name: cloud-controller-manager
+          namespace: kube-system
+      ---
+      apiVersion: apps/v1
+      kind: DaemonSet
+      metadata:
+        name: thecloud-cloud-controller-manager
+        namespace: kube-system
+        labels:
+          k8s-app: thecloud-cloud-controller-manager
+      spec:
+        selector:
+          matchLabels:
+            k8s-app: thecloud-cloud-controller-manager
+        template:
+          metadata:
+            labels:
+              k8s-app: thecloud-cloud-controller-manager
+          spec:
+            serviceAccountName: cloud-controller-manager
+            tolerations:
+              - key: node.cloudprovider.kubernetes.io/uninitialized
+                value: "true"
+                effect: NoSchedule
+              - key: node-role.kubernetes.io/control-plane
+                effect: NoSchedule
+            nodeSelector:
+              node-role.kubernetes.io/control-plane: ""
+            containers:
+              - name: thecloud-cloud-controller-manager
+                image: ghcr.io/poyrazk/thecloud-ccm:v1.0.0
+                imagePullPolicy: IfNotPresent
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  runAsNonRoot: true
+                  runAsUser: 1000
+                  readOnlyRootFilesystem: true
+                  capabilities:
+                    drop:
+                      - ALL
+                command:
+                  - /bin/thecloud-ccm
+                  - --cloud-provider=thecloud
+                  - --leader-elect=true
+                  - --use-service-account-credentials
+                  - --allocate-node-cidrs=true
+                  - --configure-cloud-routes=false
+                  - --cluster-cidr={{ .PodCIDR }}
+                env:
+                  - name: CLOUD_API_KEY
+                    valueFrom:
+                      secretKeyRef:
+                        name: thecloud-api-credentials
+                        key: api-key
+                  - name: CLOUD_API_URL
+                    value: "{{ .CloudAPIURL }}"
 
 runcmd:
   - modprobe overlay
@@ -53,8 +190,16 @@ runcmd:
   - apt-get update
   - apt-get install -y kubelet kubeadm kubectl
   - apt-mark hold kubelet kubeadm kubectl
+  # Configure kubelet to use external cloud provider via drop-in
+  - mkdir -p /etc/systemd/system/kubelet.service.d
+  - echo '[Service]' > /etc/systemd/system/kubelet.service.d/20-cloud-provider.conf
+  - echo 'Environment="KUBELET_EXTRA_ARGS=--cloud-provider=external"' >> /etc/systemd/system/kubelet.service.d/20-cloud-provider.conf
+  - systemctl daemon-reload
+  - systemctl restart kubelet
   # Init
   - kubeadm init --config /etc/kubernetes/kubeadm-config.yaml --upload-certs
   # Network (Calico)
   - export KUBECONFIG=/etc/kubernetes/admin.conf
   - kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.25.0/manifests/calico.yaml
+  # Cloud Controller Manager
+  - kubectl apply -f /etc/kubernetes/addons/ccm.yaml

@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: thecloud-cloud-controller-manager
+  namespace: kube-system
+  labels:
+    k8s-app: thecloud-cloud-controller-manager
+spec:
+  selector:
+    matchLabels:
+      k8s-app: thecloud-cloud-controller-manager
+  template:
+    metadata:
+      labels:
+        k8s-app: thecloud-cloud-controller-manager
+    spec:
+      serviceAccountName: cloud-controller-manager
+      tolerations:
+        # this is required so CCM can bootstrap itself
+        - key: node.cloudprovider.kubernetes.io/uninitialized
+          value: "true"
+          effect: NoSchedule
+        # this is to have the daemonset runnable on master nodes
+        - key: node-role.kubernetes.io/control-plane
+          effect: NoSchedule
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      containers:
+        - name: thecloud-cloud-controller-manager
+          image: ghcr.io/poyrazk/thecloud-ccm:v1.0.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          command:
+            - /bin/thecloud-ccm
+            - --cloud-provider=thecloud
+            - --leader-elect=true
+            - --use-service-account-credentials
+            - --allocate-node-cidrs=true
+            - --configure-cloud-routes=false
+            - --cluster-cidr=192.168.0.0/16
+          env:
+            - name: CLOUD_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: thecloud-api-credentials
+                  key: api-key
+            - name: CLOUD_API_URL
+              value: "https://thecloud-api.kube-system.svc.cluster.local:443"

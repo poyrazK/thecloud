@@ -2,6 +2,7 @@
 package sdk
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -35,10 +36,28 @@ func (c *Client) ListInstances() ([]Instance, error) {
 	return res.Data, nil
 }
 
+// ListInstancesWithContext returns all instances with context support.
+func (c *Client) ListInstancesWithContext(ctx context.Context) ([]Instance, error) {
+	var res Response[[]Instance]
+	if err := c.getWithContext(ctx, "/instances", &res); err != nil {
+		return nil, err
+	}
+	return res.Data, nil
+}
+
 // GetInstance retrieves a compute instance by ID or name.
 func (c *Client) GetInstance(idOrName string) (*Instance, error) {
 	var res Response[Instance]
 	if err := c.get(fmt.Sprintf("/instances/%s", idOrName), &res); err != nil {
+		return nil, err
+	}
+	return &res.Data, nil
+}
+
+// GetInstanceWithContext retrieves a compute instance with context support.
+func (c *Client) GetInstanceWithContext(ctx context.Context, idOrName string) (*Instance, error) {
+	var res Response[Instance]
+	if err := c.getWithContext(ctx, fmt.Sprintf("/instances/%s", idOrName), &res); err != nil {
 		return nil, err
 	}
 	return &res.Data, nil
