@@ -617,8 +617,8 @@ func (s *NoopStorageBackend) Type() string                   { return "noop" }
 // NoopDatabaseService is a no-op database service.
 type NoopDatabaseService struct{}
 
-func (s *NoopDatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool, poolingEnabled bool) (*domain.Database, error) {
-	return &domain.Database{ID: uuid.New(), Name: name, Role: domain.RolePrimary}, nil
+func (s *NoopDatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDatabaseRequest) (*domain.Database, error) {
+	return &domain.Database{ID: uuid.New(), Name: req.Name, Role: domain.RolePrimary}, nil
 }
 func (s *NoopDatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error) {
 	return &domain.Database{ID: uuid.New(), Name: name, PrimaryID: &primaryID, Role: domain.RoleReplica}, nil
@@ -640,6 +640,6 @@ func (s *NoopDatabaseService) CreateDatabaseSnapshot(ctx context.Context, databa
 func (s *NoopDatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID uuid.UUID) ([]*domain.Snapshot, error) {
 	return []*domain.Snapshot{}, nil
 }
-func (s *NoopDatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.UUID, newName, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool, poolingEnabled bool) (*domain.Database, error) {
-	return &domain.Database{ID: uuid.New(), Name: newName, Role: domain.RolePrimary}, nil
+func (s *NoopDatabaseService) RestoreDatabase(ctx context.Context, req ports.RestoreDatabaseRequest) (*domain.Database, error) {
+	return &domain.Database{ID: uuid.New(), Name: req.NewName, Role: domain.RolePrimary}, nil
 }

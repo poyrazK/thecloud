@@ -28,3 +28,13 @@ We will implement connection pooling for Managed PostgreSQL instances using a si
 - **Lifecycle Management**: The pooler sidecar is automatically provisioned, restarted, and deleted alongside the database instance.
 - **Port Management**: Requires one additional dynamic host port per database instance.
 - **Engine Support**: Initial support is limited to PostgreSQL. MySQL support is deferred.
+
+### Limitations
+Connection pooling uses PgBouncer in **transaction mode** to maximize reuse. This introduces several limitations that users must be aware of:
+- **Session State**: Parameters set via `SET` or `RESET` are not preserved across transactions.
+- **LISTEN/NOTIFY**: Unreliable as notifications are tied to specific backend connections which may change between transactions.
+- **Prepared Statements**: Server-side `PREPARE` statements are not supported.
+- **Advisory Locks**: Session-level advisory locks may be lost or incorrectly shared.
+- **Temporary Tables**: Temporary tables created with `ON COMMIT PRESERVE ROWS` will not persist correctly across transactions.
+
+**Guidance**: If an application relies on persistent session state, explicit advisory locks, or complex temporary table usage, connection pooling should be disabled. Users can enable/disable pooling via the `pooling_enabled` flag at creation or restore time. Note that `GetConnectionString` dynamically routes to the pooler when enabled, making the integration transparent to the application code.

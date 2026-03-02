@@ -24,10 +24,35 @@ type DatabaseRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
+// CreateDatabaseRequest defines the parameters for provisioning a new database.
+type CreateDatabaseRequest struct {
+	Name             string
+	Engine           string
+	Version          string
+	VpcID            *uuid.UUID
+	AllocatedStorage int
+	Parameters       map[string]string
+	MetricsEnabled   bool
+	PoolingEnabled   bool
+}
+
+// RestoreDatabaseRequest defines the parameters for restoring a database from a snapshot.
+type RestoreDatabaseRequest struct {
+	SnapshotID       uuid.UUID
+	NewName          string
+	Engine           string
+	Version          string
+	VpcID            *uuid.UUID
+	AllocatedStorage int
+	Parameters       map[string]string
+	MetricsEnabled   bool
+	PoolingEnabled   bool
+}
+
 // DatabaseService provides business logic for managing relational database instances (DBaaS).
 type DatabaseService interface {
 	// CreateDatabase provisions a new managed database instance.
-	CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool, poolingEnabled bool) (*domain.Database, error)
+	CreateDatabase(ctx context.Context, req CreateDatabaseRequest) (*domain.Database, error)
 	// CreateReplica provisions a new read-only replica of an existing database.
 	CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error)
 	// PromoteToPrimary promotes a replica to be a primary instance.
@@ -45,5 +70,5 @@ type DatabaseService interface {
 	// ListDatabaseSnapshots returns all snapshots belonging to a specific database.
 	ListDatabaseSnapshots(ctx context.Context, databaseID uuid.UUID) ([]*domain.Snapshot, error)
 	// RestoreDatabase creates a new database instance from an existing snapshot.
-	RestoreDatabase(ctx context.Context, snapshotID uuid.UUID, newName, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool, poolingEnabled bool) (*domain.Database, error)
+	RestoreDatabase(ctx context.Context, req RestoreDatabaseRequest) (*domain.Database, error)
 }

@@ -18,6 +18,25 @@ import (
 	"github.com/poyrazk/thecloud/pkg/util"
 )
 
+const (
+	// Default ports for database engines
+	DefaultPostgresPort = "5432"
+	DefaultMySQLPort    = "3306"
+
+	// Connection Pooling (PgBouncer) defaults
+	PoolerImage          = "edoburu/pgbouncer:latest"
+	PoolerInternalPort   = "5432"
+	DefaultPoolMode      = "transaction"
+	DefaultMaxClientConn = "1000"
+	DefaultPoolSize      = "20"
+
+	// Exporter defaults
+	PostgresExporterImage = "prometheuscommunity/postgres-exporter"
+	PostgresExporterPort  = "9187"
+	MySQLExporterImage    = "prom/mysqld-exporter"
+	MySQLExporterPort     = "9104"
+)
+
 // DatabaseService manages database instances and lifecycle.
 type DatabaseService struct {
 	repo         ports.DatabaseRepository
@@ -59,20 +78,20 @@ func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 	}
 }
 
-func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool, poolingEnabled bool) (*domain.Database, error) {
+func (s *DatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDatabaseRequest) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 
-	dbEngine := domain.DatabaseEngine(engine)
+	dbEngine := domain.DatabaseEngine(req.Engine)
 	if !s.isValidEngine(dbEngine) {
 		return nil, errors.New(errors.InvalidInput, "unsupported database engine")
 	}
 
-	if allocatedStorage < 10 {
+	if req.AllocatedStorage < 10 {
 		return nil, errors.New(errors.InvalidInput, "allocated storage must be at least 10GB")
 	}
 
 	// Verify pooling support (PgBouncer only for Postgres currently)
-	if poolingEnabled && dbEngine != domain.EnginePostgres {
+	if req.PoolingEnabled && dbEngine != domain.EnginePostgres {
 		return nil, errors.New(errors.InvalidInput, "connection pooling is currently only supported for PostgreSQL")
 	}
 
@@ -82,23 +101,23 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	}
 
 	username := s.getDefaultUsername(dbEngine)
-	db := s.initialDatabaseRecord(userID, name, dbEngine, version, username, password, vpcID)
+	db := s.initialDatabaseRecord(userID, req.Name, dbEngine, req.Version, username, password, req.VpcID)
 	db.Role = domain.RolePrimary
-	db.AllocatedStorage = allocatedStorage
-	db.Parameters = parameters
-	db.MetricsEnabled = metricsEnabled
-	db.PoolingEnabled = poolingEnabled
+	db.AllocatedStorage = req.AllocatedStorage
+	db.Parameters = req.Parameters
+	db.MetricsEnabled = req.MetricsEnabled
+	db.PoolingEnabled = req.PoolingEnabled
 
-	imageName, env, defaultPort := s.getEngineConfig(dbEngine, version, username, password, name, db.Role, "")
+	imageName, env, defaultPort := s.getEngineConfig(dbEngine, req.Version, username, password, req.Name, db.Role, "")
 
-	networkID, err := s.resolveVpcNetwork(ctx, vpcID)
+	networkID, err := s.resolveVpcNetwork(ctx, req.VpcID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create persistent volume for the database
 	volName := fmt.Sprintf("db-vol-%s", db.ID.String()[:8])
-	vol, err := s.volumeSvc.CreateVolume(ctx, volName, allocatedStorage)
+	vol, err := s.volumeSvc.CreateVolume(ctx, volName, req.AllocatedStorage)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to create persistent volume", err)
 	}
@@ -114,9 +133,9 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	}
 	volumeBinds := []string{fmt.Sprintf("%s:%s", backendVolName, mountPath)}
 
-	cmd := s.buildEngineCmd(dbEngine, parameters)
+	cmd := s.buildEngineCmd(dbEngine, req.Parameters)
 
-	dockerName := fmt.Sprintf("cloud-db-%s-%s", name, db.ID.String()[:8])
+	dockerName := fmt.Sprintf("cloud-db-%s-%s", req.Name, db.ID.String()[:8])
 	containerID, allocatedPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 		Name:        dockerName,
 		ImageName:   imageName,
@@ -128,21 +147,40 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	})
 
 	if err != nil {
-		_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
+		if delErr := s.volumeSvc.DeleteVolume(ctx, vol.ID.String()); delErr != nil {
+			s.logger.Error("failed to delete volume after container launch failure", "volume_id", vol.ID, "error", delErr)
+		}
 		s.logger.Error("failed to launch database container", "error", err)
 		return nil, errors.Wrap(errors.Internal, "failed to launch database container", err)
+	}
+
+	// Deterministic cleanup helper
+	rollback := func(err error) (*domain.Database, error) {
+		s.logger.Error("rolling back database provisioning due to failure", "error", err)
+		if delErr := s.compute.DeleteInstance(ctx, containerID); delErr != nil {
+			s.logger.Error("failed to clean up database container during rollback", "container_id", containerID, "error", delErr)
+		}
+		if db.ExporterContainerID != "" {
+			if delErr := s.compute.DeleteInstance(ctx, db.ExporterContainerID); delErr != nil {
+				s.logger.Error("failed to clean up metrics exporter container during rollback", "container_id", db.ExporterContainerID, "error", delErr)
+			}
+		}
+		if db.PoolerContainerID != "" {
+			if delErr := s.compute.DeleteInstance(ctx, db.PoolerContainerID); delErr != nil {
+				s.logger.Error("failed to clean up pooler container during rollback", "container_id", db.PoolerContainerID, "error", delErr)
+			}
+		}
+		if delErr := s.volumeSvc.DeleteVolume(ctx, vol.ID.String()); delErr != nil {
+			s.logger.Error("failed to delete volume during rollback", "volume_id", vol.ID, "error", delErr)
+		}
+		return nil, err
 	}
 
 	hostPort, err := s.parseAllocatedPort(allocatedPorts, defaultPort)
 	if err != nil || hostPort == 0 {
 		hostPort, err = s.compute.GetInstancePort(ctx, containerID, defaultPort)
 		if err != nil {
-			s.logger.Error("failed to resolve database port", "container_id", containerID, "error", err)
-			if delErr := s.compute.DeleteInstance(ctx, containerID); delErr != nil {
-				s.logger.Error("failed to clean up database container after port resolution failure", "container_id", containerID, "error", delErr)
-			}
-			_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
-			return nil, errors.Wrap(errors.Internal, "failed to resolve database port", err)
+			return rollback(errors.Wrap(errors.Internal, "failed to resolve database port", err))
 		}
 	}
 
@@ -151,12 +189,15 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	db.Status = domain.DatabaseStatusRunning
 
 	// Sidecars require the DB IP
-	dbIP, _ := s.compute.GetInstanceIP(ctx, containerID)
+	dbIP, err := s.compute.GetInstanceIP(ctx, containerID)
+	if err != nil {
+		return rollback(errors.Wrap(errors.Internal, "failed to get database IP for sidecars", err))
+	}
 
 	// Launch metrics sidecar if enabled
-	if metricsEnabled && dbIP != "" {
-		exporterImage, exporterEnv, exporterPort := s.getExporterConfig(dbEngine, dbIP, username, password, name)
-		exporterName := fmt.Sprintf("cloud-db-exporter-%s-%s", name, db.ID.String()[:8])
+	if req.MetricsEnabled {
+		exporterImage, exporterEnv, exporterPort := s.getExporterConfig(dbEngine, dbIP, username, password, req.Name)
+		exporterName := fmt.Sprintf("cloud-db-exporter-%s-%s", req.Name, db.ID.String()[:8])
 
 		expCID, expPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 			Name:      exporterName,
@@ -165,24 +206,25 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 			NetworkID: networkID,
 			Env:       exporterEnv,
 		})
-		if err == nil {
-			db.ExporterContainerID = expCID
-			expHostPort, err := s.parseAllocatedPort(expPorts, exporterPort)
-			if err == nil && expHostPort != 0 {
-				db.MetricsPort = expHostPort
-			} else {
-				expHostPort, _ = s.compute.GetInstancePort(ctx, expCID, exporterPort)
-				db.MetricsPort = expHostPort
-			}
-		} else {
-			s.logger.Warn("failed to launch metrics exporter", "database_id", db.ID, "error", err)
+		if err != nil {
+			return rollback(errors.Wrap(errors.Internal, "failed to launch metrics exporter", err))
 		}
+
+		db.ExporterContainerID = expCID
+		expHostPort, err := s.parseAllocatedPort(expPorts, exporterPort)
+		if err != nil || expHostPort == 0 {
+			expHostPort, err = s.compute.GetInstancePort(ctx, expCID, exporterPort)
+			if err != nil {
+				return rollback(errors.Wrap(errors.Internal, "failed to resolve metrics exporter port", err))
+			}
+		}
+		db.MetricsPort = expHostPort
 	}
 
 	// Launch pooler sidecar if enabled
-	if poolingEnabled && dbIP != "" {
-		poolerImage, poolerEnv, poolerPort := s.getPoolerConfig(dbEngine, dbIP, username, password, name)
-		poolerName := fmt.Sprintf("cloud-db-pooler-%s-%s", name, db.ID.String()[:8])
+	if req.PoolingEnabled {
+		poolerImage, poolerEnv, poolerPort := s.getPoolerConfig(dbEngine, dbIP, username, password, req.Name)
+		poolerName := fmt.Sprintf("cloud-db-pooler-%s-%s", req.Name, db.ID.String()[:8])
 
 		pCID, pPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 			Name:      poolerName,
@@ -191,37 +233,29 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 			NetworkID: networkID,
 			Env:       poolerEnv,
 		})
-		if err == nil {
-			db.PoolerContainerID = pCID
-			pHostPort, err := s.parseAllocatedPort(pPorts, poolerPort)
-			if err == nil && pHostPort != 0 {
-				db.PoolingPort = pHostPort
-			} else {
-				pHostPort, _ = s.compute.GetInstancePort(ctx, pCID, poolerPort)
-				db.PoolingPort = pHostPort
-			}
-		} else {
-			s.logger.Warn("failed to launch connection pooler", "database_id", db.ID, "error", err)
+		if err != nil {
+			return rollback(errors.Wrap(errors.Internal, "failed to launch connection pooler", err))
 		}
+
+		db.PoolerContainerID = pCID
+		pHostPort, err := s.parseAllocatedPort(pPorts, poolerPort)
+		if err != nil || pHostPort == 0 {
+			pHostPort, err = s.compute.GetInstancePort(ctx, pCID, poolerPort)
+			if err != nil {
+				return rollback(errors.Wrap(errors.Internal, "failed to resolve connection pooler port", err))
+			}
+		}
+		db.PoolingPort = pHostPort
 	}
 
 	if err := s.repo.Create(ctx, db); err != nil {
-		if delErr := s.compute.DeleteInstance(ctx, containerID); delErr != nil {
-			s.logger.Error("failed to clean up database container after repo create failure", "container_id", containerID, "error", delErr)
-		}
-		if db.ExporterContainerID != "" {
-			_ = s.compute.DeleteInstance(ctx, db.ExporterContainerID)
-		}
-		if db.PoolerContainerID != "" {
-			_ = s.compute.DeleteInstance(ctx, db.PoolerContainerID)
-		}
-		_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
-		return nil, err
+		return rollback(err)
 	}
 
-	s.recordDatabaseCreation(ctx, userID, db, engine)
+	s.recordDatabaseCreation(ctx, userID, db, req.Engine)
 	return db, nil
 }
+
 func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 
@@ -240,8 +274,6 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 	db.PrimaryID = &primaryID
 	db.AllocatedStorage = primary.AllocatedStorage
 	db.MetricsEnabled = primary.MetricsEnabled
-	db.PoolingEnabled = primary.PoolingEnabled
-
 	db.PoolingEnabled = primary.PoolingEnabled
 
 	imageName, env, defaultPort := s.getEngineConfig(primary.Engine, primary.Version, primary.Username, primary.Password, name, db.Role, primaryIP)
@@ -284,6 +316,28 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 		return nil, errors.Wrap(errors.Internal, "failed to launch replica container", err)
 	}
 
+	// Deterministic cleanup helper for replica
+	rollback := func(err error) (*domain.Database, error) {
+		s.logger.Error("rolling back database replica provisioning due to failure", "error", err)
+		if delErr := s.compute.DeleteInstance(ctx, containerID); delErr != nil {
+			s.logger.Error("failed to clean up replica container during rollback", "container_id", containerID, "error", delErr)
+		}
+		if db.ExporterContainerID != "" {
+			if delErr := s.compute.DeleteInstance(ctx, db.ExporterContainerID); delErr != nil {
+				s.logger.Error("failed to clean up replica metrics exporter container during rollback", "container_id", db.ExporterContainerID, "error", delErr)
+			}
+		}
+		if db.PoolerContainerID != "" {
+			if delErr := s.compute.DeleteInstance(ctx, db.PoolerContainerID); delErr != nil {
+				s.logger.Error("failed to clean up replica pooler container during rollback", "container_id", db.PoolerContainerID, "error", delErr)
+			}
+		}
+		if delErr := s.volumeSvc.DeleteVolume(ctx, vol.ID.String()); delErr != nil {
+			s.logger.Error("failed to delete replica volume during rollback", "volume_id", vol.ID, "error", delErr)
+		}
+		return nil, err
+	}
+
 	hostPort, err := s.parseAllocatedPort(allocatedPorts, defaultPort)
 	if err != nil || hostPort == 0 {
 		hostPort, _ = s.compute.GetInstancePort(ctx, containerID, defaultPort)
@@ -293,10 +347,13 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 	db.Port = hostPort
 	db.Status = domain.DatabaseStatusRunning
 
-	dbIP, _ := s.compute.GetInstanceIP(ctx, containerID)
+	dbIP, err := s.compute.GetInstanceIP(ctx, containerID)
+	if err != nil {
+		return rollback(errors.Wrap(errors.Internal, "failed to get replica IP for sidecars", err))
+	}
 
 	// Launch metrics sidecar for replica if enabled on primary
-	if db.MetricsEnabled && dbIP != "" {
+	if db.MetricsEnabled {
 		exporterImage, exporterEnv, exporterPort := s.getExporterConfig(db.Engine, dbIP, db.Username, db.Password, name)
 		exporterName := fmt.Sprintf("cloud-db-replica-exporter-%s-%s", name, db.ID.String()[:8])
 
@@ -307,20 +364,20 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 			NetworkID: networkID,
 			Env:       exporterEnv,
 		})
-		if err == nil {
-			db.ExporterContainerID = expCID
-			expHostPort, err := s.parseAllocatedPort(expPorts, exporterPort)
-			if err == nil && expHostPort != 0 {
-				db.MetricsPort = expHostPort
-			} else {
-				expHostPort, _ = s.compute.GetInstancePort(ctx, expCID, exporterPort)
-				db.MetricsPort = expHostPort
-			}
+		if err != nil {
+			return rollback(errors.Wrap(errors.Internal, "failed to launch replica metrics exporter", err))
 		}
+
+		db.ExporterContainerID = expCID
+		expHostPort, err := s.parseAllocatedPort(expPorts, exporterPort)
+		if err != nil || expHostPort == 0 {
+			expHostPort, _ = s.compute.GetInstancePort(ctx, expCID, exporterPort)
+		}
+		db.MetricsPort = expHostPort
 	}
 
 	// Launch pooler sidecar for replica if enabled
-	if db.PoolingEnabled && dbIP != "" {
+	if db.PoolingEnabled {
 		poolerImage, poolerEnv, poolerPort := s.getPoolerConfig(db.Engine, dbIP, db.Username, db.Password, name)
 		poolerName := fmt.Sprintf("cloud-db-replica-pooler-%s-%s", name, db.ID.String()[:8])
 
@@ -331,28 +388,20 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 			NetworkID: networkID,
 			Env:       poolerEnv,
 		})
-		if err == nil {
-			db.PoolerContainerID = pCID
-			pHostPort, err := s.parseAllocatedPort(pPorts, poolerPort)
-			if err == nil && pHostPort != 0 {
-				db.PoolingPort = pHostPort
-			} else {
-				pHostPort, _ = s.compute.GetInstancePort(ctx, pCID, poolerPort)
-				db.PoolingPort = pHostPort
-			}
+		if err != nil {
+			return rollback(errors.Wrap(errors.Internal, "failed to launch replica connection pooler", err))
 		}
+
+		db.PoolerContainerID = pCID
+		pHostPort, err := s.parseAllocatedPort(pPorts, poolerPort)
+		if err != nil || pHostPort == 0 {
+			pHostPort, _ = s.compute.GetInstancePort(ctx, pCID, poolerPort)
+		}
+		db.PoolingPort = pHostPort
 	}
 
 	if err := s.repo.Create(ctx, db); err != nil {
-		_ = s.compute.DeleteInstance(ctx, containerID)
-		if db.ExporterContainerID != "" {
-			_ = s.compute.DeleteInstance(ctx, db.ExporterContainerID)
-		}
-		if db.PoolerContainerID != "" {
-			_ = s.compute.DeleteInstance(ctx, db.PoolerContainerID)
-		}
-		_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
-		return nil, err
+		return rollback(err)
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_REPLICA_CREATE", db.ID.String(), "DATABASE", map[string]interface{}{
@@ -367,15 +416,15 @@ func (s *DatabaseService) getPoolerConfig(engine domain.DatabaseEngine, dbIP, us
 	if engine == domain.EnginePostgres {
 		env := []string{
 			"DB_HOST=" + dbIP,
-			"DB_PORT=5432",
+			"DB_PORT=" + DefaultPostgresPort,
 			"DB_USER=" + username,
 			"DB_PASSWORD=" + password,
 			"DB_NAME=" + dbName,
-			"POOL_MODE=transaction",
-			"MAX_CLIENT_CONN=1000",
-			"DEFAULT_POOL_SIZE=20",
+			"POOL_MODE=" + DefaultPoolMode,
+			"MAX_CLIENT_CONN=" + DefaultMaxClientConn,
+			"DEFAULT_POOL_SIZE=" + DefaultPoolSize,
 		}
-		return "edoburu/pgbouncer:latest", env, "5432"
+		return PoolerImage, env, PoolerInternalPort
 	}
 	return "", nil, ""
 }
@@ -446,12 +495,12 @@ func (s *DatabaseService) getExporterConfig(engine domain.DatabaseEngine, dbIP, 
 	switch engine {
 	case domain.EnginePostgres:
 		// postgres-exporter uses DATA_SOURCE_NAME
-		dsn := fmt.Sprintf("postgresql://%s:%s@%s:5432/%s?sslmode=disable", username, password, dbIP, dbName)
-		return "prometheuscommunity/postgres-exporter", []string{"DATA_SOURCE_NAME=" + dsn}, "9187"
+		dsn := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=disable", username, password, dbIP, DefaultPostgresPort, dbName)
+		return PostgresExporterImage, []string{"DATA_SOURCE_NAME=" + dsn}, PostgresExporterPort
 	case domain.EngineMySQL:
 		// mysqld-exporter uses DATA_SOURCE_NAME
-		dsn := fmt.Sprintf("%s:%s@(%s:3306)/%s", username, password, dbIP, dbName)
-		return "prom/mysqld-exporter", []string{"DATA_SOURCE_NAME=" + dsn}, "9104"
+		dsn := fmt.Sprintf("%s:%s@(%s:%s)/%s", username, password, dbIP, DefaultMySQLPort, dbName)
+		return MySQLExporterImage, []string{"DATA_SOURCE_NAME=" + dsn}, MySQLExporterPort
 	}
 	return "", nil, ""
 }
@@ -495,7 +544,7 @@ func (s *DatabaseService) getEngineConfig(engine domain.DatabaseEngine, version,
 			// Simulating replication setup
 			env = append(env, "PRIMARY_HOST="+primaryIP)
 		}
-		return fmt.Sprintf("postgres:%s-alpine", version), env, "5432"
+		return fmt.Sprintf("postgres:%s-alpine", version), env, DefaultPostgresPort
 	case domain.EngineMySQL:
 		env := []string{
 			"MYSQL_ROOT_PASSWORD=" + password,
@@ -504,7 +553,7 @@ func (s *DatabaseService) getEngineConfig(engine domain.DatabaseEngine, version,
 		if role == domain.RoleReplica {
 			env = append(env, "MYSQL_MASTER_HOST="+primaryIP)
 		}
-		return fmt.Sprintf("mysql:%s", version), env, "3306"
+		return fmt.Sprintf("mysql:%s", version), env, DefaultMySQLPort
 	}
 	return "", nil, ""
 }
@@ -685,24 +734,24 @@ func (s *DatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID 
 	return s.snapshotRepo.ListByVolumeID(ctx, vol.ID)
 }
 
-func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.UUID, newName, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool, poolingEnabled bool) (*domain.Database, error) {
+func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.RestoreDatabaseRequest) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 
-	snap, err := s.snapshotSvc.GetSnapshot(ctx, snapshotID)
+	snap, err := s.snapshotSvc.GetSnapshot(ctx, req.SnapshotID)
 	if err != nil {
 		return nil, err
 	}
 
-	if allocatedStorage < snap.SizeGB {
-		return nil, errors.New(errors.InvalidInput, fmt.Sprintf("allocated storage (%dGB) must be at least the snapshot size (%dGB)", allocatedStorage, snap.SizeGB))
+	if req.AllocatedStorage < snap.SizeGB {
+		return nil, errors.New(errors.InvalidInput, fmt.Sprintf("allocated storage (%dGB) must be at least the snapshot size (%dGB)", req.AllocatedStorage, snap.SizeGB))
 	}
 
-	dbEngine := domain.DatabaseEngine(engine)
+	dbEngine := domain.DatabaseEngine(req.Engine)
 	if !s.isValidEngine(dbEngine) {
 		return nil, errors.New(errors.InvalidInput, "unsupported database engine")
 	}
 
-	if poolingEnabled && dbEngine != domain.EnginePostgres {
+	if req.PoolingEnabled && dbEngine != domain.EnginePostgres {
 		return nil, errors.New(errors.InvalidInput, "connection pooling is currently only supported for PostgreSQL")
 	}
 
@@ -712,30 +761,28 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.U
 	}
 
 	username := s.getDefaultUsername(dbEngine)
-	db := s.initialDatabaseRecord(userID, newName, dbEngine, version, username, password, vpcID)
+	db := s.initialDatabaseRecord(userID, req.NewName, dbEngine, req.Version, username, password, req.VpcID)
 	db.Role = domain.RolePrimary
-	db.AllocatedStorage = allocatedStorage
-	db.Parameters = parameters
-	db.MetricsEnabled = metricsEnabled
-	db.PoolingEnabled = poolingEnabled
+	db.AllocatedStorage = req.AllocatedStorage
+	db.Parameters = req.Parameters
+	db.MetricsEnabled = req.MetricsEnabled
+	db.PoolingEnabled = req.PoolingEnabled
 
-	imageName, env, defaultPort := s.getEngineConfig(dbEngine, version, username, password, newName, db.Role, "")
+	imageName, env, defaultPort := s.getEngineConfig(dbEngine, req.Version, username, password, req.NewName, db.Role, "")
 
-	networkID, err := s.resolveVpcNetwork(ctx, vpcID)
+	networkID, err := s.resolveVpcNetwork(ctx, req.VpcID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create persistent volume FOR THE NEW DATABASE from the snapshot
 	volName := fmt.Sprintf("db-vol-%s", db.ID.String()[:8])
-	vol, err := s.snapshotSvc.RestoreSnapshot(ctx, snapshotID, volName)
+	vol, err := s.snapshotSvc.RestoreSnapshot(ctx, req.SnapshotID, volName)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to restore volume from snapshot", err)
 	}
 
-	// If the user requested MORE storage than the snapshot, we might need to resize the volume here.
-	// For V1, we assume the restored volume inherits the snapshot size initially, and resizing is handled by volumeSvc.
-	// We'll update our internal tracking to what the volume actually is if we couldn't resize.
+	// Resizing is handled by volumeSvc.
 	db.AllocatedStorage = vol.SizeGB // Ensure DB record matches actual volume
 
 	backendVolName := "thecloud-vol-" + vol.ID.String()[:8]
@@ -749,9 +796,9 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.U
 	}
 	volumeBinds := []string{fmt.Sprintf("%s:%s", backendVolName, mountPath)}
 
-	cmd := s.buildEngineCmd(dbEngine, parameters)
+	cmd := s.buildEngineCmd(dbEngine, req.Parameters)
 
-	dockerName := fmt.Sprintf("cloud-db-%s-%s", newName, db.ID.String()[:8])
+	dockerName := fmt.Sprintf("cloud-db-%s-%s", req.NewName, db.ID.String()[:8])
 	containerID, allocatedPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 		Name:        dockerName,
 		ImageName:   imageName,
@@ -768,21 +815,49 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.U
 		return nil, errors.Wrap(errors.Internal, "failed to launch restored database container", err)
 	}
 
+	// Deterministic cleanup helper
+	rollback := func(err error) (*domain.Database, error) {
+		s.logger.Error("rolling back restored database provisioning due to failure", "error", err)
+		if delErr := s.compute.DeleteInstance(ctx, containerID); delErr != nil {
+			s.logger.Error("failed to clean up database container during rollback", "container_id", containerID, "error", delErr)
+		}
+		if db.ExporterContainerID != "" {
+			if delErr := s.compute.DeleteInstance(ctx, db.ExporterContainerID); delErr != nil {
+				s.logger.Error("failed to clean up metrics exporter container during rollback", "container_id", db.ExporterContainerID, "error", delErr)
+			}
+		}
+		if db.PoolerContainerID != "" {
+			if delErr := s.compute.DeleteInstance(ctx, db.PoolerContainerID); delErr != nil {
+				s.logger.Error("failed to clean up pooler container during rollback", "container_id", db.PoolerContainerID, "error", delErr)
+			}
+		}
+		if delErr := s.volumeSvc.DeleteVolume(ctx, vol.ID.String()); delErr != nil {
+			s.logger.Error("failed to delete volume during rollback", "volume_id", vol.ID, "error", delErr)
+		}
+		return nil, err
+	}
+
 	hostPort, err := s.parseAllocatedPort(allocatedPorts, defaultPort)
 	if err != nil || hostPort == 0 {
-		hostPort, _ = s.compute.GetInstancePort(ctx, containerID, defaultPort)
+		hostPort, err = s.compute.GetInstancePort(ctx, containerID, defaultPort)
+		if err != nil {
+			return rollback(errors.Wrap(errors.Internal, "failed to resolve restored database port", err))
+		}
 	}
 
 	db.ContainerID = containerID
 	db.Port = hostPort
 	db.Status = domain.DatabaseStatusRunning
 
-	dbIP, _ := s.compute.GetInstanceIP(ctx, containerID)
+	dbIP, err := s.compute.GetInstanceIP(ctx, containerID)
+	if err != nil {
+		return rollback(errors.Wrap(errors.Internal, "failed to get restored database IP for sidecars", err))
+	}
 
 	// Launch metrics sidecar if enabled
-	if metricsEnabled && dbIP != "" {
-		exporterImage, exporterEnv, exporterPort := s.getExporterConfig(dbEngine, dbIP, username, password, newName)
-		exporterName := fmt.Sprintf("cloud-db-exporter-%s-%s", newName, db.ID.String()[:8])
+	if req.MetricsEnabled {
+		exporterImage, exporterEnv, exporterPort := s.getExporterConfig(dbEngine, dbIP, username, password, req.NewName)
+		exporterName := fmt.Sprintf("cloud-db-exporter-%s-%s", req.NewName, db.ID.String()[:8])
 
 		expCID, expPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 			Name:      exporterName,
@@ -791,22 +866,22 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.U
 			NetworkID: networkID,
 			Env:       exporterEnv,
 		})
-		if err == nil {
-			db.ExporterContainerID = expCID
-			expHostPort, err := s.parseAllocatedPort(expPorts, exporterPort)
-			if err == nil && expHostPort != 0 {
-				db.MetricsPort = expHostPort
-			} else {
-				expHostPort, _ = s.compute.GetInstancePort(ctx, expCID, exporterPort)
-				db.MetricsPort = expHostPort
-			}
+		if err != nil {
+			return rollback(errors.Wrap(errors.Internal, "failed to launch restored metrics exporter", err))
 		}
+
+		db.ExporterContainerID = expCID
+		expHostPort, err := s.parseAllocatedPort(expPorts, exporterPort)
+		if err != nil || expHostPort == 0 {
+			expHostPort, _ = s.compute.GetInstancePort(ctx, expCID, exporterPort)
+		}
+		db.MetricsPort = expHostPort
 	}
 
 	// Launch pooler sidecar if enabled
-	if poolingEnabled && dbIP != "" {
-		poolerImage, poolerEnv, poolerPort := s.getPoolerConfig(dbEngine, dbIP, username, password, newName)
-		poolerName := fmt.Sprintf("cloud-db-pooler-%s-%s", newName, db.ID.String()[:8])
+	if req.PoolingEnabled {
+		poolerImage, poolerEnv, poolerPort := s.getPoolerConfig(dbEngine, dbIP, username, password, req.NewName)
+		poolerName := fmt.Sprintf("cloud-db-pooler-%s-%s", req.NewName, db.ID.String()[:8])
 
 		pCID, pPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 			Name:      poolerName,
@@ -815,39 +890,31 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.U
 			NetworkID: networkID,
 			Env:       poolerEnv,
 		})
-		if err == nil {
-			db.PoolerContainerID = pCID
-			pHostPort, err := s.parseAllocatedPort(pPorts, poolerPort)
-			if err == nil && pHostPort != 0 {
-				db.PoolingPort = pHostPort
-			} else {
-				pHostPort, _ = s.compute.GetInstancePort(ctx, pCID, poolerPort)
-				db.PoolingPort = pHostPort
-			}
+		if err != nil {
+			return rollback(errors.Wrap(errors.Internal, "failed to launch restored connection pooler", err))
 		}
+
+		db.PoolerContainerID = pCID
+		pHostPort, err := s.parseAllocatedPort(pPorts, poolerPort)
+		if err != nil || pHostPort == 0 {
+			pHostPort, _ = s.compute.GetInstancePort(ctx, pCID, poolerPort)
+		}
+		db.PoolingPort = pHostPort
 	}
 
 	if err := s.repo.Create(ctx, db); err != nil {
-		_ = s.compute.DeleteInstance(ctx, containerID)
-		if db.ExporterContainerID != "" {
-			_ = s.compute.DeleteInstance(ctx, db.ExporterContainerID)
-		}
-		if db.PoolerContainerID != "" {
-			_ = s.compute.DeleteInstance(ctx, db.PoolerContainerID)
-		}
-		_ = s.volumeSvc.DeleteVolume(ctx, vol.ID.String())
-		return nil, err
+		return rollback(err)
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_RESTORE", db.ID.String(), "DATABASE", map[string]interface{}{
-		"snapshot_id": snapshotID,
+		"snapshot_id": req.SnapshotID,
 	})
 
 	_ = s.auditSvc.Log(ctx, userID, "database.restore", "database", db.ID.String(), map[string]interface{}{
-		"snapshot_id": snapshotID,
+		"snapshot_id": req.SnapshotID,
 	})
 
-	platform.RDSInstancesTotal.WithLabelValues(engine, "running").Inc()
+	platform.RDSInstancesTotal.WithLabelValues(req.Engine, "running").Inc()
 
 	return db, nil
 }

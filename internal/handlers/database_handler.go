@@ -42,7 +42,16 @@ func (h *DatabaseHandler) Create(c *gin.Context) {
 		return
 	}
 
-	db, err := h.svc.CreateDatabase(c.Request.Context(), req.Name, req.Engine, req.Version, req.VpcID, req.AllocatedStorage, req.Parameters, req.MetricsEnabled, req.PoolingEnabled)
+	db, err := h.svc.CreateDatabase(c.Request.Context(), ports.CreateDatabaseRequest{
+		Name:             req.Name,
+		Engine:           req.Engine,
+		Version:          req.Version,
+		VpcID:            req.VpcID,
+		AllocatedStorage: req.AllocatedStorage,
+		Parameters:       req.Parameters,
+		MetricsEnabled:   req.MetricsEnabled,
+		PoolingEnabled:   req.PoolingEnabled,
+	})
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -243,7 +252,17 @@ func (h *DatabaseHandler) Restore(c *gin.Context) {
 		return
 	}
 
-	db, err := h.svc.RestoreDatabase(c.Request.Context(), req.SnapshotID, req.Name, req.Engine, req.Version, req.VpcID, req.AllocatedStorage, req.Parameters, req.MetricsEnabled, req.PoolingEnabled)
+	db, err := h.svc.RestoreDatabase(c.Request.Context(), ports.RestoreDatabaseRequest{
+		SnapshotID:       req.SnapshotID,
+		NewName:          req.Name,
+		Engine:           req.Engine,
+		Version:          req.Version,
+		VpcID:            req.VpcID,
+		AllocatedStorage: req.AllocatedStorage,
+		Parameters:       req.Parameters,
+		MetricsEnabled:   req.MetricsEnabled,
+		PoolingEnabled:   req.PoolingEnabled,
+	})
 	if err != nil {
 		httputil.Error(c, err)
 		return
