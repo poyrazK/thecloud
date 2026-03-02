@@ -5,8 +5,8 @@ package storage;
 option go_package = "internal/storage/protocol";
 
 service StorageNode {
-  rpc Store(StoreRequest) returns (StoreResponse);
-  rpc Retrieve(RetrieveRequest) returns (RetrieveResponse);
+  rpc Store(stream StoreRequest) returns (StoreResponse);
+  rpc Retrieve(RetrieveRequest) returns (stream RetrieveResponse);
   rpc Delete(DeleteRequest) returns (DeleteResponse);
   rpc Gossip(GossipMessage) returns (GossipResponse);
   rpc GetClusterStatus(Empty) returns (ClusterStatusResponse);
@@ -37,12 +37,18 @@ message GossipResponse {
   bool success = 1;
 }
 
-
 message StoreRequest {
+  oneof payload {
+    StoreMetadata metadata = 1;
+    bytes chunk_data = 2;
+  }
+}
+
+message StoreMetadata {
   string bucket = 1;
   string key = 2;
-  bytes data = 3;
-  int64 timestamp = 4;
+  int64 timestamp = 3;
+  int64 total_size = 4;
 }
 
 message StoreResponse {
@@ -56,10 +62,17 @@ message RetrieveRequest {
 }
 
 message RetrieveResponse {
-  bytes data = 1;
-  bool found = 2;
-  string error = 3;
-  int64 timestamp = 4;
+  oneof payload {
+    RetrieveMetadata metadata = 1;
+    bytes chunk_data = 2;
+  }
+}
+
+message RetrieveMetadata {
+  bool found = 1;
+  string error = 2;
+  int64 timestamp = 3;
+  int64 total_size = 4;
 }
 
 message DeleteRequest {
