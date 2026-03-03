@@ -2,17 +2,28 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"io"
+	"math"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
+)
+
+const (
+	// encryptionChunkSize defines the size of plaintext chunks for AEAD framing.
+	encryptionChunkSize = 64 * 1024 // 64KB
+	// nonceSize is the standard size for AES-GCM nonces.
+	nonceSize = 12
 )
 
 // EncryptionService implements ports.EncryptionService
@@ -80,43 +91,161 @@ func (s *EncryptionService) RotateKey(ctx context.Context, bucket string) (strin
 	return s.CreateKey(ctx, bucket)
 }
 
-// Encrypt encrypts data using the bucket's active key
-func (s *EncryptionService) Encrypt(ctx context.Context, bucket string, data []byte) ([]byte, error) {
-	// For encryption, always use the latest key (versionID="")
+// Encrypt returns a transformed io.Reader that encrypts the data from r using chunked AES-GCM.
+func (s *EncryptionService) Encrypt(ctx context.Context, bucket string, r io.Reader) (io.Reader, error) {
 	dek, err := s.getAndDecryptDEK(ctx, bucket, "")
 	if err != nil {
 		return nil, err
 	}
-	return s.encryptData(dek, data)
+
+	block, err := aes.NewCipher(dek)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to create cipher", err)
+	}
+
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to create GCM", err)
+	}
+
+	baseNonce := make([]byte, nonceSize)
+	if _, err := io.ReadFull(rand.Reader, baseNonce); err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to generate base nonce", err)
+	}
+
+	return &chunkedGCMReader{
+		r:         r,
+		aead:      aead,
+		baseNonce: baseNonce,
+	}, nil
 }
 
-// Decrypt decrypts data using the bucket's active key
-func (s *EncryptionService) Decrypt(ctx context.Context, bucket string, encryptedData []byte) ([]byte, error) {
-	// For decryption, ideally we need the specific key version used for encryption.
-	// Since we don't have metadata here, we try the latest active key first.
-	// If that fails, in a real scenario we'd check object metadata.
-	// Implementing fallback logic as requested: if latest fails, search/try others?
-	// For now, let's keep it simple as per signature: try latest.
-	// NOTE: To fully support rotation, Decrypt needs the keyID from the object metadata.
+type chunkedGCMReader struct {
+	r         io.Reader
+	aead      cipher.AEAD
+	baseNonce []byte
+	counter   uint64
+	headerSent bool
+	buf       bytes.Buffer
+}
+
+func (c *chunkedGCMReader) Read(p []byte) (n int, err error) {
+	if !c.headerSent {
+		c.buf.Write(c.baseNonce)
+		c.headerSent = true
+	}
+
+	for c.buf.Len() < len(p) {
+		plaintext := make([]byte, encryptionChunkSize)
+		nr, readErr := io.ReadFull(c.r, plaintext)
+		if nr > 0 {
+			nonce := make([]byte, nonceSize)
+			copy(nonce, c.baseNonce)
+			// Simple counter-based nonce derivation: XOR baseNonce with counter
+			binary.BigEndian.PutUint64(nonce[nonceSize-8:], binary.BigEndian.Uint64(nonce[nonceSize-8:])^c.counter)
+			c.counter++
+
+			ciphertext := c.aead.Seal(nil, nonce, plaintext[:nr], nil)
+			
+			// Record framing: [Length (4 bytes)] [Ciphertext + Tag]
+			// G115: add safety check for int -> uint32 conversion
+			if len(ciphertext) > math.MaxUint32 {
+				return 0, fmt.Errorf("ciphertext too large: %d", len(ciphertext))
+			}
+			lenBuf := make([]byte, 4)
+			// #nosec G115 - length checked above
+			binary.BigEndian.PutUint32(lenBuf, uint32(len(ciphertext)))
+			c.buf.Write(lenBuf)
+			c.buf.Write(ciphertext)
+		}
+		if readErr != nil {
+			if readErr == io.EOF || readErr == io.ErrUnexpectedEOF {
+				if c.buf.Len() == 0 {
+					return 0, io.EOF
+				}
+				break
+			}
+			return 0, readErr
+		}
+	}
+
+	return c.buf.Read(p)
+}
+
+// Decrypt returns a transformed io.Reader that decrypts the data from r using chunked AES-GCM.
+func (s *EncryptionService) Decrypt(ctx context.Context, bucket string, r io.Reader) (io.Reader, error) {
 	dek, err := s.getAndDecryptDEK(ctx, bucket, "")
 	if err != nil {
 		return nil, err
 	}
-	plaintext, err := s.decryptData(dek, encryptedData)
+
+	block, err := aes.NewCipher(dek)
 	if err != nil {
-		// Fallback logic could go here if we had a way to list all keys.
-		return nil, err
+		return nil, errors.Wrap(errors.Internal, "failed to create cipher", err)
 	}
-	return plaintext, nil
+
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to create GCM", err)
+	}
+
+	baseNonce := make([]byte, nonceSize)
+	if _, err := io.ReadFull(r, baseNonce); err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to read base nonce", err)
+	}
+
+	return &chunkedGCMDecryptReader{
+		r:         r,
+		aead:      aead,
+		baseNonce: baseNonce,
+	}, nil
+}
+
+type chunkedGCMDecryptReader struct {
+	r         io.Reader
+	aead      cipher.AEAD
+	baseNonce []byte
+	counter   uint64
+	buf       bytes.Buffer
+}
+
+func (c *chunkedGCMDecryptReader) Read(p []byte) (n int, err error) {
+	for c.buf.Len() < len(p) {
+		lenBuf := make([]byte, 4)
+		_, readErr := io.ReadFull(c.r, lenBuf)
+		if readErr != nil {
+			if readErr == io.EOF {
+				if c.buf.Len() == 0 {
+					return 0, io.EOF
+				}
+				break
+			}
+			return 0, readErr
+		}
+
+		chunkLen := binary.BigEndian.Uint32(lenBuf)
+		ciphertext := make([]byte, chunkLen)
+		if _, readErr := io.ReadFull(c.r, ciphertext); readErr != nil {
+			return 0, readErr
+		}
+
+		nonce := make([]byte, nonceSize)
+		copy(nonce, c.baseNonce)
+		binary.BigEndian.PutUint64(nonce[nonceSize-8:], binary.BigEndian.Uint64(nonce[nonceSize-8:])^c.counter)
+		c.counter++
+
+		plaintext, openErr := c.aead.Open(nil, nonce, ciphertext, nil)
+		if openErr != nil {
+			return 0, errors.Wrap(errors.Internal, "decryption/authentication failed", openErr)
+		}
+		c.buf.Write(plaintext)
+	}
+
+	return c.buf.Read(p)
 }
 
 // getAndDecryptDEK fetches the encrypted DEK from DB and decrypts it with Master Key
 func (s *EncryptionService) getAndDecryptDEK(ctx context.Context, bucket, _ string) ([]byte, error) {
-	// TODO: Update repo.GetKey to support optional versionID filters if needed.
-	// Currently repo.GetKey likely returns the latest.
-	// If versionID is provided, we should fetch that specific key.
-	// But without changing repo interface in 'ports' (which I can't see), I assume GetKey returns the latest "active" key.
-	// If I wanted a specific key I'd need GetKeyByID(ctx, keyID).
 	keyRecord, err := s.repo.GetKey(ctx, bucket)
 	if err != nil {
 		return nil, err
@@ -125,7 +254,7 @@ func (s *EncryptionService) getAndDecryptDEK(ctx context.Context, bucket, _ stri
 	return s.decryptData(s.masterKey, keyRecord.EncryptedKey)
 }
 
-// encryptData performs AES-GCM encryption
+// encryptData performs AES-GCM encryption for small data (e.g. DEKs)
 func (s *EncryptionService) encryptData(key, data []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -145,7 +274,7 @@ func (s *EncryptionService) encryptData(key, data []byte) ([]byte, error) {
 	return gcm.Seal(nonce, nonce, data, nil), nil
 }
 
-// decryptData performs AES-GCM decryption
+// decryptData performs AES-GCM decryption for small data
 func (s *EncryptionService) decryptData(key, ciphertext []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {

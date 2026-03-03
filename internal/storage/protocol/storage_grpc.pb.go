@@ -31,8 +31,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StorageNodeClient interface {
-	Store(ctx context.Context, in *StoreRequest, opts ...grpc.CallOption) (*StoreResponse, error)
-	Retrieve(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*RetrieveResponse, error)
+	Store(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[StoreRequest, StoreResponse], error)
+	Retrieve(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[RetrieveResponse], error)
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
 	Gossip(ctx context.Context, in *GossipMessage, opts ...grpc.CallOption) (*GossipResponse, error)
 	GetClusterStatus(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ClusterStatusResponse, error)
@@ -47,25 +47,37 @@ func NewStorageNodeClient(cc grpc.ClientConnInterface) StorageNodeClient {
 	return &storageNodeClient{cc}
 }
 
-func (c *storageNodeClient) Store(ctx context.Context, in *StoreRequest, opts ...grpc.CallOption) (*StoreResponse, error) {
+func (c *storageNodeClient) Store(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[StoreRequest, StoreResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(StoreResponse)
-	err := c.cc.Invoke(ctx, StorageNode_Store_FullMethodName, in, out, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &StorageNode_ServiceDesc.Streams[0], StorageNode_Store_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &grpc.GenericClientStream[StoreRequest, StoreResponse]{ClientStream: stream}
+	return x, nil
 }
 
-func (c *storageNodeClient) Retrieve(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*RetrieveResponse, error) {
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type StorageNode_StoreClient = grpc.ClientStreamingClient[StoreRequest, StoreResponse]
+
+func (c *storageNodeClient) Retrieve(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[RetrieveResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(RetrieveResponse)
-	err := c.cc.Invoke(ctx, StorageNode_Retrieve_FullMethodName, in, out, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &StorageNode_ServiceDesc.Streams[1], StorageNode_Retrieve_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &grpc.GenericClientStream[RetrieveRequest, RetrieveResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type StorageNode_RetrieveClient = grpc.ServerStreamingClient[RetrieveResponse]
 
 func (c *storageNodeClient) Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -111,8 +123,8 @@ func (c *storageNodeClient) Assemble(ctx context.Context, in *AssembleRequest, o
 // All implementations must embed UnimplementedStorageNodeServer
 // for forward compatibility.
 type StorageNodeServer interface {
-	Store(context.Context, *StoreRequest) (*StoreResponse, error)
-	Retrieve(context.Context, *RetrieveRequest) (*RetrieveResponse, error)
+	Store(grpc.ClientStreamingServer[StoreRequest, StoreResponse]) error
+	Retrieve(*RetrieveRequest, grpc.ServerStreamingServer[RetrieveResponse]) error
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
 	Gossip(context.Context, *GossipMessage) (*GossipResponse, error)
 	GetClusterStatus(context.Context, *Empty) (*ClusterStatusResponse, error)
@@ -127,11 +139,11 @@ type StorageNodeServer interface {
 // pointer dereference when methods are called.
 type UnimplementedStorageNodeServer struct{}
 
-func (UnimplementedStorageNodeServer) Store(context.Context, *StoreRequest) (*StoreResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method Store not implemented")
+func (UnimplementedStorageNodeServer) Store(grpc.ClientStreamingServer[StoreRequest, StoreResponse]) error {
+	return status.Error(codes.Unimplemented, "method Store not implemented")
 }
-func (UnimplementedStorageNodeServer) Retrieve(context.Context, *RetrieveRequest) (*RetrieveResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method Retrieve not implemented")
+func (UnimplementedStorageNodeServer) Retrieve(*RetrieveRequest, grpc.ServerStreamingServer[RetrieveResponse]) error {
+	return status.Error(codes.Unimplemented, "method Retrieve not implemented")
 }
 func (UnimplementedStorageNodeServer) Delete(context.Context, *DeleteRequest) (*DeleteResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Delete not implemented")
@@ -166,41 +178,23 @@ func RegisterStorageNodeServer(s grpc.ServiceRegistrar, srv StorageNodeServer) {
 	s.RegisterService(&StorageNode_ServiceDesc, srv)
 }
 
-func _StorageNode_Store_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StoreRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(StorageNodeServer).Store(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: StorageNode_Store_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StorageNodeServer).Store(ctx, req.(*StoreRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+func _StorageNode_Store_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(StorageNodeServer).Store(&grpc.GenericServerStream[StoreRequest, StoreResponse]{ServerStream: stream})
 }
 
-func _StorageNode_Retrieve_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RetrieveRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type StorageNode_StoreServer = grpc.ClientStreamingServer[StoreRequest, StoreResponse]
+
+func _StorageNode_Retrieve_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(RetrieveRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(StorageNodeServer).Retrieve(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: StorageNode_Retrieve_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StorageNodeServer).Retrieve(ctx, req.(*RetrieveRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(StorageNodeServer).Retrieve(m, &grpc.GenericServerStream[RetrieveRequest, RetrieveResponse]{ServerStream: stream})
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type StorageNode_RetrieveServer = grpc.ServerStreamingServer[RetrieveResponse]
 
 func _StorageNode_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteRequest)
@@ -282,14 +276,6 @@ var StorageNode_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*StorageNodeServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Store",
-			Handler:    _StorageNode_Store_Handler,
-		},
-		{
-			MethodName: "Retrieve",
-			Handler:    _StorageNode_Retrieve_Handler,
-		},
-		{
 			MethodName: "Delete",
 			Handler:    _StorageNode_Delete_Handler,
 		},
@@ -306,6 +292,17 @@ var StorageNode_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _StorageNode_Assemble_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Store",
+			Handler:       _StorageNode_Store_Handler,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "Retrieve",
+			Handler:       _StorageNode_Retrieve_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "internal/storage/protocol/storage.proto",
 }

@@ -34,7 +34,7 @@ graph TB
         RepoDocker[Docker Engine<br/>Container Runtime]
         RepoLibvirt[Libvirt/KVM<br/>Compute/VM Runtime]
         RepoLVM[LVM<br/>Block Storage Backend]
-        RepoFS[Filesystem<br/>Object/Image Storage]
+        RepoFS[Distributed Object Storage<br/>S3-compatible Streaming]
         RepoOVS[Open vSwitch<br/>SDN Networking]
         RepoCSI[CSI Driver<br/>K8s Storage Interface]
     end
@@ -162,6 +162,7 @@ type StorageBackend interface {
 - `LoadBalancerService` - Traffic distribution (Regional)
 - `GlobalLBService` - Multi-region traffic steering (DNS-based) 🆕
 - `AutoScalingService` - Dynamic scaling
+- `StorageService` - Distributed object storage with versioning and streaming encryption 🆕
 - `VolumeCSIService` - Kubernetes CSI interaction layer 🆕
 - `RBACService` - Access control (Integration with IAM Policies)
 - `IAMService` - Granular policy lifecycle and evaluation 🆕
@@ -558,3 +559,4 @@ func (h *Handler) Endpoint(c *gin.Context) {
 - [Development Guide](development.md) - Setup and testing
 - [Database Guide](database.md) - Schema and migrations
 - [Testing Best Practices](backend.md#testing) - Comprehensive testing guide
+- [Cloud Storage Service](services/cloud-storage.md) - Distributed object storage 🆕

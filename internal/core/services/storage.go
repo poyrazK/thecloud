@@ -2,7 +2,6 @@
 package services
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -77,16 +76,11 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 	// Encryption
 	finalReader := r
 	if bucket.EncryptionEnabled && s.encryptSvc != nil {
-		// Read entire content to encrypt (streaming encryption is better but complex for now)
-		data, err := io.ReadAll(r)
+		var err error
+		finalReader, err = s.encryptSvc.Encrypt(ctx, bucketName, r)
 		if err != nil {
 			return nil, err
 		}
-		encryptedData, err := s.encryptSvc.Encrypt(ctx, bucketName, data)
-		if err != nil {
-			return nil, err
-		}
-		finalReader = bytes.NewReader(encryptedData)
 	}
 
 	size, err := s.store.Write(ctx, bucketName, storeKey, finalReader)
@@ -152,17 +146,15 @@ func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.R
 	// Check bucket status for efficiency (though key lookup is fast)
 	b, err := s.repo.GetBucket(ctx, bucket)
 	if err == nil && b.EncryptionEnabled && s.encryptSvc != nil {
-		data, err := io.ReadAll(reader)
-		_ = reader.Close() // Close underlying file stream
+		decryptedReader, err := s.encryptSvc.Decrypt(ctx, bucket, reader)
 		if err != nil {
+			if closeErr := reader.Close(); closeErr != nil {
+				return nil, nil, fmt.Errorf("decrypt error: %w; close error: %w", err, closeErr)
+			}
 			return nil, nil, err
 		}
-
-		decryptedData, err := s.encryptSvc.Decrypt(ctx, bucket, data)
-		if err != nil {
-			return nil, nil, err
-		}
-		reader = io.NopCloser(bytes.NewReader(decryptedData))
+		// Wrap with NopCloser but keep the original closer to close the underlying file
+		reader = &readCloserWrapper{Reader: decryptedReader, Closer: reader}
 	}
 
 	platform.StorageOperations.WithLabelValues("download", bucket, "success").Inc()
@@ -171,6 +163,11 @@ func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.R
 	}
 
 	return reader, obj, nil
+}
+
+type readCloserWrapper struct {
+	io.Reader
+	io.Closer
 }
 
 func (s *StorageService) ListObjects(ctx context.Context, bucket string) ([]*domain.Object, error) {
