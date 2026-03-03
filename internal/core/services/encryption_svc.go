@@ -153,6 +153,7 @@ func (c *chunkedGCMReader) Read(p []byte) (n int, err error) {
 				return 0, fmt.Errorf("ciphertext too large: %d", len(ciphertext))
 			}
 			lenBuf := make([]byte, 4)
+			// #nosec G115 - length checked above
 			binary.BigEndian.PutUint32(lenBuf, uint32(len(ciphertext)))
 			c.buf.Write(lenBuf)
 			c.buf.Write(ciphertext)
