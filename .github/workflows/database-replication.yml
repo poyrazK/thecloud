@@ -81,10 +81,10 @@ jobs:
           timeout 60s bash -c 'until pg_isready -h 127.0.0.1 -p 5433 -U cloud; do sleep 2; done' || (echo "Primary postgres failed to start" && exit 1)
           
           echo "Waiting for replica postgres..."
-          timeout 60s bash -c 'until pg_isready -h localhost -p 5434 -U cloud; do sleep 2; done' || (echo "Replica postgres failed to start" && exit 1)
+          timeout 60s bash -c 'until pg_isready -h 127.0.0.1 -p 5434 -U cloud; do sleep 2; done' || (echo "Replica postgres failed to start" && exit 1)
           
           echo "Waiting for redis..."
-          timeout 60s bash -c 'until nc -z localhost 6379; do sleep 2; done' || (echo "Redis failed to start" && exit 1)
+          timeout 60s bash -c 'until nc -z 127.0.0.1 6379; do sleep 2; done' || (echo "Redis failed to start" && exit 1)
 
       - name: Reset Database
         env:

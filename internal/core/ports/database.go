@@ -26,27 +26,27 @@ type DatabaseRepository interface {
 
 // CreateDatabaseRequest defines the parameters for provisioning a new database.
 type CreateDatabaseRequest struct {
-	Name             string
-	Engine           string
-	Version          string
-	VpcID            *uuid.UUID
-	AllocatedStorage int
-	Parameters       map[string]string
-	MetricsEnabled   bool
-	PoolingEnabled   bool
+	Name             string            `json:"name"`
+	Engine           string            `json:"engine"`
+	Version          string            `json:"version"`
+	VpcID            *uuid.UUID        `json:"vpc_id,omitempty"`
+	AllocatedStorage int               `json:"allocated_storage"`
+	Parameters       map[string]string `json:"parameters,omitempty"`
+	MetricsEnabled   bool              `json:"metrics_enabled,omitempty"`
+	PoolingEnabled   bool              `json:"pooling_enabled,omitempty"`
 }
 
 // RestoreDatabaseRequest defines the parameters for restoring a database from a snapshot.
 type RestoreDatabaseRequest struct {
-	SnapshotID       uuid.UUID
-	NewName          string
-	Engine           string
-	Version          string
-	VpcID            *uuid.UUID
-	AllocatedStorage int
-	Parameters       map[string]string
-	MetricsEnabled   bool
-	PoolingEnabled   bool
+	SnapshotID       uuid.UUID         `json:"snapshot_id"`
+	NewName          string            `json:"new_name"`
+	Engine           string            `json:"engine"`
+	Version          string            `json:"version"`
+	VpcID            *uuid.UUID        `json:"vpc_id,omitempty"`
+	AllocatedStorage int               `json:"allocated_storage"`
+	Parameters       map[string]string `json:"parameters,omitempty"`
+	MetricsEnabled   bool              `json:"metrics_enabled,omitempty"`
+	PoolingEnabled   bool              `json:"pooling_enabled,omitempty"`
 }
 
 // ModifyDatabaseRequest defines the parameters for updating an existing database.

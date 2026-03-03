@@ -29,6 +29,7 @@ const (
 	connPath      = "/:id/connection"
 	connSuffix    = "/connection"
 	dbPathInvalid = "/invalid"
+	errNotFound   = "not found"
 )
 
 type mockDatabaseService struct {
@@ -88,10 +89,15 @@ func (m *mockDatabaseService) CreateDatabaseSnapshot(ctx context.Context, databa
 	}
 	return args.Get(0).(*domain.Snapshot), args.Error(1)
 }
+
 func (m *mockDatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID uuid.UUID) ([]*domain.Snapshot, error) {
 	args := m.Called(ctx, databaseID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]*domain.Snapshot), args.Error(1)
 }
+
 func (m *mockDatabaseService) RestoreDatabase(ctx context.Context, req ports.RestoreDatabaseRequest) (*domain.Database, error) {
 	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
@@ -99,6 +105,7 @@ func (m *mockDatabaseService) RestoreDatabase(ctx context.Context, req ports.Res
 	}
 	return args.Get(0).(*domain.Database), args.Error(1)
 }
+
 func (m *mockDatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDatabaseRequest) (*domain.Database, error) {
 	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
@@ -106,6 +113,7 @@ func (m *mockDatabaseService) ModifyDatabase(ctx context.Context, req ports.Modi
 	}
 	return args.Get(0).(*domain.Database), args.Error(1)
 }
+
 func (m *mockDatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
 	args := m.Called(ctx, id)
 	return args.String(0), args.Error(1)
@@ -133,9 +141,10 @@ func TestDatabaseHandlerModify(t *testing.T) {
 	})).Return(db, nil)
 
 	poolingEnabled := true
-	body, _ := json.Marshal(map[string]interface{}{
+	body, err := json.Marshal(map[string]interface{}{
 		"pooling_enabled": &poolingEnabled,
 	})
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("PATCH", databasesPath+"/"+id.String(), bytes.NewBuffer(body))
 	require.NoError(t, err)
@@ -317,7 +326,8 @@ func TestDatabaseHandlerCreateError(t *testing.T) {
 	t.Run("InvalidJSON", func(t *testing.T) {
 		_, handler, r := setupDatabaseHandlerTest(t)
 		r.POST(databasesPath, handler.Create)
-		req, _ := http.NewRequest("POST", databasesPath, bytes.NewBufferString("invalid"))
+		req, err := http.NewRequest("POST", databasesPath, bytes.NewBufferString("invalid"))
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -328,8 +338,10 @@ func TestDatabaseHandlerCreateError(t *testing.T) {
 		r.POST(databasesPath, handler.Create)
 		svc.On("CreateDatabase", mock.Anything, mock.Anything).
 			Return(nil, errors.New(errors.Internal, "error"))
-		body, _ := json.Marshal(map[string]interface{}{"name": "n", "engine": "e", "version": "v"})
-		req, _ := http.NewRequest("POST", databasesPath, bytes.NewBuffer(body))
+		body, err := json.Marshal(map[string]interface{}{"name": "n", "engine": "e", "version": "v"})
+		require.NoError(t, err)
+		req, err := http.NewRequest("POST", databasesPath, bytes.NewBuffer(body))
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -342,7 +354,8 @@ func TestDatabaseHandlerListError(t *testing.T) {
 	svc, handler, r := setupDatabaseHandlerTest(t)
 	r.GET(databasesPath, handler.List)
 	svc.On("ListDatabases", mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
-	req, _ := http.NewRequest(http.MethodGet, databasesPath, nil)
+	req, err := http.NewRequest(http.MethodGet, databasesPath, nil)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -354,7 +367,8 @@ func TestDatabaseHandlerGetError(t *testing.T) {
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupDatabaseHandlerTest(t)
 		r.GET(databasesPath+"/:id", handler.Get)
-		req, _ := http.NewRequest(http.MethodGet, databasesPath+dbPathInvalid, nil)
+		req, err := http.NewRequest(http.MethodGet, databasesPath+dbPathInvalid, nil)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -364,8 +378,9 @@ func TestDatabaseHandlerGetError(t *testing.T) {
 		svc, handler, r := setupDatabaseHandlerTest(t)
 		r.GET(databasesPath+"/:id", handler.Get)
 		id := uuid.New()
-		svc.On("GetDatabase", mock.Anything, id).Return(nil, errors.New(errors.NotFound, "not found"))
-		req, _ := http.NewRequest(http.MethodGet, databasesPath+"/"+id.String(), nil)
+		svc.On("GetDatabase", mock.Anything, id).Return(nil, errors.New(errors.NotFound, errNotFound))
+		req, err := http.NewRequest(http.MethodGet, databasesPath+"/"+id.String(), nil)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusNotFound, w.Code)
@@ -378,7 +393,8 @@ func TestDatabaseHandlerDeleteError(t *testing.T) {
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupDatabaseHandlerTest(t)
 		r.DELETE(databasesPath+"/:id", handler.Delete)
-		req, _ := http.NewRequest(http.MethodDelete, databasesPath+dbPathInvalid, nil)
+		req, err := http.NewRequest(http.MethodDelete, databasesPath+dbPathInvalid, nil)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -389,7 +405,8 @@ func TestDatabaseHandlerDeleteError(t *testing.T) {
 		r.DELETE(databasesPath+"/:id", handler.Delete)
 		id := uuid.New()
 		svc.On("DeleteDatabase", mock.Anything, id).Return(errors.New(errors.Internal, "error"))
-		req, _ := http.NewRequest(http.MethodDelete, databasesPath+"/"+id.String(), nil)
+		req, err := http.NewRequest(http.MethodDelete, databasesPath+"/"+id.String(), nil)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -402,7 +419,8 @@ func TestDatabaseHandlerGetConnectionStringError(t *testing.T) {
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupDatabaseHandlerTest(t)
 		r.GET(databasesPath+connPath, handler.GetConnectionString)
-		req, _ := http.NewRequest(http.MethodGet, databasesPath+dbPathInvalid+connSuffix, nil)
+		req, err := http.NewRequest(http.MethodGet, databasesPath+dbPathInvalid+connSuffix, nil)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -413,7 +431,8 @@ func TestDatabaseHandlerGetConnectionStringError(t *testing.T) {
 		r.GET(databasesPath+connPath, handler.GetConnectionString)
 		id := uuid.New()
 		svc.On("GetConnectionString", mock.Anything, id).Return("", errors.New(errors.Internal, "error"))
-		req, _ := http.NewRequest(http.MethodGet, databasesPath+"/"+id.String()+connSuffix, nil)
+		req, err := http.NewRequest(http.MethodGet, databasesPath+"/"+id.String()+connSuffix, nil)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -432,8 +451,10 @@ func TestDatabaseHandlerReplication(t *testing.T) {
 		replica := &domain.Database{ID: uuid.New(), Name: "replica-1", PrimaryID: &primaryID, Role: domain.RoleReplica}
 		svc.On("CreateReplica", mock.Anything, primaryID, "replica-1").Return(replica, nil)
 
-		body, _ := json.Marshal(map[string]interface{}{"name": "replica-1"})
-		req, _ := http.NewRequest("POST", databasesPath+"/"+primaryID.String()+"/replicas", bytes.NewBuffer(body))
+		body, err := json.Marshal(map[string]interface{}{"name": "replica-1"})
+		require.NoError(t, err)
+		req, err := http.NewRequest("POST", databasesPath+"/"+primaryID.String()+"/replicas", bytes.NewBuffer(body))
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 
@@ -448,7 +469,8 @@ func TestDatabaseHandlerReplication(t *testing.T) {
 		id := uuid.New()
 		svc.On("PromoteToPrimary", mock.Anything, id).Return(nil)
 
-		req, _ := http.NewRequest("POST", databasesPath+"/"+id.String()+"/promote", nil)
+		req, err := http.NewRequest("POST", databasesPath+"/"+id.String()+"/promote", nil)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 
@@ -460,7 +482,8 @@ func TestDatabaseHandlerReplication(t *testing.T) {
 		_, handler, r := setupDatabaseHandlerTest(t)
 		r.POST(databasesPath+"/:id/replicas", handler.CreateReplica)
 
-		req, _ := http.NewRequest("POST", databasesPath+"/invalid-uuid/replicas", nil)
+		req, err := http.NewRequest("POST", databasesPath+"/invalid-uuid/replicas", nil)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 
@@ -475,8 +498,10 @@ func TestDatabaseHandlerReplication(t *testing.T) {
 		svc.On("CreateReplica", mock.Anything, primaryID, "rep-1").
 			Return(nil, errors.New(errors.Internal, "error"))
 
-		body, _ := json.Marshal(map[string]interface{}{"name": "rep-1"})
-		req, _ := http.NewRequest("POST", databasesPath+"/"+primaryID.String()+"/replicas", bytes.NewBuffer(body))
+		body, err := json.Marshal(map[string]interface{}{"name": "rep-1"})
+		require.NoError(t, err)
+		req, err := http.NewRequest("POST", databasesPath+"/"+primaryID.String()+"/replicas", bytes.NewBuffer(body))
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 
@@ -491,7 +516,8 @@ func TestDatabaseHandlerReplication(t *testing.T) {
 		svc.On("PromoteToPrimary", mock.Anything, id).
 			Return(errors.New(errors.Internal, "error"))
 
-		req, _ := http.NewRequest("POST", databasesPath+"/"+id.String()+"/promote", nil)
+		req, err := http.NewRequest("POST", databasesPath+"/"+id.String()+"/promote", nil)
+		require.NoError(t, err)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 
@@ -512,15 +538,17 @@ func TestDatabaseHandlerRestore(t *testing.T) {
 		return req.SnapshotID == snapshotID && req.NewName == "restored-db" && !req.PoolingEnabled
 	})).Return(db, nil)
 
-	body, _ := json.Marshal(map[string]interface{}{
+	body, err := json.Marshal(map[string]interface{}{
 		"snapshot_id":       snapshotID,
 		"name":              "restored-db",
 		"engine":            "postgres",
 		"version":           "15",
 		"allocated_storage": 20,
 	})
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("POST", "/databases/restore", bytes.NewBuffer(body))
+	req, err := http.NewRequest("POST", "/databases/restore", bytes.NewBuffer(body))
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
