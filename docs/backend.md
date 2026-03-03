@@ -64,6 +64,7 @@ internal/
 - `ElasticIPService` - Static IP management 🆕
 - `LoadBalancerService` - Layer 7 traffic distribution
 - `AutoScalingService` - Dynamic resource scaling
+- `StorageService` - Object storage with versioning and streaming encryption 🆕
 - `RBACService` - Role-based access control (100% coverage)
 - `FunctionService` - Serverless execution
 - `NotifyService` - Pub/Sub messaging

@@ -79,9 +79,9 @@ type StorageNode struct {
     gossiper   *GossipProtocol
 }
 
-// Local storage operations
-func (n *StorageNode) Store(bucket, key string, data []byte) error
-func (n *StorageNode) Retrieve(bucket, key string) ([]byte, error)
+// Local storage operations (Streaming)
+func (n *StorageNode) WriteStream(bucket, key string, r io.Reader, timestamp int64) (int64, error)
+func (n *StorageNode) ReadStream(bucket, key string) (io.ReadCloser, int64, error)
 func (n *StorageNode) Delete(bucket, key string) error
 ```
 
