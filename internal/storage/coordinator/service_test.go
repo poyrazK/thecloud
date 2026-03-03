@@ -107,68 +107,71 @@ func (m *MockStorageNodeClient) Assemble(ctx context.Context, in *pb.AssembleReq
 	return r0, args.Error(1)
 }
 
-func TestCoordinatorWriteQuorum(t *testing.T) {
-	ring := NewConsistentHashRing(10)
-	ring.AddNode(node1)
-	ring.AddNode(node2)
-	ring.AddNode(node3)
-
-	c1 := new(MockStorageNodeClient)
-	c2 := new(MockStorageNodeClient)
-	c3 := new(MockStorageNodeClient)
-
-	clients := map[string]pb.StorageNodeClient{node1: c1, node2: c2, node3: c3}
-	coord := NewCoordinator(ring, clients, 3)
-	defer coord.Stop()
-
-	setupMockStore := func(m *MockStorageNodeClient) {
-		sm := new(MockStoreClient)
-		sm.On("Send", mock.Anything).Return(nil)
-		sm.On("CloseAndRecv").Return(&pb.StoreResponse{Success: true}, nil)
-		m.On("Store", mock.Anything).Return(sm, nil)
+func TestCoordinatorWriteQuorum_TCs(t *testing.T) {
+	tests := []struct {
+		name          string
+		setupMocks    func(m1, m2, m3 *MockStorageNodeClient)
+		expectedError string
+		expectedSize  int64
+	}{
+		{
+			name: "Success_AllNodes",
+			setupMocks: func(m1, m2, m3 *MockStorageNodeClient) {
+				setupSuccess := func(m *MockStorageNodeClient) {
+					sm := new(MockStoreClient)
+					sm.On("Send", mock.Anything).Return(nil)
+					sm.On("CloseAndRecv").Return(&pb.StoreResponse{Success: true}, nil)
+					m.On("Store", mock.Anything).Return(sm, nil)
+				}
+				setupSuccess(m1)
+				setupSuccess(m2)
+				setupSuccess(m3)
+			},
+			expectedSize: 5,
+		},
+		{
+			name: "Failure_QuorumNotMet",
+			setupMocks: func(m1, m2, m3 *MockStorageNodeClient) {
+				// m1 fails init
+				m1.On("Store", mock.Anything).Return(nil, errors.New("init failed"))
+				// m2 fails Send
+				sm2 := new(MockStoreClient)
+				sm2.On("Send", mock.Anything).Return(errors.New("send failed"))
+				m2.On("Store", mock.Anything).Return(sm2, nil)
+				// m3 succeeds
+				sm3 := new(MockStoreClient)
+				sm3.On("Send", mock.Anything).Return(nil)
+				sm3.On("CloseAndRecv").Return(&pb.StoreResponse{Success: true}, nil)
+				m3.On("Store", mock.Anything).Return(sm3, nil)
+			},
+			expectedError: "write quorum failed",
+		},
 	}
 
-	setupMockStore(c1)
-	setupMockStore(c2)
-	setupMockStore(c3)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ring := NewConsistentHashRing(10)
+			ring.AddNode(node1)
+			ring.AddNode(node2)
+			ring.AddNode(node3)
 
-	data := []byte("hello")
-	n, err := coord.Write(context.Background(), "b", "k", bytes.NewReader(data))
-	require.NoError(t, err)
-	assert.Equal(t, int64(5), n)
-}
+			c1, c2, c3 := new(MockStorageNodeClient), new(MockStorageNodeClient), new(MockStorageNodeClient)
+			tt.setupMocks(c1, c2, c3)
 
-func TestCoordinatorWriteQuorumFailure(t *testing.T) {
-	ring := NewConsistentHashRing(10)
-	ring.AddNode(node1)
-	ring.AddNode(node2)
-	ring.AddNode(node3)
+			clients := map[string]pb.StorageNodeClient{node1: c1, node2: c2, node3: c3}
+			coord := NewCoordinator(ring, clients, 3)
+			defer coord.Stop()
 
-	c1 := new(MockStorageNodeClient)
-	c2 := new(MockStorageNodeClient)
-	c3 := new(MockStorageNodeClient)
-
-	clients := map[string]pb.StorageNodeClient{node1: c1, node2: c2, node3: c3}
-	coord := NewCoordinator(ring, clients, 3) // W=2
-	defer coord.Stop()
-
-	// Node 1 fails init
-	c1.On("Store", mock.Anything).Return(nil, errors.New("init failed"))
-
-	// Node 2 fails Send
-	sm2 := new(MockStoreClient)
-	sm2.On("Send", mock.Anything).Return(errors.New("send failed"))
-	c2.On("Store", mock.Anything).Return(sm2, nil)
-
-	// Node 3 succeeds
-	sm3 := new(MockStoreClient)
-	sm3.On("Send", mock.Anything).Return(nil)
-	sm3.On("CloseAndRecv").Return(&pb.StoreResponse{Success: true}, nil)
-	c3.On("Store", mock.Anything).Return(sm3, nil)
-
-	_, err := coord.Write(context.Background(), "b", "k", bytes.NewReader([]byte("hello")))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "write quorum failed")
+			n, err := coord.Write(context.Background(), "b", "k", bytes.NewReader([]byte("hello")))
+			if tt.expectedError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.expectedSize, n)
+			}
+		})
+	}
 }
 
 func TestCoordinatorReadRepair(t *testing.T) {
@@ -177,10 +180,7 @@ func TestCoordinatorReadRepair(t *testing.T) {
 	ring.AddNode(node2)
 	ring.AddNode(node3)
 
-	c1 := new(MockStorageNodeClient)
-	c2 := new(MockStorageNodeClient)
-	c3 := new(MockStorageNodeClient)
-
+	c1, c2, c3 := new(MockStorageNodeClient), new(MockStorageNodeClient), new(MockStorageNodeClient)
 	clients := map[string]pb.StorageNodeClient{node1: c1, node2: c2, node3: c3}
 	coord := NewCoordinator(ring, clients, 3)
 	defer coord.Stop()
@@ -208,21 +208,27 @@ func TestCoordinatorReadRepair(t *testing.T) {
 	}}
 	c3.On("Retrieve", mock.Anything, mock.Anything).Return(rm3, nil)
 
-	// Repairs expected for c2 and c3
-	smRepair := new(MockStoreClient)
-	smRepair.On("Send", mock.Anything).Return(nil)
-	smRepair.On("CloseAndRecv").Return(&pb.StoreResponse{Success: true}, nil)
-	
-	c2.On("Store", mock.Anything).Return(smRepair, nil)
-	c3.On("Store", mock.Anything).Return(smRepair, nil)
+	// Repairs expected for c2 and c3 with independent mocks
+	smRepairC2 := new(MockStoreClient)
+	smRepairC2.On("Send", mock.Anything).Return(nil)
+	smRepairC2.On("CloseAndRecv").Return(&pb.StoreResponse{Success: true}, nil)
+	c2.On("Store", mock.Anything).Return(smRepairC2, nil)
+
+	smRepairC3 := new(MockStoreClient)
+	smRepairC3.On("Send", mock.Anything).Return(nil)
+	smRepairC3.On("CloseAndRecv").Return(&pb.StoreResponse{Success: true}, nil)
+	c3.On("Store", mock.Anything).Return(smRepairC3, nil)
 
 	r, err := coord.Read(context.Background(), "b", "k")
 	require.NoError(t, err)
 
-	data, _ := io.ReadAll(r)
+	data, err := io.ReadAll(r)
+	require.NoError(t, err)
 	assert.Equal(t, "new", string(data))
+	_ = r.Close()
 
-	time.Sleep(100 * time.Millisecond)
+	// Wait for async repair
+	time.Sleep(200 * time.Millisecond)
 	c2.AssertCalled(t, "Store", mock.Anything)
 	c3.AssertCalled(t, "Store", mock.Anything)
 }
@@ -233,10 +239,7 @@ func TestCoordinatorDelete(t *testing.T) {
 	ring.AddNode(node2)
 	ring.AddNode(node3)
 
-	c1 := new(MockStorageNodeClient)
-	c2 := new(MockStorageNodeClient)
-	c3 := new(MockStorageNodeClient)
-
+	c1, c2, c3 := new(MockStorageNodeClient), new(MockStorageNodeClient), new(MockStorageNodeClient)
 	clients := map[string]pb.StorageNodeClient{node1: c1, node2: c2, node3: c3}
 	coord := NewCoordinator(ring, clients, 3)
 	defer coord.Stop()
@@ -255,10 +258,7 @@ func TestCoordinatorAssemble(t *testing.T) {
 	ring.AddNode(node2)
 	ring.AddNode(node3)
 
-	c1 := new(MockStorageNodeClient)
-	c2 := new(MockStorageNodeClient)
-	c3 := new(MockStorageNodeClient)
-
+	c1, c2, c3 := new(MockStorageNodeClient), new(MockStorageNodeClient), new(MockStorageNodeClient)
 	clients := map[string]pb.StorageNodeClient{node1: c1, node2: c2, node3: c3}
 	coord := NewCoordinator(ring, clients, 3)
 	defer coord.Stop()

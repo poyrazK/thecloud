@@ -10,6 +10,11 @@ import (
 	pb "github.com/poyrazk/thecloud/internal/storage/protocol"
 )
 
+const (
+	// defaultRetrieveChunkSize is the size of chunks sent during retrieval.
+	defaultRetrieveChunkSize = 1024 * 1024 // 1MB
+)
+
 // RPCServer exposes storage-node RPC endpoints.
 type RPCServer struct {
 	pb.UnimplementedStorageNodeServer
@@ -56,24 +61,26 @@ func (r *grpcStoreReader) Read(p []byte) (n int, err error) {
 		return n, nil
 	}
 
-	req, err := r.stream.Recv()
-	if errors.Is(err, io.EOF) {
-		return 0, io.EOF
-	}
-	if err != nil {
-		return 0, err
-	}
+	for {
+		req, err := r.stream.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return 0, io.EOF
+			}
+			return 0, err
+		}
 
-	chunk := req.GetChunkData()
-	if chunk == nil {
-		return 0, nil // Skip non-data messages if any
-	}
+		chunk := req.GetChunkData()
+		if chunk == nil {
+			continue // Skip non-data messages (like unexpected metadata)
+		}
 
-	n = copy(p, chunk)
-	if n < len(chunk) {
-		r.buffer = chunk[n:]
+		n = copy(p, chunk)
+		if n < len(chunk) {
+			r.buffer = chunk[n:]
+		}
+		return n, nil
 	}
-	return n, nil
 }
 
 func (s *RPCServer) Retrieve(req *pb.RetrieveRequest, stream pb.StorageNode_RetrieveServer) error {
@@ -104,7 +111,7 @@ func (s *RPCServer) Retrieve(req *pb.RetrieveRequest, stream pb.StorageNode_Retr
 	}
 
 	// Stream chunks
-	buf := make([]byte, 1024*1024) // 1MB chunks
+	buf := make([]byte, defaultRetrieveChunkSize)
 	for {
 		n, err := rc.Read(buf)
 		if n > 0 {
@@ -117,10 +124,10 @@ func (s *RPCServer) Retrieve(req *pb.RetrieveRequest, stream pb.StorageNode_Retr
 				return errSend
 			}
 		}
-		if errors.Is(err, io.EOF) {
-			break
-		}
 		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
 			return err
 		}
 	}

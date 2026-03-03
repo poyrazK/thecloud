@@ -28,10 +28,9 @@ func NewLocalStore(dataDir string) (*LocalStore, error) {
 
 // WriteStream saves data from a reader to disk.
 func (s *LocalStore) WriteStream(bucket, key string, r io.Reader, timestamp int64) (int64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+	s.mu.RLock()
 	path, err := s.getObjectPath(bucket, key)
+	s.mu.RUnlock()
 	if err != nil {
 		return 0, err
 	}
@@ -40,14 +39,29 @@ func (s *LocalStore) WriteStream(bucket, key string, r io.Reader, timestamp int6
 		return 0, err
 	}
 
-	f, err := os.OpenFile(filepath.Clean(path), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	// Use temporary file for atomic write
+	tmpPath := path + ".tmp"
+	f, err := os.OpenFile(filepath.Clean(tmpPath), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return 0, err
 	}
-	defer func() { _ = f.Close() }()
 
-	n, err := io.Copy(f, r)
-	if err != nil {
+	n, copyErr := io.Copy(f, r)
+	closeErr := f.Close()
+	if copyErr != nil {
+		_ = os.Remove(tmpPath)
+		return n, copyErr
+	}
+	if closeErr != nil {
+		_ = os.Remove(tmpPath)
+		return n, closeErr
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
 		return n, err
 	}
 
@@ -141,10 +155,9 @@ func (s *LocalStore) Delete(bucket, key string) error {
 
 // Assemble combines multiple parts into a single object.
 func (s *LocalStore) Assemble(bucket, key string, parts []string) (int64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+	s.mu.RLock()
 	destPath, err := s.getObjectPath(bucket, key)
+	s.mu.RUnlock()
 	if err != nil {
 		return 0, err
 	}
@@ -153,31 +166,61 @@ func (s *LocalStore) Assemble(bucket, key string, parts []string) (int64, error)
 		return 0, err
 	}
 
-	f, err := os.OpenFile(filepath.Clean(destPath), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	tmpPath := destPath + ".tmp"
+	f, err := os.OpenFile(filepath.Clean(tmpPath), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return 0, err
 	}
-	defer func() { _ = f.Close() }()
 
 	var totalSize int64
+	var assembleErr error
 	for _, partKey := range parts {
+		s.mu.RLock()
 		partPath, err := s.getObjectPath(bucket, partKey)
+		s.mu.RUnlock()
 		if err != nil {
-			return 0, err
+			assembleErr = err
+			break
 		}
 
 		pf, err := os.Open(filepath.Clean(partPath))
 		if err != nil {
-			return 0, err
+			assembleErr = err
+			break
 		}
 		n, err := io.Copy(f, pf)
 		_ = pf.Close()
 		if err != nil {
-			return 0, err
+			assembleErr = err
+			break
 		}
 		totalSize += n
-		_ = os.Remove(partPath)
-		_ = os.Remove(partPath + ".meta")
+	}
+
+	closeErr := f.Close()
+	if assembleErr != nil {
+		_ = os.Remove(tmpPath)
+		return 0, assembleErr
+	}
+	if closeErr != nil {
+		_ = os.Remove(tmpPath)
+		return 0, closeErr
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := os.Rename(tmpPath, destPath); err != nil {
+		_ = os.Remove(tmpPath)
+		return 0, err
+	}
+
+	// Cleanup parts after successful rename
+	for _, partKey := range parts {
+		if partPath, err := s.getObjectPath(bucket, partKey); err == nil {
+			_ = os.Remove(partPath)
+			_ = os.Remove(partPath + ".meta")
+		}
 	}
 
 	// Write final meta with current timestamp

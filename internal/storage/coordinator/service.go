@@ -2,7 +2,6 @@
 package coordinator
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"errors"
@@ -21,6 +20,7 @@ import (
 const (
 	errNoNodesAvailable = "no storage nodes available"
 	chunkSize           = 1024 * 1024 // 1MB chunks
+	repairTimeout       = 30 * time.Second
 )
 
 // Coordinator implements ports.FileStore to manage distributed storage.
@@ -286,25 +286,55 @@ func (c *Coordinator) Read(ctx context.Context, bucket, key string) (io.ReadClos
 	}
 
 	results := c.collectReadResults(ctx, bucket, key, nodes)
-	latest, _, repairNodes, foundCount := c.processReadResults(results)
+	winner, repairNodes, foundCount := c.processReadResults(results)
 
 	if foundCount == 0 {
 		platform.StorageOperations.WithLabelValues("cluster_read", bucket, "not_found").Inc()
 		return nil, fmt.Errorf("object not found")
 	}
 
-	// Async Repair for nodes that were missing/stale
+	// Wrapper to handle streaming read and async repair
+	winningReader := &grpcStreamReader{stream: winner.stream}
+	
 	if len(repairNodes) > 0 {
-		go c.repairNodes(context.Background(), bucket, key, latest.data, latest.timestamp, repairNodes)
+		pr, pw := io.Pipe()
+		tee := io.TeeReader(winningReader, pw)
+		
+		repairCtx, cancel := context.WithTimeout(ctx, repairTimeout)
+		go func() {
+			defer cancel()
+			c.repairNodes(repairCtx, bucket, key, pr, winner.timestamp, repairNodes)
+			_ = pr.Close()
+		}()
+		
+		return &repairingReadCloser{
+			Reader: tee,
+			pw:     pw,
+			winner: winner.stream,
+		}, nil
 	}
 
 	platform.StorageOperations.WithLabelValues("cluster_read", bucket, "success").Inc()
-	return io.NopCloser(bytes.NewReader(latest.data)), nil
+	return &repairingReadCloser{Reader: winningReader, winner: winner.stream}, nil
+}
+
+type repairingReadCloser struct {
+	io.Reader
+	pw     *io.PipeWriter
+	winner pb.StorageNode_RetrieveClient
+}
+
+func (r *repairingReadCloser) Close() error {
+	if r.pw != nil {
+		_ = r.pw.Close()
+	}
+	// gRPC streams are closed when their context is canceled or Recv returns EOF.
+	return nil
 }
 
 type readResult struct {
 	nodeID    string
-	data      []byte
+	stream    pb.StorageNode_RetrieveClient
 	timestamp int64
 	found     bool
 	err       error
@@ -328,28 +358,24 @@ func (c *Coordinator) collectReadResults(ctx context.Context, bucket, key string
 				return
 			}
 
-			var fullData bytes.Buffer
-			var ts int64
-			found := false
-			for {
-				resp, err := st.Recv()
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				if err != nil {
-					results <- readResult{nodeID: id, err: err}
-					return
-				}
-
-				switch p := resp.Payload.(type) {
-				case *pb.RetrieveResponse_Metadata:
-					found = p.Metadata.Found
-					ts = p.Metadata.Timestamp
-				case *pb.RetrieveResponse_ChunkData:
-					fullData.Write(p.ChunkData)
-				}
+			// Read only metadata
+			resp, err := st.Recv()
+			if err != nil {
+				results <- readResult{nodeID: id, err: err}
+				return
 			}
-			results <- readResult{nodeID: id, data: fullData.Bytes(), timestamp: ts, found: found}
+
+			switch p := resp.Payload.(type) {
+			case *pb.RetrieveResponse_Metadata:
+				results <- readResult{
+					nodeID:    id,
+					stream:    st,
+					found:     p.Metadata.Found,
+					timestamp: p.Metadata.Timestamp,
+				}
+			default:
+				results <- readResult{nodeID: id, err: fmt.Errorf("unexpected message type: %T", p)}
+			}
 		}(nodeID, client)
 	}
 
@@ -361,11 +387,11 @@ func (c *Coordinator) collectReadResults(ctx context.Context, bucket, key string
 	return results
 }
 
-func (c *Coordinator) processReadResults(results chan readResult) (readResult, []readResult, []string, int) {
+func (c *Coordinator) processReadResults(results chan readResult) (readResult, []string, int) {
 	var latest readResult
 	foundCount := 0
 	var repairNodes []string
-	validResults := make([]readResult, 0, cap(results))
+	var winners []readResult
 
 	for res := range results {
 		if res.err != nil || !res.found {
@@ -375,33 +401,36 @@ func (c *Coordinator) processReadResults(results chan readResult) (readResult, [
 			continue
 		}
 
-		validResults = append(validResults, res)
 		foundCount++
-
 		if res.timestamp > latest.timestamp {
 			latest = res
 		}
+		winners = append(winners, res)
 	}
 
-	// Read Repair: Add stale nodes to repair list
-	for _, res := range validResults {
+	// Add stale nodes to repair list
+	for _, res := range winners {
 		if res.timestamp < latest.timestamp {
 			repairNodes = append(repairNodes, res.nodeID)
 		}
 	}
 
-	return latest, validResults, repairNodes, foundCount
+	return latest, repairNodes, foundCount
 }
 
-func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, data []byte, timestamp int64, nodes []string) {
-	// Refactored repair to use streaming write
+func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, r io.Reader, timestamp int64, nodes []string) {
+	type nodeStream struct {
+		id     string
+		stream pb.StorageNode_StoreClient
+	}
+	streams := make([]nodeStream, 0, len(nodes))
 	for _, nodeID := range nodes {
 		if client, ok := c.clients[nodeID]; ok {
 			st, err := client.Store(ctx)
 			if err != nil {
 				continue
 			}
-			_ = st.Send(&pb.StoreRequest{
+			err = st.Send(&pb.StoreRequest{
 				Payload: &pb.StoreRequest_Metadata{
 					Metadata: &pb.StoreMetadata{
 						Bucket:    bucket,
@@ -410,13 +439,74 @@ func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, data 
 					},
 				},
 			})
-			_ = st.Send(&pb.StoreRequest{
-				Payload: &pb.StoreRequest_ChunkData{
-					ChunkData: data,
-				},
-			})
-			_, _ = st.CloseAndRecv()
+			if err != nil {
+				continue
+			}
+			streams = append(streams, nodeStream{id: nodeID, stream: st})
 		}
+	}
+
+	if len(streams) == 0 {
+		return
+	}
+
+	buf := make([]byte, chunkSize)
+	for {
+		nr, err := r.Read(buf)
+		if nr > 0 {
+			for i := 0; i < len(streams); i++ {
+				errSend := streams[i].stream.Send(&pb.StoreRequest{
+					Payload: &pb.StoreRequest_ChunkData{
+						ChunkData: buf[:nr],
+					},
+				})
+				if errSend != nil {
+					streams = append(streams[:i], streams[i+1:]...)
+					i--
+				}
+			}
+		}
+		if err != nil {
+			break
+		}
+	}
+
+	for _, ns := range streams {
+		resp, err := ns.stream.CloseAndRecv()
+		if err == nil && resp.Success {
+			platform.StorageOperations.WithLabelValues("repair", bucket, "success").Inc()
+		} else {
+			platform.StorageOperations.WithLabelValues("repair", bucket, "failure").Inc()
+		}
+	}
+}
+
+type grpcStreamReader struct {
+	stream pb.StorageNode_RetrieveClient
+	buf    []byte
+}
+
+func (r *grpcStreamReader) Read(p []byte) (n int, err error) {
+	if len(r.buf) > 0 {
+		n = copy(p, r.buf)
+		r.buf = r.buf[n:]
+		return n, nil
+	}
+
+	resp, err := r.stream.Recv()
+	if err != nil {
+		return 0, err
+	}
+
+	switch pld := resp.Payload.(type) {
+	case *pb.RetrieveResponse_ChunkData:
+		n = copy(p, pld.ChunkData)
+		if n < len(pld.ChunkData) {
+			r.buf = pld.ChunkData[n:]
+		}
+		return n, nil
+	default:
+		return 0, fmt.Errorf("unexpected payload during stream: %T", pld)
 	}
 }
 

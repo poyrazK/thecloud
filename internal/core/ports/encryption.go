@@ -8,9 +8,9 @@ import (
 
 // EncryptionService handles encryption and decryption of data streams.
 type EncryptionService interface {
-	// Encrypt returns an encrypted version of the key and an initialization vector.
-	// For object storage, it might return a key ID or wrapper.
+	// Encrypt returns a transformed io.Reader that encrypts the data from r on-the-fly.
 	Encrypt(ctx context.Context, bucket string, r io.Reader) (io.Reader, error)
+	// Decrypt returns a transformed io.Reader that decrypts the data from r on-the-fly.
 	Decrypt(ctx context.Context, bucket string, r io.Reader) (io.Reader, error)
 
 	// CreateKey creates a new encryption key for a bucket

@@ -148,7 +148,9 @@ func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.R
 	if err == nil && b.EncryptionEnabled && s.encryptSvc != nil {
 		decryptedReader, err := s.encryptSvc.Decrypt(ctx, bucket, reader)
 		if err != nil {
-			_ = reader.Close()
+			if closeErr := reader.Close(); closeErr != nil {
+				return nil, nil, fmt.Errorf("decrypt error: %w; close error: %v", err, closeErr)
+			}
 			return nil, nil, err
 		}
 		// Wrap with NopCloser but keep the original closer to close the underlying file
