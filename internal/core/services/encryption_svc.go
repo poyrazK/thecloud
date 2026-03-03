@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"math"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/ports"
@@ -148,7 +149,7 @@ func (c *chunkedGCMReader) Read(p []byte) (n int, err error) {
 			
 			// Record framing: [Length (4 bytes)] [Ciphertext + Tag]
 			// G115: add safety check for int -> uint32 conversion
-			if uint64(len(ciphertext)) > 0xFFFFFFFF {
+			if len(ciphertext) > math.MaxUint32 {
 				return 0, fmt.Errorf("ciphertext too large: %d", len(ciphertext))
 			}
 			lenBuf := make([]byte, 4)
