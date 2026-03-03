@@ -149,7 +149,7 @@ func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.R
 		decryptedReader, err := s.encryptSvc.Decrypt(ctx, bucket, reader)
 		if err != nil {
 			if closeErr := reader.Close(); closeErr != nil {
-				return nil, nil, fmt.Errorf("decrypt error: %w; close error: %v", err, closeErr)
+				return nil, nil, fmt.Errorf("decrypt error: %w; close error: %w", err, closeErr)
 			}
 			return nil, nil, err
 		}

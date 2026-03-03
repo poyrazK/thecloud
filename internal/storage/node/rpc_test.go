@@ -18,14 +18,12 @@ type mockStoreServer struct {
 	ctx      context.Context
 	reqs     []*pb.StoreRequest
 	resp     *pb.StoreResponse
-	closed   bool
 	recvIdx  int
 }
 
 func (m *mockStoreServer) Context() context.Context { return m.ctx }
 func (m *mockStoreServer) SendAndClose(r *pb.StoreResponse) error {
 	m.resp = r
-	m.closed = true
 	return nil
 }
 func (m *mockStoreServer) Recv() (*pb.StoreRequest, error) {

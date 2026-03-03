@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"io"
 
 	"github.com/google/uuid"
@@ -146,6 +147,10 @@ func (c *chunkedGCMReader) Read(p []byte) (n int, err error) {
 			ciphertext := c.aead.Seal(nil, nonce, plaintext[:nr], nil)
 			
 			// Record framing: [Length (4 bytes)] [Ciphertext + Tag]
+			// G115: add safety check for int -> uint32 conversion
+			if uint64(len(ciphertext)) > 0xFFFFFFFF {
+				return 0, fmt.Errorf("ciphertext too large: %d", len(ciphertext))
+			}
 			lenBuf := make([]byte, 4)
 			binary.BigEndian.PutUint32(lenBuf, uint32(len(ciphertext)))
 			c.buf.Write(lenBuf)

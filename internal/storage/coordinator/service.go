@@ -391,7 +391,7 @@ func (c *Coordinator) processReadResults(results chan readResult) (readResult, [
 	var latest readResult
 	foundCount := 0
 	var repairNodes []string
-	var winners []readResult
+	winners := make([]readResult, 0, cap(results))
 
 	for res := range results {
 		if res.err != nil || !res.found {
