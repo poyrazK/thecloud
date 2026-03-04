@@ -31,8 +31,11 @@ func (s *IdentityService) CreateKey(ctx context.Context, userID uuid.UUID, name 
 	uID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionIdentityCreate); err != nil {
-		return nil, err
+	// Allow if creating for self (e.g. initial login) OR if authorized
+	if uID != userID {
+		if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionIdentityCreate); err != nil {
+			return nil, err
+		}
 	}
 
 	// Generate a secure random key
