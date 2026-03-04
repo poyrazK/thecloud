@@ -11,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,9 +24,12 @@ func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *
 	identityRepo := postgres.NewIdentityRepository(db)
 	tenantRepo := postgres.NewTenantRepo(db)
 
-	auditSvc := services.NewAuditService(auditRepo)
-	identitySvc := services.NewIdentityService(identityRepo, auditSvc)
-	tenantSvc := services.NewTenantService(tenantRepo, userRepo, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
+	identitySvc := services.NewIdentityService(identityRepo, rbacSvc, auditSvc)
+	tenantSvc := services.NewTenantService(tenantRepo, userRepo, rbacSvc, slog.Default())
 	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc)
 
 	return db, svc, userRepo, identitySvc, auditSvc, tenantSvc
