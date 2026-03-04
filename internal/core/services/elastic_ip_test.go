@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,11 +26,16 @@ func setupElasticIPServiceTest(t *testing.T) (ports.ElasticIPService, ports.Elas
 	eipRepo := postgres.NewElasticIPRepository(db)
 	instRepo := postgres.NewInstanceRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := services.NewElasticIPService(services.ElasticIPServiceParams{
 		Repo:         eipRepo,
+		RBAC:         rbacSvc,
 		InstanceRepo: instRepo,
 		AuditSvc:     auditSvc,
 		Logger:       logger,
