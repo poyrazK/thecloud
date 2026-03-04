@@ -80,4 +80,5 @@ cloud db rm <id>
 - [ ] **Snapshots**: Backup and restore database state.
 - [ ] **Volume Persistence**: Attach persistent volumes for data durability.
 - [x] **Read Replicas**: Support for horizontal read scaling.
+- [x] **Volume Expansion**: Dynamic storage scaling for existing instances.
 - [ ] **Custom Config**: Support for custom `postgresql.conf` or `my.cnf`.
