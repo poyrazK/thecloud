@@ -26,8 +26,8 @@ const (
 	rbacRoleNamePrefix = "rbac:role:name:"
 )
 
-func rbacPermKey(userID uuid.UUID, permission domain.Permission) string {
-	return rbacPermPrefix + userID.String() + ":" + string(permission)
+func rbacPermKey(tenantID, userID uuid.UUID, permission domain.Permission) string {
+	return rbacPermPrefix + tenantID.String() + ":" + userID.String() + ":" + string(permission)
 }
 
 func rbacRoleIDKey(roleID uuid.UUID) string {
@@ -38,12 +38,12 @@ func rbacRoleNameKey(name string) string {
 	return rbacRoleNamePrefix + name
 }
 
-func (m *mockRBACService) Authorize(ctx context.Context, userID uuid.UUID, permission domain.Permission) error {
-	args := m.Called(ctx, userID, permission)
+func (m *mockRBACService) Authorize(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission) error {
+	args := m.Called(ctx, userID, tenantID, permission)
 	return args.Error(0)
 }
-func (m *mockRBACService) HasPermission(ctx context.Context, userID uuid.UUID, permission domain.Permission) (bool, error) {
-	args := m.Called(ctx, userID, permission)
+func (m *mockRBACService) HasPermission(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission) (bool, error) {
+	args := m.Called(ctx, userID, tenantID, permission)
 	return args.Bool(0), args.Error(1)
 }
 func (m *mockRBACService) CreateRole(ctx context.Context, role *domain.Role) error {
@@ -138,9 +138,10 @@ func TestCachedRBACServiceAuthorizeDelegates(t *testing.T) {
 	svc := services.NewCachedRBACService(mockSvc, cache, logger)
 
 	userID := uuid.New()
-	mockSvc.On("Authorize", mock.Anything, userID, domain.PermissionInstanceRead).Return(nil).Once()
+	tenantID := uuid.New()
+	mockSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead).Return(nil).Once()
 
-	err := svc.Authorize(context.Background(), userID, domain.PermissionInstanceRead)
+	err := svc.Authorize(context.Background(), userID, tenantID, domain.PermissionInstanceRead)
 	assert.NoError(t, err)
 	mockSvc.AssertExpectations(t)
 }
@@ -155,13 +156,14 @@ func TestCachedRBACServiceHasPermissionCacheHit(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.New()
-	key := rbacPermKey(userID, domain.PermissionInstanceRead)
+	tenantID := uuid.New()
+	key := rbacPermKey(tenantID, userID, domain.PermissionInstanceRead)
 	cache.Set(ctx, key, "1", time.Minute)
 
-	allowed, err := svc.HasPermission(ctx, userID, domain.PermissionInstanceRead)
+	allowed, err := svc.HasPermission(ctx, userID, tenantID, domain.PermissionInstanceRead)
 	assert.NoError(t, err)
 	assert.True(t, allowed)
-	mockSvc.AssertNotCalled(t, "HasPermission", mock.Anything, mock.Anything, mock.Anything)
+	mockSvc.AssertNotCalled(t, "HasPermission", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestCachedRBACServiceHasPermissionCacheMiss(t *testing.T) {
@@ -174,15 +176,16 @@ func TestCachedRBACServiceHasPermissionCacheMiss(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.New()
+	tenantID := uuid.New()
 	permission := domain.PermissionInstanceRead
 
-	mockSvc.On("HasPermission", mock.Anything, userID, permission).Return(true, nil).Once()
+	mockSvc.On("HasPermission", mock.Anything, userID, tenantID, permission).Return(true, nil).Once()
 
-	allowed, err := svc.HasPermission(ctx, userID, permission)
+	allowed, err := svc.HasPermission(ctx, userID, tenantID, permission)
 	assert.NoError(t, err)
 	assert.True(t, allowed)
 
-	key := rbacPermKey(userID, permission)
+	key := rbacPermKey(tenantID, userID, permission)
 	assert.Equal(t, "1", cache.Get(ctx, key).Val())
 }
 
@@ -196,15 +199,16 @@ func TestCachedRBACServiceHasPermissionError(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.New()
+	tenantID := uuid.New()
 	permission := domain.PermissionInstanceRead
 
-	mockSvc.On("HasPermission", mock.Anything, userID, permission).Return(false, assert.AnError).Once()
+	mockSvc.On("HasPermission", mock.Anything, userID, tenantID, permission).Return(false, assert.AnError).Once()
 
-	allowed, err := svc.HasPermission(ctx, userID, permission)
+	allowed, err := svc.HasPermission(ctx, userID, tenantID, permission)
 	assert.Error(t, err)
 	assert.False(t, allowed)
 
-	key := "rbac:perm:" + userID.String() + ":" + string(permission)
+	key := rbacPermKey(tenantID, userID, permission)
 	assert.False(t, cache.Exists(ctx, key).Val() > 0)
 }
 
