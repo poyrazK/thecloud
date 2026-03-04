@@ -606,3 +606,37 @@ func (s *NoopStorageBackend) DetachVolume(ctx context.Context, volumeName, insta
 }
 func (s *NoopStorageBackend) Ping(ctx context.Context) error { return nil }
 func (s *NoopStorageBackend) Type() string                   { return "noop" }
+
+// NoopRBACService is a no-op RBAC service.
+type NoopRBACService struct{}
+
+func (s *NoopRBACService) Authorize(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission) error {
+	return nil
+}
+func (s *NoopRBACService) HasPermission(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission) (bool, error) {
+	return true, nil
+}
+func (s *NoopRBACService) CreateRole(ctx context.Context, role *domain.Role) error { return nil }
+func (s *NoopRBACService) GetRoleByID(ctx context.Context, id uuid.UUID) (*domain.Role, error) {
+	return &domain.Role{ID: id}, nil
+}
+func (s *NoopRBACService) GetRoleByName(ctx context.Context, name string) (*domain.Role, error) {
+	return &domain.Role{ID: uuid.New(), Name: name}, nil
+}
+func (s *NoopRBACService) ListRoles(ctx context.Context) ([]*domain.Role, error) {
+	return []*domain.Role{}, nil
+}
+func (s *NoopRBACService) UpdateRole(ctx context.Context, role *domain.Role) error { return nil }
+func (s *NoopRBACService) DeleteRole(ctx context.Context, id uuid.UUID) error     { return nil }
+func (s *NoopRBACService) AddPermissionToRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
+	return nil
+}
+func (s *NoopRBACService) RemovePermissionFromRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
+	return nil
+}
+func (s *NoopRBACService) BindRole(ctx context.Context, userIdentifier string, roleName string) error {
+	return nil
+}
+func (s *NoopRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User, error) {
+	return []*domain.User{}, nil
+}
