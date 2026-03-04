@@ -15,6 +15,16 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// NotifyServiceParams defines the dependencies for NotifyService.
+type NotifyServiceParams struct {
+	Repo     ports.NotifyRepository
+	RBACSvc  ports.RBACService
+	QueueSvc ports.QueueService
+	EventSvc ports.EventService
+	AuditSvc ports.AuditService
+	Logger   *slog.Logger
+}
+
 // NotifyService manages topics, subscriptions, and message delivery.
 type NotifyService struct {
 	repo     ports.NotifyRepository
@@ -26,14 +36,14 @@ type NotifyService struct {
 }
 
 // NewNotifyService constructs a NotifyService with its dependencies.
-func NewNotifyService(repo ports.NotifyRepository, rbacSvc ports.RBACService, queueSvc ports.QueueService, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) ports.NotifyService {
+func NewNotifyService(params NotifyServiceParams) ports.NotifyService {
 	return &NotifyService{
-		repo:     repo,
-		rbacSvc:  rbacSvc,
-		queueSvc: queueSvc,
-		eventSvc: eventSvc,
-		auditSvc: auditSvc,
-		logger:   logger,
+		repo:     params.Repo,
+		rbacSvc:  params.RBACSvc,
+		queueSvc: params.QueueSvc,
+		eventSvc: params.EventSvc,
+		auditSvc: params.AuditSvc,
+		logger:   params.Logger,
 	}
 }
 
@@ -226,7 +236,9 @@ func (s *NotifyService) Publish(ctx context.Context, topicID uuid.UUID, body str
 
 	// Delivery logic
 	for _, sub := range subs {
-		go s.deliver(context.Background(), sub, body)
+		go func(c context.Context, sub *domain.Subscription) {
+			s.deliver(c, sub, body)
+		}(ctx, sub)
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "TOPIC_PUBLISHED", topic.ID.String(), "TOPIC", map[string]interface{}{"message_id": msg.ID})
