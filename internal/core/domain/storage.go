@@ -12,6 +12,7 @@ import (
 type Object struct {
 	ID          uuid.UUID  `json:"id"`
 	UserID      uuid.UUID  `json:"user_id"`
+	TenantID    uuid.UUID  `json:"tenant_id"`
 	ARN         string     `json:"arn"`
 	Bucket      string     `json:"bucket"`
 	Key         string     `json:"key"`
@@ -29,6 +30,7 @@ type Bucket struct {
 	ID                uuid.UUID `json:"id"`
 	Name              string    `json:"name"`
 	UserID            uuid.UUID `json:"user_id"`
+	TenantID          uuid.UUID `json:"tenant_id"`
 	IsPublic          bool      `json:"is_public"`
 	VersioningEnabled bool      `json:"versioning_enabled"`
 	EncryptionEnabled bool      `json:"encryption_enabled"`
@@ -54,6 +56,7 @@ type StorageCluster struct {
 type MultipartUpload struct {
 	ID        uuid.UUID `json:"id"`
 	UserID    uuid.UUID `json:"user_id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
 	Bucket    string    `json:"bucket"`
 	Key       string    `json:"key"`
 	CreatedAt time.Time `json:"created_at"`
