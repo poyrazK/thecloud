@@ -212,6 +212,7 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 		return nil, errors.Wrap(errors.Internal, "failed to launch replica container", err)
 	}
 
+	db.ContainerID = containerID
 	if err := s.resolveDatabasePort(ctx, db, allocatedPorts, defaultPort); err != nil {
 		return s.performProvisioningRollback(ctx, db, vol.ID.String(), errors.Wrap(errors.Internal, "failed to resolve replica database port", err))
 	}
@@ -273,7 +274,9 @@ func (s *DatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDa
 				return nil, err
 			}
 		} else if db.ExporterContainerID != "" {
-			_ = s.compute.DeleteInstance(ctx, db.ExporterContainerID)
+			if err := s.compute.DeleteInstance(ctx, db.ExporterContainerID); err != nil {
+				s.logger.Warn("failed to delete metrics sidecar during modification", "container_id", db.ExporterContainerID, "error", err)
+			}
 			db.ExporterContainerID = ""
 			db.MetricsPort = 0
 		}
@@ -289,7 +292,9 @@ func (s *DatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDa
 				return nil, err
 			}
 		} else if db.PoolerContainerID != "" {
-			_ = s.compute.DeleteInstance(ctx, db.PoolerContainerID)
+			if err := s.compute.DeleteInstance(ctx, db.PoolerContainerID); err != nil {
+				s.logger.Warn("failed to delete pooler sidecar during modification", "container_id", db.PoolerContainerID, "error", err)
+			}
 			db.PoolerContainerID = ""
 			db.PoolingPort = 0
 		}
@@ -321,13 +326,19 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 	}
 
 	if db.ContainerID != "" {
-		_ = s.compute.DeleteInstance(ctx, db.ContainerID)
+		if err := s.compute.DeleteInstance(ctx, db.ContainerID); err != nil {
+			s.logger.Warn("failed to delete database container", "container_id", db.ContainerID, "error", err)
+		}
 	}
 	if db.ExporterContainerID != "" {
-		_ = s.compute.DeleteInstance(ctx, db.ExporterContainerID)
+		if err := s.compute.DeleteInstance(ctx, db.ExporterContainerID); err != nil {
+			s.logger.Warn("failed to delete exporter container", "container_id", db.ExporterContainerID, "error", err)
+		}
 	}
 	if db.PoolerContainerID != "" {
-		_ = s.compute.DeleteInstance(ctx, db.PoolerContainerID)
+		if err := s.compute.DeleteInstance(ctx, db.PoolerContainerID); err != nil {
+			s.logger.Warn("failed to delete pooler container", "container_id", db.PoolerContainerID, "error", err)
+		}
 	}
 
 	vols, err := s.volumeSvc.ListVolumes(ctx)
@@ -533,6 +544,9 @@ func (s *DatabaseService) provisionMetricsSidecar(ctx context.Context, db *domai
 	if err != nil || hostPort == 0 {
 		hostPort, err = s.compute.GetInstancePort(ctx, cid, internalPort)
 		if err != nil {
+			// Cleanup the sidecar on port resolution failure
+			_ = s.compute.DeleteInstance(ctx, cid)
+			db.ExporterContainerID = ""
 			return errors.Wrap(errors.Internal, "failed to resolve metrics exporter port", err)
 		}
 	}
@@ -557,6 +571,9 @@ func (s *DatabaseService) provisionPoolerSidecar(ctx context.Context, db *domain
 	if err != nil || hostPort == 0 {
 		hostPort, err = s.compute.GetInstancePort(ctx, cid, internalPort)
 		if err != nil {
+			// Cleanup the sidecar on port resolution failure
+			_ = s.compute.DeleteInstance(ctx, cid)
+			db.PoolerContainerID = ""
 			return errors.Wrap(errors.Internal, "failed to resolve connection pooler port", err)
 		}
 	}
@@ -567,15 +584,23 @@ func (s *DatabaseService) provisionPoolerSidecar(ctx context.Context, db *domain
 func (s *DatabaseService) performProvisioningRollback(ctx context.Context, db *domain.Database, volID string, err error) (*domain.Database, error) {
 	s.logger.Error("rolling back database provisioning due to failure", "error", err)
 	if db.ContainerID != "" {
-		_ = s.compute.DeleteInstance(ctx, db.ContainerID)
+		if deleteErr := s.compute.DeleteInstance(ctx, db.ContainerID); deleteErr != nil {
+			s.logger.Warn("failed to delete database container during rollback", "container_id", db.ContainerID, "error", deleteErr)
+		}
 	}
 	if db.ExporterContainerID != "" {
-		_ = s.compute.DeleteInstance(ctx, db.ExporterContainerID)
+		if deleteErr := s.compute.DeleteInstance(ctx, db.ExporterContainerID); deleteErr != nil {
+			s.logger.Warn("failed to delete exporter container during rollback", "container_id", db.ExporterContainerID, "error", deleteErr)
+		}
 	}
 	if db.PoolerContainerID != "" {
-		_ = s.compute.DeleteInstance(ctx, db.PoolerContainerID)
+		if deleteErr := s.compute.DeleteInstance(ctx, db.PoolerContainerID); deleteErr != nil {
+			s.logger.Warn("failed to delete pooler container during rollback", "container_id", db.PoolerContainerID, "error", deleteErr)
+		}
 	}
-	_ = s.volumeSvc.DeleteVolume(ctx, volID)
+	if deleteErr := s.volumeSvc.DeleteVolume(ctx, volID); deleteErr != nil {
+		s.logger.Warn("failed to delete volume during rollback", "volume_id", volID, "error", deleteErr)
+	}
 	return nil, err
 }
 
