@@ -122,11 +122,7 @@ jobs:
           docker network create cloud-network || true
           
           # Run the specific replication test
-          if ! go test -v -timeout 5m -run TestDatabaseReplicationE2E ./tests/...; then
-            echo "--- API LOGS ---"
-            cat api.log
-            exit 1
-          fi
+          go test -v -timeout 5m -run TestDatabaseReplicationE2E ./tests/...
           
           # Cleanup
           kill $(cat api.pid) || true
