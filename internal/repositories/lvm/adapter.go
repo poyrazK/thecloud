@@ -67,9 +67,10 @@ func (a *LvmAdapter) ResizeVolume(ctx context.Context, name string, newSizeGB in
 		a.execer = &realExecer{ctx: ctx}
 	}
 
-	out, err := a.execer.Run("lvextend", "-L", fmt.Sprintf("%dG", newSizeGB), fmt.Sprintf("%s/%s", a.vgName, name))
+	// Use -r to automatically resize the underlying filesystem (resize2fs, xfs_growfs, etc.)
+	out, err := a.execer.Run("lvextend", "-r", "-L", fmt.Sprintf("%dG", newSizeGB), fmt.Sprintf("%s/%s", a.vgName, name))
 	if err != nil {
-		return fmt.Errorf("failed to extend logical volume: %w, output: %s", err, string(out))
+		return fmt.Errorf("failed to extend logical volume and resize filesystem: %w, output: %s", err, string(out))
 	}
 	return nil
 }
