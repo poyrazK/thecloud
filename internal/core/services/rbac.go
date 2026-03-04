@@ -50,8 +50,12 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 		// Global context fallback (for system admins or global roles)
 		user, err := s.userRepo.GetByID(ctx, userID)
 		if err != nil {
+			if errors.Is(err, errors.NotFound) {
+				s.logger.Warn("RBAC: user not found", "user_id", userID)
+				return false, nil
+			}
 			s.logger.Error("RBAC: failed to get user", "user_id", userID, "error", err)
-			return false, fmt.Errorf("failed to get user: %w", err)
+			return false, errors.Wrap(errors.Internal, "failed to get user", err)
 		}
 		roleName = user.Role
 		s.logger.Debug("RBAC: checking global permission", "user_id", userID, "user_role", roleName, "permission", permission)
@@ -59,9 +63,12 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 		// Tenant context
 		member, err := s.tenantRepo.GetMembership(ctx, tenantID, userID)
 		if err != nil {
-			// If not a member, they have no permissions in this tenant
-			s.logger.Warn("RBAC: user is not a member of tenant", "user_id", userID, "tenant_id", tenantID)
-			return false, nil
+			if errors.Is(err, errors.NotFound) {
+				s.logger.Warn("RBAC: user is not a member of tenant", "user_id", userID, "tenant_id", tenantID)
+				return false, nil
+			}
+			s.logger.Error("RBAC: failed to get membership", "user_id", userID, "tenant_id", tenantID, "error", err)
+			return false, errors.Wrap(errors.Internal, "failed to get membership", err)
 		}
 		roleName = member.Role
 		s.logger.Debug("RBAC: checking tenant permission", "user_id", userID, "tenant_id", tenantID, "tenant_role", roleName, "permission", permission)
@@ -70,8 +77,12 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 	// 2. Get role from DB
 	role, err := s.roleRepo.GetRoleByName(ctx, roleName)
 	if err != nil {
-		s.logger.Debug("RBAC: role not found in DB, using default permissions", "role", roleName, "error", err)
-		return s.hasDefaultPermission(roleName, permission)
+		if errors.Is(err, errors.NotFound) {
+			s.logger.Debug("RBAC: role not found in DB, using default permissions", "role", roleName)
+			return s.hasDefaultPermission(roleName, permission)
+		}
+		s.logger.Error("RBAC: failed to get role", "role", roleName, "error", err)
+		return false, errors.Wrap(errors.Internal, "failed to get role", err)
 	}
 
 	s.logger.Debug("RBAC: found role in DB", "role", role.Name, "permissions_count", len(role.Permissions))

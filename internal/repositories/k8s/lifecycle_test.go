@@ -21,6 +21,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -70,8 +71,8 @@ func TestK8sProvisionerLifecycle(t *testing.T) {
 
 	// Core Services
 	sgSvc := services.NewSecurityGroupService(sgRepo, vpcRepo, netBackend, auditSvc, logger)
-	storageSvc := services.NewStorageService(storageRepo, nil, auditSvc, nil, &platform.Config{})
-	lbSvc := services.NewLBService(lbRepo, vpcRepo, instanceRepo, auditSvc)
+	storageSvc := services.NewStorageService(storageRepo, rbacSvc, nil, auditSvc, nil, &platform.Config{})
+	lbSvc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc)
 
 	// InstanceService: The real one!
 	// We use a SyncTaskQueue to make the provisioning synchronous in the test.

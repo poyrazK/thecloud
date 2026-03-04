@@ -15,6 +15,15 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// ImageServiceParams defines the dependencies for ImageService.
+type ImageServiceParams struct {
+	Repo       ports.ImageRepository
+	RBACSvc    ports.RBACService
+	FileStore  ports.FileStore
+	Logger     *slog.Logger
+	BucketName string
+}
+
 type imageService struct {
 	repo       ports.ImageRepository
 	rbacSvc    ports.RBACService
@@ -24,13 +33,17 @@ type imageService struct {
 }
 
 // NewImageService constructs the image service for managing custom images.
-func NewImageService(repo ports.ImageRepository, rbacSvc ports.RBACService, fileStore ports.FileStore, logger *slog.Logger) ports.ImageService {
+func NewImageService(params ImageServiceParams) ports.ImageService {
+	bucketName := params.BucketName
+	if bucketName == "" {
+		bucketName = "images"
+	}
 	return &imageService{
-		repo:       repo,
-		rbacSvc:    rbacSvc,
-		fileStore:  fileStore,
-		bucketName: "images",
-		logger:     logger,
+		repo:       params.Repo,
+		rbacSvc:    params.RBACSvc,
+		fileStore:  params.FileStore,
+		bucketName: bucketName,
+		logger:     params.Logger,
 	}
 }
 
@@ -138,7 +151,7 @@ func (s *imageService) DeleteImage(ctx context.Context, id uuid.UUID) error {
 
 	// Permission check
 	if img.UserID != userID {
-		// Log or handle unauthorized delete attempt if needed
+		return errors.New(errors.Forbidden, "cannot delete someone else's image")
 	}
 
 	if img.FilePath != "" {

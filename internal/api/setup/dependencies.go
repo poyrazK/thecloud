@@ -258,11 +258,29 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		AuditSvc: auditSvc,
 		Logger:   c.Logger,
 	})
-	secretSvc := services.NewSecretService(c.Repos.Secret, rbacSvc, eventSvc, auditSvc, c.Logger, c.Config.SecretsEncryptionKey, c.Config.Environment)
+	secretSvc, err := services.NewSecretService(services.SecretServiceParams{
+		Repo:        c.Repos.Secret,
+		RBACSvc:     rbacSvc,
+		EventSvc:    eventSvc,
+		AuditSvc:    auditSvc,
+		Logger:      c.Logger,
+		MasterKey:   c.Config.SecretsEncryptionKey,
+		Environment: c.Config.Environment,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to init secret service: %w", err)
+	}
 	fnSvc := services.NewFunctionService(c.Repos.Function, rbacSvc, c.Compute, fileStore, auditSvc, c.Logger)
 	cacheSvc := services.NewCacheService(c.Repos.Cache, rbacSvc, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
 	queueSvc := services.NewQueueService(c.Repos.Queue, rbacSvc, eventSvc, auditSvc)
-	notifySvc := services.NewNotifyService(c.Repos.Notify, rbacSvc, queueSvc, eventSvc, auditSvc, c.Logger)
+	notifySvc := services.NewNotifyService(services.NotifyServiceParams{
+		Repo:     c.Repos.Notify,
+		RBACSvc:  rbacSvc,
+		QueueSvc: queueSvc,
+		EventSvc: eventSvc,
+		AuditSvc: auditSvc,
+		Logger:   c.Logger,
+	})
 
 	// 5. DevOps & Automation Services
 	cronSvc := services.NewCronService(c.Repos.Cron, rbacSvc, eventSvc, auditSvc)
@@ -278,7 +296,12 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	asgWorker := services.NewAutoScalingWorker(c.Repos.AutoScaling, instSvcConcrete, lbSvc, eventSvc, ports.RealClock{})
 	accountingSvc := services.NewAccountingService(c.Repos.Accounting, rbacSvc, c.Repos.Instance, c.Logger)
 	accountingWorker := workers.NewAccountingWorker(accountingSvc, c.Logger)
-	imageSvc := services.NewImageService(c.Repos.Image, rbacSvc, fileStore, c.Logger)
+	imageSvc := services.NewImageService(services.ImageServiceParams{
+		Repo:      c.Repos.Image,
+		RBACSvc:   rbacSvc,
+		FileStore: fileStore,
+		Logger:    c.Logger,
+	})
 	provisionWorker := workers.NewProvisionWorker(instSvcConcrete, c.Repos.TaskQueue, c.Logger)
 	healingWorker := workers.NewHealingWorker(instSvcConcrete, c.Repos.Instance, c.Logger)
 

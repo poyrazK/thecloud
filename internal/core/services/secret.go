@@ -3,8 +3,8 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
-	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +19,17 @@ const (
 	errFailedDeriveKey = "failed to derive key"
 )
 
+// SecretServiceParams defines the dependencies for SecretService.
+type SecretServiceParams struct {
+	Repo        ports.SecretRepository
+	RBACSvc     ports.RBACService
+	EventSvc    ports.EventService
+	AuditSvc    ports.AuditService
+	Logger      *slog.Logger
+	MasterKey   string
+	Environment string
+}
+
 // SecretService manages encrypted secret storage.
 type SecretService struct {
 	repo      ports.SecretRepository
@@ -30,30 +41,31 @@ type SecretService struct {
 }
 
 // NewSecretService constructs a SecretService and validates the master key.
-func NewSecretService(repo ports.SecretRepository, rbacSvc ports.RBACService, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger, masterKey string, environment string) *SecretService {
+func NewSecretService(params SecretServiceParams) (*SecretService, error) {
+	masterKey := params.MasterKey
 	if masterKey == "" {
-		if environment == "production" {
+		if params.Environment == "production" {
 			// In production, we MUST have a key
-			logger.Error("SECRETS_ENCRYPTION_KEY is required in production but was not set")
-			os.Exit(1)
+			params.Logger.Error("SECRETS_ENCRYPTION_KEY is required in production but was not set")
+			return nil, fmt.Errorf("SECRETS_ENCRYPTION_KEY is required in production but was not set")
 		}
 		// FALLBACK for development
 		masterKey = "default-thecloud-development-key-32chars"
-		logger.Warn("SECRETS_ENCRYPTION_KEY not set, using default key")
+		params.Logger.Warn("SECRETS_ENCRYPTION_KEY not set, using default key")
 	}
 
 	if len(masterKey) < 16 {
-		logger.Warn("SECRETS_ENCRYPTION_KEY is too short, please use at least 16 characters for better security")
+		params.Logger.Warn("SECRETS_ENCRYPTION_KEY is too short, please use at least 16 characters for better security")
 	}
 
 	return &SecretService{
-		repo:      repo,
-		rbacSvc:   rbacSvc,
-		eventSvc:  eventSvc,
-		auditSvc:  auditSvc,
-		logger:    logger,
+		repo:      params.Repo,
+		rbacSvc:   params.RBACSvc,
+		eventSvc:  params.EventSvc,
+		auditSvc:  params.AuditSvc,
+		logger:    params.Logger,
 		masterKey: []byte(masterKey),
-	}
+	}, nil
 }
 
 func (s *SecretService) getDerivedKey(userID uuid.UUID) ([]byte, error) {

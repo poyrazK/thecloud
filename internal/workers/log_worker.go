@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
@@ -34,8 +33,7 @@ func (w *LogWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 	w.logger.Info("log worker started")
 
 	// Use a system context for background tasks to avoid RBAC issues
-	// In a real system, we'd have a 'System' user ID
-	systemCtx := appcontext.WithUserID(ctx, uuid.Nil) 
+	systemCtx := appcontext.WithUserID(ctx, appcontext.SystemUserID) 
 
 	// Initial run
 	if err := w.logSvc.RunRetentionPolicy(systemCtx, w.retentionDays); err != nil {
