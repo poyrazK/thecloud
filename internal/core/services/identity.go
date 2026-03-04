@@ -31,8 +31,11 @@ func (s *IdentityService) CreateKey(ctx context.Context, userID uuid.UUID, name 
 	uID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	// Allow if creating for self (e.g. initial login) OR if authorized
-	if uID != userID {
+	// Allow if:
+	// 1. Context has no user (initial login flow where we create first key)
+	// 2. User is creating for themselves
+	// 3. User is authorized via RBAC
+	if uID != uuid.Nil && uID != userID {
 		if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionIdentityCreate); err != nil {
 			return nil, err
 		}
