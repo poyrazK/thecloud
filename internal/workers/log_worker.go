@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
@@ -31,8 +33,12 @@ func (w *LogWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	w.logger.Info("log worker started")
 
+	// Use a system context for background tasks to avoid RBAC issues
+	// In a real system, we'd have a 'System' user ID
+	systemCtx := appcontext.WithUserID(ctx, uuid.Nil) 
+
 	// Initial run
-	if err := w.logSvc.RunRetentionPolicy(ctx, w.retentionDays); err != nil {
+	if err := w.logSvc.RunRetentionPolicy(systemCtx, w.retentionDays); err != nil {
 		w.logger.Error("failed to run initial log retention policy", "error", err)
 	}
 
@@ -45,7 +51,7 @@ func (w *LogWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 			w.logger.Info("log worker stopping")
 			return
 		case <-ticker.C:
-			if err := w.logSvc.RunRetentionPolicy(ctx, w.retentionDays); err != nil {
+			if err := w.logSvc.RunRetentionPolicy(systemCtx, w.retentionDays); err != nil {
 				w.logger.Error("failed to run log retention policy", "error", err)
 			}
 		}
