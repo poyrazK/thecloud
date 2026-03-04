@@ -21,6 +21,7 @@ const tracerName = "volume-service"
 // VolumeService manages block volume lifecycle and attachments.
 type VolumeService struct {
 	repo     ports.VolumeRepository
+	rbacSvc  ports.RBACService
 	storage  ports.StorageBackend
 	eventSvc ports.EventService
 	auditSvc ports.AuditService
@@ -28,9 +29,10 @@ type VolumeService struct {
 }
 
 // NewVolumeService constructs a VolumeService with its dependencies.
-func NewVolumeService(repo ports.VolumeRepository, storage ports.StorageBackend, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) *VolumeService {
+func NewVolumeService(repo ports.VolumeRepository, rbacSvc ports.RBACService, storage ports.StorageBackend, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) *VolumeService {
 	return &VolumeService{
 		repo:     repo,
+		rbacSvc:  rbacSvc,
 		storage:  storage,
 		eventSvc: eventSvc,
 		auditSvc: auditSvc,
@@ -42,6 +44,13 @@ func (s *VolumeService) CreateVolume(ctx context.Context, name string, sizeGB in
 	ctx, span := otel.Tracer(tracerName).Start(ctx, "CreateVolume")
 	defer span.End()
 
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVolumeCreate); err != nil {
+		return nil, err
+	}
+
 	span.SetAttributes(
 		attribute.String("volume.name", name),
 		attribute.Int("volume.size_gb", sizeGB),
@@ -49,7 +58,8 @@ func (s *VolumeService) CreateVolume(ctx context.Context, name string, sizeGB in
 	// 1. Create domain entity
 	vol := &domain.Volume{
 		ID:        uuid.New(),
-		UserID:    appcontext.UserIDFromContext(ctx),
+		UserID:    userID,
+		TenantID:  tenantID,
 		Name:      name,
 		SizeGB:    sizeGB,
 		Status:    domain.VolumeStatusAvailable,
@@ -90,12 +100,27 @@ func (s *VolumeService) CreateVolume(ctx context.Context, name string, sizeGB in
 }
 
 func (s *VolumeService) ListVolumes(ctx context.Context) ([]*domain.Volume, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVolumeRead); err != nil {
+		return nil, err
+	}
+
 	return s.repo.List(ctx)
 }
 
 func (s *VolumeService) GetVolume(ctx context.Context, idOrName string) (*domain.Volume, error) {
 	ctx, span := otel.Tracer(tracerName).Start(ctx, "GetVolume")
 	defer span.End()
+
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVolumeRead); err != nil {
+		return nil, err
+	}
+
 	span.SetAttributes(attribute.String("volume.id_or_name", idOrName))
 	id, err := uuid.Parse(idOrName)
 	if err == nil {
@@ -107,6 +132,14 @@ func (s *VolumeService) GetVolume(ctx context.Context, idOrName string) (*domain
 func (s *VolumeService) DeleteVolume(ctx context.Context, idOrName string) error {
 	ctx, span := otel.Tracer(tracerName).Start(ctx, "DeleteVolume")
 	defer span.End()
+
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVolumeDelete); err != nil {
+		return err
+	}
+
 	span.SetAttributes(attribute.String("volume.id_or_name", idOrName))
 	vol, err := s.GetVolume(ctx, idOrName)
 	if err != nil {
@@ -145,6 +178,7 @@ func (s *VolumeService) DeleteVolume(ctx context.Context, idOrName string) error
 // ReleaseVolumesForInstance detaches all volumes attached to an instance and marks them as available.
 // This should be called when an instance is terminated to free up its volumes.
 func (s *VolumeService) ReleaseVolumesForInstance(ctx context.Context, instanceID uuid.UUID) error {
+	// Internal method, typically called by InstanceService which has its own RBAC
 	volumes, err := s.repo.ListByInstanceID(ctx, instanceID)
 	if err != nil {
 		s.logger.Error("failed to list volumes for instance", "instance_id", instanceID, "error", err)
