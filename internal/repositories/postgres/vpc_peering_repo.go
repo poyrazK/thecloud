@@ -122,8 +122,8 @@ func (r *VPCPeeringRepository) GetActiveByVPCPair(ctx context.Context, vpc1, vpc
 	query := `
 		SELECT ` + vpcPeeringColumns + `
 		FROM vpc_peerings
-		WHERE LEAST(requester_vpc_id, accepter_vpc_id) = LEAST($1, $2)
-			AND GREATEST(requester_vpc_id, accepter_vpc_id) = GREATEST($1, $2)
+		WHERE LEAST(requester_vpc_id, accepter_vpc_id) = LEAST($1::uuid, $2::uuid)
+			AND GREATEST(requester_vpc_id, accepter_vpc_id) = GREATEST($1::uuid, $2::uuid)
 			AND status IN ($3, $4)
 	`
 	return r.scanPeering(r.db.QueryRow(ctx, query, vpc1, vpc2, domain.PeeringStatusPendingAcceptance, domain.PeeringStatusActive))

@@ -60,6 +60,10 @@ func (m *mockVolumeService) DeleteVolume(ctx context.Context, idOrName string) e
 	return args.Error(0)
 }
 
+func (m *mockVolumeService) ResizeVolume(ctx context.Context, volumeID string, newSizeGB int) error {
+	return m.Called(ctx, volumeID, newSizeGB).Error(0)
+}
+
 func (m *mockVolumeService) ReleaseVolumesForInstance(ctx context.Context, instanceID uuid.UUID) error {
 	return m.Called(ctx, instanceID).Error(0)
 }
