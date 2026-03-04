@@ -8,22 +8,26 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
-	"github.com/poyrazk/thecloud/internal/repositories/mock"
+	repoMock "github.com/poyrazk/thecloud/internal/repositories/mock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func setupGlobalLBTest(t *testing.T) (*services.GlobalLBService, *mock.MockGlobalLBRepo, *mock.MockLBRepo, *mock.MockGeoDNS) {
-	repo := mock.NewMockGlobalLBRepo()
-	lbRepo := mock.NewMockLBRepo()
-	geoDNS := mock.NewMockGeoDNS()
-	audit := mock.NewMockAuditService()
-	logger := mock.NewNoopLogger()
+func setupGlobalLBTest(t *testing.T) (*services.GlobalLBService, *repoMock.MockGlobalLBRepo, *repoMock.MockLBRepo, *repoMock.MockGeoDNS) {
+	repo := repoMock.NewMockGlobalLBRepo()
+	lbRepo := repoMock.NewMockLBRepo()
+	geoDNS := repoMock.NewMockGeoDNS()
+	audit := repoMock.NewMockAuditService()
+	logger := repoMock.NewNoopLogger()
+
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewGlobalLBService(services.GlobalLBServiceParams{
-		Repo: repo, LBRepo: lbRepo, GeoDNS: geoDNS, AuditSvc: audit, Logger: logger,
+		Repo: repo, RBAC: rbacSvc, LBRepo: lbRepo, GeoDNS: geoDNS, AuditSvc: audit, Logger: logger,
 	})
-	return svc, repo, lbRepo, geoDNS.(*mock.MockGeoDNS)
+	return svc, repo, lbRepo, geoDNS.(*repoMock.MockGeoDNS)
 }
 
 func TestGlobalLBCreate(t *testing.T) {

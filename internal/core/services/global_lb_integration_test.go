@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -47,14 +48,18 @@ func TestGlobalLBServiceIntegration(t *testing.T) {
 	lbRepo := postgres.NewLBRepository(db)
 	geoDNS := &StubGeoDNSBackend{}
 
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	// Real Audit Service
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	svc := services.NewGlobalLBService(services.GlobalLBServiceParams{
 		Repo:     repo,
+		RBAC:     rbacSvc,
 		LBRepo:   lbRepo,
 		GeoDNS:   geoDNS,
 		AuditSvc: auditSvc,
