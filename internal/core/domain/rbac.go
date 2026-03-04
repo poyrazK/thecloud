@@ -28,6 +28,12 @@ const (
 	PermissionVpcRead   Permission = "vpc:read"
 	PermissionVpcUpdate Permission = "vpc:update"
 
+	// Security Group Permissions
+	PermissionSgCreate Permission = "sg:create"
+	PermissionSgDelete Permission = "sg:delete"
+	PermissionSgRead   Permission = "sg:read"
+	PermissionSgUpdate Permission = "sg:update"
+
 	// Elastic IP Permissions
 	PermissionEipAllocate  Permission = "eip:allocate"
 	PermissionEipRelease   Permission = "eip:release"
@@ -38,6 +44,10 @@ const (
 	PermissionVolumeCreate Permission = "volume:create"
 	PermissionVolumeDelete Permission = "volume:delete"
 	PermissionVolumeRead   Permission = "volume:read"
+
+	PermissionStorageWrite  Permission = "storage:write"
+	PermissionStorageRead   Permission = "storage:read"
+	PermissionStorageDelete Permission = "storage:delete"
 
 	// Snapshot Permissions
 	PermissionSnapshotCreate  Permission = "snapshot:create"
@@ -58,6 +68,7 @@ const (
 
 	// Secret Permissions
 	PermissionSecretCreate Permission = "secret:create"
+	PermissionSecretWrite  Permission = "secret:write"
 	PermissionSecretDelete Permission = "secret:delete"
 	PermissionSecretRead   Permission = "secret:read"
 
@@ -102,10 +113,10 @@ const (
 	PermissionStackRead   Permission = "stack:read"
 
 	// Auto-Scaling Permissions
-	PermissionAsCreate Permission = "as:create"
-	PermissionAsDelete Permission = "as:delete"
-	PermissionAsRead   Permission = "as:read"
-	PermissionAsUpdate Permission = "as:update"
+	PermissionAsgCreate Permission = "asg:create"
+	PermissionAsgDelete Permission = "asg:delete"
+	PermissionAsgRead   Permission = "asg:read"
+	PermissionAsgUpdate Permission = "asg:update"
 
 	// Container Permissions
 	PermissionContainerCreate Permission = "container:create"
@@ -123,6 +134,32 @@ const (
 	PermissionClusterDelete Permission = "cluster:delete"
 	PermissionClusterRead   Permission = "cluster:read"
 	PermissionClusterUpdate Permission = "cluster:update"
+
+	// DNS Permissions
+	PermissionDNSCreate Permission = "dns:create"
+	PermissionDNSDelete Permission = "dns:delete"
+	PermissionDNSRead   Permission = "dns:read"
+	PermissionDNSUpdate Permission = "dns:update"
+
+	// Tenant Permissions
+	PermissionTenantCreate Permission = "tenant:create"
+	PermissionTenantRead   Permission = "tenant:read"
+	PermissionTenantUpdate Permission = "tenant:update"
+	PermissionTenantDelete Permission = "tenant:delete"
+
+	// Identity Permissions
+	PermissionIdentityCreate Permission = "identity:create"
+	PermissionIdentityRead   Permission = "identity:read"
+	PermissionIdentityDelete Permission = "identity:delete"
+
+	// Accounting Permissions
+	PermissionAccountingRead Permission = "accounting:read"
+
+	// Audit Permissions
+	PermissionAuditRead Permission = "audit:read"
+
+	// Dashboard Permissions
+	PermissionDashboardRead Permission = "dashboard:read"
 
 	// System Permissions
 	PermissionFullAccess Permission = "*"
