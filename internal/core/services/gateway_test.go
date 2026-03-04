@@ -9,6 +9,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func setupGatewayServiceTest(t *testing.T) (*services.GatewayService, *postgres.PostgresGatewayRepository, context.Context) {
@@ -18,10 +19,13 @@ func setupGatewayServiceTest(t *testing.T) (*services.GatewayService, *postgres.
 
 	repo := postgres.NewPostgresGatewayRepository(db)
 
-	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	svc := services.NewGatewayService(repo, auditSvc)
+	auditRepo := postgres.NewAuditRepository(db)
+	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
+
+	svc := services.NewGatewayService(repo, rbacSvc, auditSvc)
 	return svc, repo.(*postgres.PostgresGatewayRepository), ctx
 }
 
