@@ -16,6 +16,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,16 +30,20 @@ func setupDNSServiceTest(t *testing.T) (*services.DNSService, ports.DNSRepositor
 	instRepo := postgres.NewInstanceRepository(db)
 	backend := noop.NewNoopDNSBackend()
 
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
 
 	eventRepo := postgres.NewEventRepository(db)
-	eventSvc := services.NewEventService(eventRepo, nil, slog.Default())
+	eventSvc := services.NewEventService(eventRepo, rbacSvc, nil, slog.Default())
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := services.NewDNSService(services.DNSServiceParams{
 		Repo:     repo,
+		RBAC:     rbacSvc,
 		Backend:  backend,
 		VpcRepo:  vpcRepo,
 		AuditSvc: auditSvc,
@@ -273,11 +278,15 @@ func TestDNSService_BackendError(t *testing.T) {
 	// Replace backend with a faulty one
 	faulty := &FaultyDNSBackend{DNSBackend: noop.NewNoopDNSBackend(), FailCreate: true}
 
-	auditSvc := services.NewAuditService(postgres.NewAuditRepository(db))
-	eventSvc := services.NewEventService(postgres.NewEventRepository(db), nil, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	auditSvc := services.NewAuditService(postgres.NewAuditRepository(db), rbacSvc)
+	eventSvc := services.NewEventService(postgres.NewEventRepository(db), rbacSvc, nil, slog.Default())
 
 	faultySvc := services.NewDNSService(services.DNSServiceParams{
 		Repo:     repo,
+		RBAC:     rbacSvc,
 		Backend:  faulty,
 		VpcRepo:  vpcRepo,
 		AuditSvc: auditSvc,
@@ -295,6 +304,7 @@ func TestDNSService_BackendError(t *testing.T) {
 		// First create a successful zone with real backend
 		realSvc := services.NewDNSService(services.DNSServiceParams{
 			Repo:     repo,
+			RBAC:     rbacSvc,
 			Backend:  noop.NewNoopDNSBackend(),
 			VpcRepo:  vpcRepo,
 			AuditSvc: auditSvc,

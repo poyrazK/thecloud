@@ -27,6 +27,7 @@ var validZoneNameRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a
 // DNSService manages private DNS zones and records.
 type DNSService struct {
 	repo     ports.DNSRepository
+	rbacSvc  ports.RBACService
 	backend  ports.DNSBackend
 	vpcRepo  ports.VpcRepository
 	auditSvc ports.AuditService
@@ -37,6 +38,7 @@ type DNSService struct {
 // DNSServiceParams holds dependencies for DNSService.
 type DNSServiceParams struct {
 	Repo     ports.DNSRepository
+	RBAC     ports.RBACService
 	Backend  ports.DNSBackend
 	VpcRepo  ports.VpcRepository
 	AuditSvc ports.AuditService
@@ -48,6 +50,7 @@ type DNSServiceParams struct {
 func NewDNSService(params DNSServiceParams) *DNSService {
 	return &DNSService{
 		repo:     params.Repo,
+		rbacSvc:  params.RBAC,
 		backend:  params.Backend,
 		vpcRepo:  params.VpcRepo,
 		auditSvc: params.AuditSvc,
@@ -60,6 +63,10 @@ func NewDNSService(params DNSServiceParams) *DNSService {
 func (s *DNSService) CreateZone(ctx context.Context, vpcID uuid.UUID, name, description string) (*domain.DNSZone, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSCreate); err != nil {
+		return nil, err
+	}
 
 	// 1. Validate zone name
 	if !validZoneNameRegex.MatchString(name) {
@@ -118,6 +125,13 @@ func (s *DNSService) CreateZone(ctx context.Context, vpcID uuid.UUID, name, desc
 }
 
 func (s *DNSService) GetZone(ctx context.Context, idOrName string) (*domain.DNSZone, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSRead); err != nil {
+		return nil, err
+	}
+
 	if id, err := uuid.Parse(idOrName); err == nil {
 		return s.repo.GetZoneByID(ctx, id)
 	}
@@ -125,14 +139,35 @@ func (s *DNSService) GetZone(ctx context.Context, idOrName string) (*domain.DNSZ
 }
 
 func (s *DNSService) GetZoneByVPC(ctx context.Context, vpcID uuid.UUID) (*domain.DNSZone, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSRead); err != nil {
+		return nil, err
+	}
+
 	return s.repo.GetZoneByVPC(ctx, vpcID)
 }
 
 func (s *DNSService) ListZones(ctx context.Context) ([]*domain.DNSZone, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSRead); err != nil {
+		return nil, err
+	}
+
 	return s.repo.ListZones(ctx)
 }
 
 func (s *DNSService) DeleteZone(ctx context.Context, idOrName string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSDelete); err != nil {
+		return err
+	}
+
 	zone, err := s.GetZone(ctx, idOrName)
 	if err != nil {
 		return err
@@ -161,6 +196,13 @@ func (s *DNSService) DeleteZone(ctx context.Context, idOrName string) error {
 // --- Record Operations ---
 
 func (s *DNSService) CreateRecord(ctx context.Context, zoneID uuid.UUID, name string, recordType domain.RecordType, content string, ttl int, priority *int) (*domain.DNSRecord, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSCreate); err != nil {
+		return nil, err
+	}
+
 	// 1. Validate inputs
 	if !domain.IsValidRecordType(recordType) {
 		s.logger.Warn("invalid record type provided", "type", string(recordType))
@@ -218,6 +260,7 @@ func (s *DNSService) CreateRecord(ctx context.Context, zoneID uuid.UUID, name st
 	record := &domain.DNSRecord{
 		ID:          uuid.New(),
 		ZoneID:      zoneID,
+		TenantID:    tenantID,
 		Name:        name,
 		Type:        recordType,
 		Content:     content,
@@ -239,14 +282,35 @@ func (s *DNSService) CreateRecord(ctx context.Context, zoneID uuid.UUID, name st
 }
 
 func (s *DNSService) GetRecord(ctx context.Context, id uuid.UUID) (*domain.DNSRecord, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSRead); err != nil {
+		return nil, err
+	}
+
 	return s.repo.GetRecordByID(ctx, id)
 }
 
 func (s *DNSService) ListRecords(ctx context.Context, zoneID uuid.UUID) ([]*domain.DNSRecord, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSRead); err != nil {
+		return nil, err
+	}
+
 	return s.repo.ListRecordsByZone(ctx, zoneID)
 }
 
 func (s *DNSService) UpdateRecord(ctx context.Context, id uuid.UUID, content string, ttl int, priority *int) (*domain.DNSRecord, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSUpdate); err != nil {
+		return nil, err
+	}
+
 	record, err := s.repo.GetRecordByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -301,6 +365,13 @@ func (s *DNSService) UpdateRecord(ctx context.Context, id uuid.UUID, content str
 }
 
 func (s *DNSService) DeleteRecord(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSDelete); err != nil {
+		return err
+	}
+
 	record, err := s.repo.GetRecordByID(ctx, id)
 	if err != nil {
 		return err
@@ -359,6 +430,7 @@ func (s *DNSService) RegisterInstance(ctx context.Context, instance *domain.Inst
 	record := &domain.DNSRecord{
 		ID:          uuid.New(),
 		ZoneID:      zone.ID,
+		TenantID:    zone.TenantID,
 		Name:        instance.Name,
 		Type:        domain.RecordTypeA,
 		Content:     ipAddress,
