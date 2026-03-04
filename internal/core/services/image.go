@@ -138,9 +138,7 @@ func (s *imageService) DeleteImage(ctx context.Context, id uuid.UUID) error {
 
 	// Permission check
 	if img.UserID != userID {
-		// Admin might have permission via rbacSvc.Authorize already passed
-		// but typically we restrict deleting others' resources to super-admins
-		// and the current DB schema scopes queries.
+		// Log or handle unauthorized delete attempt if needed
 	}
 
 	if img.FilePath != "" {
