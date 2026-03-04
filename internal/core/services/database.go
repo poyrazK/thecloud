@@ -272,12 +272,10 @@ func (s *DatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDa
 			if err := s.provisionMetricsSidecar(ctx, db, db.Engine, dbIP, db.Username, db.Password, networkID); err != nil {
 				return nil, err
 			}
-		} else {
-			if db.ExporterContainerID != "" {
-				_ = s.compute.DeleteInstance(ctx, db.ExporterContainerID)
-				db.ExporterContainerID = ""
-				db.MetricsPort = 0
-			}
+		} else if db.ExporterContainerID != "" {
+			_ = s.compute.DeleteInstance(ctx, db.ExporterContainerID)
+			db.ExporterContainerID = ""
+			db.MetricsPort = 0
 		}
 		db.MetricsEnabled = *req.MetricsEnabled
 	}
@@ -290,12 +288,10 @@ func (s *DatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDa
 			if err := s.provisionPoolerSidecar(ctx, db, db.Engine, dbIP, db.Username, db.Password, networkID); err != nil {
 				return nil, err
 			}
-		} else {
-			if db.PoolerContainerID != "" {
-				_ = s.compute.DeleteInstance(ctx, db.PoolerContainerID)
-				db.PoolerContainerID = ""
-				db.PoolingPort = 0
-			}
+		} else if db.PoolerContainerID != "" {
+			_ = s.compute.DeleteInstance(ctx, db.PoolerContainerID)
+			db.PoolerContainerID = ""
+			db.PoolingPort = 0
 		}
 		db.PoolingEnabled = *req.PoolingEnabled
 	}

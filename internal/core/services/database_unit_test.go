@@ -155,7 +155,7 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 
 		conn, err := svc.GetConnectionString(ctx, dbID)
 		require.NoError(t, err)
-		assert.Contains(t, conn, "postgres://user:pass@localhost:5432/mydb")
+		assert.Contains(t, conn, "postgres://user:pass@127.0.0.1:5432/mydb")
 	})
 
 	t.Run("DeleteDatabase", func(t *testing.T) {

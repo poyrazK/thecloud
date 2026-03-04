@@ -404,24 +404,33 @@ func (a *DockerAdapter) GetInstanceStats(ctx context.Context, containerID string
 }
 
 func (a *DockerAdapter) GetInstancePort(ctx context.Context, containerID string, containerPort string) (int, error) {
-	inspect, err := a.cli.ContainerInspect(ctx, containerID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to inspect container: %w", err)
+	// Retry up to 30 times with 500ms backoff (15 seconds total)
+	for i := 0; i < 30; i++ {
+		inspect, err := a.cli.ContainerInspect(ctx, containerID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to inspect container: %w", err)
+		}
+
+		cPort := nat.Port(containerPort + "/tcp")
+		bindings, ok := inspect.NetworkSettings.Ports[cPort]
+		if ok && len(bindings) > 0 {
+			var hostPort int
+			_, err = fmt.Sscanf(bindings[0].HostPort, "%d", &hostPort)
+			if err == nil && hostPort != 0 {
+				return hostPort, nil
+			}
+		}
+
+		// Wait and retry
+		select {
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+			continue
+		}
 	}
 
-	cPort := nat.Port(containerPort + "/tcp")
-	bindings, ok := inspect.NetworkSettings.Ports[cPort]
-	if !ok || len(bindings) == 0 {
-		return 0, fmt.Errorf("no port binding found for %s", containerPort)
-	}
-
-	var hostPort int
-	_, err = fmt.Sscanf(bindings[0].HostPort, "%d", &hostPort)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse host port: %w", err)
-	}
-
-	return hostPort, nil
+	return 0, fmt.Errorf("no port binding found for %s after retries", containerPort)
 }
 
 func (a *DockerAdapter) CreateNetwork(ctx context.Context, name string) (string, error) {
