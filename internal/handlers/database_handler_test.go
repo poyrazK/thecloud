@@ -29,7 +29,7 @@ const (
 	connPath      = "/:id/connection"
 	connSuffix    = "/connection"
 	dbPathInvalid = "/invalid"
-	errNotFound   = "not found"
+	errDbNotFound = "not found"
 )
 
 type mockDatabaseService struct {
@@ -89,7 +89,6 @@ func (m *mockDatabaseService) CreateDatabaseSnapshot(ctx context.Context, databa
 	}
 	return args.Get(0).(*domain.Snapshot), args.Error(1)
 }
-
 func (m *mockDatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID uuid.UUID) ([]*domain.Snapshot, error) {
 	args := m.Called(ctx, databaseID)
 	if args.Get(0) == nil {
@@ -97,7 +96,6 @@ func (m *mockDatabaseService) ListDatabaseSnapshots(ctx context.Context, databas
 	}
 	return args.Get(0).([]*domain.Snapshot), args.Error(1)
 }
-
 func (m *mockDatabaseService) RestoreDatabase(ctx context.Context, req ports.RestoreDatabaseRequest) (*domain.Database, error) {
 	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
@@ -105,7 +103,6 @@ func (m *mockDatabaseService) RestoreDatabase(ctx context.Context, req ports.Res
 	}
 	return args.Get(0).(*domain.Database), args.Error(1)
 }
-
 func (m *mockDatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDatabaseRequest) (*domain.Database, error) {
 	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
@@ -113,7 +110,6 @@ func (m *mockDatabaseService) ModifyDatabase(ctx context.Context, req ports.Modi
 	}
 	return args.Get(0).(*domain.Database), args.Error(1)
 }
-
 func (m *mockDatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
 	args := m.Called(ctx, id)
 	return args.String(0), args.Error(1)
@@ -141,10 +137,9 @@ func TestDatabaseHandlerModify(t *testing.T) {
 	})).Return(db, nil)
 
 	poolingEnabled := true
-	body, err := json.Marshal(map[string]interface{}{
+	body, _ := json.Marshal(map[string]interface{}{
 		"pooling_enabled": &poolingEnabled,
 	})
-	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("PATCH", databasesPath+"/"+id.String(), bytes.NewBuffer(body))
 	require.NoError(t, err)
@@ -378,7 +373,7 @@ func TestDatabaseHandlerGetError(t *testing.T) {
 		svc, handler, r := setupDatabaseHandlerTest(t)
 		r.GET(databasesPath+"/:id", handler.Get)
 		id := uuid.New()
-		svc.On("GetDatabase", mock.Anything, id).Return(nil, errors.New(errors.NotFound, errNotFound))
+		svc.On("GetDatabase", mock.Anything, id).Return(nil, errors.New(errors.NotFound, errDbNotFound))
 		req, err := http.NewRequest(http.MethodGet, databasesPath+"/"+id.String(), nil)
 		require.NoError(t, err)
 		w := httptest.NewRecorder()
