@@ -103,6 +103,38 @@ func (m *mockClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, ba
 	return m.Called(ctx, id, backupPath).Error(0)
 }
 
+func (m *mockClusterService) AddNodeGroup(ctx context.Context, clusterID uuid.UUID, params ports.NodeGroupParams) (*domain.NodeGroup, error) {
+	args := m.Called(ctx, clusterID, params)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.NodeGroup), args.Error(1)
+}
+
+func (m *mockClusterService) UpdateNodeGroup(ctx context.Context, clusterID uuid.UUID, name string, params ports.UpdateNodeGroupParams) (*domain.NodeGroup, error) {
+	args := m.Called(ctx, clusterID, name, params)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.NodeGroup), args.Error(1)
+}
+
+func (m *mockClusterService) DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error {
+	return m.Called(ctx, clusterID, name).Error(0)
+}
+
+func (m *mockClusterService) AddNode(ctx context.Context, clusterID uuid.UUID, role string) (*domain.ClusterNode, error) {
+	args := m.Called(ctx, clusterID, role)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.ClusterNode), args.Error(1)
+}
+
+func (m *mockClusterService) RemoveNode(ctx context.Context, clusterID, nodeID uuid.UUID) error {
+	return m.Called(ctx, clusterID, nodeID).Error(0)
+}
+
 const (
 	testClustersPath      = "/clusters"
 	testClusterIDPath     = "/clusters/:id"
@@ -532,5 +564,67 @@ func TestClusterHandlerRestoreBackup(t *testing.T) {
 		req := httptest.NewRequest("POST", clustersPrefix+clusterID.String()+restorePathSuffix, bytes.NewBuffer(body))
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+}
+
+func TestClusterHandlerNodeGroups(t *testing.T) {
+	t.Parallel()
+	svc, handler, r := setupClusterHandlerTest()
+	clusterID := uuid.New()
+	nodeGroupName := "test-pool"
+
+	r.POST("/clusters/:id/nodegroups", handler.AddNodeGroup)
+	r.PUT("/clusters/:id/nodegroups/:name", handler.UpdateNodeGroup)
+	r.DELETE("/clusters/:id/nodegroups/:name", handler.DeleteNodeGroup)
+
+	t.Run("AddNodeGroup_Success", func(t *testing.T) {
+		params := ports.NodeGroupParams{
+			Name:         nodeGroupName,
+			InstanceType: "standard-1",
+			MinSize:      1,
+			MaxSize:      5,
+			DesiredSize:  2,
+		}
+		expected := &domain.NodeGroup{Name: nodeGroupName, ClusterID: clusterID}
+		svc.On("AddNodeGroup", mock.Anything, clusterID, params).Return(expected, nil).Once()
+
+		body, _ := json.Marshal(map[string]interface{}{
+			"name":          nodeGroupName,
+			"instance_type": "standard-1",
+			"min_size":      1,
+			"max_size":      5,
+			"desired_size":  2,
+		})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/clusters/"+clusterID.String()+"/nodegroups", bytes.NewBuffer(body))
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusCreated, w.Code)
+	})
+
+	t.Run("UpdateNodeGroup_Success", func(t *testing.T) {
+		desired := 3
+		params := ports.UpdateNodeGroupParams{
+			DesiredSize: &desired,
+		}
+		expected := &domain.NodeGroup{Name: nodeGroupName, ClusterID: clusterID, CurrentSize: desired}
+		svc.On("UpdateNodeGroup", mock.Anything, clusterID, nodeGroupName, params).Return(expected, nil).Once()
+
+		body, _ := json.Marshal(map[string]interface{}{"desired_size": desired})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("PUT", "/clusters/"+clusterID.String()+"/nodegroups/"+nodeGroupName, bytes.NewBuffer(body))
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("DeleteNodeGroup_Success", func(t *testing.T) {
+		svc.On("DeleteNodeGroup", mock.Anything, clusterID, nodeGroupName).Return(nil).Once()
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("DELETE", "/clusters/"+clusterID.String()+"/nodegroups/"+nodeGroupName, nil)
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusAccepted, w.Code)
 	})
 }

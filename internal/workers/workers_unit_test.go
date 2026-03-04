@@ -163,6 +163,17 @@ func (m *mockClusterRepo) GetNodes(ctx context.Context, clusterID uuid.UUID) ([]
 func (m *mockClusterRepo) UpdateNode(ctx context.Context, node *domain.ClusterNode) error { return nil }
 func (m *mockClusterRepo) DeleteNode(ctx context.Context, nodeID uuid.UUID) error         { return nil }
 
+func (m *mockClusterRepo) AddNodeGroup(ctx context.Context, ng *domain.NodeGroup) error { return nil }
+func (m *mockClusterRepo) GetNodeGroups(ctx context.Context, clusterID uuid.UUID) ([]domain.NodeGroup, error) {
+	return []domain.NodeGroup{}, nil
+}
+func (m *mockClusterRepo) UpdateNodeGroup(ctx context.Context, ng *domain.NodeGroup) error {
+	return nil
+}
+func (m *mockClusterRepo) DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error {
+	return nil
+}
+
 type mockClusterProv struct{ mock.Mock }
 
 func (m *mockClusterProv) Provision(ctx context.Context, cluster *domain.Cluster) error   { return nil }
