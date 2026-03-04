@@ -8,6 +8,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func setupAuditServiceTest(t *testing.T) (*services.AuditService, *postgres.AuditRepository, context.Context) {
@@ -16,7 +17,11 @@ func setupAuditServiceTest(t *testing.T) (*services.AuditService, *postgres.Audi
 	ctx := setupTestUser(t, db)
 
 	repo := postgres.NewAuditRepository(db)
-	svc := services.NewAuditService(repo)
+	rbacSvc := new(MockRBACService)
+	// Audit logs are often checked for read access
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewAuditService(repo, rbacSvc)
 	return svc, repo, ctx
 }
 
