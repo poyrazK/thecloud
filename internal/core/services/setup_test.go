@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,6 +17,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	sharedDBPool *pgxpool.Pool
+	sharedDBOnce sync.Once
+)
+
 func setupDB(t *testing.T) *pgxpool.Pool {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -24,9 +30,25 @@ func setupDB(t *testing.T) *pgxpool.Pool {
 	dbURL := os.Getenv("DATABASE_URL")
 
 	if dbURL == "" {
-		container, cleanup := testutil.SetupPostgresContainer(t)
-		t.Cleanup(cleanup)
-		dbURL = container.ConnString
+		sharedDBOnce.Do(func() {
+			container, _ := testutil.SetupPostgresContainer(t)
+			
+			pool, err := pgxpool.New(ctx, container.ConnString)
+			if err != nil {
+				return
+			}
+			sharedDBPool = pool
+
+			// Run migrations on the shared DB
+			err = postgres.RunMigrations(ctx, sharedDBPool, slog.Default())
+			if err != nil {
+				panic("failed to run migrations on shared DB: " + err.Error())
+			}
+		})
+		if sharedDBPool == nil {
+			t.Fatal("failed to initialize shared DB pool")
+		}
+		return sharedDBPool
 	}
 
 	db, err := pgxpool.New(ctx, dbURL)
