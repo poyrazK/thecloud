@@ -9,6 +9,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,7 +19,10 @@ func setupInstanceTypeServiceTest(t *testing.T) (ports.InstanceTypeService, *pos
 	ctx := setupTestUser(t, db)
 
 	repo := postgres.NewInstanceTypeRepository(db)
-	svc := services.NewInstanceTypeService(repo)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewInstanceTypeService(repo, rbacSvc)
 	return svc, repo, ctx
 }
 
