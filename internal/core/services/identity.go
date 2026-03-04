@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -17,15 +18,23 @@ import (
 // IdentityService manages API key lifecycle and validation.
 type IdentityService struct {
 	repo     ports.IdentityRepository
+	rbacSvc  ports.RBACService
 	auditSvc ports.AuditService
 }
 
 // NewIdentityService constructs an IdentityService with its dependencies.
-func NewIdentityService(repo ports.IdentityRepository, auditSvc ports.AuditService) *IdentityService {
-	return &IdentityService{repo: repo, auditSvc: auditSvc}
+func NewIdentityService(repo ports.IdentityRepository, rbacSvc ports.RBACService, auditSvc ports.AuditService) *IdentityService {
+	return &IdentityService{repo: repo, rbacSvc: rbacSvc, auditSvc: auditSvc}
 }
 
 func (s *IdentityService) CreateKey(ctx context.Context, userID uuid.UUID, name string) (*domain.APIKey, error) {
+	uID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionIdentityCreate); err != nil {
+		return nil, err
+	}
+
 	// Generate a secure random key
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
@@ -56,6 +65,7 @@ func (s *IdentityService) CreateKey(ctx context.Context, userID uuid.UUID, name 
 }
 
 func (s *IdentityService) ValidateAPIKey(ctx context.Context, key string) (*domain.APIKey, error) {
+	// Authentication path, no RBAC check yet as we are resolving identity
 	apiKey, err := s.repo.GetAPIKeyByKey(ctx, key)
 	if err != nil {
 		return nil, err
@@ -69,10 +79,24 @@ func (s *IdentityService) ValidateAPIKey(ctx context.Context, key string) (*doma
 }
 
 func (s *IdentityService) ListKeys(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
+	uID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionIdentityRead); err != nil {
+		return nil, err
+	}
+
 	return s.repo.ListAPIKeysByUserID(ctx, userID)
 }
 
 func (s *IdentityService) RevokeKey(ctx context.Context, userID uuid.UUID, id uuid.UUID) error {
+	uID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionIdentityDelete); err != nil {
+		return err
+	}
+
 	key, err := s.repo.GetAPIKeyByID(ctx, id)
 	if err != nil {
 		return err
@@ -97,6 +121,13 @@ func (s *IdentityService) RevokeKey(ctx context.Context, userID uuid.UUID, id uu
 }
 
 func (s *IdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*domain.APIKey, error) {
+	uID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionIdentityDelete); err != nil {
+		return nil, err
+	}
+
 	key, err := s.repo.GetAPIKeyByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -106,7 +137,9 @@ func (s *IdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uu
 		return nil, errors.New(errors.Forbidden, "cannot rotate key owned by another user")
 	}
 
-	// Create new key
+	// Create new key - bypass Authorize in recursive call?
+	// Better to implement logic directly or wrap in privileged ctx
+	// For simplicity, we just use same ctx which has permission
 	newKey, err := s.CreateKey(ctx, userID, key.Name+" (rotated)")
 	if err != nil {
 		return nil, err

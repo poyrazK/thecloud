@@ -11,20 +11,24 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
 func TestIdentityServiceCreateKeySuccess(t *testing.T) {
 	db := setupDB(t)
-	defer db.Close()
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	identityRepo := postgres.NewIdentityRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
-	svc := services.NewIdentityService(identityRepo, auditSvc)
+
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
+	svc := services.NewIdentityService(identityRepo, rbacSvc, auditSvc)
 
 	key, err := svc.CreateKey(ctx, userID, "Test Key")
 	require.NoError(t, err)
@@ -46,15 +50,18 @@ func TestIdentityServiceCreateKeySuccess(t *testing.T) {
 
 func TestIdentityServiceValidateAPIKeySuccess(t *testing.T) {
 	db := setupDB(t)
-	defer db.Close()
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	identityRepo := postgres.NewIdentityRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
-	svc := services.NewIdentityService(identityRepo, auditSvc)
+
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
+	svc := services.NewIdentityService(identityRepo, rbacSvc, auditSvc)
 
 	key, err := svc.CreateKey(ctx, userID, "Val Key")
 	require.NoError(t, err)
@@ -67,14 +74,17 @@ func TestIdentityServiceValidateAPIKeySuccess(t *testing.T) {
 
 func TestIdentityServiceValidateAPIKeyNotFound(t *testing.T) {
 	db := setupDB(t)
-	defer db.Close()
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
 
 	identityRepo := postgres.NewIdentityRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
-	svc := services.NewIdentityService(identityRepo, auditSvc)
+
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
+	svc := services.NewIdentityService(identityRepo, rbacSvc, auditSvc)
 
 	result, err := svc.ValidateAPIKey(ctx, "invalid-key")
 	assert.Error(t, err)
@@ -83,15 +93,18 @@ func TestIdentityServiceValidateAPIKeyNotFound(t *testing.T) {
 
 func TestIdentityServiceListKeys(t *testing.T) {
 	db := setupDB(t)
-	defer db.Close()
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	identityRepo := postgres.NewIdentityRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
-	svc := services.NewIdentityService(identityRepo, auditSvc)
+
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
+	svc := services.NewIdentityService(identityRepo, rbacSvc, auditSvc)
 
 	_, err := svc.CreateKey(ctx, userID, "Key 1")
 	require.NoError(t, err)
@@ -105,15 +118,18 @@ func TestIdentityServiceListKeys(t *testing.T) {
 
 func TestIdentityServiceRevokeKey(t *testing.T) {
 	db := setupDB(t)
-	defer db.Close()
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	identityRepo := postgres.NewIdentityRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
-	svc := services.NewIdentityService(identityRepo, auditSvc)
+
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
+	svc := services.NewIdentityService(identityRepo, rbacSvc, auditSvc)
 
 	t.Run("Success", func(t *testing.T) {
 		key, err := svc.CreateKey(ctx, userID, "To Revoke")
@@ -161,15 +177,18 @@ func TestIdentityServiceRevokeKey(t *testing.T) {
 
 func TestIdentityServiceRotateKey(t *testing.T) {
 	db := setupDB(t)
-	defer db.Close()
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	identityRepo := postgres.NewIdentityRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
-	svc := services.NewIdentityService(identityRepo, auditSvc)
+
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
+	svc := services.NewIdentityService(identityRepo, rbacSvc, auditSvc)
 
 	key, err := svc.CreateKey(ctx, userID, "To Rotate")
 	require.NoError(t, err)
