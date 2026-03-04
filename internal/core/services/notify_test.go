@@ -38,7 +38,14 @@ func setupNotifyServiceIntegrationTest(t *testing.T) (ports.NotifyService, ports
 	queueSvc := services.NewQueueService(queueRepo, rbacSvc, eventSvc, auditSvc)
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewNotifyService(notifyRepo, rbacSvc, queueSvc, eventSvc, auditSvc, logger)
+	svc := services.NewNotifyService(services.NotifyServiceParams{
+		Repo:     notifyRepo,
+		RBACSvc:  rbacSvc,
+		QueueSvc: queueSvc,
+		EventSvc: eventSvc,
+		AuditSvc: auditSvc,
+		Logger:   logger,
+	})
 
 	return svc, notifyRepo, queueSvc, ctx
 }
