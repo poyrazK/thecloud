@@ -1268,6 +1268,10 @@ func (m *MockVolumeService) DeleteVolume(ctx context.Context, idOrName string) e
 	args := m.Called(ctx, idOrName)
 	return args.Error(0)
 }
+func (m *MockVolumeService) ResizeVolume(ctx context.Context, id string, newSizeGB int) error {
+	args := m.Called(ctx, id, newSizeGB)
+	return args.Error(0)
+}
 func (m *MockVolumeService) ReleaseVolumesForInstance(ctx context.Context, instanceID uuid.UUID) error {
 	args := m.Called(ctx, instanceID)
 	return args.Error(0)
@@ -1624,6 +1628,10 @@ func (m *MockStorageBackend) CreateVolume(ctx context.Context, name string, size
 }
 func (m *MockStorageBackend) DeleteVolume(ctx context.Context, name string) error {
 	args := m.Called(ctx, name)
+	return args.Error(0)
+}
+func (m *MockStorageBackend) ResizeVolume(ctx context.Context, name string, newSizeGB int) error {
+	args := m.Called(ctx, name, newSizeGB)
 	return args.Error(0)
 }
 func (m *MockStorageBackend) AttachVolume(ctx context.Context, volumeName, instanceID string) (string, error) {
