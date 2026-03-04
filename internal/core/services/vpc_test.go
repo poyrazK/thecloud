@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,13 +26,16 @@ func setupVpcServiceTest(t *testing.T, cidr string) (*services.VpcService, *post
 	vpcRepo := postgres.NewVpcRepository(db)
 	lbRepo := postgres.NewLBRepository(db)
 
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	network := noop.NewNoopNetworkAdapter(logger)
 
-	svc := services.NewVpcService(vpcRepo, lbRepo, network, auditSvc, logger, cidr)
+	svc := services.NewVpcService(vpcRepo, lbRepo, rbacSvc, network, auditSvc, logger, cidr)
 	return svc, vpcRepo, lbRepo, ctx
 }
 

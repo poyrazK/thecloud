@@ -21,6 +21,7 @@ import (
 type VpcService struct {
 	repo        ports.VpcRepository
 	lbRepo      ports.LBRepository
+	rbacSvc     ports.RBACService
 	network     ports.NetworkBackend
 	auditSvc    ports.AuditService
 	logger      *slog.Logger
@@ -29,13 +30,14 @@ type VpcService struct {
 
 // NewVpcService creates a new instance of VpcService.
 // If defaultCIDR is empty, it defaults to "10.0.0.0/16".
-func NewVpcService(repo ports.VpcRepository, lbRepo ports.LBRepository, network ports.NetworkBackend, auditSvc ports.AuditService, logger *slog.Logger, defaultCIDR string) *VpcService {
+func NewVpcService(repo ports.VpcRepository, lbRepo ports.LBRepository, rbacSvc ports.RBACService, network ports.NetworkBackend, auditSvc ports.AuditService, logger *slog.Logger, defaultCIDR string) *VpcService {
 	if defaultCIDR == "" {
 		defaultCIDR = "10.0.0.0/16" // Fallback if not provided
 	}
 	return &VpcService{
 		repo:        repo,
 		lbRepo:      lbRepo,
+		rbacSvc:     rbacSvc,
 		network:     network,
 		auditSvc:    auditSvc,
 		logger:      logger,
@@ -49,6 +51,13 @@ func (s *VpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*do
 	ctx, span := otel.Tracer("vpc-service").Start(ctx, "CreateVPC")
 	defer span.End()
 
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcCreate); err != nil {
+		return nil, err
+	}
+
 	span.SetAttributes(
 		attribute.String("vpc.name", name),
 		attribute.String("vpc.cidr", cidrBlock),
@@ -58,7 +67,6 @@ func (s *VpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*do
 		cidrBlock = s.defaultCIDR
 	}
 
-	userID := appcontext.UserIDFromContext(ctx)
 	vpcID := uuid.New()
 
 	// 1. Generate unique VNI (for demo purposes we use a hash based int)
@@ -77,7 +85,7 @@ func (s *VpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*do
 	vpc := &domain.VPC{
 		ID:        vpcID,
 		UserID:    userID,
-		TenantID:  appcontext.TenantIDFromContext(ctx),
+		TenantID:  tenantID,
 		Name:      name,
 		CIDRBlock: cidrBlock,
 		NetworkID: bridgeName,
@@ -107,6 +115,13 @@ func (s *VpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*do
 
 // GetVPC retrieves a VPC by its unique identifier (UUID) or its name.
 func (s *VpcService) GetVPC(ctx context.Context, idOrName string) (*domain.VPC, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead); err != nil {
+		return nil, err
+	}
+
 	id, err := uuid.Parse(idOrName)
 	if err == nil {
 		return s.repo.GetByID(ctx, id)
@@ -116,11 +131,25 @@ func (s *VpcService) GetVPC(ctx context.Context, idOrName string) (*domain.VPC, 
 
 // ListVPCs returns a list of all VPCs accessible by the current user.
 func (s *VpcService) ListVPCs(ctx context.Context) ([]*domain.VPC, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead); err != nil {
+		return nil, err
+	}
+
 	return s.repo.List(ctx)
 }
 
 // DeleteVPC removes a VPC, its associated OVS bridge, and all related database records.
 func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcDelete); err != nil {
+		return err
+	}
+
 	vpc, err := s.GetVPC(ctx, idOrName)
 	if err != nil {
 		return err
