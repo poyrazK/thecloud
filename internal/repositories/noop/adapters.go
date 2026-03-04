@@ -605,6 +605,9 @@ func (s *NoopStorageBackend) CreateVolume(ctx context.Context, name string, size
 	return "vol-1", nil
 }
 func (s *NoopStorageBackend) DeleteVolume(ctx context.Context, name string) error { return nil }
+func (s *NoopStorageBackend) ResizeVolume(ctx context.Context, name string, newSizeGB int) error {
+	return nil
+}
 func (s *NoopStorageBackend) AttachVolume(ctx context.Context, volumeName, instanceID string) (string, error) {
 	return "vol-1", nil
 }
@@ -631,8 +634,11 @@ func (s *NoopDatabaseService) ListDatabases(ctx context.Context) ([]*domain.Data
 	return []*domain.Database{}, nil
 }
 func (s *NoopDatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) error { return nil }
+func (s *NoopDatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDatabaseRequest) (*domain.Database, error) {
+	return &domain.Database{ID: req.ID}, nil
+}
 func (s *NoopDatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
-	return "postgres://localhost:5432/db", nil
+	return "postgres://127.0.0.1:5432/db", nil
 }
 func (s *NoopDatabaseService) CreateDatabaseSnapshot(ctx context.Context, databaseID uuid.UUID, description string) (*domain.Snapshot, error) {
 	return &domain.Snapshot{ID: uuid.New()}, nil
