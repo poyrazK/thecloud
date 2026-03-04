@@ -97,13 +97,13 @@ func (m *mockTenantService) DecrementUsage(ctx context.Context, tenantID uuid.UU
 	return nil
 }
 
-func (m *mockRBACService) Authorize(ctx context.Context, userID uuid.UUID, permission domain.Permission) error {
-	args := m.Called(ctx, userID, permission)
+func (m *mockRBACService) Authorize(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission) error {
+	args := m.Called(ctx, userID, tenantID, permission)
 	return args.Error(0)
 }
 
-func (m *mockRBACService) HasPermission(ctx context.Context, userID uuid.UUID, permission domain.Permission) (bool, error) {
-	args := m.Called(ctx, userID, permission)
+func (m *mockRBACService) HasPermission(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission) (bool, error) {
+	args := m.Called(ctx, userID, tenantID, permission)
 	return args.Bool(0), args.Error(1)
 }
 
@@ -212,11 +212,13 @@ func TestPermissionForbidden(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rbacSvc := new(mockRBACService)
 	userID := uuid.New()
-	rbacSvc.On("Authorize", mock.Anything, userID, domain.PermissionInstanceRead).Return(fmt.Errorf("nope"))
+	tenantID := uuid.New()
+	rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead).Return(fmt.Errorf("nope"))
 
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
 		c.Set("userID", userID)
+		c.Set("tenantID", tenantID)
 		c.Next()
 	})
 	r.Use(Permission(rbacSvc, domain.PermissionInstanceRead))
@@ -235,11 +237,13 @@ func TestPermissionAllowed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	rbacSvc := new(mockRBACService)
 	userID := uuid.New()
-	rbacSvc.On("Authorize", mock.Anything, userID, domain.PermissionInstanceRead).Return(nil)
+	tenantID := uuid.New()
+	rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead).Return(nil)
 
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
 		c.Set("userID", userID)
+		c.Set("tenantID", tenantID)
 		c.Next()
 	})
 	r.Use(Permission(rbacSvc, domain.PermissionInstanceRead))
