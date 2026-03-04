@@ -30,6 +30,8 @@ type StorageRepository interface {
 	ListDeleted(ctx context.Context, limit int) ([]*domain.Object, error)
 	// HardDelete permanently removes metadata for a specific object version.
 	HardDelete(ctx context.Context, bucket, key, versionID string) error
+	// ListPending returns a list of objects that are stuck in PENDING state.
+	ListPending(ctx context.Context, olderThan time.Time, limit int) ([]*domain.Object, error)
 
 	// Bucket operations
 	CreateBucket(ctx context.Context, bucket *domain.Bucket) error
@@ -96,6 +98,8 @@ type StorageService interface {
 
 	// Cleanup
 	CleanupDeleted(ctx context.Context, limit int) (int, error)
+	// CleanupPendingUploads removes orphaned files from failed uploads.
+	CleanupPendingUploads(ctx context.Context, olderThan time.Duration, limit int) (int, error)
 
 	// Presigned URLs
 	GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error)
