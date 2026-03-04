@@ -41,6 +41,9 @@ func (s *rbacService) Authorize(ctx context.Context, userID uuid.UUID, tenantID 
 }
 
 func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission) (bool, error) {
+	if userID == uuid.Nil {
+		return false, nil
+	}
 	var roleName string
 
 	if tenantID == uuid.Nil {
