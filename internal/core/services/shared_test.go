@@ -2179,3 +2179,62 @@ func (m *MockLogService) SearchLogs(ctx context.Context, query domain.LogQuery) 
 func (m *MockLogService) RunRetentionPolicy(ctx context.Context, days int) error {
 	return m.Called(ctx, days).Error(0)
 }
+
+// MockRBACService
+type MockRBACService struct {
+	mock.Mock
+}
+
+func (m *MockRBACService) Authorize(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission) error {
+	return m.Called(ctx, userID, tenantID, permission).Error(0)
+}
+func (m *MockRBACService) HasPermission(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission) (bool, error) {
+	args := m.Called(ctx, userID, tenantID, permission)
+	return args.Bool(0), args.Error(1)
+}
+func (m *MockRBACService) CreateRole(ctx context.Context, role *domain.Role) error {
+	return m.Called(ctx, role).Error(0)
+}
+func (m *MockRBACService) GetRoleByID(ctx context.Context, id uuid.UUID) (*domain.Role, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Role), args.Error(1)
+}
+func (m *MockRBACService) GetRoleByName(ctx context.Context, name string) (*domain.Role, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Role), args.Error(1)
+}
+func (m *MockRBACService) ListRoles(ctx context.Context) ([]*domain.Role, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Role), args.Error(1)
+}
+func (m *MockRBACService) UpdateRole(ctx context.Context, role *domain.Role) error {
+	return m.Called(ctx, role).Error(0)
+}
+func (m *MockRBACService) DeleteRole(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockRBACService) AddPermissionToRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
+	return m.Called(ctx, roleID, permission).Error(0)
+}
+func (m *MockRBACService) RemovePermissionFromRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
+	return m.Called(ctx, roleID, permission).Error(0)
+}
+func (m *MockRBACService) BindRole(ctx context.Context, userIdentifier string, roleName string) error {
+	return m.Called(ctx, userIdentifier, roleName).Error(0)
+}
+func (m *MockRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.User), args.Error(1)
+}
