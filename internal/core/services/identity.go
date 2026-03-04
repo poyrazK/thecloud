@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -108,7 +109,7 @@ func (s *IdentityService) RevokeKey(ctx context.Context, userID uuid.UUID, id uu
 		return err
 	}
 
-	if key.UserID != userID {
+	if key.UserID != uID {
 		return errors.New(errors.Forbidden, "cannot revoke key owned by another user")
 	}
 
@@ -119,7 +120,7 @@ func (s *IdentityService) RevokeKey(ctx context.Context, userID uuid.UUID, id uu
 	platform.APIKeysActive.Dec()
 
 	// Log audit event
-	_ = s.auditSvc.Log(ctx, userID, "api_key.revoke", "api_key", id.String(), map[string]interface{}{
+	_ = s.auditSvc.Log(ctx, uID, "api_key.revoke", "api_key", id.String(), map[string]interface{}{
 		"name": key.Name,
 	})
 
@@ -139,7 +140,7 @@ func (s *IdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uu
 		return nil, err
 	}
 
-	if key.UserID != userID {
+	if key.UserID != uID {
 		return nil, errors.New(errors.Forbidden, "cannot rotate key owned by another user")
 	}
 
@@ -153,12 +154,11 @@ func (s *IdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uu
 
 	// Delete old key
 	if err := s.repo.DeleteAPIKey(ctx, id); err != nil {
-		// Log error but we already have a new key
-		return newKey, nil
+		return nil, fmt.Errorf("failed to delete old API key: %w", err)
 	}
 
 	// Log audit event
-	_ = s.auditSvc.Log(ctx, userID, "api_key.rotate", "api_key", id.String(), map[string]interface{}{
+	_ = s.auditSvc.Log(ctx, uID, "api_key.rotate", "api_key", id.String(), map[string]interface{}{
 		"name":   key.Name,
 		"new_id": newKey.ID.String(),
 	})
