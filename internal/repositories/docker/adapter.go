@@ -459,6 +459,14 @@ func (a *DockerAdapter) DeleteVolume(ctx context.Context, name string) error {
 	return nil
 }
 
+func (a *DockerAdapter) ResizeVolume(ctx context.Context, name string, newSizeGB int) error {
+	// Docker doesn't support resizing existing volumes easily without manual steps
+	// or specific volume drivers. For this simulator, we'll just log it and return success
+	// as it satisfies the interface and doesn't break the logical flow.
+	a.logger.Info("docker volume resize simulated (no-op)", "name", name, "new_size", newSizeGB)
+	return nil
+}
+
 func (a *DockerAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID string, destinationPath string) error {
 	// volumeID is the docker volume name
 	// destinationPath is on the host
