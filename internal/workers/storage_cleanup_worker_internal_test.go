@@ -21,6 +21,11 @@ func (m *mockStorageService) CleanupDeleted(ctx context.Context, limit int) (int
 	return args.Int(0), args.Error(1)
 }
 
+func (m *mockStorageService) CleanupPendingUploads(ctx context.Context, olderThan time.Duration, limit int) (int, error) {
+	args := m.Called(ctx, olderThan, limit)
+	return args.Int(0), args.Error(1)
+}
+
 func (m *mockStorageService) Upload(ctx context.Context, bucket, key string, r io.Reader) (*domain.Object, error) {
 	return nil, nil
 }
@@ -83,6 +88,7 @@ func TestStorageCleanupWorker_Cleanup(t *testing.T) {
 
 	t.Run("SingleBatch", func(t *testing.T) {
 		svc.On("CleanupDeleted", mock.Anything, 2).Return(1, nil).Once()
+		svc.On("CleanupPendingUploads", mock.Anything, mock.Anything, 2).Return(0, nil).Once()
 		worker.cleanup(context.Background())
 		svc.AssertExpectations(t)
 	})
@@ -90,6 +96,7 @@ func TestStorageCleanupWorker_Cleanup(t *testing.T) {
 	t.Run("MultipleBatches", func(t *testing.T) {
 		svc.On("CleanupDeleted", mock.Anything, 2).Return(2, nil).Once()
 		svc.On("CleanupDeleted", mock.Anything, 2).Return(1, nil).Once()
+		svc.On("CleanupPendingUploads", mock.Anything, mock.Anything, 2).Return(0, nil).Once()
 		worker.cleanup(context.Background())
 		svc.AssertExpectations(t)
 	})

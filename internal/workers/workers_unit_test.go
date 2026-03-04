@@ -56,6 +56,9 @@ func (m *mockStorageRepo) ListDeleted(ctx context.Context, limit int) ([]*domain
 func (m *mockStorageRepo) HardDelete(ctx context.Context, bucket, key, versionID string) error {
 	return nil
 }
+func (m *mockStorageRepo) ListPending(ctx context.Context, olderThan time.Time, limit int) ([]*domain.Object, error) {
+	return nil, nil
+}
 func (m *mockStorageRepo) CreateBucket(ctx context.Context, bucket *domain.Bucket) error { return nil }
 func (m *mockStorageRepo) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
 	return nil, nil
@@ -134,6 +137,9 @@ func (m *mockStorageSvc) AbortMultipartUpload(ctx context.Context, uploadID uuid
 	return nil
 }
 func (m *mockStorageSvc) CleanupDeleted(ctx context.Context, limit int) (int, error) { return 0, nil }
+func (m *mockStorageSvc) CleanupPendingUploads(ctx context.Context, olderThan time.Duration, limit int) (int, error) {
+	return 0, nil
+}
 func (m *mockStorageSvc) GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error) {
 	return nil, nil
 }

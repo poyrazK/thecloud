@@ -83,6 +83,9 @@ func (f *fakeStorageService) AbortMultipartUpload(ctx context.Context, uploadID 
 func (f *fakeStorageService) CleanupDeleted(ctx context.Context, limit int) (int, error) {
 	return 0, nil
 }
+func (f *fakeStorageService) CleanupPendingUploads(ctx context.Context, olderThan time.Duration, limit int) (int, error) {
+	return 0, nil
+}
 func (f *fakeStorageService) GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error) {
 	return nil, nil
 }
