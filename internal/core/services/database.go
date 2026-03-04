@@ -21,6 +21,7 @@ import (
 // DatabaseService manages database instances and lifecycle.
 type DatabaseService struct {
 	repo     ports.DatabaseRepository
+	rbacSvc  ports.RBACService
 	compute  ports.ComputeBackend
 	vpcRepo  ports.VpcRepository
 	eventSvc ports.EventService
@@ -31,6 +32,7 @@ type DatabaseService struct {
 // DatabaseServiceParams holds dependencies for DatabaseService creation.
 type DatabaseServiceParams struct {
 	Repo     ports.DatabaseRepository
+	RBAC     ports.RBACService
 	Compute  ports.ComputeBackend
 	VpcRepo  ports.VpcRepository
 	EventSvc ports.EventService
@@ -42,6 +44,7 @@ type DatabaseServiceParams struct {
 func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 	return &DatabaseService{
 		repo:     params.Repo,
+		rbacSvc:  params.RBAC,
 		compute:  params.Compute,
 		vpcRepo:  params.VpcRepo,
 		eventSvc: params.EventSvc,
@@ -52,6 +55,11 @@ func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 
 func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBCreate); err != nil {
+		return nil, err
+	}
 
 	dbEngine := domain.DatabaseEngine(engine)
 	if !s.isValidEngine(dbEngine) {
@@ -64,7 +72,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, name, engine, vers
 	}
 
 	username := s.getDefaultUsername(dbEngine)
-	db := s.initialDatabaseRecord(userID, name, dbEngine, version, username, password, vpcID)
+	db := s.initialDatabaseRecord(userID, tenantID, name, dbEngine, version, username, password, vpcID)
 
 	imageName, env, defaultPort := s.getEngineConfig(dbEngine, version, username, password, name)
 
@@ -170,10 +178,11 @@ func (s *DatabaseService) resolveVpcNetwork(ctx context.Context, vpcID *uuid.UUI
 	return vpc.NetworkID, nil
 }
 
-func (s *DatabaseService) initialDatabaseRecord(userID uuid.UUID, name string, engine domain.DatabaseEngine, version, username, password string, vpcID *uuid.UUID) *domain.Database {
+func (s *DatabaseService) initialDatabaseRecord(userID, tenantID uuid.UUID, name string, engine domain.DatabaseEngine, version, username, password string, vpcID *uuid.UUID) *domain.Database {
 	return &domain.Database{
 		ID:        uuid.New(),
 		UserID:    userID,
+		TenantID:  tenantID,
 		Name:      name,
 		Engine:    engine,
 		Version:   version,
@@ -205,14 +214,35 @@ func (s *DatabaseService) recordDatabaseCreation(ctx context.Context, userID uui
 }
 
 func (s *DatabaseService) GetDatabase(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBRead); err != nil {
+		return nil, err
+	}
+
 	return s.repo.GetByID(ctx, id)
 }
 
 func (s *DatabaseService) ListDatabases(ctx context.Context) ([]*domain.Database, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBRead); err != nil {
+		return nil, err
+	}
+
 	return s.repo.List(ctx)
 }
 
 func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBDelete); err != nil {
+		return err
+	}
+
 	db, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -242,6 +272,14 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 }
 
 func (s *DatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	// Accessing connection strings usually requires read permission
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBRead); err != nil {
+		return "", err
+	}
+
 	db, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return "", err

@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/docker"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,16 +33,20 @@ func setupDatabaseServiceTest(t *testing.T) (ports.DatabaseService, ports.Databa
 	compute, err := docker.NewDockerAdapter(slog.Default())
 	require.NoError(t, err)
 
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	eventRepo := postgres.NewEventRepository(db)
-	eventSvc := services.NewEventService(eventRepo, nil, slog.Default())
+	eventSvc := services.NewEventService(eventRepo, rbacSvc, nil, slog.Default())
 
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
 
 	logger := slog.Default()
 
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
 		Repo:     repo,
+		RBAC:     rbacSvc,
 		Compute:  compute,
 		VpcRepo:  vpcRepo,
 		EventSvc: eventSvc,
