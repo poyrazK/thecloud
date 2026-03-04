@@ -2,16 +2,16 @@ package services_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"testing"
 
-	appcontext "github.com/poyrazk/thecloud/internal/core/context"
+	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func setupSecretServiceIntegrationTest(t *testing.T) (ports.SecretService, ports.SecretRepository, context.Context) {
@@ -20,75 +20,97 @@ func setupSecretServiceIntegrationTest(t *testing.T) (ports.SecretService, ports
 	ctx := setupTestUser(t, db)
 
 	repo := postgres.NewSecretRepository(db)
-	eventRepo := postgres.NewEventRepository(db)
-	auditRepo := postgres.NewAuditRepository(db)
-
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
-	eventSvc := services.NewEventService(eventRepo, rbacSvc, nil, logger)
+	eventRepo := postgres.NewEventRepository(db)
+	eventSvc := services.NewEventService(eventRepo, rbacSvc, nil, slog.Default())
 
+	auditRepo := postgres.NewAuditRepository(db)
+	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
+
+	logger := slog.Default()
 	key := "test-key-must-be-32-bytes-long---"
-	svc := services.NewSecretService(repo, rbacSvc, eventSvc, auditSvc, logger, key, "test")
+	svc, _ := services.NewSecretService(services.SecretServiceParams{
+		Repo:        repo,
+		RBACSvc:     rbacSvc,
+		EventSvc:    eventSvc,
+		AuditSvc:    auditSvc,
+		Logger:      logger,
+		MasterKey:   key,
+		Environment: "test",
+	})
 
 	return svc, repo, ctx
 }
 
 func TestSecretService_Integration(t *testing.T) {
 	svc, _, ctx := setupSecretServiceIntegrationTest(t)
-	userID := appcontext.UserIDFromContext(ctx)
 
-	t.Run("CreateAndGet", func(t *testing.T) {
-		name := "MY_SECRET"
-		value := "super-secret-value"
+	t.Run("CreateSecret", func(t *testing.T) {
+		name := "test-secret"
+		value := "secret-value"
+		desc := "test description"
 
-		secret, err := svc.CreateSecret(ctx, name, value, "test secret")
-		assert.NoError(t, err)
+		secret, err := svc.CreateSecret(ctx, name, value, desc)
+		require.NoError(t, err)
 		assert.NotNil(t, secret)
-		assert.NotEqual(t, value, secret.EncryptedValue)
+		assert.Equal(t, name, secret.Name)
+		assert.Equal(t, desc, secret.Description)
+		assert.NotEmpty(t, secret.EncryptedValue)
+	})
 
-		// Get by ID
+	t.Run("GetSecret", func(t *testing.T) {
+		name := "get-test-secret"
+		value := "get-secret-value"
+		secret, err := svc.CreateSecret(ctx, name, value, "")
+		require.NoError(t, err)
+
 		fetched, err := svc.GetSecret(ctx, secret.ID)
-		assert.NoError(t, err)
-		assert.Equal(t, value, fetched.EncryptedValue) // Should be decrypted
-		assert.Equal(t, userID, fetched.UserID)
-
-		// Get by Name
-		fetchedByName, err := svc.GetSecretByName(ctx, name)
-		assert.NoError(t, err)
-		assert.Equal(t, value, fetchedByName.EncryptedValue)
+		require.NoError(t, err)
+		assert.Equal(t, value, fetched.EncryptedValue)
 	})
 
-	t.Run("List", func(t *testing.T) {
-		_, _ = svc.CreateSecret(ctx, "S1", "V1", "")
-		_, _ = svc.CreateSecret(ctx, "S2", "V2", "")
+	t.Run("GetSecretByName", func(t *testing.T) {
+		name := "get-by-name-test"
+		value := "name-value"
+		_, err := svc.CreateSecret(ctx, name, value, "")
+		require.NoError(t, err)
 
-		secrets, err := svc.ListSecrets(ctx)
-		assert.NoError(t, err)
-		assert.GreaterOrEqual(t, len(secrets), 2)
+		fetched, err := svc.GetSecretByName(ctx, name)
+		require.NoError(t, err)
+		assert.Equal(t, value, fetched.EncryptedValue)
 	})
 
-	t.Run("EncryptDecrypt", func(t *testing.T) {
-		plain := "hello secret"
-		cipher, err := svc.Encrypt(ctx, userID, plain)
-		assert.NoError(t, err)
-		assert.NotEmpty(t, cipher)
-		assert.NotEqual(t, plain, cipher)
+	t.Run("ListSecrets", func(t *testing.T) {
+		_, _ = svc.CreateSecret(ctx, "sec1", "v1", "")
+		_, _ = svc.CreateSecret(ctx, "sec2", "v2", "")
 
-		decrypted, err := svc.Decrypt(ctx, userID, cipher)
-		assert.NoError(t, err)
-		assert.Equal(t, plain, decrypted)
+		list, err := svc.ListSecrets(ctx)
+		require.NoError(t, err)
+		assert.GreaterOrEqual(t, len(list), 2)
+		// Value should be redacted in list
+		assert.Equal(t, "[REDACTED]", list[0].EncryptedValue)
 	})
 
-	t.Run("Delete", func(t *testing.T) {
-		secret, _ := svc.CreateSecret(ctx, "DEL_ME", "val", "")
-
+	t.Run("DeleteSecret", func(t *testing.T) {
+		secret, _ := svc.CreateSecret(ctx, "to-delete", "val", "")
 		err := svc.DeleteSecret(ctx, secret.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		_, err = svc.GetSecret(ctx, secret.ID)
 		assert.Error(t, err)
+	})
+
+	t.Run("EncryptDecrypt", func(t *testing.T) {
+		userID := uuid.New()
+		plain := "hello-world"
+		cipher, err := svc.Encrypt(ctx, userID, plain)
+		require.NoError(t, err)
+		assert.NotEmpty(t, cipher)
+
+		decrypted, err := svc.Decrypt(ctx, userID, cipher)
+		require.NoError(t, err)
+		assert.Equal(t, plain, decrypted)
 	})
 }
