@@ -14,6 +14,9 @@ const (
 	tenantIDKey contextKey = "tenant_id"
 )
 
+// SystemUserID is a reserved UUID for system-level background tasks.
+var SystemUserID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+
 // WithUserID returns a new context with the given userID.
 func WithUserID(ctx context.Context, userID uuid.UUID) context.Context {
 	return context.WithValue(ctx, userIDKey, userID)
