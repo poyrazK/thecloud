@@ -132,13 +132,15 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDa
 	}
 	db.Status = domain.DatabaseStatusRunning
 
-	dbIP, err := s.compute.GetInstanceIP(ctx, containerID)
-	if err != nil {
-		return s.performProvisioningRollback(ctx, db, vol.ID.String(), errors.Wrap(errors.Internal, "failed to get database IP", err))
-	}
+	if db.MetricsEnabled || db.PoolingEnabled {
+		dbIP, err := s.compute.GetInstanceIP(ctx, containerID)
+		if err != nil {
+			return s.performProvisioningRollback(ctx, db, vol.ID.String(), errors.Wrap(errors.Internal, "failed to get database IP", err))
+		}
 
-	if err := s.provisionSidecars(ctx, db, dbEngine, dbIP, username, password, networkID); err != nil {
-		return s.performProvisioningRollback(ctx, db, vol.ID.String(), err)
+		if err := s.provisionSidecars(ctx, db, dbEngine, dbIP, username, password, networkID); err != nil {
+			return s.performProvisioningRollback(ctx, db, vol.ID.String(), err)
+		}
 	}
 
 	if err := s.repo.Create(ctx, db); err != nil {
@@ -210,44 +212,24 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 		return nil, errors.Wrap(errors.Internal, "failed to launch replica container", err)
 	}
 
-	// Deterministic cleanup helper for replica
-	rollback := func(err error) (*domain.Database, error) {
-		s.logger.Error("rolling back database replica provisioning due to failure", "error", err)
-		if delErr := s.compute.DeleteInstance(ctx, containerID); delErr != nil {
-			s.logger.Error("failed to clean up replica container during rollback", "container_id", containerID, "error", delErr)
-		}
-		if db.ExporterContainerID != "" {
-			if delErr := s.compute.DeleteInstance(ctx, db.ExporterContainerID); delErr != nil {
-				s.logger.Error("failed to clean up replica metrics exporter container during rollback", "container_id", db.ExporterContainerID, "error", delErr)
-			}
-		}
-		if db.PoolerContainerID != "" {
-			if delErr := s.compute.DeleteInstance(ctx, db.PoolerContainerID); delErr != nil {
-				s.logger.Error("failed to clean up replica pooler container during rollback", "container_id", db.PoolerContainerID, "error", delErr)
-			}
-		}
-		if delErr := s.volumeSvc.DeleteVolume(ctx, vol.ID.String()); delErr != nil {
-			s.logger.Error("failed to delete replica volume during rollback", "volume_id", vol.ID, "error", delErr)
-		}
-		return nil, err
-	}
-
 	if err := s.resolveDatabasePort(ctx, db, allocatedPorts, defaultPort); err != nil {
-		return rollback(errors.Wrap(errors.Internal, "failed to resolve replica database port", err))
+		return s.performProvisioningRollback(ctx, db, vol.ID.String(), errors.Wrap(errors.Internal, "failed to resolve replica database port", err))
 	}
 	db.Status = domain.DatabaseStatusRunning
 
-	dbIP, err := s.compute.GetInstanceIP(ctx, containerID)
-	if err != nil {
-		return rollback(errors.Wrap(errors.Internal, "failed to get replica IP for sidecars", err))
-	}
+	if db.MetricsEnabled || db.PoolingEnabled {
+		dbIP, err := s.compute.GetInstanceIP(ctx, containerID)
+		if err != nil {
+			return s.performProvisioningRollback(ctx, db, vol.ID.String(), errors.Wrap(errors.Internal, "failed to get replica IP for sidecars", err))
+		}
 
-	if err := s.provisionSidecars(ctx, db, db.Engine, dbIP, db.Username, db.Password, networkID); err != nil {
-		return rollback(err)
+		if err := s.provisionSidecars(ctx, db, db.Engine, dbIP, db.Username, db.Password, networkID); err != nil {
+			return s.performProvisioningRollback(ctx, db, vol.ID.String(), err)
+		}
 	}
 
 	if err := s.repo.Create(ctx, db); err != nil {
-		return rollback(err)
+		return s.performProvisioningRollback(ctx, db, vol.ID.String(), err)
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_REPLICA_CREATE", db.ID.String(), "DATABASE", map[string]interface{}{
@@ -405,9 +387,9 @@ func (s *DatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID)
 	}
 	switch db.Engine {
 	case domain.EnginePostgres:
-		return fmt.Sprintf("postgres://%s:%s@localhost:%d/%s", db.Username, db.Password, port, db.Name), nil
+		return fmt.Sprintf("postgres://%s:%s@127.0.0.1:%d/%s", db.Username, db.Password, port, db.Name), nil
 	case domain.EngineMySQL:
-		return fmt.Sprintf("%s:%s@tcp(localhost:%d)/%s", db.Username, db.Password, port, db.Name), nil
+		return fmt.Sprintf("%s:%s@tcp(127.0.0.1:%d)/%s", db.Username, db.Password, port, db.Name), nil
 	default:
 		return "", errors.New(errors.Internal, "unknown engine")
 	}
@@ -452,7 +434,13 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.Restore
 	password, _ := util.GenerateRandomPassword(16)
 	username := s.getDefaultUsername(dbEngine)
 	db := s.initialDatabaseRecord(userID, req.NewName, dbEngine, req.Version, username, password, req.VpcID)
+	
+	// Preserving user requested storage if larger than snapshot
 	db.AllocatedStorage = req.AllocatedStorage
+	if snap.SizeGB > db.AllocatedStorage {
+		db.AllocatedStorage = snap.SizeGB
+	}
+	
 	db.MetricsEnabled = req.MetricsEnabled
 	db.PoolingEnabled = req.PoolingEnabled
 
@@ -460,7 +448,12 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.Restore
 	if err != nil {
 		return nil, err
 	}
-	db.AllocatedStorage = vol.SizeGB
+	
+	// Re-verify volume size matches DB record (snapshot restore might resize)
+	if vol.SizeGB > db.AllocatedStorage {
+		db.AllocatedStorage = vol.SizeGB
+	}
+
 	networkID, _ := s.resolveVpcNetwork(ctx, req.VpcID)
 	imageName, env, defaultPort := s.getEngineConfig(dbEngine, req.Version, username, password, req.NewName, domain.RolePrimary, "")
 	
@@ -473,14 +466,29 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.Restore
 		Env:         env,
 	})
 	if err != nil {
+		s.cleanupVolumeQuietly(ctx, vol.ID.String())
 		return nil, err
 	}
+	
 	db.ContainerID = containerID
-	_ = s.resolveDatabasePort(ctx, db, allocatedPorts, defaultPort)
+	if err := s.resolveDatabasePort(ctx, db, allocatedPorts, defaultPort); err != nil {
+		return s.performProvisioningRollback(ctx, db, vol.ID.String(), errors.Wrap(errors.Internal, "failed to resolve restored database port", err))
+	}
 	db.Status = domain.DatabaseStatusRunning
-	dbIP, _ := s.compute.GetInstanceIP(ctx, containerID)
-	_ = s.provisionSidecars(ctx, db, dbEngine, dbIP, username, password, networkID)
-	_ = s.repo.Create(ctx, db)
+	
+	if db.MetricsEnabled || db.PoolingEnabled {
+		dbIP, err := s.compute.GetInstanceIP(ctx, containerID)
+		if err != nil {
+			return s.performProvisioningRollback(ctx, db, vol.ID.String(), errors.Wrap(errors.Internal, "failed to get restored database IP", err))
+		}
+		if err := s.provisionSidecars(ctx, db, dbEngine, dbIP, username, password, networkID); err != nil {
+			return s.performProvisioningRollback(ctx, db, vol.ID.String(), err)
+		}
+	}
+
+	if err := s.repo.Create(ctx, db); err != nil {
+		return s.performProvisioningRollback(ctx, db, vol.ID.String(), err)
+	}
 	return db, nil
 }
 
@@ -500,10 +508,14 @@ func (s *DatabaseService) resolveDatabasePort(ctx context.Context, db *domain.Da
 
 func (s *DatabaseService) provisionSidecars(ctx context.Context, db *domain.Database, engine domain.DatabaseEngine, dbIP, username, password, networkID string) error {
 	if db.MetricsEnabled {
-		_ = s.provisionMetricsSidecar(ctx, db, engine, dbIP, username, password, networkID)
+		if err := s.provisionMetricsSidecar(ctx, db, engine, dbIP, username, password, networkID); err != nil {
+			return err
+		}
 	}
 	if db.PoolingEnabled {
-		_ = s.provisionPoolerSidecar(ctx, db, engine, dbIP, username, password, networkID)
+		if err := s.provisionPoolerSidecar(ctx, db, engine, dbIP, username, password, networkID); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -518,12 +530,15 @@ func (s *DatabaseService) provisionMetricsSidecar(ctx context.Context, db *domai
 		Env:       env,
 	})
 	if err != nil {
-		return err
+		return errors.Wrap(errors.Internal, "failed to launch metrics exporter", err)
 	}
 	db.ExporterContainerID = cid
-	hostPort, _ := s.parseAllocatedPort(ports, internalPort)
-	if hostPort == 0 {
-		hostPort, _ = s.compute.GetInstancePort(ctx, cid, internalPort)
+	hostPort, err := s.parseAllocatedPort(ports, internalPort)
+	if err != nil || hostPort == 0 {
+		hostPort, err = s.compute.GetInstancePort(ctx, cid, internalPort)
+		if err != nil {
+			return errors.Wrap(errors.Internal, "failed to resolve metrics exporter port", err)
+		}
 	}
 	db.MetricsPort = hostPort
 	return nil
@@ -539,18 +554,22 @@ func (s *DatabaseService) provisionPoolerSidecar(ctx context.Context, db *domain
 		Env:       env,
 	})
 	if err != nil {
-		return err
+		return errors.Wrap(errors.Internal, "failed to launch connection pooler", err)
 	}
 	db.PoolerContainerID = cid
-	hostPort, _ := s.parseAllocatedPort(ports, internalPort)
-	if hostPort == 0 {
-		hostPort, _ = s.compute.GetInstancePort(ctx, cid, internalPort)
+	hostPort, err := s.parseAllocatedPort(ports, internalPort)
+	if err != nil || hostPort == 0 {
+		hostPort, err = s.compute.GetInstancePort(ctx, cid, internalPort)
+		if err != nil {
+			return errors.Wrap(errors.Internal, "failed to resolve connection pooler port", err)
+		}
 	}
 	db.PoolingPort = hostPort
 	return nil
 }
 
 func (s *DatabaseService) performProvisioningRollback(ctx context.Context, db *domain.Database, volID string, err error) (*domain.Database, error) {
+	s.logger.Error("rolling back database provisioning due to failure", "error", err)
 	if db.ContainerID != "" {
 		_ = s.compute.DeleteInstance(ctx, db.ContainerID)
 	}
@@ -565,7 +584,9 @@ func (s *DatabaseService) performProvisioningRollback(ctx context.Context, db *d
 }
 
 func (s *DatabaseService) cleanupVolumeQuietly(ctx context.Context, volID string) {
-	_ = s.volumeSvc.DeleteVolume(ctx, volID)
+	if err := s.volumeSvc.DeleteVolume(ctx, volID); err != nil {
+		s.logger.Warn("failed to delete volume during cleanup", "volume_id", volID, "error", err)
+	}
 }
 
 func (s *DatabaseService) getBackendVolName(vol *domain.Volume) string {
