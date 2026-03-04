@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,14 +27,16 @@ func setupAccountingServiceTest(t *testing.T) (ports.AccountingService, ports.Ac
 	instRepo := postgres.NewInstanceRepository(db)
 	logger := slog.Default()
 
-	svc := services.NewAccountingService(repo, instRepo, logger)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewAccountingService(repo, rbacSvc, instRepo, logger)
 
 	return svc, repo, instRepo, ctx, db
 }
 
 func TestTrackUsage(t *testing.T) {
-	svc, repo, _, ctx, db := setupAccountingServiceTest(t)
-	defer db.Close()
+	svc, repo, _, ctx, _ := setupAccountingServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	record := domain.UsageRecord{
@@ -56,8 +59,7 @@ func TestTrackUsage(t *testing.T) {
 }
 
 func TestProcessHourlyBilling(t *testing.T) {
-	svc, repo, instRepo, ctx, db := setupAccountingServiceTest(t)
-	defer db.Close()
+	svc, repo, instRepo, ctx, _ := setupAccountingServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
@@ -96,8 +98,7 @@ func TestProcessHourlyBilling(t *testing.T) {
 }
 
 func TestGetSummary(t *testing.T) {
-	svc, _, _, ctx, db := setupAccountingServiceTest(t)
-	defer db.Close()
+	svc, _, _, ctx, _ := setupAccountingServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 	now := time.Now()
 
@@ -136,8 +137,7 @@ func TestGetSummary(t *testing.T) {
 }
 
 func TestListUsage(t *testing.T) {
-	svc, _, _, ctx, db := setupAccountingServiceTest(t)
-	defer db.Close()
+	svc, _, _, ctx, _ := setupAccountingServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	rec := domain.UsageRecord{
