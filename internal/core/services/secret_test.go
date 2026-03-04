@@ -11,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func setupSecretServiceIntegrationTest(t *testing.T) (ports.SecretService, ports.SecretRepository, context.Context) {
@@ -22,12 +23,15 @@ func setupSecretServiceIntegrationTest(t *testing.T) (ports.SecretService, ports
 	eventRepo := postgres.NewEventRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
 
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	auditSvc := services.NewAuditService(auditRepo)
-	eventSvc := services.NewEventService(eventRepo, nil, logger)
+	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
+	eventSvc := services.NewEventService(eventRepo, rbacSvc, nil, logger)
 
 	key := "test-key-must-be-32-bytes-long---"
-	svc := services.NewSecretService(repo, eventSvc, auditSvc, logger, key, "test")
+	svc := services.NewSecretService(repo, rbacSvc, eventSvc, auditSvc, logger, key, "test")
 
 	return svc, repo, ctx
 }

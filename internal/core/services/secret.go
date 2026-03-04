@@ -22,6 +22,7 @@ const (
 // SecretService manages encrypted secret storage.
 type SecretService struct {
 	repo      ports.SecretRepository
+	rbacSvc   ports.RBACService
 	eventSvc  ports.EventService
 	auditSvc  ports.AuditService
 	logger    *slog.Logger
@@ -29,7 +30,7 @@ type SecretService struct {
 }
 
 // NewSecretService constructs a SecretService and validates the master key.
-func NewSecretService(repo ports.SecretRepository, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger, masterKey string, environment string) *SecretService {
+func NewSecretService(repo ports.SecretRepository, rbacSvc ports.RBACService, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger, masterKey string, environment string) *SecretService {
 	if masterKey == "" {
 		if environment == "production" {
 			// In production, we MUST have a key
@@ -47,6 +48,7 @@ func NewSecretService(repo ports.SecretRepository, eventSvc ports.EventService, 
 
 	return &SecretService{
 		repo:      repo,
+		rbacSvc:   rbacSvc,
 		eventSvc:  eventSvc,
 		auditSvc:  auditSvc,
 		logger:    logger,
@@ -60,6 +62,11 @@ func (s *SecretService) getDerivedKey(userID uuid.UUID) ([]byte, error) {
 
 func (s *SecretService) CreateSecret(ctx context.Context, name, value, description string) (*domain.Secret, error) {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSecretWrite); err != nil {
+		return nil, err
+	}
 
 	key, err := s.getDerivedKey(userID)
 	if err != nil {
@@ -74,6 +81,7 @@ func (s *SecretService) CreateSecret(ctx context.Context, name, value, descripti
 	secret := &domain.Secret{
 		ID:             uuid.New(),
 		UserID:         userID,
+		TenantID:       tenantID,
 		Name:           name,
 		EncryptedValue: encrypted,
 		Description:    description,
@@ -98,6 +106,13 @@ func (s *SecretService) CreateSecret(ctx context.Context, name, value, descripti
 }
 
 func (s *SecretService) GetSecret(ctx context.Context, id uuid.UUID) (*domain.Secret, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSecretRead); err != nil {
+		return nil, err
+	}
+
 	secret, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -131,6 +146,13 @@ func (s *SecretService) GetSecret(ctx context.Context, id uuid.UUID) (*domain.Se
 }
 
 func (s *SecretService) GetSecretByName(ctx context.Context, name string) (*domain.Secret, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSecretRead); err != nil {
+		return nil, err
+	}
+
 	secret, err := s.repo.GetByName(ctx, name)
 	if err != nil {
 		return nil, err
@@ -163,6 +185,13 @@ func (s *SecretService) GetSecretByName(ctx context.Context, name string) (*doma
 }
 
 func (s *SecretService) ListSecrets(ctx context.Context) ([]*domain.Secret, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSecretRead); err != nil {
+		return nil, err
+	}
+
 	secrets, err := s.repo.List(ctx)
 	if err != nil {
 		return nil, err
@@ -177,6 +206,13 @@ func (s *SecretService) ListSecrets(ctx context.Context) ([]*domain.Secret, erro
 }
 
 func (s *SecretService) DeleteSecret(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSecretDelete); err != nil {
+		return err
+	}
+
 	secret, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -198,6 +234,7 @@ func (s *SecretService) DeleteSecret(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *SecretService) Encrypt(ctx context.Context, userID uuid.UUID, plainText string) (string, error) {
+	// Privileged operation, typically called by other services
 	key, err := s.getDerivedKey(userID)
 	if err != nil {
 		return "", errors.Wrap(errors.Internal, errFailedDeriveKey, err)
@@ -212,6 +249,7 @@ func (s *SecretService) Encrypt(ctx context.Context, userID uuid.UUID, plainText
 }
 
 func (s *SecretService) Decrypt(ctx context.Context, userID uuid.UUID, cipherText string) (string, error) {
+	// Privileged operation, typically called by other services
 	key, err := s.getDerivedKey(userID)
 	if err != nil {
 		return "", errors.Wrap(errors.Internal, errFailedDeriveKey, err)

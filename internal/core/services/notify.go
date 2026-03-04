@@ -18,6 +18,7 @@ import (
 // NotifyService manages topics, subscriptions, and message delivery.
 type NotifyService struct {
 	repo     ports.NotifyRepository
+	rbacSvc  ports.RBACService
 	queueSvc ports.QueueService
 	eventSvc ports.EventService
 	auditSvc ports.AuditService
@@ -25,9 +26,10 @@ type NotifyService struct {
 }
 
 // NewNotifyService constructs a NotifyService with its dependencies.
-func NewNotifyService(repo ports.NotifyRepository, queueSvc ports.QueueService, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) ports.NotifyService {
+func NewNotifyService(repo ports.NotifyRepository, rbacSvc ports.RBACService, queueSvc ports.QueueService, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) ports.NotifyService {
 	return &NotifyService{
 		repo:     repo,
+		rbacSvc:  rbacSvc,
 		queueSvc: queueSvc,
 		eventSvc: eventSvc,
 		auditSvc: auditSvc,
@@ -37,8 +39,10 @@ func NewNotifyService(repo ports.NotifyRepository, queueSvc ports.QueueService, 
 
 func (s *NotifyService) CreateTopic(ctx context.Context, name string) (*domain.Topic, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyCreate); err != nil {
+		return nil, err
 	}
 
 	existing, _ := s.repo.GetTopicByName(ctx, name, userID)
@@ -71,16 +75,21 @@ func (s *NotifyService) CreateTopic(ctx context.Context, name string) (*domain.T
 
 func (s *NotifyService) ListTopics(ctx context.Context) ([]*domain.Topic, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyRead); err != nil {
+		return nil, err
 	}
+
 	return s.repo.ListTopics(ctx, userID)
 }
 
 func (s *NotifyService) DeleteTopic(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyDelete); err != nil {
+		return err
 	}
 
 	topic, err := s.repo.GetTopicByID(ctx, id, userID)
@@ -106,8 +115,10 @@ func (s *NotifyService) DeleteTopic(ctx context.Context, id uuid.UUID) error {
 
 func (s *NotifyService) Subscribe(ctx context.Context, topicID uuid.UUID, protocol domain.SubscriptionProtocol, endpoint string) (*domain.Subscription, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyWrite); err != nil {
+		return nil, err
 	}
 
 	// Verify topic exists and belongs to user
@@ -143,9 +154,12 @@ func (s *NotifyService) Subscribe(ctx context.Context, topicID uuid.UUID, protoc
 
 func (s *NotifyService) ListSubscriptions(ctx context.Context, topicID uuid.UUID) ([]*domain.Subscription, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyRead); err != nil {
+		return nil, err
 	}
+
 	// Verify topic ownership
 	_, err := s.repo.GetTopicByID(ctx, topicID, userID)
 	if err != nil {
@@ -157,8 +171,10 @@ func (s *NotifyService) ListSubscriptions(ctx context.Context, topicID uuid.UUID
 
 func (s *NotifyService) Unsubscribe(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyDelete); err != nil {
+		return err
 	}
 
 	sub, err := s.repo.GetSubscriptionByID(ctx, id, userID)
@@ -181,8 +197,10 @@ func (s *NotifyService) Unsubscribe(ctx context.Context, id uuid.UUID) error {
 
 func (s *NotifyService) Publish(ctx context.Context, topicID uuid.UUID, body string) error {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyWrite); err != nil {
+		return err
 	}
 
 	topic, err := s.repo.GetTopicByID(ctx, topicID, userID)
