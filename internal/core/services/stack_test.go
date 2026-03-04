@@ -30,8 +30,11 @@ func setupStackServiceTest(_ *testing.T) (*MockStackRepo, *MockInstanceService, 
 	vpcSvc := new(MockVpcService)
 	volumeSvc := new(MockVolumeService)
 	snapshotSvc := new(MockSnapshotService)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewStackService(repo, instanceSvc, vpcSvc, volumeSvc, snapshotSvc, logger)
+	svc := services.NewStackService(repo, rbacSvc, instanceSvc, vpcSvc, volumeSvc, snapshotSvc, logger)
 	return repo, instanceSvc, vpcSvc, volumeSvc, snapshotSvc, svc
 }
 
