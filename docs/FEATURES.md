@@ -101,6 +101,12 @@ This document provides a comprehensive overview of every feature currently imple
 - **Encryption**: Objects encrypted at rest using AES-GCM via EncryptionService.
 - **Audit Trail**: All operations logged for compliance.
 
+**Reliability & Integrity 🆕**:
+- **Two-Phase Upload**: Atomic metadata creation (`PENDING` -> `AVAILABLE`) prevents "invisible" orphaned files.
+- **Automated Orphan GC**: Background worker identifies and purges stalled/failed uploads and their partial files.
+- **Streaming Checksums**: Real-time SHA-256 calculation during the upload stream for verifiable data integrity.
+- **Automatic Content-Sniffing**: MIME type detection from the first 512 bytes of the stream, ensuring accurate metadata.
+
 **Distributed Storage**:
 - **Cluster Status**: Monitor distributed storage cluster health.
 - **Multi-node Support**: Architecture ready for horizontal scaling.
