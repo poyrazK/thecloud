@@ -16,7 +16,10 @@ func TestCreateRule(t *testing.T) {
 	t.Parallel()
 	mockRepo := new(MockLifecycleRepository)
 	mockStorageRepo := new(MockStorageRepo)
-	svc := services.NewLifecycleService(mockRepo, mockStorageRepo)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewLifecycleService(mockRepo, rbacSvc, mockStorageRepo)
 
 	userID := uuid.New()
 	bucketName := "test-bucket"
@@ -68,7 +71,10 @@ func TestListRules(t *testing.T) {
 	t.Parallel()
 	mockRepo := new(MockLifecycleRepository)
 	mockStorageRepo := new(MockStorageRepo)
-	svc := services.NewLifecycleService(mockRepo, mockStorageRepo)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewLifecycleService(mockRepo, rbacSvc, mockStorageRepo)
 
 	userID := uuid.New()
 	bucketName := "test-bucket"
@@ -109,7 +115,10 @@ func TestDeleteRule(t *testing.T) {
 	t.Parallel()
 	mockRepo := new(MockLifecycleRepository)
 	mockStorageRepo := new(MockStorageRepo)
-	svc := services.NewLifecycleService(mockRepo, mockStorageRepo)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewLifecycleService(mockRepo, rbacSvc, mockStorageRepo)
 
 	userID := uuid.New()
 	bucketName := "test-bucket"

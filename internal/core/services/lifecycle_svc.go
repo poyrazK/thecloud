@@ -15,26 +15,35 @@ import (
 // LifecycleService implements bucket lifecycle rule operations.
 type LifecycleService struct {
 	repo        ports.LifecycleRepository
+	rbacSvc     ports.RBACService
 	storageRepo ports.StorageRepository
 }
 
 // NewLifecycleService constructs a LifecycleService.
-func NewLifecycleService(repo ports.LifecycleRepository, storageRepo ports.StorageRepository) *LifecycleService {
+func NewLifecycleService(repo ports.LifecycleRepository, rbacSvc ports.RBACService, storageRepo ports.StorageRepository) *LifecycleService {
 	return &LifecycleService{
 		repo:        repo,
+		rbacSvc:     rbacSvc,
 		storageRepo: storageRepo,
 	}
 }
 
 func (s *LifecycleService) CreateRule(ctx context.Context, bucket string, prefix string, expirationDays int, enabled bool) (*domain.LifecycleRule, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageWrite); err != nil {
+		return nil, err
+	}
+
 	// 1. Verify bucket exists
 	b, err := s.storageRepo.GetBucket(ctx, bucket)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. Verify ownership
-	userID := appcontext.UserIDFromContext(ctx)
+	// 2. Verify ownership (Implicitly handled by Authorize if we want to support shared buckets,
+	// but currently scoped to user in GetBucket or simple comparison)
 	if userID != b.UserID {
 		return nil, errors.New(errors.Forbidden, "you don't own this bucket")
 	}
@@ -46,6 +55,7 @@ func (s *LifecycleService) CreateRule(ctx context.Context, bucket string, prefix
 	rule := &domain.LifecycleRule{
 		ID:             uuid.New(),
 		UserID:         userID,
+		TenantID:       tenantID,
 		BucketName:     bucket,
 		Prefix:         prefix,
 		ExpirationDays: expirationDays,
@@ -62,13 +72,19 @@ func (s *LifecycleService) CreateRule(ctx context.Context, bucket string, prefix
 }
 
 func (s *LifecycleService) ListRules(ctx context.Context, bucket string) ([]*domain.LifecycleRule, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageRead); err != nil {
+		return nil, err
+	}
+
 	// Verify bucket existence/ownership first
 	b, err := s.storageRepo.GetBucket(ctx, bucket)
 	if err != nil {
 		return nil, err
 	}
 
-	userID := appcontext.UserIDFromContext(ctx)
 	if userID != b.UserID {
 		return nil, errors.New(errors.Forbidden, "you don't own this bucket")
 	}
@@ -77,6 +93,13 @@ func (s *LifecycleService) ListRules(ctx context.Context, bucket string) ([]*dom
 }
 
 func (s *LifecycleService) DeleteRule(ctx context.Context, bucket string, ruleID string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageDelete); err != nil {
+		return err
+	}
+
 	id, err := uuid.Parse(ruleID)
 	if err != nil {
 		return errors.New(errors.InvalidInput, "invalid rule id")
@@ -87,14 +110,11 @@ func (s *LifecycleService) DeleteRule(ctx context.Context, bucket string, ruleID
 	if err != nil {
 		return err
 	}
-	userID := appcontext.UserIDFromContext(ctx)
 	if userID != b.UserID {
 		return errors.New(errors.Forbidden, "you don't own this bucket")
 	}
 
-	// Optional: We could verify the rule actually belongs to this bucket by doing a Get() first.
-	// But Delete by ID + UserID is safe enough for permissions.
-	// For API consistency, let's verify.
+	// Verify rule belongs to bucket
 	rule, err := s.repo.Get(ctx, id)
 	if err != nil {
 		return err
