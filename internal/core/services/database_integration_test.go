@@ -5,7 +5,6 @@ package services_test
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"testing"
 	"time"
@@ -176,37 +175,32 @@ func TestCreateReplica(t *testing.T) {
 	assert.Equal(t, domain.RoleReplica, fetched.Role)
 }
 
-func TestCreateDatabaseWithPooling(t *testing.T) {
+func TestModifyDatabaseVolumeResize(t *testing.T) {
 	svc, repo, compute, _, ctx := setupDatabaseServiceTest(t)
 
+	// 1. Create a database with 10GB
 	db, err := svc.CreateDatabase(ctx, ports.CreateDatabaseRequest{
-		Name:             "pooling-db",
+		Name:             "resize-db",
 		Engine:           "postgres",
 		Version:          "16",
 		AllocatedStorage: 10,
-		PoolingEnabled:   true,
 	})
 	require.NoError(t, err)
-	require.NotNil(t, db)
-	assert.True(t, db.PoolingEnabled)
-	assert.NotEmpty(t, db.PoolerContainerID)
-	assert.NotZero(t, db.PoolingPort)
+	defer func() {
+		_ = compute.DeleteInstance(ctx, db.ContainerID)
+	}()
 
-	// Verify connection string uses pooling port
-	connStr, err := svc.GetConnectionString(ctx, db.ID)
+	// 2. Resize to 20GB
+	newSize := 20
+	updated, err := svc.ModifyDatabase(ctx, ports.ModifyDatabaseRequest{
+		ID:               db.ID,
+		AllocatedStorage: &newSize,
+	})
 	require.NoError(t, err)
-	assert.Contains(t, connStr, fmt.Sprintf(":%d", db.PoolingPort))
+	assert.Equal(t, 20, updated.AllocatedStorage)
 
-	// Cleanup
-	err = compute.DeleteInstance(ctx, db.ContainerID)
-	require.NoError(t, err)
-	if db.PoolerContainerID != "" {
-		err = compute.DeleteInstance(ctx, db.PoolerContainerID)
-		require.NoError(t, err)
-	}
-
-	// Verify in repo
+	// 3. Verify in repository
 	fetched, err := repo.GetByID(ctx, db.ID)
 	require.NoError(t, err)
-	assert.True(t, fetched.PoolingEnabled)
+	assert.Equal(t, 20, fetched.AllocatedStorage)
 }
