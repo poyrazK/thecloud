@@ -38,6 +38,7 @@ func versionedStoreKey(key, versionID string) string {
 // StorageService manages object storage metadata and files.
 type StorageService struct {
 	repo       ports.StorageRepository
+	rbacSvc    ports.RBACService
 	store      ports.FileStore
 	auditSvc   ports.AuditService
 	encryptSvc ports.EncryptionService
@@ -45,9 +46,10 @@ type StorageService struct {
 }
 
 // NewStorageService constructs a StorageService with its dependencies.
-func NewStorageService(repo ports.StorageRepository, store ports.FileStore, auditSvc ports.AuditService, encryptSvc ports.EncryptionService, cfg *platform.Config) *StorageService {
+func NewStorageService(repo ports.StorageRepository, rbacSvc ports.RBACService, store ports.FileStore, auditSvc ports.AuditService, encryptSvc ports.EncryptionService, cfg *platform.Config) *StorageService {
 	return &StorageService{
 		repo:       repo,
+		rbacSvc:    rbacSvc,
 		store:      store,
 		auditSvc:   auditSvc,
 		encryptSvc: encryptSvc,
@@ -56,6 +58,13 @@ func NewStorageService(repo ports.StorageRepository, store ports.FileStore, audi
 }
 
 func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r io.Reader) (*domain.Object, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageWrite); err != nil {
+		return nil, err
+	}
+
 	// 1. Check bucket versioning status
 	bucket, err := s.repo.GetBucket(ctx, bucketName)
 	if err != nil {
@@ -97,7 +106,8 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 	// 3. Prepare metadata
 	obj := &domain.Object{
 		ID:          uuid.New(),
-		UserID:      appcontext.UserIDFromContext(ctx),
+		UserID:      userID,
+		TenantID:    tenantID,
 		Bucket:      bucketName,
 		Key:         key,
 		VersionID:   versionID,
@@ -135,6 +145,13 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 }
 
 func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.ReadCloser, *domain.Object, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageRead); err != nil {
+		return nil, nil, err
+	}
+
 	// 1. Get metadata
 	obj, err := s.repo.GetMeta(ctx, bucket, key)
 	if err != nil {
@@ -174,10 +191,24 @@ func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.R
 }
 
 func (s *StorageService) ListObjects(ctx context.Context, bucket string) ([]*domain.Object, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageRead); err != nil {
+		return nil, err
+	}
+
 	return s.repo.List(ctx, bucket)
 }
 
 func (s *StorageService) DownloadVersion(ctx context.Context, bucket, key, versionID string) (io.ReadCloser, *domain.Object, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageRead); err != nil {
+		return nil, nil, err
+	}
+
 	// 1. Get metadata
 	obj, err := s.repo.GetMetaByVersion(ctx, bucket, key, versionID)
 	if err != nil {
@@ -199,10 +230,24 @@ func (s *StorageService) DownloadVersion(ctx context.Context, bucket, key, versi
 }
 
 func (s *StorageService) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageRead); err != nil {
+		return nil, err
+	}
+
 	return s.repo.ListVersions(ctx, bucket, key)
 }
 
 func (s *StorageService) DeleteVersion(ctx context.Context, bucket, key, versionID string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageDelete); err != nil {
+		return err
+	}
+
 	// 1. Get meta to verify ownership/existence
 	if _, err := s.repo.GetMetaByVersion(ctx, bucket, key, versionID); err != nil {
 		return err
@@ -223,6 +268,13 @@ func (s *StorageService) DeleteVersion(ctx context.Context, bucket, key, version
 }
 
 func (s *StorageService) DeleteObject(ctx context.Context, bucket, key string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageDelete); err != nil {
+		return err
+	}
+
 	// 1. Soft delete in DB
 	if err := s.repo.SoftDelete(ctx, bucket, key); err != nil {
 		return err
@@ -243,13 +295,21 @@ func (s *StorageService) DeleteObject(ctx context.Context, bucket, key string) e
 
 // CreateBucket creates a new storage bucket.
 func (s *StorageService) CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageWrite); err != nil {
+		return nil, err
+	}
+
 	if err := validateBucketName(name); err != nil {
 		return nil, err
 	}
 	bucket := &domain.Bucket{
 		ID:        uuid.New(),
 		Name:      name,
-		UserID:    appcontext.UserIDFromContext(ctx),
+		UserID:    userID,
+		TenantID:  tenantID,
 		IsPublic:  isPublic,
 		CreatedAt: time.Now(),
 	}
@@ -267,32 +327,74 @@ func (s *StorageService) CreateBucket(ctx context.Context, name string, isPublic
 
 // GetBucket retrieves bucket metadata.
 func (s *StorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageRead); err != nil {
+		return nil, err
+	}
+
 	return s.repo.GetBucket(ctx, name)
 }
 
 // DeleteBucket deletes a bucket.
 func (s *StorageService) DeleteBucket(ctx context.Context, name string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageDelete); err != nil {
+		return err
+	}
+
 	// Check if bucket is empty? (Logic improvement for later)
 	return s.repo.DeleteBucket(ctx, name)
 }
 
 // ListBuckets list buckets for the current user.
 func (s *StorageService) SetBucketVersioning(ctx context.Context, name string, enabled bool) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageWrite); err != nil {
+		return err
+	}
+
 	return s.repo.SetBucketVersioning(ctx, name, enabled)
 }
 
 func (s *StorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageRead); err != nil {
+		return nil, err
+	}
+
 	return s.repo.ListBuckets(ctx, userID.String())
 }
 
 // GetClusterStatus returns the current state of the storage cluster.
 func (s *StorageService) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
+	// Cluster status might be restricted to Admin
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFullAccess); err != nil {
+		return nil, err
+	}
+
 	return s.store.GetClusterStatus(ctx)
 }
 
 // CreateMultipartUpload initiates a new multipart upload session.
 func (s *StorageService) CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageWrite); err != nil {
+		return nil, err
+	}
+
 	// 1. Verify bucket exists
 	if _, err := s.repo.GetBucket(ctx, bucket); err != nil {
 		return nil, err
@@ -301,7 +403,7 @@ func (s *StorageService) CreateMultipartUpload(ctx context.Context, bucket, key 
 	// 2. Create upload metadata
 	upload := &domain.MultipartUpload{
 		ID:        uuid.New(),
-		UserID:    appcontext.UserIDFromContext(ctx),
+		UserID:    userID,
 		Bucket:    bucket,
 		Key:       key,
 		CreatedAt: time.Now(),
@@ -322,6 +424,13 @@ func (s *StorageService) CreateMultipartUpload(ctx context.Context, bucket, key 
 
 // UploadPart uploads a single part of a multipart upload.
 func (s *StorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageWrite); err != nil {
+		return nil, err
+	}
+
 	// 1. Get upload metadata
 	upload, err := s.repo.GetMultipartUpload(ctx, uploadID)
 	if err != nil {
@@ -355,6 +464,13 @@ func (s *StorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, par
 
 // CompleteMultipartUpload assembles all parts and completes the upload.
 func (s *StorageService) CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageWrite); err != nil {
+		return nil, err
+	}
+
 	// 1. Get upload metadata
 	upload, err := s.repo.GetMultipartUpload(ctx, uploadID)
 	if err != nil {
@@ -403,6 +519,7 @@ func (s *StorageService) CompleteMultipartUpload(ctx context.Context, uploadID u
 	obj := &domain.Object{
 		ID:          uuid.New(),
 		UserID:      upload.UserID,
+		TenantID:    tenantID,
 		Bucket:      upload.Bucket,
 		Key:         upload.Key,
 		VersionID:   versionID,
@@ -436,6 +553,9 @@ func (s *StorageService) CompleteMultipartUpload(ctx context.Context, uploadID u
 
 // CleanupDeleted identifies and permanently removes soft-deleted objects.
 func (s *StorageService) CleanupDeleted(ctx context.Context, limit int) (int, error) {
+	// Background internal task - usually bypasses user-level RBAC or checks System Role
+	// For now we assume the caller has proper permissions (e.g. System Worker)
+
 	// 1. Fetch deleted objects
 	deleted, err := s.repo.ListDeleted(ctx, limit)
 	if err != nil {
@@ -465,6 +585,13 @@ func (s *StorageService) CleanupDeleted(ctx context.Context, limit int) (int, er
 
 // AbortMultipartUpload cancels a multipart upload and cleans up parts.
 func (s *StorageService) AbortMultipartUpload(ctx context.Context, uploadID uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageDelete); err != nil {
+		return err
+	}
+
 	// 1. Get upload
 	upload, err := s.repo.GetMultipartUpload(ctx, uploadID)
 	if err != nil {
@@ -486,13 +613,21 @@ func (s *StorageService) AbortMultipartUpload(ctx context.Context, uploadID uuid
 		return errors.Wrap(errors.Internal, "failed to delete multipart upload", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, appcontext.UserIDFromContext(ctx), "storage.multipart_abort", "storage", uploadID.String(), nil)
+	_ = s.auditSvc.Log(ctx, userID, "storage.multipart_abort", "storage", uploadID.String(), nil)
 
 	return nil
 }
 
 // GeneratePresignedURL generates a temporary signed URL for an object.
 func (s *StorageService) GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	// Signing usually requires read access
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageRead); err != nil {
+		return nil, err
+	}
+
 	// 1. Verify bucket exists
 	if _, err := s.repo.GetBucket(ctx, bucket); err != nil {
 		return nil, errors.Wrap(errors.NotFound, "bucket not found", err)
