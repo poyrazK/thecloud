@@ -3,7 +3,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,14 +14,16 @@ import (
 // ContainerService manages deployments and their containers.
 type ContainerService struct {
 	repo     ports.ContainerRepository
+	rbacSvc  ports.RBACService
 	eventSvc ports.EventService
 	auditSvc ports.AuditService
 }
 
 // NewContainerService constructs a ContainerService with its dependencies.
-func NewContainerService(repo ports.ContainerRepository, eventSvc ports.EventService, auditSvc ports.AuditService) ports.ContainerService {
+func NewContainerService(repo ports.ContainerRepository, rbacSvc ports.RBACService, eventSvc ports.EventService, auditSvc ports.AuditService) ports.ContainerService {
 	return &ContainerService{
 		repo:     repo,
+		rbacSvc:  rbacSvc,
 		eventSvc: eventSvc,
 		auditSvc: auditSvc,
 	}
@@ -30,13 +31,16 @@ func NewContainerService(repo ports.ContainerRepository, eventSvc ports.EventSer
 
 func (s *ContainerService) CreateDeployment(ctx context.Context, name, image string, replicas int, ports string) (*domain.Deployment, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceLaunch); err != nil {
+		return nil, err
 	}
 
 	dep := &domain.Deployment{
 		ID:           uuid.New(),
 		UserID:       userID,
+		TenantID:     tenantID,
 		Name:         name,
 		Image:        image,
 		Replicas:     replicas,
@@ -63,22 +67,34 @@ func (s *ContainerService) CreateDeployment(ctx context.Context, name, image str
 
 func (s *ContainerService) ListDeployments(ctx context.Context) ([]*domain.Deployment, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead); err != nil {
+		return nil, err
 	}
+
 	return s.repo.ListDeployments(ctx, userID)
 }
 
 func (s *ContainerService) GetDeployment(ctx context.Context, id uuid.UUID) (*domain.Deployment, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead); err != nil {
+		return nil, err
 	}
+
 	return s.repo.GetDeploymentByID(ctx, id, userID)
 }
 
 func (s *ContainerService) ScaleDeployment(ctx context.Context, id uuid.UUID, replicas int) error {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate); err != nil {
+		return err
+	}
+
 	dep, err := s.repo.GetDeploymentByID(ctx, id, userID)
 	if err != nil {
 		return err
@@ -99,6 +115,12 @@ func (s *ContainerService) ScaleDeployment(ctx context.Context, id uuid.UUID, re
 
 func (s *ContainerService) DeleteDeployment(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceTerminate); err != nil {
+		return err
+	}
+
 	dep, err := s.repo.GetDeploymentByID(ctx, id, userID)
 	if err != nil {
 		return err
