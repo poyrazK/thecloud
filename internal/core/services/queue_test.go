@@ -2,19 +2,22 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func setupQueueServiceTest(t *testing.T) (ports.QueueService, ports.QueueRepository, context.Context, *pgxpool.Pool) {
+func setupQueueServiceTest(t *testing.T) (ports.QueueService, ports.QueueRepository, *MockRBACService, context.Context, *pgxpool.Pool) {
 	db := setupDB(t)
 	// We don't close DB here, caller should do it via defer
 
@@ -22,21 +25,23 @@ func setupQueueServiceTest(t *testing.T) (ports.QueueService, ports.QueueReposit
 	ctx := setupTestUser(t, db)
 
 	repo := postgres.NewPostgresQueueRepository(db)
+	rbacSvc := new(MockRBACService)
+	// Default: Authorize succeeds if userID is not nil
+	rbacSvc.On("Authorize", mock.Anything, mock.MatchedBy(func(id uuid.UUID) bool { return id != uuid.Nil }), mock.Anything, mock.Anything).Return(nil)
 
 	eventRepo := postgres.NewEventRepository(db)
-	eventSvc := services.NewEventService(eventRepo, nil, slog.Default())
+	eventSvc := services.NewEventService(eventRepo, rbacSvc, nil, slog.Default())
 
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
 
-	svc := services.NewQueueService(repo, eventSvc, auditSvc)
+	svc := services.NewQueueService(repo, rbacSvc, eventSvc, auditSvc)
 
-	return svc, repo, ctx, db
+	return svc, repo, rbacSvc, ctx, db
 }
 
 func TestQueueServiceCreateQueue(t *testing.T) {
-	svc, repo, ctx, db := setupQueueServiceTest(t)
-	defer db.Close()
+	svc, repo, rbacSvc, ctx, _ := setupQueueServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	t.Run("success", func(t *testing.T) {
@@ -61,6 +66,10 @@ func TestQueueServiceCreateQueue(t *testing.T) {
 	})
 
 	t.Run("unauthorized", func(t *testing.T) {
+		// Specifically return error for uuid.Nil (unauthorized context)
+		rbacSvc.On("Authorize", mock.Anything, uuid.Nil, mock.Anything, mock.Anything).
+			Return(fmt.Errorf("unauthorized")).Once()
+
 		_, err := svc.CreateQueue(context.Background(), "no-auth", nil)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unauthorized")
@@ -68,8 +77,7 @@ func TestQueueServiceCreateQueue(t *testing.T) {
 }
 
 func TestQueueServiceSendMessage(t *testing.T) {
-	svc, _, ctx, db := setupQueueServiceTest(t)
-	defer db.Close()
+	svc, _, _, ctx, _ := setupQueueServiceTest(t)
 
 	q, err := svc.CreateQueue(ctx, "msg-queue", nil)
 	require.NoError(t, err)
@@ -84,8 +92,7 @@ func TestQueueServiceSendMessage(t *testing.T) {
 }
 
 func TestQueueServiceReceiveMessages(t *testing.T) {
-	svc, _, ctx, db := setupQueueServiceTest(t)
-	defer db.Close()
+	svc, _, _, ctx, _ := setupQueueServiceTest(t)
 
 	q, err := svc.CreateQueue(ctx, "recv-queue", nil)
 	require.NoError(t, err)
@@ -109,8 +116,7 @@ func TestQueueServiceReceiveMessages(t *testing.T) {
 }
 
 func TestQueueServiceDeleteMessage(t *testing.T) {
-	svc, repo, ctx, db := setupQueueServiceTest(t)
-	defer db.Close()
+	svc, repo, _, ctx, _ := setupQueueServiceTest(t)
 
 	q, err := svc.CreateQueue(ctx, "del-msg-queue", nil)
 	require.NoError(t, err)
@@ -133,8 +139,7 @@ func TestQueueServiceDeleteMessage(t *testing.T) {
 }
 
 func TestQueueServicePurgeQueue(t *testing.T) {
-	svc, repo, ctx, db := setupQueueServiceTest(t)
-	defer db.Close()
+	svc, repo, _, ctx, _ := setupQueueServiceTest(t)
 
 	q, err := svc.CreateQueue(ctx, "purge-queue", nil)
 	require.NoError(t, err)
@@ -152,8 +157,7 @@ func TestQueueServicePurgeQueue(t *testing.T) {
 }
 
 func TestQueueServiceDeleteQueue(t *testing.T) {
-	svc, repo, ctx, db := setupQueueServiceTest(t)
-	defer db.Close()
+	svc, repo, _, ctx, _ := setupQueueServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	q, err := svc.CreateQueue(ctx, "to-delete", nil)
@@ -168,8 +172,7 @@ func TestQueueServiceDeleteQueue(t *testing.T) {
 }
 
 func TestQueueServiceListQueues(t *testing.T) {
-	svc, _, ctx, db := setupQueueServiceTest(t)
-	defer db.Close()
+	svc, _, _, ctx, _ := setupQueueServiceTest(t)
 
 	_, err := svc.CreateQueue(ctx, "q1", nil)
 	require.NoError(t, err)

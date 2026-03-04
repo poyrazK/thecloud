@@ -16,14 +16,16 @@ import (
 // QueueService manages queue resources and message operations.
 type QueueService struct {
 	repo     ports.QueueRepository
+	rbacSvc  ports.RBACService
 	eventSvc ports.EventService
 	auditSvc ports.AuditService
 }
 
 // NewQueueService constructs a QueueService with its dependencies.
-func NewQueueService(repo ports.QueueRepository, eventSvc ports.EventService, auditSvc ports.AuditService) ports.QueueService {
+func NewQueueService(repo ports.QueueRepository, rbacSvc ports.RBACService, eventSvc ports.EventService, auditSvc ports.AuditService) ports.QueueService {
 	return &QueueService{
 		repo:     repo,
+		rbacSvc:  rbacSvc,
 		eventSvc: eventSvc,
 		auditSvc: auditSvc,
 	}
@@ -31,8 +33,10 @@ func NewQueueService(repo ports.QueueRepository, eventSvc ports.EventService, au
 
 func (s *QueueService) CreateQueue(ctx context.Context, name string, opts *ports.CreateQueueOptions) (*domain.Queue, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueCreate); err != nil {
+		return nil, err
 	}
 
 	// Check if already exists
@@ -85,8 +89,10 @@ func (s *QueueService) CreateQueue(ctx context.Context, name string, opts *ports
 
 func (s *QueueService) GetQueue(ctx context.Context, id uuid.UUID) (*domain.Queue, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueRead); err != nil {
+		return nil, err
 	}
 
 	q, err := s.repo.GetByID(ctx, id, userID)
@@ -102,16 +108,29 @@ func (s *QueueService) GetQueue(ctx context.Context, id uuid.UUID) (*domain.Queu
 
 func (s *QueueService) ListQueues(ctx context.Context) ([]*domain.Queue, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueRead); err != nil {
+		return nil, err
 	}
+
 	return s.repo.List(ctx, userID)
 }
 
 func (s *QueueService) DeleteQueue(ctx context.Context, id uuid.UUID) error {
-	q, err := s.GetQueue(ctx, id)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueDelete); err != nil {
+		return err
+	}
+
+	q, err := s.repo.GetByID(ctx, id, userID)
 	if err != nil {
 		return err
+	}
+	if q == nil {
+		return fmt.Errorf("queue not found")
 	}
 
 	if err := s.repo.Delete(ctx, q.ID); err != nil {
@@ -128,9 +147,19 @@ func (s *QueueService) DeleteQueue(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *QueueService) SendMessage(ctx context.Context, queueID uuid.UUID, body string) (*domain.Message, error) {
-	q, err := s.GetQueue(ctx, queueID)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueWrite); err != nil {
+		return nil, err
+	}
+
+	q, err := s.repo.GetByID(ctx, queueID, userID)
 	if err != nil {
 		return nil, err
+	}
+	if q == nil {
+		return nil, fmt.Errorf("queue not found")
 	}
 
 	if len(body) > q.MaxMessageSize {
@@ -150,9 +179,19 @@ func (s *QueueService) SendMessage(ctx context.Context, queueID uuid.UUID, body 
 }
 
 func (s *QueueService) ReceiveMessages(ctx context.Context, queueID uuid.UUID, maxMessages int) ([]*domain.Message, error) {
-	q, err := s.GetQueue(ctx, queueID)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueRead); err != nil {
+		return nil, err
+	}
+
+	q, err := s.repo.GetByID(ctx, queueID, userID)
 	if err != nil {
 		return nil, err
+	}
+	if q == nil {
+		return nil, fmt.Errorf("queue not found")
 	}
 
 	if maxMessages <= 0 {
@@ -176,9 +215,19 @@ func (s *QueueService) ReceiveMessages(ctx context.Context, queueID uuid.UUID, m
 }
 
 func (s *QueueService) DeleteMessage(ctx context.Context, queueID uuid.UUID, receiptHandle string) error {
-	q, err := s.GetQueue(ctx, queueID)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueWrite); err != nil {
+		return err
+	}
+
+	q, err := s.repo.GetByID(ctx, queueID, userID)
 	if err != nil {
 		return err
+	}
+	if q == nil {
+		return fmt.Errorf("queue not found")
 	}
 
 	if err := s.repo.DeleteMessage(ctx, q.ID, receiptHandle); err != nil {
@@ -193,9 +242,19 @@ func (s *QueueService) DeleteMessage(ctx context.Context, queueID uuid.UUID, rec
 }
 
 func (s *QueueService) PurgeQueue(ctx context.Context, queueID uuid.UUID) error {
-	q, err := s.GetQueue(ctx, queueID)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueWrite); err != nil {
+		return err
+	}
+
+	q, err := s.repo.GetByID(ctx, queueID, userID)
 	if err != nil {
 		return err
+	}
+	if q == nil {
+		return fmt.Errorf("queue not found")
 	}
 
 	_, err = s.repo.PurgeMessages(ctx, q.ID)
