@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/filesystem"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,7 +28,10 @@ func setupImageServiceTest(t *testing.T) (ports.ImageService, ports.ImageReposit
 	store, err := filesystem.NewLocalFileStore(tmpDir)
 	require.NoError(t, err)
 
-	svc := services.NewImageService(repo, store, nil)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewImageService(repo, rbacSvc, store, slog.Default())
 	return svc, repo, ctx
 }
 
