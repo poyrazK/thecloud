@@ -83,8 +83,11 @@ func TestSystem_ComputeLifecycle_Full(t *testing.T) {
 	auditRepo := postgres.NewAuditRepository(db)
 
 	// 4. Services
-	eventSvc := services.NewEventService(eventRepo, nil, logger)
-	auditSvc := services.NewAuditService(auditRepo)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	eventSvc := services.NewEventService(eventRepo, rbacSvc, nil, logger)
+	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
 	taskQueue := &SyncTaskQueue{}
 	network := noop.NewNoopNetworkAdapter(logger)
 
