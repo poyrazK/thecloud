@@ -28,6 +28,7 @@ func BenchmarkInstanceServiceList(b *testing.B) {
 	network := &noop.NoopNetworkAdapter{}
 	eventSvc := &noop.NoopEventService{}
 	auditSvc := &noop.NoopAuditService{}
+	rbacSvc := &noop.NoopRBACService{}
 	logger := slog.Default()
 
 	svc := services.NewInstanceService(services.InstanceServiceParams{
@@ -35,6 +36,7 @@ func BenchmarkInstanceServiceList(b *testing.B) {
 		VpcRepo:          vpcRepo,
 		SubnetRepo:       subnetRepo,
 		VolumeRepo:       volumeRepo,
+		RBAC:             rbacSvc,
 		Compute:          compute,
 		Network:          network,
 		EventSvc:         eventSvc,
@@ -57,8 +59,9 @@ func BenchmarkVPCServiceGet(b *testing.B) {
 	repo := &noop.NoopVpcRepository{}
 	network := &noop.NoopNetworkAdapter{}
 	auditSvc := &noop.NoopAuditService{}
+	rbacSvc := &noop.NoopRBACService{}
 	logger := slog.Default()
-	svc := services.NewVpcService(repo, &noop.NoopLBRepository{}, network, auditSvc, logger, testutil.TestCIDR)
+	svc := services.NewVpcService(repo, &noop.NoopLBRepository{}, rbacSvc, network, auditSvc, logger, testutil.TestCIDR)
 
 	ctx := context.Background()
 	id := uuid.New()
@@ -79,12 +82,14 @@ func BenchmarkInstanceServiceCreate(b *testing.B) {
 	network := noop.NewNoopNetworkAdapter(logger)
 	eventSvc := &noop.NoopEventService{}
 	auditSvc := &noop.NoopAuditService{}
+	rbacSvc := &noop.NoopRBACService{}
 
 	svc := services.NewInstanceService(services.InstanceServiceParams{
 		Repo:             repo,
 		VpcRepo:          vpcRepo,
 		SubnetRepo:       subnetRepo,
 		VolumeRepo:       volumeRepo,
+		RBAC:             rbacSvc,
 		Compute:          compute,
 		Network:          network,
 		EventSvc:         eventSvc,
@@ -118,9 +123,10 @@ func BenchmarkFunctionServiceInvoke(b *testing.B) {
 	compute := &noop.NoopComputeBackend{}
 	fileStore := &noop.NoopFileStore{}
 	auditSvc := &noop.NoopAuditService{}
+	rbacSvc := &noop.NoopRBACService{}
 	logger := slog.Default()
 
-	svc := services.NewFunctionService(repo, compute, fileStore, auditSvc, logger)
+	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, logger)
 
 	ctx := context.Background()
 	id := uuid.New()
@@ -141,6 +147,7 @@ func BenchmarkInstanceServiceCreateParallel(b *testing.B) {
 	network := noop.NewNoopNetworkAdapter(logger)
 	eventSvc := &noop.NoopEventService{}
 	auditSvc := &noop.NoopAuditService{}
+	rbacSvc := &noop.NoopRBACService{}
 
 	// Disable tracing for benchmarks to avoid overhead
 	_ = os.Setenv("TRACING_ENABLED", "false")
@@ -150,6 +157,7 @@ func BenchmarkInstanceServiceCreateParallel(b *testing.B) {
 		VpcRepo:          vpcRepo,
 		SubnetRepo:       subnetRepo,
 		VolumeRepo:       volumeRepo,
+		RBAC:             rbacSvc,
 		Compute:          compute,
 		Network:          network,
 		EventSvc:         eventSvc,
@@ -231,10 +239,12 @@ func BenchmarkDatabaseServiceList(b *testing.B) {
 	vpcRepo := &noop.NoopVpcRepository{}
 	eventSvc := &noop.NoopEventService{}
 	auditSvc := &noop.NoopAuditService{}
+	rbacSvc := &noop.NoopRBACService{}
 	logger := slog.Default()
 
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
 		Repo:     repo,
+		RBAC:     rbacSvc,
 		Compute:  compute,
 		VpcRepo:  vpcRepo,
 		EventSvc: eventSvc,
@@ -267,10 +277,12 @@ func BenchmarkDatabaseContentionParallel(b *testing.B) {
 	vpcRepo := &noop.NoopVpcRepository{}
 	eventSvc := &noop.NoopEventService{}
 	auditSvc := &noop.NoopAuditService{}
+	rbacSvc := &noop.NoopRBACService{}
 	logger := slog.Default()
 
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
 		Repo:     repo,
+		RBAC:     rbacSvc,
 		Compute:  compute,
 		VpcRepo:  vpcRepo,
 		EventSvc: eventSvc,
@@ -294,9 +306,10 @@ func BenchmarkCacheServiceList(b *testing.B) {
 	vpcRepo := &noop.NoopVpcRepository{}
 	eventSvc := &noop.NoopEventService{}
 	auditSvc := &noop.NoopAuditService{}
+	rbacSvc := &noop.NoopRBACService{}
 	logger := slog.Default()
 
-	svc := services.NewCacheService(repo, compute, vpcRepo, eventSvc, auditSvc, logger)
+	svc := services.NewCacheService(repo, rbacSvc, compute, vpcRepo, eventSvc, auditSvc, logger)
 
 	ctx := context.Background()
 
@@ -310,8 +323,9 @@ func BenchmarkStorageServiceList(b *testing.B) {
 	repo := &noop.NoopStorageRepository{}
 	fileStore := &noop.NoopFileStore{}
 	auditSvc := &noop.NoopAuditService{}
+	rbacSvc := &noop.NoopRBACService{}
 
-	svc := services.NewStorageService(repo, fileStore, auditSvc, nil, nil)
+	svc := services.NewStorageService(repo, rbacSvc, fileStore, auditSvc, nil, nil)
 
 	ctx := context.Background()
 
@@ -326,9 +340,10 @@ func BenchmarkFunctionServiceList(b *testing.B) {
 	compute := &noop.NoopComputeBackend{}
 	fileStore := &noop.NoopFileStore{}
 	auditSvc := &noop.NoopAuditService{}
+	rbacSvc := &noop.NoopRBACService{}
 	logger := slog.Default()
 
-	svc := services.NewFunctionService(repo, compute, fileStore, auditSvc, logger)
+	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, logger)
 
 	ctx := context.Background()
 
