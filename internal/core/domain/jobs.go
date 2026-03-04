@@ -39,6 +39,7 @@ const (
 type ClusterJob struct {
 	ClusterID uuid.UUID      `json:"cluster_id"`
 	UserID    uuid.UUID      `json:"user_id"`
+	TenantID  uuid.UUID      `json:"tenant_id"`
 	Type      ClusterJobType `json:"type"`
 	Version   string         `json:"version,omitempty"` // For upgrades
 }
