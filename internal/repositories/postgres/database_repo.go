@@ -111,11 +111,11 @@ func (r *DatabaseRepository) scanDatabases(rows pgx.Rows) ([]*domain.Database, e
 func (r *DatabaseRepository) Update(ctx context.Context, db *domain.Database) error {
 	query := `
 		UPDATE databases
-		SET name = $1, status = $2, role = $3, primary_id = $4, container_id = $5, port = $6, updated_at = $7, parameters = $8, metrics_enabled = $9, metrics_port = $10, exporter_container_id = $11, pooling_enabled = $12, pooling_port = $13, pooler_container_id = $14
-		WHERE id = $15 AND user_id = $16
+		SET name = $1, status = $2, role = $3, primary_id = $4, container_id = $5, port = $6, updated_at = $7, parameters = $8, metrics_enabled = $9, metrics_port = $10, exporter_container_id = $11, pooling_enabled = $12, pooling_port = $13, pooler_container_id = $14, allocated_storage = $15
+		WHERE id = $16 AND user_id = $17
 	`
 	now := time.Now()
-	cmd, err := r.db.Exec(ctx, query, db.Name, db.Status, db.Role, db.PrimaryID, db.ContainerID, db.Port, now, db.Parameters, db.MetricsEnabled, db.MetricsPort, db.ExporterContainerID, db.PoolingEnabled, db.PoolingPort, db.PoolerContainerID, db.ID, db.UserID)
+	cmd, err := r.db.Exec(ctx, query, db.Name, db.Status, db.Role, db.PrimaryID, db.ContainerID, db.Port, now, db.Parameters, db.MetricsEnabled, db.MetricsPort, db.ExporterContainerID, db.PoolingEnabled, db.PoolingPort, db.PoolerContainerID, db.AllocatedStorage, db.ID, db.UserID)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to update database", err)
 	}
