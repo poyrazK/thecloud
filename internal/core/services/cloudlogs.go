@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -12,21 +14,31 @@ import (
 
 // CloudLogsService implements the LogService port.
 type CloudLogsService struct {
-	repo   ports.LogRepository
-	logger *slog.Logger
+	repo    ports.LogRepository
+	rbacSvc ports.RBACService
+	logger  *slog.Logger
 }
 
 // NewCloudLogsService creates a new CloudLogsService.
-func NewCloudLogsService(repo ports.LogRepository, logger *slog.Logger) *CloudLogsService {
+func NewCloudLogsService(repo ports.LogRepository, rbacSvc ports.RBACService, logger *slog.Logger) *CloudLogsService {
 	return &CloudLogsService{
-		repo:   repo,
-		logger: logger,
+		repo:    repo,
+		rbacSvc: rbacSvc,
+		logger:  logger,
 	}
 }
 
 func (s *CloudLogsService) IngestLogs(ctx context.Context, entries []*domain.LogEntry) error {
 	if len(entries) == 0 {
 		return nil
+	}
+
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	// Writing logs is typically a write or launch permission, but audit is safer for general logs
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate); err != nil {
+		return err
 	}
 
 	// Extract TraceID from context if available
@@ -40,6 +52,10 @@ func (s *CloudLogsService) IngestLogs(ctx context.Context, entries []*domain.Log
 		if entry.TraceID == "" {
 			entry.TraceID = traceID
 		}
+		// Ensure TenantID is set
+		if entry.TenantID == uuid.Nil {
+			entry.TenantID = tenantID
+		}
 	}
 
 	// Validate or process entries if needed before persistence
@@ -47,10 +63,25 @@ func (s *CloudLogsService) IngestLogs(ctx context.Context, entries []*domain.Log
 }
 
 func (s *CloudLogsService) SearchLogs(ctx context.Context, query domain.LogQuery) ([]*domain.LogEntry, int, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAuditRead); err != nil {
+		return nil, 0, err
+	}
+
 	return s.repo.List(ctx, query)
 }
 
 func (s *CloudLogsService) RunRetentionPolicy(ctx context.Context, days int) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	// Privileged system operation
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFullAccess); err != nil {
+		return err
+	}
+
 	if days <= 0 {
 		return errors.New(errors.InvalidInput, "invalid retention days; must be > 0")
 	}

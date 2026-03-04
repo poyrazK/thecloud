@@ -12,6 +12,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func setupCloudLogsServiceTest(t *testing.T) (*services.CloudLogsService, *postgres.LogRepository, context.Context) {
@@ -20,7 +21,10 @@ func setupCloudLogsServiceTest(t *testing.T) (*services.CloudLogsService, *postg
 	ctx := setupTestUser(t, db)
 
 	repo := postgres.NewLogRepository(db)
-	svc := services.NewCloudLogsService(repo, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewCloudLogsService(repo, rbacSvc, slog.Default())
 	return svc, repo, ctx
 }
 

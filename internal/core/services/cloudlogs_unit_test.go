@@ -18,7 +18,10 @@ import (
 
 func TestCloudLogsService_IngestLogs_Unit(t *testing.T) {
 	mockRepo := new(MockLogRepository)
-	svc := services.NewCloudLogsService(mockRepo, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewCloudLogsService(mockRepo, rbacSvc, slog.Default())
 	ctx := context.Background()
 
 	t.Run("success with entries", func(t *testing.T) {
@@ -49,17 +52,17 @@ func TestCloudLogsService_IngestLogs_Unit(t *testing.T) {
 		res, _ := resource.New(ctx, resource.WithAttributes(semconv.ServiceNameKey.String("test")))
 		tp := sdktrace.NewTracerProvider(sdktrace.WithResource(res))
 		tr := tp.Tracer("test")
-		
+
 		ctxWithTrace, span := tr.Start(ctx, "test-span")
 		defer span.End()
-		
+
 		traceID := span.SpanContext().TraceID().String()
 
 		entries := []*domain.LogEntry{
 			{ID: uuid.New(), Message: "test context trace"},
 		}
 		mockRepo.On("Create", mock.Anything, entries).Return(nil).Once()
-		
+
 		err := svc.IngestLogs(ctxWithTrace, entries)
 		assert.NoError(t, err)
 		assert.Equal(t, traceID, entries[0].TraceID)
@@ -68,12 +71,12 @@ func TestCloudLogsService_IngestLogs_Unit(t *testing.T) {
 	t.Run("no trace id in context", func(t *testing.T) {
 		// Use a context with a no-op span (no trace ID)
 		ctxNoTrace := trace.ContextWithSpan(ctx, trace.SpanFromContext(context.Background()))
-		
+
 		entries := []*domain.LogEntry{
 			{ID: uuid.New(), Message: "no trace"},
 		}
 		mockRepo.On("Create", mock.Anything, entries).Return(nil).Once()
-		
+
 		err := svc.IngestLogs(ctxNoTrace, entries)
 		assert.NoError(t, err)
 		assert.Equal(t, "", entries[0].TraceID)
@@ -84,12 +87,15 @@ func TestCloudLogsService_IngestLogs_Unit(t *testing.T) {
 
 func TestCloudLogsService_SearchLogs_Unit(t *testing.T) {
 	mockRepo := new(MockLogRepository)
-	svc := services.NewCloudLogsService(mockRepo, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewCloudLogsService(mockRepo, rbacSvc, slog.Default())
 	ctx := context.Background()
 
 	query := domain.LogQuery{ResourceID: "res-1"}
 	expectedLogs := []*domain.LogEntry{{Message: "found"}}
-	
+
 	mockRepo.On("List", mock.Anything, query).Return(expectedLogs, 1, nil)
 
 	logs, total, err := svc.SearchLogs(ctx, query)
@@ -101,7 +107,10 @@ func TestCloudLogsService_SearchLogs_Unit(t *testing.T) {
 
 func TestCloudLogsService_RunRetentionPolicy_Unit(t *testing.T) {
 	mockRepo := new(MockLogRepository)
-	svc := services.NewCloudLogsService(mockRepo, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewCloudLogsService(mockRepo, rbacSvc, slog.Default())
 	ctx := context.Background()
 
 	mockRepo.On("DeleteByAge", mock.Anything, 30).Return(nil)
@@ -110,3 +119,4 @@ func TestCloudLogsService_RunRetentionPolicy_Unit(t *testing.T) {
 	assert.NoError(t, err)
 	mockRepo.AssertExpectations(t)
 }
+
