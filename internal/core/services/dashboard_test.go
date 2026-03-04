@@ -174,13 +174,93 @@ func (m *mockEventRepo) List(ctx context.Context, limit int) ([]*domain.Event, e
 	return args.Get(0).([]*domain.Event), args.Error(1)
 }
 
-func setupDashboardServiceTest(_ *testing.T) (*mockInstanceRepo, *mockVolumeRepo, *mockVpcRepo, *mockEventRepo, ports.DashboardService) {
+type mockRBACService struct {
+	mock.Mock
+}
+
+func (m *mockRBACService) Authorize(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission) error {
+	args := m.Called(ctx, userID, tenantID, permission)
+	return args.Error(0)
+}
+
+func (m *mockRBACService) HasPermission(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission) (bool, error) {
+	args := m.Called(ctx, userID, tenantID, permission)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *mockRBACService) ListRoles(ctx context.Context) ([]*domain.Role, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Role), args.Error(1)
+}
+
+func (m *mockRBACService) GetRoleByID(ctx context.Context, id uuid.UUID) (*domain.Role, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Role), args.Error(1)
+}
+
+func (m *mockRBACService) GetRoleByName(ctx context.Context, name string) (*domain.Role, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Role), args.Error(1)
+}
+
+func (m *mockRBACService) CreateRole(ctx context.Context, role *domain.Role) error {
+	args := m.Called(ctx, role)
+	return args.Error(0)
+}
+
+func (m *mockRBACService) UpdateRole(ctx context.Context, role *domain.Role) error {
+	args := m.Called(ctx, role)
+	return args.Error(0)
+}
+
+func (m *mockRBACService) DeleteRole(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *mockRBACService) AddPermissionToRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
+	args := m.Called(ctx, roleID, permission)
+	return args.Error(0)
+}
+
+func (m *mockRBACService) RemovePermissionFromRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
+	args := m.Called(ctx, roleID, permission)
+	return args.Error(0)
+}
+
+func (m *mockRBACService) BindRole(ctx context.Context, userIdentifier string, roleName string) error {
+	args := m.Called(ctx, userIdentifier, roleName)
+	return args.Error(0)
+}
+
+func (m *mockRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.User), args.Error(1)
+}
+
+func setupDashboardServiceTest(_ *testing.T) (*mockInstanceRepo, *mockVolumeRepo, *mockVpcRepo, *mockEventRepo, *mockRBACService, ports.DashboardService) {
 	instanceRepo := new(mockInstanceRepo)
 	volumeRepo := new(mockVolumeRepo)
 	vpcRepo := new(mockVpcRepo)
 	eventRepo := new(mockEventRepo)
-	svc := NewDashboardService(instanceRepo, volumeRepo, vpcRepo, eventRepo, slog.Default())
-	return instanceRepo, volumeRepo, vpcRepo, eventRepo, svc
+	rbacSvc := new(mockRBACService)
+	// Default to success for tests that don't explicitly mock it
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := NewDashboardService(rbacSvc, instanceRepo, volumeRepo, vpcRepo, eventRepo, slog.Default())
+	return instanceRepo, volumeRepo, vpcRepo, eventRepo, rbacSvc, svc
 }
 
 func TestDashboardServiceGetSummary(t *testing.T) {
@@ -228,7 +308,7 @@ func TestDashboardServiceGetSummary(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			instanceRepo, volumeRepo, vpcRepo, _, svc := setupDashboardServiceTest(t)
+			instanceRepo, volumeRepo, vpcRepo, _, _, svc := setupDashboardServiceTest(t)
 			defer instanceRepo.AssertExpectations(t)
 			defer volumeRepo.AssertExpectations(t)
 			defer vpcRepo.AssertExpectations(t)
@@ -250,7 +330,7 @@ func TestDashboardServiceGetSummary(t *testing.T) {
 
 func TestDashboardServiceGetRecentEvents(t *testing.T) {
 	t.Parallel()
-	_, _, _, eventRepo, svc := setupDashboardServiceTest(t)
+	_, _, _, eventRepo, _, svc := setupDashboardServiceTest(t)
 	defer eventRepo.AssertExpectations(t)
 
 	events := []*domain.Event{
@@ -267,7 +347,7 @@ func TestDashboardServiceGetRecentEvents(t *testing.T) {
 
 func TestDashboardServiceGetStats(t *testing.T) {
 	t.Parallel()
-	instanceRepo, volumeRepo, vpcRepo, eventRepo, svc := setupDashboardServiceTest(t)
+	instanceRepo, volumeRepo, vpcRepo, eventRepo, _, svc := setupDashboardServiceTest(t)
 	defer instanceRepo.AssertExpectations(t)
 	defer volumeRepo.AssertExpectations(t)
 	defer vpcRepo.AssertExpectations(t)
