@@ -18,15 +18,17 @@ import (
 // SubnetService manages subnet lifecycle within VPCs.
 type SubnetService struct {
 	repo     ports.SubnetRepository
+	rbacSvc  ports.RBACService
 	vpcRepo  ports.VpcRepository
 	auditSvc ports.AuditService
 	logger   *slog.Logger
 }
 
 // NewSubnetService constructs a SubnetService with its dependencies.
-func NewSubnetService(repo ports.SubnetRepository, vpcRepo ports.VpcRepository, auditSvc ports.AuditService, logger *slog.Logger) *SubnetService {
+func NewSubnetService(repo ports.SubnetRepository, rbacSvc ports.RBACService, vpcRepo ports.VpcRepository, auditSvc ports.AuditService, logger *slog.Logger) *SubnetService {
 	return &SubnetService{
 		repo:     repo,
+		rbacSvc:  rbacSvc,
 		vpcRepo:  vpcRepo,
 		auditSvc: auditSvc,
 		logger:   logger,
@@ -35,6 +37,12 @@ func NewSubnetService(repo ports.SubnetRepository, vpcRepo ports.VpcRepository, 
 
 func (s *SubnetService) CreateSubnet(ctx context.Context, vpcID uuid.UUID, name, cidrBlock, az string) (*domain.Subnet, error) {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	// Creating a subnet is considered a VPC Update
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcUpdate); err != nil {
+		return nil, err
+	}
 
 	// 1. Get VPC and validate CIDR range
 	vpc, err := s.vpcRepo.GetByID(ctx, vpcID)
@@ -66,6 +74,7 @@ func (s *SubnetService) CreateSubnet(ctx context.Context, vpcID uuid.UUID, name,
 	subnet := &domain.Subnet{
 		ID:               subnetID,
 		UserID:           userID,
+		TenantID:         tenantID,
 		VPCID:            vpcID,
 		Name:             name,
 		CIDRBlock:        cidrBlock,
@@ -90,6 +99,13 @@ func (s *SubnetService) CreateSubnet(ctx context.Context, vpcID uuid.UUID, name,
 }
 
 func (s *SubnetService) GetSubnet(ctx context.Context, idOrName string, vpcID uuid.UUID) (*domain.Subnet, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead); err != nil {
+		return nil, err
+	}
+
 	id, err := uuid.Parse(idOrName)
 	if err == nil {
 		return s.repo.GetByID(ctx, id)
@@ -98,10 +114,24 @@ func (s *SubnetService) GetSubnet(ctx context.Context, idOrName string, vpcID uu
 }
 
 func (s *SubnetService) ListSubnets(ctx context.Context, vpcID uuid.UUID) ([]*domain.Subnet, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead); err != nil {
+		return nil, err
+	}
+
 	return s.repo.ListByVPC(ctx, vpcID)
 }
 
 func (s *SubnetService) DeleteSubnet(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcDelete); err != nil {
+		return err
+	}
+
 	subnet, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
