@@ -17,6 +17,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/filesystem"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,12 +35,15 @@ func setupFunctionServiceTest(t *testing.T) (*services.FunctionService, ports.Fu
 	fileStore, err := filesystem.NewLocalFileStore(tmpStorage)
 	require.NoError(t, err)
 
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewFunctionService(repo, compute, fileStore, auditSvc, logger)
+	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, logger)
 	return svc, repo, compute, fileStore, ctx
 }
 

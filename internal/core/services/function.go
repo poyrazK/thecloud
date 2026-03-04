@@ -39,6 +39,7 @@ var runtimes = map[string]RuntimeConfig{
 // FunctionService manages serverless function lifecycle and invocations.
 type FunctionService struct {
 	repo      ports.FunctionRepository
+	rbacSvc   ports.RBACService
 	compute   ports.ComputeBackend
 	fileStore ports.FileStore
 	auditSvc  ports.AuditService
@@ -46,9 +47,10 @@ type FunctionService struct {
 }
 
 // NewFunctionService constructs a FunctionService with its dependencies.
-func NewFunctionService(repo ports.FunctionRepository, compute ports.ComputeBackend, fileStore ports.FileStore, auditSvc ports.AuditService, logger *slog.Logger) *FunctionService {
+func NewFunctionService(repo ports.FunctionRepository, rbacSvc ports.RBACService, compute ports.ComputeBackend, fileStore ports.FileStore, auditSvc ports.AuditService, logger *slog.Logger) *FunctionService {
 	return &FunctionService{
 		repo:      repo,
+		rbacSvc:   rbacSvc,
 		compute:   compute,
 		fileStore: fileStore,
 		auditSvc:  auditSvc,
@@ -58,8 +60,10 @@ func NewFunctionService(repo ports.FunctionRepository, compute ports.ComputeBack
 
 func (s *FunctionService) CreateFunction(ctx context.Context, name, runtime, handler string, code []byte) (*domain.Function, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, errors.New(errors.Unauthorized, "user not authenticated")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionCreate); err != nil {
+		return nil, err
 	}
 
 	if _, ok := runtimes[runtime]; !ok {
@@ -78,6 +82,7 @@ func (s *FunctionService) CreateFunction(ctx context.Context, name, runtime, han
 	f := &domain.Function{
 		ID:        id,
 		UserID:    userID,
+		TenantID:  tenantID,
 		Name:      name,
 		Runtime:   runtime,
 		Handler:   handler,
@@ -103,18 +108,35 @@ func (s *FunctionService) CreateFunction(ctx context.Context, name, runtime, han
 	return f, nil
 }
 func (s *FunctionService) GetFunction(ctx context.Context, id uuid.UUID) (*domain.Function, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionRead); err != nil {
+		return nil, err
+	}
+
 	return s.repo.GetByID(ctx, id)
 }
 
 func (s *FunctionService) ListFunctions(ctx context.Context) ([]*domain.Function, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, errors.New(errors.Unauthorized, "user not authenticated")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionRead); err != nil {
+		return nil, err
 	}
+
 	return s.repo.List(ctx, userID)
 }
 
 func (s *FunctionService) DeleteFunction(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionDelete); err != nil {
+		return err
+	}
+
 	f, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -137,10 +159,24 @@ func (s *FunctionService) DeleteFunction(ctx context.Context, id uuid.UUID) erro
 }
 
 func (s *FunctionService) GetFunctionLogs(ctx context.Context, id uuid.UUID, limit int) ([]*domain.Invocation, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionRead); err != nil {
+		return nil, err
+	}
+
 	return s.repo.GetInvocations(ctx, id, limit)
 }
 
 func (s *FunctionService) InvokeFunction(ctx context.Context, id uuid.UUID, payload []byte, async bool) (*domain.Invocation, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionInvoke); err != nil {
+		return nil, err
+	}
+
 	f, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
