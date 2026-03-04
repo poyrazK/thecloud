@@ -86,6 +86,12 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 		}
 	}
 
+	// Fallback to default role behaviors if the permission is not explicitly listed in the database.
+	// This ensures backward compatibility for default roles (like developer) during the transition to strict RBAC.
+	if allowed, _ := s.hasDefaultPermission(roleName, permission); allowed {
+		return true, nil
+	}
+
 	s.logger.Warn("RBAC: permission denied (role in DB but permission not listed)", "role", role.Name, "permission", permission)
 	return false, nil
 }
