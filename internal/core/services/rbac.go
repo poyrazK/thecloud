@@ -13,22 +13,24 @@ import (
 )
 
 type rbacService struct {
-	userRepo ports.UserRepository
-	roleRepo ports.RoleRepository
-	logger   *slog.Logger
+	userRepo   ports.UserRepository
+	roleRepo   ports.RoleRepository
+	tenantRepo ports.TenantRepository
+	logger     *slog.Logger
 }
 
 // NewRBACService constructs an RBAC service for role-based authorization.
-func NewRBACService(userRepo ports.UserRepository, roleRepo ports.RoleRepository, logger *slog.Logger) *rbacService {
+func NewRBACService(userRepo ports.UserRepository, roleRepo ports.RoleRepository, tenantRepo ports.TenantRepository, logger *slog.Logger) *rbacService {
 	return &rbacService{
-		userRepo: userRepo,
-		roleRepo: roleRepo,
-		logger:   logger,
+		userRepo:   userRepo,
+		roleRepo:   roleRepo,
+		tenantRepo: tenantRepo,
+		logger:     logger,
 	}
 }
 
-func (s *rbacService) Authorize(ctx context.Context, userID uuid.UUID, permission domain.Permission) error {
-	allowed, err := s.HasPermission(ctx, userID, permission)
+func (s *rbacService) Authorize(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission) error {
+	allowed, err := s.HasPermission(ctx, userID, tenantID, permission)
 	if err != nil {
 		return err
 	}
@@ -38,21 +40,35 @@ func (s *rbacService) Authorize(ctx context.Context, userID uuid.UUID, permissio
 	return nil
 }
 
-func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, permission domain.Permission) (bool, error) {
-	// 1. Get user
-	user, err := s.userRepo.GetByID(ctx, userID)
-	if err != nil {
-		s.logger.Error("RBAC: failed to get user", "user_id", userID, "error", err)
-		return false, fmt.Errorf("failed to get user: %w", err)
+func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission) (bool, error) {
+	var roleName string
+
+	if tenantID == uuid.Nil {
+		// Global context fallback (for system admins or global roles)
+		user, err := s.userRepo.GetByID(ctx, userID)
+		if err != nil {
+			s.logger.Error("RBAC: failed to get user", "user_id", userID, "error", err)
+			return false, fmt.Errorf("failed to get user: %w", err)
+		}
+		roleName = user.Role
+		s.logger.Debug("RBAC: checking global permission", "user_id", userID, "user_role", roleName, "permission", permission)
+	} else {
+		// Tenant context
+		member, err := s.tenantRepo.GetMembership(ctx, tenantID, userID)
+		if err != nil {
+			// If not a member, they have no permissions in this tenant
+			s.logger.Warn("RBAC: user is not a member of tenant", "user_id", userID, "tenant_id", tenantID)
+			return false, nil
+		}
+		roleName = member.Role
+		s.logger.Debug("RBAC: checking tenant permission", "user_id", userID, "tenant_id", tenantID, "tenant_role", roleName, "permission", permission)
 	}
 
-	s.logger.Debug("RBAC: checking permission", "user_id", userID, "user_role", user.Role, "permission", permission)
-
 	// 2. Get role from DB
-	role, err := s.roleRepo.GetRoleByName(ctx, user.Role)
+	role, err := s.roleRepo.GetRoleByName(ctx, roleName)
 	if err != nil {
-		s.logger.Debug("RBAC: role not found in DB, using default permissions", "role", user.Role, "error", err)
-		return s.hasDefaultPermission(user.Role, permission)
+		s.logger.Debug("RBAC: role not found in DB, using default permissions", "role", roleName, "error", err)
+		return s.hasDefaultPermission(roleName, permission)
 	}
 
 	s.logger.Debug("RBAC: found role in DB", "role", role.Name, "permissions_count", len(role.Permissions))
