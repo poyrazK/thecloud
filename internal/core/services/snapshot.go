@@ -17,6 +17,7 @@ import (
 // SnapshotService manages volume snapshots and storage interactions.
 type SnapshotService struct {
 	repo       ports.SnapshotRepository
+	rbacSvc    ports.RBACService
 	volumeRepo ports.VolumeRepository
 	storage    ports.StorageBackend
 	eventSvc   ports.EventService
@@ -30,6 +31,7 @@ const volumeNamePrefix = "thecloud-vol-"
 // NewSnapshotService constructs a SnapshotService with its dependencies.
 func NewSnapshotService(
 	repo ports.SnapshotRepository,
+	rbacSvc ports.RBACService,
 	volumeRepo ports.VolumeRepository,
 	storage ports.StorageBackend,
 	eventSvc ports.EventService,
@@ -38,6 +40,7 @@ func NewSnapshotService(
 ) *SnapshotService {
 	return &SnapshotService{
 		repo:       repo,
+		rbacSvc:    rbacSvc,
 		volumeRepo: volumeRepo,
 		storage:    storage,
 		eventSvc:   eventSvc,
@@ -47,6 +50,13 @@ func NewSnapshotService(
 }
 
 func (s *SnapshotService) CreateSnapshot(ctx context.Context, volumeID uuid.UUID, description string) (*domain.Snapshot, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotCreate); err != nil {
+		return nil, err
+	}
+
 	// 1. Get volume
 	vol, err := s.volumeRepo.GetByID(ctx, volumeID)
 	if err != nil {
@@ -56,7 +66,8 @@ func (s *SnapshotService) CreateSnapshot(ctx context.Context, volumeID uuid.UUID
 	// 2. Create domain entity
 	snapshot := &domain.Snapshot{
 		ID:          uuid.New(),
-		UserID:      appcontext.UserIDFromContext(ctx),
+		UserID:      userID,
+		TenantID:    &tenantID,
 		VolumeID:    volumeID,
 		VolumeName:  vol.Name,
 		SizeGB:      vol.SizeGB,
@@ -98,10 +109,23 @@ func (s *SnapshotService) CreateSnapshot(ctx context.Context, volumeID uuid.UUID
 
 func (s *SnapshotService) ListSnapshots(ctx context.Context) ([]*domain.Snapshot, error) {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotRead); err != nil {
+		return nil, err
+	}
+
 	return s.repo.ListByUserID(ctx, userID)
 }
 
 func (s *SnapshotService) GetSnapshot(ctx context.Context, id uuid.UUID) (*domain.Snapshot, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotRead); err != nil {
+		return nil, err
+	}
+
 	return s.repo.GetByID(ctx, id)
 }
 
@@ -117,6 +141,13 @@ func (s *SnapshotService) performSnapshot(ctx context.Context, vol *domain.Volum
 }
 
 func (s *SnapshotService) DeleteSnapshot(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotDelete); err != nil {
+		return err
+	}
+
 	snapshot, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -140,6 +171,13 @@ func (s *SnapshotService) DeleteSnapshot(ctx context.Context, id uuid.UUID) erro
 }
 
 func (s *SnapshotService) RestoreSnapshot(ctx context.Context, snapshotID uuid.UUID, newVolumeName string) (*domain.Volume, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotRestore); err != nil {
+		return nil, err
+	}
+
 	snapshot, err := s.repo.GetByID(ctx, snapshotID)
 	if err != nil {
 		return nil, err
@@ -152,7 +190,8 @@ func (s *SnapshotService) RestoreSnapshot(ctx context.Context, snapshotID uuid.U
 	// 1. Create new volume domain entity
 	vol := &domain.Volume{
 		ID:        uuid.New(),
-		UserID:    snapshot.UserID,
+		UserID:    userID,
+		TenantID:  tenantID,
 		Name:      newVolumeName,
 		SizeGB:    snapshot.SizeGB,
 		Status:    domain.VolumeStatusAvailable,
