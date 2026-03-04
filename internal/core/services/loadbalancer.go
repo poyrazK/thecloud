@@ -15,15 +15,17 @@ import (
 // LBService manages load balancers and target registration.
 type LBService struct {
 	lbRepo       ports.LBRepository
+	rbacSvc      ports.RBACService
 	vpcRepo      ports.VpcRepository
 	instanceRepo ports.InstanceRepository
 	auditSvc     ports.AuditService
 }
 
 // NewLBService constructs an LBService with its dependencies.
-func NewLBService(lbRepo ports.LBRepository, vpcRepo ports.VpcRepository, instanceRepo ports.InstanceRepository, auditSvc ports.AuditService) *LBService {
+func NewLBService(lbRepo ports.LBRepository, rbacSvc ports.RBACService, vpcRepo ports.VpcRepository, instanceRepo ports.InstanceRepository, auditSvc ports.AuditService) *LBService {
 	return &LBService{
 		lbRepo:       lbRepo,
+		rbacSvc:      rbacSvc,
 		vpcRepo:      vpcRepo,
 		instanceRepo: instanceRepo,
 		auditSvc:     auditSvc,
@@ -31,6 +33,13 @@ func NewLBService(lbRepo ports.LBRepository, vpcRepo ports.VpcRepository, instan
 }
 
 func (s *LBService) Create(ctx context.Context, name string, vpcID uuid.UUID, port int, algo string, idempotencyKey string) (*domain.LoadBalancer, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbCreate); err != nil {
+		return nil, err
+	}
+
 	// Check if already created via idempotency key
 	if idempotencyKey != "" {
 		existing, err := s.lbRepo.GetByIdempotencyKey(ctx, idempotencyKey)
@@ -52,7 +61,8 @@ func (s *LBService) Create(ctx context.Context, name string, vpcID uuid.UUID, po
 
 	lb := &domain.LoadBalancer{
 		ID:             uuid.New(),
-		UserID:         appcontext.UserIDFromContext(ctx),
+		UserID:         userID,
+		TenantID:       tenantID,
 		IdempotencyKey: idempotencyKey,
 		Name:           name,
 		VpcID:          vpcID,
@@ -75,6 +85,13 @@ func (s *LBService) Create(ctx context.Context, name string, vpcID uuid.UUID, po
 }
 
 func (s *LBService) Get(ctx context.Context, idOrName string) (*domain.LoadBalancer, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbRead); err != nil {
+		return nil, err
+	}
+
 	// 1. Try UUID lookup
 	if id, err := uuid.Parse(idOrName); err == nil {
 		return s.lbRepo.GetByID(ctx, id)
@@ -84,10 +101,24 @@ func (s *LBService) Get(ctx context.Context, idOrName string) (*domain.LoadBalan
 }
 
 func (s *LBService) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbRead); err != nil {
+		return nil, err
+	}
+
 	return s.lbRepo.List(ctx)
 }
 
 func (s *LBService) Delete(ctx context.Context, idOrName string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbDelete); err != nil {
+		return err
+	}
+
 	// 1. Get from DB (handles both Name and UUID)
 	lb, err := s.Get(ctx, idOrName)
 	if err != nil {
@@ -107,6 +138,13 @@ func (s *LBService) Delete(ctx context.Context, idOrName string) error {
 }
 
 func (s *LBService) AddTarget(ctx context.Context, lbID, instanceID uuid.UUID, port int, weight int) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbUpdate); err != nil {
+		return err
+	}
+
 	// Get LB
 	lb, err := s.lbRepo.GetByID(ctx, lbID)
 	if err != nil {
@@ -150,6 +188,13 @@ func (s *LBService) AddTarget(ctx context.Context, lbID, instanceID uuid.UUID, p
 }
 
 func (s *LBService) RemoveTarget(ctx context.Context, lbID, instanceID uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbUpdate); err != nil {
+		return err
+	}
+
 	lb, err := s.lbRepo.GetByID(ctx, lbID)
 	if err != nil {
 		return err
@@ -167,5 +212,12 @@ func (s *LBService) RemoveTarget(ctx context.Context, lbID, instanceID uuid.UUID
 }
 
 func (s *LBService) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*domain.LBTarget, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbRead); err != nil {
+		return nil, err
+	}
+
 	return s.lbRepo.ListTargets(ctx, lbID)
 }

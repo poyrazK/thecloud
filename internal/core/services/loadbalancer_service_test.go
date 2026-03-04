@@ -19,7 +19,10 @@ func TestLBServiceGet(t *testing.T) {
 	vpcRepo := new(MockVpcRepo)
 	instanceRepo := new(MockInstanceRepo)
 	auditSvc := new(MockAuditService)
-	svc := services.NewLBService(lbRepo, vpcRepo, instanceRepo, auditSvc)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc)
 
 	lbID := uuid.New()
 	lb := &domain.LoadBalancer{ID: lbID, Name: lbMainName}
@@ -37,7 +40,10 @@ func TestLBServiceList(t *testing.T) {
 	vpcRepo := new(MockVpcRepo)
 	instanceRepo := new(MockInstanceRepo)
 	auditSvc := new(MockAuditService)
-	svc := services.NewLBService(lbRepo, vpcRepo, instanceRepo, auditSvc)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc)
 
 	lbRepo.On("List", mock.Anything).Return([]*domain.LoadBalancer{{ID: uuid.New()}}, nil).Once()
 
@@ -53,7 +59,10 @@ func TestLBServiceRemoveTarget(t *testing.T) {
 	vpcRepo := new(MockVpcRepo)
 	instanceRepo := new(MockInstanceRepo)
 	auditSvc := new(MockAuditService)
-	svc := services.NewLBService(lbRepo, vpcRepo, instanceRepo, auditSvc)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc)
 
 	lbID := uuid.New()
 	instanceID := uuid.New()
@@ -75,7 +84,10 @@ func TestLBServiceListTargets(t *testing.T) {
 	vpcRepo := new(MockVpcRepo)
 	instanceRepo := new(MockInstanceRepo)
 	auditSvc := new(MockAuditService)
-	svc := services.NewLBService(lbRepo, vpcRepo, instanceRepo, auditSvc)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc)
 
 	lbID := uuid.New()
 	targets := []*domain.LBTarget{{ID: uuid.New(), LBID: lbID}}
@@ -93,7 +105,10 @@ func TestLBServiceDelete(t *testing.T) {
 	vpcRepo := new(MockVpcRepo)
 	instanceRepo := new(MockInstanceRepo)
 	auditSvc := new(MockAuditService)
-	svc := services.NewLBService(lbRepo, vpcRepo, instanceRepo, auditSvc)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc)
 
 	lbID := uuid.New()
 	lb := &domain.LoadBalancer{ID: lbID, Name: lbMainName, UserID: uuid.New()}
