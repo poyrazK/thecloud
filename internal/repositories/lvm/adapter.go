@@ -62,6 +62,18 @@ func (a *LvmAdapter) DeleteVolume(ctx context.Context, name string) error {
 	return nil
 }
 
+func (a *LvmAdapter) ResizeVolume(ctx context.Context, name string, newSizeGB int) error {
+	if a.execer == nil {
+		a.execer = &realExecer{ctx: ctx}
+	}
+
+	out, err := a.execer.Run("lvextend", "-L", fmt.Sprintf("%dG", newSizeGB), fmt.Sprintf("%s/%s", a.vgName, name))
+	if err != nil {
+		return fmt.Errorf("failed to extend logical volume: %w, output: %s", err, string(out))
+	}
+	return nil
+}
+
 func (a *LvmAdapter) AttachVolume(ctx context.Context, volumeName, instanceID string) (string, error) {
 	// Attaching in LVM context usually means making it available to the hypervisor.
 	// For Libvirt, it's about adding the disk to the XML.
