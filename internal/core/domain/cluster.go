@@ -52,7 +52,7 @@ type Cluster struct {
 	VpcID           uuid.UUID     `json:"vpc_id"`
 	Version         string        `json:"version"`
 	ControlPlaneIPs []string      `json:"control_plane_ips"`
-	WorkerCount     int           `json:"worker_count"`
+	WorkerCount     int           `json:"worker_count"` // Deprecated: use node_groups
 	Status          ClusterStatus `json:"status"`
 	// NodeGroups contains the node pools for this cluster.
 	NodeGroups []NodeGroup `json:"node_groups,omitempty"`

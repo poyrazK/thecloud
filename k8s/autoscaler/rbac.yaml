@@ -76,8 +76,12 @@ rules:
     verbs: ["create", "list", "watch"]
   - apiGroups: [""]
     resources: ["configmaps"]
-    resourceNames: ["cluster-autoscaler-status", "cluster-id"]
+    resourceNames: ["cluster-autoscaler-status"]
     verbs: ["get", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["cluster-id"]
+    verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

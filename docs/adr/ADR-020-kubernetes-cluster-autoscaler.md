@@ -13,7 +13,7 @@ Implementing an "out-of-tree" provider for the Cluster Autoscaler presents two m
 ## Decision
 **Implement the Cluster Autoscaler using the gRPC External Provider pattern.**
 
-We will build a standalone gRPC bridge (`autoscaler-server`) that implements the official `external_grpc.proto` specification. The official upstream Cluster Autoscaler image will be deployed as a sidecar to this bridge.
+We will build a standalone gRPC bridge (`thecloud-autoscaler-server`) that implements the official `external_grpc.proto` specification. The official upstream Cluster Autoscaler image will be deployed as a sidecar to this bridge.
 
 Additionally, we will **refactor the platform domain to support Node Groups (Node Pools)** as the primary unit of scaling.
 
@@ -26,7 +26,7 @@ Additionally, we will **refactor the platform domain to support Node Groups (Nod
 *   **Rich Metadata**: Using Node Groups allows users to define heterogeneous clusters with different machine types and scaling boundaries.
 
 ### Negative
-*   **Operational Overhead**: Requires running an additional gRPC server (`thecloud-bridge`) within the cluster.
+*   **Operational Overhead**: Requires running an additional gRPC server (`thecloud-autoscaler-server`) within the cluster.
 *   **Complexity**: Adds a gRPC layer between the Autoscaler and the Cloud API.
 
 ### Trade-off Justification

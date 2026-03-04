@@ -13,9 +13,11 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const defaultGRPCPort = 50051
+
 func main() {
 	var (
-		port      = flag.Int("port", 50051, "The gRPC server port")
+		port      = flag.Int("port", defaultGRPCPort, "The gRPC server port")
 		apiURL    = flag.String("api-url", os.Getenv("CLOUD_API_URL"), "The Cloud API URL")
 		apiKey    = flag.String("api-key", os.Getenv("CLOUD_API_KEY"), "The Cloud API Key")
 		clusterID = flag.String("cluster-id", os.Getenv("CLOUD_CLUSTER_ID"), "The Cloud Cluster ID")

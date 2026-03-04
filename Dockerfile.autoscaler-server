@@ -19,10 +19,19 @@ RUN go build -o /app/bin/autoscaler-server ./cmd/autoscaler-server
 # Final stage
 FROM alpine:3.19
 
+# Create a non-root user
+RUN addgroup -S autoscaler && adduser -S autoscaler -G autoscaler
+
 WORKDIR /app
 
 # Copy the binary from the builder stage
 COPY --from=builder /app/bin/autoscaler-server /usr/local/bin/thecloud-autoscaler-server
+
+# Ensure binary is executable and owned by the non-root user
+RUN chown autoscaler:autoscaler /usr/local/bin/thecloud-autoscaler-server && \
+    chmod +x /usr/local/bin/thecloud-autoscaler-server
+
+USER autoscaler
 
 # Run the server
 ENTRYPOINT ["/usr/local/bin/thecloud-autoscaler-server"]

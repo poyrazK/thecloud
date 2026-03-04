@@ -35,7 +35,7 @@ The Autoscaler is deployed as a Deployment in the `kube-system` namespace consis
 1.  A pod is in `Pending` status due to CPU/Memory constraints.
 2.  Upstream CA identifies that a Node Group can satisfy the requirement.
 3.  Upstream CA calls `NodeGroupIncreaseSize` via gRPC.
-4.  `thecloud-bridge` calls `POST /clusters/{id}/nodegroups/{name}` on The Cloud API.
+4.  `thecloud-bridge` calls the Node Group update endpoint (`PUT /clusters/{id}/nodegroups/{name}`) on The Cloud API.
 5.  Cloud API launches a new VM; the VM joins the cluster via cloud-init.
 
 ### Scaling Down Flow

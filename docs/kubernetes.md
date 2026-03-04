@@ -116,7 +116,8 @@ You can SSH into your cluster nodes using the private key stored securely in The
 ### Exposing Services
 Use `type: NodePort` or `type: LoadBalancer` to expose services. The Cloud's security groups and CCM handle the underlying networking automatically.
 
-## Limitations (MVP)
+## Features (MVP)
 *   **Storage**: Dynamic storage provisioning (CSI) is fully integrated.
 *   **High Availability**: Multi-control plane HA (3 masters + API Load Balancer) is supported via the `--ha` flag.
+*   **Autoscaling**: Automatic node group scaling via the integrated Cluster Autoscaler.
 

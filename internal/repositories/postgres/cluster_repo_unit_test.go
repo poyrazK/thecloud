@@ -33,7 +33,7 @@ func TestClusterRepository(t *testing.T) {
 			VpcID:              uuid.New(),
 			Name:               testClusterName,
 			Version:            testClusterVersion,
-			ControlPlaneIPs:    []string{},
+			ControlPlaneIPs:    []string{"10.0.0.1"},
 			WorkerCount:        3,
 			Status:             domain.ClusterStatusRunning,
 			PodCIDR:            "10.244.0.0/16",
@@ -48,7 +48,7 @@ func TestClusterRepository(t *testing.T) {
 
 		mock.ExpectExec("INSERT INTO clusters").
 			WithArgs(cluster.ID, cluster.UserID, cluster.VpcID, cluster.Name, cluster.Version,
-				string(cluster.Status), cluster.WorkerCount, cluster.HAEnabled,
+				string(cluster.Status), cluster.ControlPlaneIPs, cluster.WorkerCount, cluster.HAEnabled,
 				cluster.NetworkIsolation, cluster.PodCIDR, cluster.ServiceCIDR,
 				cluster.APIServerLBAddress, cluster.KubeconfigEncrypted,
 				cluster.SSHPrivateKeyEncrypted, cluster.JoinToken, cluster.TokenExpiresAt,
@@ -65,9 +65,10 @@ func TestClusterRepository(t *testing.T) {
 		repo := NewClusterRepository(mock)
 		id := uuid.New()
 
+		cols := []string{"id", "user_id", "vpc_id", "name", "version", "status", "control_plane_ips", "worker_count", "ha_enabled", "network_isolation", "pod_cidr", "service_cidr", "api_server_lb_address", "kubeconfig_encrypted", "ssh_private_key_encrypted", "join_token", "token_expires_at", "ca_cert_hash", "job_id", "created_at", "updated_at"}
 		mock.ExpectQuery("SELECT .* FROM clusters").WithArgs(id, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "version", "status", "worker_count", "ha_enabled", "network_isolation", "pod_cidr", "service_cidr", "api_server_lb_address", "kubeconfig_encrypted", "ssh_private_key_encrypted", "join_token", "token_expires_at", "ca_cert_hash", "job_id", "created_at", "updated_at"}).
-				AddRow(id, userID, uuid.New(), testClusterName, testClusterVersion, string(domain.ClusterStatusRunning), 3, false, false, "10.244.0.0/16", "10.96.0.0/12", nil, "", "", "", nil, "", nil, time.Now(), time.Now()))
+			WillReturnRows(pgxmock.NewRows(cols).
+				AddRow(id, userID, uuid.New(), testClusterName, testClusterVersion, string(domain.ClusterStatusRunning), []string{"10.0.0.1"}, 3, false, false, "10.244.0.0/16", "10.96.0.0/12", nil, "", "", "", nil, "", nil, time.Now(), time.Now()))
 
 		mock.ExpectQuery("SELECT .* FROM cluster_node_groups").WithArgs(id).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "cluster_id", "name", "instance_type", "min_size", "max_size", "current_size", "created_at", "updated_at"}).
@@ -85,9 +86,10 @@ func TestClusterRepository(t *testing.T) {
 		repo := NewClusterRepository(mock)
 		id := uuid.New()
 
+		cols := []string{"id", "user_id", "vpc_id", "name", "version", "status", "control_plane_ips", "worker_count", "ha_enabled", "network_isolation", "pod_cidr", "service_cidr", "api_server_lb_address", "kubeconfig_encrypted", "ssh_private_key_encrypted", "join_token", "token_expires_at", "ca_cert_hash", "job_id", "created_at", "updated_at"}
 		mock.ExpectQuery("SELECT .* FROM clusters").
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "version", "status", "worker_count", "ha_enabled", "network_isolation", "pod_cidr", "service_cidr", "api_server_lb_address", "kubeconfig_encrypted", "ssh_private_key_encrypted", "join_token", "token_expires_at", "ca_cert_hash", "job_id", "created_at", "updated_at"}).
-				AddRow(id, userID, uuid.New(), "c1", "v1", "RUNNING", 3, false, false, "", "", nil, "", "", "", nil, "", nil, time.Now(), time.Now()))
+			WillReturnRows(pgxmock.NewRows(cols).
+				AddRow(id, userID, uuid.New(), "c1", "v1", "RUNNING", []string{}, 3, false, false, "", "", nil, "", "", "", nil, "", nil, time.Now(), time.Now()))
 
 		mock.ExpectQuery("SELECT .* FROM cluster_node_groups").WithArgs(id).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "cluster_id", "name", "instance_type", "min_size", "max_size", "current_size", "created_at", "updated_at"}).
@@ -105,9 +107,10 @@ func TestClusterRepository(t *testing.T) {
 		repo := NewClusterRepository(mock)
 		id := uuid.New()
 
+		cols := []string{"id", "user_id", "vpc_id", "name", "version", "status", "control_plane_ips", "worker_count", "ha_enabled", "network_isolation", "pod_cidr", "service_cidr", "api_server_lb_address", "kubeconfig_encrypted", "ssh_private_key_encrypted", "join_token", "token_expires_at", "ca_cert_hash", "job_id", "created_at", "updated_at"}
 		mock.ExpectQuery("SELECT .* FROM clusters WHERE user_id = \\$1").WithArgs(userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "vpc_id", "name", "version", "status", "worker_count", "ha_enabled", "network_isolation", "pod_cidr", "service_cidr", "api_server_lb_address", "kubeconfig_encrypted", "ssh_private_key_encrypted", "join_token", "token_expires_at", "ca_cert_hash", "job_id", "created_at", "updated_at"}).
-				AddRow(id, userID, uuid.New(), "c1", "v1", "RUNNING", 3, false, false, "", "", nil, "", "", "", nil, "", nil, time.Now(), time.Now()))
+			WillReturnRows(pgxmock.NewRows(cols).
+				AddRow(id, userID, uuid.New(), "c1", "v1", "RUNNING", []string{}, 3, false, false, "", "", nil, "", "", "", nil, "", nil, time.Now(), time.Now()))
 
 		mock.ExpectQuery("SELECT .* FROM cluster_node_groups").WithArgs(id).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "cluster_id", "name", "instance_type", "min_size", "max_size", "current_size", "created_at", "updated_at"}).
@@ -124,11 +127,11 @@ func TestClusterRepository(t *testing.T) {
 		defer mock.Close()
 		repo := NewClusterRepository(mock)
 		id := uuid.New()
-		cluster := &domain.Cluster{ID: id, UserID: userID, Status: domain.ClusterStatusFailed}
+		cluster := &domain.Cluster{ID: id, UserID: userID, Status: domain.ClusterStatusFailed, ControlPlaneIPs: []string{}}
 
 		mock.ExpectExec("UPDATE clusters").
 			WithArgs(cluster.VpcID, cluster.Name, cluster.Version, string(cluster.Status),
-				cluster.WorkerCount, cluster.HAEnabled, cluster.NetworkIsolation,
+				cluster.ControlPlaneIPs, cluster.WorkerCount, cluster.HAEnabled, cluster.NetworkIsolation,
 				cluster.PodCIDR, cluster.ServiceCIDR, cluster.APIServerLBAddress,
 				cluster.KubeconfigEncrypted, cluster.SSHPrivateKeyEncrypted,
 				cluster.JoinToken, cluster.TokenExpiresAt, cluster.CACertHash,

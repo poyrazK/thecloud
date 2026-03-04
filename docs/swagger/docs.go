@@ -6964,6 +6964,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "worker_count": {
+                    "description": "DEPRECATED: use node_groups for node pool counts; will be removed in next API version",
                     "type": "integer"
                 }
             }
@@ -7873,6 +7874,14 @@ const docTemplate = `{
         },
         "domain.NodeGroup": {
             "type": "object",
+            "required": [
+                "id",
+                "cluster_id",
+                "name",
+                "min_size",
+                "max_size",
+                "current_size"
+            ],
             "properties": {
                 "cluster_id": {
                     "type": "string"
@@ -7881,7 +7890,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "current_size": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "id": {
                     "type": "string"
@@ -7890,10 +7900,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "max_size": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "min_size": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "name": {
                     "type": "string"

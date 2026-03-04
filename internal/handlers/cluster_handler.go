@@ -43,6 +43,7 @@ type CreateClusterRequest struct {
 // @Tags K8s
 // @Accept json
 // @Produce json
+// @Security APIKeyAuth
 // @Param request body CreateClusterRequest true "Cluster details"
 // @Success 202 {object} domain.Cluster
 // @Router /clusters [post]
@@ -84,6 +85,7 @@ func (h *ClusterHandler) CreateCluster(c *gin.Context) {
 // @Description Returns cluster metadata and current status
 // @Tags K8s
 // @Produce json
+// @Security APIKeyAuth
 // @Param id path string true "Cluster ID"
 // @Success 200 {object} domain.Cluster
 // @Router /clusters/{id} [get]
@@ -108,6 +110,7 @@ func (h *ClusterHandler) GetCluster(c *gin.Context) {
 // @Description Returns all clusters belonging to the user
 // @Tags K8s
 // @Produce json
+// @Security APIKeyAuth
 // @Success 200 {array} domain.Cluster
 // @Router /clusters [get]
 func (h *ClusterHandler) ListClusters(c *gin.Context) {
@@ -125,6 +128,7 @@ func (h *ClusterHandler) ListClusters(c *gin.Context) {
 // @Summary Delete a K8s cluster
 // @Description Terminates all nodes and removes the cluster record
 // @Tags K8s
+// @Security APIKeyAuth
 // @Param id path string true "Cluster ID"
 // @Success 202
 // @Router /clusters/{id} [delete]
@@ -148,6 +152,7 @@ func (h *ClusterHandler) DeleteCluster(c *gin.Context) {
 // @Description Returns the kubeconfig for clinical access to the cluster
 // @Tags K8s
 // @Produce plain
+// @Security APIKeyAuth
 // @Param id path string true "Cluster ID"
 // @Param role query string false "Role (e.g. viewer)"
 // @Success 200 {string} string
@@ -173,6 +178,7 @@ func (h *ClusterHandler) GetKubeconfig(c *gin.Context) {
 // @Summary Repair cluster components
 // @Description Re-applies CNI and kube-proxy patches to a running cluster
 // @Tags K8s
+// @Security APIKeyAuth
 // @Param id path string true "Cluster ID"
 // @Success 202
 // @Router /clusters/{id}/repair [post]
@@ -200,6 +206,7 @@ type ScaleClusterRequest struct {
 // @Summary Scale cluster workers
 // @Description Adjusts the number of worker nodes
 // @Tags K8s
+// @Security APIKeyAuth
 // @Param id path string true "Cluster ID"
 // @Param request body ScaleClusterRequest true "Scale Request"
 // @Success 200
@@ -230,6 +237,7 @@ func (h *ClusterHandler) ScaleCluster(c *gin.Context) {
 // @Description Returns readiness of nodes and API server
 // @Tags K8s
 // @Produce json
+// @Security APIKeyAuth
 // @Param id path string true "Cluster ID"
 // @Success 200 {object} ports.ClusterHealth
 // @Router /clusters/{id}/health [get]
@@ -258,6 +266,7 @@ type UpgradeClusterRequest struct {
 // @Summary Upgrade cluster version
 // @Description Initiates an asynchronous upgrade of the Kubernetes control plane and workers
 // @Tags K8s
+// @Security APIKeyAuth
 // @Param id path string true "Cluster ID"
 // @Param request body UpgradeClusterRequest true "Upgrade Request"
 // @Success 202
@@ -287,6 +296,7 @@ func (h *ClusterHandler) UpgradeCluster(c *gin.Context) {
 // @Summary Rotate cluster secrets
 // @Description Renews cluster certificates and refreshes admin kubeconfig
 // @Tags K8s
+// @Security APIKeyAuth
 // @Param id path string true "Cluster ID"
 // @Success 200
 // @Router /clusters/{id}/rotate-secrets [post]
@@ -309,6 +319,7 @@ func (h *ClusterHandler) RotateSecrets(c *gin.Context) {
 // @Summary Create cluster backup
 // @Description Creates an etcd snapshot of the cluster state
 // @Tags K8s
+// @Security APIKeyAuth
 // @Param id path string true "Cluster ID"
 // @Success 202
 // @Router /clusters/{id}/backups [post]
@@ -336,6 +347,7 @@ type RestoreBackupRequest struct {
 // @Summary Restore cluster from backup
 // @Description Restores the etcd state from a specified snapshot path
 // @Tags K8s
+// @Security APIKeyAuth
 // @Param id path string true "Cluster ID"
 // @Param request body RestoreBackupRequest true "Restore Request"
 // @Success 200
@@ -365,22 +377,23 @@ func (h *ClusterHandler) RestoreBackup(c *gin.Context) {
 type NodeGroupRequest struct {
 	Name         string `json:"name" binding:"required"`
 	InstanceType string `json:"instance_type"`
-	MinSize      int    `json:"min_size"`
-	MaxSize      int    `json:"max_size"`
-	DesiredSize  int    `json:"desired_size"`
+	MinSize      int    `json:"min_size" binding:"gte=0"`
+	MaxSize      int    `json:"max_size" binding:"gte=0"`
+	DesiredSize  int    `json:"desired_size" binding:"gte=0"`
 }
 
 // UpdateNodeGroupRequest is the payload for updating a node group.
 type UpdateNodeGroupRequest struct {
-	MinSize     *int `json:"min_size"`
-	MaxSize     *int `json:"max_size"`
-	DesiredSize *int `json:"desired_size"`
+	MinSize     *int `json:"min_size" binding:"omitempty,gte=0"`
+	MaxSize     *int `json:"max_size" binding:"omitempty,gte=0"`
+	DesiredSize *int `json:"desired_size" binding:"omitempty,gte=0"`
 }
 
 // AddNodeGroup godoc
 // @Summary Add a node group to a cluster
 // @Description Creates a new pool of worker nodes
 // @Tags K8s
+// @Security APIKeyAuth
 // @Param id path string true "Cluster ID"
 // @Param request body NodeGroupRequest true "Node Group details"
 // @Success 201 {object} domain.NodeGroup
@@ -417,6 +430,7 @@ func (h *ClusterHandler) AddNodeGroup(c *gin.Context) {
 // @Summary Update a node group
 // @Description Modifies scaling boundaries or desired size of a node pool
 // @Tags K8s
+// @Security APIKeyAuth
 // @Param id path string true "Cluster ID"
 // @Param name path string true "Node Group Name"
 // @Param request body UpdateNodeGroupRequest true "Update details"
@@ -453,6 +467,7 @@ func (h *ClusterHandler) UpdateNodeGroup(c *gin.Context) {
 // @Summary Delete a node group
 // @Description Removes a node pool and terminates its nodes
 // @Tags K8s
+// @Security APIKeyAuth
 // @Param id path string true "Cluster ID"
 // @Param name path string true "Node Group Name"
 // @Success 202

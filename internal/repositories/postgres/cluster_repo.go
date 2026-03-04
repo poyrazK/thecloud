@@ -26,16 +26,16 @@ func NewClusterRepository(db DB) *ClusterRepository {
 func (r *ClusterRepository) Create(ctx context.Context, cluster *domain.Cluster) error {
 	query := `
 		INSERT INTO clusters (
-			id, user_id, vpc_id, name, version, status, worker_count, ha_enabled, 
+			id, user_id, vpc_id, name, version, status, control_plane_ips, worker_count, ha_enabled, 
 			network_isolation, pod_cidr, service_cidr, api_server_lb_address, 
 			kubeconfig_encrypted, ssh_private_key_encrypted, join_token, 
 			token_expires_at, ca_cert_hash, job_id, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 	`
 	_, err := r.db.Exec(ctx, query,
 		cluster.ID, cluster.UserID, cluster.VpcID, cluster.Name, cluster.Version,
-		string(cluster.Status), cluster.WorkerCount, cluster.HAEnabled,
+		string(cluster.Status), cluster.ControlPlaneIPs, cluster.WorkerCount, cluster.HAEnabled,
 		cluster.NetworkIsolation, cluster.PodCIDR, cluster.ServiceCIDR,
 		cluster.APIServerLBAddress, cluster.KubeconfigEncrypted,
 		cluster.SSHPrivateKeyEncrypted, cluster.JoinToken, cluster.TokenExpiresAt,
@@ -51,7 +51,7 @@ func (r *ClusterRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
 		SELECT 
-			id, user_id, vpc_id, name, version, status, worker_count, ha_enabled, 
+			id, user_id, vpc_id, name, version, status, control_plane_ips, worker_count, ha_enabled, 
 			network_isolation, pod_cidr, service_cidr, api_server_lb_address, 
 			kubeconfig_encrypted, ssh_private_key_encrypted, join_token, 
 			token_expires_at, ca_cert_hash, job_id, created_at, updated_at
@@ -76,7 +76,7 @@ func (r *ClusterRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 func (r *ClusterRepository) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Cluster, error) {
 	query := `
 		SELECT 
-			id, user_id, vpc_id, name, version, status, worker_count, ha_enabled, 
+			id, user_id, vpc_id, name, version, status, control_plane_ips, worker_count, ha_enabled, 
 			network_isolation, pod_cidr, service_cidr, api_server_lb_address, 
 			kubeconfig_encrypted, ssh_private_key_encrypted, join_token, 
 			token_expires_at, ca_cert_hash, job_id, created_at, updated_at
@@ -90,7 +90,7 @@ func (r *ClusterRepository) ListByUserID(ctx context.Context, userID uuid.UUID) 
 func (r *ClusterRepository) ListAll(ctx context.Context) ([]*domain.Cluster, error) {
 	query := `
 		SELECT 
-			id, user_id, vpc_id, name, version, status, worker_count, ha_enabled, 
+			id, user_id, vpc_id, name, version, status, control_plane_ips, worker_count, ha_enabled, 
 			network_isolation, pod_cidr, service_cidr, api_server_lb_address, 
 			kubeconfig_encrypted, ssh_private_key_encrypted, join_token, 
 			token_expires_at, ca_cert_hash, job_id, created_at, updated_at
@@ -120,6 +120,9 @@ func (r *ClusterRepository) list(ctx context.Context, query string, args ...any)
 		}
 		clusters = append(clusters, c)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrap(errors.Internal, "row iteration error", err)
+	}
 	return clusters, nil
 }
 
@@ -127,20 +130,20 @@ func (r *ClusterRepository) Update(ctx context.Context, cluster *domain.Cluster)
 	query := `
 		UPDATE clusters
 		SET 
-			vpc_id = $1, name = $2, version = $3, status = $4, worker_count = $5, 
-			ha_enabled = $6, network_isolation = $7, pod_cidr = $8, service_cidr = $9, 
-			api_server_lb_address = $10, kubeconfig_encrypted = $11, 
-			ssh_private_key_encrypted = $12, join_token = $13, token_expires_at = $14, 
-			ca_cert_hash = $15, job_id = $16, updated_at = $17
-		WHERE id = $18 AND user_id = $19
+			vpc_id = $1, name = $2, version = $3, status = $4, control_plane_ips = $5, 
+			worker_count = $6, ha_enabled = $7, network_isolation = $8, pod_cidr = $9, 
+			service_cidr = $10, api_server_lb_address = $11, kubeconfig_encrypted = $12, 
+			ssh_private_key_encrypted = $13, join_token = $14, token_expires_at = $15, 
+			ca_cert_hash = $16, job_id = $17, updated_at = $18
+		WHERE id = $19 AND user_id = $20
 	`
 	_, err := r.db.Exec(ctx, query,
 		cluster.VpcID, cluster.Name, cluster.Version, string(cluster.Status),
-		cluster.WorkerCount, cluster.HAEnabled, cluster.NetworkIsolation,
-		cluster.PodCIDR, cluster.ServiceCIDR, cluster.APIServerLBAddress,
-		cluster.KubeconfigEncrypted, cluster.SSHPrivateKeyEncrypted,
-		cluster.JoinToken, cluster.TokenExpiresAt, cluster.CACertHash,
-		cluster.JobID, time.Now(), cluster.ID, cluster.UserID,
+		cluster.ControlPlaneIPs, cluster.WorkerCount, cluster.HAEnabled,
+		cluster.NetworkIsolation, cluster.PodCIDR, cluster.ServiceCIDR,
+		cluster.APIServerLBAddress, cluster.KubeconfigEncrypted,
+		cluster.SSHPrivateKeyEncrypted, cluster.JoinToken, cluster.TokenExpiresAt,
+		cluster.CACertHash, cluster.JobID, time.Now(), cluster.ID, cluster.UserID,
 	)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to update cluster", err)
@@ -191,6 +194,9 @@ func (r *ClusterRepository) GetNodes(ctx context.Context, clusterID uuid.UUID) (
 		}
 		n.Role = domain.NodeRole(role)
 		nodes = append(nodes, &n)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrap(errors.Internal, "row iteration error", err)
 	}
 	return nodes, nil
 }
@@ -249,6 +255,9 @@ func (r *ClusterRepository) GetNodeGroups(ctx context.Context, clusterID uuid.UU
 		}
 		groups = append(groups, ng)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrap(errors.Internal, "row iteration error", err)
+	}
 	return groups, nil
 }
 
@@ -278,7 +287,7 @@ func (r *ClusterRepository) scanCluster(row pgx.Row) (*domain.Cluster, error) {
 	var c domain.Cluster
 	var status string
 	err := row.Scan(
-		&c.ID, &c.UserID, &c.VpcID, &c.Name, &c.Version, &status, &c.WorkerCount,
+		&c.ID, &c.UserID, &c.VpcID, &c.Name, &c.Version, &status, &c.ControlPlaneIPs, &c.WorkerCount,
 		&c.HAEnabled, &c.NetworkIsolation, &c.PodCIDR, &c.ServiceCIDR,
 		&c.APIServerLBAddress, &c.KubeconfigEncrypted, &c.SSHPrivateKeyEncrypted,
 		&c.JoinToken, &c.TokenExpiresAt, &c.CACertHash, &c.JobID, &c.CreatedAt, &c.UpdatedAt,

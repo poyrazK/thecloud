@@ -1,7 +1,9 @@
 // Package sdk provides the official Go SDK for the platform.
 package sdk
+
 import (
 	"context"
+	"net/url"
 	"time"
 
 	"github.com/google/uuid"
@@ -200,7 +202,7 @@ func (c *Client) AddNodeGroup(clusterID string, input NodeGroupInput) (*NodeGrou
 // UpdateNodeGroupWithContext updates a node group's parameters with context support.
 func (c *Client) UpdateNodeGroupWithContext(ctx context.Context, clusterID string, name string, input UpdateNodeGroupInput) (*NodeGroup, error) {
 	var resp Response[*NodeGroup]
-	if err := c.putWithContext(ctx, clustersPath+"/"+clusterID+"/nodegroups/"+name, input, &resp); err != nil {
+	if err := c.putWithContext(ctx, clustersPath+"/"+clusterID+"/nodegroups/"+url.PathEscape(name), input, &resp); err != nil {
 		return nil, err
 	}
 	return resp.Data, nil
@@ -209,5 +211,5 @@ func (c *Client) UpdateNodeGroupWithContext(ctx context.Context, clusterID strin
 // DeleteNodeGroup removes a node group.
 func (c *Client) DeleteNodeGroup(clusterID string, name string) error {
 	var resp Response[any]
-	return c.delete(clustersPath+"/"+clusterID+"/nodegroups/"+name, &resp)
+	return c.delete(clustersPath+"/"+clusterID+"/nodegroups/"+url.PathEscape(name), &resp)
 }

@@ -16,10 +16,20 @@ spec:
         app: cluster-autoscaler
     spec:
       serviceAccountName: cluster-autoscaler
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
       containers:
         # 1. The Official Cluster Autoscaler (Upstream)
         - name: cluster-autoscaler
           image: registry.k8s.io/autoscaling/cluster-autoscaler:v1.29.3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
           resources:
             limits:
               cpu: 100m
@@ -42,9 +52,22 @@ spec:
               readOnly: true
 
         # 2. The Cloud Autoscaler Bridge (Our Implementation)
-        - name: thecloud-bridge
+        - name: thecloud-autoscaler-server
           image: ghcr.io/poyrazk/thecloud-autoscaler-server:v1.0.0
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
           env:
             - name: CLOUD_API_KEY
               valueFrom:
