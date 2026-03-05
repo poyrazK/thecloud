@@ -22,6 +22,9 @@ func setupSecretServiceIntegrationTest(t *testing.T) (ports.SecretService, ports
 	repo := postgres.NewSecretRepository(db)
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	t.Cleanup(func() {
+		rbacSvc.AssertExpectations(t)
+	})
 
 	eventRepo := postgres.NewEventRepository(db)
 	eventSvc := services.NewEventService(eventRepo, rbacSvc, nil, slog.Default())
@@ -31,7 +34,7 @@ func setupSecretServiceIntegrationTest(t *testing.T) (ports.SecretService, ports
 
 	logger := slog.Default()
 	key := "test-key-must-be-32-bytes-long---"
-	svc, _ := services.NewSecretService(services.SecretServiceParams{
+	svc, err := services.NewSecretService(services.SecretServiceParams{
 		Repo:        repo,
 		RBACSvc:     rbacSvc,
 		EventSvc:    eventSvc,
@@ -40,6 +43,7 @@ func setupSecretServiceIntegrationTest(t *testing.T) (ports.SecretService, ports
 		MasterKey:   key,
 		Environment: "test",
 	})
+	require.NoError(t, err)
 
 	return svc, repo, ctx
 }

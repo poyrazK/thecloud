@@ -90,6 +90,11 @@ func (s *imageService) UploadImage(ctx context.Context, id uuid.UUID, reader io.
 		return err
 	}
 
+	// Tenant boundary check
+	if img.TenantID != nil && *img.TenantID != tenantID {
+		return errors.New(errors.NotFound, "image not found")
+	}
+
 	// Double check ownership via RBAC or simple ID match if non-admin
 	if img.UserID != userID {
 		// Try authorizing as admin for override if needed, but usually upload is owner-only
@@ -122,7 +127,17 @@ func (s *imageService) GetImage(ctx context.Context, id uuid.UUID) (*domain.Imag
 		return nil, err
 	}
 
-	return s.repo.GetByID(ctx, id)
+	img, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Tenant boundary check
+	if img.TenantID != nil && *img.TenantID != tenantID {
+		return nil, errors.New(errors.NotFound, "image not found")
+	}
+
+	return img, nil
 }
 
 func (s *imageService) ListImages(ctx context.Context, userID uuid.UUID, includePublic bool) ([]*domain.Image, error) {
@@ -131,6 +146,13 @@ func (s *imageService) ListImages(ctx context.Context, userID uuid.UUID, include
 
 	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionImageRead); err != nil {
 		return nil, err
+	}
+
+	// Horizontal access check: if requesting images for another user, need elevated permission
+	if userID != uID {
+		if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionImageReadAll); err != nil {
+			return nil, errors.New(errors.Forbidden, "cannot list images for another user")
+		}
 	}
 
 	return s.repo.List(ctx, userID, includePublic)
@@ -149,13 +171,21 @@ func (s *imageService) DeleteImage(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
+	// Tenant boundary check
+	if img.TenantID != nil && *img.TenantID != tenantID {
+		return errors.New(errors.NotFound, "image not found")
+	}
+
 	// Permission check
 	if img.UserID != userID {
 		return errors.New(errors.Forbidden, "cannot delete someone else's image")
 	}
 
 	if img.FilePath != "" {
-		_ = s.fileStore.Delete(ctx, s.bucketName, img.FilePath)
+		if err := s.fileStore.Delete(ctx, s.bucketName, img.FilePath); err != nil {
+			s.logger.Error("failed to delete image file from storage", "file_path", img.FilePath, "bucket", s.bucketName, "error", err)
+			return fmt.Errorf("failed to delete image file: %w", err)
+		}
 	}
 
 	return s.repo.Delete(ctx, id)
