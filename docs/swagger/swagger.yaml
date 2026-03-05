@@ -127,6 +127,7 @@ definitions:
       vpc_id:
         type: string
       worker_count:
+        description: 'Deprecated: use node_groups'
         type: integer
     type: object
   domain.ClusterStatus:
@@ -769,14 +770,17 @@ definitions:
       created_at:
         type: string
       current_size:
+        example: 3
         type: integer
       id:
         type: string
       instance_type:
         type: string
       max_size:
+        example: 10
         type: integer
       min_size:
+        example: 1
         type: integer
       name:
         type: string
@@ -1972,12 +1976,15 @@ definitions:
   httphandlers.NodeGroupRequest:
     properties:
       desired_size:
+        minimum: 0
         type: integer
       instance_type:
         type: string
       max_size:
+        minimum: 0
         type: integer
       min_size:
+        minimum: 0
         type: integer
       name:
         type: string
@@ -2062,13 +2069,23 @@ definitions:
       workers:
         type: integer
     type: object
+  httphandlers.ScaleDeploymentRequest:
+    properties:
+      replicas:
+        type: integer
+    required:
+    - replicas
+    type: object
   httphandlers.UpdateNodeGroupRequest:
     properties:
       desired_size:
+        minimum: 0
         type: integer
       max_size:
+        minimum: 0
         type: integer
       min_size:
+        minimum: 0
         type: integer
     type: object
   httphandlers.UpdateRecordRequest:
@@ -2782,6 +2799,8 @@ paths:
             items:
               $ref: '#/definitions/domain.Cluster'
             type: array
+      security:
+      - APIKeyAuth: []
       summary: List managed K8s clusters
       tags:
       - K8s
@@ -2803,6 +2822,8 @@ paths:
           description: Accepted
           schema:
             $ref: '#/definitions/domain.Cluster'
+      security:
+      - APIKeyAuth: []
       summary: Create a managed K8s cluster
       tags:
       - K8s
@@ -2818,6 +2839,8 @@ paths:
       responses:
         "202":
           description: Accepted
+      security:
+      - APIKeyAuth: []
       summary: Delete a K8s cluster
       tags:
       - K8s
@@ -2836,6 +2859,8 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/domain.Cluster'
+      security:
+      - APIKeyAuth: []
       summary: Get cluster details
       tags:
       - K8s
@@ -2851,6 +2876,8 @@ paths:
       responses:
         "202":
           description: Accepted
+      security:
+      - APIKeyAuth: []
       summary: Create cluster backup
       tags:
       - K8s
@@ -2870,6 +2897,8 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/ports.ClusterHealth'
+      security:
+      - APIKeyAuth: []
       summary: Get cluster operational health
       tags:
       - K8s
@@ -2893,6 +2922,8 @@ paths:
           description: OK
           schema:
             type: string
+      security:
+      - APIKeyAuth: []
       summary: Download kubeconfig
       tags:
       - K8s
@@ -2916,6 +2947,24 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/domain.NodeGroup'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
       summary: Add a node group to a cluster
       tags:
       - K8s
@@ -2936,6 +2985,20 @@ paths:
       responses:
         "202":
           description: Accepted
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
       summary: Delete a node group
       tags:
       - K8s
@@ -2963,6 +3026,20 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/domain.NodeGroup'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
       summary: Update a node group
       tags:
       - K8s
@@ -2978,6 +3055,8 @@ paths:
       responses:
         "202":
           description: Accepted
+      security:
+      - APIKeyAuth: []
       summary: Repair cluster components
       tags:
       - K8s
@@ -2999,6 +3078,8 @@ paths:
       responses:
         "200":
           description: OK
+      security:
+      - APIKeyAuth: []
       summary: Restore cluster from backup
       tags:
       - K8s
@@ -3014,11 +3095,13 @@ paths:
       responses:
         "200":
           description: OK
+      security:
+      - APIKeyAuth: []
       summary: Rotate cluster secrets
       tags:
       - K8s
   /clusters/{id}/scale:
-    post:
+    put:
       description: Adjusts the number of worker nodes
       parameters:
       - description: Cluster ID
@@ -3035,6 +3118,8 @@ paths:
       responses:
         "200":
           description: OK
+      security:
+      - APIKeyAuth: []
       summary: Scale cluster workers
       tags:
       - K8s
@@ -3057,9 +3142,36 @@ paths:
       responses:
         "202":
           description: Accepted
+      security:
+      - APIKeyAuth: []
       summary: Upgrade cluster version
       tags:
       - K8s
+  /containers/deployments/{id}/scale:
+    put:
+      description: Adjusts the number of replicas for a container deployment
+      parameters:
+      - description: Deployment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Scale details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.ScaleDeploymentRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Scale a deployment
+      tags:
+      - containers
   /databases/{id}/snapshots:
     get:
       description: Returns all snapshots belonging to a specific database

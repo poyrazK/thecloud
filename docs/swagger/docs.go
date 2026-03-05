@@ -1008,6 +1008,11 @@ const docTemplate = `{
         },
         "/clusters": {
             "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Returns all clusters belonging to the user",
                 "produces": [
                     "application/json"
@@ -1029,6 +1034,11 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Provisions a new Kubernetes cluster using kubeadm",
                 "consumes": [
                     "application/json"
@@ -1063,6 +1073,11 @@ const docTemplate = `{
         },
         "/clusters/{id}": {
             "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Returns cluster metadata and current status",
                 "produces": [
                     "application/json"
@@ -1090,6 +1105,11 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Terminates all nodes and removes the cluster record",
                 "tags": [
                     "K8s"
@@ -1113,6 +1133,11 @@ const docTemplate = `{
         },
         "/clusters/{id}/backups": {
             "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Creates an etcd snapshot of the cluster state",
                 "tags": [
                     "K8s"
@@ -1136,6 +1161,11 @@ const docTemplate = `{
         },
         "/clusters/{id}/health": {
             "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Returns readiness of nodes and API server",
                 "produces": [
                     "application/json"
@@ -1165,6 +1195,11 @@ const docTemplate = `{
         },
         "/clusters/{id}/kubeconfig": {
             "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Returns the kubeconfig for clinical access to the cluster",
                 "produces": [
                     "text/plain"
@@ -1200,6 +1235,11 @@ const docTemplate = `{
         },
         "/clusters/{id}/nodegroups": {
             "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Creates a new pool of worker nodes",
                 "tags": [
                     "K8s"
@@ -1229,12 +1269,41 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.NodeGroup"
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
                     }
                 }
             }
         },
         "/clusters/{id}/nodegroups/{name}": {
             "put": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Modifies scaling boundaries or desired size of a node pool",
                 "tags": [
                     "K8s"
@@ -1271,10 +1340,33 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.NodeGroup"
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
                     }
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Removes a node pool and terminates its nodes",
                 "tags": [
                     "K8s"
@@ -1299,12 +1391,35 @@ const docTemplate = `{
                 "responses": {
                     "202": {
                         "description": "Accepted"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
                     }
                 }
             }
         },
         "/clusters/{id}/repair": {
             "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Re-applies CNI and kube-proxy patches to a running cluster",
                 "tags": [
                     "K8s"
@@ -1328,6 +1443,11 @@ const docTemplate = `{
         },
         "/clusters/{id}/restore": {
             "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Restores the etcd state from a specified snapshot path",
                 "tags": [
                     "K8s"
@@ -1360,6 +1480,11 @@ const docTemplate = `{
         },
         "/clusters/{id}/rotate-secrets": {
             "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Renews cluster certificates and refreshes admin kubeconfig",
                 "tags": [
                     "K8s"
@@ -1382,7 +1507,12 @@ const docTemplate = `{
             }
         },
         "/clusters/{id}/scale": {
-            "post": {
+            "put": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Adjusts the number of worker nodes",
                 "tags": [
                     "K8s"
@@ -1415,6 +1545,11 @@ const docTemplate = `{
         },
         "/clusters/{id}/upgrade": {
             "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Initiates an asynchronous upgrade of the Kubernetes control plane and workers",
                 "tags": [
                     "K8s"
@@ -1441,6 +1576,46 @@ const docTemplate = `{
                 "responses": {
                     "202": {
                         "description": "Accepted"
+                    }
+                }
+            }
+        },
+        "/containers/deployments/{id}/scale": {
+            "put": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Adjusts the number of replicas for a container deployment",
+                "tags": [
+                    "containers"
+                ],
+                "summary": "Scale a deployment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Scale details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.ScaleDeploymentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
                     }
                 }
             }
@@ -6964,7 +7139,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "worker_count": {
-                    "description": "DEPRECATED: use node_groups for node pool counts; will be removed in next API version",
+                    "description": "Deprecated: use node_groups",
                     "type": "integer"
                 }
             }
@@ -7874,14 +8049,6 @@ const docTemplate = `{
         },
         "domain.NodeGroup": {
             "type": "object",
-            "required": [
-                "id",
-                "cluster_id",
-                "name",
-                "min_size",
-                "max_size",
-                "current_size"
-            ],
             "properties": {
                 "cluster_id": {
                     "type": "string"
@@ -7891,7 +8058,7 @@ const docTemplate = `{
                 },
                 "current_size": {
                     "type": "integer",
-                    "minimum": 0
+                    "example": 3
                 },
                 "id": {
                     "type": "string"
@@ -7901,11 +8068,11 @@ const docTemplate = `{
                 },
                 "max_size": {
                     "type": "integer",
-                    "minimum": 0
+                    "example": 10
                 },
                 "min_size": {
                     "type": "integer",
-                    "minimum": 0
+                    "example": 1
                 },
                 "name": {
                     "type": "string"
@@ -9566,16 +9733,19 @@ const docTemplate = `{
             ],
             "properties": {
                 "desired_size": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "instance_type": {
                     "type": "string"
                 },
                 "max_size": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "min_size": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "name": {
                     "type": "string"
@@ -9694,17 +9864,31 @@ const docTemplate = `{
                 }
             }
         },
+        "httphandlers.ScaleDeploymentRequest": {
+            "type": "object",
+            "required": [
+                "replicas"
+            ],
+            "properties": {
+                "replicas": {
+                    "type": "integer"
+                }
+            }
+        },
         "httphandlers.UpdateNodeGroupRequest": {
             "type": "object",
             "properties": {
                 "desired_size": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "max_size": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "min_size": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 }
             }
         },
