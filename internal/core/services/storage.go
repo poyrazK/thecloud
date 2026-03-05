@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -113,7 +115,7 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 		storeKey = versionedStoreKey(key, versionID)
 	}
 
-	dataStream := io.Reader(teeReader)
+	var dataStream io.Reader = teeReader
 
 	// Encryption (Optional)
 	if bucket.EncryptionEnabled && s.encryptSvc != nil {
@@ -267,6 +269,20 @@ func (s *StorageService) DeleteObject(ctx context.Context, bucket, key string) e
 
 // CreateBucket creates a new storage bucket.
 func (s *StorageService) CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error) {
+	// Validate bucket name (S3-like rules)
+	if len(name) < 3 || len(name) > 63 {
+		return nil, errors.New(errors.InvalidInput, "bucket name must be between 3 and 63 characters")
+	}
+
+	validName := regexp.MustCompile(`^[a-z0-9.-]+$`)
+	if !validName.MatchString(name) {
+		return nil, errors.New(errors.InvalidInput, "bucket name can only contain lowercase letters, numbers, dots, and hyphens")
+	}
+
+	if strings.HasPrefix(name, "-") || strings.HasSuffix(name, "-") || strings.HasPrefix(name, ".") || strings.HasSuffix(name, ".") {
+		return nil, errors.New(errors.InvalidInput, "bucket name cannot start or end with a hyphen or dot")
+	}
+
 	bucket := &domain.Bucket{
 		ID:        uuid.New(),
 		Name:      name,
