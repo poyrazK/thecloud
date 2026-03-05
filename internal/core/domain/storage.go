@@ -8,27 +8,30 @@ import (
 	"github.com/google/uuid"
 )
 
+// UploadStatus represents the state of an object upload.
+type UploadStatus string
+
 const (
-	UploadStatusPending   = "PENDING"
-	UploadStatusAvailable = "AVAILABLE"
+	UploadStatusPending   UploadStatus = "PENDING"
+	UploadStatusAvailable UploadStatus = "AVAILABLE"
 )
 
 // Object represents stored object metadata in the storage subsystem.
 type Object struct {
-	ID           uuid.UUID  `json:"id"`
-	UserID       uuid.UUID  `json:"user_id"`
-	ARN          string     `json:"arn"`
-	Bucket       string     `json:"bucket"`
-	Key          string     `json:"key"`
-	VersionID    string     `json:"version_id"`
-	IsLatest     bool       `json:"is_latest"`
-	SizeBytes    int64      `json:"size_bytes"`
-	ContentType  string     `json:"content_type"`
-	Checksum     string     `json:"checksum,omitempty"`
-	UploadStatus string     `json:"upload_status"`
-	CreatedAt    time.Time  `json:"created_at"`
-	DeletedAt    *time.Time `json:"deleted_at,omitempty"`
-	Data         io.Reader  `json:"-"` // Stream for reading/writing
+	ID           uuid.UUID    `json:"id"`
+	UserID       uuid.UUID    `json:"user_id"`
+	ARN          string       `json:"arn"`
+	Bucket       string       `json:"bucket"`
+	Key          string       `json:"key"`
+	VersionID    string       `json:"version_id"`
+	IsLatest     bool         `json:"is_latest"`
+	SizeBytes    int64        `json:"size_bytes"`
+	ContentType  string       `json:"content_type"`
+	Checksum     string       `json:"checksum,omitempty" example:"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" swaggertype:"string" pattern:"^[a-f0-9]{64}$"`
+	UploadStatus UploadStatus `json:"upload_status" enums:"PENDING,AVAILABLE" example:"AVAILABLE"`
+	CreatedAt    time.Time    `json:"created_at"`
+	DeletedAt    *time.Time   `json:"deleted_at,omitempty"`
+	Data         io.Reader    `json:"-"` // Stream for reading/writing
 }
 
 // Bucket represents a storage bucket configuration and metadata.
