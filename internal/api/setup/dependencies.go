@@ -395,7 +395,7 @@ func initStorageServices(c ServiceConfig, audit ports.AuditService, encryption p
 		}
 	}
 
-	storageSvc := services.NewStorageService(c.Repos.Storage, fileStore, audit, encryption, c.Config)
+	storageSvc := services.NewStorageService(c.Repos.Storage, fileStore, audit, encryption, c.Config, c.Logger)
 	return storageSvc, fileStore, nil
 }
 

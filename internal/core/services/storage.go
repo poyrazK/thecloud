@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
@@ -27,6 +28,7 @@ const (
 	partPathFormat       = ".uploads/%s/part-%d"
 	versionQueryFormat   = "%s?versionId=%s"
 	versionEpochBit      = 1 << 62
+	sniffLen             = 512
 )
 
 // generateVersionID generates a timestamp-based version ID (reverse chronological).
@@ -46,16 +48,18 @@ type StorageService struct {
 	auditSvc   ports.AuditService
 	encryptSvc ports.EncryptionService
 	cfg        *platform.Config
+	logger     *slog.Logger
 }
 
 // NewStorageService constructs a StorageService with its dependencies.
-func NewStorageService(repo ports.StorageRepository, store ports.FileStore, auditSvc ports.AuditService, encryptSvc ports.EncryptionService, cfg *platform.Config) *StorageService {
+func NewStorageService(repo ports.StorageRepository, store ports.FileStore, auditSvc ports.AuditService, encryptSvc ports.EncryptionService, cfg *platform.Config, logger *slog.Logger) *StorageService {
 	return &StorageService{
 		repo:       repo,
 		store:      store,
 		auditSvc:   auditSvc,
 		encryptSvc: encryptSvc,
 		cfg:        cfg,
+		logger:     logger,
 	}
 }
 
@@ -72,8 +76,11 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 	}
 
 	// 2. Sniff content-type (first 512 bytes)
-	sniffBuf := make([]byte, 512)
-	n, _ := io.ReadFull(r, sniffBuf)
+	sniffBuf := make([]byte, sniffLen)
+	n, err := io.ReadFull(r, sniffBuf)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return nil, errors.Wrap(errors.Internal, "failed to read for MIME sniffing", err)
+	}
 	sniffBuf = sniffBuf[:n]
 	contentType := http.DetectContentType(sniffBuf)
 
@@ -141,11 +148,17 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 		return nil, err
 	}
 
-	_ = s.auditSvc.Log(ctx, obj.UserID, "storage.object_upload", "storage", obj.ARN, map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, obj.UserID, "storage.object_upload", "storage", obj.ARN, map[string]interface{}{
 		"bucket": bucketName,
 		"key":    key,
 		"size":   size,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event for upload",
+			slog.String("bucket", bucketName),
+			slog.String("key", key),
+			slog.String("user_id", obj.UserID.String()),
+			slog.Any("error", err))
+	}
 
 	platform.StorageOperations.WithLabelValues("upload", bucketName, "success").Inc()
 	platform.StorageBytesTransferred.WithLabelValues("upload").Add(float64(size))
@@ -257,10 +270,15 @@ func (s *StorageService) DeleteObject(ctx context.Context, bucket, key string) e
 	// Note: We don't delete from FileStore yet because it's a "soft delete".
 	// A background job could clean up Filesystem objects with deleted_at set.
 
-	_ = s.auditSvc.Log(ctx, appcontext.UserIDFromContext(ctx), "storage.object_delete", "storage", bucket+"/"+key, map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, appcontext.UserIDFromContext(ctx), "storage.object_delete", "storage", bucket+"/"+key, map[string]interface{}{
 		"bucket": bucket,
 		"key":    key,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event for object delete",
+			slog.String("bucket", bucket),
+			slog.String("key", key),
+			slog.Any("error", err))
+	}
 
 	platform.StorageOperations.WithLabelValues("delete", bucket, "success").Inc()
 
@@ -295,9 +313,13 @@ func (s *StorageService) CreateBucket(ctx context.Context, name string, isPublic
 		return nil, errors.Wrap(errors.Internal, "failed to create bucket", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, bucket.UserID, "storage.bucket_create", "bucket", name, map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, bucket.UserID, "storage.bucket_create", "bucket", name, map[string]interface{}{
 		"is_public": isPublic,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event for bucket creation",
+			slog.String("bucket", name),
+			slog.Any("error", err))
+	}
 
 	return bucket, nil
 }
@@ -309,14 +331,20 @@ func (s *StorageService) GetBucket(ctx context.Context, name string) (*domain.Bu
 func (s *StorageService) DeleteBucket(ctx context.Context, name string, force bool) error {
 	// 1. Check if empty
 	objects, err := s.repo.List(ctx, name)
-	if err == nil && len(objects) > 0 && !force {
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to list objects before bucket deletion", err)
+	}
+
+	if len(objects) > 0 && !force {
 		return errors.New(errors.Conflict, "bucket is not empty")
 	}
 
 	// 2. Delete all objects if force
 	if force {
 		for _, obj := range objects {
-			_ = s.DeleteObject(ctx, name, obj.Key)
+			if err := s.DeleteObject(ctx, name, obj.Key); err != nil {
+				return errors.Wrap(errors.Internal, fmt.Sprintf("failed to delete object %s during force bucket deletion", obj.Key), err)
+			}
 		}
 	}
 
@@ -353,8 +381,9 @@ func (s *StorageService) CleanupDeleted(ctx context.Context, limit int) (int, er
 
 		// 1. Check if other versions still exist (if versioning was enabled)
 		// 2. Delete the physical file
-		// We ignore error from store.Delete if it's already missing
-		_ = s.store.Delete(ctx, obj.Bucket, storeKey)
+		if err := s.store.Delete(ctx, obj.Bucket, storeKey); err != nil {
+			return deletedCount, errors.Wrap(errors.Internal, fmt.Sprintf("failed to delete physical file %s", storeKey), err)
+		}
 
 		// 3. Permanent delete from DB
 		if err := s.repo.HardDelete(ctx, obj.Bucket, obj.Key, obj.VersionID); err != nil {
@@ -382,7 +411,9 @@ func (s *StorageService) CleanupPendingUploads(ctx context.Context, olderThan ti
 		}
 
 		// 1. Delete the physical file (if it exists)
-		_ = s.store.Delete(ctx, obj.Bucket, storeKey)
+		if err := s.store.Delete(ctx, obj.Bucket, storeKey); err != nil {
+			return cleanedCount, errors.Wrap(errors.Internal, fmt.Sprintf("failed to delete pending physical file %s", storeKey), err)
+		}
 
 		// 2. Delete the metadata record
 		if err := s.repo.HardDelete(ctx, obj.Bucket, obj.Key, obj.VersionID); err != nil {
@@ -415,10 +446,15 @@ func (s *StorageService) CreateMultipartUpload(ctx context.Context, bucket, key 
 		return nil, errors.Wrap(errors.Internal, "failed to initiate multipart upload", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, upload.UserID, "storage.multipart_init", "storage", upload.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, upload.UserID, "storage.multipart_init", "storage", upload.ID.String(), map[string]interface{}{
 		"bucket": bucket,
 		"key":    key,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event for multipart init",
+			slog.String("bucket", bucket),
+			slog.String("key", key),
+			slog.Any("error", err))
+	}
 
 	return upload, nil
 }
@@ -480,7 +516,11 @@ func (s *StorageService) CompleteMultipartUpload(ctx context.Context, uploadID u
 		partKeys[i] = fmt.Sprintf(partPathFormat, upload.ID.String(), p.PartNumber)
 	}
 
-	bucket, _ := s.repo.GetBucket(ctx, upload.Bucket)
+	bucket, err := s.repo.GetBucket(ctx, upload.Bucket)
+	if err != nil {
+		return nil, errors.Wrap(errors.NotFound, "bucket not found", err)
+	}
+
 	versionID := "null"
 	if bucket.VersioningEnabled {
 		versionID = generateVersionID()
@@ -511,20 +551,30 @@ func (s *StorageService) CompleteMultipartUpload(ctx context.Context, uploadID u
 
 	// Sniff content type and calculate checksum from the assembled file
 	reader, err := s.store.Read(ctx, upload.Bucket, storeKey)
-	if err == nil {
-		defer reader.Close()
-		hash := sha256.New()
-		sniffBuf := make([]byte, 512)
-		n, _ := io.ReadFull(reader, sniffBuf)
-		obj.ContentType = http.DetectContentType(sniffBuf[:n])
-
-		// Continue reading for checksum
-		fullReader := io.MultiReader(bytes.NewReader(sniffBuf[:n]), reader)
-		_, _ = io.Copy(hash, fullReader)
-		obj.Checksum = hex.EncodeToString(hash.Sum(nil))
-	} else {
+	if err != nil {
 		obj.ContentType = "application/octet-stream"
+		s.logger.Error("failed to open assembled file for metadata extraction",
+			slog.String("bucket", upload.Bucket),
+			slog.String("key", upload.Key),
+			slog.Any("error", err))
+		return nil, errors.Wrap(errors.Internal, "failed to read assembled file", err)
 	}
+	defer reader.Close()
+
+	hash := sha256.New()
+	sniffBuf := make([]byte, sniffLen)
+	n, err := io.ReadFull(reader, sniffBuf)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return nil, errors.Wrap(errors.Internal, "failed to read assembled file for MIME sniffing", err)
+	}
+	obj.ContentType = http.DetectContentType(sniffBuf[:n])
+
+	// Continue reading for checksum
+	fullReader := io.MultiReader(bytes.NewReader(sniffBuf[:n]), reader)
+	if _, err := io.Copy(hash, fullReader); err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to compute checksum for assembled file", err)
+	}
+	obj.Checksum = hex.EncodeToString(hash.Sum(nil))
 
 	// Generate ARN
 	obj.ARN = fmt.Sprintf("arn:thecloud:storage:local:default:object/%s/%s", upload.Bucket, upload.Key)
@@ -538,13 +588,22 @@ func (s *StorageService) CompleteMultipartUpload(ctx context.Context, uploadID u
 	}
 
 	// 5. Cleanup multipart records
-	_ = s.repo.DeleteMultipartUpload(ctx, uploadID)
+	if err := s.repo.DeleteMultipartUpload(ctx, uploadID); err != nil {
+		s.logger.Warn("failed to cleanup multipart upload metadata after completion",
+			slog.String("upload_id", uploadID.String()),
+			slog.Any("error", err))
+	}
 
-	_ = s.auditSvc.Log(ctx, obj.UserID, "storage.multipart_complete", "storage", obj.ARN, map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, obj.UserID, "storage.multipart_complete", "storage", obj.ARN, map[string]interface{}{
 		"bucket": upload.Bucket,
 		"key":    upload.Key,
 		"size":   size,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event for multipart completion",
+			slog.String("bucket", upload.Bucket),
+			slog.String("key", upload.Key),
+			slog.Any("error", err))
+	}
 
 	return obj, nil
 }
