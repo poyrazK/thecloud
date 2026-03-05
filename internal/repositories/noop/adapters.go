@@ -1,8 +1,10 @@
-// Package noop provides no-op infrastructure adapters for testing and local runs.
+// Package noop provides no-op implementations of interfaces for testing and benchmarks.
 package noop
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -25,128 +27,110 @@ func (r *NoopInstanceRepository) GetByName(ctx context.Context, name string) (*d
 func (r *NoopInstanceRepository) List(ctx context.Context) ([]*domain.Instance, error) {
 	return []*domain.Instance{}, nil
 }
-func (r *NoopInstanceRepository) ListAll(ctx context.Context) ([]*domain.Instance, error) {
-	return []*domain.Instance{}, nil
-}
-func (r *NoopInstanceRepository) Update(ctx context.Context, i *domain.Instance) error { return nil }
-func (r *NoopInstanceRepository) Delete(ctx context.Context, id uuid.UUID) error       { return nil }
-func (r *NoopInstanceRepository) ListBySubnet(ctx context.Context, subnetID uuid.UUID) ([]*domain.Instance, error) {
-	return []*domain.Instance{}, nil
-}
 func (r *NoopInstanceRepository) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Instance, error) {
 	return []*domain.Instance{}, nil
 }
+func (r *NoopInstanceRepository) Update(ctx context.Context, i *domain.Instance) error { return nil }
+func (r *NoopInstanceRepository) Delete(ctx context.Context, id uuid.UUID) error      { return nil }
 
-// NoopInstanceTypeRepository is a no-op instance type repository.
-type NoopInstanceTypeRepository struct{}
-
-func (r *NoopInstanceTypeRepository) List(ctx context.Context) ([]*domain.InstanceType, error) {
-	return []*domain.InstanceType{
-		{ID: "basic-1", Name: "Basic 1", VCPUs: 1, MemoryMB: 512, DiskGB: 8},
-		{ID: "basic-2", Name: "Basic 2", VCPUs: 1, MemoryMB: 1024, DiskGB: 10},
-	}, nil
-}
-func (r *NoopInstanceTypeRepository) GetByID(ctx context.Context, id string) (*domain.InstanceType, error) {
-	return &domain.InstanceType{ID: id, Name: id, VCPUs: 1, MemoryMB: 1024, DiskGB: 10}, nil
-}
-func (r *NoopInstanceTypeRepository) Create(ctx context.Context, it *domain.InstanceType) (*domain.InstanceType, error) {
-	return it, nil
-}
-func (r *NoopInstanceTypeRepository) Update(ctx context.Context, it *domain.InstanceType) (*domain.InstanceType, error) {
-	return it, nil
-}
-func (r *NoopInstanceTypeRepository) Delete(ctx context.Context, id string) error {
-	return nil
-}
-
-// NoopVpcRepository is a no-op VPC repository.
+// NoopVpcRepository
 type NoopVpcRepository struct{}
 
 func (r *NoopVpcRepository) Create(ctx context.Context, v *domain.VPC) error { return nil }
 func (r *NoopVpcRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.VPC, error) {
 	return &domain.VPC{ID: id}, nil
 }
-func (r *NoopVpcRepository) GetByName(ctx context.Context, name string) (*domain.VPC, error) {
-	return &domain.VPC{ID: uuid.New(), Name: name}, nil
-}
-func (r *NoopVpcRepository) List(ctx context.Context) ([]*domain.VPC, error) {
-	return []*domain.VPC{}, nil
-}
-func (r *NoopVpcRepository) Delete(ctx context.Context, id uuid.UUID) error { return nil }
 func (r *NoopVpcRepository) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.VPC, error) {
 	return []*domain.VPC{}, nil
 }
+func (r *NoopVpcRepository) Update(ctx context.Context, v *domain.VPC) error { return nil }
+func (r *NoopVpcRepository) Delete(ctx context.Context, id uuid.UUID) error  { return nil }
 
-// NoopSubnetRepository is a no-op subnet repository.
+// NoopSubnetRepository
 type NoopSubnetRepository struct{}
 
 func (r *NoopSubnetRepository) Create(ctx context.Context, s *domain.Subnet) error { return nil }
 func (r *NoopSubnetRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Subnet, error) {
 	return &domain.Subnet{ID: id}, nil
 }
-func (r *NoopSubnetRepository) GetByName(ctx context.Context, vpcID uuid.UUID, name string) (*domain.Subnet, error) {
-	return &domain.Subnet{ID: uuid.New(), Name: name, VPCID: vpcID}, nil
-}
-func (r *NoopSubnetRepository) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*domain.Subnet, error) {
+func (r *NoopSubnetRepository) ListByVpcID(ctx context.Context, vpcID uuid.UUID) ([]*domain.Subnet, error) {
 	return []*domain.Subnet{}, nil
 }
-func (r *NoopSubnetRepository) Delete(ctx context.Context, id uuid.UUID) error { return nil }
+func (r *NoopSubnetRepository) Update(ctx context.Context, s *domain.Subnet) error { return nil }
+func (r *NoopSubnetRepository) Delete(ctx context.Context, id uuid.UUID) error     { return nil }
+
+// NoopInstanceTypeRepository
+type NoopInstanceTypeRepository struct{}
+
+func (r *NoopInstanceTypeRepository) Create(ctx context.Context, t *domain.InstanceType) error {
+	return nil
+}
+func (r *NoopInstanceTypeRepository) GetByID(ctx context.Context, id string) (*domain.InstanceType, error) {
+	return &domain.InstanceType{ID: id}, nil
+}
+func (r *NoopInstanceTypeRepository) List(ctx context.Context) ([]*domain.InstanceType, error) {
+	return []*domain.InstanceType{}, nil
+}
+func (r *NoopInstanceTypeRepository) Update(ctx context.Context, t *domain.InstanceType) error {
+	return nil
+}
+func (r *NoopInstanceTypeRepository) Delete(ctx context.Context, id string) error { return nil }
 
 // NoopComputeBackend is a no-op compute backend.
 type NoopComputeBackend struct{}
 
-func NewNoopComputeBackend() *NoopComputeBackend {
-	return &NoopComputeBackend{}
+func (b *NoopComputeBackend) Launch(ctx context.Context, i *domain.Instance) error    { return nil }
+func (b *NoopComputeBackend) Terminate(ctx context.Context, i *domain.Instance) error { return nil }
+func (b *NoopComputeBackend) GetStatus(ctx context.Context, i *domain.Instance) (domain.InstanceStatus, error) {
+	return domain.StatusRunning, nil
 }
-
-func (c *NoopComputeBackend) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
-	return "cid", nil, nil
+func (b *NoopComputeBackend) GetStats(ctx context.Context, i *domain.Instance) (*domain.InstanceStats, error) {
+	return &domain.InstanceStats{}, nil
 }
-func (c *NoopComputeBackend) StartInstance(ctx context.Context, id string) error  { return nil }
-func (c *NoopComputeBackend) StopInstance(ctx context.Context, id string) error   { return nil }
-func (c *NoopComputeBackend) DeleteInstance(ctx context.Context, id string) error { return nil }
-func (c *NoopComputeBackend) GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error) {
-	return io.NopCloser(strings.NewReader("logs")), nil
-}
-func (c *NoopComputeBackend) GetInstanceStats(ctx context.Context, id string) (io.ReadCloser, error) {
-	return io.NopCloser(strings.NewReader("{}")), nil
-}
-func (c *NoopComputeBackend) GetInstancePort(ctx context.Context, id string, internalPort string) (int, error) {
-	return 80, nil
-}
-func (c *NoopComputeBackend) GetInstanceIP(ctx context.Context, id string) (string, error) {
-	return "127.0.0.1", nil
-}
-func (c *NoopComputeBackend) GetConsoleURL(ctx context.Context, id string) (string, error) {
-	return "vnc://127.0.0.1:5900", nil
-}
-func (c *NoopComputeBackend) Exec(ctx context.Context, id string, cmd []string) (string, error) {
+func (b *NoopComputeBackend) Start(ctx context.Context, i *domain.Instance) error { return nil }
+func (b *NoopComputeBackend) Stop(ctx context.Context, i *domain.Instance) error  { return nil }
+func (b *NoopComputeBackend) Exec(ctx context.Context, i *domain.Instance, cmd []string) (string, error) {
 	return "", nil
 }
-func (c *NoopComputeBackend) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, []string, error) {
-	return "task-id", nil, nil
-}
-func (c *NoopComputeBackend) WaitTask(ctx context.Context, id string) (int64, error) { return 0, nil }
-func (c *NoopComputeBackend) CreateNetwork(ctx context.Context, name string) (string, error) {
-	return "net-id", nil
-}
-func (c *NoopComputeBackend) DeleteNetwork(ctx context.Context, id string) error { return nil }
-func (c *NoopComputeBackend) AttachVolume(ctx context.Context, id string, volumePath string) (string, error) {
-	return "/dev/vdb", nil
-}
 
-func (c *NoopComputeBackend) DetachVolume(ctx context.Context, id string, volumePath string) error {
+// NoopNetworkBackend is a no-op network backend.
+type NoopNetworkBackend struct{}
+
+func (b *NoopNetworkBackend) SetupVPC(ctx context.Context, v *domain.VPC) error      { return nil }
+func (b *NoopNetworkBackend) TeardownVPC(ctx context.Context, v *domain.VPC) error   { return nil }
+func (b *NoopNetworkBackend) SetupSubnet(ctx context.Context, s *domain.Subnet) error { return nil }
+func (b *NoopNetworkBackend) TeardownSubnet(ctx context.Context, s *domain.Subnet) error {
+	return nil
+}
+func (b *NoopNetworkBackend) AssignIP(ctx context.Context, i *domain.Instance, s *domain.Subnet) (string, error) {
+	return "10.0.0.2", nil
+}
+func (b *NoopNetworkBackend) ReleaseIP(ctx context.Context, i *domain.Instance, s *domain.Subnet) error {
 	return nil
 }
 
-func (c *NoopComputeBackend) Ping(ctx context.Context) error { return nil }
-func (c *NoopComputeBackend) Type() string                   { return "noop" }
+// NoopDNSService is a no-op DNS service.
+type NoopDNSService struct{}
 
-// NoopEventService implements ports.EventService.
+func (s *NoopDNSService) RegisterInstance(ctx context.Context, i *domain.Instance) error { return nil }
+func (s *NoopDNSService) UnregisterInstance(ctx context.Context, i *domain.Instance) error {
+	return nil
+}
+
+// NoopLogService is a no-op log service.
+type NoopLogService struct{}
+
+func (s *NoopLogService) StreamLogs(ctx context.Context, instanceID string) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader("")), nil
+}
+func (s *NoopLogService) GetLogs(ctx context.Context, instanceID string) (string, error) { return "", nil }
+
+// NoopEventService is a no-op event service.
 type NoopEventService struct{}
 
-func (e *NoopEventService) RecordEvent(ctx context.Context, action, resourceID, resourceType string, metadata map[string]interface{}) error {
-	return nil
+func (e *NoopEventService) Publish(ctx context.Context, event domain.Event) error { return nil }
+func (e *NoopEventService) Subscribe(ctx context.Context, topic string) (<-chan domain.Event, error) {
+	return make(chan domain.Event), nil
 }
 func (e *NoopEventService) ListEvents(ctx context.Context, limit int) ([]*domain.Event, error) {
 	return []*domain.Event{}, nil
@@ -167,13 +151,13 @@ type NoopClusterRepository struct{}
 
 func (r *NoopClusterRepository) Create(ctx context.Context, c *domain.Cluster) error { return nil }
 func (r *NoopClusterRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Cluster, error) {
-	return nil, nil
+	return &domain.Cluster{ID: id}, nil
 }
 func (r *NoopClusterRepository) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Cluster, error) {
-	return nil, nil
+	return []*domain.Cluster{}, nil
 }
 func (r *NoopClusterRepository) ListAll(ctx context.Context) ([]*domain.Cluster, error) {
-	return nil, nil
+	return []*domain.Cluster{}, nil
 }
 func (r *NoopClusterRepository) Update(ctx context.Context, c *domain.Cluster) error      { return nil }
 func (r *NoopClusterRepository) Delete(ctx context.Context, id uuid.UUID) error           { return nil }
@@ -197,7 +181,7 @@ func (s *NoopClusterService) GetCluster(ctx context.Context, id uuid.UUID) (*dom
 	return &domain.Cluster{ID: id}, nil
 }
 func (s *NoopClusterService) ListClusters(ctx context.Context, userID uuid.UUID) ([]*domain.Cluster, error) {
-	return nil, nil
+	return []*domain.Cluster{}, nil
 }
 func (s *NoopClusterService) GetKubeconfig(ctx context.Context, id uuid.UUID, role string) (string, error) {
 	return "", nil
@@ -232,10 +216,10 @@ func (s *NoopSecretService) CreateSecret(ctx context.Context, name, value, desc 
 	return &domain.Secret{ID: uuid.New(), Name: name}, nil
 }
 func (s *NoopSecretService) GetSecret(ctx context.Context, id uuid.UUID) (*domain.Secret, error) {
-	return nil, nil
+	return &domain.Secret{ID: id}, nil
 }
 func (s *NoopSecretService) GetSecretByName(ctx context.Context, name string) (*domain.Secret, error) {
-	return nil, nil
+	return &domain.Secret{ID: uuid.New(), Name: name}, nil
 }
 func (s *NoopSecretService) ListSecrets(ctx context.Context) ([]*domain.Secret, error) {
 	return []*domain.Secret{}, nil
@@ -327,6 +311,9 @@ func (s *NoopStorageService) AbortMultipartUpload(ctx context.Context, uploadID 
 	return nil
 }
 func (s *NoopStorageService) CleanupDeleted(ctx context.Context, limit int) (int, error) {
+	return 0, nil
+}
+func (s *NoopStorageService) CleanupPendingUploads(ctx context.Context, olderThan time.Duration, limit int) (int, error) {
 	return 0, nil
 }
 func (s *NoopStorageService) GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error) {
@@ -447,7 +434,7 @@ func (r *NoopUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 	return &domain.User{ID: id}, nil
 }
 func (r *NoopUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
-	return nil, nil
+	return &domain.User{ID: uuid.New(), Email: email}, nil
 }
 func (r *NoopUserRepository) Update(ctx context.Context, u *domain.User) error { return nil }
 func (r *NoopUserRepository) List(ctx context.Context) ([]*domain.User, error) {
@@ -512,7 +499,7 @@ func (r *NoopLBRepository) GetByName(ctx context.Context, name string) (*domain.
 	return &domain.LoadBalancer{ID: uuid.New(), Name: name}, nil
 }
 func (r *NoopLBRepository) GetByIdempotencyKey(ctx context.Context, key string) (*domain.LoadBalancer, error) {
-	return nil, nil
+	return &domain.LoadBalancer{ID: uuid.New()}, nil
 }
 func (r *NoopLBRepository) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	return []*domain.LoadBalancer{}, nil
@@ -558,13 +545,13 @@ func (r *NoopStorageRepository) ListVersions(ctx context.Context, bucket, key st
 	return []*domain.Object{}, nil
 }
 func (r *NoopStorageRepository) ListDeleted(ctx context.Context, limit int) ([]*domain.Object, error) {
-	return nil, nil
+	return []*domain.Object{}, nil
 }
 func (r *NoopStorageRepository) HardDelete(ctx context.Context, bucket, key, ver string) error {
 	return nil
 }
 func (r *NoopStorageRepository) ListPending(ctx context.Context, olderThan time.Time, limit int) ([]*domain.Object, error) {
-	return nil, nil
+	return []*domain.Object{}, nil
 }
 func (r *NoopStorageRepository) CreateBucket(ctx context.Context, b *domain.Bucket) error { return nil }
 func (r *NoopStorageRepository) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
@@ -581,59 +568,12 @@ func (r *NoopStorageRepository) SaveMultipartUpload(ctx context.Context, u *doma
 	return nil
 }
 func (r *NoopStorageRepository) GetMultipartUpload(ctx context.Context, id uuid.UUID) (*domain.MultipartUpload, error) {
-	return &domain.MultipartUpload{}, nil
+	return &domain.MultipartUpload{ID: id}, nil
 }
 func (r *NoopStorageRepository) DeleteMultipartUpload(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 func (r *NoopStorageRepository) SavePart(ctx context.Context, p *domain.Part) error { return nil }
-func (r *NoopStorageRepository) ListParts(ctx context.Context, uid uuid.UUID) ([]*domain.Part, error) {
+func (r *NoopStorageRepository) ListParts(ctx context.Context, uploadID uuid.UUID) ([]*domain.Part, error) {
 	return []*domain.Part{}, nil
-}
-
-// NoopStorageBackend
-type NoopStorageBackend struct{}
-
-func NewNoopStorageBackend() *NoopStorageBackend { return &NoopStorageBackend{} }
-func (s *NoopStorageBackend) CreateSnapshot(ctx context.Context, volumeName, snapshotName string) error {
-	return nil
-}
-func (s *NoopStorageBackend) DeleteSnapshot(ctx context.Context, snapshotName string) error {
-	return nil
-}
-func (s *NoopStorageBackend) RestoreSnapshot(ctx context.Context, volumeName, snapshotName string) error {
-	return nil
-}
-func (s *NoopStorageBackend) CreateVolume(ctx context.Context, name string, sizeGB int) (string, error) {
-	return "vol-1", nil
-}
-func (s *NoopStorageBackend) DeleteVolume(ctx context.Context, name string) error { return nil }
-func (s *NoopStorageBackend) AttachVolume(ctx context.Context, volumeName, instanceID string) (string, error) {
-	return "vol-1", nil
-}
-func (s *NoopStorageBackend) DetachVolume(ctx context.Context, volumeName, instanceID string) error {
-	return nil
-}
-func (s *NoopStorageBackend) Ping(ctx context.Context) error { return nil }
-func (s *NoopStorageBackend) Type() string                   { return "noop" }
-
-// NoopDatabaseService is a no-op database service.
-type NoopDatabaseService struct{}
-
-func (s *NoopDatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID) (*domain.Database, error) {
-	return &domain.Database{ID: uuid.New(), Name: name, Role: domain.RolePrimary}, nil
-}
-func (s *NoopDatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error) {
-	return &domain.Database{ID: uuid.New(), Name: name, PrimaryID: &primaryID, Role: domain.RoleReplica}, nil
-}
-func (s *NoopDatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) error { return nil }
-func (s *NoopDatabaseService) GetDatabase(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
-	return &domain.Database{ID: id}, nil
-}
-func (s *NoopDatabaseService) ListDatabases(ctx context.Context) ([]*domain.Database, error) {
-	return []*domain.Database{}, nil
-}
-func (s *NoopDatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) error { return nil }
-func (s *NoopDatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
-	return "postgres://localhost:5432/db", nil
 }

@@ -147,6 +147,7 @@ func (r *StorageRepository) ListPending(ctx context.Context, olderThan time.Time
 		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, checksum, upload_status, created_at, deleted_at
 		FROM objects
 		WHERE upload_status = 'PENDING' AND created_at < $1
+		ORDER BY created_at ASC, id ASC
 		LIMIT $2
 	`
 	rows, err := r.db.Query(ctx, query, olderThan, limit)
