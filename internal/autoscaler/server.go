@@ -34,10 +34,14 @@ func (s *AutoscalerServer) NodeGroups(ctx context.Context, req *protos.NodeGroup
 
 	nodeGroups := make([]*protos.NodeGroup, 0, len(cluster.NodeGroups))
 	for _, ng := range cluster.NodeGroups {
+		// #nosec G115 - Node group sizes are within int32 range
+		minSize := int32(ng.MinSize)
+		// #nosec G115
+		maxSize := int32(ng.MaxSize)
 		nodeGroups = append(nodeGroups, &protos.NodeGroup{
 			Id:      ng.Name,
-			MinSize: int32(ng.MinSize),
-			MaxSize: int32(ng.MaxSize),
+			MinSize: minSize,
+			MaxSize: maxSize,
 			Debug:   fmt.Sprintf("NodeGroup %s for cluster %s", ng.Name, s.clusterID),
 		})
 	}
@@ -80,11 +84,15 @@ func (s *AutoscalerServer) NodeGroupForNode(ctx context.Context, req *protos.Nod
 
 	for _, ng := range cluster.NodeGroups {
 		if ng.Name == groupName {
+			// #nosec G115
+			minSize := int32(ng.MinSize)
+			// #nosec G115
+			maxSize := int32(ng.MaxSize)
 			return &protos.NodeGroupForNodeResponse{
 				NodeGroup: &protos.NodeGroup{
 					Id:      ng.Name,
-					MinSize: int32(ng.MinSize),
-					MaxSize: int32(ng.MaxSize),
+					MinSize: minSize,
+					MaxSize: maxSize,
 					Debug:   fmt.Sprintf("NodeGroup %s", ng.Name),
 				},
 			}, nil
@@ -102,8 +110,10 @@ func (s *AutoscalerServer) NodeGroupTargetSize(ctx context.Context, req *protos.
 
 	for _, ng := range cluster.NodeGroups {
 		if ng.Name == req.Id {
+			// #nosec G115
+			targetSize := int32(ng.CurrentSize)
 			return &protos.NodeGroupTargetSizeResponse{
-				TargetSize: int32(ng.CurrentSize),
+				TargetSize: targetSize,
 			}, nil
 		}
 	}
