@@ -342,7 +342,7 @@ write_files:
                         name: thecloud-api-credentials
                         key: api-key
                   - name: CLOUD_API_URL
-                    value: "https://thecloud-api.kube-system.svc.cluster.local:443"
+                    value: "{{ .CloudAPIURL }}"
                   - name: CLOUD_CLUSTER_ID
                     valueFrom:
                       configMapKeyRef:

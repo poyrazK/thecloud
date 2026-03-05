@@ -210,12 +210,13 @@ func (p *KubeadmProvisioner) provisionWorkers(ctx context.Context, cluster *doma
 		}
 	}
 
+	var provisioningErrors []string
 	for _, ng := range cluster.NodeGroups {
 		for i := 0; i < ng.CurrentSize; i++ {
 			workerName := fmt.Sprintf("%s-%s-%d", cluster.Name, ng.Name, i)
 			workerInst, err := p.instSvc.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 				Name:      workerName,
-				ImageName: "ubuntu-22.04",
+				ImageName: "ubuntu:22.04", // Use canonical image name consistent with control-plane
 				NetworkID: cluster.VpcID.String(),
 				UserData:  userData,
 				Metadata: map[string]string{
@@ -224,7 +225,9 @@ func (p *KubeadmProvisioner) provisionWorkers(ctx context.Context, cluster *doma
 				},
 			})
 			if err != nil {
-				p.logger.Error("failed to create worker node", "name", workerName, "error", err)
+				errMsg := fmt.Sprintf("failed to create worker node %s: %v", workerName, err)
+				p.logger.Error(errMsg)
+				provisioningErrors = append(provisioningErrors, errMsg)
 				continue
 			}
 
@@ -236,8 +239,16 @@ func (p *KubeadmProvisioner) provisionWorkers(ctx context.Context, cluster *doma
 				Status:     "provisioning",
 				JoinedAt:   time.Now(),
 			}
-			_ = p.repo.AddNode(ctx, node)
+			if err := p.repo.AddNode(ctx, node); err != nil {
+				errMsg := fmt.Sprintf("failed to add worker node %s to repository: %v", workerName, err)
+				p.logger.Error(errMsg)
+				provisioningErrors = append(provisioningErrors, errMsg)
+			}
 		}
+	}
+
+	if len(provisioningErrors) > 0 {
+		return fmt.Errorf("worker provisioning encountered errors: %s", strings.Join(provisioningErrors, "; "))
 	}
 
 	return nil
@@ -603,4 +614,3 @@ func (p *KubeadmProvisioner) Restore(ctx context.Context, cluster *domain.Cluste
 	// Implementing a full restore requires careful node-by-node handling.
 	return errors.New(errors.NotImplemented, "restore not yet fully implemented")
 }
-
