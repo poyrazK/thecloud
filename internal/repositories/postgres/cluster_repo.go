@@ -115,9 +115,10 @@ func (r *ClusterRepository) list(ctx context.Context, query string, args ...any)
 		}
 		// Fetch Node Groups for each cluster in the list
 		ngs, err := r.GetNodeGroups(ctx, c.ID)
-		if err == nil {
-			c.NodeGroups = ngs
+		if err != nil {
+			return nil, errors.Wrap(errors.Internal, "failed to fetch node groups for cluster in list", err)
 		}
+		c.NodeGroups = ngs
 		clusters = append(clusters, c)
 	}
 	if err := rows.Err(); err != nil {
