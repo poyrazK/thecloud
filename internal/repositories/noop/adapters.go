@@ -615,6 +615,9 @@ func (s *NoopStorageBackend) CreateVolume(ctx context.Context, name string, size
 	return "vol-1", nil
 }
 func (s *NoopStorageBackend) DeleteVolume(ctx context.Context, name string) error { return nil }
+func (s *NoopStorageBackend) ResizeVolume(ctx context.Context, name string, newSizeGB int) error {
+	return nil
+}
 func (s *NoopStorageBackend) AttachVolume(ctx context.Context, volumeName, instanceID string) (string, error) {
 	return "vol-1", nil
 }
@@ -627,8 +630,8 @@ func (s *NoopStorageBackend) Type() string                   { return "noop" }
 // NoopDatabaseService is a no-op database service.
 type NoopDatabaseService struct{}
 
-func (s *NoopDatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID) (*domain.Database, error) {
-	return &domain.Database{ID: uuid.New(), Name: name, Role: domain.RolePrimary}, nil
+func (s *NoopDatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDatabaseRequest) (*domain.Database, error) {
+	return &domain.Database{ID: uuid.New(), Name: req.Name, Role: domain.RolePrimary}, nil
 }
 func (s *NoopDatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error) {
 	return &domain.Database{ID: uuid.New(), Name: name, PrimaryID: &primaryID, Role: domain.RoleReplica}, nil
@@ -641,6 +644,18 @@ func (s *NoopDatabaseService) ListDatabases(ctx context.Context) ([]*domain.Data
 	return []*domain.Database{}, nil
 }
 func (s *NoopDatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) error { return nil }
+func (s *NoopDatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDatabaseRequest) (*domain.Database, error) {
+	return &domain.Database{ID: req.ID}, nil
+}
 func (s *NoopDatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
-	return "postgres://localhost:5432/db", nil
+	return "postgres://127.0.0.1:5432/db", nil
+}
+func (s *NoopDatabaseService) CreateDatabaseSnapshot(ctx context.Context, databaseID uuid.UUID, description string) (*domain.Snapshot, error) {
+	return &domain.Snapshot{ID: uuid.New()}, nil
+}
+func (s *NoopDatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID uuid.UUID) ([]*domain.Snapshot, error) {
+	return []*domain.Snapshot{}, nil
+}
+func (s *NoopDatabaseService) RestoreDatabase(ctx context.Context, req ports.RestoreDatabaseRequest) (*domain.Database, error) {
+	return &domain.Database{ID: uuid.New(), Name: req.NewName, Role: domain.RolePrimary}, nil
 }

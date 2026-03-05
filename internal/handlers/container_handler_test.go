@@ -25,6 +25,7 @@ const (
 	scalePath            = "/:id/scale"
 	scaleSuffix          = "/scale"
 	containerPathInvalid = "/invalid"
+	errNotFound          = "not found"
 )
 
 type mockContainerService struct {

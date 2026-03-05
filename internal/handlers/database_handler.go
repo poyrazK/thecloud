@@ -32,6 +32,7 @@ type CreateDatabaseRequest struct {
 	AllocatedStorage int               `json:"allocated_storage"`
 	Parameters       map[string]string `json:"parameters"`
 	MetricsEnabled   bool              `json:"metrics_enabled"`
+	PoolingEnabled   bool              `json:"pooling_enabled"`
 }
 
 func (h *DatabaseHandler) Create(c *gin.Context) {
@@ -41,7 +42,16 @@ func (h *DatabaseHandler) Create(c *gin.Context) {
 		return
 	}
 
-	db, err := h.svc.CreateDatabase(c.Request.Context(), req.Name, req.Engine, req.Version, req.VpcID, req.AllocatedStorage, req.Parameters, req.MetricsEnabled)
+	db, err := h.svc.CreateDatabase(c.Request.Context(), ports.CreateDatabaseRequest{
+		Name:             req.Name,
+		Engine:           req.Engine,
+		Version:          req.Version,
+		VpcID:            req.VpcID,
+		AllocatedStorage: req.AllocatedStorage,
+		Parameters:       req.Parameters,
+		MetricsEnabled:   req.MetricsEnabled,
+		PoolingEnabled:   req.PoolingEnabled,
+	})
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -133,6 +143,42 @@ func (h *DatabaseHandler) Delete(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, gin.H{"message": "database deleted"})
 }
 
+// ModifyDatabaseRequest is the payload for updating a database.
+type ModifyDatabaseRequest struct {
+	Parameters       map[string]string `json:"parameters"`
+	MetricsEnabled   *bool             `json:"metrics_enabled"`
+	PoolingEnabled   *bool             `json:"pooling_enabled"`
+	AllocatedStorage *int              `json:"allocated_storage"`
+}
+
+func (h *DatabaseHandler) Modify(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidDatabaseIDMsg))
+		return
+	}
+
+	var req ModifyDatabaseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, err.Error()))
+		return
+	}
+
+	db, err := h.svc.ModifyDatabase(c.Request.Context(), ports.ModifyDatabaseRequest{
+		ID:               id,
+		Parameters:       req.Parameters,
+		MetricsEnabled:   req.MetricsEnabled,
+		PoolingEnabled:   req.PoolingEnabled,
+		AllocatedStorage: req.AllocatedStorage,
+	})
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, db)
+}
+
 func (h *DatabaseHandler) GetConnectionString(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -164,6 +210,7 @@ type RestoreDatabaseRequest struct {
 	AllocatedStorage int               `json:"allocated_storage" binding:"required"`
 	Parameters       map[string]string `json:"parameters"`
 	MetricsEnabled   bool              `json:"metrics_enabled"`
+	PoolingEnabled   bool              `json:"pooling_enabled"`
 }
 
 // CreateSnapshot creates a point-in-time backup of the database.
@@ -241,7 +288,17 @@ func (h *DatabaseHandler) Restore(c *gin.Context) {
 		return
 	}
 
-	db, err := h.svc.RestoreDatabase(c.Request.Context(), req.SnapshotID, req.Name, req.Engine, req.Version, req.VpcID, req.AllocatedStorage, req.Parameters, req.MetricsEnabled)
+	db, err := h.svc.RestoreDatabase(c.Request.Context(), ports.RestoreDatabaseRequest{
+		SnapshotID:       req.SnapshotID,
+		NewName:          req.Name,
+		Engine:           req.Engine,
+		Version:          req.Version,
+		VpcID:            req.VpcID,
+		AllocatedStorage: req.AllocatedStorage,
+		Parameters:       req.Parameters,
+		MetricsEnabled:   req.MetricsEnabled,
+		PoolingEnabled:   req.PoolingEnabled,
+	})
 	if err != nil {
 		httputil.Error(c, err)
 		return

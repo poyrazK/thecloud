@@ -90,7 +90,13 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		mockAuditSvc.On("Log", mock.Anything, mock.Anything, "database.create", "database", mock.Anything, mock.Anything).
 			Return(nil).Once()
 
-		db, err := svc.CreateDatabase(ctx, "test-db", "postgres", "16", nil, 20, map[string]string{"max_connections": "100"}, false)
+		db, err := svc.CreateDatabase(ctx, ports.CreateDatabaseRequest{
+			Name:             "test-db",
+			Engine:           "postgres",
+			Version:          "16",
+			AllocatedStorage: 20,
+			Parameters:       map[string]string{"max_connections": "100"},
+		})
 		require.NoError(t, err)
 		assert.NotNil(t, db)
 		assert.Equal(t, 30001, db.Port)
@@ -149,7 +155,7 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 
 		conn, err := svc.GetConnectionString(ctx, dbID)
 		require.NoError(t, err)
-		assert.Contains(t, conn, "postgres://user:pass@localhost:5432/mydb")
+		assert.Contains(t, conn, "postgres://user:pass@127.0.0.1:5432/mydb")
 	})
 
 	t.Run("DeleteDatabase", func(t *testing.T) {
@@ -203,7 +209,12 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 
 		mockVolumeSvc.On("DeleteVolume", mock.Anything, volID.String()).Return(nil).Once()
 
-		db, err := svc.CreateDatabase(ctx, "fail-db", "postgres", "16", nil, 10, nil, false)
+		db, err := svc.CreateDatabase(ctx, ports.CreateDatabaseRequest{
+			Name:             "fail-db",
+			Engine:           "postgres",
+			Version:          "16",
+			AllocatedStorage: 10,
+		})
 		require.Error(t, err)
 		assert.Nil(t, db)
 		assert.Contains(t, err.Error(), "launch failed")
@@ -217,13 +228,20 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).
 			Return("cid-123", []string{"30001:5432"}, nil).Once()
 
+		mockCompute.On("GetInstanceIP", mock.Anything, "cid-123").Return("10.0.0.5", nil).Once()
+
 		mockRepo.On("Create", mock.Anything, mock.Anything).
 			Return(fmt.Errorf("repo failed")).Once()
 
 		mockCompute.On("DeleteInstance", mock.Anything, "cid-123").Return(nil).Once()
 		mockVolumeSvc.On("DeleteVolume", mock.Anything, volID.String()).Return(nil).Once()
 
-		db, err := svc.CreateDatabase(ctx, "repo-fail-db", "postgres", "16", nil, 10, nil, false)
+		db, err := svc.CreateDatabase(ctx, ports.CreateDatabaseRequest{
+			Name:             "repo-fail-db",
+			Engine:           "postgres",
+			Version:          "16",
+			AllocatedStorage: 10,
+		})
 		require.Error(t, err)
 		assert.Nil(t, db)
 		assert.Contains(t, err.Error(), "repo failed")
@@ -278,7 +296,13 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		mockEventSvc.On("RecordEvent", mock.Anything, "DATABASE_RESTORE", mock.Anything, "DATABASE", mock.Anything).Return(nil).Once()
 		mockAuditSvc.On("Log", mock.Anything, mock.Anything, "database.restore", "database", mock.Anything, mock.Anything).Return(nil).Once()
 
-		db, err := svc.RestoreDatabase(ctx, snapID, "restored-db", "postgres", "16", nil, 10, nil, false)
+		db, err := svc.RestoreDatabase(ctx, ports.RestoreDatabaseRequest{
+			SnapshotID:       snapID,
+			NewName:          "restored-db",
+			Engine:           "postgres",
+			Version:          "16",
+			AllocatedStorage: 10,
+		})
 		require.NoError(t, err)
 		assert.NotNil(t, db)
 		assert.Equal(t, "new-cid", db.ContainerID)
@@ -317,15 +341,132 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 			return strings.Contains(opts.Name, "exporter")
 		})).Return("exp-cid", []string{"30002:9187"}, nil).Once()
 
+		// Mock GetInstancePort because parseAllocatedPort might fail if ports are empty or formatted differently
+		mockCompute.On("GetInstancePort", mock.Anything, "exp-cid", "9187").Return(30002, nil).Maybe()
+
 		mockRepo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 		mockEventSvc.On("RecordEvent", mock.Anything, "DATABASE_CREATE", mock.Anything, "DATABASE", mock.Anything).Return(nil).Once()
 		mockAuditSvc.On("Log", mock.Anything, mock.Anything, "database.create", "database", mock.Anything, mock.Anything).Return(nil).Once()
 
-		db, err := svc.CreateDatabase(ctx, "metrics-db", "postgres", "16", nil, 10, nil, true)
+		db, err := svc.CreateDatabase(ctx, ports.CreateDatabaseRequest{
+			Name:             "metrics-db",
+			Engine:           "postgres",
+			Version:          "16",
+			AllocatedStorage: 10,
+			MetricsEnabled:   true,
+		})
 		require.NoError(t, err)
 		assert.NotNil(t, db)
 		assert.Equal(t, "exp-cid", db.ExporterContainerID)
 		assert.Equal(t, 30002, db.MetricsPort)
+	})
+
+	t.Run("CreateDatabase_WithPooling", func(t *testing.T) {
+		mockVolumeSvc.On("CreateVolume", mock.Anything, mock.Anything, 10).
+			Return(&domain.Volume{ID: uuid.New(), Name: "db-vol"}, nil).Once()
+
+		// DB container
+		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
+			return strings.Contains(opts.Name, "cloud-db-") && !strings.Contains(opts.Name, "pooler")
+		})).Return("db-cid", []string{"30001:5432"}, nil).Once()
+
+		mockCompute.On("GetInstanceIP", mock.Anything, "db-cid").Return("10.0.0.5", nil).Once()
+
+		// Pooler sidecar container - internal port is now 5432
+		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
+			return strings.Contains(opts.Name, "pooler")
+		})).Return("pooler-cid", []string{"30003:5432"}, nil).Once()
+
+		// Mock GetInstancePort for the pooler sidecar
+		mockCompute.On("GetInstancePort", mock.Anything, "pooler-cid", "5432").Return(30003, nil).Maybe()
+
+		mockRepo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
+		mockEventSvc.On("RecordEvent", mock.Anything, "DATABASE_CREATE", mock.Anything, "DATABASE", mock.Anything).Return(nil).Once()
+		mockAuditSvc.On("Log", mock.Anything, mock.Anything, "database.create", "database", mock.Anything, mock.Anything).Return(nil).Once()
+
+		db, err := svc.CreateDatabase(ctx, ports.CreateDatabaseRequest{
+			Name:             "test-db-pooling",
+			Engine:           "postgres",
+			Version:          "16",
+			AllocatedStorage: 10,
+			PoolingEnabled:   true,
+		})
+		require.NoError(t, err)
+		assert.NotNil(t, db)
+		assert.Equal(t, "pooler-cid", db.PoolerContainerID)
+		assert.Equal(t, 30003, db.PoolingPort)
+		assert.True(t, db.PoolingEnabled)
+	})
+
+	t.Run("CreateDatabase_PoolerFailure", func(t *testing.T) {
+		volID := uuid.New()
+		mockVolumeSvc.On("CreateVolume", mock.Anything, mock.Anything, 10).
+			Return(&domain.Volume{ID: volID, Name: "db-vol"}, nil).Once()
+
+		// DB container succeeds
+		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
+			return strings.Contains(opts.Name, "cloud-db-") && !strings.Contains(opts.Name, "pooler")
+		})).Return("db-cid", []string{"30001:5432"}, nil).Once()
+
+		mockCompute.On("GetInstanceIP", mock.Anything, "db-cid").Return("10.0.0.5", nil).Once()
+
+		// Pooler fails to launch
+		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
+			return strings.Contains(opts.Name, "pooler")
+		})).Return("", nil, fmt.Errorf("pooler launch failed")).Once()
+
+		// Rollback expectations
+		mockCompute.On("DeleteInstance", mock.Anything, "db-cid").Return(nil).Once()
+		mockVolumeSvc.On("DeleteVolume", mock.Anything, volID.String()).Return(nil).Once()
+
+		db, err := svc.CreateDatabase(ctx, ports.CreateDatabaseRequest{
+			Name:             "pooler-fail",
+			Engine:           "postgres",
+			Version:          "16",
+			AllocatedStorage: 10,
+			PoolingEnabled:   true,
+		})
+
+		require.Error(t, err)
+		assert.Nil(t, db)
+		assert.Contains(t, err.Error(), "pooler launch failed")
+	})
+
+	t.Run("ModifyDatabase_VolumeResize", func(t *testing.T) {
+		dbID := uuid.New()
+		userID := uuid.New()
+		db := &domain.Database{
+			ID:               dbID,
+			UserID:           userID,
+			Name:             "test-db",
+			AllocatedStorage: 10,
+			ContainerID:      "cid",
+		}
+		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
+
+		volID := uuid.New()
+		mockVolumeSvc.On("ListVolumes", mock.Anything).Return([]*domain.Volume{
+			{ID: volID, Name: fmt.Sprintf("db-vol-%s", dbID.String()[:8])},
+		}, nil).Once()
+
+		newSize := 20
+		mockVolumeSvc.On("ResizeVolume", mock.Anything, volID.String(), newSize).Return(nil).Once()
+		mockRepo.On("Update", mock.Anything, mock.MatchedBy(func(d *domain.Database) bool {
+			return d.AllocatedStorage == newSize
+		})).Return(nil).Once()
+
+		mockCompute.On("GetInstanceIP", mock.Anything, "cid").Return("10.0.0.5", nil).Once()
+
+		mockEventSvc.On("RecordEvent", mock.Anything, "DATABASE_MODIFY", dbID.String(), "DATABASE", mock.Anything).Return(nil).Once()
+		mockAuditSvc.On("Log", mock.Anything, userID, "database.modify", "database", dbID.String(), mock.Anything).Return(nil).Once()
+
+		result, err := svc.ModifyDatabase(ctx, ports.ModifyDatabaseRequest{
+			ID:               dbID,
+			AllocatedStorage: &newSize,
+		})
+
+		require.NoError(t, err)
+		assert.Equal(t, newSize, result.AllocatedStorage)
 	})
 }
 

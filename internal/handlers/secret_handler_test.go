@@ -20,7 +20,7 @@ import (
 const (
 	secretsPath    = "/secrets"
 	testSecretName = "sec-1"
-	errNotFound    = "not found"
+	errSecretNotFound = "not found"
 )
 
 type mockSecretService struct {
@@ -195,7 +195,7 @@ func TestSecretHandlerDelete(t *testing.T) {
 	t.Run("GetByNameError", func(t *testing.T) {
 		svc, handler, r := setupSecretHandlerTest(t)
 		r.DELETE(secretsPath+"/:id", handler.Delete)
-		svc.On("GetSecretByName", mock.Anything, testSecretName).Return(nil, errors.New(errors.NotFound, errNotFound))
+		svc.On("GetSecretByName", mock.Anything, testSecretName).Return(nil, errors.New(errors.NotFound, errSecretNotFound))
 		req, _ := http.NewRequest(http.MethodDelete, secretsPath+"/"+testSecretName, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -258,7 +258,7 @@ func TestSecretHandlerGetError(t *testing.T) {
 		svc, handler, r := setupSecretHandlerTest(t)
 		r.GET(secretsPath+"/:id", handler.Get)
 		id := uuid.New()
-		svc.On("GetSecret", mock.Anything, id).Return(nil, errors.New(errors.NotFound, errNotFound))
+		svc.On("GetSecret", mock.Anything, id).Return(nil, errors.New(errors.NotFound, errSecretNotFound))
 		req, _ := http.NewRequest(http.MethodGet, secretsPath+"/"+id.String(), nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -269,7 +269,7 @@ func TestSecretHandlerGetError(t *testing.T) {
 	t.Run("NotFoundByName", func(t *testing.T) {
 		svc, handler, r := setupSecretHandlerTest(t)
 		r.GET(secretsPath+"/:id", handler.Get)
-		svc.On("GetSecretByName", mock.Anything, "name").Return(nil, errors.New(errors.NotFound, errNotFound))
+		svc.On("GetSecretByName", mock.Anything, "name").Return(nil, errors.New(errors.NotFound, errSecretNotFound))
 		req, _ := http.NewRequest(http.MethodGet, secretsPath+"/name", nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -23,24 +24,21 @@ func (m *mockDatabaseRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.D
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	r0, _ := args.Get(0).(*domain.Database)
-	return r0, args.Error(1)
+	return args.Get(0).(*domain.Database), args.Error(1)
 }
 func (m *mockDatabaseRepo) List(ctx context.Context) ([]*domain.Database, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	r0, _ := args.Get(0).([]*domain.Database)
-	return r0, args.Error(1)
+	return args.Get(0).([]*domain.Database), args.Error(1)
 }
 func (m *mockDatabaseRepo) ListReplicas(ctx context.Context, primaryID uuid.UUID) ([]*domain.Database, error) {
 	args := m.Called(ctx, primaryID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	r0, _ := args.Get(0).([]*domain.Database)
-	return r0, args.Error(1)
+	return args.Get(0).([]*domain.Database), args.Error(1)
 }
 func (m *mockDatabaseRepo) Update(ctx context.Context, db *domain.Database) error {
 	return m.Called(ctx, db).Error(0)
@@ -53,13 +51,12 @@ type mockDatabaseService struct {
 	mock.Mock
 }
 
-func (m *mockDatabaseService) CreateDatabase(ctx context.Context, name, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool) (*domain.Database, error) {
-	args := m.Called(ctx, name, engine, version, vpcID, allocatedStorage, parameters, metricsEnabled)
+func (m *mockDatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDatabaseRequest) (*domain.Database, error) {
+	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	r0, _ := args.Get(0).(*domain.Database)
-	return r0, args.Error(1)
+	return args.Get(0).(*domain.Database), args.Error(1)
 }
 func (m *mockDatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error) {
 	args := m.Called(ctx, primaryID, name)
@@ -88,6 +85,13 @@ func (m *mockDatabaseService) ListDatabases(ctx context.Context) ([]*domain.Data
 func (m *mockDatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
+func (m *mockDatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDatabaseRequest) (*domain.Database, error) {
+	args := m.Called(ctx, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Database), args.Error(1)
+}
 func (m *mockDatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
 	args := m.Called(ctx, id)
 	return args.String(0), args.Error(1)
@@ -106,8 +110,8 @@ func (m *mockDatabaseService) ListDatabaseSnapshots(ctx context.Context, databas
 	}
 	return args.Get(0).([]*domain.Snapshot), args.Error(1)
 }
-func (m *mockDatabaseService) RestoreDatabase(ctx context.Context, snapshotID uuid.UUID, newName, engine, version string, vpcID *uuid.UUID, allocatedStorage int, parameters map[string]string, metricsEnabled bool) (*domain.Database, error) {
-	args := m.Called(ctx, snapshotID, newName, engine, version, vpcID, allocatedStorage, parameters, metricsEnabled)
+func (m *mockDatabaseService) RestoreDatabase(ctx context.Context, req ports.RestoreDatabaseRequest) (*domain.Database, error) {
+	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -125,7 +129,7 @@ func TestDatabaseFailoverWorker(t *testing.T) {
 		Name:   "primary",
 		Role:   domain.RolePrimary,
 		Status: domain.DatabaseStatusRunning,
-		Port:   -1, // Invalid port to ensure DialTimeout fails
+		Port:   1234, // Default unhealthy port
 	}
 
 	replica := &domain.Database{
@@ -156,7 +160,21 @@ func TestDatabaseFailoverWorker(t *testing.T) {
 	})
 
 	t.Run("No failover if primary healthy", func(t *testing.T) {
-		// This logic would require mocking net.Dial which is handled by isHealthy
+		repo := new(mockDatabaseRepo)
+		svc := new(mockDatabaseService)
+		logger := slog.Default()
+
+		healthyPrimary := *primary
+		healthyPrimary.Port = 0 // port 0 is always healthy in our worker for simulation
+
+		worker := NewDatabaseFailoverWorker(svc, repo, logger)
+
+		repo.On("List", mock.Anything).Return([]*domain.Database{&healthyPrimary}, nil)
+
+		worker.checkDatabases(context.Background())
+
+		repo.AssertExpectations(t)
+		svc.AssertNotCalled(t, "PromoteToPrimary", mock.Anything, mock.Anything)
 	})
 
 	t.Run("No failover if no replicas", func(t *testing.T) {

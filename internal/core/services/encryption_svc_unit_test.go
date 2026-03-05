@@ -1,9 +1,11 @@
 package services_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"io"
 	"testing"
 
 	"github.com/poyrazk/thecloud/internal/core/ports"
@@ -73,15 +75,23 @@ func TestEncryptionService_Unit(t *testing.T) {
 		mockRepo.On("GetKey", mock.Anything, bucket).Return(&savedKey, nil)
 
 		data := []byte("secret message")
-		encrypted, err := svc.Encrypt(ctx, bucket, data)
+		cipherReader, err := svc.Encrypt(ctx, bucket, bytes.NewReader(data))
+		require.NoError(t, err)
+		assert.NotNil(t, cipherReader)
+
+		encrypted, err := io.ReadAll(cipherReader)
 		require.NoError(t, err)
 		assert.NotEmpty(t, encrypted)
 		assert.NotEqual(t, data, encrypted)
 
-		decrypted, err := svc.Decrypt(ctx, bucket, encrypted)
+		plainReader, err := svc.Decrypt(ctx, bucket, bytes.NewReader(encrypted))
+		require.NoError(t, err)
+
+		decrypted, err := io.ReadAll(plainReader)
 		require.NoError(t, err)
 		assert.Equal(t, data, decrypted)
 	})
+
 
 	t.Run("RotateKey", func(t *testing.T) {
 		mockRepo.On("SaveKey", mock.Anything, mock.MatchedBy(func(k ports.EncryptionKey) bool {

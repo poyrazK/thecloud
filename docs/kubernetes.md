@@ -121,3 +121,7 @@ Use `type: NodePort` or `type: LoadBalancer` to expose services. The Cloud's sec
 *   **High Availability**: Multi-control plane HA (3 masters + API Load Balancer) is supported via the `--ha` flag.
 *   **Autoscaling**: Automatic node group scaling via the integrated Cluster Autoscaler.
 
+## Limitations (MVP)
+*   **Automated Backups**: Manual etcd snapshots only.
+*   **OS Support**: Optimized for Ubuntu 22.04 only.
+*   **Region Support**: Single region control plane.

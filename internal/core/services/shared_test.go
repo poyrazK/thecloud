@@ -1283,6 +1283,10 @@ func (m *MockVolumeService) DeleteVolume(ctx context.Context, idOrName string) e
 	args := m.Called(ctx, idOrName)
 	return args.Error(0)
 }
+func (m *MockVolumeService) ResizeVolume(ctx context.Context, id string, newSizeGB int) error {
+	args := m.Called(ctx, id, newSizeGB)
+	return args.Error(0)
+}
 func (m *MockVolumeService) ReleaseVolumesForInstance(ctx context.Context, instanceID uuid.UUID) error {
 	args := m.Called(ctx, instanceID)
 	return args.Error(0)
@@ -1641,6 +1645,10 @@ func (m *MockStorageBackend) DeleteVolume(ctx context.Context, name string) erro
 	args := m.Called(ctx, name)
 	return args.Error(0)
 }
+func (m *MockStorageBackend) ResizeVolume(ctx context.Context, name string, newSizeGB int) error {
+	args := m.Called(ctx, name, newSizeGB)
+	return args.Error(0)
+}
 func (m *MockStorageBackend) AttachVolume(ctx context.Context, volumeName, instanceID string) (string, error) {
 	args := m.Called(ctx, volumeName, instanceID)
 	return args.String(0), args.Error(1)
@@ -1768,15 +1776,15 @@ type MockEncryptionService struct {
 	mock.Mock
 }
 
-func (m *MockEncryptionService) Encrypt(ctx context.Context, bucket string, data []byte) ([]byte, error) {
-	args := m.Called(ctx, bucket, data)
-	r0, _ := args.Get(0).([]byte)
+func (m *MockEncryptionService) Encrypt(ctx context.Context, bucket string, r io.Reader) (io.Reader, error) {
+	args := m.Called(ctx, bucket, r)
+	r0, _ := args.Get(0).(io.Reader)
 	return r0, args.Error(1)
 }
 
-func (m *MockEncryptionService) Decrypt(ctx context.Context, bucket string, encryptedData []byte) ([]byte, error) {
-	args := m.Called(ctx, bucket, encryptedData)
-	r0, _ := args.Get(0).([]byte)
+func (m *MockEncryptionService) Decrypt(ctx context.Context, bucket string, r io.Reader) (io.Reader, error) {
+	args := m.Called(ctx, bucket, r)
+	r0, _ := args.Get(0).(io.Reader)
 	return r0, args.Error(1)
 }
 

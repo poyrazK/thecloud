@@ -7330,6 +7330,12 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "pooling_enabled": {
+                    "type": "boolean"
+                },
+                "pooling_port": {
+                    "type": "integer"
+                },
                 "port": {
                     "type": "integer"
                 },
@@ -9831,6 +9837,9 @@ const docTemplate = `{
                     "additionalProperties": {
                         "type": "string"
                     }
+                },
+                "pooling_enabled": {
+                    "type": "boolean"
                 },
                 "snapshot_id": {
                     "type": "string"
