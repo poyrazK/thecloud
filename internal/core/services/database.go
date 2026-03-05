@@ -18,6 +18,13 @@ import (
 	"github.com/poyrazk/thecloud/pkg/util"
 )
 
+const (
+	postgresDefaultPort = "5432"
+	mysqlDefaultPort    = "3306"
+	postgresExporterImg = "prometheuscommunity/postgres-exporter"
+	mysqlExporterImg    = "prom/mysqld-exporter"
+)
+
 // DatabaseService manages database instances and lifecycle.
 type DatabaseService struct {
 	repo         ports.DatabaseRepository
@@ -366,12 +373,12 @@ func (s *DatabaseService) getExporterConfig(engine domain.DatabaseEngine, dbIP, 
 	switch engine {
 	case domain.EnginePostgres:
 		// postgres-exporter uses DATA_SOURCE_NAME
-		dsn := fmt.Sprintf("postgresql://%s:%s@%s:5432/%s?sslmode=disable", username, password, dbIP, dbName)
-		return "prometheuscommunity/postgres-exporter", []string{"DATA_SOURCE_NAME=" + dsn}, "9187"
+		dsn := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=disable", username, password, dbIP, postgresDefaultPort, dbName)
+		return postgresExporterImg, []string{"DATA_SOURCE_NAME=" + dsn}, "9187"
 	case domain.EngineMySQL:
 		// mysqld-exporter uses DATA_SOURCE_NAME
-		dsn := fmt.Sprintf("%s:%s@(%s:3306)/%s", username, password, dbIP, dbName)
-		return "prom/mysqld-exporter", []string{"DATA_SOURCE_NAME=" + dsn}, "9104"
+		dsn := fmt.Sprintf("%s:%s@(%s:%s)/%s", username, password, dbIP, mysqlDefaultPort, dbName)
+		return mysqlExporterImg, []string{"DATA_SOURCE_NAME=" + dsn}, "9104"
 	}
 	return "", nil, ""
 }
@@ -415,7 +422,7 @@ func (s *DatabaseService) getEngineConfig(engine domain.DatabaseEngine, version,
 			// Simulating replication setup
 			env = append(env, "PRIMARY_HOST="+primaryIP)
 		}
-		return fmt.Sprintf("postgres:%s-alpine", version), env, "5432"
+		return fmt.Sprintf("postgres:%s-alpine", version), env, postgresDefaultPort
 	case domain.EngineMySQL:
 		env := []string{
 			"MYSQL_ROOT_PASSWORD=" + password,
@@ -424,7 +431,7 @@ func (s *DatabaseService) getEngineConfig(engine domain.DatabaseEngine, version,
 		if role == domain.RoleReplica {
 			env = append(env, "MYSQL_MASTER_HOST="+primaryIP)
 		}
-		return fmt.Sprintf("mysql:%s", version), env, "3306"
+		return fmt.Sprintf("mysql:%s", version), env, mysqlDefaultPort
 	}
 	return "", nil, ""
 }
