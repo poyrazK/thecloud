@@ -210,7 +210,7 @@ type ScaleClusterRequest struct {
 // @Param id path string true "Cluster ID"
 // @Param request body ScaleClusterRequest true "Scale Request"
 // @Success 200
-// @Router /clusters/{id}/scale [post]
+// @Router /clusters/{id}/scale [put]
 func (h *ClusterHandler) ScaleCluster(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -397,6 +397,10 @@ type UpdateNodeGroupRequest struct {
 // @Param id path string true "Cluster ID"
 // @Param request body NodeGroupRequest true "Node Group details"
 // @Success 201 {object} domain.NodeGroup
+// @Failure 400 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 409 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
 // @Router /clusters/{id}/nodegroups [post]
 func (h *ClusterHandler) AddNodeGroup(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
@@ -435,6 +439,9 @@ func (h *ClusterHandler) AddNodeGroup(c *gin.Context) {
 // @Param name path string true "Node Group Name"
 // @Param request body UpdateNodeGroupRequest true "Update details"
 // @Success 200 {object} domain.NodeGroup
+// @Failure 400 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
 // @Router /clusters/{id}/nodegroups/{name} [put]
 func (h *ClusterHandler) UpdateNodeGroup(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
@@ -471,6 +478,9 @@ func (h *ClusterHandler) UpdateNodeGroup(c *gin.Context) {
 // @Param id path string true "Cluster ID"
 // @Param name path string true "Node Group Name"
 // @Success 202
+// @Failure 400 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 500 {object} httputil.Response
 // @Router /clusters/{id}/nodegroups/{name} [delete]
 func (h *ClusterHandler) DeleteNodeGroup(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))

@@ -37,9 +37,9 @@ type NodeGroup struct {
 	ClusterID    uuid.UUID `json:"cluster_id"`
 	Name         string    `json:"name"`
 	InstanceType string    `json:"instance_type"`
-	MinSize      int       `json:"min_size"`
-	MaxSize      int       `json:"max_size"`
-	CurrentSize  int       `json:"current_size"`
+	MinSize      int       `json:"min_size" example:"1"`
+	MaxSize      int       `json:"max_size" example:"10"`
+	CurrentSize  int       `json:"current_size" example:"3"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

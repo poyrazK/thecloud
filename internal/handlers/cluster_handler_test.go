@@ -363,28 +363,28 @@ func TestClusterHandlerRepairCluster(t *testing.T) {
 func TestClusterHandlerScaleCluster(t *testing.T) {
 	t.Parallel()
 	svc, handler, r := setupClusterHandlerTest()
-	r.POST("/clusters/:id/scale", handler.ScaleCluster)
+	r.PUT("/clusters/:id/scale", handler.ScaleCluster)
 	clusterID := uuid.New()
 
 	t.Run("Success", func(t *testing.T) {
 		svc.On("ScaleCluster", mock.Anything, clusterID, 5).Return(nil).Once()
 		body, _ := json.Marshal(map[string]interface{}{"workers": 5})
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", clustersPrefix+clusterID.String()+scalePathSuffix, bytes.NewBuffer(body))
+		req := httptest.NewRequest("PUT", clustersPrefix+clusterID.String()+scalePathSuffix, bytes.NewBuffer(body))
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
 	t.Run(msgInvalidID, func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", clustersPrefix+"invalid/scale", nil)
+		req := httptest.NewRequest("PUT", clustersPrefix+"invalid/scale", nil)
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 
 	t.Run(msgInvalidJSON, func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", clustersPrefix+clusterID.String()+scalePathSuffix, bytes.NewBufferString("{bad}"))
+		req := httptest.NewRequest("PUT", clustersPrefix+clusterID.String()+scalePathSuffix, bytes.NewBufferString("{bad}"))
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
@@ -393,7 +393,7 @@ func TestClusterHandlerScaleCluster(t *testing.T) {
 		svc.On("ScaleCluster", mock.Anything, clusterID, 5).Return(fmt.Errorf("error")).Once()
 		body, _ := json.Marshal(map[string]interface{}{"workers": 5})
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", clustersPrefix+clusterID.String()+scalePathSuffix, bytes.NewBuffer(body))
+		req := httptest.NewRequest("PUT", clustersPrefix+clusterID.String()+scalePathSuffix, bytes.NewBuffer(body))
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
 	})

@@ -51,16 +51,12 @@ The Autoscaler is deployed as a Deployment in the `kube-system` namespace consis
 cloud k8s show <cluster-id> --json | jq '.node_groups'
 ```
 
-### Add a Node Group
+### Scale a Node Group
 ```bash
 # Currently supported via API, CLI command coming soon
-curl -X POST $CLOUD_API_URL/clusters/$CLUSTER_ID/nodegroups \
+curl -X PUT $CLOUD_API_URL/clusters/$CLUSTER_ID/nodegroups/default-pool \
   -H "X-API-Key: $CLOUD_API_KEY" \
   -d '{
-    "name": "high-mem-pool",
-    "instance_type": "high-mem-1",
-    "min_size": 1,
-    "max_size": 5,
-    "desired_size": 1
+    "desired_size": 3
   }'
 ```
