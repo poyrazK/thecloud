@@ -115,7 +115,12 @@ func (c *Client) StopInstance(idOrName string) error {
 
 // TerminateInstance deletes an instance by ID or name.
 func (c *Client) TerminateInstance(idOrName string) error {
-	return c.delete(fmt.Sprintf("/instances/%s", idOrName), nil)
+	return c.TerminateInstanceWithContext(context.Background(), idOrName)
+}
+
+// TerminateInstanceWithContext deletes an instance with context support.
+func (c *Client) TerminateInstanceWithContext(ctx context.Context, idOrName string) error {
+	return c.deleteWithContext(ctx, fmt.Sprintf("/instances/%s", idOrName), nil)
 }
 
 // GetInstanceLogs retrieves the raw log output for an instance.

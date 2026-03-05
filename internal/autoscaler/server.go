@@ -7,6 +7,8 @@ import (
 
 	"github.com/poyrazk/thecloud/internal/autoscaler/protos"
 	"github.com/poyrazk/thecloud/pkg/sdk"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
 )
 
@@ -109,8 +111,12 @@ func (s *AutoscalerServer) NodeGroupTargetSize(ctx context.Context, req *protos.
 }
 
 func (s *AutoscalerServer) NodeGroupIncreaseSize(ctx context.Context, req *protos.NodeGroupIncreaseSizeRequest) (*protos.NodeGroupIncreaseSizeResponse, error) {
-	klog.Infof("Request to increase size of node group %s by %d", req.Id, req.Delta)
+	klog.Infof("NodeGroupIncreaseSize: Request to increase size of node group %s by %d", req.Id, req.Delta)
 	
+	if req.Delta <= 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "NodeGroupIncreaseSize: delta must be a positive integer, got %d", req.Delta)
+	}
+
 	cluster, err := s.client.GetClusterWithContext(ctx, s.clusterID)
 	if err != nil {
 		return nil, err
@@ -146,15 +152,17 @@ func (s *AutoscalerServer) NodeGroupIncreaseSize(ctx context.Context, req *proto
 func (s *AutoscalerServer) NodeGroupDeleteNodes(ctx context.Context, req *protos.NodeGroupDeleteNodesRequest) (*protos.NodeGroupDeleteNodesResponse, error) {
 	klog.Infof("Request to delete %d nodes from group %s", len(req.Nodes), req.Id)
 
+	successfulTerminations := 0
 	for _, node := range req.Nodes {
 		providerID := strings.TrimPrefix(node.ProviderID, "thecloud://")
 		if providerID == node.ProviderID {
 			continue
 		}
-		if err := s.client.TerminateInstance(providerID); err != nil {
+		if err := s.client.TerminateInstanceWithContext(ctx, providerID); err != nil {
 			klog.Errorf("Failed to terminate instance %s: %v", providerID, err)
 			return nil, err
 		}
+		successfulTerminations++
 	}
 
 	cluster, err := s.client.GetClusterWithContext(ctx, s.clusterID)
@@ -171,10 +179,14 @@ func (s *AutoscalerServer) NodeGroupDeleteNodes(ctx context.Context, req *protos
 	}
 
 	if targetGroup != nil {
-		newSize := targetGroup.CurrentSize - len(req.Nodes)
-		_, _ = s.client.UpdateNodeGroupWithContext(ctx, s.clusterID, req.Id, sdk.UpdateNodeGroupInput{
+		newSize := targetGroup.CurrentSize - successfulTerminations
+		_, err = s.client.UpdateNodeGroupWithContext(ctx, s.clusterID, req.Id, sdk.UpdateNodeGroupInput{
 			DesiredSize: &newSize,
 		})
+		if err != nil {
+			klog.Errorf("Failed to update node group size after node deletion: %v", err)
+			return nil, err
+		}
 	}
 
 	return &protos.NodeGroupDeleteNodesResponse{}, nil
@@ -207,9 +219,13 @@ func (s *AutoscalerServer) NodeGroupNodes(ctx context.Context, req *protos.NodeG
 		}
 	}
 
-	return &protos.NodeGroupNodesResponse{
+	return &protosInstancesResponse{
 		Instances: protosInstances,
 	}, nil
+}
+
+type protosInstancesResponse struct {
+	Instances []*protos.Instance
 }
 
 func (s *AutoscalerServer) GPULabel(ctx context.Context, req *protos.GPULabelRequest) (*protos.GPULabelResponse, error) {
@@ -268,17 +284,17 @@ func (s *AutoscalerServer) NodeGroupDecreaseTargetSize(ctx context.Context, req 
 }
 
 func (s *AutoscalerServer) NodeGroupTemplateNodeInfo(ctx context.Context, req *protos.NodeGroupTemplateNodeInfoRequest) (*protos.NodeGroupTemplateNodeInfoResponse, error) {
-	return nil, fmt.Errorf("unimplemented")
+	return nil, status.Error(codes.Unimplemented, "NodeGroupTemplateNodeInfo method not implemented")
 }
 
 func (s *AutoscalerServer) NodeGroupGetOptions(ctx context.Context, req *protos.NodeGroupAutoscalingOptionsRequest) (*protos.NodeGroupAutoscalingOptionsResponse, error) {
-	return nil, fmt.Errorf("unimplemented")
+	return nil, status.Error(codes.Unimplemented, "NodeGroupGetOptions method not implemented")
 }
 
 func (s *AutoscalerServer) PricingNodePrice(ctx context.Context, req *protos.PricingNodePriceRequest) (*protos.PricingNodePriceResponse, error) {
-	return nil, fmt.Errorf("unimplemented")
+	return nil, status.Error(codes.Unimplemented, "PricingNodePrice method not implemented")
 }
 
 func (s *AutoscalerServer) PricingPodPrice(ctx context.Context, req *protos.PricingPodPriceRequest) (*protos.PricingPodPriceResponse, error) {
-	return nil, fmt.Errorf("unimplemented")
+	return nil, status.Error(codes.Unimplemented, "PricingPodPrice method not implemented")
 }
