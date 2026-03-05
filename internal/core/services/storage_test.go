@@ -505,6 +505,9 @@ func TestStorageService_Integration(t *testing.T) {
 		bucketName := "pending-bucket"
 		_, _ = svc.CreateBucket(ctx, bucketName, false)
 
+		// 0. Ensure clean state
+		_, _ = svc.CleanupPendingUploads(ctx, 0, 100)
+
 		// 1. Force store failure during upload to leave a PENDING record
 		store.failNext = true
 		key := "orphan.txt"
