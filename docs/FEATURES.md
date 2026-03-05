@@ -116,6 +116,7 @@ This document provides a comprehensive overview of every feature currently imple
 - **Multi-Engine Support**: PostgreSQL and MySQL with configurable versions.
 - **Provisioning**: Spawns Docker containers using official images (`postgres:<version>-alpine`, `mysql:<version>`).
 - **Data Persistence**: Automatically provisions and attaches persistent block volumes to every database instance. Data is stored on durable block devices, ensuring survival across container lifecycles.
+- **Volume Expansion 🆕**: Support for dynamic storage scaling. Users can increase allocated storage via the API, which automatically grows the underlying LVM logical volume and filesystem (ext4/XFS) using `lvextend -r`.
 - **Dynamic Configuration**: Supports updating allocated storage, engine parameters, and feature flags without manual intervention.
 - **Connection Pooling**: Optional high-performance pooling for PostgreSQL via a **PgBouncer** sidecar. Dynamically toggleable on existing instances.
 - **Observability Sidecars**: Built-in metrics collection via Prometheus exporters (`postgres-exporter`, `mysqld-exporter`) running as managed sidecars.

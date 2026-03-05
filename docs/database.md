@@ -395,6 +395,20 @@ When `pooling_enabled` is set to `true`, the service provisions a **PgBouncer** 
 
 This ensures that applications can scale to hundreds of concurrent clients without exhausting the database engine's backend connection limit.
 
+### Managed Database Volume Expansion
+
+The platform supports dynamic storage scaling for managed database instances to accommodate data growth.
+
+#### Resizing Mechanism
+Users can increase the `allocated_storage` of an existing database via the `PATCH /databases/:id` endpoint.
+- **Support**: Available for both PostgreSQL and MySQL.
+- **Constraints**: Storage can only be increased; shrinking volumes is prohibited to prevent data loss.
+
+#### Implementation Details
+1.  **Storage Layer**: For LVM-backed instances, the system extends the logical volume and automatically grows the underlying filesystem (ext4 or XFS) using the `lvextend -r` command.
+2.  **Simulation Layer**: In Docker mode, resizing is simulated by updating the metadata and logging the action, as standard Docker volumes do not support native online resizing.
+3.  **Metadata Sync**: The database record is updated atomically upon successful storage expansion to ensure consistent reporting in the API and CLI.
+
 ### Database Replication
 
 The Cloud platform supports asynchronous replication for managed databases to provide high availability and read scaling.

@@ -154,7 +154,7 @@ func TestDatabaseRepository_Update(t *testing.T) {
 	}
 
 	mock.ExpectExec("UPDATE databases").
-		WithArgs(db.Name, db.Status, db.Role, db.PrimaryID, db.ContainerID, db.Port, pgxmock.AnyArg(), db.Parameters, db.MetricsEnabled, db.MetricsPort, db.ExporterContainerID, db.PoolingEnabled, db.PoolingPort, db.PoolerContainerID, db.ID, db.UserID).
+		WithArgs(db.Name, db.Status, db.Role, db.PrimaryID, db.ContainerID, db.Port, pgxmock.AnyArg(), db.Parameters, db.MetricsEnabled, db.MetricsPort, db.ExporterContainerID, db.PoolingEnabled, db.PoolingPort, db.PoolerContainerID, db.AllocatedStorage, db.ID, db.UserID).
 		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 	err = repo.Update(context.Background(), db)

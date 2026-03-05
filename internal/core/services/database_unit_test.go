@@ -431,6 +431,43 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		assert.Nil(t, db)
 		assert.Contains(t, err.Error(), "pooler launch failed")
 	})
+
+	t.Run("ModifyDatabase_VolumeResize", func(t *testing.T) {
+		dbID := uuid.New()
+		userID := uuid.New()
+		db := &domain.Database{
+			ID:               dbID,
+			UserID:           userID,
+			Name:             "test-db",
+			AllocatedStorage: 10,
+			ContainerID:      "cid",
+		}
+		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
+
+		volID := uuid.New()
+		mockVolumeSvc.On("ListVolumes", mock.Anything).Return([]*domain.Volume{
+			{ID: volID, Name: fmt.Sprintf("db-vol-%s", dbID.String()[:8])},
+		}, nil).Once()
+
+		newSize := 20
+		mockVolumeSvc.On("ResizeVolume", mock.Anything, volID.String(), newSize).Return(nil).Once()
+		mockRepo.On("Update", mock.Anything, mock.MatchedBy(func(d *domain.Database) bool {
+			return d.AllocatedStorage == newSize
+		})).Return(nil).Once()
+
+		mockCompute.On("GetInstanceIP", mock.Anything, "cid").Return("10.0.0.5", nil).Once()
+
+		mockEventSvc.On("RecordEvent", mock.Anything, "DATABASE_MODIFY", dbID.String(), "DATABASE", mock.Anything).Return(nil).Once()
+		mockAuditSvc.On("Log", mock.Anything, userID, "database.modify", "database", dbID.String(), mock.Anything).Return(nil).Once()
+
+		result, err := svc.ModifyDatabase(ctx, ports.ModifyDatabaseRequest{
+			ID:               dbID,
+			AllocatedStorage: &newSize,
+		})
+
+		require.NoError(t, err)
+		assert.Equal(t, newSize, result.AllocatedStorage)
+	})
 }
 
 type mockSnapshotService struct {
