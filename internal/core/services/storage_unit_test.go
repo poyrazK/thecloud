@@ -41,12 +41,24 @@ func TestStorageServiceUnit(t *testing.T) {
 		bucket := &domain.Bucket{Name: "my-bucket", VersioningEnabled: false}
 		mockRepo.On("GetBucket", mock.Anything, "my-bucket").Return(bucket, nil).Once()
 		mockStore.On("Write", mock.Anything, "my-bucket", "test.txt", mock.Anything).Return(int64(12), nil).Once()
-		mockRepo.On("SaveMeta", mock.Anything, mock.Anything).Return(nil).Once()
+		
+		// First SaveMeta call for PENDING status
+		mockRepo.On("SaveMeta", mock.Anything, mock.MatchedBy(func(obj *domain.Object) bool {
+			return obj.UploadStatus == domain.UploadStatusPending && obj.SizeBytes == 0
+		})).Return(nil).Once()
+
+		// Second SaveMeta call for AVAILABLE status
+		mockRepo.On("SaveMeta", mock.Anything, mock.MatchedBy(func(obj *domain.Object) bool {
+			return obj.UploadStatus == domain.UploadStatusAvailable && obj.SizeBytes == 12
+		})).Return(nil).Once()
+		
 		mockAuditSvc.On("Log", mock.Anything, userID, "storage.object_upload", "storage", mock.Anything, mock.Anything).Return(nil).Once()
 
 		obj, err := svc.Upload(ctx, "my-bucket", "test.txt", strings.NewReader("hello world!"))
 		require.NoError(t, err)
 		assert.NotNil(t, obj)
 		assert.Equal(t, int64(12), obj.SizeBytes)
+		assert.Equal(t, "text/plain; charset=utf-8", obj.ContentType)
+		assert.NotEmpty(t, obj.Checksum)
 	})
 }

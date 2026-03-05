@@ -558,10 +558,13 @@ func (r *NoopStorageRepository) ListVersions(ctx context.Context, bucket, key st
 	return []*domain.Object{}, nil
 }
 func (r *NoopStorageRepository) ListDeleted(ctx context.Context, limit int) ([]*domain.Object, error) {
-	return []*domain.Object{}, nil
+	return nil, nil
 }
 func (r *NoopStorageRepository) HardDelete(ctx context.Context, bucket, key, ver string) error {
 	return nil
+}
+func (r *NoopStorageRepository) ListPending(ctx context.Context, olderThan time.Time, limit int) ([]*domain.Object, error) {
+	return nil, nil
 }
 func (r *NoopStorageRepository) CreateBucket(ctx context.Context, b *domain.Bucket) error { return nil }
 func (r *NoopStorageRepository) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {

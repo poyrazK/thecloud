@@ -101,6 +101,9 @@ func (f *fakeLifecycleStorageService) AbortMultipartUpload(ctx context.Context, 
 func (f *fakeLifecycleStorageService) CleanupDeleted(ctx context.Context, limit int) (int, error) {
 	return 0, nil
 }
+func (f *fakeLifecycleStorageService) CleanupPendingUploads(ctx context.Context, olderThan time.Duration, limit int) (int, error) {
+	return 0, nil
+}
 func (f *fakeLifecycleStorageService) GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error) {
 	return nil, nil
 }

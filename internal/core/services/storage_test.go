@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -496,6 +497,32 @@ func TestStorageService_Integration(t *testing.T) {
 		assert.Equal(t, 1, count)
 
 		// 3. Verify it's gone from DB permanently (not even in ListVersions)
+		versions, _ := svc.ListVersions(ctx, bucketName, key)
+		assert.Empty(t, versions)
+	})
+
+	t.Run("CleanupPendingUploads", func(t *testing.T) {
+		bucketName := "pending-bucket"
+		_, _ = svc.CreateBucket(ctx, bucketName, false)
+
+		// 0. Ensure clean state
+		_, _ = svc.CleanupPendingUploads(ctx, 0, 100)
+
+		// 1. Force store failure during upload to leave a PENDING record
+		store.failNext = true
+		key := "orphan.txt"
+		_, err := svc.Upload(ctx, bucketName, key, strings.NewReader("orphan data"))
+		require.Error(t, err) // Upload fails, leaves DB record as PENDING
+
+		// Wait a moment so the record is strictly "older than" 0
+		time.Sleep(10 * time.Millisecond)
+
+		// 2. Run pending cleanup
+		count, err := svc.CleanupPendingUploads(ctx, 0, 10) // 0 duration for immediate cleanup
+		require.NoError(t, err)
+		assert.Equal(t, 1, count)
+
+		// 3. Verify it's gone from DB
 		versions, _ := svc.ListVersions(ctx, bucketName, key)
 		assert.Empty(t, versions)
 	})

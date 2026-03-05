@@ -7774,6 +7774,9 @@ const docTemplate = `{
                 "bucket": {
                     "type": "string"
                 },
+                "checksum": {
+                    "type": "string"
+                },
                 "content_type": {
                     "type": "string"
                 },
@@ -7794,6 +7797,9 @@ const docTemplate = `{
                 },
                 "size_bytes": {
                     "type": "integer"
+                },
+                "upload_status": {
+                    "type": "string"
                 },
                 "user_id": {
                     "type": "string"

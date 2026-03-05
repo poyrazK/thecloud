@@ -580,15 +580,20 @@ CREATE TABLE objects (
     arn VARCHAR(512) NOT NULL UNIQUE,
     bucket VARCHAR(255) NOT NULL,
     key VARCHAR(512) NOT NULL,
+    version_id VARCHAR(64),
+    is_latest BOOLEAN DEFAULT TRUE,
     size_bytes BIGINT NOT NULL,
     content_type VARCHAR(255),
+    checksum VARCHAR(64),
+    upload_status VARCHAR(20) NOT NULL DEFAULT 'AVAILABLE',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
-    UNIQUE (bucket, key)
+    UNIQUE (bucket, key, version_id)
 );
 
 CREATE INDEX idx_objects_bucket ON objects(bucket);
 CREATE INDEX idx_objects_user_id ON objects(user_id);
+CREATE INDEX idx_objects_pending ON objects(upload_status) WHERE upload_status = 'PENDING';
 ```
 
 **Note**: Actual file bytes stored on filesystem, not in database.

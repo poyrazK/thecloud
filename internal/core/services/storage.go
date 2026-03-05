@@ -2,10 +2,15 @@
 package services
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
+	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -66,62 +71,82 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 		versionID = generateVersionID()
 	}
 
-	// 2. Write file to store
-	// In the store, we'll prefix versions with versionID to avoid overwrites
-	storeKey := key
-	if bucket.VersioningEnabled {
-		storeKey = versionedStoreKey(key, versionID)
-	}
+	// 2. Sniff content-type (first 512 bytes)
+	sniffBuf := make([]byte, 512)
+	n, _ := io.ReadFull(r, sniffBuf)
+	sniffBuf = sniffBuf[:n]
+	contentType := http.DetectContentType(sniffBuf)
 
-	// Encryption
-	finalReader := r
-	if bucket.EncryptionEnabled && s.encryptSvc != nil {
-		var err error
-		finalReader, err = s.encryptSvc.Encrypt(ctx, bucketName, r)
-		if err != nil {
-			return nil, err
-		}
-	}
+	// Combine back for full streaming
+	fullReader := io.MultiReader(bytes.NewReader(sniffBuf), r)
 
-	size, err := s.store.Write(ctx, bucketName, storeKey, finalReader)
-	if err != nil {
-		return nil, err
-	}
-
-	// 3. Prepare metadata
+	// 3. Prepare initial metadata (PENDING status)
 	obj := &domain.Object{
-		ID:          uuid.New(),
-		UserID:      appcontext.UserIDFromContext(ctx),
-		Bucket:      bucketName,
-		Key:         key,
-		VersionID:   versionID,
-		IsLatest:    true,
-		SizeBytes:   size,
-		ContentType: "application/octet-stream", // In a real system we'd detect Content-Type
-		CreatedAt:   time.Now(),
+		ID:           uuid.New(),
+		UserID:       appcontext.UserIDFromContext(ctx),
+		Bucket:       bucketName,
+		Key:          key,
+		VersionID:    versionID,
+		IsLatest:     true,
+		SizeBytes:    0,
+		ContentType:  contentType,
+		UploadStatus: domain.UploadStatusPending,
+		CreatedAt:    time.Now(),
 	}
 
 	// Generate ARN
-	// arn:thecloud:storage:local:default:object/<bucket>/<key>?versionId=<versionID>
 	obj.ARN = fmt.Sprintf("arn:thecloud:storage:local:default:object/%s/%s", bucketName, key)
 	if bucket.VersioningEnabled {
 		obj.ARN += fmt.Sprintf("?versionId=%s", versionID)
 	}
 
-	// 4. Save metadata
+	// Save preliminary metadata
 	if err := s.repo.SaveMeta(ctx, obj); err != nil {
-		// Cleanup file if DB save fails
-		_ = s.store.Delete(ctx, bucketName, storeKey)
 		return nil, err
 	}
 
-	_ = s.auditSvc.Log(ctx, obj.UserID, "storage.object_upload", "storage", obj.ID.String(), map[string]interface{}{
-		"bucket":     obj.Bucket,
-		"key":        obj.Key,
-		"version_id": obj.VersionID,
+	// 4. Setup checksum calculation while streaming
+	hash := sha256.New()
+	teeReader := io.TeeReader(fullReader, hash)
+
+	// 5. Write file to store
+	storeKey := key
+	if bucket.VersioningEnabled {
+		storeKey = versionedStoreKey(key, versionID)
+	}
+
+	var dataStream io.Reader = teeReader
+
+	// Encryption (Optional)
+	if bucket.EncryptionEnabled && s.encryptSvc != nil {
+		encryptedReader, err := s.encryptSvc.Encrypt(ctx, bucketName, teeReader)
+		if err != nil {
+			return nil, errors.Wrap(errors.Internal, "encryption failed", err)
+		}
+		dataStream = encryptedReader
+	}
+
+	size, err := s.store.Write(ctx, bucketName, storeKey, dataStream)
+	if err != nil {
+		// We leave the record as PENDING. The garbage collector will clean it up.
+		return nil, errors.Wrap(errors.Internal, "failed to write to store", err)
+	}
+
+	// 6. Update metadata to AVAILABLE and set final size/checksum
+	obj.SizeBytes = size
+	obj.Checksum = hex.EncodeToString(hash.Sum(nil))
+	obj.UploadStatus = domain.UploadStatusAvailable
+
+	if err := s.repo.SaveMeta(ctx, obj); err != nil {
+		return nil, err
+	}
+
+	_ = s.auditSvc.Log(ctx, obj.UserID, "storage.object_upload", "storage", obj.ARN, map[string]interface{}{
+		"bucket": bucketName,
+		"key":    key,
+		"size":   size,
 	})
 
-	// Metrics
 	platform.StorageOperations.WithLabelValues("upload", bucketName, "success").Inc()
 	platform.StorageBytesTransferred.WithLabelValues("upload").Add(float64(size))
 
@@ -136,9 +161,13 @@ func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.R
 	}
 
 	// 2. Open file
-	reader, err := s.store.Read(ctx, bucket, key)
+	storeKey := key
+	if obj.VersionID != "null" {
+		storeKey = versionedStoreKey(key, obj.VersionID)
+	}
+
+	reader, err := s.store.Read(ctx, bucket, storeKey)
 	if err != nil {
-		platform.StorageOperations.WithLabelValues("download", bucket, "error").Inc()
 		return nil, nil, err
 	}
 
@@ -153,7 +182,7 @@ func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.R
 			}
 			return nil, nil, err
 		}
-		// Wrap with NopCloser but keep the original closer to close the underlying file
+		// Wrap with readCloserWrapper to keep the original closer
 		reader = &readCloserWrapper{Reader: decryptedReader, Closer: reader}
 	}
 
@@ -240,9 +269,20 @@ func (s *StorageService) DeleteObject(ctx context.Context, bucket, key string) e
 
 // CreateBucket creates a new storage bucket.
 func (s *StorageService) CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error) {
-	if err := validateBucketName(name); err != nil {
-		return nil, err
+	// Validate bucket name (S3-like rules)
+	if len(name) < 3 || len(name) > 63 {
+		return nil, errors.New(errors.InvalidInput, "bucket name must be between 3 and 63 characters")
 	}
+
+	validName := regexp.MustCompile(`^[a-z0-9.-]+$`)
+	if !validName.MatchString(name) {
+		return nil, errors.New(errors.InvalidInput, "bucket name can only contain lowercase letters, numbers, dots, and hyphens")
+	}
+
+	if strings.HasPrefix(name, "-") || strings.HasSuffix(name, "-") || strings.HasPrefix(name, ".") || strings.HasSuffix(name, ".") {
+		return nil, errors.New(errors.InvalidInput, "bucket name cannot start or end with a hyphen or dot")
+	}
+
 	bucket := &domain.Bucket{
 		ID:        uuid.New(),
 		Name:      name,
@@ -252,61 +292,36 @@ func (s *StorageService) CreateBucket(ctx context.Context, name string, isPublic
 	}
 
 	if err := s.repo.CreateBucket(ctx, bucket); err != nil {
-		return nil, err
+		return nil, errors.Wrap(errors.Internal, "failed to create bucket", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, bucket.UserID, "storage.bucket_create", "bucket", bucket.ID.String(), map[string]interface{}{
-		"name": name,
+	_ = s.auditSvc.Log(ctx, bucket.UserID, "storage.bucket_create", "bucket", name, map[string]interface{}{
+		"is_public": isPublic,
 	})
 
 	return bucket, nil
 }
 
-// GetBucket retrieves bucket metadata.
 func (s *StorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
 	return s.repo.GetBucket(ctx, name)
 }
 
-// DeleteBucket deletes a bucket.
 func (s *StorageService) DeleteBucket(ctx context.Context, name string, force bool) error {
-	// 1. Check if bucket is empty
+	// 1. Check if empty
 	objects, err := s.repo.List(ctx, name)
-	if err != nil {
-		return err
+	if err == nil && len(objects) > 0 && !force {
+		return errors.New(errors.Conflict, "bucket is not empty")
 	}
 
-	if len(objects) > 0 {
-		if !force {
-			return errors.New(errors.InvalidInput, "bucket is not empty")
-		}
-
-		// Delete all objects (including all versions)
+	// 2. Delete all objects if force
+	if force {
 		for _, obj := range objects {
-			if err := s.deleteObjectPermanent(ctx, name, obj.Key); err != nil {
-				return errors.Wrap(errors.Internal, fmt.Sprintf("failed to delete object %s", obj.Key), err)
-			}
+			_ = s.DeleteObject(ctx, name, obj.Key)
 		}
 	}
 
+	// 3. Delete bucket record
 	return s.repo.DeleteBucket(ctx, name)
-}
-
-func (s *StorageService) deleteObjectPermanent(ctx context.Context, bucket, key string) error {
-	versions, err := s.repo.ListVersions(ctx, bucket, key)
-	if err != nil {
-		return err
-	}
-	for _, v := range versions {
-		if err := s.DeleteVersion(ctx, bucket, key, v.VersionID); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// ListBuckets list buckets for the current user.
-func (s *StorageService) SetBucketVersioning(ctx context.Context, name string, enabled bool) error {
-	return s.repo.SetBucketVersioning(ctx, name, enabled)
 }
 
 func (s *StorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {
@@ -314,9 +329,69 @@ func (s *StorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, err
 	return s.repo.ListBuckets(ctx, userID.String())
 }
 
-// GetClusterStatus returns the current state of the storage cluster.
+func (s *StorageService) SetBucketVersioning(ctx context.Context, name string, enabled bool) error {
+	return s.repo.SetBucketVersioning(ctx, name, enabled)
+}
+
 func (s *StorageService) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
 	return s.store.GetClusterStatus(ctx)
+}
+
+// CleanupDeleted removes soft-deleted objects from the storage backend.
+func (s *StorageService) CleanupDeleted(ctx context.Context, limit int) (int, error) {
+	deleted, err := s.repo.ListDeleted(ctx, limit)
+	if err != nil {
+		return 0, errors.Wrap(errors.Internal, "failed to list deleted objects", err)
+	}
+
+	deletedCount := 0
+	for _, obj := range deleted {
+		storeKey := obj.Key
+		if obj.VersionID != "null" {
+			storeKey = versionedStoreKey(obj.Key, obj.VersionID)
+		}
+
+		// 1. Check if other versions still exist (if versioning was enabled)
+		// 2. Delete the physical file
+		// We ignore error from store.Delete if it's already missing
+		_ = s.store.Delete(ctx, obj.Bucket, storeKey)
+
+		// 3. Permanent delete from DB
+		if err := s.repo.HardDelete(ctx, obj.Bucket, obj.Key, obj.VersionID); err != nil {
+			return deletedCount, errors.Wrap(errors.Internal, "failed to hard delete object", err)
+		}
+		deletedCount++
+	}
+
+	return deletedCount, nil
+}
+
+// CleanupPendingUploads removes orphaned files from failed uploads.
+func (s *StorageService) CleanupPendingUploads(ctx context.Context, olderThan time.Duration, limit int) (int, error) {
+	threshold := time.Now().Add(-olderThan)
+	pending, err := s.repo.ListPending(ctx, threshold, limit)
+	if err != nil {
+		return 0, errors.Wrap(errors.Internal, "failed to list pending uploads", err)
+	}
+
+	cleanedCount := 0
+	for _, obj := range pending {
+		storeKey := obj.Key
+		if obj.VersionID != "null" {
+			storeKey = versionedStoreKey(obj.Key, obj.VersionID)
+		}
+
+		// 1. Delete the physical file (if it exists)
+		_ = s.store.Delete(ctx, obj.Bucket, storeKey)
+
+		// 2. Delete the metadata record
+		if err := s.repo.HardDelete(ctx, obj.Bucket, obj.Key, obj.VersionID); err != nil {
+			return cleanedCount, errors.Wrap(errors.Internal, "failed to delete pending metadata", err)
+		}
+		cleanedCount++
+	}
+
+	return cleanedCount, nil
 }
 
 // CreateMultipartUpload initiates a new multipart upload session.
@@ -350,30 +425,31 @@ func (s *StorageService) CreateMultipartUpload(ctx context.Context, bucket, key 
 
 // UploadPart uploads a single part of a multipart upload.
 func (s *StorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
-	// 1. Get upload metadata
+	// 1. Get upload
 	upload, err := s.repo.GetMultipartUpload(ctx, uploadID)
 	if err != nil {
 		return nil, errors.Wrap(errors.NotFound, errMultipartNotFound, err)
 	}
 
-	// 2. Generate unique key for the part
-	partKey := fmt.Sprintf(partPathFormat, upload.ID.String(), partNumber)
+	// 2. Calculate checksum while streaming to store
+	hash := sha256.New()
+	teeReader := io.TeeReader(r, hash)
 
-	// 3. Write data to store
-	size, err := s.store.Write(ctx, upload.Bucket, partKey, r)
+	// 3. Write to store (use temporary location)
+	partKey := fmt.Sprintf(partPathFormat, upload.ID.String(), partNumber)
+	size, err := s.store.Write(ctx, upload.Bucket, partKey, teeReader)
 	if err != nil {
-		return nil, errors.Wrap(errors.Internal, "failed to write part data", err)
+		return nil, errors.Wrap(errors.Internal, "failed to write part", err)
 	}
 
-	// 4. Create part metadata
+	// 4. Save part metadata
 	part := &domain.Part{
 		UploadID:   uploadID,
 		PartNumber: partNumber,
 		SizeBytes:  size,
-		ETag:       uuid.New().String(), // In a real system we'd use MD5
+		ETag:       hex.EncodeToString(hash.Sum(nil)),
 	}
 
-	// 5. Save part to repo
 	if err := s.repo.SavePart(ctx, part); err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to save part metadata", err)
 	}
@@ -381,114 +457,96 @@ func (s *StorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, par
 	return part, nil
 }
 
-// CompleteMultipartUpload assembles all parts and completes the upload.
+// CompleteMultipartUpload assembles all parts into a single object.
 func (s *StorageService) CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error) {
-	// 1. Get upload metadata
+	// 1. Get upload and parts
 	upload, err := s.repo.GetMultipartUpload(ctx, uploadID)
 	if err != nil {
 		return nil, errors.Wrap(errors.NotFound, errMultipartNotFound, err)
 	}
 
-	// 2. List all parts
 	parts, err := s.repo.ListParts(ctx, uploadID)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list parts", err)
 	}
 
 	if len(parts) == 0 {
-		return nil, errors.New(errors.InvalidInput, "no parts found for upload")
+		return nil, errors.New(errors.InvalidInput, "no parts uploaded")
 	}
 
-	// 3. Prepare part keys for assembly
+	// 2. Assemble in store
 	partKeys := make([]string, len(parts))
 	for i, p := range parts {
 		partKeys[i] = fmt.Sprintf(partPathFormat, upload.ID.String(), p.PartNumber)
 	}
 
-	// Check bucket versioning status
-	bucket, err := s.repo.GetBucket(ctx, upload.Bucket)
-	if err != nil {
-		return nil, err
-	}
-
+	bucket, _ := s.repo.GetBucket(ctx, upload.Bucket)
 	versionID := "null"
 	if bucket.VersioningEnabled {
 		versionID = generateVersionID()
 	}
 
-	// 4. Assemble in store
 	storeKey := upload.Key
 	if bucket.VersioningEnabled {
 		storeKey = versionedStoreKey(upload.Key, versionID)
 	}
 
-	actualSize, err := s.store.Assemble(ctx, upload.Bucket, storeKey, partKeys)
+	size, err := s.store.Assemble(ctx, upload.Bucket, storeKey, partKeys)
 	if err != nil {
-		return nil, errors.Wrap(errors.Internal, "failed to assemble object", err)
+		return nil, errors.Wrap(errors.Internal, "failed to assemble parts", err)
 	}
 
-	// 5. Create final object metadata
+	// 3. Create final object metadata
 	obj := &domain.Object{
-		ID:          uuid.New(),
-		UserID:      upload.UserID,
-		Bucket:      upload.Bucket,
-		Key:         upload.Key,
-		VersionID:   versionID,
-		IsLatest:    true,
-		SizeBytes:   actualSize,
-		ContentType: "application/octet-stream",
-		CreatedAt:   time.Now(),
-		ARN:         fmt.Sprintf("arn:thecloud:storage:local:default:object/%s/%s", upload.Bucket, upload.Key),
+		ID:           uuid.New(),
+		UserID:       upload.UserID,
+		Bucket:       upload.Bucket,
+		Key:          upload.Key,
+		VersionID:    versionID,
+		IsLatest:     true,
+		SizeBytes:    size,
+		UploadStatus: domain.UploadStatusAvailable,
+		CreatedAt:    time.Now(),
 	}
 
+	// Sniff content type and calculate checksum from the assembled file
+	reader, err := s.store.Read(ctx, upload.Bucket, storeKey)
+	if err == nil {
+		defer reader.Close()
+		hash := sha256.New()
+		sniffBuf := make([]byte, 512)
+		n, _ := io.ReadFull(reader, sniffBuf)
+		obj.ContentType = http.DetectContentType(sniffBuf[:n])
+
+		// Continue reading for checksum
+		fullReader := io.MultiReader(bytes.NewReader(sniffBuf[:n]), reader)
+		_, _ = io.Copy(hash, fullReader)
+		obj.Checksum = hex.EncodeToString(hash.Sum(nil))
+	} else {
+		obj.ContentType = "application/octet-stream"
+	}
+
+	// Generate ARN
+	obj.ARN = fmt.Sprintf("arn:thecloud:storage:local:default:object/%s/%s", upload.Bucket, upload.Key)
 	if bucket.VersioningEnabled {
 		obj.ARN += fmt.Sprintf("?versionId=%s", versionID)
 	}
 
-	// 6. Save metadata
+	// 4. Save metadata
 	if err := s.repo.SaveMeta(ctx, obj); err != nil {
-		return nil, errors.Wrap(errors.Internal, "failed to save object metadata", err)
+		return nil, err
 	}
 
-	// 7. Cleanup multipart records
+	// 5. Cleanup multipart records
 	_ = s.repo.DeleteMultipartUpload(ctx, uploadID)
 
-	_ = s.auditSvc.Log(ctx, obj.UserID, "storage.multipart_complete", "storage", obj.ID.String(), map[string]interface{}{
-		"bucket": obj.Bucket,
-		"key":    obj.Key,
-		"size":   obj.SizeBytes,
+	_ = s.auditSvc.Log(ctx, obj.UserID, "storage.multipart_complete", "storage", obj.ARN, map[string]interface{}{
+		"bucket": upload.Bucket,
+		"key":    upload.Key,
+		"size":   size,
 	})
 
 	return obj, nil
-}
-
-// CleanupDeleted identifies and permanently removes soft-deleted objects.
-func (s *StorageService) CleanupDeleted(ctx context.Context, limit int) (int, error) {
-	// 1. Fetch deleted objects
-	deleted, err := s.repo.ListDeleted(ctx, limit)
-	if err != nil {
-		return 0, errors.Wrap(errors.Internal, "failed to list deleted objects", err)
-	}
-
-	deletedCount := 0
-	for _, obj := range deleted {
-		// 2. Delete from store
-		storeKey := obj.Key
-		if obj.VersionID != "null" {
-			storeKey = versionedStoreKey(obj.Key, obj.VersionID)
-		}
-
-		// We ignore error from store.Delete if it's already missing
-		_ = s.store.Delete(ctx, obj.Bucket, storeKey)
-
-		// 3. Permanent delete from DB
-		if err := s.repo.HardDelete(ctx, obj.Bucket, obj.Key, obj.VersionID); err != nil {
-			return deletedCount, errors.Wrap(errors.Internal, "failed to hard delete object", err)
-		}
-		deletedCount++
-	}
-
-	return deletedCount, nil
 }
 
 // AbortMultipartUpload cancels a multipart upload and cleans up parts.
@@ -511,10 +569,8 @@ func (s *StorageService) AbortMultipartUpload(ctx context.Context, uploadID uuid
 
 	// 4. Delete from repo
 	if err := s.repo.DeleteMultipartUpload(ctx, uploadID); err != nil {
-		return errors.Wrap(errors.Internal, "failed to delete multipart upload", err)
+		return errors.Wrap(errors.Internal, "failed to delete multipart upload metadata", err)
 	}
-
-	_ = s.auditSvc.Log(ctx, appcontext.UserIDFromContext(ctx), "storage.multipart_abort", "storage", uploadID.String(), nil)
 
 	return nil
 }
@@ -541,31 +597,17 @@ func (s *StorageService) GeneratePresignedURL(ctx context.Context, bucket, key, 
 	// Dynamic base URL derived from config or default
 	baseURL := "http://localhost:8080"
 	if s.cfg != nil && s.cfg.Port != "" {
-		// In production this might need a full public URL config
 		baseURL = fmt.Sprintf("http://localhost:%s", s.cfg.Port)
 	}
 
-	urlStr, err := crypto.SignURL(secret, baseURL, method, bucket, key, expiresAt)
+	signedURL, err := crypto.SignURL(secret, baseURL, method, bucket, key, expiresAt)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to sign URL", err)
 	}
 
 	return &domain.PresignedURL{
-		URL:       urlStr,
+		URL:       signedURL,
 		Method:    method,
 		ExpiresAt: expiresAt,
 	}, nil
-}
-
-func validateBucketName(name string) error {
-	if len(name) == 0 || len(name) > 63 {
-		return errors.New(errors.InvalidInput, "bucket name must be 1-63 characters")
-	}
-	// Only allow alphanumeric, hyphens, and periods.
-	// Must start and end with alphanumeric.
-	var bucketRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9.\-]*[a-z0-9]$`)
-	if !bucketRegex.MatchString(name) {
-		return errors.New(errors.InvalidInput, "bucket name must contain only lowercase letters, numbers, hyphens, and periods")
-	}
-	return nil
 }

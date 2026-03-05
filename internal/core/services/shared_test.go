@@ -423,6 +423,12 @@ func (m *MockStorageRepo) HardDelete(ctx context.Context, bucket, key, versionID
 	return m.Called(ctx, bucket, key, versionID).Error(0)
 }
 
+func (m *MockStorageRepo) ListPending(ctx context.Context, olderThan time.Time, limit int) ([]*domain.Object, error) {
+	args := m.Called(ctx, olderThan, limit)
+	r0, _ := args.Get(0).([]*domain.Object)
+	return r0, args.Error(1)
+}
+
 func (m *MockStorageRepo) CreateBucket(ctx context.Context, bucket *domain.Bucket) error {
 	return m.Called(ctx, bucket).Error(0)
 }

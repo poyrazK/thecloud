@@ -24,18 +24,20 @@ func TestStorageRepositorySaveMeta(t *testing.T) {
 
 		repo := NewStorageRepository(mock)
 		obj := &domain.Object{
-			ID:          uuid.New(),
-			UserID:      uuid.New(),
-			ARN:         "arn:aws:s3:::mybucket/mykey",
-			Bucket:      "mybucket",
-			Key:         "mykey",
-			SizeBytes:   1024,
-			ContentType: "text/plain",
-			CreatedAt:   time.Now(),
+			ID:           uuid.New(),
+			UserID:       uuid.New(),
+			ARN:          "arn:aws:s3:::mybucket/mykey",
+			Bucket:       "mybucket",
+			Key:          "mykey",
+			SizeBytes:    1024,
+			ContentType:  "text/plain",
+			Checksum:     "abc",
+			UploadStatus: domain.UploadStatusAvailable,
+			CreatedAt:    time.Now(),
 		}
 
 		mock.ExpectExec("INSERT INTO objects").
-			WithArgs(obj.ID, obj.UserID, obj.ARN, obj.Bucket, obj.Key, obj.VersionID, obj.IsLatest, obj.SizeBytes, obj.ContentType, obj.CreatedAt).
+			WithArgs(obj.ID, obj.UserID, obj.ARN, obj.Bucket, obj.Key, obj.VersionID, obj.IsLatest, obj.SizeBytes, obj.ContentType, obj.Checksum, obj.UploadStatus, obj.CreatedAt).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.SaveMeta(context.Background(), obj)
@@ -72,10 +74,10 @@ func TestStorageRepositoryGetMeta(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at, deleted_at FROM objects").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, checksum, upload_status, created_at, deleted_at FROM objects").
 			WithArgs("mybucket", "mykey", userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "created_at", "deleted_at"}).
-				AddRow(id, userID, "arn", "mybucket", "mykey", "v1", true, int64(1024), "text/plain", now, nil))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "checksum", "upload_status", "created_at", "deleted_at"}).
+				AddRow(id, userID, "arn", "mybucket", "mykey", "v1", true, int64(1024), "text/plain", "abc", "AVAILABLE", now, nil))
 
 		obj, err := repo.GetMeta(ctx, "mybucket", "mykey")
 		require.NoError(t, err)
@@ -92,7 +94,7 @@ func TestStorageRepositoryGetMeta(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at FROM objects").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, checksum, upload_status, created_at, deleted_at FROM objects").
 			WithArgs("mybucket", "mykey", userID).
 			WillReturnError(pgx.ErrNoRows)
 
@@ -115,7 +117,7 @@ func TestStorageRepositoryGetMeta(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at FROM objects").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, checksum, upload_status, created_at, deleted_at FROM objects").
 			WithArgs("mybucket", "mykey", userID).
 			WillReturnError(errors.New("db error"))
 
@@ -136,10 +138,10 @@ func TestStorageRepositoryList(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at, deleted_at FROM objects").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, checksum, upload_status, created_at, deleted_at FROM objects").
 			WithArgs("mybucket", userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "created_at", "deleted_at"}).
-				AddRow(uuid.New(), userID, "arn", "mybucket", "mykey", "v1", true, int64(1024), "text/plain", now, nil))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "checksum", "upload_status", "created_at", "deleted_at"}).
+				AddRow(uuid.New(), userID, "arn", "mybucket", "mykey", "v1", true, int64(1024), "text/plain", "abc", "AVAILABLE", now, nil))
 
 		objects, err := repo.List(ctx, "mybucket")
 		require.NoError(t, err)
@@ -155,7 +157,7 @@ func TestStorageRepositoryList(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, created_at FROM objects").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, checksum, upload_status, created_at, deleted_at FROM objects").
 			WithArgs("mybucket", userID).
 			WillReturnError(errors.New("db error"))
 
@@ -177,7 +179,7 @@ func TestStorageRepositorySoftDelete(t *testing.T) {
 		bucket := "mybucket"
 		key := "mykey"
 
-		mock.ExpectExec("UPDATE objects SET deleted_at = \\$1 WHERE bucket = \\$2 AND key = \\$3 AND deleted_at IS NULL AND user_id = \\$4").
+		mock.ExpectExec("UPDATE objects SET deleted_at = \\$1 WHERE bucket = \\$2 AND key = \\$3 AND deleted_at IS NULL AND user_id = \\$4 AND upload_status = 'AVAILABLE'").
 			WithArgs(pgxmock.AnyArg(), bucket, key, userID).
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
@@ -196,7 +198,7 @@ func TestStorageRepositorySoftDelete(t *testing.T) {
 		bucket := "mybucket"
 		key := "mykey"
 
-		mock.ExpectExec("UPDATE objects SET deleted_at = \\$1 WHERE bucket = \\$2 AND key = \\$3 AND deleted_at IS NULL AND user_id = \\$4").
+		mock.ExpectExec("UPDATE objects SET deleted_at = \\$1 WHERE bucket = \\$2 AND key = \\$3 AND deleted_at IS NULL AND user_id = \\$4 AND upload_status = 'AVAILABLE'").
 			WithArgs(pgxmock.AnyArg(), bucket, key, userID).
 			WillReturnResult(pgxmock.NewResult("UPDATE", 0))
 
@@ -220,7 +222,7 @@ func TestStorageRepositorySoftDelete(t *testing.T) {
 		bucket := "mybucket"
 		key := "mykey"
 
-		mock.ExpectExec("UPDATE objects SET deleted_at = \\$1 WHERE bucket = \\$2 AND key = \\$3 AND deleted_at IS NULL AND user_id = \\$4").
+		mock.ExpectExec("UPDATE objects SET deleted_at = \\$1 WHERE bucket = \\$2 AND key = \\$3 AND deleted_at IS NULL AND user_id = \\$4 AND upload_status = 'AVAILABLE'").
 			WithArgs(pgxmock.AnyArg(), bucket, key, userID).
 			WillReturnError(errors.New("db error"))
 

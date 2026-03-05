@@ -93,9 +93,14 @@ func (m *mockStorageSvc) UploadPart(ctx context.Context, u uuid.UUID, n int, r i
 func (m *mockStorageSvc) CompleteMultipartUpload(ctx context.Context, u uuid.UUID) (*domain.Object, error) {
 	return nil, nil
 }
-func (m *mockStorageSvc) AbortMultipartUpload(ctx context.Context, u uuid.UUID) error { return nil }
-func (m *mockStorageSvc) CleanupDeleted(ctx context.Context, l int) (int, error)      { return 0, nil }
-func (m *mockStorageSvc) GeneratePresignedURL(ctx context.Context, b, k, me string, e time.Duration) (*domain.PresignedURL, error) {
+func (m *mockStorageSvc) AbortMultipartUpload(ctx context.Context, uploadID uuid.UUID) error {
+	return nil
+}
+func (m *mockStorageSvc) CleanupDeleted(ctx context.Context, limit int) (int, error) { return 0, nil }
+func (m *mockStorageSvc) CleanupPendingUploads(ctx context.Context, olderThan time.Duration, limit int) (int, error) {
+	return 0, nil
+}
+func (m *mockStorageSvc) GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error) {
 	return nil, nil
 }
 
