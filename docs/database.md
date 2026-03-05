@@ -246,6 +246,47 @@ CREATE TABLE lb_targets (
 );
 ```
 
+#### `clusters` - Kubernetes Clusters
+```sql
+CREATE TABLE clusters (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    vpc_id UUID REFERENCES vpcs(id) ON DELETE SET NULL,
+    name VARCHAR(255) NOT NULL,
+    version VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    worker_count INT NOT NULL DEFAULT 2,
+    ha_enabled BOOLEAN DEFAULT FALSE,
+    network_isolation BOOLEAN DEFAULT FALSE,
+    pod_cidr VARCHAR(18),
+    service_cidr VARCHAR(18),
+    api_server_lb_address TEXT,
+    kubeconfig_encrypted TEXT,
+    ssh_private_key_encrypted TEXT,
+    join_token TEXT,
+    token_expires_at TIMESTAMPTZ,
+    ca_cert_hash TEXT,
+    job_id TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE cluster_node_groups (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    cluster_id UUID NOT NULL REFERENCES clusters(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    instance_type VARCHAR(50) NOT NULL,
+    min_size INTEGER NOT NULL DEFAULT 1,
+    max_size INTEGER NOT NULL DEFAULT 10,
+    current_size INTEGER NOT NULL DEFAULT 1,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(cluster_id, name)
+);
+
+CREATE INDEX idx_cluster_node_groups_cluster_id ON cluster_node_groups(cluster_id);
+```
+
 ### Auto-Scaling
 
 #### `scaling_groups` - Auto-Scaling Groups

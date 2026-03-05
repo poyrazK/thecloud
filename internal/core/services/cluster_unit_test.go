@@ -43,6 +43,9 @@ func TestClusterService_Unit(t *testing.T) {
 		mockVpcSvc.On("GetVPC", mock.Anything, vpcID.String()).Return(&domain.VPC{ID: vpcID}, nil).Once()
 		mockSecretSvc.On("Encrypt", mock.Anything, userID, mock.Anything).Return("encrypted-key", nil).Once()
 		mockRepo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
+		mockRepo.On("AddNodeGroup", mock.Anything, mock.MatchedBy(func(ng *domain.NodeGroup) bool {
+			return ng.Name == "default-pool"
+		})).Return(nil).Once()
 		mockTaskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.Anything).Return(nil).Once()
 
 		params := ports.CreateClusterParams{

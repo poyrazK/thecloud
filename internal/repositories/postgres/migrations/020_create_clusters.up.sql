@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS clusters (
     name VARCHAR(255) NOT NULL,
     version VARCHAR(50) NOT NULL DEFAULT 'v1.29.0',
     status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    control_plane_ips TEXT[],
     worker_count INT NOT NULL DEFAULT 2,
     ha_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     network_isolation BOOLEAN NOT NULL DEFAULT FALSE,

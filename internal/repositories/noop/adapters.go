@@ -218,6 +218,16 @@ func (s *NoopClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, ba
 	return nil
 }
 
+func (s *NoopClusterService) AddNodeGroup(ctx context.Context, clusterID uuid.UUID, params ports.NodeGroupParams) (*domain.NodeGroup, error) {
+	return &domain.NodeGroup{ClusterID: clusterID, Name: params.Name}, nil
+}
+func (s *NoopClusterService) UpdateNodeGroup(ctx context.Context, clusterID uuid.UUID, name string, params ports.UpdateNodeGroupParams) (*domain.NodeGroup, error) {
+	return &domain.NodeGroup{ClusterID: clusterID, Name: name}, nil
+}
+func (s *NoopClusterService) DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error {
+	return nil
+}
+
 func (s *NoopClusterService) AddNode(ctx context.Context, clusterID uuid.UUID, role string) (*domain.ClusterNode, error) {
 	return &domain.ClusterNode{ID: uuid.New(), ClusterID: clusterID, Role: domain.NodeRole(role)}, nil
 }

@@ -97,42 +97,31 @@ The Cloud supports dynamic volume provisioning via its custom CSI driver.
 4.  **Hostname Resolution**: Since Kubernetes identifies nodes by hostname, the CSI driver automatically resolves hostnames to internal platform Instance UUIDs before performing any operations.
 5.  **Formatting & Mounting**: The CSI Node service running on the worker node automatically formats the raw device (ext4) and mounts it into the Pod's filesystem.
 
-#### PVC Example:
-```yaml
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: mysql-pv-claim
-spec:
-  storageClassName: thecloud-block
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 20Gi
-```
+### Cluster Autoscaler
+Clusters on The Cloud automatically support node auto-scaling.
+
+#### How it works:
+1.  **Node Groups**: Worker nodes are managed in logical "Node Groups" (e.g., `default-pool`).
+2.  **Scaling**: The integrated Cluster Autoscaler watches for pods that cannot be scheduled due to resource constraints.
+3.  **Automation**: When a scaling event is triggered, the platform automatically launches new instances and joins them to the cluster. Unneeded nodes are automatically terminated after a cooldown period.
+
+### Load Balancers (CCM)
+The Cloud Controller Manager (CCM) enables native Kubernetes networking.
+*   **Service type: LoadBalancer**: Creating a LoadBalancer service automatically provisions a Regional Load Balancer in your VPC.
+*   **Node Sync**: Node addresses and health status are automatically synchronized with the platform.
 
 ### Node Access (SSH)
 You can SSH into your cluster nodes using the private key stored securely in The Cloud. Currently, this requires retrieving specific node IP addresses via `cloud instance list`.
 
 ### Exposing Services
-Use `type: NodePort` to expose services. The Cloud's security groups automatically allow traffic on ports 30000-32767.
+Use `type: NodePort` or `type: LoadBalancer` to expose services. The Cloud's security groups and CCM handle the underlying networking automatically.
 
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: my-service
-spec:
-  type: NodePort
-  selector:
-    app: my-app
-  ports:
-    - port: 80
-      targetPort: 80
-      nodePort: 30080
-```
+## Features (MVP)
+*   **Storage**: Dynamic storage provisioning (CSI) is fully integrated.
+*   **High Availability**: Multi-control plane HA (3 masters + API Load Balancer) is supported via the `--ha` flag.
+*   **Autoscaling**: Automatic node group scaling via the integrated Cluster Autoscaler.
 
 ## Limitations (MVP)
-*   **Persistent Volumes**: Dynamic storage provisioning (CSI) is fully supported.
-*   **Multi-Master**: Multi-control plane HA (3 masters + LB) is fully supported via the `--ha` flag.
+*   **Automated Backups**: Manual etcd snapshots only.
+*   **OS Support**: Optimized for Ubuntu 22.04 only.
+*   **Region Support**: Single region control plane.

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-autoscaler-config
+  namespace: kube-system
+data:
+  externalgrpc.config: |
+    service:
+      address: "localhost:50051"

@@ -31,6 +31,19 @@ const (
 	NodeRoleWorker       NodeRole = "worker"
 )
 
+// NodeGroup represents a pool of similar worker nodes in a cluster.
+type NodeGroup struct {
+	ID           uuid.UUID `json:"id"`
+	ClusterID    uuid.UUID `json:"cluster_id"`
+	Name         string    `json:"name"`
+	InstanceType string    `json:"instance_type"`
+	MinSize      int       `json:"min_size" example:"1"`
+	MaxSize      int       `json:"max_size" example:"10"`
+	CurrentSize  int       `json:"current_size" example:"3"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
 // Cluster represents a managed Kubernetes cluster.
 type Cluster struct {
 	ID              uuid.UUID     `json:"id"`
@@ -39,8 +52,10 @@ type Cluster struct {
 	VpcID           uuid.UUID     `json:"vpc_id"`
 	Version         string        `json:"version"`
 	ControlPlaneIPs []string      `json:"control_plane_ips"`
-	WorkerCount     int           `json:"worker_count"`
+	WorkerCount     int           `json:"worker_count"` // Deprecated: use node_groups
 	Status          ClusterStatus `json:"status"`
+	// NodeGroups contains the node pools for this cluster.
+	NodeGroups []NodeGroup `json:"node_groups,omitempty"`
 	// Networking
 	PodCIDR     string `json:"pod_cidr"`
 	ServiceCIDR string `json:"service_cidr"`
