@@ -13,7 +13,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const defaultGRPCPort = 50051
+const (
+	defaultGRPCPort = 50051
+	defaultAPIPort  = 443
+)
 
 func main() {
 	var (
@@ -26,7 +29,7 @@ func main() {
 	flag.Parse()
 
 	if *apiURL == "" {
-		*apiURL = "https://thecloud-api.kube-system.svc.cluster.local:443"
+		*apiURL = fmt.Sprintf("https://thecloud-api.kube-system.svc.cluster.local:%d", defaultAPIPort)
 	}
 	if *apiKey == "" || *clusterID == "" {
 		klog.Fatalf("API Key and Cluster ID are required")
