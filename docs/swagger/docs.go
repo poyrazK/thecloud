@@ -7769,7 +7769,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "checksum": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
                 },
                 "content_type": {
                     "type": "string"
@@ -7793,7 +7794,16 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "upload_status": {
-                    "type": "string"
+                    "enum": [
+                        "PENDING",
+                        "AVAILABLE"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/domain.UploadStatus"
+                        }
+                    ],
+                    "example": "AVAILABLE"
                 },
                 "user_id": {
                     "type": "string"
@@ -8625,6 +8635,17 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "domain.UploadStatus": {
+            "type": "string",
+            "enum": [
+                "PENDING",
+                "AVAILABLE"
+            ],
+            "x-enum-varnames": [
+                "UploadStatusPending",
+                "UploadStatusAvailable"
+            ]
         },
         "domain.UsageRecord": {
             "type": "object",

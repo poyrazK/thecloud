@@ -764,6 +764,7 @@ definitions:
       bucket:
         type: string
       checksum:
+        example: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
         type: string
       content_type:
         type: string
@@ -780,7 +781,12 @@ definitions:
       size_bytes:
         type: integer
       upload_status:
-        type: string
+        allOf:
+        - $ref: '#/definitions/domain.UploadStatus'
+        enum:
+        - PENDING
+        - AVAILABLE
+        example: AVAILABLE
       user_id:
         type: string
       version_id:
@@ -1417,6 +1423,14 @@ definitions:
       updated_at:
         type: string
     type: object
+  domain.UploadStatus:
+    enum:
+    - PENDING
+    - AVAILABLE
+    type: string
+    x-enum-varnames:
+    - UploadStatusPending
+    - UploadStatusAvailable
   domain.UsageRecord:
     properties:
       end_time:
