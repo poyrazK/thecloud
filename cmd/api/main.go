@@ -33,7 +33,9 @@ import (
 )
 
 const (
-	defaultDBInitTimeout = 120 * time.Second
+	defaultDBInitTimeout     = 120 * time.Second
+	defaultReadHeaderTimeout = 10 * time.Second
+	defaultShutdownTimeout   = 30 * time.Second
 )
 
 // ErrMigrationDone signals that migrations have already completed.
@@ -78,7 +80,7 @@ func DefaultDeps() AppDeps {
 			return &http.Server{
 				Addr:              addr,
 				Handler:           handler,
-				ReadHeaderTimeout: 10 * time.Second,
+				ReadHeaderTimeout: defaultReadHeaderTimeout,
 			}
 		},
 		StartHTTPServer: func(s *http.Server) error {
@@ -188,7 +190,7 @@ func runApplication(deps AppDeps, cfg *platform.Config, logger *slog.Logger, r *
 
 	logger.Info("shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultShutdownTimeout)
 	defer cancel()
 
 	if err := deps.ShutdownHTTPServer(ctx, srv); err != nil {
