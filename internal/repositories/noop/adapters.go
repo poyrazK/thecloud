@@ -2,9 +2,7 @@
 package noop
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"strings"
 	"time"
