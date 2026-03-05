@@ -1,3 +1,4 @@
+// Package autoscaler implements the gRPC server for the Cluster Autoscaler.
 package autoscaler
 
 import (
@@ -219,13 +220,9 @@ func (s *AutoscalerServer) NodeGroupNodes(ctx context.Context, req *protos.NodeG
 		}
 	}
 
-	return &protosInstancesResponse{
+	return &protos.NodeGroupNodesResponse{
 		Instances: protosInstances,
 	}, nil
-}
-
-type protosInstancesResponse struct {
-	Instances []*protos.Instance
 }
 
 func (s *AutoscalerServer) GPULabel(ctx context.Context, req *protos.GPULabelRequest) (*protos.GPULabelResponse, error) {
