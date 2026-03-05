@@ -176,6 +176,7 @@ type Role struct {
 // Default Roles
 const (
 	RoleAdmin     = "admin"
+	RoleOwner     = "owner"
 	RoleDeveloper = "developer"
 	RoleViewer    = "viewer"
 )
