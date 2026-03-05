@@ -567,17 +567,17 @@ Get health and node status of the distributed storage cluster.
 
 ## Multipart Uploads
 
-### POST /storage/:bucket/*key/multipart
+### POST /storage/multipart/init/:bucket/*key
 Initiate a multipart upload session.
 **Response:** `{"id": "upload-uuid", ...}`
 
-### PUT /storage/multipart/:id/parts?partNumber=1
+### PUT /storage/multipart/upload/:id/parts?partNumber=1
 Upload a part for a multipart session.
 
-### POST /storage/multipart/:id/complete
+### POST /storage/multipart/complete/:id
 Finalize a multipart upload and assemble the object.
 
-### DELETE /storage/multipart/:id
+### DELETE /storage/multipart/abort/:id
 Abort a multipart upload and clean up uploaded parts.
 
 ---

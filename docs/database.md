@@ -553,7 +553,7 @@ CREATE TABLE objects (
 
 CREATE INDEX idx_objects_bucket ON objects(bucket);
 CREATE INDEX idx_objects_user_id ON objects(user_id);
-CREATE INDEX idx_objects_pending ON objects(upload_status) WHERE upload_status = 'PENDING';
+CREATE INDEX idx_objects_pending ON objects(created_at) WHERE upload_status = 'PENDING';
 ```
 
 **Note**: Actual file bytes stored on filesystem, not in database.
