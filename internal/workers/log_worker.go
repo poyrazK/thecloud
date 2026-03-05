@@ -33,7 +33,7 @@ func (w *LogWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 	w.logger.Info("log worker started")
 
 	// Use a system context for background tasks to avoid RBAC issues
-	systemCtx := appcontext.WithUserID(ctx, appcontext.SystemUserID) 
+	systemCtx := appcontext.WithUserID(ctx, appcontext.SystemUserID()) 
 
 	// Initial run
 	if err := w.logSvc.RunRetentionPolicy(systemCtx, w.retentionDays); err != nil {

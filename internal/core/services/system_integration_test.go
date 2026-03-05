@@ -87,16 +87,31 @@ func TestSystem_ComputeLifecycle_Full(t *testing.T) {
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	eventSvc := services.NewEventService(eventRepo, rbacSvc, nil, logger)
-	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
+	eventSvc := services.NewEventService(services.EventServiceParams{
+		Repo:    eventRepo,
+		RBACSvc: rbacSvc,
+		Logger:  logger,
+	})
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
 	taskQueue := &SyncTaskQueue{}
 	network := noop.NewNoopNetworkAdapter(logger)
 
 	tenantRepo := postgres.NewTenantRepo(db)
 	userRepo := postgres.NewUserRepo(db)
-	tenantSvc := services.NewTenantService(tenantRepo, userRepo, logger)
+	tenantSvc := services.NewTenantService(services.TenantServiceParams{
+		Repo:     tenantRepo,
+		UserRepo: userRepo,
+		RBACSvc:  rbacSvc,
+		Logger:   logger,
+	})
 	sshKeyRepo := postgres.NewSSHKeyRepo(db)
-	sshKeySvc := services.NewSSHKeyService(sshKeyRepo)
+	sshKeySvc := services.NewSSHKeyService(services.SSHKeyServiceParams{
+		Repo:    sshKeyRepo,
+		RBACSvc: rbacSvc,
+	})
 
 	svc := services.NewInstanceService(services.InstanceServiceParams{
 		Repo:             repo,

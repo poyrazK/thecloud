@@ -13,6 +13,14 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// RBACServiceParams defines dependencies for rbacService.
+type RBACServiceParams struct {
+	UserRepo   ports.UserRepository
+	RoleRepo   ports.RoleRepository
+	TenantRepo ports.TenantRepository
+	Logger     *slog.Logger
+}
+
 type rbacService struct {
 	userRepo   ports.UserRepository
 	roleRepo   ports.RoleRepository
@@ -21,12 +29,12 @@ type rbacService struct {
 }
 
 // NewRBACService constructs an RBAC service for role-based authorization.
-func NewRBACService(userRepo ports.UserRepository, roleRepo ports.RoleRepository, tenantRepo ports.TenantRepository, logger *slog.Logger) *rbacService {
+func NewRBACService(params RBACServiceParams) *rbacService {
 	return &rbacService{
-		userRepo:   userRepo,
-		roleRepo:   roleRepo,
-		tenantRepo: tenantRepo,
-		logger:     logger,
+		userRepo:   params.UserRepo,
+		roleRepo:   params.RoleRepo,
+		tenantRepo: params.TenantRepo,
+		logger:     params.Logger,
 	}
 }
 
@@ -47,7 +55,7 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 	}
 
 	// System user bypass
-	if userID == appcontext.SystemUserID {
+	if userID == appcontext.SystemUserID() {
 		return true, nil
 	}
 
@@ -77,6 +85,10 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 			s.logger.Error("RBAC: failed to get membership", "user_id", userID, "tenant_id", tenantID, "error", err)
 			return false, errors.Wrap(errors.Internal, "failed to get membership", err)
 		}
+		if member == nil {
+			s.logger.Warn("RBAC: user is not a member of tenant", "user_id", userID, "tenant_id", tenantID)
+			return false, nil
+		}
 		roleName = member.Role
 		s.logger.Debug("RBAC: checking tenant permission", "user_id", userID, "tenant_id", tenantID, "tenant_role", roleName, "permission", permission)
 	}
@@ -102,12 +114,6 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 		if p == permission {
 			return true, nil
 		}
-	}
-
-	// Fallback to default role behaviors if the permission is not explicitly listed in the database.
-	// This ensures backward compatibility for default roles (like developer) during the transition to strict RBAC.
-	if allowed, _ := s.hasDefaultPermission(roleName, permission); allowed {
-		return true, nil
 	}
 
 	s.logger.Warn("RBAC: permission denied (role in DB but permission not listed)", "role", role.Name, "permission", permission)

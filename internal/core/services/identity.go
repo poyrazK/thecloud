@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,6 +15,13 @@ import (
 	"github.com/poyrazk/thecloud/internal/platform"
 )
 
+// IdentityServiceParams defines the dependencies for IdentityService.
+type IdentityServiceParams struct {
+	Repo     ports.IdentityRepository
+	RbacSvc  ports.RBACService
+	AuditSvc ports.AuditService
+}
+
 // IdentityService manages API key lifecycle and validation.
 type IdentityService struct {
 	repo     ports.IdentityRepository
@@ -24,8 +30,12 @@ type IdentityService struct {
 }
 
 // NewIdentityService constructs an IdentityService with its dependencies.
-func NewIdentityService(repo ports.IdentityRepository, rbacSvc ports.RBACService, auditSvc ports.AuditService) *IdentityService {
-	return &IdentityService{repo: repo, rbacSvc: rbacSvc, auditSvc: auditSvc}
+func NewIdentityService(params IdentityServiceParams) *IdentityService {
+	return &IdentityService{
+		repo:     params.Repo,
+		rbacSvc:  params.RbacSvc,
+		auditSvc: params.AuditSvc,
+	}
 }
 
 func (s *IdentityService) CreateKey(ctx context.Context, userID uuid.UUID, name string) (*domain.APIKey, error) {
@@ -147,14 +157,14 @@ func (s *IdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uu
 	// Create new key - bypass Authorize in recursive call?
 	// Better to implement logic directly or wrap in privileged ctx
 	// For simplicity, we just use same ctx which has permission
-	newKey, err := s.CreateKey(ctx, userID, key.Name+" (rotated)")
+	newKey, err := s.CreateKey(ctx, uID, key.Name+" (rotated)")
 	if err != nil {
 		return nil, err
 	}
 
 	// Delete old key
 	if err := s.repo.DeleteAPIKey(ctx, id); err != nil {
-		return nil, fmt.Errorf("failed to delete old API key: %w", err)
+		return nil, errors.Wrap(errors.Internal, "failed to delete old API key", err)
 	}
 
 	// Log audit event

@@ -125,9 +125,10 @@ const (
 	PermissionContainerUpdate Permission = "container:scale"
 
 	// Image Permissions
-	PermissionImageCreate Permission = "image:create"
-	PermissionImageRead   Permission = "image:read"
-	PermissionImageDelete Permission = "image:delete"
+	PermissionImageCreate  Permission = "image:create"
+	PermissionImageRead    Permission = "image:read"
+	PermissionImageDelete  Permission = "image:delete"
+	PermissionImageReadAll Permission = "image:read_all"
 
 	// Cluster Permissions
 	PermissionClusterCreate Permission = "cluster:create"

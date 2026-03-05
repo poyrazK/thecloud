@@ -184,16 +184,29 @@ type ServiceConfig struct {
 func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	// 1. Core Services (Audit, Identity, Auth, RBAC)
 	rbacSvc := initRBACServices(c)
-	auditSvc := services.NewAuditService(c.Repos.Audit, rbacSvc)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    c.Repos.Audit,
+		RBACSvc: rbacSvc,
+	})
 	identitySvc := initIdentityServices(c, rbacSvc, auditSvc)
-	tenantSvc := services.NewTenantService(c.Repos.Tenant, c.Repos.User, rbacSvc, c.Logger)
+	tenantSvc := services.NewTenantService(services.TenantServiceParams{
+		Repo:     c.Repos.Tenant,
+		UserRepo: c.Repos.User,
+		RBACSvc:  rbacSvc,
+		Logger:   c.Logger,
+	})
 	authSvc := services.NewAuthService(c.Repos.User, identitySvc, auditSvc, tenantSvc)
 	pwdResetSvc := services.NewPasswordResetService(c.Repos.PasswordReset, c.Repos.User, c.Logger)
 
 	// 2. WebSocket & Core Infrastructure
 	wsHub := ws.NewHub(c.Logger)
 	go wsHub.Run()
-	eventSvc := services.NewEventService(c.Repos.Event, rbacSvc, wsHub, c.Logger)
+	eventSvc := services.NewEventService(services.EventServiceParams{
+		Repo:    c.Repos.Event,
+		RBACSvc: rbacSvc,
+		Hub:     wsHub,
+		Logger:  c.Logger,
+	})
 
 	// 3. Cloud Infrastructure Services (VPC, Subnet, Instance, Volume, SG, LB)
 	vpcSvc := services.NewVpcService(c.Repos.Vpc, c.Repos.LB, rbacSvc, c.Network, auditSvc, c.Logger, c.Config.DefaultVPCCIDR)
@@ -210,7 +223,10 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		AuditSvc: auditSvc, EventSvc: eventSvc, Logger: c.Logger,
 	})
 
-	sshKeySvc := services.NewSSHKeyService(c.Repos.SSHKey, rbacSvc)
+	sshKeySvc := services.NewSSHKeyService(services.SSHKeyServiceParams{
+		Repo:    c.Repos.SSHKey,
+		RBACSvc: rbacSvc,
+	})
 
 	logSvc := services.NewCloudLogsService(c.Repos.Log, rbacSvc, c.Logger)
 
@@ -355,12 +371,20 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 }
 
 func initIdentityServices(c ServiceConfig, rbacSvc ports.RBACService, audit ports.AuditService) ports.IdentityService {
-	base := services.NewIdentityService(c.Repos.Identity, rbacSvc, audit)
+	base := services.NewIdentityService(services.IdentityServiceParams{
+		Repo:     c.Repos.Identity,
+		RbacSvc:  rbacSvc,
+		AuditSvc: audit,
+	})
 	return services.NewCachedIdentityService(base, c.RDB, c.Logger)
 }
 
-func initRBACServices(c ServiceConfig) ports.RBACService {
-	base := services.NewRBACService(c.Repos.User, c.Repos.RBAC, c.Repos.Tenant, c.Logger)
+func initRBACServices(c ServiceConfig) ports.RBACService { base := services.NewRBACService(services.RBACServiceParams{
+		UserRepo:   c.Repos.User,
+		RoleRepo:   c.Repos.RBAC,
+		TenantRepo: c.Repos.Tenant,
+		Logger:     c.Logger,
+	})
 	return services.NewCachedRBACService(base, c.RDB, c.Logger)
 }
 

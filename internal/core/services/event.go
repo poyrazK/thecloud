@@ -14,6 +14,14 @@ import (
 	"github.com/poyrazk/thecloud/internal/handlers/ws"
 )
 
+// EventServiceParams defines the dependencies for EventService.
+type EventServiceParams struct {
+	Repo    ports.EventRepository
+	RBACSvc ports.RBACService
+	Hub     *ws.Hub
+	Logger  *slog.Logger
+}
+
 // EventService records events and emits websocket notifications.
 type EventService struct {
 	repo    ports.EventRepository
@@ -23,12 +31,12 @@ type EventService struct {
 }
 
 // NewEventService constructs an EventService with its dependencies.
-func NewEventService(repo ports.EventRepository, rbacSvc ports.RBACService, hub *ws.Hub, logger *slog.Logger) *EventService {
+func NewEventService(params EventServiceParams) *EventService {
 	return &EventService{
-		repo:    repo,
-		rbacSvc: rbacSvc,
-		hub:     hub,
-		logger:  logger,
+		repo:    params.Repo,
+		rbacSvc: params.RBACSvc,
+		hub:     params.Hub,
+		logger:  params.Logger,
 	}
 }
 

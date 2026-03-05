@@ -64,7 +64,15 @@ func TestK8sProvisionerLifecycle(t *testing.T) {
 	rbacSvc := new(services.MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	secretSvc := services.NewSecretService(secretRepo, rbacSvc, eventSvc, auditSvc, logger, "test-master-key-32-chars-long-!!!", "default")
+	secretSvc, _ := services.NewSecretService(services.SecretServiceParams{
+		Repo:        secretRepo,
+		RBACSvc:     rbacSvc,
+		EventSvc:    eventSvc,
+		AuditSvc:    auditSvc,
+		Logger:      logger,
+		MasterKey:   "test-master-key-32-chars-long-!!!",
+		Environment: "test",
+	})
 
 	// Network: No-op for OVS logic (requires local system support)
 	netBackend := &noopNetworkBackend{}

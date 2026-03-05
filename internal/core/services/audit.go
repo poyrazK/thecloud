@@ -13,6 +13,12 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+// AuditServiceParams defines the dependencies for AuditService.
+type AuditServiceParams struct {
+	Repo    ports.AuditRepository
+	RBACSvc ports.RBACService
+}
+
 // AuditService records user actions for compliance and tracing.
 type AuditService struct {
 	repo    ports.AuditRepository
@@ -20,10 +26,10 @@ type AuditService struct {
 }
 
 // NewAuditService constructs an audit service for persisting audit logs.
-func NewAuditService(repo ports.AuditRepository, rbacSvc ports.RBACService) *AuditService {
+func NewAuditService(params AuditServiceParams) *AuditService {
 	return &AuditService{
-		repo:    repo,
-		rbacSvc: rbacSvc,
+		repo:    params.Repo,
+		rbacSvc: params.RBACSvc,
 	}
 }
 

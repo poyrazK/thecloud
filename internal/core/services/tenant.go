@@ -13,6 +13,14 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// TenantServiceParams defines dependencies for TenantService.
+type TenantServiceParams struct {
+	Repo     ports.TenantRepository
+	UserRepo ports.UserRepository
+	RBACSvc  ports.RBACService
+	Logger   *slog.Logger
+}
+
 // TenantService manages tenants, membership, and quota checks.
 type TenantService struct {
 	repo     ports.TenantRepository
@@ -22,12 +30,12 @@ type TenantService struct {
 }
 
 // NewTenantService constructs a TenantService.
-func NewTenantService(repo ports.TenantRepository, userRepo ports.UserRepository, rbacSvc ports.RBACService, logger *slog.Logger) *TenantService {
+func NewTenantService(params TenantServiceParams) *TenantService {
 	return &TenantService{
-		repo:     repo,
-		userRepo: userRepo,
-		rbacSvc:  rbacSvc,
-		logger:   logger,
+		repo:     params.Repo,
+		userRepo: params.UserRepo,
+		rbacSvc:  params.RBACSvc,
+		logger:   params.Logger,
 	}
 }
 

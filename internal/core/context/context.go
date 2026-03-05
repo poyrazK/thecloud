@@ -12,10 +12,14 @@ type contextKey string
 const (
 	userIDKey   contextKey = "user_id"
 	tenantIDKey contextKey = "tenant_id"
+
+	systemUserIDStr = "00000000-0000-0000-0000-000000000001"
 )
 
-// SystemUserID is a reserved UUID for system-level background tasks.
-var SystemUserID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+// SystemUserID returns the reserved UUID for system-level background tasks.
+func SystemUserID() uuid.UUID {
+	return uuid.MustParse(systemUserIDStr)
+}
 
 // WithUserID returns a new context with the given userID.
 func WithUserID(ctx context.Context, userID uuid.UUID) context.Context {

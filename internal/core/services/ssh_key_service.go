@@ -14,15 +14,21 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// SSHKeyServiceParams defines dependencies for SSHKeyService.
+type SSHKeyServiceParams struct {
+	Repo    ports.SSHKeyRepository
+	RBACSvc ports.RBACService
+}
+
 type SSHKeyService struct {
 	repo    ports.SSHKeyRepository
 	rbacSvc ports.RBACService
 }
 
-func NewSSHKeyService(repo ports.SSHKeyRepository, rbacSvc ports.RBACService) *SSHKeyService {
+func NewSSHKeyService(params SSHKeyServiceParams) *SSHKeyService {
 	return &SSHKeyService{
-		repo:    repo,
-		rbacSvc: rbacSvc,
+		repo:    params.Repo,
+		rbacSvc: params.RBACSvc,
 	}
 }
 
