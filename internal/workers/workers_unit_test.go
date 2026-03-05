@@ -57,7 +57,11 @@ func (m *mockStorageRepo) HardDelete(ctx context.Context, bucket, key, versionID
 	return nil
 }
 func (m *mockStorageRepo) ListPending(ctx context.Context, olderThan time.Time, limit int) ([]*domain.Object, error) {
-	return nil, nil
+	args := m.Called(ctx, olderThan, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Object), args.Error(1)
 }
 func (m *mockStorageRepo) CreateBucket(ctx context.Context, bucket *domain.Bucket) error { return nil }
 func (m *mockStorageRepo) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {

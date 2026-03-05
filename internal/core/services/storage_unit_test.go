@@ -2,6 +2,8 @@ package services_test
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -20,7 +22,8 @@ func TestStorageServiceUnit(t *testing.T) {
 	mockStore := new(MockFileStore)
 	mockAuditSvc := new(MockAuditService)
 	cfg := &platform.Config{SecretsEncryptionKey: "test-secret-key-32-chars-long-!!!"}
-	svc := services.NewStorageService(mockRepo, mockStore, mockAuditSvc, nil, cfg)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := services.NewStorageService(mockRepo, mockStore, mockAuditSvc, nil, cfg, logger)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -60,5 +63,9 @@ func TestStorageServiceUnit(t *testing.T) {
 		assert.Equal(t, int64(12), obj.SizeBytes)
 		assert.Equal(t, "text/plain; charset=utf-8", obj.ContentType)
 		assert.NotEmpty(t, obj.Checksum)
+
+		mockRepo.AssertExpectations(t)
+		mockStore.AssertExpectations(t)
+		mockAuditSvc.AssertExpectations(t)
 	})
 }

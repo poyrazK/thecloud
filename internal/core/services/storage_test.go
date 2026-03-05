@@ -466,7 +466,8 @@ func TestStorageService_Integration(t *testing.T) {
 
 	t.Run("PresignedURL", func(t *testing.T) {
 		bucketName := "url-bucket"
-		_, _ = svc.CreateBucket(ctx, bucketName, false)
+		_, err := svc.CreateBucket(ctx, bucketName, false)
+		require.NoError(t, err)
 
 		url, err := svc.GeneratePresignedURL(ctx, bucketName, "file.txt", "GET", 0)
 		require.NoError(t, err)
