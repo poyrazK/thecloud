@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -44,6 +45,12 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 	if userID == uuid.Nil {
 		return false, nil
 	}
+
+	// System user bypass
+	if userID == appcontext.SystemUserID {
+		return true, nil
+	}
+
 	var roleName string
 
 	if tenantID == uuid.Nil {
@@ -177,8 +184,8 @@ func (s *rbacService) hasDefaultPermission(roleName string, permission domain.Pe
 	s.logger.Debug("RBAC: checking default permission", "role", roleName, "permission", permission)
 
 	switch roleName {
-	case domain.RoleAdmin:
-		s.logger.Debug("RBAC: admin role, granting permission", "permission", permission)
+	case domain.RoleAdmin, "owner":
+		s.logger.Debug("RBAC: admin/owner role, granting permission", "role", roleName, "permission", permission)
 		return true, nil
 	case domain.RoleViewer:
 		if permission == domain.PermissionInstanceRead ||
