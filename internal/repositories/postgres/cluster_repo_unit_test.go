@@ -73,6 +73,7 @@ func TestClusterRepository(t *testing.T) {
 			{
 				name: "GetByID",
 				setupMock: func(mock pgxmock.PgxPoolIface) {
+					t.Helper()
 					mock.ExpectQuery("SELECT .* FROM clusters").WithArgs(clusterID, userID).
 						WillReturnRows(pgxmock.NewRows(cols).
 							AddRow(clusterID, userID, uuid.New(), testClusterName, testClusterVersion, string(domain.ClusterStatusRunning), []string{"10.0.0.1"}, 3, false, false, "10.244.0.0/16", "10.96.0.0/12", nil, "", "", "", nil, "", nil, time.Now(), time.Now()))
@@ -84,6 +85,7 @@ func TestClusterRepository(t *testing.T) {
 					return repo.GetByID(ctx, clusterID)
 				},
 				validate: func(t *testing.T, res any) {
+					t.Helper()
 					cluster := res.(*domain.Cluster)
 					assert.NotNil(t, cluster)
 					assert.Equal(t, clusterID, cluster.ID)
@@ -93,6 +95,7 @@ func TestClusterRepository(t *testing.T) {
 			{
 				name: "ListAll",
 				setupMock: func(mock pgxmock.PgxPoolIface) {
+					t.Helper()
 					mock.ExpectQuery("SELECT .* FROM clusters").
 						WillReturnRows(pgxmock.NewRows(cols).
 							AddRow(clusterID, userID, uuid.New(), "c1", "v1", "RUNNING", []string{}, 3, false, false, "", "", nil, "", "", "", nil, "", nil, time.Now(), time.Now()))
@@ -104,6 +107,7 @@ func TestClusterRepository(t *testing.T) {
 					return repo.ListAll(ctx)
 				},
 				validate: func(t *testing.T, res any) {
+					t.Helper()
 					clusters := res.([]*domain.Cluster)
 					assert.Len(t, clusters, 1)
 					assert.Len(t, clusters[0].NodeGroups, 1)
@@ -112,6 +116,7 @@ func TestClusterRepository(t *testing.T) {
 			{
 				name: "ListByUserID",
 				setupMock: func(mock pgxmock.PgxPoolIface) {
+					t.Helper()
 					mock.ExpectQuery("SELECT .* FROM clusters WHERE user_id = \\$1").WithArgs(userID).
 						WillReturnRows(pgxmock.NewRows(cols).
 							AddRow(clusterID, userID, uuid.New(), "c1", "v1", "RUNNING", []string{}, 3, false, false, "", "", nil, "", "", "", nil, "", nil, time.Now(), time.Now()))
@@ -123,6 +128,7 @@ func TestClusterRepository(t *testing.T) {
 					return repo.ListByUserID(ctx, userID)
 				},
 				validate: func(t *testing.T, res any) {
+					t.Helper()
 					clusters := res.([]*domain.Cluster)
 					assert.Len(t, clusters, 1)
 					assert.Len(t, clusters[0].NodeGroups, 1)

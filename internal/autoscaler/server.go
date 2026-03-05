@@ -32,7 +32,7 @@ func (s *AutoscalerServer) NodeGroups(ctx context.Context, req *protos.NodeGroup
 		return nil, err
 	}
 
-	var nodeGroups []*protos.NodeGroup
+	nodeGroups := make([]*protos.NodeGroup, 0, len(cluster.NodeGroups))
 	for _, ng := range cluster.NodeGroups {
 		nodeGroups = append(nodeGroups, &protos.NodeGroup{
 			Id:      ng.Name,
