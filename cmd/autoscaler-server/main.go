@@ -35,7 +35,7 @@ func main() {
 		klog.Fatalf("API Key and Cluster ID are required")
 	}
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+	lis, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *port))
 	if err != nil {
 		klog.Fatalf("failed to listen: %v", err)
 	}

@@ -52,7 +52,7 @@ spec:
               readOnly: true
 
         # 2. The Cloud Autoscaler Bridge (Our Implementation)
-        - name: thecloud-autoscaler-server
+        - name: thecloud-bridge
           image: ghcr.io/poyrazk/thecloud-autoscaler-server:v1.0.0
           imagePullPolicy: IfNotPresent
           securityContext:
