@@ -213,6 +213,9 @@ func (m *MockStorageService) AbortMultipartUpload(ctx context.Context, uploadID 
 func (m *MockStorageService) CleanupDeleted(ctx context.Context, limit int) (int, error) {
 	return 0, nil
 }
+func (m *MockStorageService) CleanupPendingUploads(ctx context.Context, olderThan time.Duration, limit int) (int, error) {
+	return 0, nil
+}
 
 type MockLBService struct{ mock.Mock }
 

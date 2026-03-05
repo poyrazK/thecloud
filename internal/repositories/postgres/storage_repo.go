@@ -321,7 +321,7 @@ func (r *StorageRepository) DeleteMultipartUpload(ctx context.Context, id uuid.U
 
 func (r *StorageRepository) SavePart(ctx context.Context, p *domain.Part) error {
 	query := `
-		INSERT INTO parts (upload_id, part_number, size_bytes, etag)
+		INSERT INTO multipart_parts (upload_id, part_number, size_bytes, etag)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (upload_id, part_number) DO UPDATE SET
 			size_bytes = EXCLUDED.size_bytes,
@@ -335,7 +335,7 @@ func (r *StorageRepository) SavePart(ctx context.Context, p *domain.Part) error 
 }
 
 func (r *StorageRepository) ListParts(ctx context.Context, uploadID uuid.UUID) ([]*domain.Part, error) {
-	query := `SELECT upload_id, part_number, size_bytes, etag FROM parts WHERE upload_id = $1 ORDER BY part_number ASC`
+	query := `SELECT upload_id, part_number, size_bytes, etag FROM multipart_parts WHERE upload_id = $1 ORDER BY part_number ASC`
 	rows, err := r.db.Query(ctx, query, uploadID)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list parts", err)
