@@ -316,7 +316,7 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		clusterGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionClusterDelete), handlers.Cluster.DeleteCluster)
 		clusterGroup.GET("/:id/kubeconfig", httputil.Permission(svcs.RBAC, domain.PermissionClusterRead), handlers.Cluster.GetKubeconfig)
 		clusterGroup.POST("/:id/repair", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.RepairCluster)
-		clusterGroup.POST("/:id/scale", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.ScaleCluster)
+		clusterGroup.PUT("/:id/scale", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.ScaleCluster)
 		clusterGroup.GET("/:id/health", httputil.Permission(svcs.RBAC, domain.PermissionClusterRead), handlers.Cluster.GetClusterHealth)
 		clusterGroup.POST("/:id/upgrade", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.UpgradeCluster)
 		clusterGroup.POST("/:id/rotate-secrets", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.RotateSecrets)
@@ -562,7 +562,7 @@ func registerDevOpsRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		containerGroup.POST("/deployments", httputil.Permission(svcs.RBAC, domain.PermissionContainerCreate), handlers.Container.CreateDeployment)
 		containerGroup.GET("/deployments", httputil.Permission(svcs.RBAC, domain.PermissionContainerRead), handlers.Container.ListDeployments)
 		containerGroup.GET("/deployments/:id", httputil.Permission(svcs.RBAC, domain.PermissionContainerRead), handlers.Container.GetDeployment)
-		containerGroup.POST("/deployments/:id/scale", httputil.Permission(svcs.RBAC, domain.PermissionContainerUpdate), handlers.Container.ScaleDeployment)
+		containerGroup.PUT("/deployments/:id/scale", httputil.Permission(svcs.RBAC, domain.PermissionContainerUpdate), handlers.Container.ScaleDeployment)
 		containerGroup.DELETE("/deployments/:id", httputil.Permission(svcs.RBAC, domain.PermissionContainerDelete), handlers.Container.DeleteDeployment)
 	}
 
