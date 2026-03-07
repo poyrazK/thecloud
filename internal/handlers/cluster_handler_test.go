@@ -103,6 +103,10 @@ func (m *mockClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, ba
 	return m.Called(ctx, id, backupPath).Error(0)
 }
 
+func (m *mockClusterService) SetBackupPolicy(ctx context.Context, id uuid.UUID, params ports.BackupPolicyParams) error {
+	return m.Called(ctx, id, params).Error(0)
+}
+
 func (m *mockClusterService) AddNodeGroup(ctx context.Context, clusterID uuid.UUID, params ports.NodeGroupParams) (*domain.NodeGroup, error) {
 	args := m.Called(ctx, clusterID, params)
 	if args.Get(0) == nil {
@@ -626,5 +630,61 @@ func TestClusterHandlerNodeGroups(t *testing.T) {
 		r.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusAccepted, w.Code)
+	})
+
+	t.Run("AddNodeGroup_InvalidID", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/clusters/invalid/nodegroups", nil)
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("UpdateNodeGroup_InvalidJSON", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("PUT", "/clusters/"+clusterID.String()+"/nodegroups/"+nodeGroupName, bytes.NewBufferString("{bad}"))
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("DeleteNodeGroup_Error", func(t *testing.T) {
+		svc.On("DeleteNodeGroup", mock.Anything, clusterID, nodeGroupName).Return(fmt.Errorf("error")).Once()
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("DELETE", "/clusters/"+clusterID.String()+"/nodegroups/"+nodeGroupName, nil)
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+}
+
+func TestClusterHandlerSetBackupPolicy(t *testing.T) {
+	t.Parallel()
+	svc, handler, r := setupClusterHandlerTest()
+	r.PUT("/clusters/:id/backups/policy", handler.SetBackupPolicy)
+	clusterID := uuid.New()
+
+	t.Run("Success", func(t *testing.T) {
+		params := ports.BackupPolicyParams{Schedule: "@daily", RetentionDays: 7}
+		svc.On("SetBackupPolicy", mock.Anything, clusterID, params).Return(nil).Once()
+		body, _ := json.Marshal(params)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("PUT", "/clusters/"+clusterID.String()+"/backups/policy", bytes.NewBuffer(body))
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("InvalidID", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("PUT", "/clusters/invalid/backups/policy", nil)
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("ServiceError", func(t *testing.T) {
+		params := ports.BackupPolicyParams{Schedule: "@daily", RetentionDays: 7}
+		svc.On("SetBackupPolicy", mock.Anything, clusterID, params).Return(fmt.Errorf("error")).Once()
+		body, _ := json.Marshal(params)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("PUT", "/clusters/"+clusterID.String()+"/backups/policy", bytes.NewBuffer(body))
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
 	})
 }

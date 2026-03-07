@@ -65,6 +65,9 @@ func (m *MockClusterService) CreateBackup(ctx context.Context, id uuid.UUID) err
 func (m *MockClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, backupPath string) error {
 	return nil
 }
+func (m *MockClusterService) SetBackupPolicy(ctx context.Context, id uuid.UUID, params ports.BackupPolicyParams) error {
+	return nil
+}
 
 func (m *MockClusterService) AddNodeGroup(ctx context.Context, clusterID uuid.UUID, params ports.NodeGroupParams) (*domain.NodeGroup, error) {
 	return nil, nil

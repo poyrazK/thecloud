@@ -15,8 +15,9 @@ import (
 
 type AutoscalerServer struct {
 	protos.UnimplementedCloudProviderServer
-	client    *sdk.Client
-	clusterID string
+	client     *sdk.Client
+	clusterID  string
+	lastStatus string
 }
 
 func NewAutoscalerServer(client *sdk.Client, clusterID string) *AutoscalerServer {
@@ -133,6 +134,10 @@ func (s *AutoscalerServer) NodeGroupIncreaseSize(ctx context.Context, req *proto
 		return nil, err
 	}
 
+	if cluster.Status == "repairing" {
+		return nil, status.Errorf(codes.FailedPrecondition, "cannot increase size while cluster is repairing")
+	}
+
 	var targetGroup *sdk.NodeGroup
 	for i := range cluster.NodeGroups {
 		if cluster.NodeGroups[i].Name == req.Id {
@@ -163,6 +168,15 @@ func (s *AutoscalerServer) NodeGroupIncreaseSize(ctx context.Context, req *proto
 func (s *AutoscalerServer) NodeGroupDeleteNodes(ctx context.Context, req *protos.NodeGroupDeleteNodesRequest) (*protos.NodeGroupDeleteNodesResponse, error) {
 	klog.Infof("Request to delete %d nodes from group %s", len(req.Nodes), req.Id)
 
+	cluster, err := s.client.GetClusterWithContext(ctx, s.clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	if cluster.Status == "repairing" {
+		return nil, status.Errorf(codes.FailedPrecondition, "cannot delete nodes while cluster is repairing")
+	}
+
 	successfulTerminations := 0
 	for _, node := range req.Nodes {
 		providerID := strings.TrimPrefix(node.ProviderID, "thecloud://")
@@ -174,11 +188,6 @@ func (s *AutoscalerServer) NodeGroupDeleteNodes(ctx context.Context, req *protos
 			return nil, err
 		}
 		successfulTerminations++
-	}
-
-	cluster, err := s.client.GetClusterWithContext(ctx, s.clusterID)
-	if err != nil {
-		return nil, err
 	}
 
 	var targetGroup *sdk.NodeGroup
@@ -215,9 +224,10 @@ func (s *AutoscalerServer) NodeGroupNodes(ctx context.Context, req *protos.NodeG
 			inst.Metadata["thecloud.io/node-group"] == req.Id {
 			
 			state := protos.InstanceStatus_instanceRunning
-			if inst.Status == "PROVISIONING" || inst.Status == "STARTING" {
+			switch inst.Status {
+			case "PROVISIONING", "STARTING":
 				state = protos.InstanceStatus_instanceCreating
-			} else if inst.Status == "TERMINATING" || inst.Status == "STOPPING" {
+			case "TERMINATING", "STOPPING":
 				state = protos.InstanceStatus_instanceDeleting
 			}
 
@@ -244,6 +254,23 @@ func (s *AutoscalerServer) GetAvailableGPUTypes(ctx context.Context, req *protos
 }
 
 func (s *AutoscalerServer) Refresh(ctx context.Context, req *protos.RefreshRequest) (*protos.RefreshResponse, error) {
+	cluster, err := s.client.GetClusterWithContext(ctx, s.clusterID)
+	if err != nil {
+		klog.Errorf("Refresh: Failed to fetch cluster status: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to fetch cluster status: %v", err)
+	}
+
+	if cluster.Status != s.lastStatus {
+		klog.Infof("Refresh: Cluster status changed from %s to %s", s.lastStatus, cluster.Status)
+		s.lastStatus = cluster.Status
+	}
+
+	if cluster.Status == "repairing" {
+		klog.Warningf("Refresh: Cluster %s is in REPAIRING state. Autoscaler is paused.", s.clusterID)
+		// Return error to skip this autoscaling cycle
+		return nil, status.Errorf(codes.Unavailable, "cluster is currently being restored/repaired")
+	}
+
 	return &protos.RefreshResponse{}, nil
 }
 
@@ -261,6 +288,10 @@ func (s *AutoscalerServer) NodeGroupDecreaseTargetSize(ctx context.Context, req 
 	cluster, err := s.client.GetClusterWithContext(ctx, s.clusterID)
 	if err != nil {
 		return nil, err
+	}
+
+	if cluster.Status == "repairing" {
+		return nil, status.Errorf(codes.FailedPrecondition, "cannot decrease size while cluster is repairing")
 	}
 
 	var targetGroup *sdk.NodeGroup

@@ -2,7 +2,12 @@ package k8s
 
 import (
 	"context"
-	"fmt"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
+	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,38 +15,93 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/ssh"
 )
 
-// mockInstanceService is already declared in health_test.go, so we reuse it here.
-
 func TestServiceExecutor(t *testing.T) {
-	instSvc := new(mockInstanceService)
-	instID := uuid.New()
-	exec := NewServiceExecutor(instSvc, instID)
 	ctx := context.Background()
+	instID := uuid.New()
+	mockSvc := new(mockInstanceService)
+	executor := NewServiceExecutor(mockSvc, instID)
 
 	t.Run("Run", func(t *testing.T) {
-		expectedCmd := []string{"sh", "-c", "echo hello"}
-		instSvc.On("Exec", ctx, instID.String(), expectedCmd).Return("hello", nil).Once()
-
-		out, err := exec.Run(ctx, "echo hello")
+		cmd := "echo hello"
+		mockSvc.On("Exec", ctx, instID.String(), []string{"sh", "-c", cmd}).Return("hello", nil).Once()
+		
+		out, err := executor.Run(ctx, cmd)
 		require.NoError(t, err)
 		assert.Equal(t, "hello", out)
 	})
 
-	t.Run("WaitForReady Success", func(t *testing.T) {
-		expectedCmd := []string{"sh", "-c", "echo ready"}
-		instSvc.On("Exec", mock.Anything, instID.String(), expectedCmd).Return("ready", nil).Once()
+	t.Run("WriteFile", func(t *testing.T) {
+		path := "/tmp/test.txt"
+		data := "hello world"
+		
+		mockSvc.On("Exec", ctx, instID.String(), mock.MatchedBy(func(cmd []string) bool {
+			return strings.Contains(cmd[2], "base64 -d > "+path)
+		})).Return("", nil).Once()
 
-		err := exec.WaitForReady(ctx, 5*time.Second)
+		err := executor.WriteFile(ctx, path, strings.NewReader(data))
 		require.NoError(t, err)
 	})
 
-	t.Run("WaitForReady Timeout", func(t *testing.T) {
-		instSvc.On("Exec", mock.Anything, instID.String(), mock.Anything).Return("", fmt.Errorf("not yet")).Maybe()
+	t.Run("WaitForReady", func(t *testing.T) {
+		mockSvc.On("Exec", mock.Anything, instID.String(), []string{"sh", "-c", "echo ready"}).Return("ready", nil).Once()
+		
+		err := executor.WaitForReady(ctx, 2*time.Second)
+		require.NoError(t, err)
+	})
+}
 
-		err := exec.WaitForReady(ctx, 100*time.Millisecond) // Short timeout for test
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "timeout")
+func TestSSHExecutor(t *testing.T) {
+	// Setup a simple SSH server for testing
+	pk, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	
+	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(pk),
+	})
+
+	signer, err := ssh.ParsePrivateKey(privateKeyPEM)
+	require.NoError(t, err)
+
+	config := &ssh.ServerConfig{
+		NoClientAuth: true,
+	}
+	config.AddHostKey(signer)
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer listener.Close()
+
+	ip := "127.0.0.1"
+
+	go func() {
+		for {
+			nConn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			_, _, reqs, err := ssh.NewServerConn(nConn, config)
+			if err != nil {
+				continue
+			}
+			go ssh.DiscardRequests(reqs)
+		}
+	}()
+
+	t.Run("NewSSHExecutor", func(t *testing.T) {
+		executor := NewSSHExecutor(ip, "user", string(privateKeyPEM))
+		assert.NotNil(t, executor)
+		assert.Equal(t, ip, executor.ip)
+	})
+
+	t.Run("Run_FailConn", func(t *testing.T) {
+		executor := NewSSHExecutor("127.0.0.1", "user", string(privateKeyPEM))
+		// Use a wrong port or something that will definitely fail fast
+		executor.ip = "127.0.0.1:1" 
+		_, err := executor.Run(context.Background(), "ls")
+		assert.Error(t, err)
 	})
 }

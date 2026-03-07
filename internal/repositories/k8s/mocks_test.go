@@ -85,8 +85,16 @@ func (m *mockClusterRepo) ListByUserID(ctx context.Context, userID uuid.UUID) ([
 func (m *mockClusterRepo) ListAll(ctx context.Context) ([]*domain.Cluster, error) {
 	return nil, nil
 }
-func (m *mockClusterRepo) Update(ctx context.Context, c *domain.Cluster) error      { return nil }
-func (m *mockClusterRepo) Delete(ctx context.Context, id uuid.UUID) error           { return nil }
+func (m *mockClusterRepo) Update(ctx context.Context, c *domain.Cluster) error {
+	// Only call mock.Called if we have expectations for it to avoid breaking existing tests
+	for _, call := range m.ExpectedCalls {
+		if call.Method == "Update" {
+			return m.Called(ctx, c).Error(0)
+		}
+	}
+	return nil
+}
+func (m *mockClusterRepo) Delete(ctx context.Context, id uuid.UUID) error { return nil }
 func (m *mockClusterRepo) AddNode(ctx context.Context, n *domain.ClusterNode) error { return nil }
 func (m *mockClusterRepo) GetNodes(ctx context.Context, clusterID uuid.UUID) ([]*domain.ClusterNode, error) {
 	args := m.Called(ctx, clusterID)
@@ -108,4 +116,28 @@ func (m *mockClusterRepo) UpdateNodeGroup(ctx context.Context, ng *domain.NodeGr
 }
 func (m *mockClusterRepo) DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error {
 	return nil
+}
+
+type mockSecretService struct{ mock.Mock }
+
+func (m *mockSecretService) CreateSecret(ctx context.Context, name, value, desc string) (*domain.Secret, error) {
+	return nil, nil
+}
+func (m *mockSecretService) GetSecret(ctx context.Context, id uuid.UUID) (*domain.Secret, error) {
+	return nil, nil
+}
+func (m *mockSecretService) GetSecretByName(ctx context.Context, name string) (*domain.Secret, error) {
+	return nil, nil
+}
+func (m *mockSecretService) ListSecrets(ctx context.Context) ([]*domain.Secret, error) {
+	return nil, nil
+}
+func (m *mockSecretService) DeleteSecret(ctx context.Context, id uuid.UUID) error { return nil }
+func (m *mockSecretService) Encrypt(ctx context.Context, userID uuid.UUID, plain string) (string, error) {
+	args := m.Called(ctx, userID, plain)
+	return args.String(0), args.Error(1)
+}
+func (m *mockSecretService) Decrypt(ctx context.Context, userID uuid.UUID, cipher string) (string, error) {
+	args := m.Called(ctx, userID, cipher)
+	return args.String(0), args.Error(1)
 }

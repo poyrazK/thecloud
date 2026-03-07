@@ -90,6 +90,13 @@ definitions:
     properties:
       api_server_lb_address:
         type: string
+      backup_retention_days:
+        example: 7
+        type: integer
+      backup_schedule:
+        description: Backup Policy
+        example: 0 0 * * *
+        type: string
       control_plane_ips:
         items:
           type: string
@@ -1643,6 +1650,16 @@ definitions:
     - instance_id
     - mount_path
     type: object
+  httphandlers.BackupPolicyRequest:
+    properties:
+      retention_days:
+        type: integer
+      schedule:
+        type: string
+    required:
+    - retention_days
+    - schedule
+    type: object
   httphandlers.BindRoleRequest:
     properties:
       role_name:
@@ -2868,6 +2885,29 @@ paths:
       security:
       - APIKeyAuth: []
       summary: Get cluster details
+      tags:
+      - K8s
+  /clusters/{id}/backup-policy:
+    put:
+      description: Sets the schedule and retention for automated etcd snapshots
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Backup Policy
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.BackupPolicyRequest'
+      responses:
+        "200":
+          description: OK
+      security:
+      - APIKeyAuth: []
+      summary: Configure cluster backup policy
       tags:
       - K8s
   /clusters/{id}/backups:

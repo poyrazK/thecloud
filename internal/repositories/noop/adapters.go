@@ -217,6 +217,9 @@ func (s *NoopClusterService) CreateBackup(ctx context.Context, id uuid.UUID) err
 func (s *NoopClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, backupPath string) error {
 	return nil
 }
+func (s *NoopClusterService) SetBackupPolicy(ctx context.Context, id uuid.UUID, params ports.BackupPolicyParams) error {
+	return nil
+}
 
 func (s *NoopClusterService) AddNodeGroup(ctx context.Context, clusterID uuid.UUID, params ports.NodeGroupParams) (*domain.NodeGroup, error) {
 	return &domain.NodeGroup{ClusterID: clusterID, Name: params.Name}, nil
