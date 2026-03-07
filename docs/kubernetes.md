@@ -17,6 +17,7 @@ Our KaaS solution leverages `kubeadm` for standard, compliant cluster bootstrapp
 *   **High Availability & Self-Healing**:
     *   **Cluster Reconciliation**: A background `ClusterReconciler` worker periodically audits cluster health.
     *   **Automatic Repair**: Automatically detects and repairs unhealthy clusters (e.g., API server down or nodes not ready) by re-applying configurations and reconciling the desired node count.
+*   **Disaster Recovery**: Integrated Backup and Restore capabilities for cluster state.
 
 ## Architecture
 
@@ -110,6 +111,30 @@ The Cloud Controller Manager (CCM) enables native Kubernetes networking.
 *   **Service type: LoadBalancer**: Creating a LoadBalancer service automatically provisions a Regional Load Balancer in your VPC.
 *   **Node Sync**: Node addresses and health status are automatically synchronized with the platform.
 
+### Backup & Restore
+
+The Cloud Platform provides built-in mechanisms for backing up and restoring the state of your Kubernetes clusters. This ensures your cluster configuration, resource definitions, and application metadata (stored in `etcd`) are safe from accidental deletion or cluster corruption.
+
+#### 1. Create a Backup
+
+A backup captures a point-in-time snapshot of the cluster's `etcd` database and securely stores it in the platform's Object Storage.
+
+```bash
+cloud k8s backup <cluster-id>
+```
+
+Backups are stored in a dedicated system bucket (`k8s-backups`) and are isolated by cluster ID.
+
+#### 2. Restore from Backup
+
+Restoring a cluster reverts its `etcd` state to a previous snapshot. This is a disruptive operation that temporarily stops the control plane.
+
+```bash
+cloud k8s restore <cluster-id> --path <backup-file-path>
+```
+
+> **Warning**: Restoring a backup will overwrite the current cluster state. Any resources created *after* the backup was taken will be lost. The cluster status will change to `REPAIRING` during the process, and the Autoscaler will be temporarily paused.
+
 ### Node Access (SSH)
 You can SSH into your cluster nodes using the private key stored securely in The Cloud. Currently, this requires retrieving specific node IP addresses via `cloud instance list`.
 
@@ -120,6 +145,7 @@ Use `type: NodePort` or `type: LoadBalancer` to expose services. The Cloud's sec
 *   **Storage**: Dynamic storage provisioning (CSI) is fully integrated.
 *   **High Availability**: Multi-control plane HA (3 masters + API Load Balancer) is supported via the `--ha` flag.
 *   **Autoscaling**: Automatic node group scaling via the integrated Cluster Autoscaler.
+*   **Disaster Recovery**: Manual Backup and Restore capabilities.
 
 ## Limitations (MVP)
 *   **Automated Backups**: Manual etcd snapshots only.
