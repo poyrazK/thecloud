@@ -23,7 +23,7 @@ func setupVolumeServiceTest(t *testing.T) (*services.VolumeService, *postgres.Vo
 	ctx := setupTestUser(t, db)
 
 	repo := postgres.NewVolumeRepository(db)
-	storage := noop.NewNoopStorageBackend()
+	storage := noop.NewNoopStorageBackendAdapter()
 
 	eventRepo := postgres.NewEventRepository(db)
 	eventSvc := services.NewEventService(eventRepo, nil, slog.Default())
@@ -148,7 +148,7 @@ func TestVolume_LaunchAttach_Conflict(t *testing.T) {
 	// Use InstanceService setup because we need LaunchInstance
 	db, svc, _, _, _, volRepo, ctx := setupInstanceServiceTest(t)
 	// We also need VolumeService to create volumes elegantly
-	volSvc := services.NewVolumeService(volRepo, noop.NewNoopStorageBackend(), services.NewEventService(postgres.NewEventRepository(db), nil, slog.Default()), services.NewAuditService(postgres.NewAuditRepository(db)), slog.Default())
+	volSvc := services.NewVolumeService(volRepo, noop.NewNoopStorageBackendAdapter(), services.NewEventService(postgres.NewEventRepository(db), nil, slog.Default()), services.NewAuditService(postgres.NewAuditRepository(db)), slog.Default())
 
 	// 1. Create Volume
 	vol, err := volSvc.CreateVolume(ctx, "shared-vol-"+uuid.New().String(), 1)

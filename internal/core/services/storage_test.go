@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"sync"
 	"testing"
@@ -137,7 +138,7 @@ func setupStorageServiceIntegrationTest(t *testing.T) (ports.StorageService, por
 	require.NotNil(t, realEncSvc)
 	encSvc := &FailingEncryptionService{EncryptionService: realEncSvc}
 
-	svc := services.NewStorageService(repo, store, auditSvc, encSvc, cfg)
+	svc := services.NewStorageService(repo, store, auditSvc, encSvc, cfg, slog.Default())
 
 	return svc, repo, store, encSvc, db, ctx
 }
@@ -452,7 +453,7 @@ func TestStorageService_Integration(t *testing.T) {
 
 		// GeneratePresignedURL secret missing
 		badCfg := &platform.Config{SecretsEncryptionKey: "", Port: "8080"}
-		badSvc := services.NewStorageService(postgres.NewStorageRepository(db), store, services.NewAuditService(postgres.NewAuditRepository(db)), encSvc, badCfg)
+		badSvc := services.NewStorageService(postgres.NewStorageRepository(db), store, services.NewAuditService(postgres.NewAuditRepository(db)), encSvc, badCfg, slog.Default())
 		_, err = badSvc.GeneratePresignedURL(ctx, "obj-bucket", "f.txt", "GET", 0)
 		require.Error(t, err)
 	})

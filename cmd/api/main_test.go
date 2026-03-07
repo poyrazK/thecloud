@@ -110,7 +110,7 @@ func TestInitBackendsLBProxyError(t *testing.T) {
 		return noop.NewNoopComputeBackend(), nil
 	}
 	deps.InitStorageBackend = func(*platform.Config, *slog.Logger) (ports.StorageBackend, error) {
-		return noop.NewNoopStorageBackend(), nil
+		return noop.NewNoopStorageBackendAdapter(), nil
 	}
 	deps.InitNetworkBackend = func(*platform.Config, *slog.Logger) ports.NetworkBackend {
 		return noop.NewNoopNetworkAdapter(logger)

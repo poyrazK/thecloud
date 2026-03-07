@@ -87,11 +87,11 @@ func InitStorageBackend(cfg *platform.Config, logger *slog.Logger) (ports.Storag
 
 	if cfg.StorageBackend == "noop" {
 		logger.Info("using no-op storage backend")
-		return noop.NewNoopStorageBackend(), nil
+		return noop.NewNoopStorageBackendAdapter(), nil
 	}
 
 	logger.Info("using no-op storage backend (default)")
-	return noop.NewNoopStorageBackend(), nil
+	return noop.NewNoopStorageBackendAdapter(), nil
 }
 
 // InitNetworkBackend initializes the network backend based on configuration.

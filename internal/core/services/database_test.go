@@ -41,7 +41,7 @@ func setupDatabaseServiceTest(t *testing.T) (ports.DatabaseService, ports.Databa
 	auditSvc := services.NewAuditService(auditRepo)
 
 	volRepo := postgres.NewVolumeRepository(db)
-	storage := noop.NewNoopStorageBackend()
+	storage := noop.NewNoopStorageBackendAdapter()
 	volumeSvc := services.NewVolumeService(volRepo, storage, eventSvc, auditSvc, slog.Default())
 
 	logger := slog.Default()
