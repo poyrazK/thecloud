@@ -4,7 +4,9 @@ package k8s
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -25,14 +27,15 @@ const (
 
 // KubeadmProvisioner implements ports.ClusterProvisioner using kubeadm and Cloud-Init.
 type KubeadmProvisioner struct {
-	instSvc     ports.InstanceService
-	repo        ports.ClusterRepository
-	secretSvc   ports.SecretService
-	sgSvc       ports.SecurityGroupService
-	storageSvc  ports.StorageService
-	lbSvc       ports.LBService
-	logger      *slog.Logger
-	templateDir string
+	instSvc         ports.InstanceService
+	repo            ports.ClusterRepository
+	secretSvc       ports.SecretService
+	sgSvc           ports.SecurityGroupService
+	storageSvc      ports.StorageService
+	lbSvc           ports.LBService
+	logger          *slog.Logger
+	templateDir     string
+	executorFactory func(ctx context.Context, cluster *domain.Cluster, ip string) (NodeExecutor, error)
 }
 
 // NewKubeadmProvisioner constructs a new KubeadmProvisioner.
@@ -347,6 +350,10 @@ func (p *KubeadmProvisioner) waitForKubeconfig(ctx context.Context, cluster *dom
 }
 
 func (p *KubeadmProvisioner) getExecutor(ctx context.Context, cluster *domain.Cluster, ip string) (NodeExecutor, error) {
+	if p.executorFactory != nil {
+		return p.executorFactory(ctx, cluster, ip)
+	}
+
 	// 1. Try to find instance by IP to use ServiceExecutor (preferred for Docker/Local/Managed)
 	// This avoids needing SSH access if we have direct control via the backend.
 	instances, err := p.instSvc.ListInstances(ctx)
@@ -600,7 +607,7 @@ func (p *KubeadmProvisioner) CreateBackup(ctx context.Context, cluster *domain.C
 	}
 
 	if p.storageSvc != nil {
-		key := fmt.Sprintf("k8s-backups/%s/%d.db.b64", cluster.ID, time.Now().Unix())
+		key := fmt.Sprintf("%s/%d.db.b64", cluster.ID, time.Now().Unix())
 		_, err = p.storageSvc.Upload(ctx, "k8s-backups", key, strings.NewReader(snapshotData))
 		return err
 	}
@@ -610,7 +617,87 @@ func (p *KubeadmProvisioner) CreateBackup(ctx context.Context, cluster *domain.C
 
 func (p *KubeadmProvisioner) Restore(ctx context.Context, cluster *domain.Cluster, path string) error {
 	p.logger.Info("restoring cluster from backup", "cluster_id", cluster.ID, "path", path)
-	// This is a complex operation involving stopping etcd, restoring from snapshot, and restarting.
-	// Implementing a full restore requires careful node-by-node handling.
-	return errors.New(errors.NotImplemented, "restore not yet fully implemented")
+
+	if len(cluster.ControlPlaneIPs) == 0 {
+		return errors.New(errors.InvalidInput, "no control plane node for restore")
+	}
+
+	masterIP := cluster.ControlPlaneIPs[0]
+	exec, err := p.getExecutor(ctx, cluster, masterIP)
+	if err != nil {
+		return err
+	}
+
+	// 1. Download backup from storage
+	if p.storageSvc == nil {
+		return errors.New(errors.Internal, "storage service not available")
+	}
+
+	rc, _, err := p.storageSvc.Download(ctx, "k8s-backups", path)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to download backup from storage", err)
+	}
+	defer rc.Close()
+
+	var data io.Reader = rc
+	if strings.HasSuffix(path, ".b64") {
+		data = base64.NewDecoder(base64.StdEncoding, rc)
+	}
+
+	// 2. Prepare node: Stop control plane by moving manifests
+	p.logger.Info("stopping control plane pods", "cluster_id", cluster.ID)
+	cmds := []string{
+		"mkdir -p /tmp/manifests-backup",
+		"rm -rf /tmp/manifests-backup/*",
+		"mv /etc/kubernetes/manifests/*.yaml /tmp/manifests-backup/",
+	}
+	for _, cmd := range cmds {
+		if _, err := exec.Run(ctx, cmd); err != nil {
+			return errors.Wrap(errors.Internal, "failed to prepare node for restore", err)
+		}
+	}
+
+	// Give containers time to stop
+	time.Sleep(5 * time.Second)
+
+	// 3. Upload snapshot to node
+	p.logger.Info("uploading snapshot to node", "cluster_id", cluster.ID)
+	if err := exec.WriteFile(ctx, "/tmp/restore-snapshot.db", data); err != nil {
+		// Attempt to recover manifests before failing
+		_, _ = exec.Run(ctx, "mv /tmp/manifests-backup/*.yaml /etc/kubernetes/manifests/")
+		return errors.Wrap(errors.Internal, "failed to upload snapshot to node", err)
+	}
+
+	// 4. Perform etcd restore
+	p.logger.Info("restoring etcd data directory", "cluster_id", cluster.ID)
+	restoreCmd := "ETCDCTL_API=3 etcdctl snapshot restore /tmp/restore-snapshot.db --data-dir /var/lib/etcd-restored"
+	if _, err := exec.Run(ctx, restoreCmd); err != nil {
+		_, _ = exec.Run(ctx, "mv /tmp/manifests-backup/*.yaml /etc/kubernetes/manifests/")
+		return errors.Wrap(errors.Internal, "etcd snapshot restore failed", err)
+	}
+
+	// 5. Swap data directories
+	swapCmds := []string{
+		fmt.Sprintf("mv /var/lib/etcd /var/lib/etcd-backup-%d", time.Now().Unix()),
+		"mv /var/lib/etcd-restored /var/lib/etcd",
+		"chown -R 0:0 /var/lib/etcd", // Ensure permissions
+	}
+	for _, cmd := range swapCmds {
+		if _, err := exec.Run(ctx, cmd); err != nil {
+			_, _ = exec.Run(ctx, "mv /tmp/manifests-backup/*.yaml /etc/kubernetes/manifests/")
+			return errors.Wrap(errors.Internal, "failed to swap etcd directories", err)
+		}
+	}
+
+	// 6. Restart control plane
+	p.logger.Info("restarting control plane pods", "cluster_id", cluster.ID)
+	if _, err := exec.Run(ctx, "mv /tmp/manifests-backup/*.yaml /etc/kubernetes/manifests/"); err != nil {
+		return errors.Wrap(errors.Internal, "failed to restart control plane pods", err)
+	}
+
+	// 7. Cleanup
+	_, _ = exec.Run(ctx, "rm /tmp/restore-snapshot.db")
+
+	p.logger.Info("cluster restore completed successfully", "cluster_id", cluster.ID)
+	return nil
 }
