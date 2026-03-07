@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -99,6 +100,9 @@ func (r *NoopInstanceTypeRepository) Delete(ctx context.Context, id string) erro
 // NoopComputeBackend is a no-op compute backend.
 type NoopComputeBackend struct{}
 
+// Interface assertion
+var _ ports.ComputeBackend = (*NoopComputeBackend)(nil)
+
 func NewNoopComputeBackend() *NoopComputeBackend {
 	return &NoopComputeBackend{}
 }
@@ -165,12 +169,8 @@ func (s *NoopLogService) GetLogs(ctx context.Context, instanceID string) (string
 // NoopEventService is a no-op event service.
 type NoopEventService struct{}
 
-func (e *NoopEventService) Publish(ctx context.Context, event domain.Event) error { return nil }
 func (e *NoopEventService) RecordEvent(ctx context.Context, action, resourceID, resourceType string, metadata map[string]interface{}) error {
 	return nil
-}
-func (e *NoopEventService) Subscribe(ctx context.Context, topic string) (<-chan domain.Event, error) {
-	return make(chan domain.Event), nil
 }
 func (e *NoopEventService) ListEvents(ctx context.Context, limit int) ([]*domain.Event, error) {
 	return []*domain.Event{}, nil
@@ -529,7 +529,10 @@ func (r *NoopCacheRepository) List(ctx context.Context, userID uuid.UUID) ([]*do
 func (r *NoopCacheRepository) Update(ctx context.Context, c *domain.Cache) error { return nil }
 func (r *NoopCacheRepository) Delete(ctx context.Context, id uuid.UUID) error    { return nil }
 
-type NoopLBRepository struct{}
+type NoopLBRepository struct {
+	mu             sync.Mutex
+	idempotencyMap map[string]uuid.UUID
+}
 
 func (r *NoopLBRepository) Create(ctx context.Context, lb *domain.LoadBalancer) error { return nil }
 func (r *NoopLBRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.LoadBalancer, error) {
@@ -539,7 +542,17 @@ func (r *NoopLBRepository) GetByName(ctx context.Context, name string) (*domain.
 	return &domain.LoadBalancer{ID: uuid.New(), Name: name}, nil
 }
 func (r *NoopLBRepository) GetByIdempotencyKey(ctx context.Context, key string) (*domain.LoadBalancer, error) {
-	return &domain.LoadBalancer{ID: uuid.New()}, nil
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.idempotencyMap == nil {
+		r.idempotencyMap = make(map[string]uuid.UUID)
+	}
+	id, ok := r.idempotencyMap[key]
+	if !ok {
+		id = uuid.New()
+		r.idempotencyMap[key] = id
+	}
+	return &domain.LoadBalancer{ID: id}, nil
 }
 func (r *NoopLBRepository) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	return []*domain.LoadBalancer{}, nil
@@ -616,6 +629,8 @@ func (r *NoopStorageRepository) SaveMultipartUpload(ctx context.Context, u *doma
 	return nil
 }
 func (r *NoopStorageRepository) GetMultipartUpload(ctx context.Context, id uuid.UUID) (*domain.MultipartUpload, error) {
+	// Note: Noop implementation always returns a populated object for the given ID.
+	// Happy-path only; does not simulate ObjectNotFound errors.
 	return &domain.MultipartUpload{ID: id}, nil
 }
 func (r *NoopStorageRepository) DeleteMultipartUpload(ctx context.Context, id uuid.UUID) error {
