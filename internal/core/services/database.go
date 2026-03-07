@@ -39,42 +39,48 @@ const (
 
 // DatabaseService manages database instances and lifecycle.
 type DatabaseService struct {
-	repo         ports.DatabaseRepository
-	compute      ports.ComputeBackend
-	vpcRepo      ports.VpcRepository
-	volumeSvc    ports.VolumeService
-	snapshotSvc  ports.SnapshotService
-	snapshotRepo ports.SnapshotRepository
-	eventSvc     ports.EventService
-	auditSvc     ports.AuditService
-	logger       *slog.Logger
+	repo           ports.DatabaseRepository
+	compute        ports.ComputeBackend
+	vpcRepo        ports.VpcRepository
+	volumeSvc      ports.VolumeService
+	snapshotSvc    ports.SnapshotService
+	snapshotRepo   ports.SnapshotRepository
+	eventSvc       ports.EventService
+	auditSvc       ports.AuditService
+	secrets        ports.SecretsManager
+	logger         *slog.Logger
+	vaultMountPath string
 }
 
 // DatabaseServiceParams holds dependencies for DatabaseService creation.
 type DatabaseServiceParams struct {
-	Repo         ports.DatabaseRepository
-	Compute      ports.ComputeBackend
-	VpcRepo      ports.VpcRepository
-	VolumeSvc    ports.VolumeService
-	SnapshotSvc  ports.SnapshotService
-	SnapshotRepo ports.SnapshotRepository
-	EventSvc     ports.EventService
-	AuditSvc     ports.AuditService
-	Logger       *slog.Logger
+	Repo           ports.DatabaseRepository
+	Compute        ports.ComputeBackend
+	VpcRepo        ports.VpcRepository
+	VolumeSvc      ports.VolumeService
+	SnapshotSvc    ports.SnapshotService
+	SnapshotRepo   ports.SnapshotRepository
+	EventSvc       ports.EventService
+	AuditSvc       ports.AuditService
+	Secrets        ports.SecretsManager
+	Logger         *slog.Logger
+	VaultMountPath string
 }
 
 // NewDatabaseService constructs a DatabaseService with its dependencies.
 func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 	return &DatabaseService{
-		repo:         params.Repo,
-		compute:      params.Compute,
-		vpcRepo:      params.VpcRepo,
-		volumeSvc:    params.VolumeSvc,
-		snapshotSvc:  params.SnapshotSvc,
-		snapshotRepo: params.SnapshotRepo,
-		eventSvc:     params.EventSvc,
-		auditSvc:     params.AuditSvc,
-		logger:       params.Logger,
+		repo:           params.Repo,
+		compute:        params.Compute,
+		vpcRepo:        params.VpcRepo,
+		volumeSvc:      params.VolumeSvc,
+		snapshotSvc:    params.SnapshotSvc,
+		snapshotRepo:   params.SnapshotRepo,
+		eventSvc:       params.EventSvc,
+		auditSvc:       params.AuditSvc,
+		secrets:        params.Secrets,
+		logger:         params.Logger,
+		vaultMountPath: params.VaultMountPath,
 	}
 }
 
@@ -98,6 +104,13 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDa
 	db.Parameters = req.Parameters
 	db.MetricsEnabled = req.MetricsEnabled
 	db.PoolingEnabled = req.PoolingEnabled
+
+	// Store password in Vault
+	vaultPath := s.getVaultPath(db.ID)
+	if err := s.secrets.StoreSecret(ctx, vaultPath, map[string]interface{}{"password": password}); err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to store database credentials in vault", err)
+	}
+	db.CredentialPath = vaultPath
 
 	imageName, env, defaultPort := s.getEngineConfig(dbEngine, req.Version, username, password, req.Name, db.Role, "")
 
@@ -177,14 +190,32 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 		return nil, errors.Wrap(errors.Internal, "failed to get primary IP", err)
 	}
 
-	db := s.initialDatabaseRecord(userID, name, primary.Engine, primary.Version, primary.Username, primary.Password, primary.VpcID)
+	// Fetch primary password from Vault if available, else fallback to DB
+	password := primary.Password
+	if primary.CredentialPath != "" {
+		secret, err := s.secrets.GetSecret(ctx, primary.CredentialPath)
+		if err != nil {
+			s.logger.Warn("failed to fetch primary password from vault, using fallback", "path", primary.CredentialPath, "error", err)
+		} else if p, ok := secret["password"].(string); ok {
+			password = p
+		}
+	}
+
+	db := s.initialDatabaseRecord(userID, name, primary.Engine, primary.Version, primary.Username, password, primary.VpcID)
 	db.Role = domain.RoleReplica
 	db.PrimaryID = &primaryID
 	db.AllocatedStorage = primary.AllocatedStorage
 	db.MetricsEnabled = primary.MetricsEnabled
 	db.PoolingEnabled = primary.PoolingEnabled
 
-	imageName, env, defaultPort := s.getEngineConfig(primary.Engine, primary.Version, primary.Username, primary.Password, name, db.Role, primaryIP)
+	// Store replica password in Vault
+	vaultPath := s.getVaultPath(db.ID)
+	if err := s.secrets.StoreSecret(ctx, vaultPath, map[string]interface{}{"password": password}); err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to store replica credentials in vault", err)
+	}
+	db.CredentialPath = vaultPath
+
+	imageName, env, defaultPort := s.getEngineConfig(primary.Engine, primary.Version, primary.Username, password, name, db.Role, primaryIP)
 
 	networkID, err := s.resolveVpcNetwork(ctx, db.VpcID)
 	if err != nil {
@@ -268,9 +299,20 @@ func (s *DatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDa
 	networkID, _ := s.resolveVpcNetwork(ctx, db.VpcID)
 	dbIP, _ := s.compute.GetInstanceIP(ctx, db.ContainerID)
 
+	// Fetch current password from Vault for sidecar provisioning if needed
+	password := db.Password
+	if db.CredentialPath != "" {
+		secret, err := s.secrets.GetSecret(ctx, db.CredentialPath)
+		if err == nil {
+			if p, ok := secret["password"].(string); ok {
+				password = p
+			}
+		}
+	}
+
 	if req.MetricsEnabled != nil && *req.MetricsEnabled != db.MetricsEnabled {
 		if *req.MetricsEnabled {
-			if err := s.provisionMetricsSidecar(ctx, db, db.Engine, dbIP, db.Username, db.Password, networkID); err != nil {
+			if err := s.provisionMetricsSidecar(ctx, db, db.Engine, dbIP, db.Username, password, networkID); err != nil {
 				return nil, err
 			}
 		} else if db.ExporterContainerID != "" {
@@ -288,7 +330,7 @@ func (s *DatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDa
 			if db.Engine != domain.EnginePostgres {
 				return nil, errors.New(errors.InvalidInput, "connection pooling is currently only supported for PostgreSQL")
 			}
-			if err := s.provisionPoolerSidecar(ctx, db, db.Engine, dbIP, db.Username, db.Password, networkID); err != nil {
+			if err := s.provisionPoolerSidecar(ctx, db, db.Engine, dbIP, db.Username, password, networkID); err != nil {
 				return nil, err
 			}
 		} else if db.PoolerContainerID != "" {
@@ -341,6 +383,13 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 		}
 	}
 
+	// Delete from Vault
+	if db.CredentialPath != "" {
+		if err := s.secrets.DeleteSecret(ctx, db.CredentialPath); err != nil {
+			s.logger.Warn("failed to delete database credentials from vault", "path", db.CredentialPath, "error", err)
+		}
+	}
+
 	vols, err := s.volumeSvc.ListVolumes(ctx)
 	if err == nil {
 		expectedPrefix := fmt.Sprintf("db-vol-%s", db.ID.String()[:8])
@@ -388,15 +437,26 @@ func (s *DatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID)
 	if err != nil {
 		return "", err
 	}
+
+	password := db.Password
+	if db.CredentialPath != "" {
+		secret, err := s.secrets.GetSecret(ctx, db.CredentialPath)
+		if err != nil {
+			s.logger.Warn("failed to fetch database password from vault, using fallback", "path", db.CredentialPath, "error", err)
+		} else if p, ok := secret["password"].(string); ok {
+			password = p
+		}
+	}
+
 	port := db.Port
 	if db.PoolingEnabled && db.PoolingPort != 0 {
 		port = db.PoolingPort
 	}
 	switch db.Engine {
 	case domain.EnginePostgres:
-		return fmt.Sprintf("postgres://%s:%s@127.0.0.1:%d/%s", db.Username, db.Password, port, db.Name), nil
+		return fmt.Sprintf("postgres://%s:%s@127.0.0.1:%d/%s", db.Username, password, port, db.Name), nil
 	case domain.EngineMySQL:
-		return fmt.Sprintf("%s:%s@tcp(127.0.0.1:%d)/%s", db.Username, db.Password, port, db.Name), nil
+		return fmt.Sprintf("%s:%s@tcp(127.0.0.1:%d)/%s", db.Username, password, port, db.Name), nil
 	default:
 		return "", errors.New(errors.Internal, "unknown engine")
 	}
@@ -451,6 +511,13 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.Restore
 	db.MetricsEnabled = req.MetricsEnabled
 	db.PoolingEnabled = req.PoolingEnabled
 
+	// Store password in Vault
+	vaultPath := s.getVaultPath(db.ID)
+	if err := s.secrets.StoreSecret(ctx, vaultPath, map[string]interface{}{"password": password}); err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to store restored database credentials in vault", err)
+	}
+	db.CredentialPath = vaultPath
+
 	vol, err := s.snapshotSvc.RestoreSnapshot(ctx, req.SnapshotID, fmt.Sprintf("db-vol-%s", db.ID.String()[:8]))
 	if err != nil {
 		return nil, err
@@ -499,7 +566,78 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.Restore
 	return db, nil
 }
 
+func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID) error {
+	db, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	newPassword, err := util.GenerateRandomPassword(16)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to generate new password", err)
+	}
+
+	// 1. Update in Vault
+	vaultPath := db.CredentialPath
+	if vaultPath == "" {
+		vaultPath = s.getVaultPath(db.ID)
+	}
+	if err := s.secrets.StoreSecret(ctx, vaultPath, map[string]interface{}{"password": newPassword}); err != nil {
+		return errors.Wrap(errors.Internal, "failed to store new credentials in vault", err)
+	}
+
+	// 2. Execute ALTER USER in container
+	var cmd []string
+	switch db.Engine {
+	case domain.EnginePostgres:
+		cmd = []string{"psql", "-U", "postgres", "-c", fmt.Sprintf("ALTER USER %s WITH PASSWORD '%s';", db.Username, newPassword)}
+	case domain.EngineMySQL:
+		// For MySQL rotation, we need the root password to run the ALTER USER command.
+		// Since we don't have it easily available, we'll try using the current user's password if it's stored.
+		currentPassword := db.Password
+		if db.CredentialPath != "" {
+			secret, _ := s.secrets.GetSecret(ctx, db.CredentialPath)
+			if p, ok := secret["password"].(string); ok {
+				currentPassword = p
+			}
+		}
+		cmd = []string{"mysql", "-u", "root", "-p" + currentPassword, "-e", fmt.Sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s';", db.Username, newPassword)}
+	default:
+		return errors.New(errors.Internal, "unsupported engine for credential rotation")
+	}
+
+	if _, err := s.compute.Exec(ctx, db.ContainerID, cmd); err != nil {
+		return errors.Wrap(errors.Internal, "failed to execute password rotation in container", err)
+	}
+
+	// 3. Update DB record if needed (metadata or path)
+	db.CredentialPath = vaultPath
+	if err := s.repo.Update(ctx, db); err != nil {
+		return err
+	}
+
+	// 4. If pooler is enabled, restart it to pick up new credentials
+	if db.PoolerContainerID != "" {
+		_ = s.compute.DeleteInstance(ctx, db.PoolerContainerID)
+		db.PoolerContainerID = ""
+		dbIP, _ := s.compute.GetInstanceIP(ctx, db.ContainerID)
+		networkID, _ := s.resolveVpcNetwork(ctx, db.VpcID)
+		if err := s.provisionPoolerSidecar(ctx, db, db.Engine, dbIP, db.Username, newPassword, networkID); err == nil {
+			_ = s.repo.Update(ctx, db)
+		}
+	}
+
+	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_CREDENTIALS_ROTATE", db.ID.String(), "DATABASE", nil)
+	_ = s.auditSvc.Log(ctx, db.UserID, "database.rotate_credentials", "database", db.ID.String(), nil)
+
+	return nil
+}
+
 // Internal helper methods
+
+func (s *DatabaseService) getVaultPath(dbID uuid.UUID) string {
+	return fmt.Sprintf("%s/%s/credentials", s.vaultMountPath, dbID.String())
+}
 
 func (s *DatabaseService) resolveDatabasePort(ctx context.Context, db *domain.Database, allocatedPorts []string, defaultPort string) error {
 	hostPort, err := s.parseAllocatedPort(allocatedPorts, defaultPort)
@@ -598,6 +736,9 @@ func (s *DatabaseService) performProvisioningRollback(ctx context.Context, db *d
 			s.logger.Warn("failed to delete pooler container during rollback", "container_id", db.PoolerContainerID, "error", deleteErr)
 		}
 	}
+	if db.CredentialPath != "" {
+		_ = s.secrets.DeleteSecret(ctx, db.CredentialPath)
+	}
 	if deleteErr := s.volumeSvc.DeleteVolume(ctx, volID); deleteErr != nil {
 		s.logger.Warn("failed to delete volume during rollback", "volume_id", volID, "error", deleteErr)
 	}
@@ -695,7 +836,7 @@ func (s *DatabaseService) getEngineConfig(engine domain.DatabaseEngine, version,
 	case domain.EngineMySQL:
 		env := []string{"MYSQL_ROOT_PASSWORD=" + password, "MYSQL_DATABASE=" + name}
 		if role == domain.RoleReplica {
-			env = append(env, "MYSQL_MASTER_HOST="+primaryIP)
+			env = append(env, "PRIMARY_HOST="+primaryIP)
 		}
 		return fmt.Sprintf("mysql:%s", version), env, DefaultMySQLPort
 	}
