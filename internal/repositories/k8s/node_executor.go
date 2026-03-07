@@ -2,9 +2,10 @@ package k8s
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +16,7 @@ import (
 // NodeExecutor defines an interface for executing commands on a cluster node.
 type NodeExecutor interface {
 	Run(ctx context.Context, cmd string) (string, error)
+	WriteFile(ctx context.Context, path string, data io.Reader) error
 	WaitForReady(ctx context.Context, timeout time.Duration) error
 }
 
@@ -30,6 +32,16 @@ func NewServiceExecutor(svc ports.InstanceService, instID uuid.UUID) *ServiceExe
 
 func (e *ServiceExecutor) Run(ctx context.Context, cmd string) (string, error) {
 	return e.svc.Exec(ctx, e.instID.String(), []string{"sh", "-c", cmd})
+}
+
+func (e *ServiceExecutor) WriteFile(ctx context.Context, path string, data io.Reader) error {
+	content, err := io.ReadAll(data)
+	if err != nil {
+		return err
+	}
+	b64Data := base64.StdEncoding.EncodeToString(content)
+	_, err = e.Run(ctx, fmt.Sprintf("echo %s | base64 -d > %s", b64Data, path))
+	return err
 }
 
 func (e *ServiceExecutor) WaitForReady(ctx context.Context, timeout time.Duration) error {
@@ -74,7 +86,6 @@ func (e *SSHExecutor) Run(ctx context.Context, cmd string) (string, error) {
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
-		// Ephemeral nodes have dynamic keys, so strict checking isn't feasible here without a central CA.
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         10 * time.Second,
 	}
@@ -84,31 +95,60 @@ func (e *SSHExecutor) Run(ctx context.Context, cmd string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to dial ssh: %w", err)
 	}
-	defer func() { _ = client.Close() }()
+	defer client.Close()
 
 	session, err := client.NewSession()
 	if err != nil {
 		return "", fmt.Errorf("failed to create session: %w", err)
 	}
-	defer func() { _ = session.Close() }()
+	defer session.Close()
 
-	var stdout, stderr strings.Builder
-	session.Stdout = &stdout
-	session.Stderr = &stderr
-
-	err = session.Run(cmd)
+	output, err := session.CombinedOutput(cmd)
 	if err != nil {
-		return stdout.String() + stderr.String(), fmt.Errorf("command failed: %w (stderr: %s)", err, stderr.String())
+		return string(output), fmt.Errorf("command failed: %w (output: %s)", err, string(output))
 	}
 
-	return stdout.String(), nil
+	return string(output), nil
+}
+
+func (e *SSHExecutor) WriteFile(ctx context.Context, path string, data io.Reader) error {
+	signer, err := ssh.ParsePrivateKey([]byte(e.key))
+	if err != nil {
+		return fmt.Errorf("failed to parse private key: %w", err)
+	}
+
+	config := &ssh.ClientConfig{
+		User: e.user,
+		Auth: []ssh.AuthMethod{
+			ssh.PublicKeys(signer),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         10 * time.Second,
+	}
+
+	addr := net.JoinHostPort(e.ip, "22")
+	client, err := ssh.Dial("tcp", addr, config)
+	if err != nil {
+		return fmt.Errorf("failed to dial ssh: %w", err)
+	}
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		return fmt.Errorf("failed to create session: %w", err)
+	}
+	defer session.Close()
+
+	session.Stdin = data
+	err = session.Run(fmt.Sprintf("cat > %s", path))
+	return err
 }
 
 func (e *SSHExecutor) WaitForReady(ctx context.Context, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	for {
