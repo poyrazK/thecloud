@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	go_errors "errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -88,7 +89,7 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 	// 2. Sniff content-type (first 512 bytes)
 	sniffBuf := make([]byte, sniffLen)
 	n, err := io.ReadFull(r, sniffBuf)
-	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+	if err != nil && !go_errors.Is(err, io.EOF) && !go_errors.Is(err, io.ErrUnexpectedEOF) {
 		return nil, errors.Wrap(errors.Internal, "failed to read for MIME sniffing", err)
 	}
 	sniffBuf = sniffBuf[:n]

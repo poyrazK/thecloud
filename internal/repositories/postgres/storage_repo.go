@@ -34,6 +34,12 @@ func (r *StorageRepository) SaveMeta(ctx context.Context, obj *domain.Object) er
 		}
 	}
 
+	// Ensure empty checksum is stored as NULL to satisfy DB constraints
+	var checksum interface{} = obj.Checksum
+	if obj.Checksum == "" {
+		checksum = nil
+	}
+
 	query := `
 		INSERT INTO objects (id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, checksum, upload_status, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
@@ -48,7 +54,7 @@ func (r *StorageRepository) SaveMeta(ctx context.Context, obj *domain.Object) er
 			user_id = EXCLUDED.user_id
 	`
 	_, err := r.db.Exec(ctx, query,
-		obj.ID, obj.UserID, obj.ARN, obj.Bucket, obj.Key, obj.VersionID, obj.IsLatest, obj.SizeBytes, obj.ContentType, obj.Checksum, obj.UploadStatus, obj.CreatedAt,
+		obj.ID, obj.UserID, obj.ARN, obj.Bucket, obj.Key, obj.VersionID, obj.IsLatest, obj.SizeBytes, obj.ContentType, checksum, obj.UploadStatus, obj.CreatedAt,
 	)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to save object metadata", err)
