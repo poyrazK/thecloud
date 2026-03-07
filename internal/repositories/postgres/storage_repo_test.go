@@ -17,7 +17,7 @@ import (
 )
 
 func TestStorageRepositorySaveMeta(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
+	t.Run("success without demotion", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		require.NoError(t, err)
 		defer mock.Close()
@@ -29,6 +29,7 @@ func TestStorageRepositorySaveMeta(t *testing.T) {
 			ARN:          "arn:aws:s3:::mybucket/mykey",
 			Bucket:       "mybucket",
 			Key:          "mykey",
+			IsLatest:     false,
 			SizeBytes:    1024,
 			ContentType:  "text/plain",
 			Checksum:     "abc",
@@ -44,7 +45,62 @@ func TestStorageRepositorySaveMeta(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("db error", func(t *testing.T) {
+	t.Run("success with demotion", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		require.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewStorageRepository(mock)
+		obj := &domain.Object{
+			ID:           uuid.New(),
+			UserID:       uuid.New(),
+			ARN:          "arn:aws:s3:::mybucket/mykey",
+			Bucket:       "mybucket",
+			Key:          "mykey",
+			VersionID:    "v2",
+			IsLatest:     true,
+			SizeBytes:    1024,
+			ContentType:  "text/plain",
+			Checksum:     "abc",
+			UploadStatus: domain.UploadStatusAvailable,
+			CreatedAt:    time.Now(),
+		}
+
+		// Expect demotion UPDATE
+		mock.ExpectExec("UPDATE objects SET is_latest = FALSE WHERE bucket = \\$1 AND key = \\$2 AND is_latest = TRUE AND version_id != \\$3").
+			WithArgs(obj.Bucket, obj.Key, obj.VersionID).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+		// Expect INSERT
+		mock.ExpectExec("INSERT INTO objects").
+			WithArgs(obj.ID, obj.UserID, obj.ARN, obj.Bucket, obj.Key, obj.VersionID, obj.IsLatest, obj.SizeBytes, obj.ContentType, obj.Checksum, obj.UploadStatus, obj.CreatedAt).
+			WillReturnResult(pgxmock.NewResult("INSERT", 1))
+
+		err = repo.SaveMeta(context.Background(), obj)
+		require.NoError(t, err)
+	})
+
+	t.Run("db error on demotion", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		require.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewStorageRepository(mock)
+		obj := &domain.Object{
+			Bucket:       "b",
+			Key:          "k",
+			IsLatest:     true,
+			UploadStatus: domain.UploadStatusAvailable,
+		}
+
+		mock.ExpectExec("UPDATE objects").WillReturnError(errors.New("demote error"))
+
+		err = repo.SaveMeta(context.Background(), obj)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to update previous latest")
+	})
+
+	t.Run("db error on insert", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		require.NoError(t, err)
 		defer mock.Close()
@@ -104,7 +160,7 @@ func TestStorageRepositoryGetMeta(t *testing.T) {
 		var target *theclouderrors.Error
 		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, target.Type)
+			assert.Equal(t, theclouderrors.ObjectNotFound, target.Type)
 		}
 	})
 
@@ -179,7 +235,7 @@ func TestStorageRepositorySoftDelete(t *testing.T) {
 		bucket := "mybucket"
 		key := "mykey"
 
-		mock.ExpectExec("UPDATE objects SET deleted_at = \\$1 WHERE bucket = \\$2 AND key = \\$3 AND deleted_at IS NULL AND user_id = \\$4 AND upload_status = 'AVAILABLE'").
+		mock.ExpectExec("UPDATE objects").
 			WithArgs(pgxmock.AnyArg(), bucket, key, userID).
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
@@ -198,7 +254,7 @@ func TestStorageRepositorySoftDelete(t *testing.T) {
 		bucket := "mybucket"
 		key := "mykey"
 
-		mock.ExpectExec("UPDATE objects SET deleted_at = \\$1 WHERE bucket = \\$2 AND key = \\$3 AND deleted_at IS NULL AND user_id = \\$4 AND upload_status = 'AVAILABLE'").
+		mock.ExpectExec("UPDATE objects").
 			WithArgs(pgxmock.AnyArg(), bucket, key, userID).
 			WillReturnResult(pgxmock.NewResult("UPDATE", 0))
 
@@ -207,11 +263,13 @@ func TestStorageRepositorySoftDelete(t *testing.T) {
 		var target *theclouderrors.Error
 		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, target.Type)
+			assert.Equal(t, theclouderrors.ObjectNotFound, target.Type)
 		}
 	})
+}
 
-	t.Run("db error", func(t *testing.T) {
+func TestStorageRepositorySetBucketVersioning(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
 		require.NoError(t, err)
 		defer mock.Close()
@@ -220,13 +278,35 @@ func TestStorageRepositorySoftDelete(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		bucket := "mybucket"
-		key := "mykey"
 
-		mock.ExpectExec("UPDATE objects SET deleted_at = \\$1 WHERE bucket = \\$2 AND key = \\$3 AND deleted_at IS NULL AND user_id = \\$4 AND upload_status = 'AVAILABLE'").
-			WithArgs(pgxmock.AnyArg(), bucket, key, userID).
-			WillReturnError(errors.New("db error"))
+		mock.ExpectExec("UPDATE buckets SET versioning_enabled = \\$1 WHERE name = \\$2 AND user_id = \\$3").
+			WithArgs(true, bucket, userID).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
-		err = repo.SoftDelete(ctx, bucket, key)
+		err = repo.SetBucketVersioning(ctx, bucket, true)
+		require.NoError(t, err)
+	})
+
+	t.Run("not found or not owner", func(t *testing.T) {
+		mock, err := pgxmock.NewPool()
+		require.NoError(t, err)
+		defer mock.Close()
+
+		repo := NewStorageRepository(mock)
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
+		bucket := "mybucket"
+
+		mock.ExpectExec("UPDATE buckets").
+			WithArgs(true, bucket, userID).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 0))
+
+		err = repo.SetBucketVersioning(ctx, bucket, true)
 		require.Error(t, err)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
+		if ok {
+			assert.Equal(t, theclouderrors.BucketNotFound, target.Type)
+		}
 	})
 }
