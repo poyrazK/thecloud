@@ -61,7 +61,7 @@ func TestRotateSecrets(t *testing.T) {
 			logger: logger,
 		}
 		err := p.RotateSecrets(ctx, &domain.Cluster{ControlPlaneIPs: []string{}})
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
