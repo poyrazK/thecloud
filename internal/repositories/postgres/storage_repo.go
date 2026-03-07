@@ -24,10 +24,11 @@ func NewStorageRepository(db DB) *StorageRepository {
 }
 
 func (r *StorageRepository) SaveMeta(ctx context.Context, obj *domain.Object) error {
-	// If this is the new latest version, mark previous one as not latest
-	if obj.IsLatest {
-		updateQuery := `UPDATE objects SET is_latest = FALSE WHERE bucket = $1 AND key = $2 AND is_latest = TRUE`
-		_, err := r.db.Exec(ctx, updateQuery, obj.Bucket, obj.Key)
+	// If this is the new latest version and it's AVAILABLE, mark previous one as not latest.
+	// We only demote when the new row becomes AVAILABLE to ensure readers always see a consistent latest.
+	if obj.IsLatest && obj.UploadStatus == domain.UploadStatusAvailable {
+		updateQuery := `UPDATE objects SET is_latest = FALSE WHERE bucket = $1 AND key = $2 AND is_latest = TRUE AND version_id != $3`
+		_, err := r.db.Exec(ctx, updateQuery, obj.Bucket, obj.Key, obj.VersionID)
 		if err != nil {
 			return errors.Wrap(errors.Internal, "failed to update previous latest", err)
 		}
@@ -272,8 +273,9 @@ func (r *StorageRepository) ListBuckets(ctx context.Context, userID string) ([]*
 }
 
 func (r *StorageRepository) SetBucketVersioning(ctx context.Context, name string, enabled bool) error {
-	query := `UPDATE buckets SET versioning_enabled = $1 WHERE name = $2`
-	cmd, err := r.db.Exec(ctx, query, enabled, name)
+	userID := appcontext.UserIDFromContext(ctx)
+	query := `UPDATE buckets SET versioning_enabled = $1 WHERE name = $2 AND user_id = $3`
+	cmd, err := r.db.Exec(ctx, query, enabled, name, userID)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to update bucket versioning", err)
 	}
