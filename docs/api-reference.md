@@ -411,6 +411,21 @@ Allocate a new elastic IP. No body required.
 ### GET /elastic-ips/:id
 Get details of a specific elastic IP.
 
+### DELETE /elastic-ips/:id
+Release an elastic IP back to the pool. Fails if still associated.
+
+### POST /elastic-ips/:id/associate
+Associate an elastic IP with a compute instance.
+**Request:**
+```json
+{
+  "instance_id": "inst-uuid"
+}
+```
+
+### POST /elastic-ips/:id/disassociate
+Disassociate an elastic IP from its current instance.
+
 ---
 
 ## Pipelines (CI/CD) 🆕
@@ -571,7 +586,7 @@ Get health and node status of the distributed storage cluster.
 Initiate a multipart upload session.
 **Response:** `{"id": "upload-uuid", ...}`
 
-### PUT /storage/multipart/upload/:id/parts?partNumber=1
+### PUT /storage/multipart/upload/:id/parts?part=1
 Upload a part for a multipart session.
 
 ### POST /storage/multipart/complete/:id

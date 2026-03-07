@@ -764,8 +764,11 @@ definitions:
       bucket:
         type: string
       checksum:
-        example: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
         type: string
+        minLength: 64
+        maxLength: 64
+        pattern: "^[a-fA-F0-9]{64}$"
+        example: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
       content_type:
         type: string
       created_at:
