@@ -241,6 +241,8 @@ definitions:
         type: string
       created_at:
         type: string
+      credential_path:
+        type: string
       engine:
         $ref: '#/definitions/domain.DatabaseEngine'
       id:
@@ -2946,6 +2948,30 @@ paths:
       summary: Upgrade cluster version
       tags:
       - K8s
+  /databases/{id}/rotate-credentials:
+    post:
+      description: Regenerates the database password, updates it in the database and
+        secrets manager
+      parameters:
+      - description: Database ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - APIKeyAuth: []
+      summary: Rotate database credentials
+      tags:
+      - databases
   /databases/{id}/snapshots:
     get:
       description: Returns all snapshots belonging to a specific database

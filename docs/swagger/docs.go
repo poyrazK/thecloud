@@ -1379,6 +1379,43 @@ const docTemplate = `{
                 }
             }
         },
+        "/databases/{id}/rotate-credentials": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Regenerates the database password, updates it in the database and secrets manager",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "databases"
+                ],
+                "summary": "Rotate database credentials",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Database ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/databases/{id}/snapshots": {
             "get": {
                 "security": [
@@ -7019,6 +7056,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "created_at": {
+                    "type": "string"
+                },
+                "credential_path": {
                     "type": "string"
                 },
                 "engine": {
