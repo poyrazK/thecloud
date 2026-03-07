@@ -115,6 +115,11 @@ func (m *mockDatabaseService) GetConnectionString(ctx context.Context, id uuid.U
 	return args.String(0), args.Error(1)
 }
 
+func (m *mockDatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
 func setupDatabaseHandlerTest(_ *testing.T) (*mockDatabaseService, *DatabaseHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockDatabaseService)
@@ -547,4 +552,23 @@ func TestDatabaseHandlerRestore(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
+}
+
+func TestDatabaseHandlerRotateCredentials(t *testing.T) {
+	t.Parallel()
+	svc, handler, r := setupDatabaseHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.POST(databasesPath+"/:id/rotate-credentials", handler.RotateCredentials)
+
+	id := uuid.New()
+	svc.On("RotateCredentials", mock.Anything, id).Return(nil)
+
+	req, err := http.NewRequest(http.MethodPost, databasesPath+"/"+id.String()+"/rotate-credentials", nil)
+	require.NoError(t, err)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "database credentials rotated successfully")
 }
