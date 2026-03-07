@@ -481,6 +481,9 @@ func (m *MockFileStore) Write(ctx context.Context, bucket, key string, r io.Read
 }
 func (m *MockFileStore) Read(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
 	args := m.Called(ctx, bucket, key)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	r0, _ := args.Get(0).(io.ReadCloser)
 	return r0, args.Error(1)
 }
