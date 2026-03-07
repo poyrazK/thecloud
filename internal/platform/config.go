@@ -39,6 +39,9 @@ type Config struct {
 	FirecrackerKernel    string
 	FirecrackerRootfs    string
 	FirecrackerMockMode  bool
+	VaultAddress         string
+	VaultToken           string
+	VaultMountPath       string
 }
 
 // NewConfig loads configuration from the environment with defaults.
@@ -66,7 +69,7 @@ func NewConfig() (*Config, error) {
 		LvmVgName:            getEnv("LVM_VG_NAME", "thecloud-vg"),
 		ObjectStorageMode:    getEnv("OBJECT_STORAGE_MODE", "local"),
 
-		ObjectStorageNodes:   getEnv("OBJECT_STORAGE_NODES", ""),
+		ObjectStorageNodes:   getEnv("OBJECT_STORAGE_Nodes", ""),
 		PowerDNSAPIURL:       getEnv("POWERDNS_API_URL", "http://localhost:8081"),
 		PowerDNSAPIKey:       getEnv("POWERDNS_API_KEY", "thecloud-dns-secret"),
 		PowerDNSServerID:     getEnv("POWERDNS_SERVER_ID", "localhost"),
@@ -76,6 +79,9 @@ func NewConfig() (*Config, error) {
 		FirecrackerKernel:    getEnv("FIRECRACKER_KERNEL", "/var/lib/thecloud/vmlinux"),
 		FirecrackerRootfs:    getEnv("FIRECRACKER_ROOTFS", "/var/lib/thecloud/rootfs.ext4"),
 		FirecrackerMockMode:  getEnv("FIRECRACKER_MOCK_MODE", "false") == "true",
+		VaultAddress:         getEnv("VAULT_ADDR", "http://localhost:8200"),
+		VaultToken:           getEnv("VAULT_TOKEN", ""),
+		VaultMountPath:       getEnv("VAULT_MOUNT_PATH", "secret/data/thecloud/rds"),
 	}, nil
 }
 
