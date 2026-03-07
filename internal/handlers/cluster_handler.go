@@ -373,6 +373,45 @@ func (h *ClusterHandler) RestoreBackup(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, nil)
 }
 
+// BackupPolicyRequest is the payload for configuring backup schedule.
+type BackupPolicyRequest struct {
+	Schedule      string `json:"schedule" binding:"required"`
+	RetentionDays int    `json:"retention_days" binding:"required,gt=0"`
+}
+
+// SetBackupPolicy godoc
+// @Summary Configure cluster backup policy
+// @Description Sets the schedule and retention for automated etcd snapshots
+// @Tags K8s
+// @Security APIKeyAuth
+// @Param id path string true "Cluster ID"
+// @Param request body BackupPolicyRequest true "Backup Policy"
+// @Success 200
+// @Router /clusters/{id}/backup-policy [put]
+func (h *ClusterHandler) SetBackupPolicy(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidClusterID))
+		return
+	}
+
+	var req BackupPolicyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidRequest))
+		return
+	}
+
+	if err := h.svc.SetBackupPolicy(c.Request.Context(), id, ports.BackupPolicyParams{
+		Schedule:      req.Schedule,
+		RetentionDays: req.RetentionDays,
+	}); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, nil)
+}
+
 // NodeGroupRequest is the payload for adding/updating a node group.
 type NodeGroupRequest struct {
 	Name         string `json:"name" binding:"required"`
