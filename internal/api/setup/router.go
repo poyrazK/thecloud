@@ -363,7 +363,7 @@ func registerNetworkRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	{
 		lbGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionLbCreate), handlers.LB.Create)
 		lbGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionLbRead), handlers.LB.List)
-		lbGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionLBRead), handlers.LB.Get)
+		lbGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionLbRead), handlers.LB.Get)
 		lbGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionLbDelete), handlers.LB.Delete)
 		lbGroup.POST("/:id/targets", httputil.Permission(svcs.RBAC, domain.PermissionLbUpdate), handlers.LB.AddTarget)
 		lbGroup.GET("/:id/targets", httputil.Permission(svcs.RBAC, domain.PermissionLbRead), handlers.LB.ListTargets)
