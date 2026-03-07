@@ -575,7 +575,7 @@ func (s *StorageService) CompleteMultipartUpload(ctx context.Context, uploadID u
 	hash := sha256.New()
 	sniffBuf := make([]byte, sniffLen)
 	n, err := io.ReadFull(reader, sniffBuf)
-	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+	if err != nil && !go_errors.Is(err, io.EOF) && !go_errors.Is(err, io.ErrUnexpectedEOF) {
 		return nil, errors.Wrap(errors.Internal, "failed to read assembled file for MIME sniffing", err)
 	}
 	obj.ContentType = http.DetectContentType(sniffBuf[:n])
