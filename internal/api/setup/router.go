@@ -363,7 +363,7 @@ func registerNetworkRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	{
 		lbGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionLbCreate), handlers.LB.Create)
 		lbGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionLbRead), handlers.LB.List)
-		lbGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionLbRead), handlers.LB.Get)
+		lbGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionLBRead), handlers.LB.Get)
 		lbGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionLbDelete), handlers.LB.Delete)
 		lbGroup.POST("/:id/targets", httputil.Permission(svcs.RBAC, domain.PermissionLbUpdate), handlers.LB.AddTarget)
 		lbGroup.GET("/:id/targets", httputil.Permission(svcs.RBAC, domain.PermissionLbRead), handlers.LB.ListTargets)
@@ -472,6 +472,7 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		dbGroup.POST("/:id/promote", httputil.Permission(svcs.RBAC, domain.PermissionDBUpdate), handlers.Database.Promote)
 		dbGroup.POST("/:id/snapshots", httputil.Permission(svcs.RBAC, domain.PermissionDBCreate), handlers.Database.CreateSnapshot)
 		dbGroup.GET("/:id/snapshots", httputil.Permission(svcs.RBAC, domain.PermissionDBRead), handlers.Database.ListSnapshots)
+		dbGroup.POST("/:id/rotate-credentials", httputil.Permission(svcs.RBAC, domain.PermissionDBUpdate), handlers.Database.RotateCredentials)
 	}
 
 	cacheGroup := r.Group("/caches")
