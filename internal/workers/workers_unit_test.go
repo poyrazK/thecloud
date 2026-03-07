@@ -142,7 +142,8 @@ func (m *mockStorageSvc) AbortMultipartUpload(ctx context.Context, uploadID uuid
 }
 func (m *mockStorageSvc) CleanupDeleted(ctx context.Context, limit int) (int, error) { return 0, nil }
 func (m *mockStorageSvc) CleanupPendingUploads(ctx context.Context, olderThan time.Duration, limit int) (int, error) {
-	return 0, nil
+	args := m.Called(ctx, olderThan, limit)
+	return args.Int(0), args.Error(1)
 }
 func (m *mockStorageSvc) GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error) {
 	return nil, nil
