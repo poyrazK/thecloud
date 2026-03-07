@@ -1,3 +1,4 @@
+// Package vault provides a HashiCorp Vault adapter for secret management.
 package vault
 
 import (
@@ -9,14 +10,14 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
-// VaultAdapter implements ports.SecretsManager using HashiCorp Vault.
-type VaultAdapter struct {
+// Adapter implements ports.SecretsManager using HashiCorp Vault.
+type Adapter struct {
 	client *api.Client
 	logger *slog.Logger
 }
 
-// NewVaultAdapter constructs a new VaultAdapter.
-func NewVaultAdapter(address, token string, logger *slog.Logger) (*VaultAdapter, error) {
+// NewVaultAdapter creates a new Vault adapter.
+func NewVaultAdapter(address, token string, logger *slog.Logger) (*Adapter, error) {
 	config := api.DefaultConfig()
 	config.Address = address
 
@@ -27,42 +28,44 @@ func NewVaultAdapter(address, token string, logger *slog.Logger) (*VaultAdapter,
 
 	client.SetToken(token)
 
-	return &VaultAdapter{
+	return &Adapter{
 		client: client,
 		logger: logger,
 	}, nil
 }
 
-func (a *VaultAdapter) StoreSecret(ctx context.Context, path string, data map[string]interface{}) error {
+// StoreSecret saves a secret at the specified path.
+func (a *Adapter) StoreSecret(_ context.Context, path string, data map[string]interface{}) error {
 	_, err := a.client.Logical().Write(path, data)
 	if err != nil {
-		return fmt.Errorf("failed to write secret to vault at %s: %w", path, err)
+		return fmt.Errorf("failed to store secret in vault: %w", err)
 	}
 	return nil
 }
 
-func (a *VaultAdapter) GetSecret(ctx context.Context, path string) (map[string]interface{}, error) {
+// GetSecret retrieves a secret from the specified path.
+func (a *Adapter) GetSecret(_ context.Context, path string) (map[string]interface{}, error) {
 	secret, err := a.client.Logical().Read(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read secret from vault at %s: %w", path, err)
+		return nil, fmt.Errorf("failed to read secret from vault: %w", err)
 	}
-
 	if secret == nil || secret.Data == nil {
 		return nil, fmt.Errorf("secret not found at path: %s", path)
 	}
-
 	return secret.Data, nil
 }
 
-func (a *VaultAdapter) DeleteSecret(ctx context.Context, path string) error {
+// DeleteSecret removes a secret from the specified path.
+func (a *Adapter) DeleteSecret(_ context.Context, path string) error {
 	_, err := a.client.Logical().Delete(path)
 	if err != nil {
-		return fmt.Errorf("failed to delete secret from vault at %s: %w", path, err)
+		return fmt.Errorf("failed to delete secret from vault: %w", err)
 	}
 	return nil
 }
 
-func (a *VaultAdapter) Ping(ctx context.Context) error {
+// Ping checks the connectivity and health of the Vault server.
+func (a *Adapter) Ping(_ context.Context) error {
 	_, err := a.client.Sys().Health()
 	if err != nil {
 		return fmt.Errorf("vault health check failed: %w", err)
@@ -70,5 +73,5 @@ func (a *VaultAdapter) Ping(ctx context.Context) error {
 	return nil
 }
 
-// Ensure VaultAdapter implements ports.SecretsManager
-var _ ports.SecretsManager = (*VaultAdapter)(nil)
+// Ensure Adapter implements ports.SecretsManager
+var _ ports.SecretsManager = (*Adapter)(nil)

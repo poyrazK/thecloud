@@ -262,7 +262,8 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 
 	snapshotSvc := services.NewSnapshotService(c.Repos.Snapshot, c.Repos.Volume, c.Storage, eventSvc, auditSvc, c.Logger)
 
-	vaultSvc, err := vault.NewVaultAdapter(c.Config.VaultAddress, c.Config.VaultToken, c.Logger)
+	var vaultSvc *vault.Adapter
+	vaultSvc, err = vault.NewVaultAdapter(c.Config.VaultAddress, c.Config.VaultToken, c.Logger)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to init vault adapter: %w", err)
 	}

@@ -12,22 +12,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestVaultAdapter(t *testing.T) {
+func TestAdapter(t *testing.T) {
 	// Mock Vault Server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v1/secret/data/test":
-			if r.Method == http.MethodGet {
+			switch r.Method {
+			case http.MethodGet:
 				w.WriteHeader(http.StatusOK)
 				_ = json.NewEncoder(w).Encode(map[string]interface{}{
 					"data": map[string]interface{}{
 						"data": map[string]interface{}{"password": "secret-pass"},
 					},
 				})
-			} else if r.Method == http.MethodPost || r.Method == http.MethodPut {
+			case http.MethodPost, http.MethodPut:
 				w.WriteHeader(http.StatusOK)
-			} else if r.Method == http.MethodDelete {
+			case http.MethodDelete:
 				w.WriteHeader(http.StatusNoContent)
+			default:
+				w.WriteHeader(http.StatusMethodNotAllowed)
 			}
 		case "/v1/sys/health":
 			w.WriteHeader(http.StatusOK)
