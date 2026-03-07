@@ -224,9 +224,10 @@ func (s *AutoscalerServer) NodeGroupNodes(ctx context.Context, req *protos.NodeG
 			inst.Metadata["thecloud.io/node-group"] == req.Id {
 			
 			state := protos.InstanceStatus_instanceRunning
-			if inst.Status == "PROVISIONING" || inst.Status == "STARTING" {
+			switch inst.Status {
+			case "PROVISIONING", "STARTING":
 				state = protos.InstanceStatus_instanceCreating
-			} else if inst.Status == "TERMINATING" || inst.Status == "STOPPING" {
+			case "TERMINATING", "STOPPING":
 				state = protos.InstanceStatus_instanceDeleting
 			}
 

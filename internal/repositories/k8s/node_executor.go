@@ -95,13 +95,13 @@ func (e *SSHExecutor) Run(ctx context.Context, cmd string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to dial ssh: %w", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	session, err := client.NewSession()
 	if err != nil {
 		return "", fmt.Errorf("failed to create session: %w", err)
 	}
-	defer session.Close()
+	defer func() { _ = session.Close() }()
 
 	output, err := session.CombinedOutput(cmd)
 	if err != nil {
@@ -131,13 +131,13 @@ func (e *SSHExecutor) WriteFile(ctx context.Context, path string, data io.Reader
 	if err != nil {
 		return fmt.Errorf("failed to dial ssh: %w", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	session, err := client.NewSession()
 	if err != nil {
 		return fmt.Errorf("failed to create session: %w", err)
 	}
-	defer session.Close()
+	defer func() { _ = session.Close() }()
 
 	session.Stdin = data
 	err = session.Run(fmt.Sprintf("cat > %s", path))

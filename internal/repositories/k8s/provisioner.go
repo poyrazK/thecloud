@@ -637,7 +637,7 @@ func (p *KubeadmProvisioner) Restore(ctx context.Context, cluster *domain.Cluste
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to download backup from storage", err)
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 
 	var data io.Reader = rc
 	if strings.HasSuffix(path, ".b64") {

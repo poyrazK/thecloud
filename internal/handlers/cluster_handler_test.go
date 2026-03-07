@@ -103,6 +103,10 @@ func (m *mockClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, ba
 	return m.Called(ctx, id, backupPath).Error(0)
 }
 
+func (m *mockClusterService) SetBackupPolicy(ctx context.Context, id uuid.UUID, params ports.BackupPolicyParams) error {
+	return m.Called(ctx, id, params).Error(0)
+}
+
 func (m *mockClusterService) AddNodeGroup(ctx context.Context, clusterID uuid.UUID, params ports.NodeGroupParams) (*domain.NodeGroup, error) {
 	args := m.Called(ctx, clusterID, params)
 	if args.Get(0) == nil {
