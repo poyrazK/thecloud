@@ -46,7 +46,15 @@ To get a ready-to-use connection string:
 cloud db connection <id>
 ```
 
-### 4. High Availability & Replication
+### 4. Credential Rotation 🆕
+
+Regenerate the database password and update it in both the database engine and Vault automatically:
+
+```bash
+cloud db rotate-credentials <id>
+```
+
+### 5. High Availability & Replication
 
 #### Create a Read Replica
 Launch a new read-only replica from an existing primary:

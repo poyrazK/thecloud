@@ -303,11 +303,15 @@ CREATE TABLE databases (
     port INT,
     username VARCHAR(255),
     password TEXT,
+    credential_path TEXT,
     container_id VARCHAR(255),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     allocated_storage INT NOT NULL DEFAULT 10,
     parameters JSONB DEFAULT '{}'::jsonb,
+    metrics_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    metrics_port INT,
+    exporter_container_id VARCHAR(255),
     pooling_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     pooling_port INT,
     pooler_container_id VARCHAR(255)
@@ -316,6 +320,28 @@ CREATE TABLE databases (
 
 **Engines**: `postgres`, `mysql`  
 **Roles**: `PRIMARY`, `REPLICA`
+
+### Managed Database Security & Credential Rotation
+
+The platform integrates with **HashiCorp Vault** to securely manage database credentials.
+
+#### Vault Integration
+Instead of storing plain-text passwords in the primary database, credentials are saved in Vault:
+- **Storage Path**: `secret/data/thecloud/rds/:db_id/credentials`
+- **Metadata**: The `credential_path` field in the `databases` table stores the reference to the Vault secret.
+- **Fallback**: The `password` field is maintained for legacy support and as a fallback during Vault unavailability.
+
+#### Credential Rotation
+Users can trigger automated password rotation for their database instances.
+- **Endpoint**: `POST /databases/:id/rotate-credentials`
+- **Workflow**:
+    1.  **Generate Password**: A new 16-character secure password is generated.
+    2.  **Update Vault**: The new password is saved to the configured Vault path.
+    3.  **Engine Update**: The `ALTER USER` command is executed inside the database container to apply the new password.
+    4.  **Sidecar Update**: Sidecars like PgBouncer are automatically restarted to pick up the new credentials.
+    5.  **Audit**: The rotation event is recorded in the system events and audit logs.
+
+This mechanism ensures that database access remains secure and meets compliance requirements for periodic credential updates.
 
 ### Managed Database Persistence
 
