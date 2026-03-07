@@ -255,20 +255,20 @@ func (h *DatabaseHandler) CreateSnapshot(c *gin.Context) {
 // @Param id path string true "Database ID"
 // @Success 200 {array} domain.Snapshot
 // @Router /databases/{id}/snapshots [get]
-func (h *DatabaseHandler) ListSnapshots(c *gin.Context) {
-	databaseID, err := uuid.Parse(c.Param("id"))
+func (h *DatabaseHandler) ListSnapshots(ctx *gin.Context) {
+	databaseID, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, invalidDatabaseIDMsg))
+		httputil.Error(ctx, errors.New(errors.InvalidInput, invalidDatabaseIDMsg))
 		return
 	}
 
-	snaps, err := h.svc.ListDatabaseSnapshots(c.Request.Context(), databaseID)
+	snaps, err := h.svc.ListDatabaseSnapshots(ctx.Request.Context(), databaseID)
 	if err != nil {
-		httputil.Error(c, err)
+		httputil.Error(ctx, err)
 		return
 	}
 
-	httputil.Success(c, http.StatusOK, snaps)
+	httputil.Success(ctx, http.StatusOK, snaps)
 }
 
 // Restore provisions a new database from a snapshot.
@@ -305,4 +305,28 @@ func (h *DatabaseHandler) Restore(c *gin.Context) {
 	}
 
 	httputil.Success(c, http.StatusCreated, db)
+}
+
+// RotateCredentials regenerates the database password and updates it in the secrets manager.
+// @Summary Rotate database credentials
+// @Description Regenerates the database password, updates it in the database and secrets manager
+// @Tags databases
+// @Produce json
+// @Security APIKeyAuth
+// @Param id path string true "Database ID"
+// @Success 200 {object} map[string]string
+// @Router /databases/{id}/rotate-credentials [post]
+func (h *DatabaseHandler) RotateCredentials(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidDatabaseIDMsg))
+		return
+	}
+
+	if err := h.svc.RotateCredentials(c.Request.Context(), id); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, gin.H{"message": "database credentials rotated successfully"})
 }
