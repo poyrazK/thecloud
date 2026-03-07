@@ -51,15 +51,25 @@ type StorageService struct {
 	logger     *slog.Logger
 }
 
+// StorageServiceParams defines the dependencies for StorageService.
+type StorageServiceParams struct {
+	Repo       ports.StorageRepository
+	Store      ports.FileStore
+	AuditSvc   ports.AuditService
+	EncryptSvc ports.EncryptionService
+	CFG        *platform.Config
+	Logger     *slog.Logger
+}
+
 // NewStorageService constructs a StorageService with its dependencies.
-func NewStorageService(repo ports.StorageRepository, store ports.FileStore, auditSvc ports.AuditService, encryptSvc ports.EncryptionService, cfg *platform.Config, logger *slog.Logger) *StorageService {
+func NewStorageService(params StorageServiceParams) *StorageService {
 	return &StorageService{
-		repo:       repo,
-		store:      store,
-		auditSvc:   auditSvc,
-		encryptSvc: encryptSvc,
-		cfg:        cfg,
-		logger:     logger,
+		repo:       params.Repo,
+		store:      params.Store,
+		auditSvc:   params.AuditSvc,
+		encryptSvc: params.EncryptSvc,
+		cfg:        params.CFG,
+		logger:     params.Logger,
 	}
 }
 

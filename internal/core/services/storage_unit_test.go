@@ -23,7 +23,13 @@ func TestStorageServiceUnit(t *testing.T) {
 	mockAuditSvc := new(MockAuditService)
 	cfg := &platform.Config{SecretsEncryptionKey: "test-secret-key-32-chars-long-!!!"}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewStorageService(mockRepo, mockStore, mockAuditSvc, nil, cfg, logger)
+	svc := services.NewStorageService(services.StorageServiceParams{
+		Repo:     mockRepo,
+		Store:    mockStore,
+		AuditSvc: mockAuditSvc,
+		CFG:      cfg,
+		Logger:   logger,
+	})
 
 	ctx := context.Background()
 	userID := uuid.New()
