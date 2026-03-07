@@ -68,6 +68,12 @@ type UpdateNodeGroupParams struct {
 	DesiredSize *int
 }
 
+// BackupPolicyParams defines the options for cluster backup scheduling.
+type BackupPolicyParams struct {
+	Schedule      string `json:"schedule"`
+	RetentionDays int    `json:"retention_days"`
+}
+
 // ClusterService defines the business logic layer for Kubernetes clusters.
 type ClusterService interface {
 	CreateCluster(ctx context.Context, params CreateClusterParams) (*domain.Cluster, error)
@@ -82,6 +88,7 @@ type ClusterService interface {
 	RotateSecrets(ctx context.Context, id uuid.UUID) error
 	CreateBackup(ctx context.Context, id uuid.UUID) error
 	RestoreBackup(ctx context.Context, id uuid.UUID, backupPath string) error
+	SetBackupPolicy(ctx context.Context, id uuid.UUID, params BackupPolicyParams) error
 
 	// Node Group management
 	AddNodeGroup(ctx context.Context, clusterID uuid.UUID, params NodeGroupParams) (*domain.NodeGroup, error)

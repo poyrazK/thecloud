@@ -411,6 +411,19 @@ func (s *ClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, backup
 	return s.repo.Update(ctx, cluster)
 }
 
+func (s *ClusterService) SetBackupPolicy(ctx context.Context, id uuid.UUID, params ports.BackupPolicyParams) error {
+	cluster, err := s.GetCluster(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	cluster.BackupSchedule = params.Schedule
+	cluster.BackupRetentionDays = params.RetentionDays
+	cluster.UpdatedAt = time.Now()
+
+	return s.repo.Update(ctx, cluster)
+}
+
 func (s *ClusterService) AddNodeGroup(ctx context.Context, clusterID uuid.UUID, params ports.NodeGroupParams) (*domain.NodeGroup, error) {
 	cluster, err := s.GetCluster(ctx, clusterID)
 	if err != nil {
