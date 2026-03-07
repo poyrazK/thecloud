@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	dnsadapter "github.com/poyrazk/thecloud/internal/adapters/dns"
+	"github.com/poyrazk/thecloud/internal/adapters/vault"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/handlers/ws"
@@ -260,16 +261,24 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	}
 
 	snapshotSvc := services.NewSnapshotService(c.Repos.Snapshot, c.Repos.Volume, c.Storage, eventSvc, auditSvc, c.Logger)
+
+	vaultSvc, err := vault.NewVaultAdapter(c.Config.VaultAddress, c.Config.VaultToken, c.Logger)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to init vault adapter: %w", err)
+	}
+
 	databaseSvc := services.NewDatabaseService(services.DatabaseServiceParams{
-		Repo:         c.Repos.Database,
-		Compute:      c.Compute,
-		VpcRepo:      c.Repos.Vpc,
-		VolumeSvc:    volumeSvc,
-		SnapshotSvc:  snapshotSvc,
-		SnapshotRepo: c.Repos.Snapshot,
-		EventSvc:     eventSvc,
-		AuditSvc:     auditSvc,
-		Logger:       c.Logger,
+		Repo:           c.Repos.Database,
+		Compute:        c.Compute,
+		VpcRepo:        c.Repos.Vpc,
+		VolumeSvc:      volumeSvc,
+		SnapshotSvc:    snapshotSvc,
+		SnapshotRepo:   c.Repos.Snapshot,
+		EventSvc:       eventSvc,
+		AuditSvc:       auditSvc,
+		Secrets:        vaultSvc,
+		Logger:         c.Logger,
+		VaultMountPath: c.Config.VaultMountPath,
 	})
 	secretSvc := services.NewSecretService(c.Repos.Secret, eventSvc, auditSvc, c.Logger, c.Config.SecretsEncryptionKey, c.Config.Environment)
 	fnSvc := services.NewFunctionService(c.Repos.Function, c.Compute, fileStore, auditSvc, c.Logger)
