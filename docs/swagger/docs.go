@@ -7769,7 +7769,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "checksum": {
+                    "description": "Checksum is the SHA-256 hash of the object content.",
                     "type": "string",
+                    "maxLength": 64,
+                    "minLength": 64,
                     "example": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
                 },
                 "content_type": {
@@ -7794,10 +7797,6 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "upload_status": {
-                    "enum": [
-                        "PENDING",
-                        "AVAILABLE"
-                    ],
                     "allOf": [
                         {
                             "$ref": "#/definitions/domain.UploadStatus"

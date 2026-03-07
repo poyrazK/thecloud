@@ -166,14 +166,18 @@ func (r *StorageRepository) ListPending(ctx context.Context, olderThan time.Time
 
 func (r *StorageRepository) scanObject(row pgx.Row) (*domain.Object, error) {
 	var obj domain.Object
+	var checksum *string
 	err := row.Scan(
-		&obj.ID, &obj.UserID, &obj.ARN, &obj.Bucket, &obj.Key, &obj.VersionID, &obj.IsLatest, &obj.SizeBytes, &obj.ContentType, &obj.Checksum, &obj.UploadStatus, &obj.CreatedAt, &obj.DeletedAt,
+		&obj.ID, &obj.UserID, &obj.ARN, &obj.Bucket, &obj.Key, &obj.VersionID, &obj.IsLatest, &obj.SizeBytes, &obj.ContentType, &checksum, &obj.UploadStatus, &obj.CreatedAt, &obj.DeletedAt,
 	)
 	if err != nil {
 		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.ObjectNotFound, "object metadata not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to scan object metadata", err)
+	}
+	if checksum != nil {
+		obj.Checksum = *checksum
 	}
 	return &obj, nil
 }

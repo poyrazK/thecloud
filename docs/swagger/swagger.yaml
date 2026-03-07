@@ -764,11 +764,11 @@ definitions:
       bucket:
         type: string
       checksum:
-        type: string
-        minLength: 64
-        maxLength: 64
-        pattern: "^[a-fA-F0-9]{64}$"
+        description: Checksum is the SHA-256 hash of the object content.
         example: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        maxLength: 64
+        minLength: 64
+        type: string
       content_type:
         type: string
       created_at:
@@ -786,9 +786,6 @@ definitions:
       upload_status:
         allOf:
         - $ref: '#/definitions/domain.UploadStatus'
-        enum:
-        - PENDING
-        - AVAILABLE
         example: AVAILABLE
       user_id:
         type: string
