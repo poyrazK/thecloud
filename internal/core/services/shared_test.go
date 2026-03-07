@@ -887,6 +887,10 @@ func (m *MockClusterRepo) DeleteNodeGroup(ctx context.Context, clusterID uuid.UU
 	return m.Called(ctx, clusterID, name).Error(0)
 }
 
+func (m *MockClusterRepo) SetBackupPolicy(ctx context.Context, clusterID uuid.UUID, schedule string, retention int) error {
+	return m.Called(ctx, clusterID, schedule, retention).Error(0)
+}
+
 // MockClusterProvisioner
 type MockClusterProvisioner struct{ mock.Mock }
 

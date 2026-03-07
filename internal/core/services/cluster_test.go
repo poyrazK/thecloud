@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"testing"
 	"time"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -414,4 +415,47 @@ func TestClusterServiceRestoreBackupNotRunning(t *testing.T) {
 
 	err := svc.RestoreBackup(ctx, clusterID, "s3://bucket/backup")
 	require.Error(t, err)
+}
+
+func TestClusterServiceSetBackupPolicy(t *testing.T) {
+	t.Parallel()
+	repo, _, _, _, _, svc := setupClusterServiceTest(t)
+	ctx := context.Background()
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusRunning}
+
+	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.BackupSchedule == "@weekly" && c.BackupRetentionDays == 30
+	})).Return(nil).Once()
+
+	err := svc.SetBackupPolicy(ctx, clusterID, ports.BackupPolicyParams{
+		Schedule:      "@weekly",
+		RetentionDays: 30,
+	})
+	require.NoError(t, err)
+}
+
+func TestClusterServiceRestoreBackupFailure(t *testing.T) {
+	t.Parallel()
+	repo, provisioner, _, _, _, svc := setupClusterServiceTest(t)
+	ctx := context.Background()
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusRunning}
+	backupPath := "path/to/backup"
+
+	repo.On("GetByID", ctx, clusterID).Return(cluster, nil)
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.Status == domain.ClusterStatusRepairing
+	})).Return(nil).Once()
+	
+	provisioner.On("Restore", mock.Anything, cluster, backupPath).Return(fmt.Errorf("restore failed")).Once()
+	
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.Status == domain.ClusterStatusFailed
+	})).Return(nil).Once()
+
+	err := svc.RestoreBackup(ctx, clusterID, backupPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "restore failed")
 }
