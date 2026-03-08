@@ -263,9 +263,16 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	snapshotSvc := services.NewSnapshotService(c.Repos.Snapshot, c.Repos.Volume, c.Storage, eventSvc, auditSvc, c.Logger)
 
 	var vaultSvc *vault.Adapter
+	if c.Config.VaultToken == "" {
+		return nil, nil, fmt.Errorf("VAULT_TOKEN is required for secret management")
+	}
 	vaultSvc, err = vault.NewVaultAdapter(c.Config.VaultAddress, c.Config.VaultToken, c.Logger)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to init vault adapter: %w", err)
+	}
+	// Fail fast if Vault is unreachable
+	if err := vaultSvc.Ping(context.Background()); err != nil {
+		return nil, nil, fmt.Errorf("vault health check failed on startup: %w", err)
 	}
 
 	databaseSvc := services.NewDatabaseService(services.DatabaseServiceParams{

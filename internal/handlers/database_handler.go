@@ -314,7 +314,8 @@ func (h *DatabaseHandler) Restore(c *gin.Context) {
 // @Produce json
 // @Security APIKeyAuth
 // @Param id path string true "Database ID"
-// @Success 200 {object} map[string]string
+// @Param Idempotency-Key header string false "Idempotency key to prevent duplicate rotations"
+// @Success 200 {object} httputil.Response
 // @Router /databases/{id}/rotate-credentials [post]
 func (h *DatabaseHandler) RotateCredentials(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
@@ -323,7 +324,8 @@ func (h *DatabaseHandler) RotateCredentials(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.RotateCredentials(c.Request.Context(), id); err != nil {
+	idempotencyKey := c.GetHeader("Idempotency-Key")
+	if err := h.svc.RotateCredentials(c.Request.Context(), id, idempotencyKey); err != nil {
 		httputil.Error(c, err)
 		return
 	}

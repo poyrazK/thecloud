@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -115,8 +116,8 @@ func (m *mockDatabaseService) GetConnectionString(ctx context.Context, id uuid.U
 	return args.String(0), args.Error(1)
 }
 
-func (m *mockDatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
+func (m *mockDatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, idempotencyKey string) error {
+	args := m.Called(ctx, id, idempotencyKey)
 	return args.Error(0)
 }
 
@@ -556,19 +557,56 @@ func TestDatabaseHandlerRestore(t *testing.T) {
 
 func TestDatabaseHandlerRotateCredentials(t *testing.T) {
 	t.Parallel()
-	svc, handler, r := setupDatabaseHandlerTest(t)
-	defer svc.AssertExpectations(t)
-
-	r.POST(databasesPath+"/:id/rotate-credentials", handler.RotateCredentials)
+	svc, _, r := setupDatabaseHandlerTest(t)
+	handler := NewDatabaseHandler(svc)
+	r.POST("/databases/:id/rotate-credentials", handler.RotateCredentials)
 
 	id := uuid.New()
-	svc.On("RotateCredentials", mock.Anything, id).Return(nil)
 
-	req, err := http.NewRequest(http.MethodPost, databasesPath+"/"+id.String()+"/rotate-credentials", nil)
-	require.NoError(t, err)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+	tests := []struct {
+		name           string
+		id             string
+		setupMock      func()
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name: "Success",
+			id:   id.String(),
+			setupMock: func() {
+				svc.On("RotateCredentials", mock.Anything, id, mock.Anything).Return(nil).Once()
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   "database credentials rotated successfully",
+		},
+		{
+			name:           "InvalidID",
+			id:             "invalid-uuid",
+			setupMock:      func() {},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "invalid database id",
+		},
+		{
+			name: "ServiceError",
+			id:   id.String(),
+			setupMock: func() {
+				svc.On("RotateCredentials", mock.Anything, id, mock.Anything).Return(errors.New(errors.Internal, "service error")).Once()
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   "service error",
+		},
+	}
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "database credentials rotated successfully")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setupMock()
+			req, _ := http.NewRequest(http.MethodPost, "/databases/"+tt.id+"/rotate-credentials", nil)
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			assert.Contains(t, strings.ToLower(w.Body.String()), strings.ToLower(tt.expectedBody))
+			svc.AssertExpectations(t)
+		})
+	}
 }
