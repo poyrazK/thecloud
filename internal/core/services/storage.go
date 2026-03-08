@@ -74,7 +74,7 @@ func NewStorageService(params StorageServiceParams) *StorageService {
 	}
 }
 
-func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r io.Reader) (*domain.Object, error) {
+func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r io.Reader, providedChecksum string) (*domain.Object, error) {
 	// 1. Check bucket versioning status
 	bucket, err := s.repo.GetBucket(ctx, bucketName)
 	if err != nil {
@@ -151,8 +151,19 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 	}
 
 	// 6. Update metadata to AVAILABLE and set final size/checksum
+	calculatedChecksum := hex.EncodeToString(hash.Sum(nil))
+
+	// Verify integrity if checksum was provided
+	if providedChecksum != "" && !strings.EqualFold(providedChecksum, calculatedChecksum) {
+		// Cleanup physical file immediately on mismatch
+		_ = s.store.Delete(ctx, bucketName, storeKey)
+		// We can also hard delete the metadata, or let the GC do it.
+		// For immediate feedback, we return an error.
+		return nil, errors.New(errors.Conflict, fmt.Sprintf("data integrity check failed: checksum mismatch (provided: %s, calculated: %s)", providedChecksum, calculatedChecksum))
+	}
+
 	obj.SizeBytes = size
-	obj.Checksum = hex.EncodeToString(hash.Sum(nil))
+	obj.Checksum = calculatedChecksum
 	obj.UploadStatus = domain.UploadStatusAvailable
 
 	if err := s.repo.SaveMeta(ctx, obj); err != nil {
@@ -471,7 +482,7 @@ func (s *StorageService) CreateMultipartUpload(ctx context.Context, bucket, key 
 }
 
 // UploadPart uploads a single part of a multipart upload.
-func (s *StorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
+func (s *StorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader, providedChecksum string) (*domain.Part, error) {
 	// 1. Get upload
 	upload, err := s.repo.GetMultipartUpload(ctx, uploadID)
 	if err != nil {
@@ -489,12 +500,20 @@ func (s *StorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, par
 		return nil, errors.Wrap(errors.Internal, "failed to write part", err)
 	}
 
+	calculatedChecksum := hex.EncodeToString(hash.Sum(nil))
+
+	// Verify integrity if checksum was provided
+	if providedChecksum != "" && !strings.EqualFold(providedChecksum, calculatedChecksum) {
+		_ = s.store.Delete(ctx, upload.Bucket, partKey)
+		return nil, errors.New(errors.Conflict, fmt.Sprintf("part integrity check failed: checksum mismatch (provided: %s, calculated: %s)", providedChecksum, calculatedChecksum))
+	}
+
 	// 4. Save part metadata
 	part := &domain.Part{
 		UploadID:   uploadID,
 		PartNumber: partNumber,
 		SizeBytes:  size,
-		ETag:       hex.EncodeToString(hash.Sum(nil)),
+		ETag:       calculatedChecksum,
 	}
 
 	if err := s.repo.SavePart(ctx, part); err != nil {

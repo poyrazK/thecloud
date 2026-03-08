@@ -197,7 +197,7 @@ func TestStorageService_Integration(t *testing.T) {
 		name := "non-empty-bucket"
 		_, err := svc.CreateBucket(ctx, name, false)
 		require.NoError(t, err)
-		_, err = svc.Upload(ctx, name, "file.txt", strings.NewReader("data"))
+		_, err = svc.Upload(ctx, name, "file.txt", strings.NewReader("data"), "")
 		require.NoError(t, err)
 
 		// Should fail without force
@@ -223,7 +223,7 @@ func TestStorageService_Integration(t *testing.T) {
 		content := "integration test data"
 
 		// Upload
-		obj, err := svc.Upload(ctx, bucketName, key, strings.NewReader(content))
+		obj, err := svc.Upload(ctx, bucketName, key, strings.NewReader(content), "")
 		require.NoError(t, err)
 		assert.NotNil(t, obj)
 		assert.Equal(t, key, obj.Key)
@@ -261,9 +261,9 @@ func TestStorageService_Integration(t *testing.T) {
 		upload, err := svc.CreateMultipartUpload(ctx, bucketName, key)
 		require.NoError(t, err)
 
-		_, err = svc.UploadPart(ctx, upload.ID, 1, strings.NewReader("part1"))
+		_, err = svc.UploadPart(ctx, upload.ID, 1, strings.NewReader("part1"), "")
 		require.NoError(t, err)
-		_, err = svc.UploadPart(ctx, upload.ID, 2, strings.NewReader("part2"))
+		_, err = svc.UploadPart(ctx, upload.ID, 2, strings.NewReader("part2"), "")
 		require.NoError(t, err)
 
 		obj, err := svc.CompleteMultipartUpload(ctx, upload.ID)
@@ -317,7 +317,7 @@ func TestStorageService_Integration(t *testing.T) {
 		content := "very sensitive information"
 
 		// Upload (should be encrypted transparently)
-		obj, err := svc.Upload(ctx, bucketName, key, strings.NewReader(content))
+		obj, err := svc.Upload(ctx, bucketName, key, strings.NewReader(content), "")
 		require.NoError(t, err)
 		assert.NotNil(t, obj)
 
@@ -344,12 +344,12 @@ func TestStorageService_Integration(t *testing.T) {
 		key := "v.txt"
 
 		// Upload v1
-		v1, err := svc.Upload(ctx, bucketName, key, strings.NewReader("v1"))
+		v1, err := svc.Upload(ctx, bucketName, key, strings.NewReader("v1"), "")
 		require.NoError(t, err)
 		assert.NotEqual(t, "null", v1.VersionID)
 
 		// Upload v2
-		v2, err := svc.Upload(ctx, bucketName, key, strings.NewReader("v2"))
+		v2, err := svc.Upload(ctx, bucketName, key, strings.NewReader("v2"), "")
 		require.NoError(t, err)
 		assert.NotEqual(t, "null", v2.VersionID)
 		assert.NotEqual(t, v1.VersionID, v2.VersionID)
@@ -397,7 +397,7 @@ func TestStorageService_Integration(t *testing.T) {
 		require.Error(t, err)
 
 		// Bucket not found
-		_, err = svc.Upload(ctx, "non-existent", "key", strings.NewReader("data"))
+		_, err = svc.Upload(ctx, "non-existent", "key", strings.NewReader("data"), "")
 		require.Error(t, err)
 
 		_, _, err = svc.Download(ctx, "non-existent", "key")
@@ -408,7 +408,7 @@ func TestStorageService_Integration(t *testing.T) {
 		require.Error(t, err)
 
 		// Multipart not found
-		_, err = svc.UploadPart(ctx, [16]byte{1}, 1, strings.NewReader("data"))
+		_, err = svc.UploadPart(ctx, [16]byte{1}, 1, strings.NewReader("data"), "")
 		require.Error(t, err)
 
 		err = svc.AbortMultipartUpload(ctx, [16]byte{1})
@@ -423,7 +423,7 @@ func TestStorageService_Integration(t *testing.T) {
 
 		// Download store read error
 		// 1. Create a fresh object
-		_, err = svc.Upload(ctx, "obj-bucket", "fail-store", strings.NewReader("data"))
+		_, err = svc.Upload(ctx, "obj-bucket", "fail-store", strings.NewReader("data"), "")
 		if err != nil {
 			t.Fatalf("Upload failed: %v", err)
 		}
@@ -446,7 +446,7 @@ func TestStorageService_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		// 2. Upload valid encrypted file
-		_, err = svc.Upload(ctx, encBucket, "secret", strings.NewReader("top-secret"))
+		_, err = svc.Upload(ctx, encBucket, "secret", strings.NewReader("top-secret"), "")
 		require.NoError(t, err)
 
 		// 3. Force decryption failure
@@ -457,7 +457,7 @@ func TestStorageService_Integration(t *testing.T) {
 		// Multipart Assemble failure
 		up3, err := svc.CreateMultipartUpload(ctx, "obj-bucket", "fail-assemble")
 		require.NoError(t, err)
-		_, err = svc.UploadPart(ctx, up3.ID, 1, strings.NewReader("p1"))
+		_, err = svc.UploadPart(ctx, up3.ID, 1, strings.NewReader("p1"), "")
 		require.NoError(t, err)
 		store.failNext = true
 		_, err = svc.CompleteMultipartUpload(ctx, up3.ID)
@@ -467,7 +467,7 @@ func TestStorageService_Integration(t *testing.T) {
 		up4, err := svc.CreateMultipartUpload(ctx, "obj-bucket", "fail-part")
 		require.NoError(t, err)
 		store.failNext = true
-		_, err = svc.UploadPart(ctx, up4.ID, 1, strings.NewReader("data"))
+		_, err = svc.UploadPart(ctx, up4.ID, 1, strings.NewReader("data"), "")
 		require.Error(t, err)
 
 		// Upload Reader error (with encryption)
@@ -481,7 +481,7 @@ func TestStorageService_Integration(t *testing.T) {
 		_, err = tempEncSvc2.CreateKey(ctx, encReadBucket)
 		require.NoError(t, err)
 
-		_, err = svc.Upload(ctx, encReadBucket, "fail", &FailingReader{})
+		_, err = svc.Upload(ctx, encReadBucket, "fail", &FailingReader{}, "")
 		require.Error(t, err)
 
 		// GeneratePresignedURL secret missing
@@ -531,7 +531,7 @@ func TestStorageService_Integration(t *testing.T) {
 
 		// 1. Upload and soft delete
 		key := "to-be-cleaned.txt"
-		_, err = svc.Upload(ctx, bucketName, key, strings.NewReader("data"))
+		_, err = svc.Upload(ctx, bucketName, key, strings.NewReader("data"), "")
 		require.NoError(t, err)
 		err = svc.DeleteObject(ctx, bucketName, key)
 		require.NoError(t, err)
@@ -559,7 +559,7 @@ func TestStorageService_Integration(t *testing.T) {
 		// 1. Force store failure during upload to leave a PENDING record
 		store.failNext = true
 		key := "orphan.txt"
-		_, err = svc.Upload(ctx, bucketName, key, strings.NewReader("orphan data"))
+		_, err = svc.Upload(ctx, bucketName, key, strings.NewReader("orphan data"), "")
 		require.Error(t, err) // Upload fails, leaves DB record as PENDING
 
 		// Wait a moment so the record is strictly "older than" 0

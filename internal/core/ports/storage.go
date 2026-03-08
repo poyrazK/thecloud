@@ -66,7 +66,7 @@ type FileStore interface {
 // StorageService provides business logic for managing bucket-based object storage resources (e.g., Cloud Storage).
 type StorageService interface {
 	// Upload manages the metadata registration and binary data transfer of a new object.
-	Upload(ctx context.Context, bucket, key string, r io.Reader) (*domain.Object, error)
+	Upload(ctx context.Context, bucket, key string, r io.Reader, providedChecksum string) (*domain.Object, error)
 	// Download retrieves both the binary content and metadata for a specified object.
 	Download(ctx context.Context, bucket, key string) (io.ReadCloser, *domain.Object, error)
 	// ListObjects returns metadata for all accessible objects in a bucket.
@@ -92,7 +92,7 @@ type StorageService interface {
 
 	// Multipart operations
 	CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error)
-	UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error)
+	UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader, providedChecksum string) (*domain.Part, error)
 	CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error)
 	AbortMultipartUpload(ctx context.Context, uploadID uuid.UUID) error
 
