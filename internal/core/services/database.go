@@ -50,6 +50,8 @@ type DatabaseService struct {
 	secrets        ports.SecretsManager
 	logger         *slog.Logger
 	vaultMountPath string
+	// Simple in-memory idempotency cache for rotation
+	rotationCache map[string]bool
 }
 
 // DatabaseServiceParams holds dependencies for DatabaseService creation.
@@ -81,6 +83,7 @@ func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 		secrets:        params.Secrets,
 		logger:         params.Logger,
 		vaultMountPath: params.VaultMountPath,
+		rotationCache:  make(map[string]bool),
 	}
 }
 
@@ -105,76 +108,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDa
 	db.MetricsEnabled = req.MetricsEnabled
 	db.PoolingEnabled = req.PoolingEnabled
 
-	// Store password in Vault
-	vaultPath := s.getVaultPath(db.ID)
-	if err := s.secrets.StoreSecret(ctx, vaultPath, map[string]interface{}{"password": password}); err != nil {
-		return nil, errors.Wrap(errors.Internal, "failed to store database credentials in vault", err)
-	}
-	db.CredentialPath = vaultPath
-
-	imageName, env, defaultPort := s.getEngineConfig(dbEngine, req.Version, username, password, req.Name, db.Role, "")
-
-	networkID, err := s.resolveVpcNetwork(ctx, req.VpcID)
-	if err != nil {
-		return nil, err
-	}
-
-	vol, err := s.volumeSvc.CreateVolume(ctx, fmt.Sprintf("db-vol-%s", db.ID.String()[:8]), req.AllocatedStorage)
-	if err != nil {
-		return nil, errors.Wrap(errors.Internal, "failed to create persistent volume", err)
-	}
-
-	containerID, allocatedPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
-		Name:        fmt.Sprintf("cloud-db-%s-%s", req.Name, db.ID.String()[:8]),
-		ImageName:   imageName,
-		Ports:       []string{"0:" + defaultPort},
-		NetworkID:   networkID,
-		VolumeBinds: []string{fmt.Sprintf("%s:%s", s.getBackendVolName(vol), s.getMountPath(dbEngine))},
-		Env:         env,
-		Cmd:         s.buildEngineCmd(dbEngine, req.Parameters),
-	})
-
-	if err != nil {
-		s.cleanupVolumeQuietly(ctx, vol.ID.String())
-		return nil, errors.Wrap(errors.Internal, "failed to launch database container", err)
-	}
-
-	db.ContainerID = containerID
-	if err := s.resolveDatabasePort(ctx, db, allocatedPorts, defaultPort); err != nil {
-		return s.performProvisioningRollback(ctx, db, vol.ID.String(), errors.Wrap(errors.Internal, "failed to resolve database port", err))
-	}
-	db.Status = domain.DatabaseStatusRunning
-
-	if db.MetricsEnabled || db.PoolingEnabled {
-		dbIP, err := s.compute.GetInstanceIP(ctx, containerID)
-		if err != nil {
-			return s.performProvisioningRollback(ctx, db, vol.ID.String(), errors.Wrap(errors.Internal, "failed to get database IP", err))
-		}
-
-		if err := s.provisionSidecars(ctx, db, dbEngine, dbIP, username, password, networkID); err != nil {
-			return s.performProvisioningRollback(ctx, db, vol.ID.String(), err)
-		}
-	}
-
-	if err := s.repo.Create(ctx, db); err != nil {
-		return s.performProvisioningRollback(ctx, db, vol.ID.String(), err)
-	}
-
-	s.recordDatabaseCreation(ctx, userID, db, req.Engine)
-	return db, nil
-}
-
-func (s *DatabaseService) validateCreationRequest(req ports.CreateDatabaseRequest, engine domain.DatabaseEngine) error {
-	if !s.isValidEngine(engine) {
-		return errors.New(errors.InvalidInput, "unsupported database engine")
-	}
-	if req.AllocatedStorage < 10 {
-		return errors.New(errors.InvalidInput, "allocated storage must be at least 10GB")
-	}
-	if req.PoolingEnabled && engine != domain.EnginePostgres {
-		return errors.New(errors.InvalidInput, "connection pooling is currently only supported for PostgreSQL")
-	}
-	return nil
+	return s.provisionDatabase(ctx, db, password, req.Parameters, "", "DATABASE_CREATE")
 }
 
 func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error) {
@@ -190,14 +124,13 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 		return nil, errors.Wrap(errors.Internal, "failed to get primary IP", err)
 	}
 
-	// Fetch primary password from Vault if available, else fallback to DB
 	password := primary.Password
 	if primary.CredentialPath != "" {
 		secret, err := s.secrets.GetSecret(ctx, primary.CredentialPath)
-		if err != nil {
-			s.logger.Warn("failed to fetch primary password from vault, using fallback", "path", primary.CredentialPath, "error", err)
-		} else if p, ok := secret["password"].(string); ok {
-			password = p
+		if err == nil {
+			if p, ok := secret["password"].(string); ok {
+				password = p
+			}
 		}
 	}
 
@@ -208,54 +141,93 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 	db.MetricsEnabled = primary.MetricsEnabled
 	db.PoolingEnabled = primary.PoolingEnabled
 
-	// Store replica password in Vault
-	vaultPath := s.getVaultPath(db.ID)
-	if err := s.secrets.StoreSecret(ctx, vaultPath, map[string]interface{}{"password": password}); err != nil {
-		return nil, errors.Wrap(errors.Internal, "failed to store replica credentials in vault", err)
-	}
-	db.CredentialPath = vaultPath
+	return s.provisionDatabase(ctx, db, password, primary.Parameters, primaryIP, "DATABASE_REPLICA_CREATE")
+}
 
-	imageName, env, defaultPort := s.getEngineConfig(primary.Engine, primary.Version, primary.Username, password, name, db.Role, primaryIP)
-
-	networkID, err := s.resolveVpcNetwork(ctx, db.VpcID)
+func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.RestoreDatabaseRequest) (*domain.Database, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	snap, err := s.snapshotSvc.GetSnapshot(ctx, req.SnapshotID)
 	if err != nil {
 		return nil, err
 	}
+	dbEngine := domain.DatabaseEngine(req.Engine)
+	password, _ := util.GenerateRandomPassword(16)
+	username := s.getDefaultUsername(dbEngine)
+	db := s.initialDatabaseRecord(userID, req.NewName, dbEngine, req.Version, username, password, req.VpcID)
+	
+	db.AllocatedStorage = req.AllocatedStorage
+	if snap.SizeGB > db.AllocatedStorage {
+		db.AllocatedStorage = snap.SizeGB
+	}
+	db.MetricsEnabled = req.MetricsEnabled
+	db.PoolingEnabled = req.PoolingEnabled
 
-	// Create persistent volume for the replica
-	volName := fmt.Sprintf("db-replica-vol-%s", db.ID.String()[:8])
-	vol, err := s.volumeSvc.CreateVolume(ctx, volName, db.AllocatedStorage)
+	vaultPath := s.getVaultPath(db.ID)
+	if err := s.secrets.StoreSecret(ctx, vaultPath, map[string]interface{}{"password": password}); err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to store restored database credentials in vault", err)
+	}
+	db.CredentialPath = vaultPath
+
+	vol, err := s.snapshotSvc.RestoreSnapshot(ctx, req.SnapshotID, fmt.Sprintf("db-vol-%s", db.ID.String()[:8]))
 	if err != nil {
-		return nil, errors.Wrap(errors.Internal, "failed to create persistent volume for replica", err)
+		_ = s.secrets.DeleteSecret(ctx, db.CredentialPath)
+		return nil, err
+	}
+	
+	return s.finalizeProvisioning(ctx, db, vol, password, req.Parameters, "", "DATABASE_RESTORE")
+}
+
+func (s *DatabaseService) provisionDatabase(ctx context.Context, db *domain.Database, password string, parameters map[string]string, primaryIP string, action string) (*domain.Database, error) {
+	vaultPath := s.getVaultPath(db.ID)
+	if err := s.secrets.StoreSecret(ctx, vaultPath, map[string]interface{}{"password": password}); err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to store database credentials in vault", err)
+	}
+	db.CredentialPath = vaultPath
+
+	vol, err := s.volumeSvc.CreateVolume(ctx, fmt.Sprintf("db-vol-%s", db.ID.String()[:8]), db.AllocatedStorage)
+	if err != nil {
+		_ = s.secrets.DeleteSecret(ctx, db.CredentialPath)
+		return nil, errors.Wrap(errors.Internal, "failed to create persistent volume", err)
 	}
 
+	return s.finalizeProvisioning(ctx, db, vol, password, parameters, primaryIP, action)
+}
+
+func (s *DatabaseService) finalizeProvisioning(ctx context.Context, db *domain.Database, vol *domain.Volume, password string, parameters map[string]string, primaryIP string, action string) (*domain.Database, error) {
+	networkID, err := s.resolveVpcNetwork(ctx, db.VpcID)
+	if err != nil {
+		return s.performProvisioningRollback(ctx, db, vol.ID.String(), err)
+	}
+
+	imageName, env, defaultPort := s.getEngineConfig(db.Engine, db.Version, db.Username, password, db.Name, db.Role, primaryIP)
+
 	containerID, allocatedPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
-		Name:        fmt.Sprintf("cloud-db-%s-%s", name, db.ID.String()[:8]),
+		Name:        fmt.Sprintf("cloud-db-%s-%s", db.Name, db.ID.String()[:8]),
 		ImageName:   imageName,
 		Ports:       []string{"0:" + defaultPort},
 		NetworkID:   networkID,
 		VolumeBinds: []string{fmt.Sprintf("%s:%s", s.getBackendVolName(vol), s.getMountPath(db.Engine))},
 		Env:         env,
-		Cmd:         nil,
+		Cmd:         s.buildEngineCmd(db.Engine, parameters),
 	})
+
 	if err != nil {
-		s.cleanupVolumeQuietly(ctx, vol.ID.String())
-		return nil, errors.Wrap(errors.Internal, "failed to launch replica container", err)
+		return s.performProvisioningRollback(ctx, db, vol.ID.String(), errors.Wrap(errors.Internal, "failed to launch database container", err))
 	}
 
 	db.ContainerID = containerID
 	if err := s.resolveDatabasePort(ctx, db, allocatedPorts, defaultPort); err != nil {
-		return s.performProvisioningRollback(ctx, db, vol.ID.String(), errors.Wrap(errors.Internal, "failed to resolve replica database port", err))
+		return s.performProvisioningRollback(ctx, db, vol.ID.String(), errors.Wrap(errors.Internal, "failed to resolve database port", err))
 	}
 	db.Status = domain.DatabaseStatusRunning
 
 	if db.MetricsEnabled || db.PoolingEnabled {
 		dbIP, err := s.compute.GetInstanceIP(ctx, containerID)
 		if err != nil {
-			return s.performProvisioningRollback(ctx, db, vol.ID.String(), errors.Wrap(errors.Internal, "failed to get replica IP for sidecars", err))
+			return s.performProvisioningRollback(ctx, db, vol.ID.String(), errors.Wrap(errors.Internal, "failed to get database IP", err))
 		}
 
-		if err := s.provisionSidecars(ctx, db, db.Engine, dbIP, db.Username, db.Password, networkID); err != nil {
+		if err := s.provisionSidecars(ctx, db, db.Engine, dbIP, db.Username, password, networkID); err != nil {
 			return s.performProvisioningRollback(ctx, db, vol.ID.String(), err)
 		}
 	}
@@ -264,11 +236,7 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 		return s.performProvisioningRollback(ctx, db, vol.ID.String(), err)
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_REPLICA_CREATE", db.ID.String(), "DATABASE", map[string]interface{}{
-		"primary_id": primaryID,
-		"name":       name,
-	})
-
+	s.recordDatabaseCreation(ctx, db.UserID, db, action)
 	return db, nil
 }
 
@@ -491,82 +459,14 @@ func (s *DatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID 
 	return s.snapshotRepo.ListByVolumeID(ctx, vol.ID)
 }
 
-func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.RestoreDatabaseRequest) (*domain.Database, error) {
-	userID := appcontext.UserIDFromContext(ctx)
-	snap, err := s.snapshotSvc.GetSnapshot(ctx, req.SnapshotID)
-	if err != nil {
-		return nil, err
-	}
-	dbEngine := domain.DatabaseEngine(req.Engine)
-	password, _ := util.GenerateRandomPassword(16)
-	username := s.getDefaultUsername(dbEngine)
-	db := s.initialDatabaseRecord(userID, req.NewName, dbEngine, req.Version, username, password, req.VpcID)
-	
-	// Preserving user requested storage if larger than snapshot
-	db.AllocatedStorage = req.AllocatedStorage
-	if snap.SizeGB > db.AllocatedStorage {
-		db.AllocatedStorage = snap.SizeGB
-	}
-	
-	db.MetricsEnabled = req.MetricsEnabled
-	db.PoolingEnabled = req.PoolingEnabled
-
-	// Store password in Vault
-	vaultPath := s.getVaultPath(db.ID)
-	if err := s.secrets.StoreSecret(ctx, vaultPath, map[string]interface{}{"password": password}); err != nil {
-		return nil, errors.Wrap(errors.Internal, "failed to store restored database credentials in vault", err)
-	}
-	db.CredentialPath = vaultPath
-
-	vol, err := s.snapshotSvc.RestoreSnapshot(ctx, req.SnapshotID, fmt.Sprintf("db-vol-%s", db.ID.String()[:8]))
-	if err != nil {
-		return nil, err
-	}
-	
-	// Re-verify volume size matches DB record (snapshot restore might resize)
-	if vol.SizeGB > db.AllocatedStorage {
-		db.AllocatedStorage = vol.SizeGB
-	}
-
-	networkID, _ := s.resolveVpcNetwork(ctx, req.VpcID)
-	imageName, env, defaultPort := s.getEngineConfig(dbEngine, req.Version, username, password, req.NewName, domain.RolePrimary, "")
-	
-	containerID, allocatedPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
-		Name:        fmt.Sprintf("cloud-db-%s-%s", req.NewName, db.ID.String()[:8]),
-		ImageName:   imageName,
-		Ports:       []string{"0:" + defaultPort},
-		NetworkID:   networkID,
-		VolumeBinds: []string{fmt.Sprintf("%s:%s", s.getBackendVolName(vol), s.getMountPath(dbEngine))},
-		Env:         env,
-	})
-	if err != nil {
-		s.cleanupVolumeQuietly(ctx, vol.ID.String())
-		return nil, err
-	}
-	
-	db.ContainerID = containerID
-	if err := s.resolveDatabasePort(ctx, db, allocatedPorts, defaultPort); err != nil {
-		return s.performProvisioningRollback(ctx, db, vol.ID.String(), errors.Wrap(errors.Internal, "failed to resolve restored database port", err))
-	}
-	db.Status = domain.DatabaseStatusRunning
-	
-	if db.MetricsEnabled || db.PoolingEnabled {
-		dbIP, err := s.compute.GetInstanceIP(ctx, containerID)
-		if err != nil {
-			return s.performProvisioningRollback(ctx, db, vol.ID.String(), errors.Wrap(errors.Internal, "failed to get restored database IP", err))
+func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, idempotencyKey string) error {
+	if idempotencyKey != "" {
+		if s.rotationCache[idempotencyKey] {
+			return nil // Already rotated
 		}
-		if err := s.provisionSidecars(ctx, db, dbEngine, dbIP, username, password, networkID); err != nil {
-			return s.performProvisioningRollback(ctx, db, vol.ID.String(), err)
-		}
+		s.rotationCache[idempotencyKey] = true
 	}
 
-	if err := s.repo.Create(ctx, db); err != nil {
-		return s.performProvisioningRollback(ctx, db, vol.ID.String(), err)
-	}
-	return db, nil
-}
-
-func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID) error {
 	db, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -577,30 +477,25 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID) e
 		return errors.Wrap(errors.Internal, "failed to generate new password", err)
 	}
 
-	// 1. Update in Vault
-	vaultPath := db.CredentialPath
-	if vaultPath == "" {
-		vaultPath = s.getVaultPath(db.ID)
-	}
-	if err := s.secrets.StoreSecret(ctx, vaultPath, map[string]interface{}{"password": newPassword}); err != nil {
-		return errors.Wrap(errors.Internal, "failed to store new credentials in vault", err)
-	}
-
-	// 2. Execute ALTER USER in container
-	var cmd []string
-	switch db.Engine {
-	case domain.EnginePostgres:
-		cmd = []string{"psql", "-U", "postgres", "-c", fmt.Sprintf("ALTER USER %s WITH PASSWORD '%s';", db.Username, newPassword)}
-	case domain.EngineMySQL:
-		// For MySQL rotation, we need the root password to run the ALTER USER command.
-		// Since we don't have it easily available, we'll try using the current user's password if it's stored.
-		currentPassword := db.Password
-		if db.CredentialPath != "" {
-			secret, _ := s.secrets.GetSecret(ctx, db.CredentialPath)
+	// Get current password for MySQL auth
+	currentPassword := db.Password
+	if db.CredentialPath != "" {
+		secret, err := s.secrets.GetSecret(ctx, db.CredentialPath)
+		if err == nil {
 			if p, ok := secret["password"].(string); ok {
 				currentPassword = p
 			}
 		}
+	}
+
+	// 1. Execute ALTER USER in container FIRST
+	var cmd []string
+	switch db.Engine {
+	case domain.EnginePostgres:
+		// We use the provisioned admin user to run the ALTER USER command.
+		// Note: psql within the container often has peer/trust auth for the admin user.
+		cmd = []string{"psql", "-U", db.Username, "-c", fmt.Sprintf("ALTER USER %s WITH PASSWORD '%s';", db.Username, newPassword)}
+	case domain.EngineMySQL:
 		cmd = []string{"mysql", "-u", "root", "-p" + currentPassword, "-e", fmt.Sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s';", db.Username, newPassword)}
 	default:
 		return errors.New(errors.Internal, "unsupported engine for credential rotation")
@@ -608,6 +503,17 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID) e
 
 	if _, err := s.compute.Exec(ctx, db.ContainerID, cmd); err != nil {
 		return errors.Wrap(errors.Internal, "failed to execute password rotation in container", err)
+	}
+
+	// 2. Update in Vault ONLY after DB success
+	vaultPath := db.CredentialPath
+	if vaultPath == "" {
+		vaultPath = s.getVaultPath(db.ID)
+	}
+	if err := s.secrets.StoreSecret(ctx, vaultPath, map[string]interface{}{"password": newPassword}); err != nil {
+		// Rollback DB if Vault fails? This is tricky.
+		// At least return an error and suggest manual sync.
+		return errors.Wrap(errors.Internal, "database password updated but failed to store in vault", err)
 	}
 
 	// 3. Update DB record if needed (metadata or path)
@@ -618,12 +524,23 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID) e
 
 	// 4. If pooler is enabled, restart it to pick up new credentials
 	if db.PoolerContainerID != "" {
-		_ = s.compute.DeleteInstance(ctx, db.PoolerContainerID)
+		if err := s.compute.DeleteInstance(ctx, db.PoolerContainerID); err != nil {
+			s.logger.Warn("failed to delete old pooler during rotation", "pooler_id", db.PoolerContainerID, "error", err)
+		}
 		db.PoolerContainerID = ""
-		dbIP, _ := s.compute.GetInstanceIP(ctx, db.ContainerID)
-		networkID, _ := s.resolveVpcNetwork(ctx, db.VpcID)
-		if err := s.provisionPoolerSidecar(ctx, db, db.Engine, dbIP, db.Username, newPassword, networkID); err == nil {
-			_ = s.repo.Update(ctx, db)
+		dbIP, err := s.compute.GetInstanceIP(ctx, db.ContainerID)
+		if err != nil {
+			return errors.Wrap(errors.Internal, "failed to get database IP for pooler restart", err)
+		}
+		networkID, err := s.resolveVpcNetwork(ctx, db.VpcID)
+		if err != nil {
+			return errors.Wrap(errors.Internal, "failed to resolve network for pooler restart", err)
+		}
+		if err := s.provisionPoolerSidecar(ctx, db, db.Engine, dbIP, db.Username, newPassword, networkID); err != nil {
+			return errors.Wrap(errors.Internal, "failed to provision new pooler sidecar during rotation", err)
+		}
+		if err := s.repo.Update(ctx, db); err != nil {
+			return err
 		}
 	}
 
@@ -634,6 +551,19 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID) e
 }
 
 // Internal helper methods
+
+func (s *DatabaseService) validateCreationRequest(req ports.CreateDatabaseRequest, engine domain.DatabaseEngine) error {
+	if !s.isValidEngine(engine) {
+		return errors.New(errors.InvalidInput, "unsupported database engine")
+	}
+	if req.AllocatedStorage < 10 {
+		return errors.New(errors.InvalidInput, "allocated storage must be at least 10GB")
+	}
+	if req.PoolingEnabled && engine != domain.EnginePostgres {
+		return errors.New(errors.InvalidInput, "connection pooling is currently only supported for PostgreSQL")
+	}
+	return nil
+}
 
 func (s *DatabaseService) getVaultPath(dbID uuid.UUID) string {
 	return fmt.Sprintf("%s/%s/credentials", s.vaultMountPath, dbID.String())

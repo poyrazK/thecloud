@@ -83,5 +83,5 @@ type DatabaseService interface {
 	// RestoreDatabase creates a new database instance from an existing snapshot.
 	RestoreDatabase(ctx context.Context, req RestoreDatabaseRequest) (*domain.Database, error)
 	// RotateCredentials regenerates the database password and updates it in the secrets manager.
-	RotateCredentials(ctx context.Context, id uuid.UUID) error
+	RotateCredentials(ctx context.Context, id uuid.UUID, idempotencyKey string) error
 }
