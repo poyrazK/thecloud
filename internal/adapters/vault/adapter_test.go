@@ -1,3 +1,4 @@
+// Package vault provides a HashiCorp Vault adapter for secret management.
 package vault
 
 import (
@@ -20,12 +21,25 @@ func TestAdapter(t *testing.T) {
 			switch r.Method {
 			case http.MethodGet:
 				w.WriteHeader(http.StatusOK)
-				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				resp := map[string]interface{}{
 					"data": map[string]interface{}{
 						"data": map[string]interface{}{"password": "secret-pass"},
 					},
-				})
+				}
+				if err := json.NewEncoder(w).Encode(resp); err != nil {
+					t.Errorf("json encode failed: %v", err)
+				}
 			case http.MethodPost, http.MethodPut:
+				// Verify KV v2 wrap
+				var body map[string]interface{}
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				if _, ok := body["data"]; !ok {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
 				w.WriteHeader(http.StatusOK)
 			case http.MethodDelete:
 				w.WriteHeader(http.StatusNoContent)
@@ -34,7 +48,10 @@ func TestAdapter(t *testing.T) {
 			}
 		case "/v1/sys/health":
 			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{"initialized": true, "sealed": false})
+			resp := map[string]interface{}{"initialized": true, "sealed": false}
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				t.Errorf("json encode failed: %v", err)
+			}
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -46,27 +63,42 @@ func TestAdapter(t *testing.T) {
 
 	ctx := context.Background()
 
-	t.Run("StoreSecret", func(t *testing.T) {
-		err := adapter.StoreSecret(ctx, "secret/data/test", map[string]interface{}{"password": "new-pass"})
-		assert.NoError(t, err)
-	})
+	tests := []struct {
+		name    string
+		fn      func(t *testing.T)
+	}{
+		{
+			name: "StoreSecret",
+			fn: func(t *testing.T) {
+				err := adapter.StoreSecret(ctx, "secret/data/test", map[string]interface{}{"password": "new-pass"})
+				assert.NoError(t, err)
+			},
+		},
+		{
+			name: "GetSecret",
+			fn: func(t *testing.T) {
+				data, err := adapter.GetSecret(ctx, "secret/data/test")
+				require.NoError(t, err)
+				assert.Equal(t, "secret-pass", data["password"])
+			},
+		},
+		{
+			name: "DeleteSecret",
+			fn: func(t *testing.T) {
+				err := adapter.DeleteSecret(ctx, "secret/data/test")
+				assert.NoError(t, err)
+			},
+		},
+		{
+			name: "Ping",
+			fn: func(t *testing.T) {
+				err := adapter.Ping(ctx)
+				assert.NoError(t, err)
+			},
+		},
+	}
 
-	t.Run("GetSecret", func(t *testing.T) {
-		data, err := adapter.GetSecret(ctx, "secret/data/test")
-		require.NoError(t, err)
-		// Vault KV v2 returns data nested under "data"
-		innerData, ok := data["data"].(map[string]interface{})
-		require.True(t, ok)
-		assert.Equal(t, "secret-pass", innerData["password"])
-	})
-
-	t.Run("DeleteSecret", func(t *testing.T) {
-		err := adapter.DeleteSecret(ctx, "secret/data/test")
-		assert.NoError(t, err)
-	})
-
-	t.Run("Ping", func(t *testing.T) {
-		err := adapter.Ping(ctx)
-		assert.NoError(t, err)
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, tt.fn)
+	}
 }
