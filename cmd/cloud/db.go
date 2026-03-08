@@ -162,12 +162,28 @@ var dbConnCmd = &cobra.Command{
 	},
 }
 
+var dbRotateCmd = &cobra.Command{
+	Use:   "rotate-credentials [id]",
+	Short: "Rotate database user credentials",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		id := args[0]
+		client := createClient(opts)
+		if err := client.RotateDatabaseCredentials(id); err != nil {
+			fmt.Printf(errorFormat, err)
+			return
+		}
+		fmt.Println("[SUCCESS] Database credentials rotated successfully.")
+	},
+}
+
 func init() {
 	dbCmd.AddCommand(dbListCmd)
 	dbCmd.AddCommand(dbCreateCmd)
 	dbCmd.AddCommand(dbShowCmd)
 	dbCmd.AddCommand(dbRmCmd)
 	dbCmd.AddCommand(dbConnCmd)
+	dbCmd.AddCommand(dbRotateCmd)
 
 	dbCreateCmd.Flags().StringP("name", "n", "", "Name of the database (required)")
 	dbCreateCmd.Flags().StringP("engine", "e", "postgres", "Database engine (postgres/mysql)")
