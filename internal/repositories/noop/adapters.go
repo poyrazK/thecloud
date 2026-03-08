@@ -242,6 +242,16 @@ func (s *NoopClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, ba
 	return nil
 }
 
+func (s *NoopClusterService) AddNodeGroup(ctx context.Context, clusterID uuid.UUID, params ports.NodeGroupParams) (*domain.NodeGroup, error) {
+	return &domain.NodeGroup{ClusterID: clusterID, Name: params.Name}, nil
+}
+func (s *NoopClusterService) UpdateNodeGroup(ctx context.Context, clusterID uuid.UUID, name string, params ports.UpdateNodeGroupParams) (*domain.NodeGroup, error) {
+	return &domain.NodeGroup{ClusterID: clusterID, Name: name}, nil
+}
+func (s *NoopClusterService) DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error {
+	return nil
+}
+
 func (s *NoopClusterService) AddNode(ctx context.Context, clusterID uuid.UUID, role string) (*domain.ClusterNode, error) {
 	return &domain.ClusterNode{ID: uuid.New(), ClusterID: clusterID, Role: domain.NodeRole(role)}, nil
 }
@@ -301,7 +311,7 @@ func (s *NoopSecurityGroupService) DetachFromInstance(ctx context.Context, instI
 // NoopStorageService is a no-op storage service.
 type NoopStorageService struct{}
 
-func (s *NoopStorageService) Upload(ctx context.Context, bucket, key string, r io.Reader) (*domain.Object, error) {
+func (s *NoopStorageService) Upload(ctx context.Context, bucket, key string, r io.Reader, providedChecksum string) (*domain.Object, error) {
 	return &domain.Object{Key: key}, nil
 }
 func (s *NoopStorageService) Download(ctx context.Context, bucket, key string) (io.ReadCloser, *domain.Object, error) {
@@ -341,7 +351,7 @@ func (s *NoopStorageService) GetClusterStatus(ctx context.Context) (*domain.Stor
 func (s *NoopStorageService) CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error) {
 	return &domain.MultipartUpload{Bucket: bucket, Key: key}, nil
 }
-func (s *NoopStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
+func (s *NoopStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader, providedChecksum string) (*domain.Part, error) {
 	return &domain.Part{UploadID: uploadID, PartNumber: partNumber}, nil
 }
 func (s *NoopStorageService) CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error) {
@@ -650,26 +660,50 @@ func NewNoopStorageBackendAdapter() *NoopStorageBackend {
 	return &NoopStorageBackend{}
 }
 
-func (b *NoopStorageBackend) CreateVolume(ctx context.Context, name string, sizeGB int) (string, error) {
-	return uuid.New().String(), nil
+func (s *NoopStorageBackend) CreateVolume(ctx context.Context, name string, sizeGB int) (string, error) {
+	return "vol-1", nil
 }
-func (b *NoopStorageBackend) DeleteVolume(ctx context.Context, name string) error {
+func (s *NoopStorageBackend) DeleteVolume(ctx context.Context, name string) error { return nil }
+func (s *NoopStorageBackend) ResizeVolume(ctx context.Context, name string, newSizeGB int) error {
 	return nil
 }
-func (b *NoopStorageBackend) AttachVolume(ctx context.Context, volumeName, instanceID string) (string, error) {
-	return "/dev/vdb", nil
+func (s *NoopStorageBackend) AttachVolume(ctx context.Context, volumeName, instanceID string) (string, error) {
+	return "vol-1", nil
 }
-func (b *NoopStorageBackend) DetachVolume(ctx context.Context, volumeName, instanceID string) error {
+func (s *NoopStorageBackend) DetachVolume(ctx context.Context, volumeName, instanceID string) error {
 	return nil
 }
-func (b *NoopStorageBackend) CreateSnapshot(ctx context.Context, volumeName, snapshotName string) error {
+func (s *NoopStorageBackend) CreateSnapshot(ctx context.Context, volumeName, snapshotName string) error {
 	return nil
 }
-func (b *NoopStorageBackend) RestoreSnapshot(ctx context.Context, volumeName, snapshotName string) error {
+func (s *NoopStorageBackend) DeleteSnapshot(ctx context.Context, snapshotName string) error {
 	return nil
 }
-func (b *NoopStorageBackend) DeleteSnapshot(ctx context.Context, snapshotName string) error {
+func (s *NoopStorageBackend) RestoreSnapshot(ctx context.Context, volumeName, snapshotName string) error {
 	return nil
 }
-func (b *NoopStorageBackend) Ping(ctx context.Context) error { return nil }
-func (b *NoopStorageBackend) Type() string                  { return "noop" }
+func (s *NoopStorageBackend) Ping(ctx context.Context) error { return nil }
+func (s *NoopStorageBackend) Type() string                   { return "noop" }
+
+// NoopDatabaseService is a no-op database service.
+type NoopDatabaseService struct{}
+
+func (s *NoopDatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDatabaseRequest) (*domain.Database, error) {
+	return &domain.Database{ID: uuid.New(), Name: req.Name, Role: domain.RolePrimary}, nil
+}
+func (s *NoopDatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) error { return nil }
+func (s *NoopDatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDatabaseRequest) (*domain.Database, error) {
+	return &domain.Database{ID: req.ID}, nil
+}
+func (s *NoopDatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
+	return "postgres://127.0.0.1:5432/db", nil
+}
+func (s *NoopDatabaseService) CreateDatabaseSnapshot(ctx context.Context, databaseID uuid.UUID, description string) (*domain.Snapshot, error) {
+	return &domain.Snapshot{ID: uuid.New()}, nil
+}
+func (s *NoopDatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID uuid.UUID) ([]*domain.Snapshot, error) {
+	return []*domain.Snapshot{}, nil
+}
+func (s *NoopDatabaseService) RestoreDatabase(ctx context.Context, req ports.RestoreDatabaseRequest) (*domain.Database, error) {
+	return &domain.Database{ID: uuid.New(), Name: req.NewName, Role: domain.RolePrimary}, nil
+}

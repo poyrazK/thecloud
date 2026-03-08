@@ -665,12 +665,31 @@ Provision a new primary database.
   "name": "prod-db",
   "engine": "postgres",
   "version": "16",
-  "vpc_id": "vpc-uuid"
+  "vpc_id": "vpc-uuid",
+  "allocated_storage": 20,
+  "pooling_enabled": true,
+  "metrics_enabled": true,
+  "parameters": {
+    "max_connections": "100"
+  }
 }
 ```
 
 ### GET /databases/:id
 Get details of a specific database.
+
+### PATCH /databases/:id
+Modify an existing database configuration.
+```json
+{
+  "allocated_storage": 40,
+  "pooling_enabled": false,
+  "metrics_enabled": true,
+  "parameters": {
+    "max_connections": "200"
+  }
+}
+```
 
 ### DELETE /databases/:id
 Terminate a database instance.

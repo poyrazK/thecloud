@@ -25,6 +25,7 @@ const (
 	scalePath            = "/:id/scale"
 	scaleSuffix          = "/scale"
 	containerPathInvalid = "/invalid"
+	errNotFound          = "not found"
 )
 
 type mockContainerService struct {
@@ -36,8 +37,7 @@ func (m *mockContainerService) CreateDeployment(ctx context.Context, name, image
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	r0, _ := args.Get(0).(*domain.Deployment)
-	return r0, args.Error(1)
+	return args.Get(0).(*domain.Deployment), args.Error(1)
 }
 
 func (m *mockContainerService) ListDeployments(ctx context.Context) ([]*domain.Deployment, error) {
@@ -45,8 +45,7 @@ func (m *mockContainerService) ListDeployments(ctx context.Context) ([]*domain.D
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	r0, _ := args.Get(0).([]*domain.Deployment)
-	return r0, args.Error(1)
+	return args.Get(0).([]*domain.Deployment), args.Error(1)
 }
 
 func (m *mockContainerService) GetDeployment(ctx context.Context, id uuid.UUID) (*domain.Deployment, error) {
@@ -54,8 +53,7 @@ func (m *mockContainerService) GetDeployment(ctx context.Context, id uuid.UUID) 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	r0, _ := args.Get(0).(*domain.Deployment)
-	return r0, args.Error(1)
+	return args.Get(0).(*domain.Deployment), args.Error(1)
 }
 
 func (m *mockContainerService) ScaleDeployment(ctx context.Context, id uuid.UUID, replicas int) error {
@@ -143,7 +141,7 @@ func TestContainerHandlerScaleDeployment(t *testing.T) {
 	svc, handler, r := setupContainerHandlerTest(t)
 	defer svc.AssertExpectations(t)
 
-	r.POST(deploymentsPath+scalePath, handler.ScaleDeployment)
+	r.PUT(deploymentsPath+scalePath, handler.ScaleDeployment)
 
 	id := uuid.New()
 	svc.On("ScaleDeployment", mock.Anything, id, 5).Return(nil)
@@ -151,7 +149,7 @@ func TestContainerHandlerScaleDeployment(t *testing.T) {
 	body, err := json.Marshal(map[string]interface{}{"replicas": 5})
 	require.NoError(t, err)
 	w := httptest.NewRecorder()
-	req, err := http.NewRequest("POST", deploymentsPath+"/"+id.String()+scaleSuffix, bytes.NewBuffer(body))
+	req, err := http.NewRequest("PUT", deploymentsPath+"/"+id.String()+scaleSuffix, bytes.NewBuffer(body))
 	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
@@ -228,7 +226,7 @@ func TestContainerHandlerGetError(t *testing.T) {
 		svc, handler, r := setupContainerHandlerTest(t)
 		r.GET(deploymentsPath+"/:id", handler.GetDeployment)
 		id := uuid.New()
-		svc.On("GetDeployment", mock.Anything, id).Return(nil, errors.New(errors.NotFound, errNotFound))
+		svc.On("GetDeployment", mock.Anything, id).Return(nil, errors.New(errors.NotFound, "not found"))
 		req, _ := http.NewRequest(http.MethodGet, deploymentsPath+"/"+id.String(), nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -241,8 +239,8 @@ func TestContainerHandlerScaleError(t *testing.T) {
 	t.Parallel()
 	t.Run("InvalidID", func(t *testing.T) {
 		_, handler, r := setupContainerHandlerTest(t)
-		r.POST(deploymentsPath+scalePath, handler.ScaleDeployment)
-		req, _ := http.NewRequest("POST", deploymentsPath+containerPathInvalid+scaleSuffix, nil)
+		r.PUT(deploymentsPath+scalePath, handler.ScaleDeployment)
+		req, _ := http.NewRequest("PUT", deploymentsPath+containerPathInvalid+scaleSuffix, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -250,8 +248,8 @@ func TestContainerHandlerScaleError(t *testing.T) {
 
 	t.Run("InvalidJSON", func(t *testing.T) {
 		_, handler, r := setupContainerHandlerTest(t)
-		r.POST(deploymentsPath+scalePath, handler.ScaleDeployment)
-		req, _ := http.NewRequest("POST", deploymentsPath+"/"+uuid.NewString()+scaleSuffix, bytes.NewBufferString("invalid"))
+		r.PUT(deploymentsPath+scalePath, handler.ScaleDeployment)
+		req, _ := http.NewRequest("PUT", deploymentsPath+"/"+uuid.NewString()+scaleSuffix, bytes.NewBufferString("invalid"))
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -259,11 +257,11 @@ func TestContainerHandlerScaleError(t *testing.T) {
 
 	t.Run("ServiceError", func(t *testing.T) {
 		svc, handler, r := setupContainerHandlerTest(t)
-		r.POST(deploymentsPath+scalePath, handler.ScaleDeployment)
+		r.PUT(deploymentsPath+scalePath, handler.ScaleDeployment)
 		id := uuid.New()
 		svc.On("ScaleDeployment", mock.Anything, id, 5).Return(errors.New(errors.Internal, "error"))
 		body, _ := json.Marshal(map[string]interface{}{"replicas": 5})
-		req, _ := http.NewRequest("POST", deploymentsPath+"/"+id.String()+scaleSuffix, bytes.NewBuffer(body))
+		req, _ := http.NewRequest("PUT", deploymentsPath+"/"+id.String()+scaleSuffix, bytes.NewBuffer(body))
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusInternalServerError, w.Code)

@@ -154,6 +154,54 @@ func (s *VolumeService) DeleteVolume(ctx context.Context, idOrName string) error
 	return nil
 }
 
+func (s *VolumeService) ResizeVolume(ctx context.Context, idOrName string, newSizeGB int) error {
+	ctx, span := otel.Tracer(tracerName).Start(ctx, "ResizeVolume")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("volume.id_or_name", idOrName),
+		attribute.Int("volume.new_size_gb", newSizeGB),
+	)
+
+	vol, err := s.GetVolume(ctx, idOrName)
+	if err != nil {
+		return err
+	}
+
+	if newSizeGB <= vol.SizeGB {
+		return errors.New(errors.InvalidInput, "new size must be larger than current size")
+	}
+
+	// 1. Resize in Backend
+	backendName := FormatBackendVolumeName(vol.ID)
+	if err := s.storage.ResizeVolume(ctx, backendName, newSizeGB); err != nil {
+		return errors.Wrap(errors.Internal, "failed to resize volume in backend", err)
+	}
+
+	// 2. Update DB
+	oldSizeGB := vol.SizeGB
+	vol.SizeGB = newSizeGB
+	vol.UpdatedAt = time.Now()
+
+	if err := s.repo.Update(ctx, vol); err != nil {
+		return err
+	}
+
+	platform.VolumeSizeBytes.Add(float64((newSizeGB - oldSizeGB) * 1024 * 1024 * 1024))
+	_ = s.eventSvc.RecordEvent(ctx, "VOLUME_RESIZE", vol.ID.String(), "VOLUME", map[string]interface{}{
+		"old_size_gb": oldSizeGB,
+		"new_size_gb": newSizeGB,
+	})
+
+	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.resize", "volume", vol.ID.String(), map[string]interface{}{
+		"name":        vol.Name,
+		"old_size_gb": oldSizeGB,
+		"new_size_gb": newSizeGB,
+	})
+
+	s.logger.Info("volume resized", "volume_id", vol.ID, "old_size", oldSizeGB, "new_size", newSizeGB)
+	return nil
+}
+
 func (s *VolumeService) AttachVolume(ctx context.Context, volumeID string, instanceID string, mountPath string) (string, error) {
 	vol, err := s.GetVolume(ctx, volumeID)
 	if err != nil {

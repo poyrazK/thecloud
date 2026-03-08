@@ -69,6 +69,20 @@ func (h *ContainerHandler) GetDeployment(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, dep)
 }
 
+// ScaleDeploymentRequest is the payload for scaling replicas.
+type ScaleDeploymentRequest struct {
+	Replicas int `json:"replicas" binding:"required"`
+}
+
+// ScaleDeployment godoc
+// @Summary Scale a deployment
+// @Description Adjusts the number of replicas for a container deployment
+// @Tags containers
+// @Security APIKeyAuth
+// @Param id path string true "Deployment ID"
+// @Param request body ScaleDeploymentRequest true "Scale details"
+// @Success 200 {object} httputil.Response
+// @Router /containers/deployments/{id}/scale [put]
 func (h *ContainerHandler) ScaleDeployment(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -76,9 +90,7 @@ func (h *ContainerHandler) ScaleDeployment(c *gin.Context) {
 		return
 	}
 
-	var req struct {
-		Replicas int `json:"replicas" binding:"required"`
-	}
+	var req ScaleDeploymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		httputil.Error(c, errors.New(errors.InvalidInput, "Invalid request body"))
 		return

@@ -881,6 +881,21 @@ func (m *MockClusterRepo) UpdateNode(ctx context.Context, node *domain.ClusterNo
 	return m.Called(ctx, node).Error(0)
 }
 
+func (m *MockClusterRepo) AddNodeGroup(ctx context.Context, ng *domain.NodeGroup) error {
+	return m.Called(ctx, ng).Error(0)
+}
+func (m *MockClusterRepo) GetNodeGroups(ctx context.Context, clusterID uuid.UUID) ([]domain.NodeGroup, error) {
+	args := m.Called(ctx, clusterID)
+	r0, _ := args.Get(0).([]domain.NodeGroup)
+	return r0, args.Error(1)
+}
+func (m *MockClusterRepo) UpdateNodeGroup(ctx context.Context, ng *domain.NodeGroup) error {
+	return m.Called(ctx, ng).Error(0)
+}
+func (m *MockClusterRepo) DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error {
+	return m.Called(ctx, clusterID, name).Error(0)
+}
+
 // MockClusterProvisioner
 type MockClusterProvisioner struct{ mock.Mock }
 
@@ -1277,6 +1292,10 @@ func (m *MockVolumeService) DeleteVolume(ctx context.Context, idOrName string) e
 	args := m.Called(ctx, idOrName)
 	return args.Error(0)
 }
+func (m *MockVolumeService) ResizeVolume(ctx context.Context, id string, newSizeGB int) error {
+	args := m.Called(ctx, id, newSizeGB)
+	return args.Error(0)
+}
 func (m *MockVolumeService) ReleaseVolumesForInstance(ctx context.Context, instanceID uuid.UUID) error {
 	args := m.Called(ctx, instanceID)
 	return args.Error(0)
@@ -1633,6 +1652,10 @@ func (m *MockStorageBackend) CreateVolume(ctx context.Context, name string, size
 }
 func (m *MockStorageBackend) DeleteVolume(ctx context.Context, name string) error {
 	args := m.Called(ctx, name)
+	return args.Error(0)
+}
+func (m *MockStorageBackend) ResizeVolume(ctx context.Context, name string, newSizeGB int) error {
+	args := m.Called(ctx, name, newSizeGB)
 	return args.Error(0)
 }
 func (m *MockStorageBackend) AttachVolume(ctx context.Context, volumeName, instanceID string) (string, error) {

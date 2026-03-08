@@ -11,6 +11,8 @@ type StorageBackend interface {
 	CreateVolume(ctx context.Context, name string, sizeGB int) (string, error)
 	// DeleteVolume permanently removes a block storage device (only if not currently attached).
 	DeleteVolume(ctx context.Context, name string) error
+	// ResizeVolume increases the capacity of an existing block storage device.
+	ResizeVolume(ctx context.Context, name string, newSizeGB int) error
 	// AttachVolume connects a block storage device to a specific compute instance.
 	// Returns the guest-assigned device path (e.g., "/dev/vdb").
 	AttachVolume(ctx context.Context, volumeName, instanceID string) (string, error)

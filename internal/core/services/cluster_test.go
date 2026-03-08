@@ -55,6 +55,9 @@ func TestClusterServiceCreate(t *testing.T) {
 	repo.On("Create", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
 		return c.Name == testClusterName && c.UserID == userID
 	})).Return(nil)
+	repo.On("AddNodeGroup", mock.Anything, mock.MatchedBy(func(ng *domain.NodeGroup) bool {
+		return ng.Name == "default-pool"
+	})).Return(nil)
 	repo.On("Update", mock.Anything, mock.Anything).Return(nil)
 	repo.On("Update", mock.Anything, mock.Anything).Return(nil)
 	secretSvc.On("Encrypt", mock.Anything, userID, mock.Anything).Return(clusterEncryptedKey, nil)
@@ -158,6 +161,9 @@ func TestClusterServiceCreateEnqueueError(t *testing.T) {
 	vpcSvc.On("GetVPC", mock.Anything, vpcID.String()).Return(&domain.VPC{ID: vpcID}, nil)
 	secretSvc.On("Encrypt", mock.Anything, userID, mock.Anything).Return(clusterEncryptedKey, nil)
 	repo.On("Create", mock.Anything, mock.Anything).Return(nil)
+	repo.On("AddNodeGroup", mock.Anything, mock.MatchedBy(func(ng *domain.NodeGroup) bool {
+		return ng.Name == "default-pool"
+	})).Return(nil)
 	repo.On("Update", mock.Anything, mock.Anything).Return(nil)
 	taskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.Anything).Return(assert.AnError).Once()
 

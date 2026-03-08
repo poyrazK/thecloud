@@ -26,16 +26,16 @@ func NewClusterRepository(db DB) *ClusterRepository {
 func (r *ClusterRepository) Create(ctx context.Context, cluster *domain.Cluster) error {
 	query := `
 		INSERT INTO clusters (
-			id, user_id, vpc_id, name, version, status, worker_count, ha_enabled, 
+			id, user_id, vpc_id, name, version, status, control_plane_ips, worker_count, ha_enabled, 
 			network_isolation, pod_cidr, service_cidr, api_server_lb_address, 
 			kubeconfig_encrypted, ssh_private_key_encrypted, join_token, 
 			token_expires_at, ca_cert_hash, job_id, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 	`
 	_, err := r.db.Exec(ctx, query,
 		cluster.ID, cluster.UserID, cluster.VpcID, cluster.Name, cluster.Version,
-		string(cluster.Status), cluster.WorkerCount, cluster.HAEnabled,
+		string(cluster.Status), cluster.ControlPlaneIPs, cluster.WorkerCount, cluster.HAEnabled,
 		cluster.NetworkIsolation, cluster.PodCIDR, cluster.ServiceCIDR,
 		cluster.APIServerLBAddress, cluster.KubeconfigEncrypted,
 		cluster.SSHPrivateKeyEncrypted, cluster.JoinToken, cluster.TokenExpiresAt,
@@ -51,20 +51,32 @@ func (r *ClusterRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
 		SELECT 
-			id, user_id, vpc_id, name, version, status, worker_count, ha_enabled, 
+			id, user_id, vpc_id, name, version, status, control_plane_ips, worker_count, ha_enabled, 
 			network_isolation, pod_cidr, service_cidr, api_server_lb_address, 
 			kubeconfig_encrypted, ssh_private_key_encrypted, join_token, 
 			token_expires_at, ca_cert_hash, job_id, created_at, updated_at
 		FROM clusters
 		WHERE id = $1 AND user_id = $2
 	`
-	return r.scanCluster(r.db.QueryRow(ctx, query, id, userID))
+	cluster, err := r.scanCluster(r.db.QueryRow(ctx, query, id, userID))
+	if err != nil || cluster == nil {
+		return cluster, err
+	}
+
+	// Fetch Node Groups
+	ngs, err := r.GetNodeGroups(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	cluster.NodeGroups = ngs
+
+	return cluster, nil
 }
 
 func (r *ClusterRepository) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Cluster, error) {
 	query := `
 		SELECT 
-			id, user_id, vpc_id, name, version, status, worker_count, ha_enabled, 
+			id, user_id, vpc_id, name, version, status, control_plane_ips, worker_count, ha_enabled, 
 			network_isolation, pod_cidr, service_cidr, api_server_lb_address, 
 			kubeconfig_encrypted, ssh_private_key_encrypted, join_token, 
 			token_expires_at, ca_cert_hash, job_id, created_at, updated_at
@@ -78,7 +90,7 @@ func (r *ClusterRepository) ListByUserID(ctx context.Context, userID uuid.UUID) 
 func (r *ClusterRepository) ListAll(ctx context.Context) ([]*domain.Cluster, error) {
 	query := `
 		SELECT 
-			id, user_id, vpc_id, name, version, status, worker_count, ha_enabled, 
+			id, user_id, vpc_id, name, version, status, control_plane_ips, worker_count, ha_enabled, 
 			network_isolation, pod_cidr, service_cidr, api_server_lb_address, 
 			kubeconfig_encrypted, ssh_private_key_encrypted, join_token, 
 			token_expires_at, ca_cert_hash, job_id, created_at, updated_at
@@ -101,7 +113,16 @@ func (r *ClusterRepository) list(ctx context.Context, query string, args ...any)
 		if err != nil {
 			return nil, err
 		}
+		// Fetch Node Groups for each cluster in the list
+		ngs, err := r.GetNodeGroups(ctx, c.ID)
+		if err != nil {
+			return nil, errors.Wrap(errors.Internal, "failed to fetch node groups for cluster in list", err)
+		}
+		c.NodeGroups = ngs
 		clusters = append(clusters, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrap(errors.Internal, "row iteration error", err)
 	}
 	return clusters, nil
 }
@@ -110,20 +131,20 @@ func (r *ClusterRepository) Update(ctx context.Context, cluster *domain.Cluster)
 	query := `
 		UPDATE clusters
 		SET 
-			vpc_id = $1, name = $2, version = $3, status = $4, worker_count = $5, 
-			ha_enabled = $6, network_isolation = $7, pod_cidr = $8, service_cidr = $9, 
-			api_server_lb_address = $10, kubeconfig_encrypted = $11, 
-			ssh_private_key_encrypted = $12, join_token = $13, token_expires_at = $14, 
-			ca_cert_hash = $15, job_id = $16, updated_at = $17
-		WHERE id = $18 AND user_id = $19
+			vpc_id = $1, name = $2, version = $3, status = $4, control_plane_ips = $5, 
+			worker_count = $6, ha_enabled = $7, network_isolation = $8, pod_cidr = $9, 
+			service_cidr = $10, api_server_lb_address = $11, kubeconfig_encrypted = $12, 
+			ssh_private_key_encrypted = $13, join_token = $14, token_expires_at = $15, 
+			ca_cert_hash = $16, job_id = $17, updated_at = $18
+		WHERE id = $19 AND user_id = $20
 	`
 	_, err := r.db.Exec(ctx, query,
 		cluster.VpcID, cluster.Name, cluster.Version, string(cluster.Status),
-		cluster.WorkerCount, cluster.HAEnabled, cluster.NetworkIsolation,
-		cluster.PodCIDR, cluster.ServiceCIDR, cluster.APIServerLBAddress,
-		cluster.KubeconfigEncrypted, cluster.SSHPrivateKeyEncrypted,
-		cluster.JoinToken, cluster.TokenExpiresAt, cluster.CACertHash,
-		cluster.JobID, time.Now(), cluster.ID, cluster.UserID,
+		cluster.ControlPlaneIPs, cluster.WorkerCount, cluster.HAEnabled,
+		cluster.NetworkIsolation, cluster.PodCIDR, cluster.ServiceCIDR,
+		cluster.APIServerLBAddress, cluster.KubeconfigEncrypted,
+		cluster.SSHPrivateKeyEncrypted, cluster.JoinToken, cluster.TokenExpiresAt,
+		cluster.CACertHash, cluster.JobID, time.Now(), cluster.ID, cluster.UserID,
 	)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to update cluster", err)
@@ -175,6 +196,9 @@ func (r *ClusterRepository) GetNodes(ctx context.Context, clusterID uuid.UUID) (
 		n.Role = domain.NodeRole(role)
 		nodes = append(nodes, &n)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrap(errors.Internal, "row iteration error", err)
+	}
 	return nodes, nil
 }
 
@@ -200,11 +224,71 @@ func (r *ClusterRepository) DeleteNode(ctx context.Context, nodeID uuid.UUID) er
 	return nil
 }
 
+func (r *ClusterRepository) AddNodeGroup(ctx context.Context, ng *domain.NodeGroup) error {
+	query := `
+		INSERT INTO cluster_node_groups (id, cluster_id, name, instance_type, min_size, max_size, current_size, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`
+	_, err := r.db.Exec(ctx, query, ng.ID, ng.ClusterID, ng.Name, ng.InstanceType, ng.MinSize, ng.MaxSize, ng.CurrentSize, ng.CreatedAt, ng.UpdatedAt)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to add node group", err)
+	}
+	return nil
+}
+
+func (r *ClusterRepository) GetNodeGroups(ctx context.Context, clusterID uuid.UUID) ([]domain.NodeGroup, error) {
+	query := `
+		SELECT id, cluster_id, name, instance_type, min_size, max_size, current_size, created_at, updated_at
+		FROM cluster_node_groups
+		WHERE cluster_id = $1
+	`
+	rows, err := r.db.Query(ctx, query, clusterID)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to get node groups", err)
+	}
+	defer rows.Close()
+
+	var groups []domain.NodeGroup
+	for rows.Next() {
+		var ng domain.NodeGroup
+		if err := rows.Scan(&ng.ID, &ng.ClusterID, &ng.Name, &ng.InstanceType, &ng.MinSize, &ng.MaxSize, &ng.CurrentSize, &ng.CreatedAt, &ng.UpdatedAt); err != nil {
+			return nil, errors.Wrap(errors.Internal, "failed to scan node group", err)
+		}
+		groups = append(groups, ng)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrap(errors.Internal, "row iteration error", err)
+	}
+	return groups, nil
+}
+
+func (r *ClusterRepository) UpdateNodeGroup(ctx context.Context, ng *domain.NodeGroup) error {
+	query := `
+		UPDATE cluster_node_groups
+		SET instance_type = $1, min_size = $2, max_size = $3, current_size = $4, updated_at = $5
+		WHERE cluster_id = $6 AND name = $7
+	`
+	_, err := r.db.Exec(ctx, query, ng.InstanceType, ng.MinSize, ng.MaxSize, ng.CurrentSize, time.Now(), ng.ClusterID, ng.Name)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to update node group", err)
+	}
+	return nil
+}
+
+func (r *ClusterRepository) DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error {
+	query := `DELETE FROM cluster_node_groups WHERE cluster_id = $1 AND name = $2`
+	_, err := r.db.Exec(ctx, query, clusterID, name)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to delete node group", err)
+	}
+	return nil
+}
+
 func (r *ClusterRepository) scanCluster(row pgx.Row) (*domain.Cluster, error) {
 	var c domain.Cluster
 	var status string
 	err := row.Scan(
-		&c.ID, &c.UserID, &c.VpcID, &c.Name, &c.Version, &status, &c.WorkerCount,
+		&c.ID, &c.UserID, &c.VpcID, &c.Name, &c.Version, &status, &c.ControlPlaneIPs, &c.WorkerCount,
 		&c.HAEnabled, &c.NetworkIsolation, &c.PodCIDR, &c.ServiceCIDR,
 		&c.APIServerLBAddress, &c.KubeconfigEncrypted, &c.SSHPrivateKeyEncrypted,
 		&c.JoinToken, &c.TokenExpiresAt, &c.CACertHash, &c.JobID, &c.CreatedAt, &c.UpdatedAt,

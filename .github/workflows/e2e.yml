@@ -95,7 +95,7 @@ jobs:
         env:
           # The tests run on the HOST, connecting to the API at localhost:8080
           # So we use the mapped DB port 5433 for direct DB tests if any
-          DATABASE_URL: postgres://cloud:cloud@localhost:5433/cloud?sslmode=disable
+          DATABASE_URL: postgres://cloud:cloud@127.0.0.1:5433/cloud?sslmode=disable
           TEST_DOCKER_NETWORK: cloud-network
           COMPOSE_PROJECT_NAME: thecloud-${{ github.run_id }}
         run: |

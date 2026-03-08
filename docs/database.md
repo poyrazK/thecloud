@@ -246,6 +246,47 @@ CREATE TABLE lb_targets (
 );
 ```
 
+#### `clusters` - Kubernetes Clusters
+```sql
+CREATE TABLE clusters (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    vpc_id UUID REFERENCES vpcs(id) ON DELETE SET NULL,
+    name VARCHAR(255) NOT NULL,
+    version VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    worker_count INT NOT NULL DEFAULT 2,
+    ha_enabled BOOLEAN DEFAULT FALSE,
+    network_isolation BOOLEAN DEFAULT FALSE,
+    pod_cidr VARCHAR(18),
+    service_cidr VARCHAR(18),
+    api_server_lb_address TEXT,
+    kubeconfig_encrypted TEXT,
+    ssh_private_key_encrypted TEXT,
+    join_token TEXT,
+    token_expires_at TIMESTAMPTZ,
+    ca_cert_hash TEXT,
+    job_id TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE cluster_node_groups (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    cluster_id UUID NOT NULL REFERENCES clusters(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    instance_type VARCHAR(50) NOT NULL,
+    min_size INTEGER NOT NULL DEFAULT 1,
+    max_size INTEGER NOT NULL DEFAULT 10,
+    current_size INTEGER NOT NULL DEFAULT 1,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(cluster_id, name)
+);
+
+CREATE INDEX idx_cluster_node_groups_cluster_id ON cluster_node_groups(cluster_id);
+```
+
 ### Auto-Scaling
 
 #### `scaling_groups` - Auto-Scaling Groups
@@ -307,7 +348,10 @@ CREATE TABLE databases (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     allocated_storage INT NOT NULL DEFAULT 10,
-    parameters JSONB DEFAULT '{}'::jsonb
+    parameters JSONB DEFAULT '{}'::jsonb,
+    pooling_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    pooling_port INT,
+    pooler_container_id VARCHAR(255)
 );
 ```
 
@@ -368,6 +412,43 @@ Users can enable native engine metrics by setting the `metrics_enabled` flag to 
 
 #### Scraping & Monitoring
 Once enabled, the exporter's port is mapped to a host port (available in the `metrics_port` field of the database object). These endpoints are automatically registered with the platform's central Prometheus instance for dashboarding and alerting.
+
+### Managed Database Connection Pooling
+
+The platform supports high-performance connection pooling via sidecar containers for PostgreSQL.
+
+#### Pooling Architecture
+When `pooling_enabled` is set to `true`, the service provisions a **PgBouncer** sidecar:
+1.  **Dedicated Instance**: Each database gets a private pooler instance.
+2.  **Transaction Mode**: Optimized for high-throughput, short-lived connections common in web applications.
+3.  **Automatic Routing**: The `GetConnectionString` API automatically returns the pooler's endpoint instead of the direct database port.
+
+#### Lifecycle & Configuration
+- **Support**: Currently exclusive to **PostgreSQL**.
+- **Dynamic Toggling**: Pooling can be enabled or disabled on an existing database via the `PATCH /databases/:id` endpoint.
+- **Sidecar Management**: When disabled, the pooler container is automatically terminated and cleaned up.
+- **Port Mapping**: The pooler's host port is stored in the `pooling_port` field.
+- **Defaults**:
+    - **Max Client Connections**: 1000
+    - **Default Pool Size**: 20
+    - **Pool Mode**: `transaction`
+    - **Image**: `edoburu/pgbouncer:latest`
+
+This ensures that applications can scale to hundreds of concurrent clients without exhausting the database engine's backend connection limit.
+
+### Managed Database Volume Expansion
+
+The platform supports dynamic storage scaling for managed database instances to accommodate data growth.
+
+#### Resizing Mechanism
+Users can increase the `allocated_storage` of an existing database via the `PATCH /databases/:id` endpoint.
+- **Support**: Available for both PostgreSQL and MySQL.
+- **Constraints**: Storage can only be increased; shrinking volumes is prohibited to prevent data loss.
+
+#### Implementation Details
+1.  **Storage Layer**: For LVM-backed instances, the system extends the logical volume and automatically grows the underlying filesystem (ext4 or XFS) using the `lvextend -r` command.
+2.  **Simulation Layer**: In Docker mode, resizing is simulated by updating the metadata and logging the action, as standard Docker volumes do not support native online resizing.
+3.  **Metadata Sync**: The database record is updated atomically upon successful storage expansion to ensure consistent reporting in the API and CLI.
 
 ### Database Replication
 
