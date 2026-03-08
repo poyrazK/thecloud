@@ -125,6 +125,8 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		mockRepo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 		mockEventSvc.On("RecordEvent", mock.Anything, "DATABASE_REPLICA_CREATE", mock.Anything, "DATABASE", mock.Anything).
 			Return(nil).Once()
+		mockAuditSvc.On("Log", mock.Anything, mock.Anything, "database.replica_create", "database", mock.Anything, mock.Anything).
+			Return(nil).Once()
 
 		replica, err := svc.CreateReplica(ctx, primaryID, "test-rep")
 		require.NoError(t, err)
@@ -219,6 +221,7 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).
 			Return("", nil, fmt.Errorf("launch failed")).Once()
 
+		mockSecrets.On("DeleteSecret", mock.Anything, mock.Anything).Return(nil).Once()
 		mockVolumeSvc.On("DeleteVolume", mock.Anything, volID.String()).Return(nil).Once()
 
 		db, err := svc.CreateDatabase(ctx, ports.CreateDatabaseRequest{
@@ -440,6 +443,7 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 
 		// Rollback expectations
 		mockCompute.On("DeleteInstance", mock.Anything, "db-cid").Return(nil).Once()
+		mockSecrets.On("DeleteSecret", mock.Anything, mock.Anything).Return(nil).Once()
 		mockVolumeSvc.On("DeleteVolume", mock.Anything, volID.String()).Return(nil).Once()
 
 		db, err := svc.CreateDatabase(ctx, ports.CreateDatabaseRequest{

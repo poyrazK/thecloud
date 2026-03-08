@@ -800,10 +800,18 @@ func (s *DatabaseService) initialDatabaseRecord(userID uuid.UUID, name string, e
 	}
 }
 
-func (s *DatabaseService) recordDatabaseCreation(ctx context.Context, userID uuid.UUID, db *domain.Database, originalEngine string) {
-	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_CREATE", db.ID.String(), "DATABASE", map[string]interface{}{"name": db.Name, "engine": db.Engine})
-	_ = s.auditSvc.Log(ctx, userID, "database.create", "database", db.ID.String(), map[string]interface{}{"name": db.Name, "engine": originalEngine})
-	platform.RDSInstancesTotal.WithLabelValues(originalEngine, "running").Inc()
+func (s *DatabaseService) recordDatabaseCreation(ctx context.Context, userID uuid.UUID, db *domain.Database, action string) {
+	_ = s.eventSvc.RecordEvent(ctx, action, db.ID.String(), "DATABASE", map[string]interface{}{"name": db.Name, "engine": db.Engine})
+	
+	auditAction := "database.create"
+	if action == "DATABASE_REPLICA_CREATE" {
+		auditAction = "database.replica_create"
+	} else if action == "DATABASE_RESTORE" {
+		auditAction = "database.restore"
+	}
+	
+	_ = s.auditSvc.Log(ctx, userID, auditAction, "database", db.ID.String(), map[string]interface{}{"name": db.Name, "engine": string(db.Engine)})
+	platform.RDSInstancesTotal.WithLabelValues(string(db.Engine), "running").Inc()
 }
 
 func (s *DatabaseService) getVolumeForDatabase(ctx context.Context, db *domain.Database) (*domain.Volume, error) {
