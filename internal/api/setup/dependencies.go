@@ -2,6 +2,7 @@
 package setup
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 
