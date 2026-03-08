@@ -90,7 +90,7 @@ func (m *mockStorageRepo) ListParts(ctx context.Context, uploadID uuid.UUID) ([]
 
 type mockStorageSvc struct{ mock.Mock }
 
-func (m *mockStorageSvc) Upload(ctx context.Context, bucket, key string, r io.Reader) (*domain.Object, error) {
+func (m *mockStorageSvc) Upload(ctx context.Context, bucket, key string, r io.Reader, providedChecksum string) (*domain.Object, error) {
 	return nil, nil
 }
 func (m *mockStorageSvc) Download(ctx context.Context, bucket, key string) (io.ReadCloser, *domain.Object, error) {
@@ -131,7 +131,7 @@ func (m *mockStorageSvc) GetClusterStatus(ctx context.Context) (*domain.StorageC
 func (m *mockStorageSvc) CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error) {
 	return nil, nil
 }
-func (m *mockStorageSvc) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
+func (m *mockStorageSvc) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader, providedChecksum string) (*domain.Part, error) {
 	return nil, nil
 }
 func (m *mockStorageSvc) CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error) {

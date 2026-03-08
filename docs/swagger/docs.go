@@ -5707,6 +5707,12 @@ const docTemplate = `{
                         "name": "file",
                         "in": "formData",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "SHA-256 checksum of the content",
+                        "name": "X-Content-Sha256",
+                        "in": "header"
                     }
                 ],
                 "responses": {

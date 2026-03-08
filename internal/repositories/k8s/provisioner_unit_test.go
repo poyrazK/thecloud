@@ -55,7 +55,7 @@ func (m *mockSGSvc) DetachFromInstance(ctx context.Context, instID, sgID uuid.UU
 
 type mockStorageSvc struct{ mock.Mock }
 
-func (m *mockStorageSvc) Upload(ctx context.Context, b, k string, r io.Reader) (*domain.Object, error) {
+func (m *mockStorageSvc) Upload(ctx context.Context, b, k string, r io.Reader, providedChecksum string) (*domain.Object, error) {
 	return nil, nil
 }
 func (m *mockStorageSvc) Download(ctx context.Context, b, k string) (io.ReadCloser, *domain.Object, error) {
@@ -87,7 +87,7 @@ func (m *mockStorageSvc) GetClusterStatus(ctx context.Context) (*domain.StorageC
 func (m *mockStorageSvc) CreateMultipartUpload(ctx context.Context, b, k string) (*domain.MultipartUpload, error) {
 	return nil, nil
 }
-func (m *mockStorageSvc) UploadPart(ctx context.Context, u uuid.UUID, n int, r io.Reader) (*domain.Part, error) {
+func (m *mockStorageSvc) UploadPart(ctx context.Context, u uuid.UUID, n int, r io.Reader, providedChecksum string) (*domain.Part, error) {
 	return nil, nil
 }
 func (m *mockStorageSvc) CompleteMultipartUpload(ctx context.Context, u uuid.UUID) (*domain.Object, error) {

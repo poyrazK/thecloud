@@ -32,7 +32,7 @@ func (f *fakeStorageService) StatusCalls() int {
 	return f.statusCalls
 }
 
-func (f *fakeStorageService) Upload(ctx context.Context, bucket, key string, r io.Reader) (*domain.Object, error) {
+func (f *fakeStorageService) Upload(ctx context.Context, bucket, key string, r io.Reader, providedChecksum string) (*domain.Object, error) {
 	return nil, nil
 }
 func (f *fakeStorageService) Download(ctx context.Context, bucket, key string) (io.ReadCloser, *domain.Object, error) {
@@ -71,7 +71,7 @@ func (f *fakeStorageService) SetBucketVersioning(ctx context.Context, name strin
 func (f *fakeStorageService) CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error) {
 	return nil, nil
 }
-func (f *fakeStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
+func (f *fakeStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader, providedChecksum string) (*domain.Part, error) {
 	return nil, nil
 }
 func (f *fakeStorageService) CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error) {

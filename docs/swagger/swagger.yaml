@@ -5457,6 +5457,10 @@ paths:
         name: file
         required: true
         type: file
+      - description: SHA-256 checksum of the content
+        in: header
+        name: X-Content-Sha256
+        type: string
       produces:
       - application/json
       responses:
