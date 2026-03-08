@@ -171,12 +171,13 @@ func TestAutoscalerServer_NodeGroupDeleteNodes(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			if r.Method == "GET" {
+			switch r.Method {
+			case "GET":
 				fmt.Fprintf(w, `{"data": {"id": "%s", "status": "RUNNING", "node_groups": [{"name": "pool-1", "current_size": 2}]}}`, clusterID)
-			} else if r.Method == "DELETE" {
+			case "DELETE":
 				w.WriteHeader(http.StatusOK)
 				fmt.Fprint(w, `{"data": {}}`)
-			} else if r.Method == "PUT" {
+			case "PUT":
 				w.WriteHeader(http.StatusOK)
 				fmt.Fprint(w, `{"data": {}}`)
 			}
