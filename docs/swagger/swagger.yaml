@@ -797,6 +797,12 @@ definitions:
         type: string
       bucket:
         type: string
+      checksum:
+        description: Checksum is the SHA-256 hash of the object content.
+        example: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        maxLength: 64
+        minLength: 64
+        type: string
       content_type:
         type: string
       created_at:
@@ -811,6 +817,10 @@ definitions:
         type: string
       size_bytes:
         type: integer
+      upload_status:
+        allOf:
+        - $ref: '#/definitions/domain.UploadStatus'
+        example: AVAILABLE
       user_id:
         type: string
       version_id:
@@ -1447,6 +1457,14 @@ definitions:
       updated_at:
         type: string
     type: object
+  domain.UploadStatus:
+    enum:
+    - PENDING
+    - AVAILABLE
+    type: string
+    x-enum-varnames:
+    - UploadStatusPending
+    - UploadStatusAvailable
   domain.UsageRecord:
     properties:
       end_time:
@@ -5677,6 +5695,10 @@ paths:
         name: file
         required: true
         type: file
+      - description: SHA-256 checksum of the content
+        in: header
+        name: X-Content-Sha256
+        type: string
       produces:
       - application/json
       responses:

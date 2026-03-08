@@ -5987,6 +5987,12 @@ const docTemplate = `{
                         "name": "file",
                         "in": "formData",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "SHA-256 checksum of the content",
+                        "name": "X-Content-Sha256",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -8097,6 +8103,13 @@ const docTemplate = `{
                 "bucket": {
                     "type": "string"
                 },
+                "checksum": {
+                    "description": "Checksum is the SHA-256 hash of the object content.",
+                    "type": "string",
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "example": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                },
                 "content_type": {
                     "type": "string"
                 },
@@ -8117,6 +8130,14 @@ const docTemplate = `{
                 },
                 "size_bytes": {
                     "type": "integer"
+                },
+                "upload_status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/domain.UploadStatus"
+                        }
+                    ],
+                    "example": "AVAILABLE"
                 },
                 "user_id": {
                     "type": "string"
@@ -8948,6 +8969,17 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "domain.UploadStatus": {
+            "type": "string",
+            "enum": [
+                "PENDING",
+                "AVAILABLE"
+            ],
+            "x-enum-varnames": [
+                "UploadStatusPending",
+                "UploadStatusAvailable"
+            ]
         },
         "domain.UsageRecord": {
             "type": "object",

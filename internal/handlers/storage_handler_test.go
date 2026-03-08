@@ -24,8 +24,8 @@ type mockStorageService struct {
 	mock.Mock
 }
 
-func (m *mockStorageService) Upload(ctx context.Context, bucket, key string, r io.Reader) (*domain.Object, error) {
-	args := m.Called(ctx, bucket, key, r)
+func (m *mockStorageService) Upload(ctx context.Context, bucket, key string, r io.Reader, providedChecksum string) (*domain.Object, error) {
+	args := m.Called(ctx, bucket, key, r, providedChecksum)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -123,8 +123,8 @@ func (m *mockStorageService) CreateMultipartUpload(ctx context.Context, bucket, 
 	return r0, args.Error(1)
 }
 
-func (m *mockStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
-	args := m.Called(ctx, uploadID, partNumber, r)
+func (m *mockStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader, providedChecksum string) (*domain.Part, error) {
+	args := m.Called(ctx, uploadID, partNumber, r, providedChecksum)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -147,6 +147,11 @@ func (m *mockStorageService) AbortMultipartUpload(ctx context.Context, uploadID 
 
 func (m *mockStorageService) CleanupDeleted(ctx context.Context, limit int) (int, error) {
 	args := m.Called(ctx, limit)
+	return args.Int(0), args.Error(1)
+}
+
+func (m *mockStorageService) CleanupPendingUploads(ctx context.Context, olderThan time.Duration, limit int) (int, error) {
+	args := m.Called(ctx, olderThan, limit)
 	return args.Int(0), args.Error(1)
 }
 
@@ -251,15 +256,27 @@ func TestStorageHandlerUpload(t *testing.T) {
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.PUT(bucketKeyPath, handler.Upload)
 
-	obj := &domain.Object{Key: testTxtKey}
-	mockSvc.On("Upload", mock.Anything, "b1", testTxtPath, mock.Anything).Return(obj, nil)
+	t.Run("Success without Checksum", func(t *testing.T) {
+		obj := &domain.Object{Key: testTxtKey}
+		mockSvc.On("Upload", mock.Anything, "b1", testTxtPath, mock.Anything, "").Return(obj, nil).Once()
 
-	req := httptest.NewRequest(http.MethodPut, testTxtFullURL, strings.NewReader("hello"))
-	w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPut, testTxtFullURL, strings.NewReader("hello"))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusCreated, w.Code)
+	})
 
-	r.ServeHTTP(w, req)
+	t.Run("Success with Checksum", func(t *testing.T) {
+		checksum := "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+		obj := &domain.Object{Key: testTxtKey, Checksum: checksum}
+		mockSvc.On("Upload", mock.Anything, "b1", testTxtPath, mock.Anything, checksum).Return(obj, nil).Once()
 
-	assert.Equal(t, http.StatusCreated, w.Code)
+		req := httptest.NewRequest(http.MethodPut, testTxtFullURL, strings.NewReader("hello"))
+		req.Header.Set("X-Content-Sha256", checksum)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusCreated, w.Code)
+	})
 }
 
 func TestStorageHandlerList(t *testing.T) {
@@ -377,7 +394,7 @@ func TestStorageHandlerMultipartUpload(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, w.Code)
 
 	// Upload Part
-	mockSvc.On("UploadPart", mock.Anything, uploadID, 1, mock.Anything).Return(&domain.Part{PartNumber: 1}, nil)
+	mockSvc.On("UploadPart", mock.Anything, uploadID, 1, mock.Anything, "").Return(&domain.Part{PartNumber: 1}, nil)
 	req = httptest.NewRequest(http.MethodPut, "/storage/multipart/upload/"+uploadID.String()+"/parts?part=1", strings.NewReader("data"))
 	w = httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -467,7 +484,7 @@ func TestStorageHandlerPresignedUpload(t *testing.T) {
 	u, _ := url.Parse(signedURL)
 
 	obj := &domain.Object{Key: testTxtKey}
-	mockSvc.On("Upload", mock.Anything, "b1", testTxtPath, mock.Anything).Return(obj, nil)
+	mockSvc.On("Upload", mock.Anything, "b1", testTxtPath, mock.Anything, "").Return(obj, nil)
 
 	req := httptest.NewRequest(http.MethodPut, u.String(), strings.NewReader("uploaded content"))
 	w := httptest.NewRecorder()
@@ -481,7 +498,7 @@ func TestStorageHandlerUploadError(t *testing.T) {
 	mockSvc, handler, r := setupStorageHandlerTest()
 	r.PUT(bucketKeyPath, handler.Upload)
 
-	mockSvc.On("Upload", mock.Anything, "b1", testTxtPath, mock.Anything).Return(nil, errors.New(errors.Internal, "upload failed"))
+	mockSvc.On("Upload", mock.Anything, "b1", testTxtPath, mock.Anything, "").Return(nil, errors.New(errors.Internal, "upload failed"))
 
 	req := httptest.NewRequest(http.MethodPut, testTxtFullURL, strings.NewReader("hello"))
 	w := httptest.NewRecorder()
@@ -581,7 +598,7 @@ func TestStorageHandlerMultipartErrors(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 
 	// Upload Part Error
-	mockSvc.On("UploadPart", mock.Anything, uploadID, 1, mock.Anything).Return(nil, errors.New(errors.Internal, "part failed"))
+	mockSvc.On("UploadPart", mock.Anything, uploadID, 1, mock.Anything, "").Return(nil, errors.New(errors.Internal, "part failed"))
 	req = httptest.NewRequest(http.MethodPut, "/storage/multipart/upload/"+uploadID.String()+"/parts?part=1", strings.NewReader("data"))
 	w = httptest.NewRecorder()
 	r.ServeHTTP(w, req)

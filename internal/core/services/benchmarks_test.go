@@ -319,8 +319,14 @@ func BenchmarkStorageServiceList(b *testing.B) {
 	repo := &noop.NoopStorageRepository{}
 	fileStore := &noop.NoopFileStore{}
 	auditSvc := &noop.NoopAuditService{}
+	logger := slog.Default()
 
-	svc := services.NewStorageService(repo, fileStore, auditSvc, nil, nil)
+	svc := services.NewStorageService(services.StorageServiceParams{
+		Repo:     repo,
+		Store:    fileStore,
+		AuditSvc: auditSvc,
+		Logger:   logger,
+	})
 
 	ctx := context.Background()
 

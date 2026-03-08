@@ -67,7 +67,12 @@ func TestK8sProvisionerLifecycle(t *testing.T) {
 
 	// Core Services
 	sgSvc := services.NewSecurityGroupService(sgRepo, vpcRepo, netBackend, auditSvc, logger)
-	storageSvc := services.NewStorageService(storageRepo, nil, auditSvc, nil, &platform.Config{})
+	storageSvc := services.NewStorageService(services.StorageServiceParams{
+		Repo:     storageRepo,
+		AuditSvc: auditSvc,
+		CFG:      &platform.Config{},
+		Logger:   logger,
+	})
 	lbSvc := services.NewLBService(lbRepo, vpcRepo, instanceRepo, auditSvc)
 
 	// InstanceService: The real one!

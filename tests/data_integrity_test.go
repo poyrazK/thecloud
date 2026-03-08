@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/poyrazk/thecloud/pkg/crypto"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -127,5 +128,38 @@ func TestDataIntegrity(t *testing.T) {
 		resp = getRequest(t, client, vpcPath, token)
 		_ = resp.Body.Close()
 		assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+	})
+
+	t.Run("Storage Checksum Verification", func(t *testing.T) {
+		bucketName := fmt.Sprintf("integrity-bucket-%d", time.Now().UnixNano()%10000)
+		key := "integrity-check.dat"
+		content := "this content must remain intact"
+		expectedChecksum := crypto.ComputeSHA256([]byte(content))
+
+		// 1. Create bucket
+		payload := map[string]interface{}{"name": bucketName, "is_public": false}
+		resp := postRequest(t, client, testutil.TestBaseURL+"/storage/buckets", token, payload)
+		defer func() { _ = resp.Body.Close() }()
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+		// 2. Upload with correct checksum
+		req, _ := http.NewRequest("PUT", fmt.Sprintf("%s/storage/%s/%s", testutil.TestBaseURL, bucketName, key), bytes.NewBufferString(content))
+		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		req.Header.Set("X-Content-Sha256", expectedChecksum)
+		applyTenantHeader(t, req, token)
+		resp, err := client.Do(req)
+		require.NoError(t, err)
+		_ = resp.Body.Close()
+		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+
+		// 3. Upload with mismatching checksum
+		req, _ = http.NewRequest("PUT", fmt.Sprintf("%s/storage/%s/%s", testutil.TestBaseURL, bucketName, key+"-mismatch"), bytes.NewBufferString(content))
+		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		req.Header.Set("X-Content-Sha256", "wrong-checksum")
+		applyTenantHeader(t, req, token)
+		resp, err = client.Do(req)
+		require.NoError(t, err)
+		_ = resp.Body.Close()
+		assert.Equal(t, http.StatusConflict, resp.StatusCode)
 	})
 }
