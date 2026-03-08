@@ -27,7 +27,7 @@ func TestAdapter(t *testing.T) {
 					},
 				}
 				if err := json.NewEncoder(w).Encode(resp); err != nil {
-					t.Errorf("json encode failed: %v", err)
+					t.Fatalf("json encode failed: %v", err)
 				}
 			case http.MethodPost, http.MethodPut:
 				// Verify KV v2 wrap
@@ -50,7 +50,7 @@ func TestAdapter(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			resp := map[string]interface{}{"initialized": true, "sealed": false}
 			if err := json.NewEncoder(w).Encode(resp); err != nil {
-				t.Errorf("json encode failed: %v", err)
+				t.Fatalf("json encode failed: %v", err)
 			}
 		default:
 			w.WriteHeader(http.StatusNotFound)
@@ -64,8 +64,8 @@ func TestAdapter(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name    string
-		fn      func(t *testing.T)
+		name string
+		fn   func(t *testing.T)
 	}{
 		{
 			name: "StoreSecret",

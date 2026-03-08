@@ -675,12 +675,6 @@ func (s *DatabaseService) performProvisioningRollback(ctx context.Context, db *d
 	return nil, err
 }
 
-func (s *DatabaseService) cleanupVolumeQuietly(ctx context.Context, volID string) {
-	if err := s.volumeSvc.DeleteVolume(ctx, volID); err != nil {
-		s.logger.Warn("failed to delete volume during cleanup", "volume_id", volID, "error", err)
-	}
-}
-
 func (s *DatabaseService) getBackendVolName(vol *domain.Volume) string {
 	if vol.BackendPath != "" {
 		return vol.BackendPath
