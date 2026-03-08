@@ -120,6 +120,6 @@ func TestFailCluster(t *testing.T) {
 	})).Return(nil).Once()
 
 	err := p.failCluster(ctx, cluster, "test error", fmt.Errorf("underlying"))
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "test error")
 }
