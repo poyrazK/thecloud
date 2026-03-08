@@ -804,9 +804,10 @@ func (s *DatabaseService) recordDatabaseCreation(ctx context.Context, userID uui
 	_ = s.eventSvc.RecordEvent(ctx, action, db.ID.String(), "DATABASE", map[string]interface{}{"name": db.Name, "engine": db.Engine})
 	
 	auditAction := "database.create"
-	if action == "DATABASE_REPLICA_CREATE" {
+	switch action {
+	case "DATABASE_REPLICA_CREATE":
 		auditAction = "database.replica_create"
-	} else if action == "DATABASE_RESTORE" {
+	case "DATABASE_RESTORE":
 		auditAction = "database.restore"
 	}
 	
