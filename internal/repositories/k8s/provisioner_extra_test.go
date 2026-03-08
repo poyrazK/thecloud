@@ -123,3 +123,55 @@ func TestFailCluster(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "test error")
 }
+
+func TestDeprovision(t *testing.T) {
+	ctx := context.Background()
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, Name: "test-cluster"}
+	
+	t.Run("Success_With_HA", func(t *testing.T) {
+		instSvc := new(mockInstanceService)
+		repo := new(mockClusterRepo)
+		lbSvc := new(mockLBService)
+		logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+		
+		p := &KubeadmProvisioner{
+			instSvc: instSvc,
+			repo:    repo,
+			lbSvc:   lbSvc,
+			logger:  logger,
+		}
+		
+		cluster.HAEnabled = true
+		cluster.VpcID = uuid.New()
+		
+		node1 := &domain.ClusterNode{ID: uuid.New(), InstanceID: uuid.New()}
+		repo.On("GetNodes", ctx, clusterID).Return([]*domain.ClusterNode{node1}, nil).Once()
+		instSvc.On("TerminateInstance", ctx, node1.InstanceID.String()).Return(nil).Once()
+		repo.On("DeleteNode", ctx, node1.ID).Return(nil).Once()
+		
+		lbName := fmt.Sprintf("lb-k8s-%s", cluster.Name)
+		lb1 := &domain.LoadBalancer{ID: uuid.New(), Name: lbName, VpcID: cluster.VpcID}
+		lbSvc.On("List", ctx).Return([]*domain.LoadBalancer{lb1}, nil).Once()
+		lbSvc.On("Delete", ctx, lb1.ID.String()).Return(nil).Once()
+		
+		err := p.Deprovision(ctx, cluster)
+		require.NoError(t, err)
+	})
+}
+
+func TestGetExecutor_FailPaths(t *testing.T) {
+	ctx := context.Background()
+	cluster := &domain.Cluster{UserID: uuid.New(), SSHPrivateKeyEncrypted: ""}
+	
+	t.Run("No_SSH_Key", func(t *testing.T) {
+		instSvc := new(mockInstanceService)
+		p := &KubeadmProvisioner{instSvc: instSvc}
+		
+		instSvc.On("ListInstances", ctx).Return([]*domain.Instance{}, nil).Once()
+		
+		_, err := p.getExecutor(ctx, cluster, "10.0.0.1")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no SSH key found")
+	})
+}

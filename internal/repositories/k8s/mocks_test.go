@@ -58,6 +58,11 @@ func (m *mockInstanceService) GetConsoleURL(ctx context.Context, idOrName string
 	return "", nil
 }
 func (m *mockInstanceService) TerminateInstance(ctx context.Context, idOrName string) error {
+	for _, call := range m.ExpectedCalls {
+		if call.Method == "TerminateInstance" {
+			return m.Called(ctx, idOrName).Error(0)
+		}
+	}
 	return nil
 }
 func (m *mockInstanceService) Exec(ctx context.Context, idOrName string, cmd []string) (string, error) {
@@ -86,7 +91,6 @@ func (m *mockClusterRepo) ListAll(ctx context.Context) ([]*domain.Cluster, error
 	return nil, nil
 }
 func (m *mockClusterRepo) Update(ctx context.Context, c *domain.Cluster) error {
-	// Only call mock.Called if we have expectations for it to avoid breaking existing tests
 	for _, call := range m.ExpectedCalls {
 		if call.Method == "Update" {
 			return m.Called(ctx, c).Error(0)
@@ -104,7 +108,14 @@ func (m *mockClusterRepo) GetNodes(ctx context.Context, clusterID uuid.UUID) ([]
 	r0, _ := args.Get(0).([]*domain.ClusterNode)
 	return r0, args.Error(1)
 }
-func (m *mockClusterRepo) DeleteNode(ctx context.Context, nodeID uuid.UUID) error      { return nil }
+func (m *mockClusterRepo) DeleteNode(ctx context.Context, nodeID uuid.UUID) error {
+	for _, call := range m.ExpectedCalls {
+		if call.Method == "DeleteNode" {
+			return m.Called(ctx, nodeID).Error(0)
+		}
+	}
+	return nil
+}
 func (m *mockClusterRepo) UpdateNode(ctx context.Context, n *domain.ClusterNode) error { return nil }
 
 func (m *mockClusterRepo) AddNodeGroup(ctx context.Context, ng *domain.NodeGroup) error { return nil }
@@ -140,4 +151,32 @@ func (m *mockSecretService) Encrypt(ctx context.Context, userID uuid.UUID, plain
 func (m *mockSecretService) Decrypt(ctx context.Context, userID uuid.UUID, cipher string) (string, error) {
 	args := m.Called(ctx, userID, cipher)
 	return args.String(0), args.Error(1)
+}
+
+type mockLBService struct{ mock.Mock }
+
+func (m *mockLBService) Create(ctx context.Context, name string, vpcID uuid.UUID, port int, algo string, idempotencyKey string) (*domain.LoadBalancer, error) {
+	return nil, nil
+}
+func (m *mockLBService) Get(ctx context.Context, idOrName string) (*domain.LoadBalancer, error) {
+	return nil, nil
+}
+func (m *mockLBService) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.LoadBalancer), args.Error(1)
+}
+func (m *mockLBService) Delete(ctx context.Context, idOrName string) error {
+	return m.Called(ctx, idOrName).Error(0)
+}
+func (m *mockLBService) AddTarget(ctx context.Context, lbID, instanceID uuid.UUID, port int, weight int) error {
+	return nil
+}
+func (m *mockLBService) RemoveTarget(ctx context.Context, lbID, instanceID uuid.UUID) error {
+	return nil
+}
+func (m *mockLBService) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*domain.LBTarget, error) {
+	return nil, nil
 }
