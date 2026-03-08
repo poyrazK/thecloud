@@ -162,7 +162,7 @@ func TestStorageRepositoryGetMeta(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, checksum, upload_status, created_at, deleted_at FROM objects").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE\\(checksum, ''\\), upload_status, created_at, deleted_at FROM objects").
 			WithArgs("mybucket", "mykey", userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "checksum", "upload_status", "created_at", "deleted_at"}).
 				AddRow(id, userID, "arn", "mybucket", "mykey", "v1", true, int64(1024), "text/plain", dummyChecksum, domain.UploadStatusAvailable, now, nil))
@@ -182,7 +182,7 @@ func TestStorageRepositoryGetMeta(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, checksum, upload_status, created_at, deleted_at FROM objects").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE\\(checksum, ''\\), upload_status, created_at, deleted_at FROM objects").
 			WithArgs("mybucket", "mykey", userID).
 			WillReturnError(pgx.ErrNoRows)
 
@@ -205,7 +205,7 @@ func TestStorageRepositoryGetMeta(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, checksum, upload_status, created_at, deleted_at FROM objects").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE\\(checksum, ''\\), upload_status, created_at, deleted_at FROM objects").
 			WithArgs("mybucket", "mykey", userID).
 			WillReturnError(errors.New("db error"))
 
@@ -226,7 +226,7 @@ func TestStorageRepositoryList(t *testing.T) {
 		ctx := appcontext.WithUserID(context.Background(), userID)
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, checksum, upload_status, created_at, deleted_at FROM objects").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE\\(checksum, ''\\), upload_status, created_at, deleted_at FROM objects").
 			WithArgs("mybucket", userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "checksum", "upload_status", "created_at", "deleted_at"}).
 				AddRow(uuid.New(), userID, "arn", "mybucket", "mykey", "v1", true, int64(1024), "text/plain", dummyChecksum, domain.UploadStatusAvailable, now, nil))
@@ -245,7 +245,7 @@ func TestStorageRepositoryList(t *testing.T) {
 		userID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
 
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, checksum, upload_status, created_at, deleted_at FROM objects").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE\\(checksum, ''\\), upload_status, created_at, deleted_at FROM objects").
 			WithArgs("mybucket", userID).
 			WillReturnError(errors.New("db error"))
 

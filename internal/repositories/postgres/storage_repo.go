@@ -65,7 +65,7 @@ func (r *StorageRepository) SaveMeta(ctx context.Context, obj *domain.Object) er
 func (r *StorageRepository) GetMeta(ctx context.Context, bucket, key string) (*domain.Object, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, checksum, upload_status, created_at, deleted_at
+		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE(checksum, ''), upload_status, created_at, deleted_at
 		FROM objects
 		WHERE bucket = $1 AND key = $2 AND deleted_at IS NULL AND user_id = $3 AND is_latest = TRUE AND upload_status = 'AVAILABLE'
 	`
@@ -88,7 +88,7 @@ func (r *StorageRepository) DeleteVersion(ctx context.Context, bucket, key, vers
 func (r *StorageRepository) GetMetaByVersion(ctx context.Context, bucket, key, versionID string) (*domain.Object, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, checksum, upload_status, created_at, deleted_at
+		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE(checksum, ''), upload_status, created_at, deleted_at
 		FROM objects
 		WHERE bucket = $1 AND key = $2 AND version_id = $3 AND deleted_at IS NULL AND user_id = $4 AND upload_status = 'AVAILABLE'
 	`
@@ -98,7 +98,7 @@ func (r *StorageRepository) GetMetaByVersion(ctx context.Context, bucket, key, v
 func (r *StorageRepository) List(ctx context.Context, bucket string) ([]*domain.Object, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, checksum, upload_status, created_at, deleted_at
+		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE(checksum, ''), upload_status, created_at, deleted_at
 		FROM objects
 		WHERE bucket = $1 AND deleted_at IS NULL AND user_id = $2 AND is_latest = TRUE AND upload_status = 'AVAILABLE'
 		ORDER BY created_at DESC
@@ -113,7 +113,7 @@ func (r *StorageRepository) List(ctx context.Context, bucket string) ([]*domain.
 func (r *StorageRepository) ListVersions(ctx context.Context, bucket, key string) ([]*domain.Object, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, checksum, upload_status, created_at, deleted_at
+		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE(checksum, ''), upload_status, created_at, deleted_at
 		FROM objects
 		WHERE bucket = $1 AND key = $2 AND deleted_at IS NULL AND user_id = $3 AND upload_status = 'AVAILABLE'
 		ORDER BY created_at DESC
@@ -127,7 +127,7 @@ func (r *StorageRepository) ListVersions(ctx context.Context, bucket, key string
 
 func (r *StorageRepository) ListDeleted(ctx context.Context, limit int) ([]*domain.Object, error) {
 	query := `
-		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, checksum, upload_status, created_at, deleted_at
+		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE(checksum, ''), upload_status, created_at, deleted_at
 		FROM objects
 		WHERE deleted_at IS NOT NULL
 		ORDER BY deleted_at ASC
@@ -151,7 +151,7 @@ func (r *StorageRepository) HardDelete(ctx context.Context, bucket, key, version
 
 func (r *StorageRepository) ListPending(ctx context.Context, olderThan time.Time, limit int) ([]*domain.Object, error) {
 	query := `
-		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, checksum, upload_status, created_at, deleted_at
+		SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE(checksum, ''), upload_status, created_at, deleted_at
 		FROM objects
 		WHERE upload_status = 'PENDING' AND created_at < $1
 		ORDER BY created_at ASC, id ASC
@@ -166,18 +166,14 @@ func (r *StorageRepository) ListPending(ctx context.Context, olderThan time.Time
 
 func (r *StorageRepository) scanObject(row pgx.Row) (*domain.Object, error) {
 	var obj domain.Object
-	var checksum *string
 	err := row.Scan(
-		&obj.ID, &obj.UserID, &obj.ARN, &obj.Bucket, &obj.Key, &obj.VersionID, &obj.IsLatest, &obj.SizeBytes, &obj.ContentType, &checksum, &obj.UploadStatus, &obj.CreatedAt, &obj.DeletedAt,
+		&obj.ID, &obj.UserID, &obj.ARN, &obj.Bucket, &obj.Key, &obj.VersionID, &obj.IsLatest, &obj.SizeBytes, &obj.ContentType, &obj.Checksum, &obj.UploadStatus, &obj.CreatedAt, &obj.DeletedAt,
 	)
 	if err != nil {
 		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.ObjectNotFound, "object metadata not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to scan object metadata", err)
-	}
-	if checksum != nil {
-		obj.Checksum = *checksum
 	}
 	return &obj, nil
 }
