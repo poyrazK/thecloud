@@ -599,6 +599,16 @@ Regenerate the database password and update it in both the database engine and V
 - **Security**: Ensures credentials are never stored in plain text in the primary metadata store.
 - **Workflow**: Automated update of database users and sidecar (pooler) reloads.
 
+**Response Example**:
+```json
+{
+  "message": "database credentials rotated successfully",
+  "data": {
+    "message": "database credentials rotated successfully"
+  }
+}
+```
+
 ---
 
 ## Global Load Balancers 🆕

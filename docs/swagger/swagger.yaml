@@ -241,8 +241,6 @@ definitions:
         type: string
       created_at:
         type: string
-      credential_path:
-        type: string
       engine:
         $ref: '#/definitions/domain.DatabaseEngine'
       id:
@@ -2958,15 +2956,17 @@ paths:
         name: id
         required: true
         type: string
+      - description: Idempotency key to prevent duplicate rotations
+        in: header
+        name: Idempotency-Key
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/httputil.Response'
       security:
       - APIKeyAuth: []
       summary: Rotate database credentials

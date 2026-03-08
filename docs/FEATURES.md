@@ -124,7 +124,7 @@ This document provides a comprehensive overview of every feature currently imple
 - **Automated Failover**: A dedicated `DatabaseFailoverWorker` performs periodic TCP health checks on primary instances. If a primary becomes unreachable, the worker automatically selects and promotes the most suitable replica to the primary role.
 - **Manual Promotion**: API support for manually promoting a replica to primary status for maintenance or planned transitions.
 - **Security & Vault Integration 🆕**: Integrated with **HashiCorp Vault** for secure credential management. Database passwords are saved in Vault's KV v2 engine, and the metadata store only keeps a reference path.
-- **Credential Rotation 🆕**: Support for automated password rotation. The system regenerates secure passwords, updates Vault, and executes `ALTER USER` commands inside the database container. Sidecars are automatically reloaded.
+- **Credential Rotation 🆕**: Support for automated password rotation. The system regenerates secure passwords, executes `ALTER USER` commands inside the database container, and updates Vault on success. If present, the **PgBouncer** sidecar is automatically restarted to apply new credentials. Note: Exporter sidecars are not reloaded, and rotation is not fully atomic across DB and Vault.
 - **Credentials**: Auto-generates secure passwords (16-char random) and default usernames.
 - **VPC Integration**: Databases can be deployed into specific VPCs for network isolation.
 - **Connection Strings**: `GetConnectionString()` API returns ready-to-use connection URLs, automatically routing through the connection pooler when enabled.

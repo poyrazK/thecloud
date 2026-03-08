@@ -68,7 +68,7 @@ Promote a replica to become a standalone primary:
 cloud db promote <replica-id>
 ```
 
-### 5. Delete a Database
+### 6. Delete a Database
 
 ```bash
 cloud db rm <id>
