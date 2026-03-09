@@ -562,6 +562,49 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/me": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Returns the profile of the currently authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Get current user info",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httputil.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.User"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/register": {
             "post": {
                 "description": "Create a new account on The Cloud",
@@ -965,6 +1008,11 @@ const docTemplate = `{
         },
         "/clusters": {
             "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Returns all clusters belonging to the user",
                 "produces": [
                     "application/json"
@@ -986,6 +1034,11 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Provisions a new Kubernetes cluster using kubeadm",
                 "consumes": [
                     "application/json"
@@ -1020,6 +1073,11 @@ const docTemplate = `{
         },
         "/clusters/{id}": {
             "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Returns cluster metadata and current status",
                 "produces": [
                     "application/json"
@@ -1047,6 +1105,11 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Terminates all nodes and removes the cluster record",
                 "tags": [
                     "K8s"
@@ -1070,6 +1133,11 @@ const docTemplate = `{
         },
         "/clusters/{id}/backups": {
             "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Creates an etcd snapshot of the cluster state",
                 "tags": [
                     "K8s"
@@ -1093,6 +1161,11 @@ const docTemplate = `{
         },
         "/clusters/{id}/health": {
             "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Returns readiness of nodes and API server",
                 "produces": [
                     "application/json"
@@ -1122,6 +1195,11 @@ const docTemplate = `{
         },
         "/clusters/{id}/kubeconfig": {
             "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Returns the kubeconfig for clinical access to the cluster",
                 "produces": [
                     "text/plain"
@@ -1155,8 +1233,193 @@ const docTemplate = `{
                 }
             }
         },
+        "/clusters/{id}/nodegroups": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Creates a new pool of worker nodes",
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "Add a node group to a cluster",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Node Group details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.NodeGroupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.NodeGroup"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/clusters/{id}/nodegroups/{name}": {
+            "put": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Modifies scaling boundaries or desired size of a node pool",
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "Update a node group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Node Group Name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.UpdateNodeGroupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.NodeGroup"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Removes a node pool and terminates its nodes",
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "Delete a node group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Node Group Name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/clusters/{id}/repair": {
             "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Re-applies CNI and kube-proxy patches to a running cluster",
                 "tags": [
                     "K8s"
@@ -1180,6 +1443,11 @@ const docTemplate = `{
         },
         "/clusters/{id}/restore": {
             "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Restores the etcd state from a specified snapshot path",
                 "tags": [
                     "K8s"
@@ -1212,6 +1480,11 @@ const docTemplate = `{
         },
         "/clusters/{id}/rotate-secrets": {
             "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Renews cluster certificates and refreshes admin kubeconfig",
                 "tags": [
                     "K8s"
@@ -1234,7 +1507,12 @@ const docTemplate = `{
             }
         },
         "/clusters/{id}/scale": {
-            "post": {
+            "put": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Adjusts the number of worker nodes",
                 "tags": [
                     "K8s"
@@ -1267,6 +1545,11 @@ const docTemplate = `{
         },
         "/clusters/{id}/upgrade": {
             "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
                 "description": "Initiates an asynchronous upgrade of the Kubernetes control plane and workers",
                 "tags": [
                     "K8s"
@@ -1293,6 +1576,165 @@ const docTemplate = `{
                 "responses": {
                     "202": {
                         "description": "Accepted"
+                    }
+                }
+            }
+        },
+        "/containers/deployments/{id}/scale": {
+            "put": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Adjusts the number of replicas for a container deployment",
+                "tags": [
+                    "containers"
+                ],
+                "summary": "Scale a deployment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Scale details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.ScaleDeploymentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/databases/restore": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Creates a new database instance from an existing volume snapshot",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "databases"
+                ],
+                "summary": "Restore database from snapshot",
+                "parameters": [
+                    {
+                        "description": "Restore parameters",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.RestoreDatabaseRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Database"
+                        }
+                    }
+                }
+            }
+        },
+        "/databases/{id}/snapshots": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Returns all snapshots belonging to a specific database",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "databases"
+                ],
+                "summary": "List database snapshots",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Database ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.Snapshot"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Creates a point-in-time backup of the database underlying volume",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "databases"
+                ],
+                "summary": "Create database snapshot",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Database ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Snapshot description",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.CreateDatabaseSnapshotRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Snapshot"
+                        }
                     }
                 }
             }
@@ -2598,6 +3040,445 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/domain.TemplateValidateResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/iam/policies": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "List all IAM policies for the tenant.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "iam"
+                ],
+                "summary": "List IAM Policies",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.Policy"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Create a new granular IAM policy with specified statements.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "iam"
+                ],
+                "summary": "Create IAM Policy",
+                "parameters": [
+                    {
+                        "description": "Policy configuration",
+                        "name": "policy",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.Policy"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Policy"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/iam/policies/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Get details of a specific IAM policy by its ID.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "iam"
+                ],
+                "summary": "Get IAM Policy",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Policy ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Policy"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Update the configuration of an existing IAM policy.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "iam"
+                ],
+                "summary": "Update IAM Policy",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Policy ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated policy configuration",
+                        "name": "policy",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.Policy"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Policy"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Delete an existing IAM policy by its ID.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "iam"
+                ],
+                "summary": "Delete IAM Policy",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Policy ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/iam/users/{userId}/policies": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "List all IAM policies currently attached to a specific user.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "iam"
+                ],
+                "summary": "List User IAM Policies",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "userId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.Policy"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/iam/users/{userId}/policies/{policyId}": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Attach a specific IAM policy to a user.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "iam"
+                ],
+                "summary": "Attach IAM Policy to User",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "userId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Policy ID",
+                        "name": "policyId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Remove a specific IAM policy assignment from a user.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "iam"
+                ],
+                "summary": "Detach IAM Policy from User",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "userId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Policy ID",
+                        "name": "policyId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
                         }
                     }
                 }
@@ -4591,7 +5472,7 @@ const docTemplate = `{
                         "APIKeyAuth": []
                     }
                 ],
-                "description": "Deletes a storage bucket",
+                "description": "Deletes a storage bucket. Use force=true to delete a non-empty bucket.",
                 "produces": [
                     "application/json"
                 ],
@@ -4606,6 +5487,12 @@ const docTemplate = `{
                         "name": "bucket",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Force delete even if non-empty",
+                        "name": "force",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4614,6 +5501,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/httputil.Response"
                         }
@@ -5196,6 +6089,43 @@ const docTemplate = `{
             }
         },
         "/tenants": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tenant"
+                ],
+                "summary": "List user's tenants",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.Tenant"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
             "post": {
                 "security": [
                     {
@@ -5206,7 +6136,20 @@ const docTemplate = `{
                     "Tenant"
                 ],
                 "summary": "Create a new tenant",
-                "responses": {}
+                "responses": {
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
             }
         },
         "/tenants/:id/members": {
@@ -5220,7 +6163,20 @@ const docTemplate = `{
                     "Tenant"
                 ],
                 "summary": "Invite member to tenant",
-                "responses": {}
+                "responses": {
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
             }
         },
         "/tenants/:id/switch": {
@@ -5234,7 +6190,20 @@ const docTemplate = `{
                     "Tenant"
                 ],
                 "summary": "Switch active tenant",
-                "responses": {}
+                "responses": {
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
             }
         },
         "/volumes": {
@@ -5403,6 +6372,399 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/volumes/{id}/attach": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Attaches a block storage volume to a compute instance",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "volumes"
+                ],
+                "summary": "Attach volume",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Volume ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Attachment request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.AttachRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/volumes/{id}/detach": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Detaches a block storage volume from its current compute instance",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "volumes"
+                ],
+                "summary": "Detach volume",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Volume ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/vpc-peerings": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vpc-peerings"
+                ],
+                "summary": "List VPC Peerings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.VPCPeering"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vpc-peerings"
+                ],
+                "summary": "Create VPC Peering",
+                "parameters": [
+                    {
+                        "description": "Peering Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.CreatePeeringRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.VPCPeering"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/vpc-peerings/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vpc-peerings"
+                ],
+                "summary": "Get VPC Peering",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Peering ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.VPCPeering"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "vpc-peerings"
+                ],
+                "summary": "Delete VPC Peering",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Peering ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/vpc-peerings/{id}/accept": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vpc-peerings"
+                ],
+                "summary": "Accept VPC Peering",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Peering ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.VPCPeering"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/vpc-peerings/{id}/reject": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "vpc-peerings"
+                ],
+                "summary": "Reject VPC Peering",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Peering ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/httputil.Response"
                         }
@@ -5754,6 +7116,13 @@ const docTemplate = `{
                 "network_isolation": {
                     "type": "boolean"
                 },
+                "node_groups": {
+                    "description": "NodeGroups contains the node pools for this cluster.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.NodeGroup"
+                    }
+                },
                 "pod_cidr": {
                     "description": "Networking",
                     "type": "string"
@@ -5780,6 +7149,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "worker_count": {
+                    "description": "Deprecated: use node_groups",
                     "type": "integer"
                 }
             }
@@ -5806,6 +7176,13 @@ const docTemplate = `{
                 "ClusterStatusFailed",
                 "ClusterStatusDeleting"
             ]
+        },
+        "domain.Condition": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "additionalProperties": true
+            }
         },
         "domain.DNSRecord": {
             "type": "object",
@@ -5932,6 +7309,119 @@ const docTemplate = `{
                     "$ref": "#/definitions/domain.ResourceSummary"
                 }
             }
+        },
+        "domain.Database": {
+            "type": "object",
+            "properties": {
+                "allocated_storage": {
+                    "type": "integer"
+                },
+                "container_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "engine": {
+                    "$ref": "#/definitions/domain.DatabaseEngine"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "metrics_enabled": {
+                    "type": "boolean"
+                },
+                "metrics_port": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "pooling_enabled": {
+                    "type": "boolean"
+                },
+                "pooling_port": {
+                    "type": "integer"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "primary_id": {
+                    "description": "ID of the primary if this is a replica",
+                    "type": "string"
+                },
+                "role": {
+                    "$ref": "#/definitions/domain.DatabaseRole"
+                },
+                "status": {
+                    "$ref": "#/definitions/domain.DatabaseStatus"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                },
+                "version": {
+                    "description": "Engine version (e.g. \"15\", \"8.0\")",
+                    "type": "string"
+                },
+                "vpc_id": {
+                    "description": "Optional private networking",
+                    "type": "string"
+                }
+            }
+        },
+        "domain.DatabaseEngine": {
+            "type": "string",
+            "enum": [
+                "postgres",
+                "mysql"
+            ],
+            "x-enum-varnames": [
+                "EnginePostgres",
+                "EngineMySQL"
+            ]
+        },
+        "domain.DatabaseRole": {
+            "type": "string",
+            "enum": [
+                "PRIMARY",
+                "REPLICA"
+            ],
+            "x-enum-varnames": [
+                "RolePrimary",
+                "RoleReplica"
+            ]
+        },
+        "domain.DatabaseStatus": {
+            "type": "string",
+            "enum": [
+                "CREATING",
+                "RUNNING",
+                "STOPPED",
+                "DELETING",
+                "FAILED"
+            ],
+            "x-enum-varnames": [
+                "DatabaseStatusCreating",
+                "DatabaseStatusRunning",
+                "DatabaseStatusStopped",
+                "DatabaseStatusDeleting",
+                "DatabaseStatusFailed"
+            ]
         },
         "domain.ElasticIP": {
             "type": "object",
@@ -6597,6 +8087,41 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.NodeGroup": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "current_size": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instance_type": {
+                    "type": "string"
+                },
+                "max_size": {
+                    "type": "integer",
+                    "example": 10
+                },
+                "min_size": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.Object": {
             "type": "object",
             "properties": {
@@ -6673,6 +8198,10 @@ const docTemplate = `{
                 "sg:delete",
                 "sg:read",
                 "sg:update",
+                "vpc_peering:create",
+                "vpc_peering:accept",
+                "vpc_peering:delete",
+                "vpc_peering:read",
                 "eip:allocate",
                 "eip:release",
                 "eip:read",
@@ -6680,6 +8209,7 @@ const docTemplate = `{
                 "volume:create",
                 "volume:delete",
                 "volume:read",
+                "volume:update",
                 "storage:write",
                 "storage:read",
                 "storage:delete",
@@ -6694,6 +8224,7 @@ const docTemplate = `{
                 "db:create",
                 "db:delete",
                 "db:read",
+                "db:update",
                 "secret:create",
                 "secret:write",
                 "secret:delete",
@@ -6732,9 +8263,16 @@ const docTemplate = `{
                 "container:delete",
                 "container:read",
                 "container:scale",
+                "pipeline:create",
+                "pipeline:delete",
+                "pipeline:read",
+                "pipeline:update",
+                "pipeline:run",
+                "pipeline:webhook",
                 "image:create",
                 "image:read",
                 "image:delete",
+                "image:read_all",
                 "cluster:create",
                 "cluster:delete",
                 "cluster:read",
@@ -6771,6 +8309,10 @@ const docTemplate = `{
                 "PermissionSgDelete",
                 "PermissionSgRead",
                 "PermissionSgUpdate",
+                "PermissionVpcPeeringCreate",
+                "PermissionVpcPeeringAccept",
+                "PermissionVpcPeeringDelete",
+                "PermissionVpcPeeringRead",
                 "PermissionEipAllocate",
                 "PermissionEipRelease",
                 "PermissionEipRead",
@@ -6778,6 +8320,7 @@ const docTemplate = `{
                 "PermissionVolumeCreate",
                 "PermissionVolumeDelete",
                 "PermissionVolumeRead",
+                "PermissionVolumeUpdate",
                 "PermissionStorageWrite",
                 "PermissionStorageRead",
                 "PermissionStorageDelete",
@@ -6792,6 +8335,7 @@ const docTemplate = `{
                 "PermissionDBCreate",
                 "PermissionDBDelete",
                 "PermissionDBRead",
+                "PermissionDBUpdate",
                 "PermissionSecretCreate",
                 "PermissionSecretWrite",
                 "PermissionSecretDelete",
@@ -6830,9 +8374,16 @@ const docTemplate = `{
                 "PermissionContainerDelete",
                 "PermissionContainerRead",
                 "PermissionContainerUpdate",
+                "PermissionPipelineCreate",
+                "PermissionPipelineDelete",
+                "PermissionPipelineRead",
+                "PermissionPipelineUpdate",
+                "PermissionPipelineRun",
+                "PermissionPipelineWebhook",
                 "PermissionImageCreate",
                 "PermissionImageRead",
                 "PermissionImageDelete",
+                "PermissionImageReadAll",
                 "PermissionClusterCreate",
                 "PermissionClusterDelete",
                 "PermissionClusterRead",
@@ -6852,6 +8403,40 @@ const docTemplate = `{
                 "PermissionAuditRead",
                 "PermissionDashboardRead",
                 "PermissionFullAccess"
+            ]
+        },
+        "domain.Policy": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "statements": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.Statement"
+                    }
+                },
+                "tenant_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.PolicyEffect": {
+            "type": "string",
+            "enum": [
+                "Allow",
+                "Deny"
+            ],
+            "x-enum-varnames": [
+                "EffectAllow",
+                "EffectDeny"
             ]
         },
         "domain.RecordType": {
@@ -7339,6 +8924,32 @@ const docTemplate = `{
                 "StackStatusRollbackFailed"
             ]
         },
+        "domain.Statement": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "condition": {
+                    "$ref": "#/definitions/domain.Condition"
+                },
+                "effect": {
+                    "$ref": "#/definitions/domain.PolicyEffect"
+                },
+                "resource": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "sid": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.StorageCluster": {
             "type": "object",
             "properties": {
@@ -7389,6 +9000,47 @@ const docTemplate = `{
                 },
                 "valid": {
                     "type": "boolean"
+                }
+            }
+        },
+        "domain.Tenant": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "owner_id": {
+                    "type": "string"
+                },
+                "plan": {
+                    "description": "\"free\", \"pro\", \"enterprise\"",
+                    "type": "string",
+                    "enum": [
+                        "free",
+                        "pro",
+                        "enterprise"
+                    ]
+                },
+                "slug": {
+                    "description": "URL-friendly identifier",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "\"active\", \"suspended\"",
+                    "type": "string",
+                    "enum": [
+                        "active",
+                        "suspended"
+                    ]
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },
@@ -7448,6 +9100,9 @@ const docTemplate = `{
                     "description": "\"admin\" or \"user\"",
                     "type": "string"
                 },
+                "tenant_id": {
+                    "type": "string"
+                },
                 "updated_at": {
                     "type": "string"
                 }
@@ -7490,6 +9145,35 @@ const docTemplate = `{
                 "vxlan_id": {
                     "description": "Tunnel ID for isolation",
                     "type": "integer"
+                }
+            }
+        },
+        "domain.VPCPeering": {
+            "type": "object",
+            "properties": {
+                "accepter_vpc_id": {
+                    "type": "string"
+                },
+                "arn": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "requester_vpc_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },
@@ -7634,6 +9318,23 @@ const docTemplate = `{
                 }
             }
         },
+        "httphandlers.AttachRequest": {
+            "type": "object",
+            "required": [
+                "instance_id",
+                "mount_path"
+            ],
+            "properties": {
+                "instance_id": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "mount_path": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
+        },
         "httphandlers.BindRoleRequest": {
             "type": "object",
             "required": [
@@ -7704,6 +9405,14 @@ const docTemplate = `{
                 },
                 "workers": {
                     "type": "integer"
+                }
+            }
+        },
+        "httphandlers.CreateDatabaseSnapshotRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
                 }
             }
         },
@@ -7806,6 +9515,21 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "vpc_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httphandlers.CreatePeeringRequest": {
+            "type": "object",
+            "required": [
+                "accepter_vpc_id",
+                "requester_vpc_id"
+            ],
+            "properties": {
+                "accepter_vpc_id": {
+                    "type": "string"
+                },
+                "requester_vpc_id": {
                     "type": "string"
                 }
             }
@@ -8106,6 +9830,32 @@ const docTemplate = `{
                 "user": {}
             }
         },
+        "httphandlers.NodeGroupRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "desired_size": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "instance_type": {
+                    "type": "string"
+                },
+                "max_size": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "min_size": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "httphandlers.RegisterRequest": {
             "type": "object",
             "required": [
@@ -8158,6 +9908,48 @@ const docTemplate = `{
                 }
             }
         },
+        "httphandlers.RestoreDatabaseRequest": {
+            "type": "object",
+            "required": [
+                "allocated_storage",
+                "engine",
+                "name",
+                "snapshot_id",
+                "version"
+            ],
+            "properties": {
+                "allocated_storage": {
+                    "type": "integer"
+                },
+                "engine": {
+                    "type": "string"
+                },
+                "metrics_enabled": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "pooling_enabled": {
+                    "type": "boolean"
+                },
+                "snapshot_id": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                },
+                "vpc_id": {
+                    "type": "string"
+                }
+            }
+        },
         "httphandlers.RestoreSnapshotRequest": {
             "type": "object",
             "required": [
@@ -8176,6 +9968,34 @@ const docTemplate = `{
             "properties": {
                 "workers": {
                     "type": "integer"
+                }
+            }
+        },
+        "httphandlers.ScaleDeploymentRequest": {
+            "type": "object",
+            "required": [
+                "replicas"
+            ],
+            "properties": {
+                "replicas": {
+                    "type": "integer"
+                }
+            }
+        },
+        "httphandlers.UpdateNodeGroupRequest": {
+            "type": "object",
+            "properties": {
+                "desired_size": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "max_size": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "min_size": {
+                    "type": "integer",
+                    "minimum": 0
                 }
             }
         },

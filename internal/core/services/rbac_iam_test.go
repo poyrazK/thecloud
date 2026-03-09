@@ -16,23 +16,25 @@ import (
 func TestRBACService_IAMIntegration(t *testing.T) {
 	userRepo := new(mocks.UserRepository)
 	roleRepo := new(mocks.RoleRepository)
+	tenantRepo := new(mocks.TenantRepository)
 	iamRepo := new(mocks.IAMRepository)
 	evaluator := NewIAMEvaluator()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := NewRBACService(RBACServiceParams{
-		UserRepo:  userRepo,
-		RoleRepo:  roleRepo,
-		IAMRepo:   iamRepo,
-		Evaluator: evaluator,
-		Logger:    logger,
+		UserRepo:   userRepo,
+		RoleRepo:   roleRepo,
+		TenantRepo: tenantRepo,
+		IAMRepo:    iamRepo,
+		Evaluator:  evaluator,
+		Logger:     logger,
 	})
 	ctx := context.Background()
 	userID := uuid.New()
 	tenantID := uuid.New()
 
 	t.Run("AllowByPolicy", func(t *testing.T) {
-		userRepo.On("GetByID", ctx, userID).Return(&domain.User{ID: userID, TenantID: tenantID, Role: "viewer"}, nil).Once()
+		tenantRepo.On("GetMembership", ctx, tenantID, userID).Return(&domain.TenantMember{UserID: userID, TenantID: tenantID, Role: "viewer"}, nil).Once()
 		policies := []*domain.Policy{
 			{
 				Statements: []domain.Statement{
@@ -48,7 +50,7 @@ func TestRBACService_IAMIntegration(t *testing.T) {
 	})
 
 	t.Run("DenyByPolicyOverridesRole", func(t *testing.T) {
-		userRepo.On("GetByID", ctx, userID).Return(&domain.User{ID: userID, TenantID: tenantID, Role: "admin"}, nil).Once()
+		tenantRepo.On("GetMembership", ctx, tenantID, userID).Return(&domain.TenantMember{UserID: userID, TenantID: tenantID, Role: "admin"}, nil).Once()
 		policies := []*domain.Policy{
 			{
 				Statements: []domain.Statement{
@@ -66,7 +68,7 @@ func TestRBACService_IAMIntegration(t *testing.T) {
 
 	t.Run("FallbackToRole", func(t *testing.T) {
 		// Use a custom role name like "custom-dev" so it doesn't match defaultRoleAdmin/Viewer fallbacks
-		userRepo.On("GetByID", ctx, userID).Return(&domain.User{ID: userID, TenantID: tenantID, Role: "custom-dev"}, nil).Once()
+		tenantRepo.On("GetMembership", ctx, tenantID, userID).Return(&domain.TenantMember{UserID: userID, TenantID: tenantID, Role: "custom-dev"}, nil).Once()
 		iamRepo.On("GetPoliciesForUser", ctx, tenantID, userID).Return([]*domain.Policy{}, nil).Once()
 		roleRepo.On("GetRoleByName", ctx, "custom-dev").Return(&domain.Role{ID: uuid.New(), Name: "custom-dev", Permissions: []domain.Permission{domain.PermissionInstanceLaunch}}, nil).Once()
 

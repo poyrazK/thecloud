@@ -111,6 +111,11 @@ definitions:
         type: string
       network_isolation:
         type: boolean
+      node_groups:
+        description: NodeGroups contains the node pools for this cluster.
+        items:
+          $ref: '#/definitions/domain.NodeGroup'
+        type: array
       pod_cidr:
         description: Networking
         type: string
@@ -129,6 +134,7 @@ definitions:
       vpc_id:
         type: string
       worker_count:
+        description: 'Deprecated: use node_groups'
         type: integer
     type: object
   domain.ClusterStatus:
@@ -151,6 +157,11 @@ definitions:
     - ClusterStatusRepairing
     - ClusterStatusFailed
     - ClusterStatusDeleting
+  domain.Condition:
+    additionalProperties:
+      additionalProperties: true
+      type: object
+    type: object
   domain.DNSRecord:
     properties:
       auto_managed:
@@ -237,6 +248,86 @@ definitions:
       summary:
         $ref: '#/definitions/domain.ResourceSummary'
     type: object
+  domain.Database:
+    properties:
+      allocated_storage:
+        type: integer
+      container_id:
+        type: string
+      created_at:
+        type: string
+      engine:
+        $ref: '#/definitions/domain.DatabaseEngine'
+      id:
+        type: string
+      metrics_enabled:
+        type: boolean
+      metrics_port:
+        type: integer
+      name:
+        type: string
+      parameters:
+        additionalProperties:
+          type: string
+        type: object
+      pooling_enabled:
+        type: boolean
+      pooling_port:
+        type: integer
+      port:
+        type: integer
+      primary_id:
+        description: ID of the primary if this is a replica
+        type: string
+      role:
+        $ref: '#/definitions/domain.DatabaseRole'
+      status:
+        $ref: '#/definitions/domain.DatabaseStatus'
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+      username:
+        type: string
+      version:
+        description: Engine version (e.g. "15", "8.0")
+        type: string
+      vpc_id:
+        description: Optional private networking
+        type: string
+    type: object
+  domain.DatabaseEngine:
+    enum:
+    - postgres
+    - mysql
+    type: string
+    x-enum-varnames:
+    - EnginePostgres
+    - EngineMySQL
+  domain.DatabaseRole:
+    enum:
+    - PRIMARY
+    - REPLICA
+    type: string
+    x-enum-varnames:
+    - RolePrimary
+    - RoleReplica
+  domain.DatabaseStatus:
+    enum:
+    - CREATING
+    - RUNNING
+    - STOPPED
+    - DELETING
+    - FAILED
+    type: string
+    x-enum-varnames:
+    - DatabaseStatusCreating
+    - DatabaseStatusRunning
+    - DatabaseStatusStopped
+    - DatabaseStatusDeleting
+    - DatabaseStatusFailed
   domain.ElasticIP:
     properties:
       arn:
@@ -699,6 +790,30 @@ definitions:
       user_id:
         type: string
     type: object
+  domain.NodeGroup:
+    properties:
+      cluster_id:
+        type: string
+      created_at:
+        type: string
+      current_size:
+        example: 3
+        type: integer
+      id:
+        type: string
+      instance_type:
+        type: string
+      max_size:
+        example: 10
+        type: integer
+      min_size:
+        example: 1
+        type: integer
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
   domain.Object:
     properties:
       arn:
@@ -754,6 +869,10 @@ definitions:
     - sg:delete
     - sg:read
     - sg:update
+    - vpc_peering:create
+    - vpc_peering:accept
+    - vpc_peering:delete
+    - vpc_peering:read
     - eip:allocate
     - eip:release
     - eip:read
@@ -761,6 +880,7 @@ definitions:
     - volume:create
     - volume:delete
     - volume:read
+    - volume:update
     - storage:write
     - storage:read
     - storage:delete
@@ -775,6 +895,7 @@ definitions:
     - db:create
     - db:delete
     - db:read
+    - db:update
     - secret:create
     - secret:write
     - secret:delete
@@ -813,9 +934,16 @@ definitions:
     - container:delete
     - container:read
     - container:scale
+    - pipeline:create
+    - pipeline:delete
+    - pipeline:read
+    - pipeline:update
+    - pipeline:run
+    - pipeline:webhook
     - image:create
     - image:read
     - image:delete
+    - image:read_all
     - cluster:create
     - cluster:delete
     - cluster:read
@@ -852,6 +980,10 @@ definitions:
     - PermissionSgDelete
     - PermissionSgRead
     - PermissionSgUpdate
+    - PermissionVpcPeeringCreate
+    - PermissionVpcPeeringAccept
+    - PermissionVpcPeeringDelete
+    - PermissionVpcPeeringRead
     - PermissionEipAllocate
     - PermissionEipRelease
     - PermissionEipRead
@@ -859,6 +991,7 @@ definitions:
     - PermissionVolumeCreate
     - PermissionVolumeDelete
     - PermissionVolumeRead
+    - PermissionVolumeUpdate
     - PermissionStorageWrite
     - PermissionStorageRead
     - PermissionStorageDelete
@@ -873,6 +1006,7 @@ definitions:
     - PermissionDBCreate
     - PermissionDBDelete
     - PermissionDBRead
+    - PermissionDBUpdate
     - PermissionSecretCreate
     - PermissionSecretWrite
     - PermissionSecretDelete
@@ -911,9 +1045,16 @@ definitions:
     - PermissionContainerDelete
     - PermissionContainerRead
     - PermissionContainerUpdate
+    - PermissionPipelineCreate
+    - PermissionPipelineDelete
+    - PermissionPipelineRead
+    - PermissionPipelineUpdate
+    - PermissionPipelineRun
+    - PermissionPipelineWebhook
     - PermissionImageCreate
     - PermissionImageRead
     - PermissionImageDelete
+    - PermissionImageReadAll
     - PermissionClusterCreate
     - PermissionClusterDelete
     - PermissionClusterRead
@@ -933,6 +1074,29 @@ definitions:
     - PermissionAuditRead
     - PermissionDashboardRead
     - PermissionFullAccess
+  domain.Policy:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      statements:
+        items:
+          $ref: '#/definitions/domain.Statement'
+        type: array
+      tenant_id:
+        type: string
+    type: object
+  domain.PolicyEffect:
+    enum:
+    - Allow
+    - Deny
+    type: string
+    x-enum-varnames:
+    - EffectAllow
+    - EffectDeny
   domain.RecordType:
     enum:
     - A
@@ -1281,6 +1445,23 @@ definitions:
     - StackStatusRollbackInProgress
     - StackStatusRollbackComplete
     - StackStatusRollbackFailed
+  domain.Statement:
+    properties:
+      action:
+        items:
+          type: string
+        type: array
+      condition:
+        $ref: '#/definitions/domain.Condition'
+      effect:
+        $ref: '#/definitions/domain.PolicyEffect'
+      resource:
+        items:
+          type: string
+        type: array
+      sid:
+        type: string
+    type: object
   domain.StorageCluster:
     properties:
       nodes:
@@ -1315,6 +1496,35 @@ definitions:
         type: array
       valid:
         type: boolean
+    type: object
+  domain.Tenant:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      owner_id:
+        type: string
+      plan:
+        description: '"free", "pro", "enterprise"'
+        enum:
+        - free
+        - pro
+        - enterprise
+        type: string
+      slug:
+        description: URL-friendly identifier
+        type: string
+      status:
+        description: '"active", "suspended"'
+        enum:
+        - active
+        - suspended
+        type: string
+      updated_at:
+        type: string
     type: object
   domain.UsageRecord:
     properties:
@@ -1354,6 +1564,8 @@ definitions:
       role:
         description: '"admin" or "user"'
         type: string
+      tenant_id:
+        type: string
       updated_at:
         type: string
     type: object
@@ -1384,6 +1596,25 @@ definitions:
       vxlan_id:
         description: Tunnel ID for isolation
         type: integer
+    type: object
+  domain.VPCPeering:
+    properties:
+      accepter_vpc_id:
+        type: string
+      arn:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      requester_vpc_id:
+        type: string
+      status:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
     type: object
   domain.Volume:
     properties:
@@ -1481,6 +1712,18 @@ definitions:
     - group_id
     - instance_id
     type: object
+  httphandlers.AttachRequest:
+    properties:
+      instance_id:
+        minLength: 1
+        type: string
+      mount_path:
+        minLength: 1
+        type: string
+    required:
+    - instance_id
+    - mount_path
+    type: object
   httphandlers.BindRoleRequest:
     properties:
       role_name:
@@ -1530,6 +1773,11 @@ definitions:
     required:
     - name
     - vpc_id
+    type: object
+  httphandlers.CreateDatabaseSnapshotRequest:
+    properties:
+      description:
+        type: string
     type: object
   httphandlers.CreateGlobalLBRequest:
     properties:
@@ -1600,6 +1848,16 @@ definitions:
     - name
     - port
     - vpc_id
+    type: object
+  httphandlers.CreatePeeringRequest:
+    properties:
+      accepter_vpc_id:
+        type: string
+      requester_vpc_id:
+        type: string
+    required:
+    - accepter_vpc_id
+    - requester_vpc_id
     type: object
   httphandlers.CreateRecordRequest:
     properties:
@@ -1800,6 +2058,24 @@ definitions:
         type: string
       user: {}
     type: object
+  httphandlers.NodeGroupRequest:
+    properties:
+      desired_size:
+        minimum: 0
+        type: integer
+      instance_type:
+        type: string
+      max_size:
+        minimum: 0
+        type: integer
+      min_size:
+        minimum: 0
+        type: integer
+      name:
+        type: string
+    required:
+    - name
+    type: object
   httphandlers.RegisterRequest:
     properties:
       email:
@@ -1837,6 +2113,35 @@ definitions:
     required:
     - backup_path
     type: object
+  httphandlers.RestoreDatabaseRequest:
+    properties:
+      allocated_storage:
+        type: integer
+      engine:
+        type: string
+      metrics_enabled:
+        type: boolean
+      name:
+        type: string
+      parameters:
+        additionalProperties:
+          type: string
+        type: object
+      pooling_enabled:
+        type: boolean
+      snapshot_id:
+        type: string
+      version:
+        type: string
+      vpc_id:
+        type: string
+    required:
+    - allocated_storage
+    - engine
+    - name
+    - snapshot_id
+    - version
+    type: object
   httphandlers.RestoreSnapshotRequest:
     properties:
       new_volume_name:
@@ -1849,6 +2154,25 @@ definitions:
   httphandlers.ScaleClusterRequest:
     properties:
       workers:
+        type: integer
+    type: object
+  httphandlers.ScaleDeploymentRequest:
+    properties:
+      replicas:
+        type: integer
+    required:
+    - replicas
+    type: object
+  httphandlers.UpdateNodeGroupRequest:
+    properties:
+      desired_size:
+        minimum: 0
+        type: integer
+      max_size:
+        minimum: 0
+        type: integer
+      min_size:
+        minimum: 0
         type: integer
     type: object
   httphandlers.UpdateRecordRequest:
@@ -2275,6 +2599,30 @@ paths:
       summary: Login as a user
       tags:
       - Auth
+  /auth/me:
+    get:
+      description: Returns the profile of the currently authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputil.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.User'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get current user info
+      tags:
+      - Auth
   /auth/register:
     post:
       consumes:
@@ -2538,6 +2886,8 @@ paths:
             items:
               $ref: '#/definitions/domain.Cluster'
             type: array
+      security:
+      - APIKeyAuth: []
       summary: List managed K8s clusters
       tags:
       - K8s
@@ -2559,6 +2909,8 @@ paths:
           description: Accepted
           schema:
             $ref: '#/definitions/domain.Cluster'
+      security:
+      - APIKeyAuth: []
       summary: Create a managed K8s cluster
       tags:
       - K8s
@@ -2574,6 +2926,8 @@ paths:
       responses:
         "202":
           description: Accepted
+      security:
+      - APIKeyAuth: []
       summary: Delete a K8s cluster
       tags:
       - K8s
@@ -2592,6 +2946,8 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/domain.Cluster'
+      security:
+      - APIKeyAuth: []
       summary: Get cluster details
       tags:
       - K8s
@@ -2607,6 +2963,8 @@ paths:
       responses:
         "202":
           description: Accepted
+      security:
+      - APIKeyAuth: []
       summary: Create cluster backup
       tags:
       - K8s
@@ -2626,6 +2984,8 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/ports.ClusterHealth'
+      security:
+      - APIKeyAuth: []
       summary: Get cluster operational health
       tags:
       - K8s
@@ -2649,7 +3009,125 @@ paths:
           description: OK
           schema:
             type: string
+      security:
+      - APIKeyAuth: []
       summary: Download kubeconfig
+      tags:
+      - K8s
+  /clusters/{id}/nodegroups:
+    post:
+      description: Creates a new pool of worker nodes
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Node Group details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.NodeGroupRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.NodeGroup'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Add a node group to a cluster
+      tags:
+      - K8s
+  /clusters/{id}/nodegroups/{name}:
+    delete:
+      description: Removes a node pool and terminates its nodes
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Node Group Name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "202":
+          description: Accepted
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete a node group
+      tags:
+      - K8s
+    put:
+      description: Modifies scaling boundaries or desired size of a node pool
+      parameters:
+      - description: Cluster ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Node Group Name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Update details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.UpdateNodeGroupRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.NodeGroup'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Update a node group
       tags:
       - K8s
   /clusters/{id}/repair:
@@ -2664,6 +3142,8 @@ paths:
       responses:
         "202":
           description: Accepted
+      security:
+      - APIKeyAuth: []
       summary: Repair cluster components
       tags:
       - K8s
@@ -2685,6 +3165,8 @@ paths:
       responses:
         "200":
           description: OK
+      security:
+      - APIKeyAuth: []
       summary: Restore cluster from backup
       tags:
       - K8s
@@ -2700,11 +3182,13 @@ paths:
       responses:
         "200":
           description: OK
+      security:
+      - APIKeyAuth: []
       summary: Rotate cluster secrets
       tags:
       - K8s
   /clusters/{id}/scale:
-    post:
+    put:
       description: Adjusts the number of worker nodes
       parameters:
       - description: Cluster ID
@@ -2721,6 +3205,8 @@ paths:
       responses:
         "200":
           description: OK
+      security:
+      - APIKeyAuth: []
       summary: Scale cluster workers
       tags:
       - K8s
@@ -2743,9 +3229,110 @@ paths:
       responses:
         "202":
           description: Accepted
+      security:
+      - APIKeyAuth: []
       summary: Upgrade cluster version
       tags:
       - K8s
+  /containers/deployments/{id}/scale:
+    put:
+      description: Adjusts the number of replicas for a container deployment
+      parameters:
+      - description: Deployment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Scale details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.ScaleDeploymentRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Scale a deployment
+      tags:
+      - containers
+  /databases/{id}/snapshots:
+    get:
+      description: Returns all snapshots belonging to a specific database
+      parameters:
+      - description: Database ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Snapshot'
+            type: array
+      security:
+      - APIKeyAuth: []
+      summary: List database snapshots
+      tags:
+      - databases
+    post:
+      consumes:
+      - application/json
+      description: Creates a point-in-time backup of the database underlying volume
+      parameters:
+      - description: Database ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Snapshot description
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/httphandlers.CreateDatabaseSnapshotRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Snapshot'
+      security:
+      - APIKeyAuth: []
+      summary: Create database snapshot
+      tags:
+      - databases
+  /databases/restore:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new database instance from an existing volume snapshot
+      parameters:
+      - description: Restore parameters
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.RestoreDatabaseRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Database'
+      security:
+      - APIKeyAuth: []
+      summary: Restore database from snapshot
+      tags:
+      - databases
   /dns/records/{id}:
     delete:
       parameters:
@@ -3571,6 +4158,287 @@ paths:
       summary: Validate template
       tags:
       - IaC
+  /iam/policies:
+    get:
+      description: List all IAM policies for the tenant.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Policy'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List IAM Policies
+      tags:
+      - iam
+    post:
+      consumes:
+      - application/json
+      description: Create a new granular IAM policy with specified statements.
+      parameters:
+      - description: Policy configuration
+        in: body
+        name: policy
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Policy'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Policy'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create IAM Policy
+      tags:
+      - iam
+  /iam/policies/{id}:
+    delete:
+      description: Delete an existing IAM policy by its ID.
+      parameters:
+      - description: Policy ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete IAM Policy
+      tags:
+      - iam
+    get:
+      description: Get details of a specific IAM policy by its ID.
+      parameters:
+      - description: Policy ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Policy'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get IAM Policy
+      tags:
+      - iam
+    put:
+      consumes:
+      - application/json
+      description: Update the configuration of an existing IAM policy.
+      parameters:
+      - description: Policy ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated policy configuration
+        in: body
+        name: policy
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Policy'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Policy'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Update IAM Policy
+      tags:
+      - iam
+  /iam/users/{userId}/policies:
+    get:
+      description: List all IAM policies currently attached to a specific user.
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Policy'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List User IAM Policies
+      tags:
+      - iam
+  /iam/users/{userId}/policies/{policyId}:
+    delete:
+      description: Remove a specific IAM policy assignment from a user.
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        type: string
+      - description: Policy ID
+        in: path
+        name: policyId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Detach IAM Policy from User
+      tags:
+      - iam
+    post:
+      description: Attach a specific IAM policy to a user.
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        type: string
+      - description: Policy ID
+        in: path
+        name: policyId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Attach IAM Policy to User
+      tags:
+      - iam
   /instance-types:
     get:
       description: Gets a list of all available instance types with their resource
@@ -4982,13 +5850,18 @@ paths:
       - storage
   /storage/buckets/{bucket}:
     delete:
-      description: Deletes a storage bucket
+      description: Deletes a storage bucket. Use force=true to delete a non-empty
+        bucket.
       parameters:
       - description: Bucket name
         in: path
         name: bucket
         required: true
         type: string
+      - description: Force delete even if non-empty
+        in: query
+        name: force
+        type: boolean
       produces:
       - application/json
       responses:
@@ -4996,6 +5869,10 @@ paths:
           description: No Content
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "401":
+          description: Unauthorized
           schema:
             $ref: '#/definitions/httputil.Response'
       security:
@@ -5221,8 +6098,39 @@ paths:
       tags:
       - storage
   /tenants:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Tenant'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List user's tenants
+      tags:
+      - Tenant
     post:
-      responses: {}
+      responses:
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
       security:
       - APIKeyAuth: []
       summary: Create a new tenant
@@ -5230,7 +6138,15 @@ paths:
       - Tenant
   /tenants/:id/members:
     post:
-      responses: {}
+      responses:
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
       security:
       - APIKeyAuth: []
       summary: Invite member to tenant
@@ -5238,7 +6154,15 @@ paths:
       - Tenant
   /tenants/:id/switch:
     post:
-      responses: {}
+      responses:
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
       security:
       - APIKeyAuth: []
       summary: Switch active tenant
@@ -5353,6 +6277,253 @@ paths:
       summary: Get volume details
       tags:
       - volumes
+  /volumes/{id}/attach:
+    post:
+      consumes:
+      - application/json
+      description: Attaches a block storage volume to a compute instance
+      parameters:
+      - description: Volume ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Attachment request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.AttachRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Attach volume
+      tags:
+      - volumes
+  /volumes/{id}/detach:
+    post:
+      description: Detaches a block storage volume from its current compute instance
+      parameters:
+      - description: Volume ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Detach volume
+      tags:
+      - volumes
+  /vpc-peerings:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.VPCPeering'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List VPC Peerings
+      tags:
+      - vpc-peerings
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Peering Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreatePeeringRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.VPCPeering'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create VPC Peering
+      tags:
+      - vpc-peerings
+  /vpc-peerings/{id}:
+    delete:
+      parameters:
+      - description: Peering ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete VPC Peering
+      tags:
+      - vpc-peerings
+    get:
+      parameters:
+      - description: Peering ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.VPCPeering'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get VPC Peering
+      tags:
+      - vpc-peerings
+  /vpc-peerings/{id}/accept:
+    post:
+      parameters:
+      - description: Peering ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.VPCPeering'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Accept VPC Peering
+      tags:
+      - vpc-peerings
+  /vpc-peerings/{id}/reject:
+    post:
+      parameters:
+      - description: Peering ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Reject VPC Peering
+      tags:
+      - vpc-peerings
   /vpcs:
     get:
       description: Gets a list of all existing VPCs
