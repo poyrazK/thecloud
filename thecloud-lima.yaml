@@ -1,0 +1,63 @@
+# thecloud-lima.yaml
+# Optimized Lima configuration for running "The Cloud" on M3 Mac with libvirt/KVM
+images:
+- location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+  arch: "aarch64"
+
+cpus: 4
+memory: "8GiB"
+disk: "50GiB"
+
+mounts:
+- location: "~"
+  writable: true
+
+# Use standard Docker setup within Lima for background services
+containerd:
+  system: false
+  user: false
+
+provision:
+- mode: system
+  script: |
+    # Install all dependencies for The Cloud
+    apt-get update
+    apt-get install -y \
+      qemu-kvm \
+      libvirt-daemon-system \
+      libvirt-clients \
+      bridge-utils \
+      genisoimage \
+      qemu-utils \
+      openvswitch-switch \
+      docker.io \
+      docker-compose-v2 \
+      golang-go \
+      build-essential \
+      pkg-config \
+      libvirt-dev \
+      acl \
+      git \
+      curl
+
+    # Group permissions
+    usermod -aG libvirt,docker,kvm $USER
+    
+    # Enable and start services
+    systemctl enable --now libvirtd
+    systemctl enable --now openvswitch-switch
+    systemctl enable --now docker
+
+    # Set up default storage pool for libvirt
+    virsh pool-define-as default dir --target /var/lib/libvirt/images || true
+    virsh pool-start default || true
+    virsh pool-autostart default || true
+
+    # Give the user permission to access OVS socket
+    setfacl -m u:$USER:rw /var/run/openvswitch/db.sock
+
+    # Setup the data directory
+    mkdir -p /var/lib/thecloud/data
+    chown -R $USER:$USER /var/lib/thecloud/data
+
+    echo "Lima VM is fully provisioned and ready for The Cloud."

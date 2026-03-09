@@ -404,24 +404,33 @@ func (a *DockerAdapter) GetInstanceStats(ctx context.Context, containerID string
 }
 
 func (a *DockerAdapter) GetInstancePort(ctx context.Context, containerID string, containerPort string) (int, error) {
-	inspect, err := a.cli.ContainerInspect(ctx, containerID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to inspect container: %w", err)
+	// Retry up to 30 times with 500ms backoff (15 seconds total)
+	for i := 0; i < 30; i++ {
+		inspect, err := a.cli.ContainerInspect(ctx, containerID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to inspect container: %w", err)
+		}
+
+		cPort := nat.Port(containerPort + "/tcp")
+		bindings, ok := inspect.NetworkSettings.Ports[cPort]
+		if ok && len(bindings) > 0 {
+			var hostPort int
+			_, err = fmt.Sscanf(bindings[0].HostPort, "%d", &hostPort)
+			if err == nil && hostPort != 0 {
+				return hostPort, nil
+			}
+		}
+
+		// Wait and retry
+		select {
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+			continue
+		}
 	}
 
-	cPort := nat.Port(containerPort + "/tcp")
-	bindings, ok := inspect.NetworkSettings.Ports[cPort]
-	if !ok || len(bindings) == 0 {
-		return 0, fmt.Errorf("no port binding found for %s", containerPort)
-	}
-
-	var hostPort int
-	_, err = fmt.Sscanf(bindings[0].HostPort, "%d", &hostPort)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse host port: %w", err)
-	}
-
-	return hostPort, nil
+	return 0, fmt.Errorf("no port binding found for %s after retries", containerPort)
 }
 
 func (a *DockerAdapter) CreateNetwork(ctx context.Context, name string) (string, error) {
@@ -456,6 +465,14 @@ func (a *DockerAdapter) DeleteVolume(ctx context.Context, name string) error {
 	if err := a.cli.VolumeRemove(ctx, name, true); err != nil {
 		return fmt.Errorf("failed to delete volume %s: %w", name, err)
 	}
+	return nil
+}
+
+func (a *DockerAdapter) ResizeVolume(ctx context.Context, name string, newSizeGB int) error {
+	// Docker doesn't support resizing existing volumes easily without manual steps
+	// or specific volume drivers. For this simulator, we'll just log it and return success
+	// as it satisfies the interface and doesn't break the logical flow.
+	a.logger.Info("docker volume resize simulated (no-op)", "name", name, "new_size", newSizeGB)
 	return nil
 }
 
@@ -579,8 +596,8 @@ func (a *DockerAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID stri
 	return nil
 }
 
-func (a *DockerAdapter) AttachVolume(ctx context.Context, id string, volumePath string) error {
-	return errors.New(errors.NotImplemented, "attaching volumes to running containers is not supported in docker adapter")
+func (a *DockerAdapter) AttachVolume(ctx context.Context, id string, volumePath string) (string, error) {
+	return "", errors.New(errors.NotImplemented, "attaching volumes to running containers is not supported in docker adapter")
 }
 
 func (a *DockerAdapter) DetachVolume(ctx context.Context, id string, volumePath string) error {

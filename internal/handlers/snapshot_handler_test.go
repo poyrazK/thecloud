@@ -25,7 +25,8 @@ func (m *mockSnapshotService) CreateSnapshot(ctx context.Context, volumeID uuid.
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Snapshot), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Snapshot)
+	return r0, args.Error(1)
 }
 
 func (m *mockSnapshotService) ListSnapshots(ctx context.Context) ([]*domain.Snapshot, error) {
@@ -33,7 +34,8 @@ func (m *mockSnapshotService) ListSnapshots(ctx context.Context) ([]*domain.Snap
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Snapshot), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Snapshot)
+	return r0, args.Error(1)
 }
 
 func (m *mockSnapshotService) GetSnapshot(ctx context.Context, id uuid.UUID) (*domain.Snapshot, error) {
@@ -41,7 +43,8 @@ func (m *mockSnapshotService) GetSnapshot(ctx context.Context, id uuid.UUID) (*d
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Snapshot), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Snapshot)
+	return r0, args.Error(1)
 }
 
 func (m *mockSnapshotService) DeleteSnapshot(ctx context.Context, id uuid.UUID) error {
@@ -54,7 +57,8 @@ func (m *mockSnapshotService) RestoreSnapshot(ctx context.Context, id uuid.UUID,
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Volume), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Volume)
+	return r0, args.Error(1)
 }
 
 const (

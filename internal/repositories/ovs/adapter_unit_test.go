@@ -78,7 +78,7 @@ func TestOvsAdapterListBridgesEmptyOutput(t *testing.T) {
 	a := &OvsAdapter{ovsPath: ovsVsctlPath, logger: slog.Default(), exec: fx}
 	bridges, err := a.ListBridges(context.Background())
 	require.NoError(t, err)
-	require.Len(t, bridges, 0)
+	require.Empty(t, bridges)
 }
 
 func TestOvsAdapterAddFlowRuleInvalidBridge(t *testing.T) {

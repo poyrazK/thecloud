@@ -197,7 +197,7 @@ func (b *PowerDNSBackend) ListRecords(ctx context.Context, zoneName string) ([]p
 		return nil, fmt.Errorf("failed to get zone records: %w", err)
 	}
 
-	var results []ports.RecordSet
+	results := make([]ports.RecordSet, 0, len(z.RRsets))
 	for _, rr := range z.RRsets {
 		var content []string
 		for _, r := range rr.Records {

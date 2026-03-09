@@ -82,7 +82,7 @@ func (s *EventService) ListEvents(ctx context.Context, limit int) ([]*domain.Eve
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAuditRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAuditRead, "*"); err != nil {
 		return nil, err
 	}
 

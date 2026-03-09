@@ -246,6 +246,47 @@ CREATE TABLE lb_targets (
 );
 ```
 
+#### `clusters` - Kubernetes Clusters
+```sql
+CREATE TABLE clusters (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    vpc_id UUID REFERENCES vpcs(id) ON DELETE SET NULL,
+    name VARCHAR(255) NOT NULL,
+    version VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    worker_count INT NOT NULL DEFAULT 2,
+    ha_enabled BOOLEAN DEFAULT FALSE,
+    network_isolation BOOLEAN DEFAULT FALSE,
+    pod_cidr VARCHAR(18),
+    service_cidr VARCHAR(18),
+    api_server_lb_address TEXT,
+    kubeconfig_encrypted TEXT,
+    ssh_private_key_encrypted TEXT,
+    join_token TEXT,
+    token_expires_at TIMESTAMPTZ,
+    ca_cert_hash TEXT,
+    job_id TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE cluster_node_groups (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    cluster_id UUID NOT NULL REFERENCES clusters(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    instance_type VARCHAR(50) NOT NULL,
+    min_size INTEGER NOT NULL DEFAULT 1,
+    max_size INTEGER NOT NULL DEFAULT 10,
+    current_size INTEGER NOT NULL DEFAULT 1,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(cluster_id, name)
+);
+
+CREATE INDEX idx_cluster_node_groups_cluster_id ON cluster_node_groups(cluster_id);
+```
+
 ### Auto-Scaling
 
 #### `scaling_groups` - Auto-Scaling Groups
@@ -297,17 +338,135 @@ CREATE TABLE databases (
     engine VARCHAR(50) NOT NULL,
     version VARCHAR(50) NOT NULL,
     status VARCHAR(50) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'PRIMARY',
+    primary_id UUID REFERENCES databases(id) ON DELETE CASCADE,
     host VARCHAR(255),
     port INT,
     username VARCHAR(255),
     password TEXT,
     container_id VARCHAR(255),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    allocated_storage INT NOT NULL DEFAULT 10,
+    parameters JSONB DEFAULT '{}'::jsonb,
+    pooling_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    pooling_port INT,
+    pooler_container_id VARCHAR(255)
 );
 ```
 
-**Engines**: `postgres`, `mysql`
+**Engines**: `postgres`, `mysql`  
+**Roles**: `PRIMARY`, `REPLICA`
+
+### Managed Database Persistence
+
+Managed databases in The Cloud platform utilize persistent block storage to ensure data durability across container lifecycles.
+
+#### Storage Architecture
+When a managed database is provisioned, the service automatically:
+1.  **Creates a Block Volume**: A persistent volume is provisioned via the `VolumeService`. The size is determined by the `allocated_storage` parameter (default 10GB).
+2.  **Mounts the Volume**: The volume is attached to the compute instance and mounted to the appropriate data directory:
+    -   **PostgreSQL**: `/var/lib/postgresql/data`
+    -   **MySQL**: `/var/lib/mysql`
+
+This integration ensures that all database state (tables, indexes, logs) is stored on durable block storage rather than the container's ephemeral layer.
+
+#### Volume Lifecycle
+-   **Automated Provisioning**: Volumes are created synchronously during the `CreateDatabase` and `CreateReplica` calls. Replicas inherit the `allocated_storage` size of their primary.
+-   **Automated Cleanup**: When a database is deleted via the API, the service identifies and deletes the associated block volumes to prevent storage leaks.
+
+### Managed Database Backups & Snapshots
+
+The platform provides a native backup and recovery mechanism leveraging volume snapshots.
+
+#### Backup Creation (Snapshots)
+Users can create manual point-in-time backups of their databases. The system takes a crash-consistent snapshot of the underlying block volume, ensuring all persisted data is captured.
+- **Endpoint**: `POST /databases/:id/snapshots`
+- **Mechanism**: Integrated with core `SnapshotService`.
+
+#### Data Recovery (Restore)
+Databases can be restored from any valid snapshot. The restore process provisions a **completely new database instance** using a volume initialized from the snapshot data. This allows for safe verification of restored data without affecting the source database.
+- **Endpoint**: `POST /databases/restore`
+- **Flexibility**: Users can specify new names, VPCs, and configurations during the restore process.
+
+### Managed Database Configuration (Parameter Groups)
+
+The platform supports dynamic engine configuration via a `parameters` map provided at creation time.
+
+#### Configuration Mechanism
+Parameters are injected directly into the database engine entrypoint via CLI arguments:
+-   **PostgreSQL**: Passed as `-c key=value`.
+-   **MySQL**: Passed as `--key=value`.
+
+#### Replication Consistency
+Read replicas automatically inherit the exact same parameter set as their primary instance, ensuring consistent behavior and performance across the database cluster.
+
+### Managed Database Observability
+
+The Managed Database Service includes built-in observability via sidecar exporters.
+
+#### Metrics Sidecars
+Users can enable native engine metrics by setting the `metrics_enabled` flag to `true` during provisioning. The platform will automatically launch a Prometheus-compatible exporter sidecar:
+-   **PostgreSQL**: Uses `postgres-exporter` (port 9187).
+-   **MySQL**: Uses `mysqld-exporter` (port 9104).
+
+#### Scraping & Monitoring
+Once enabled, the exporter's port is mapped to a host port (available in the `metrics_port` field of the database object). These endpoints are automatically registered with the platform's central Prometheus instance for dashboarding and alerting.
+
+### Managed Database Connection Pooling
+
+The platform supports high-performance connection pooling via sidecar containers for PostgreSQL.
+
+#### Pooling Architecture
+When `pooling_enabled` is set to `true`, the service provisions a **PgBouncer** sidecar:
+1.  **Dedicated Instance**: Each database gets a private pooler instance.
+2.  **Transaction Mode**: Optimized for high-throughput, short-lived connections common in web applications.
+3.  **Automatic Routing**: The `GetConnectionString` API automatically returns the pooler's endpoint instead of the direct database port.
+
+#### Lifecycle & Configuration
+- **Support**: Currently exclusive to **PostgreSQL**.
+- **Dynamic Toggling**: Pooling can be enabled or disabled on an existing database via the `PATCH /databases/:id` endpoint.
+- **Sidecar Management**: When disabled, the pooler container is automatically terminated and cleaned up.
+- **Port Mapping**: The pooler's host port is stored in the `pooling_port` field.
+- **Defaults**:
+    - **Max Client Connections**: 1000
+    - **Default Pool Size**: 20
+    - **Pool Mode**: `transaction`
+    - **Image**: `edoburu/pgbouncer:latest`
+
+This ensures that applications can scale to hundreds of concurrent clients without exhausting the database engine's backend connection limit.
+
+### Managed Database Volume Expansion
+
+The platform supports dynamic storage scaling for managed database instances to accommodate data growth.
+
+#### Resizing Mechanism
+Users can increase the `allocated_storage` of an existing database via the `PATCH /databases/:id` endpoint.
+- **Support**: Available for both PostgreSQL and MySQL.
+- **Constraints**: Storage can only be increased; shrinking volumes is prohibited to prevent data loss.
+
+#### Implementation Details
+1.  **Storage Layer**: For LVM-backed instances, the system extends the logical volume and automatically grows the underlying filesystem (ext4 or XFS) using the `lvextend -r` command.
+2.  **Simulation Layer**: In Docker mode, resizing is simulated by updating the metadata and logging the action, as standard Docker volumes do not support native online resizing.
+3.  **Metadata Sync**: The database record is updated atomically upon successful storage expansion to ensure consistent reporting in the API and CLI.
+
+### Database Replication
+
+The Cloud platform supports asynchronous replication for managed databases to provide high availability and read scaling.
+
+#### Replication Architecture
+- **Primary**: The main read-write instance. All databases start as Primary by default.
+- **Replica**: Read-only instances that follow a specific Primary. Replicas are provisioned with engine-specific configurations (e.g., `PRIMARY_HOST` for PostgreSQL) to establish the replication stream.
+
+#### Automated Failover
+The `DatabaseFailoverWorker` provides automated recovery for failed primary instances:
+1. **Health Monitoring**: Performs periodic TCP health checks on all instances with the `PRIMARY` role.
+2. **Failure Detection**: If a Primary is unreachable, it is marked as failed.
+3. **Replica Selection**: The worker identifies all healthy replicas linked to the failed Primary.
+4. **Promotion**: The first available healthy replica is automatically promoted to the `PRIMARY` role using the `PromoteToPrimary` logic, which reconfigures the underlying engine and updates the metadata.
+
+#### Manual Promotion
+Replicas can be promoted manually via the API. Promoting a replica removes its link to the previous primary and converts it into a standalone Primary instance.
 
 #### `caches` - Redis Instances
 ```sql

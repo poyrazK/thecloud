@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -48,7 +49,7 @@ func TestClientCreateDatabase(t *testing.T) {
 	client := NewClient(server.URL, dbAPIKey)
 	db, err := client.CreateDatabase(dbTestName, "postgres", "14", &vpcID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, db)
 	assert.Equal(t, expectedDB.ID, db.ID)
 }
@@ -72,7 +73,7 @@ func TestClientListDatabases(t *testing.T) {
 	client := NewClient(server.URL, dbAPIKey)
 	dbs, err := client.ListDatabases()
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, dbs, 2)
 }
 
@@ -96,7 +97,7 @@ func TestClientGetDatabase(t *testing.T) {
 	client := NewClient(server.URL, dbAPIKey)
 	db, err := client.GetDatabase(id)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, db)
 	assert.Equal(t, expectedDB.ID, db.ID)
 }
@@ -115,7 +116,7 @@ func TestClientDeleteDatabase(t *testing.T) {
 	client := NewClient(server.URL, dbAPIKey)
 	err := client.DeleteDatabase(id)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClientGetDatabaseConnectionString(t *testing.T) {
@@ -135,7 +136,7 @@ func TestClientGetDatabaseConnectionString(t *testing.T) {
 	client := NewClient(server.URL, dbAPIKey)
 	result, err := client.GetDatabaseConnectionString(id)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, connStr, result)
 }
 
@@ -149,17 +150,17 @@ func TestClientDatabaseErrors(t *testing.T) {
 	client := NewClient(server.URL, dbAPIKey)
 
 	_, err := client.CreateDatabase("db", "postgres", "14", nil)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.ListDatabases()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetDatabase("db-1")
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.DeleteDatabase("db-1")
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetDatabaseConnectionString("db-1")
-	assert.Error(t, err)
+	require.Error(t, err)
 }

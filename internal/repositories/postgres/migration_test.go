@@ -4,8 +4,6 @@ package postgres
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -15,7 +13,7 @@ import (
 )
 
 func TestMigrationRollback(t *testing.T) {
-	db := SetupDB(t)
+	db, _ := SetupDB(t)
 	defer db.Close()
 	ctx := context.Background()
 	conn, err := db.Acquire(ctx)
@@ -35,8 +33,8 @@ func TestMigrationRollback(t *testing.T) {
 	_, err = conn.Exec(ctx, "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"")
 	require.NoError(t, err)
 
-	// Get all migration files
-	files, err := os.ReadDir("migrations")
+	// Get all migration files from embedded FS
+	files, err := MigrationFiles.ReadDir("migrations")
 	require.NoError(t, err)
 
 	var upMigrations []string
@@ -54,18 +52,34 @@ func TestMigrationRollback(t *testing.T) {
 	sort.Strings(downMigrations)
 
 	// Function to run a migration file
-	runFile := func(name string) error {
-		content, err := os.ReadFile(filepath.Join("migrations", name))
+	runFile := func(name string, isDown bool) error {
+		content, err := MigrationFiles.ReadFile("migrations/" + name)
 		if err != nil {
 			return err
 		}
-		_, err = conn.Exec(ctx, string(content))
+		sql := string(content)
+
+		if !isDown {
+			// Extract UP part if goose-formatted
+			if parts := strings.Split(sql, "-- +goose Down"); len(parts) > 1 {
+				sql = parts[0]
+			}
+			sql = strings.TrimPrefix(sql, "-- +goose Up")
+		} else {
+			// Extract DOWN part if goose-formatted
+			if parts := strings.Split(sql, "-- +goose Down"); len(parts) > 1 {
+				sql = parts[1]
+			}
+			// If it doesn't have a Down marker but is a .down.sql file, run the whole thing
+		}
+
+		_, err = conn.Exec(ctx, sql)
 		return err
 	}
 
 	t.Run("Step 1: Apply all UP migrations", func(t *testing.T) {
 		for _, m := range upMigrations {
-			err := runFile(m)
+			err := runFile(m, false)
 			// We use IF NOT EXISTS in most migrations, but if not, we might get errors
 			// if the DB isn't clean. For this test, we want to see it work.
 			if err != nil {
@@ -78,7 +92,7 @@ func TestMigrationRollback(t *testing.T) {
 		// Reverse down migrations
 		for i := len(downMigrations) - 1; i >= 0; i-- {
 			m := downMigrations[i]
-			err := runFile(m)
+			err := runFile(m, true)
 			require.NoError(t, err, "Failed to rollback migration: %s", m)
 			t.Logf("Rolled back: %s", m)
 		}
@@ -86,7 +100,7 @@ func TestMigrationRollback(t *testing.T) {
 
 	t.Run("Step 3: Re-apply all UP migrations", func(t *testing.T) {
 		for _, m := range upMigrations {
-			err := runFile(m)
+			err := runFile(m, false)
 			require.NoError(t, err, "Failed to re-apply migration: %s", m)
 			t.Logf("Re-applied: %s", m)
 		}

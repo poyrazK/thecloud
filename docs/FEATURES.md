@@ -50,6 +50,12 @@ This document provides a comprehensive overview of every feature currently imple
 - **Persistence**: IPs remain reserved to the tenant even when not associated with a resource.
 - **Constraints**: Enforces one Elastic IP per instance via partial unique database indexes.
 
+**VPC Peering 🆕**:
+- **Same-Tenant Connectivity**: Securely connect two VPCs within the same tenant to allow private IP communication.
+- **CIDR Validation**: Prevents peering between VPCs with overlapping CIDR blocks to avoid routing conflicts.
+- **OVS Flow Rules**: Dynamically programs Open vSwitch flow rules for cross-bridge routing between VPC bridges.
+- **VPC Guard**: Prevents deletion of VPCs that have active peering connections.
+
 **Isolation**: strict traffic segregation rules enforced by generic or OVS flow rules.
 
 ### 3. Block Storage (Volumes)
@@ -104,16 +110,24 @@ This document provides a comprehensive overview of every feature currently imple
 ## 🛠️ Managed Services
 
 ### 5. Managed Databases (RDS)
-**What it is**: Provision fully managed PostgreSQL or MySQL databases.
-**Tech Stack**: Docker (Official Images), Go.
+**What it is**: Provision fully managed PostgreSQL or MySQL databases with high availability.
+**Tech Stack**: Docker (Official Images), PgBouncer (Pooling), Prometheus Exporters, Go, TCP Health Checks.
 **Implementation**:
 - **Multi-Engine Support**: PostgreSQL and MySQL with configurable versions.
 - **Provisioning**: Spawns Docker containers using official images (`postgres:<version>-alpine`, `mysql:<version>`).
+- **Data Persistence**: Automatically provisions and attaches persistent block volumes to every database instance. Data is stored on durable block devices, ensuring survival across container lifecycles.
+- **Volume Expansion 🆕**: Support for dynamic storage scaling. Users can increase allocated storage via the API, which automatically grows the underlying LVM logical volume and filesystem (ext4/XFS) using `lvextend -r`.
+- **Dynamic Configuration**: Supports updating allocated storage, engine parameters, and feature flags without manual intervention.
+- **Connection Pooling**: Optional high-performance pooling for PostgreSQL via a **PgBouncer** sidecar. Dynamically toggleable on existing instances.
+- **Observability Sidecars**: Built-in metrics collection via Prometheus exporters (`postgres-exporter`, `mysqld-exporter`) running as managed sidecars.
+- **Read Replicas**: Support for creating read-only replicas linked to a primary instance. Replicas inherit the primary's configuration, including storage size and feature flags.
+- **Automated Failover**: A dedicated `DatabaseFailoverWorker` performs periodic TCP health checks on primary instances. If a primary becomes unreachable, the worker automatically selects and promotes the most suitable replica to the primary role.
+- **Manual Promotion**: API support for manually promoting a replica to primary status for maintenance or planned transitions.
 - **Credentials**: Auto-generates secure passwords (16-char random) and default usernames.
 - **VPC Integration**: Databases can be deployed into specific VPCs for network isolation.
-- **Connection Strings**: `GetConnectionString()` API returns ready-to-use connection URLs.
-- **Event & Audit**: All operations logged for compliance tracking.
-- **Metrics**: Prometheus metrics for RDS instance counts by engine.
+- **Connection Strings**: `GetConnectionString()` API returns ready-to-use connection URLs, automatically routing through the connection pooler when enabled.
+- **Event & Audit**: All operations, including failover events and role changes, are logged for compliance tracking.
+- **Metrics**: Prometheus metrics for RDS instance counts by engine and role.
 
 ### 6. Managed Caches (CloudCache)
 **What it is**: Provision fully managed Redis instances.
@@ -234,8 +248,10 @@ This document provides a comprehensive overview of every feature currently imple
 ## 🧩 Platform Services
 
 ### 15. Identity & Auth (IAM)
-**What it is**: Secure access to the platform.
-**Tech Stack**: JWT (JSON Web Tokens), BCrypt, RBAC.
+**What it is**: Secure access to the platform via RBAC and Granular IAM Policies.
+
+**Tech Stack**: JWT (JSON Web Tokens), BCrypt, ABAC (Attribute-Based Access Control).
+
 **Implementation**:
 - **Passwords**: Hashed using `bcrypt` cost 12.
 - **Tokens**: Stateless JWTs signed with HMAC-SHA256.
@@ -250,7 +266,25 @@ This document provides a comprehensive overview of every feature currently imple
 - **Authorization**: `Authorize()` checks user permissions before operations.
 - **Fallback Logic**: Default permissions apply if role not in DB.
 
-### 16. Observability
+### 16. Multitenancy & Organizations 🆕
+**What it is**: Logical grouping of resources into "Tenants" (organizations) for isolated management.
+
+**Implementation**:
+- **Tenant Context**: All resources (Instances, VPCs, Buckets) are scoped to a `TenantID`.
+- **Default Tenant**: Users have a default tenant but can belong to multiple organizations.
+- **CLI Support**: Global `--tenant` flag and `cloud tenant switch` command to manage active context.
+- **Isolation**: Shared database with row-level logical isolation enforced by service-layer filters.
+
+### 17. IAM Policies (ABAC) 🆕
+**What it is**: Fine-grained, document-based authorization supplementing legacy RBAC.
+**Implementation**:
+- **JSON Policy Documents**: Supports AWS-style JSON policies with `Effect`, `Action`, `Resource`, and `Condition`.
+- **Policy Evaluation**: The `IAMEvaluator` uses wildcard pattern matching for granular resource targeting.
+- **Security-First**: "Explicit Deny" logic ensures that any Deny statement overrides all Allows, and presence of policies stops fallthrough to legacy roles unless evaluation is "Allow".
+- **Dynamic Context**: Infrastructure ready for attribute-based evaluation via statement conditions.
+- **User Attachment**: Policies can be dynamically attached to or detached from users without modifying their primary role.
+
+### 17. Observability
 **What it is**: Monitor system health and logs.
 **Tech Stack**: Docker API, WebSockets, Prometheus, Grafana, PostgreSQL (CloudLogs).
 **Implementation**:

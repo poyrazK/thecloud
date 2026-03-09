@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -59,7 +60,7 @@ func (s *CacheService) CreateCache(ctx context.Context, name, version string, me
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheCreate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheCreate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -204,7 +205,7 @@ func (s *CacheService) GetCache(ctx context.Context, idOrName string) (*domain.C
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheRead, idOrName); err != nil {
 		return nil, err
 	}
 
@@ -215,7 +216,7 @@ func (s *CacheService) ListCaches(ctx context.Context) ([]*domain.Cache, error) 
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -226,7 +227,7 @@ func (s *CacheService) DeleteCache(ctx context.Context, idOrName string) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheDelete, idOrName); err != nil {
 		return err
 	}
 
@@ -263,7 +264,7 @@ func (s *CacheService) GetConnectionString(ctx context.Context, idOrName string)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheRead, idOrName); err != nil {
 		return "", err
 	}
 
@@ -289,7 +290,7 @@ func (s *CacheService) FlushCache(ctx context.Context, idOrName string) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheDelete); err != nil { // Using Delete perm for flush
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheDelete, idOrName); err != nil { // Using Delete perm for flush
 		return err
 	}
 
@@ -324,7 +325,7 @@ func (s *CacheService) GetCacheStats(ctx context.Context, idOrName string) (*por
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheRead, idOrName); err != nil {
 		return nil, err
 	}
 
@@ -354,9 +355,26 @@ func (s *CacheService) GetCacheStats(ctx context.Context, idOrName string) (*por
 		return nil, errors.Wrap(errors.Internal, "failed to decode stats", err)
 	}
 
+	used := dockerStats.MemoryStats.Usage
+	limit := dockerStats.MemoryStats.Limit
+
+	var usedInt64 int64
+	if used > math.MaxInt64 {
+		usedInt64 = math.MaxInt64
+	} else {
+		usedInt64 = int64(used)
+	}
+
+	var limitInt64 int64
+	if limit > math.MaxInt64 {
+		limitInt64 = math.MaxInt64
+	} else {
+		limitInt64 = int64(limit)
+	}
+
 	result := &ports.CacheStats{
-		UsedMemoryBytes:  int64(dockerStats.MemoryStats.Usage),
-		MaxMemoryBytes:   int64(dockerStats.MemoryStats.Limit),
+		UsedMemoryBytes:  usedInt64,
+		MaxMemoryBytes:   limitInt64,
 		ConnectedClients: 0,
 		TotalKeys:        0,
 	}

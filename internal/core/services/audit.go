@@ -63,7 +63,7 @@ func (s *AuditService) ListLogs(ctx context.Context, userID uuid.UUID, limit int
 	uID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionAuditRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionAuditRead, "*"); err != nil {
 		return nil, err
 	}
 

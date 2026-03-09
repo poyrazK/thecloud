@@ -8,6 +8,7 @@ import (
 	"github.com/pashagolub/pgxmock/v3"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -37,7 +38,7 @@ func TestEncryptionRepository(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err := repo.SaveKey(ctx, key)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("GetKey", func(t *testing.T) {
@@ -53,7 +54,7 @@ func TestEncryptionRepository(t *testing.T) {
 				AddRow(id, bucketName, []byte(testEncKey), testAlgorithm))
 
 		key, err := repo.GetKey(ctx, bucketName)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, key)
 		assert.Equal(t, id, key.ID)
 	})

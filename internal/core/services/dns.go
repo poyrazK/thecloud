@@ -64,7 +64,7 @@ func (s *DNSService) CreateZone(ctx context.Context, vpcID uuid.UUID, name, desc
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSCreate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSCreate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -128,7 +128,7 @@ func (s *DNSService) GetZone(ctx context.Context, idOrName string) (*domain.DNSZ
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSRead, idOrName); err != nil {
 		return nil, err
 	}
 
@@ -142,7 +142,7 @@ func (s *DNSService) GetZoneByVPC(ctx context.Context, vpcID uuid.UUID) (*domain
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSRead, vpcID.String()); err != nil {
 		return nil, err
 	}
 
@@ -153,7 +153,7 @@ func (s *DNSService) ListZones(ctx context.Context) ([]*domain.DNSZone, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -164,7 +164,7 @@ func (s *DNSService) DeleteZone(ctx context.Context, idOrName string) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSDelete, idOrName); err != nil {
 		return err
 	}
 
@@ -199,7 +199,7 @@ func (s *DNSService) CreateRecord(ctx context.Context, zoneID uuid.UUID, name st
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSCreate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSCreate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -285,7 +285,7 @@ func (s *DNSService) GetRecord(ctx context.Context, id uuid.UUID) (*domain.DNSRe
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSRead, id.String()); err != nil {
 		return nil, err
 	}
 
@@ -296,7 +296,7 @@ func (s *DNSService) ListRecords(ctx context.Context, zoneID uuid.UUID) ([]*doma
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -307,7 +307,7 @@ func (s *DNSService) UpdateRecord(ctx context.Context, id uuid.UUID, content str
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSUpdate, id.String()); err != nil {
 		return nil, err
 	}
 
@@ -368,7 +368,7 @@ func (s *DNSService) DeleteRecord(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDNSDelete, id.String()); err != nil {
 		return err
 	}
 
@@ -452,7 +452,10 @@ func (s *DNSService) RegisterInstance(ctx context.Context, instance *domain.Inst
 // UnregisterInstance removes DNS records for an instance.
 func (s *DNSService) UnregisterInstance(ctx context.Context, instanceID uuid.UUID) error {
 	records, err := s.repo.GetRecordsByInstance(ctx, instanceID)
-	if err != nil || len(records) == 0 {
+	if err != nil {
+		return fmt.Errorf("failed to get records for instance: %w", err)
+	}
+	if len(records) == 0 {
 		return nil // No records to remove
 	}
 

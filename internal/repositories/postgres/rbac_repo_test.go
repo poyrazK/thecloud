@@ -13,7 +13,7 @@ import (
 )
 
 func TestRBACRepository_Integration(t *testing.T) {
-	db := SetupDB(t)
+	db, _ := SetupDB(t)
 	defer db.Close()
 	repo := NewRBACRepository(db)
 	ctx := context.Background()

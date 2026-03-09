@@ -124,6 +124,38 @@ Regenerate an API key (alias for rotate).
 
 ---
 
+## Tenants & Organizations 🆕
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /tenants
+List all tenants (organizations) the authenticated user belongs to.
+
+### POST /tenants
+Create a new tenant.
+**Request:**
+```json
+{
+  "name": "Acme Corp",
+  "slug": "acme"
+}
+```
+
+### POST /tenants/:id/switch
+Switch the user's active/default tenant. This affects which resources are visible in subsequent requests.
+
+### POST /tenants/:id/members
+Add a new member to a tenant.
+**Request:**
+```json
+{
+  "user_id": "uuid",
+  "role": "member"
+}
+```
+
+---
+
 ## System Health
 
 ### GET /health/live
@@ -228,10 +260,51 @@ Create a new VPC.
 
 ### DELETE /vpcs/:id
 Delete a VPC.
-
----
-
-## Security Groups
+ 
+ ---
+ 
+ ## VPC Peering 🆕
+ 
+ **Headers Required:** `X-API-Key: <your-api-key>`
+ 
+ ### GET /vpc-peerings
+ List all VPC peering connections for the tenant.
+ 
+ ### POST /vpc-peerings
+ Initiate a new VPC peering request.
+ ```json
+ {
+   "requester_vpc_id": "uuid",
+   "accepter_vpc_id": "uuid"
+ }
+ ```
+ 
+ **Response (201 Created):**
+ ```json
+ {
+   "id": "uuid",
+   "status": "pending-acceptance",
+   "requester_vpc_id": "uuid",
+   "accepter_vpc_id": "uuid",
+   "arn": "arn:thecloud:vpc-peering:..."
+ }
+ ```
+ 
+ ### GET /vpc-peerings/:id
+ Get details of a specific peering connection.
+ 
+ ### POST /vpc-peerings/:id/accept
+ Accept a pending peering request. This activates cross-bridge routing via OVS.
+ 
+ ### POST /vpc-peerings/:id/reject
+ Reject a pending peering request.
+ 
+ ### DELETE /vpc-peerings/:id
+ Delete a peering connection and remove all associated network routes.
+ 
+ ---
+ 
+ ## Security Groups
 
 **Headers Required:** `X-API-Key: <your-api-key>`
 
@@ -338,6 +411,97 @@ Allocate a new elastic IP. No body required.
 ### GET /elastic-ips/:id
 Get details of a specific elastic IP.
 
+---
+
+## Pipelines (CI/CD) 🆕
+
+**Headers Required:** `X-API-Key: <your-api-key>` for protected endpoints.
+
+### GET /pipelines
+List pipelines for the authenticated user.
+
+### POST /pipelines
+Create a pipeline definition.
+
+```json
+{
+  "name": "lint-thecloud",
+  "repository_url": "https://github.com/poyrazK/thecloud.git",
+  "branch": "main",
+  "webhook_secret": "your-secret",
+  "config": {
+    "stages": [
+      {
+        "name": "lint",
+        "steps": [
+          {
+            "name": "golangci",
+            "image": "golang:1.24",
+            "commands": [
+              "git clone https://github.com/poyrazK/thecloud.git /workspace/thecloud",
+              "cd /workspace/thecloud",
+              "go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60.3",
+              "/go/bin/golangci-lint run ./..."
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### GET /pipelines/:id
+Get a pipeline by ID.
+
+### PUT /pipelines/:id
+Update mutable fields of a pipeline.
+
+### DELETE /pipelines/:id
+Delete a pipeline.
+
+### POST /pipelines/:id/runs
+Trigger a manual run.
+
+```json
+{
+  "commit_hash": "abc123",
+  "trigger_type": "MANUAL"
+}
+```
+
+### GET /pipelines/:id/runs
+List runs for a pipeline.
+
+### GET /pipelines/runs/:buildID
+Get run details.
+
+### GET /pipelines/runs/:buildID/steps
+List step results for a run.
+
+### GET /pipelines/runs/:buildID/logs?limit=200
+List logs for a run.
+
+### POST /pipelines/:id/webhook/:provider
+Public webhook trigger endpoint.
+
+- `provider`: `github` or `gitlab`
+- No API key required (validated by webhook secret/signature).
+
+#### GitHub headers
+- `X-GitHub-Event` (supported: `push`)
+- `X-Hub-Signature-256` (HMAC SHA-256)
+- `X-GitHub-Delivery` (used for idempotency)
+
+#### GitLab headers
+- `X-Gitlab-Event` (supported: `Push Hook`)
+- `X-Gitlab-Token`
+- `X-Gitlab-Event-UUID` (used for idempotency)
+
+#### Webhook response behavior
+- `202 accepted` with build payload when a run is queued.
+- `202 accepted` with `{ "status": "ignored" }` for duplicate/non-matching events.
+
 ### DELETE /elastic-ips/:id
 Release an elastic IP back to the pool. Fails if still associated.
 
@@ -370,6 +534,65 @@ Create a new volume.
   "size_gb": 10
 }
 ```
+
+---
+
+## Managed Databases (RDS)
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /databases
+List all managed databases.
+
+### POST /databases
+Provision a new primary database.
+```json
+{
+  "name": "prod-db",
+  "engine": "postgres",
+  "version": "16",
+  "vpc_id": "vpc-uuid",
+  "allocated_storage": 20,
+  "pooling_enabled": true,
+  "metrics_enabled": true,
+  "parameters": {
+    "max_connections": "100"
+  }
+}
+```
+
+### GET /databases/:id
+Get details of a specific database.
+
+### PATCH /databases/:id
+Modify an existing database configuration.
+```json
+{
+  "allocated_storage": 40,
+  "pooling_enabled": false,
+  "metrics_enabled": true,
+  "parameters": {
+    "max_connections": "200"
+  }
+}
+```
+
+### DELETE /databases/:id
+Terminate a database instance.
+
+### GET /databases/:id/connection
+Get the connection string for the database.
+
+### POST /databases/:id/replicas
+Create a read-replica for a primary database.
+```json
+{
+  "name": "prod-db-replica-1"
+}
+```
+
+### POST /databases/:id/promote
+Promote a replica to a standalone primary database.
 
 ---
 
@@ -624,6 +847,100 @@ Pause a job.
 
 ### POST /cron/:id/resume
 Resume a job.
+
+---
+
+## Cloud IAM (Policies) 🆕
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+**Constraint**: These endpoints require `PermissionFullAccess` (Admin).
+
+### GET /iam/policies
+List all IAM policies.
+
+### POST /iam/policies
+Create a new granular IAM policy.
+```json
+{
+  "name": "ReadOnlyS3",
+  "statements": [
+    {
+      "effect": "Allow",
+      "action": ["storage:list", "storage:get"],
+      "resource": ["*"]
+    }
+  ]
+}
+```
+
+### GET /iam/policies/:id
+Get details of a specific policy.
+
+### DELETE /iam/policies/:id
+Delete a policy.
+
+### POST /iam/users/:userId/policies/:policyId
+Attach a policy to a specific user.
+
+### DELETE /iam/users/:userId/policies/:policyId
+Detach a policy from a user.
+
+### GET /iam/users/:userId/policies
+List all policies attached to a specific user.
+
+---
+
+## Accounting & Billing 🆕
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /billing/summary
+Get billing summary for the current period.
+
+**Response:**
+```json
+{
+  "period_start": "2026-01-01T00:00:00Z",
+  "period_end": "2026-01-31T23:59:59Z",
+  "total_amount": 150.25,
+  "currency": "USD",
+  "usage_by_type": {
+    "compute": 45.50,
+    "storage": 12.75,
+    "database": 92.00
+  }
+}
+```
+
+### GET /billing/usage
+List detailed usage records.
+
+---
+
+## Audit Logs 🆕
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /audit
+List platform audit logs for the authenticated user/tenant.
+
+**Query Parameters:**
+- `limit`: Max results (default 50).
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid",
+    "timestamp": "2026-01-05T23:00:00Z",
+    "actor": "user@example.com",
+    "action": "INSTANCE_LAUNCH",
+    "resource": "instance/a1b2c3d4",
+    "status": "success",
+    "ip_address": "1.2.3.4"
+  }
+]
+```
 
 ---
 

@@ -35,10 +35,10 @@ type RoleRepository interface {
 
 // RBACService provides business logic for enforcing security policies and managing access control.
 type RBACService interface {
-	// Authorize checks if a user has a specific permission, returning an error if not.
-	Authorize(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission) error
-	// HasPermission checks if a user has a specific permission, returning a boolean flag.
-	HasPermission(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission) (bool, error)
+	// Authorize checks if a user has a specific permission on a resource, returning an error if not.
+	Authorize(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission, resource string) error
+	// HasPermission checks if a user has a specific permission on a resource, returning a boolean flag.
+	HasPermission(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission, resource string) (bool, error)
 
 	// Role management
 
@@ -68,4 +68,7 @@ type RBACService interface {
 	BindRole(ctx context.Context, userIdentifier string, roleName string) error
 	// ListRoleBindings returns users along with their assigned role information.
 	ListRoleBindings(ctx context.Context) ([]*domain.User, error)
+
+	// IAM Policy Support
+	EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, evalCtx map[string]interface{}) (bool, error)
 }

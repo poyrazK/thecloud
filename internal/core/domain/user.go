@@ -10,6 +10,7 @@ import (
 // User represents an authenticated entity in the system.
 type User struct {
 	ID              uuid.UUID  `json:"id"`
+	TenantID        uuid.UUID  `json:"tenant_id"`
 	DefaultTenantID *uuid.UUID `json:"default_tenant_id,omitempty"`
 	Email           string     `json:"email"`
 	PasswordHash    string     `json:"-"` // Never serialize password

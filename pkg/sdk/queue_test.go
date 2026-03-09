@@ -8,6 +8,7 @@ import (
 
 	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -24,8 +25,8 @@ const (
 )
 
 func newQueueTestServer(t *testing.T) *httptest.Server {
+	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Helper()
 		w.Header().Set(queueTestContentType, queueTestAppJSON)
 
 		if handleQueueBase(w, r) {
@@ -142,7 +143,7 @@ func TestQueueSDK(t *testing.T) {
 
 	t.Run("CreateQueue", func(t *testing.T) {
 		q, err := client.CreateQueue(queueTestName, nil, nil, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if q != nil {
 			assert.Equal(t, queueTestName, q.Name)
 		}
@@ -153,7 +154,7 @@ func TestQueueSDK(t *testing.T) {
 		rd := 7
 		mms := 1024
 		q, err := client.CreateQueue(queueTestOptionsName, &vt, &rd, &mms)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if q != nil {
 			assert.Equal(t, queueTestOptionsName, q.Name)
 		}
@@ -161,13 +162,13 @@ func TestQueueSDK(t *testing.T) {
 
 	t.Run("ListQueues", func(t *testing.T) {
 		qs, err := client.ListQueues()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, qs, 1)
 	})
 
 	t.Run("GetQueue", func(t *testing.T) {
 		q, err := client.GetQueue(queueTestID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if q != nil {
 			assert.Equal(t, queueTestID, q.ID)
 		}
@@ -175,7 +176,7 @@ func TestQueueSDK(t *testing.T) {
 
 	t.Run("SendMessage", func(t *testing.T) {
 		msg, err := client.SendMessage(queueTestID, queueTestMessageBody)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if msg != nil {
 			assert.Equal(t, queueTestMessageBody, msg.Body)
 		}
@@ -183,23 +184,23 @@ func TestQueueSDK(t *testing.T) {
 
 	t.Run("ReceiveMessages", func(t *testing.T) {
 		msgs, err := client.ReceiveMessages(queueTestID, 10)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, msgs, 1)
 	})
 
 	t.Run("DeleteMessage", func(t *testing.T) {
 		err := client.DeleteMessage(queueTestID, queueTestHandleID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("PurgeQueue", func(t *testing.T) {
 		err := client.PurgeQueue(queueTestID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("DeleteQueue", func(t *testing.T) {
 		err := client.DeleteQueue(queueTestID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -212,26 +213,26 @@ func TestQueueSDKErrors(t *testing.T) {
 
 	client := sdk.NewClient(server.URL+"/api/v1", queueTestAPIKey)
 	_, err := client.CreateQueue("q", nil, nil, nil)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.ListQueues()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetQueue(queueTestID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.DeleteQueue(queueTestID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.SendMessage(queueTestID, queueTestMessageBody)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.ReceiveMessages(queueTestID, 10)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.DeleteMessage(queueTestID, queueTestHandleID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.PurgeQueue(queueTestID)
-	assert.Error(t, err)
+	require.Error(t, err)
 }

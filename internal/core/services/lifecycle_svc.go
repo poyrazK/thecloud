@@ -32,7 +32,7 @@ func (s *LifecycleService) CreateRule(ctx context.Context, bucket string, prefix
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageWrite); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageWrite, bucket); err != nil {
 		return nil, err
 	}
 
@@ -75,7 +75,7 @@ func (s *LifecycleService) ListRules(ctx context.Context, bucket string) ([]*dom
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageRead, bucket); err != nil {
 		return nil, err
 	}
 
@@ -96,7 +96,7 @@ func (s *LifecycleService) DeleteRule(ctx context.Context, bucket string, ruleID
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageDelete, ruleID); err != nil {
 		return err
 	}
 

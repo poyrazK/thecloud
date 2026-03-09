@@ -5,6 +5,7 @@ import (
 	"context"
 	"time"
 
+	stdlib_errors "errors"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -61,7 +62,7 @@ func (r *PostgresQueueRepository) scanQueue(row pgx.Row) (*domain.Queue, error) 
 	var status string
 	err := row.Scan(&q.ID, &q.UserID, &q.Name, &q.ARN, &q.VisibilityTimeout, &q.RetentionDays, &q.MaxMessageSize, &status, &q.CreatedAt, &q.UpdatedAt)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil // Return nil, nil when not found as per previous behavior
 		}
 		return nil, err

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -14,6 +16,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -30,7 +33,8 @@ func (m *mockVolumeService) CreateVolume(ctx context.Context, name string, sizeG
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Volume), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Volume)
+	return r0, args.Error(1)
 }
 
 func (m *mockVolumeService) ListVolumes(ctx context.Context) ([]*domain.Volume, error) {
@@ -38,7 +42,8 @@ func (m *mockVolumeService) ListVolumes(ctx context.Context) ([]*domain.Volume, 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Volume), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Volume)
+	return r0, args.Error(1)
 }
 
 func (m *mockVolumeService) GetVolume(ctx context.Context, idOrName string) (*domain.Volume, error) {
@@ -46,7 +51,8 @@ func (m *mockVolumeService) GetVolume(ctx context.Context, idOrName string) (*do
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Volume), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Volume)
+	return r0, args.Error(1)
 }
 
 func (m *mockVolumeService) DeleteVolume(ctx context.Context, idOrName string) error {
@@ -54,9 +60,21 @@ func (m *mockVolumeService) DeleteVolume(ctx context.Context, idOrName string) e
 	return args.Error(0)
 }
 
+func (m *mockVolumeService) ResizeVolume(ctx context.Context, volumeID string, newSizeGB int) error {
+	return m.Called(ctx, volumeID, newSizeGB).Error(0)
+}
+
 func (m *mockVolumeService) ReleaseVolumesForInstance(ctx context.Context, instanceID uuid.UUID) error {
-	args := m.Called(ctx, instanceID)
-	return args.Error(0)
+	return m.Called(ctx, instanceID).Error(0)
+}
+
+func (m *mockVolumeService) AttachVolume(ctx context.Context, volumeID string, instanceID string, mountPath string) (string, error) {
+	args := m.Called(ctx, volumeID, instanceID, mountPath)
+	return args.String(0), args.Error(1)
+}
+
+func (m *mockVolumeService) DetachVolume(ctx context.Context, volumeID string) error {
+	return m.Called(ctx, volumeID).Error(0)
 }
 
 func setupVolumeHandlerTest(_ *testing.T) (*mockVolumeService, *VolumeHandler, *gin.Engine) {
@@ -81,10 +99,10 @@ func TestVolumeHandlerCreate(t *testing.T) {
 		"name":    testVolumeName,
 		"size_gb": 10,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", volumesPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -103,7 +121,7 @@ func TestVolumeHandlerCreateInvalidJSON(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 	svc.AssertNotCalled(t, "CreateVolume", mock.Anything, mock.Anything, mock.Anything)
 }
 
@@ -118,7 +136,7 @@ func TestVolumeHandlerCreateInvalidInputFromService(t *testing.T) {
 		"name":    testVolumeName,
 		"size_gb": 10,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	svc.On("CreateVolume", mock.Anything, testVolumeName, 10).Return(nil, errors.New(errors.InvalidInput, "duplicate"))
 
@@ -142,7 +160,7 @@ func TestVolumeHandlerList(t *testing.T) {
 	svc.On("ListVolumes", mock.Anything).Return(vols, nil)
 
 	req, err := http.NewRequest(http.MethodGet, volumesPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -159,7 +177,7 @@ func TestVolumeHandlerListError(t *testing.T) {
 	svc.On("ListVolumes", mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
 
 	req, err := http.NewRequest(http.MethodGet, volumesPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -178,7 +196,7 @@ func TestVolumeHandlerGet(t *testing.T) {
 	svc.On("GetVolume", mock.Anything, id).Return(vol, nil)
 
 	req, err := http.NewRequest(http.MethodGet, volumesPath+"/"+id, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -214,7 +232,7 @@ func TestVolumeHandlerDelete(t *testing.T) {
 	svc.On("DeleteVolume", mock.Anything, id).Return(nil)
 
 	req, err := http.NewRequest(http.MethodDelete, volumesPath+"/"+id, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -237,4 +255,104 @@ func TestVolumeHandlerDeleteNotFound(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestVolumeHandlerAttachDetach(t *testing.T) {
+	t.Parallel()
+
+	type testCase struct {
+		name           string
+		method         string
+		path           string
+		body           interface{}
+		setupMock      func(m *mockVolumeService)
+		expectedStatus int
+	}
+
+	volID := uuid.New().String()
+	instID := uuid.New().String()
+	mountPath := "/mnt/data"
+	devicePath := "/dev/vdb"
+
+	testCases := []testCase{
+		{
+			name:   "Attach Success",
+			method: http.MethodPost,
+			path:   volumesPath + "/" + volID + "/attach",
+			body:   AttachRequest{InstanceID: instID, MountPath: mountPath},
+			setupMock: func(m *mockVolumeService) {
+				m.On("AttachVolume", mock.Anything, volID, instID, mountPath).Return(devicePath, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:   "Attach Invalid JSON",
+			method: http.MethodPost,
+			path:   volumesPath + "/" + volID + "/attach",
+			body:   "{invalid",
+			setupMock: func(m *mockVolumeService) {
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:   "Attach Service Error",
+			method: http.MethodPost,
+			path:   volumesPath + "/" + volID + "/attach",
+			body:   AttachRequest{InstanceID: instID, MountPath: mountPath},
+			setupMock: func(m *mockVolumeService) {
+				m.On("AttachVolume", mock.Anything, volID, instID, mountPath).Return("", errors.New(errors.Internal, "fail"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
+		{
+			name:   "Detach Success",
+			method: http.MethodPost,
+			path:   volumesPath + "/" + volID + "/detach",
+			setupMock: func(m *mockVolumeService) {
+				m.On("DetachVolume", mock.Anything, volID).Return(nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:   "Detach Service Error",
+			method: http.MethodPost,
+			path:   volumesPath + "/" + volID + "/detach",
+			setupMock: func(m *mockVolumeService) {
+				m.On("DetachVolume", mock.Anything, volID).Return(errors.New(errors.Internal, "fail"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, handler, r := setupVolumeHandlerTest(t)
+			tc.setupMock(svc)
+
+			r.POST(volumesPath+"/:id/attach", handler.Attach)
+			r.POST(volumesPath+"/:id/detach", handler.Detach)
+
+			var reqBody io.Reader
+			if tc.body != nil {
+				if s, ok := tc.body.(string); ok {
+					reqBody = strings.NewReader(s)
+				} else {
+					b, err := json.Marshal(tc.body)
+					require.NoError(t, err)
+					reqBody = bytes.NewBuffer(b)
+				}
+			}
+
+			req := httptest.NewRequest(tc.method, tc.path, reqBody)
+			if tc.body != nil {
+				req.Header.Set("Content-Type", "application/json")
+			}
+			w := httptest.NewRecorder()
+
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tc.expectedStatus, w.Code)
+			svc.AssertExpectations(t)
+		})
+	}
 }

@@ -10,12 +10,13 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestInstanceTypeRepositoryList(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceTypeRepository(mock)
@@ -25,14 +26,14 @@ func TestInstanceTypeRepositoryList(t *testing.T) {
 				AddRow("basic-1", "Basic 1", 1, 1024, 10, 1000, 0.05, "general"))
 
 		list, err := repo.List(context.Background())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, list, 1)
 		assert.Equal(t, "basic-1", list[0].ID)
 	})
 
 	t.Run("db error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceTypeRepository(mock)
@@ -41,7 +42,7 @@ func TestInstanceTypeRepositoryList(t *testing.T) {
 			WillReturnError(errors.New("db error"))
 
 		list, err := repo.List(context.Background())
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, list)
 	})
 }
@@ -49,7 +50,7 @@ func TestInstanceTypeRepositoryList(t *testing.T) {
 func TestInstanceTypeRepositoryGetByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceTypeRepository(mock)
@@ -61,13 +62,13 @@ func TestInstanceTypeRepositoryGetByID(t *testing.T) {
 				AddRow(id, "Basic 1", 1, 1024, 10, 1000, 0.05, "general"))
 
 		it, err := repo.GetByID(context.Background(), id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, id, it.ID)
 	})
 
 	t.Run("not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceTypeRepository(mock)
@@ -78,16 +79,19 @@ func TestInstanceTypeRepositoryGetByID(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		it, err := repo.GetByID(context.Background(), id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, it)
-		assert.Equal(t, theclouderrors.NotFound, err.(theclouderrors.Error).Type)
+		var target *theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
+		}
 	})
 }
 
 func TestInstanceTypeRepositoryCreate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceTypeRepository(mock)
@@ -108,7 +112,7 @@ func TestInstanceTypeRepositoryCreate(t *testing.T) {
 				AddRow(it.ID, it.Name, it.VCPUs, it.MemoryMB, it.DiskGB, it.NetworkMbps, it.PricePerHr, it.Category))
 
 		created, err := repo.Create(context.Background(), it)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, it.ID, created.ID)
 	})
 }
@@ -116,7 +120,7 @@ func TestInstanceTypeRepositoryCreate(t *testing.T) {
 func TestInstanceTypeRepositoryUpdate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceTypeRepository(mock)
@@ -137,13 +141,13 @@ func TestInstanceTypeRepositoryUpdate(t *testing.T) {
 				AddRow(it.ID, it.Name, it.VCPUs, it.MemoryMB, it.DiskGB, it.NetworkMbps, it.PricePerHr, it.Category))
 
 		updated, err := repo.Update(context.Background(), it)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, it.VCPUs, updated.VCPUs)
 	})
 
 	t.Run("not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceTypeRepository(mock)
@@ -154,16 +158,19 @@ func TestInstanceTypeRepositoryUpdate(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		updated, err := repo.Update(context.Background(), it)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, updated)
-		assert.Equal(t, theclouderrors.NotFound, err.(theclouderrors.Error).Type)
+		var target *theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
+		}
 	})
 }
 
 func TestInstanceTypeRepositoryDelete(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceTypeRepository(mock)
@@ -174,12 +181,12 @@ func TestInstanceTypeRepositoryDelete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.Delete(context.Background(), id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("not found", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewInstanceTypeRepository(mock)
@@ -190,7 +197,10 @@ func TestInstanceTypeRepositoryDelete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 0))
 
 		err = repo.Delete(context.Background(), id)
-		assert.Error(t, err)
-		assert.Equal(t, theclouderrors.NotFound, err.(theclouderrors.Error).Type)
+		require.Error(t, err)
+		var target *theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
+		}
 	})
 }

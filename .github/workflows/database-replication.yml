@@ -1,0 +1,128 @@
+name: Database Replication Tests
+
+on:
+  push:
+    branches: [main, "feature/*"]
+    paths:
+      - 'internal/core/services/database.go'
+      - 'internal/repositories/postgres/database_repo.go'
+      - 'internal/repositories/postgres/migrations/*.sql'
+      - 'internal/workers/database_failover_worker.go'
+      - 'tests/database_replication_e2e_test.go'
+      - '.github/workflows/database-replication.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'internal/core/services/database.go'
+      - 'internal/repositories/postgres/database_repo.go'
+      - 'internal/repositories/postgres/migrations/*.sql'
+      - 'internal/workers/database_failover_worker.go'
+      - 'tests/database_replication_e2e_test.go'
+      - '.github/workflows/database-replication.yml'
+
+jobs:
+  replication-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cloud
+          POSTGRES_PASSWORD: cloud
+          POSTGRES_DB: cloud
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U cloud"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      # Mock Replica (Simulated as another Postgres instance)
+      postgres-replica:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cloud
+          POSTGRES_PASSWORD: cloud
+          POSTGRES_DB: cloud
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U cloud"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v6
+      
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Install Dependencies
+        run: go mod download
+
+      - name: Wait for Services
+        run: |
+          echo "Waiting for primary postgres..."
+          timeout 60s bash -c 'until pg_isready -h 127.0.0.1 -p 5433 -U cloud; do sleep 2; done' || (echo "Primary postgres failed to start" && exit 1)
+          
+          echo "Waiting for replica postgres..."
+          timeout 60s bash -c 'until pg_isready -h 127.0.0.1 -p 5434 -U cloud; do sleep 2; done' || (echo "Replica postgres failed to start" && exit 1)
+          
+          echo "Waiting for redis..."
+          timeout 60s bash -c 'until nc -z 127.0.0.1 6379; do sleep 2; done' || (echo "Redis failed to start" && exit 1)
+
+      - name: Reset Database
+        env:
+          DATABASE_URL: postgres://cloud:cloud@127.0.0.1:5433/cloud?sslmode=disable
+        run: |
+          # Ensure a completely fresh database for the metadata
+          PGPASSWORD=cloud psql -h 127.0.0.1 -p 5433 -U cloud -d postgres -c "DROP DATABASE IF EXISTS cloud;"
+          PGPASSWORD=cloud psql -h 127.0.0.1 -p 5433 -U cloud -d postgres -c "CREATE DATABASE cloud;"
+
+      - name: Build API
+        run: go build -v -o api ./cmd/api
+
+      - name: Start API Server
+        env:
+          DATABASE_URL: postgres://cloud:cloud@127.0.0.1:5433/cloud?sslmode=disable
+          COMPUTE_BACKEND: docker
+          TEST_DOCKER_NETWORK: cloud-network
+        run: |
+          # Start the API server in the background
+          # The server will run migrations automatically on startup
+          ./api > api.log 2>&1 &
+          echo $! > api.pid
+          
+          # Wait for the server to be ready
+          echo "Waiting for API server to start..."
+          timeout 90s bash -c 'until curl -s http://localhost:8080/health/live; do sleep 2; done' || (echo "API Server Logs:" && cat api.log && exit 1)
+          echo "API server started."
+
+      - name: Run Replication E2E Tests
+        env:
+          DATABASE_URL: postgres://cloud:cloud@127.0.0.1:5433/cloud?sslmode=disable
+          TEST_DOCKER_NETWORK: cloud-network
+        run: |
+          # Create the network the API will use
+          docker network create cloud-network || true
+          
+          # Run the specific replication test
+          go test -v -timeout 5m -run TestDatabaseReplicationE2E ./tests/...
+          
+          # Cleanup
+          kill $(cat api.pid) || true

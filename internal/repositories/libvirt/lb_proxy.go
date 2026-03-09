@@ -41,12 +41,12 @@ func (a *LBProxyAdapter) DeployProxy(ctx context.Context, lb *domain.LoadBalance
 	}
 
 	configDir := filepath.Join("/tmp", "thecloud", "lb", lb.ID.String())
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0750); err != nil {
 		return "", err
 	}
 
 	configPath := filepath.Join(configDir, nginxConfigFileName)
-	if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(config), 0600); err != nil {
 		return "", err
 	}
 
@@ -84,7 +84,7 @@ func (a *LBProxyAdapter) UpdateProxyConfig(ctx context.Context, lb *domain.LoadB
 
 	configDir := filepath.Join("/tmp", "thecloud", "lb", lb.ID.String())
 	configPath := filepath.Join(configDir, nginxConfigFileName)
-	if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(config), 0600); err != nil {
 		return err
 	}
 

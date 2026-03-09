@@ -1,0 +1,42 @@
+package ports
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+	"github.com/poyrazk/thecloud/internal/core/domain"
+)
+
+// IAMRepository manages the persistence of IAM policies and their assignments.
+type IAMRepository interface {
+	// Policy Management
+	CreatePolicy(ctx context.Context, tenantID uuid.UUID, policy *domain.Policy) error
+	GetPolicyByID(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (*domain.Policy, error)
+	ListPolicies(ctx context.Context, tenantID uuid.UUID) ([]*domain.Policy, error)
+	UpdatePolicy(ctx context.Context, tenantID uuid.UUID, policy *domain.Policy) error
+	DeletePolicy(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) error
+
+	// Policy Assignment
+	AttachPolicyToUser(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, policyID uuid.UUID) error
+	DetachPolicyFromUser(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, policyID uuid.UUID) error
+	GetPoliciesForUser(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID) ([]*domain.Policy, error)
+}
+
+// IAMService defines the business logic for IAM management.
+type IAMService interface {
+	CreatePolicy(ctx context.Context, policy *domain.Policy) error
+	GetPolicyByID(ctx context.Context, id uuid.UUID) (*domain.Policy, error)
+	ListPolicies(ctx context.Context) ([]*domain.Policy, error)
+	UpdatePolicy(ctx context.Context, policy *domain.Policy) error
+	DeletePolicy(ctx context.Context, id uuid.UUID) error
+
+	AttachPolicyToUser(ctx context.Context, userID uuid.UUID, policyID uuid.UUID) error
+	DetachPolicyFromUser(ctx context.Context, userID uuid.UUID, policyID uuid.UUID) error
+	GetPoliciesForUser(ctx context.Context, userID uuid.UUID) ([]*domain.Policy, error)
+}
+
+// PolicyEvaluator defines the logic for evaluating access based on a set of policies.
+type PolicyEvaluator interface {
+	// Evaluate checks if the given action on a resource is allowed by the provided policies.
+	Evaluate(ctx context.Context, policies []*domain.Policy, action string, resource string, evalCtx map[string]interface{}) (bool, error)
+}

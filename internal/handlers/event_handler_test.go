@@ -11,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockEventService struct {
@@ -27,7 +28,8 @@ func (m *mockEventService) ListEvents(ctx context.Context, limit int) ([]*domain
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Event), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Event)
+	return r0, args.Error(1)
 }
 
 func setupEventHandlerTest(_ *testing.T) (*mockEventService, *EventHandler, *gin.Engine) {
@@ -49,7 +51,7 @@ func TestEventHandlerList(t *testing.T) {
 	svc.On("ListEvents", mock.Anything, 50).Return(events, nil)
 
 	req, err := http.NewRequest(http.MethodGet, "/events", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

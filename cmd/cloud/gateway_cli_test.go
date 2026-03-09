@@ -32,13 +32,13 @@ func TestGatewayCreateRouteCmd(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = gatewayTestAPIKey
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = gatewayTestAPIKey
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
 	}()
 
 	_ = createRouteCmd.Flags().Set("strip", "true")
@@ -62,13 +62,13 @@ func TestGatewayDeleteRouteCmd(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = gatewayTestAPIKey
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = gatewayTestAPIKey
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
 	}()
 
 	out := captureStdout(t, func() {

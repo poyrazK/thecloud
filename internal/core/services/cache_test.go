@@ -19,6 +19,7 @@ import (
 )
 
 func setupCacheServiceTest(t *testing.T) (*services.CacheService, ports.CacheRepository, *docker.DockerAdapter, ports.VpcRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
@@ -30,13 +31,21 @@ func setupCacheServiceTest(t *testing.T) (*services.CacheService, ports.CacheRep
 	require.NoError(t, err)
 
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	eventRepo := postgres.NewEventRepository(db)
-	eventSvc := services.NewEventService(eventRepo, rbacSvc, nil, slog.Default())
+	eventSvc := services.NewEventService(services.EventServiceParams{
+		Repo:    eventRepo,
+		RBACSvc: rbacSvc,
+		Hub:     nil,
+		Logger:  slog.Default(),
+	})
 
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
 
 	logger := slog.Default()
 
@@ -51,7 +60,7 @@ func TestCreateCacheSuccess(t *testing.T) {
 
 	cache, err := svc.CreateCache(ctx, name, "7.2", 128, nil)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, cache)
 	assert.Equal(t, name, cache.Name)
 	assert.Equal(t, domain.EngineRedis, cache.Engine)
@@ -61,7 +70,7 @@ func TestCreateCacheSuccess(t *testing.T) {
 	ip, err := compute.GetInstanceIP(ctx, cache.ContainerID)
 	// Note: It might take a moment or fail if not yet ready, but Adapter retries.
 	// For integration test with real docker, this should work eventually.
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, ip)
 
 	// Clean up created container
@@ -69,7 +78,7 @@ func TestCreateCacheSuccess(t *testing.T) {
 
 	// Verify in DB
 	fetched, err := repo.GetByID(ctx, cache.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, cache.ID, fetched.ID)
 }
 
@@ -101,7 +110,7 @@ func TestCreateCacheWithVpc(t *testing.T) {
 
 	name := "test-cache-vpc"
 	cache, err := svc.CreateCache(ctx, name, "7.2", 128, &vpcID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, &vpcID, cache.VpcID)
 
 	// Cleanup
@@ -118,9 +127,9 @@ func TestDeleteCacheSuccess(t *testing.T) {
 
 	// Execute
 	err = svc.DeleteCache(ctx, cache.ID.String())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify deleted from DB
 	_, err = repo.GetByID(ctx, cache.ID)
-	assert.Error(t, err) // Should return not found error
+	require.Error(t, err) // Should return not found error
 }

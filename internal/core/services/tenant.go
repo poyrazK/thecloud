@@ -45,7 +45,7 @@ func (s *TenantService) CreateTenant(ctx context.Context, name, slug string, own
 
 	// In a real system, tenant:create might be restricted to certain global roles
 	if userID != uuid.Nil {
-		if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionTenantCreate); err != nil {
+		if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionTenantCreate, "*"); err != nil {
 			return nil, err
 		}
 	}
@@ -109,7 +109,7 @@ func (s *TenantService) GetTenant(ctx context.Context, id uuid.UUID) (*domain.Te
 
 	// Verify they are asking for a tenant they have access to, or have global read
 	if tenantID != id {
-		if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionTenantRead); err != nil {
+		if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionTenantRead, id.String()); err != nil {
 			return nil, err
 		}
 	}
@@ -117,12 +117,16 @@ func (s *TenantService) GetTenant(ctx context.Context, id uuid.UUID) (*domain.Te
 	return s.repo.GetByID(ctx, id)
 }
 
+func (s *TenantService) ListUserTenants(ctx context.Context, userID uuid.UUID) ([]domain.Tenant, error) {
+	return s.repo.ListUserTenants(ctx, userID)
+}
+
 func (s *TenantService) InviteMember(ctx context.Context, tenantID uuid.UUID, email, role string) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	activeTenantID := appcontext.TenantIDFromContext(ctx)
 
 	// Must have update permission in the target tenant
-	if err := s.rbacSvc.Authorize(ctx, userID, activeTenantID, domain.PermissionTenantUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, activeTenantID, domain.PermissionTenantUpdate, tenantID.String()); err != nil {
 		return err
 	}
 
@@ -146,7 +150,7 @@ func (s *TenantService) RemoveMember(ctx context.Context, tenantID, userID uuid.
 	uID := appcontext.UserIDFromContext(ctx)
 	activeTenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, uID, activeTenantID, domain.PermissionTenantUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, uID, activeTenantID, domain.PermissionTenantUpdate, tenantID.String()); err != nil {
 		return err
 	}
 

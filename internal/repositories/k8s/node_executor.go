@@ -74,6 +74,7 @@ func (e *SSHExecutor) Run(ctx context.Context, cmd string) (string, error) {
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
+		// Ephemeral nodes have dynamic keys, so strict checking isn't feasible here without a central CA.
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         10 * time.Second,
 	}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -53,7 +54,7 @@ func TestClientCreateSecret(t *testing.T) {
 	client := NewClient(server.URL, secretTestAPIKey)
 	secret, err := client.CreateSecret(secretTestName, secretTestValue, secretTestDescription)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, secret)
 	assert.Equal(t, expectedSecret.ID, secret.ID)
 	assert.Equal(t, expectedSecret.EncryptedValue, secret.EncryptedValue)
@@ -78,7 +79,7 @@ func TestClientListSecrets(t *testing.T) {
 	client := NewClient(server.URL, secretTestAPIKey)
 	secrets, err := client.ListSecrets()
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, secrets, 2)
 	assert.Equal(t, expectedSecrets[0].Name, secrets[0].Name)
 }
@@ -99,7 +100,7 @@ func TestClientGetSecret(t *testing.T) {
 	client := NewClient(server.URL, secretTestAPIKey)
 	secret, err := client.GetSecret(secretTestID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, secret)
 	assert.Equal(t, expectedSecret.ID, secret.ID)
 }
@@ -117,7 +118,7 @@ func TestClientDeleteSecret(t *testing.T) {
 	client := NewClient(server.URL, secretTestAPIKey)
 	err := client.DeleteSecret(secretTestID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClientSecretErrors(t *testing.T) {
@@ -129,14 +130,14 @@ func TestClientSecretErrors(t *testing.T) {
 
 	client := NewClient(server.URL, secretTestAPIKey)
 	_, err := client.CreateSecret("secret", "value", "desc")
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.ListSecrets()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetSecret(secretTestID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.DeleteSecret(secretTestID)
-	assert.Error(t, err)
+	require.Error(t, err)
 }

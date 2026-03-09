@@ -8,6 +8,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockInstanceRepo struct {
@@ -24,7 +25,8 @@ func (m *mockInstanceRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.I
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 
 func (m *mockInstanceRepo) GetByName(ctx context.Context, name string) (*domain.Instance, error) {
@@ -32,7 +34,8 @@ func (m *mockInstanceRepo) GetByName(ctx context.Context, name string) (*domain.
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 
 func (m *mockInstanceRepo) List(ctx context.Context) ([]*domain.Instance, error) {
@@ -40,21 +43,24 @@ func (m *mockInstanceRepo) List(ctx context.Context) ([]*domain.Instance, error)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceRepo) ListAll(ctx context.Context) ([]*domain.Instance, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceRepo) ListBySubnet(ctx context.Context, subnetID uuid.UUID) ([]*domain.Instance, error) {
 	args := m.Called(ctx, subnetID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 
 func (m *mockInstanceRepo) Update(ctx context.Context, instance *domain.Instance) error {
@@ -81,7 +87,8 @@ func (m *mockVpcRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.VPC, e
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.VPC), args.Error(1)
+	r0, _ := args.Get(0).(*domain.VPC)
+	return r0, args.Error(1)
 }
 
 func (m *mockVpcRepo) GetByName(ctx context.Context, name string) (*domain.VPC, error) {
@@ -89,7 +96,8 @@ func (m *mockVpcRepo) GetByName(ctx context.Context, name string) (*domain.VPC, 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.VPC), args.Error(1)
+	r0, _ := args.Get(0).(*domain.VPC)
+	return r0, args.Error(1)
 }
 
 func (m *mockVpcRepo) List(ctx context.Context) ([]*domain.VPC, error) {
@@ -97,7 +105,8 @@ func (m *mockVpcRepo) List(ctx context.Context) ([]*domain.VPC, error) {
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.VPC), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.VPC)
+	return r0, args.Error(1)
 }
 
 func (m *mockVpcRepo) Delete(ctx context.Context, id uuid.UUID) error {
@@ -105,7 +114,7 @@ func (m *mockVpcRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return args.Error(0)
 }
 
-func TestLBProxyAdapter_GenerateNginxConfig(t *testing.T) {
+func TestLBProxyAdapterGenerateNginxConfig(t *testing.T) {
 	instRepo := new(mockInstanceRepo)
 	vpcRepo := new(mockVpcRepo)
 	adapter := &LBProxyAdapter{
@@ -136,7 +145,7 @@ func TestLBProxyAdapter_GenerateNginxConfig(t *testing.T) {
 
 	t.Run("round-robin config", func(t *testing.T) {
 		conf, err := adapter.generateNginxConfig(ctx, lb, targets)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Contains(t, conf, "server thecloud-"+inst1ID.String()[:8]+":8080 weight=1;")
 		assert.Contains(t, conf, "server thecloud-"+inst2ID.String()[:8]+":9090 weight=2;")
 		assert.Contains(t, conf, "listen 80;")
@@ -146,7 +155,7 @@ func TestLBProxyAdapter_GenerateNginxConfig(t *testing.T) {
 	t.Run("least-conn config", func(t *testing.T) {
 		lb.Algorithm = "least-conn"
 		conf, err := adapter.generateNginxConfig(ctx, lb, targets)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Contains(t, conf, "least_conn;")
 	})
 }

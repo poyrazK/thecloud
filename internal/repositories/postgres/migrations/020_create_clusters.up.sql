@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS clusters (
     name VARCHAR(255) NOT NULL,
     version VARCHAR(50) NOT NULL DEFAULT 'v1.29.0',
     status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    control_plane_ips TEXT[],
     worker_count INT NOT NULL DEFAULT 2,
     ha_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     network_isolation BOOLEAN NOT NULL DEFAULT FALSE,
@@ -34,5 +35,5 @@ CREATE TABLE IF NOT EXISTS cluster_nodes (
     joined_at TIMESTAMPTZ
 );
 
-CREATE INDEX idx_clusters_user_id ON clusters(user_id);
-CREATE INDEX idx_cluster_nodes_cluster_id ON cluster_nodes(cluster_id);
+CREATE INDEX IF NOT EXISTS idx_clusters_user_id ON clusters(user_id);
+CREATE INDEX IF NOT EXISTS idx_cluster_nodes_cluster_id ON cluster_nodes(cluster_id);

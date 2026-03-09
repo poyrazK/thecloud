@@ -16,6 +16,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -35,7 +36,8 @@ func (m *mockImageService) RegisterImage(ctx context.Context, name, description,
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Image), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Image)
+	return r0, args.Error(1)
 }
 
 func (m *mockImageService) UploadImage(ctx context.Context, id uuid.UUID, reader io.Reader) error {
@@ -48,7 +50,8 @@ func (m *mockImageService) GetImage(ctx context.Context, id uuid.UUID) (*domain.
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Image), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Image)
+	return r0, args.Error(1)
 }
 
 func (m *mockImageService) ListImages(ctx context.Context, userID uuid.UUID, includePublic bool) ([]*domain.Image, error) {
@@ -56,7 +59,8 @@ func (m *mockImageService) ListImages(ctx context.Context, userID uuid.UUID, inc
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Image), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Image)
+	return r0, args.Error(1)
 }
 
 func (m *mockImageService) DeleteImage(ctx context.Context, id uuid.UUID) error {
@@ -133,9 +137,9 @@ func TestImageHandlerUploadImage(t *testing.T) {
 		writer := multipart.NewWriter(body)
 		part, _ := writer.CreateFormFile("file", "image.qcow2")
 		_, err := part.Write([]byte("image content"))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		err = writer.Close()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		c.Request = httptest.NewRequest("POST", imagesAPI+"/"+imageID.String()+uploadSuffix, body)
 		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
@@ -309,7 +313,7 @@ func TestImageHandlerAdditionalErrors(t *testing.T) {
 	})
 
 	t.Run("UploadImageInvalidID", func(t *testing.T) {
-		_, handler, r := setupImageHandlerTest(t)
+		handler, r := setupImageHandlerTest(t)
 		r.POST("/images/:id"+uploadSuffix, handler.UploadImage)
 		req, _ := http.NewRequest("POST", "/images/invalid/upload", nil)
 		w := httptest.NewRecorder()
@@ -318,7 +322,7 @@ func TestImageHandlerAdditionalErrors(t *testing.T) {
 	})
 
 	t.Run("UploadImageNoFile", func(t *testing.T) {
-		_, handler, _ := setupImageHandlerTest(t)
+		handler, _ := setupImageHandlerTest(t)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Params = []gin.Param{{Key: imageIDParam, Value: uuid.New().String()}}
@@ -362,9 +366,10 @@ func TestImageHandlerAdditionalErrors(t *testing.T) {
 	})
 }
 
-func setupImageHandlerTest(_ *testing.T) (*mockImageService, *ImageHandler, *gin.Engine) {
+func setupImageHandlerTest(t *testing.T) (*ImageHandler, *gin.Engine) {
+	t.Helper()
 	svc := new(mockImageService)
 	handler := NewImageHandler(svc)
 	r := gin.New()
-	return svc, handler, r
+	return handler, r
 }

@@ -31,12 +31,12 @@ func NewCachedRBACService(rbac ports.RBACService, cache *redis.Client, logger *s
 	}
 }
 
-func (s *cachedRBACService) Authorize(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission) error {
-	return s.rbac.Authorize(ctx, userID, tenantID, permission)
+func (s *cachedRBACService) Authorize(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission, resource string) error {
+	return s.rbac.Authorize(ctx, userID, tenantID, permission, resource)
 }
 
-func (s *cachedRBACService) HasPermission(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission) (bool, error) {
-	key := fmt.Sprintf("rbac:perm:%s:%s:%s", tenantID, userID, permission)
+func (s *cachedRBACService) HasPermission(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission, resource string) (bool, error) {
+	key := fmt.Sprintf("rbac:perm:%s:%s:%s:%s", tenantID, userID, permission, resource)
 
 	// Try cache
 	val, err := s.cache.Get(ctx, key).Result()
@@ -45,7 +45,7 @@ func (s *cachedRBACService) HasPermission(ctx context.Context, userID uuid.UUID,
 	}
 
 	// Cache miss
-	allowed, err := s.rbac.HasPermission(ctx, userID, tenantID, permission)
+	allowed, err := s.rbac.HasPermission(ctx, userID, tenantID, permission, resource)
 	if err != nil {
 		return false, err
 	}
@@ -161,13 +161,17 @@ func (s *cachedRBACService) BindRole(ctx context.Context, userIdentifier, roleNa
 		// Invalidate user permission cache
 		// Since we don't know the exact userID if email was used, we'd need to fetch it first or use a pattern delete
 		// For simplicity, let's just clear the rbac perms pattern
-		s.cache.Del(ctx, "rbac:perm:*") // In a real system, use more targetted invalidation
+		s.cache.Del(ctx, "rbac:perm:*") // In a real system, use more targeted invalidation
 	}
 	return err
 }
 
 func (s *cachedRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User, error) {
 	return s.rbac.ListRoleBindings(ctx)
+}
+
+func (s *cachedRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, evalCtx map[string]interface{}) (bool, error) {
+	return s.rbac.EvaluatePolicy(ctx, userID, action, resource, evalCtx)
 }
 
 func (s *cachedRBACService) invalidateRoleCache(ctx context.Context, id uuid.UUID, name string) {

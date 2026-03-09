@@ -88,9 +88,9 @@ func CompilePattern(pattern string) (*PatternMatcher, error) {
 }
 
 func extractParamNames(pattern string) []string {
-	var names []string
 	re := regexp.MustCompile(`{([a-zA-Z0-9_]+)(?::[^}]+)?}`)
 	matches := re.FindAllStringSubmatch(pattern, -1)
+	names := make([]string, 0, len(matches))
 	for _, m := range matches {
 		names = append(names, m[1])
 	}

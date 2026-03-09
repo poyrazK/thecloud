@@ -9,12 +9,13 @@ import (
 	"github.com/pashagolub/pgxmock/v3"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestImageRepository_Create(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewImageRepository(mock)
@@ -39,13 +40,13 @@ func TestImageRepository_Create(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.Create(context.Background(), img)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestImageRepository_GetByID(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewImageRepository(mock)
@@ -58,7 +59,7 @@ func TestImageRepository_GetByID(t *testing.T) {
 			AddRow(id, "ubuntu", "Ubuntu", "linux", "22.04", 10, "/path", "qcow2", true, uuid.New(), domain.ImageStatusActive, now, now))
 
 	img, err := repo.GetByID(context.Background(), id)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, img)
 	assert.Equal(t, id, img.ID)
 }
@@ -66,7 +67,7 @@ func TestImageRepository_GetByID(t *testing.T) {
 func TestImageRepository_List(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewImageRepository(mock)
@@ -79,14 +80,14 @@ func TestImageRepository_List(t *testing.T) {
 			AddRow(uuid.New(), "ubuntu", "Ubuntu", "linux", "22.04", 10, "/path", "qcow2", true, userID, domain.ImageStatusActive, now, now))
 
 	images, err := repo.List(context.Background(), userID, true)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, images, 1)
 }
 
 func TestImageRepository_Update(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewImageRepository(mock)
@@ -109,13 +110,13 @@ func TestImageRepository_Update(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 	err = repo.Update(context.Background(), img)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestImageRepository_Delete(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewImageRepository(mock)
@@ -126,5 +127,5 @@ func TestImageRepository_Delete(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 	err = repo.Delete(context.Background(), id)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }

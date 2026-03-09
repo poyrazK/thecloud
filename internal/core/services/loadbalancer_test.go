@@ -16,6 +16,7 @@ import (
 )
 
 func setupLBServiceIntegrationTest(t *testing.T) (ports.LBService, *postgres.LBRepository, *postgres.VpcRepository, *postgres.InstanceRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
@@ -26,9 +27,12 @@ func setupLBServiceIntegrationTest(t *testing.T) (ports.LBService, *postgres.LBR
 	auditRepo := postgres.NewAuditRepository(db)
 
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
 
 	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instRepo, auditSvc)
 	return svc, lbRepo, vpcRepo, instRepo, ctx
@@ -56,14 +60,14 @@ func TestLBService_Integration(t *testing.T) {
 		key1 := "idempotency-key-1"
 
 		lb, err := svc.Create(ctx, name, vpc.ID, port, algo, key1)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, lb)
 		assert.Equal(t, name, lb.Name)
 		assert.Equal(t, userID, lb.UserID)
 
 		// Idempotency check
 		lb2, err := svc.Create(ctx, name, vpc.ID, port, algo, key1)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, lb.ID, lb2.ID)
 	})
 
@@ -82,23 +86,23 @@ func TestLBService_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		err = svc.AddTarget(ctx, lb.ID, inst.ID, 80, 1)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Verify target exists
 		targets, err := lbRepo.ListTargets(ctx, lb.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, targets, 1)
 		assert.Equal(t, inst.ID, targets[0].InstanceID)
 	})
 
 	t.Run("ListAndGet", func(t *testing.T) {
 		lbs, err := svc.List(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.GreaterOrEqual(t, len(lbs), 1)
 
 		lbID := lbs[0].ID
 		fetched, err := svc.Get(ctx, lbID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, lbID, fetched.ID)
 	})
 
@@ -106,11 +110,11 @@ func TestLBService_Integration(t *testing.T) {
 		lb, _ := svc.Create(ctx, "to-delete", vpc.ID, 9000, "round-robin", "key-del")
 
 		err := svc.Delete(ctx, lb.ID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Soft delete check - should be updated to StatusDeleted
 		fetched, err := svc.Get(ctx, lb.ID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, domain.LBStatusDeleted, fetched.Status)
 	})
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type dashboardServiceMock struct {
@@ -25,7 +26,8 @@ func (m *dashboardServiceMock) GetSummary(ctx context.Context) (*domain.Resource
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.ResourceSummary), args.Error(1)
+	r0, _ := args.Get(0).(*domain.ResourceSummary)
+	return r0, args.Error(1)
 }
 
 func (m *dashboardServiceMock) GetRecentEvents(ctx context.Context, limit int) ([]*domain.Event, error) {
@@ -33,7 +35,8 @@ func (m *dashboardServiceMock) GetRecentEvents(ctx context.Context, limit int) (
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Event), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Event)
+	return r0, args.Error(1)
 }
 
 func (m *dashboardServiceMock) GetStats(ctx context.Context) (*domain.DashboardStats, error) {
@@ -42,7 +45,8 @@ func (m *dashboardServiceMock) GetStats(ctx context.Context) (*domain.DashboardS
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.DashboardStats), args.Error(1)
+	r0, _ := args.Get(0).(*domain.DashboardStats)
+	return r0, args.Error(1)
 }
 
 func setupDashboardHandlerTest(_ *testing.T) (*dashboardServiceMock, *DashboardHandler, *gin.Engine) {
@@ -64,7 +68,7 @@ func TestDashboardHandlerGetSummary(t *testing.T) {
 	mockSvc.On("GetSummary", mock.Anything).Return(summary, nil)
 
 	req, err := http.NewRequest("GET", "/summary", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -72,7 +76,7 @@ func TestDashboardHandlerGetSummary(t *testing.T) {
 	var wrapper struct {
 		Data domain.ResourceSummary `json:"data"`
 	}
-	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &wrapper))
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &wrapper))
 	assert.Equal(t, 5, wrapper.Data.TotalInstances)
 }
 
@@ -87,7 +91,7 @@ func TestDashboardHandlerGetRecentEvents(t *testing.T) {
 	mockSvc.On("GetRecentEvents", mock.Anything, 10).Return(events, nil)
 
 	req, err := http.NewRequest("GET", "/events?limit=10", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -95,7 +99,7 @@ func TestDashboardHandlerGetRecentEvents(t *testing.T) {
 	var wrapper struct {
 		Data []*domain.Event `json:"data"`
 	}
-	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &wrapper))
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &wrapper))
 	assert.Len(t, wrapper.Data, 1)
 }
 
@@ -112,7 +116,7 @@ func TestDashboardHandlerGetStats(t *testing.T) {
 	mockSvc.On("GetStats", mock.Anything).Return(stats, nil)
 
 	req, err := http.NewRequest("GET", "/stats", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -120,9 +124,9 @@ func TestDashboardHandlerGetStats(t *testing.T) {
 	var wrapper struct {
 		Data domain.DashboardStats `json:"data"`
 	}
-	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &wrapper))
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &wrapper))
 	assert.Len(t, wrapper.Data.CPUHistory, 1)
-	assert.Equal(t, 10.1, wrapper.Data.CPUHistory[0].Value)
+	assert.InDelta(t, 10.1, wrapper.Data.CPUHistory[0].Value, 0.01)
 }
 
 func TestDashboardHandlerStreamEvents(t *testing.T) {
@@ -136,7 +140,7 @@ func TestDashboardHandlerStreamEvents(t *testing.T) {
 	mockSvc.On("GetSummary", mock.Anything).Return(summary, nil)
 
 	req, err := http.NewRequest("GET", "/stream", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	ctx, cancel := context.WithCancel(context.Background())
 	req = req.WithContext(ctx)
@@ -150,7 +154,7 @@ func TestDashboardHandlerStreamEvents(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "event:summary")
 }
 
-func TestDashboardHandlerGetRecentEvents_Limits(t *testing.T) {
+func TestDashboardHandlerGetRecentEventsLimits(t *testing.T) {
 	t.Parallel()
 	mockSvc, handler, r := setupDashboardHandlerTest(t)
 	r.GET("/events", handler.GetRecentEvents)
@@ -180,7 +184,7 @@ func TestDashboardHandlerGetRecentEvents_Limits(t *testing.T) {
 	})
 }
 
-func TestDashboardHandler_Errors(t *testing.T) {
+func TestDashboardHandlerErrors(t *testing.T) {
 	t.Parallel()
 	mockSvc, handler, r := setupDashboardHandlerTest(t)
 	r.GET("/summary", handler.GetSummary)

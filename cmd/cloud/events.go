@@ -2,7 +2,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -20,16 +19,20 @@ var listEventsCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List system events",
 	Run: func(cmd *cobra.Command, args []string) {
-		client := getClient()
+		client := createClient(opts)
 		events, err := client.ListEvents()
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
 
-		if outputJSON {
-			data, _ := json.MarshalIndent(events, "", "  ")
-			fmt.Println(string(data))
+		if opts.JSON {
+			printJSON(events)
+			return
+		}
+
+		if len(events) == 0 {
+			fmt.Println("No events found.")
 			return
 		}
 
@@ -46,15 +49,15 @@ var listEventsCmd = &cobra.Command{
 				meta = meta[:47] + "..."
 			}
 
-			_ = table.Append([]string{
+			table.Append([]string{
 				val,
 				e.Action,
-				e.ResourceID,
+				truncateID(e.ResourceID),
 				e.ResourceType,
 				meta,
 			})
 		}
-		_ = table.Render()
+		table.Render()
 	},
 }
 

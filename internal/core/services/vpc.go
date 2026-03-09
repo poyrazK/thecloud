@@ -16,11 +16,24 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+// VpcServiceParams defines dependencies for VpcService creation.
+type VpcServiceParams struct {
+	Repo        ports.VpcRepository
+	LBRepo      ports.LBRepository
+	PeeringRepo ports.VPCPeeringRepository
+	RBACSvc     ports.RBACService
+	Network     ports.NetworkBackend
+	AuditSvc    ports.AuditService
+	Logger      *slog.Logger
+	DefaultCIDR string
+}
+
 // VpcService handles the lifecycle of Virtual Private Clouds (VPCs),
 // including network isolation through OVS bridges and backend persistence.
 type VpcService struct {
 	repo        ports.VpcRepository
 	lbRepo      ports.LBRepository
+	peeringRepo ports.VPCPeeringRepository
 	rbacSvc     ports.RBACService
 	network     ports.NetworkBackend
 	auditSvc    ports.AuditService
@@ -30,17 +43,19 @@ type VpcService struct {
 
 // NewVpcService creates a new instance of VpcService.
 // If defaultCIDR is empty, it defaults to "10.0.0.0/16".
-func NewVpcService(repo ports.VpcRepository, lbRepo ports.LBRepository, rbacSvc ports.RBACService, network ports.NetworkBackend, auditSvc ports.AuditService, logger *slog.Logger, defaultCIDR string) *VpcService {
+func NewVpcService(params VpcServiceParams) *VpcService {
+	defaultCIDR := params.DefaultCIDR
 	if defaultCIDR == "" {
 		defaultCIDR = "10.0.0.0/16" // Fallback if not provided
 	}
 	return &VpcService{
-		repo:        repo,
-		lbRepo:      lbRepo,
-		rbacSvc:     rbacSvc,
-		network:     network,
-		auditSvc:    auditSvc,
-		logger:      logger,
+		repo:        params.Repo,
+		lbRepo:      params.LBRepo,
+		peeringRepo: params.PeeringRepo,
+		rbacSvc:     params.RBACSvc,
+		network:     params.Network,
+		auditSvc:    params.AuditSvc,
+		logger:      params.Logger,
 		defaultCIDR: defaultCIDR,
 	}
 }
@@ -54,7 +69,7 @@ func (s *VpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*do
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcCreate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcCreate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -118,7 +133,7 @@ func (s *VpcService) GetVPC(ctx context.Context, idOrName string) (*domain.VPC, 
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead, idOrName); err != nil {
 		return nil, err
 	}
 
@@ -134,7 +149,7 @@ func (s *VpcService) ListVPCs(ctx context.Context) ([]*domain.VPC, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -146,7 +161,7 @@ func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcDelete, idOrName); err != nil {
 		return err
 	}
 
@@ -155,14 +170,9 @@ func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
 		return err
 	}
 
-	// 1. Check for dependent resources (Load Balancers)
-	lbs, err := s.lbRepo.ListAll(ctx)
-	if err == nil {
-		for _, lb := range lbs {
-			if lb.VpcID == vpc.ID && lb.Status != domain.LBStatusDeleted {
-				return errors.New(errors.Conflict, "cannot delete VPC: load balancers still exist")
-			}
-		}
+	// 1. Check for dependent resources
+	if err := s.checkDeleteDependencies(ctx, vpc.ID); err != nil {
+		return err
 	}
 
 	// 2. Remove OVS bridge
@@ -180,6 +190,32 @@ func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
 	_ = s.auditSvc.Log(ctx, vpc.UserID, "vpc.delete", "vpc", vpc.ID.String(), map[string]interface{}{
 		"name": vpc.Name,
 	})
+
+	return nil
+}
+
+func (s *VpcService) checkDeleteDependencies(ctx context.Context, vpcID uuid.UUID) error {
+	// Check for Load Balancers
+	lbs, err := s.lbRepo.ListAll(ctx)
+	if err == nil {
+		for _, lb := range lbs {
+			if lb.VpcID == vpcID && lb.Status != domain.LBStatusDeleted {
+				return errors.New(errors.Conflict, "cannot delete VPC: load balancers still exist")
+			}
+		}
+	}
+
+	// Check for active VPC peering connections
+	if s.peeringRepo != nil {
+		peerings, peerErr := s.peeringRepo.ListByVPC(ctx, vpcID)
+		if peerErr == nil {
+			for _, p := range peerings {
+				if p.Status == domain.PeeringStatusActive || p.Status == domain.PeeringStatusPendingAcceptance {
+					return errors.New(errors.Conflict, "cannot delete VPC: active peering connections exist")
+				}
+			}
+		}
+	}
 
 	return nil
 }

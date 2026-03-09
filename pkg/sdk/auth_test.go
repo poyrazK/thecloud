@@ -6,7 +6,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClientCreateKeySuccess(t *testing.T) {
@@ -17,19 +19,18 @@ func TestClientCreateKeySuccess(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(Response[struct {
-			Key string `json:"key"`
-		}]{Data: struct {
-			Key string `json:"key"`
-		}{Key: "new-key"}})
+		err := json.NewEncoder(w).Encode(Response[*domain.APIKey]{Data: &domain.APIKey{Key: "new-key"}})
+		if err != nil {
+			t.Errorf("failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
 	client := NewClient(server.URL, testAPIKey)
 	key, err := client.CreateKey("bootstrap")
 
-	assert.NoError(t, err)
-	assert.Equal(t, "new-key", key)
+	require.NoError(t, err)
+	assert.Equal(t, "new-key", key.Key)
 }
 
 func TestClientCreateKeyStatusError(t *testing.T) {
@@ -45,7 +46,7 @@ func TestClientCreateKeyStatusError(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	_, err := client.CreateKey("bootstrap")
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "api error")
 }
 
@@ -53,5 +54,5 @@ func TestClientCreateKeyRequestError(t *testing.T) {
 	client := NewClient("http://127.0.0.1:0", testAPIKey)
 	_, err := client.CreateKey("bootstrap")
 
-	assert.Error(t, err)
+	require.Error(t, err)
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockIdentityService struct {
@@ -28,7 +29,8 @@ func (m *mockIdentityService) CreateKey(ctx context.Context, userID uuid.UUID, n
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).(*domain.APIKey)
+	return r0, args.Error(1)
 }
 
 func (m *mockIdentityService) ValidateAPIKey(ctx context.Context, key string) (*domain.APIKey, error) {
@@ -36,11 +38,13 @@ func (m *mockIdentityService) ValidateAPIKey(ctx context.Context, key string) (*
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).(*domain.APIKey)
+	return r0, args.Error(1)
 }
 func (m *mockIdentityService) ListKeys(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
 	args := m.Called(ctx, userID)
-	return args.Get(0).([]*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.APIKey)
+	return r0, args.Error(1)
 }
 func (m *mockIdentityService) RevokeKey(ctx context.Context, userID, id uuid.UUID) error {
 	args := m.Called(ctx, userID, id)
@@ -48,7 +52,8 @@ func (m *mockIdentityService) RevokeKey(ctx context.Context, userID, id uuid.UUI
 }
 func (m *mockIdentityService) RotateKey(ctx context.Context, userID, id uuid.UUID) (*domain.APIKey, error) {
 	args := m.Called(ctx, userID, id)
-	return args.Get(0).(*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).(*domain.APIKey)
+	return r0, args.Error(1)
 }
 
 func TestWebSocketLifecycle(t *testing.T) {
@@ -71,8 +76,11 @@ func TestWebSocketLifecycle(t *testing.T) {
 	mockID.On("ValidateAPIKey", mock.Anything, "valid-key").Return(&domain.APIKey{Key: "valid-key", UserID: uuid.New()}, nil)
 
 	dialer := websocket.Dialer{}
-	conn, _, err := dialer.Dial(wsURL, nil)
-	assert.NoError(t, err)
+	conn, resp, err := dialer.Dial(wsURL, nil)
+	require.NoError(t, err)
+	if resp != nil {
+		defer func() { _ = resp.Body.Close() }()
+	}
 	defer func() { _ = conn.Close() }()
 
 	time.Sleep(100 * time.Millisecond)
@@ -82,7 +90,7 @@ func TestWebSocketLifecycle(t *testing.T) {
 	hub.BroadcastEvent(event)
 
 	_, p, err := conn.ReadMessage()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Contains(t, string(p), "INSTANCE_CREATED")
 
 	_ = conn.Close()
@@ -108,8 +116,11 @@ func TestWebSocketAuthFailure(t *testing.T) {
 		wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws"
 		dialer := websocket.Dialer{}
 		_, resp, err := dialer.Dial(wsURL, nil)
-		assert.Error(t, err)
-		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+		require.Error(t, err)
+		if resp != nil {
+			assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+			_ = resp.Body.Close()
+		}
 	})
 
 	t.Run("Invalid API Key", func(t *testing.T) {
@@ -117,7 +128,10 @@ func TestWebSocketAuthFailure(t *testing.T) {
 		mockID.On("ValidateAPIKey", mock.Anything, "invalid").Return(nil, errors.New(errors.Unauthorized, "invalid key"))
 		dialer := websocket.Dialer{}
 		_, resp, err := dialer.Dial(wsURL, nil)
-		assert.Error(t, err)
-		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+		require.Error(t, err)
+		if resp != nil {
+			assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+			_ = resp.Body.Close()
+		}
 	})
 }

@@ -36,7 +36,7 @@ func (s *SSHKeyService) CreateKey(ctx context.Context, name, publicKey string) (
 	tenantID := appcontext.TenantIDFromContext(ctx)
 	userID := appcontext.UserIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSSHKeyCreate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSSHKeyCreate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -79,7 +79,7 @@ func (s *SSHKeyService) GetKey(ctx context.Context, id uuid.UUID) (*domain.SSHKe
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSSHKeyRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSSHKeyRead, id.String()); err != nil {
 		return nil, err
 	}
 
@@ -98,7 +98,7 @@ func (s *SSHKeyService) ListKeys(ctx context.Context) ([]*domain.SSHKey, error) 
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSSHKeyRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSSHKeyRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -109,7 +109,7 @@ func (s *SSHKeyService) DeleteKey(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSSHKeyDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSSHKeyDelete, id.String()); err != nil {
 		return err
 	}
 

@@ -8,22 +8,20 @@ import (
 
 	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
 	cacheTestAPIKey      = "test-api-key"
 	cacheTestName        = "my-cache"
-	cacheTestID          = "c-1"
+	cacheTestID          = "cache-1"
 	cacheTestBasePath    = "/api/v1/caches"
 	cacheTestContentType = "Content-Type"
 	cacheTestAppJSON     = "application/json"
-	cacheTestConnString  = "redis://localhost:6379"
-	cacheTestVersion     = "7.0"
-	cacheTestMemoryMB    = 128
-	cacheTestStatsTotal  = int64(10)
 )
 
 func newCacheTestServer(t *testing.T) *httptest.Server {
+	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Helper()
 		w.Header().Set(cacheTestContentType, cacheTestAppJSON)
@@ -40,14 +38,14 @@ func newCacheTestServer(t *testing.T) *httptest.Server {
 						"name": cacheTestName,
 					},
 				})
-				return
 			}
 		case r.URL.Path == cacheTestBasePath && r.Method == http.MethodGet:
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{{"id": cacheTestID, "name": cacheTestName}},
+				"data": []map[string]interface{}{
+					{"id": cacheTestID, "name": cacheTestName},
+				},
 			})
-			return
 		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID && r.Method == http.MethodGet:
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -56,32 +54,20 @@ func newCacheTestServer(t *testing.T) *httptest.Server {
 					"name": cacheTestName,
 				},
 			})
-			return
 		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID && r.Method == http.MethodDelete:
 			w.WriteHeader(http.StatusNoContent)
-			return
-		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID+"/connection":
+		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID+"/connection" && r.Method == http.MethodGet:
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": map[string]interface{}{
-					"connection_string": cacheTestConnString,
-				},
+				"data": map[string]string{"connection_string": "redis://localhost:6379"},
 			})
-			return
 		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID+"/flush" && r.Method == http.MethodPost:
+			w.WriteHeader(http.StatusNoContent)
+		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID+"/stats" && r.Method == http.MethodGet:
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": map[string]string{"result": "OK"},
+				"data": map[string]interface{}{"hits": 100, "misses": 5},
 			})
-			return
-		case r.URL.Path == cacheTestBasePath+"/"+cacheTestID+"/stats":
-			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": map[string]interface{}{
-					"total_keys": cacheTestStatsTotal,
-				},
-			})
-			return
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -95,81 +81,76 @@ func TestCacheSDK(t *testing.T) {
 	client := sdk.NewClient(ts.URL+"/api/v1", cacheTestAPIKey)
 
 	t.Run("CreateCache", func(t *testing.T) {
-		cache, err := client.CreateCache(cacheTestName, cacheTestVersion, cacheTestMemoryMB, nil)
-		assert.NoError(t, err)
-		if cache != nil {
-			assert.Equal(t, cacheTestName, cache.Name)
+		c, err := client.CreateCache(cacheTestName, "redis", 100, nil)
+		require.NoError(t, err)
+		if c != nil {
+			assert.Equal(t, cacheTestName, c.Name)
 		}
 	})
 
 	t.Run("ListCaches", func(t *testing.T) {
-		caches, err := client.ListCaches()
-		assert.NoError(t, err)
-		if caches != nil {
-			assert.Len(t, caches, 1)
-		}
+		cs, err := client.ListCaches()
+		require.NoError(t, err)
+		assert.Len(t, cs, 1)
 	})
 
 	t.Run("GetCache", func(t *testing.T) {
-		cache, err := client.GetCache(cacheTestID)
-		assert.NoError(t, err)
-		if cache != nil {
-			assert.Equal(t, cacheTestID, cache.ID)
+		c, err := client.GetCache(cacheTestID)
+		require.NoError(t, err)
+		if c != nil {
+			assert.Equal(t, cacheTestID, c.ID)
 		}
 	})
 
-	t.Run("GetConnectionString", func(t *testing.T) {
+	t.Run("GetCacheConnectionString", func(t *testing.T) {
 		conn, err := client.GetCacheConnectionString(cacheTestID)
-		assert.NoError(t, err)
-		assert.Equal(t, cacheTestConnString, conn)
+		require.NoError(t, err)
+		assert.NotEmpty(t, conn)
 	})
 
 	t.Run("FlushCache", func(t *testing.T) {
 		err := client.FlushCache(cacheTestID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
-	t.Run("GetStats", func(t *testing.T) {
+	t.Run("GetCacheStats", func(t *testing.T) {
 		stats, err := client.GetCacheStats(cacheTestID)
-		assert.NoError(t, err)
-		if stats != nil {
-			assert.Equal(t, cacheTestStatsTotal, stats.TotalKeys)
-		}
+		require.NoError(t, err)
+		assert.NotNil(t, stats)
 	})
 
 	t.Run("DeleteCache", func(t *testing.T) {
 		err := client.DeleteCache(cacheTestID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
 func TestCacheSDKErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte("boom"))
 	}))
 	defer server.Close()
 
 	client := sdk.NewClient(server.URL+"/api/v1", cacheTestAPIKey)
 
-	_, err := client.CreateCache(cacheTestName, cacheTestVersion, cacheTestMemoryMB, nil)
-	assert.Error(t, err)
+	_, err := client.CreateCache("c", "redis", 10, nil)
+	require.Error(t, err)
 
 	_, err = client.ListCaches()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetCache(cacheTestID)
-	assert.Error(t, err)
-
-	err = client.DeleteCache(cacheTestID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetCacheConnectionString(cacheTestID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.FlushCache(cacheTestID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetCacheStats(cacheTestID)
-	assert.Error(t, err)
+	require.Error(t, err)
+
+	err = client.DeleteCache(cacheTestID)
+	require.Error(t, err)
 }

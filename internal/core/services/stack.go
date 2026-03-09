@@ -61,7 +61,7 @@ func (s *stackService) CreateStack(ctx context.Context, name, templateStr string
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStackCreate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStackCreate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -333,7 +333,7 @@ func (s *stackService) GetStack(ctx context.Context, id uuid.UUID) (*domain.Stac
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStackRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStackRead, id.String()); err != nil {
 		return nil, err
 	}
 
@@ -344,7 +344,7 @@ func (s *stackService) ListStacks(ctx context.Context) ([]*domain.Stack, error) 
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStackRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStackRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -355,7 +355,7 @@ func (s *stackService) DeleteStack(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStackDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStackDelete, id.String()); err != nil {
 		return err
 	}
 
@@ -388,7 +388,7 @@ func (s *stackService) ValidateTemplate(ctx context.Context, template string) (*
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStackRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStackRead, "*"); err != nil {
 		return nil, err
 	}
 

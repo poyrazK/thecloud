@@ -55,7 +55,7 @@ func (s *SecurityGroupService) CreateGroup(ctx context.Context, vpcID uuid.UUID,
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgCreate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgCreate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -117,7 +117,7 @@ func (s *SecurityGroupService) GetGroup(ctx context.Context, idOrName string, vp
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgRead, idOrName); err != nil {
 		return nil, err
 	}
 
@@ -137,7 +137,7 @@ func (s *SecurityGroupService) ListGroups(ctx context.Context, vpcID uuid.UUID) 
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -153,7 +153,7 @@ func (s *SecurityGroupService) DeleteGroup(ctx context.Context, id uuid.UUID) er
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgDelete, id.String()); err != nil {
 		return err
 	}
 
@@ -177,7 +177,7 @@ func (s *SecurityGroupService) AddRule(ctx context.Context, groupID uuid.UUID, r
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgUpdate, groupID.String()); err != nil {
 		return nil, err
 	}
 
@@ -221,7 +221,7 @@ func (s *SecurityGroupService) RemoveRule(ctx context.Context, ruleID uuid.UUID)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgUpdate, ruleID.String()); err != nil {
 		return err
 	}
 
@@ -273,7 +273,7 @@ func (s *SecurityGroupService) AttachToInstance(ctx context.Context, instanceID,
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgUpdate, groupID.String()); err != nil {
 		return err
 	}
 
@@ -310,7 +310,7 @@ func (s *SecurityGroupService) DetachFromInstance(ctx context.Context, instanceI
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgUpdate, groupID.String()); err != nil {
 		return err
 	}
 

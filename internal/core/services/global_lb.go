@@ -49,7 +49,7 @@ func (s *GlobalLBService) Create(ctx context.Context, name, hostname string, pol
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbCreate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbCreate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -104,7 +104,7 @@ func (s *GlobalLBService) Get(ctx context.Context, id uuid.UUID) (*domain.Global
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbRead, id.String()); err != nil {
 		return nil, err
 	}
 
@@ -132,7 +132,7 @@ func (s *GlobalLBService) List(ctx context.Context, userID uuid.UUID) ([]*domain
 	uID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionLbRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionLbRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -143,7 +143,7 @@ func (s *GlobalLBService) Delete(ctx context.Context, id uuid.UUID, userID uuid.
 	uID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionLbDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionLbDelete, id.String()); err != nil {
 		return err
 	}
 
@@ -174,7 +174,7 @@ func (s *GlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, regi
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbUpdate, glbID.String()); err != nil {
 		return nil, err
 	}
 
@@ -252,7 +252,7 @@ func (s *GlobalLBService) RemoveEndpoint(ctx context.Context, glbID, endpointID 
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbUpdate, glbID.String()); err != nil {
 		return err
 	}
 
@@ -305,7 +305,7 @@ func (s *GlobalLBService) ListEndpoints(ctx context.Context, glbID uuid.UUID) ([
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbRead, glbID.String()); err != nil {
 		return nil, err
 	}
 

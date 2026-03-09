@@ -102,7 +102,7 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, params ports.Launc
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceLaunch); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceLaunch, "*"); err != nil {
 		return nil, err
 	}
 
@@ -243,7 +243,7 @@ func (s *InstanceService) LaunchInstanceWithOptions(ctx context.Context, opts po
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceLaunch); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceLaunch, "*"); err != nil {
 		return nil, err
 	}
 
@@ -316,21 +316,21 @@ func (s *InstanceService) Provision(ctx context.Context, job domain.ProvisionJob
 	// 1. Resolve Networking
 	networkID, err := s.provisionNetwork(ctx, inst)
 	if err != nil {
-		s.updateStatus(ctx, inst, domain.StatusError)
+		s.updateStatus(ctx, inst)
 		return err
 	}
 
 	// 2. Resolve Volumes
 	volumeBinds, attachedVolumes, err := s.resolveVolumes(ctx, volumes)
 	if err != nil {
-		s.updateStatus(ctx, inst, domain.StatusError)
+		s.updateStatus(ctx, inst)
 		return err
 	}
 
 	// 3. Create Instance
 	it, itErr := s.instanceTypeRepo.GetByID(ctx, inst.InstanceType)
 	if itErr != nil {
-		s.updateStatus(ctx, inst, domain.StatusError)
+		s.updateStatus(ctx, inst)
 		return errors.Wrap(errors.Internal, "failed to resolve instance type for provisioning", itErr)
 	}
 
@@ -365,7 +365,7 @@ func (s *InstanceService) Provision(ctx context.Context, job domain.ProvisionJob
 	})
 	if err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("launch", "failure").Inc()
-		s.updateStatus(ctx, inst, domain.StatusError)
+		s.updateStatus(ctx, inst)
 		return errors.Wrap(errors.Internal, "failed to launch container", err)
 	}
 
@@ -440,8 +440,8 @@ func (s *InstanceService) finalizeProvision(ctx context.Context, inst *domain.In
 	return nil
 }
 
-func (s *InstanceService) updateStatus(ctx context.Context, inst *domain.Instance, status domain.InstanceStatus) {
-	inst.Status = status
+func (s *InstanceService) updateStatus(ctx context.Context, inst *domain.Instance) {
+	inst.Status = domain.StatusError
 	_ = s.repo.Update(ctx, inst)
 }
 
@@ -509,7 +509,7 @@ func (s *InstanceService) StartInstance(ctx context.Context, idOrName string) er
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate, idOrName); err != nil {
 		return err
 	}
 
@@ -560,7 +560,7 @@ func (s *InstanceService) StopInstance(ctx context.Context, idOrName string) err
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate, idOrName); err != nil {
 		return err
 	}
 
@@ -611,7 +611,7 @@ func (s *InstanceService) ListInstances(ctx context.Context) ([]*domain.Instance
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -623,7 +623,7 @@ func (s *InstanceService) GetInstance(ctx context.Context, idOrName string) (*do
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead, idOrName); err != nil {
 		return nil, err
 	}
 
@@ -641,7 +641,7 @@ func (s *InstanceService) GetInstanceLogs(ctx context.Context, idOrName string) 
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead, idOrName); err != nil {
 		return "", err
 	}
 
@@ -679,7 +679,7 @@ func (s *InstanceService) GetConsoleURL(ctx context.Context, idOrName string) (s
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead, idOrName); err != nil {
 		return "", err
 	}
 
@@ -706,7 +706,7 @@ func (s *InstanceService) TerminateInstance(ctx context.Context, idOrName string
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceTerminate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceTerminate, idOrName); err != nil {
 		return err
 	}
 
@@ -850,7 +850,7 @@ func (s *InstanceService) GetInstanceStats(ctx context.Context, idOrName string)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead, idOrName); err != nil {
 		return nil, err
 	}
 
@@ -1032,8 +1032,8 @@ func (s *InstanceService) resolveNetworkConfig(ctx context.Context, vpcID, subne
 }
 
 func (s *InstanceService) resolveVolumes(ctx context.Context, volumes []domain.VolumeAttachment) ([]string, []*domain.Volume, error) {
-	var volumeBinds []string
-	var attachedVolumes []*domain.Volume
+	volumeBinds := make([]string, 0, len(volumes))
+	attachedVolumes := make([]*domain.Volume, 0, len(volumes))
 	for _, va := range volumes {
 		vol, err := s.getVolumeByIDOrName(ctx, va.VolumeIDOrName)
 		if err != nil {
@@ -1133,7 +1133,7 @@ func (s *InstanceService) Exec(ctx context.Context, idOrName string, cmd []strin
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate, idOrName); err != nil {
 		return "", err
 	}
 
@@ -1168,7 +1168,7 @@ func (s *InstanceService) UpdateInstanceMetadata(ctx context.Context, id uuid.UU
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate, id.String()); err != nil {
 		return err
 	}
 

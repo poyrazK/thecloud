@@ -51,7 +51,7 @@ func (s *imageService) RegisterImage(ctx context.Context, name, description, os,
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionImageCreate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionImageCreate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -81,7 +81,7 @@ func (s *imageService) UploadImage(ctx context.Context, id uuid.UUID, reader io.
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionImageCreate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionImageCreate, id.String()); err != nil {
 		return err
 	}
 
@@ -123,7 +123,7 @@ func (s *imageService) GetImage(ctx context.Context, id uuid.UUID) (*domain.Imag
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionImageRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionImageRead, id.String()); err != nil {
 		return nil, err
 	}
 
@@ -144,13 +144,13 @@ func (s *imageService) ListImages(ctx context.Context, userID uuid.UUID, include
 	uID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionImageRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionImageRead, "*"); err != nil {
 		return nil, err
 	}
 
 	// Horizontal access check: if requesting images for another user, need elevated permission
 	if userID != uID {
-		if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionImageReadAll); err != nil {
+		if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionImageReadAll, "*"); err != nil {
 			return nil, errors.New(errors.Forbidden, "cannot list images for another user")
 		}
 	}
@@ -162,7 +162,7 @@ func (s *imageService) DeleteImage(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionImageDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionImageDelete, id.String()); err != nil {
 		return err
 	}
 

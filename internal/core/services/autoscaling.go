@@ -35,7 +35,7 @@ func (s *AutoScalingService) CreateGroup(ctx context.Context, params ports.Creat
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgCreate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgCreate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -109,7 +109,7 @@ func (s *AutoScalingService) GetGroup(ctx context.Context, id uuid.UUID) (*domai
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgRead, id.String()); err != nil {
 		return nil, err
 	}
 
@@ -120,7 +120,7 @@ func (s *AutoScalingService) ListGroups(ctx context.Context) ([]*domain.ScalingG
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -131,7 +131,7 @@ func (s *AutoScalingService) DeleteGroup(ctx context.Context, id uuid.UUID) erro
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgDelete, id.String()); err != nil {
 		return err
 	}
 
@@ -160,7 +160,7 @@ func (s *AutoScalingService) SetDesiredCapacity(ctx context.Context, groupID uui
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgUpdate, groupID.String()); err != nil {
 		return err
 	}
 
@@ -181,7 +181,7 @@ func (s *AutoScalingService) CreatePolicy(ctx context.Context, params ports.Crea
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgUpdate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -214,7 +214,7 @@ func (s *AutoScalingService) DeletePolicy(ctx context.Context, id uuid.UUID) err
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgUpdate, id.String()); err != nil {
 		return err
 	}
 

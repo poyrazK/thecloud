@@ -68,11 +68,9 @@ func Middleware(limiter *IPRateLimiter) gin.HandlerFunc {
 		key := c.GetHeader("X-API-Key")
 		if key == "" {
 			key = c.ClientIP()
-		} else {
+		} else if len(key) > 5 {
 			// Mask key for safety in memory
-			if len(key) > 5 {
-				key = "apikey:" + key[:5]
-			}
+			key = "apikey:" + key[:5]
 		}
 
 		l := limiter.GetLimiter(key)

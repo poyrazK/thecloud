@@ -1,4 +1,4 @@
-CREATE TABLE global_load_balancers (
+CREATE TABLE IF NOT EXISTS global_load_balancers (
     id UUID PRIMARY KEY,
     user_id UUID NOT NULL,
     tenant_id UUID NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE global_load_balancers (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE global_lb_endpoints (
+CREATE TABLE IF NOT EXISTS global_lb_endpoints (
     id UUID PRIMARY KEY,
     global_lb_id UUID NOT NULL REFERENCES global_load_balancers(id) ON DELETE CASCADE,
     region VARCHAR(50) NOT NULL,
@@ -31,5 +31,5 @@ CREATE TABLE global_lb_endpoints (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_global_lb_user_id ON global_load_balancers(user_id);
-CREATE INDEX idx_global_lb_endpoints_glb_id ON global_lb_endpoints(global_lb_id);
+CREATE INDEX IF NOT EXISTS idx_global_lb_user_id ON global_load_balancers(user_id);
+CREATE INDEX IF NOT EXISTS idx_global_lb_endpoints_glb_id ON global_lb_endpoints(global_lb_id);

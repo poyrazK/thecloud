@@ -19,6 +19,7 @@ import (
 )
 
 func setupContainerServiceIntegrationTest(t *testing.T) (ports.ContainerService, ports.ContainerRepository, *pgxpool.Pool, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
@@ -28,9 +29,17 @@ func setupContainerServiceIntegrationTest(t *testing.T) (ports.ContainerService,
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	eventRepo := postgres.NewEventRepository(db)
-	eventSvc := services.NewEventService(eventRepo, rbacSvc, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	eventSvc := services.NewEventService(services.EventServiceParams{
+		Repo:    eventRepo,
+		RBACSvc: rbacSvc,
+		Hub:     nil,
+		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
 
 	svc := services.NewContainerService(repo, rbacSvc, eventSvc, auditSvc)
 
@@ -44,24 +53,24 @@ func TestContainerService_Integration(t *testing.T) {
 	t.Run("DeploymentLifecycle", func(t *testing.T) {
 		name := "web-deployment"
 		dep, err := svc.CreateDeployment(ctx, name, "nginx:latest", 3, "80:80")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, dep)
 		assert.Equal(t, name, dep.Name)
 		assert.Equal(t, 3, dep.Replicas)
 
 		// Get
 		fetched, err := svc.GetDeployment(ctx, dep.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, dep.ID, fetched.ID)
 
 		// List
 		deps, err := svc.ListDeployments(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, deps, 1)
 
 		// Scale
 		err = svc.ScaleDeployment(ctx, dep.ID, 5)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		scaled, _ := repo.GetDeploymentByID(ctx, dep.ID, userID)
 		assert.Equal(t, 5, scaled.Replicas)
@@ -69,7 +78,7 @@ func TestContainerService_Integration(t *testing.T) {
 
 		// Delete
 		err = svc.DeleteDeployment(ctx, dep.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		deleting, _ := repo.GetDeploymentByID(ctx, dep.ID, userID)
 		assert.Equal(t, domain.DeploymentStatusDeleting, deleting.Status)
@@ -96,12 +105,12 @@ func TestContainerService_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		containers, err := repo.GetContainers(ctx, dep.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		require.Len(t, containers, 1)
 		assert.Equal(t, instID, containers[0])
 
 		err = repo.RemoveContainer(ctx, dep.ID, instID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		containers, _ = repo.GetContainers(ctx, dep.ID)
 		assert.Empty(t, containers)
@@ -116,8 +125,16 @@ func TestContainer_ChaosRestart(t *testing.T) {
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	eventSvc := services.NewEventService(postgres.NewEventRepository(db), rbacSvc, nil, slog.Default())
-	auditSvc := services.NewAuditService(postgres.NewAuditRepository(db), rbacSvc)
+	eventSvc := services.NewEventService(services.EventServiceParams{
+		Repo:    postgres.NewEventRepository(db),
+		RBACSvc: rbacSvc,
+		Hub:     nil,
+		Logger:  slog.Default(),
+	})
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    postgres.NewAuditRepository(db),
+		RBACSvc: rbacSvc,
+	})
 
 	containerSvc := services.NewContainerService(containerRepo, rbacSvc, eventSvc, auditSvc)
 	worker := services.NewContainerWorker(containerRepo, instSvc, eventSvc)

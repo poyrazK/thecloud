@@ -38,17 +38,17 @@ func TestFunctionCreateCmd(t *testing.T) {
 	defer server.Close()
 
 	codePath := filepath.Join(t.TempDir(), "fn.zip")
-	if err := os.WriteFile(codePath, []byte("zip"), 0644); err != nil {
+	if err := os.WriteFile(codePath, []byte("zip"), 0600); err != nil {
 		t.Fatalf("write code: %v", err)
 	}
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = functionTestAPIKey
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = functionTestAPIKey
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
 	}()
 
 	_ = createFnCmd.Flags().Set("name", functionTestName)
@@ -80,13 +80,13 @@ func TestFunctionListEmpty(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = functionTestAPIKey
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = functionTestAPIKey
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
 	}()
 
 	out := captureStdout(t, func() {

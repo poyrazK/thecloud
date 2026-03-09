@@ -36,8 +36,8 @@ func TestTenantRepoCreate(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.Create(context.Background(), ten)
-	assert.NoError(t, err)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestTenantRepoGetByID(t *testing.T) {
@@ -55,17 +55,17 @@ func TestTenantRepoGetByID(t *testing.T) {
 			AddRow(id, "Tenant", "tenant", uuid.New(), "free", "active", now, now))
 
 	tenant, err := repo.GetByID(context.Background(), id)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, tenant)
 	assert.Equal(t, id, tenant.ID)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, mock.ExpectationsWereMet())
 
 	mock.ExpectQuery(`SELECT id, name, slug, owner_id, plan, status, created_at, updated_at FROM tenants WHERE id = \$1`).
 		WithArgs(id).
 		WillReturnError(pgx.ErrNoRows)
 
 	tenant, err = repo.GetByID(context.Background(), id)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, tenant)
 }
 
@@ -84,17 +84,17 @@ func TestTenantRepoGetBySlug(t *testing.T) {
 			AddRow(uuid.New(), "Tenant", slug, uuid.New(), "free", "active", now, now))
 
 	tenant, err := repo.GetBySlug(context.Background(), slug)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, tenant)
 	assert.Equal(t, slug, tenant.Slug)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, mock.ExpectationsWereMet())
 
 	mock.ExpectQuery(`SELECT id, name, slug, owner_id, plan, status, created_at, updated_at FROM tenants WHERE slug = \$1`).
 		WithArgs(slug).
 		WillReturnError(pgx.ErrNoRows)
 
 	tenant, err = repo.GetBySlug(context.Background(), slug)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, tenant)
 }
 
@@ -119,15 +119,15 @@ func TestTenantRepoUpdateDelete(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 	err = repo.Update(context.Background(), ten)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	mock.ExpectExec(`DELETE FROM tenants WHERE id = \$1`).
 		WithArgs(ten.ID).
 		WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 	err = repo.Delete(context.Background(), ten.ID)
-	assert.NoError(t, err)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestTenantRepoMembers(t *testing.T) {
@@ -144,15 +144,15 @@ func TestTenantRepoMembers(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.AddMember(context.Background(), tenantID, userID, "owner")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	mock.ExpectExec(`DELETE FROM tenant_members WHERE tenant_id = \$1 AND user_id = \$2`).
 		WithArgs(tenantID, userID).
 		WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 	err = repo.RemoveMember(context.Background(), tenantID, userID)
-	assert.NoError(t, err)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestTenantRepoListMembers(t *testing.T) {
@@ -170,10 +170,10 @@ func TestTenantRepoListMembers(t *testing.T) {
 			AddRow(tenantID, uuid.New(), "owner", now))
 
 	members, err := repo.ListMembers(context.Background(), tenantID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, members, 1)
 	assert.Equal(t, "owner", members[0].Role)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, mock.ExpectationsWereMet())
 
 	mock.ExpectQuery(`SELECT tenant_id, user_id, role, joined_at FROM tenant_members WHERE tenant_id = \$1`).
 		WithArgs(tenantID).
@@ -181,7 +181,7 @@ func TestTenantRepoListMembers(t *testing.T) {
 			AddRow("bad", uuid.New(), "owner", now))
 
 	members, err = repo.ListMembers(context.Background(), tenantID)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, members)
 }
 
@@ -201,17 +201,17 @@ func TestTenantRepoGetMembership(t *testing.T) {
 			AddRow(tenantID, userID, "member", now))
 
 	member, err := repo.GetMembership(context.Background(), tenantID, userID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, member)
 	assert.Equal(t, "member", member.Role)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, mock.ExpectationsWereMet())
 
 	mock.ExpectQuery(`SELECT tenant_id, user_id, role, joined_at FROM tenant_members WHERE tenant_id = \$1 AND user_id = \$2`).
 		WithArgs(tenantID, userID).
 		WillReturnError(pgx.ErrNoRows)
 
 	member, err = repo.GetMembership(context.Background(), tenantID, userID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Nil(t, member)
 }
 
@@ -230,10 +230,10 @@ func TestTenantRepoListUserTenants(t *testing.T) {
 			AddRow(uuid.New(), "Tenant", "tenant", uuid.New(), "free", "active", now, now))
 
 	tenants, err := repo.ListUserTenants(context.Background(), userID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, tenants, 1)
 	assert.Equal(t, "tenant", tenants[0].Slug)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, mock.ExpectationsWereMet())
 
 	mock.ExpectQuery(`FROM tenants t\s+JOIN tenant_members tm ON t.id = tm.tenant_id\s+WHERE tm.user_id = \$1`).
 		WithArgs(userID).
@@ -241,7 +241,7 @@ func TestTenantRepoListUserTenants(t *testing.T) {
 			AddRow("bad", "Tenant", "tenant", uuid.New(), "free", "active", now, now))
 
 	tenants, err = repo.ListUserTenants(context.Background(), userID)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, tenants)
 }
 
@@ -270,17 +270,17 @@ func TestTenantRepoGetQuotaUpdateQuota(t *testing.T) {
 		}).AddRow(tenantID, 10, 5, 100, 32, 16, 2, 1, 50, 0, 0))
 
 	quota, err := repo.GetQuota(context.Background(), tenantID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, quota)
 	assert.Equal(t, 10, quota.MaxInstances)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, mock.ExpectationsWereMet())
 
 	mock.ExpectQuery("FROM tenant_quotas tq").
 		WithArgs(tenantID).
 		WillReturnError(pgx.ErrNoRows)
 
 	quota, err = repo.GetQuota(context.Background(), tenantID)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, quota)
 
 	q := &domain.TenantQuota{
@@ -297,8 +297,8 @@ func TestTenantRepoGetQuotaUpdateQuota(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.UpdateQuota(context.Background(), q)
-	assert.NoError(t, err)
-	assert.NoError(t, mock.ExpectationsWereMet())
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestTenantRepoExecErrors(t *testing.T) {
@@ -311,35 +311,35 @@ func TestTenantRepoExecErrors(t *testing.T) {
 
 	mock.ExpectExec("INSERT INTO tenants").WillReturnError(errors.New("db"))
 	err = repo.Create(context.Background(), ten)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	mock.ExpectExec("UPDATE tenants").WillReturnError(errors.New("db"))
 	err = repo.Update(context.Background(), ten)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	mock.ExpectExec(`DELETE FROM tenants WHERE id = \$1`).WithArgs(ten.ID).WillReturnError(errors.New("db"))
 	err = repo.Delete(context.Background(), ten.ID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	mock.ExpectExec("INSERT INTO tenant_members").WillReturnError(errors.New("db"))
 	err = repo.AddMember(context.Background(), uuid.New(), uuid.New(), "member")
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	mock.ExpectExec(`DELETE FROM tenant_members WHERE tenant_id = \$1 AND user_id = \$2`).WillReturnError(errors.New("db"))
 	err = repo.RemoveMember(context.Background(), uuid.New(), uuid.New())
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	mock.ExpectQuery(`SELECT tenant_id, user_id, role, joined_at FROM tenant_members WHERE tenant_id = \$1`).
 		WithArgs(uuid.New()).
 		WillReturnError(errors.New("db"))
 	members, err := repo.ListMembers(context.Background(), uuid.New())
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, members)
 
 	mock.ExpectQuery(`FROM tenants t\s+JOIN tenant_members tm ON t.id = tm.tenant_id\s+WHERE tm.user_id = \$1`).
 		WithArgs(uuid.New()).
 		WillReturnError(errors.New("db"))
 	members2, err := repo.ListUserTenants(context.Background(), uuid.New())
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, members2)
 }

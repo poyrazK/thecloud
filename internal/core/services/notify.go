@@ -51,7 +51,7 @@ func (s *NotifyService) CreateTopic(ctx context.Context, name string) (*domain.T
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyCreate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyCreate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -87,7 +87,7 @@ func (s *NotifyService) ListTopics(ctx context.Context) ([]*domain.Topic, error)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -98,7 +98,7 @@ func (s *NotifyService) DeleteTopic(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyDelete, id.String()); err != nil {
 		return err
 	}
 
@@ -127,7 +127,7 @@ func (s *NotifyService) Subscribe(ctx context.Context, topicID uuid.UUID, protoc
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyWrite); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyWrite, topicID.String()); err != nil {
 		return nil, err
 	}
 
@@ -166,7 +166,7 @@ func (s *NotifyService) ListSubscriptions(ctx context.Context, topicID uuid.UUID
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyRead, topicID.String()); err != nil {
 		return nil, err
 	}
 
@@ -183,7 +183,7 @@ func (s *NotifyService) Unsubscribe(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyDelete, id.String()); err != nil {
 		return err
 	}
 
@@ -209,7 +209,7 @@ func (s *NotifyService) Publish(ctx context.Context, topicID uuid.UUID, body str
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyWrite); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyWrite, topicID.String()); err != nil {
 		return err
 	}
 

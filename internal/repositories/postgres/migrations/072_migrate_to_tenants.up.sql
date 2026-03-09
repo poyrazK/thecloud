@@ -12,7 +12,8 @@ SELECT
     NOW(), 
     NOW()
 FROM users
-WHERE default_tenant_id IS NULL;
+WHERE default_tenant_id IS NULL
+ON CONFLICT (slug) DO NOTHING;
 
 -- 2. Add users as members of their new tenants
 INSERT INTO tenant_members (tenant_id, user_id, role, joined_at)

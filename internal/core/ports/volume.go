@@ -36,6 +36,13 @@ type VolumeService interface {
 	GetVolume(ctx context.Context, idOrName string) (*domain.Volume, error)
 	// DeleteVolume decommissioning a block storage device.
 	DeleteVolume(ctx context.Context, idOrName string) error
+	// ResizeVolume increases the capacity of an existing block storage device.
+	ResizeVolume(ctx context.Context, volumeID string, newSizeGB int) error
+	// AttachVolume connects a block storage device to a specific compute instance.
+	// Returns the guest-assigned device path (e.g., "/dev/vdb").
+	AttachVolume(ctx context.Context, volumeID string, instanceID string, mountPath string) (string, error)
+	// DetachVolume disconnects a block storage device from a compute instance.
+	DetachVolume(ctx context.Context, volumeID string) error
 	// ReleaseVolumesForInstance detaches every volume currently linked to a specific instance.
 	ReleaseVolumesForInstance(ctx context.Context, instanceID uuid.UUID) error
 }

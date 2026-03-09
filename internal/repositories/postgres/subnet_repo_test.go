@@ -14,6 +14,7 @@ import (
 	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -26,7 +27,7 @@ const (
 func TestSubnetRepositoryCreate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSubnetRepository(mock)
@@ -48,12 +49,12 @@ func TestSubnetRepositoryCreate(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), s)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSubnetRepository(mock)
@@ -65,14 +66,14 @@ func TestSubnetRepositoryCreate(t *testing.T) {
 			WillReturnError(errors.New(testDBError))
 
 		err = repo.Create(context.Background(), s)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
 func TestSubnetRepositoryGetByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSubnetRepository(mock)
@@ -87,7 +88,7 @@ func TestSubnetRepositoryGetByID(t *testing.T) {
 				AddRow(id, userID, uuid.New(), testSubnetName, testutil.TestSubnetCIDR, testAZ, testutil.TestGatewayIP, "arn", "available", now))
 
 		s, err := repo.GetByID(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, s)
 		assert.Equal(t, id, s.ID)
 
@@ -95,7 +96,7 @@ func TestSubnetRepositoryGetByID(t *testing.T) {
 
 	t.Run(testNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSubnetRepository(mock)
@@ -108,17 +109,18 @@ func TestSubnetRepositoryGetByID(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		s, err := repo.GetByID(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, s)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 
 	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSubnetRepository(mock)
@@ -131,7 +133,7 @@ func TestSubnetRepositoryGetByID(t *testing.T) {
 			WillReturnError(errors.New(testDBError))
 
 		s, err := repo.GetByID(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, s)
 	})
 }
@@ -139,7 +141,7 @@ func TestSubnetRepositoryGetByID(t *testing.T) {
 func TestSubnetRepositoryGetByName(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSubnetRepository(mock)
@@ -156,7 +158,7 @@ func TestSubnetRepositoryGetByName(t *testing.T) {
 				AddRow(id, userID, vpcID, name, testutil.TestSubnetCIDR, testAZ, testutil.TestGatewayIP, "arn", "available", now))
 
 		s, err := repo.GetByName(ctx, vpcID, name)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, s)
 		assert.Equal(t, id, s.ID)
 
@@ -164,7 +166,7 @@ func TestSubnetRepositoryGetByName(t *testing.T) {
 
 	t.Run(testNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSubnetRepository(mock)
@@ -178,11 +180,12 @@ func TestSubnetRepositoryGetByName(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		s, err := repo.GetByName(ctx, vpcID, name)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, s)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }
@@ -190,7 +193,7 @@ func TestSubnetRepositoryGetByName(t *testing.T) {
 func TestSubnetRepositoryListByVPC(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSubnetRepository(mock)
@@ -205,14 +208,14 @@ func TestSubnetRepositoryListByVPC(t *testing.T) {
 				AddRow(uuid.New(), userID, vpcID, testSubnetName, testutil.TestSubnetCIDR, testAZ, testutil.TestGatewayIP, "arn", "available", now))
 
 		subnets, err := repo.ListByVPC(ctx, vpcID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, subnets, 1)
 
 	})
 
 	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSubnetRepository(mock)
@@ -225,13 +228,13 @@ func TestSubnetRepositoryListByVPC(t *testing.T) {
 			WillReturnError(errors.New(testDBError))
 
 		subnets, err := repo.ListByVPC(ctx, vpcID)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, subnets)
 	})
 
 	t.Run("scan error", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSubnetRepository(mock)
@@ -246,7 +249,7 @@ func TestSubnetRepositoryListByVPC(t *testing.T) {
 				AddRow("invalid-uuid", userID, vpcID, testSubnetName, testutil.TestSubnetCIDR, testAZ, testutil.TestGatewayIP, "arn", "available", now))
 
 		subnets, err := repo.ListByVPC(ctx, vpcID)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, subnets)
 	})
 }
@@ -254,7 +257,7 @@ func TestSubnetRepositoryListByVPC(t *testing.T) {
 func TestSubnetRepositoryDelete(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSubnetRepository(mock)
@@ -267,12 +270,12 @@ func TestSubnetRepositoryDelete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.Delete(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run(testNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSubnetRepository(mock)
@@ -285,16 +288,17 @@ func TestSubnetRepositoryDelete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 0))
 
 		err = repo.Delete(ctx, id)
-		assert.Error(t, err)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		require.Error(t, err)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 
 	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewSubnetRepository(mock)
@@ -307,6 +311,6 @@ func TestSubnetRepositoryDelete(t *testing.T) {
 			WillReturnError(errors.New(testDBError))
 
 		err = repo.Delete(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClientBatching(t *testing.T) {
@@ -36,8 +37,11 @@ func TestClientBatching(t *testing.T) {
 	mockID.On("ValidateAPIKey", mock.Anything, "batch-key").Return(&domain.APIKey{Key: "batch-key", UserID: uuid.New()}, nil)
 
 	dialer := websocket.Dialer{}
-	conn, _, err := dialer.Dial(wsURL, nil)
-	assert.NoError(t, err)
+	conn, resp, err := dialer.Dial(wsURL, nil)
+	require.NoError(t, err)
+	if resp != nil {
+		defer func() { _ = resp.Body.Close() }()
+	}
 	defer func() { _ = conn.Close() }()
 
 	time.Sleep(100 * time.Millisecond)
@@ -48,7 +52,7 @@ func TestClientBatching(t *testing.T) {
 	hub.broadcast <- []byte("msg3")
 
 	_, p, err := conn.ReadMessage()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	payload := string(p)
 	// It might be combined with newlines if they hit the same WritePump tick
@@ -77,8 +81,11 @@ func TestClientPingPong(t *testing.T) {
 	mockID.On("ValidateAPIKey", mock.Anything, "ping-key").Return(&domain.APIKey{Key: "ping-key", UserID: uuid.New()}, nil)
 
 	dialer := websocket.Dialer{}
-	conn, _, err := dialer.Dial(wsURL, nil)
-	assert.NoError(t, err)
+	conn, resp, err := dialer.Dial(wsURL, nil)
+	require.NoError(t, err)
+	if resp != nil {
+		defer func() { _ = resp.Body.Close() }()
+	}
 	defer func() { _ = conn.Close() }()
 
 	// gorilla/websocket handles PING by default with a PONG response if not overridden.

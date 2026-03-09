@@ -32,13 +32,13 @@ func TestCreateTopicCmd(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = notifyTestAPIKey
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = notifyTestAPIKey
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
 	}()
 
 	out := captureStdout(t, func() {
@@ -60,13 +60,13 @@ func TestPublishCmd(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = notifyTestAPIKey
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = notifyTestAPIKey
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
 	}()
 
 	out := captureStdout(t, func() {

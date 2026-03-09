@@ -27,7 +27,7 @@ func (s *instanceTypeService) List(ctx context.Context) ([]*domain.InstanceType,
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	if userID != uuid.Nil {
-		if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead); err != nil {
+		if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead, "*"); err != nil {
 			return nil, err
 		}
 	}

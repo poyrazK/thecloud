@@ -33,20 +33,40 @@ const (
 	DatabaseStatusFailed DatabaseStatus = "FAILED"
 )
 
+// DatabaseRole represents the replication role of a database instance.
+type DatabaseRole string
+
+const (
+	// RolePrimary indicates this is the primary database instance (read-write).
+	RolePrimary DatabaseRole = "PRIMARY"
+	// RoleReplica indicates this is a read-only replica of a primary instance.
+	RoleReplica DatabaseRole = "REPLICA"
+)
+
 // Database represents a managed relational database instance.
 type Database struct {
-	ID          uuid.UUID      `json:"id"`
-	UserID      uuid.UUID      `json:"user_id"`
-	TenantID    uuid.UUID      `json:"tenant_id"`
-	Name        string         `json:"name"`
-	Engine      DatabaseEngine `json:"engine"`
-	Version     string         `json:"version"` // Engine version (e.g. "15", "8.0")
-	Status      DatabaseStatus `json:"status"`
-	VpcID       *uuid.UUID     `json:"vpc_id,omitempty"` // Optional private networking
-	ContainerID string         `json:"container_id,omitempty"`
-	Port        int            `json:"port"`
-	Username    string         `json:"username"`
-	Password    string         `json:"-"` // Never serialize password to JSON
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	ID                  uuid.UUID         `json:"id"`
+	UserID              uuid.UUID         `json:"user_id"`
+	TenantID            uuid.UUID         `json:"tenant_id"`
+	Name                string            `json:"name"`
+	Engine              DatabaseEngine    `json:"engine"`
+	Version             string            `json:"version"` // Engine version (e.g. "15", "8.0")
+	Status              DatabaseStatus    `json:"status"`
+	Role                DatabaseRole      `json:"role"`
+	PrimaryID           *uuid.UUID        `json:"primary_id,omitempty"` // ID of the primary if this is a replica
+	VpcID               *uuid.UUID        `json:"vpc_id,omitempty"`     // Optional private networking
+	ContainerID         string            `json:"container_id,omitempty"`
+	Port                int               `json:"port"`
+	Username            string            `json:"username"`
+	Password            string            `json:"-"` // Never serialize password to JSON
+	CreatedAt           time.Time         `json:"created_at"`
+	UpdatedAt           time.Time         `json:"updated_at"`
+	AllocatedStorage    int               `json:"allocated_storage"`
+	Parameters          map[string]string `json:"parameters,omitempty"`
+	MetricsEnabled      bool              `json:"metrics_enabled"`
+	MetricsPort         int               `json:"metrics_port,omitempty"`
+	ExporterContainerID string            `json:"-"`
+	PoolingEnabled      bool              `json:"pooling_enabled"`
+	PoolingPort         int               `json:"pooling_port,omitempty"`
+	PoolerContainerID   string            `json:"-"`
 }

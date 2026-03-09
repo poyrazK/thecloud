@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestInitLogger(t *testing.T) {
@@ -16,6 +17,6 @@ func TestInitLogger(t *testing.T) {
 func TestLoadConfig(t *testing.T) {
 	logger := slog.Default()
 	cfg, err := LoadConfig(logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, cfg)
 }

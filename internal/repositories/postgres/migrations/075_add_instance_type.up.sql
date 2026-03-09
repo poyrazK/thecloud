@@ -23,4 +23,5 @@ INSERT INTO instance_types (id, name, vcpus, memory_mb, disk_gb, category, price
     ('standard-2',    'Standard 2',    2,  4096, 40,  'standard',    0.04),
     ('standard-4',    'Standard 4',    4,  8192, 80,  'standard',    0.08),
     ('performance-1', 'Performance 1', 4, 16384, 160, 'performance', 0.16),
-    ('performance-2', 'Performance 2', 8, 32768, 320, 'performance', 0.32);
+    ('performance-2', 'Performance 2', 8, 32768, 320, 'performance', 0.32)
+ON CONFLICT (id) DO NOTHING;

@@ -18,7 +18,7 @@ func TestSGCommands(t *testing.T) {
 		"create":      {"vpc-id", "description"},
 		"list":        {"vpc-id"},
 		"get":         {},
-		"delete":      {},
+		"rm":          {},
 		"add-rule":    {"direction", "protocol", "port-min", "port-max", "cidr", "priority"},
 		"remove-rule": {},
 		"attach":      {},

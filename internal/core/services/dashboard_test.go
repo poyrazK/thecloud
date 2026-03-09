@@ -10,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 // Mock repositories (local to dashboard_test as it is in package services)
@@ -26,20 +27,23 @@ func (m *mockInstanceRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.I
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceRepo) GetByName(ctx context.Context, name string) (*domain.Instance, error) {
 	args := m.Called(ctx, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceRepo) getList(args mock.Arguments) ([]*domain.Instance, error) {
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 
 func (m *mockInstanceRepo) List(ctx context.Context) ([]*domain.Instance, error) {
@@ -54,7 +58,8 @@ func (m *mockInstanceRepo) ListBySubnet(ctx context.Context, subnetID uuid.UUID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *mockInstanceRepo) Update(ctx context.Context, instance *domain.Instance) error {
 	if instance == nil {
@@ -72,7 +77,8 @@ func (m *mockInstanceRepo) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*d
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 
 type mockVolumeRepo struct {
@@ -88,28 +94,32 @@ func (m *mockVolumeRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Vol
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Volume), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Volume)
+	return r0, args.Error(1)
 }
 func (m *mockVolumeRepo) GetByName(ctx context.Context, name string) (*domain.Volume, error) {
 	args := m.Called(ctx, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Volume), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Volume)
+	return r0, args.Error(1)
 }
 func (m *mockVolumeRepo) List(ctx context.Context) ([]*domain.Volume, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Volume), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Volume)
+	return r0, args.Error(1)
 }
 func (m *mockVolumeRepo) ListByInstanceID(ctx context.Context, instanceID uuid.UUID) ([]*domain.Volume, error) {
 	args := m.Called(ctx, instanceID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Volume), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Volume)
+	return r0, args.Error(1)
 }
 func (m *mockVolumeRepo) Update(ctx context.Context, v *domain.Volume) error {
 	if v == nil {
@@ -137,21 +147,24 @@ func (m *mockVpcRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.VPC, e
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.VPC), args.Error(1)
+	r0, _ := args.Get(0).(*domain.VPC)
+	return r0, args.Error(1)
 }
 func (m *mockVpcRepo) GetByName(ctx context.Context, name string) (*domain.VPC, error) {
 	args := m.Called(ctx, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.VPC), args.Error(1)
+	r0, _ := args.Get(0).(*domain.VPC)
+	return r0, args.Error(1)
 }
 func (m *mockVpcRepo) List(ctx context.Context) ([]*domain.VPC, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.VPC), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.VPC)
+	return r0, args.Error(1)
 }
 func (m *mockVpcRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	args := m.Called(ctx, id)
@@ -171,20 +184,21 @@ func (m *mockEventRepo) List(ctx context.Context, limit int) ([]*domain.Event, e
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Event), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Event)
+	return r0, args.Error(1)
 }
 
 type mockRBACService struct {
 	mock.Mock
 }
 
-func (m *mockRBACService) Authorize(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission) error {
-	args := m.Called(ctx, userID, tenantID, permission)
+func (m *mockRBACService) Authorize(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission, resource string) error {
+	args := m.Called(ctx, userID, tenantID, permission, resource)
 	return args.Error(0)
 }
 
-func (m *mockRBACService) HasPermission(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission) (bool, error) {
-	args := m.Called(ctx, userID, tenantID, permission)
+func (m *mockRBACService) HasPermission(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission, resource string) (bool, error) {
+	args := m.Called(ctx, userID, tenantID, permission, resource)
 	return args.Bool(0), args.Error(1)
 }
 
@@ -250,6 +264,11 @@ func (m *mockRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User,
 	return args.Get(0).([]*domain.User), args.Error(1)
 }
 
+func (m *mockRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error) {
+	args := m.Called(ctx, userID, action, resource, context)
+	return args.Bool(0), args.Error(1)
+}
+
 func setupDashboardServiceTest(_ *testing.T) (*mockInstanceRepo, *mockVolumeRepo, *mockVpcRepo, *mockEventRepo, *mockRBACService, ports.DashboardService) {
 	instanceRepo := new(mockInstanceRepo)
 	volumeRepo := new(mockVolumeRepo)
@@ -257,7 +276,7 @@ func setupDashboardServiceTest(_ *testing.T) (*mockInstanceRepo, *mockVolumeRepo
 	eventRepo := new(mockEventRepo)
 	rbacSvc := new(mockRBACService)
 	// Default to success for tests that don't explicitly mock it
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := NewDashboardService(rbacSvc, instanceRepo, volumeRepo, vpcRepo, eventRepo, slog.Default())
 	return instanceRepo, volumeRepo, vpcRepo, eventRepo, rbacSvc, svc
@@ -319,7 +338,7 @@ func TestDashboardServiceGetSummary(t *testing.T) {
 
 			summary, err := svc.GetSummary(context.Background())
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, tt.wantRunning, summary.RunningInstances)
 			assert.Equal(t, tt.wantStopped, summary.StoppedInstances)
 			assert.Equal(t, tt.wantVolumes, summary.TotalVolumes)
@@ -341,7 +360,7 @@ func TestDashboardServiceGetRecentEvents(t *testing.T) {
 
 	result, err := svc.GetRecentEvents(context.Background(), 10)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, result, 2)
 }
 
@@ -364,7 +383,7 @@ func TestDashboardServiceGetStats(t *testing.T) {
 
 	stats, err := svc.GetStats(context.Background())
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, stats)
 	assert.Equal(t, 1, stats.Summary.RunningInstances)
 	assert.Len(t, stats.RecentEvents, 1)

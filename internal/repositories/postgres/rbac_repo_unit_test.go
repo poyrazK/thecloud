@@ -8,12 +8,13 @@ import (
 	"github.com/pashagolub/pgxmock/v3"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRBACRepository_CreateRole(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewRBACRepository(mock)
@@ -34,13 +35,13 @@ func TestRBACRepository_CreateRole(t *testing.T) {
 	mock.ExpectCommit()
 
 	err = repo.CreateRole(context.Background(), role)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestRBACRepository_GetRoleByID(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewRBACRepository(mock)
@@ -57,7 +58,7 @@ func TestRBACRepository_GetRoleByID(t *testing.T) {
 			AddRow(string(domain.PermissionInstanceRead)))
 
 	role, err := repo.GetRoleByID(context.Background(), id)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, role)
 	assert.Equal(t, id, role.ID)
 	assert.Len(t, role.Permissions, 1)
@@ -66,7 +67,7 @@ func TestRBACRepository_GetRoleByID(t *testing.T) {
 func TestRBACRepository_ListRoles(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewRBACRepository(mock)
@@ -82,7 +83,7 @@ func TestRBACRepository_ListRoles(t *testing.T) {
 			AddRow(string(domain.PermissionInstanceRead)))
 
 	roles, err := repo.ListRoles(context.Background())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, roles, 1)
 	assert.Len(t, roles[0].Permissions, 1)
 }

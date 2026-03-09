@@ -53,7 +53,7 @@ func (s *SnapshotService) CreateSnapshot(ctx context.Context, volumeID uuid.UUID
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotCreate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotCreate, volumeID.String()); err != nil {
 		return nil, err
 	}
 
@@ -111,7 +111,7 @@ func (s *SnapshotService) ListSnapshots(ctx context.Context) ([]*domain.Snapshot
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -122,7 +122,7 @@ func (s *SnapshotService) GetSnapshot(ctx context.Context, id uuid.UUID) (*domai
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotRead, id.String()); err != nil {
 		return nil, err
 	}
 
@@ -144,7 +144,7 @@ func (s *SnapshotService) DeleteSnapshot(ctx context.Context, id uuid.UUID) erro
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotDelete, id.String()); err != nil {
 		return err
 	}
 
@@ -174,7 +174,7 @@ func (s *SnapshotService) RestoreSnapshot(ctx context.Context, snapshotID uuid.U
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotRestore); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotRestore, snapshotID.String()); err != nil {
 		return nil, err
 	}
 

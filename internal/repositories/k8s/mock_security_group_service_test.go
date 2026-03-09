@@ -16,7 +16,8 @@ func (m *MockSecurityGroupService) CreateGroup(ctx context.Context, vpcID uuid.U
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.SecurityGroup), args.Error(1)
+	r0, _ := args.Get(0).(*domain.SecurityGroup)
+	return r0, args.Error(1)
 }
 
 func (m *MockSecurityGroupService) GetGroup(ctx context.Context, idOrName string, vpcID uuid.UUID) (*domain.SecurityGroup, error) {
@@ -24,7 +25,8 @@ func (m *MockSecurityGroupService) GetGroup(ctx context.Context, idOrName string
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.SecurityGroup), args.Error(1)
+	r0, _ := args.Get(0).(*domain.SecurityGroup)
+	return r0, args.Error(1)
 }
 
 func (m *MockSecurityGroupService) ListGroups(ctx context.Context, vpcID uuid.UUID) ([]*domain.SecurityGroup, error) {
@@ -32,7 +34,8 @@ func (m *MockSecurityGroupService) ListGroups(ctx context.Context, vpcID uuid.UU
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.SecurityGroup), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.SecurityGroup)
+	return r0, args.Error(1)
 }
 
 func (m *MockSecurityGroupService) DeleteGroup(ctx context.Context, id uuid.UUID) error {
@@ -44,7 +47,8 @@ func (m *MockSecurityGroupService) AddRule(ctx context.Context, groupID uuid.UUI
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.SecurityRule), args.Error(1)
+	r0, _ := args.Get(0).(*domain.SecurityRule)
+	return r0, args.Error(1)
 }
 
 func (m *MockSecurityGroupService) RemoveRule(ctx context.Context, ruleID uuid.UUID) error {

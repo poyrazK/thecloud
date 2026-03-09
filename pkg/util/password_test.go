@@ -5,12 +5,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateRandomPassword(t *testing.T) {
 	length := 16
 	password, err := GenerateRandomPassword(length)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, password, length)
 	assert.NotEmpty(t, password)
 
@@ -21,6 +22,6 @@ func TestGenerateRandomPassword(t *testing.T) {
 
 func TestGenerateRandomPasswordZeroLength(t *testing.T) {
 	password, err := GenerateRandomPassword(0)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "", password)
 }

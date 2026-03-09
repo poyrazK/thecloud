@@ -49,7 +49,7 @@ func (s *GatewayService) CreateRoute(ctx context.Context, params ports.CreateRou
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionGatewayCreate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionGatewayCreate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -101,7 +101,7 @@ func (s *GatewayService) ListRoutes(ctx context.Context) ([]*domain.GatewayRoute
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionGatewayRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionGatewayRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -112,7 +112,7 @@ func (s *GatewayService) DeleteRoute(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionGatewayDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionGatewayDelete, id.String()); err != nil {
 		return err
 	}
 
@@ -266,7 +266,7 @@ func (s *GatewayService) isMethodAllowed(route *domain.GatewayRoute, method stri
 	return false
 }
 
-func calculateMatchScore(route *domain.GatewayRoute, path string) int {
+func calculateMatchScore(route *domain.GatewayRoute, _ string) int {
 	// 1. Literal prefix length is a good indicator of specificity
 	score := len(routing.GetLiteralPrefix(route.PathPattern))
 

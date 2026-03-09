@@ -2,152 +2,44 @@ package services_test
 
 import (
 	"context"
-	"log/slog"
 	"os"
-	"sync"
+	"strings"
 	"testing"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	appcontext "github.com/poyrazk/thecloud/internal/core/context"
-	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
-	"github.com/poyrazk/thecloud/pkg/testutil"
-	"github.com/stretchr/testify/require"
-)
-
-var (
-	sharedDBPool *pgxpool.Pool
-	sharedDBOnce sync.Once
 )
 
 func setupDB(t *testing.T) *pgxpool.Pool {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-	ctx := context.Background()
-	dbURL := os.Getenv("DATABASE_URL")
-
-	if dbURL == "" {
-		sharedDBOnce.Do(func() {
-			container, _ := testutil.SetupPostgresContainer(t)
-			
-			pool, err := pgxpool.New(ctx, container.ConnString)
-			if err != nil {
-				return
-			}
-			sharedDBPool = pool
-
-			// Run migrations on the shared DB
-			err = postgres.RunMigrations(ctx, sharedDBPool, slog.Default())
-			if err != nil {
-				panic("failed to run migrations on shared DB: " + err.Error())
-			}
-		})
-		if sharedDBPool == nil {
-			t.Fatal("failed to initialize shared DB pool")
-		}
-		return sharedDBPool
-	}
-
-	db, err := pgxpool.New(ctx, dbURL)
-	require.NoError(t, err)
-
-	err = db.Ping(ctx)
-	if err != nil {
-		t.Skipf("Skipping integration test: database not available: %v", err)
-	}
-
-	// Run migrations
-	err = postgres.RunMigrations(ctx, db, slog.Default())
-	require.NoError(t, err, "Failed to run migrations")
-
+	t.Helper()
+	// Use helper from postgres package
+	db, _ := postgres.SetupDB(t)
 	return db
 }
 
 func setupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
-	ctx := context.Background()
-	userRepo := postgres.NewUserRepo(db)
-
-	userID := uuid.New()
-	user := &domain.User{
-		ID:           userID,
-		Email:        "testuser_" + userID.String() + "@test.com",
-		PasswordHash: "hash",
-		Name:         "Test User",
-		Role:         "user",
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-	}
-
-	err := userRepo.Create(ctx, user)
-	require.NoError(t, err)
-
-	tenantID := uuid.New()
-	slug := "test-tenant-" + tenantID.String()
-	_, err = db.Exec(ctx, `
-		INSERT INTO tenants (id, name, slug, owner_id, plan, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, 'free', 'active', NOW(), NOW())
-	`, tenantID, "Test Tenant", slug, userID)
-	require.NoError(t, err)
-
-	_, err = db.Exec(ctx, `
-		INSERT INTO tenant_members (tenant_id, user_id, role)
-		VALUES ($1, $2, 'owner')
-	`, tenantID, userID)
-	require.NoError(t, err)
-
-	_, err = db.Exec(ctx, `
-		UPDATE users SET default_tenant_id = $1 WHERE id = $2
-	`, tenantID, userID)
-	require.NoError(t, err)
-
-	_, err = db.Exec(ctx, `
-		INSERT INTO tenant_quotas (tenant_id, max_instances, max_vpcs, max_storage_gb, max_memory_gb, max_vcpus, used_vcpus, used_memory_gb)
-		VALUES ($1, 10, 5, 100, 32, 16, 0, 0)
-	`, tenantID)
-	require.NoError(t, err)
-
-	return appcontext.WithTenantID(appcontext.WithUserID(ctx, userID), tenantID)
+	t.Helper()
+	return postgres.SetupTestUser(t, db)
 }
 
 func cleanDB(t *testing.T, db *pgxpool.Pool) {
+	t.Helper()
 	ctx := context.Background()
 	tables := []string{
-		"invocations",
-		"functions",
-		"instance_types",
-		"instances",
-		"subnets",
-		"vpcs",
-		"volumes",
-		"ssh_keys",
-		"load_balancers",
-		"lb_targets",
-		"audit_logs",
-		"gateway_routes",
-		"events",
-		"usage_records",
-		"role_permissions",
-		"roles",
-		"encryption_keys",
-		"api_keys",
-		"users",
-		"tenants",
-		"scaling_group_instances",
-		"scaling_policies",
-		"scaling_groups",
-		"metrics_history",
-		"deployment_containers",
-		"deployments",
-		"global_lb_endpoints",
-		"global_load_balancers",
-		"elastic_ips",
-		"log_entries",
+		"instances", "vpcs", "subnets", "volumes", "instance_types",
+		"roles", "role_permissions", "users", "tenants", "tenant_members",
+		"audit_logs", "events", "snapshots", "stacks", "api_keys",
+		"ssh_keys", "elastic_ips", "iam_policies", "iam_user_policies",
 	}
 
-	for _, table := range tables {
-		_, _ = db.Exec(ctx, "DELETE FROM "+table+" CASCADE")
+	// Double check we are in test environment before TRUNCATE
+	if os.Getenv("POSTGRES_DB") == "" && os.Getenv("DATABASE_URL") == "" {
+		return
+	}
+
+	truncateQuery := "TRUNCATE " + strings.Join(tables, ", ") + " RESTART IDENTITY CASCADE"
+	_, err := db.Exec(ctx, truncateQuery)
+	if err != nil {
+		t.Logf("Warning: failed to truncate tables: %v", err)
 	}
 }

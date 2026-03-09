@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -50,7 +51,7 @@ func TestClientCreateSnapshot(t *testing.T) {
 	client := NewClient(server.URL, snapshotAPIKey)
 	snapshot, err := client.CreateSnapshot(volumeID, snapshotDescription)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, snapshot)
 	assert.Equal(t, expectedSnapshot.ID, snapshot.ID)
 	assert.Equal(t, expectedSnapshot.VolumeID, snapshot.VolumeID)
@@ -74,7 +75,7 @@ func TestClientListSnapshots(t *testing.T) {
 	client := NewClient(server.URL, snapshotAPIKey)
 	snapshots, err := client.ListSnapshots()
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, snapshots, 2)
 	assert.Equal(t, expectedSnapshots[0].Description, snapshots[0].Description)
 }
@@ -95,7 +96,7 @@ func TestClientGetSnapshot(t *testing.T) {
 	client := NewClient(server.URL, snapshotAPIKey)
 	snapshot, err := client.GetSnapshot(id)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, snapshot)
 	assert.Equal(t, expectedSnapshot.ID, snapshot.ID)
 }
@@ -114,7 +115,7 @@ func TestClientDeleteSnapshot(t *testing.T) {
 	client := NewClient(server.URL, snapshotAPIKey)
 	err := client.DeleteSnapshot(id)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClientRestoreSnapshot(t *testing.T) {
@@ -142,7 +143,7 @@ func TestClientRestoreSnapshot(t *testing.T) {
 	client := NewClient(server.URL, snapshotAPIKey)
 	volume, err := client.RestoreSnapshot(id, newVolumeName)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, volume)
 	assert.Equal(t, expectedVolume.ID, volume.ID)
 	assert.Equal(t, expectedVolume.Name, volume.Name)
@@ -157,17 +158,17 @@ func TestClientSnapshotErrors(t *testing.T) {
 
 	client := NewClient(server.URL, snapshotAPIKey)
 	_, err := client.CreateSnapshot(uuid.New(), "snap")
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.ListSnapshots()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.GetSnapshot(snapshotExampleID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = client.DeleteSnapshot(snapshotExampleID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = client.RestoreSnapshot(snapshotExampleID, "vol")
-	assert.Error(t, err)
+	require.Error(t, err)
 }

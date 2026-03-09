@@ -19,7 +19,8 @@ type mockHealthService struct {
 
 func (m *mockHealthService) Check(ctx context.Context) ports.HealthCheckResult {
 	args := m.Called(ctx)
-	return args.Get(0).(ports.HealthCheckResult)
+	r0, _ := args.Get(0).(ports.HealthCheckResult)
+	return r0
 }
 
 func TestHealthHandler_Live(t *testing.T) {

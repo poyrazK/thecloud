@@ -32,7 +32,8 @@ func (m *mockSubnetService) CreateSubnet(ctx context.Context, vpcID uuid.UUID, n
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Subnet), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Subnet)
+	return r0, args.Error(1)
 }
 
 func (m *mockSubnetService) ListSubnets(ctx context.Context, vpcID uuid.UUID) ([]*domain.Subnet, error) {
@@ -40,7 +41,8 @@ func (m *mockSubnetService) ListSubnets(ctx context.Context, vpcID uuid.UUID) ([
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Subnet), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Subnet)
+	return r0, args.Error(1)
 }
 
 func (m *mockSubnetService) GetSubnet(ctx context.Context, idOrName string, vpcID uuid.UUID) (*domain.Subnet, error) {
@@ -48,7 +50,8 @@ func (m *mockSubnetService) GetSubnet(ctx context.Context, idOrName string, vpcI
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Subnet), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Subnet)
+	return r0, args.Error(1)
 }
 
 func (m *mockSubnetService) DeleteSubnet(ctx context.Context, id uuid.UUID) error {

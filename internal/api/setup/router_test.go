@@ -55,7 +55,7 @@ func TestOVSHealthNoBackend(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := &platform.Config{Environment: "test"}
 	svcs := &Services{}
-	handlers := InitHandlers(svcs, nil, logger)
+	handlers := InitHandlers(svcs, cfg, logger)
 
 	router := SetupRouter(cfg, logger, handlers, svcs, nil)
 	req := httptest.NewRequest(http.MethodGet, ovsHealthPath, nil)
@@ -69,7 +69,7 @@ func TestOVSHealthNoopBackend(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := &platform.Config{Environment: "test"}
 	svcs := &Services{}
-	handlers := InitHandlers(svcs, nil, logger)
+	handlers := InitHandlers(svcs, cfg, logger)
 	backend := noop.NewNoopNetworkAdapter(logger)
 
 	router := SetupRouter(cfg, logger, handlers, svcs, backend)
@@ -84,7 +84,7 @@ func TestOVSHealthUnhealthyBackend(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := &platform.Config{Environment: "test"}
 	svcs := &Services{}
-	handlers := InitHandlers(svcs, nil, logger)
+	handlers := InitHandlers(svcs, cfg, logger)
 	backend := stubNetworkBackend{backendType: "ovs", pingErr: errors.New("ping failed")}
 
 	router := SetupRouter(cfg, logger, handlers, svcs, backend)
@@ -99,7 +99,7 @@ func TestOVSHealthHealthyBackend(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := &platform.Config{Environment: "test"}
 	svcs := &Services{}
-	handlers := InitHandlers(svcs, nil, logger)
+	handlers := InitHandlers(svcs, cfg, logger)
 	backend := stubNetworkBackend{backendType: "ovs"}
 
 	router := SetupRouter(cfg, logger, handlers, svcs, backend)

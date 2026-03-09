@@ -43,7 +43,7 @@ func (s *dashboardService) GetSummary(ctx context.Context) (*domain.ResourceSumm
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDashboardRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDashboardRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -101,7 +101,7 @@ func (s *dashboardService) GetRecentEvents(ctx context.Context, limit int) ([]*d
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDashboardRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDashboardRead, "*"); err != nil {
 		return nil, err
 	}
 

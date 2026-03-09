@@ -9,12 +9,13 @@ import (
 	"github.com/pashagolub/pgxmock/v3"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIdentityRepository_CreateAPIKey(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewIdentityRepository(mock)
@@ -31,13 +32,13 @@ func TestIdentityRepository_CreateAPIKey(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.CreateAPIKey(context.Background(), apiKey)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestIdentityRepository_GetAPIKeyByKey(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewIdentityRepository(mock)
@@ -53,7 +54,7 @@ func TestIdentityRepository_GetAPIKeyByKey(t *testing.T) {
 			AddRow(id, userID, key, "test-key", now, lastUsed, nil, nil))
 
 	apiKey, err := repo.GetAPIKeyByKey(context.Background(), key)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, apiKey)
 	assert.Equal(t, id, apiKey.ID)
 }
@@ -61,7 +62,7 @@ func TestIdentityRepository_GetAPIKeyByKey(t *testing.T) {
 func TestIdentityRepository_ListAPIKeysByUserID(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewIdentityRepository(mock)
@@ -75,6 +76,6 @@ func TestIdentityRepository_ListAPIKeysByUserID(t *testing.T) {
 			AddRow(uuid.New(), userID, "secret-key", "test-key", now, lastUsed, nil, nil))
 
 	keys, err := repo.ListAPIKeysByUserID(context.Background(), userID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, keys, 1)
 }

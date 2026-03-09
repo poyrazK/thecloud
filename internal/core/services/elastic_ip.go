@@ -47,7 +47,7 @@ func (s *elasticIPService) AllocateIP(ctx context.Context) (*domain.ElasticIP, e
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcUpdate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -85,7 +85,7 @@ func (s *elasticIPService) ReleaseIP(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcDelete, id.String()); err != nil {
 		return err
 	}
 
@@ -115,7 +115,7 @@ func (s *elasticIPService) AssociateIP(ctx context.Context, id uuid.UUID, instan
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcUpdate, id.String()); err != nil {
 		return nil, err
 	}
 
@@ -175,7 +175,7 @@ func (s *elasticIPService) DisassociateIP(ctx context.Context, id uuid.UUID) (*d
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcUpdate, id.String()); err != nil {
 		return nil, err
 	}
 
@@ -213,7 +213,7 @@ func (s *elasticIPService) ListElasticIPs(ctx context.Context) ([]*domain.Elasti
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -224,7 +224,7 @@ func (s *elasticIPService) GetElasticIP(ctx context.Context, id uuid.UUID) (*dom
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead, id.String()); err != nil {
 		return nil, err
 	}
 

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	stdlib_errors "errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -109,7 +110,7 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 		}
 	}
 
-	//nolint:staticcheck 
+	//nolint:staticcheck
 	l := libvirt.New(c)
 	adapter := &LibvirtAdapter{
 		client:             &RealLibvirtClient{conn: l},
@@ -225,7 +226,11 @@ func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts por
 		vcpu = int(opts.CPULimit)
 	}
 
-	domainXML := generateDomainXML(name, diskPath, networkID, isoPath, memMB, vcpu, additionalDisks, allocatedPorts, "")
+	arch := ""
+	if os.Getenv("GOARCH") == "arm64" || strings.Contains(diskPath, "arm64") {
+		arch = "aarch64"
+	}
+	domainXML := generateDomainXML(name, diskPath, networkID, isoPath, memMB, vcpu, additionalDisks, allocatedPorts, arch)
 	dom, err := a.client.DomainDefineXML(ctx, domainXML)
 	if err != nil {
 		a.cleanupCreateFailure(ctx, vol, isoPath)
@@ -281,10 +286,16 @@ func (a *LibvirtAdapter) cleanupCreateFailure(ctx context.Context, vol libvirt.S
 func (a *LibvirtAdapter) waitInitialIP(ctx context.Context, id string) (string, error) {
 	ticker := time.NewTicker(a.ipWaitInterval)
 	defer ticker.Stop()
+
+	// Safety limit: max 5 minutes regardless of context
+	timeout := time.After(5 * time.Minute)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
+		case <-timeout:
+			return "", fmt.Errorf("timed out waiting for IP for instance %s", id)
 		case <-ticker.C:
 			ip, err := a.GetInstanceIP(ctx, id)
 			if err == nil && ip != "" {
@@ -321,7 +332,10 @@ func (a *LibvirtAdapter) StopInstance(ctx context.Context, id string) error {
 func (a *LibvirtAdapter) DeleteInstance(ctx context.Context, id string) error {
 	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
-		return nil
+		if a.isNotFound(err) {
+			return nil
+		}
+		return err
 	}
 
 	a.stopDomainIfRunning(ctx, dom)
@@ -437,13 +451,13 @@ func (a *LibvirtAdapter) GetInstancePort(ctx context.Context, id string, interna
 	return 0, fmt.Errorf("no host port mapping found for instance %s port %s", id, internalPort)
 }
 
-func (a *LibvirtAdapter) AttachVolume(ctx context.Context, id string, volumePath string) error {
+func (a *LibvirtAdapter) AttachVolume(ctx context.Context, id string, volumePath string) (string, error) {
 	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
-		return fmt.Errorf(errDomainNotFound, err)
+		return "", fmt.Errorf(errDomainNotFound, err)
 	}
 
-	dev := "vdb" 
+	dev := "vdb"
 
 	diskType := "file"
 	driverType := "qcow2"
@@ -462,7 +476,10 @@ func (a *LibvirtAdapter) AttachVolume(ctx context.Context, id string, volumePath
       <target dev='%s' bus='virtio'/>
     </disk>`, diskType, driverType, sourceAttr, volumePath, dev)
 
-	return a.client.DomainAttachDevice(ctx, dom, xml)
+	if err := a.client.DomainAttachDevice(ctx, dom, xml); err != nil {
+		return "", err
+	}
+	return "/dev/" + dev, nil
 }
 
 func (a *LibvirtAdapter) DetachVolume(ctx context.Context, id string, volumePath string) error {
@@ -644,7 +661,10 @@ func (a *LibvirtAdapter) CreateNetwork(ctx context.Context, name string) (string
 func (a *LibvirtAdapter) DeleteNetwork(ctx context.Context, id string) error {
 	net, err := a.client.NetworkLookupByName(ctx, id)
 	if err != nil {
-		return nil 
+		if a.isNotFound(err) {
+			return nil
+		}
+		return err
 	}
 
 	if err := a.client.NetworkDestroy(ctx, net); err != nil {
@@ -683,7 +703,10 @@ func (a *LibvirtAdapter) DeleteVolume(ctx context.Context, name string) error {
 
 	vol, err := a.client.StorageVolLookupByName(ctx, pool, name)
 	if err != nil {
-		return nil
+		if a.isNotFound(err) {
+			return nil
+		}
+		return err
 	}
 
 	if err := a.client.StorageVolDelete(ctx, vol, 0); err != nil {
@@ -844,12 +867,12 @@ func (a *LibvirtAdapter) writeCloudInitFiles(tmpDir, name string, env, cmd []str
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(tmpDir, metaDataFileName), metaDataBytes, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, metaDataFileName), metaDataBytes, 0600); err != nil {
 		return err
 	}
 
 	userData := a.generateUserData(env, cmd, userDataRaw)
-	return os.WriteFile(filepath.Join(tmpDir, userDataFileName), userData, 0644)
+	return os.WriteFile(filepath.Join(tmpDir, userDataFileName), userData, 0600)
 }
 
 func (a *LibvirtAdapter) generateUserData(env, cmd []string, userDataRaw string) []byte {
@@ -956,12 +979,12 @@ func (a *LibvirtAdapter) setupPortForwarding(name string, ports []string) {
 		}
 
 		if hP > 0 {
-			a.configureIptables(name, ip, strconv.Itoa(cP), hP, cP)
+			a.configureIptables(name, ip, strconv.Itoa(cP), hP)
 		}
 	}
 }
 
-func (a *LibvirtAdapter) configureIptables(name, ip, containerPort string, hPort, cP int) {
+func (a *LibvirtAdapter) configureIptables(name, ip, containerPort string, hPort int) {
 	a.mu.Lock()
 	if a.portMappings[name] == nil {
 		a.portMappings[name] = make(map[string]int)
@@ -975,13 +998,14 @@ func (a *LibvirtAdapter) configureIptables(name, ip, containerPort string, hPort
 func (a *LibvirtAdapter) parseAndValidatePort(p string) (int, int, error) {
 	parts := strings.Split(p, ":")
 	var hostPort, containerPort string
-	if len(parts) == 2 {
+	switch len(parts) {
+	case 2:
 		hostPort = parts[0]
 		containerPort = parts[1]
-	} else if len(parts) == 1 {
+	case 1:
 		hostPort = "0"
 		containerPort = parts[0]
-	} else {
+	default:
 		return 0, 0, fmt.Errorf("invalid port format: too many colons")
 	}
 
@@ -1059,5 +1083,21 @@ func findFreePort() (int, error) {
 		return 0, err
 	}
 	defer func() { _ = l.Close() }()
-	return l.Addr().(*net.TCPAddr).Port, nil
+	tcpAddr, ok := l.Addr().(*net.TCPAddr)
+	if !ok {
+		return 0, stdlib_errors.New("failed to get TCP address")
+	}
+	return tcpAddr.Port, nil
+}
+
+func (a *LibvirtAdapter) isNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	var libvirtErr libvirt.Error
+	if stdlib_errors.As(err, &libvirtErr) {
+		// 42: Domain not found, 43: Network not found, 45: Storage vol not found
+		return libvirtErr.Code == 42 || libvirtErr.Code == 43 || libvirtErr.Code == 45
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "not found")
 }

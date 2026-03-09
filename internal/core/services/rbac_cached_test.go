@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockRBACService struct {
@@ -26,8 +28,8 @@ const (
 	rbacRoleNamePrefix = "rbac:role:name:"
 )
 
-func rbacPermKey(tenantID, userID uuid.UUID, permission domain.Permission) string {
-	return rbacPermPrefix + tenantID.String() + ":" + userID.String() + ":" + string(permission)
+func rbacPermKey(tenantID, userID uuid.UUID, permission domain.Permission, resource string) string {
+	return fmt.Sprintf("%s%s:%s:%s:%s", rbacPermPrefix, tenantID, userID, permission, resource)
 }
 
 func rbacRoleIDKey(roleID uuid.UUID) string {
@@ -38,12 +40,12 @@ func rbacRoleNameKey(name string) string {
 	return rbacRoleNamePrefix + name
 }
 
-func (m *mockRBACService) Authorize(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission) error {
-	args := m.Called(ctx, userID, tenantID, permission)
+func (m *mockRBACService) Authorize(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission, resource string) error {
+	args := m.Called(ctx, userID, tenantID, permission, resource)
 	return args.Error(0)
 }
-func (m *mockRBACService) HasPermission(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission) (bool, error) {
-	args := m.Called(ctx, userID, tenantID, permission)
+func (m *mockRBACService) HasPermission(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission, resource string) (bool, error) {
+	args := m.Called(ctx, userID, tenantID, permission, resource)
 	return args.Bool(0), args.Error(1)
 }
 func (m *mockRBACService) CreateRole(ctx context.Context, role *domain.Role) error {
@@ -55,24 +57,26 @@ func (m *mockRBACService) GetRoleByID(ctx context.Context, id uuid.UUID) (*domai
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Role), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Role)
+	return r0, args.Error(1)
 }
 func (m *mockRBACService) GetRoleByName(ctx context.Context, name string) (*domain.Role, error) {
 	args := m.Called(ctx, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Role), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Role)
+	return r0, args.Error(1)
 }
 func (m *mockRBACService) ListRoles(ctx context.Context) ([]*domain.Role, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Role), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Role)
+	return r0, args.Error(1)
 }
 func (m *mockRBACService) UpdateRole(ctx context.Context, role *domain.Role) error {
-	_ = "UpdateRole"
 	args := m.Called(ctx, role)
 	return args.Error(0)
 }
@@ -85,7 +89,6 @@ func (m *mockRBACService) AddPermissionToRole(ctx context.Context, roleID uuid.U
 	return args.Error(0)
 }
 func (m *mockRBACService) RemovePermissionFromRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
-	_ = "RemovePermissionFromRole"
 	args := m.Called(ctx, roleID, permission)
 	return args.Error(0)
 }
@@ -98,7 +101,13 @@ func (m *mockRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User,
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.User), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.User)
+	return r0, args.Error(1)
+}
+
+func (m *mockRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error) {
+	args := m.Called(ctx, userID, action, resource, context)
+	return args.Bool(0), args.Error(1)
 }
 
 func setupCachedRBACTest(t *testing.T) (*mockRBACService, *redis.Client, *miniredis.Miniredis) {
@@ -124,7 +133,7 @@ func TestCachedRBACServiceListRoles(t *testing.T) {
 	mockSvc.On("ListRoles", mock.Anything).Return(roles, nil).Once()
 
 	res, err := svc.ListRoles(context.Background())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, res, 1)
 	mockSvc.AssertExpectations(t)
 }
@@ -139,9 +148,10 @@ func TestCachedRBACServiceAuthorizeDelegates(t *testing.T) {
 
 	userID := uuid.New()
 	tenantID := uuid.New()
-	mockSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead).Return(nil).Once()
+	resource := "*"
+	mockSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, resource).Return(nil).Once()
 
-	err := svc.Authorize(context.Background(), userID, tenantID, domain.PermissionInstanceRead)
+	err := svc.Authorize(context.Background(), userID, tenantID, domain.PermissionInstanceRead, resource)
 	assert.NoError(t, err)
 	mockSvc.AssertExpectations(t)
 }
@@ -157,13 +167,14 @@ func TestCachedRBACServiceHasPermissionCacheHit(t *testing.T) {
 	ctx := context.Background()
 	userID := uuid.New()
 	tenantID := uuid.New()
-	key := rbacPermKey(tenantID, userID, domain.PermissionInstanceRead)
+	resource := "*"
+	key := rbacPermKey(tenantID, userID, domain.PermissionInstanceRead, resource)
 	cache.Set(ctx, key, "1", time.Minute)
 
-	allowed, err := svc.HasPermission(ctx, userID, tenantID, domain.PermissionInstanceRead)
+	allowed, err := svc.HasPermission(ctx, userID, tenantID, domain.PermissionInstanceRead, resource)
 	assert.NoError(t, err)
 	assert.True(t, allowed)
-	mockSvc.AssertNotCalled(t, "HasPermission", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockSvc.AssertNotCalled(t, "HasPermission", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestCachedRBACServiceHasPermissionCacheMiss(t *testing.T) {
@@ -178,14 +189,15 @@ func TestCachedRBACServiceHasPermissionCacheMiss(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 	permission := domain.PermissionInstanceRead
+	resource := "*"
 
-	mockSvc.On("HasPermission", mock.Anything, userID, tenantID, permission).Return(true, nil).Once()
+	mockSvc.On("HasPermission", mock.Anything, userID, tenantID, permission, resource).Return(true, nil).Once()
 
-	allowed, err := svc.HasPermission(ctx, userID, tenantID, permission)
+	allowed, err := svc.HasPermission(ctx, userID, tenantID, permission, resource)
 	assert.NoError(t, err)
 	assert.True(t, allowed)
 
-	key := rbacPermKey(tenantID, userID, permission)
+	key := rbacPermKey(tenantID, userID, permission, resource)
 	assert.Equal(t, "1", cache.Get(ctx, key).Val())
 }
 
@@ -201,14 +213,15 @@ func TestCachedRBACServiceHasPermissionError(t *testing.T) {
 	userID := uuid.New()
 	tenantID := uuid.New()
 	permission := domain.PermissionInstanceRead
+	resource := "*"
 
-	mockSvc.On("HasPermission", mock.Anything, userID, tenantID, permission).Return(false, assert.AnError).Once()
+	mockSvc.On("HasPermission", mock.Anything, userID, tenantID, permission, resource).Return(false, assert.AnError).Once()
 
-	allowed, err := svc.HasPermission(ctx, userID, tenantID, permission)
+	allowed, err := svc.HasPermission(ctx, userID, tenantID, permission, resource)
 	assert.Error(t, err)
 	assert.False(t, allowed)
 
-	key := rbacPermKey(tenantID, userID, permission)
+	key := rbacPermKey(tenantID, userID, permission, resource)
 	assert.False(t, cache.Exists(ctx, key).Val() > 0)
 }
 
@@ -224,7 +237,7 @@ func TestCachedRBACServiceCreateRoleDelegates(t *testing.T) {
 	mockSvc.On("CreateRole", mock.Anything, role).Return(nil).Once()
 
 	err := svc.CreateRole(context.Background(), role)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	mockSvc.AssertExpectations(t)
 }
 
@@ -241,11 +254,11 @@ func TestCachedRBACServiceGetRoleByIDCaches(t *testing.T) {
 	mockSvc.On("GetRoleByID", mock.Anything, roleID).Return(role, nil).Once()
 
 	res, err := svc.GetRoleByID(context.Background(), roleID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, roleID, res.ID)
 
 	key := rbacRoleIDKey(roleID)
-	assert.True(t, cache.Exists(context.Background(), key).Val() > 0)
+	assert.Positive(t, cache.Exists(context.Background(), key).Val())
 }
 
 func TestCachedRBACServiceGetRoleByNameCaches(t *testing.T) {
@@ -260,11 +273,11 @@ func TestCachedRBACServiceGetRoleByNameCaches(t *testing.T) {
 	mockSvc.On("GetRoleByName", mock.Anything, "ops").Return(role, nil).Once()
 
 	res, err := svc.GetRoleByName(context.Background(), "ops")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "ops", res.Name)
 
 	key := rbacRoleNameKey("ops")
-	assert.True(t, cache.Exists(context.Background(), key).Val() > 0)
+	assert.Positive(t, cache.Exists(context.Background(), key).Val())
 }
 
 func TestCachedRBACServiceUpdateRoleInvalidatesCache(t *testing.T) {
@@ -285,7 +298,7 @@ func TestCachedRBACServiceUpdateRoleInvalidatesCache(t *testing.T) {
 	mockSvc.On("UpdateRole", mock.Anything, role).Return(nil).Once()
 
 	err := svc.UpdateRole(ctx, role)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	existsID := cache.Exists(ctx, rbacRoleIDKey(roleID)).Val()
 	existsName := cache.Exists(ctx, rbacRoleNameKey(role.Name)).Val()
@@ -312,7 +325,7 @@ func TestCachedRBACServiceDeleteRoleInvalidatesCache(t *testing.T) {
 	mockSvc.On("DeleteRole", mock.Anything, roleID).Return(nil).Once()
 
 	err := svc.DeleteRole(ctx, roleID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	existsID := cache.Exists(ctx, rbacRoleIDKey(roleID)).Val()
 	existsName := cache.Exists(ctx, rbacRoleNameKey(role.Name)).Val()
@@ -339,7 +352,7 @@ func TestCachedRBACServiceAddPermissionInvalidatesCache(t *testing.T) {
 	mockSvc.On("GetRoleByID", mock.Anything, roleID).Return(role, nil).Once()
 
 	err := svc.AddPermissionToRole(ctx, roleID, domain.PermissionInstanceRead)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	existsID := cache.Exists(ctx, rbacRoleIDKey(roleID)).Val()
 	existsName := cache.Exists(ctx, rbacRoleNameKey(role.Name)).Val()
@@ -366,7 +379,7 @@ func TestCachedRBACServiceRemovePermissionInvalidatesCache(t *testing.T) {
 	mockSvc.On("GetRoleByID", mock.Anything, roleID).Return(role, nil).Once()
 
 	err := svc.RemovePermissionFromRole(ctx, roleID, domain.PermissionInstanceRead)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	existsID := cache.Exists(ctx, rbacRoleIDKey(roleID)).Val()
 	existsName := cache.Exists(ctx, rbacRoleNameKey(role.Name)).Val()
@@ -385,7 +398,7 @@ func TestCachedRBACServiceBindRoleDelegates(t *testing.T) {
 	mockSvc.On("BindRole", mock.Anything, "user@example.com", "admin").Return(nil).Once()
 
 	err := svc.BindRole(context.Background(), "user@example.com", "admin")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	mockSvc.AssertExpectations(t)
 }
 
@@ -400,7 +413,7 @@ func TestCachedRBACServiceListRoleBindings(t *testing.T) {
 	mockSvc.On("ListRoleBindings", mock.Anything).Return([]*domain.User{{ID: uuid.New()}}, nil).Once()
 
 	users, err := svc.ListRoleBindings(context.Background())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, users, 1)
 	mockSvc.AssertExpectations(t)
 }

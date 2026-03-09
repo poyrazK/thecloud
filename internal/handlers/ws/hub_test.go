@@ -55,6 +55,7 @@ func TestHubBroadcast(t *testing.T) {
 }
 
 func waitForCondition(t *testing.T, condition func() bool) {
+	t.Helper()
 	deadline := time.Now().Add(500 * time.Millisecond)
 	for time.Now().Before(deadline) {
 		if condition() {

@@ -34,7 +34,8 @@ func (m *mockIdentityService) CreateKey(ctx context.Context, userID uuid.UUID, n
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).(*domain.APIKey)
+	return r0, args.Error(1)
 }
 
 func (m *mockIdentityService) ValidateAPIKey(ctx context.Context, key string) (*domain.APIKey, error) {
@@ -42,11 +43,13 @@ func (m *mockIdentityService) ValidateAPIKey(ctx context.Context, key string) (*
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).(*domain.APIKey)
+	return r0, args.Error(1)
 }
 func (m *mockIdentityService) ListKeys(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
 	args := m.Called(ctx, userID)
-	return args.Get(0).([]*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.APIKey)
+	return r0, args.Error(1)
 }
 func (m *mockIdentityService) RevokeKey(ctx context.Context, userID, id uuid.UUID) error {
 	args := m.Called(ctx, userID, id)
@@ -54,7 +57,8 @@ func (m *mockIdentityService) RevokeKey(ctx context.Context, userID, id uuid.UUI
 }
 func (m *mockIdentityService) RotateKey(ctx context.Context, userID, id uuid.UUID) (*domain.APIKey, error) {
 	args := m.Called(ctx, userID, id)
-	return args.Get(0).(*domain.APIKey), args.Error(1)
+	r0, _ := args.Get(0).(*domain.APIKey)
+	return r0, args.Error(1)
 }
 
 type mockTenantService struct {
@@ -88,7 +92,16 @@ func (m *mockTenantService) GetMembership(ctx context.Context, tenantID, userID 
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.TenantMember), args.Error(1)
+	r0, _ := args.Get(0).(*domain.TenantMember)
+	return r0, args.Error(1)
+}
+func (m *mockTenantService) ListUserTenants(ctx context.Context, userID uuid.UUID) ([]domain.Tenant, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	r0, _ := args.Get(0).([]domain.Tenant)
+	return r0, args.Error(1)
 }
 func (m *mockTenantService) IncrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error {
 	return nil
@@ -97,13 +110,13 @@ func (m *mockTenantService) DecrementUsage(ctx context.Context, tenantID uuid.UU
 	return nil
 }
 
-func (m *mockRBACService) Authorize(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission) error {
-	args := m.Called(ctx, userID, tenantID, permission)
+func (m *mockRBACService) Authorize(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission, resource string) error {
+	args := m.Called(ctx, userID, tenantID, permission, resource)
 	return args.Error(0)
 }
 
-func (m *mockRBACService) HasPermission(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission) (bool, error) {
-	args := m.Called(ctx, userID, tenantID, permission)
+func (m *mockRBACService) HasPermission(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission, resource string) (bool, error) {
+	args := m.Called(ctx, userID, tenantID, permission, resource)
 	return args.Bool(0), args.Error(1)
 }
 
@@ -128,6 +141,11 @@ func (m *mockRBACService) BindRole(ctx context.Context, userIdentifier string, r
 }
 func (m *mockRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User, error) {
 	return nil, nil
+}
+
+func (m *mockRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error) {
+	args := m.Called(ctx, userID, action, resource, context)
+	return args.Bool(0), args.Error(1)
 }
 
 func TestAuthSuccess(t *testing.T) {
@@ -213,7 +231,7 @@ func TestPermissionForbidden(t *testing.T) {
 	rbacSvc := new(mockRBACService)
 	userID := uuid.New()
 	tenantID := uuid.New()
-	rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead).Return(fmt.Errorf("nope"))
+	rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, "*").Return(fmt.Errorf("nope"))
 
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
@@ -238,7 +256,7 @@ func TestPermissionAllowed(t *testing.T) {
 	rbacSvc := new(mockRBACService)
 	userID := uuid.New()
 	tenantID := uuid.New()
-	rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, "*").Return(nil)
 
 	r := gin.New()
 	r.Use(func(c *gin.Context) {

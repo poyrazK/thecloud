@@ -10,6 +10,7 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -45,7 +46,7 @@ func TestLifecycleRepository(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err := repo.Create(ctx, rule)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("Get", func(t *testing.T) {
@@ -61,7 +62,7 @@ func TestLifecycleRepository(t *testing.T) {
 				AddRow(id, userID, bucketName, testLifecyclePrefix, 30, true, time.Now(), time.Now()))
 
 		rule, err := repo.Get(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, rule)
 	})
 
@@ -77,6 +78,6 @@ func TestLifecycleRepository(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err := repo.Delete(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }

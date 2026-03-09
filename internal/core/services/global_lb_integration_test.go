@@ -53,7 +53,10 @@ func TestGlobalLBServiceIntegration(t *testing.T) {
 
 	// Real Audit Service
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
@@ -87,7 +90,7 @@ func TestGlobalLBServiceIntegration(t *testing.T) {
 
 		// 3. User B tries to Delete User A's LB (should fail)
 		err = svc.Delete(ctxB, glbA.ID, userB)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.True(t, errors.Is(err, errors.Unauthorized) || errors.Is(err, errors.NotFound))
 
 		// 4. User A can see it
@@ -146,7 +149,7 @@ func TestGlobalLBServiceIntegration(t *testing.T) {
 		// 4. User A tries to add User B's Regional LB as endpoint (should fail)
 		_, err = svc.AddEndpoint(ctxA, glbA.ID, "us-east-1", "LB", &lbB.ID, nil, 1, 1)
 
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.True(t, errors.Is(err, errors.Unauthorized) || errors.Is(err, errors.NotFound))
 	})
 
@@ -168,7 +171,7 @@ func TestGlobalLBServiceIntegration(t *testing.T) {
 
 		// Remove 1 endpoint
 		err = svc.RemoveEndpoint(ctx, glb.ID, ep1.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Verify DNS has exactly 1 remaining record
 		assert.Len(t, geoDNS.CreatedRecords[hostname], 1)
@@ -176,7 +179,7 @@ func TestGlobalLBServiceIntegration(t *testing.T) {
 
 		// Delete GLB
 		err = svc.Delete(ctx, glb.ID, appcontext.UserIDFromContext(ctx))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Verify DNS record is gone from stub
 		_, exists := geoDNS.CreatedRecords[hostname]

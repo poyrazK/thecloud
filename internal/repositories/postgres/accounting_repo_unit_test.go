@@ -9,12 +9,13 @@ import (
 	"github.com/pashagolub/pgxmock/v3"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAccountingRepository_CreateRecord(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewAccountingRepository(mock)
@@ -34,13 +35,13 @@ func TestAccountingRepository_CreateRecord(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.CreateRecord(context.Background(), record)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestAccountingRepository_GetUsageSummary(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewAccountingRepository(mock)
@@ -55,16 +56,16 @@ func TestAccountingRepository_GetUsageSummary(t *testing.T) {
 			AddRow(string(domain.ResourceStorage), 5.0))
 
 	summary, err := repo.GetUsageSummary(context.Background(), userID, start, end)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, summary)
-	assert.Equal(t, 10.5, summary[domain.ResourceInstance])
-	assert.Equal(t, 5.0, summary[domain.ResourceStorage])
+	assert.InDelta(t, 10.5, summary[domain.ResourceInstance], 0.01)
+	assert.InDelta(t, 5.0, summary[domain.ResourceStorage], 0.01)
 }
 
 func TestAccountingRepository_ListRecords(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewAccountingRepository(mock)
@@ -78,7 +79,7 @@ func TestAccountingRepository_ListRecords(t *testing.T) {
 			AddRow(uuid.New(), userID, uuid.New(), string(domain.ResourceInstance), 1.0, "hour", start, end))
 
 	records, err := repo.ListRecords(context.Background(), userID, start, end)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, records, 1)
 	assert.Equal(t, userID, records[0].UserID)
 }

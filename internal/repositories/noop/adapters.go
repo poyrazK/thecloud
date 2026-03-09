@@ -131,12 +131,14 @@ func (c *NoopComputeBackend) CreateNetwork(ctx context.Context, name string) (st
 	return "net-id", nil
 }
 func (c *NoopComputeBackend) DeleteNetwork(ctx context.Context, id string) error { return nil }
-func (c *NoopComputeBackend) AttachVolume(ctx context.Context, id string, volumePath string) error {
-	return nil
+func (c *NoopComputeBackend) AttachVolume(ctx context.Context, id string, volumePath string) (string, error) {
+	return "/dev/vdb", nil
 }
+
 func (c *NoopComputeBackend) DetachVolume(ctx context.Context, id string, volumePath string) error {
 	return nil
 }
+
 func (c *NoopComputeBackend) Ping(ctx context.Context) error { return nil }
 func (c *NoopComputeBackend) Type() string                   { return "noop" }
 
@@ -213,6 +215,16 @@ func (s *NoopClusterService) UpgradeCluster(ctx context.Context, id uuid.UUID, v
 func (s *NoopClusterService) RotateSecrets(ctx context.Context, id uuid.UUID) error { return nil }
 func (s *NoopClusterService) CreateBackup(ctx context.Context, id uuid.UUID) error  { return nil }
 func (s *NoopClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, backupPath string) error {
+	return nil
+}
+
+func (s *NoopClusterService) AddNodeGroup(ctx context.Context, clusterID uuid.UUID, params ports.NodeGroupParams) (*domain.NodeGroup, error) {
+	return &domain.NodeGroup{ClusterID: clusterID, Name: params.Name}, nil
+}
+func (s *NoopClusterService) UpdateNodeGroup(ctx context.Context, clusterID uuid.UUID, name string, params ports.UpdateNodeGroupParams) (*domain.NodeGroup, error) {
+	return &domain.NodeGroup{ClusterID: clusterID, Name: name}, nil
+}
+func (s *NoopClusterService) DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error {
 	return nil
 }
 
@@ -300,7 +312,9 @@ func (s *NoopStorageService) CreateBucket(ctx context.Context, name string, isPu
 func (s *NoopStorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
 	return &domain.Bucket{Name: name}, nil
 }
-func (s *NoopStorageService) DeleteBucket(ctx context.Context, name string) error { return nil }
+func (s *NoopStorageService) DeleteBucket(ctx context.Context, name string, force bool) error {
+	return nil
+}
 func (s *NoopStorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {
 	return []*domain.Bucket{}, nil
 }
@@ -428,6 +442,9 @@ func (r *NoopDatabaseRepository) GetByID(ctx context.Context, id uuid.UUID) (*do
 	return &domain.Database{ID: id}, nil
 }
 func (r *NoopDatabaseRepository) List(ctx context.Context) ([]*domain.Database, error) {
+	return []*domain.Database{}, nil
+}
+func (r *NoopDatabaseRepository) ListReplicas(ctx context.Context, primaryID uuid.UUID) ([]*domain.Database, error) {
 	return []*domain.Database{}, nil
 }
 func (r *NoopDatabaseRepository) Update(ctx context.Context, db *domain.Database) error { return nil }
@@ -598,8 +615,11 @@ func (s *NoopStorageBackend) CreateVolume(ctx context.Context, name string, size
 	return "vol-1", nil
 }
 func (s *NoopStorageBackend) DeleteVolume(ctx context.Context, name string) error { return nil }
-func (s *NoopStorageBackend) AttachVolume(ctx context.Context, volumeName, instanceID string) error {
+func (s *NoopStorageBackend) ResizeVolume(ctx context.Context, name string, newSizeGB int) error {
 	return nil
+}
+func (s *NoopStorageBackend) AttachVolume(ctx context.Context, volumeName, instanceID string) (string, error) {
+	return "vol-1", nil
 }
 func (s *NoopStorageBackend) DetachVolume(ctx context.Context, volumeName, instanceID string) error {
 	return nil
@@ -610,10 +630,10 @@ func (s *NoopStorageBackend) Type() string                   { return "noop" }
 // NoopRBACService is a no-op RBAC service.
 type NoopRBACService struct{}
 
-func (s *NoopRBACService) Authorize(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission) error {
+func (s *NoopRBACService) Authorize(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission, resource string) error {
 	return nil
 }
-func (s *NoopRBACService) HasPermission(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission) (bool, error) {
+func (s *NoopRBACService) HasPermission(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission, resource string) (bool, error) {
 	return true, nil
 }
 func (s *NoopRBACService) CreateRole(ctx context.Context, role *domain.Role) error { return nil }
@@ -639,4 +659,40 @@ func (s *NoopRBACService) BindRole(ctx context.Context, userIdentifier string, r
 }
 func (s *NoopRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User, error) {
 	return []*domain.User{}, nil
+}
+func (s *NoopRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error) {
+	return true, nil
+}
+
+// NoopDatabaseService is a no-op database service.
+type NoopDatabaseService struct{}
+
+func (s *NoopDatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDatabaseRequest) (*domain.Database, error) {
+	return &domain.Database{ID: uuid.New(), Name: req.Name, Role: domain.RolePrimary}, nil
+}
+func (s *NoopDatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error) {
+	return &domain.Database{ID: uuid.New(), Name: name, PrimaryID: &primaryID, Role: domain.RoleReplica}, nil
+}
+func (s *NoopDatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) error { return nil }
+func (s *NoopDatabaseService) GetDatabase(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
+	return &domain.Database{ID: id}, nil
+}
+func (s *NoopDatabaseService) ListDatabases(ctx context.Context) ([]*domain.Database, error) {
+	return []*domain.Database{}, nil
+}
+func (s *NoopDatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) error { return nil }
+func (s *NoopDatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDatabaseRequest) (*domain.Database, error) {
+	return &domain.Database{ID: req.ID}, nil
+}
+func (s *NoopDatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
+	return "postgres://127.0.0.1:5432/db", nil
+}
+func (s *NoopDatabaseService) CreateDatabaseSnapshot(ctx context.Context, databaseID uuid.UUID, description string) (*domain.Snapshot, error) {
+	return &domain.Snapshot{ID: uuid.New()}, nil
+}
+func (s *NoopDatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID uuid.UUID) ([]*domain.Snapshot, error) {
+	return []*domain.Snapshot{}, nil
+}
+func (s *NoopDatabaseService) RestoreDatabase(ctx context.Context, req ports.RestoreDatabaseRequest) (*domain.Database, error) {
+	return &domain.Database{ID: uuid.New(), Name: req.NewName, Role: domain.RolePrimary}, nil
 }

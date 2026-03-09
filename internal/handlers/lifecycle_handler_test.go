@@ -25,7 +25,8 @@ func (m *mockLifecycleService) CreateRule(ctx context.Context, bucket string, pr
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.LifecycleRule), args.Error(1)
+	r0, _ := args.Get(0).(*domain.LifecycleRule)
+	return r0, args.Error(1)
 }
 
 func (m *mockLifecycleService) ListRules(ctx context.Context, bucket string) ([]*domain.LifecycleRule, error) {
@@ -33,7 +34,8 @@ func (m *mockLifecycleService) ListRules(ctx context.Context, bucket string) ([]
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.LifecycleRule), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.LifecycleRule)
+	return r0, args.Error(1)
 }
 
 func (m *mockLifecycleService) DeleteRule(ctx context.Context, bucket string, ruleID string) error {
@@ -48,6 +50,7 @@ const (
 )
 
 func setupLifecycleHandlerTest(t *testing.T) (*mockLifecycleService, *LifecycleHandler, *gin.Engine) {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 	svc := new(mockLifecycleService)
 

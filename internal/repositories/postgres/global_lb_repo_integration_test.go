@@ -17,7 +17,7 @@ import (
 // TestGlobalLBRepositoryIntegration executes a comprehensive suite of integration tests
 // against a live PostgreSQL backend to verify the GlobalLB repository implementation.
 func TestGlobalLBRepositoryIntegration(t *testing.T) {
-	db := SetupDB(t)
+	db, _ := SetupDB(t)
 	defer db.Close()
 	repo := NewGlobalLBRepository(db)
 	ctx := SetupTestUser(t, db)

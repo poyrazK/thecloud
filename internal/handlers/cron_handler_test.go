@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -36,7 +37,8 @@ func (m *mockCronService) CreateJob(ctx context.Context, name, schedule, targetU
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.CronJob), args.Error(1)
+	r0, _ := args.Get(0).(*domain.CronJob)
+	return r0, args.Error(1)
 }
 
 func (m *mockCronService) ListJobs(ctx context.Context) ([]*domain.CronJob, error) {
@@ -44,7 +46,8 @@ func (m *mockCronService) ListJobs(ctx context.Context) ([]*domain.CronJob, erro
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.CronJob), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.CronJob)
+	return r0, args.Error(1)
 }
 
 func (m *mockCronService) GetJob(ctx context.Context, id uuid.UUID) (*domain.CronJob, error) {
@@ -52,7 +55,8 @@ func (m *mockCronService) GetJob(ctx context.Context, id uuid.UUID) (*domain.Cro
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.CronJob), args.Error(1)
+	r0, _ := args.Get(0).(*domain.CronJob)
+	return r0, args.Error(1)
 }
 
 func (m *mockCronService) PauseJob(ctx context.Context, id uuid.UUID) error {
@@ -94,10 +98,10 @@ func TestCronHandlerCreateJob(t *testing.T) {
 		"target_method":  "POST",
 		"target_payload": "payload",
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("POST", cronPath, bytes.NewBuffer(body))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -114,7 +118,7 @@ func TestCronHandlerListJobs(t *testing.T) {
 	svc.On("ListJobs", mock.Anything).Return(jobs, nil)
 
 	req, err := http.NewRequest(http.MethodGet, cronPath, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -133,7 +137,7 @@ func TestCronHandlerGetJob(t *testing.T) {
 	svc.On("GetJob", mock.Anything, id).Return(job, nil)
 
 	req, err := http.NewRequest(http.MethodGet, cronPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -151,7 +155,7 @@ func TestCronHandlerPauseJob(t *testing.T) {
 	svc.On("PauseJob", mock.Anything, id).Return(nil)
 
 	req, err := http.NewRequest(http.MethodPost, cronPath+"/"+id.String()+"/pause", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -169,7 +173,7 @@ func TestCronHandlerResumeJob(t *testing.T) {
 	svc.On("ResumeJob", mock.Anything, id).Return(nil)
 
 	req, err := http.NewRequest(http.MethodPost, cronPath+"/"+id.String()+"/resume", nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -187,7 +191,7 @@ func TestCronHandlerDeleteJob(t *testing.T) {
 	svc.On("DeleteJob", mock.Anything, id).Return(nil)
 
 	req, err := http.NewRequest(http.MethodDelete, cronPath+"/"+id.String(), nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

@@ -4,6 +4,7 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	stdlib_errors "errors"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -33,7 +34,7 @@ func (q *redisTaskQueue) Dequeue(ctx context.Context, queueName string) (string,
 	// BRPop blocks until a message is available
 	res, err := q.client.BRPop(ctx, 5*time.Second, queueName).Result()
 	if err != nil {
-		if err == redis.Nil {
+		if stdlib_errors.Is(err, redis.Nil) {
 			return "", nil
 		}
 		return "", err

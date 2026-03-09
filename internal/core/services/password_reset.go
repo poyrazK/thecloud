@@ -6,7 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
+	stdlib_errors "errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -41,9 +42,11 @@ func NewPasswordResetService(repo ports.PasswordResetRepository, userRepo ports.
 func (s *PasswordResetService) RequestReset(ctx context.Context, email string) error {
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
-		// Verify user existence but don't leak it to the caller (security best practice)
-		// Return nil effectively masking the error, or a generic "if email exists..." message
-		return nil
+		// Mask user existence for security, but return other errors
+		if errors.Is(err, errors.NotFound) {
+			return nil
+		}
+		return err
 	}
 
 	// Generate secure random token
@@ -85,15 +88,15 @@ func (s *PasswordResetService) ResetPassword(ctx context.Context, token, newPass
 
 	resetToken, err := s.repo.GetByTokenHash(ctx, hashStr)
 	if err != nil {
-		return errors.New("invalid or expired token")
+		return stdlib_errors.New("invalid or expired token")
 	}
 
 	if resetToken.Used {
-		return errors.New("token already used")
+		return stdlib_errors.New("token already used")
 	}
 
 	if time.Now().After(resetToken.ExpiresAt) {
-		return errors.New("token expired")
+		return stdlib_errors.New("token expired")
 	}
 
 	// Update User Password

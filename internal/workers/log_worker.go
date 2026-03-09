@@ -12,9 +12,9 @@ import (
 
 // LogWorker handles background tasks for the CloudLogs service.
 type LogWorker struct {
-	logSvc ports.LogService
-	logger *slog.Logger
-	interval time.Duration
+	logSvc        ports.LogService
+	logger        *slog.Logger
+	interval      time.Duration
 	retentionDays int
 }
 
@@ -24,7 +24,7 @@ func NewLogWorker(logSvc ports.LogService, logger *slog.Logger) *LogWorker {
 		logSvc:        logSvc,
 		logger:        logger,
 		interval:      24 * time.Hour, // Run retention once a day
-		retentionDays: 30,            // Default 30 days retention
+		retentionDays: 30,             // Default 30 days retention
 	}
 }
 

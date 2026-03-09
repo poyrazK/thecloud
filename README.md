@@ -9,7 +9,7 @@ An open-source cloud platform that anyone can run, modify, and own.
 - **RBAC**: Role-Based Access Control with fine-grained permissions ([Guide](docs/guides/rbac.md))
 - **Storage**: Distributed S3-compatible object storage with **Consistent Hashing** and **Gossip Protocol** ([Guide](docs/guides/storage.md))
 - **Block Storage**: Persistent volumes via **LVM** (Production) or Docker Volumes (Simulation)
-- **Networking**: Advanced VPC with SDN (Open vSwitch), Subnet isolation, and IPAM.
+- **Networking**: Advanced VPC with SDN (Open vSwitch), Subnet isolation, IPAM, and **VPC Peering**.
 - **Identity**: API Key authentication ([Guide](docs/guides/authentication.md))
 - **Observability**: Prometheus metrics and Grafana dashboards ([Guide](docs/guides/observability.md)) with **Distributed Tracing** (Jaeger).
 - **Load Balancer**: Layer 7 HTTP traffic distribution (Regional)
@@ -47,12 +47,13 @@ The Cloud uses API Key authentication with comprehensive security features.
 - **Regenerate Key**: `POST /auth/keys/:id/regenerate`
 - **Revoke Key**: `DELETE /auth/keys/:id`
 
-## Role-Based Access Control (RBAC)
-Manage users and permissions via the CLI or API.
+## Role-Based Access Control (RBAC) & IAM
+Manage users, roles, and granular policies via the CLI or API.
 
 - **Create Role**: `cloud roles create developer --permissions "instance:read,volume:read"`
 - **Bind Role**: `cloud roles bind user@example.com developer`
-- **List Bindings**: `cloud roles list-bindings`
+- **IAM Policy**: `cloud iam create ReadOnlyS3 ./policy.json`
+- **Attach Policy**: `cloud iam attach user-uuid policy-uuid`
 
 ## System Health
 - **Liveness**: `GET /health/live` (Returns 200 OK)
@@ -113,12 +114,15 @@ npm run dev
 - **Enhanced Storage**: Added support for **LVM Block Storage** and **VNC Console** access.
 - **Asynchronous Core**: Refactored long-running operations (K8s clusters, instance deletions) to use a durable **Redis Task Queue**.
 - **HA Control Plane**: Supported 1-click **High-Availability** Kubernetes clusters with 3 control plane nodes and automated API Server Load Balancers.
+- **VPC Peering**: Implemented inter-VPC connectivity using Open vSwitch (OVS) flow rules, including automated CIDR overlap validation and VPC deletion guards.
 - **Distributed Storage (v2)**: Replaced local filesystem storage with a multi-node **Distributed Object Store** featuring:
     - **Consistent Hash Ring**: Dynamic data distribution across nodes.
     - **Gossip Protocol**: Fully decentralized node discovery and health tracking.
     - **Quorum-based Replication**: Configurable N-way replication with write-quorum consistency.
 - **Clean Code**: Eliminated duplicate literals and improved test security across all service layers.
 - **Global Load Balancing**: Implemented a **GeoDNS-based** global steering service with multi-region health tracking and latency-optimized routing.
+- **Compute Modernization**: Enabled **ARM64 (UEFI)** support for the Libvirt backend using the `virt` machine type and `AAVMF` firmware.
+- **Kubernetes Storage**: Implemented a feature-complete **CSI Driver** for dynamic block storage provisioning in KaaS clusters, including automated device formatting and attachment.
 
 ### AI & Automation
 - **AI Context**: Added `GEMINI.md` to provide AI assistants with project-specific hexagonal architecture rules and coding standards.

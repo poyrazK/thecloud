@@ -2,6 +2,7 @@
 package sdk
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -35,10 +36,28 @@ func (c *Client) ListInstances() ([]Instance, error) {
 	return res.Data, nil
 }
 
+// ListInstancesWithContext returns all instances with context support.
+func (c *Client) ListInstancesWithContext(ctx context.Context) ([]Instance, error) {
+	var res Response[[]Instance]
+	if err := c.getWithContext(ctx, "/instances", &res); err != nil {
+		return nil, err
+	}
+	return res.Data, nil
+}
+
 // GetInstance retrieves a compute instance by ID or name.
 func (c *Client) GetInstance(idOrName string) (*Instance, error) {
 	var res Response[Instance]
 	if err := c.get(fmt.Sprintf("/instances/%s", idOrName), &res); err != nil {
+		return nil, err
+	}
+	return &res.Data, nil
+}
+
+// GetInstanceWithContext retrieves a compute instance with context support.
+func (c *Client) GetInstanceWithContext(ctx context.Context, idOrName string) (*Instance, error) {
+	var res Response[Instance]
+	if err := c.getWithContext(ctx, fmt.Sprintf("/instances/%s", idOrName), &res); err != nil {
 		return nil, err
 	}
 	return &res.Data, nil
@@ -96,7 +115,12 @@ func (c *Client) StopInstance(idOrName string) error {
 
 // TerminateInstance deletes an instance by ID or name.
 func (c *Client) TerminateInstance(idOrName string) error {
-	return c.delete(fmt.Sprintf("/instances/%s", idOrName), nil)
+	return c.TerminateInstanceWithContext(context.Background(), idOrName)
+}
+
+// TerminateInstanceWithContext deletes an instance with context support.
+func (c *Client) TerminateInstanceWithContext(ctx context.Context, idOrName string) error {
+	return c.deleteWithContext(ctx, fmt.Sprintf("/instances/%s", idOrName), nil)
 }
 
 // GetInstanceLogs retrieves the raw log output for an instance.
@@ -133,6 +157,27 @@ type SSHKey struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	PublicKey string `json:"public_key"`
+}
+
+// InstanceType describes available resource sizing.
+type InstanceType struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	VCPUs       int     `json:"vcpus"`
+	MemoryMB    int     `json:"memory_mb"`
+	DiskGB      int     `json:"disk_gb"`
+	NetworkMbps int     `json:"network_mbps"`
+	PricePerHr  float64 `json:"price_per_hour"`
+	Category    string  `json:"category"`
+}
+
+// ListInstanceTypes returns all available instance sizes.
+func (c *Client) ListInstanceTypes() ([]InstanceType, error) {
+	var res Response[[]InstanceType]
+	if err := c.get("/instance-types", &res); err != nil {
+		return nil, err
+	}
+	return res.Data, nil
 }
 
 // RegisterSSHKey registers a new SSH public key.

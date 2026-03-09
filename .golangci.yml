@@ -1,3 +1,4 @@
+
 run:
   timeout: 5m
 
@@ -10,8 +11,25 @@ linters:
     - unused
     - ineffassign
     - gocyclo
+    - gosec
+    - bodyclose
+    - revive
+    - errorlint
+    - nilerr
+    - gocritic
+    - unparam
+    - prealloc
+    - nolintlint
+    - misspell
+    - unconvert
+    - testifylint
+    - thelper
 
 linters-settings:
+  revive:
+    rules:
+      - name: exported
+        disabled: true
   errcheck:
     exclude-functions:
       - fmt.Fprintln
@@ -25,6 +43,10 @@ linters-settings:
       - (*github.com/spf13/cobra.Command).MarkFlagRequired
   staticcheck:
     checks: ["all", "-QF1008"]
+  gosec:
+    excludes:
+      - G101
+      - G106
 
 issues:
   exclude-rules:
@@ -32,8 +54,11 @@ issues:
       linters:
         - errcheck
     - path: pkg/sdk
-      linters:
+      linters: 
         - errcheck
     - path: internal/handlers/ws
       linters:
         - errcheck
+    - path: _test\.go
+      linters:
+        - gosec

@@ -32,10 +32,10 @@ func TestDNSListZones(t *testing.T) {
 	}))
 	defer server.Close()
 
-	apiURL = server.URL
-	apiKey = "test-key"
-	outputJSON = true
-	defer func() { outputJSON = false }()
+	opts.APIURL = server.URL
+	opts.APIKey = "test-key"
+	opts.JSON = true
+	defer func() { opts.JSON = false }()
 
 	out := captureStdout(t, func() {
 		dnsListZonesCmd.Run(dnsListZonesCmd, nil)
@@ -60,8 +60,8 @@ func TestDNSCreateZoneFormat(t *testing.T) {
 	}))
 	defer server.Close()
 
-	apiURL = server.URL
-	apiKey = "test-key"
+	opts.APIURL = server.URL
+	opts.APIKey = "test-key"
 
 	out := captureStdout(t, func() {
 		dnsCreateZoneCmd.Run(dnsCreateZoneCmd, []string{"newzone.com"})

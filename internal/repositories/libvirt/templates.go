@@ -102,11 +102,6 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
     <qemu:arg value='virtio-net-pci,netdev=net0,bus=pci.0,addr=0x8'/>`, strings.Join(hostfwds, ","))
 	}
 
-	// Use the unescaped name for the log file path to avoid malformed filenames
-	qemuArgsXML += fmt.Sprintf(`
-    <qemu:arg value='-serial'/>
-    <qemu:arg value='file:/tmp/%s-console.log'/>`, name)
-
 	if arch == "" {
 		arch = "x86_64"
 		if strings.Contains(isoPath, "arm64") || strings.Contains(diskPath, "arm64") {
@@ -115,8 +110,11 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
 	}
 
 	machine := "pc"
+	loaderXML := ""
 	if arch == "aarch64" {
 		machine = "virt"
+		// Standard path for UEFI on Ubuntu ARM64 (AAVMF)
+		loaderXML = "<loader readonly='yes' type='pflash'>/usr/share/AAVMF/AAVMF_CODE.fd</loader>"
 	}
 
 	interfaceXML := ""
@@ -135,6 +133,7 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
   <vcpu placement='static'>%d</vcpu>
   <os>
     <type arch='%s' machine='%s'>hvm</type>
+    %s
     <boot dev='hd'/>
   </os>
   <features>
@@ -156,7 +155,7 @@ func generateDomainXML(name, diskPath, networkID, isoPath string, memoryMB, vcpu
   </devices>
   <qemu:commandline>%s
   </qemu:commandline>
-</domain>`, escapedName, memoryKB, vcpu, arch, machine, escapedDiskPath, isoXML, additionalDisksXML, interfaceXML, qemuArgsXML)
+</domain>`, escapedName, memoryKB, vcpu, arch, machine, loaderXML, escapedDiskPath, isoXML, additionalDisksXML, interfaceXML, qemuArgsXML)
 }
 
 func generateNetworkXML(name, bridgeName, gatewayIP, rangeStart, rangeEnd string) string {

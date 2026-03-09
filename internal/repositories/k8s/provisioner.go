@@ -101,11 +101,32 @@ func (p *KubeadmProvisioner) Provision(ctx context.Context, cluster *domain.Clus
 }
 
 func (p *KubeadmProvisioner) provisionControlPlane(ctx context.Context, cluster *domain.Cluster) error {
+	// Securely fetch API credentials
+	apiKey := os.Getenv("CLOUD_API_KEY")
+	if apiKey == "" {
+		return p.failCluster(ctx, cluster, "CLOUD_API_KEY is required but not set in environment", nil)
+	}
+	apiURL := os.Getenv("CLOUD_API_URL")
+	if apiURL == "" {
+		return p.failCluster(ctx, cluster, "CLOUD_API_URL is required but not set in environment", nil)
+	}
+
+	// Validate API URL is HTTPS for production safety
+	if !strings.HasPrefix(apiURL, "https://") {
+		// We allow http for localhost/local testing environments, but enforce https for others
+		if !strings.Contains(apiURL, "localhost") && !strings.Contains(apiURL, "127.0.0.1") && !strings.Contains(apiURL, "local") {
+			return p.failCluster(ctx, cluster, "CLOUD_API_URL must use HTTPS for production environments", nil)
+		}
+	}
+
 	userData, err := p.renderTemplate("control_plane.yaml", map[string]interface{}{
+		"ClusterID":   cluster.ID.String(),
 		"PodCIDR":     cluster.PodCIDR,
 		"ServiceCIDR": cluster.ServiceCIDR,
 		"HAEnabled":   cluster.HAEnabled,
 		"LBAddress":   cluster.APIServerLBAddress,
+		"CloudAPIKey": apiKey,
+		"CloudAPIURL": apiURL,
 	})
 	if err != nil {
 		return p.failCluster(ctx, cluster, "failed to render control plane template", err)
@@ -178,28 +199,56 @@ func (p *KubeadmProvisioner) provisionWorkers(ctx context.Context, cluster *doma
 		return p.failCluster(ctx, cluster, "failed to render worker template", err)
 	}
 
-	for i := 0; i < cluster.WorkerCount; i++ {
-		workerName := fmt.Sprintf("%s-worker-%d", cluster.Name, i)
-		workerInst, err := p.instSvc.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
-			Name:      workerName,
-			ImageName: "ubuntu-22.04",
-			NetworkID: cluster.VpcID.String(),
-			UserData:  userData,
-		})
-		if err != nil {
-			p.logger.Error("failed to create worker node", "name", workerName, "error", err)
-			continue
+	// For legacy compatibility, if no NodeGroups exist, create them from cluster.WorkerCount
+	if len(cluster.NodeGroups) == 0 {
+		cluster.NodeGroups = []domain.NodeGroup{
+			{
+				Name:         "default-pool",
+				InstanceType: "standard-1",
+				CurrentSize:  cluster.WorkerCount,
+			},
 		}
+	}
 
-		node := &domain.ClusterNode{
-			ID:         uuid.New(),
-			ClusterID:  cluster.ID,
-			InstanceID: workerInst.ID,
-			Role:       domain.NodeRoleWorker,
-			Status:     "provisioning",
-			JoinedAt:   time.Now(),
+	var provisioningErrors []string
+	for _, ng := range cluster.NodeGroups {
+		for i := 0; i < ng.CurrentSize; i++ {
+			workerName := fmt.Sprintf("%s-%s-%d", cluster.Name, ng.Name, i)
+			workerInst, err := p.instSvc.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
+				Name:      workerName,
+				ImageName: "ubuntu:22.04", // Use canonical image name consistent with control-plane
+				NetworkID: cluster.VpcID.String(),
+				UserData:  userData,
+				Metadata: map[string]string{
+					"thecloud.io/cluster-id": cluster.ID.String(),
+					"thecloud.io/node-group": ng.Name,
+				},
+			})
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to create worker node %s: %v", workerName, err)
+				p.logger.Error(errMsg)
+				provisioningErrors = append(provisioningErrors, errMsg)
+				continue
+			}
+
+			node := &domain.ClusterNode{
+				ID:         uuid.New(),
+				ClusterID:  cluster.ID,
+				InstanceID: workerInst.ID,
+				Role:       domain.NodeRoleWorker,
+				Status:     "provisioning",
+				JoinedAt:   time.Now(),
+			}
+			if err := p.repo.AddNode(ctx, node); err != nil {
+				errMsg := fmt.Sprintf("failed to add worker node %s to repository: %v", workerName, err)
+				p.logger.Error(errMsg)
+				provisioningErrors = append(provisioningErrors, errMsg)
+			}
 		}
-		_ = p.repo.AddNode(ctx, node)
+	}
+
+	if len(provisioningErrors) > 0 {
+		return fmt.Errorf("worker provisioning encountered errors: %s", strings.Join(provisioningErrors, "; "))
 	}
 
 	return nil
@@ -395,6 +444,7 @@ func (p *KubeadmProvisioner) GetHealth(ctx context.Context, cluster *domain.Clus
 
 	if err != nil {
 		health.Message = "API server is unreachable"
+		//nolint:nilerr
 		return health, nil
 	}
 

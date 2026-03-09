@@ -85,7 +85,7 @@ func TestNetworkingE2E(t *testing.T) {
 			Data []domain.Subnet `json:"data"`
 		}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
-		assert.True(t, len(res.Data) >= 1)
+		assert.GreaterOrEqual(t, len(res.Data), 1)
 	})
 
 	// 4. Create Security Group

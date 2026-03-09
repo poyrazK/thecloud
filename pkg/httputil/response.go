@@ -40,8 +40,7 @@ func Success(c *gin.Context, code int, data interface{}) {
 // Error maps a domain error to an HTTP response.
 func Error(c *gin.Context, err error) {
 	var e errors.Error
-	if apiErr, ok := err.(errors.Error); ok {
-		e = apiErr
+	if errors.As(err, &e) {
 		fmt.Printf("API ERROR: %v\n", e.Error())
 	} else {
 		// Log unknown errors for debugging

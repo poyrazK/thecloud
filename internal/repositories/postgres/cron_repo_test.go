@@ -15,7 +15,7 @@ import (
 )
 
 func TestPostgresCronRepository(t *testing.T) {
-	db := SetupDB(t)
+	db, _ := SetupDB(t)
 	defer db.Close()
 	repo := NewPostgresCronRepository(db)
 	ctx := SetupTestUser(t, db)

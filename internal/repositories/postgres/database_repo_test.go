@@ -15,7 +15,7 @@ import (
 )
 
 func TestDatabaseRepository_Integration(t *testing.T) {
-	dbPool := SetupDB(t)
+	dbPool, _ := SetupDB(t)
 	defer dbPool.Close()
 	repo := NewDatabaseRepository(dbPool)
 	ctx := SetupTestUser(t, dbPool)

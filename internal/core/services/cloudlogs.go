@@ -37,7 +37,7 @@ func (s *CloudLogsService) IngestLogs(ctx context.Context, entries []*domain.Log
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	// Writing logs is typically a write or launch permission, but audit is safer for general logs
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate, "*"); err != nil {
 		return err
 	}
 
@@ -66,7 +66,7 @@ func (s *CloudLogsService) SearchLogs(ctx context.Context, query domain.LogQuery
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAuditRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAuditRead, "*"); err != nil {
 		return nil, 0, err
 	}
 
@@ -78,7 +78,7 @@ func (s *CloudLogsService) RunRetentionPolicy(ctx context.Context, days int) err
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	// Privileged system operation
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFullAccess); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFullAccess, "*"); err != nil {
 		return err
 	}
 

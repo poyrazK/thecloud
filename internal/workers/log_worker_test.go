@@ -23,7 +23,8 @@ func (m *mockLogService) IngestLogs(ctx context.Context, entries []*domain.LogEn
 }
 func (m *mockLogService) SearchLogs(ctx context.Context, query domain.LogQuery) ([]*domain.LogEntry, int, error) {
 	args := m.Called(ctx, query)
-	return args.Get(0).([]*domain.LogEntry), args.Int(1), args.Error(2)
+	r0, _ := args.Get(0).([]*domain.LogEntry)
+	return r0, args.Int(1), args.Error(2)
 }
 func (m *mockLogService) RunRetentionPolicy(ctx context.Context, days int) error {
 	return m.Called(ctx, days).Error(0)

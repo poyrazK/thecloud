@@ -52,15 +52,15 @@ func TestLifecycleListJSONOutput(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = lifecycleTestAPIKey
-	outputJSON = true
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = lifecycleTestAPIKey
+	opts.JSON = true
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
-		outputJSON = false
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
+		opts.JSON = false
 	}()
 
 	out := captureStdout(t, func() {
@@ -82,13 +82,13 @@ func TestLifecycleDeleteSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = lifecycleTestAPIKey
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = lifecycleTestAPIKey
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
 	}()
 
 	out := captureStdout(t, func() {

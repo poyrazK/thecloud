@@ -34,13 +34,13 @@ func TestCreateDeploymentCmd(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = containerTestAPIKey
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = containerTestAPIKey
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
 	}()
 
 	_ = createDeploymentCmd.Flags().Set("replicas", "1")
@@ -76,13 +76,13 @@ func TestListDeploymentsCmd(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = containerTestAPIKey
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = containerTestAPIKey
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
 	}()
 
 	out := captureStdout(t, func() {
@@ -113,13 +113,13 @@ func TestDeleteDeploymentCmd(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = containerTestAPIKey
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = containerTestAPIKey
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
 	}()
 
 	out := captureStdout(t, func() {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClientListSubnets(t *testing.T) {
@@ -31,7 +32,7 @@ func TestClientListSubnets(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	subnets, err := client.ListSubnets(vpcID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, subnets, 2)
 	assert.Equal(t, expectedSubnets[0].CIDRBlock, subnets[0].CIDRBlock)
 }
@@ -68,7 +69,7 @@ func TestClientCreateSubnet(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	subnet, err := client.CreateSubnet(vpcID, testSubnetName, testutil.TestSubnetCIDR, "us-east-1a")
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, subnet)
 	assert.Equal(t, expectedSubnet.ID, subnet.ID)
 	assert.Equal(t, expectedSubnet.CIDRBlock, subnet.CIDRBlock)
@@ -88,7 +89,7 @@ func TestClientDeleteSubnet(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	err := client.DeleteSubnet(id)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestClientGetSubnet(t *testing.T) {
@@ -112,7 +113,7 @@ func TestClientGetSubnet(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	subnet, err := client.GetSubnet(id)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, subnet)
 	assert.Equal(t, expectedSubnet.ID, subnet.ID)
 	assert.Equal(t, expectedSubnet.CIDRBlock, subnet.CIDRBlock)

@@ -17,4 +17,4 @@ CREATE TABLE IF NOT EXISTS databases (
 );
 
 CREATE INDEX IF NOT EXISTS idx_databases_user_id ON databases(user_id);
-CREATE UNIQUE INDEX idx_databases_name_user ON databases(name, user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_databases_name_user ON databases(name, user_id);

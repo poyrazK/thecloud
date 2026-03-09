@@ -121,7 +121,7 @@ func TestDockerAdapterDeleteVolume(t *testing.T) {
 
 func TestDockerAdapterAttachVolume(t *testing.T) {
 	adapter := &DockerAdapter{}
-	err := adapter.AttachVolume(context.Background(), "inst1", "/data")
+	_, err := adapter.AttachVolume(context.Background(), "inst1", "/data")
 	// AttachVolume is not supported in docker
 	require.Error(t, err)
 }
@@ -335,7 +335,7 @@ func TestLBProxyAdapterUpdateProxyConfig(t *testing.T) {
 
 	// Ensure directory exists for test
 	configPath := filepath.Join("/tmp", "thecloud", "lb", lb.ID.String())
-	_ = os.MkdirAll(configPath, 0755)
+	_ = os.MkdirAll(configPath, 0750)
 	defer func() { _ = os.RemoveAll(configPath) }()
 
 	err := adapter.UpdateProxyConfig(context.Background(), lb, targets)

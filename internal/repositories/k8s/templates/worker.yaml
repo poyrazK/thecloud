@@ -41,5 +41,11 @@ runcmd:
   - apt-get update
   - apt-get install -y kubelet kubeadm kubectl
   - apt-mark hold kubelet kubeadm kubectl
+  # Configure kubelet to use external cloud provider via drop-in
+  - mkdir -p /etc/systemd/system/kubelet.service.d
+  - echo '[Service]' > /etc/systemd/system/kubelet.service.d/20-cloud-provider.conf
+  - echo 'Environment="KUBELET_EXTRA_ARGS=--cloud-provider=external"' >> /etc/systemd/system/kubelet.service.d/20-cloud-provider.conf
+  - systemctl daemon-reload
+  - systemctl restart kubelet
   # Join
   - kubeadm join {{ .APIServerAddress }}:6443 --token {{ .JoinToken }} --discovery-token-ca-cert-hash {{ .CACertHash }}

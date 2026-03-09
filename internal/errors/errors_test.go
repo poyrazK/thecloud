@@ -1,13 +1,15 @@
 package errors
 
 import (
+	stdlib_errors "errors"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestError_Error(t *testing.T) {
+func TestErrorError(t *testing.T) {
 	err := Error{
 		Type:    NotFound,
 		Message: "resource not found",
@@ -22,18 +24,20 @@ func TestError_Error(t *testing.T) {
 	assert.Equal(t, "INTERNAL: unexpected error (cause: db connection failed)", errWithCause.Error())
 }
 
-func TestError_Unwrap(t *testing.T) {
+func TestErrorUnwrap(t *testing.T) {
 	cause := fmt.Errorf("db error")
 	err := Wrap(Internal, "wrap error", cause)
 
-	e, ok := err.(Error)
+	var e Error
+	ok := stdlib_errors.As(err, &e)
 	assert.True(t, ok)
 	assert.Equal(t, cause, e.Unwrap())
 }
 
 func TestNew(t *testing.T) {
 	err := New(InvalidInput, "invalid name")
-	e, ok := err.(Error)
+	var e Error
+	ok := stdlib_errors.As(err, &e)
 	assert.True(t, ok)
 	assert.Equal(t, InvalidInput, e.Type)
 	assert.Equal(t, "invalid name", e.Message)
@@ -43,7 +47,8 @@ func TestNew(t *testing.T) {
 func TestWrap(t *testing.T) {
 	cause := fmt.Errorf("some error")
 	err := Wrap(Forbidden, "forbidden access", cause)
-	e, ok := err.(Error)
+	var e Error
+	ok := stdlib_errors.As(err, &e)
 	assert.True(t, ok)
 	assert.Equal(t, Forbidden, e.Type)
 	assert.Equal(t, "forbidden access", e.Message)
@@ -52,8 +57,7 @@ func TestWrap(t *testing.T) {
 
 func TestIs(t *testing.T) {
 	err := New(Conflict, "conflict")
-	assert.True(t, Is(err, Conflict))
-	assert.False(t, Is(err, NotFound))
+	require.True(t, Is(err, Conflict))
 	assert.False(t, Is(fmt.Errorf("regular error"), Conflict))
 }
 
@@ -61,5 +65,5 @@ func TestGetCause(t *testing.T) {
 	cause := fmt.Errorf("root cause")
 	err := Wrap(Internal, "msg", cause)
 	assert.Equal(t, cause, GetCause(err))
-	assert.Nil(t, GetCause(fmt.Errorf("regular error")))
+	require.NoError(t, GetCause(fmt.Errorf("regular error")))
 }

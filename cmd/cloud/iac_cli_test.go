@@ -35,15 +35,15 @@ func TestIACListJSONOutput(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = iacTestAPIKey
-	outputJSON = true
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = iacTestAPIKey
+	opts.JSON = true
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
-		outputJSON = false
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
+		opts.JSON = false
 	}()
 
 	out := captureStdout(t, func() {
@@ -70,17 +70,17 @@ func TestIACValidateTemplateSuccess(t *testing.T) {
 	defer server.Close()
 
 	templatePath := filepath.Join(t.TempDir(), "template.yaml")
-	if err := os.WriteFile(templatePath, []byte("resources: []"), 0644); err != nil {
+	if err := os.WriteFile(templatePath, []byte("resources: []"), 0600); err != nil {
 		t.Fatalf("write template: %v", err)
 	}
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = iacTestAPIKey
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = iacTestAPIKey
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
 	}()
 
 	out := captureStdout(t, func() {

@@ -25,6 +25,7 @@ const (
 )
 
 func closeResponse(t *testing.T, resp *http.Response) {
+	t.Helper()
 	if resp == nil {
 		return
 	}
@@ -34,6 +35,7 @@ func closeResponse(t *testing.T, resp *http.Response) {
 }
 
 func waitForInstanceReady(t *testing.T, client *http.Client, token, instanceID string) bool {
+	t.Helper()
 	deadline := time.Now().Add(eipInstanceReadyTimeout)
 	for time.Now().Before(deadline) {
 		checkResp := getRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances+"/"+instanceID, token)
@@ -150,7 +152,9 @@ func TestElasticIPE2E(t *testing.T) {
 			t.Logf("Instance %s did not become ready in time, skipping association test", instanceID)
 			// Still try to cleanup
 			termResp := deleteRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances+"/"+instanceID, token)
-			closeResponse(t, termResp)
+			if termResp != nil {
+				_ = termResp.Body.Close()
+			}
 			t.SkipNow()
 		}
 
@@ -181,7 +185,9 @@ func TestElasticIPE2E(t *testing.T) {
 
 		// Cleanup: terminate instance
 		termResp := deleteRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances+"/"+instanceID, token)
-		closeResponse(t, termResp)
+		if termResp != nil {
+			_ = termResp.Body.Close()
+		}
 	})
 
 	// 5. Release Elastic IP

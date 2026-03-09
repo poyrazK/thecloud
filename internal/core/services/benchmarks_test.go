@@ -41,7 +41,7 @@ func BenchmarkInstanceServiceList(b *testing.B) {
 		Network:          network,
 		EventSvc:         eventSvc,
 		AuditSvc:         auditSvc,
-		TaskQueue:        &services.TaskQueueStub{},
+		TaskQueue:        &TaskQueueStub{},
 		Logger:           logger,
 		TenantSvc:        &NoopTenantService{},
 		InstanceTypeRepo: &noop.NoopInstanceTypeRepository{},
@@ -61,7 +61,15 @@ func BenchmarkVPCServiceGet(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	rbacSvc := &noop.NoopRBACService{}
 	logger := slog.Default()
-	svc := services.NewVpcService(repo, &noop.NoopLBRepository{}, rbacSvc, network, auditSvc, logger, testutil.TestCIDR)
+	svc := services.NewVpcService(services.VpcServiceParams{
+		Repo:        repo,
+		LBRepo:      &noop.NoopLBRepository{},
+		RBACSvc:     rbacSvc,
+		Network:     network,
+		AuditSvc:    auditSvc,
+		Logger:      logger,
+		DefaultCIDR: testutil.TestCIDR,
+	})
 
 	ctx := context.Background()
 	id := uuid.New()
@@ -94,7 +102,7 @@ func BenchmarkInstanceServiceCreate(b *testing.B) {
 		Network:          network,
 		EventSvc:         eventSvc,
 		AuditSvc:         auditSvc,
-		TaskQueue:        &services.TaskQueueStub{},
+		TaskQueue:        &TaskQueueStub{},
 		Logger:           logger,
 		TenantSvc:        &NoopTenantService{},
 		InstanceTypeRepo: &noop.NoopInstanceTypeRepository{},
@@ -162,7 +170,7 @@ func BenchmarkInstanceServiceCreateParallel(b *testing.B) {
 		Network:          network,
 		EventSvc:         eventSvc,
 		AuditSvc:         auditSvc,
-		TaskQueue:        &services.TaskQueueStub{},
+		TaskQueue:        &TaskQueueStub{},
 		Logger:           logger,
 		TenantSvc:        &NoopTenantService{},
 		InstanceTypeRepo: &noop.NoopInstanceTypeRepository{},
@@ -190,6 +198,9 @@ func (s *NoopTenantService) CreateTenant(ctx context.Context, name, slug string,
 }
 func (s *NoopTenantService) GetTenant(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) {
 	return &domain.Tenant{ID: id}, nil
+}
+func (s *NoopTenantService) ListUserTenants(ctx context.Context, userID uuid.UUID) ([]domain.Tenant, error) {
+	return nil, nil
 }
 func (s *NoopTenantService) InviteMember(ctx context.Context, tenantID uuid.UUID, email, role string) error {
 	return nil
@@ -243,13 +254,16 @@ func BenchmarkDatabaseServiceList(b *testing.B) {
 	logger := slog.Default()
 
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
-		Repo:     repo,
-		RBAC:     rbacSvc,
-		Compute:  compute,
-		VpcRepo:  vpcRepo,
-		EventSvc: eventSvc,
-		AuditSvc: auditSvc,
-		Logger:   logger,
+		Repo:         repo,
+		RBAC:         rbacSvc,
+		Compute:      compute,
+		VpcRepo:      vpcRepo,
+		VolumeSvc:    nil,
+		SnapshotSvc:  nil,
+		SnapshotRepo: nil,
+		EventSvc:     eventSvc,
+		AuditSvc:     auditSvc,
+		Logger:       logger,
 	})
 
 	ctx := context.Background()
@@ -281,13 +295,16 @@ func BenchmarkDatabaseContentionParallel(b *testing.B) {
 	logger := slog.Default()
 
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
-		Repo:     repo,
-		RBAC:     rbacSvc,
-		Compute:  compute,
-		VpcRepo:  vpcRepo,
-		EventSvc: eventSvc,
-		AuditSvc: auditSvc,
-		Logger:   logger,
+		Repo:         repo,
+		RBAC:         rbacSvc,
+		Compute:      compute,
+		VpcRepo:      vpcRepo,
+		VolumeSvc:    nil,
+		SnapshotSvc:  nil,
+		SnapshotRepo: nil,
+		EventSvc:     eventSvc,
+		AuditSvc:     auditSvc,
+		Logger:       logger,
 	})
 	ctx := context.Background()
 	id := uuid.New()
@@ -325,7 +342,12 @@ func BenchmarkStorageServiceList(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	rbacSvc := &noop.NoopRBACService{}
 
-	svc := services.NewStorageService(repo, rbacSvc, fileStore, auditSvc, nil, nil)
+	svc := services.NewStorageService(services.StorageServiceParams{
+		Repo:     repo,
+		RBACSvc:  rbacSvc,
+		Store:    fileStore,
+		AuditSvc: auditSvc,
+	})
 
 	ctx := context.Background()
 
@@ -379,7 +401,7 @@ type BenchUserRepository struct {
 func (r *BenchUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	h := r.hash
 	if h == "" {
-		h = "$2a$10$8K1p/a0ZlAbzf.H4G1/BTe1B9U1S9S9S9S9S9S9S9S9S9S9S9S9S"
+		h = "$2a$10$8K1p/a0ZlAbzf.H4G1/BTe1B9U1S9S9S9S9S9S9S9S9S9S9S9S"
 	}
 	return &domain.User{
 		ID:           uuid.New(),

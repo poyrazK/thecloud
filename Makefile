@@ -36,10 +36,10 @@ reset: clean-docker
 	@echo "System reset complete."
 
 test:
-	go test ./...
+	go test ./cmd/... ./internal/... ./pkg/...
 
 test-coverage:
-	go test -coverprofile=coverage.out ./...
+	go test -coverprofile=coverage.out ./cmd/... ./internal/... ./pkg/...
 	go tool cover -func=coverage.out
 	@rm coverage.out
 
@@ -57,6 +57,9 @@ build:
 	go build -o bin/api ./cmd/api
 	go build -o bin/cloud cmd/cloud/*.go
 	go build -o bin/storage-node cmd/storage-node/main.go
+	go build -o bin/csi-driver ./cmd/csi-driver
+	go build -o bin/ccm ./cmd/ccm
+	go build -o bin/autoscaler-server ./cmd/autoscaler-server
 
 install: build
 	mkdir -p $(HOME)/.local/bin

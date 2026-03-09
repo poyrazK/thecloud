@@ -4,6 +4,7 @@ package postgres
 import (
 	"context"
 
+	stdlib_errors "errors"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
@@ -45,7 +46,7 @@ func (r *LifecycleRepository) Get(ctx context.Context, id uuid.UUID) (*domain.Li
 		&rule.ID, &rule.UserID, &rule.BucketName, &rule.Prefix, &rule.ExpirationDays, &rule.Enabled, &rule.CreatedAt, &rule.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "lifecycle rule not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to get lifecycle rule", err)

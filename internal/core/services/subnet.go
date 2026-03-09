@@ -15,6 +15,15 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// SubnetServiceParams defines dependencies for SubnetService.
+type SubnetServiceParams struct {
+	Repo     ports.SubnetRepository
+	RBACSvc  ports.RBACService
+	VpcRepo  ports.VpcRepository
+	AuditSvc ports.AuditService
+	Logger   *slog.Logger
+}
+
 // SubnetService manages subnet lifecycle within VPCs.
 type SubnetService struct {
 	repo     ports.SubnetRepository
@@ -25,13 +34,13 @@ type SubnetService struct {
 }
 
 // NewSubnetService constructs a SubnetService with its dependencies.
-func NewSubnetService(repo ports.SubnetRepository, rbacSvc ports.RBACService, vpcRepo ports.VpcRepository, auditSvc ports.AuditService, logger *slog.Logger) *SubnetService {
+func NewSubnetService(params SubnetServiceParams) *SubnetService {
 	return &SubnetService{
-		repo:     repo,
-		rbacSvc:  rbacSvc,
-		vpcRepo:  vpcRepo,
-		auditSvc: auditSvc,
-		logger:   logger,
+		repo:     params.Repo,
+		rbacSvc:  params.RBACSvc,
+		vpcRepo:  params.VpcRepo,
+		auditSvc: params.AuditSvc,
+		logger:   params.Logger,
 	}
 }
 
@@ -40,7 +49,7 @@ func (s *SubnetService) CreateSubnet(ctx context.Context, vpcID uuid.UUID, name,
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	// Creating a subnet is considered a VPC Update
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcUpdate, vpcID.String()); err != nil {
 		return nil, err
 	}
 
@@ -102,7 +111,7 @@ func (s *SubnetService) GetSubnet(ctx context.Context, idOrName string, vpcID uu
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead, idOrName); err != nil {
 		return nil, err
 	}
 
@@ -117,7 +126,7 @@ func (s *SubnetService) ListSubnets(ctx context.Context, vpcID uuid.UUID) ([]*do
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead, vpcID.String()); err != nil {
 		return nil, err
 	}
 
@@ -128,7 +137,7 @@ func (s *SubnetService) DeleteSubnet(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcDelete, id.String()); err != nil {
 		return err
 	}
 

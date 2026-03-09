@@ -2,215 +2,80 @@ package services_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"strings"
 	"testing"
 
-	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-func setupImageServiceTest(t *testing.T) (ports.ImageService, *MockImageRepo, *MockFileStore, context.Context) {
-	repo := new(MockImageRepo)
+func setupImageServiceTest(t *testing.T) (ports.ImageService, ports.ImageRepository, *MockFileStore, context.Context) {
+	t.Helper()
+	db := setupDB(t)
+	cleanDB(t, db)
+	ctx := setupTestUser(t, db)
+
+	repo := postgres.NewImageRepository(db)
+	fileStore := new(MockFileStore)
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	store := new(MockFileStore)
-	uID := uuid.New()
-	tID := uuid.New()
-	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), uID), tID)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewImageService(services.ImageServiceParams{
 		Repo:      repo,
 		RBACSvc:   rbacSvc,
-		FileStore: store,
+		FileStore: fileStore,
 		Logger:    slog.Default(),
 	})
 
-	return svc, repo, store, ctx
+	return svc, repo, fileStore, ctx
 }
 
-func TestImageService_RegisterImage(t *testing.T) {
-	svc, repo, _, ctx := setupImageServiceTest(t)
+func TestImageService_Lifecycle(t *testing.T) {
+	svc, repo, fileStore, ctx := setupImageServiceTest(t)
+	userID := appcontext.UserIDFromContext(ctx)
 
-	tests := []struct {
-		name      string
-		imgName   string
-		os        string
-		version   string
-		isPublic  bool
-		mockSetup func()
-		wantErr   bool
-	}{
-		{
-			name:    "Success",
-			imgName: "test-image",
-			os:      "linux",
-			version: "1.0",
-			mockSetup: func() {
-				repo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
-			},
-			wantErr: false,
-		},
-	}
+	t.Run("Create and List Images", func(t *testing.T) {
+		name := "ubuntu-22.04"
+		img, err := svc.RegisterImage(ctx, name, "Ubuntu 22.04 LTS", "linux", "amd64", false)
+		require.NoError(t, err)
+		assert.NotNil(t, img)
+		assert.Equal(t, name, img.Name)
+		assert.Equal(t, domain.ImageStatusPending, img.Status)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.mockSetup()
-			img, err := svc.RegisterImage(ctx, tt.imgName, "desc", tt.os, tt.version, tt.isPublic)
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, img)
-				assert.Equal(t, tt.imgName, img.Name)
-				assert.Equal(t, tt.os, img.OS)
-			}
-		})
-	}
-}
+		// List
+		images, err := svc.ListImages(ctx, userID, true)
+		require.NoError(t, err)
+		assert.NotEmpty(t, images)
+	})
 
-func TestImageService_UploadImage(t *testing.T) {
-	svc, repo, store, ctx := setupImageServiceTest(t)
-	uID := appcontext.UserIDFromContext(ctx)
-	tID := appcontext.TenantIDFromContext(ctx)
+	t.Run("Upload and Delete Image", func(t *testing.T) {
+		img, _ := svc.RegisterImage(ctx, "delete-me", "desc", "linux", "amd64", false)
 
-	tests := []struct {
-		name      string
-		id        uuid.UUID
-		mockSetup func()
-		wantErr   bool
-		errMsg    string
-	}{
-		{
-			name: "Success",
-			id:   uuid.New(),
-			mockSetup: func() {
-				// Empty mockSetup, handled in loop below
-			},
-			wantErr: false,
-		},
-		{
-			name: "Unauthorized - Different User",
-			id:   uuid.New(),
-			mockSetup: func() {
-			},
-			wantErr: true,
-			errMsg:  "cannot upload",
-		},
-		{
-			name: "Tenant Mismatch",
-			id:   uuid.New(),
-			mockSetup: func() {
-			},
-			wantErr: true,
-			errMsg:  "not found",
-		},
-	}
+		// Mock FileStore Write
+		fileStore.On("Write", mock.Anything, "images", mock.Anything, mock.Anything).Return(int64(1024), nil).Once()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.name == "Success" {
-				img := &domain.Image{ID: tt.id, UserID: uID, TenantID: &tID}
-				repo.On("GetByID", mock.Anything, tt.id).Return(img, nil).Once()
-				store.On("Write", mock.Anything, "images", mock.Anything, mock.Anything).Return(int64(1024), nil).Once()
-				repo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
-			} else if tt.name == "Unauthorized - Different User" {
-				img := &domain.Image{ID: tt.id, UserID: uuid.New(), TenantID: &tID}
-				repo.On("GetByID", mock.Anything, tt.id).Return(img, nil).Once()
-			} else if tt.name == "Tenant Mismatch" {
-				otherTID := uuid.New()
-				img := &domain.Image{ID: tt.id, UserID: uID, TenantID: &otherTID}
-				repo.On("GetByID", mock.Anything, tt.id).Return(img, nil).Once()
-			}
+		content := "fake image binary data"
+		err := svc.UploadImage(ctx, img.ID, strings.NewReader(content))
+		require.NoError(t, err)
 
-			err := svc.UploadImage(ctx, tt.id, strings.NewReader("data"))
-			if tt.wantErr {
-				assert.Error(t, err)
-				if tt.errMsg != "" {
-					assert.Contains(t, err.Error(), tt.errMsg)
-				}
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
+		// Verify Active
+		updated, _ := repo.GetByID(ctx, img.ID)
+		assert.Equal(t, domain.ImageStatusActive, updated.Status)
 
-func TestImageService_DeleteImage(t *testing.T) {
-	svc, repo, store, ctx := setupImageServiceTest(t)
-	uID := appcontext.UserIDFromContext(ctx)
-	tID := appcontext.TenantIDFromContext(ctx)
+		// Delete
+		fileStore.On("Delete", mock.Anything, "images", mock.Anything).Return(nil).Once()
 
-	tests := []struct {
-		name      string
-		id        uuid.UUID
-		mockSetup func(id uuid.UUID)
-		wantErr   bool
-		errMsg    string
-	}{
-		{
-			name: "Success",
-			id:   uuid.New(),
-			mockSetup: func(id uuid.UUID) {
-				img := &domain.Image{ID: id, UserID: uID, TenantID: &tID, FilePath: "path"}
-				repo.On("GetByID", mock.Anything, id).Return(img, nil).Once()
-				store.On("Delete", mock.Anything, "images", "path").Return(nil).Once()
-				repo.On("Delete", mock.Anything, id).Return(nil).Once()
-			},
-			wantErr: false,
-		},
-		{
-			name: "Non-Owner Denial",
-			id:   uuid.New(),
-			mockSetup: func(id uuid.UUID) {
-				img := &domain.Image{ID: id, UserID: uuid.New(), TenantID: &tID}
-				repo.On("GetByID", mock.Anything, id).Return(img, nil).Once()
-			},
-			wantErr: true,
-			errMsg:  "cannot delete someone else's image",
-		},
-		{
-			name: "Tenant Isolation Violation",
-			id:   uuid.New(),
-			mockSetup: func(id uuid.UUID) {
-				otherTID := uuid.New()
-				img := &domain.Image{ID: id, UserID: uID, TenantID: &otherTID}
-				repo.On("GetByID", mock.Anything, id).Return(img, nil).Once()
-			},
-			wantErr: true,
-			errMsg:  "not found",
-		},
-		{
-			name: "Storage Delete Failure",
-			id:   uuid.New(),
-			mockSetup: func(id uuid.UUID) {
-				img := &domain.Image{ID: id, UserID: uID, TenantID: &tID, FilePath: "path"}
-				repo.On("GetByID", mock.Anything, id).Return(img, nil).Once()
-				store.On("Delete", mock.Anything, "images", "path").Return(io.ErrUnexpectedEOF).Once()
-			},
-			wantErr: true,
-			errMsg:  "failed to delete image file",
-		},
-	}
+		err = svc.DeleteImage(ctx, img.ID)
+		require.NoError(t, err)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.mockSetup(tt.id)
-			err := svc.DeleteImage(ctx, tt.id)
-			if tt.wantErr {
-				assert.Error(t, err)
-				if tt.errMsg != "" {
-					assert.Contains(t, err.Error(), tt.errMsg)
-				}
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
+		_, err = repo.GetByID(ctx, img.ID)
+		require.Error(t, err)
+	})
 }

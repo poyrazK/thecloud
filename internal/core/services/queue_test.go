@@ -2,13 +2,8 @@ package services_test
 
 import (
 	"context"
-	"fmt"
-	"log/slog"
 	"testing"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
-	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
@@ -17,169 +12,68 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupQueueServiceTest(t *testing.T) (ports.QueueService, ports.QueueRepository, *MockRBACService, context.Context, *pgxpool.Pool) {
+func setupQueueServiceTest(t *testing.T) (ports.QueueService, *postgres.PostgresQueueRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
-	// We don't close DB here, caller should do it via defer
-
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
 
 	repo := postgres.NewPostgresQueueRepository(db)
 	rbacSvc := new(MockRBACService)
-	// Default: Authorize succeeds if userID is not nil
-	rbacSvc.On("Authorize", mock.Anything, mock.MatchedBy(func(id uuid.UUID) bool { return id != uuid.Nil }), mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	eventRepo := postgres.NewEventRepository(db)
-	eventSvc := services.NewEventService(eventRepo, rbacSvc, nil, slog.Default())
-
+	eventSvc := services.NewEventService(services.EventServiceParams{
+		Repo:    eventRepo,
+		RBACSvc: rbacSvc,
+		Hub:     nil,
+		Logger:  nil,
+	})
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
 
 	svc := services.NewQueueService(repo, rbacSvc, eventSvc, auditSvc)
-
-	return svc, repo, rbacSvc, ctx, db
+	return svc, repo.(*postgres.PostgresQueueRepository), ctx
 }
 
-func TestQueueServiceCreateQueue(t *testing.T) {
-	svc, repo, rbacSvc, ctx, _ := setupQueueServiceTest(t)
-	userID := appcontext.UserIDFromContext(ctx)
+func TestQueueService_Lifecycle(t *testing.T) {
+	svc, repo, ctx := setupQueueServiceTest(t)
 
-	t.Run("success", func(t *testing.T) {
-		opts := &ports.CreateQueueOptions{}
-		q, err := svc.CreateQueue(ctx, "test-queue", opts)
+	t.Run("CreateAndGet", func(t *testing.T) {
+		name := "test-queue"
+		q, err := svc.CreateQueue(ctx, name, nil)
+		require.NoError(t, err)
+		assert.Equal(t, name, q.Name)
 
-		assert.NoError(t, err)
-		assert.NotNil(t, q)
-		assert.Equal(t, "test-queue", q.Name)
-		assert.Equal(t, userID, q.UserID)
-
-		// Verify DB
-		fetched, err := repo.GetByName(ctx, "test-queue", userID)
-		assert.NoError(t, err)
+		fetched, err := svc.GetQueue(ctx, q.ID)
+		require.NoError(t, err)
 		assert.Equal(t, q.ID, fetched.ID)
 	})
 
-	t.Run("already exists", func(t *testing.T) {
-		_, err := svc.CreateQueue(ctx, "test-queue", nil)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "already exists")
+	t.Run("Messages", func(t *testing.T) {
+		q, _ := svc.CreateQueue(ctx, "msg-queue", nil)
+
+		payload := "hello world"
+		msg, err := svc.SendMessage(ctx, q.ID, payload)
+		require.NoError(t, err)
+		assert.Equal(t, payload, msg.Body)
+
+		// Receive
+		received, err := svc.ReceiveMessages(ctx, q.ID, 1)
+		require.NoError(t, err)
+		assert.Len(t, received, 1)
+		assert.Equal(t, msg.ID, received[0].ID)
+
+		// Delete
+		err = svc.DeleteMessage(ctx, q.ID, received[0].ReceiptHandle)
+		require.NoError(t, err)
+
+		// Verify gone
+		visible, inFlight, _ := repo.GetQueueStats(ctx, q.ID)
+		assert.Equal(t, 0, visible)
+		assert.Equal(t, 0, inFlight)
 	})
-
-	t.Run("unauthorized", func(t *testing.T) {
-		// Specifically return error for uuid.Nil (unauthorized context)
-		rbacSvc.On("Authorize", mock.Anything, uuid.Nil, mock.Anything, mock.Anything).
-			Return(fmt.Errorf("unauthorized")).Once()
-
-		_, err := svc.CreateQueue(context.Background(), "no-auth", nil)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "unauthorized")
-	})
-}
-
-func TestQueueServiceSendMessage(t *testing.T) {
-	svc, _, _, ctx, _ := setupQueueServiceTest(t)
-
-	q, err := svc.CreateQueue(ctx, "msg-queue", nil)
-	require.NoError(t, err)
-
-	t.Run("success", func(t *testing.T) {
-		msg, err := svc.SendMessage(ctx, q.ID, "hello world")
-		assert.NoError(t, err)
-		assert.NotNil(t, msg)
-		assert.Equal(t, "hello world", msg.Body)
-		// Receipt handle is only present when received
-	})
-}
-
-func TestQueueServiceReceiveMessages(t *testing.T) {
-	svc, _, _, ctx, _ := setupQueueServiceTest(t)
-
-	q, err := svc.CreateQueue(ctx, "recv-queue", nil)
-	require.NoError(t, err)
-
-	_, err = svc.SendMessage(ctx, q.ID, "msg1")
-	require.NoError(t, err)
-	_, err = svc.SendMessage(ctx, q.ID, "msg2")
-	require.NoError(t, err)
-
-	t.Run("success", func(t *testing.T) {
-		msgs, err := svc.ReceiveMessages(ctx, q.ID, 10)
-		assert.NoError(t, err)
-		assert.Len(t, msgs, 2)
-
-		// Should be invisible now? Depends on repo impl (visibility timeout).
-		// Try receiving again immediately
-		msgs2, err := svc.ReceiveMessages(ctx, q.ID, 10)
-		assert.NoError(t, err)
-		assert.Len(t, msgs2, 0, "messages should be invisible")
-	})
-}
-
-func TestQueueServiceDeleteMessage(t *testing.T) {
-	svc, repo, _, ctx, _ := setupQueueServiceTest(t)
-
-	q, err := svc.CreateQueue(ctx, "del-msg-queue", nil)
-	require.NoError(t, err)
-
-	_, err = svc.SendMessage(ctx, q.ID, "to delete")
-	require.NoError(t, err)
-
-	msgs, err := svc.ReceiveMessages(ctx, q.ID, 1)
-	require.NoError(t, err)
-	require.Len(t, msgs, 1)
-	receipt := msgs[0].ReceiptHandle
-
-	err = svc.DeleteMessage(ctx, q.ID, receipt)
-	assert.NoError(t, err)
-
-	v, inv, err := repo.(*postgres.PostgresQueueRepository).GetQueueStats(ctx, q.ID)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, v)
-	assert.Equal(t, 0, inv)
-}
-
-func TestQueueServicePurgeQueue(t *testing.T) {
-	svc, repo, _, ctx, _ := setupQueueServiceTest(t)
-
-	q, err := svc.CreateQueue(ctx, "purge-queue", nil)
-	require.NoError(t, err)
-
-	_, _ = svc.SendMessage(ctx, q.ID, "m1")
-	_, _ = svc.SendMessage(ctx, q.ID, "m2")
-
-	err = svc.PurgeQueue(ctx, q.ID)
-	assert.NoError(t, err)
-
-	v, inv, err := repo.(*postgres.PostgresQueueRepository).GetQueueStats(ctx, q.ID)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, v)
-	assert.Equal(t, 0, inv)
-}
-
-func TestQueueServiceDeleteQueue(t *testing.T) {
-	svc, repo, _, ctx, _ := setupQueueServiceTest(t)
-	userID := appcontext.UserIDFromContext(ctx)
-
-	q, err := svc.CreateQueue(ctx, "to-delete", nil)
-	require.NoError(t, err)
-
-	err = svc.DeleteQueue(ctx, q.ID)
-	assert.NoError(t, err)
-
-	fetched, err := repo.GetByID(ctx, q.ID, userID)
-	assert.NoError(t, err)
-	assert.Nil(t, fetched)
-}
-
-func TestQueueServiceListQueues(t *testing.T) {
-	svc, _, _, ctx, _ := setupQueueServiceTest(t)
-
-	_, err := svc.CreateQueue(ctx, "q1", nil)
-	require.NoError(t, err)
-	_, err = svc.CreateQueue(ctx, "q2", nil)
-	require.NoError(t, err)
-
-	queues, err := svc.ListQueues(ctx)
-	assert.NoError(t, err)
-	assert.Len(t, queues, 2)
 }

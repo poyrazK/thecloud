@@ -78,7 +78,7 @@ func TestStorageHandlerErrors(t *testing.T) { //nolint:gocyclo
 				c.Params = []gin.Param{{Key: "bucket", Value: "b1"}}
 			},
 			setupMock: func(m *mockStorageService) {
-				m.On("DeleteBucket", mock.Anything, "b1").
+				m.On("DeleteBucket", mock.Anything, "b1", false).
 					Return(internalerrors.New(internalerrors.Internal, "delete failed"))
 			},
 			checkCode: http.StatusInternalServerError,

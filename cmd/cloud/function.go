@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
@@ -23,12 +24,12 @@ var createFnCmd = &cobra.Command{
 		handler, _ := cmd.Flags().GetString("handler")
 		codePath, _ := cmd.Flags().GetString("code")
 
-		code, err := os.ReadFile(codePath)
+		code, err := os.ReadFile(filepath.Clean(codePath))
 		if err != nil {
 			return fmt.Errorf("failed to read code file: %w", err)
 		}
 
-		client := getClient()
+		client := createClient(opts)
 		fn, err := client.CreateFunction(name, runtime, handler, code)
 		if err != nil {
 			return err
@@ -43,7 +44,7 @@ var listFnCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all functions",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client := getClient()
+		client := createClient(opts)
 		functions, err := client.ListFunctions()
 		if err != nil {
 			return err
@@ -57,9 +58,9 @@ var listFnCmd = &cobra.Command{
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header([]string{"ID", "Name", "Runtime", "Status", "Created At"})
 		for _, f := range functions {
-			_ = table.Append([]string{f.ID, f.Name, f.Runtime, f.Status, f.CreatedAt.Format("2006-01-02 15:04:05")})
+			table.Append([]string{f.ID, f.Name, f.Runtime, f.Status, f.CreatedAt.Format("2006-01-02 15:04:05")})
 		}
-		_ = table.Render()
+		table.Render()
 		return nil
 	},
 }
@@ -77,7 +78,7 @@ var invokeFnCmd = &cobra.Command{
 		var payload []byte
 		var err error
 		if payloadFile != "" {
-			payload, err = os.ReadFile(payloadFile)
+			payload, err = os.ReadFile(filepath.Clean(payloadFile))
 			if err != nil {
 				return err
 			}
@@ -85,7 +86,7 @@ var invokeFnCmd = &cobra.Command{
 			payload = []byte(payloadStr)
 		}
 
-		client := getClient()
+		client := createClient(opts)
 
 		// Map name to ID if needed
 		targetID := id
@@ -123,7 +124,7 @@ var logsFnCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id := args[0]
-		client := getClient()
+		client := createClient(opts)
 
 		targetID := id
 		functions, err := client.ListFunctions()
@@ -157,7 +158,7 @@ var rmFnCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id := args[0]
-		client := getClient()
+		client := createClient(opts)
 
 		targetID := id
 		functions, err := client.ListFunctions()

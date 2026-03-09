@@ -41,15 +41,15 @@ func TestListClustersJSONOutput(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = kubernetesTestAPIKey
-	outputJSON = true
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = kubernetesTestAPIKey
+	opts.JSON = true
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
-		outputJSON = false
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
+		opts.JSON = false
 	}()
 
 	out := captureStdout(t, func() {
@@ -82,13 +82,13 @@ func TestCreateClusterSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	oldURL := apiURL
-	oldKey := apiKey
-	apiURL = server.URL
-	apiKey = kubernetesTestAPIKey
+	oldURL := opts.APIURL
+	oldKey := opts.APIKey
+	opts.APIURL = server.URL
+	opts.APIKey = kubernetesTestAPIKey
 	defer func() {
-		apiURL = oldURL
-		apiKey = oldKey
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
 	}()
 
 	clusterID := uuid.New()

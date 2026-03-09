@@ -12,10 +12,10 @@ CREATE TABLE IF NOT EXISTS elastic_ips (
 );
 
 -- Optimization indexes
-CREATE INDEX idx_elastic_ips_tenant_id ON elastic_ips(tenant_id);
-CREATE INDEX idx_elastic_ips_instance_id ON elastic_ips(instance_id);
+CREATE INDEX IF NOT EXISTS idx_elastic_ips_tenant_id ON elastic_ips(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_elastic_ips_instance_id ON elastic_ips(instance_id);
 
 -- Business rule: An instance can have at most one Elastic IP
-CREATE UNIQUE INDEX idx_elastic_ips_instance_unique 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_elastic_ips_instance_unique 
     ON elastic_ips(instance_id) 
     WHERE instance_id IS NOT NULL;

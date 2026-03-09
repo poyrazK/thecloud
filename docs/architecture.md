@@ -34,8 +34,9 @@ graph TB
         RepoDocker[Docker Engine<br/>Container Runtime]
         RepoLibvirt[Libvirt/KVM<br/>Compute/VM Runtime]
         RepoLVM[LVM<br/>Block Storage Backend]
-        RepoFS[Filesystem<br/>Object/Image Storage]
+        RepoFS[Distributed Object Storage<br/>S3-compatible Streaming]
         RepoOVS[Open vSwitch<br/>SDN Networking]
+        RepoCSI[CSI Driver<br/>K8s Storage Interface]
     end
 
     User --> Console
@@ -55,6 +56,7 @@ graph TB
     Ports --> RepoLVM
     Ports --> RepoFS
     Ports --> RepoOVS
+    Ports --> RepoCSI
     Service --> ASWorker
     Service --> CronWorker
     Service --> ContainerWorker
@@ -96,7 +98,7 @@ const (
 **Key Entities**:
 - `Instance`, `InstanceType`, `Volume`, `VPC`, `LoadBalancer`
 - `Function`, `Queue`, `Topic`, `CronJob`
-- `User`, `Role`, `APIKey`, `Secret`
+- `User`, `Role`, `APIKey`, `Secret`, `Policy`
 - `ScalingGroup`, `ScalingPolicy`
 
 ### 2. Ports Layer (`internal/core/ports`)
@@ -160,7 +162,10 @@ type StorageBackend interface {
 - `LoadBalancerService` - Traffic distribution (Regional)
 - `GlobalLBService` - Multi-region traffic steering (DNS-based) 🆕
 - `AutoScalingService` - Dynamic scaling
-- `RBACService` - Access control (100% coverage)
+- `StorageService` - Distributed object storage with versioning and streaming encryption 🆕
+- `VolumeCSIService` - Kubernetes CSI interaction layer 🆕
+- `RBACService` - Access control (Integration with IAM Policies)
+- `IAMService` - Granular policy lifecycle and evaluation 🆕
 - `FunctionService` - Serverless execution
 - `QueueService` - Message queuing
 - `NotifyService` - Pub/Sub messaging
@@ -200,10 +205,10 @@ func (s *instanceService) Launch(ctx context.Context, req LaunchRequest) (*domai
         return nil, err
     }
     
-    // 4. Record event
+    // 4. Record event (best effort)
     _ = s.eventSvc.RecordEvent(ctx, "INSTANCE_LAUNCHED", inst.ID.String(), "INSTANCE", nil)
     
-    // 5. Audit log
+    // 5. Audit log (best effort)
     _ = s.auditSvc.Log(ctx, inst.UserID, "instance.launch", "instance", inst.ID.String(), nil)
     
     return inst, nil
@@ -263,10 +268,9 @@ func (h *InstanceHandler) Launch(c *gin.Context) {
 - Function, Queue, Topic state
 - Audit logs and events
 
-**OVS Adapter**:
-- SDN management (Bridges, Ports, Flow rules)
-- VXLAN tunnel orchestration
-- IPAM and veth plumbing for instances
+**OVS Adapter**: SDN management (Bridges, Ports, Flow rules)
+- **CSI Driver**: Kubernetes storage backend implementation resolving Node hostnames to Instance UUIDs.
+- **Libvirt Adapter**: Modernized to support **ARM64 (UEFI)** guests using `virt` machine type and `AAVMF` firmware.
 
 **Example Repository**:
 ```go
@@ -521,6 +525,7 @@ Business logic lives in services:
 ```go
 type Service interface {
     PerformBusinessOperation(ctx context.Context, req Request) (*Response, error)
+    EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error)
 }
 ```
 
@@ -554,3 +559,4 @@ func (h *Handler) Endpoint(c *gin.Context) {
 - [Development Guide](development.md) - Setup and testing
 - [Database Guide](database.md) - Schema and migrations
 - [Testing Best Practices](backend.md#testing) - Comprehensive testing guide
+- [Cloud Storage Service](services/cloud-storage.md) - Distributed object storage 🆕

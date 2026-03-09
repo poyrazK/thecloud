@@ -54,7 +54,7 @@ func TestGenerateDomainXML(t *testing.T) {
 		assert.Contains(t, xml, "<source dev='/dev/sdc'/>")
 		assert.Contains(t, xml, "<target dev='vdc' bus='virtio'/>")
 	})
-	
+
 	t.Run("with port mapping", func(t *testing.T) {
 		t.Parallel()
 		ports := []string{"8080:80", "443:443"}

@@ -9,9 +9,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestClient_CreateRole(t *testing.T) {
+func TestClientCreateRole(t *testing.T) {
 	expectedRole := domain.Role{
 		ID:          uuid.New(),
 		Name:        "test-role",
@@ -38,13 +39,13 @@ func TestClient_CreateRole(t *testing.T) {
 	client := NewClient(server.URL, "test-api-key")
 	role, err := client.CreateRole(expectedRole.Name, expectedRole.Description, expectedRole.Permissions)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, role)
 	assert.Equal(t, expectedRole.ID, role.ID)
 	assert.Equal(t, expectedRole.Name, role.Name)
 }
 
-func TestClient_ListRoles(t *testing.T) {
+func TestClientListRoles(t *testing.T) {
 	expectedRoles := []domain.Role{
 		{ID: uuid.New(), Name: "role-1"},
 		{ID: uuid.New(), Name: "role-2"},
@@ -62,12 +63,12 @@ func TestClient_ListRoles(t *testing.T) {
 	client := NewClient(server.URL, "test-api-key")
 	roles, err := client.ListRoles()
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, roles, 2)
 	assert.Equal(t, expectedRoles[0].Name, roles[0].Name)
 }
 
-func TestClient_GetRole(t *testing.T) {
+func TestClientGetRole(t *testing.T) {
 	id := uuid.New()
 	expectedRole := domain.Role{ID: id, Name: "test-role"}
 
@@ -83,12 +84,12 @@ func TestClient_GetRole(t *testing.T) {
 	client := NewClient(server.URL, "test-api-key")
 	role, err := client.GetRole(id.String())
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, role)
 	assert.Equal(t, expectedRole.ID, role.ID)
 }
 
-func TestClient_DeleteRole(t *testing.T) {
+func TestClientDeleteRole(t *testing.T) {
 	id := uuid.New()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -102,10 +103,10 @@ func TestClient_DeleteRole(t *testing.T) {
 	client := NewClient(server.URL, "test-api-key")
 	err := client.DeleteRole(id)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
-func TestClient_UpdateRole(t *testing.T) {
+func TestClientUpdateRole(t *testing.T) {
 	id := uuid.New()
 	expectedRole := domain.Role{
 		ID:          id,
@@ -131,12 +132,12 @@ func TestClient_UpdateRole(t *testing.T) {
 	client := NewClient(server.URL, "test-api-key")
 	role, err := client.UpdateRole(id, expectedRole.Name, expectedRole.Description, expectedRole.Permissions)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, role)
 	assert.Equal(t, expectedRole.Name, role.Name)
 }
 
-func TestClient_BindRole(t *testing.T) {
+func TestClientBindRole(t *testing.T) {
 	userIdentifier := "user@example.com"
 	roleName := "admin"
 
@@ -157,10 +158,10 @@ func TestClient_BindRole(t *testing.T) {
 	client := NewClient(server.URL, "test-api-key")
 	err := client.BindRole(userIdentifier, roleName)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
-func TestClient_ListRoleBindings(t *testing.T) {
+func TestClientListRoleBindings(t *testing.T) {
 	expectedUsers := []domain.User{
 		{ID: uuid.New(), Email: "user1@example.com"},
 		{ID: uuid.New(), Email: "user2@example.com"},
@@ -178,7 +179,7 @@ func TestClient_ListRoleBindings(t *testing.T) {
 	client := NewClient(server.URL, "test-api-key")
 	users, err := client.ListRoleBindings()
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, users, 2)
 	assert.Equal(t, expectedUsers[0].Email, users[0].Email)
 }

@@ -21,21 +21,24 @@ type MockInstanceService struct{ mock.Mock }
 
 func (m *MockInstanceService) LaunchInstance(ctx context.Context, params ports.LaunchParams) (*domain.Instance, error) {
 	args := m.Called(ctx, params)
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *MockInstanceService) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (*domain.Instance, error) {
 	args := m.Called(ctx, opts)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *MockInstanceService) Provision(ctx context.Context, job domain.ProvisionJob) error {
 	return m.Called(ctx, job).Error(0)
 }
 func (m *MockInstanceService) GetInstance(ctx context.Context, id string) (*domain.Instance, error) {
 	args := m.Called(ctx, id)
-	return args.Get(0).(*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *MockInstanceService) TerminateInstance(ctx context.Context, id string) error {
 	return m.Called(ctx, id).Error(0)
@@ -51,7 +54,8 @@ func (m *MockInstanceService) ListInstances(ctx context.Context) ([]*domain.Inst
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Instance)
+	return r0, args.Error(1)
 }
 func (m *MockInstanceService) GetInstanceLogs(ctx context.Context, id string) (string, error) {
 	return "", nil
@@ -92,13 +96,29 @@ func (m *MockClusterRepo) AddNode(ctx context.Context, n *domain.ClusterNode) er
 }
 func (m *MockClusterRepo) GetNodes(ctx context.Context, clusterID uuid.UUID) ([]*domain.ClusterNode, error) {
 	args := m.Called(ctx, clusterID)
-	return args.Get(0).([]*domain.ClusterNode), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.ClusterNode)
+	return r0, args.Error(1)
 }
 func (m *MockClusterRepo) DeleteNode(ctx context.Context, nodeID uuid.UUID) error {
 	return m.Called(ctx, nodeID).Error(0)
 }
 func (m *MockClusterRepo) UpdateNode(ctx context.Context, n *domain.ClusterNode) error {
 	return m.Called(ctx, n).Error(0)
+}
+
+func (m *MockClusterRepo) AddNodeGroup(ctx context.Context, ng *domain.NodeGroup) error {
+	return m.Called(ctx, ng).Error(0)
+}
+func (m *MockClusterRepo) GetNodeGroups(ctx context.Context, clusterID uuid.UUID) ([]domain.NodeGroup, error) {
+	args := m.Called(ctx, clusterID)
+	r0, _ := args.Get(0).([]domain.NodeGroup)
+	return r0, args.Error(1)
+}
+func (m *MockClusterRepo) UpdateNodeGroup(ctx context.Context, ng *domain.NodeGroup) error {
+	return m.Called(ctx, ng).Error(0)
+}
+func (m *MockClusterRepo) DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error {
+	return m.Called(ctx, clusterID, name).Error(0)
 }
 
 type MockSecurityGroupService struct{ mock.Mock }
@@ -108,21 +128,24 @@ func (m *MockSecurityGroupService) CreateGroup(ctx context.Context, vpcID uuid.U
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.SecurityGroup), args.Error(1)
+	r0, _ := args.Get(0).(*domain.SecurityGroup)
+	return r0, args.Error(1)
 }
 func (m *MockSecurityGroupService) GetGroup(ctx context.Context, idOrName string, vpcID uuid.UUID) (*domain.SecurityGroup, error) {
 	args := m.Called(ctx, idOrName, vpcID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.SecurityGroup), args.Error(1)
+	r0, _ := args.Get(0).(*domain.SecurityGroup)
+	return r0, args.Error(1)
 }
 func (m *MockSecurityGroupService) ListGroups(ctx context.Context, vpcID uuid.UUID) ([]*domain.SecurityGroup, error) {
 	args := m.Called(ctx, vpcID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.SecurityGroup), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.SecurityGroup)
+	return r0, args.Error(1)
 }
 func (m *MockSecurityGroupService) DeleteGroup(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
@@ -132,7 +155,8 @@ func (m *MockSecurityGroupService) AddRule(ctx context.Context, groupID uuid.UUI
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.SecurityRule), args.Error(1)
+	r0, _ := args.Get(0).(*domain.SecurityRule)
+	return r0, args.Error(1)
 }
 func (m *MockSecurityGroupService) RemoveRule(ctx context.Context, ruleID uuid.UUID) error {
 	return m.Called(ctx, ruleID).Error(0)
@@ -173,7 +197,7 @@ func (m *MockStorageService) CreateBucket(ctx context.Context, name string, isPu
 func (m *MockStorageService) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
 	return &domain.Bucket{Name: name}, nil
 }
-func (m *MockStorageService) DeleteBucket(ctx context.Context, name string) error {
+func (m *MockStorageService) DeleteBucket(ctx context.Context, name string, force bool) error {
 	return nil
 }
 func (m *MockStorageService) ListBuckets(ctx context.Context) ([]*domain.Bucket, error) {
@@ -209,14 +233,16 @@ type MockLBService struct{ mock.Mock }
 
 func (m *MockLBService) Create(ctx context.Context, name string, vpcID uuid.UUID, port int, algo string, idempotencyKey string) (*domain.LoadBalancer, error) {
 	args := m.Called(ctx, name, vpcID, port, algo, idempotencyKey)
-	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
+	r0, _ := args.Get(0).(*domain.LoadBalancer)
+	return r0, args.Error(1)
 }
 func (m *MockLBService) Get(ctx context.Context, idOrName string) (*domain.LoadBalancer, error) {
 	args := m.Called(ctx, idOrName)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.LoadBalancer), args.Error(1)
+	r0, _ := args.Get(0).(*domain.LoadBalancer)
+	return r0, args.Error(1)
 }
 func (m *MockLBService) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	return nil, nil
@@ -264,6 +290,9 @@ func TestKubeadmProvisionerDeprovision(t *testing.T) {
 }
 
 func TestKubeadmProvisionerProvisionHA(t *testing.T) {
+	t.Setenv("CLOUD_API_KEY", "test-key")
+	t.Setenv("CLOUD_API_URL", "https://api.local")
+
 	ctx := context.Background()
 	instSvc := new(MockInstanceService)
 	repo := new(MockClusterRepo)
@@ -321,7 +350,7 @@ kubeadm join 10.0.0.100:6443 --token abc --discovery-token-ca-cert-hash sha256:1
 kubeadm join 10.0.0.100:6443 --token abc --discovery-token-ca-cert-hash sha256:123 --control-plane --certificate-key xyz
 `
 	// Collect instances for ListInstances mock
-	var instances []*domain.Instance
+	instances := make([]*domain.Instance, 0, len(allNodes))
 	for _, n := range allNodes {
 		inst, _ := instSvc.GetInstance(ctx, n.InstanceID.String())
 		instances = append(instances, inst)

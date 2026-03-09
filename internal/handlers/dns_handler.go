@@ -132,7 +132,7 @@ type CreateRecordRequest struct {
 // @Failure 400,401,500 {object} httputil.Response
 // @Router /dns/zones/{id}/records [post]
 func (h *DNSHandler) CreateRecord(c *gin.Context) {
-	zoneID, ok := parseUUID(c, "id")
+	zoneID, ok := parseUUID(c)
 	if !ok {
 		return
 	}
@@ -163,7 +163,7 @@ func (h *DNSHandler) CreateRecord(c *gin.Context) {
 // @Failure 404,500 {object} httputil.Response
 // @Router /dns/zones/{id}/records [get]
 func (h *DNSHandler) ListRecords(c *gin.Context) {
-	zoneID, ok := parseUUID(c, "id")
+	zoneID, ok := parseUUID(c)
 	if !ok {
 		return
 	}
@@ -187,7 +187,7 @@ func (h *DNSHandler) ListRecords(c *gin.Context) {
 // @Failure 404,500 {object} httputil.Response
 // @Router /dns/records/{id} [get]
 func (h *DNSHandler) GetRecord(c *gin.Context) {
-	id, ok := parseUUID(c, "id")
+	id, ok := parseUUID(c)
 	if !ok {
 		return
 	}
@@ -220,7 +220,7 @@ type UpdateRecordRequest struct {
 // @Failure 400,404,500 {object} httputil.Response
 // @Router /dns/records/{id} [put]
 func (h *DNSHandler) UpdateRecord(c *gin.Context) {
-	id, ok := parseUUID(c, "id")
+	id, ok := parseUUID(c)
 	if !ok {
 		return
 	}
@@ -250,7 +250,7 @@ func (h *DNSHandler) UpdateRecord(c *gin.Context) {
 // @Failure 404,500 {object} httputil.Response
 // @Router /dns/records/{id} [delete]
 func (h *DNSHandler) DeleteRecord(c *gin.Context) {
-	id, ok := parseUUID(c, "id")
+	id, ok := parseUUID(c)
 	if !ok {
 		return
 	}

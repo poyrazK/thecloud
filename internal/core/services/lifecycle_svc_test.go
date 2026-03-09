@@ -10,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreateRule(t *testing.T) {
@@ -39,7 +40,7 @@ func TestCreateRule(t *testing.T) {
 
 		rule, err := svc.CreateRule(ctx, bucketName, "logs/", 30, true)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, rule)
 		assert.Equal(t, "logs/", rule.Prefix)
 
@@ -59,7 +60,7 @@ func TestCreateRule(t *testing.T) {
 
 		rule, err := svc.CreateRule(ctxOther, bucketName, "logs/", 30, true)
 
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, rule)
 		assert.Contains(t, err.Error(), "you don't own this bucket")
 
@@ -90,8 +91,8 @@ func TestListRules(t *testing.T) {
 		mockRepo.On("List", ctx, bucketName).Return(rules, nil).Once()
 
 		result, err := svc.ListRules(ctx, bucketName)
-		assert.NoError(t, err)
-		assert.Equal(t, 1, len(result))
+		require.NoError(t, err)
+		assert.Len(t, result, 1)
 		mockStorageRepo.AssertExpectations(t)
 		mockRepo.AssertExpectations(t)
 	})
@@ -106,7 +107,7 @@ func TestListRules(t *testing.T) {
 		}, nil).Once()
 
 		_, err := svc.ListRules(ctxOther, bucketName)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "you don't own this bucket")
 	})
 }
@@ -139,7 +140,7 @@ func TestDeleteRule(t *testing.T) {
 		mockRepo.On("Delete", ctx, ruleID).Return(nil).Once()
 
 		err := svc.DeleteRule(ctx, bucketName, ruleID.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		mockStorageRepo.AssertExpectations(t)
 		mockRepo.AssertExpectations(t)
 	})
@@ -156,7 +157,7 @@ func TestDeleteRule(t *testing.T) {
 		}, nil).Once()
 
 		err := svc.DeleteRule(ctx, bucketName, ruleID.String())
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "does not belong to the specified bucket")
 	})
 
@@ -170,7 +171,7 @@ func TestDeleteRule(t *testing.T) {
 		}, nil).Once()
 
 		err := svc.DeleteRule(ctxOther, bucketName, ruleID.String())
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "you don't own this bucket")
 	})
 }

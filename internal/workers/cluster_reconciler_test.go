@@ -27,7 +27,8 @@ func (m *mockProvisioner) Upgrade(ctx context.Context, c *domain.Cluster, versio
 }
 func (m *mockProvisioner) GetStatus(ctx context.Context, c *domain.Cluster) (domain.ClusterStatus, error) {
 	args := m.Called(ctx, c)
-	return args.Get(0).(domain.ClusterStatus), args.Error(1)
+	r0, _ := args.Get(0).(domain.ClusterStatus)
+	return r0, args.Error(1)
 }
 func (m *mockProvisioner) Repair(ctx context.Context, c *domain.Cluster) error {
 	return m.Called(ctx, c).Error(0)
@@ -44,7 +45,8 @@ func (m *mockProvisioner) GetHealth(ctx context.Context, c *domain.Cluster) (*po
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*ports.ClusterHealth), args.Error(1)
+	r0, _ := args.Get(0).(*ports.ClusterHealth)
+	return r0, args.Error(1)
 }
 func (m *mockProvisioner) RotateSecrets(ctx context.Context, c *domain.Cluster) error {
 	return m.Called(ctx, c).Error(0)

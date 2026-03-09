@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	stdlib_errors "errors"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
@@ -25,11 +26,11 @@ func NewDatabaseRepository(db DB) *DatabaseRepository {
 
 func (r *DatabaseRepository) Create(ctx context.Context, db *domain.Database) error {
 	query := `
-		INSERT INTO databases (id, user_id, name, engine, version, status, vpc_id, container_id, port, username, password, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		INSERT INTO databases (id, user_id, name, engine, version, status, role, primary_id, vpc_id, container_id, port, username, password, created_at, updated_at, allocated_storage, parameters, metrics_enabled, metrics_port, exporter_container_id, pooling_enabled, pooling_port, pooler_container_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
 	`
 	_, err := r.db.Exec(ctx, query,
-		db.ID, db.UserID, db.Name, db.Engine, db.Version, db.Status, db.VpcID, db.ContainerID, db.Port, db.Username, db.Password, db.CreatedAt, db.UpdatedAt,
+		db.ID, db.UserID, db.Name, db.Engine, db.Version, db.Status, db.Role, db.PrimaryID, db.VpcID, db.ContainerID, db.Port, db.Username, db.Password, db.CreatedAt, db.UpdatedAt, db.AllocatedStorage, db.Parameters, db.MetricsEnabled, db.MetricsPort, db.ExporterContainerID, db.PoolingEnabled, db.PoolingPort, db.PoolerContainerID,
 	)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to create database", err)
@@ -40,7 +41,7 @@ func (r *DatabaseRepository) Create(ctx context.Context, db *domain.Database) er
 func (r *DatabaseRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, name, engine, version, status, vpc_id, COALESCE(container_id, ''), port, username, password, created_at, updated_at
+		SELECT id, user_id, name, engine, version, status, role, primary_id, vpc_id, COALESCE(container_id, ''), port, username, password, created_at, updated_at, allocated_storage, parameters, metrics_enabled, COALESCE(metrics_port, 0), COALESCE(exporter_container_id, ''), pooling_enabled, COALESCE(pooling_port, 0), COALESCE(pooler_container_id, '')
 		FROM databases
 		WHERE id = $1 AND user_id = $2
 	`
@@ -50,7 +51,7 @@ func (r *DatabaseRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 func (r *DatabaseRepository) List(ctx context.Context) ([]*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, name, engine, version, status, vpc_id, COALESCE(container_id, ''), port, username, password, created_at, updated_at
+		SELECT id, user_id, name, engine, version, status, role, primary_id, vpc_id, COALESCE(container_id, ''), port, username, password, created_at, updated_at, allocated_storage, parameters, metrics_enabled, COALESCE(metrics_port, 0), COALESCE(exporter_container_id, ''), pooling_enabled, COALESCE(pooling_port, 0), COALESCE(pooler_container_id, '')
 		FROM databases
 		WHERE user_id = $1
 		ORDER BY created_at DESC
@@ -62,20 +63,35 @@ func (r *DatabaseRepository) List(ctx context.Context) ([]*domain.Database, erro
 	return r.scanDatabases(rows)
 }
 
+func (r *DatabaseRepository) ListReplicas(ctx context.Context, primaryID uuid.UUID) ([]*domain.Database, error) {
+	query := `
+		SELECT id, user_id, name, engine, version, status, role, primary_id, vpc_id, COALESCE(container_id, ''), port, username, password, created_at, updated_at, allocated_storage, parameters, metrics_enabled, COALESCE(metrics_port, 0), COALESCE(exporter_container_id, ''), pooling_enabled, COALESCE(pooling_port, 0), COALESCE(pooler_container_id, '')
+		FROM databases
+		WHERE primary_id = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.Query(ctx, query, primaryID)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to list replicas", err)
+	}
+	return r.scanDatabases(rows)
+}
+
 func (r *DatabaseRepository) scanDatabase(row pgx.Row) (*domain.Database, error) {
 	var db domain.Database
-	var engine, status string
+	var engine, status, role string
 	err := row.Scan(
-		&db.ID, &db.UserID, &db.Name, &engine, &db.Version, &status, &db.VpcID, &db.ContainerID, &db.Port, &db.Username, &db.Password, &db.CreatedAt, &db.UpdatedAt,
+		&db.ID, &db.UserID, &db.Name, &engine, &db.Version, &status, &role, &db.PrimaryID, &db.VpcID, &db.ContainerID, &db.Port, &db.Username, &db.Password, &db.CreatedAt, &db.UpdatedAt, &db.AllocatedStorage, &db.Parameters, &db.MetricsEnabled, &db.MetricsPort, &db.ExporterContainerID, &db.PoolingEnabled, &db.PoolingPort, &db.PoolerContainerID,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "database not found")
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to scan database", err)
 	}
 	db.Engine = domain.DatabaseEngine(engine)
 	db.Status = domain.DatabaseStatus(status)
+	db.Role = domain.DatabaseRole(role)
 	return &db, nil
 }
 
@@ -95,11 +111,11 @@ func (r *DatabaseRepository) scanDatabases(rows pgx.Rows) ([]*domain.Database, e
 func (r *DatabaseRepository) Update(ctx context.Context, db *domain.Database) error {
 	query := `
 		UPDATE databases
-		SET name = $1, status = $2, container_id = $3, port = $4, updated_at = $5
-		WHERE id = $6 AND user_id = $7
+		SET name = $1, status = $2, role = $3, primary_id = $4, container_id = $5, port = $6, updated_at = $7, parameters = $8, metrics_enabled = $9, metrics_port = $10, exporter_container_id = $11, pooling_enabled = $12, pooling_port = $13, pooler_container_id = $14, allocated_storage = $15
+		WHERE id = $16 AND user_id = $17
 	`
 	now := time.Now()
-	cmd, err := r.db.Exec(ctx, query, db.Name, db.Status, db.ContainerID, db.Port, now, db.ID, db.UserID)
+	cmd, err := r.db.Exec(ctx, query, db.Name, db.Status, db.Role, db.PrimaryID, db.ContainerID, db.Port, now, db.Parameters, db.MetricsEnabled, db.MetricsPort, db.ExporterContainerID, db.PoolingEnabled, db.PoolingPort, db.PoolerContainerID, db.AllocatedStorage, db.ID, db.UserID)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to update database", err)
 	}

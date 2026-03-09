@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	stdlib_errors "errors"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -68,7 +69,7 @@ func (r *imageRepository) scanImage(row pgx.Row) (*domain.Image, error) {
 		&img.Status, &img.CreatedAt, &img.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New(errors.NotFound, "image not found")
 		}
 		return nil, fmt.Errorf("failed to scan image: %w", err)

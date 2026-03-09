@@ -34,6 +34,12 @@ const (
 	PermissionSgRead   Permission = "sg:read"
 	PermissionSgUpdate Permission = "sg:update"
 
+	// VPC Peering Permissions
+	PermissionVpcPeeringCreate Permission = "vpc_peering:create"
+	PermissionVpcPeeringAccept Permission = "vpc_peering:accept"
+	PermissionVpcPeeringDelete Permission = "vpc_peering:delete"
+	PermissionVpcPeeringRead   Permission = "vpc_peering:read"
+
 	// Elastic IP Permissions
 	PermissionEipAllocate  Permission = "eip:allocate"
 	PermissionEipRelease   Permission = "eip:release"
@@ -44,6 +50,7 @@ const (
 	PermissionVolumeCreate Permission = "volume:create"
 	PermissionVolumeDelete Permission = "volume:delete"
 	PermissionVolumeRead   Permission = "volume:read"
+	PermissionVolumeUpdate Permission = "volume:update"
 
 	PermissionStorageWrite  Permission = "storage:write"
 	PermissionStorageRead   Permission = "storage:read"
@@ -65,6 +72,7 @@ const (
 	PermissionDBCreate Permission = "db:create"
 	PermissionDBDelete Permission = "db:delete"
 	PermissionDBRead   Permission = "db:read"
+	PermissionDBUpdate Permission = "db:update"
 
 	// Secret Permissions
 	PermissionSecretCreate Permission = "secret:create"
@@ -123,6 +131,14 @@ const (
 	PermissionContainerDelete Permission = "container:delete"
 	PermissionContainerRead   Permission = "container:read"
 	PermissionContainerUpdate Permission = "container:scale"
+
+	// Pipeline Permissions
+	PermissionPipelineCreate  Permission = "pipeline:create"
+	PermissionPipelineDelete  Permission = "pipeline:delete"
+	PermissionPipelineRead    Permission = "pipeline:read"
+	PermissionPipelineUpdate  Permission = "pipeline:update"
+	PermissionPipelineRun     Permission = "pipeline:run"
+	PermissionPipelineWebhook Permission = "pipeline:webhook"
 
 	// Image Permissions
 	PermissionImageCreate  Permission = "image:create"

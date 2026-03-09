@@ -2,6 +2,7 @@
 package sdk
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"time"
@@ -140,8 +141,12 @@ func (c *Client) ListBuckets() ([]Bucket, error) {
 }
 
 // DeleteBucket removes a bucket by name.
-func (c *Client) DeleteBucket(name string) error {
-	return c.delete(fmt.Sprintf("/storage/buckets/%s", name), nil)
+func (c *Client) DeleteBucket(ctx context.Context, name string, force ...bool) error {
+	path := fmt.Sprintf("/storage/buckets/%s", name)
+	if len(force) > 0 && force[0] {
+		path += "?force=true"
+	}
+	return c.deleteWithContext(ctx, path, nil)
 }
 
 // SetBucketVersioning toggles bucket versioning.

@@ -9,12 +9,13 @@ import (
 	"github.com/pashagolub/pgxmock/v3"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNotifyRepository_CreateTopic(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewPostgresNotifyRepository(mock)
@@ -32,13 +33,13 @@ func TestNotifyRepository_CreateTopic(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.CreateTopic(context.Background(), topic)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestNotifyRepository_GetSubscriptionByID(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewPostgresNotifyRepository(mock)
@@ -52,7 +53,7 @@ func TestNotifyRepository_GetSubscriptionByID(t *testing.T) {
 			AddRow(id, userID, uuid.New(), string(domain.ProtocolWebhook), "http://test", now, now))
 
 	sub, err := repo.GetSubscriptionByID(context.Background(), id, userID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, sub)
 	assert.Equal(t, id, sub.ID)
 	assert.Equal(t, domain.ProtocolWebhook, sub.Protocol)
@@ -61,7 +62,7 @@ func TestNotifyRepository_GetSubscriptionByID(t *testing.T) {
 func TestNotifyRepository_ListSubscriptions(t *testing.T) {
 	t.Parallel()
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewPostgresNotifyRepository(mock)
@@ -74,7 +75,7 @@ func TestNotifyRepository_ListSubscriptions(t *testing.T) {
 			AddRow(uuid.New(), uuid.New(), topicID, string(domain.ProtocolWebhook), "http://test", now, now))
 
 	subs, err := repo.ListSubscriptions(context.Background(), topicID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, subs, 1)
 	assert.Equal(t, domain.ProtocolWebhook, subs[0].Protocol)
 }

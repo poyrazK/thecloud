@@ -27,34 +27,26 @@ func (m *DNSRepository) CreateZone(ctx context.Context, zone *domain.DNSZone) er
 
 func (m *DNSRepository) GetZoneByID(ctx context.Context, id uuid.UUID) (*domain.DNSZone, error) {
 	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.DNSZone), args.Error(1)
+	r0, _ := args.Get(0).(*domain.DNSZone)
+	return r0, args.Error(1)
 }
 
 func (m *DNSRepository) GetZoneByName(ctx context.Context, name string) (*domain.DNSZone, error) {
 	args := m.Called(ctx, name)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.DNSZone), args.Error(1)
+	r0, _ := args.Get(0).(*domain.DNSZone)
+	return r0, args.Error(1)
 }
 
 func (m *DNSRepository) GetZoneByVPC(ctx context.Context, vpcID uuid.UUID) (*domain.DNSZone, error) {
 	args := m.Called(ctx, vpcID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.DNSZone), args.Error(1)
+	r0, _ := args.Get(0).(*domain.DNSZone)
+	return r0, args.Error(1)
 }
 
 func (m *DNSRepository) ListZones(ctx context.Context) ([]*domain.DNSZone, error) {
 	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.DNSZone), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.DNSZone)
+	return r0, args.Error(1)
 }
 
 func (m *DNSRepository) UpdateZone(ctx context.Context, zone *domain.DNSZone) error {
@@ -74,26 +66,20 @@ func (m *DNSRepository) CreateRecord(ctx context.Context, record *domain.DNSReco
 
 func (m *DNSRepository) GetRecordByID(ctx context.Context, id uuid.UUID) (*domain.DNSRecord, error) {
 	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.DNSRecord), args.Error(1)
+	r0, _ := args.Get(0).(*domain.DNSRecord)
+	return r0, args.Error(1)
 }
 
 func (m *DNSRepository) ListRecordsByZone(ctx context.Context, zoneID uuid.UUID) ([]*domain.DNSRecord, error) {
 	args := m.Called(ctx, zoneID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.DNSRecord), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.DNSRecord)
+	return r0, args.Error(1)
 }
 
 func (m *DNSRepository) GetRecordsByInstance(ctx context.Context, instanceID uuid.UUID) ([]*domain.DNSRecord, error) {
 	args := m.Called(ctx, instanceID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.DNSRecord), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.DNSRecord)
+	return r0, args.Error(1)
 }
 
 func (m *DNSRepository) UpdateRecord(ctx context.Context, record *domain.DNSRecord) error {
@@ -134,10 +120,8 @@ func (m *DNSBackend) DeleteZone(ctx context.Context, zoneName string) error {
 
 func (m *DNSBackend) GetZone(ctx context.Context, zoneName string) (*ports.ZoneInfo, error) {
 	args := m.Called(ctx, zoneName)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*ports.ZoneInfo), args.Error(1)
+	r0, _ := args.Get(0).(*ports.ZoneInfo)
+	return r0, args.Error(1)
 }
 
 func (m *DNSBackend) AddRecords(ctx context.Context, zoneName string, records []ports.RecordSet) error {
@@ -157,10 +141,8 @@ func (m *DNSBackend) DeleteRecords(ctx context.Context, zoneName, name, recordTy
 
 func (m *DNSBackend) ListRecords(ctx context.Context, zoneName string) ([]ports.RecordSet, error) {
 	args := m.Called(ctx, zoneName)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]ports.RecordSet), args.Error(1)
+	r0, _ := args.Get(0).([]ports.RecordSet)
+	return r0, args.Error(1)
 }
 
 // DNSService is a mock for ports.DNSService
@@ -176,34 +158,26 @@ func NewDNSService(t mock.TestingT) *DNSService {
 
 func (m *DNSService) CreateZone(ctx context.Context, vpcID uuid.UUID, name, description string) (*domain.DNSZone, error) {
 	args := m.Called(ctx, vpcID, name, description)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.DNSZone), args.Error(1)
+	r0, _ := args.Get(0).(*domain.DNSZone)
+	return r0, args.Error(1)
 }
 
 func (m *DNSService) GetZone(ctx context.Context, idOrName string) (*domain.DNSZone, error) {
 	args := m.Called(ctx, idOrName)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.DNSZone), args.Error(1)
+	r0, _ := args.Get(0).(*domain.DNSZone)
+	return r0, args.Error(1)
 }
 
 func (m *DNSService) GetZoneByVPC(ctx context.Context, vpcID uuid.UUID) (*domain.DNSZone, error) {
 	args := m.Called(ctx, vpcID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.DNSZone), args.Error(1)
+	r0, _ := args.Get(0).(*domain.DNSZone)
+	return r0, args.Error(1)
 }
 
 func (m *DNSService) ListZones(ctx context.Context) ([]*domain.DNSZone, error) {
 	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.DNSZone), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.DNSZone)
+	return r0, args.Error(1)
 }
 
 func (m *DNSService) DeleteZone(ctx context.Context, idOrName string) error {
@@ -213,34 +187,26 @@ func (m *DNSService) DeleteZone(ctx context.Context, idOrName string) error {
 
 func (m *DNSService) CreateRecord(ctx context.Context, zoneID uuid.UUID, name string, recordType domain.RecordType, content string, ttl int, priority *int) (*domain.DNSRecord, error) {
 	args := m.Called(ctx, zoneID, name, recordType, content, ttl, priority)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.DNSRecord), args.Error(1)
+	r0, _ := args.Get(0).(*domain.DNSRecord)
+	return r0, args.Error(1)
 }
 
 func (m *DNSService) GetRecord(ctx context.Context, id uuid.UUID) (*domain.DNSRecord, error) {
 	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.DNSRecord), args.Error(1)
+	r0, _ := args.Get(0).(*domain.DNSRecord)
+	return r0, args.Error(1)
 }
 
 func (m *DNSService) ListRecords(ctx context.Context, zoneID uuid.UUID) ([]*domain.DNSRecord, error) {
 	args := m.Called(ctx, zoneID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.DNSRecord), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.DNSRecord)
+	return r0, args.Error(1)
 }
 
 func (m *DNSService) UpdateRecord(ctx context.Context, id uuid.UUID, content string, ttl int, priority *int) (*domain.DNSRecord, error) {
 	args := m.Called(ctx, id, content, ttl, priority)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.DNSRecord), args.Error(1)
+	r0, _ := args.Get(0).(*domain.DNSRecord)
+	return r0, args.Error(1)
 }
 
 func (m *DNSService) DeleteRecord(ctx context.Context, id uuid.UUID) error {

@@ -13,21 +13,30 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func setupCronServiceIntegrationTest(t *testing.T) (ports.CronService, ports.CronRepository, context.Context) {
+	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
 
 	repo := postgres.NewPostgresCronRepository(db)
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	eventRepo := postgres.NewEventRepository(db)
-	eventSvc := services.NewEventService(eventRepo, rbacSvc, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	eventSvc := services.NewEventService(services.EventServiceParams{
+		Repo:    eventRepo,
+		RBACSvc: rbacSvc,
+		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo, rbacSvc)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
 
 	svc := services.NewCronService(repo, rbacSvc, eventSvc, auditSvc)
 
@@ -42,7 +51,7 @@ func TestCronService_Integration(t *testing.T) {
 		name := "backup-job"
 		schedule := "0 0 * * *"
 		job, err := svc.CreateJob(ctx, name, schedule, "http://api/backup", "POST", "")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, job)
 		assert.Equal(t, name, job.Name)
 		assert.Equal(t, domain.CronStatusActive, job.Status)
@@ -50,17 +59,17 @@ func TestCronService_Integration(t *testing.T) {
 
 		// Get
 		fetched, err := svc.GetJob(ctx, job.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, job.ID, fetched.ID)
 
 		// List
 		jobs, err := svc.ListJobs(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, jobs, 1)
 
 		// Pause
 		err = svc.PauseJob(ctx, job.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		paused, _ := repo.GetJobByID(ctx, job.ID, userID)
 		assert.Equal(t, domain.CronStatusPaused, paused.Status)
@@ -68,7 +77,7 @@ func TestCronService_Integration(t *testing.T) {
 
 		// Resume
 		err = svc.ResumeJob(ctx, job.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		resumed, _ := repo.GetJobByID(ctx, job.ID, userID)
 		assert.Equal(t, domain.CronStatusActive, resumed.Status)
@@ -76,16 +85,16 @@ func TestCronService_Integration(t *testing.T) {
 
 		// Delete
 		err = svc.DeleteJob(ctx, job.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		_, err = repo.GetJobByID(ctx, job.ID, userID)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("Validation", func(t *testing.T) {
 		// Invalid cron
 		_, err := svc.CreateJob(ctx, "bad", "invalid schedule", "http://u", "GET", "")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid schedule")
 	})
 }

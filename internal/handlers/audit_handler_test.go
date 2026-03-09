@@ -27,7 +27,8 @@ func (m *mockAuditService) ListLogs(ctx context.Context, userID uuid.UUID, limit
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.AuditLog), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.AuditLog)
+	return r0, args.Error(1)
 }
 
 func TestAuditHandler_ListLogs(t *testing.T) {

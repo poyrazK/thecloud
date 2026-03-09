@@ -32,6 +32,7 @@ type TenantRepository interface {
 type TenantService interface {
 	CreateTenant(ctx context.Context, name, slug string, ownerID uuid.UUID) (*domain.Tenant, error)
 	GetTenant(ctx context.Context, id uuid.UUID) (*domain.Tenant, error)
+	ListUserTenants(ctx context.Context, userID uuid.UUID) ([]domain.Tenant, error)
 	InviteMember(ctx context.Context, tenantID uuid.UUID, email, role string) error
 	RemoveMember(ctx context.Context, tenantID, userID uuid.UUID) error
 	SwitchTenant(ctx context.Context, userID, tenantID uuid.UUID) error

@@ -5,6 +5,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	stdlib_errors "errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -62,7 +63,7 @@ func (s *FunctionService) CreateFunction(ctx context.Context, name, runtime, han
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionCreate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionCreate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -111,7 +112,7 @@ func (s *FunctionService) GetFunction(ctx context.Context, id uuid.UUID) (*domai
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionRead, id.String()); err != nil {
 		return nil, err
 	}
 
@@ -122,7 +123,7 @@ func (s *FunctionService) ListFunctions(ctx context.Context) ([]*domain.Function
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -133,7 +134,7 @@ func (s *FunctionService) DeleteFunction(ctx context.Context, id uuid.UUID) erro
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionDelete, id.String()); err != nil {
 		return err
 	}
 
@@ -162,7 +163,7 @@ func (s *FunctionService) GetFunctionLogs(ctx context.Context, id uuid.UUID, lim
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionRead, id.String()); err != nil {
 		return nil, err
 	}
 
@@ -173,7 +174,7 @@ func (s *FunctionService) InvokeFunction(ctx context.Context, id uuid.UUID, payl
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionInvoke); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionInvoke, id.String()); err != nil {
 		return nil, err
 	}
 
@@ -233,9 +234,12 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 func (s *FunctionService) buildTaskOptions(f *domain.Function, tmpDir string, payload []byte) ports.RunTaskOptions {
 	config := runtimes[f.Runtime]
 	pidsLimit := int64(50)
+
+	handler := s.normalizeHandler(f.Runtime, f.Handler)
+
 	return ports.RunTaskOptions{
 		Image:           config.Image,
-		Command:         append(config.Entrypoint, f.Handler),
+		Command:         append(config.Entrypoint, handler),
 		Env:             []string{fmt.Sprintf("PAYLOAD=%s", string(payload))},
 		MemoryMB:        int64(f.MemoryMB),
 		CPUs:            0.5,
@@ -245,6 +249,29 @@ func (s *FunctionService) buildTaskOptions(f *domain.Function, tmpDir string, pa
 		Binds:           []string{fmt.Sprintf("%s:/var/task:ro", tmpDir)},
 		PidsLimit:       &pidsLimit,
 	}
+}
+
+// normalizeHandler ensures the handler path is friendly for the runtime execution.
+func (s *FunctionService) normalizeHandler(runtime, handler string) string {
+	config, ok := runtimes[runtime]
+	if !ok {
+		return handler
+	}
+
+	// 1. If it doesn't have the extension, add it
+	if !strings.HasSuffix(handler, config.Extension) {
+		// If it has a dot but wrong extension, we don't know what to do, keep as is
+		if !strings.Contains(handler, ".") {
+			handler += config.Extension
+		}
+	}
+
+	// 2. For Node.js/Python, they usually work best with ./
+	if (runtime == "nodejs20" || runtime == "python312") && !strings.HasPrefix(handler, "./") && !strings.HasPrefix(handler, "/") {
+		return "./" + handler
+	}
+
+	return handler
 }
 
 func (s *FunctionService) waitForTask(ctx context.Context, containerID string, timeout int) (int64, error) {
@@ -268,16 +295,17 @@ func (s *FunctionService) captureInvocationResults(i *domain.Invocation, contain
 	i.DurationMs = int(i.EndedAt.Sub(i.StartedAt).Milliseconds())
 	i.StatusCode = int(statusCode)
 
-	if waitErr != nil {
+	switch {
+	case waitErr != nil:
 		i.Status = "FAILED"
-		if waitErr == context.DeadlineExceeded {
+		if stdlib_errors.Is(waitErr, context.DeadlineExceeded) {
 			i.Logs += "\nError: Execution timed out"
 		} else {
 			i.Logs += fmt.Sprintf("\nError: %v", waitErr)
 		}
-	} else if statusCode != 0 {
+	case statusCode != 0:
 		i.Status = "FAILED"
-	} else {
+	default:
 		i.Status = "SUCCESS"
 	}
 }
@@ -324,6 +352,11 @@ func (s *FunctionService) extractZip(rc io.Reader, tmpDir string) error {
 		return err
 	}
 
+	// Limit total number of files to prevent resource exhaustion
+	if len(zr.File) > 1000 {
+		return fmt.Errorf("too many files in zip: %d", len(zr.File))
+	}
+
 	for _, file := range zr.File {
 		if err := s.extractZipFile(file, tmpDir); err != nil {
 			return err
@@ -333,20 +366,25 @@ func (s *FunctionService) extractZip(rc io.Reader, tmpDir string) error {
 }
 
 func (s *FunctionService) extractZipFile(file *zip.File, tmpDir string) error {
-	path := filepath.Join(tmpDir, file.Name)
-	if !strings.HasPrefix(path, filepath.Clean(tmpDir)+string(os.PathSeparator)) {
+	// G305: Clean path and verify prefix to prevent file traversal
+	cleanTmpDir := filepath.Clean(tmpDir)
+	//nolint:gosec // G305: Path sanitization and prefix check are performed below
+	path := filepath.Join(cleanTmpDir, file.Name)
+	if !strings.HasPrefix(filepath.Clean(path), cleanTmpDir+string(os.PathSeparator)) {
 		return fmt.Errorf("invalid file path in zip: %s", file.Name)
 	}
 
 	if file.FileInfo().IsDir() {
-		return os.MkdirAll(path, 0755)
+		return os.MkdirAll(path, 0750) // G301: tighten permissions
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil { // G301: tighten permissions
 		return err
 	}
 
-	dst, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+	// Use O_EXCL to prevent overwriting existing files if applicable,
+	// though here it's a fresh tmpDir.
+	dst, err := os.OpenFile(filepath.Clean(path), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600) // G306: tighten permissions
 	if err != nil {
 		return err
 	}
@@ -358,6 +396,12 @@ func (s *FunctionService) extractZipFile(file *zip.File, tmpDir string) error {
 	}
 	defer func() { _ = src.Close() }()
 
-	_, err = io.Copy(dst, src)
-	return err
+	// Prevent decompression bomb: limit copy size to 10MB per file
+	// and check for excessive total size if needed.
+	const maxFileSize = 10 * 1024 * 1024
+	_, err = io.CopyN(dst, src, maxFileSize)
+	if err != nil && !stdlib_errors.Is(err, io.EOF) {
+		return err
+	}
+	return nil
 }

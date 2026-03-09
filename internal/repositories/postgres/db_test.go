@@ -6,6 +6,7 @@ import (
 
 	"github.com/pashagolub/pgxmock/v3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewDualDB(t *testing.T) {
@@ -39,12 +40,12 @@ func TestDualDBOperations(t *testing.T) {
 	// Exec should go to primary
 	primary.ExpectExec("INSERT").WillReturnResult(pgxmock.NewResult("INSERT", 1))
 	_, err := dual.Exec(ctx, "INSERT INTO test DEFAULT VALUES")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Query should go to replica
 	replica.ExpectQuery("SELECT").WillReturnRows(pgxmock.NewRows([]string{"id"}).AddRow(1))
 	rows, err := dual.Query(ctx, testQuery)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	rows.Close()
 
 	// QueryRow should go to replica
@@ -52,17 +53,17 @@ func TestDualDBOperations(t *testing.T) {
 	row := dual.QueryRow(ctx, "SELECT id FROM test WHERE id = 1")
 	var id int
 	err = row.Scan(&id)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Begin should go to primary
 	primary.ExpectBegin()
 	_, err = dual.Begin(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Ping should go to primary
 	primary.ExpectPing()
 	err = dual.Ping(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Close should close both
 	primary.ExpectClose()
@@ -124,7 +125,7 @@ func TestDualDBFailover(t *testing.T) {
 		primary.ExpectQuery("SELECT").WillReturnRows(pgxmock.NewRows([]string{"id"}).AddRow(1))
 
 		rows, err := dual.Query(ctx, testQuery)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		rows.Close()
 
 		assert.NoError(t, primary.ExpectationsWereMet())

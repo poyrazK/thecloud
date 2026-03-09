@@ -25,7 +25,7 @@ func TestParseUUID(t *testing.T) {
 		id := uuid.New()
 		c.Params = []gin.Param{{Key: "id", Value: id.String()}}
 
-		parsedID, ok := parseUUID(c, "id")
+		parsedID, ok := parseUUID(c)
 
 		assert.True(t, ok)
 		assert.Equal(t, id, *parsedID)
@@ -37,7 +37,7 @@ func TestParseUUID(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		c.Params = []gin.Param{}
 
-		parsedID, ok := parseUUID(c, "id")
+		parsedID, ok := parseUUID(c)
 
 		assert.False(t, ok)
 		assert.Nil(t, parsedID)
@@ -50,7 +50,7 @@ func TestParseUUID(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		c.Params = []gin.Param{{Key: "id", Value: "invalid-uuid"}}
 
-		parsedID, ok := parseUUID(c, "id")
+		parsedID, ok := parseUUID(c)
 
 		assert.False(t, ok)
 		assert.Nil(t, parsedID)

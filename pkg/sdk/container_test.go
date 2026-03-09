@@ -7,9 +7,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestClient_CreateDeployment(t *testing.T) {
+func TestClientCreateDeployment(t *testing.T) {
 	expectedDep := Deployment{
 		ID:           "dep-1",
 		Name:         "test-dep",
@@ -44,13 +45,13 @@ func TestClient_CreateDeployment(t *testing.T) {
 	client := NewClient(server.URL, "test-api-key")
 	dep, err := client.CreateDeployment("test-dep", "nginx:latest", 3, "80:80")
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, dep)
 	assert.Equal(t, expectedDep.ID, dep.ID)
 	assert.Equal(t, expectedDep.Name, dep.Name)
 }
 
-func TestClient_ListDeployments(t *testing.T) {
+func TestClientListDeployments(t *testing.T) {
 	expectedDeps := []Deployment{
 		{ID: "dep-1", Name: "dep-1"},
 		{ID: "dep-2", Name: "dep-2"},
@@ -68,11 +69,11 @@ func TestClient_ListDeployments(t *testing.T) {
 	client := NewClient(server.URL, "test-api-key")
 	deps, err := client.ListDeployments()
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, deps, 2)
 }
 
-func TestClient_GetDeployment(t *testing.T) {
+func TestClientGetDeployment(t *testing.T) {
 	id := "dep-123"
 	expectedDep := Deployment{
 		ID:   id,
@@ -91,12 +92,12 @@ func TestClient_GetDeployment(t *testing.T) {
 	client := NewClient(server.URL, "test-api-key")
 	dep, err := client.GetDeployment(id)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, dep)
 	assert.Equal(t, expectedDep.ID, dep.ID)
 }
 
-func TestClient_ScaleDeployment(t *testing.T) {
+func TestClientScaleDeployment(t *testing.T) {
 	id := "dep-123"
 	newReplicas := 5
 
@@ -118,10 +119,10 @@ func TestClient_ScaleDeployment(t *testing.T) {
 	client := NewClient(server.URL, "test-api-key")
 	err := client.ScaleDeployment(id, newReplicas)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
-func TestClient_DeleteDeployment(t *testing.T) {
+func TestClientDeleteDeployment(t *testing.T) {
 	id := "dep-123"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -135,5 +136,5 @@ func TestClient_DeleteDeployment(t *testing.T) {
 	client := NewClient(server.URL, "test-api-key")
 	err := client.DeleteDeployment(id)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }

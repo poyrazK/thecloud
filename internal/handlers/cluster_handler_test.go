@@ -27,7 +27,8 @@ func (m *mockClusterService) CreateCluster(ctx context.Context, params ports.Cre
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Cluster), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Cluster)
+	return r0, args.Error(1)
 }
 
 func (m *mockClusterService) GetCluster(ctx context.Context, id uuid.UUID) (*domain.Cluster, error) {
@@ -35,7 +36,8 @@ func (m *mockClusterService) GetCluster(ctx context.Context, id uuid.UUID) (*dom
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Cluster), args.Error(1)
+	r0, _ := args.Get(0).(*domain.Cluster)
+	return r0, args.Error(1)
 }
 
 func (m *mockClusterService) ListClusters(ctx context.Context, userID uuid.UUID) ([]*domain.Cluster, error) {
@@ -43,7 +45,8 @@ func (m *mockClusterService) ListClusters(ctx context.Context, userID uuid.UUID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.Cluster), args.Error(1)
+	r0, _ := args.Get(0).([]*domain.Cluster)
+	return r0, args.Error(1)
 }
 
 func (m *mockClusterService) DeleteCluster(ctx context.Context, id uuid.UUID) error {
@@ -73,7 +76,8 @@ func (m *mockClusterService) GetClusterHealth(ctx context.Context, id uuid.UUID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*ports.ClusterHealth), args.Error(1)
+	r0, _ := args.Get(0).(*ports.ClusterHealth)
+	return r0, args.Error(1)
 }
 
 func (m *mockClusterService) UpgradeCluster(ctx context.Context, id uuid.UUID, version string) error {
@@ -97,6 +101,38 @@ func (m *mockClusterService) CreateBackup(ctx context.Context, id uuid.UUID) err
 func (m *mockClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, backupPath string) error {
 	_ = "restore-logic"
 	return m.Called(ctx, id, backupPath).Error(0)
+}
+
+func (m *mockClusterService) AddNodeGroup(ctx context.Context, clusterID uuid.UUID, params ports.NodeGroupParams) (*domain.NodeGroup, error) {
+	args := m.Called(ctx, clusterID, params)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.NodeGroup), args.Error(1)
+}
+
+func (m *mockClusterService) UpdateNodeGroup(ctx context.Context, clusterID uuid.UUID, name string, params ports.UpdateNodeGroupParams) (*domain.NodeGroup, error) {
+	args := m.Called(ctx, clusterID, name, params)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.NodeGroup), args.Error(1)
+}
+
+func (m *mockClusterService) DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error {
+	return m.Called(ctx, clusterID, name).Error(0)
+}
+
+func (m *mockClusterService) AddNode(ctx context.Context, clusterID uuid.UUID, role string) (*domain.ClusterNode, error) {
+	args := m.Called(ctx, clusterID, role)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.ClusterNode), args.Error(1)
+}
+
+func (m *mockClusterService) RemoveNode(ctx context.Context, clusterID, nodeID uuid.UUID) error {
+	return m.Called(ctx, clusterID, nodeID).Error(0)
 }
 
 const (
@@ -327,28 +363,28 @@ func TestClusterHandlerRepairCluster(t *testing.T) {
 func TestClusterHandlerScaleCluster(t *testing.T) {
 	t.Parallel()
 	svc, handler, r := setupClusterHandlerTest()
-	r.POST("/clusters/:id/scale", handler.ScaleCluster)
+	r.PUT("/clusters/:id/scale", handler.ScaleCluster)
 	clusterID := uuid.New()
 
 	t.Run("Success", func(t *testing.T) {
 		svc.On("ScaleCluster", mock.Anything, clusterID, 5).Return(nil).Once()
 		body, _ := json.Marshal(map[string]interface{}{"workers": 5})
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", clustersPrefix+clusterID.String()+scalePathSuffix, bytes.NewBuffer(body))
+		req := httptest.NewRequest("PUT", clustersPrefix+clusterID.String()+scalePathSuffix, bytes.NewBuffer(body))
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
 	t.Run(msgInvalidID, func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", clustersPrefix+"invalid/scale", nil)
+		req := httptest.NewRequest("PUT", clustersPrefix+"invalid/scale", nil)
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 
 	t.Run(msgInvalidJSON, func(t *testing.T) {
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", clustersPrefix+clusterID.String()+scalePathSuffix, bytes.NewBufferString("{bad}"))
+		req := httptest.NewRequest("PUT", clustersPrefix+clusterID.String()+scalePathSuffix, bytes.NewBufferString("{bad}"))
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
@@ -357,7 +393,7 @@ func TestClusterHandlerScaleCluster(t *testing.T) {
 		svc.On("ScaleCluster", mock.Anything, clusterID, 5).Return(fmt.Errorf("error")).Once()
 		body, _ := json.Marshal(map[string]interface{}{"workers": 5})
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", clustersPrefix+clusterID.String()+scalePathSuffix, bytes.NewBuffer(body))
+		req := httptest.NewRequest("PUT", clustersPrefix+clusterID.String()+scalePathSuffix, bytes.NewBuffer(body))
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
 	})
@@ -528,5 +564,67 @@ func TestClusterHandlerRestoreBackup(t *testing.T) {
 		req := httptest.NewRequest("POST", clustersPrefix+clusterID.String()+restorePathSuffix, bytes.NewBuffer(body))
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+}
+
+func TestClusterHandlerNodeGroups(t *testing.T) {
+	t.Parallel()
+	svc, handler, r := setupClusterHandlerTest()
+	clusterID := uuid.New()
+	nodeGroupName := "test-pool"
+
+	r.POST("/clusters/:id/nodegroups", handler.AddNodeGroup)
+	r.PUT("/clusters/:id/nodegroups/:name", handler.UpdateNodeGroup)
+	r.DELETE("/clusters/:id/nodegroups/:name", handler.DeleteNodeGroup)
+
+	t.Run("AddNodeGroup_Success", func(t *testing.T) {
+		params := ports.NodeGroupParams{
+			Name:         nodeGroupName,
+			InstanceType: "standard-1",
+			MinSize:      1,
+			MaxSize:      5,
+			DesiredSize:  2,
+		}
+		expected := &domain.NodeGroup{Name: nodeGroupName, ClusterID: clusterID}
+		svc.On("AddNodeGroup", mock.Anything, clusterID, params).Return(expected, nil).Once()
+
+		body, _ := json.Marshal(map[string]interface{}{
+			"name":          nodeGroupName,
+			"instance_type": "standard-1",
+			"min_size":      1,
+			"max_size":      5,
+			"desired_size":  2,
+		})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/clusters/"+clusterID.String()+"/nodegroups", bytes.NewBuffer(body))
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusCreated, w.Code)
+	})
+
+	t.Run("UpdateNodeGroup_Success", func(t *testing.T) {
+		desired := 3
+		params := ports.UpdateNodeGroupParams{
+			DesiredSize: &desired,
+		}
+		expected := &domain.NodeGroup{Name: nodeGroupName, ClusterID: clusterID, CurrentSize: desired}
+		svc.On("UpdateNodeGroup", mock.Anything, clusterID, nodeGroupName, params).Return(expected, nil).Once()
+
+		body, _ := json.Marshal(map[string]interface{}{"desired_size": desired})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("PUT", "/clusters/"+clusterID.String()+"/nodegroups/"+nodeGroupName, bytes.NewBuffer(body))
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("DeleteNodeGroup_Success", func(t *testing.T) {
+		svc.On("DeleteNodeGroup", mock.Anything, clusterID, nodeGroupName).Return(nil).Once()
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("DELETE", "/clusters/"+clusterID.String()+"/nodegroups/"+nodeGroupName, nil)
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusAccepted, w.Code)
 	})
 }

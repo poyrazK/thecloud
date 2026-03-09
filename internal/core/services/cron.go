@@ -37,7 +37,7 @@ func (s *CronService) CreateJob(ctx context.Context, name, schedule, targetURL, 
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCronCreate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCronCreate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -81,7 +81,7 @@ func (s *CronService) ListJobs(ctx context.Context) ([]*domain.CronJob, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCronRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCronRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -92,7 +92,7 @@ func (s *CronService) GetJob(ctx context.Context, id uuid.UUID) (*domain.CronJob
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCronRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCronRead, id.String()); err != nil {
 		return nil, err
 	}
 
@@ -103,7 +103,7 @@ func (s *CronService) PauseJob(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCronUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCronUpdate, id.String()); err != nil {
 		return err
 	}
 
@@ -120,7 +120,7 @@ func (s *CronService) ResumeJob(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCronUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCronUpdate, id.String()); err != nil {
 		return err
 	}
 
@@ -144,7 +144,7 @@ func (s *CronService) DeleteJob(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCronDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCronDelete, id.String()); err != nil {
 		return err
 	}
 

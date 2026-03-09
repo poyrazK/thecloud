@@ -36,7 +36,7 @@ func (s *LBService) Create(ctx context.Context, name string, vpcID uuid.UUID, po
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbCreate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbCreate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -88,7 +88,7 @@ func (s *LBService) Get(ctx context.Context, idOrName string) (*domain.LoadBalan
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbRead, idOrName); err != nil {
 		return nil, err
 	}
 
@@ -104,7 +104,7 @@ func (s *LBService) List(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -115,7 +115,7 @@ func (s *LBService) Delete(ctx context.Context, idOrName string) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbDelete, idOrName); err != nil {
 		return err
 	}
 
@@ -141,7 +141,7 @@ func (s *LBService) AddTarget(ctx context.Context, lbID, instanceID uuid.UUID, p
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbUpdate, lbID.String()); err != nil {
 		return err
 	}
 
@@ -191,7 +191,7 @@ func (s *LBService) RemoveTarget(ctx context.Context, lbID, instanceID uuid.UUID
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbUpdate, lbID.String()); err != nil {
 		return err
 	}
 
@@ -215,7 +215,7 @@ func (s *LBService) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*domain.
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbRead, lbID.String()); err != nil {
 		return nil, err
 	}
 

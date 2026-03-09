@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockCompute struct {
@@ -23,8 +24,8 @@ type mockCompute struct {
 func (m *mockCompute) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
 	return "", nil, nil
 }
-func (m *mockCompute) StartInstance(ctx context.Context, id string) error { return nil }
-func (m *mockCompute) StopInstance(ctx context.Context, id string) error  { return nil }
+func (m *mockCompute) StartInstance(ctx context.Context, id string) error  { return nil }
+func (m *mockCompute) StopInstance(ctx context.Context, id string) error   { return nil }
 func (m *mockCompute) DeleteInstance(ctx context.Context, id string) error { return nil }
 func (m *mockCompute) GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("")), nil
@@ -46,11 +47,11 @@ func (m *mockCompute) Exec(ctx context.Context, id string, cmd []string) (string
 func (m *mockCompute) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, []string, error) {
 	return "", nil, nil
 }
-func (m *mockCompute) WaitTask(ctx context.Context, id string) (int64, error) { return 0, nil }
+func (m *mockCompute) WaitTask(ctx context.Context, id string) (int64, error)         { return 0, nil }
 func (m *mockCompute) CreateNetwork(ctx context.Context, name string) (string, error) { return "", nil }
 func (m *mockCompute) DeleteNetwork(ctx context.Context, id string) error             { return nil }
-func (m *mockCompute) AttachVolume(ctx context.Context, id string, volumePath string) error {
-	return nil
+func (m *mockCompute) AttachVolume(ctx context.Context, id string, volumePath string) (string, error) {
+	return "/dev/vdb", nil
 }
 func (m *mockCompute) DetachVolume(ctx context.Context, id string, volumePath string) error {
 	return nil
@@ -84,36 +85,36 @@ func TestLBProxyAdapter(t *testing.T) {
 
 	t.Run("DeployProxy", func(t *testing.T) {
 		id, err := adapter.DeployProxy(ctx, lb, targets)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, lb.ID.String(), id)
 		assert.Contains(t, executedCommands, "nginx")
 
 		// Verify config file exists
 		configPath := filepath.Join("/tmp", "thecloud", "lb", lb.ID.String(), "nginx.conf")
 		_, err = os.Stat(configPath)
-		assert.NoError(t, err)
-		
-		content, _ := os.ReadFile(configPath)
+		require.NoError(t, err)
+
+		content, _ := os.ReadFile(filepath.Clean(configPath))
 		assert.Contains(t, string(content), "server 10.0.0.1:8080 weight=1;")
 	})
 
 	t.Run("UpdateProxyConfig", func(t *testing.T) {
 		executedCommands = []string{}
 		err := adapter.UpdateProxyConfig(ctx, lb, targets)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Contains(t, executedCommands, "nginx")
 	})
 
 	t.Run("RemoveProxy", func(t *testing.T) {
 		executedCommands = []string{}
-		
+
 		// Create a dummy pid file to trigger stop command
 		configDir := filepath.Join("/tmp", "thecloud", "lb", lb.ID.String())
-		_ = os.MkdirAll(configDir, 0755)
-		_ = os.WriteFile(filepath.Join(configDir, "nginx.pid"), []byte("1234"), 0644)
+		_ = os.MkdirAll(configDir, 0750)
+		_ = os.WriteFile(filepath.Join(configDir, "nginx.pid"), []byte("1234"), 0600)
 
 		err := adapter.RemoveProxy(ctx, lb.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Contains(t, executedCommands, "nginx")
 
 		// Verify directory removed

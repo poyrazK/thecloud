@@ -3,8 +3,9 @@ package node
 
 import (
 	"context"
+	"crypto/rand"
 	"log/slog"
-	"math/rand"
+	"math/big"
 	"sync"
 	"time"
 
@@ -149,7 +150,13 @@ func (g *GossipProtocol) gossip() {
 	}
 
 	// Pick random peer
-	targetID := peers[rand.Intn(len(peers))]
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(len(peers))))
+	var targetID string
+	if err != nil {
+		targetID = peers[0]
+	} else {
+		targetID = peers[n.Int64()]
+	}
 	g.sendGossip(targetID, msg)
 }
 

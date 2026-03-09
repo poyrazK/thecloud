@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	theclouderrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -23,7 +24,7 @@ const (
 func TestVolumeRepositoryCreate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVolumeRepository(mock)
@@ -47,12 +48,12 @@ func TestVolumeRepositoryCreate(t *testing.T) {
 
 		ctx := appcontext.WithTenantID(context.Background(), tenantID)
 		err = repo.Create(ctx, vol)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVolumeRepository(mock)
@@ -66,14 +67,14 @@ func TestVolumeRepositoryCreate(t *testing.T) {
 
 		ctx := appcontext.WithTenantID(context.Background(), tenantID)
 		err = repo.Create(ctx, vol)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
 func TestVolumeRepositoryGetByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVolumeRepository(mock)
@@ -89,14 +90,14 @@ func TestVolumeRepositoryGetByID(t *testing.T) {
 				AddRow(id, userID, tenantID, "vol-1", 10, string(domain.VolumeStatusAvailable), &id, "", testMountPath, now, now))
 
 		vol, err := repo.GetByID(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, vol)
 		assert.Equal(t, id, vol.ID)
 	})
 
 	t.Run(testNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVolumeRepository(mock)
@@ -110,11 +111,11 @@ func TestVolumeRepositoryGetByID(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		vol, err := repo.GetByID(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, vol)
-		theCloudErr, ok := err.(*theclouderrors.Error)
-		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+		var target *theclouderrors.Error
+		if errors.As(err, &target) {
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }
@@ -122,7 +123,7 @@ func TestVolumeRepositoryGetByID(t *testing.T) {
 func TestVolumeRepositoryGetByName(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVolumeRepository(mock)
@@ -139,14 +140,14 @@ func TestVolumeRepositoryGetByName(t *testing.T) {
 				AddRow(id, userID, tenantID, name, 10, string(domain.VolumeStatusAvailable), &id, "", testMountPath, now, now))
 
 		vol, err := repo.GetByName(ctx, name)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, vol)
 		assert.Equal(t, id, vol.ID)
 	})
 
 	t.Run(testNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVolumeRepository(mock)
@@ -160,11 +161,12 @@ func TestVolumeRepositoryGetByName(t *testing.T) {
 			WillReturnError(pgx.ErrNoRows)
 
 		vol, err := repo.GetByName(ctx, name)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, vol)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }
@@ -172,7 +174,7 @@ func TestVolumeRepositoryGetByName(t *testing.T) {
 func TestVolumeRepositoryList(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVolumeRepository(mock)
@@ -188,13 +190,13 @@ func TestVolumeRepositoryList(t *testing.T) {
 				AddRow(uuid.New(), userID, tenantID, "vol-1", 10, string(domain.VolumeStatusAvailable), &instID, "", testMountPath, now, now))
 
 		vols, err := repo.List(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, vols, 1)
 	})
 
 	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVolumeRepository(mock)
@@ -207,7 +209,7 @@ func TestVolumeRepositoryList(t *testing.T) {
 			WillReturnError(errors.New(testDBError))
 
 		vols, err := repo.List(ctx)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, vols)
 	})
 }
@@ -215,7 +217,7 @@ func TestVolumeRepositoryList(t *testing.T) {
 func TestVolumeRepositoryListByInstanceID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVolumeRepository(mock)
@@ -231,13 +233,13 @@ func TestVolumeRepositoryListByInstanceID(t *testing.T) {
 				AddRow(uuid.New(), userID, tenantID, "vol-1", 10, string(domain.VolumeStatusAvailable), &instanceID, "", testMountPath, now, now))
 
 		vols, err := repo.ListByInstanceID(ctx, instanceID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, vols, 1)
 	})
 
 	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVolumeRepository(mock)
@@ -251,7 +253,7 @@ func TestVolumeRepositoryListByInstanceID(t *testing.T) {
 			WillReturnError(errors.New(testDBError))
 
 		vols, err := repo.ListByInstanceID(ctx, instanceID)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, vols)
 	})
 }
@@ -259,7 +261,7 @@ func TestVolumeRepositoryListByInstanceID(t *testing.T) {
 func TestVolumeRepositoryUpdate(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVolumeRepository(mock)
@@ -277,12 +279,12 @@ func TestVolumeRepositoryUpdate(t *testing.T) {
 
 		ctx := appcontext.WithTenantID(context.Background(), tenantID)
 		err = repo.Update(ctx, vol)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run(testDBError, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVolumeRepository(mock)
@@ -296,14 +298,14 @@ func TestVolumeRepositoryUpdate(t *testing.T) {
 
 		ctx := appcontext.WithTenantID(context.Background(), tenantID)
 		err = repo.Update(ctx, vol)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
 func TestVolumeRepositoryDelete(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVolumeRepository(mock)
@@ -317,12 +319,12 @@ func TestVolumeRepositoryDelete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.Delete(ctx, id)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run(testNotFound, func(t *testing.T) {
 		mock, err := pgxmock.NewPool()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer mock.Close()
 
 		repo := NewVolumeRepository(mock)
@@ -336,16 +338,17 @@ func TestVolumeRepositoryDelete(t *testing.T) {
 			WillReturnResult(pgxmock.NewResult("DELETE", 0))
 
 		err = repo.Delete(ctx, id)
-		assert.Error(t, err)
-		theCloudErr, ok := err.(*theclouderrors.Error)
+		require.Error(t, err)
+		var target *theclouderrors.Error
+		ok := errors.As(err, &target)
 		if ok {
-			assert.Equal(t, theclouderrors.NotFound, theCloudErr.Type)
+			assert.Equal(t, theclouderrors.NotFound, target.Type)
 		}
 	})
 }
 func TestVolumeRepositoryConcurrentList(t *testing.T) {
 	mock, err := pgxmock.NewPool()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer mock.Close()
 
 	repo := NewVolumeRepository(mock)

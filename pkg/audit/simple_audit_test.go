@@ -11,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSimpleAuditLoggerLog(t *testing.T) {
@@ -32,7 +33,7 @@ func TestSimpleAuditLoggerLog(t *testing.T) {
 	}
 
 	err := audit.Log(context.Background(), entry)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	logOutput := buf.String()
 	assert.Contains(t, logOutput, "AUDIT_LOG")
@@ -61,7 +62,7 @@ func TestSimpleAuditLoggerLogAnonymous(t *testing.T) {
 	}
 
 	err := audit.Log(context.Background(), entry)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	logOutput := buf.String()
 	assert.Contains(t, logOutput, "anonymous")
@@ -80,7 +81,7 @@ func TestSimpleAuditLoggerLogEmptyDetails(t *testing.T) {
 	}
 
 	err := audit.Log(context.Background(), entry)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	logOutput := buf.String()
 	// slog with JSON handler handles empty map gracefully

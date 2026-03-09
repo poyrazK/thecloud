@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -52,7 +53,7 @@ func TestGatewayCreateRoute(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	route, err := client.CreateGatewayRoute("test-route", "/api/v1", "http://backend:8080", nil, true, 100, 0)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, route)
 	assert.Equal(t, expectedRoute.ID, route.ID)
 }
@@ -75,7 +76,7 @@ func TestGatewayListRoutes(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	routes, err := client.ListGatewayRoutes()
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, routes, 2)
 }
 
@@ -93,5 +94,5 @@ func TestGatewayDeleteRoute(t *testing.T) {
 	client := NewClient(server.URL, testAPIKey)
 	err := client.DeleteGatewayRoute(id)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }

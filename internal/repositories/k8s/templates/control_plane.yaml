@@ -30,9 +30,337 @@ write_files:
       networking:
         podSubnet: "{{ .PodCIDR }}"
         serviceSubnet: "{{ .ServiceCIDR }}"
+      apiServer:
+        extraArgs:
+          cloud-provider: external
+      controllerManager:
+        extraArgs:
+          cloud-provider: external
       ---
       apiVersion: kubeadm.k8s.io/v1beta3
       kind: InitConfiguration
+      nodeRegistration:
+        kubeletExtraArgs:
+          cloud-provider: external
+  - path: /etc/kubernetes/addons/ccm.yaml
+    content: |
+      ---
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: thecloud-api-credentials
+        namespace: kube-system
+      type: Opaque
+      stringData:
+        api-key: "{{ .CloudAPIKey }}"
+      ---
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: cloud-controller-manager
+        namespace: kube-system
+      ---
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRole
+      metadata:
+        name: system:cloud-controller-manager
+      rules:
+        - apiGroups: [""]
+          resources: ["nodes"]
+          verbs: ["get", "list", "watch", "update", "patch"]
+        - apiGroups: [""]
+          resources: ["nodes/status"]
+          verbs: ["patch"]
+        - apiGroups: [""]
+          resources: ["services"]
+          verbs: ["get", "list", "watch", "update", "patch"]
+        - apiGroups: [""]
+          resources: ["services/status"]
+          verbs: ["update", "patch"]
+        - apiGroups: [""]
+          resources: ["endpoints"]
+          verbs: ["create", "get", "list", "watch", "update", "patch"]
+        - apiGroups: [""]
+          resources: ["events"]
+          verbs: ["create", "patch", "update"]
+        - apiGroups: [""]
+          resources: ["configmaps"]
+          verbs: ["get", "list", "watch", "create", "update", "patch"]
+        - apiGroups: [""]
+          resources: ["secrets"]
+          verbs: ["get", "list", "watch"]
+      ---
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: system:cloud-controller-manager
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: system:cloud-controller-manager
+      subjects:
+        - kind: ServiceAccount
+          name: cloud-controller-manager
+          namespace: kube-system
+      ---
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        name: system:cloud-controller-manager:extension-apiserver-authentication-reader
+        namespace: kube-system
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: Role
+        name: extension-apiserver-authentication-reader
+      subjects:
+        - kind: ServiceAccount
+          name: cloud-controller-manager
+          namespace: kube-system
+      ---
+      apiVersion: apps/v1
+      kind: DaemonSet
+      metadata:
+        name: thecloud-cloud-controller-manager
+        namespace: kube-system
+        labels:
+          k8s-app: thecloud-cloud-controller-manager
+      spec:
+        selector:
+          matchLabels:
+            k8s-app: thecloud-cloud-controller-manager
+        template:
+          metadata:
+            labels:
+              k8s-app: thecloud-cloud-controller-manager
+          spec:
+            serviceAccountName: cloud-controller-manager
+            tolerations:
+              - key: node.cloudprovider.kubernetes.io/uninitialized
+                value: "true"
+                effect: NoSchedule
+              - key: node-role.kubernetes.io/control-plane
+                effect: NoSchedule
+            nodeSelector:
+              node-role.kubernetes.io/control-plane: ""
+            containers:
+              - name: thecloud-cloud-controller-manager
+                image: ghcr.io/poyrazk/thecloud-ccm:v1.0.0
+                imagePullPolicy: IfNotPresent
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  runAsNonRoot: true
+                  runAsUser: 1000
+                  readOnlyRootFilesystem: true
+                  capabilities:
+                    drop:
+                      - ALL
+                command:
+                  - /bin/thecloud-ccm
+                  - --cloud-provider=thecloud
+                  - --leader-elect=true
+                  - --use-service-account-credentials
+                  - --allocate-node-cidrs=true
+                  - --configure-cloud-routes=false
+                  - --cluster-cidr={{ .PodCIDR }}
+                env:
+                  - name: CLOUD_API_KEY
+                    valueFrom:
+                      secretKeyRef:
+                        name: thecloud-api-credentials
+                        key: api-key
+                  - name: CLOUD_API_URL
+                    value: "{{ .CloudAPIURL }}"
+  - path: /etc/kubernetes/addons/autoscaler-rbac.yaml
+    content: |
+      ---
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: cluster-autoscaler
+        namespace: kube-system
+      ---
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRole
+      metadata:
+        name: cluster-autoscaler
+      rules:
+        - apiGroups: [""]
+          resources: ["events", "endpoints"]
+          verbs: ["create", "patch"]
+        - apiGroups: [""]
+          resources: ["pods/eviction"]
+          verbs: ["create"]
+        - apiGroups: [""]
+          resources: ["pods/status"]
+          verbs: ["update"]
+        - apiGroups: [""]
+          resources: ["endpoints"]
+          resourceNames: ["cluster-autoscaler"]
+          verbs: ["get", "update"]
+        - apiGroups: [""]
+          resources: ["nodes"]
+          verbs: ["watch", "list", "get", "update"]
+        - apiGroups: [""]
+          resources: ["pods", "services", "replicationcontrollers", "persistentvolumeclaims", "persistentvolumes"]
+          verbs: ["watch", "list", "get"]
+        - apiGroups: ["extensions"]
+          resources: ["replicasets", "daemonsets"]
+          verbs: ["watch", "list", "get"]
+        - apiGroups: ["policy"]
+          resources: ["poddisruptionbudgets"]
+          verbs: ["watch", "list"]
+        - apiGroups: ["apps"]
+          resources: ["statefulsets", "replicasets", "daemonsets"]
+          verbs: ["watch", "list", "get"]
+        - apiGroups: ["storage.k8s.io"]
+          resources: ["storageclasses", "csinodes", "csidrivers", "csistoragecapacities"]
+          verbs: ["watch", "list", "get"]
+        - apiGroups: ["batch", "extensions"]
+          resources: ["jobs"]
+          verbs: ["get", "list", "watch", "patch"]
+        - apiGroups: ["coordination.k8s.io"]
+          resources: ["leases"]
+          verbs: ["create"]
+        - apiGroups: ["coordination.k8s.io"]
+          resourceNames: ["cluster-autoscaler"]
+          resources: ["leases"]
+          verbs: ["get", "update"]
+      ---
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: cluster-autoscaler
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: cluster-autoscaler
+      subjects:
+        - kind: ServiceAccount
+          name: cluster-autoscaler
+          namespace: kube-system
+      ---
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: Role
+      metadata:
+        name: cluster-autoscaler
+        namespace: kube-system
+      rules:
+        - apiGroups: [""]
+          resources: ["configmaps"]
+          verbs: ["create", "list", "watch"]
+        - apiGroups: [""]
+          resources: ["configmaps"]
+          resourceNames: ["cluster-autoscaler-status", "cluster-id"]
+          verbs: ["get", "update", "patch", "delete"]
+      ---
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        name: cluster-autoscaler
+        namespace: kube-system
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: Role
+        name: cluster-autoscaler
+      subjects:
+        - kind: ServiceAccount
+          name: cluster-autoscaler
+          namespace: kube-system
+  - path: /etc/kubernetes/addons/autoscaler-config.yaml
+    content: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: cluster-autoscaler-config
+        namespace: kube-system
+      data:
+        externalgrpc.config: |
+          service:
+            address: "localhost:50051"
+  - path: /etc/kubernetes/addons/cluster-id.yaml
+    content: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: cluster-id
+        namespace: kube-system
+      data:
+        cluster-id: "{{ .ClusterID }}"
+  - path: /etc/kubernetes/addons/autoscaler-deployment.yaml
+    content: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: cluster-autoscaler
+        namespace: kube-system
+        labels:
+          app: cluster-autoscaler
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: cluster-autoscaler
+        template:
+          metadata:
+            labels:
+              app: cluster-autoscaler
+          spec:
+            serviceAccountName: cluster-autoscaler
+            containers:
+              # 1. The Official Cluster Autoscaler (Upstream)
+              - name: cluster-autoscaler
+                image: registry.k8s.io/autoscaling/cluster-autoscaler:v1.29.3
+                resources:
+                  limits:
+                    cpu: 100m
+                    memory: 300Mi
+                  requests:
+                    cpu: 100m
+                    memory: 300Mi
+                command:
+                  - ./cluster-autoscaler
+                  - --cloud-provider=externalgrpc
+                  - --cloud-config=/etc/config/externalgrpc.config
+                  - --scale-down-delay-after-add=5m
+                  - --scale-down-unneeded-time=5m
+                  - --v=4
+                  - --stderrthreshold=info
+                  - --leader-elect=true
+                volumeMounts:
+                  - name: cloud-config
+                    mountPath: /etc/config
+                    readOnly: true
+      
+              # 2. The Cloud Autoscaler Bridge (Our Implementation)
+              - name: thecloud-bridge
+                image: ghcr.io/poyrazk/thecloud-autoscaler-server:v1.0.0
+                imagePullPolicy: IfNotPresent
+                env:
+                  - name: CLOUD_API_KEY
+                    valueFrom:
+                      secretKeyRef:
+                        name: thecloud-api-credentials
+                        key: api-key
+                  - name: CLOUD_API_URL
+                    value: "{{ .CloudAPIURL }}"
+                  - name: CLOUD_CLUSTER_ID
+                    valueFrom:
+                      configMapKeyRef:
+                        name: cluster-id
+                        key: cluster-id
+                ports:
+                  - containerPort: 50051
+      
+            volumes:
+              - name: cloud-config
+                configMap:
+                  name: cluster-autoscaler-config
+      
+            tolerations:
+              - key: node-role.kubernetes.io/control-plane
+                effect: NoSchedule
+            nodeSelector:
+              node-role.kubernetes.io/control-plane: ""
 
 runcmd:
   - modprobe overlay
@@ -53,8 +381,21 @@ runcmd:
   - apt-get update
   - apt-get install -y kubelet kubeadm kubectl
   - apt-mark hold kubelet kubeadm kubectl
+  # Configure kubelet to use external cloud provider via drop-in
+  - mkdir -p /etc/systemd/system/kubelet.service.d
+  - echo '[Service]' > /etc/systemd/system/kubelet.service.d/20-cloud-provider.conf
+  - echo 'Environment="KUBELET_EXTRA_ARGS=--cloud-provider=external"' >> /etc/systemd/system/kubelet.service.d/20-cloud-provider.conf
+  - systemctl daemon-reload
+  - systemctl restart kubelet
   # Init
   - kubeadm init --config /etc/kubernetes/kubeadm-config.yaml --upload-certs
   # Network (Calico)
   - export KUBECONFIG=/etc/kubernetes/admin.conf
   - kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.25.0/manifests/calico.yaml
+  # Cloud Controller Manager
+  - kubectl apply -f /etc/kubernetes/addons/ccm.yaml
+  # Cluster Autoscaler
+  - kubectl apply -f /etc/kubernetes/addons/autoscaler-rbac.yaml
+  - kubectl apply -f /etc/kubernetes/addons/autoscaler-config.yaml
+  - kubectl apply -f /etc/kubernetes/addons/cluster-id.yaml
+  - kubectl apply -f /etc/kubernetes/addons/autoscaler-deployment.yaml

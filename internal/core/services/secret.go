@@ -13,8 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/pkg/crypto"
-	)
-
+)
 
 const (
 	errFailedDeriveKey = "failed to derive key"
@@ -94,7 +93,7 @@ func (s *SecretService) CreateSecret(ctx context.Context, name, value, descripti
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSecretWrite); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSecretWrite, "*"); err != nil {
 		return nil, err
 	}
 
@@ -143,7 +142,7 @@ func (s *SecretService) GetSecret(ctx context.Context, id uuid.UUID) (*domain.Se
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSecretRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSecretRead, id.String()); err != nil {
 		return nil, err
 	}
 
@@ -191,7 +190,7 @@ func (s *SecretService) GetSecretByName(ctx context.Context, name string) (*doma
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSecretRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSecretRead, name); err != nil {
 		return nil, err
 	}
 
@@ -238,7 +237,7 @@ func (s *SecretService) ListSecrets(ctx context.Context) ([]*domain.Secret, erro
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSecretRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSecretRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -263,7 +262,7 @@ func (s *SecretService) DeleteSecret(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSecretDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSecretDelete, id.String()); err != nil {
 		return err
 	}
 

@@ -35,7 +35,7 @@ func (s *QueueService) CreateQueue(ctx context.Context, name string, opts *ports
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueCreate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueCreate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -91,7 +91,7 @@ func (s *QueueService) GetQueue(ctx context.Context, id uuid.UUID) (*domain.Queu
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueRead, id.String()); err != nil {
 		return nil, err
 	}
 
@@ -110,7 +110,7 @@ func (s *QueueService) ListQueues(ctx context.Context) ([]*domain.Queue, error) 
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -121,7 +121,7 @@ func (s *QueueService) DeleteQueue(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueDelete); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueDelete, id.String()); err != nil {
 		return err
 	}
 
@@ -150,7 +150,7 @@ func (s *QueueService) SendMessage(ctx context.Context, queueID uuid.UUID, body 
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueWrite); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueWrite, queueID.String()); err != nil {
 		return nil, err
 	}
 
@@ -182,7 +182,7 @@ func (s *QueueService) ReceiveMessages(ctx context.Context, queueID uuid.UUID, m
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueRead, queueID.String()); err != nil {
 		return nil, err
 	}
 
@@ -218,7 +218,7 @@ func (s *QueueService) DeleteMessage(ctx context.Context, queueID uuid.UUID, rec
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueWrite); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueWrite, queueID.String()); err != nil {
 		return err
 	}
 
@@ -245,7 +245,7 @@ func (s *QueueService) PurgeQueue(ctx context.Context, queueID uuid.UUID) error 
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueWrite); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueWrite, queueID.String()); err != nil {
 		return err
 	}
 

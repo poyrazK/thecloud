@@ -137,7 +137,11 @@ func TestRunApplicationApiRoleStartsAndShutsDown(t *testing.T) {
 	deps := DefaultDeps()
 
 	deps.NewHTTPServer = func(addr string, handler http.Handler) *http.Server {
-		return &http.Server{Addr: addr, Handler: handler}
+		return &http.Server{
+			Addr:              addr,
+			Handler:           handler,
+			ReadHeaderTimeout: 10 * time.Second,
+		}
 	}
 	deps.StartHTTPServer = func(*http.Server) error {
 		close(started)

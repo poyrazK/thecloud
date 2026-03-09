@@ -33,7 +33,7 @@ func (s *ContainerService) CreateDeployment(ctx context.Context, name, image str
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceLaunch); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceLaunch, "*"); err != nil {
 		return nil, err
 	}
 
@@ -69,7 +69,7 @@ func (s *ContainerService) ListDeployments(ctx context.Context) ([]*domain.Deplo
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead, "*"); err != nil {
 		return nil, err
 	}
 
@@ -80,7 +80,7 @@ func (s *ContainerService) GetDeployment(ctx context.Context, id uuid.UUID) (*do
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead, id.String()); err != nil {
 		return nil, err
 	}
 
@@ -91,7 +91,7 @@ func (s *ContainerService) ScaleDeployment(ctx context.Context, id uuid.UUID, re
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate, id.String()); err != nil {
 		return err
 	}
 
@@ -117,7 +117,7 @@ func (s *ContainerService) DeleteDeployment(ctx context.Context, id uuid.UUID) e
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceTerminate); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceTerminate, id.String()); err != nil {
 		return err
 	}
 
