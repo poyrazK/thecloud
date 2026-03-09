@@ -54,6 +54,9 @@ type DatabaseService struct {
 	rotationCache map[string]bool
 }
 
+// Ensure DatabaseService implements ports.DatabaseService
+var _ ports.DatabaseService = (*DatabaseService)(nil)
+
 // DatabaseServiceParams holds dependencies for DatabaseService creation.
 type DatabaseServiceParams struct {
 	Repo           ports.DatabaseRepository
