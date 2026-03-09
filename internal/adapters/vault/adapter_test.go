@@ -64,26 +64,22 @@ func TestAdapter(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("StoreSecret", func(t *testing.T) {
-		t.Helper()
 		err := adapter.StoreSecret(ctx, "secret/data/test", map[string]interface{}{"password": "new-pass"})
 		assert.NoError(t, err)
 	})
 
 	t.Run("GetSecret", func(t *testing.T) {
-		t.Helper()
 		data, err := adapter.GetSecret(ctx, "secret/data/test")
 		require.NoError(t, err)
 		assert.Equal(t, "secret-pass", data["password"])
 	})
 
 	t.Run("DeleteSecret", func(t *testing.T) {
-		t.Helper()
 		err := adapter.DeleteSecret(ctx, "secret/data/test")
 		assert.NoError(t, err)
 	})
 
 	t.Run("Ping", func(t *testing.T) {
-		t.Helper()
 		err := adapter.Ping(ctx)
 		assert.NoError(t, err)
 	})
