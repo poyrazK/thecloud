@@ -342,3 +342,152 @@ func TestStorageRepositorySetBucketVersioning(t *testing.T) {
 		}
 	})
 }
+
+func TestStorageRepositoryBucketOps(t *testing.T) {
+	t.Run("CreateBucket", func(t *testing.T) {
+		mock, _ := pgxmock.NewPool()
+		defer mock.Close()
+		repo := NewStorageRepository(mock)
+		bucket := &domain.Bucket{ID: uuid.New(), Name: "b1", UserID: uuid.New(), CreatedAt: time.Now()}
+
+		mock.ExpectExec("INSERT INTO buckets").WithArgs(bucket.ID, bucket.Name, bucket.UserID, bucket.IsPublic, bucket.VersioningEnabled, bucket.EncryptionEnabled, bucket.EncryptionKeyID, bucket.CreatedAt).
+			WillReturnResult(pgxmock.NewResult("INSERT", 1))
+
+		err := repo.CreateBucket(context.Background(), bucket)
+		require.NoError(t, err)
+	})
+
+	t.Run("GetBucket", func(t *testing.T) {
+		mock, _ := pgxmock.NewPool()
+		defer mock.Close()
+		repo := NewStorageRepository(mock)
+		name := "b1"
+
+		mock.ExpectQuery("SELECT id, name, user_id, is_public, versioning_enabled, encryption_enabled, encryption_key_id, created_at FROM buckets").
+			WithArgs(name).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "name", "user_id", "is_public", "versioning_enabled", "encryption_enabled", "encryption_key_id", "created_at"}).
+				AddRow(uuid.New(), name, uuid.New(), false, false, false, "", time.Now()))
+
+		bucket, err := repo.GetBucket(context.Background(), name)
+		require.NoError(t, err)
+		assert.Equal(t, name, bucket.Name)
+	})
+
+	t.Run("ListBuckets", func(t *testing.T) {
+		mock, _ := pgxmock.NewPool()
+		defer mock.Close()
+		repo := NewStorageRepository(mock)
+		userID := uuid.New().String()
+
+		mock.ExpectQuery("SELECT id, name, user_id, is_public, versioning_enabled, encryption_enabled, encryption_key_id, created_at FROM buckets").
+			WithArgs(userID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "name", "user_id", "is_public", "versioning_enabled", "encryption_enabled", "encryption_key_id", "created_at"}).
+				AddRow(uuid.New(), "b1", userID, false, false, false, "", time.Now()))
+
+		buckets, err := repo.ListBuckets(context.Background(), userID)
+		require.NoError(t, err)
+		assert.Len(t, buckets, 1)
+	})
+}
+
+func TestStorageRepositoryMultipart(t *testing.T) {
+	t.Run("MultipartOps", func(t *testing.T) {
+		mock, _ := pgxmock.NewPool()
+		defer mock.Close()
+		repo := NewStorageRepository(mock)
+		uploadID := uuid.New()
+		userID := uuid.New()
+		now := time.Now()
+
+		// SaveMultipartUpload
+		mock.ExpectExec("INSERT INTO multipart_uploads").WithArgs(uploadID, userID, "b", "k", now).
+			WillReturnResult(pgxmock.NewResult("INSERT", 1))
+		err := repo.SaveMultipartUpload(context.Background(), &domain.MultipartUpload{ID: uploadID, UserID: userID, Bucket: "b", Key: "k", CreatedAt: now})
+		require.NoError(t, err)
+
+		// GetMultipartUpload
+		mock.ExpectQuery("SELECT id, user_id, bucket, key, created_at FROM multipart_uploads").
+			WithArgs(uploadID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "bucket", "key", "created_at"}).
+				AddRow(uploadID, userID, "b", "k", now))
+		mu, err := repo.GetMultipartUpload(context.Background(), uploadID)
+		require.NoError(t, err)
+		assert.Equal(t, uploadID, mu.ID)
+
+		// SavePart
+		mock.ExpectExec("INSERT INTO multipart_parts").WithArgs(uploadID, 1, int64(100), "etag").
+			WillReturnResult(pgxmock.NewResult("INSERT", 1))
+		err = repo.SavePart(context.Background(), &domain.Part{UploadID: uploadID, PartNumber: 1, SizeBytes: 100, ETag: "etag"})
+		require.NoError(t, err)
+
+		// ListParts
+		mock.ExpectQuery("SELECT upload_id, part_number, size_bytes, etag FROM multipart_parts").
+			WithArgs(uploadID).
+			WillReturnRows(pgxmock.NewRows([]string{"upload_id", "part_number", "size_bytes", "etag"}).
+				AddRow(uploadID, 1, int64(100), "etag"))
+		parts, err := repo.ListParts(context.Background(), uploadID)
+		require.NoError(t, err)
+		assert.Len(t, parts, 1)
+
+		// DeleteMultipartUpload
+		mock.ExpectExec("DELETE FROM multipart_uploads").WithArgs(uploadID).WillReturnResult(pgxmock.NewResult("DELETE", 1))
+		err = repo.DeleteMultipartUpload(context.Background(), uploadID)
+		require.NoError(t, err)
+	})
+}
+
+func TestStorageRepositoryMisc(t *testing.T) {
+	t.Run("Versioning and Delete Ops", func(t *testing.T) {
+		mock, _ := pgxmock.NewPool()
+		defer mock.Close()
+		repo := NewStorageRepository(mock)
+		bucket, key, versionID := "b", "k", "v1"
+
+		// GetMetaByVersion
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE\\(checksum, ''\\), upload_status, created_at, deleted_at FROM objects WHERE bucket = \\$1 AND key = \\$2 AND version_id = \\$3").
+			WithArgs(bucket, key, versionID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "checksum", "upload_status", "created_at", "deleted_at"}).
+				AddRow(uuid.New(), uuid.New(), "arn", bucket, key, versionID, true, 100, "text", "sum", "available", time.Now(), nil))
+		_, err := repo.GetMetaByVersion(context.Background(), bucket, key, versionID)
+		require.NoError(t, err)
+
+		// ListVersions
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE\\(checksum, ''\\), upload_status, created_at, deleted_at FROM objects WHERE bucket = \\$1 AND key = \\$2 ORDER BY created_at DESC").
+			WithArgs(bucket, key).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "checksum", "upload_status", "created_at", "deleted_at"}).
+				AddRow(uuid.New(), uuid.New(), "arn", bucket, key, versionID, true, 100, "text", "sum", "available", time.Now(), nil))
+		_, err = repo.ListVersions(context.Background(), bucket, key)
+		require.NoError(t, err)
+
+		// ListDeleted
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE\\(checksum, ''\\), upload_status, created_at, deleted_at FROM objects WHERE deleted_at IS NOT NULL LIMIT \\$1").
+			WithArgs(10).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "checksum", "upload_status", "created_at", "deleted_at"}).
+				AddRow(uuid.New(), uuid.New(), "arn", bucket, key, versionID, true, 100, "text", "sum", "available", time.Now(), time.Now()))
+		_, err = repo.ListDeleted(context.Background(), 10)
+		require.NoError(t, err)
+
+		// HardDelete
+		mock.ExpectExec("DELETE FROM objects WHERE bucket = \\$1 AND key = \\$2 AND version_id = \\$3").
+			WithArgs(bucket, key, versionID).
+			WillReturnResult(pgxmock.NewResult("DELETE", 1))
+		err = repo.HardDelete(context.Background(), bucket, key, versionID)
+		require.NoError(t, err)
+
+		// ListPending
+		olderThan := time.Now()
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE\\(checksum, ''\\), upload_status, created_at, deleted_at FROM objects WHERE upload_status = 'PENDING' AND created_at < \\$1 LIMIT \\$2").
+			WithArgs(olderThan, 10).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "checksum", "upload_status", "created_at", "deleted_at"}).
+				AddRow(uuid.New(), uuid.New(), "arn", bucket, key, "null", true, 0, "text", "", "pending", olderThan.Add(-time.Hour), nil))
+		_, err = repo.ListPending(context.Background(), olderThan, 10)
+		require.NoError(t, err)
+
+		// DeleteVersion
+		mock.ExpectExec("DELETE FROM objects WHERE bucket = \\$1 AND key = \\$2 AND version_id = \\$3").
+			WithArgs(bucket, key, versionID).
+			WillReturnResult(pgxmock.NewResult("DELETE", 1))
+		err = repo.DeleteVersion(context.Background(), bucket, key, versionID)
+		require.NoError(t, err)
+	})
+}
