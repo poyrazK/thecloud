@@ -63,42 +63,24 @@ func TestAdapter(t *testing.T) {
 
 	ctx := context.Background()
 
-	tests := []struct {
-		name string
-		fn   func(t *testing.T)
-	}{
-		{
-			name: "StoreSecret",
-			fn: func(t *testing.T) {
-				err := adapter.StoreSecret(ctx, "secret/data/test", map[string]interface{}{"password": "new-pass"})
-				assert.NoError(t, err)
-			},
-		},
-		{
-			name: "GetSecret",
-			fn: func(t *testing.T) {
-				data, err := adapter.GetSecret(ctx, "secret/data/test")
-				require.NoError(t, err)
-				assert.Equal(t, "secret-pass", data["password"])
-			},
-		},
-		{
-			name: "DeleteSecret",
-			fn: func(t *testing.T) {
-				err := adapter.DeleteSecret(ctx, "secret/data/test")
-				assert.NoError(t, err)
-			},
-		},
-		{
-			name: "Ping",
-			fn: func(t *testing.T) {
-				err := adapter.Ping(ctx)
-				assert.NoError(t, err)
-			},
-		},
-	}
+	t.Run("StoreSecret", func(t *testing.T) {
+		err := adapter.StoreSecret(ctx, "secret/data/test", map[string]interface{}{"password": "new-pass"})
+		assert.NoError(t, err)
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, tt.fn)
-	}
+	t.Run("GetSecret", func(t *testing.T) {
+		data, err := adapter.GetSecret(ctx, "secret/data/test")
+		require.NoError(t, err)
+		assert.Equal(t, "secret-pass", data["password"])
+	})
+
+	t.Run("DeleteSecret", func(t *testing.T) {
+		err := adapter.DeleteSecret(ctx, "secret/data/test")
+		assert.NoError(t, err)
+	})
+
+	t.Run("Ping", func(t *testing.T) {
+		err := adapter.Ping(ctx)
+		assert.NoError(t, err)
+	})
 }
