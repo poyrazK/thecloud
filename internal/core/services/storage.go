@@ -209,7 +209,14 @@ func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.R
 	// Decryption
 	// Check bucket status for efficiency (though key lookup is fast)
 	b, err := s.repo.GetBucket(ctx, bucket)
-	if err == nil && b.EncryptionEnabled && s.encryptSvc != nil {
+	if err != nil {
+		if closeErr := reader.Close(); closeErr != nil {
+			s.logger.Error("failed to close reader after GetBucket failure", "error", closeErr)
+		}
+		return nil, nil, fmt.Errorf("failed to get bucket: %w", err)
+	}
+
+	if b.EncryptionEnabled && s.encryptSvc != nil {
 		decryptedReader, err := s.encryptSvc.Decrypt(ctx, bucket, reader)
 		if err != nil {
 			if closeErr := reader.Close(); closeErr != nil {

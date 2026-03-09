@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"strings"
@@ -349,5 +350,135 @@ func TestStorageServiceUnit(t *testing.T) {
 		assert.NotNil(t, res)
 		assert.Contains(t, res.URL, "/storage/presigned/my-bucket/file.txt")
 		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("Error Path: Bucket Not Found", func(t *testing.T) {
+		mockRepo.On("GetBucket", mock.Anything, "non-existent").Return(nil, fmt.Errorf("not found")).Once()
+		_, err := svc.CreateMultipartUpload(ctx, "non-existent", "k")
+		assert.Error(t, err)
+	})
+
+	t.Run("Error Path: Multipart Not Found", func(t *testing.T) {
+		uploadID := uuid.New()
+		mockRepo.On("GetMultipartUpload", mock.Anything, uploadID).Return(nil, fmt.Errorf("not found")).Once()
+		_, err := svc.UploadPart(ctx, uploadID, 1, strings.NewReader("data"), "")
+		assert.Error(t, err)
+	})
+
+	t.Run("Error Path: Abort Failure", func(t *testing.T) {
+		uploadID := uuid.New()
+		mockRepo.On("GetMultipartUpload", mock.Anything, uploadID).Return(&domain.MultipartUpload{ID: uploadID, Bucket: "b"}, nil).Once()
+		mockRepo.On("ListParts", mock.Anything, uploadID).Return(nil, fmt.Errorf("list fail")).Once()
+		mockRepo.On("DeleteMultipartUpload", mock.Anything, uploadID).Return(fmt.Errorf("delete fail")).Once()
+		err := svc.AbortMultipartUpload(ctx, uploadID)
+		assert.Error(t, err)
+	})
+
+	t.Run("Helper Coverage", func(t *testing.T) {
+		// Reset mocks to ensure fresh state for this subtest
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+
+		// Test DownloadVersion error paths
+		mockRepo.On("GetMetaByVersion", mock.Anything, "b", "k", "v").Return(nil, fmt.Errorf("meta fail")).Once()
+		_, _, err := svc.DownloadVersion(ctx, "b", "k", "v")
+		assert.Error(t, err)
+
+		mockRepo.On("GetMetaByVersion", mock.Anything, "b", "k", "v2").Return(&domain.Object{VersionID: "v2"}, nil).Once()
+		mockStore.On("Read", mock.Anything, "b", "k?versionId=v2").Return(nil, fmt.Errorf("read fail")).Once()
+		_, _, err = svc.DownloadVersion(ctx, "b", "k", "v2")
+		assert.Error(t, err)
+
+		// Test GetClusterStatus error path
+		mockStore.On("GetClusterStatus", mock.Anything).Return(nil, fmt.Errorf("cluster fail")).Once()
+		_, err = svc.GetClusterStatus(ctx)
+		assert.Error(t, err)
+
+		// Test CleanupDeleted error path
+		mockRepo.On("ListDeleted", mock.Anything, 10).Return(nil, fmt.Errorf("list fail")).Once()
+		_, err = svc.CleanupDeleted(ctx, 10)
+		assert.Error(t, err)
+
+		// Test CleanupPendingUploads error path
+		mockRepo.On("ListPending", mock.Anything, mock.Anything, 10).Return(nil, fmt.Errorf("list fail")).Once()
+		_, err = svc.CleanupPendingUploads(ctx, time.Hour, 10)
+		assert.Error(t, err)
+	})
+
+	t.Run("Additional Error Paths", func(t *testing.T) {
+		// Reset mocks to ensure fresh state for this subtest
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+
+		// 1. Download: Bucket Not Found
+		mockRepo.On("GetMeta", mock.Anything, "b", "k").Return(&domain.Object{Bucket: "b", Key: "k", VersionID: "null"}, nil).Once()
+		mockStore.On("Read", mock.Anything, "b", "k").Return(io.NopCloser(strings.NewReader("data")), nil).Once()
+		mockRepo.On("GetBucket", mock.Anything, "b").Return(nil, fmt.Errorf("bucket error")).Once()
+		_, _, err := svc.Download(ctx, "b", "k")
+		assert.Error(t, err)
+
+		// 2. Download: Store Read Error
+		mockRepo.On("GetMeta", mock.Anything, "b", "k").Return(&domain.Object{Bucket: "b", Key: "k", VersionID: "null"}, nil).Once()
+		mockRepo.On("GetBucket", mock.Anything, "b").Return(&domain.Bucket{Name: "b"}, nil).Once()
+		mockStore.On("Read", mock.Anything, "b", "k").Return(nil, fmt.Errorf("read error")).Once()
+		_, _, err = svc.Download(ctx, "b", "k")
+		assert.Error(t, err)
+
+		// 3. DeleteVersion: Store Delete Error
+		mockRepo.On("GetMetaByVersion", mock.Anything, "b", "k", "v1").Return(&domain.Object{Bucket: "b", Key: "k", VersionID: "v1"}, nil).Once()
+		mockStore.On("Delete", mock.Anything, "b", "k?versionId=v1").Return(fmt.Errorf("delete error")).Once()
+		err = svc.DeleteVersion(ctx, "b", "k", "v1")
+		assert.Error(t, err)
+
+		// 4. DeleteObject: SoftDelete Error
+		mockRepo.On("SoftDelete", mock.Anything, "b", "k").Return(fmt.Errorf("repo error")).Once()
+		err = svc.DeleteObject(ctx, "b", "k")
+		assert.Error(t, err)
+
+		// 5. CreateMultipartUpload: SaveMultipartUpload Error
+		mockRepo.On("GetBucket", mock.Anything, "b").Return(&domain.Bucket{Name: "b"}, nil).Once()
+		mockRepo.On("SaveMultipartUpload", mock.Anything, mock.Anything).Return(fmt.Errorf("save error")).Once()
+		_, err = svc.CreateMultipartUpload(ctx, "b", "k")
+		assert.Error(t, err)
+
+		// 6. UploadPart: Checksum Mismatch
+		uploadID := uuid.New()
+		mockRepo.On("GetMultipartUpload", mock.Anything, uploadID).Return(&domain.MultipartUpload{Bucket: "b", Key: "k"}, nil).Once()
+		mockStore.On("Write", mock.Anything, "b", mock.Anything, mock.Anything).Return(int64(10), nil).Once()
+		mockStore.On("Delete", mock.Anything, "b", mock.Anything).Return(nil).Once()
+		_, err = svc.UploadPart(ctx, uploadID, 1, strings.NewReader("some data"), "wrong-checksum")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "part integrity check failed")
+
+		// 7. CompleteMultipartUpload: Store Assemble Error
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+		mockRepo.On("GetMultipartUpload", mock.Anything, uploadID).Return(&domain.MultipartUpload{Bucket: "b", Key: "k", UserID: userID}, nil).Once()
+		mockRepo.On("ListParts", mock.Anything, uploadID).Return([]*domain.Part{{PartNumber: 1}}, nil).Once()
+		mockRepo.On("GetBucket", mock.Anything, "b").Return(&domain.Bucket{Name: "b"}, nil).Once()
+		mockStore.On("Assemble", mock.Anything, "b", "k", mock.Anything).Return(int64(0), fmt.Errorf("assemble error")).Once()
+		_, err = svc.CompleteMultipartUpload(ctx, uploadID)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to assemble parts")
+
+		// 8. GeneratePresignedURL: GetBucket Error
+		mockRepo.On("GetBucket", mock.Anything, "b").Return(nil, fmt.Errorf("repo error")).Once()
+		_, err = svc.GeneratePresignedURL(ctx, "b", "k", "GET", time.Hour)
+		assert.Error(t, err)
+	})
+
+	t.Run("Version Generation", func(t *testing.T) {
+		bucket := &domain.Bucket{Name: "v-bucket", VersioningEnabled: true}
+		mockRepo.On("GetBucket", mock.Anything, "v-bucket").Return(bucket, nil).Once()
+		mockStore.On("Write", mock.Anything, "v-bucket", mock.MatchedBy(func(k string) bool {
+			return strings.Contains(k, "?versionId=")
+		}), mock.Anything).Return(int64(5), nil).Once()
+		mockRepo.On("SaveMeta", mock.Anything, mock.Anything).Return(nil).Twice()
+		mockAuditSvc.On("Log", mock.Anything, userID, "storage.object_upload", "storage", mock.Anything, mock.Anything).Return(nil).Once()
+
+		obj, err := svc.Upload(ctx, "v-bucket", "k", strings.NewReader("data"), "")
+		require.NoError(t, err)
+		assert.NotEmpty(t, obj.VersionID)
+		assert.NotEqual(t, "null", obj.VersionID)
 	})
 }

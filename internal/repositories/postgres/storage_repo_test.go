@@ -388,6 +388,20 @@ func TestStorageRepositoryBucketOps(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, buckets, 1)
 	})
+
+	t.Run("DeleteBucket", func(t *testing.T) {
+		mock, _ := pgxmock.NewPool()
+		defer mock.Close()
+		repo := NewStorageRepository(mock)
+		name := "b1"
+
+		mock.ExpectExec("DELETE FROM buckets WHERE name = \\$1").
+			WithArgs(name).
+			WillReturnResult(pgxmock.NewResult("DELETE", 1))
+
+		err := repo.DeleteBucket(context.Background(), name)
+		require.NoError(t, err)
+	})
 }
 
 func TestStorageRepositoryMultipart(t *testing.T) {
