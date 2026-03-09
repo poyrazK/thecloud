@@ -323,6 +323,10 @@ func (s *StorageService) CreateBucket(ctx context.Context, name string, isPublic
 		return nil, errors.New(errors.InvalidInput, "bucket name cannot start or end with a hyphen or dot")
 	}
 
+	if strings.Contains(name, "..") {
+		return nil, errors.New(errors.InvalidInput, "bucket name cannot contain consecutive dots")
+	}
+
 	bucket := &domain.Bucket{
 		ID:        uuid.New(),
 		Name:      name,

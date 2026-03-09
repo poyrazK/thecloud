@@ -442,28 +442,30 @@ func TestStorageRepositoryMisc(t *testing.T) {
 		defer mock.Close()
 		repo := NewStorageRepository(mock)
 		bucket, key, versionID := "b", "k", "v1"
+		userID := uuid.New()
+		ctx := appcontext.WithUserID(context.Background(), userID)
 
 		// GetMetaByVersion
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE\\(checksum, ''\\), upload_status, created_at, deleted_at FROM objects WHERE bucket = \\$1 AND key = \\$2 AND version_id = \\$3").
-			WithArgs(bucket, key, versionID).
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE\\(checksum, ''\\), upload_status, created_at, deleted_at FROM objects WHERE bucket = \\$1 AND key = \\$2 AND version_id = \\$3 AND deleted_at IS NULL AND user_id = \\$4 AND upload_status = 'AVAILABLE'").
+			WithArgs(bucket, key, versionID, userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "checksum", "upload_status", "created_at", "deleted_at"}).
-				AddRow(uuid.New(), uuid.New(), "arn", bucket, key, versionID, true, 100, "text", "sum", "available", time.Now(), nil))
-		_, err := repo.GetMetaByVersion(context.Background(), bucket, key, versionID)
+				AddRow(uuid.New(), userID, "arn", bucket, key, versionID, true, int64(100), "text", "sum", domain.UploadStatusAvailable, time.Now(), nil))
+		_, err := repo.GetMetaByVersion(ctx, bucket, key, versionID)
 		require.NoError(t, err)
 
 		// ListVersions
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE\\(checksum, ''\\), upload_status, created_at, deleted_at FROM objects WHERE bucket = \\$1 AND key = \\$2 ORDER BY created_at DESC").
-			WithArgs(bucket, key).
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE\\(checksum, ''\\), upload_status, created_at, deleted_at FROM objects WHERE bucket = \\$1 AND key = \\$2 AND deleted_at IS NULL AND user_id = \\$3 AND upload_status = 'AVAILABLE' ORDER BY created_at DESC").
+			WithArgs(bucket, key, userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "checksum", "upload_status", "created_at", "deleted_at"}).
-				AddRow(uuid.New(), uuid.New(), "arn", bucket, key, versionID, true, 100, "text", "sum", "available", time.Now(), nil))
-		_, err = repo.ListVersions(context.Background(), bucket, key)
+				AddRow(uuid.New(), userID, "arn", bucket, key, versionID, true, int64(100), "text", "sum", domain.UploadStatusAvailable, time.Now(), nil))
+		_, err = repo.ListVersions(ctx, bucket, key)
 		require.NoError(t, err)
 
 		// ListDeleted
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE\\(checksum, ''\\), upload_status, created_at, deleted_at FROM objects WHERE deleted_at IS NOT NULL LIMIT \\$1").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE\\(checksum, ''\\), upload_status, created_at, deleted_at FROM objects WHERE deleted_at IS NOT NULL ORDER BY deleted_at ASC LIMIT \\$1").
 			WithArgs(10).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "checksum", "upload_status", "created_at", "deleted_at"}).
-				AddRow(uuid.New(), uuid.New(), "arn", bucket, key, versionID, true, 100, "text", "sum", "available", time.Now(), time.Now()))
+				AddRow(uuid.New(), userID, "arn", bucket, key, versionID, true, int64(100), "text", "sum", domain.UploadStatusAvailable, time.Now(), nil))
 		_, err = repo.ListDeleted(context.Background(), 10)
 		require.NoError(t, err)
 
@@ -476,18 +478,18 @@ func TestStorageRepositoryMisc(t *testing.T) {
 
 		// ListPending
 		olderThan := time.Now()
-		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE\\(checksum, ''\\), upload_status, created_at, deleted_at FROM objects WHERE upload_status = 'PENDING' AND created_at < \\$1 LIMIT \\$2").
+		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE\\(checksum, ''\\), upload_status, created_at, deleted_at FROM objects WHERE upload_status = 'PENDING' AND created_at < \\$1 ORDER BY created_at ASC, id ASC LIMIT \\$2").
 			WithArgs(olderThan, 10).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "checksum", "upload_status", "created_at", "deleted_at"}).
-				AddRow(uuid.New(), uuid.New(), "arn", bucket, key, "null", true, 0, "text", "", "pending", olderThan.Add(-time.Hour), nil))
+				AddRow(uuid.New(), userID, "arn", bucket, key, "null", true, int64(0), "text", "", domain.UploadStatusPending, olderThan.Add(-time.Hour), nil))
 		_, err = repo.ListPending(context.Background(), olderThan, 10)
 		require.NoError(t, err)
 
 		// DeleteVersion
-		mock.ExpectExec("DELETE FROM objects WHERE bucket = \\$1 AND key = \\$2 AND version_id = \\$3").
-			WithArgs(bucket, key, versionID).
+		mock.ExpectExec("DELETE FROM objects WHERE bucket = \\$1 AND key = \\$2 AND version_id = \\$3 AND user_id = \\$4").
+			WithArgs(bucket, key, versionID, userID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
-		err = repo.DeleteVersion(context.Background(), bucket, key, versionID)
+		err = repo.DeleteVersion(ctx, bucket, key, versionID)
 		require.NoError(t, err)
 	})
 }

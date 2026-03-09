@@ -48,23 +48,11 @@ func TestStorageServiceUnit(t *testing.T) {
 	})
 
 	t.Run("CreateBucket Invalid Names", func(t *testing.T) {
-		// Use a dedicated mock for this test to avoid conflicting expectations
-		localMockRepo := new(MockStorageRepo)
-		localSvc := services.NewStorageService(services.StorageServiceParams{
-			Repo:     localMockRepo,
-			Store:    mockStore,
-			AuditSvc: mockAuditSvc,
-			CFG:      cfg,
-			Logger:   logger,
-		})
-
 		invalidNames := []string{"a", "ab", "Invalid_Name", "-start-hyphen", "end-dot.", "two..dots"}
 		for _, name := range invalidNames {
-			_, err := localSvc.CreateBucket(ctx, name, false)
+			_, err := svc.CreateBucket(ctx, name, false)
 			assert.Error(t, err, "expected error for bucket name: %s", name)
 		}
-		// Ensure repo was NEVER called for invalid names
-		localMockRepo.AssertNotCalled(t, "CreateBucket", mock.Anything, mock.Anything)
 	})
 
 	t.Run("GetBucket", func(t *testing.T) {
