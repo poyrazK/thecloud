@@ -133,7 +133,7 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 		storeKey = versionedStoreKey(key, versionID)
 	}
 
-	dataStream := io.Reader(teeReader)
+	dataStream := teeReader
 
 	// Encryption (Optional)
 	if bucket.EncryptionEnabled && s.encryptSvc != nil {

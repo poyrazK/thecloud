@@ -130,7 +130,7 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 	password := primary.Password
 	if primary.CredentialPath != "" {
 		secret, err := s.secrets.GetSecret(ctx, primary.CredentialPath)
-		if err == nil {
+		if err == nil && secret != nil {
 			if p, ok := secret["password"].(string); ok {
 				password = p
 			}
@@ -274,7 +274,7 @@ func (s *DatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDa
 	password := db.Password
 	if db.CredentialPath != "" {
 		secret, err := s.secrets.GetSecret(ctx, db.CredentialPath)
-		if err == nil {
+		if err == nil && secret != nil {
 			if p, ok := secret["password"].(string); ok {
 				password = p
 			}
