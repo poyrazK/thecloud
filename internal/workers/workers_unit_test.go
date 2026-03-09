@@ -56,6 +56,13 @@ func (m *mockStorageRepo) ListDeleted(ctx context.Context, limit int) ([]*domain
 func (m *mockStorageRepo) HardDelete(ctx context.Context, bucket, key, versionID string) error {
 	return nil
 }
+func (m *mockStorageRepo) ListPending(ctx context.Context, olderThan time.Time, limit int) ([]*domain.Object, error) {
+	args := m.Called(ctx, olderThan, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Object), args.Error(1)
+}
 func (m *mockStorageRepo) CreateBucket(ctx context.Context, bucket *domain.Bucket) error { return nil }
 func (m *mockStorageRepo) GetBucket(ctx context.Context, name string) (*domain.Bucket, error) {
 	return nil, nil
@@ -83,7 +90,7 @@ func (m *mockStorageRepo) ListParts(ctx context.Context, uploadID uuid.UUID) ([]
 
 type mockStorageSvc struct{ mock.Mock }
 
-func (m *mockStorageSvc) Upload(ctx context.Context, bucket, key string, r io.Reader) (*domain.Object, error) {
+func (m *mockStorageSvc) Upload(ctx context.Context, bucket, key string, r io.Reader, providedChecksum string) (*domain.Object, error) {
 	return nil, nil
 }
 func (m *mockStorageSvc) Download(ctx context.Context, bucket, key string) (io.ReadCloser, *domain.Object, error) {
@@ -124,7 +131,7 @@ func (m *mockStorageSvc) GetClusterStatus(ctx context.Context) (*domain.StorageC
 func (m *mockStorageSvc) CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error) {
 	return nil, nil
 }
-func (m *mockStorageSvc) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
+func (m *mockStorageSvc) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader, providedChecksum string) (*domain.Part, error) {
 	return nil, nil
 }
 func (m *mockStorageSvc) CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error) {
@@ -134,6 +141,10 @@ func (m *mockStorageSvc) AbortMultipartUpload(ctx context.Context, uploadID uuid
 	return nil
 }
 func (m *mockStorageSvc) CleanupDeleted(ctx context.Context, limit int) (int, error) { return 0, nil }
+func (m *mockStorageSvc) CleanupPendingUploads(ctx context.Context, olderThan time.Duration, limit int) (int, error) {
+	args := m.Called(ctx, olderThan, limit)
+	return args.Int(0), args.Error(1)
+}
 func (m *mockStorageSvc) GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error) {
 	return nil, nil
 }
@@ -162,6 +173,17 @@ func (m *mockClusterRepo) GetNodes(ctx context.Context, clusterID uuid.UUID) ([]
 }
 func (m *mockClusterRepo) UpdateNode(ctx context.Context, node *domain.ClusterNode) error { return nil }
 func (m *mockClusterRepo) DeleteNode(ctx context.Context, nodeID uuid.UUID) error         { return nil }
+
+func (m *mockClusterRepo) AddNodeGroup(ctx context.Context, ng *domain.NodeGroup) error { return nil }
+func (m *mockClusterRepo) GetNodeGroups(ctx context.Context, clusterID uuid.UUID) ([]domain.NodeGroup, error) {
+	return []domain.NodeGroup{}, nil
+}
+func (m *mockClusterRepo) UpdateNodeGroup(ctx context.Context, ng *domain.NodeGroup) error {
+	return nil
+}
+func (m *mockClusterRepo) DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error {
+	return nil
+}
 
 type mockClusterProv struct{ mock.Mock }
 

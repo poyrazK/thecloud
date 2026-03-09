@@ -101,6 +101,12 @@ This document provides a comprehensive overview of every feature currently imple
 - **Encryption**: Objects encrypted at rest using AES-GCM via EncryptionService.
 - **Audit Trail**: All operations logged for compliance.
 
+**Reliability & Integrity**:
+- **Two-Phase Upload**: Atomic metadata creation (`PENDING` -> `AVAILABLE`) prevents "invisible" orphaned files from failed transfers.
+- **Automated Orphan GC**: Background `StorageCleanupWorker` identifies and purges stalled uploads (older than configurable `PendingUploadTTL`) and their partial files.
+- **Streaming Checksums**: Real-time SHA-256 calculation during the upload stream for verifiable end-to-end data integrity.
+- **S3-Compatible Validation**: Strict bucket naming rules (3-63 chars, lowercase, no IP formats) and automatic content-sniffing for accurate MIME metadata.
+
 **Distributed Storage**:
 - **Cluster Status**: Monitor distributed storage cluster health.
 - **Multi-node Support**: Architecture ready for horizontal scaling.

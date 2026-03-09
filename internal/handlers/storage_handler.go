@@ -34,6 +34,7 @@ func NewStorageHandler(svc ports.StorageService, cfg *platform.Config) *StorageH
 
 const (
 	errInvalidUploadID = "invalid upload id"
+	headerContentSha256 = "X-Content-Sha256"
 )
 
 // Upload uploads an object to a bucket
@@ -46,6 +47,7 @@ const (
 // @Param bucket path string true "Bucket name"
 // @Param key path string true "Object key"
 // @Param file formData file true "File to upload"
+// @Param X-Content-Sha256 header string false "SHA-256 checksum of the content"
 // @Success 201 {object} domain.Object
 // @Failure 400 {object} httputil.Response
 // @Router /storage/{bucket}/{key} [put]
@@ -55,8 +57,10 @@ func (h *StorageHandler) Upload(c *gin.Context) {
 		return
 	}
 
+	providedChecksum := c.GetHeader(headerContentSha256)
+
 	// Read from request body (stream)
-	obj, err := h.svc.Upload(c.Request.Context(), bucket, key, c.Request.Body)
+	obj, err := h.svc.Upload(c.Request.Context(), bucket, key, c.Request.Body, providedChecksum)
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -311,7 +315,9 @@ func (h *StorageHandler) UploadPart(c *gin.Context) {
 		return
 	}
 
-	part, err := h.svc.UploadPart(c.Request.Context(), uploadID, partNumber, c.Request.Body)
+	providedChecksum := c.GetHeader(headerContentSha256)
+
+	part, err := h.svc.UploadPart(c.Request.Context(), uploadID, partNumber, c.Request.Body, providedChecksum)
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -485,7 +491,7 @@ func (h *StorageHandler) ServePresignedUpload(c *gin.Context) {
 	// The Repository `SaveMeta` saves this UserID. It's valid to have Nil (0000...) for system/anon uploads?
 	// It's acceptable for this feature.
 
-	obj, err := h.svc.Upload(c.Request.Context(), bucket, key, c.Request.Body)
+	obj, err := h.svc.Upload(c.Request.Context(), bucket, key, c.Request.Body, "")
 	if err != nil {
 		httputil.Error(c, err)
 		return

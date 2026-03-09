@@ -59,6 +59,7 @@ build:
 	go build -o bin/storage-node cmd/storage-node/main.go
 	go build -o bin/csi-driver ./cmd/csi-driver
 	go build -o bin/ccm ./cmd/ccm
+	go build -o bin/autoscaler-server ./cmd/autoscaler-server
 
 install: build
 	mkdir -p $(HOME)/.local/bin

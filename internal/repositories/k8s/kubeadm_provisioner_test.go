@@ -106,6 +106,21 @@ func (m *MockClusterRepo) UpdateNode(ctx context.Context, n *domain.ClusterNode)
 	return m.Called(ctx, n).Error(0)
 }
 
+func (m *MockClusterRepo) AddNodeGroup(ctx context.Context, ng *domain.NodeGroup) error {
+	return m.Called(ctx, ng).Error(0)
+}
+func (m *MockClusterRepo) GetNodeGroups(ctx context.Context, clusterID uuid.UUID) ([]domain.NodeGroup, error) {
+	args := m.Called(ctx, clusterID)
+	r0, _ := args.Get(0).([]domain.NodeGroup)
+	return r0, args.Error(1)
+}
+func (m *MockClusterRepo) UpdateNodeGroup(ctx context.Context, ng *domain.NodeGroup) error {
+	return m.Called(ctx, ng).Error(0)
+}
+func (m *MockClusterRepo) DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error {
+	return m.Called(ctx, clusterID, name).Error(0)
+}
+
 type MockSecurityGroupService struct{ mock.Mock }
 
 func (m *MockSecurityGroupService) CreateGroup(ctx context.Context, vpcID uuid.UUID, name, description string) (*domain.SecurityGroup, error) {
@@ -155,7 +170,7 @@ func (m *MockSecurityGroupService) DetachFromInstance(ctx context.Context, insta
 
 type MockStorageService struct{ mock.Mock }
 
-func (m *MockStorageService) Upload(ctx context.Context, bucket, key string, r io.Reader) (*domain.Object, error) {
+func (m *MockStorageService) Upload(ctx context.Context, bucket, key string, r io.Reader, providedChecksum string) (*domain.Object, error) {
 	return nil, nil
 }
 func (m *MockStorageService) Download(ctx context.Context, bucket, key string) (io.ReadCloser, *domain.Object, error) {
@@ -201,7 +216,7 @@ func (m *MockStorageService) GeneratePresignedURL(ctx context.Context, bucket, k
 func (m *MockStorageService) CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error) {
 	return nil, nil
 }
-func (m *MockStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
+func (m *MockStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader, providedChecksum string) (*domain.Part, error) {
 	return nil, nil
 }
 func (m *MockStorageService) CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error) {
@@ -211,6 +226,9 @@ func (m *MockStorageService) AbortMultipartUpload(ctx context.Context, uploadID 
 	return nil
 }
 func (m *MockStorageService) CleanupDeleted(ctx context.Context, limit int) (int, error) {
+	return 0, nil
+}
+func (m *MockStorageService) CleanupPendingUploads(ctx context.Context, olderThan time.Duration, limit int) (int, error) {
 	return 0, nil
 }
 

@@ -36,7 +36,7 @@ func TestStorageHandlerErrors(t *testing.T) { //nolint:gocyclo
 			method: http.MethodPut,
 			path:   "/storage/b1/key1",
 			setupMock: func(m *mockStorageService) {
-				m.On("Upload", mock.Anything, "b1", "/key1", mock.Anything).
+				m.On("Upload", mock.Anything, "b1", "/key1", mock.Anything, "").
 					Return(nil, internalerrors.New(internalerrors.Internal, "upload failed"))
 			},
 			checkCode: http.StatusInternalServerError,
@@ -118,7 +118,7 @@ func TestStorageHandlerErrors(t *testing.T) { //nolint:gocyclo
 				c.Request.URL.RawQuery = "part=1"
 			},
 			setupMock: func(m *mockStorageService) {
-				m.On("UploadPart", mock.Anything, mock.Anything, 1, mock.Anything).
+				m.On("UploadPart", mock.Anything, mock.Anything, 1, mock.Anything, "").
 					Return(nil, internalerrors.New(internalerrors.Internal, "upload part failed"))
 			},
 			checkCode: http.StatusInternalServerError,

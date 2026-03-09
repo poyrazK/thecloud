@@ -26,7 +26,7 @@ func setupSnapshotServiceIntegrationTest(t *testing.T) (ports.SnapshotService, p
 
 	repo := postgres.NewSnapshotRepository(db)
 	volRepo := postgres.NewVolumeRepository(db)
-	storage := noop.NewNoopStorageBackend()
+	storage := noop.NewNoopStorageBackendAdapter()
 
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(auditRepo)

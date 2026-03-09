@@ -411,6 +411,21 @@ Allocate a new elastic IP. No body required.
 ### GET /elastic-ips/:id
 Get details of a specific elastic IP.
 
+### DELETE /elastic-ips/:id
+Release an elastic IP back to the pool. Fails if still associated.
+
+### POST /elastic-ips/:id/associate
+Associate an elastic IP with a compute instance.
+**Request:**
+```json
+{
+  "instance_id": "inst-uuid"
+}
+```
+
+### POST /elastic-ips/:id/disassociate
+Disassociate an elastic IP from its current instance.
+
 ---
 
 ## Pipelines (CI/CD) 🆕
@@ -501,6 +516,105 @@ Public webhook trigger endpoint.
 #### Webhook response behavior
 - `202 accepted` with build payload when a run is queued.
 - `202 accepted` with `{ "status": "ignored" }` for duplicate/non-matching events.
+
+---
+
+## Cloud Storage (S3-Compatible)
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /storage/buckets
+List all buckets owned by or accessible to the tenant.
+
+### POST /storage/buckets
+Create a new storage bucket.
+```json
+{
+  "name": "my-assets",
+  "is_public": false
+}
+```
+
+### DELETE /storage/buckets/:bucket
+Delete a bucket. Fails if the bucket is not empty unless `?force=true` is provided.
+
+### PATCH /storage/buckets/:bucket/versioning
+Enable or disable versioning for a bucket.
+```json
+{
+  "enabled": true
+}
+```
+
+### GET /storage/:bucket
+List all objects in a bucket (latest versions only).
+
+### PUT /storage/:bucket/*key
+Upload an object. The request body is the raw file data.
+**Response:**
+```json
+{
+  "id": "uuid",
+  "bucket": "my-bucket",
+  "key": "test.txt",
+  "size_bytes": 1024,
+  "content_type": "text/plain",
+  "checksum": "sha256-hex-hash",
+  "upload_status": "AVAILABLE",
+  "version_id": "null",
+  "created_at": "2026-03-04T17:00:00Z"
+}
+```
+
+### GET /storage/:bucket/*key
+Download an object (latest version).
+
+### DELETE /storage/:bucket/*key
+Soft-delete an object (latest version).
+
+### GET /storage/versions/:bucket/*key
+List all versions of a specific object.
+
+### GET /storage/cluster/status
+Get health and node status of the distributed storage cluster.
+
+---
+
+## Multipart Uploads
+
+### POST /storage/multipart/init/:bucket/*key
+Initiate a multipart upload session.
+**Response:** `{"id": "upload-uuid", ...}`
+
+### PUT /storage/multipart/upload/:id/parts?part=1
+Upload a part for a multipart session.
+
+### POST /storage/multipart/complete/:id
+Finalize a multipart upload and assemble the object.
+
+### DELETE /storage/multipart/abort/:id
+Abort a multipart upload and clean up uploaded parts.
+
+---
+
+## Lifecycle Rules
+
+### GET /storage/buckets/:bucket/lifecycle
+List lifecycle rules for a bucket.
+
+### POST /storage/buckets/:bucket/lifecycle
+Create a new lifecycle rule.
+```json
+{
+  "prefix": "logs/",
+  "expiration_days": 30
+}
+```
+
+### DELETE /storage/buckets/:bucket/lifecycle/:id
+Delete a lifecycle rule.
+
+---
 
 ### DELETE /elastic-ips/:id
 Release an elastic IP back to the pool. Fails if still associated.

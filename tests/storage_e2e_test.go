@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/pkg/crypto"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 )
 
@@ -134,7 +135,36 @@ func TestStorageE2E(t *testing.T) {
 		assert.GreaterOrEqual(t, len(l.Data), 2)
 	})
 
-	// 7. Cleanup
+	// 7. Checksum Verification
+	t.Run("ChecksumVerification", func(t *testing.T) {
+		integrityKey := "integrity.txt"
+		integrityContent := "integrity check content for E2E"
+		actualChecksum := crypto.ComputeSHA256([]byte(integrityContent))
+
+		// Case A: Correct Checksum
+		req, _ := http.NewRequest("PUT", fmt.Sprintf(storageObjectPathFormat, testutil.TestBaseURL, bucketName, integrityKey), bytes.NewBufferString(integrityContent))
+		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		req.Header.Set("X-Content-Sha256", actualChecksum)
+		applyTenantHeader(t, req, token)
+
+		resp, err := client.Do(req)
+		require.NoError(t, err)
+		_ = resp.Body.Close()
+		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+
+		// Case B: Mismatching Checksum
+		req, _ = http.NewRequest("PUT", fmt.Sprintf(storageObjectPathFormat, testutil.TestBaseURL, bucketName, integrityKey+"-fail"), bytes.NewBufferString(integrityContent))
+		req.Header.Set(testutil.TestHeaderAPIKey, token)
+		req.Header.Set("X-Content-Sha256", "invalid-hash-here")
+		applyTenantHeader(t, req, token)
+
+		resp, err = client.Do(req)
+		require.NoError(t, err)
+		_ = resp.Body.Close()
+		assert.Equal(t, http.StatusConflict, resp.StatusCode)
+	})
+
+	// 8. Cleanup
 	t.Run("Cleanup", func(t *testing.T) {
 		// Delete object
 		req, _ := http.NewRequest("DELETE", fmt.Sprintf(storageObjectPathFormat, testutil.TestBaseURL, bucketName, key), nil)

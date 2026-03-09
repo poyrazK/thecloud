@@ -423,6 +423,12 @@ func (m *MockStorageRepo) HardDelete(ctx context.Context, bucket, key, versionID
 	return m.Called(ctx, bucket, key, versionID).Error(0)
 }
 
+func (m *MockStorageRepo) ListPending(ctx context.Context, olderThan time.Time, limit int) ([]*domain.Object, error) {
+	args := m.Called(ctx, olderThan, limit)
+	r0, _ := args.Get(0).([]*domain.Object)
+	return r0, args.Error(1)
+}
+
 func (m *MockStorageRepo) CreateBucket(ctx context.Context, bucket *domain.Bucket) error {
 	return m.Called(ctx, bucket).Error(0)
 }
@@ -475,6 +481,9 @@ func (m *MockFileStore) Write(ctx context.Context, bucket, key string, r io.Read
 }
 func (m *MockFileStore) Read(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
 	args := m.Called(ctx, bucket, key)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	r0, _ := args.Get(0).(io.ReadCloser)
 	return r0, args.Error(1)
 }
@@ -870,6 +879,21 @@ func (m *MockClusterRepo) DeleteNode(ctx context.Context, nodeID uuid.UUID) erro
 }
 func (m *MockClusterRepo) UpdateNode(ctx context.Context, node *domain.ClusterNode) error {
 	return m.Called(ctx, node).Error(0)
+}
+
+func (m *MockClusterRepo) AddNodeGroup(ctx context.Context, ng *domain.NodeGroup) error {
+	return m.Called(ctx, ng).Error(0)
+}
+func (m *MockClusterRepo) GetNodeGroups(ctx context.Context, clusterID uuid.UUID) ([]domain.NodeGroup, error) {
+	args := m.Called(ctx, clusterID)
+	r0, _ := args.Get(0).([]domain.NodeGroup)
+	return r0, args.Error(1)
+}
+func (m *MockClusterRepo) UpdateNodeGroup(ctx context.Context, ng *domain.NodeGroup) error {
+	return m.Called(ctx, ng).Error(0)
+}
+func (m *MockClusterRepo) DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error {
+	return m.Called(ctx, clusterID, name).Error(0)
 }
 
 // MockClusterProvisioner

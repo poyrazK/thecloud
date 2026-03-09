@@ -144,6 +144,8 @@ func TestDatabaseFailoverWorker(t *testing.T) {
 		Status:    domain.DatabaseStatusRunning,
 	}
 
+	anyCtx := mock.MatchedBy(func(ctx context.Context) bool { return true })
+
 	t.Run("Failover triggered on unhealthy primary", func(t *testing.T) {
 		repo := new(mockDatabaseRepo)
 		svc := new(mockDatabaseService)
@@ -151,9 +153,9 @@ func TestDatabaseFailoverWorker(t *testing.T) {
 
 		worker := NewDatabaseFailoverWorker(svc, repo, logger)
 
-		repo.On("List", mock.Anything).Return([]*domain.Database{primary}, nil)
-		repo.On("ListReplicas", mock.Anything, primaryID).Return([]*domain.Database{replica}, nil)
-		svc.On("PromoteToPrimary", mock.Anything, replicaID).Return(nil)
+		repo.On("List", anyCtx).Return([]*domain.Database{primary}, nil)
+		repo.On("ListReplicas", anyCtx, primaryID).Return([]*domain.Database{replica}, nil)
+		svc.On("PromoteToPrimary", anyCtx, replicaID).Return(nil)
 
 		worker.checkDatabases(context.Background())
 
@@ -184,13 +186,13 @@ func TestDatabaseFailoverWorker(t *testing.T) {
 		svc := new(mockDatabaseService)
 		worker := NewDatabaseFailoverWorker(svc, repo, slog.Default())
 
-		repo.On("List", mock.Anything).Return([]*domain.Database{primary}, nil)
-		repo.On("ListReplicas", mock.Anything, primaryID).Return([]*domain.Database{}, nil)
+		repo.On("List", anyCtx).Return([]*domain.Database{primary}, nil)
+		repo.On("ListReplicas", anyCtx, primaryID).Return([]*domain.Database{}, nil)
 
 		worker.checkDatabases(context.Background())
 
 		repo.AssertExpectations(t)
-		svc.AssertNotCalled(t, "PromoteToPrimary", mock.Anything, mock.Anything)
+		svc.AssertNotCalled(t, "PromoteToPrimary", anyCtx, mock.Anything)
 	})
 
 	t.Run("Repo list error handled", func(t *testing.T) {
@@ -198,7 +200,7 @@ func TestDatabaseFailoverWorker(t *testing.T) {
 		svc := new(mockDatabaseService)
 		worker := NewDatabaseFailoverWorker(svc, repo, slog.Default())
 
-		repo.On("List", mock.Anything).Return([]*domain.Database(nil), fmt.Errorf("db error"))
+		repo.On("List", anyCtx).Return([]*domain.Database(nil), fmt.Errorf("db error"))
 
 		worker.checkDatabases(context.Background())
 

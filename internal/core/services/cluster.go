@@ -112,8 +112,29 @@ func (s *ClusterService) CreateCluster(ctx context.Context, params ports.CreateC
 		cluster.ServiceCIDR = "10.96.0.0/12"
 	}
 
+	// Add default Node Group
+	defaultNG := domain.NodeGroup{
+		ID:           uuid.New(),
+		ClusterID:    cluster.ID,
+		Name:         "default-pool",
+		InstanceType: "standard-1",
+		MinSize:      1,
+		MaxSize:      10,
+		CurrentSize:  params.Workers,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+	cluster.NodeGroups = []domain.NodeGroup{defaultNG}
+
+	// Atomically create cluster and its default node group
 	if err := s.repo.Create(ctx, cluster); err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to create cluster record", err)
+	}
+
+	// Persist Node Group
+	if err := s.repo.AddNodeGroup(ctx, &cluster.NodeGroups[0]); err != nil {
+		// Ideally this should be in a transaction with repo.Create
+		return nil, errors.Wrap(errors.Internal, "failed to create default node group", err)
 	}
 
 	// 3. Enqueue provisioning job
@@ -243,10 +264,12 @@ func (s *ClusterService) ScaleCluster(ctx context.Context, id uuid.UUID, workers
 		return errors.New(errors.InvalidInput, "at least 1 worker required")
 	}
 
+	oldWorkerCount := cluster.WorkerCount
 	cluster.WorkerCount = workers
 	cluster.UpdatedAt = time.Now()
 	if err := s.repo.Update(ctx, cluster); err != nil {
-		return err
+		cluster.WorkerCount = oldWorkerCount
+		return errors.Wrap(errors.Internal, "failed to update cluster record during scaling", err)
 	}
 
 	go func() {
@@ -388,6 +411,147 @@ func (s *ClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, backup
 	return s.repo.Update(ctx, cluster)
 }
 
+func (s *ClusterService) AddNodeGroup(ctx context.Context, clusterID uuid.UUID, params ports.NodeGroupParams) (*domain.NodeGroup, error) {
+	cluster, err := s.GetCluster(ctx, clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate node group sizing invariants
+	if err := s.validateNodeGroupSizing(params.MinSize, params.MaxSize, params.DesiredSize); err != nil {
+		return nil, err
+	}
+
+	ng := &domain.NodeGroup{
+		ID:           uuid.New(),
+		ClusterID:    cluster.ID,
+		Name:         params.Name,
+		InstanceType: params.InstanceType,
+		MinSize:      params.MinSize,
+		MaxSize:      params.MaxSize,
+		CurrentSize:  params.DesiredSize,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	if err := s.repo.AddNodeGroup(ctx, ng); err != nil {
+		return nil, err
+	}
+
+	// If desired size > 0, we should trigger a scale operation for this specific group.
+	// For now, we will update the global worker count to reflect the addition.
+	oldWorkerCount := cluster.WorkerCount
+	cluster.WorkerCount += params.DesiredSize
+	if err := s.repo.Update(ctx, cluster); err != nil {
+		cluster.WorkerCount = oldWorkerCount
+		return nil, errors.Wrap(errors.Internal, "failed to update cluster worker count after adding node group", err)
+	}
+
+	return ng, nil
+}
+
+func (s *ClusterService) UpdateNodeGroup(ctx context.Context, clusterID uuid.UUID, name string, params ports.UpdateNodeGroupParams) (*domain.NodeGroup, error) {
+	cluster, err := s.GetCluster(ctx, clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	var targetGroup *domain.NodeGroup
+	for i := range cluster.NodeGroups {
+		if cluster.NodeGroups[i].Name == name {
+			targetGroup = &cluster.NodeGroups[i]
+			break
+		}
+	}
+
+	if targetGroup == nil {
+		return nil, errors.New(errors.NotFound, "node group not found")
+	}
+
+	newMin := targetGroup.MinSize
+	newMax := targetGroup.MaxSize
+	newDesired := targetGroup.CurrentSize
+
+	if params.MinSize != nil {
+		newMin = *params.MinSize
+	}
+	if params.MaxSize != nil {
+		newMax = *params.MaxSize
+	}
+	if params.DesiredSize != nil {
+		newDesired = *params.DesiredSize
+	}
+
+	// Validate node group sizing invariants
+	if err := s.validateNodeGroupSizing(newMin, newMax, newDesired); err != nil {
+		return nil, err
+	}
+
+	oldMin, oldMax, oldDesired := targetGroup.MinSize, targetGroup.MaxSize, targetGroup.CurrentSize
+	targetGroup.MinSize = newMin
+	targetGroup.MaxSize = newMax
+	
+	oldWorkerCount := cluster.WorkerCount
+	if params.DesiredSize != nil {
+		diff := newDesired - oldDesired
+		cluster.WorkerCount += diff
+		targetGroup.CurrentSize = newDesired
+	}
+
+	if err := s.repo.UpdateNodeGroup(ctx, targetGroup); err != nil {
+		return nil, err
+	}
+
+	if err := s.repo.Update(ctx, cluster); err != nil {
+		// Rollback in-memory changes on persistence failure
+		targetGroup.MinSize = oldMin
+		targetGroup.MaxSize = oldMax
+		targetGroup.CurrentSize = oldDesired
+		cluster.WorkerCount = oldWorkerCount
+		return nil, errors.Wrap(errors.Internal, "failed to update cluster worker count after updating node group", err)
+	}
+
+	return targetGroup, nil
+}
+
+func (s *ClusterService) DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error {
+	cluster, err := s.GetCluster(ctx, clusterID)
+	if err != nil {
+		return err
+	}
+
+	if name == "default-pool" {
+		return errors.New(errors.InvalidInput, "cannot delete default node group")
+	}
+
+	var targetNG *domain.NodeGroup
+	for i := range cluster.NodeGroups {
+		if cluster.NodeGroups[i].Name == name {
+			targetNG = &cluster.NodeGroups[i]
+			break
+		}
+	}
+
+	if targetNG == nil {
+		return errors.New(errors.NotFound, "node group not found")
+	}
+
+	oldWorkerCount := cluster.WorkerCount
+	cluster.WorkerCount -= targetNG.CurrentSize
+
+	if err := s.repo.DeleteNodeGroup(ctx, clusterID, name); err != nil {
+		cluster.WorkerCount = oldWorkerCount
+		return err
+	}
+
+	if err := s.repo.Update(ctx, cluster); err != nil {
+		cluster.WorkerCount = oldWorkerCount
+		return errors.Wrap(errors.Internal, "failed to update cluster worker count after deleting node group", err)
+	}
+
+	return nil
+}
+
 func (s *ClusterService) validateUpgrade(current, target string) error {
 	curVer, err := semver.NewVersion(current)
 	if err != nil {
@@ -409,5 +573,18 @@ func (s *ClusterService) validateUpgrade(current, target string) error {
 		return errors.New(errors.InvalidInput, "cannot skip minor versions or upgrade across major versions")
 	}
 
+	return nil
+}
+
+func (s *ClusterService) validateNodeGroupSizing(min, max, desired int) error {
+	if min < 0 || max < 0 || desired < 0 {
+		return errors.New(errors.InvalidInput, "node group sizes must be non-negative")
+	}
+	if min > max {
+		return errors.New(errors.InvalidInput, "min_size cannot be greater than max_size")
+	}
+	if desired < min || desired > max {
+		return errors.New(errors.InvalidInput, "desired_size must be between min_size and max_size")
+	}
 	return nil
 }

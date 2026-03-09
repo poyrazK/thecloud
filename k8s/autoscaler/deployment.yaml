@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-autoscaler
+  namespace: kube-system
+  labels:
+    app: cluster-autoscaler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cluster-autoscaler
+  template:
+    metadata:
+      labels:
+        app: cluster-autoscaler
+    spec:
+      serviceAccountName: cluster-autoscaler
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        # 1. The Official Cluster Autoscaler (Upstream)
+        - name: cluster-autoscaler
+          image: registry.k8s.io/autoscaling/cluster-autoscaler:v1.29.3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          resources:
+            limits:
+              cpu: 100m
+              memory: 300Mi
+            requests:
+              cpu: 100m
+              memory: 300Mi
+          command:
+            - ./cluster-autoscaler
+            - --cloud-provider=externalgrpc
+            - --cloud-config=/etc/config/externalgrpc.config
+            - --scale-down-delay-after-add=5m
+            - --scale-down-unneeded-time=5m
+            - --v=4
+            - --stderrthreshold=info
+            - --leader-elect=true
+          volumeMounts:
+            - name: cloud-config
+              mountPath: /etc/config
+              readOnly: true
+
+        # 2. The Cloud Autoscaler Bridge (Our Implementation)
+        - name: thecloud-bridge
+          image: ghcr.io/poyrazk/thecloud-autoscaler-server:v1.0.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+          env:
+            - name: CLOUD_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: thecloud-api-credentials
+                  key: api-key
+            - name: CLOUD_API_URL
+              value: "https://thecloud-api.kube-system.svc.cluster.local:443"
+            - name: CLOUD_CLUSTER_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-id
+                  key: cluster-id
+          ports:
+            - containerPort: 50051
+
+      volumes:
+        - name: cloud-config
+          configMap:
+            name: cluster-autoscaler-config
+
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          effect: NoSchedule
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""

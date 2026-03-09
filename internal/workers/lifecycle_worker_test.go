@@ -53,7 +53,7 @@ func (f *fakeLifecycleStorageService) DeletedKeys() []string {
 	return append([]string(nil), f.deletedKeys...)
 }
 
-func (f *fakeLifecycleStorageService) Upload(ctx context.Context, bucket, key string, r io.Reader) (*domain.Object, error) {
+func (f *fakeLifecycleStorageService) Upload(ctx context.Context, bucket, key string, r io.Reader, providedChecksum string) (*domain.Object, error) {
 	return nil, nil
 }
 func (f *fakeLifecycleStorageService) Download(ctx context.Context, bucket, key string) (io.ReadCloser, *domain.Object, error) {
@@ -89,7 +89,7 @@ func (f *fakeLifecycleStorageService) GetClusterStatus(ctx context.Context) (*do
 func (f *fakeLifecycleStorageService) CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error) {
 	return nil, nil
 }
-func (f *fakeLifecycleStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
+func (f *fakeLifecycleStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader, providedChecksum string) (*domain.Part, error) {
 	return nil, nil
 }
 func (f *fakeLifecycleStorageService) CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error) {
@@ -99,6 +99,9 @@ func (f *fakeLifecycleStorageService) AbortMultipartUpload(ctx context.Context, 
 	return nil
 }
 func (f *fakeLifecycleStorageService) CleanupDeleted(ctx context.Context, limit int) (int, error) {
+	return 0, nil
+}
+func (f *fakeLifecycleStorageService) CleanupPendingUploads(ctx context.Context, olderThan time.Duration, limit int) (int, error) {
 	return 0, nil
 }
 func (f *fakeLifecycleStorageService) GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error) {

@@ -66,6 +66,23 @@ func (m *MockClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, ba
 	return nil
 }
 
+func (m *MockClusterService) AddNodeGroup(ctx context.Context, clusterID uuid.UUID, params ports.NodeGroupParams) (*domain.NodeGroup, error) {
+	return nil, nil
+}
+func (m *MockClusterService) UpdateNodeGroup(ctx context.Context, clusterID uuid.UUID, name string, params ports.UpdateNodeGroupParams) (*domain.NodeGroup, error) {
+	return nil, nil
+}
+func (m *MockClusterService) DeleteNodeGroup(ctx context.Context, clusterID uuid.UUID, name string) error {
+	return nil
+}
+
+func (m *MockClusterService) AddNode(ctx context.Context, clusterID uuid.UUID, role string) (*domain.ClusterNode, error) {
+	return nil, nil
+}
+func (m *MockClusterService) RemoveNode(ctx context.Context, clusterID, nodeID uuid.UUID) error {
+	return nil
+}
+
 func TestHealthService_Check_Unit(t *testing.T) {
 	mockDB := new(MockCheckable)
 	mockCompute := new(MockComputeBackend)

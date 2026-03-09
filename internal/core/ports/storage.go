@@ -30,6 +30,8 @@ type StorageRepository interface {
 	ListDeleted(ctx context.Context, limit int) ([]*domain.Object, error)
 	// HardDelete permanently removes metadata for a specific object version.
 	HardDelete(ctx context.Context, bucket, key, versionID string) error
+	// ListPending returns a list of objects that are stuck in PENDING state.
+	ListPending(ctx context.Context, olderThan time.Time, limit int) ([]*domain.Object, error)
 
 	// Bucket operations
 	CreateBucket(ctx context.Context, bucket *domain.Bucket) error
@@ -64,7 +66,7 @@ type FileStore interface {
 // StorageService provides business logic for managing bucket-based object storage resources (e.g., Cloud Storage).
 type StorageService interface {
 	// Upload manages the metadata registration and binary data transfer of a new object.
-	Upload(ctx context.Context, bucket, key string, r io.Reader) (*domain.Object, error)
+	Upload(ctx context.Context, bucket, key string, r io.Reader, providedChecksum string) (*domain.Object, error)
 	// Download retrieves both the binary content and metadata for a specified object.
 	Download(ctx context.Context, bucket, key string) (io.ReadCloser, *domain.Object, error)
 	// ListObjects returns metadata for all accessible objects in a bucket.
@@ -90,12 +92,14 @@ type StorageService interface {
 
 	// Multipart operations
 	CreateMultipartUpload(ctx context.Context, bucket, key string) (*domain.MultipartUpload, error)
-	UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error)
+	UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader, providedChecksum string) (*domain.Part, error)
 	CompleteMultipartUpload(ctx context.Context, uploadID uuid.UUID) (*domain.Object, error)
 	AbortMultipartUpload(ctx context.Context, uploadID uuid.UUID) error
 
 	// Cleanup
 	CleanupDeleted(ctx context.Context, limit int) (int, error)
+	// CleanupPendingUploads removes orphaned files from failed uploads.
+	CleanupPendingUploads(ctx context.Context, olderThan time.Duration, limit int) (int, error)
 
 	// Presigned URLs
 	GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error)
