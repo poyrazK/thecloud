@@ -269,7 +269,7 @@ func (m *mockRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, 
 	return args.Bool(0), args.Error(1)
 }
 
-func setupDashboardServiceTest(_ *testing.T) (*mockInstanceRepo, *mockVolumeRepo, *mockVpcRepo, *mockEventRepo, *mockRBACService, ports.DashboardService) {
+func setupDashboardServiceTest(_ *testing.T) (*mockInstanceRepo, *mockVolumeRepo, *mockVpcRepo, *mockEventRepo, ports.DashboardService) {
 	instanceRepo := new(mockInstanceRepo)
 	volumeRepo := new(mockVolumeRepo)
 	vpcRepo := new(mockVpcRepo)
@@ -279,7 +279,7 @@ func setupDashboardServiceTest(_ *testing.T) (*mockInstanceRepo, *mockVolumeRepo
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := NewDashboardService(rbacSvc, instanceRepo, volumeRepo, vpcRepo, eventRepo, slog.Default())
-	return instanceRepo, volumeRepo, vpcRepo, eventRepo, rbacSvc, svc
+	return instanceRepo, volumeRepo, vpcRepo, eventRepo, svc
 }
 
 func TestDashboardServiceGetSummary(t *testing.T) {
@@ -327,7 +327,7 @@ func TestDashboardServiceGetSummary(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			instanceRepo, volumeRepo, vpcRepo, _, _, svc := setupDashboardServiceTest(t)
+			instanceRepo, volumeRepo, vpcRepo, _, svc := setupDashboardServiceTest(t)
 			defer instanceRepo.AssertExpectations(t)
 			defer volumeRepo.AssertExpectations(t)
 			defer vpcRepo.AssertExpectations(t)
@@ -349,7 +349,7 @@ func TestDashboardServiceGetSummary(t *testing.T) {
 
 func TestDashboardServiceGetRecentEvents(t *testing.T) {
 	t.Parallel()
-	_, _, _, eventRepo, _, svc := setupDashboardServiceTest(t)
+	_, _, _, eventRepo, svc := setupDashboardServiceTest(t)
 	defer eventRepo.AssertExpectations(t)
 
 	events := []*domain.Event{
@@ -366,7 +366,7 @@ func TestDashboardServiceGetRecentEvents(t *testing.T) {
 
 func TestDashboardServiceGetStats(t *testing.T) {
 	t.Parallel()
-	instanceRepo, volumeRepo, vpcRepo, eventRepo, _, svc := setupDashboardServiceTest(t)
+	instanceRepo, volumeRepo, vpcRepo, eventRepo, svc := setupDashboardServiceTest(t)
 	defer instanceRepo.AssertExpectations(t)
 	defer volumeRepo.AssertExpectations(t)
 	defer vpcRepo.AssertExpectations(t)

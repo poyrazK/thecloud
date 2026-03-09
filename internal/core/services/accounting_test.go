@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupAccountingServiceTest(t *testing.T) (ports.AccountingService, ports.AccountingRepository, *postgres.InstanceRepository, context.Context, *pgxpool.Pool) {
+func setupAccountingServiceTest(t *testing.T) (ports.AccountingService, ports.AccountingRepository, *postgres.InstanceRepository, context.Context) {
 	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
@@ -29,15 +29,15 @@ func setupAccountingServiceTest(t *testing.T) (ports.AccountingService, ports.Ac
 	logger := slog.Default()
 
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewAccountingService(repo, rbacSvc, instRepo, logger)
 
-	return svc, repo, instRepo, ctx, db
+	return svc, repo, instRepo, ctx
 }
 
 func TestTrackUsage(t *testing.T) {
-	svc, repo, _, ctx, _ := setupAccountingServiceTest(t)
+	svc, repo, _, ctx := setupAccountingServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	record := domain.UsageRecord{
@@ -60,7 +60,7 @@ func TestTrackUsage(t *testing.T) {
 }
 
 func TestProcessHourlyBilling(t *testing.T) {
-	svc, repo, instRepo, ctx, _ := setupAccountingServiceTest(t)
+	svc, repo, instRepo, ctx := setupAccountingServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
@@ -99,7 +99,7 @@ func TestProcessHourlyBilling(t *testing.T) {
 }
 
 func TestGetSummary(t *testing.T) {
-	svc, _, _, ctx, _ := setupAccountingServiceTest(t)
+	svc, _, _, ctx := setupAccountingServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 	now := time.Now()
 
@@ -136,7 +136,7 @@ func TestGetSummary(t *testing.T) {
 }
 
 func TestListUsage(t *testing.T) {
-	svc, _, _, ctx, _ := setupAccountingServiceTest(t)
+	svc, _, _, ctx := setupAccountingServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	rec := domain.UsageRecord{

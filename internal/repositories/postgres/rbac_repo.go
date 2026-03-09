@@ -3,12 +3,13 @@ package postgres
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
-	"github.com/poyrazk/thecloud/internal/errors"
+	internalerrors "github.com/poyrazk/thecloud/internal/errors"
 )
 
 type rbacRepository struct {
@@ -95,10 +96,10 @@ func (r *rbacRepository) ListRoles(ctx context.Context) ([]*domain.Role, error) 
 func (r *rbacRepository) scanRole(row pgx.Row) (*domain.Role, error) {
 	role := &domain.Role{}
 	if err := row.Scan(&role.ID, &role.Name, &role.Description); err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, errors.New(errors.NotFound, "role not found")
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, internalerrors.New(internalerrors.NotFound, "role not found")
 		}
-		return nil, errors.Wrap(errors.Internal, "failed to scan role", err)
+		return nil, internalerrors.Wrap(internalerrors.Internal, "failed to scan role", err)
 	}
 	return role, nil
 }

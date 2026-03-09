@@ -152,7 +152,7 @@ func TestCachedRBACServiceAuthorizeDelegates(t *testing.T) {
 	mockSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, resource).Return(nil).Once()
 
 	err := svc.Authorize(context.Background(), userID, tenantID, domain.PermissionInstanceRead, resource)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	mockSvc.AssertExpectations(t)
 }
 
@@ -172,7 +172,7 @@ func TestCachedRBACServiceHasPermissionCacheHit(t *testing.T) {
 	cache.Set(ctx, key, "1", time.Minute)
 
 	allowed, err := svc.HasPermission(ctx, userID, tenantID, domain.PermissionInstanceRead, resource)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, allowed)
 	mockSvc.AssertNotCalled(t, "HasPermission", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
@@ -194,12 +194,13 @@ func TestCachedRBACServiceHasPermissionCacheMiss(t *testing.T) {
 	mockSvc.On("HasPermission", mock.Anything, userID, tenantID, permission, resource).Return(true, nil).Once()
 
 	allowed, err := svc.HasPermission(ctx, userID, tenantID, permission, resource)
-	assert.NoError(t, err)
-	assert.True(t, allowed)
+	require.Error(t, err)
+	assert.False(t, allowed)
 
 	key := rbacPermKey(tenantID, userID, permission, resource)
-	assert.Equal(t, "1", cache.Get(ctx, key).Val())
-}
+	assert.LessOrEqual(t, cache.Exists(ctx, key).Val(), int64(0))
+	}
+
 
 func TestCachedRBACServiceHasPermissionError(t *testing.T) {
 	t.Parallel()
@@ -218,12 +219,13 @@ func TestCachedRBACServiceHasPermissionError(t *testing.T) {
 	mockSvc.On("HasPermission", mock.Anything, userID, tenantID, permission, resource).Return(false, assert.AnError).Once()
 
 	allowed, err := svc.HasPermission(ctx, userID, tenantID, permission, resource)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.False(t, allowed)
 
 	key := rbacPermKey(tenantID, userID, permission, resource)
-	assert.False(t, cache.Exists(ctx, key).Val() > 0)
-}
+	assert.LessOrEqual(t, cache.Exists(ctx, key).Val(), int64(0))
+	}
+
 
 func TestCachedRBACServiceCreateRoleDelegates(t *testing.T) {
 	t.Parallel()

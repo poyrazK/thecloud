@@ -17,6 +17,7 @@ import (
 )
 
 func setupDatabaseUnit(t *testing.T) (*MockDatabaseRepo, *MockRBACService, *MockComputeBackend, *MockVpcRepo, *MockAuditService, ports.DatabaseService) {
+	t.Helper()
 	repo := new(MockDatabaseRepo)
 	compute := new(MockComputeBackend)
 	rbacSvc := new(MockRBACService)
