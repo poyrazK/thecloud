@@ -2088,6 +2088,12 @@ definitions:
     required:
     - new_volume_name
     type: object
+  httphandlers.RotateCredentialsResponse:
+    properties:
+      message:
+        example: database credentials rotated successfully
+        type: string
+    type: object
   httphandlers.ScaleClusterRequest:
     properties:
       workers:
@@ -3216,7 +3222,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httputil.Response'
+            allOf:
+            - $ref: '#/definitions/httputil.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/httphandlers.RotateCredentialsResponse'
+              type: object
       security:
       - APIKeyAuth: []
       summary: Rotate database credentials

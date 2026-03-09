@@ -265,6 +265,9 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 
 	var secretsSvc ports.SecretsManager
 	if c.Config.VaultToken == "" {
+		if c.Config.Environment == "production" || c.Config.Environment == "staging" {
+			return nil, nil, fmt.Errorf("VAULT_TOKEN is required in %s environment", c.Config.Environment)
+		}
 		c.Logger.Warn("VAULT_TOKEN not set, using NoOp secrets manager. Credentials will NOT be stored in Vault.")
 		secretsSvc = vault.NewNoOpSecretsManager()
 	} else {
@@ -272,8 +275,10 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to init vault adapter: %w", err)
 		}
-		// Fail fast if Vault is unreachable
-		if err := vaultSvc.Ping(context.Background()); err != nil {
+		// Fail fast if Vault is unreachable (with timeout)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := vaultSvc.Ping(ctx); err != nil {
 			return nil, nil, fmt.Errorf("vault health check failed on startup: %w", err)
 		}
 		secretsSvc = vaultSvc

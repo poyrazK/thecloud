@@ -307,6 +307,11 @@ func (h *DatabaseHandler) Restore(c *gin.Context) {
 	httputil.Success(c, http.StatusCreated, db)
 }
 
+// RotateCredentialsResponse is the payload for credential rotation success.
+type RotateCredentialsResponse struct {
+	Message string `json:"message" example:"database credentials rotated successfully"`
+}
+
 // RotateCredentials regenerates the database password and updates it in the secrets manager.
 // @Summary Rotate database credentials
 // @Description Regenerates the database password, updates it in the database and secrets manager
@@ -315,7 +320,7 @@ func (h *DatabaseHandler) Restore(c *gin.Context) {
 // @Security APIKeyAuth
 // @Param id path string true "Database ID"
 // @Param Idempotency-Key header string false "Idempotency key to prevent duplicate rotations"
-// @Success 200 {object} httputil.Response
+// @Success 200 {object} httputil.Response{data=RotateCredentialsResponse}
 // @Router /databases/{id}/rotate-credentials [post]
 func (h *DatabaseHandler) RotateCredentials(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))

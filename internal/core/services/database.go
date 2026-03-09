@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -52,6 +53,7 @@ type DatabaseService struct {
 	vaultMountPath string
 	// Simple in-memory idempotency cache for rotation
 	rotationCache map[string]bool
+	rotationMu    sync.Mutex
 }
 
 // Ensure DatabaseService implements ports.DatabaseService
@@ -154,7 +156,10 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.Restore
 		return nil, err
 	}
 	dbEngine := domain.DatabaseEngine(req.Engine)
-	password, _ := util.GenerateRandomPassword(16)
+	password, err := util.GenerateRandomPassword(16)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to generate password for restore", err)
+	}
 	username := s.getDefaultUsername(dbEngine)
 	db := s.initialDatabaseRecord(userID, req.NewName, dbEngine, req.Version, username, password, req.VpcID)
 	
@@ -165,6 +170,9 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.Restore
 	db.MetricsEnabled = req.MetricsEnabled
 	db.PoolingEnabled = req.PoolingEnabled
 
+	// Note: We store credentials in Vault BEFORE restoring the snapshot to ensure
+	// secret availability during potential multi-step provisioning. If restore fails,
+	// we explicitly clean up the secret.
 	vaultPath := s.getVaultPath(db.ID)
 	if err := s.secrets.StoreSecret(ctx, vaultPath, map[string]interface{}{"password": password}); err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to store restored database credentials in vault", err)
@@ -173,7 +181,9 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.Restore
 
 	vol, err := s.snapshotSvc.RestoreSnapshot(ctx, req.SnapshotID, fmt.Sprintf("db-vol-%s", db.ID.String()[:8]))
 	if err != nil {
-		_ = s.secrets.DeleteSecret(ctx, db.CredentialPath)
+		if delErr := s.secrets.DeleteSecret(ctx, db.CredentialPath); delErr != nil {
+			s.logger.Warn("failed to cleanup vault secret after snapshot restore failure", "path", db.CredentialPath, "error", delErr)
+		}
 		return nil, err
 	}
 	
@@ -189,7 +199,9 @@ func (s *DatabaseService) provisionDatabase(ctx context.Context, db *domain.Data
 
 	vol, err := s.volumeSvc.CreateVolume(ctx, fmt.Sprintf("db-vol-%s", db.ID.String()[:8]), db.AllocatedStorage)
 	if err != nil {
-		_ = s.secrets.DeleteSecret(ctx, db.CredentialPath)
+		if delErr := s.secrets.DeleteSecret(ctx, db.CredentialPath); delErr != nil {
+			s.logger.Warn("failed to cleanup vault secret after volume creation failure", "path", db.CredentialPath, "error", delErr)
+		}
 		return nil, errors.Wrap(errors.Internal, "failed to create persistent volume", err)
 	}
 
@@ -414,8 +426,10 @@ func (s *DatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID)
 		secret, err := s.secrets.GetSecret(ctx, db.CredentialPath)
 		if err != nil {
 			s.logger.Warn("failed to fetch database password from vault, using fallback", "path", db.CredentialPath, "error", err)
-		} else if p, ok := secret["password"].(string); ok {
-			password = p
+		} else if secret != nil {
+			if p, ok := secret["password"].(string); ok {
+				password = p
+			}
 		}
 	}
 
@@ -464,10 +478,12 @@ func (s *DatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID 
 
 func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, idempotencyKey string) error {
 	if idempotencyKey != "" {
+		s.rotationMu.Lock()
 		if s.rotationCache[idempotencyKey] {
+			s.rotationMu.Unlock()
 			return nil // Already rotated
 		}
-		s.rotationCache[idempotencyKey] = true
+		s.rotationMu.Unlock()
 	}
 
 	db, err := s.repo.GetByID(ctx, id)
@@ -484,7 +500,7 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, i
 	currentPassword := db.Password
 	if db.CredentialPath != "" {
 		secret, err := s.secrets.GetSecret(ctx, db.CredentialPath)
-		if err == nil {
+		if err == nil && secret != nil {
 			if p, ok := secret["password"].(string); ok {
 				currentPassword = p
 			}
@@ -514,8 +530,8 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, i
 		vaultPath = s.getVaultPath(db.ID)
 	}
 	if err := s.secrets.StoreSecret(ctx, vaultPath, map[string]interface{}{"password": newPassword}); err != nil {
-		// Rollback DB if Vault fails? This is tricky.
-		// At least return an error and suggest manual sync.
+		// Note: At this point DB password is changed but Vault update failed.
+		// The system is out of sync. Fallback password in DB record remains old.
 		return errors.Wrap(errors.Internal, "database password updated but failed to store in vault", err)
 	}
 
@@ -545,6 +561,12 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, i
 		if err := s.repo.Update(ctx, db); err != nil {
 			return err
 		}
+	}
+
+	if idempotencyKey != "" {
+		s.rotationMu.Lock()
+		s.rotationCache[idempotencyKey] = true
+		s.rotationMu.Unlock()
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_CREDENTIALS_ROTATE", db.ID.String(), "DATABASE", nil)
@@ -670,7 +692,9 @@ func (s *DatabaseService) performProvisioningRollback(ctx context.Context, db *d
 		}
 	}
 	if db.CredentialPath != "" {
-		_ = s.secrets.DeleteSecret(ctx, db.CredentialPath)
+		if delErr := s.secrets.DeleteSecret(ctx, db.CredentialPath); delErr != nil {
+			s.logger.Warn("failed to delete database credentials from vault during rollback", "path", db.CredentialPath, "error", delErr)
+		}
 	}
 	if deleteErr := s.volumeSvc.DeleteVolume(ctx, volID); deleteErr != nil {
 		s.logger.Warn("failed to delete volume during rollback", "volume_id", volID, "error", deleteErr)

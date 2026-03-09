@@ -367,19 +367,17 @@ CREATE TABLE databases (
 The platform integrates with **HashiCorp Vault** to securely manage database credentials.
 
 #### Vault Integration
-Instead of storing plain-text passwords in the primary database, credentials are saved in Vault:
-- **Storage Path**: `secret/data/thecloud/rds/:db_id/credentials`
+The platform is Vault-backed with database fallback. Credentials are primarily stored in Vault at `secret/data/thecloud/rds/:db_id/credentials`, while the `password` field in the `databases` table remains persisted for legacy support and fallback during Vault unavailability.
 - **Metadata**: The `credential_path` field in the `databases` table stores the reference to the Vault secret.
-- **Fallback**: The `password` field is maintained for legacy support and as a fallback during Vault unavailability.
 
 #### Credential Rotation
 Users can trigger automated password rotation for their database instances.
 - **Endpoint**: `POST /databases/:id/rotate-credentials`
 - **Workflow**:
     1.  **Generate Password**: A new 16-character secure password is generated.
-    2.  **Update Vault**: The new password is saved to the configured Vault path.
-    3.  **Engine Update**: The `ALTER USER` command is executed inside the database container to apply the new password.
-    4.  **Sidecar Update**: Sidecars like PgBouncer are automatically restarted to pick up the new credentials.
+    2.  **Engine Update**: The `ALTER USER` command is executed inside the database container first to apply the new password.
+    3.  **Update Vault**: The new secret is written to Vault. (Note: A failure here may leave the database and Vault out of sync).
+    4.  **Sidecar Update**: Sidecars such as PgBouncer/pooler are automatically recreated to apply the new credentials only when they are present.
     5.  **Audit**: The rotation event is recorded in the system events and audit logs.
 
 This mechanism ensures that database access remains secure and meets compliance requirements for periodic credential updates.
