@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -23,16 +24,25 @@ func (m *mockGatewayRepo) CreateRoute(ctx context.Context, r *domain.GatewayRout
 }
 func (m *mockGatewayRepo) GetRouteByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*domain.GatewayRoute, error) {
 	args := m.Called(ctx, id, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	r0, _ := args.Get(0).(*domain.GatewayRoute)
 	return r0, args.Error(1)
 }
 func (m *mockGatewayRepo) ListRoutes(ctx context.Context, userID uuid.UUID) ([]*domain.GatewayRoute, error) {
 	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	r0, _ := args.Get(0).([]*domain.GatewayRoute)
 	return r0, args.Error(1)
 }
 func (m *mockGatewayRepo) GetAllActiveRoutes(ctx context.Context) ([]*domain.GatewayRoute, error) {
 	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	r0, _ := args.Get(0).([]*domain.GatewayRoute)
 	return r0, args.Error(1)
 }
@@ -64,10 +74,17 @@ func TestGatewayService_Unit(t *testing.T) {
 		assert.NotNil(t, res)
 	})
 
-	t.Run("RefreshRoutes", func(t *testing.T) {
-		// Already mocked in setup for multiple calls
-		err := svc.RefreshRoutes(ctx)
+	t.Run("ListRoutes", func(t *testing.T) {
+		repo.On("ListRoutes", mock.Anything, userID).Return([]*domain.GatewayRoute{{ID: uuid.New()}}, nil).Once()
+		res, err := svc.ListRoutes(ctx)
 		require.NoError(t, err)
+		assert.Len(t, res, 1)
+	})
+
+	t.Run("RefreshRoutes_Error", func(t *testing.T) {
+		repo.On("GetAllActiveRoutes", mock.Anything).Return(nil, fmt.Errorf("db fail")).Once()
+		err := svc.RefreshRoutes(ctx)
+		require.Error(t, err)
 	})
 
 	t.Run("DeleteRoute", func(t *testing.T) {
