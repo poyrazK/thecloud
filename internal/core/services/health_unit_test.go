@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -107,12 +108,32 @@ func TestHealthService_Check_Unit(t *testing.T) {
 	})
 
 	t.Run("DBDown", func(t *testing.T) {
-		mockDB.On("Ping", mock.Anything).Return(assert.AnError).Once()
+		mockDB.On("Ping", mock.Anything).Return(fmt.Errorf("db fail")).Once()
 		mockCompute.On("Ping", mock.Anything).Return(nil).Once()
 		mockCluster.On("ListClusters", mock.Anything, uuid.Nil).Return([]*domain.Cluster{}, nil).Once()
 
 		res := svc.Check(ctx)
 		assert.Equal(t, "DEGRADED", res.Status)
 		assert.Contains(t, res.Checks["database_primary"], "DISCONNECTED")
+	})
+
+	t.Run("ComputeDown", func(t *testing.T) {
+		mockDB.On("Ping", mock.Anything).Return(nil).Once()
+		mockCompute.On("Ping", mock.Anything).Return(fmt.Errorf("docker fail")).Once()
+		mockCluster.On("ListClusters", mock.Anything, uuid.Nil).Return([]*domain.Cluster{}, nil).Once()
+
+		res := svc.Check(ctx)
+		assert.Equal(t, "DEGRADED", res.Status)
+		assert.Contains(t, res.Checks["docker"], "DISCONNECTED")
+	})
+
+	t.Run("K8sDegraded", func(t *testing.T) {
+		mockDB.On("Ping", mock.Anything).Return(nil).Once()
+		mockCompute.On("Ping", mock.Anything).Return(nil).Once()
+		mockCluster.On("ListClusters", mock.Anything, uuid.Nil).Return(nil, fmt.Errorf("k8s fail")).Once()
+
+		res := svc.Check(ctx)
+		assert.Equal(t, "DEGRADED", res.Status)
+		assert.Contains(t, res.Checks["kubernetes_service"], "DEGRADED")
 	})
 }
