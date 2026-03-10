@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 
@@ -89,14 +90,23 @@ func TestCloudLogsServiceSearchLogsUnit(t *testing.T) {
 	ctx := context.Background()
 
 	query := domain.LogQuery{ResourceID: "res-1"}
-	expectedLogs := []*domain.LogEntry{{Message: "found"}}
+	
+	t.Run("Success", func(t *testing.T) {
+		expectedLogs := []*domain.LogEntry{{Message: "found"}}
+		mockRepo.On("List", mock.Anything, query).Return(expectedLogs, 1, nil).Once()
 
-	mockRepo.On("List", mock.Anything, query).Return(expectedLogs, 1, nil)
+		logs, total, err := svc.SearchLogs(ctx, query)
+		require.NoError(t, err)
+		assert.Equal(t, 1, total)
+		assert.Equal(t, "found", logs[0].Message)
+	})
 
-	logs, total, err := svc.SearchLogs(ctx, query)
-	require.NoError(t, err)
-	assert.Equal(t, 1, total)
-	assert.Equal(t, "found", logs[0].Message)
+	t.Run("RepoError", func(t *testing.T) {
+		mockRepo.On("List", mock.Anything, mock.Anything).Return(nil, 0, fmt.Errorf("db fail")).Once()
+		_, _, err := svc.SearchLogs(ctx, query)
+		require.Error(t, err)
+	})
+
 	mockRepo.AssertExpectations(t)
 }
 
