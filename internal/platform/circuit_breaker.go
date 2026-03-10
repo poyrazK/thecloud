@@ -3,6 +3,7 @@ package platform
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -22,22 +23,80 @@ const (
 	StateHalfOpen
 )
 
-// CircuitBreaker implements the circuit breaker pattern.
-type CircuitBreaker struct {
-	mu               sync.RWMutex
-	state            State
-	failureCount     int
-	failureThreshold int
-	resetTimeout     time.Duration
-	lastFailure      time.Time
+// String returns a human-readable name for the circuit breaker state.
+func (s State) String() string {
+	switch s {
+	case StateClosed:
+		return "closed"
+	case StateOpen:
+		return "open"
+	case StateHalfOpen:
+		return "half-open"
+	default:
+		return fmt.Sprintf("unknown(%d)", int(s))
+	}
 }
 
-// NewCircuitBreaker creates a new circuit breaker.
+// StateChangeFunc is called when the circuit breaker transitions between states.
+// The old and new states are provided. Implementations must not block.
+type StateChangeFunc func(name string, from, to State)
+
+// CircuitBreakerOpts configures the circuit breaker. All fields are optional
+// and have sensible defaults; use the functional options to override.
+type CircuitBreakerOpts struct {
+	Name            string          // Identifies this breaker in logs/metrics.
+	Threshold       int             // Consecutive failures to trip open. Default 5.
+	ResetTimeout    time.Duration   // Time in open before trying half-open. Default 30s.
+	SuccessRequired int             // Successes in half-open to close. Default 1.
+	OnStateChange   StateChangeFunc // Optional callback.
+}
+
+// CircuitBreaker implements the circuit breaker pattern with proper
+// half-open single-flight: only one probe request is allowed while open
+// transitions to half-open.
+type CircuitBreaker struct {
+	mu sync.Mutex
+
+	name             string
+	state            State
+	failureCount     int
+	successCount     int // successes in half-open
+	threshold        int
+	successRequired  int
+	resetTimeout     time.Duration
+	lastFailure      time.Time
+	halfOpenInFlight bool // true while a half-open probe is executing
+	onStateChange    StateChangeFunc
+}
+
+// NewCircuitBreaker creates a circuit breaker. The two positional args
+// (threshold, resetTimeout) are kept for backward compatibility with existing
+// callers. Use NewCircuitBreakerWithOpts for full configuration.
 func NewCircuitBreaker(threshold int, resetTimeout time.Duration) *CircuitBreaker {
+	return NewCircuitBreakerWithOpts(CircuitBreakerOpts{
+		Threshold:    threshold,
+		ResetTimeout: resetTimeout,
+	})
+}
+
+// NewCircuitBreakerWithOpts creates a circuit breaker with full options.
+func NewCircuitBreakerWithOpts(opts CircuitBreakerOpts) *CircuitBreaker {
+	if opts.Threshold <= 0 {
+		opts.Threshold = 5
+	}
+	if opts.ResetTimeout <= 0 {
+		opts.ResetTimeout = 30 * time.Second
+	}
+	if opts.SuccessRequired <= 0 {
+		opts.SuccessRequired = 1
+	}
 	return &CircuitBreaker{
-		state:            StateClosed,
-		failureThreshold: threshold,
-		resetTimeout:     resetTimeout,
+		name:            opts.Name,
+		state:           StateClosed,
+		threshold:       opts.Threshold,
+		successRequired: opts.SuccessRequired,
+		resetTimeout:    opts.ResetTimeout,
+		onStateChange:   opts.OnStateChange,
 	}
 }
 
@@ -58,34 +117,51 @@ func (cb *CircuitBreaker) Execute(fn func() error) error {
 }
 
 func (cb *CircuitBreaker) allowRequest() bool {
-	cb.mu.RLock()
-	defer cb.mu.RUnlock()
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
 
-	if cb.state == StateClosed {
+	switch cb.state {
+	case StateClosed:
+		return true
+	case StateOpen:
+		if time.Since(cb.lastFailure) <= cb.resetTimeout {
+			return false
+		}
+		// Transition to half-open; only allow one probe at a time.
+		if cb.halfOpenInFlight {
+			return false
+		}
+		cb.transitionLocked(StateHalfOpen)
+		cb.halfOpenInFlight = true
+		cb.successCount = 0
+		return true
+	case StateHalfOpen:
+		// Allow additional requests only if no probe is in flight.
+		if cb.halfOpenInFlight {
+			return false
+		}
+		cb.halfOpenInFlight = true
 		return true
 	}
-
-	if cb.state == StateOpen {
-		if time.Since(cb.lastFailure) > cb.resetTimeout {
-			return true // Transition to half-open (implied by letting one request through)
-		}
-		return false
-	}
-
-	return true // Half-open
+	return false
 }
 
 func (cb *CircuitBreaker) recordFailure() {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
+	cb.halfOpenInFlight = false
 	cb.failureCount++
 	cb.lastFailure = time.Now()
 
-	if cb.state == StateClosed && cb.failureCount >= cb.failureThreshold {
-		cb.state = StateOpen
-	} else if cb.state == StateHalfOpen {
-		cb.state = StateOpen
+	switch cb.state {
+	case StateClosed:
+		if cb.failureCount >= cb.threshold {
+			cb.transitionLocked(StateOpen)
+		}
+	case StateHalfOpen:
+		// Probe failed — go back to open.
+		cb.transitionLocked(StateOpen)
 	}
 }
 
@@ -93,18 +169,54 @@ func (cb *CircuitBreaker) recordSuccess() {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
-	cb.failureCount = 0
-	cb.state = StateClosed
+	cb.halfOpenInFlight = false
+
+	switch cb.state {
+	case StateHalfOpen:
+		cb.successCount++
+		if cb.successCount >= cb.successRequired {
+			cb.failureCount = 0
+			cb.successCount = 0
+			cb.transitionLocked(StateClosed)
+		}
+	default:
+		cb.failureCount = 0
+		cb.state = StateClosed
+	}
+}
+
+// transitionLocked changes state and fires the callback. Must be called
+// with cb.mu held. The callback is invoked synchronously; implementations
+// must not block or acquire cb.mu.
+func (cb *CircuitBreaker) transitionLocked(to State) {
+	from := cb.state
+	if from == to {
+		return
+	}
+	cb.state = to
+	if cb.onStateChange != nil {
+		cb.onStateChange(cb.name, from, to)
+	}
 }
 
 // Reset clears the circuit breaker state.
 func (cb *CircuitBreaker) Reset() {
-	cb.recordSuccess()
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	cb.failureCount = 0
+	cb.successCount = 0
+	cb.halfOpenInFlight = false
+	cb.transitionLocked(StateClosed)
 }
 
 // GetState returns the current state of the circuit breaker.
 func (cb *CircuitBreaker) GetState() State {
-	cb.mu.RLock()
-	defer cb.mu.RUnlock()
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
 	return cb.state
+}
+
+// Name returns the configured name of this circuit breaker.
+func (cb *CircuitBreaker) Name() string {
+	return cb.name
 }
