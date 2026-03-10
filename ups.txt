@@ -73,3 +73,4 @@ internal/repositories/postgres/migrations/095_add_database_allocated_storage
 internal/repositories/postgres/migrations/096_add_database_parameters
 internal/repositories/postgres/migrations/097_add_database_metrics
 internal/repositories/postgres/migrations/098_create_cluster_node_groups
+internal/repositories/postgres/migrations/099_add_cluster_backup_policy

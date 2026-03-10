@@ -216,6 +216,72 @@ func TestAutoscalerServer_NodeGroupNodes(t *testing.T) {
 	})
 }
 
+func TestAutoscalerServer_NodeGroupDecreaseTargetSize(t *testing.T) {
+	clusterID := uuid.New().String()
+	
+	t.Run("Success", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			switch r.Method {
+			case "GET":
+				fmt.Fprintf(w, `{"data": {"id": "%s", "status": "RUNNING", "node_groups": [{"name": "pool-1", "current_size": 5, "min_size": 1}]}}`, clusterID)
+			case "PUT":
+				w.WriteHeader(http.StatusOK)
+				fmt.Fprint(w, `{"data": {}}`)
+			}
+		}))
+		defer ts.Close()
+
+		client := sdk.NewClient(ts.URL, "test-token")
+		server := NewAutoscalerServer(client, clusterID)
+
+		_, err := server.NodeGroupDecreaseTargetSize(context.Background(), &protos.NodeGroupDecreaseTargetSizeRequest{Id: "pool-1", Delta: -1})
+		require.NoError(t, err)
+	})
+}
+
+func TestAutoscalerServer_NodeGroupTemplateNodeInfo(t *testing.T) {
+	server := NewAutoscalerServer(nil, "id")
+	resp, err := server.NodeGroupTemplateNodeInfo(context.Background(), &protos.NodeGroupTemplateNodeInfoRequest{Id: "pool-1"})
+	require.Error(t, err)
+	assert.Nil(t, resp)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.Unimplemented, st.Code())
+}
+
+func TestAutoscalerServer_NodeGroupGetOptions(t *testing.T) {
+	server := NewAutoscalerServer(nil, "id")
+	resp, err := server.NodeGroupGetOptions(context.Background(), &protos.NodeGroupAutoscalingOptionsRequest{})
+	require.Error(t, err)
+	assert.Nil(t, resp)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.Unimplemented, st.Code())
+}
+
+func TestAutoscalerServer_Pricing(t *testing.T) {
+	server := NewAutoscalerServer(nil, "id")
+	
+	t.Run("NodePrice", func(t *testing.T) {
+		resp, err := server.PricingNodePrice(context.Background(), &protos.PricingNodePriceRequest{})
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		st, ok := status.FromError(err)
+		require.True(t, ok)
+		assert.Equal(t, codes.Unimplemented, st.Code())
+	})
+
+	t.Run("PodPrice", func(t *testing.T) {
+		resp, err := server.PricingPodPrice(context.Background(), &protos.PricingPodPriceRequest{})
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		st, ok := status.FromError(err)
+		require.True(t, ok)
+		assert.Equal(t, codes.Unimplemented, st.Code())
+	})
+}
+
 func TestAutoscalerServer_Misc(t *testing.T) {
 	server := NewAutoscalerServer(nil, "id")
 	
