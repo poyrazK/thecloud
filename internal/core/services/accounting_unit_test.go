@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 	"time"
@@ -71,6 +72,15 @@ func TestAccountingServiceUnit(t *testing.T) {
 		assert.Equal(t, userID, summary.UserID)
 	})
 
+	t.Run("GetSummary_Empty", func(t *testing.T) {
+		userID := uuid.New()
+		mockRepo.On("GetUsageSummary", mock.Anything, userID, mock.Anything, mock.Anything).Return(make(map[domain.ResourceType]float64), nil).Once()
+
+		summary, err := svc.GetSummary(ctx, userID, time.Now(), time.Now())
+		require.NoError(t, err)
+		assert.Equal(t, 0.0, summary.TotalAmount)
+	})
+
 	t.Run("ListUsage", func(t *testing.T) {
 		userID := uuid.New()
 		start := time.Now().Add(-24 * time.Hour)
@@ -98,5 +108,14 @@ func TestAccountingServiceUnit(t *testing.T) {
 		require.NoError(t, err)
 		mockInstRepo.AssertExpectations(t)
 		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("ProcessHourlyBilling_RepoFailure", func(t *testing.T) {
+		inst := &domain.Instance{ID: uuid.New(), Status: domain.StatusRunning}
+		mockInstRepo.On("List", mock.Anything).Return([]*domain.Instance{inst}, nil).Once()
+		mockRepo.On("CreateRecord", mock.Anything, mock.Anything).Return(fmt.Errorf("db fail")).Once()
+
+		err := svc.ProcessHourlyBilling(ctx)
+		require.NoError(t, err) // continues on error
 	})
 }
