@@ -65,7 +65,7 @@ func TestRotateSecrets(t *testing.T) {
 	})
 }
 
-func TestCreateBackup(t *testing.T) {
+func TestCreateBackup_Extra(t *testing.T) {
 	ctx := context.Background()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	clusterID := uuid.New()

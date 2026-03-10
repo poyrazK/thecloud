@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"encoding/base64"
 	"io"
 	"log/slog"
 	"os"
@@ -67,6 +68,9 @@ func (m *mockStorageService) DeleteObject(ctx context.Context, bucket, key strin
 
 func (m *mockStorageService) DownloadVersion(ctx context.Context, bucket, key, versionID string) (io.ReadCloser, *domain.Object, error) {
 	args := m.Called(ctx, bucket, key, versionID)
+	if args.Get(0) == nil {
+		return nil, nil, args.Error(2)
+	}
 	return args.Get(0).(io.ReadCloser), nil, args.Error(2)
 }
 
@@ -142,7 +146,7 @@ func (m *mockStorageService) GeneratePresignedURL(ctx context.Context, bucket, k
 
 func TestRestore(t *testing.T) {
 	ctx := context.Background()
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	clusterID := uuid.New()
 	cluster := &domain.Cluster{
 		ID:              clusterID,
@@ -199,6 +203,39 @@ func TestRestore(t *testing.T) {
 		storage.AssertExpectations(t)
 	})
 
+	t.Run("Successful Restore Base64", func(t *testing.T) {
+		executor := new(mockNodeExecutor)
+		storage := new(mockStorageService)
+
+		p := &KubeadmProvisioner{
+			storageSvc: storage,
+			logger:     logger,
+			executorFactory: func(ctx context.Context, c *domain.Cluster, ip string) (NodeExecutor, error) {
+				return executor, nil
+			},
+		}
+
+		backupData := base64.StdEncoding.EncodeToString([]byte("fake-etcd-data"))
+		backupPath := "clusters/" + clusterID.String() + "/backup.db.b64"
+		storage.On("Download", mock.Anything, "k8s-backups", backupPath).
+			Return(io.NopCloser(strings.NewReader(backupData)), nil, nil)
+
+		executor.On("Run", mock.Anything, mock.Anything).Return("", nil)
+		executor.On("WriteFile", mock.Anything, "/tmp/restore-snapshot.db", mock.Anything).Return(nil)
+
+		err := p.Restore(ctx, cluster, backupPath)
+		require.NoError(t, err)
+	})
+
+	t.Run("Restore Failure - No Control Plane", func(t *testing.T) {
+		p := &KubeadmProvisioner{
+			logger: logger,
+		}
+		err := p.Restore(ctx, &domain.Cluster{}, "path")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no control plane node")
+	})
+
 	t.Run("Restore Failure - Storage Error", func(t *testing.T) {
 		storage := new(mockStorageService)
 		p := &KubeadmProvisioner{
@@ -215,5 +252,68 @@ func TestRestore(t *testing.T) {
 		err := p.Restore(ctx, cluster, "bad-path")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to download backup")
+	})
+}
+
+func TestCreateBackup_DR(t *testing.T) {
+	ctx := context.Background()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{
+		ID:              clusterID,
+		ControlPlaneIPs: []string{"10.0.0.1"},
+	}
+
+	t.Run("Successful Backup", func(t *testing.T) {
+		executor := new(mockNodeExecutor)
+		storage := new(mockStorageService)
+
+		p := &KubeadmProvisioner{
+			storageSvc: storage,
+			logger:     logger,
+			executorFactory: func(ctx context.Context, c *domain.Cluster, ip string) (NodeExecutor, error) {
+				return executor, nil
+			},
+		}
+
+		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+			return strings.Contains(cmd, "snapshot save")
+		})).Return("", nil).Once()
+
+		executor.On("Run", mock.Anything, "base64 /tmp/snapshot.db").Return("YmFja3VwLWRhdGE=", nil).Once()
+
+		storage.On("Upload", mock.Anything, "k8s-backups", mock.Anything, mock.Anything).
+			Return(&domain.Object{}, nil).Once()
+
+		err := p.CreateBackup(ctx, cluster)
+		require.NoError(t, err)
+
+		executor.AssertExpectations(t)
+		storage.AssertExpectations(t)
+	})
+
+	t.Run("Backup Failure - No Control Plane", func(t *testing.T) {
+		p := &KubeadmProvisioner{
+			logger: logger,
+		}
+		err := p.CreateBackup(ctx, &domain.Cluster{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no control plane node")
+	})
+
+	t.Run("Backup Failure - Etcd Error", func(t *testing.T) {
+		executor := new(mockNodeExecutor)
+		p := &KubeadmProvisioner{
+			logger: logger,
+			executorFactory: func(ctx context.Context, c *domain.Cluster, ip string) (NodeExecutor, error) {
+				return executor, nil
+			},
+		}
+
+		executor.On("Run", mock.Anything, mock.Anything).Return("", os.ErrPermission)
+
+		err := p.CreateBackup(ctx, cluster)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "etcd snapshot failed")
 	})
 }
