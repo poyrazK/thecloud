@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -35,6 +36,12 @@ func TestCronServiceUnit(t *testing.T) {
 		repo.AssertExpectations(t)
 	})
 
+	t.Run("CreateJob_InvalidSchedule", func(t *testing.T) {
+		_, err := svc.CreateJob(ctx, "fail", "invalid", "http://url", "GET", "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid cron schedule")
+	})
+
 	t.Run("ListJobs", func(t *testing.T) {
 		expectedJobs := []*domain.CronJob{{ID: uuid.New(), Name: "job1"}}
 		repo.On("ListJobs", mock.Anything, userID).Return(expectedJobs, nil).Once()
@@ -66,6 +73,14 @@ func TestCronServiceUnit(t *testing.T) {
 
 		err := svc.PauseJob(ctx, jobID)
 		require.NoError(t, err)
+	})
+
+	t.Run("PauseJob_NotFound", func(t *testing.T) {
+		jobID := uuid.New()
+		repo.On("GetJobByID", mock.Anything, jobID, userID).Return(nil, fmt.Errorf("not found")).Once()
+
+		err := svc.PauseJob(ctx, jobID)
+		require.Error(t, err)
 	})
 
 	t.Run("ResumeJob", func(t *testing.T) {
