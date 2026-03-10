@@ -40,7 +40,7 @@ func (r *NoopInstanceRepository) ListByVPC(ctx context.Context, vpcID uuid.UUID)
 }
 func (r *NoopInstanceRepository) Update(ctx context.Context, i *domain.Instance) error { return nil }
 
-func (r *NoopInstanceRepository) Delete(ctx context.Context, id uuid.UUID) error      { return nil }
+func (r *NoopInstanceRepository) Delete(ctx context.Context, id uuid.UUID) error { return nil }
 
 // NoopVpcRepository
 type NoopVpcRepository struct{}
@@ -110,8 +110,8 @@ func NewNoopComputeBackend() *NoopComputeBackend {
 func (b *NoopComputeBackend) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
 	return uuid.New().String(), []string{}, nil
 }
-func (b *NoopComputeBackend) StartInstance(ctx context.Context, id string) error { return nil }
-func (b *NoopComputeBackend) StopInstance(ctx context.Context, id string) error  { return nil }
+func (b *NoopComputeBackend) StartInstance(ctx context.Context, id string) error  { return nil }
+func (b *NoopComputeBackend) StopInstance(ctx context.Context, id string) error   { return nil }
 func (b *NoopComputeBackend) DeleteInstance(ctx context.Context, id string) error { return nil }
 func (b *NoopComputeBackend) GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("")), nil
@@ -148,7 +148,7 @@ func (b *NoopComputeBackend) DetachVolume(ctx context.Context, id string, volume
 	return nil
 }
 func (b *NoopComputeBackend) Ping(ctx context.Context) error { return nil }
-func (b *NoopComputeBackend) Type() string                  { return "noop" }
+func (b *NoopComputeBackend) Type() string                   { return "noop" }
 
 // NoopDNSService is a no-op DNS service.
 type NoopDNSService struct{}
@@ -164,7 +164,9 @@ type NoopLogService struct{}
 func (s *NoopLogService) StreamLogs(ctx context.Context, instanceID string) (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("")), nil
 }
-func (s *NoopLogService) GetLogs(ctx context.Context, instanceID string) (string, error) { return "", nil }
+func (s *NoopLogService) GetLogs(ctx context.Context, instanceID string) (string, error) {
+	return "", nil
+}
 
 // NoopEventService is a no-op event service.
 type NoopEventService struct{}
@@ -394,13 +396,41 @@ func (s *NoopLBService) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*dom
 	return []*domain.LBTarget{}, nil
 }
 
-// NoopTaskQueue is a no-op task queue.
+// NoopTaskQueue is a no-op task queue that implements DurableTaskQueue.
 type NoopTaskQueue struct{}
 
 func (q *NoopTaskQueue) Enqueue(ctx context.Context, queue string, payload interface{}) error {
 	return nil
 }
 func (q *NoopTaskQueue) Dequeue(ctx context.Context, queue string) (string, error) { return "", nil }
+func (q *NoopTaskQueue) EnsureGroup(ctx context.Context, queueName, groupName string) error {
+	return nil
+}
+func (q *NoopTaskQueue) Receive(ctx context.Context, queueName, groupName, consumerName string) (*ports.DurableMessage, error) {
+	return nil, nil
+}
+func (q *NoopTaskQueue) Ack(ctx context.Context, queueName, groupName, messageID string) error {
+	return nil
+}
+func (q *NoopTaskQueue) Nack(ctx context.Context, queueName, groupName, messageID string) error {
+	return nil
+}
+func (q *NoopTaskQueue) ReclaimStale(ctx context.Context, queueName, groupName, consumerName string, minIdleMs int64, count int64) ([]ports.DurableMessage, error) {
+	return nil, nil
+}
+
+// NoopExecutionLedger is a no-op execution ledger that always grants ownership.
+type NoopExecutionLedger struct{}
+
+func (l *NoopExecutionLedger) TryAcquire(ctx context.Context, jobKey string, staleThreshold time.Duration) (bool, error) {
+	return true, nil
+}
+func (l *NoopExecutionLedger) MarkComplete(ctx context.Context, jobKey string, result string) error {
+	return nil
+}
+func (l *NoopExecutionLedger) MarkFailed(ctx context.Context, jobKey string, reason string) error {
+	return nil
+}
 
 // --- New No-Ops (for benchmarks and system tests) ---
 
