@@ -250,10 +250,13 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		AuditSvc: auditSvc, EventSvc: eventSvc, Logger: c.Logger,
 	})
 
-	sshKeySvc := services.NewSSHKeyService(services.SSHKeyServiceParams{
+	sshKeySvc, err := services.NewSSHKeyService(services.SSHKeyServiceParams{
 		Repo:    c.Repos.SSHKey,
 		RBACSvc: rbacSvc,
 	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to init ssh key service: %w", err)
+	}
 
 	logSvc := services.NewCloudLogsService(c.Repos.Log, rbacSvc, c.Logger)
 

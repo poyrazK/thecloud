@@ -12,13 +12,25 @@ type contextKey string
 const (
 	userIDKey   contextKey = "user_id"
 	tenantIDKey contextKey = "tenant_id"
+	internalKey contextKey = "is_internal"
 
 	systemUserIDStr = "00000000-0000-0000-0000-000000000001"
 )
 
 // SystemUserID returns the reserved UUID for system-level background tasks.
-func SystemUserID() uuid.UUID {
-	return uuid.MustParse(systemUserIDStr)
+func SystemUserID() (uuid.UUID, error) {
+	return uuid.Parse(systemUserIDStr)
+}
+
+// WithInternalCall returns a new context marked as an internal system call.
+func WithInternalCall(ctx context.Context) context.Context {
+	return context.WithValue(ctx, internalKey, true)
+}
+
+// IsInternalCall returns true if the context is marked as an internal system call.
+func IsInternalCall(ctx context.Context) bool {
+	internal, ok := ctx.Value(internalKey).(bool)
+	return ok && internal
 }
 
 // WithUserID returns a new context with the given userID.

@@ -153,10 +153,11 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 	network := noop.NewNoopNetworkAdapter(slog.Default())
 
 	sshKeyRepo := postgres.NewSSHKeyRepo(db)
-	sshKeySvc := services.NewSSHKeyService(services.SSHKeyServiceParams{
+	sshKeySvc, err := services.NewSSHKeyService(services.SSHKeyServiceParams{
 		Repo:    sshKeyRepo,
 		RBACSvc: rbacSvc,
 	})
+	require.NoError(t, err)
 
 	svc := services.NewInstanceService(services.InstanceServiceParams{
 		Repo:             repo,
@@ -282,6 +283,18 @@ func TestInstanceServiceLaunchDBFailure(t *testing.T) {
 	})
 	taskQueue := &InMemoryTaskQueue{}
 
+	sshKeySvc, err := services.NewSSHKeyService(services.SSHKeyServiceParams{
+		Repo:    postgres.NewSSHKeyRepo(db),
+		RBACSvc: rbacSvc,
+	})
+	require.NoError(t, err)
+
+	tenantSvc := services.NewTenantService(services.TenantServiceParams{
+		Repo:     postgres.NewTenantRepo(db),
+		UserRepo: postgres.NewUserRepo(db),
+		RBACSvc:  rbacSvc,
+		Logger:   slog.Default(),
+	})
 	svc := services.NewInstanceService(services.InstanceServiceParams{
 		Repo:             faultyRepo,
 		VpcRepo:          vpcRepo,
@@ -294,20 +307,12 @@ func TestInstanceServiceLaunchDBFailure(t *testing.T) {
 		AuditSvc:         auditSvc,
 		TaskQueue:        taskQueue,
 		Logger:           slog.Default(),
-		TenantSvc: services.NewTenantService(services.TenantServiceParams{
-			Repo:     postgres.NewTenantRepo(db),
-			UserRepo: postgres.NewUserRepo(db),
-			RBACSvc:  rbacSvc,
-			Logger:   slog.Default(),
-		}),
-		SSHKeySvc: services.NewSSHKeyService(services.SSHKeyServiceParams{
-			Repo:    postgres.NewSSHKeyRepo(db),
-			RBACSvc: rbacSvc,
-		}),
+		TenantSvc:        tenantSvc,
+		SSHKeySvc:        sshKeySvc,
 	})
 
 	// Attempt Launch
-	_, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
+	_, err = svc.LaunchInstance(ctx, coreports.LaunchParams{
 		Name:         "fail-inst",
 		Image:        testImage,
 		InstanceType: testInstanceType,

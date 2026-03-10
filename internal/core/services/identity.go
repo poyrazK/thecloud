@@ -115,11 +115,11 @@ func (s *IdentityService) RevokeKey(ctx context.Context, userID uuid.UUID, id uu
 	uID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	// Authorize if not self-revoking
-	if uID != userID {
-		if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionIdentityDelete, id.String()); err != nil {
-			return err
-		}
+	// 1. Authorize: Check if they have specific permission for this resource, OR it is self-revoking
+	isSelf := uID == userID
+	err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionIdentityDelete, id.String())
+	if err != nil && !isSelf {
+		return err
 	}
 
 	key, err := s.repo.GetAPIKeyByID(ctx, id)
@@ -127,8 +127,9 @@ func (s *IdentityService) RevokeKey(ctx context.Context, userID uuid.UUID, id uu
 		return err
 	}
 
-	// Verify ownership or admin override
-	if key.UserID != userID {
+	// 2. Ownership check: If RBAC failed but it was self-revoking, verify they own the key
+	// If RBAC succeeded, we bypass this.
+	if err != nil && isSelf && key.UserID != uID {
 		return errors.New(errors.Forbidden, "unauthorized access to api key")
 	}
 
@@ -136,10 +137,12 @@ func (s *IdentityService) RevokeKey(ctx context.Context, userID uuid.UUID, id uu
 		return err
 	}
 
-	// Log audit event
-	_ = s.auditSvc.Log(ctx, uID, "api_key.revoke", "api_key", id.String(), map[string]interface{}{
+	// Log audit event - capture error
+	if auditErr := s.auditSvc.Log(ctx, uID, "api_key.revoke", "api_key", id.String(), map[string]interface{}{
 		"name": key.Name,
-	})
+	}); auditErr != nil {
+		s.logger.Error("failed to log audit event for api key revocation", "user_id", uID, "key_id", id, "error", auditErr)
+	}
 
 	return nil
 }
@@ -148,11 +151,11 @@ func (s *IdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uu
 	uID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	// Authorize if not self-rotating
-	if uID != userID {
-		if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionIdentityDelete, id.String()); err != nil {
-			return nil, err
-		}
+	// 1. Authorize: Check if they have specific permission for this resource, OR it is self-rotating
+	isSelf := uID == userID
+	authErr := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionIdentityDelete, id.String())
+	if authErr != nil && !isSelf {
+		return nil, authErr
 	}
 
 	key, err := s.repo.GetAPIKeyByID(ctx, id)
@@ -160,31 +163,35 @@ func (s *IdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uu
 		return nil, err
 	}
 
-	// Verify ownership or admin override
-	if key.UserID != userID {
+	// 2. Ownership check: If RBAC failed but it was self-rotating, verify they own the key
+	if authErr != nil && isSelf && key.UserID != uID {
 		return nil, errors.New(errors.Forbidden, "unauthorized access to api key")
 	}
 
-	// Create new key with same name
+	// 3. Create new key with same name
 	newKey, err := s.CreateKey(ctx, userID, key.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	// Delete old key
+	// 4. Delete old key with compensating rollback
 	if err := s.repo.DeleteAPIKey(ctx, id); err != nil {
-		// Log error but we already have a new key
-		if s.logger != nil {
-			s.logger.Error("failed to delete old api key during rotation", "id", id, "error", err)
+		s.logger.Error("failed to delete old api key during rotation, rolling back new key", "id", id, "error", err)
+		// Rollback: delete the newly created key
+		if rbErr := s.repo.DeleteAPIKey(ctx, newKey.ID); rbErr != nil {
+			s.logger.Error("failed to rollback new api key after rotation failure", "new_key_id", newKey.ID, "error", rbErr)
+			return nil, errors.Wrap(errors.Internal, "rotation failed and rollback failed", err)
 		}
-		return newKey, nil
+		return nil, errors.Wrap(errors.Internal, "failed to delete old key, rotation rolled back", err)
 	}
 
-	// Log audit event
-	_ = s.auditSvc.Log(ctx, uID, "api_key.rotate", "api_key", id.String(), map[string]interface{}{
+	// Log audit event - capture error
+	if auditErr := s.auditSvc.Log(ctx, uID, "api_key.rotate", "api_key", id.String(), map[string]interface{}{
 		"name":   key.Name,
 		"new_id": newKey.ID.String(),
-	})
+	}); auditErr != nil {
+		s.logger.Error("failed to log audit event for api key rotation", "user_id", uID, "key_id", id, "error", auditErr)
+	}
 
 	return newKey, nil
 }

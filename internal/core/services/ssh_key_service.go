@@ -25,11 +25,18 @@ type SSHKeyService struct {
 	rbacSvc ports.RBACService
 }
 
-func NewSSHKeyService(params SSHKeyServiceParams) *SSHKeyService {
+func NewSSHKeyService(params SSHKeyServiceParams) (*SSHKeyService, error) {
+	if params.Repo == nil {
+		return nil, errors.New(errors.InvalidInput, "repository is required")
+	}
+	if params.RBACSvc == nil {
+		return nil, errors.New(errors.InvalidInput, "rbac service is required")
+	}
+
 	return &SSHKeyService{
 		repo:    params.Repo,
 		rbacSvc: params.RBACSvc,
-	}
+	}, nil
 }
 
 func (s *SSHKeyService) CreateKey(ctx context.Context, name, publicKey string) (*domain.SSHKey, error) {

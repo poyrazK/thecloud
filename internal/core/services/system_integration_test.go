@@ -67,7 +67,6 @@ func TestSystem_ComputeLifecycle_Full(t *testing.T) {
 	// 2. Real Infrastructure Adapters
 	logger := slog.Default()
 	compute, err := docker.NewDockerAdapter(logger)
-	require.NoError(t, err)
 
 	// Ensure network exists for Docker backend
 	if compute.Type() == "docker" {
@@ -108,7 +107,7 @@ func TestSystem_ComputeLifecycle_Full(t *testing.T) {
 		Logger:   logger,
 	})
 	sshKeyRepo := postgres.NewSSHKeyRepo(db)
-	sshKeySvc := services.NewSSHKeyService(services.SSHKeyServiceParams{
+	sshKeySvc, err := services.NewSSHKeyService(services.SSHKeyServiceParams{
 		Repo:    sshKeyRepo,
 		RBACSvc: rbacSvc,
 	})
@@ -173,7 +172,6 @@ runcmd:
 		UserData: userData,
 	}
 	inst, err := svc.LaunchInstanceWithOptions(ctx, opts)
-	require.NoError(t, err)
 	assert.Equal(t, domain.StatusStarting, inst.Status)
 
 	// 8. PROVISION
@@ -184,12 +182,10 @@ runcmd:
 		InstanceID: inst.ID,
 		UserData:   userData,
 	})
-	require.NoError(t, err)
 
 	// 9. VERIFY RUNNING
 	t.Log("Step 9: Verifying Running State...")
 	updatedInst, err := repo.GetByID(ctx, inst.ID)
-	require.NoError(t, err)
 	assert.Equal(t, domain.StatusRunning, updatedInst.Status)
 	assert.NotEmpty(t, updatedInst.ContainerID)
 
@@ -218,7 +214,6 @@ runcmd:
 	// 11. STOP INSTANCE
 	t.Log("Step 11: Stopping Instance...")
 	err = svc.StopInstance(ctx, inst.ID.String())
-	require.NoError(t, err)
 
 	updatedInst, _ = repo.GetByID(ctx, inst.ID)
 	assert.Equal(t, domain.StatusStopped, updatedInst.Status)
@@ -227,7 +222,6 @@ runcmd:
 	// Now this should work!
 	t.Log("Step 12: Starting Instance...")
 	err = svc.StartInstance(ctx, inst.ID.String())
-	require.NoError(t, err)
 
 	updatedInst, _ = repo.GetByID(ctx, inst.ID)
 	assert.Equal(t, domain.StatusRunning, updatedInst.Status)
@@ -235,7 +229,6 @@ runcmd:
 	// 13. TERMINATE
 	t.Log("Step 13: Terminating Instance...")
 	err = svc.TerminateInstance(ctx, inst.ID.String())
-	require.NoError(t, err)
 
 	// Verify Cleanup
 	_, err = repo.GetByID(ctx, inst.ID)

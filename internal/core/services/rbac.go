@@ -60,9 +60,12 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 		return false, nil
 	}
 
-	// System user bypass
-	if userID == appcontext.SystemUserID() {
-		return true, nil
+	// System user bypass - requires both system ID AND internal signal
+	if systemID, err := appcontext.SystemUserID(); err == nil && userID == systemID {
+		if appcontext.IsInternalCall(ctx) {
+			return true, nil
+		}
+		s.logger.Warn("RBAC: system user ID used without internal signal", "user_id", userID)
 	}
 
 	var roleName string
@@ -118,8 +121,8 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 	role, err := s.roleRepo.GetRoleByName(ctx, roleName)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
-			s.logger.Debug("RBAC: role not found in DB, using default permissions", "role", roleName)
-			return s.hasDefaultPermission(roleName, permission)
+			s.logger.Warn("RBAC: role not found in DB", "role", roleName)
+			return false, nil
 		}
 		s.logger.Error("RBAC: failed to get role", "role", roleName, "error", err)
 		return false, errors.Wrap(errors.Internal, "failed to get role", err)
@@ -235,29 +238,4 @@ func (s *rbacService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, acti
 		return false, nil
 	}
 	return s.evaluator.Evaluate(ctx, policies, action, resource, evalCtx)
-}
-
-func (s *rbacService) hasDefaultPermission(roleName string, permission domain.Permission) (bool, error) {
-	// Fallback to default roles if not found in DB
-	s.logger.Debug("RBAC: checking default permission", "role", roleName, "permission", permission)
-
-	switch roleName {
-	case domain.RoleAdmin, domain.RoleOwner:
-		s.logger.Debug("RBAC: admin/owner role, granting permission", "role", roleName, "permission", permission)
-		return true, nil
-	case domain.RoleViewer:
-		if permission == domain.PermissionInstanceRead ||
-			permission == domain.PermissionVolumeRead ||
-			permission == domain.PermissionVpcRead {
-			s.logger.Debug("RBAC: viewer role, granting read permission", "permission", permission)
-			return true, nil
-		}
-	case domain.RoleDeveloper:
-		// Developer gets everything by default in this MVP/Refactor stage
-		// to avoid breaking all existing tests/flows.
-		return true, nil
-	}
-
-	s.logger.Warn("role not found in DB and no default fallback", "role", roleName, "permission", permission)
-	return false, nil
 }

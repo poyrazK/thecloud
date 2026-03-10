@@ -43,22 +43,24 @@ type SecretService struct {
 
 // NewSecretService constructs a SecretService and validates the master key.
 func NewSecretService(params SecretServiceParams) (*SecretService, error) {
+	// 1. Critical Validation (Pre-logging)
 	if params.Logger == nil {
 		return nil, fmt.Errorf("logger is required")
 	}
 	if params.Repo == nil {
-		return nil, fmt.Errorf("repository is required")
+		return nil, errors.New(errors.InvalidInput, "repository is required")
 	}
 	if params.RBACSvc == nil {
-		return nil, fmt.Errorf("rbac service is required")
+		return nil, errors.New(errors.InvalidInput, "rbac service is required")
 	}
 	if params.EventSvc == nil {
-		return nil, fmt.Errorf("event service is required")
+		return nil, errors.New(errors.InvalidInput, "event service is required")
 	}
 	if params.AuditSvc == nil {
-		return nil, fmt.Errorf("audit service is required")
+		return nil, errors.New(errors.InvalidInput, "audit service is required")
 	}
 
+	// 2. Configuration Validation
 	masterKey := params.MasterKey
 	if masterKey == "" {
 		if params.Environment == "production" {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
@@ -22,11 +23,11 @@ func NewAuditRepository(db DB) *AuditRepository {
 
 func (r *AuditRepository) Create(ctx context.Context, log *domain.AuditLog) error {
 	query := `
-		INSERT INTO audit_logs (id, user_id, action, resource_type, resource_id, details, ip_address, user_agent, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO audit_logs (id, user_id, tenant_id, action, resource_type, resource_id, details, ip_address, user_agent, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 	_, err := r.db.Exec(ctx, query,
-		log.ID, log.UserID, log.Action, log.ResourceType, log.ResourceID,
+		log.ID, log.UserID, log.TenantID, log.Action, log.ResourceType, log.ResourceID,
 		log.Details, log.IPAddress, log.UserAgent, log.CreatedAt,
 	)
 	if err != nil {
@@ -36,14 +37,15 @@ func (r *AuditRepository) Create(ctx context.Context, log *domain.AuditLog) erro
 }
 
 func (r *AuditRepository) ListByUserID(ctx context.Context, userID uuid.UUID, limit int) ([]*domain.AuditLog, error) {
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, action, resource_type, resource_id, details, ip_address, user_agent, created_at
+		SELECT id, user_id, tenant_id, action, resource_type, resource_id, details, ip_address, user_agent, created_at
 		FROM audit_logs
-		WHERE user_id = $1
+		WHERE user_id = $1 AND tenant_id = $2
 		ORDER BY created_at DESC
-		LIMIT $2
+		LIMIT $3
 	`
-	rows, err := r.db.Query(ctx, query, userID, limit)
+	rows, err := r.db.Query(ctx, query, userID, tenantID, limit)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list audit logs", err)
 	}
@@ -53,7 +55,7 @@ func (r *AuditRepository) ListByUserID(ctx context.Context, userID uuid.UUID, li
 func (r *AuditRepository) scanAuditLog(row pgx.Row) (*domain.AuditLog, error) {
 	var log domain.AuditLog
 	err := row.Scan(
-		&log.ID, &log.UserID, &log.Action, &log.ResourceType, &log.ResourceID,
+		&log.ID, &log.UserID, &log.TenantID, &log.Action, &log.ResourceType, &log.ResourceID,
 		&log.Details, &log.IPAddress, &log.UserAgent, &log.CreatedAt,
 	)
 	if err != nil {

@@ -44,6 +44,10 @@ func (s *TenantService) CreateTenant(ctx context.Context, name, slug string, own
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	// In a real system, tenant:create might be restricted to certain global roles
+	if userID == uuid.Nil && !appcontext.IsInternalCall(ctx) {
+		return nil, errors.New(errors.Unauthorized, "authentication required")
+	}
+
 	if userID != uuid.Nil {
 		if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionTenantCreate, "*"); err != nil {
 			return nil, err
@@ -123,10 +127,9 @@ func (s *TenantService) ListUserTenants(ctx context.Context, userID uuid.UUID) (
 
 func (s *TenantService) InviteMember(ctx context.Context, tenantID uuid.UUID, email, role string) error {
 	userID := appcontext.UserIDFromContext(ctx)
-	activeTenantID := appcontext.TenantIDFromContext(ctx)
 
 	// Must have update permission in the target tenant
-	if err := s.rbacSvc.Authorize(ctx, userID, activeTenantID, domain.PermissionTenantUpdate, tenantID.String()); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionTenantUpdate, tenantID.String()); err != nil {
 		return err
 	}
 
@@ -148,9 +151,8 @@ func (s *TenantService) InviteMember(ctx context.Context, tenantID uuid.UUID, em
 
 func (s *TenantService) RemoveMember(ctx context.Context, tenantID, userID uuid.UUID) error {
 	uID := appcontext.UserIDFromContext(ctx)
-	activeTenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, uID, activeTenantID, domain.PermissionTenantUpdate, tenantID.String()); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionTenantUpdate, tenantID.String()); err != nil {
 		return err
 	}
 
