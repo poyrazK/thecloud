@@ -5,7 +5,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"time"
+"time"
+	"sync"
 
 	"strings"
 
@@ -58,6 +59,8 @@ type Repositories struct {
 	AutoScaling   ports.AutoScalingRepository
 	Accounting    ports.AccountingRepository
 	TaskQueue     ports.TaskQueue
+	DurableQueue  ports.DurableTaskQueue
+	Ledger        ports.ExecutionLedger
 	Image         ports.ImageRepository
 	Cluster       ports.ClusterRepository
 	Lifecycle     ports.LifecycleRepository
@@ -107,6 +110,8 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		AutoScaling:   postgres.NewAutoScalingRepo(db),
 		Accounting:    postgres.NewAccountingRepository(db),
 		TaskQueue:     redis.NewRedisTaskQueue(rdb),
+		DurableQueue:  redis.NewDurableTaskQueue(rdb),
+		Ledger:        postgres.NewExecutionLedger(db),
 		Image:         postgres.NewImageRepository(db),
 		Cluster:       postgres.NewClusterRepository(db),
 		Lifecycle:     postgres.NewLifecycleRepository(db),
@@ -175,36 +180,46 @@ type Services struct {
 	NATGateway    *services.NATGatewayService
 }
 
-// Workers struct to return background workers
+// Runner is the interface that all background workers implement.
+type Runner interface {
+	Run(context.Context, *sync.WaitGroup)
+}
+
+// Workers struct to return background workers.
+// Singleton workers are typed as Runner so they can be wrapped with LeaderGuard.
+// Parallel consumers retain concrete types for direct configuration access.
 type Workers struct {
-	LB                *services.LBWorker
-	AutoScaling       *services.AutoScalingWorker
-	Cron              *services.CronWorker
-	FunctionSchedule   *services.FunctionScheduleWorker
-	Container         *services.ContainerWorker
-	Pipeline          *workers.PipelineWorker
-	Provision         *workers.ProvisionWorker
-	Accounting        *workers.AccountingWorker
-	Cluster           *workers.ClusterWorker
-	Lifecycle         *workers.LifecycleWorker
-	ReplicaMonitor    *workers.ReplicaMonitor
-	ClusterReconciler *workers.ClusterReconciler
-	Healing           *workers.HealingWorker
-	DatabaseFailover  *workers.DatabaseFailoverWorker
-	Log               *workers.LogWorker
+	// Singleton workers (must run on exactly one node via leader election)
+	LB                Runner
+	AutoScaling       Runner
+	Cron              Runner
+	Container         Runner
+	Accounting        Runner
+	Lifecycle         Runner
+	ReplicaMonitor    Runner
+	ClusterReconciler Runner
+	Healing           Runner
+	DatabaseFailover  Runner
+	Log               Runner
+
+	// Parallel consumer workers (safe to run on multiple nodes)
+	Pipeline  *workers.PipelineWorker
+	Provision *workers.ProvisionWorker
+	Cluster   *workers.ClusterWorker
 }
 
 // ServiceConfig holds the dependencies required to initialize services
 type ServiceConfig struct {
-	Config  *platform.Config
-	Repos   *Repositories
-	Compute ports.ComputeBackend
-	Storage ports.StorageBackend
-	Network ports.NetworkBackend
-	LBProxy ports.LBProxyAdapter
-	DB      postgres.DB
-	RDB     *redisv9.Client
-	Logger  *slog.Logger
+	Config        *platform.Config
+	Repos         *Repositories
+	Compute       ports.ComputeBackend
+	Storage       ports.StorageBackend
+	Network       ports.NetworkBackend
+	LBProxy       ports.LBProxyAdapter
+	DB            postgres.DB
+	RDB           *redisv9.Client
+	Logger        *slog.Logger
+	LeaderElector ports.LeaderElector // nil disables leader election (single-instance mode)
 }
 
 // InitServices constructs core services and background workers.
@@ -232,7 +247,12 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to init powerdns backend: %w", err)
 	}
-	dnsSvc := services.NewDNSService(services.DNSServiceParams{Repo: c.Repos.DNS, RBAC: rbacSvc, Backend: pdnsBackend, VpcRepo: c.Repos.Vpc, AuditSvc: auditSvc, EventSvc: eventSvc, Logger: c.Logger})
+<// Wrap DNS backend with resilience (circuit breaker + timeout).
+	resilientDNS := platform.NewResilientDNS(pdnsBackend, c.Logger, platform.ResilientDNSOpts{})
+	dnsSvc := services.NewDNSService(services.DNSServiceParams{
+		Repo: c.Repos.DNS, RBAC: rbacSvc, Backend: resilientDNS, VpcRepo: c.Repos.Vpc,
+		AuditSvc: auditSvc, EventSvc: eventSvc, Logger: c.Logger,
+	})
 
 	sshKeySvc, err := services.NewSSHKeyService(services.SSHKeyServiceParams{Repo: c.Repos.SSHKey, Logger: c.Logger, RBACSvc: rbacSvc})
 	if err != nil {
@@ -312,7 +332,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	accountingWorker := workers.NewAccountingWorker(accountingSvc, c.Logger)
 	imageSvc := services.NewImageService(services.ImageServiceParams{Repo: c.Repos.Image, RBACSvc: rbacSvc, FileStore: fileStore, Logger: c.Logger})
 	iamSvc := services.NewIAMService(c.Repos.IAM, auditSvc, eventSvc, c.Logger)
-	provisionWorker := workers.NewProvisionWorker(instSvcConcrete, c.Repos.TaskQueue, c.Logger)
+	provisionWorker := workers.NewProvisionWorker(instSvcConcrete, c.Repos.DurableQueue, c.Repos.Ledger, c.Logger)
 	healingWorker := workers.NewHealingWorker(instSvcConcrete, c.Repos.Instance, c.Logger)
 
 	clusterSvc, clusterProvisioner, err := initClusterServices(c, rbacSvc, vpcSvc, instSvcConcrete, secretSvc, storageSvc, lbSvc, sgSvc)
@@ -325,7 +345,47 @@ svcs := &Services{WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Tenant: 
 	// 7. High Availability & Monitoring
 	replicaMonitor := initReplicaMonitor(c)
 
-	workersCollection := &Workers{LB: lbWorker, AutoScaling: asgWorker, Cron: cronWorker, FunctionSchedule: services.NewFunctionScheduleWorker(c.Repos.FunctionSchedule, fnSvc), Container: containerWorker, Pipeline: workers.NewPipelineWorker(c.Repos.Pipeline, c.Repos.TaskQueue, c.Compute, c.Logger), Provision: provisionWorker, Accounting: accountingWorker, Cluster: workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.TaskQueue, c.Logger), Lifecycle: workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger), ReplicaMonitor: replicaMonitor, ClusterReconciler: workers.NewClusterReconciler(c.Repos.Cluster, clusterProvisioner, c.Logger), Healing: healingWorker, DatabaseFailover: workers.NewDatabaseFailoverWorker(databaseSvc, c.Repos.Database, c.Compute, c.Logger), Log: workers.NewLogWorker(logSvc, c.Logger)}
+	// Helper: wrap a singleton worker with LeaderGuard if leader election is enabled.
+	// Accepts a concrete pointer to avoid nil-interface pitfalls — callers must
+	// explicitly pass nil Runner when the worker should be skipped.
+	guardSingleton := func(key string, w Runner) Runner {
+		if w == nil || c.LeaderElector == nil {
+			return w
+		}
+		return workers.NewLeaderGuard(c.LeaderElector, key, w, c.Logger)
+	}
+
+	lifecycleWorker := workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger)
+	clusterReconciler := workers.NewClusterReconciler(c.Repos.Cluster, clusterProvisioner, c.Logger)
+	dbFailoverWorker := workers.NewDatabaseFailoverWorker(databaseSvc, c.Repos.Database, c.Logger)
+	logWorker := workers.NewLogWorker(logSvc, c.Logger)
+
+	// For replicaMonitor, we must convert nil *ReplicaMonitor to nil Runner to avoid
+	// a non-nil interface wrapping a nil pointer.
+	var replicaMonitorRunner Runner
+	if replicaMonitor != nil {
+		replicaMonitorRunner = replicaMonitor
+	}
+
+	workersCollection := &Workers{
+		// Singleton workers — wrapped with leader election
+		LB:                guardSingleton("singleton:lb", lbWorker),
+		AutoScaling:       guardSingleton("singleton:autoscaling", asgWorker),
+		Cron:              guardSingleton("singleton:cron", cronWorker),
+		Container:         guardSingleton("singleton:container", containerWorker),
+		Accounting:        guardSingleton("singleton:accounting", accountingWorker),
+		Lifecycle:         guardSingleton("singleton:lifecycle", lifecycleWorker),
+		ReplicaMonitor:    guardSingleton("singleton:replica-monitor", replicaMonitorRunner),
+		ClusterReconciler: guardSingleton("singleton:cluster-reconciler", clusterReconciler),
+		Healing:           guardSingleton("singleton:healing", healingWorker),
+		DatabaseFailover:  guardSingleton("singleton:db-failover", dbFailoverWorker),
+		Log:               guardSingleton("singleton:log", logWorker),
+
+		// Parallel consumer workers — no leader election needed
+		Pipeline:  workers.NewPipelineWorker(c.Repos.Pipeline, c.Repos.DurableQueue, c.Repos.Ledger, c.Compute, c.Logger),
+		Provision: provisionWorker,
+		Cluster:   workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.DurableQueue, c.Repos.Ledger, c.Logger),
+	}
 
 	return svcs, workersCollection, nil
 }
