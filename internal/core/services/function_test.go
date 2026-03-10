@@ -23,7 +23,7 @@ import (
 
 const indexJSMockFile = "index.js"
 
-func setupFunctionServiceTest(t *testing.T) (*services.FunctionService, ports.FunctionRepository, ports.ComputeBackend, ports.FileStore, context.Context) {
+func setupFunctionServiceTest(t *testing.T) (*services.FunctionService, ports.FunctionRepository, ports.FileStore, context.Context) {
 	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
@@ -50,8 +50,10 @@ func setupFunctionServiceTest(t *testing.T) (*services.FunctionService, ports.Fu
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, logger)
-	return svc, repo, compute, fileStore, ctx
+
+	return svc, repo, fileStore, ctx
 }
+
 
 func createZip(t *testing.T, content string) []byte {
 	t.Helper()
@@ -67,7 +69,7 @@ func createZip(t *testing.T, content string) []byte {
 }
 
 func TestFunctionServiceCreateFunctionSuccess(t *testing.T) {
-	svc, repo, _, _, ctx := setupFunctionServiceTest(t)
+	svc, repo, _, ctx := setupFunctionServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	name := "test-func"
@@ -92,7 +94,7 @@ func TestFunctionServiceCreateFunctionSuccess(t *testing.T) {
 func TestFunctionServiceInvokeFunctionSuccess(t *testing.T) {
 	// Skip if we don't want to actually run docker in all environments,
 	// but here we are aiming for real integration.
-	svc, _, _, _, ctx := setupFunctionServiceTest(t)
+	svc, _, _, ctx := setupFunctionServiceTest(t)
 
 	code := createZip(t, `
 const payload = process.env.PAYLOAD;
@@ -111,7 +113,7 @@ process.exit(0);
 }
 
 func TestFunctionServiceDeleteFunctionSuccess(t *testing.T) {
-	svc, repo, _, _, ctx := setupFunctionServiceTest(t)
+	svc, repo, _, ctx := setupFunctionServiceTest(t)
 
 	code := createZip(t, "console.log(1)")
 	f, _ := svc.CreateFunction(ctx, "to-delete", "nodejs20", indexJSMockFile, code)
@@ -125,7 +127,7 @@ func TestFunctionServiceDeleteFunctionSuccess(t *testing.T) {
 }
 
 func TestFunctionServiceListFunctions(t *testing.T) {
-	svc, _, _, _, ctx := setupFunctionServiceTest(t)
+	svc, _, _, ctx := setupFunctionServiceTest(t)
 	code := createZip(t, "1")
 	_, _ = svc.CreateFunction(ctx, "fn1", "nodejs20", indexJSMockFile, code)
 	_, _ = svc.CreateFunction(ctx, "fn2", "nodejs20", indexJSMockFile, code)
@@ -136,7 +138,7 @@ func TestFunctionServiceListFunctions(t *testing.T) {
 }
 
 func TestFunctionServiceGetFunction(t *testing.T) {
-	svc, _, _, _, ctx := setupFunctionServiceTest(t)
+	svc, _, _, ctx := setupFunctionServiceTest(t)
 	code := createZip(t, "1")
 	f, _ := svc.CreateFunction(ctx, "get-me", "nodejs20", indexJSMockFile, code)
 
@@ -146,7 +148,7 @@ func TestFunctionServiceGetFunction(t *testing.T) {
 }
 
 func TestFunctionServiceInvokeAsync(t *testing.T) {
-	svc, repo, _, _, ctx := setupFunctionServiceTest(t)
+	svc, repo, _, ctx := setupFunctionServiceTest(t)
 	code := createZip(t, "console.log('async')")
 	f, _ := svc.CreateFunction(ctx, "async-test", "nodejs20", indexJSMockFile, code)
 
@@ -170,7 +172,7 @@ func TestFunctionServiceInvokeAsync(t *testing.T) {
 }
 
 func TestFunctionServiceZipSlipProtection(t *testing.T) {
-	svc, _, _, _, ctx := setupFunctionServiceTest(t)
+	svc, _, _, ctx := setupFunctionServiceTest(t)
 
 	// Create malicious zip
 	buf := new(bytes.Buffer)

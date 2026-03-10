@@ -102,11 +102,11 @@ func TestRBACServiceIntegration(t *testing.T) {
 
 		// 2. Authorize in Tenant Context
 		err := svc.Authorize(ctx, userID, tenantID, domain.PermissionVpcCreate, "*")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// 3. Verify Global Context (viewer) still Denied for VpcCreate
 		err = svc.Authorize(ctx, userID, uuid.Nil, domain.PermissionVpcCreate, "*")
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("Authorize_Denied", func(t *testing.T) {

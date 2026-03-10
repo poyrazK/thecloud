@@ -10,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -35,6 +36,7 @@ func TestRBACService_IAMIntegration(t *testing.T) {
 
 	t.Run("AllowByPolicy", func(t *testing.T) {
 		tenantRepo.On("GetMembership", ctx, tenantID, userID).Return(&domain.TenantMember{UserID: userID, TenantID: tenantID, Role: "viewer"}, nil).Once()
+		roleRepo.On("GetRoleByName", mock.Anything, "viewer").Return(&domain.Role{Name: "viewer"}, nil).Once()
 		policies := []*domain.Policy{
 			{
 				Statements: []domain.Statement{
@@ -51,6 +53,7 @@ func TestRBACService_IAMIntegration(t *testing.T) {
 
 	t.Run("DenyByPolicyOverridesRole", func(t *testing.T) {
 		tenantRepo.On("GetMembership", ctx, tenantID, userID).Return(&domain.TenantMember{UserID: userID, TenantID: tenantID, Role: "admin"}, nil).Once()
+		roleRepo.On("GetRoleByName", mock.Anything, "admin").Return(&domain.Role{Name: "admin"}, nil).Once()
 		policies := []*domain.Policy{
 			{
 				Statements: []domain.Statement{
