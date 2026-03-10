@@ -38,7 +38,9 @@ func (s *iamService) CreatePolicy(ctx context.Context, policy *domain.Policy) er
 		return err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "IAM_POLICY_CREATE", policy.ID.String(), "POLICY", map[string]interface{}{"name": policy.Name})
+	if err := s.eventSvc.RecordEvent(ctx, "IAM_POLICY_CREATE", policy.ID.String(), "POLICY", map[string]interface{}{"name": policy.Name}); err != nil {
+		s.logger.Warn("failed to record event", "action", "IAM_POLICY_CREATE", "policy_id", policy.ID, "error", err)
+	}
 	return nil
 }
 
@@ -57,7 +59,9 @@ func (s *iamService) UpdatePolicy(ctx context.Context, policy *domain.Policy) er
 	if err := s.repo.UpdatePolicy(ctx, tenantID, policy); err != nil {
 		return err
 	}
-	_ = s.eventSvc.RecordEvent(ctx, "IAM_POLICY_UPDATE", policy.ID.String(), "POLICY", map[string]interface{}{"name": policy.Name})
+	if err := s.eventSvc.RecordEvent(ctx, "IAM_POLICY_UPDATE", policy.ID.String(), "POLICY", map[string]interface{}{"name": policy.Name}); err != nil {
+		s.logger.Warn("failed to record event", "action", "IAM_POLICY_UPDATE", "policy_id", policy.ID, "error", err)
+	}
 	return nil
 }
 
@@ -66,7 +70,9 @@ func (s *iamService) DeletePolicy(ctx context.Context, id uuid.UUID) error {
 	if err := s.repo.DeletePolicy(ctx, tenantID, id); err != nil {
 		return err
 	}
-	_ = s.eventSvc.RecordEvent(ctx, "IAM_POLICY_DELETE", id.String(), "POLICY", nil)
+	if err := s.eventSvc.RecordEvent(ctx, "IAM_POLICY_DELETE", id.String(), "POLICY", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "IAM_POLICY_DELETE", "policy_id", id, "error", err)
+	}
 	return nil
 }
 
@@ -75,7 +81,9 @@ func (s *iamService) AttachPolicyToUser(ctx context.Context, userID uuid.UUID, p
 	if err := s.repo.AttachPolicyToUser(ctx, tenantID, userID, policyID); err != nil {
 		return err
 	}
-	_ = s.auditSvc.Log(ctx, userID, "iam.policy_attach", "user", userID.String(), map[string]interface{}{"policy_id": policyID})
+	if err := s.auditSvc.Log(ctx, userID, "iam.policy_attach", "user", userID.String(), map[string]interface{}{"policy_id": policyID}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "iam.policy_attach", "user_id", userID, "error", err)
+	}
 	return nil
 }
 
@@ -84,7 +92,9 @@ func (s *iamService) DetachPolicyFromUser(ctx context.Context, userID uuid.UUID,
 	if err := s.repo.DetachPolicyFromUser(ctx, tenantID, userID, policyID); err != nil {
 		return err
 	}
-	_ = s.auditSvc.Log(ctx, userID, "iam.policy_detach", "user", userID.String(), map[string]interface{}{"policy_id": policyID})
+	if err := s.auditSvc.Log(ctx, userID, "iam.policy_detach", "user", userID.String(), map[string]interface{}{"policy_id": policyID}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "iam.policy_detach", "user_id", userID, "error", err)
+	}
 	return nil
 }
 

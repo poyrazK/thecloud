@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -23,7 +24,7 @@ func TestLBServiceGet(t *testing.T) {
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc)
+	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc, slog.Default())
 
 	lbID := uuid.New()
 	lb := &domain.LoadBalancer{ID: lbID, Name: lbMainName}
@@ -44,7 +45,7 @@ func TestLBServiceList(t *testing.T) {
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc)
+	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc, slog.Default())
 
 	lbRepo.On("List", mock.Anything).Return([]*domain.LoadBalancer{{ID: uuid.New()}}, nil).Once()
 
@@ -63,7 +64,7 @@ func TestLBServiceRemoveTarget(t *testing.T) {
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc)
+	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc, slog.Default())
 
 	lbID := uuid.New()
 	instanceID := uuid.New()
@@ -88,7 +89,7 @@ func TestLBServiceListTargets(t *testing.T) {
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc)
+	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc, slog.Default())
 
 	lbID := uuid.New()
 	targets := []*domain.LBTarget{{ID: uuid.New(), LBID: lbID}}
@@ -109,7 +110,7 @@ func TestLBServiceDelete(t *testing.T) {
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc)
+	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc, slog.Default())
 
 	lbID := uuid.New()
 	lb := &domain.LoadBalancer{ID: lbID, Name: lbMainName, UserID: uuid.New()}

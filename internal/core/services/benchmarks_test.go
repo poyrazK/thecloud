@@ -230,7 +230,7 @@ func BenchmarkAuthServiceLoginParallel(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	tenantSvc := &NoopTenantService{}
 
-	svc := services.NewAuthService(userRepo, idSvc, auditSvc, tenantSvc)
+	svc := services.NewAuthService(userRepo, idSvc, auditSvc, tenantSvc, slog.Default())
 
 	ctx := context.Background()
 	email := "admin@thecloud.local"
@@ -381,7 +381,7 @@ func BenchmarkAuthServiceRegister(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	tenantSvc := &NoopTenantService{}
 
-	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc)
+	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc, slog.Default())
 
 	ctx := context.Background()
 
@@ -424,7 +424,7 @@ func BenchmarkAuthServiceLogin(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	tenantSvc := &NoopTenantService{}
 
-	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc)
+	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc, slog.Default())
 
 	ctx := context.Background()
 

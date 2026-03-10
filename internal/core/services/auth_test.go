@@ -48,7 +48,7 @@ func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *
 		RBACSvc:  rbacSvc,
 		Logger:   slog.Default(),
 	})
-	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc)
+	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc, slog.Default())
 
 	return db, svc, userRepo, identitySvc
 }
@@ -56,7 +56,7 @@ func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *
 func TestAuthService_GetUserByID(t *testing.T) {
 	ctx := context.Background()
 	mockUserRepo := new(MockUserRepo)
-	svc := services.NewAuthService(mockUserRepo, nil, nil, nil)
+	svc := services.NewAuthService(mockUserRepo, nil, nil, nil, slog.Default())
 
 	tests := []struct {
 		name          string

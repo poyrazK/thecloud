@@ -98,11 +98,13 @@ func (s *SubnetService) CreateSubnet(ctx context.Context, vpcID uuid.UUID, name,
 		return nil, err
 	}
 
-	_ = s.auditSvc.Log(ctx, userID, "subnet.create", "subnet", subnetID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, userID, "subnet.create", "subnet", subnetID.String(), map[string]interface{}{
 		"vpc_id":     vpcID.String(),
 		"name":       name,
 		"cidr_block": cidrBlock,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "subnet.create", "subnet_id", subnetID, "error", err)
+	}
 
 	return subnet, nil
 }
@@ -150,7 +152,9 @@ func (s *SubnetService) DeleteSubnet(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, subnet.UserID, "subnet.delete", "subnet", id.String(), nil)
+	if err := s.auditSvc.Log(ctx, subnet.UserID, "subnet.delete", "subnet", id.String(), nil); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "subnet.delete", "subnet_id", id, "error", err)
+	}
 	return nil
 }
 

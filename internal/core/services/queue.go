@@ -4,6 +4,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,15 +20,17 @@ type QueueService struct {
 	rbacSvc  ports.RBACService
 	eventSvc ports.EventService
 	auditSvc ports.AuditService
+	logger   *slog.Logger
 }
 
 // NewQueueService constructs a QueueService with its dependencies.
-func NewQueueService(repo ports.QueueRepository, rbacSvc ports.RBACService, eventSvc ports.EventService, auditSvc ports.AuditService) ports.QueueService {
+func NewQueueService(repo ports.QueueRepository, rbacSvc ports.RBACService, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) ports.QueueService {
 	return &QueueService{
 		repo:     repo,
 		rbacSvc:  rbacSvc,
 		eventSvc: eventSvc,
 		auditSvc: auditSvc,
+		logger:   logger,
 	}
 }
 
@@ -78,11 +81,15 @@ func (s *QueueService) CreateQueue(ctx context.Context, name string, opts *ports
 		return nil, err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "QUEUE_CREATED", q.ID.String(), "QUEUE", nil)
+	if err := s.eventSvc.RecordEvent(ctx, "QUEUE_CREATED", q.ID.String(), "QUEUE", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "QUEUE_CREATED", "queue_id", q.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, q.UserID, "queue.create", "queue", q.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, q.UserID, "queue.create", "queue", q.ID.String(), map[string]interface{}{
 		"name": q.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "queue.create", "queue_id", q.ID, "error", err)
+	}
 
 	return q, nil
 }
@@ -137,11 +144,15 @@ func (s *QueueService) DeleteQueue(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "QUEUE_DELETED", q.ID.String(), "QUEUE", nil)
+	if err := s.eventSvc.RecordEvent(ctx, "QUEUE_DELETED", q.ID.String(), "QUEUE", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "QUEUE_DELETED", "queue_id", id, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, q.UserID, "queue.delete", "queue", q.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, q.UserID, "queue.delete", "queue", q.ID.String(), map[string]interface{}{
 		"name": q.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "queue.delete", "queue_id", id, "error", err)
+	}
 
 	return nil
 }
@@ -171,7 +182,9 @@ func (s *QueueService) SendMessage(ctx context.Context, queueID uuid.UUID, body 
 		return nil, err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "MESSAGE_SENT", m.ID.String(), "MESSAGE", map[string]interface{}{"queue_id": q.ID})
+	if err := s.eventSvc.RecordEvent(ctx, "MESSAGE_SENT", m.ID.String(), "MESSAGE", map[string]interface{}{"queue_id": q.ID}); err != nil {
+		s.logger.Warn("failed to record event", "action", "MESSAGE_SENT", "message_id", m.ID, "error", err)
+	}
 
 	platform.QueueMessagesTotal.WithLabelValues(q.ID.String(), "send").Inc()
 
@@ -207,7 +220,9 @@ func (s *QueueService) ReceiveMessages(ctx context.Context, queueID uuid.UUID, m
 	}
 
 	for _, m := range msgs {
-		_ = s.eventSvc.RecordEvent(ctx, "MESSAGE_RECEIVED", m.ID.String(), "MESSAGE", map[string]interface{}{"queue_id": q.ID})
+		if err := s.eventSvc.RecordEvent(ctx, "MESSAGE_RECEIVED", m.ID.String(), "MESSAGE", map[string]interface{}{"queue_id": q.ID}); err != nil {
+			s.logger.Warn("failed to record event", "action", "MESSAGE_RECEIVED", "message_id", m.ID, "error", err)
+		}
 		platform.QueueMessagesTotal.WithLabelValues(q.ID.String(), "receive").Inc()
 	}
 
@@ -234,7 +249,9 @@ func (s *QueueService) DeleteMessage(ctx context.Context, queueID uuid.UUID, rec
 		return err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "MESSAGE_DELETED", receiptHandle, "MESSAGE", map[string]interface{}{"queue_id": q.ID})
+	if err := s.eventSvc.RecordEvent(ctx, "MESSAGE_DELETED", receiptHandle, "MESSAGE", map[string]interface{}{"queue_id": q.ID}); err != nil {
+		s.logger.Warn("failed to record event", "action", "MESSAGE_DELETED", "receipt_handle", receiptHandle, "error", err)
+	}
 
 	platform.QueueMessagesTotal.WithLabelValues(q.ID.String(), "delete").Inc()
 
@@ -262,9 +279,13 @@ func (s *QueueService) PurgeQueue(ctx context.Context, queueID uuid.UUID) error 
 		return err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "QUEUE_PURGED", q.ID.String(), "QUEUE", nil)
+	if err := s.eventSvc.RecordEvent(ctx, "QUEUE_PURGED", q.ID.String(), "QUEUE", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "QUEUE_PURGED", "queue_id", q.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, q.UserID, "queue.purge", "queue", q.ID.String(), map[string]interface{}{})
+	if err := s.auditSvc.Log(ctx, q.UserID, "queue.purge", "queue", q.ID.String(), map[string]interface{}{}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "queue.purge", "queue_id", q.ID, "error", err)
+	}
 
 	return nil
 }

@@ -35,7 +35,7 @@ func setupAutoScalingServiceIntegrationTest(t *testing.T) (ports.AutoScalingServ
 		RBACSvc: rbacSvc,
 	})
 
-	svc := services.NewAutoScalingService(repo, rbacSvc, vpcRepo, auditSvc)
+	svc := services.NewAutoScalingService(repo, rbacSvc, vpcRepo, auditSvc, slog.Default())
 
 	return svc, vpcRepo, ctx
 }
@@ -234,7 +234,7 @@ func TestAutoScaling_TriggerScaleUp(t *testing.T) {
 
 	// 3. Create Scaling Group
 	groupName := "scale-out-test"
-	asgSvc := services.NewAutoScalingService(asgRepo, rbacSvc, vpcRepo, auditSvc)
+	asgSvc := services.NewAutoScalingService(asgRepo, rbacSvc, vpcRepo, auditSvc, slog.Default())
 	group, err := asgSvc.CreateGroup(ctx, ports.CreateScalingGroupParams{
 		Name:         groupName,
 		VpcID:        vpc.ID,

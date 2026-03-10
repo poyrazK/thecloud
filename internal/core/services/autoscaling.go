@@ -4,6 +4,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,15 +20,17 @@ type AutoScalingService struct {
 	rbacSvc  ports.RBACService
 	vpcRepo  ports.VpcRepository
 	auditSvc ports.AuditService
+	logger   *slog.Logger
 }
 
 // NewAutoScalingService constructs an AutoScalingService with its dependencies.
-func NewAutoScalingService(repo ports.AutoScalingRepository, rbacSvc ports.RBACService, vpcRepo ports.VpcRepository, auditSvc ports.AuditService) *AutoScalingService {
+func NewAutoScalingService(repo ports.AutoScalingRepository, rbacSvc ports.RBACService, vpcRepo ports.VpcRepository, auditSvc ports.AuditService, logger *slog.Logger) *AutoScalingService {
 	return &AutoScalingService{
 		repo:     repo,
 		rbacSvc:  rbacSvc,
 		vpcRepo:  vpcRepo,
 		auditSvc: auditSvc,
+		logger:   logger,
 	}
 }
 
@@ -98,9 +101,11 @@ func (s *AutoScalingService) CreateGroup(ctx context.Context, params ports.Creat
 		return nil, err
 	}
 
-	_ = s.auditSvc.Log(ctx, group.UserID, "asg.group_create", "scaling_group", group.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, group.UserID, "asg.group_create", "scaling_group", group.ID.String(), map[string]interface{}{
 		"name": group.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "asg.group_create", "group_id", group.ID, "error", err)
+	}
 
 	return group, nil
 }
@@ -148,9 +153,11 @@ func (s *AutoScalingService) DeleteGroup(ctx context.Context, id uuid.UUID) erro
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, group.UserID, "asg.group_delete", "scaling_group", group.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, group.UserID, "asg.group_delete", "scaling_group", group.ID.String(), map[string]interface{}{
 		"name": group.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "asg.group_delete", "group_id", group.ID, "error", err)
+	}
 
 	return nil
 }

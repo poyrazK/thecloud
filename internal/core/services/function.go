@@ -99,10 +99,12 @@ func (s *FunctionService) CreateFunction(ctx context.Context, name, runtime, han
 		return nil, err
 	}
 
-	_ = s.auditSvc.Log(ctx, f.UserID, "function.create", "function", f.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, f.UserID, "function.create", "function", f.ID.String(), map[string]interface{}{
 		"name":    f.Name,
 		"runtime": f.Runtime,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "function.create", "function_id", f.ID, "error", err)
+	}
 
 	s.logger.Info("function created", "name", name, "runtime", runtime, "id", id)
 
@@ -152,9 +154,11 @@ func (s *FunctionService) DeleteFunction(ctx context.Context, id uuid.UUID) erro
 		_ = s.fileStore.Delete(context.Background(), "functions", f.CodePath)
 	}()
 
-	_ = s.auditSvc.Log(ctx, f.UserID, "function.delete", "function", f.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, f.UserID, "function.delete", "function", f.ID.String(), map[string]interface{}{
 		"name": f.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "function.delete", "function_id", f.ID, "error", err)
+	}
 
 	return nil
 }
@@ -191,7 +195,9 @@ func (s *FunctionService) InvokeFunction(ctx context.Context, id uuid.UUID, payl
 	}
 
 	if async {
-		_ = s.auditSvc.Log(ctx, f.UserID, "function.invoke_async", "function", f.ID.String(), map[string]interface{}{})
+		if err := s.auditSvc.Log(ctx, f.UserID, "function.invoke_async", "function", f.ID.String(), map[string]interface{}{}); err != nil {
+			s.logger.Warn("failed to log audit event", "action", "function.invoke_async", "function_id", f.ID, "error", err)
+		}
 		go func() {
 			// Use a copy to avoid data race with the caller reading the returned invocation
 			asyncInv := *invocation
@@ -200,7 +206,9 @@ func (s *FunctionService) InvokeFunction(ctx context.Context, id uuid.UUID, payl
 		return invocation, nil
 	}
 
-	_ = s.auditSvc.Log(ctx, f.UserID, "function.invoke", "function", f.ID.String(), map[string]interface{}{})
+	if err := s.auditSvc.Log(ctx, f.UserID, "function.invoke", "function", f.ID.String(), map[string]interface{}{}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "function.invoke", "function_id", f.ID, "error", err)
+	}
 	return s.runInvocation(ctx, f, invocation, payload)
 }
 

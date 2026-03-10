@@ -92,10 +92,12 @@ func (s *GlobalLBService) Create(ctx context.Context, name, hostname string, pol
 		// Non-blocking: failures in the DNS synchronization layer are logged for asynchronous remediation.
 	}
 
-	_ = s.auditSvc.Log(ctx, glb.UserID, "global_lb.create", "global_lb", glb.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, glb.UserID, "global_lb.create", "global_lb", glb.ID.String(), map[string]interface{}{
 		"hostname": hostname,
 		"policy":   policy,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "global_lb.create", "resource_id", glb.ID.String(), "error", err)
+	}
 
 	return glb, nil
 }
@@ -165,7 +167,9 @@ func (s *GlobalLBService) Delete(ctx context.Context, id uuid.UUID, userID uuid.
 		return errors.Wrap(errors.Internal, "failed to delete global load balancer", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, glb.UserID, "global_lb.delete", "global_lb", id.String(), nil)
+	if err := s.auditSvc.Log(ctx, glb.UserID, "global_lb.delete", "global_lb", id.String(), nil); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "global_lb.delete", "resource_id", id.String(), "error", err)
+	}
 
 	return nil
 }
@@ -240,10 +244,12 @@ func (s *GlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, regi
 		s.logger.Error("failed to update geo dns", "hostname", glb.Hostname, "error", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, glb.UserID, "global_lb.endpoint_add", "global_lb", glbID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, glb.UserID, "global_lb.endpoint_add", "global_lb", glbID.String(), map[string]interface{}{
 		"region": region,
 		"type":   targetType,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "global_lb.endpoint_add", "resource_id", glbID.String(), "error", err)
+	}
 
 	return ep, nil
 }
@@ -294,9 +300,11 @@ func (s *GlobalLBService) RemoveEndpoint(ctx context.Context, glbID, endpointID 
 		}
 	}
 
-	_ = s.auditSvc.Log(ctx, userID, "global_lb.endpoint_remove", "global_lb", glb.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, userID, "global_lb.endpoint_remove", "global_lb", glb.ID.String(), map[string]interface{}{
 		"endpoint_id": endpointID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "global_lb.endpoint_remove", "resource_id", glb.ID.String(), "error", err)
+	}
 
 	return nil
 }

@@ -105,16 +105,20 @@ func (s *VolumeService) CreateVolume(ctx context.Context, name string, sizeGB in
 		return nil, err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "VOLUME_CREATE", vol.ID.String(), "VOLUME", map[string]interface{}{
+	if err := s.eventSvc.RecordEvent(ctx, "VOLUME_CREATE", vol.ID.String(), "VOLUME", map[string]interface{}{
 		"name":    vol.Name,
 		"size_gb": vol.SizeGB,
 		"path":    path,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to record event", "action", "VOLUME_CREATE", "volume_id", vol.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.create", "volume", vol.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, vol.UserID, "volume.create", "volume", vol.ID.String(), map[string]interface{}{
 		"name":    vol.Name,
 		"size_gb": vol.SizeGB,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "volume.create", "volume_id", vol.ID, "error", err)
+	}
 
 	s.logger.Info("volume created", "volume_id", vol.ID, "name", vol.Name, "path", path)
 	// platform metrics ...
@@ -187,11 +191,15 @@ func (s *VolumeService) DeleteVolume(ctx context.Context, idOrName string) error
 	platform.VolumeSizeBytes.Sub(float64(vol.SizeGB * 1024 * 1024 * 1024))
 	platform.StorageOperationsTotal.WithLabelValues("volume_delete").Inc()
 
-	_ = s.eventSvc.RecordEvent(ctx, "VOLUME_DELETE", vol.ID.String(), "VOLUME", map[string]interface{}{})
+	if err := s.eventSvc.RecordEvent(ctx, "VOLUME_DELETE", vol.ID.String(), "VOLUME", map[string]interface{}{}); err != nil {
+		s.logger.Warn("failed to record event", "action", "VOLUME_DELETE", "volume_id", vol.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.delete", "volume", vol.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, vol.UserID, "volume.delete", "volume", vol.ID.String(), map[string]interface{}{
 		"name": vol.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "volume.delete", "volume_id", vol.ID, "error", err)
+	}
 
 	s.logger.Info("volume deleted", "volume_id", vol.ID)
 	return nil
@@ -230,16 +238,20 @@ func (s *VolumeService) ResizeVolume(ctx context.Context, idOrName string, newSi
 	}
 
 	platform.VolumeSizeBytes.Add(float64((newSizeGB - oldSizeGB) * 1024 * 1024 * 1024))
-	_ = s.eventSvc.RecordEvent(ctx, "VOLUME_RESIZE", vol.ID.String(), "VOLUME", map[string]interface{}{
+	if err := s.eventSvc.RecordEvent(ctx, "VOLUME_RESIZE", vol.ID.String(), "VOLUME", map[string]interface{}{
 		"old_size_gb": oldSizeGB,
 		"new_size_gb": newSizeGB,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to record event", "action", "VOLUME_RESIZE", "volume_id", vol.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.resize", "volume", vol.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, vol.UserID, "volume.resize", "volume", vol.ID.String(), map[string]interface{}{
 		"name":        vol.Name,
 		"old_size_gb": oldSizeGB,
 		"new_size_gb": newSizeGB,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "volume.resize", "volume_id", vol.ID, "error", err)
+	}
 
 	s.logger.Info("volume resized", "volume_id", vol.ID, "old_size", oldSizeGB, "new_size", newSizeGB)
 	return nil
@@ -281,11 +293,13 @@ func (s *VolumeService) AttachVolume(ctx context.Context, volumeID string, insta
 		return "", err
 	}
 
-	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.attach", "volume", vol.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, vol.UserID, "volume.attach", "volume", vol.ID.String(), map[string]interface{}{
 		"instance_id": instanceID,
 		"mount_path":  mountPath,
 		"device_path": devicePath,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "volume.attach", "volume_id", vol.ID, "error", err)
+	}
 
 	return devicePath, nil
 }
@@ -318,9 +332,11 @@ func (s *VolumeService) DetachVolume(ctx context.Context, volumeID string) error
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.detach", "volume", vol.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, vol.UserID, "volume.detach", "volume", vol.ID.String(), map[string]interface{}{
 		"instance_id": instanceID,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "volume.detach", "volume_id", vol.ID, "error", err)
+	}
 
 	return nil
 }

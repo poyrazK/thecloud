@@ -3,6 +3,7 @@ package services
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,16 +20,18 @@ type LBService struct {
 	vpcRepo      ports.VpcRepository
 	instanceRepo ports.InstanceRepository
 	auditSvc     ports.AuditService
+	logger       *slog.Logger
 }
 
 // NewLBService constructs an LBService with its dependencies.
-func NewLBService(lbRepo ports.LBRepository, rbacSvc ports.RBACService, vpcRepo ports.VpcRepository, instanceRepo ports.InstanceRepository, auditSvc ports.AuditService) *LBService {
+func NewLBService(lbRepo ports.LBRepository, rbacSvc ports.RBACService, vpcRepo ports.VpcRepository, instanceRepo ports.InstanceRepository, auditSvc ports.AuditService, logger *slog.Logger) *LBService {
 	return &LBService{
 		lbRepo:       lbRepo,
 		rbacSvc:      rbacSvc,
 		vpcRepo:      vpcRepo,
 		instanceRepo: instanceRepo,
 		auditSvc:     auditSvc,
+		logger:       logger,
 	}
 }
 
@@ -77,9 +80,11 @@ func (s *LBService) Create(ctx context.Context, name string, vpcID uuid.UUID, po
 		return nil, err
 	}
 
-	_ = s.auditSvc.Log(ctx, lb.UserID, "lb.create", "loadbalancer", lb.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, lb.UserID, "lb.create", "loadbalancer", lb.ID.String(), map[string]interface{}{
 		"name": lb.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "lb.create", "lb_id", lb.ID, "error", err)
+	}
 
 	return lb, nil
 }
@@ -130,9 +135,11 @@ func (s *LBService) Delete(ctx context.Context, idOrName string) error {
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, lb.UserID, "lb.delete", "loadbalancer", lb.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, lb.UserID, "lb.delete", "loadbalancer", lb.ID.String(), map[string]interface{}{
 		"name": lb.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "lb.delete", "lb_id", lb.ID, "error", err)
+	}
 
 	return nil
 }
@@ -179,10 +186,12 @@ func (s *LBService) AddTarget(ctx context.Context, lbID, instanceID uuid.UUID, p
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, lb.UserID, "lb.target_add", "loadbalancer", lb.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, lb.UserID, "lb.target_add", "loadbalancer", lb.ID.String(), map[string]interface{}{
 		"instance_id": instanceID.String(),
 		"port":        port,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "lb.target_add", "lb_id", lb.ID, "error", err)
+	}
 
 	return nil
 }
@@ -204,9 +213,11 @@ func (s *LBService) RemoveTarget(ctx context.Context, lbID, instanceID uuid.UUID
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, lb.UserID, "lb.target_remove", "loadbalancer", lb.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, lb.UserID, "lb.target_remove", "loadbalancer", lb.ID.String(), map[string]interface{}{
 		"instance_id": instanceID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "lb.target_remove", "lb_id", lb.ID, "error", err)
+	}
 
 	return nil
 }

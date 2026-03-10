@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
@@ -30,7 +31,7 @@ func setupGatewayServiceTest(t *testing.T) (*services.GatewayService, *postgres.
 		RBACSvc: rbacSvc,
 	})
 
-	svc := services.NewGatewayService(repo, rbacSvc, auditSvc)
+	svc := services.NewGatewayService(repo, rbacSvc, auditSvc, slog.Default())
 	pgRepo, ok := repo.(*postgres.PostgresGatewayRepository)
 	require.True(t, ok)
 	return svc, pgRepo, ctx

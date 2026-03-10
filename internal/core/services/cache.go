@@ -188,15 +188,19 @@ func (s *CacheService) launchCacheContainer(ctx context.Context, cache *domain.C
 }
 
 func (s *CacheService) logCacheCreation(ctx context.Context, cache *domain.Cache, originalName string) {
-	_ = s.eventSvc.RecordEvent(ctx, "CACHE_CREATE", cache.ID.String(), "CACHE", map[string]interface{}{
+	if err := s.eventSvc.RecordEvent(ctx, "CACHE_CREATE", cache.ID.String(), "CACHE", map[string]interface{}{
 		"name":    cache.Name,
 		"version": cache.Version,
 		"memory":  cache.MemoryMB,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to record event", "action", "CACHE_CREATE", "cache_id", cache.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, cache.UserID, "cache.create", "cache", cache.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, cache.UserID, "cache.create", "cache", cache.ID.String(), map[string]interface{}{
 		"name": originalName,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "cache.create", "cache_id", cache.ID, "error", err)
+	}
 
 	platform.CacheInstancesTotal.WithLabelValues("running").Inc()
 }
@@ -249,11 +253,15 @@ func (s *CacheService) DeleteCache(ctx context.Context, idOrName string) error {
 		return err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "CACHE_DELETE", cache.ID.String(), "CACHE", nil)
+	if err := s.eventSvc.RecordEvent(ctx, "CACHE_DELETE", cache.ID.String(), "CACHE", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "CACHE_DELETE", "cache_id", cache.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, cache.UserID, "cache.delete", "cache", cache.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, cache.UserID, "cache.delete", "cache", cache.ID.String(), map[string]interface{}{
 		"name": cache.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "cache.delete", "cache_id", cache.ID, "error", err)
+	}
 
 	platform.CacheInstancesTotal.WithLabelValues("running").Dec()
 
@@ -316,7 +324,9 @@ func (s *CacheService) FlushCache(ctx context.Context, idOrName string) error {
 		return errors.Wrap(errors.Internal, "failed to flush cache: "+output, err)
 	}
 
-	_ = s.auditSvc.Log(ctx, cache.UserID, "cache.flush", "cache", cache.ID.String(), map[string]interface{}{})
+	if err := s.auditSvc.Log(ctx, cache.UserID, "cache.flush", "cache", cache.ID.String(), map[string]interface{}{}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "cache.flush", "cache_id", cache.ID, "error", err)
+	}
 
 	return nil
 }

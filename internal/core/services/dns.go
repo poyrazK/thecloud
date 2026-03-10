@@ -115,10 +115,12 @@ func (s *DNSService) CreateZone(ctx context.Context, vpcID uuid.UUID, name, desc
 	}
 
 	// 6. Audit log
-	_ = s.auditSvc.Log(ctx, userID, "dns.zone.create", "dns_zone", zone.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, userID, "dns.zone.create", "dns_zone", zone.ID.String(), map[string]interface{}{
 		"name":   name,
 		"vpc_id": vpcID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "dns.zone.create", "zone_id", zone.ID, "error", err)
+	}
 
 	s.logger.Info("created DNS zone", "zone", name, "vpc", vpc.Name)
 	return zone, nil
@@ -186,9 +188,11 @@ func (s *DNSService) DeleteZone(ctx context.Context, idOrName string) error {
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, zone.UserID, "dns.zone.delete", "dns_zone", zone.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, zone.UserID, "dns.zone.delete", "dns_zone", zone.ID.String(), map[string]interface{}{
 		"name": zone.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "dns.zone.delete", "zone_id", zone.ID, "error", err)
+	}
 
 	return nil
 }

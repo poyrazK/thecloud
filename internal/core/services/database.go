@@ -249,10 +249,12 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 		return s.performProvisioningRollback(ctx, db, vol.ID.String(), err)
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_REPLICA_CREATE", db.ID.String(), "DATABASE", map[string]interface{}{
+	if err := s.eventSvc.RecordEvent(ctx, "DATABASE_REPLICA_CREATE", db.ID.String(), "DATABASE", map[string]interface{}{
 		"primary_id": primaryID,
 		"name":       name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to record event", "action", "DATABASE_REPLICA_CREATE", "db_id", db.ID, "error", err)
+	}
 
 	return db, nil
 }
@@ -328,8 +330,12 @@ func (s *DatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDa
 		return nil, err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_MODIFY", db.ID.String(), "DATABASE", nil)
-	_ = s.auditSvc.Log(ctx, db.UserID, "database.modify", "database", db.ID.String(), map[string]interface{}{"name": db.Name})
+	if err := s.eventSvc.RecordEvent(ctx, "DATABASE_MODIFY", db.ID.String(), "DATABASE", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "DATABASE_MODIFY", "db_id", db.ID, "error", err)
+	}
+	if err := s.auditSvc.Log(ctx, db.UserID, "database.modify", "database", db.ID.String(), map[string]interface{}{"name": db.Name}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "database.modify", "db_id", db.ID, "error", err)
+	}
 
 	return db, nil
 }
@@ -403,8 +409,12 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 		return err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_DELETE", id.String(), "DATABASE", nil)
-	_ = s.auditSvc.Log(ctx, db.UserID, "database.delete", "database", db.ID.String(), map[string]interface{}{"name": db.Name})
+	if err := s.eventSvc.RecordEvent(ctx, "DATABASE_DELETE", id.String(), "DATABASE", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "DATABASE_DELETE", "db_id", id, "error", err)
+	}
+	if err := s.auditSvc.Log(ctx, db.UserID, "database.delete", "database", db.ID.String(), map[string]interface{}{"name": db.Name}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "database.delete", "db_id", db.ID, "error", err)
+	}
 	platform.RDSInstancesTotal.WithLabelValues(string(db.Engine), "running").Dec()
 
 	return nil
@@ -430,7 +440,9 @@ func (s *DatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) er
 	if err := s.repo.Update(ctx, db); err != nil {
 		return err
 	}
-	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_PROMOTED", db.ID.String(), "DATABASE", nil)
+	if err := s.eventSvc.RecordEvent(ctx, "DATABASE_PROMOTED", db.ID.String(), "DATABASE", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "DATABASE_PROMOTED", "db_id", db.ID, "error", err)
+	}
 	return nil
 }
 
@@ -809,8 +821,12 @@ func (s *DatabaseService) initialDatabaseRecord(userID uuid.UUID, name string, e
 }
 
 func (s *DatabaseService) recordDatabaseCreation(ctx context.Context, userID uuid.UUID, db *domain.Database, originalEngine string) {
-	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_CREATE", db.ID.String(), "DATABASE", map[string]interface{}{"name": db.Name, "engine": db.Engine})
-	_ = s.auditSvc.Log(ctx, userID, "database.create", "database", db.ID.String(), map[string]interface{}{"name": db.Name, "engine": originalEngine})
+	if err := s.eventSvc.RecordEvent(ctx, "DATABASE_CREATE", db.ID.String(), "DATABASE", map[string]interface{}{"name": db.Name, "engine": db.Engine}); err != nil {
+		s.logger.Warn("failed to record event", "action", "DATABASE_CREATE", "db_id", db.ID, "error", err)
+	}
+	if err := s.auditSvc.Log(ctx, userID, "database.create", "database", db.ID.String(), map[string]interface{}{"name": db.Name, "engine": originalEngine}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "database.create", "db_id", db.ID, "error", err)
+	}
 	platform.RDSInstancesTotal.WithLabelValues(originalEngine, "running").Inc()
 }
 

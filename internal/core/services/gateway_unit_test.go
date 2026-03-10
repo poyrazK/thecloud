@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -51,7 +52,7 @@ func TestGatewayService_Unit(t *testing.T) {
 
 	// NewGatewayService calls RefreshRoutes, and so do other methods
 	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{}, nil)
-	svc := services.NewGatewayService(repo, rbacSvc, auditSvc)
+	svc := services.NewGatewayService(repo, rbacSvc, auditSvc, slog.Default())
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	userID := appcontext.UserIDFromContext(ctx)

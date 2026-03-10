@@ -3,6 +3,7 @@ package services
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,15 +18,17 @@ type ContainerService struct {
 	rbacSvc  ports.RBACService
 	eventSvc ports.EventService
 	auditSvc ports.AuditService
+	logger   *slog.Logger
 }
 
 // NewContainerService constructs a ContainerService with its dependencies.
-func NewContainerService(repo ports.ContainerRepository, rbacSvc ports.RBACService, eventSvc ports.EventService, auditSvc ports.AuditService) ports.ContainerService {
+func NewContainerService(repo ports.ContainerRepository, rbacSvc ports.RBACService, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) ports.ContainerService {
 	return &ContainerService{
 		repo:     repo,
 		rbacSvc:  rbacSvc,
 		eventSvc: eventSvc,
 		auditSvc: auditSvc,
+		logger:   logger,
 	}
 }
 
@@ -55,12 +58,16 @@ func (s *ContainerService) CreateDeployment(ctx context.Context, name, image str
 		return nil, err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "DEPLOYMENT_CREATED", dep.ID.String(), "DEPLOYMENT", nil)
+	if err := s.eventSvc.RecordEvent(ctx, "DEPLOYMENT_CREATED", dep.ID.String(), "DEPLOYMENT", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "DEPLOYMENT_CREATED", "deployment_id", dep.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, dep.UserID, "container.deployment_create", "deployment", dep.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, dep.UserID, "container.deployment_create", "deployment", dep.ID.String(), map[string]interface{}{
 		"name":  dep.Name,
 		"image": dep.Image,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "container.deployment_create", "deployment_id", dep.ID, "error", err)
+	}
 
 	return dep, nil
 }
@@ -106,9 +113,11 @@ func (s *ContainerService) ScaleDeployment(ctx context.Context, id uuid.UUID, re
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, userID, "container.deployment_scale", "deployment", id.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, userID, "container.deployment_scale", "deployment", id.String(), map[string]interface{}{
 		"replicas": replicas,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "container.deployment_scale", "deployment_id", id, "error", err)
+	}
 
 	return nil
 }
@@ -131,7 +140,9 @@ func (s *ContainerService) DeleteDeployment(ctx context.Context, id uuid.UUID) e
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, userID, "container.deployment_delete", "deployment", id.String(), map[string]interface{}{})
+	if err := s.auditSvc.Log(ctx, userID, "container.deployment_delete", "deployment", id.String(), map[string]interface{}{}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "container.deployment_delete", "deployment_id", id, "error", err)
+	}
 
 	return nil
 }

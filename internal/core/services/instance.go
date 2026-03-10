@@ -425,17 +425,21 @@ func (s *InstanceService) finalizeProvision(ctx context.Context, inst *domain.In
 
 	s.updateVolumesAfterLaunch(ctx, attachedVolumes, inst.ID)
 
-	_ = s.eventSvc.RecordEvent(ctx, "INSTANCE_LAUNCH", inst.ID.String(), "INSTANCE", map[string]interface{}{
+	if err := s.eventSvc.RecordEvent(ctx, "INSTANCE_LAUNCH", inst.ID.String(), "INSTANCE", map[string]interface{}{
 		"name":  inst.Name,
 		"image": inst.Image,
 		"ip":    inst.PrivateIP,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to record event", "action", "INSTANCE_LAUNCH", "instance_id", inst.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, inst.UserID, "instance.launch", "instance", inst.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, inst.UserID, "instance.launch", "instance", inst.ID.String(), map[string]interface{}{
 		"name":  inst.Name,
 		"image": inst.Image,
 		"ip":    inst.PrivateIP,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "instance.launch", "instance_id", inst.ID, "error", err)
+	}
 
 	return nil
 }
@@ -548,9 +552,11 @@ func (s *InstanceService) StartInstance(ctx context.Context, idOrName string) er
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, inst.UserID, "instance.start", "instance", inst.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, inst.UserID, "instance.start", "instance", inst.ID.String(), map[string]interface{}{
 		"name": inst.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "instance.start", "instance_id", inst.ID, "error", err)
+	}
 
 	return nil
 }
@@ -599,9 +605,11 @@ func (s *InstanceService) StopInstance(ctx context.Context, idOrName string) err
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, inst.UserID, "instance.stop", "instance", inst.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, inst.UserID, "instance.stop", "instance", inst.ID.String(), map[string]interface{}{
 		"name": inst.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "instance.stop", "instance_id", inst.ID, "error", err)
+	}
 
 	return nil
 }
@@ -786,10 +794,14 @@ func (s *InstanceService) finalizeTermination(ctx context.Context, inst *domain.
 		return err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "INSTANCE_TERMINATE", inst.ID.String(), "INSTANCE", map[string]interface{}{})
-	_ = s.auditSvc.Log(ctx, inst.UserID, "instance.terminate", "instance", inst.ID.String(), map[string]interface{}{
+	if err := s.eventSvc.RecordEvent(ctx, "INSTANCE_TERMINATE", inst.ID.String(), "INSTANCE", map[string]interface{}{}); err != nil {
+		s.logger.Warn("failed to record event", "action", "INSTANCE_TERMINATE", "instance_id", inst.ID, "error", err)
+	}
+	if err := s.auditSvc.Log(ctx, inst.UserID, "instance.terminate", "instance", inst.ID.String(), map[string]interface{}{
 		"name": inst.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "instance.terminate", "instance_id", inst.ID, "error", err)
+	}
 
 	// Release Quota
 	// Best effort - if instance type is not found, we can't decrement, but we shouldn't fail termination.

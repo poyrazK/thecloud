@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -34,7 +35,7 @@ func setupLBServiceIntegrationTest(t *testing.T) (ports.LBService, *postgres.LBR
 		RBACSvc: rbacSvc,
 	})
 
-	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instRepo, auditSvc)
+	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instRepo, auditSvc, slog.Default())
 	return svc, lbRepo, vpcRepo, instRepo, ctx
 }
 

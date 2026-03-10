@@ -41,7 +41,7 @@ func setupContainerServiceIntegrationTest(t *testing.T) (ports.ContainerService,
 		RBACSvc: rbacSvc,
 	})
 
-	svc := services.NewContainerService(repo, rbacSvc, eventSvc, auditSvc)
+	svc := services.NewContainerService(repo, rbacSvc, eventSvc, auditSvc, slog.Default())
 
 	return svc, repo, db, ctx
 }
@@ -136,7 +136,7 @@ func TestContainer_ChaosRestart(t *testing.T) {
 		RBACSvc: rbacSvc,
 	})
 
-	containerSvc := services.NewContainerService(containerRepo, rbacSvc, eventSvc, auditSvc)
+	containerSvc := services.NewContainerService(containerRepo, rbacSvc, eventSvc, auditSvc, slog.Default())
 	worker := services.NewContainerWorker(containerRepo, instSvc, eventSvc)
 
 	// 2. Create Deployment

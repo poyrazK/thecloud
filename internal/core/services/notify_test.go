@@ -44,7 +44,7 @@ func setupNotifyServiceIntegrationTest(t *testing.T) (ports.NotifyService, ports
 	})
 
 	queueRepo := postgres.NewPostgresQueueRepository(db)
-	queueSvc := services.NewQueueService(queueRepo, rbacSvc, eventSvc, auditSvc)
+	queueSvc := services.NewQueueService(queueRepo, rbacSvc, eventSvc, auditSvc, slog.Default())
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := services.NewNotifyService(services.NotifyServiceParams{

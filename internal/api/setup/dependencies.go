@@ -206,7 +206,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		RBACSvc:  rbacSvc,
 		Logger:   c.Logger,
 	})
-	authSvc := services.NewAuthService(c.Repos.User, identitySvc, auditSvc, tenantSvc)
+	authSvc := services.NewAuthService(c.Repos.User, identitySvc, auditSvc, tenantSvc, c.Logger)
 	pwdResetSvc := services.NewPasswordResetService(c.Repos.PasswordReset, c.Repos.User, c.Logger)
 
 	// 2. WebSocket & Core Infrastructure
@@ -273,7 +273,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	})
 	sgSvc := services.NewSecurityGroupService(c.Repos.SecurityGroup, rbacSvc, c.Repos.Vpc, c.Network, auditSvc, c.Logger)
 
-	lbSvc := services.NewLBService(c.Repos.LB, rbacSvc, c.Repos.Vpc, c.Repos.Instance, auditSvc)
+	lbSvc := services.NewLBService(c.Repos.LB, rbacSvc, c.Repos.Vpc, c.Repos.Instance, auditSvc, c.Logger)
 	lbWorker := services.NewLBWorker(c.Repos.LB, c.Repos.Instance, c.LBProxy)
 
 	// Global LB Service
@@ -322,8 +322,8 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	}
 	fnSvc := services.NewFunctionService(c.Repos.Function, rbacSvc, c.Compute, fileStore, auditSvc, c.Logger)
 	cacheSvc := services.NewCacheService(c.Repos.Cache, rbacSvc, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
-	queueSvc := services.NewQueueService(c.Repos.Queue, rbacSvc, eventSvc, auditSvc)
-	pipelineSvc := services.NewPipelineService(c.Repos.Pipeline, c.Repos.TaskQueue, eventSvc, auditSvc)
+	queueSvc := services.NewQueueService(c.Repos.Queue, rbacSvc, eventSvc, auditSvc, c.Logger)
+	pipelineSvc := services.NewPipelineService(c.Repos.Pipeline, c.Repos.TaskQueue, eventSvc, auditSvc, c.Logger)
 	notifySvc := services.NewNotifyService(services.NotifyServiceParams{
 		Repo:     c.Repos.Notify,
 		RBACSvc:  rbacSvc,
@@ -334,15 +334,15 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	})
 
 	// 5. DevOps & Automation Services
-	cronSvc := services.NewCronService(c.Repos.Cron, rbacSvc, eventSvc, auditSvc)
+	cronSvc := services.NewCronService(c.Repos.Cron, rbacSvc, eventSvc, auditSvc, c.Logger)
 	cronWorker := services.NewCronWorker(c.Repos.Cron)
-	gwSvc := services.NewGatewayService(c.Repos.Gateway, rbacSvc, auditSvc)
-	containerSvc := services.NewContainerService(c.Repos.Container, rbacSvc, eventSvc, auditSvc)
+	gwSvc := services.NewGatewayService(c.Repos.Gateway, rbacSvc, auditSvc, c.Logger)
+	containerSvc := services.NewContainerService(c.Repos.Container, rbacSvc, eventSvc, auditSvc, c.Logger)
 	containerWorker := services.NewContainerWorker(c.Repos.Container, instSvcConcrete, eventSvc)
 	stackSvc := services.NewStackService(c.Repos.Stack, rbacSvc, instSvcConcrete, vpcSvc, volumeSvc, snapshotSvc, c.Logger)
 
 	// 6. Business & Scaling Services
-	asgSvc := services.NewAutoScalingService(c.Repos.AutoScaling, rbacSvc, c.Repos.Vpc, auditSvc)
+	asgSvc := services.NewAutoScalingService(c.Repos.AutoScaling, rbacSvc, c.Repos.Vpc, auditSvc, c.Logger)
 	asgWorker := services.NewAutoScalingWorker(c.Repos.AutoScaling, instSvcConcrete, lbSvc, eventSvc, ports.RealClock{})
 	accountingSvc := services.NewAccountingService(c.Repos.Accounting, rbacSvc, c.Repos.Instance, c.Logger)
 	accountingWorker := workers.NewAccountingWorker(accountingSvc, c.Logger)
@@ -471,7 +471,7 @@ func initStorageServices(c ServiceConfig, rbacSvc ports.RBACService, audit ports
 	}
 
 	storageSvc := services.NewStorageService(services.StorageServiceParams{
-		Repo: c.Repos.Storage, RBACSvc: rbacSvc, Store: fileStore, AuditSvc: audit, EncryptSvc: encryption, Config: c.Config,
+		Repo: c.Repos.Storage, RBACSvc: rbacSvc, Store: fileStore, AuditSvc: audit, EncryptSvc: encryption, Config: c.Config, Logger: c.Logger,
 	})
 	return storageSvc, fileStore, nil
 }

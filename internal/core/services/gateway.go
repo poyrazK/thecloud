@@ -4,6 +4,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -28,10 +29,11 @@ type GatewayService struct {
 	routes   []*domain.GatewayRoute
 	matchers map[uuid.UUID]*routing.PatternMatcher
 	auditSvc ports.AuditService
+	logger   *slog.Logger
 }
 
 // NewGatewayService constructs a GatewayService and loads existing routes.
-func NewGatewayService(repo ports.GatewayRepository, rbacSvc ports.RBACService, auditSvc ports.AuditService) *GatewayService {
+func NewGatewayService(repo ports.GatewayRepository, rbacSvc ports.RBACService, auditSvc ports.AuditService, logger *slog.Logger) *GatewayService {
 	s := &GatewayService{
 		repo:     repo,
 		rbacSvc:  rbacSvc,
@@ -39,6 +41,7 @@ func NewGatewayService(repo ports.GatewayRepository, rbacSvc ports.RBACService, 
 		routes:   make([]*domain.GatewayRoute, 0),
 		matchers: make(map[uuid.UUID]*routing.PatternMatcher),
 		auditSvc: auditSvc,
+		logger:   logger,
 	}
 	// Initial load
 	_ = s.RefreshRoutes(context.Background())
@@ -87,11 +90,13 @@ func (s *GatewayService) CreateRoute(ctx context.Context, params ports.CreateRou
 		return nil, err
 	}
 
-	_ = s.auditSvc.Log(ctx, route.UserID, "gateway.route_create", "gateway", route.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, route.UserID, "gateway.route_create", "gateway", route.ID.String(), map[string]interface{}{
 		"name":    route.Name,
 		"pattern": route.PathPattern,
 		"methods": route.Methods,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "gateway.route_create", "route_id", route.ID, "error", err)
+	}
 
 	_ = s.RefreshRoutes(ctx)
 	return route, nil
@@ -124,9 +129,11 @@ func (s *GatewayService) DeleteRoute(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, route.UserID, "gateway.route_delete", "gateway", route.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, route.UserID, "gateway.route_delete", "gateway", route.ID.String(), map[string]interface{}{
 		"name": route.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "gateway.route_delete", "route_id", id, "error", err)
+	}
 
 	return s.RefreshRoutes(ctx)
 }

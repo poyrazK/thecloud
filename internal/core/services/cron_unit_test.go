@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -20,7 +21,7 @@ func TestCronServiceUnit(t *testing.T) {
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	svc := services.NewCronService(repo, rbacSvc, eventSvc, auditSvc)
+	svc := services.NewCronService(repo, rbacSvc, eventSvc, auditSvc, slog.Default())
 
 	ctx := context.Background()
 	userID := uuid.New()

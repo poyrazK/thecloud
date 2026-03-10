@@ -102,10 +102,12 @@ func (s *SecurityGroupService) CreateGroup(ctx context.Context, vpcID uuid.UUID,
 		return nil, errors.Wrap(errors.Internal, "failed to create security group", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, userID, "security_group.create", "security_group", sgID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, userID, "security_group.create", "security_group", sgID.String(), map[string]interface{}{
 		"name":   name,
 		"vpc_id": vpcID,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "security_group.create", "resource_id", sgID.String(), "error", err)
+	}
 
 	return sg, nil
 }
@@ -165,7 +167,9 @@ func (s *SecurityGroupService) DeleteGroup(ctx context.Context, id uuid.UUID) er
 		return errors.Wrap(errors.Internal, "failed to delete security group", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, userID, "security_group.delete", "security_group", id.String(), nil)
+	if err := s.auditSvc.Log(ctx, userID, "security_group.delete", "security_group", id.String(), nil); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "security_group.delete", "resource_id", id.String(), "error", err)
+	}
 
 	return nil
 }
@@ -207,9 +211,11 @@ func (s *SecurityGroupService) AddRule(ctx context.Context, groupID uuid.UUID, r
 		// We don't rollback DB here in this simple pass, but in real life we should.
 	}
 
-	_ = s.auditSvc.Log(ctx, sg.UserID, "security_group.add_rule", "security_group", groupID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, sg.UserID, "security_group.add_rule", "security_group", groupID.String(), map[string]interface{}{
 		"rule_id": rule.ID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "security_group.add_rule", "resource_id", groupID.String(), "error", err)
+	}
 
 	return &rule, nil
 }
@@ -259,9 +265,11 @@ func (s *SecurityGroupService) RemoveRule(ctx context.Context, ruleID uuid.UUID)
 		return errors.Wrap(errors.Internal, "failed to delete security rule", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, sg.UserID, "security_group.remove_rule", "security_group", sg.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, sg.UserID, "security_group.remove_rule", "security_group", sg.ID.String(), map[string]interface{}{
 		"rule_id": ruleID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "security_group.remove_rule", "resource_id", sg.ID.String(), "error", err)
+	}
 
 	return nil
 }
@@ -296,9 +304,11 @@ func (s *SecurityGroupService) AttachToInstance(ctx context.Context, instanceID,
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, sg.UserID, "security_group.attach", "instance", instanceID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, sg.UserID, "security_group.attach", "instance", instanceID.String(), map[string]interface{}{
 		"group_id": groupID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "security_group.attach", "resource_id", instanceID.String(), "error", err)
+	}
 
 	return nil
 }
@@ -331,9 +341,11 @@ func (s *SecurityGroupService) DetachFromInstance(ctx context.Context, instanceI
 		}
 	}
 
-	_ = s.auditSvc.Log(ctx, userID, "security_group.detach", "instance", instanceID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, userID, "security_group.detach", "instance", instanceID.String(), map[string]interface{}{
 		"group_id": groupID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "security_group.detach", "resource_id", instanceID.String(), "error", err)
+	}
 
 	return nil
 }

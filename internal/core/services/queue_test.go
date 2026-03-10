@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/poyrazk/thecloud/internal/core/ports"
@@ -35,7 +36,7 @@ func setupQueueServiceTest(t *testing.T) (ports.QueueService, *postgres.Postgres
 		RBACSvc: rbacSvc,
 	})
 
-	svc := services.NewQueueService(repo, rbacSvc, eventSvc, auditSvc)
+	svc := services.NewQueueService(repo, rbacSvc, eventSvc, auditSvc, slog.Default())
 	return svc, repo.(*postgres.PostgresQueueRepository), ctx
 }
 

@@ -96,13 +96,17 @@ func (s *SnapshotService) CreateSnapshot(ctx context.Context, volumeID uuid.UUID
 		_ = s.repo.Update(bgCtx, &asyncSnap)
 	}()
 
-	_ = s.eventSvc.RecordEvent(ctx, "SNAPSHOT_CREATE", snapshot.ID.String(), "SNAPSHOT", map[string]interface{}{
+	if err := s.eventSvc.RecordEvent(ctx, "SNAPSHOT_CREATE", snapshot.ID.String(), "SNAPSHOT", map[string]interface{}{
 		"volume_id": volumeID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to record event", "action", "SNAPSHOT_CREATE", "snapshot_id", snapshot.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, snapshot.UserID, "snapshot.create", "snapshot", snapshot.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, snapshot.UserID, "snapshot.create", "snapshot", snapshot.ID.String(), map[string]interface{}{
 		"volume_id": volumeID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "snapshot.create", "snapshot_id", snapshot.ID, "error", err)
+	}
 
 	return snapshot, nil
 }
@@ -164,8 +168,12 @@ func (s *SnapshotService) DeleteSnapshot(ctx context.Context, id uuid.UUID) erro
 		return err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "SNAPSHOT_DELETE", id.String(), "SNAPSHOT", map[string]interface{}{})
-	_ = s.auditSvc.Log(ctx, snapshot.UserID, "snapshot.delete", "snapshot", id.String(), map[string]interface{}{})
+	if err := s.eventSvc.RecordEvent(ctx, "SNAPSHOT_DELETE", id.String(), "SNAPSHOT", map[string]interface{}{}); err != nil {
+		s.logger.Warn("failed to record event", "action", "SNAPSHOT_DELETE", "snapshot_id", id, "error", err)
+	}
+	if err := s.auditSvc.Log(ctx, snapshot.UserID, "snapshot.delete", "snapshot", id.String(), map[string]interface{}{}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "snapshot.delete", "snapshot_id", id, "error", err)
+	}
 
 	return nil
 }
@@ -220,13 +228,17 @@ func (s *SnapshotService) RestoreSnapshot(ctx context.Context, snapshotID uuid.U
 		return nil, err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "VOLUME_RESTORE", vol.ID.String(), "VOLUME", map[string]interface{}{
+	if err := s.eventSvc.RecordEvent(ctx, "VOLUME_RESTORE", vol.ID.String(), "VOLUME", map[string]interface{}{
 		"snapshot_id": snapshotID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to record event", "action", "VOLUME_RESTORE", "volume_id", vol.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.restore", "volume", vol.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, vol.UserID, "volume.restore", "volume", vol.ID.String(), map[string]interface{}{
 		"snapshot_id": snapshotID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "volume.restore", "volume_id", vol.ID, "error", err)
+	}
 
 	return vol, nil
 }

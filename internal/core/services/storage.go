@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"regexp"
 	"time"
 
@@ -42,6 +43,7 @@ type StorageServiceParams struct {
 	AuditSvc   ports.AuditService
 	EncryptSvc ports.EncryptionService
 	Config     *platform.Config
+	Logger     *slog.Logger
 }
 
 // StorageService manages object storage metadata and files.
@@ -52,6 +54,7 @@ type StorageService struct {
 	auditSvc   ports.AuditService
 	encryptSvc ports.EncryptionService
 	cfg        *platform.Config
+	logger     *slog.Logger
 }
 
 // NewStorageService constructs a StorageService with its dependencies.
@@ -63,6 +66,7 @@ func NewStorageService(params StorageServiceParams) *StorageService {
 		auditSvc:   params.AuditSvc,
 		encryptSvc: params.EncryptSvc,
 		cfg:        params.Config,
+		logger:     params.Logger,
 	}
 }
 
@@ -135,11 +139,13 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 		return nil, err
 	}
 
-	_ = s.auditSvc.Log(ctx, obj.UserID, "storage.object_upload", "storage", obj.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, obj.UserID, "storage.object_upload", "storage", obj.ID.String(), map[string]interface{}{
 		"bucket":     obj.Bucket,
 		"key":        obj.Key,
 		"version_id": obj.VersionID,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "storage.object_upload", "object_id", obj.ID, "error", err)
+	}
 
 	// Metrics
 	platform.StorageOperations.WithLabelValues("upload", bucketName, "success").Inc()
@@ -290,10 +296,12 @@ func (s *StorageService) DeleteObject(ctx context.Context, bucket, key string) e
 	// Note: We don't delete from FileStore yet because it's a "soft delete".
 	// A background job could clean up Filesystem objects with deleted_at set.
 
-	_ = s.auditSvc.Log(ctx, appcontext.UserIDFromContext(ctx), "storage.object_delete", "storage", bucket+"/"+key, map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, appcontext.UserIDFromContext(ctx), "storage.object_delete", "storage", bucket+"/"+key, map[string]interface{}{
 		"bucket": bucket,
 		"key":    key,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "storage.object_delete", "path", bucket+"/"+key, "error", err)
+	}
 
 	platform.StorageOperations.WithLabelValues("delete", bucket, "success").Inc()
 
@@ -325,9 +333,11 @@ func (s *StorageService) CreateBucket(ctx context.Context, name string, isPublic
 		return nil, err
 	}
 
-	_ = s.auditSvc.Log(ctx, bucket.UserID, "storage.bucket_create", "bucket", bucket.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, bucket.UserID, "storage.bucket_create", "bucket", bucket.ID.String(), map[string]interface{}{
 		"name": name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "storage.bucket_create", "bucket_id", bucket.ID, "error", err)
+	}
 
 	return bucket, nil
 }
@@ -452,10 +462,12 @@ func (s *StorageService) CreateMultipartUpload(ctx context.Context, bucket, key 
 		return nil, errors.Wrap(errors.Internal, "failed to initiate multipart upload", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, upload.UserID, "storage.multipart_init", "storage", upload.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, upload.UserID, "storage.multipart_init", "storage", upload.ID.String(), map[string]interface{}{
 		"bucket": bucket,
 		"key":    key,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "storage.multipart_init", "upload_id", upload.ID, "error", err)
+	}
 
 	return upload, nil
 }
@@ -580,11 +592,13 @@ func (s *StorageService) CompleteMultipartUpload(ctx context.Context, uploadID u
 	// 7. Cleanup multipart records
 	_ = s.repo.DeleteMultipartUpload(ctx, uploadID)
 
-	_ = s.auditSvc.Log(ctx, obj.UserID, "storage.multipart_complete", "storage", obj.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, obj.UserID, "storage.multipart_complete", "storage", obj.ID.String(), map[string]interface{}{
 		"bucket": obj.Bucket,
 		"key":    obj.Key,
 		"size":   obj.SizeBytes,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "storage.multipart_complete", "object_id", obj.ID, "error", err)
+	}
 
 	return obj, nil
 }
@@ -651,7 +665,9 @@ func (s *StorageService) AbortMultipartUpload(ctx context.Context, uploadID uuid
 		return errors.Wrap(errors.Internal, "failed to delete multipart upload", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, userID, "storage.multipart_abort", "storage", uploadID.String(), nil)
+	if err := s.auditSvc.Log(ctx, userID, "storage.multipart_abort", "storage", uploadID.String(), nil); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "storage.multipart_abort", "upload_id", uploadID, "error", err)
+	}
 
 	return nil
 }

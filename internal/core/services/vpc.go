@@ -119,11 +119,13 @@ func (s *VpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*do
 		return nil, errors.Wrap(errors.Internal, "failed to create VPC in database", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, vpc.UserID, "vpc.create", "vpc", vpc.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, vpc.UserID, "vpc.create", "vpc", vpc.ID.String(), map[string]interface{}{
 		"name":       vpc.Name,
 		"cidr_block": vpc.CIDRBlock,
 		"arn":        vpc.ARN,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "vpc.create", "vpc_id", vpc.ID, "error", err)
+	}
 
 	return vpc, nil
 }
@@ -187,9 +189,11 @@ func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
 		return errors.Wrap(errors.Internal, "failed to delete VPC from database", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, vpc.UserID, "vpc.delete", "vpc", vpc.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, vpc.UserID, "vpc.delete", "vpc", vpc.ID.String(), map[string]interface{}{
 		"name": vpc.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "vpc.delete", "vpc_id", vpc.ID, "error", err)
+	}
 
 	return nil
 }

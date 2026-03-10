@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -21,7 +22,7 @@ func TestLBService_Unit(t *testing.T) {
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	svc := services.NewLBService(mockRepo, rbacSvc, mockVpcRepo, mockInstRepo, mockAuditSvc)
+	svc := services.NewLBService(mockRepo, rbacSvc, mockVpcRepo, mockInstRepo, mockAuditSvc, slog.Default())
 
 	ctx := context.Background()
 	userID := uuid.New()

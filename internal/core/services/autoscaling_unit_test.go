@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -18,7 +19,7 @@ func TestAutoScalingServiceUnit(t *testing.T) {
 	rbacSvc := new(MockRBACService)
 	vpcRepo := new(MockVpcRepo)
 	auditSvc := new(MockAuditService)
-	svc := services.NewAutoScalingService(repo, rbacSvc, vpcRepo, auditSvc)
+	svc := services.NewAutoScalingService(repo, rbacSvc, vpcRepo, auditSvc, slog.Default())
 	ctx := context.Background()
 
 	t.Run("CreateGroup", func(t *testing.T) {

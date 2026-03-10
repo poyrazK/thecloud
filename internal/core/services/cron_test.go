@@ -38,7 +38,7 @@ func setupCronServiceIntegrationTest(t *testing.T) (ports.CronService, ports.Cro
 		RBACSvc: rbacSvc,
 	})
 
-	svc := services.NewCronService(repo, rbacSvc, eventSvc, auditSvc)
+	svc := services.NewCronService(repo, rbacSvc, eventSvc, auditSvc, slog.Default())
 
 	return svc, repo, ctx
 }
