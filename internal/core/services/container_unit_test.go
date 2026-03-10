@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -34,6 +35,13 @@ func TestContainerService_Unit(t *testing.T) {
 		repo.AssertExpectations(t)
 	})
 
+	t.Run("CreateDeployment_Unauthorized", func(t *testing.T) {
+		emptyCtx := context.Background()
+		_, err := svc.CreateDeployment(emptyCtx, "fail", "nginx", 1, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unauthorized")
+	})
+
 	t.Run("ListDeployments", func(t *testing.T) {
 		expectedDeps := []*domain.Deployment{{ID: uuid.New(), Name: "dep1"}}
 		repo.On("ListDeployments", mock.Anything, userID).Return(expectedDeps, nil).Once()
@@ -54,6 +62,11 @@ func TestContainerService_Unit(t *testing.T) {
 		assert.Equal(t, depID, dep.ID)
 	})
 
+	t.Run("GetDeployment_Unauthorized", func(t *testing.T) {
+		_, err := svc.GetDeployment(context.Background(), uuid.New())
+		require.Error(t, err)
+	})
+
 	t.Run("ScaleDeployment", func(t *testing.T) {
 		depID := uuid.New()
 		dep := &domain.Deployment{ID: depID, UserID: userID, Replicas: 2}
@@ -65,6 +78,14 @@ func TestContainerService_Unit(t *testing.T) {
 
 		err := svc.ScaleDeployment(ctx, depID, 5)
 		require.NoError(t, err)
+	})
+
+	t.Run("ScaleDeployment_Error", func(t *testing.T) {
+		depID := uuid.New()
+		repo.On("GetDeploymentByID", mock.Anything, depID, userID).Return(nil, fmt.Errorf("not found")).Once()
+
+		err := svc.ScaleDeployment(ctx, depID, 5)
+		require.Error(t, err)
 	})
 
 	t.Run("DeleteDeployment", func(t *testing.T) {

@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 
@@ -70,5 +71,12 @@ func TestDashboardService_GetStats(t *testing.T) {
 		assert.Equal(t, 30*1024, stats.Summary.TotalStorageMB)
 		assert.Equal(t, 3, stats.Summary.TotalVPCs)
 		assert.Len(t, stats.RecentEvents, 1)
+	})
+
+	t.Run("RepoError", func(t *testing.T) {
+		instRepo.On("List", ctx).Return(nil, fmt.Errorf("db fail")).Once()
+
+		_, err := svc.GetStats(ctx)
+		require.Error(t, err)
 	})
 }
