@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -37,6 +38,24 @@ func TestAutoScalingServiceUnit(t *testing.T) {
 		})
 		require.NoError(t, err)
 		assert.NotNil(t, group)
+	})
+
+	t.Run("CreateGroup_VPCNotFound", func(t *testing.T) {
+		vpcID := uuid.New()
+		vpcRepo.On("GetByID", mock.Anything, vpcID).Return(nil, fmt.Errorf("not found")).Once()
+
+		_, err := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{VpcID: vpcID})
+		require.Error(t, err)
+	})
+
+	t.Run("CreateGroup_MaxGroupsExceeded", func(t *testing.T) {
+		vpcID := uuid.New()
+		vpcRepo.On("GetByID", mock.Anything, vpcID).Return(&domain.VPC{ID: vpcID}, nil).Once()
+		repo.On("CountGroupsByVPC", mock.Anything, vpcID).Return(10, nil).Once()
+
+		_, err := svc.CreateGroup(ctx, ports.CreateScalingGroupParams{VpcID: vpcID})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "maximum number of scaling groups")
 	})
 
 	t.Run("GetGroup", func(t *testing.T) {
@@ -79,6 +98,15 @@ func TestAutoScalingServiceUnit(t *testing.T) {
 
 		err := svc.SetDesiredCapacity(ctx, groupID, 5)
 		require.NoError(t, err)
+	})
+
+	t.Run("SetDesiredCapacity_OutOfRange", func(t *testing.T) {
+		groupID := uuid.New()
+		repo.On("GetGroupByID", mock.Anything, groupID).Return(&domain.ScalingGroup{ID: groupID, MinInstances: 2, MaxInstances: 5}, nil).Once()
+
+		err := svc.SetDesiredCapacity(ctx, groupID, 10)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "between min and max")
 	})
 
 	t.Run("CreatePolicy", func(t *testing.T) {
