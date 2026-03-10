@@ -1859,6 +1859,12 @@ func (m *MockTenantRepo) GetQuota(ctx context.Context, tenantID uuid.UUID) (*dom
 func (m *MockTenantRepo) UpdateQuota(ctx context.Context, quota *domain.TenantQuota) error {
 	return m.Called(ctx, quota).Error(0)
 }
+func (m *MockTenantRepo) IncrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error {
+	return m.Called(ctx, tenantID, resource, amount).Error(0)
+}
+func (m *MockTenantRepo) DecrementUsage(ctx context.Context, tenantID uuid.UUID, resource string, amount int) error {
+	return m.Called(ctx, tenantID, resource, amount).Error(0)
+}
 
 // MockTenantService
 type MockTenantService struct {

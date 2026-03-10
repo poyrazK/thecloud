@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 
@@ -27,6 +28,9 @@ func (m *MockRoleRepository) GetRoleByID(ctx context.Context, id uuid.UUID) (*do
 }
 func (m *MockRoleRepository) GetRoleByName(ctx context.Context, name string) (*domain.Role, error) {
 	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	r0, _ := args.Get(0).(*domain.Role)
 	return r0, args.Error(1)
 }
@@ -93,5 +97,37 @@ func TestRBACService_Unit(t *testing.T) {
 		allowed, err := svc.HasPermission(ctx, userID, domain.PermissionInstanceLaunch, "*")
 		require.NoError(t, err)
 		assert.True(t, allowed)
+	})
+
+	t.Run("Authorize_Denied", func(t *testing.T) {
+		user := &domain.User{ID: userID, Role: domain.RoleViewer, TenantID: tenantID}
+		mockUserRepo.On("GetByID", mock.Anything, userID).Return(user, nil).Once()
+		mockIAMRepo.On("GetPoliciesForUser", mock.Anything, tenantID, userID).Return([]*domain.Policy{}, nil).Once()
+		mockRoleRepo.On("GetRoleByName", mock.Anything, domain.RoleViewer).Return(&domain.Role{
+			Name: domain.RoleViewer,
+			Permissions: []domain.Permission{domain.PermissionInstanceRead},
+		}, nil).Once()
+
+		err := svc.Authorize(ctx, userID, domain.PermissionInstanceLaunch, "*")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "permission denied")
+	})
+
+	t.Run("HasPermission_UserError", func(t *testing.T) {
+		mockUserRepo.On("GetByID", mock.Anything, userID).Return(nil, fmt.Errorf("db fail")).Once()
+		_, err := svc.HasPermission(ctx, userID, domain.PermissionInstanceRead, "*")
+		require.Error(t, err)
+	})
+
+	t.Run("BindRole_Success", func(t *testing.T) {
+		user := &domain.User{ID: userID, Email: "test@test.com", Role: domain.RoleViewer}
+		mockRoleRepo.On("GetRoleByName", mock.Anything, domain.RoleAdmin).Return(&domain.Role{Name: domain.RoleAdmin}, nil).Once()
+		mockUserRepo.On("GetByEmail", mock.Anything, "test@test.com").Return(user, nil).Once()
+		mockUserRepo.On("Update", mock.Anything, mock.MatchedBy(func(u *domain.User) bool {
+			return u.Role == domain.RoleAdmin
+		})).Return(nil).Once()
+
+		err := svc.BindRole(ctx, "test@test.com", domain.RoleAdmin)
+		require.NoError(t, err)
 	})
 }
