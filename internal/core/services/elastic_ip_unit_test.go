@@ -89,6 +89,26 @@ func TestElasticIPService_AssociateIP(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, domain.EIPStatusAssociated, result.Status)
 	})
+
+	t.Run("instance deleted", func(t *testing.T) {
+		instDeleted := &domain.Instance{ID: instID, Status: domain.StatusDeleted}
+		repo.On("GetByID", mock.Anything, id).Return(eip, nil).Once()
+		instRepo.On("GetByID", mock.Anything, instID).Return(instDeleted, nil).Once()
+
+		_, err := svc.AssociateIP(context.Background(), id, instID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "deleted instance")
+	})
+
+	t.Run("already has eip", func(t *testing.T) {
+		repo.On("GetByID", mock.Anything, id).Return(eip, nil).Once()
+		instRepo.On("GetByID", mock.Anything, instID).Return(inst, nil).Once()
+		repo.On("GetByInstanceID", mock.Anything, instID).Return(&domain.ElasticIP{ID: uuid.New()}, nil).Once()
+
+		_, err := svc.AssociateIP(context.Background(), id, instID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "already has an associated")
+	})
 }
 
 func TestElasticIPService_DisassociateIP(t *testing.T) {
@@ -103,14 +123,25 @@ func TestElasticIPService_DisassociateIP(t *testing.T) {
 	instID := uuid.New()
 	eip := &domain.ElasticIP{ID: id, UserID: userID, Status: domain.EIPStatusAssociated, InstanceID: &instID}
 
-	repo.On("GetByID", mock.Anything, id).Return(eip, nil).Once()
-	repo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
-	auditSvc.On("Log", mock.Anything, userID, "eip.disassociate", "eip", id.String(), mock.Anything).Return(nil).Once()
+	t.Run("success", func(t *testing.T) {
+		repo.On("GetByID", mock.Anything, id).Return(eip, nil).Once()
+		repo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "eip.disassociate", "eip", id.String(), mock.Anything).Return(nil).Once()
 
-	result, err := svc.DisassociateIP(context.Background(), id)
-	require.NoError(t, err)
-	assert.Equal(t, domain.EIPStatusAllocated, result.Status)
-	assert.Nil(t, result.InstanceID)
+		result, err := svc.DisassociateIP(context.Background(), id)
+		require.NoError(t, err)
+		assert.Equal(t, domain.EIPStatusAllocated, result.Status)
+		assert.Nil(t, result.InstanceID)
+	})
+
+	t.Run("not associated", func(t *testing.T) {
+		eipAlloc := &domain.ElasticIP{ID: id, Status: domain.EIPStatusAllocated}
+		repo.On("GetByID", mock.Anything, id).Return(eipAlloc, nil).Once()
+
+		_, err := svc.DisassociateIP(context.Background(), id)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not associated")
+	})
 }
 
 func TestElasticIPService_ListAndGet(t *testing.T) {
