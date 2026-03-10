@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 
@@ -38,6 +39,23 @@ func TestVpcServiceUnit(t *testing.T) {
 		repo.AssertExpectations(t)
 	})
 
+	t.Run("CreateVPC_BridgeFailure", func(t *testing.T) {
+		network.On("CreateBridge", mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("bridge fail")).Once()
+
+		_, err := svc.CreateVPC(ctx, "fail", "10.2.0.0/16")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "bridge")
+	})
+
+	t.Run("CreateVPC_RepoFailureRollback", func(t *testing.T) {
+		network.On("CreateBridge", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		repo.On("Create", mock.Anything, mock.Anything).Return(fmt.Errorf("db fail")).Once()
+		network.On("DeleteBridge", mock.Anything, mock.Anything).Return(nil).Once()
+
+		_, err := svc.CreateVPC(ctx, "rollback", "10.3.0.0/16")
+		require.Error(t, err)
+	})
+
 	t.Run("DeleteVPC_Success", func(t *testing.T) {
 		vpcID := uuid.New()
 		vpc := &domain.VPC{ID: vpcID, UserID: userID, NetworkID: "br-1"}
@@ -66,5 +84,19 @@ func TestVpcServiceUnit(t *testing.T) {
 		err := svc.DeleteVPC(ctx, vpcID.String())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "active peering connections")
+	})
+
+	t.Run("DeleteVPC_WithLoadBalancers", func(t *testing.T) {
+		vpcID := uuid.New()
+		vpc := &domain.VPC{ID: vpcID, UserID: userID}
+
+		repo.On("GetByID", mock.Anything, vpcID).Return(vpc, nil).Once()
+		lbRepo.On("ListAll", mock.Anything).Return([]*domain.LoadBalancer{
+			{ID: uuid.New(), VpcID: vpcID, Status: domain.LBStatusActive},
+		}, nil).Once()
+
+		err := svc.DeleteVPC(ctx, vpcID.String())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "load balancers still exist")
 	})
 }
