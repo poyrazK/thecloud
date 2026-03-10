@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"testing"
@@ -145,7 +146,7 @@ func TestInstanceService_LaunchInstance_Unit(t *testing.T) {
 		tenantSvc.AssertExpectations(t)
 	})
 
-	t.Run("QuotaExceeded", func(t *testing.T) {
+	t.Run("QuotaExceeded_Instances", func(t *testing.T) {
 		params := ports.LaunchParams{
 			Name:         "no-quota",
 			Image:        "ubuntu",
@@ -156,6 +157,45 @@ func TestInstanceService_LaunchInstance_Unit(t *testing.T) {
 			ID: "t2.large", VCPUs: 4, MemoryMB: 4096,
 		}, nil).Once()
 		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "instances", 1).Return(fmt.Errorf("quota exceeded")).Once()
+
+		inst, err := svc.LaunchInstance(ctx, params)
+
+		require.Error(t, err)
+		assert.Nil(t, inst)
+	})
+
+	t.Run("QuotaExceeded_VCPUs", func(t *testing.T) {
+		params := ports.LaunchParams{
+			Name:         "no-vcpu-quota",
+			Image:        "ubuntu",
+			InstanceType: "t2.large",
+		}
+
+		typeRepo.On("GetByID", mock.Anything, "t2.large").Return(&domain.InstanceType{
+			ID: "t2.large", VCPUs: 4, MemoryMB: 4096,
+		}, nil).Once()
+		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "instances", 1).Return(nil).Once()
+		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "vcpus", 4).Return(fmt.Errorf("quota exceeded")).Once()
+
+		inst, err := svc.LaunchInstance(ctx, params)
+
+		require.Error(t, err)
+		assert.Nil(t, inst)
+	})
+
+	t.Run("QuotaExceeded_Memory", func(t *testing.T) {
+		params := ports.LaunchParams{
+			Name:         "no-mem-quota",
+			Image:        "ubuntu",
+			InstanceType: "t2.large",
+		}
+
+		typeRepo.On("GetByID", mock.Anything, "t2.large").Return(&domain.InstanceType{
+			ID: "t2.large", VCPUs: 4, MemoryMB: 4096,
+		}, nil).Once()
+		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "instances", 1).Return(nil).Once()
+		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "vcpus", 4).Return(nil).Once()
+		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "memory", 4).Return(fmt.Errorf("quota exceeded")).Once()
 
 		inst, err := svc.LaunchInstance(ctx, params)
 
@@ -254,5 +294,37 @@ func TestInstanceService_Lifecycle_Unit(t *testing.T) {
 
 		err := svc.TerminateInstance(ctx, instanceID.String())
 		require.NoError(t, err)
+	})
+}
+
+func TestInstanceService_Exec_Unit(t *testing.T) {
+	repo := new(MockInstanceRepo)
+	compute := new(MockComputeBackend)
+	svc := services.NewInstanceService(services.InstanceServiceParams{
+		Repo:    repo,
+		Compute: compute,
+		Logger:  slog.Default(),
+	})
+
+	ctx := context.Background()
+	instanceID := uuid.New()
+
+	t.Run("NotRunning", func(t *testing.T) {
+		inst := &domain.Instance{ID: instanceID, Status: domain.StatusStopped, ContainerID: ""}
+		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+
+		_, err := svc.Exec(ctx, instanceID.String(), []string{"ls"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "instance not running")
+	})
+
+	t.Run("BackendError", func(t *testing.T) {
+		inst := &domain.Instance{ID: instanceID, Status: domain.StatusRunning, ContainerID: "cid-1"}
+		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+		compute.On("Exec", mock.Anything, "cid-1", []string{"ls"}).Return("", errors.New("exec failed")).Once()
+
+		_, err := svc.Exec(ctx, instanceID.String(), []string{"ls"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exec failed")
 	})
 }
