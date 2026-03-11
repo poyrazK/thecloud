@@ -340,13 +340,13 @@ func BenchmarkStorageServiceList(b *testing.B) {
 	repo := &noop.NoopStorageRepository{}
 	fileStore := &noop.NoopFileStore{}
 	auditSvc := &noop.NoopAuditService{}
-	rbacSvc := &noop.NoopRBACService{}
-
-	svc := services.NewStorageService(services.StorageServiceParams{
-		Repo:     repo,
-		RBACSvc:  rbacSvc,
-		Store:    fileStore,
-		AuditSvc: auditSvc,
+	rbacSvc := &noop.NoopRBACService{} 
+	svc := services.NewStorageService(services.StorageServiceParams{ 
+		Repo:     repo, 
+		RBACSvc:  rbacSvc, 
+		Store:    fileStore, 
+		AuditSvc: auditSvc, 
+		Logger:   slog.Default(), 
 	})
 
 	ctx := context.Background()

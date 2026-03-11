@@ -5,9 +5,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -128,7 +130,7 @@ func setupStorageServiceIntegrationTest(t *testing.T) (ports.StorageService, por
 	auditRepo := postgres.NewAuditRepository(db)
 
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	auditSvc := services.NewAuditService(services.AuditServiceParams{
 		Repo:    auditRepo,
@@ -146,11 +148,12 @@ func setupStorageServiceIntegrationTest(t *testing.T) (ports.StorageService, por
 
 	svc := services.NewStorageService(services.StorageServiceParams{
 		Repo:       repo,
-		RBACSvc:    rbacSvc,
-		Store:      store,
-		AuditSvc:   auditSvc,
-		EncryptSvc: encSvc,
-		Config:     cfg,
+		RBACSvc:    rbacSvc, 
+		Store:      store, 
+		AuditSvc:   auditSvc, 
+		EncryptSvc: encSvc, 
+		Config:     cfg, 
+		Logger:     slog.Default(),
 	})
 
 	return svc, repo, store, encSvc, db, ctx
@@ -190,7 +193,8 @@ func TestStorageService_Integration(t *testing.T) {
 		err = svc.SetBucketVersioning(ctx, name, true)
 		require.NoError(t, err)
 
-		updated, _ := svc.GetBucket(ctx, name)
+		updated, err := svc.GetBucket(ctx, name)
+		require.NoError(t, err)
 		assert.True(t, updated.VersioningEnabled)
 
 		// Delete
@@ -202,7 +206,7 @@ func TestStorageService_Integration(t *testing.T) {
 		name := "non-empty-bucket"
 		_, err := svc.CreateBucket(ctx, name, false)
 		require.NoError(t, err)
-		_, err = svc.Upload(ctx, name, "file.txt", strings.NewReader("data"))
+		_, err = svc.Upload(ctx, name, "file.txt", strings.NewReader("data"), "")
 		require.NoError(t, err)
 
 		// Should fail without force
@@ -221,13 +225,14 @@ func TestStorageService_Integration(t *testing.T) {
 
 	t.Run("ObjectOps", func(t *testing.T) {
 		bucketName := "obj-bucket"
-		_, _ = svc.CreateBucket(ctx, bucketName, false)
+		_, err := svc.CreateBucket(ctx, bucketName, false)
+		require.NoError(t, err)
 
 		key := "test.txt"
 		content := "integration test data"
 
 		// Upload
-		obj, err := svc.Upload(ctx, bucketName, key, strings.NewReader(content))
+		obj, err := svc.Upload(ctx, bucketName, key, strings.NewReader(content), "")
 		require.NoError(t, err)
 		assert.NotNil(t, obj)
 		assert.Equal(t, key, obj.Key)
@@ -242,7 +247,8 @@ func TestStorageService_Integration(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, r)
 		assert.Equal(t, key, meta.Key)
-		data, _ := io.ReadAll(r)
+		data, err := io.ReadAll(r)
+		require.NoError(t, err)
 		assert.Equal(t, content, string(data))
 
 		// Delete
@@ -256,16 +262,17 @@ func TestStorageService_Integration(t *testing.T) {
 
 	t.Run("MultipartUpload", func(t *testing.T) {
 		bucketName := "mp-bucket"
-		_, _ = svc.CreateBucket(ctx, bucketName, false)
+		_, err := svc.CreateBucket(ctx, bucketName, false)
+		require.NoError(t, err)
 		key := "large.zip"
 
 		// Success Case
 		upload, err := svc.CreateMultipartUpload(ctx, bucketName, key)
 		require.NoError(t, err)
 
-		_, err = svc.UploadPart(ctx, upload.ID, 1, strings.NewReader("part1"))
+		_, err = svc.UploadPart(ctx, upload.ID, 1, strings.NewReader("part1"), "")
 		require.NoError(t, err)
-		_, err = svc.UploadPart(ctx, upload.ID, 2, strings.NewReader("part2"))
+		_, err = svc.UploadPart(ctx, upload.ID, 2, strings.NewReader("part2"), "")
 		require.NoError(t, err)
 
 		obj, err := svc.CompleteMultipartUpload(ctx, upload.ID)
@@ -274,18 +281,22 @@ func TestStorageService_Integration(t *testing.T) {
 		assert.Equal(t, int64(10), obj.SizeBytes) // "part1" (5) + "part2" (5) = 10
 
 		// Verify content
-		r, _, _ := svc.Download(ctx, bucketName, key)
-		data, _ := io.ReadAll(r)
+		r, _, err := svc.Download(ctx, bucketName, key)
+		require.NoError(t, err)
+		data, err := io.ReadAll(r)
+		require.NoError(t, err)
 		assert.Equal(t, "part1part2", string(data))
 
 		// Error: Complete with no parts
-		uploadErr, _ := svc.CreateMultipartUpload(ctx, bucketName, "no-parts")
+		uploadErr, err := svc.CreateMultipartUpload(ctx, bucketName, "no-parts")
+		require.NoError(t, err)
 		_, err = svc.CompleteMultipartUpload(ctx, uploadErr.ID)
 		require.Error(t, err)
 
 		// Abort Case
 		abortKey := "abort.me"
-		upload2, _ := svc.CreateMultipartUpload(ctx, bucketName, abortKey)
+		upload2, err := svc.CreateMultipartUpload(ctx, bucketName, abortKey)
+		require.NoError(t, err)
 		err = svc.AbortMultipartUpload(ctx, upload2.ID)
 		require.NoError(t, err)
 
@@ -306,7 +317,8 @@ func TestStorageService_Integration(t *testing.T) {
 		// Initialize encryption key for this bucket
 		encRepo := postgres.NewEncryptionRepository(db)
 		masterKeyHex := "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
-		encSvc, _ := services.NewEncryptionService(encRepo, masterKeyHex)
+		encSvc, err := services.NewEncryptionService(encRepo, masterKeyHex)
+		require.NoError(t, err)
 		_, err = encSvc.CreateKey(ctx, bucketName)
 		require.NoError(t, err)
 
@@ -314,21 +326,23 @@ func TestStorageService_Integration(t *testing.T) {
 		content := "very sensitive information"
 
 		// Upload (should be encrypted transparently)
-		obj, err := svc.Upload(ctx, bucketName, key, strings.NewReader(content))
+		obj, err := svc.Upload(ctx, bucketName, key, strings.NewReader(content), "")
 		require.NoError(t, err)
 		assert.NotNil(t, obj)
 
 		// Download (should be decrypted transparently)
 		r, _, err := svc.Download(ctx, bucketName, key)
 		require.NoError(t, err)
-		data, _ := io.ReadAll(r)
+		data, err := io.ReadAll(r)
+		require.NoError(t, err)
 		assert.Equal(t, content, string(data))
 	})
 
 	t.Run("Versioning", func(t *testing.T) {
 		bucketName := "version-bucket"
-		_, _ = svc.CreateBucket(ctx, bucketName, false)
-		err := svc.SetBucketVersioning(ctx, bucketName, true)
+		_, err := svc.CreateBucket(ctx, bucketName, false)
+		require.NoError(t, err)
+		err = svc.SetBucketVersioning(ctx, bucketName, true)
 		require.NoError(t, err)
 
 		// Verify versioning is enabled
@@ -339,12 +353,12 @@ func TestStorageService_Integration(t *testing.T) {
 		key := "v.txt"
 
 		// Upload v1
-		v1, err := svc.Upload(ctx, bucketName, key, strings.NewReader("v1"))
+		v1, err := svc.Upload(ctx, bucketName, key, strings.NewReader("v1"), "")
 		require.NoError(t, err)
 		assert.NotEqual(t, "null", v1.VersionID)
 
 		// Upload v2
-		v2, err := svc.Upload(ctx, bucketName, key, strings.NewReader("v2"))
+		v2, err := svc.Upload(ctx, bucketName, key, strings.NewReader("v2"), "")
 		require.NoError(t, err)
 		assert.NotEqual(t, "null", v2.VersionID)
 		assert.NotEqual(t, v1.VersionID, v2.VersionID)
@@ -359,13 +373,16 @@ func TestStorageService_Integration(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, r)
 		assert.Equal(t, v1.VersionID, meta.VersionID)
-		d1, _ := io.ReadAll(r)
+		d1, err := io.ReadAll(r)
+		require.NoError(t, err)
 		assert.Equal(t, "v1", string(d1))
 
 		// Download v2
-		r2, meta2, _ := svc.DownloadVersion(ctx, bucketName, key, v2.VersionID)
+		r2, meta2, err := svc.DownloadVersion(ctx, bucketName, key, v2.VersionID)
+		require.NoError(t, err)
 		assert.Equal(t, v2.VersionID, meta2.VersionID)
-		d2, _ := io.ReadAll(r2)
+		d2, err := io.ReadAll(r2)
+		require.NoError(t, err)
 		assert.Equal(t, "v2", string(d2))
 
 		// Delete v1
@@ -389,7 +406,7 @@ func TestStorageService_Integration(t *testing.T) {
 		require.Error(t, err)
 
 		// Bucket not found
-		_, err = svc.Upload(ctx, "non-existent", "key", strings.NewReader("data"))
+		_, err = svc.Upload(ctx, "non-existent", "key", strings.NewReader("data"), "")
 		require.Error(t, err)
 
 		_, _, err = svc.Download(ctx, "non-existent", "key")
@@ -400,7 +417,7 @@ func TestStorageService_Integration(t *testing.T) {
 		require.Error(t, err)
 
 		// Multipart not found
-		_, err = svc.UploadPart(ctx, [16]byte{1}, 1, strings.NewReader("data"))
+		_, err = svc.UploadPart(ctx, [16]byte{1}, 1, strings.NewReader("data"), "")
 		require.Error(t, err)
 
 		err = svc.AbortMultipartUpload(ctx, [16]byte{1})
@@ -415,7 +432,7 @@ func TestStorageService_Integration(t *testing.T) {
 
 		// Download store read error
 		// 1. Create a fresh object
-		_, err = svc.Upload(ctx, "obj-bucket", "fail-store", strings.NewReader("data"))
+		_, err = svc.Upload(ctx, "obj-bucket", "fail-store", strings.NewReader("data"), "")
 		if err != nil {
 			t.Fatalf("Upload failed: %v", err)
 		}
@@ -427,14 +444,19 @@ func TestStorageService_Integration(t *testing.T) {
 		// Download decryption error
 		// 1. Enable encryption on a bucket
 		encBucket := "fail-decrypt"
-		_, _ = svc.CreateBucket(ctx, encBucket, false)
-		_, _ = db.Exec(ctx, "UPDATE buckets SET encryption_enabled = TRUE WHERE name = $1", encBucket)
+		_, err = svc.CreateBucket(ctx, encBucket, false)
+		require.NoError(t, err)
+		_, err = db.Exec(ctx, "UPDATE buckets SET encryption_enabled = TRUE WHERE name = $1", encBucket)
+		require.NoError(t, err)
 		encRepo := postgres.NewEncryptionRepository(db)
-		tempEncSvc, _ := services.NewEncryptionService(encRepo, masterKeyHex)
-		_, _ = tempEncSvc.CreateKey(ctx, encBucket)
+		tempEncSvc, err := services.NewEncryptionService(encRepo, masterKeyHex)
+		require.NoError(t, err)
+		_, err = tempEncSvc.CreateKey(ctx, encBucket)
+		require.NoError(t, err)
 
 		// 2. Upload valid encrypted file
-		_, _ = svc.Upload(ctx, encBucket, "secret", strings.NewReader("top-secret"))
+		_, err = svc.Upload(ctx, encBucket, "secret", strings.NewReader("top-secret"), "")
+		require.NoError(t, err)
 
 		// 3. Force decryption failure
 		encSvc.failNext = true
@@ -442,31 +464,38 @@ func TestStorageService_Integration(t *testing.T) {
 		require.Error(t, err)
 
 		// Multipart Assemble failure
-		up3, _ := svc.CreateMultipartUpload(ctx, "obj-bucket", "fail-assemble")
-		_, _ = svc.UploadPart(ctx, up3.ID, 1, strings.NewReader("p1"))
+		up3, err := svc.CreateMultipartUpload(ctx, "obj-bucket", "fail-assemble")
+		require.NoError(t, err)
+		_, err = svc.UploadPart(ctx, up3.ID, 1, strings.NewReader("p1"), "")
+		require.NoError(t, err)
 		store.failNext = true
 		_, err = svc.CompleteMultipartUpload(ctx, up3.ID)
 		require.Error(t, err)
 
 		// UploadPart store failure
-		up4, _ := svc.CreateMultipartUpload(ctx, "obj-bucket", "fail-part")
+		up4, err := svc.CreateMultipartUpload(ctx, "obj-bucket", "fail-part")
+		require.NoError(t, err)
 		store.failNext = true
-		_, err = svc.UploadPart(ctx, up4.ID, 1, strings.NewReader("data"))
+		_, err = svc.UploadPart(ctx, up4.ID, 1, strings.NewReader("data"), "")
 		require.Error(t, err)
 
 		// Upload Reader error (with encryption)
 		encReadBucket := "fail-read-enc"
-		_, _ = svc.CreateBucket(ctx, encReadBucket, false)
-		_, _ = db.Exec(ctx, "UPDATE buckets SET encryption_enabled = TRUE WHERE name = $1", encReadBucket)
-		tempEncSvc2, _ := services.NewEncryptionService(encRepo, masterKeyHex)
-		_, _ = tempEncSvc2.CreateKey(ctx, encReadBucket)
+		_, err = svc.CreateBucket(ctx, encReadBucket, false)
+		require.NoError(t, err)
+		_, err = db.Exec(ctx, "UPDATE buckets SET encryption_enabled = TRUE WHERE name = $1", encReadBucket)
+		require.NoError(t, err)
+		tempEncSvc2, err := services.NewEncryptionService(encRepo, masterKeyHex)
+		require.NoError(t, err)
+		_, err = tempEncSvc2.CreateKey(ctx, encReadBucket)
+		require.NoError(t, err)
 
-		_, err = svc.Upload(ctx, encReadBucket, "fail", &FailingReader{})
+		_, err = svc.Upload(ctx, encReadBucket, "fail", &FailingReader{}, "")
 		require.Error(t, err)
 
 		// GeneratePresignedURL secret missing
 		rbacSvc := new(MockRBACService)
-		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		badCfg := &platform.Config{SecretsEncryptionKey: "", Port: "8080"}
 		badSvc := services.NewStorageService(services.StorageServiceParams{
 			Repo:       postgres.NewStorageRepository(db),
@@ -475,6 +504,7 @@ func TestStorageService_Integration(t *testing.T) {
 			AuditSvc:   services.NewAuditService(services.AuditServiceParams{Repo: postgres.NewAuditRepository(db), RBACSvc: rbacSvc}),
 			EncryptSvc: encSvc,
 			Config:     badCfg,
+			Logger:     slog.Default(),
 		})
 		_, err = badSvc.GeneratePresignedURL(ctx, "obj-bucket", "f.txt", "GET", 0)
 		require.Error(t, err)
@@ -489,7 +519,8 @@ func TestStorageService_Integration(t *testing.T) {
 
 	t.Run("PresignedURL", func(t *testing.T) {
 		bucketName := "url-bucket"
-		_, _ = svc.CreateBucket(ctx, bucketName, false)
+		_, err := svc.CreateBucket(ctx, bucketName, false)
+		require.NoError(t, err)
 
 		url, err := svc.GeneratePresignedURL(ctx, bucketName, "file.txt", "GET", 0)
 		require.NoError(t, err)
@@ -503,15 +534,18 @@ func TestStorageService_Integration(t *testing.T) {
 
 	t.Run("CleanupDeleted", func(t *testing.T) {
 		bucketName := "cleanup-bucket"
-		_, _ = svc.CreateBucket(ctx, bucketName, false)
+		_, err := svc.CreateBucket(ctx, bucketName, false)
+		require.NoError(t, err)
 
 		// 0. Clear any existing deleted objects from previous subtests
-		_, _ = svc.CleanupDeleted(ctx, 100)
+		_, err = svc.CleanupDeleted(ctx, 100)
+		require.NoError(t, err)
 
 		// 1. Upload and soft delete
 		key := "to-be-cleaned.txt"
-		_, _ = svc.Upload(ctx, bucketName, key, strings.NewReader("data"))
-		err := svc.DeleteObject(ctx, bucketName, key)
+		_, err = svc.Upload(ctx, bucketName, key, strings.NewReader("data"), "")
+		require.NoError(t, err)
+		err = svc.DeleteObject(ctx, bucketName, key)
 		require.NoError(t, err)
 
 		// 2. Run cleanup
@@ -520,7 +554,37 @@ func TestStorageService_Integration(t *testing.T) {
 		assert.Equal(t, 1, count)
 
 		// 3. Verify it's gone from DB permanently (not even in ListVersions)
-		versions, _ := svc.ListVersions(ctx, bucketName, key)
+		versions, err := svc.ListVersions(ctx, bucketName, key)
+		require.NoError(t, err)
+		assert.Empty(t, versions)
+	})
+
+	t.Run("CleanupPendingUploads", func(t *testing.T) {
+		bucketName := "pending-bucket"
+		_, err := svc.CreateBucket(ctx, bucketName, false)
+		require.NoError(t, err)
+
+		// 0. Ensure clean state
+		_, err = svc.CleanupPendingUploads(ctx, 0, 100)
+		require.NoError(t, err)
+
+		// 1. Force store failure during upload to leave a PENDING record
+		store.failNext = true
+		key := "orphan.txt"
+		_, err = svc.Upload(ctx, bucketName, key, strings.NewReader("orphan data"), "")
+		require.Error(t, err) // Upload fails, leaves DB record as PENDING
+
+		// Wait a moment so the record is strictly "older than" 0
+		time.Sleep(10 * time.Millisecond)
+
+		// 2. Run pending cleanup
+		count, err := svc.CleanupPendingUploads(ctx, 0, 10) // 0 duration for immediate cleanup
+		require.NoError(t, err)
+		assert.Equal(t, 1, count)
+
+		// 3. Verify it's gone from DB
+		versions, err := svc.ListVersions(ctx, bucketName, key)
+		require.NoError(t, err)
 		assert.Empty(t, versions)
 	})
 }

@@ -820,6 +820,8 @@ definitions:
         type: string
       bucket:
         type: string
+      checksum:
+        type: string
       content_type:
         type: string
       created_at:
@@ -836,6 +838,8 @@ definitions:
         type: integer
       tenant_id:
         type: string
+      upload_status:
+        $ref: '#/definitions/domain.UploadStatus'
       user_id:
         type: string
       version_id:
@@ -1526,6 +1530,14 @@ definitions:
       updated_at:
         type: string
     type: object
+  domain.UploadStatus:
+    enum:
+    - PENDING
+    - AVAILABLE
+    type: string
+    x-enum-varnames:
+    - UploadStatusPending
+    - UploadStatusAvailable
   domain.UsageRecord:
     properties:
       end_time:
@@ -5758,6 +5770,10 @@ paths:
         name: file
         required: true
         type: file
+      - description: SHA-256 checksum of the content
+        in: header
+        name: X-Content-Sha256
+        type: string
       produces:
       - application/json
       responses:

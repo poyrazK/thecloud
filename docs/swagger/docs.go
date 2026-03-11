@@ -5987,6 +5987,12 @@ const docTemplate = `{
                         "name": "file",
                         "in": "formData",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "SHA-256 checksum of the content",
+                        "name": "X-Content-Sha256",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -8131,6 +8137,9 @@ const docTemplate = `{
                 "bucket": {
                     "type": "string"
                 },
+                "checksum": {
+                    "type": "string"
+                },
                 "content_type": {
                     "type": "string"
                 },
@@ -8154,6 +8163,9 @@ const docTemplate = `{
                 },
                 "tenant_id": {
                     "type": "string"
+                },
+                "upload_status": {
+                    "$ref": "#/definitions/domain.UploadStatus"
                 },
                 "user_id": {
                     "type": "string"
@@ -9043,6 +9055,17 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "domain.UploadStatus": {
+            "type": "string",
+            "enum": [
+                "PENDING",
+                "AVAILABLE"
+            ],
+            "x-enum-varnames": [
+                "UploadStatusPending",
+                "UploadStatusAvailable"
+            ]
         },
         "domain.UsageRecord": {
             "type": "object",

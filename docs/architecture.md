@@ -313,6 +313,11 @@ func (r *instanceRepository) Create(ctx context.Context, inst *domain.Instance) 
 - Ensures operations are durable and can resume after system restarts
 - Manages complex multi-node coordination for HA clusters
 
+**Storage Cleanup Worker 🆕**:
+- Identifies and purges soft-deleted objects from physical storage nodes.
+- Performs "Orphan Garbage Collection" by removing `PENDING` uploads older than 1 hour.
+- Ensures consistency between database metadata and physical storage files.
+
 ## Key Design Principles
 
 ### 1. Dependency Inversion

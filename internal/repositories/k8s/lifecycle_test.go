@@ -80,8 +80,20 @@ func TestK8sProvisionerLifecycle(t *testing.T) {
 
 	// Core Services
 	sgSvc := services.NewSecurityGroupService(sgRepo, vpcRepo, netBackend, auditSvc, logger)
-	storageSvc := services.NewStorageService(storageRepo, rbacSvc, nil, auditSvc, nil, &platform.Config{})
-	lbSvc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc)
+	storageSvc := services.NewStorageService(services.StorageServiceParams{ 
+		Repo:     storageRepo, 
+		RBACSvc:  rbacSvc, 
+		AuditSvc: auditSvc, 
+		Config:   &platform.Config{}, 
+		Logger:   logger, 
+	}) 
+	lbSvc := services.NewLBService(services.LBServiceParams{ 
+		Repo:         lbRepo, 
+		RBACSvc:      rbacSvc, 
+		VpcRepo:      vpcRepo, 
+		InstanceRepo: instanceRepo, 
+		AuditSvc:     auditSvc, 
+	})
 
 	// InstanceService: The real one!
 	// We use a SyncTaskQueue to make the provisioning synchronous in the test.

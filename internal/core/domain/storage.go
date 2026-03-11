@@ -8,22 +8,33 @@ import (
 	"github.com/google/uuid"
 )
 
+// UploadStatus represents the state of an object upload.
+type UploadStatus string
+
+const (
+	UploadStatusPending   UploadStatus = "PENDING"
+	UploadStatusAvailable UploadStatus = "AVAILABLE"
+)
+
 // Object represents stored object metadata in the storage subsystem.
 type Object struct {
-	ID          uuid.UUID  `json:"id"`
-	UserID      uuid.UUID  `json:"user_id"`
-	TenantID    uuid.UUID  `json:"tenant_id"`
-	ARN         string     `json:"arn"`
-	Bucket      string     `json:"bucket"`
-	Key         string     `json:"key"`
-	VersionID   string     `json:"version_id"`
-	IsLatest    bool       `json:"is_latest"`
-	SizeBytes   int64      `json:"size_bytes"`
-	ContentType string     `json:"content_type"`
-	CreatedAt   time.Time  `json:"created_at"`
-	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
-	Data        io.Reader  `json:"-"` // Stream for reading/writing
+	ID           uuid.UUID    `json:"id"` 
+	UserID       uuid.UUID    `json:"user_id"` 
+	TenantID     uuid.UUID    `json:"tenant_id"` 
+	ARN          string       `json:"arn"` 
+	Bucket       string       `json:"bucket"` 
+	Key          string       `json:"key"` 
+	VersionID    string       `json:"version_id"` 
+	IsLatest     bool         `json:"is_latest"` 
+	SizeBytes    int64        `json:"size_bytes"` 
+	ContentType  string       `json:"content_type"` 
+	Checksum     string       `json:"checksum,omitempty"` 
+	UploadStatus UploadStatus `json:"upload_status,omitempty"` 
+	CreatedAt    time.Time    `json:"created_at"` 
+	DeletedAt    *time.Time   `json:"deleted_at,omitempty"` 
+	Data         io.Reader    `json:"-"` // Stream for reading/writing
 }
+
 
 // Bucket represents a storage bucket configuration and metadata.
 type Bucket struct {

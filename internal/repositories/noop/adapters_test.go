@@ -70,6 +70,7 @@ func TestNoopComputeBackend(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, id)
 
+		require.NoError(t, backend.StartInstance(ctx, id))
 		require.NoError(t, backend.StopInstance(ctx, id))
 		require.NoError(t, backend.DeleteInstance(ctx, id))
 	})
@@ -139,48 +140,53 @@ func TestNoopEventAndAuditServices(t *testing.T) {
 
 func TestNoopStorage(t *testing.T) {
 	ctx := context.Background()
-	store := &NoopStorageRepository{}
-	if err := store.SaveMeta(ctx, &domain.Object{Bucket: "b", Key: "k"}); err != nil {
-		t.Fatalf("SaveMeta error: %v", err)
-	}
-	if obj, err := store.GetMeta(ctx, "b", "k"); err != nil || obj == nil {
-		t.Fatalf("GetMeta err=%v obj=%v", err, obj)
-	}
-	if list, err := store.List(ctx, "b"); err != nil || len(list) != 0 {
-		t.Fatalf("List err=%v len=%d", err, len(list))
-	}
-	if err := store.SoftDelete(ctx, "b", "k"); err != nil {
-		t.Fatalf("SoftDelete error: %v", err)
-	}
 
-	backend := NewNoopStorageBackend()
-	if backend.Type() != "noop" {
-		t.Fatalf("expected storage backend type noop")
-	}
-	if _, err := backend.CreateVolume(ctx, "vol", 1); err != nil {
-		t.Fatalf("CreateVolume error: %v", err)
-	}
-	if _, err := backend.AttachVolume(ctx, "vol", "inst"); err != nil {
-		t.Fatalf("AttachVolume error: %v", err)
-	}
-	if err := backend.DetachVolume(ctx, "vol", "inst"); err != nil {
-		t.Fatalf("DetachVolume error: %v", err)
-	}
-	if err := backend.CreateSnapshot(ctx, "vol", "snap"); err != nil {
-		t.Fatalf("CreateSnapshot error: %v", err)
-	}
-	if err := backend.RestoreSnapshot(ctx, "vol", "snap"); err != nil {
-		t.Fatalf("RestoreSnapshot error: %v", err)
-	}
-	if err := backend.DeleteSnapshot(ctx, "snap"); err != nil {
-		t.Fatalf("DeleteSnapshot error: %v", err)
-	}
-	if err := backend.DeleteVolume(ctx, "vol"); err != nil {
-		t.Fatalf("DeleteVolume error: %v", err)
-	}
-	if err := backend.Ping(ctx); err != nil {
-		t.Fatalf("Ping error: %v", err)
-	}
+	t.Run("Repository", func(t *testing.T) {
+		repo := NewNoopStorageRepository()
+		if err := repo.SaveMeta(ctx, &domain.Object{Bucket: "b", Key: "k"}); err != nil {
+			t.Fatalf("SaveMeta error: %v", err)
+		}
+		if obj, err := repo.GetMeta(ctx, "b", "k"); err != nil || obj == nil {
+			t.Fatalf("GetMeta err=%v obj=%v", err, obj)
+		}
+		if list, err := repo.List(ctx, "b"); err != nil || len(list) != 0 {
+			t.Fatalf("List err=%v len=%d", err, len(list))
+		}
+		if err := repo.SoftDelete(ctx, "b", "k"); err != nil {
+			t.Fatalf("SoftDelete error: %v", err)
+		}
+	})
+
+	t.Run("Backend", func(t *testing.T) {
+		backend := NewNoopStorageBackendAdapter()
+		if backend.Type() != "noop" {
+			t.Fatalf("expected storage backend type noop")
+		}
+		if _, err := backend.CreateVolume(ctx, "vol", 1); err != nil {
+			t.Fatalf("CreateVolume error: %v", err)
+		}
+		if _, err := backend.AttachVolume(ctx, "vol", "inst"); err != nil {
+			t.Fatalf("AttachVolume error: %v", err)
+		}
+		if err := backend.DetachVolume(ctx, "vol", "inst"); err != nil {
+			t.Fatalf("DetachVolume error: %v", err)
+		}
+		if err := backend.CreateSnapshot(ctx, "vol", "snap"); err != nil {
+			t.Fatalf("CreateSnapshot error: %v", err)
+		}
+		if err := backend.RestoreSnapshot(ctx, "vol", "snap"); err != nil {
+			t.Fatalf("RestoreSnapshot error: %v", err)
+		}
+		if err := backend.DeleteSnapshot(ctx, "snap"); err != nil {
+			t.Fatalf("DeleteSnapshot error: %v", err)
+		}
+		if err := backend.DeleteVolume(ctx, "vol"); err != nil {
+			t.Fatalf("DeleteVolume error: %v", err)
+		}
+		if err := backend.Ping(ctx); err != nil {
+			t.Fatalf("Ping error: %v", err)
+		}
+	})
 }
 
 func TestNoopFileStore(t *testing.T) {

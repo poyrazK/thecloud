@@ -7,11 +7,19 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"io"
 
 	"golang.org/x/crypto/hkdf"
 )
+
+// ComputeSHA256 calculates the SHA-256 hash of the given data and returns it as a hex string.
+func ComputeSHA256(data []byte) string {
+	h := sha256.New()
+	h.Write(data)
+	return hex.EncodeToString(h.Sum(nil))
+}
 
 // DeriveKey takes a master key and a salt to derive a 32-byte key for AES-256.
 func DeriveKey(masterKey, salt []byte) ([]byte, error) {
