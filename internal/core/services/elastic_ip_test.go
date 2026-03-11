@@ -29,7 +29,7 @@ func setupElasticIPServiceTest(t *testing.T) (ports.ElasticIPService, ports.Elas
 	auditRepo := postgres.NewAuditRepository(db)
 
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	auditSvc := services.NewAuditService(services.AuditServiceParams{
 		Repo:    auditRepo,

@@ -30,7 +30,7 @@ func setupSnapshotServiceIntegrationTest(t *testing.T) (ports.SnapshotService, p
 	storage := noop.NewNoopStorageBackendAdapter()
 
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(services.AuditServiceParams{

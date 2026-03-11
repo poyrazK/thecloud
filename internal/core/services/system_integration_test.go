@@ -84,7 +84,7 @@ func TestSystem_ComputeLifecycle_Full(t *testing.T) {
 
 	// 4. Services
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	eventSvc := services.NewEventService(services.EventServiceParams{
 		Repo:    eventRepo,

@@ -28,7 +28,7 @@ func setupSubnetServiceTest(t *testing.T) (*services.SubnetService, *postgres.Su
 	vpcRepo := postgres.NewVpcRepository(db)
 
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(services.AuditServiceParams{

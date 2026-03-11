@@ -20,7 +20,7 @@ import (
 func TestCloudLogsServiceIngestLogsUnit(t *testing.T) {
 	mockRepo := new(MockLogRepository)
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewCloudLogsService(mockRepo, rbacSvc, slog.Default())
 	ctx := context.Background()
@@ -89,7 +89,7 @@ func TestCloudLogsServiceIngestLogsUnit(t *testing.T) {
 func TestCloudLogsServiceSearchLogsUnit(t *testing.T) {
 	mockRepo := new(MockLogRepository)
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewCloudLogsService(mockRepo, rbacSvc, slog.Default())
 	ctx := context.Background()
@@ -109,7 +109,7 @@ func TestCloudLogsServiceSearchLogsUnit(t *testing.T) {
 func TestCloudLogsServiceRunRetentionPolicyUnit(t *testing.T) {
 	mockRepo := new(MockLogRepository)
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewCloudLogsService(mockRepo, rbacSvc, slog.Default())
 	ctx := context.Background()

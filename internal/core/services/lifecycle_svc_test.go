@@ -18,7 +18,7 @@ func TestCreateRule(t *testing.T) {
 	mockRepo := new(MockLifecycleRepository)
 	mockStorageRepo := new(MockStorageRepo)
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewLifecycleService(mockRepo, rbacSvc, mockStorageRepo)
 
@@ -73,7 +73,7 @@ func TestListRules(t *testing.T) {
 	mockRepo := new(MockLifecycleRepository)
 	mockStorageRepo := new(MockStorageRepo)
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewLifecycleService(mockRepo, rbacSvc, mockStorageRepo)
 
@@ -117,7 +117,7 @@ func TestDeleteRule(t *testing.T) {
 	mockRepo := new(MockLifecycleRepository)
 	mockStorageRepo := new(MockStorageRepo)
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewLifecycleService(mockRepo, rbacSvc, mockStorageRepo)
 

@@ -49,7 +49,7 @@ func TestGlobalLBServiceIntegration(t *testing.T) {
 	geoDNS := &StubGeoDNSBackend{}
 
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	// Real Audit Service
 	auditRepo := postgres.NewAuditRepository(db)

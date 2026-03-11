@@ -22,7 +22,7 @@ func setupInstanceTypeServiceTest(t *testing.T) (ports.InstanceTypeService, *pos
 
 	repo := postgres.NewInstanceTypeRepository(db)
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewInstanceTypeService(repo, rbacSvc)
 	return svc, repo, ctx

@@ -62,7 +62,7 @@ func TestK8sProvisionerLifecycle(t *testing.T) {
 
 	// Real SecretService
 	rbacSvc := new(services.MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	secretSvc, err := services.NewSecretService(services.SecretServiceParams{
 		Repo:        secretRepo,

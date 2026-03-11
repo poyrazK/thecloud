@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -117,7 +118,7 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 	}
 	tenantSlug := fmt.Sprintf("personal-%s-%s", slugName, user.ID.String()[:8])
 
-	_, err = s.tenantSvc.CreateTenant(ctx, tenantName, tenantSlug, user.ID)
+	_, err = s.tenantSvc.CreateTenant(appcontext.WithInternalCall(ctx), tenantName, tenantSlug, user.ID)
 	if err != nil {
 		rollbackErr := s.userRepo.Delete(ctx, user.ID)
 		if rollbackErr != nil {

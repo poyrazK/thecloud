@@ -22,7 +22,7 @@ func TestLBServiceGet(t *testing.T) {
 	instanceRepo := new(MockInstanceRepo)
 	auditSvc := new(MockAuditService)
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc, slog.Default())
 
@@ -43,7 +43,7 @@ func TestLBServiceList(t *testing.T) {
 	instanceRepo := new(MockInstanceRepo)
 	auditSvc := new(MockAuditService)
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc, slog.Default())
 
@@ -62,7 +62,7 @@ func TestLBServiceRemoveTarget(t *testing.T) {
 	instanceRepo := new(MockInstanceRepo)
 	auditSvc := new(MockAuditService)
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc, slog.Default())
 
@@ -87,7 +87,7 @@ func TestLBServiceListTargets(t *testing.T) {
 	instanceRepo := new(MockInstanceRepo)
 	auditSvc := new(MockAuditService)
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc, slog.Default())
 
@@ -108,7 +108,7 @@ func TestLBServiceDelete(t *testing.T) {
 	instanceRepo := new(MockInstanceRepo)
 	auditSvc := new(MockAuditService)
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instanceRepo, auditSvc, slog.Default())
 

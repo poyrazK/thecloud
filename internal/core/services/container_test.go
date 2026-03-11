@@ -26,7 +26,7 @@ func setupContainerServiceIntegrationTest(t *testing.T) (ports.ContainerService,
 
 	repo := postgres.NewPostgresContainerRepository(db)
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	eventRepo := postgres.NewEventRepository(db)
 	eventSvc := services.NewEventService(services.EventServiceParams{
@@ -123,7 +123,7 @@ func TestContainer_ChaosRestart(t *testing.T) {
 
 	containerRepo := postgres.NewPostgresContainerRepository(db)
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	eventSvc := services.NewEventService(services.EventServiceParams{
 		Repo:    postgres.NewEventRepository(db),

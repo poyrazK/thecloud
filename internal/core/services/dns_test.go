@@ -32,7 +32,7 @@ func setupDNSServiceTest(t *testing.T) (*services.DNSService, ports.DNSRepositor
 	backend := noop.NewNoopDNSBackend()
 
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(services.AuditServiceParams{
@@ -330,7 +330,7 @@ func TestDNSService_BackendError(t *testing.T) {
 	faulty := &FaultyDNSBackend{DNSBackend: noop.NewNoopDNSBackend(), FailCreate: true}
 
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	auditSvc := services.NewAuditService(services.AuditServiceParams{
 		Repo:    postgres.NewAuditRepository(db),
