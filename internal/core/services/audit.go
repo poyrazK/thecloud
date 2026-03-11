@@ -3,6 +3,7 @@ package services
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,12 +18,14 @@ import (
 type AuditServiceParams struct {
 	Repo    ports.AuditRepository
 	RBACSvc ports.RBACService
+	Logger  *slog.Logger
 }
 
 // AuditService records user actions for compliance and tracing.
 type AuditService struct {
 	repo    ports.AuditRepository
 	rbacSvc ports.RBACService
+	logger  *slog.Logger
 }
 
 // NewAuditService constructs an audit service for persisting audit logs.
@@ -30,6 +33,7 @@ func NewAuditService(params AuditServiceParams) *AuditService {
 	return &AuditService{
 		repo:    params.Repo,
 		rbacSvc: params.RBACSvc,
+		logger:  params.Logger,
 	}
 }
 
@@ -55,8 +59,13 @@ func (s *AuditService) Log(ctx context.Context, userID uuid.UUID, action, resour
 		CreatedAt:    time.Now(),
 	}
 
-	// In a real app, we might also get IP and UserAgent from the context/middleware
-	return s.repo.Create(ctx, log)
+	err := s.repo.Create(ctx, log)
+	if err != nil {
+		if s.logger != nil {
+			s.logger.Error("failed to create audit log", "error", err, "action", action, "user_id", userID)
+		}
+	}
+	return err
 }
 
 func (s *AuditService) ListLogs(ctx context.Context, userID uuid.UUID, limit int) ([]*domain.AuditLog, error) {

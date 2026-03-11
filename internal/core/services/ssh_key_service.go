@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -18,11 +19,13 @@ import (
 type SSHKeyServiceParams struct {
 	Repo    ports.SSHKeyRepository
 	RBACSvc ports.RBACService
+	Logger  *slog.Logger
 }
 
 type SSHKeyService struct {
 	repo    ports.SSHKeyRepository
 	rbacSvc ports.RBACService
+	logger  *slog.Logger
 }
 
 func NewSSHKeyService(params SSHKeyServiceParams) (*SSHKeyService, error) {
@@ -36,6 +39,7 @@ func NewSSHKeyService(params SSHKeyServiceParams) (*SSHKeyService, error) {
 	return &SSHKeyService{
 		repo:    params.Repo,
 		rbacSvc: params.RBACSvc,
+		logger:  params.Logger,
 	}, nil
 }
 
