@@ -198,6 +198,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	auditSvc := services.NewAuditService(services.AuditServiceParams{
 		Repo:    c.Repos.Audit,
 		RBACSvc: rbacSvc,
+		Logger:  c.Logger,
 	})
 	identitySvc := initIdentityServices(c, rbacSvc, auditSvc)
 	tenantSvc := services.NewTenantService(services.TenantServiceParams{
@@ -252,6 +253,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 
 	sshKeySvc, err := services.NewSSHKeyService(services.SSHKeyServiceParams{
 		Repo:    c.Repos.SSHKey,
+		Logger:  c.Logger,
 		RBACSvc: rbacSvc,
 	})
 	if err != nil {
@@ -418,6 +420,7 @@ func initIdentityServices(c ServiceConfig, rbacSvc ports.RBACService, audit port
 		Repo:     c.Repos.Identity,
 		RbacSvc:  rbacSvc,
 		AuditSvc: audit,
+		Logger:   c.Logger,
 	})
 	return services.NewCachedIdentityService(base, c.RDB, c.Logger)
 }
