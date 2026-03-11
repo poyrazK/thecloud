@@ -43,9 +43,9 @@ func TestAccountingServiceUnit(t *testing.T) {
 		start := time.Now().Add(-24 * time.Hour)
 		end := time.Now()
 
-		usage := map[string]float64{
-			string(domain.ResourceInstance): 100,
-			string(domain.ResourceStorage):  200,
+		usage := map[domain.ResourceType]float64{
+			domain.ResourceInstance: 100,
+			domain.ResourceStorage:  200,
 		}
 
 		mockRepo.On("GetUsageSummary", mock.Anything, userID, mock.Anything, mock.Anything).Return(usage, nil).Once()

@@ -23,7 +23,7 @@ const (
 	clusterVersion      = "v1.29.0"
 )
 
-func setupClusterServiceTest(t *testing.T) (*MockClusterRepo, *MockClusterProvisioner, *MockVpcService, *MockTaskQueue, *MockSecretService, *MockRBACService, ports.ClusterService) {
+func setupClusterServiceTest(t *testing.T) (*MockClusterRepo, *MockClusterProvisioner, *MockVpcService, *MockTaskQueue, *MockSecretService, ports.ClusterService) {
 	t.Helper()
 	repo := new(MockClusterRepo)
 	provisioner := new(MockClusterProvisioner)
@@ -46,13 +46,13 @@ func setupClusterServiceTest(t *testing.T) (*MockClusterRepo, *MockClusterProvis
 		TaskQueue:   taskQueue,
 		Logger:      logger,
 	})
-	return repo, provisioner, vpcSvc, taskQueue, secretSvc, rbacSvc, svc
+	return repo, provisioner, vpcSvc, taskQueue, secretSvc, svc
 }
 
 
 func TestClusterServiceCreate(t *testing.T) {
 	t.Parallel()
-	repo, _, vpcSvc, taskQueue, secretSvc, _, svc := setupClusterServiceTest(t)
+	repo, _, vpcSvc, taskQueue, secretSvc, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
 	tenantID := uuid.New()
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
@@ -91,7 +91,7 @@ func TestClusterServiceCreate(t *testing.T) {
 
 func TestClusterServiceCreateVpcNotFound(t *testing.T) {
 	t.Parallel()
-	_, _, vpcSvc, _, _, _, svc := setupClusterServiceTest(t)
+	_, _, vpcSvc, _, _, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
 	tenantID := uuid.New()
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
@@ -113,7 +113,7 @@ func TestClusterServiceCreateVpcNotFound(t *testing.T) {
 
 func TestClusterServiceCreateEncryptError(t *testing.T) {
 	t.Parallel()
-	repo, _, vpcSvc, _, secretSvc, _, svc := setupClusterServiceTest(t)
+	repo, _, vpcSvc, _, secretSvc, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
 	tenantID := uuid.New()
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
@@ -137,7 +137,7 @@ func TestClusterServiceCreateEncryptError(t *testing.T) {
 
 func TestClusterServiceCreateRepoError(t *testing.T) {
 	t.Parallel()
-	repo, _, vpcSvc, _, secretSvc, _, svc := setupClusterServiceTest(t)
+	repo, _, vpcSvc, _, secretSvc, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
 	tenantID := uuid.New()
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
@@ -161,7 +161,7 @@ func TestClusterServiceCreateRepoError(t *testing.T) {
 
 func TestClusterServiceCreateEnqueueError(t *testing.T) {
 	t.Parallel()
-	repo, _, vpcSvc, taskQueue, secretSvc, _, svc := setupClusterServiceTest(t)
+	repo, _, vpcSvc, taskQueue, secretSvc, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
 	tenantID := uuid.New()
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
@@ -190,7 +190,7 @@ func TestClusterServiceCreateEnqueueError(t *testing.T) {
 
 func TestClusterServiceDelete(t *testing.T) {
 	t.Parallel()
-	repo, _, _, taskQueue, _, _, svc := setupClusterServiceTest(t)
+	repo, _, _, taskQueue, _, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
 	tenantID := uuid.New()
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
@@ -213,7 +213,7 @@ func TestClusterServiceDelete(t *testing.T) {
 
 func TestClusterServiceListClusters(t *testing.T) {
 	t.Parallel()
-	repo, _, _, _, _, _, svc := setupClusterServiceTest(t)
+	repo, _, _, _, _, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
 	tenantID := uuid.New()
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
@@ -227,7 +227,7 @@ func TestClusterServiceListClusters(t *testing.T) {
 
 func TestClusterServiceGetKubeconfigAdmin(t *testing.T) {
 	t.Parallel()
-	repo, _, _, _, secretSvc, _, svc := setupClusterServiceTest(t)
+	repo, _, _, _, secretSvc, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
 	tenantID := uuid.New()
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
@@ -249,7 +249,7 @@ func TestClusterServiceGetKubeconfigAdmin(t *testing.T) {
 
 func TestClusterServiceGetKubeconfigNonAdmin(t *testing.T) {
 	t.Parallel()
-	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest(t)
+	repo, provisioner, _, _, _, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
 	tenantID := uuid.New()
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
@@ -266,7 +266,7 @@ func TestClusterServiceGetKubeconfigNonAdmin(t *testing.T) {
 
 func TestClusterServiceGetKubeconfigNotRunning(t *testing.T) {
 	t.Parallel()
-	repo, _, _, _, _, _, svc := setupClusterServiceTest(t)
+	repo, _, _, _, _, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
 	tenantID := uuid.New()
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
@@ -281,7 +281,7 @@ func TestClusterServiceGetKubeconfigNotRunning(t *testing.T) {
 
 func TestClusterServiceRepairCluster(t *testing.T) {
 	t.Parallel()
-	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest(t)
+	repo, provisioner, _, _, _, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
 	tenantID := uuid.New()
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
@@ -307,7 +307,7 @@ func TestClusterServiceRepairCluster(t *testing.T) {
 
 func TestClusterServiceScaleCluster(t *testing.T) {
 	t.Parallel()
-	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest(t)
+	repo, provisioner, _, _, _, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
 	tenantID := uuid.New()
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
@@ -338,7 +338,7 @@ func TestClusterServiceScaleCluster(t *testing.T) {
 
 func TestClusterServiceScaleClusterInvalidWorkers(t *testing.T) {
 	t.Parallel()
-	repo, _, _, _, _, _, svc := setupClusterServiceTest(t)
+	repo, _, _, _, _, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
 	tenantID := uuid.New()
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
@@ -353,7 +353,7 @@ func TestClusterServiceScaleClusterInvalidWorkers(t *testing.T) {
 
 func TestClusterServiceGetClusterHealth(t *testing.T) {
 	t.Parallel()
-	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest(t)
+	repo, provisioner, _, _, _, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
 	tenantID := uuid.New()
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
@@ -371,7 +371,7 @@ func TestClusterServiceGetClusterHealth(t *testing.T) {
 
 func TestClusterServiceRotateSecretsSuccess(t *testing.T) {
 	t.Parallel()
-	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest(t)
+	repo, provisioner, _, _, _, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
 	tenantID := uuid.New()
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
@@ -393,7 +393,7 @@ func TestClusterServiceRotateSecretsSuccess(t *testing.T) {
 
 func TestClusterServiceRotateSecretsNotRunning(t *testing.T) {
 	t.Parallel()
-	repo, _, _, _, _, _, svc := setupClusterServiceTest(t)
+	repo, _, _, _, _, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
 	tenantID := uuid.New()
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
@@ -408,7 +408,7 @@ func TestClusterServiceRotateSecretsNotRunning(t *testing.T) {
 
 func TestClusterServiceRestoreBackup(t *testing.T) {
 	t.Parallel()
-	repo, provisioner, _, _, _, _, svc := setupClusterServiceTest(t)
+	repo, provisioner, _, _, _, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
 	tenantID := uuid.New()
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
@@ -431,7 +431,7 @@ func TestClusterServiceRestoreBackup(t *testing.T) {
 
 func TestClusterServiceRestoreBackupNotRunning(t *testing.T) {
 	t.Parallel()
-	repo, _, _, _, _, _, svc := setupClusterServiceTest(t)
+	repo, _, _, _, _, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
 	tenantID := uuid.New()
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
