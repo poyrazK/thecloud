@@ -118,7 +118,7 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 	}
 	tenantSlug := fmt.Sprintf("personal-%s-%s", slugName, user.ID.String()[:8])
 
-	_, err = s.tenantSvc.CreateTenant(appcontext.WithInternalCall(ctx), tenantName, tenantSlug, user.ID)
+	tenant, err := s.tenantSvc.CreateTenant(appcontext.WithInternalCall(ctx), tenantName, tenantSlug, user.ID)
 	if err != nil {
 		rollbackErr := s.userRepo.Delete(ctx, user.ID)
 		if rollbackErr != nil {
@@ -126,6 +126,7 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 		}
 		return nil, fmt.Errorf("failed to create personal tenant: %w", err)
 	}
+	ctx = appcontext.WithTenantID(ctx, tenant.ID)
 
 	// Reload user to reflect changes made during tenant creation (e.g. DefaultTenantID)
 	updatedUser, err := s.userRepo.GetByID(ctx, user.ID)
@@ -176,7 +177,9 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*domai
 	delete(s.failedAttempts, email)
 	s.mu.Unlock()
 
-	// For MVP, we'll generate an initial API key upon login if they don't have one,
+	if user.DefaultTenantID != nil { 
+		ctx = appcontext.WithTenantID(ctx, *user.DefaultTenantID) 
+	}
 	// or just return a fresh one. In a real platform, login gives you a JWT and
 	// you manage API keys separately.
 	// For now, let's create a default key for them.
