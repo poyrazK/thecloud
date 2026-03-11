@@ -24,6 +24,7 @@ func TestAutoScalingServiceUnit(t *testing.T) {
 
 	t.Run("CreateGroup", func(t *testing.T) {
 		vpcID := uuid.New()
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		vpcRepo.On("GetByID", mock.Anything, vpcID).Return(&domain.VPC{ID: vpcID}, nil).Once()
 		repo.On("CountGroupsByVPC", mock.Anything, vpcID).Return(0, nil).Once()
 		repo.On("CreateGroup", mock.Anything, mock.Anything).Return(nil).Once()
@@ -43,6 +44,7 @@ func TestAutoScalingServiceUnit(t *testing.T) {
 
 	t.Run("GetGroup", func(t *testing.T) {
 		groupID := uuid.New()
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		repo.On("GetGroupByID", mock.Anything, groupID).Return(&domain.ScalingGroup{ID: groupID}, nil).Once()
 
 		group, err := svc.GetGroup(ctx, groupID)
@@ -52,6 +54,7 @@ func TestAutoScalingServiceUnit(t *testing.T) {
 	})
 
 	t.Run("ListGroups", func(t *testing.T) {
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		repo.On("ListGroups", mock.Anything).Return([]*domain.ScalingGroup{{ID: uuid.New()}}, nil).Once()
 
 		groups, err := svc.ListGroups(ctx)
@@ -61,6 +64,7 @@ func TestAutoScalingServiceUnit(t *testing.T) {
 
 	t.Run("DeleteGroup", func(t *testing.T) {
 		groupID := uuid.New()
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		repo.On("GetGroupByID", mock.Anything, groupID).Return(&domain.ScalingGroup{ID: groupID}, nil).Once()
 		repo.On("UpdateGroup", mock.Anything, mock.MatchedBy(func(g *domain.ScalingGroup) bool {
 			return g.ID == groupID && g.Status == "DELETING"
@@ -74,6 +78,7 @@ func TestAutoScalingServiceUnit(t *testing.T) {
 
 	t.Run("SetDesiredCapacity", func(t *testing.T) {
 		groupID := uuid.New()
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		repo.On("GetGroupByID", mock.Anything, groupID).Return(&domain.ScalingGroup{ID: groupID, MinInstances: 1, MaxInstances: 10}, nil).Once()
 		repo.On("UpdateGroup", mock.Anything, mock.MatchedBy(func(g *domain.ScalingGroup) bool {
 			return g.DesiredCount == 5
@@ -85,6 +90,7 @@ func TestAutoScalingServiceUnit(t *testing.T) {
 
 	t.Run("CreatePolicy", func(t *testing.T) {
 		groupID := uuid.New()
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		repo.On("GetGroupByID", mock.Anything, groupID).Return(&domain.ScalingGroup{ID: groupID}, nil).Once()
 		repo.On("CreatePolicy", mock.Anything, mock.Anything).Return(nil).Once()
 
@@ -101,6 +107,7 @@ func TestAutoScalingServiceUnit(t *testing.T) {
 
 	t.Run("DeletePolicy", func(t *testing.T) {
 		policyID := uuid.New()
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		repo.On("DeletePolicy", mock.Anything, policyID).Return(nil).Once()
 
 		err := svc.DeletePolicy(ctx, policyID)
