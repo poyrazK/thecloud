@@ -3,7 +3,6 @@ package services_test
 import (
 	"context"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,6 +21,7 @@ func setupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
 	return postgres.SetupTestUser(t, db)
 }
 
+
 func cleanDB(t *testing.T, db *pgxpool.Pool) {
 	t.Helper()
 	ctx := context.Background()
@@ -37,9 +37,7 @@ func cleanDB(t *testing.T, db *pgxpool.Pool) {
 		return
 	}
 
-	truncateQuery := "TRUNCATE " + strings.Join(tables, ", ") + " RESTART IDENTITY CASCADE"
-	_, err := db.Exec(ctx, truncateQuery)
-	if err != nil {
-		t.Logf("Warning: failed to truncate tables: %v", err)
+	for _, table := range tables {
+		_, _ = db.Exec(ctx, "TRUNCATE TABLE "+table+" RESTART IDENTITY CASCADE")
 	}
 }
