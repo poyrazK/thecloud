@@ -36,10 +36,15 @@ func NewSSHKeyService(params SSHKeyServiceParams) (*SSHKeyService, error) {
 		return nil, errors.New(errors.InvalidInput, "rbac service is required")
 	}
 
+	logger := params.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+
 	return &SSHKeyService{
 		repo:    params.Repo,
 		rbacSvc: params.RBACSvc,
-		logger:  params.Logger,
+		logger:  logger,
 	}, nil
 }
 

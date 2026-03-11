@@ -48,6 +48,10 @@ func NewVpcService(params VpcServiceParams) *VpcService {
 	if defaultCIDR == "" {
 		defaultCIDR = "10.0.0.0/16" // Fallback if not provided
 	}
+	logger := params.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &VpcService{
 		repo:        params.Repo,
 		lbRepo:      params.LBRepo,
@@ -55,7 +59,7 @@ func NewVpcService(params VpcServiceParams) *VpcService {
 		rbacSvc:     params.RBACSvc,
 		network:     params.Network,
 		auditSvc:    params.AuditSvc,
-		logger:      params.Logger,
+		logger:      logger,
 		defaultCIDR: defaultCIDR,
 	}
 }

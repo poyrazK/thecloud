@@ -34,11 +34,15 @@ type IdentityService struct {
 
 // NewIdentityService constructs an IdentityService with its dependencies.
 func NewIdentityService(params IdentityServiceParams) *IdentityService {
+	logger := params.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &IdentityService{
 		repo:     params.Repo,
 		rbacSvc:  params.RbacSvc,
 		auditSvc: params.AuditSvc,
-		logger:   params.Logger,
+		logger:   logger,
 	}
 }
 

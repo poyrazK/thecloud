@@ -72,6 +72,10 @@ type InstanceServiceParams struct {
 
 // NewInstanceService creates a new InstanceService with the given dependencies.
 func NewInstanceService(params InstanceServiceParams) *InstanceService {
+	logger := params.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &InstanceService{
 		repo:             params.Repo,
 		vpcRepo:          params.VpcRepo,
@@ -89,7 +93,7 @@ func NewInstanceService(params InstanceServiceParams) *InstanceService {
 		tenantSvc:        params.TenantSvc,
 		sshKeySvc:        params.SSHKeySvc,
 		dockerNetwork:    params.DockerNetwork,
-		logger:           params.Logger,
+		logger:           logger,
 	}
 }
 

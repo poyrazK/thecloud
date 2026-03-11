@@ -31,11 +31,15 @@ type TenantService struct {
 
 // NewTenantService constructs a TenantService.
 func NewTenantService(params TenantServiceParams) *TenantService {
+	logger := params.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &TenantService{
 		repo:     params.Repo,
 		userRepo: params.UserRepo,
 		rbacSvc:  params.RBACSvc,
-		logger:   params.Logger,
+		logger:   logger,
 	}
 }
 

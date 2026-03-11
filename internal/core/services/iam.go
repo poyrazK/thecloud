@@ -19,6 +19,9 @@ type iamService struct {
 
 // NewIAMService creates a new IAM service.
 func NewIAMService(repo ports.IAMRepository, auditSvc ports.AuditService, eventSvc ports.EventService, logger *slog.Logger) *iamService {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &iamService{
 		repo:     repo,
 		auditSvc: auditSvc,

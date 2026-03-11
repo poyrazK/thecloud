@@ -66,6 +66,10 @@ type StorageService struct {
 
 // NewStorageService constructs a StorageService with its dependencies.
 func NewStorageService(params StorageServiceParams) *StorageService {
+	logger := params.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &StorageService{
 		repo:       params.Repo,
 		rbacSvc:    params.RBACSvc,
@@ -73,7 +77,7 @@ func NewStorageService(params StorageServiceParams) *StorageService {
 		auditSvc:   params.AuditSvc,
 		encryptSvc: params.EncryptSvc,
 		cfg:        params.Config,
-		logger:     params.Logger,
+		logger:     logger,
 	}
 }
 

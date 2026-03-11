@@ -35,12 +35,16 @@ type SubnetService struct {
 
 // NewSubnetService constructs a SubnetService with its dependencies.
 func NewSubnetService(params SubnetServiceParams) *SubnetService {
+	logger := params.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &SubnetService{
 		repo:     params.Repo,
 		rbacSvc:  params.RBACSvc,
 		vpcRepo:  params.VpcRepo,
 		auditSvc: params.AuditSvc,
-		logger:   params.Logger,
+		logger:   logger,
 	}
 }
 

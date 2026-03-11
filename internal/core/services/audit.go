@@ -30,10 +30,14 @@ type AuditService struct {
 
 // NewAuditService constructs an audit service for persisting audit logs.
 func NewAuditService(params AuditServiceParams) *AuditService {
+	logger := params.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &AuditService{
 		repo:    params.Repo,
 		rbacSvc: params.RBACSvc,
-		logger:  params.Logger,
+		logger:  logger,
 	}
 }
 

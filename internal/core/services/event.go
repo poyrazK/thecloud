@@ -32,11 +32,15 @@ type EventService struct {
 
 // NewEventService constructs an EventService with its dependencies.
 func NewEventService(params EventServiceParams) *EventService {
+	logger := params.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &EventService{
 		repo:    params.Repo,
 		rbacSvc: params.RBACSvc,
 		hub:     params.Hub,
-		logger:  params.Logger,
+		logger:  logger,
 	}
 }
 

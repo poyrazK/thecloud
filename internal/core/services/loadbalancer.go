@@ -25,6 +25,9 @@ type LBService struct {
 
 // NewLBService constructs an LBService with its dependencies.
 func NewLBService(lbRepo ports.LBRepository, rbacSvc ports.RBACService, vpcRepo ports.VpcRepository, instanceRepo ports.InstanceRepository, auditSvc ports.AuditService, logger *slog.Logger) *LBService {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &LBService{
 		lbRepo:       lbRepo,
 		rbacSvc:      rbacSvc,
