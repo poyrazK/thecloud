@@ -1,4 +1,4 @@
-package services
+package services_test
 
 import (
 	"context"
@@ -7,22 +7,23 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
-	"github.com/poyrazk/thecloud/internal/core/ports/mocks"
+	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRBACService_IAMIntegration(t *testing.T) {
-	userRepo := new(mocks.UserRepository)
-	roleRepo := new(mocks.RoleRepository)
-	tenantRepo := new(mocks.TenantRepository)
-	iamRepo := new(mocks.IAMRepository)
-	evaluator := NewIAMEvaluator()
+	userRepo := new(MockUserRepo)
+	roleRepo := new(MockRoleRepository)
+	tenantRepo := new(MockTenantRepo)
+	iamRepo := new(MockIAMRepository)
+	evaluator := services.NewIAMEvaluator()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := NewRBACService(RBACServiceParams{
+	svc := services.NewRBACService(services.RBACServiceParams{
 		UserRepo:   userRepo,
 		RoleRepo:   roleRepo,
 		TenantRepo: tenantRepo,
@@ -33,6 +34,8 @@ func TestRBACService_IAMIntegration(t *testing.T) {
 	ctx := context.Background()
 	userID := uuid.New()
 	tenantID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("AllowByPolicy", func(t *testing.T) {
 		tenantRepo.On("GetMembership", ctx, tenantID, userID).Return(&domain.TenantMember{UserID: userID, TenantID: tenantID, Role: "viewer"}, nil).Once()

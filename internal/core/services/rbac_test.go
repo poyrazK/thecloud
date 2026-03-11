@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
@@ -162,7 +163,7 @@ func TestRBACServiceIntegration(t *testing.T) {
 		_ = roleRepo.CreateRole(ctx, role)
 
 		userID := uuid.New()
-		user := &domain.User{ID: userID, Email: "manager@test.com", Role: "none"}
+		tenantID := appcontext.TenantIDFromContext(ctx); user := &domain.User{ID: userID, TenantID: tenantID, Email: "manager@test.com", Role: "none"}
 		_ = userRepo.Create(ctx, user)
 
 		err := svc.BindRole(ctx, "manager@test.com", "manager")
