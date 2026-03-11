@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -26,7 +27,7 @@ func setupAuditServiceTest(t *testing.T) (*services.AuditService, *postgres.Audi
 
 	svc := services.NewAuditService(services.AuditServiceParams{
 		Repo:    repo,
-		RBACSvc: rbacSvc,
+		RBACSvc: rbacSvc, Logger: slog.Default(),
 	})
 	return svc, repo, ctx
 }

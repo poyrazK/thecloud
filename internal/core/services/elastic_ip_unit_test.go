@@ -18,7 +18,7 @@ func TestElasticIPService_AllocateIP(t *testing.T) {
 	repo := new(MockElasticIPRepo)
 	auditSvc := new(MockAuditService)
 	svc := services.NewElasticIPService(services.ElasticIPServiceParams{
-		Repo: repo, AuditSvc: auditSvc, Logger: slog.Default(),
+		Repo: repo, AuditSvc: auditSvc,
 	})
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
@@ -38,7 +38,7 @@ func TestElasticIPService_ReleaseIP(t *testing.T) {
 	repo := new(MockElasticIPRepo)
 	auditSvc := new(MockAuditService)
 	svc := services.NewElasticIPService(services.ElasticIPServiceParams{
-		Repo: repo, AuditSvc: auditSvc, Logger: slog.Default(),
+		Repo: repo, AuditSvc: auditSvc,
 	})
 
 	id := uuid.New()
@@ -69,7 +69,7 @@ func TestElasticIPService_AssociateIP(t *testing.T) {
 	instRepo := new(MockInstanceRepo)
 	auditSvc := new(MockAuditService)
 	svc := services.NewElasticIPService(services.ElasticIPServiceParams{
-		Repo: repo, InstanceRepo: instRepo, AuditSvc: auditSvc, Logger: slog.Default(),
+		Repo: repo, InstanceRepo: instRepo, AuditSvc: auditSvc,
 	})
 
 	id := uuid.New()
@@ -95,7 +95,7 @@ func TestElasticIPService_DisassociateIP(t *testing.T) {
 	repo := new(MockElasticIPRepo)
 	auditSvc := new(MockAuditService)
 	svc := services.NewElasticIPService(services.ElasticIPServiceParams{
-		Repo: repo, AuditSvc: auditSvc, Logger: slog.Default(),
+		Repo: repo, AuditSvc: auditSvc,
 	})
 
 	id := uuid.New()

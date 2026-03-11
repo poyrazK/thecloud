@@ -79,7 +79,9 @@ func (s *IdentityService) CreateKey(ctx context.Context, userID uuid.UUID, name 
 	if err := s.auditSvc.Log(ctx, userID, "api_key.create", "api_key", apiKey.ID.String(), map[string]interface{}{
 		"name": name,
 	}); err != nil {
-		s.logger.Warn("failed to log audit event", "action", "api_key.create", "resource_id", apiKey.ID.String(), "error", err)
+		if s.logger != nil {
+			s.logger.Warn("failed to log audit event", "action", "api_key.create", "resource_id", apiKey.ID.String(), "error", err)
+		}
 	}
 
 	return apiKey, nil

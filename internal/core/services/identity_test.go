@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -26,13 +27,13 @@ func setupIdentityServiceTest(t *testing.T) (*services.IdentityService, *postgre
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(services.AuditServiceParams{
 		Repo:    auditRepo,
-		RBACSvc: rbacSvc,
+		RBACSvc: rbacSvc, Logger: slog.Default(),
 	})
 
 	svc := services.NewIdentityService(services.IdentityServiceParams{
 		Repo:     repo,
 		RbacSvc:  rbacSvc,
-		AuditSvc: auditSvc,
+		AuditSvc: auditSvc, Logger: slog.Default(),
 	})
 	return svc, repo, ctx
 }

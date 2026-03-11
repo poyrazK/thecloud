@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"crypto/rand"
 	"crypto/rsa"
 	"testing"
@@ -24,7 +25,7 @@ func TestSSHKeyService_Unit(t *testing.T) {
 
 	svc, err := services.NewSSHKeyService(services.SSHKeyServiceParams{
 		Repo:    mockRepo,
-		RBACSvc: rbacSvc,
+		RBACSvc: rbacSvc, Logger: slog.Default(),
 	})
 	require.NoError(t, err)
 
