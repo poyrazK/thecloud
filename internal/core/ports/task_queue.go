@@ -48,9 +48,10 @@ type DurableTaskQueue interface {
 	Ack(ctx context.Context, queueName, groupName, messageID string) error
 
 	// Nack signals that the consumer failed to process the message.
-	// The implementation should make the message available for redelivery
-	// (e.g. by not acknowledging it and letting the pending-entry timeout
-	// handle redelivery, or by explicitly re-queuing).
+	// It relinquishes the current delivery WITHOUT re-queuing or creating
+	// a new message ID. The message remains in the pending entries list
+	// and will be reclaimed by ReclaimStale after the idle timeout.
+	// Implementations MUST NOT create duplicate live copies of the message.
 	Nack(ctx context.Context, queueName, groupName, messageID string) error
 
 	// ReclaimStale claims messages that have been pending longer than the

@@ -201,7 +201,8 @@ func TestRunApplicationDefaultsToAllRole(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	t.Setenv("ROLE", "") // Explicitly empty to verify default
 
-	serverStarted := false
+	started := make(chan struct{})
+	shutdownCalled := make(chan struct{})
 	deps := DefaultDeps()
 
 	deps.NewHTTPServer = func(addr string, handler http.Handler) *http.Server {
@@ -212,23 +213,26 @@ func TestRunApplicationDefaultsToAllRole(t *testing.T) {
 		}
 	}
 	deps.StartHTTPServer = func(*http.Server) error {
-		serverStarted = true
+		close(started)
 		return http.ErrServerClosed
 	}
 	deps.ShutdownHTTPServer = func(context.Context, *http.Server) error {
+		close(shutdownCalled)
 		return nil
 	}
 	deps.NotifySignals = func(c chan<- os.Signal, _ ...os.Signal) {
 		go func() {
-			time.Sleep(50 * time.Millisecond)
+			<-started
 			c <- syscall.SIGTERM
 		}()
 	}
 
 	runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), &setup.Workers{})
 
-	if !serverStarted {
-		t.Fatalf("expected HTTP server to start when ROLE defaults to 'all'")
+	select {
+	case <-shutdownCalled:
+	case <-time.After(time.Second):
+		t.Fatalf("expected server shutdown to be called when ROLE defaults to 'all'")
 	}
 }
 

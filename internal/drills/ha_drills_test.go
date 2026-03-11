@@ -341,32 +341,60 @@ func TestDrill_RetryBackoffAndContextCancellation(t *testing.T) {
 func TestDrill_HalfOpenSingleFlight(t *testing.T) {
 	const resetTimeout = 100 * time.Millisecond
 
+	stateChanged := make(chan platform.State, 10)
 	cb := platform.NewCircuitBreakerWithOpts(platform.CircuitBreakerOpts{
 		Name:         "drill-halfopen",
 		Threshold:    1,
 		ResetTimeout: resetTimeout,
+		OnStateChange: func(name string, from, to platform.State) {
+			stateChanged <- to
+		},
 	})
 
-	// Trip the circuit.
+	// Trip the circuit (closed -> open).
 	_ = cb.Execute(func() error { return errors.New("fail") })
 	if cb.GetState() != platform.StateOpen {
 		t.Fatalf("expected open, got %s", cb.GetState().String())
 	}
 
-	// Wait for reset timeout.
-	time.Sleep(resetTimeout + 20*time.Millisecond)
+	// Drain transitions if any.
+	for len(stateChanged) > 0 {
+		<-stateChanged
+	}
+
+	// Wait for reset timeout and transition to half-open.
+	// Note: allowRequest transitions to HalfOpen ONLY when Execute is called after resetTimeout.
+	time.Sleep(resetTimeout + 10*time.Millisecond)
 
 	// Start a slow probe request.
+	probeStarted := make(chan struct{})
 	probeDone := make(chan struct{})
 	go func() {
 		_ = cb.Execute(func() error {
+			close(probeStarted)
 			<-probeDone // Block until we release.
 			return nil
 		})
 	}()
 
-	// Give the probe goroutine time to start.
-	time.Sleep(20 * time.Millisecond)
+	// Wait for the probe to actually start and transition state.
+	select {
+	case <-probeStarted:
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for probe to start")
+	}
+
+	// Wait for transition to HalfOpen if it hasn't happened yet.
+	if cb.GetState() != platform.StateHalfOpen {
+		select {
+		case s := <-stateChanged:
+			if s != platform.StateHalfOpen {
+				t.Fatalf("expected transition to half-open, got %s", s.String())
+			}
+		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for transition to half-open")
+		}
+	}
 
 	// All other requests should be rejected.
 	for i := 0; i < 5; i++ {
@@ -378,7 +406,16 @@ func TestDrill_HalfOpenSingleFlight(t *testing.T) {
 
 	// Release the probe — circuit should close.
 	close(probeDone)
-	time.Sleep(10 * time.Millisecond)
+
+	// Wait for transition to Closed.
+	select {
+	case s := <-stateChanged:
+		if s != platform.StateClosed {
+			t.Fatalf("expected transition to closed after probe success, got %s", s.String())
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for transition to closed")
+	}
 
 	if cb.GetState() != platform.StateClosed {
 		t.Fatalf("expected closed after probe success, got %s", cb.GetState().String())
