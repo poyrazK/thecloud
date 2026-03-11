@@ -101,7 +101,7 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 	}
 
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	// In integration tests, we frequently rely on a shared Docker network.
 	// We ensure it exists here so that Provisioning (which uses it as a fallback) succeeds.
@@ -267,6 +267,14 @@ func TestInstanceServiceLaunchDBFailure(t *testing.T) {
 
 	defaultType := &domain.InstanceType{ID: testInstanceType, Name: "Basic 2", VCPUs: 1, MemoryMB: 128, DiskGB: 1}
 	_, _ = itRepo.Create(ctx, defaultType)
+	tenantRepo := postgres.NewTenantRepo(db) 
+	_ = tenantRepo.UpdateQuota(ctx, &domain.TenantQuota{ 
+		TenantID: appcontext.TenantIDFromContext(ctx), 
+		MaxInstances: 10, 
+		MaxVCPUs: 20, 
+		MaxMemoryGB: 40, 
+		MaxStorageGB: 1000, 
+	})
 
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
