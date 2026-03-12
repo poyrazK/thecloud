@@ -2,7 +2,6 @@ package services_test
 
 import (
 	"context"
-	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -116,7 +115,7 @@ func TestElasticIPService_DisassociateIP(t *testing.T) {
 func TestElasticIPService_ListAndGet(t *testing.T) {
 	repo := new(MockElasticIPRepo)
 	svc := services.NewElasticIPService(services.ElasticIPServiceParams{
-		Repo: repo, Logger: slog.Default(),
+		Repo: repo,
 	})
 
 	id := uuid.New()

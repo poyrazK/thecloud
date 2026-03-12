@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
@@ -87,7 +88,7 @@ func (s *HealthServiceImpl) checkClusters(ctx context.Context, checks map[string
 		return
 	}
 
-	_, err := s.cluster.ListClusters(ctx, uuid.Nil)
+	_, err := s.cluster.ListClusters(appcontext.WithInternalCall(ctx), uuid.Nil)
 	if err != nil {
 		checks["kubernetes_service"] = "DEGRADED: " + err.Error()
 		*overall = "DEGRADED"

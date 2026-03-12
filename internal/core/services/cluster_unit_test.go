@@ -22,14 +22,17 @@ func TestClusterService_Unit(t *testing.T) {
 	mockSecretSvc := new(MockSecretService)
 	mockTaskQueue := new(MockTaskQueue)
 
-	params := services.ClusterServiceParams{
-		Repo:        mockRepo,
-		Provisioner: mockProv,
-		VpcSvc:      mockVpcSvc,
-		InstanceSvc: mockInstSvc,
-		SecretSvc:   mockSecretSvc,
-		TaskQueue:   mockTaskQueue,
-		Logger:      slog.Default(),
+	rbacSvc := new(MockRBACService) 
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil) 
+	params := services.ClusterServiceParams{ 
+		Repo:        mockRepo, 
+		Provisioner: mockProv, 
+		VpcSvc:      mockVpcSvc, 
+		InstanceSvc: mockInstSvc, 
+		SecretSvc:   mockSecretSvc, 
+		TaskQueue:   mockTaskQueue, 
+		RBAC:        rbacSvc, 
+		Logger:      slog.Default(), 
 	}
 
 	svc, err := services.NewClusterService(params)
@@ -37,6 +40,7 @@ func TestClusterService_Unit(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.New()
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	vpcID := uuid.New()
 
 	t.Run("CreateCluster", func(t *testing.T) {
@@ -60,6 +64,7 @@ func TestClusterService_Unit(t *testing.T) {
 		assert.NotNil(t, cluster)
 		assert.Equal(t, "test-cluster", cluster.Name)
 		assert.Equal(t, 3, cluster.WorkerCount)
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockRepo.AssertExpectations(t)
 	})
 
@@ -75,6 +80,7 @@ func TestClusterService_Unit(t *testing.T) {
 		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
 		mockTaskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.Anything).Return(nil).Once()
 
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		err := svc.UpgradeCluster(ctx, clusterID, "v1.29.0")
 		require.NoError(t, err)
 	})
