@@ -26,6 +26,37 @@ func (m *MockTaskQueue) Dequeue(ctx context.Context, queue string) (string, erro
 	return args.String(0), args.Error(1)
 }
 
+func (m *MockTaskQueue) EnsureGroup(ctx context.Context, queueName, groupName string) error {
+	args := m.Called(ctx, queueName, groupName)
+	return args.Error(0)
+}
+
+func (m *MockTaskQueue) Receive(ctx context.Context, queueName, groupName, consumerName string) (*ports.DurableMessage, error) {
+	args := m.Called(ctx, queueName, groupName, consumerName)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*ports.DurableMessage), args.Error(1)
+}
+
+func (m *MockTaskQueue) Ack(ctx context.Context, queueName, groupName, messageID string) error {
+	args := m.Called(ctx, queueName, groupName, messageID)
+	return args.Error(0)
+}
+
+func (m *MockTaskQueue) Nack(ctx context.Context, queueName, groupName, messageID string) error {
+	args := m.Called(ctx, queueName, groupName, messageID)
+	return args.Error(0)
+}
+
+func (m *MockTaskQueue) ReclaimStale(ctx context.Context, queueName, groupName, consumerName string, minIdleMs int64, count int64) ([]ports.DurableMessage, error) {
+	args := m.Called(ctx, queueName, groupName, consumerName, minIdleMs, count)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]ports.DurableMessage), args.Error(1)
+}
+
 type MockClusterRepo struct{ mock.Mock }
 
 func (m *MockClusterRepo) Create(ctx context.Context, c *domain.Cluster) error { return nil }
@@ -124,7 +155,7 @@ func TestClusterWorkerProcessProvisionJob(t *testing.T) {
 	prov := new(MockProvisioner)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	worker := NewClusterWorker(repo, prov, tq, logger)
+	worker := NewClusterWorker(repo, prov, tq, nil, logger)
 
 	clusterID := uuid.New()
 	userID := uuid.New()
@@ -135,17 +166,20 @@ func TestClusterWorkerProcessProvisionJob(t *testing.T) {
 		ClusterID: clusterID,
 		UserID:    userID,
 	}
+	msg := &ports.DurableMessage{ID: "1-0", Payload: "", Queue: clusterQueue}
 
 	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
 	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
 		return c.Status == domain.ClusterStatusProvisioning || c.Status == domain.ClusterStatusRunning
 	})).Return(nil)
 	prov.On("Provision", mock.Anything, cluster).Return(nil)
+	tq.On("Ack", mock.Anything, clusterQueue, clusterGroup, msg.ID).Return(nil)
 
-	worker.processJob(job)
+	worker.processJob(context.Background(), msg, job)
 
 	repo.AssertExpectations(t)
 	prov.AssertExpectations(t)
+	tq.AssertExpectations(t)
 }
 
 func TestClusterWorkerProcessDeprovisionJobSuccess(t *testing.T) {
@@ -154,7 +188,7 @@ func TestClusterWorkerProcessDeprovisionJobSuccess(t *testing.T) {
 	prov := new(MockProvisioner)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	worker := NewClusterWorker(repo, prov, tq, logger)
+	worker := NewClusterWorker(repo, prov, tq, nil, logger)
 
 	clusterID := uuid.New()
 	userID := uuid.New()
@@ -165,16 +199,19 @@ func TestClusterWorkerProcessDeprovisionJobSuccess(t *testing.T) {
 		ClusterID: clusterID,
 		UserID:    userID,
 	}
+	msg := &ports.DurableMessage{ID: "2-0", Payload: "", Queue: clusterQueue}
 
 	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
 	repo.On("Update", mock.Anything, mock.AnythingOfType("*domain.Cluster")).Return(nil)
 	prov.On("Deprovision", mock.Anything, cluster).Return(nil)
 	repo.On("Delete", mock.Anything, clusterID).Return(nil)
+	tq.On("Ack", mock.Anything, clusterQueue, clusterGroup, msg.ID).Return(nil)
 
-	worker.processJob(job)
+	worker.processJob(context.Background(), msg, job)
 
 	repo.AssertExpectations(t)
 	prov.AssertExpectations(t)
+	tq.AssertExpectations(t)
 }
 
 func TestClusterWorkerProcessDeprovisionJobFailure(t *testing.T) {
@@ -183,7 +220,7 @@ func TestClusterWorkerProcessDeprovisionJobFailure(t *testing.T) {
 	prov := new(MockProvisioner)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	worker := NewClusterWorker(repo, prov, tq, logger)
+	worker := NewClusterWorker(repo, prov, tq, nil, logger)
 
 	clusterID := uuid.New()
 	userID := uuid.New()
@@ -194,15 +231,18 @@ func TestClusterWorkerProcessDeprovisionJobFailure(t *testing.T) {
 		ClusterID: clusterID,
 		UserID:    userID,
 	}
+	msg := &ports.DurableMessage{ID: "3-0", Payload: "", Queue: clusterQueue}
 
 	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
 	repo.On("Update", mock.Anything, mock.AnythingOfType("*domain.Cluster")).Return(nil).Twice()
 	prov.On("Deprovision", mock.Anything, cluster).Return(io.EOF)
+	tq.On("Nack", mock.Anything, clusterQueue, clusterGroup, msg.ID).Return(nil)
 
-	worker.processJob(job)
+	worker.processJob(context.Background(), msg, job)
 
 	repo.AssertExpectations(t)
 	prov.AssertExpectations(t)
+	tq.AssertExpectations(t)
 }
 
 func TestClusterWorkerProcessUpgradeJob(t *testing.T) {
@@ -211,7 +251,7 @@ func TestClusterWorkerProcessUpgradeJob(t *testing.T) {
 	prov := new(MockProvisioner)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	worker := NewClusterWorker(repo, prov, tq, logger)
+	worker := NewClusterWorker(repo, prov, tq, nil, logger)
 
 	clusterID := uuid.New()
 	userID := uuid.New()
@@ -224,17 +264,20 @@ func TestClusterWorkerProcessUpgradeJob(t *testing.T) {
 		UserID:    userID,
 		Version:   version,
 	}
+	msg := &ports.DurableMessage{ID: "4-0", Payload: "", Queue: clusterQueue}
 
 	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
 	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
 		return c.Status == domain.ClusterStatusUpgrading || c.Status == domain.ClusterStatusRunning
 	})).Return(nil).Twice()
 	prov.On("Upgrade", mock.Anything, cluster, version).Return(nil)
+	tq.On("Ack", mock.Anything, clusterQueue, clusterGroup, msg.ID).Return(nil)
 
-	worker.processJob(job)
+	worker.processJob(context.Background(), msg, job)
 
 	repo.AssertExpectations(t)
 	prov.AssertExpectations(t)
+	tq.AssertExpectations(t)
 }
 
 func TestClusterWorkerProcessJobClusterNotFound(t *testing.T) {
@@ -243,7 +286,7 @@ func TestClusterWorkerProcessJobClusterNotFound(t *testing.T) {
 	prov := new(MockProvisioner)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	worker := NewClusterWorker(repo, prov, tq, logger)
+	worker := NewClusterWorker(repo, prov, tq, nil, logger)
 
 	clusterID := uuid.New()
 	userID := uuid.New()
@@ -252,10 +295,14 @@ func TestClusterWorkerProcessJobClusterNotFound(t *testing.T) {
 		ClusterID: clusterID,
 		UserID:    userID,
 	}
+	msg := &ports.DurableMessage{ID: "5-0", Payload: "", Queue: clusterQueue}
 
 	repo.On("GetByID", mock.Anything, clusterID).Return(nil, nil)
+	// Cluster not found -> ack to avoid infinite retries
+	tq.On("Ack", mock.Anything, clusterQueue, clusterGroup, msg.ID).Return(nil)
 
-	worker.processJob(job)
+	worker.processJob(context.Background(), msg, job)
 
 	prov.AssertNotCalled(t, "Provision", mock.Anything, mock.Anything)
+	tq.AssertExpectations(t)
 }

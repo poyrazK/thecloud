@@ -4,8 +4,10 @@ package workers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -16,29 +18,59 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
-const pipelineQueueName = "pipeline_build_queue"
+const (
+	pipelineQueueName  = "pipeline_build_queue"
+	pipelineGroup      = "pipeline_workers"
+	pipelineMaxWorkers = 5
+	pipelineReclaimMs  = 10 * 60 * 1000 // 10 minutes (builds are longer)
+	pipelineReclaimN   = 5
+	// Stale threshold for idempotency ledger: builds can take up to 30 min,
+	// so a "running" entry older than this is considered abandoned.
+	pipelineStaleThreshold = 35 * time.Minute
+)
 
 // PipelineWorker processes queued pipeline builds.
 type PipelineWorker struct {
-	repo      ports.PipelineRepository
-	taskQueue ports.TaskQueue
-	compute   ports.ComputeBackend
-	logger    *slog.Logger
+	repo         ports.PipelineRepository
+	taskQueue    ports.DurableTaskQueue
+	ledger       ports.ExecutionLedger
+	compute      ports.ComputeBackend
+	logger       *slog.Logger
+	consumerName string
 }
 
 // NewPipelineWorker creates a new PipelineWorker.
-func NewPipelineWorker(repo ports.PipelineRepository, taskQueue ports.TaskQueue, compute ports.ComputeBackend, logger *slog.Logger) *PipelineWorker {
+// If ledger is nil, idempotency checks are skipped.
+func NewPipelineWorker(repo ports.PipelineRepository, taskQueue ports.DurableTaskQueue, ledger ports.ExecutionLedger, compute ports.ComputeBackend, logger *slog.Logger) *PipelineWorker {
+	hostname, _ := os.Hostname()
+	if hostname == "" {
+		hostname = "pipeline-worker"
+	}
 	return &PipelineWorker{
-		repo:      repo,
-		taskQueue: taskQueue,
-		compute:   compute,
-		logger:    logger,
+		repo:         repo,
+		taskQueue:    taskQueue,
+		ledger:       ledger,
+		compute:      compute,
+		logger:       logger,
+		consumerName: hostname,
 	}
 }
 
 func (w *PipelineWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
-	w.logger.Info("starting pipeline worker")
+	w.logger.Info("starting pipeline worker",
+		"consumer", w.consumerName,
+		"concurrency", pipelineMaxWorkers,
+	)
+
+	if err := w.taskQueue.EnsureGroup(ctx, pipelineQueueName, pipelineGroup); err != nil {
+		w.logger.Error("failed to ensure pipeline consumer group", "error", err)
+		return
+	}
+
+	sem := make(chan struct{}, pipelineMaxWorkers)
+
+	go w.reclaimLoop(ctx, sem)
 
 	for {
 		select {
@@ -46,68 +78,144 @@ func (w *PipelineWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 			w.logger.Info("stopping pipeline worker")
 			return
 		default:
-			msg, err := w.taskQueue.Dequeue(ctx, pipelineQueueName)
+			msg, err := w.taskQueue.Receive(ctx, pipelineQueueName, pipelineGroup, w.consumerName)
 			if err != nil {
-				w.logger.Error("failed to dequeue pipeline job", "error", err)
+				w.logger.Error("failed to receive pipeline job", "error", err)
 				time.Sleep(1 * time.Second)
 				continue
 			}
-			if msg == "" {
+			if msg == nil {
 				continue
 			}
 
 			var job domain.BuildJob
-			if err := json.Unmarshal([]byte(msg), &job); err != nil {
-				w.logger.Error("failed to unmarshal build job", "error", err)
+			if err := json.Unmarshal([]byte(msg.Payload), &job); err != nil {
+				w.logger.Error("failed to unmarshal build job",
+					"error", err, "msg_id", msg.ID)
+				_ = w.taskQueue.Ack(ctx, pipelineQueueName, pipelineGroup, msg.ID)
 				continue
 			}
 
-			w.processJob(job)
+			sem <- struct{}{}
+			go func(m *ports.DurableMessage, j domain.BuildJob) {
+				defer func() { <-sem }()
+				w.processJob(ctx, m, j)
+			}(msg, job)
 		}
 	}
 }
 
-func (w *PipelineWorker) processJob(job domain.BuildJob) {
+func (w *PipelineWorker) processJob(workerCtx context.Context, msg *ports.DurableMessage, job domain.BuildJob) {
+	jobKey := fmt.Sprintf("pipeline:%s", job.BuildID)
+
+	// Idempotency check: skip if already completed or actively being processed.
+	if w.ledger != nil {
+		acquired, err := w.ledger.TryAcquire(workerCtx, jobKey, pipelineStaleThreshold)
+		if err != nil {
+			w.logger.Error("execution ledger error",
+				"build_id", job.BuildID, "msg_id", msg.ID, "error", err)
+			_ = w.taskQueue.Nack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID)
+			return
+		}
+		if !acquired {
+			// Check if it's already finished or just being processed by someone else.
+			status, _, _, getErr := w.ledger.GetStatus(workerCtx, jobKey)
+			if getErr == nil && status == "completed" {
+				w.logger.Info("skipping already completed pipeline job",
+					"build_id", job.BuildID, "msg_id", msg.ID)
+				_ = w.taskQueue.Ack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID)
+				return
+			}
+			w.logger.Info("pipeline job is currently being processed by another worker",
+				"build_id", job.BuildID, "msg_id", msg.ID)
+			return // Leave unacked for redelivery/wait.
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 	ctx = appcontext.WithUserID(ctx, job.UserID)
 
-	build, pipeline := w.loadBuildAndPipeline(ctx, job)
+	build, pipeline, err := w.loadBuildAndPipeline(ctx, job)
+	if err != nil {
+		// Transient error loading build/pipeline — nack and retry.
+		w.logger.Error("transient error loading build/pipeline",
+			"build_id", job.BuildID, "error", err)
+		if w.ledger != nil {
+			_ = w.ledger.MarkFailed(workerCtx, jobKey, "transient load error")
+		}
+		_ = w.taskQueue.Nack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID)
+		return
+	}
+
 	if build == nil || pipeline == nil {
+		// Build or pipeline truly not found — ack to avoid infinite retries.
+		if w.ledger != nil {
+			_ = w.ledger.MarkComplete(workerCtx, jobKey, "not_found")
+		}
+		_ = w.taskQueue.Ack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID)
 		return
 	}
 
 	if !w.markBuildRunning(ctx, build) {
+		if w.ledger != nil {
+			_ = w.ledger.MarkFailed(workerCtx, jobKey, "failed to mark build running")
+		}
+		_ = w.taskQueue.Nack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID)
 		return
 	}
 
 	if len(pipeline.Config.Stages) == 0 {
 		w.failBuild(ctx, build, "pipeline has no stages")
+		if w.ledger != nil {
+			_ = w.ledger.MarkComplete(workerCtx, jobKey, "no_stages")
+		}
+		_ = w.taskQueue.Ack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID)
 		return
 	}
 
 	if !w.executePipeline(ctx, build, pipeline) {
+		// Build failed but was processed — ack the message.
+		if w.ledger != nil {
+			_ = w.ledger.MarkComplete(workerCtx, jobKey, "build_failed")
+		}
+		_ = w.taskQueue.Ack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID)
 		return
 	}
 
 	w.markBuildSucceeded(ctx, build)
+
+	if w.ledger != nil {
+		_ = w.ledger.MarkComplete(workerCtx, jobKey, "ok")
+	}
+	if err := w.taskQueue.Ack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID); err != nil {
+		w.logger.Error("failed to ack pipeline job",
+			"build_id", job.BuildID, "msg_id", msg.ID, "error", err)
+	}
 }
 
-func (w *PipelineWorker) loadBuildAndPipeline(ctx context.Context, job domain.BuildJob) (*domain.Build, *domain.Pipeline) {
+func (w *PipelineWorker) loadBuildAndPipeline(ctx context.Context, job domain.BuildJob) (*domain.Build, *domain.Pipeline, error) {
 	build, err := w.repo.GetBuild(ctx, job.BuildID, job.UserID)
-	if err != nil || build == nil {
+	if err != nil {
 		w.logger.Error("failed to load build", "build_id", job.BuildID, "error", err)
-		return nil, nil
+		return nil, nil, err
+	}
+	if build == nil {
+		return nil, nil, nil
 	}
 
 	pipeline, err := w.repo.GetPipeline(ctx, job.PipelineID, job.UserID)
-	if err != nil || pipeline == nil {
+	if err != nil {
 		w.logger.Error("failed to load pipeline", "pipeline_id", job.PipelineID, "error", err)
+		w.failBuild(ctx, build, "pipeline load error: "+err.Error())
+		return nil, nil, err
+	}
+	if pipeline == nil {
 		w.failBuild(ctx, build, "pipeline not found")
-		return nil, nil
+		return build, nil, nil
 	}
 
-	return build, pipeline
+	return build, pipeline, nil
 }
 
 func (w *PipelineWorker) markBuildRunning(ctx context.Context, build *domain.Build) bool {
@@ -261,4 +369,40 @@ func (w *PipelineWorker) collectTaskLogs(ctx context.Context, taskID string) (st
 		return "", err
 	}
 	return string(data), nil
+}
+
+func (w *PipelineWorker) reclaimLoop(ctx context.Context, sem chan struct{}) {
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			msgs, err := w.taskQueue.ReclaimStale(ctx, pipelineQueueName, pipelineGroup, w.consumerName, pipelineReclaimMs, pipelineReclaimN)
+			if err != nil {
+				w.logger.Warn("pipeline reclaim error", "error", err)
+				continue
+			}
+			for _, m := range msgs {
+				var job domain.BuildJob
+				if err := json.Unmarshal([]byte(m.Payload), &job); err != nil {
+					w.logger.Error("failed to unmarshal reclaimed pipeline job",
+						"msg_id", m.ID, "error", err)
+					_ = w.taskQueue.Ack(ctx, pipelineQueueName, pipelineGroup, m.ID)
+					continue
+				}
+				w.logger.Info("reclaimed stale pipeline job",
+					"build_id", job.BuildID, "msg_id", m.ID)
+
+				m := m
+				sem <- struct{}{}
+				go func() {
+					defer func() { <-sem }()
+					w.processJob(ctx, &m, job)
+				}()
+			}
+		}
+	}
 }
