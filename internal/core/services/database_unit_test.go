@@ -16,27 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupDatabaseUnit(t *testing.T) (*MockDatabaseRepo, *MockRBACService, *MockComputeBackend, *MockVpcRepo, *MockAuditService, ports.DatabaseService) {
-	t.Helper()
-	repo := new(MockDatabaseRepo)
-	compute := new(MockComputeBackend)
-	rbacSvc := new(MockRBACService)
-	vpcRepo := new(MockVpcRepo)
-	auditSvc := new(MockAuditService)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-
-	svc := services.NewDatabaseService(services.DatabaseServiceParams{
-		Repo:     repo,
-		RBAC:     rbacSvc,
-		Compute:  compute,
-		VpcRepo:  vpcRepo,
-		AuditSvc: auditSvc,
-		Logger:   logger,
-	})
-	return repo, rbacSvc, compute, vpcRepo, auditSvc, svc
-}
 
 func TestDatabaseServiceUnit(t *testing.T) {
 	repo, rbacSvc, compute, vpcRepo, auditSvc, svc := setupDatabaseUnit(t)
@@ -61,6 +41,7 @@ func TestDatabaseServiceUnit(t *testing.T) {
 		}
 		db, err := svc.CreateDatabase(ctx, req)
 		require.NoError(t, err)
+	_ = rbacSvc // Use it to avoid unused warning
 		assert.NotNil(t, db)
 		assert.Equal(t, "test-db", db.Name)
 	})
@@ -93,4 +74,33 @@ func TestDatabaseServiceUnit(t *testing.T) {
 		err := svc.DeleteDatabase(ctx, dbID)
 		require.NoError(t, err)
 	})
+}
+func setupDatabaseUnit(t *testing.T) (*MockDatabaseRepo, *MockRBACService, *MockComputeBackend, *MockVpcRepo, *MockAuditService, ports.DatabaseService) {
+	t.Helper()
+	repo := new(MockDatabaseRepo)
+	compute := new(MockComputeBackend)
+	rbacSvc := new(MockRBACService)
+	vpcRepo := new(MockVpcRepo)
+	auditSvc := new(MockAuditService)
+	volSvc := new(MockVolumeService)
+	snapshotSvc := new(MockSnapshotService)
+	snapshotRepo := new(MockSnapshotRepo)
+	eventSvc := new(MockEventService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewDatabaseService(services.DatabaseServiceParams{
+		Repo:         repo,
+		RBAC:         rbacSvc,
+		Compute:      compute,
+		VpcRepo:      vpcRepo,
+		VolumeSvc:    volSvc,
+		SnapshotSvc:  snapshotSvc,
+		SnapshotRepo: snapshotRepo,
+		EventSvc:     eventSvc,
+		AuditSvc:     auditSvc,
+		Logger:       logger,
+	})
+	return repo, rbacSvc, compute, vpcRepo, auditSvc, svc
 }
