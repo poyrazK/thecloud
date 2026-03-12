@@ -10,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestDashboardService_GetStats(t *testing.T) {
@@ -19,6 +20,7 @@ func TestDashboardService_GetStats(t *testing.T) {
 	eventRepo := new(MockEventRepo)
 	rbacSvc := new(MockRBACService)
 
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	svc := services.NewDashboardService(rbacSvc, instRepo, volRepo, vpcRepo, eventRepo, slog.Default())
 	ctx := context.Background()
 
@@ -35,6 +37,7 @@ func TestDashboardService_GetStats(t *testing.T) {
 		vpcs := []*domain.VPC{{ID: uuid.New()}, {ID: uuid.New()}, {ID: uuid.New()}}
 		events := []*domain.Event{{ID: uuid.New(), Action: "test.action"}}
 
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		instRepo.On("List", ctx).Return(instances, nil).Once()
 		volRepo.On("List", ctx).Return(volumes, nil).Once()
 		vpcRepo.On("List", ctx).Return(vpcs, nil).Once()
