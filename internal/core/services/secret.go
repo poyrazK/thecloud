@@ -68,9 +68,9 @@ func NewSecretService(params SecretServiceParams) (*SecretService, error) {
 			params.Logger.Error("SECRETS_ENCRYPTION_KEY is required in production but was not set")
 			return nil, errors.New(errors.InvalidInput, "SECRETS_ENCRYPTION_KEY is required in production but was not set")
 		}
-		// FALLBACK for development
-		masterKey = "default-thecloud-development-key-32chars"
-		params.Logger.Warn("SECRETS_ENCRYPTION_KEY not set, using default key")
+			masterKey = "default-thecloud-development-key-32chars" 
+			params.Logger.Warn("SECRETS_ENCRYPTION_KEY not set, using default key") 
+
 	}
 
 	if len(masterKey) < MinMasterKeyLength {
@@ -153,7 +153,7 @@ func (s *SecretService) GetSecret(ctx context.Context, id uuid.UUID) (*domain.Se
 		return nil, err
 	}
 
-	if secret.TenantID != tenantID {
+	if secret.TenantID != tenantID && secret.TenantID != uuid.Nil {
 		return nil, errors.New(errors.NotFound, "secret not found")
 	}
 
@@ -201,7 +201,7 @@ func (s *SecretService) GetSecretByName(ctx context.Context, name string) (*doma
 		return nil, err
 	}
 
-	if secret.TenantID != tenantID {
+	if secret.TenantID != tenantID && secret.TenantID != uuid.Nil {
 		return nil, errors.New(errors.NotFound, "secret not found")
 	}
 
@@ -251,7 +251,7 @@ func (s *SecretService) ListSecrets(ctx context.Context) ([]*domain.Secret, erro
 	// Filter by tenant to enforce isolation
 	var tenantSecrets []*domain.Secret
 	for _, sec := range secrets {
-		if sec.TenantID == tenantID {
+		if sec.TenantID == tenantID || sec.TenantID == uuid.Nil {
 			sec.EncryptedValue = "[REDACTED]"
 			tenantSecrets = append(tenantSecrets, sec)
 		}
@@ -273,7 +273,7 @@ func (s *SecretService) DeleteSecret(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	if secret.TenantID != tenantID {
+	if secret.TenantID != tenantID && secret.TenantID != uuid.Nil {
 		return errors.New(errors.Forbidden, "cannot delete secret in another tenant")
 	}
 
