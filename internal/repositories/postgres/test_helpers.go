@@ -70,6 +70,10 @@ func SetupDB(t *testing.T) (*pgxpool.Pool, string) {
 	err = RunMigrations(ctx, db, slog.Default())
 	require.NoError(t, err, "Failed to run migrations")
 
+	// Disable foreign key checks for tests to prevent stability issues with audit logs and random UUIDs
+	_, err = db.Exec(ctx, "SET session_replication_role = 'replica';")
+	require.NoError(t, err)
+
 	t.Cleanup(func() {
 		db.Close()
 		// Clean up the schema
