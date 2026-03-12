@@ -69,17 +69,20 @@ func TestReleaseGate_BulkheadIsolation(t *testing.T) {
 	// Saturate compute bulkhead.
 	blockCh := make(chan struct{})
 	var wg sync.WaitGroup
+	var startedWg sync.WaitGroup
 	for i := 0; i < 2; i++ {
 		wg.Add(1)
+		startedWg.Add(1)
 		go func() {
 			defer wg.Done()
 			_ = bhCompute.Execute(ctx, func() error {
+				startedWg.Done()
 				<-blockCh
 				return nil
 			})
 		}()
 	}
-	time.Sleep(30 * time.Millisecond) // Let them acquire slots.
+	startedWg.Wait() // Ensure they have acquired slots.
 
 	// Compute is now full.
 	err := bhCompute.Execute(ctx, func() error { return nil })

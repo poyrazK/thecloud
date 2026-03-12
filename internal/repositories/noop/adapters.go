@@ -432,6 +432,10 @@ func (l *NoopExecutionLedger) MarkFailed(ctx context.Context, jobKey string, rea
 	return nil
 }
 
+func (l *NoopExecutionLedger) GetStatus(ctx context.Context, jobKey string) (string, string, time.Time, error) {
+	return "", "", time.Time{}, nil
+}
+
 // --- New No-Ops (for benchmarks and system tests) ---
 
 type NoopVolumeRepository struct{}

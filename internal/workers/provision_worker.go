@@ -21,7 +21,8 @@ const (
 	provisionGroup      = "provision_workers"
 	provisionMaxWorkers = 20
 	// How long a message can sit in PEL before another consumer reclaims it.
-	provisionReclaimMs = 5 * 60 * 1000 // 5 minutes
+	// Must be longer than provisionStaleThreshold (15m) to avoid premature reclaim.
+	provisionReclaimMs = 20 * 60 * 1000 // 20 minutes
 	provisionReclaimN  = 10
 	// Stale threshold for idempotency ledger: if a "running" entry is older
 	// than this, it is considered abandoned and can be reclaimed.
@@ -129,11 +130,17 @@ func (w *ProvisionWorker) processJob(workerCtx context.Context, msg *ports.Durab
 			return
 		}
 		if !acquired {
-			w.logger.Info("skipping duplicate provision job",
+			// Check if it's already finished or just being processed by someone else.
+			status, _, _, getErr := w.ledger.GetStatus(workerCtx, jobKey)
+			if getErr == nil && status == "completed" {
+				w.logger.Info("skipping already completed provision job",
+					"instance_id", job.InstanceID, "msg_id", msg.ID)
+				_ = w.taskQueue.Ack(workerCtx, provisionQueue, provisionGroup, msg.ID)
+				return
+			}
+			w.logger.Info("provision job is currently being processed by another worker",
 				"instance_id", job.InstanceID, "msg_id", msg.ID)
-			// Already processed — ack the duplicate message.
-			_ = w.taskQueue.Ack(workerCtx, provisionQueue, provisionGroup, msg.ID)
-			return
+			return // Leave unacked for redelivery/wait.
 		}
 	}
 
