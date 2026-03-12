@@ -7,7 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
-	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/core/services" 
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -29,6 +30,7 @@ func TestIdentityService_Unit(t *testing.T) {
 	ctx := context.Background()
 	userID := uuid.New()
 
+	ctx = appcontext.WithUserID(ctx, userID)
 	t.Run("CreateKey", func(t *testing.T) {
 		mockRepo.On("CreateAPIKey", mock.Anything, mock.Anything).Return(nil).Once()
 		mockAuditSvc.On("Log", mock.Anything, userID, "api_key.create", "api_key", mock.Anything, mock.Anything).Return(nil).Once()

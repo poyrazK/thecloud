@@ -113,9 +113,11 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 	auditSvc := new(MockAuditService)
 	eventSvc := new(MockEventService)
 
+	rbacSvc := new(MockRBACService)
 	svc := services.NewDNSService(services.DNSServiceParams{
 		Repo:     repo,
 		Backend:  backend,
+		RBAC:     rbacSvc,
 		VpcRepo:  vpcRepo,
 		AuditSvc: auditSvc,
 		EventSvc: eventSvc,
@@ -128,6 +130,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 
 	t.Run("CreateZone", func(t *testing.T) {
 		vpcID := uuid.New()
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		vpcRepo.On("GetByID", mock.Anything, vpcID).Return(&domain.VPC{ID: vpcID, Name: "test-vpc"}, nil).Once()
 		repo.On("GetZoneByVPC", mock.Anything, vpcID).Return(nil, nil).Once()
 		backend.On("CreateZone", mock.Anything, "example.com.", mock.Anything).Return(nil).Once()
@@ -143,6 +146,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 	t.Run("DeleteZone", func(t *testing.T) {
 		zoneID := uuid.New()
 		zone := &domain.DNSZone{ID: zoneID, Name: "example.com", PowerDNSID: "example.com.", UserID: userID}
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		repo.On("GetZoneByID", mock.Anything, zoneID).Return(zone, nil).Once()
 		backend.On("DeleteZone", mock.Anything, "example.com.").Return(nil).Once()
 		repo.On("DeleteZone", mock.Anything, zoneID).Return(nil).Once()
@@ -155,6 +159,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 	t.Run("CreateRecord", func(t *testing.T) {
 		zoneID := uuid.New()
 		zone := &domain.DNSZone{ID: zoneID, Name: "example.com", PowerDNSID: "example.com."}
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		repo.On("GetZoneByID", mock.Anything, zoneID).Return(zone, nil).Once()
 		backend.On("AddRecords", mock.Anything, "example.com.", mock.Anything).Return(nil).Once()
 		repo.On("CreateRecord", mock.Anything, mock.Anything).Return(nil).Once()
@@ -172,6 +177,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		zone := &domain.DNSZone{ID: zoneID, Name: "example.com", PowerDNSID: "example.com."}
 
 		repo.On("GetRecordByID", mock.Anything, recordID).Return(record, nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		repo.On("GetZoneByID", mock.Anything, zoneID).Return(zone, nil).Once()
 		backend.On("UpdateRecords", mock.Anything, "example.com.", mock.Anything).Return(nil).Once()
 		repo.On("UpdateRecord", mock.Anything, mock.Anything).Return(nil).Once()
@@ -227,6 +233,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		zone := &domain.DNSZone{ID: zoneID, Name: "example.com", PowerDNSID: "example.com."}
 
 		repo.On("GetRecordByID", mock.Anything, recordID).Return(record, nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		repo.On("GetZoneByID", mock.Anything, zoneID).Return(zone, nil).Once()
 		backend.On("DeleteRecords", mock.Anything, "example.com.", mock.Anything, "A").Return(nil).Once()
 		repo.On("DeleteRecord", mock.Anything, recordID).Return(nil).Once()
@@ -244,6 +251,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		zone := &domain.DNSZone{ID: zoneID, Name: "example.com", PowerDNSID: "example.com."}
 
 		repo.On("GetRecordsByInstance", mock.Anything, instID).Return(records, nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		repo.On("GetZoneByID", mock.Anything, zoneID).Return(zone, nil).Once()
 		backend.On("DeleteRecords", mock.Anything, "example.com.", "web-1.example.com.", "A").Return(nil).Once()
 		repo.On("DeleteRecordsByInstance", mock.Anything, instID).Return(nil).Once()

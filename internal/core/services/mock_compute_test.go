@@ -188,7 +188,7 @@ func (m *MockComputeBackend) RunTask(ctx context.Context, opts ports.RunTaskOpti
 }
 func (m *MockComputeBackend) WaitTask(ctx context.Context, id string) (int64, error) {
 	args := m.Called(ctx, id)
-	return int64(args.Int(0)), args.Error(1)
+	val := args.Get(0); if i, ok := val.(int64); ok { return i, args.Error(1) }; return int64(args.Int(0)), args.Error(1)
 }
 func (m *MockComputeBackend) GetInstancePort(ctx context.Context, id string, port string) (int, error) {
 	args := m.Called(ctx, id, port)

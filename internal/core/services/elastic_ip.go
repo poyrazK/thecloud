@@ -34,12 +34,16 @@ type ElasticIPServiceParams struct {
 
 // NewElasticIPService constructs an ElasticIPService using the provided parameters.
 func NewElasticIPService(params ElasticIPServiceParams) ports.ElasticIPService {
+	logger := params.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &elasticIPService{
 		repo:         params.Repo,
 		rbacSvc:      params.RBAC,
 		instanceRepo: params.InstanceRepo,
 		auditSvc:     params.AuditSvc,
-		logger:       params.Logger,
+		logger:       logger,
 	}
 }
 

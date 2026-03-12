@@ -48,6 +48,10 @@ type DNSServiceParams struct {
 
 // NewDNSService constructs a DNSService with its dependencies.
 func NewDNSService(params DNSServiceParams) *DNSService {
+	logger := params.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &DNSService{
 		repo:     params.Repo,
 		rbacSvc:  params.RBAC,
@@ -55,7 +59,7 @@ func NewDNSService(params DNSServiceParams) *DNSService {
 		vpcRepo:  params.VpcRepo,
 		auditSvc: params.AuditSvc,
 		eventSvc: params.EventSvc,
-		logger:   params.Logger,
+		logger:   logger,
 	}
 }
 

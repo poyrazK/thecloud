@@ -194,11 +194,11 @@ func TestCachedRBACServiceHasPermissionCacheMiss(t *testing.T) {
 	mockSvc.On("HasPermission", mock.Anything, userID, tenantID, permission, resource).Return(true, nil).Once()
 
 	allowed, err := svc.HasPermission(ctx, userID, tenantID, permission, resource)
-	require.Error(t, err)
-	assert.False(t, allowed)
+	require.NoError(t, err)
+	assert.True(t, allowed)
 
 	key := rbacPermKey(tenantID, userID, permission, resource)
-	assert.LessOrEqual(t, cache.Exists(ctx, key).Val(), int64(0))
+	assert.Equal(t, int64(1), cache.Exists(ctx, key).Val())
 	}
 
 

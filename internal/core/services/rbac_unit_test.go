@@ -7,7 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
-	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/core/services" 
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -44,7 +45,7 @@ func TestRBACService_Unit(t *testing.T) {
 	t.Run("HasPermission_AdminRole", func(t *testing.T) {
 		mockTenantRepo.On("GetMembership", mock.Anything, tenantID, userID).Return(&domain.TenantMember{Role: domain.RoleAdmin}, nil).Once()
 		mockIAMRepo.On("GetPoliciesForUser", mock.Anything, tenantID, userID).Return([]*domain.Policy{}, nil).Once()
-		mockRoleRepo.On("GetRoleByName", mock.Anything, domain.RoleAdmin).Return(nil, assert.AnError).Once() // Fallback to hardcoded
+		mockRoleRepo.On("GetRoleByName", mock.Anything, domain.RoleAdmin).Return(nil, errors.New(errors.NotFound, "not found")).Once() // Fallback to hardcoded
 
 		allowed, err := svc.HasPermission(ctx, userID, tenantID, domain.PermissionInstanceRead, "*")
 		require.NoError(t, err)

@@ -48,7 +48,7 @@ func TestRBACServiceIntegration(t *testing.T) {
 		roleID := uuid.New()
 		role := &domain.Role{
 			ID:   roleID,
-			Name: "developer",
+			Name: "test-developer",
 			Permissions: []domain.Permission{
 				domain.PermissionInstanceLaunch,
 			},
@@ -61,7 +61,7 @@ func TestRBACServiceIntegration(t *testing.T) {
 		user := &domain.User{
 			ID:    userID,
 			Email: "dev@test.com",
-			Role:  "developer",
+			Role:  "test-developer",
 		}
 		err = userRepo.Create(ctx, user)
 		require.NoError(t, err)

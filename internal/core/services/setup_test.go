@@ -2,7 +2,6 @@ package services_test
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,22 +21,8 @@ func setupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
 }
 
 
-func cleanDB(t *testing.T, db *pgxpool.Pool) {
-	t.Helper()
-	ctx := context.Background()
-	tables := []string{
-		"instances", "vpcs", "subnets", "volumes", "instance_types",
-		"roles", "role_permissions", "users", "tenants", "tenant_members",
-		"audit_logs", "events", "snapshots", "stacks", "api_keys",
-		"ssh_keys", "elastic_ips", "iam_policies", "iam_user_policies",
-	}
+func cleanDB(t *testing.T, db *pgxpool.Pool) { 
+	t.Helper() 
+	postgres.CleanDB(t, db) 
+} 
 
-	// Double check we are in test environment before TRUNCATE
-	if os.Getenv("POSTGRES_DB") == "" && os.Getenv("DATABASE_URL") == "" {
-		return
-	}
-
-	for _, table := range tables {
-		_, _ = db.Exec(ctx, "TRUNCATE TABLE "+table+" RESTART IDENTITY CASCADE")
-	}
-}
