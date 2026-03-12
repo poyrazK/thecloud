@@ -118,10 +118,17 @@ func (w *PipelineWorker) processJob(workerCtx context.Context, msg *ports.Durabl
 			return
 		}
 		if !acquired {
-			w.logger.Info("skipping duplicate pipeline job",
+			// Check if it's already finished or just being processed by someone else.
+			status, _, _, getErr := w.ledger.GetStatus(workerCtx, jobKey)
+			if getErr == nil && status == "completed" {
+				w.logger.Info("skipping already completed pipeline job",
+					"build_id", job.BuildID, "msg_id", msg.ID)
+				_ = w.taskQueue.Ack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID)
+				return
+			}
+			w.logger.Info("pipeline job is currently being processed by another worker",
 				"build_id", job.BuildID, "msg_id", msg.ID)
-			_ = w.taskQueue.Ack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID)
-			return
+			return // Leave unacked for redelivery/wait.
 		}
 	}
 
@@ -129,9 +136,20 @@ func (w *PipelineWorker) processJob(workerCtx context.Context, msg *ports.Durabl
 	defer cancel()
 	ctx = appcontext.WithUserID(ctx, job.UserID)
 
-	build, pipeline := w.loadBuildAndPipeline(ctx, job)
+	build, pipeline, err := w.loadBuildAndPipeline(ctx, job)
+	if err != nil {
+		// Transient error loading build/pipeline — nack and retry.
+		w.logger.Error("transient error loading build/pipeline",
+			"build_id", job.BuildID, "error", err)
+		if w.ledger != nil {
+			_ = w.ledger.MarkFailed(workerCtx, jobKey, "transient load error")
+		}
+		_ = w.taskQueue.Nack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID)
+		return
+	}
+
 	if build == nil || pipeline == nil {
-		// Build or pipeline not found — ack to avoid infinite retries.
+		// Build or pipeline truly not found — ack to avoid infinite retries.
 		if w.ledger != nil {
 			_ = w.ledger.MarkComplete(workerCtx, jobKey, "not_found")
 		}
@@ -176,21 +194,28 @@ func (w *PipelineWorker) processJob(workerCtx context.Context, msg *ports.Durabl
 	}
 }
 
-func (w *PipelineWorker) loadBuildAndPipeline(ctx context.Context, job domain.BuildJob) (*domain.Build, *domain.Pipeline) {
+func (w *PipelineWorker) loadBuildAndPipeline(ctx context.Context, job domain.BuildJob) (*domain.Build, *domain.Pipeline, error) {
 	build, err := w.repo.GetBuild(ctx, job.BuildID, job.UserID)
-	if err != nil || build == nil {
+	if err != nil {
 		w.logger.Error("failed to load build", "build_id", job.BuildID, "error", err)
-		return nil, nil
+		return nil, nil, err
+	}
+	if build == nil {
+		return nil, nil, nil
 	}
 
 	pipeline, err := w.repo.GetPipeline(ctx, job.PipelineID, job.UserID)
-	if err != nil || pipeline == nil {
+	if err != nil {
 		w.logger.Error("failed to load pipeline", "pipeline_id", job.PipelineID, "error", err)
+		w.failBuild(ctx, build, "pipeline load error: "+err.Error())
+		return nil, nil, err
+	}
+	if pipeline == nil {
 		w.failBuild(ctx, build, "pipeline not found")
-		return nil, nil
+		return build, nil, nil
 	}
 
-	return build, pipeline
+	return build, pipeline, nil
 }
 
 func (w *PipelineWorker) markBuildRunning(ctx context.Context, build *domain.Build) bool {

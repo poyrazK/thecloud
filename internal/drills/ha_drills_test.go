@@ -384,16 +384,14 @@ func TestDrill_HalfOpenSingleFlight(t *testing.T) {
 		t.Fatal("timeout waiting for probe to start")
 	}
 
-	// Wait for transition to HalfOpen if it hasn't happened yet.
-	if cb.GetState() != platform.StateHalfOpen {
-		select {
-		case s := <-stateChanged:
-			if s != platform.StateHalfOpen {
-				t.Fatalf("expected transition to half-open, got %s", s.String())
-			}
-		case <-time.After(time.Second):
-			t.Fatal("timeout waiting for transition to half-open")
+	// Wait for transition to HalfOpen.
+	select {
+	case s := <-stateChanged:
+		if s != platform.StateHalfOpen {
+			t.Fatalf("expected transition to half-open, got %s", s.String())
 		}
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for transition to half-open")
 	}
 
 	// All other requests should be rejected.

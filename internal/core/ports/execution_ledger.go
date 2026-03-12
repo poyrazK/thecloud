@@ -28,4 +28,8 @@ type ExecutionLedger interface {
 
 	// MarkFailed marks a job execution as failed, allowing future retries.
 	MarkFailed(ctx context.Context, jobKey string, reason string) error
+
+	// GetStatus returns the current status, result and start time of a job.
+	// Returns status="", nil error if the job does not exist.
+	GetStatus(ctx context.Context, jobKey string) (status string, result string, startedAt time.Time, err error)
 }

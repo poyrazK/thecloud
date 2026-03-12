@@ -166,9 +166,13 @@ func TestProvisionWorkerRun(t *testing.T) {
 			assert.Contains(t, buf.String(), tt.wantLog)
 			if tt.wantAcked {
 				assert.NotEmpty(t, fq.acked, "expected message to be acked")
-			}
-			if tt.wantNacked {
+				assert.Empty(t, fq.nacked, "did not expect message to be nacked when acked")
+			} else if tt.wantNacked {
 				assert.NotEmpty(t, fq.nacked, "expected message to be nacked")
+				assert.Empty(t, fq.acked, "did not expect message to be acked when nacked")
+			} else {
+				assert.Empty(t, fq.acked, "expected no ack")
+				assert.Empty(t, fq.nacked, "expected no nack")
 			}
 		})
 	}

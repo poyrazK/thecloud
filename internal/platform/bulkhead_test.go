@@ -61,7 +61,7 @@ func TestBulkheadRejectsWhenFull(t *testing.T) {
 
 	// Second call should be rejected.
 	err := bh.Execute(context.Background(), func() error { return nil })
-	assert.ErrorIs(t, err, ErrBulkheadFull)
+	require.ErrorIs(t, err, ErrBulkheadFull)
 
 	close(done)
 }
@@ -85,7 +85,7 @@ func TestBulkheadRespectsContext(t *testing.T) {
 	defer cancel()
 
 	err := bh.Execute(ctx, func() error { return nil })
-	assert.ErrorIs(t, err, ErrBulkheadFull)
+	require.ErrorIs(t, err, ErrBulkheadFull)
 
 	close(done)
 }
