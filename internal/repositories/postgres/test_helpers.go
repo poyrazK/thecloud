@@ -57,7 +57,7 @@ func SetupDB(t *testing.T) (*pgxpool.Pool, string) {
 	db, err := pgxpool.NewWithConfig(ctx, config)
 	require.NoError(t, err)
 
-	err = db.Ping(ctx)
+	require.NoError(t, db.Ping(ctx))
 
 	// Ensure search_path is set for the current connection too (redundant but safe)
 	_, err = db.Exec(ctx, fmt.Sprintf("SET search_path TO %s, public", schema))
@@ -142,7 +142,7 @@ func CleanDB(t *testing.T, db *pgxpool.Pool) {
 
 	// Get current schema from search_path
 	var schema string
-	err := db.QueryRow(ctx, "SHOW search_path").Scan(&schema)
+	if err := db.QueryRow(ctx, "SHOW search_path").Scan(&schema); err != nil { schema = "public" }
 	schema = strings.Split(schema, ",")[0]
 	schema = strings.TrimSpace(schema)
 

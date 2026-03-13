@@ -18,9 +18,9 @@ type MockPolicyEvaluator struct {
 	mock.Mock
 }
 
-func (m *MockPolicyEvaluator) Evaluate(ctx context.Context, policies []*domain.Policy, action, resource string, evalCtx map[string]interface{}) (bool, error) {
+func (m *MockPolicyEvaluator) Evaluate(ctx context.Context, policies []*domain.Policy, action string, resource string, evalCtx map[string]interface{}) (domain.PolicyEffect, error) {
 	args := m.Called(ctx, policies, action, resource, evalCtx)
-	return args.Bool(0), args.Error(1)
+	return args.Get(0).(domain.PolicyEffect), args.Error(1)
 }
 
 func TestRBACService_Unit(t *testing.T) {
@@ -57,7 +57,7 @@ func TestRBACService_Unit(t *testing.T) {
 		mockTenantRepo.On("GetMembership", mock.Anything, tenantID, userID).Return(&domain.TenantMember{Role: domain.RoleViewer}, nil).Once()
 		mockIAMRepo.On("GetPoliciesForUser", mock.Anything, tenantID, userID).Return([]*domain.Policy{policy}, nil).Once()
 		mockEval.On("Evaluate", mock.Anything, mock.Anything, string(domain.PermissionInstanceLaunch), "*", mock.Anything).
-			Return(true, nil).Once()
+			Return(domain.EffectAllow, nil).Once()
 
 		allowed, err := svc.HasPermission(ctx, userID, tenantID, domain.PermissionInstanceLaunch, "*")
 		require.NoError(t, err)

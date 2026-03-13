@@ -113,16 +113,18 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 	if s.iamRepo != nil && s.evaluator != nil {
 		policies, err := s.iamRepo.GetPoliciesForUser(ctx, tenantID, userID)
 		if err == nil && len(policies) > 0 {
-			allowed, evalErr := s.evaluator.Evaluate(ctx, policies, string(permission), resource, nil)
-			if evalErr == nil && allowed {
-				return true, nil
+			effect, evalErr := s.evaluator.Evaluate(ctx, policies, string(permission), resource, nil)
+			if evalErr == nil {
+				if effect == domain.EffectAllow {
+					return true, nil
+				}
+				if effect == domain.EffectDeny {
+					return false, nil
+				}
+				// If "", continue to role-based logic
 			}
-			// If policies exist and evaluate to Deny, we strictly fail.
-			// In some models, we might still fall back to roles if evaluation was inconclusive,
-			// but usually policy is authoritative.
 		}
 	}
-
 	// 3. Fallback to Role-based logic
 	if roleName == domain.RoleAdmin {
 		return true, nil
@@ -247,5 +249,5 @@ func (s *rbacService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, acti
 	if len(policies) == 0 {
 		return false, nil
 	}
-	return s.evaluator.Evaluate(ctx, policies, action, resource, evalCtx)
+	effect, err := s.evaluator.Evaluate(ctx, policies, action, resource, evalCtx); if err != nil { return false, err }; return effect == domain.EffectAllow, nil
 }

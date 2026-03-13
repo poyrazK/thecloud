@@ -50,7 +50,7 @@ func TestElasticIPService_ReleaseIP(t *testing.T) {
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	userID := appcontext.UserIDFromContext(ctx)
 
-	repo.On("GetByID", mock.Anything, id).Return(&domain.ElasticIP{ID: id, UserID: userID}, nil).Once()
+	repo.On("GetByID", mock.Anything, id).Return(&domain.ElasticIP{ID: id, UserID: userID, Status: domain.EIPStatusAllocated}, nil).Once()
 	repo.On("Delete", mock.Anything, id).Return(nil).Once()
 	auditSvc.On("Log", mock.Anything, userID, "eip.release", "eip", id.String(), mock.Anything).Return(nil).Once()
 
@@ -75,7 +75,7 @@ func TestElasticIPService_AssociateIP(t *testing.T) {
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	userID := appcontext.UserIDFromContext(ctx)
 
-	repo.On("GetByID", mock.Anything, id).Return(&domain.ElasticIP{ID: id, UserID: userID}, nil).Once()
+	repo.On("GetByID", mock.Anything, id).Return(&domain.ElasticIP{ID: id, UserID: userID, Status: domain.EIPStatusAllocated}, nil).Once()
 	repo.On("GetByInstanceID", mock.Anything, instID).Return(nil, nil).Once()
 	instRepo.On("GetByID", mock.Anything, instID).Return(&domain.Instance{ID: instID, UserID: userID}, nil).Once()
 	repo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
