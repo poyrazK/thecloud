@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"time"
 
 	"github.com/google/uuid"
@@ -86,8 +87,12 @@ func (s *VpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*do
 		cidrBlock = s.defaultCIDR
 	}
 
-	vpcID := uuid.New()
+	// Validate CIDR format
+	if _, _, err := net.ParseCIDR(cidrBlock); err != nil {
+		return nil, errors.New(errors.InvalidInput, fmt.Sprintf("invalid CIDR block format: %s", cidrBlock))
+	}
 
+	vpcID := uuid.New()
 	// 1. Generate unique VNI (for demo purposes we use a hash based int)
 	vxlanID := int(vpcID[0]) + 100
 

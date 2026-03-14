@@ -2,13 +2,12 @@ package services_test
 
 import (
 	"context"
-	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/poyrazk/thecloud/internal/core/domain"
-	"github.com/poyrazk/thecloud/internal/core/services" 
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
+	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -18,19 +17,16 @@ func TestIdentityService_Unit(t *testing.T) {
 	mockRepo := new(MockIdentityRepo)
 	mockAuditSvc := new(MockAuditService)
 	rbacSvc := new(MockRBACService)
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-
 	svc := services.NewIdentityService(services.IdentityServiceParams{
-		Repo:     mockRepo,
-		RbacSvc:  rbacSvc,
-		AuditSvc: mockAuditSvc,
-		Logger:   slog.Default(),
+		Repo: mockRepo, RbacSvc: rbacSvc, AuditSvc: mockAuditSvc,
 	})
 
 	ctx := context.Background()
 	userID := uuid.New()
-
+	tenantID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
+
 	t.Run("CreateKey", func(t *testing.T) {
 		mockRepo.On("CreateAPIKey", mock.Anything, mock.Anything).Return(nil).Once()
 		mockAuditSvc.On("Log", mock.Anything, userID, "api_key.create", "api_key", mock.Anything, mock.Anything).Return(nil).Once()
@@ -52,14 +48,39 @@ func TestIdentityService_Unit(t *testing.T) {
 		assert.Equal(t, userID, res.UserID)
 	})
 
+	t.Run("ListKeys", func(t *testing.T) {
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionIdentityRead, "*").Return(nil).Once()
+		mockRepo.On("ListAPIKeysByUserID", mock.Anything, userID).Return([]*domain.APIKey{}, nil).Once()
+
+		res, err := svc.ListKeys(ctx, userID)
+		require.NoError(t, err)
+		assert.NotNil(t, res)
+	})
+
 	t.Run("RevokeKey", func(t *testing.T) {
 		keyID := uuid.New()
 		apiKey := &domain.APIKey{ID: keyID, UserID: userID, Name: "old-key"}
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionIdentityDelete, keyID.String()).Return(nil).Once()
 		mockRepo.On("GetAPIKeyByID", mock.Anything, keyID).Return(apiKey, nil).Once()
 		mockRepo.On("DeleteAPIKey", mock.Anything, keyID).Return(nil).Once()
 		mockAuditSvc.On("Log", mock.Anything, userID, "api_key.revoke", "api_key", keyID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.RevokeKey(ctx, userID, keyID)
 		require.NoError(t, err)
+	})
+
+	t.Run("RotateKey", func(t *testing.T) {
+		keyID := uuid.New()
+		apiKey := &domain.APIKey{ID: keyID, UserID: userID, Name: "old-key"}
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionIdentityDelete, keyID.String()).Return(nil).Once()
+		mockRepo.On("GetAPIKeyByID", mock.Anything, keyID).Return(apiKey, nil).Once()
+		mockRepo.On("CreateAPIKey", mock.Anything, mock.Anything).Return(nil).Once()
+		mockRepo.On("DeleteAPIKey", mock.Anything, keyID).Return(nil).Once()
+		mockAuditSvc.On("Log", mock.Anything, userID, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		newKey, err := svc.RotateKey(ctx, userID, keyID)
+		require.NoError(t, err)
+		assert.NotNil(t, newKey)
+		assert.NotEqual(t, keyID, newKey.ID)
 	})
 }

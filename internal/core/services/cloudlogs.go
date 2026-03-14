@@ -21,13 +21,15 @@ type CloudLogsService struct {
 
 // NewCloudLogsService creates a new CloudLogsService.
 func NewCloudLogsService(repo ports.LogRepository, rbacSvc ports.RBACService, logger *slog.Logger) *CloudLogsService {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &CloudLogsService{
 		repo:    repo,
 		rbacSvc: rbacSvc,
 		logger:  logger,
 	}
 }
-
 func (s *CloudLogsService) IngestLogs(ctx context.Context, entries []*domain.LogEntry) error {
 	if len(entries) == 0 {
 		return nil
