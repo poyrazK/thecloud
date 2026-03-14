@@ -45,7 +45,7 @@ type SecretService struct {
 func NewSecretService(params SecretServiceParams) (*SecretService, error) {
 	// 1. Critical Validation (Pre-logging)
 	if params.Logger == nil {
-		return nil, fmt.Errorf("logger is required")
+		return nil, errors.New(errors.InvalidInput, "logger is required")
 	}
 	if params.Repo == nil {
 		return nil, errors.New(errors.InvalidInput, "repository is required")

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
@@ -23,12 +24,13 @@ func NewAccountingRepository(db DB) ports.AccountingRepository {
 
 func (r *accountingRepository) CreateRecord(ctx context.Context, record domain.UsageRecord) error {
 	query := `
-		INSERT INTO usage_records (id, user_id, resource_id, resource_type, quantity, unit, start_time, end_time)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO usage_records (id, user_id, tenant_id, resource_id, resource_type, quantity, unit, start_time, end_time)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
 	_, err := r.db.Exec(ctx, query,
 		record.ID,
 		record.UserID,
+		record.TenantID,
 		record.ResourceID,
 		record.ResourceType,
 		record.Quantity,
@@ -43,13 +45,14 @@ func (r *accountingRepository) CreateRecord(ctx context.Context, record domain.U
 }
 
 func (r *accountingRepository) GetUsageSummary(ctx context.Context, userID uuid.UUID, start, end time.Time) (map[domain.ResourceType]float64, error) {
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
 		SELECT resource_type, SUM(quantity)
 		FROM usage_records
-		WHERE user_id = $1 AND start_time >= $2 AND end_time <= $3
+		WHERE tenant_id = $1 AND start_time >= $2 AND end_time <= $3
 		GROUP BY resource_type
 	`
-	rows, err := r.db.Query(ctx, query, userID, start, end)
+	rows, err := r.db.Query(ctx, query, tenantID, start, end)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get usage summary: %w", err)
 	}
@@ -68,13 +71,14 @@ func (r *accountingRepository) GetUsageSummary(ctx context.Context, userID uuid.
 }
 
 func (r *accountingRepository) ListRecords(ctx context.Context, userID uuid.UUID, start, end time.Time) ([]domain.UsageRecord, error) {
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, resource_id, resource_type, quantity, unit, start_time, end_time
+		SELECT id, user_id, tenant_id, resource_id, resource_type, quantity, unit, start_time, end_time
 		FROM usage_records
-		WHERE user_id = $1 AND start_time >= $2 AND end_time <= $3
+		WHERE tenant_id = $1 AND start_time >= $2 AND end_time <= $3
 		ORDER BY start_time DESC
 	`
-	rows, err := r.db.Query(ctx, query, userID, start, end)
+	rows, err := r.db.Query(ctx, query, tenantID, start, end)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list usage records: %w", err)
 	}
@@ -87,6 +91,7 @@ func (r *accountingRepository) scanUsageRecord(row pgx.Row) (domain.UsageRecord,
 	err := row.Scan(
 		&rec.ID,
 		&rec.UserID,
+		&rec.TenantID,
 		&rec.ResourceID,
 		&resType,
 		&rec.Quantity,

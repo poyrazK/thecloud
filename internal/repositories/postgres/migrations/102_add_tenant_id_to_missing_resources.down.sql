@@ -1,0 +1,8 @@
+-- +goose Down
+-- Remove tenant_id from remaining resource tables
+
+DROP INDEX IF EXISTS idx_usage_records_tenant;
+ALTER TABLE usage_records DROP COLUMN IF EXISTS tenant_id;
+
+DROP INDEX IF EXISTS idx_databases_tenant;
+ALTER TABLE databases DROP COLUMN IF EXISTS tenant_id;

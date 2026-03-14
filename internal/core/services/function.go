@@ -151,9 +151,10 @@ func (s *FunctionService) DeleteFunction(ctx context.Context, id uuid.UUID) erro
 
 	// Async delete from file store
 	go func() {
-		_ = s.fileStore.Delete(context.Background(), "functions", f.CodePath)
+		if err := s.fileStore.Delete(context.Background(), "functions", f.CodePath); err != nil {
+			s.logger.Warn("failed to delete function code from storage", "code_path", f.CodePath, "error", err)
+		}
 	}()
-
 	if err := s.auditSvc.Log(ctx, f.UserID, "function.delete", "function", f.ID.String(), map[string]interface{}{
 		"name": f.Name,
 	}); err != nil {
@@ -171,9 +172,13 @@ func (s *FunctionService) GetFunctionLogs(ctx context.Context, id uuid.UUID, lim
 		return nil, err
 	}
 
+	// Verify existence and tenant scoping
+	if _, err := s.repo.GetByID(ctx, id); err != nil {
+		return nil, err
+	}
+
 	return s.repo.GetInvocations(ctx, id, limit)
 }
-
 func (s *FunctionService) InvokeFunction(ctx context.Context, id uuid.UUID, payload []byte, async bool) (*domain.Invocation, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)

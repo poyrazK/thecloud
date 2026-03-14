@@ -102,9 +102,14 @@ func (r *SecretRepository) Update(ctx context.Context, s *domain.Secret) error {
 	query := `
 		UPDATE secrets
 		SET encrypted_value = $1, description = $2, updated_at = $3, last_accessed_at = $4
-		WHERE id = $5 AND tenant_id = $6
+		WHERE id = $5 AND (tenant_id = $6 OR (tenant_id IS NULL AND $6 IS NULL))
 	`
-	_, err := r.db.Exec(ctx, query, s.EncryptedValue, s.Description, time.Now(), s.LastAccessedAt, s.ID, s.TenantID)
+	var tenantParam interface{} = s.TenantID
+	if s.TenantID == uuid.Nil {
+		tenantParam = nil
+	}
+
+	_, err := r.db.Exec(ctx, query, s.EncryptedValue, s.Description, time.Now(), s.LastAccessedAt, s.ID, tenantParam)
 	if err != nil {
 		return fmt.Errorf("failed to update secret: %w", err)
 	}
@@ -113,8 +118,14 @@ func (r *SecretRepository) Update(ctx context.Context, s *domain.Secret) error {
 
 func (r *SecretRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	tenantID := appcontext.TenantIDFromContext(ctx)
-	query := `DELETE FROM secrets WHERE id = $1 AND tenant_id = $2`
-	_, err := r.db.Exec(ctx, query, id, tenantID)
+	query := `DELETE FROM secrets WHERE id = $1 AND (tenant_id = $2 OR (tenant_id IS NULL AND $2 IS NULL))`
+
+	var tenantParam interface{} = tenantID
+	if tenantID == uuid.Nil {
+		tenantParam = nil
+	}
+
+	_, err := r.db.Exec(ctx, query, id, tenantParam)
 	if err != nil {
 		return fmt.Errorf("failed to delete secret: %w", err)
 	}

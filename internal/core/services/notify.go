@@ -248,11 +248,15 @@ func (s *NotifyService) Publish(ctx context.Context, topicID uuid.UUID, body str
 		}(ctx, sub)
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "TOPIC_PUBLISHED", topic.ID.String(), "TOPIC", map[string]interface{}{"message_id": msg.ID})
+	if err := s.eventSvc.RecordEvent(ctx, "TOPIC_PUBLISHED", topic.ID.String(), "TOPIC", map[string]interface{}{"message_id": msg.ID}); err != nil {
+		s.logger.Warn("failed to record topic publish event", "topic_id", topic.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, topic.UserID, "notify.publish", "topic", topic.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, topic.UserID, "notify.publish", "topic", topic.ID.String(), map[string]interface{}{
 		"message_id": msg.ID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log topic publish audit event", "topic_id", topic.ID, "error", err)
+	}
 
 	return nil
 }

@@ -116,7 +116,7 @@ func (s *GlobalLBService) Get(ctx context.Context, id uuid.UUID) (*domain.Global
 	}
 
 	// Verify ownership
-	if glb.UserID != userID {
+	if glb.UserID != userID || glb.TenantID != tenantID {
 		return nil, errors.New(errors.Unauthorized, "unauthorized access to global load balancer")
 	}
 
@@ -202,7 +202,7 @@ func (s *GlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, regi
 		if err != nil {
 			return nil, errors.Wrap(errors.NotFound, "target load balancer not found", err)
 		}
-		if lb.UserID != userID {
+		if lb.UserID != userID || lb.TenantID != tenantID {
 			return nil, errors.New(errors.Unauthorized, "unauthorized access to regional load balancer")
 		}
 	case "IP":
@@ -278,7 +278,7 @@ func (s *GlobalLBService) RemoveEndpoint(ctx context.Context, glbID, endpointID 
 		return err
 	}
 
-	if glb.UserID != userID {
+	if glb.UserID != userID || glb.TenantID != tenantID {
 		return errors.New(errors.Unauthorized, "unauthorized access to global load balancer endpoint")
 	}
 

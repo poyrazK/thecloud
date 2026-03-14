@@ -116,6 +116,13 @@ func (s *IdentityService) ListKeys(ctx context.Context, userID uuid.UUID) ([]*do
 		return nil, err
 	}
 
+	// Horizontal access check: if requesting keys for another user, need elevated permission
+	if userID != uID {
+		if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionIdentityReadAll, "*"); err != nil {
+			return nil, errors.New(errors.Forbidden, "cannot list keys for another user")
+		}
+	}
+
 	return s.repo.ListAPIKeysByUserID(ctx, userID)
 }
 
