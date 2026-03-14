@@ -64,6 +64,7 @@ func TestFunctionServiceBasicOps(t *testing.T) {
 
 	t.Run("GetFunctionLogs", func(t *testing.T) {
 		expected := []*domain.Invocation{{ID: uuid.New()}}
+		repo.On("GetByID", ctx, id).Return(&domain.Function{ID: id}, nil).Once()
 		repo.On("GetInvocations", ctx, id, 10).Return(expected, nil).Once()
 
 		result, err := svc.GetFunctionLogs(ctx, id, 10)
