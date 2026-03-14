@@ -47,7 +47,7 @@ func TestIdentityRepository_Integration(t *testing.T) {
 		keyID = uuid.New()
 		apiKey := &domain.APIKey{
 			ID:        keyID,
-			UserID:    userID, TenantID:  tenantID,
+			UserID:    userID,
 			Key:       keyString,
 			Name:      "test-key",
 			CreatedAt: time.Now(),
@@ -76,7 +76,7 @@ func TestIdentityRepository_Integration(t *testing.T) {
 		// Create another API key
 		key2 := &domain.APIKey{
 			ID:        uuid.New(),
-			UserID:    userID, TenantID:  tenantID,
+			UserID:    userID,
 			Key:       "another-api-key-67890",
 			Name:      "another-key",
 			CreatedAt: time.Now(),

@@ -31,6 +31,8 @@ func TestFunctionRepository_Integration(t *testing.T) {
 	t.Run("CreateFunction", func(t *testing.T) {
 		functionID = uuid.New()
 		fn := &domain.Function{
+			TenantID:  tenantID,
+			
 			ID:        functionID,
 			UserID:    userID,
 			Name:      "test-function",

@@ -41,7 +41,8 @@ func TestTrackUsage(t *testing.T) {
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	record := domain.UsageRecord{
-		UserID:       userID, TenantID:     tenantID,
+		UserID:       userID,
+		TenantID:     tenantID,
 		ResourceID:   uuid.New(),
 		ResourceType: domain.ResourceInstance,
 		Quantity:     10,
@@ -67,11 +68,11 @@ func TestProcessHourlyBilling(t *testing.T) {
 	// Create running instance
 	instance := &domain.Instance{
 		ID:           uuid.New(),
-		UserID:       userID, TenantID:     tenantID,
+		UserID:       userID,
 		TenantID:     tenantID,
 		Name:         "test-inst",
 		Image:        "ubuntu",
-		InstanceType: "small", // Assuming InstanceType replaced Plan or is what was meant
+		InstanceType: "small",
 		Status:       domain.StatusRunning,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
@@ -90,7 +91,7 @@ func TestProcessHourlyBilling(t *testing.T) {
 	// We expect one record for the running instance
 	found := false
 	for _, r := range records {
-		if r.ResourceID == instance.ID && r.Quantity == 60 { // Hourly billing assumes 60 mins?
+		if r.ResourceID == instance.ID && r.Quantity == 60 {
 			found = true
 			break
 		}
@@ -100,13 +101,14 @@ func TestProcessHourlyBilling(t *testing.T) {
 
 func TestGetSummary(t *testing.T) {
 	svc, _, _, ctx := setupAccountingServiceTest(t)
-	tenantID := appcontext.TenantIDFromContext(ctx)
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	now := time.Now()
 
 	// Add some usage manually via service or repo
 	rec1 := domain.UsageRecord{
-		UserID:       userID, TenantID:     tenantID,
+		UserID:       userID,
+		TenantID:     tenantID,
 		ResourceID:   uuid.New(),
 		ResourceType: domain.ResourceInstance,
 		Quantity:     100, // 100 mins
@@ -117,7 +119,8 @@ func TestGetSummary(t *testing.T) {
 	require.NoError(t, err)
 
 	rec2 := domain.UsageRecord{
-		UserID:       userID, TenantID:     tenantID,
+		UserID:       userID,
+		TenantID:     tenantID,
 		ResourceID:   uuid.New(),
 		ResourceType: domain.ResourceStorage,
 		Quantity:     10, // 10 GB
@@ -137,12 +140,13 @@ func TestGetSummary(t *testing.T) {
 }
 
 func TestListUsage(t *testing.T) {
-	tenantID := appcontext.TenantIDFromContext(ctx)
 	svc, _, _, ctx := setupAccountingServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	rec := domain.UsageRecord{
-		UserID:       userID, TenantID:     tenantID,
+		UserID:       userID,
+		TenantID:     tenantID,
 		ResourceID:   uuid.New(),
 		ResourceType: domain.ResourceInstance,
 		Quantity:     50,
