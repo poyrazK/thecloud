@@ -238,14 +238,14 @@ func (s *NotifyService) Publish(ctx context.Context, topicID uuid.UUID, body str
 	for _, sub := range subs {
 		// Create a background context for async delivery to avoid request cancellation
 		// but keep it separate for each subscriber to avoid shared timeout issues
-		go func(sub *domain.Subscription) {
-			deliveryCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		go func(c context.Context, sub *domain.Subscription) {
+			deliveryCtx, cancel := context.WithTimeout(c, 30*time.Second)
 			defer cancel()
 
 			// Carry over potential trace IDs or other metadata if needed
 			// (Simplified for now, but avoids using request-scoped ctx)
 			s.deliver(deliveryCtx, sub, body)
-		}(sub)
+		}(ctx, sub)
 	}
 
 	_ = s.eventSvc.RecordEvent(ctx, "TOPIC_PUBLISHED", topic.ID.String(), "TOPIC", map[string]interface{}{"message_id": msg.ID})
