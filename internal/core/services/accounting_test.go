@@ -38,9 +38,10 @@ func setupAccountingServiceTest(t *testing.T) (ports.AccountingService, ports.Ac
 func TestTrackUsage(t *testing.T) {
 	svc, repo, _, ctx := setupAccountingServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	record := domain.UsageRecord{
-		UserID:       userID,
+		UserID:       userID, TenantID:     tenantID,
 		ResourceID:   uuid.New(),
 		ResourceType: domain.ResourceInstance,
 		Quantity:     10,
@@ -66,7 +67,7 @@ func TestProcessHourlyBilling(t *testing.T) {
 	// Create running instance
 	instance := &domain.Instance{
 		ID:           uuid.New(),
-		UserID:       userID,
+		UserID:       userID, TenantID:     tenantID,
 		TenantID:     tenantID,
 		Name:         "test-inst",
 		Image:        "ubuntu",
@@ -99,12 +100,13 @@ func TestProcessHourlyBilling(t *testing.T) {
 
 func TestGetSummary(t *testing.T) {
 	svc, _, _, ctx := setupAccountingServiceTest(t)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	userID := appcontext.UserIDFromContext(ctx)
 	now := time.Now()
 
 	// Add some usage manually via service or repo
 	rec1 := domain.UsageRecord{
-		UserID:       userID,
+		UserID:       userID, TenantID:     tenantID,
 		ResourceID:   uuid.New(),
 		ResourceType: domain.ResourceInstance,
 		Quantity:     100, // 100 mins
@@ -115,7 +117,7 @@ func TestGetSummary(t *testing.T) {
 	require.NoError(t, err)
 
 	rec2 := domain.UsageRecord{
-		UserID:       userID,
+		UserID:       userID, TenantID:     tenantID,
 		ResourceID:   uuid.New(),
 		ResourceType: domain.ResourceStorage,
 		Quantity:     10, // 10 GB
@@ -135,11 +137,12 @@ func TestGetSummary(t *testing.T) {
 }
 
 func TestListUsage(t *testing.T) {
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	svc, _, _, ctx := setupAccountingServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	rec := domain.UsageRecord{
-		UserID:       userID,
+		UserID:       userID, TenantID:     tenantID,
 		ResourceID:   uuid.New(),
 		ResourceType: domain.ResourceInstance,
 		Quantity:     50,

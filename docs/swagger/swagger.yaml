@@ -963,6 +963,7 @@ definitions:
     - identity:create
     - identity:read
     - identity:delete
+    - identity:read_all
     - accounting:read
     - audit:read
     - dashboard:read
@@ -1074,6 +1075,7 @@ definitions:
     - PermissionIdentityCreate
     - PermissionIdentityRead
     - PermissionIdentityDelete
+    - PermissionIdentityReadAll
     - PermissionAccountingRead
     - PermissionAuditRead
     - PermissionDashboardRead

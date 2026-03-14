@@ -20,6 +20,7 @@ func TestFunctionRepository_Integration(t *testing.T) {
 	repo := NewFunctionRepository(db)
 	ctx := SetupTestUser(t, db)
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	// Cleanup
 	_, _ = db.Exec(context.Background(), "DELETE FROM invocations")

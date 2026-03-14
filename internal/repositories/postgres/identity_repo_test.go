@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/domain" 
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,12 +19,14 @@ func TestIdentityRepository_Integration(t *testing.T) {
 	defer db.Close()
 	repo := NewIdentityRepository(db)
 	ctx := SetupTestUser(t, db)
+	tenantID := appcontext.TenantIDFromContext(ctx) 
+	userID := appcontext.UserIDFromContext(ctx)
 
 	// Cleanup
 	_, _ = db.Exec(context.Background(), "DELETE FROM api_keys")
 
 	// Create a test user for API keys
-	userID := uuid.New()
+	
 	userRepo := NewUserRepo(db)
 	testUser := &domain.User{
 		ID:           userID,
@@ -44,7 +47,7 @@ func TestIdentityRepository_Integration(t *testing.T) {
 		keyID = uuid.New()
 		apiKey := &domain.APIKey{
 			ID:        keyID,
-			UserID:    userID,
+			UserID:    userID, TenantID:  tenantID,
 			Key:       keyString,
 			Name:      "test-key",
 			CreatedAt: time.Now(),
@@ -73,7 +76,7 @@ func TestIdentityRepository_Integration(t *testing.T) {
 		// Create another API key
 		key2 := &domain.APIKey{
 			ID:        uuid.New(),
-			UserID:    userID,
+			UserID:    userID, TenantID:  tenantID,
 			Key:       "another-api-key-67890",
 			Name:      "another-key",
 			CreatedAt: time.Now(),
