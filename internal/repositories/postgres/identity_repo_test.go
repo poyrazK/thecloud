@@ -19,7 +19,6 @@ func TestIdentityRepository_Integration(t *testing.T) {
 	defer db.Close()
 	repo := NewIdentityRepository(db)
 	ctx := SetupTestUser(t, db)
-	tenantID := appcontext.TenantIDFromContext(ctx) 
 	userID := appcontext.UserIDFromContext(ctx)
 
 	// Cleanup
