@@ -6983,6 +6983,9 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "tenant_id": {
+                    "type": "string"
+                },
                 "user_id": {
                     "type": "string"
                 }
