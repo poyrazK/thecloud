@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pashagolub/pgxmock/v3"
-	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
