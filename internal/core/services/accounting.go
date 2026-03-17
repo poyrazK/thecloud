@@ -100,14 +100,14 @@ func (s *accountingService) ProcessHourlyBilling(ctx context.Context) error {
 			record := domain.UsageRecord{
 				ID:           uuid.New(),
 				UserID:       inst.UserID,
+				TenantID:     inst.TenantID,
 				ResourceID:   inst.ID,
 				ResourceType: domain.ResourceInstance,
 				Quantity:     60, // 60 minutes
 				Unit:         "minute",
 				StartTime:    startTime,
 				EndTime:      now,
-			}
-			if err := s.repo.CreateRecord(ctx, record); err != nil {
+			}			if err := s.repo.CreateRecord(ctx, record); err != nil {
 				s.logger.Error("failed to record usage for instance", "instance_id", inst.ID, "error", err)
 				continue
 			}

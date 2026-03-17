@@ -25,20 +25,6 @@ func TestIdentityRepository_Integration(t *testing.T) {
 	// Cleanup
 	_, _ = db.Exec(context.Background(), "DELETE FROM api_keys")
 
-	// Create a test user for API keys
-	
-	userRepo := NewUserRepo(db)
-	testUser := &domain.User{
-		ID:           userID,
-		Email:        "apikey_test_" + userID.String() + "@example.com",
-		PasswordHash: "hash",
-		Name:         "API Key Test User",
-		Role:         "user",
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-	}
-	err := userRepo.Create(context.Background(), testUser)
-	require.NoError(t, err)
 
 	var keyID uuid.UUID
 	keyString := "test-api-key-12345"
