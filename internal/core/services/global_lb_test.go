@@ -37,7 +37,9 @@ func TestGlobalLBCreate(t *testing.T) {
 	t.Parallel()
 	svc, repo, _, geoDNS := setupGlobalLBTest(t)
 	// Fix context usage
-	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), uuid.New()), uuid.New())
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 	t.Run("success", func(t *testing.T) {
 		name := "global-api"
@@ -70,6 +72,7 @@ func TestGlobalLBCreate(t *testing.T) {
 			ID:       uuid.New(),
 			Hostname: "duplicate.com",
 			UserID:   uuid.New(), // some other user
+			TenantID: uuid.New(),
 		}
 		repo.GLBs[existing.ID] = existing
 
@@ -79,9 +82,11 @@ func TestGlobalLBCreate(t *testing.T) {
 
 	t.Run("list filtering", func(t *testing.T) {
 		userID1 := uuid.New()
+		tenantID1 := uuid.New()
 		userID2 := uuid.New()
-		ctx1 := appcontext.WithUserID(context.Background(), userID1)
-		ctx2 := appcontext.WithUserID(context.Background(), userID2)
+		tenantID2 := uuid.New()
+		ctx1 := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID1), tenantID1)
+		ctx2 := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID2), tenantID2)
 
 		_, _ = svc.Create(ctx1, "lb1", "lb1.com", domain.RoutingLatency, domain.GlobalHealthCheckConfig{})
 		_, _ = svc.Create(ctx2, "lb2", "lb2.com", domain.RoutingLatency, domain.GlobalHealthCheckConfig{})
@@ -100,13 +105,15 @@ func TestGlobalLBAddEndpoint(t *testing.T) {
 	t.Parallel()
 	svc, repo, lbRepo, geoDNS := setupGlobalLBTest(t)
 	// Fix context usage
-	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), uuid.New()), uuid.New())
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 	// Create GLB
-	userID := appcontext.UserIDFromContext(ctx)
 	glb := &domain.GlobalLoadBalancer{
 		ID:        uuid.New(),
 		UserID:    userID,
+		TenantID:  tenantID,
 		Hostname:  "api.test.com",
 		Status:    "ACTIVE",
 		Endpoints: []*domain.GlobalEndpoint{},
@@ -124,8 +131,7 @@ func TestGlobalLBAddEndpoint(t *testing.T) {
 		// Verify repo has endpoint
 		assert.Len(t, repo.Endpoints[glb.ID], 1)
 
-		// Verify DNS updated (mock logic depends on implementation detail, assuming it updates)
-		// Our mock implementation updates `Records` map.
+		// Verify DNS updated
 		records := geoDNS.Records[glb.Hostname]
 		assert.Len(t, records, 1)
 		assert.Equal(t, ip, *records[0].TargetIP)
@@ -134,7 +140,11 @@ func TestGlobalLBAddEndpoint(t *testing.T) {
 	t.Run("add lb endpoint", func(t *testing.T) {
 		// Mock existing LB
 		lbID := uuid.New()
-		lbRepo.LBs[lbID] = &domain.LoadBalancer{ID: lbID, UserID: appcontext.UserIDFromContext(ctx)}
+		lbRepo.LBs[lbID] = &domain.LoadBalancer{
+			ID:       lbID,
+			UserID:   userID,
+			TenantID: tenantID,
+		}
 
 		ep, err := svc.AddEndpoint(ctx, glb.ID, "eu-west-1", "LB", &lbID, nil, 1, 1)
 		require.NoError(t, err)
@@ -144,8 +154,13 @@ func TestGlobalLBAddEndpoint(t *testing.T) {
 
 	t.Run("unauthorized lb endpoint", func(t *testing.T) {
 		otherUserID := uuid.New()
+		otherTenantID := uuid.New()
 		lbID := uuid.New()
-		lbRepo.LBs[lbID] = &domain.LoadBalancer{ID: lbID, UserID: otherUserID}
+		lbRepo.LBs[lbID] = &domain.LoadBalancer{
+			ID:       lbID,
+			UserID:   otherUserID,
+			TenantID: otherTenantID,
+		}
 
 		_, err := svc.AddEndpoint(ctx, glb.ID, "us-west-2", "LB", &lbID, nil, 1, 1)
 		require.Error(t, err)
@@ -157,7 +172,8 @@ func TestGlobalLBRemoveEndpoint(t *testing.T) {
 	t.Parallel()
 	svc, repo, _, geoDNS := setupGlobalLBTest(t)
 	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 
 	glb, err := svc.Create(ctx, "delete-ep-test", "delete.test.com", domain.RoutingLatency, domain.GlobalHealthCheckConfig{})
 	require.NoError(t, err)
