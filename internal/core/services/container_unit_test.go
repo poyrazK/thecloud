@@ -40,8 +40,15 @@ func TestContainerServiceUnit(t *testing.T) {
 	})
 
 	t.Run("CreateDeployment_Unauthorized", func(t *testing.T) {
+		unauthRepo := new(MockContainerRepository)
+		unauthEventSvc := new(MockEventService)
+		unauthAuditSvc := new(MockAuditService)
+		unauthRBAC := new(MockRBACService)
+		unauthRBAC.On("Authorize", mock.Anything, uuid.Nil, uuid.Nil, domain.PermissionInstanceLaunch, "*").Return(fmt.Errorf("unauthorized")).Once()
+		unauthSvc := services.NewContainerService(unauthRepo, unauthRBAC, unauthEventSvc, unauthAuditSvc, slog.Default())
+
 		emptyCtx := context.Background()
-		_, err := svc.CreateDeployment(emptyCtx, "fail", "nginx", 1, "")
+		_, err := unauthSvc.CreateDeployment(emptyCtx, "fail", "nginx", 1, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unauthorized")
 	})
@@ -67,7 +74,15 @@ func TestContainerServiceUnit(t *testing.T) {
 	})
 
 	t.Run("GetDeployment_Unauthorized", func(t *testing.T) {
-		_, err := svc.GetDeployment(context.Background(), uuid.New())
+		unauthRepo := new(MockContainerRepository)
+		unauthEventSvc := new(MockEventService)
+		unauthAuditSvc := new(MockAuditService)
+		unauthRBAC := new(MockRBACService)
+		depID := uuid.New()
+		unauthRBAC.On("Authorize", mock.Anything, uuid.Nil, uuid.Nil, domain.PermissionInstanceRead, depID.String()).Return(fmt.Errorf("unauthorized")).Once()
+		unauthSvc := services.NewContainerService(unauthRepo, unauthRBAC, unauthEventSvc, unauthAuditSvc, slog.Default())
+
+		_, err := unauthSvc.GetDeployment(context.Background(), depID)
 		require.Error(t, err)
 	})
 

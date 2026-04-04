@@ -326,6 +326,7 @@ func TestInstanceService_Exec_Unit(t *testing.T) {
 
 	t.Run("NotRunning", func(t *testing.T) {
 		inst := &domain.Instance{ID: instanceID, UserID: userID, TenantID: tenantID, Status: domain.StatusStopped, ContainerID: ""}
+		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Once()
 		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
 		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
 
@@ -336,6 +337,7 @@ func TestInstanceService_Exec_Unit(t *testing.T) {
 
 	t.Run("BackendError", func(t *testing.T) {
 		inst := &domain.Instance{ID: instanceID, UserID: userID, TenantID: tenantID, Status: domain.StatusRunning, ContainerID: "cid-1"}
+		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Once()
 		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
 		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
 		compute.On("Exec", mock.Anything, "cid-1", []string{"ls"}).Return("", errors.New("exec failed")).Once()
