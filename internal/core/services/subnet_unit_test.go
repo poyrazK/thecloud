@@ -18,7 +18,16 @@ func TestSubnetService_Unit(t *testing.T) {
 	repo := new(MockSubnetRepo)
 	vpcRepo := new(MockVpcRepo)
 	auditSvc := new(MockAuditService)
-	svc := services.NewSubnetService(repo, vpcRepo, auditSvc, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewSubnetService(services.SubnetServiceParams{
+		Repo:     repo,
+		RBACSvc:  rbacSvc,
+		VpcRepo:  vpcRepo,
+		AuditSvc: auditSvc,
+		Logger:   slog.Default(),
+	})
 
 	ctx := context.Background()
 	userID := uuid.New()

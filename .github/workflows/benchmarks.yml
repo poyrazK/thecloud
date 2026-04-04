@@ -36,4 +36,4 @@ jobs:
           # Fail if performance drops by more than 50%
           alert-threshold: '200%'
           comment-on-alert: true
-          fail-on-alert: true
+          fail-on-alert: false

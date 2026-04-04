@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,15 +26,33 @@ func setupVolumeServiceTest(t *testing.T) (*services.VolumeService, *postgres.Vo
 	repo := postgres.NewVolumeRepository(db)
 	storage := noop.NewNoopStorageBackendAdapter()
 
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	eventRepo := postgres.NewEventRepository(db)
-	eventSvc := services.NewEventService(eventRepo, nil, slog.Default())
+	eventSvc := services.NewEventService(services.EventServiceParams{
+		Repo:    eventRepo,
+		RBACSvc: rbacSvc,
+		Hub:     nil,
+		Logger:  slog.Default(),
+	})
 
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewVolumeService(repo, storage, eventSvc, auditSvc, logger)
+	svc := services.NewVolumeService(services.VolumeServiceParams{
+		Repo:     repo,
+		RBACSvc:  rbacSvc,
+		Storage:  storage,
+		EventSvc: eventSvc,
+		AuditSvc: auditSvc,
+		Logger:   logger,
+	})
 	return svc, repo, ctx
 }
 
@@ -147,8 +166,19 @@ func TestVolumeServiceCreateVolumeRollbackOnRepoError(t *testing.T) {
 func TestVolume_LaunchAttach_Conflict(t *testing.T) {
 	// Use InstanceService setup because we need LaunchInstance
 	db, svc, _, _, _, volRepo, ctx := setupInstanceServiceTest(t)
+
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	// We also need VolumeService to create volumes elegantly
-	volSvc := services.NewVolumeService(volRepo, noop.NewNoopStorageBackendAdapter(), services.NewEventService(postgres.NewEventRepository(db), nil, slog.Default()), services.NewAuditService(postgres.NewAuditRepository(db)), slog.Default())
+	volSvc := services.NewVolumeService(services.VolumeServiceParams{ 
+		Repo:     volRepo, 
+		RBACSvc:  rbacSvc, 
+		Storage:  noop.NewNoopStorageBackend(), 
+		EventSvc: services.NewEventService(services.EventServiceParams{Repo: postgres.NewEventRepository(db), RBACSvc: rbacSvc, Hub: nil, Logger: slog.Default()}), 
+		AuditSvc: services.NewAuditService(services.AuditServiceParams{Repo: postgres.NewAuditRepository(db), RBACSvc: rbacSvc}), 
+		Logger:   slog.Default(), 
+	})
 
 	// 1. Create Volume
 	vol, err := volSvc.CreateVolume(ctx, "shared-vol-"+uuid.New().String(), 1)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
@@ -40,41 +41,44 @@ func (r *globalLBRepository) Create(ctx context.Context, glb *domain.GlobalLoadB
 }
 
 func (r *globalLBRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.GlobalLoadBalancer, error) {
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
 		SELECT id, user_id, tenant_id, name, hostname, policy, 
 		health_check_protocol, health_check_port, health_check_path,
 		health_check_interval, health_check_timeout, health_check_healthy_count, health_check_unhealthy_count,
 		status, created_at, updated_at
-		FROM global_load_balancers WHERE id = $1
+		FROM global_load_balancers WHERE id = $1 AND tenant_id = $2
 	`
 
 	// Implementation Note: Manual field mapping is utilized here to ensure
 	// schema robustness and decoupled domain-to-storage mapping.
-	row := r.db.QueryRow(ctx, query, id)
+	row := r.db.QueryRow(ctx, query, id, tenantID)
 	return scanGlobalLB(row)
 }
 
 func (r *globalLBRepository) GetByHostname(ctx context.Context, hostname string) (*domain.GlobalLoadBalancer, error) {
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
 		SELECT id, user_id, tenant_id, name, hostname, policy, 
 		health_check_protocol, health_check_port, health_check_path,
 		health_check_interval, health_check_timeout, health_check_healthy_count, health_check_unhealthy_count,
 		status, created_at, updated_at
-		FROM global_load_balancers WHERE hostname = $1
+		FROM global_load_balancers WHERE hostname = $1 AND tenant_id = $2
 	`
-	row := r.db.QueryRow(ctx, query, hostname)
+	row := r.db.QueryRow(ctx, query, hostname, tenantID)
 	return scanGlobalLB(row)
 }
 
 func (r *globalLBRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.GlobalLoadBalancer, error) {
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
 		SELECT id, user_id, tenant_id, name, hostname, policy, 
 		health_check_protocol, health_check_port, health_check_path,
 		health_check_interval, health_check_timeout, health_check_healthy_count, health_check_unhealthy_count,
 		status, created_at, updated_at
-		FROM global_load_balancers WHERE user_id = $1
+		FROM global_load_balancers WHERE tenant_id = $1
 	`
-	rows, err := r.db.Query(ctx, query, userID)
+	rows, err := r.db.Query(ctx, query, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -104,21 +108,22 @@ func (r *globalLBRepository) Update(ctx context.Context, glb *domain.GlobalLoadB
 			health_check_interval = $6, health_check_timeout = $7, 
 			health_check_healthy_count = $8, health_check_unhealthy_count = $9,
 			status = $10, updated_at = $11
-		WHERE id = $12
+		WHERE id = $12 AND tenant_id = $13
 	`
 	_, err := r.db.Exec(ctx, query,
 		glb.Name, glb.Policy,
 		glb.HealthCheck.Protocol, glb.HealthCheck.Port, glb.HealthCheck.Path,
 		glb.HealthCheck.IntervalSec, glb.HealthCheck.TimeoutSec,
 		glb.HealthCheck.HealthyCount, glb.HealthCheck.UnhealthyCount,
-		glb.Status, glb.UpdatedAt, glb.ID,
+		glb.Status, glb.UpdatedAt, glb.ID, glb.TenantID,
 	)
 	return err
 }
 
 func (r *globalLBRepository) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
-	query := `DELETE FROM global_load_balancers WHERE id = $1 AND user_id = $2`
-	_, err := r.db.Exec(ctx, query, id, userID)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	query := `DELETE FROM global_load_balancers WHERE id = $1 AND tenant_id = $2`
+	_, err := r.db.Exec(ctx, query, id, tenantID)
 	return err
 }
 

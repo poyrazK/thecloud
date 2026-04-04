@@ -4,6 +4,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,20 +17,31 @@ import (
 // AutoScalingService manages scaling groups and policies.
 type AutoScalingService struct {
 	repo     ports.AutoScalingRepository
+	rbacSvc  ports.RBACService
 	vpcRepo  ports.VpcRepository
 	auditSvc ports.AuditService
+	logger   *slog.Logger
 }
 
 // NewAutoScalingService constructs an AutoScalingService with its dependencies.
-func NewAutoScalingService(repo ports.AutoScalingRepository, vpcRepo ports.VpcRepository, auditSvc ports.AuditService) *AutoScalingService {
+func NewAutoScalingService(repo ports.AutoScalingRepository, rbacSvc ports.RBACService, vpcRepo ports.VpcRepository, auditSvc ports.AuditService, logger *slog.Logger) *AutoScalingService {
 	return &AutoScalingService{
 		repo:     repo,
+		rbacSvc:  rbacSvc,
 		vpcRepo:  vpcRepo,
 		auditSvc: auditSvc,
+		logger:   logger,
 	}
 }
 
 func (s *AutoScalingService) CreateGroup(ctx context.Context, params ports.CreateScalingGroupParams) (*domain.ScalingGroup, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgCreate, "*"); err != nil {
+		return nil, err
+	}
+
 	// Idempotency check
 	if params.IdempotencyKey != "" {
 		if existing, err := s.repo.GetGroupByIdempotencyKey(ctx, params.IdempotencyKey); err == nil && existing != nil {
@@ -67,7 +79,8 @@ func (s *AutoScalingService) CreateGroup(ctx context.Context, params ports.Creat
 
 	group := &domain.ScalingGroup{
 		ID:             uuid.New(),
-		UserID:         appcontext.UserIDFromContext(ctx),
+		UserID:         userID,
+		TenantID:       tenantID,
 		IdempotencyKey: params.IdempotencyKey,
 		Name:           params.Name,
 		VpcID:          params.VpcID,
@@ -88,22 +101,45 @@ func (s *AutoScalingService) CreateGroup(ctx context.Context, params ports.Creat
 		return nil, err
 	}
 
-	_ = s.auditSvc.Log(ctx, group.UserID, "asg.group_create", "scaling_group", group.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, group.UserID, "asg.group_create", "scaling_group", group.ID.String(), map[string]interface{}{
 		"name": group.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "asg.group_create", "group_id", group.ID, "error", err)
+	}
 
 	return group, nil
 }
 
 func (s *AutoScalingService) GetGroup(ctx context.Context, id uuid.UUID) (*domain.ScalingGroup, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgRead, id.String()); err != nil {
+		return nil, err
+	}
+
 	return s.repo.GetGroupByID(ctx, id)
 }
 
 func (s *AutoScalingService) ListGroups(ctx context.Context) ([]*domain.ScalingGroup, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgRead, "*"); err != nil {
+		return nil, err
+	}
+
 	return s.repo.ListGroups(ctx)
 }
 
 func (s *AutoScalingService) DeleteGroup(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgDelete, id.String()); err != nil {
+		return err
+	}
+
 	group, err := s.repo.GetGroupByID(ctx, id)
 	if err != nil {
 		return err
@@ -117,15 +153,24 @@ func (s *AutoScalingService) DeleteGroup(ctx context.Context, id uuid.UUID) erro
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, group.UserID, "asg.group_delete", "scaling_group", group.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, group.UserID, "asg.group_delete", "scaling_group", group.ID.String(), map[string]interface{}{
 		"name": group.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "asg.group_delete", "group_id", group.ID, "error", err)
+	}
 
 	return nil
 }
 
 // SetDesiredCapacity just updates the DB. Worker reconciles.
 func (s *AutoScalingService) SetDesiredCapacity(ctx context.Context, groupID uuid.UUID, desired int) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgUpdate, groupID.String()); err != nil {
+		return err
+	}
+
 	group, err := s.repo.GetGroupByID(ctx, groupID)
 	if err != nil {
 		return err
@@ -140,6 +185,13 @@ func (s *AutoScalingService) SetDesiredCapacity(ctx context.Context, groupID uui
 }
 
 func (s *AutoScalingService) CreatePolicy(ctx context.Context, params ports.CreateScalingPolicyParams) (*domain.ScalingPolicy, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgUpdate, "*"); err != nil {
+		return nil, err
+	}
+
 	if _, err := s.repo.GetGroupByID(ctx, params.GroupID); err != nil {
 		return nil, err
 	}
@@ -166,5 +218,12 @@ func (s *AutoScalingService) CreatePolicy(ctx context.Context, params ports.Crea
 }
 
 func (s *AutoScalingService) DeletePolicy(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAsgUpdate, id.String()); err != nil {
+		return err
+	}
+
 	return s.repo.DeletePolicy(ctx, id)
 }

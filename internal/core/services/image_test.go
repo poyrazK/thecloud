@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -9,76 +10,69 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
-	"github.com/poyrazk/thecloud/internal/repositories/filesystem"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func setupImageServiceTest(t *testing.T) (ports.ImageService, ports.ImageRepository, context.Context) {
+func setupImageServiceTest(t *testing.T) (ports.ImageService, ports.ImageRepository, *MockFileStore, context.Context) {
 	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
 
 	repo := postgres.NewImageRepository(db)
+	fileStore := new(MockFileStore)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	tmpDir := t.TempDir()
-	store, err := filesystem.NewLocalFileStore(tmpDir)
-	require.NoError(t, err)
+	svc := services.NewImageService(services.ImageServiceParams{
+		Repo:      repo,
+		RBACSvc:   rbacSvc,
+		FileStore: fileStore,
+		Logger:    slog.Default(),
+	})
 
-	svc := services.NewImageService(repo, store, nil)
-	return svc, repo, ctx
+	return svc, repo, fileStore, ctx
 }
 
-func TestImageService(t *testing.T) {
-	svc, repo, ctx := setupImageServiceTest(t)
+func TestImageService_Lifecycle(t *testing.T) {
+	svc, repo, fileStore, ctx := setupImageServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
-	t.Run("RegisterImage", func(t *testing.T) {
-		img, err := svc.RegisterImage(ctx, "ubuntu", "Ubuntu 22.04", "linux", "22.04", true)
+	t.Run("Create and List Images", func(t *testing.T) {
+		name := "ubuntu-22.04"
+		img, err := svc.RegisterImage(ctx, name, "Ubuntu 22.04 LTS", "linux", "amd64", false)
 		require.NoError(t, err)
 		assert.NotNil(t, img)
-		assert.Equal(t, "ubuntu", img.Name)
+		assert.Equal(t, name, img.Name)
+		assert.Equal(t, domain.ImageStatusPending, img.Status)
 
-		// Verify in DB
-		fetched, err := repo.GetByID(ctx, img.ID)
+		// List
+		images, err := svc.ListImages(ctx, userID, true)
 		require.NoError(t, err)
-		assert.Equal(t, img.ID, fetched.ID)
+		assert.NotEmpty(t, images)
 	})
 
-	t.Run("UploadImage", func(t *testing.T) {
-		img, _ := svc.RegisterImage(ctx, "upload-test", "desc", "linux", "v1", false)
-		require.NotNil(t, img)
+	t.Run("Upload and Delete Image", func(t *testing.T) {
+		img, _ := svc.RegisterImage(ctx, "delete-me", "desc", "linux", "amd64", false)
 
-		err := svc.UploadImage(ctx, img.ID, strings.NewReader("fake content"))
+		// Mock FileStore Write
+		fileStore.On("Write", mock.Anything, "images", mock.Anything, mock.Anything).Return(int64(1024), nil).Once()
+
+		content := "fake image binary data"
+		err := svc.UploadImage(ctx, img.ID, strings.NewReader(content))
 		require.NoError(t, err)
 
-		fetched, _ := repo.GetByID(ctx, img.ID)
-		assert.Equal(t, domain.ImageStatusActive, fetched.Status)
-	})
+		// Verify Active
+		updated, _ := repo.GetByID(ctx, img.ID)
+		assert.Equal(t, domain.ImageStatusActive, updated.Status)
 
-	t.Run("GetImage", func(t *testing.T) {
-		img, _ := svc.RegisterImage(ctx, "get-test", "desc", "linux", "v1", false)
+		// Delete
+		fileStore.On("Delete", mock.Anything, "images", mock.Anything).Return(nil).Once()
 
-		res, err := svc.GetImage(ctx, img.ID)
-		require.NoError(t, err)
-		assert.Equal(t, img.ID, res.ID)
-	})
-
-	t.Run("ListImages", func(t *testing.T) {
-		_, _ = svc.RegisterImage(ctx, "list1", "desc", "linux", "v1", true)
-		_, _ = svc.RegisterImage(ctx, "list2", "desc", "linux", "v1", false)
-
-		imgs, err := svc.ListImages(ctx, userID, true)
-		require.NoError(t, err)
-		assert.GreaterOrEqual(t, len(imgs), 2)
-	})
-
-	t.Run("DeleteImage", func(t *testing.T) {
-		img, _ := svc.RegisterImage(ctx, "del-test", "desc", "linux", "v1", false)
-
-		err := svc.DeleteImage(ctx, img.ID)
+		err = svc.DeleteImage(ctx, img.ID)
 		require.NoError(t, err)
 
 		_, err = repo.GetByID(ctx, img.ID)

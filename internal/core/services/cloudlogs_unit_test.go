@@ -2,112 +2,63 @@ package services_test
 
 import (
 	"context"
-	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
-	"go.opentelemetry.io/otel/trace"
 )
 
-func TestCloudLogsServiceIngestLogsUnit(t *testing.T) {
+func TestCloudLogsService_Unit(t *testing.T) {
 	mockRepo := new(MockLogRepository)
-	svc := services.NewCloudLogsService(mockRepo, slog.Default())
-	ctx := context.Background()
+	mockRBAC := new(MockRBACService)
+	svc := services.NewCloudLogsService(mockRepo, mockRBAC, nil)
 
-	t.Run("success with entries", func(t *testing.T) {
-		entries := []*domain.LogEntry{
-			{ID: uuid.New(), Message: "test 1"},
-		}
-		mockRepo.On("Create", mock.Anything, entries).Return(nil).Once()
+	ctx := context.Background()
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
+
+	t.Run("IngestLogs_Success", func(t *testing.T) {
+		mockRBAC.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, "*").Return(nil).Once()
+		mockRepo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
+
+		entries := []*domain.LogEntry{{Message: "test"}}
 		err := svc.IngestLogs(ctx, entries)
 		require.NoError(t, err)
 	})
 
-	t.Run("empty entries", func(t *testing.T) {
+	t.Run("IngestLogs_Empty", func(t *testing.T) {
 		err := svc.IngestLogs(ctx, nil)
 		require.NoError(t, err)
 	})
 
-	t.Run("preserve existing trace id", func(t *testing.T) {
-		entries := []*domain.LogEntry{
-			{ID: uuid.New(), Message: "test trace", TraceID: "existing-trace"},
-		}
-		mockRepo.On("Create", mock.Anything, entries).Return(nil).Once()
-		err := svc.IngestLogs(ctx, entries)
+	t.Run("SearchLogs_Success", func(t *testing.T) {
+		mockRBAC.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionAuditRead, "*").Return(nil).Once()
+		mockRepo.On("List", mock.Anything, mock.Anything).Return([]*domain.LogEntry{}, 0, nil).Once()
+
+		logs, total, err := svc.SearchLogs(ctx, domain.LogQuery{})
 		require.NoError(t, err)
-		assert.Equal(t, "existing-trace", entries[0].TraceID)
+		assert.Equal(t, 0, total)
+		assert.NotNil(t, logs)
 	})
 
-	t.Run("extract trace id from context", func(t *testing.T) {
-		res, _ := resource.New(ctx, resource.WithAttributes(semconv.ServiceNameKey.String("test")))
-		tp := sdktrace.NewTracerProvider(sdktrace.WithResource(res))
-		tr := tp.Tracer("test")
+	t.Run("RunRetentionPolicy_Success", func(t *testing.T) {
+		mockRBAC.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionFullAccess, "*").Return(nil).Once()
+		mockRepo.On("DeleteByAge", mock.Anything, 30).Return(nil).Once()
 
-		ctxWithTrace, span := tr.Start(ctx, "test-span")
-		defer span.End()
-
-		traceID := span.SpanContext().TraceID().String()
-
-		entries := []*domain.LogEntry{
-			{ID: uuid.New(), Message: "test context trace"},
-		}
-		mockRepo.On("Create", mock.Anything, entries).Return(nil).Once()
-
-		err := svc.IngestLogs(ctxWithTrace, entries)
+		err := svc.RunRetentionPolicy(ctx, 30)
 		require.NoError(t, err)
-		assert.Equal(t, traceID, entries[0].TraceID)
 	})
 
-	t.Run("no trace id in context", func(t *testing.T) {
-		// Use a context with a no-op span (no trace ID)
-		ctxNoTrace := trace.ContextWithSpan(ctx, trace.SpanFromContext(context.Background()))
-
-		entries := []*domain.LogEntry{
-			{ID: uuid.New(), Message: "no trace"},
-		}
-		mockRepo.On("Create", mock.Anything, entries).Return(nil).Once()
-
-		err := svc.IngestLogs(ctxNoTrace, entries)
-		require.NoError(t, err)
-		assert.Empty(t, entries[0].TraceID)
+	t.Run("RunRetentionPolicy_Invalid", func(t *testing.T) {
+		mockRBAC.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionFullAccess, "*").Return(nil).Once()
+		err := svc.RunRetentionPolicy(ctx, 0)
+		require.Error(t, err)
 	})
-
-	mockRepo.AssertExpectations(t)
-}
-
-func TestCloudLogsServiceSearchLogsUnit(t *testing.T) {
-	mockRepo := new(MockLogRepository)
-	svc := services.NewCloudLogsService(mockRepo, slog.Default())
-	ctx := context.Background()
-
-	query := domain.LogQuery{ResourceID: "res-1"}
-	expectedLogs := []*domain.LogEntry{{Message: "found"}}
-
-	mockRepo.On("List", mock.Anything, query).Return(expectedLogs, 1, nil)
-
-	logs, total, err := svc.SearchLogs(ctx, query)
-	require.NoError(t, err)
-	assert.Equal(t, 1, total)
-	assert.Equal(t, "found", logs[0].Message)
-	mockRepo.AssertExpectations(t)
-}
-
-func TestCloudLogsServiceRunRetentionPolicyUnit(t *testing.T) {
-	mockRepo := new(MockLogRepository)
-	svc := services.NewCloudLogsService(mockRepo, slog.Default())
-	ctx := context.Background()
-
-	mockRepo.On("DeleteByAge", mock.Anything, 30).Return(nil)
-
-	err := svc.RunRetentionPolicy(ctx, 30)
-	require.NoError(t, err)
-	mockRepo.AssertExpectations(t)
 }

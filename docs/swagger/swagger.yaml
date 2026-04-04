@@ -16,6 +16,8 @@ definitions:
         type: string
       name:
         type: string
+      tenant_id:
+        type: string
       user_id:
         type: string
     type: object
@@ -40,6 +42,9 @@ definitions:
         type: string
       resource_type:
         description: Type of affected resource (e.g., "INSTANCE")
+        type: string
+      tenant_id:
+        description: The tenant context of the action
         type: string
       user_agent:
         description: Browser or CLI identifier
@@ -81,6 +86,8 @@ definitions:
         type: boolean
       name:
         type: string
+      tenant_id:
+        type: string
       user_id:
         type: string
       versioning_enabled:
@@ -118,6 +125,8 @@ definitions:
         type: string
       status:
         $ref: '#/definitions/domain.ClusterStatus'
+      tenant_id:
+        type: string
       updated_at:
         type: string
       user_id:
@@ -178,6 +187,8 @@ definitions:
       priority:
         description: For MX, SRV
         type: integer
+      tenant_id:
+        type: string
       ttl:
         type: integer
       type:
@@ -274,6 +285,8 @@ definitions:
         $ref: '#/definitions/domain.DatabaseRole'
       status:
         $ref: '#/definitions/domain.DatabaseStatus'
+      tenant_id:
+        type: string
       updated_at:
         type: string
       user_id:
@@ -368,6 +381,8 @@ definitions:
       resource_type:
         description: Classification of the resource (e.g., "INSTANCE", "VPC")
         type: string
+      tenant_id:
+        type: string
       user_id:
         type: string
     type: object
@@ -409,6 +424,8 @@ definitions:
         type: boolean
       target_url:
         description: Internal destination (e.g., "http://service-a:8080")
+        type: string
+      tenant_id:
         type: string
       updated_at:
         type: string
@@ -523,6 +540,8 @@ definitions:
         type: integer
       status:
         $ref: '#/definitions/domain.ImageStatus'
+      tenant_id:
+        type: string
       updated_at:
         type: string
       user_id:
@@ -710,6 +729,8 @@ definitions:
         type: string
       prefix:
         type: string
+      tenant_id:
+        type: string
       updated_at:
         type: string
       user_id:
@@ -735,6 +756,8 @@ definitions:
         type: integer
       status:
         $ref: '#/definitions/domain.LBStatus'
+      tenant_id:
+        type: string
       user_id:
         type: string
       version:
@@ -763,6 +786,8 @@ definitions:
       id:
         type: string
       key:
+        type: string
+      tenant_id:
         type: string
       user_id:
         type: string
@@ -798,10 +823,6 @@ definitions:
       bucket:
         type: string
       checksum:
-        description: Checksum is the SHA-256 hash of the object content.
-        example: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-        maxLength: 64
-        minLength: 64
         type: string
       content_type:
         type: string
@@ -817,10 +838,10 @@ definitions:
         type: string
       size_bytes:
         type: integer
+      tenant_id:
+        type: string
       upload_status:
-        allOf:
-        - $ref: '#/definitions/domain.UploadStatus'
-        example: AVAILABLE
+        $ref: '#/definitions/domain.UploadStatus'
       user_id:
         type: string
       version_id:
@@ -850,6 +871,10 @@ definitions:
     - vpc:delete
     - vpc:read
     - vpc:update
+    - sg:create
+    - sg:delete
+    - sg:read
+    - sg:update
     - vpc_peering:create
     - vpc_peering:accept
     - vpc_peering:delete
@@ -862,6 +887,9 @@ definitions:
     - volume:delete
     - volume:read
     - volume:update
+    - storage:write
+    - storage:read
+    - storage:delete
     - snapshot:create
     - snapshot:delete
     - snapshot:read
@@ -875,6 +903,7 @@ definitions:
     - db:read
     - db:update
     - secret:create
+    - secret:write
     - secret:delete
     - secret:read
     - function:invoke
@@ -903,10 +932,10 @@ definitions:
     - stack:create
     - stack:delete
     - stack:read
-    - as:create
-    - as:delete
-    - as:read
-    - as:update
+    - asg:create
+    - asg:delete
+    - asg:read
+    - asg:update
     - container:create
     - container:delete
     - container:read
@@ -920,10 +949,26 @@ definitions:
     - image:create
     - image:read
     - image:delete
+    - image:read_all
     - cluster:create
     - cluster:delete
     - cluster:read
     - cluster:update
+    - dns:create
+    - dns:delete
+    - dns:read
+    - dns:update
+    - tenant:create
+    - tenant:read
+    - tenant:update
+    - tenant:delete
+    - identity:create
+    - identity:read
+    - identity:delete
+    - identity:read_all
+    - accounting:read
+    - audit:read
+    - dashboard:read
     - '*'
     type: string
     x-enum-varnames:
@@ -938,6 +983,10 @@ definitions:
     - PermissionVpcDelete
     - PermissionVpcRead
     - PermissionVpcUpdate
+    - PermissionSgCreate
+    - PermissionSgDelete
+    - PermissionSgRead
+    - PermissionSgUpdate
     - PermissionVpcPeeringCreate
     - PermissionVpcPeeringAccept
     - PermissionVpcPeeringDelete
@@ -950,6 +999,9 @@ definitions:
     - PermissionVolumeDelete
     - PermissionVolumeRead
     - PermissionVolumeUpdate
+    - PermissionStorageWrite
+    - PermissionStorageRead
+    - PermissionStorageDelete
     - PermissionSnapshotCreate
     - PermissionSnapshotDelete
     - PermissionSnapshotRead
@@ -963,6 +1015,7 @@ definitions:
     - PermissionDBRead
     - PermissionDBUpdate
     - PermissionSecretCreate
+    - PermissionSecretWrite
     - PermissionSecretDelete
     - PermissionSecretRead
     - PermissionFunctionInvoke
@@ -991,10 +1044,10 @@ definitions:
     - PermissionStackCreate
     - PermissionStackDelete
     - PermissionStackRead
-    - PermissionAsCreate
-    - PermissionAsDelete
-    - PermissionAsRead
-    - PermissionAsUpdate
+    - PermissionAsgCreate
+    - PermissionAsgDelete
+    - PermissionAsgRead
+    - PermissionAsgUpdate
     - PermissionContainerCreate
     - PermissionContainerDelete
     - PermissionContainerRead
@@ -1008,10 +1061,26 @@ definitions:
     - PermissionImageCreate
     - PermissionImageRead
     - PermissionImageDelete
+    - PermissionImageReadAll
     - PermissionClusterCreate
     - PermissionClusterDelete
     - PermissionClusterRead
     - PermissionClusterUpdate
+    - PermissionDNSCreate
+    - PermissionDNSDelete
+    - PermissionDNSRead
+    - PermissionDNSUpdate
+    - PermissionTenantCreate
+    - PermissionTenantRead
+    - PermissionTenantUpdate
+    - PermissionTenantDelete
+    - PermissionIdentityCreate
+    - PermissionIdentityRead
+    - PermissionIdentityDelete
+    - PermissionIdentityReadAll
+    - PermissionAccountingRead
+    - PermissionAuditRead
+    - PermissionDashboardRead
     - PermissionFullAccess
   domain.Policy:
     properties:
@@ -1178,6 +1247,8 @@ definitions:
         type: string
       status:
         $ref: '#/definitions/domain.ScalingGroupStatus'
+      tenant_id:
+        type: string
       updated_at:
         type: string
       user_id:
@@ -1225,6 +1296,8 @@ definitions:
       target_value:
         description: Threshold (e.g. 80.0 for 80%)
         type: number
+      tenant_id:
+        type: string
     type: object
   domain.SecurityGroup:
     properties:
@@ -1287,6 +1360,8 @@ definitions:
         type: integer
       status:
         $ref: '#/definitions/domain.SnapshotStatus'
+      tenant_id:
+        type: string
       user_id:
         type: string
       volume_id:
@@ -1328,6 +1403,8 @@ definitions:
         type: string
       template:
         description: Raw YAML or JSON
+        type: string
+      tenant_id:
         type: string
       updated_at:
         type: string
@@ -1479,6 +1556,8 @@ definitions:
       resource_type:
         $ref: '#/definitions/domain.ResourceType'
       start_time:
+        type: string
+      tenant_id:
         type: string
       unit:
         description: Unit of measure (e.g. "minutes")

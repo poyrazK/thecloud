@@ -20,6 +20,7 @@ func TestDatabaseRepository_Integration(t *testing.T) {
 	repo := NewDatabaseRepository(dbPool)
 	ctx := SetupTestUser(t, dbPool)
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	// Cleanup before test
 	_, err := dbPool.Exec(context.Background(), "DELETE FROM databases")
@@ -29,7 +30,7 @@ func TestDatabaseRepository_Integration(t *testing.T) {
 		id := uuid.New()
 		db := &domain.Database{
 			ID:        id,
-			UserID:    userID,
+			UserID:    userID, TenantID:  tenantID,
 			Name:      "test-db",
 			Engine:    domain.EnginePostgres,
 			Version:   "16",

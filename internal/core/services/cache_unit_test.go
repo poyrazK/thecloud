@@ -59,7 +59,10 @@ func TestCacheService_Unit_Extended(t *testing.T) {
 	compute := new(MockComputeBackend)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
-	svc := services.NewCacheService(repo, compute, nil, eventSvc, auditSvc, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewCacheService(repo, rbacSvc, compute, nil, eventSvc, auditSvc, slog.Default())
 	ctx := context.Background()
 	userID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)

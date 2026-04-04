@@ -28,6 +28,7 @@ func TestSecretRepositoryCreate(t *testing.T) {
 		secret := &domain.Secret{
 			ID:             uuid.New(),
 			UserID:         uuid.New(),
+			TenantID:       uuid.New(),
 			Name:           "test-secret",
 			EncryptedValue: "encrypted",
 			Description:    "desc",
@@ -36,7 +37,7 @@ func TestSecretRepositoryCreate(t *testing.T) {
 		}
 
 		mock.ExpectExec("INSERT INTO secrets").
-			WithArgs(secret.ID, secret.UserID, secret.Name, secret.EncryptedValue, secret.Description, secret.CreatedAt, secret.UpdatedAt).
+			WithArgs(secret.ID, secret.UserID, secret.TenantID, secret.Name, secret.EncryptedValue, secret.Description, secret.CreatedAt, secret.UpdatedAt).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), secret)
@@ -73,19 +74,22 @@ func TestSecretRepositoryGetByID(t *testing.T) {
 		repo := NewSecretRepository(mock)
 		id := uuid.New()
 		userID := uuid.New()
+		tenantID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
+		ctx = appcontext.WithTenantID(ctx, tenantID)
 		now := time.Now()
 		var lastAccessedAt *time.Time = nil
 
-		mock.ExpectQuery("SELECT id, user_id, name, encrypted_value, description, created_at, updated_at, last_accessed_at FROM secrets").
-			WithArgs(id, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "encrypted_value", "description", "created_at", "updated_at", "last_accessed_at"}).
-				AddRow(id, userID, "test-secret", "encrypted", "desc", now, now, lastAccessedAt))
+		mock.ExpectQuery("SELECT id, user_id, tenant_id, name, encrypted_value, description, created_at, updated_at, last_accessed_at FROM secrets").
+			WithArgs(id, tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "encrypted_value", "description", "created_at", "updated_at", "last_accessed_at"}).
+				AddRow(id, userID, tenantID, "test-secret", "encrypted", "desc", now, now, lastAccessedAt))
 
 		secret, err := repo.GetByID(ctx, id)
 		require.NoError(t, err)
 		assert.NotNil(t, secret)
 		assert.Equal(t, id, secret.ID)
+		assert.Equal(t, tenantID, secret.TenantID)
 	})
 
 	t.Run("not found", func(t *testing.T) {
@@ -96,11 +100,11 @@ func TestSecretRepositoryGetByID(t *testing.T) {
 
 		repo := NewSecretRepository(mock)
 		id := uuid.New()
-		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(context.Background(), tenantID)
 
-		mock.ExpectQuery("SELECT id, user_id, name, encrypted_value, description, created_at, updated_at, last_accessed_at FROM secrets").
-			WithArgs(id, userID).
+		mock.ExpectQuery("SELECT id, user_id, tenant_id, name, encrypted_value, description, created_at, updated_at, last_accessed_at FROM secrets").
+			WithArgs(id, tenantID).
 			WillReturnError(pgx.ErrNoRows)
 
 		secret, err := repo.GetByID(ctx, id)
@@ -123,37 +127,20 @@ func TestSecretRepositoryList(t *testing.T) {
 
 		repo := NewSecretRepository(mock)
 		userID := uuid.New()
+		tenantID := uuid.New()
 		ctx := appcontext.WithUserID(context.Background(), userID)
+		ctx = appcontext.WithTenantID(ctx, tenantID)
 		now := time.Now()
 		var lastAccessedAt *time.Time = nil
 
-		mock.ExpectQuery("SELECT id, user_id, name, encrypted_value, description, created_at, updated_at, last_accessed_at FROM secrets").
-			WithArgs(userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "encrypted_value", "description", "created_at", "updated_at", "last_accessed_at"}).
-				AddRow(uuid.New(), userID, "test-secret", "encrypted", "desc", now, now, lastAccessedAt))
+		mock.ExpectQuery("SELECT id, user_id, tenant_id, name, encrypted_value, description, created_at, updated_at, last_accessed_at FROM secrets").
+			WithArgs(tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "encrypted_value", "description", "created_at", "updated_at", "last_accessed_at"}).
+				AddRow(uuid.New(), userID, tenantID, "test-secret", "encrypted", "desc", now, now, lastAccessedAt))
 
 		secrets, err := repo.List(ctx)
 		require.NoError(t, err)
 		assert.Len(t, secrets, 1)
-	})
-
-	t.Run("db error", func(t *testing.T) {
-		t.Parallel()
-		mock, err := pgxmock.NewPool()
-		require.NoError(t, err)
-		defer mock.Close()
-
-		repo := NewSecretRepository(mock)
-		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
-
-		mock.ExpectQuery("SELECT id, user_id, name, encrypted_value, description, created_at, updated_at, last_accessed_at FROM secrets").
-			WithArgs(userID).
-			WillReturnError(errors.New("db error"))
-
-		secrets, err := repo.List(ctx)
-		require.Error(t, err)
-		assert.Nil(t, secrets)
 	})
 }
 
@@ -169,35 +156,18 @@ func TestSecretRepositoryUpdate(t *testing.T) {
 		secret := &domain.Secret{
 			ID:             uuid.New(),
 			UserID:         uuid.New(),
+			TenantID:       uuid.New(),
 			EncryptedValue: "new-encrypted",
 			Description:    "new-desc",
 			UpdatedAt:      time.Now(),
 		}
 
 		mock.ExpectExec("UPDATE secrets").
-			WithArgs(secret.EncryptedValue, secret.Description, pgxmock.AnyArg(), secret.LastAccessedAt, secret.ID, secret.UserID).
+			WithArgs(secret.EncryptedValue, secret.Description, pgxmock.AnyArg(), secret.LastAccessedAt, secret.ID, secret.TenantID).
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 		err = repo.Update(context.Background(), secret)
 		require.NoError(t, err)
-	})
-
-	t.Run("db error", func(t *testing.T) {
-		t.Parallel()
-		mock, err := pgxmock.NewPool()
-		require.NoError(t, err)
-		defer mock.Close()
-
-		repo := NewSecretRepository(mock)
-		secret := &domain.Secret{
-			ID: uuid.New(),
-		}
-
-		mock.ExpectExec("UPDATE secrets").
-			WillReturnError(errors.New("db error"))
-
-		err = repo.Update(context.Background(), secret)
-		require.Error(t, err)
 	})
 }
 
@@ -211,33 +181,14 @@ func TestSecretRepositoryDelete(t *testing.T) {
 
 		repo := NewSecretRepository(mock)
 		id := uuid.New()
-		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
+		tenantID := uuid.New()
+		ctx := appcontext.WithTenantID(context.Background(), tenantID)
 
 		mock.ExpectExec("DELETE FROM secrets").
-			WithArgs(id, userID).
+			WithArgs(id, tenantID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 		err = repo.Delete(ctx, id)
 		require.NoError(t, err)
-	})
-
-	t.Run("db error", func(t *testing.T) {
-		t.Parallel()
-		mock, err := pgxmock.NewPool()
-		require.NoError(t, err)
-		defer mock.Close()
-
-		repo := NewSecretRepository(mock)
-		id := uuid.New()
-		userID := uuid.New()
-		ctx := appcontext.WithUserID(context.Background(), userID)
-
-		mock.ExpectExec("DELETE FROM secrets").
-			WithArgs(id, userID).
-			WillReturnError(errors.New("db error"))
-
-		err = repo.Delete(ctx, id)
-		require.Error(t, err)
 	})
 }

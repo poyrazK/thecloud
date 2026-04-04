@@ -34,6 +34,7 @@ const (
 type ScalingGroup struct {
 	ID             uuid.UUID          `json:"id"`
 	UserID         uuid.UUID          `json:"user_id"`
+	TenantID       uuid.UUID          `json:"tenant_id"`
 	IdempotencyKey string             `json:"idempotency_key,omitempty"` // For safe retries
 	Name           string             `json:"name"`
 	VpcID          uuid.UUID          `json:"vpc_id"`
@@ -58,6 +59,7 @@ type ScalingGroup struct {
 type ScalingPolicy struct {
 	ID             uuid.UUID  `json:"id"`
 	ScalingGroupID uuid.UUID  `json:"scaling_group_id"`
+	TenantID       uuid.UUID  `json:"tenant_id"`
 	Name           string     `json:"name"`
 	MetricType     string     `json:"metric_type"`    // "cpu" | "memory"
 	TargetValue    float64    `json:"target_value"`   // Threshold (e.g. 80.0 for 80%)

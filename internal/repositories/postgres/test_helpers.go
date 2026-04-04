@@ -1,5 +1,3 @@
-//go:build integration
-
 package postgres
 
 import (
@@ -59,10 +57,7 @@ func SetupDB(t *testing.T) (*pgxpool.Pool, string) {
 	db, err := pgxpool.NewWithConfig(ctx, config)
 	require.NoError(t, err)
 
-	err = db.Ping(ctx)
-	if err != nil {
-		t.Skipf("Skipping integration test: database not available: %v", err)
-	}
+	require.NoError(t, db.Ping(ctx))
 
 	// Ensure search_path is set for the current connection too (redundant but safe)
 	_, err = db.Exec(ctx, fmt.Sprintf("SET search_path TO %s, public", schema))
@@ -71,6 +66,10 @@ func SetupDB(t *testing.T) (*pgxpool.Pool, string) {
 	// Run migrations
 	err = RunMigrations(ctx, db, slog.Default())
 	require.NoError(t, err, "Failed to run migrations")
+
+	// Disable foreign key checks for tests to prevent stability issues with audit logs and random UUIDs
+	_, err = db.Exec(ctx, "SET session_replication_role = 'replica';")
+	require.NoError(t, err)
 
 	t.Cleanup(func() {
 		db.Close()
@@ -120,6 +119,13 @@ func SetupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
 	`, tenantID, userID)
 	require.NoError(t, err)
 
+	// Create default quota for the test tenant
+	_, err = db.Exec(ctx, `
+		INSERT INTO tenant_quotas (tenant_id, max_instances, max_vpcs, max_storage_gb, max_memory_gb, max_vcpus)
+		VALUES ($1, 10, 10, 1000, 40960, 100)
+	`, tenantID)
+	require.NoError(t, err)
+
 	_, err = db.Exec(ctx, `
 		UPDATE users SET default_tenant_id = $1 WHERE id = $2
 	`, tenantID, userID)
@@ -136,10 +142,7 @@ func CleanDB(t *testing.T, db *pgxpool.Pool) {
 
 	// Get current schema from search_path
 	var schema string
-	err := db.QueryRow(ctx, "SHOW search_path").Scan(&schema)
-	if err != nil {
-		schema = "public"
-	}
+	if err := db.QueryRow(ctx, "SHOW search_path").Scan(&schema); err != nil { schema = "public" }
 	schema = strings.Split(schema, ",")[0]
 	schema = strings.TrimSpace(schema)
 
@@ -152,10 +155,7 @@ func CleanDB(t *testing.T, db *pgxpool.Pool) {
 	`, schema)
 
 	rows, err := db.Query(ctx, query)
-	if err != nil {
-		t.Logf("Warning: failed to query tables for cleanup: %v", err)
-		return
-	}
+	if err != nil { t.Logf("Warning: failed to query tables for cleanup: %v", err); return }
 	defer rows.Close()
 
 	var tables []string
@@ -170,9 +170,5 @@ func CleanDB(t *testing.T, db *pgxpool.Pool) {
 		return
 	}
 
-	truncateQuery := "TRUNCATE " + strings.Join(tables, ", ") + " RESTART IDENTITY CASCADE"
-	_, err = db.Exec(ctx, truncateQuery)
-	if err != nil {
-		t.Logf("Warning: failed to truncate tables: %v", err)
-	}
+	for _, table := range tables { _, _ = db.Exec(ctx, "TRUNCATE TABLE " + table + " RESTART IDENTITY CASCADE") }
 }

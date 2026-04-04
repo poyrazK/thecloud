@@ -20,6 +20,7 @@ func TestSecretRepository_Integration(t *testing.T) {
 	repo := NewSecretRepository(db)
 	ctx := SetupTestUser(t, db)
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	// Cleanup
 	_, _ = db.Exec(context.Background(), "DELETE FROM secrets")
@@ -30,7 +31,7 @@ func TestSecretRepository_Integration(t *testing.T) {
 		secretID = uuid.New()
 		secret := &domain.Secret{
 			ID:             secretID,
-			UserID:         userID,
+			UserID:         userID, TenantID:       tenantID,
 			Name:           "test-secret",
 			EncryptedValue: "encrypted-data-here",
 			Description:    "Test secret for integration testing",
@@ -61,7 +62,7 @@ func TestSecretRepository_Integration(t *testing.T) {
 		// Create another secret
 		secret2 := &domain.Secret{
 			ID:             uuid.New(),
-			UserID:         userID,
+			UserID:         userID, TenantID:       tenantID,
 			Name:           "another-secret",
 			EncryptedValue: "more-encrypted-data",
 			Description:    "Another test secret",

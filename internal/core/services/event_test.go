@@ -11,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,8 +21,15 @@ func setupEventServiceTest(t *testing.T) (*services.EventService, *postgres.Even
 	ctx := setupTestUser(t, db)
 
 	repo := postgres.NewEventRepository(db)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewEventService(repo, nil, logger)
+	svc := services.NewEventService(services.EventServiceParams{
+		Repo:    repo,
+		RBACSvc: rbacSvc,
+		Logger:  logger,
+	})
 	return svc, repo, ctx
 }
 

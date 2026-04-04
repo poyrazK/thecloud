@@ -15,26 +15,47 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// SubnetServiceParams defines dependencies for SubnetService.
+type SubnetServiceParams struct {
+	Repo     ports.SubnetRepository
+	RBACSvc  ports.RBACService
+	VpcRepo  ports.VpcRepository
+	AuditSvc ports.AuditService
+	Logger   *slog.Logger
+}
+
 // SubnetService manages subnet lifecycle within VPCs.
 type SubnetService struct {
 	repo     ports.SubnetRepository
+	rbacSvc  ports.RBACService
 	vpcRepo  ports.VpcRepository
 	auditSvc ports.AuditService
 	logger   *slog.Logger
 }
 
 // NewSubnetService constructs a SubnetService with its dependencies.
-func NewSubnetService(repo ports.SubnetRepository, vpcRepo ports.VpcRepository, auditSvc ports.AuditService, logger *slog.Logger) *SubnetService {
+func NewSubnetService(params SubnetServiceParams) *SubnetService {
+	logger := params.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &SubnetService{
-		repo:     repo,
-		vpcRepo:  vpcRepo,
-		auditSvc: auditSvc,
+		repo:     params.Repo,
+		rbacSvc:  params.RBACSvc,
+		vpcRepo:  params.VpcRepo,
+		auditSvc: params.AuditSvc,
 		logger:   logger,
 	}
 }
 
 func (s *SubnetService) CreateSubnet(ctx context.Context, vpcID uuid.UUID, name, cidrBlock, az string) (*domain.Subnet, error) {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	// Creating a subnet is considered a VPC Update
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcUpdate, vpcID.String()); err != nil {
+		return nil, err
+	}
 
 	// 1. Get VPC and validate CIDR range
 	vpc, err := s.vpcRepo.GetByID(ctx, vpcID)
@@ -66,6 +87,7 @@ func (s *SubnetService) CreateSubnet(ctx context.Context, vpcID uuid.UUID, name,
 	subnet := &domain.Subnet{
 		ID:               subnetID,
 		UserID:           userID,
+		TenantID:         tenantID,
 		VPCID:            vpcID,
 		Name:             name,
 		CIDRBlock:        cidrBlock,
@@ -80,16 +102,25 @@ func (s *SubnetService) CreateSubnet(ctx context.Context, vpcID uuid.UUID, name,
 		return nil, err
 	}
 
-	_ = s.auditSvc.Log(ctx, userID, "subnet.create", "subnet", subnetID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, userID, "subnet.create", "subnet", subnetID.String(), map[string]interface{}{
 		"vpc_id":     vpcID.String(),
 		"name":       name,
 		"cidr_block": cidrBlock,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "subnet.create", "subnet_id", subnetID, "error", err)
+	}
 
 	return subnet, nil
 }
 
 func (s *SubnetService) GetSubnet(ctx context.Context, idOrName string, vpcID uuid.UUID) (*domain.Subnet, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead, idOrName); err != nil {
+		return nil, err
+	}
+
 	id, err := uuid.Parse(idOrName)
 	if err == nil {
 		return s.repo.GetByID(ctx, id)
@@ -98,10 +129,24 @@ func (s *SubnetService) GetSubnet(ctx context.Context, idOrName string, vpcID uu
 }
 
 func (s *SubnetService) ListSubnets(ctx context.Context, vpcID uuid.UUID) ([]*domain.Subnet, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead, vpcID.String()); err != nil {
+		return nil, err
+	}
+
 	return s.repo.ListByVPC(ctx, vpcID)
 }
 
 func (s *SubnetService) DeleteSubnet(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcDelete, id.String()); err != nil {
+		return err
+	}
+
 	subnet, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -111,7 +156,9 @@ func (s *SubnetService) DeleteSubnet(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, subnet.UserID, "subnet.delete", "subnet", id.String(), nil)
+	if err := s.auditSvc.Log(ctx, subnet.UserID, "subnet.delete", "subnet", id.String(), nil); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "subnet.delete", "subnet_id", id, "error", err)
+	}
 	return nil
 }
 

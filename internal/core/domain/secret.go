@@ -12,6 +12,7 @@ import (
 type Secret struct {
 	ID             uuid.UUID  `json:"id"`
 	UserID         uuid.UUID  `json:"user_id"`
+	TenantID       uuid.UUID  `json:"tenant_id"`
 	Name           string     `json:"name"`
 	EncryptedValue string     `json:"encrypted_value,omitempty"` // AES-encrypted representation of the secret content
 	Description    string     `json:"description"`

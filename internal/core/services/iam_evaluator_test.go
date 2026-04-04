@@ -41,26 +41,26 @@ func TestIAMEvaluator_Evaluate(t *testing.T) {
 	policies := []*domain.Policy{policy1, policy2}
 
 	t.Run("AllowByWildcard", func(t *testing.T) {
-		allowed, err := evaluator.Evaluate(ctx, policies, "instance:launch", "any", nil)
+		effect, err := evaluator.Evaluate(ctx, policies, "instance:launch", "any", nil)
 		require.NoError(t, err)
-		assert.True(t, allowed)
+		assert.Equal(t, domain.EffectAllow, effect)
 	})
 
 	t.Run("ExplicitDenyWins", func(t *testing.T) {
-		allowed, err := evaluator.Evaluate(ctx, policies, "instance:terminate", "arn:thecloud:compute:instance:prod-123", nil)
+		effect, err := evaluator.Evaluate(ctx, policies, "instance:terminate", "arn:thecloud:compute:instance:prod-123", nil)
 		require.NoError(t, err)
-		assert.False(t, allowed)
+		assert.Equal(t, domain.EffectDeny, effect)
 	})
 
 	t.Run("AllowOtherInstanceTerminate", func(t *testing.T) {
-		allowed, err := evaluator.Evaluate(ctx, policies, "instance:terminate", "arn:thecloud:compute:instance:dev-456", nil)
+		effect, err := evaluator.Evaluate(ctx, policies, "instance:terminate", "arn:thecloud:compute:instance:dev-456", nil)
 		require.NoError(t, err)
-		assert.True(t, allowed)
+		assert.Equal(t, domain.EffectAllow, effect)
 	})
 
 	t.Run("DefaultDeny", func(t *testing.T) {
-		allowed, err := evaluator.Evaluate(ctx, policies, "vpc:create", "*", nil)
+		effect, err := evaluator.Evaluate(ctx, policies, "vpc:create", "*", nil)
 		require.NoError(t, err)
-		assert.False(t, allowed)
+		assert.Equal(t, domain.PolicyEffect(""), effect)
 	})
 }

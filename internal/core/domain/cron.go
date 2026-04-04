@@ -23,6 +23,7 @@ const (
 type CronJob struct {
 	ID            uuid.UUID  `json:"id"`
 	UserID        uuid.UUID  `json:"user_id"`
+	TenantID      uuid.UUID  `json:"tenant_id"`
 	Name          string     `json:"name"`
 	Schedule      string     `json:"schedule"`       // Standard cron expression (e.g., "*/5 * * * *")
 	TargetURL     string     `json:"target_url"`     // The endpoint to call when the job triggers

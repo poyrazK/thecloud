@@ -12,6 +12,7 @@ import (
 type Topic struct {
 	ID        uuid.UUID `json:"id"`
 	UserID    uuid.UUID `json:"user_id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
 	Name      string    `json:"name"`
 	ARN       string    `json:"arn"` // Unique identifier (arn:thecloud:notify:{region}:{user}:topic/{name})
 	CreatedAt time.Time `json:"created_at"`
@@ -32,6 +33,7 @@ const (
 type Subscription struct {
 	ID        uuid.UUID            `json:"id"`
 	UserID    uuid.UUID            `json:"user_id"`
+	TenantID  uuid.UUID            `json:"tenant_id"`
 	TopicID   uuid.UUID            `json:"topic_id"`
 	Protocol  SubscriptionProtocol `json:"protocol"`
 	Endpoint  string               `json:"endpoint"` // Target address (e.g., Queue ARN or Webhook URL)

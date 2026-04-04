@@ -15,40 +15,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type MockImageRepo struct {
-	mock.Mock
-}
-
-func (m *MockImageRepo) Create(ctx context.Context, img *domain.Image) error {
-	return m.Called(ctx, img).Error(0)
-}
-func (m *MockImageRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Image, error) {
-	args := m.Called(ctx, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	r0, _ := args.Get(0).(*domain.Image)
-	return r0, args.Error(1)
-}
-func (m *MockImageRepo) List(ctx context.Context, userID uuid.UUID, includePublic bool) ([]*domain.Image, error) {
-	args := m.Called(ctx, userID, includePublic)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	r0, _ := args.Get(0).([]*domain.Image)
-	return r0, args.Error(1)
-}
-func (m *MockImageRepo) Update(ctx context.Context, img *domain.Image) error {
-	return m.Called(ctx, img).Error(0)
-}
-func (m *MockImageRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	return m.Called(ctx, id).Error(0)
-}
-
 func TestImageService_Unit(t *testing.T) {
 	repo := new(MockImageRepo)
 	fileStore := new(MockFileStore)
-	svc := services.NewImageService(repo, fileStore, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewImageService(services.ImageServiceParams{
+		Repo:      repo,
+		RBACSvc:   rbacSvc,
+		FileStore: fileStore,
+		Logger:    slog.Default(),
+	})
 
 	ctx := context.Background()
 	userID := uuid.New()

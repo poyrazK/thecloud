@@ -14,28 +14,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type MockAccountingRepo struct {
-	mock.Mock
-}
-
-func (m *MockAccountingRepo) CreateRecord(ctx context.Context, record domain.UsageRecord) error {
-	return m.Called(ctx, record).Error(0)
-}
-func (m *MockAccountingRepo) ListRecords(ctx context.Context, userID uuid.UUID, start, end time.Time) ([]domain.UsageRecord, error) {
-	args := m.Called(ctx, userID, start, end)
-	r0, _ := args.Get(0).([]domain.UsageRecord)
-	return r0, args.Error(1)
-}
-func (m *MockAccountingRepo) GetUsageSummary(ctx context.Context, userID uuid.UUID, start, end time.Time) (map[domain.ResourceType]float64, error) {
-	args := m.Called(ctx, userID, start, end)
-	r0, _ := args.Get(0).(map[domain.ResourceType]float64)
-	return r0, args.Error(1)
-}
-
 func TestAccountingServiceUnit(t *testing.T) {
 	mockRepo := new(MockAccountingRepo)
 	mockInstRepo := new(MockInstanceRepo)
-	svc := services.NewAccountingService(mockRepo, mockInstRepo, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewAccountingService(mockRepo, rbacSvc, mockInstRepo, slog.Default())
 	ctx := context.Background()
 
 	t.Run("TrackUsage", func(t *testing.T) {
@@ -63,7 +48,7 @@ func TestAccountingServiceUnit(t *testing.T) {
 			domain.ResourceStorage:  200,
 		}
 
-		mockRepo.On("GetUsageSummary", mock.Anything, userID, start, end).Return(usage, nil).Once()
+		mockRepo.On("GetUsageSummary", mock.Anything, userID, mock.Anything, mock.Anything).Return(usage, nil).Once()
 
 		summary, err := svc.GetSummary(ctx, userID, start, end)
 		require.NoError(t, err)
@@ -76,7 +61,7 @@ func TestAccountingServiceUnit(t *testing.T) {
 		start := time.Now().Add(-24 * time.Hour)
 		end := time.Now()
 
-		mockRepo.On("ListRecords", mock.Anything, userID, start, end).Return([]domain.UsageRecord{}, nil).Once()
+		mockRepo.On("ListRecords", mock.Anything, userID, mock.Anything, mock.Anything).Return([]domain.UsageRecord{}, nil).Once()
 
 		res, err := svc.ListUsage(ctx, userID, start, end)
 		require.NoError(t, err)
@@ -88,8 +73,8 @@ func TestAccountingServiceUnit(t *testing.T) {
 		inst2 := &domain.Instance{ID: uuid.New(), UserID: uuid.New(), Status: domain.StatusStopped}
 		instances := []*domain.Instance{inst1, inst2}
 
-		// The mock implementation of ListAll calls List
-		mockInstRepo.On("List", mock.Anything).Return(instances, nil).Once()
+		// The mock implementation of ListAll calls List in the worker but here we mock ListAll directly
+		mockInstRepo.On("ListAll", mock.Anything).Return(instances, nil).Once()
 		mockRepo.On("CreateRecord", mock.Anything, mock.MatchedBy(func(r domain.UsageRecord) bool {
 			return r.ResourceID == inst1.ID
 		})).Return(nil).Once()

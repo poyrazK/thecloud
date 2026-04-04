@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -17,7 +18,10 @@ func TestQueueServiceUnit(t *testing.T) {
 	mockRepo := new(MockQueueRepository)
 	mockEventSvc := new(MockEventService)
 	mockAuditSvc := new(MockAuditService)
-	svc := services.NewQueueService(mockRepo, mockEventSvc, mockAuditSvc)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewQueueService(mockRepo, rbacSvc, mockEventSvc, mockAuditSvc, slog.Default())
 
 	ctx := context.Background()
 	userID := uuid.New()

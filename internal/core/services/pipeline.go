@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -26,15 +27,17 @@ type PipelineService struct {
 	taskQueue ports.TaskQueue
 	eventSvc  ports.EventService
 	auditSvc  ports.AuditService
+	logger    *slog.Logger
 }
 
 // NewPipelineService constructs a PipelineService with its dependencies.
-func NewPipelineService(repo ports.PipelineRepository, taskQueue ports.TaskQueue, eventSvc ports.EventService, auditSvc ports.AuditService) ports.PipelineService {
+func NewPipelineService(repo ports.PipelineRepository, taskQueue ports.TaskQueue, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) ports.PipelineService {
 	return &PipelineService{
 		repo:      repo,
 		taskQueue: taskQueue,
 		eventSvc:  eventSvc,
 		auditSvc:  auditSvc,
+		logger:    logger,
 	}
 }
 
@@ -69,8 +72,12 @@ func (s *PipelineService) CreatePipeline(ctx context.Context, opts ports.CreateP
 		return nil, err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "PIPELINE_CREATED", pipeline.ID.String(), "PIPELINE", map[string]interface{}{"name": pipeline.Name})
-	_ = s.auditSvc.Log(ctx, userID, "pipeline.create", "pipeline", pipeline.ID.String(), map[string]interface{}{"name": pipeline.Name, "branch": pipeline.Branch})
+	if err := s.eventSvc.RecordEvent(ctx, "PIPELINE_CREATED", pipeline.ID.String(), "PIPELINE", map[string]interface{}{"name": pipeline.Name}); err != nil {
+		s.logger.Warn("failed to record event", "action", "PIPELINE_CREATED", "pipeline_id", pipeline.ID, "error", err)
+	}
+	if err := s.auditSvc.Log(ctx, userID, "pipeline.create", "pipeline", pipeline.ID.String(), map[string]interface{}{"name": pipeline.Name, "branch": pipeline.Branch}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "pipeline.create", "pipeline_id", pipeline.ID, "error", err)
+	}
 
 	return pipeline, nil
 }
@@ -128,8 +135,12 @@ func (s *PipelineService) UpdatePipeline(ctx context.Context, id uuid.UUID, opts
 		return nil, err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "PIPELINE_UPDATED", pipeline.ID.String(), "PIPELINE", nil)
-	_ = s.auditSvc.Log(ctx, pipeline.UserID, "pipeline.update", "pipeline", pipeline.ID.String(), map[string]interface{}{})
+	if err := s.eventSvc.RecordEvent(ctx, "PIPELINE_UPDATED", pipeline.ID.String(), "PIPELINE", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "PIPELINE_UPDATED", "pipeline_id", pipeline.ID, "error", err)
+	}
+	if err := s.auditSvc.Log(ctx, pipeline.UserID, "pipeline.update", "pipeline", pipeline.ID.String(), map[string]interface{}{}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "pipeline.update", "pipeline_id", pipeline.ID, "error", err)
+	}
 
 	return pipeline, nil
 }
@@ -144,8 +155,12 @@ func (s *PipelineService) DeletePipeline(ctx context.Context, id uuid.UUID) erro
 		return err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "PIPELINE_DELETED", pipeline.ID.String(), "PIPELINE", nil)
-	_ = s.auditSvc.Log(ctx, pipeline.UserID, "pipeline.delete", "pipeline", pipeline.ID.String(), map[string]interface{}{"name": pipeline.Name})
+	if err := s.eventSvc.RecordEvent(ctx, "PIPELINE_DELETED", pipeline.ID.String(), "PIPELINE", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "PIPELINE_DELETED", "pipeline_id", id, "error", err)
+	}
+	if err := s.auditSvc.Log(ctx, pipeline.UserID, "pipeline.delete", "pipeline", pipeline.ID.String(), map[string]interface{}{"name": pipeline.Name}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "pipeline.delete", "pipeline_id", id, "error", err)
+	}
 
 	return nil
 }
@@ -241,8 +256,12 @@ func (s *PipelineService) createAndQueueBuild(ctx context.Context, pipeline *dom
 		return nil, err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "PIPELINE_BUILD_QUEUED", build.ID.String(), "PIPELINE_BUILD", map[string]interface{}{"pipeline_id": pipeline.ID})
-	_ = s.auditSvc.Log(ctx, build.UserID, "pipeline.run", "pipeline_build", build.ID.String(), map[string]interface{}{"pipeline_id": pipeline.ID})
+	if err := s.eventSvc.RecordEvent(ctx, "PIPELINE_BUILD_QUEUED", build.ID.String(), "PIPELINE_BUILD", map[string]interface{}{"pipeline_id": pipeline.ID}); err != nil {
+		s.logger.Warn("failed to record event", "action", "PIPELINE_BUILD_QUEUED", "build_id", build.ID, "error", err)
+	}
+	if err := s.auditSvc.Log(ctx, build.UserID, "pipeline.run", "pipeline_build", build.ID.String(), map[string]interface{}{"pipeline_id": pipeline.ID}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "pipeline.run", "build_id", build.ID, "error", err)
+	}
 
 	return build, nil
 }

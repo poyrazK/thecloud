@@ -20,13 +20,22 @@ func TestVolumeServiceUnit(t *testing.T) {
 	mockStorage := new(MockStorageBackend)
 	mockEventSvc := new(MockEventService)
 	mockAuditSvc := new(MockAuditService)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	defer mockRepo.AssertExpectations(t)
 	defer mockStorage.AssertExpectations(t)
 	defer mockEventSvc.AssertExpectations(t)
 	defer mockAuditSvc.AssertExpectations(t)
 
-	svc := services.NewVolumeService(mockRepo, mockStorage, mockEventSvc, mockAuditSvc, slog.Default())
+	svc := services.NewVolumeService(services.VolumeServiceParams{
+		Repo:     mockRepo,
+		RBACSvc:  rbacSvc,
+		Storage:  mockStorage,
+		EventSvc: mockEventSvc,
+		AuditSvc: mockAuditSvc,
+		Logger:   slog.Default(),
+	})
 
 	ctx := context.Background()
 	userID := uuid.New()

@@ -4,11 +4,13 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	internalerrors "github.com/poyrazk/thecloud/internal/errors"
 )
 
 // UserRepo provides PostgreSQL-backed user persistence.
@@ -119,7 +121,10 @@ func (r *UserRepo) scanUser(row pgx.Row) (*domain.User, error) {
 		&user.UpdatedAt,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to scan user: %w", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, internalerrors.New(internalerrors.NotFound, "user not found")
+		}
+		return nil, internalerrors.Wrap(internalerrors.Internal, "failed to scan user", err)
 	}
 	return user, nil
 }

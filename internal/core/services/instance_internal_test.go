@@ -22,7 +22,9 @@ func TestInstanceServiceInternalGetVolumeByIDOrName(t *testing.T) {
 	t.Parallel()
 	repo := new(mockVolumeRepo)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := &InstanceService{volumeRepo: repo, logger: logger}
+	rbacSvc := new(mockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	svc := &InstanceService{volumeRepo: repo, rbacSvc: rbacSvc, logger: logger}
 	ctx := context.Background()
 	volID := uuid.New()
 
@@ -45,7 +47,9 @@ func TestInstanceServiceInternalResolveVolumes(t *testing.T) {
 	t.Parallel()
 	repo := new(mockVolumeRepo)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := &InstanceService{volumeRepo: repo, logger: logger}
+	rbacSvc := new(mockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	svc := &InstanceService{volumeRepo: repo, rbacSvc: rbacSvc, logger: logger}
 	ctx := context.Background()
 	volID := uuid.New()
 
@@ -61,7 +65,9 @@ func TestInstanceServiceInternalResolveVolumesUnavailable(t *testing.T) {
 	t.Parallel()
 	repo := new(mockVolumeRepo)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := &InstanceService{volumeRepo: repo, logger: logger}
+	rbacSvc := new(mockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	svc := &InstanceService{volumeRepo: repo, rbacSvc: rbacSvc, logger: logger}
 	ctx := context.Background()
 	volID := uuid.New()
 
@@ -75,7 +81,9 @@ func TestInstanceServiceInternalUpdateVolumesAfterLaunch(t *testing.T) {
 	t.Parallel()
 	repo := new(mockVolumeRepo)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := &InstanceService{volumeRepo: repo, logger: logger}
+	rbacSvc := new(mockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	svc := &InstanceService{volumeRepo: repo, rbacSvc: rbacSvc, logger: logger}
 	ctx := context.Background()
 	instID := uuid.New()
 	vol := &domain.Volume{ID: uuid.New(), Status: domain.VolumeStatusAvailable}
@@ -154,7 +162,9 @@ func TestParsePort(t *testing.T) {
 
 func TestInstanceService_UpdateInstanceMetadata(t *testing.T) {
 	repo := new(mockInstanceRepo)
-	svc := &InstanceService{repo: repo}
+	rbacSvc := new(mockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	svc := &InstanceService{repo: repo, rbacSvc: rbacSvc}
 	ctx := context.Background()
 	id := uuid.New()
 	inst := &domain.Instance{

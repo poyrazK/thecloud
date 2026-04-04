@@ -20,7 +20,7 @@ func TestInitIdentityServices(t *testing.T) {
 		Config: cfg,
 		Repos:  repos,
 		Logger: logger,
-	}, nil)
+	}, nil, nil)
 
 	assert.NotNil(t, svc)
 }

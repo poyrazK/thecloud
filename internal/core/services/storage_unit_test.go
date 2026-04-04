@@ -21,14 +21,18 @@ func TestStorageServiceUnit(t *testing.T) {
 	mockRepo := new(MockStorageRepo)
 	mockStore := new(MockFileStore)
 	mockAuditSvc := new(MockAuditService)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	cfg := &platform.Config{SecretsEncryptionKey: "test-secret-key-32-chars-long-!!!"}
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewStorageService(services.StorageServiceParams{
-		Repo:     mockRepo,
-		Store:    mockStore,
-		AuditSvc: mockAuditSvc,
-		CFG:      cfg,
-		Logger:   logger,
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil)) 
+	svc := services.NewStorageService(services.StorageServiceParams{ 
+		Repo:       mockRepo, 
+		RBACSvc:    rbacSvc, 
+		Store:      mockStore, 
+		AuditSvc:   mockAuditSvc, 
+		EncryptSvc: nil, 
+		Config:     cfg, 
+		Logger:     logger,
 	})
 
 	ctx := context.Background()

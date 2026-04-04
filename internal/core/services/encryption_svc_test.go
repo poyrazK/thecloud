@@ -83,4 +83,3 @@ func TestEncryptionService(t *testing.T) {
 		require.Error(t, err)
 	})
 }
-

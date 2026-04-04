@@ -6983,6 +6983,9 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "tenant_id": {
+                    "type": "string"
+                },
                 "user_id": {
                     "type": "string"
                 }
@@ -7016,6 +7019,10 @@ const docTemplate = `{
                 },
                 "resource_type": {
                     "description": "Type of affected resource (e.g., \"INSTANCE\")",
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "description": "The tenant context of the action",
                     "type": "string"
                 },
                 "user_agent": {
@@ -7077,6 +7084,9 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "tenant_id": {
+                    "type": "string"
+                },
                 "user_id": {
                     "type": "string"
                 },
@@ -7131,6 +7141,9 @@ const docTemplate = `{
                 },
                 "status": {
                     "$ref": "#/definitions/domain.ClusterStatus"
+                },
+                "tenant_id": {
+                    "type": "string"
                 },
                 "updated_at": {
                     "type": "string"
@@ -7211,6 +7224,9 @@ const docTemplate = `{
                 "priority": {
                     "description": "For MX, SRV",
                     "type": "integer"
+                },
+                "tenant_id": {
+                    "type": "string"
                 },
                 "ttl": {
                     "type": "integer"
@@ -7355,6 +7371,9 @@ const docTemplate = `{
                 "status": {
                     "$ref": "#/definitions/domain.DatabaseStatus"
                 },
+                "tenant_id": {
+                    "type": "string"
+                },
                 "updated_at": {
                     "type": "string"
                 },
@@ -7486,6 +7505,9 @@ const docTemplate = `{
                     "description": "Classification of the resource (e.g., \"INSTANCE\", \"VPC\")",
                     "type": "string"
                 },
+                "tenant_id": {
+                    "type": "string"
+                },
                 "user_id": {
                     "type": "string"
                 }
@@ -7543,6 +7565,9 @@ const docTemplate = `{
                 },
                 "target_url": {
                     "description": "Internal destination (e.g., \"http://service-a:8080\")",
+                    "type": "string"
+                },
+                "tenant_id": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -7710,6 +7735,9 @@ const docTemplate = `{
                 },
                 "status": {
                     "$ref": "#/definitions/domain.ImageStatus"
+                },
+                "tenant_id": {
+                    "type": "string"
                 },
                 "updated_at": {
                     "type": "string"
@@ -7974,6 +8002,9 @@ const docTemplate = `{
                 "prefix": {
                     "type": "string"
                 },
+                "tenant_id": {
+                    "type": "string"
+                },
                 "updated_at": {
                     "type": "string"
                 },
@@ -8010,6 +8041,9 @@ const docTemplate = `{
                 },
                 "status": {
                     "$ref": "#/definitions/domain.LBStatus"
+                },
+                "tenant_id": {
+                    "type": "string"
                 },
                 "user_id": {
                     "type": "string"
@@ -8052,6 +8086,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "key": {
+                    "type": "string"
+                },
+                "tenant_id": {
                     "type": "string"
                 },
                 "user_id": {
@@ -8104,11 +8141,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "checksum": {
-                    "description": "Checksum is the SHA-256 hash of the object content.",
-                    "type": "string",
-                    "maxLength": 64,
-                    "minLength": 64,
-                    "example": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                    "type": "string"
                 },
                 "content_type": {
                     "type": "string"
@@ -8131,13 +8164,11 @@ const docTemplate = `{
                 "size_bytes": {
                     "type": "integer"
                 },
+                "tenant_id": {
+                    "type": "string"
+                },
                 "upload_status": {
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/domain.UploadStatus"
-                        }
-                    ],
-                    "example": "AVAILABLE"
+                    "$ref": "#/definitions/domain.UploadStatus"
                 },
                 "user_id": {
                     "type": "string"
@@ -8178,6 +8209,10 @@ const docTemplate = `{
                 "vpc:delete",
                 "vpc:read",
                 "vpc:update",
+                "sg:create",
+                "sg:delete",
+                "sg:read",
+                "sg:update",
                 "vpc_peering:create",
                 "vpc_peering:accept",
                 "vpc_peering:delete",
@@ -8190,6 +8225,9 @@ const docTemplate = `{
                 "volume:delete",
                 "volume:read",
                 "volume:update",
+                "storage:write",
+                "storage:read",
+                "storage:delete",
                 "snapshot:create",
                 "snapshot:delete",
                 "snapshot:read",
@@ -8203,6 +8241,7 @@ const docTemplate = `{
                 "db:read",
                 "db:update",
                 "secret:create",
+                "secret:write",
                 "secret:delete",
                 "secret:read",
                 "function:invoke",
@@ -8231,10 +8270,10 @@ const docTemplate = `{
                 "stack:create",
                 "stack:delete",
                 "stack:read",
-                "as:create",
-                "as:delete",
-                "as:read",
-                "as:update",
+                "asg:create",
+                "asg:delete",
+                "asg:read",
+                "asg:update",
                 "container:create",
                 "container:delete",
                 "container:read",
@@ -8248,10 +8287,26 @@ const docTemplate = `{
                 "image:create",
                 "image:read",
                 "image:delete",
+                "image:read_all",
                 "cluster:create",
                 "cluster:delete",
                 "cluster:read",
                 "cluster:update",
+                "dns:create",
+                "dns:delete",
+                "dns:read",
+                "dns:update",
+                "tenant:create",
+                "tenant:read",
+                "tenant:update",
+                "tenant:delete",
+                "identity:create",
+                "identity:read",
+                "identity:delete",
+                "identity:read_all",
+                "accounting:read",
+                "audit:read",
+                "dashboard:read",
                 "*"
             ],
             "x-enum-varnames": [
@@ -8266,6 +8321,10 @@ const docTemplate = `{
                 "PermissionVpcDelete",
                 "PermissionVpcRead",
                 "PermissionVpcUpdate",
+                "PermissionSgCreate",
+                "PermissionSgDelete",
+                "PermissionSgRead",
+                "PermissionSgUpdate",
                 "PermissionVpcPeeringCreate",
                 "PermissionVpcPeeringAccept",
                 "PermissionVpcPeeringDelete",
@@ -8278,6 +8337,9 @@ const docTemplate = `{
                 "PermissionVolumeDelete",
                 "PermissionVolumeRead",
                 "PermissionVolumeUpdate",
+                "PermissionStorageWrite",
+                "PermissionStorageRead",
+                "PermissionStorageDelete",
                 "PermissionSnapshotCreate",
                 "PermissionSnapshotDelete",
                 "PermissionSnapshotRead",
@@ -8291,6 +8353,7 @@ const docTemplate = `{
                 "PermissionDBRead",
                 "PermissionDBUpdate",
                 "PermissionSecretCreate",
+                "PermissionSecretWrite",
                 "PermissionSecretDelete",
                 "PermissionSecretRead",
                 "PermissionFunctionInvoke",
@@ -8319,10 +8382,10 @@ const docTemplate = `{
                 "PermissionStackCreate",
                 "PermissionStackDelete",
                 "PermissionStackRead",
-                "PermissionAsCreate",
-                "PermissionAsDelete",
-                "PermissionAsRead",
-                "PermissionAsUpdate",
+                "PermissionAsgCreate",
+                "PermissionAsgDelete",
+                "PermissionAsgRead",
+                "PermissionAsgUpdate",
                 "PermissionContainerCreate",
                 "PermissionContainerDelete",
                 "PermissionContainerRead",
@@ -8336,10 +8399,26 @@ const docTemplate = `{
                 "PermissionImageCreate",
                 "PermissionImageRead",
                 "PermissionImageDelete",
+                "PermissionImageReadAll",
                 "PermissionClusterCreate",
                 "PermissionClusterDelete",
                 "PermissionClusterRead",
                 "PermissionClusterUpdate",
+                "PermissionDNSCreate",
+                "PermissionDNSDelete",
+                "PermissionDNSRead",
+                "PermissionDNSUpdate",
+                "PermissionTenantCreate",
+                "PermissionTenantRead",
+                "PermissionTenantUpdate",
+                "PermissionTenantDelete",
+                "PermissionIdentityCreate",
+                "PermissionIdentityRead",
+                "PermissionIdentityDelete",
+                "PermissionIdentityReadAll",
+                "PermissionAccountingRead",
+                "PermissionAuditRead",
+                "PermissionDashboardRead",
                 "PermissionFullAccess"
             ]
         },
@@ -8572,6 +8651,9 @@ const docTemplate = `{
                 "status": {
                     "$ref": "#/definitions/domain.ScalingGroupStatus"
                 },
+                "tenant_id": {
+                    "type": "string"
+                },
                 "updated_at": {
                     "type": "string"
                 },
@@ -8636,6 +8718,9 @@ const docTemplate = `{
                 "target_value": {
                     "description": "Threshold (e.g. 80.0 for 80%)",
                     "type": "number"
+                },
+                "tenant_id": {
+                    "type": "string"
                 }
             }
         },
@@ -8729,6 +8814,9 @@ const docTemplate = `{
                 "status": {
                     "$ref": "#/definitions/domain.SnapshotStatus"
                 },
+                "tenant_id": {
+                    "type": "string"
+                },
                 "user_id": {
                     "type": "string"
                 },
@@ -8786,6 +8874,9 @@ const docTemplate = `{
                 },
                 "template": {
                     "description": "Raw YAML or JSON",
+                    "type": "string"
+                },
+                "tenant_id": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -9001,6 +9092,9 @@ const docTemplate = `{
                     "$ref": "#/definitions/domain.ResourceType"
                 },
                 "start_time": {
+                    "type": "string"
+                },
+                "tenant_id": {
                     "type": "string"
                 },
                 "unit": {

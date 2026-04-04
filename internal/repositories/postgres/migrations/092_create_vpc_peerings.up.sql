@@ -11,6 +11,6 @@ CREATE TABLE IF NOT EXISTS vpc_peerings (
 );
 
 -- Prevent duplicate active/pending peerings between the same pair of VPCs (order-insensitive).
-CREATE UNIQUE INDEX idx_active_peering_pair
+CREATE UNIQUE INDEX IF NOT EXISTS idx_active_peering_pair
     ON vpc_peerings (LEAST(requester_vpc_id, accepter_vpc_id), GREATEST(requester_vpc_id, accepter_vpc_id))
     WHERE status IN ('pending-acceptance', 'active');

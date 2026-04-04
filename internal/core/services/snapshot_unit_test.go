@@ -21,7 +21,18 @@ func TestSnapshotService_Unit(t *testing.T) {
 	mockStorage := new(MockStorageBackend)
 	mockEventSvc := new(MockEventService)
 	mockAuditSvc := new(MockAuditService)
-	svc := services.NewSnapshotService(mockRepo, mockVolRepo, mockStorage, mockEventSvc, mockAuditSvc, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewSnapshotService(
+		mockRepo,
+		rbacSvc,
+		mockVolRepo,
+		mockStorage,
+		mockEventSvc,
+		mockAuditSvc,
+		slog.Default(),
+	)
 
 	ctx := context.Background()
 	userID := uuid.New()

@@ -4,6 +4,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -22,21 +23,25 @@ import (
 // GatewayService manages API gateway routes and reverse proxies.
 type GatewayService struct {
 	repo     ports.GatewayRepository
+	rbacSvc  ports.RBACService
 	proxyMu  sync.RWMutex
 	proxies  map[uuid.UUID]*httputil.ReverseProxy
 	routes   []*domain.GatewayRoute
 	matchers map[uuid.UUID]*routing.PatternMatcher
 	auditSvc ports.AuditService
+	logger   *slog.Logger
 }
 
 // NewGatewayService constructs a GatewayService and loads existing routes.
-func NewGatewayService(repo ports.GatewayRepository, auditSvc ports.AuditService) *GatewayService {
+func NewGatewayService(repo ports.GatewayRepository, rbacSvc ports.RBACService, auditSvc ports.AuditService, logger *slog.Logger) *GatewayService {
 	s := &GatewayService{
 		repo:     repo,
+		rbacSvc:  rbacSvc,
 		proxies:  make(map[uuid.UUID]*httputil.ReverseProxy),
 		routes:   make([]*domain.GatewayRoute, 0),
 		matchers: make(map[uuid.UUID]*routing.PatternMatcher),
 		auditSvc: auditSvc,
+		logger:   logger,
 	}
 	// Initial load
 	_ = s.RefreshRoutes(context.Background())
@@ -45,8 +50,10 @@ func NewGatewayService(repo ports.GatewayRepository, auditSvc ports.AuditService
 
 func (s *GatewayService) CreateRoute(ctx context.Context, params ports.CreateRouteParams) (*domain.GatewayRoute, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionGatewayCreate, "*"); err != nil {
+		return nil, err
 	}
 
 	// Detect if it's a pattern or prefix
@@ -64,6 +71,7 @@ func (s *GatewayService) CreateRoute(ctx context.Context, params ports.CreateRou
 	route := &domain.GatewayRoute{
 		ID:          uuid.New(),
 		UserID:      userID,
+		TenantID:    tenantID,
 		Name:        params.Name,
 		PathPrefix:  params.Pattern, // Use pattern as prefix for backward compatibility where possible
 		PathPattern: params.Pattern,
@@ -82,11 +90,13 @@ func (s *GatewayService) CreateRoute(ctx context.Context, params ports.CreateRou
 		return nil, err
 	}
 
-	_ = s.auditSvc.Log(ctx, route.UserID, "gateway.route_create", "gateway", route.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, route.UserID, "gateway.route_create", "gateway", route.ID.String(), map[string]interface{}{
 		"name":    route.Name,
 		"pattern": route.PathPattern,
 		"methods": route.Methods,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "gateway.route_create", "route_id", route.ID, "error", err)
+	}
 
 	_ = s.RefreshRoutes(ctx)
 	return route, nil
@@ -94,14 +104,23 @@ func (s *GatewayService) CreateRoute(ctx context.Context, params ports.CreateRou
 
 func (s *GatewayService) ListRoutes(ctx context.Context) ([]*domain.GatewayRoute, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionGatewayRead, "*"); err != nil {
+		return nil, err
 	}
+
 	return s.repo.ListRoutes(ctx, userID)
 }
 
 func (s *GatewayService) DeleteRoute(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionGatewayDelete, id.String()); err != nil {
+		return err
+	}
+
 	route, err := s.repo.GetRouteByID(ctx, id, userID)
 	if err != nil {
 		return err
@@ -110,9 +129,11 @@ func (s *GatewayService) DeleteRoute(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, route.UserID, "gateway.route_delete", "gateway", route.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, route.UserID, "gateway.route_delete", "gateway", route.ID.String(), map[string]interface{}{
 		"name": route.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "gateway.route_delete", "route_id", id, "error", err)
+	}
 
 	return s.RefreshRoutes(ctx)
 }
