@@ -97,7 +97,7 @@ func TestAccountingServiceUnit(t *testing.T) {
 
 	t.Run("ProcessHourlyBilling_RepoFailure", func(t *testing.T) {
 		inst := &domain.Instance{ID: uuid.New(), Status: domain.StatusRunning}
-		mockInstRepo.On("List", mock.Anything).Return([]*domain.Instance{inst}, nil).Once()
+		mockInstRepo.On("ListAll", mock.Anything).Return([]*domain.Instance{inst}, nil).Once()
 		mockRepo.On("CreateRecord", mock.Anything, mock.Anything).Return(fmt.Errorf("db fail")).Once()
 
 		err := svc.ProcessHourlyBilling(ctx)

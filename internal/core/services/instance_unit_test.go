@@ -251,6 +251,7 @@ func TestInstanceService_Lifecycle_Unit(t *testing.T) {
 		inst := &domain.Instance{ID: instanceID, UserID: userID, TenantID: tenantID, Status: domain.StatusStopped, ContainerID: "cid-1"}
 		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
 		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
 		compute.On("StartInstance", mock.Anything, "cid-1").Return(nil).Once()
 		compute.On("Type").Return("docker").Maybe()
 		repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
@@ -266,6 +267,7 @@ func TestInstanceService_Lifecycle_Unit(t *testing.T) {
 		inst := &domain.Instance{ID: instanceID, UserID: userID, TenantID: tenantID, Status: domain.StatusRunning, ContainerID: "cid-1"}
 		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
 		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
 		compute.On("StopInstance", mock.Anything, "cid-1").Return(nil).Once()
 		compute.On("Type").Return("docker").Maybe()
 		repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
@@ -283,6 +285,7 @@ func TestInstanceService_Lifecycle_Unit(t *testing.T) {
 			InstanceType: "t2.micro",
 		}
 		typeRepo.On("GetByID", mock.Anything, "t2.micro").Return(&domain.InstanceType{VCPUs: 1, MemoryMB: 1024}, nil).Maybe()
+		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Once()
 		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
 		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceTerminate, instanceID.String()).Return(nil).Once()
 		compute.On("DeleteInstance", mock.Anything, "cid-1").Return(nil).Once()

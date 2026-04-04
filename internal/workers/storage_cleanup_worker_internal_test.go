@@ -110,6 +110,7 @@ func TestStorageCleanupWorker_Run(t *testing.T) {
 	worker.interval = 1 * time.Millisecond
 
 	svc.On("CleanupDeleted", mock.Anything, mock.Anything).Return(0, nil).Maybe()
+	svc.On("CleanupPendingUploads", mock.Anything, defaultPendingUploadTTL, defaultBatchSize).Return(0, nil).Maybe()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
