@@ -42,7 +42,7 @@ func (s *accountingService) GetSummary(ctx context.Context, userID uuid.UUID, st
 	uID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionAccountingRead, "*"); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionAccountingRead, userID.String()); err != nil {
 		return nil, err
 	}
 
@@ -76,7 +76,7 @@ func (s *accountingService) ListUsage(ctx context.Context, userID uuid.UUID, sta
 	uID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionAccountingRead, "*"); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionAccountingRead, userID.String()); err != nil {
 		return nil, err
 	}
 
