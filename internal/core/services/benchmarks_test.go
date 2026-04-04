@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -19,39 +20,36 @@ import (
 )
 
 func BenchmarkInstanceServiceList(b *testing.B) {
-	// Setup
-	repo := &noop.NoopInstanceRepository{}
-	vpcRepo := &noop.NoopVpcRepository{}
-	subnetRepo := &noop.NoopSubnetRepository{}
-	volumeRepo := &noop.NoopVolumeRepository{}
-	compute := &noop.NoopComputeBackend{}
-	network := &noop.NoopNetworkAdapter{}
-	eventSvc := &noop.NoopEventService{}
-	auditSvc := &noop.NoopAuditService{}
-	rbacSvc := &noop.NoopRBACService{}
-	logger := slog.Default()
+	tenantID := uuid.New()
+	for _, size := range []int{10, 100, 1000} {
+		repo := &benchInstanceRepository{instances: makeBenchmarkInstances(size, tenantID)}
+		svc := services.NewInstanceService(services.InstanceServiceParams{
+			Repo:             repo,
+			VpcRepo:          &noop.NoopVpcRepository{},
+			SubnetRepo:       &noop.NoopSubnetRepository{},
+			VolumeRepo:       &noop.NoopVolumeRepository{},
+			RBAC:             &noop.NoopRBACService{},
+			Compute:          &noop.NoopComputeBackend{},
+			Network:          &noop.NoopNetworkAdapter{},
+			EventSvc:         &noop.NoopEventService{},
+			AuditSvc:         &noop.NoopAuditService{},
+			TaskQueue:        &TaskQueueStub{},
+			Logger:           slog.Default(),
+			TenantSvc:        &NoopTenantService{},
+			InstanceTypeRepo: &noop.NoopInstanceTypeRepository{},
+		})
 
-	svc := services.NewInstanceService(services.InstanceServiceParams{
-		Repo:             repo,
-		VpcRepo:          vpcRepo,
-		SubnetRepo:       subnetRepo,
-		VolumeRepo:       volumeRepo,
-		RBAC:             rbacSvc,
-		Compute:          compute,
-		Network:          network,
-		EventSvc:         eventSvc,
-		AuditSvc:         auditSvc,
-		TaskQueue:        &TaskQueueStub{},
-		Logger:           logger,
-		TenantSvc:        &NoopTenantService{},
-		InstanceTypeRepo: &noop.NoopInstanceTypeRepository{},
-	})
+		ctx := benchmarkAuthContext(tenantID)
 
-	ctx := context.Background()
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, _ = svc.ListInstances(ctx)
+		b.Run(fmt.Sprintf("records=%d", size), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				instances, _ := svc.ListInstances(ctx)
+				if len(instances) != size {
+					b.Fatalf("expected %d instances, got %d", size, len(instances))
+				}
+			}
+		})
 	}
 }
 
@@ -224,6 +222,86 @@ func (s *NoopTenantService) DecrementUsage(ctx context.Context, tenantID uuid.UU
 	return nil
 }
 
+type benchInstanceRepository struct {
+	noop.NoopInstanceRepository
+	instances []*domain.Instance
+}
+
+func (r *benchInstanceRepository) List(ctx context.Context) ([]*domain.Instance, error) {
+	instances := make([]*domain.Instance, len(r.instances))
+	copy(instances, r.instances)
+	return instances, nil
+}
+
+type benchDatabaseRepository struct {
+	noop.NoopDatabaseRepository
+	databases []*domain.Database
+}
+
+func (r *benchDatabaseRepository) List(ctx context.Context) ([]*domain.Database, error) {
+	databases := make([]*domain.Database, len(r.databases))
+	copy(databases, r.databases)
+	return databases, nil
+}
+
+type benchStorageRepository struct {
+	noop.NoopStorageRepository
+	objects []*domain.Object
+}
+
+func (r *benchStorageRepository) List(ctx context.Context, bucket string) ([]*domain.Object, error) {
+	objects := make([]*domain.Object, len(r.objects))
+	copy(objects, r.objects)
+	return objects, nil
+}
+
+func benchmarkAuthContext(tenantID uuid.UUID) context.Context {
+	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+	return appcontext.WithTenantID(ctx, tenantID)
+}
+
+func makeBenchmarkInstances(size int, tenantID uuid.UUID) []*domain.Instance {
+	instances := make([]*domain.Instance, size)
+	for i := 0; i < size; i++ {
+		instances[i] = &domain.Instance{
+			ID:       uuid.New(),
+			UserID:   uuid.New(),
+			TenantID: tenantID,
+			Name:     fmt.Sprintf("instance-%d", i),
+			Image:    "alpine",
+		}
+	}
+	return instances
+}
+
+func makeBenchmarkDatabases(size int, tenantID uuid.UUID) []*domain.Database {
+	databases := make([]*domain.Database, size)
+	for i := 0; i < size; i++ {
+		databases[i] = &domain.Database{
+			ID:       uuid.New(),
+			UserID:   uuid.New(),
+			TenantID: tenantID,
+			Name:     fmt.Sprintf("database-%d", i),
+			Engine:   domain.EnginePostgres,
+		}
+	}
+	return databases
+}
+
+func makeBenchmarkObjects(size int, tenantID uuid.UUID, bucket string) []*domain.Object {
+	objects := make([]*domain.Object, size)
+	for i := 0; i < size; i++ {
+		objects[i] = &domain.Object{
+			ID:       uuid.New(),
+			UserID:   uuid.New(),
+			TenantID: tenantID,
+			Bucket:   bucket,
+			Key:      fmt.Sprintf("object-%d", i),
+		}
+	}
+	return objects
+}
+
 func BenchmarkAuthServiceLoginParallel(b *testing.B) {
 	userRepo := &BenchUserRepository{}
 	idSvc := &noop.NoopIdentityService{}
@@ -245,32 +323,33 @@ func BenchmarkAuthServiceLoginParallel(b *testing.B) {
 }
 
 func BenchmarkDatabaseServiceList(b *testing.B) {
-	repo := &noop.NoopDatabaseRepository{}
-	compute := &noop.NoopComputeBackend{}
-	vpcRepo := &noop.NoopVpcRepository{}
-	eventSvc := &noop.NoopEventService{}
-	auditSvc := &noop.NoopAuditService{}
-	rbacSvc := &noop.NoopRBACService{}
-	logger := slog.Default()
+	tenantID := uuid.New()
+	for _, size := range []int{10, 100, 1000} {
+		repo := &benchDatabaseRepository{databases: makeBenchmarkDatabases(size, tenantID)}
+		svc := services.NewDatabaseService(services.DatabaseServiceParams{
+			Repo:         repo,
+			RBAC:         &noop.NoopRBACService{},
+			Compute:      &noop.NoopComputeBackend{},
+			VpcRepo:      &noop.NoopVpcRepository{},
+			VolumeSvc:    nil,
+			SnapshotSvc:  nil,
+			SnapshotRepo: nil,
+			EventSvc:     &noop.NoopEventService{},
+			AuditSvc:     &noop.NoopAuditService{},
+			Logger:       slog.Default(),
+		})
 
-	svc := services.NewDatabaseService(services.DatabaseServiceParams{
-		Repo:         repo,
-		RBAC:         rbacSvc,
-		Compute:      compute,
-		VpcRepo:      vpcRepo,
-		VolumeSvc:    nil,
-		SnapshotSvc:  nil,
-		SnapshotRepo: nil,
-		EventSvc:     eventSvc,
-		AuditSvc:     auditSvc,
-		Logger:       logger,
-	})
+		ctx := benchmarkAuthContext(tenantID)
 
-	ctx := context.Background()
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, _ = svc.ListDatabases(ctx)
+		b.Run(fmt.Sprintf("records=%d", size), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				databases, _ := svc.ListDatabases(ctx)
+				if len(databases) != size {
+					b.Fatalf("expected %d databases, got %d", size, len(databases))
+				}
+			}
+		})
 	}
 }
 
@@ -337,23 +416,29 @@ func BenchmarkCacheServiceList(b *testing.B) {
 }
 
 func BenchmarkStorageServiceList(b *testing.B) {
-	repo := &noop.NoopStorageRepository{}
-	fileStore := &noop.NoopFileStore{}
-	auditSvc := &noop.NoopAuditService{}
-	rbacSvc := &noop.NoopRBACService{} 
-	svc := services.NewStorageService(services.StorageServiceParams{ 
-		Repo:     repo, 
-		RBACSvc:  rbacSvc, 
-		Store:    fileStore, 
-		AuditSvc: auditSvc, 
-		Logger:   slog.Default(), 
-	})
+	bucket := "test-bucket"
+	tenantID := uuid.New()
+	for _, size := range []int{10, 100, 1000} {
+		repo := &benchStorageRepository{objects: makeBenchmarkObjects(size, tenantID, bucket)}
+		svc := services.NewStorageService(services.StorageServiceParams{
+			Repo:     repo,
+			RBACSvc:  &noop.NoopRBACService{},
+			Store:    &noop.NoopFileStore{},
+			AuditSvc: &noop.NoopAuditService{},
+			Logger:   slog.Default(),
+		})
 
-	ctx := context.Background()
+		ctx := benchmarkAuthContext(tenantID)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, _ = svc.ListObjects(ctx, "test-bucket")
+		b.Run(fmt.Sprintf("records=%d", size), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				objects, _ := svc.ListObjects(ctx, bucket)
+				if len(objects) != size {
+					b.Fatalf("expected %d objects, got %d", size, len(objects))
+				}
+			}
+		})
 	}
 }
 
