@@ -303,7 +303,9 @@ func makeBenchmarkObjects(size int, tenantID uuid.UUID, bucket string) []*domain
 }
 
 func BenchmarkAuthServiceLoginParallel(b *testing.B) {
-	userRepo := &BenchUserRepository{}
+	hash, _ := bcrypt.GenerateFromPassword([]byte(testutil.TestPasswordStrong), bcrypt.DefaultCost)
+
+	userRepo := &BenchUserRepository{hash: string(hash)}
 	idSvc := &noop.NoopIdentityService{}
 	auditSvc := &noop.NoopAuditService{}
 	tenantSvc := &NoopTenantService{}
