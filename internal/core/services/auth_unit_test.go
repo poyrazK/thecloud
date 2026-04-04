@@ -3,6 +3,7 @@ package services_test
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -18,7 +19,7 @@ func TestAuthService_Unit_Extended(t *testing.T) {
 	mockIdentitySvc := new(MockIdentityService)
 	mockAuditSvc := new(MockAuditService)
 	mockTenantSvc := new(MockTenantService)
-	svc := services.NewAuthService(mockUserRepo, mockIdentitySvc, mockAuditSvc, mockTenantSvc)
+	svc := services.NewAuthService(mockUserRepo, mockIdentitySvc, mockAuditSvc, mockTenantSvc, slog.Default())
 
 	ctx := context.Background()
 

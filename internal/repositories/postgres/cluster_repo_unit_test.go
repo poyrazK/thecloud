@@ -25,22 +25,22 @@ func TestClusterRepository(t *testing.T) {
 
 	t.Run("Create", func(t *testing.T) {
 		cluster := &domain.Cluster{
-			ID:                   uuid.New(),
-			UserID:               userID,
-			VpcID:                uuid.New(),
-			Name:                 testClusterName,
-			Version:              testClusterVersion,
-			ControlPlaneIPs:      []string{"10.0.0.1"},
-			WorkerCount:          3,
-			Status:               domain.ClusterStatusRunning,
-			PodCIDR:              "10.244.0.0/16",
-			ServiceCIDR:          "10.96.0.0/12",
-			NetworkIsolation:     true,
-			HAEnabled:            false,
-			BackupSchedule:       "@daily",
-			BackupRetentionDays:  7,
-			CreatedAt:            time.Now(),
-			UpdatedAt:            time.Now(),
+			ID:                  uuid.New(),
+			UserID:              userID,
+			VpcID:               uuid.New(),
+			Name:                testClusterName,
+			Version:             testClusterVersion,
+			ControlPlaneIPs:     []string{"10.0.0.1"},
+			WorkerCount:         3,
+			Status:              domain.ClusterStatusRunning,
+			PodCIDR:             "10.244.0.0/16",
+			ServiceCIDR:         "10.96.0.0/12",
+			NetworkIsolation:    true,
+			HAEnabled:           false,
+			BackupSchedule:      "@daily",
+			BackupRetentionDays: 7,
+			CreatedAt:           time.Now(),
+			UpdatedAt:           time.Now(),
 		}
 
 		t.Run("Success", func(t *testing.T) {
@@ -77,11 +77,11 @@ func TestClusterRepository(t *testing.T) {
 		ngCols := []string{"id", "cluster_id", "name", "instance_type", "min_size", "max_size", "current_size", "created_at", "updated_at"}
 
 		testCases := []struct {
-			name          string
-			setupMock     func(mock pgxmock.PgxPoolIface)
-			callFn        func(repo *ClusterRepository) (any, error)
-			validate      func(t *testing.T, res any)
-			expectError   bool
+			name        string
+			setupMock   func(mock pgxmock.PgxPoolIface)
+			callFn      func(repo *ClusterRepository) (any, error)
+			validate    func(t *testing.T, res any)
+			expectError bool
 		}{
 			{
 				name: "GetByID",
@@ -195,7 +195,7 @@ func TestClusterRepository(t *testing.T) {
 				tc.setupMock(mock)
 				res, err := tc.callFn(repo)
 				if tc.expectError {
-					assert.Error(t, err)
+					require.Error(t, err)
 				} else {
 					require.NoError(t, err)
 					tc.validate(t, res)

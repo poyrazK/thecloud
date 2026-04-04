@@ -19,7 +19,10 @@ func TestSecurityGroupService_Unit(t *testing.T) {
 	mockVpcRepo := new(MockVpcRepo)
 	mockNetwork := new(MockNetworkBackend)
 	mockAuditSvc := new(MockAuditService)
-	svc := services.NewSecurityGroupService(mockRepo, mockVpcRepo, mockNetwork, mockAuditSvc, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewSecurityGroupService(mockRepo, rbacSvc, mockVpcRepo, mockNetwork, mockAuditSvc, slog.Default())
 
 	ctx := context.Background()
 	userID := uuid.New()

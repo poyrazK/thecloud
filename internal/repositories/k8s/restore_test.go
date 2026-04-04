@@ -40,8 +40,8 @@ type mockStorageService struct {
 	mock.Mock
 }
 
-func (m *mockStorageService) Upload(ctx context.Context, bucket, key string, r io.Reader) (*domain.Object, error) {
-	args := m.Called(ctx, bucket, key, r)
+func (m *mockStorageService) Upload(ctx context.Context, bucket, key string, r io.Reader, providedChecksum string) (*domain.Object, error) {
+	args := m.Called(ctx, bucket, key, r, providedChecksum)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -119,8 +119,8 @@ func (m *mockStorageService) CreateMultipartUpload(ctx context.Context, bucket, 
 	return args.Get(0).(*domain.MultipartUpload), args.Error(1)
 }
 
-func (m *mockStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader) (*domain.Part, error) {
-	args := m.Called(ctx, uploadID, partNumber, r)
+func (m *mockStorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, partNumber int, r io.Reader, providedChecksum string) (*domain.Part, error) {
+	args := m.Called(ctx, uploadID, partNumber, r, providedChecksum)
 	return args.Get(0).(*domain.Part), args.Error(1)
 }
 
@@ -142,6 +142,11 @@ func (m *mockStorageService) CleanupDeleted(ctx context.Context, limit int) (int
 func (m *mockStorageService) GeneratePresignedURL(ctx context.Context, bucket, key, method string, expiry time.Duration) (*domain.PresignedURL, error) {
 	args := m.Called(ctx, bucket, key, method, expiry)
 	return args.Get(0).(*domain.PresignedURL), args.Error(1)
+}
+
+func (m *mockStorageService) CleanupPendingUploads(ctx context.Context, olderThan time.Duration, limit int) (int, error) {
+	args := m.Called(ctx, olderThan, limit)
+	return args.Int(0), args.Error(1)
 }
 
 func TestRestore(t *testing.T) {
@@ -282,7 +287,7 @@ func TestCreateBackup_DR(t *testing.T) {
 
 		executor.On("Run", mock.Anything, "base64 /tmp/snapshot.db").Return("YmFja3VwLWRhdGE=", nil).Once()
 
-		storage.On("Upload", mock.Anything, "k8s-backups", mock.Anything, mock.Anything).
+		storage.On("Upload", mock.Anything, "k8s-backups", mock.Anything, mock.Anything, mock.Anything).
 			Return(&domain.Object{}, nil).Once()
 
 		err := p.CreateBackup(ctx, cluster)

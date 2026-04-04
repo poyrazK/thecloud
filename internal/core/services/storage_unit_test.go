@@ -2,6 +2,8 @@ package services_test
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -19,8 +21,19 @@ func TestStorageServiceUnit(t *testing.T) {
 	mockRepo := new(MockStorageRepo)
 	mockStore := new(MockFileStore)
 	mockAuditSvc := new(MockAuditService)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	cfg := &platform.Config{SecretsEncryptionKey: "test-secret-key-32-chars-long-!!!"}
-	svc := services.NewStorageService(mockRepo, mockStore, mockAuditSvc, nil, cfg)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil)) 
+	svc := services.NewStorageService(services.StorageServiceParams{ 
+		Repo:       mockRepo, 
+		RBACSvc:    rbacSvc, 
+		Store:      mockStore, 
+		AuditSvc:   mockAuditSvc, 
+		EncryptSvc: nil, 
+		Config:     cfg, 
+		Logger:     logger,
+	})
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -41,12 +54,49 @@ func TestStorageServiceUnit(t *testing.T) {
 		bucket := &domain.Bucket{Name: "my-bucket", VersioningEnabled: false}
 		mockRepo.On("GetBucket", mock.Anything, "my-bucket").Return(bucket, nil).Once()
 		mockStore.On("Write", mock.Anything, "my-bucket", "test.txt", mock.Anything).Return(int64(12), nil).Once()
-		mockRepo.On("SaveMeta", mock.Anything, mock.Anything).Return(nil).Once()
+		
+		// First SaveMeta call for PENDING status
+		mockRepo.On("SaveMeta", mock.Anything, mock.MatchedBy(func(obj *domain.Object) bool {
+			return obj.UploadStatus == domain.UploadStatusPending && obj.SizeBytes == 0
+		})).Return(nil).Once()
+
+		// Second SaveMeta call for AVAILABLE status
+		mockRepo.On("SaveMeta", mock.Anything, mock.MatchedBy(func(obj *domain.Object) bool {
+			return obj.UploadStatus == domain.UploadStatusAvailable && obj.SizeBytes == 12
+		})).Return(nil).Once()
+		
 		mockAuditSvc.On("Log", mock.Anything, userID, "storage.object_upload", "storage", mock.Anything, mock.Anything).Return(nil).Once()
 
-		obj, err := svc.Upload(ctx, "my-bucket", "test.txt", strings.NewReader("hello world!"))
+		obj, err := svc.Upload(ctx, "my-bucket", "test.txt", strings.NewReader("hello world!"), "")
 		require.NoError(t, err)
 		assert.NotNil(t, obj)
 		assert.Equal(t, int64(12), obj.SizeBytes)
+		assert.Equal(t, "text/plain; charset=utf-8", obj.ContentType)
+		assert.NotEmpty(t, obj.Checksum)
+
+		mockRepo.AssertExpectations(t)
+		mockStore.AssertExpectations(t)
+		mockAuditSvc.AssertExpectations(t)
+	})
+
+	t.Run("Upload Checksum Mismatch", func(t *testing.T) {
+		bucket := &domain.Bucket{Name: "my-bucket", VersioningEnabled: false}
+		mockRepo.On("GetBucket", mock.Anything, "my-bucket").Return(bucket, nil).Once()
+		// SaveMeta for PENDING
+		mockRepo.On("SaveMeta", mock.Anything, mock.MatchedBy(func(obj *domain.Object) bool {
+			return obj.UploadStatus == domain.UploadStatusPending
+		})).Return(nil).Once()
+
+		mockStore.On("Write", mock.Anything, "my-bucket", "test.txt", mock.Anything).Return(int64(12), nil).Once()
+		mockStore.On("Delete", mock.Anything, "my-bucket", "test.txt").Return(nil).Once()
+
+		providedChecksum := "invalid-checksum"
+		_, err := svc.Upload(ctx, "my-bucket", "test.txt", strings.NewReader("hello world!"), providedChecksum)
+		
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "data integrity check failed")
+		
+		mockRepo.AssertExpectations(t)
+		mockStore.AssertExpectations(t)
 	})
 }

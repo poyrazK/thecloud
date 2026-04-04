@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
@@ -13,11 +14,18 @@ import (
 )
 
 func TestAuditService_Unit(t *testing.T) {
-	mockRepo := new(MockAuditRepo)
-	svc := services.NewAuditService(mockRepo)
+	mockRepo := new(MockAuditRepository)
+	mockRBAC := new(MockRBACService)
+	svc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    mockRepo,
+		RBACSvc: mockRBAC,
+	})
 
 	ctx := context.Background()
 	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("Log_Success", func(t *testing.T) {
 		mockRepo.On("Create", mock.Anything, mock.MatchedBy(func(l *domain.AuditLog) bool {
@@ -28,7 +36,14 @@ func TestAuditService_Unit(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("ListLogs_LimitDefault", func(t *testing.T) {
+	t.Run("Log_Failure", func(t *testing.T) {
+		mockRepo.On("Create", mock.Anything, mock.Anything).Return(assert.AnError).Once()
+		err := svc.Log(ctx, userID, "test.action", "resource", "res-123", nil)
+		require.Error(t, err)
+	})
+
+	t.Run("ListLogs_Success", func(t *testing.T) {
+		mockRBAC.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionAuditRead, "*").Return(nil).Once()
 		mockRepo.On("ListByUserID", mock.Anything, userID, 50).Return([]*domain.AuditLog{}, nil).Once()
 
 		logs, err := svc.ListLogs(ctx, userID, 0)
@@ -37,9 +52,18 @@ func TestAuditService_Unit(t *testing.T) {
 	})
 
 	t.Run("ListLogs_CustomLimit", func(t *testing.T) {
+		mockRBAC.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionAuditRead, "*").Return(nil).Once()
 		mockRepo.On("ListByUserID", mock.Anything, userID, 10).Return([]*domain.AuditLog{}, nil).Once()
 
 		_, err := svc.ListLogs(ctx, userID, 10)
 		require.NoError(t, err)
+	})
+
+	t.Run("ListLogs_Forbidden", func(t *testing.T) {
+		mockRBAC.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionAuditRead, "*").Return(assert.AnError).Once()
+
+		logs, err := svc.ListLogs(ctx, userID, 50)
+		require.Error(t, err)
+		assert.Nil(t, logs)
 	})
 }

@@ -10,35 +10,18 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/mock"
 )
-
-type mockEventRepo struct {
-	mock.Mock
-}
-
-func (m *mockEventRepo) Create(ctx context.Context, e *domain.Event) error {
-	return m.Called(ctx, e).Error(0)
-}
-func (m *mockEventRepo) List(ctx context.Context, limit int) ([]*domain.Event, error) {
-	args := m.Called(ctx, limit)
-	r0, _ := args.Get(0).([]*domain.Event)
-	return r0, args.Error(1)
-}
-func (m *mockEventRepo) ListByUserID(ctx context.Context, userID uuid.UUID, limit int) ([]*domain.Event, error) {
-	args := m.Called(ctx, userID, limit)
-	r0, _ := args.Get(0).([]*domain.Event)
-	return r0, args.Error(1)
-}
 
 func TestDashboardService_GetStats(t *testing.T) {
 	instRepo := new(MockInstanceRepo)
 	volRepo := new(MockVolumeRepo)
 	vpcRepo := new(MockVpcRepo)
-	eventRepo := new(mockEventRepo)
+	eventRepo := new(MockEventRepo)
+	rbacSvc := new(MockRBACService)
 
-	svc := services.NewDashboardService(instRepo, volRepo, vpcRepo, eventRepo, slog.Default())
+	svc := services.NewDashboardService(rbacSvc, instRepo, volRepo, vpcRepo, eventRepo, slog.Default())
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
@@ -54,6 +37,7 @@ func TestDashboardService_GetStats(t *testing.T) {
 		vpcs := []*domain.VPC{{ID: uuid.New()}, {ID: uuid.New()}, {ID: uuid.New()}}
 		events := []*domain.Event{{ID: uuid.New(), Action: "test.action"}}
 
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		instRepo.On("List", ctx).Return(instances, nil).Once()
 		volRepo.On("List", ctx).Return(volumes, nil).Once()
 		vpcRepo.On("List", ctx).Return(vpcs, nil).Once()

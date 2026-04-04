@@ -21,7 +21,10 @@ func TestStackServiceUnit(t *testing.T) {
 	mockVpcSvc := new(MockVpcService)
 	mockVolSvc := new(MockVolumeService)
 	mockSnapSvc := new(MockSnapshotService)
-	svc := services.NewStackService(mockRepo, mockInstSvc, mockVpcSvc, mockVolSvc, mockSnapSvc, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewStackService(mockRepo, rbacSvc, mockInstSvc, mockVpcSvc, mockVolSvc, mockSnapSvc, slog.Default())
 
 	ctx := context.Background()
 	userID := uuid.New()

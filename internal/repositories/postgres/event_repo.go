@@ -20,21 +20,21 @@ func NewEventRepository(db DB) *EventRepository {
 }
 
 func (r *EventRepository) Create(ctx context.Context, e *domain.Event) error {
-	query := `INSERT INTO events (id, user_id, action, resource_id, resource_type, metadata, created_at) 
-              VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	_, err := r.db.Exec(ctx, query, e.ID, e.UserID, e.Action, e.ResourceID, e.ResourceType, e.Metadata, e.CreatedAt)
+	query := `INSERT INTO events (id, user_id, tenant_id, action, resource_id, resource_type, metadata, created_at) 
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+	_, err := r.db.Exec(ctx, query, e.ID, e.UserID, e.TenantID, e.Action, e.ResourceID, e.ResourceType, e.Metadata, e.CreatedAt)
 	return err
 }
 
 func (r *EventRepository) List(ctx context.Context, limit int) ([]*domain.Event, error) {
-	userID := appcontext.UserIDFromContext(ctx)
-	query := `SELECT id, user_id, action, resource_id, resource_type, metadata, created_at 
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	query := `SELECT id, user_id, tenant_id, action, resource_id, resource_type, metadata, created_at 
               FROM events 
-              WHERE user_id = $1
+              WHERE tenant_id = $1
               ORDER BY created_at DESC 
               LIMIT $2`
 
-	rows, err := r.db.Query(ctx, query, userID, limit)
+	rows, err := r.db.Query(ctx, query, tenantID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (r *EventRepository) List(ctx context.Context, limit int) ([]*domain.Event,
 
 func (r *EventRepository) scanEvent(row pgx.Row) (*domain.Event, error) {
 	e := &domain.Event{}
-	if err := row.Scan(&e.ID, &e.UserID, &e.Action, &e.ResourceID, &e.ResourceType, &e.Metadata, &e.CreatedAt); err != nil {
+	if err := row.Scan(&e.ID, &e.UserID, &e.TenantID, &e.Action, &e.ResourceID, &e.ResourceType, &e.Metadata, &e.CreatedAt); err != nil {
 		return nil, err
 	}
 	return e, nil

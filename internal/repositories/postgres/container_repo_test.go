@@ -19,11 +19,12 @@ func TestPostgresContainerRepository(t *testing.T) {
 	repo := NewPostgresContainerRepository(db)
 	ctx := SetupTestUser(t, db)
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	t.Run("CreateAndGetDeployment", func(t *testing.T) {
 		dep := &domain.Deployment{
 			ID:           uuid.New(),
-			UserID:       userID,
+			UserID:       userID, TenantID:     tenantID,
 			Name:         "test-dep",
 			Image:        "nginx",
 			Replicas:     3,

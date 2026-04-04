@@ -8,21 +8,24 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
 type accountingService struct {
 	repo         ports.AccountingRepository
+	rbacSvc      ports.RBACService
 	instanceRepo ports.InstanceRepository
 	logger       *slog.Logger
 	// In a real system, we'd have price configuration here
 }
 
 // NewAccountingService constructs an AccountingService with its dependencies.
-func NewAccountingService(repo ports.AccountingRepository, instanceRepo ports.InstanceRepository, logger *slog.Logger) ports.AccountingService {
+func NewAccountingService(repo ports.AccountingRepository, rbacSvc ports.RBACService, instanceRepo ports.InstanceRepository, logger *slog.Logger) ports.AccountingService {
 	return &accountingService{
 		repo:         repo,
+		rbacSvc:      rbacSvc,
 		instanceRepo: instanceRepo,
 		logger:       logger,
 	}
@@ -36,6 +39,13 @@ func (s *accountingService) TrackUsage(ctx context.Context, record domain.UsageR
 }
 
 func (s *accountingService) GetSummary(ctx context.Context, userID uuid.UUID, start, end time.Time) (*domain.BillSummary, error) {
+	uID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionAccountingRead, userID.String()); err != nil {
+		return nil, err
+	}
+
 	usage, err := s.repo.GetUsageSummary(ctx, userID, start, end)
 	if err != nil {
 		return nil, err
@@ -63,6 +73,13 @@ func (s *accountingService) GetSummary(ctx context.Context, userID uuid.UUID, st
 }
 
 func (s *accountingService) ListUsage(ctx context.Context, userID uuid.UUID, start, end time.Time) ([]domain.UsageRecord, error) {
+	uID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionAccountingRead, userID.String()); err != nil {
+		return nil, err
+	}
+
 	return s.repo.ListRecords(ctx, userID, start, end)
 }
 
@@ -83,6 +100,7 @@ func (s *accountingService) ProcessHourlyBilling(ctx context.Context) error {
 			record := domain.UsageRecord{
 				ID:           uuid.New(),
 				UserID:       inst.UserID,
+				TenantID:     inst.TenantID,
 				ResourceID:   inst.ID,
 				ResourceType: domain.ResourceInstance,
 				Quantity:     60, // 60 minutes

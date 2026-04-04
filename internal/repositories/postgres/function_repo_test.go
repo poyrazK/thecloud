@@ -20,6 +20,7 @@ func TestFunctionRepository_Integration(t *testing.T) {
 	repo := NewFunctionRepository(db)
 	ctx := SetupTestUser(t, db)
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	// Cleanup
 	_, _ = db.Exec(context.Background(), "DELETE FROM invocations")
@@ -30,6 +31,8 @@ func TestFunctionRepository_Integration(t *testing.T) {
 	t.Run("CreateFunction", func(t *testing.T) {
 		functionID = uuid.New()
 		fn := &domain.Function{
+			TenantID:  tenantID,
+			
 			ID:        functionID,
 			UserID:    userID,
 			Name:      "test-function",

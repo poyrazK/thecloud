@@ -3,11 +3,11 @@ package services_test
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
@@ -18,10 +18,16 @@ import (
 func TestIdentityService_Unit(t *testing.T) {
 	mockRepo := new(MockIdentityRepo)
 	mockAuditSvc := new(MockAuditService)
-	svc := services.NewIdentityService(mockRepo, mockAuditSvc, slog.Default())
+	rbacSvc := new(MockRBACService)
+	svc := services.NewIdentityService(services.IdentityServiceParams{
+		Repo: mockRepo, RbacSvc: rbacSvc, AuditSvc: mockAuditSvc,
+	})
 
 	ctx := context.Background()
 	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("CreateKey", func(t *testing.T) {
 		mockRepo.On("CreateAPIKey", mock.Anything, mock.Anything).Return(nil).Once()
@@ -56,6 +62,7 @@ func TestIdentityService_Unit(t *testing.T) {
 	})
 
 	t.Run("ListKeys", func(t *testing.T) {
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionIdentityRead, "*").Return(nil).Once()
 		mockRepo.On("ListAPIKeysByUserID", mock.Anything, userID).Return([]*domain.APIKey{{ID: uuid.New()}}, nil).Once()
 		res, err := svc.ListKeys(ctx, userID)
 		require.NoError(t, err)
@@ -65,6 +72,7 @@ func TestIdentityService_Unit(t *testing.T) {
 	t.Run("RevokeKey", func(t *testing.T) {
 		keyID := uuid.New()
 		apiKey := &domain.APIKey{ID: keyID, UserID: userID, Name: "old-key"}
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionIdentityDelete, keyID.String()).Return(nil).Once()
 		mockRepo.On("GetAPIKeyByID", mock.Anything, keyID).Return(apiKey, nil).Once()
 		mockRepo.On("DeleteAPIKey", mock.Anything, keyID).Return(nil).Once()
 		mockAuditSvc.On("Log", mock.Anything, userID, "api_key.revoke", "api_key", keyID.String(), mock.Anything).Return(nil).Once()
@@ -86,6 +94,7 @@ func TestIdentityService_Unit(t *testing.T) {
 	t.Run("RotateKey", func(t *testing.T) {
 		keyID := uuid.New()
 		apiKey := &domain.APIKey{ID: keyID, UserID: userID, Name: "rotate-me"}
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionIdentityDelete, keyID.String()).Return(nil).Once()
 		mockRepo.On("GetAPIKeyByID", mock.Anything, keyID).Return(apiKey, nil).Once()
 		mockRepo.On("CreateAPIKey", mock.Anything, mock.Anything).Return(nil).Once()
 		mockRepo.On("DeleteAPIKey", mock.Anything, keyID).Return(nil).Once()
@@ -101,6 +110,7 @@ func TestIdentityService_Unit(t *testing.T) {
 	t.Run("RotateKey_DeleteFail", func(t *testing.T) {
 		keyID := uuid.New()
 		apiKey := &domain.APIKey{ID: keyID, UserID: userID, Name: "rotate-me"}
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionIdentityDelete, keyID.String()).Return(nil).Once()
 		mockRepo.On("GetAPIKeyByID", mock.Anything, keyID).Return(apiKey, nil).Once()
 		mockRepo.On("CreateAPIKey", mock.Anything, mock.Anything).Return(nil).Once()
 		mockRepo.On("DeleteAPIKey", mock.Anything, keyID).Return(fmt.Errorf("delete fail")).Once()

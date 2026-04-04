@@ -27,6 +27,7 @@ const (
 // CacheService manages cache clusters and their lifecycle.
 type CacheService struct {
 	repo     ports.CacheRepository
+	rbacSvc  ports.RBACService
 	compute  ports.ComputeBackend
 	vpcRepo  ports.VpcRepository
 	eventSvc ports.EventService
@@ -37,6 +38,7 @@ type CacheService struct {
 // NewCacheService constructs a CacheService with its dependencies.
 func NewCacheService(
 	repo ports.CacheRepository,
+	rbacSvc ports.RBACService,
 	compute ports.ComputeBackend,
 	vpcRepo ports.VpcRepository,
 	eventSvc ports.EventService,
@@ -45,6 +47,7 @@ func NewCacheService(
 ) *CacheService {
 	return &CacheService{
 		repo:     repo,
+		rbacSvc:  rbacSvc,
 		compute:  compute,
 		vpcRepo:  vpcRepo,
 		eventSvc: eventSvc,
@@ -55,6 +58,11 @@ func NewCacheService(
 
 func (s *CacheService) CreateCache(ctx context.Context, name, version string, memoryMB int, vpcID *uuid.UUID) (*domain.Cache, error) {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheCreate, "*"); err != nil {
+		return nil, err
+	}
 
 	password, err := util.GenerateRandomPassword(16)
 	if err != nil {
@@ -64,6 +72,7 @@ func (s *CacheService) CreateCache(ctx context.Context, name, version string, me
 	cache := &domain.Cache{
 		ID:        uuid.New(),
 		UserID:    userID,
+		TenantID:  tenantID,
 		Name:      name,
 		Engine:    domain.EngineRedis,
 		Version:   version,
@@ -179,29 +188,53 @@ func (s *CacheService) launchCacheContainer(ctx context.Context, cache *domain.C
 }
 
 func (s *CacheService) logCacheCreation(ctx context.Context, cache *domain.Cache, originalName string) {
-	_ = s.eventSvc.RecordEvent(ctx, "CACHE_CREATE", cache.ID.String(), "CACHE", map[string]interface{}{
+	if err := s.eventSvc.RecordEvent(ctx, "CACHE_CREATE", cache.ID.String(), "CACHE", map[string]interface{}{
 		"name":    cache.Name,
 		"version": cache.Version,
 		"memory":  cache.MemoryMB,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to record event", "action", "CACHE_CREATE", "cache_id", cache.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, cache.UserID, "cache.create", "cache", cache.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, cache.UserID, "cache.create", "cache", cache.ID.String(), map[string]interface{}{
 		"name": originalName,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "cache.create", "cache_id", cache.ID, "error", err)
+	}
 
 	platform.CacheInstancesTotal.WithLabelValues("running").Inc()
 }
 
 func (s *CacheService) GetCache(ctx context.Context, idOrName string) (*domain.Cache, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheRead, idOrName); err != nil {
+		return nil, err
+	}
+
 	return s.getCacheByIDOrName(ctx, idOrName)
 }
 
 func (s *CacheService) ListCaches(ctx context.Context) ([]*domain.Cache, error) {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheRead, "*"); err != nil {
+		return nil, err
+	}
+
 	return s.repo.List(ctx, userID)
 }
 
 func (s *CacheService) DeleteCache(ctx context.Context, idOrName string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheDelete, idOrName); err != nil {
+		return err
+	}
+
 	cache, err := s.getCacheByIDOrName(ctx, idOrName)
 	if err != nil {
 		return err
@@ -220,11 +253,15 @@ func (s *CacheService) DeleteCache(ctx context.Context, idOrName string) error {
 		return err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "CACHE_DELETE", cache.ID.String(), "CACHE", nil)
+	if err := s.eventSvc.RecordEvent(ctx, "CACHE_DELETE", cache.ID.String(), "CACHE", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "CACHE_DELETE", "cache_id", cache.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, cache.UserID, "cache.delete", "cache", cache.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, cache.UserID, "cache.delete", "cache", cache.ID.String(), map[string]interface{}{
 		"name": cache.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "cache.delete", "cache_id", cache.ID, "error", err)
+	}
 
 	platform.CacheInstancesTotal.WithLabelValues("running").Dec()
 
@@ -232,6 +269,13 @@ func (s *CacheService) DeleteCache(ctx context.Context, idOrName string) error {
 }
 
 func (s *CacheService) GetConnectionString(ctx context.Context, idOrName string) (string, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheRead, idOrName); err != nil {
+		return "", err
+	}
+
 	cache, err := s.getCacheByIDOrName(ctx, idOrName)
 	if err != nil {
 		return "", err
@@ -251,6 +295,13 @@ func (s *CacheService) getCacheByIDOrName(ctx context.Context, idOrName string) 
 }
 
 func (s *CacheService) FlushCache(ctx context.Context, idOrName string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheDelete, idOrName); err != nil { // Using Delete perm for flush
+		return err
+	}
+
 	cache, err := s.getCacheByIDOrName(ctx, idOrName)
 	if err != nil {
 		return err
@@ -273,12 +324,21 @@ func (s *CacheService) FlushCache(ctx context.Context, idOrName string) error {
 		return errors.Wrap(errors.Internal, "failed to flush cache: "+output, err)
 	}
 
-	_ = s.auditSvc.Log(ctx, cache.UserID, "cache.flush", "cache", cache.ID.String(), map[string]interface{}{})
+	if err := s.auditSvc.Log(ctx, cache.UserID, "cache.flush", "cache", cache.ID.String(), map[string]interface{}{}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "cache.flush", "cache_id", cache.ID, "error", err)
+	}
 
 	return nil
 }
 
 func (s *CacheService) GetCacheStats(ctx context.Context, idOrName string) (*ports.CacheStats, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheRead, idOrName); err != nil {
+		return nil, err
+	}
+
 	cache, err := s.getCacheByIDOrName(ctx, idOrName)
 	if err != nil {
 		return nil, err

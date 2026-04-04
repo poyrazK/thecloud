@@ -34,6 +34,7 @@ type InstanceService struct {
 	subnetRepo       ports.SubnetRepository
 	volumeRepo       ports.VolumeRepository
 	instanceTypeRepo ports.InstanceTypeRepository
+	rbacSvc          ports.RBACService
 	compute          ports.ComputeBackend
 	network          ports.NetworkBackend
 	eventSvc         ports.EventService
@@ -55,6 +56,7 @@ type InstanceServiceParams struct {
 	SubnetRepo       ports.SubnetRepository
 	VolumeRepo       ports.VolumeRepository
 	InstanceTypeRepo ports.InstanceTypeRepository
+	RBAC             ports.RBACService
 	Compute          ports.ComputeBackend
 	Network          ports.NetworkBackend
 	EventSvc         ports.EventService
@@ -70,12 +72,17 @@ type InstanceServiceParams struct {
 
 // NewInstanceService creates a new InstanceService with the given dependencies.
 func NewInstanceService(params InstanceServiceParams) *InstanceService {
+	logger := params.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &InstanceService{
 		repo:             params.Repo,
 		vpcRepo:          params.VpcRepo,
 		subnetRepo:       params.SubnetRepo,
 		volumeRepo:       params.VolumeRepo,
 		instanceTypeRepo: params.InstanceTypeRepo,
+		rbacSvc:          params.RBAC,
 		compute:          params.Compute,
 		network:          params.Network,
 		eventSvc:         params.EventSvc,
@@ -86,7 +93,7 @@ func NewInstanceService(params InstanceServiceParams) *InstanceService {
 		tenantSvc:        params.TenantSvc,
 		sshKeySvc:        params.SSHKeySvc,
 		dockerNetwork:    params.DockerNetwork,
-		logger:           params.Logger,
+		logger:           logger,
 	}
 }
 
@@ -95,6 +102,13 @@ func NewInstanceService(params InstanceServiceParams) *InstanceService {
 func (s *InstanceService) LaunchInstance(ctx context.Context, params ports.LaunchParams) (*domain.Instance, error) {
 	ctx, span := otel.Tracer("instance-service").Start(ctx, "LaunchInstance")
 	defer span.End()
+
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceLaunch, "*"); err != nil {
+		return nil, err
+	}
 
 	span.SetAttributes(
 		attribute.String("instance.name", params.Name),
@@ -118,7 +132,6 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, params ports.Launc
 	}
 
 	// 3. Quota Check & Reservation
-	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	// Resolve SSH Key if provided
 	var userData string
@@ -169,7 +182,7 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, params ports.Launc
 	// 4. Create domain entity
 	inst := &domain.Instance{
 		ID:           uuid.New(),
-		UserID:       appcontext.UserIDFromContext(ctx),
+		UserID:       userID,
 		TenantID:     tenantID,
 		Name:         params.Name,
 		Image:        params.Image,
@@ -231,10 +244,17 @@ func (s *InstanceService) LaunchInstanceWithOptions(ctx context.Context, opts po
 	ctx, span := otel.Tracer("instance-service").Start(ctx, "LaunchInstanceWithOptions")
 	defer span.End()
 
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceLaunch, "*"); err != nil {
+		return nil, err
+	}
+
 	inst := &domain.Instance{
 		ID:           uuid.New(),
-		UserID:       appcontext.UserIDFromContext(ctx),
-		TenantID:     appcontext.TenantIDFromContext(ctx),
+		UserID:       userID,
+		TenantID:     tenantID,
 		Name:         opts.Name,
 		Image:        opts.ImageName,
 		Status:       domain.StatusStarting,
@@ -409,17 +429,21 @@ func (s *InstanceService) finalizeProvision(ctx context.Context, inst *domain.In
 
 	s.updateVolumesAfterLaunch(ctx, attachedVolumes, inst.ID)
 
-	_ = s.eventSvc.RecordEvent(ctx, "INSTANCE_LAUNCH", inst.ID.String(), "INSTANCE", map[string]interface{}{
+	if err := s.eventSvc.RecordEvent(ctx, "INSTANCE_LAUNCH", inst.ID.String(), "INSTANCE", map[string]interface{}{
 		"name":  inst.Name,
 		"image": inst.Image,
 		"ip":    inst.PrivateIP,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to record event", "action", "INSTANCE_LAUNCH", "instance_id", inst.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, inst.UserID, "instance.launch", "instance", inst.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, inst.UserID, "instance.launch", "instance", inst.ID.String(), map[string]interface{}{
 		"name":  inst.Name,
 		"image": inst.Image,
 		"ip":    inst.PrivateIP,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "instance.launch", "instance_id", inst.ID, "error", err)
+	}
 
 	return nil
 }
@@ -490,6 +514,13 @@ func parsePort(s string) (int, error) {
 
 // StartInstance boots up a stopped instance.
 func (s *InstanceService) StartInstance(ctx context.Context, idOrName string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate, idOrName); err != nil {
+		return err
+	}
+
 	// 1. Get from DB
 	inst, err := s.GetInstance(ctx, idOrName)
 	if err != nil {
@@ -525,15 +556,24 @@ func (s *InstanceService) StartInstance(ctx context.Context, idOrName string) er
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, inst.UserID, "instance.start", "instance", inst.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, inst.UserID, "instance.start", "instance", inst.ID.String(), map[string]interface{}{
 		"name": inst.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "instance.start", "instance_id", inst.ID, "error", err)
+	}
 
 	return nil
 }
 
 // StopInstance halts a running instance's associated compute resource (e.g., container).
 func (s *InstanceService) StopInstance(ctx context.Context, idOrName string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate, idOrName); err != nil {
+		return err
+	}
+
 	// 1. Get from DB (handles both Name and UUID)
 	inst, err := s.GetInstance(ctx, idOrName)
 	if err != nil {
@@ -569,20 +609,36 @@ func (s *InstanceService) StopInstance(ctx context.Context, idOrName string) err
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, inst.UserID, "instance.stop", "instance", inst.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, inst.UserID, "instance.stop", "instance", inst.ID.String(), map[string]interface{}{
 		"name": inst.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "instance.stop", "instance_id", inst.ID, "error", err)
+	}
 
 	return nil
 }
 
 // ListInstances returns all instances owned by the current user.
 func (s *InstanceService) ListInstances(ctx context.Context) ([]*domain.Instance, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead, "*"); err != nil {
+		return nil, err
+	}
+
 	return s.repo.List(ctx)
 }
 
 // GetInstance retrieves an instance by its UUID or name.
 func (s *InstanceService) GetInstance(ctx context.Context, idOrName string) (*domain.Instance, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead, idOrName); err != nil {
+		return nil, err
+	}
+
 	// 1. Try to parse as UUID
 	id, uuidErr := uuid.Parse(idOrName)
 	if uuidErr == nil {
@@ -594,9 +650,22 @@ func (s *InstanceService) GetInstance(ctx context.Context, idOrName string) (*do
 
 // GetInstanceLogs retrieves the execution logs from the instance's compute resource.
 func (s *InstanceService) GetInstanceLogs(ctx context.Context, idOrName string) (string, error) {
-	inst, err := s.GetInstance(ctx, idOrName)
-	if err != nil {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead, idOrName); err != nil {
 		return "", err
+	}
+
+	inst, err := s.repo.GetByName(ctx, idOrName) // Use underlying repo to avoid double RBAC if GetInstance is used
+	if err != nil {
+		id, uuidErr := uuid.Parse(idOrName)
+		if uuidErr == nil {
+			inst, err = s.repo.GetByID(ctx, id)
+		}
+	}
+	if err != nil || inst == nil {
+		return "", errors.New(errors.NotFound, "instance not found")
 	}
 
 	if inst.ContainerID == "" {
@@ -619,9 +688,22 @@ func (s *InstanceService) GetInstanceLogs(ctx context.Context, idOrName string) 
 
 // GetConsoleURL returns the VNC console URL for an instance.
 func (s *InstanceService) GetConsoleURL(ctx context.Context, idOrName string) (string, error) {
-	inst, err := s.GetInstance(ctx, idOrName)
-	if err != nil {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead, idOrName); err != nil {
 		return "", err
+	}
+
+	inst, err := s.repo.GetByName(ctx, idOrName)
+	if err != nil {
+		id, uuidErr := uuid.Parse(idOrName)
+		if uuidErr == nil {
+			inst, err = s.repo.GetByID(ctx, id)
+		}
+	}
+	if err != nil || inst == nil {
+		return "", errors.New(errors.NotFound, "instance not found")
 	}
 
 	id := inst.ID.String()
@@ -633,34 +715,51 @@ func (s *InstanceService) GetConsoleURL(ctx context.Context, idOrName string) (s
 }
 
 func (s *InstanceService) TerminateInstance(ctx context.Context, idOrName string) error {
-	inst, err := s.GetInstance(ctx, idOrName)
-	if err != nil {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceTerminate, idOrName); err != nil {
 		return err
+	}
+
+	inst, err := s.repo.GetByName(ctx, idOrName)
+	if err != nil {
+		id, uuidErr := uuid.Parse(idOrName)
+		if uuidErr == nil {
+			inst, err = s.repo.GetByID(ctx, id)
+		}
+	}
+	if err != nil || inst == nil {
+		return errors.New(errors.NotFound, "instance not found")
 	}
 
 	// Ingest logs before termination if LogService is available
 	if s.logSvc != nil && inst.ContainerID != "" {
-		logs, err := s.GetInstanceLogs(ctx, idOrName)
-		if err == nil && logs != "" {
-			lines := strings.Split(logs, "\n")
-			entries := make([]*domain.LogEntry, 0, len(lines))
-			for _, line := range lines {
-				if strings.TrimSpace(line) == "" {
-					continue
+		logs, err := s.compute.GetInstanceLogs(ctx, inst.ContainerID)
+		if err == nil {
+			defer func() { _ = logs.Close() }()
+			logBytes, _ := io.ReadAll(logs)
+			if len(logBytes) > 0 {
+				lines := strings.Split(string(logBytes), "\n")
+				entries := make([]*domain.LogEntry, 0, len(lines))
+				for _, line := range lines {
+					if strings.TrimSpace(line) == "" {
+						continue
+					}
+					entries = append(entries, &domain.LogEntry{
+						ID:           uuid.New(),
+						TenantID:     inst.TenantID,
+						ResourceID:   inst.ID.String(),
+						ResourceType: "instance",
+						Level:        "INFO",
+						Message:      line,
+						Timestamp:    time.Now(),
+					})
 				}
-				entries = append(entries, &domain.LogEntry{
-					ID:           uuid.New(),
-					TenantID:     inst.TenantID,
-					ResourceID:   inst.ID.String(),
-					ResourceType: "instance",
-					Level:        "INFO",
-					Message:      line,
-					Timestamp:    time.Now(),
-				})
-			}
-			if len(entries) > 0 {
-				if ingestErr := s.logSvc.IngestLogs(ctx, entries); ingestErr != nil {
-					s.logger.Warn("failed to ingest logs during termination", "instance_id", inst.ID, "error", ingestErr)
+				if len(entries) > 0 {
+					if ingestErr := s.logSvc.IngestLogs(ctx, entries); ingestErr != nil {
+						s.logger.Warn("failed to ingest logs during termination", "instance_id", inst.ID, "error", ingestErr)
+					}
 				}
 			}
 		}
@@ -699,10 +798,14 @@ func (s *InstanceService) finalizeTermination(ctx context.Context, inst *domain.
 		return err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "INSTANCE_TERMINATE", inst.ID.String(), "INSTANCE", map[string]interface{}{})
-	_ = s.auditSvc.Log(ctx, inst.UserID, "instance.terminate", "instance", inst.ID.String(), map[string]interface{}{
+	if err := s.eventSvc.RecordEvent(ctx, "INSTANCE_TERMINATE", inst.ID.String(), "INSTANCE", map[string]interface{}{}); err != nil {
+		s.logger.Warn("failed to record event", "action", "INSTANCE_TERMINATE", "instance_id", inst.ID, "error", err)
+	}
+	if err := s.auditSvc.Log(ctx, inst.UserID, "instance.terminate", "instance", inst.ID.String(), map[string]interface{}{
 		"name": inst.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "instance.terminate", "instance_id", inst.ID, "error", err)
+	}
 
 	// Release Quota
 	// Best effort - if instance type is not found, we can't decrement, but we shouldn't fail termination.
@@ -760,9 +863,22 @@ func (s *InstanceService) releaseAttachedVolumes(ctx context.Context, instanceID
 
 // GetInstanceStats retrieves real-time CPU and Memory usage for an instance.
 func (s *InstanceService) GetInstanceStats(ctx context.Context, idOrName string) (*domain.InstanceStats, error) {
-	inst, err := s.GetInstance(ctx, idOrName)
-	if err != nil {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead, idOrName); err != nil {
 		return nil, err
+	}
+
+	inst, err := s.repo.GetByName(ctx, idOrName)
+	if err != nil {
+		id, uuidErr := uuid.Parse(idOrName)
+		if uuidErr == nil {
+			inst, err = s.repo.GetByID(ctx, id)
+		}
+	}
+	if err != nil || inst == nil {
+		return nil, errors.New(errors.NotFound, "instance not found")
 	}
 
 	if inst.ContainerID == "" {
@@ -1030,9 +1146,22 @@ func (s *InstanceService) findAvailableIP(ipNet *net.IPNet, usedIPs map[string]b
 }
 
 func (s *InstanceService) Exec(ctx context.Context, idOrName string, cmd []string) (string, error) {
-	inst, err := s.GetInstance(ctx, idOrName)
-	if err != nil {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate, idOrName); err != nil {
 		return "", err
+	}
+
+	inst, err := s.repo.GetByName(ctx, idOrName)
+	if err != nil {
+		id, uuidErr := uuid.Parse(idOrName)
+		if uuidErr == nil {
+			inst, err = s.repo.GetByID(ctx, id)
+		}
+	}
+	if err != nil || inst == nil {
+		return "", errors.New(errors.NotFound, "instance not found")
 	}
 
 	if inst.ContainerID == "" {
@@ -1052,6 +1181,13 @@ func (s *InstanceService) Exec(ctx context.Context, idOrName string, cmd []strin
 
 // UpdateInstanceMetadata updates the metadata and labels of an instance.
 func (s *InstanceService) UpdateInstanceMetadata(ctx context.Context, id uuid.UUID, metadata, labels map[string]string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate, id.String()); err != nil {
+		return err
+	}
+
 	inst, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err

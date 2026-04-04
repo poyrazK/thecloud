@@ -3,6 +3,7 @@ package services_test
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -56,10 +57,12 @@ func (m *mockGatewayRepo) DeleteRoute(ctx context.Context, id uuid.UUID) error {
 func TestGatewayService_Unit(t *testing.T) {
 	repo := new(mockGatewayRepo)
 	auditSvc := new(MockAuditService)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	// NewGatewayService calls RefreshRoutes, and so do other methods
-	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{}, nil)
-	svc := services.NewGatewayService(repo, auditSvc)
+	// NewGatewayService calls RefreshRoutes during construction, and route mutations refresh again.
+	repo.On("GetAllActiveRoutes", mock.Anything).Return([]*domain.GatewayRoute{}, nil).Maybe()
+	svc := services.NewGatewayService(repo, rbacSvc, auditSvc, slog.Default())
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	userID := appcontext.UserIDFromContext(ctx)
@@ -82,8 +85,13 @@ func TestGatewayService_Unit(t *testing.T) {
 	})
 
 	t.Run("RefreshRoutes_Error", func(t *testing.T) {
-		repo.On("GetAllActiveRoutes", mock.Anything).Return(nil, fmt.Errorf("db fail")).Once()
-		err := svc.RefreshRoutes(ctx)
+		errRepo := new(mockGatewayRepo)
+		errRBAC := new(MockRBACService)
+		errAudit := new(MockAuditService)
+		errRepo.On("GetAllActiveRoutes", mock.Anything).Return(nil, fmt.Errorf("db fail")).Maybe()
+		errSvc := services.NewGatewayService(errRepo, errRBAC, errAudit, slog.Default())
+
+		err := errSvc.RefreshRoutes(ctx)
 		require.Error(t, err)
 	})
 

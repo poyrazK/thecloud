@@ -24,6 +24,7 @@ const (
 type UsageRecord struct {
 	ID           uuid.UUID    `json:"id"`
 	UserID       uuid.UUID    `json:"user_id"`
+	TenantID     uuid.UUID    `json:"tenant_id"`
 	ResourceID   uuid.UUID    `json:"resource_id"`
 	ResourceType ResourceType `json:"resource_type"`
 	Quantity     float64      `json:"quantity"` // Amount consumed (e.g. 60)

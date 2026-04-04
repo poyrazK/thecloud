@@ -21,11 +21,12 @@ func TestPostgresGatewayRepository(t *testing.T) {
 	CleanDB(t, db)
 	ctx := SetupTestUser(t, db)
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	t.Run("CreateAndListRoutes", func(t *testing.T) {
 		route := &domain.GatewayRoute{
 			ID:          uuid.New(),
-			UserID:      userID,
+			UserID:      userID, TenantID:    tenantID,
 			Name:        "test-route",
 			PathPrefix:  "/v1-test",
 			PathPattern: "/v1-test/*",

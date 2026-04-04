@@ -3,6 +3,7 @@ package services_test
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -14,11 +15,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestContainerService_Unit(t *testing.T) {
+func TestContainerServiceUnit(t *testing.T) {
 	repo := new(MockContainerRepository)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
-	svc := services.NewContainerService(repo, eventSvc, auditSvc)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewContainerService(repo, rbacSvc, eventSvc, auditSvc, slog.Default())
 
 	ctx := context.Background()
 	userID := uuid.New()

@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pashagolub/pgxmock/v3"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -26,9 +27,11 @@ func TestFunctionRepositoryCreate(t *testing.T) {
 	defer mock.Close()
 
 	repo := NewFunctionRepository(mock)
+	tenantID := uuid.New()
 	f := &domain.Function{
 		ID:        uuid.New(),
 		UserID:    uuid.New(),
+		TenantID:  tenantID,
 		Name:      testFuncName,
 		Runtime:   testFuncRuntime,
 		Handler:   testFuncHandler,
@@ -41,7 +44,7 @@ func TestFunctionRepositoryCreate(t *testing.T) {
 	}
 
 	mock.ExpectExec("INSERT INTO functions").
-		WithArgs(f.ID, f.UserID, f.Name, f.Runtime, f.Handler, f.CodePath, f.Timeout, f.MemoryMB, f.Status, f.CreatedAt, f.UpdatedAt).
+		WithArgs(f.ID, f.UserID, f.TenantID, f.Name, f.Runtime, f.Handler, f.CodePath, f.Timeout, f.MemoryMB, f.Status, f.CreatedAt, f.UpdatedAt).
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.Create(context.Background(), f)
@@ -56,17 +59,20 @@ func TestFunctionRepositoryGetByID(t *testing.T) {
 
 	repo := NewFunctionRepository(mock)
 	id := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(context.Background(), tenantID)
 	now := time.Now()
 
-	mock.ExpectQuery("SELECT id, user_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, created_at, updated_at FROM functions WHERE id = \\$1").
-		WithArgs(id).
-		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "runtime", "handler", "code_path", "timeout_seconds", "memory_mb", "status", "created_at", "updated_at"}).
-			AddRow(id, uuid.New(), testFuncName, testFuncRuntime, testFuncHandler, testFuncPath, 30, 128, "ready", now, now))
+	mock.ExpectQuery("SELECT id, user_id, tenant_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, created_at, updated_at FROM functions WHERE id = \\$1 AND tenant_id = \\$2").
+		WithArgs(id, tenantID).
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "runtime", "handler", "code_path", "timeout_seconds", "memory_mb", "status", "created_at", "updated_at"}).
+			AddRow(id, uuid.New(), tenantID, testFuncName, testFuncRuntime, testFuncHandler, testFuncPath, 30, 128, "ready", now, now))
 
-	f, err := repo.GetByID(context.Background(), id)
+	f, err := repo.GetByID(ctx, id)
 	require.NoError(t, err)
 	assert.NotNil(t, f)
 	assert.Equal(t, id, f.ID)
+	assert.Equal(t, tenantID, f.TenantID)
 }
 
 func TestFunctionRepositoryList(t *testing.T) {
@@ -77,14 +83,16 @@ func TestFunctionRepositoryList(t *testing.T) {
 
 	repo := NewFunctionRepository(mock)
 	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(context.Background(), tenantID)
 	now := time.Now()
 
-	mock.ExpectQuery("SELECT id, user_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, created_at, updated_at FROM functions").
-		WithArgs(userID).
-		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "runtime", "handler", "code_path", "timeout_seconds", "memory_mb", "status", "created_at", "updated_at"}).
-			AddRow(uuid.New(), userID, testFuncName, testFuncRuntime, testFuncHandler, testFuncPath, 30, 128, "ready", now, now))
+	mock.ExpectQuery("SELECT id, user_id, tenant_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, created_at, updated_at FROM functions WHERE tenant_id = \\$1").
+		WithArgs(tenantID).
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "runtime", "handler", "code_path", "timeout_seconds", "memory_mb", "status", "created_at", "updated_at"}).
+			AddRow(uuid.New(), userID, tenantID, testFuncName, testFuncRuntime, testFuncHandler, testFuncPath, 30, 128, "ready", now, now))
 
-	functions, err := repo.List(context.Background(), userID)
+	functions, err := repo.List(ctx, userID)
 	require.NoError(t, err)
 	assert.Len(t, functions, 1)
 }
@@ -97,11 +105,13 @@ func TestFunctionRepositoryDelete(t *testing.T) {
 
 	repo := NewFunctionRepository(mock)
 	id := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(context.Background(), tenantID)
 
-	mock.ExpectExec("DELETE FROM functions WHERE id = \\$1").
-		WithArgs(id).
+	mock.ExpectExec("DELETE FROM functions WHERE id = \\$1 AND tenant_id = \\$2").
+		WithArgs(id, tenantID).
 		WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
-	err = repo.Delete(context.Background(), id)
+	err = repo.Delete(ctx, id)
 	require.NoError(t, err)
 }

@@ -17,6 +17,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type MockSSHKeyService struct{ mock.Mock }
+
+func (m *MockSSHKeyService) CreateKey(ctx context.Context, name, publicKey string) (*domain.SSHKey, error) {
+	return nil, nil
+}
+func (m *MockSSHKeyService) GetKey(ctx context.Context, id uuid.UUID) (*domain.SSHKey, error) {
+	args := m.Called(ctx, id)
+	r0, _ := args.Get(0).(*domain.SSHKey)
+	return r0, args.Error(1)
+}
+func (m *MockSSHKeyService) ListKeys(ctx context.Context) ([]*domain.SSHKey, error) { return nil, nil }
+func (m *MockSSHKeyService) DeleteKey(ctx context.Context, id uuid.UUID) error      { return nil }
+
 type MockDNSService struct{ mock.Mock }
 
 func (m *MockDNSService) CreateZone(ctx context.Context, vpcID uuid.UUID, name, description string) (*domain.DNSZone, error) {
@@ -58,23 +71,6 @@ func (m *MockDNSService) UnregisterInstance(ctx context.Context, id uuid.UUID) e
 	return args.Error(0)
 }
 
-type MockSSHKeyService struct{ mock.Mock }
-
-func (m *MockSSHKeyService) CreateKey(ctx context.Context, name, publicKey string) (*domain.SSHKey, error) {
-	return nil, nil
-}
-func (m *MockSSHKeyService) GetKey(ctx context.Context, id uuid.UUID) (*domain.SSHKey, error) {
-	args := m.Called(ctx, id)
-	r0, _ := args.Get(0).(*domain.SSHKey)
-	return r0, args.Error(1)
-}
-func (m *MockSSHKeyService) ListKeys(ctx context.Context) ([]*domain.SSHKey, error) {
-	return nil, nil
-}
-func (m *MockSSHKeyService) DeleteKey(ctx context.Context, id uuid.UUID) error {
-	return nil
-}
-
 func TestInstanceService_LaunchInstance_Unit(t *testing.T) {
 	repo := new(MockInstanceRepo)
 	vpcRepo := new(MockVpcRepo)
@@ -83,6 +79,7 @@ func TestInstanceService_LaunchInstance_Unit(t *testing.T) {
 	typeRepo := new(MockInstanceTypeRepo)
 	compute := new(MockComputeBackend)
 	network := new(MockNetworkBackend)
+	rbacSvc := new(MockRBACService)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	dnsSvc := new(MockDNSService)
@@ -98,6 +95,7 @@ func TestInstanceService_LaunchInstance_Unit(t *testing.T) {
 		InstanceTypeRepo: typeRepo,
 		Compute:          compute,
 		Network:          network,
+		RBAC:             rbacSvc,
 		EventSvc:         eventSvc,
 		AuditSvc:         auditSvc,
 		DNSSvc:           dnsSvc,
@@ -116,11 +114,12 @@ func TestInstanceService_LaunchInstance_Unit(t *testing.T) {
 
 	t.Run("Success_Basic", func(t *testing.T) {
 		params := ports.LaunchParams{
-			Name:         "test-instance",
-			Image:        "ubuntu",
+			Name:         "test-inst",
+			Image:        "alpine",
 			InstanceType: "t2.micro",
 		}
 
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		typeRepo.On("GetByID", mock.Anything, "t2.micro").Return(&domain.InstanceType{
 			ID: "t2.micro", VCPUs: 1, MemoryMB: 1024,
 		}, nil).Once()
@@ -144,24 +143,26 @@ func TestInstanceService_LaunchInstance_Unit(t *testing.T) {
 		assert.Equal(t, params.Name, inst.Name)
 		repo.AssertExpectations(t)
 		tenantSvc.AssertExpectations(t)
+		rbacSvc.AssertExpectations(t)
 	})
 
 	t.Run("QuotaExceeded_Instances", func(t *testing.T) {
 		params := ports.LaunchParams{
 			Name:         "no-quota",
-			Image:        "ubuntu",
-			InstanceType: "t2.large",
+			Image:        "alpine",
+			InstanceType: "t2.micro",
 		}
 
-		typeRepo.On("GetByID", mock.Anything, "t2.large").Return(&domain.InstanceType{
-			ID: "t2.large", VCPUs: 4, MemoryMB: 4096,
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		typeRepo.On("GetByID", mock.Anything, "t2.micro").Return(&domain.InstanceType{
+			ID: "t2.micro", VCPUs: 1, MemoryMB: 1024,
 		}, nil).Once()
 		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "instances", 1).Return(fmt.Errorf("quota exceeded")).Once()
 
-		inst, err := svc.LaunchInstance(ctx, params)
-
+		_, err := svc.LaunchInstance(ctx, params)
 		require.Error(t, err)
-		assert.Nil(t, inst)
+		assert.Contains(t, err.Error(), "quota exceeded")
+		rbacSvc.AssertExpectations(t)
 	})
 
 	t.Run("QuotaExceeded_VCPUs", func(t *testing.T) {
@@ -171,16 +172,16 @@ func TestInstanceService_LaunchInstance_Unit(t *testing.T) {
 			InstanceType: "t2.large",
 		}
 
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		typeRepo.On("GetByID", mock.Anything, "t2.large").Return(&domain.InstanceType{
 			ID: "t2.large", VCPUs: 4, MemoryMB: 4096,
 		}, nil).Once()
 		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "instances", 1).Return(nil).Once()
 		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "vcpus", 4).Return(fmt.Errorf("quota exceeded")).Once()
 
-		inst, err := svc.LaunchInstance(ctx, params)
-
+		_, err := svc.LaunchInstance(ctx, params)
 		require.Error(t, err)
-		assert.Nil(t, inst)
+		assert.Contains(t, err.Error(), "quota exceeded")
 	})
 
 	t.Run("QuotaExceeded_Memory", func(t *testing.T) {
@@ -190,6 +191,7 @@ func TestInstanceService_LaunchInstance_Unit(t *testing.T) {
 			InstanceType: "t2.large",
 		}
 
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		typeRepo.On("GetByID", mock.Anything, "t2.large").Return(&domain.InstanceType{
 			ID: "t2.large", VCPUs: 4, MemoryMB: 4096,
 		}, nil).Once()
@@ -197,10 +199,9 @@ func TestInstanceService_LaunchInstance_Unit(t *testing.T) {
 		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "vcpus", 4).Return(nil).Once()
 		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "memory", 4).Return(fmt.Errorf("quota exceeded")).Once()
 
-		inst, err := svc.LaunchInstance(ctx, params)
-
+		_, err := svc.LaunchInstance(ctx, params)
 		require.Error(t, err)
-		assert.Nil(t, inst)
+		assert.Contains(t, err.Error(), "quota exceeded")
 	})
 }
 
@@ -212,6 +213,7 @@ func TestInstanceService_Lifecycle_Unit(t *testing.T) {
 	typeRepo := new(MockInstanceTypeRepo)
 	compute := new(MockComputeBackend)
 	network := new(MockNetworkBackend)
+	rbacSvc := new(MockRBACService)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	dnsSvc := new(MockDNSService)
@@ -227,6 +229,7 @@ func TestInstanceService_Lifecycle_Unit(t *testing.T) {
 		InstanceTypeRepo: typeRepo,
 		Compute:          compute,
 		Network:          network,
+		RBAC:             rbacSvc,
 		EventSvc:         eventSvc,
 		AuditSvc:         auditSvc,
 		DNSSvc:           dnsSvc,
@@ -245,8 +248,9 @@ func TestInstanceService_Lifecycle_Unit(t *testing.T) {
 	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("StartInstance", func(t *testing.T) {
-		inst := &domain.Instance{ID: instanceID, UserID: userID, Status: domain.StatusStopped, ContainerID: "cid-1"}
+		inst := &domain.Instance{ID: instanceID, UserID: userID, TenantID: tenantID, Status: domain.StatusStopped, ContainerID: "cid-1"}
 		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
 		compute.On("StartInstance", mock.Anything, "cid-1").Return(nil).Once()
 		compute.On("Type").Return("docker").Maybe()
 		repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
@@ -259,8 +263,9 @@ func TestInstanceService_Lifecycle_Unit(t *testing.T) {
 	})
 
 	t.Run("StopInstance", func(t *testing.T) {
-		inst := &domain.Instance{ID: instanceID, UserID: userID, Status: domain.StatusRunning, ContainerID: "cid-1"}
+		inst := &domain.Instance{ID: instanceID, UserID: userID, TenantID: tenantID, Status: domain.StatusRunning, ContainerID: "cid-1"}
 		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
 		compute.On("StopInstance", mock.Anything, "cid-1").Return(nil).Once()
 		compute.On("Type").Return("docker").Maybe()
 		repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
@@ -279,6 +284,7 @@ func TestInstanceService_Lifecycle_Unit(t *testing.T) {
 		}
 		typeRepo.On("GetByID", mock.Anything, "t2.micro").Return(&domain.InstanceType{VCPUs: 1, MemoryMB: 1024}, nil).Maybe()
 		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceTerminate, instanceID.String()).Return(nil).Once()
 		compute.On("DeleteInstance", mock.Anything, "cid-1").Return(nil).Once()
 		compute.On("Type").Return("docker").Maybe()
 		volRepo.On("ListByInstanceID", mock.Anything, instanceID).Return([]*domain.Volume{}, nil).Once()
@@ -300,18 +306,25 @@ func TestInstanceService_Lifecycle_Unit(t *testing.T) {
 func TestInstanceService_Exec_Unit(t *testing.T) {
 	repo := new(MockInstanceRepo)
 	compute := new(MockComputeBackend)
+	rbacSvc := new(MockRBACService)
 	svc := services.NewInstanceService(services.InstanceServiceParams{
 		Repo:    repo,
 		Compute: compute,
+		RBAC:    rbacSvc,
 		Logger:  slog.Default(),
 	})
 
 	ctx := context.Background()
 	instanceID := uuid.New()
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("NotRunning", func(t *testing.T) {
-		inst := &domain.Instance{ID: instanceID, Status: domain.StatusStopped, ContainerID: ""}
+		inst := &domain.Instance{ID: instanceID, UserID: userID, TenantID: tenantID, Status: domain.StatusStopped, ContainerID: ""}
 		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
 
 		_, err := svc.Exec(ctx, instanceID.String(), []string{"ls"})
 		require.Error(t, err)
@@ -319,8 +332,9 @@ func TestInstanceService_Exec_Unit(t *testing.T) {
 	})
 
 	t.Run("BackendError", func(t *testing.T) {
-		inst := &domain.Instance{ID: instanceID, Status: domain.StatusRunning, ContainerID: "cid-1"}
+		inst := &domain.Instance{ID: instanceID, UserID: userID, TenantID: tenantID, Status: domain.StatusRunning, ContainerID: "cid-1"}
 		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
 		compute.On("Exec", mock.Anything, "cid-1", []string{"ls"}).Return("", errors.New("exec failed")).Once()
 
 		_, err := svc.Exec(ctx, instanceID.String(), []string{"ls"})

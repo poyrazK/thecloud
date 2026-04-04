@@ -16,6 +16,7 @@ import (
 // GlobalLBService coordinates multi-region traffic distribution via GeoDNS.
 type GlobalLBService struct {
 	repo     ports.GlobalLBRepository
+	rbacSvc  ports.RBACService
 	lbRepo   ports.LBRepository
 	geoDNS   ports.GeoDNSBackend
 	auditSvc ports.AuditService
@@ -25,6 +26,7 @@ type GlobalLBService struct {
 // GlobalLBServiceParams holds dependencies for GlobalLBService.
 type GlobalLBServiceParams struct {
 	Repo     ports.GlobalLBRepository
+	RBAC     ports.RBACService
 	LBRepo   ports.LBRepository
 	GeoDNS   ports.GeoDNSBackend
 	AuditSvc ports.AuditService
@@ -35,6 +37,7 @@ type GlobalLBServiceParams struct {
 func NewGlobalLBService(params GlobalLBServiceParams) *GlobalLBService {
 	return &GlobalLBService{
 		repo:     params.Repo,
+		rbacSvc:  params.RBAC,
 		lbRepo:   params.LBRepo,
 		geoDNS:   params.GeoDNS,
 		auditSvc: params.AuditSvc,
@@ -43,6 +46,13 @@ func NewGlobalLBService(params GlobalLBServiceParams) *GlobalLBService {
 }
 
 func (s *GlobalLBService) Create(ctx context.Context, name, hostname string, policy domain.RoutingPolicy, healthCheck domain.GlobalHealthCheckConfig) (*domain.GlobalLoadBalancer, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbCreate, "*"); err != nil {
+		return nil, err
+	}
+
 	// Validate inputs
 	if name == "" || hostname == "" {
 		return nil, errors.New(errors.InvalidInput, "name and hostname are required")
@@ -59,8 +69,8 @@ func (s *GlobalLBService) Create(ctx context.Context, name, hostname string, pol
 
 	glb := &domain.GlobalLoadBalancer{
 		ID:          uuid.New(),
-		UserID:      appcontext.UserIDFromContext(ctx),
-		TenantID:    appcontext.TenantIDFromContext(ctx),
+		UserID:      userID,
+		TenantID:    tenantID,
 		Name:        name,
 		Hostname:    hostname,
 		Policy:      policy,
@@ -82,23 +92,31 @@ func (s *GlobalLBService) Create(ctx context.Context, name, hostname string, pol
 		// Non-blocking: failures in the DNS synchronization layer are logged for asynchronous remediation.
 	}
 
-	_ = s.auditSvc.Log(ctx, glb.UserID, "global_lb.create", "global_lb", glb.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, glb.UserID, "global_lb.create", "global_lb", glb.ID.String(), map[string]interface{}{
 		"hostname": hostname,
 		"policy":   policy,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "global_lb.create", "resource_id", glb.ID.String(), "error", err)
+	}
 
 	return glb, nil
 }
 
 func (s *GlobalLBService) Get(ctx context.Context, id uuid.UUID) (*domain.GlobalLoadBalancer, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbRead, id.String()); err != nil {
+		return nil, err
+	}
+
 	glb, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
 	// Verify ownership
-	userID := appcontext.UserIDFromContext(ctx)
-	if glb.UserID != userID {
+	if glb.UserID != userID || glb.TenantID != tenantID {
 		return nil, errors.New(errors.Unauthorized, "unauthorized access to global load balancer")
 	}
 
@@ -113,10 +131,24 @@ func (s *GlobalLBService) Get(ctx context.Context, id uuid.UUID) (*domain.Global
 }
 
 func (s *GlobalLBService) List(ctx context.Context, userID uuid.UUID) ([]*domain.GlobalLoadBalancer, error) {
+	uID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionLbRead, "*"); err != nil {
+		return nil, err
+	}
+
 	return s.repo.List(ctx, userID)
 }
 
 func (s *GlobalLBService) Delete(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	uID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionLbDelete, id.String()); err != nil {
+		return err
+	}
+
 	glb, err := s.Get(ctx, id)
 	if err != nil {
 		return err
@@ -135,12 +167,21 @@ func (s *GlobalLBService) Delete(ctx context.Context, id uuid.UUID, userID uuid.
 		return errors.Wrap(errors.Internal, "failed to delete global load balancer", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, glb.UserID, "global_lb.delete", "global_lb", id.String(), nil)
+	if err := s.auditSvc.Log(ctx, glb.UserID, "global_lb.delete", "global_lb", id.String(), nil); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "global_lb.delete", "resource_id", id.String(), "error", err)
+	}
 
 	return nil
 }
 
 func (s *GlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, region string, targetType string, targetID *uuid.UUID, targetIP *string, weight, priority int) (*domain.GlobalEndpoint, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbUpdate, glbID.String()); err != nil {
+		return nil, err
+	}
+
 	// 1. Load Global Load Balancer to verify ownership and existence
 	glb, err := s.Get(ctx, glbID)
 	if err != nil {
@@ -151,7 +192,6 @@ func (s *GlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, regi
 	// However, Get() above strictly enforces ownership.
 
 	// Validate target
-	userID := appcontext.UserIDFromContext(ctx)
 	switch targetType {
 	case "LB":
 		if targetID == nil {
@@ -162,7 +202,7 @@ func (s *GlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, regi
 		if err != nil {
 			return nil, errors.Wrap(errors.NotFound, "target load balancer not found", err)
 		}
-		if lb.UserID != userID {
+		if lb.UserID != userID || lb.TenantID != tenantID {
 			return nil, errors.New(errors.Unauthorized, "unauthorized access to regional load balancer")
 		}
 	case "IP":
@@ -204,16 +244,23 @@ func (s *GlobalLBService) AddEndpoint(ctx context.Context, glbID uuid.UUID, regi
 		s.logger.Error("failed to update geo dns", "hostname", glb.Hostname, "error", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, glb.UserID, "global_lb.endpoint_add", "global_lb", glbID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, glb.UserID, "global_lb.endpoint_add", "global_lb", glbID.String(), map[string]interface{}{
 		"region": region,
 		"type":   targetType,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "global_lb.endpoint_add", "resource_id", glbID.String(), "error", err)
+	}
 
 	return ep, nil
 }
 
 func (s *GlobalLBService) RemoveEndpoint(ctx context.Context, glbID, endpointID uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbUpdate, glbID.String()); err != nil {
+		return err
+	}
 
 	// 1. Get endpoint to find parent GLB and verify ownership
 	ep, err := s.repo.GetEndpointByID(ctx, endpointID)
@@ -231,7 +278,7 @@ func (s *GlobalLBService) RemoveEndpoint(ctx context.Context, glbID, endpointID 
 		return err
 	}
 
-	if glb.UserID != userID {
+	if glb.UserID != userID || glb.TenantID != tenantID {
 		return errors.New(errors.Unauthorized, "unauthorized access to global load balancer endpoint")
 	}
 
@@ -253,14 +300,23 @@ func (s *GlobalLBService) RemoveEndpoint(ctx context.Context, glbID, endpointID 
 		}
 	}
 
-	_ = s.auditSvc.Log(ctx, userID, "global_lb.endpoint_remove", "global_lb", glb.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, userID, "global_lb.endpoint_remove", "global_lb", glb.ID.String(), map[string]interface{}{
 		"endpoint_id": endpointID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "global_lb.endpoint_remove", "resource_id", glb.ID.String(), "error", err)
+	}
 
 	return nil
 }
 
 func (s *GlobalLBService) ListEndpoints(ctx context.Context, glbID uuid.UUID) ([]*domain.GlobalEndpoint, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionLbRead, glbID.String()); err != nil {
+		return nil, err
+	}
+
 	// Verify ownership and existence
 	if _, err := s.Get(ctx, glbID); err != nil {
 		return nil, err

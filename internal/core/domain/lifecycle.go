@@ -11,6 +11,7 @@ import (
 type LifecycleRule struct {
 	ID             uuid.UUID `json:"id"`
 	UserID         uuid.UUID `json:"user_id"`
+	TenantID       uuid.UUID `json:"tenant_id"`
 	BucketName     string    `json:"bucket_name"`
 	Prefix         string    `json:"prefix"`
 	ExpirationDays int       `json:"expiration_days"`

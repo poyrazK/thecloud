@@ -10,6 +10,7 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -21,7 +22,19 @@ func TestVpcServiceUnit(t *testing.T) {
 	network := new(MockNetworkBackend)
 	auditSvc := new(MockAuditService)
 	peeringRepo := new(MockVPCPeeringRepo)
-	svc := services.NewVpcService(repo, lbRepo, peeringRepo, network, auditSvc, slog.Default(), "10.0.0.0/16")
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewVpcService(services.VpcServiceParams{
+		Repo:        repo,
+		LBRepo:      lbRepo,
+		PeeringRepo: peeringRepo,
+		RBACSvc:     rbacSvc,
+		Network:     network,
+		AuditSvc:    auditSvc,
+		Logger:      slog.Default(),
+		DefaultCIDR: "10.0.0.0/16",
+	})
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -56,6 +69,12 @@ func TestVpcServiceUnit(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("CreateVPC_InvalidCIDR", func(t *testing.T) {
+		_, err := svc.CreateVPC(ctx, "test-vpc", "invalid")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid CIDR")
+	})
+
 	t.Run("DeleteVPC_Success", func(t *testing.T) {
 		vpcID := uuid.New()
 		vpc := &domain.VPC{ID: vpcID, UserID: userID, NetworkID: "br-1"}
@@ -69,6 +88,28 @@ func TestVpcServiceUnit(t *testing.T) {
 
 		err := svc.DeleteVPC(ctx, vpcID.String())
 		require.NoError(t, err)
+	})
+
+	t.Run("DeleteVPC_NotFound", func(t *testing.T) {
+		vpcID := uuid.New()
+		repo.On("GetByID", mock.Anything, vpcID).Return(nil, errors.New(errors.NotFound, "not found")).Once()
+
+		err := svc.DeleteVPC(ctx, vpcID.String())
+		require.Error(t, err)
+	})
+
+	t.Run("DeleteVPC_WithLoadBalancers", func(t *testing.T) {
+		vpcID := uuid.New()
+		vpc := &domain.VPC{ID: vpcID, UserID: userID, NetworkID: "br-1"}
+
+		repo.On("GetByID", mock.Anything, vpcID).Return(vpc, nil).Once()
+		lbRepo.On("ListAll", mock.Anything).Return([]*domain.LoadBalancer{
+			{ID: uuid.New(), VpcID: vpcID},
+		}, nil).Once()
+
+		err := svc.DeleteVPC(ctx, vpcID.String())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "load balancers still exist")
 	})
 
 	t.Run("DeleteVPC_WithActivePeering", func(t *testing.T) {

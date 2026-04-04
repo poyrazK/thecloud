@@ -19,7 +19,14 @@ import (
 
 func TestSSHKeyService_Unit(t *testing.T) {
 	mockRepo := new(MockSSHKeyRepo)
-	svc := services.NewSSHKeyService(mockRepo)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc, err := services.NewSSHKeyService(services.SSHKeyServiceParams{
+		Repo:    mockRepo,
+		RBACSvc: rbacSvc,
+	})
+	require.NoError(t, err)
 
 	ctx := context.Background()
 	tenantID := uuid.New()

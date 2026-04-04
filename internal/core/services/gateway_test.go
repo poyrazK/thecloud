@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
@@ -9,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,10 +22,16 @@ func setupGatewayServiceTest(t *testing.T) (*services.GatewayService, *postgres.
 
 	repo := postgres.NewPostgresGatewayRepository(db)
 
-	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	svc := services.NewGatewayService(repo, auditSvc)
+	auditRepo := postgres.NewAuditRepository(db)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
+
+	svc := services.NewGatewayService(repo, rbacSvc, auditSvc, slog.Default())
 	pgRepo, ok := repo.(*postgres.PostgresGatewayRepository)
 	require.True(t, ok)
 	return svc, pgRepo, ctx

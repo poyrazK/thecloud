@@ -20,11 +20,12 @@ func TestPostgresCronRepository(t *testing.T) {
 	repo := NewPostgresCronRepository(db)
 	ctx := SetupTestUser(t, db)
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	t.Run("CreateAndGetJob", func(t *testing.T) {
 		job := &domain.CronJob{
 			ID:           uuid.New(),
-			UserID:       userID,
+			UserID:       userID, TenantID:     tenantID,
 			Name:         "test-job",
 			Schedule:     "* * * * *",
 			TargetURL:    "http://test",
@@ -51,7 +52,7 @@ func TestPostgresCronRepository(t *testing.T) {
 	t.Run("GetNextJobs", func(t *testing.T) {
 		job := &domain.CronJob{
 			ID:           uuid.New(),
-			UserID:       userID,
+			UserID:       userID, TenantID:     tenantID,
 			Name:         "upcoming",
 			Schedule:     "* * * * *",
 			TargetURL:    "http://test",

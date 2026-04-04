@@ -36,6 +36,7 @@ const (
 type Stack struct {
 	ID           uuid.UUID       `json:"id"`
 	UserID       uuid.UUID       `json:"user_id"`
+	TenantID     uuid.UUID       `json:"tenant_id"`
 	Name         string          `json:"name"`
 	Template     string          `json:"template"` // Raw YAML or JSON
 	Parameters   json.RawMessage `json:"parameters" swaggertype:"string"`

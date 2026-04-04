@@ -49,6 +49,7 @@ type Cluster struct {
 	ID              uuid.UUID     `json:"id"`
 	Name            string        `json:"name"`
 	UserID          uuid.UUID     `json:"user_id"`
+	TenantID        uuid.UUID     `json:"tenant_id"`
 	VpcID           uuid.UUID     `json:"vpc_id"`
 	Version         string        `json:"version"`
 	ControlPlaneIPs []string      `json:"control_plane_ips"`

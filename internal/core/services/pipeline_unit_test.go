@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -111,7 +112,7 @@ func TestPipelineServiceTriggerBuildWebhookInvalidGitHubSignature(t *testing.T) 
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 
-	svc := services.NewPipelineService(repo, taskQueue, eventSvc, auditSvc)
+	svc := services.NewPipelineService(repo, taskQueue, eventSvc, auditSvc, slog.Default())
 	pipelineID := uuid.New()
 
 	repo.On("GetPipelineByID", mock.Anything, pipelineID).Return(&domain.Pipeline{
@@ -141,7 +142,7 @@ func TestPipelineServiceTriggerBuildWebhookDuplicateDeliveryIgnored(t *testing.T
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 
-	svc := services.NewPipelineService(repo, taskQueue, eventSvc, auditSvc)
+	svc := services.NewPipelineService(repo, taskQueue, eventSvc, auditSvc, slog.Default())
 	pipelineID := uuid.New()
 	payload := []byte(`{"ref":"refs/heads/main","after":"abc123"}`)
 
@@ -174,7 +175,7 @@ func TestPipelineServiceTriggerBuildWebhookBranchMismatchIgnored(t *testing.T) {
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 
-	svc := services.NewPipelineService(repo, taskQueue, eventSvc, auditSvc)
+	svc := services.NewPipelineService(repo, taskQueue, eventSvc, auditSvc, slog.Default())
 	pipelineID := uuid.New()
 	payload := []byte(`{"ref":"refs/heads/dev","after":"abc123"}`)
 
@@ -207,7 +208,7 @@ func TestPipelineServiceTriggerBuildWebhookSuccessQueuesBuild(t *testing.T) {
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 
-	svc := services.NewPipelineService(repo, taskQueue, eventSvc, auditSvc)
+	svc := services.NewPipelineService(repo, taskQueue, eventSvc, auditSvc, slog.Default())
 	userID := uuid.New()
 	pipelineID := uuid.New()
 	payload := []byte(`{"ref":"refs/heads/main","after":"abc123"}`)

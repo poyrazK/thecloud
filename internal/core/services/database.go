@@ -40,6 +40,7 @@ const (
 // DatabaseService manages database instances and lifecycle.
 type DatabaseService struct {
 	repo         ports.DatabaseRepository
+	rbacSvc      ports.RBACService
 	compute      ports.ComputeBackend
 	vpcRepo      ports.VpcRepository
 	volumeSvc    ports.VolumeService
@@ -53,6 +54,7 @@ type DatabaseService struct {
 // DatabaseServiceParams holds dependencies for DatabaseService creation.
 type DatabaseServiceParams struct {
 	Repo         ports.DatabaseRepository
+	RBAC         ports.RBACService
 	Compute      ports.ComputeBackend
 	VpcRepo      ports.VpcRepository
 	VolumeSvc    ports.VolumeService
@@ -67,6 +69,7 @@ type DatabaseServiceParams struct {
 func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 	return &DatabaseService{
 		repo:         params.Repo,
+		rbacSvc:      params.RBAC,
 		compute:      params.Compute,
 		vpcRepo:      params.VpcRepo,
 		volumeSvc:    params.VolumeSvc,
@@ -80,6 +83,12 @@ func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 
 func (s *DatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDatabaseRequest) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBCreate, "*"); err != nil {
+		return nil, err
+	}
+
 	dbEngine := domain.DatabaseEngine(req.Engine)
 
 	if err := s.validateCreationRequest(req, dbEngine); err != nil {
@@ -93,6 +102,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDa
 
 	username := s.getDefaultUsername(dbEngine)
 	db := s.initialDatabaseRecord(userID, req.Name, dbEngine, req.Version, username, password, req.VpcID)
+	db.TenantID = tenantID
 	db.Role = domain.RolePrimary
 	db.AllocatedStorage = req.AllocatedStorage
 	db.Parameters = req.Parameters
@@ -166,6 +176,11 @@ func (s *DatabaseService) validateCreationRequest(req ports.CreateDatabaseReques
 
 func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBCreate, "*"); err != nil {
+		return nil, err
+	}
 
 	primary, err := s.repo.GetByID(ctx, primaryID)
 	if err != nil {
@@ -178,6 +193,7 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 	}
 
 	db := s.initialDatabaseRecord(userID, name, primary.Engine, primary.Version, primary.Username, primary.Password, primary.VpcID)
+	db.TenantID = tenantID
 	db.Role = domain.RoleReplica
 	db.PrimaryID = &primaryID
 	db.AllocatedStorage = primary.AllocatedStorage
@@ -233,15 +249,24 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 		return s.performProvisioningRollback(ctx, db, vol.ID.String(), err)
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_REPLICA_CREATE", db.ID.String(), "DATABASE", map[string]interface{}{
+	if err := s.eventSvc.RecordEvent(ctx, "DATABASE_REPLICA_CREATE", db.ID.String(), "DATABASE", map[string]interface{}{
 		"primary_id": primaryID,
 		"name":       name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to record event", "action", "DATABASE_REPLICA_CREATE", "db_id", db.ID, "error", err)
+	}
 
 	return db, nil
 }
 
 func (s *DatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDatabaseRequest) (*domain.Database, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBUpdate, req.ID.String()); err != nil {
+		return nil, err
+	}
+
 	db, err := s.repo.GetByID(ctx, req.ID)
 	if err != nil {
 		return nil, err
@@ -305,21 +330,46 @@ func (s *DatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDa
 		return nil, err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_MODIFY", db.ID.String(), "DATABASE", nil)
-	_ = s.auditSvc.Log(ctx, db.UserID, "database.modify", "database", db.ID.String(), map[string]interface{}{"name": db.Name})
+	if err := s.eventSvc.RecordEvent(ctx, "DATABASE_MODIFY", db.ID.String(), "DATABASE", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "DATABASE_MODIFY", "db_id", db.ID, "error", err)
+	}
+	if err := s.auditSvc.Log(ctx, db.UserID, "database.modify", "database", db.ID.String(), map[string]interface{}{"name": db.Name}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "database.modify", "db_id", db.ID, "error", err)
+	}
 
 	return db, nil
 }
 
 func (s *DatabaseService) GetDatabase(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBRead, id.String()); err != nil {
+		return nil, err
+	}
+
 	return s.repo.GetByID(ctx, id)
 }
 
 func (s *DatabaseService) ListDatabases(ctx context.Context) ([]*domain.Database, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBRead, "*"); err != nil {
+		return nil, err
+	}
+
 	return s.repo.List(ctx)
 }
 
 func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBDelete, id.String()); err != nil {
+		return err
+	}
+
 	db, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -359,14 +409,25 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 		return err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_DELETE", id.String(), "DATABASE", nil)
-	_ = s.auditSvc.Log(ctx, db.UserID, "database.delete", "database", db.ID.String(), map[string]interface{}{"name": db.Name})
+	if err := s.eventSvc.RecordEvent(ctx, "DATABASE_DELETE", id.String(), "DATABASE", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "DATABASE_DELETE", "db_id", id, "error", err)
+	}
+	if err := s.auditSvc.Log(ctx, db.UserID, "database.delete", "database", db.ID.String(), map[string]interface{}{"name": db.Name}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "database.delete", "db_id", db.ID, "error", err)
+	}
 	platform.RDSInstancesTotal.WithLabelValues(string(db.Engine), "running").Dec()
 
 	return nil
 }
 
 func (s *DatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBUpdate, id.String()); err != nil {
+		return err
+	}
+
 	db, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -379,11 +440,20 @@ func (s *DatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) er
 	if err := s.repo.Update(ctx, db); err != nil {
 		return err
 	}
-	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_PROMOTED", db.ID.String(), "DATABASE", nil)
+	if err := s.eventSvc.RecordEvent(ctx, "DATABASE_PROMOTED", db.ID.String(), "DATABASE", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "DATABASE_PROMOTED", "db_id", db.ID, "error", err)
+	}
 	return nil
 }
 
 func (s *DatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBRead, id.String()); err != nil {
+		return "", err
+	}
+
 	db, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return "", err
@@ -403,6 +473,13 @@ func (s *DatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID)
 }
 
 func (s *DatabaseService) CreateDatabaseSnapshot(ctx context.Context, databaseID uuid.UUID, description string) (*domain.Snapshot, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotCreate, "*"); err != nil {
+		return nil, err
+	}
+
 	db, err := s.repo.GetByID(ctx, databaseID)
 	if err != nil {
 		return nil, err
@@ -420,6 +497,13 @@ func (s *DatabaseService) CreateDatabaseSnapshot(ctx context.Context, databaseID
 }
 
 func (s *DatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID uuid.UUID) ([]*domain.Snapshot, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotRead, "*"); err != nil {
+		return nil, err
+	}
+
 	db, err := s.repo.GetByID(ctx, databaseID)
 	if err != nil {
 		return nil, err
@@ -433,6 +517,12 @@ func (s *DatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID 
 
 func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.RestoreDatabaseRequest) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBCreate, "*"); err != nil {
+		return nil, err
+	}
+
 	snap, err := s.snapshotSvc.GetSnapshot(ctx, req.SnapshotID)
 	if err != nil {
 		return nil, err
@@ -441,13 +531,14 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.Restore
 	password, _ := util.GenerateRandomPassword(16)
 	username := s.getDefaultUsername(dbEngine)
 	db := s.initialDatabaseRecord(userID, req.NewName, dbEngine, req.Version, username, password, req.VpcID)
-	
+	db.TenantID = tenantID
+
 	// Preserving user requested storage if larger than snapshot
 	db.AllocatedStorage = req.AllocatedStorage
 	if snap.SizeGB > db.AllocatedStorage {
 		db.AllocatedStorage = snap.SizeGB
 	}
-	
+
 	db.MetricsEnabled = req.MetricsEnabled
 	db.PoolingEnabled = req.PoolingEnabled
 
@@ -455,7 +546,7 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.Restore
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Re-verify volume size matches DB record (snapshot restore might resize)
 	if vol.SizeGB > db.AllocatedStorage {
 		db.AllocatedStorage = vol.SizeGB
@@ -463,7 +554,7 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.Restore
 
 	networkID, _ := s.resolveVpcNetwork(ctx, req.VpcID)
 	imageName, env, defaultPort := s.getEngineConfig(dbEngine, req.Version, username, password, req.NewName, domain.RolePrimary, "")
-	
+
 	containerID, allocatedPorts, err := s.compute.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 		Name:        fmt.Sprintf("cloud-db-%s-%s", req.NewName, db.ID.String()[:8]),
 		ImageName:   imageName,
@@ -474,15 +565,15 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.Restore
 	})
 	if err != nil {
 		s.cleanupVolumeQuietly(ctx, vol.ID.String())
-		return nil, err
+		return nil, errors.Wrap(errors.Internal, "failed to launch database container", err)
 	}
-	
+
 	db.ContainerID = containerID
 	if err := s.resolveDatabasePort(ctx, db, allocatedPorts, defaultPort); err != nil {
 		return s.performProvisioningRollback(ctx, db, vol.ID.String(), errors.Wrap(errors.Internal, "failed to resolve restored database port", err))
 	}
 	db.Status = domain.DatabaseStatusRunning
-	
+
 	if db.MetricsEnabled || db.PoolingEnabled {
 		dbIP, err := s.compute.GetInstanceIP(ctx, containerID)
 		if err != nil {
@@ -730,8 +821,12 @@ func (s *DatabaseService) initialDatabaseRecord(userID uuid.UUID, name string, e
 }
 
 func (s *DatabaseService) recordDatabaseCreation(ctx context.Context, userID uuid.UUID, db *domain.Database, originalEngine string) {
-	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_CREATE", db.ID.String(), "DATABASE", map[string]interface{}{"name": db.Name, "engine": db.Engine})
-	_ = s.auditSvc.Log(ctx, userID, "database.create", "database", db.ID.String(), map[string]interface{}{"name": db.Name, "engine": originalEngine})
+	if err := s.eventSvc.RecordEvent(ctx, "DATABASE_CREATE", db.ID.String(), "DATABASE", map[string]interface{}{"name": db.Name, "engine": db.Engine}); err != nil {
+		s.logger.Warn("failed to record event", "action", "DATABASE_CREATE", "db_id", db.ID, "error", err)
+	}
+	if err := s.auditSvc.Log(ctx, userID, "database.create", "database", db.ID.String(), map[string]interface{}{"name": db.Name, "engine": originalEngine}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "database.create", "db_id", db.ID, "error", err)
+	}
 	platform.RDSInstancesTotal.WithLabelValues(originalEngine, "running").Inc()
 }
 

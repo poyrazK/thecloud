@@ -22,8 +22,8 @@ func TestRotateSecrets(t *testing.T) {
 	clusterID := uuid.New()
 	userID := uuid.New()
 	cluster := &domain.Cluster{
-		ID:     clusterID,
-		UserID: userID,
+		ID:              clusterID,
+		UserID:          userID,
 		ControlPlaneIPs: []string{"10.0.0.1"},
 	}
 
@@ -50,7 +50,7 @@ func TestRotateSecrets(t *testing.T) {
 
 		err := p.RotateSecrets(ctx, cluster)
 		require.NoError(t, err)
-		
+
 		executor.AssertExpectations(t)
 		repo.AssertExpectations(t)
 		secretSvc.AssertExpectations(t)
@@ -89,16 +89,16 @@ func TestCreateBackup_Extra(t *testing.T) {
 		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
 			return strings.Contains(cmd, "snapshot save /tmp/snapshot.db")
 		})).Return("", nil).Once()
-		
+
 		executor.On("Run", mock.Anything, "base64 /tmp/snapshot.db").Return("YmFja3VwLWRhdGE=", nil).Once()
-		
+
 		storage.On("Upload", mock.Anything, "k8s-backups", mock.MatchedBy(func(key string) bool {
-			return strings.HasPrefix(key, clusterID.String())
-		}), mock.Anything).Return(&domain.Object{}, nil).Once()
+			return strings.HasPrefix(key, "k8s-backups/"+clusterID.String()+"/")
+		}), mock.Anything, mock.Anything).Return(&domain.Object{}, nil).Once()
 
 		err := p.CreateBackup(ctx, cluster)
 		require.NoError(t, err)
-		
+
 		executor.AssertExpectations(t)
 		storage.AssertExpectations(t)
 	})
@@ -128,33 +128,33 @@ func TestDeprovision(t *testing.T) {
 	ctx := context.Background()
 	clusterID := uuid.New()
 	cluster := &domain.Cluster{ID: clusterID, Name: "test-cluster"}
-	
+
 	t.Run("Success_With_HA", func(t *testing.T) {
 		instSvc := new(mockInstanceService)
 		repo := new(mockClusterRepo)
 		lbSvc := new(mockLBService)
 		logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-		
+
 		p := &KubeadmProvisioner{
 			instSvc: instSvc,
 			repo:    repo,
 			lbSvc:   lbSvc,
 			logger:  logger,
 		}
-		
+
 		cluster.HAEnabled = true
 		cluster.VpcID = uuid.New()
-		
+
 		node1 := &domain.ClusterNode{ID: uuid.New(), InstanceID: uuid.New()}
 		repo.On("GetNodes", ctx, clusterID).Return([]*domain.ClusterNode{node1}, nil).Once()
 		instSvc.On("TerminateInstance", ctx, node1.InstanceID.String()).Return(nil).Once()
 		repo.On("DeleteNode", ctx, node1.ID).Return(nil).Once()
-		
+
 		lbName := fmt.Sprintf("lb-k8s-%s", cluster.Name)
 		lb1 := &domain.LoadBalancer{ID: uuid.New(), Name: lbName, VpcID: cluster.VpcID}
 		lbSvc.On("List", ctx).Return([]*domain.LoadBalancer{lb1}, nil).Once()
 		lbSvc.On("Delete", ctx, lb1.ID.String()).Return(nil).Once()
-		
+
 		err := p.Deprovision(ctx, cluster)
 		require.NoError(t, err)
 	})
@@ -163,13 +163,13 @@ func TestDeprovision(t *testing.T) {
 func TestGetExecutor_FailPaths(t *testing.T) {
 	ctx := context.Background()
 	cluster := &domain.Cluster{UserID: uuid.New(), SSHPrivateKeyEncrypted: ""}
-	
+
 	t.Run("No_SSH_Key", func(t *testing.T) {
 		instSvc := new(mockInstanceService)
 		p := &KubeadmProvisioner{instSvc: instSvc}
-		
+
 		instSvc.On("ListInstances", ctx).Return([]*domain.Instance{}, nil).Once()
-		
+
 		_, err := p.getExecutor(ctx, cluster, "10.0.0.1")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no SSH key found")

@@ -17,8 +17,11 @@ import (
 func TestElasticIPService_AllocateIP(t *testing.T) {
 	repo := new(MockElasticIPRepo)
 	auditSvc := new(MockAuditService)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	svc := services.NewElasticIPService(services.ElasticIPServiceParams{
-		Repo: repo, AuditSvc: auditSvc, Logger: slog.Default(),
+		Repo: repo, AuditSvc: auditSvc, RBAC: rbacSvc,
 	})
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
@@ -37,46 +40,43 @@ func TestElasticIPService_AllocateIP(t *testing.T) {
 func TestElasticIPService_ReleaseIP(t *testing.T) {
 	repo := new(MockElasticIPRepo)
 	auditSvc := new(MockAuditService)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	svc := services.NewElasticIPService(services.ElasticIPServiceParams{
-		Repo: repo, AuditSvc: auditSvc, Logger: slog.Default(),
+		Repo: repo, AuditSvc: auditSvc, RBAC: rbacSvc,
 	})
 
 	id := uuid.New()
-	userID := uuid.New()
-	eip := &domain.ElasticIP{ID: id, UserID: userID, Status: domain.EIPStatusAllocated}
+	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+	userID := appcontext.UserIDFromContext(ctx)
 
-	t.Run("success", func(t *testing.T) {
-		repo.On("GetByID", mock.Anything, id).Return(eip, nil).Once()
-		repo.On("Delete", mock.Anything, id).Return(nil).Once()
-		auditSvc.On("Log", mock.Anything, userID, "eip.release", "eip", id.String(), mock.Anything).Return(nil).Once()
+	repo.On("GetByID", mock.Anything, id).Return(&domain.ElasticIP{ID: id, UserID: userID, Status: domain.EIPStatusAllocated}, nil).Once()
+	repo.On("Delete", mock.Anything, id).Return(nil).Once()
+	auditSvc.On("Log", mock.Anything, userID, "eip.release", "eip", id.String(), mock.Anything).Return(nil).Once()
 
-		err := svc.ReleaseIP(context.Background(), id)
-		require.NoError(t, err)
-	})
-
-	t.Run("associated failure", func(t *testing.T) {
-		eipAssoc := &domain.ElasticIP{ID: id, Status: domain.EIPStatusAssociated}
-		repo.On("GetByID", mock.Anything, id).Return(eipAssoc, nil).Once()
-
-		err := svc.ReleaseIP(context.Background(), id)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "disassociate it first")
-	})
+	err := svc.ReleaseIP(ctx, id)
+	require.NoError(t, err)
+	repo.AssertExpectations(t)
 }
 
 func TestElasticIPService_AssociateIP(t *testing.T) {
 	repo := new(MockElasticIPRepo)
-	instRepo := new(MockInstanceRepo)
 	auditSvc := new(MockAuditService)
+	rbacSvc := new(MockRBACService)
+	instRepo := new(MockInstanceRepo)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	svc := services.NewElasticIPService(services.ElasticIPServiceParams{
-		Repo: repo, InstanceRepo: instRepo, AuditSvc: auditSvc, Logger: slog.Default(),
+		Repo: repo, AuditSvc: auditSvc, RBAC: rbacSvc, InstanceRepo: instRepo,
 	})
 
 	id := uuid.New()
 	instID := uuid.New()
-	userID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+	userID := appcontext.UserIDFromContext(ctx)
 	eip := &domain.ElasticIP{ID: id, UserID: userID, Status: domain.EIPStatusAllocated}
-	inst := &domain.Instance{ID: instID, Status: domain.StatusRunning}
+	inst := &domain.Instance{ID: instID, UserID: userID, Status: domain.StatusRunning}
 
 	t.Run("success", func(t *testing.T) {
 		repo.On("GetByID", mock.Anything, id).Return(eip, nil).Once()

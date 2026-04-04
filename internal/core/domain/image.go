@@ -33,6 +33,7 @@ type Image struct {
 	Format      string      `json:"format"`    // e.g. "qcow2", "iso"
 	IsPublic    bool        `json:"is_public"` // If true, available to all users
 	UserID      uuid.UUID   `json:"user_id"`   // Owner (nil for system images if handled)
+	TenantID    *uuid.UUID  `json:"tenant_id,omitempty"`
 	Status      ImageStatus `json:"status"`
 	CreatedAt   time.Time   `json:"created_at"`
 	UpdatedAt   time.Time   `json:"updated_at"`

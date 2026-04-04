@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
@@ -30,10 +31,25 @@ func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *
 	identityRepo := postgres.NewIdentityRepository(db)
 	tenantRepo := postgres.NewTenantRepo(db)
 
-	auditSvc := services.NewAuditService(auditRepo)
-	identitySvc := services.NewIdentityService(identityRepo, auditSvc, slog.Default())
-	tenantSvc := services.NewTenantService(tenantRepo, userRepo, slog.Default())
-	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
+	identitySvc := services.NewIdentityService(services.IdentityServiceParams{
+		Repo:     identityRepo,
+		RbacSvc:  rbacSvc,
+		AuditSvc: auditSvc,
+	})
+	tenantSvc := services.NewTenantService(services.TenantServiceParams{
+		Repo:     tenantRepo,
+		UserRepo: userRepo,
+		RBACSvc:  rbacSvc,
+		Logger:   slog.Default(),
+	})
+	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc, slog.Default())
 
 	return db, svc, userRepo, identitySvc
 }
@@ -41,7 +57,7 @@ func setupAuthServiceTest(t *testing.T) (*pgxpool.Pool, *services.AuthService, *
 func TestAuthService_GetUserByID(t *testing.T) {
 	ctx := context.Background()
 	mockUserRepo := new(MockUserRepo)
-	svc := services.NewAuthService(mockUserRepo, nil, nil, nil)
+	svc := services.NewAuthService(mockUserRepo, nil, nil, nil, slog.Default())
 
 	tests := []struct {
 		name          string
@@ -153,6 +169,9 @@ func TestAuthServiceValidateToken(t *testing.T) {
 
 	email := "session_" + uuid.NewString() + "@example.com"
 	user, err := svc.Register(ctx, email, testPassword, "User")
+		if user != nil && user.DefaultTenantID != nil { 
+			ctx = appcontext.WithTenantID(ctx, *user.DefaultTenantID) 
+		}
 	require.NoError(t, err)
 
 	apiKey, err := identitySvc.CreateKey(ctx, user.ID, "session")
@@ -169,6 +188,9 @@ func TestAuthServiceRevokeToken(t *testing.T) {
 
 	email := "revoke_" + uuid.NewString() + "@example.com"
 	user, err := svc.Register(ctx, email, testPassword, "User")
+		if user != nil && user.DefaultTenantID != nil { 
+			ctx = appcontext.WithTenantID(ctx, *user.DefaultTenantID) 
+		}
 	require.NoError(t, err)
 
 	apiKey, err := identitySvc.CreateKey(ctx, user.ID, "session")
@@ -187,6 +209,9 @@ func TestAuthServiceRotateToken(t *testing.T) {
 
 	email := "rotate_" + uuid.NewString() + "@example.com"
 	user, err := svc.Register(ctx, email, testPassword, "User")
+		if user != nil && user.DefaultTenantID != nil { 
+			ctx = appcontext.WithTenantID(ctx, *user.DefaultTenantID) 
+		}
 	require.NoError(t, err)
 
 	apiKey, err := identitySvc.CreateKey(ctx, user.ID, "session")
@@ -237,6 +262,9 @@ func TestAuthServiceTokenRotationIntegration(t *testing.T) {
 	ctx := context.Background()
 	email := "rotate_int_" + uuid.NewString() + "@example.com"
 	user, err := svc.Register(ctx, email, testPassword, "User")
+		if user != nil && user.DefaultTenantID != nil { 
+			ctx = appcontext.WithTenantID(ctx, *user.DefaultTenantID) 
+		}
 	require.NoError(t, err)
 
 	// Initial token

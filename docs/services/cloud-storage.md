@@ -15,6 +15,7 @@ Cloud Storage provides an S3-compatible object storage system designed for high 
 - **Streaming Encryption**: Authenticated AES-GCM encryption performed on-the-fly without buffering entire files in memory.
 - **Distributed Replication**: Automatic replication of data across multiple storage nodes for fault tolerance.
 - **Read Repair**: Automatic background synchronization of stale or missing replicas during read operations.
+- **Integrity Verification**: Real-time SHA-256 checksum calculation and atomic two-phase uploads.
 
 ---
 
@@ -34,6 +35,28 @@ Storage Nodes are responsible for persistent data storage on local disks. They p
 - **gRPC Streaming API**: High-performance interface for data transfer.
 - **Local Persistence**: Efficiently manages chunks and metadata on disk.
 - **Failure Detection**: Participates in a Gossip-based cluster membership protocol to detect and report node health.
+
+---
+
+## Reliability & Integrity
+
+### Two-Phase Uploads
+To prevent orphaned files from failed uploads, the service uses a two-phase commit pattern:
+1.  **Metadata Initiation**: Object is created with `PENDING` status.
+2.  **Data Transfer**: Binary data is streamed to storage nodes.
+3.  **Finalization**: Status is flipped to `AVAILABLE` only after successful transfer and checksum verification.
+
+### Automated Garbage Collection
+A background worker (`StorageCleanupWorker`) periodically purges:
+- **Orphaned Objects**: Objects stuck in `PENDING` status longer than the configured TTL (default 24h).
+- **Deleted Objects**: Metadata and physical files for objects marked for hard deletion.
+
+### Bucket Validation
+Bucket names must adhere to S3-compatible naming conventions:
+- 3-63 characters long.
+- Consist only of lowercase letters, numbers, and hyphens.
+- Start and end with a letter or number.
+- Cannot be formatted as an IP address.
 
 ---
 
@@ -62,6 +85,7 @@ The storage service behavior can be adjusted via `platform.Config`:
 | `WriteQuorum` | `2` | Minimum number of successful writes for a request to succeed. |
 | `ChunkSize` | `1MB` | Size of chunks for internal gRPC transfer. |
 | `RepairTimeout`| `30s` | Maximum time allowed for background read repairs. |
+| `PendingUploadTTL` | `24h` | Time before a PENDING upload is considered orphaned. |
 
 ---
 

@@ -14,50 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type MockIAMRepository struct {
-	mock.Mock
-}
-
-func (m *MockIAMRepository) CreatePolicy(ctx context.Context, tenantID uuid.UUID, policy *domain.Policy) error {
-	return m.Called(ctx, tenantID, policy).Error(0)
-}
-func (m *MockIAMRepository) GetPolicyByID(ctx context.Context, tenantID, id uuid.UUID) (*domain.Policy, error) {
-	args := m.Called(ctx, tenantID, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	r0, _ := args.Get(0).(*domain.Policy)
-	return r0, args.Error(1)
-}
-func (m *MockIAMRepository) ListPolicies(ctx context.Context, tenantID uuid.UUID) ([]*domain.Policy, error) {
-	args := m.Called(ctx, tenantID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	r0, _ := args.Get(0).([]*domain.Policy)
-	return r0, args.Error(1)
-}
-func (m *MockIAMRepository) UpdatePolicy(ctx context.Context, tenantID uuid.UUID, policy *domain.Policy) error {
-	return m.Called(ctx, tenantID, policy).Error(0)
-}
-func (m *MockIAMRepository) DeletePolicy(ctx context.Context, tenantID, id uuid.UUID) error {
-	return m.Called(ctx, tenantID, id).Error(0)
-}
-func (m *MockIAMRepository) AttachPolicyToUser(ctx context.Context, tenantID, userID, policyID uuid.UUID) error {
-	return m.Called(ctx, tenantID, userID, policyID).Error(0)
-}
-func (m *MockIAMRepository) DetachPolicyFromUser(ctx context.Context, tenantID, userID, policyID uuid.UUID) error {
-	return m.Called(ctx, tenantID, userID, policyID).Error(0)
-}
-func (m *MockIAMRepository) GetPoliciesForUser(ctx context.Context, tenantID, userID uuid.UUID) ([]*domain.Policy, error) {
-	args := m.Called(ctx, tenantID, userID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	r0, _ := args.Get(0).([]*domain.Policy)
-	return r0, args.Error(1)
-}
-
 func TestIAMService_Unit(t *testing.T) {
 	mockRepo := new(MockIAMRepository)
 	mockAuditSvc := new(MockAuditService)

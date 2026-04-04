@@ -14,28 +14,46 @@ import (
 	"github.com/poyrazk/thecloud/internal/handlers/ws"
 )
 
+// EventServiceParams defines the dependencies for EventService.
+type EventServiceParams struct {
+	Repo    ports.EventRepository
+	RBACSvc ports.RBACService
+	Hub     *ws.Hub
+	Logger  *slog.Logger
+}
+
 // EventService records events and emits websocket notifications.
 type EventService struct {
-	repo   ports.EventRepository
-	hub    *ws.Hub
-	logger *slog.Logger
+	repo    ports.EventRepository
+	rbacSvc ports.RBACService
+	hub     *ws.Hub
+	logger  *slog.Logger
 }
 
 // NewEventService constructs an EventService with its dependencies.
-func NewEventService(repo ports.EventRepository, hub *ws.Hub, logger *slog.Logger) *EventService {
+func NewEventService(params EventServiceParams) *EventService {
+	logger := params.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &EventService{
-		repo:   repo,
-		hub:    hub,
-		logger: logger,
+		repo:    params.Repo,
+		rbacSvc: params.RBACSvc,
+		hub:     params.Hub,
+		logger:  logger,
 	}
 }
 
 func (s *EventService) RecordEvent(ctx context.Context, action, resourceID, resourceType string, metadata map[string]interface{}) error {
 	metaJSON, _ := json.Marshal(metadata)
 
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
 	event := &domain.Event{
 		ID:           uuid.New(),
-		UserID:       appcontext.UserIDFromContext(ctx),
+		UserID:       userID,
+		TenantID:     tenantID,
 		Action:       action,
 		ResourceID:   resourceID,
 		ResourceType: resourceType,
@@ -65,6 +83,13 @@ func (s *EventService) RecordEvent(ctx context.Context, action, resourceID, reso
 }
 
 func (s *EventService) ListEvents(ctx context.Context, limit int) ([]*domain.Event, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionAuditRead, "*"); err != nil {
+		return nil, err
+	}
+
 	if limit <= 0 {
 		limit = 50
 	}

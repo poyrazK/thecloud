@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,9 +26,16 @@ func setupAutoScalingServiceIntegrationTest(t *testing.T) (ports.AutoScalingServ
 	repo := postgres.NewAutoScalingRepo(db)
 	vpcRepo := postgres.NewVpcRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
 
-	svc := services.NewAutoScalingService(repo, vpcRepo, auditSvc)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
+
+	svc := services.NewAutoScalingService(repo, rbacSvc, vpcRepo, auditSvc, slog.Default())
 
 	return svc, vpcRepo, ctx
 }
@@ -194,8 +202,18 @@ func TestAutoScaling_TriggerScaleUp(t *testing.T) {
 	// db := setupDB(t) // Reuse db from helper
 
 	asgRepo := postgres.NewAutoScalingRepo(db)
-	auditSvc := services.NewAuditService(postgres.NewAuditRepository(db))
-	eventSvc := services.NewEventService(postgres.NewEventRepository(db), nil, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    postgres.NewAuditRepository(db),
+		RBACSvc: rbacSvc,
+	})
+	eventSvc := services.NewEventService(services.EventServiceParams{
+		Repo:    postgres.NewEventRepository(db),
+		RBACSvc: rbacSvc,
+		Hub:     nil,
+		Logger:  slog.Default(),
+	})
 
 	worker := services.NewAutoScalingWorker(asgRepo, instSvc, &NoopLBService{}, eventSvc, &RealClock{})
 
@@ -216,7 +234,7 @@ func TestAutoScaling_TriggerScaleUp(t *testing.T) {
 
 	// 3. Create Scaling Group
 	groupName := "scale-out-test"
-	asgSvc := services.NewAutoScalingService(asgRepo, vpcRepo, auditSvc)
+	asgSvc := services.NewAutoScalingService(asgRepo, rbacSvc, vpcRepo, auditSvc, slog.Default())
 	group, err := asgSvc.CreateGroup(ctx, ports.CreateScalingGroupParams{
 		Name:         groupName,
 		VpcID:        vpc.ID,

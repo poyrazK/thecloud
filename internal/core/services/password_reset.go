@@ -32,13 +32,15 @@ type PasswordResetService struct {
 
 // NewPasswordResetService constructs a PasswordResetService with its dependencies.
 func NewPasswordResetService(repo ports.PasswordResetRepository, userRepo ports.UserRepository, logger *slog.Logger) *PasswordResetService {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &PasswordResetService{
 		repo:     repo,
 		userRepo: userRepo,
 		logger:   logger,
 	}
 }
-
 func (s *PasswordResetService) RequestReset(ctx context.Context, email string) error {
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {

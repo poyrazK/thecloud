@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pashagolub/pgxmock/v3"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,9 +20,11 @@ func TestAccountingRepository_CreateRecord(t *testing.T) {
 	defer mock.Close()
 
 	repo := NewAccountingRepository(mock)
+	tenantID := uuid.New()
 	record := domain.UsageRecord{
 		ID:           uuid.New(),
 		UserID:       uuid.New(),
+		TenantID:     tenantID,
 		ResourceID:   uuid.New(),
 		ResourceType: domain.ResourceInstance,
 		Quantity:     1.5,
@@ -31,7 +34,7 @@ func TestAccountingRepository_CreateRecord(t *testing.T) {
 	}
 
 	mock.ExpectExec("INSERT INTO usage_records").
-		WithArgs(record.ID, record.UserID, record.ResourceID, record.ResourceType, record.Quantity, record.Unit, record.StartTime, record.EndTime).
+		WithArgs(record.ID, record.UserID, record.TenantID, record.ResourceID, record.ResourceType, record.Quantity, record.Unit, record.StartTime, record.EndTime).
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.CreateRecord(context.Background(), record)
@@ -46,16 +49,18 @@ func TestAccountingRepository_GetUsageSummary(t *testing.T) {
 
 	repo := NewAccountingRepository(mock)
 	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(context.Background(), tenantID)
 	start := time.Now()
 	end := time.Now().Add(time.Hour)
 
-	mock.ExpectQuery("SELECT resource_type, SUM\\(quantity\\) FROM usage_records").
-		WithArgs(userID, start, end).
+	mock.ExpectQuery("SELECT resource_type, SUM\\(quantity\\) FROM usage_records WHERE tenant_id = \\$1 AND start_time >= \\$2 AND end_time <= \\$3").
+		WithArgs(tenantID, start, end).
 		WillReturnRows(pgxmock.NewRows([]string{"resource_type", "sum"}).
 			AddRow(string(domain.ResourceInstance), 10.5).
 			AddRow(string(domain.ResourceStorage), 5.0))
 
-	summary, err := repo.GetUsageSummary(context.Background(), userID, start, end)
+	summary, err := repo.GetUsageSummary(ctx, userID, start, end)
 	require.NoError(t, err)
 	assert.NotNil(t, summary)
 	assert.InDelta(t, 10.5, summary[domain.ResourceInstance], 0.01)
@@ -70,16 +75,19 @@ func TestAccountingRepository_ListRecords(t *testing.T) {
 
 	repo := NewAccountingRepository(mock)
 	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(context.Background(), tenantID)
 	start := time.Now()
 	end := time.Now().Add(time.Hour)
 
-	mock.ExpectQuery("SELECT id, user_id, resource_id, resource_type, quantity, unit, start_time, end_time FROM usage_records").
-		WithArgs(userID, start, end).
-		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "resource_id", "resource_type", "quantity", "unit", "start_time", "end_time"}).
-			AddRow(uuid.New(), userID, uuid.New(), string(domain.ResourceInstance), 1.0, "hour", start, end))
+	mock.ExpectQuery("SELECT id, user_id, tenant_id, resource_id, resource_type, quantity, unit, start_time, end_time FROM usage_records WHERE tenant_id = \\$1 AND start_time >= \\$2 AND end_time <= \\$3").
+		WithArgs(tenantID, start, end).
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "resource_id", "resource_type", "quantity", "unit", "start_time", "end_time"}).
+			AddRow(uuid.New(), userID, tenantID, uuid.New(), string(domain.ResourceInstance), 1.0, "hour", start, end))
 
-	records, err := repo.ListRecords(context.Background(), userID, start, end)
+	records, err := repo.ListRecords(ctx, userID, start, end)
 	require.NoError(t, err)
 	assert.Len(t, records, 1)
 	assert.Equal(t, userID, records[0].UserID)
+	assert.Equal(t, tenantID, records[0].TenantID)
 }

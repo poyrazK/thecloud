@@ -26,6 +26,7 @@ const (
 type Snapshot struct {
 	ID          uuid.UUID      `json:"id"`
 	UserID      uuid.UUID      `json:"user_id"`
+	TenantID    *uuid.UUID     `json:"tenant_id,omitempty"`
 	VolumeID    uuid.UUID      `json:"volume_id"`   // Source volume ID
 	VolumeName  string         `json:"volume_name"` // Source volume name (snapshot time)
 	SizeGB      int            `json:"size_gb"`     // Size at snapshot time

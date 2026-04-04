@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -14,17 +15,46 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-type SSHKeyService struct {
-	repo ports.SSHKeyRepository
+// SSHKeyServiceParams defines dependencies for SSHKeyService.
+type SSHKeyServiceParams struct {
+	Repo    ports.SSHKeyRepository
+	RBACSvc ports.RBACService
+	Logger  *slog.Logger
 }
 
-func NewSSHKeyService(repo ports.SSHKeyRepository) *SSHKeyService {
-	return &SSHKeyService{repo: repo}
+type SSHKeyService struct {
+	repo    ports.SSHKeyRepository
+	rbacSvc ports.RBACService
+	logger  *slog.Logger
+}
+
+func NewSSHKeyService(params SSHKeyServiceParams) (*SSHKeyService, error) {
+	if params.Repo == nil {
+		return nil, errors.New(errors.InvalidInput, "repository is required")
+	}
+	if params.RBACSvc == nil {
+		return nil, errors.New(errors.InvalidInput, "rbac service is required")
+	}
+
+	logger := params.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+
+	return &SSHKeyService{
+		repo:    params.Repo,
+		rbacSvc: params.RBACSvc,
+		logger:  logger,
+	}, nil
 }
 
 func (s *SSHKeyService) CreateKey(ctx context.Context, name, publicKey string) (*domain.SSHKey, error) {
 	tenantID := appcontext.TenantIDFromContext(ctx)
 	userID := appcontext.UserIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSSHKeyCreate, "*"); err != nil {
+		return nil, err
+	}
 
 	// Validate Key
 	pubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(publicKey))
@@ -62,12 +92,18 @@ func (s *SSHKeyService) CreateKey(ctx context.Context, name, publicKey string) (
 }
 
 func (s *SSHKeyService) GetKey(ctx context.Context, id uuid.UUID) (*domain.SSHKey, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSSHKeyRead, id.String()); err != nil {
+		return nil, err
+	}
+
 	key, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	tenantID := appcontext.TenantIDFromContext(ctx)
 	if key.TenantID != tenantID {
 		return nil, errors.New(errors.NotFound, "ssh key not found")
 	}
@@ -75,24 +111,37 @@ func (s *SSHKeyService) GetKey(ctx context.Context, id uuid.UUID) (*domain.SSHKe
 }
 
 func (s *SSHKeyService) ListKeys(ctx context.Context) ([]*domain.SSHKey, error) {
+	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSSHKeyRead, "*"); err != nil {
+		return nil, err
+	}
+
 	return s.repo.List(ctx, tenantID)
 }
 
 func (s *SSHKeyService) DeleteKey(ctx context.Context, id uuid.UUID) error {
-	key, err := s.GetKey(ctx, id)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSSHKeyDelete, id.String()); err != nil {
+		return err
+	}
+
+	key, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
+
+	if key.TenantID != tenantID {
+		return errors.New(errors.NotFound, "ssh key not found")
+	}
+
 	return s.repo.Delete(ctx, key.ID)
 }
 
 func isNotFound(err error) bool {
 	// Helper to check for NotFound error using internal/errors
-	// The internal/errors.Is only checks the top-level error type.
-	// If the repo returns a wrapped error (e.g. fmt.Errorf), we might need to unwrap.
-	// However, my repo returns errors.New(errors.NotFound, ...) directly.
-	// So errors.Is(err, errors.NotFound) should work.
-	// But let's be safe and check if it matches errors.NotFound type.
 	return errors.Is(err, errors.NotFound)
 }

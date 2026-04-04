@@ -38,13 +38,15 @@ func setupDatabaseServiceTest(t *testing.T) (ports.DatabaseService, ports.Databa
 	require.NoError(t, err)
 
 	eventRepo := postgres.NewEventRepository(db)
-	eventSvc := services.NewEventService(eventRepo, nil, slog.Default())
 
+	rbacSvc := new(MockRBACService) 
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+	eventSvc := services.NewEventService(services.EventServiceParams{Repo: eventRepo, RBACSvc: rbacSvc, Logger: slog.Default()})
+	auditSvc := services.NewAuditService(services.AuditServiceParams{Repo: auditRepo, RBACSvc: rbacSvc, Logger: slog.Default()})
 
 	volRepo := postgres.NewVolumeRepository(db)
-	storage := noop.NewNoopStorageBackend()
+	storage := noop.NewNoopStorageBackendAdapter()
 	volumeSvc := services.NewVolumeService(volRepo, storage, eventSvc, auditSvc, slog.Default())
 
 	logger := slog.Default()

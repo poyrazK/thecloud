@@ -7,28 +7,57 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// TenantServiceParams defines dependencies for TenantService.
+type TenantServiceParams struct {
+	Repo     ports.TenantRepository
+	UserRepo ports.UserRepository
+	RBACSvc  ports.RBACService
+	Logger   *slog.Logger
+}
+
 // TenantService manages tenants, membership, and quota checks.
 type TenantService struct {
 	repo     ports.TenantRepository
 	userRepo ports.UserRepository
+	rbacSvc  ports.RBACService
 	logger   *slog.Logger
 }
 
 // NewTenantService constructs a TenantService.
-func NewTenantService(repo ports.TenantRepository, userRepo ports.UserRepository, logger *slog.Logger) *TenantService {
+func NewTenantService(params TenantServiceParams) *TenantService {
+	logger := params.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &TenantService{
-		repo:     repo,
-		userRepo: userRepo,
+		repo:     params.Repo,
+		userRepo: params.UserRepo,
+		rbacSvc:  params.RBACSvc,
 		logger:   logger,
 	}
 }
 
 func (s *TenantService) CreateTenant(ctx context.Context, name, slug string, ownerID uuid.UUID) (*domain.Tenant, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	// In a real system, tenant:create might be restricted to certain global roles
+	if userID == uuid.Nil && !appcontext.IsInternalCall(ctx) {
+		return nil, errors.New(errors.Unauthorized, "authentication required")
+	}
+
+	if userID != uuid.Nil {
+		if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionTenantCreate, "*"); err != nil {
+			return nil, err
+		}
+	}
+
 	// 1. Check if slug exists
 	existing, _ := s.repo.GetBySlug(ctx, slug)
 	if existing != nil {
@@ -76,8 +105,6 @@ func (s *TenantService) CreateTenant(ctx context.Context, name, slug string, own
 		user.DefaultTenantID = &tenant.ID
 		if err := s.userRepo.Update(ctx, user); err != nil {
 			s.logger.Error("failed to set default tenant for user", "user_id", ownerID, "tenant_id", tenant.ID, "error", err)
-			// Decide if this should rollback user creation.
-			// Currently opting to log and continue as it is a non-critical preference setting.
 		}
 	}
 
@@ -85,6 +112,16 @@ func (s *TenantService) CreateTenant(ctx context.Context, name, slug string, own
 }
 
 func (s *TenantService) GetTenant(ctx context.Context, id uuid.UUID) (*domain.Tenant, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	// Verify they are asking for a tenant they have access to, or have global read
+	if tenantID != id {
+		if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionTenantRead, id.String()); err != nil {
+			return nil, err
+		}
+	}
+
 	return s.repo.GetByID(ctx, id)
 }
 
@@ -93,6 +130,13 @@ func (s *TenantService) ListUserTenants(ctx context.Context, userID uuid.UUID) (
 }
 
 func (s *TenantService) InviteMember(ctx context.Context, tenantID uuid.UUID, email, role string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+
+	// Must have update permission in the target tenant
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionTenantUpdate, tenantID.String()); err != nil {
+		return err
+	}
+
 	// In a real system, this would send an invitation email.
 	// For now, we'll try to find the user by email and add them directly if they exist.
 	user, err := s.userRepo.GetByEmail(ctx, email)
@@ -110,6 +154,12 @@ func (s *TenantService) InviteMember(ctx context.Context, tenantID uuid.UUID, em
 }
 
 func (s *TenantService) RemoveMember(ctx context.Context, tenantID, userID uuid.UUID) error {
+	uID := appcontext.UserIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionTenantUpdate, tenantID.String()); err != nil {
+		return err
+	}
+
 	tenant, err := s.repo.GetByID(ctx, tenantID)
 	if err != nil {
 		return err
@@ -123,7 +173,7 @@ func (s *TenantService) RemoveMember(ctx context.Context, tenantID, userID uuid.
 }
 
 func (s *TenantService) SwitchTenant(ctx context.Context, userID, tenantID uuid.UUID) error {
-	// Verify membership
+	// Verify membership - switch is a special "self" operation that implies read access to the target tenant
 	membership, err := s.repo.GetMembership(ctx, tenantID, userID)
 	if err != nil || membership == nil {
 		return errors.New(errors.Forbidden, "not a member of this tenant")
@@ -139,12 +189,9 @@ func (s *TenantService) SwitchTenant(ctx context.Context, userID, tenantID uuid.
 }
 
 func (s *TenantService) CheckQuota(ctx context.Context, tenantID uuid.UUID, resource string, requested int) error {
+	// Quota check is internal, but could be restricted
 	quota, err := s.repo.GetQuota(ctx, tenantID)
 	if err != nil {
-		// If no quota defined, assume unlimited or default? For now, fail safe.
-		// Or creating a default quota on the fly?
-		// Let's assuming GetQuota returns not found error if no specific quota.
-		// Ideally we should have defaults.
 		return errors.Wrap(errors.Internal, "failed to get tenant quota", err)
 	}
 

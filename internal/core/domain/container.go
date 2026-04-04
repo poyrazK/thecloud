@@ -25,6 +25,7 @@ const (
 type Deployment struct {
 	ID           uuid.UUID        `json:"id"`
 	UserID       uuid.UUID        `json:"user_id"`
+	TenantID     uuid.UUID        `json:"tenant_id"`
 	Name         string           `json:"name"`          // Unique name for the deployment
 	Image        string           `json:"image"`         // Container image (e.g., "redis:alpine")
 	InstanceType string           `json:"instance_type"` // NEW: Configuration type

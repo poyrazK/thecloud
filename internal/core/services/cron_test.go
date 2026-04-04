@@ -12,6 +12,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,12 +23,22 @@ func setupCronServiceIntegrationTest(t *testing.T) (ports.CronService, ports.Cro
 	ctx := setupTestUser(t, db)
 
 	repo := postgres.NewPostgresCronRepository(db)
-	eventRepo := postgres.NewEventRepository(db)
-	eventSvc := services.NewEventService(eventRepo, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	svc := services.NewCronService(repo, eventSvc, auditSvc)
+	eventRepo := postgres.NewEventRepository(db)
+	eventSvc := services.NewEventService(services.EventServiceParams{
+		Repo:    eventRepo,
+		RBACSvc: rbacSvc,
+		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+	auditRepo := postgres.NewAuditRepository(db)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
+
+	svc := services.NewCronService(repo, rbacSvc, eventSvc, auditSvc, slog.Default())
 
 	return svc, repo, ctx
 }

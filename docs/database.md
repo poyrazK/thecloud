@@ -65,6 +65,33 @@ DATABASE_URL=postgres://user:pass@db-host:5432/thecloud?sslmode=require
 
 ### Core Tables
 
+#### `tenants` - Organizations/Teams
+```sql
+CREATE TABLE tenants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE tenant_members (
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role VARCHAR(50) NOT NULL DEFAULT 'member',
+    PRIMARY KEY (tenant_id, user_id)
+);
+
+CREATE TABLE tenant_quotas (
+    tenant_id UUID PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
+    max_instances INT NOT NULL DEFAULT 10,
+    max_vcpus INT NOT NULL DEFAULT 20,
+    max_memory_mb INT NOT NULL DEFAULT 40960,
+    max_storage_gb INT NOT NULL DEFAULT 500,
+    used_instances INT NOT NULL DEFAULT 0,
+    -- ...
+);
+```
+
 #### `users` - User Accounts
 ```sql
 CREATE TABLE users (
@@ -73,6 +100,7 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'user',
+    default_tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -121,6 +149,7 @@ CREATE TABLE role_permissions (
 CREATE TABLE instances (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
     name VARCHAR(255) NOT NULL,
     image VARCHAR(255) NOT NULL,
     status VARCHAR(50) NOT NULL,
@@ -161,6 +190,7 @@ CREATE TABLE instance_types (
 CREATE TABLE volumes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
     name VARCHAR(255) NOT NULL,
     size_gb INT NOT NULL,
     status VARCHAR(50) NOT NULL,
@@ -192,6 +222,7 @@ CREATE TABLE snapshots (
 CREATE TABLE vpcs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
     name VARCHAR(255) NOT NULL,
     cidr_block VARCHAR(18) NOT NULL,
     network_id VARCHAR(255) NOT NULL,
@@ -601,13 +632,14 @@ CREATE TABLE cron_job_runs (
 CREATE TABLE secrets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
     name VARCHAR(255) NOT NULL,
     encrypted_value TEXT NOT NULL,
     description TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_accessed_at TIMESTAMPTZ,
-    CONSTRAINT secrets_name_user_key UNIQUE (name, user_id)
+    CONSTRAINT secrets_name_tenant_key UNIQUE (name, tenant_id)
 );
 ```
 
@@ -621,15 +653,20 @@ CREATE TABLE objects (
     arn VARCHAR(512) NOT NULL UNIQUE,
     bucket VARCHAR(255) NOT NULL,
     key VARCHAR(512) NOT NULL,
+    version_id VARCHAR(64),
+    is_latest BOOLEAN DEFAULT TRUE,
     size_bytes BIGINT NOT NULL,
     content_type VARCHAR(255),
+    checksum VARCHAR(64),
+    upload_status VARCHAR(20) NOT NULL DEFAULT 'AVAILABLE',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
-    UNIQUE (bucket, key)
+    UNIQUE (bucket, key, version_id)
 );
 
 CREATE INDEX idx_objects_bucket ON objects(bucket);
 CREATE INDEX idx_objects_user_id ON objects(user_id);
+CREATE INDEX idx_objects_pending ON objects(created_at) WHERE upload_status = 'PENDING';
 ```
 
 **Note**: Actual file bytes stored on filesystem, not in database.
@@ -847,17 +884,19 @@ query := fmt.Sprintf("SELECT * FROM instances WHERE id = '%s'", instanceID)
 - Database passwords: Encrypted (future: use Vault)
 - Secrets: AES-256 encrypted
 
-### Row-Level Security
+### Row-Level Security (Multi-Tenancy)
 
-User ID filtering in all queries:
+Tenant and User ID filtering in all queries:
 ```go
 func (r *instanceRepository) List(ctx context.Context) ([]*domain.Instance, error) {
-    userID := appcontext.UserIDFromContext(ctx)
-    query := `SELECT * FROM instances WHERE user_id = $1`
-    rows, err := r.db.Query(ctx, query, userID)
+    tenantID := appcontext.TenantIDFromContext(ctx)
+    query := `SELECT * FROM instances WHERE tenant_id = $1`
+    rows, err := r.db.Query(ctx, query, tenantID)
     // ...
 }
 ```
+
+This ensures that resources are strictly isolated within their organizational boundary (Tenant), preventing cross-tenant access even if resource UUIDs are known.
 
 ## Backup & Recovery
 

@@ -17,6 +17,7 @@ import (
 
 type stackService struct {
 	repo        ports.StackRepository
+	rbacSvc     ports.RBACService
 	instanceSvc ports.InstanceService
 	vpcSvc      ports.VpcService
 	volumeSvc   ports.VolumeService
@@ -27,6 +28,7 @@ type stackService struct {
 // NewStackService constructs a StackService with its dependencies.
 func NewStackService(
 	repo ports.StackRepository,
+	rbacSvc ports.RBACService,
 	instanceSvc ports.InstanceService,
 	vpcSvc ports.VpcService,
 	volumeSvc ports.VolumeService,
@@ -35,6 +37,7 @@ func NewStackService(
 ) *stackService {
 	return &stackService{
 		repo:        repo,
+		rbacSvc:     rbacSvc,
 		instanceSvc: instanceSvc,
 		vpcSvc:      vpcSvc,
 		volumeSvc:   volumeSvc,
@@ -56,11 +59,17 @@ type ResourceDefinition struct {
 
 func (s *stackService) CreateStack(ctx context.Context, name, templateStr string, parameters map[string]string) (*domain.Stack, error) {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStackCreate, "*"); err != nil {
+		return nil, err
+	}
 
 	paramsJSON, _ := json.Marshal(parameters)
 	stack := &domain.Stack{
 		ID:         uuid.New(),
 		UserID:     userID,
+		TenantID:   tenantID,
 		Name:       name,
 		Template:   templateStr,
 		Parameters: paramsJSON,
@@ -74,7 +83,6 @@ func (s *stackService) CreateStack(ctx context.Context, name, templateStr string
 	}
 
 	// Process in background
-	// Process in background
 	// Create a copy for the goroutine to avoid data race with the returned stack
 	stackCopy := *stack
 	go s.processStack(&stackCopy)
@@ -85,6 +93,7 @@ func (s *stackService) CreateStack(ctx context.Context, name, templateStr string
 func (s *stackService) processStack(stack *domain.Stack) {
 	ctx := context.Background()
 	ctx = appcontext.WithUserID(ctx, stack.UserID)
+	ctx = appcontext.WithTenantID(ctx, stack.TenantID)
 
 	var t Template
 	if err := yaml.Unmarshal([]byte(stack.Template), &t); err != nil {
@@ -95,7 +104,7 @@ func (s *stackService) processStack(stack *domain.Stack) {
 	logicalToPhysical := make(map[string]uuid.UUID)
 
 	// Simple non-topological sort for now: Create VPCs first, then everything else
-	// A real implementation would build a dependency graph
+	// a real implementation would build a dependency graph
 
 	// Pass 1: VPCs
 	if err := s.createResourcePass(ctx, stack, t, "VPC", logicalToPhysical); err != nil {
@@ -321,15 +330,35 @@ func (s *stackService) updateStackStatus(ctx context.Context, stack *domain.Stac
 }
 
 func (s *stackService) GetStack(ctx context.Context, id uuid.UUID) (*domain.Stack, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStackRead, id.String()); err != nil {
+		return nil, err
+	}
+
 	return s.repo.GetByID(ctx, id)
 }
 
 func (s *stackService) ListStacks(ctx context.Context) ([]*domain.Stack, error) {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStackRead, "*"); err != nil {
+		return nil, err
+	}
+
 	return s.repo.ListByUserID(ctx, userID)
 }
 
 func (s *stackService) DeleteStack(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStackDelete, id.String()); err != nil {
+		return err
+	}
+
 	// 1. Get stack
 	stack, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -340,6 +369,7 @@ func (s *stackService) DeleteStack(ctx context.Context, id uuid.UUID) error {
 	go func() {
 		bgCtx := context.Background()
 		bgCtx = appcontext.WithUserID(bgCtx, stack.UserID)
+		bgCtx = appcontext.WithTenantID(bgCtx, stack.TenantID)
 
 		resources, _ := s.repo.ListResources(bgCtx, id)
 
@@ -355,6 +385,13 @@ func (s *stackService) DeleteStack(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *stackService) ValidateTemplate(ctx context.Context, template string) (*domain.TemplateValidateResponse, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStackRead, "*"); err != nil {
+		return nil, err
+	}
+
 	var t Template
 	if err := yaml.Unmarshal([]byte(template), &t); err != nil {
 		return &domain.TemplateValidateResponse{

@@ -17,10 +17,11 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/internal/repositories/docker"
-	"github.com/poyrazk/thecloud/internal/repositories/k8s"
+	"github.com/poyrazk/thecloud/internal/repositories/k8s" 
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -60,15 +61,39 @@ func TestK8sProvisionerLifecycle(t *testing.T) {
 	auditSvc := &noop.NoopAuditService{}
 
 	// Real SecretService
-	secretSvc := services.NewSecretService(secretRepo, eventSvc, auditSvc, logger, "test-master-key-32-chars-long-!!!", "default")
+	rbacSvc := new(services.MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	secretSvc, err := services.NewSecretService(services.SecretServiceParams{
+		Repo:        secretRepo,
+		RBACSvc:     rbacSvc,
+		EventSvc:    eventSvc,
+		AuditSvc:    auditSvc,
+		Logger:      logger,
+		MasterKey:   "test-master-key-32-chars-long-!!!",
+		Environment: "test",
+	})
+	require.NoError(t, err)
 
 	// Network: No-op for OVS logic (requires local system support)
 	netBackend := &noopNetworkBackend{}
 
 	// Core Services
 	sgSvc := services.NewSecurityGroupService(sgRepo, vpcRepo, netBackend, auditSvc, logger)
-	storageSvc := services.NewStorageService(storageRepo, nil, auditSvc, nil, &platform.Config{})
-	lbSvc := services.NewLBService(lbRepo, vpcRepo, instanceRepo, auditSvc)
+	storageSvc := services.NewStorageService(services.StorageServiceParams{ 
+		Repo:     storageRepo, 
+		RBACSvc:  rbacSvc, 
+		AuditSvc: auditSvc, 
+		Config:   &platform.Config{}, 
+		Logger:   logger, 
+	}) 
+	lbSvc := services.NewLBService(services.LBServiceParams{ 
+		Repo:         lbRepo, 
+		RBACSvc:      rbacSvc, 
+		VpcRepo:      vpcRepo, 
+		InstanceRepo: instanceRepo, 
+		AuditSvc:     auditSvc, 
+	})
 
 	// InstanceService: The real one!
 	// We use a SyncTaskQueue to make the provisioning synchronous in the test.

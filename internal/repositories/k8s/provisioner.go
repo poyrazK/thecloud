@@ -607,8 +607,8 @@ func (p *KubeadmProvisioner) CreateBackup(ctx context.Context, cluster *domain.C
 	}
 
 	if p.storageSvc != nil {
-		key := fmt.Sprintf("%s/%d.db.b64", cluster.ID, time.Now().Unix())
-		_, err = p.storageSvc.Upload(ctx, "k8s-backups", key, strings.NewReader(snapshotData))
+		key := fmt.Sprintf("k8s-backups/%s/%d.db.b64", cluster.ID, time.Now().Unix())
+		_, err = p.storageSvc.Upload(ctx, "k8s-backups", key, strings.NewReader(snapshotData), "")
 		return err
 	}
 

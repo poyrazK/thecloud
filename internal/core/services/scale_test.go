@@ -38,6 +38,7 @@ func BenchmarkRealWorldLifecycle(b *testing.B) {
 		TaskQueue:        &TaskQueueStub{},
 		Logger:           logger,
 		TenantSvc:        &NoopTenantService{},
+		RBAC:             &noop.NoopRBACService{},
 		InstanceTypeRepo: &noop.NoopInstanceTypeRepository{},
 	})
 
@@ -91,6 +92,7 @@ func BenchmarkRealWorldLifecycleParallel(b *testing.B) {
 		AuditSvc:         auditSvc,
 		TaskQueue:        &TaskQueueStub{},
 		Logger:           logger,
+		RBAC:             &noop.NoopRBACService{},
 		TenantSvc:        &NoopTenantService{},
 		InstanceTypeRepo: &noop.NoopInstanceTypeRepository{},
 	})

@@ -12,6 +12,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,8 +24,17 @@ func setupTenantServiceIntegrationTest(t *testing.T) (ports.TenantService, ports
 
 	tenantRepo := postgres.NewTenantRepo(db)
 	userRepo := postgres.NewUserRepo(db)
+
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewTenantService(tenantRepo, userRepo, logger)
+	svc := services.NewTenantService(services.TenantServiceParams{
+		Repo:     tenantRepo,
+		UserRepo: userRepo,
+		RBACSvc:  rbacSvc,
+		Logger:   logger,
+	})
 
 	return svc, tenantRepo, userRepo, ctx
 }

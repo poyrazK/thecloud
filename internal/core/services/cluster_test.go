@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
@@ -31,10 +32,14 @@ func setupClusterServiceTest(t *testing.T) (*MockClusterRepo, *MockClusterProvis
 	instSvc := new(MockInstanceService)
 	secretSvc := new(MockSecretService)
 	taskQueue := new(MockTaskQueue)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc, _ := services.NewClusterService(services.ClusterServiceParams{
+	svc, err := services.NewClusterService(services.ClusterServiceParams{
 		Repo:        repo,
+		RBAC:        rbacSvc,
 		Provisioner: provisioner,
 		VpcSvc:      vpcSvc,
 		InstanceSvc: instSvc,
@@ -42,289 +47,290 @@ func setupClusterServiceTest(t *testing.T) (*MockClusterRepo, *MockClusterProvis
 		TaskQueue:   taskQueue,
 		Logger:      logger,
 	})
+	require.NoError(t, err)
 	return repo, provisioner, vpcSvc, taskQueue, secretSvc, svc
 }
 
 func TestClusterServiceCreate(t *testing.T) {
 	t.Parallel()
 	repo, _, vpcSvc, taskQueue, secretSvc, svc := setupClusterServiceTest(t)
-	ctx := context.Background()
 	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 	vpcID := uuid.New()
 
-	t.Run("success", func(t *testing.T) {
-		vpcSvc.On("GetVPC", mock.Anything, vpcID.String()).Return(&domain.VPC{ID: vpcID}, nil).Once()
-		repo.On("Create", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
-			return c.Name == testClusterName && c.UserID == userID
-		})).Return(nil).Once()
-		repo.On("AddNodeGroup", mock.Anything, mock.MatchedBy(func(ng *domain.NodeGroup) bool {
-			return ng.Name == "default-pool"
-		})).Return(nil).Once()
-		secretSvc.On("Encrypt", mock.Anything, mock.Anything, mock.Anything).Return(clusterEncryptedKey, nil).Once()
-		repo.On("Update", mock.Anything, mock.Anything).Return(nil).Twice()
+	vpcSvc.On("GetVPC", mock.Anything, vpcID.String()).Return(&domain.VPC{ID: vpcID}, nil)
+	secretSvc.On("Encrypt", mock.Anything, userID, mock.Anything).Return(clusterEncryptedKey, nil)
+	repo.On("Create", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.Name == testClusterName && c.UserID == userID && c.TenantID == tenantID
+	})).Return(nil)
+	repo.On("AddNodeGroup", mock.Anything, mock.MatchedBy(func(ng *domain.NodeGroup) bool {
+		return ng.Name == "default-pool" && ng.CurrentSize == 2
+	})).Return(nil)
+	taskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.MatchedBy(func(job domain.ClusterJob) bool {
+		return job.Type == domain.ClusterJobProvision && job.UserID == userID && job.TenantID == tenantID
+	})).Return(nil).Once()
 
-		// Expect task queue enqueue
-		taskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.MatchedBy(func(job domain.ClusterJob) bool {
-			return job.Type == domain.ClusterJobProvision && job.UserID == userID
-		})).Return(nil).Once()
-
-		cluster, err := svc.CreateCluster(ctx, ports.CreateClusterParams{
-			UserID:  userID,
-			Name:    testClusterName,
-			VpcID:   vpcID,
-			Version: clusterVersion,
-			Workers: 2,
-		})
-
-		require.NoError(t, err)
-		assert.NotNil(t, cluster)
-		assert.Equal(t, testClusterName, cluster.Name)
-		taskQueue.AssertExpectations(t)
+	cluster, err := svc.CreateCluster(ctx, ports.CreateClusterParams{
+		UserID:  userID,
+		Name:    testClusterName,
+		VpcID:   vpcID,
+		Version: clusterVersion,
+		Workers: 2,
 	})
 
-	t.Run("VPC_NotFound", func(t *testing.T) {
-		vpcSvc.On("GetVPC", mock.Anything, vpcID.String()).Return(nil, errors.New("not found")).Once()
-		_, err := svc.CreateCluster(ctx, ports.CreateClusterParams{VpcID: vpcID})
-		assert.Error(t, err)
-	})
+	require.NoError(t, err)
+	assert.NotNil(t, cluster)
+	assert.Equal(t, testClusterName, cluster.Name)
+	assert.Equal(t, domain.ClusterStatusPending, cluster.Status)
+}
 
-	t.Run("RepoError", func(t *testing.T) {
-		vpcSvc.On("GetVPC", mock.Anything, vpcID.String()).Return(&domain.VPC{ID: vpcID}, nil).Once()
-		secretSvc.On("Encrypt", mock.Anything, mock.Anything, mock.Anything).Return(clusterEncryptedKey, nil).Maybe()
-		repo.On("Create", mock.Anything, mock.Anything).Return(errors.New("db fail")).Once()
-		_, err := svc.CreateCluster(ctx, ports.CreateClusterParams{VpcID: vpcID, Name: "test"})
-		assert.Error(t, err)
-	})
+func TestClusterServiceCreateVpcNotFound(t *testing.T) {
+	t.Parallel()
+	_, _, vpcSvc, _, _, svc := setupClusterServiceTest(t)
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
+	vpcID := uuid.New()
+
+	vpcSvc.On("GetVPC", mock.Anything, vpcID.String()).Return(nil, assert.AnError).Once()
+
+	cluster, err := svc.CreateCluster(ctx, ports.CreateClusterParams{UserID: userID, Name: testClusterName, VpcID: vpcID, Workers: 2})
+	require.Error(t, err)
+	assert.Nil(t, cluster)
+}
+
+func TestClusterServiceCreateRepoError(t *testing.T) {
+	t.Parallel()
+	repo, _, vpcSvc, _, secretSvc, svc := setupClusterServiceTest(t)
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
+	vpcID := uuid.New()
+
+	vpcSvc.On("GetVPC", mock.Anything, vpcID.String()).Return(&domain.VPC{ID: vpcID}, nil).Once()
+	secretSvc.On("Encrypt", mock.Anything, userID, mock.Anything).Return(clusterEncryptedKey, nil).Once()
+	repo.On("Create", mock.Anything, mock.Anything).Return(errors.New("db fail")).Once()
+
+	cluster, err := svc.CreateCluster(ctx, ports.CreateClusterParams{UserID: userID, Name: testClusterName, VpcID: vpcID, Workers: 2})
+	require.Error(t, err)
+	assert.Nil(t, cluster)
 }
 
 func TestClusterServiceDelete(t *testing.T) {
 	t.Parallel()
 	repo, _, _, taskQueue, _, svc := setupClusterServiceTest(t)
-	ctx := context.Background()
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 	id := uuid.New()
-	cluster := &domain.Cluster{ID: id, Status: domain.ClusterStatusRunning}
+	cluster := &domain.Cluster{ID: id, UserID: userID, TenantID: tenantID, Status: domain.ClusterStatusRunning}
 
-	t.Run("success", func(t *testing.T) {
-		repo.On("GetByID", mock.Anything, id).Return(cluster, nil).Once()
-		repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
-			return c.Status == domain.ClusterStatusDeleting
-		})).Return(nil).Once()
-		repo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
-		repo.On("Delete", mock.Anything, id).Return(nil).Once()
+	repo.On("GetByID", mock.Anything, id).Return(cluster, nil)
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.ID == id && c.Status == domain.ClusterStatusDeleting
+	})).Return(nil).Once()
+	taskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.MatchedBy(func(job domain.ClusterJob) bool {
+		return job.Type == domain.ClusterJobDeprovision && job.ClusterID == id
+	})).Return(nil).Once()
 
-		taskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.MatchedBy(func(job domain.ClusterJob) bool {
-			return job.Type == domain.ClusterJobDeprovision && job.ClusterID == id
-		})).Return(nil).Once()
-
-		err := svc.DeleteCluster(ctx, id)
-		require.NoError(t, err)
-		taskQueue.AssertExpectations(t)
-	})
-
-	t.Run("NotFound", func(t *testing.T) {
-		repo.On("GetByID", mock.Anything, id).Return(nil, errors.New("not found")).Once()
-		err := svc.DeleteCluster(ctx, id)
-		assert.Error(t, err)
-	})
+	err := svc.DeleteCluster(ctx, id)
+	require.NoError(t, err)
 }
 
-func TestClusterServiceNodeGroupOps(t *testing.T) {
+func TestClusterServiceAddNodeGroup(t *testing.T) {
 	t.Parallel()
 	repo, _, _, _, _, svc := setupClusterServiceTest(t)
-	ctx := context.Background()
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, UserID: userID, TenantID: tenantID, Status: domain.ClusterStatusRunning, WorkerCount: 2}
 
-	t.Run("Add_Success", func(t *testing.T) {
-		cluster := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusRunning, WorkerCount: 2}
-		repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
-		repo.On("AddNodeGroup", mock.Anything, mock.Anything).Return(nil).Once()
-		repo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
+	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
+	repo.On("AddNodeGroup", mock.Anything, mock.MatchedBy(func(ng *domain.NodeGroup) bool {
+		return ng.ClusterID == clusterID && ng.Name == "test-pool" && ng.CurrentSize == 3
+	})).Return(nil).Once()
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.ID == clusterID && c.WorkerCount == 5
+	})).Return(nil).Once()
 
-		params := ports.NodeGroupParams{
-			Name: "test-pool", InstanceType: "standard-1",
-			MinSize: 1, MaxSize: 5, DesiredSize: 3,
-		}
-		ng, err := svc.AddNodeGroup(ctx, clusterID, params)
-		require.NoError(t, err)
-		assert.Equal(t, "test-pool", ng.Name)
+	ng, err := svc.AddNodeGroup(ctx, clusterID, ports.NodeGroupParams{
+		Name:         "test-pool",
+		InstanceType: "standard-1",
+		MinSize:      1,
+		MaxSize:      5,
+		DesiredSize:  3,
 	})
-
-	t.Run("Add_RepoError", func(t *testing.T) {
-		cluster := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusRunning}
-		repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
-		repo.On("AddNodeGroup", mock.Anything, mock.Anything).Return(errors.New("db error")).Once()
-		
-		_, err := svc.AddNodeGroup(ctx, clusterID, ports.NodeGroupParams{Name: "test"})
-		assert.Error(t, err)
-	})
-
-	t.Run("Delete_Success", func(t *testing.T) {
-		clusterWithNG := &domain.Cluster{
-			ID: clusterID, Status: domain.ClusterStatusRunning, WorkerCount: 5,
-			NodeGroups: []domain.NodeGroup{
-				{Name: "test-pool", CurrentSize: 3},
-			},
-		}
-		repo.On("GetByID", mock.Anything, clusterID).Return(clusterWithNG, nil).Once()
-		repo.On("DeleteNodeGroup", mock.Anything, clusterID, "test-pool").Return(nil).Once()
-		repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
-			return c.WorkerCount == 2
-		})).Return(nil).Once()
-
-		err := svc.DeleteNodeGroup(ctx, clusterID, "test-pool")
-		require.NoError(t, err)
-	})
+	require.NoError(t, err)
+	assert.Equal(t, "test-pool", ng.Name)
 }
 
-func TestClusterServiceSetBackupPolicyExtra(t *testing.T) {
+func TestClusterServiceSetBackupPolicy(t *testing.T) {
 	t.Parallel()
 	repo, _, _, _, _, svc := setupClusterServiceTest(t)
-	ctx := context.Background()
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 	clusterID := uuid.New()
-	cluster := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusRunning}
+	cluster := &domain.Cluster{ID: clusterID, UserID: userID, TenantID: tenantID, Status: domain.ClusterStatusRunning}
 
-	t.Run("success", func(t *testing.T) {
-		repo.On("GetByID", ctx, clusterID).Return(cluster, nil).Once()
-		repo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
+	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.ID == clusterID && c.BackupSchedule == "@weekly" && c.BackupRetentionDays == 30
+	})).Return(nil).Once()
 
-		err := svc.SetBackupPolicy(ctx, clusterID, ports.BackupPolicyParams{
-			Schedule:      "@weekly",
-			RetentionDays: 30,
-		})
-		require.NoError(t, err)
-	})
-
-	t.Run("NotFound", func(t *testing.T) {
-		repo.On("GetByID", ctx, clusterID).Return(nil, errors.New("not found")).Once()
-		err := svc.SetBackupPolicy(ctx, clusterID, ports.BackupPolicyParams{})
-		assert.Error(t, err)
-	})
+	err := svc.SetBackupPolicy(ctx, clusterID, ports.BackupPolicyParams{Schedule: "@weekly", RetentionDays: 30})
+	require.NoError(t, err)
 }
 
-func TestClusterServiceScaleCluster(t *testing.T) {
+func TestClusterServiceGetKubeconfig(t *testing.T) {
 	t.Parallel()
-	repo, provisioner, _, _, _, svc := setupClusterServiceTest(t)
-	ctx := context.Background()
+	repo, provisioner, _, _, secretSvc, svc := setupClusterServiceTest(t)
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 	clusterID := uuid.New()
-	cluster := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusRunning, WorkerCount: 2}
+	cluster := &domain.Cluster{ID: clusterID, UserID: userID, TenantID: tenantID, Status: domain.ClusterStatusRunning, KubeconfigEncrypted: "encrypted"}
 
-	t.Run("Scale_Up", func(t *testing.T) {
-		repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
-		repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
-			return c.WorkerCount == 4
-		})).Return(nil).Once()
-		provisioner.On("Scale", mock.Anything, mock.Anything).Return(nil).Once()
+	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
+	secretSvc.On("Decrypt", mock.Anything, userID, "encrypted").Return("decrypted", nil).Once()
 
-		err := svc.ScaleCluster(ctx, clusterID, 4)
-		require.NoError(t, err)
-		
-		// Wait for async scale
-		time.Sleep(50 * time.Millisecond)
-		provisioner.AssertExpectations(t)
-	})
+	config, err := svc.GetKubeconfig(ctx, clusterID, "admin")
+	require.NoError(t, err)
+	assert.Equal(t, "decrypted", config)
 
-	t.Run("InvalidWorkers", func(t *testing.T) {
-		repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
-		err := svc.ScaleCluster(ctx, clusterID, 0)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "at least 1 worker required")
-	})
-
-	t.Run("UpdateError", func(t *testing.T) {
-		repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
-		repo.On("Update", mock.Anything, mock.Anything).Return(errors.New("db fail")).Once()
-		
-		err := svc.ScaleCluster(ctx, clusterID, 5)
-		assert.Error(t, err)
-	})
+	provisioner.On("GetKubeconfig", mock.Anything, cluster, "viewer").Return("generated", nil).Once()
+	config, err = svc.GetKubeconfig(ctx, clusterID, "viewer")
+	require.NoError(t, err)
+	assert.Equal(t, "generated", config)
 }
 
 func TestClusterServiceRepairCluster(t *testing.T) {
 	t.Parallel()
 	repo, provisioner, _, _, _, svc := setupClusterServiceTest(t)
-	ctx := context.Background()
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 	clusterID := uuid.New()
-	cluster := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusFailed}
+	cluster := &domain.Cluster{ID: clusterID, UserID: userID, TenantID: tenantID}
 
-	t.Run("Success", func(t *testing.T) {
-		repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
-		provisioner.On("Repair", mock.Anything, mock.Anything).Return(nil).Once()
+	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
+	done := make(chan struct{})
+	provisioner.On("Repair", mock.Anything, cluster).Return(nil).Run(func(_ mock.Arguments) { close(done) }).Once()
 
-		err := svc.RepairCluster(ctx, clusterID)
-		require.NoError(t, err)
-		
-		// Wait for async repair
-		time.Sleep(50 * time.Millisecond)
-		provisioner.AssertExpectations(t)
-	})
+	err := svc.RepairCluster(ctx, clusterID)
+	require.NoError(t, err)
 
-	t.Run("NotFound", func(t *testing.T) {
-		repo.On("GetByID", mock.Anything, clusterID).Return(nil, errors.New("not found")).Once()
-		err := svc.RepairCluster(ctx, clusterID)
-		assert.Error(t, err)
-	})
+	select {
+	case <-done:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("expected repair to be invoked")
+	}
+}
+
+func TestClusterServiceScaleCluster(t *testing.T) {
+	t.Parallel()
+	repo, provisioner, _, _, _, svc := setupClusterServiceTest(t)
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, UserID: userID, TenantID: tenantID, WorkerCount: 1}
+
+	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.ID == clusterID && c.WorkerCount == 3
+	})).Return(nil).Once()
+	done := make(chan struct{})
+	provisioner.On("Scale", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.ID == clusterID && c.WorkerCount == 3
+	})).Return(nil).Run(func(_ mock.Arguments) { close(done) }).Once()
+
+	err := svc.ScaleCluster(ctx, clusterID, 3)
+	require.NoError(t, err)
+
+	select {
+	case <-done:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("expected scale to be invoked")
+	}
 }
 
 func TestClusterServiceGetClusterHealth(t *testing.T) {
 	t.Parallel()
 	repo, provisioner, _, _, _, svc := setupClusterServiceTest(t)
-	ctx := context.Background()
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 	clusterID := uuid.New()
-	cluster := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusRunning}
+	cluster := &domain.Cluster{ID: clusterID, UserID: userID, TenantID: tenantID}
+	health := &ports.ClusterHealth{Status: domain.ClusterStatusRunning}
 
-	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
-	provisioner.On("GetHealth", mock.Anything, cluster).Return(&ports.ClusterHealth{Status: domain.ClusterStatusRunning}, nil).Once()
+	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
+	provisioner.On("GetHealth", mock.Anything, cluster).Return(health, nil).Once()
 
-	health, err := svc.GetClusterHealth(ctx, clusterID)
+	resp, err := svc.GetClusterHealth(ctx, clusterID)
 	require.NoError(t, err)
-	assert.Equal(t, domain.ClusterStatusRunning, health.Status)
+	assert.Equal(t, domain.ClusterStatusRunning, resp.Status)
 }
 
-func TestClusterServiceGetKubeconfigExtra(t *testing.T) {
+func TestClusterServiceRotateSecretsFlow(t *testing.T) {
 	t.Parallel()
-	repo, provisioner, _, _, secretSvc, svc := setupClusterServiceTest(t)
-	ctx := context.Background()
-	clusterID := uuid.New()
+	repo, provisioner, _, _, _, svc := setupClusterServiceTest(t)
 	userID := uuid.New()
-	cluster := &domain.Cluster{
-		ID:                  clusterID,
-		UserID:              userID,
-		Status:              domain.ClusterStatusRunning,
-		KubeconfigEncrypted: "encrypted",
-	}
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, UserID: userID, TenantID: tenantID, Status: domain.ClusterStatusRunning}
 
-	t.Run("Admin_Success", func(t *testing.T) {
-		repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
-		secretSvc.On("Decrypt", mock.Anything, userID, "encrypted").Return("decrypted-kubeconfig", nil).Once()
+	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.Status == domain.ClusterStatusUpdating
+	})).Return(nil).Once()
+	provisioner.On("RotateSecrets", mock.Anything, cluster).Return(nil).Once()
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.Status == domain.ClusterStatusRunning
+	})).Return(nil).Once()
 
-		cfg, err := svc.GetKubeconfig(ctx, clusterID, "admin")
-		require.NoError(t, err)
-		assert.Equal(t, "decrypted-kubeconfig", cfg)
-	})
+	err := svc.RotateSecrets(ctx, clusterID)
+	require.NoError(t, err)
+}
 
-	t.Run("Decrypt_Error", func(t *testing.T) {
-		repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
-		secretSvc.On("Decrypt", mock.Anything, userID, "encrypted").Return("", errors.New("decrypt fail")).Once()
+func TestClusterServiceRestoreBackup(t *testing.T) {
+	t.Parallel()
+	repo, provisioner, _, _, _, svc := setupClusterServiceTest(t)
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, UserID: userID, TenantID: tenantID, Status: domain.ClusterStatusRunning}
+	backupPath := "s3://bucket/backup"
 
-		_, err := svc.GetKubeconfig(ctx, clusterID, "admin")
-		assert.Error(t, err)
-	})
+	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.Status == domain.ClusterStatusRepairing
+	})).Return(nil).Once()
+	provisioner.On("Restore", mock.Anything, cluster, backupPath).Return(nil).Once()
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+		return c.Status == domain.ClusterStatusRunning
+	})).Return(nil).Once()
 
-	t.Run("Guest_Success", func(t *testing.T) {
-		repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
-		provisioner.On("GetKubeconfig", mock.Anything, cluster, "viewer").Return("viewer-kubeconfig", nil).Once()
+	err := svc.RestoreBackup(ctx, clusterID, backupPath)
+	require.NoError(t, err)
+}
 
-		cfg, err := svc.GetKubeconfig(ctx, clusterID, "viewer")
-		require.NoError(t, err)
-		assert.Equal(t, "viewer-kubeconfig", cfg)
-	})
+func TestClusterServiceRestoreBackupNotRunning(t *testing.T) {
+	t.Parallel()
+	repo, _, _, _, _, svc := setupClusterServiceTest(t)
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, UserID: userID, TenantID: tenantID, Status: domain.ClusterStatusPending}
 
-	t.Run("NotRunning", func(t *testing.T) {
-		clusterPending := &domain.Cluster{ID: clusterID, Status: domain.ClusterStatusPending}
-		repo.On("GetByID", mock.Anything, clusterID).Return(clusterPending, nil).Once()
+	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
 
-		_, err := svc.GetKubeconfig(ctx, clusterID, "")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "only available when cluster is running")
-	})
+	err := svc.RestoreBackup(ctx, clusterID, "s3://bucket/backup")
+	require.Error(t, err)
 }

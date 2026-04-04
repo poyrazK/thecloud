@@ -4,11 +4,13 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -30,6 +32,7 @@ type AuthService struct {
 	apiKeySvc       ports.IdentityService
 	auditSvc        ports.AuditService
 	tenantSvc       ports.TenantService
+	logger          *slog.Logger
 	failedAttempts  map[string]int
 	lockouts        map[string]time.Time
 	lockoutDuration time.Duration
@@ -37,12 +40,13 @@ type AuthService struct {
 }
 
 // NewAuthService constructs an AuthService with its dependencies.
-func NewAuthService(userRepo ports.UserRepository, apiKeySvc ports.IdentityService, auditSvc ports.AuditService, tenantSvc ports.TenantService) *AuthService {
+func NewAuthService(userRepo ports.UserRepository, apiKeySvc ports.IdentityService, auditSvc ports.AuditService, tenantSvc ports.TenantService, logger *slog.Logger) *AuthService {
 	return &AuthService{
 		userRepo:        userRepo,
 		apiKeySvc:       apiKeySvc,
 		auditSvc:        auditSvc,
 		tenantSvc:       tenantSvc,
+		logger:          logger,
 		failedAttempts:  make(map[string]int),
 		lockouts:        make(map[string]time.Time),
 		lockoutDuration: defaultLockout,
@@ -94,7 +98,6 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 	}
 
 	// Create Personal Tenant
-	// Create Personal Tenant
 	tenantName := fmt.Sprintf("%s's Personal Tenant", name)
 
 	// Simple slugify: lowercase, replace spaces with hyphens, keep only alphanumeric
@@ -115,7 +118,7 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 	}
 	tenantSlug := fmt.Sprintf("personal-%s-%s", slugName, user.ID.String()[:8])
 
-	_, err = s.tenantSvc.CreateTenant(ctx, tenantName, tenantSlug, user.ID)
+	tenant, err := s.tenantSvc.CreateTenant(appcontext.WithInternalCall(ctx), tenantName, tenantSlug, user.ID)
 	if err != nil {
 		rollbackErr := s.userRepo.Delete(ctx, user.ID)
 		if rollbackErr != nil {
@@ -123,6 +126,7 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 		}
 		return nil, fmt.Errorf("failed to create personal tenant: %w", err)
 	}
+	ctx = appcontext.WithTenantID(ctx, tenant.ID)
 
 	// Reload user to reflect changes made during tenant creation (e.g. DefaultTenantID)
 	updatedUser, err := s.userRepo.GetByID(ctx, user.ID)
@@ -130,9 +134,11 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 		user = updatedUser
 	}
 
-	_ = s.auditSvc.Log(ctx, user.ID, "user.register", "user", user.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, user.ID, "user.register", "user", user.ID.String(), map[string]interface{}{
 		"email": email,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "user.register", "user_id", user.ID, "error", err)
+	}
 
 	return user, nil
 }
@@ -171,7 +177,9 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*domai
 	delete(s.failedAttempts, email)
 	s.mu.Unlock()
 
-	// For MVP, we'll generate an initial API key upon login if they don't have one,
+	if user.DefaultTenantID != nil { 
+		ctx = appcontext.WithTenantID(ctx, *user.DefaultTenantID) 
+	}
 	// or just return a fresh one. In a real platform, login gives you a JWT and
 	// you manage API keys separately.
 	// For now, let's create a default key for them.
@@ -180,7 +188,9 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*domai
 		return nil, "", fmt.Errorf("failed to create initial API key: %w", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, user.ID, "user.login", "user", user.ID.String(), map[string]interface{}{})
+	if err := s.auditSvc.Log(ctx, user.ID, "user.login", "user", user.ID.String(), map[string]interface{}{}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "user.login", "user_id", user.ID, "error", err)
+	}
 
 	platform.AuthAttemptsTotal.WithLabelValues("success").Inc()
 
