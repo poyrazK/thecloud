@@ -114,13 +114,16 @@ func TestElasticIPService_AssociateIP(t *testing.T) {
 func TestElasticIPService_DisassociateIP(t *testing.T) {
 	repo := new(MockElasticIPRepo)
 	auditSvc := new(MockAuditService)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	svc := services.NewElasticIPService(services.ElasticIPServiceParams{
-		Repo: repo, AuditSvc: auditSvc, Logger: slog.Default(),
+		Repo: repo, AuditSvc: auditSvc, RBAC: rbacSvc, Logger: slog.Default(),
 	})
 
 	id := uuid.New()
 	userID := uuid.New()
 	instID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
 	eip := &domain.ElasticIP{ID: id, UserID: userID, Status: domain.EIPStatusAssociated, InstanceID: &instID}
 
 	t.Run("success", func(t *testing.T) {
@@ -128,7 +131,7 @@ func TestElasticIPService_DisassociateIP(t *testing.T) {
 		repo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
 		auditSvc.On("Log", mock.Anything, userID, "eip.disassociate", "eip", id.String(), mock.Anything).Return(nil).Once()
 
-		result, err := svc.DisassociateIP(context.Background(), id)
+		result, err := svc.DisassociateIP(ctx, id)
 		require.NoError(t, err)
 		assert.Equal(t, domain.EIPStatusAllocated, result.Status)
 		assert.Nil(t, result.InstanceID)
@@ -138,7 +141,7 @@ func TestElasticIPService_DisassociateIP(t *testing.T) {
 		eipAlloc := &domain.ElasticIP{ID: id, Status: domain.EIPStatusAllocated}
 		repo.On("GetByID", mock.Anything, id).Return(eipAlloc, nil).Once()
 
-		_, err := svc.DisassociateIP(context.Background(), id)
+		_, err := svc.DisassociateIP(ctx, id)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not associated")
 	})
