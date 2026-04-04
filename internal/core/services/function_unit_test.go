@@ -172,7 +172,9 @@ func TestFunctionServiceInvokeFunction(t *testing.T) {
 
 func TestFunctionService_CreateFunction_UnsupportedRuntime(t *testing.T) {
 	repo := new(MockFunctionRepo)
-	svc := services.NewFunctionService(repo, nil, nil, nil, nil, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	svc := services.NewFunctionService(repo, rbacSvc, nil, nil, nil, slog.Default())
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 
 	_, err := svc.CreateFunction(ctx, "fail", "cobol99", "handler", []byte("code"))
