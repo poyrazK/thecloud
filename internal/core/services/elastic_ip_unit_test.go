@@ -149,19 +149,22 @@ func TestElasticIPService_DisassociateIP(t *testing.T) {
 
 func TestElasticIPService_ListAndGet(t *testing.T) {
 	repo := new(MockElasticIPRepo)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	svc := services.NewElasticIPService(services.ElasticIPServiceParams{
-		Repo: repo, Logger: slog.Default(),
+		Repo: repo, RBAC: rbacSvc, Logger: slog.Default(),
 	})
 
 	id := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	repo.On("List", mock.Anything).Return([]*domain.ElasticIP{{ID: id}}, nil).Once()
 	repo.On("GetByID", mock.Anything, id).Return(&domain.ElasticIP{ID: id}, nil).Once()
 
-	list, err := svc.ListElasticIPs(context.Background())
+	list, err := svc.ListElasticIPs(ctx)
 	require.NoError(t, err)
 	assert.Len(t, list, 1)
 
-	eip, err := svc.GetElasticIP(context.Background(), id)
+	eip, err := svc.GetElasticIP(ctx, id)
 	require.NoError(t, err)
 	assert.Equal(t, id, eip.ID)
 }
