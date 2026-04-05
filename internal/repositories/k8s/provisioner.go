@@ -389,6 +389,7 @@ func (p *KubeadmProvisioner) getExecutor(ctx context.Context, cluster *domain.Cl
 	if p.executorFactory != nil {
 		return p.executorFactory(ctx, cluster, ip)
 	}
+	ip = normalizeInstanceIP(ip)
 
 	// 1. Try to find instance by IP to use ServiceExecutor (preferred for Docker/Local/Managed)
 	// This avoids needing SSH access if we have direct control via the backend.
@@ -420,6 +421,9 @@ func (p *KubeadmProvisioner) getExecutor(ctx context.Context, cluster *domain.Cl
 				break
 			}
 		}
+	}
+	if hostPublicKey == "" {
+		return nil, errors.New(errors.Internal, "no pinned SSH host key found for node access")
 	}
 
 	return NewSSHExecutor(ip, defaultUser, decryptedKey, hostPublicKey), nil
@@ -695,13 +699,15 @@ func (p *KubeadmProvisioner) Restore(ctx context.Context, cluster *domain.Cluste
 
 	// 2. Prepare node: Stop control plane by moving manifests
 	p.logger.Info("stopping control plane pods", "cluster_id", cluster.ID)
-	manifestBackupDir := fmt.Sprintf("/tmp/manifests-backup-%d", time.Now().Unix())
+	manifestBackupDir := fmt.Sprintf("/var/lib/thecloud/manifests-backup-%d", time.Now().Unix())
 	if err := p.moveControlPlaneManifests(ctx, exec, manifestBackupDir); err != nil {
 		return errors.Wrap(errors.Internal, "failed to prepare node for restore", err)
 	}
 
 	if err := p.waitForEtcdToStop(ctx, exec, 20*time.Second); err != nil {
-		_ = p.restoreControlPlaneManifests(ctx, exec, manifestBackupDir)
+		if restoreErr := p.restoreControlPlaneManifests(ctx, exec, manifestBackupDir); restoreErr != nil {
+			return errors.Wrap(errors.Internal, "failed waiting for etcd to stop and restore manifests", restoreErr)
+		}
 		return errors.Wrap(errors.Internal, "failed waiting for etcd to stop", err)
 	}
 
@@ -720,7 +726,7 @@ func (p *KubeadmProvisioner) Restore(ctx context.Context, cluster *domain.Cluste
 	restoreCmd := "ETCDCTL_API=3 etcdctl snapshot restore /tmp/restore-snapshot.db --data-dir /var/lib/etcd-restored"
 	if _, err := exec.Run(ctx, restoreCmd); err != nil {
 		if restoreErr := p.restoreControlPlaneManifests(ctx, exec, manifestBackupDir); restoreErr != nil {
-			return errors.Wrap(errors.Internal, "etcd snapshot restore failed and restore manifests failed", restoreErr)
+			return errors.Wrap(errors.Internal, fmt.Sprintf("etcd snapshot restore failed: %v; additionally failed to restore manifests", err), restoreErr)
 		}
 		return errors.Wrap(errors.Internal, "etcd snapshot restore failed", err)
 	}
@@ -735,7 +741,7 @@ func (p *KubeadmProvisioner) Restore(ctx context.Context, cluster *domain.Cluste
 	for _, cmd := range swapCmds {
 		if _, err := exec.Run(ctx, cmd); err != nil {
 			if rollbackErr := p.rollbackEtcdRestore(ctx, exec, manifestBackupDir, etcdBackupDir); rollbackErr != nil {
-				return errors.Wrap(errors.Internal, "failed to swap etcd directories and rollback restore", rollbackErr)
+				return errors.Wrap(errors.Internal, fmt.Sprintf("failed to swap etcd directories: %v; additionally failed to rollback restore", err), rollbackErr)
 			}
 			return errors.Wrap(errors.Internal, "failed to swap etcd directories", err)
 		}
@@ -745,6 +751,9 @@ func (p *KubeadmProvisioner) Restore(ctx context.Context, cluster *domain.Cluste
 	p.logger.Info("restarting control plane pods", "cluster_id", cluster.ID)
 	if err := p.restoreControlPlaneManifests(ctx, exec, manifestBackupDir); err != nil {
 		return errors.Wrap(errors.Internal, "failed to restart control plane pods", err)
+	}
+	if err := p.waitForControlPlaneReady(ctx, exec, 2*time.Minute); err != nil {
+		return errors.Wrap(errors.Internal, "control plane did not become ready after restore", err)
 	}
 
 	// 7. Cleanup
@@ -760,11 +769,16 @@ func (p *KubeadmProvisioner) moveControlPlaneManifests(ctx context.Context, exec
 	if _, err := exec.Run(ctx, fmt.Sprintf("mkdir -p %s", shellQuote(backupDir))); err != nil {
 		return err
 	}
+	moved := false
 	for _, manifest := range controlPlaneManifestPaths {
 		cmd := fmt.Sprintf("if [ -f %s ]; then mv %s %s/; fi", shellQuote(manifest), shellQuote(manifest), shellQuote(backupDir))
 		if _, err := exec.Run(ctx, cmd); err != nil {
+			if moved {
+				_ = p.restoreControlPlaneManifests(ctx, exec, backupDir)
+			}
 			return err
 		}
+		moved = true
 	}
 	return nil
 }
@@ -796,11 +810,29 @@ func (p *KubeadmProvisioner) waitForEtcdToStop(ctx context.Context, exec NodeExe
 			if _, err := exec.Run(ctx, fmt.Sprintf("test ! -f %s", shellQuote(etcdManifest))); err == nil {
 				manifestStopped = true
 			}
-			etcdStopped := false
-			if _, err := exec.Run(ctx, "pgrep -f [e]tcd"); err != nil {
-				etcdStopped = true
+			state, err := exec.Run(ctx, "if pgrep -f '[e]tcd' >/dev/null; then printf running; else printf stopped; fi")
+			if err != nil {
+				return err
 			}
+			etcdStopped := strings.TrimSpace(state) == "stopped"
 			if manifestStopped && etcdStopped {
+				return nil
+			}
+		}
+	}
+}
+
+func (p *KubeadmProvisioner) waitForControlPlaneReady(ctx context.Context, exec NodeExecutor, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			if _, err := exec.Run(ctx, fmt.Sprintf("KUBECONFIG=%s kubectl get --raw=/readyz >/dev/null", shellQuote(adminKubeconfig))); err == nil {
 				return nil
 			}
 		}

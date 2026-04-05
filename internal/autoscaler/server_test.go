@@ -165,13 +165,15 @@ func TestAutoscalerServer_NodeGroupDeleteNodes(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			switch r.Method {
-			case "GET":
-				fmt.Fprintf(w, `{"data": {"id": "%s", "status": "RUNNING", "node_groups": [{"name": "pool-1", "current_size": 2}]}}`, clusterID)
-			case "DELETE":
+			switch {
+			case r.Method == "GET" && r.URL.Path == "/clusters/"+clusterID:
+				fmt.Fprintf(w, `{"data": {"id": "%s", "status": "RUNNING", "node_groups": [{"name": "pool-1", "current_size": 2, "min_size": 1}]}}`, clusterID)
+			case r.Method == "GET" && r.URL.Path == "/instances":
+				fmt.Fprintf(w, `{"data": [{"id": "%s", "metadata": {"thecloud.io/cluster-id": "%s", "thecloud.io/node-group": "pool-1"}}]}`, instanceID, clusterID)
+			case r.Method == "DELETE":
 				w.WriteHeader(http.StatusOK)
 				fmt.Fprint(w, `{"data": {}}`)
-			case "PUT":
+			case r.Method == "PUT":
 				w.WriteHeader(http.StatusOK)
 				fmt.Fprint(w, `{"data": {}}`)
 			}

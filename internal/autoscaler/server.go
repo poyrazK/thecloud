@@ -187,21 +187,43 @@ func (s *AutoscalerServer) NodeGroupDeleteNodes(ctx context.Context, req *protos
 	if targetGroup == nil {
 		return nil, status.Errorf(codes.NotFound, "node group %s not found", req.Id)
 	}
+	instances, err := s.client.ListInstancesWithContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	instancesByID := make(map[string]sdk.Instance, len(instances))
+	for _, inst := range instances {
+		instancesByID[inst.ID] = inst
+	}
 
-	successfulTerminations := 0
+	providerIDs := make([]string, 0, len(req.Nodes))
 	for _, node := range req.Nodes {
 		providerID := strings.TrimPrefix(node.ProviderID, "thecloud://")
 		if providerID == node.ProviderID {
-			continue
+			return nil, status.Errorf(codes.InvalidArgument, "malformed provider ID %q", node.ProviderID)
 		}
+		inst, ok := instancesByID[providerID]
+		if !ok {
+			return nil, status.Errorf(codes.NotFound, "instance %s not found", providerID)
+		}
+		if inst.Metadata["thecloud.io/cluster-id"] != s.clusterID || inst.Metadata["thecloud.io/node-group"] != req.Id {
+			return nil, status.Errorf(codes.FailedPrecondition, "instance %s does not belong to cluster %s node group %s", providerID, s.clusterID, req.Id)
+		}
+		providerIDs = append(providerIDs, providerID)
+	}
+
+	newSize := targetGroup.CurrentSize - len(providerIDs)
+	if newSize < targetGroup.MinSize {
+		return nil, status.Errorf(codes.FailedPrecondition, "cannot shrink node group %s below min size %d", req.Id, targetGroup.MinSize)
+	}
+
+	for _, providerID := range providerIDs {
 		if err := s.client.TerminateInstanceWithContext(ctx, providerID); err != nil {
 			klog.Errorf("Failed to terminate instance %s: %v", providerID, err)
 			return nil, err
 		}
-		successfulTerminations++
 	}
 
-	newSize := targetGroup.CurrentSize - successfulTerminations
 	_, err = s.client.UpdateNodeGroupWithContext(ctx, s.clusterID, req.Id, sdk.UpdateNodeGroupInput{
 		DesiredSize: &newSize,
 	})

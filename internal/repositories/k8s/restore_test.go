@@ -177,7 +177,7 @@ func TestRestore(t *testing.T) {
 
 		// Expect node preparation
 		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-			return strings.HasPrefix(cmd, "mkdir -p '/tmp/manifests-backup-")
+			return strings.HasPrefix(cmd, "mkdir -p '/var/lib/thecloud/manifests-backup-")
 		})).Return("", nil).Once()
 		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
 			return strings.Contains(cmd, "if [ -f '/etc/kubernetes/manifests/etcd.yaml' ]; then mv")
@@ -192,7 +192,7 @@ func TestRestore(t *testing.T) {
 			return strings.Contains(cmd, "if [ -f '/etc/kubernetes/manifests/kube-scheduler.yaml' ]; then mv")
 		})).Return("", nil).Once()
 		executor.On("Run", mock.Anything, "test ! -f '/etc/kubernetes/manifests/etcd.yaml'").Return("", nil).Once()
-		executor.On("Run", mock.Anything, "pgrep -f [e]tcd").Return("", assert.AnError).Once()
+		executor.On("Run", mock.Anything, "if pgrep -f '[e]tcd' >/dev/null; then printf running; else printf stopped; fi").Return("stopped", nil).Once()
 
 		// Expect file upload
 		executor.On("WriteFile", mock.Anything, "/tmp/restore-snapshot.db", mock.Anything).Return(nil)
@@ -216,6 +216,7 @@ func TestRestore(t *testing.T) {
 				return strings.Contains(cmd, "/"+manifest+"'") && strings.Contains(cmd, "then mv")
 			})).Return("", nil).Once()
 		}
+		executor.On("Run", mock.Anything, "KUBECONFIG='/etc/kubernetes/admin.conf' kubectl get --raw=/readyz >/dev/null").Return("", nil).Once()
 
 		// Expect cleanup
 		executor.On("Run", mock.Anything, "rm /tmp/restore-snapshot.db").Return("", nil)
@@ -245,8 +246,9 @@ func TestRestore(t *testing.T) {
 			Return(io.NopCloser(strings.NewReader(backupData)), nil, nil)
 
 		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-			return cmd == "pgrep -f [e]tcd"
-		})).Return("", assert.AnError)
+			return cmd == "if pgrep -f '[e]tcd' >/dev/null; then printf running; else printf stopped; fi"
+		})).Return("stopped", nil)
+		executor.On("Run", mock.Anything, "KUBECONFIG='/etc/kubernetes/admin.conf' kubectl get --raw=/readyz >/dev/null").Return("", nil)
 		executor.On("Run", mock.Anything, mock.Anything).Return("", nil)
 		executor.On("WriteFile", mock.Anything, "/tmp/restore-snapshot.db", mock.Anything).Return(nil)
 
@@ -305,7 +307,7 @@ func TestRestore(t *testing.T) {
 			Return(io.NopCloser(strings.NewReader("fake-etcd-data")), nil, nil)
 
 		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-			return strings.HasPrefix(cmd, "mkdir -p '/tmp/manifests-backup-")
+			return strings.HasPrefix(cmd, "mkdir -p '/var/lib/thecloud/manifests-backup-")
 		})).Return("", nil).Once()
 		for _, manifest := range []string{"etcd.yaml", "kube-apiserver.yaml", "kube-controller-manager.yaml", "kube-scheduler.yaml"} {
 			manifest := manifest
@@ -314,7 +316,7 @@ func TestRestore(t *testing.T) {
 			})).Return("", nil).Once()
 		}
 		executor.On("Run", mock.Anything, "test ! -f '/etc/kubernetes/manifests/etcd.yaml'").Return("", nil).Once()
-		executor.On("Run", mock.Anything, "pgrep -f [e]tcd").Return("", assert.AnError).Once()
+		executor.On("Run", mock.Anything, "if pgrep -f '[e]tcd' >/dev/null; then printf running; else printf stopped; fi").Return("stopped", nil).Once()
 		executor.On("WriteFile", mock.Anything, "/tmp/restore-snapshot.db", mock.Anything).Return(os.ErrPermission).Once()
 		for _, manifest := range []string{"etcd.yaml", "kube-apiserver.yaml", "kube-controller-manager.yaml", "kube-scheduler.yaml"} {
 			manifest := manifest
@@ -345,7 +347,7 @@ func TestRestore(t *testing.T) {
 			Return(io.NopCloser(strings.NewReader("fake-etcd-data")), nil, nil)
 
 		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-			return strings.HasPrefix(cmd, "mkdir -p '/tmp/manifests-backup-")
+			return strings.HasPrefix(cmd, "mkdir -p '/var/lib/thecloud/manifests-backup-")
 		})).Return("", nil).Once()
 		for _, manifest := range []string{"etcd.yaml", "kube-apiserver.yaml", "kube-controller-manager.yaml", "kube-scheduler.yaml"} {
 			manifest := manifest
@@ -354,7 +356,7 @@ func TestRestore(t *testing.T) {
 			})).Return("", nil).Once()
 		}
 		executor.On("Run", mock.Anything, "test ! -f '/etc/kubernetes/manifests/etcd.yaml'").Return("", nil).Once()
-		executor.On("Run", mock.Anything, "pgrep -f [e]tcd").Return("", assert.AnError).Once()
+		executor.On("Run", mock.Anything, "if pgrep -f '[e]tcd' >/dev/null; then printf running; else printf stopped; fi").Return("stopped", nil).Once()
 		executor.On("WriteFile", mock.Anything, "/tmp/restore-snapshot.db", mock.Anything).Return(nil).Once()
 		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
 			return strings.Contains(cmd, "etcdctl snapshot restore")
