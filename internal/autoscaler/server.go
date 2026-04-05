@@ -15,9 +15,8 @@ import (
 
 type AutoscalerServer struct {
 	protos.UnimplementedCloudProviderServer
-	client     *sdk.Client
-	clusterID  string
-	lastStatus string
+	client    *sdk.Client
+	clusterID string
 }
 
 func NewAutoscalerServer(client *sdk.Client, clusterID string) *AutoscalerServer {
@@ -124,7 +123,7 @@ func (s *AutoscalerServer) NodeGroupTargetSize(ctx context.Context, req *protos.
 
 func (s *AutoscalerServer) NodeGroupIncreaseSize(ctx context.Context, req *protos.NodeGroupIncreaseSizeRequest) (*protos.NodeGroupIncreaseSizeResponse, error) {
 	klog.Infof("NodeGroupIncreaseSize: Request to increase size of node group %s by %d", req.Id, req.Delta)
-	
+
 	if req.Delta <= 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "NodeGroupIncreaseSize: delta must be a positive integer, got %d", req.Delta)
 	}
@@ -222,7 +221,7 @@ func (s *AutoscalerServer) NodeGroupNodes(ctx context.Context, req *protos.NodeG
 	for _, inst := range instances {
 		if inst.Metadata["thecloud.io/cluster-id"] == s.clusterID &&
 			inst.Metadata["thecloud.io/node-group"] == req.Id {
-			
+
 			state := protos.InstanceStatus_instanceRunning
 			switch inst.Status {
 			case "PROVISIONING", "STARTING":
@@ -260,15 +259,10 @@ func (s *AutoscalerServer) Refresh(ctx context.Context, req *protos.RefreshReque
 		return nil, status.Errorf(codes.Internal, "failed to fetch cluster status: %v", err)
 	}
 
-	if cluster.Status != s.lastStatus {
-		klog.Infof("Refresh: Cluster status changed from %s to %s", s.lastStatus, cluster.Status)
-		s.lastStatus = cluster.Status
-	}
-
 	if cluster.Status == "repairing" {
 		klog.Warningf("Refresh: Cluster %s is in REPAIRING state. Autoscaler is paused.", s.clusterID)
-		// Return error to skip this autoscaling cycle
-		return nil, status.Errorf(codes.Unavailable, "cluster is currently being restored/repaired")
+		// Keep the provider healthy and let the mutating RPCs enforce the pause.
+		return &protos.RefreshResponse{}, nil
 	}
 
 	return &protos.RefreshResponse{}, nil

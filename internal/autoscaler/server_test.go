@@ -18,7 +18,7 @@ import (
 
 func TestAutoscalerServer_Refresh(t *testing.T) {
 	clusterID := uuid.New().String()
-	
+
 	t.Run("Status_Running", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, fmt.Sprintf("/clusters/%s", clusterID), r.URL.Path)
@@ -33,7 +33,6 @@ func TestAutoscalerServer_Refresh(t *testing.T) {
 		resp, err := server.Refresh(context.Background(), &protos.RefreshRequest{})
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
-		assert.Equal(t, "RUNNING", server.lastStatus)
 	})
 
 	t.Run("Status_Repairing", func(t *testing.T) {
@@ -47,19 +46,14 @@ func TestAutoscalerServer_Refresh(t *testing.T) {
 		server := NewAutoscalerServer(client, clusterID)
 
 		resp, err := server.Refresh(context.Background(), &protos.RefreshRequest{})
-		require.Error(t, err)
-		assert.Nil(t, resp)
-		
-		st, ok := status.FromError(err)
-		require.True(t, ok)
-		assert.Equal(t, codes.Unavailable, st.Code())
-		assert.Contains(t, st.Message(), "restored/repaired")
+		require.NoError(t, err)
+		assert.NotNil(t, resp)
 	})
 }
 
 func TestAutoscalerServer_NodeGroups(t *testing.T) {
 	clusterID := uuid.New().String()
-	
+
 	t.Run("Success", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -87,7 +81,7 @@ func TestAutoscalerServer_NodeGroups(t *testing.T) {
 func TestAutoscalerServer_NodeGroupForNode(t *testing.T) {
 	clusterID := uuid.New().String()
 	instanceID := uuid.New().String()
-	
+
 	t.Run("Success", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -118,7 +112,7 @@ func TestAutoscalerServer_NodeGroupForNode(t *testing.T) {
 
 func TestAutoscalerServer_NodeGroupTargetSize(t *testing.T) {
 	clusterID := uuid.New().String()
-	
+
 	t.Run("Success", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -142,7 +136,7 @@ func TestAutoscalerServer_NodeGroupTargetSize(t *testing.T) {
 
 func TestAutoscalerServer_NodeGroupIncreaseSize(t *testing.T) {
 	clusterID := uuid.New().String()
-	
+
 	t.Run("Success", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -167,7 +161,7 @@ func TestAutoscalerServer_NodeGroupIncreaseSize(t *testing.T) {
 func TestAutoscalerServer_NodeGroupDeleteNodes(t *testing.T) {
 	clusterID := uuid.New().String()
 	instanceID := uuid.New().String()
-	
+
 	t.Run("Success", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -188,7 +182,7 @@ func TestAutoscalerServer_NodeGroupDeleteNodes(t *testing.T) {
 		server := NewAutoscalerServer(client, clusterID)
 
 		_, err := server.NodeGroupDeleteNodes(context.Background(), &protos.NodeGroupDeleteNodesRequest{
-			Id: "pool-1",
+			Id:    "pool-1",
 			Nodes: []*protos.ExternalGrpcNode{{ProviderID: "thecloud://" + instanceID}},
 		})
 		require.NoError(t, err)
@@ -198,7 +192,7 @@ func TestAutoscalerServer_NodeGroupDeleteNodes(t *testing.T) {
 func TestAutoscalerServer_NodeGroupNodes(t *testing.T) {
 	clusterID := uuid.New().String()
 	instanceID := uuid.New().String()
-	
+
 	t.Run("Success", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -218,7 +212,7 @@ func TestAutoscalerServer_NodeGroupNodes(t *testing.T) {
 
 func TestAutoscalerServer_NodeGroupDecreaseTargetSize(t *testing.T) {
 	clusterID := uuid.New().String()
-	
+
 	t.Run("Success", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -262,7 +256,7 @@ func TestAutoscalerServer_NodeGroupGetOptions(t *testing.T) {
 
 func TestAutoscalerServer_Pricing(t *testing.T) {
 	server := NewAutoscalerServer(nil, "id")
-	
+
 	t.Run("NodePrice", func(t *testing.T) {
 		resp, err := server.PricingNodePrice(context.Background(), &protos.PricingNodePriceRequest{})
 		require.Error(t, err)
@@ -284,7 +278,7 @@ func TestAutoscalerServer_Pricing(t *testing.T) {
 
 func TestAutoscalerServer_Misc(t *testing.T) {
 	server := NewAutoscalerServer(nil, "id")
-	
+
 	t.Run("GPULabel", func(t *testing.T) {
 		resp, err := server.GPULabel(context.Background(), &protos.GPULabelRequest{})
 		require.NoError(t, err)

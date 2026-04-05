@@ -174,14 +174,32 @@ func TestClusterServiceSetBackupPolicy(t *testing.T) {
 	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
 	clusterID := uuid.New()
 	cluster := &domain.Cluster{ID: clusterID, UserID: userID, TenantID: tenantID, Status: domain.ClusterStatusRunning}
+	schedule := "@weekly"
+	retention := 30
 
 	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
 	repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
 		return c.ID == clusterID && c.BackupSchedule == "@weekly" && c.BackupRetentionDays == 30
 	})).Return(nil).Once()
 
-	err := svc.SetBackupPolicy(ctx, clusterID, ports.BackupPolicyParams{Schedule: "@weekly", RetentionDays: 30})
+	err := svc.SetBackupPolicy(ctx, clusterID, ports.BackupPolicyParams{Schedule: &schedule, RetentionDays: &retention})
 	require.NoError(t, err)
+
+	t.Run("ClearScheduleResetsDefaultRetentionWhenNotProvided", func(t *testing.T) {
+		cluster := &domain.Cluster{
+			ID: clusterID, UserID: userID, TenantID: tenantID, Status: domain.ClusterStatusRunning,
+			BackupSchedule: "@daily", BackupRetentionDays: 30,
+		}
+		clear := ""
+
+		repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+		repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+			return c.ID == clusterID && c.BackupSchedule == "" && c.BackupRetentionDays == 7
+		})).Return(nil).Once()
+
+		err := svc.SetBackupPolicy(ctx, clusterID, ports.BackupPolicyParams{Schedule: &clear})
+		require.NoError(t, err)
+	})
 }
 
 func TestClusterServiceGetKubeconfig(t *testing.T) {

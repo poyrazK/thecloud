@@ -176,9 +176,22 @@ func TestRestore(t *testing.T) {
 			Return(io.NopCloser(strings.NewReader(backupData)), nil, nil)
 
 		// Expect node preparation
-		executor.On("Run", mock.Anything, "mkdir -p /tmp/manifests-backup").Return("", nil)
-		executor.On("Run", mock.Anything, "rm -rf /tmp/manifests-backup/*").Return("", nil)
-		executor.On("Run", mock.Anything, "mv /etc/kubernetes/manifests/*.yaml /tmp/manifests-backup/").Return("", nil)
+		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+			return strings.HasPrefix(cmd, "mkdir -p '/tmp/manifests-backup-")
+		})).Return("", nil).Once()
+		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+			return strings.Contains(cmd, "if [ -f '/etc/kubernetes/manifests/etcd.yaml' ]; then mv")
+		})).Return("", nil).Once()
+		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+			return strings.Contains(cmd, "if [ -f '/etc/kubernetes/manifests/kube-apiserver.yaml' ]; then mv")
+		})).Return("", nil).Once()
+		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+			return strings.Contains(cmd, "if [ -f '/etc/kubernetes/manifests/kube-controller-manager.yaml' ]; then mv")
+		})).Return("", nil).Once()
+		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+			return strings.Contains(cmd, "if [ -f '/etc/kubernetes/manifests/kube-scheduler.yaml' ]; then mv")
+		})).Return("", nil).Once()
+		executor.On("Run", mock.Anything, "test ! -f '/etc/kubernetes/manifests/etcd.yaml'").Return("", nil).Once()
 
 		// Expect file upload
 		executor.On("WriteFile", mock.Anything, "/tmp/restore-snapshot.db", mock.Anything).Return(nil)
@@ -190,13 +203,18 @@ func TestRestore(t *testing.T) {
 
 		// Expect swap directories
 		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
-			return strings.Contains(cmd, "mv /var/lib/etcd /var/lib/etcd-backup")
+			return strings.Contains(cmd, "if [ -d /var/lib/etcd ]; then mv /var/lib/etcd '/var/lib/etcd-backup-")
 		})).Return("", nil)
 		executor.On("Run", mock.Anything, "mv /var/lib/etcd-restored /var/lib/etcd").Return("", nil)
 		executor.On("Run", mock.Anything, "chown -R 0:0 /var/lib/etcd").Return("", nil)
 
 		// Expect restart pods
-		executor.On("Run", mock.Anything, "mv /tmp/manifests-backup/*.yaml /etc/kubernetes/manifests/").Return("", nil)
+		for _, manifest := range []string{"etcd.yaml", "kube-apiserver.yaml", "kube-controller-manager.yaml", "kube-scheduler.yaml"} {
+			manifest := manifest
+			executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+				return strings.Contains(cmd, "/"+manifest+"'") && strings.Contains(cmd, "then mv")
+			})).Return("", nil).Once()
+		}
 
 		// Expect cleanup
 		executor.On("Run", mock.Anything, "rm /tmp/restore-snapshot.db").Return("", nil)
@@ -241,6 +259,13 @@ func TestRestore(t *testing.T) {
 		assert.Contains(t, err.Error(), "no control plane node")
 	})
 
+	t.Run("Restore Failure - HA Cluster Not Supported", func(t *testing.T) {
+		p := &KubeadmProvisioner{logger: logger}
+		err := p.Restore(ctx, &domain.Cluster{ControlPlaneIPs: []string{"10.0.0.1", "10.0.0.2"}, HAEnabled: true}, "path")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "single-control-plane")
+	})
+
 	t.Run("Restore Failure - Storage Error", func(t *testing.T) {
 		storage := new(mockStorageService)
 		p := &KubeadmProvisioner{
@@ -257,6 +282,94 @@ func TestRestore(t *testing.T) {
 		err := p.Restore(ctx, cluster, "bad-path")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to download backup")
+	})
+
+	t.Run("Restore Failure - Upload Restores Manifests", func(t *testing.T) {
+		executor := new(mockNodeExecutor)
+		storage := new(mockStorageService)
+
+		p := &KubeadmProvisioner{
+			storageSvc: storage,
+			logger:     logger,
+			executorFactory: func(ctx context.Context, c *domain.Cluster, ip string) (NodeExecutor, error) {
+				return executor, nil
+			},
+		}
+
+		backupPath := "clusters/" + clusterID.String() + "/backup.db"
+		storage.On("Download", mock.Anything, "k8s-backups", backupPath).
+			Return(io.NopCloser(strings.NewReader("fake-etcd-data")), nil, nil)
+
+		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+			return strings.HasPrefix(cmd, "mkdir -p '/tmp/manifests-backup-")
+		})).Return("", nil).Once()
+		for _, manifest := range []string{"etcd.yaml", "kube-apiserver.yaml", "kube-controller-manager.yaml", "kube-scheduler.yaml"} {
+			manifest := manifest
+			executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+				return strings.Contains(cmd, "if [ -f '/etc/kubernetes/manifests/"+manifest+"' ]; then mv")
+			})).Return("", nil).Once()
+		}
+		executor.On("Run", mock.Anything, "test ! -f '/etc/kubernetes/manifests/etcd.yaml'").Return("", nil).Once()
+		executor.On("WriteFile", mock.Anything, "/tmp/restore-snapshot.db", mock.Anything).Return(os.ErrPermission).Once()
+		for _, manifest := range []string{"etcd.yaml", "kube-apiserver.yaml", "kube-controller-manager.yaml", "kube-scheduler.yaml"} {
+			manifest := manifest
+			executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+				return strings.Contains(cmd, "/"+manifest+"'") && strings.Contains(cmd, "then mv")
+			})).Return("", nil).Once()
+		}
+
+		err := p.Restore(ctx, cluster, backupPath)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to upload snapshot to node")
+	})
+
+	t.Run("Restore Failure - Swap Rolls Back Etcd And Manifests", func(t *testing.T) {
+		executor := new(mockNodeExecutor)
+		storage := new(mockStorageService)
+
+		p := &KubeadmProvisioner{
+			storageSvc: storage,
+			logger:     logger,
+			executorFactory: func(ctx context.Context, c *domain.Cluster, ip string) (NodeExecutor, error) {
+				return executor, nil
+			},
+		}
+
+		backupPath := "clusters/" + clusterID.String() + "/backup.db"
+		storage.On("Download", mock.Anything, "k8s-backups", backupPath).
+			Return(io.NopCloser(strings.NewReader("fake-etcd-data")), nil, nil)
+
+		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+			return strings.HasPrefix(cmd, "mkdir -p '/tmp/manifests-backup-")
+		})).Return("", nil).Once()
+		for _, manifest := range []string{"etcd.yaml", "kube-apiserver.yaml", "kube-controller-manager.yaml", "kube-scheduler.yaml"} {
+			manifest := manifest
+			executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+				return strings.Contains(cmd, "if [ -f '/etc/kubernetes/manifests/"+manifest+"' ]; then mv")
+			})).Return("", nil).Once()
+		}
+		executor.On("Run", mock.Anything, "test ! -f '/etc/kubernetes/manifests/etcd.yaml'").Return("", nil).Once()
+		executor.On("WriteFile", mock.Anything, "/tmp/restore-snapshot.db", mock.Anything).Return(nil).Once()
+		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+			return strings.Contains(cmd, "etcdctl snapshot restore")
+		})).Return("", nil).Once()
+		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+			return strings.Contains(cmd, "if [ -d /var/lib/etcd ]; then mv /var/lib/etcd '/var/lib/etcd-backup-")
+		})).Return("", nil).Once()
+		executor.On("Run", mock.Anything, "mv /var/lib/etcd-restored /var/lib/etcd").Return("", os.ErrPermission).Once()
+		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+			return strings.Contains(cmd, "rm -rf /var/lib/etcd && mv '/var/lib/etcd-backup-")
+		})).Return("", nil).Once()
+		for _, manifest := range []string{"etcd.yaml", "kube-apiserver.yaml", "kube-controller-manager.yaml", "kube-scheduler.yaml"} {
+			manifest := manifest
+			executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+				return strings.Contains(cmd, "/"+manifest+"'") && strings.Contains(cmd, "then mv")
+			})).Return("", nil).Once()
+		}
+
+		err := p.Restore(ctx, cluster, backupPath)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to swap etcd directories")
 	})
 }
 

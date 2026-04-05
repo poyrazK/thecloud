@@ -27,7 +27,7 @@ func TestServiceExecutor(t *testing.T) {
 	t.Run("Run", func(t *testing.T) {
 		cmd := "echo hello"
 		mockSvc.On("Exec", ctx, instID.String(), []string{"sh", "-c", cmd}).Return("hello", nil).Once()
-		
+
 		out, err := executor.Run(ctx, cmd)
 		require.NoError(t, err)
 		assert.Equal(t, "hello", out)
@@ -36,9 +36,9 @@ func TestServiceExecutor(t *testing.T) {
 	t.Run("WriteFile", func(t *testing.T) {
 		path := "/tmp/test.txt"
 		data := "hello world"
-		
+
 		mockSvc.On("Exec", ctx, instID.String(), mock.MatchedBy(func(cmd []string) bool {
-			return strings.Contains(cmd[2], "base64 -d > "+path)
+			return strings.Contains(cmd[2], "base64 -d > '"+path+"'")
 		})).Return("", nil).Once()
 
 		err := executor.WriteFile(ctx, path, strings.NewReader(data))
@@ -47,7 +47,7 @@ func TestServiceExecutor(t *testing.T) {
 
 	t.Run("WaitForReady", func(t *testing.T) {
 		mockSvc.On("Exec", mock.Anything, instID.String(), []string{"sh", "-c", "echo ready"}).Return("ready", nil).Once()
-		
+
 		err := executor.WaitForReady(ctx, 2*time.Second)
 		require.NoError(t, err)
 	})
@@ -57,7 +57,7 @@ func TestSSHExecutor(t *testing.T) {
 	// Setup a simple SSH server for testing
 	pk, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
-	
+
 	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(pk),
@@ -92,16 +92,35 @@ func TestSSHExecutor(t *testing.T) {
 	}()
 
 	t.Run("NewSSHExecutor", func(t *testing.T) {
-		executor := NewSSHExecutor(ip, "user", string(privateKeyPEM))
+		executor := NewSSHExecutor(ip, "user", string(privateKeyPEM), "")
 		assert.NotNil(t, executor)
 		assert.Equal(t, ip, executor.ip)
 	})
 
 	t.Run("Run_FailConn", func(t *testing.T) {
-		executor := NewSSHExecutor("127.0.0.1", "user", string(privateKeyPEM))
+		executor := NewSSHExecutor("127.0.0.1", "user", string(privateKeyPEM), "")
 		// Use a wrong port or something that will definitely fail fast
-		executor.ip = "127.0.0.1:1" 
+		executor.ip = "127.0.0.1:1"
 		_, err := executor.Run(context.Background(), "ls")
 		assert.Error(t, err)
+	})
+
+	t.Run("HostKeyCallback_UsesPinnedHostKey", func(t *testing.T) {
+		hostPub := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey())))
+		executor := NewSSHExecutor(ip, "user", string(privateKeyPEM), hostPub)
+
+		callback, err := executor.hostKeyCallback()
+		require.NoError(t, err)
+
+		err = callback("127.0.0.1:22", nil, signer.PublicKey())
+		assert.NoError(t, err)
+	})
+
+	t.Run("HostKeyCallback_InvalidPinnedKey", func(t *testing.T) {
+		executor := NewSSHExecutor(ip, "user", string(privateKeyPEM), "not-a-valid-key")
+
+		_, err := executor.hostKeyCallback()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse host public key")
 	})
 }

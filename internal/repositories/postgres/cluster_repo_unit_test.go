@@ -138,7 +138,7 @@ func TestClusterRepository(t *testing.T) {
 					t.Helper()
 					mock.ExpectQuery("SELECT .* FROM clusters").
 						WillReturnRows(pgxmock.NewRows(cols).
-							AddRow(clusterID, userID, uuid.New(), "c1", "v1", "RUNNING", []string{}, 3, false, false, "", "", nil, "", "", "", nil, "", nil, "", 0, time.Now(), time.Now()))
+							AddRow(clusterID, userID, uuid.New(), "c1", "v1", "RUNNING", []string{}, 3, false, false, "", "", nil, "", "", "", nil, "", nil, "", 7, time.Now(), time.Now()))
 					mock.ExpectQuery("SELECT .* FROM cluster_node_groups").WithArgs(clusterID).
 						WillReturnRows(pgxmock.NewRows(ngCols).
 							AddRow(uuid.New(), clusterID, "default-pool", "standard-1", 1, 10, 3, time.Now(), time.Now()))
@@ -159,7 +159,7 @@ func TestClusterRepository(t *testing.T) {
 					t.Helper()
 					mock.ExpectQuery("SELECT .* FROM clusters WHERE user_id = \\$1").WithArgs(userID).
 						WillReturnRows(pgxmock.NewRows(cols).
-							AddRow(clusterID, userID, uuid.New(), "c1", "v1", "RUNNING", []string{}, 3, false, false, "", "", nil, "", "", "", nil, "", nil, "", 0, time.Now(), time.Now()))
+							AddRow(clusterID, userID, uuid.New(), "c1", "v1", "RUNNING", []string{}, 3, false, false, "", "", nil, "", "", "", nil, "", nil, "", 7, time.Now(), time.Now()))
 					mock.ExpectQuery("SELECT .* FROM cluster_node_groups").WithArgs(clusterID).
 						WillReturnRows(pgxmock.NewRows(ngCols).
 							AddRow(uuid.New(), clusterID, "default-pool", "standard-1", 1, 10, 3, time.Now(), time.Now()))

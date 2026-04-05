@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -40,7 +41,7 @@ func (e *ServiceExecutor) WriteFile(ctx context.Context, path string, data io.Re
 		return err
 	}
 	b64Data := base64.StdEncoding.EncodeToString(content)
-	_, err = e.Run(ctx, fmt.Sprintf("echo %s | base64 -d > %s", b64Data, path))
+	_, err = e.Run(ctx, fmt.Sprintf("printf '%%s' %s | base64 -d > %s", shellQuote(b64Data), shellQuote(path)))
 	return err
 }
 
@@ -66,13 +67,25 @@ func (e *ServiceExecutor) WaitForReady(ctx context.Context, timeout time.Duratio
 
 // SSHExecutor uses SSH to run commands on a node.
 type SSHExecutor struct {
-	ip   string
-	user string
-	key  string
+	ip            string
+	user          string
+	key           string
+	hostPublicKey string
 }
 
-func NewSSHExecutor(ip, user, key string) *SSHExecutor {
-	return &SSHExecutor{ip: ip, user: user, key: key}
+func NewSSHExecutor(ip, user, key, hostPublicKey string) *SSHExecutor {
+	return &SSHExecutor{ip: ip, user: user, key: key, hostPublicKey: hostPublicKey}
+}
+
+func (e *SSHExecutor) hostKeyCallback() (ssh.HostKeyCallback, error) {
+	if strings.TrimSpace(e.hostPublicKey) == "" {
+		return ssh.InsecureIgnoreHostKey(), nil
+	}
+	pubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(e.hostPublicKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse host public key: %w", err)
+	}
+	return ssh.FixedHostKey(pubKey), nil
 }
 
 func (e *SSHExecutor) Run(ctx context.Context, cmd string) (string, error) {
@@ -80,13 +93,17 @@ func (e *SSHExecutor) Run(ctx context.Context, cmd string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to parse private key: %w", err)
 	}
+	hostKeyCallback, err := e.hostKeyCallback()
+	if err != nil {
+		return "", err
+	}
 
 	config := &ssh.ClientConfig{
 		User: e.user,
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: hostKeyCallback,
 		Timeout:         10 * time.Second,
 	}
 
@@ -116,13 +133,17 @@ func (e *SSHExecutor) WriteFile(ctx context.Context, path string, data io.Reader
 	if err != nil {
 		return fmt.Errorf("failed to parse private key: %w", err)
 	}
+	hostKeyCallback, err := e.hostKeyCallback()
+	if err != nil {
+		return err
+	}
 
 	config := &ssh.ClientConfig{
 		User: e.user,
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: hostKeyCallback,
 		Timeout:         10 * time.Second,
 	}
 
@@ -140,8 +161,12 @@ func (e *SSHExecutor) WriteFile(ctx context.Context, path string, data io.Reader
 	defer func() { _ = session.Close() }()
 
 	session.Stdin = data
-	err = session.Run(fmt.Sprintf("cat > %s", path))
+	err = session.Run(fmt.Sprintf("cat > %s", shellQuote(path)))
 	return err
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 
 func (e *SSHExecutor) WaitForReady(ctx context.Context, timeout time.Duration) error {

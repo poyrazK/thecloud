@@ -662,9 +662,11 @@ func TestClusterHandlerSetBackupPolicy(t *testing.T) {
 	clusterID := uuid.New()
 
 	t.Run("Success", func(t *testing.T) {
-		params := ports.BackupPolicyParams{Schedule: "@daily", RetentionDays: 7}
+		schedule := "@daily"
+		retention := 7
+		params := ports.BackupPolicyParams{Schedule: &schedule, RetentionDays: &retention}
 		svc.On("SetBackupPolicy", mock.Anything, clusterID, params).Return(nil).Once()
-		body, _ := json.Marshal(params)
+		body, _ := json.Marshal(map[string]any{"schedule": schedule, "retention_days": retention})
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest("PUT", "/clusters/"+clusterID.String()+"/backups/policy", bytes.NewBuffer(body))
 		r.ServeHTTP(w, req)
@@ -679,12 +681,44 @@ func TestClusterHandlerSetBackupPolicy(t *testing.T) {
 	})
 
 	t.Run("ServiceError", func(t *testing.T) {
-		params := ports.BackupPolicyParams{Schedule: "@daily", RetentionDays: 7}
+		schedule := "@daily"
+		retention := 7
+		params := ports.BackupPolicyParams{Schedule: &schedule, RetentionDays: &retention}
 		svc.On("SetBackupPolicy", mock.Anything, clusterID, params).Return(fmt.Errorf("error")).Once()
-		body, _ := json.Marshal(params)
+		body, _ := json.Marshal(map[string]any{"schedule": schedule, "retention_days": retention})
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest("PUT", "/clusters/"+clusterID.String()+"/backups/policy", bytes.NewBuffer(body))
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("ClearSchedule", func(t *testing.T) {
+		schedule := ""
+		params := ports.BackupPolicyParams{Schedule: &schedule, RetentionDays: nil}
+		svc.On("SetBackupPolicy", mock.Anything, clusterID, params).Return(nil).Once()
+		body, _ := json.Marshal(map[string]any{"schedule": ""})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("PUT", "/clusters/"+clusterID.String()+"/backups/policy", bytes.NewBuffer(body))
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("InvalidSchedule", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]any{"schedule": "@sometimes"})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("PUT", "/clusters/"+clusterID.String()+"/backups/policy", bytes.NewBuffer(body))
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("RetentionOnly", func(t *testing.T) {
+		retention := 14
+		params := ports.BackupPolicyParams{Schedule: nil, RetentionDays: &retention}
+		svc.On("SetBackupPolicy", mock.Anything, clusterID, params).Return(nil).Once()
+		body, _ := json.Marshal(map[string]any{"retention_days": retention})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("PUT", "/clusters/"+clusterID.String()+"/backups/policy", bytes.NewBuffer(body))
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
 	})
 }

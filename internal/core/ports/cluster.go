@@ -70,8 +70,8 @@ type UpdateNodeGroupParams struct {
 
 // BackupPolicyParams defines the options for cluster backup scheduling.
 type BackupPolicyParams struct {
-	Schedule      string `json:"schedule"`
-	RetentionDays int    `json:"retention_days"`
+	Schedule      *string `json:"schedule"`
+	RetentionDays *int    `json:"retention_days"`
 }
 
 // ClusterService defines the business logic layer for Kubernetes clusters.
