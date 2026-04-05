@@ -30,8 +30,6 @@ func TestDatabaseRepository_Create(t *testing.T) {
 		Version:             "16",
 		Status:              domain.DatabaseStatusCreating,
 		Role:                domain.RolePrimary,
-		PrimaryID:           nil,
-		VpcID:               nil,
 		ContainerID:         "cid-1",
 		Port:                5432,
 		Username:            "admin",

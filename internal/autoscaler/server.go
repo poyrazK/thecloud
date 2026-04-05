@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/poyrazk/thecloud/internal/autoscaler/protos"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/pkg/sdk"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -123,7 +124,7 @@ func (s *AutoscalerServer) NodeGroupTargetSize(ctx context.Context, req *protos.
 
 func (s *AutoscalerServer) NodeGroupIncreaseSize(ctx context.Context, req *protos.NodeGroupIncreaseSizeRequest) (*protos.NodeGroupIncreaseSizeResponse, error) {
 	klog.Infof("NodeGroupIncreaseSize: Request to increase size of node group %s by %d", req.Id, req.Delta)
-	
+
 	if req.Delta <= 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "NodeGroupIncreaseSize: delta must be a positive integer, got %d", req.Delta)
 	}
@@ -131,6 +132,10 @@ func (s *AutoscalerServer) NodeGroupIncreaseSize(ctx context.Context, req *proto
 	cluster, err := s.client.GetClusterWithContext(ctx, s.clusterID)
 	if err != nil {
 		return nil, err
+	}
+
+	if cluster.Status == string(domain.ClusterStatusRepairing) {
+		return nil, status.Errorf(codes.FailedPrecondition, "cannot increase size while cluster is repairing")
 	}
 
 	var targetGroup *sdk.NodeGroup
@@ -163,22 +168,13 @@ func (s *AutoscalerServer) NodeGroupIncreaseSize(ctx context.Context, req *proto
 func (s *AutoscalerServer) NodeGroupDeleteNodes(ctx context.Context, req *protos.NodeGroupDeleteNodesRequest) (*protos.NodeGroupDeleteNodesResponse, error) {
 	klog.Infof("Request to delete %d nodes from group %s", len(req.Nodes), req.Id)
 
-	successfulTerminations := 0
-	for _, node := range req.Nodes {
-		providerID := strings.TrimPrefix(node.ProviderID, "thecloud://")
-		if providerID == node.ProviderID {
-			continue
-		}
-		if err := s.client.TerminateInstanceWithContext(ctx, providerID); err != nil {
-			klog.Errorf("Failed to terminate instance %s: %v", providerID, err)
-			return nil, err
-		}
-		successfulTerminations++
-	}
-
 	cluster, err := s.client.GetClusterWithContext(ctx, s.clusterID)
 	if err != nil {
 		return nil, err
+	}
+
+	if cluster.Status == string(domain.ClusterStatusRepairing) {
+		return nil, status.Errorf(codes.FailedPrecondition, "cannot delete nodes while cluster is repairing")
 	}
 
 	var targetGroup *sdk.NodeGroup
@@ -188,16 +184,52 @@ func (s *AutoscalerServer) NodeGroupDeleteNodes(ctx context.Context, req *protos
 			break
 		}
 	}
+	if targetGroup == nil {
+		return nil, status.Errorf(codes.NotFound, "node group %s not found", req.Id)
+	}
+	instances, err := s.client.ListInstancesWithContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	instancesByID := make(map[string]sdk.Instance, len(instances))
+	for _, inst := range instances {
+		instancesByID[inst.ID] = inst
+	}
 
-	if targetGroup != nil {
-		newSize := targetGroup.CurrentSize - successfulTerminations
-		_, err = s.client.UpdateNodeGroupWithContext(ctx, s.clusterID, req.Id, sdk.UpdateNodeGroupInput{
-			DesiredSize: &newSize,
-		})
-		if err != nil {
-			klog.Errorf("Failed to update node group size after node deletion: %v", err)
+	providerIDs := make([]string, 0, len(req.Nodes))
+	for _, node := range req.Nodes {
+		providerID := strings.TrimPrefix(node.ProviderID, "thecloud://")
+		if providerID == node.ProviderID {
+			return nil, status.Errorf(codes.InvalidArgument, "malformed provider ID %q", node.ProviderID)
+		}
+		inst, ok := instancesByID[providerID]
+		if !ok {
+			return nil, status.Errorf(codes.NotFound, "instance %s not found", providerID)
+		}
+		if inst.Metadata["thecloud.io/cluster-id"] != s.clusterID || inst.Metadata["thecloud.io/node-group"] != req.Id {
+			return nil, status.Errorf(codes.FailedPrecondition, "instance %s does not belong to cluster %s node group %s", providerID, s.clusterID, req.Id)
+		}
+		providerIDs = append(providerIDs, providerID)
+	}
+
+	newSize := targetGroup.CurrentSize - len(providerIDs)
+	if newSize < targetGroup.MinSize {
+		return nil, status.Errorf(codes.FailedPrecondition, "cannot shrink node group %s below min size %d", req.Id, targetGroup.MinSize)
+	}
+
+	for _, providerID := range providerIDs {
+		if err := s.client.TerminateInstanceWithContext(ctx, providerID); err != nil {
+			klog.Errorf("Failed to terminate instance %s: %v", providerID, err)
 			return nil, err
 		}
+	}
+
+	_, err = s.client.UpdateNodeGroupWithContext(ctx, s.clusterID, req.Id, sdk.UpdateNodeGroupInput{
+		DesiredSize: &newSize,
+	})
+	if err != nil {
+		klog.Errorf("Failed to update node group size after node deletion: %v", err)
+		return nil, err
 	}
 
 	return &protos.NodeGroupDeleteNodesResponse{}, nil
@@ -213,11 +245,12 @@ func (s *AutoscalerServer) NodeGroupNodes(ctx context.Context, req *protos.NodeG
 	for _, inst := range instances {
 		if inst.Metadata["thecloud.io/cluster-id"] == s.clusterID &&
 			inst.Metadata["thecloud.io/node-group"] == req.Id {
-			
+
 			state := protos.InstanceStatus_instanceRunning
-			if inst.Status == "PROVISIONING" || inst.Status == "STARTING" {
+			switch inst.Status {
+			case "PROVISIONING", "STARTING":
 				state = protos.InstanceStatus_instanceCreating
-			} else if inst.Status == "TERMINATING" || inst.Status == "STOPPING" {
+			case "TERMINATING", "STOPPING":
 				state = protos.InstanceStatus_instanceDeleting
 			}
 
@@ -244,6 +277,18 @@ func (s *AutoscalerServer) GetAvailableGPUTypes(ctx context.Context, req *protos
 }
 
 func (s *AutoscalerServer) Refresh(ctx context.Context, req *protos.RefreshRequest) (*protos.RefreshResponse, error) {
+	cluster, err := s.client.GetClusterWithContext(ctx, s.clusterID)
+	if err != nil {
+		klog.Errorf("Refresh: Failed to fetch cluster status: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to fetch cluster status: %v", err)
+	}
+
+	if cluster.Status == string(domain.ClusterStatusRepairing) {
+		klog.Warningf("Refresh: Cluster %s is in REPAIRING state. Autoscaler is paused.", s.clusterID)
+		// Keep the provider healthy and let the mutating RPCs enforce the pause.
+		return &protos.RefreshResponse{}, nil
+	}
+
 	return &protos.RefreshResponse{}, nil
 }
 
@@ -261,6 +306,10 @@ func (s *AutoscalerServer) NodeGroupDecreaseTargetSize(ctx context.Context, req 
 	cluster, err := s.client.GetClusterWithContext(ctx, s.clusterID)
 	if err != nil {
 		return nil, err
+	}
+
+	if cluster.Status == string(domain.ClusterStatusRepairing) {
+		return nil, status.Errorf(codes.FailedPrecondition, "cannot decrease size while cluster is repairing")
 	}
 
 	var targetGroup *sdk.NodeGroup

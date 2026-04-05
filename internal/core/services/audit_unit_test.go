@@ -28,8 +28,11 @@ func TestAuditService_Unit(t *testing.T) {
 	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("Log_Success", func(t *testing.T) {
-		mockRepo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
-		err := svc.Log(ctx, userID, "test.action", "resource", "res-123", nil)
+		mockRepo.On("Create", mock.Anything, mock.MatchedBy(func(l *domain.AuditLog) bool {
+			return l.UserID == userID && l.Action == "test.action"
+		})).Return(nil).Once()
+
+		err := svc.Log(ctx, userID, "test.action", "instance", "inst-1", map[string]interface{}{"foo": "bar"})
 		require.NoError(t, err)
 	})
 
@@ -46,6 +49,14 @@ func TestAuditService_Unit(t *testing.T) {
 		logs, err := svc.ListLogs(ctx, userID, 0)
 		require.NoError(t, err)
 		assert.NotNil(t, logs)
+	})
+
+	t.Run("ListLogs_CustomLimit", func(t *testing.T) {
+		mockRBAC.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionAuditRead, "*").Return(nil).Once()
+		mockRepo.On("ListByUserID", mock.Anything, userID, 10).Return([]*domain.AuditLog{}, nil).Once()
+
+		_, err := svc.ListLogs(ctx, userID, 10)
+		require.NoError(t, err)
 	})
 
 	t.Run("ListLogs_Forbidden", func(t *testing.T) {

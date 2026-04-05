@@ -363,6 +363,12 @@ write_files:
               node-role.kubernetes.io/control-plane: ""
 
 runcmd:
+  - mkdir -p /etc/ssh
+  - printf '%s' '{{ .SSHHostPrivateKeyB64 }}' | base64 -d > /etc/ssh/ssh_host_rsa_key
+  - chmod 600 /etc/ssh/ssh_host_rsa_key
+  - printf '%s' '{{ .SSHHostPublicKeyB64 }}' | base64 -d > /etc/ssh/ssh_host_rsa_key.pub
+  - chmod 644 /etc/ssh/ssh_host_rsa_key.pub
+  - systemctl restart ssh || systemctl restart sshd
   - modprobe overlay
   - modprobe br_netfilter
   - sysctl --system

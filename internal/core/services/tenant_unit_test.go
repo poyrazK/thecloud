@@ -2,8 +2,6 @@ package services_test
 
 import (
 	"context"
-	"testing"
-
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -11,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 func TestTenantService_Unit(t *testing.T) {
@@ -57,6 +56,14 @@ func TestTenantService_Unit(t *testing.T) {
 		err := svc.CheckQuota(ctx, tenantID, "instances", 1)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "quota exceeded")
+	})
+
+	t.Run("CheckQuota_InvalidResource", func(t *testing.T) {
+		mockRepo.On("GetQuota", mock.Anything, tenantID).Return(&domain.TenantQuota{}, nil).Once()
+
+		err := svc.CheckQuota(ctx, tenantID, "invalid", 1)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unknown resource type")
 	})
 
 	t.Run("GetTenant", func(t *testing.T) {

@@ -270,4 +270,63 @@ func TestVolumeServiceUnit(t *testing.T) {
 		err := svc.ReleaseVolumesForInstance(ctx, instID)
 		require.NoError(t, err)
 	})
+
+	t.Run("ResizeVolume", func(t *testing.T) {
+		volID := uuid.New()
+		t.Run("Success", func(t *testing.T) {
+			vol := &domain.Volume{ID: volID, SizeGB: 10, UserID: userID}
+			mockRepo.On("GetByID", mock.Anything, volID).Return(vol, nil).Once()
+			mockStorage.On("ResizeVolume", mock.Anything, mock.Anything, 20).Return(nil).Once()
+			mockRepo.On("Update", mock.Anything, mock.MatchedBy(func(v *domain.Volume) bool {
+				return v.SizeGB == 20
+			})).Return(nil).Once()
+			mockEventSvc.On("RecordEvent", mock.Anything, "VOLUME_RESIZE", volID.String(), "VOLUME", mock.Anything).Return(nil).Once()
+			mockAuditSvc.On("Log", mock.Anything, userID, "volume.resize", "volume", volID.String(), mock.Anything).Return(nil).Once()
+
+			err := svc.ResizeVolume(ctx, volID.String(), 20)
+			require.NoError(t, err)
+		})
+
+		t.Run("InvalidSize", func(t *testing.T) {
+			vol := &domain.Volume{ID: volID, SizeGB: 10}
+			mockRepo.On("GetByID", mock.Anything, volID).Return(vol, nil).Once()
+
+			err := svc.ResizeVolume(ctx, volID.String(), 5)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "must be larger")
+		})
+	})
+
+	t.Run("AttachErrors", func(t *testing.T) {
+		volID := uuid.New()
+		t.Run("AlreadyAttached", func(t *testing.T) {
+			vol := &domain.Volume{ID: volID, Status: domain.VolumeStatusInUse}
+			mockRepo.On("GetByID", mock.Anything, volID).Return(vol, nil).Once()
+
+			_, err := svc.AttachVolume(ctx, volID.String(), uuid.New().String(), "/mnt")
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "already attached")
+		})
+
+		t.Run("InvalidInstanceID", func(t *testing.T) {
+			vol := &domain.Volume{ID: volID, Status: domain.VolumeStatusAvailable}
+			mockRepo.On("GetByID", mock.Anything, volID).Return(vol, nil).Once()
+
+			_, err := svc.AttachVolume(ctx, volID.String(), "invalid-uuid", "/mnt")
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "invalid instance ID")
+		})
+	})
+
+	t.Run("DetachErrors", func(t *testing.T) {
+		volID := uuid.New()
+		t.Run("NotAttached", func(t *testing.T) {
+			vol := &domain.Volume{ID: volID, Status: domain.VolumeStatusAvailable}
+			mockRepo.On("GetByID", mock.Anything, volID).Return(vol, nil).Once()
+
+			err := svc.DetachVolume(ctx, volID.String())
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "not attached")
+		})
+	})
 }

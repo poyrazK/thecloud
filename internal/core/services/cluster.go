@@ -58,8 +58,9 @@ func NewClusterService(params ClusterServiceParams) (*ClusterService, error) {
 
 // Default cluster configuration values.
 const (
-	defaultClusterVersion = "v1.29.0"
-	defaultWorkerCount    = 2
+	defaultClusterVersion      = "v1.29.0"
+	defaultWorkerCount         = 2
+	defaultBackupRetentionDays = 7
 )
 
 // CreateCluster initiates the provisioning of a new Kubernetes cluster.
@@ -112,6 +113,7 @@ func (s *ClusterService) CreateCluster(ctx context.Context, params ports.CreateC
 		PodCIDR:                params.PodCIDR,
 		ServiceCIDR:            params.ServiceCIDR,
 		SSHPrivateKeyEncrypted: encryptedKey,
+		BackupRetentionDays:    defaultBackupRetentionDays,
 		CreatedAt:              time.Now(),
 		UpdatedAt:              time.Now(),
 	}
@@ -501,6 +503,36 @@ func (s *ClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, backup
 	}
 
 	cluster.Status = domain.ClusterStatusRunning
+	return s.repo.Update(ctx, cluster)
+}
+
+func (s *ClusterService) SetBackupPolicy(ctx context.Context, id uuid.UUID, params ports.BackupPolicyParams) error {
+	cluster, err := s.GetCluster(ctx, id)
+	if err != nil {
+		return err
+	}
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionClusterUpdate, id.String()); err != nil {
+		return err
+	}
+	if params.Schedule == nil && params.RetentionDays == nil {
+		return errors.New(errors.InvalidInput, "at least one backup policy field must be provided")
+	}
+
+	if params.Schedule != nil {
+		cluster.BackupSchedule = *params.Schedule
+	}
+	if params.RetentionDays != nil {
+		if *params.RetentionDays <= 0 {
+			return errors.New(errors.InvalidInput, "invalid retention days")
+		}
+		cluster.BackupRetentionDays = *params.RetentionDays
+	} else if params.Schedule != nil && *params.Schedule == "" {
+		cluster.BackupRetentionDays = defaultBackupRetentionDays
+	}
+	cluster.UpdatedAt = time.Now()
+
 	return s.repo.Update(ctx, cluster)
 }
 

@@ -259,4 +259,20 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		err := svc.UnregisterInstance(ctx, instID)
 		require.NoError(t, err)
 	})
+
+	t.Run("RegisterInstance", func(t *testing.T) {
+		vpcID := uuid.New()
+		instID := uuid.New()
+		inst := &domain.Instance{ID: instID, Name: "web-1", VpcID: &vpcID}
+		zone := &domain.DNSZone{ID: uuid.New(), Name: "example.com", PowerDNSID: "example.com.", DefaultTTL: 300}
+
+		repo.On("GetZoneByVPC", mock.Anything, vpcID).Return(zone, nil).Once()
+		backend.On("AddRecords", mock.Anything, "example.com.", mock.Anything).Return(nil).Once()
+		repo.On("CreateRecord", mock.Anything, mock.MatchedBy(func(r *domain.DNSRecord) bool {
+			return r.Name == "web-1" && r.Type == domain.RecordTypeA && *r.InstanceID == instID
+		})).Return(nil).Once()
+
+		err := svc.RegisterInstance(ctx, inst, "10.0.0.10")
+		require.NoError(t, err)
+	})
 }

@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 
@@ -38,6 +39,20 @@ func TestContainerServiceUnit(t *testing.T) {
 		repo.AssertExpectations(t)
 	})
 
+	t.Run("CreateDeployment_Unauthorized", func(t *testing.T) {
+		unauthRepo := new(MockContainerRepository)
+		unauthEventSvc := new(MockEventService)
+		unauthAuditSvc := new(MockAuditService)
+		unauthRBAC := new(MockRBACService)
+		unauthRBAC.On("Authorize", mock.Anything, uuid.Nil, uuid.Nil, domain.PermissionInstanceLaunch, "*").Return(fmt.Errorf("unauthorized")).Once()
+		unauthSvc := services.NewContainerService(unauthRepo, unauthRBAC, unauthEventSvc, unauthAuditSvc, slog.Default())
+
+		emptyCtx := context.Background()
+		_, err := unauthSvc.CreateDeployment(emptyCtx, "fail", "nginx", 1, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unauthorized")
+	})
+
 	t.Run("ListDeployments", func(t *testing.T) {
 		expectedDeps := []*domain.Deployment{{ID: uuid.New(), Name: "dep1"}}
 		repo.On("ListDeployments", mock.Anything, userID).Return(expectedDeps, nil).Once()
@@ -58,6 +73,19 @@ func TestContainerServiceUnit(t *testing.T) {
 		assert.Equal(t, depID, dep.ID)
 	})
 
+	t.Run("GetDeployment_Unauthorized", func(t *testing.T) {
+		unauthRepo := new(MockContainerRepository)
+		unauthEventSvc := new(MockEventService)
+		unauthAuditSvc := new(MockAuditService)
+		unauthRBAC := new(MockRBACService)
+		depID := uuid.New()
+		unauthRBAC.On("Authorize", mock.Anything, uuid.Nil, uuid.Nil, domain.PermissionInstanceRead, depID.String()).Return(fmt.Errorf("unauthorized")).Once()
+		unauthSvc := services.NewContainerService(unauthRepo, unauthRBAC, unauthEventSvc, unauthAuditSvc, slog.Default())
+
+		_, err := unauthSvc.GetDeployment(context.Background(), depID)
+		require.Error(t, err)
+	})
+
 	t.Run("ScaleDeployment", func(t *testing.T) {
 		depID := uuid.New()
 		dep := &domain.Deployment{ID: depID, UserID: userID, Replicas: 2}
@@ -69,6 +97,14 @@ func TestContainerServiceUnit(t *testing.T) {
 
 		err := svc.ScaleDeployment(ctx, depID, 5)
 		require.NoError(t, err)
+	})
+
+	t.Run("ScaleDeployment_Error", func(t *testing.T) {
+		depID := uuid.New()
+		repo.On("GetDeploymentByID", mock.Anything, depID, userID).Return(nil, fmt.Errorf("not found")).Once()
+
+		err := svc.ScaleDeployment(ctx, depID, 5)
+		require.Error(t, err)
 	})
 
 	t.Run("DeleteDeployment", func(t *testing.T) {

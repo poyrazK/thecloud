@@ -150,4 +150,34 @@ func TestFunctionServiceInvokeFunction(t *testing.T) {
 		assert.NotNil(t, inv)
 		assert.Equal(t, "SUCCESS", inv.Status)
 	})
+
+	t.Run("async success", func(t *testing.T) {
+		repo.On("GetByID", mock.Anything, id).Return(f, nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "function.invoke_async", "function", id.String(), mock.Anything).Return(nil).Once()
+
+		// Minimal expectations for the goroutine part (non-deterministic timing)
+		fileStore.On("Read", mock.Anything, mock.Anything, mock.Anything).Return(io.NopCloser(bytes.NewReader(buf.Bytes())), nil).Maybe()
+		compute.On("RunTask", mock.Anything, mock.Anything).Return("task-async", []string{}, nil).Maybe()
+		compute.On("WaitTask", mock.Anything, "task-async").Return(int64(0), nil).Maybe()
+		compute.On("GetInstanceLogs", mock.Anything, "task-async").Return(io.NopCloser(strings.NewReader("logs")), nil).Maybe()
+		compute.On("DeleteInstance", mock.Anything, "task-async").Return(nil).Maybe()
+		repo.On("CreateInvocation", mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		inv, err := svc.InvokeFunction(ctx, id, []byte("{}"), true)
+		require.NoError(t, err)
+		assert.NotNil(t, inv)
+		assert.Equal(t, "PENDING", inv.Status)
+	})
+}
+
+func TestFunctionService_CreateFunction_UnsupportedRuntime(t *testing.T) {
+	repo := new(MockFunctionRepo)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	svc := services.NewFunctionService(repo, rbacSvc, nil, nil, nil, slog.Default())
+	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+
+	_, err := svc.CreateFunction(ctx, "fail", "cobol99", "handler", []byte("code"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported runtime")
 }

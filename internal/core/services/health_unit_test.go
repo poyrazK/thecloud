@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -74,6 +75,9 @@ func (m *MockClusterService) CreateBackup(ctx context.Context, id uuid.UUID) err
 func (m *MockClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, backupPath string) error {
 	return nil
 }
+func (m *MockClusterService) SetBackupPolicy(ctx context.Context, id uuid.UUID, params ports.BackupPolicyParams) error {
+	return nil
+}
 
 func (m *MockClusterService) AddNodeGroup(ctx context.Context, clusterID uuid.UUID, params ports.NodeGroupParams) (*domain.NodeGroup, error) {
 	return nil, nil
@@ -142,7 +146,7 @@ func TestHealthService_Check_Unit(t *testing.T) {
 		assert.Contains(t, res.Checks["docker"], "DISCONNECTED")
 	})
 
-	t.Run("ClusterError", func(t *testing.T) {
+	t.Run("K8sDegraded", func(t *testing.T) {
 		mockDB := new(MockCheckable)
 		mockCompute := new(MockComputeBackend)
 		mockCluster := new(MockClusterService)
@@ -150,7 +154,7 @@ func TestHealthService_Check_Unit(t *testing.T) {
 
 		mockDB.On("Ping", mock.Anything).Return(nil).Once()
 		mockCompute.On("Ping", mock.Anything).Return(nil).Once()
-		mockCluster.On("ListClusters", mock.Anything, uuid.Nil).Return(nil, assert.AnError).Once()
+		mockCluster.On("ListClusters", mock.Anything, uuid.Nil).Return(nil, fmt.Errorf("k8s fail")).Once()
 
 		res := svc.Check(ctx)
 		assert.Equal(t, "DEGRADED", res.Status)

@@ -1131,6 +1131,43 @@ const docTemplate = `{
                 }
             }
         },
+        "/clusters/{id}/backup-policy": {
+            "put": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Sets the schedule and retention for automated etcd snapshots",
+                "tags": [
+                    "K8s"
+                ],
+                "summary": "Configure cluster backup policy",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cluster ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Backup Policy",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.BackupPolicyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/clusters/{id}/backups": {
             "post": {
                 "security": [
@@ -7101,6 +7138,15 @@ const docTemplate = `{
                 "api_server_lb_address": {
                     "type": "string"
                 },
+                "backup_retention_days": {
+                    "type": "integer",
+                    "example": 7
+                },
+                "backup_schedule": {
+                    "description": "Backup Policy",
+                    "type": "string",
+                    "example": "0 0 * * *"
+                },
                 "control_plane_ips": {
                     "type": "array",
                     "items": {
@@ -9360,6 +9406,18 @@ const docTemplate = `{
                 "mount_path": {
                     "type": "string",
                     "minLength": 1
+                }
+            }
+        },
+        "httphandlers.BackupPolicyRequest": {
+            "type": "object",
+            "properties": {
+                "retention_days": {
+                    "type": "integer"
+                },
+                "schedule": {
+                    "type": "string",
+                    "maxLength": 255
                 }
             }
         },

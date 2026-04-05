@@ -73,5 +73,6 @@ internal/repositories/postgres/migrations/097_add_database_metrics
 internal/repositories/postgres/migrations/098_add_database_pooling
 internal/repositories/postgres/migrations/098_add_object_upload_status
 internal/repositories/postgres/migrations/098_create_cluster_node_groups
+internal/repositories/postgres/migrations/099_add_cluster_backup_policy
 internal/repositories/postgres/migrations/099_add_object_checksum
 internal/repositories/postgres/migrations/099_add_tenant_id_to_audit_and_events
