@@ -1752,10 +1752,8 @@ definitions:
       retention_days:
         type: integer
       schedule:
+        maxLength: 255
         type: string
-    required:
-    - retention_days
-    - schedule
     type: object
   httphandlers.BindRoleRequest:
     properties:

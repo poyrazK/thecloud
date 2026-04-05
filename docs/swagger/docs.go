@@ -9411,16 +9411,13 @@ const docTemplate = `{
         },
         "httphandlers.BackupPolicyRequest": {
             "type": "object",
-            "required": [
-                "retention_days",
-                "schedule"
-            ],
             "properties": {
                 "retention_days": {
                     "type": "integer"
                 },
                 "schedule": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 255
                 }
             }
         },
