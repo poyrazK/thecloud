@@ -85,14 +85,24 @@ func TestRBACService_Unit(t *testing.T) {
 	})
 
 	t.Run("BindRole_Success", func(t *testing.T) {
+		bindUserRepo := new(MockUserRepo)
+		bindRoleRepo := new(MockRoleRepository)
+		bindTenantRepo := new(MockTenantRepo)
+		bindIAMRepo := new(MockIAMRepository)
+		bindEval := new(MockPolicyEvaluator)
+		bindSvc := services.NewRBACService(services.RBACServiceParams{
+			UserRepo: bindUserRepo, RoleRepo: bindRoleRepo, TenantRepo: bindTenantRepo,
+			IAMRepo: bindIAMRepo, Evaluator: bindEval, Logger: slog.Default(),
+		})
+
 		user := &domain.User{ID: userID, Email: "test@test.com", Role: domain.RoleViewer}
-		mockRoleRepo.On("GetRoleByName", mock.Anything, domain.RoleAdmin).Return(&domain.Role{Name: domain.RoleAdmin}, nil).Once()
-		mockUserRepo.On("GetByEmail", mock.Anything, "test@test.com").Return(user, nil).Once()
-		mockUserRepo.On("Update", mock.Anything, mock.MatchedBy(func(u *domain.User) bool {
+		bindRoleRepo.On("GetRoleByName", mock.Anything, domain.RoleAdmin).Return(&domain.Role{Name: domain.RoleAdmin}, nil).Once()
+		bindUserRepo.On("GetByEmail", mock.Anything, "test@test.com").Return(user, nil).Once()
+		bindUserRepo.On("Update", mock.Anything, mock.MatchedBy(func(u *domain.User) bool {
 			return u.Role == domain.RoleAdmin
 		})).Return(nil).Once()
 
-		err := svc.BindRole(ctx, "test@test.com", domain.RoleAdmin)
+		err := bindSvc.BindRole(ctx, "test@test.com", domain.RoleAdmin)
 		require.NoError(t, err)
 	})
 }
