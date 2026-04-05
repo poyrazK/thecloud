@@ -79,7 +79,7 @@ func TestRBACService_Unit(t *testing.T) {
 	})
 
 	t.Run("HasPermission_UserError", func(t *testing.T) {
-		mockUserRepo.On("GetByID", mock.Anything, userID).Return(nil, fmt.Errorf("db fail")).Once()
+		mockTenantRepo.On("GetMembership", mock.Anything, tenantID, userID).Return(nil, fmt.Errorf("db fail")).Once()
 		_, err := svc.HasPermission(ctx, userID, tenantID, domain.PermissionInstanceRead, "*")
 		require.Error(t, err)
 	})
