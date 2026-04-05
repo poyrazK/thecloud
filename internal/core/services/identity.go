@@ -132,9 +132,9 @@ func (s *IdentityService) RevokeKey(ctx context.Context, userID uuid.UUID, id uu
 
 	// 1. Authorize: Check if they have specific permission for this resource, OR it is self-revoking
 	isSelf := uID == userID
-	err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionIdentityDelete, id.String())
-	if err != nil && !isSelf {
-		return err
+	authErr := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionIdentityDelete, id.String())
+	if authErr != nil && !isSelf {
+		return authErr
 	}
 
 	key, err := s.repo.GetAPIKeyByID(ctx, id)
@@ -144,7 +144,7 @@ func (s *IdentityService) RevokeKey(ctx context.Context, userID uuid.UUID, id uu
 
 	// 2. Ownership check: If RBAC failed but it was self-revoking, verify they own the key
 	// If RBAC succeeded, we bypass this.
-	if err != nil && isSelf && key.UserID != uID {
+	if authErr != nil && isSelf && key.UserID != uID {
 		return errors.New(errors.Forbidden, "unauthorized access to api key")
 	}
 

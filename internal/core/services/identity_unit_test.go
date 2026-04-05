@@ -3,6 +3,7 @@ package services_test
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -84,9 +85,16 @@ func TestIdentityService_Unit(t *testing.T) {
 	t.Run("RevokeKey_Unauthorized", func(t *testing.T) {
 		keyID := uuid.New()
 		apiKey := &domain.APIKey{ID: keyID, UserID: uuid.New()} // different user
-		mockRepo.On("GetAPIKeyByID", mock.Anything, keyID).Return(apiKey, nil).Once()
+		unauthRepo := new(MockIdentityRepo)
+		unauthAuditSvc := new(MockAuditService)
+		unauthRBAC := new(MockRBACService)
+		unauthRBAC.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionIdentityDelete, keyID.String()).Return(fmt.Errorf("forbidden")).Once()
+		unauthRepo.On("GetAPIKeyByID", mock.Anything, keyID).Return(apiKey, nil).Once()
+		unauthSvc := services.NewIdentityService(services.IdentityServiceParams{
+			Repo: unauthRepo, AuditSvc: unauthAuditSvc, RbacSvc: unauthRBAC, Logger: slog.Default(),
+		})
 
-		err := svc.RevokeKey(ctx, userID, keyID)
+		err := unauthSvc.RevokeKey(ctx, userID, keyID)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unauthorized")
 	})
