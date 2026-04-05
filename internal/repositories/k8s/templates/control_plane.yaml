@@ -368,7 +368,7 @@ runcmd:
   - chmod 600 /etc/ssh/ssh_host_rsa_key
   - printf '%s' '{{ .SSHHostPublicKeyB64 }}' | base64 -d > /etc/ssh/ssh_host_rsa_key.pub
   - chmod 644 /etc/ssh/ssh_host_rsa_key.pub
-  - systemctl restart ssh || systemctl restart sshd || true
+  - systemctl restart ssh || systemctl restart sshd
   - modprobe overlay
   - modprobe br_netfilter
   - sysctl --system

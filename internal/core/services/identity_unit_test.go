@@ -97,6 +97,9 @@ func TestIdentityService_Unit(t *testing.T) {
 		err := unauthSvc.RevokeKey(ctx, userID, keyID)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unauthorized")
+		unauthRBAC.AssertExpectations(t)
+		unauthRepo.AssertExpectations(t)
+		unauthAuditSvc.AssertExpectations(t)
 	})
 
 	t.Run("RotateKey", func(t *testing.T) {
@@ -118,11 +121,16 @@ func TestIdentityService_Unit(t *testing.T) {
 	t.Run("RotateKey_DeleteFail", func(t *testing.T) {
 		keyID := uuid.New()
 		apiKey := &domain.APIKey{ID: keyID, UserID: userID, Name: "rotate-me"}
+		var createdKeyID uuid.UUID
 		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionIdentityDelete, keyID.String()).Return(nil).Once()
 		mockRepo.On("GetAPIKeyByID", mock.Anything, keyID).Return(apiKey, nil).Once()
-		mockRepo.On("CreateAPIKey", mock.Anything, mock.Anything).Return(nil).Once()
+		mockRepo.On("CreateAPIKey", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			createdKeyID = args.Get(1).(*domain.APIKey).ID
+		}).Return(nil).Once()
 		mockRepo.On("DeleteAPIKey", mock.Anything, keyID).Return(fmt.Errorf("delete fail")).Once()
-		mockRepo.On("DeleteAPIKey", mock.Anything, mock.AnythingOfType("uuid.UUID")).Return(nil).Once()
+		mockRepo.On("DeleteAPIKey", mock.Anything, mock.MatchedBy(func(id uuid.UUID) bool {
+			return createdKeyID != uuid.Nil && id == createdKeyID
+		})).Return(nil).Once()
 		mockAuditSvc.On("Log", mock.Anything, userID, "api_key.create", "api_key", mock.Anything, mock.Anything).Return(nil).Once()
 
 		newKey, err := svc.RotateKey(ctx, userID, keyID)

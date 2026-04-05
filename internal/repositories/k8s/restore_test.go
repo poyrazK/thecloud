@@ -192,6 +192,7 @@ func TestRestore(t *testing.T) {
 			return strings.Contains(cmd, "if [ -f '/etc/kubernetes/manifests/kube-scheduler.yaml' ]; then mv")
 		})).Return("", nil).Once()
 		executor.On("Run", mock.Anything, "test ! -f '/etc/kubernetes/manifests/etcd.yaml'").Return("", nil).Once()
+		executor.On("Run", mock.Anything, "pgrep -f [e]tcd").Return("", assert.AnError).Once()
 
 		// Expect file upload
 		executor.On("WriteFile", mock.Anything, "/tmp/restore-snapshot.db", mock.Anything).Return(nil)
@@ -243,6 +244,9 @@ func TestRestore(t *testing.T) {
 		storage.On("Download", mock.Anything, "k8s-backups", backupPath).
 			Return(io.NopCloser(strings.NewReader(backupData)), nil, nil)
 
+		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
+			return cmd == "pgrep -f [e]tcd"
+		})).Return("", assert.AnError)
 		executor.On("Run", mock.Anything, mock.Anything).Return("", nil)
 		executor.On("WriteFile", mock.Anything, "/tmp/restore-snapshot.db", mock.Anything).Return(nil)
 
@@ -310,6 +314,7 @@ func TestRestore(t *testing.T) {
 			})).Return("", nil).Once()
 		}
 		executor.On("Run", mock.Anything, "test ! -f '/etc/kubernetes/manifests/etcd.yaml'").Return("", nil).Once()
+		executor.On("Run", mock.Anything, "pgrep -f [e]tcd").Return("", assert.AnError).Once()
 		executor.On("WriteFile", mock.Anything, "/tmp/restore-snapshot.db", mock.Anything).Return(os.ErrPermission).Once()
 		for _, manifest := range []string{"etcd.yaml", "kube-apiserver.yaml", "kube-controller-manager.yaml", "kube-scheduler.yaml"} {
 			manifest := manifest
@@ -349,6 +354,7 @@ func TestRestore(t *testing.T) {
 			})).Return("", nil).Once()
 		}
 		executor.On("Run", mock.Anything, "test ! -f '/etc/kubernetes/manifests/etcd.yaml'").Return("", nil).Once()
+		executor.On("Run", mock.Anything, "pgrep -f [e]tcd").Return("", assert.AnError).Once()
 		executor.On("WriteFile", mock.Anything, "/tmp/restore-snapshot.db", mock.Anything).Return(nil).Once()
 		executor.On("Run", mock.Anything, mock.MatchedBy(func(cmd string) bool {
 			return strings.Contains(cmd, "etcdctl snapshot restore")

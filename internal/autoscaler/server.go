@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/poyrazk/thecloud/internal/autoscaler/protos"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/pkg/sdk"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -133,7 +134,7 @@ func (s *AutoscalerServer) NodeGroupIncreaseSize(ctx context.Context, req *proto
 		return nil, err
 	}
 
-	if cluster.Status == "repairing" {
+	if cluster.Status == string(domain.ClusterStatusRepairing) {
 		return nil, status.Errorf(codes.FailedPrecondition, "cannot increase size while cluster is repairing")
 	}
 
@@ -172,8 +173,19 @@ func (s *AutoscalerServer) NodeGroupDeleteNodes(ctx context.Context, req *protos
 		return nil, err
 	}
 
-	if cluster.Status == "repairing" {
+	if cluster.Status == string(domain.ClusterStatusRepairing) {
 		return nil, status.Errorf(codes.FailedPrecondition, "cannot delete nodes while cluster is repairing")
+	}
+
+	var targetGroup *sdk.NodeGroup
+	for i := range cluster.NodeGroups {
+		if cluster.NodeGroups[i].Name == req.Id {
+			targetGroup = &cluster.NodeGroups[i]
+			break
+		}
+	}
+	if targetGroup == nil {
+		return nil, status.Errorf(codes.NotFound, "node group %s not found", req.Id)
 	}
 
 	successfulTerminations := 0
@@ -189,23 +201,13 @@ func (s *AutoscalerServer) NodeGroupDeleteNodes(ctx context.Context, req *protos
 		successfulTerminations++
 	}
 
-	var targetGroup *sdk.NodeGroup
-	for i := range cluster.NodeGroups {
-		if cluster.NodeGroups[i].Name == req.Id {
-			targetGroup = &cluster.NodeGroups[i]
-			break
-		}
-	}
-
-	if targetGroup != nil {
-		newSize := targetGroup.CurrentSize - successfulTerminations
-		_, err = s.client.UpdateNodeGroupWithContext(ctx, s.clusterID, req.Id, sdk.UpdateNodeGroupInput{
-			DesiredSize: &newSize,
-		})
-		if err != nil {
-			klog.Errorf("Failed to update node group size after node deletion: %v", err)
-			return nil, err
-		}
+	newSize := targetGroup.CurrentSize - successfulTerminations
+	_, err = s.client.UpdateNodeGroupWithContext(ctx, s.clusterID, req.Id, sdk.UpdateNodeGroupInput{
+		DesiredSize: &newSize,
+	})
+	if err != nil {
+		klog.Errorf("Failed to update node group size after node deletion: %v", err)
+		return nil, err
 	}
 
 	return &protos.NodeGroupDeleteNodesResponse{}, nil
@@ -259,7 +261,7 @@ func (s *AutoscalerServer) Refresh(ctx context.Context, req *protos.RefreshReque
 		return nil, status.Errorf(codes.Internal, "failed to fetch cluster status: %v", err)
 	}
 
-	if cluster.Status == "repairing" {
+	if cluster.Status == string(domain.ClusterStatusRepairing) {
 		klog.Warningf("Refresh: Cluster %s is in REPAIRING state. Autoscaler is paused.", s.clusterID)
 		// Keep the provider healthy and let the mutating RPCs enforce the pause.
 		return &protos.RefreshResponse{}, nil
@@ -284,7 +286,7 @@ func (s *AutoscalerServer) NodeGroupDecreaseTargetSize(ctx context.Context, req 
 		return nil, err
 	}
 
-	if cluster.Status == "repairing" {
+	if cluster.Status == string(domain.ClusterStatusRepairing) {
 		return nil, status.Errorf(codes.FailedPrecondition, "cannot decrease size while cluster is repairing")
 	}
 

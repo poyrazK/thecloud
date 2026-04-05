@@ -511,6 +511,11 @@ func (s *ClusterService) SetBackupPolicy(ctx context.Context, id uuid.UUID, para
 	if err != nil {
 		return err
 	}
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionClusterUpdate, id.String()); err != nil {
+		return err
+	}
 	if params.Schedule == nil && params.RetentionDays == nil {
 		return errors.New(errors.InvalidInput, "at least one backup policy field must be provided")
 	}
@@ -519,6 +524,9 @@ func (s *ClusterService) SetBackupPolicy(ctx context.Context, id uuid.UUID, para
 		cluster.BackupSchedule = *params.Schedule
 	}
 	if params.RetentionDays != nil {
+		if *params.RetentionDays <= 0 {
+			return errors.New(errors.InvalidInput, "invalid retention days")
+		}
 		cluster.BackupRetentionDays = *params.RetentionDays
 	} else if params.Schedule != nil && *params.Schedule == "" {
 		cluster.BackupRetentionDays = defaultBackupRetentionDays

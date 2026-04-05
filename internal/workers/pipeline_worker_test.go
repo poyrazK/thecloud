@@ -123,7 +123,8 @@ func (m *mockComputeBackendExtended) GetInstancePort(ctx context.Context, id, po
 	return args.Int(0), args.Error(1)
 }
 func (m *mockComputeBackendExtended) GetInstanceIP(ctx context.Context, id string) (string, error) {
-	return m.Called(ctx, id).String(0), m.Called(ctx, id).Error(1)
+	ret := m.Called(ctx, id)
+	return ret.String(0), ret.Error(1)
 }
 func (m *mockComputeBackendExtended) GetConsoleURL(ctx context.Context, id string) (string, error) {
 	return "", nil
@@ -191,7 +192,7 @@ func TestPipelineWorker_processJob(t *testing.T) {
 			return b.Status == domain.BuildStatusRunning
 		})).Return(nil).Once()
 		repo.On("CreateBuildStep", mock.Anything, mock.Anything).Return(nil).Once()
-		
+
 		compute.On("RunTask", mock.Anything, mock.MatchedBy(func(opts ports.RunTaskOptions) bool {
 			return opts.Image == "alpine" && strings.Contains(strings.Join(opts.Command, " "), "echo hi")
 		})).Return("task-1", []string{}, nil).Once()
@@ -199,7 +200,7 @@ func TestPipelineWorker_processJob(t *testing.T) {
 		compute.On("GetInstanceLogs", mock.Anything, "task-1").Return(io.NopCloser(strings.NewReader("logs")), nil).Once()
 		compute.On("DeleteInstance", mock.Anything, "task-1").Return(nil).Once()
 
-		repo.On("AppendBuildLog", mock.Anything, mock.Anything).Return(nil).Maybe()
+		repo.On("AppendBuildLog", mock.Anything, mock.Anything).Return(nil).Once()
 		repo.On("UpdateBuildStep", mock.Anything, mock.Anything).Return(nil).Once()
 		repo.On("UpdateBuild", mock.Anything, mock.MatchedBy(func(b *domain.Build) bool {
 			return b.Status == domain.BuildStatusSucceeded

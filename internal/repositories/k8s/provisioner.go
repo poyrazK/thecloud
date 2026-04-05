@@ -395,7 +395,7 @@ func (p *KubeadmProvisioner) getExecutor(ctx context.Context, cluster *domain.Cl
 	instances, err := p.instSvc.ListInstances(ctx)
 	if err == nil {
 		for _, inst := range instances {
-			if inst.PrivateIP == ip {
+			if normalizeInstanceIP(inst.PrivateIP) == ip {
 				// We found the managed instance! Use the ServiceExecutor.
 				return NewServiceExecutor(p.instSvc, inst.ID), nil
 			}
@@ -415,7 +415,7 @@ func (p *KubeadmProvisioner) getExecutor(ctx context.Context, cluster *domain.Cl
 	hostPublicKey := ""
 	if err == nil {
 		for _, inst := range instances {
-			if inst.PrivateIP == ip {
+			if normalizeInstanceIP(inst.PrivateIP) == ip {
 				hostPublicKey = inst.Metadata["thecloud.io/ssh-host-public-key"]
 				break
 			}
@@ -709,7 +709,9 @@ func (p *KubeadmProvisioner) Restore(ctx context.Context, cluster *domain.Cluste
 	p.logger.Info("uploading snapshot to node", "cluster_id", cluster.ID)
 	if err := exec.WriteFile(ctx, "/tmp/restore-snapshot.db", data); err != nil {
 		// Attempt to recover manifests before failing
-		_ = p.restoreControlPlaneManifests(ctx, exec, manifestBackupDir)
+		if restoreErr := p.restoreControlPlaneManifests(ctx, exec, manifestBackupDir); restoreErr != nil {
+			return errors.Wrap(errors.Internal, "failed to upload snapshot to node and restore manifests", restoreErr)
+		}
 		return errors.Wrap(errors.Internal, "failed to upload snapshot to node", err)
 	}
 
@@ -717,7 +719,9 @@ func (p *KubeadmProvisioner) Restore(ctx context.Context, cluster *domain.Cluste
 	p.logger.Info("restoring etcd data directory", "cluster_id", cluster.ID)
 	restoreCmd := "ETCDCTL_API=3 etcdctl snapshot restore /tmp/restore-snapshot.db --data-dir /var/lib/etcd-restored"
 	if _, err := exec.Run(ctx, restoreCmd); err != nil {
-		_ = p.restoreControlPlaneManifests(ctx, exec, manifestBackupDir)
+		if restoreErr := p.restoreControlPlaneManifests(ctx, exec, manifestBackupDir); restoreErr != nil {
+			return errors.Wrap(errors.Internal, "etcd snapshot restore failed and restore manifests failed", restoreErr)
+		}
 		return errors.Wrap(errors.Internal, "etcd snapshot restore failed", err)
 	}
 
@@ -730,7 +734,9 @@ func (p *KubeadmProvisioner) Restore(ctx context.Context, cluster *domain.Cluste
 	}
 	for _, cmd := range swapCmds {
 		if _, err := exec.Run(ctx, cmd); err != nil {
-			_ = p.rollbackEtcdRestore(ctx, exec, manifestBackupDir, etcdBackupDir)
+			if rollbackErr := p.rollbackEtcdRestore(ctx, exec, manifestBackupDir, etcdBackupDir); rollbackErr != nil {
+				return errors.Wrap(errors.Internal, "failed to swap etcd directories and rollback restore", rollbackErr)
+			}
 			return errors.Wrap(errors.Internal, "failed to swap etcd directories", err)
 		}
 	}
@@ -742,7 +748,9 @@ func (p *KubeadmProvisioner) Restore(ctx context.Context, cluster *domain.Cluste
 	}
 
 	// 7. Cleanup
-	_, _ = exec.Run(ctx, "rm /tmp/restore-snapshot.db")
+	if _, err := exec.Run(ctx, "rm /tmp/restore-snapshot.db"); err != nil {
+		return errors.Wrap(errors.Internal, "failed to clean up restore snapshot", err)
+	}
 
 	p.logger.Info("cluster restore completed successfully", "cluster_id", cluster.ID)
 	return nil
@@ -784,11 +792,26 @@ func (p *KubeadmProvisioner) waitForEtcdToStop(ctx context.Context, exec NodeExe
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
+			manifestStopped := false
 			if _, err := exec.Run(ctx, fmt.Sprintf("test ! -f %s", shellQuote(etcdManifest))); err == nil {
+				manifestStopped = true
+			}
+			etcdStopped := false
+			if _, err := exec.Run(ctx, "pgrep -f [e]tcd"); err != nil {
+				etcdStopped = true
+			}
+			if manifestStopped && etcdStopped {
 				return nil
 			}
 		}
 	}
+}
+
+func normalizeInstanceIP(ip string) string {
+	if idx := strings.Index(ip, "/"); idx != -1 {
+		return ip[:idx]
+	}
+	return ip
 }
 
 func (p *KubeadmProvisioner) rollbackEtcdRestore(ctx context.Context, exec NodeExecutor, manifestBackupDir, etcdBackupDir string) error {

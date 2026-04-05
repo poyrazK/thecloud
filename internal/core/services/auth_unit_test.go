@@ -48,6 +48,8 @@ func TestAuthService_Unit_Extended(t *testing.T) {
 		_, err := svc.Register(ctx, email, testPassword, "Rollback User")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to create personal tenant")
+		mockUserRepo.AssertExpectations(t)
+		mockTenantSvc.AssertExpectations(t)
 	})
 
 	t.Run("Login_UserNotFound", func(t *testing.T) {
