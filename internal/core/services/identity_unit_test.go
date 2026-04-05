@@ -122,11 +122,12 @@ func TestIdentityService_Unit(t *testing.T) {
 		mockRepo.On("GetAPIKeyByID", mock.Anything, keyID).Return(apiKey, nil).Once()
 		mockRepo.On("CreateAPIKey", mock.Anything, mock.Anything).Return(nil).Once()
 		mockRepo.On("DeleteAPIKey", mock.Anything, keyID).Return(fmt.Errorf("delete fail")).Once()
+		mockRepo.On("DeleteAPIKey", mock.Anything, mock.AnythingOfType("uuid.UUID")).Return(nil).Once()
 		mockAuditSvc.On("Log", mock.Anything, userID, "api_key.create", "api_key", mock.Anything, mock.Anything).Return(nil).Once()
 
-		// Should still return new key
 		newKey, err := svc.RotateKey(ctx, userID, keyID)
-		require.NoError(t, err)
-		assert.NotNil(t, newKey)
+		require.Error(t, err)
+		assert.Nil(t, newKey)
+		assert.Contains(t, err.Error(), "failed to delete old key")
 	})
 }
