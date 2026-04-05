@@ -66,8 +66,7 @@ func TestRBACService_Unit(t *testing.T) {
 	})
 
 	t.Run("Authorize_Denied", func(t *testing.T) {
-		user := &domain.User{ID: userID, Role: domain.RoleViewer, TenantID: tenantID}
-		mockUserRepo.On("GetByID", mock.Anything, userID).Return(user, nil).Once()
+		mockTenantRepo.On("GetMembership", mock.Anything, tenantID, userID).Return(&domain.TenantMember{Role: domain.RoleViewer}, nil).Once()
 		mockIAMRepo.On("GetPoliciesForUser", mock.Anything, tenantID, userID).Return([]*domain.Policy{}, nil).Once()
 		mockRoleRepo.On("GetRoleByName", mock.Anything, domain.RoleViewer).Return(&domain.Role{
 			Name:        domain.RoleViewer,
