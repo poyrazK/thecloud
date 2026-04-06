@@ -801,6 +801,11 @@ func (s *DatabaseService) resolveVpcNetwork(ctx context.Context, vpcID *uuid.UUI
 	if err != nil {
 		return "", err
 	}
+	// When networking falls back to no-op, VPCs still carry synthetic OVS bridge
+	// names like br-vpc-*. Docker cannot join those, so use the default network.
+	if s.compute != nil && s.compute.Type() == "docker" && strings.HasPrefix(vpc.NetworkID, "br-vpc-") {
+		return "", nil
+	}
 	return vpc.NetworkID, nil
 }
 

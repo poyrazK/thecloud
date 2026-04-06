@@ -68,10 +68,13 @@ func TestDatabaseServiceUnit(t *testing.T) {
 
 	t.Run("CreateDatabase", func(t *testing.T) {
 		vpcID := uuid.New()
-		m.vpcRepo.On("GetByID", mock.Anything, vpcID).Return(&domain.VPC{ID: vpcID}, nil).Once()
+		m.compute.On("Type").Return("docker").Maybe()
+		m.vpcRepo.On("GetByID", mock.Anything, vpcID).Return(&domain.VPC{ID: vpcID, NetworkID: "br-vpc-test"}, nil).Once()
 		m.repo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 		m.volSvc.On("CreateVolume", mock.Anything, mock.Anything, mock.Anything).Return(&domain.Volume{ID: uuid.New()}, nil).Once()
-		m.compute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).Return("cid", []string{"3306:3306"}, nil).Once()
+		m.compute.On("LaunchInstanceWithOptions", mock.Anything, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
+			return opts.NetworkID == ""
+		})).Return("cid", []string{"3306:3306"}, nil).Once()
 		m.repo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
 		m.auditSvc.On("Log", mock.Anything, userID, "database.create", "database", mock.Anything, mock.Anything).Return(nil).Once()
 		m.eventSvc.On("RecordEvent", mock.Anything, "DATABASE_CREATE", mock.Anything, "DATABASE", mock.Anything).Return(nil).Once()
