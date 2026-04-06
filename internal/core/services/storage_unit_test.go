@@ -377,7 +377,7 @@ func TestStorageServiceUnit(t *testing.T) {
 		mockStore.On("Read", mock.Anything, "b", "k").Return(io.NopCloser(strings.NewReader("data")), nil).Once()
 		mockRepo.On("GetBucket", mock.Anything, "b").Return(nil, fmt.Errorf("bucket error")).Once()
 		_, _, err := svc.Download(ctx, "b", "k")
-		assert.Error(t, err)
+		require.Error(t, err)
 
 		mockRepo.On("GetBucket", mock.Anything, "non-existent").Return(nil, fmt.Errorf("not found")).Once()
 		_, err = svc.CreateMultipartUpload(ctx, "non-existent", "k")
