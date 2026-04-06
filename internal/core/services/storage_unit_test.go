@@ -19,6 +19,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type trackingReadCloser struct {
+	io.Reader
+	closed bool
+}
+
+func (t *trackingReadCloser) Close() error {
+	t.closed = true
+	return nil
+}
+
 func TestStorageServiceUnit(t *testing.T) {
 	mockRepo := new(MockStorageRepo)
 	mockStore := new(MockFileStore)
@@ -178,7 +188,8 @@ func TestStorageServiceUnit(t *testing.T) {
 		assert.NotNil(t, reader)
 		assert.Equal(t, obj, meta)
 
-		data, _ := io.ReadAll(reader)
+		data, err := io.ReadAll(reader)
+		require.NoError(t, err)
 		assert.Equal(t, "hello world!", string(data))
 		mockRepo.AssertExpectations(t)
 		mockStore.AssertExpectations(t)
@@ -186,7 +197,7 @@ func TestStorageServiceUnit(t *testing.T) {
 
 	t.Run("Download Bucket Lookup Failure Closes Reader", func(t *testing.T) {
 		obj := &domain.Object{Bucket: "my-bucket", Key: "test.txt", VersionID: "null"}
-		reader := io.NopCloser(strings.NewReader("hello world!"))
+		reader := &trackingReadCloser{Reader: strings.NewReader("hello world!")}
 		mockRepo.On("GetMeta", mock.Anything, "my-bucket", "test.txt").Return(obj, nil).Once()
 		mockStore.On("Read", mock.Anything, "my-bucket", "test.txt").Return(reader, nil).Once()
 		mockRepo.On("GetBucket", mock.Anything, "my-bucket").Return(nil, fmt.Errorf("bucket error")).Once()
@@ -196,6 +207,7 @@ func TestStorageServiceUnit(t *testing.T) {
 		assert.Nil(t, gotReader)
 		assert.Nil(t, meta)
 		assert.Contains(t, err.Error(), "failed to get bucket")
+		assert.True(t, reader.closed)
 		mockRepo.AssertExpectations(t)
 		mockStore.AssertExpectations(t)
 	})
@@ -229,7 +241,8 @@ func TestStorageServiceUnit(t *testing.T) {
 		assert.NotNil(t, reader)
 		assert.Equal(t, obj, meta)
 
-		data, _ := io.ReadAll(reader)
+		data, err := io.ReadAll(reader)
+		require.NoError(t, err)
 		assert.Equal(t, "hello v1", string(data))
 		mockRepo.AssertExpectations(t)
 		mockStore.AssertExpectations(t)

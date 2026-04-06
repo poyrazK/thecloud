@@ -345,7 +345,8 @@ func TestStorageRepositorySetBucketVersioning(t *testing.T) {
 
 func TestStorageRepositoryBucketOps(t *testing.T) {
 	t.Run("CreateBucket", func(t *testing.T) {
-		mock, _ := pgxmock.NewPool()
+		mock, err := pgxmock.NewPool()
+		require.NoError(t, err)
 		defer mock.Close()
 		repo := NewStorageRepository(mock)
 		bucket := &domain.Bucket{ID: uuid.New(), Name: "b1", UserID: uuid.New(), CreatedAt: time.Now()}
@@ -353,12 +354,13 @@ func TestStorageRepositoryBucketOps(t *testing.T) {
 		mock.ExpectExec("INSERT INTO buckets").WithArgs(bucket.ID, bucket.Name, bucket.UserID, bucket.IsPublic, bucket.VersioningEnabled, bucket.EncryptionEnabled, bucket.EncryptionKeyID, bucket.CreatedAt).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
-		err := repo.CreateBucket(context.Background(), bucket)
+		err = repo.CreateBucket(context.Background(), bucket)
 		require.NoError(t, err)
 	})
 
 	t.Run("GetBucket", func(t *testing.T) {
-		mock, _ := pgxmock.NewPool()
+		mock, err := pgxmock.NewPool()
+		require.NoError(t, err)
 		defer mock.Close()
 		repo := NewStorageRepository(mock)
 		name := "b1"
@@ -374,7 +376,8 @@ func TestStorageRepositoryBucketOps(t *testing.T) {
 	})
 
 	t.Run("ListBuckets", func(t *testing.T) {
-		mock, _ := pgxmock.NewPool()
+		mock, err := pgxmock.NewPool()
+		require.NoError(t, err)
 		defer mock.Close()
 		repo := NewStorageRepository(mock)
 		userID := uuid.New().String()
@@ -390,7 +393,8 @@ func TestStorageRepositoryBucketOps(t *testing.T) {
 	})
 
 	t.Run("DeleteBucket", func(t *testing.T) {
-		mock, _ := pgxmock.NewPool()
+		mock, err := pgxmock.NewPool()
+		require.NoError(t, err)
 		defer mock.Close()
 		repo := NewStorageRepository(mock)
 		name := "b1"
@@ -399,14 +403,15 @@ func TestStorageRepositoryBucketOps(t *testing.T) {
 			WithArgs(name).
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
-		err := repo.DeleteBucket(context.Background(), name)
+		err = repo.DeleteBucket(context.Background(), name)
 		require.NoError(t, err)
 	})
 }
 
 func TestStorageRepositoryMultipart(t *testing.T) {
 	t.Run("MultipartOps", func(t *testing.T) {
-		mock, _ := pgxmock.NewPool()
+		mock, err := pgxmock.NewPool()
+		require.NoError(t, err)
 		defer mock.Close()
 		repo := NewStorageRepository(mock)
 		uploadID := uuid.New()
@@ -415,7 +420,7 @@ func TestStorageRepositoryMultipart(t *testing.T) {
 
 		mock.ExpectExec("INSERT INTO multipart_uploads").WithArgs(uploadID, userID, "b", "k", now).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
-		err := repo.SaveMultipartUpload(context.Background(), &domain.MultipartUpload{ID: uploadID, UserID: userID, Bucket: "b", Key: "k", CreatedAt: now})
+		err = repo.SaveMultipartUpload(context.Background(), &domain.MultipartUpload{ID: uploadID, UserID: userID, Bucket: "b", Key: "k", CreatedAt: now})
 		require.NoError(t, err)
 
 		mock.ExpectQuery("SELECT id, user_id, bucket, key, created_at FROM multipart_uploads").
@@ -447,7 +452,8 @@ func TestStorageRepositoryMultipart(t *testing.T) {
 
 func TestStorageRepositoryMisc(t *testing.T) {
 	t.Run("Versioning and Delete Ops", func(t *testing.T) {
-		mock, _ := pgxmock.NewPool()
+		mock, err := pgxmock.NewPool()
+		require.NoError(t, err)
 		defer mock.Close()
 		repo := NewStorageRepository(mock)
 		bucket, key, versionID := "b", "k", "v1"
@@ -458,7 +464,7 @@ func TestStorageRepositoryMisc(t *testing.T) {
 			WithArgs(bucket, key, versionID, userID).
 			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "arn", "bucket", "key", "version_id", "is_latest", "size_bytes", "content_type", "checksum", "upload_status", "created_at", "deleted_at"}).
 				AddRow(uuid.New(), userID, "arn", bucket, key, versionID, true, int64(100), "text", "sum", domain.UploadStatusAvailable, time.Now(), nil))
-		_, err := repo.GetMetaByVersion(ctx, bucket, key, versionID)
+		_, err = repo.GetMetaByVersion(ctx, bucket, key, versionID)
 		require.NoError(t, err)
 
 		mock.ExpectQuery("SELECT id, user_id, arn, bucket, key, version_id, is_latest, size_bytes, content_type, COALESCE\\(checksum, ''\\), upload_status, created_at, deleted_at FROM objects WHERE bucket = \\$1 AND key = \\$2 AND deleted_at IS NULL AND user_id = \\$3 AND upload_status = 'AVAILABLE' ORDER BY created_at DESC").

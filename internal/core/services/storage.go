@@ -230,9 +230,9 @@ func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.R
 	b, err := s.repo.GetBucket(ctx, bucket)
 	if err != nil {
 		if closeErr := reader.Close(); closeErr != nil {
-			return nil, nil, fmt.Errorf("failed to get bucket: %w; close error: %w", err, closeErr)
+			return nil, nil, errors.Wrap(errors.Internal, "failed to get bucket; close error", fmt.Errorf("bucket error: %w; close error: %w", err, closeErr))
 		}
-		return nil, nil, fmt.Errorf("failed to get bucket: %w", err)
+		return nil, nil, errors.Wrap(errors.Internal, "failed to get bucket", err)
 	}
 	if b.EncryptionEnabled && s.encryptSvc != nil {
 		decryptedReader, err := s.encryptSvc.Decrypt(ctx, bucket, reader)
