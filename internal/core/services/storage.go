@@ -228,7 +228,13 @@ func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.R
 
 	// Decryption
 	b, err := s.repo.GetBucket(ctx, bucket)
-	if err == nil && b.EncryptionEnabled && s.encryptSvc != nil {
+	if err != nil {
+		if closeErr := reader.Close(); closeErr != nil {
+			return nil, nil, fmt.Errorf("failed to get bucket: %w; close error: %w", err, closeErr)
+		}
+		return nil, nil, fmt.Errorf("failed to get bucket: %w", err)
+	}
+	if b.EncryptionEnabled && s.encryptSvc != nil {
 		decryptedReader, err := s.encryptSvc.Decrypt(ctx, bucket, reader)
 		if err != nil {
 			if closeErr := reader.Close(); closeErr != nil {
@@ -379,6 +385,9 @@ func (s *StorageService) CreateBucket(ctx context.Context, name string, isPublic
 
 	if strings.HasPrefix(name, "-") || strings.HasSuffix(name, "-") || strings.HasPrefix(name, ".") || strings.HasSuffix(name, ".") {
 		return nil, errors.New(errors.InvalidInput, "bucket name cannot start or end with a hyphen or dot")
+	}
+	if strings.Contains(name, "..") {
+		return nil, errors.New(errors.InvalidInput, "bucket name cannot contain consecutive dots")
 	}
 
 	bucket := &domain.Bucket{
