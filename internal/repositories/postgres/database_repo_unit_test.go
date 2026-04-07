@@ -20,9 +20,11 @@ func TestDatabaseRepository_Create(t *testing.T) {
 	defer mock.Close()
 
 	repo := NewDatabaseRepository(mock)
+	tenantID := uuid.New()
 	db := &domain.Database{
 		ID:                  uuid.New(),
 		UserID:              uuid.New(),
+		TenantID:            tenantID,
 		Name:                "test-db",
 		Engine:              domain.EnginePostgres,
 		Version:             "16",
@@ -48,7 +50,7 @@ func TestDatabaseRepository_Create(t *testing.T) {
 	}
 
 	mock.ExpectExec("INSERT INTO databases").
-		WithArgs(db.ID, db.UserID, db.Name, db.Engine, db.Version, db.Status, db.Role, db.PrimaryID, db.VpcID, db.ContainerID, db.Port, db.Username, db.Password, db.CreatedAt, db.UpdatedAt, db.AllocatedStorage, db.Parameters, db.MetricsEnabled, db.MetricsPort, db.ExporterContainerID, db.PoolingEnabled, db.PoolingPort, db.PoolerContainerID, db.CredentialPath).
+		WithArgs(db.ID, db.UserID, db.TenantID, db.Name, db.Engine, db.Version, db.Status, db.Role, db.PrimaryID, db.VpcID, db.ContainerID, db.Port, db.Username, db.Password, db.CreatedAt, db.UpdatedAt, db.AllocatedStorage, db.Parameters, db.MetricsEnabled, db.MetricsPort, db.ExporterContainerID, db.PoolingEnabled, db.PoolingPort, db.PoolerContainerID, db.CredentialPath).
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.Create(context.Background(), db)
@@ -64,13 +66,14 @@ func TestDatabaseRepository_GetByID(t *testing.T) {
 	repo := NewDatabaseRepository(mock)
 	id := uuid.New()
 	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(context.Background(), tenantID)
 	now := time.Now()
 
-	mock.ExpectQuery("SELECT id, user_id, name, engine, version, status, role, primary_id, vpc_id, COALESCE\\(container_id, ''\\), port, username, password, created_at, updated_at, allocated_storage, parameters, metrics_enabled, COALESCE\\(metrics_port, 0\\), COALESCE\\(exporter_container_id, ''\\), pooling_enabled, COALESCE\\(pooling_port, 0\\), COALESCE\\(pooler_container_id, ''\\), COALESCE\\(credential_path, ''\\) FROM databases").
-		WithArgs(id, userID).
-		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "engine", "version", "status", "role", "primary_id", "vpc_id", "container_id", "port", "username", "password", "created_at", "updated_at", "allocated_storage", "parameters", "metrics_enabled", "metrics_port", "exporter_container_id", "pooling_enabled", "pooling_port", "pooler_container_id", "credential_path"}).
-			AddRow(id, userID, "test-db", string(domain.EnginePostgres), "16", string(domain.DatabaseStatusCreating), string(domain.RolePrimary), nil, nil, "cid-1", 5432, "admin", "password", now, now, 10, map[string]string{"k": "v"}, true, 9187, "exp-cid", true, 6432, "pool-cid", "secret/rds/db1"))
+	mock.ExpectQuery("SELECT id, user_id, tenant_id, name, engine, version, status, role, primary_id, vpc_id, COALESCE\\(container_id, ''\\), port, username, password, created_at, updated_at, allocated_storage, parameters, metrics_enabled, COALESCE\\(metrics_port, 0\\), COALESCE\\(exporter_container_id, ''\\), pooling_enabled, COALESCE\\(pooling_port, 0\\), COALESCE\\(pooler_container_id, ''\\), COALESCE\\(credential_path, ''\\) FROM databases").
+		WithArgs(id, tenantID).
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "engine", "version", "status", "role", "primary_id", "vpc_id", "container_id", "port", "username", "password", "created_at", "updated_at", "allocated_storage", "parameters", "metrics_enabled", "metrics_port", "exporter_container_id", "pooling_enabled", "pooling_port", "pooler_container_id", "credential_path"}).
+			AddRow(id, userID, tenantID, "test-db", string(domain.EnginePostgres), "16", string(domain.DatabaseStatusCreating), string(domain.RolePrimary), nil, nil, "cid-1", 5432, "admin", "password", now, now, 10, map[string]string{"k": "v"}, true, 9187, "exp-cid", true, 6432, "pool-cid", "secret/rds/db1"))
 
 	db, err := repo.GetByID(ctx, id)
 	require.NoError(t, err)
@@ -94,13 +97,14 @@ func TestDatabaseRepository_List(t *testing.T) {
 
 	repo := NewDatabaseRepository(mock)
 	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(context.Background(), tenantID)
 	now := time.Now()
 
-	mock.ExpectQuery("SELECT id, user_id, name, engine, version, status, role, primary_id, vpc_id, COALESCE\\(container_id, ''\\), port, username, password, created_at, updated_at, allocated_storage, parameters, metrics_enabled, COALESCE\\(metrics_port, 0\\), COALESCE\\(exporter_container_id, ''\\), pooling_enabled, COALESCE\\(pooling_port, 0\\), COALESCE\\(pooler_container_id, ''\\), COALESCE\\(credential_path, ''\\) FROM databases").
-		WithArgs(userID).
-		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "engine", "version", "status", "role", "primary_id", "vpc_id", "container_id", "port", "username", "password", "created_at", "updated_at", "allocated_storage", "parameters", "metrics_enabled", "metrics_port", "exporter_container_id", "pooling_enabled", "pooling_port", "pooler_container_id", "credential_path"}).
-			AddRow(uuid.New(), userID, "test-db", string(domain.EnginePostgres), "16", string(domain.DatabaseStatusCreating), string(domain.RolePrimary), nil, nil, "cid-1", 5432, "admin", "password", now, now, 20, map[string]string{}, false, 0, "", false, 0, "", ""))
+	mock.ExpectQuery("SELECT id, user_id, tenant_id, name, engine, version, status, role, primary_id, vpc_id, COALESCE\\(container_id, ''\\), port, username, password, created_at, updated_at, allocated_storage, parameters, metrics_enabled, COALESCE\\(metrics_port, 0\\), COALESCE\\(exporter_container_id, ''\\), pooling_enabled, COALESCE\\(pooling_port, 0\\), COALESCE\\(pooler_container_id, ''\\), COALESCE\\(credential_path, ''\\) FROM databases").
+		WithArgs(tenantID).
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "engine", "version", "status", "role", "primary_id", "vpc_id", "container_id", "port", "username", "password", "created_at", "updated_at", "allocated_storage", "parameters", "metrics_enabled", "metrics_port", "exporter_container_id", "pooling_enabled", "pooling_port", "pooler_container_id", "credential_path"}).
+			AddRow(uuid.New(), userID, tenantID, "test-db", string(domain.EnginePostgres), "16", string(domain.DatabaseStatusCreating), string(domain.RolePrimary), nil, nil, "cid-1", 5432, "admin", "password", now, now, 20, map[string]string{}, false, 0, "", false, 0, "", ""))
 
 	databases, err := repo.List(ctx)
 	require.NoError(t, err)
@@ -117,12 +121,13 @@ func TestDatabaseRepository_ListReplicas(t *testing.T) {
 
 	repo := NewDatabaseRepository(mock)
 	primaryID := uuid.New()
+	tenantID := uuid.New()
 	now := time.Now()
 
-	mock.ExpectQuery("SELECT id, user_id, name, engine, version, status, role, primary_id, vpc_id, COALESCE\\(container_id, ''\\), port, username, password, created_at, updated_at, allocated_storage, parameters, metrics_enabled, COALESCE\\(metrics_port, 0\\), COALESCE\\(exporter_container_id, ''\\), pooling_enabled, COALESCE\\(pooling_port, 0\\), COALESCE\\(pooler_container_id, ''\\), COALESCE\\(credential_path, ''\\) FROM databases WHERE primary_id = \\$1").
+	mock.ExpectQuery("SELECT id, user_id, tenant_id, name, engine, version, status, role, primary_id, vpc_id, COALESCE\\(container_id, ''\\), port, username, password, created_at, updated_at, allocated_storage, parameters, metrics_enabled, COALESCE\\(metrics_port, 0\\), COALESCE\\(exporter_container_id, ''\\), pooling_enabled, COALESCE\\(pooling_port, 0\\), COALESCE\\(pooler_container_id, ''\\), COALESCE\\(credential_path, ''\\) FROM databases WHERE primary_id = \\$1").
 		WithArgs(primaryID).
-		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "engine", "version", "status", "role", "primary_id", "vpc_id", "container_id", "port", "username", "password", "created_at", "updated_at", "allocated_storage", "parameters", "metrics_enabled", "metrics_port", "exporter_container_id", "pooling_enabled", "pooling_port", "pooler_container_id", "credential_path"}).
-			AddRow(uuid.New(), uuid.New(), "replica-1", string(domain.EnginePostgres), "16", string(domain.DatabaseStatusRunning), string(domain.RoleReplica), &primaryID, nil, "cid-2", 5432, "admin", "password", now, now, 20, map[string]string{}, false, 0, "", false, 0, "", "secret/rds/replica1"))
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "engine", "version", "status", "role", "primary_id", "vpc_id", "container_id", "port", "username", "password", "created_at", "updated_at", "allocated_storage", "parameters", "metrics_enabled", "metrics_port", "exporter_container_id", "pooling_enabled", "pooling_port", "pooler_container_id", "credential_path"}).
+			AddRow(uuid.New(), uuid.New(), tenantID, "replica-1", string(domain.EnginePostgres), "16", string(domain.DatabaseStatusRunning), string(domain.RoleReplica), &primaryID, nil, "cid-2", 5432, "admin", "password", now, now, 20, map[string]string{}, false, 0, "", false, 0, "", "secret/rds/replica1"))
 
 	replicas, err := repo.ListReplicas(context.Background(), primaryID)
 	require.NoError(t, err)
@@ -142,6 +147,7 @@ func TestDatabaseRepository_Update(t *testing.T) {
 	db := &domain.Database{
 		ID:                  uuid.New(),
 		UserID:              uuid.New(),
+		TenantID:            uuid.New(),
 		Name:                "updated-name",
 		Status:              domain.DatabaseStatusRunning,
 		Role:                domain.RolePrimary,
@@ -159,7 +165,7 @@ func TestDatabaseRepository_Update(t *testing.T) {
 	}
 
 	mock.ExpectExec("UPDATE databases").
-		WithArgs(db.Name, db.Status, db.Role, db.PrimaryID, db.ContainerID, db.Port, pgxmock.AnyArg(), db.Parameters, db.MetricsEnabled, db.MetricsPort, db.ExporterContainerID, db.PoolingEnabled, db.PoolingPort, db.PoolerContainerID, db.AllocatedStorage, db.CredentialPath, db.ID, db.UserID).
+		WithArgs(db.Name, db.Status, db.Role, db.PrimaryID, db.ContainerID, db.Port, pgxmock.AnyArg(), db.Parameters, db.MetricsEnabled, db.MetricsPort, db.ExporterContainerID, db.PoolingEnabled, db.PoolingPort, db.PoolerContainerID, db.AllocatedStorage, db.CredentialPath, db.ID, db.TenantID).
 		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 	err = repo.Update(context.Background(), db)
@@ -174,11 +180,11 @@ func TestDatabaseRepository_Delete(t *testing.T) {
 
 	repo := NewDatabaseRepository(mock)
 	id := uuid.New()
-	userID := uuid.New()
-	ctx := appcontext.WithUserID(context.Background(), userID)
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(context.Background(), tenantID)
 
-	mock.ExpectExec("DELETE FROM databases WHERE id = \\$1 AND user_id = \\$2").
-		WithArgs(id, userID).
+	mock.ExpectExec("DELETE FROM databases WHERE id = \\$1 AND tenant_id = \\$2").
+		WithArgs(id, tenantID).
 		WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 	err = repo.Delete(ctx, id)

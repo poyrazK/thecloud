@@ -45,9 +45,12 @@ func TestDatabaseService_RotateCredentials(t *testing.T) {
 	mockSecrets := new(MockSecretsManager)
 	mockEventSvc := new(MockEventService)
 	mockAuditSvc := new(MockAuditService)
+	mockRBAC := new(mockRBACService)
+	mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
 		Repo:           mockRepo,
+		RBAC:           mockRBAC,
 		Compute:        mockCompute,
 		Secrets:        mockSecrets,
 		EventSvc:       mockEventSvc,
@@ -90,7 +93,7 @@ func TestDatabaseService_RotateCredentials(t *testing.T) {
 
 		err := svc.RotateCredentials(ctx, dbID, "")
 		require.NoError(t, err)
-		
+
 		mockSecrets.AssertExpectations(t)
 		mockCompute.AssertExpectations(t)
 		mockRepo.AssertExpectations(t)
@@ -105,7 +108,7 @@ func TestDatabaseService_RotateCredentials(t *testing.T) {
 		err := svc.RotateCredentials(ctx, dbID, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "database password updated but failed to store in vault")
-		
+
 		mockSecrets.AssertExpectations(t)
 		mockRepo.AssertExpectations(t)
 	})
@@ -119,9 +122,12 @@ func TestDatabaseService_VaultIntegration_CreateDatabase(t *testing.T) {
 	mockEventSvc := new(MockEventService)
 	mockAuditSvc := new(MockAuditService)
 	mockVpcRepo := new(MockVpcRepo)
+	mockRBAC := new(mockRBACService)
+	mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
 		Repo:           mockRepo,
+		RBAC:           mockRBAC,
 		Compute:        mockCompute,
 		Secrets:        mockSecrets,
 		VolumeSvc:      mockVolumeSvc,
@@ -137,7 +143,7 @@ func TestDatabaseService_VaultIntegration_CreateDatabase(t *testing.T) {
 	t.Run("StoreCredentialsInVault_OnCreate", func(t *testing.T) {
 		mockVolumeSvc.On("CreateVolume", mock.Anything, mock.Anything, 10).
 			Return(&domain.Volume{ID: uuid.New(), Name: "db-vol"}, nil).Once()
-		
+
 		// Expectation for Vault storage
 		mockSecrets.On("StoreSecret", mock.Anything, mock.MatchedBy(func(path string) bool {
 			return path != ""
@@ -145,11 +151,11 @@ func TestDatabaseService_VaultIntegration_CreateDatabase(t *testing.T) {
 
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).
 			Return("cid", []string{"30001:5432"}, nil).Once()
-		
+
 		mockRepo.On("Create", mock.Anything, mock.MatchedBy(func(db *domain.Database) bool {
 			return db.CredentialPath != ""
 		})).Return(nil).Once()
-		
+
 		mockEventSvc.On("RecordEvent", mock.Anything, "DATABASE_CREATE", mock.Anything, "DATABASE", mock.Anything).Return(nil)
 		mockAuditSvc.On("Log", mock.Anything, mock.Anything, "database.create", "database", mock.Anything, mock.Anything).Return(nil)
 

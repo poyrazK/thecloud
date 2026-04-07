@@ -62,11 +62,14 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 	mockAuditSvc := new(MockAuditService)
 	mockVolumeSvc := new(MockVolumeService)
 	mockSecrets := new(MockSecretsManager)
+	mockRBAC := new(mockRBACService)
 	snapSvc := new(mockSnapshotService)
 	snapRepo := new(mockSnapshotRepository)
+	mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
 		Repo:         mockRepo,
+		RBAC:         mockRBAC,
 		Compute:      mockCompute,
 		VpcRepo:      mockVpcRepo,
 		VolumeSvc:    mockVolumeSvc,
@@ -83,7 +86,7 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 	t.Run("CreateDatabase_Success", func(t *testing.T) {
 		mockVolumeSvc.On("CreateVolume", mock.Anything, mock.Anything, 20).
 			Return(&domain.Volume{ID: uuid.New(), Name: "db-vol"}, nil).Once()
-		
+
 		mockSecrets.On("StoreSecret", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).
@@ -116,7 +119,7 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		mockCompute.On("GetInstanceIP", mock.Anything, "primary-cid").Return("10.0.0.5", nil).Once()
 		mockVolumeSvc.On("CreateVolume", mock.Anything, mock.Anything, 20).
 			Return(&domain.Volume{ID: uuid.New(), Name: "db-replica-vol"}, nil).Once()
-		
+
 		mockSecrets.On("StoreSecret", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).
@@ -154,12 +157,12 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 	t.Run("GetConnectionString", func(t *testing.T) {
 		dbID := uuid.New()
 		db := &domain.Database{
-			ID:       dbID,
-			Engine:   domain.EnginePostgres,
-			Username: "user",
-			Password: "pass",
-			Port:     5432,
-			Name:     "mydb",
+			ID:             dbID,
+			Engine:         domain.EnginePostgres,
+			Username:       "user",
+			Password:       "pass",
+			Port:           5432,
+			Name:           "mydb",
 			CredentialPath: "secret/rds/db1",
 		}
 		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
