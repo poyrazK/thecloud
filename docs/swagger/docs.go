@@ -7407,6 +7407,9 @@ const docTemplate = `{
                 "status": {
                     "$ref": "#/definitions/domain.DatabaseStatus"
                 },
+                "tenant_id": {
+                    "type": "string"
+                },
                 "updated_at": {
                     "type": "string"
                 },

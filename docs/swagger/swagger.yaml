@@ -274,6 +274,8 @@ definitions:
         $ref: '#/definitions/domain.DatabaseRole'
       status:
         $ref: '#/definitions/domain.DatabaseStatus'
+      tenant_id:
+        type: string
       updated_at:
         type: string
       user_id:
