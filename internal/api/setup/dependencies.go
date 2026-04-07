@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"strings"
 
@@ -196,12 +197,12 @@ type ServiceConfig struct {
 // InitServices constructs core services and background workers.
 func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	// 1. Core Services (Audit, Identity, Auth, RBAC)
+	rbacSvc := initRBACServices(c)
 	auditSvc := services.NewAuditService(c.Repos.Audit)
 	identitySvc := initIdentityServices(c, auditSvc)
 	tenantSvc := services.NewTenantService(c.Repos.Tenant, c.Repos.User, c.Logger)
 	authSvc := services.NewAuthService(c.Repos.User, identitySvc, auditSvc, tenantSvc)
 	pwdResetSvc := services.NewPasswordResetService(c.Repos.PasswordReset, c.Repos.User, c.Logger)
-	rbacSvc := initRBACServices(c)
 
 	// 2. WebSocket & Core Infrastructure
 	wsHub := ws.NewHub(c.Logger)
@@ -218,35 +219,20 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to init powerdns backend: %w", err)
 	}
-	dnsSvc := services.NewDNSService(services.DNSServiceParams{
-		Repo: c.Repos.DNS, Backend: pdnsBackend, VpcRepo: c.Repos.Vpc,
-		AuditSvc: auditSvc, EventSvc: eventSvc, Logger: c.Logger,
-	})
+	dnsSvc := services.NewDNSService(services.DNSServiceParams{Repo: c.Repos.DNS, Backend: pdnsBackend, VpcRepo: c.Repos.Vpc, AuditSvc: auditSvc, EventSvc: eventSvc, Logger: c.Logger})
 
 	sshKeySvc := services.NewSSHKeyService(c.Repos.SSHKey)
 
 	logSvc := services.NewCloudLogsService(c.Repos.Log, c.Logger)
 
-	instSvcConcrete := services.NewInstanceService(services.InstanceServiceParams{
-		Repo: c.Repos.Instance, VpcRepo: c.Repos.Vpc, SubnetRepo: c.Repos.Subnet, VolumeRepo: c.Repos.Volume,
-		InstanceTypeRepo: c.Repos.InstanceType,
-		Compute:          c.Compute, Network: c.Network, EventSvc: eventSvc, AuditSvc: auditSvc, DNSSvc: dnsSvc, TaskQueue: c.Repos.TaskQueue,
-		DockerNetwork: c.Config.DockerDefaultNetwork,
-		Logger:        c.Logger,
-		TenantSvc:     tenantSvc,
-		SSHKeySvc:     sshKeySvc,
-		LogSvc:        logSvc,
-	})
+	instSvcConcrete := services.NewInstanceService(services.InstanceServiceParams{Repo: c.Repos.Instance, VpcRepo: c.Repos.Vpc, SubnetRepo: c.Repos.Subnet, VolumeRepo: c.Repos.Volume, InstanceTypeRepo: c.Repos.InstanceType, Compute: c.Compute, Network: c.Network, EventSvc: eventSvc, AuditSvc: auditSvc, DNSSvc: dnsSvc, LogSvc: logSvc, TaskQueue: c.Repos.TaskQueue, TenantSvc: tenantSvc, SSHKeySvc: sshKeySvc, DockerNetwork: c.Config.DockerDefaultNetwork, Logger: c.Logger})
 	sgSvc := services.NewSecurityGroupService(c.Repos.SecurityGroup, c.Repos.Vpc, c.Network, auditSvc, c.Logger)
 
 	lbSvc := services.NewLBService(c.Repos.LB, c.Repos.Vpc, c.Repos.Instance, auditSvc)
 	lbWorker := services.NewLBWorker(c.Repos.LB, c.Repos.Instance, c.LBProxy)
 
 	// Global LB Service
-	// We use the same PowerDNS backend which now implements GeoDNSBackend
-	glbSvc := services.NewGlobalLBService(services.GlobalLBServiceParams{
-		Repo: c.Repos.GlobalLB, LBRepo: c.Repos.LB, GeoDNS: pdnsBackend, AuditSvc: auditSvc, Logger: c.Logger,
-	})
+	glbSvc := services.NewGlobalLBService(services.GlobalLBServiceParams{Repo: c.Repos.GlobalLB, LBRepo: c.Repos.LB, GeoDNS: pdnsBackend, AuditSvc: auditSvc, Logger: c.Logger})
 
 	// Encryption Service
 	encryptionRepo := postgres.NewEncryptionRepository(c.DB)
@@ -275,7 +261,6 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to init vault adapter: %w", err)
 		}
-		// Fail fast if Vault is unreachable (with timeout)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := vaultSvc.Ping(ctx); err != nil {
@@ -284,19 +269,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		secretsSvc = vaultSvc
 	}
 
-	databaseSvc := services.NewDatabaseService(services.DatabaseServiceParams{
-		Repo:           c.Repos.Database,
-		Compute:        c.Compute,
-		VpcRepo:        c.Repos.Vpc,
-		VolumeSvc:      volumeSvc,
-		SnapshotSvc:    snapshotSvc,
-		SnapshotRepo:   c.Repos.Snapshot,
-		EventSvc:       eventSvc,
-		AuditSvc:       auditSvc,
-		Secrets:        secretsSvc,
-		Logger:         c.Logger,
-		VaultMountPath: c.Config.VaultMountPath,
-	})
+	databaseSvc := services.NewDatabaseService(services.DatabaseServiceParams{Repo: c.Repos.Database, RBAC: rbacSvc, Compute: c.Compute, VpcRepo: c.Repos.Vpc, VolumeSvc: volumeSvc, SnapshotSvc: snapshotSvc, SnapshotRepo: c.Repos.Snapshot, EventSvc: eventSvc, AuditSvc: auditSvc, Secrets: secretsSvc, Logger: c.Logger, VaultMountPath: c.Config.VaultMountPath})
 	secretSvc := services.NewSecretService(c.Repos.Secret, eventSvc, auditSvc, c.Logger, c.Config.SecretsEncryptionKey, c.Config.Environment)
 	fnSvc := services.NewFunctionService(c.Repos.Function, c.Compute, fileStore, auditSvc, c.Logger)
 	cacheSvc := services.NewCacheService(c.Repos.Cache, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
@@ -327,50 +300,12 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		return nil, nil, err
 	}
 
-	svcs := &Services{
-		WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Tenant: tenantSvc, Auth: authSvc, PasswordReset: pwdResetSvc, RBAC: rbacSvc,
-		Vpc: vpcSvc, Subnet: subnetSvc, Event: eventSvc, Volume: volumeSvc, Instance: instSvcConcrete,
-		SecurityGroup: sgSvc, LB: lbSvc, Snapshot: snapshotSvc, Stack: stackSvc,
-		Storage: storageSvc, Database: databaseSvc, Secret: secretSvc, Function: fnSvc, Cache: cacheSvc,
-		Queue: queueSvc, Notify: notifySvc, Cron: cronSvc, Gateway: gwSvc, Container: containerSvc,
-		Pipeline: pipelineSvc,
-		Health:   services.NewHealthServiceImpl(c.DB, c.Compute, clusterSvc), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc,
-		Cluster:      clusterSvc,
-		Dashboard:    services.NewDashboardService(c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger),
-		Lifecycle:    services.NewLifecycleService(c.Repos.Lifecycle, c.Repos.Storage),
-		InstanceType: services.NewInstanceTypeService(c.Repos.InstanceType),
-		GlobalLB:     glbSvc,
-		DNS:          dnsSvc,
-		SSHKey:       sshKeySvc,
-		ElasticIP: services.NewElasticIPService(services.ElasticIPServiceParams{
-			Repo:         c.Repos.ElasticIP,
-			InstanceRepo: c.Repos.Instance,
-			AuditSvc:     auditSvc,
-			Logger:       c.Logger,
-		}),
-		Log: logSvc,
-		IAM: iamSvc,
-		VPCPeering: services.NewVPCPeeringService(services.VPCPeeringServiceParams{
-			Repo: c.Repos.VPCPeering, VpcRepo: c.Repos.Vpc, Network: c.Network,
-			AuditSvc: auditSvc, Logger: c.Logger,
-		}),
-	}
+	svcs := &Services{WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Tenant: tenantSvc, Auth: authSvc, PasswordReset: pwdResetSvc, RBAC: rbacSvc, Vpc: vpcSvc, Subnet: subnetSvc, Event: eventSvc, Volume: volumeSvc, Instance: instSvcConcrete, SecurityGroup: sgSvc, LB: lbSvc, Snapshot: snapshotSvc, Stack: stackSvc, Storage: storageSvc, Database: databaseSvc, Secret: secretSvc, Function: fnSvc, Cache: cacheSvc, Queue: queueSvc, Notify: notifySvc, Cron: cronSvc, Gateway: gwSvc, Container: containerSvc, Pipeline: pipelineSvc, Health: services.NewHealthServiceImpl(c.DB, c.Compute, clusterSvc), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc, Cluster: clusterSvc, Dashboard: services.NewDashboardService(c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger), Lifecycle: services.NewLifecycleService(c.Repos.Lifecycle, c.Repos.Storage), InstanceType: services.NewInstanceTypeService(c.Repos.InstanceType), GlobalLB: glbSvc, DNS: dnsSvc, SSHKey: sshKeySvc, ElasticIP: services.NewElasticIPService(services.ElasticIPServiceParams{Repo: c.Repos.ElasticIP, InstanceRepo: c.Repos.Instance, AuditSvc: auditSvc, Logger: c.Logger}), Log: logSvc, IAM: iamSvc, VPCPeering: services.NewVPCPeeringService(services.VPCPeeringServiceParams{Repo: c.Repos.VPCPeering, VpcRepo: c.Repos.Vpc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger})}
 
 	// 7. High Availability & Monitoring
 	replicaMonitor := initReplicaMonitor(c)
 
-	workersCollection := &Workers{
-		LB: lbWorker, AutoScaling: asgWorker, Cron: cronWorker, Container: containerWorker,
-		Pipeline:  workers.NewPipelineWorker(c.Repos.Pipeline, c.Repos.TaskQueue, c.Compute, c.Logger),
-		Provision: provisionWorker, Accounting: accountingWorker,
-		Cluster:           workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.TaskQueue, c.Logger),
-		Lifecycle:         workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger),
-		ReplicaMonitor:    replicaMonitor,
-		ClusterReconciler: workers.NewClusterReconciler(c.Repos.Cluster, clusterProvisioner, c.Logger),
-		Healing:           healingWorker,
-		DatabaseFailover:  workers.NewDatabaseFailoverWorker(databaseSvc, c.Repos.Database, c.Logger),
-		Log:               workers.NewLogWorker(logSvc, c.Logger),
-	}
+	workersCollection := &Workers{LB: lbWorker, AutoScaling: asgWorker, Cron: cronWorker, Container: containerWorker, Pipeline: workers.NewPipelineWorker(c.Repos.Pipeline, c.Repos.TaskQueue, c.Compute, c.Logger), Provision: provisionWorker, Accounting: accountingWorker, Cluster: workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.TaskQueue, c.Logger), Lifecycle: workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger), ReplicaMonitor: replicaMonitor, ClusterReconciler: workers.NewClusterReconciler(c.Repos.Cluster, clusterProvisioner, c.Logger), Healing: healingWorker, DatabaseFailover: workers.NewDatabaseFailoverWorker(databaseSvc, c.Repos.Database, c.Logger), Log: workers.NewLogWorker(logSvc, c.Logger)}
 
 	return svcs, workersCollection, nil
 }

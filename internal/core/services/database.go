@@ -41,6 +41,7 @@ const (
 // DatabaseService manages database instances and lifecycle.
 type DatabaseService struct {
 	repo           ports.DatabaseRepository
+	rbacSvc        ports.RBACService
 	compute        ports.ComputeBackend
 	vpcRepo        ports.VpcRepository
 	volumeSvc      ports.VolumeService
@@ -62,6 +63,7 @@ var _ ports.DatabaseService = (*DatabaseService)(nil)
 // DatabaseServiceParams holds dependencies for DatabaseService creation.
 type DatabaseServiceParams struct {
 	Repo           ports.DatabaseRepository
+	RBAC           ports.RBACService
 	Compute        ports.ComputeBackend
 	VpcRepo        ports.VpcRepository
 	VolumeSvc      ports.VolumeService
@@ -78,6 +80,7 @@ type DatabaseServiceParams struct {
 func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 	return &DatabaseService{
 		repo:           params.Repo,
+		rbacSvc:        params.RBAC,
 		compute:        params.Compute,
 		vpcRepo:        params.VpcRepo,
 		volumeSvc:      params.VolumeSvc,
@@ -94,6 +97,10 @@ func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 
 func (s *DatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDatabaseRequest) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionDBCreate, "*"); err != nil {
+		return nil, err
+	}
 	dbEngine := domain.DatabaseEngine(req.Engine)
 
 	if err := s.validateCreationRequest(req, dbEngine); err != nil {
@@ -107,6 +114,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDa
 
 	username := s.getDefaultUsername(dbEngine)
 	db := s.initialDatabaseRecord(userID, req.Name, dbEngine, req.Version, username, password, req.VpcID)
+	db.TenantID = tenantID
 	db.Role = domain.RolePrimary
 	db.AllocatedStorage = req.AllocatedStorage
 	db.Parameters = req.Parameters
@@ -118,6 +126,10 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDa
 
 func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionDBCreate, "*"); err != nil {
+		return nil, err
+	}
 
 	primary, err := s.repo.GetByID(ctx, primaryID)
 	if err != nil {
@@ -140,6 +152,7 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 	}
 
 	db := s.initialDatabaseRecord(userID, name, primary.Engine, primary.Version, primary.Username, password, primary.VpcID)
+	db.TenantID = tenantID
 	db.Role = domain.RoleReplica
 	db.PrimaryID = &primaryID
 	db.AllocatedStorage = primary.AllocatedStorage
@@ -151,6 +164,10 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 
 func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.RestoreDatabaseRequest) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionDBCreate, "*"); err != nil {
+		return nil, err
+	}
 	snap, err := s.snapshotSvc.GetSnapshot(ctx, req.SnapshotID)
 	if err != nil {
 		return nil, err
@@ -162,7 +179,8 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.Restore
 	}
 	username := s.getDefaultUsername(dbEngine)
 	db := s.initialDatabaseRecord(userID, req.NewName, dbEngine, req.Version, username, password, req.VpcID)
-	
+	db.TenantID = tenantID
+
 	db.AllocatedStorage = req.AllocatedStorage
 	if snap.SizeGB > db.AllocatedStorage {
 		db.AllocatedStorage = snap.SizeGB
@@ -186,7 +204,7 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.Restore
 		}
 		return nil, err
 	}
-	
+
 	return s.finalizeProvisioning(ctx, db, vol, password, req.Parameters, "", "DATABASE_RESTORE")
 }
 
@@ -256,6 +274,10 @@ func (s *DatabaseService) finalizeProvisioning(ctx context.Context, db *domain.D
 }
 
 func (s *DatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDatabaseRequest) (*domain.Database, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionDBUpdate, req.ID.String()); err != nil {
+		return nil, err
+	}
 	db, err := s.repo.GetByID(ctx, req.ID)
 	if err != nil {
 		return nil, err
@@ -337,14 +359,26 @@ func (s *DatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDa
 }
 
 func (s *DatabaseService) GetDatabase(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionDBRead, id.String()); err != nil {
+		return nil, err
+	}
 	return s.repo.GetByID(ctx, id)
 }
 
 func (s *DatabaseService) ListDatabases(ctx context.Context) ([]*domain.Database, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionDBRead, "*"); err != nil {
+		return nil, err
+	}
 	return s.repo.List(ctx)
 }
 
 func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionDBDelete, id.String()); err != nil {
+		return err
+	}
 	db, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -399,6 +433,10 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 }
 
 func (s *DatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionDBUpdate, id.String()); err != nil {
+		return err
+	}
 	db, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -416,6 +454,10 @@ func (s *DatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) er
 }
 
 func (s *DatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionDBRead, id.String()); err != nil {
+		return "", err
+	}
 	db, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return "", err
@@ -448,6 +490,10 @@ func (s *DatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID)
 }
 
 func (s *DatabaseService) CreateDatabaseSnapshot(ctx context.Context, databaseID uuid.UUID, description string) (*domain.Snapshot, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionSnapshotCreate, "*"); err != nil {
+		return nil, err
+	}
 	db, err := s.repo.GetByID(ctx, databaseID)
 	if err != nil {
 		return nil, err
@@ -465,6 +511,10 @@ func (s *DatabaseService) CreateDatabaseSnapshot(ctx context.Context, databaseID
 }
 
 func (s *DatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID uuid.UUID) ([]*domain.Snapshot, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionSnapshotRead, "*"); err != nil {
+		return nil, err
+	}
 	db, err := s.repo.GetByID(ctx, databaseID)
 	if err != nil {
 		return nil, err
@@ -823,7 +873,7 @@ func (s *DatabaseService) initialDatabaseRecord(userID uuid.UUID, name string, e
 
 func (s *DatabaseService) recordDatabaseCreation(ctx context.Context, userID uuid.UUID, db *domain.Database, action string) {
 	_ = s.eventSvc.RecordEvent(ctx, action, db.ID.String(), "DATABASE", map[string]interface{}{"name": db.Name, "engine": db.Engine})
-	
+
 	auditAction := "database.create"
 	switch action {
 	case "DATABASE_REPLICA_CREATE":
@@ -831,7 +881,7 @@ func (s *DatabaseService) recordDatabaseCreation(ctx context.Context, userID uui
 	case "DATABASE_RESTORE":
 		auditAction = "database.restore"
 	}
-	
+
 	_ = s.auditSvc.Log(ctx, userID, auditAction, "database", db.ID.String(), map[string]interface{}{"name": db.Name, "engine": string(db.Engine)})
 	platform.RDSInstancesTotal.WithLabelValues(string(db.Engine), "running").Inc()
 }
