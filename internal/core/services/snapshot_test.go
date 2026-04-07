@@ -15,6 +15,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,14 +29,25 @@ func setupSnapshotServiceIntegrationTest(t *testing.T) (ports.SnapshotService, p
 	volRepo := postgres.NewVolumeRepository(db)
 	storage := noop.NewNoopStorageBackendAdapter()
 
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
 
 	eventRepo := postgres.NewEventRepository(db)
-	eventSvc := services.NewEventService(eventRepo, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	eventSvc := services.NewEventService(services.EventServiceParams{
+		Repo:    eventRepo,
+		RBACSvc: rbacSvc,
+		Hub:     nil,
+		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewSnapshotService(repo, volRepo, storage, eventSvc, auditSvc, logger)
+	svc := services.NewSnapshotService(repo, rbacSvc, volRepo, storage, eventSvc, auditSvc, logger)
 
 	return svc, repo, volRepo, ctx
 }

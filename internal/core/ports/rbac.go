@@ -36,9 +36,9 @@ type RoleRepository interface {
 // RBACService provides business logic for enforcing security policies and managing access control.
 type RBACService interface {
 	// Authorize checks if a user has a specific permission on a resource, returning an error if not.
-	Authorize(ctx context.Context, userID uuid.UUID, permission domain.Permission, resource string) error
+	Authorize(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission, resource string) error
 	// HasPermission checks if a user has a specific permission on a resource, returning a boolean flag.
-	HasPermission(ctx context.Context, userID uuid.UUID, permission domain.Permission, resource string) (bool, error)
+	HasPermission(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission, resource string) (bool, error)
 
 	// Role management
 

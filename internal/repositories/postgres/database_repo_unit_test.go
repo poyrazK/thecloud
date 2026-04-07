@@ -122,14 +122,15 @@ func TestDatabaseRepository_ListReplicas(t *testing.T) {
 	repo := NewDatabaseRepository(mock)
 	primaryID := uuid.New()
 	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(context.Background(), tenantID)
 	now := time.Now()
 
-	mock.ExpectQuery("SELECT id, user_id, tenant_id, name, engine, version, status, role, primary_id, vpc_id, COALESCE\\(container_id, ''\\), port, username, password, created_at, updated_at, allocated_storage, parameters, metrics_enabled, COALESCE\\(metrics_port, 0\\), COALESCE\\(exporter_container_id, ''\\), pooling_enabled, COALESCE\\(pooling_port, 0\\), COALESCE\\(pooler_container_id, ''\\), COALESCE\\(credential_path, ''\\) FROM databases WHERE primary_id = \\$1").
-		WithArgs(primaryID).
+	mock.ExpectQuery("SELECT id, user_id, tenant_id, name, engine, version, status, role, primary_id, vpc_id, COALESCE\\(container_id, ''\\), port, username, password, created_at, updated_at, allocated_storage, parameters, metrics_enabled, COALESCE\\(metrics_port, 0\\), COALESCE\\(exporter_container_id, ''\\), pooling_enabled, COALESCE\\(pooling_port, 0\\), COALESCE\\(pooler_container_id, ''\\), COALESCE\\(credential_path, ''\\) FROM databases WHERE primary_id = \\$1 AND tenant_id = \\$2").
+		WithArgs(primaryID, tenantID).
 		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "engine", "version", "status", "role", "primary_id", "vpc_id", "container_id", "port", "username", "password", "created_at", "updated_at", "allocated_storage", "parameters", "metrics_enabled", "metrics_port", "exporter_container_id", "pooling_enabled", "pooling_port", "pooler_container_id", "credential_path"}).
 			AddRow(uuid.New(), uuid.New(), tenantID, "replica-1", string(domain.EnginePostgres), "16", string(domain.DatabaseStatusRunning), string(domain.RoleReplica), &primaryID, nil, "cid-2", 5432, "admin", "password", now, now, 20, map[string]string{}, false, 0, "", false, 0, "", "secret/rds/replica1"))
 
-	replicas, err := repo.ListReplicas(context.Background(), primaryID)
+	replicas, err := repo.ListReplicas(ctx, primaryID)
 	require.NoError(t, err)
 	assert.Len(t, replicas, 1)
 	assert.Equal(t, domain.RoleReplica, replicas[0].Role)

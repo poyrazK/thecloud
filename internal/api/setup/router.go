@@ -322,6 +322,7 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		clusterGroup.POST("/:id/rotate-secrets", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.RotateSecrets)
 		clusterGroup.POST("/:id/backups", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.CreateBackup)
 		clusterGroup.POST("/:id/restore", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.RestoreBackup)
+		clusterGroup.PUT("/:id/backup-policy", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.SetBackupPolicy)
 
 		// Node Group management
 		clusterGroup.POST("/:id/nodegroups", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.AddNodeGroup)
@@ -588,12 +589,12 @@ func registerDevOpsRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	asgGroup := r.Group("/autoscaling")
 	asgGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
-		asgGroup.POST("/groups", httputil.Permission(svcs.RBAC, domain.PermissionAsCreate), handlers.AutoScaling.CreateGroup)
-		asgGroup.GET("/groups", httputil.Permission(svcs.RBAC, domain.PermissionAsRead), handlers.AutoScaling.ListGroups)
-		asgGroup.GET("/groups/:id", httputil.Permission(svcs.RBAC, domain.PermissionAsRead), handlers.AutoScaling.GetGroup)
-		asgGroup.DELETE("/groups/:id", httputil.Permission(svcs.RBAC, domain.PermissionAsDelete), handlers.AutoScaling.DeleteGroup)
-		asgGroup.POST("/groups/:id/policies", httputil.Permission(svcs.RBAC, domain.PermissionAsUpdate), handlers.AutoScaling.CreatePolicy)
-		asgGroup.DELETE("/policies/:id", httputil.Permission(svcs.RBAC, domain.PermissionAsDelete), handlers.AutoScaling.DeletePolicy)
+		asgGroup.POST("/groups", httputil.Permission(svcs.RBAC, domain.PermissionAsgCreate), handlers.AutoScaling.CreateGroup)
+		asgGroup.GET("/groups", httputil.Permission(svcs.RBAC, domain.PermissionAsgRead), handlers.AutoScaling.ListGroups)
+		asgGroup.GET("/groups/:id", httputil.Permission(svcs.RBAC, domain.PermissionAsgRead), handlers.AutoScaling.GetGroup)
+		asgGroup.DELETE("/groups/:id", httputil.Permission(svcs.RBAC, domain.PermissionAsgDelete), handlers.AutoScaling.DeleteGroup)
+		asgGroup.POST("/groups/:id/policies", httputil.Permission(svcs.RBAC, domain.PermissionAsgUpdate), handlers.AutoScaling.CreatePolicy)
+		asgGroup.DELETE("/policies/:id", httputil.Permission(svcs.RBAC, domain.PermissionAsgDelete), handlers.AutoScaling.DeletePolicy)
 	}
 
 	iacGroup := r.Group("/iac")

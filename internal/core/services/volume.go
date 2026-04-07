@@ -28,9 +28,20 @@ func FormatBackendVolumeName(id uuid.UUID) string {
 	return BackendVolumePrefix + id.String()[:BackendIDPrefixLen]
 }
 
+// VolumeServiceParams defines dependencies for VolumeService.
+type VolumeServiceParams struct {
+	Repo     ports.VolumeRepository
+	RBACSvc  ports.RBACService
+	Storage  ports.StorageBackend
+	EventSvc ports.EventService
+	AuditSvc ports.AuditService
+	Logger   *slog.Logger
+}
+
 // VolumeService manages block volume lifecycle and attachments.
 type VolumeService struct {
 	repo     ports.VolumeRepository
+	rbacSvc  ports.RBACService
 	storage  ports.StorageBackend
 	eventSvc ports.EventService
 	auditSvc ports.AuditService
@@ -38,19 +49,27 @@ type VolumeService struct {
 }
 
 // NewVolumeService constructs a VolumeService with its dependencies.
-func NewVolumeService(repo ports.VolumeRepository, storage ports.StorageBackend, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) *VolumeService {
+func NewVolumeService(params VolumeServiceParams) *VolumeService {
 	return &VolumeService{
-		repo:     repo,
-		storage:  storage,
-		eventSvc: eventSvc,
-		auditSvc: auditSvc,
-		logger:   logger,
+		repo:     params.Repo,
+		rbacSvc:  params.RBACSvc,
+		storage:  params.Storage,
+		eventSvc: params.EventSvc,
+		auditSvc: params.AuditSvc,
+		logger:   params.Logger,
 	}
 }
 
 func (s *VolumeService) CreateVolume(ctx context.Context, name string, sizeGB int) (*domain.Volume, error) {
 	ctx, span := otel.Tracer(tracerName).Start(ctx, "CreateVolume")
 	defer span.End()
+
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVolumeCreate, "*"); err != nil {
+		return nil, err
+	}
 
 	span.SetAttributes(
 		attribute.String("volume.name", name),
@@ -59,7 +78,8 @@ func (s *VolumeService) CreateVolume(ctx context.Context, name string, sizeGB in
 	// 1. Create domain entity
 	vol := &domain.Volume{
 		ID:        uuid.New(),
-		UserID:    appcontext.UserIDFromContext(ctx),
+		UserID:    userID,
+		TenantID:  tenantID,
 		Name:      name,
 		SizeGB:    sizeGB,
 		Status:    domain.VolumeStatusAvailable,
@@ -85,16 +105,20 @@ func (s *VolumeService) CreateVolume(ctx context.Context, name string, sizeGB in
 		return nil, err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "VOLUME_CREATE", vol.ID.String(), "VOLUME", map[string]interface{}{
+	if err := s.eventSvc.RecordEvent(ctx, "VOLUME_CREATE", vol.ID.String(), "VOLUME", map[string]interface{}{
 		"name":    vol.Name,
 		"size_gb": vol.SizeGB,
 		"path":    path,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to record event", "action", "VOLUME_CREATE", "volume_id", vol.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.create", "volume", vol.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, vol.UserID, "volume.create", "volume", vol.ID.String(), map[string]interface{}{
 		"name":    vol.Name,
 		"size_gb": vol.SizeGB,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "volume.create", "volume_id", vol.ID, "error", err)
+	}
 
 	s.logger.Info("volume created", "volume_id", vol.ID, "name", vol.Name, "path", path)
 	// platform metrics ...
@@ -102,12 +126,27 @@ func (s *VolumeService) CreateVolume(ctx context.Context, name string, sizeGB in
 }
 
 func (s *VolumeService) ListVolumes(ctx context.Context) ([]*domain.Volume, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVolumeRead, "*"); err != nil {
+		return nil, err
+	}
+
 	return s.repo.List(ctx)
 }
 
 func (s *VolumeService) GetVolume(ctx context.Context, idOrName string) (*domain.Volume, error) {
 	ctx, span := otel.Tracer(tracerName).Start(ctx, "GetVolume")
 	defer span.End()
+
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVolumeRead, idOrName); err != nil {
+		return nil, err
+	}
+
 	span.SetAttributes(attribute.String("volume.id_or_name", idOrName))
 	id, err := uuid.Parse(idOrName)
 	if err == nil {
@@ -119,6 +158,14 @@ func (s *VolumeService) GetVolume(ctx context.Context, idOrName string) (*domain
 func (s *VolumeService) DeleteVolume(ctx context.Context, idOrName string) error {
 	ctx, span := otel.Tracer(tracerName).Start(ctx, "DeleteVolume")
 	defer span.End()
+
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVolumeDelete, idOrName); err != nil {
+		return err
+	}
+
 	span.SetAttributes(attribute.String("volume.id_or_name", idOrName))
 	vol, err := s.GetVolume(ctx, idOrName)
 	if err != nil {
@@ -144,11 +191,15 @@ func (s *VolumeService) DeleteVolume(ctx context.Context, idOrName string) error
 	platform.VolumeSizeBytes.Sub(float64(vol.SizeGB * 1024 * 1024 * 1024))
 	platform.StorageOperationsTotal.WithLabelValues("volume_delete").Inc()
 
-	_ = s.eventSvc.RecordEvent(ctx, "VOLUME_DELETE", vol.ID.String(), "VOLUME", map[string]interface{}{})
+	if err := s.eventSvc.RecordEvent(ctx, "VOLUME_DELETE", vol.ID.String(), "VOLUME", map[string]interface{}{}); err != nil {
+		s.logger.Warn("failed to record event", "action", "VOLUME_DELETE", "volume_id", vol.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.delete", "volume", vol.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, vol.UserID, "volume.delete", "volume", vol.ID.String(), map[string]interface{}{
 		"name": vol.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "volume.delete", "volume_id", vol.ID, "error", err)
+	}
 
 	s.logger.Info("volume deleted", "volume_id", vol.ID)
 	return nil
@@ -187,16 +238,20 @@ func (s *VolumeService) ResizeVolume(ctx context.Context, idOrName string, newSi
 	}
 
 	platform.VolumeSizeBytes.Add(float64((newSizeGB - oldSizeGB) * 1024 * 1024 * 1024))
-	_ = s.eventSvc.RecordEvent(ctx, "VOLUME_RESIZE", vol.ID.String(), "VOLUME", map[string]interface{}{
+	if err := s.eventSvc.RecordEvent(ctx, "VOLUME_RESIZE", vol.ID.String(), "VOLUME", map[string]interface{}{
 		"old_size_gb": oldSizeGB,
 		"new_size_gb": newSizeGB,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to record event", "action", "VOLUME_RESIZE", "volume_id", vol.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.resize", "volume", vol.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, vol.UserID, "volume.resize", "volume", vol.ID.String(), map[string]interface{}{
 		"name":        vol.Name,
 		"old_size_gb": oldSizeGB,
 		"new_size_gb": newSizeGB,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "volume.resize", "volume_id", vol.ID, "error", err)
+	}
 
 	s.logger.Info("volume resized", "volume_id", vol.ID, "old_size", oldSizeGB, "new_size", newSizeGB)
 	return nil
@@ -238,11 +293,13 @@ func (s *VolumeService) AttachVolume(ctx context.Context, volumeID string, insta
 		return "", err
 	}
 
-	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.attach", "volume", vol.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, vol.UserID, "volume.attach", "volume", vol.ID.String(), map[string]interface{}{
 		"instance_id": instanceID,
 		"mount_path":  mountPath,
 		"device_path": devicePath,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "volume.attach", "volume_id", vol.ID, "error", err)
+	}
 
 	return devicePath, nil
 }
@@ -275,9 +332,11 @@ func (s *VolumeService) DetachVolume(ctx context.Context, volumeID string) error
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.detach", "volume", vol.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, vol.UserID, "volume.detach", "volume", vol.ID.String(), map[string]interface{}{
 		"instance_id": instanceID,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "volume.detach", "volume_id", vol.ID, "error", err)
+	}
 
 	return nil
 }
@@ -285,6 +344,7 @@ func (s *VolumeService) DetachVolume(ctx context.Context, volumeID string) error
 // ReleaseVolumesForInstance detaches all volumes attached to an instance and marks them as available.
 // This should be called when an instance is terminated to free up its volumes.
 func (s *VolumeService) ReleaseVolumesForInstance(ctx context.Context, instanceID uuid.UUID) error {
+	// Internal method, typically called by InstanceService which has its own RBAC
 	volumes, err := s.repo.ListByInstanceID(ctx, instanceID)
 	if err != nil {
 		s.logger.Error("failed to list volumes for instance", "instance_id", instanceID, "error", err)

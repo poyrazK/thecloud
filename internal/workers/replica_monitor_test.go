@@ -5,7 +5,9 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -91,6 +93,28 @@ func TestReplicaMonitor(t *testing.T) {
 		replica.On("Ping", mock.Anything).Return(nil).Once()
 		monitor.check(ctx)
 		assert.True(t, monitor.IsHealthy())
+
+		replica.AssertExpectations(t)
+	})
+
+	t.Run("Run_ContextCancellation", func(t *testing.T) {
+		primary := new(mockDB)
+		replica := new(mockDB)
+		dual := postgres.NewDualDB(primary, replica)
+		monitor := NewReplicaMonitor(dual, replica, logger)
+		monitor.interval = 1 * time.Millisecond
+
+		replica.On("Ping", mock.Anything).Return(nil).Maybe()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		var wg sync.WaitGroup
+		wg.Add(1)
+
+		go monitor.Run(ctx, &wg)
+
+		time.Sleep(5 * time.Millisecond)
+		cancel()
+		wg.Wait()
 
 		replica.AssertExpectations(t)
 	})

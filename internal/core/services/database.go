@@ -98,7 +98,7 @@ func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 func (s *DatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDatabaseRequest) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
-	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionDBCreate, "*"); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBCreate, "*"); err != nil {
 		return nil, err
 	}
 	dbEngine := domain.DatabaseEngine(req.Engine)
@@ -127,7 +127,7 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDa
 func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
-	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionDBCreate, "*"); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBCreate, "*"); err != nil {
 		return nil, err
 	}
 
@@ -165,7 +165,7 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.RestoreDatabaseRequest) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
-	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionDBCreate, "*"); err != nil {
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBCreate, "*"); err != nil {
 		return nil, err
 	}
 	snap, err := s.snapshotSvc.GetSnapshot(ctx, req.SnapshotID)
@@ -275,7 +275,8 @@ func (s *DatabaseService) finalizeProvisioning(ctx context.Context, db *domain.D
 
 func (s *DatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDatabaseRequest) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionDBUpdate, req.ID.String()); err != nil {
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBUpdate, req.ID.String()); err != nil {
 		return nil, err
 	}
 	db, err := s.repo.GetByID(ctx, req.ID)
@@ -360,7 +361,8 @@ func (s *DatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDa
 
 func (s *DatabaseService) GetDatabase(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionDBRead, id.String()); err != nil {
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBRead, id.String()); err != nil {
 		return nil, err
 	}
 	return s.repo.GetByID(ctx, id)
@@ -368,7 +370,8 @@ func (s *DatabaseService) GetDatabase(ctx context.Context, id uuid.UUID) (*domai
 
 func (s *DatabaseService) ListDatabases(ctx context.Context) ([]*domain.Database, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionDBRead, "*"); err != nil {
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBRead, "*"); err != nil {
 		return nil, err
 	}
 	return s.repo.List(ctx)
@@ -376,7 +379,8 @@ func (s *DatabaseService) ListDatabases(ctx context.Context) ([]*domain.Database
 
 func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
-	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionDBDelete, id.String()); err != nil {
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBDelete, id.String()); err != nil {
 		return err
 	}
 	db, err := s.repo.GetByID(ctx, id)
@@ -434,7 +438,8 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 
 func (s *DatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
-	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionDBUpdate, id.String()); err != nil {
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBUpdate, id.String()); err != nil {
 		return err
 	}
 	db, err := s.repo.GetByID(ctx, id)
@@ -455,7 +460,8 @@ func (s *DatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) er
 
 func (s *DatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID) (string, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionDBRead, id.String()); err != nil {
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBRead, id.String()); err != nil {
 		return "", err
 	}
 	db, err := s.repo.GetByID(ctx, id)
@@ -491,7 +497,8 @@ func (s *DatabaseService) GetConnectionString(ctx context.Context, id uuid.UUID)
 
 func (s *DatabaseService) CreateDatabaseSnapshot(ctx context.Context, databaseID uuid.UUID, description string) (*domain.Snapshot, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionSnapshotCreate, "*"); err != nil {
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotCreate, "*"); err != nil {
 		return nil, err
 	}
 	db, err := s.repo.GetByID(ctx, databaseID)
@@ -512,7 +519,8 @@ func (s *DatabaseService) CreateDatabaseSnapshot(ctx context.Context, databaseID
 
 func (s *DatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID uuid.UUID) ([]*domain.Snapshot, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if err := s.rbacSvc.Authorize(ctx, userID, domain.PermissionSnapshotRead, "*"); err != nil {
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotRead, "*"); err != nil {
 		return nil, err
 	}
 	db, err := s.repo.GetByID(ctx, databaseID)
@@ -851,6 +859,9 @@ func (s *DatabaseService) resolveVpcNetwork(ctx context.Context, vpcID *uuid.UUI
 	vpc, err := s.vpcRepo.GetByID(ctx, *vpcID)
 	if err != nil {
 		return "", err
+	}
+	if s.compute != nil && s.compute.Type() == "docker" && strings.HasPrefix(vpc.NetworkID, "br-vpc-") {
+		return "", nil
 	}
 	return vpc.NetworkID, nil
 }

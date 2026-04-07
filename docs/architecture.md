@@ -4,7 +4,7 @@
 
 The Cloud is built using **Hexagonal Architecture** (Ports and Adapters pattern), which provides:
 - **Independence**: Core business logic isolated from infrastructure
-- **Testability**: Easy to mock and test each layer independently (51.3% coverage)
+- **Testability**: Easy to mock and test each layer independently (59.5% coverage)
 - **Flexibility**: Swap implementations without changing business logic
 - **Maintainability**: Clear separation of concerns
 
@@ -24,7 +24,7 @@ graph TB
     end
 
     subgraph "Core Domain (Business Logic)"
-        Service[Service Layer<br/>Business Rules<br/>55.4% coverage]
+        Service[Service Layer<br/>Business Rules<br/>60.2% coverage]
         Domain[Domain Models<br/>Pure Entities]
         Ports[Ports<br/>Interface Contracts]
     end
@@ -99,6 +99,7 @@ const (
 - `Instance`, `InstanceType`, `Volume`, `VPC`, `LoadBalancer`
 - `Function`, `Queue`, `Topic`, `CronJob`
 - `User`, `Role`, `APIKey`, `Secret`, `Policy`
+- `Tenant`, `TenantMember`, `TenantQuota`
 - `ScalingGroup`, `ScalingPolicy`
 
 ### 2. Ports Layer (`internal/core/ports`)
@@ -164,8 +165,8 @@ type StorageBackend interface {
 - `AutoScalingService` - Dynamic scaling
 - `StorageService` - Distributed object storage with versioning and streaming encryption 🆕
 - `VolumeCSIService` - Kubernetes CSI interaction layer 🆕
-- `RBACService` - Access control (Integration with IAM Policies)
-- `IAMService` - Granular policy lifecycle and evaluation 🆕
+- `RBACService` - Access control (Tri-state evaluation: Deny > Allow > Role)
+- `IAMService` - Granular policy lifecycle and evaluation
 - `FunctionService` - Serverless execution
 - `QueueService` - Message queuing
 - `NotifyService` - Pub/Sub messaging
@@ -407,11 +408,11 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 3. **No External Dependencies**: Unit tests run fast
 4. **Integration Points**: Clear boundaries for integration tests
 
-### Test Coverage (51.3% Overall)
+### Test Coverage (59.5% Overall)
 
 | Layer | Coverage | Test Type | Location |
 |-------|----------|-----------|----------|
-| Services | 55.4% | Unit | `internal/core/services/*_test.go` |
+| Services | 60.2% | Unit | `internal/core/services/*_test.go` |
 | Handlers | 52.8% | Unit | `internal/handlers/*_test.go` |
 | Repositories | 57.5% | Integration | `internal/repositories/postgres/*_test.go` |
 | WebSocket | 81.6% | Unit | `internal/handlers/ws/*_test.go` |
@@ -564,4 +565,6 @@ func (h *Handler) Endpoint(c *gin.Context) {
 - [Development Guide](development.md) - Setup and testing
 - [Database Guide](database.md) - Schema and migrations
 - [Testing Best Practices](backend.md#testing) - Comprehensive testing guide
+- [Multi-Tenancy Isolation](adr/ADR-022-multi-tenancy-isolation.md) - Resource-level isolation 🆕
+- [Tri-State RBAC Model](adr/ADR-023-tri-state-rbac-evaluation.md) - Authoritative IAM policies 🆕
 - [Cloud Storage Service](services/cloud-storage.md) - Distributed object storage 🆕

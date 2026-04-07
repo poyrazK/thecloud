@@ -38,5 +38,5 @@ type IAMService interface {
 // PolicyEvaluator defines the logic for evaluating access based on a set of policies.
 type PolicyEvaluator interface {
 	// Evaluate checks if the given action on a resource is allowed by the provided policies.
-	Evaluate(ctx context.Context, policies []*domain.Policy, action string, resource string, evalCtx map[string]interface{}) (bool, error)
+	Evaluate(ctx context.Context, policies []*domain.Policy, action string, resource string, evalCtx map[string]interface{}) (domain.PolicyEffect, error)
 }

@@ -12,6 +12,7 @@ import (
 type Function struct {
 	ID        uuid.UUID `json:"id"`
 	UserID    uuid.UUID `json:"user_id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
 	Name      string    `json:"name"`
 	Runtime   string    `json:"runtime"`   // e.g. "python3.9", "go1.21"
 	Handler   string    `json:"handler"`   // Entry point (e.g. "main.Handle")

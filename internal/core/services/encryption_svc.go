@@ -121,12 +121,12 @@ func (s *EncryptionService) Encrypt(ctx context.Context, bucket string, r io.Rea
 }
 
 type chunkedGCMReader struct {
-	r         io.Reader
-	aead      cipher.AEAD
-	baseNonce []byte
-	counter   uint64
+	r          io.Reader
+	aead       cipher.AEAD
+	baseNonce  []byte
+	counter    uint64
 	headerSent bool
-	buf       bytes.Buffer
+	buf        bytes.Buffer
 }
 
 func (c *chunkedGCMReader) Read(p []byte) (n int, err error) {
@@ -146,7 +146,7 @@ func (c *chunkedGCMReader) Read(p []byte) (n int, err error) {
 			c.counter++
 
 			ciphertext := c.aead.Seal(nil, nonce, plaintext[:nr], nil)
-			
+
 			// Record framing: [Length (4 bytes)] [Ciphertext + Tag]
 			// G115: add safety check for int -> uint32 conversion
 			if len(ciphertext) > math.MaxUint32 {

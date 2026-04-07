@@ -112,10 +112,12 @@ func (s *VPCPeeringService) CreatePeering(ctx context.Context, requesterVPCID, a
 	}
 
 	userID := appcontext.UserIDFromContext(ctx)
-	_ = s.auditSvc.Log(ctx, userID, "vpc_peering.create", "vpc_peering", peeringID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, userID, "vpc_peering.create", "vpc_peering", peeringID.String(), map[string]interface{}{
 		"requester_vpc_id": requesterVPCID.String(),
 		"accepter_vpc_id":  accepterVPCID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "vpc_peering.create", "peering_id", peeringID, "error", err)
+	}
 
 	s.logger.Info("vpc peering created",
 		"peering_id", peeringID,
@@ -168,7 +170,9 @@ func (s *VPCPeeringService) AcceptPeering(ctx context.Context, peeringID uuid.UU
 	peering.Status = domain.PeeringStatusActive
 
 	userID := appcontext.UserIDFromContext(ctx)
-	_ = s.auditSvc.Log(ctx, userID, "vpc_peering.accept", "vpc_peering", peeringID.String(), nil)
+	if err := s.auditSvc.Log(ctx, userID, "vpc_peering.accept", "vpc_peering", peeringID.String(), nil); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "vpc_peering.accept", "peering_id", peeringID, "error", err)
+	}
 
 	s.logger.Info("vpc peering accepted",
 		"peering_id", peeringID,
@@ -198,7 +202,9 @@ func (s *VPCPeeringService) RejectPeering(ctx context.Context, peeringID uuid.UU
 	}
 
 	userID := appcontext.UserIDFromContext(ctx)
-	_ = s.auditSvc.Log(ctx, userID, "vpc_peering.reject", "vpc_peering", peeringID.String(), nil)
+	if err := s.auditSvc.Log(ctx, userID, "vpc_peering.reject", "vpc_peering", peeringID.String(), nil); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "vpc_peering.reject", "peering_id", peeringID, "error", err)
+	}
 
 	return nil
 }
@@ -237,7 +243,9 @@ func (s *VPCPeeringService) DeletePeering(ctx context.Context, peeringID uuid.UU
 	}
 
 	userID := appcontext.UserIDFromContext(ctx)
-	_ = s.auditSvc.Log(ctx, userID, "vpc_peering.delete", "vpc_peering", peeringID.String(), nil)
+	if err := s.auditSvc.Log(ctx, userID, "vpc_peering.delete", "vpc_peering", peeringID.String(), nil); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "vpc_peering.delete", "peering_id", peeringID, "error", err)
+	}
 
 	s.logger.Info("vpc peering deleted", "peering_id", peeringID)
 	return nil

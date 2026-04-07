@@ -16,7 +16,10 @@ import (
 func TestLifecycleService_Unit(t *testing.T) {
 	mockRepo := new(MockLifecycleRepository)
 	mockStorageRepo := new(MockStorageRepo)
-	svc := services.NewLifecycleService(mockRepo, mockStorageRepo)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewLifecycleService(mockRepo, rbacSvc, mockStorageRepo)
 
 	ctx := context.Background()
 	userID := uuid.New()

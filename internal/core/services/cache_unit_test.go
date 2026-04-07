@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"strings"
@@ -59,7 +60,10 @@ func TestCacheService_Unit_Extended(t *testing.T) {
 	compute := new(MockComputeBackend)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
-	svc := services.NewCacheService(repo, compute, nil, eventSvc, auditSvc, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewCacheService(repo, rbacSvc, compute, nil, eventSvc, auditSvc, slog.Default())
 	ctx := context.Background()
 	userID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
@@ -75,6 +79,16 @@ func TestCacheService_Unit_Extended(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, cache)
 		assert.Equal(t, 30001, cache.Port)
+	})
+
+	t.Run("CreateCache_LaunchFailure", func(t *testing.T) {
+		repo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
+		compute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).Return("", nil, fmt.Errorf("launch fail")).Once()
+		repo.On("Delete", mock.Anything, mock.Anything).Return(nil).Once()
+
+		_, err := svc.CreateCache(ctx, "fail", "7.0", 128, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "launch cache container")
 	})
 
 	t.Run("GetCache", func(t *testing.T) {
@@ -129,6 +143,16 @@ func TestCacheService_Unit_Extended(t *testing.T) {
 
 		err := svc.FlushCache(ctx, cacheID.String())
 		require.NoError(t, err)
+	})
+
+	t.Run("FlushCache_NotRunning", func(t *testing.T) {
+		cacheID := uuid.New()
+		cache := &domain.Cache{ID: cacheID, Status: domain.CacheStatusCreating}
+		repo.On("GetByID", mock.Anything, cacheID).Return(cache, nil).Once()
+
+		err := svc.FlushCache(ctx, cacheID.String())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not running")
 	})
 
 	t.Run("GetCacheStats", func(t *testing.T) {

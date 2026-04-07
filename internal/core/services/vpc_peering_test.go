@@ -12,6 +12,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,7 +25,12 @@ func TestVPCPeeringServiceIntegration(t *testing.T) {
 	repo := postgres.NewVPCPeeringRepository(db)
 	vpcRepo := postgres.NewVpcRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
 	network := noop.NewNoopNetworkAdapter(slog.Default())
 
 	svc := services.NewVPCPeeringService(services.VPCPeeringServiceParams{

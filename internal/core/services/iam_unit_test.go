@@ -14,50 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type MockIAMRepository struct {
-	mock.Mock
-}
-
-func (m *MockIAMRepository) CreatePolicy(ctx context.Context, tenantID uuid.UUID, policy *domain.Policy) error {
-	return m.Called(ctx, tenantID, policy).Error(0)
-}
-func (m *MockIAMRepository) GetPolicyByID(ctx context.Context, tenantID, id uuid.UUID) (*domain.Policy, error) {
-	args := m.Called(ctx, tenantID, id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	r0, _ := args.Get(0).(*domain.Policy)
-	return r0, args.Error(1)
-}
-func (m *MockIAMRepository) ListPolicies(ctx context.Context, tenantID uuid.UUID) ([]*domain.Policy, error) {
-	args := m.Called(ctx, tenantID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	r0, _ := args.Get(0).([]*domain.Policy)
-	return r0, args.Error(1)
-}
-func (m *MockIAMRepository) UpdatePolicy(ctx context.Context, tenantID uuid.UUID, policy *domain.Policy) error {
-	return m.Called(ctx, tenantID, policy).Error(0)
-}
-func (m *MockIAMRepository) DeletePolicy(ctx context.Context, tenantID, id uuid.UUID) error {
-	return m.Called(ctx, tenantID, id).Error(0)
-}
-func (m *MockIAMRepository) AttachPolicyToUser(ctx context.Context, tenantID, userID, policyID uuid.UUID) error {
-	return m.Called(ctx, tenantID, userID, policyID).Error(0)
-}
-func (m *MockIAMRepository) DetachPolicyFromUser(ctx context.Context, tenantID, userID, policyID uuid.UUID) error {
-	return m.Called(ctx, tenantID, userID, policyID).Error(0)
-}
-func (m *MockIAMRepository) GetPoliciesForUser(ctx context.Context, tenantID, userID uuid.UUID) ([]*domain.Policy, error) {
-	args := m.Called(ctx, tenantID, userID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	r0, _ := args.Get(0).([]*domain.Policy)
-	return r0, args.Error(1)
-}
-
 func TestIAMService_Unit(t *testing.T) {
 	mockRepo := new(MockIAMRepository)
 	mockAuditSvc := new(MockAuditService)
@@ -88,6 +44,16 @@ func TestIAMService_Unit(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("DetachPolicyFromUser", func(t *testing.T) {
+		userID := uuid.New()
+		policyID := uuid.New()
+		mockRepo.On("DetachPolicyFromUser", mock.Anything, tenantID, userID, policyID).Return(nil).Once()
+		mockAuditSvc.On("Log", mock.Anything, userID, "iam.policy_detach", "user", mock.Anything, mock.Anything).Return(nil).Once()
+
+		err := svc.DetachPolicyFromUser(ctx, userID, policyID)
+		require.NoError(t, err)
+	})
+
 	t.Run("GetPoliciesForUser", func(t *testing.T) {
 		userID := uuid.New()
 		mockRepo.On("GetPoliciesForUser", mock.Anything, tenantID, userID).Return([]*domain.Policy{}, nil).Once()
@@ -95,5 +61,23 @@ func TestIAMService_Unit(t *testing.T) {
 		res, err := svc.GetPoliciesForUser(ctx, userID)
 		require.NoError(t, err)
 		assert.NotNil(t, res)
+	})
+
+	t.Run("UpdatePolicy", func(t *testing.T) {
+		policy := &domain.Policy{ID: uuid.New(), Name: "updated"}
+		mockRepo.On("UpdatePolicy", mock.Anything, tenantID, policy).Return(nil).Once()
+		mockEventSvc.On("RecordEvent", mock.Anything, "IAM_POLICY_UPDATE", policy.ID.String(), "POLICY", mock.Anything).Return(nil).Once()
+
+		err := svc.UpdatePolicy(ctx, policy)
+		require.NoError(t, err)
+	})
+
+	t.Run("DeletePolicy", func(t *testing.T) {
+		id := uuid.New()
+		mockRepo.On("DeletePolicy", mock.Anything, tenantID, id).Return(nil).Once()
+		mockEventSvc.On("RecordEvent", mock.Anything, "IAM_POLICY_DELETE", id.String(), "POLICY", mock.Anything).Return(nil).Once()
+
+		err := svc.DeletePolicy(ctx, id)
+		require.NoError(t, err)
 	})
 }

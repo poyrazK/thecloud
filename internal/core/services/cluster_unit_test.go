@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
@@ -21,6 +22,9 @@ func TestClusterService_Unit(t *testing.T) {
 	mockInstSvc := new(MockInstanceService)
 	mockSecretSvc := new(MockSecretService)
 	mockTaskQueue := new(MockTaskQueue)
+	rbacSvc := new(MockRBACService)
+
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	params := services.ClusterServiceParams{
 		Repo:        mockRepo,
@@ -29,14 +33,17 @@ func TestClusterService_Unit(t *testing.T) {
 		InstanceSvc: mockInstSvc,
 		SecretSvc:   mockSecretSvc,
 		TaskQueue:   mockTaskQueue,
+		RBAC:        rbacSvc,
 		Logger:      slog.Default(),
 	}
 
 	svc, err := services.NewClusterService(params)
 	require.NoError(t, err)
 
-	ctx := context.Background()
 	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
 	vpcID := uuid.New()
 
 	t.Run("CreateCluster", func(t *testing.T) {

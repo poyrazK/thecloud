@@ -31,12 +31,12 @@ func NewCachedRBACService(rbac ports.RBACService, cache *redis.Client, logger *s
 	}
 }
 
-func (s *cachedRBACService) Authorize(ctx context.Context, userID uuid.UUID, permission domain.Permission, resource string) error {
-	return s.rbac.Authorize(ctx, userID, permission, resource)
+func (s *cachedRBACService) Authorize(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission, resource string) error {
+	return s.rbac.Authorize(ctx, userID, tenantID, permission, resource)
 }
 
-func (s *cachedRBACService) HasPermission(ctx context.Context, userID uuid.UUID, permission domain.Permission, resource string) (bool, error) {
-	key := fmt.Sprintf("rbac:perm:%s:%s:%s", userID, permission, resource)
+func (s *cachedRBACService) HasPermission(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID, permission domain.Permission, resource string) (bool, error) {
+	key := fmt.Sprintf("rbac:perm:%s:%s:%s:%s", tenantID, userID, permission, resource)
 
 	// Try cache
 	val, err := s.cache.Get(ctx, key).Result()
@@ -45,7 +45,7 @@ func (s *cachedRBACService) HasPermission(ctx context.Context, userID uuid.UUID,
 	}
 
 	// Cache miss
-	allowed, err := s.rbac.HasPermission(ctx, userID, permission, resource)
+	allowed, err := s.rbac.HasPermission(ctx, userID, tenantID, permission, resource)
 	if err != nil {
 		return false, err
 	}
@@ -170,8 +170,8 @@ func (s *cachedRBACService) ListRoleBindings(ctx context.Context) ([]*domain.Use
 	return s.rbac.ListRoleBindings(ctx)
 }
 
-func (s *cachedRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error) {
-	return s.rbac.EvaluatePolicy(ctx, userID, action, resource, context)
+func (s *cachedRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, evalCtx map[string]interface{}) (bool, error) {
+	return s.rbac.EvaluatePolicy(ctx, userID, action, resource, evalCtx)
 }
 
 func (s *cachedRBACService) invalidateRoleCache(ctx context.Context, id uuid.UUID, name string) {

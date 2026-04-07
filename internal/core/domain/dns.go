@@ -33,6 +33,7 @@ const (
 type DNSRecord struct {
 	ID          uuid.UUID  `json:"id"`
 	ZoneID      uuid.UUID  `json:"zone_id"`
+	TenantID    uuid.UUID  `json:"tenant_id"`
 	Name        string     `json:"name"`    // e.g., "www", "api", "@"
 	Type        RecordType `json:"type"`    // A, AAAA, CNAME, MX, TXT, SRV
 	Content     string     `json:"content"` // IP, hostname, or value

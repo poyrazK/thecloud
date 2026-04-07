@@ -13,7 +13,10 @@ import (
 
 func TestInstanceTypeService_Unit(t *testing.T) {
 	mockRepo := new(MockInstanceTypeRepo)
-	svc := services.NewInstanceTypeService(mockRepo)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewInstanceTypeService(mockRepo, rbacSvc)
 
 	t.Run("List", func(t *testing.T) {
 		expected := []*domain.InstanceType{{ID: "t2.micro"}}

@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -11,6 +12,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,9 +26,16 @@ func setupLBServiceIntegrationTest(t *testing.T) (ports.LBService, *postgres.LBR
 	vpcRepo := postgres.NewVpcRepository(db)
 	instRepo := postgres.NewInstanceRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
 
-	svc := services.NewLBService(lbRepo, vpcRepo, instRepo, auditSvc)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
+
+	svc := services.NewLBService(lbRepo, rbacSvc, vpcRepo, instRepo, auditSvc, slog.Default())
 	return svc, lbRepo, vpcRepo, instRepo, ctx
 }
 

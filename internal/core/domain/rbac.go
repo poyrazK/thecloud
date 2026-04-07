@@ -28,6 +28,12 @@ const (
 	PermissionVpcRead   Permission = "vpc:read"
 	PermissionVpcUpdate Permission = "vpc:update"
 
+	// Security Group Permissions
+	PermissionSgCreate Permission = "sg:create"
+	PermissionSgDelete Permission = "sg:delete"
+	PermissionSgRead   Permission = "sg:read"
+	PermissionSgUpdate Permission = "sg:update"
+
 	// VPC Peering Permissions
 	PermissionVpcPeeringCreate Permission = "vpc_peering:create"
 	PermissionVpcPeeringAccept Permission = "vpc_peering:accept"
@@ -45,6 +51,10 @@ const (
 	PermissionVolumeDelete Permission = "volume:delete"
 	PermissionVolumeRead   Permission = "volume:read"
 	PermissionVolumeUpdate Permission = "volume:update"
+
+	PermissionStorageWrite  Permission = "storage:write"
+	PermissionStorageRead   Permission = "storage:read"
+	PermissionStorageDelete Permission = "storage:delete"
 
 	// Snapshot Permissions
 	PermissionSnapshotCreate  Permission = "snapshot:create"
@@ -66,6 +76,7 @@ const (
 
 	// Secret Permissions
 	PermissionSecretCreate Permission = "secret:create"
+	PermissionSecretWrite  Permission = "secret:write"
 	PermissionSecretDelete Permission = "secret:delete"
 	PermissionSecretRead   Permission = "secret:read"
 
@@ -108,12 +119,12 @@ const (
 	PermissionStackCreate Permission = "stack:create"
 	PermissionStackDelete Permission = "stack:delete"
 	PermissionStackRead   Permission = "stack:read"
-
 	// Auto-Scaling Permissions
-	PermissionAsCreate Permission = "as:create"
-	PermissionAsDelete Permission = "as:delete"
-	PermissionAsRead   Permission = "as:read"
-	PermissionAsUpdate Permission = "as:update"
+	PermissionAsgCreate Permission = "asg:create"
+	PermissionAsgDelete Permission = "asg:delete"
+	
+	PermissionAsgRead   Permission = "asg:read"
+	PermissionAsgUpdate Permission = "asg:update"
 
 	// Container Permissions
 	PermissionContainerCreate Permission = "container:create"
@@ -130,15 +141,43 @@ const (
 	PermissionPipelineWebhook Permission = "pipeline:webhook"
 
 	// Image Permissions
-	PermissionImageCreate Permission = "image:create"
-	PermissionImageRead   Permission = "image:read"
-	PermissionImageDelete Permission = "image:delete"
+	PermissionImageCreate  Permission = "image:create"
+	PermissionImageRead    Permission = "image:read"
+	PermissionImageDelete  Permission = "image:delete"
+	PermissionImageReadAll Permission = "image:read_all"
 
 	// Cluster Permissions
 	PermissionClusterCreate Permission = "cluster:create"
 	PermissionClusterDelete Permission = "cluster:delete"
 	PermissionClusterRead   Permission = "cluster:read"
 	PermissionClusterUpdate Permission = "cluster:update"
+
+	// DNS Permissions
+	PermissionDNSCreate Permission = "dns:create"
+	PermissionDNSDelete Permission = "dns:delete"
+	PermissionDNSRead   Permission = "dns:read"
+	PermissionDNSUpdate Permission = "dns:update"
+
+	// Tenant Permissions
+	PermissionTenantCreate Permission = "tenant:create"
+	PermissionTenantRead   Permission = "tenant:read"
+	PermissionTenantUpdate Permission = "tenant:update"
+	PermissionTenantDelete Permission = "tenant:delete"
+
+	// Identity Permissions
+	PermissionIdentityCreate Permission = "identity:create"
+	PermissionIdentityRead   Permission = "identity:read"
+	PermissionIdentityDelete Permission = "identity:delete"
+	PermissionIdentityReadAll Permission = "identity:read_all"
+
+	// Accounting Permissions
+	PermissionAccountingRead Permission = "accounting:read"
+
+	// Audit Permissions
+	PermissionAuditRead Permission = "audit:read"
+
+	// Dashboard Permissions
+	PermissionDashboardRead Permission = "dashboard:read"
 
 	// System Permissions
 	PermissionFullAccess Permission = "*"
@@ -155,6 +194,7 @@ type Role struct {
 // Default Roles
 const (
 	RoleAdmin     = "admin"
+	RoleOwner     = "owner"
 	RoleDeveloper = "developer"
 	RoleViewer    = "viewer"
 )

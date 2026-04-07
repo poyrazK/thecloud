@@ -3,7 +3,9 @@ package workers
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -202,4 +204,26 @@ func TestHealingWorker(t *testing.T) {
 			svc.AssertExpectations(t)
 		})
 	}
+}
+
+func TestHealingWorker_Run(t *testing.T) {
+	repo := new(mockInstanceRepo)
+	svc := new(mockInstanceSvc)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	worker := NewHealingWorker(svc, repo, logger)
+	worker.tickInterval = 1 * time.Millisecond
+
+	repo.On("ListAll", mock.Anything).Return([]*domain.Instance{}, nil).Maybe()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go worker.Run(ctx, &wg)
+
+	time.Sleep(5 * time.Millisecond)
+	cancel()
+	wg.Wait()
+
+	repo.AssertExpectations(t)
 }

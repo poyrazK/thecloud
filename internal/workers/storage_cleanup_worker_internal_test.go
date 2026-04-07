@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -100,4 +101,26 @@ func TestStorageCleanupWorker_Cleanup(t *testing.T) {
 		worker.cleanup(context.Background())
 		svc.AssertExpectations(t)
 	})
+}
+
+func TestStorageCleanupWorker_Run(t *testing.T) {
+	svc := new(mockStorageService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	worker := NewStorageCleanupWorker(svc, logger)
+	worker.interval = 1 * time.Millisecond
+
+	svc.On("CleanupDeleted", mock.Anything, mock.Anything).Return(0, nil).Maybe()
+	svc.On("CleanupPendingUploads", mock.Anything, defaultPendingUploadTTL, defaultBatchSize).Return(0, nil).Maybe()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go worker.Run(ctx, &wg)
+
+	time.Sleep(5 * time.Millisecond)
+	cancel()
+	wg.Wait()
+
+	svc.AssertExpectations(t)
 }

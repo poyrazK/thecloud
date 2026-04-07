@@ -16,14 +16,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type MockDatabaseRepo struct {
+type DatabaseUnitMockRepo struct {
 	mock.Mock
 }
 
-func (m *MockDatabaseRepo) Create(ctx context.Context, db *domain.Database) error {
+func (m *DatabaseUnitMockRepo) Create(ctx context.Context, db *domain.Database) error {
 	return m.Called(ctx, db).Error(0)
 }
-func (m *MockDatabaseRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
+func (m *DatabaseUnitMockRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -31,7 +31,7 @@ func (m *MockDatabaseRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.D
 	r0, _ := args.Get(0).(*domain.Database)
 	return r0, args.Error(1)
 }
-func (m *MockDatabaseRepo) List(ctx context.Context) ([]*domain.Database, error) {
+func (m *DatabaseUnitMockRepo) List(ctx context.Context) ([]*domain.Database, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -39,7 +39,7 @@ func (m *MockDatabaseRepo) List(ctx context.Context) ([]*domain.Database, error)
 	r0, _ := args.Get(0).([]*domain.Database)
 	return r0, args.Error(1)
 }
-func (m *MockDatabaseRepo) ListReplicas(ctx context.Context, primaryID uuid.UUID) ([]*domain.Database, error) {
+func (m *DatabaseUnitMockRepo) ListReplicas(ctx context.Context, primaryID uuid.UUID) ([]*domain.Database, error) {
 	args := m.Called(ctx, primaryID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -47,15 +47,15 @@ func (m *MockDatabaseRepo) ListReplicas(ctx context.Context, primaryID uuid.UUID
 	r0, _ := args.Get(0).([]*domain.Database)
 	return r0, args.Error(1)
 }
-func (m *MockDatabaseRepo) Update(ctx context.Context, db *domain.Database) error {
+func (m *DatabaseUnitMockRepo) Update(ctx context.Context, db *domain.Database) error {
 	return m.Called(ctx, db).Error(0)
 }
-func (m *MockDatabaseRepo) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *DatabaseUnitMockRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
 
 func TestDatabaseServiceUnitExtended(t *testing.T) {
-	mockRepo := new(MockDatabaseRepo)
+	mockRepo := new(DatabaseUnitMockRepo)
 	mockCompute := new(MockComputeBackend)
 	mockVpcRepo := new(MockVpcRepo)
 	mockEventSvc := new(MockEventService)
@@ -65,7 +65,7 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 	mockRBAC := new(mockRBACService)
 	snapSvc := new(mockSnapshotService)
 	snapRepo := new(mockSnapshotRepository)
-	mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
 		Repo:         mockRepo,

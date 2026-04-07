@@ -64,13 +64,14 @@ func (r *DatabaseRepository) List(ctx context.Context) ([]*domain.Database, erro
 }
 
 func (r *DatabaseRepository) ListReplicas(ctx context.Context, primaryID uuid.UUID) ([]*domain.Database, error) {
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
 		SELECT id, user_id, tenant_id, name, engine, version, status, role, primary_id, vpc_id, COALESCE(container_id, ''), port, username, password, created_at, updated_at, allocated_storage, parameters, metrics_enabled, COALESCE(metrics_port, 0), COALESCE(exporter_container_id, ''), pooling_enabled, COALESCE(pooling_port, 0), COALESCE(pooler_container_id, ''), COALESCE(credential_path, '')
 		FROM databases
-		WHERE primary_id = $1
+		WHERE primary_id = $1 AND tenant_id = $2
 		ORDER BY created_at DESC
 	`
-	rows, err := r.db.Query(ctx, query, primaryID)
+	rows, err := r.db.Query(ctx, query, primaryID, tenantID)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list replicas", err)
 	}

@@ -46,7 +46,7 @@ func TestDatabaseService_RotateCredentials(t *testing.T) {
 	mockEventSvc := new(MockEventService)
 	mockAuditSvc := new(MockAuditService)
 	mockRBAC := new(mockRBACService)
-	mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
 		Repo:           mockRepo,
@@ -123,7 +123,7 @@ func TestDatabaseService_VaultIntegration_CreateDatabase(t *testing.T) {
 	mockAuditSvc := new(MockAuditService)
 	mockVpcRepo := new(MockVpcRepo)
 	mockRBAC := new(mockRBACService)
-	mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
 		Repo:           mockRepo,

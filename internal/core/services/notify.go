@@ -15,9 +15,20 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+// NotifyServiceParams defines the dependencies for NotifyService.
+type NotifyServiceParams struct {
+	Repo     ports.NotifyRepository
+	RBACSvc  ports.RBACService
+	QueueSvc ports.QueueService
+	EventSvc ports.EventService
+	AuditSvc ports.AuditService
+	Logger   *slog.Logger
+}
+
 // NotifyService manages topics, subscriptions, and message delivery.
 type NotifyService struct {
 	repo     ports.NotifyRepository
+	rbacSvc  ports.RBACService
 	queueSvc ports.QueueService
 	eventSvc ports.EventService
 	auditSvc ports.AuditService
@@ -25,20 +36,23 @@ type NotifyService struct {
 }
 
 // NewNotifyService constructs a NotifyService with its dependencies.
-func NewNotifyService(repo ports.NotifyRepository, queueSvc ports.QueueService, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) ports.NotifyService {
+func NewNotifyService(params NotifyServiceParams) ports.NotifyService {
 	return &NotifyService{
-		repo:     repo,
-		queueSvc: queueSvc,
-		eventSvc: eventSvc,
-		auditSvc: auditSvc,
-		logger:   logger,
+		repo:     params.Repo,
+		rbacSvc:  params.RBACSvc,
+		queueSvc: params.QueueSvc,
+		eventSvc: params.EventSvc,
+		auditSvc: params.AuditSvc,
+		logger:   params.Logger,
 	}
 }
 
 func (s *NotifyService) CreateTopic(ctx context.Context, name string) (*domain.Topic, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyCreate, "*"); err != nil {
+		return nil, err
 	}
 
 	existing, _ := s.repo.GetTopicByName(ctx, name, userID)
@@ -71,16 +85,21 @@ func (s *NotifyService) CreateTopic(ctx context.Context, name string) (*domain.T
 
 func (s *NotifyService) ListTopics(ctx context.Context) ([]*domain.Topic, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyRead, "*"); err != nil {
+		return nil, err
 	}
+
 	return s.repo.ListTopics(ctx, userID)
 }
 
 func (s *NotifyService) DeleteTopic(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyDelete, id.String()); err != nil {
+		return err
 	}
 
 	topic, err := s.repo.GetTopicByID(ctx, id, userID)
@@ -106,8 +125,10 @@ func (s *NotifyService) DeleteTopic(ctx context.Context, id uuid.UUID) error {
 
 func (s *NotifyService) Subscribe(ctx context.Context, topicID uuid.UUID, protocol domain.SubscriptionProtocol, endpoint string) (*domain.Subscription, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyWrite, topicID.String()); err != nil {
+		return nil, err
 	}
 
 	// Verify topic exists and belongs to user
@@ -143,9 +164,12 @@ func (s *NotifyService) Subscribe(ctx context.Context, topicID uuid.UUID, protoc
 
 func (s *NotifyService) ListSubscriptions(ctx context.Context, topicID uuid.UUID) ([]*domain.Subscription, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyRead, topicID.String()); err != nil {
+		return nil, err
 	}
+
 	// Verify topic ownership
 	_, err := s.repo.GetTopicByID(ctx, topicID, userID)
 	if err != nil {
@@ -157,8 +181,10 @@ func (s *NotifyService) ListSubscriptions(ctx context.Context, topicID uuid.UUID
 
 func (s *NotifyService) Unsubscribe(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyDelete, id.String()); err != nil {
+		return err
 	}
 
 	sub, err := s.repo.GetSubscriptionByID(ctx, id, userID)
@@ -181,8 +207,10 @@ func (s *NotifyService) Unsubscribe(ctx context.Context, id uuid.UUID) error {
 
 func (s *NotifyService) Publish(ctx context.Context, topicID uuid.UUID, body string) error {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionNotifyWrite, topicID.String()); err != nil {
+		return err
 	}
 
 	topic, err := s.repo.GetTopicByID(ctx, topicID, userID)
@@ -208,14 +236,27 @@ func (s *NotifyService) Publish(ctx context.Context, topicID uuid.UUID, body str
 
 	// Delivery logic
 	for _, sub := range subs {
-		go s.deliver(context.Background(), sub, body)
+		// Create a background context for async delivery to avoid request cancellation
+		// but keep it separate for each subscriber to avoid shared timeout issues
+		go func(c context.Context, sub *domain.Subscription) {
+			deliveryCtx, cancel := context.WithTimeout(c, 30*time.Second)
+			defer cancel()
+
+			// Carry over potential trace IDs or other metadata if needed
+			// (Simplified for now, but avoids using request-scoped ctx)
+			s.deliver(deliveryCtx, sub, body)
+		}(ctx, sub)
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "TOPIC_PUBLISHED", topic.ID.String(), "TOPIC", map[string]interface{}{"message_id": msg.ID})
+	if err := s.eventSvc.RecordEvent(ctx, "TOPIC_PUBLISHED", topic.ID.String(), "TOPIC", map[string]interface{}{"message_id": msg.ID}); err != nil {
+		s.logger.Warn("failed to record topic publish event", "topic_id", topic.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, topic.UserID, "notify.publish", "topic", topic.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, topic.UserID, "notify.publish", "topic", topic.ID.String(), map[string]interface{}{
 		"message_id": msg.ID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log topic publish audit event", "topic_id", topic.ID, "error", err)
+	}
 
 	return nil
 }

@@ -198,41 +198,44 @@ type ServiceConfig struct {
 func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	// 1. Core Services (Audit, Identity, Auth, RBAC)
 	rbacSvc := initRBACServices(c)
-	auditSvc := services.NewAuditService(c.Repos.Audit)
-	identitySvc := initIdentityServices(c, auditSvc)
-	tenantSvc := services.NewTenantService(c.Repos.Tenant, c.Repos.User, c.Logger)
-	authSvc := services.NewAuthService(c.Repos.User, identitySvc, auditSvc, tenantSvc)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{Repo: c.Repos.Audit, RBACSvc: rbacSvc, Logger: c.Logger})
+	identitySvc := initIdentityServices(c, rbacSvc, auditSvc)
+	tenantSvc := services.NewTenantService(services.TenantServiceParams{Repo: c.Repos.Tenant, UserRepo: c.Repos.User, RBACSvc: rbacSvc, Logger: c.Logger})
+	authSvc := services.NewAuthService(c.Repos.User, identitySvc, auditSvc, tenantSvc, c.Logger)
 	pwdResetSvc := services.NewPasswordResetService(c.Repos.PasswordReset, c.Repos.User, c.Logger)
 
 	// 2. WebSocket & Core Infrastructure
 	wsHub := ws.NewHub(c.Logger)
 	go wsHub.Run()
-	eventSvc := services.NewEventService(c.Repos.Event, wsHub, c.Logger)
+	eventSvc := services.NewEventService(services.EventServiceParams{Repo: c.Repos.Event, RBACSvc: rbacSvc, Hub: wsHub, Logger: c.Logger})
 
 	// 3. Cloud Infrastructure Services (VPC, Subnet, Instance, Volume, SG, LB)
-	vpcSvc := services.NewVpcService(c.Repos.Vpc, c.Repos.LB, c.Repos.VPCPeering, c.Network, auditSvc, c.Logger, c.Config.DefaultVPCCIDR)
-	subnetSvc := services.NewSubnetService(c.Repos.Subnet, c.Repos.Vpc, auditSvc, c.Logger)
-	volumeSvc := services.NewVolumeService(c.Repos.Volume, c.Storage, eventSvc, auditSvc, c.Logger)
+	vpcSvc := services.NewVpcService(services.VpcServiceParams{Repo: c.Repos.Vpc, LBRepo: c.Repos.LB, PeeringRepo: c.Repos.VPCPeering, RBACSvc: rbacSvc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger, DefaultCIDR: c.Config.DefaultVPCCIDR})
+	subnetSvc := services.NewSubnetService(services.SubnetServiceParams{Repo: c.Repos.Subnet, RBACSvc: rbacSvc, VpcRepo: c.Repos.Vpc, AuditSvc: auditSvc, Logger: c.Logger})
+	volumeSvc := services.NewVolumeService(services.VolumeServiceParams{Repo: c.Repos.Volume, RBACSvc: rbacSvc, Storage: c.Storage, EventSvc: eventSvc, AuditSvc: auditSvc, Logger: c.Logger})
 
 	// DNS Service
 	pdnsBackend, err := dnsadapter.NewPowerDNSBackend(c.Config.PowerDNSAPIURL, c.Config.PowerDNSAPIKey, c.Config.PowerDNSServerID, c.Logger)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to init powerdns backend: %w", err)
 	}
-	dnsSvc := services.NewDNSService(services.DNSServiceParams{Repo: c.Repos.DNS, Backend: pdnsBackend, VpcRepo: c.Repos.Vpc, AuditSvc: auditSvc, EventSvc: eventSvc, Logger: c.Logger})
+	dnsSvc := services.NewDNSService(services.DNSServiceParams{Repo: c.Repos.DNS, RBAC: rbacSvc, Backend: pdnsBackend, VpcRepo: c.Repos.Vpc, AuditSvc: auditSvc, EventSvc: eventSvc, Logger: c.Logger})
 
-	sshKeySvc := services.NewSSHKeyService(c.Repos.SSHKey)
+	sshKeySvc, err := services.NewSSHKeyService(services.SSHKeyServiceParams{Repo: c.Repos.SSHKey, Logger: c.Logger, RBACSvc: rbacSvc})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to init ssh key service: %w", err)
+	}
 
-	logSvc := services.NewCloudLogsService(c.Repos.Log, c.Logger)
+	logSvc := services.NewCloudLogsService(c.Repos.Log, rbacSvc, c.Logger)
 
-	instSvcConcrete := services.NewInstanceService(services.InstanceServiceParams{Repo: c.Repos.Instance, VpcRepo: c.Repos.Vpc, SubnetRepo: c.Repos.Subnet, VolumeRepo: c.Repos.Volume, InstanceTypeRepo: c.Repos.InstanceType, Compute: c.Compute, Network: c.Network, EventSvc: eventSvc, AuditSvc: auditSvc, DNSSvc: dnsSvc, LogSvc: logSvc, TaskQueue: c.Repos.TaskQueue, TenantSvc: tenantSvc, SSHKeySvc: sshKeySvc, DockerNetwork: c.Config.DockerDefaultNetwork, Logger: c.Logger})
-	sgSvc := services.NewSecurityGroupService(c.Repos.SecurityGroup, c.Repos.Vpc, c.Network, auditSvc, c.Logger)
+	instSvcConcrete := services.NewInstanceService(services.InstanceServiceParams{Repo: c.Repos.Instance, VpcRepo: c.Repos.Vpc, SubnetRepo: c.Repos.Subnet, VolumeRepo: c.Repos.Volume, InstanceTypeRepo: c.Repos.InstanceType, RBAC: rbacSvc, Compute: c.Compute, Network: c.Network, EventSvc: eventSvc, AuditSvc: auditSvc, DNSSvc: dnsSvc, TaskQueue: c.Repos.TaskQueue, DockerNetwork: c.Config.DockerDefaultNetwork, Logger: c.Logger, TenantSvc: tenantSvc, SSHKeySvc: sshKeySvc, LogSvc: logSvc})
+	sgSvc := services.NewSecurityGroupService(c.Repos.SecurityGroup, rbacSvc, c.Repos.Vpc, c.Network, auditSvc, c.Logger)
 
-	lbSvc := services.NewLBService(c.Repos.LB, c.Repos.Vpc, c.Repos.Instance, auditSvc)
+	lbSvc := services.NewLBService(c.Repos.LB, rbacSvc, c.Repos.Vpc, c.Repos.Instance, auditSvc, c.Logger)
 	lbWorker := services.NewLBWorker(c.Repos.LB, c.Repos.Instance, c.LBProxy)
 
 	// Global LB Service
-	glbSvc := services.NewGlobalLBService(services.GlobalLBServiceParams{Repo: c.Repos.GlobalLB, LBRepo: c.Repos.LB, GeoDNS: pdnsBackend, AuditSvc: auditSvc, Logger: c.Logger})
+	glbSvc := services.NewGlobalLBService(services.GlobalLBServiceParams{Repo: c.Repos.GlobalLB, RBAC: rbacSvc, LBRepo: c.Repos.LB, GeoDNS: pdnsBackend, AuditSvc: auditSvc, Logger: c.Logger})
 
 	// Encryption Service
 	encryptionRepo := postgres.NewEncryptionRepository(c.DB)
@@ -242,12 +245,12 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	}
 
 	// 4. Advanced Services (Storage, DB, Secrets, FaaS, Cache, Queue)
-	storageSvc, fileStore, err := initStorageServices(c, auditSvc, encryptionSvc)
+	storageSvc, fileStore, err := initStorageServices(c, rbacSvc, auditSvc, encryptionSvc)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	snapshotSvc := services.NewSnapshotService(c.Repos.Snapshot, c.Repos.Volume, c.Storage, eventSvc, auditSvc, c.Logger)
+	snapshotSvc := services.NewSnapshotService(c.Repos.Snapshot, rbacSvc, c.Repos.Volume, c.Storage, eventSvc, auditSvc, c.Logger)
 
 	var secretsSvc ports.SecretsManager
 	if c.Config.VaultToken == "" {
@@ -270,37 +273,40 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	}
 
 	databaseSvc := services.NewDatabaseService(services.DatabaseServiceParams{Repo: c.Repos.Database, RBAC: rbacSvc, Compute: c.Compute, VpcRepo: c.Repos.Vpc, VolumeSvc: volumeSvc, SnapshotSvc: snapshotSvc, SnapshotRepo: c.Repos.Snapshot, EventSvc: eventSvc, AuditSvc: auditSvc, Secrets: secretsSvc, Logger: c.Logger, VaultMountPath: c.Config.VaultMountPath})
-	secretSvc := services.NewSecretService(c.Repos.Secret, eventSvc, auditSvc, c.Logger, c.Config.SecretsEncryptionKey, c.Config.Environment)
-	fnSvc := services.NewFunctionService(c.Repos.Function, c.Compute, fileStore, auditSvc, c.Logger)
-	cacheSvc := services.NewCacheService(c.Repos.Cache, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
-	queueSvc := services.NewQueueService(c.Repos.Queue, eventSvc, auditSvc)
-	pipelineSvc := services.NewPipelineService(c.Repos.Pipeline, c.Repos.TaskQueue, eventSvc, auditSvc)
-	notifySvc := services.NewNotifyService(c.Repos.Notify, queueSvc, eventSvc, auditSvc, c.Logger)
+	secretSvc, err := services.NewSecretService(services.SecretServiceParams{Repo: c.Repos.Secret, RBACSvc: rbacSvc, EventSvc: eventSvc, AuditSvc: auditSvc, Logger: c.Logger, MasterKey: c.Config.SecretsEncryptionKey, Environment: c.Config.Environment})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to init secret service: %w", err)
+	}
+	fnSvc := services.NewFunctionService(c.Repos.Function, rbacSvc, c.Compute, fileStore, auditSvc, c.Logger)
+	cacheSvc := services.NewCacheService(c.Repos.Cache, rbacSvc, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
+	queueSvc := services.NewQueueService(c.Repos.Queue, rbacSvc, eventSvc, auditSvc, c.Logger)
+	pipelineSvc := services.NewPipelineService(c.Repos.Pipeline, c.Repos.TaskQueue, eventSvc, auditSvc, c.Logger)
+	notifySvc := services.NewNotifyService(services.NotifyServiceParams{Repo: c.Repos.Notify, RBACSvc: rbacSvc, QueueSvc: queueSvc, EventSvc: eventSvc, AuditSvc: auditSvc, Logger: c.Logger})
 
 	// 5. DevOps & Automation Services
-	cronSvc := services.NewCronService(c.Repos.Cron, eventSvc, auditSvc)
+	cronSvc := services.NewCronService(c.Repos.Cron, rbacSvc, eventSvc, auditSvc, c.Logger)
 	cronWorker := services.NewCronWorker(c.Repos.Cron)
-	gwSvc := services.NewGatewayService(c.Repos.Gateway, auditSvc)
-	containerSvc := services.NewContainerService(c.Repos.Container, eventSvc, auditSvc)
+	gwSvc := services.NewGatewayService(c.Repos.Gateway, rbacSvc, auditSvc, c.Logger)
+	containerSvc := services.NewContainerService(c.Repos.Container, rbacSvc, eventSvc, auditSvc, c.Logger)
 	containerWorker := services.NewContainerWorker(c.Repos.Container, instSvcConcrete, eventSvc)
-	stackSvc := services.NewStackService(c.Repos.Stack, instSvcConcrete, vpcSvc, volumeSvc, snapshotSvc, c.Logger)
+	stackSvc := services.NewStackService(c.Repos.Stack, rbacSvc, instSvcConcrete, vpcSvc, volumeSvc, snapshotSvc, c.Logger)
 
 	// 6. Business & Scaling Services
-	asgSvc := services.NewAutoScalingService(c.Repos.AutoScaling, c.Repos.Vpc, auditSvc)
+	asgSvc := services.NewAutoScalingService(c.Repos.AutoScaling, rbacSvc, c.Repos.Vpc, auditSvc, c.Logger)
 	asgWorker := services.NewAutoScalingWorker(c.Repos.AutoScaling, instSvcConcrete, lbSvc, eventSvc, ports.RealClock{})
-	accountingSvc := services.NewAccountingService(c.Repos.Accounting, c.Repos.Instance, c.Logger)
+	accountingSvc := services.NewAccountingService(c.Repos.Accounting, rbacSvc, c.Repos.Instance, c.Logger)
 	accountingWorker := workers.NewAccountingWorker(accountingSvc, c.Logger)
-	imageSvc := services.NewImageService(c.Repos.Image, fileStore, c.Logger)
+	imageSvc := services.NewImageService(services.ImageServiceParams{Repo: c.Repos.Image, RBACSvc: rbacSvc, FileStore: fileStore, Logger: c.Logger})
 	iamSvc := services.NewIAMService(c.Repos.IAM, auditSvc, eventSvc, c.Logger)
 	provisionWorker := workers.NewProvisionWorker(instSvcConcrete, c.Repos.TaskQueue, c.Logger)
 	healingWorker := workers.NewHealingWorker(instSvcConcrete, c.Repos.Instance, c.Logger)
 
-	clusterSvc, clusterProvisioner, err := initClusterServices(c, vpcSvc, instSvcConcrete, secretSvc, storageSvc, lbSvc, sgSvc)
+	clusterSvc, clusterProvisioner, err := initClusterServices(c, rbacSvc, vpcSvc, instSvcConcrete, secretSvc, storageSvc, lbSvc, sgSvc)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	svcs := &Services{WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Tenant: tenantSvc, Auth: authSvc, PasswordReset: pwdResetSvc, RBAC: rbacSvc, Vpc: vpcSvc, Subnet: subnetSvc, Event: eventSvc, Volume: volumeSvc, Instance: instSvcConcrete, SecurityGroup: sgSvc, LB: lbSvc, Snapshot: snapshotSvc, Stack: stackSvc, Storage: storageSvc, Database: databaseSvc, Secret: secretSvc, Function: fnSvc, Cache: cacheSvc, Queue: queueSvc, Notify: notifySvc, Cron: cronSvc, Gateway: gwSvc, Container: containerSvc, Pipeline: pipelineSvc, Health: services.NewHealthServiceImpl(c.DB, c.Compute, clusterSvc), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc, Cluster: clusterSvc, Dashboard: services.NewDashboardService(c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger), Lifecycle: services.NewLifecycleService(c.Repos.Lifecycle, c.Repos.Storage), InstanceType: services.NewInstanceTypeService(c.Repos.InstanceType), GlobalLB: glbSvc, DNS: dnsSvc, SSHKey: sshKeySvc, ElasticIP: services.NewElasticIPService(services.ElasticIPServiceParams{Repo: c.Repos.ElasticIP, InstanceRepo: c.Repos.Instance, AuditSvc: auditSvc, Logger: c.Logger}), Log: logSvc, IAM: iamSvc, VPCPeering: services.NewVPCPeeringService(services.VPCPeeringServiceParams{Repo: c.Repos.VPCPeering, VpcRepo: c.Repos.Vpc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger})}
+	svcs := &Services{WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Tenant: tenantSvc, Auth: authSvc, PasswordReset: pwdResetSvc, RBAC: rbacSvc, Vpc: vpcSvc, Subnet: subnetSvc, Event: eventSvc, Volume: volumeSvc, Instance: instSvcConcrete, SecurityGroup: sgSvc, LB: lbSvc, Snapshot: snapshotSvc, Stack: stackSvc, Storage: storageSvc, Database: databaseSvc, Secret: secretSvc, Function: fnSvc, Cache: cacheSvc, Queue: queueSvc, Notify: notifySvc, Cron: cronSvc, Gateway: gwSvc, Container: containerSvc, Pipeline: pipelineSvc, Health: services.NewHealthServiceImpl(c.DB, c.Compute, clusterSvc), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc, Cluster: clusterSvc, Dashboard: services.NewDashboardService(rbacSvc, c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger), Lifecycle: services.NewLifecycleService(c.Repos.Lifecycle, rbacSvc, c.Repos.Storage), InstanceType: services.NewInstanceTypeService(c.Repos.InstanceType, rbacSvc), GlobalLB: glbSvc, DNS: dnsSvc, SSHKey: sshKeySvc, ElasticIP: services.NewElasticIPService(services.ElasticIPServiceParams{Repo: c.Repos.ElasticIP, RBAC: rbacSvc, InstanceRepo: c.Repos.Instance, AuditSvc: auditSvc, Logger: c.Logger}), Log: logSvc, IAM: iamSvc, VPCPeering: services.NewVPCPeeringService(services.VPCPeeringServiceParams{Repo: c.Repos.VPCPeering, VpcRepo: c.Repos.Vpc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger})}
 
 	// 7. High Availability & Monitoring
 	replicaMonitor := initReplicaMonitor(c)
@@ -310,19 +316,19 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	return svcs, workersCollection, nil
 }
 
-func initIdentityServices(c ServiceConfig, audit ports.AuditService) ports.IdentityService {
-	base := services.NewIdentityService(c.Repos.Identity, audit, c.Logger)
+func initIdentityServices(c ServiceConfig, rbacSvc ports.RBACService, audit ports.AuditService) ports.IdentityService {
+	base := services.NewIdentityService(services.IdentityServiceParams{Repo: c.Repos.Identity, RbacSvc: rbacSvc, AuditSvc: audit, Logger: c.Logger})
 	return services.NewCachedIdentityService(base, c.RDB, c.Logger)
 }
 
 func initRBACServices(c ServiceConfig) ports.RBACService {
 	iamRepo := c.Repos.IAM
 	evaluator := services.NewIAMEvaluator()
-	base := services.NewRBACService(c.Repos.User, c.Repos.RBAC, iamRepo, evaluator, c.Logger)
+	base := services.NewRBACService(services.RBACServiceParams{UserRepo: c.Repos.User, RoleRepo: c.Repos.RBAC, TenantRepo: c.Repos.Tenant, IAMRepo: iamRepo, Evaluator: evaluator, Logger: c.Logger})
 	return services.NewCachedRBACService(base, c.RDB, c.Logger)
 }
 
-func initStorageServices(c ServiceConfig, audit ports.AuditService, encryption ports.EncryptionService) (ports.StorageService, ports.FileStore, error) {
+func initStorageServices(c ServiceConfig, rbacSvc ports.RBACService, audit ports.AuditService, encryption ports.EncryptionService) (ports.StorageService, ports.FileStore, error) {
 	var fileStore ports.FileStore
 	var err error
 
@@ -358,19 +364,20 @@ func initStorageServices(c ServiceConfig, audit ports.AuditService, encryption p
 
 	storageSvc := services.NewStorageService(services.StorageServiceParams{
 		Repo:       c.Repos.Storage,
+		RBACSvc:    rbacSvc,
 		Store:      fileStore,
 		AuditSvc:   audit,
 		EncryptSvc: encryption,
-		CFG:        c.Config,
+		Config:     c.Config,
 		Logger:     c.Logger,
 	})
 	return storageSvc, fileStore, nil
 }
 
-func initClusterServices(c ServiceConfig, vpcSvc ports.VpcService, instSvc ports.InstanceService, secretSvc ports.SecretService, storageSvc ports.StorageService, lbSvc ports.LBService, sgSvc ports.SecurityGroupService) (ports.ClusterService, ports.ClusterProvisioner, error) {
+func initClusterServices(c ServiceConfig, rbacSvc ports.RBACService, vpcSvc ports.VpcService, instSvc ports.InstanceService, secretSvc ports.SecretService, storageSvc ports.StorageService, lbSvc ports.LBService, sgSvc ports.SecurityGroupService) (ports.ClusterService, ports.ClusterProvisioner, error) {
 	clusterProvisioner := k8s.NewKubeadmProvisioner(instSvc, c.Repos.Cluster, secretSvc, sgSvc, storageSvc, lbSvc, c.Logger)
 	clusterSvc, err := services.NewClusterService(services.ClusterServiceParams{
-		Repo: c.Repos.Cluster, Provisioner: clusterProvisioner, VpcSvc: vpcSvc, InstanceSvc: instSvc, SecretSvc: secretSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
+		Repo: c.Repos.Cluster, RBAC: rbacSvc, Provisioner: clusterProvisioner, VpcSvc: vpcSvc, InstanceSvc: instSvc, SecretSvc: secretSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to init cluster service: %w", err)

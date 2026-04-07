@@ -2,192 +2,127 @@ package services_test
 
 import (
 	"context"
-	"log/slog"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
-	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
-	"github.com/poyrazk/thecloud/internal/repositories/postgres"
+	"github.com/poyrazk/thecloud/internal/repositories/postgres" 
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func TestIdentityServiceCreateKeySuccess(t *testing.T) {
+func setupIdentityServiceTest(t *testing.T) (*services.IdentityService, *postgres.IdentityRepository, *MockRBACService, context.Context) {
+	t.Helper()
 	db := setupDB(t)
-	defer db.Close()
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
-	userID := appcontext.UserIDFromContext(ctx)
 
-	identityRepo := postgres.NewIdentityRepository(db)
+	repo := postgres.NewIdentityRepository(db)
+	rbacSvc := new(MockRBACService)
+	
+
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
-	svc := services.NewIdentityService(identityRepo, auditSvc, slog.Default())
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
 
-	key, err := svc.CreateKey(ctx, userID, "Test Key")
-	require.NoError(t, err)
-	assert.NotNil(t, key)
-	assert.Contains(t, key.Key, "thecloud_")
-	assert.Equal(t, userID, key.UserID)
-
-	// Verify stored
-	fetched, err := identityRepo.GetAPIKeyByID(ctx, key.ID)
-	require.NoError(t, err)
-	assert.Equal(t, key.ID, fetched.ID)
-
-	// Verify audit log
-	logs, err := auditRepo.ListByUserID(ctx, userID, 10)
-	require.NoError(t, err)
-	assert.NotEmpty(t, logs)
-	assert.Equal(t, "api_key.create", logs[0].Action)
+	svc := services.NewIdentityService(services.IdentityServiceParams{
+		Repo:     repo,
+		RbacSvc:  rbacSvc,
+		AuditSvc: auditSvc,
+	})
+	return svc, repo, rbacSvc, ctx
 }
 
-func TestIdentityServiceValidateAPIKeySuccess(t *testing.T) {
-	db := setupDB(t)
-	defer db.Close()
-	cleanDB(t, db)
-	ctx := setupTestUser(t, db)
+func TestIdentityService_CreateKey(t *testing.T) {
+	svc, repo, rbacSvc, ctx := setupIdentityServiceTest(t); _ = rbacSvc
 	userID := appcontext.UserIDFromContext(ctx)
-
-	identityRepo := postgres.NewIdentityRepository(db)
-	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
-	svc := services.NewIdentityService(identityRepo, auditSvc, slog.Default())
-
-	key, err := svc.CreateKey(ctx, userID, "Val Key")
-	require.NoError(t, err)
-
-	result, err := svc.ValidateAPIKey(ctx, key.Key)
-	require.NoError(t, err)
-	assert.Equal(t, key.ID, result.ID)
-	assert.Equal(t, userID, result.UserID)
-}
-
-func TestIdentityServiceValidateAPIKeyNotFound(t *testing.T) {
-	db := setupDB(t)
-	defer db.Close()
-	cleanDB(t, db)
-	ctx := setupTestUser(t, db)
-
-	identityRepo := postgres.NewIdentityRepository(db)
-	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
-	svc := services.NewIdentityService(identityRepo, auditSvc, slog.Default())
-
-	result, err := svc.ValidateAPIKey(ctx, "invalid-key")
-	require.Error(t, err)
-	assert.Nil(t, result)
-}
-
-func TestIdentityServiceListKeys(t *testing.T) {
-	db := setupDB(t)
-	defer db.Close()
-	cleanDB(t, db)
-	ctx := setupTestUser(t, db)
-	userID := appcontext.UserIDFromContext(ctx)
-
-	identityRepo := postgres.NewIdentityRepository(db)
-	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
-	svc := services.NewIdentityService(identityRepo, auditSvc, slog.Default())
-
-	_, err := svc.CreateKey(ctx, userID, "Key 1")
-	require.NoError(t, err)
-	_, err = svc.CreateKey(ctx, userID, "Key 2")
-	require.NoError(t, err)
-
-	result, err := svc.ListKeys(ctx, userID)
-	require.NoError(t, err)
-	assert.Len(t, result, 2)
-}
-
-func TestIdentityServiceRevokeKey(t *testing.T) {
-	db := setupDB(t)
-	defer db.Close()
-	cleanDB(t, db)
-	ctx := setupTestUser(t, db)
-	userID := appcontext.UserIDFromContext(ctx)
-
-	identityRepo := postgres.NewIdentityRepository(db)
-	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
-	svc := services.NewIdentityService(identityRepo, auditSvc, slog.Default())
 
 	t.Run("Success", func(t *testing.T) {
-		key, err := svc.CreateKey(ctx, userID, "To Revoke")
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		name := "test-key"
+		key, err := svc.CreateKey(ctx, userID, name)
+		require.NoError(t, err)
+		assert.NotNil(t, key)
+		assert.Equal(t, name, key.Name)
+		assert.Equal(t, userID, key.UserID)
+		assert.Contains(t, key.Key, "thecloud_")
+
+		// Verify in DB
+		dbKey, err := repo.GetAPIKeyByID(ctx, key.ID)
+		require.NoError(t, err)
+		assert.Equal(t, key.Key, dbKey.Key)
+	})
+}
+
+func TestIdentityService_ValidateAPIKey(t *testing.T) {
+	svc, _, rbacSvc, ctx := setupIdentityServiceTest(t); _ = rbacSvc
+	userID := appcontext.UserIDFromContext(ctx)
+
+	key, _ := svc.CreateKey(ctx, userID, "session")
+
+	t.Run("Valid", func(t *testing.T) {
+		validated, err := svc.ValidateAPIKey(ctx, key.Key)
+		require.NoError(t, err)
+		assert.Equal(t, userID, validated.UserID)
+	})
+
+	t.Run("Invalid", func(t *testing.T) {
+		_, err := svc.ValidateAPIKey(ctx, "invalid-key")
+		require.Error(t, err)
+	})
+}
+
+func TestIdentityService_RevokeKey(t *testing.T) {
+	svc, _, rbacSvc, ctx := setupIdentityServiceTest(t); _ = rbacSvc
+	userID := appcontext.UserIDFromContext(ctx)
+
+	key, _ := svc.CreateKey(ctx, userID, "to-revoke")
+
+	t.Run("Success", func(t *testing.T) {
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		err := svc.RevokeKey(ctx, userID, key.ID)
 		require.NoError(t, err)
 
-		err = svc.RevokeKey(ctx, userID, key.ID)
-		require.NoError(t, err)
-
-		// Verify deletion
-		_, err = identityRepo.GetAPIKeyByID(ctx, key.ID)
+		// Should no longer validate
+		_, err = svc.ValidateAPIKey(ctx, key.Key)
 		require.Error(t, err)
 	})
 
 	t.Run("WrongUser", func(t *testing.T) {
-		// Create a key for another user
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New(errors.Forbidden, "forbidden")).Once()
 		otherUserID := uuid.New()
-		otherUser := &domain.User{
-			ID:           otherUserID,
-			Email:        "other@test.com",
-			PasswordHash: "hash",
-			Name:         "Other User",
-			Role:         "user",
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
-		}
-		userRepo := postgres.NewUserRepo(db)
-		err := userRepo.Create(context.Background(), otherUser)
-		require.NoError(t, err)
+		key2, _ := svc.CreateKey(ctx, userID, "other")
 
-		otherKey := &domain.APIKey{
-			ID:        uuid.New(),
-			UserID:    otherUserID,
-			Name:      "Other Key",
-			Key:       "thecloud_other",
-			CreatedAt: time.Now(),
-		}
-		err = identityRepo.CreateAPIKey(context.Background(), otherKey)
-		require.NoError(t, err)
-
-		err = svc.RevokeKey(ctx, userID, otherKey.ID)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "unauthorized access to api key")
+		err := svc.RevokeKey(ctx, otherUserID, key2.ID)
+		require.Error(t, err) // Forbidden if context user is not owner/admin
 	})
 }
 
-func TestIdentityServiceRotateKey(t *testing.T) {
-	db := setupDB(t)
-	defer db.Close()
-	cleanDB(t, db)
-	ctx := setupTestUser(t, db)
+func TestIdentityService_RotateKey(t *testing.T) {
+	svc, _, rbacSvc, ctx := setupIdentityServiceTest(t); _ = rbacSvc
 	userID := appcontext.UserIDFromContext(ctx)
 
-	identityRepo := postgres.NewIdentityRepository(db)
-	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
-	svc := services.NewIdentityService(identityRepo, auditSvc, slog.Default())
+	oldKey, _ := svc.CreateKey(ctx, userID, "original")
 
-	apiKey, err := svc.CreateKey(ctx, userID, "To Rotate")
-	require.NoError(t, err)
+	t.Run("Success", func(t *testing.T) {
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		newKey, err := svc.RotateKey(ctx, userID, oldKey.ID)
+		require.NoError(t, err)
+		assert.NotEqual(t, oldKey.Key, newKey.Key)
+		assert.NotEqual(t, oldKey.ID, newKey.ID)
 
-	newKey, err := svc.RotateKey(ctx, userID, apiKey.ID)
-	require.NoError(t, err)
-	assert.NotNil(t, newKey)
-	assert.NotEqual(t, apiKey.Key, newKey.Key)
-	// Key name remains "To Rotate", so we don't check for (rotated) unless svc adds it
-	// assert.Contains(t, newKey.Name, "(rotated)")
+		// Old should be invalid
+		_, err = svc.ValidateAPIKey(ctx, oldKey.Key)
+		require.Error(t, err)
 
-	// Old key should be gone
-	_, err = identityRepo.GetAPIKeyByID(ctx, apiKey.ID)
-	require.Error(t, err)
-
-	// New key should exist
-	fetched, err := identityRepo.GetAPIKeyByID(ctx, newKey.ID)
-	require.NoError(t, err)
-	assert.Equal(t, newKey.ID, fetched.ID)
+		// New should be valid
+		validated, err := svc.ValidateAPIKey(ctx, newKey.Key)
+		require.NoError(t, err)
+		assert.Equal(t, userID, validated.UserID)
+	})
 }

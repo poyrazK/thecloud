@@ -49,6 +49,7 @@ type Cluster struct {
 	ID              uuid.UUID     `json:"id"`
 	Name            string        `json:"name"`
 	UserID          uuid.UUID     `json:"user_id"`
+	TenantID        uuid.UUID     `json:"tenant_id"`
 	VpcID           uuid.UUID     `json:"vpc_id"`
 	Version         string        `json:"version"`
 	ControlPlaneIPs []string      `json:"control_plane_ips"`
@@ -70,6 +71,11 @@ type Cluster struct {
 	HAEnabled          bool      `json:"ha_enabled"`
 	APIServerLBAddress *string   `json:"api_server_lb_address,omitempty"`
 	JobID              *string   `json:"job_id,omitempty"`
+
+	// Backup Policy
+	BackupSchedule      string `json:"backup_schedule,omitempty" example:"0 0 * * *"`
+	BackupRetentionDays int    `json:"backup_retention_days,omitempty" example:"7"`
+
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
 }
