@@ -215,7 +215,11 @@ func (s *DatabaseService) provisionDatabase(ctx context.Context, db *domain.Data
 	}
 	db.CredentialPath = vaultPath
 
-	vol, err := s.volumeSvc.CreateVolume(ctx, fmt.Sprintf("db-vol-%s", db.ID.String()[:8]), db.AllocatedStorage)
+	volumeName := fmt.Sprintf("db-vol-%s", db.ID.String()[:8])
+	if db.Role == domain.RoleReplica {
+		volumeName = fmt.Sprintf("db-replica-vol-%s", db.ID.String()[:8])
+	}
+	vol, err := s.volumeSvc.CreateVolume(ctx, volumeName, db.AllocatedStorage)
 	if err != nil {
 		if delErr := s.secrets.DeleteSecret(ctx, db.CredentialPath); delErr != nil {
 			s.logger.Warn("failed to cleanup vault secret after volume creation failure", "path", db.CredentialPath, "error", delErr)
@@ -569,9 +573,7 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, i
 	var cmd []string
 	switch db.Engine {
 	case domain.EnginePostgres:
-		// We use the provisioned admin user to run the ALTER USER command.
-		// Note: psql within the container often has peer/trust auth for the admin user.
-		cmd = []string{"psql", "-U", db.Username, "-c", fmt.Sprintf("ALTER USER %s WITH PASSWORD '%s';", db.Username, newPassword)}
+		cmd = []string{"psql", "-h", "127.0.0.1", "-U", db.Username, "-d", "postgres", "-c", fmt.Sprintf("ALTER USER %s WITH PASSWORD '%s';", db.Username, newPassword)}
 	case domain.EngineMySQL:
 		cmd = []string{"mysql", "-u", "root", "-p" + currentPassword, "-e", fmt.Sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s';", db.Username, newPassword)}
 	default:
