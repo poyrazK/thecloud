@@ -580,8 +580,15 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, i
 		return errors.New(errors.Internal, "unsupported engine for credential rotation")
 	}
 
-	if _, err := s.compute.Exec(ctx, db.ContainerID, cmd); err != nil {
-		return errors.Wrap(errors.Internal, "failed to execute password rotation in container", err)
+	var execErr error
+	for i := 0; i < 10; i++ {
+		if _, execErr = s.compute.Exec(ctx, db.ContainerID, cmd); execErr == nil {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if execErr != nil {
+		return errors.Wrap(errors.Internal, "failed to execute password rotation in container", execErr)
 	}
 
 	// 2. Update in Vault ONLY after DB success
