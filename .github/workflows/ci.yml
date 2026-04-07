@@ -19,7 +19,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.24'
+          go-version: '1.25.0'
           cache: true
       - name: Verify Swagger
         run: |
@@ -56,7 +56,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.24'
+          go-version: '1.25.0'
           cache: true
       - name: Install Dependencies
         run: go mod download
@@ -89,7 +89,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.24'
+          go-version: '1.25.0'
           cache: true
       - name: Install Dependencies
         run: go mod download
@@ -116,7 +116,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.24'
+          go-version: '1.25.0'
           cache: true
       - name: Install Dependencies
         run: go mod download
@@ -161,7 +161,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.24'
+          go-version: '1.25.0'
           cache: true
 
       - name: Install Libvirt Dependencies
@@ -288,7 +288,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.24'
+          go-version: '1.25.0'
           cache: true
       - name: Install Firecracker
         run: |
