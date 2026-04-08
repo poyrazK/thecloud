@@ -117,7 +117,7 @@ This document provides a comprehensive overview of every feature currently imple
 
 ### 5. Managed Databases (RDS)
 **What it is**: Provision fully managed PostgreSQL or MySQL databases with high availability.
-**Tech Stack**: Docker (Official Images), PgBouncer (Pooling), Prometheus Exporters, Go, TCP Health Checks.
+**Tech Stack**: Docker (Official Images), PgBouncer (Pooling), Prometheus Exporters, Go, TCP Health Checks, HashiCorp Vault.
 **Implementation**:
 - **Multi-Engine Support**: PostgreSQL and MySQL with configurable versions.
 - **Provisioning**: Spawns Docker containers using official images (`postgres:<version>-alpine`, `mysql:<version>`).
@@ -129,6 +129,9 @@ This document provides a comprehensive overview of every feature currently imple
 - **Read Replicas**: Support for creating read-only replicas linked to a primary instance. Replicas inherit the primary's configuration, including storage size and feature flags.
 - **Automated Failover**: A dedicated `DatabaseFailoverWorker` performs periodic TCP health checks on primary instances. If a primary becomes unreachable, the worker automatically selects and promotes the most suitable replica to the primary role.
 - **Manual Promotion**: API support for manually promoting a replica to primary status for maintenance or planned transitions.
+- **Security & Vault Integration 🆕**: Optional integration with **HashiCorp Vault (KV v2)** for secure credential storage. The system orchestrates storing database passwords in Vault, while maintaining a `password` field in the database metadata store for fallback support and legacy compatibility.
+- **Credential Rotation 🆕**: Support for automated password rotation. The system regenerates secure passwords, executes `ALTER USER` commands inside the database container, and updates Vault on success. If present, the **PgBouncer** sidecar is automatically restarted (recreated) to apply new credentials. Note: Exporter sidecars are not reloaded as part of this flow, and rotation is not fully atomic across the database and Vault.
+
 - **Credentials**: Auto-generates secure passwords (16-char random) and default usernames.
 - **VPC Integration**: Databases can be deployed into specific VPCs for network isolation.
 - **Connection Strings**: `GetConnectionString()` API returns ready-to-use connection URLs, automatically routing through the connection pooler when enabled.

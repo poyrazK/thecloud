@@ -1688,6 +1688,58 @@
                 }
             }
         },
+        "/databases/{id}/rotate-credentials": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Regenerates the database password, updates it in the database and secrets manager",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "databases"
+                ],
+                "summary": "Rotate database credentials",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Database ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Idempotency key to prevent duplicate rotations",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httputil.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httphandlers.RotateCredentialsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/databases/{id}/snapshots": {
             "get": {
                 "security": [
@@ -10038,6 +10090,15 @@
                     "type": "string",
                     "maxLength": 64,
                     "minLength": 3
+                }
+            }
+        },
+        "httphandlers.RotateCredentialsResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "database credentials rotated successfully"
                 }
             }
         },

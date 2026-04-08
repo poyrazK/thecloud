@@ -71,3 +71,7 @@ func (c *Client) GetDatabaseConnectionString(id string) (string, error) {
 	}
 	return resp.Data["connection_string"], nil
 }
+
+func (c *Client) RotateDatabaseCredentials(id string) error {
+	return c.post(databasesPath+id+"/rotate-credentials", nil, nil)
+}

@@ -69,4 +69,5 @@ type Database struct {
 	PoolingEnabled      bool              `json:"pooling_enabled"`
 	PoolingPort         int               `json:"pooling_port,omitempty"`
 	PoolerContainerID   string            `json:"-"`
+	CredentialPath      string            `json:"-"`
 }

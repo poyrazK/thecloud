@@ -478,6 +478,7 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		dbGroup.POST("/:id/promote", httputil.Permission(svcs.RBAC, domain.PermissionDBUpdate), handlers.Database.Promote)
 		dbGroup.POST("/:id/snapshots", httputil.Permission(svcs.RBAC, domain.PermissionDBCreate), handlers.Database.CreateSnapshot)
 		dbGroup.GET("/:id/snapshots", httputil.Permission(svcs.RBAC, domain.PermissionDBRead), handlers.Database.ListSnapshots)
+		dbGroup.POST("/:id/rotate-credentials", httputil.Permission(svcs.RBAC, domain.PermissionDBUpdate), handlers.Database.RotateCredentials)
 	}
 
 	cacheGroup := r.Group("/caches")

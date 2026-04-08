@@ -148,7 +148,7 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 		storeKey = versionedStoreKey(key, versionID)
 	}
 
-	var dataStream io.Reader = teeReader
+	dataStream := teeReader
 
 	// Encryption (Optional)
 	if bucket.EncryptionEnabled && s.encryptSvc != nil {
@@ -655,7 +655,7 @@ func (s *StorageService) CompleteMultipartUpload(ctx context.Context, uploadID u
 		return nil, errors.New(errors.InvalidInput, "no parts uploaded")
 	}
 
-	// 2. Assemble in store
+	// 2. Assembly in store
 	partKeys := make([]string, len(parts))
 	for i, p := range parts {
 		partKeys[i] = fmt.Sprintf(partPathFormat, upload.ID.String(), p.PartNumber)
@@ -705,7 +705,7 @@ func (s *StorageService) CompleteMultipartUpload(ctx context.Context, uploadID u
 			slog.Any("error", err))
 		return nil, errors.Wrap(errors.Internal, "failed to read assembled file", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	hash := sha256.New()
 	sniffBuf := make([]byte, sniffLen)

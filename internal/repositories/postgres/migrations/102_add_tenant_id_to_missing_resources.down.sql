@@ -1,5 +1,5 @@
 -- +goose Down
--- Remove tenant_id from remaining resource tables
+-- Remove tenant_id from the remaining resource tables
 
 DROP INDEX IF EXISTS idx_api_keys_tenant;
 ALTER TABLE api_keys DROP COLUMN IF EXISTS tenant_id;

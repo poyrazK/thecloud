@@ -375,11 +375,15 @@ CREATE TABLE databases (
     port INT,
     username VARCHAR(255),
     password TEXT,
+    credential_path TEXT,
     container_id VARCHAR(255),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     allocated_storage INT NOT NULL DEFAULT 10,
     parameters JSONB DEFAULT '{}'::jsonb,
+    metrics_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    metrics_port INT,
+    exporter_container_id VARCHAR(255),
     pooling_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     pooling_port INT,
     pooler_container_id VARCHAR(255)
@@ -388,6 +392,26 @@ CREATE TABLE databases (
 
 **Engines**: `postgres`, `mysql`  
 **Roles**: `PRIMARY`, `REPLICA`
+
+### Managed Database Security & Credential Rotation
+
+The platform integrates with **HashiCorp Vault** to securely manage database credentials.
+
+#### Vault Integration
+The platform is Vault-backed with database fallback. Credentials are primarily stored in Vault at `secret/data/thecloud/rds/:db_id/credentials`, while the `password` field in the `databases` table remains persisted for legacy support and fallback during Vault unavailability.
+- **Metadata**: The `credential_path` field in the `databases` table stores the reference to the Vault secret.
+
+#### Credential Rotation
+Users can trigger automated password rotation for their database instances.
+- **Endpoint**: `POST /databases/:id/rotate-credentials`
+- **Workflow**:
+    1.  **Generate Password**: A new 16-character secure password is generated.
+    2.  **Engine Update**: The `ALTER USER` command is executed inside the database container first to apply the new password.
+    3.  **Update Vault**: The new secret is written to Vault. (Note: A failure here may leave the database and Vault out of sync).
+    4.  **Sidecar Update**: Sidecars such as PgBouncer/pooler are automatically recreated to apply the new credentials only when they are present.
+    5.  **Audit**: The rotation event is recorded in the system events and audit logs.
+
+This mechanism ensures that database access remains secure and meets compliance requirements for periodic credential updates.
 
 ### Managed Database Persistence
 

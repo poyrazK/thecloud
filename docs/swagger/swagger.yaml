@@ -2182,6 +2182,12 @@ definitions:
     required:
     - new_volume_name
     type: object
+  httphandlers.RotateCredentialsResponse:
+    properties:
+      message:
+        example: database credentials rotated successfully
+        type: string
+    type: object
   httphandlers.ScaleClusterRequest:
     properties:
       workers:
@@ -3313,6 +3319,37 @@ paths:
       summary: Scale a deployment
       tags:
       - containers
+  /databases/{id}/rotate-credentials:
+    post:
+      description: Regenerates the database password, updates it in the database and
+        secrets manager
+      parameters:
+      - description: Database ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Idempotency key to prevent duplicate rotations
+        in: header
+        name: Idempotency-Key
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httputil.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/httphandlers.RotateCredentialsResponse'
+              type: object
+      security:
+      - APIKeyAuth: []
+      summary: Rotate database credentials
+      tags:
+      - databases
   /databases/{id}/snapshots:
     get:
       description: Returns all snapshots belonging to a specific database

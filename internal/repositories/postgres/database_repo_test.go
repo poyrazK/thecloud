@@ -30,7 +30,8 @@ func TestDatabaseRepository_Integration(t *testing.T) {
 		id := uuid.New()
 		db := &domain.Database{
 			ID:        id,
-			UserID:    userID, TenantID:  tenantID,
+			UserID:    userID,
+			TenantID:  tenantID,
 			Name:      "test-db",
 			Engine:    domain.EnginePostgres,
 			Version:   "16",
