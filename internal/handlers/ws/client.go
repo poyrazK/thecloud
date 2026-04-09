@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -17,21 +18,23 @@ const (
 
 // Client represents a WebSocket connection.
 type Client struct {
-	hub    *Hub
-	conn   *websocket.Conn
-	send   chan []byte
-	userID string
-	logger *slog.Logger
+	hub      *Hub
+	conn     *websocket.Conn
+	send     chan []byte
+	userID   string
+	tenantID uuid.UUID
+	logger   *slog.Logger
 }
 
 // NewClient creates a new WebSocket client.
-func NewClient(hub *Hub, conn *websocket.Conn, userID string, logger *slog.Logger) *Client {
+func NewClient(hub *Hub, conn *websocket.Conn, userID string, tenantID uuid.UUID, logger *slog.Logger) *Client {
 	return &Client{
-		hub:    hub,
-		conn:   conn,
-		send:   make(chan []byte, 256),
-		userID: userID,
-		logger: logger,
+		hub:      hub,
+		conn:     conn,
+		send:     make(chan []byte, 256),
+		userID:   userID,
+		tenantID: tenantID,
+		logger:   logger,
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/platform"
 )
@@ -75,6 +76,39 @@ func (h *Hub) BroadcastEvent(event *domain.WSEvent) {
 		return
 	}
 	h.broadcast <- data
+}
+
+// BroadcastEventToTenant sends a WSEvent only to clients matching the given tenant.
+// If userID is not nil, further filter to that specific user.
+func (h *Hub) BroadcastEventToTenant(event *domain.WSEvent, tenantID uuid.UUID, userID *uuid.UUID) error {
+	data, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	for client := range h.clients {
+		if client.tenantID != tenantID {
+			continue
+		}
+		if userID != nil && client.userID != userID.String() {
+			continue
+		}
+		select {
+		case client.send <- data:
+		default:
+			close(client.send)
+			delete(h.clients, client)
+		}
+	}
+	return nil
+}
+
+// PublishEvent implements ports.RealtimePublisher.
+func (h *Hub) PublishEvent(event *domain.WSEvent, tenantID uuid.UUID, userID *uuid.UUID) error {
+	return h.BroadcastEventToTenant(event, tenantID, userID)
 }
 
 // ClientCount returns the number of connected clients.
