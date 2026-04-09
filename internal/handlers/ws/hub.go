@@ -2,6 +2,7 @@
 package ws
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"sync"
@@ -80,15 +81,16 @@ func (h *Hub) BroadcastEvent(event *domain.WSEvent) {
 
 // BroadcastEventToTenant sends a WSEvent only to clients matching the given tenant.
 // If userID is not nil, further filter to that specific user.
-func (h *Hub) BroadcastEventToTenant(event *domain.WSEvent, tenantID uuid.UUID, userID *uuid.UUID) error {
+// Collects clients to remove under RLock, then removes them via unregister channel.
+func (h *Hub) BroadcastEventToTenant(ctx context.Context, event *domain.WSEvent, tenantID uuid.UUID, userID *uuid.UUID) error {
 	data, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
 
+	// Collect clients to notify under read lock
 	h.mu.RLock()
-	defer h.mu.RUnlock()
-
+	var toRemove []*Client
 	for client := range h.clients {
 		if client.tenantID != tenantID {
 			continue
@@ -99,16 +101,23 @@ func (h *Hub) BroadcastEventToTenant(event *domain.WSEvent, tenantID uuid.UUID, 
 		select {
 		case client.send <- data:
 		default:
-			close(client.send)
-			delete(h.clients, client)
+			// Client buffer full - mark for removal
+			toRemove = append(toRemove, client)
 		}
 	}
+	h.mu.RUnlock()
+
+	// Remove dead clients via unregister channel (safe removal)
+	for _, client := range toRemove {
+		h.Unregister(client)
+	}
+
 	return nil
 }
 
 // PublishEvent implements ports.RealtimePublisher.
-func (h *Hub) PublishEvent(event *domain.WSEvent, tenantID uuid.UUID, userID *uuid.UUID) error {
-	return h.BroadcastEventToTenant(event, tenantID, userID)
+func (h *Hub) PublishEvent(ctx context.Context, event *domain.WSEvent, tenantID uuid.UUID, userID *uuid.UUID) error {
+	return h.BroadcastEventToTenant(ctx, event, tenantID, userID)
 }
 
 // ClientCount returns the number of connected clients.

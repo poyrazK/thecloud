@@ -28,5 +28,5 @@ type EventService interface {
 type RealtimePublisher interface {
 	// PublishEvent sends an event to clients matching the given tenant/user scope.
 	// If userID is nil, sends to all clients in the tenant.
-	PublishEvent(event *domain.WSEvent, tenantID uuid.UUID, userID *uuid.UUID) error
+	PublishEvent(ctx context.Context, event *domain.WSEvent, tenantID uuid.UUID, userID *uuid.UUID) error
 }
