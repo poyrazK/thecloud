@@ -74,7 +74,12 @@ func (s *EventService) RecordEvent(ctx context.Context, action, resourceID, reso
 	if s.publisher != nil {
 		wsEvent, err := domain.NewWSEvent(domain.WSEventAuditLog, event, tenantID)
 		if err == nil {
-			_ = s.publisher.PublishEvent(wsEvent, tenantID, nil)
+			if err := s.publisher.PublishEvent(ctx, wsEvent, tenantID, nil); err != nil {
+				s.logger.Warn("failed to publish wsEvent",
+					"tenant_id", tenantID,
+					"event_id", event.ID,
+					"error", err)
+			}
 		}
 	}
 
