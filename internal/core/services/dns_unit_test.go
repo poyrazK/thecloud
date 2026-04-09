@@ -10,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -187,16 +188,6 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		assert.Equal(t, "5.6.7.8", updated.Content)
 	})
 
-	t.Run("GetZoneByVPC", func(t *testing.T) {
-		vpcID := uuid.New()
-		expectedZone := &domain.DNSZone{ID: uuid.New(), VpcID: vpcID, Name: "vpc.internal"}
-		repo.On("GetZoneByVPC", mock.Anything, vpcID).Return(expectedZone, nil).Once()
-
-		zone, err := svc.GetZoneByVPC(ctx, vpcID)
-		require.NoError(t, err)
-		assert.Equal(t, expectedZone, zone)
-	})
-
 	t.Run("ListZones", func(t *testing.T) {
 		expectedZones := []*domain.DNSZone{{ID: uuid.New()}, {ID: uuid.New()}}
 		repo.On("ListZones", mock.Anything).Return(expectedZones, nil).Once()
@@ -275,4 +266,98 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		err := svc.RegisterInstance(ctx, inst, "10.0.0.10")
 		require.NoError(t, err)
 	})
+}
+
+// TestGetZoneByVPC_Success tests the happy path where GetZoneByVPC returns a zone
+func TestGetZoneByVPC_Success(t *testing.T) {
+	repo := new(MockDNSRepository)
+	backend := new(MockDNSBackend)
+	vpcRepo := new(MockVpcRepo)
+	auditSvc := new(MockAuditService)
+	eventSvc := new(MockEventService)
+	rbacSvc := new(MockRBACService)
+
+	svc := services.NewDNSService(services.DNSServiceParams{
+		Repo:     repo,
+		Backend:  backend,
+		RBAC:     rbacSvc,
+		VpcRepo:  vpcRepo,
+		AuditSvc: auditSvc,
+		EventSvc: eventSvc,
+		Logger:   slog.Default(),
+	})
+
+	ctx := context.Background()
+	userID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+
+	vpcID := uuid.New()
+	expectedZone := &domain.DNSZone{ID: uuid.New(), VpcID: vpcID, Name: "vpc.internal"}
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	repo.On("GetZoneByVPC", mock.Anything, mock.Anything).Return(expectedZone, nil)
+
+	zone, err := svc.GetZoneByVPC(ctx, vpcID)
+	require.NoError(t, err)
+	assert.Equal(t, expectedZone, zone)
+}
+
+// TestGetZoneByVPC_Unauthorized tests when RBAC authorization fails
+func TestGetZoneByVPC_Unauthorized(t *testing.T) {
+	repo := new(MockDNSRepository)
+	backend := new(MockDNSBackend)
+	vpcRepo := new(MockVpcRepo)
+	auditSvc := new(MockAuditService)
+	eventSvc := new(MockEventService)
+	rbacSvc := new(MockRBACService)
+
+	svc := services.NewDNSService(services.DNSServiceParams{
+		Repo:     repo,
+		Backend:  backend,
+		RBAC:     rbacSvc,
+		VpcRepo:  vpcRepo,
+		AuditSvc: auditSvc,
+		EventSvc: eventSvc,
+		Logger:   slog.Default(),
+	})
+
+	ctx := context.Background()
+	userID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+
+	vpcID := uuid.New()
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New(errors.Forbidden, "access denied"))
+
+	_, err := svc.GetZoneByVPC(ctx, vpcID)
+	require.Error(t, err)
+}
+
+// TestGetZoneByVPC_RepoError tests when the repository returns an error
+func TestGetZoneByVPC_RepoError(t *testing.T) {
+	repo := new(MockDNSRepository)
+	backend := new(MockDNSBackend)
+	vpcRepo := new(MockVpcRepo)
+	auditSvc := new(MockAuditService)
+	eventSvc := new(MockEventService)
+	rbacSvc := new(MockRBACService)
+
+	svc := services.NewDNSService(services.DNSServiceParams{
+		Repo:     repo,
+		Backend:  backend,
+		RBAC:     rbacSvc,
+		VpcRepo:  vpcRepo,
+		AuditSvc: auditSvc,
+		EventSvc: eventSvc,
+		Logger:   slog.Default(),
+	})
+
+	ctx := context.Background()
+	userID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+
+	vpcID := uuid.New()
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	repo.On("GetZoneByVPC", mock.Anything, mock.Anything).Return(nil, errors.New(errors.Internal, "db error"))
+
+	_, err := svc.GetZoneByVPC(ctx, vpcID)
+	require.Error(t, err)
 }

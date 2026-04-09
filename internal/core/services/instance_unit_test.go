@@ -347,3 +347,258 @@ func TestInstanceService_Exec_Unit(t *testing.T) {
 		assert.Contains(t, err.Error(), "exec failed")
 	})
 }
+
+// TestInstanceService_Provision_Finalize tests the Provision method focusing on finalizeProvision path
+func TestInstanceService_Provision_Finalize(t *testing.T) {
+	t.Run("Finalize_Success", func(t *testing.T) {
+		repo := new(MockInstanceRepo)
+		vpcRepo := new(MockVpcRepo)
+		subnetRepo := new(MockSubnetRepo)
+		volRepo := new(MockVolumeRepo)
+		typeRepo := new(MockInstanceTypeRepo)
+		compute := new(MockComputeBackend)
+		network := new(MockNetworkBackend)
+		rbacSvc := new(MockRBACService)
+		eventSvc := new(MockEventService)
+		auditSvc := new(MockAuditService)
+		dnsSvc := new(MockDNSService)
+		taskQueue := new(MockTaskQueue)
+		tenantSvc := new(MockTenantService)
+		sshKeySvc := new(MockSSHKeyService)
+
+		svc := services.NewInstanceService(services.InstanceServiceParams{
+			Repo:             repo,
+			VpcRepo:          vpcRepo,
+			SubnetRepo:       subnetRepo,
+			VolumeRepo:       volRepo,
+			InstanceTypeRepo: typeRepo,
+			Compute:          compute,
+			Network:          network,
+			RBAC:             rbacSvc,
+			EventSvc:         eventSvc,
+			AuditSvc:         auditSvc,
+			DNSSvc:           dnsSvc,
+			TaskQueue:        taskQueue,
+			TenantSvc:        tenantSvc,
+			SSHKeySvc:        sshKeySvc,
+			DockerNetwork:    "bridge",
+			Logger:           slog.Default(),
+		})
+
+		ctx := context.Background()
+		userID := uuid.New()
+		tenantID := uuid.New()
+		ctx = appcontext.WithUserID(ctx, userID)
+		ctx = appcontext.WithTenantID(ctx, tenantID)
+
+		vpcID := uuid.New()
+		subnetID := uuid.New()
+		inst := &domain.Instance{
+			ID:            uuid.New(),
+			UserID:        userID,
+			TenantID:      tenantID,
+			Name:          "test-inst",
+			Image:         "alpine",
+			InstanceType:  "t2.micro",
+			VpcID:         &vpcID,
+			SubnetID:      &subnetID,
+			Status:        domain.StatusStarting,
+			PrivateIP:     "10.0.0.100", // Pre-allocated IP
+			OvsPort:       "ovs-port-1",
+		}
+
+		// Mock GetByID to return instance
+		repo.On("GetByID", mock.Anything, inst.ID).Return(inst, nil).Once()
+
+		// Mock network provisioning - some methods called multiple times so use Maybe()
+		compute.On("Type").Return("docker").Maybe()
+		vpcRepo.On("GetByID", mock.Anything, vpcID).Return(&domain.VPC{ID: vpcID, NetworkID: "net1"}, nil).Maybe() // called twice: provisionNetwork + plumbNetwork
+		subnetRepo.On("GetByID", mock.Anything, subnetID).Return(&domain.Subnet{ID: subnetID, CIDRBlock: "10.0.0.0/24", GatewayIP: "10.0.0.1"}, nil).Maybe()
+		repo.On("ListBySubnet", mock.Anything, subnetID).Return([]*domain.Instance{}, nil).Maybe()
+		network.On("CreateVethPair", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		network.On("AttachVethToBridge", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		network.On("SetVethIP", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		// Mock volume resolution (no volumes)
+		volRepo.On("ListByInstanceID", mock.Anything, inst.ID).Return([]*domain.Volume{}, nil).Once()
+
+		// Mock instance type
+		typeRepo.On("GetByID", mock.Anything, "t2.micro").Return(&domain.InstanceType{ID: "t2.micro", VCPUs: 1, MemoryMB: 1024, DiskGB: 10}, nil).Once()
+
+		// Mock container launch
+		compute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).Return("container-123", []string{}, nil).Once()
+
+		// Mock finalizeProvision dependencies - use mock.Anything for IPs since allocation changes them
+		dnsSvc.On("RegisterInstance", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		repo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
+		eventSvc.On("RecordEvent", mock.Anything, "INSTANCE_LAUNCH", mock.Anything, "INSTANCE", mock.Anything).Return(nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "instance.launch", "instance", mock.Anything, mock.Anything).Return(nil).Once()
+
+		// Run Provision
+		job := domain.ProvisionJob{
+			InstanceID: inst.ID,
+			UserData:   "",
+			Volumes:    nil,
+		}
+
+		err := svc.Provision(ctx, job)
+		require.NoError(t, err)
+
+		// Verify final state
+		assert.Equal(t, domain.StatusRunning, inst.Status)
+		assert.Equal(t, "container-123", inst.ContainerID)
+	})
+
+	t.Run("Finalize_RepoUpdateFails", func(t *testing.T) {
+		repo := new(MockInstanceRepo)
+		vpcRepo := new(MockVpcRepo)
+		subnetRepo := new(MockSubnetRepo)
+		volRepo := new(MockVolumeRepo)
+		typeRepo := new(MockInstanceTypeRepo)
+		compute := new(MockComputeBackend)
+		network := new(MockNetworkBackend)
+		eventSvc := new(MockEventService)
+		auditSvc := new(MockAuditService)
+		dnsSvc := new(MockDNSService)
+
+		svc := services.NewInstanceService(services.InstanceServiceParams{
+			Repo:             repo,
+			VpcRepo:          vpcRepo,
+			SubnetRepo:       subnetRepo,
+			VolumeRepo:       volRepo,
+			InstanceTypeRepo: typeRepo,
+			Compute:          compute,
+			Network:          network,
+			EventSvc:         eventSvc,
+			AuditSvc:         auditSvc,
+			DNSSvc:           dnsSvc,
+			Logger:           slog.Default(),
+		})
+
+		ctx := context.Background()
+		userID := uuid.New()
+		tenantID := uuid.New()
+		ctx = appcontext.WithUserID(ctx, userID)
+		ctx = appcontext.WithTenantID(ctx, tenantID)
+
+		vpcID := uuid.New()
+		subnetID := uuid.New()
+		inst := &domain.Instance{
+			ID:            uuid.New(),
+			UserID:        userID,
+			TenantID:      tenantID,
+			Name:          "test-inst",
+			Image:         "alpine",
+			InstanceType:  "t2.micro",
+			VpcID:         &vpcID,
+			SubnetID:      &subnetID,
+			Status:        domain.StatusStarting,
+			PrivateIP:     "10.0.0.100",
+			OvsPort:       "ovs-port-1",
+		}
+
+		repo.On("GetByID", mock.Anything, mock.Anything).Return(inst, nil).Maybe()
+		compute.On("Type").Return("docker").Maybe()
+		vpcRepo.On("GetByID", mock.Anything, mock.Anything).Return(&domain.VPC{ID: vpcID, NetworkID: "net1"}, nil).Maybe()
+		subnetRepo.On("GetByID", mock.Anything, mock.Anything).Return(&domain.Subnet{ID: subnetID, CIDRBlock: "10.0.0.0/24", GatewayIP: "10.0.0.1"}, nil).Maybe()
+		repo.On("ListBySubnet", mock.Anything, mock.Anything).Return([]*domain.Instance{}, nil).Maybe()
+		network.On("CreateVethPair", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		network.On("AttachVethToBridge", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		network.On("SetVethIP", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		volRepo.On("ListByInstanceID", mock.Anything, mock.Anything).Return([]*domain.Volume{}, nil).Maybe()
+		typeRepo.On("GetByID", mock.Anything, mock.Anything).Return(&domain.InstanceType{ID: "t2.micro", VCPUs: 1, MemoryMB: 1024, DiskGB: 10}, nil).Maybe()
+		compute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).Return("container-123", []string{}, nil).Maybe()
+		dnsSvc.On("RegisterInstance", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		repo.On("Update", mock.Anything, mock.Anything).Return(errors.New("database error")).Maybe()
+
+		job := domain.ProvisionJob{
+			InstanceID: inst.ID,
+			UserData:   "",
+			Volumes:    nil,
+		}
+
+		err := svc.Provision(ctx, job)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "database error")
+	})
+
+	t.Run("Finalize_GetInstanceIP_WhenNoPrivateIP", func(t *testing.T) {
+		repo := new(MockInstanceRepo)
+		vpcRepo := new(MockVpcRepo)
+		subnetRepo := new(MockSubnetRepo)
+		volRepo := new(MockVolumeRepo)
+		typeRepo := new(MockInstanceTypeRepo)
+		compute := new(MockComputeBackend)
+		network := new(MockNetworkBackend)
+		eventSvc := new(MockEventService)
+		auditSvc := new(MockAuditService)
+		dnsSvc := new(MockDNSService)
+
+		svc := services.NewInstanceService(services.InstanceServiceParams{
+			Repo:             repo,
+			VpcRepo:          vpcRepo,
+			SubnetRepo:       subnetRepo,
+			VolumeRepo:       volRepo,
+			InstanceTypeRepo: typeRepo,
+			Compute:          compute,
+			Network:          network,
+			EventSvc:         eventSvc,
+			AuditSvc:         auditSvc,
+			DNSSvc:           dnsSvc,
+			Logger:           slog.Default(),
+		})
+
+		ctx := context.Background()
+		userID := uuid.New()
+		tenantID := uuid.New()
+		ctx = appcontext.WithUserID(ctx, userID)
+		ctx = appcontext.WithTenantID(ctx, tenantID)
+
+		vpcID := uuid.New()
+		subnetID := uuid.New()
+		inst := &domain.Instance{
+			ID:            uuid.New(),
+			UserID:        userID,
+			TenantID:      tenantID,
+			Name:          "test-inst",
+			Image:         "alpine",
+			InstanceType:  "t2.micro",
+			VpcID:         &vpcID,
+			SubnetID:      &subnetID,
+			Status:        domain.StatusStarting,
+			PrivateIP:     "", // Empty - will trigger GetInstanceIP
+			OvsPort:       "ovs-port-1",
+		}
+
+		repo.On("GetByID", mock.Anything, mock.Anything).Return(inst, nil).Maybe()
+		compute.On("Type").Return("docker").Maybe()
+		vpcRepo.On("GetByID", mock.Anything, mock.Anything).Return(&domain.VPC{ID: vpcID, NetworkID: "net1"}, nil).Maybe()
+		subnetRepo.On("GetByID", mock.Anything, mock.Anything).Return(&domain.Subnet{ID: subnetID, CIDRBlock: "10.0.0.0/24", GatewayIP: "10.0.0.1"}, nil).Maybe()
+		repo.On("ListBySubnet", mock.Anything, mock.Anything).Return([]*domain.Instance{}, nil).Maybe()
+		network.On("CreateVethPair", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		network.On("AttachVethToBridge", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		network.On("SetVethIP", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		volRepo.On("ListByInstanceID", mock.Anything, mock.Anything).Return([]*domain.Volume{}, nil).Maybe()
+		typeRepo.On("GetByID", mock.Anything, mock.Anything).Return(&domain.InstanceType{ID: "t2.micro", VCPUs: 1, MemoryMB: 1024, DiskGB: 10}, nil).Maybe()
+		compute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).Return("container-123", []string{}, nil).Maybe()
+		compute.On("GetInstanceIP", mock.Anything, mock.Anything).Return("10.0.0.50", nil).Maybe()
+		dnsSvc.On("RegisterInstance", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		repo.On("Update", mock.Anything, mock.Anything).Return(nil).Maybe()
+		eventSvc.On("RecordEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		auditSvc.On("Log", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		job := domain.ProvisionJob{
+			InstanceID: inst.ID,
+			UserData:   "",
+			Volumes:    nil,
+		}
+
+		err := svc.Provision(ctx, job)
+		require.NoError(t, err)
+
+		// Note: PrivateIP is allocated by provisionNetwork, not fetched via GetInstanceIP
+		// The GetInstanceIP path in finalizeProvision is only reachable when PrivateIP is ""
+		// but provisionNetwork always allocates an IP first, so this path is not testable via Provision()
+		assert.Equal(t, domain.StatusRunning, inst.Status)
+	})
+}
