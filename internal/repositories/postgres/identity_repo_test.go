@@ -64,12 +64,14 @@ func TestIdentityRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("ListAPIKeysByUserID", func(t *testing.T) {
-		// Create another API key
+		// Create another API key with dynamically generated values
+		anotherKey := "test-key-" + uuid.New().String()
+		anotherHash := sha256.Sum256([]byte(anotherKey))
 		key2 := &domain.APIKey{
 			ID:        uuid.New(),
 			UserID:    userID, TenantID:  tenantID,
-			Key:       "another-api-key-67890",
-			KeyHash:   sha256.Sum256([]byte("another-api-key-67890"))[:],
+			Key:       anotherKey,
+			KeyHash:   hex.EncodeToString(anotherHash[:]),
 			Name:      "another-key",
 			CreatedAt: time.Now(),
 		}
