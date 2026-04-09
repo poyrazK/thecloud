@@ -4,11 +4,13 @@ package postgres
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poyrazk/thecloud/internal/core/domain" 
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,6 +30,8 @@ func TestIdentityRepository_Integration(t *testing.T) {
 
 	var keyID uuid.UUID
 	keyString := "test-api-key-12345"
+	keyHash := sha256.Sum256([]byte(keyString))
+	keyHashHex := hex.EncodeToString(keyHash[:])
 
 	t.Run("CreateAPIKey", func(t *testing.T) {
 		keyID = uuid.New()
@@ -35,6 +39,7 @@ func TestIdentityRepository_Integration(t *testing.T) {
 			ID:        keyID,
 			UserID:    userID, TenantID:  tenantID,
 			Key:       keyString,
+			KeyHash:   keyHashHex,
 			Name:      "test-key",
 			CreatedAt: time.Now(),
 		}
@@ -43,8 +48,8 @@ func TestIdentityRepository_Integration(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("GetAPIKeyByKey", func(t *testing.T) {
-		apiKey, err := repo.GetAPIKeyByKey(ctx, keyString)
+	t.Run("GetAPIKeyByHash", func(t *testing.T) {
+		apiKey, err := repo.GetAPIKeyByHash(ctx, keyHashHex)
 		require.NoError(t, err)
 		assert.Equal(t, keyID, apiKey.ID)
 		assert.Equal(t, userID, apiKey.UserID)
@@ -64,6 +69,7 @@ func TestIdentityRepository_Integration(t *testing.T) {
 			ID:        uuid.New(),
 			UserID:    userID, TenantID:  tenantID,
 			Key:       "another-api-key-67890",
+			KeyHash:   sha256.Sum256([]byte("another-api-key-67890"))[:],
 			Name:      "another-key",
 			CreatedAt: time.Now(),
 		}
@@ -97,8 +103,8 @@ func TestIdentityRepository_Integration(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("GetAPIKeyByKey_NotFound", func(t *testing.T) {
-		_, err := repo.GetAPIKeyByKey(ctx, "non-existent-key")
+	t.Run("GetAPIKeyByHash_NotFound", func(t *testing.T) {
+		_, err := repo.GetAPIKeyByHash(ctx, "non-existent-hash")
 		assert.Error(t, err)
 	})
 
