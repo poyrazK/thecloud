@@ -222,6 +222,6 @@ func (s *IdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uu
 // unnecessarily and does not improve security for high-entropy keys.
 func computeKeyHash(key string) string {
 	h := sha256.New()
-	h.Write([]byte(key)) //nolint:errcheck // sha256.Write always returns nil
+	h.Write([]byte(key))
 	return hex.EncodeToString(h.Sum(nil))
 }
