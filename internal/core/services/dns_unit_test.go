@@ -268,8 +268,8 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 	})
 }
 
-// TestGetZoneByVPC_Success tests the happy path where GetZoneByVPC returns a zone
-func TestGetZoneByVPC_Success(t *testing.T) {
+// TestGetZoneByVPC tests the GetZoneByVPC method with table-driven cases
+func TestGetZoneByVPC(t *testing.T) {
 	repo := new(MockDNSRepository)
 	backend := new(MockDNSBackend)
 	vpcRepo := new(MockVpcRepo)
@@ -291,73 +291,68 @@ func TestGetZoneByVPC_Success(t *testing.T) {
 	userID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
 
-	vpcID := uuid.New()
-	expectedZone := &domain.DNSZone{ID: uuid.New(), VpcID: vpcID, Name: "vpc.internal"}
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	repo.On("GetZoneByVPC", mock.Anything, mock.Anything).Return(expectedZone, nil)
+	testCases := []struct {
+		name       string
+		rbacErr    error
+		repoZone   *domain.DNSZone
+		repoErr    error
+		expectErr  bool
+	}{
+		{
+			name:     "Success",
+			rbacErr:  nil,
+			repoZone: &domain.DNSZone{ID: uuid.New(), VpcID: uuid.New(), Name: "vpc.internal"},
+			repoErr:  nil,
+			expectErr: false,
+		},
+		{
+			name:      "Unauthorized",
+			rbacErr:   errors.New(errors.Forbidden, "access denied"),
+			repoZone:  nil,
+			repoErr:   nil,
+			expectErr: true,
+		},
+		{
+			name:      "RepoError",
+			rbacErr:   nil,
+			repoZone:  nil,
+			repoErr:   errors.New(errors.Internal, "db error"),
+			expectErr: true,
+		},
+	}
 
-	zone, err := svc.GetZoneByVPC(ctx, vpcID)
-	require.NoError(t, err)
-	assert.Equal(t, expectedZone, zone)
-}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create fresh vpcID for each subtest
+			vpcID := uuid.New()
 
-// TestGetZoneByVPC_Unauthorized tests when RBAC authorization fails
-func TestGetZoneByVPC_Unauthorized(t *testing.T) {
-	repo := new(MockDNSRepository)
-	backend := new(MockDNSBackend)
-	vpcRepo := new(MockVpcRepo)
-	auditSvc := new(MockAuditService)
-	eventSvc := new(MockEventService)
-	rbacSvc := new(MockRBACService)
+			rbacSvc.On("Authorize",
+				mock.Anything, // ctx
+				mock.Anything, // userID - uuid.UUID (passed by value)
+				mock.Anything, // tenantID - uuid.UUID (passed by value)
+				mock.Anything, // permission - domain.Permission
+				mock.Anything, // resource - string
+			).Return(tc.rbacErr).Once()
 
-	svc := services.NewDNSService(services.DNSServiceParams{
-		Repo:     repo,
-		Backend:  backend,
-		RBAC:     rbacSvc,
-		VpcRepo:  vpcRepo,
-		AuditSvc: auditSvc,
-		EventSvc: eventSvc,
-		Logger:   slog.Default(),
-	})
+			// Only set up repo mock if RBAC passes (repo won't be called on RBAC failure)
+			if tc.rbacErr == nil {
+				repo.On("GetZoneByVPC", mock.Anything, vpcID).Return(tc.repoZone, tc.repoErr).Once()
+			}
 
-	ctx := context.Background()
-	userID := uuid.New()
-	ctx = appcontext.WithUserID(ctx, userID)
+			zone, err := svc.GetZoneByVPC(ctx, vpcID)
 
-	vpcID := uuid.New()
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New(errors.Forbidden, "access denied"))
+			if tc.expectErr {
+				require.Error(t, err)
+				assert.Nil(t, zone)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tc.repoZone, zone)
+			}
 
-	_, err := svc.GetZoneByVPC(ctx, vpcID)
-	require.Error(t, err)
-}
-
-// TestGetZoneByVPC_RepoError tests when the repository returns an error
-func TestGetZoneByVPC_RepoError(t *testing.T) {
-	repo := new(MockDNSRepository)
-	backend := new(MockDNSBackend)
-	vpcRepo := new(MockVpcRepo)
-	auditSvc := new(MockAuditService)
-	eventSvc := new(MockEventService)
-	rbacSvc := new(MockRBACService)
-
-	svc := services.NewDNSService(services.DNSServiceParams{
-		Repo:     repo,
-		Backend:  backend,
-		RBAC:     rbacSvc,
-		VpcRepo:  vpcRepo,
-		AuditSvc: auditSvc,
-		EventSvc: eventSvc,
-		Logger:   slog.Default(),
-	})
-
-	ctx := context.Background()
-	userID := uuid.New()
-	ctx = appcontext.WithUserID(ctx, userID)
-
-	vpcID := uuid.New()
-	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	repo.On("GetZoneByVPC", mock.Anything, mock.Anything).Return(nil, errors.New(errors.Internal, "db error"))
-
-	_, err := svc.GetZoneByVPC(ctx, vpcID)
-	require.Error(t, err)
+			if tc.rbacErr == nil {
+				repo.AssertExpectations(t)
+			}
+			rbacSvc.AssertExpectations(t)
+		})
+	}
 }

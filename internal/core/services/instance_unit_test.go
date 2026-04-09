@@ -447,6 +447,8 @@ func TestInstanceService_Provision_Finalize(t *testing.T) {
 		// Verify final state
 		assert.Equal(t, domain.StatusRunning, inst.Status)
 		assert.Equal(t, "container-123", inst.ContainerID)
+
+		repo.AssertExpectations(t)
 	})
 
 	t.Run("Finalize_RepoUpdateFails", func(t *testing.T) {
@@ -520,9 +522,11 @@ func TestInstanceService_Provision_Finalize(t *testing.T) {
 		err := svc.Provision(ctx, job)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "database error")
+
+		repo.AssertExpectations(t)
 	})
 
-	t.Run("Finalize_GetInstanceIP_WhenNoPrivateIP", func(t *testing.T) {
+	t.Run("Finalize_NetworkProvisioningAllocatesIP", func(t *testing.T) {
 		repo := new(MockInstanceRepo)
 		vpcRepo := new(MockVpcRepo)
 		subnetRepo := new(MockSubnetRepo)
@@ -596,9 +600,11 @@ func TestInstanceService_Provision_Finalize(t *testing.T) {
 		err := svc.Provision(ctx, job)
 		require.NoError(t, err)
 
-		// Note: PrivateIP is allocated by provisionNetwork, not fetched via GetInstanceIP
-		// The GetInstanceIP path in finalizeProvision is only reachable when PrivateIP is ""
-		// but provisionNetwork always allocates an IP first, so this path is not testable via Provision()
+		// Note: provisionNetwork allocates PrivateIP before finalizeProvision runs,
+		// so GetInstanceIP in finalizeProvision is not exercised by this test.
+		// This test verifies success path when PrivateIP starts empty and is allocated during network provisioning.
 		assert.Equal(t, domain.StatusRunning, inst.Status)
+
+		repo.AssertExpectations(t)
 	})
 }
