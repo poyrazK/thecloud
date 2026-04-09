@@ -11,23 +11,22 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
-	"github.com/poyrazk/thecloud/internal/handlers/ws"
 )
 
 // EventServiceParams defines the dependencies for EventService.
 type EventServiceParams struct {
-	Repo    ports.EventRepository
-	RBACSvc ports.RBACService
-	Hub     *ws.Hub
-	Logger  *slog.Logger
+	Repo      ports.EventRepository
+	RBACSvc   ports.RBACService
+	Publisher ports.RealtimePublisher
+	Logger    *slog.Logger
 }
 
 // EventService records events and emits websocket notifications.
 type EventService struct {
-	repo    ports.EventRepository
-	rbacSvc ports.RBACService
-	hub     *ws.Hub
-	logger  *slog.Logger
+	repo      ports.EventRepository
+	rbacSvc   ports.RBACService
+	publisher ports.RealtimePublisher
+	logger    *slog.Logger
 }
 
 // NewEventService constructs an EventService with its dependencies.
@@ -37,10 +36,10 @@ func NewEventService(params EventServiceParams) *EventService {
 		logger = slog.Default()
 	}
 	return &EventService{
-		repo:    params.Repo,
-		rbacSvc: params.RBACSvc,
-		hub:     params.Hub,
-		logger:  logger,
+		repo:      params.Repo,
+		rbacSvc:   params.RBACSvc,
+		publisher: params.Publisher,
+		logger:    logger,
 	}
 }
 
@@ -72,10 +71,10 @@ func (s *EventService) RecordEvent(ctx context.Context, action, resourceID, reso
 	}
 
 	// Real-time broadcast
-	if s.hub != nil {
-		wsEvent, err := domain.NewWSEvent(domain.WSEventAuditLog, event)
+	if s.publisher != nil {
+		wsEvent, err := domain.NewWSEvent(domain.WSEventAuditLog, event, tenantID)
 		if err == nil {
-			s.hub.BroadcastEvent(wsEvent)
+			_ = s.publisher.PublishEvent(wsEvent, tenantID, nil)
 		}
 	}
 
