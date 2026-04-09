@@ -215,8 +215,13 @@ func (s *IdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uu
 }
 
 // computeKeyHash returns the SHA-256 hex digest of an API key.
+//
+//nolint:codeql // SHA-256 is used as a stable key fingerprint, not password hashing.
+// API keys are machine-generated 32-char hex strings (~128 bits of entropy).
+// Using a memory-hard function (argon2/bcrypt) would slow validation
+// unnecessarily and does not improve security for high-entropy keys.
 func computeKeyHash(key string) string {
 	h := sha256.New()
-	h.Write([]byte(key))
+	h.Write([]byte(key)) //nolint:errcheck // sha256.Write always returns nil
 	return hex.EncodeToString(h.Sum(nil))
 }
