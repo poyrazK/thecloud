@@ -4,6 +4,7 @@ package ports
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
@@ -21,4 +22,11 @@ type EventService interface {
 	RecordEvent(ctx context.Context, action, resourceID, resourceType string, metadata map[string]interface{}) error
 	// ListEvents returns a slice of recent events for observability purposes.
 	ListEvents(ctx context.Context, limit int) ([]*domain.Event, error)
+}
+
+// RealtimePublisher emits real-time events to subscribed clients.
+type RealtimePublisher interface {
+	// PublishEvent sends an event to clients matching the given tenant/user scope.
+	// If userID is nil, sends to all clients in the tenant.
+	PublishEvent(event *domain.WSEvent, tenantID uuid.UUID, userID *uuid.UUID) error
 }
