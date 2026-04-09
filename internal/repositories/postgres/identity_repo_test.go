@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,11 +50,37 @@ func TestIdentityRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("GetAPIKeyByHash", func(t *testing.T) {
-		apiKey, err := repo.GetAPIKeyByHash(ctx, keyHashHex)
-		require.NoError(t, err)
-		assert.Equal(t, keyID, apiKey.ID)
-		assert.Equal(t, userID, apiKey.UserID)
-		assert.Equal(t, "test-key", apiKey.Name)
+		cases := []struct {
+			name    string
+			hash    string
+			wantErr bool
+		}{
+			{
+				name:    "found",
+				hash:    keyHashHex,
+				wantErr: false,
+			},
+			{
+				name:    "not_found",
+				hash:    strings.Repeat("a", 64),
+				wantErr: true,
+			},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				apiKey, err := repo.GetAPIKeyByHash(ctx, tc.hash)
+				if tc.wantErr {
+					assert.Error(t, err)
+					assert.Nil(t, apiKey)
+				} else {
+					require.NoError(t, err)
+					assert.NotNil(t, apiKey)
+					assert.Equal(t, keyID, apiKey.ID)
+					assert.Equal(t, userID, apiKey.UserID)
+					assert.Equal(t, "test-key", apiKey.Name)
+				}
+			})
+		}
 	})
 
 	t.Run("GetAPIKeyByID", func(t *testing.T) {
@@ -102,11 +129,6 @@ func TestIdentityRepository_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = repo.GetAPIKeyByID(ctx, keyID)
-		assert.Error(t, err)
-	})
-
-	t.Run("GetAPIKeyByHash_NotFound", func(t *testing.T) {
-		_, err := repo.GetAPIKeyByHash(ctx, "non-existent-hash")
 		assert.Error(t, err)
 	})
 
