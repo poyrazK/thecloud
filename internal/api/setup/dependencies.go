@@ -207,7 +207,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	// 2. WebSocket & Core Infrastructure
 	wsHub := ws.NewHub(c.Logger)
 	go wsHub.Run()
-	eventSvc := services.NewEventService(services.EventServiceParams{Repo: c.Repos.Event, RBACSvc: rbacSvc, Hub: wsHub, Logger: c.Logger})
+	eventSvc := services.NewEventService(services.EventServiceParams{Repo: c.Repos.Event, RBACSvc: rbacSvc, Publisher: wsHub, Logger: c.Logger})
 
 	// 3. Cloud Infrastructure Services (VPC, Subnet, Instance, Volume, SG, LB)
 	vpcSvc := services.NewVpcService(services.VpcServiceParams{Repo: c.Repos.Vpc, LBRepo: c.Repos.LB, PeeringRepo: c.Repos.VPCPeering, RBACSvc: rbacSvc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger, DefaultCIDR: c.Config.DefaultVPCCIDR})

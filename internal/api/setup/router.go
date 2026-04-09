@@ -76,9 +76,6 @@ type Handlers struct {
 
 // InitHandlers constructs HTTP handlers and websocket hub.
 func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Handlers {
-	hub := ws.NewHub(logger)
-	go hub.Run()
-
 	return &Handlers{
 		Audit:         httphandlers.NewAuditHandler(svcs.Audit),
 		Identity:      httphandlers.NewIdentityHandler(svcs.Identity),
@@ -120,7 +117,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		Log:           httphandlers.NewLogHandler(svcs.Log),
 		IAM:           httphandlers.NewIAMHandler(svcs.IAM),
 		VPCPeering:    httphandlers.NewVPCPeeringHandler(svcs.VPCPeering),
-		Ws:            ws.NewHandler(hub, svcs.Identity, logger),
+		Ws:            ws.NewHandler(svcs.WsHub, svcs.Identity, logger),
 	}
 }
 
