@@ -12,8 +12,8 @@ import (
 type IdentityRepository interface {
 	// CreateAPIKey saves a new API key record.
 	CreateAPIKey(ctx context.Context, apiKey *domain.APIKey) error
-	// GetAPIKeyByKey retrieves a key's metadata based on its raw string value.
-	GetAPIKeyByKey(ctx context.Context, key string) (*domain.APIKey, error)
+	// GetAPIKeyByHash retrieves a key's metadata based on its hash.
+	GetAPIKeyByHash(ctx context.Context, keyHash string) (*domain.APIKey, error)
 	// GetAPIKeyByID retrieves key metadata by its unique UUID.
 	GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error)
 	// ListAPIKeysByUserID returns all active and revoked keys for a specific user.

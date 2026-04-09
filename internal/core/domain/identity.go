@@ -13,7 +13,8 @@ type APIKey struct {
 	UserID          uuid.UUID  `json:"user_id"`
 	TenantID        uuid.UUID  `json:"tenant_id"`
 	DefaultTenantID *uuid.UUID `json:"default_tenant_id,omitempty"`
-	Key             string     `json:"key"` // The actual secret key
+	Key             string     `json:"key,omitempty"`    // plaintext shown only at create/rotate; empty when listed
+	KeyHash         string     `json:"-"`                // stored in DB, never serialized to JSON
 	Name            string     `json:"name"`
 	CreatedAt       time.Time  `json:"created_at"`
 	LastUsed        time.Time  `json:"last_used"`

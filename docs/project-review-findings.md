@@ -59,30 +59,32 @@ Resolution (PR #113):
 
 Severity: High
 
-What is wrong:
-- API keys are stored in plaintext in Postgres: `internal/repositories/postgres/migrations/002_create_api_keys_table.up.sql:3-12`.
-- They are read back directly: `internal/repositories/postgres/identity_repo.go:37-64`.
-- The domain model exposes the raw key: `internal/core/domain/identity.go:10-20`.
-- Handlers return full keys from create, list, and rotate endpoints: `internal/handlers/identity_handler.go:37-69,104-119`.
-- Full key objects are cached in Redis: `internal/core/services/cached_identity.go:40-60`.
+Status: ✅ RESOLVED (PR #115)
 
-Why it matters:
+What was wrong:
+- API keys are stored in plaintext in Postgres: `internal/repositories/postgres/migrations/002_create_api_keys_table.up.sql:3-12`.
+- They are read back directly: `internal/repositories/postgres/identity_repo.go:37-43`.
+- The domain model exposes the raw key: `internal/core/domain/identity.go:10-21`.
+- Handlers return full keys from create, list, and rotate endpoints: `internal/handlers/identity_handler.go:37-69,104-119`.
+- Full key objects are cached in Redis: `internal/core/services/cached_identity.go:40-64`.
+
+Why it mattered:
 - A DB leak or Redis leak becomes an immediate credential compromise.
 - Listing keys should not return active secrets.
 
-Recommendation:
-- Store only a hashed representation of the key.
-- Show the raw key only once at creation/rotation time.
-- Redact keys from list endpoints.
-- Reduce the key footprint in memory and cache.
+Resolution (PR #115):
+- Store SHA-256 hash in `key_hash` column, raw key shown only at create/rotate
+- `Key` field uses `omitempty` — empty on list, populated only at create/rotate
+- Redis cache keyed by hash (`apikey:hash:{sha256}`) not raw key
+- `GetAPIKeyByKey` → `GetAPIKeyByHash` for lookup
 
 ### 3. Revoked and rotated API keys can remain valid
 
 Severity: High
 
 What is wrong:
-- `internal/core/services/cached_identity.go:40-60` caches successful validations.
-- `internal/core/services/cached_identity.go:70-78` does not invalidate the cache on revoke or rotate.
+- `internal/core/services/cached_identity.go:40-64` caches successful validations.
+- `internal/core/services/cached_identity.go:71-75` does not invalidate the cache on revoke or rotate.
 
 Why it matters:
 - A revoked key can continue authenticating until cache TTL expires.
@@ -99,7 +101,7 @@ Severity: High
 What is wrong:
 - Tenancy was added to `api_keys` in migrations: `internal/repositories/postgres/migrations/070_create_tenants.up.sql:37-41` and `internal/repositories/postgres/migrations/102_add_tenant_id_to_missing_resources.up.sql:12-19`.
 - Auth resolves tenant context from the API key: `pkg/httputil/auth.go:35-45,101-125`.
-- `internal/core/services/identity.go:70-76` creates keys without setting `TenantID` or `DefaultTenantID`.
+- `internal/core/services/identity.go:71-78` creates keys without setting `TenantID` or `DefaultTenantID`.
 
 Why it matters:
 - Default tenant resolution may silently fail for newly created keys.

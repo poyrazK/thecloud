@@ -44,7 +44,7 @@ func TestIdentityService_Unit(t *testing.T) {
 	t.Run("ValidateAPIKey", func(t *testing.T) {
 		keyStr := "thecloud_123"
 		apiKey := &domain.APIKey{Key: keyStr, UserID: userID}
-		mockRepo.On("GetAPIKeyByKey", mock.Anything, keyStr).Return(apiKey, nil).Once()
+		mockRepo.On("GetAPIKeyByHash", mock.Anything, mock.Anything).Return(apiKey, nil).Once()
 
 		res, err := svc.ValidateAPIKey(ctx, keyStr)
 		require.NoError(t, err)
@@ -55,7 +55,7 @@ func TestIdentityService_Unit(t *testing.T) {
 		keyStr := "expired"
 		past := time.Now().Add(-1 * time.Hour)
 		apiKey := &domain.APIKey{Key: keyStr, ExpiresAt: &past}
-		mockRepo.On("GetAPIKeyByKey", mock.Anything, keyStr).Return(apiKey, nil).Once()
+		mockRepo.On("GetAPIKeyByHash", mock.Anything, mock.Anything).Return(apiKey, nil).Once()
 
 		_, err := svc.ValidateAPIKey(ctx, keyStr)
 		require.Error(t, err)
