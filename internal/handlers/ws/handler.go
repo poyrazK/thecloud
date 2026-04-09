@@ -42,13 +42,14 @@ func (h *Handler) ServeWS(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")
 	if authHeader != "" {
 		lowerHeader := strings.ToLower(authHeader)
-		if strings.HasPrefix(lowerHeader, "bearer ") {
+		switch {
+		case strings.HasPrefix(lowerHeader, "bearer "):
 			apiKey = strings.TrimSpace(authHeader[len("Bearer "):])
-		} else if strings.Contains(authHeader, " ") {
+		case strings.Contains(authHeader, " "):
 			// Contains a space but not Bearer prefix - malformed
 			h.logger.Warn("malformed authorization header", "header", authHeader)
 			apiKey = ""
-		} else {
+		default:
 			// No space - treat as raw API key
 			apiKey = authHeader
 		}
