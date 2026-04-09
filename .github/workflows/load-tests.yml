@@ -8,10 +8,11 @@ on:
       - 'tests/load/**'
 
 jobs:
-  load-test:
-    name: K6 Performance Test
+  # Fast API tests (no infrastructure dependency) - runs in ~3 minutes
+  api-quick:
+    name: API Quick Tests
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: postgres:15
@@ -25,7 +26,6 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-      
       redis:
         image: redis:7-alpine
         options: >-
@@ -35,7 +35,7 @@ jobs:
           --health-retries 5
         ports:
           - 6379:6379
-    
+
     steps:
       - uses: actions/checkout@v6
 
@@ -58,36 +58,187 @@ jobs:
           ./api &
           API_PID=$!
           echo "API_PID=$API_PID" >> $GITHUB_ENV
-          
-          # Wait for server to be ready (max 30 seconds)
-          echo "Waiting for API server to start..."
           for i in {1..30}; do
-            if curl -f http://localhost:8080/health > /dev/null 2>&1; then
-              echo "API server is ready!"
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "API ready"
               break
             fi
-            echo "Waiting... ($i/30)"
             sleep 1
           done
-          
-          # Verify server is actually running
-          if ! curl -f http://localhost:8080/health > /dev/null 2>&1; then
-            echo "ERROR: API server failed to start"
-            exit 1
-          fi
 
       - name: Setup k6
         uses: grafana/setup-k6-action@v1
-      
-      - name: Run k6 Load Test
+
+      - name: Run Smoke Test
         uses: grafana/run-k6-action@v1
         with:
           path: tests/load/api-smoke.js
           flags: --vus 10 --duration 30s
 
-      - name: Stop API Server
+      - name: Run Error Paths Unauth Test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: tests/load/error-paths-unauth.js
+          flags: --vus 10 --duration 1m
+
+      - name: Run Error Paths Validation Test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: tests/load/error-paths-validation.js
+          flags: --vus 5 --duration 1m
+
+      - name: Run Rate Limit Test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: tests/load/rate-limit.js
+          flags: --vus 20 --duration 30s
+
+      - name: Stop API
         if: always()
+        run: kill $API_PID 2>/dev/null || true
+
+  # Storage tests - runs in ~2 minutes
+  api-storage:
+    name: API Storage Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: thecloud_test
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Build API Server
+        run: go build -o api ./cmd/api
+
+      - name: Start API Server
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/thecloud_test?sslmode=disable
+          PORT: 8080
+          JWT_SECRET: test-secret-for-load-testing-only
+          ENVIRONMENT: test
         run: |
-          if [ ! -z "$API_PID" ]; then
-            kill $API_PID || true
-          fi
+          ./api &
+          for i in {1..30}; do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "API ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run Storage Test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: tests/load/storage.js
+          flags: --vus 5 --duration 2m
+
+  # Slow infrastructure tests - runs in ~5 minutes
+  api-slow:
+    name: API Slow Infrastructure Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: thecloud_test
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Setup Docker socket
+        run: sudo chmod 666 /var/run/docker.sock
+
+      - name: Build API Server
+        run: go build -o api ./cmd/api
+
+      - name: Start API Server
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/thecloud_test?sslmode=disable
+          PORT: 8080
+          JWT_SECRET: test-secret-for-load-testing-only
+          ENVIRONMENT: test
+          COMPUTE_BACKEND: docker
+        run: |
+          ./api &
+          for i in {1..30}; do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "API ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run Real-World Lifecycle Test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: tests/load/real-world-lifecycle.js
+          flags: --vus 5 --duration 3m
+
+      - name: Run Database Lifecycle Test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: tests/load/database-lifecycle.js
+          flags: --vus 2 --duration 5m
+
+      - name: Run Load Balancer Test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: tests/load/load-balancer.js
+          flags: --vus 2 --duration 5m
