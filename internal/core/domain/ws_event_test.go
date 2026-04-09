@@ -1,10 +1,14 @@
 package domain
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/google/uuid"
+)
 
 func TestNewWSEvent_Success(t *testing.T) {
 	t.Parallel()
-	event, err := NewWSEvent(WSEventInstanceCreated, map[string]string{"id": "i-1"})
+	event, err := NewWSEvent(WSEventInstanceCreated, map[string]string{"id": "i-1"}, uuid.New())
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -18,7 +22,7 @@ func TestNewWSEvent_Success(t *testing.T) {
 
 func TestNewWSEvent_InvalidPayload(t *testing.T) {
 	t.Parallel()
-	_, err := NewWSEvent(WSEventMetricUpdate, make(chan int))
+	_, err := NewWSEvent(WSEventMetricUpdate, make(chan int), uuid.New())
 	if err == nil {
 		t.Fatalf("expected error for invalid payload")
 	}
