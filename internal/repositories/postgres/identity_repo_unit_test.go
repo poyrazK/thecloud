@@ -92,7 +92,7 @@ func TestIdentityRepository_GetAPIKeyByHash(t *testing.T) {
 			tc.setup()
 			apiKey, err := repo.GetAPIKeyByHash(context.Background(), tc.hash)
 			if tc.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Nil(t, apiKey)
 			} else {
 				require.NoError(t, err)
