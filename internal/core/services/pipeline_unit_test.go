@@ -453,8 +453,12 @@ func TestPipelineService_TriggerBuild(t *testing.T) {
 		pipeline := &domain.Pipeline{ID: pipelineID, UserID: userID, Status: domain.PipelineStatusActive}
 
 		repo.On("GetPipeline", mock.Anything, pipelineID, userID).Return(pipeline, nil).Once()
-		repo.On("CreateBuild", mock.Anything, mock.Anything).Return(nil).Once()
-		taskQueue.On("Enqueue", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		repo.On("CreateBuild", mock.Anything, mock.MatchedBy(func(b *domain.Build) bool {
+			return b != nil && b.PipelineID == pipelineID && b.CommitHash == "abc123"
+		})).Return(nil).Once()
+		taskQueue.On("Enqueue", mock.Anything, "pipeline_build_queue", mock.MatchedBy(func(job domain.BuildJob) bool {
+			return job.PipelineID == pipelineID && job.CommitHash == "abc123"
+		})).Return(nil).Once()
 		eventSvc.On("RecordEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 		auditSvc.On("Log", mock.Anything, userID, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 
@@ -466,6 +470,7 @@ func TestPipelineService_TriggerBuild(t *testing.T) {
 		assert.NotNil(t, build)
 		assert.Equal(t, "abc123", build.CommitHash)
 		repo.AssertExpectations(t)
+		taskQueue.AssertExpectations(t)
 	})
 
 	t.Run("PipelineNotActive", func(t *testing.T) {
