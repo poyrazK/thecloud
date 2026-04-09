@@ -107,14 +107,16 @@ func (h *Hub) BroadcastEventToTenant(ctx context.Context, event *domain.WSEvent,
 	}
 	h.mu.RUnlock()
 
-	// Remove dead clients via unregister channel (safe removal)
+	// Remove dead clients directly - don't go through Unregister to avoid double-decrement.
+	// ReadPump's deferred Unregister will find client already removed and skip Decrement.
 	for _, client := range toRemove {
-		select {
-		case h.unregister <- client:
-		case <-ctx.Done():
-			// Context cancelled - client will be cleaned up when hub shuts down
-			return ctx.Err()
+		h.mu.Lock()
+		if _, ok := h.clients[client]; ok {
+			delete(h.clients, client)
+			close(client.send)
+			platform.WSConnectionsActive.Dec()
 		}
+		h.mu.Unlock()
 	}
 
 	return nil
