@@ -11,20 +11,22 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+const (
+	websocketReadBufferSize  = 1024
+	websocketWriteBufferSize = 1024
+)
+
 // Handler handles WebSocket connections.
 type Handler struct {
 	hub            *Hub
 	identitySvc    ports.IdentityService
-	logger         *slog.Logger
+	logger        *slog.Logger
 	allowedOrigins string
 }
 
 // NewHandler creates a new WebSocket handler.
 func NewHandler(hub *Hub, identitySvc ports.IdentityService, logger *slog.Logger, allowedOrigins ...string) *Handler {
-	origins := ""
-	if len(allowedOrigins) > 0 {
-		origins = allowedOrigins[0]
-	}
+	origins := strings.Join(allowedOrigins, ",")
 	return &Handler{
 		hub:            hub,
 		identitySvc:    identitySvc,
@@ -39,12 +41,20 @@ func (h *Handler) ServeWS(c *gin.Context) {
 	var apiKey string
 	authHeader := c.GetHeader("Authorization")
 	if authHeader != "" {
-		if strings.HasPrefix(authHeader, "Bearer ") {
-			apiKey = strings.TrimPrefix(authHeader, "Bearer ")
+		lowerHeader := strings.ToLower(authHeader)
+		if strings.HasPrefix(lowerHeader, "bearer ") {
+			apiKey = strings.TrimSpace(authHeader[len("Bearer "):])
+		} else if strings.Contains(authHeader, " ") {
+			// Contains a space but not Bearer prefix - malformed
+			h.logger.Warn("malformed authorization header", "header", authHeader)
+			apiKey = ""
 		} else {
+			// No space - treat as raw API key
 			apiKey = authHeader
 		}
-	} else {
+	}
+
+	if apiKey == "" {
 		// Fallback to query param (deprecated)
 		apiKey = c.Query("api_key")
 		if apiKey != "" {
@@ -79,15 +89,15 @@ func (h *Handler) ServeWS(c *gin.Context) {
 
 func (h *Handler) upgrader() *websocket.Upgrader {
 	return &websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
+		ReadBufferSize:  websocketReadBufferSize,
+		WriteBufferSize: websocketWriteBufferSize,
 		CheckOrigin: func(r *http.Request) bool {
 			origin := r.Header.Get("Origin")
 			if origin == "" {
 				return true // Same-origin requests have no Origin header
 			}
 			if h.allowedOrigins == "" {
-				return false // No origins allowed if not configured
+				return true // No restriction if not configured
 			}
 			allowed := strings.Split(h.allowedOrigins, ",")
 			for _, o := range allowed {
@@ -99,4 +109,3 @@ func (h *Handler) upgrader() *websocket.Upgrader {
 		},
 	}
 }
-
