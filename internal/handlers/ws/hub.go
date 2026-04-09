@@ -109,7 +109,12 @@ func (h *Hub) BroadcastEventToTenant(ctx context.Context, event *domain.WSEvent,
 
 	// Remove dead clients via unregister channel (safe removal)
 	for _, client := range toRemove {
-		h.Unregister(client)
+		select {
+		case h.unregister <- client:
+		case <-ctx.Done():
+			// Context cancelled - client will be cleaned up when hub shuts down
+			return ctx.Err()
+		}
 	}
 
 	return nil

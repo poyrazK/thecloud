@@ -20,7 +20,7 @@ const (
 type Handler struct {
 	hub            *Hub
 	identitySvc    ports.IdentityService
-	logger        *slog.Logger
+	logger         *slog.Logger
 	allowedOrigins string
 }
 
@@ -47,8 +47,9 @@ func (h *Handler) ServeWS(c *gin.Context) {
 			apiKey = strings.TrimSpace(authHeader[len("Bearer "):])
 		case strings.Contains(authHeader, " "):
 			// Contains a space but not Bearer prefix - malformed
-			h.logger.Warn("malformed authorization header", "header", authHeader)
-			apiKey = ""
+			h.logger.Warn("malformed authorization header received")
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization header"})
+			return
 		default:
 			// No space - treat as raw API key
 			apiKey = authHeader
@@ -64,13 +65,13 @@ func (h *Handler) ServeWS(c *gin.Context) {
 	}
 
 	if apiKey == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "api_key required"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "api key or authorization header required"})
 		return
 	}
 
 	apiKeyObj, err := h.identitySvc.ValidateAPIKey(c.Request.Context(), apiKey)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid api_key"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid api key"})
 		return
 	}
 
@@ -94,11 +95,15 @@ func (h *Handler) upgrader() *websocket.Upgrader {
 		WriteBufferSize: websocketWriteBufferSize,
 		CheckOrigin: func(r *http.Request) bool {
 			origin := r.Header.Get("Origin")
-			if origin == "" {
-				return true // Same-origin requests have no Origin header
-			}
+			// Browser clients always send Origin header for WebSocket handshakes.
+			// If no origins are configured, allow all (backward compatible).
+			// If origins are configured, only allow matching origins.
 			if h.allowedOrigins == "" {
-				return true // No restriction if not configured
+				return true
+			}
+			if origin == "" {
+				// Reject requests with no origin when allowlist is enforced
+				return false
 			}
 			allowed := strings.Split(h.allowedOrigins, ",")
 			for _, o := range allowed {
