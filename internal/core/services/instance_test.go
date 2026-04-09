@@ -130,7 +130,7 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 	eventSvc := services.NewEventService(services.EventServiceParams{
 		Repo:    eventRepo,
 		RBACSvc: rbacSvc,
-		Hub:     nil,
+		Publisher:     nil,
 		Logger:  slog.Default(),
 	})
 
@@ -282,7 +282,7 @@ func TestInstanceServiceLaunchDBFailure(t *testing.T) {
 	eventSvc := services.NewEventService(services.EventServiceParams{
 		Repo:    postgres.NewEventRepository(db),
 		RBACSvc: rbacSvc,
-		Hub:     nil,
+		Publisher:     nil,
 		Logger:  slog.Default(),
 	})
 	auditSvc := services.NewAuditService(services.AuditServiceParams{

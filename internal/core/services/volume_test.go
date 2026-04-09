@@ -33,7 +33,7 @@ func setupVolumeServiceTest(t *testing.T) (*services.VolumeService, *postgres.Vo
 	eventSvc := services.NewEventService(services.EventServiceParams{
 		Repo:    eventRepo,
 		RBACSvc: rbacSvc,
-		Hub:     nil,
+		Publisher:     nil,
 		Logger:  slog.Default(),
 	})
 
@@ -175,7 +175,7 @@ func TestVolume_LaunchAttach_Conflict(t *testing.T) {
 		Repo:     volRepo, 
 		RBACSvc:  rbacSvc, 
 		Storage:  noop.NewNoopStorageBackend(), 
-		EventSvc: services.NewEventService(services.EventServiceParams{Repo: postgres.NewEventRepository(db), RBACSvc: rbacSvc, Hub: nil, Logger: slog.Default()}), 
+		EventSvc: services.NewEventService(services.EventServiceParams{Repo: postgres.NewEventRepository(db), RBACSvc: rbacSvc, Publisher: nil, Logger: slog.Default()}), 
 		AuditSvc: services.NewAuditService(services.AuditServiceParams{Repo: postgres.NewAuditRepository(db), RBACSvc: rbacSvc}), 
 		Logger:   slog.Default(), 
 	})
