@@ -44,7 +44,7 @@ func setupDNSServiceTest(t *testing.T) (*services.DNSService, ports.DNSRepositor
 	eventSvc := services.NewEventService(services.EventServiceParams{
 		Repo:    eventRepo,
 		RBACSvc: rbacSvc,
-		Hub:     nil,
+		Publisher:     nil,
 		Logger:  slog.Default(),
 	})
 
@@ -339,7 +339,7 @@ func TestDNSService_BackendError(t *testing.T) {
 	eventSvc := services.NewEventService(services.EventServiceParams{
 		Repo:    postgres.NewEventRepository(db),
 		RBACSvc: rbacSvc,
-		Hub:     nil,
+		Publisher:     nil,
 		Logger:  slog.Default(),
 	})
 

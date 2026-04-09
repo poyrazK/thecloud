@@ -2,10 +2,12 @@
 package ws
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/platform"
 )
@@ -75,6 +77,54 @@ func (h *Hub) BroadcastEvent(event *domain.WSEvent) {
 		return
 	}
 	h.broadcast <- data
+}
+
+// BroadcastEventToTenant sends a WSEvent only to clients matching the given tenant.
+// If userID is not nil, further filter to that specific user.
+// Collects clients to remove under RLock, then removes them via unregister channel.
+func (h *Hub) BroadcastEventToTenant(ctx context.Context, event *domain.WSEvent, tenantID uuid.UUID, userID *uuid.UUID) error {
+	data, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+
+	// Collect clients to notify under read lock
+	h.mu.RLock()
+	var toRemove []*Client
+	for client := range h.clients {
+		if client.tenantID != tenantID {
+			continue
+		}
+		if userID != nil && client.userID != userID.String() {
+			continue
+		}
+		select {
+		case client.send <- data:
+		default:
+			// Client buffer full - mark for removal
+			toRemove = append(toRemove, client)
+		}
+	}
+	h.mu.RUnlock()
+
+	// Remove dead clients directly - don't go through Unregister to avoid double-decrement.
+	// ReadPump's deferred Unregister will find client already removed and skip Decrement.
+	for _, client := range toRemove {
+		h.mu.Lock()
+		if _, ok := h.clients[client]; ok {
+			delete(h.clients, client)
+			close(client.send)
+			platform.WSConnectionsActive.Dec()
+		}
+		h.mu.Unlock()
+	}
+
+	return nil
+}
+
+// PublishEvent implements ports.RealtimePublisher.
+func (h *Hub) PublishEvent(ctx context.Context, event *domain.WSEvent, tenantID uuid.UUID, userID *uuid.UUID) error {
+	return h.BroadcastEventToTenant(ctx, event, tenantID, userID)
 }
 
 // ClientCount returns the number of connected clients.

@@ -211,7 +211,7 @@ func TestAutoScaling_TriggerScaleUp(t *testing.T) {
 	eventSvc := services.NewEventService(services.EventServiceParams{
 		Repo:    postgres.NewEventRepository(db),
 		RBACSvc: rbacSvc,
-		Hub:     nil,
+		Publisher:     nil,
 		Logger:  slog.Default(),
 	})
 

@@ -32,7 +32,7 @@ func setupContainerServiceIntegrationTest(t *testing.T) (ports.ContainerService,
 	eventSvc := services.NewEventService(services.EventServiceParams{
 		Repo:    eventRepo,
 		RBACSvc: rbacSvc,
-		Hub:     nil,
+		Publisher:     nil,
 		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 	auditRepo := postgres.NewAuditRepository(db)
@@ -128,7 +128,7 @@ func TestContainer_ChaosRestart(t *testing.T) {
 	eventSvc := services.NewEventService(services.EventServiceParams{
 		Repo:    postgres.NewEventRepository(db),
 		RBACSvc: rbacSvc,
-		Hub:     nil,
+		Publisher:     nil,
 		Logger:  slog.Default(),
 	})
 	auditSvc := services.NewAuditService(services.AuditServiceParams{

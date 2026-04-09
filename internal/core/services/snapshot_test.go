@@ -42,7 +42,7 @@ func setupSnapshotServiceIntegrationTest(t *testing.T) (ports.SnapshotService, p
 	eventSvc := services.NewEventService(services.EventServiceParams{
 		Repo:    eventRepo,
 		RBACSvc: rbacSvc,
-		Hub:     nil,
+		Publisher:     nil,
 		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
