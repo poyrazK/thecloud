@@ -32,7 +32,9 @@ Current state:
 
 Severity: Critical
 
-What is wrong:
+Status: ✅ RESOLVED (PR #113)
+
+What was wrong:
 - `internal/api/setup/dependencies.go:214-221` creates a websocket hub for `EventService`.
 - `internal/api/setup/router.go:79-80,122-123` creates a different hub for connected websocket clients.
 - This means published events and connected clients are likely using different hubs.
@@ -41,17 +43,17 @@ What is wrong:
 - `internal/handlers/ws/handler.go:16-19` allows every origin.
 - `internal/handlers/ws/handler.go:40-60` authenticates via `api_key` query param.
 
-Why it matters:
+Why it mattered:
 - Live events likely do not work correctly.
 - If fixed naively, they still become a cross-tenant data leak.
 - Query-string credentials are easy to leak through logs, browser history, proxies, and monitoring.
 
-Recommendation:
-- Use one hub instance.
-- Move websocket delivery behind a port instead of importing transport code into services.
-- Scope subscriptions by tenant and possibly user.
-- Stop using query-string API keys.
-- Enforce strict origin validation.
+Resolution (PR #113):
+- Single hub instance shared via `Services.WsHub`
+- `RealtimePublisher` port interface for hexagonal architecture
+- `BroadcastEventToTenant` with tenant/user filtering
+- Bearer token auth via `Authorization` header
+- Origin validation when `AllowedOrigins` is configured
 
 ### 2. API keys are handled as plaintext secrets
 
