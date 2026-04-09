@@ -39,7 +39,7 @@ func setupNotifyServiceIntegrationTest(t *testing.T) (ports.NotifyService, ports
 	eventSvc := services.NewEventService(services.EventServiceParams{
 		Repo:    eventRepo,
 		RBACSvc: rbacSvc,
-		Hub:     nil,
+		Publisher:     nil,
 		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 

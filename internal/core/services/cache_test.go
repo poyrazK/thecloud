@@ -37,7 +37,7 @@ func setupCacheServiceTest(t *testing.T) (*services.CacheService, ports.CacheRep
 	eventSvc := services.NewEventService(services.EventServiceParams{
 		Repo:    eventRepo,
 		RBACSvc: rbacSvc,
-		Hub:     nil,
+		Publisher:     nil,
 		Logger:  slog.Default(),
 	})
 
