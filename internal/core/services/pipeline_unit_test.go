@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
@@ -247,4 +248,363 @@ func TestPipelineServiceTriggerBuildWebhookSuccessQueuesBuild(t *testing.T) {
 	taskQueue.AssertExpectations(t)
 	eventSvc.AssertExpectations(t)
 	auditSvc.AssertExpectations(t)
+}
+
+func TestPipelineService_CreatePipeline(t *testing.T) {
+	repo := new(MockPipelineRepository)
+	taskQueue := new(MockTaskQueue)
+	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
+
+	svc := services.NewPipelineService(repo, taskQueue, eventSvc, auditSvc, slog.Default())
+
+	ctx := context.Background()
+	userID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+
+	t.Run("Success", func(t *testing.T) {
+		repo.On("CreatePipeline", mock.Anything, mock.Anything).Return(nil).Once()
+		eventSvc.On("RecordEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		auditSvc.On("Log", mock.Anything, userID, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		pipeline, err := svc.CreatePipeline(ctx, ports.CreatePipelineOptions{
+			Name:          "my-pipeline",
+			RepositoryURL: "https://github.com/user/repo",
+			Branch:        "main",
+		})
+
+		require.NoError(t, err)
+		assert.NotNil(t, pipeline)
+		assert.Equal(t, "my-pipeline", pipeline.Name)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("MissingName", func(t *testing.T) {
+		_, err := svc.CreatePipeline(ctx, ports.CreatePipelineOptions{
+			RepositoryURL: "https://github.com/user/repo",
+		})
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "required")
+	})
+
+	t.Run("MissingRepositoryURL", func(t *testing.T) {
+		_, err := svc.CreatePipeline(ctx, ports.CreatePipelineOptions{
+			Name: "my-pipeline",
+		})
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "required")
+	})
+}
+
+func TestPipelineService_GetPipeline(t *testing.T) {
+	repo := new(MockPipelineRepository)
+	taskQueue := new(MockTaskQueue)
+	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
+
+	svc := services.NewPipelineService(repo, taskQueue, eventSvc, auditSvc, slog.Default())
+
+	ctx := context.Background()
+	userID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+
+	t.Run("Success", func(t *testing.T) {
+		pipelineID := uuid.New()
+		pipeline := &domain.Pipeline{ID: pipelineID, UserID: userID, Name: "test"}
+
+		repo.On("GetPipeline", mock.Anything, pipelineID, userID).Return(pipeline, nil).Once()
+
+		res, err := svc.GetPipeline(ctx, pipelineID)
+		require.NoError(t, err)
+		assert.Equal(t, pipelineID, res.ID)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("NotFound", func(t *testing.T) {
+		pipelineID := uuid.New()
+
+		repo.On("GetPipeline", mock.Anything, pipelineID, userID).Return(nil, nil).Once()
+
+		_, err := svc.GetPipeline(ctx, pipelineID)
+		require.Error(t, err)
+		repo.AssertExpectations(t)
+	})
+}
+
+func TestPipelineService_ListPipelines(t *testing.T) {
+	repo := new(MockPipelineRepository)
+	taskQueue := new(MockTaskQueue)
+	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
+
+	svc := services.NewPipelineService(repo, taskQueue, eventSvc, auditSvc, slog.Default())
+
+	ctx := context.Background()
+	userID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+
+	t.Run("Success", func(t *testing.T) {
+		pipelines := []*domain.Pipeline{
+			{ID: uuid.New(), Name: "pipeline-1"},
+			{ID: uuid.New(), Name: "pipeline-2"},
+		}
+
+		repo.On("ListPipelines", mock.Anything, userID).Return(pipelines, nil).Once()
+
+		res, err := svc.ListPipelines(ctx)
+		require.NoError(t, err)
+		assert.Len(t, res, 2)
+		repo.AssertExpectations(t)
+	})
+}
+
+func TestPipelineService_UpdatePipeline(t *testing.T) {
+	repo := new(MockPipelineRepository)
+	taskQueue := new(MockTaskQueue)
+	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
+
+	svc := services.NewPipelineService(repo, taskQueue, eventSvc, auditSvc, slog.Default())
+
+	ctx := context.Background()
+	userID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+
+	t.Run("Success", func(t *testing.T) {
+		pipelineID := uuid.New()
+		pipeline := &domain.Pipeline{ID: pipelineID, UserID: userID, Name: "old-name", Status: domain.PipelineStatusActive}
+
+		repo.On("GetPipeline", mock.Anything, pipelineID, userID).Return(pipeline, nil).Once()
+		repo.On("UpdatePipeline", mock.Anything, mock.Anything).Return(nil).Once()
+		eventSvc.On("RecordEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		auditSvc.On("Log", mock.Anything, userID, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		newName := "new-name"
+		res, err := svc.UpdatePipeline(ctx, pipelineID, ports.UpdatePipelineOptions{Name: &newName})
+		require.NoError(t, err)
+		assert.Equal(t, "new-name", res.Name)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("NotFound", func(t *testing.T) {
+		pipelineID := uuid.New()
+
+		repo.On("GetPipeline", mock.Anything, pipelineID, userID).Return(nil, nil).Once()
+
+		_, err := svc.UpdatePipeline(ctx, pipelineID, ports.UpdatePipelineOptions{Name: stringPtr("new-name")})
+		require.Error(t, err)
+		repo.AssertExpectations(t)
+	})
+}
+
+func TestPipelineService_DeletePipeline(t *testing.T) {
+	repo := new(MockPipelineRepository)
+	taskQueue := new(MockTaskQueue)
+	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
+
+	svc := services.NewPipelineService(repo, taskQueue, eventSvc, auditSvc, slog.Default())
+
+	ctx := context.Background()
+	userID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+
+	t.Run("Success", func(t *testing.T) {
+		pipelineID := uuid.New()
+		pipeline := &domain.Pipeline{ID: pipelineID, UserID: userID, Name: "test"}
+
+		repo.On("GetPipeline", mock.Anything, pipelineID, userID).Return(pipeline, nil).Once()
+		repo.On("DeletePipeline", mock.Anything, pipelineID, userID).Return(nil).Once()
+		eventSvc.On("RecordEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		auditSvc.On("Log", mock.Anything, userID, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		err := svc.DeletePipeline(ctx, pipelineID)
+		require.NoError(t, err)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("NotFound", func(t *testing.T) {
+		pipelineID := uuid.New()
+
+		repo.On("GetPipeline", mock.Anything, pipelineID, userID).Return(nil, nil).Once()
+
+		err := svc.DeletePipeline(ctx, pipelineID)
+		require.Error(t, err)
+		repo.AssertExpectations(t)
+	})
+}
+
+func TestPipelineService_TriggerBuild(t *testing.T) {
+	repo := new(MockPipelineRepository)
+	taskQueue := new(MockTaskQueue)
+	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
+
+	svc := services.NewPipelineService(repo, taskQueue, eventSvc, auditSvc, slog.Default())
+
+	ctx := context.Background()
+	userID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+
+	t.Run("Success", func(t *testing.T) {
+		pipelineID := uuid.New()
+		pipeline := &domain.Pipeline{ID: pipelineID, UserID: userID, Status: domain.PipelineStatusActive}
+
+		repo.On("GetPipeline", mock.Anything, pipelineID, userID).Return(pipeline, nil).Once()
+		repo.On("CreateBuild", mock.Anything, mock.MatchedBy(func(b *domain.Build) bool {
+			return b != nil && b.PipelineID == pipelineID && b.CommitHash == "abc123"
+		})).Return(nil).Once()
+		taskQueue.On("Enqueue", mock.Anything, "pipeline_build_queue", mock.MatchedBy(func(job domain.BuildJob) bool {
+			return job.PipelineID == pipelineID && job.CommitHash == "abc123"
+		})).Return(nil).Once()
+		eventSvc.On("RecordEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		auditSvc.On("Log", mock.Anything, userID, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		build, err := svc.TriggerBuild(ctx, pipelineID, ports.TriggerBuildOptions{
+			CommitHash: "abc123",
+		})
+
+		require.NoError(t, err)
+		assert.NotNil(t, build)
+		assert.Equal(t, "abc123", build.CommitHash)
+		repo.AssertExpectations(t)
+		taskQueue.AssertExpectations(t)
+	})
+
+	t.Run("PipelineNotActive", func(t *testing.T) {
+		pipelineID := uuid.New()
+		pipeline := &domain.Pipeline{ID: pipelineID, UserID: userID, Status: domain.PipelineStatusPaused}
+
+		repo.On("GetPipeline", mock.Anything, pipelineID, userID).Return(pipeline, nil).Once()
+
+		_, err := svc.TriggerBuild(ctx, pipelineID, ports.TriggerBuildOptions{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not active")
+		repo.AssertExpectations(t)
+	})
+}
+
+func TestPipelineService_GetBuild(t *testing.T) {
+	repo := new(MockPipelineRepository)
+	taskQueue := new(MockTaskQueue)
+	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
+
+	svc := services.NewPipelineService(repo, taskQueue, eventSvc, auditSvc, slog.Default())
+
+	ctx := context.Background()
+	userID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+
+	t.Run("Success", func(t *testing.T) {
+		buildID := uuid.New()
+		build := &domain.Build{ID: buildID, UserID: userID}
+
+		repo.On("GetBuild", mock.Anything, buildID, userID).Return(build, nil).Once()
+
+		res, err := svc.GetBuild(ctx, buildID)
+		require.NoError(t, err)
+		assert.Equal(t, buildID, res.ID)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("NotFound", func(t *testing.T) {
+		buildID := uuid.New()
+
+		repo.On("GetBuild", mock.Anything, buildID, userID).Return(nil, nil).Once()
+
+		_, err := svc.GetBuild(ctx, buildID)
+		require.Error(t, err)
+		repo.AssertExpectations(t)
+	})
+}
+
+func TestPipelineService_ListBuildsByPipeline(t *testing.T) {
+	repo := new(MockPipelineRepository)
+	taskQueue := new(MockTaskQueue)
+	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
+
+	svc := services.NewPipelineService(repo, taskQueue, eventSvc, auditSvc, slog.Default())
+
+	ctx := context.Background()
+	userID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+
+	t.Run("Success", func(t *testing.T) {
+		pipelineID := uuid.New()
+		builds := []*domain.Build{
+			{ID: uuid.New()},
+			{ID: uuid.New()},
+		}
+
+		repo.On("ListBuildsByPipeline", mock.Anything, pipelineID, userID).Return(builds, nil).Once()
+
+		res, err := svc.ListBuildsByPipeline(ctx, pipelineID)
+		require.NoError(t, err)
+		assert.Len(t, res, 2)
+		repo.AssertExpectations(t)
+	})
+}
+
+func TestPipelineService_ListBuildSteps(t *testing.T) {
+	repo := new(MockPipelineRepository)
+	taskQueue := new(MockTaskQueue)
+	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
+
+	svc := services.NewPipelineService(repo, taskQueue, eventSvc, auditSvc, slog.Default())
+
+	ctx := context.Background()
+	userID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+
+	t.Run("Success", func(t *testing.T) {
+		buildID := uuid.New()
+		steps := []*domain.BuildStep{
+			{ID: uuid.New()},
+			{ID: uuid.New()},
+		}
+
+		repo.On("ListBuildSteps", mock.Anything, buildID, userID).Return(steps, nil).Once()
+
+		res, err := svc.ListBuildSteps(ctx, buildID)
+		require.NoError(t, err)
+		assert.Len(t, res, 2)
+		repo.AssertExpectations(t)
+	})
+}
+
+func TestPipelineService_ListBuildLogs(t *testing.T) {
+	repo := new(MockPipelineRepository)
+	taskQueue := new(MockTaskQueue)
+	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
+
+	svc := services.NewPipelineService(repo, taskQueue, eventSvc, auditSvc, slog.Default())
+
+	ctx := context.Background()
+	userID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+
+	t.Run("Success", func(t *testing.T) {
+		buildID := uuid.New()
+		logs := []*domain.BuildLog{
+			{ID: uuid.New()},
+			{ID: uuid.New()},
+		}
+
+		repo.On("ListBuildLogs", mock.Anything, buildID, userID, 100).Return(logs, nil).Once()
+
+		res, err := svc.ListBuildLogs(ctx, buildID, 100)
+		require.NoError(t, err)
+		assert.Len(t, res, 2)
+		repo.AssertExpectations(t)
+	})
+}
+
+func stringPtr(s string) *string {
+	return &s
 }
