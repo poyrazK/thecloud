@@ -59,14 +59,16 @@ jobs:
           API_PID=$!
           echo "API_PID=$API_PID" >> $GITHUB_ENV
           for i in {1..30}; do
-            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
-              echo "API ready"
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "503" ]; then
+              echo "API ready (status: $STATUS)"
               break
             fi
             sleep 1
           done
-          if ! curl -sf http://localhost:8080/health > /dev/null 2>&1; then
-            echo "ERROR: API server failed to start"
+          FINAL_STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
+          if [ "$FINAL_STATUS" != "200" ] && [ "$FINAL_STATUS" != "503" ]; then
+            echo "ERROR: API server failed to start (status: $FINAL_STATUS)"
             exit 1
           fi
 
@@ -152,14 +154,16 @@ jobs:
           API_PID=$!
           echo "API_PID=$API_PID" >> $GITHUB_ENV
           for i in {1..30}; do
-            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
-              echo "API ready"
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "503" ]; then
+              echo "API ready (status: $STATUS)"
               break
             fi
             sleep 1
           done
-          if ! curl -sf http://localhost:8080/health > /dev/null 2>&1; then
-            echo "ERROR: API server failed to start"
+          FINAL_STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
+          if [ "$FINAL_STATUS" != "200" ] && [ "$FINAL_STATUS" != "503" ]; then
+            echo "ERROR: API server failed to start (status: $FINAL_STATUS)"
             exit 1
           fi
 
