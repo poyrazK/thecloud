@@ -65,6 +65,10 @@ jobs:
             fi
             sleep 1
           done
+          if ! curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+            echo "ERROR: API server failed to start"
+            exit 1
+          fi
 
       - name: Setup k6
         uses: grafana/setup-k6-action@v1
@@ -145,6 +149,8 @@ jobs:
           ENVIRONMENT: test
         run: |
           ./api &
+          API_PID=$!
+          echo "API_PID=$API_PID" >> $GITHUB_ENV
           for i in {1..30}; do
             if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
               echo "API ready"
@@ -152,6 +158,10 @@ jobs:
             fi
             sleep 1
           done
+          if ! curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+            echo "ERROR: API server failed to start"
+            exit 1
+          fi
 
       - name: Setup k6
         uses: grafana/setup-k6-action@v1
@@ -161,6 +171,10 @@ jobs:
         with:
           path: tests/load/storage.js
           flags: --vus 5 --duration 2m
+
+      - name: Stop API
+        if: always()
+        run: kill $API_PID 2>/dev/null || true
 
   # Slow infrastructure tests - runs in ~5 minutes
   api-slow:
@@ -214,6 +228,8 @@ jobs:
           COMPUTE_BACKEND: docker
         run: |
           ./api &
+          API_PID=$!
+          echo "API_PID=$API_PID" >> $GITHUB_ENV
           for i in {1..30}; do
             if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
               echo "API ready"
@@ -221,6 +237,10 @@ jobs:
             fi
             sleep 1
           done
+          if ! curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+            echo "ERROR: API server failed to start"
+            exit 1
+          fi
 
       - name: Setup k6
         uses: grafana/setup-k6-action@v1
@@ -242,3 +262,7 @@ jobs:
         with:
           path: tests/load/load-balancer.js
           flags: --vus 2 --duration 5m
+
+      - name: Stop API
+        if: always()
+        run: kill $API_PID 2>/dev/null || true

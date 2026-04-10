@@ -1,6 +1,8 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
+import { BASE_URL } from './common/config.js';
+import { getOrCreateApiKey } from './common/auth.js';
 
 export const options = {
     stages: [
@@ -15,27 +17,9 @@ export const options = {
     },
 };
 
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
-
-function registerAndLogin(uniqueId) {
-    const email = `user-${uniqueId}@loadtest.local`;
-    const password = 'Password123!';
-    const headers = { 'Content-Type': 'application/json' };
-
-    const regPayload = JSON.stringify({ email, password, name: `User ${uniqueId}` });
-    const regRes = http.post(`${BASE_URL}/auth/register`, regPayload, { headers });
-    check(regRes, { 'db-register success': (r) => r.status === 201 || r.status === 200 });
-
-    const loginRes = http.post(`${BASE_URL}/auth/login`, regPayload, { headers });
-    check(loginRes, { 'db-login success': (r) => r.status === 200 });
-
-    const apiKey = loginRes.json('data.api_key');
-    return { apiKey, headers };
-}
-
-function createVpc(apiKey, headers, uniqueId) {
+function createVpc(authHeaders, uniqueId) {
     const vpcPayload = JSON.stringify({ name: `vpc-db-${uniqueId}`, cidr_block: '10.1.0.0/16' });
-    const vpcRes = http.post(`${BASE_URL}/vpcs`, vpcPayload, { headers: { ...headers, 'X-API-Key': apiKey } });
+    const vpcRes = http.post(`${BASE_URL}/vpcs`, vpcPayload, { headers: authHeaders });
     if (vpcRes.status === 201 || vpcRes.status === 200) {
         return vpcRes.json('data.id');
     }
@@ -48,11 +32,16 @@ export default function () {
     const engine = 'postgres';
     const version = '15';
 
-    const { apiKey, headers } = registerAndLogin(uniqueId);
-    const authHeaders = { ...headers, 'X-API-Key': apiKey };
+    // Use cached auth to avoid rate limiting
+    const auth = getOrCreateApiKey(__VU, `loadtest-${__VU}@loadtest.local`, 'Password123!', `Load User ${__VU}`);
+    if (!auth || !auth.apiKey) {
+        sleep(1);
+        return;
+    }
+    const { authHeaders } = auth;
 
     // Create VPC first (databases need a VPC)
-    const vpcId = createVpc(apiKey, headers, uniqueId);
+    const vpcId = createVpc(authHeaders, uniqueId);
 
     // 1. Create database
     const createDbPayload = JSON.stringify({

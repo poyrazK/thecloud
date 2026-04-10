@@ -20,7 +20,7 @@ export function getOrCreateApiKey(vuId, email, password, name) {
     // Try to register (may fail if user exists from prior run)
     const regPayload = JSON.stringify({ email, password, name });
     const regRes = http.post(`${BASE_URL}/auth/register`, regPayload, { headers });
-    check(regRes, { 'auth-register success': (r) => r.status === 201 || r.status === 200 });
+    check(regRes, { 'auth-register success': (r) => r.status === 201 || r.status === 200 || r.status === 409 });
 
     // Try to login regardless (handles both new and existing users)
     const loginPayload = JSON.stringify({ email, password });

@@ -4,7 +4,7 @@
 export const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
 export const API_KEY = __ENV.API_KEY || '';
 export const DURATION = __ENV.DURATION || '1m';
-export const VUS = parseInt(__ENV.VUS || '10');
+export const VUS = parseInt(__ENV.VUS || '10', 10);
 
 // Default thresholds for most tests
 export const DEFAULT_THRESHOLDS = {

@@ -11,8 +11,6 @@ export const options = {
 };
 
 export default function () {
-    const headers = { 'Content-Type': 'application/json' };
-
     // 1. Test without authentication (should get 401)
     const unauthRes = http.get(`${BASE_URL}/instances`);
     check(unauthRes, { 'unauthorized access rejected': (r) => r.status === 401 });

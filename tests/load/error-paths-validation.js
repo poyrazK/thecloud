@@ -55,7 +55,7 @@ export default function () {
 
     // 6. Try to create duplicate VPC name
     const dupVpcRes = http.post(`${BASE_URL}/vpcs`, vpcPayload, { headers: authHeaders });
-    check(dupVpcRes, { 'duplicate VPC name handled': (r) => r.status === 200 || r.status === 201 || r.status === 409 || r.status === 400 || r.status === 500 });
+    check(dupVpcRes, { 'duplicate VPC name handled': (r) => r.status === 200 || r.status === 201 || r.status === 409 || r.status === 400 });
 
     // 7. Cleanup
     if (vpcId) {

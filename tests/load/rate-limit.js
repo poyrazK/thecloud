@@ -37,7 +37,7 @@ export default function () {
     // Using instances list as it's a simple read endpoint
     const batchRequests = [];
     for (let i = 0; i < 100; i++) {
-        batchRequests.push(['GET', `${BASE_URL}/instances`, authHeaders]);
+        batchRequests.push(['GET', `${BASE_URL}/instances`, null, { headers: authHeaders }]);
     }
 
     const batchRes = http.batch(batchRequests);
@@ -62,7 +62,7 @@ export default function () {
     // Also test health endpoint which may have different rate limits
     const healthBatch = [];
     for (let i = 0; i < 200; i++) {
-        healthBatch.push(['GET', `${BASE_URL}/health`, null]);
+        healthBatch.push(['GET', `${BASE_URL}/health`, null, null]);
     }
     const healthBatchRes = http.batch(healthBatch);
 

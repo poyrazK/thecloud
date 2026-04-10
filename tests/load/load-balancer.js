@@ -1,6 +1,8 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
+import { BASE_URL } from './common/config.js';
+import { getOrCreateApiKey } from './common/auth.js';
 
 export const options = {
     stages: [
@@ -14,24 +16,6 @@ export const options = {
         http_req_duration: ['p(95)<5000'],
     },
 };
-
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
-
-function registerAndLogin(uniqueId) {
-    const email = `user-${uniqueId}@loadtest.local`;
-    const password = 'Password123!';
-    const headers = { 'Content-Type': 'application/json' };
-
-    const regPayload = JSON.stringify({ email, password, name: `User ${uniqueId}` });
-    const regRes = http.post(`${BASE_URL}/auth/register`, regPayload, { headers });
-    check(regRes, { 'lb-register success': (r) => r.status === 201 || r.status === 200 });
-
-    const loginRes = http.post(`${BASE_URL}/auth/login`, regPayload, { headers });
-    check(loginRes, { 'lb-login success': (r) => r.status === 200 });
-
-    const apiKey = loginRes.json('data.api_key');
-    return { apiKey, headers };
-}
 
 function waitForInstance(apiKey, headers, instanceId) {
     for (let i = 0; i < 60; i++) {
@@ -51,8 +35,13 @@ export default function () {
     const subnetName = `subnet-lb-${uniqueId}`;
     const instanceName = `inst-lb-${uniqueId}`;
 
-    const { apiKey, headers } = registerAndLogin(uniqueId);
-    const authHeaders = { ...headers, 'X-API-Key': apiKey };
+    // Use cached auth to avoid rate limiting
+    const auth = getOrCreateApiKey(__VU, `loadtest-${__VU}@loadtest.local`, 'Password123!', `Load User ${__VU}`);
+    if (!auth || !auth.apiKey) {
+        sleep(1);
+        return;
+    }
+    const { authHeaders } = auth;
 
     // 1. Create VPC
     const vpcPayload = JSON.stringify({ name: vpcName, cidr_block: '10.2.0.0/16' });
