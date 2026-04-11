@@ -24,10 +24,10 @@ func NewIdentityRepository(db DB) *IdentityRepository {
 
 func (r *IdentityRepository) CreateAPIKey(ctx context.Context, key *domain.APIKey) error {
 	query := `
-		INSERT INTO api_keys (id, user_id, tenant_id, key, key_hash, name, created_at, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO api_keys (id, user_id, tenant_id, key, key_hash, name, created_at, expires_at, default_tenant_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
-	_, err := r.db.Exec(ctx, query, key.ID, key.UserID, key.TenantID, key.Key, key.KeyHash, key.Name, key.CreatedAt, key.ExpiresAt)
+	_, err := r.db.Exec(ctx, query, key.ID, key.UserID, key.TenantID, key.Key, key.KeyHash, key.Name, key.CreatedAt, key.ExpiresAt, key.DefaultTenantID)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to create api key", err)
 	}

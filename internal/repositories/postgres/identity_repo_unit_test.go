@@ -31,7 +31,7 @@ func TestIdentityRepository_CreateAPIKey(t *testing.T) {
 	}
 
 	mock.ExpectExec("INSERT INTO api_keys").
-		WithArgs(apiKey.ID, apiKey.UserID, apiKey.TenantID, apiKey.Key, apiKey.KeyHash, apiKey.Name, apiKey.CreatedAt, apiKey.ExpiresAt).
+		WithArgs(apiKey.ID, apiKey.UserID, apiKey.TenantID, apiKey.Key, apiKey.KeyHash, apiKey.Name, apiKey.CreatedAt, apiKey.ExpiresAt, apiKey.DefaultTenantID).
 		WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 	err = repo.CreateAPIKey(context.Background(), apiKey)

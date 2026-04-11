@@ -69,12 +69,17 @@ func (s *IdentityService) CreateKey(ctx context.Context, userID uuid.UUID, name 
 	keyStr := "thecloud_" + hex.EncodeToString(b)
 
 	apiKey := &domain.APIKey{
-		ID:        uuid.New(),
-		UserID:    userID,
-		Key:       keyStr,
-		KeyHash:   computeKeyHash(keyStr),
-		Name:      name,
-		CreatedAt: time.Now(),
+		ID:               uuid.New(),
+		UserID:           userID,
+		Key:              keyStr,
+		KeyHash:          computeKeyHash(keyStr),
+		Name:             name,
+		CreatedAt:        time.Now(),
+		TenantID:         tenantID,
+		DefaultTenantID:  nil,
+	}
+	if tenantID != uuid.Nil {
+		apiKey.DefaultTenantID = &tenantID
 	}
 
 	if err := s.repo.CreateAPIKey(ctx, apiKey); err != nil {
