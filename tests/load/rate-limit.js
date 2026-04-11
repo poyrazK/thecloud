@@ -1,6 +1,9 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
+import { BASE_URL } from './common/config.js';
+import { getOrCreateApiKey } from './common/auth.js';
+
 export const options = {
     stages: [
         { duration: '10s', target: 50 },
@@ -12,26 +15,14 @@ export const options = {
     },
 };
 
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
-
-function getApiKey() {
-    const email = `ratelimit-test-${Date.now()}@loadtest.local`;
-    const password = 'Password123!';
-    const headers = { 'Content-Type': 'application/json' };
-
-    const regPayload = JSON.stringify({ email, password, name: 'RateLimitTest' });
-    const regRes = http.post(`${BASE_URL}/auth/register`, regPayload, { headers });
-
-    const loginRes = http.post(`${BASE_URL}/auth/login`, regPayload, { headers });
-    if (loginRes.status === 200) {
-        return { apiKey: loginRes.json('data.api_key'), headers };
-    }
-    return { apiKey: __ENV.API_KEY || '', headers };
-}
-
 export default function () {
-    const { apiKey, headers } = getApiKey();
-    const authHeaders = { ...headers, 'X-API-Key': apiKey };
+    // Use cached auth to avoid rate limiting and auth issues
+    const auth = getOrCreateApiKey(__VU, `ratelimit-test-${__VU}@loadtest.local`, 'Password123!', `RateLimitUser ${__VU}`);
+    if (!auth || !auth.apiKey) {
+        sleep(1);
+        return;
+    }
+    const { authHeaders } = auth;
 
     // Burst requests to the same endpoint to trigger rate limiting
     // Using instances list as it's a simple read endpoint

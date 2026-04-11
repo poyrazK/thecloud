@@ -38,10 +38,18 @@ export function getOrCreateApiKey(vuId, email, password, name) {
     return tokenCache[vuId];
 }
 
+// In-memory cache for registerAndLogin
+const registerAndLoginCache = {};
+
 /**
  * Register, login, and return full auth context.
+ * Uses cache keyed by uniqueId to avoid repeated registrations.
  */
 export function registerAndLogin(uniqueId) {
+    if (registerAndLoginCache[uniqueId]) {
+        return registerAndLoginCache[uniqueId];
+    }
+
     const email = `user-${uniqueId}@loadtest.local`;
     const password = 'Password123!';
     const name = `User ${uniqueId}`;
@@ -55,11 +63,18 @@ export function registerAndLogin(uniqueId) {
     const loginRes = http.post(`${BASE_URL}/auth/login`, loginPayload, { headers });
     check(loginRes, { 'login success': (r) => r.status === 200 });
 
+    if (loginRes.status !== 200) {
+        console.error(`registerAndLogin: login failed for ${email}: ${loginRes.status} ${loginRes.body}`);
+        return null;
+    }
+
     const apiKey = loginRes.json('data.api_key');
     const tenantId = loginRes.json('data.user.default_tenant_id');
     const authHeaders = makeHeaders(apiKey, { 'X-Tenant-ID': tenantId });
 
-    return { email, password, apiKey, tenantId, authHeaders };
+    const result = { email, password, apiKey, tenantId, authHeaders };
+    registerAndLoginCache[uniqueId] = result;
+    return result;
 }
 
 /**
