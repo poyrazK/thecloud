@@ -58,7 +58,7 @@ jobs:
           ./api &
           API_PID=$!
           echo "API_PID=$API_PID" >> $GITHUB_ENV
-          for i in {1..30}; do
+          for i in $(seq 1 30); do
             STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
             if [ "$STATUS" = "200" ] || [ "$STATUS" = "503" ]; then
               echo "API ready (status: $STATUS)"
@@ -155,7 +155,7 @@ jobs:
           ./api &
           API_PID=$!
           echo "API_PID=$API_PID" >> $GITHUB_ENV
-          for i in {1..30}; do
+          for i in $(seq 1 30); do
             STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
             if [ "$STATUS" = "200" ] || [ "$STATUS" = "503" ]; then
               echo "API ready (status: $STATUS)"
@@ -238,7 +238,7 @@ jobs:
           ./api &
           API_PID=$!
           echo "API_PID=$API_PID" >> $GITHUB_ENV
-          for i in {1..30}; do
+          for i in $(seq 1 30); do
             STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
             if [ "$STATUS" = "200" ] || [ "$STATUS" = "503" ]; then
               echo "API ready (status: $STATUS)"
