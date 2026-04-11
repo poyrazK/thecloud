@@ -31,14 +31,42 @@ func TestIdentityService_Unit(t *testing.T) {
 	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("CreateKey", func(t *testing.T) {
-		mockRepo.On("CreateAPIKey", mock.Anything, mock.Anything).Return(nil).Once()
+		mockRepo.On("CreateAPIKey", mock.Anything, mock.MatchedBy(func(apiKey *domain.APIKey) bool {
+			return apiKey.TenantID == tenantID &&
+				apiKey.DefaultTenantID != nil && *apiKey.DefaultTenantID == tenantID
+		})).Return(nil).Once()
 		mockAuditSvc.On("Log", mock.Anything, userID, "api_key.create", "api_key", mock.Anything, mock.Anything).Return(nil).Once()
 
 		key, err := svc.CreateKey(ctx, userID, "my-key")
 		require.NoError(t, err)
 		assert.NotNil(t, key)
 		assert.Contains(t, key.Key, "thecloud_")
+		assert.Equal(t, tenantID, key.TenantID)
+		assert.NotNil(t, key.DefaultTenantID)
+		assert.Equal(t, tenantID, *key.DefaultTenantID)
 		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("CreateKey_NoTenant", func(t *testing.T) {
+		noTenantCtx := appcontext.WithUserID(context.Background(), userID)
+		noTenantRepo := new(MockIdentityRepo)
+		noTenantAuditSvc := new(MockAuditService)
+		noTenantRBAC := new(MockRBACService)
+		noTenantSvc := services.NewIdentityService(services.IdentityServiceParams{
+			Repo: noTenantRepo, AuditSvc: noTenantAuditSvc, RbacSvc: noTenantRBAC,
+		})
+
+		noTenantRepo.On("CreateAPIKey", mock.Anything, mock.MatchedBy(func(apiKey *domain.APIKey) bool {
+			return apiKey.TenantID == uuid.Nil && apiKey.DefaultTenantID == nil
+		})).Return(nil).Once()
+		noTenantAuditSvc.On("Log", mock.Anything, userID, "api_key.create", "api_key", mock.Anything, mock.Anything).Return(nil).Once()
+
+		key, err := noTenantSvc.CreateKey(noTenantCtx, userID, "no-tenant-key")
+		require.NoError(t, err)
+		assert.NotNil(t, key)
+		assert.Equal(t, uuid.Nil, key.TenantID)
+		assert.Nil(t, key.DefaultTenantID)
+		noTenantRepo.AssertExpectations(t)
 	})
 
 	t.Run("ValidateAPIKey", func(t *testing.T) {
