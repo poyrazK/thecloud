@@ -17,7 +17,6 @@ import (
 )
 
 func newTestClusterSvc() (*services.ClusterService, *MockClusterRepo, *MockClusterProvisioner, *MockVpcService, *MockInstanceService, *MockSecretService, *MockTaskQueue, *MockRBACService) {
-	//nolint:unparam // MockInstanceService returned for API completeness
 	mockRepo := new(MockClusterRepo)
 	mockProv := new(MockClusterProvisioner)
 	mockVpcSvc := new(MockVpcService)

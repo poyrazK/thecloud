@@ -54,7 +54,7 @@ issues:
       linters:
         - errcheck
     - path: pkg/sdk
-      linters: 
+      linters:
         - errcheck
     - path: internal/handlers/ws
       linters:
@@ -62,3 +62,7 @@ issues:
     - path: _test\.go
       linters:
         - gosec
+    - path: internal/core/services/cluster_unit_test\.go
+      linters:
+        - unparam
+      text: "MockInstanceService"
