@@ -682,8 +682,7 @@ func TestInstanceService_Terminate_Unit(t *testing.T) {
 		err := svc.TerminateInstance(ctx, instanceID.String())
 		require.NoError(t, err)
 
-		repo.AssertExpectations(t)
-		volRepo.AssertExpectations(t)
+		mock.AssertExpectationsForObjects(t, repo, volRepo, typeRepo, compute, rbacSvc, eventSvc, auditSvc, dnsSvc)
 	})
 
 	t.Run("TerminateInstance_ContainerDeleteFails", func(t *testing.T) {
@@ -724,6 +723,7 @@ func TestInstanceService_Terminate_Unit(t *testing.T) {
 		err := svc.TerminateInstance(ctx, instanceID.String())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to remove container")
+		mock.AssertExpectationsForObjects(t, repo, rbacSvc, compute)
 	})
 
 	t.Run("TerminateInstance_InstanceTypeNotFound", func(t *testing.T) {
@@ -778,7 +778,7 @@ func TestInstanceService_Terminate_Unit(t *testing.T) {
 		err := svc.TerminateInstance(ctx, instanceID.String())
 		require.NoError(t, err)
 
-		repo.AssertExpectations(t)
+		mock.AssertExpectationsForObjects(t, repo, volRepo, typeRepo, compute, rbacSvc, eventSvc, auditSvc)
 	})
 
 	t.Run("TerminateInstance_StoppedStatus", func(t *testing.T) {
@@ -836,7 +836,7 @@ func TestInstanceService_Terminate_Unit(t *testing.T) {
 		err := svc.TerminateInstance(ctx, instanceID.String())
 		require.NoError(t, err)
 
-		repo.AssertExpectations(t)
+		mock.AssertExpectationsForObjects(t, repo, volRepo, typeRepo, compute, rbacSvc, eventSvc, auditSvc, tenantSvc)
 	})
 }
 
@@ -895,6 +895,7 @@ func TestInstanceService_VolumeRelease_Unit(t *testing.T) {
 
 		err := svc.TerminateInstance(ctx, instanceID.String())
 		require.NoError(t, err) // releaseAttachedVolumes error is logged but doesn't fail termination
+		mock.AssertExpectationsForObjects(t, repo, volRepo, typeRepo, compute, rbacSvc, eventSvc, auditSvc, tenantSvc)
 	})
 
 	t.Run("releaseAttachedVolumes_PartialFailure", func(t *testing.T) {
@@ -960,5 +961,6 @@ func TestInstanceService_VolumeRelease_Unit(t *testing.T) {
 
 		err := svc.TerminateInstance(ctx, instanceID.String())
 		require.NoError(t, err)
+		mock.AssertExpectationsForObjects(t, repo, volRepo, typeRepo, compute, rbacSvc, eventSvc, auditSvc, tenantSvc)
 	})
 }
