@@ -76,7 +76,10 @@ func (s *IdentityService) CreateKey(ctx context.Context, userID uuid.UUID, name 
 		Name:             name,
 		CreatedAt:        time.Now(),
 		TenantID:         tenantID,
-		DefaultTenantID:  &tenantID,
+		DefaultTenantID:  nil,
+	}
+	if tenantID != uuid.Nil {
+		apiKey.DefaultTenantID = &tenantID
 	}
 
 	if err := s.repo.CreateAPIKey(ctx, apiKey); err != nil {

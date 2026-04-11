@@ -41,6 +41,7 @@ func setupIdentityServiceTest(t *testing.T) (*services.IdentityService, *postgre
 func TestIdentityService_CreateKey(t *testing.T) {
 	svc, repo, rbacSvc, ctx := setupIdentityServiceTest(t); _ = rbacSvc
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	t.Run("Success", func(t *testing.T) {
 		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
@@ -51,11 +52,17 @@ func TestIdentityService_CreateKey(t *testing.T) {
 		assert.Equal(t, name, key.Name)
 		assert.Equal(t, userID, key.UserID)
 		assert.Contains(t, key.Key, "thecloud_")
+		assert.Equal(t, tenantID, key.TenantID)
+		assert.NotNil(t, key.DefaultTenantID)
+		assert.Equal(t, tenantID, *key.DefaultTenantID)
 
 		// Verify in DB
 		dbKey, err := repo.GetAPIKeyByID(ctx, key.ID)
 		require.NoError(t, err)
 		assert.Equal(t, key.Key, dbKey.Key)
+		assert.Equal(t, tenantID, dbKey.TenantID)
+		assert.NotNil(t, dbKey.DefaultTenantID)
+		assert.Equal(t, tenantID, *dbKey.DefaultTenantID)
 	})
 }
 
