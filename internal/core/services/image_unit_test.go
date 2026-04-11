@@ -83,11 +83,11 @@ func TestImageService_Unit(t *testing.T) {
 	t.Run("GetImage_Success", func(t *testing.T) {
 		imgID := uuid.New()
 		tenantID := uuid.New()
-		ctx := appcontext.WithTenantID(ctx, tenantID)
+		tenantCtx := appcontext.WithTenantID(ctx, tenantID)
 		img := &domain.Image{ID: imgID, UserID: userID, TenantID: &tenantID}
 		repo.On("GetByID", mock.Anything, imgID).Return(img, nil).Once()
 
-		res, err := svc.GetImage(ctx, imgID)
+		res, err := svc.GetImage(tenantCtx, imgID)
 		require.NoError(t, err)
 		assert.Equal(t, imgID, res.ID)
 	})
@@ -105,11 +105,11 @@ func TestImageService_Unit(t *testing.T) {
 		imgID := uuid.New()
 		tenantID := uuid.New()
 		otherTenantID := uuid.New()
-		ctx := appcontext.WithTenantID(ctx, tenantID)
+		tenantCtx := appcontext.WithTenantID(ctx, tenantID)
 		img := &domain.Image{ID: imgID, UserID: userID, TenantID: &otherTenantID}
 		repo.On("GetByID", mock.Anything, imgID).Return(img, nil).Once()
 
-		_, err := svc.GetImage(ctx, imgID)
+		_, err := svc.GetImage(tenantCtx, imgID)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not found")
 	})
