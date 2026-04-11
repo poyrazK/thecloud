@@ -100,4 +100,330 @@ func TestClusterService_Unit(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "higher than current")
 	})
+
+	t.Run("GetCluster_Success", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{ID: clusterID, UserID: userID, TenantID: tenantID}
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+
+		res, err := svc.GetCluster(ctx, clusterID)
+		require.NoError(t, err)
+		assert.Equal(t, clusterID, res.ID)
+	})
+
+	t.Run("GetCluster_NotFound", func(t *testing.T) {
+		clusterID := uuid.New()
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(nil, nil).Once()
+
+		_, err := svc.GetCluster(ctx, clusterID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
+	})
+
+	t.Run("ListClusters_Success", func(t *testing.T) {
+		clusters := []*domain.Cluster{
+			{ID: uuid.New(), UserID: userID},
+			{ID: uuid.New(), UserID: userID},
+		}
+		mockRepo.On("ListByUserID", mock.Anything, userID).Return(clusters, nil).Once()
+
+		res, err := svc.ListClusters(ctx, userID)
+		require.NoError(t, err)
+		assert.Len(t, res, 2)
+	})
+
+	t.Run("DeleteCluster_Success", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{ID: clusterID, UserID: userID, TenantID: tenantID, Status: domain.ClusterStatusRunning}
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
+		mockTaskQueue.On("Enqueue", mock.Anything, "k8s_jobs", mock.Anything).Return(nil).Once()
+
+		err := svc.DeleteCluster(ctx, clusterID)
+		require.NoError(t, err)
+	})
+
+	t.Run("GetKubeconfig_Success", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{
+			ID:                   clusterID,
+			UserID:               userID,
+			TenantID:             tenantID,
+			Status:               domain.ClusterStatusRunning,
+			KubeconfigEncrypted:  "encrypted-kubeconfig",
+		}
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+		mockSecretSvc.On("Decrypt", mock.Anything, userID, "encrypted-kubeconfig").Return("decrypted-kubeconfig", nil).Once()
+
+		res, err := svc.GetKubeconfig(ctx, clusterID, "admin")
+		require.NoError(t, err)
+		assert.Equal(t, "decrypted-kubeconfig", res)
+	})
+
+	t.Run("GetKubeconfig_NotRunning", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{
+			ID:      clusterID,
+			UserID:  userID,
+			TenantID: tenantID,
+			Status:  domain.ClusterStatusPending,
+		}
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+
+		_, err := svc.GetKubeconfig(ctx, clusterID, "admin")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "only available when cluster is running")
+	})
+
+	t.Run("ScaleCluster_Success", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{
+			ID:           clusterID,
+			UserID:       userID,
+			TenantID:     tenantID,
+			Status:       domain.ClusterStatusRunning,
+			WorkerCount:  2,
+		}
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
+		mockProv.On("Scale", mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		err := svc.ScaleCluster(ctx, clusterID, 5)
+		require.NoError(t, err)
+		assert.Equal(t, 5, cluster.WorkerCount)
+	})
+
+	t.Run("ScaleCluster_InvalidWorkers", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{
+			ID:      clusterID,
+			UserID:  userID,
+			TenantID: tenantID,
+			Status:  domain.ClusterStatusRunning,
+		}
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+
+		err := svc.ScaleCluster(ctx, clusterID, 0)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "at least 1 worker required")
+	})
+
+	t.Run("GetClusterHealth_Success", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{ID: clusterID, UserID: userID, TenantID: tenantID}
+		health := &ports.ClusterHealth{Status: "healthy"}
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+		mockProv.On("GetHealth", mock.Anything, cluster).Return(health, nil).Once()
+
+		res, err := svc.GetClusterHealth(ctx, clusterID)
+		require.NoError(t, err)
+		assert.Equal(t, domain.ClusterStatus("healthy"), res.Status)
+	})
+
+	t.Run("RotateSecrets_Success", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{
+			ID:      clusterID,
+			UserID:  userID,
+			TenantID: tenantID,
+			Status:  domain.ClusterStatusRunning,
+		}
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Twice()
+		mockProv.On("RotateSecrets", mock.Anything, cluster).Return(nil).Once()
+
+		err := svc.RotateSecrets(ctx, clusterID)
+		require.NoError(t, err)
+	})
+
+	t.Run("CreateBackup_Success", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{
+			ID:      clusterID,
+			UserID:  userID,
+			TenantID: tenantID,
+			Status:  domain.ClusterStatusRunning,
+		}
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+		mockProv.On("CreateBackup", mock.Anything, cluster).Return(nil).Once()
+
+		err := svc.CreateBackup(ctx, clusterID)
+		require.NoError(t, err)
+	})
+
+	t.Run("CreateBackup_NotRunning", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{
+			ID:      clusterID,
+			UserID:  userID,
+			TenantID: tenantID,
+			Status:  domain.ClusterStatusPending,
+		}
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+
+		err := svc.CreateBackup(ctx, clusterID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "running state")
+	})
+
+	t.Run("RestoreBackup_Success", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{
+			ID:      clusterID,
+			UserID:  userID,
+			TenantID: tenantID,
+			Status:  domain.ClusterStatusRunning,
+		}
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Twice()
+		mockProv.On("Restore", mock.Anything, cluster, "/path/to/backup").Return(nil).Once()
+
+		err := svc.RestoreBackup(ctx, clusterID, "/path/to/backup")
+		require.NoError(t, err)
+	})
+
+	t.Run("SetBackupPolicy_Success", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{
+			ID:      clusterID,
+			UserID:  userID,
+			TenantID: tenantID,
+			Status:  domain.ClusterStatusRunning,
+		}
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
+
+		retention := 14
+		err := svc.SetBackupPolicy(ctx, clusterID, ports.BackupPolicyParams{RetentionDays: &retention})
+		require.NoError(t, err)
+		assert.Equal(t, 14, cluster.BackupRetentionDays)
+	})
+
+	t.Run("SetBackupPolicy_InvalidRetention", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{
+			ID:      clusterID,
+			UserID:  userID,
+			TenantID: tenantID,
+			Status:  domain.ClusterStatusRunning,
+		}
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+
+		retention := 0
+		err := svc.SetBackupPolicy(ctx, clusterID, ports.BackupPolicyParams{RetentionDays: &retention})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid retention")
+	})
+
+	t.Run("AddNodeGroup_Success", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{
+			ID:           clusterID,
+			UserID:       userID,
+			TenantID:     tenantID,
+			WorkerCount:  2,
+			NodeGroups:   []domain.NodeGroup{{Name: "default-pool"}},
+		}
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+		mockRepo.On("AddNodeGroup", mock.Anything, mock.Anything).Return(nil).Once()
+		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
+
+		params := ports.NodeGroupParams{
+			Name:        "new-pool",
+			InstanceType: "standard-2",
+			MinSize:     1,
+			MaxSize:     5,
+			DesiredSize: 3,
+		}
+		ng, err := svc.AddNodeGroup(ctx, clusterID, params)
+		require.NoError(t, err)
+		assert.Equal(t, "new-pool", ng.Name)
+	})
+
+	t.Run("UpdateNodeGroup_Success", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{
+			ID:       clusterID,
+			UserID:   userID,
+			TenantID: tenantID,
+			NodeGroups: []domain.NodeGroup{
+				{Name: "existing-pool", MinSize: 1, MaxSize: 3, CurrentSize: 2},
+			},
+		}
+		newMin := 2
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+		mockRepo.On("UpdateNodeGroup", mock.Anything, mock.Anything).Return(nil).Once()
+		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
+
+		params := ports.UpdateNodeGroupParams{MinSize: &newMin}
+		ng, err := svc.UpdateNodeGroup(ctx, clusterID, "existing-pool", params)
+		require.NoError(t, err)
+		assert.Equal(t, 2, ng.MinSize)
+	})
+
+	t.Run("UpdateNodeGroup_NotFound", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{
+			ID:         clusterID,
+			UserID:     userID,
+			TenantID:   tenantID,
+			NodeGroups: []domain.NodeGroup{},
+		}
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+
+		params := ports.UpdateNodeGroupParams{}
+		_, err := svc.UpdateNodeGroup(ctx, clusterID, "nonexistent", params)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
+	})
+
+	t.Run("DeleteNodeGroup_Success", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{
+			ID:           clusterID,
+			UserID:       userID,
+			TenantID:     tenantID,
+			WorkerCount:  5,
+			NodeGroups: []domain.NodeGroup{
+				{Name: "default-pool"},
+				{Name: "extra-pool", CurrentSize: 3},
+			},
+		}
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+		mockRepo.On("DeleteNodeGroup", mock.Anything, clusterID, "extra-pool").Return(nil).Once()
+		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
+
+		err := svc.DeleteNodeGroup(ctx, clusterID, "extra-pool")
+		require.NoError(t, err)
+	})
+
+	t.Run("DeleteNodeGroup_DefaultPool", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{
+			ID:         clusterID,
+			UserID:     userID,
+			TenantID:   tenantID,
+			NodeGroups: []domain.NodeGroup{{Name: "default-pool"}},
+		}
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+
+		err := svc.DeleteNodeGroup(ctx, clusterID, "default-pool")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot delete default node group")
+	})
+
+	t.Run("RepairCluster_Success", func(t *testing.T) {
+		clusterID := uuid.New()
+		cluster := &domain.Cluster{
+			ID:      clusterID,
+			UserID:  userID,
+			TenantID: tenantID,
+			Status:  domain.ClusterStatusRunning,
+		}
+		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+		mockProv.On("Repair", mock.Anything, cluster).Return(nil).Maybe()
+
+		err := svc.RepairCluster(ctx, clusterID)
+		require.NoError(t, err)
+	})
 }
