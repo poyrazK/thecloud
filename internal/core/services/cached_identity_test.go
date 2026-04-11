@@ -2,8 +2,11 @@ package services
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/google/uuid"
@@ -26,6 +29,12 @@ func (m *mockIdentityService) CreateKey(ctx context.Context, userID uuid.UUID, n
 
 func (m *mockIdentityService) ValidateAPIKey(ctx context.Context, key string) (*domain.APIKey, error) {
 	args := m.Called(ctx, key)
+	r0, _ := args.Get(0).(*domain.APIKey)
+	return r0, args.Error(1)
+}
+
+func (m *mockIdentityService) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error) {
+	args := m.Called(ctx, id)
 	r0, _ := args.Get(0).(*domain.APIKey)
 	return r0, args.Error(1)
 }
@@ -121,6 +130,8 @@ func TestCachedIdentityServicePassthrough(t *testing.T) {
 	})
 
 	t.Run("RevokeKey", func(t *testing.T) {
+		apiKey := &domain.APIKey{ID: keyID, Key: "test-key"}
+		base.On("GetAPIKeyByID", mock.Anything, keyID).Return(apiKey, nil)
 		base.On("RevokeKey", mock.Anything, userID, keyID).Return(nil)
 		err := svc.RevokeKey(ctx, userID, keyID)
 		require.NoError(t, err)
@@ -128,9 +139,88 @@ func TestCachedIdentityServicePassthrough(t *testing.T) {
 	})
 
 	t.Run("RotateKey", func(t *testing.T) {
-		base.On("RotateKey", mock.Anything, userID, keyID).Return(&domain.APIKey{}, nil)
+		oldKey := &domain.APIKey{ID: keyID, Key: "old-key"}
+		newKey := &domain.APIKey{ID: uuid.New(), Key: "new-key"}
+		base.On("GetAPIKeyByID", mock.Anything, keyID).Return(oldKey, nil)
+		base.On("RotateKey", mock.Anything, userID, keyID).Return(newKey, nil)
 		_, err := svc.RotateKey(ctx, userID, keyID)
 		require.NoError(t, err)
+		base.AssertExpectations(t)
+	})
+}
+
+func mustMarshal(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
+}
+
+func TestCachedIdentityServiceCacheInvalidation(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	t.Run("RevokeKey invalidates cache", func(t *testing.T) {
+		base, client := setupCachedIdentityTest(t)
+		svc := NewCachedIdentityService(base, client, slog.Default())
+
+		keyID := uuid.New()
+		rawKey := "thecloud_testkey123"
+		apiKey := &domain.APIKey{ID: keyID, Key: rawKey, Name: "test"}
+
+		// Pre-populate cache (simulating a prior ValidateAPIKey call)
+		keyHash := computeKeyHash(rawKey)
+		cacheKey := fmt.Sprintf("apikey:hash:%s", keyHash)
+		client.Set(ctx, cacheKey, mustMarshal(apiKey), 5*time.Minute)
+
+		// Confirm it's cached
+		exists, err := client.Exists(ctx, cacheKey).Result()
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), exists)
+
+		// Revoke — should delete from cache
+		base.On("GetAPIKeyByID", mock.Anything, keyID).Return(apiKey, nil)
+		base.On("RevokeKey", mock.Anything, mock.Anything, keyID).Return(nil)
+
+		err = svc.RevokeKey(ctx, uuid.New(), keyID)
+		require.NoError(t, err)
+
+		// Verify cache was deleted
+		exists, err = client.Exists(ctx, cacheKey).Result()
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), exists)
+		base.AssertExpectations(t)
+	})
+
+	t.Run("RotateKey invalidates old cache entry", func(t *testing.T) {
+		base, client := setupCachedIdentityTest(t)
+		svc := NewCachedIdentityService(base, client, slog.Default())
+
+		keyID := uuid.New()
+		oldKey := "thecloud_oldkey456"
+		newKey := &domain.APIKey{ID: uuid.New(), Key: "thecloud_newkey789", Name: "rotated"}
+
+		oldHash := computeKeyHash(oldKey)
+		oldCacheKey := fmt.Sprintf("apikey:hash:%s", oldHash)
+
+		// Pre-populate cache with old key
+		client.Set(ctx, oldCacheKey, mustMarshal(&domain.APIKey{ID: keyID, Key: oldKey, Name: "test"}), 5*time.Minute)
+		exists, err := client.Exists(ctx, oldCacheKey).Result()
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), exists)
+
+		base.On("GetAPIKeyByID", mock.Anything, keyID).Return(&domain.APIKey{ID: keyID, Key: oldKey, Name: "test"}, nil)
+		base.On("RotateKey", mock.Anything, mock.Anything, keyID).Return(newKey, nil)
+
+		result, err := svc.RotateKey(ctx, uuid.New(), keyID)
+		require.NoError(t, err)
+		assert.Equal(t, newKey.ID, result.ID)
+
+		// Old cache key should be gone
+		exists, err = client.Exists(ctx, oldCacheKey).Result()
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), exists)
 		base.AssertExpectations(t)
 	})
 }

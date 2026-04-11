@@ -46,6 +46,14 @@ func (m *mockIdentityService) ValidateAPIKey(ctx context.Context, key string) (*
 	r0, _ := args.Get(0).(*domain.APIKey)
 	return r0, args.Error(1)
 }
+func (m *mockIdentityService) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	r0, _ := args.Get(0).(*domain.APIKey)
+	return r0, args.Error(1)
+}
 func (m *mockIdentityService) ListKeys(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
 	args := m.Called(ctx, userID)
 	r0, _ := args.Get(0).([]*domain.APIKey)

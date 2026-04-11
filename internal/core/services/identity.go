@@ -111,6 +111,10 @@ func (s *IdentityService) ValidateAPIKey(ctx context.Context, key string) (*doma
 	return apiKey, nil
 }
 
+func (s *IdentityService) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error) {
+	return s.repo.GetAPIKeyByID(ctx, id)
+}
+
 func (s *IdentityService) ListKeys(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
 	uID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
@@ -214,13 +218,11 @@ func (s *IdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uu
 	return newKey, nil
 }
 
-// computeKeyHash returns the SHA-256 hex digest of an API key.
-//
-//nolint:codeql // SHA-256 is used as a stable key fingerprint, not password hashing.
-// API keys are machine-generated 32-char hex strings (~128 bits of entropy).
-// Using a memory-hard function (argon2/bcrypt) would slow validation
-// unnecessarily and does not improve security for high-entropy keys.
 func computeKeyHash(key string) string {
+	//nolint:codeql // SHA-256 is used as a stable key fingerprint, not password hashing.
+	// API keys are machine-generated 32-char hex strings (~128 bits of entropy).
+	// Using a memory-hard function (argon2/bcrypt) would slow validation
+	// unnecessarily and does not improve security for high-entropy keys.
 	h := sha256.New()
 	h.Write([]byte(key))
 	return hex.EncodeToString(h.Sum(nil))
