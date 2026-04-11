@@ -41,7 +41,7 @@ export default function () {
         sleep(1);
         return;
     }
-    const { authHeaders } = auth;
+    const { apiKey, authHeaders } = auth;
 
     // 1. Create VPC
     const vpcPayload = JSON.stringify({ name: vpcName, cidr_block: '10.2.0.0/16' });
