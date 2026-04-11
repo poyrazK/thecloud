@@ -4,6 +4,7 @@ package services
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"log/slog"
 	"time"
@@ -71,6 +72,7 @@ func (s *IdentityService) CreateKey(ctx context.Context, userID uuid.UUID, name 
 		ID:        uuid.New(),
 		UserID:    userID,
 		Key:       keyStr,
+		KeyHash:   computeKeyHash(keyStr),
 		Name:      name,
 		CreatedAt: time.Now(),
 	}
@@ -93,7 +95,8 @@ func (s *IdentityService) CreateKey(ctx context.Context, userID uuid.UUID, name 
 
 func (s *IdentityService) ValidateAPIKey(ctx context.Context, key string) (*domain.APIKey, error) {
 	// Authentication path, no RBAC check yet as we are resolving identity
-	apiKey, err := s.repo.GetAPIKeyByKey(ctx, key)
+	keyHash := computeKeyHash(key)
+	apiKey, err := s.repo.GetAPIKeyByHash(ctx, keyHash)
 	if err != nil {
 		return nil, errors.New(errors.Unauthorized, "invalid api key")
 	}
@@ -209,4 +212,16 @@ func (s *IdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uu
 	}
 
 	return newKey, nil
+}
+
+// computeKeyHash returns the SHA-256 hex digest of an API key.
+//
+//nolint:codeql // SHA-256 is used as a stable key fingerprint, not password hashing.
+// API keys are machine-generated 32-char hex strings (~128 bits of entropy).
+// Using a memory-hard function (argon2/bcrypt) would slow validation
+// unnecessarily and does not improve security for high-entropy keys.
+func computeKeyHash(key string) string {
+	h := sha256.New()
+	h.Write([]byte(key))
+	return hex.EncodeToString(h.Sum(nil))
 }

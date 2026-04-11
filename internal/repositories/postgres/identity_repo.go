@@ -24,23 +24,23 @@ func NewIdentityRepository(db DB) *IdentityRepository {
 
 func (r *IdentityRepository) CreateAPIKey(ctx context.Context, key *domain.APIKey) error {
 	query := `
-		INSERT INTO api_keys (id, user_id, tenant_id, key, name, created_at, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO api_keys (id, user_id, tenant_id, key, key_hash, name, created_at, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
-	_, err := r.db.Exec(ctx, query, key.ID, key.UserID, key.TenantID, key.Key, key.Name, key.CreatedAt, key.ExpiresAt)
+	_, err := r.db.Exec(ctx, query, key.ID, key.UserID, key.TenantID, key.Key, key.KeyHash, key.Name, key.CreatedAt, key.ExpiresAt)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to create api key", err)
 	}
 	return nil
 }
 
-func (r *IdentityRepository) GetAPIKeyByKey(ctx context.Context, keyStr string) (*domain.APIKey, error) {
+func (r *IdentityRepository) GetAPIKeyByHash(ctx context.Context, keyHash string) (*domain.APIKey, error) {
 	query := `
 		SELECT id, user_id, tenant_id, key, name, created_at, last_used, default_tenant_id, expires_at
 		FROM api_keys
-		WHERE key = $1
+		WHERE key_hash = $1
 	`
-	return r.scanAPIKey(r.db.QueryRow(ctx, query, keyStr), errors.Unauthorized)
+	return r.scanAPIKey(r.db.QueryRow(ctx, query, keyHash), errors.Unauthorized)
 }
 func (r *IdentityRepository) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error) {
 	query := `

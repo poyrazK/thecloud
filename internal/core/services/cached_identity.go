@@ -38,7 +38,8 @@ func (s *cachedIdentityService) CreateKey(ctx context.Context, userID uuid.UUID,
 }
 
 func (s *cachedIdentityService) ValidateAPIKey(ctx context.Context, key string) (*domain.APIKey, error) {
-	cacheKey := fmt.Sprintf("apikey:%s", key)
+	keyHash := computeKeyHash(key)
+	cacheKey := fmt.Sprintf("apikey:hash:%s", keyHash)
 
 	// Try cache
 	val, err := s.redis.Get(ctx, cacheKey).Result()

@@ -7063,7 +7063,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "key": {
-                    "description": "The actual secret key",
+                    "description": "plaintext shown only at create/rotate; empty when listed",
                     "type": "string"
                 },
                 "last_used": {

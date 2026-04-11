@@ -154,8 +154,8 @@ type MockIdentityRepo struct{ mock.Mock }
 func (m *MockIdentityRepo) CreateAPIKey(ctx context.Context, apiKey *domain.APIKey) error {
 	return m.Called(ctx, apiKey).Error(0)
 }
-func (m *MockIdentityRepo) GetAPIKeyByKey(ctx context.Context, key string) (*domain.APIKey, error) {
-	args := m.Called(ctx, key)
+func (m *MockIdentityRepo) GetAPIKeyByHash(ctx context.Context, keyHash string) (*domain.APIKey, error) {
+	args := m.Called(ctx, keyHash)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

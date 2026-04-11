@@ -4,15 +4,21 @@ package postgres
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poyrazk/thecloud/internal/core/domain" 
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// SHA256HexLen is the length of a SHA-256 hex-encoded digest.
+const SHA256HexLen = 64
 
 func TestIdentityRepository_Integration(t *testing.T) {
 	db, _ := SetupDB(t)
@@ -28,6 +34,8 @@ func TestIdentityRepository_Integration(t *testing.T) {
 
 	var keyID uuid.UUID
 	keyString := "test-api-key-12345"
+	keyHash := sha256.Sum256([]byte(keyString))
+	keyHashHex := hex.EncodeToString(keyHash[:])
 
 	t.Run("CreateAPIKey", func(t *testing.T) {
 		keyID = uuid.New()
@@ -35,6 +43,7 @@ func TestIdentityRepository_Integration(t *testing.T) {
 			ID:        keyID,
 			UserID:    userID, TenantID:  tenantID,
 			Key:       keyString,
+			KeyHash:   keyHashHex,
 			Name:      "test-key",
 			CreatedAt: time.Now(),
 		}
@@ -43,12 +52,38 @@ func TestIdentityRepository_Integration(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("GetAPIKeyByKey", func(t *testing.T) {
-		apiKey, err := repo.GetAPIKeyByKey(ctx, keyString)
-		require.NoError(t, err)
-		assert.Equal(t, keyID, apiKey.ID)
-		assert.Equal(t, userID, apiKey.UserID)
-		assert.Equal(t, "test-key", apiKey.Name)
+	t.Run("GetAPIKeyByHash", func(t *testing.T) {
+		cases := []struct {
+			name    string
+			hash    string
+			wantErr bool
+		}{
+			{
+				name:    "found",
+				hash:    keyHashHex,
+				wantErr: false,
+			},
+			{
+				name:    "not_found",
+				hash:    strings.Repeat("a", SHA256HexLen),
+				wantErr: true,
+			},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				apiKey, err := repo.GetAPIKeyByHash(ctx, tc.hash)
+				if tc.wantErr {
+					assert.Error(t, err)
+					assert.Nil(t, apiKey)
+				} else {
+					require.NoError(t, err)
+					assert.NotNil(t, apiKey)
+					assert.Equal(t, keyID, apiKey.ID)
+					assert.Equal(t, userID, apiKey.UserID)
+					assert.Equal(t, "test-key", apiKey.Name)
+				}
+			})
+		}
 	})
 
 	t.Run("GetAPIKeyByID", func(t *testing.T) {
@@ -59,11 +94,14 @@ func TestIdentityRepository_Integration(t *testing.T) {
 	})
 
 	t.Run("ListAPIKeysByUserID", func(t *testing.T) {
-		// Create another API key
+		// Create another API key with dynamically generated values
+		anotherKey := "test-key-" + uuid.New().String()
+		anotherHash := sha256.Sum256([]byte(anotherKey))
 		key2 := &domain.APIKey{
 			ID:        uuid.New(),
 			UserID:    userID, TenantID:  tenantID,
-			Key:       "another-api-key-67890",
+			Key:       anotherKey,
+			KeyHash:   hex.EncodeToString(anotherHash[:]),
 			Name:      "another-key",
 			CreatedAt: time.Now(),
 		}
@@ -94,11 +132,6 @@ func TestIdentityRepository_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = repo.GetAPIKeyByID(ctx, keyID)
-		assert.Error(t, err)
-	})
-
-	t.Run("GetAPIKeyByKey_NotFound", func(t *testing.T) {
-		_, err := repo.GetAPIKeyByKey(ctx, "non-existent-key")
 		assert.Error(t, err)
 	})
 
