@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupIdentityServiceTest(t *testing.T) (*services.IdentityService, *postgres.IdentityRepository, *MockRBACService, context.Context) {
+func setupIdentityServiceTest(t *testing.T) (*services.IdentityService, *MockRBACService, context.Context) {
 	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
@@ -23,7 +23,6 @@ func setupIdentityServiceTest(t *testing.T) (*services.IdentityService, *postgre
 
 	repo := postgres.NewIdentityRepository(db)
 	rbacSvc := new(MockRBACService)
-	
 
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(services.AuditServiceParams{
@@ -36,7 +35,7 @@ func setupIdentityServiceTest(t *testing.T) (*services.IdentityService, *postgre
 		RbacSvc:  rbacSvc,
 		AuditSvc: auditSvc,
 	})
-	return svc, repo, rbacSvc, ctx
+	return svc, rbacSvc, ctx
 }
 
 func TestIdentityService_CreateKey(t *testing.T) {
@@ -76,7 +75,7 @@ func TestIdentityService_CreateKey(t *testing.T) {
 }
 
 func TestIdentityService_ValidateAPIKey(t *testing.T) {
-	svc, _, rbacSvc, ctx := setupIdentityServiceTest(t); _ = rbacSvc
+	svc, _, ctx := setupIdentityServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	key, _ := svc.CreateKey(ctx, userID, "session")
@@ -94,7 +93,7 @@ func TestIdentityService_ValidateAPIKey(t *testing.T) {
 }
 
 func TestIdentityService_RevokeKey(t *testing.T) {
-	svc, _, rbacSvc, ctx := setupIdentityServiceTest(t); _ = rbacSvc
+	svc, rbacSvc, ctx := setupIdentityServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	key, _ := svc.CreateKey(ctx, userID, "to-revoke")
@@ -120,7 +119,7 @@ func TestIdentityService_RevokeKey(t *testing.T) {
 }
 
 func TestIdentityService_RotateKey(t *testing.T) {
-	svc, _, rbacSvc, ctx := setupIdentityServiceTest(t); _ = rbacSvc
+	svc, rbacSvc, ctx := setupIdentityServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	oldKey, _ := svc.CreateKey(ctx, userID, "original")
