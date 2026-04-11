@@ -105,4 +105,214 @@ func TestRBACService_Unit(t *testing.T) {
 		err := bindSvc.BindRole(ctx, "test@test.com", domain.RoleAdmin)
 		require.NoError(t, err)
 	})
+
+	t.Run("CreateRole_Success", func(t *testing.T) {
+		mockRoleRepo := new(MockRoleRepository)
+		svc := services.NewRBACService(services.RBACServiceParams{
+			UserRepo: mockUserRepo, RoleRepo: mockRoleRepo, TenantRepo: mockTenantRepo,
+			IAMRepo: mockIAMRepo, Evaluator: mockEval, Logger: slog.Default(),
+		})
+
+		mockRoleRepo.On("GetRoleByName", mock.Anything, "new-role").Return(nil, errors.New(errors.NotFound, "not found")).Once()
+		mockRoleRepo.On("CreateRole", mock.Anything, mock.Anything).Return(nil).Once()
+
+		role := &domain.Role{Name: "new-role"}
+		err := svc.CreateRole(ctx, role)
+		require.NoError(t, err)
+		mockRoleRepo.AssertExpectations(t)
+	})
+
+	t.Run("CreateRole_Conflict", func(t *testing.T) {
+		mockRoleRepo := new(MockRoleRepository)
+		svc := services.NewRBACService(services.RBACServiceParams{
+			UserRepo: mockUserRepo, RoleRepo: mockRoleRepo, TenantRepo: mockTenantRepo,
+			IAMRepo: mockIAMRepo, Evaluator: mockEval, Logger: slog.Default(),
+		})
+
+		mockRoleRepo.On("GetRoleByName", mock.Anything, "existing-role").Return(&domain.Role{Name: "existing-role"}, nil).Once()
+
+		role := &domain.Role{Name: "existing-role"}
+		err := svc.CreateRole(ctx, role)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "already exists")
+	})
+
+	t.Run("GetRoleByName_Success", func(t *testing.T) {
+		mockRoleRepo := new(MockRoleRepository)
+		svc := services.NewRBACService(services.RBACServiceParams{
+			UserRepo: mockUserRepo, RoleRepo: mockRoleRepo, TenantRepo: mockTenantRepo,
+			IAMRepo: mockIAMRepo, Evaluator: mockEval, Logger: slog.Default(),
+		})
+
+		expectedRole := &domain.Role{Name: "admin"}
+		mockRoleRepo.On("GetRoleByName", mock.Anything, "admin").Return(expectedRole, nil).Once()
+
+		role, err := svc.GetRoleByName(ctx, "admin")
+		require.NoError(t, err)
+		assert.Equal(t, "admin", role.Name)
+		mockRoleRepo.AssertExpectations(t)
+	})
+
+	t.Run("GetRoleByID_Success", func(t *testing.T) {
+		mockRoleRepo := new(MockRoleRepository)
+		svc := services.NewRBACService(services.RBACServiceParams{
+			UserRepo: mockUserRepo, RoleRepo: mockRoleRepo, TenantRepo: mockTenantRepo,
+			IAMRepo: mockIAMRepo, Evaluator: mockEval, Logger: slog.Default(),
+		})
+
+		roleID := uuid.New()
+		expectedRole := &domain.Role{Name: "admin"}
+		mockRoleRepo.On("GetRoleByID", mock.Anything, roleID).Return(expectedRole, nil).Once()
+
+		role, err := svc.GetRoleByID(ctx, roleID)
+		require.NoError(t, err)
+		assert.Equal(t, "admin", role.Name)
+		mockRoleRepo.AssertExpectations(t)
+	})
+
+	t.Run("ListRoles_Success", func(t *testing.T) {
+		mockRoleRepo := new(MockRoleRepository)
+		svc := services.NewRBACService(services.RBACServiceParams{
+			UserRepo: mockUserRepo, RoleRepo: mockRoleRepo, TenantRepo: mockTenantRepo,
+			IAMRepo: mockIAMRepo, Evaluator: mockEval, Logger: slog.Default(),
+		})
+
+		roles := []*domain.Role{
+			{Name: "admin"},
+			{Name: "viewer"},
+		}
+		mockRoleRepo.On("ListRoles", mock.Anything).Return(roles, nil).Once()
+
+		res, err := svc.ListRoles(ctx)
+		require.NoError(t, err)
+		assert.Len(t, res, 2)
+		mockRoleRepo.AssertExpectations(t)
+	})
+
+	t.Run("UpdateRole_Success", func(t *testing.T) {
+		mockRoleRepo := new(MockRoleRepository)
+		svc := services.NewRBACService(services.RBACServiceParams{
+			UserRepo: mockUserRepo, RoleRepo: mockRoleRepo, TenantRepo: mockTenantRepo,
+			IAMRepo: mockIAMRepo, Evaluator: mockEval, Logger: slog.Default(),
+		})
+
+		mockRoleRepo.On("UpdateRole", mock.Anything, mock.Anything).Return(nil).Once()
+
+		role := &domain.Role{Name: "updated-role"}
+		err := svc.UpdateRole(ctx, role)
+		require.NoError(t, err)
+		mockRoleRepo.AssertExpectations(t)
+	})
+
+	t.Run("DeleteRole_Success", func(t *testing.T) {
+		mockRoleRepo := new(MockRoleRepository)
+		svc := services.NewRBACService(services.RBACServiceParams{
+			UserRepo: mockUserRepo, RoleRepo: mockRoleRepo, TenantRepo: mockTenantRepo,
+			IAMRepo: mockIAMRepo, Evaluator: mockEval, Logger: slog.Default(),
+		})
+
+		roleID := uuid.New()
+		mockRoleRepo.On("DeleteRole", mock.Anything, roleID).Return(nil).Once()
+
+		err := svc.DeleteRole(ctx, roleID)
+		require.NoError(t, err)
+		mockRoleRepo.AssertExpectations(t)
+	})
+
+	t.Run("AddPermissionToRole_Success", func(t *testing.T) {
+		mockRoleRepo := new(MockRoleRepository)
+		svc := services.NewRBACService(services.RBACServiceParams{
+			UserRepo: mockUserRepo, RoleRepo: mockRoleRepo, TenantRepo: mockTenantRepo,
+			IAMRepo: mockIAMRepo, Evaluator: mockEval, Logger: slog.Default(),
+		})
+
+		roleID := uuid.New()
+		mockRoleRepo.On("AddPermissionToRole", mock.Anything, roleID, domain.PermissionInstanceRead).Return(nil).Once()
+
+		err := svc.AddPermissionToRole(ctx, roleID, domain.PermissionInstanceRead)
+		require.NoError(t, err)
+		mockRoleRepo.AssertExpectations(t)
+	})
+
+	t.Run("RemovePermissionFromRole_Success", func(t *testing.T) {
+		mockRoleRepo := new(MockRoleRepository)
+		svc := services.NewRBACService(services.RBACServiceParams{
+			UserRepo: mockUserRepo, RoleRepo: mockRoleRepo, TenantRepo: mockTenantRepo,
+			IAMRepo: mockIAMRepo, Evaluator: mockEval, Logger: slog.Default(),
+		})
+
+		roleID := uuid.New()
+		mockRoleRepo.On("RemovePermissionFromRole", mock.Anything, roleID, domain.PermissionInstanceRead).Return(nil).Once()
+
+		err := svc.RemovePermissionFromRole(ctx, roleID, domain.PermissionInstanceRead)
+		require.NoError(t, err)
+		mockRoleRepo.AssertExpectations(t)
+	})
+
+	t.Run("ListRoleBindings_Success", func(t *testing.T) {
+		mockUserRepo := new(MockUserRepo)
+		svc := services.NewRBACService(services.RBACServiceParams{
+			UserRepo: mockUserRepo, RoleRepo: mockRoleRepo, TenantRepo: mockTenantRepo,
+			IAMRepo: mockIAMRepo, Evaluator: mockEval, Logger: slog.Default(),
+		})
+
+		users := []*domain.User{
+			{ID: uuid.New(), Role: "admin"},
+			{ID: uuid.New(), Role: "viewer"},
+		}
+		mockUserRepo.On("List", mock.Anything).Return(users, nil).Once()
+
+		res, err := svc.ListRoleBindings(ctx)
+		require.NoError(t, err)
+		assert.Len(t, res, 2)
+		mockUserRepo.AssertExpectations(t)
+	})
+
+	t.Run("EvaluatePolicy_Success", func(t *testing.T) {
+		mockUserRepo := new(MockUserRepo)
+		mockIAMRepo := new(MockIAMRepository)
+		mockEval := new(MockPolicyEvaluator)
+		svc := services.NewRBACService(services.RBACServiceParams{
+			UserRepo: mockUserRepo, RoleRepo: mockRoleRepo, TenantRepo: mockTenantRepo,
+			IAMRepo: mockIAMRepo, Evaluator: mockEval, Logger: slog.Default(),
+		})
+
+		uid := uuid.New()
+		policy := &domain.Policy{Name: "allow-read"}
+		mockUserRepo.On("GetByID", mock.Anything, uid).Return(&domain.User{ID: uid}, nil).Once()
+		mockIAMRepo.On("GetPoliciesForUser", mock.Anything, uuid.Nil, uid).Return([]*domain.Policy{policy}, nil).Once()
+		mockEval.On("Evaluate", mock.Anything, mock.Anything, "read", "resource1", mock.Anything).Return(domain.EffectAllow, nil).Once()
+
+		allowed, err := svc.EvaluatePolicy(ctx, uid, "read", "resource1", nil)
+		require.NoError(t, err)
+		assert.True(t, allowed)
+	})
+
+	t.Run("EvaluatePolicy_NoPolicies", func(t *testing.T) {
+		mockUserRepo := new(MockUserRepo)
+		mockIAMRepo := new(MockIAMRepository)
+		svc := services.NewRBACService(services.RBACServiceParams{
+			UserRepo: mockUserRepo, RoleRepo: mockRoleRepo, TenantRepo: mockTenantRepo,
+			IAMRepo: mockIAMRepo, Evaluator: mockEval, Logger: slog.Default(),
+		})
+
+		uid := uuid.New()
+		mockUserRepo.On("GetByID", mock.Anything, uid).Return(&domain.User{ID: uid}, nil).Once()
+		mockIAMRepo.On("GetPoliciesForUser", mock.Anything, uuid.Nil, uid).Return([]*domain.Policy{}, nil).Once()
+
+		allowed, err := svc.EvaluatePolicy(ctx, uid, "read", "resource1", nil)
+		require.NoError(t, err)
+		assert.False(t, allowed)
+	})
+
+	t.Run("EvaluatePolicy_IAMNotInitialized", func(t *testing.T) {
+		svc := services.NewRBACService(services.RBACServiceParams{
+			UserRepo: mockUserRepo, RoleRepo: mockRoleRepo, TenantRepo: mockTenantRepo,
+			IAMRepo: nil, Evaluator: nil, Logger: slog.Default(),
+		})
+
+		_, err := svc.EvaluatePolicy(ctx, uuid.New(), "read", "resource1", nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not initialized")
+	})
 }
