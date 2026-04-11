@@ -55,6 +55,7 @@ jobs:
           JWT_SECRET: test-secret-for-load-testing-only
           ENVIRONMENT: test
         run: |
+          set +e
           ./api &
           API_PID=$!
           echo "API_PID=$API_PID" >> $GITHUB_ENV
@@ -66,6 +67,7 @@ jobs:
             fi
             echo "Waiting for API... attempt $i status: $STATUS"
             sleep 1
+            STATUS=
           done
           FINAL_STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
           echo "Final health check status: $FINAL_STATUS"
@@ -152,6 +154,7 @@ jobs:
           JWT_SECRET: test-secret-for-load-testing-only
           ENVIRONMENT: test
         run: |
+          set +e
           ./api &
           API_PID=$!
           echo "API_PID=$API_PID" >> $GITHUB_ENV
@@ -163,6 +166,7 @@ jobs:
             fi
             echo "Waiting for API... attempt $i status: $STATUS"
             sleep 1
+            STATUS=
           done
           FINAL_STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
           echo "Final health check status: $FINAL_STATUS"
@@ -235,6 +239,7 @@ jobs:
           ENVIRONMENT: test
           COMPUTE_BACKEND: docker
         run: |
+          set +e
           ./api &
           API_PID=$!
           echo "API_PID=$API_PID" >> $GITHUB_ENV
@@ -246,6 +251,7 @@ jobs:
             fi
             echo "Waiting for API... attempt $i status: $STATUS"
             sleep 1
+            STATUS=
           done
           FINAL_STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
           echo "Final health check status: $FINAL_STATUS"
