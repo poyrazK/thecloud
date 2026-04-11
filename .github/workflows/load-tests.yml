@@ -54,7 +54,7 @@ jobs:
           PORT: 8080
           JWT_SECRET: test-secret-for-load-testing-only
           ENVIRONMENT: test
-          RATE_LIMIT_AUTH: 0
+          RATE_LIMIT_AUTH: 1000
         run: |
           set +e
           ./api &
@@ -154,7 +154,7 @@ jobs:
           PORT: 8080
           JWT_SECRET: test-secret-for-load-testing-only
           ENVIRONMENT: test
-          RATE_LIMIT_AUTH: 0
+          RATE_LIMIT_AUTH: 1000
         run: |
           set +e
           ./api &
@@ -240,7 +240,7 @@ jobs:
           JWT_SECRET: test-secret-for-load-testing-only
           ENVIRONMENT: test
           COMPUTE_BACKEND: docker
-          RATE_LIMIT_AUTH: 0
+          RATE_LIMIT_AUTH: 1000
         run: |
           set +e
           ./api &
