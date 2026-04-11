@@ -151,7 +151,7 @@ func TestVPCPeeringService_Unit(t *testing.T) {
 		assert.Contains(t, err.Error(), "failed to establish network peering")
 	})
 
-		t.Run("AcceptPeering_Success", func(t *testing.T) {
+	t.Run("AcceptPeering_Success", func(t *testing.T) {
 		peeringID := uuid.New()
 		requesterVPCID := uuid.New()
 		accepterVPCID := uuid.New()
