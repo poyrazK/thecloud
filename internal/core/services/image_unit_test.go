@@ -98,6 +98,7 @@ func TestImageService_Unit(t *testing.T) {
 
 		_, err := svc.GetImage(ctx, imgID)
 		require.Error(t, err)
+		assert.Contains(t, err.Error(), "db error")
 	})
 
 	t.Run("GetImage_TenantMismatch", func(t *testing.T) {
@@ -110,7 +111,7 @@ func TestImageService_Unit(t *testing.T) {
 
 		_, err := svc.GetImage(ctx, imgID)
 		require.Error(t, err)
-		// Tenant mismatch returns "not found" error
+		assert.Contains(t, err.Error(), "not found")
 	})
 
 	t.Run("RegisterImage_RepoError", func(t *testing.T) {
