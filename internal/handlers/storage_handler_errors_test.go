@@ -230,7 +230,7 @@ func TestStorageHandlerErrors(t *testing.T) { //nolint:gocyclo
 				}
 			},
 			setupMock: func(m *mockStorageService) {
-				m.On("GeneratePresignedURL", mock.Anything, "b1", "/key1", "GET", time.Duration(0)).
+				m.On("GeneratePresignedURL", mock.Anything, "b1", "/key1", "GET", 900*time.Second).
 					Return(nil, internalerrors.New(internalerrors.Internal, "presign failed"))
 			},
 			checkCode: http.StatusInternalServerError,
