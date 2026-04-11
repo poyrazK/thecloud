@@ -284,6 +284,36 @@ jobs:
           path: tests/load/load-balancer.js
           flags: --vus 2 --duration 5m
 
+      - name: Run Volumes Lifecycle Test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: tests/load/volumes-lifecycle.js
+          flags: --vus 2 --duration 5m
+
+      - name: Run Security Groups Test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: tests/load/security-groups.js
+          flags: --vus 2 --duration 5m
+
+      - name: Run Caches Lifecycle Test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: tests/load/caches-lifecycle.js
+          flags: --vus 2 --duration 5m
+
+      - name: Run Secrets Lifecycle Test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: tests/load/secrets-lifecycle.js
+          flags: --vus 5 --duration 3m
+
+      - name: Run Clusters Lifecycle Test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: tests/load/clusters-lifecycle.js
+          flags: --vus 1 --duration 10m
+
       - name: Stop API
         if: always()
         run: kill $API_PID 2>/dev/null || true
