@@ -65,4 +65,4 @@ issues:
     - path: internal/core/services/cluster_unit_test\.go
       linters:
         - unparam
-      text: "MockInstanceService"
+      text: "MockInstanceService|MockRBACService"
