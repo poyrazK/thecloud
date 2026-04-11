@@ -28,6 +28,8 @@ type IdentityService interface {
 	CreateKey(ctx context.Context, userID uuid.UUID, name string) (*domain.APIKey, error)
 	// ValidateAPIKey authenticates a request using a raw API key string.
 	ValidateAPIKey(ctx context.Context, key string) (*domain.APIKey, error)
+	// GetAPIKeyByID retrieves a key's metadata by its unique UUID.
+	GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error)
 	// ListKeys returns all keys associated with an authorized user.
 	ListKeys(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error)
 	// RevokeKey immediately invalidates an API key.

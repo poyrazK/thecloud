@@ -503,6 +503,9 @@ func (s *NoopIdentityService) CreateKey(ctx context.Context, userID uuid.UUID, n
 func (s *NoopIdentityService) ValidateAPIKey(ctx context.Context, key string) (*domain.APIKey, error) {
 	return &domain.APIKey{ID: uuid.New()}, nil
 }
+func (s *NoopIdentityService) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error) {
+	return &domain.APIKey{ID: id}, nil
+}
 func (s *NoopIdentityService) ListKeys(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
 	return []*domain.APIKey{}, nil
 }

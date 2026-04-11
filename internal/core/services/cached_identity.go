@@ -68,13 +68,34 @@ func (s *cachedIdentityService) ListKeys(ctx context.Context, userID uuid.UUID) 
 	return s.base.ListKeys(ctx, userID)
 }
 
+func (s *cachedIdentityService) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error) {
+	return s.base.GetAPIKeyByID(ctx, id)
+}
+
 func (s *cachedIdentityService) RevokeKey(ctx context.Context, userID uuid.UUID, id uuid.UUID) error {
-	// For simplicity, we don't know the key string here to invalidate it by string.
-	// In a real system, we'd either invalidate all keys for the user or store a mapping.
-	// For 1k users, we'll just let the 5m TTL handle it or invalidate by ID if we change cache structure.
+	// Fetch key by ID (base, not cached) to get raw key for cache invalidation
+	key, err := s.base.GetAPIKeyByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	keyHash := computeKeyHash(key.Key)
+	s.redis.Del(ctx, fmt.Sprintf("apikey:hash:%s", keyHash))
 	return s.base.RevokeKey(ctx, userID, id)
 }
 
 func (s *cachedIdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*domain.APIKey, error) {
-	return s.base.RotateKey(ctx, userID, id)
+	// Fetch old key to invalidate its cache entry
+	oldKey, err := s.base.GetAPIKeyByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	oldHash := computeKeyHash(oldKey.Key)
+	s.redis.Del(ctx, fmt.Sprintf("apikey:hash:%s", oldHash))
+
+	newKey, err := s.base.RotateKey(ctx, userID, id)
+	if err != nil {
+		return nil, err
+	}
+	// New key's hash is cached by ValidateAPIKey on next use — no action needed here
+	return newKey, nil
 }

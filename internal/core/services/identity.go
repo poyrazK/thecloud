@@ -111,6 +111,10 @@ func (s *IdentityService) ValidateAPIKey(ctx context.Context, key string) (*doma
 	return apiKey, nil
 }
 
+func (s *IdentityService) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error) {
+	return s.repo.GetAPIKeyByID(ctx, id)
+}
+
 func (s *IdentityService) ListKeys(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
 	uID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)

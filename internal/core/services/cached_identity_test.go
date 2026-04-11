@@ -30,6 +30,12 @@ func (m *mockIdentityService) ValidateAPIKey(ctx context.Context, key string) (*
 	return r0, args.Error(1)
 }
 
+func (m *mockIdentityService) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error) {
+	args := m.Called(ctx, id)
+	r0, _ := args.Get(0).(*domain.APIKey)
+	return r0, args.Error(1)
+}
+
 func (m *mockIdentityService) ListKeys(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
 	args := m.Called(ctx, userID)
 	r0, _ := args.Get(0).([]*domain.APIKey)
@@ -121,6 +127,8 @@ func TestCachedIdentityServicePassthrough(t *testing.T) {
 	})
 
 	t.Run("RevokeKey", func(t *testing.T) {
+		apiKey := &domain.APIKey{ID: keyID, Key: "test-key"}
+		base.On("GetAPIKeyByID", mock.Anything, keyID).Return(apiKey, nil)
 		base.On("RevokeKey", mock.Anything, userID, keyID).Return(nil)
 		err := svc.RevokeKey(ctx, userID, keyID)
 		require.NoError(t, err)
@@ -128,7 +136,10 @@ func TestCachedIdentityServicePassthrough(t *testing.T) {
 	})
 
 	t.Run("RotateKey", func(t *testing.T) {
-		base.On("RotateKey", mock.Anything, userID, keyID).Return(&domain.APIKey{}, nil)
+		oldKey := &domain.APIKey{ID: keyID, Key: "old-key"}
+		newKey := &domain.APIKey{ID: uuid.New(), Key: "new-key"}
+		base.On("GetAPIKeyByID", mock.Anything, keyID).Return(oldKey, nil)
+		base.On("RotateKey", mock.Anything, userID, keyID).Return(newKey, nil)
 		_, err := svc.RotateKey(ctx, userID, keyID)
 		require.NoError(t, err)
 		base.AssertExpectations(t)
