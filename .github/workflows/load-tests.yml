@@ -234,7 +234,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y openvswitch-switch
-          echo "OVS installed successfully"
+          sudo ovs-vsctl init
+          sudo service openvswitch-switch start
+          echo "OVS installed and started successfully"
 
       - name: Pre-pull Docker images
         run: |
