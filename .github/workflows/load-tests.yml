@@ -230,6 +230,15 @@ jobs:
       - name: Setup Docker socket
         run: sudo chmod 666 /var/run/docker.sock
 
+      - name: Pre-pull Docker images
+        run: |
+          echo "Pre-pulling Docker images..."
+          docker pull alpine:latest
+          docker pull postgres:15
+          docker pull redis:7-alpine
+          docker pull redis:7.2-alpine
+          echo "Done pre-pulling images"
+
       - name: Build API Server
         run: go build -o api ./cmd/api
 
