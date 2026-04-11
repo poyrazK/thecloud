@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -606,5 +608,359 @@ func TestInstanceService_Provision_Finalize(t *testing.T) {
 		assert.Equal(t, domain.StatusRunning, inst.Status)
 
 		repo.AssertExpectations(t)
+	})
+}
+
+func TestInstanceService_Terminate_Unit(t *testing.T) {
+	t.Run("TerminateInstance_WithVolumesAttached", func(t *testing.T) {
+		repo := new(MockInstanceRepo)
+		volRepo := new(MockVolumeRepo)
+		typeRepo := new(MockInstanceTypeRepo)
+		compute := new(MockComputeBackend)
+		rbacSvc := new(MockRBACService)
+		dnsSvc := new(MockDNSService)
+		eventSvc := new(MockEventService)
+		auditSvc := new(MockAuditService)
+		tenantSvc := new(MockTenantService)
+		logSvc := new(MockLogService)
+
+		svc := services.NewInstanceService(services.InstanceServiceParams{
+			Repo:             repo,
+			VolumeRepo:       volRepo,
+			InstanceTypeRepo: typeRepo,
+			Compute:          compute,
+			RBAC:             rbacSvc,
+			DNSSvc:           dnsSvc,
+			EventSvc:         eventSvc,
+			AuditSvc:         auditSvc,
+			TenantSvc:        tenantSvc,
+			LogSvc:           logSvc,
+			Logger:           slog.Default(),
+		})
+
+		ctx := context.Background()
+		userID := uuid.New()
+		tenantID := uuid.New()
+		instanceID := uuid.New()
+		vpcID := uuid.New()
+		ctx = appcontext.WithUserID(ctx, userID)
+		ctx = appcontext.WithTenantID(ctx, tenantID)
+
+		vol1 := &domain.Volume{ID: uuid.New(), TenantID: tenantID, Status: domain.VolumeStatusInUse, InstanceID: &instanceID, MountPath: "/mnt/vol1"}
+		vol2 := &domain.Volume{ID: uuid.New(), TenantID: tenantID, Status: domain.VolumeStatusInUse, InstanceID: &instanceID, MountPath: "/mnt/vol2"}
+
+		inst := &domain.Instance{
+			ID:            instanceID,
+			UserID:        userID,
+			TenantID:      tenantID,
+			Status:        domain.StatusRunning,
+			ContainerID:   "cid-1",
+			InstanceType:  "t2.micro",
+			VpcID:         &vpcID,
+		}
+
+		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Once()
+		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceTerminate, instanceID.String()).Return(nil).Once()
+		compute.On("GetInstanceLogs", mock.Anything, "cid-1").Return(io.NopCloser(strings.NewReader("log line 1\nlog line 2\n")), nil).Once()
+		logSvc.On("IngestLogs", mock.Anything, mock.Anything).Return(nil).Once()
+		compute.On("DeleteInstance", mock.Anything, "cid-1").Return(nil).Once()
+		compute.On("Type").Return("docker").Maybe()
+		volRepo.On("ListByInstanceID", mock.Anything, instanceID).Return([]*domain.Volume{vol1, vol2}, nil).Once()
+		volRepo.On("Update", mock.Anything, mock.MatchedBy(func(v *domain.Volume) bool {
+			return v.Status == domain.VolumeStatusAvailable && v.InstanceID == nil && v.MountPath == ""
+		})).Return(nil).Times(2)
+		repo.On("Delete", mock.Anything, instanceID).Return(nil).Once()
+		typeRepo.On("GetByID", mock.Anything, "t2.micro").Return(&domain.InstanceType{VCPUs: 1, MemoryMB: 1024}, nil).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "instances", 1).Return(nil).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 1).Return(nil).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "memory", 1).Return(nil).Once()
+		eventSvc.On("RecordEvent", mock.Anything, "INSTANCE_TERMINATE", instanceID.String(), "INSTANCE", mock.Anything).Return(nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "instance.terminate", "instance", instanceID.String(), mock.Anything).Return(nil).Once()
+		dnsSvc.On("UnregisterInstance", mock.Anything, instanceID).Return(nil).Maybe()
+
+		err := svc.TerminateInstance(ctx, instanceID.String())
+		require.NoError(t, err)
+
+		mock.AssertExpectationsForObjects(t, repo, volRepo, typeRepo, compute, rbacSvc, eventSvc, auditSvc, dnsSvc)
+	})
+
+	t.Run("TerminateInstance_ContainerDeleteFails", func(t *testing.T) {
+		repo := new(MockInstanceRepo)
+		compute := new(MockComputeBackend)
+		rbacSvc := new(MockRBACService)
+		tenantSvc := new(MockTenantService)
+
+		svc := services.NewInstanceService(services.InstanceServiceParams{
+			Repo:       repo,
+			Compute:    compute,
+			RBAC:       rbacSvc,
+			TenantSvc:  tenantSvc,
+			Logger:     slog.Default(),
+		})
+
+		ctx := context.Background()
+		userID := uuid.New()
+		tenantID := uuid.New()
+		instanceID := uuid.New()
+		ctx = appcontext.WithUserID(ctx, userID)
+		ctx = appcontext.WithTenantID(ctx, tenantID)
+
+		inst := &domain.Instance{
+			ID:          instanceID,
+			UserID:      userID,
+			TenantID:    tenantID,
+			Status:      domain.StatusRunning,
+			ContainerID: "cid-1",
+		}
+
+		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Once()
+		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceTerminate, instanceID.String()).Return(nil).Once()
+		compute.On("DeleteInstance", mock.Anything, "cid-1").Return(fmt.Errorf("docker error")).Once()
+		compute.On("Type").Return("docker").Maybe()
+
+		err := svc.TerminateInstance(ctx, instanceID.String())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to remove container")
+		mock.AssertExpectationsForObjects(t, repo, rbacSvc, compute)
+	})
+
+	t.Run("TerminateInstance_InstanceTypeNotFound", func(t *testing.T) {
+		repo := new(MockInstanceRepo)
+		volRepo := new(MockVolumeRepo)
+		typeRepo := new(MockInstanceTypeRepo)
+		compute := new(MockComputeBackend)
+		rbacSvc := new(MockRBACService)
+		eventSvc := new(MockEventService)
+		auditSvc := new(MockAuditService)
+		tenantSvc := new(MockTenantService)
+
+		svc := services.NewInstanceService(services.InstanceServiceParams{
+			Repo:             repo,
+			VolumeRepo:       volRepo,
+			InstanceTypeRepo: typeRepo,
+			Compute:          compute,
+			RBAC:             rbacSvc,
+			EventSvc:         eventSvc,
+			AuditSvc:         auditSvc,
+			TenantSvc:        tenantSvc,
+			Logger:           slog.Default(),
+		})
+
+		ctx := context.Background()
+		userID := uuid.New()
+		tenantID := uuid.New()
+		instanceID := uuid.New()
+		ctx = appcontext.WithUserID(ctx, userID)
+		ctx = appcontext.WithTenantID(ctx, tenantID)
+
+		inst := &domain.Instance{
+			ID:            instanceID,
+			UserID:        userID,
+			TenantID:      tenantID,
+			Status:        domain.StatusStopped,
+			ContainerID:   "cid-1",
+			InstanceType:  "unknown-type",
+		}
+
+		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Once()
+		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceTerminate, instanceID.String()).Return(nil).Once()
+		compute.On("DeleteInstance", mock.Anything, "cid-1").Return(nil).Once()
+		compute.On("Type").Return("docker").Maybe()
+		volRepo.On("ListByInstanceID", mock.Anything, instanceID).Return([]*domain.Volume{}, nil).Once()
+		repo.On("Delete", mock.Anything, instanceID).Return(nil).Once()
+		typeRepo.On("GetByID", mock.Anything, "unknown-type").Return(nil, fmt.Errorf("not found")).Once()
+		eventSvc.On("RecordEvent", mock.Anything, "INSTANCE_TERMINATE", instanceID.String(), "INSTANCE", mock.Anything).Return(nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "instance.terminate", "instance", instanceID.String(), mock.Anything).Return(nil).Once()
+
+		err := svc.TerminateInstance(ctx, instanceID.String())
+		require.NoError(t, err)
+
+		mock.AssertExpectationsForObjects(t, repo, volRepo, typeRepo, compute, rbacSvc, eventSvc, auditSvc)
+	})
+
+	t.Run("TerminateInstance_StoppedStatus", func(t *testing.T) {
+		repo := new(MockInstanceRepo)
+		volRepo := new(MockVolumeRepo)
+		typeRepo := new(MockInstanceTypeRepo)
+		compute := new(MockComputeBackend)
+		rbacSvc := new(MockRBACService)
+		eventSvc := new(MockEventService)
+		auditSvc := new(MockAuditService)
+		tenantSvc := new(MockTenantService)
+
+		svc := services.NewInstanceService(services.InstanceServiceParams{
+			Repo:             repo,
+			VolumeRepo:       volRepo,
+			InstanceTypeRepo: typeRepo,
+			Compute:          compute,
+			RBAC:             rbacSvc,
+			EventSvc:         eventSvc,
+			AuditSvc:         auditSvc,
+			TenantSvc:        tenantSvc,
+			Logger:           slog.Default(),
+		})
+
+		ctx := context.Background()
+		userID := uuid.New()
+		tenantID := uuid.New()
+		instanceID := uuid.New()
+		ctx = appcontext.WithUserID(ctx, userID)
+		ctx = appcontext.WithTenantID(ctx, tenantID)
+
+		inst := &domain.Instance{
+			ID:            instanceID,
+			UserID:        userID,
+			TenantID:      tenantID,
+			Status:        domain.StatusStopped,
+			ContainerID:   "cid-1",
+			InstanceType:  "t2.micro",
+		}
+
+		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Once()
+		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceTerminate, instanceID.String()).Return(nil).Once()
+		compute.On("DeleteInstance", mock.Anything, "cid-1").Return(nil).Once()
+		compute.On("Type").Return("docker").Maybe()
+		volRepo.On("ListByInstanceID", mock.Anything, instanceID).Return([]*domain.Volume{}, nil).Once()
+		repo.On("Delete", mock.Anything, instanceID).Return(nil).Once()
+		typeRepo.On("GetByID", mock.Anything, "t2.micro").Return(&domain.InstanceType{VCPUs: 1, MemoryMB: 1024}, nil).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "instances", 1).Return(nil).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 1).Return(nil).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "memory", 1).Return(nil).Once()
+		eventSvc.On("RecordEvent", mock.Anything, "INSTANCE_TERMINATE", instanceID.String(), "INSTANCE", mock.Anything).Return(nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "instance.terminate", "instance", instanceID.String(), mock.Anything).Return(nil).Once()
+
+		err := svc.TerminateInstance(ctx, instanceID.String())
+		require.NoError(t, err)
+
+		mock.AssertExpectationsForObjects(t, repo, volRepo, typeRepo, compute, rbacSvc, eventSvc, auditSvc, tenantSvc)
+	})
+}
+
+func TestInstanceService_VolumeRelease_Unit(t *testing.T) {
+	t.Run("releaseAttachedVolumes_ListError", func(t *testing.T) {
+		repo := new(MockInstanceRepo)
+		volRepo := new(MockVolumeRepo)
+		typeRepo := new(MockInstanceTypeRepo)
+		compute := new(MockComputeBackend)
+		rbacSvc := new(MockRBACService)
+		eventSvc := new(MockEventService)
+		auditSvc := new(MockAuditService)
+		tenantSvc := new(MockTenantService)
+
+		svc := services.NewInstanceService(services.InstanceServiceParams{
+			Repo:             repo,
+			VolumeRepo:       volRepo,
+			InstanceTypeRepo: typeRepo,
+			Compute:          compute,
+			RBAC:             rbacSvc,
+			EventSvc:         eventSvc,
+			AuditSvc:         auditSvc,
+			TenantSvc:        tenantSvc,
+			Logger:           slog.Default(),
+		})
+
+		ctx := context.Background()
+		userID := uuid.New()
+		tenantID := uuid.New()
+		instanceID := uuid.New()
+		ctx = appcontext.WithUserID(ctx, userID)
+		ctx = appcontext.WithTenantID(ctx, tenantID)
+
+		inst := &domain.Instance{
+			ID:            instanceID,
+			UserID:        userID,
+			TenantID:      tenantID,
+			Status:        domain.StatusRunning,
+			ContainerID:   "cid-1",
+			InstanceType:  "t2.micro",
+		}
+
+		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Once()
+		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceTerminate, instanceID.String()).Return(nil).Once()
+		compute.On("DeleteInstance", mock.Anything, "cid-1").Return(nil).Once()
+		compute.On("Type").Return("docker").Maybe()
+		volRepo.On("ListByInstanceID", mock.Anything, instanceID).Return(nil, fmt.Errorf("db error")).Once()
+		repo.On("Delete", mock.Anything, instanceID).Return(nil).Once()
+		typeRepo.On("GetByID", mock.Anything, "t2.micro").Return(&domain.InstanceType{VCPUs: 1, MemoryMB: 1024}, nil).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "instances", 1).Return(nil).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 1).Return(nil).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "memory", 1).Return(nil).Once()
+		eventSvc.On("RecordEvent", mock.Anything, "INSTANCE_TERMINATE", instanceID.String(), "INSTANCE", mock.Anything).Return(nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "instance.terminate", "instance", instanceID.String(), mock.Anything).Return(nil).Once()
+
+		err := svc.TerminateInstance(ctx, instanceID.String())
+		require.NoError(t, err) // releaseAttachedVolumes error is logged but doesn't fail termination
+		mock.AssertExpectationsForObjects(t, repo, volRepo, typeRepo, compute, rbacSvc, eventSvc, auditSvc, tenantSvc)
+	})
+
+	t.Run("releaseAttachedVolumes_PartialFailure", func(t *testing.T) {
+		repo := new(MockInstanceRepo)
+		volRepo := new(MockVolumeRepo)
+		typeRepo := new(MockInstanceTypeRepo)
+		compute := new(MockComputeBackend)
+		rbacSvc := new(MockRBACService)
+		eventSvc := new(MockEventService)
+		auditSvc := new(MockAuditService)
+		tenantSvc := new(MockTenantService)
+
+		svc := services.NewInstanceService(services.InstanceServiceParams{
+			Repo:             repo,
+			VolumeRepo:       volRepo,
+			InstanceTypeRepo: typeRepo,
+			Compute:          compute,
+			RBAC:             rbacSvc,
+			EventSvc:         eventSvc,
+			AuditSvc:         auditSvc,
+			TenantSvc:        tenantSvc,
+			Logger:           slog.Default(),
+		})
+
+		ctx := context.Background()
+		userID := uuid.New()
+		tenantID := uuid.New()
+		instanceID := uuid.New()
+		ctx = appcontext.WithUserID(ctx, userID)
+		ctx = appcontext.WithTenantID(ctx, tenantID)
+
+		vol1 := &domain.Volume{ID: uuid.New(), TenantID: tenantID, Status: domain.VolumeStatusInUse, InstanceID: &instanceID}
+		vol2 := &domain.Volume{ID: uuid.New(), TenantID: tenantID, Status: domain.VolumeStatusInUse, InstanceID: &instanceID}
+
+		inst := &domain.Instance{
+			ID:            instanceID,
+			UserID:        userID,
+			TenantID:      tenantID,
+			Status:        domain.StatusRunning,
+			ContainerID:   "cid-1",
+			InstanceType:  "t2.micro",
+		}
+
+		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Once()
+		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceTerminate, instanceID.String()).Return(nil).Once()
+		compute.On("DeleteInstance", mock.Anything, "cid-1").Return(nil).Once()
+		compute.On("Type").Return("docker").Maybe()
+		volRepo.On("ListByInstanceID", mock.Anything, instanceID).Return([]*domain.Volume{vol1, vol2}, nil).Once()
+		volRepo.On("Update", mock.Anything, mock.MatchedBy(func(v *domain.Volume) bool {
+			return v.ID == vol1.ID
+		})).Return(nil).Once()
+		volRepo.On("Update", mock.Anything, mock.MatchedBy(func(v *domain.Volume) bool {
+			return v.ID == vol2.ID
+		})).Return(fmt.Errorf("update error")).Once()
+		repo.On("Delete", mock.Anything, instanceID).Return(nil).Once()
+		typeRepo.On("GetByID", mock.Anything, "t2.micro").Return(&domain.InstanceType{VCPUs: 1, MemoryMB: 1024}, nil).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "instances", 1).Return(nil).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 1).Return(nil).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "memory", 1).Return(nil).Once()
+		eventSvc.On("RecordEvent", mock.Anything, "INSTANCE_TERMINATE", instanceID.String(), "INSTANCE", mock.Anything).Return(nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "instance.terminate", "instance", instanceID.String(), mock.Anything).Return(nil).Once()
+
+		err := svc.TerminateInstance(ctx, instanceID.String())
+		require.NoError(t, err)
+		mock.AssertExpectationsForObjects(t, repo, volRepo, typeRepo, compute, rbacSvc, eventSvc, auditSvc, tenantSvc)
 	})
 }
