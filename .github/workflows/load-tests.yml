@@ -230,6 +230,12 @@ jobs:
       - name: Setup Docker socket
         run: sudo chmod 666 /var/run/docker.sock
 
+      - name: Install OVS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openvswitch-switch
+          echo "OVS installed successfully"
+
       - name: Pre-pull Docker images
         run: |
           echo "Pre-pulling Docker images..."
