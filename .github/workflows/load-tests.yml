@@ -64,9 +64,11 @@ jobs:
               echo "API ready (status: $STATUS)"
               break
             fi
+            echo "Waiting for API... attempt $i status: $STATUS"
             sleep 1
           done
           FINAL_STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
+          echo "Final health check status: $FINAL_STATUS"
           if [ "$FINAL_STATUS" != "200" ] && [ "$FINAL_STATUS" != "503" ]; then
             echo "ERROR: API server failed to start (status: $FINAL_STATUS)"
             exit 1
@@ -159,9 +161,11 @@ jobs:
               echo "API ready (status: $STATUS)"
               break
             fi
+            echo "Waiting for API... attempt $i status: $STATUS"
             sleep 1
           done
           FINAL_STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
+          echo "Final health check status: $FINAL_STATUS"
           if [ "$FINAL_STATUS" != "200" ] && [ "$FINAL_STATUS" != "503" ]; then
             echo "ERROR: API server failed to start (status: $FINAL_STATUS)"
             exit 1
@@ -240,9 +244,11 @@ jobs:
               echo "API ready (status: $STATUS)"
               break
             fi
+            echo "Waiting for API... attempt $i status: $STATUS"
             sleep 1
           done
           FINAL_STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
+          echo "Final health check status: $FINAL_STATUS"
           if [ "$FINAL_STATUS" != "200" ] && [ "$FINAL_STATUS" != "503" ]; then
             echo "ERROR: API server failed to start (status: $FINAL_STATUS)"
             exit 1
