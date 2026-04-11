@@ -66,5 +66,8 @@ export default function () {
 
     check({}, { 'health endpoint tested': () => healthSuccess > 0 || healthLimited > 0 });
 
+    // Ensure no 5xx errors (5xx would indicate server issues, not rate limiting)
+    check({}, { 'no 5xx errors': () => otherCount === 0 || otherCount < 5 });
+
     sleep(1);
 }

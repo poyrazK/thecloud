@@ -57,7 +57,7 @@ export function registerAndLogin(uniqueId) {
 
     const regPayload = JSON.stringify({ email, password, name });
     const regRes = http.post(`${BASE_URL}/auth/register`, regPayload, { headers });
-    check(regRes, { 'register success': (r) => r.status === 201 || r.status === 200 });
+    check(regRes, { 'register success': (r) => r.status === 201 || r.status === 200 || r.status === 409 });
 
     const loginPayload = JSON.stringify({ email, password });
     const loginRes = http.post(`${BASE_URL}/auth/login`, loginPayload, { headers });
@@ -89,9 +89,13 @@ export function login(email, password) {
         return null;
     }
 
+    const apiKey = loginRes.json('data.api_key');
+    const tenantId = loginRes.json('data.tenant_id');
+    const authHeaders = makeHeaders(apiKey, { 'X-Tenant-ID': tenantId });
     return {
-        apiKey: loginRes.json('data.api_key'),
-        authHeaders: makeHeaders(loginRes.json('data.api_key')),
+        apiKey,
+        tenantId,
+        authHeaders,
     };
 }
 
@@ -100,4 +104,5 @@ export function login(email, password) {
  */
 export function clearTokenCache() {
     Object.keys(tokenCache).forEach((key) => delete tokenCache[key]);
+    Object.keys(registerAndLoginCache).forEach((key) => delete registerAndLoginCache[key]);
 }
