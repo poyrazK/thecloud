@@ -1,5 +1,5 @@
 import http from 'k6/http';
-import { check, sleep } from 'k6';
+import { check, sleep, fail } from 'k6';
 import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 import { BASE_URL } from './common/config.js';
 import { getOrCreateApiKey } from './common/auth.js';
@@ -92,6 +92,7 @@ export default function () {
         console.error(`Instance ${instId} never reached running state`);
         http.del(`${BASE_URL}/instances/${instId}`, null, { headers: authHeaders });
         http.del(`${BASE_URL}/vpcs/${vpcId}`, null, { headers: authHeaders });
+        fail('Instance never reached running state');
         return;
     }
 
@@ -137,6 +138,7 @@ export default function () {
         http.del(`${BASE_URL}/lb/${lbId}`, null, { headers: authHeaders });
         http.del(`${BASE_URL}/instances/${instId}`, null, { headers: authHeaders });
         http.del(`${BASE_URL}/vpcs/${vpcId}`, null, { headers: authHeaders });
+        fail('Load balancer never reached active state');
         return;
     }
 

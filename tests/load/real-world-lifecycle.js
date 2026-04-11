@@ -1,5 +1,5 @@
 import http from 'k6/http';
-import { check, sleep } from 'k6';
+import { check, sleep, fail } from 'k6';
 import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 import { BASE_URL, LIFECYCLE_THRESHOLDS } from './common/config.js';
 import { registerAndLogin } from './common/auth.js';
@@ -62,6 +62,11 @@ export default function () {
     // 4. WAIT FOR RUNNING
     const isRunning = waitForInstance(authHeaders, instId);
     check(isRunning, { 'instance is running': (val) => val === true });
+
+    if (!isRunning) {
+        console.error(`Instance ${instId} never reached running state`);
+        fail('Instance never reached running state');
+    }
 
     // 5. GET STATS
     if (isRunning) {
