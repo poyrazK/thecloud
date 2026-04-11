@@ -796,8 +796,14 @@ func (s *StorageService) GeneratePresignedURL(ctx context.Context, bucket, key, 
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
-	// Signing usually requires read access
-	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageRead, bucket); err != nil {
+	// Permission check depends on method
+	var perm domain.Permission
+	if method == http.MethodPut {
+		perm = domain.PermissionStorageWrite
+	} else {
+		perm = domain.PermissionStorageRead
+	}
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, perm, bucket); err != nil {
 		return nil, err
 	}
 
@@ -813,7 +819,7 @@ func (s *StorageService) GeneratePresignedURL(ctx context.Context, bucket, key, 
 	expiresAt := time.Now().Add(expiry)
 
 	// Use dependency injected config secret if available
-	secret := s.cfg.SecretsEncryptionKey
+	secret := s.cfg.StorageSecret
 	if secret == "" {
 		return nil, errors.New(errors.Internal, "storage secret not configured")
 	}

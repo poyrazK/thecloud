@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -402,7 +403,16 @@ func (h *StorageHandler) GeneratePresignedURL(c *gin.Context) {
 		return
 	}
 
-	presigned, err := h.svc.GeneratePresignedURL(c.Request.Context(), bucket, key, method, 0)
+	expirySec := req.ExpirySec
+	if expirySec <= 0 {
+		expirySec = 900 // 15 minutes default
+	}
+	if expirySec > 7*24*3600 { // max 7 days
+		httputil.Error(c, errors.New(errors.InvalidInput, "expiry_seconds exceeds maximum allowed value"))
+		return
+	}
+
+	presigned, err := h.svc.GeneratePresignedURL(c.Request.Context(), bucket, key, method, time.Duration(expirySec)*time.Second)
 	if err != nil {
 		httputil.Error(c, err)
 		return
