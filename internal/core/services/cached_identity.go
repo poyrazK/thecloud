@@ -79,8 +79,17 @@ func (s *cachedIdentityService) RevokeKey(ctx context.Context, userID uuid.UUID,
 		return err
 	}
 	keyHash := computeKeyHash(key.Key)
-	s.redis.Del(ctx, fmt.Sprintf("apikey:hash:%s", keyHash))
-	return s.base.RevokeKey(ctx, userID, id)
+
+	// Call authoritative revocation first; only delete from cache if it succeeds
+	if err := s.base.RevokeKey(ctx, userID, id); err != nil {
+		return err
+	}
+
+	if err := s.redis.Del(ctx, fmt.Sprintf("apikey:hash:%s", keyHash)).Err(); err != nil {
+		s.logger.Warn("failed to delete API key from cache",
+			"keyHash", keyHash, "userID", userID, "id", id, "error", err)
+	}
+	return nil
 }
 
 func (s *cachedIdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*domain.APIKey, error) {
@@ -90,12 +99,15 @@ func (s *cachedIdentityService) RotateKey(ctx context.Context, userID uuid.UUID,
 		return nil, err
 	}
 	oldHash := computeKeyHash(oldKey.Key)
-	s.redis.Del(ctx, fmt.Sprintf("apikey:hash:%s", oldHash))
 
 	newKey, err := s.base.RotateKey(ctx, userID, id)
 	if err != nil {
 		return nil, err
 	}
-	// New key's hash is cached by ValidateAPIKey on next use — no action needed here
+
+	if err := s.redis.Del(ctx, fmt.Sprintf("apikey:hash:%s", oldHash)).Err(); err != nil {
+		s.logger.Warn("failed to delete old API key hash from cache",
+			"keyHash", oldHash, "userID", userID, "id", id, "error", err)
+	}
 	return newKey, nil
 }
