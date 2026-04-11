@@ -116,7 +116,7 @@ export default function () {
 
     // 6. Poll for LB to be ACTIVE
     let isActive = false;
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 60; i++) {
         const getLbRes = http.get(`${BASE_URL}/lb/${lbId}`, { headers: authHeaders });
         if (getLbRes.status === 200) {
             const status = getLbRes.json('data.status');

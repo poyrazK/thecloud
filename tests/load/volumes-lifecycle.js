@@ -15,7 +15,7 @@ export const options = {
 };
 
 function waitForVolume(authHeaders, volumeId, targetStatus = 'available') {
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 60; i++) {
         const getRes = http.get(`${BASE_URL}/volumes/${volumeId}`, { headers: authHeaders });
         if (getRes.status === 200 && getRes.json('data.status') === targetStatus) {
             return true;

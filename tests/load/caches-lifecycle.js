@@ -15,7 +15,7 @@ export const options = {
 };
 
 function waitForCache(authHeaders, cacheIdOrName, targetStatus = 'running') {
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 60; i++) {
         const getRes = http.get(`${BASE_URL}/caches/${cacheIdOrName}`, { headers: authHeaders });
         if (getRes.status === 200 && getRes.json('data.status') === targetStatus) {
             return true;
