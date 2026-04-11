@@ -17,6 +17,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// SHA256HexLen is the length of a SHA-256 hex-encoded digest.
+const SHA256HexLen = 64
+
 func TestIdentityRepository_Integration(t *testing.T) {
 	db, _ := SetupDB(t)
 	defer db.Close()
@@ -62,7 +65,7 @@ func TestIdentityRepository_Integration(t *testing.T) {
 			},
 			{
 				name:    "not_found",
-				hash:    strings.Repeat("a", 64),
+				hash:    strings.Repeat("a", SHA256HexLen),
 				wantErr: true,
 			},
 		}
