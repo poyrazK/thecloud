@@ -144,12 +144,12 @@ func TestRBACService_Unit(t *testing.T) {
 			IAMRepo: mockIAMRepo, Evaluator: mockEval, Logger: slog.Default(),
 		})
 
-		expectedRole := &domain.Role{Name: "admin"}
-		mockRoleRepo.On("GetRoleByName", mock.Anything, "admin").Return(expectedRole, nil).Once()
+		expectedRole := &domain.Role{Name: domain.RoleAdmin}
+		mockRoleRepo.On("GetRoleByName", mock.Anything, domain.RoleAdmin).Return(expectedRole, nil).Once()
 
-		role, err := svc.GetRoleByName(ctx, "admin")
+		role, err := svc.GetRoleByName(ctx, domain.RoleAdmin)
 		require.NoError(t, err)
-		assert.Equal(t, "admin", role.Name)
+		assert.Equal(t, domain.RoleAdmin, role.Name)
 		mockRoleRepo.AssertExpectations(t)
 	})
 
@@ -161,12 +161,12 @@ func TestRBACService_Unit(t *testing.T) {
 		})
 
 		roleID := uuid.New()
-		expectedRole := &domain.Role{Name: "admin"}
+		expectedRole := &domain.Role{Name: domain.RoleAdmin}
 		mockRoleRepo.On("GetRoleByID", mock.Anything, roleID).Return(expectedRole, nil).Once()
 
 		role, err := svc.GetRoleByID(ctx, roleID)
 		require.NoError(t, err)
-		assert.Equal(t, "admin", role.Name)
+		assert.Equal(t, domain.RoleAdmin, role.Name)
 		mockRoleRepo.AssertExpectations(t)
 	})
 
@@ -178,8 +178,8 @@ func TestRBACService_Unit(t *testing.T) {
 		})
 
 		roles := []*domain.Role{
-			{Name: "admin"},
-			{Name: "viewer"},
+			{Name: domain.RoleAdmin},
+			{Name: domain.RoleViewer},
 		}
 		mockRoleRepo.On("ListRoles", mock.Anything).Return(roles, nil).Once()
 
@@ -257,8 +257,8 @@ func TestRBACService_Unit(t *testing.T) {
 		})
 
 		users := []*domain.User{
-			{ID: uuid.New(), Role: "admin"},
-			{ID: uuid.New(), Role: "viewer"},
+			{ID: uuid.New(), Role: domain.RoleAdmin},
+			{ID: uuid.New(), Role: domain.RoleViewer},
 		}
 		mockUserRepo.On("List", mock.Anything).Return(users, nil).Once()
 
