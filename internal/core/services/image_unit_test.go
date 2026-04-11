@@ -79,4 +79,65 @@ func TestImageService_Unit(t *testing.T) {
 		err := svc.DeleteImage(ctx, imgID)
 		require.NoError(t, err)
 	})
+
+	t.Run("GetImage_Success", func(t *testing.T) {
+		imgID := uuid.New()
+		tenantID := uuid.New()
+		tenantCtx := appcontext.WithTenantID(ctx, tenantID)
+		img := &domain.Image{ID: imgID, UserID: userID, TenantID: &tenantID}
+		repo.On("GetByID", mock.Anything, imgID).Return(img, nil).Once()
+
+		res, err := svc.GetImage(tenantCtx, imgID)
+		require.NoError(t, err)
+		assert.Equal(t, imgID, res.ID)
+	})
+
+	t.Run("GetImage_RepoError", func(t *testing.T) {
+		imgID := uuid.New()
+		repo.On("GetByID", mock.Anything, imgID).Return(nil, fmt.Errorf("db error")).Once()
+
+		_, err := svc.GetImage(ctx, imgID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "db error")
+	})
+
+	t.Run("GetImage_TenantMismatch", func(t *testing.T) {
+		imgID := uuid.New()
+		tenantID := uuid.New()
+		otherTenantID := uuid.New()
+		tenantCtx := appcontext.WithTenantID(ctx, tenantID)
+		img := &domain.Image{ID: imgID, UserID: userID, TenantID: &otherTenantID}
+		repo.On("GetByID", mock.Anything, imgID).Return(img, nil).Once()
+
+		_, err := svc.GetImage(tenantCtx, imgID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
+	})
+
+	t.Run("RegisterImage_RepoError", func(t *testing.T) {
+		repo.On("Create", mock.Anything, mock.Anything).Return(fmt.Errorf("db error")).Once()
+
+		_, err := svc.RegisterImage(ctx, "ubuntu-custom", "desc", "linux", "22.04", false)
+		require.Error(t, err)
+	})
+
+	t.Run("DeleteImage_RepoGetError", func(t *testing.T) {
+		imgID := uuid.New()
+		repo.On("GetByID", mock.Anything, imgID).Return(nil, fmt.Errorf("db error")).Once()
+
+		err := svc.DeleteImage(ctx, imgID)
+		require.Error(t, err)
+	})
+
+	t.Run("ListImages_Success", func(t *testing.T) {
+		images := []*domain.Image{
+			{ID: uuid.New(), UserID: userID},
+			{ID: uuid.New(), UserID: userID},
+		}
+		repo.On("List", mock.Anything, userID, true).Return(images, nil).Once()
+
+		res, err := svc.ListImages(ctx, userID, true)
+		require.NoError(t, err)
+		assert.Len(t, res, 2)
+	})
 }
