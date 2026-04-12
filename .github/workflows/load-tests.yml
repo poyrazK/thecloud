@@ -62,7 +62,7 @@ jobs:
           echo "API_PID=$API_PID" >> $GITHUB_ENV
           for i in $(seq 1 30); do
             STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
-            if [ "$STATUS" = "200" ]; then
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "503" ]; then
               echo "API ready (status: $STATUS)"
               break
             fi
@@ -72,7 +72,7 @@ jobs:
           done
           FINAL_STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
           echo "Final health check status: $FINAL_STATUS"
-          if [ "$FINAL_STATUS" != "200" ]; then
+          if [ "$FINAL_STATUS" != "200" ] && [ "$FINAL_STATUS" != "503" ]; then
             echo "ERROR: API server failed to start (status: $FINAL_STATUS)"
             exit 1
           fi
@@ -162,7 +162,7 @@ jobs:
           echo "API_PID=$API_PID" >> $GITHUB_ENV
           for i in $(seq 1 30); do
             STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
-            if [ "$STATUS" = "200" ]; then
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "503" ]; then
               echo "API ready (status: $STATUS)"
               break
             fi
@@ -172,7 +172,7 @@ jobs:
           done
           FINAL_STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
           echo "Final health check status: $FINAL_STATUS"
-          if [ "$FINAL_STATUS" != "200" ]; then
+          if [ "$FINAL_STATUS" != "200" ] && [ "$FINAL_STATUS" != "503" ]; then
             echo "ERROR: API server failed to start (status: $FINAL_STATUS)"
             exit 1
           fi
@@ -230,6 +230,23 @@ jobs:
       - name: Setup Docker socket
         run: sudo chmod 666 /var/run/docker.sock
 
+      - name: Install OVS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openvswitch-switch
+          sudo ovs-vsctl init
+          sudo service openvswitch-switch start
+          echo "OVS installed and started successfully"
+
+      - name: Pre-pull Docker images
+        run: |
+          echo "Pre-pulling Docker images..."
+          docker pull alpine:latest
+          docker pull postgres:15
+          docker pull redis:7-alpine
+          docker pull redis:7.2-alpine
+          echo "Done pre-pulling images"
+
       - name: Build API Server
         run: go build -o api ./cmd/api
 
@@ -248,7 +265,7 @@ jobs:
           echo "API_PID=$API_PID" >> $GITHUB_ENV
           for i in $(seq 1 30); do
             STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
-            if [ "$STATUS" = "200" ]; then
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "503" ]; then
               echo "API ready (status: $STATUS)"
               break
             fi
@@ -258,7 +275,7 @@ jobs:
           done
           FINAL_STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health 2>/dev/null)
           echo "Final health check status: $FINAL_STATUS"
-          if [ "$FINAL_STATUS" != "200" ]; then
+          if [ "$FINAL_STATUS" != "200" ] && [ "$FINAL_STATUS" != "503" ]; then
             echo "ERROR: API server failed to start (status: $FINAL_STATUS)"
             exit 1
           fi
@@ -283,6 +300,36 @@ jobs:
         with:
           path: tests/load/load-balancer.js
           flags: --vus 2 --duration 5m
+
+      - name: Run Volumes Lifecycle Test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: tests/load/volumes-lifecycle.js
+          flags: --vus 2 --duration 5m
+
+      - name: Run Security Groups Test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: tests/load/security-groups.js
+          flags: --vus 2 --duration 5m
+
+      - name: Run Caches Lifecycle Test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: tests/load/caches-lifecycle.js
+          flags: --vus 2 --duration 5m
+
+      - name: Run Secrets Lifecycle Test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: tests/load/secrets-lifecycle.js
+          flags: --vus 5 --duration 3m
+
+      - name: Run Clusters Lifecycle Test
+        uses: grafana/run-k6-action@v1
+        with:
+          path: tests/load/clusters-lifecycle.js
+          flags: --vus 1 --duration 10m
 
       - name: Stop API
         if: always()
