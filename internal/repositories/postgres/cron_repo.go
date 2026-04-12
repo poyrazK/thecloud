@@ -101,7 +101,6 @@ func (r *PostgresCronRepository) ClaimNextJobsToRun(ctx context.Context, lockTim
 
 	jobs, err := r.scanCronJobsWithTenant(rows)
 	if err != nil {
-		rows.Close()
 		return nil, err
 	}
 
@@ -190,6 +189,9 @@ func (r *PostgresCronRepository) ReapStaleClaims(ctx context.Context) (int, erro
 	count := 0
 	for rows.Next() {
 		count++
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
 	}
 	return count, tx.Commit(ctx)
 }

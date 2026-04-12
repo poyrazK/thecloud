@@ -104,9 +104,15 @@ func (w *CronWorker) completeRun(ctx context.Context, job *domain.CronJob, statu
 		StartedAt:  time.Now().Add(-duration),
 	}
 
-	sched, _ := w.parser.Parse(job.Schedule)
 	now := time.Now()
-	nextRun := sched.Next(now)
+	nextRun := now.Add(24 * time.Hour)
+
+	sched, err := w.parser.Parse(job.Schedule)
+	if err != nil {
+		log.Printf("CronWorker: invalid schedule for job %s: %q: %v; using fallback next run at %s", job.ID, job.Schedule, err, nextRun.Format(time.RFC3339))
+	} else {
+		nextRun = sched.Next(now)
+	}
 
 	if err := w.repo.CompleteJobRun(ctx, run, job, nextRun); err != nil {
 		log.Printf("CronWorker: failed to complete job run: %v", err)
