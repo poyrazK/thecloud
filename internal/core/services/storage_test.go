@@ -136,7 +136,7 @@ func setupStorageServiceIntegrationTest(t *testing.T) (ports.StorageService, por
 		Repo:    auditRepo,
 		RBACSvc: rbacSvc,
 	})
-	cfg := &platform.Config{SecretsEncryptionKey: "test-secret-32-chars-long-needed-!!", Port: "8080"}
+	cfg := &platform.Config{StorageSecret: "test-secret-32-chars-long-needed-!!", Port: "8080"}
 
 	// Setup encryption service
 	masterKeyHex := "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
@@ -496,7 +496,7 @@ func TestStorageService_Integration(t *testing.T) {
 		// GeneratePresignedURL secret missing
 		rbacSvc := new(MockRBACService)
 		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-		badCfg := &platform.Config{SecretsEncryptionKey: "", Port: "8080"}
+		badCfg := &platform.Config{StorageSecret: "", Port: "8080"}
 		badSvc := services.NewStorageService(services.StorageServiceParams{
 			Repo:       postgres.NewStorageRepository(db),
 			RBACSvc:    rbacSvc,

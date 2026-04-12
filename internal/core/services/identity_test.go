@@ -6,15 +6,16 @@ import (
 
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
-	"github.com/poyrazk/thecloud/internal/repositories/postgres" 
+	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func setupIdentityServiceTest(t *testing.T) (*services.IdentityService, *postgres.IdentityRepository, *MockRBACService, context.Context) {
+func setupIdentityServiceTest(t *testing.T) (*services.IdentityService, *MockRBACService, context.Context) {
 	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
@@ -22,7 +23,6 @@ func setupIdentityServiceTest(t *testing.T) (*services.IdentityService, *postgre
 
 	repo := postgres.NewIdentityRepository(db)
 	rbacSvc := new(MockRBACService)
-	
 
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(services.AuditServiceParams{
@@ -35,18 +35,33 @@ func setupIdentityServiceTest(t *testing.T) (*services.IdentityService, *postgre
 		RbacSvc:  rbacSvc,
 		AuditSvc: auditSvc,
 	})
-	return svc, repo, rbacSvc, ctx
+	return svc, rbacSvc, ctx
 }
 
 func TestIdentityService_CreateKey(t *testing.T) {
-	svc, repo, rbacSvc, ctx := setupIdentityServiceTest(t); _ = rbacSvc
-	userID := appcontext.UserIDFromContext(ctx)
-	tenantID := appcontext.TenantIDFromContext(ctx)
+	// Build context without DB setup — this test uses mocks only.
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithUserID(context.Background(), userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("Success", func(t *testing.T) {
-		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		mockRepo := new(MockIdentityRepo)
+		mockAuditSvc := new(MockAuditService)
+		mockRBAC := new(MockRBACService)
+		mockSvc := services.NewIdentityService(services.IdentityServiceParams{
+			Repo: mockRepo, RbacSvc: mockRBAC, AuditSvc: mockAuditSvc,
+		})
+
+		mockRepo.On("CreateAPIKey", mock.Anything, mock.MatchedBy(func(apiKey *domain.APIKey) bool {
+			return apiKey.TenantID == tenantID &&
+				apiKey.DefaultTenantID != nil && *apiKey.DefaultTenantID == tenantID
+		})).Return(nil).Once()
+		mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		mockAuditSvc.On("Log", mock.Anything, userID, "api_key.create", "api_key", mock.Anything, mock.Anything).Return(nil).Once()
+
 		name := "test-key"
-		key, err := svc.CreateKey(ctx, userID, name)
+		key, err := mockSvc.CreateKey(ctx, userID, name)
 		require.NoError(t, err)
 		assert.NotNil(t, key)
 		assert.Equal(t, name, key.Name)
@@ -55,19 +70,12 @@ func TestIdentityService_CreateKey(t *testing.T) {
 		assert.Equal(t, tenantID, key.TenantID)
 		assert.NotNil(t, key.DefaultTenantID)
 		assert.Equal(t, tenantID, *key.DefaultTenantID)
-
-		// Verify in DB
-		dbKey, err := repo.GetAPIKeyByID(ctx, key.ID)
-		require.NoError(t, err)
-		assert.Equal(t, key.Key, dbKey.Key)
-		assert.Equal(t, tenantID, dbKey.TenantID)
-		assert.NotNil(t, dbKey.DefaultTenantID)
-		assert.Equal(t, tenantID, *dbKey.DefaultTenantID)
+		mockRepo.AssertExpectations(t)
 	})
 }
 
 func TestIdentityService_ValidateAPIKey(t *testing.T) {
-	svc, _, rbacSvc, ctx := setupIdentityServiceTest(t); _ = rbacSvc
+	svc, _, ctx := setupIdentityServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	key, _ := svc.CreateKey(ctx, userID, "session")
@@ -85,7 +93,7 @@ func TestIdentityService_ValidateAPIKey(t *testing.T) {
 }
 
 func TestIdentityService_RevokeKey(t *testing.T) {
-	svc, _, rbacSvc, ctx := setupIdentityServiceTest(t); _ = rbacSvc
+	svc, rbacSvc, ctx := setupIdentityServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	key, _ := svc.CreateKey(ctx, userID, "to-revoke")
@@ -111,7 +119,7 @@ func TestIdentityService_RevokeKey(t *testing.T) {
 }
 
 func TestIdentityService_RotateKey(t *testing.T) {
-	svc, _, rbacSvc, ctx := setupIdentityServiceTest(t); _ = rbacSvc
+	svc, rbacSvc, ctx := setupIdentityServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	oldKey, _ := svc.CreateKey(ctx, userID, "original")

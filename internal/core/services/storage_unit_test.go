@@ -35,7 +35,7 @@ func TestStorageServiceUnit(t *testing.T) {
 	mockAuditSvc := new(MockAuditService)
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	cfg := &platform.Config{SecretsEncryptionKey: "test-secret-key-32-chars-long-!!!"}
+	cfg := &platform.Config{StorageSecret: "test-secret-key-32-chars-long-!!!"}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := services.NewStorageService(services.StorageServiceParams{
 		Repo:       mockRepo,
