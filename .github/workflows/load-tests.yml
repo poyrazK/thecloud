@@ -2,6 +2,12 @@ name: Load Testing
 
 on:
   workflow_dispatch:
+    inputs:
+      run_infrastructure_tests:
+        description: 'Run slow infrastructure tests (requires OVS kernel modules)'
+        required: false
+        default: false
+        type: boolean
   push:
     branches: [ main ]
     paths:
@@ -191,9 +197,12 @@ jobs:
         run: kill $API_PID 2>/dev/null || true
 
   # Slow infrastructure tests - runs in ~5 minutes
+  # Requires: OVS kernel modules (not available in GitHub Actions standard runners)
+  # Only runs when explicitly enabled via workflow_dispatch input
   api-slow:
     name: API Slow Infrastructure Tests
     runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.run_infrastructure_tests == 'true' }}
 
     services:
       postgres:
