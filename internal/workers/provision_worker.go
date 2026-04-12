@@ -31,13 +31,18 @@ func NewProvisionWorker(instSvc *services.InstanceService, taskQueue ports.TaskQ
 }
 
 func (w *ProvisionWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
+	wg.Add(1)
 	defer wg.Done()
 	w.logger.Info("starting provision worker")
+
+	var active sync.WaitGroup
 
 	for {
 		select {
 		case <-ctx.Done():
 			w.logger.Info("stopping provision worker")
+			w.logger.Info("provision worker shutting down, waiting for active jobs")
+			active.Wait()
 			return
 		default:
 			// Dequeue task
@@ -61,7 +66,11 @@ func (w *ProvisionWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 			w.logger.Info("processing provision job", "instance_id", job.InstanceID, "tenant_id", job.TenantID)
 
 			// Process job concurrently to handle high throughput in load tests
-			go w.processJob(job)
+			active.Add(1)
+			go func(j domain.ProvisionJob) {
+				defer active.Done()
+				w.processJob(j)
+			}(job)
 		}
 	}
 }
@@ -80,6 +89,9 @@ func (w *ProvisionWorker) processJob(job domain.ProvisionJob) {
 	w.logger.Info("starting provision logic", "instance_id", job.InstanceID)
 	if err := w.instSvc.Provision(ctx, job); err != nil {
 		w.logger.Error("failed to provision instance", "instance_id", job.InstanceID, "error", err)
+		if statusErr := w.instSvc.UpdateInstanceStatus(ctx, job.InstanceID, domain.StatusError); statusErr != nil {
+			w.logger.Error("failed to mark instance as failed", "instance_id", job.InstanceID, "error", statusErr)
+		}
 	} else {
 		w.logger.Info("successfully provisioned instance", "instance_id", job.InstanceID)
 	}

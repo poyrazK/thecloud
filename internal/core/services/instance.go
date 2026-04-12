@@ -232,7 +232,9 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, params ports.Launc
 	s.logger.Info("enqueueing provision job", "instance_id", inst.ID, "queue", "provision_queue", "tenant_id", inst.TenantID)
 	if err := s.taskQueue.Enqueue(ctx, "provision_queue", job); err != nil {
 		s.logger.Error("failed to enqueue provision job", "instance_id", inst.ID, "error", err)
-		// Return error on enqueue failure to maintain system reliability and state consistency.
+		if rollbackErr := s.finalizeTermination(ctx, inst); rollbackErr != nil {
+			s.logger.Error("failed to rollback instance after enqueue failure", "instance_id", inst.ID, "error", rollbackErr)
+		}
 		return nil, errors.Wrap(errors.Internal, "failed to enqueue provisioning task", err)
 	}
 
@@ -300,10 +302,23 @@ func (s *InstanceService) LaunchInstanceWithOptions(ctx context.Context, opts po
 
 	if err := s.taskQueue.Enqueue(ctx, "provision_queue", job); err != nil {
 		s.logger.Error("failed to enqueue provision job", "instance_id", inst.ID, "error", err)
+		if rollbackErr := s.finalizeTermination(ctx, inst); rollbackErr != nil {
+			s.logger.Error("failed to rollback instance after enqueue failure", "instance_id", inst.ID, "error", rollbackErr)
+		}
 		return nil, errors.Wrap(errors.Internal, "failed to enqueue provisioning task", err)
 	}
 
 	return inst, nil
+}
+
+// UpdateInstanceStatus updates the status of an instance (e.g., mark as failed after provision failure).
+func (s *InstanceService) UpdateInstanceStatus(ctx context.Context, id uuid.UUID, status domain.InstanceStatus) error {
+	inst, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	inst.Status = status
+	return s.repo.Update(ctx, inst)
 }
 
 // Provision contains the heavy lifting of instance launch, called by background workers.
