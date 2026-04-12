@@ -93,11 +93,35 @@ export default function () {
     const scaleRes = http.put(`${BASE_URL}/clusters/${clusterId}/scale`, scalePayload, { headers: authHeaders });
     check(scaleRes, { 'cluster scaled': (r) => r.status === 200 });
 
-    // 8. Delete cluster
+    // 8. Add node group
+    const ngPayload = JSON.stringify({
+        name: `ng-${uniqueId}`,
+        instance_type: 'standard-2',
+        min_size: 1,
+        max_size: 3,
+    });
+    const ngRes = http.post(`${BASE_URL}/clusters/${clusterId}/nodegroups`, ngPayload, { headers: authHeaders });
+    check(ngRes, { 'node group added': (r) => r.status === 201 || r.status === 200 });
+    const ngName = ngRes.status === 201 || ngRes.status === 200 ? ngRes.json('data.name') : null;
+
+    // 9. Update node group
+    if (ngName) {
+        const updateNgPayload = JSON.stringify({ min_size: 2, max_size: 4 });
+        const updateNgRes = http.put(`${BASE_URL}/clusters/${clusterId}/nodegroups/${ngName}`, updateNgPayload, { headers: authHeaders });
+        check(updateNgRes, { 'node group updated': (r) => r.status === 200 });
+    }
+
+    // 10. Delete node group
+    if (ngName) {
+        const deleteNgRes = http.del(`${BASE_URL}/clusters/${clusterId}/nodegroups/${ngName}`, null, { headers: authHeaders });
+        check(deleteNgRes, { 'node group deleted': (r) => r.status === 204 || r.status === 200 });
+    }
+
+    // 11. Delete cluster
     const delRes = http.del(`${BASE_URL}/clusters/${clusterId}`, null, { headers: authHeaders });
     check(delRes, { 'cluster deleted': (r) => r.status === 202 || r.status === 200 });
 
-    // 9. Cleanup VPC
+    // 12. Cleanup VPC
     sleep(2);
     http.del(`${BASE_URL}/vpcs/${vpcId}`, null, { headers: authHeaders });
 
