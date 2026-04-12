@@ -64,7 +64,7 @@ func TestPostgresCronRepository(t *testing.T) {
 		}
 		require.NoError(t, repo.CreateJob(ctx, job))
 
-		jobs, err := repo.GetNextJobsToRun(context.Background())
+		jobs, err := repo.ClaimNextJobsToRun(context.Background(), 5*time.Minute)
 		require.NoError(t, err)
 		assert.NotEmpty(t, jobs)
 	})
