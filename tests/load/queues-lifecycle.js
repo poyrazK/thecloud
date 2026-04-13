@@ -38,6 +38,7 @@ export default function () {
 
     if (queueRes.status !== 201 && queueRes.status !== 200) {
         console.error(`Queue creation failed: ${queueRes.status} ${queueRes.body}`);
+        sleep(1);
         return;
     }
     const queueId = queueRes.json('data.id');

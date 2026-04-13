@@ -29,19 +29,20 @@ export default function () {
     const listFnRes = http.get(`${BASE_URL}/functions`, { headers: authHeaders });
     check(listFnRes, { 'functions listed': (r) => r.status === 200 });
 
-    // 2. Create function with simple code (python hello world)
-    // k6 doesn't easily support multipart file upload, so we test with a simple POST
-    // that includes basic code in the request body if supported
-    const fnPayload = JSON.stringify({
-        name: functionName,
-        runtime: 'python312',
-        handler: 'main.handle',
-        code: 'def handle(event):\n    return {"message": "hello"}',
-    });
-    const fnRes = http.post(`${BASE_URL}/functions`, fnPayload, { headers: authHeaders });
-    // Note: Function creation may fail without proper multipart upload
-    // We handle both success and failure gracefully
-    check(fnRes, { 'function creation attempted': (r) => r.status === 201 || r.status === 200 || r.status === 500 });
+    // 2. Create function with multipart form-data (name, runtime, handler, code file)
+    // The handler expects: FormFile("code"), ShouldBind form fields name/runtime/handler
+    const boundaries = '----FormBoundary' + Math.random().toString(36).substring(2);
+    const body = [
+        `--${boundaries}\r\nContent-Disposition: form-data; name="name"\r\n\r\n${functionName}`,
+        `--${boundaries}\r\nContent-Disposition: form-data; name="runtime"\r\n\r\npython312`,
+        `--${boundaries}\r\nContent-Disposition: form-data; name="handler"\r\n\r\nmain.handle`,
+        `--${boundaries}\r\nContent-Disposition: form-data; name="code"; filename="handler.py"\r\nContent-Type: text/plain\r\n\r\ndef handle(event):\n    return {"message": "hello"}`,
+        `--${boundaries}--`,
+    ].join('\r\n');
+
+    const fnRes = http.post(`${BASE_URL}/functions`, body, { headers: { ...authHeaders, 'Content-Type': `multipart/form-data; boundary=${boundaries}` } });
+
+    check(fnRes, { 'function creation attempted': (r) => r.status === 201 || r.status === 200 });
 
     let functionId = null;
     if (fnRes.status === 201 || fnRes.status === 200) {

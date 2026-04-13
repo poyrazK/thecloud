@@ -42,7 +42,7 @@ export default function () {
     // 1. Create pipeline
     const pipelinePayload = JSON.stringify({
         name: pipelineName,
-        repository_url: `https://github.com/test/repo-${uniqueId}`,
+        repository_url: 'https://github.com/test/repo',
         branch: 'main',
         config: {
             stages: [
@@ -61,6 +61,7 @@ export default function () {
 
     if (pipelineRes.status !== 201 && pipelineRes.status !== 200) {
         console.error(`Pipeline creation failed: ${pipelineRes.status} ${pipelineRes.body}`);
+        sleep(1);
         return;
     }
     const pipelineId = pipelineRes.json('data.id');
