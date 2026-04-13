@@ -565,3 +565,10 @@ func (m *MockSecretRepo) Update(ctx context.Context, secret *domain.Secret) erro
 func (m *MockSecretRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
+
+// MockRealtimePublisher
+type MockRealtimePublisher struct{ mock.Mock }
+
+func (m *MockRealtimePublisher) PublishEvent(ctx context.Context, event *domain.WSEvent, tenantID uuid.UUID, userID *uuid.UUID) error {
+	return m.Called(ctx, event, tenantID, userID).Error(0)
+}
