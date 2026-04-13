@@ -18,6 +18,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestFunctionService_Unit(t *testing.T) {
+	t.Run("BasicOps", TestFunctionServiceBasicOps)
+	t.Run("CreateFunction", TestFunctionServiceCreateFunction)
+	t.Run("InvokeFunction", TestFunctionServiceInvokeFunction)
+	t.Run("CreateFunction_UnsupportedRuntime", TestFunctionService_CreateFunction_UnsupportedRuntime)
+}
+
 func TestFunctionServiceBasicOps(t *testing.T) {
 	repo := new(MockFunctionRepo)
 	compute := new(MockComputeBackend)

@@ -605,6 +605,23 @@ func TestPipelineService_ListBuildLogs(t *testing.T) {
 	})
 }
 
+func TestPipelineService_Unit(t *testing.T) {
+	t.Run("TriggerBuildWebhook_InvalidSignature", TestPipelineServiceTriggerBuildWebhookInvalidGitHubSignature)
+	t.Run("TriggerBuildWebhook_DuplicateDelivery", TestPipelineServiceTriggerBuildWebhookDuplicateDeliveryIgnored)
+	t.Run("TriggerBuildWebhook_BranchMismatch", TestPipelineServiceTriggerBuildWebhookBranchMismatchIgnored)
+	t.Run("TriggerBuildWebhook_Success", TestPipelineServiceTriggerBuildWebhookSuccessQueuesBuild)
+	t.Run("CreatePipeline", TestPipelineService_CreatePipeline)
+	t.Run("GetPipeline", TestPipelineService_GetPipeline)
+	t.Run("ListPipelines", TestPipelineService_ListPipelines)
+	t.Run("UpdatePipeline", TestPipelineService_UpdatePipeline)
+	t.Run("DeletePipeline", TestPipelineService_DeletePipeline)
+	t.Run("TriggerBuild", TestPipelineService_TriggerBuild)
+	t.Run("GetBuild", TestPipelineService_GetBuild)
+	t.Run("ListBuildsByPipeline", TestPipelineService_ListBuildsByPipeline)
+	t.Run("ListBuildSteps", TestPipelineService_ListBuildSteps)
+	t.Run("ListBuildLogs", TestPipelineService_ListBuildLogs)
+}
+
 func stringPtr(s string) *string {
 	return &s
 }

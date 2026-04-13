@@ -16,6 +16,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestCachedIdentityService_Unit(t *testing.T) {
+	t.Run("ValidateAPIKey", TestCachedIdentityService_ValidateAPIKey)
+	t.Run("OtherOps", TestCachedIdentityService_OtherOps)
+}
+
 func TestCachedIdentityService_ValidateAPIKey(t *testing.T) {
 	mr, err := miniredis.Run()
 	require.NoError(t, err)
