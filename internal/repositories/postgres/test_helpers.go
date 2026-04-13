@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +17,20 @@ import (
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/require"
 )
+
+var schemaNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+func sanitizeSchemaName(schema string) (string, error) {
+	schema = strings.TrimSpace(schema)
+	schema = strings.Trim(schema, `"`)
+	if schema == "" {
+		return "", fmt.Errorf("schema name is empty")
+	}
+	if !schemaNamePattern.MatchString(schema) {
+		return "", fmt.Errorf("invalid schema name: %q", schema)
+	}
+	return schema, nil
+}
 
 // SetupDB initializes the database connection for integration tests.
 // It prioritizes the DATABASE_URL environment variable, falling back to a
@@ -35,6 +50,8 @@ func SetupDB(t *testing.T) (*pgxpool.Pool, string) {
 
 	// Use a unique schema for this test run to allow parallel execution in CI
 	schema := "test_repo_" + strings.ReplaceAll(uuid.New().String(), "-", "_")
+	schema, err := sanitizeSchemaName(schema)
+	require.NoError(t, err)
 
 	// Create base connection to initialize schema
 	baseDB, err := pgxpool.New(ctx, dbURL)
@@ -142,9 +159,17 @@ func CleanDB(t *testing.T, db *pgxpool.Pool) {
 
 	// Get current schema from search_path
 	var schema string
-	if err := db.QueryRow(ctx, "SHOW search_path").Scan(&schema); err != nil { schema = "public" }
+	if err := db.QueryRow(ctx, "SHOW search_path").Scan(&schema); err != nil {
+		schema = "public"
+	}
 	schema = strings.Split(schema, ",")[0]
 	schema = strings.TrimSpace(schema)
+	safeSchema, err := sanitizeSchemaName(schema)
+	if err != nil {
+		t.Logf("Warning: invalid schema name %q; falling back to public: %v", schema, err)
+		safeSchema = "public"
+	}
+	schema = safeSchema
 
 	query := fmt.Sprintf(`
 		SELECT table_name 
@@ -155,7 +180,10 @@ func CleanDB(t *testing.T, db *pgxpool.Pool) {
 	`, schema)
 
 	rows, err := db.Query(ctx, query)
-	if err != nil { t.Logf("Warning: failed to query tables for cleanup: %v", err); return }
+	if err != nil {
+		t.Logf("Warning: failed to query tables for cleanup: %v", err)
+		return
+	}
 	defer rows.Close()
 
 	var tables []string
@@ -170,5 +198,7 @@ func CleanDB(t *testing.T, db *pgxpool.Pool) {
 		return
 	}
 
-	for _, table := range tables { _, _ = db.Exec(ctx, "TRUNCATE TABLE " + table + " RESTART IDENTITY CASCADE") }
+	for _, table := range tables {
+		_, _ = db.Exec(ctx, "TRUNCATE TABLE "+table+" RESTART IDENTITY CASCADE")
+	}
 }

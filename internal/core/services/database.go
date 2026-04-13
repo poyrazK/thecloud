@@ -38,6 +38,20 @@ const (
 	MySQLExporterPort     = "9104"
 )
 
+func quotePostgresIdentifier(value string) string {
+	return `"` + strings.ReplaceAll(value, `"`, `""`) + `"`
+}
+
+func quotePostgresLiteral(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
+}
+
+func quoteMySQLLiteral(value string) string {
+	escaped := strings.ReplaceAll(value, `\`, `\\`)
+	escaped = strings.ReplaceAll(escaped, "'", "''")
+	return "'" + escaped + "'"
+}
+
 // DatabaseService manages database instances and lifecycle.
 type DatabaseService struct {
 	repo              ports.DatabaseRepository
@@ -832,8 +846,17 @@ func (s *DatabaseService) doRotateCredentials(ctx context.Context, id uuid.UUID,
 	}
 
 	// 1. Execute ALTER USER in container FIRST
-	cmd := s.buildPasswordChangeCmd(db.Engine, db.Username, currentPassword, newPassword)
-	if cmd == nil {
+	var cmd []string
+	switch db.Engine {
+	case domain.EnginePostgres:
+		usernameIdent := quotePostgresIdentifier(db.Username)
+		passwordLiteral := quotePostgresLiteral(newPassword)
+		cmd = []string{"psql", "-h", "127.0.0.1", "-U", db.Username, "-d", "postgres", "-c", fmt.Sprintf("ALTER USER %s WITH PASSWORD %s;", usernameIdent, passwordLiteral)}
+	case domain.EngineMySQL:
+		usernameLiteral := quoteMySQLLiteral(db.Username)
+		passwordLiteral := quoteMySQLLiteral(newPassword)
+		cmd = []string{"mysql", "-u", "root", "-p" + currentPassword, "-e", fmt.Sprintf("ALTER USER %s@'%%' IDENTIFIED BY %s;", usernameLiteral, passwordLiteral)}
+	default:
 		return errors.New(errors.Internal, "unsupported engine for credential rotation")
 	}
 
