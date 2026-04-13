@@ -530,15 +530,15 @@ The platform supports stopping and starting managed database instances to pause 
 #### Stop Operation
 The `POST /databases/:id/stop` endpoint stops a running database:
 1. **Validation**: Database must be RUNNING and not a REPLICA (replicas must be promoted first).
-2. **Container Stop**: The database container and all sidecars (PgBouncer, exporter) are stopped via Docker.
+2. **Compute Stop**: The database container and all sidecars (PgBouncer, exporter) are stopped via the configured compute backend. If the main container fails to stop, the operation returns an error without updating status.
 3. **Status Update**: Database status transitions to `STOPPED`.
 4. **Data Persistence**: The underlying volume is retained — no data is lost.
 
 #### Start Operation
 The `POST /databases/:id/start` endpoint restarts a stopped database:
-1. **Validation**: Database must be in `STOPPED` state.
-2. **Container Start**: The database container is started with the existing volume.
-3. **Readiness Wait**: The service polls for the instance IP to confirm the database is reachable.
+1. **Validation**: Database must be in `STOPPED` state. The container ID must be present in the database record.
+2. **Compute Start**: The database container is started with the existing volume.
+3. **Readiness Wait**: The service polls until the instance has a non-empty IP address assigned. If readiness fails, the operation returns an error without updating status.
 4. **Sidecar Start**: PgBouncer and/or metrics exporter are started if enabled.
 5. **Status Update**: Database status transitions to `RUNNING`.
 

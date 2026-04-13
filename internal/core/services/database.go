@@ -569,10 +569,10 @@ func (s *DatabaseService) StopDatabase(ctx context.Context, id uuid.UUID) error 
 		}
 	}
 
-	// Stop database container
+	// Stop database container; must succeed before marking as stopped.
 	if db.ContainerID != "" {
 		if err := s.compute.StopInstance(ctx, db.ContainerID); err != nil {
-			s.logger.Warn("failed to stop database container", "container_id", db.ContainerID, "error", err)
+			return errors.Wrap(errors.Internal, "failed to stop database container", err)
 		}
 	}
 
@@ -604,17 +604,18 @@ func (s *DatabaseService) StartDatabase(ctx context.Context, id uuid.UUID) error
 	if db.Status != domain.DatabaseStatusStopped {
 		return errors.New(errors.InvalidInput, "database is not stopped")
 	}
-
-	// Start database container
-	if db.ContainerID != "" {
-		if err := s.compute.StartInstance(ctx, db.ContainerID); err != nil {
-			return errors.Wrap(errors.Internal, "failed to start database container", err)
-		}
+	if db.ContainerID == "" {
+		return errors.New(errors.Internal, "database container ID is missing")
 	}
 
-	// Wait for database to be ready
+	// Start database container
+	if err := s.compute.StartInstance(ctx, db.ContainerID); err != nil {
+		return errors.Wrap(errors.Internal, "failed to start database container", err)
+	}
+
+	// Wait for database to be ready; return error if it fails.
 	if err := s.waitForDatabaseReady(ctx, db); err != nil {
-		s.logger.Warn("database may not be fully ready", "id", db.ID, "error", err)
+		return errors.Wrap(errors.Internal, "database failed to become ready", err)
 	}
 
 	// Start sidecars if enabled
@@ -643,12 +644,26 @@ func (s *DatabaseService) StartDatabase(ctx context.Context, id uuid.UUID) error
 }
 
 func (s *DatabaseService) waitForDatabaseReady(ctx context.Context, db *domain.Database) error {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
 	for i := 0; i < 30; i++ {
-		dbIP, _ := s.compute.GetInstanceIP(ctx, db.ContainerID)
-		if dbIP != "" {
-			return nil // Got IP, assume ready
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
 		}
-		time.Sleep(1 * time.Second)
+
+		dbIP, err := s.compute.GetInstanceIP(ctx, db.ContainerID)
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			continue
+		}
+		if dbIP != "" {
+			return nil
+		}
 	}
 	return errors.New(errors.Internal, "database did not become ready in time")
 }
