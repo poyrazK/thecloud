@@ -523,6 +523,36 @@ The `DatabaseFailoverWorker` provides automated recovery for failed primary inst
 #### Manual Promotion
 Replicas can be promoted manually via the API. Promoting a replica removes its link to the previous primary and converts it into a standalone Primary instance.
 
+### Managed Database Stop/Start Lifecycle
+
+The platform supports stopping and starting managed database instances to pause usage and save costs (similar to AWS RDS Stop/Start).
+
+#### Stop Operation
+The `POST /databases/:id/stop` endpoint stops a running database:
+1. **Validation**: Database must be RUNNING and not a REPLICA (replicas must be promoted first).
+2. **Container Stop**: The database container and all sidecars (PgBouncer, exporter) are stopped via Docker.
+3. **Status Update**: Database status transitions to `STOPPED`.
+4. **Data Persistence**: The underlying volume is retained — no data is lost.
+
+#### Start Operation
+The `POST /databases/:id/start` endpoint restarts a stopped database:
+1. **Validation**: Database must be in `STOPPED` state.
+2. **Container Start**: The database container is started with the existing volume.
+3. **Readiness Wait**: The service polls for the instance IP to confirm the database is reachable.
+4. **Sidecar Start**: PgBouncer and/or metrics exporter are started if enabled.
+5. **Status Update**: Database status transitions to `RUNNING`.
+
+#### Use Cases
+- **Cost Savings**: Stop dev/test databases overnight or when not in use.
+- **Pause Workflows**: Halt batch processing without deleting the database.
+- **Graceful Maintenance**: Stop before performing maintenance on the underlying host.
+
+#### Constraints
+- Cannot stop a REPLICA (must promote to primary first).
+- Cannot stop databases in CREATING, DELETING, or STOPPED state.
+- Cannot start databases that are not STOPPED.
+- Volumes persist indefinitely; manually delete the database to clean up storage.
+
 #### `caches` - Redis Instances
 ```sql
 CREATE TABLE caches (

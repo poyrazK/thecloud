@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Database Stop/Start Lifecycle**: New `POST /databases/:id/stop` and `POST /databases/:id/start` endpoints to pause/resume managed database instances while retaining data volumes.
 - **Integrated Managed Kubernetes (KaaS)**: Launched production-ready Kubernetes cluster management.
 - **High-Availability (HA) Control Plane**: Supported 3-node HA control plane with automated API Server Load Balancers.
 - **Asynchronous Durable Operations**: Introduced a Redis-backed **Task Queue** and **Cluster Worker** for long-running operations (Provision/Delete/Upgrade).
