@@ -628,14 +628,19 @@ CREATE TABLE subscriptions (
 CREATE TABLE cron_jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL DEFAULT auth.jwt_token().tenant_id,
     name VARCHAR(255) NOT NULL,
     schedule VARCHAR(100) NOT NULL,
-    function_id UUID REFERENCES functions(id) ON DELETE SET NULL,
-    http_endpoint TEXT,
-    status VARCHAR(50) DEFAULT 'ACTIVE',
+    target_url TEXT NOT NULL,
+    target_method VARCHAR(10) NOT NULL DEFAULT 'POST',
+    target_payload TEXT,
+    status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
     last_run_at TIMESTAMPTZ,
     next_run_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    claimed_until TIMESTAMPTZ,  -- visibility timeout for distributed claiming
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, name)
 );
 
 CREATE TABLE cron_job_runs (

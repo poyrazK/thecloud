@@ -3,6 +3,7 @@ package ports
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -21,12 +22,14 @@ type CronRepository interface {
 	// DeleteJob removes a cron job from persistent storage.
 	DeleteJob(ctx context.Context, id uuid.UUID) error
 
-	// For the scheduler worker
-
-	// GetNextJobsToRun returns a slice of jobs that are due for execution according to their schedule.
-	GetNextJobsToRun(ctx context.Context) ([]*domain.CronJob, error)
-	// SaveJobRun records the execution result and metadata of a completed cron task.
-	SaveJobRun(ctx context.Context, run *domain.CronJobRun) error
+	// ClaimNextJobsToRun atomically selects jobs due for execution,
+	// marks them as claimed (next_run_at = far future), and returns them.
+	// Uses FOR UPDATE SKIP LOCKED within a transaction.
+	ClaimNextJobsToRun(ctx context.Context, lockTimeout time.Duration) ([]*domain.CronJob, error)
+	// CompleteJobRun atomically records the run result and updates next_run_at.
+	CompleteJobRun(ctx context.Context, run *domain.CronJobRun, job *domain.CronJob, nextRunAt time.Time) error
+	// ReapStaleClaims resets jobs whose claim expired without completion.
+	ReapStaleClaims(ctx context.Context) (int, error)
 }
 
 // CronService provides business logic for managing scheduled background tasks.

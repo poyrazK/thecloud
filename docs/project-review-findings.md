@@ -158,7 +158,9 @@ Recommendation:
 
 Severity: High
 
-What is wrong:
+Status: ✅ RESOLVED (PR #134)
+
+What was wrong:
 - `internal/repositories/postgres/cron_repo.go:74-80` uses `FOR UPDATE SKIP LOCKED` outside a transaction.
 - `internal/core/services/cron_worker.go:52-62,90-115` fetches due jobs, runs them, and updates next execution later.
 

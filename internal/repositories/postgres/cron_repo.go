@@ -3,6 +3,7 @@ package postgres
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -71,13 +72,128 @@ func (r *PostgresCronRepository) DeleteJob(ctx context.Context, id uuid.UUID) er
 	return err
 }
 
-func (r *PostgresCronRepository) GetNextJobsToRun(ctx context.Context) ([]*domain.CronJob, error) {
-	query := `SELECT id, user_id, name, schedule, target_url, target_method, target_payload, status, last_run_at, next_run_at, created_at, updated_at FROM cron_jobs WHERE status = 'ACTIVE' AND next_run_at <= NOW() FOR UPDATE SKIP LOCKED`
-	rows, err := r.db.Query(ctx, query)
+func (r *PostgresCronRepository) ClaimNextJobsToRun(ctx context.Context, lockTimeout time.Duration) ([]*domain.CronJob, error) {
+	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return r.scanCronJobs(rows)
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	now := time.Now()
+	claimExpiry := now.Add(lockTimeout)
+	farFuture := now.Add(365 * 24 * time.Hour)
+
+	selectQuery := `
+		SELECT id, user_id, name, schedule, target_url, target_method, target_payload,
+		       status, last_run_at, next_run_at, tenant_id, created_at, updated_at
+		FROM cron_jobs
+		WHERE status = 'ACTIVE'
+		  AND next_run_at <= NOW()
+		  AND (claimed_until IS NULL OR claimed_until <= NOW())
+		ORDER BY next_run_at ASC
+		LIMIT 10
+		FOR UPDATE SKIP LOCKED
+	`
+	rows, err := tx.Query(ctx, selectQuery)
+	if err != nil {
+		return nil, err
+	}
+
+	jobs, err := r.scanCronJobsWithTenant(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(jobs) == 0 {
+		return nil, tx.Commit(ctx)
+	}
+
+	ids := make([]uuid.UUID, len(jobs))
+	for i, job := range jobs {
+		ids[i] = job.ID
+	}
+
+	updateQuery := `
+		UPDATE cron_jobs
+		SET next_run_at = $1, claimed_until = $2, updated_at = NOW()
+		WHERE id = ANY($3)
+	`
+	_, err = tx.Exec(ctx, updateQuery, farFuture, claimExpiry, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	for _, job := range jobs {
+		job.NextRunAt = &farFuture
+		job.ClaimedUntil = &claimExpiry
+	}
+	return jobs, nil
+}
+
+func (r *PostgresCronRepository) CompleteJobRun(ctx context.Context, run *domain.CronJobRun, job *domain.CronJob, nextRunAt time.Time) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	insertQuery := `
+		INSERT INTO cron_job_runs (id, job_id, status, status_code, response, duration_ms, started_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`
+	_, err = tx.Exec(ctx, insertQuery, run.ID, run.JobID, run.Status, run.StatusCode, run.Response, run.DurationMs, run.StartedAt)
+	if err != nil {
+		return err
+	}
+
+	updateQuery := `
+		UPDATE cron_jobs
+		SET last_run_at = $1, next_run_at = $2, claimed_until = NULL, updated_at = $3
+		WHERE id = $4
+	`
+	_, err = tx.Exec(ctx, updateQuery, run.StartedAt, nextRunAt, time.Now(), job.ID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (r *PostgresCronRepository) ReapStaleClaims(ctx context.Context) (int, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	query := `
+		UPDATE cron_jobs
+		SET claimed_until = NULL,
+		    next_run_at = NOW(),
+		    updated_at = NOW()
+		WHERE claimed_until IS NOT NULL
+		  AND claimed_until < NOW()
+		  AND next_run_at > NOW() + INTERVAL '1 day'
+		RETURNING id
+	`
+	rows, err := tx.Query(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	count := 0
+	for rows.Next() {
+		count++
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	return count, tx.Commit(ctx)
 }
 
 func (r *PostgresCronRepository) scanCronJob(row pgx.Row) (*domain.CronJob, error) {
@@ -104,11 +220,49 @@ func (r *PostgresCronRepository) scanCronJob(row pgx.Row) (*domain.CronJob, erro
 	return &job, nil
 }
 
+func (r *PostgresCronRepository) scanCronJobWithTenant(row pgx.Row) (*domain.CronJob, error) {
+	var job domain.CronJob
+	var status string
+	err := row.Scan(
+		&job.ID,
+		&job.UserID,
+		&job.Name,
+		&job.Schedule,
+		&job.TargetURL,
+		&job.TargetMethod,
+		&job.TargetPayload,
+		&status,
+		&job.LastRunAt,
+		&job.NextRunAt,
+		&job.TenantID,
+		&job.CreatedAt,
+		&job.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	job.Status = domain.CronStatus(status)
+	return &job, nil
+}
+
 func (r *PostgresCronRepository) scanCronJobs(rows pgx.Rows) ([]*domain.CronJob, error) {
 	defer rows.Close()
 	var jobs []*domain.CronJob
 	for rows.Next() {
 		job, err := r.scanCronJob(rows)
+		if err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, job)
+	}
+	return jobs, nil
+}
+
+func (r *PostgresCronRepository) scanCronJobsWithTenant(rows pgx.Rows) ([]*domain.CronJob, error) {
+	defer rows.Close()
+	var jobs []*domain.CronJob
+	for rows.Next() {
+		job, err := r.scanCronJobWithTenant(rows)
 		if err != nil {
 			return nil, err
 		}

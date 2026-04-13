@@ -126,15 +126,19 @@ func (m *MockCronRepo) UpdateJob(ctx context.Context, job *domain.CronJob) error
 func (m *MockCronRepo) DeleteJob(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
-func (m *MockCronRepo) GetNextJobsToRun(ctx context.Context) ([]*domain.CronJob, error) {
-	args := m.Called(ctx)
+func (m *MockCronRepo) ClaimNextJobsToRun(ctx context.Context, lockTimeout time.Duration) ([]*domain.CronJob, error) {
+	args := m.Called(ctx, lockTimeout)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]*domain.CronJob), args.Error(1)
 }
-func (m *MockCronRepo) SaveJobRun(ctx context.Context, run *domain.CronJobRun) error {
-	return m.Called(ctx, run).Error(0)
+func (m *MockCronRepo) CompleteJobRun(ctx context.Context, run *domain.CronJobRun, job *domain.CronJob, nextRunAt time.Time) error {
+	return m.Called(ctx, run, job, nextRunAt).Error(0)
+}
+func (m *MockCronRepo) ReapStaleClaims(ctx context.Context) (int, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(int), args.Error(1)
 }
 
 type MockCronRepository = MockCronRepo

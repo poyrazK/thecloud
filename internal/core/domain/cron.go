@@ -32,6 +32,7 @@ type CronJob struct {
 	Status        CronStatus `json:"status"`
 	LastRunAt     *time.Time `json:"last_run_at"`
 	NextRunAt     *time.Time `json:"next_run_at"`
+	ClaimedUntil  *time.Time `json:"claimed_until"` // Visibility timeout for distributed claiming
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`
 }

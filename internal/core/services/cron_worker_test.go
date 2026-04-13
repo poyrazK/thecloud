@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -36,20 +35,13 @@ func TestCronWorkerProcessJobs(t *testing.T) {
 		Schedule:     "* * * * *", // Every minute
 	}
 
-	repo.On("GetNextJobsToRun", ctx).Return([]*domain.CronJob{job}, nil)
+	repo.On("ClaimNextJobsToRun", ctx, services.ClaimTimeout).Return([]*domain.CronJob{job}, nil)
 
-	repo.On("SaveJobRun", mock.Anything, mock.MatchedBy(func(run *domain.CronJobRun) bool {
+	repo.On("CompleteJobRun", mock.Anything, mock.MatchedBy(func(run *domain.CronJobRun) bool {
 		return run.JobID == jobID && run.Status == "SUCCESS" && run.StatusCode == 200
-	})).Return(nil)
-
-	repo.On("UpdateJob", mock.Anything, mock.MatchedBy(func(j *domain.CronJob) bool {
-		return j.ID == jobID && j.LastRunAt != nil && j.NextRunAt != nil
-	})).Return(nil)
+	}), mock.Anything, mock.Anything).Return(nil)
 
 	worker.ProcessJobs(ctx)
-
-	// Wait briefly for goroutines to finish since runJob is called in a goroutine
-	time.Sleep(100 * time.Millisecond)
 
 	repo.AssertExpectations(t)
 }
@@ -70,19 +62,13 @@ func TestCronWorkerProcessJobs_RequestFailure(t *testing.T) {
 		Schedule:     "* * * * *",
 	}
 
-	repo.On("GetNextJobsToRun", ctx).Return([]*domain.CronJob{job}, nil)
+	repo.On("ClaimNextJobsToRun", ctx, services.ClaimTimeout).Return([]*domain.CronJob{job}, nil)
 
-	repo.On("SaveJobRun", mock.Anything, mock.MatchedBy(func(run *domain.CronJobRun) bool {
+	repo.On("CompleteJobRun", mock.Anything, mock.MatchedBy(func(run *domain.CronJobRun) bool {
 		return run.JobID == jobID && run.Status == "FAILED"
-	})).Return(nil)
-
-	repo.On("UpdateJob", mock.Anything, mock.MatchedBy(func(j *domain.CronJob) bool {
-		return j.ID == jobID
-	})).Return(nil)
+	}), mock.Anything, mock.Anything).Return(nil)
 
 	worker.ProcessJobs(ctx)
-
-	time.Sleep(100 * time.Millisecond)
 
 	repo.AssertExpectations(t)
 }
@@ -107,17 +93,13 @@ func TestCronWorkerProcessJobs_HTTPError(t *testing.T) {
 		Schedule:     "* * * * *",
 	}
 
-	repo.On("GetNextJobsToRun", ctx).Return([]*domain.CronJob{job}, nil)
+	repo.On("ClaimNextJobsToRun", ctx, services.ClaimTimeout).Return([]*domain.CronJob{job}, nil)
 
-	repo.On("SaveJobRun", mock.Anything, mock.MatchedBy(func(run *domain.CronJobRun) bool {
+	repo.On("CompleteJobRun", mock.Anything, mock.MatchedBy(func(run *domain.CronJobRun) bool {
 		return run.JobID == jobID && run.Status == "FAILED" && run.StatusCode == 500
-	})).Return(nil)
-
-	repo.On("UpdateJob", mock.Anything, mock.Anything).Return(nil)
+	}), mock.Anything, mock.Anything).Return(nil)
 
 	worker.ProcessJobs(ctx)
-
-	time.Sleep(100 * time.Millisecond)
 
 	repo.AssertExpectations(t)
 }
