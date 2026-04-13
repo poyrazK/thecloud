@@ -737,15 +737,15 @@ CREATE INDEX idx_events_created_at ON events(created_at);
 
 ### Migration System
 
-**Tool**: Goose  
+**Tool**: Custom embed-based migrator (`internal/repositories/postgres/migrator.go`)  
 **Location**: `internal/repositories/postgres/migrations/`  
-**Format**: SQL files with up/down migrations
+**Format**: `.up.sql` files only (one-way, forward-only)
 
 **Migration File Naming**:
 ```
-001_create_users.sql
-002_create_instances.sql
-003_add_rbac_tables.sql
+001_create_users.up.sql
+002_create_instances.up.sql
+003_add_rbac_tables.up.sql
 ```
 
 **Migration Structure**:
@@ -755,10 +755,9 @@ CREATE TABLE my_table (
     id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL
 );
-
--- +goose Down
-DROP TABLE my_table;
 ```
+
+**Version Tracking**: Applied versions are tracked in `schema_migrations` table (version, dirty, created_at). Each migration runs exactly once — subsequent startups skip already-applied migrations.
 
 ### Running Migrations
 
@@ -772,17 +771,14 @@ go run cmd/api/main.go
 go run cmd/api/main.go -migrate-only
 ```
 
-**Rollback** (down migration):
-```bash
-goose -dir internal/repositories/postgres/migrations postgres "connection-string" down
-```
+**Rollback**: Not supported. Migrations are forward-only and version-tracked.
 
 ### Creating New Migrations
 
-1. Create new file: `XXX_description.sql`
-2. Add `-- +goose Up` section
-3. Add `-- +goose Down` section
-4. Test both up and down migrations
+1. Create new file: `XXX_description.up.sql` (use `.up.sql` suffix)
+2. Add SQL statements (no `-- +goose Up` marker required, but harmless as SQL comment)
+3. Version is extracted from numeric prefix (e.g., `072_` → version 72)
+4. Test the migration on a fresh database
 
 **Example**:
 ```sql
