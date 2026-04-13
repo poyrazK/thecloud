@@ -40,14 +40,15 @@ func TestRunMigrations(t *testing.T) {
 
 	// For each migration file, expect 2 Execs:
 	// 1. Migration SQL (any content from the file)
-	// 2. recordVersion INSERT INTO schema_migrations VALUES ($1, $2) — 2 args
+	// 2. recordVersion INSERT INTO schema_migrations — the SQL has $1 (bound param) and false (SQL literal).
+	//    So Exec is called with 1 argument (version), not 2.
 	for i := 0; i < upFiles; i++ {
 		// Run migration SQL — any DDL/DML from .up.sql file
 		mock.ExpectExec("CREATE|ALTER|DROP|INSERT").
 			WillReturnResult(pgxmock.NewResult("EXECUTE", 1))
-		// Record version in schema_migrations — 2 args: version (int64) and dirty (bool)
+		// Record version in schema_migrations — SQL has $1 (param) + false (literal), so 1 arg passed
 		mock.ExpectExec("INSERT INTO schema_migrations").
-			WithArgs(pgxmock.AnyArg(), false).
+			WithArgs(pgxmock.AnyArg()).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 	}
 
