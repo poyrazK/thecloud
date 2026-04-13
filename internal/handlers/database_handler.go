@@ -143,6 +143,36 @@ func (h *DatabaseHandler) Delete(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, gin.H{"message": "database deleted"})
 }
 
+func (h *DatabaseHandler) Stop(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidDatabaseIDMsg))
+		return
+	}
+
+	if err := h.svc.StopDatabase(c.Request.Context(), id); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, gin.H{"message": "database stopped"})
+}
+
+func (h *DatabaseHandler) Start(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidDatabaseIDMsg))
+		return
+	}
+
+	if err := h.svc.StartDatabase(c.Request.Context(), id); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, gin.H{"message": "database started"})
+}
+
 // ModifyDatabaseRequest is the payload for updating a database.
 type ModifyDatabaseRequest struct {
 	Parameters       map[string]string `json:"parameters"`

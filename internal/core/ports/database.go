@@ -84,4 +84,8 @@ type DatabaseService interface {
 	RestoreDatabase(ctx context.Context, req RestoreDatabaseRequest) (*domain.Database, error)
 	// RotateCredentials regenerates the database password and updates it in the secrets manager.
 	RotateCredentials(ctx context.Context, id uuid.UUID, idempotencyKey string) error
+	// StopDatabase stops a running database instance, retaining its data volume.
+	StopDatabase(ctx context.Context, id uuid.UUID) error
+	// StartDatabase starts a stopped database instance.
+	StartDatabase(ctx context.Context, id uuid.UUID) error
 }
