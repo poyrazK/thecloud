@@ -541,3 +541,31 @@ func (m *MockQueueService) DeleteMessage(ctx context.Context, queueID uuid.UUID,
 func (m *MockQueueService) PurgeQueue(ctx context.Context, queueID uuid.UUID) error {
 	return m.Called(ctx, queueID).Error(0)
 }
+
+// MockSecretRepo
+type MockSecretRepo struct{ mock.Mock }
+
+func (m *MockSecretRepo) Create(ctx context.Context, secret *domain.Secret) error {
+	return m.Called(ctx, secret).Error(0)
+}
+func (m *MockSecretRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Secret, error) {
+	args := m.Called(ctx, id)
+	r0, _ := args.Get(0).(*domain.Secret)
+	return r0, args.Error(1)
+}
+func (m *MockSecretRepo) GetByName(ctx context.Context, name string) (*domain.Secret, error) {
+	args := m.Called(ctx, name)
+	r0, _ := args.Get(0).(*domain.Secret)
+	return r0, args.Error(1)
+}
+func (m *MockSecretRepo) List(ctx context.Context) ([]*domain.Secret, error) {
+	args := m.Called(ctx)
+	r0, _ := args.Get(0).([]*domain.Secret)
+	return r0, args.Error(1)
+}
+func (m *MockSecretRepo) Update(ctx context.Context, secret *domain.Secret) error {
+	return m.Called(ctx, secret).Error(0)
+}
+func (m *MockSecretRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
