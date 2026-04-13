@@ -14,6 +14,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestElasticIPService_Unit(t *testing.T) {
+	t.Run("AllocateIP", TestElasticIPService_AllocateIP)
+	t.Run("ReleaseIP", TestElasticIPService_ReleaseIP)
+	t.Run("AssociateIP", TestElasticIPService_AssociateIP)
+	t.Run("DisassociateIP", TestElasticIPService_DisassociateIP)
+	t.Run("ListAndGet", TestElasticIPService_ListAndGet)
+}
+
 func TestElasticIPService_AllocateIP(t *testing.T) {
 	repo := new(MockElasticIPRepo)
 	auditSvc := new(MockAuditService)
