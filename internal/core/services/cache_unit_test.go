@@ -24,24 +24,24 @@ type MockCacheRepository struct {
 func (m *MockCacheRepository) Create(ctx context.Context, cache *domain.Cache) error {
 	return m.Called(ctx, cache).Error(0)
 }
-func (m *MockCacheRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Cache, error) {
-	args := m.Called(ctx, id)
+func (m *MockCacheRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.Cache, error) {
+	args := m.Called(ctx, id, tenantID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	r0, _ := args.Get(0).(*domain.Cache)
 	return r0, args.Error(1)
 }
-func (m *MockCacheRepository) GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Cache, error) {
-	args := m.Called(ctx, userID, name)
+func (m *MockCacheRepository) GetByName(ctx context.Context, tenantID uuid.UUID, name string) (*domain.Cache, error) {
+	args := m.Called(ctx, tenantID, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	r0, _ := args.Get(0).(*domain.Cache)
 	return r0, args.Error(1)
 }
-func (m *MockCacheRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.Cache, error) {
-	args := m.Called(ctx, userID)
+func (m *MockCacheRepository) List(ctx context.Context, tenantID uuid.UUID) ([]*domain.Cache, error) {
+	args := m.Called(ctx, tenantID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -51,8 +51,8 @@ func (m *MockCacheRepository) List(ctx context.Context, userID uuid.UUID) ([]*do
 func (m *MockCacheRepository) Update(ctx context.Context, cache *domain.Cache) error {
 	return m.Called(ctx, cache).Error(0)
 }
-func (m *MockCacheRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	return m.Called(ctx, id).Error(0)
+func (m *MockCacheRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
+	return m.Called(ctx, id, tenantID).Error(0)
 }
 
 func TestCacheService_Unit_Extended(t *testing.T) {
@@ -66,7 +66,9 @@ func TestCacheService_Unit_Extended(t *testing.T) {
 	svc := services.NewCacheService(repo, rbacSvc, compute, nil, eventSvc, auditSvc, slog.Default())
 	ctx := context.Background()
 	userID := uuid.New()
+	tenantID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("CreateCache_Success", func(t *testing.T) {
 		repo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
@@ -84,7 +86,7 @@ func TestCacheService_Unit_Extended(t *testing.T) {
 	t.Run("CreateCache_LaunchFailure", func(t *testing.T) {
 		repo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 		compute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).Return("", nil, fmt.Errorf("launch fail")).Once()
-		repo.On("Delete", mock.Anything, mock.Anything).Return(nil).Once()
+		repo.On("Delete", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 		_, err := svc.CreateCache(ctx, "fail", "7.0", 128, nil)
 		require.Error(t, err)
@@ -93,14 +95,14 @@ func TestCacheService_Unit_Extended(t *testing.T) {
 
 	t.Run("GetCache", func(t *testing.T) {
 		cacheID := uuid.New()
-		repo.On("GetByID", mock.Anything, cacheID).Return(&domain.Cache{ID: cacheID}, nil).Once()
+		repo.On("GetByID", mock.Anything, cacheID, mock.Anything).Return(&domain.Cache{ID: cacheID}, nil).Once()
 		res, err := svc.GetCache(ctx, cacheID.String())
 		require.NoError(t, err)
 		assert.NotNil(t, res)
 	})
 
 	t.Run("ListCaches", func(t *testing.T) {
-		repo.On("List", mock.Anything, userID).Return([]*domain.Cache{}, nil).Once()
+		repo.On("List", mock.Anything, mock.Anything).Return([]*domain.Cache{}, nil).Once()
 		res, err := svc.ListCaches(ctx)
 		require.NoError(t, err)
 		assert.NotNil(t, res)
@@ -108,11 +110,11 @@ func TestCacheService_Unit_Extended(t *testing.T) {
 
 	t.Run("DeleteCache", func(t *testing.T) {
 		cacheID := uuid.New()
-		cache := &domain.Cache{ID: cacheID, UserID: userID, Name: "my-cache", ContainerID: "cid"}
-		repo.On("GetByID", mock.Anything, cacheID).Return(cache, nil).Once()
+		cache := &domain.Cache{ID: cacheID, UserID: userID, TenantID: tenantID, Name: "my-cache", ContainerID: "cid"}
+		repo.On("GetByID", mock.Anything, cacheID, mock.Anything).Return(cache, nil).Once()
 		compute.On("StopInstance", mock.Anything, "cid").Return(nil).Once()
 		compute.On("DeleteInstance", mock.Anything, "cid").Return(nil).Once()
-		repo.On("Delete", mock.Anything, cacheID).Return(nil).Once()
+		repo.On("Delete", mock.Anything, cacheID, mock.Anything).Return(nil).Once()
 		eventSvc.On("RecordEvent", mock.Anything, "CACHE_DELETE", cacheID.String(), "CACHE", mock.Anything).Return(nil).Once()
 		auditSvc.On("Log", mock.Anything, userID, "cache.delete", "cache", cacheID.String(), mock.Anything).Return(nil).Once()
 
@@ -124,10 +126,11 @@ func TestCacheService_Unit_Extended(t *testing.T) {
 		cacheID := uuid.New()
 		cache := &domain.Cache{
 			ID:       cacheID,
+			TenantID: tenantID,
 			Password: "pass",
 			Port:     6379,
 		}
-		repo.On("GetByID", mock.Anything, cacheID).Return(cache, nil).Once()
+		repo.On("GetByID", mock.Anything, cacheID, mock.Anything).Return(cache, nil).Once()
 
 		conn, err := svc.GetConnectionString(ctx, cacheID.String())
 		require.NoError(t, err)
@@ -136,8 +139,8 @@ func TestCacheService_Unit_Extended(t *testing.T) {
 
 	t.Run("FlushCache", func(t *testing.T) {
 		cacheID := uuid.New()
-		cache := &domain.Cache{ID: cacheID, ContainerID: "cid", UserID: userID, Status: domain.CacheStatusRunning}
-		repo.On("GetByID", mock.Anything, cacheID).Return(cache, nil).Once()
+		cache := &domain.Cache{ID: cacheID, ContainerID: "cid", UserID: userID, TenantID: tenantID, Status: domain.CacheStatusRunning}
+		repo.On("GetByID", mock.Anything, cacheID, mock.Anything).Return(cache, nil).Once()
 		compute.On("Exec", mock.Anything, "cid", []string{"redis-cli", "FLUSHALL"}).Return("", nil).Once()
 		auditSvc.On("Log", mock.Anything, userID, "cache.flush", "cache", cacheID.String(), mock.Anything).Return(nil).Once()
 
@@ -147,8 +150,8 @@ func TestCacheService_Unit_Extended(t *testing.T) {
 
 	t.Run("FlushCache_NotRunning", func(t *testing.T) {
 		cacheID := uuid.New()
-		cache := &domain.Cache{ID: cacheID, Status: domain.CacheStatusCreating}
-		repo.On("GetByID", mock.Anything, cacheID).Return(cache, nil).Once()
+		cache := &domain.Cache{ID: cacheID, TenantID: tenantID, Status: domain.CacheStatusCreating}
+		repo.On("GetByID", mock.Anything, cacheID, mock.Anything).Return(cache, nil).Once()
 
 		err := svc.FlushCache(ctx, cacheID.String())
 		require.Error(t, err)
@@ -157,8 +160,8 @@ func TestCacheService_Unit_Extended(t *testing.T) {
 
 	t.Run("GetCacheStats", func(t *testing.T) {
 		cacheID := uuid.New()
-		cache := &domain.Cache{ID: cacheID, ContainerID: "cid", Status: domain.CacheStatusRunning}
-		repo.On("GetByID", mock.Anything, cacheID).Return(cache, nil).Once()
+		cache := &domain.Cache{ID: cacheID, ContainerID: "cid", TenantID: tenantID, Status: domain.CacheStatusRunning}
+		repo.On("GetByID", mock.Anything, cacheID, mock.Anything).Return(cache, nil).Once()
 
 		statsJSON := `{"memory_stats": {"usage": 1024, "limit": 2048}}`
 		compute.On("GetInstanceStats", mock.Anything, "cid").Return(io.NopCloser(strings.NewReader(statsJSON)), nil).Once()

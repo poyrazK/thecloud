@@ -456,23 +456,23 @@ func (m *MockQueueRepo) Create(ctx context.Context, q *domain.Queue) error {
 	args := m.Called(ctx, q)
 	return args.Error(0)
 }
-func (m *MockQueueRepo) GetByID(ctx context.Context, id, userID uuid.UUID) (*domain.Queue, error) {
-	args := m.Called(ctx, id, userID)
+func (m *MockQueueRepo) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.Queue, error) {
+	args := m.Called(ctx, id, tenantID)
 	r0, _ := args.Get(0).(*domain.Queue)
 	return r0, args.Error(1)
 }
-func (m *MockQueueRepo) GetByName(ctx context.Context, name string, userID uuid.UUID) (*domain.Queue, error) {
-	args := m.Called(ctx, name, userID)
+func (m *MockQueueRepo) GetByName(ctx context.Context, name string, tenantID uuid.UUID) (*domain.Queue, error) {
+	args := m.Called(ctx, name, tenantID)
 	r0, _ := args.Get(0).(*domain.Queue)
 	return r0, args.Error(1)
 }
-func (m *MockQueueRepo) List(ctx context.Context, userID uuid.UUID) ([]*domain.Queue, error) {
-	args := m.Called(ctx, userID)
+func (m *MockQueueRepo) List(ctx context.Context, tenantID uuid.UUID) ([]*domain.Queue, error) {
+	args := m.Called(ctx, tenantID)
 	r0, _ := args.Get(0).([]*domain.Queue)
 	return r0, args.Error(1)
 }
-func (m *MockQueueRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	return m.Called(ctx, id).Error(0)
+func (m *MockQueueRepo) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
+	return m.Called(ctx, id, tenantID).Error(0)
 }
 func (m *MockQueueRepo) SendMessage(ctx context.Context, queueID uuid.UUID, body string) (*domain.Message, error) {
 	args := m.Called(ctx, queueID, body)

@@ -27,30 +27,30 @@ func NewPostgresQueueRepository(db DB) ports.QueueRepository {
 // Create provisions a new message queue entity.
 func (r *PostgresQueueRepository) Create(ctx context.Context, q *domain.Queue) error {
 	query := `
-		INSERT INTO queues (id, user_id, name, arn, visibility_timeout, retention_days, max_message_size, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO queues (id, user_id, tenant_id, name, arn, visibility_timeout, retention_days, max_message_size, status, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 	_, err := r.db.Exec(ctx, query,
-		q.ID, q.UserID, q.Name, q.ARN, q.VisibilityTimeout, q.RetentionDays, q.MaxMessageSize, q.Status, q.CreatedAt, q.UpdatedAt)
+		q.ID, q.UserID, q.TenantID, q.Name, q.ARN, q.VisibilityTimeout, q.RetentionDays, q.MaxMessageSize, q.Status, q.CreatedAt, q.UpdatedAt)
 	return err
 }
 
 // GetByID retrieves a queue definition by its unique identifier.
-func (r *PostgresQueueRepository) GetByID(ctx context.Context, id, userID uuid.UUID) (*domain.Queue, error) {
-	query := `SELECT id, user_id, name, arn, visibility_timeout, retention_days, max_message_size, status, created_at, updated_at FROM queues WHERE id = $1 AND user_id = $2`
-	return r.scanQueue(r.db.QueryRow(ctx, query, id, userID))
+func (r *PostgresQueueRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.Queue, error) {
+	query := `SELECT id, user_id, tenant_id, name, arn, visibility_timeout, retention_days, max_message_size, status, created_at, updated_at FROM queues WHERE id = $1 AND tenant_id = $2`
+	return r.scanQueue(r.db.QueryRow(ctx, query, id, tenantID))
 }
 
 // GetByName retrieves a queue definition by its user-defined name.
-func (r *PostgresQueueRepository) GetByName(ctx context.Context, name string, userID uuid.UUID) (*domain.Queue, error) {
-	query := `SELECT id, user_id, name, arn, visibility_timeout, retention_days, max_message_size, status, created_at, updated_at FROM queues WHERE name = $1 AND user_id = $2`
-	return r.scanQueue(r.db.QueryRow(ctx, query, name, userID))
+func (r *PostgresQueueRepository) GetByName(ctx context.Context, name string, tenantID uuid.UUID) (*domain.Queue, error) {
+	query := `SELECT id, user_id, tenant_id, name, arn, visibility_timeout, retention_days, max_message_size, status, created_at, updated_at FROM queues WHERE name = $1 AND tenant_id = $2`
+	return r.scanQueue(r.db.QueryRow(ctx, query, name, tenantID))
 }
 
-// List returns all queues owned by the specified user.
-func (r *PostgresQueueRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.Queue, error) {
-	query := `SELECT id, user_id, name, arn, visibility_timeout, retention_days, max_message_size, status, created_at, updated_at FROM queues WHERE user_id = $1`
-	rows, err := r.db.Query(ctx, query, userID)
+// List returns all queues for the specified tenant.
+func (r *PostgresQueueRepository) List(ctx context.Context, tenantID uuid.UUID) ([]*domain.Queue, error) {
+	query := `SELECT id, user_id, tenant_id, name, arn, visibility_timeout, retention_days, max_message_size, status, created_at, updated_at FROM queues WHERE tenant_id = $1`
+	rows, err := r.db.Query(ctx, query, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (r *PostgresQueueRepository) List(ctx context.Context, userID uuid.UUID) ([
 func (r *PostgresQueueRepository) scanQueue(row pgx.Row) (*domain.Queue, error) {
 	q := &domain.Queue{}
 	var status string
-	err := row.Scan(&q.ID, &q.UserID, &q.Name, &q.ARN, &q.VisibilityTimeout, &q.RetentionDays, &q.MaxMessageSize, &status, &q.CreatedAt, &q.UpdatedAt)
+	err := row.Scan(&q.ID, &q.UserID, &q.TenantID, &q.Name, &q.ARN, &q.VisibilityTimeout, &q.RetentionDays, &q.MaxMessageSize, &status, &q.CreatedAt, &q.UpdatedAt)
 	if err != nil {
 		if stdlib_errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil // Return nil, nil when not found as per previous behavior
@@ -85,9 +85,8 @@ func (r *PostgresQueueRepository) scanQueues(rows pgx.Rows) ([]*domain.Queue, er
 }
 
 // Delete removes a queue definition; note that dependent messages should be handled by DB constraints.
-// Delete removes a queue definition; note that dependent messages should be handled by DB constraints.
-func (r *PostgresQueueRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	cmd, err := r.db.Exec(ctx, "DELETE FROM queues WHERE id = $1", id)
+func (r *PostgresQueueRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
+	cmd, err := r.db.Exec(ctx, "DELETE FROM queues WHERE id = $1 AND tenant_id = $2", id, tenantID)
 	if err != nil {
 		return err
 	}

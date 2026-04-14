@@ -49,6 +49,7 @@ const (
 type Pipeline struct {
 	ID            uuid.UUID      `json:"id"`
 	UserID        uuid.UUID      `json:"user_id"`
+	TenantID      uuid.UUID      `json:"tenant_id"`
 	Name          string         `json:"name"`
 	RepositoryURL string         `json:"repository_url"`
 	Branch        string         `json:"branch"`
@@ -64,6 +65,7 @@ type Build struct {
 	ID          uuid.UUID        `json:"id"`
 	PipelineID  uuid.UUID        `json:"pipeline_id"`
 	UserID      uuid.UUID        `json:"user_id"`
+	TenantID    uuid.UUID        `json:"tenant_id"`
 	CommitHash  string           `json:"commit_hash"`
 	TriggerType BuildTriggerType `json:"trigger_type"`
 	Status      BuildStatus      `json:"status"`

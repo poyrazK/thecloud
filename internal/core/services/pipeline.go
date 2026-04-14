@@ -46,6 +46,10 @@ func (s *PipelineService) CreatePipeline(ctx context.Context, opts ports.CreateP
 	if userID == uuid.Nil {
 		return nil, fmt.Errorf("unauthorized")
 	}
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, fmt.Errorf("unauthorized")
+	}
 
 	if opts.Name == "" || opts.RepositoryURL == "" {
 		return nil, fmt.Errorf("name and repository_url are required")
@@ -58,6 +62,7 @@ func (s *PipelineService) CreatePipeline(ctx context.Context, opts ports.CreateP
 	pipeline := &domain.Pipeline{
 		ID:            uuid.New(),
 		UserID:        userID,
+		TenantID:      tenantID,
 		Name:          opts.Name,
 		RepositoryURL: opts.RepositoryURL,
 		Branch:        opts.Branch,
@@ -87,8 +92,12 @@ func (s *PipelineService) GetPipeline(ctx context.Context, id uuid.UUID) (*domai
 	if userID == uuid.Nil {
 		return nil, fmt.Errorf("unauthorized")
 	}
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, fmt.Errorf("unauthorized")
+	}
 
-	pipeline, err := s.repo.GetPipeline(ctx, id, userID)
+	pipeline, err := s.repo.GetPipeline(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -104,8 +113,12 @@ func (s *PipelineService) ListPipelines(ctx context.Context) ([]*domain.Pipeline
 	if userID == uuid.Nil {
 		return nil, fmt.Errorf("unauthorized")
 	}
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, fmt.Errorf("unauthorized")
+	}
 
-	return s.repo.ListPipelines(ctx, userID)
+	return s.repo.ListPipelines(ctx, tenantID)
 }
 
 func (s *PipelineService) UpdatePipeline(ctx context.Context, id uuid.UUID, opts ports.UpdatePipelineOptions) (*domain.Pipeline, error) {
@@ -151,7 +164,7 @@ func (s *PipelineService) DeletePipeline(ctx context.Context, id uuid.UUID) erro
 		return err
 	}
 
-	if err := s.repo.DeletePipeline(ctx, id, pipeline.UserID); err != nil {
+	if err := s.repo.DeletePipeline(ctx, id, pipeline.TenantID); err != nil {
 		return err
 	}
 
@@ -234,6 +247,7 @@ func (s *PipelineService) createAndQueueBuild(ctx context.Context, pipeline *dom
 		ID:          uuid.New(),
 		PipelineID:  pipeline.ID,
 		UserID:      pipeline.UserID,
+		TenantID:    pipeline.TenantID,
 		CommitHash:  commitHash,
 		TriggerType: triggerType,
 		Status:      domain.BuildStatusQueued,
@@ -338,8 +352,12 @@ func (s *PipelineService) GetBuild(ctx context.Context, buildID uuid.UUID) (*dom
 	if userID == uuid.Nil {
 		return nil, fmt.Errorf("unauthorized")
 	}
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, fmt.Errorf("unauthorized")
+	}
 
-	build, err := s.repo.GetBuild(ctx, buildID, userID)
+	build, err := s.repo.GetBuild(ctx, buildID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -355,8 +373,12 @@ func (s *PipelineService) ListBuildsByPipeline(ctx context.Context, pipelineID u
 	if userID == uuid.Nil {
 		return nil, fmt.Errorf("unauthorized")
 	}
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, fmt.Errorf("unauthorized")
+	}
 
-	return s.repo.ListBuildsByPipeline(ctx, pipelineID, userID)
+	return s.repo.ListBuildsByPipeline(ctx, pipelineID, tenantID)
 }
 
 func (s *PipelineService) ListBuildSteps(ctx context.Context, buildID uuid.UUID) ([]*domain.BuildStep, error) {
@@ -364,8 +386,12 @@ func (s *PipelineService) ListBuildSteps(ctx context.Context, buildID uuid.UUID)
 	if userID == uuid.Nil {
 		return nil, fmt.Errorf("unauthorized")
 	}
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, fmt.Errorf("unauthorized")
+	}
 
-	return s.repo.ListBuildSteps(ctx, buildID, userID)
+	return s.repo.ListBuildSteps(ctx, buildID, tenantID)
 }
 
 func (s *PipelineService) ListBuildLogs(ctx context.Context, buildID uuid.UUID, limit int) ([]*domain.BuildLog, error) {
@@ -373,6 +399,10 @@ func (s *PipelineService) ListBuildLogs(ctx context.Context, buildID uuid.UUID, 
 	if userID == uuid.Nil {
 		return nil, fmt.Errorf("unauthorized")
 	}
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		return nil, fmt.Errorf("unauthorized")
+	}
 
-	return s.repo.ListBuildLogs(ctx, buildID, userID, limit)
+	return s.repo.ListBuildLogs(ctx, buildID, tenantID, limit)
 }

@@ -533,17 +533,17 @@ func (r *NoopIdentityRepository) DeleteAPIKey(ctx context.Context, id uuid.UUID)
 type NoopCacheRepository struct{}
 
 func (r *NoopCacheRepository) Create(ctx context.Context, c *domain.Cache) error { return nil }
-func (r *NoopCacheRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Cache, error) {
-	return &domain.Cache{ID: id}, nil
+func (r *NoopCacheRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.Cache, error) {
+	return &domain.Cache{ID: id, TenantID: tenantID}, nil
 }
-func (r *NoopCacheRepository) GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Cache, error) {
-	return &domain.Cache{ID: uuid.New(), Name: name, UserID: userID}, nil
+func (r *NoopCacheRepository) GetByName(ctx context.Context, tenantID uuid.UUID, name string) (*domain.Cache, error) {
+	return &domain.Cache{ID: uuid.New(), Name: name, TenantID: tenantID}, nil
 }
-func (r *NoopCacheRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.Cache, error) {
+func (r *NoopCacheRepository) List(ctx context.Context, tenantID uuid.UUID) ([]*domain.Cache, error) {
 	return []*domain.Cache{}, nil
 }
 func (r *NoopCacheRepository) Update(ctx context.Context, c *domain.Cache) error { return nil }
-func (r *NoopCacheRepository) Delete(ctx context.Context, id uuid.UUID) error    { return nil }
+func (r *NoopCacheRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error { return nil }
 
 type NoopLBRepository struct {
 	mu             sync.Mutex
