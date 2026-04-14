@@ -32,14 +32,14 @@ func (m *MockPipelineRepository) GetPipelineByID(ctx context.Context, id uuid.UU
 	return r0, args.Error(1)
 }
 
-func (m *MockPipelineRepository) GetPipeline(ctx context.Context, id, userID uuid.UUID) (*domain.Pipeline, error) {
-	args := m.Called(ctx, id, userID)
+func (m *MockPipelineRepository) GetPipeline(ctx context.Context, id, tenantID uuid.UUID) (*domain.Pipeline, error) {
+	args := m.Called(ctx, id, tenantID)
 	r0, _ := args.Get(0).(*domain.Pipeline)
 	return r0, args.Error(1)
 }
 
-func (m *MockPipelineRepository) ListPipelines(ctx context.Context, userID uuid.UUID) ([]*domain.Pipeline, error) {
-	args := m.Called(ctx, userID)
+func (m *MockPipelineRepository) ListPipelines(ctx context.Context, tenantID uuid.UUID) ([]*domain.Pipeline, error) {
+	args := m.Called(ctx, tenantID)
 	r0, _ := args.Get(0).([]*domain.Pipeline)
 	return r0, args.Error(1)
 }
@@ -48,22 +48,22 @@ func (m *MockPipelineRepository) UpdatePipeline(ctx context.Context, pipeline *d
 	return m.Called(ctx, pipeline).Error(0)
 }
 
-func (m *MockPipelineRepository) DeletePipeline(ctx context.Context, id, userID uuid.UUID) error {
-	return m.Called(ctx, id, userID).Error(0)
+func (m *MockPipelineRepository) DeletePipeline(ctx context.Context, id, tenantID uuid.UUID) error {
+	return m.Called(ctx, id, tenantID).Error(0)
 }
 
 func (m *MockPipelineRepository) CreateBuild(ctx context.Context, build *domain.Build) error {
 	return m.Called(ctx, build).Error(0)
 }
 
-func (m *MockPipelineRepository) GetBuild(ctx context.Context, id, userID uuid.UUID) (*domain.Build, error) {
-	args := m.Called(ctx, id, userID)
+func (m *MockPipelineRepository) GetBuild(ctx context.Context, id, tenantID uuid.UUID) (*domain.Build, error) {
+	args := m.Called(ctx, id, tenantID)
 	r0, _ := args.Get(0).(*domain.Build)
 	return r0, args.Error(1)
 }
 
-func (m *MockPipelineRepository) ListBuildsByPipeline(ctx context.Context, pipelineID, userID uuid.UUID) ([]*domain.Build, error) {
-	args := m.Called(ctx, pipelineID, userID)
+func (m *MockPipelineRepository) ListBuildsByPipeline(ctx context.Context, pipelineID, tenantID uuid.UUID) ([]*domain.Build, error) {
+	args := m.Called(ctx, pipelineID, tenantID)
 	r0, _ := args.Get(0).([]*domain.Build)
 	return r0, args.Error(1)
 }
@@ -76,8 +76,8 @@ func (m *MockPipelineRepository) CreateBuildStep(ctx context.Context, step *doma
 	return m.Called(ctx, step).Error(0)
 }
 
-func (m *MockPipelineRepository) ListBuildSteps(ctx context.Context, buildID, userID uuid.UUID) ([]*domain.BuildStep, error) {
-	args := m.Called(ctx, buildID, userID)
+func (m *MockPipelineRepository) ListBuildSteps(ctx context.Context, buildID, tenantID uuid.UUID) ([]*domain.BuildStep, error) {
+	args := m.Called(ctx, buildID, tenantID)
 	r0, _ := args.Get(0).([]*domain.BuildStep)
 	return r0, args.Error(1)
 }
@@ -90,8 +90,8 @@ func (m *MockPipelineRepository) AppendBuildLog(ctx context.Context, log *domain
 	return m.Called(ctx, log).Error(0)
 }
 
-func (m *MockPipelineRepository) ListBuildLogs(ctx context.Context, buildID, userID uuid.UUID, limit int) ([]*domain.BuildLog, error) {
-	args := m.Called(ctx, buildID, userID, limit)
+func (m *MockPipelineRepository) ListBuildLogs(ctx context.Context, buildID, tenantID uuid.UUID, limit int) ([]*domain.BuildLog, error) {
+	args := m.Called(ctx, buildID, tenantID, limit)
 	r0, _ := args.Get(0).([]*domain.BuildLog)
 	return r0, args.Error(1)
 }
@@ -260,7 +260,9 @@ func TestPipelineService_CreatePipeline(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.New()
+	tenantID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("Success", func(t *testing.T) {
 		repo.On("CreatePipeline", mock.Anything, mock.Anything).Return(nil).Once()
@@ -308,13 +310,15 @@ func TestPipelineService_GetPipeline(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.New()
+	tenantID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("Success", func(t *testing.T) {
 		pipelineID := uuid.New()
-		pipeline := &domain.Pipeline{ID: pipelineID, UserID: userID, Name: "test"}
+		pipeline := &domain.Pipeline{ID: pipelineID, UserID: userID, TenantID: tenantID, Name: "test"}
 
-		repo.On("GetPipeline", mock.Anything, pipelineID, userID).Return(pipeline, nil).Once()
+		repo.On("GetPipeline", mock.Anything, pipelineID, mock.Anything).Return(pipeline, nil).Once()
 
 		res, err := svc.GetPipeline(ctx, pipelineID)
 		require.NoError(t, err)
@@ -325,7 +329,7 @@ func TestPipelineService_GetPipeline(t *testing.T) {
 	t.Run("NotFound", func(t *testing.T) {
 		pipelineID := uuid.New()
 
-		repo.On("GetPipeline", mock.Anything, pipelineID, userID).Return(nil, nil).Once()
+		repo.On("GetPipeline", mock.Anything, pipelineID, mock.Anything).Return(nil, nil).Once()
 
 		_, err := svc.GetPipeline(ctx, pipelineID)
 		require.Error(t, err)
@@ -343,7 +347,9 @@ func TestPipelineService_ListPipelines(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.New()
+	tenantID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("Success", func(t *testing.T) {
 		pipelines := []*domain.Pipeline{
@@ -351,7 +357,7 @@ func TestPipelineService_ListPipelines(t *testing.T) {
 			{ID: uuid.New(), Name: "pipeline-2"},
 		}
 
-		repo.On("ListPipelines", mock.Anything, userID).Return(pipelines, nil).Once()
+		repo.On("ListPipelines", mock.Anything, mock.Anything).Return(pipelines, nil).Once()
 
 		res, err := svc.ListPipelines(ctx)
 		require.NoError(t, err)
@@ -370,13 +376,15 @@ func TestPipelineService_UpdatePipeline(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.New()
+	tenantID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("Success", func(t *testing.T) {
 		pipelineID := uuid.New()
-		pipeline := &domain.Pipeline{ID: pipelineID, UserID: userID, Name: "old-name", Status: domain.PipelineStatusActive}
+		pipeline := &domain.Pipeline{ID: pipelineID, UserID: userID, TenantID: tenantID, Name: "old-name", Status: domain.PipelineStatusActive}
 
-		repo.On("GetPipeline", mock.Anything, pipelineID, userID).Return(pipeline, nil).Once()
+		repo.On("GetPipeline", mock.Anything, pipelineID, mock.Anything).Return(pipeline, nil).Once()
 		repo.On("UpdatePipeline", mock.Anything, mock.Anything).Return(nil).Once()
 		eventSvc.On("RecordEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 		auditSvc.On("Log", mock.Anything, userID, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
@@ -391,7 +399,7 @@ func TestPipelineService_UpdatePipeline(t *testing.T) {
 	t.Run("NotFound", func(t *testing.T) {
 		pipelineID := uuid.New()
 
-		repo.On("GetPipeline", mock.Anything, pipelineID, userID).Return(nil, nil).Once()
+		repo.On("GetPipeline", mock.Anything, pipelineID, mock.Anything).Return(nil, nil).Once()
 
 		_, err := svc.UpdatePipeline(ctx, pipelineID, ports.UpdatePipelineOptions{Name: stringPtr("new-name")})
 		require.Error(t, err)
@@ -409,14 +417,16 @@ func TestPipelineService_DeletePipeline(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.New()
+	tenantID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("Success", func(t *testing.T) {
 		pipelineID := uuid.New()
-		pipeline := &domain.Pipeline{ID: pipelineID, UserID: userID, Name: "test"}
+		pipeline := &domain.Pipeline{ID: pipelineID, UserID: userID, TenantID: tenantID, Name: "test"}
 
-		repo.On("GetPipeline", mock.Anything, pipelineID, userID).Return(pipeline, nil).Once()
-		repo.On("DeletePipeline", mock.Anything, pipelineID, userID).Return(nil).Once()
+		repo.On("GetPipeline", mock.Anything, pipelineID, mock.Anything).Return(pipeline, nil).Once()
+		repo.On("DeletePipeline", mock.Anything, pipelineID, mock.Anything).Return(nil).Once()
 		eventSvc.On("RecordEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 		auditSvc.On("Log", mock.Anything, userID, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 
@@ -428,7 +438,7 @@ func TestPipelineService_DeletePipeline(t *testing.T) {
 	t.Run("NotFound", func(t *testing.T) {
 		pipelineID := uuid.New()
 
-		repo.On("GetPipeline", mock.Anything, pipelineID, userID).Return(nil, nil).Once()
+		repo.On("GetPipeline", mock.Anything, pipelineID, mock.Anything).Return(nil, nil).Once()
 
 		err := svc.DeletePipeline(ctx, pipelineID)
 		require.Error(t, err)
@@ -446,13 +456,15 @@ func TestPipelineService_TriggerBuild(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.New()
+	tenantID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("Success", func(t *testing.T) {
 		pipelineID := uuid.New()
-		pipeline := &domain.Pipeline{ID: pipelineID, UserID: userID, Status: domain.PipelineStatusActive}
+		pipeline := &domain.Pipeline{ID: pipelineID, UserID: userID, TenantID: tenantID, Status: domain.PipelineStatusActive}
 
-		repo.On("GetPipeline", mock.Anything, pipelineID, userID).Return(pipeline, nil).Once()
+		repo.On("GetPipeline", mock.Anything, pipelineID, mock.Anything).Return(pipeline, nil).Once()
 		repo.On("CreateBuild", mock.Anything, mock.MatchedBy(func(b *domain.Build) bool {
 			return b != nil && b.PipelineID == pipelineID && b.CommitHash == "abc123"
 		})).Return(nil).Once()
@@ -475,9 +487,9 @@ func TestPipelineService_TriggerBuild(t *testing.T) {
 
 	t.Run("PipelineNotActive", func(t *testing.T) {
 		pipelineID := uuid.New()
-		pipeline := &domain.Pipeline{ID: pipelineID, UserID: userID, Status: domain.PipelineStatusPaused}
+		pipeline := &domain.Pipeline{ID: pipelineID, UserID: userID, TenantID: tenantID, Status: domain.PipelineStatusPaused}
 
-		repo.On("GetPipeline", mock.Anything, pipelineID, userID).Return(pipeline, nil).Once()
+		repo.On("GetPipeline", mock.Anything, pipelineID, mock.Anything).Return(pipeline, nil).Once()
 
 		_, err := svc.TriggerBuild(ctx, pipelineID, ports.TriggerBuildOptions{})
 		require.Error(t, err)
@@ -496,13 +508,15 @@ func TestPipelineService_GetBuild(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.New()
+	tenantID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("Success", func(t *testing.T) {
 		buildID := uuid.New()
-		build := &domain.Build{ID: buildID, UserID: userID}
+		build := &domain.Build{ID: buildID, UserID: userID, TenantID: tenantID}
 
-		repo.On("GetBuild", mock.Anything, buildID, userID).Return(build, nil).Once()
+		repo.On("GetBuild", mock.Anything, buildID, mock.Anything).Return(build, nil).Once()
 
 		res, err := svc.GetBuild(ctx, buildID)
 		require.NoError(t, err)
@@ -513,7 +527,7 @@ func TestPipelineService_GetBuild(t *testing.T) {
 	t.Run("NotFound", func(t *testing.T) {
 		buildID := uuid.New()
 
-		repo.On("GetBuild", mock.Anything, buildID, userID).Return(nil, nil).Once()
+		repo.On("GetBuild", mock.Anything, buildID, mock.Anything).Return(nil, nil).Once()
 
 		_, err := svc.GetBuild(ctx, buildID)
 		require.Error(t, err)
@@ -531,7 +545,9 @@ func TestPipelineService_ListBuildsByPipeline(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.New()
+	tenantID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("Success", func(t *testing.T) {
 		pipelineID := uuid.New()
@@ -540,7 +556,7 @@ func TestPipelineService_ListBuildsByPipeline(t *testing.T) {
 			{ID: uuid.New()},
 		}
 
-		repo.On("ListBuildsByPipeline", mock.Anything, pipelineID, userID).Return(builds, nil).Once()
+		repo.On("ListBuildsByPipeline", mock.Anything, pipelineID, mock.Anything).Return(builds, nil).Once()
 
 		res, err := svc.ListBuildsByPipeline(ctx, pipelineID)
 		require.NoError(t, err)
@@ -559,7 +575,9 @@ func TestPipelineService_ListBuildSteps(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.New()
+	tenantID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("Success", func(t *testing.T) {
 		buildID := uuid.New()
@@ -568,7 +586,7 @@ func TestPipelineService_ListBuildSteps(t *testing.T) {
 			{ID: uuid.New()},
 		}
 
-		repo.On("ListBuildSteps", mock.Anything, buildID, userID).Return(steps, nil).Once()
+		repo.On("ListBuildSteps", mock.Anything, buildID, mock.Anything).Return(steps, nil).Once()
 
 		res, err := svc.ListBuildSteps(ctx, buildID)
 		require.NoError(t, err)
@@ -587,7 +605,9 @@ func TestPipelineService_ListBuildLogs(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.New()
+	tenantID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("Success", func(t *testing.T) {
 		buildID := uuid.New()
@@ -596,7 +616,7 @@ func TestPipelineService_ListBuildLogs(t *testing.T) {
 			{ID: uuid.New()},
 		}
 
-		repo.On("ListBuildLogs", mock.Anything, buildID, userID, 100).Return(logs, nil).Once()
+		repo.On("ListBuildLogs", mock.Anything, buildID, mock.Anything, 100).Return(logs, nil).Once()
 
 		res, err := svc.ListBuildLogs(ctx, buildID, 100)
 		require.NoError(t, err)
