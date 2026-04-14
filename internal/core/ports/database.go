@@ -34,6 +34,7 @@ type CreateDatabaseRequest struct {
 	Parameters       map[string]string `json:"parameters,omitempty"`
 	MetricsEnabled   bool              `json:"metrics_enabled,omitempty"`
 	PoolingEnabled   bool              `json:"pooling_enabled,omitempty"`
+	KmsKeyID         string            `json:"kms_key_id,omitempty"`
 }
 
 // RestoreDatabaseRequest defines the parameters for restoring a database from a snapshot.
