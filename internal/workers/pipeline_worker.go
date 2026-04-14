@@ -92,7 +92,7 @@ func (w *PipelineWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 			if err := json.Unmarshal([]byte(msg.Payload), &job); err != nil {
 				w.logger.Error("failed to unmarshal build job",
 					"error", err, "msg_id", msg.ID)
-				_ = w.taskQueue.Ack(ctx, pipelineQueueName, pipelineGroup, msg.ID)
+				w.ackWithLog(ctx, msg.ID, "pipeline poison message")
 				continue
 			}
 
@@ -114,7 +114,7 @@ func (w *PipelineWorker) processJob(workerCtx context.Context, msg *ports.Durabl
 		if err != nil {
 			w.logger.Error("execution ledger error",
 				"build_id", job.BuildID, "msg_id", msg.ID, "error", err)
-			_ = w.taskQueue.Nack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID)
+			w.nackWithLog(workerCtx, msg.ID, "ledger try_acquire failed")
 			return
 		}
 		if !acquired {
@@ -123,7 +123,7 @@ func (w *PipelineWorker) processJob(workerCtx context.Context, msg *ports.Durabl
 			if getErr == nil && status == "completed" {
 				w.logger.Info("skipping already completed pipeline job",
 					"build_id", job.BuildID, "msg_id", msg.ID)
-				_ = w.taskQueue.Ack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID)
+				w.ackWithLog(workerCtx, msg.ID, "pipeline already completed")
 				return
 			}
 			w.logger.Info("pipeline job is currently being processed by another worker",
@@ -132,7 +132,7 @@ func (w *PipelineWorker) processJob(workerCtx context.Context, msg *ports.Durabl
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(workerCtx, 30*time.Minute)
 	defer cancel()
 	ctx = appcontext.WithUserID(ctx, job.UserID)
 
@@ -142,56 +142,71 @@ func (w *PipelineWorker) processJob(workerCtx context.Context, msg *ports.Durabl
 		w.logger.Error("transient error loading build/pipeline",
 			"build_id", job.BuildID, "error", err)
 		if w.ledger != nil {
-			_ = w.ledger.MarkFailed(workerCtx, jobKey, "transient load error")
+			if ledgerErr := w.ledger.MarkFailed(workerCtx, jobKey, "transient load error"); ledgerErr != nil {
+				w.logger.Warn("failed to mark pipeline job failed in ledger",
+					"build_id", job.BuildID, "msg_id", msg.ID, "error", ledgerErr)
+			}
 		}
-		_ = w.taskQueue.Nack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID)
+		w.nackWithLog(workerCtx, msg.ID, "transient pipeline load error")
 		return
 	}
 
 	if build == nil || pipeline == nil {
 		// Build or pipeline truly not found — ack to avoid infinite retries.
 		if w.ledger != nil {
-			_ = w.ledger.MarkComplete(workerCtx, jobKey, "not_found")
+			if ledgerErr := w.ledger.MarkComplete(workerCtx, jobKey, "not_found"); ledgerErr != nil {
+				w.logger.Warn("failed to mark pipeline job complete in ledger",
+					"build_id", job.BuildID, "msg_id", msg.ID, "error", ledgerErr)
+			}
 		}
-		_ = w.taskQueue.Ack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID)
+		w.ackWithLog(workerCtx, msg.ID, "pipeline build/pipeline not found")
 		return
 	}
 
 	if !w.markBuildRunning(ctx, build) {
 		if w.ledger != nil {
-			_ = w.ledger.MarkFailed(workerCtx, jobKey, "failed to mark build running")
+			if ledgerErr := w.ledger.MarkFailed(workerCtx, jobKey, "failed to mark build running"); ledgerErr != nil {
+				w.logger.Warn("failed to mark pipeline job failed in ledger",
+					"build_id", job.BuildID, "msg_id", msg.ID, "error", ledgerErr)
+			}
 		}
-		_ = w.taskQueue.Nack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID)
+		w.nackWithLog(workerCtx, msg.ID, "mark build running failed")
 		return
 	}
 
 	if len(pipeline.Config.Stages) == 0 {
 		w.failBuild(ctx, build, "pipeline has no stages")
 		if w.ledger != nil {
-			_ = w.ledger.MarkComplete(workerCtx, jobKey, "no_stages")
+			if ledgerErr := w.ledger.MarkComplete(workerCtx, jobKey, "no_stages"); ledgerErr != nil {
+				w.logger.Warn("failed to mark pipeline job complete in ledger",
+					"build_id", job.BuildID, "msg_id", msg.ID, "error", ledgerErr)
+			}
 		}
-		_ = w.taskQueue.Ack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID)
+		w.ackWithLog(workerCtx, msg.ID, "pipeline has no stages")
 		return
 	}
 
 	if !w.executePipeline(ctx, build, pipeline) {
 		// Build failed but was processed — ack the message.
 		if w.ledger != nil {
-			_ = w.ledger.MarkComplete(workerCtx, jobKey, "build_failed")
+			if ledgerErr := w.ledger.MarkComplete(workerCtx, jobKey, "build_failed"); ledgerErr != nil {
+				w.logger.Warn("failed to mark pipeline job complete in ledger",
+					"build_id", job.BuildID, "msg_id", msg.ID, "error", ledgerErr)
+			}
 		}
-		_ = w.taskQueue.Ack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID)
+		w.ackWithLog(workerCtx, msg.ID, "pipeline execution failed")
 		return
 	}
 
 	w.markBuildSucceeded(ctx, build)
 
 	if w.ledger != nil {
-		_ = w.ledger.MarkComplete(workerCtx, jobKey, "ok")
+		if ledgerErr := w.ledger.MarkComplete(workerCtx, jobKey, "ok"); ledgerErr != nil {
+			w.logger.Warn("failed to mark pipeline job complete in ledger",
+				"build_id", job.BuildID, "msg_id", msg.ID, "error", ledgerErr)
+		}
 	}
-	if err := w.taskQueue.Ack(workerCtx, pipelineQueueName, pipelineGroup, msg.ID); err != nil {
-		w.logger.Error("failed to ack pipeline job",
-			"build_id", job.BuildID, "msg_id", msg.ID, "error", err)
-	}
+	w.ackWithLog(workerCtx, msg.ID, "pipeline job success")
 }
 
 func (w *PipelineWorker) loadBuildAndPipeline(ctx context.Context, job domain.BuildJob) (*domain.Build, *domain.Pipeline, error) {
@@ -390,7 +405,7 @@ func (w *PipelineWorker) reclaimLoop(ctx context.Context, sem chan struct{}) {
 				if err := json.Unmarshal([]byte(m.Payload), &job); err != nil {
 					w.logger.Error("failed to unmarshal reclaimed pipeline job",
 						"msg_id", m.ID, "error", err)
-					_ = w.taskQueue.Ack(ctx, pipelineQueueName, pipelineGroup, m.ID)
+					w.ackWithLog(ctx, m.ID, "reclaimed pipeline poison message")
 					continue
 				}
 				w.logger.Info("reclaimed stale pipeline job",
@@ -404,5 +419,19 @@ func (w *PipelineWorker) reclaimLoop(ctx context.Context, sem chan struct{}) {
 				}()
 			}
 		}
+	}
+}
+
+func (w *PipelineWorker) ackWithLog(ctx context.Context, messageID string, reason string) {
+	if err := w.taskQueue.Ack(ctx, pipelineQueueName, pipelineGroup, messageID); err != nil {
+		w.logger.Warn("failed to ack pipeline job",
+			"msg_id", messageID, "reason", reason, "error", err)
+	}
+}
+
+func (w *PipelineWorker) nackWithLog(ctx context.Context, messageID string, reason string) {
+	if err := w.taskQueue.Nack(ctx, pipelineQueueName, pipelineGroup, messageID); err != nil {
+		w.logger.Warn("failed to nack pipeline job",
+			"msg_id", messageID, "reason", reason, "error", err)
 	}
 }
