@@ -55,7 +55,11 @@ func (m *MockCacheRepository) Delete(ctx context.Context, id, tenantID uuid.UUID
 	return m.Called(ctx, id, tenantID).Error(0)
 }
 
-func TestCacheService_Unit_Extended(t *testing.T) {
+func TestCacheService_Unit(t *testing.T) {
+	t.Run("Extended", testCacheServiceUnitExtended)
+}
+
+func testCacheServiceUnitExtended(t *testing.T) {
 	repo := new(MockCacheRepository)
 	compute := new(MockComputeBackend)
 	eventSvc := new(MockEventService)

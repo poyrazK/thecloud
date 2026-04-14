@@ -14,7 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAuthService_Unit_Extended(t *testing.T) {
+func TestAuthService_Unit(t *testing.T) {
+	t.Run("Extended", testAuthServiceUnitExtended)
+}
+
+func testAuthServiceUnitExtended(t *testing.T) {
 	mockUserRepo := new(MockUserRepo)
 	mockIdentitySvc := new(MockIdentityService)
 	mockAuditSvc := new(MockAuditService)
