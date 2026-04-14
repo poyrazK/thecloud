@@ -284,29 +284,30 @@ func (s *VolumeService) AttachVolume(ctx context.Context, volumeID string, insta
 		return "", errors.Wrap(errors.Internal, "failed to attach volume in backend", err)
 	}
 
-	// 2. Get instance to find current ContainerID
-	inst, err := s.instanceRepo.GetByID(ctx, instUUID)
-	if err != nil {
-		// Rollback storage attach
-		_ = s.storage.DetachVolume(ctx, backendName, instanceID)
-		return "", errors.Wrap(errors.Internal, "failed to get instance", err)
-	}
-
-	// 3. If Compute backend exists and instance has ContainerID, update container with new volume bind
+	// 2. If Compute backend exists and instance has ContainerID, update container with new volume bind
 	var newContainerID string
-	if s.compute != nil && inst.ContainerID != "" {
-		bindSpec := devicePath + ":" + mountPath + ":rw"
-		_, newContainerID, err = s.compute.AttachVolume(ctx, inst.ContainerID, bindSpec)
+	if s.compute != nil {
+		inst, err := s.instanceRepo.GetByID(ctx, instUUID)
 		if err != nil {
 			// Rollback storage attach
 			_ = s.storage.DetachVolume(ctx, backendName, instanceID)
-			return "", errors.Wrap(errors.Internal, "failed to attach volume to container", err)
+			return "", errors.Wrap(errors.Internal, "failed to get instance", err)
 		}
-		// Update instance.ContainerID
-		inst.ContainerID = newContainerID
-		if err := s.instanceRepo.Update(ctx, inst); err != nil {
-			s.logger.Warn("failed to update instance ContainerID after volume attach",
-				"instance_id", instUUID, "new_container_id", newContainerID, "error", err)
+
+		if inst.ContainerID != "" {
+			bindSpec := devicePath + ":" + mountPath + ":rw"
+			_, newContainerID, err = s.compute.AttachVolume(ctx, inst.ContainerID, bindSpec)
+			if err != nil {
+				// Rollback storage attach
+				_ = s.storage.DetachVolume(ctx, backendName, instanceID)
+				return "", errors.Wrap(errors.Internal, "failed to attach volume to container", err)
+			}
+			// Update instance.ContainerID
+			inst.ContainerID = newContainerID
+			if err := s.instanceRepo.Update(ctx, inst); err != nil {
+				s.logger.Warn("failed to update instance ContainerID after volume attach",
+					"instance_id", instUUID, "new_container_id", newContainerID, "error", err)
+			}
 		}
 	}
 
@@ -349,24 +350,25 @@ func (s *VolumeService) DetachVolume(ctx context.Context, volumeID string) error
 	instanceID := vol.InstanceID.String()
 	backendName := FormatBackendVolumeName(vol.ID)
 
-	// 1. Get instance
-	inst, err := s.instanceRepo.GetByID(ctx, *vol.InstanceID)
-	if err != nil {
-		return errors.Wrap(errors.Internal, "failed to get instance", err)
-	}
-
-	// 2. If Compute backend exists and instance has ContainerID, detach from container
+	// 1. If Compute backend exists, detach from container first
 	var newContainerID string
-	if s.compute != nil && inst.ContainerID != "" && vol.MountPath != "" {
-		newContainerID, err = s.compute.DetachVolume(ctx, inst.ContainerID, vol.MountPath)
+	if s.compute != nil && vol.MountPath != "" {
+		inst, err := s.instanceRepo.GetByID(ctx, *vol.InstanceID)
 		if err != nil {
-			return errors.Wrap(errors.Internal, "failed to detach volume from container", err)
+			return errors.Wrap(errors.Internal, "failed to get instance", err)
 		}
-		// Update instance.ContainerID
-		inst.ContainerID = newContainerID
-		if err := s.instanceRepo.Update(ctx, inst); err != nil {
-			s.logger.Warn("failed to update instance ContainerID after volume detach",
-				"instance_id", vol.InstanceID, "error", err)
+
+		if inst.ContainerID != "" {
+			newContainerID, err = s.compute.DetachVolume(ctx, inst.ContainerID, vol.MountPath)
+			if err != nil {
+				return errors.Wrap(errors.Internal, "failed to detach volume from container", err)
+			}
+			// Update instance.ContainerID
+			inst.ContainerID = newContainerID
+			if err := s.instanceRepo.Update(ctx, inst); err != nil {
+				s.logger.Warn("failed to update instance ContainerID after volume detach",
+					"instance_id", vol.InstanceID, "error", err)
+			}
 		}
 	}
 
