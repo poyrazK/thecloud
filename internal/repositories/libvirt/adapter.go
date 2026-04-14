@@ -22,9 +22,21 @@ import (
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
+	libvirtsocket "github.com/digitalocean/go-libvirt/socket"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
+
+type libvirtUnixDialer struct {
+	uri     string
+	timeout time.Duration
+}
+
+var _ libvirtsocket.Dialer = (*libvirtUnixDialer)(nil)
+
+func (d *libvirtUnixDialer) Dial() (net.Conn, error) {
+	return net.DialTimeout("unix", d.uri, d.timeout)
+}
 
 const (
 	defaultPoolName   = "default"
@@ -110,8 +122,8 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 		}
 	}
 
-	//nolint:staticcheck
-	l := libvirt.New(c)
+	_ = c.Close()
+	l := libvirt.NewWithDialer(&libvirtUnixDialer{uri: uri, timeout: 2 * time.Second})
 	adapter := &LibvirtAdapter{
 		client:             &RealLibvirtClient{conn: l},
 		logger:             logger,
