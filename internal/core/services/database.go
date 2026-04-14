@@ -538,6 +538,136 @@ func (s *DatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID 
 	return s.snapshotRepo.ListByVolumeID(ctx, vol.ID)
 }
 
+func (s *DatabaseService) StopDatabase(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBUpdate, id.String()); err != nil {
+		return err
+	}
+
+	db, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if db.Status != domain.DatabaseStatusRunning {
+		return errors.New(errors.InvalidInput, "database is not running")
+	}
+	if db.Role == domain.RoleReplica {
+		return errors.New(errors.InvalidInput, "cannot stop a replica database")
+	}
+
+	// Stop sidecars first
+	if db.ExporterContainerID != "" {
+		if err := s.compute.StopInstance(ctx, db.ExporterContainerID); err != nil {
+			s.logger.Warn("failed to stop exporter container", "container_id", db.ExporterContainerID, "error", err)
+		}
+	}
+	if db.PoolerContainerID != "" {
+		if err := s.compute.StopInstance(ctx, db.PoolerContainerID); err != nil {
+			s.logger.Warn("failed to stop pooler container", "container_id", db.PoolerContainerID, "error", err)
+		}
+	}
+
+	// Stop database container; must succeed before marking as stopped.
+	if db.ContainerID != "" {
+		if err := s.compute.StopInstance(ctx, db.ContainerID); err != nil {
+			return errors.Wrap(errors.Internal, "failed to stop database container", err)
+		}
+	}
+
+	db.Status = domain.DatabaseStatusStopped
+	if err := s.repo.Update(ctx, db); err != nil {
+		return err
+	}
+
+	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_STOP", db.ID.String(), "DATABASE", nil)
+	_ = s.auditSvc.Log(ctx, db.UserID, "database.stop", "database", db.ID.String(), map[string]interface{}{"name": db.Name})
+	platform.RDSInstancesTotal.WithLabelValues(string(db.Engine), "stopped").Inc()
+	platform.RDSInstancesTotal.WithLabelValues(string(db.Engine), "running").Dec()
+
+	return nil
+}
+
+func (s *DatabaseService) StartDatabase(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBUpdate, id.String()); err != nil {
+		return err
+	}
+
+	db, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if db.Status != domain.DatabaseStatusStopped {
+		return errors.New(errors.InvalidInput, "database is not stopped")
+	}
+	if db.ContainerID == "" {
+		return errors.New(errors.Internal, "database container ID is missing")
+	}
+
+	// Start database container
+	if err := s.compute.StartInstance(ctx, db.ContainerID); err != nil {
+		return errors.Wrap(errors.Internal, "failed to start database container", err)
+	}
+
+	// Wait for database to be ready; return error if it fails.
+	if err := s.waitForDatabaseReady(ctx, db); err != nil {
+		return errors.Wrap(errors.Internal, "database failed to become ready", err)
+	}
+
+	// Start sidecars if enabled
+	if db.ExporterContainerID != "" {
+		if err := s.compute.StartInstance(ctx, db.ExporterContainerID); err != nil {
+			s.logger.Warn("failed to start exporter container", "container_id", db.ExporterContainerID, "error", err)
+		}
+	}
+	if db.PoolingEnabled && db.PoolerContainerID != "" {
+		if err := s.compute.StartInstance(ctx, db.PoolerContainerID); err != nil {
+			s.logger.Warn("failed to start pooler container", "container_id", db.PoolerContainerID, "error", err)
+		}
+	}
+
+	db.Status = domain.DatabaseStatusRunning
+	if err := s.repo.Update(ctx, db); err != nil {
+		return err
+	}
+
+	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_START", db.ID.String(), "DATABASE", nil)
+	_ = s.auditSvc.Log(ctx, db.UserID, "database.start", "database", db.ID.String(), map[string]interface{}{"name": db.Name})
+	platform.RDSInstancesTotal.WithLabelValues(string(db.Engine), "running").Inc()
+	platform.RDSInstancesTotal.WithLabelValues(string(db.Engine), "stopped").Dec()
+
+	return nil
+}
+
+func (s *DatabaseService) waitForDatabaseReady(ctx context.Context, db *domain.Database) error {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for i := 0; i < 30; i++ {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+
+		dbIP, err := s.compute.GetInstanceIP(ctx, db.ContainerID)
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			continue
+		}
+		if dbIP != "" {
+			return nil
+		}
+	}
+	return errors.New(errors.Internal, "database did not become ready in time")
+}
+
 func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, idempotencyKey string) error {
 	if idempotencyKey != "" {
 		s.rotationMu.Lock()

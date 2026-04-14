@@ -81,6 +81,7 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		Logger:       slog.Default(),
 	})
 
+	userID := uuid.New()
 	ctx := context.Background()
 
 	t.Run("CreateDatabase_Success", func(t *testing.T) {
@@ -464,7 +465,6 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 
 	t.Run("ModifyDatabase_VolumeResize", func(t *testing.T) {
 		dbID := uuid.New()
-		userID := uuid.New()
 		db := &domain.Database{
 			ID:               dbID,
 			UserID:           userID,
@@ -497,6 +497,157 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, newSize, result.AllocatedStorage)
+	})
+
+	t.Run("StopDatabase_Success", func(t *testing.T) {
+		dbID := uuid.New()
+		db := &domain.Database{
+			ID:       dbID,
+			UserID:   userID,
+			Status:   domain.DatabaseStatusRunning,
+			Role:     domain.RolePrimary,
+			Engine:   domain.EnginePostgres,
+			Name:     "test-stop-db",
+			ContainerID: "db-cid",
+			ExporterContainerID: "exp-cid",
+			PoolingEnabled: true,
+			PoolerContainerID: "pooler-cid",
+		}
+		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
+		mockCompute.On("StopInstance", mock.Anything, "exp-cid").Return(nil).Once()
+		mockCompute.On("StopInstance", mock.Anything, "pooler-cid").Return(nil).Once()
+		mockCompute.On("StopInstance", mock.Anything, "db-cid").Return(nil).Once()
+		mockRepo.On("Update", mock.Anything, mock.MatchedBy(func(d *domain.Database) bool {
+			return d.Status == domain.DatabaseStatusStopped
+		})).Return(nil).Once()
+		mockEventSvc.On("RecordEvent", mock.Anything, "DATABASE_STOP", dbID.String(), "DATABASE", mock.Anything).Return(nil).Once()
+		mockAuditSvc.On("Log", mock.Anything, userID, "database.stop", "database", dbID.String(), mock.Anything).Return(nil).Once()
+
+		err := svc.StopDatabase(ctx, dbID)
+		require.NoError(t, err)
+	})
+
+	t.Run("StopDatabase_NotRunning", func(t *testing.T) {
+		dbID := uuid.New()
+		db := &domain.Database{ID: dbID, Status: domain.DatabaseStatusStopped, Role: domain.RolePrimary}
+		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
+
+		err := svc.StopDatabase(ctx, dbID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not running")
+	})
+
+	t.Run("StopDatabase_Replica", func(t *testing.T) {
+		dbID := uuid.New()
+		db := &domain.Database{ID: dbID, Status: domain.DatabaseStatusRunning, Role: domain.RoleReplica}
+		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
+
+		err := svc.StopDatabase(ctx, dbID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "replica")
+	})
+
+	t.Run("StopDatabase_ComputeError", func(t *testing.T) {
+		dbID := uuid.New()
+		db := &domain.Database{
+			ID:       dbID,
+			UserID:   userID,
+			Status:   domain.DatabaseStatusRunning,
+			Role:     domain.RolePrimary,
+			ContainerID: "db-cid",
+		}
+		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
+		mockCompute.On("StopInstance", mock.Anything, "db-cid").Return(fmt.Errorf("stop failed")).Once()
+
+		err := svc.StopDatabase(ctx, dbID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "stop failed")
+	})
+
+	t.Run("StartDatabase_Success", func(t *testing.T) {
+		dbID := uuid.New()
+		db := &domain.Database{
+			ID:       dbID,
+			UserID:   userID,
+			Status:   domain.DatabaseStatusStopped,
+			Role:     domain.RolePrimary,
+			Engine:   domain.EnginePostgres,
+			Name:     "test-start-db",
+			ContainerID: "db-cid",
+			PoolingEnabled: true,
+			PoolerContainerID: "pooler-cid",
+		}
+		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
+		mockCompute.On("StartInstance", mock.Anything, "db-cid").Return(nil).Once()
+		mockCompute.On("GetInstanceIP", mock.Anything, "db-cid").Return("10.0.0.5", nil).Once()
+		mockCompute.On("StartInstance", mock.Anything, "pooler-cid").Return(nil).Once()
+		mockRepo.On("Update", mock.Anything, mock.MatchedBy(func(d *domain.Database) bool {
+			return d.Status == domain.DatabaseStatusRunning
+		})).Return(nil).Once()
+		mockEventSvc.On("RecordEvent", mock.Anything, "DATABASE_START", dbID.String(), "DATABASE", mock.Anything).Return(nil).Once()
+		mockAuditSvc.On("Log", mock.Anything, userID, "database.start", "database", dbID.String(), mock.Anything).Return(nil).Once()
+
+		err := svc.StartDatabase(ctx, dbID)
+		require.NoError(t, err)
+	})
+
+	t.Run("StartDatabase_NotStopped", func(t *testing.T) {
+		dbID := uuid.New()
+		db := &domain.Database{ID: dbID, Status: domain.DatabaseStatusRunning, Role: domain.RolePrimary}
+		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
+
+		err := svc.StartDatabase(ctx, dbID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not stopped")
+	})
+
+	t.Run("StartDatabase_MissingContainerID", func(t *testing.T) {
+		dbID := uuid.New()
+		db := &domain.Database{ID: dbID, Status: domain.DatabaseStatusStopped, Role: domain.RolePrimary, ContainerID: ""}
+		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
+
+		err := svc.StartDatabase(ctx, dbID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "container ID is missing")
+	})
+
+	t.Run("StartDatabase_ComputeError", func(t *testing.T) {
+		dbID := uuid.New()
+		db := &domain.Database{
+			ID:       dbID,
+			UserID:   userID,
+			Status:   domain.DatabaseStatusStopped,
+			Role:     domain.RolePrimary,
+			ContainerID: "db-cid",
+		}
+		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
+		mockCompute.On("StartInstance", mock.Anything, "db-cid").Return(fmt.Errorf("start failed")).Once()
+
+		err := svc.StartDatabase(ctx, dbID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "start failed")
+	})
+
+	t.Run("StartDatabase_ReadinessTimeout", func(t *testing.T) {
+		dbID := uuid.New()
+		db := &domain.Database{
+			ID:       dbID,
+			UserID:   userID,
+			Status:   domain.DatabaseStatusStopped,
+			Role:     domain.RolePrimary,
+			ContainerID: "cid-timeout",
+		}
+		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
+		mockCompute.On("StartInstance", mock.Anything, "cid-timeout").Return(nil).Once()
+		mockCompute.On("GetInstanceIP", mock.Anything, "cid-timeout").Return("", nil).Once()
+		mockCompute.On("GetInstanceIP", mock.Anything, "cid-timeout").Return("", nil).Maybe()
+		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Maybe()
+		mockEventSvc.On("RecordEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		mockAuditSvc.On("Log", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		err := svc.StartDatabase(ctx, dbID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "did not become ready")
 	})
 }
 

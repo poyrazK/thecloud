@@ -723,6 +723,27 @@ Regenerate the database password and update it in both the database engine and V
 }
 ```
 
+### POST /databases/:id/stop
+Stop a running database instance. The data volume is retained.
+- **Constraints**: Cannot stop replicas (must promote first) or databases in CREATING/DELETING state.
+- **Response**:
+```json
+{
+  "message": "database stopped"
+}
+```
+
+### POST /databases/:id/start
+Start a stopped database instance.
+- **Constraints**: Database must be in STOPPED state.
+- **Workflow**: Starts container, waits for readiness, starts sidecars if enabled.
+- **Response**:
+```json
+{
+  "message": "database started"
+}
+```
+
 ---
 
 ## Global Load Balancers 🆕
