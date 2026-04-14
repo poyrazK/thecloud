@@ -118,37 +118,50 @@ func (cb *CircuitBreaker) Execute(fn func() error) error {
 
 func (cb *CircuitBreaker) allowRequest() bool {
 	cb.mu.Lock()
-	defer cb.mu.Unlock()
+	var cbFunc StateChangeFunc
+	var name string
+	var from, to State
+	var changed bool
+	allowed := false
 
 	switch cb.state {
 	case StateClosed:
-		return true
+		allowed = true
 	case StateOpen:
 		if time.Since(cb.lastFailure) <= cb.resetTimeout {
-			return false
+			break
 		}
 		// Transition to half-open; only allow one probe at a time.
 		if cb.halfOpenInFlight {
-			return false
+			break
 		}
-		cb.transitionLocked(StateHalfOpen)
+		cbFunc, name, from, to, changed = cb.transitionLocked(StateHalfOpen)
 		cb.halfOpenInFlight = true
 		cb.successCount = 0
-		return true
+		allowed = true
 	case StateHalfOpen:
 		// Allow additional requests only if no probe is in flight.
 		if cb.halfOpenInFlight {
-			return false
+			break
 		}
 		cb.halfOpenInFlight = true
-		return true
+		allowed = true
 	}
-	return false
+	cb.mu.Unlock()
+
+	if changed && cbFunc != nil {
+		cbFunc(name, from, to)
+	}
+
+	return allowed
 }
 
 func (cb *CircuitBreaker) recordFailure() {
 	cb.mu.Lock()
-	defer cb.mu.Unlock()
+	var cbFunc StateChangeFunc
+	var name string
+	var from, to State
+	var changed bool
 
 	cb.halfOpenInFlight = false
 	cb.failureCount++
@@ -157,17 +170,25 @@ func (cb *CircuitBreaker) recordFailure() {
 	switch cb.state {
 	case StateClosed:
 		if cb.failureCount >= cb.threshold {
-			cb.transitionLocked(StateOpen)
+			cbFunc, name, from, to, changed = cb.transitionLocked(StateOpen)
 		}
 	case StateHalfOpen:
 		// Probe failed — go back to open.
-		cb.transitionLocked(StateOpen)
+		cbFunc, name, from, to, changed = cb.transitionLocked(StateOpen)
+	}
+	cb.mu.Unlock()
+
+	if changed && cbFunc != nil {
+		cbFunc(name, from, to)
 	}
 }
 
 func (cb *CircuitBreaker) recordSuccess() {
 	cb.mu.Lock()
-	defer cb.mu.Unlock()
+	var cbFunc StateChangeFunc
+	var name string
+	var from, to State
+	var changed bool
 
 	cb.halfOpenInFlight = false
 
@@ -177,36 +198,43 @@ func (cb *CircuitBreaker) recordSuccess() {
 		if cb.successCount >= cb.successRequired {
 			cb.failureCount = 0
 			cb.successCount = 0
-			cb.transitionLocked(StateClosed)
+			cbFunc, name, from, to, changed = cb.transitionLocked(StateClosed)
 		}
 	default:
 		cb.failureCount = 0
 		cb.state = StateClosed
+	}
+	cb.mu.Unlock()
+
+	if changed && cbFunc != nil {
+		cbFunc(name, from, to)
 	}
 }
 
 // transitionLocked changes state and fires the callback. Must be called
 // with cb.mu held. The callback is invoked synchronously; implementations
 // must not block or acquire cb.mu.
-func (cb *CircuitBreaker) transitionLocked(to State) {
+func (cb *CircuitBreaker) transitionLocked(to State) (StateChangeFunc, string, State, State, bool) {
 	from := cb.state
 	if from == to {
-		return
+		return nil, "", from, to, false
 	}
 	cb.state = to
-	if cb.onStateChange != nil {
-		cb.onStateChange(cb.name, from, to)
-	}
+	return cb.onStateChange, cb.name, from, to, true
 }
 
 // Reset clears the circuit breaker state.
 func (cb *CircuitBreaker) Reset() {
 	cb.mu.Lock()
-	defer cb.mu.Unlock()
+	cbFunc, name, from, to, changed := cb.transitionLocked(StateClosed)
 	cb.failureCount = 0
 	cb.successCount = 0
 	cb.halfOpenInFlight = false
-	cb.transitionLocked(StateClosed)
+	cb.mu.Unlock()
+
+	if changed && cbFunc != nil {
+		cbFunc(name, from, to)
+	}
 }
 
 // GetState returns the current state of the circuit breaker.

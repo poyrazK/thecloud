@@ -86,11 +86,6 @@ func backoffDelay(attempt int, base, max time.Duration, mult float64) time.Durat
 	if calculated > max || calculated <= 0 {
 		calculated = max
 	}
-	// Full jitter: uniform random in [base/2, calculated].
-	floor := base / 2
-	if floor > calculated {
-		floor = calculated
-	}
-	jittered := floor + time.Duration(rand.Int64N(int64(calculated-floor+1)))
-	return jittered
+	// Full jitter: uniform random in [0, calculated].
+	return time.Duration(rand.Int64N(int64(calculated) + 1))
 }

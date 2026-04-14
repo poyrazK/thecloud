@@ -166,11 +166,10 @@ func run() error {
 		r.Use(otelgin.Middleware("compute-api"))
 	}
 
-	runApplication(deps, cfg, logger, r, workers)
-	return nil
+	return runApplication(deps, cfg, logger, r, workers)
 }
 
-func runApplication(deps AppDeps, cfg *platform.Config, logger *slog.Logger, r *gin.Engine, workers *setup.Workers) {
+func runApplication(deps AppDeps, cfg *platform.Config, logger *slog.Logger, r *gin.Engine, workers *setup.Workers) error {
 	role := os.Getenv("ROLE")
 	if role == "" {
 		role = "all"
@@ -179,7 +178,7 @@ func runApplication(deps AppDeps, cfg *platform.Config, logger *slog.Logger, r *
 	validRoles := map[string]bool{"api": true, "worker": true, "all": true}
 	if !validRoles[role] {
 		logger.Error("invalid ROLE value, must be one of: api, worker, all", "role", role)
-		return
+		return fmt.Errorf("invalid ROLE value %q, must be one of: api, worker, all", role)
 	}
 	logger.Info("starting with role", "role", role)
 
@@ -221,6 +220,7 @@ func runApplication(deps AppDeps, cfg *platform.Config, logger *slog.Logger, r *
 	workerCancel()
 	wg.Wait()
 	logger.Info("shutdown complete")
+	return nil
 }
 
 type runner interface {

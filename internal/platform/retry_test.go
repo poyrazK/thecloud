@@ -103,17 +103,17 @@ func TestBackoffDelay(t *testing.T) {
 	base := 100 * time.Millisecond
 	max := 5 * time.Second
 
-	// Attempt 0: jitter in [base/2, base]
+	// Attempt 0: jitter in [0, base]
 	for i := 0; i < 100; i++ {
 		d := backoffDelay(0, base, max, 2.0)
-		assert.GreaterOrEqual(t, d, base/2)
+		assert.GreaterOrEqual(t, d, time.Duration(0))
 		assert.LessOrEqual(t, d, base)
 	}
 
 	// Attempt 3: calculated = 100ms * 2^3 = 800ms
 	for i := 0; i < 100; i++ {
 		d := backoffDelay(3, base, max, 2.0)
-		assert.GreaterOrEqual(t, d, base/2)
+		assert.GreaterOrEqual(t, d, time.Duration(0))
 		assert.LessOrEqual(t, d, 800*time.Millisecond)
 	}
 }

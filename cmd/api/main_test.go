@@ -158,7 +158,10 @@ func TestRunApplicationApiRoleStartsAndShutsDown(t *testing.T) {
 		}()
 	}
 
-	runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), &setup.Workers{})
+	err := runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), &setup.Workers{})
+	if err != nil {
+		t.Fatalf("runApplication returned error: %v", err)
+	}
 
 	select {
 	case <-shutdownCalled:
@@ -193,7 +196,10 @@ func TestRunApplicationWorkerRoleDoesNotStartHTTP(t *testing.T) {
 		}()
 	}
 
-	runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), &setup.Workers{})
+	err := runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), &setup.Workers{})
+	if err != nil {
+		t.Fatalf("runApplication returned error: %v", err)
+	}
 	// If we reach here without t.Fatalf, the test passes — no HTTP server was touched.
 }
 
@@ -227,7 +233,10 @@ func TestRunApplicationDefaultsToAllRole(t *testing.T) {
 		}()
 	}
 
-	runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), &setup.Workers{})
+	err := runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), &setup.Workers{})
+	if err != nil {
+		t.Fatalf("runApplication returned error: %v", err)
+	}
 
 	select {
 	case <-shutdownCalled:
@@ -255,7 +264,10 @@ func TestRunApplicationInvalidRoleReturnsEarly(t *testing.T) {
 	}
 
 	// Should return immediately without starting anything
-	runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), &setup.Workers{})
+	err := runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), &setup.Workers{})
+	if err == nil {
+		t.Fatalf("expected error for invalid role")
+	}
 }
 
 // Stub helpers below keep main.go testable without altering production behavior.
