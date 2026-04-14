@@ -54,7 +54,11 @@ func (m *DatabaseUnitMockRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
 
-func TestDatabaseServiceUnitExtended(t *testing.T) {
+func TestDatabaseService_Unit(t *testing.T) {
+	t.Run("Extended", testDatabaseServiceUnitExtended)
+}
+
+func testDatabaseServiceUnitExtended(t *testing.T) {
 	mockRepo := new(DatabaseUnitMockRepo)
 	mockCompute := new(MockComputeBackend)
 	mockVpcRepo := new(MockVpcRepo)

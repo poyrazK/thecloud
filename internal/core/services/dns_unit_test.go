@@ -107,7 +107,12 @@ func (m *MockDNSBackend) ListRecords(ctx context.Context, zoneID string) ([]port
 	return r0, args.Error(1)
 }
 
-func TestDNSService_Unit_Extended(t *testing.T) {
+func TestDNSService_Unit(t *testing.T) {
+	t.Run("Extended", testDNSServiceUnitExtended)
+	t.Run("GetZoneByVPC", testGetZoneByVPC)
+}
+
+func testDNSServiceUnitExtended(t *testing.T) {
 	repo := new(MockDNSRepository)
 	backend := new(MockDNSBackend)
 	vpcRepo := new(MockVpcRepo)
@@ -268,8 +273,8 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 	})
 }
 
-// TestGetZoneByVPC tests the GetZoneByVPC method with table-driven cases
-func TestGetZoneByVPC(t *testing.T) {
+// testGetZoneByVPC tests the GetZoneByVPC method with table-driven cases
+func testGetZoneByVPC(t *testing.T) {
 	repo := new(MockDNSRepository)
 	backend := new(MockDNSBackend)
 	vpcRepo := new(MockVpcRepo)
