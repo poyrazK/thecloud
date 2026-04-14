@@ -122,7 +122,9 @@ func (e *PgLeaderElector) RunAsLeader(ctx context.Context, key string, fn func(c
 	fnCtx, fnCancel := context.WithCancel(ctx)
 	defer fnCancel()
 	defer func() {
-		if err := e.Release(context.Background(), key); err != nil {
+		releaseCtx, releaseCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer releaseCancel()
+		if err := e.Release(releaseCtx, key); err != nil {
 			e.logger.Error("failed to release leadership", "key", key, "error", err)
 		}
 	}()
@@ -169,7 +171,12 @@ func (e *PgLeaderElector) heartbeat(ctx context.Context, key string, cancel cont
 			}
 			if stillHeld {
 				// We re-acquired (re-entrant), so unlock the extra lock count
-				_, _ = e.db.Exec(ctx, "SELECT pg_advisory_unlock($1)", lockID)
+				if _, unlockErr := e.db.Exec(ctx, "SELECT pg_advisory_unlock($1)", lockID); unlockErr != nil {
+					e.logger.Error("failed to release re-entrant heartbeat lock",
+						"key", key, "error", unlockErr)
+					cancel()
+					return
+				}
 			} else {
 				// We lost the lock
 				e.logger.Error("leadership lost", "key", key)
