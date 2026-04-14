@@ -659,15 +659,17 @@ func TestLibvirtAdapter_VolumeOps(t *testing.T) {
 	t.Run("AttachVolume", func(t *testing.T) {
 		m.On("DomainLookupByName", mock.Anything, "test-vm").Return(dom, nil).Once()
 		m.On("DomainAttachDevice", mock.Anything, dom, mock.Anything).Return(nil).Once()
-		path, err := a.AttachVolume(ctx, "test-vm", volPath)
+		path, newContainerID, err := a.AttachVolume(ctx, "test-vm", volPath)
 		require.NoError(t, err)
 		assert.Equal(t, "/dev/vdb", path)
+		assert.Equal(t, "", newContainerID)
 	})
 	t.Run("DetachVolume", func(t *testing.T) {
 		m.On("DomainLookupByName", mock.Anything, "test-vm").Return(dom, nil).Once()
 		m.On("DomainDetachDevice", mock.Anything, dom, mock.Anything).Return(nil).Once()
-		err := a.DetachVolume(ctx, "test-vm", volPath)
+		newContainerID, err := a.DetachVolume(ctx, "test-vm", volPath)
 		require.NoError(t, err)
+		assert.Equal(t, "", newContainerID)
 	})
 	m.AssertExpectations(t)
 }

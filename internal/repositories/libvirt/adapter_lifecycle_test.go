@@ -190,9 +190,10 @@ func TestAttachVolumeSuccess(t *testing.T) {
 	// We expect DomainAttachDevice with an XML for the disk
 	m.On("DomainAttachDevice", mock.Anything, dom, mock.AnythingOfType("string")).Return(nil)
 
-	path, err := a.AttachVolume(ctx, testInstanceName, volumePath)
+	path, newContainerID, err := a.AttachVolume(ctx, testInstanceName, volumePath)
 	assert.NoError(t, err)
 	assert.Equal(t, "/dev/vdb", path)
+	assert.Equal(t, "", newContainerID)
 	m.AssertExpectations(t)
 }
 
@@ -208,8 +209,9 @@ func TestDetachVolumeSuccess(t *testing.T) {
 	m.On("DomainLookupByName", mock.Anything, testInstanceName).Return(dom, nil)
 	m.On("DomainDetachDevice", mock.Anything, dom, mock.AnythingOfType("string")).Return(nil)
 
-	err := a.DetachVolume(ctx, testInstanceName, volumePath)
+	newContainerID, err := a.DetachVolume(ctx, testInstanceName, volumePath)
 	assert.NoError(t, err)
+	assert.Equal(t, "", newContainerID)
 
 	m.AssertExpectations(t)
 }

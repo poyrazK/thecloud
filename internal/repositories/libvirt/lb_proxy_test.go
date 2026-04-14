@@ -50,11 +50,11 @@ func (m *mockCompute) RunTask(ctx context.Context, opts ports.RunTaskOptions) (s
 func (m *mockCompute) WaitTask(ctx context.Context, id string) (int64, error)         { return 0, nil }
 func (m *mockCompute) CreateNetwork(ctx context.Context, name string) (string, error) { return "", nil }
 func (m *mockCompute) DeleteNetwork(ctx context.Context, id string) error             { return nil }
-func (m *mockCompute) AttachVolume(ctx context.Context, id string, volumePath string) (string, error) {
-	return "/dev/vdb", nil
+func (m *mockCompute) AttachVolume(ctx context.Context, id string, volumePath string) (string, string, error) {
+	return "/dev/vdb", "", nil
 }
-func (m *mockCompute) DetachVolume(ctx context.Context, id string, volumePath string) error {
-	return nil
+func (m *mockCompute) DetachVolume(ctx context.Context, id string, volumePath string) (string, error) {
+	return "", nil
 }
 func (m *mockCompute) Ping(ctx context.Context) error { return nil }
 func (m *mockCompute) Type() string                   { return "mock" }
