@@ -22,6 +22,7 @@ const (
 	clusterReclaimMs      = 5 * 60 * 1000 // 5 minutes
 	clusterReclaimN       = 10
 	clusterStaleThreshold = 15 * time.Minute
+	clusterReceiveBackoff = 1 * time.Second
 )
 
 // ClusterWorker handles background tasks for Kubernetes cluster lifecycle management.
@@ -36,7 +37,11 @@ type ClusterWorker struct {
 
 // NewClusterWorker creates a new ClusterWorker.
 func NewClusterWorker(repo ports.ClusterRepository, provisioner ports.ClusterProvisioner, taskQueue ports.DurableTaskQueue, ledger ports.ExecutionLedger, logger *slog.Logger) *ClusterWorker {
-	hostname, _ := os.Hostname()
+	hostname, err := os.Hostname()
+	if err != nil {
+		logger.Warn("failed to get hostname, using fallback", "error", err)
+		hostname = "cluster-worker"
+	}
 	if hostname == "" {
 		hostname = "cluster-worker"
 	}
@@ -75,7 +80,7 @@ func (w *ClusterWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 			msg, err := w.taskQueue.Receive(ctx, clusterQueue, clusterGroup, w.consumerName)
 			if err != nil {
 				w.logger.Error("failed to receive cluster job", "error", err)
-				time.Sleep(1 * time.Second)
+				time.Sleep(clusterReceiveBackoff)
 				continue
 			}
 			if msg == nil {
@@ -86,7 +91,7 @@ func (w *ClusterWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 			if err := json.Unmarshal([]byte(msg.Payload), &job); err != nil {
 				w.logger.Error("failed to unmarshal cluster job",
 					"error", err, "msg_id", msg.ID)
-				_ = w.taskQueue.Ack(ctx, clusterQueue, clusterGroup, msg.ID)
+				w.ackWithLog(ctx, msg.ID, "cluster poison message")
 				continue
 			}
 
@@ -114,27 +119,30 @@ func (w *ClusterWorker) processJob(workerCtx context.Context, msg *ports.Durable
 		if err != nil {
 			w.logger.Error("execution ledger error",
 				"cluster_id", job.ClusterID, "msg_id", msg.ID, "error", err)
-			_ = w.taskQueue.Nack(workerCtx, clusterQueue, clusterGroup, msg.ID)
+			w.nackWithLog(workerCtx, msg.ID, "ledger try_acquire failed")
 			return
 		}
 		if !acquired {
 			w.logger.Info("skipping duplicate cluster job",
 				"cluster_id", job.ClusterID, "type", job.Type, "msg_id", msg.ID)
-			_ = w.taskQueue.Ack(workerCtx, clusterQueue, clusterGroup, msg.ID)
+			w.ackWithLog(workerCtx, msg.ID, "duplicate cluster job")
 			return
 		}
 	}
 
-	ctx := appcontext.WithUserID(context.Background(), job.UserID)
+	ctx := appcontext.WithUserID(workerCtx, job.UserID)
 
 	cluster, err := w.repo.GetByID(ctx, job.ClusterID)
 	if err != nil {
 		w.logger.Error("failed to fetch cluster for job",
 			"cluster_id", job.ClusterID, "msg_id", msg.ID, "error", err)
 		if w.ledger != nil {
-			_ = w.ledger.MarkFailed(workerCtx, jobKey, err.Error())
+			if ledgerErr := w.ledger.MarkFailed(workerCtx, jobKey, err.Error()); ledgerErr != nil {
+				w.logger.Warn("failed to mark cluster job failed in ledger",
+					"cluster_id", job.ClusterID, "msg_id", msg.ID, "error", ledgerErr)
+			}
 		}
-		_ = w.taskQueue.Nack(workerCtx, clusterQueue, clusterGroup, msg.ID)
+		w.nackWithLog(workerCtx, msg.ID, "cluster fetch failed")
 		return
 	}
 	if cluster == nil {
@@ -142,9 +150,12 @@ func (w *ClusterWorker) processJob(workerCtx context.Context, msg *ports.Durable
 			"cluster_id", job.ClusterID, "msg_id", msg.ID)
 		// Ack — cluster was deleted, nothing to do.
 		if w.ledger != nil {
-			_ = w.ledger.MarkComplete(workerCtx, jobKey, "cluster_not_found")
+			if ledgerErr := w.ledger.MarkComplete(workerCtx, jobKey, "cluster_not_found"); ledgerErr != nil {
+				w.logger.Warn("failed to mark cluster job complete in ledger",
+					"cluster_id", job.ClusterID, "msg_id", msg.ID, "error", ledgerErr)
+			}
 		}
-		_ = w.taskQueue.Ack(workerCtx, clusterQueue, clusterGroup, msg.ID)
+		w.ackWithLog(workerCtx, msg.ID, "cluster not found")
 		return
 	}
 
@@ -156,6 +167,8 @@ func (w *ClusterWorker) processJob(workerCtx context.Context, msg *ports.Durable
 		processErr = w.handleDeprovision(ctx, cluster)
 	case domain.ClusterJobUpgrade:
 		processErr = w.handleUpgrade(ctx, cluster, job.Version)
+	default:
+		processErr = fmt.Errorf("unsupported cluster job type %q for cluster %s", job.Type, job.ClusterID)
 	}
 
 	if processErr != nil {
@@ -163,19 +176,22 @@ func (w *ClusterWorker) processJob(workerCtx context.Context, msg *ports.Durable
 			"cluster_id", job.ClusterID, "type", job.Type,
 			"msg_id", msg.ID, "error", processErr)
 		if w.ledger != nil {
-			_ = w.ledger.MarkFailed(workerCtx, jobKey, processErr.Error())
+			if ledgerErr := w.ledger.MarkFailed(workerCtx, jobKey, processErr.Error()); ledgerErr != nil {
+				w.logger.Warn("failed to mark cluster job failed in ledger",
+					"cluster_id", job.ClusterID, "msg_id", msg.ID, "error", ledgerErr)
+			}
 		}
-		_ = w.taskQueue.Nack(workerCtx, clusterQueue, clusterGroup, msg.ID)
+		w.nackWithLog(workerCtx, msg.ID, "cluster job processing failed")
 		return
 	}
 
 	if w.ledger != nil {
-		_ = w.ledger.MarkComplete(workerCtx, jobKey, "ok")
+		if ledgerErr := w.ledger.MarkComplete(workerCtx, jobKey, "ok"); ledgerErr != nil {
+			w.logger.Warn("failed to mark cluster job complete in ledger",
+				"cluster_id", job.ClusterID, "msg_id", msg.ID, "error", ledgerErr)
+		}
 	}
-	if err := w.taskQueue.Ack(workerCtx, clusterQueue, clusterGroup, msg.ID); err != nil {
-		w.logger.Error("failed to ack cluster job",
-			"cluster_id", job.ClusterID, "msg_id", msg.ID, "error", err)
-	}
+	w.ackWithLog(workerCtx, msg.ID, "cluster job success")
 }
 
 func (w *ClusterWorker) handleProvision(ctx context.Context, cluster *domain.Cluster) error {
@@ -260,7 +276,7 @@ func (w *ClusterWorker) reclaimLoop(ctx context.Context, sem chan struct{}) {
 				if err := json.Unmarshal([]byte(m.Payload), &job); err != nil {
 					w.logger.Error("failed to unmarshal reclaimed cluster job",
 						"msg_id", m.ID, "error", err)
-					_ = w.taskQueue.Ack(ctx, clusterQueue, clusterGroup, m.ID)
+					w.ackWithLog(ctx, m.ID, "reclaimed cluster poison message")
 					continue
 				}
 				w.logger.Info("reclaimed stale cluster job",
@@ -274,5 +290,19 @@ func (w *ClusterWorker) reclaimLoop(ctx context.Context, sem chan struct{}) {
 				}()
 			}
 		}
+	}
+}
+
+func (w *ClusterWorker) ackWithLog(ctx context.Context, messageID string, reason string) {
+	if err := w.taskQueue.Ack(ctx, clusterQueue, clusterGroup, messageID); err != nil {
+		w.logger.Warn("failed to ack cluster job",
+			"msg_id", messageID, "reason", reason, "error", err)
+	}
+}
+
+func (w *ClusterWorker) nackWithLog(ctx context.Context, messageID string, reason string) {
+	if err := w.taskQueue.Nack(ctx, clusterQueue, clusterGroup, messageID); err != nil {
+		w.logger.Warn("failed to nack cluster job",
+			"msg_id", messageID, "reason", reason, "error", err)
 	}
 }

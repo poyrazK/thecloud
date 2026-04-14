@@ -97,7 +97,7 @@ func (w *ProvisionWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 				w.logger.Error("failed to unmarshal provision job",
 					"error", err, "msg_id", msg.ID)
 				// Ack poison messages so they don't block the queue.
-				_ = w.taskQueue.Ack(ctx, provisionQueue, provisionGroup, msg.ID)
+				w.ackWithLog(ctx, msg.ID, "provision poison message")
 				continue
 			}
 
@@ -126,7 +126,7 @@ func (w *ProvisionWorker) processJob(workerCtx context.Context, msg *ports.Durab
 			w.logger.Error("execution ledger error",
 				"instance_id", job.InstanceID, "msg_id", msg.ID, "error", err)
 			// On ledger error, nack to retry later.
-			_ = w.taskQueue.Nack(workerCtx, provisionQueue, provisionGroup, msg.ID)
+			w.nackWithLog(workerCtx, msg.ID, "ledger try_acquire failed")
 			return
 		}
 		if !acquired {
@@ -135,7 +135,7 @@ func (w *ProvisionWorker) processJob(workerCtx context.Context, msg *ports.Durab
 			if getErr == nil && status == "completed" {
 				w.logger.Info("skipping already completed provision job",
 					"instance_id", job.InstanceID, "msg_id", msg.ID)
-				_ = w.taskQueue.Ack(workerCtx, provisionQueue, provisionGroup, msg.ID)
+				w.ackWithLog(workerCtx, msg.ID, "provision already completed")
 				return
 			}
 			w.logger.Info("provision job is currently being processed by another worker",
@@ -145,8 +145,7 @@ func (w *ProvisionWorker) processJob(workerCtx context.Context, msg *ports.Durab
 	}
 
 	// Root context for background task with 10-minute safety timeout.
-	baseCtx := context.Background()
-	ctx, cancel := context.WithTimeout(baseCtx, 10*time.Minute)
+	ctx, cancel := context.WithTimeout(workerCtx, 10*time.Minute)
 	defer cancel()
 
 	// Inject User and Tenant IDs for repository access control.
@@ -162,10 +161,13 @@ func (w *ProvisionWorker) processJob(workerCtx context.Context, msg *ports.Durab
 		)
 		// Mark failed in the ledger so it can be retried.
 		if w.ledger != nil {
-			_ = w.ledger.MarkFailed(workerCtx, jobKey, err.Error())
+			if ledgerErr := w.ledger.MarkFailed(workerCtx, jobKey, err.Error()); ledgerErr != nil {
+				w.logger.Warn("failed to mark provision job failed in ledger",
+					"instance_id", job.InstanceID, "msg_id", msg.ID, "error", ledgerErr)
+			}
 		}
 		// Nack: leave message in PEL for reclaim/retry.
-		_ = w.taskQueue.Nack(workerCtx, provisionQueue, provisionGroup, msg.ID)
+		w.nackWithLog(workerCtx, msg.ID, "provision failed")
 		return
 	}
 
@@ -176,17 +178,14 @@ func (w *ProvisionWorker) processJob(workerCtx context.Context, msg *ports.Durab
 
 	// Mark completed in ledger (prevents duplicate execution).
 	if w.ledger != nil {
-		_ = w.ledger.MarkComplete(workerCtx, jobKey, "ok")
+		if ledgerErr := w.ledger.MarkComplete(workerCtx, jobKey, "ok"); ledgerErr != nil {
+			w.logger.Warn("failed to mark provision job complete in ledger",
+				"instance_id", job.InstanceID, "msg_id", msg.ID, "error", ledgerErr)
+		}
 	}
 
 	// Acknowledge — message is permanently consumed.
-	if err := w.taskQueue.Ack(workerCtx, provisionQueue, provisionGroup, msg.ID); err != nil {
-		w.logger.Error("failed to ack provision job",
-			"instance_id", job.InstanceID,
-			"msg_id", msg.ID,
-			"error", err,
-		)
-	}
+	w.ackWithLog(workerCtx, msg.ID, "provision success")
 }
 
 // reclaimLoop periodically reclaims messages stuck in the PEL from crashed
@@ -210,7 +209,7 @@ func (w *ProvisionWorker) reclaimLoop(ctx context.Context, sem chan struct{}) {
 				if err := json.Unmarshal([]byte(m.Payload), &job); err != nil {
 					w.logger.Error("failed to unmarshal reclaimed provision job",
 						"msg_id", m.ID, "error", err)
-					_ = w.taskQueue.Ack(ctx, provisionQueue, provisionGroup, m.ID)
+					w.ackWithLog(ctx, m.ID, "reclaimed provision poison message")
 					continue
 				}
 				w.logger.Info("reclaimed stale provision job",
@@ -224,5 +223,19 @@ func (w *ProvisionWorker) reclaimLoop(ctx context.Context, sem chan struct{}) {
 				}()
 			}
 		}
+	}
+}
+
+func (w *ProvisionWorker) ackWithLog(ctx context.Context, messageID string, reason string) {
+	if err := w.taskQueue.Ack(ctx, provisionQueue, provisionGroup, messageID); err != nil {
+		w.logger.Warn("failed to ack provision job",
+			"msg_id", messageID, "reason", reason, "error", err)
+	}
+}
+
+func (w *ProvisionWorker) nackWithLog(ctx context.Context, messageID string, reason string) {
+	if err := w.taskQueue.Nack(ctx, provisionQueue, provisionGroup, messageID); err != nil {
+		w.logger.Warn("failed to nack provision job",
+			"msg_id", messageID, "reason", reason, "error", err)
 	}
 }
