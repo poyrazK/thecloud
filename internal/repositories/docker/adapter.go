@@ -632,15 +632,15 @@ func (a *DockerAdapter) AttachVolume(ctx context.Context, id string, volumePath 
 
 	// 3. Build new HostConfig with updated binds
 	oldHostConfig := inspect.HostConfig
-	newBinds := append(oldHostConfig.Binds, bindSpec)
+	oldHostConfig.Binds = append(oldHostConfig.Binds, bindSpec)
 
 	config := inspect.Config
 	hostConfig := &container.HostConfig{
 		PortBindings: oldHostConfig.PortBindings,
-		Binds:        newBinds,
+		Binds:        oldHostConfig.Binds,
 		Privileged:   oldHostConfig.Privileged,
 		Resources:    oldHostConfig.Resources,
-		NetworkMode:  container.NetworkMode(oldHostConfig.NetworkMode),
+		NetworkMode:  oldHostConfig.NetworkMode,
 	}
 
 	networkingConfig := &network.NetworkingConfig{
@@ -694,7 +694,7 @@ func (a *DockerAdapter) DetachVolume(ctx context.Context, id string, volumePath 
 
 	// 2. Find and remove the bind mount matching volumePath
 	currentBinds := inspect.HostConfig.Binds
-	var newBinds []string
+	newBinds := make([]string, 0, len(currentBinds))
 	found := false
 
 	for _, bind := range currentBinds {
@@ -726,7 +726,7 @@ func (a *DockerAdapter) DetachVolume(ctx context.Context, id string, volumePath 
 		Binds:        newBinds,
 		Privileged:   inspect.HostConfig.Privileged,
 		Resources:    inspect.HostConfig.Resources,
-		NetworkMode:  container.NetworkMode(inspect.HostConfig.NetworkMode),
+		NetworkMode:  inspect.HostConfig.NetworkMode,
 	}
 	networkingConfig := &network.NetworkingConfig{
 		EndpointsConfig: inspect.NetworkSettings.Networks,
