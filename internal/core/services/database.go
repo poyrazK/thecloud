@@ -40,21 +40,22 @@ const (
 
 // DatabaseService manages database instances and lifecycle.
 type DatabaseService struct {
-	repo           ports.DatabaseRepository
-	rbacSvc        ports.RBACService
-	compute        ports.ComputeBackend
-	vpcRepo        ports.VpcRepository
-	volumeSvc      ports.VolumeService
-	snapshotSvc    ports.SnapshotService
-	snapshotRepo   ports.SnapshotRepository
-	eventSvc       ports.EventService
-	auditSvc       ports.AuditService
-	secrets        ports.SecretsManager
-	logger         *slog.Logger
-	vaultMountPath string
+	repo              ports.DatabaseRepository
+	rbacSvc           ports.RBACService
+	compute           ports.ComputeBackend
+	vpcRepo           ports.VpcRepository
+	volumeSvc         ports.VolumeService
+	snapshotSvc       ports.SnapshotService
+	snapshotRepo      ports.SnapshotRepository
+	eventSvc          ports.EventService
+	auditSvc          ports.AuditService
+	secrets           ports.SecretsManager
+	volumeEncryption  ports.VolumeEncryptionService
+	logger            *slog.Logger
+	vaultMountPath    string
 	// Simple in-memory idempotency cache for rotation
-	rotationCache map[string]bool
-	rotationMu    sync.Mutex
+	rotationCache     map[string]bool
+	rotationMu        sync.Mutex
 }
 
 // Ensure DatabaseService implements ports.DatabaseService
@@ -62,36 +63,38 @@ var _ ports.DatabaseService = (*DatabaseService)(nil)
 
 // DatabaseServiceParams holds dependencies for DatabaseService creation.
 type DatabaseServiceParams struct {
-	Repo           ports.DatabaseRepository
-	RBAC           ports.RBACService
-	Compute        ports.ComputeBackend
-	VpcRepo        ports.VpcRepository
-	VolumeSvc      ports.VolumeService
-	SnapshotSvc    ports.SnapshotService
-	SnapshotRepo   ports.SnapshotRepository
-	EventSvc       ports.EventService
-	AuditSvc       ports.AuditService
-	Secrets        ports.SecretsManager
-	Logger         *slog.Logger
-	VaultMountPath string
+	Repo              ports.DatabaseRepository
+	RBAC              ports.RBACService
+	Compute           ports.ComputeBackend
+	VpcRepo           ports.VpcRepository
+	VolumeSvc         ports.VolumeService
+	SnapshotSvc       ports.SnapshotService
+	SnapshotRepo      ports.SnapshotRepository
+	EventSvc          ports.EventService
+	AuditSvc          ports.AuditService
+	Secrets           ports.SecretsManager
+	VolumeEncryption  ports.VolumeEncryptionService
+	Logger            *slog.Logger
+	VaultMountPath    string
 }
 
 // NewDatabaseService constructs a DatabaseService with its dependencies.
 func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 	return &DatabaseService{
-		repo:           params.Repo,
-		rbacSvc:        params.RBAC,
-		compute:        params.Compute,
-		vpcRepo:        params.VpcRepo,
-		volumeSvc:      params.VolumeSvc,
-		snapshotSvc:    params.SnapshotSvc,
-		snapshotRepo:   params.SnapshotRepo,
-		eventSvc:       params.EventSvc,
-		auditSvc:       params.AuditSvc,
-		secrets:        params.Secrets,
-		logger:         params.Logger,
-		vaultMountPath: params.VaultMountPath,
-		rotationCache:  make(map[string]bool),
+		repo:             params.Repo,
+		rbacSvc:          params.RBAC,
+		compute:          params.Compute,
+		vpcRepo:          params.VpcRepo,
+		volumeSvc:        params.VolumeSvc,
+		snapshotSvc:      params.SnapshotSvc,
+		snapshotRepo:     params.SnapshotRepo,
+		eventSvc:         params.EventSvc,
+		auditSvc:         params.AuditSvc,
+		secrets:          params.Secrets,
+		volumeEncryption: params.VolumeEncryption,
+		logger:           params.Logger,
+		vaultMountPath:   params.VaultMountPath,
+		rotationCache:    make(map[string]bool),
 	}
 }
 
@@ -120,6 +123,10 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDa
 	db.Parameters = req.Parameters
 	db.MetricsEnabled = req.MetricsEnabled
 	db.PoolingEnabled = req.PoolingEnabled
+	if req.KmsKeyID != "" {
+		db.KmsKeyID = req.KmsKeyID
+		db.EncryptedVolume = true
+	}
 
 	return s.provisionDatabase(ctx, db, password, req.Parameters, "", "DATABASE_CREATE")
 }
@@ -225,6 +232,17 @@ func (s *DatabaseService) provisionDatabase(ctx context.Context, db *domain.Data
 			s.logger.Warn("failed to cleanup vault secret after volume creation failure", "path", db.CredentialPath, "error", delErr)
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to create persistent volume", err)
+	}
+
+	// Create encryption key for volume if encryption is enabled
+	if db.EncryptedVolume && db.KmsKeyID != "" {
+		if err := s.volumeEncryption.CreateVolumeKey(ctx, vol.ID, db.KmsKeyID); err != nil {
+			if delErr := s.secrets.DeleteSecret(ctx, db.CredentialPath); delErr != nil {
+				s.logger.Warn("failed to cleanup vault secret after encryption key creation failure", "path", db.CredentialPath, "error", delErr)
+			}
+			return nil, errors.Wrap(errors.Internal, "failed to create volume encryption key", err)
+		}
+		db.VolumeKeyRef = fmt.Sprintf("vol-key-%s", vol.ID.String()[:8])
 	}
 
 	return s.finalizeProvisioning(ctx, db, vol, password, parameters, primaryIP, action)
@@ -415,6 +433,7 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 		}
 	}
 
+	var volID uuid.UUID
 	vols, err := s.volumeSvc.ListVolumes(ctx)
 	if err == nil {
 		expectedPrefix := fmt.Sprintf("db-vol-%s", db.ID.String()[:8])
@@ -423,9 +442,17 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 		}
 		for _, v := range vols {
 			if strings.HasPrefix(v.Name, expectedPrefix) {
+				volID = v.ID
 				_ = s.volumeSvc.DeleteVolume(ctx, v.ID.String())
 				break
 			}
+		}
+	}
+
+	// Delete encryption key for volume if encryption was enabled
+	if db.EncryptedVolume && volID != uuid.Nil {
+		if err := s.volumeEncryption.DeleteVolumeKey(ctx, volID); err != nil {
+			s.logger.Warn("failed to delete volume encryption key", "volume_id", volID, "error", err)
 		}
 	}
 
