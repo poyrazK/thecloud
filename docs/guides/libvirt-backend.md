@@ -441,6 +441,7 @@ Always use virtio for best I/O performance:
 | **Kernel Access** | Shared kernel | Dedicated kernel |
 | **Networking** | Bridge/overlay | NAT/bridge/macvtap |
 | **Storage** | Overlay2/volumes | QCOW2/raw images |
+| **Volume Attach/Detach** | Stop→recreate→start cycle | True hot-plug via DomainAttachDevice |
 | **Use Cases** | Microservices, CI/CD | Legacy apps, multi-OS, security |
 
 ## Best Practices
