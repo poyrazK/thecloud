@@ -85,7 +85,13 @@ func (q *durableTaskQueue) Dequeue(ctx context.Context, queueName string) (strin
 	}
 	msg := res[0].Messages[0]
 	// Auto-delete since legacy callers don't ack.
-	q.client.XDel(ctx, queueName, msg.ID)
+	deleted, delErr := q.client.XDel(ctx, queueName, msg.ID).Result()
+	if delErr != nil {
+		return "", fmt.Errorf("durable dequeue xdel %s/%s: %w", queueName, msg.ID, delErr)
+	}
+	if deleted == 0 {
+		return "", fmt.Errorf("durable dequeue xdel %s/%s: no message deleted", queueName, msg.ID)
+	}
 	payload, _ := msg.Values["payload"].(string)
 	return payload, nil
 }
@@ -132,7 +138,23 @@ func (q *durableTaskQueue) Receive(ctx context.Context, queueName, groupName, co
 }
 
 func (q *durableTaskQueue) Ack(ctx context.Context, queueName, groupName, messageID string) error {
-	return q.client.XAck(ctx, queueName, groupName, messageID).Err()
+	acked, err := q.client.XAck(ctx, queueName, groupName, messageID).Result()
+	if err != nil {
+		return fmt.Errorf("ack %s/%s/%s: %w", queueName, groupName, messageID, err)
+	}
+	if acked == 0 {
+		return fmt.Errorf("ack %s/%s/%s: message not pending", queueName, groupName, messageID)
+	}
+
+	deleted, delErr := q.client.XDel(ctx, queueName, messageID).Result()
+	if delErr != nil {
+		return fmt.Errorf("ack xdel %s/%s: %w", queueName, messageID, delErr)
+	}
+	if deleted == 0 {
+		return fmt.Errorf("ack xdel %s/%s: no message deleted", queueName, messageID)
+	}
+
+	return nil
 }
 
 func (q *durableTaskQueue) Nack(ctx context.Context, queueName, groupName, messageID string) error {
@@ -165,7 +187,9 @@ func (q *durableTaskQueue) ReclaimStale(ctx context.Context, queueName, groupNam
 
 		// Dead-letter messages that exceeded max retries.
 		if xmsg.DeliveredCount > 0 && xmsg.DeliveredCount > q.maxRetries {
-			_ = q.deadLetter(ctx, queueName, groupName, xmsg)
+			if dlqErr := q.deadLetter(ctx, queueName, groupName, xmsg); dlqErr != nil {
+				return nil, fmt.Errorf("dead-letter %s/%s/%s: %w", queueName, groupName, xmsg.ID, dlqErr)
+			}
 			continue
 		}
 

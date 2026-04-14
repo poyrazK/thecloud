@@ -79,7 +79,7 @@ func (l *PgExecutionLedger) TryAcquire(ctx context.Context, jobKey string, stale
 		return tag.RowsAffected() > 0, nil
 	case "failed":
 		// Retry a previously failed job.
-		_, err = l.db.Exec(ctx, `
+		tag, err := l.db.Exec(ctx, `
 			UPDATE job_executions
 			SET started_at = NOW(), status = 'running', completed_at = NULL, result = NULL
 			WHERE job_key = $1 AND status = 'failed'
@@ -87,7 +87,7 @@ func (l *PgExecutionLedger) TryAcquire(ctx context.Context, jobKey string, stale
 		if err != nil {
 			return false, fmt.Errorf("execution ledger retry %s: %w", jobKey, err)
 		}
-		return true, nil
+		return tag.RowsAffected() > 0, nil
 	default:
 		return false, fmt.Errorf("execution ledger unknown status %q for %s", status, jobKey)
 	}
@@ -95,22 +95,34 @@ func (l *PgExecutionLedger) TryAcquire(ctx context.Context, jobKey string, stale
 
 // MarkComplete marks a job as successfully completed.
 func (l *PgExecutionLedger) MarkComplete(ctx context.Context, jobKey string, result string) error {
-	_, err := l.db.Exec(ctx, `
+	tag, err := l.db.Exec(ctx, `
 		UPDATE job_executions
 		SET status = 'completed', completed_at = NOW(), result = $2
-		WHERE job_key = $1
+		WHERE job_key = $1 AND status = 'running'
 	`, jobKey, result)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("execution ledger mark complete %s: no running row updated", jobKey)
+	}
+	return nil
 }
 
 // MarkFailed marks a job as failed, allowing future retries.
 func (l *PgExecutionLedger) MarkFailed(ctx context.Context, jobKey string, reason string) error {
-	_, err := l.db.Exec(ctx, `
+	tag, err := l.db.Exec(ctx, `
 		UPDATE job_executions
 		SET status = 'failed', completed_at = NOW(), result = $2
-		WHERE job_key = $1
+		WHERE job_key = $1 AND status = 'running'
 	`, jobKey, reason)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("execution ledger mark failed %s: no running row updated", jobKey)
+	}
+	return nil
 }
 
 // GetStatus returns the current status, result and start time of a job.
