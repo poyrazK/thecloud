@@ -147,12 +147,13 @@ func (m *mockComputeBackendExtended) CreateNetwork(ctx context.Context, name str
 func (m *mockComputeBackendExtended) DeleteNetwork(ctx context.Context, id string) error {
 	return nil
 }
-func (m *mockComputeBackendExtended) AttachVolume(ctx context.Context, id, volumePath string) (string, error) {
+func (m *mockComputeBackendExtended) AttachVolume(ctx context.Context, id, volumePath string) (string, string, error) {
+	args := m.Called(ctx, id, volumePath)
+	return args.String(0), args.String(1), args.Error(2)
+}
+func (m *mockComputeBackendExtended) DetachVolume(ctx context.Context, id, volumePath string) (string, error) {
 	args := m.Called(ctx, id, volumePath)
 	return args.String(0), args.Error(1)
-}
-func (m *mockComputeBackendExtended) DetachVolume(ctx context.Context, id, volumePath string) error {
-	return m.Called(ctx, id, volumePath).Error(0)
 }
 func (m *mockComputeBackendExtended) Ping(ctx context.Context) error {
 	return nil

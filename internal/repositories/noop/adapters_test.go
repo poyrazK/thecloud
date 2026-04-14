@@ -112,9 +112,10 @@ func TestNoopComputeBackend(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, backend.DeleteNetwork(ctx, "net"))
 
-		_, err = backend.AttachVolume(ctx, "id", "vol")
+		_, _, err = backend.AttachVolume(ctx, "id", "vol")
 		require.NoError(t, err)
-		require.NoError(t, backend.DetachVolume(ctx, "id", "vol"))
+		_, err = backend.DetachVolume(ctx, "id", "vol")
+		require.NoError(t, err)
 		require.NoError(t, backend.Ping(ctx))
 	})
 }
