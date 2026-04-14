@@ -19,6 +19,8 @@
 // 	protoc        v3.21.12
 // source: cloudprovider/externalgrpc/protos/externalgrpc.proto
 
+//lint:file-ignore SA1019 Generated protobuf compatibility shims may reference deprecated APIs.
+
 package protos
 
 import (
