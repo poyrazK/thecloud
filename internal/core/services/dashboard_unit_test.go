@@ -16,12 +16,12 @@ import (
 )
 
 func TestDashboardService_Unit(t *testing.T) {
-	t.Run("GetStats", TestDashboardService_GetStats)
-	t.Run("GetSummary", TestDashboardService_GetSummary)
-	t.Run("GetRecentEvents", TestDashboardService_GetRecentEvents)
+	t.Run("GetStats", testDashboardServiceGetStats)
+	t.Run("GetSummary", testDashboardServiceGetSummary)
+	t.Run("GetRecentEvents", testDashboardServiceGetRecentEvents)
 }
 
-func TestDashboardService_GetStats(t *testing.T) {
+func testDashboardServiceGetStats(t *testing.T) {
 	instRepo := new(MockInstanceRepo)
 	volRepo := new(MockVolumeRepo)
 	vpcRepo := new(MockVpcRepo)
@@ -72,7 +72,7 @@ func TestDashboardService_GetStats(t *testing.T) {
 	})
 }
 
-func TestDashboardService_GetSummary(t *testing.T) {
+func testDashboardServiceGetSummary(t *testing.T) {
 	instRepo := new(MockInstanceRepo)
 	volRepo := new(MockVolumeRepo)
 	vpcRepo := new(MockVpcRepo)
@@ -139,7 +139,7 @@ func TestDashboardService_GetSummary(t *testing.T) {
 	})
 }
 
-func TestDashboardService_GetRecentEvents(t *testing.T) {
+func testDashboardServiceGetRecentEvents(t *testing.T) {
 	instRepo := new(MockInstanceRepo)
 	volRepo := new(MockVolumeRepo)
 	vpcRepo := new(MockVpcRepo)

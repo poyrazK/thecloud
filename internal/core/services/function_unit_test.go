@@ -19,13 +19,13 @@ import (
 )
 
 func TestFunctionService_Unit(t *testing.T) {
-	t.Run("BasicOps", TestFunctionServiceBasicOps)
-	t.Run("CreateFunction", TestFunctionServiceCreateFunction)
-	t.Run("InvokeFunction", TestFunctionServiceInvokeFunction)
-	t.Run("CreateFunction_UnsupportedRuntime", TestFunctionService_CreateFunction_UnsupportedRuntime)
+	t.Run("BasicOps", testFunctionServiceBasicOps)
+	t.Run("CreateFunction", testFunctionServiceCreateFunction)
+	t.Run("InvokeFunction", testFunctionServiceInvokeFunction)
+	t.Run("CreateFunction_UnsupportedRuntime", testFunctionServiceCreateFunctionUnsupportedRuntime)
 }
 
-func TestFunctionServiceBasicOps(t *testing.T) {
+func testFunctionServiceBasicOps(t *testing.T) {
 	repo := new(MockFunctionRepo)
 	compute := new(MockComputeBackend)
 	fileStore := new(MockFileStore)
@@ -80,7 +80,7 @@ func TestFunctionServiceBasicOps(t *testing.T) {
 	})
 }
 
-func TestFunctionServiceCreateFunction(t *testing.T) {
+func testFunctionServiceCreateFunction(t *testing.T) {
 	repo := new(MockFunctionRepo)
 	compute := new(MockComputeBackend)
 	fileStore := new(MockFileStore)
@@ -111,7 +111,7 @@ func TestFunctionServiceCreateFunction(t *testing.T) {
 	})
 }
 
-func TestFunctionServiceInvokeFunction(t *testing.T) {
+func testFunctionServiceInvokeFunction(t *testing.T) {
 	repo := new(MockFunctionRepo)
 	compute := new(MockComputeBackend)
 	fileStore := new(MockFileStore)
@@ -177,7 +177,7 @@ func TestFunctionServiceInvokeFunction(t *testing.T) {
 	})
 }
 
-func TestFunctionService_CreateFunction_UnsupportedRuntime(t *testing.T) {
+func testFunctionServiceCreateFunctionUnsupportedRuntime(t *testing.T) {
 	repo := new(MockFunctionRepo)
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
