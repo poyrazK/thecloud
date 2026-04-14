@@ -26,6 +26,7 @@ const (
 type LoadBalancer struct {
 	ID             uuid.UUID `json:"id"`
 	UserID         uuid.UUID `json:"user_id"`
+	TenantID       uuid.UUID `json:"tenant_id"`
 	IdempotencyKey string    `json:"idempotency_key,omitempty"`
 	Name           string    `json:"name"`
 	VpcID          uuid.UUID `json:"vpc_id"`

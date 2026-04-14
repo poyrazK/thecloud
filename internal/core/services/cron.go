@@ -4,6 +4,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,25 +17,31 @@ import (
 // CronService manages scheduled jobs and persistence.
 type CronService struct {
 	repo     ports.CronRepository
+	rbacSvc  ports.RBACService
 	eventSvc ports.EventService
 	auditSvc ports.AuditService
+	logger   *slog.Logger
 	parser   cron.Parser
 }
 
 // NewCronService constructs a CronService with its dependencies.
-func NewCronService(repo ports.CronRepository, eventSvc ports.EventService, auditSvc ports.AuditService) ports.CronService {
+func NewCronService(repo ports.CronRepository, rbacSvc ports.RBACService, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) ports.CronService {
 	return &CronService{
 		repo:     repo,
+		rbacSvc:  rbacSvc,
 		eventSvc: eventSvc,
 		auditSvc: auditSvc,
+		logger:   logger,
 		parser:   cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor),
 	}
 }
 
 func (s *CronService) CreateJob(ctx context.Context, name, schedule, targetURL, targetMethod, targetPayload string) (*domain.CronJob, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCronCreate, "*"); err != nil {
+		return nil, err
 	}
 
 	// Validate schedule
@@ -63,34 +70,50 @@ func (s *CronService) CreateJob(ctx context.Context, name, schedule, targetURL, 
 		return nil, err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "CRON_JOB_CREATED", job.ID.String(), "CRON_JOB", nil)
+	if err := s.eventSvc.RecordEvent(ctx, "CRON_JOB_CREATED", job.ID.String(), "CRON_JOB", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "CRON_JOB_CREATED", "job_id", job.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, job.UserID, "cron.job_create", "cron_job", job.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, job.UserID, "cron.job_create", "cron_job", job.ID.String(), map[string]interface{}{
 		"name":     job.Name,
 		"schedule": job.Schedule,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "cron.job_create", "job_id", job.ID, "error", err)
+	}
 
 	return job, nil
 }
 
 func (s *CronService) ListJobs(ctx context.Context) ([]*domain.CronJob, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCronRead, "*"); err != nil {
+		return nil, err
 	}
+
 	return s.repo.ListJobs(ctx, userID)
 }
 
 func (s *CronService) GetJob(ctx context.Context, id uuid.UUID) (*domain.CronJob, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCronRead, id.String()); err != nil {
+		return nil, err
 	}
+
 	return s.repo.GetJobByID(ctx, id, userID)
 }
 
 func (s *CronService) PauseJob(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCronUpdate, id.String()); err != nil {
+		return err
+	}
+
 	job, err := s.repo.GetJobByID(ctx, id, userID)
 	if err != nil {
 		return err
@@ -102,6 +125,12 @@ func (s *CronService) PauseJob(ctx context.Context, id uuid.UUID) error {
 
 func (s *CronService) ResumeJob(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCronUpdate, id.String()); err != nil {
+		return err
+	}
+
 	job, err := s.repo.GetJobByID(ctx, id, userID)
 	if err != nil {
 		return err
@@ -120,6 +149,12 @@ func (s *CronService) ResumeJob(ctx context.Context, id uuid.UUID) error {
 
 func (s *CronService) DeleteJob(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCronDelete, id.String()); err != nil {
+		return err
+	}
+
 	_, err := s.repo.GetJobByID(ctx, id, userID)
 	if err != nil {
 		return err
@@ -128,7 +163,9 @@ func (s *CronService) DeleteJob(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, userID, "cron.job_delete", "cron_job", id.String(), map[string]interface{}{})
+	if err := s.auditSvc.Log(ctx, userID, "cron.job_delete", "cron_job", id.String(), map[string]interface{}{}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "cron.job_delete", "job_id", id, "error", err)
+	}
 
 	return nil
 }

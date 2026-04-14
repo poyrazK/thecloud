@@ -12,6 +12,7 @@ import (
 type Event struct {
 	ID           uuid.UUID   `json:"id"`
 	UserID       uuid.UUID   `json:"user_id"`
+	TenantID     uuid.UUID   `json:"tenant_id"`
 	Action       string      `json:"action"`        // High-level action identifier (e.g., "INSTANCE_LAUNCH")
 	ResourceID   string      `json:"resource_id"`   // Uniquely identifies the affected resource
 	ResourceType string      `json:"resource_type"` // Classification of the resource (e.g., "INSTANCE", "VPC")

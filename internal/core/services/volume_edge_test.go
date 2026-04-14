@@ -19,7 +19,17 @@ func TestVolumeService_EdgeCases(t *testing.T) {
 	mockStorage := new(MockStorageBackend)
 	mockEventSvc := new(MockEventService)
 	mockAuditSvc := new(MockAuditService)
-	svc := services.NewVolumeService(mockRepo, mockStorage, mockEventSvc, mockAuditSvc, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewVolumeService(services.VolumeServiceParams{
+		Repo:     mockRepo,
+		RBACSvc:  rbacSvc,
+		Storage:  mockStorage,
+		EventSvc: mockEventSvc,
+		AuditSvc: mockAuditSvc,
+		Logger:   slog.Default(),
+	})
 
 	ctx := context.Background()
 	userID := uuid.New()

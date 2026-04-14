@@ -11,6 +11,7 @@ import (
 type GatewayRoute struct {
 	ID          uuid.UUID `json:"id"`
 	UserID      uuid.UUID `json:"user_id"`
+	TenantID    uuid.UUID `json:"tenant_id"`
 	Name        string    `json:"name"`
 	PathPrefix  string    `json:"path_prefix"`  // Legacy: Request path to match (e.g., "/api/v1")
 	PathPattern string    `json:"path_pattern"` // New: Pattern with {params}

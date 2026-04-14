@@ -17,6 +17,7 @@ import (
 // SnapshotService manages volume snapshots and storage interactions.
 type SnapshotService struct {
 	repo       ports.SnapshotRepository
+	rbacSvc    ports.RBACService
 	volumeRepo ports.VolumeRepository
 	storage    ports.StorageBackend
 	eventSvc   ports.EventService
@@ -30,6 +31,7 @@ const volumeNamePrefix = "thecloud-vol-"
 // NewSnapshotService constructs a SnapshotService with its dependencies.
 func NewSnapshotService(
 	repo ports.SnapshotRepository,
+	rbacSvc ports.RBACService,
 	volumeRepo ports.VolumeRepository,
 	storage ports.StorageBackend,
 	eventSvc ports.EventService,
@@ -38,6 +40,7 @@ func NewSnapshotService(
 ) *SnapshotService {
 	return &SnapshotService{
 		repo:       repo,
+		rbacSvc:    rbacSvc,
 		volumeRepo: volumeRepo,
 		storage:    storage,
 		eventSvc:   eventSvc,
@@ -47,6 +50,13 @@ func NewSnapshotService(
 }
 
 func (s *SnapshotService) CreateSnapshot(ctx context.Context, volumeID uuid.UUID, description string) (*domain.Snapshot, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotCreate, volumeID.String()); err != nil {
+		return nil, err
+	}
+
 	// 1. Get volume
 	vol, err := s.volumeRepo.GetByID(ctx, volumeID)
 	if err != nil {
@@ -56,7 +66,8 @@ func (s *SnapshotService) CreateSnapshot(ctx context.Context, volumeID uuid.UUID
 	// 2. Create domain entity
 	snapshot := &domain.Snapshot{
 		ID:          uuid.New(),
-		UserID:      appcontext.UserIDFromContext(ctx),
+		UserID:      userID,
+		TenantID:    &tenantID,
 		VolumeID:    volumeID,
 		VolumeName:  vol.Name,
 		SizeGB:      vol.SizeGB,
@@ -85,23 +96,40 @@ func (s *SnapshotService) CreateSnapshot(ctx context.Context, volumeID uuid.UUID
 		_ = s.repo.Update(bgCtx, &asyncSnap)
 	}()
 
-	_ = s.eventSvc.RecordEvent(ctx, "SNAPSHOT_CREATE", snapshot.ID.String(), "SNAPSHOT", map[string]interface{}{
+	if err := s.eventSvc.RecordEvent(ctx, "SNAPSHOT_CREATE", snapshot.ID.String(), "SNAPSHOT", map[string]interface{}{
 		"volume_id": volumeID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to record event", "action", "SNAPSHOT_CREATE", "snapshot_id", snapshot.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, snapshot.UserID, "snapshot.create", "snapshot", snapshot.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, snapshot.UserID, "snapshot.create", "snapshot", snapshot.ID.String(), map[string]interface{}{
 		"volume_id": volumeID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "snapshot.create", "snapshot_id", snapshot.ID, "error", err)
+	}
 
 	return snapshot, nil
 }
 
 func (s *SnapshotService) ListSnapshots(ctx context.Context) ([]*domain.Snapshot, error) {
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotRead, "*"); err != nil {
+		return nil, err
+	}
+
 	return s.repo.ListByUserID(ctx, userID)
 }
 
 func (s *SnapshotService) GetSnapshot(ctx context.Context, id uuid.UUID) (*domain.Snapshot, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotRead, id.String()); err != nil {
+		return nil, err
+	}
+
 	return s.repo.GetByID(ctx, id)
 }
 
@@ -117,6 +145,13 @@ func (s *SnapshotService) performSnapshot(ctx context.Context, vol *domain.Volum
 }
 
 func (s *SnapshotService) DeleteSnapshot(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotDelete, id.String()); err != nil {
+		return err
+	}
+
 	snapshot, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -133,13 +168,24 @@ func (s *SnapshotService) DeleteSnapshot(ctx context.Context, id uuid.UUID) erro
 		return err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "SNAPSHOT_DELETE", id.String(), "SNAPSHOT", map[string]interface{}{})
-	_ = s.auditSvc.Log(ctx, snapshot.UserID, "snapshot.delete", "snapshot", id.String(), map[string]interface{}{})
+	if err := s.eventSvc.RecordEvent(ctx, "SNAPSHOT_DELETE", id.String(), "SNAPSHOT", map[string]interface{}{}); err != nil {
+		s.logger.Warn("failed to record event", "action", "SNAPSHOT_DELETE", "snapshot_id", id, "error", err)
+	}
+	if err := s.auditSvc.Log(ctx, snapshot.UserID, "snapshot.delete", "snapshot", id.String(), map[string]interface{}{}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "snapshot.delete", "snapshot_id", id, "error", err)
+	}
 
 	return nil
 }
 
 func (s *SnapshotService) RestoreSnapshot(ctx context.Context, snapshotID uuid.UUID, newVolumeName string) (*domain.Volume, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSnapshotRestore, snapshotID.String()); err != nil {
+		return nil, err
+	}
+
 	snapshot, err := s.repo.GetByID(ctx, snapshotID)
 	if err != nil {
 		return nil, err
@@ -152,7 +198,8 @@ func (s *SnapshotService) RestoreSnapshot(ctx context.Context, snapshotID uuid.U
 	// 1. Create new volume domain entity
 	vol := &domain.Volume{
 		ID:        uuid.New(),
-		UserID:    snapshot.UserID,
+		UserID:    userID,
+		TenantID:  tenantID,
 		Name:      newVolumeName,
 		SizeGB:    snapshot.SizeGB,
 		Status:    domain.VolumeStatusAvailable,
@@ -181,13 +228,17 @@ func (s *SnapshotService) RestoreSnapshot(ctx context.Context, snapshotID uuid.U
 		return nil, err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "VOLUME_RESTORE", vol.ID.String(), "VOLUME", map[string]interface{}{
+	if err := s.eventSvc.RecordEvent(ctx, "VOLUME_RESTORE", vol.ID.String(), "VOLUME", map[string]interface{}{
 		"snapshot_id": snapshotID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to record event", "action", "VOLUME_RESTORE", "volume_id", vol.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, vol.UserID, "volume.restore", "volume", vol.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, vol.UserID, "volume.restore", "volume", vol.ID.String(), map[string]interface{}{
 		"snapshot_id": snapshotID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "volume.restore", "volume_id", vol.ID, "error", err)
+	}
 
 	return vol, nil
 }

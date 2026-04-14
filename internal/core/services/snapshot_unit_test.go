@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 	"time"
@@ -21,7 +22,18 @@ func TestSnapshotService_Unit(t *testing.T) {
 	mockStorage := new(MockStorageBackend)
 	mockEventSvc := new(MockEventService)
 	mockAuditSvc := new(MockAuditService)
-	svc := services.NewSnapshotService(mockRepo, mockVolRepo, mockStorage, mockEventSvc, mockAuditSvc, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewSnapshotService(
+		mockRepo,
+		rbacSvc,
+		mockVolRepo,
+		mockStorage,
+		mockEventSvc,
+		mockAuditSvc,
+		slog.Default(),
+	)
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -61,5 +73,40 @@ func TestSnapshotService_Unit(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, vol)
 		assert.Equal(t, "restored-vol", vol.Name)
+	})
+
+	t.Run("RestoreSnapshot_NotAvailable", func(t *testing.T) {
+		snapID := uuid.New()
+		snap := &domain.Snapshot{ID: snapID, Status: domain.SnapshotStatusCreating}
+		mockRepo.On("GetByID", mock.Anything, snapID).Return(snap, nil).Once()
+
+		_, err := svc.RestoreSnapshot(ctx, snapID, "fail")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not available")
+	})
+
+	t.Run("RestoreSnapshot_StorageFailure", func(t *testing.T) {
+		snapID := uuid.New()
+		snap := &domain.Snapshot{ID: snapID, SizeGB: 10, Status: domain.SnapshotStatusAvailable}
+		mockRepo.On("GetByID", mock.Anything, snapID).Return(snap, nil).Once()
+		mockStorage.On("CreateVolume", mock.Anything, mock.Anything, 10).Return("/dev/vdc", nil).Once()
+		mockStorage.On("RestoreSnapshot", mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("storage fail")).Once()
+		mockStorage.On("DeleteVolume", mock.Anything, mock.Anything).Return(nil).Once()
+
+		_, err := svc.RestoreSnapshot(ctx, snapID, "fail")
+		require.Error(t, err)
+	})
+
+	t.Run("DeleteSnapshot_Success", func(t *testing.T) {
+		id := uuid.New()
+		snap := &domain.Snapshot{ID: id, UserID: userID}
+		mockRepo.On("GetByID", mock.Anything, id).Return(snap, nil).Once()
+		mockStorage.On("DeleteSnapshot", mock.Anything, mock.Anything).Return(nil).Once()
+		mockRepo.On("Delete", mock.Anything, id).Return(nil).Once()
+		mockEventSvc.On("RecordEvent", mock.Anything, "SNAPSHOT_DELETE", id.String(), "SNAPSHOT", mock.Anything).Return(nil).Once()
+		mockAuditSvc.On("Log", mock.Anything, userID, "snapshot.delete", "snapshot", id.String(), mock.Anything).Return(nil).Once()
+
+		err := svc.DeleteSnapshot(ctx, id)
+		require.NoError(t, err)
 	})
 }

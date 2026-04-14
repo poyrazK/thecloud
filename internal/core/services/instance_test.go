@@ -21,6 +21,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -99,6 +100,9 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 		}
 	}
 
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	// In integration tests, we frequently rely on a shared Docker network.
 	// We ensure it exists here so that Provisioning (which uses it as a fallback) succeeds.
 	if compute.Type() == "docker" {
@@ -123,20 +127,37 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 	_, _ = itRepo.Create(ctx, defaultType)
 
 	eventRepo := postgres.NewEventRepository(db)
-	eventSvc := services.NewEventService(eventRepo, nil, slog.Default())
+	eventSvc := services.NewEventService(services.EventServiceParams{
+		Repo:    eventRepo,
+		RBACSvc: rbacSvc,
+		Publisher:     nil,
+		Logger:  slog.Default(),
+	})
 
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
 
 	tenantRepo := postgres.NewTenantRepo(db)
 	userRepo := postgres.NewUserRepo(db)
-	tenantSvc := services.NewTenantService(tenantRepo, userRepo, slog.Default())
+	tenantSvc := services.NewTenantService(services.TenantServiceParams{
+		Repo:     tenantRepo,
+		UserRepo: userRepo,
+		RBACSvc:  rbacSvc,
+		Logger:   slog.Default(),
+	})
 
 	taskQueue := &InMemoryTaskQueue{}
 	network := noop.NewNoopNetworkAdapter(slog.Default())
 
 	sshKeyRepo := postgres.NewSSHKeyRepo(db)
-	sshKeySvc := services.NewSSHKeyService(sshKeyRepo)
+	sshKeySvc, err := services.NewSSHKeyService(services.SSHKeyServiceParams{
+		Repo:    sshKeyRepo,
+		RBACSvc: rbacSvc,
+	})
+	require.NoError(t, err)
 
 	svc := services.NewInstanceService(services.InstanceServiceParams{
 		Repo:             repo,
@@ -144,6 +165,7 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 		SubnetRepo:       subnetRepo,
 		VolumeRepo:       volumeRepo,
 		InstanceTypeRepo: itRepo,
+		RBAC:             rbacSvc,
 		Compute:          compute,
 		Network:          network,
 		EventSvc:         eventSvc,
@@ -245,28 +267,60 @@ func TestInstanceServiceLaunchDBFailure(t *testing.T) {
 
 	defaultType := &domain.InstanceType{ID: testInstanceType, Name: "Basic 2", VCPUs: 1, MemoryMB: 128, DiskGB: 1}
 	_, _ = itRepo.Create(ctx, defaultType)
+	tenantRepo := postgres.NewTenantRepo(db) 
+	_ = tenantRepo.UpdateQuota(ctx, &domain.TenantQuota{ 
+		TenantID: appcontext.TenantIDFromContext(ctx), 
+		MaxInstances: 10, 
+		MaxVCPUs: 20, 
+		MaxMemoryGB: 40, 
+		MaxStorageGB: 1000, 
+	})
 
-	eventSvc := services.NewEventService(postgres.NewEventRepository(db), nil, slog.Default())
-	auditSvc := services.NewAuditService(postgres.NewAuditRepository(db))
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	eventSvc := services.NewEventService(services.EventServiceParams{
+		Repo:    postgres.NewEventRepository(db),
+		RBACSvc: rbacSvc,
+		Publisher:     nil,
+		Logger:  slog.Default(),
+	})
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    postgres.NewAuditRepository(db),
+		RBACSvc: rbacSvc,
+	})
 	taskQueue := &InMemoryTaskQueue{}
 
+	sshKeySvc, err := services.NewSSHKeyService(services.SSHKeyServiceParams{
+		Repo:    postgres.NewSSHKeyRepo(db),
+		RBACSvc: rbacSvc,
+	})
+	require.NoError(t, err)
+
+	tenantSvc := services.NewTenantService(services.TenantServiceParams{
+		Repo:     postgres.NewTenantRepo(db),
+		UserRepo: postgres.NewUserRepo(db),
+		RBACSvc:  rbacSvc,
+		Logger:   slog.Default(),
+	})
 	svc := services.NewInstanceService(services.InstanceServiceParams{
 		Repo:             faultyRepo,
 		VpcRepo:          vpcRepo,
 		SubnetRepo:       subnetRepo,
 		VolumeRepo:       volumeRepo,
 		InstanceTypeRepo: itRepo,
+		RBAC:             rbacSvc,
 		Compute:          compute,
 		EventSvc:         eventSvc,
 		AuditSvc:         auditSvc,
 		TaskQueue:        taskQueue,
 		Logger:           slog.Default(),
-		TenantSvc:        services.NewTenantService(postgres.NewTenantRepo(db), postgres.NewUserRepo(db), slog.Default()),
-		SSHKeySvc:        services.NewSSHKeyService(postgres.NewSSHKeyRepo(db)),
+		TenantSvc:        tenantSvc,
+		SSHKeySvc:        sshKeySvc,
 	})
 
 	// Attempt Launch
-	_, err := svc.LaunchInstance(ctx, coreports.LaunchParams{
+	_, err = svc.LaunchInstance(ctx, coreports.LaunchParams{
 		Name:         "fail-inst",
 		Image:        testImage,
 		InstanceType: testInstanceType,
@@ -420,8 +474,21 @@ func TestNetworkingCIDRExhaustion(t *testing.T) {
 	}
 
 	subnetRepo := postgres.NewSubnetRepository(db)
-	auditSvc := services.NewAuditService(postgres.NewAuditRepository(db))
-	subnetSvc := services.NewSubnetService(subnetRepo, vpcRepo, auditSvc, slog.Default())
+
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    postgres.NewAuditRepository(db),
+		RBACSvc: rbacSvc,
+	})
+	subnetSvc := services.NewSubnetService(services.SubnetServiceParams{
+		Repo:     subnetRepo,
+		RBACSvc:  rbacSvc,
+		VpcRepo:  vpcRepo,
+		AuditSvc: auditSvc,
+		Logger:   slog.Default(),
+	})
 
 	// 1. Create VPC and a very small subnet (/30)
 	tenantID := appcontext.TenantIDFromContext(ctx)

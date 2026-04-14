@@ -18,77 +18,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type mockFunctionRepo struct {
-	mock.Mock
-}
-
-func (m *mockFunctionRepo) Create(ctx context.Context, f *domain.Function) error {
-	return m.Called(ctx, f).Error(0)
-}
-func (m *mockFunctionRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Function, error) {
-	args := m.Called(ctx, id)
-	r0, _ := args.Get(0).(*domain.Function)
-	return r0, args.Error(1)
-}
-func (m *mockFunctionRepo) GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Function, error) {
-	args := m.Called(ctx, userID, name)
-	r0, _ := args.Get(0).(*domain.Function)
-	return r0, args.Error(1)
-}
-func (m *mockFunctionRepo) List(ctx context.Context, userID uuid.UUID) ([]*domain.Function, error) {
-	args := m.Called(ctx, userID)
-	r0, _ := args.Get(0).([]*domain.Function)
-	return r0, args.Error(1)
-}
-func (m *mockFunctionRepo) Update(ctx context.Context, f *domain.Function) error {
-	return m.Called(ctx, f).Error(0)
-}
-func (m *mockFunctionRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	return m.Called(ctx, id).Error(0)
-}
-func (m *mockFunctionRepo) CreateInvocation(ctx context.Context, i *domain.Invocation) error {
-	return m.Called(ctx, i).Error(0)
-}
-func (m *mockFunctionRepo) GetInvocations(ctx context.Context, functionID uuid.UUID, limit int) ([]*domain.Invocation, error) {
-	args := m.Called(ctx, functionID, limit)
-	r0, _ := args.Get(0).([]*domain.Invocation)
-	return r0, args.Error(1)
-}
-
-type mockFileStore struct {
-	mock.Mock
-}
-
-func (m *mockFileStore) Write(ctx context.Context, bucket, key string, r io.Reader) (int64, error) {
-	args := m.Called(ctx, bucket, key, r)
-	r0, _ := args.Get(0).(int64)
-	return r0, args.Error(1)
-}
-func (m *mockFileStore) Read(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
-	args := m.Called(ctx, bucket, key)
-	r0, _ := args.Get(0).(io.ReadCloser)
-	return r0, args.Error(1)
-}
-func (m *mockFileStore) Delete(ctx context.Context, bucket, key string) error {
-	return m.Called(ctx, bucket, key).Error(0)
-}
-func (m *mockFileStore) GetClusterStatus(ctx context.Context) (*domain.StorageCluster, error) {
-	args := m.Called(ctx)
-	r0, _ := args.Get(0).(*domain.StorageCluster)
-	return r0, args.Error(1)
-}
-func (m *mockFileStore) Assemble(ctx context.Context, bucket, key string, parts []string) (int64, error) {
-	args := m.Called(ctx, bucket, key, parts)
-	r0, _ := args.Get(0).(int64)
-	return r0, args.Error(1)
+func TestFunctionService_Unit(t *testing.T) {
+	t.Run("BasicOps", TestFunctionServiceBasicOps)
+	t.Run("CreateFunction", TestFunctionServiceCreateFunction)
+	t.Run("InvokeFunction", TestFunctionServiceInvokeFunction)
+	t.Run("CreateFunction_UnsupportedRuntime", TestFunctionService_CreateFunction_UnsupportedRuntime)
 }
 
 func TestFunctionServiceBasicOps(t *testing.T) {
-	repo := new(mockFunctionRepo)
+	repo := new(MockFunctionRepo)
 	compute := new(MockComputeBackend)
-	fileStore := new(mockFileStore)
+	fileStore := new(MockFileStore)
 	auditSvc := new(MockAuditService)
-	svc := services.NewFunctionService(repo, compute, fileStore, auditSvc, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, slog.Default())
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -126,6 +71,7 @@ func TestFunctionServiceBasicOps(t *testing.T) {
 
 	t.Run("GetFunctionLogs", func(t *testing.T) {
 		expected := []*domain.Invocation{{ID: uuid.New()}}
+		repo.On("GetByID", ctx, id).Return(&domain.Function{ID: id}, nil).Once()
 		repo.On("GetInvocations", ctx, id, 10).Return(expected, nil).Once()
 
 		result, err := svc.GetFunctionLogs(ctx, id, 10)
@@ -135,11 +81,14 @@ func TestFunctionServiceBasicOps(t *testing.T) {
 }
 
 func TestFunctionServiceCreateFunction(t *testing.T) {
-	repo := new(mockFunctionRepo)
+	repo := new(MockFunctionRepo)
 	compute := new(MockComputeBackend)
-	fileStore := new(mockFileStore)
+	fileStore := new(MockFileStore)
 	auditSvc := new(MockAuditService)
-	svc := services.NewFunctionService(repo, compute, fileStore, auditSvc, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, slog.Default())
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	userID := appcontext.UserIDFromContext(ctx)
@@ -163,11 +112,14 @@ func TestFunctionServiceCreateFunction(t *testing.T) {
 }
 
 func TestFunctionServiceInvokeFunction(t *testing.T) {
-	repo := new(mockFunctionRepo)
+	repo := new(MockFunctionRepo)
 	compute := new(MockComputeBackend)
-	fileStore := new(mockFileStore)
+	fileStore := new(MockFileStore)
 	auditSvc := new(MockAuditService)
-	svc := services.NewFunctionService(repo, compute, fileStore, auditSvc, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, slog.Default())
 
 	ctx := context.Background()
 	id := uuid.New()
@@ -205,4 +157,34 @@ func TestFunctionServiceInvokeFunction(t *testing.T) {
 		assert.NotNil(t, inv)
 		assert.Equal(t, "SUCCESS", inv.Status)
 	})
+
+	t.Run("async success", func(t *testing.T) {
+		repo.On("GetByID", mock.Anything, id).Return(f, nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "function.invoke_async", "function", id.String(), mock.Anything).Return(nil).Once()
+
+		// Minimal expectations for the goroutine part (non-deterministic timing)
+		fileStore.On("Read", mock.Anything, mock.Anything, mock.Anything).Return(io.NopCloser(bytes.NewReader(buf.Bytes())), nil).Maybe()
+		compute.On("RunTask", mock.Anything, mock.Anything).Return("task-async", []string{}, nil).Maybe()
+		compute.On("WaitTask", mock.Anything, "task-async").Return(int64(0), nil).Maybe()
+		compute.On("GetInstanceLogs", mock.Anything, "task-async").Return(io.NopCloser(strings.NewReader("logs")), nil).Maybe()
+		compute.On("DeleteInstance", mock.Anything, "task-async").Return(nil).Maybe()
+		repo.On("CreateInvocation", mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		inv, err := svc.InvokeFunction(ctx, id, []byte("{}"), true)
+		require.NoError(t, err)
+		assert.NotNil(t, inv)
+		assert.Equal(t, "PENDING", inv.Status)
+	})
+}
+
+func TestFunctionService_CreateFunction_UnsupportedRuntime(t *testing.T) {
+	repo := new(MockFunctionRepo)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	svc := services.NewFunctionService(repo, rbacSvc, nil, nil, nil, slog.Default())
+	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+
+	_, err := svc.CreateFunction(ctx, "fail", "cobol99", "handler", []byte("code"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported runtime")
 }

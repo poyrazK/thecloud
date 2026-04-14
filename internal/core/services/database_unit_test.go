@@ -16,14 +16,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type MockDatabaseRepo struct {
+type DatabaseUnitMockRepo struct {
 	mock.Mock
 }
 
-func (m *MockDatabaseRepo) Create(ctx context.Context, db *domain.Database) error {
+func (m *DatabaseUnitMockRepo) Create(ctx context.Context, db *domain.Database) error {
 	return m.Called(ctx, db).Error(0)
 }
-func (m *MockDatabaseRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
+func (m *DatabaseUnitMockRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -31,7 +31,7 @@ func (m *MockDatabaseRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.D
 	r0, _ := args.Get(0).(*domain.Database)
 	return r0, args.Error(1)
 }
-func (m *MockDatabaseRepo) List(ctx context.Context) ([]*domain.Database, error) {
+func (m *DatabaseUnitMockRepo) List(ctx context.Context) ([]*domain.Database, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -39,7 +39,7 @@ func (m *MockDatabaseRepo) List(ctx context.Context) ([]*domain.Database, error)
 	r0, _ := args.Get(0).([]*domain.Database)
 	return r0, args.Error(1)
 }
-func (m *MockDatabaseRepo) ListReplicas(ctx context.Context, primaryID uuid.UUID) ([]*domain.Database, error) {
+func (m *DatabaseUnitMockRepo) ListReplicas(ctx context.Context, primaryID uuid.UUID) ([]*domain.Database, error) {
 	args := m.Called(ctx, primaryID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -47,25 +47,29 @@ func (m *MockDatabaseRepo) ListReplicas(ctx context.Context, primaryID uuid.UUID
 	r0, _ := args.Get(0).([]*domain.Database)
 	return r0, args.Error(1)
 }
-func (m *MockDatabaseRepo) Update(ctx context.Context, db *domain.Database) error {
+func (m *DatabaseUnitMockRepo) Update(ctx context.Context, db *domain.Database) error {
 	return m.Called(ctx, db).Error(0)
 }
-func (m *MockDatabaseRepo) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *DatabaseUnitMockRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
 
 func TestDatabaseServiceUnitExtended(t *testing.T) {
-	mockRepo := new(MockDatabaseRepo)
+	mockRepo := new(DatabaseUnitMockRepo)
 	mockCompute := new(MockComputeBackend)
 	mockVpcRepo := new(MockVpcRepo)
 	mockEventSvc := new(MockEventService)
 	mockAuditSvc := new(MockAuditService)
 	mockVolumeSvc := new(MockVolumeService)
+	mockSecrets := new(MockSecretsManager)
+	mockRBAC := new(mockRBACService)
 	snapSvc := new(mockSnapshotService)
 	snapRepo := new(mockSnapshotRepository)
+	mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
 		Repo:         mockRepo,
+		RBAC:         mockRBAC,
 		Compute:      mockCompute,
 		VpcRepo:      mockVpcRepo,
 		VolumeSvc:    mockVolumeSvc,
@@ -73,6 +77,7 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		SnapshotRepo: snapRepo,
 		EventSvc:     mockEventSvc,
 		AuditSvc:     mockAuditSvc,
+		Secrets:      mockSecrets,
 		Logger:       slog.Default(),
 	})
 
@@ -81,6 +86,9 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 	t.Run("CreateDatabase_Success", func(t *testing.T) {
 		mockVolumeSvc.On("CreateVolume", mock.Anything, mock.Anything, 20).
 			Return(&domain.Volume{ID: uuid.New(), Name: "db-vol"}, nil).Once()
+
+		mockSecrets.On("StoreSecret", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).
 			Return("cid", []string{"30001:5432"}, nil).Once()
 		mockCompute.On("GetInstanceIP", mock.Anything, "cid").Return("10.0.0.5", nil).Once()
@@ -106,16 +114,21 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 
 	t.Run("CreateReplica", func(t *testing.T) {
 		primaryID := uuid.New()
-		primary := &domain.Database{ID: primaryID, Engine: "postgres", Version: "16", Port: 5432, ContainerID: "primary-cid", AllocatedStorage: 20}
+		primary := &domain.Database{ID: primaryID, Engine: "postgres", Version: "16", Port: 5432, ContainerID: "primary-cid", AllocatedStorage: 20, Username: "cloud_user", Password: "pass"}
 		mockRepo.On("GetByID", mock.Anything, primaryID).Return(primary, nil).Once()
 		mockCompute.On("GetInstanceIP", mock.Anything, "primary-cid").Return("10.0.0.5", nil).Once()
 		mockVolumeSvc.On("CreateVolume", mock.Anything, mock.Anything, 20).
 			Return(&domain.Volume{ID: uuid.New(), Name: "db-replica-vol"}, nil).Once()
+
+		mockSecrets.On("StoreSecret", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).
 			Return("cid-rep", []string{"30002:5432"}, nil).Once()
 		mockCompute.On("GetInstanceIP", mock.Anything, "cid-rep").Return("10.0.0.6", nil).Once()
 		mockRepo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 		mockEventSvc.On("RecordEvent", mock.Anything, "DATABASE_REPLICA_CREATE", mock.Anything, "DATABASE", mock.Anything).
+			Return(nil).Once()
+		mockAuditSvc.On("Log", mock.Anything, mock.Anything, "database.replica_create", "database", mock.Anything, mock.Anything).
 			Return(nil).Once()
 
 		replica, err := svc.CreateReplica(ctx, primaryID, "test-rep")
@@ -144,14 +157,16 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 	t.Run("GetConnectionString", func(t *testing.T) {
 		dbID := uuid.New()
 		db := &domain.Database{
-			ID:       dbID,
-			Engine:   domain.EnginePostgres,
-			Username: "user",
-			Password: "pass",
-			Port:     5432,
-			Name:     "mydb",
+			ID:             dbID,
+			Engine:         domain.EnginePostgres,
+			Username:       "user",
+			Password:       "pass",
+			Port:           5432,
+			Name:           "mydb",
+			CredentialPath: "secret/rds/db1",
 		}
 		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
+		mockSecrets.On("GetSecret", mock.Anything, "secret/rds/db1").Return(map[string]interface{}{"password": "pass"}, nil).Once()
 
 		conn, err := svc.GetConnectionString(ctx, dbID)
 		require.NoError(t, err)
@@ -204,9 +219,12 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		mockVolumeSvc.On("CreateVolume", mock.Anything, mock.Anything, 10).
 			Return(&domain.Volume{ID: volID, Name: "db-vol"}, nil).Once()
 
+		mockSecrets.On("StoreSecret", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).
 			Return("", nil, fmt.Errorf("launch failed")).Once()
 
+		mockSecrets.On("DeleteSecret", mock.Anything, mock.Anything).Return(nil).Once()
 		mockVolumeSvc.On("DeleteVolume", mock.Anything, volID.String()).Return(nil).Once()
 
 		db, err := svc.CreateDatabase(ctx, ports.CreateDatabaseRequest{
@@ -225,6 +243,8 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		mockVolumeSvc.On("CreateVolume", mock.Anything, mock.Anything, 10).
 			Return(&domain.Volume{ID: volID, Name: "db-vol"}, nil).Once()
 
+		mockSecrets.On("StoreSecret", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).
 			Return("cid-123", []string{"30001:5432"}, nil).Once()
 
@@ -234,6 +254,7 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 			Return(fmt.Errorf("repo failed")).Once()
 
 		mockCompute.On("DeleteInstance", mock.Anything, "cid-123").Return(nil).Once()
+		mockSecrets.On("DeleteSecret", mock.Anything, mock.Anything).Return(nil).Once()
 		mockVolumeSvc.On("DeleteVolume", mock.Anything, volID.String()).Return(nil).Once()
 
 		db, err := svc.CreateDatabase(ctx, ports.CreateDatabaseRequest{
@@ -287,6 +308,8 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		snapSvc.On("RestoreSnapshot", mock.Anything, snapID, mock.Anything).
 			Return(&domain.Volume{ID: uuid.New(), SizeGB: 10}, nil).Once()
 
+		mockSecrets.On("StoreSecret", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
 			return strings.Contains(opts.Name, "cloud-db-")
 		})).Return("new-cid", []string{"30005:5432"}, nil).Once()
@@ -329,6 +352,8 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		mockVolumeSvc.On("CreateVolume", mock.Anything, mock.Anything, 10).
 			Return(&domain.Volume{ID: uuid.New(), Name: "db-vol"}, nil).Once()
 
+		mockSecrets.On("StoreSecret", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+
 		// DB container
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
 			return strings.Contains(opts.Name, "cloud-db-") && !strings.Contains(opts.Name, "exporter")
@@ -364,6 +389,8 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 	t.Run("CreateDatabase_WithPooling", func(t *testing.T) {
 		mockVolumeSvc.On("CreateVolume", mock.Anything, mock.Anything, 10).
 			Return(&domain.Volume{ID: uuid.New(), Name: "db-vol"}, nil).Once()
+
+		mockSecrets.On("StoreSecret", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 		// DB container
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
@@ -403,6 +430,8 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		mockVolumeSvc.On("CreateVolume", mock.Anything, mock.Anything, 10).
 			Return(&domain.Volume{ID: volID, Name: "db-vol"}, nil).Once()
 
+		mockSecrets.On("StoreSecret", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+
 		// DB container succeeds
 		mockCompute.On("LaunchInstanceWithOptions", mock.Anything, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
 			return strings.Contains(opts.Name, "cloud-db-") && !strings.Contains(opts.Name, "pooler")
@@ -417,6 +446,7 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 
 		// Rollback expectations
 		mockCompute.On("DeleteInstance", mock.Anything, "db-cid").Return(nil).Once()
+		mockSecrets.On("DeleteSecret", mock.Anything, mock.Anything).Return(nil).Once()
 		mockVolumeSvc.On("DeleteVolume", mock.Anything, volID.String()).Return(nil).Once()
 
 		db, err := svc.CreateDatabase(ctx, ports.CreateDatabaseRequest{

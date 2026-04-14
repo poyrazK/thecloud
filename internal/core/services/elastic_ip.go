@@ -17,6 +17,7 @@ import (
 
 type elasticIPService struct {
 	repo         ports.ElasticIPRepository
+	rbacSvc      ports.RBACService
 	instanceRepo ports.InstanceRepository
 	auditSvc     ports.AuditService
 	logger       *slog.Logger
@@ -25,6 +26,7 @@ type elasticIPService struct {
 // ElasticIPServiceParams holds the dependencies for creating an ElasticIPService.
 type ElasticIPServiceParams struct {
 	Repo         ports.ElasticIPRepository
+	RBAC         ports.RBACService
 	InstanceRepo ports.InstanceRepository
 	AuditSvc     ports.AuditService
 	Logger       *slog.Logger
@@ -32,17 +34,27 @@ type ElasticIPServiceParams struct {
 
 // NewElasticIPService constructs an ElasticIPService using the provided parameters.
 func NewElasticIPService(params ElasticIPServiceParams) ports.ElasticIPService {
+	logger := params.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &elasticIPService{
 		repo:         params.Repo,
+		rbacSvc:      params.RBAC,
 		instanceRepo: params.InstanceRepo,
 		auditSvc:     params.AuditSvc,
-		logger:       params.Logger,
+		logger:       logger,
 	}
 }
 
 func (s *elasticIPService) AllocateIP(ctx context.Context) (*domain.ElasticIP, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcUpdate, "*"); err != nil {
+		return nil, err
+	}
+
 	id := uuid.New()
 
 	// Simulate public IP allocation from CGNAT range 100.64.0.0/10 for demo/simulation
@@ -74,6 +86,13 @@ func (s *elasticIPService) AllocateIP(ctx context.Context) (*domain.ElasticIP, e
 }
 
 func (s *elasticIPService) ReleaseIP(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcDelete, id.String()); err != nil {
+		return err
+	}
+
 	eip, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -97,6 +116,13 @@ func (s *elasticIPService) ReleaseIP(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *elasticIPService) AssociateIP(ctx context.Context, id uuid.UUID, instanceID uuid.UUID) (*domain.ElasticIP, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcUpdate, id.String()); err != nil {
+		return nil, err
+	}
+
 	eip, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -150,6 +176,13 @@ func (s *elasticIPService) AssociateIP(ctx context.Context, id uuid.UUID, instan
 }
 
 func (s *elasticIPService) DisassociateIP(ctx context.Context, id uuid.UUID) (*domain.ElasticIP, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcUpdate, id.String()); err != nil {
+		return nil, err
+	}
+
 	eip, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -181,10 +214,24 @@ func (s *elasticIPService) DisassociateIP(ctx context.Context, id uuid.UUID) (*d
 }
 
 func (s *elasticIPService) ListElasticIPs(ctx context.Context) ([]*domain.ElasticIP, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead, "*"); err != nil {
+		return nil, err
+	}
+
 	return s.repo.List(ctx)
 }
 
 func (s *elasticIPService) GetElasticIP(ctx context.Context, id uuid.UUID) (*domain.ElasticIP, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcRead, id.String()); err != nil {
+		return nil, err
+	}
+
 	return s.repo.GetByID(ctx, id)
 }
 

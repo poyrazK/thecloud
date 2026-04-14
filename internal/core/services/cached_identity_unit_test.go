@@ -2,6 +2,8 @@ package services_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"log/slog"
 	"testing"
 
@@ -13,6 +15,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestCachedIdentityService_Unit(t *testing.T) {
+	t.Run("ValidateAPIKey", TestCachedIdentityService_ValidateAPIKey)
+	t.Run("OtherOps", TestCachedIdentityService_OtherOps)
+}
 
 func TestCachedIdentityService_ValidateAPIKey(t *testing.T) {
 	mr, err := miniredis.Run()
@@ -35,7 +42,10 @@ func TestCachedIdentityService_ValidateAPIKey(t *testing.T) {
 		assert.Equal(t, apiKey.ID, result.ID)
 
 		// Verify it's in redis now
-		val, err := rdb.Get(ctx, "apikey:"+keyString).Result()
+		h := sha256.New()
+		h.Write([]byte(keyString))
+		keyHash := hex.EncodeToString(h.Sum(nil))
+		val, err := rdb.Get(ctx, "apikey:hash:"+keyHash).Result()
 		require.NoError(t, err)
 		assert.Contains(t, val, apiKey.ID.String())
 	})

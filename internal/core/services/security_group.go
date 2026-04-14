@@ -22,6 +22,7 @@ const securityGroupTracer = "security-group-service"
 // SecurityGroupService manages security group lifecycle and rules.
 type SecurityGroupService struct {
 	repo     ports.SecurityGroupRepository
+	rbacSvc  ports.RBACService
 	vpcRepo  ports.VpcRepository
 	network  ports.NetworkBackend
 	auditSvc ports.AuditService
@@ -31,6 +32,7 @@ type SecurityGroupService struct {
 // NewSecurityGroupService constructs a SecurityGroupService with its dependencies.
 func NewSecurityGroupService(
 	repo ports.SecurityGroupRepository,
+	rbacSvc ports.RBACService,
 	vpcRepo ports.VpcRepository,
 	network ports.NetworkBackend,
 	auditSvc ports.AuditService,
@@ -38,6 +40,7 @@ func NewSecurityGroupService(
 ) *SecurityGroupService {
 	return &SecurityGroupService{
 		repo:     repo,
+		rbacSvc:  rbacSvc,
 		vpcRepo:  vpcRepo,
 		network:  network,
 		auditSvc: auditSvc,
@@ -49,12 +52,18 @@ func (s *SecurityGroupService) CreateGroup(ctx context.Context, vpcID uuid.UUID,
 	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "CreateGroup")
 	defer span.End()
 
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgCreate, "*"); err != nil {
+		return nil, err
+	}
+
 	span.SetAttributes(
 		attribute.String("vpc_id", vpcID.String()),
 		attribute.String("name", name),
 	)
 
-	userID := appcontext.UserIDFromContext(ctx)
 	sgID := uuid.New()
 
 	arn := fmt.Sprintf("arn:thecloud:vpc:local:%s:security-group/%s", userID.String(), sgID.String())
@@ -62,7 +71,7 @@ func (s *SecurityGroupService) CreateGroup(ctx context.Context, vpcID uuid.UUID,
 	sg := &domain.SecurityGroup{
 		ID:          sgID,
 		UserID:      userID,
-		TenantID:    appcontext.TenantIDFromContext(ctx),
+		TenantID:    tenantID,
 		VPCID:       vpcID,
 		Name:        name,
 		Description: description,
@@ -93,10 +102,12 @@ func (s *SecurityGroupService) CreateGroup(ctx context.Context, vpcID uuid.UUID,
 		return nil, errors.Wrap(errors.Internal, "failed to create security group", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, userID, "security_group.create", "security_group", sgID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, userID, "security_group.create", "security_group", sgID.String(), map[string]interface{}{
 		"name":   name,
 		"vpc_id": vpcID,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "security_group.create", "resource_id", sgID.String(), "error", err)
+	}
 
 	return sg, nil
 }
@@ -104,6 +115,14 @@ func (s *SecurityGroupService) CreateGroup(ctx context.Context, vpcID uuid.UUID,
 func (s *SecurityGroupService) GetGroup(ctx context.Context, idOrName string, vpcID uuid.UUID) (*domain.SecurityGroup, error) {
 	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "GetGroup")
 	defer span.End()
+
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgRead, idOrName); err != nil {
+		return nil, err
+	}
+
 	span.SetAttributes(attribute.String("id_or_name", idOrName))
 
 	id, err := uuid.Parse(idOrName)
@@ -116,6 +135,14 @@ func (s *SecurityGroupService) GetGroup(ctx context.Context, idOrName string, vp
 func (s *SecurityGroupService) ListGroups(ctx context.Context, vpcID uuid.UUID) ([]*domain.SecurityGroup, error) {
 	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "ListGroups")
 	defer span.End()
+
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgRead, "*"); err != nil {
+		return nil, err
+	}
+
 	span.SetAttributes(attribute.String("vpc_id", vpcID.String()))
 
 	return s.repo.ListByVPC(ctx, vpcID)
@@ -124,9 +151,15 @@ func (s *SecurityGroupService) ListGroups(ctx context.Context, vpcID uuid.UUID) 
 func (s *SecurityGroupService) DeleteGroup(ctx context.Context, id uuid.UUID) error {
 	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "DeleteGroup")
 	defer span.End()
-	span.SetAttributes(attribute.String("group_id", id.String()))
 
 	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgDelete, id.String()); err != nil {
+		return err
+	}
+
+	span.SetAttributes(attribute.String("group_id", id.String()))
 
 	// In a real implementation, we should check if any instances are still attached
 	// For now, we just delete.
@@ -134,7 +167,9 @@ func (s *SecurityGroupService) DeleteGroup(ctx context.Context, id uuid.UUID) er
 		return errors.Wrap(errors.Internal, "failed to delete security group", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, userID, "security_group.delete", "security_group", id.String(), nil)
+	if err := s.auditSvc.Log(ctx, userID, "security_group.delete", "security_group", id.String(), nil); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "security_group.delete", "resource_id", id.String(), "error", err)
+	}
 
 	return nil
 }
@@ -142,6 +177,13 @@ func (s *SecurityGroupService) DeleteGroup(ctx context.Context, id uuid.UUID) er
 func (s *SecurityGroupService) AddRule(ctx context.Context, groupID uuid.UUID, rule domain.SecurityRule) (*domain.SecurityRule, error) {
 	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "AddRule")
 	defer span.End()
+
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgUpdate, groupID.String()); err != nil {
+		return nil, err
+	}
 
 	span.SetAttributes(
 		attribute.String("group_id", groupID.String()),
@@ -169,9 +211,11 @@ func (s *SecurityGroupService) AddRule(ctx context.Context, groupID uuid.UUID, r
 		// We don't rollback DB here in this simple pass, but in real life we should.
 	}
 
-	_ = s.auditSvc.Log(ctx, sg.UserID, "security_group.add_rule", "security_group", groupID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, sg.UserID, "security_group.add_rule", "security_group", groupID.String(), map[string]interface{}{
 		"rule_id": rule.ID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "security_group.add_rule", "resource_id", groupID.String(), "error", err)
+	}
 
 	return &rule, nil
 }
@@ -179,6 +223,13 @@ func (s *SecurityGroupService) AddRule(ctx context.Context, groupID uuid.UUID, r
 func (s *SecurityGroupService) RemoveRule(ctx context.Context, ruleID uuid.UUID) error {
 	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "RemoveRule")
 	defer span.End()
+
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgUpdate, ruleID.String()); err != nil {
+		return err
+	}
 
 	span.SetAttributes(attribute.String("rule_id", ruleID.String()))
 
@@ -214,9 +265,11 @@ func (s *SecurityGroupService) RemoveRule(ctx context.Context, ruleID uuid.UUID)
 		return errors.Wrap(errors.Internal, "failed to delete security rule", err)
 	}
 
-	_ = s.auditSvc.Log(ctx, sg.UserID, "security_group.remove_rule", "security_group", sg.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, sg.UserID, "security_group.remove_rule", "security_group", sg.ID.String(), map[string]interface{}{
 		"rule_id": ruleID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "security_group.remove_rule", "resource_id", sg.ID.String(), "error", err)
+	}
 
 	return nil
 }
@@ -224,6 +277,13 @@ func (s *SecurityGroupService) RemoveRule(ctx context.Context, ruleID uuid.UUID)
 func (s *SecurityGroupService) AttachToInstance(ctx context.Context, instanceID, groupID uuid.UUID) error {
 	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "AttachToInstance")
 	defer span.End()
+
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgUpdate, groupID.String()); err != nil {
+		return err
+	}
 
 	span.SetAttributes(
 		attribute.String("instance_id", instanceID.String()),
@@ -244,9 +304,11 @@ func (s *SecurityGroupService) AttachToInstance(ctx context.Context, instanceID,
 		return err
 	}
 
-	_ = s.auditSvc.Log(ctx, sg.UserID, "security_group.attach", "instance", instanceID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, sg.UserID, "security_group.attach", "instance", instanceID.String(), map[string]interface{}{
 		"group_id": groupID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "security_group.attach", "resource_id", instanceID.String(), "error", err)
+	}
 
 	return nil
 }
@@ -254,6 +316,13 @@ func (s *SecurityGroupService) AttachToInstance(ctx context.Context, instanceID,
 func (s *SecurityGroupService) DetachFromInstance(ctx context.Context, instanceID, groupID uuid.UUID) error {
 	ctx, span := otel.Tracer(securityGroupTracer).Start(ctx, "DetachFromInstance")
 	defer span.End()
+
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionSgUpdate, groupID.String()); err != nil {
+		return err
+	}
 
 	span.SetAttributes(
 		attribute.String("instance_id", instanceID.String()),
@@ -272,10 +341,11 @@ func (s *SecurityGroupService) DetachFromInstance(ctx context.Context, instanceI
 		}
 	}
 
-	userID := appcontext.UserIDFromContext(ctx)
-	_ = s.auditSvc.Log(ctx, userID, "security_group.detach", "instance", instanceID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, userID, "security_group.detach", "instance", instanceID.String(), map[string]interface{}{
 		"group_id": groupID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "security_group.detach", "resource_id", instanceID.String(), "error", err)
+	}
 
 	return nil
 }

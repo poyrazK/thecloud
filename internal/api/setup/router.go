@@ -76,9 +76,6 @@ type Handlers struct {
 
 // InitHandlers constructs HTTP handlers and websocket hub.
 func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Handlers {
-	hub := ws.NewHub(logger)
-	go hub.Run()
-
 	return &Handlers{
 		Audit:         httphandlers.NewAuditHandler(svcs.Audit),
 		Identity:      httphandlers.NewIdentityHandler(svcs.Identity),
@@ -120,7 +117,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		Log:           httphandlers.NewLogHandler(svcs.Log),
 		IAM:           httphandlers.NewIAMHandler(svcs.IAM),
 		VPCPeering:    httphandlers.NewVPCPeeringHandler(svcs.VPCPeering),
-		Ws:            ws.NewHandler(hub, svcs.Identity, logger),
+		Ws:            ws.NewHandler(svcs.WsHub, svcs.Identity, logger),
 	}
 }
 
@@ -322,6 +319,7 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		clusterGroup.POST("/:id/rotate-secrets", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.RotateSecrets)
 		clusterGroup.POST("/:id/backups", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.CreateBackup)
 		clusterGroup.POST("/:id/restore", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.RestoreBackup)
+		clusterGroup.PUT("/:id/backup-policy", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.SetBackupPolicy)
 
 		// Node Group management
 		clusterGroup.POST("/:id/nodegroups", httputil.Permission(svcs.RBAC, domain.PermissionClusterUpdate), handlers.Cluster.AddNodeGroup)
@@ -477,6 +475,7 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		dbGroup.POST("/:id/promote", httputil.Permission(svcs.RBAC, domain.PermissionDBUpdate), handlers.Database.Promote)
 		dbGroup.POST("/:id/snapshots", httputil.Permission(svcs.RBAC, domain.PermissionDBCreate), handlers.Database.CreateSnapshot)
 		dbGroup.GET("/:id/snapshots", httputil.Permission(svcs.RBAC, domain.PermissionDBRead), handlers.Database.ListSnapshots)
+		dbGroup.POST("/:id/rotate-credentials", httputil.Permission(svcs.RBAC, domain.PermissionDBUpdate), handlers.Database.RotateCredentials)
 	}
 
 	cacheGroup := r.Group("/caches")
@@ -587,12 +586,12 @@ func registerDevOpsRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	asgGroup := r.Group("/autoscaling")
 	asgGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
 	{
-		asgGroup.POST("/groups", httputil.Permission(svcs.RBAC, domain.PermissionAsCreate), handlers.AutoScaling.CreateGroup)
-		asgGroup.GET("/groups", httputil.Permission(svcs.RBAC, domain.PermissionAsRead), handlers.AutoScaling.ListGroups)
-		asgGroup.GET("/groups/:id", httputil.Permission(svcs.RBAC, domain.PermissionAsRead), handlers.AutoScaling.GetGroup)
-		asgGroup.DELETE("/groups/:id", httputil.Permission(svcs.RBAC, domain.PermissionAsDelete), handlers.AutoScaling.DeleteGroup)
-		asgGroup.POST("/groups/:id/policies", httputil.Permission(svcs.RBAC, domain.PermissionAsUpdate), handlers.AutoScaling.CreatePolicy)
-		asgGroup.DELETE("/policies/:id", httputil.Permission(svcs.RBAC, domain.PermissionAsDelete), handlers.AutoScaling.DeletePolicy)
+		asgGroup.POST("/groups", httputil.Permission(svcs.RBAC, domain.PermissionAsgCreate), handlers.AutoScaling.CreateGroup)
+		asgGroup.GET("/groups", httputil.Permission(svcs.RBAC, domain.PermissionAsgRead), handlers.AutoScaling.ListGroups)
+		asgGroup.GET("/groups/:id", httputil.Permission(svcs.RBAC, domain.PermissionAsgRead), handlers.AutoScaling.GetGroup)
+		asgGroup.DELETE("/groups/:id", httputil.Permission(svcs.RBAC, domain.PermissionAsgDelete), handlers.AutoScaling.DeleteGroup)
+		asgGroup.POST("/groups/:id/policies", httputil.Permission(svcs.RBAC, domain.PermissionAsgUpdate), handlers.AutoScaling.CreatePolicy)
+		asgGroup.DELETE("/policies/:id", httputil.Permission(svcs.RBAC, domain.PermissionAsgDelete), handlers.AutoScaling.DeletePolicy)
 	}
 
 	iacGroup := r.Group("/iac")

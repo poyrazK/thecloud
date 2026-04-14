@@ -18,6 +18,7 @@ import (
 // ClusterService implements the managed Kubernetes service.
 type ClusterService struct {
 	repo        ports.ClusterRepository
+	rbacSvc     ports.RBACService
 	provisioner ports.ClusterProvisioner
 	vpcSvc      ports.VpcService
 	instanceSvc ports.InstanceService
@@ -29,6 +30,7 @@ type ClusterService struct {
 // ClusterServiceParams holds dependencies for ClusterService.
 type ClusterServiceParams struct {
 	Repo        ports.ClusterRepository
+	RBAC        ports.RBACService
 	Provisioner ports.ClusterProvisioner
 	VpcSvc      ports.VpcService
 	InstanceSvc ports.InstanceService
@@ -44,6 +46,7 @@ func NewClusterService(params ClusterServiceParams) (*ClusterService, error) {
 	}
 	return &ClusterService{
 		repo:        params.Repo,
+		rbacSvc:     params.RBAC,
 		provisioner: params.Provisioner,
 		vpcSvc:      params.VpcSvc,
 		instanceSvc: params.InstanceSvc,
@@ -55,12 +58,20 @@ func NewClusterService(params ClusterServiceParams) (*ClusterService, error) {
 
 // Default cluster configuration values.
 const (
-	defaultClusterVersion = "v1.29.0"
-	defaultWorkerCount    = 2
+	defaultClusterVersion      = "v1.29.0"
+	defaultWorkerCount         = 2
+	defaultBackupRetentionDays = 7
 )
 
 // CreateCluster initiates the provisioning of a new Kubernetes cluster.
 func (s *ClusterService) CreateCluster(ctx context.Context, params ports.CreateClusterParams) (*domain.Cluster, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionClusterCreate, "*"); err != nil {
+		return nil, err
+	}
+
 	// 1. Verify VPC exists and belongs to user
 	vpc, err := s.vpcSvc.GetVPC(ctx, params.VpcID.String())
 	if err != nil {
@@ -82,7 +93,7 @@ func (s *ClusterService) CreateCluster(ctx context.Context, params ports.CreateC
 	}
 
 	// Encrypt the SSH key before storing
-	encryptedKey, err := s.secretSvc.Encrypt(ctx, params.UserID, privKey)
+	encryptedKey, err := s.secretSvc.Encrypt(ctx, userID, privKey)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to encrypt cluster ssh key", err)
 	}
@@ -91,7 +102,8 @@ func (s *ClusterService) CreateCluster(ctx context.Context, params ports.CreateC
 	cluster := &domain.Cluster{
 		ID:                     uuid.New(),
 		Name:                   params.Name,
-		UserID:                 params.UserID,
+		UserID:                 userID,
+		TenantID:               tenantID,
 		VpcID:                  vpc.ID,
 		Version:                params.Version,
 		WorkerCount:            params.Workers,
@@ -101,6 +113,7 @@ func (s *ClusterService) CreateCluster(ctx context.Context, params ports.CreateC
 		PodCIDR:                params.PodCIDR,
 		ServiceCIDR:            params.ServiceCIDR,
 		SSHPrivateKeyEncrypted: encryptedKey,
+		BackupRetentionDays:    defaultBackupRetentionDays,
 		CreatedAt:              time.Now(),
 		UpdatedAt:              time.Now(),
 	}
@@ -141,6 +154,7 @@ func (s *ClusterService) CreateCluster(ctx context.Context, params ports.CreateC
 	job := domain.ClusterJob{
 		ClusterID: cluster.ID,
 		UserID:    cluster.UserID,
+		TenantID:  cluster.TenantID,
 		Type:      domain.ClusterJobProvision,
 	}
 
@@ -158,6 +172,13 @@ func (s *ClusterService) CreateCluster(ctx context.Context, params ports.CreateC
 
 // GetCluster retrieves cluster details by ID.
 func (s *ClusterService) GetCluster(ctx context.Context, id uuid.UUID) (*domain.Cluster, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionClusterRead, id.String()); err != nil {
+		return nil, err
+	}
+
 	cluster, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -170,11 +191,25 @@ func (s *ClusterService) GetCluster(ctx context.Context, id uuid.UUID) (*domain.
 
 // ListClusters retrieves all clusters for a user.
 func (s *ClusterService) ListClusters(ctx context.Context, userID uuid.UUID) ([]*domain.Cluster, error) {
+	uID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionClusterRead, "*"); err != nil {
+		return nil, err
+	}
+
 	return s.repo.ListByUserID(ctx, userID)
 }
 
 // DeleteCluster removes a cluster and its associated resources.
 func (s *ClusterService) DeleteCluster(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionClusterDelete, id.String()); err != nil {
+		return err
+	}
+
 	cluster, err := s.GetCluster(ctx, id)
 	if err != nil {
 		return err
@@ -190,6 +225,7 @@ func (s *ClusterService) DeleteCluster(ctx context.Context, id uuid.UUID) error 
 	job := domain.ClusterJob{
 		ClusterID: cluster.ID,
 		UserID:    cluster.UserID,
+		TenantID:  cluster.TenantID,
 		Type:      domain.ClusterJobDeprovision,
 	}
 
@@ -202,7 +238,14 @@ func (s *ClusterService) DeleteCluster(ctx context.Context, id uuid.UUID) error 
 
 // GetKubeconfig retrieves the encrypted kubeconfig for a cluster, optionally for a specific guest role.
 func (s *ClusterService) GetKubeconfig(ctx context.Context, id uuid.UUID, role string) (string, error) {
-	cluster, err := s.GetCluster(ctx, id)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionClusterRead, id.String()); err != nil {
+		return "", err
+	}
+
+	cluster, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return "", err
 	}
@@ -232,7 +275,14 @@ func (s *ClusterService) GetKubeconfig(ctx context.Context, id uuid.UUID, role s
 
 // RepairCluster triggers a re-run of critical provisioning steps (CNI, kube-proxy patches).
 func (s *ClusterService) RepairCluster(ctx context.Context, id uuid.UUID) error {
-	cluster, err := s.GetCluster(ctx, id)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionClusterUpdate, id.String()); err != nil {
+		return err
+	}
+
+	cluster, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -240,6 +290,7 @@ func (s *ClusterService) RepairCluster(ctx context.Context, id uuid.UUID) error 
 	go func() {
 		bgCtx := context.Background()
 		bgCtx = appcontext.WithUserID(bgCtx, cluster.UserID)
+		bgCtx = appcontext.WithTenantID(bgCtx, cluster.TenantID)
 		s.logger.Info("starting cluster repair", "cluster_id", cluster.ID)
 
 		if err := s.provisioner.Repair(bgCtx, cluster); err != nil {
@@ -255,7 +306,14 @@ func (s *ClusterService) RepairCluster(ctx context.Context, id uuid.UUID) error 
 
 // ScaleCluster adjusts the number of worker nodes in the cluster.
 func (s *ClusterService) ScaleCluster(ctx context.Context, id uuid.UUID, workers int) error {
-	cluster, err := s.GetCluster(ctx, id)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionClusterUpdate, id.String()); err != nil {
+		return err
+	}
+
+	cluster, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -275,6 +333,7 @@ func (s *ClusterService) ScaleCluster(ctx context.Context, id uuid.UUID, workers
 	go func() {
 		bgCtx := context.Background()
 		bgCtx = appcontext.WithUserID(bgCtx, cluster.UserID)
+		bgCtx = appcontext.WithTenantID(bgCtx, cluster.TenantID)
 		s.logger.Info("starting cluster scale", "cluster_id", cluster.ID, "new_workers", workers)
 
 		if err := s.provisioner.Scale(bgCtx, cluster); err != nil {
@@ -290,7 +349,14 @@ func (s *ClusterService) ScaleCluster(ctx context.Context, id uuid.UUID, workers
 
 // GetClusterHealth retrieves the operational status of the cluster.
 func (s *ClusterService) GetClusterHealth(ctx context.Context, id uuid.UUID) (*ports.ClusterHealth, error) {
-	cluster, err := s.GetCluster(ctx, id)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionClusterRead, id.String()); err != nil {
+		return nil, err
+	}
+
+	cluster, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +366,14 @@ func (s *ClusterService) GetClusterHealth(ctx context.Context, id uuid.UUID) (*p
 
 // UpgradeCluster initiates an asynchronous version upgrade.
 func (s *ClusterService) UpgradeCluster(ctx context.Context, id uuid.UUID, version string) error {
-	cluster, err := s.GetCluster(ctx, id)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionClusterUpdate, id.String()); err != nil {
+		return err
+	}
+
+	cluster, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -327,6 +400,7 @@ func (s *ClusterService) UpgradeCluster(ctx context.Context, id uuid.UUID, versi
 	job := domain.ClusterJob{
 		ClusterID: cluster.ID,
 		UserID:    cluster.UserID,
+		TenantID:  cluster.TenantID,
 		Type:      domain.ClusterJobUpgrade,
 		Version:   version,
 	}
@@ -343,7 +417,14 @@ func (s *ClusterService) UpgradeCluster(ctx context.Context, id uuid.UUID, versi
 }
 
 func (s *ClusterService) RotateSecrets(ctx context.Context, id uuid.UUID) error {
-	cluster, err := s.GetCluster(ctx, id)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionClusterUpdate, id.String()); err != nil {
+		return err
+	}
+
+	cluster, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -370,7 +451,14 @@ func (s *ClusterService) RotateSecrets(ctx context.Context, id uuid.UUID) error 
 }
 
 func (s *ClusterService) CreateBackup(ctx context.Context, id uuid.UUID) error {
-	cluster, err := s.GetCluster(ctx, id)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionClusterUpdate, id.String()); err != nil {
+		return err
+	}
+
+	cluster, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -385,7 +473,14 @@ func (s *ClusterService) CreateBackup(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *ClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, backupPath string) error {
-	cluster, err := s.GetCluster(ctx, id)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionClusterUpdate, id.String()); err != nil {
+		return err
+	}
+
+	cluster, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -408,6 +503,36 @@ func (s *ClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, backup
 	}
 
 	cluster.Status = domain.ClusterStatusRunning
+	return s.repo.Update(ctx, cluster)
+}
+
+func (s *ClusterService) SetBackupPolicy(ctx context.Context, id uuid.UUID, params ports.BackupPolicyParams) error {
+	cluster, err := s.GetCluster(ctx, id)
+	if err != nil {
+		return err
+	}
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionClusterUpdate, id.String()); err != nil {
+		return err
+	}
+	if params.Schedule == nil && params.RetentionDays == nil {
+		return errors.New(errors.InvalidInput, "at least one backup policy field must be provided")
+	}
+
+	if params.Schedule != nil {
+		cluster.BackupSchedule = *params.Schedule
+	}
+	if params.RetentionDays != nil {
+		if *params.RetentionDays <= 0 {
+			return errors.New(errors.InvalidInput, "invalid retention days")
+		}
+		cluster.BackupRetentionDays = *params.RetentionDays
+	} else if params.Schedule != nil && *params.Schedule == "" {
+		cluster.BackupRetentionDays = defaultBackupRetentionDays
+	}
+	cluster.UpdatedAt = time.Now()
+
 	return s.repo.Update(ctx, cluster)
 }
 
@@ -490,7 +615,7 @@ func (s *ClusterService) UpdateNodeGroup(ctx context.Context, clusterID uuid.UUI
 	oldMin, oldMax, oldDesired := targetGroup.MinSize, targetGroup.MaxSize, targetGroup.CurrentSize
 	targetGroup.MinSize = newMin
 	targetGroup.MaxSize = newMax
-	
+
 	oldWorkerCount := cluster.WorkerCount
 	if params.DesiredSize != nil {
 		diff := newDesired - oldDesired

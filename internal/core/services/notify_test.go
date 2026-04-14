@@ -15,6 +15,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,18 +25,36 @@ func setupNotifyServiceIntegrationTest(t *testing.T) (ports.NotifyService, ports
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
 
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	notifyRepo := postgres.NewPostgresNotifyRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
 
 	eventRepo := postgres.NewEventRepository(db)
-	eventSvc := services.NewEventService(eventRepo, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	eventSvc := services.NewEventService(services.EventServiceParams{
+		Repo:    eventRepo,
+		RBACSvc: rbacSvc,
+		Publisher:     nil,
+		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
 
 	queueRepo := postgres.NewPostgresQueueRepository(db)
-	queueSvc := services.NewQueueService(queueRepo, eventSvc, auditSvc)
+	queueSvc := services.NewQueueService(queueRepo, rbacSvc, eventSvc, auditSvc, slog.Default())
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := services.NewNotifyService(notifyRepo, queueSvc, eventSvc, auditSvc, logger)
+	svc := services.NewNotifyService(services.NotifyServiceParams{
+		Repo:     notifyRepo,
+		RBACSvc:  rbacSvc,
+		QueueSvc: queueSvc,
+		EventSvc: eventSvc,
+		AuditSvc: auditSvc,
+		Logger:   logger,
+	})
 
 	return svc, notifyRepo, queueSvc, ctx
 }

@@ -4,6 +4,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,23 +17,29 @@ import (
 // QueueService manages queue resources and message operations.
 type QueueService struct {
 	repo     ports.QueueRepository
+	rbacSvc  ports.RBACService
 	eventSvc ports.EventService
 	auditSvc ports.AuditService
+	logger   *slog.Logger
 }
 
 // NewQueueService constructs a QueueService with its dependencies.
-func NewQueueService(repo ports.QueueRepository, eventSvc ports.EventService, auditSvc ports.AuditService) ports.QueueService {
+func NewQueueService(repo ports.QueueRepository, rbacSvc ports.RBACService, eventSvc ports.EventService, auditSvc ports.AuditService, logger *slog.Logger) ports.QueueService {
 	return &QueueService{
 		repo:     repo,
+		rbacSvc:  rbacSvc,
 		eventSvc: eventSvc,
 		auditSvc: auditSvc,
+		logger:   logger,
 	}
 }
 
 func (s *QueueService) CreateQueue(ctx context.Context, name string, opts *ports.CreateQueueOptions) (*domain.Queue, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueCreate, "*"); err != nil {
+		return nil, err
 	}
 
 	// Check if already exists
@@ -74,19 +81,25 @@ func (s *QueueService) CreateQueue(ctx context.Context, name string, opts *ports
 		return nil, err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "QUEUE_CREATED", q.ID.String(), "QUEUE", nil)
+	if err := s.eventSvc.RecordEvent(ctx, "QUEUE_CREATED", q.ID.String(), "QUEUE", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "QUEUE_CREATED", "queue_id", q.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, q.UserID, "queue.create", "queue", q.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, q.UserID, "queue.create", "queue", q.ID.String(), map[string]interface{}{
 		"name": q.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "queue.create", "queue_id", q.ID, "error", err)
+	}
 
 	return q, nil
 }
 
 func (s *QueueService) GetQueue(ctx context.Context, id uuid.UUID) (*domain.Queue, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueRead, id.String()); err != nil {
+		return nil, err
 	}
 
 	q, err := s.repo.GetByID(ctx, id, userID)
@@ -102,35 +115,62 @@ func (s *QueueService) GetQueue(ctx context.Context, id uuid.UUID) (*domain.Queu
 
 func (s *QueueService) ListQueues(ctx context.Context) ([]*domain.Queue, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, fmt.Errorf("unauthorized")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueRead, "*"); err != nil {
+		return nil, err
 	}
+
 	return s.repo.List(ctx, userID)
 }
 
 func (s *QueueService) DeleteQueue(ctx context.Context, id uuid.UUID) error {
-	q, err := s.GetQueue(ctx, id)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueDelete, id.String()); err != nil {
+		return err
+	}
+
+	q, err := s.repo.GetByID(ctx, id, userID)
 	if err != nil {
 		return err
+	}
+	if q == nil {
+		return fmt.Errorf("queue not found")
 	}
 
 	if err := s.repo.Delete(ctx, q.ID); err != nil {
 		return err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "QUEUE_DELETED", q.ID.String(), "QUEUE", nil)
+	if err := s.eventSvc.RecordEvent(ctx, "QUEUE_DELETED", q.ID.String(), "QUEUE", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "QUEUE_DELETED", "queue_id", id, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, q.UserID, "queue.delete", "queue", q.ID.String(), map[string]interface{}{
+	if err := s.auditSvc.Log(ctx, q.UserID, "queue.delete", "queue", q.ID.String(), map[string]interface{}{
 		"name": q.Name,
-	})
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "queue.delete", "queue_id", id, "error", err)
+	}
 
 	return nil
 }
 
 func (s *QueueService) SendMessage(ctx context.Context, queueID uuid.UUID, body string) (*domain.Message, error) {
-	q, err := s.GetQueue(ctx, queueID)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueWrite, queueID.String()); err != nil {
+		return nil, err
+	}
+
+	q, err := s.repo.GetByID(ctx, queueID, userID)
 	if err != nil {
 		return nil, err
+	}
+	if q == nil {
+		return nil, fmt.Errorf("queue not found")
 	}
 
 	if len(body) > q.MaxMessageSize {
@@ -142,7 +182,9 @@ func (s *QueueService) SendMessage(ctx context.Context, queueID uuid.UUID, body 
 		return nil, err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "MESSAGE_SENT", m.ID.String(), "MESSAGE", map[string]interface{}{"queue_id": q.ID})
+	if err := s.eventSvc.RecordEvent(ctx, "MESSAGE_SENT", m.ID.String(), "MESSAGE", map[string]interface{}{"queue_id": q.ID}); err != nil {
+		s.logger.Warn("failed to record event", "action", "MESSAGE_SENT", "message_id", m.ID, "error", err)
+	}
 
 	platform.QueueMessagesTotal.WithLabelValues(q.ID.String(), "send").Inc()
 
@@ -150,9 +192,19 @@ func (s *QueueService) SendMessage(ctx context.Context, queueID uuid.UUID, body 
 }
 
 func (s *QueueService) ReceiveMessages(ctx context.Context, queueID uuid.UUID, maxMessages int) ([]*domain.Message, error) {
-	q, err := s.GetQueue(ctx, queueID)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueRead, queueID.String()); err != nil {
+		return nil, err
+	}
+
+	q, err := s.repo.GetByID(ctx, queueID, userID)
 	if err != nil {
 		return nil, err
+	}
+	if q == nil {
+		return nil, fmt.Errorf("queue not found")
 	}
 
 	if maxMessages <= 0 {
@@ -168,7 +220,9 @@ func (s *QueueService) ReceiveMessages(ctx context.Context, queueID uuid.UUID, m
 	}
 
 	for _, m := range msgs {
-		_ = s.eventSvc.RecordEvent(ctx, "MESSAGE_RECEIVED", m.ID.String(), "MESSAGE", map[string]interface{}{"queue_id": q.ID})
+		if err := s.eventSvc.RecordEvent(ctx, "MESSAGE_RECEIVED", m.ID.String(), "MESSAGE", map[string]interface{}{"queue_id": q.ID}); err != nil {
+			s.logger.Warn("failed to record event", "action", "MESSAGE_RECEIVED", "message_id", m.ID, "error", err)
+		}
 		platform.QueueMessagesTotal.WithLabelValues(q.ID.String(), "receive").Inc()
 	}
 
@@ -176,16 +230,28 @@ func (s *QueueService) ReceiveMessages(ctx context.Context, queueID uuid.UUID, m
 }
 
 func (s *QueueService) DeleteMessage(ctx context.Context, queueID uuid.UUID, receiptHandle string) error {
-	q, err := s.GetQueue(ctx, queueID)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueWrite, queueID.String()); err != nil {
+		return err
+	}
+
+	q, err := s.repo.GetByID(ctx, queueID, userID)
 	if err != nil {
 		return err
+	}
+	if q == nil {
+		return fmt.Errorf("queue not found")
 	}
 
 	if err := s.repo.DeleteMessage(ctx, q.ID, receiptHandle); err != nil {
 		return err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "MESSAGE_DELETED", receiptHandle, "MESSAGE", map[string]interface{}{"queue_id": q.ID})
+	if err := s.eventSvc.RecordEvent(ctx, "MESSAGE_DELETED", receiptHandle, "MESSAGE", map[string]interface{}{"queue_id": q.ID}); err != nil {
+		s.logger.Warn("failed to record event", "action", "MESSAGE_DELETED", "receipt_handle", receiptHandle, "error", err)
+	}
 
 	platform.QueueMessagesTotal.WithLabelValues(q.ID.String(), "delete").Inc()
 
@@ -193,9 +259,19 @@ func (s *QueueService) DeleteMessage(ctx context.Context, queueID uuid.UUID, rec
 }
 
 func (s *QueueService) PurgeQueue(ctx context.Context, queueID uuid.UUID) error {
-	q, err := s.GetQueue(ctx, queueID)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionQueueWrite, queueID.String()); err != nil {
+		return err
+	}
+
+	q, err := s.repo.GetByID(ctx, queueID, userID)
 	if err != nil {
 		return err
+	}
+	if q == nil {
+		return fmt.Errorf("queue not found")
 	}
 
 	_, err = s.repo.PurgeMessages(ctx, q.ID)
@@ -203,9 +279,13 @@ func (s *QueueService) PurgeQueue(ctx context.Context, queueID uuid.UUID) error 
 		return err
 	}
 
-	_ = s.eventSvc.RecordEvent(ctx, "QUEUE_PURGED", q.ID.String(), "QUEUE", nil)
+	if err := s.eventSvc.RecordEvent(ctx, "QUEUE_PURGED", q.ID.String(), "QUEUE", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "QUEUE_PURGED", "queue_id", q.ID, "error", err)
+	}
 
-	_ = s.auditSvc.Log(ctx, q.UserID, "queue.purge", "queue", q.ID.String(), map[string]interface{}{})
+	if err := s.auditSvc.Log(ctx, q.UserID, "queue.purge", "queue", q.ID.String(), map[string]interface{}{}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "queue.purge", "queue_id", q.ID, "error", err)
+	}
 
 	return nil
 }

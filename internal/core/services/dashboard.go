@@ -5,11 +5,13 @@ import (
 	"context"
 	"log/slog"
 
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
 type dashboardService struct {
+	rbacSvc   ports.RBACService
 	instances ports.InstanceRepository
 	volumes   ports.VolumeRepository
 	vpcs      ports.VpcRepository
@@ -19,6 +21,7 @@ type dashboardService struct {
 
 // NewDashboardService creates a new dashboard service with all required repositories.
 func NewDashboardService(
+	rbacSvc ports.RBACService,
 	instances ports.InstanceRepository,
 	volumes ports.VolumeRepository,
 	vpcs ports.VpcRepository,
@@ -26,6 +29,7 @@ func NewDashboardService(
 	logger *slog.Logger,
 ) ports.DashboardService {
 	return &dashboardService{
+		rbacSvc:   rbacSvc,
 		instances: instances,
 		volumes:   volumes,
 		vpcs:      vpcs,
@@ -36,6 +40,13 @@ func NewDashboardService(
 
 // GetSummary aggregates resource counts from all repositories.
 func (s *dashboardService) GetSummary(ctx context.Context) (*domain.ResourceSummary, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDashboardRead, "*"); err != nil {
+		return nil, err
+	}
+
 	summary := &domain.ResourceSummary{}
 
 	// Count instances
@@ -87,6 +98,13 @@ func (s *dashboardService) GetSummary(ctx context.Context) (*domain.ResourceSumm
 
 // GetRecentEvents returns the most recent audit events.
 func (s *dashboardService) GetRecentEvents(ctx context.Context, limit int) ([]*domain.Event, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDashboardRead, "*"); err != nil {
+		return nil, err
+	}
+
 	events, err := s.events.List(ctx, limit)
 	if err != nil {
 		s.logger.Error("failed to list events", slog.String("error", err.Error()))
@@ -97,6 +115,7 @@ func (s *dashboardService) GetRecentEvents(ctx context.Context, limit int) ([]*d
 
 // GetStats returns the full dashboard statistics including summary and recent events.
 func (s *dashboardService) GetStats(ctx context.Context) (*domain.DashboardStats, error) {
+	// RBAC checked in GetSummary and GetRecentEvents
 	summary, err := s.GetSummary(ctx)
 	if err != nil {
 		return nil, err

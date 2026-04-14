@@ -13,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,12 +27,24 @@ func setupSubnetServiceTest(t *testing.T) (*services.SubnetService, *postgres.Su
 	repo := postgres.NewSubnetRepository(db)
 	vpcRepo := postgres.NewVpcRepository(db)
 
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewSubnetService(repo, vpcRepo, auditSvc, logger)
+	svc := services.NewSubnetService(services.SubnetServiceParams{
+		Repo:     repo,
+		RBACSvc:  rbacSvc,
+		VpcRepo:  vpcRepo,
+		AuditSvc: auditSvc,
+		Logger:   logger,
+	})
 	return svc, repo, vpcRepo, ctx
 }
 

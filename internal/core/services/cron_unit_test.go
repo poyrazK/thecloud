@@ -2,6 +2,8 @@ package services_test
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -17,7 +19,10 @@ func TestCronServiceUnit(t *testing.T) {
 	repo := new(MockCronRepository)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
-	svc := services.NewCronService(repo, eventSvc, auditSvc)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewCronService(repo, rbacSvc, eventSvc, auditSvc, slog.Default())
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -33,6 +38,12 @@ func TestCronServiceUnit(t *testing.T) {
 		assert.NotNil(t, job)
 		assert.Equal(t, "test-job", job.Name)
 		repo.AssertExpectations(t)
+	})
+
+	t.Run("CreateJob_InvalidSchedule", func(t *testing.T) {
+		_, err := svc.CreateJob(ctx, "fail", "invalid", "http://url", "GET", "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid cron schedule")
 	})
 
 	t.Run("ListJobs", func(t *testing.T) {
@@ -66,6 +77,14 @@ func TestCronServiceUnit(t *testing.T) {
 
 		err := svc.PauseJob(ctx, jobID)
 		require.NoError(t, err)
+	})
+
+	t.Run("PauseJob_NotFound", func(t *testing.T) {
+		jobID := uuid.New()
+		repo.On("GetJobByID", mock.Anything, jobID, userID).Return(nil, fmt.Errorf("not found")).Once()
+
+		err := svc.PauseJob(ctx, jobID)
+		require.Error(t, err)
 	})
 
 	t.Run("ResumeJob", func(t *testing.T) {

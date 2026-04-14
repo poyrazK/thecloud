@@ -12,6 +12,7 @@ import (
 type Subnet struct {
 	ID               uuid.UUID `json:"id"`
 	UserID           uuid.UUID `json:"user_id"`
+	TenantID         uuid.UUID `json:"tenant_id"`
 	VPCID            uuid.UUID `json:"vpc_id"`
 	Name             string    `json:"name"`
 	CIDRBlock        string    `json:"cidr_block"`        // IPv4 range (e.g. "10.0.1.0/24")

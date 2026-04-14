@@ -24,27 +24,27 @@ func NewIdentityRepository(db DB) *IdentityRepository {
 
 func (r *IdentityRepository) CreateAPIKey(ctx context.Context, key *domain.APIKey) error {
 	query := `
-		INSERT INTO api_keys (id, user_id, key, name, created_at, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO api_keys (id, user_id, tenant_id, key, key_hash, name, created_at, expires_at, default_tenant_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
-	_, err := r.db.Exec(ctx, query, key.ID, key.UserID, key.Key, key.Name, key.CreatedAt, key.ExpiresAt)
+	_, err := r.db.Exec(ctx, query, key.ID, key.UserID, key.TenantID, key.Key, key.KeyHash, key.Name, key.CreatedAt, key.ExpiresAt, key.DefaultTenantID)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to create api key", err)
 	}
 	return nil
 }
 
-func (r *IdentityRepository) GetAPIKeyByKey(ctx context.Context, keyStr string) (*domain.APIKey, error) {
+func (r *IdentityRepository) GetAPIKeyByHash(ctx context.Context, keyHash string) (*domain.APIKey, error) {
 	query := `
-		SELECT id, user_id, key, name, created_at, last_used, default_tenant_id, expires_at
+		SELECT id, user_id, tenant_id, key, name, created_at, last_used, default_tenant_id, expires_at
 		FROM api_keys
-		WHERE key = $1
+		WHERE key_hash = $1
 	`
-	return r.scanAPIKey(r.db.QueryRow(ctx, query, keyStr), errors.Unauthorized)
+	return r.scanAPIKey(r.db.QueryRow(ctx, query, keyHash), errors.Unauthorized)
 }
 func (r *IdentityRepository) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error) {
 	query := `
-		SELECT id, user_id, key, name, created_at, last_used, default_tenant_id, expires_at
+		SELECT id, user_id, tenant_id, key, name, created_at, last_used, default_tenant_id, expires_at
 		FROM api_keys
 		WHERE id = $1
 	`
@@ -53,7 +53,7 @@ func (r *IdentityRepository) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*
 
 func (r *IdentityRepository) ListAPIKeysByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.APIKey, error) {
 	query := `
-		SELECT id, user_id, key, name, created_at, last_used, default_tenant_id, expires_at
+		SELECT id, user_id, tenant_id, key, name, created_at, last_used, default_tenant_id, expires_at
 		FROM api_keys
 		WHERE user_id = $1
 	`
@@ -68,7 +68,7 @@ func (r *IdentityRepository) scanAPIKey(row pgx.Row, notFoundType errors.Type) (
 	var key domain.APIKey
 	var lastUsed *time.Time
 	err := row.Scan(
-		&key.ID, &key.UserID, &key.Key, &key.Name, &key.CreatedAt, &lastUsed, &key.DefaultTenantID, &key.ExpiresAt,
+		&key.ID, &key.UserID, &key.TenantID, &key.Key, &key.Name, &key.CreatedAt, &lastUsed, &key.DefaultTenantID, &key.ExpiresAt,
 	)
 	if err != nil {
 		if stdlib_errors.Is(err, pgx.ErrNoRows) {

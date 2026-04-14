@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/ovs"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,7 +27,14 @@ func setupSecurityGroupServiceIntegrationTest(t *testing.T) (ports.SecurityGroup
 	repo := postgres.NewSecurityGroupRepository(db)
 	vpcRepo := postgres.NewVpcRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
@@ -35,7 +43,7 @@ func setupSecurityGroupServiceIntegrationTest(t *testing.T) (ports.SecurityGroup
 		t.Skipf("Skipping OVS integration: %v", err)
 	}
 
-	svc := services.NewSecurityGroupService(repo, vpcRepo, network, auditSvc, logger)
+	svc := services.NewSecurityGroupService(repo, rbacSvc, vpcRepo, network, auditSvc, logger)
 
 	return svc, repo, vpcRepo, ctx
 }

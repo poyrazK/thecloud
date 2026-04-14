@@ -18,20 +18,20 @@ const (
 
 // Object represents stored object metadata in the storage subsystem.
 type Object struct {
-	ID           uuid.UUID    `json:"id"`
-	UserID       uuid.UUID    `json:"user_id"`
-	ARN          string       `json:"arn"`
-	Bucket       string       `json:"bucket"`
-	Key          string       `json:"key"`
-	VersionID    string       `json:"version_id"`
-	IsLatest     bool         `json:"is_latest"`
-	SizeBytes    int64        `json:"size_bytes"`
-	ContentType  string       `json:"content_type"`
-	// Checksum is the SHA-256 hash of the object content.
-	Checksum     string       `json:"checksum,omitempty" example:"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" validate:"min=64,max=64"`
-	UploadStatus UploadStatus `json:"upload_status" example:"AVAILABLE"`
-	CreatedAt    time.Time    `json:"created_at"`
-	DeletedAt    *time.Time   `json:"deleted_at,omitempty"`
+	ID           uuid.UUID    `json:"id"` 
+	UserID       uuid.UUID    `json:"user_id"` 
+	TenantID     uuid.UUID    `json:"tenant_id"` 
+	ARN          string       `json:"arn"` 
+	Bucket       string       `json:"bucket"` 
+	Key          string       `json:"key"` 
+	VersionID    string       `json:"version_id"` 
+	IsLatest     bool         `json:"is_latest"` 
+	SizeBytes    int64        `json:"size_bytes"` 
+	ContentType  string       `json:"content_type"` 
+	Checksum     string       `json:"checksum,omitempty"` 
+	UploadStatus UploadStatus `json:"upload_status,omitempty"` 
+	CreatedAt    time.Time    `json:"created_at"` 
+	DeletedAt    *time.Time   `json:"deleted_at,omitempty"` 
 	Data         io.Reader    `json:"-"` // Stream for reading/writing
 }
 
@@ -41,6 +41,7 @@ type Bucket struct {
 	ID                uuid.UUID `json:"id"`
 	Name              string    `json:"name"`
 	UserID            uuid.UUID `json:"user_id"`
+	TenantID          uuid.UUID `json:"tenant_id"`
 	IsPublic          bool      `json:"is_public"`
 	VersioningEnabled bool      `json:"versioning_enabled"`
 	EncryptionEnabled bool      `json:"encryption_enabled"`
@@ -66,6 +67,7 @@ type StorageCluster struct {
 type MultipartUpload struct {
 	ID        uuid.UUID `json:"id"`
 	UserID    uuid.UUID `json:"user_id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
 	Bucket    string    `json:"bucket"`
 	Key       string    `json:"key"`
 	CreatedAt time.Time `json:"created_at"`

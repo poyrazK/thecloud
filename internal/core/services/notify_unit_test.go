@@ -21,7 +21,17 @@ func TestNotifyServiceUnit(t *testing.T) {
 	mockQueueSvc := new(MockQueueService)
 	mockEventSvc := new(MockEventService)
 	mockAuditSvc := new(MockAuditService)
-	svc := services.NewNotifyService(mockRepo, mockQueueSvc, mockEventSvc, mockAuditSvc, slog.Default())
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewNotifyService(services.NotifyServiceParams{
+		Repo:     mockRepo,
+		RBACSvc:  rbacSvc,
+		QueueSvc: mockQueueSvc,
+		EventSvc: mockEventSvc,
+		AuditSvc: mockAuditSvc,
+		Logger:   slog.Default(),
+	})
 
 	ctx := context.Background()
 	userID := uuid.New()

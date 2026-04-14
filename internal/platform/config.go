@@ -39,6 +39,9 @@ type Config struct {
 	FirecrackerKernel    string
 	FirecrackerRootfs    string
 	FirecrackerMockMode  bool
+	VaultAddress         string
+	VaultToken           string
+	VaultMountPath       string
 }
 
 // NewConfig loads configuration from the environment with defaults.
@@ -76,6 +79,9 @@ func NewConfig() (*Config, error) {
 		FirecrackerKernel:    getEnv("FIRECRACKER_KERNEL", "/var/lib/thecloud/vmlinux"),
 		FirecrackerRootfs:    getEnv("FIRECRACKER_ROOTFS", "/var/lib/thecloud/rootfs.ext4"),
 		FirecrackerMockMode:  getEnv("FIRECRACKER_MOCK_MODE", "false") == "true",
+		VaultAddress:         getEnv("VAULT_ADDR", "http://localhost:8200"),
+		VaultToken:           getEnv("VAULT_TOKEN", ""),
+		VaultMountPath:       getEnv("VAULT_MOUNT_PATH", "secret/data/thecloud/rds"),
 	}, nil
 }
 

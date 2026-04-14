@@ -38,7 +38,8 @@ func (s *cachedIdentityService) CreateKey(ctx context.Context, userID uuid.UUID,
 }
 
 func (s *cachedIdentityService) ValidateAPIKey(ctx context.Context, key string) (*domain.APIKey, error) {
-	cacheKey := fmt.Sprintf("apikey:%s", key)
+	keyHash := computeKeyHash(key)
+	cacheKey := fmt.Sprintf("apikey:hash:%s", keyHash)
 
 	// Try cache
 	val, err := s.redis.Get(ctx, cacheKey).Result()
@@ -67,13 +68,46 @@ func (s *cachedIdentityService) ListKeys(ctx context.Context, userID uuid.UUID) 
 	return s.base.ListKeys(ctx, userID)
 }
 
+func (s *cachedIdentityService) GetAPIKeyByID(ctx context.Context, id uuid.UUID) (*domain.APIKey, error) {
+	return s.base.GetAPIKeyByID(ctx, id)
+}
+
 func (s *cachedIdentityService) RevokeKey(ctx context.Context, userID uuid.UUID, id uuid.UUID) error {
-	// For simplicity, we don't know the key string here to invalidate it by string.
-	// In a real system, we'd either invalidate all keys for the user or store a mapping.
-	// For 1k users, we'll just let the 5m TTL handle it or invalidate by ID if we change cache structure.
-	return s.base.RevokeKey(ctx, userID, id)
+	// Fetch key by ID (base, not cached) to get raw key for cache invalidation
+	key, err := s.base.GetAPIKeyByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	keyHash := computeKeyHash(key.Key)
+
+	// Call authoritative revocation first; only delete from cache if it succeeds
+	if err := s.base.RevokeKey(ctx, userID, id); err != nil {
+		return err
+	}
+
+	if err := s.redis.Del(ctx, fmt.Sprintf("apikey:hash:%s", keyHash)).Err(); err != nil {
+		s.logger.Warn("failed to delete API key from cache",
+			"keyHash", keyHash, "userID", userID, "id", id, "error", err)
+	}
+	return nil
 }
 
 func (s *cachedIdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uuid.UUID) (*domain.APIKey, error) {
-	return s.base.RotateKey(ctx, userID, id)
+	// Fetch old key to invalidate its cache entry
+	oldKey, err := s.base.GetAPIKeyByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	oldHash := computeKeyHash(oldKey.Key)
+
+	newKey, err := s.base.RotateKey(ctx, userID, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.redis.Del(ctx, fmt.Sprintf("apikey:hash:%s", oldHash)).Err(); err != nil {
+		s.logger.Warn("failed to delete old API key hash from cache",
+			"keyHash", oldHash, "userID", userID, "id", id, "error", err)
+	}
+	return newKey, nil
 }

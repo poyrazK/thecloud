@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -18,6 +19,15 @@ type MockCheckable struct {
 
 func (m *MockCheckable) Ping(ctx context.Context) error {
 	return m.Called(ctx).Error(0)
+}
+
+type MockCheckableWithStatus struct {
+	MockCheckable
+}
+
+func (m *MockCheckableWithStatus) GetStatus(ctx context.Context) map[string]string {
+	args := m.Called(ctx)
+	return args.Get(0).(map[string]string)
 }
 
 type MockClusterService struct {
@@ -65,6 +75,9 @@ func (m *MockClusterService) CreateBackup(ctx context.Context, id uuid.UUID) err
 func (m *MockClusterService) RestoreBackup(ctx context.Context, id uuid.UUID, backupPath string) error {
 	return nil
 }
+func (m *MockClusterService) SetBackupPolicy(ctx context.Context, id uuid.UUID, params ports.BackupPolicyParams) error {
+	return nil
+}
 
 func (m *MockClusterService) AddNodeGroup(ctx context.Context, clusterID uuid.UUID, params ports.NodeGroupParams) (*domain.NodeGroup, error) {
 	return nil, nil
@@ -84,14 +97,14 @@ func (m *MockClusterService) RemoveNode(ctx context.Context, clusterID, nodeID u
 }
 
 func TestHealthService_Check_Unit(t *testing.T) {
-	mockDB := new(MockCheckable)
-	mockCompute := new(MockComputeBackend)
-	mockCluster := new(MockClusterService)
-	svc := services.NewHealthServiceImpl(mockDB, mockCompute, mockCluster)
-
 	ctx := context.Background()
 
 	t.Run("AllUP", func(t *testing.T) {
+		mockDB := new(MockCheckable)
+		mockCompute := new(MockComputeBackend)
+		mockCluster := new(MockClusterService)
+		svc := services.NewHealthServiceImpl(mockDB, mockCompute, mockCluster)
+
 		mockDB.On("Ping", mock.Anything).Return(nil).Once()
 		mockCompute.On("Ping", mock.Anything).Return(nil).Once()
 		mockCluster.On("ListClusters", mock.Anything, uuid.Nil).Return([]*domain.Cluster{}, nil).Once()
@@ -104,6 +117,11 @@ func TestHealthService_Check_Unit(t *testing.T) {
 	})
 
 	t.Run("DBDown", func(t *testing.T) {
+		mockDB := new(MockCheckable)
+		mockCompute := new(MockComputeBackend)
+		mockCluster := new(MockClusterService)
+		svc := services.NewHealthServiceImpl(mockDB, mockCompute, mockCluster)
+
 		mockDB.On("Ping", mock.Anything).Return(assert.AnError).Once()
 		mockCompute.On("Ping", mock.Anything).Return(nil).Once()
 		mockCluster.On("ListClusters", mock.Anything, uuid.Nil).Return([]*domain.Cluster{}, nil).Once()
@@ -111,5 +129,53 @@ func TestHealthService_Check_Unit(t *testing.T) {
 		res := svc.Check(ctx)
 		assert.Equal(t, "DEGRADED", res.Status)
 		assert.Contains(t, res.Checks["database_primary"], "DISCONNECTED")
+	})
+
+	t.Run("ComputeDown", func(t *testing.T) {
+		mockDB := new(MockCheckable)
+		mockCompute := new(MockComputeBackend)
+		mockCluster := new(MockClusterService)
+		svc := services.NewHealthServiceImpl(mockDB, mockCompute, mockCluster)
+
+		mockDB.On("Ping", mock.Anything).Return(nil).Once()
+		mockCompute.On("Ping", mock.Anything).Return(assert.AnError).Once()
+		mockCluster.On("ListClusters", mock.Anything, uuid.Nil).Return([]*domain.Cluster{}, nil).Once()
+
+		res := svc.Check(ctx)
+		assert.Equal(t, "DEGRADED", res.Status)
+		assert.Contains(t, res.Checks["docker"], "DISCONNECTED")
+	})
+
+	t.Run("K8sDegraded", func(t *testing.T) {
+		mockDB := new(MockCheckable)
+		mockCompute := new(MockComputeBackend)
+		mockCluster := new(MockClusterService)
+		svc := services.NewHealthServiceImpl(mockDB, mockCompute, mockCluster)
+
+		mockDB.On("Ping", mock.Anything).Return(nil).Once()
+		mockCompute.On("Ping", mock.Anything).Return(nil).Once()
+		mockCluster.On("ListClusters", mock.Anything, uuid.Nil).Return(nil, fmt.Errorf("k8s fail")).Once()
+
+		res := svc.Check(ctx)
+		assert.Equal(t, "DEGRADED", res.Status)
+		assert.Contains(t, res.Checks["kubernetes_service"], "DEGRADED")
+	})
+
+	t.Run("ReplicaDegraded", func(t *testing.T) {
+		mockDB := new(MockCheckableWithStatus)
+		mockCompute := new(MockComputeBackend)
+		mockCluster := new(MockClusterService)
+		svc := services.NewHealthServiceImpl(mockDB, mockCompute, mockCluster)
+
+		mockDB.On("Ping", mock.Anything).Return(nil).Once()
+		mockDB.On("GetStatus", mock.Anything).Return(map[string]string{
+			"database_replica": "RECONNECTING",
+		}).Once()
+		mockCompute.On("Ping", mock.Anything).Return(nil).Once()
+		mockCluster.On("ListClusters", mock.Anything, uuid.Nil).Return([]*domain.Cluster{}, nil).Once()
+
+		res := svc.Check(ctx)
+		assert.Equal(t, "DEGRADED", res.Status)
+		assert.Equal(t, "RECONNECTING", res.Checks["database_replica"])
 	})
 }

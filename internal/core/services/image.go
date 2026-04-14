@@ -15,27 +15,44 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+// ImageServiceParams defines the dependencies for ImageService.
+type ImageServiceParams struct {
+	Repo       ports.ImageRepository
+	RBACSvc    ports.RBACService
+	FileStore  ports.FileStore
+	Logger     *slog.Logger
+	BucketName string
+}
+
 type imageService struct {
 	repo       ports.ImageRepository
+	rbacSvc    ports.RBACService
 	fileStore  ports.FileStore
 	bucketName string
 	logger     *slog.Logger
 }
 
 // NewImageService constructs the image service for managing custom images.
-func NewImageService(repo ports.ImageRepository, fileStore ports.FileStore, logger *slog.Logger) ports.ImageService {
+func NewImageService(params ImageServiceParams) ports.ImageService {
+	bucketName := params.BucketName
+	if bucketName == "" {
+		bucketName = "images"
+	}
 	return &imageService{
-		repo:       repo,
-		fileStore:  fileStore,
-		bucketName: "images",
-		logger:     logger,
+		repo:       params.Repo,
+		rbacSvc:    params.RBACSvc,
+		fileStore:  params.FileStore,
+		bucketName: bucketName,
+		logger:     params.Logger,
 	}
 }
 
 func (s *imageService) RegisterImage(ctx context.Context, name, description, os, version string, isPublic bool) (*domain.Image, error) {
 	userID := appcontext.UserIDFromContext(ctx)
-	if userID == uuid.Nil {
-		return nil, errors.New(errors.Unauthorized, "user not found in context")
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionImageCreate, "*"); err != nil {
+		return nil, err
 	}
 
 	img := &domain.Image{
@@ -46,6 +63,7 @@ func (s *imageService) RegisterImage(ctx context.Context, name, description, os,
 		Version:     version,
 		IsPublic:    isPublic,
 		UserID:      userID,
+		TenantID:    &tenantID,
 		Status:      domain.ImageStatusPending,
 		Format:      "qcow2",
 		CreatedAt:   time.Now(),
@@ -60,14 +78,26 @@ func (s *imageService) RegisterImage(ctx context.Context, name, description, os,
 }
 
 func (s *imageService) UploadImage(ctx context.Context, id uuid.UUID, reader io.Reader) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionImageCreate, id.String()); err != nil {
+		return err
+	}
+
 	img, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
 
-	// Permission check (only owner can upload)
-	userID := appcontext.UserIDFromContext(ctx)
+	// Tenant boundary check
+	if img.TenantID != nil && *img.TenantID != tenantID {
+		return errors.New(errors.NotFound, "image not found")
+	}
+
+	// Double check ownership via RBAC or simple ID match if non-admin
 	if img.UserID != userID {
+		// Try authorizing as admin for override if needed, but usually upload is owner-only
 		return errors.New(errors.Forbidden, "cannot upload to someone else's image")
 	}
 
@@ -90,27 +120,72 @@ func (s *imageService) UploadImage(ctx context.Context, id uuid.UUID, reader io.
 }
 
 func (s *imageService) GetImage(ctx context.Context, id uuid.UUID) (*domain.Image, error) {
-	return s.repo.GetByID(ctx, id)
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionImageRead, id.String()); err != nil {
+		return nil, err
+	}
+
+	img, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Tenant boundary check
+	if img.TenantID != nil && *img.TenantID != tenantID {
+		return nil, errors.New(errors.NotFound, "image not found")
+	}
+
+	return img, nil
 }
 
 func (s *imageService) ListImages(ctx context.Context, userID uuid.UUID, includePublic bool) ([]*domain.Image, error) {
+	uID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionImageRead, "*"); err != nil {
+		return nil, err
+	}
+
+	// Horizontal access check: if requesting images for another user, need elevated permission
+	if userID != uID {
+		if err := s.rbacSvc.Authorize(ctx, uID, tenantID, domain.PermissionImageReadAll, "*"); err != nil {
+			return nil, errors.New(errors.Forbidden, "cannot list images for another user")
+		}
+	}
+
 	return s.repo.List(ctx, userID, includePublic)
 }
 
 func (s *imageService) DeleteImage(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionImageDelete, id.String()); err != nil {
+		return err
+	}
+
 	img, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
 
+	// Tenant boundary check
+	if img.TenantID != nil && *img.TenantID != tenantID {
+		return errors.New(errors.NotFound, "image not found")
+	}
+
 	// Permission check
-	userID := appcontext.UserIDFromContext(ctx)
 	if img.UserID != userID {
 		return errors.New(errors.Forbidden, "cannot delete someone else's image")
 	}
 
 	if img.FilePath != "" {
-		_ = s.fileStore.Delete(ctx, s.bucketName, img.FilePath)
+		if err := s.fileStore.Delete(ctx, s.bucketName, img.FilePath); err != nil {
+			s.logger.Error("failed to delete image file from storage", "file_path", img.FilePath, "bucket", s.bucketName, "error", err)
+			return fmt.Errorf("failed to delete image file: %w", err)
+		}
 	}
 
 	return s.repo.Delete(ctx, id)

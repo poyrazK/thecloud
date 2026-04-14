@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,12 +25,23 @@ func setupContainerServiceIntegrationTest(t *testing.T) (ports.ContainerService,
 	ctx := setupTestUser(t, db)
 
 	repo := postgres.NewPostgresContainerRepository(db)
-	eventRepo := postgres.NewEventRepository(db)
-	eventSvc := services.NewEventService(eventRepo, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	svc := services.NewContainerService(repo, eventSvc, auditSvc)
+	eventRepo := postgres.NewEventRepository(db)
+	eventSvc := services.NewEventService(services.EventServiceParams{
+		Repo:    eventRepo,
+		RBACSvc: rbacSvc,
+		Publisher:     nil,
+		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+	auditRepo := postgres.NewAuditRepository(db)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
+
+	svc := services.NewContainerService(repo, rbacSvc, eventSvc, auditSvc, slog.Default())
 
 	return svc, repo, db, ctx
 }
@@ -110,10 +122,21 @@ func TestContainer_ChaosRestart(t *testing.T) {
 	db, instSvc, compute, instRepo, _, _, ctx := setupInstanceServiceTest(t)
 
 	containerRepo := postgres.NewPostgresContainerRepository(db)
-	eventSvc := services.NewEventService(postgres.NewEventRepository(db), nil, slog.Default())
-	auditSvc := services.NewAuditService(postgres.NewAuditRepository(db))
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	containerSvc := services.NewContainerService(containerRepo, eventSvc, auditSvc)
+	eventSvc := services.NewEventService(services.EventServiceParams{
+		Repo:    postgres.NewEventRepository(db),
+		RBACSvc: rbacSvc,
+		Publisher:     nil,
+		Logger:  slog.Default(),
+	})
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    postgres.NewAuditRepository(db),
+		RBACSvc: rbacSvc,
+	})
+
+	containerSvc := services.NewContainerService(containerRepo, rbacSvc, eventSvc, auditSvc, slog.Default())
 	worker := services.NewContainerWorker(containerRepo, instSvc, eventSvc)
 
 	// 2. Create Deployment

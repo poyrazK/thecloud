@@ -12,6 +12,7 @@ import (
 type AuditLog struct {
 	ID           uuid.UUID              `json:"id"`
 	UserID       uuid.UUID              `json:"user_id"`       // The user who performed the action
+	TenantID     uuid.UUID              `json:"tenant_id"`     // The tenant context of the action
 	Action       string                 `json:"action"`        // The action performed (e.g., "instance:launch")
 	ResourceType string                 `json:"resource_type"` // Type of affected resource (e.g., "INSTANCE")
 	ResourceID   string                 `json:"resource_id"`   // ID of the affected resource

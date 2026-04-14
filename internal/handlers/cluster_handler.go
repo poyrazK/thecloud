@@ -3,6 +3,7 @@ package httphandlers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -10,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/pkg/httputil"
+	cron "github.com/robfig/cron/v3"
 )
 
 const (
@@ -371,6 +373,69 @@ func (h *ClusterHandler) RestoreBackup(c *gin.Context) {
 	}
 
 	httputil.Success(c, http.StatusOK, nil)
+}
+
+// BackupPolicyRequest is the payload for configuring backup schedule.
+type BackupPolicyRequest struct {
+	Schedule      *string `json:"schedule" binding:"omitempty,max=255"`
+	RetentionDays *int    `json:"retention_days" binding:"omitempty,gt=0"`
+}
+
+// SetBackupPolicy godoc
+// @Summary Configure cluster backup policy
+// @Description Sets the schedule and retention for automated etcd snapshots
+// @Tags K8s
+// @Security APIKeyAuth
+// @Param id path string true "Cluster ID"
+// @Param request body BackupPolicyRequest true "Backup Policy"
+// @Success 200
+// @Router /clusters/{id}/backup-policy [put]
+func (h *ClusterHandler) SetBackupPolicy(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidClusterID))
+		return
+	}
+
+	var req BackupPolicyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, errInvalidRequest))
+		return
+	}
+	if req.Schedule == nil && req.RetentionDays == nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, "at least one backup policy field is required"))
+		return
+	}
+	if req.Schedule != nil && !isValidBackupSchedule(*req.Schedule) {
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid backup schedule"))
+		return
+	}
+
+	if err := h.svc.SetBackupPolicy(c.Request.Context(), id, ports.BackupPolicyParams{
+		Schedule:      req.Schedule,
+		RetentionDays: req.RetentionDays,
+	}); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, nil)
+}
+
+func isValidBackupSchedule(schedule string) bool {
+	if schedule == "" {
+		return true
+	}
+	if strings.HasPrefix(schedule, "@") {
+		switch schedule {
+		case "@yearly", "@annually", "@monthly", "@weekly", "@daily", "@hourly":
+			return true
+		default:
+			return false
+		}
+	}
+	_, err := cron.ParseStandard(schedule)
+	return err == nil
 }
 
 // NodeGroupRequest is the payload for adding/updating a node group.

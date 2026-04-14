@@ -4,7 +4,9 @@ package k8s
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -16,23 +18,33 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
+	cloudcrypto "github.com/poyrazk/thecloud/pkg/crypto"
 )
 
 const (
 	defaultUser     = "ubuntu"
 	adminKubeconfig = "/etc/kubernetes/admin.conf"
+	etcdManifest    = "/etc/kubernetes/manifests/etcd.yaml"
 )
+
+var controlPlaneManifestPaths = []string{
+	"/etc/kubernetes/manifests/etcd.yaml",
+	"/etc/kubernetes/manifests/kube-apiserver.yaml",
+	"/etc/kubernetes/manifests/kube-controller-manager.yaml",
+	"/etc/kubernetes/manifests/kube-scheduler.yaml",
+}
 
 // KubeadmProvisioner implements ports.ClusterProvisioner using kubeadm and Cloud-Init.
 type KubeadmProvisioner struct {
-	instSvc     ports.InstanceService
-	repo        ports.ClusterRepository
-	secretSvc   ports.SecretService
-	sgSvc       ports.SecurityGroupService
-	storageSvc  ports.StorageService
-	lbSvc       ports.LBService
-	logger      *slog.Logger
-	templateDir string
+	instSvc         ports.InstanceService
+	repo            ports.ClusterRepository
+	secretSvc       ports.SecretService
+	sgSvc           ports.SecurityGroupService
+	storageSvc      ports.StorageService
+	lbSvc           ports.LBService
+	logger          *slog.Logger
+	templateDir     string
+	executorFactory func(ctx context.Context, cluster *domain.Cluster, ip string) (NodeExecutor, error)
 }
 
 // NewKubeadmProvisioner constructs a new KubeadmProvisioner.
@@ -119,14 +131,21 @@ func (p *KubeadmProvisioner) provisionControlPlane(ctx context.Context, cluster 
 		}
 	}
 
+	hostPrivateKey, hostPublicKey, err := cloudcrypto.GenerateSSHKeyPair()
+	if err != nil {
+		return p.failCluster(ctx, cluster, "failed to generate control plane host key", err)
+	}
+
 	userData, err := p.renderTemplate("control_plane.yaml", map[string]interface{}{
-		"ClusterID":   cluster.ID.String(),
-		"PodCIDR":     cluster.PodCIDR,
-		"ServiceCIDR": cluster.ServiceCIDR,
-		"HAEnabled":   cluster.HAEnabled,
-		"LBAddress":   cluster.APIServerLBAddress,
-		"CloudAPIKey": apiKey,
-		"CloudAPIURL": apiURL,
+		"ClusterID":            cluster.ID.String(),
+		"PodCIDR":              cluster.PodCIDR,
+		"ServiceCIDR":          cluster.ServiceCIDR,
+		"HAEnabled":            cluster.HAEnabled,
+		"LBAddress":            cluster.APIServerLBAddress,
+		"CloudAPIKey":          apiKey,
+		"CloudAPIURL":          apiURL,
+		"SSHHostPrivateKeyB64": base64.StdEncoding.EncodeToString([]byte(hostPrivateKey)),
+		"SSHHostPublicKeyB64":  base64.StdEncoding.EncodeToString([]byte(hostPublicKey)),
 	})
 	if err != nil {
 		return p.failCluster(ctx, cluster, "failed to render control plane template", err)
@@ -138,6 +157,11 @@ func (p *KubeadmProvisioner) provisionControlPlane(ctx context.Context, cluster 
 		ImageName: "ubuntu:22.04", // Use canonical docker hub image
 		NetworkID: cluster.VpcID.String(),
 		UserData:  userData,
+		Metadata: map[string]string{
+			"thecloud.io/cluster-id":          cluster.ID.String(),
+			"thecloud.io/node-role":           string(domain.NodeRoleControlPlane),
+			"thecloud.io/ssh-host-public-key": strings.TrimSpace(hostPublicKey),
+		},
 	})
 	if err != nil {
 		return p.failCluster(ctx, cluster, "failed to launch control plane instance", err)
@@ -190,15 +214,6 @@ func (p *KubeadmProvisioner) provisionWorkers(ctx context.Context, cluster *doma
 		apiServer = *cluster.APIServerLBAddress
 	}
 
-	userData, err := p.renderTemplate("worker.yaml", map[string]interface{}{
-		"APIServerAddress": apiServer,
-		"JoinToken":        cluster.JoinToken,
-		"CACertHash":       cluster.CACertHash,
-	})
-	if err != nil {
-		return p.failCluster(ctx, cluster, "failed to render worker template", err)
-	}
-
 	// For legacy compatibility, if no NodeGroups exist, create them from cluster.WorkerCount
 	if len(cluster.NodeGroups) == 0 {
 		cluster.NodeGroups = []domain.NodeGroup{
@@ -213,15 +228,39 @@ func (p *KubeadmProvisioner) provisionWorkers(ctx context.Context, cluster *doma
 	var provisioningErrors []string
 	for _, ng := range cluster.NodeGroups {
 		for i := 0; i < ng.CurrentSize; i++ {
+			hostPrivateKey, hostPublicKey, err := cloudcrypto.GenerateSSHKeyPair()
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to generate worker host key %s-%d: %v", ng.Name, i, err)
+				p.logger.Error(errMsg)
+				provisioningErrors = append(provisioningErrors, errMsg)
+				continue
+			}
+
+			workerUserData, err := p.renderTemplate("worker.yaml", map[string]interface{}{
+				"APIServerAddress":     apiServer,
+				"JoinToken":            cluster.JoinToken,
+				"CACertHash":           cluster.CACertHash,
+				"SSHHostPrivateKeyB64": base64.StdEncoding.EncodeToString([]byte(hostPrivateKey)),
+				"SSHHostPublicKeyB64":  base64.StdEncoding.EncodeToString([]byte(hostPublicKey)),
+			})
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to render worker template %s-%d: %v", ng.Name, i, err)
+				p.logger.Error(errMsg)
+				provisioningErrors = append(provisioningErrors, errMsg)
+				continue
+			}
+
 			workerName := fmt.Sprintf("%s-%s-%d", cluster.Name, ng.Name, i)
 			workerInst, err := p.instSvc.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{
 				Name:      workerName,
 				ImageName: "ubuntu:22.04", // Use canonical image name consistent with control-plane
 				NetworkID: cluster.VpcID.String(),
-				UserData:  userData,
+				UserData:  workerUserData,
 				Metadata: map[string]string{
-					"thecloud.io/cluster-id": cluster.ID.String(),
-					"thecloud.io/node-group": ng.Name,
+					"thecloud.io/cluster-id":          cluster.ID.String(),
+					"thecloud.io/node-group":          ng.Name,
+					"thecloud.io/node-role":           string(domain.NodeRoleWorker),
+					"thecloud.io/ssh-host-public-key": strings.TrimSpace(hostPublicKey),
 				},
 			})
 			if err != nil {
@@ -347,12 +386,17 @@ func (p *KubeadmProvisioner) waitForKubeconfig(ctx context.Context, cluster *dom
 }
 
 func (p *KubeadmProvisioner) getExecutor(ctx context.Context, cluster *domain.Cluster, ip string) (NodeExecutor, error) {
+	if p.executorFactory != nil {
+		return p.executorFactory(ctx, cluster, ip)
+	}
+	ip = normalizeInstanceIP(ip)
+
 	// 1. Try to find instance by IP to use ServiceExecutor (preferred for Docker/Local/Managed)
 	// This avoids needing SSH access if we have direct control via the backend.
 	instances, err := p.instSvc.ListInstances(ctx)
 	if err == nil {
 		for _, inst := range instances {
-			if inst.PrivateIP == ip {
+			if normalizeInstanceIP(inst.PrivateIP) == ip {
 				// We found the managed instance! Use the ServiceExecutor.
 				return NewServiceExecutor(p.instSvc, inst.ID), nil
 			}
@@ -369,7 +413,20 @@ func (p *KubeadmProvisioner) getExecutor(ctx context.Context, cluster *domain.Cl
 		return nil, errors.Wrap(errors.Internal, "failed to decrypt SSH key", err)
 	}
 
-	return NewSSHExecutor(ip, defaultUser, decryptedKey), nil
+	hostPublicKey := ""
+	if err == nil {
+		for _, inst := range instances {
+			if normalizeInstanceIP(inst.PrivateIP) == ip {
+				hostPublicKey = inst.Metadata["thecloud.io/ssh-host-public-key"]
+				break
+			}
+		}
+	}
+	if hostPublicKey == "" {
+		return nil, errors.New(errors.Internal, "no pinned SSH host key found for node access")
+	}
+
+	return NewSSHExecutor(ip, defaultUser, decryptedKey, hostPublicKey), nil
 }
 
 func (p *KubeadmProvisioner) Deprovision(ctx context.Context, cluster *domain.Cluster) error {
@@ -610,7 +667,188 @@ func (p *KubeadmProvisioner) CreateBackup(ctx context.Context, cluster *domain.C
 
 func (p *KubeadmProvisioner) Restore(ctx context.Context, cluster *domain.Cluster, path string) error {
 	p.logger.Info("restoring cluster from backup", "cluster_id", cluster.ID, "path", path)
-	// This is a complex operation involving stopping etcd, restoring from snapshot, and restarting.
-	// Implementing a full restore requires careful node-by-node handling.
-	return errors.New(errors.NotImplemented, "restore not yet fully implemented")
+
+	if len(cluster.ControlPlaneIPs) == 0 {
+		return errors.New(errors.InvalidInput, "no control plane node for restore")
+	}
+	if cluster.HAEnabled || len(cluster.ControlPlaneIPs) > 1 {
+		return errors.New(errors.InvalidInput, "restore is only supported for single-control-plane clusters")
+	}
+
+	masterIP := cluster.ControlPlaneIPs[0]
+	exec, err := p.getExecutor(ctx, cluster, masterIP)
+	if err != nil {
+		return err
+	}
+
+	// 1. Download backup from storage
+	if p.storageSvc == nil {
+		return errors.New(errors.Internal, "storage service not available")
+	}
+
+	rc, _, err := p.storageSvc.Download(ctx, "k8s-backups", path)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to download backup from storage", err)
+	}
+	defer func() { _ = rc.Close() }()
+
+	var data io.Reader = rc
+	if strings.HasSuffix(path, ".b64") {
+		data = base64.NewDecoder(base64.StdEncoding, rc)
+	}
+
+	// 2. Prepare node: Stop control plane by moving manifests
+	p.logger.Info("stopping control plane pods", "cluster_id", cluster.ID)
+	manifestBackupDir := fmt.Sprintf("/var/lib/thecloud/manifests-backup-%d", time.Now().Unix())
+	if err := p.moveControlPlaneManifests(ctx, exec, manifestBackupDir); err != nil {
+		return errors.Wrap(errors.Internal, "failed to prepare node for restore", err)
+	}
+
+	if err := p.waitForEtcdToStop(ctx, exec, 20*time.Second); err != nil {
+		if restoreErr := p.restoreControlPlaneManifests(ctx, exec, manifestBackupDir); restoreErr != nil {
+			return errors.Wrap(errors.Internal, "failed waiting for etcd to stop and restore manifests", restoreErr)
+		}
+		return errors.Wrap(errors.Internal, "failed waiting for etcd to stop", err)
+	}
+
+	// 3. Upload snapshot to node
+	p.logger.Info("uploading snapshot to node", "cluster_id", cluster.ID)
+	if err := exec.WriteFile(ctx, "/tmp/restore-snapshot.db", data); err != nil {
+		// Attempt to recover manifests before failing
+		if restoreErr := p.restoreControlPlaneManifests(ctx, exec, manifestBackupDir); restoreErr != nil {
+			return errors.Wrap(errors.Internal, "failed to upload snapshot to node and restore manifests", restoreErr)
+		}
+		return errors.Wrap(errors.Internal, "failed to upload snapshot to node", err)
+	}
+
+	// 4. Perform etcd restore
+	p.logger.Info("restoring etcd data directory", "cluster_id", cluster.ID)
+	restoreCmd := "ETCDCTL_API=3 etcdctl snapshot restore /tmp/restore-snapshot.db --data-dir /var/lib/etcd-restored"
+	if _, err := exec.Run(ctx, restoreCmd); err != nil {
+		if restoreErr := p.restoreControlPlaneManifests(ctx, exec, manifestBackupDir); restoreErr != nil {
+			return errors.Wrap(errors.Internal, fmt.Sprintf("etcd snapshot restore failed: %v; additionally failed to restore manifests", err), restoreErr)
+		}
+		return errors.Wrap(errors.Internal, "etcd snapshot restore failed", err)
+	}
+
+	// 5. Swap data directories
+	etcdBackupDir := fmt.Sprintf("/var/lib/etcd-backup-%d", time.Now().Unix())
+	swapCmds := []string{
+		fmt.Sprintf("if [ -d /var/lib/etcd ]; then mv /var/lib/etcd %s; fi", shellQuote(etcdBackupDir)),
+		"mv /var/lib/etcd-restored /var/lib/etcd",
+		"chown -R 0:0 /var/lib/etcd", // Ensure permissions
+	}
+	for _, cmd := range swapCmds {
+		if _, err := exec.Run(ctx, cmd); err != nil {
+			if rollbackErr := p.rollbackEtcdRestore(ctx, exec, manifestBackupDir, etcdBackupDir); rollbackErr != nil {
+				return errors.Wrap(errors.Internal, fmt.Sprintf("failed to swap etcd directories: %v; additionally failed to rollback restore", err), rollbackErr)
+			}
+			return errors.Wrap(errors.Internal, "failed to swap etcd directories", err)
+		}
+	}
+
+	// 6. Restart control plane
+	p.logger.Info("restarting control plane pods", "cluster_id", cluster.ID)
+	if err := p.restoreControlPlaneManifests(ctx, exec, manifestBackupDir); err != nil {
+		return errors.Wrap(errors.Internal, "failed to restart control plane pods", err)
+	}
+	if err := p.waitForControlPlaneReady(ctx, exec, 2*time.Minute); err != nil {
+		return errors.Wrap(errors.Internal, "control plane did not become ready after restore", err)
+	}
+
+	// 7. Cleanup
+	if _, err := exec.Run(ctx, "rm /tmp/restore-snapshot.db"); err != nil {
+		return errors.Wrap(errors.Internal, "failed to clean up restore snapshot", err)
+	}
+
+	p.logger.Info("cluster restore completed successfully", "cluster_id", cluster.ID)
+	return nil
+}
+
+func (p *KubeadmProvisioner) moveControlPlaneManifests(ctx context.Context, exec NodeExecutor, backupDir string) error {
+	if _, err := exec.Run(ctx, fmt.Sprintf("mkdir -p %s", shellQuote(backupDir))); err != nil {
+		return err
+	}
+	moved := false
+	for _, manifest := range controlPlaneManifestPaths {
+		cmd := fmt.Sprintf("if [ -f %s ]; then mv %s %s/; fi", shellQuote(manifest), shellQuote(manifest), shellQuote(backupDir))
+		if _, err := exec.Run(ctx, cmd); err != nil {
+			if moved {
+				_ = p.restoreControlPlaneManifests(ctx, exec, backupDir)
+			}
+			return err
+		}
+		moved = true
+	}
+	return nil
+}
+
+func (p *KubeadmProvisioner) restoreControlPlaneManifests(ctx context.Context, exec NodeExecutor, backupDir string) error {
+	for _, manifest := range controlPlaneManifestPaths {
+		name := filepath.Base(manifest)
+		cmd := fmt.Sprintf("if [ -f %s/%s ]; then mv %s/%s %s; fi", shellQuote(backupDir), shellQuote(name), shellQuote(backupDir), shellQuote(name), shellQuote(manifest))
+		if _, err := exec.Run(ctx, cmd); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *KubeadmProvisioner) waitForEtcdToStop(ctx context.Context, exec NodeExecutor, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			manifestStopped := false
+			if _, err := exec.Run(ctx, fmt.Sprintf("test ! -f %s", shellQuote(etcdManifest))); err == nil {
+				manifestStopped = true
+			}
+			state, err := exec.Run(ctx, "if pgrep -f '[e]tcd' >/dev/null; then printf running; else printf stopped; fi")
+			if err != nil {
+				return err
+			}
+			etcdStopped := strings.TrimSpace(state) == "stopped"
+			if manifestStopped && etcdStopped {
+				return nil
+			}
+		}
+	}
+}
+
+func (p *KubeadmProvisioner) waitForControlPlaneReady(ctx context.Context, exec NodeExecutor, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			if _, err := exec.Run(ctx, fmt.Sprintf("KUBECONFIG=%s kubectl get --raw=/readyz >/dev/null", shellQuote(adminKubeconfig))); err == nil {
+				return nil
+			}
+		}
+	}
+}
+
+func normalizeInstanceIP(ip string) string {
+	if idx := strings.Index(ip, "/"); idx != -1 {
+		return ip[:idx]
+	}
+	return ip
+}
+
+func (p *KubeadmProvisioner) rollbackEtcdRestore(ctx context.Context, exec NodeExecutor, manifestBackupDir, etcdBackupDir string) error {
+	if _, err := exec.Run(ctx, fmt.Sprintf("if [ -d %s ]; then rm -rf /var/lib/etcd && mv %s /var/lib/etcd; fi", shellQuote(etcdBackupDir), shellQuote(etcdBackupDir))); err != nil {
+		return err
+	}
+	return p.restoreControlPlaneManifests(ctx, exec, manifestBackupDir)
 }

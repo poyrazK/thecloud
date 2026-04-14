@@ -123,6 +123,7 @@ npm run dev
 - **Global Load Balancing**: Implemented a **GeoDNS-based** global steering service with multi-region health tracking and latency-optimized routing.
 - **Compute Modernization**: Enabled **ARM64 (UEFI)** support for the Libvirt backend using the `virt` machine type and `AAVMF` firmware.
 - **Kubernetes Storage**: Implemented a feature-complete **CSI Driver** for dynamic block storage provisioning in KaaS clusters, including automated device formatting and attachment.
+- **Database Security (v2)**: Integrated **HashiCorp Vault** for secure credential management in Managed Databases (RDS), including automated password storage and zero-downtime **Credential Rotation**.
 
 ### AI & Automation
 - **AI Context**: Added `GEMINI.md` to provide AI assistants with project-specific hexagonal architecture rules and coding standards.

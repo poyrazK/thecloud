@@ -117,6 +117,10 @@ func (m *mockDatabaseService) RestoreDatabase(ctx context.Context, req ports.Res
 	}
 	return args.Get(0).(*domain.Database), args.Error(1)
 }
+func (m *mockDatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, idempotencyKey string) error {
+	args := m.Called(ctx, id, idempotencyKey)
+	return args.Error(0)
+}
 
 func TestDatabaseFailoverWorker(t *testing.T) {
 	t.Parallel()

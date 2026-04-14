@@ -188,12 +188,97 @@ func (m *mockEventRepo) List(ctx context.Context, limit int) ([]*domain.Event, e
 	return r0, args.Error(1)
 }
 
+type mockRBACService struct {
+	mock.Mock
+}
+
+func (m *mockRBACService) Authorize(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission, resource string) error {
+	args := m.Called(ctx, userID, tenantID, permission, resource)
+	return args.Error(0)
+}
+
+func (m *mockRBACService) HasPermission(ctx context.Context, userID, tenantID uuid.UUID, permission domain.Permission, resource string) (bool, error) {
+	args := m.Called(ctx, userID, tenantID, permission, resource)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *mockRBACService) ListRoles(ctx context.Context) ([]*domain.Role, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Role), args.Error(1)
+}
+
+func (m *mockRBACService) GetRoleByID(ctx context.Context, id uuid.UUID) (*domain.Role, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Role), args.Error(1)
+}
+
+func (m *mockRBACService) GetRoleByName(ctx context.Context, name string) (*domain.Role, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Role), args.Error(1)
+}
+
+func (m *mockRBACService) CreateRole(ctx context.Context, role *domain.Role) error {
+	args := m.Called(ctx, role)
+	return args.Error(0)
+}
+
+func (m *mockRBACService) UpdateRole(ctx context.Context, role *domain.Role) error {
+	args := m.Called(ctx, role)
+	return args.Error(0)
+}
+
+func (m *mockRBACService) DeleteRole(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *mockRBACService) AddPermissionToRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
+	args := m.Called(ctx, roleID, permission)
+	return args.Error(0)
+}
+
+func (m *mockRBACService) RemovePermissionFromRole(ctx context.Context, roleID uuid.UUID, permission domain.Permission) error {
+	args := m.Called(ctx, roleID, permission)
+	return args.Error(0)
+}
+
+func (m *mockRBACService) BindRole(ctx context.Context, userIdentifier string, roleName string) error {
+	args := m.Called(ctx, userIdentifier, roleName)
+	return args.Error(0)
+}
+
+func (m *mockRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.User), args.Error(1)
+}
+
+func (m *mockRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error) {
+	args := m.Called(ctx, userID, action, resource, context)
+	return args.Bool(0), args.Error(1)
+}
+
 func setupDashboardServiceTest(_ *testing.T) (*mockInstanceRepo, *mockVolumeRepo, *mockVpcRepo, *mockEventRepo, ports.DashboardService) {
 	instanceRepo := new(mockInstanceRepo)
 	volumeRepo := new(mockVolumeRepo)
 	vpcRepo := new(mockVpcRepo)
 	eventRepo := new(mockEventRepo)
-	svc := NewDashboardService(instanceRepo, volumeRepo, vpcRepo, eventRepo, slog.Default())
+	rbacSvc := new(mockRBACService)
+	// Default to success for tests that don't explicitly mock it
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := NewDashboardService(rbacSvc, instanceRepo, volumeRepo, vpcRepo, eventRepo, slog.Default())
 	return instanceRepo, volumeRepo, vpcRepo, eventRepo, svc
 }
 

@@ -26,10 +26,10 @@ func NewSecretRepository(db DB) *SecretRepository {
 
 func (r *SecretRepository) Create(ctx context.Context, s *domain.Secret) error {
 	query := `
-		INSERT INTO secrets (id, user_id, name, encrypted_value, description, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO secrets (id, user_id, tenant_id, name, encrypted_value, description, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
-	_, err := r.db.Exec(ctx, query, s.ID, s.UserID, s.Name, s.EncryptedValue, s.Description, s.CreatedAt, s.UpdatedAt)
+	_, err := r.db.Exec(ctx, query, s.ID, s.UserID, s.TenantID, s.Name, s.EncryptedValue, s.Description, s.CreatedAt, s.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("failed to create secret: %w", err)
 	}
@@ -37,34 +37,34 @@ func (r *SecretRepository) Create(ctx context.Context, s *domain.Secret) error {
 }
 
 func (r *SecretRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Secret, error) {
-	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, name, encrypted_value, description, created_at, updated_at, last_accessed_at
+		SELECT id, user_id, tenant_id, name, encrypted_value, description, created_at, updated_at, last_accessed_at
 		FROM secrets
-		WHERE id = $1 AND user_id = $2
+		WHERE id = $1 AND (tenant_id = $2 OR tenant_id IS NULL)
 	`
-	return r.scanSecret(r.db.QueryRow(ctx, query, id, userID))
+	return r.scanSecret(r.db.QueryRow(ctx, query, id, tenantID))
 }
 
 func (r *SecretRepository) GetByName(ctx context.Context, name string) (*domain.Secret, error) {
-	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, name, encrypted_value, description, created_at, updated_at, last_accessed_at
+		SELECT id, user_id, tenant_id, name, encrypted_value, description, created_at, updated_at, last_accessed_at
 		FROM secrets
-		WHERE name = $1 AND user_id = $2
+		WHERE name = $1 AND (tenant_id = $2 OR tenant_id IS NULL)
 	`
-	return r.scanSecret(r.db.QueryRow(ctx, query, name, userID))
+	return r.scanSecret(r.db.QueryRow(ctx, query, name, tenantID))
 }
 
 func (r *SecretRepository) List(ctx context.Context) ([]*domain.Secret, error) {
-	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `
-		SELECT id, user_id, name, encrypted_value, description, created_at, updated_at, last_accessed_at
+		SELECT id, user_id, tenant_id, name, encrypted_value, description, created_at, updated_at, last_accessed_at
 		FROM secrets
-		WHERE user_id = $1
+		WHERE tenant_id = $1 OR tenant_id IS NULL
 		ORDER BY name ASC
 	`
-	rows, err := r.db.Query(ctx, query, userID)
+	rows, err := r.db.Query(ctx, query, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list secrets: %w", err)
 	}
@@ -74,7 +74,7 @@ func (r *SecretRepository) List(ctx context.Context) ([]*domain.Secret, error) {
 func (r *SecretRepository) scanSecret(row pgx.Row) (*domain.Secret, error) {
 	s := &domain.Secret{}
 	err := row.Scan(
-		&s.ID, &s.UserID, &s.Name, &s.EncryptedValue, &s.Description, &s.CreatedAt, &s.UpdatedAt, &s.LastAccessedAt,
+		&s.ID, &s.UserID, &s.TenantID, &s.Name, &s.EncryptedValue, &s.Description, &s.CreatedAt, &s.UpdatedAt, &s.LastAccessedAt,
 	)
 	if err != nil {
 		if stdlib_errors.Is(err, pgx.ErrNoRows) {
@@ -102,9 +102,14 @@ func (r *SecretRepository) Update(ctx context.Context, s *domain.Secret) error {
 	query := `
 		UPDATE secrets
 		SET encrypted_value = $1, description = $2, updated_at = $3, last_accessed_at = $4
-		WHERE id = $5 AND user_id = $6
+		WHERE id = $5 AND (tenant_id = $6 OR (tenant_id IS NULL AND $6 IS NULL))
 	`
-	_, err := r.db.Exec(ctx, query, s.EncryptedValue, s.Description, time.Now(), s.LastAccessedAt, s.ID, s.UserID)
+	var tenantParam interface{} = s.TenantID
+	if s.TenantID == uuid.Nil {
+		tenantParam = nil
+	}
+
+	_, err := r.db.Exec(ctx, query, s.EncryptedValue, s.Description, time.Now(), s.LastAccessedAt, s.ID, tenantParam)
 	if err != nil {
 		return fmt.Errorf("failed to update secret: %w", err)
 	}
@@ -112,9 +117,15 @@ func (r *SecretRepository) Update(ctx context.Context, s *domain.Secret) error {
 }
 
 func (r *SecretRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	userID := appcontext.UserIDFromContext(ctx)
-	query := `DELETE FROM secrets WHERE id = $1 AND user_id = $2`
-	_, err := r.db.Exec(ctx, query, id, userID)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	query := `DELETE FROM secrets WHERE id = $1 AND (tenant_id = $2 OR (tenant_id IS NULL AND $2 IS NULL))`
+
+	var tenantParam interface{} = tenantID
+	if tenantID == uuid.Nil {
+		tenantParam = nil
+	}
+
+	_, err := r.db.Exec(ctx, query, id, tenantParam)
 	if err != nil {
 		return fmt.Errorf("failed to delete secret: %w", err)
 	}

@@ -65,6 +65,33 @@ DATABASE_URL=postgres://user:pass@db-host:5432/thecloud?sslmode=require
 
 ### Core Tables
 
+#### `tenants` - Organizations/Teams
+```sql
+CREATE TABLE tenants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE tenant_members (
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role VARCHAR(50) NOT NULL DEFAULT 'member',
+    PRIMARY KEY (tenant_id, user_id)
+);
+
+CREATE TABLE tenant_quotas (
+    tenant_id UUID PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
+    max_instances INT NOT NULL DEFAULT 10,
+    max_vcpus INT NOT NULL DEFAULT 20,
+    max_memory_mb INT NOT NULL DEFAULT 40960,
+    max_storage_gb INT NOT NULL DEFAULT 500,
+    used_instances INT NOT NULL DEFAULT 0,
+    -- ...
+);
+```
+
 #### `users` - User Accounts
 ```sql
 CREATE TABLE users (
@@ -73,6 +100,7 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'user',
+    default_tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -121,6 +149,7 @@ CREATE TABLE role_permissions (
 CREATE TABLE instances (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
     name VARCHAR(255) NOT NULL,
     image VARCHAR(255) NOT NULL,
     status VARCHAR(50) NOT NULL,
@@ -161,6 +190,7 @@ CREATE TABLE instance_types (
 CREATE TABLE volumes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
     name VARCHAR(255) NOT NULL,
     size_gb INT NOT NULL,
     status VARCHAR(50) NOT NULL,
@@ -192,6 +222,7 @@ CREATE TABLE snapshots (
 CREATE TABLE vpcs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
     name VARCHAR(255) NOT NULL,
     cidr_block VARCHAR(18) NOT NULL,
     network_id VARCHAR(255) NOT NULL,
@@ -344,11 +375,15 @@ CREATE TABLE databases (
     port INT,
     username VARCHAR(255),
     password TEXT,
+    credential_path TEXT,
     container_id VARCHAR(255),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     allocated_storage INT NOT NULL DEFAULT 10,
     parameters JSONB DEFAULT '{}'::jsonb,
+    metrics_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    metrics_port INT,
+    exporter_container_id VARCHAR(255),
     pooling_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     pooling_port INT,
     pooler_container_id VARCHAR(255)
@@ -357,6 +392,26 @@ CREATE TABLE databases (
 
 **Engines**: `postgres`, `mysql`  
 **Roles**: `PRIMARY`, `REPLICA`
+
+### Managed Database Security & Credential Rotation
+
+The platform integrates with **HashiCorp Vault** to securely manage database credentials.
+
+#### Vault Integration
+The platform is Vault-backed with database fallback. Credentials are primarily stored in Vault at `secret/data/thecloud/rds/:db_id/credentials`, while the `password` field in the `databases` table remains persisted for legacy support and fallback during Vault unavailability.
+- **Metadata**: The `credential_path` field in the `databases` table stores the reference to the Vault secret.
+
+#### Credential Rotation
+Users can trigger automated password rotation for their database instances.
+- **Endpoint**: `POST /databases/:id/rotate-credentials`
+- **Workflow**:
+    1.  **Generate Password**: A new 16-character secure password is generated.
+    2.  **Engine Update**: The `ALTER USER` command is executed inside the database container first to apply the new password.
+    3.  **Update Vault**: The new secret is written to Vault. (Note: A failure here may leave the database and Vault out of sync).
+    4.  **Sidecar Update**: Sidecars such as PgBouncer/pooler are automatically recreated to apply the new credentials only when they are present.
+    5.  **Audit**: The rotation event is recorded in the system events and audit logs.
+
+This mechanism ensures that database access remains secure and meets compliance requirements for periodic credential updates.
 
 ### Managed Database Persistence
 
@@ -573,14 +628,19 @@ CREATE TABLE subscriptions (
 CREATE TABLE cron_jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL DEFAULT auth.jwt_token().tenant_id,
     name VARCHAR(255) NOT NULL,
     schedule VARCHAR(100) NOT NULL,
-    function_id UUID REFERENCES functions(id) ON DELETE SET NULL,
-    http_endpoint TEXT,
-    status VARCHAR(50) DEFAULT 'ACTIVE',
+    target_url TEXT NOT NULL,
+    target_method VARCHAR(10) NOT NULL DEFAULT 'POST',
+    target_payload TEXT,
+    status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
     last_run_at TIMESTAMPTZ,
     next_run_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    claimed_until TIMESTAMPTZ,  -- visibility timeout for distributed claiming
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, name)
 );
 
 CREATE TABLE cron_job_runs (
@@ -601,13 +661,14 @@ CREATE TABLE cron_job_runs (
 CREATE TABLE secrets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
     name VARCHAR(255) NOT NULL,
     encrypted_value TEXT NOT NULL,
     description TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_accessed_at TIMESTAMPTZ,
-    CONSTRAINT secrets_name_user_key UNIQUE (name, user_id)
+    CONSTRAINT secrets_name_tenant_key UNIQUE (name, tenant_id)
 );
 ```
 
@@ -676,15 +737,15 @@ CREATE INDEX idx_events_created_at ON events(created_at);
 
 ### Migration System
 
-**Tool**: Goose  
+**Tool**: Custom embed-based migrator (`internal/repositories/postgres/migrator.go`)  
 **Location**: `internal/repositories/postgres/migrations/`  
-**Format**: SQL files with up/down migrations
+**Format**: `.up.sql` files only (one-way, forward-only)
 
 **Migration File Naming**:
 ```
-001_create_users.sql
-002_create_instances.sql
-003_add_rbac_tables.sql
+001_create_users.up.sql
+002_create_instances.up.sql
+003_add_rbac_tables.up.sql
 ```
 
 **Migration Structure**:
@@ -694,10 +755,9 @@ CREATE TABLE my_table (
     id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL
 );
-
--- +goose Down
-DROP TABLE my_table;
 ```
+
+**Version Tracking**: Applied versions are tracked in `schema_migrations` table (version, dirty, created_at). Each migration runs exactly once — subsequent startups skip already-applied migrations.
 
 ### Running Migrations
 
@@ -711,17 +771,14 @@ go run cmd/api/main.go
 go run cmd/api/main.go -migrate-only
 ```
 
-**Rollback** (down migration):
-```bash
-goose -dir internal/repositories/postgres/migrations postgres "connection-string" down
-```
+**Rollback**: Not supported. Migrations are forward-only and version-tracked.
 
 ### Creating New Migrations
 
-1. Create new file: `XXX_description.sql`
-2. Add `-- +goose Up` section
-3. Add `-- +goose Down` section
-4. Test both up and down migrations
+1. Create new file: `XXX_description.up.sql` (use `.up.sql` suffix)
+2. Add SQL statements (no `-- +goose Up` marker required, but harmless as SQL comment)
+3. Version is extracted from numeric prefix (e.g., `072_` → version 72)
+4. Test the migration on a fresh database
 
 **Example**:
 ```sql
@@ -852,17 +909,19 @@ query := fmt.Sprintf("SELECT * FROM instances WHERE id = '%s'", instanceID)
 - Database passwords: Encrypted (future: use Vault)
 - Secrets: AES-256 encrypted
 
-### Row-Level Security
+### Row-Level Security (Multi-Tenancy)
 
-User ID filtering in all queries:
+Tenant and User ID filtering in all queries:
 ```go
 func (r *instanceRepository) List(ctx context.Context) ([]*domain.Instance, error) {
-    userID := appcontext.UserIDFromContext(ctx)
-    query := `SELECT * FROM instances WHERE user_id = $1`
-    rows, err := r.db.Query(ctx, query, userID)
+    tenantID := appcontext.TenantIDFromContext(ctx)
+    query := `SELECT * FROM instances WHERE tenant_id = $1`
+    rows, err := r.db.Query(ctx, query, tenantID)
     // ...
 }
 ```
+
+This ensures that resources are strictly isolated within their organizational boundary (Tenant), preventing cross-tenant access even if resource UUIDs are known.
 
 ## Backup & Recovery
 

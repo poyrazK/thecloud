@@ -35,6 +35,7 @@ const (
 type Cache struct {
 	ID          uuid.UUID   `json:"id"`
 	UserID      uuid.UUID   `json:"user_id"`
+	TenantID    uuid.UUID   `json:"tenant_id"`
 	Name        string      `json:"name"`
 	Engine      CacheEngine `json:"engine"`
 	Version     string      `json:"version"` // Engine version (e.g. "7.0")

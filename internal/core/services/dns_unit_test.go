@@ -10,6 +10,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -113,9 +114,11 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 	auditSvc := new(MockAuditService)
 	eventSvc := new(MockEventService)
 
+	rbacSvc := new(MockRBACService)
 	svc := services.NewDNSService(services.DNSServiceParams{
 		Repo:     repo,
 		Backend:  backend,
+		RBAC:     rbacSvc,
 		VpcRepo:  vpcRepo,
 		AuditSvc: auditSvc,
 		EventSvc: eventSvc,
@@ -128,6 +131,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 
 	t.Run("CreateZone", func(t *testing.T) {
 		vpcID := uuid.New()
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		vpcRepo.On("GetByID", mock.Anything, vpcID).Return(&domain.VPC{ID: vpcID, Name: "test-vpc"}, nil).Once()
 		repo.On("GetZoneByVPC", mock.Anything, vpcID).Return(nil, nil).Once()
 		backend.On("CreateZone", mock.Anything, "example.com.", mock.Anything).Return(nil).Once()
@@ -143,6 +147,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 	t.Run("DeleteZone", func(t *testing.T) {
 		zoneID := uuid.New()
 		zone := &domain.DNSZone{ID: zoneID, Name: "example.com", PowerDNSID: "example.com.", UserID: userID}
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		repo.On("GetZoneByID", mock.Anything, zoneID).Return(zone, nil).Once()
 		backend.On("DeleteZone", mock.Anything, "example.com.").Return(nil).Once()
 		repo.On("DeleteZone", mock.Anything, zoneID).Return(nil).Once()
@@ -155,6 +160,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 	t.Run("CreateRecord", func(t *testing.T) {
 		zoneID := uuid.New()
 		zone := &domain.DNSZone{ID: zoneID, Name: "example.com", PowerDNSID: "example.com."}
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		repo.On("GetZoneByID", mock.Anything, zoneID).Return(zone, nil).Once()
 		backend.On("AddRecords", mock.Anything, "example.com.", mock.Anything).Return(nil).Once()
 		repo.On("CreateRecord", mock.Anything, mock.Anything).Return(nil).Once()
@@ -172,6 +178,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		zone := &domain.DNSZone{ID: zoneID, Name: "example.com", PowerDNSID: "example.com."}
 
 		repo.On("GetRecordByID", mock.Anything, recordID).Return(record, nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		repo.On("GetZoneByID", mock.Anything, zoneID).Return(zone, nil).Once()
 		backend.On("UpdateRecords", mock.Anything, "example.com.", mock.Anything).Return(nil).Once()
 		repo.On("UpdateRecord", mock.Anything, mock.Anything).Return(nil).Once()
@@ -179,16 +186,6 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		updated, err := svc.UpdateRecord(ctx, recordID, "5.6.7.8", 3600, nil)
 		require.NoError(t, err)
 		assert.Equal(t, "5.6.7.8", updated.Content)
-	})
-
-	t.Run("GetZoneByVPC", func(t *testing.T) {
-		vpcID := uuid.New()
-		expectedZone := &domain.DNSZone{ID: uuid.New(), VpcID: vpcID, Name: "vpc.internal"}
-		repo.On("GetZoneByVPC", mock.Anything, vpcID).Return(expectedZone, nil).Once()
-
-		zone, err := svc.GetZoneByVPC(ctx, vpcID)
-		require.NoError(t, err)
-		assert.Equal(t, expectedZone, zone)
 	})
 
 	t.Run("ListZones", func(t *testing.T) {
@@ -227,6 +224,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		zone := &domain.DNSZone{ID: zoneID, Name: "example.com", PowerDNSID: "example.com."}
 
 		repo.On("GetRecordByID", mock.Anything, recordID).Return(record, nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		repo.On("GetZoneByID", mock.Anything, zoneID).Return(zone, nil).Once()
 		backend.On("DeleteRecords", mock.Anything, "example.com.", mock.Anything, "A").Return(nil).Once()
 		repo.On("DeleteRecord", mock.Anything, recordID).Return(nil).Once()
@@ -244,6 +242,7 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		zone := &domain.DNSZone{ID: zoneID, Name: "example.com", PowerDNSID: "example.com."}
 
 		repo.On("GetRecordsByInstance", mock.Anything, instID).Return(records, nil).Once()
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		repo.On("GetZoneByID", mock.Anything, zoneID).Return(zone, nil).Once()
 		backend.On("DeleteRecords", mock.Anything, "example.com.", "web-1.example.com.", "A").Return(nil).Once()
 		repo.On("DeleteRecordsByInstance", mock.Anything, instID).Return(nil).Once()
@@ -251,4 +250,109 @@ func TestDNSService_Unit_Extended(t *testing.T) {
 		err := svc.UnregisterInstance(ctx, instID)
 		require.NoError(t, err)
 	})
+
+	t.Run("RegisterInstance", func(t *testing.T) {
+		vpcID := uuid.New()
+		instID := uuid.New()
+		inst := &domain.Instance{ID: instID, Name: "web-1", VpcID: &vpcID}
+		zone := &domain.DNSZone{ID: uuid.New(), Name: "example.com", PowerDNSID: "example.com.", DefaultTTL: 300}
+
+		repo.On("GetZoneByVPC", mock.Anything, vpcID).Return(zone, nil).Once()
+		backend.On("AddRecords", mock.Anything, "example.com.", mock.Anything).Return(nil).Once()
+		repo.On("CreateRecord", mock.Anything, mock.MatchedBy(func(r *domain.DNSRecord) bool {
+			return r.Name == "web-1" && r.Type == domain.RecordTypeA && *r.InstanceID == instID
+		})).Return(nil).Once()
+
+		err := svc.RegisterInstance(ctx, inst, "10.0.0.10")
+		require.NoError(t, err)
+	})
+}
+
+// TestGetZoneByVPC tests the GetZoneByVPC method with table-driven cases
+func TestGetZoneByVPC(t *testing.T) {
+	repo := new(MockDNSRepository)
+	backend := new(MockDNSBackend)
+	vpcRepo := new(MockVpcRepo)
+	auditSvc := new(MockAuditService)
+	eventSvc := new(MockEventService)
+	rbacSvc := new(MockRBACService)
+
+	svc := services.NewDNSService(services.DNSServiceParams{
+		Repo:     repo,
+		Backend:  backend,
+		RBAC:     rbacSvc,
+		VpcRepo:  vpcRepo,
+		AuditSvc: auditSvc,
+		EventSvc: eventSvc,
+		Logger:   slog.Default(),
+	})
+
+	ctx := context.Background()
+	userID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+
+	testCases := []struct {
+		name       string
+		rbacErr    error
+		repoZone   *domain.DNSZone
+		repoErr    error
+		expectErr  bool
+	}{
+		{
+			name:     "Success",
+			rbacErr:  nil,
+			repoZone: &domain.DNSZone{ID: uuid.New(), VpcID: uuid.New(), Name: "vpc.internal"},
+			repoErr:  nil,
+			expectErr: false,
+		},
+		{
+			name:      "Unauthorized",
+			rbacErr:   errors.New(errors.Forbidden, "access denied"),
+			repoZone:  nil,
+			repoErr:   nil,
+			expectErr: true,
+		},
+		{
+			name:      "RepoError",
+			rbacErr:   nil,
+			repoZone:  nil,
+			repoErr:   errors.New(errors.Internal, "db error"),
+			expectErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create fresh vpcID for each subtest
+			vpcID := uuid.New()
+
+			rbacSvc.On("Authorize",
+				mock.Anything, // ctx
+				mock.Anything, // userID - uuid.UUID (passed by value)
+				mock.Anything, // tenantID - uuid.UUID (passed by value)
+				mock.Anything, // permission - domain.Permission
+				mock.Anything, // resource - string
+			).Return(tc.rbacErr).Once()
+
+			// Only set up repo mock if RBAC passes (repo won't be called on RBAC failure)
+			if tc.rbacErr == nil {
+				repo.On("GetZoneByVPC", mock.Anything, vpcID).Return(tc.repoZone, tc.repoErr).Once()
+			}
+
+			zone, err := svc.GetZoneByVPC(ctx, vpcID)
+
+			if tc.expectErr {
+				require.Error(t, err)
+				assert.Nil(t, zone)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tc.repoZone, zone)
+			}
+
+			if tc.rbacErr == nil {
+				repo.AssertExpectations(t)
+			}
+			rbacSvc.AssertExpectations(t)
+		})
+	}
 }

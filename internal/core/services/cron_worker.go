@@ -15,6 +15,8 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
+const ClaimTimeout = 5 * time.Minute
+
 // CronWorker executes scheduled jobs and records run results.
 type CronWorker struct {
 	repo   ports.CronRepository
@@ -34,7 +36,9 @@ func NewCronWorker(repo ports.CronRepository) *CronWorker {
 func (w *CronWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	ticker := time.NewTicker(10 * time.Second)
+	reaperTicker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
+	defer reaperTicker.Stop()
 
 	log.Println("CloudCron Worker started")
 
@@ -45,19 +49,21 @@ func (w *CronWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 			return
 		case <-ticker.C:
 			w.ProcessJobs(ctx)
+		case <-reaperTicker.C:
+			w.reapStaleClaims(ctx)
 		}
 	}
 }
 
 func (w *CronWorker) ProcessJobs(ctx context.Context) {
-	jobs, err := w.repo.GetNextJobsToRun(ctx)
+	jobs, err := w.repo.ClaimNextJobsToRun(ctx, ClaimTimeout)
 	if err != nil {
-		log.Printf("CronWorker: failed to fetch jobs: %v", err)
+		log.Printf("CronWorker: failed to claim jobs: %v", err)
 		return
 	}
 
 	for _, job := range jobs {
-		go w.runJob(context.Background(), job)
+		w.runJob(ctx, job)
 	}
 }
 
@@ -66,7 +72,7 @@ func (w *CronWorker) runJob(ctx context.Context, job *domain.CronJob) {
 
 	req, err := http.NewRequestWithContext(ctx, job.TargetMethod, job.TargetURL, bytes.NewBufferString(job.TargetPayload))
 	if err != nil {
-		w.recordRun(ctx, job, "FAILED", 0, err.Error(), time.Since(start))
+		w.completeRun(ctx, job, "FAILED", 0, err.Error(), time.Since(start))
 		return
 	}
 
@@ -74,7 +80,7 @@ func (w *CronWorker) runJob(ctx context.Context, job *domain.CronJob) {
 	duration := time.Since(start)
 
 	if err != nil {
-		w.recordRun(ctx, job, "FAILED", 0, err.Error(), duration)
+		w.completeRun(ctx, job, "FAILED", 0, err.Error(), duration)
 		return
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -84,10 +90,10 @@ func (w *CronWorker) runJob(ctx context.Context, job *domain.CronJob) {
 		status = "FAILED"
 	}
 
-	w.recordRun(ctx, job, status, resp.StatusCode, resp.Status, duration)
+	w.completeRun(ctx, job, status, resp.StatusCode, resp.Status, duration)
 }
 
-func (w *CronWorker) recordRun(ctx context.Context, job *domain.CronJob, status string, code int, response string, duration time.Duration) {
+func (w *CronWorker) completeRun(ctx context.Context, job *domain.CronJob, status string, code int, response string, duration time.Duration) {
 	run := &domain.CronJobRun{
 		ID:         uuid.New(),
 		JobID:      job.ID,
@@ -98,19 +104,26 @@ func (w *CronWorker) recordRun(ctx context.Context, job *domain.CronJob, status 
 		StartedAt:  time.Now().Add(-duration),
 	}
 
-	if err := w.repo.SaveJobRun(ctx, run); err != nil {
-		log.Printf("CronWorker: failed to save job run: %v", err)
+	now := time.Now()
+	nextRun := now.Add(24 * time.Hour)
+
+	sched, err := w.parser.Parse(job.Schedule)
+	if err != nil {
+		log.Printf("CronWorker: invalid schedule for job %s: %q: %v; using fallback next run at %s", job.ID, job.Schedule, err, nextRun.Format(time.RFC3339))
+	} else {
+		nextRun = sched.Next(now)
 	}
 
-	// Update job state
-	sched, _ := w.parser.Parse(job.Schedule)
-	now := time.Now()
-	nextRun := sched.Next(now)
+	if err := w.repo.CompleteJobRun(ctx, run, job, nextRun); err != nil {
+		log.Printf("CronWorker: failed to complete job run: %v", err)
+	}
+}
 
-	job.LastRunAt = &now
-	job.NextRunAt = &nextRun
-
-	if err := w.repo.UpdateJob(ctx, job); err != nil {
-		log.Printf("CronWorker: failed to update job state: %v", err)
+func (w *CronWorker) reapStaleClaims(ctx context.Context) {
+	count, err := w.repo.ReapStaleClaims(ctx)
+	if err != nil {
+		log.Printf("CronWorker: failed to reap stale claims: %v", err)
+	} else if count > 0 {
+		log.Printf("CronWorker: reclaimed %d stale claims", count)
 	}
 }

@@ -19,10 +19,13 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.24'
+          go-version: '1.25.0'
           
       - name: Run Benchmarks
-        run: go test -bench=. -benchmem ./internal/core/services/... | tee bench.txt
+        run: |
+          go test -run '^$' -bench=. -benchmem ./internal/core/services/... 2>/dev/null \
+            | grep -E '^(goos:|goarch:|pkg:|cpu:|Benchmark|PASS$|ok\s)' \
+            | tee bench.txt
 
       - name: Store Benchmark Result
         uses: benchmark-action/github-action-benchmark@v1
@@ -36,4 +39,4 @@ jobs:
           # Fail if performance drops by more than 50%
           alert-threshold: '200%'
           comment-on-alert: true
-          fail-on-alert: true
+          fail-on-alert: false

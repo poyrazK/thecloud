@@ -4,6 +4,8 @@ package domain
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // WSEventType defines the types of real-time events sent via WebSocket.
@@ -36,18 +38,20 @@ const (
 // WSEvent represents a single WebSocket message broadcasted to authenticated clients for UI updates.
 type WSEvent struct {
 	Type      WSEventType     `json:"type"`      // The classification of the event
+	TenantID  uuid.UUID       `json:"tenant_id"` // Tenant that owns this event
 	Payload   json.RawMessage `json:"payload"`   // Context-specific JSON data (e.g., an Instance or AuditLog object)
 	Timestamp time.Time       `json:"timestamp"` // Actual time when the event was generated
 }
 
 // NewWSEvent wraps a payload into a WSEvent structure with the current system timestamp.
-func NewWSEvent(eventType WSEventType, payload interface{}) (*WSEvent, error) {
+func NewWSEvent(eventType WSEventType, payload interface{}, tenantID uuid.UUID) (*WSEvent, error) {
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
 	}
 	return &WSEvent{
 		Type:      eventType,
+		TenantID:  tenantID,
 		Payload:   data,
 		Timestamp: time.Now(),
 	}, nil

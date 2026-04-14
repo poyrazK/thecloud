@@ -14,7 +14,7 @@ func NewIAMEvaluator() *iamEvaluator {
 	return &iamEvaluator{}
 }
 
-func (e *iamEvaluator) Evaluate(ctx context.Context, policies []*domain.Policy, action string, resource string, evalCtx map[string]interface{}) (bool, error) {
+func (e *iamEvaluator) Evaluate(ctx context.Context, policies []*domain.Policy, action string, resource string, evalCtx map[string]interface{}) (domain.PolicyEffect, error) {
 	allowFound := false
 
 	for _, policy := range policies {
@@ -27,7 +27,7 @@ func (e *iamEvaluator) Evaluate(ctx context.Context, policies []*domain.Policy, 
 			if e.matches(statement, action, resource) {
 				if statement.Effect == domain.EffectDeny {
 					// Explicit Deny always wins
-					return false, nil
+					return domain.EffectDeny, nil
 				}
 				if statement.Effect == domain.EffectAllow {
 					allowFound = true
@@ -36,9 +36,11 @@ func (e *iamEvaluator) Evaluate(ctx context.Context, policies []*domain.Policy, 
 		}
 	}
 
-	return allowFound, nil
+	if allowFound {
+		return domain.EffectAllow, nil
+	}
+	return "", nil // No match
 }
-
 func (e *iamEvaluator) matches(statement domain.Statement, action string, resource string) bool {
 	actionMatched := false
 	for _, a := range statement.Action {

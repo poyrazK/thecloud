@@ -92,7 +92,6 @@ func TestEncryptionService_Unit(t *testing.T) {
 		assert.Equal(t, data, decrypted)
 	})
 
-
 	t.Run("RotateKey", func(t *testing.T) {
 		mockRepo.On("SaveKey", mock.Anything, mock.MatchedBy(func(k ports.EncryptionKey) bool {
 			return k.BucketName == bucket

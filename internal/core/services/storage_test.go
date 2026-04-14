@@ -18,6 +18,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -127,8 +128,15 @@ func setupStorageServiceIntegrationTest(t *testing.T) (ports.StorageService, por
 	repo := postgres.NewStorageRepository(db)
 	store := NewInMemFileStore()
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
-	cfg := &platform.Config{SecretsEncryptionKey: "test-secret-32-chars-long-needed-!!", Port: "8080"}
+
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
+	cfg := &platform.Config{StorageSecret: "test-secret-32-chars-long-needed-!!", Port: "8080"}
 
 	// Setup encryption service
 	masterKeyHex := "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
@@ -140,10 +148,11 @@ func setupStorageServiceIntegrationTest(t *testing.T) (ports.StorageService, por
 
 	svc := services.NewStorageService(services.StorageServiceParams{
 		Repo:       repo,
-		Store:      store,
-		AuditSvc:   auditSvc,
-		EncryptSvc: encSvc,
-		CFG:        cfg,
+		RBACSvc:    rbacSvc, 
+		Store:      store, 
+		AuditSvc:   auditSvc, 
+		EncryptSvc: encSvc, 
+		Config:     cfg, 
 		Logger:     slog.Default(),
 	})
 
@@ -485,13 +494,16 @@ func TestStorageService_Integration(t *testing.T) {
 		require.Error(t, err)
 
 		// GeneratePresignedURL secret missing
-		badCfg := &platform.Config{SecretsEncryptionKey: "", Port: "8080"}
+		rbacSvc := new(MockRBACService)
+		rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		badCfg := &platform.Config{StorageSecret: "", Port: "8080"}
 		badSvc := services.NewStorageService(services.StorageServiceParams{
 			Repo:       postgres.NewStorageRepository(db),
+			RBACSvc:    rbacSvc,
 			Store:      store,
-			AuditSvc:   services.NewAuditService(postgres.NewAuditRepository(db)),
+			AuditSvc:   services.NewAuditService(services.AuditServiceParams{Repo: postgres.NewAuditRepository(db), RBACSvc: rbacSvc}),
 			EncryptSvc: encSvc,
-			CFG:        badCfg,
+			Config:     badCfg,
 			Logger:     slog.Default(),
 		})
 		_, err = badSvc.GeneratePresignedURL(ctx, "obj-bucket", "f.txt", "GET", 0)

@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/docker"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,15 +30,26 @@ func setupCacheServiceTest(t *testing.T) (*services.CacheService, ports.CacheRep
 	compute, err := docker.NewDockerAdapter(slog.Default())
 	require.NoError(t, err)
 
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	eventRepo := postgres.NewEventRepository(db)
-	eventSvc := services.NewEventService(eventRepo, nil, slog.Default())
+	eventSvc := services.NewEventService(services.EventServiceParams{
+		Repo:    eventRepo,
+		RBACSvc: rbacSvc,
+		Publisher:     nil,
+		Logger:  slog.Default(),
+	})
 
 	auditRepo := postgres.NewAuditRepository(db)
-	auditSvc := services.NewAuditService(auditRepo)
+	auditSvc := services.NewAuditService(services.AuditServiceParams{
+		Repo:    auditRepo,
+		RBACSvc: rbacSvc,
+	})
 
 	logger := slog.Default()
 
-	svc := services.NewCacheService(repo, compute, vpcRepo, eventSvc, auditSvc, logger)
+	svc := services.NewCacheService(repo, rbacSvc, compute, vpcRepo, eventSvc, auditSvc, logger)
 
 	return svc, repo, compute, vpcRepo, ctx
 }

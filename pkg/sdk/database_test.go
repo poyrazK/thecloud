@@ -140,6 +140,23 @@ func TestClientGetDatabaseConnectionString(t *testing.T) {
 	assert.Equal(t, connStr, result)
 }
 
+func TestClientRotateDatabaseCredentials(t *testing.T) {
+	id := dbID
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, dbPathPrefix+id+"/rotate-credentials", r.URL.Path)
+		assert.Equal(t, http.MethodPost, r.Method)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":{"message":"database credentials rotated successfully"}}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, dbAPIKey)
+	err := client.RotateDatabaseCredentials(id)
+
+	require.NoError(t, err)
+}
+
 func TestClientDatabaseErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -162,5 +179,8 @@ func TestClientDatabaseErrors(t *testing.T) {
 	require.Error(t, err)
 
 	_, err = client.GetDatabaseConnectionString("db-1")
+	require.Error(t, err)
+
+	err = client.RotateDatabaseCredentials("db-1")
 	require.Error(t, err)
 }

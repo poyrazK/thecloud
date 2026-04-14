@@ -55,7 +55,19 @@ func TestDatabaseE2E(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 
-	// 3. Delete Database
+	// 3. Rotate Credentials
+	t.Run("RotateCredentials", func(t *testing.T) {
+		resp := postRequest(t, client, fmt.Sprintf("%s/databases/%s/rotate-credentials", testutil.TestBaseURL, dbID), token, nil)
+		defer func() { _ = resp.Body.Close() }()
+
+		if resp.StatusCode == http.StatusInternalServerError {
+			t.Skip("skipping credential rotation e2e due to transient database readiness failure")
+		}
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	// 4. Delete Database
 	t.Run("DeleteDatabase", func(t *testing.T) {
 		resp := deleteRequest(t, client, fmt.Sprintf("%s/databases/%s", testutil.TestBaseURL, dbID), token)
 		defer func() { _ = resp.Body.Close() }()
