@@ -249,7 +249,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 
 	logSvc := services.NewCloudLogsService(c.Repos.Log, rbacSvc, c.Logger)
 
-	instSvcConcrete := services.NewInstanceService(services.InstanceServiceParams{Repo: c.Repos.Instance, VpcRepo: c.Repos.Vpc, SubnetRepo: c.Repos.Subnet, VolumeRepo: c.Repos.Volume, InstanceTypeRepo: c.Repos.InstanceType, RBAC: rbacSvc, Compute: c.Compute, Network: c.Network, EventSvc: eventSvc, AuditSvc: auditSvc, DNSSvc: dnsSvc, TaskQueue: c.Repos.TaskQueue, DockerNetwork: c.Config.DockerDefaultNetwork, Logger: c.Logger, TenantSvc: tenantSvc, SSHKeySvc: sshKeySvc, LogSvc: logSvc})
+	instSvcConcrete := services.NewInstanceService(services.InstanceServiceParams{Repo: c.Repos.Instance, VpcRepo: c.Repos.Vpc, SubnetRepo: c.Repos.Subnet, VolumeRepo: c.Repos.Volume, InstanceTypeRepo: c.Repos.InstanceType, RBAC: rbacSvc, Compute: c.Compute, Network: c.Network, EventSvc: eventSvc, AuditSvc: auditSvc, DNSSvc: dnsSvc, TaskQueue: c.Repos.DurableQueue, DockerNetwork: c.Config.DockerDefaultNetwork, Logger: c.Logger, TenantSvc: tenantSvc, SSHKeySvc: sshKeySvc, LogSvc: logSvc})
 	sgSvc := services.NewSecurityGroupService(c.Repos.SecurityGroup, rbacSvc, c.Repos.Vpc, c.Network, auditSvc, c.Logger)
 
 	lbSvc := services.NewLBService(c.Repos.LB, rbacSvc, c.Repos.Vpc, c.Repos.Instance, auditSvc, c.Logger)
@@ -301,7 +301,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	fnSvc := services.NewFunctionService(c.Repos.Function, rbacSvc, c.Compute, fileStore, auditSvc, c.Logger)
 	cacheSvc := services.NewCacheService(c.Repos.Cache, rbacSvc, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
 	queueSvc := services.NewQueueService(c.Repos.Queue, rbacSvc, eventSvc, auditSvc, c.Logger)
-	pipelineSvc := services.NewPipelineService(c.Repos.Pipeline, c.Repos.TaskQueue, eventSvc, auditSvc, c.Logger)
+	pipelineSvc := services.NewPipelineService(c.Repos.Pipeline, c.Repos.DurableQueue, eventSvc, auditSvc, c.Logger)
 	notifySvc := services.NewNotifyService(services.NotifyServiceParams{Repo: c.Repos.Notify, RBACSvc: rbacSvc, QueueSvc: queueSvc, EventSvc: eventSvc, AuditSvc: auditSvc, Logger: c.Logger})
 
 	// 5. DevOps & Automation Services
@@ -438,7 +438,7 @@ func initStorageServices(c ServiceConfig, rbacSvc ports.RBACService, audit ports
 func initClusterServices(c ServiceConfig, rbacSvc ports.RBACService, vpcSvc ports.VpcService, instSvc ports.InstanceService, secretSvc ports.SecretService, storageSvc ports.StorageService, lbSvc ports.LBService, sgSvc ports.SecurityGroupService) (ports.ClusterService, ports.ClusterProvisioner, error) {
 	clusterProvisioner := k8s.NewKubeadmProvisioner(instSvc, c.Repos.Cluster, secretSvc, sgSvc, storageSvc, lbSvc, c.Logger)
 	clusterSvc, err := services.NewClusterService(services.ClusterServiceParams{
-		Repo: c.Repos.Cluster, RBAC: rbacSvc, Provisioner: clusterProvisioner, VpcSvc: vpcSvc, InstanceSvc: instSvc, SecretSvc: secretSvc, TaskQueue: c.Repos.TaskQueue, Logger: c.Logger,
+		Repo: c.Repos.Cluster, RBAC: rbacSvc, Provisioner: clusterProvisioner, VpcSvc: vpcSvc, InstanceSvc: instSvc, SecretSvc: secretSvc, TaskQueue: c.Repos.DurableQueue, Logger: c.Logger,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to init cluster service: %w", err)
