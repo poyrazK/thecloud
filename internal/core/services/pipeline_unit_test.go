@@ -107,7 +107,7 @@ func githubSignature(secret string, payload []byte) string {
 	return "sha256=" + hex.EncodeToString(mac.Sum(nil))
 }
 
-func TestPipelineServiceTriggerBuildWebhookInvalidGitHubSignature(t *testing.T) {
+func testPipelineServiceTriggerBuildWebhookInvalidGitHubSignature(t *testing.T) {
 	repo := new(MockPipelineRepository)
 	taskQueue := new(MockTaskQueue)
 	eventSvc := new(MockEventService)
@@ -137,7 +137,7 @@ func TestPipelineServiceTriggerBuildWebhookInvalidGitHubSignature(t *testing.T) 
 	repo.AssertExpectations(t)
 }
 
-func TestPipelineServiceTriggerBuildWebhookDuplicateDeliveryIgnored(t *testing.T) {
+func testPipelineServiceTriggerBuildWebhookDuplicateDeliveryIgnored(t *testing.T) {
 	repo := new(MockPipelineRepository)
 	taskQueue := new(MockTaskQueue)
 	eventSvc := new(MockEventService)
@@ -170,7 +170,7 @@ func TestPipelineServiceTriggerBuildWebhookDuplicateDeliveryIgnored(t *testing.T
 	repo.AssertExpectations(t)
 }
 
-func TestPipelineServiceTriggerBuildWebhookBranchMismatchIgnored(t *testing.T) {
+func testPipelineServiceTriggerBuildWebhookBranchMismatchIgnored(t *testing.T) {
 	repo := new(MockPipelineRepository)
 	taskQueue := new(MockTaskQueue)
 	eventSvc := new(MockEventService)
@@ -203,7 +203,7 @@ func TestPipelineServiceTriggerBuildWebhookBranchMismatchIgnored(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
-func TestPipelineServiceTriggerBuildWebhookSuccessQueuesBuild(t *testing.T) {
+func testPipelineServiceTriggerBuildWebhookSuccessQueuesBuild(t *testing.T) {
 	repo := new(MockPipelineRepository)
 	taskQueue := new(MockTaskQueue)
 	eventSvc := new(MockEventService)
@@ -250,7 +250,7 @@ func TestPipelineServiceTriggerBuildWebhookSuccessQueuesBuild(t *testing.T) {
 	auditSvc.AssertExpectations(t)
 }
 
-func TestPipelineService_CreatePipeline(t *testing.T) {
+func testPipelineServiceCreatePipeline(t *testing.T) {
 	repo := new(MockPipelineRepository)
 	taskQueue := new(MockTaskQueue)
 	eventSvc := new(MockEventService)
@@ -300,7 +300,7 @@ func TestPipelineService_CreatePipeline(t *testing.T) {
 	})
 }
 
-func TestPipelineService_GetPipeline(t *testing.T) {
+func testPipelineServiceGetPipeline(t *testing.T) {
 	repo := new(MockPipelineRepository)
 	taskQueue := new(MockTaskQueue)
 	eventSvc := new(MockEventService)
@@ -337,7 +337,7 @@ func TestPipelineService_GetPipeline(t *testing.T) {
 	})
 }
 
-func TestPipelineService_ListPipelines(t *testing.T) {
+func testPipelineServiceListPipelines(t *testing.T) {
 	repo := new(MockPipelineRepository)
 	taskQueue := new(MockTaskQueue)
 	eventSvc := new(MockEventService)
@@ -366,7 +366,7 @@ func TestPipelineService_ListPipelines(t *testing.T) {
 	})
 }
 
-func TestPipelineService_UpdatePipeline(t *testing.T) {
+func testPipelineServiceUpdatePipeline(t *testing.T) {
 	repo := new(MockPipelineRepository)
 	taskQueue := new(MockTaskQueue)
 	eventSvc := new(MockEventService)
@@ -407,7 +407,7 @@ func TestPipelineService_UpdatePipeline(t *testing.T) {
 	})
 }
 
-func TestPipelineService_DeletePipeline(t *testing.T) {
+func testPipelineServiceDeletePipeline(t *testing.T) {
 	repo := new(MockPipelineRepository)
 	taskQueue := new(MockTaskQueue)
 	eventSvc := new(MockEventService)
@@ -446,7 +446,7 @@ func TestPipelineService_DeletePipeline(t *testing.T) {
 	})
 }
 
-func TestPipelineService_TriggerBuild(t *testing.T) {
+func testPipelineServiceTriggerBuild(t *testing.T) {
 	repo := new(MockPipelineRepository)
 	taskQueue := new(MockTaskQueue)
 	eventSvc := new(MockEventService)
@@ -498,7 +498,7 @@ func TestPipelineService_TriggerBuild(t *testing.T) {
 	})
 }
 
-func TestPipelineService_GetBuild(t *testing.T) {
+func testPipelineServiceGetBuild(t *testing.T) {
 	repo := new(MockPipelineRepository)
 	taskQueue := new(MockTaskQueue)
 	eventSvc := new(MockEventService)
@@ -535,7 +535,7 @@ func TestPipelineService_GetBuild(t *testing.T) {
 	})
 }
 
-func TestPipelineService_ListBuildsByPipeline(t *testing.T) {
+func testPipelineServiceListBuildsByPipeline(t *testing.T) {
 	repo := new(MockPipelineRepository)
 	taskQueue := new(MockTaskQueue)
 	eventSvc := new(MockEventService)
@@ -565,7 +565,7 @@ func TestPipelineService_ListBuildsByPipeline(t *testing.T) {
 	})
 }
 
-func TestPipelineService_ListBuildSteps(t *testing.T) {
+func testPipelineServiceListBuildSteps(t *testing.T) {
 	repo := new(MockPipelineRepository)
 	taskQueue := new(MockTaskQueue)
 	eventSvc := new(MockEventService)
@@ -595,7 +595,7 @@ func TestPipelineService_ListBuildSteps(t *testing.T) {
 	})
 }
 
-func TestPipelineService_ListBuildLogs(t *testing.T) {
+func testPipelineServiceListBuildLogs(t *testing.T) {
 	repo := new(MockPipelineRepository)
 	taskQueue := new(MockTaskQueue)
 	eventSvc := new(MockEventService)
@@ -626,20 +626,20 @@ func TestPipelineService_ListBuildLogs(t *testing.T) {
 }
 
 func TestPipelineService_Unit(t *testing.T) {
-	t.Run("TriggerBuildWebhook_InvalidSignature", TestPipelineServiceTriggerBuildWebhookInvalidGitHubSignature)
-	t.Run("TriggerBuildWebhook_DuplicateDelivery", TestPipelineServiceTriggerBuildWebhookDuplicateDeliveryIgnored)
-	t.Run("TriggerBuildWebhook_BranchMismatch", TestPipelineServiceTriggerBuildWebhookBranchMismatchIgnored)
-	t.Run("TriggerBuildWebhook_Success", TestPipelineServiceTriggerBuildWebhookSuccessQueuesBuild)
-	t.Run("CreatePipeline", TestPipelineService_CreatePipeline)
-	t.Run("GetPipeline", TestPipelineService_GetPipeline)
-	t.Run("ListPipelines", TestPipelineService_ListPipelines)
-	t.Run("UpdatePipeline", TestPipelineService_UpdatePipeline)
-	t.Run("DeletePipeline", TestPipelineService_DeletePipeline)
-	t.Run("TriggerBuild", TestPipelineService_TriggerBuild)
-	t.Run("GetBuild", TestPipelineService_GetBuild)
-	t.Run("ListBuildsByPipeline", TestPipelineService_ListBuildsByPipeline)
-	t.Run("ListBuildSteps", TestPipelineService_ListBuildSteps)
-	t.Run("ListBuildLogs", TestPipelineService_ListBuildLogs)
+	t.Run("TriggerBuildWebhook_InvalidSignature", testPipelineServiceTriggerBuildWebhookInvalidGitHubSignature)
+	t.Run("TriggerBuildWebhook_DuplicateDelivery", testPipelineServiceTriggerBuildWebhookDuplicateDeliveryIgnored)
+	t.Run("TriggerBuildWebhook_BranchMismatch", testPipelineServiceTriggerBuildWebhookBranchMismatchIgnored)
+	t.Run("TriggerBuildWebhook_Success", testPipelineServiceTriggerBuildWebhookSuccessQueuesBuild)
+	t.Run("CreatePipeline", testPipelineServiceCreatePipeline)
+	t.Run("GetPipeline", testPipelineServiceGetPipeline)
+	t.Run("ListPipelines", testPipelineServiceListPipelines)
+	t.Run("UpdatePipeline", testPipelineServiceUpdatePipeline)
+	t.Run("DeletePipeline", testPipelineServiceDeletePipeline)
+	t.Run("TriggerBuild", testPipelineServiceTriggerBuild)
+	t.Run("GetBuild", testPipelineServiceGetBuild)
+	t.Run("ListBuildsByPipeline", testPipelineServiceListBuildsByPipeline)
+	t.Run("ListBuildSteps", testPipelineServiceListBuildSteps)
+	t.Run("ListBuildLogs", testPipelineServiceListBuildLogs)
 }
 
 func stringPtr(s string) *string {

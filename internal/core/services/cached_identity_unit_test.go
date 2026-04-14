@@ -17,11 +17,11 @@ import (
 )
 
 func TestCachedIdentityService_Unit(t *testing.T) {
-	t.Run("ValidateAPIKey", TestCachedIdentityService_ValidateAPIKey)
-	t.Run("OtherOps", TestCachedIdentityService_OtherOps)
+	t.Run("ValidateAPIKey", testCachedIdentityServiceValidateAPIKey)
+	t.Run("OtherOps", testCachedIdentityServiceOtherOps)
 }
 
-func TestCachedIdentityService_ValidateAPIKey(t *testing.T) {
+func testCachedIdentityServiceValidateAPIKey(t *testing.T) {
 	mr, err := miniredis.Run()
 	require.NoError(t, err)
 	defer mr.Close()
@@ -60,7 +60,7 @@ func TestCachedIdentityService_ValidateAPIKey(t *testing.T) {
 	base.AssertExpectations(t)
 }
 
-func TestCachedIdentityService_OtherOps(t *testing.T) {
+func testCachedIdentityServiceOtherOps(t *testing.T) {
 	base := new(MockIdentityService)
 	svc := services.NewCachedIdentityService(base, nil, slog.Default())
 	ctx := context.Background()
