@@ -50,6 +50,12 @@ func (b *Bulkhead) Execute(ctx context.Context, fn func() error) error {
 }
 
 func (b *Bulkhead) acquire(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ErrBulkheadFull
+	default:
+	}
+
 	if b.timeout > 0 {
 		timer := time.NewTimer(b.timeout)
 		defer timer.Stop()
