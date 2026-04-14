@@ -40,7 +40,10 @@ jobs:
       - name: Run Tests
         env:
           DATABASE_URL: postgres://cloud:cloud@127.0.0.1:5433/cloud?sslmode=disable
-        run: go test -v -coverprofile=coverage.out ./cmd/... ./internal/... ./pkg/...
+          TEST_DOCKER_NETWORK: cloud-network
+        run: |
+          docker network create ${TEST_DOCKER_NETWORK} || true
+          go test -p 1 -v -coverprofile=coverage.out ./cmd/... ./internal/... ./pkg/...
 
       - name: Check Coverage Threshold
         run: |
