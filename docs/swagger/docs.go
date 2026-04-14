@@ -7429,10 +7429,16 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "encrypted_volume": {
+                    "type": "boolean"
+                },
                 "engine": {
                     "$ref": "#/definitions/domain.DatabaseEngine"
                 },
                 "id": {
+                    "type": "string"
+                },
+                "kms_key_id": {
                     "type": "string"
                 },
                 "metrics_enabled": {
@@ -7483,6 +7489,9 @@ const docTemplate = `{
                 },
                 "version": {
                     "description": "Engine version (e.g. \"15\", \"8.0\")",
+                    "type": "string"
+                },
+                "volume_key_ref": {
                     "type": "string"
                 },
                 "vpc_id": {
@@ -9313,11 +9322,17 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "encrypted": {
+                    "type": "boolean"
+                },
                 "id": {
                     "type": "string"
                 },
                 "instance_id": {
                     "description": "Attached instance",
+                    "type": "string"
+                },
+                "kms_key_id": {
                     "type": "string"
                 },
                 "mount_path": {

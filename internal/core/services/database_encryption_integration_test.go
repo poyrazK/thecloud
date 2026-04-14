@@ -1,3 +1,5 @@
+//go:build integration
+
 package services_test
 
 import (
@@ -23,9 +25,9 @@ func newMockKMSForIntegration() *mockKMSForIntegration {
 
 func (m *mockKMSForIntegration) Encrypt(ctx context.Context, keyID string, plaintext []byte) ([]byte, error) {
 	// Simulate Vault Transit encrypt: append "-encrypted" to mark as encrypted
-	encrypted := append(plaintext, []byte("-encrypted")...)
-	m.keys[keyID] = encrypted
-	return encrypted, nil
+	encrypted := plaintext // copy to avoid modifying input
+	m.keys[keyID] = append(encrypted, []byte("-encrypted")...)
+	return m.keys[keyID], nil
 }
 
 func (m *mockKMSForIntegration) Decrypt(ctx context.Context, keyID string, ciphertext []byte) ([]byte, error) {
