@@ -120,17 +120,44 @@ func TestDockerAdapterDeleteVolume(t *testing.T) {
 }
 
 func TestDockerAdapterAttachVolume(t *testing.T) {
-	adapter := &DockerAdapter{}
-	_, err := adapter.AttachVolume(context.Background(), "inst1", "/data")
-	// AttachVolume is not supported in docker
-	require.Error(t, err)
+	cli := &fakeDockerClient{
+		inspect: container.InspectResponse{
+			ContainerJSONBase: &container.ContainerJSONBase{
+				Name: "/test-container",
+				HostConfig: &container.HostConfig{
+					Binds: []string{"/host/data:/container/data:rw"},
+				},
+			},
+			NetworkSettings: &container.NetworkSettings{
+				Networks: map[string]*network.EndpointSettings{},
+			},
+		},
+	}
+	adapter := &DockerAdapter{cli: cli}
+	containerPath, newContainerID, err := adapter.AttachVolume(context.Background(), "cid", "/new/volume:/mnt/new:rw")
+	require.NoError(t, err)
+	require.Equal(t, "/mnt/new", containerPath)
+	require.NotEmpty(t, newContainerID)
 }
 
 func TestDockerAdapterDetachVolume(t *testing.T) {
-	adapter := &DockerAdapter{}
-	err := adapter.DetachVolume(context.Background(), "inst1", "/data")
-	// DetachVolume is not supported in docker
-	require.Error(t, err)
+	cli := &fakeDockerClient{
+		inspect: container.InspectResponse{
+			ContainerJSONBase: &container.ContainerJSONBase{
+				Name: "/test-container",
+				HostConfig: &container.HostConfig{
+					Binds: []string{"/host/data:/mnt/data:rw"},
+				},
+			},
+			NetworkSettings: &container.NetworkSettings{
+				Networks: map[string]*network.EndpointSettings{},
+			},
+		},
+	}
+	adapter := &DockerAdapter{cli: cli}
+	newContainerID, err := adapter.DetachVolume(context.Background(), "cid", "/mnt/data")
+	require.NoError(t, err)
+	require.NotEmpty(t, newContainerID)
 }
 
 func TestDockerAdapterGetConsoleURL(t *testing.T) {
