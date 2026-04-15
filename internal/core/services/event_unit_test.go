@@ -17,8 +17,6 @@ import (
 
 func testEventServiceCRUD(t *testing.T) {
 	mockRepo := new(MockEventRepo)
-	mockPublisher := new(MockRealtimePublisher)
-	mockPublisher.On("PublishEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	ctx := context.Background()
 	tenantID := uuid.New()
@@ -28,7 +26,9 @@ func testEventServiceCRUD(t *testing.T) {
 
 	t.Run("RecordEvent_Success", func(t *testing.T) {
 		mockRBAC := new(MockRBACService)
+		mockPublisher := new(MockRealtimePublisher)
 		mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		mockPublisher.On("PublishEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		svc := services.NewEventService(services.EventServiceParams{
 			Repo:      mockRepo,
 			RBACSvc:   mockRBAC,
@@ -46,10 +46,9 @@ func testEventServiceCRUD(t *testing.T) {
 		mockRBAC := new(MockRBACService)
 		mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		svc := services.NewEventService(services.EventServiceParams{
-			Repo:      mockRepo,
-			RBACSvc:   mockRBAC,
-			Publisher: mockPublisher,
-			Logger:    slog.Default(),
+			Repo:    mockRepo,
+			RBACSvc: mockRBAC,
+			Logger:  slog.Default(),
 		})
 		mockRepo.On("Create", mock.Anything, mock.Anything).Return(errors.New(errors.Internal, "db error")).Once()
 
@@ -74,6 +73,7 @@ func testEventServiceCRUD(t *testing.T) {
 
 	t.Run("RecordEvent_PublisherError_LogsWarning", func(t *testing.T) {
 		mockRBAC := new(MockRBACService)
+		mockPublisher := new(MockRealtimePublisher)
 		mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		svc := services.NewEventService(services.EventServiceParams{
 			Repo:      mockRepo,
@@ -92,10 +92,9 @@ func testEventServiceCRUD(t *testing.T) {
 		mockRBAC := new(MockRBACService)
 		mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		svc := services.NewEventService(services.EventServiceParams{
-			Repo:      mockRepo,
-			RBACSvc:   mockRBAC,
-			Publisher: mockPublisher,
-			Logger:    slog.Default(),
+			Repo:    mockRepo,
+			RBACSvc: mockRBAC,
+			Logger:  slog.Default(),
 		})
 		events := []*domain.Event{
 			{ID: uuid.New(), Action: "A1"},
@@ -112,10 +111,9 @@ func testEventServiceCRUD(t *testing.T) {
 		mockRBAC := new(MockRBACService)
 		mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		svc := services.NewEventService(services.EventServiceParams{
-			Repo:      mockRepo,
-			RBACSvc:   mockRBAC,
-			Publisher: mockPublisher,
-			Logger:    slog.Default(),
+			Repo:    mockRepo,
+			RBACSvc: mockRBAC,
+			Logger:  slog.Default(),
 		})
 		mockRepo.On("List", mock.Anything, 50).Return([]*domain.Event{}, nil).Once()
 
@@ -128,10 +126,9 @@ func testEventServiceCRUD(t *testing.T) {
 		mockRBAC := new(MockRBACService)
 		mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		svc := services.NewEventService(services.EventServiceParams{
-			Repo:      mockRepo,
-			RBACSvc:   mockRBAC,
-			Publisher: mockPublisher,
-			Logger:    slog.Default(),
+			Repo:    mockRepo,
+			RBACSvc: mockRBAC,
+			Logger:  slog.Default(),
 		})
 		mockRepo.On("List", mock.Anything, 10).Return(nil, errors.New(errors.Internal, "db error")).Once()
 
@@ -143,10 +140,9 @@ func testEventServiceCRUD(t *testing.T) {
 		mockRBAC := new(MockRBACService)
 		mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New(errors.Forbidden, "permission denied"))
 		svc := services.NewEventService(services.EventServiceParams{
-			Repo:      mockRepo,
-			RBACSvc:   mockRBAC,
-			Publisher: mockPublisher,
-			Logger:    slog.Default(),
+			Repo:    mockRepo,
+			RBACSvc: mockRBAC,
+			Logger:  slog.Default(),
 		})
 
 		_, err := svc.ListEvents(ctx, 10)
