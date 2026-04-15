@@ -78,6 +78,7 @@ type dockerClient interface {
 	ContainerExecStart(ctx context.Context, execID string, config container.ExecStartOptions) error
 	ContainerExecAttach(ctx context.Context, execID string, config container.ExecStartOptions) (types.HijackedResponse, error)
 	ContainerExecInspect(ctx context.Context, execID string) (container.ExecInspect, error)
+	ContainerRename(ctx context.Context, containerID string, newName string) error
 }
 
 // NewDockerAdapter constructs a DockerAdapter with a Docker client.
@@ -653,31 +654,47 @@ func (a *DockerAdapter) AttachVolume(ctx context.Context, id string, volumePath 
 		containerName = strings.TrimPrefix(inspect.Name, "/")
 	}
 
-	// 4. Create new container with updated binds
+	// 4. Rename old container to free the name before creating new one
+	oldContainerTmpName := ""
+	if containerName != "" {
+		oldContainerTmpName = id + "-old"
+		if err := a.cli.ContainerRename(ctx, id, oldContainerTmpName); err != nil {
+			return "", "", fmt.Errorf("failed to rename old container: %w", err)
+		}
+	}
+
+	// 5. Create new container with updated binds
 	createResp, err := a.cli.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, containerName)
 	if err != nil {
-		// Rollback: restart original container
+		// Rollback: rename old container back and restart it
+		if containerName != "" {
+			_ = a.cli.ContainerRename(ctx, oldContainerTmpName, containerName)
+		}
 		_ = a.cli.ContainerStart(ctx, id, container.StartOptions{})
 		return "", "", fmt.Errorf("failed to recreate container with volume: %w", err)
 	}
 
-	// 5. Start the new container
+	// 6. Start the new container
 	if err := a.cli.ContainerStart(ctx, createResp.ID, container.StartOptions{}); err != nil {
 		// Cleanup failed container and rollback
 		_ = a.cli.ContainerRemove(ctx, createResp.ID, container.RemoveOptions{Force: true})
+		if containerName != "" {
+			_ = a.cli.ContainerRename(ctx, oldContainerTmpName, containerName)
+		}
 		_ = a.cli.ContainerStart(ctx, id, container.StartOptions{})
 		return "", "", fmt.Errorf("failed to start container: %w", err)
 	}
 
-	// 6. Remove old container (best effort - no error if this fails)
+	// 7. Remove old container (best effort - no error if this fails)
 	if err := a.cli.ContainerRemove(ctx, id, container.RemoveOptions{Force: true}); err != nil {
 		a.logger.Warn("failed to remove old container after volume attach",
 			"old_id", id, "new_id", createResp.ID, "error", err)
 	}
 
 	// Return the container-side mount path and the new container ID
+	// bindSpec format: "devicePath:containerPath[:mode]"
 	parts := strings.Split(bindSpec, ":")
-	containerPath := parts[len(parts)-2]
+	containerPath := parts[1]
 	return containerPath, createResp.ID, nil
 }
 
@@ -737,8 +754,21 @@ func (a *DockerAdapter) DetachVolume(ctx context.Context, id string, volumePath 
 		containerName = strings.TrimPrefix(inspect.Name, "/")
 	}
 
+	// 4b. Rename old container to free the name before creating new one
+	oldContainerTmpName := ""
+	if containerName != "" {
+		oldContainerTmpName = id + "-old"
+		if err := a.cli.ContainerRename(ctx, id, oldContainerTmpName); err != nil {
+			return "", fmt.Errorf("failed to rename old container: %w", err)
+		}
+	}
+
 	createResp, err := a.cli.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, containerName)
 	if err != nil {
+		// Rollback: rename old container back and restart
+		if containerName != "" {
+			_ = a.cli.ContainerRename(ctx, oldContainerTmpName, containerName)
+		}
 		_ = a.cli.ContainerStart(ctx, id, container.StartOptions{})
 		return "", fmt.Errorf("failed to recreate container: %w", err)
 	}
@@ -746,6 +776,9 @@ func (a *DockerAdapter) DetachVolume(ctx context.Context, id string, volumePath 
 	// 5. Start new container
 	if err := a.cli.ContainerStart(ctx, createResp.ID, container.StartOptions{}); err != nil {
 		_ = a.cli.ContainerRemove(ctx, createResp.ID, container.RemoveOptions{Force: true})
+		if containerName != "" {
+			_ = a.cli.ContainerRename(ctx, oldContainerTmpName, containerName)
+		}
 		_ = a.cli.ContainerStart(ctx, id, container.StartOptions{})
 		return "", fmt.Errorf("failed to start container: %w", err)
 	}

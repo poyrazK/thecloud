@@ -302,11 +302,13 @@ func (s *VolumeService) AttachVolume(ctx context.Context, volumeID string, insta
 				_ = s.storage.DetachVolume(ctx, backendName, instanceID)
 				return "", errors.Wrap(errors.Internal, "failed to attach volume to container", err)
 			}
-			// Update instance.ContainerID
-			inst.ContainerID = newContainerID
-			if err := s.instanceRepo.Update(ctx, inst); err != nil {
-				s.logger.Warn("failed to update instance ContainerID after volume attach",
-					"instance_id", instUUID, "new_container_id", newContainerID, "error", err)
+			// Update instance.ContainerID only when backend returns non-empty (Docker recreates container)
+			if newContainerID != "" {
+				inst.ContainerID = newContainerID
+				if err := s.instanceRepo.Update(ctx, inst); err != nil {
+					s.logger.Warn("failed to update instance ContainerID after volume attach",
+						"instance_id", instUUID, "new_container_id", newContainerID, "error", err)
+				}
 			}
 		}
 	}
@@ -363,11 +365,13 @@ func (s *VolumeService) DetachVolume(ctx context.Context, volumeID string) error
 			if err != nil {
 				return errors.Wrap(errors.Internal, "failed to detach volume from container", err)
 			}
-			// Update instance.ContainerID
-			inst.ContainerID = newContainerID
-			if err := s.instanceRepo.Update(ctx, inst); err != nil {
-				s.logger.Warn("failed to update instance ContainerID after volume detach",
-					"instance_id", vol.InstanceID, "error", err)
+			// Update instance.ContainerID only when backend returns non-empty (Docker recreates container)
+			if newContainerID != "" {
+				inst.ContainerID = newContainerID
+				if err := s.instanceRepo.Update(ctx, inst); err != nil {
+					s.logger.Warn("failed to update instance ContainerID after volume detach",
+						"instance_id", vol.InstanceID, "error", err)
+				}
 			}
 		}
 	}
