@@ -424,6 +424,10 @@ When a managed database is provisioned, the service automatically:
     -   **PostgreSQL**: `/var/lib/postgresql/data`
     -   **MySQL**: `/var/lib/mysql`
 
+    **Attachment Mechanism**:
+    - **Libvirt backend**: Volumes are hot-plugged as virtio disks (`/dev/vdb`) via `DomainAttachDevice`.
+    - **Docker backend**: Volumes are attached via a stop→recreate→start cycle. The container is gracefully stopped, recreated with updated bind mounts, and restarted. The instance's `ContainerID` is updated after the operation.
+
 This integration ensures that all database state (tables, indexes, logs) is stored on durable block storage rather than the container's ephemeral layer.
 
 #### Volume Lifecycle

@@ -129,8 +129,8 @@ type ComputeBackend interface {
     CreateInstance(ctx context.Context, name, imageName string, ports []string, networkID string, volumeBinds []string, env []string, cmd []string) (string, error)
     StopInstance(ctx context.Context, id string) error
     DeleteInstance(ctx context.Context, id string) error
-    AttachVolume(ctx context.Context, id string, volumePath string) error
-    DetachVolume(ctx context.Context, id string, volumePath string) error
+    AttachVolume(ctx context.Context, id string, volumePath string) (string, string, error)
+    DetachVolume(ctx context.Context, id string, volumePath string) (string, error)
     GetConsoleURL(ctx context.Context, id string) (string, error)
 }
 

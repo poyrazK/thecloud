@@ -157,9 +157,9 @@ func (m *MockComputeBackend) ListInstances(ctx context.Context) ([]string, error
 	args := m.Called(ctx)
 	return args.Get(0).([]string), args.Error(1)
 }
-func (m *MockComputeBackend) AttachVolume(ctx context.Context, id, path string) (string, error) {
+func (m *MockComputeBackend) AttachVolume(ctx context.Context, id, path string) (string, string, error) {
 	args := m.Called(ctx, id, path)
-	return args.String(0), args.Error(1)
+	return args.String(0), args.String(1), args.Error(2)
 }
 func (m *MockComputeBackend) Exec(ctx context.Context, id string, cmd []string) (string, error) {
 	args := m.Called(ctx, id, cmd)
@@ -200,8 +200,9 @@ func (m *MockComputeBackend) Ping(ctx context.Context) error {
 func (m *MockComputeBackend) Type() string {
 	return m.Called().String(0)
 }
-func (m *MockComputeBackend) DetachVolume(ctx context.Context, id string, path string) error {
-	return m.Called(ctx, id, path).Error(0)
+func (m *MockComputeBackend) DetachVolume(ctx context.Context, id string, path string) (string, error) {
+	args := m.Called(ctx, id, path)
+	return args.String(0), args.Error(1)
 }
 func (m *MockComputeBackend) GetConsoleURL(ctx context.Context, id string) (string, error) {
 	args := m.Called(ctx, id)

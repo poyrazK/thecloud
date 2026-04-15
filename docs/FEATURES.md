@@ -62,13 +62,14 @@ This document provides a comprehensive overview of every feature currently imple
 **What it is**: Persistent disks that can be attached/detached from instances.
 **Tech Stack**: Docker Volumes or Linux LVM.
 **Implementation**:
-- **Docker Mode**: Maps to `docker volume create`.
+- **Docker Mode**: Uses Docker bind mounts via stop→recreate→start cycle. When a volume is attached, the container is gracefully stopped, recreated with updated bind mounts, and restarted. This approach ensures container ID tracking and rollback on failures.
 - **LVM Mode**:
   - **Creation**: Allocates raw logical volumes (`lvcreate`) from a volume group.
   - **Snapshots**: Instant, copy-on-write snapshots for backups.
   - **Performance**: Near-native block device performance for VMs.
-- **Attachment**: Hot-pluggable (in Libvirt mode) or bind-mounted (in Docker mode).
+- **Attachment**: Hot-pluggable (in Libvirt mode) or via container recreation (in Docker mode).
 - **Persistence**: Data survives instance termination.
+- **Container ID Tracking**: After attach/detach, the instance's `ContainerID` is updated to reflect the new container created during the operation.
 
 ### 4. Object Storage (S3-compatible)
 **What it is**: Store and retrieve files (blobs) via API with enterprise-grade features.

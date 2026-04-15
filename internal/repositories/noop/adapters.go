@@ -141,11 +141,11 @@ func (b *NoopComputeBackend) CreateNetwork(ctx context.Context, name string) (st
 	return uuid.New().String(), nil
 }
 func (b *NoopComputeBackend) DeleteNetwork(ctx context.Context, id string) error { return nil }
-func (b *NoopComputeBackend) AttachVolume(ctx context.Context, id string, volumePath string) (string, error) {
-	return "/dev/vdb", nil
+func (b *NoopComputeBackend) AttachVolume(ctx context.Context, id string, volumePath string) (string, string, error) {
+	return "/dev/vdb", "", nil
 }
-func (b *NoopComputeBackend) DetachVolume(ctx context.Context, id string, volumePath string) error {
-	return nil
+func (b *NoopComputeBackend) DetachVolume(ctx context.Context, id string, volumePath string) (string, error) {
+	return "", nil
 }
 func (b *NoopComputeBackend) Ping(ctx context.Context) error { return nil }
 func (b *NoopComputeBackend) Type() string                  { return "noop" }
