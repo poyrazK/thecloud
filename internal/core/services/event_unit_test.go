@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestEventService_Unit(t *testing.T) {
+func testEventServiceCRUD(t *testing.T) {
 	mockRepo := new(MockEventRepo)
 	mockPublisher := new(MockRealtimePublisher)
 	mockPublisher.On("PublishEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -85,7 +85,7 @@ func TestEventService_Unit(t *testing.T) {
 		mockPublisher.On("PublishEvent", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New(errors.Internal, "redis error")).Once()
 
 		err := svc.RecordEvent(ctx, "TEST_ACTION", "res-123", "TEST", nil)
-		require.NoError(t, err) // publisher errors don't fail the method
+		require.NoError(t, err)
 	})
 
 	t.Run("ListEvents_Success", func(t *testing.T) {
@@ -155,7 +155,12 @@ func TestEventService_Unit(t *testing.T) {
 	})
 }
 
-func TestNewEventService(t *testing.T) {
+func TestEventService_Unit(t *testing.T) {
+	t.Run("CRUD", testEventServiceCRUD)
+	t.Run("NewEventService", testNewEventService)
+}
+
+func testNewEventService(t *testing.T) {
 	t.Run("NilLogger_UsesDefault", func(t *testing.T) {
 		svc := services.NewEventService(services.EventServiceParams{
 			Repo:    new(MockEventRepo),
