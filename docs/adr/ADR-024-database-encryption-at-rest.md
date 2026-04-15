@@ -142,10 +142,11 @@ Manages DEK lifecycle:
 
 ## Implementation Notes
 
-- Import cycle avoided by having `VolumeEncryptionServiceImpl` take concrete `*postgres.VolumeEncryptionRepository` rather than interface
+- Import cycle avoided by having `VolumeEncryptionServiceImpl` take the `ports.VolumeEncryptionRepository` interface (postgres doesn't import ports)
 - Encryption wrapper (AES-256-GCM streaming) uses existing chunked framing from ADR-020
 - Integration tests require Docker/testcontainers; skipped in CI without Docker
 - Unit tests use mocks for `KMSClient` and `VolumeEncryptionRepository`
+- Key ID format supports both `vault:transit/key-name` (with scheme prefix) and `key-name` (raw)
 
 ## References
 

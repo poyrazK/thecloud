@@ -144,7 +144,7 @@ func TestVolumeEncryptionService_IsVolumeEncrypted(t *testing.T) {
 		svc := services.NewVolumeEncryptionService(repo, kms)
 
 		volID := uuid.New()
-		repo.On("GetKey", mock.Anything, volID).Return(nil, errors.New(errors.NotFound, "volume encryption key not found"))
+		repo.On("GetKey", mock.Anything, volID).Return(nil, "", errors.New(errors.NotFound, "volume encryption key not found"))
 
 		encrypted, err := svc.IsVolumeEncrypted(context.Background(), volID)
 		if err != nil {
@@ -170,9 +170,6 @@ func (m *mockVolumeEncryptionRepo) SaveKey(ctx context.Context, volID uuid.UUID,
 
 func (m *mockVolumeEncryptionRepo) GetKey(ctx context.Context, volID uuid.UUID) ([]byte, string, error) {
 	args := m.Called(ctx, volID)
-	if args.Get(0) == nil {
-		return nil, "", args.Error(1)
-	}
 	return args.Get(0).([]byte), args.String(1), args.Error(2)
 }
 
