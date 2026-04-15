@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCloudLogsService_Unit(t *testing.T) {
+func testCloudLogsServiceIngestLogs(t *testing.T) {
 	mockRepo := new(MockLogRepository)
 	mockRBAC := new(MockRBACService)
 	svc := services.NewCloudLogsService(mockRepo, mockRBAC, slog.Default())
@@ -40,42 +40,16 @@ func TestCloudLogsService_Unit(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("SearchLogs_Success", func(t *testing.T) {
-		mockRBAC.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionAuditRead, "*").Return(nil).Once()
-		mockRepo.On("List", mock.Anything, mock.Anything).Return([]*domain.LogEntry{}, 0, nil).Once()
-
-		logs, total, err := svc.SearchLogs(ctx, domain.LogQuery{})
-		require.NoError(t, err)
-		assert.Equal(t, 0, total)
-		assert.NotNil(t, logs)
-	})
-
-	t.Run("RunRetentionPolicy_Success", func(t *testing.T) {
-		mockRBAC.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionFullAccess, "*").Return(nil).Once()
-		mockRepo.On("DeleteByAge", mock.Anything, 30).Return(nil).Once()
-
-		err := svc.RunRetentionPolicy(ctx, 30)
-		require.NoError(t, err)
-	})
-
-	t.Run("RunRetentionPolicy_Invalid", func(t *testing.T) {
-		mockRBAC.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionFullAccess, "*").Return(nil).Once()
-		err := svc.RunRetentionPolicy(ctx, 0)
-		require.Error(t, err)
-	})
-
-	t.Run("SearchLogs_RepoError", func(t *testing.T) {
-		query := domain.LogQuery{ResourceID: "res-1"}
-		mockRBAC.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionAuditRead, "*").Return(nil).Once()
-		mockRepo.On("List", mock.Anything, mock.Anything).Return(nil, 0, fmt.Errorf("db fail")).Once()
-		_, _, err := svc.SearchLogs(ctx, query)
-		require.Error(t, err)
-	})
-
 	mockRepo.AssertExpectations(t)
 }
 
-func TestCloudLogsServiceSearchLogsUnit(t *testing.T) {
+func TestCloudLogsService_Unit(t *testing.T) {
+	t.Run("IngestLogs", testCloudLogsServiceIngestLogs)
+	t.Run("SearchLogs", testCloudLogsServiceSearchLogsUnit)
+	t.Run("RunRetentionPolicy", testCloudLogsServiceRunRetentionPolicyUnit)
+}
+
+func testCloudLogsServiceSearchLogsUnit(t *testing.T) {
 	mockRepo := new(MockLogRepository)
 	mockRBAC := new(MockRBACService)
 	svc := services.NewCloudLogsService(mockRepo, mockRBAC, slog.Default())
@@ -86,7 +60,7 @@ func TestCloudLogsServiceSearchLogsUnit(t *testing.T) {
 	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	query := domain.LogQuery{ResourceID: "res-1"}
-	
+
 	t.Run("Success", func(t *testing.T) {
 		mockRBAC.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionAuditRead, "*").Return(nil).Once()
 		expectedLogs := []*domain.LogEntry{{Message: "found"}}
@@ -108,7 +82,7 @@ func TestCloudLogsServiceSearchLogsUnit(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestCloudLogsServiceRunRetentionPolicyUnit(t *testing.T) {
+func testCloudLogsServiceRunRetentionPolicyUnit(t *testing.T) {
 	mockRepo := new(MockLogRepository)
 	mockRBAC := new(MockRBACService)
 	svc := services.NewCloudLogsService(mockRepo, mockRBAC, slog.Default())
