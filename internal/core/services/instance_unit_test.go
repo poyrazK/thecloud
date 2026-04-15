@@ -73,7 +73,16 @@ func (m *MockDNSService) UnregisterInstance(ctx context.Context, id uuid.UUID) e
 	return args.Error(0)
 }
 
-func TestInstanceService_LaunchInstance_Unit(t *testing.T) {
+func TestInstanceService_Unit(t *testing.T) {
+	t.Run("LaunchInstance", testInstanceServiceLaunchInstanceUnit)
+	t.Run("Lifecycle", testInstanceServiceLifecycleUnit)
+	t.Run("Exec", testInstanceServiceExecUnit)
+	t.Run("ProvisionFinalize", testInstanceServiceProvisionFinalize)
+	t.Run("Terminate", testInstanceServiceTerminateUnit)
+	t.Run("VolumeRelease", testInstanceServiceVolumeReleaseUnit)
+}
+
+func testInstanceServiceLaunchInstanceUnit(t *testing.T) {
 	repo := new(MockInstanceRepo)
 	vpcRepo := new(MockVpcRepo)
 	subnetRepo := new(MockSubnetRepo)
@@ -207,7 +216,7 @@ func TestInstanceService_LaunchInstance_Unit(t *testing.T) {
 	})
 }
 
-func TestInstanceService_Lifecycle_Unit(t *testing.T) {
+func testInstanceServiceLifecycleUnit(t *testing.T) {
 	repo := new(MockInstanceRepo)
 	vpcRepo := new(MockVpcRepo)
 	subnetRepo := new(MockSubnetRepo)
@@ -308,7 +317,7 @@ func TestInstanceService_Lifecycle_Unit(t *testing.T) {
 	})
 }
 
-func TestInstanceService_Exec_Unit(t *testing.T) {
+func testInstanceServiceExecUnit(t *testing.T) {
 	repo := new(MockInstanceRepo)
 	compute := new(MockComputeBackend)
 	rbacSvc := new(MockRBACService)
@@ -351,7 +360,7 @@ func TestInstanceService_Exec_Unit(t *testing.T) {
 }
 
 // TestInstanceService_Provision_Finalize tests the Provision method focusing on finalizeProvision path
-func TestInstanceService_Provision_Finalize(t *testing.T) {
+func testInstanceServiceProvisionFinalize(t *testing.T) {
 	t.Run("Finalize_Success", func(t *testing.T) {
 		repo := new(MockInstanceRepo)
 		vpcRepo := new(MockVpcRepo)
@@ -611,7 +620,7 @@ func TestInstanceService_Provision_Finalize(t *testing.T) {
 	})
 }
 
-func TestInstanceService_Terminate_Unit(t *testing.T) {
+func testInstanceServiceTerminateUnit(t *testing.T) {
 	t.Run("TerminateInstance_WithVolumesAttached", func(t *testing.T) {
 		repo := new(MockInstanceRepo)
 		volRepo := new(MockVolumeRepo)
@@ -840,7 +849,7 @@ func TestInstanceService_Terminate_Unit(t *testing.T) {
 	})
 }
 
-func TestInstanceService_VolumeRelease_Unit(t *testing.T) {
+func testInstanceServiceVolumeReleaseUnit(t *testing.T) {
 	t.Run("releaseAttachedVolumes_ListError", func(t *testing.T) {
 		repo := new(MockInstanceRepo)
 		volRepo := new(MockVolumeRepo)
