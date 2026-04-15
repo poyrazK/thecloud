@@ -91,8 +91,8 @@ func (a *TransitKMSAdapter) Decrypt(ctx context.Context, keyID string, ciphertex
 func (a *TransitKMSAdapter) GenerateKey(ctx context.Context, keyID string) ([]byte, error) {
 	keyName := parseKeyName(keyID)
 
-	// Call Transit generate-data-key endpoint (wraps a generated DEK with the transit key)
-	path := fmt.Sprintf("transit/gen_wrapping_key/%s", keyName)
+	// Call Transit datakey plaintext endpoint (generates and wraps a DEK with the transit key)
+	path := fmt.Sprintf("transit/datakey/plaintext/%s", keyName)
 	secret, err := a.client.Logical().WriteWithContext(ctx, path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("vault transit key generation failed for key %s: %w", keyName, err)
@@ -107,7 +107,8 @@ func (a *TransitKMSAdapter) GenerateKey(ctx context.Context, keyID string) ([]by
 		return nil, fmt.Errorf("vault transit key generation response missing plaintext for key %s", keyName)
 	}
 
-	return []byte(plaintextB64), nil
+	// Decode base64 to get raw key bytes
+	return base64.StdEncoding.DecodeString(plaintextB64)
 }
 
 // Ensure TransitKMSAdapter implements ports.KMSClient

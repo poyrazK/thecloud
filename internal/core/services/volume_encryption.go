@@ -10,26 +10,35 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+const (
+	dekKeySize         = 32             // 256-bit DEK
+	dekCipherAlgorithm = "AES-256-GCM" // DEK encryption algorithm
+)
+
 // VolumeEncryptionServiceImpl implements ports.VolumeEncryptionService.
 type VolumeEncryptionServiceImpl struct {
-	repo     ports.VolumeEncryptionRepository
-	kms      ports.KMSClient
-	keyBytes int // DEK size in bytes
+	repo ports.VolumeEncryptionRepository
+	kms  ports.KMSClient
 }
 
 // NewVolumeEncryptionService creates a new VolumeEncryptionService.
-func NewVolumeEncryptionService(repo ports.VolumeEncryptionRepository, kms ports.KMSClient) *VolumeEncryptionServiceImpl {
-	return &VolumeEncryptionServiceImpl{
-		repo:     repo,
-		kms:      kms,
-		keyBytes: 32, // 256-bit DEK
+func NewVolumeEncryptionService(repo ports.VolumeEncryptionRepository, kms ports.KMSClient) (*VolumeEncryptionServiceImpl, error) {
+	if repo == nil {
+		return nil, errors.New(errors.Internal, "nil repo")
 	}
+	if kms == nil {
+		return nil, errors.New(errors.Internal, "nil kms")
+	}
+	return &VolumeEncryptionServiceImpl{
+		repo: repo,
+		kms:  kms,
+	}, nil
 }
 
 // CreateVolumeKey generates a new DEK, encrypts it with KMS, and stores it.
 func (s *VolumeEncryptionServiceImpl) CreateVolumeKey(ctx context.Context, volumeID uuid.UUID, kmsKeyID string) error {
 	// Generate random 256-bit DEK
-	dek := make([]byte, s.keyBytes)
+	dek := make([]byte, dekKeySize)
 	if _, err := rand.Read(dek); err != nil {
 		return errors.Wrap(errors.Internal, "failed to generate DEK", err)
 	}
@@ -41,7 +50,7 @@ func (s *VolumeEncryptionServiceImpl) CreateVolumeKey(ctx context.Context, volum
 	}
 
 	// Store encrypted DEK in database
-	err = s.repo.SaveKey(ctx, volumeID, kmsKeyID, encryptedDEK, "AES-256-GCM")
+	err = s.repo.SaveKey(ctx, volumeID, kmsKeyID, encryptedDEK, dekCipherAlgorithm)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to store encrypted DEK", err)
 	}
@@ -54,7 +63,10 @@ func (s *VolumeEncryptionServiceImpl) GetVolumeDEK(ctx context.Context, volumeID
 	// Get encrypted DEK and KMS key ID from database
 	encryptedDEK, kmsKeyID, err := s.repo.GetKey(ctx, volumeID)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, errors.NotFound) {
+			return nil, errors.New(errors.NotFound, "volume DEK not found")
+		}
+		return nil, errors.Wrap(errors.Internal, "failed to fetch volume DEK", err)
 	}
 
 	// Decrypt DEK with KMS
@@ -68,7 +80,14 @@ func (s *VolumeEncryptionServiceImpl) GetVolumeDEK(ctx context.Context, volumeID
 
 // DeleteVolumeKey removes the DEK for a volume.
 func (s *VolumeEncryptionServiceImpl) DeleteVolumeKey(ctx context.Context, volumeID uuid.UUID) error {
-	return s.repo.DeleteKey(ctx, volumeID)
+	err := s.repo.DeleteKey(ctx, volumeID)
+	if err != nil {
+		if errors.Is(err, errors.NotFound) {
+			return nil // Deleting non-existent key is a no-op
+		}
+		return errors.Wrap(errors.Internal, "failed to delete volume DEK", err)
+	}
+	return nil
 }
 
 // IsVolumeEncrypted checks whether a volume has an encryption key.
@@ -78,7 +97,7 @@ func (s *VolumeEncryptionServiceImpl) IsVolumeEncrypted(ctx context.Context, vol
 		if errors.Is(err, errors.NotFound) {
 			return false, nil
 		}
-		return false, err
+		return false, errors.Wrap(errors.Internal, "failed to check volume encryption", err)
 	}
 	return true, nil
 }

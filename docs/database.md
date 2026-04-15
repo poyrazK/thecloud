@@ -458,8 +458,7 @@ POST /databases
 #### Architecture
 - **DEK Pattern**: Each volume has a unique DEK encrypted by Vault Transit (master key)
 - **Application-Level**: Encryption is transparent to the database engine
-- **Vault Transit**: Handles all cryptographic operations; DEKs are never exposed
-- **Key Rotation**: Supported via Vault's rewrap functionality
+- **Vault Transit**: Handles all cryptographic operations; DEKs are never persisted unencrypted
 
 #### Implementation
 - **Service**: `VolumeEncryptionService` in `internal/core/services/volume_encryption.go`

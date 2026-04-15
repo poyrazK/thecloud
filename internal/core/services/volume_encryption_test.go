@@ -49,7 +49,10 @@ func TestVolumeEncryptionService_CreateVolumeKey(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		repo := new(mockVolumeEncryptionRepo)
 		kms := new(mockKMSClient)
-		svc := services.NewVolumeEncryptionService(repo, kms)
+		svc, err := services.NewVolumeEncryptionService(repo, kms)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
 
 		volID := uuid.New()
 		kmsKeyID := "vault:transit/my-key"
@@ -58,7 +61,7 @@ func TestVolumeEncryptionService_CreateVolumeKey(t *testing.T) {
 		kms.On("Encrypt", mock.Anything, kmsKeyID, mock.Anything).Return([]byte("encrypted-dek"), nil)
 		repo.On("SaveKey", mock.Anything, volID, kmsKeyID, mock.Anything, "AES-256-GCM").Return(nil)
 
-		err := svc.CreateVolumeKey(context.Background(), volID, kmsKeyID)
+		err = svc.CreateVolumeKey(context.Background(), volID, kmsKeyID)
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -70,14 +73,17 @@ func TestVolumeEncryptionService_CreateVolumeKey(t *testing.T) {
 	t.Run("kms encrypt failure", func(t *testing.T) {
 		repo := new(mockVolumeEncryptionRepo)
 		kms := new(mockKMSClient)
-		svc := services.NewVolumeEncryptionService(repo, kms)
+		svc, err := services.NewVolumeEncryptionService(repo, kms)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
 
 		volID := uuid.New()
 		kmsKeyID := "vault:transit/my-key"
 
 		kms.On("Encrypt", mock.Anything, kmsKeyID, mock.Anything).Return(nil, context.DeadlineExceeded)
 
-		err := svc.CreateVolumeKey(context.Background(), volID, kmsKeyID)
+		err = svc.CreateVolumeKey(context.Background(), volID, kmsKeyID)
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -93,7 +99,10 @@ func TestVolumeEncryptionService_GetVolumeDEK(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		repo := new(mockVolumeEncryptionRepo)
 		kms := new(mockKMSClient)
-		svc := services.NewVolumeEncryptionService(repo, kms)
+		svc, err := services.NewVolumeEncryptionService(repo, kms)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
 
 		volID := uuid.New()
 		kmsKeyID := "vault:transit/my-key"
@@ -122,7 +131,10 @@ func TestVolumeEncryptionService_IsVolumeEncrypted(t *testing.T) {
 	t.Run("encrypted", func(t *testing.T) {
 		repo := new(mockVolumeEncryptionRepo)
 		kms := new(mockKMSClient)
-		svc := services.NewVolumeEncryptionService(repo, kms)
+		svc, err := services.NewVolumeEncryptionService(repo, kms)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
 
 		volID := uuid.New()
 		repo.On("GetKey", mock.Anything, volID).Return([]byte("encrypted-dek"), "vault:transit/my-key", nil)
@@ -141,7 +153,10 @@ func TestVolumeEncryptionService_IsVolumeEncrypted(t *testing.T) {
 	t.Run("not encrypted", func(t *testing.T) {
 		repo := new(mockVolumeEncryptionRepo)
 		kms := new(mockKMSClient)
-		svc := services.NewVolumeEncryptionService(repo, kms)
+		svc, err := services.NewVolumeEncryptionService(repo, kms)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
 
 		volID := uuid.New()
 		repo.On("GetKey", mock.Anything, volID).Return(nil, "", errors.New(errors.NotFound, "volume encryption key not found"))
@@ -170,7 +185,11 @@ func (m *mockVolumeEncryptionRepo) SaveKey(ctx context.Context, volID uuid.UUID,
 
 func (m *mockVolumeEncryptionRepo) GetKey(ctx context.Context, volID uuid.UUID) ([]byte, string, error) {
 	args := m.Called(ctx, volID)
-	return args.Get(0).([]byte), args.String(1), args.Error(2)
+	var encryptedDEK []byte
+	if args.Get(0) != nil {
+		encryptedDEK = args.Get(0).([]byte)
+	}
+	return encryptedDEK, args.String(1), args.Error(2)
 }
 
 func (m *mockVolumeEncryptionRepo) DeleteKey(ctx context.Context, volID uuid.UUID) error {

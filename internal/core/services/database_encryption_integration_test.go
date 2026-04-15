@@ -4,6 +4,7 @@ package services_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -24,6 +25,10 @@ func newMockKMSForIntegration() *mockKMSForIntegration {
 }
 
 func (m *mockKMSForIntegration) Encrypt(ctx context.Context, keyID string, plaintext []byte) ([]byte, error) {
+	// Simulate failure for "fail-key" sentinel
+	if _, ok := m.keys[keyID]; !ok {
+		return nil, errors.New("kms encrypt failure")
+	}
 	// Simulate Vault Transit encrypt: append "-encrypted" to mark as encrypted
 	encrypted := plaintext // copy to avoid modifying input
 	m.keys[keyID] = append(encrypted, []byte("-encrypted")...)
@@ -52,7 +57,8 @@ func TestVolumeEncryptionService_Integration(t *testing.T) {
 
 	volEncRepo := postgres.NewVolumeEncryptionRepository(db)
 	mockKMS := newMockKMSForIntegration()
-	svc := services.NewVolumeEncryptionService(volEncRepo, mockKMS)
+	svc, err := services.NewVolumeEncryptionService(volEncRepo, mockKMS)
+	require.NoError(t, err)
 
 	volID := uuid.New()
 	kmsKeyID := "vault:transit/test-key"
@@ -93,9 +99,10 @@ func TestVolumeEncryptionService_Integration(t *testing.T) {
 	})
 
 	t.Run("CreateVolumeKey_KMSFailure", func(t *testing.T) {
-		mockKMS.keys["fail-key"] = nil // Signal failure
-		failKMS := &mockKMSForIntegration{keys: map[string][]byte{"fail-key": nil}}
-		failSvc := services.NewVolumeEncryptionService(volEncRepo, failKMS)
+		// failKMS has empty keys map, so Encrypt will return error for any key
+		failKMS := &mockKMSForIntegration{keys: make(map[string][]byte)}
+		failSvc, svcErr := services.NewVolumeEncryptionService(volEncRepo, failKMS)
+		require.NoError(t, svcErr)
 
 		err := failSvc.CreateVolumeKey(context.Background(), uuid.New(), "fail-key")
 		assert.Error(t, err)

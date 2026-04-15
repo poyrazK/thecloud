@@ -236,6 +236,12 @@ func (s *DatabaseService) provisionDatabase(ctx context.Context, db *domain.Data
 
 	// Create encryption key for volume if encryption is enabled
 	if db.EncryptedVolume && db.KmsKeyID != "" {
+		if s.volumeEncryption == nil {
+			if delErr := s.secrets.DeleteSecret(ctx, db.CredentialPath); delErr != nil {
+				s.logger.Warn("failed to cleanup vault secret after volume creation failure", "path", db.CredentialPath, "error", delErr)
+			}
+			return nil, errors.New(errors.Internal, "volume encryption service not configured")
+		}
 		if err := s.volumeEncryption.CreateVolumeKey(ctx, vol.ID, db.KmsKeyID); err != nil {
 			if delErr := s.secrets.DeleteSecret(ctx, db.CredentialPath); delErr != nil {
 				s.logger.Warn("failed to cleanup vault secret after encryption key creation failure", "path", db.CredentialPath, "error", delErr)
@@ -443,7 +449,9 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 		for _, v := range vols {
 			if strings.HasPrefix(v.Name, expectedPrefix) {
 				volID = v.ID
-				_ = s.volumeSvc.DeleteVolume(ctx, v.ID.String())
+				if err := s.volumeSvc.DeleteVolume(ctx, v.ID.String()); err != nil {
+					s.logger.Warn("failed to delete volume", "volume_id", v.ID, "error", err)
+				}
 				break
 			}
 		}
