@@ -49,6 +49,12 @@ type DockerAdapter struct {
 	containerLocks sync.Map
 }
 
+// deleteLock removes the lock entry for a container after attach/detach completes.
+// Must be called while holding the lock.
+func (a *DockerAdapter) deleteLock(containerID string) {
+	a.containerLocks.Delete(containerID)
+}
+
 func (a *DockerAdapter) getContainerLock(containerID string) *sync.Mutex {
 	lock, _ := a.containerLocks.LoadOrStore(containerID, &sync.Mutex{})
 	return lock.(*sync.Mutex)
@@ -609,6 +615,7 @@ func (a *DockerAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID stri
 func (a *DockerAdapter) AttachVolume(ctx context.Context, id string, volumePath string) (string, string, error) {
 	lock := a.getContainerLock(id)
 	lock.Lock()
+	defer a.deleteLock(id) // Clean up lock entry after operation
 	defer lock.Unlock()
 
 	// 1. Inspect current container to get configuration
@@ -701,6 +708,7 @@ func (a *DockerAdapter) AttachVolume(ctx context.Context, id string, volumePath 
 func (a *DockerAdapter) DetachVolume(ctx context.Context, id string, volumePath string) (string, error) {
 	lock := a.getContainerLock(id)
 	lock.Lock()
+	defer a.deleteLock(id) // Clean up lock entry after operation
 	defer lock.Unlock()
 
 	// 1. Inspect current container
