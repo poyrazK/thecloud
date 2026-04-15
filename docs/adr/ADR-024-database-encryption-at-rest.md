@@ -99,8 +99,8 @@ Manages DEK lifecycle:
 
 ### Vault Transit Usage
 - Key path format: `transit/encrypt/decrypt/{key_name}` where key_name is derived from `KmsKeyID`
-- Supports both Vault-managed keys (`vault:my-key`) and external KMS keys via Vault's KMIP support
 - Vault Transit handles all cryptographic operations; application never sees master key
+- `GenerateKey` uses the `transit/datakey/ciphertext/{key_name}` endpoint to generate a wrapped DEK
 
 ## Consequences
 
@@ -109,7 +109,6 @@ Manages DEK lifecycle:
 - **Security**: Volume data is encrypted; lost/stolen volumes cannot be read
 - **Vendor Abstraction**: KMS interface allows swapping Vault for AWS KMS, GCP KMS, etc.
 - **No Engine Changes**: Works with PostgreSQL, MySQL without modification
-- **Key Rotation**: DEKs can be re-wrapped with new master key via Vault
 
 ### Negative
 - **Performance**: Encryption/decryption adds latency on every I/O operation

@@ -25,8 +25,8 @@ func newMockKMSForIntegration() *mockKMSForIntegration {
 }
 
 func (m *mockKMSForIntegration) Encrypt(ctx context.Context, keyID string, plaintext []byte) ([]byte, error) {
-	// Simulate failure for "fail-key" sentinel
-	if _, ok := m.keys[keyID]; !ok {
+	// Simulate failure only for explicit "fail-key" sentinel
+	if keyID == "fail-key" {
 		return nil, errors.New("kms encrypt failure")
 	}
 	// Simulate Vault Transit encrypt: append "-encrypted" to mark as encrypted
