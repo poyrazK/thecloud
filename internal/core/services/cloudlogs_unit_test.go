@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCloudLogsService_Unit(t *testing.T) {
+func testCloudLogsServiceIngestLogs(t *testing.T) {
 	mockRepo := new(MockLogRepository)
 	mockRBAC := new(MockRBACService)
 	svc := services.NewCloudLogsService(mockRepo, mockRBAC, slog.Default())
@@ -75,7 +75,13 @@ func TestCloudLogsService_Unit(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestCloudLogsServiceSearchLogsUnit(t *testing.T) {
+func TestCloudLogsService_Unit(t *testing.T) {
+	t.Run("IngestLogs", testCloudLogsServiceIngestLogs)
+	t.Run("SearchLogs", testCloudLogsServiceSearchLogsUnit)
+	t.Run("RunRetentionPolicy", testCloudLogsServiceRunRetentionPolicyUnit)
+}
+
+func testCloudLogsServiceSearchLogsUnit(t *testing.T) {
 	mockRepo := new(MockLogRepository)
 	mockRBAC := new(MockRBACService)
 	svc := services.NewCloudLogsService(mockRepo, mockRBAC, slog.Default())
@@ -86,7 +92,7 @@ func TestCloudLogsServiceSearchLogsUnit(t *testing.T) {
 	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	query := domain.LogQuery{ResourceID: "res-1"}
-	
+
 	t.Run("Success", func(t *testing.T) {
 		mockRBAC.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionAuditRead, "*").Return(nil).Once()
 		expectedLogs := []*domain.LogEntry{{Message: "found"}}
@@ -108,7 +114,7 @@ func TestCloudLogsServiceSearchLogsUnit(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestCloudLogsServiceRunRetentionPolicyUnit(t *testing.T) {
+func testCloudLogsServiceRunRetentionPolicyUnit(t *testing.T) {
 	mockRepo := new(MockLogRepository)
 	mockRBAC := new(MockRBACService)
 	svc := services.NewCloudLogsService(mockRepo, mockRBAC, slog.Default())
