@@ -111,13 +111,14 @@ func (m *mockEventSvc) ListEvents(ctx context.Context, limit int) ([]*domain.Eve
 }
 
 // setupContainerWorkerTest creates a ContainerWorker with mock dependencies.
-func setupContainerWorkerTest(t *testing.T) (*services.ContainerWorker, *MockContainerRepository, *mockInstanceSvc, *mockEventSvc) {
+func setupContainerWorkerTest(t *testing.T) (*services.ContainerWorker, *MockContainerRepository, *mockInstanceSvc) {
 	t.Helper()
 	repo := new(MockContainerRepository)
 	instanceSvc := new(mockInstanceSvc)
 	eventSvc := new(mockEventSvc)
 	worker := services.NewContainerWorker(repo, instanceSvc, eventSvc)
-	return worker, repo, instanceSvc, eventSvc
+	_ = eventSvc // satisfy linter: eventSvc is a dependency but not exercised by Reconcile tests
+	return worker, repo, instanceSvc
 }
 
 func TestContainerWorker_Unit(t *testing.T) {
@@ -126,7 +127,7 @@ func TestContainerWorker_Unit(t *testing.T) {
 }
 
 func testContainerWorkerReconcile(t *testing.T) {
-	worker, repo, instanceSvc, _ := setupContainerWorkerTest(t)
+	worker, repo, instanceSvc := setupContainerWorkerTest(t)
 	ctx := context.Background()
 	userID := uuid.New()
 	depID := uuid.New()
@@ -155,7 +156,7 @@ func testContainerWorkerReconcile(t *testing.T) {
 }
 
 func testContainerWorkerReconcileListDeploymentsError(t *testing.T) {
-	worker, repo, _, _ := setupContainerWorkerTest(t)
+	worker, repo, _ := setupContainerWorkerTest(t)
 	ctx := context.Background()
 
 	repo.On("ListAllDeployments", mock.Anything).Return(nil, assert.AnError).Maybe()
