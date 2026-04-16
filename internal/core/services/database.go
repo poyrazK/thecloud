@@ -143,9 +143,9 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 		return nil, err
 	}
 
-	// Ensure the primary database belongs to the same tenant
+	// Ensure the primary database belongs to the same tenant without leaking cross-tenant existence
 	if primary.TenantID != tenantID {
-		return nil, errors.New(errors.Forbidden, "cannot create replica of a database in another tenant")
+		return nil, errors.New(errors.NotFound, "database not found")
 	}
 
 	primaryIP, err := s.compute.GetInstanceIP(ctx, primary.ContainerID)

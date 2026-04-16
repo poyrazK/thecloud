@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
@@ -277,6 +278,22 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		replica, err := svc.CreateReplica(ctx, primaryID, "fail-rep")
 		require.Error(t, err)
 		assert.Nil(t, replica)
+	})
+
+	t.Run("CreateReplica_Failure_CrossTenant", func(t *testing.T) {
+		primaryID := uuid.New()
+		callersTenantID := uuid.New()
+		otherTenantID := uuid.New()
+
+		primary := &domain.Database{ID: primaryID, TenantID: otherTenantID, Engine: "postgres", Version: "16", Port: 5432, ContainerID: "primary-cid", AllocatedStorage: 20, Username: "cloud_user", Password: "pass"}
+		mockRepo.On("GetByID", mock.Anything, primaryID).Return(primary, nil).Once()
+
+		crossTenantCtx := appcontext.WithTenantID(ctx, callersTenantID)
+		replica, err := svc.CreateReplica(crossTenantCtx, primaryID, "fail-rep")
+		require.Error(t, err)
+		assert.Nil(t, replica)
+		// Should return NotFound to avoid leaking cross-tenant existence
+		assert.Contains(t, err.Error(), "not found")
 	})
 
 	t.Run("CreateDatabaseSnapshot_Success", func(t *testing.T) {
