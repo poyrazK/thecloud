@@ -23,7 +23,7 @@ func TestAutoscalerServer_Refresh(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, fmt.Sprintf("/clusters/%s", clusterID), r.URL.Path)
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{"data": {"id": "%s", "status": "RUNNING"}}`, clusterID)
+			_, _ = fmt.Fprintf(w, `{"data": {"id": "%s", "status": "RUNNING"}}`, clusterID)
 		}))
 		defer ts.Close()
 
@@ -38,7 +38,7 @@ func TestAutoscalerServer_Refresh(t *testing.T) {
 	t.Run("Status_Repairing", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{"data": {"id": "%s", "status": "repairing"}}`, clusterID)
+			_, _ = fmt.Fprintf(w, `{"data": {"id": "%s", "status": "repairing"}}`, clusterID)
 		}))
 		defer ts.Close()
 
@@ -57,7 +57,7 @@ func TestAutoscalerServer_NodeGroups(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{
+			_, _ = fmt.Fprintf(w, `{
 				"data": {
 					"id": "%s",
 					"node_groups": [
@@ -86,9 +86,9 @@ func TestAutoscalerServer_NodeGroupForNode(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			if r.URL.Path == fmt.Sprintf("/instances/%s", instanceID) {
-				fmt.Fprintf(w, `{"data": {"id": "%s", "metadata": {"thecloud.io/node-group": "pool-1"}} }`, instanceID)
+				_, _ = fmt.Fprintf(w, `{"data": {"id": "%s", "metadata": {"thecloud.io/node-group": "pool-1"}} }`, instanceID)
 			} else {
-				fmt.Fprintf(w, `{
+				_, _ = fmt.Fprintf(w, `{
 					"data": {
 						"id": "%s",
 						"node_groups": [{"name": "pool-1", "min_size": 1, "max_size": 10}]
@@ -116,7 +116,7 @@ func TestAutoscalerServer_NodeGroupTargetSize(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{
+			_, _ = fmt.Fprintf(w, `{
 				"data": {
 					"id": "%s",
 					"node_groups": [{"name": "pool-1", "current_size": 5}]
@@ -142,10 +142,10 @@ func TestAutoscalerServer_NodeGroupIncreaseSize(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			switch r.Method {
 			case "GET":
-				fmt.Fprintf(w, `{"data": {"id": "%s", "status": "RUNNING", "node_groups": [{"name": "pool-1", "current_size": 2, "max_size": 10}]}}`, clusterID)
+				_, _ = fmt.Fprintf(w, `{"data": {"id": "%s", "status": "RUNNING", "node_groups": [{"name": "pool-1", "current_size": 2, "max_size": 10}]}}`, clusterID)
 			case "PUT":
 				w.WriteHeader(http.StatusOK)
-				fmt.Fprint(w, `{"data": {}}`)
+				_, _ = fmt.Fprint(w, `{"data": {}}`)
 			}
 		}))
 		defer ts.Close()
@@ -167,15 +167,15 @@ func TestAutoscalerServer_NodeGroupDeleteNodes(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			switch {
 			case r.Method == "GET" && r.URL.Path == "/clusters/"+clusterID:
-				fmt.Fprintf(w, `{"data": {"id": "%s", "status": "RUNNING", "node_groups": [{"name": "pool-1", "current_size": 2, "min_size": 1}]}}`, clusterID)
+				_, _ = fmt.Fprintf(w, `{"data": {"id": "%s", "status": "RUNNING", "node_groups": [{"name": "pool-1", "current_size": 2, "min_size": 1}]}}`, clusterID)
 			case r.Method == "GET" && r.URL.Path == "/instances":
-				fmt.Fprintf(w, `{"data": [{"id": "%s", "metadata": {"thecloud.io/cluster-id": "%s", "thecloud.io/node-group": "pool-1"}}]}`, instanceID, clusterID)
+				_, _ = fmt.Fprintf(w, `{"data": [{"id": "%s", "metadata": {"thecloud.io/cluster-id": "%s", "thecloud.io/node-group": "pool-1"}}]}`, instanceID, clusterID)
 			case r.Method == "DELETE":
 				w.WriteHeader(http.StatusOK)
-				fmt.Fprint(w, `{"data": {}}`)
+				_, _ = fmt.Fprint(w, `{"data": {}}`)
 			case r.Method == "PUT":
 				w.WriteHeader(http.StatusOK)
-				fmt.Fprint(w, `{"data": {}}`)
+				_, _ = fmt.Fprint(w, `{"data": {}}`)
 			}
 		}))
 		defer ts.Close()
@@ -198,7 +198,7 @@ func TestAutoscalerServer_NodeGroupNodes(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{"data": [{"id": "%s", "metadata": {"thecloud.io/cluster-id": "%s", "thecloud.io/node-group": "pool-1"}, "status": "RUNNING"}]}`, instanceID, clusterID)
+			_, _ = fmt.Fprintf(w, `{"data": [{"id": "%s", "metadata": {"thecloud.io/cluster-id": "%s", "thecloud.io/node-group": "pool-1"}, "status": "RUNNING"}]}`, instanceID, clusterID)
 		}))
 		defer ts.Close()
 
@@ -220,10 +220,10 @@ func TestAutoscalerServer_NodeGroupDecreaseTargetSize(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			switch r.Method {
 			case "GET":
-				fmt.Fprintf(w, `{"data": {"id": "%s", "status": "RUNNING", "node_groups": [{"name": "pool-1", "current_size": 5, "min_size": 1}]}}`, clusterID)
+				_, _ = fmt.Fprintf(w, `{"data": {"id": "%s", "status": "RUNNING", "node_groups": [{"name": "pool-1", "current_size": 5, "min_size": 1}]}}`, clusterID)
 			case "PUT":
 				w.WriteHeader(http.StatusOK)
-				fmt.Fprint(w, `{"data": {}}`)
+				_, _ = fmt.Fprint(w, `{"data": {}}`)
 			}
 		}))
 		defer ts.Close()
