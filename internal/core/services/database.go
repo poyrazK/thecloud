@@ -143,6 +143,11 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 		return nil, err
 	}
 
+	// Ensure the primary database belongs to the same tenant
+	if primary.TenantID != tenantID {
+		return nil, errors.New(errors.Forbidden, "cannot create replica of a database in another tenant")
+	}
+
 	primaryIP, err := s.compute.GetInstanceIP(ctx, primary.ContainerID)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to get primary IP", err)
@@ -974,7 +979,7 @@ func (s *DatabaseService) getExporterConfig(engine domain.DatabaseEngine, dbIP, 
 		dsn := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=disable", username, password, dbIP, DefaultPostgresPort, dbName)
 		return PostgresExporterImage, []string{"DATA_SOURCE_NAME=" + dsn}, PostgresExporterPort
 	case domain.EngineMySQL:
-		dsn := fmt.Sprintf("%s:%s@(%s:%s)/%s", username, password, dbIP, DefaultMySQLPort, dbName)
+		dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", username, password, dbIP, DefaultMySQLPort, dbName)
 		return MySQLExporterImage, []string{"DATA_SOURCE_NAME=" + dsn}, MySQLExporterPort
 	}
 	return "", nil, ""
