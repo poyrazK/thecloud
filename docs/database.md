@@ -413,6 +413,61 @@ Users can trigger automated password rotation for their database instances.
 
 This mechanism ensures that database access remains secure and meets compliance requirements for periodic credential updates.
 
+### Managed Database Encryption at Rest
+
+The platform supports **encryption at rest** for managed database volumes using HashiCorp Vault Transit Secrets Engine for key management.
+
+#### Overview
+When a `KmsKeyID` is provided during database creation, the platform:
+1. Generates a unique 256-bit DEK (Data Encryption Key) for the volume
+2. Encrypts the DEK with Vault Transit using the specified key
+3. Stores the encrypted DEK in the `volume_encryption_keys` table
+4. Uses the DEK for transparent volume encryption/decryption
+
+#### Schema
+```sql
+CREATE TABLE volume_encryption_keys (
+    volume_id      UUID PRIMARY KEY REFERENCES volumes(id) ON DELETE CASCADE,
+    encrypted_dek  BYTEA NOT NULL,
+    kms_key_id     VARCHAR(500) NOT NULL,
+    algorithm      VARCHAR(50) NOT NULL DEFAULT 'AES-256-GCM',
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+#### API Usage
+```bash
+# Create encrypted database
+POST /databases
+{
+  "name": "secure-db",
+  "engine": "postgres",
+  "version": "15",
+  "kms_key_id": "vault:transit/my-master-key"
+}
+
+# Response includes encryption status
+{
+  "id": "...",
+  "name": "secure-db",
+  "encrypted_volume": true,
+  "kms_key_id": "vault:transit/my-master-key"
+}
+```
+
+#### Architecture
+- **DEK Pattern**: Each volume has a unique DEK encrypted by Vault Transit (master key)
+- **Application-Level**: Encryption is transparent to the database engine
+- **Vault Transit**: Handles all cryptographic operations; DEKs are never persisted unencrypted
+
+#### Implementation
+- **Service**: `VolumeEncryptionService` in `internal/core/services/volume_encryption.go`
+- **Repository**: `VolumeEncryptionRepository` in `internal/repositories/postgres/volume_encryption_repo.go`
+- **Adapter**: `TransitKMSAdapter` in `internal/adapters/vault/transit_kms_adapter.go`
+- **Interface**: `KMSClient` in `internal/core/ports/kms_client.go`
+
+See [ADR-024](./adr/ADR-024-database-encryption-at-rest.md) for full architecture details.
+
 ### Managed Database Persistence
 
 Managed databases in The Cloud platform utilize persistent block storage to ensure data durability across container lifecycles.

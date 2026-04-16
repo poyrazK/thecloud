@@ -132,6 +132,7 @@ This document provides a comprehensive overview of every feature currently imple
 - **Manual Promotion**: API support for manually promoting a replica to primary status for maintenance or planned transitions.
 - **Security & Vault Integration 🆕**: Optional integration with **HashiCorp Vault (KV v2)** for secure credential storage. The system orchestrates storing database passwords in Vault, while maintaining a `password` field in the database metadata store for fallback support and legacy compatibility.
 - **Credential Rotation 🆕**: Support for automated password rotation. The system regenerates secure passwords, executes `ALTER USER` commands inside the database container, and updates Vault on success. If present, the **PgBouncer** sidecar is automatically restarted (recreated) to apply new credentials. Note: Exporter sidecars are not reloaded as part of this flow, and rotation is not fully atomic across the database and Vault.
+- **Encryption at Rest 🆕**: Optional volume encryption using **Vault Transit** for DEK management. When `kms_key_id` is provided at creation, each volume gets a unique 256-bit DEK encrypted by Vault. Supports AES-256-GCM and works transparently across all storage backends. Meets compliance requirements (SOC 2, GDPR, HIPAA).
 
 - **Credentials**: Auto-generates secure passwords (16-char random) and default usernames.
 - **VPC Integration**: Databases can be deployed into specific VPCs for network isolation.

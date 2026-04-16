@@ -33,6 +33,7 @@ type CreateDatabaseRequest struct {
 	Parameters       map[string]string `json:"parameters"`
 	MetricsEnabled   bool              `json:"metrics_enabled"`
 	PoolingEnabled   bool              `json:"pooling_enabled"`
+	KmsKeyID         string            `json:"kms_key_id"`
 }
 
 func (h *DatabaseHandler) Create(c *gin.Context) {
@@ -51,6 +52,7 @@ func (h *DatabaseHandler) Create(c *gin.Context) {
 		Parameters:       req.Parameters,
 		MetricsEnabled:   req.MetricsEnabled,
 		PoolingEnabled:   req.PoolingEnabled,
+		KmsKeyID:         req.KmsKeyID,
 	})
 	if err != nil {
 		httputil.Error(c, err)

@@ -258,6 +258,48 @@ func TestDatabaseHandlerCreateWithMetrics(t *testing.T) {
 	assert.Equal(t, 9187, resp.Data.MetricsPort)
 }
 
+func TestDatabaseHandlerCreateWithEncryption(t *testing.T) {
+	t.Parallel()
+	svc, handler, r := setupDatabaseHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.POST(databasesPath, handler.Create)
+
+	db := &domain.Database{
+		ID:              uuid.New(),
+		Name:            testDBName,
+		KmsKeyID:        "vault:transit/my-key",
+		EncryptedVolume: true,
+		VolumeKeyRef:    "vol-key-abc123",
+	}
+	svc.On("CreateDatabase", mock.Anything, mock.MatchedBy(func(req ports.CreateDatabaseRequest) bool {
+		return req.Name == testDBName && req.KmsKeyID == "vault:transit/my-key"
+	})).Return(db, nil)
+
+	body, err := json.Marshal(map[string]interface{}{
+		"name":              testDBName,
+		"engine":            "postgres",
+		"version":           "15",
+		"allocated_storage": 20,
+		"kms_key_id":        "vault:transit/my-key",
+	})
+	require.NoError(t, err)
+	w := httptest.NewRecorder()
+	req, err := http.NewRequest("POST", databasesPath, bytes.NewBuffer(body))
+	require.NoError(t, err)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+	var resp struct {
+		Data domain.Database `json:"data"`
+	}
+	err = json.NewDecoder(w.Body).Decode(&resp)
+	require.NoError(t, err)
+	assert.True(t, resp.Data.EncryptedVolume)
+	assert.Equal(t, "vault:transit/my-key", resp.Data.KmsKeyID)
+	assert.Equal(t, "vol-key-abc123", resp.Data.VolumeKeyRef)
+}
+
 func TestDatabaseHandlerList(t *testing.T) {
 	t.Parallel()
 	svc, handler, r := setupDatabaseHandlerTest(t)
