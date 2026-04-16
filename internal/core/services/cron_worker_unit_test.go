@@ -37,8 +37,10 @@ func testCronWorkerProcessJobsClaimError(t *testing.T) {
 	worker, repo := setupCronWorkerTest(t)
 	ctx := context.Background()
 
-	repo.On("ClaimNextJobsToRun", mock.Anything, services.ClaimTimeout).Return(nil, assert.AnError).Maybe()
+	repo.On("ClaimNextJobsToRun", mock.Anything, services.ClaimTimeout).Return(nil, assert.AnError).Once()
 
 	worker.ProcessJobs(ctx)
+
+	repo.AssertExpectations(t)
 }
 

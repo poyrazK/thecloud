@@ -6,118 +6,21 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
-	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-// mockInstanceSvc is a minimal mock of ports.InstanceService.
-type mockInstanceSvc struct {
-	mock.Mock
-}
-
-func (m *mockInstanceSvc) LaunchInstance(ctx context.Context, params ports.LaunchParams) (*domain.Instance, error) {
-	args := m.Called(ctx, params)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
-}
-
-func (m *mockInstanceSvc) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (*domain.Instance, error) {
-	args := m.Called(ctx, opts)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
-}
-
-func (m *mockInstanceSvc) StartInstance(ctx context.Context, idOrName string) error {
-	args := m.Called(ctx, idOrName)
-	return args.Error(0)
-}
-
-func (m *mockInstanceSvc) StopInstance(ctx context.Context, idOrName string) error {
-	args := m.Called(ctx, idOrName)
-	return args.Error(0)
-}
-
-func (m *mockInstanceSvc) TerminateInstance(ctx context.Context, idOrName string) error {
-	args := m.Called(ctx, idOrName)
-	return args.Error(0)
-}
-
-func (m *mockInstanceSvc) ListInstances(ctx context.Context) ([]*domain.Instance, error) {
-	args := m.Called(ctx)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.Instance), args.Error(1)
-}
-
-func (m *mockInstanceSvc) GetInstance(ctx context.Context, idOrName string) (*domain.Instance, error) {
-	args := m.Called(ctx, idOrName)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.Instance), args.Error(1)
-}
-
-func (m *mockInstanceSvc) GetInstanceLogs(ctx context.Context, idOrName string) (string, error) {
-	args := m.Called(ctx, idOrName)
-	return args.String(0), args.Error(1)
-}
-
-func (m *mockInstanceSvc) GetInstanceStats(ctx context.Context, idOrName string) (*domain.InstanceStats, error) {
-	args := m.Called(ctx, idOrName)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.InstanceStats), args.Error(1)
-}
-
-func (m *mockInstanceSvc) GetConsoleURL(ctx context.Context, idOrName string) (string, error) {
-	args := m.Called(ctx, idOrName)
-	return args.String(0), args.Error(1)
-}
-
-func (m *mockInstanceSvc) Exec(ctx context.Context, idOrName string, cmd []string) (string, error) {
-	args := m.Called(ctx, idOrName, cmd)
-	return args.String(0), args.Error(1)
-}
-
-func (m *mockInstanceSvc) UpdateInstanceMetadata(ctx context.Context, id uuid.UUID, metadata, labels map[string]string) error {
-	args := m.Called(ctx, id, metadata, labels)
-	return args.Error(0)
-}
-
-// mockEventSvc is a minimal mock of ports.EventService.
-type mockEventSvc struct {
-	mock.Mock
-}
-
-func (m *mockEventSvc) RecordEvent(ctx context.Context, eType, resourceID, resourceType string, meta map[string]interface{}) error {
-	args := m.Called(ctx, eType, resourceID, resourceType, meta)
-	return args.Error(0)
-}
-
-func (m *mockEventSvc) ListEvents(ctx context.Context, limit int) ([]*domain.Event, error) {
-	args := m.Called(ctx, limit)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*domain.Event), args.Error(1)
-}
+// mockInstanceSvc reuses MockInstanceService to avoid duplicating mock behavior.
+type mockInstanceSvc = MockInstanceService
 
 // setupContainerWorkerTest creates a ContainerWorker with mock dependencies.
-func setupContainerWorkerTest(t *testing.T) (*services.ContainerWorker, *MockContainerRepository, *mockInstanceSvc) {
+func setupContainerWorkerTest(t *testing.T) (*services.ContainerWorker, *MockContainerRepository, *MockInstanceService) {
 	t.Helper()
 	repo := new(MockContainerRepository)
 	instanceSvc := new(mockInstanceSvc)
-	eventSvc := new(mockEventSvc)
+	eventSvc := new(MockEventService)
 	worker := services.NewContainerWorker(repo, instanceSvc, eventSvc)
-	_ = eventSvc // satisfy linter: eventSvc is a dependency but not exercised by Reconcile tests
 	return worker, repo, instanceSvc
 }
 
@@ -159,9 +62,9 @@ func testContainerWorkerReconcileListDeploymentsError(t *testing.T) {
 	worker, repo, _ := setupContainerWorkerTest(t)
 	ctx := context.Background()
 
-	repo.On("ListAllDeployments", mock.Anything).Return(nil, assert.AnError).Maybe()
+	repo.On("ListAllDeployments", mock.Anything).Return(nil, assert.AnError).Once()
 
-	// Reconcile logs the error and returns gracefully.
 	worker.Reconcile(ctx)
-}
 
+	repo.AssertExpectations(t)
+}
