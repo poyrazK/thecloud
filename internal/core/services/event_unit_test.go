@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func testEventServiceCRUD(t *testing.T) {
+func testEventServiceUnitCRUD(t *testing.T) {
 	mockRepo := new(MockEventRepo)
 
 	ctx := context.Background()
@@ -152,11 +152,11 @@ func testEventServiceCRUD(t *testing.T) {
 }
 
 func TestEventService_Unit(t *testing.T) {
-	t.Run("CRUD", testEventServiceCRUD)
-	t.Run("NewEventService", testNewEventService)
+	t.Run("CRUD", testEventServiceUnitCRUD)
+	t.Run("NewEventService", testNewEventServiceUnit)
 }
 
-func testNewEventService(t *testing.T) {
+func testNewEventServiceUnit(t *testing.T) {
 	t.Run("NilLogger_UsesDefault", func(t *testing.T) {
 		svc := services.NewEventService(services.EventServiceParams{
 			Repo:    new(MockEventRepo),
