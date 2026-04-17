@@ -85,9 +85,9 @@ var asgListCmd = &cobra.Command{
 
 		for _, g := range groups {
 			instances := fmt.Sprintf("%d / %d / %d / %d", g.CurrentCount, g.DesiredCount, g.MinInstances, g.MaxInstances)
-			table.Append([]string{g.ID, g.Name, instances, g.Status})
+			_ = table.Append([]string{g.ID, g.Name, instances, g.Status})
 		}
-		table.Render()
+		_ = table.Render()
 	},
 }
 
