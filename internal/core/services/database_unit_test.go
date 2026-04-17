@@ -272,22 +272,20 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 
 	t.Run("CreateReplica failure cases", func(t *testing.T) {
 		cases := []struct {
-			name             string
-			primaryID        uuid.UUID
-			mockReturn       *domain.Database
-			mockErr          error
-			callersTenantID  uuid.UUID
-			otherTenantID    uuid.UUID
-			expectReplicaNil bool
-			expectErrSubstr  string
+			name            string
+			primaryID       uuid.UUID
+			mockReturn      *domain.Database
+			mockErr         error
+			callersTenantID uuid.UUID
+			otherTenantID   uuid.UUID
+			expectErrSubstr string
 		}{
 			{
-				name:             "primary not found",
-				primaryID:        uuid.New(),
-				mockReturn:       nil,
-				mockErr:          fmt.Errorf("not found"),
-				expectReplicaNil: true,
-				expectErrSubstr:  "not found",
+				name:            "primary not found",
+				primaryID:      uuid.New(),
+				mockReturn:     nil,
+				mockErr:        fmt.Errorf("not found"),
+				expectErrSubstr: "not found",
 			},
 			{
 				name:            "cross-tenant",
@@ -296,7 +294,6 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 				otherTenantID:   uuid.New(),
 				mockReturn:      nil,
 				mockErr:         fmt.Errorf("not found"),
-				expectReplicaNil: true,
 				expectErrSubstr: "not found",
 			},
 		}
@@ -304,7 +301,7 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 		for _, c := range cases {
 			t.Run(c.name, func(t *testing.T) {
 				testCtx := ctx
-				if c.name == "cross-tenant" {
+				if c.callersTenantID != uuid.Nil {
 					primary := &domain.Database{ID: c.primaryID, TenantID: c.otherTenantID, Engine: "postgres", Version: "16", Port: 5432, ContainerID: "primary-cid", AllocatedStorage: 20, Username: "cloud_user", Password: "pass"}
 					mockRepo.On("GetByID", mock.Anything, c.primaryID).Return(primary, nil).Once()
 					testCtx = appcontext.WithTenantID(ctx, c.callersTenantID)
