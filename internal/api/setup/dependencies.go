@@ -272,7 +272,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		secretsSvc = vaultSvc
 	}
 
-	databaseSvc := services.NewDatabaseService(services.DatabaseServiceParams{Repo: c.Repos.Database, RBAC: rbacSvc, Compute: c.Compute, VpcRepo: c.Repos.Vpc, VolumeSvc: volumeSvc, SnapshotSvc: snapshotSvc, SnapshotRepo: c.Repos.Snapshot, EventSvc: eventSvc, AuditSvc: auditSvc, Secrets: secretsSvc, Logger: c.Logger, VaultMountPath: c.Config.VaultMountPath})
+	databaseSvc := services.NewDatabaseService(services.DatabaseServiceParams{Repo: c.Repos.Database, RBAC: rbacSvc, Compute: c.Compute, VpcRepo: c.Repos.Vpc, VolumeSvc: volumeSvc, SnapshotSvc: snapshotSvc, SnapshotRepo: c.Repos.Snapshot, EventSvc: eventSvc, AuditSvc: auditSvc, Secrets: secretsSvc, VolumeEncryption: nil, Logger: c.Logger, VaultMountPath: c.Config.VaultMountPath})
 	secretSvc, err := services.NewSecretService(services.SecretServiceParams{Repo: c.Repos.Secret, RBACSvc: rbacSvc, EventSvc: eventSvc, AuditSvc: auditSvc, Logger: c.Logger, MasterKey: c.Config.SecretsEncryptionKey, Environment: c.Config.Environment})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to init secret service: %w", err)

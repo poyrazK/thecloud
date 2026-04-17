@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
@@ -273,14 +274,51 @@ func testDatabaseServiceUnitExtended(t *testing.T) {
 		assert.Contains(t, err.Error(), "repo failed")
 	})
 
-	t.Run("CreateReplica_Failure_PrimaryNotFound", func(t *testing.T) {
-		primaryID := uuid.New()
-		mockRepo.On("GetByID", mock.Anything, primaryID).
-			Return(nil, fmt.Errorf("not found")).Once()
+	t.Run("CreateReplica failure cases", func(t *testing.T) {
+		cases := []struct {
+			name            string
+			primaryID       uuid.UUID
+			mockReturn      *domain.Database
+			mockErr         error
+			callersTenantID uuid.UUID
+			otherTenantID   uuid.UUID
+			expectErrSubstr string
+		}{
+			{
+				name:            "primary not found",
+				primaryID:      uuid.New(),
+				mockReturn:     nil,
+				mockErr:        fmt.Errorf("not found"),
+				expectErrSubstr: "not found",
+			},
+			{
+				name:            "cross-tenant",
+				primaryID:       uuid.New(),
+				callersTenantID: uuid.New(),
+				otherTenantID:   uuid.New(),
+				mockReturn:      nil,
+				mockErr:         fmt.Errorf("not found"),
+				expectErrSubstr: "not found",
+			},
+		}
 
-		replica, err := svc.CreateReplica(ctx, primaryID, "fail-rep")
-		require.Error(t, err)
-		assert.Nil(t, replica)
+		for _, c := range cases {
+			t.Run(c.name, func(t *testing.T) {
+				testCtx := ctx
+				if c.callersTenantID != uuid.Nil {
+					primary := &domain.Database{ID: c.primaryID, TenantID: c.otherTenantID, Engine: "postgres", Version: "16", Port: 5432, ContainerID: "primary-cid", AllocatedStorage: 20, Username: "cloud_user", Password: "pass"}
+					mockRepo.On("GetByID", mock.Anything, c.primaryID).Return(primary, nil).Once()
+					testCtx = appcontext.WithTenantID(ctx, c.callersTenantID)
+				} else {
+					mockRepo.On("GetByID", mock.Anything, c.primaryID).Return(c.mockReturn, c.mockErr).Once()
+				}
+
+				replica, err := svc.CreateReplica(testCtx, c.primaryID, "fail-rep")
+				require.Error(t, err)
+				assert.Nil(t, replica)
+				assert.Contains(t, err.Error(), c.expectErrSubstr)
+			})
+		}
 	})
 
 	t.Run("CreateDatabaseSnapshot_Success", func(t *testing.T) {
