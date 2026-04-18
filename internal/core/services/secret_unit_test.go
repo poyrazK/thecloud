@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func testSecretServiceCRUD(t *testing.T) {
+func testSecretServiceUnitCRUD(t *testing.T) {
 	mockRepo := new(MockSecretRepo)
 	mockRBAC := new(MockRBACService)
 	mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -267,12 +267,12 @@ func testSecretServiceCRUD(t *testing.T) {
 }
 
 func TestSecretService_Unit(t *testing.T) {
-	t.Run("CRUD", testSecretServiceCRUD)
-	t.Run("NewErrors", testNewSecretServiceErrors)
-	t.Run("AuthorizeErrors", testSecretServiceAuthorizeErrors)
+	t.Run("CRUD", testSecretServiceUnitCRUD)
+	t.Run("NewErrors", testNewSecretServiceUnitErrors)
+	t.Run("AuthorizeErrors", testSecretServiceUnitAuthorizeErrors)
 }
 
-func testNewSecretServiceErrors(t *testing.T) {
+func testNewSecretServiceUnitErrors(t *testing.T) {
 	logger := slog.Default()
 	masterKey := "test-master-key-32-chars-long-!!!"
 
@@ -382,7 +382,7 @@ func testNewSecretServiceErrors(t *testing.T) {
 	})
 }
 
-func testSecretServiceAuthorizeErrors(t *testing.T) {
+func testSecretServiceUnitAuthorizeErrors(t *testing.T) {
 	mockRepo := new(MockSecretRepo)
 	mockRBAC := new(MockRBACService)
 	mockEvent := new(MockEventService)

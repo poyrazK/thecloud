@@ -18,7 +18,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func testSSHKeyServiceCRUD(t *testing.T) {
+func testSSHKeyServiceUnitCRUD(t *testing.T) {
 	mockRepo := new(MockSSHKeyRepo)
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -119,13 +119,13 @@ func testSSHKeyServiceCRUD(t *testing.T) {
 }
 
 func TestSSHKeyService_Unit(t *testing.T) {
-	t.Run("CRUD", testSSHKeyServiceCRUD)
-	t.Run("NewErrors", testNewSSHKeyServiceErrors)
-	t.Run("CreateKeyErrors", testSSHKeyServiceCreateKeyErrors)
-	t.Run("GetKeyErrors", testSSHKeyServiceGetKeyErrors)
+	t.Run("CRUD", testSSHKeyServiceUnitCRUD)
+	t.Run("NewErrors", testNewSSHKeyServiceUnitErrors)
+	t.Run("CreateKeyErrors", testSSHKeyServiceUnitCreateKeyErrors)
+	t.Run("GetKeyErrors", testSSHKeyServiceUnitGetKeyErrors)
 }
 
-func testNewSSHKeyServiceErrors(t *testing.T) {
+func testNewSSHKeyServiceUnitErrors(t *testing.T) {
 	t.Run("NilRepo", func(t *testing.T) {
 		rbacSvc := new(MockRBACService)
 		_, err := services.NewSSHKeyService(services.SSHKeyServiceParams{
@@ -147,7 +147,7 @@ func testNewSSHKeyServiceErrors(t *testing.T) {
 	})
 }
 
-func testSSHKeyServiceCreateKeyErrors(t *testing.T) {
+func testSSHKeyServiceUnitCreateKeyErrors(t *testing.T) {
 	mockRepo := new(MockSSHKeyRepo)
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -192,7 +192,7 @@ func testSSHKeyServiceCreateKeyErrors(t *testing.T) {
 	})
 }
 
-func testSSHKeyServiceGetKeyErrors(t *testing.T) {
+func testSSHKeyServiceUnitGetKeyErrors(t *testing.T) {
 	mockRepo := new(MockSSHKeyRepo)
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)

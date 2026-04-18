@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func testCloudLogsServiceIngestLogs(t *testing.T) {
+func testCloudLogsServiceUnitIngestLogs(t *testing.T) {
 	mockRepo := new(MockLogRepository)
 	mockRBAC := new(MockRBACService)
 	svc := services.NewCloudLogsService(mockRepo, mockRBAC, slog.Default())
@@ -44,7 +44,7 @@ func testCloudLogsServiceIngestLogs(t *testing.T) {
 }
 
 func TestCloudLogsService_Unit(t *testing.T) {
-	t.Run("IngestLogs", testCloudLogsServiceIngestLogs)
+	t.Run("IngestLogs", testCloudLogsServiceUnitIngestLogs)
 	t.Run("SearchLogs", testCloudLogsServiceSearchLogsUnit)
 	t.Run("RunRetentionPolicy", testCloudLogsServiceRunRetentionPolicyUnit)
 }
