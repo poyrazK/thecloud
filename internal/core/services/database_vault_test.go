@@ -99,17 +99,22 @@ func TestDatabaseService_RotateCredentials(t *testing.T) {
 		mockRepo.AssertExpectations(t)
 	})
 
-	t.Run("RotateCredentials_VaultFailure", func(t *testing.T) {
+	t.Run("RotateCredentials_VaultFailure_WithRollback", func(t *testing.T) {
 		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
 		mockSecrets.On("GetSecret", mock.Anything, db.CredentialPath).Return(map[string]interface{}{"password": "old-pass"}, nil).Once()
+		// First Exec: ALTER USER with new password (succeeds)
 		mockCompute.On("Exec", mock.Anything, db.ContainerID, mock.Anything).Return("ALTER ROLE", nil).Once()
+		// Vault store fails
 		mockSecrets.On("StoreSecret", mock.Anything, db.CredentialPath, mock.Anything).Return(fmt.Errorf("vault error")).Once()
+		// Second Exec: rollback to original password (succeeds)
+		mockCompute.On("Exec", mock.Anything, db.ContainerID, mock.Anything).Return("ALTER ROLE", nil).Once()
 
 		err := svc.RotateCredentials(ctx, dbID, "")
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "database password updated but failed to store in vault")
+		assert.Contains(t, err.Error(), "vault store failed, DB password rolled back")
 
 		mockSecrets.AssertExpectations(t)
+		mockCompute.AssertExpectations(t)
 		mockRepo.AssertExpectations(t)
 	})
 }

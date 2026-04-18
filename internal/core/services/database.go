@@ -810,9 +810,15 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, i
 		vaultPath = s.getVaultPath(db.ID)
 	}
 	if err := s.secrets.StoreSecret(ctx, vaultPath, map[string]interface{}{"password": newPassword}); err != nil {
-		// Note: At this point DB password is changed but Vault update failed.
-		// The system is out of sync. Fallback password in DB record remains old.
-		return errors.Wrap(errors.Internal, "database password updated but failed to store in vault", err)
+		// Vault store failed but DB already has new password - rollback to original
+		rollbackCmd := s.buildPasswordChangeCmd(db.Engine, db.Username, currentPassword)
+		if _, rollbackErr := s.compute.Exec(ctx, db.ContainerID, rollbackCmd); rollbackErr != nil {
+			// Rollback also failed - system is in critical state requiring manual intervention
+			return errors.Wrap(errors.Internal,
+				"credential rotation failed and rollback also failed - manual intervention required",
+				err)
+		}
+		return errors.Wrap(errors.Internal, "vault store failed, DB password rolled back", err)
 	}
 
 	// 3. Update DB record if needed (metadata or path)
@@ -1034,6 +1040,16 @@ func (s *DatabaseService) getPoolerConfig(engine domain.DatabaseEngine, dbIP, us
 		return PoolerImage, env, PoolerInternalPort
 	}
 	return "", nil, ""
+}
+
+func (s *DatabaseService) buildPasswordChangeCmd(engine domain.DatabaseEngine, username, password string) []string {
+	switch engine {
+	case domain.EnginePostgres:
+		return []string{"psql", "-h", "127.0.0.1", "-U", username, "-d", "postgres", "-c", fmt.Sprintf("ALTER USER %s WITH PASSWORD '%s';", username, password)}
+	case domain.EngineMySQL:
+		return []string{"mysql", "-u", "root", "-p" + password, "-e", fmt.Sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s';", username, password)}
+	}
+	return nil
 }
 
 func (s *DatabaseService) buildEngineCmd(engine domain.DatabaseEngine, parameters map[string]string) []string {
