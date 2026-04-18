@@ -750,9 +750,13 @@ func (s *DatabaseService) waitForDatabaseReady(ctx context.Context, db *domain.D
 func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, idempotencyKey string) error {
 	if idempotencyKey != "" {
 		s.rotationMu.Lock()
-		if cachedAt, ok := s.rotationCache[idempotencyKey]; ok && time.Since(cachedAt) < s.rotationCacheTTL {
-			s.rotationMu.Unlock()
-			return nil // Already rotated
+		if cachedAt, ok := s.rotationCache[idempotencyKey]; ok {
+			if time.Since(cachedAt) < s.rotationCacheTTL {
+				s.rotationMu.Unlock()
+				return nil // Already rotated
+			}
+			// Expired entry - remove it to prevent unbounded map growth
+			delete(s.rotationCache, idempotencyKey)
 		}
 		s.rotationMu.Unlock()
 	}
