@@ -142,8 +142,9 @@ func TestDatabaseServiceUnitExtended(t *testing.T) {
 
 	t.Run("PromoteToPrimary", func(t *testing.T) {
 		dbID := uuid.New()
-		db := &domain.Database{ID: dbID, Role: domain.RoleReplica}
+		db := &domain.Database{ID: dbID, Role: domain.RoleReplica, Engine: domain.EnginePostgres, Username: "user", Password: "pass", ContainerID: "test-container"}
 		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
+		mockCompute.On("Exec", mock.Anything, "test-container", mock.Anything).Return("", nil).Once()
 		mockRepo.On("Update", mock.Anything, mock.MatchedBy(func(d *domain.Database) bool {
 			return d.Role == domain.RolePrimary
 		})).Return(nil).Once()

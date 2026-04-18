@@ -759,3 +759,24 @@ func (s *NoopDatabaseService) ListDatabaseSnapshots(ctx context.Context, databas
 func (s *NoopDatabaseService) RestoreDatabase(ctx context.Context, req ports.RestoreDatabaseRequest) (*domain.Database, error) {
 	return &domain.Database{ID: uuid.New(), Name: req.NewName, Role: domain.RolePrimary}, nil
 }
+func (s *NoopDatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID, name string) (*domain.Database, error) {
+	return &domain.Database{ID: uuid.New(), Name: name, Role: domain.RoleReplica}, nil
+}
+func (s *NoopDatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) error {
+	return nil
+}
+func (s *NoopDatabaseService) GetDatabase(ctx context.Context, id uuid.UUID) (*domain.Database, error) {
+	return &domain.Database{ID: id, Name: "noop-db", Role: domain.RolePrimary}, nil
+}
+func (s *NoopDatabaseService) ListDatabases(ctx context.Context) ([]*domain.Database, error) {
+	return []*domain.Database{}, nil
+}
+func (s *NoopDatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, idempotencyKey string) error {
+	return nil
+}
+func (s *NoopDatabaseService) StopDatabase(ctx context.Context, id uuid.UUID) error {
+	return nil
+}
+func (s *NoopDatabaseService) StartDatabase(ctx context.Context, id uuid.UUID) error {
+	return nil
+}

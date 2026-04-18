@@ -53,8 +53,9 @@ type DatabaseService struct {
 	volumeEncryption  ports.VolumeEncryptionService
 	logger            *slog.Logger
 	vaultMountPath    string
-	// Simple in-memory idempotency cache for rotation
-	rotationCache     map[string]bool
+	// Simple in-memory idempotency cache for rotation with TTL-based eviction
+	rotationCache     map[string]time.Time
+	rotationCacheTTL time.Duration
 	rotationMu        sync.Mutex
 }
 
@@ -94,7 +95,8 @@ func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 		volumeEncryption: params.VolumeEncryption,
 		logger:           params.Logger,
 		vaultMountPath:   params.VaultMountPath,
-		rotationCache:    make(map[string]bool),
+		rotationCache:    make(map[string]time.Time),
+		rotationCacheTTL: 24 * time.Hour,
 	}
 }
 
@@ -502,6 +504,24 @@ func (s *DatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) er
 	if db.Role == domain.RolePrimary {
 		return errors.New(errors.InvalidInput, "database is already a primary")
 	}
+
+	// Execute database engine promotion command in container
+	var cmd []string
+	switch db.Engine {
+	case domain.EnginePostgres:
+		// Use pg_promote() function via psql
+		cmd = []string{"psql", "-h", "127.0.0.1", "-U", db.Username, "-d", "postgres", "-c", "SELECT pg_promote();"}
+	case domain.EngineMySQL:
+		// Stop replication and reset replica configuration
+		cmd = []string{"mysql", "-u", "root", "-p" + db.Password, "-e", "STOP REPLICA; RESET REPLICA ALL;"}
+	default:
+		return errors.New(errors.Internal, "unsupported engine for promotion")
+	}
+
+	if _, err := s.compute.Exec(ctx, db.ContainerID, cmd); err != nil {
+		return errors.Wrap(errors.Internal, "failed to promote database engine", err)
+	}
+
 	db.Role = domain.RolePrimary
 	db.PrimaryID = nil
 	if err := s.repo.Update(ctx, db); err != nil {
@@ -720,7 +740,7 @@ func (s *DatabaseService) waitForDatabaseReady(ctx context.Context, db *domain.D
 func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, idempotencyKey string) error {
 	if idempotencyKey != "" {
 		s.rotationMu.Lock()
-		if s.rotationCache[idempotencyKey] {
+		if cachedAt, ok := s.rotationCache[idempotencyKey]; ok && time.Since(cachedAt) < s.rotationCacheTTL {
 			s.rotationMu.Unlock()
 			return nil // Already rotated
 		}
@@ -811,7 +831,7 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, i
 
 	if idempotencyKey != "" {
 		s.rotationMu.Lock()
-		s.rotationCache[idempotencyKey] = true
+		s.rotationCache[idempotencyKey] = time.Now()
 		s.rotationMu.Unlock()
 	}
 
