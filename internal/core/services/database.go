@@ -509,11 +509,20 @@ func (s *DatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) er
 	var cmd []string
 	switch db.Engine {
 	case domain.EnginePostgres:
-		// Use pg_promote() function via psql
-		cmd = []string{"psql", "-h", "127.0.0.1", "-U", db.Username, "-d", "postgres", "-c", "SELECT pg_promote();"}
+		// Use pg_ctl promote - recommended approach for PostgreSQL replica promotion
+		cmd = []string{"pg_ctl", "promote", "-D", "/var/lib/postgresql/data"}
 	case domain.EngineMySQL:
-		// Stop replication and reset replica configuration
-		cmd = []string{"mysql", "-u", "root", "-p" + db.Password, "-e", "STOP REPLICA; RESET REPLICA ALL;"}
+		// Fetch current password from Vault (db.Password may be stale after rotation)
+		password := db.Password
+		if db.CredentialPath != "" {
+			secret, err := s.secrets.GetSecret(ctx, db.CredentialPath)
+			if err == nil && secret != nil {
+				if p, ok := secret["password"].(string); ok {
+					password = p
+				}
+			}
+		}
+		cmd = []string{"mysql", "-u", "root", "-p" + password, "-e", "STOP REPLICA; RESET REPLICA ALL;"}
 	default:
 		return errors.New(errors.Internal, "unsupported engine for promotion")
 	}
