@@ -509,9 +509,9 @@ func (s *DatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) er
 	var cmd []string
 	switch db.Engine {
 	case domain.EnginePostgres:
-		// Use postgres --promote to promote the replica
-		// This sends a fast promotion signal to the running server
-		cmd = []string{"postgres", "--promote"}
+		// Create promotion trigger file - PostgreSQL monitors this file
+		// and exits recovery mode when it appears
+		cmd = []string{"touch", "/var/lib/postgresql/data/promote"}
 	case domain.EngineMySQL:
 		// Fetch current password from Vault (db.Password may be stale after rotation)
 		password := db.Password
