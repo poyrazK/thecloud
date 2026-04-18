@@ -382,6 +382,212 @@ func TestStorageServiceUnit(t *testing.T) {
 		mockRepo.AssertExpectations(t)
 	})
 
+	t.Run("GetBucket_RepoError", func(t *testing.T) {
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+		mockRepo.On("GetBucket", mock.Anything, "missing").Return(nil, fmt.Errorf("not found")).Once()
+		_, err := svc.GetBucket(ctx, "missing")
+		require.Error(t, err)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("SetBucketVersioning_RepoError", func(t *testing.T) {
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+		mockRepo.On("SetBucketVersioning", mock.Anything, "b", true).Return(fmt.Errorf("db error")).Once()
+		err := svc.SetBucketVersioning(ctx, "b", true)
+		require.Error(t, err)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("GetClusterStatus_StoreError", func(t *testing.T) {
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+		mockStore.On("GetClusterStatus", mock.Anything).Return(nil, fmt.Errorf("cluster unreachable")).Once()
+		_, err := svc.GetClusterStatus(ctx)
+		require.Error(t, err)
+		mockStore.AssertExpectations(t)
+	})
+
+	t.Run("CleanupDeleted_ListDeletedError", func(t *testing.T) {
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+		mockRepo.On("ListDeleted", mock.Anything, 10).Return(nil, fmt.Errorf("db error")).Once()
+		_, err := svc.CleanupDeleted(ctx, 10)
+		require.Error(t, err)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("CleanupDeleted_HardDeleteError", func(t *testing.T) {
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+		deleted := []*domain.Object{{Bucket: "b", Key: "k", VersionID: "null"}}
+		mockRepo.On("ListDeleted", mock.Anything, 10).Return(deleted, nil).Once()
+		mockStore.On("Delete", mock.Anything, "b", "k").Return(nil).Once()
+		mockRepo.On("HardDelete", mock.Anything, "b", "k", "null").Return(fmt.Errorf("hard delete failed")).Once()
+		_, err := svc.CleanupDeleted(ctx, 10)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "hard delete failed")
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("CleanupPendingUploads_ListPendingError", func(t *testing.T) {
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+		mockRepo.On("ListPending", mock.Anything, mock.Anything, 10).Return(nil, fmt.Errorf("db error")).Once()
+		_, err := svc.CleanupPendingUploads(ctx, time.Hour, 10)
+		require.Error(t, err)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("CreateMultipartUpload_BucketNotFound", func(t *testing.T) {
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+		mockRepo.On("GetBucket", mock.Anything, "nonexistent").Return(nil, fmt.Errorf("not found")).Once()
+		_, err := svc.CreateMultipartUpload(ctx, "nonexistent", "key")
+		require.Error(t, err)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("UploadPart_NotFound", func(t *testing.T) {
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+		fakeID := uuid.New()
+		mockRepo.On("GetMultipartUpload", mock.Anything, fakeID).Return(nil, fmt.Errorf("not found")).Once()
+		_, err := svc.UploadPart(ctx, fakeID, 1, strings.NewReader("data"), "")
+		require.Error(t, err)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("UploadPart_ChecksumMismatch", func(t *testing.T) {
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+		upload := &domain.MultipartUpload{ID: uuid.New(), Bucket: "b", Key: "k"}
+		mockRepo.On("GetMultipartUpload", mock.Anything, upload.ID).Return(upload, nil).Once()
+		mockStore.On("Write", mock.Anything, "b", mock.Anything, mock.Anything).Return(int64(5), nil).Once()
+		mockStore.On("Delete", mock.Anything, "b", mock.Anything).Return(nil).Once()
+		_, err := svc.UploadPart(ctx, upload.ID, 1, strings.NewReader("data"), "wrong-checksum")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "checksum")
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("CompleteMultipartUpload_NotFound", func(t *testing.T) {
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+		fakeID := uuid.New()
+		mockRepo.On("GetMultipartUpload", mock.Anything, fakeID).Return(nil, fmt.Errorf("not found")).Once()
+		_, err := svc.CompleteMultipartUpload(ctx, fakeID)
+		require.Error(t, err)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("CompleteMultipartUpload_NoParts", func(t *testing.T) {
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+		upload := &domain.MultipartUpload{ID: uuid.New(), Bucket: "b", Key: "k", UserID: userID}
+		mockRepo.On("GetMultipartUpload", mock.Anything, upload.ID).Return(upload, nil).Once()
+		mockRepo.On("ListParts", mock.Anything, upload.ID).Return([]*domain.Part{}, nil).Once()
+		_, err := svc.CompleteMultipartUpload(ctx, upload.ID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no parts")
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("CompleteMultipartUpload_BucketNotFound", func(t *testing.T) {
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+		upload := &domain.MultipartUpload{ID: uuid.New(), Bucket: "b", Key: "k", UserID: userID}
+		parts := []*domain.Part{{PartNumber: 1, SizeBytes: 100}}
+		mockRepo.On("GetMultipartUpload", mock.Anything, upload.ID).Return(upload, nil).Once()
+		mockRepo.On("ListParts", mock.Anything, upload.ID).Return(parts, nil).Once()
+		mockRepo.On("GetBucket", mock.Anything, "b").Return(nil, fmt.Errorf("not found")).Once()
+		_, err := svc.CompleteMultipartUpload(ctx, upload.ID)
+		require.Error(t, err)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("AbortMultipartUpload_DeleteError", func(t *testing.T) {
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+		upload := &domain.MultipartUpload{ID: uuid.New(), Bucket: "b", Key: "k", UserID: userID}
+		mockRepo.On("GetMultipartUpload", mock.Anything, upload.ID).Return(upload, nil).Once()
+		mockRepo.On("ListParts", mock.Anything, upload.ID).Return([]*domain.Part{{PartNumber: 1}}, nil).Once()
+		mockStore.On("Delete", mock.Anything, "b", mock.Anything).Return(nil).Once()
+		mockRepo.On("DeleteMultipartUpload", mock.Anything, upload.ID).Return(fmt.Errorf("db error")).Once()
+		err := svc.AbortMultipartUpload(ctx, upload.ID)
+		require.Error(t, err)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("GeneratePresignedURL_BucketNotFound", func(t *testing.T) {
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+		mockRepo.On("GetBucket", mock.Anything, "nonexistent").Return(nil, fmt.Errorf("not found")).Once()
+		_, err := svc.GeneratePresignedURL(ctx, "nonexistent", "key", "GET", time.Hour)
+		require.Error(t, err)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("GeneratePresignedURL_MissingSecret", func(t *testing.T) {
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+		cfgNoSecret := &platform.Config{StorageSecret: ""}
+		svcNoSecret := services.NewStorageService(services.StorageServiceParams{
+			Repo: mockRepo, RBACSvc: rbacSvc, Store: mockStore,
+			AuditSvc: mockAuditSvc, EncryptSvc: nil, Config: cfgNoSecret, Logger: logger,
+		})
+		mockRepo.On("GetBucket", mock.Anything, "b").Return(&domain.Bucket{Name: "b"}, nil).Once()
+		_, err := svcNoSecret.GeneratePresignedURL(ctx, "b", "key", "GET", time.Hour)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not configured")
+	})
+
+	t.Run("DeleteVersion_StoreError", func(t *testing.T) {
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+		obj := &domain.Object{Bucket: "b", Key: "k", VersionID: "v1"}
+		mockRepo.On("GetMetaByVersion", mock.Anything, "b", "k", "v1").Return(obj, nil).Once()
+		mockStore.On("Delete", mock.Anything, "b", "k?versionId=v1").Return(fmt.Errorf("disk error")).Once()
+		err := svc.DeleteVersion(ctx, "b", "k", "v1")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "disk error")
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("ListObjects_RepoError", func(t *testing.T) {
+		mockRepo.ExpectedCalls = nil
+		mockStore.ExpectedCalls = nil
+		mockRepo.On("List", mock.Anything, "b").Return(nil, fmt.Errorf("db error")).Once()
+		_, err := svc.ListObjects(ctx, "b")
+		require.Error(t, err)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("RBAC_AuthorizationFailures", func(t *testing.T) {
+		denyRbac := new(MockRBACService)
+		denyRbac.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			Return(fmt.Errorf("permission denied")).Maybe()
+		svcDeny := services.NewStorageService(services.StorageServiceParams{
+			Repo: mockRepo, RBACSvc: denyRbac, Store: mockStore,
+			AuditSvc: mockAuditSvc, EncryptSvc: nil, Config: cfg, Logger: logger,
+		})
+
+		_, err := svcDeny.CreateBucket(ctx, "b", false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "permission denied")
+
+		_, _, err = svcDeny.Download(ctx, "b", "k")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "permission denied")
+
+		_, err = svcDeny.ListObjects(ctx, "b")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "permission denied")
+
+		denyRbac.AssertExpectations(t)
+	})
+
 	t.Run("Additional Error Paths", func(t *testing.T) {
 		mockRepo.ExpectedCalls = nil
 		mockStore.ExpectedCalls = nil
