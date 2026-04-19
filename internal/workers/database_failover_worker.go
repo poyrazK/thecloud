@@ -3,9 +3,11 @@ package workers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,22 +18,25 @@ import (
 const (
 	defaultDatabaseFailoverInterval = 30 * time.Second
 	databaseCheckTimeout            = 2 * time.Second
+	maxAcceptableLagSeconds        = 5
 )
 
 // DatabaseFailoverWorker monitors managed database primaries and performs automatic failover to replicas.
 type DatabaseFailoverWorker struct {
-	dbSvc  ports.DatabaseService
-	repo   ports.DatabaseRepository
-	logger *slog.Logger
+	dbSvc    ports.DatabaseService
+	repo     ports.DatabaseRepository
+	compute  ports.ComputeBackend
+	logger   *slog.Logger
 
 	interval time.Duration
 }
 
 // NewDatabaseFailoverWorker constructs a DatabaseFailoverWorker.
-func NewDatabaseFailoverWorker(dbSvc ports.DatabaseService, repo ports.DatabaseRepository, logger *slog.Logger) *DatabaseFailoverWorker {
+func NewDatabaseFailoverWorker(dbSvc ports.DatabaseService, repo ports.DatabaseRepository, compute ports.ComputeBackend, logger *slog.Logger) *DatabaseFailoverWorker {
 	return &DatabaseFailoverWorker{
 		dbSvc:    dbSvc,
 		repo:     repo,
+		compute:  compute,
 		logger:   logger.With("worker", "database_failover"),
 		interval: defaultDatabaseFailoverInterval,
 	}
@@ -100,8 +105,12 @@ func (w *DatabaseFailoverWorker) handleFailover(ctx context.Context, primary *do
 		return
 	}
 
-	// Select the first available replica for promotion
-	replica := replicas[0]
+	replica, err := w.selectBestReplica(ctx, replicas)
+	if err != nil {
+		w.logger.Error("no healthy replica found for failover", "primary_id", primary.ID, "error", err)
+		return
+	}
+
 	w.logger.Info("promoting replica to primary", "replica_id", replica.ID, "primary_id", primary.ID)
 
 	if err := w.dbSvc.PromoteToPrimary(ctx, replica.ID); err != nil {
@@ -110,4 +119,57 @@ func (w *DatabaseFailoverWorker) handleFailover(ctx context.Context, primary *do
 	}
 
 	w.logger.Info("successfully promoted replica to primary", "replica_id", replica.ID)
+}
+
+// selectBestReplica selects the healthiest replica with the lowest replication lag.
+func (w *DatabaseFailoverWorker) selectBestReplica(ctx context.Context, replicas []*domain.Database) (*domain.Database, error) {
+	var best *domain.Database
+	bestLag := int(^uint(0) >> 1) // max int
+
+	for _, replica := range replicas {
+		lag, healthy := w.checkReplicationStatus(ctx, replica)
+		if !healthy {
+			continue
+		}
+		if lag < bestLag {
+			bestLag = lag
+			best = replica
+		}
+	}
+
+	if best == nil {
+		return nil, errors.New("no healthy replica found")
+	}
+	return best, nil
+}
+
+// checkReplicationStatus checks the replication lag on a replica.
+// Returns lag in seconds and whether the replica is healthy enough for promotion.
+func (w *DatabaseFailoverWorker) checkReplicationStatus(ctx context.Context, replica *domain.Database) (lagSeconds int, healthy bool) {
+	if replica.Engine != domain.EnginePostgres {
+		// For non-PostgreSQL engines, do a simple TCP check
+		return 0, w.isHealthy(ctx, replica)
+	}
+
+	// Query pg_stat_replication for PostgreSQL
+	query := `SELECT EXTRACT(EPOCH FROM (NOW() - reply_time))::INTEGER AS lag_seconds
+FROM pg_stat_replication
+WHERE state = 'streaming'
+ORDER BY reply_time DESC
+LIMIT 1;`
+
+	output, err := w.compute.Exec(ctx, replica.ContainerID, []string{"psql", "-U", "postgres", "-d", "postgres", "-t", "-c", query})
+	if err != nil {
+		w.logger.Debug("failed to query replication status", "replica_id", replica.ID, "error", err)
+		return 0, false
+	}
+
+	// Parse lag from output (output is a single integer value)
+	var lag int
+	if _, parseErr := fmt.Sscanf(strings.TrimSpace(output), "%d", &lag); parseErr != nil {
+		w.logger.Debug("failed to parse replication lag", "replica_id", replica.ID, "output", output)
+		return 0, false
+	}
+
+	return lag, lag <= maxAcceptableLagSeconds
 }
