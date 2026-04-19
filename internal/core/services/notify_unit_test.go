@@ -229,7 +229,7 @@ func testNotifyServiceUnitRbacErrors(t *testing.T) {
 			rbacSvc.On("Authorize", mock.Anything, userID, tenantID, c.permission, c.resourceID).Return(authErr).Once()
 			err := c.invoke(c.resourceID)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), "permission denied")
+			assert.True(t, errors.Is(err, errors.Forbidden))
 		})
 	}
 }
