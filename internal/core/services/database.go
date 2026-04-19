@@ -53,7 +53,9 @@ type DatabaseService struct {
 	volumeEncryption  ports.VolumeEncryptionService
 	logger            *slog.Logger
 	vaultMountPath    string
-	// Simple in-memory idempotency cache for rotation with TTL-based eviction
+	// In-memory idempotency cache for rotation. Stores timestamp of last rotation attempt.
+	// Expired entries are deleted on lookup to prevent unbounded growth, but this does
+	// not guarantee all expired entries are reaped.
 	rotationCache     map[string]time.Time
 	rotationCacheTTL time.Duration
 	rotationMu        sync.Mutex
@@ -814,9 +816,10 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, i
 		rollbackCmd := s.buildPasswordChangeCmd(db.Engine, db.Username, currentPassword)
 		if _, rollbackErr := s.compute.Exec(ctx, db.ContainerID, rollbackCmd); rollbackErr != nil {
 			// Rollback also failed - system is in critical state requiring manual intervention
+			// Wrap rollbackErr as cause so operators can see why rollback failed
 			return errors.Wrap(errors.Internal,
-				"credential rotation failed and rollback also failed - manual intervention required",
-				err)
+				fmt.Sprintf("credential rotation failed and rollback also failed - manual intervention required (vault store error: %v)", err),
+				rollbackErr)
 		}
 		return errors.Wrap(errors.Internal, "vault store failed, DB password rolled back", err)
 	}
