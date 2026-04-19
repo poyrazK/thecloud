@@ -62,14 +62,12 @@ type DatabaseService struct {
 
 	// In-flight rotation state for idempotency cache
 	rotationInFlight map[string]*rotationInFlightEntry
-	rotationInFlightMu sync.Mutex
 }
 
 // rotationInFlightEntry holds the state of an in-progress rotation
 type rotationInFlightEntry struct {
-	done     chan struct{}
-	cachedAt time.Time
-	err      error
+	done chan struct{}
+	err  error
 }
 
 // defaultRotationCacheTTL is the default TTL for rotation idempotency entries
