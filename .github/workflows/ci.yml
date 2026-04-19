@@ -115,7 +115,7 @@ jobs:
           TEST_DOCKER_NETWORK: cloud-network
         run: |
           docker network create ${TEST_DOCKER_NETWORK} || true
-          go test -p 1 -covermode=branch -coverprofile=coverage.out ./cmd/... ./internal/... ./pkg/...
+          go test -p 1 -covermode=count -coverprofile=coverage.out ./cmd/... ./internal/... ./pkg/...
       - name: Parse Coverage Stats
         run: |
           chmod +x scripts/parse-coverage.sh
