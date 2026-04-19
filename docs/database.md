@@ -576,8 +576,12 @@ The Cloud platform supports asynchronous replication for managed databases to pr
 The `DatabaseFailoverWorker` provides automated recovery for failed primary instances:
 1. **Health Monitoring**: Performs periodic TCP health checks on all instances with the `PRIMARY` role.
 2. **Failure Detection**: If a Primary is unreachable, it is marked as failed.
-3. **Replica Selection**: The worker identifies all healthy replicas linked to the failed Primary.
-4. **Promotion**: The first available healthy replica is automatically promoted to the `PRIMARY` role using the `PromoteToPrimary` logic, which reconfigures the underlying engine and updates the metadata.
+3. **Replica Selection**: The worker identifies all replicas linked to the failed Primary and checks each one's replication status.
+   - For PostgreSQL replicas, queries `pg_stat_replication` to determine replication lag.
+   - Only replicas with lag ≤ 5 seconds are considered healthy promotion candidates.
+   - The replica with the lowest replication lag is selected for promotion.
+   - If no healthy replica exists, failover is aborted and an error is logged.
+4. **Promotion**: The selected replica is automatically promoted to the `PRIMARY` role using the `PromoteToPrimary` logic, which reconfigures the underlying engine and updates the metadata.
 
 #### Manual Promotion
 Replicas can be promoted manually via the API. Promoting a replica removes its link to the previous primary and converts it into a standalone Primary instance.
