@@ -407,7 +407,7 @@ Users can trigger automated password rotation for their database instances.
 - **Workflow**:
     1.  **Generate Password**: A new 16-character secure password is generated.
     2.  **Engine Update**: The `ALTER USER` command is executed inside the database container first to apply the new password.
-    3.  **Update Vault**: The new secret is written to Vault. (Note: A failure here may leave the database and Vault out of sync).
+    3.  **Update Vault**: The new secret is written to Vault. If Vault store fails after the DB password has been changed, `RotateCredentials` attempts to roll back the database password to its original value via an `Exec` call inside the container. However, the rollback itself can fail (e.g., if the `Exec` call fails), in which case `RotateCredentials` returns an error indicating manual intervention may be required.
     4.  **Sidecar Update**: Sidecars such as PgBouncer/pooler are automatically recreated to apply the new credentials only when they are present.
     5.  **Audit**: The rotation event is recorded in the system events and audit logs.
 

@@ -53,11 +53,25 @@ type DatabaseService struct {
 	volumeEncryption  ports.VolumeEncryptionService
 	logger            *slog.Logger
 	vaultMountPath    string
-	// Simple in-memory idempotency cache for rotation with TTL-based eviction
+	// In-memory idempotency cache for rotation. Stores timestamp of last rotation attempt.
+	// Expired entries are deleted on lookup to prevent unbounded growth, but this does
+	// not guarantee all expired entries are reaped.
 	rotationCache     map[string]time.Time
 	rotationCacheTTL time.Duration
 	rotationMu        sync.Mutex
+
+	// In-flight rotation state for idempotency cache
+	rotationInFlight map[string]*rotationInFlightEntry
 }
+
+// rotationInFlightEntry holds the state of an in-progress rotation
+type rotationInFlightEntry struct {
+	done chan struct{}
+	err  error
+}
+
+// defaultRotationCacheTTL is the default TTL for rotation idempotency entries
+const defaultRotationCacheTTL = 24 * time.Hour
 
 // Ensure DatabaseService implements ports.DatabaseService
 var _ ports.DatabaseService = (*DatabaseService)(nil)
@@ -96,7 +110,8 @@ func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 		logger:           params.Logger,
 		vaultMountPath:   params.VaultMountPath,
 		rotationCache:    make(map[string]time.Time),
-		rotationCacheTTL: 24 * time.Hour,
+		rotationCacheTTL: defaultRotationCacheTTL,
+		rotationInFlight: make(map[string]*rotationInFlightEntry),
 	}
 }
 
@@ -748,19 +763,53 @@ func (s *DatabaseService) waitForDatabaseReady(ctx context.Context, db *domain.D
 }
 
 func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, idempotencyKey string) error {
+	// Handle idempotency with in-flight support
 	if idempotencyKey != "" {
 		s.rotationMu.Lock()
+		// Check for existing completed entry
 		if cachedAt, ok := s.rotationCache[idempotencyKey]; ok {
 			if time.Since(cachedAt) < s.rotationCacheTTL {
 				s.rotationMu.Unlock()
 				return nil // Already rotated
 			}
-			// Expired entry - remove it to prevent unbounded map growth
+			// Expired entry - remove it
 			delete(s.rotationCache, idempotencyKey)
 		}
+		// Check for in-flight rotation
+		if entry, exists := s.rotationInFlight[idempotencyKey]; exists {
+			s.rotationMu.Unlock()
+			// Wait for the in-flight rotation to complete
+			<-entry.done
+			if entry.err != nil {
+				return entry.err
+			}
+			return nil // Rotation completed successfully
+		}
+		// Create in-flight entry
+		entry := &rotationInFlightEntry{done: make(chan struct{})}
+		s.rotationInFlight[idempotencyKey] = entry
 		s.rotationMu.Unlock()
+
+		// Perform rotation, then update in-flight state
+		rotateErr := s.doRotateCredentials(ctx, id, idempotencyKey)
+
+		s.rotationMu.Lock()
+		if rotateErr == nil {
+			s.rotationCache[idempotencyKey] = time.Now()
+		}
+		entry.err = rotateErr
+		close(entry.done)
+		delete(s.rotationInFlight, idempotencyKey)
+		s.rotationMu.Unlock()
+
+		return rotateErr
 	}
 
+	return s.doRotateCredentials(ctx, id, idempotencyKey)
+}
+
+// doRotateCredentials performs the actual credential rotation
+func (s *DatabaseService) doRotateCredentials(ctx context.Context, id uuid.UUID, _ string) error {
 	db, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -783,13 +832,8 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, i
 	}
 
 	// 1. Execute ALTER USER in container FIRST
-	var cmd []string
-	switch db.Engine {
-	case domain.EnginePostgres:
-		cmd = []string{"psql", "-h", "127.0.0.1", "-U", db.Username, "-d", "postgres", "-c", fmt.Sprintf("ALTER USER %s WITH PASSWORD '%s';", db.Username, newPassword)}
-	case domain.EngineMySQL:
-		cmd = []string{"mysql", "-u", "root", "-p" + currentPassword, "-e", fmt.Sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s';", db.Username, newPassword)}
-	default:
+	cmd := s.buildPasswordChangeCmd(db.Engine, db.Username, currentPassword, newPassword)
+	if cmd == nil {
 		return errors.New(errors.Internal, "unsupported engine for credential rotation")
 	}
 
@@ -810,9 +854,15 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, i
 		vaultPath = s.getVaultPath(db.ID)
 	}
 	if err := s.secrets.StoreSecret(ctx, vaultPath, map[string]interface{}{"password": newPassword}); err != nil {
-		// Note: At this point DB password is changed but Vault update failed.
-		// The system is out of sync. Fallback password in DB record remains old.
-		return errors.Wrap(errors.Internal, "database password updated but failed to store in vault", err)
+		// Vault store failed but DB already has new password - rollback to original
+		rollbackCmd := s.buildPasswordChangeCmd(db.Engine, db.Username, currentPassword, newPassword)
+		if _, rollbackErr := s.compute.Exec(ctx, db.ContainerID, rollbackCmd); rollbackErr != nil {
+			// Rollback also failed - system is in critical state requiring manual intervention
+			return errors.Wrap(errors.Internal,
+				fmt.Sprintf("credential rotation failed and rollback also failed - manual intervention required (vault store error: %v)", err),
+				rollbackErr)
+		}
+		return errors.Wrap(errors.Internal, "vault store failed, DB password rolled back", err)
 	}
 
 	// 3. Update DB record if needed (metadata or path)
@@ -843,12 +893,6 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, i
 		}
 	}
 
-	if idempotencyKey != "" {
-		s.rotationMu.Lock()
-		s.rotationCache[idempotencyKey] = time.Now()
-		s.rotationMu.Unlock()
-	}
-
 	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_CREDENTIALS_ROTATE", db.ID.String(), "DATABASE", nil)
 	_ = s.auditSvc.Log(ctx, db.UserID, "database.rotate_credentials", "database", db.ID.String(), nil)
 
@@ -872,6 +916,30 @@ func (s *DatabaseService) validateCreationRequest(req ports.CreateDatabaseReques
 
 func (s *DatabaseService) getVaultPath(dbID uuid.UUID) string {
 	return fmt.Sprintf("%s/%s/credentials", s.vaultMountPath, dbID.String())
+}
+
+// sqlStringLiteral escapes a string for use in SQL string literals
+func sqlStringLiteral(s string) string {
+	// Escape single quotes for SQL
+	return strings.ReplaceAll(s, "'", "''")
+}
+
+// postgresIdentifier escapes a PostgreSQL identifier
+func postgresIdentifier(id string) string {
+	// PostgreSQL uses double quotes for identifiers
+	return "\"" + strings.ReplaceAll(id, "\"", "\"\"") + "\""
+}
+
+func (s *DatabaseService) buildPasswordChangeCmd(engine domain.DatabaseEngine, username, authPassword, targetPassword string) []string {
+	switch engine {
+	case domain.EnginePostgres:
+		return []string{"psql", "-h", "127.0.0.1", "-U", username, "-d", "postgres", "-c",
+			fmt.Sprintf("ALTER USER %s WITH PASSWORD '%s';", postgresIdentifier(username), sqlStringLiteral(targetPassword))}
+	case domain.EngineMySQL:
+		return []string{"mysql", "-u", "root", "-p" + authPassword, "-e",
+			fmt.Sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s';", sqlStringLiteral(username), sqlStringLiteral(targetPassword))}
+	}
+	return nil
 }
 
 func (s *DatabaseService) resolveDatabasePort(ctx context.Context, db *domain.Database, allocatedPorts []string, defaultPort string) error {

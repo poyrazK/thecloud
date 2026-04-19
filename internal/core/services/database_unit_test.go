@@ -148,7 +148,8 @@ func testDatabaseServiceUnitExtended(t *testing.T) {
 		dbID := uuid.New()
 		db := &domain.Database{ID: dbID, Role: domain.RoleReplica, Engine: domain.EnginePostgres, Username: "user", Password: "pass", ContainerID: "test-container"}
 		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
-		mockCompute.On("Exec", mock.Anything, "test-container", mock.Anything).Return("", nil).Once()
+		// Assert the promotion command uses trigger file method
+		mockCompute.On("Exec", mock.Anything, "test-container", []string{"touch", "/var/lib/postgresql/data/promote"}).Return("", nil).Once()
 		mockRepo.On("Update", mock.Anything, mock.MatchedBy(func(d *domain.Database) bool {
 			return d.Role == domain.RolePrimary
 		})).Return(nil).Once()
