@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"testing"
 
 	"github.com/google/uuid"
@@ -12,6 +13,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockDatabaseRepo struct {
@@ -471,11 +473,17 @@ func TestDatabaseFailoverWorker(t *testing.T) {
 		logger := slog.Default()
 		worker := NewDatabaseFailoverWorker(svc, repo, compute, logger)
 
+		// Allocate an ephemeral port, capture it, then close the listener
+		// so the port becomes unused — the dial will fail because nothing is listening
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		require.NoError(t, err)
+		port := ln.Addr().(*net.TCPAddr).Port
+		ln.Close()
+
 		replica := &domain.Database{
 			ID:   uuid.New(),
-			Port: 59999,
+			Port: port,
 		}
-		// isHealthy with unroutable IP (10.255.255.1 is in Null block) should return false
 		assert.False(t, worker.isHealthy(context.Background(), replica))
 	})
 

@@ -79,17 +79,19 @@ func (w *DatabaseFailoverWorker) checkDatabases(ctx context.Context) {
 	}
 }
 
-func (w *DatabaseFailoverWorker) isHealthy(_ context.Context, db *domain.Database) bool {
+func (w *DatabaseFailoverWorker) isHealthy(ctx context.Context, db *domain.Database) bool {
 	if db.Port == 0 {
 		return true
 	}
-	// Simple TCP check for the mapped port on 127.0.0.1 (since it's a simulator)
 	address := fmt.Sprintf("127.0.0.1:%d", db.Port)
-	conn, err := net.DialTimeout("tcp", address, databaseCheckTimeout)
+	dialer := &net.Dialer{Timeout: databaseCheckTimeout}
+	conn, err := dialer.DialContext(ctx, "tcp", address)
 	if err != nil {
 		return false
 	}
-	_ = conn.Close()
+	if err := conn.Close(); err != nil {
+		w.logger.Debug("failed to close connection", "address", address, "error", err)
+	}
 	return true
 }
 
@@ -155,17 +157,27 @@ func (w *DatabaseFailoverWorker) checkReplicationStatus(ctx context.Context, rep
 	}
 
 	// Query standby-side recovery metrics for PostgreSQL replica.
-	// pg_stat_replication is primary-side only; use pg_last_xact_replay_timestamp()
-	// which is available on standbys to estimate replay lag.
+	// pg_stat_replication is primary-side only; use standby-side metrics.
+	// - pg_is_in_recovery() = true on standbys, false on primaries
+	// - pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn() means fully caught up
+	// - pg_last_xact_replay_timestamp() measures actual replay lag
 	query := `SELECT CASE
-    WHEN NOT pg_is_in_recovery() THEN 0
+    WHEN NOT pg_is_in_recovery() THEN 2147483647
+    WHEN pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn() THEN 0
     WHEN pg_last_xact_replay_timestamp() IS NULL THEN 2147483647
     ELSE EXTRACT(EPOCH FROM (NOW() - pg_last_xact_replay_timestamp()))::INTEGER
 END AS lag_seconds;`
 
-	output, err := w.compute.Exec(ctx, replica.ContainerID, []string{"psql", "-U", "postgres", "-d", "postgres", "-t", "-c", query})
+	execCtx, cancel := context.WithTimeout(ctx, databaseCheckTimeout)
+	defer cancel()
+
+	output, err := w.compute.Exec(execCtx, replica.ContainerID, []string{"psql", "-U", "postgres", "-d", "postgres", "-t", "-c", query})
 	if err != nil {
-		w.logger.Debug("failed to query replication status", "replica_id", replica.ID, "error", err)
+		if execCtx.Err() == context.DeadlineExceeded {
+			w.logger.Debug("replication query timed out", "replica_id", replica.ID)
+		} else {
+			w.logger.Debug("failed to query replication status", "replica_id", replica.ID, "error", err)
+		}
 		return 0, false
 	}
 
