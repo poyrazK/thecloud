@@ -371,6 +371,7 @@ func TestDatabaseFailoverWorker(t *testing.T) {
 
 		repo.AssertExpectations(t)
 		svc.AssertExpectations(t)
+		compute.AssertNotCalled(t, "Exec", mock.Anything, mock.Anything, mock.Anything)
 	})
 
 	t.Run("Replication check Exec error handled gracefully", func(t *testing.T) {
@@ -472,9 +473,9 @@ func TestDatabaseFailoverWorker(t *testing.T) {
 
 		replica := &domain.Database{
 			ID:   uuid.New(),
-			Port: 59999, // unreachable port
+			Port: 59999,
 		}
-		// isHealthy with unreachable port should return false
+		// isHealthy with unroutable IP (10.255.255.1 is in Null block) should return false
 		assert.False(t, worker.isHealthy(context.Background(), replica))
 	})
 

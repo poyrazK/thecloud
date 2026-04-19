@@ -577,7 +577,7 @@ The `DatabaseFailoverWorker` provides automated recovery for failed primary inst
 1. **Health Monitoring**: Performs periodic TCP health checks on all instances with the `PRIMARY` role.
 2. **Failure Detection**: If a Primary is unreachable, it is marked as failed.
 3. **Replica Selection**: The worker identifies all replicas linked to the failed Primary and checks each one's replication status.
-   - For PostgreSQL replicas, queries `pg_stat_replication` to determine replication lag.
+   - For PostgreSQL replicas, uses `pg_last_xact_replay_timestamp()` (standby-side) to determine replay lag.
    - Only replicas with lag ≤ 5 seconds are considered healthy promotion candidates.
    - The replica with the lowest replication lag is selected for promotion.
    - If no healthy replica exists, failover is aborted and an error is logged.

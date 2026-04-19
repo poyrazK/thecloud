@@ -127,6 +127,9 @@ func (w *DatabaseFailoverWorker) selectBestReplica(ctx context.Context, replicas
 	bestLag := int(^uint(0) >> 1) // max int
 
 	for _, replica := range replicas {
+		if replica.Status != domain.DatabaseStatusRunning {
+			continue
+		}
 		lag, healthy := w.checkReplicationStatus(ctx, replica)
 		if !healthy {
 			continue
@@ -151,12 +154,14 @@ func (w *DatabaseFailoverWorker) checkReplicationStatus(ctx context.Context, rep
 		return 0, w.isHealthy(ctx, replica)
 	}
 
-	// Query pg_stat_replication for PostgreSQL
-	query := `SELECT EXTRACT(EPOCH FROM (NOW() - reply_time))::INTEGER AS lag_seconds
-FROM pg_stat_replication
-WHERE state = 'streaming'
-ORDER BY reply_time DESC
-LIMIT 1;`
+	// Query standby-side recovery metrics for PostgreSQL replica.
+	// pg_stat_replication is primary-side only; use pg_last_xact_replay_timestamp()
+	// which is available on standbys to estimate replay lag.
+	query := `SELECT CASE
+    WHEN NOT pg_is_in_recovery() THEN 0
+    WHEN pg_last_xact_replay_timestamp() IS NULL THEN 2147483647
+    ELSE EXTRACT(EPOCH FROM (NOW() - pg_last_xact_replay_timestamp()))::INTEGER
+END AS lag_seconds;`
 
 	output, err := w.compute.Exec(ctx, replica.ContainerID, []string{"psql", "-U", "postgres", "-d", "postgres", "-t", "-c", query})
 	if err != nil {
