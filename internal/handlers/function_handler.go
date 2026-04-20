@@ -7,12 +7,28 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
 const invalidFunctionIDMsg = "invalid function id"
+
+// EnvVarRequest represents a single environment variable in requests.
+type EnvVarRequest struct {
+	Key   string `json:"key" binding:"required"`
+	Value string `json:"value"`
+}
+
+// FunctionUpdateRequest mirrors domain.FunctionUpdate for JSON binding.
+type FunctionUpdateRequest struct {
+	Handler  *string           `json:"handler,omitempty"`
+	Timeout  *int              `json:"timeout,omitempty"`
+	MemoryMB *int              `json:"memory_mb,omitempty"`
+	Status   *string           `json:"status,omitempty"`
+	EnvVars  []*EnvVarRequest `json:"env_vars,omitempty"`
+}
 
 // FunctionHandler handles serverless function HTTP endpoints.
 type FunctionHandler struct {
@@ -145,4 +161,52 @@ func (h *FunctionHandler) GetLogs(c *gin.Context) {
 		return
 	}
 	httputil.Success(c, http.StatusOK, logs)
+}
+
+// Update updates an existing function's configuration.
+// @Summary Update function
+// @Description Updates a function's timeout, memory, handler, status, or environment variables
+// @Tags functions
+// @Accept json
+// @Produce json
+// @Security APIKeyAuth
+// @Param id path string true "Function ID"
+// @Param request body FunctionUpdateRequest true "Update request"
+// @Success 200 {object} domain.Function
+// @Failure 400 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Router /functions/{id} [patch]
+func (h *FunctionHandler) Update(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidFunctionIDMsg))
+		return
+	}
+
+	var req FunctionUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, errors.Wrap(errors.InvalidInput, "invalid request body", err))
+		return
+	}
+
+	update := &domain.FunctionUpdate{
+		Handler:  req.Handler,
+		Timeout:  req.Timeout,
+		MemoryMB: req.MemoryMB,
+		Status:   req.Status,
+	}
+	if req.EnvVars != nil {
+		envVars := make([]*domain.EnvVar, len(req.EnvVars))
+		for i, e := range req.EnvVars {
+			envVars[i] = &domain.EnvVar{Key: e.Key, Value: e.Value}
+		}
+		update.EnvVars = envVars
+	}
+
+	fn, err := h.svc.UpdateFunction(c.Request.Context(), id, update)
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+	httputil.Success(c, http.StatusOK, fn)
 }

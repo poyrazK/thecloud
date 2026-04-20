@@ -512,6 +512,7 @@ func registerDevOpsRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		fnGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionFunctionDelete), handlers.Function.Delete)
 		fnGroup.POST("/:id/invoke", httputil.Permission(svcs.RBAC, domain.PermissionFunctionInvoke), handlers.Function.Invoke)
 		fnGroup.GET("/:id/logs", httputil.Permission(svcs.RBAC, domain.PermissionFunctionRead), handlers.Function.GetLogs)
+		fnGroup.PATCH("/:id", httputil.Permission(svcs.RBAC, domain.PermissionFunctionUpdate), handlers.Function.Update)
 	}
 
 	queueGroup := r.Group("/queues")

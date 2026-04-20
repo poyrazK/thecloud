@@ -179,6 +179,39 @@ func (s *FunctionService) GetFunctionLogs(ctx context.Context, id uuid.UUID, lim
 
 	return s.repo.GetInvocations(ctx, id, limit)
 }
+
+func (s *FunctionService) UpdateFunction(ctx context.Context, id uuid.UUID, update *domain.FunctionUpdate) (*domain.Function, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionUpdate, id.String()); err != nil {
+		return nil, err
+	}
+
+	if update.Timeout != nil {
+		if *update.Timeout <= 0 || *update.Timeout > 900 {
+			return nil, errors.New(errors.InvalidInput, "timeout must be between 1 and 900 seconds")
+		}
+	}
+	if update.MemoryMB != nil {
+		if *update.MemoryMB < 64 || *update.MemoryMB > 10240 {
+			return nil, errors.New(errors.InvalidInput, "memory must be between 64 and 10240 MB")
+		}
+	}
+
+	f, err := s.repo.Update(ctx, id, update)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.auditSvc.Log(ctx, userID, "function.update", "function", id.String(), map[string]interface{}{
+		"name": f.Name,
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "function.update", "function_id", id, "error", err)
+	}
+
+	return f, nil
+}
 func (s *FunctionService) InvokeFunction(ctx context.Context, id uuid.UUID, payload []byte, async bool) (*domain.Invocation, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
@@ -250,10 +283,15 @@ func (s *FunctionService) buildTaskOptions(f *domain.Function, tmpDir string, pa
 
 	handler := s.normalizeHandler(f.Runtime, f.Handler)
 
+	env := []string{fmt.Sprintf("PAYLOAD=%s", string(payload))}
+	for _, e := range f.EnvVars {
+		env = append(env, fmt.Sprintf("%s=%s", e.Key, e.Value))
+	}
+
 	return ports.RunTaskOptions{
 		Image:           config.Image,
 		Command:         append(config.Entrypoint, handler),
-		Env:             []string{fmt.Sprintf("PAYLOAD=%s", string(payload))},
+		Env:             env,
 		MemoryMB:        int64(f.MemoryMB),
 		CPUs:            0.5,
 		NetworkDisabled: true,
