@@ -121,9 +121,13 @@ jobs:
           chmod +x scripts/parse-coverage.sh
           bash scripts/parse-coverage.sh > coverage.json
       - name: Upload Coverage Artifact
+        run: |
+          echo "artifact_name=coverage-${GITHUB_REF_NAME//\//-}" >> $GITHUB_OUTPUT
+        id: artifact-name
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ 'coverage-' + replace(github.ref_name, '/', '-') }}
+          name: ${{ steps.artifact-name.outputs.artifact_name }}
           path: coverage.json
           retention-days: 30
 
