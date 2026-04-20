@@ -23,6 +23,7 @@ func TestFunctionService_Unit(t *testing.T) {
 	t.Run("CreateFunction", testFunctionServiceCreateFunction)
 	t.Run("InvokeFunction", testFunctionServiceInvokeFunction)
 	t.Run("CreateFunction_UnsupportedRuntime", testFunctionServiceCreateFunctionUnsupportedRuntime)
+	t.Run("UpdateFunction", testFunctionServiceUpdateFunction)
 }
 
 func testFunctionServiceBasicOps(t *testing.T) {
@@ -187,4 +188,56 @@ func testFunctionServiceCreateFunctionUnsupportedRuntime(t *testing.T) {
 	_, err := svc.CreateFunction(ctx, "fail", "cobol99", "handler", []byte("code"))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported runtime")
+}
+
+func testFunctionServiceUpdateFunction(t *testing.T) {
+	repo := new(MockFunctionRepo)
+	compute := new(MockComputeBackend)
+	fileStore := new(MockFileStore)
+	auditSvc := new(MockAuditService)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, slog.Default())
+
+	ctx := context.Background()
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
+	id := uuid.New()
+
+	t.Run("success", func(t *testing.T) {
+		updated := &domain.Function{ID: id, UserID: userID, TenantID: tenantID, Name: "test-fn", Runtime: "nodejs20", Handler: "updated.js", Timeout: 60, MemoryMB: 256}
+
+		newTimeout := 60
+		newMemory := 256
+		update := &domain.FunctionUpdate{Timeout: &newTimeout, MemoryMB: &newMemory}
+
+		repo.On("Update", ctx, id, update).Return(updated, nil).Once()
+		auditSvc.On("Log", ctx, userID, "function.update", "function", id.String(), mock.Anything).Return(nil).Once()
+
+		result, err := svc.UpdateFunction(ctx, id, update)
+		require.NoError(t, err)
+		assert.Equal(t, 60, result.Timeout)
+		assert.Equal(t, 256, result.MemoryMB)
+	})
+
+	t.Run("invalid timeout", func(t *testing.T) {
+		badTimeout := 0
+		update := &domain.FunctionUpdate{Timeout: &badTimeout}
+
+		_, err := svc.UpdateFunction(ctx, id, update)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "timeout")
+	})
+
+	t.Run("invalid memory", func(t *testing.T) {
+		badMemory := 10
+		update := &domain.FunctionUpdate{MemoryMB: &badMemory}
+
+		_, err := svc.UpdateFunction(ctx, id, update)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "memory")
+	})
 }

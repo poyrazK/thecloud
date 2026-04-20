@@ -62,6 +62,25 @@ func TestFunctionService_BuildTaskOptions(t *testing.T) {
 	assert.Equal(t, int64(256), opts.MemoryMB)
 }
 
+func TestFunctionService_BuildTaskOptions_EnvVars(t *testing.T) {
+	s := &FunctionService{}
+	f := &domain.Function{
+		Runtime:  "python312",
+		Handler:  "main.py",
+		MemoryMB: 128,
+		EnvVars: []*domain.EnvVar{
+			{Key: "DATABASE_URL", Value: "postgres://localhost/db"},
+			{Key: "DEBUG", Value: "true"},
+		},
+	}
+	opts := s.buildTaskOptions(f, "/tmp/task", []byte(`{}`))
+
+	assert.Len(t, opts.Env, 3) // PAYLOAD + DATABASE_URL + DEBUG
+	assert.Equal(t, "PAYLOAD={}", opts.Env[0])
+	assert.Equal(t, "DATABASE_URL=postgres://localhost/db", opts.Env[1])
+	assert.Equal(t, "DEBUG=true", opts.Env[2])
+}
+
 func TestFunctionService_NormalizeHandler(t *testing.T) {
 	s := &FunctionService{}
 
