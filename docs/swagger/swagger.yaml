@@ -2363,6 +2363,9 @@ definitions:
     type: object
 info:
   contact: {}
+  description: The Cloud - Multi-tenant Cloud Infrastructure Engine
+  title: The Cloud API
+  version: "1.0"
 paths:
   /api/dashboard/events:
     get:
@@ -6846,4 +6849,9 @@ paths:
       summary: Get VPC details
       tags:
       - vpcs
+securityDefinitions:
+  APIKeyAuth:
+    in: header
+    name: X-API-Key
+    type: apiKey
 swagger: "2.0"

@@ -1,7 +1,10 @@
 {
     "swagger": "2.0",
     "info": {
-        "contact": {}
+        "description": "The Cloud - Multi-tenant Cloud Infrastructure Engine",
+        "title": "The Cloud API",
+        "contact": {},
+        "version": "1.0"
     },
     "paths": {
         "/api/dashboard/events": {
@@ -10415,6 +10418,13 @@
                     "$ref": "#/definitions/domain.ClusterStatus"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "APIKeyAuth": {
+            "type": "apiKey",
+            "name": "X-API-Key",
+            "in": "header"
         }
     }
 }
