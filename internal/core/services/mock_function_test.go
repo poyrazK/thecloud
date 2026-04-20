@@ -35,8 +35,12 @@ func (m *MockFunctionRepo) List(ctx context.Context, userID uuid.UUID) ([]*domai
 	}
 	return args.Get(0).([]*domain.Function), args.Error(1)
 }
-func (m *MockFunctionRepo) Update(ctx context.Context, f *domain.Function) error {
-	return m.Called(ctx, f).Error(0)
+func (m *MockFunctionRepo) Update(ctx context.Context, id uuid.UUID, update *domain.FunctionUpdate) (*domain.Function, error) {
+	args := m.Called(ctx, id, update)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Function), args.Error(1)
 }
 func (m *MockFunctionRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
