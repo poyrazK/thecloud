@@ -24,6 +24,8 @@ type FunctionRepository interface {
 	CreateInvocation(ctx context.Context, i *domain.Invocation) error
 	// GetInvocations retrieves a history of executions for a specific function.
 	GetInvocations(ctx context.Context, functionID uuid.UUID, limit int) ([]*domain.Invocation, error)
+	// Update applies a partial update to an existing function.
+	Update(ctx context.Context, id uuid.UUID, update *domain.FunctionUpdate) (*domain.Function, error)
 }
 
 // FunctionService provides business logic for FaaS (Function-as-a-Service) management and execution.
@@ -40,4 +42,6 @@ type FunctionService interface {
 	InvokeFunction(ctx context.Context, id uuid.UUID, payload []byte, async bool) (*domain.Invocation, error)
 	// GetFunctionLogs retrieves execution history and results for a function.
 	GetFunctionLogs(ctx context.Context, id uuid.UUID, limit int) ([]*domain.Invocation, error)
+	// UpdateFunction applies changes to an existing function's configuration.
+	UpdateFunction(ctx context.Context, id uuid.UUID, update *domain.FunctionUpdate) (*domain.Function, error)
 }
