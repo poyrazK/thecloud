@@ -17,14 +17,36 @@ fi
 MODE=$(head -1 "$COVERAGE_OUT")
 MODULE_PREFIX="github.com/poyrazk/thecloud/"
 
-# Get total line coverage from go tool cover -func
+# Get overall totals from go tool cover -func
 TOTAL_LINE=$(go tool cover -func="$COVERAGE_OUT" 2>/dev/null | grep '^total:' | awk '{print $3}' | tr -d '%')
-
-# Get total func coverage (average of all function coverage %)
-# Parse each line: extract the last field (e.g. "20.0%"), strip %, add to sum
-TOTAL_FUNC=$(go tool cover -func="$COVERAGE_OUT" 2>/dev/null | grep -v '^total:' | \
+OVERALL_FUNC=$(go tool cover -func="$COVERAGE_OUT" 2>/dev/null | grep -v '^total:' | \
   sed 's/.*\t//' | tr -d '%' | \
   awk '{sum += $1; count++} END {if(count>0) printf "%.1f", sum/count; else print "0.0"}')
+
+# Parse go tool cover output for per-package function coverage
+go tool cover -func="$COVERAGE_OUT" 2>/dev/null | awk -v mod="$MODULE_PREFIX" '
+  /^total:/ { next }
+  {
+    file = $1
+    coverage = $NF
+    gsub(/%/, "", coverage)
+    sub(mod, "", file)
+    goPos = index(file, ".go:")
+    if (goPos > 0) pkg = substr(file, 1, goPos - 1)
+    else pkg = file
+    n = split(pkg, parts, "/")
+    dir = ""
+    for (i = 1; i < n; i++) {
+      if (i > 1) dir = dir "/"
+      dir = dir parts[i]
+    }
+    if (!(dir in f_sum)) { f_sum[dir] = 0; f_cnt[dir] = 0 }
+    f_sum[dir] += coverage
+    f_cnt[dir]++
+  }
+  END {
+    for (d in f_sum) printf "%s|%.2f\n", d, f_sum[d]/f_cnt[d]
+  }' | sort > /tmp/pkg_func.txt
 
 # Parse coverage.out for per-package line coverage
 awk -v mod="$MODULE_PREFIX" '
@@ -34,31 +56,30 @@ awk -v mod="$MODULE_PREFIX" '
   {
     file = $1
     sub(mod, "", file)
-    # Strip /filename.go:line.col,line.col suffix
     if (match(file, "/[^/]+\\.go:[0-9]+\\.[0-9]+,[0-9]+\\.[0-9]+")) {
       file = substr(file, 1, RSTART - 1)
     }
     num_stmts = $2
     num_covered = $3
 
-    if (!(file in pkg_cov)) {
-      pkg_cov[file] = 0
-      pkg_total[file] = 0
+    if (!(file in l_cov)) {
+      l_cov[file] = 0
+      l_total[file] = 0
     }
-    pkg_cov[file] += num_covered
-    pkg_total[file] += num_stmts
+    l_cov[file] += num_covered
+    l_total[file] += num_stmts
   }
   END {
-    for (pkg in pkg_cov) {
-      total = pkg_total[pkg]
-      cov = pkg_cov[pkg]
+    for (pkg in l_cov) {
+      total = l_total[pkg]
+      cov = l_cov[pkg]
       if (total > 0) {
         pct = (cov * 100) / total
         printf "%s|%d|%d|%.2f\n", pkg, cov, total, pct
       }
     }
   }
-' "$COVERAGE_OUT" | sort > /tmp/pkg_cov.txt
+' "$COVERAGE_OUT" | sort > /tmp/pkg_line.txt
 
 # Build JSON output
 echo "{"
@@ -67,23 +88,25 @@ echo "  \"commit\": \"$COMMIT\","
 echo "  \"timestamp\": \"$TIMESTAMP\","
 echo "  \"mode\": \"$MODE\","
 echo "  \"total_line\": ${TOTAL_LINE:-0.0},"
-echo "  \"total_func\": ${TOTAL_FUNC:-0.0},"
+echo "  \"total_func\": ${OVERALL_FUNC:-0.0},"
 echo "  \"total_branch\": null,"
 echo "  \"packages\": ["
 
 first=true
-while IFS='|' read -r pkg cov total pct; do
+while IFS='|' read -r pkg l_cov l_total l_pct; do
+  func_pct=$(grep "^${pkg}|" /tmp/pkg_func.txt 2>/dev/null | cut -d'|' -f2 || echo "0.0")
+
   if [[ "$first" == "true" ]]; then
     first=false
   else
     echo ","
   fi
   printf '    {"path": "./%s", "line": %s, "func": %s, "branch": null}' \
-    "$pkg" "$pct" "${TOTAL_FUNC:-0.0}"
-done < /tmp/pkg_cov.txt
+    "$pkg" "$l_pct" "$func_pct"
+done < /tmp/pkg_line.txt
 
 echo ""
 echo "  ]"
 echo "}"
 
-rm -f /tmp/pkg_cov.txt
+rm -f /tmp/pkg_line.txt /tmp/pkg_func.txt
