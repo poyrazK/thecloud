@@ -3,6 +3,7 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -23,11 +24,11 @@ func NewFunctionRepository(db DB) *FunctionRepository {
 
 func (r *FunctionRepository) Create(ctx context.Context, f *domain.Function) error {
 	query := `
-		INSERT INTO functions (id, user_id, tenant_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		INSERT INTO functions (id, user_id, tenant_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, env_vars, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 	_, err := r.db.Exec(ctx, query,
-		f.ID, f.UserID, f.TenantID, f.Name, f.Runtime, f.Handler, f.CodePath, f.Timeout, f.MemoryMB, f.Status, f.CreatedAt, f.UpdatedAt,
+		f.ID, f.UserID, f.TenantID, f.Name, f.Runtime, f.Handler, f.CodePath, f.Timeout, f.MemoryMB, f.Status, f.EnvVars, f.CreatedAt, f.UpdatedAt,
 	)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to create function", err)
@@ -37,19 +38,19 @@ func (r *FunctionRepository) Create(ctx context.Context, f *domain.Function) err
 
 func (r *FunctionRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Function, error) {
 	tenantID := appcontext.TenantIDFromContext(ctx)
-	query := `SELECT id, user_id, tenant_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, created_at, updated_at FROM functions WHERE id = $1 AND tenant_id = $2`
+	query := `SELECT id, user_id, tenant_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, env_vars, created_at, updated_at FROM functions WHERE id = $1 AND tenant_id = $2`
 	return r.scanFunction(r.db.QueryRow(ctx, query, id, tenantID))
 }
 
 func (r *FunctionRepository) GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Function, error) {
 	tenantID := appcontext.TenantIDFromContext(ctx)
-	query := `SELECT id, user_id, tenant_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, created_at, updated_at FROM functions WHERE name = $1 AND tenant_id = $2`
+	query := `SELECT id, user_id, tenant_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, env_vars, created_at, updated_at FROM functions WHERE name = $1 AND tenant_id = $2`
 	return r.scanFunction(r.db.QueryRow(ctx, query, name, tenantID))
 }
 
 func (r *FunctionRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.Function, error) {
 	tenantID := appcontext.TenantIDFromContext(ctx)
-	query := `SELECT id, user_id, tenant_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, created_at, updated_at FROM functions WHERE tenant_id = $1 ORDER BY created_at DESC`
+	query := `SELECT id, user_id, tenant_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, env_vars, created_at, updated_at FROM functions WHERE tenant_id = $1 ORDER BY created_at DESC`
 	rows, err := r.db.Query(ctx, query, tenantID)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list functions", err)
@@ -90,9 +91,24 @@ func (r *FunctionRepository) GetInvocations(ctx context.Context, functionID uuid
 	return r.scanInvocations(rows)
 }
 
+func (r *FunctionRepository) Update(ctx context.Context, id uuid.UUID, update *domain.FunctionUpdate) (*domain.Function, error) {
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	setCols, args := update.SetColumns()
+	if len(setCols) == 0 {
+		return r.GetByID(ctx, id)
+	}
+	args = append(args, id, tenantID)
+	query := fmt.Sprintf(`UPDATE functions SET %s, updated_at = NOW() WHERE id = $%d AND tenant_id = $%d`, setCols, len(args)-1, len(args))
+	_, err := r.db.Exec(ctx, query, args...)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to update function", err)
+	}
+	return r.GetByID(ctx, id)
+}
+
 func (r *FunctionRepository) scanFunction(row pgx.Row) (*domain.Function, error) {
 	f := &domain.Function{}
-	err := row.Scan(&f.ID, &f.UserID, &f.TenantID, &f.Name, &f.Runtime, &f.Handler, &f.CodePath, &f.Timeout, &f.MemoryMB, &f.Status, &f.CreatedAt, &f.UpdatedAt)
+	err := row.Scan(&f.ID, &f.UserID, &f.TenantID, &f.Name, &f.Runtime, &f.Handler, &f.CodePath, &f.Timeout, &f.MemoryMB, &f.Status, &f.EnvVars, &f.CreatedAt, &f.UpdatedAt)
 	if err != nil {
 		return nil, errors.Wrap(errors.NotFound, "function not found", err)
 	}
