@@ -280,7 +280,9 @@ func (w *PipelineWorker) executeStageStep(ctx context.Context, build *domain.Bui
 	}
 
 	if logs != "" {
-		_ = w.repo.AppendBuildLog(ctx, &domain.BuildLog{ID: uuid.New(), BuildID: build.ID, StepID: step.ID, Content: logs, CreatedAt: time.Now()})
+		if err := w.repo.AppendBuildLog(ctx, &domain.BuildLog{ID: uuid.New(), BuildID: build.ID, StepID: step.ID, Content: logs, CreatedAt: time.Now()}); err != nil {
+			w.logger.Warn("failed to append build log", "build_id", build.ID, "step_id", step.ID, "error", err)
+		}
 	}
 
 	if exitCode != 0 {
@@ -343,7 +345,9 @@ func (w *PipelineWorker) markStepFinished(ctx context.Context, step *domain.Buil
 	step.FinishedAt = &finished
 	step.UpdatedAt = finished
 	step.ExitCode = &exitCode
-	_ = w.repo.UpdateBuildStep(ctx, step)
+	if err := w.repo.UpdateBuildStep(ctx, step); err != nil {
+		w.logger.Warn("failed to update build step", "step_id", step.ID, "build_id", step.BuildID, "error", err)
+	}
 }
 
 func (w *PipelineWorker) markBuildSucceeded(ctx context.Context, build *domain.Build) {
@@ -351,7 +355,9 @@ func (w *PipelineWorker) markBuildSucceeded(ctx context.Context, build *domain.B
 	build.Status = domain.BuildStatusSucceeded
 	build.FinishedAt = &finish
 	build.UpdatedAt = finish
-	_ = w.repo.UpdateBuild(ctx, build)
+	if err := w.repo.UpdateBuild(ctx, build); err != nil {
+		w.logger.Warn("failed to update build", "build_id", build.ID, "error", err)
+	}
 }
 
 func (w *PipelineWorker) failStepAndBuild(ctx context.Context, step *domain.BuildStep, build *domain.Build, message string) {
@@ -359,8 +365,12 @@ func (w *PipelineWorker) failStepAndBuild(ctx context.Context, step *domain.Buil
 	step.Status = domain.BuildStatusFailed
 	step.FinishedAt = &end
 	step.UpdatedAt = end
-	_ = w.repo.UpdateBuildStep(ctx, step)
-	_ = w.repo.AppendBuildLog(ctx, &domain.BuildLog{ID: uuid.New(), BuildID: build.ID, StepID: step.ID, Content: message, CreatedAt: end})
+	if err := w.repo.UpdateBuildStep(ctx, step); err != nil {
+		w.logger.Warn("failed to update build step", "step_id", step.ID, "build_id", step.BuildID, "error", err)
+	}
+	if err := w.repo.AppendBuildLog(ctx, &domain.BuildLog{ID: uuid.New(), BuildID: build.ID, StepID: step.ID, Content: message, CreatedAt: end}); err != nil {
+		w.logger.Warn("failed to append build log", "build_id", build.ID, "step_id", step.ID, "error", err)
+	}
 	w.failBuild(ctx, build, message)
 }
 
@@ -369,8 +379,12 @@ func (w *PipelineWorker) failBuild(ctx context.Context, build *domain.Build, mes
 	build.Status = domain.BuildStatusFailed
 	build.FinishedAt = &finish
 	build.UpdatedAt = finish
-	_ = w.repo.UpdateBuild(ctx, build)
-	_ = w.repo.AppendBuildLog(ctx, &domain.BuildLog{ID: uuid.New(), BuildID: build.ID, Content: message, CreatedAt: finish})
+	if err := w.repo.UpdateBuild(ctx, build); err != nil {
+		w.logger.Warn("failed to update build", "build_id", build.ID, "error", err)
+	}
+	if err := w.repo.AppendBuildLog(ctx, &domain.BuildLog{ID: uuid.New(), BuildID: build.ID, Content: message, CreatedAt: finish}); err != nil {
+		w.logger.Warn("failed to append build log", "build_id", build.ID, "error", err)
+	}
 }
 
 func (w *PipelineWorker) collectTaskLogs(ctx context.Context, taskID string) (string, error) {
