@@ -197,14 +197,18 @@ func (w *ClusterWorker) processJob(workerCtx context.Context, msg *ports.Durable
 func (w *ClusterWorker) handleProvision(ctx context.Context, cluster *domain.Cluster) error {
 	cluster.Status = domain.ClusterStatusProvisioning
 	cluster.UpdatedAt = time.Now()
-	_ = w.repo.Update(ctx, cluster)
+	if err := w.repo.Update(ctx, cluster); err != nil {
+		w.logger.Warn("failed to persist cluster status", "cluster_id", cluster.ID, "status", cluster.Status, "error", err)
+	}
 
 	if err := w.provisioner.Provision(ctx, cluster); err != nil {
 		w.logger.Error("provisioning failed", "cluster_id", cluster.ID, "error", err)
 		cluster.Status = domain.ClusterStatusFailed
 		cluster.UpdatedAt = time.Now()
 		cluster.JobID = nil
-		_ = w.repo.Update(ctx, cluster)
+		if updateErr := w.repo.Update(ctx, cluster); updateErr != nil {
+			w.logger.Warn("failed to persist cluster status", "cluster_id", cluster.ID, "status", cluster.Status, "error", updateErr)
+		}
 		return err
 	}
 
@@ -212,39 +216,51 @@ func (w *ClusterWorker) handleProvision(ctx context.Context, cluster *domain.Clu
 	cluster.Status = domain.ClusterStatusRunning
 	cluster.UpdatedAt = time.Now()
 	cluster.JobID = nil
-	_ = w.repo.Update(ctx, cluster)
+	if err := w.repo.Update(ctx, cluster); err != nil {
+		w.logger.Warn("failed to persist cluster status", "cluster_id", cluster.ID, "status", cluster.Status, "error", err)
+	}
 	return nil
 }
 
 func (w *ClusterWorker) handleDeprovision(ctx context.Context, cluster *domain.Cluster) error {
 	cluster.Status = domain.ClusterStatusDeleting
 	cluster.UpdatedAt = time.Now()
-	_ = w.repo.Update(ctx, cluster)
+	if err := w.repo.Update(ctx, cluster); err != nil {
+		w.logger.Warn("failed to persist cluster status", "cluster_id", cluster.ID, "status", cluster.Status, "error", err)
+	}
 
 	if err := w.provisioner.Deprovision(ctx, cluster); err != nil {
 		w.logger.Error("deprovisioning failed", "cluster_id", cluster.ID, "error", err)
 		cluster.UpdatedAt = time.Now()
 		cluster.JobID = nil
-		_ = w.repo.Update(ctx, cluster)
+		if updateErr := w.repo.Update(ctx, cluster); updateErr != nil {
+			w.logger.Warn("failed to persist cluster status", "cluster_id", cluster.ID, "status", cluster.Status, "error", updateErr)
+		}
 		return err
 	}
 
 	w.logger.Info("deprovisioning succeeded", "cluster_id", cluster.ID)
-	_ = w.repo.Delete(ctx, cluster.ID)
+	if err := w.repo.Delete(ctx, cluster.ID); err != nil {
+		w.logger.Warn("failed to delete cluster after deprovision", "cluster_id", cluster.ID, "error", err)
+	}
 	return nil
 }
 
 func (w *ClusterWorker) handleUpgrade(ctx context.Context, cluster *domain.Cluster, version string) error {
 	cluster.Status = domain.ClusterStatusUpgrading
 	cluster.UpdatedAt = time.Now()
-	_ = w.repo.Update(ctx, cluster)
+	if err := w.repo.Update(ctx, cluster); err != nil {
+		w.logger.Warn("failed to persist cluster status", "cluster_id", cluster.ID, "status", cluster.Status, "error", err)
+	}
 
 	if err := w.provisioner.Upgrade(ctx, cluster, version); err != nil {
 		w.logger.Error("upgrade failed", "cluster_id", cluster.ID, "error", err)
 		cluster.Status = domain.ClusterStatusRunning
 		cluster.UpdatedAt = time.Now()
 		cluster.JobID = nil
-		_ = w.repo.Update(ctx, cluster)
+		if updateErr := w.repo.Update(ctx, cluster); updateErr != nil {
+			w.logger.Warn("failed to persist cluster status", "cluster_id", cluster.ID, "status", cluster.Status, "error", updateErr)
+		}
 		return err
 	}
 
@@ -253,7 +269,9 @@ func (w *ClusterWorker) handleUpgrade(ctx context.Context, cluster *domain.Clust
 	cluster.Version = version
 	cluster.UpdatedAt = time.Now()
 	cluster.JobID = nil
-	_ = w.repo.Update(ctx, cluster)
+	if err := w.repo.Update(ctx, cluster); err != nil {
+		w.logger.Warn("failed to persist cluster status", "cluster_id", cluster.ID, "status", cluster.Status, "error", err)
+	}
 	return nil
 }
 

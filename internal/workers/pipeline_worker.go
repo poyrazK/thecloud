@@ -312,6 +312,7 @@ func (w *PipelineWorker) runTaskForStep(ctx context.Context, buildID uuid.UUID, 
 	logs, logsErr := w.collectTaskLogs(ctx, containerID)
 	if logsErr != nil {
 		w.logger.Warn("failed to collect task logs", "container_id", containerID, "error", logsErr)
+		return exitCode, "", fmt.Errorf("failed to collect logs: %w", logsErr)
 	}
 
 	return exitCode, logs, nil
