@@ -189,3 +189,127 @@ func TestFunctionServiceZipSlipProtection(t *testing.T) {
 	assert.Equal(t, "FAILED", inv.Status)
 	assert.Contains(t, inv.Logs, "invalid file path in zip")
 }
+
+func TestFunctionServiceUpdateFunction(t *testing.T) {
+	svc, repo, ctx := setupFunctionServiceTest(t)
+
+	code := createZip(t, "console.log('hi')")
+	f, err := svc.CreateFunction(ctx, "update-test", "nodejs20", indexJSMockFile, code)
+	require.NoError(t, err)
+	assert.Equal(t, 30, f.Timeout)  // default
+	assert.Equal(t, 128, f.MemoryMB) // default
+
+	// Update timeout and memory
+	newTimeout := 60
+	newMemory := 256
+	updated, err := svc.UpdateFunction(ctx, f.ID, &domain.FunctionUpdate{
+		Timeout:  &newTimeout,
+		MemoryMB: &newMemory,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 60, updated.Timeout)
+	assert.Equal(t, 256, updated.MemoryMB)
+
+	// Verify persisted in DB
+	fetched, err := repo.GetByID(ctx, f.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 60, fetched.Timeout)
+	assert.Equal(t, 256, fetched.MemoryMB)
+}
+
+func TestFunctionServiceUpdateFunction_EnvVars(t *testing.T) {
+	svc, _, ctx := setupFunctionServiceTest(t)
+
+	code := createZip(t, `
+const dbUrl = process.env.DATABASE_URL;
+const env = process.env.ENV_NAME;
+console.log("DB: " + dbUrl);
+console.log("ENV: " + env);
+process.exit(dbUrl && env ? 0 : 1);
+`)
+	f, err := svc.CreateFunction(ctx, "env-test", "nodejs20", indexJSMockFile, code)
+	require.NoError(t, err)
+
+	// Add environment variables
+	dbUrl := "postgres://localhost/prod"
+	envName := "production"
+	_, err = svc.UpdateFunction(ctx, f.ID, &domain.FunctionUpdate{
+		EnvVars: []*domain.EnvVar{
+			{Key: "DATABASE_URL", Value: dbUrl},
+			{Key: "ENV_NAME", Value: envName},
+		},
+	})
+	require.NoError(t, err)
+
+	// Invoke and verify env vars are available inside the container
+	inv, err := svc.InvokeFunction(ctx, f.ID, []byte("{}"), false)
+	require.NoError(t, err)
+	assert.Equal(t, "SUCCESS", inv.Status)
+	assert.Contains(t, inv.Logs, "DB: postgres://localhost/prod")
+	assert.Contains(t, inv.Logs, "ENV: production")
+}
+
+func TestFunctionServiceUpdateFunction_InvalidInput(t *testing.T) {
+	svc, _, ctx := setupFunctionServiceTest(t)
+
+	code := createZip(t, "console.log('x')")
+	f, err := svc.CreateFunction(ctx, "invalid-update", "nodejs20", indexJSMockFile, code)
+	require.NoError(t, err)
+
+	// Invalid timeout: 0
+	badTimeout := 0
+	_, err = svc.UpdateFunction(ctx, f.ID, &domain.FunctionUpdate{Timeout: &badTimeout})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "timeout")
+
+	// Invalid timeout: over 900
+	badTimeout = 1000
+	_, err = svc.UpdateFunction(ctx, f.ID, &domain.FunctionUpdate{Timeout: &badTimeout})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "timeout")
+
+	// Invalid memory: below minimum
+	badMemory := 32
+	_, err = svc.UpdateFunction(ctx, f.ID, &domain.FunctionUpdate{MemoryMB: &badMemory})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "memory")
+
+	// Invalid memory: over maximum
+	badMemory = 20000
+	_, err = svc.UpdateFunction(ctx, f.ID, &domain.FunctionUpdate{MemoryMB: &badMemory})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "memory")
+}
+
+func TestFunctionServiceUpdateFunction_ReplaceEnvVars(t *testing.T) {
+	svc, _, ctx := setupFunctionServiceTest(t)
+
+	code := createZip(t, `console.log("SECRET=" + process.env.SECRET); process.exit(0);`)
+	f, err := svc.CreateFunction(ctx, "replace-env", "nodejs20", indexJSMockFile, code)
+	require.NoError(t, err)
+
+	// Set initial env var
+	secret1 := "super-secret"
+	_, err = svc.UpdateFunction(ctx, f.ID, &domain.FunctionUpdate{
+		EnvVars: []*domain.EnvVar{{Key: "SECRET", Value: secret1}},
+	})
+	require.NoError(t, err)
+
+	inv, err := svc.InvokeFunction(ctx, f.ID, []byte("{}"), false)
+	require.NoError(t, err)
+	assert.Equal(t, "SUCCESS", inv.Status)
+	assert.Contains(t, inv.Logs, "SECRET=super-secret")
+
+	// Replace with new env var (clear all and set new)
+	secret2 := "new-secret"
+	_, err = svc.UpdateFunction(ctx, f.ID, &domain.FunctionUpdate{
+		EnvVars: []*domain.EnvVar{{Key: "SECRET", Value: secret2}},
+	})
+	require.NoError(t, err)
+
+	inv, err = svc.InvokeFunction(ctx, f.ID, []byte("{}"), false)
+	require.NoError(t, err)
+	assert.Equal(t, "SUCCESS", inv.Status)
+	assert.Contains(t, inv.Logs, "SECRET=new-secret")
+	assert.NotContains(t, inv.Logs, "super-secret")
+}
