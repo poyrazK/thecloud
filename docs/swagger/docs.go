@@ -2551,6 +2551,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/functions/{id}": {
+            "patch": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Updates a function's timeout, memory, handler, status, or environment variables",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "functions"
+                ],
+                "summary": "Update function",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Function ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.FunctionUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Function"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/gateway/routes": {
             "get": {
                 "security": [
@@ -7588,6 +7646,17 @@ const docTemplate = `{
                 "EIPStatusReleased"
             ]
         },
+        "domain.EnvVar": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.Event": {
             "type": "object",
             "properties": {
@@ -7613,6 +7682,59 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "tenant_id": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.Function": {
+            "type": "object",
+            "properties": {
+                "code_path": {
+                    "description": "Path to code artifact",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "env_vars": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.EnvVar"
+                    }
+                },
+                "handler": {
+                    "description": "Entry point (e.g. \"main.Handle\")",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "memory_mb": {
+                    "description": "Memory allocation",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "runtime": {
+                    "description": "e.g. \"python3.9\", \"go1.21\"",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "e.g. \"DEPLOYING\", \"READY\"",
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "timeout": {
+                    "description": "Execution timeout in seconds",
+                    "type": "integer"
+                },
+                "updated_at": {
                     "type": "string"
                 },
                 "user_id": {
@@ -8355,6 +8477,7 @@ const docTemplate = `{
                 "function:create",
                 "function:delete",
                 "function:read",
+                "function:update",
                 "cache:create",
                 "cache:delete",
                 "cache:read",
@@ -8467,6 +8590,7 @@ const docTemplate = `{
                 "PermissionFunctionCreate",
                 "PermissionFunctionDelete",
                 "PermissionFunctionRead",
+                "PermissionFunctionUpdate",
                 "PermissionCacheCreate",
                 "PermissionCacheDelete",
                 "PermissionCacheRead",
@@ -9871,6 +9995,20 @@ const docTemplate = `{
                 }
             }
         },
+        "httphandlers.EnvVarRequest": {
+            "type": "object",
+            "required": [
+                "key"
+            ],
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
         "httphandlers.ForgotPasswordRequest": {
             "type": "object",
             "required": [
@@ -9879,6 +10017,29 @@ const docTemplate = `{
             "properties": {
                 "email": {
                     "type": "string"
+                }
+            }
+        },
+        "httphandlers.FunctionUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "env_vars": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httphandlers.EnvVarRequest"
+                    }
+                },
+                "handler": {
+                    "type": "string"
+                },
+                "memory_mb": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "timeout": {
+                    "type": "integer"
                 }
             }
         },
@@ -10266,24 +10427,17 @@ const docTemplate = `{
                 }
             }
         }
-    },
-    "securityDefinitions": {
-        "APIKeyAuth": {
-            "type": "apiKey",
-            "name": "X-API-Key",
-            "in": "header"
-        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0",
+	Version:          "",
 	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "The Cloud API",
-	Description:      "The Cloud - Multi-tenant Cloud Infrastructure Engine",
+	Title:            "",
+	Description:      "",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

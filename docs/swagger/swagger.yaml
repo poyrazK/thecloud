@@ -377,6 +377,13 @@ definitions:
     - EIPStatusAllocated
     - EIPStatusAssociated
     - EIPStatusReleased
+  domain.EnvVar:
+    properties:
+      key:
+        type: string
+      value:
+        type: string
+    type: object
   domain.Event:
     properties:
       action:
@@ -395,6 +402,43 @@ definitions:
         description: Classification of the resource (e.g., "INSTANCE", "VPC")
         type: string
       tenant_id:
+        type: string
+      user_id:
+        type: string
+    type: object
+  domain.Function:
+    properties:
+      code_path:
+        description: Path to code artifact
+        type: string
+      created_at:
+        type: string
+      env_vars:
+        items:
+          $ref: '#/definitions/domain.EnvVar'
+        type: array
+      handler:
+        description: Entry point (e.g. "main.Handle")
+        type: string
+      id:
+        type: string
+      memory_mb:
+        description: Memory allocation
+        type: integer
+      name:
+        type: string
+      runtime:
+        description: e.g. "python3.9", "go1.21"
+        type: string
+      status:
+        description: e.g. "DEPLOYING", "READY"
+        type: string
+      tenant_id:
+        type: string
+      timeout:
+        description: Execution timeout in seconds
+        type: integer
+      updated_at:
         type: string
       user_id:
         type: string
@@ -923,6 +967,7 @@ definitions:
     - function:create
     - function:delete
     - function:read
+    - function:update
     - cache:create
     - cache:delete
     - cache:read
@@ -1035,6 +1080,7 @@ definitions:
     - PermissionFunctionCreate
     - PermissionFunctionDelete
     - PermissionFunctionRead
+    - PermissionFunctionUpdate
     - PermissionCacheCreate
     - PermissionCacheDelete
     - PermissionCacheRead
@@ -2024,12 +2070,36 @@ definitions:
     - name
     - vpc_id
     type: object
+  httphandlers.EnvVarRequest:
+    properties:
+      key:
+        type: string
+      value:
+        type: string
+    required:
+    - key
+    type: object
   httphandlers.ForgotPasswordRequest:
     properties:
       email:
         type: string
     required:
     - email
+    type: object
+  httphandlers.FunctionUpdateRequest:
+    properties:
+      env_vars:
+        items:
+          $ref: '#/definitions/httphandlers.EnvVarRequest'
+        type: array
+      handler:
+        type: string
+      memory_mb:
+        type: integer
+      status:
+        type: string
+      timeout:
+        type: integer
     type: object
   httphandlers.LaunchRequest:
     properties:
@@ -2293,9 +2363,6 @@ definitions:
     type: object
 info:
   contact: {}
-  description: The Cloud - Multi-tenant Cloud Infrastructure Engine
-  title: The Cloud API
-  version: "1.0"
 paths:
   /api/dashboard/events:
     get:
@@ -3888,6 +3955,44 @@ paths:
       summary: Disassociate Elastic IP
       tags:
       - elastic-ips
+  /functions/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: Updates a function's timeout, memory, handler, status, or environment
+        variables
+      parameters:
+      - description: Function ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.FunctionUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Function'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Update function
+      tags:
+      - functions
   /gateway/routes:
     get:
       description: Gets a list of all registered API gateway routes
@@ -6741,9 +6846,4 @@ paths:
       summary: Get VPC details
       tags:
       - vpcs
-securityDefinitions:
-  APIKeyAuth:
-    in: header
-    name: X-API-Key
-    type: apiKey
 swagger: "2.0"
