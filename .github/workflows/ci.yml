@@ -123,7 +123,7 @@ jobs:
       - name: Upload Coverage Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ 'coverage-' + replace(github.ref_name, '/', '-') }}
+          name: coverage-test
           path: coverage.json
           retention-days: 30
 
