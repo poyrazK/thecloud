@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -205,7 +206,10 @@ func TestFunctionsUpdateE2E(t *testing.T) {
 func createFunction(t *testing.T, client *http.Client, token, name, runtime, handler, jsCode string) string {
 	buf := new(bytes.Buffer)
 	zw := zip.NewWriter(buf)
-	f, err := zw.Create("index.js")
+	// Handler is like "index.handler"; the zip file contains "index.js"
+	// so we strip ".handler" to get the actual filename inside the zip
+	zipName := strings.TrimSuffix(handler, ".handler") + ".js"
+	f, err := zw.Create(zipName)
 	require.NoError(t, err)
 	_, err = f.Write([]byte(jsCode))
 	require.NoError(t, err)
