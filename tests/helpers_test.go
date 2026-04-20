@@ -212,6 +212,28 @@ func deleteRequest(t *testing.T, client *http.Client, url, token string) *http.R
 	return resp
 }
 
+func patchRequest(t *testing.T, client *http.Client, url, token string, payload interface{}) *http.Response {
+	t.Helper()
+	var body io.Reader
+	if payload != nil {
+		b, _ := json.Marshal(payload)
+		body = bytes.NewBuffer(b)
+	}
+	req, _ := http.NewRequest("PATCH", url, body)
+	req.Header.Set("Content-Type", testutil.TestContentTypeAppJSON)
+	req.Header.Set(testutil.TestHeaderAPIKey, token)
+	if requiresTenantHeader(url) {
+		tenantID := tenantIDForToken(token)
+		if tenantID == "" {
+			t.Fatal(errTenantNotSet)
+		}
+		req.Header.Set(headerTenantID, tenantID)
+	}
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	return resp
+}
+
 func applyTenantHeader(t *testing.T, req *http.Request, token string) {
 	t.Helper()
 	if !requiresTenantHeader(req.URL.Path) {
