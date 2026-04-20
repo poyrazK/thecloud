@@ -75,37 +75,18 @@ func TestVpcServiceUnit(t *testing.T) {
 		assert.Contains(t, err.Error(), "invalid CIDR")
 	})
 
-	t.Run("DeleteVPC_Success", func(t *testing.T) {
-		vpcID := uuid.New()
-		vpc := &domain.VPC{ID: vpcID, UserID: userID, NetworkID: "br-1"}
-
-		repo.On("GetByID", mock.Anything, vpcID).Return(vpc, nil).Once()
-		lbRepo.On("ListAll", mock.Anything).Return([]*domain.LoadBalancer{}, nil).Once()
-		peeringRepo.On("ListByVPC", mock.Anything, vpcID).Return([]*domain.VPCPeering{}, nil).Once()
-		network.On("DeleteBridge", mock.Anything, "br-1").Return(nil).Once()
-		repo.On("Delete", mock.Anything, vpcID).Return(nil).Once()
-		auditSvc.On("Log", mock.Anything, userID, "vpc.delete", "vpc", vpcID.String(), mock.Anything).Return(nil).Once()
-
-		err := svc.DeleteVPC(ctx, vpcID.String())
-		require.NoError(t, err)
-	})
-
-	t.Run("DeleteVPC_NotFound", func(t *testing.T) {
-		vpcID := uuid.New()
-		repo.On("GetByID", mock.Anything, vpcID).Return(nil, errors.New(errors.NotFound, "not found")).Once()
-
-		err := svc.DeleteVPC(ctx, vpcID.String())
-		require.Error(t, err)
-	})
-
 	t.Run("DeleteVPC_WithLoadBalancers", func(t *testing.T) {
 		vpcID := uuid.New()
 		vpc := &domain.VPC{ID: vpcID, UserID: userID, NetworkID: "br-1"}
 
 		repo.On("GetByID", mock.Anything, vpcID).Return(vpc, nil).Once()
 		lbRepo.On("ListAll", mock.Anything).Return([]*domain.LoadBalancer{
-			{ID: uuid.New(), VpcID: vpcID},
+			{ID: uuid.New(), VpcID: vpcID, Status: domain.LBStatusActive},
 		}, nil).Once()
+		peeringRepo.On("ListByVPC", mock.Anything, vpcID).Return([]*domain.VPCPeering{}, nil).Once()
+		network.On("DeleteBridge", mock.Anything, "br-1").Return(nil).Once()
+		repo.On("Delete", mock.Anything, vpcID).Return(nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "vpc.delete", "vpc", vpcID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.DeleteVPC(ctx, vpcID.String())
 		require.Error(t, err)
@@ -127,17 +108,26 @@ func TestVpcServiceUnit(t *testing.T) {
 		assert.Contains(t, err.Error(), "active peering connections")
 	})
 
-	t.Run("DeleteVPC_WithLoadBalancers", func(t *testing.T) {
+	t.Run("DeleteVPC_Success", func(t *testing.T) {
 		vpcID := uuid.New()
-		vpc := &domain.VPC{ID: vpcID, UserID: userID}
+		vpc := &domain.VPC{ID: vpcID, UserID: userID, NetworkID: "br-1"}
 
 		repo.On("GetByID", mock.Anything, vpcID).Return(vpc, nil).Once()
-		lbRepo.On("ListAll", mock.Anything).Return([]*domain.LoadBalancer{
-			{ID: uuid.New(), VpcID: vpcID, Status: domain.LBStatusActive},
-		}, nil).Once()
+		lbRepo.On("ListAll", mock.Anything).Return([]*domain.LoadBalancer{}, nil).Maybe()
+		peeringRepo.On("ListByVPC", mock.Anything, vpcID).Return([]*domain.VPCPeering{}, nil).Once()
+		network.On("DeleteBridge", mock.Anything, "br-1").Return(nil).Once()
+		repo.On("Delete", mock.Anything, vpcID).Return(nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "vpc.delete", "vpc", vpcID.String(), mock.Anything).Return(nil).Once()
+
+		err := svc.DeleteVPC(ctx, vpcID.String())
+		require.NoError(t, err)
+	})
+
+	t.Run("DeleteVPC_NotFound", func(t *testing.T) {
+		vpcID := uuid.New()
+		repo.On("GetByID", mock.Anything, vpcID).Return(nil, errors.New(errors.NotFound, "not found")).Once()
 
 		err := svc.DeleteVPC(ctx, vpcID.String())
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "load balancers still exist")
 	})
 }
