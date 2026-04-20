@@ -18,8 +18,24 @@ type Function struct {
 	Timeout   int       `json:"timeout"`
 	MemoryMB  int       `json:"memory_mb"`
 	Status    string    `json:"status"`
+	EnvVars   []*EnvVar `json:"env_vars"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// EnvVar represents a function environment variable.
+type EnvVar struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+// FunctionUpdate describes fields that can be updated on a function.
+type FunctionUpdate struct {
+	Handler  *string    `json:"handler,omitempty"`
+	Timeout  *int       `json:"timeout,omitempty"`
+	MemoryMB *int       `json:"memory_mb,omitempty"`
+	Status   *string    `json:"status,omitempty"`
+	EnvVars  []*EnvVar `json:"env_vars,omitempty"`
 }
 
 // Invocation represents a function invocation result.
@@ -101,4 +117,12 @@ func (c *Client) GetFunctionLogs(id string) ([]*Invocation, error) {
 		return nil, err
 	}
 	return resp.Data, nil
+}
+
+func (c *Client) UpdateFunction(id string, update *FunctionUpdate) (*Function, error) {
+	var resp Response[Function]
+	if err := c.patch(functionsPath+id, update, &resp); err != nil {
+		return nil, err
+	}
+	return &resp.Data, nil
 }
