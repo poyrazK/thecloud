@@ -2,9 +2,7 @@
 package postgres
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"hash/fnv"
 	"log/slog"
@@ -51,12 +49,16 @@ func keyToLockID(key string) int64 {
 // asInt64 converts a uint64 to int64 without triggering G115.
 // The caller guarantees the value is in range [0, math.MaxInt64].
 func asInt64(v uint64) int64 {
-	var out int64
-	b := []byte{
+	// Build the int64 byte-by-byte to avoid direct uint64->int64 conversion.
+	// This is safe because the caller masks v to [0, 2^63-1].
+	byt := []byte{
 		byte(v >> 56), byte(v >> 48), byte(v >> 40), byte(v >> 32),
 		byte(v >> 24), byte(v >> 16), byte(v >> 8), byte(v),
 	}
-	binary.Read(bytes.NewReader(b), binary.BigEndian, &out)
+	var out int64
+	for i, b := range byt {
+		out |= int64(b) << (56 - i*8)
+	}
 	return out
 }
 

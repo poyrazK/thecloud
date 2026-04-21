@@ -104,8 +104,13 @@ func randomInt64(max int64) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	// Avoid G115: build uint64 via byte shifts then convert.
+	// Build uint64 from bytes, then take modulo in uint64 space.
+	// The result of v % max is always < max, and max <= math.MaxInt64,
+	// so the final int64 conversion is always safe (G115-safe by value range).
 	v := uint64(b[0])<<56 | uint64(b[1])<<48 | uint64(b[2])<<40 | uint64(b[3])<<32 |
 		uint64(b[4])<<24 | uint64(b[5])<<16 | uint64(b[6])<<8 | uint64(b[7])
-	return int64(v % uint64(max)), nil
+	mod := v % uint64(max)
+	// modulus is in [0, max) where max <= math.MaxInt64, so safe.
+	bound := int64(mod)
+	return bound, nil
 }
