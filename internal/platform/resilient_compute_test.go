@@ -97,13 +97,13 @@ func (m *mockCompute) DeleteNetwork(_ context.Context, _ string) error {
 	m.callCount.Add(1)
 	return m.err
 }
-func (m *mockCompute) AttachVolume(_ context.Context, _ string, _ string) (string, error) {
+func (m *mockCompute) AttachVolume(_ context.Context, _ string, _ string) (string, string, error) {
 	m.callCount.Add(1)
-	return "/dev/vdb", m.err
+	return "/dev/vdb", "", m.err
 }
-func (m *mockCompute) DetachVolume(_ context.Context, _ string, _ string) error {
+func (m *mockCompute) DetachVolume(_ context.Context, _ string, _ string) (string, error) {
 	m.callCount.Add(1)
-	return m.err
+	return "", m.err
 }
 func (m *mockCompute) Ping(_ context.Context) error {
 	m.callCount.Add(1)
