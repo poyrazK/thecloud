@@ -103,19 +103,26 @@ jobs:
           cache: true
       - name: Install Dependencies
         run: go mod download
+      - name: Install gobco
+        run: go install github.com/rillig/gobco@latest
       - name: Wait for Database
         run: |
           timeout 60s bash -c 'until pg_isready -h 127.0.0.1 -p 5433 -U cloud; do
             echo "Waiting for postgres..."
             sleep 2
           done'
-      - name: Run Tests with Branch Coverage
+      - name: Run Tests with Coverage
         env:
           DATABASE_URL: postgres://cloud:cloud@127.0.0.1:5433/cloud?sslmode=disable
           TEST_DOCKER_NETWORK: cloud-network
         run: |
           docker network create ${TEST_DOCKER_NETWORK} || true
           go test -p 1 -covermode=count -coverprofile=coverage.out ./cmd/... ./internal/... ./pkg/...
+      - name: Run gobco for Branch Coverage
+        env:
+          DATABASE_URL: postgres://cloud:cloud@127.0.0.1:5433/cloud?sslmode=disable
+        run: |
+          gobco -stats gobco.json ./cmd/... ./internal/... ./pkg/... || true
       - name: Parse Coverage Stats
         run: |
           chmod +x scripts/parse-coverage.sh

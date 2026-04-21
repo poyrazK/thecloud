@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Parse Go coverage.out and output coverage.json
-# Outputs: line, function coverage stats per package and totals
+# Parse Go coverage.out and gobco.json for coverage stats
+# Outputs: line, function, branch coverage stats per package and totals
 
 COVERAGE_OUT="${1:-coverage.out}"
 BRANCH="${GITHUB_REF_NAME:-local}"
 COMMIT="${GITHUB_SHA:-unknown}"
 TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+GOBCO_JSON="${2:-gobco.json}"
 
 if [[ ! -f "$COVERAGE_OUT" ]]; then
   echo "{\"error\": \"coverage.out not found\"}" >&2
@@ -22,6 +23,28 @@ TOTAL_LINE=$(go tool cover -func="$COVERAGE_OUT" 2>/dev/null | grep '^total:' | 
 OVERALL_FUNC=$(go tool cover -func="$COVERAGE_OUT" 2>/dev/null | grep -v '^total:' | \
   sed 's/.*\t//' | tr -d '%' | \
   awk '{sum += $1; count++} END {if(count>0) printf "%.1f", sum/count; else print "0.0"}')
+
+# Compute branch coverage from gobco JSON if available
+OVERALL_BRANCH="null"
+if [[ -f "$GOBCO_JSON" ]] && [[ -s "$GOBCO_JSON" ]]; then
+  # Parse gobco JSON: compute coverage from TrueCount/FalseCount
+  # Each condition: 2 outcomes (true, false)
+  # Covered outcomes = count of conditions where both TrueCount>0 AND FalseCount>0 times 2
+  #                   + count of conditions where only one is >0 times 1
+  # Total outcomes = count of conditions * 2
+  GOBCO_RESULT=$(cat "$GOBCO_JSON" | jq 'reduce .[] as $item (
+    {"total": 0, "covered": 0};
+    .total += 2 |
+    if ($item.TrueCount > 0 and $item.FalseCount > 0) then
+      .covered += 2
+    elif ($item.TrueCount > 0 or $item.FalseCount > 0) then
+      .covered += 1
+    else
+      .
+    end
+  ) | .coverage = (.covered / .total * 100 | floor) | {total, covered, coverage}' 2>/dev/null || echo "null")
+  OVERALL_BRANCH=$(echo "$GOBCO_RESULT" | jq '.coverage' 2>/dev/null || echo "null")
+fi
 
 # Parse go tool cover output for per-package function coverage
 go tool cover -func="$COVERAGE_OUT" 2>/dev/null | awk -v mod="$MODULE_PREFIX" '
@@ -46,7 +69,8 @@ go tool cover -func="$COVERAGE_OUT" 2>/dev/null | awk -v mod="$MODULE_PREFIX" '
   }
   END {
     for (d in f_sum) printf "%s|%.2f\n", d, f_sum[d]/f_cnt[d]
-  }' | sort > /tmp/pkg_func.txt
+  }
+' | sort > /tmp/pkg_func.txt
 
 # Parse coverage.out for per-package line coverage
 awk -v mod="$MODULE_PREFIX" '
@@ -89,7 +113,7 @@ echo "  \"timestamp\": \"$TIMESTAMP\","
 echo "  \"mode\": \"$MODE\","
 echo "  \"total_line\": ${TOTAL_LINE:-0.0},"
 echo "  \"total_func\": ${OVERALL_FUNC:-0.0},"
-echo "  \"total_branch\": null,"
+echo "  \"total_branch\": ${OVERALL_BRANCH:-null},"
 echo "  \"packages\": ["
 
 first=true
