@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"math"
+	"math/big"
 	"time"
 )
 
@@ -99,18 +100,8 @@ func randomInt64(max int64) (int64, error) {
 	if max <= 0 {
 		return 0, nil
 	}
-	var b [8]byte
-	_, err := rand.Read(b[:])
-	if err != nil {
-		return 0, err
-	}
-	// Build uint64 from bytes, then take modulo in uint64 space.
-	// The result of v % max is always < max, and max <= math.MaxInt64,
-	// so the final int64 conversion is always safe (G115-safe by value range).
-	v := uint64(b[0])<<56 | uint64(b[1])<<48 | uint64(b[2])<<40 | uint64(b[3])<<32 |
-		uint64(b[4])<<24 | uint64(b[5])<<16 | uint64(b[6])<<8 | uint64(b[7])
-	mod := v % uint64(max)
-	// modulus is in [0, max) where max <= math.MaxInt64, so safe.
-	bound := int64(mod)
-	return bound, nil
+	// crypto/rand.Int() returns a random int64 up to max-1 directly,
+	// avoiding any uint64->int64 conversion that triggers G115.
+	n, err := rand.Int(rand.Reader, big.NewInt(max))
+	return n.Int64(), err
 }
