@@ -2,8 +2,9 @@ package platform
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"math"
-	"math/rand/v2"
 	"time"
 )
 
@@ -86,6 +87,24 @@ func backoffDelay(attempt int, base, max time.Duration, mult float64) time.Durat
 	if calculated > max || calculated <= 0 {
 		calculated = max
 	}
-	// Full jitter: uniform random in [0, calculated].
-	return time.Duration(rand.Int64N(int64(calculated) + 1))
+	// Full jitter: uniform random in [0, calculated] using crypto/rand.
+	n, err := randomInt64(int64(calculated) + 1)
+	if err != nil {
+		return calculated // fall back to max on error
+	}
+	return time.Duration(n)
+}
+
+// randomInt64 returns a uniform random int64 in [0, max) using crypto/rand.
+func randomInt64(max int64) (int64, error) {
+	if max <= 0 {
+		return 0, nil
+	}
+	var b [8]byte
+	_, err := rand.Read(b[:])
+	if err != nil {
+		return 0, err
+	}
+	// Use clear binary reading to avoid modulo bias for power-of-two max.
+	return int64(binary.BigEndian.Uint64(b[:]) % uint64(max)), nil
 }

@@ -3,6 +3,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -43,7 +44,7 @@ func (l *PgExecutionLedger) TryAcquire(ctx context.Context, jobKey string, stale
 		return true, nil // Successfully claimed a brand-new execution.
 	}
 	// pgx returns ErrNoRows when INSERT ... ON CONFLICT DO NOTHING matches zero rows
-	if err != nil && err != pgx.ErrNoRows {
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return false, fmt.Errorf("execution ledger insert %s: %w", jobKey, err)
 	}
 
@@ -134,7 +135,7 @@ func (l *PgExecutionLedger) GetStatus(ctx context.Context, jobKey string) (statu
 
 	err = res.Scan(&status, &result, &startedAt)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return "", "", time.Time{}, nil
 		}
 		return "", "", time.Time{}, fmt.Errorf("execution ledger get status %s: %w", jobKey, err)

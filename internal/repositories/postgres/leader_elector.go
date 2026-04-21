@@ -41,7 +41,8 @@ func keyToLockID(key string) int64 {
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(key))
 	// Ensure positive value for pg advisory lock (avoids negative lock IDs).
-	return int64(h.Sum64() & 0x7FFFFFFFFFFFFFFF)
+	v := h.Sum64() & 0x7FFFFFFFFFFFFFFF
+	return int64(v)
 }
 
 // Acquire attempts to acquire the advisory lock for the given key.
