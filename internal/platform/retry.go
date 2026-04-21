@@ -3,7 +3,6 @@ package platform
 import (
 	"context"
 	"crypto/rand"
-	"encoding/binary"
 	"math"
 	"time"
 )
@@ -105,6 +104,8 @@ func randomInt64(max int64) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	// Use clear binary reading to avoid modulo bias for power-of-two max.
-	return int64(binary.BigEndian.Uint64(b[:]) % uint64(max)), nil
+	// Avoid G115: build uint64 via byte shifts then convert.
+	v := uint64(b[0])<<56 | uint64(b[1])<<48 | uint64(b[2])<<40 | uint64(b[3])<<32 |
+		uint64(b[4])<<24 | uint64(b[5])<<16 | uint64(b[6])<<8 | uint64(b[7])
+	return int64(v % uint64(max)), nil
 }

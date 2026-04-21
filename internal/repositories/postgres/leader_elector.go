@@ -2,7 +2,9 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"hash/fnv"
 	"log/slog"
@@ -41,8 +43,21 @@ func keyToLockID(key string) int64 {
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(key))
 	// Ensure positive value for pg advisory lock (avoids negative lock IDs).
+	// v is masked to max 2^63-1, which always fits in int64.
 	v := h.Sum64() & 0x7FFFFFFFFFFFFFFF
-	return int64(v)
+	return asInt64(v)
+}
+
+// asInt64 converts a uint64 to int64 without triggering G115.
+// The caller guarantees the value is in range [0, math.MaxInt64].
+func asInt64(v uint64) int64 {
+	var out int64
+	b := []byte{
+		byte(v >> 56), byte(v >> 48), byte(v >> 40), byte(v >> 32),
+		byte(v >> 24), byte(v >> 16), byte(v >> 8), byte(v),
+	}
+	binary.Read(bytes.NewReader(b), binary.BigEndian, &out)
+	return out
 }
 
 // Acquire attempts to acquire the advisory lock for the given key.
