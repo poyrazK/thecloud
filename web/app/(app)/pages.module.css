@@ -1,7 +1,7 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
 }
 
 .header {
@@ -30,6 +30,7 @@
   display: inline-flex;
   gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .notice {
@@ -43,6 +44,7 @@
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
 }
 
 .noticeText {
@@ -65,11 +67,21 @@
   text-decoration: none;
   display: block;
   border-radius: 18px;
+  transition: transform 160ms ease;
 }
 
 .statLink:hover .stat {
   border-color: rgba(15, 107, 255, 0.28);
   box-shadow: 0 14px 30px rgba(15, 107, 255, 0.13);
+}
+
+.statLink:focus-visible {
+  outline: none;
+}
+
+.statLink:focus-visible .stat {
+  border-color: rgba(15, 107, 255, 0.36);
+  box-shadow: 0 0 0 3px rgba(15, 107, 255, 0.16), 0 16px 30px rgba(15, 107, 255, 0.12);
 }
 
 .stat {
@@ -78,6 +90,11 @@
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
   box-shadow: 0 10px 26px rgba(15, 23, 42, 0.07);
   padding: 16px;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.statLink:hover {
+  transform: translateY(-1px);
 }
 
 .statLabel {
@@ -107,6 +124,12 @@
   backdrop-filter: blur(10px);
   box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
   padding: 16px;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.panel:hover {
+  border-color: rgba(15, 23, 42, 0.16);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.1);
 }
 
 .panelHeader {
@@ -159,6 +182,11 @@
   font-size: 0.92rem;
   outline: none;
   transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: rgba(71, 85, 105, 0.75);
 }
 
 .textarea {
@@ -226,6 +254,13 @@
   padding-bottom: 9px;
   color: inherit;
   text-decoration: none;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.infoRowLink:hover {
+  background: rgba(15, 107, 255, 0.05);
+  border-bottom-color: rgba(15, 107, 255, 0.18);
+  border-radius: 10px;
 }
 
 .infoRowOpen {
@@ -256,6 +291,12 @@
   border: 1px solid rgba(15, 23, 42, 0.08);
   background: rgba(248, 250, 252, 0.9);
   padding: 10px 12px;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.activityItem:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(15, 107, 255, 0.2);
 }
 
 .activityTop {
@@ -327,5 +368,10 @@
 
   .headerActions {
     width: 100%;
+    justify-content: flex-start;
+  }
+
+  .headerActions > * {
+    flex: 1 1 auto;
   }
 }

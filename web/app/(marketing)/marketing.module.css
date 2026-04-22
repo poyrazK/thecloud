@@ -68,6 +68,7 @@
   color: var(--foreground);
   font-size: 0.9rem;
   font-weight: 700;
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease, background-color 150ms ease;
 }
 
 .actionLinkPrimary {
@@ -80,6 +81,28 @@
   border-color: rgba(219, 234, 254, 0.4);
   background: rgba(255, 255, 255, 0.12);
   color: #eff6ff;
+}
+
+.actionLink:hover {
+  transform: translateY(-1px);
+  border-color: rgba(15, 23, 42, 0.28);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.actionLinkPrimary:hover {
+  border-color: transparent;
+  background: linear-gradient(145deg, #0f6bff, #0a46a6);
+  box-shadow: 0 14px 26px rgba(15, 107, 255, 0.3);
+}
+
+.actionLinkDark:hover {
+  border-color: rgba(239, 246, 255, 0.62);
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.actionLink:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(15, 107, 255, 0.2);
 }
 
 .heroPanel {
@@ -95,6 +118,20 @@
   flex-direction: column;
   gap: 12px;
   box-shadow: 0 22px 42px rgba(15, 23, 42, 0.11);
+  position: relative;
+  overflow: hidden;
+}
+
+.heroPanel::after {
+  content: '';
+  position: absolute;
+  right: -48px;
+  bottom: -48px;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(15, 107, 255, 0.16), rgba(15, 107, 255, 0));
+  pointer-events: none;
 }
 
 .signalCard {
@@ -106,6 +143,13 @@
   justify-content: space-between;
   align-items: center;
   gap: 8px;
+  transition: transform 130ms ease, border-color 130ms ease, background-color 130ms ease;
+}
+
+.signalCard:hover {
+  transform: translateY(-1px);
+  border-color: rgba(15, 107, 255, 0.2);
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .signalTitle {
@@ -133,6 +177,12 @@
   border: 1px solid rgba(15, 23, 42, 0.1);
   background: rgba(255, 255, 255, 0.85);
   padding: 12px;
+  transition: border-color 140ms ease, transform 140ms ease;
+}
+
+.metric:hover {
+  border-color: rgba(15, 107, 255, 0.2);
+  transform: translateY(-1px);
 }
 
 .metricLabel {
@@ -250,6 +300,13 @@
   padding: 14px;
   min-height: 146px;
   box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.featureCard:hover {
+  border-color: rgba(15, 107, 255, 0.22);
+  box-shadow: 0 16px 30px rgba(15, 107, 255, 0.12);
+  transform: translateY(-2px);
 }
 
 .featureCard h3 {
@@ -277,6 +334,12 @@
   border: 1px solid rgba(15, 23, 42, 0.11);
   background: linear-gradient(170deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.9));
   padding: 14px;
+  transition: border-color 150ms ease, transform 150ms ease;
+}
+
+.storyStep:hover {
+  border-color: rgba(15, 107, 255, 0.2);
+  transform: translateY(-2px);
 }
 
 .stepTag {
@@ -333,6 +396,20 @@
   border-radius: 50%;
   background: #0f6bff;
   box-shadow: 0 0 0 8px rgba(15, 107, 255, 0.18);
+  animation: dotPulse 2.6s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(15, 107, 255, 0.18);
+  }
+
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 11px rgba(15, 107, 255, 0.12);
+  }
 }
 
 .cta {
@@ -352,6 +429,20 @@
   justify-content: space-between;
   gap: 20px;
   flex-wrap: wrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.ctaCard::before {
+  content: '';
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  top: -170px;
+  right: -120px;
+  background: radial-gradient(circle, rgba(125, 211, 252, 0.22), transparent 70%);
+  pointer-events: none;
 }
 
 .ctaTitle {
@@ -382,6 +473,13 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.priceCard:hover {
+  border-color: rgba(15, 107, 255, 0.22);
+  box-shadow: 0 16px 30px rgba(15, 107, 255, 0.12);
+  transform: translateY(-2px);
 }
 
 .priceFeatured {
