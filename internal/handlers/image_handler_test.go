@@ -68,6 +68,15 @@ func (m *mockImageService) DeleteImage(ctx context.Context, id uuid.UUID) error 
 	return args.Error(0)
 }
 
+func (m *mockImageService) ImportImage(ctx context.Context, name, url, description, os, version string, isPublic bool) (*domain.Image, error) {
+	args := m.Called(ctx, name, url, description, os, version, isPublic)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	r0, _ := args.Get(0).(*domain.Image)
+	return r0, args.Error(1)
+}
+
 func TestImageHandlerRegisterImage(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -363,6 +372,65 @@ func TestImageHandlerAdditionalErrors(t *testing.T) {
 
 		handler.UploadImage(c)
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("ImportImageServiceError", func(t *testing.T) {
+		svc := new(mockImageService)
+		handler := NewImageHandler(svc)
+		svc.On("ImportImage", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			Return(nil, errors.New(errors.Internal, "error"))
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest("POST", imagesAPI+"/import", nil)
+		bodyBytes, _ := json.Marshal(map[string]interface{}{"name": "n", "url": "http://example.com/img.qcow2", "os": "linux", "version": "1.0"})
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+		handler.ImportImage(c)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("ImportImageInvalidBody", func(t *testing.T) {
+		svc := new(mockImageService)
+		handler := NewImageHandler(svc)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest("POST", imagesAPI+"/import", nil)
+		c.Request.Body = io.NopCloser(bytes.NewBufferString(`{invalid json}`))
+
+		handler.ImportImage(c)
+		assert.NotEqual(t, http.StatusAccepted, w.Code)
+	})
+
+	t.Run("ImportImage_Success", func(t *testing.T) {
+		svc := new(mockImageService)
+		handler := NewImageHandler(svc)
+
+		expectedImage := &domain.Image{
+			ID:   uuid.New(),
+			Name: "my-image",
+		}
+
+		svc.On("ImportImage", mock.Anything, "my-image", "http://example.com/img.qcow2", "desc", "linux", "1.0", false).
+			Return(expectedImage, nil).Once()
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest("POST", imagesAPI+"/import", nil)
+		bodyBytes, _ := json.Marshal(map[string]interface{}{
+			"name":        "my-image",
+			"url":         "http://example.com/img.qcow2",
+			"description": "desc",
+			"os":          "linux",
+			"version":     "1.0",
+		})
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+		handler.ImportImage(c)
+
+		assert.Equal(t, http.StatusAccepted, w.Code)
+		svc.AssertExpectations(t)
 	})
 }
 
