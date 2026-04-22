@@ -34,6 +34,7 @@ type Image struct {
 	IsPublic    bool        `json:"is_public"` // If true, available to all users
 	UserID      uuid.UUID   `json:"user_id"`   // Owner (nil for system images if handled)
 	TenantID    *uuid.UUID  `json:"tenant_id,omitempty"`
+	SourceURL   string      `json:"source_url,omitempty"` // URL image was imported from
 	Status      ImageStatus `json:"status"`
 	CreatedAt   time.Time   `json:"created_at"`
 	UpdatedAt   time.Time   `json:"updated_at"`
