@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -189,4 +192,94 @@ func (s *imageService) DeleteImage(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return s.repo.Delete(ctx, id)
+}
+
+func (s *imageService) ImportImage(ctx context.Context, name, url, description, os, version string, isPublic bool) (*domain.Image, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionImageCreate, "*"); err != nil {
+		return nil, err
+	}
+
+	img := &domain.Image{
+		ID:          uuid.New(),
+		Name:        name,
+		Description: description,
+		OS:          os,
+		Version:     version,
+		IsPublic:    isPublic,
+		UserID:      userID,
+		TenantID:    &tenantID,
+		Status:      domain.ImageStatusPending,
+		SourceURL:   url,
+		Format:      formatFromURL(url),
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	if err := s.repo.Create(ctx, img); err != nil {
+		return nil, err
+	}
+
+	// Download and stream to storage
+	if err := s.importFromURL(ctx, img, url); err != nil {
+		img.Status = domain.ImageStatusError
+		_ = s.repo.Update(ctx, img)
+		return nil, err
+	}
+
+	img.Status = domain.ImageStatusActive
+	if err := s.repo.Update(ctx, img); err != nil {
+		return nil, err
+	}
+
+	return img, nil
+}
+
+func formatFromURL(url string) string {
+	ext := strings.ToLower(filepath.Ext(url))
+	switch ext {
+	case ".qcow2":
+		return "qcow2"
+	case ".img":
+		return "img"
+	case ".raw":
+		return "raw"
+	case ".iso":
+		return "iso"
+	default:
+		return "qcow2"
+	}
+}
+
+func (s *imageService) importFromURL(ctx context.Context, img *domain.Image, url string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+
+	client := &http.Client{Timeout: 30 * time.Minute}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to fetch image: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("remote returned status %d", resp.StatusCode)
+	}
+
+	key := fmt.Sprintf("%s.%s", img.ID.String(), img.Format)
+	size, err := s.fileStore.Write(ctx, s.bucketName, key, resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to store image: %w", err)
+	}
+
+	img.SizeGB = int(size / (1024 * 1024 * 1024))
+	if img.SizeGB == 0 && size > 0 {
+		img.SizeGB = 1
+	}
+	img.FilePath = key
+	return nil
 }
