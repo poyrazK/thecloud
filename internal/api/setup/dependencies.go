@@ -48,6 +48,7 @@ type Repositories struct {
 	Database      ports.DatabaseRepository
 	Secret        ports.SecretRepository
 	Function      ports.FunctionRepository
+	FunctionSchedule ports.FunctionScheduleRepository
 	Cache         ports.CacheRepository
 	Queue         ports.QueueRepository
 	Notify        ports.NotifyRepository
@@ -93,6 +94,7 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		Database:      postgres.NewDatabaseRepository(db),
 		Secret:        postgres.NewSecretRepository(db),
 		Function:      postgres.NewFunctionRepository(db),
+		FunctionSchedule: postgres.NewPostgresFunctionScheduleRepository(db),
 		Cache:         postgres.NewCacheRepository(db),
 		Queue:         postgres.NewPostgresQueueRepository(db),
 		Notify:        postgres.NewPostgresNotifyRepository(db),
@@ -140,6 +142,7 @@ type Services struct {
 	Database      ports.DatabaseService
 	Secret        ports.SecretService
 	Function      ports.FunctionService
+	FunctionSchedule ports.FunctionScheduleService
 	Cache         ports.CacheService
 	Queue         ports.QueueService
 	Notify        ports.NotifyService
@@ -168,6 +171,7 @@ type Workers struct {
 	LB                *services.LBWorker
 	AutoScaling       *services.AutoScalingWorker
 	Cron              *services.CronWorker
+	FunctionSchedule   *services.FunctionScheduleWorker
 	Container         *services.ContainerWorker
 	Pipeline          *workers.PipelineWorker
 	Provision         *workers.ProvisionWorker
@@ -278,6 +282,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		return nil, nil, fmt.Errorf("failed to init secret service: %w", err)
 	}
 	fnSvc := services.NewFunctionService(c.Repos.Function, rbacSvc, c.Compute, fileStore, auditSvc, c.Logger)
+	fnSchedSvc := services.NewFunctionScheduleService(c.Repos.FunctionSchedule, c.Repos.Function, rbacSvc, fnSvc, eventSvc, auditSvc, c.Logger)
 	cacheSvc := services.NewCacheService(c.Repos.Cache, rbacSvc, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
 	queueSvc := services.NewQueueService(c.Repos.Queue, rbacSvc, eventSvc, auditSvc, c.Logger)
 	pipelineSvc := services.NewPipelineService(c.Repos.Pipeline, c.Repos.TaskQueue, eventSvc, auditSvc, c.Logger)
@@ -306,12 +311,12 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		return nil, nil, err
 	}
 
-	svcs := &Services{WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Tenant: tenantSvc, Auth: authSvc, PasswordReset: pwdResetSvc, RBAC: rbacSvc, Vpc: vpcSvc, Subnet: subnetSvc, Event: eventSvc, Volume: volumeSvc, Instance: instSvcConcrete, SecurityGroup: sgSvc, LB: lbSvc, Snapshot: snapshotSvc, Stack: stackSvc, Storage: storageSvc, Database: databaseSvc, Secret: secretSvc, Function: fnSvc, Cache: cacheSvc, Queue: queueSvc, Notify: notifySvc, Cron: cronSvc, Gateway: gwSvc, Container: containerSvc, Pipeline: pipelineSvc, Health: services.NewHealthServiceImpl(c.DB, c.Compute, clusterSvc), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc, Cluster: clusterSvc, Dashboard: services.NewDashboardService(rbacSvc, c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger), Lifecycle: services.NewLifecycleService(c.Repos.Lifecycle, rbacSvc, c.Repos.Storage), InstanceType: services.NewInstanceTypeService(c.Repos.InstanceType, rbacSvc), GlobalLB: glbSvc, DNS: dnsSvc, SSHKey: sshKeySvc, ElasticIP: services.NewElasticIPService(services.ElasticIPServiceParams{Repo: c.Repos.ElasticIP, RBAC: rbacSvc, InstanceRepo: c.Repos.Instance, AuditSvc: auditSvc, Logger: c.Logger}), Log: logSvc, IAM: iamSvc, VPCPeering: services.NewVPCPeeringService(services.VPCPeeringServiceParams{Repo: c.Repos.VPCPeering, VpcRepo: c.Repos.Vpc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger})}
+	svcs := &Services{WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Tenant: tenantSvc, Auth: authSvc, PasswordReset: pwdResetSvc, RBAC: rbacSvc, Vpc: vpcSvc, Subnet: subnetSvc, Event: eventSvc, Volume: volumeSvc, Instance: instSvcConcrete, SecurityGroup: sgSvc, LB: lbSvc, Snapshot: snapshotSvc, Stack: stackSvc, Storage: storageSvc, Database: databaseSvc, Secret: secretSvc, Function: fnSvc, FunctionSchedule: fnSchedSvc, Cache: cacheSvc, Queue: queueSvc, Notify: notifySvc, Cron: cronSvc, Gateway: gwSvc, Container: containerSvc, Pipeline: pipelineSvc, Health: services.NewHealthServiceImpl(c.DB, c.Compute, clusterSvc), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc, Cluster: clusterSvc, Dashboard: services.NewDashboardService(rbacSvc, c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger), Lifecycle: services.NewLifecycleService(c.Repos.Lifecycle, rbacSvc, c.Repos.Storage), InstanceType: services.NewInstanceTypeService(c.Repos.InstanceType, rbacSvc), GlobalLB: glbSvc, DNS: dnsSvc, SSHKey: sshKeySvc, ElasticIP: services.NewElasticIPService(services.ElasticIPServiceParams{Repo: c.Repos.ElasticIP, RBAC: rbacSvc, InstanceRepo: c.Repos.Instance, AuditSvc: auditSvc, Logger: c.Logger}), Log: logSvc, IAM: iamSvc, VPCPeering: services.NewVPCPeeringService(services.VPCPeeringServiceParams{Repo: c.Repos.VPCPeering, VpcRepo: c.Repos.Vpc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger})}
 
 	// 7. High Availability & Monitoring
 	replicaMonitor := initReplicaMonitor(c)
 
-	workersCollection := &Workers{LB: lbWorker, AutoScaling: asgWorker, Cron: cronWorker, Container: containerWorker, Pipeline: workers.NewPipelineWorker(c.Repos.Pipeline, c.Repos.TaskQueue, c.Compute, c.Logger), Provision: provisionWorker, Accounting: accountingWorker, Cluster: workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.TaskQueue, c.Logger), Lifecycle: workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger), ReplicaMonitor: replicaMonitor, ClusterReconciler: workers.NewClusterReconciler(c.Repos.Cluster, clusterProvisioner, c.Logger), Healing: healingWorker, DatabaseFailover: workers.NewDatabaseFailoverWorker(databaseSvc, c.Repos.Database, c.Compute, c.Logger), Log: workers.NewLogWorker(logSvc, c.Logger)}
+	workersCollection := &Workers{LB: lbWorker, AutoScaling: asgWorker, Cron: cronWorker, FunctionSchedule: services.NewFunctionScheduleWorker(c.Repos.FunctionSchedule, fnSvc), Container: containerWorker, Pipeline: workers.NewPipelineWorker(c.Repos.Pipeline, c.Repos.TaskQueue, c.Compute, c.Logger), Provision: provisionWorker, Accounting: accountingWorker, Cluster: workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.TaskQueue, c.Logger), Lifecycle: workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger), ReplicaMonitor: replicaMonitor, ClusterReconciler: workers.NewClusterReconciler(c.Repos.Cluster, clusterProvisioner, c.Logger), Healing: healingWorker, DatabaseFailover: workers.NewDatabaseFailoverWorker(databaseSvc, c.Repos.Database, c.Compute, c.Logger), Log: workers.NewLogWorker(logSvc, c.Logger)}
 
 	return svcs, workersCollection, nil
 }
