@@ -93,7 +93,7 @@ PermissionFunctionScheduleUpdate = "function_schedule:update"
 
 ### 7. Database Schema
 
-Two new tables with a migration number following the existing sequence (`072`):
+Two new tables with migration number `107`:
 
 ```sql
 CREATE TABLE function_schedules (

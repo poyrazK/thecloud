@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/robfig/cron/v3"
 )
@@ -56,7 +57,7 @@ func (s *FunctionScheduleService) CreateSchedule(ctx context.Context, functionID
 	// Verify function exists and user has access
 	fn, err := s.fnRepo.GetByID(ctx, functionID)
 	if err != nil {
-		return nil, fmt.Errorf("function not found: %w", err)
+		return nil, errors.New(errors.NotFound, fmt.Sprintf("function not found: %s", functionID))
 	}
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionRead, fn.ID.String()); err != nil {
 		return nil, err
@@ -65,7 +66,7 @@ func (s *FunctionScheduleService) CreateSchedule(ctx context.Context, functionID
 	// Validate cron expression
 	sched, err := s.parser.Parse(schedule)
 	if err != nil {
-		return nil, fmt.Errorf("invalid cron schedule: %w", err)
+		return nil, errors.New(errors.InvalidInput, fmt.Sprintf("invalid cron schedule: %s", schedule))
 	}
 	nextRun := sched.Next(time.Now())
 
@@ -183,7 +184,7 @@ func (s *FunctionScheduleService) ResumeSchedule(ctx context.Context, id uuid.UU
 
 	schedNext, err := s.parser.Parse(sched.Schedule)
 	if err != nil {
-		return fmt.Errorf("invalid schedule for function schedule %s: %w", id, err)
+		return errors.New(errors.InvalidInput, fmt.Sprintf("invalid schedule for function schedule %s: %s", id, err))
 	}
 	nextRun := schedNext.Next(time.Now())
 

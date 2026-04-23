@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/google/uuid"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
@@ -27,13 +28,22 @@ var createFnSchedCmd = &cobra.Command{
 
 		// Resolve function name to ID
 		fnID := functionRef
-		functions, err := client.ListFunctions()
-		if err == nil {
+		if _, err := uuid.Parse(functionRef); err != nil {
+			// Not a UUID, try to resolve by name
+			functions, err := client.ListFunctions()
+			if err != nil {
+				return fmt.Errorf("failed to list functions: %w", err)
+			}
+			found := false
 			for _, f := range functions {
 				if f.Name == functionRef {
 					fnID = f.ID
+					found = true
 					break
 				}
+			}
+			if !found {
+				return fmt.Errorf("function %q not found", functionRef)
 			}
 		}
 

@@ -2,6 +2,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,7 +25,7 @@ type FunctionSchedule struct {
 	FunctionID uuid.UUID              `json:"function_id"`
 	Name       string                 `json:"name"`
 	Schedule   string                 `json:"schedule"` // Cron expression (e.g. "*/5 * * * *")
-	Payload    []byte                 `json:"payload"`
+	Payload    json.RawMessage       `json:"payload"`
 	Status     FunctionScheduleStatus `json:"status"`
 	LastRunAt  *time.Time             `json:"last_run_at,omitempty"`
 	NextRunAt  *time.Time             `json:"next_run_at,omitempty"`
