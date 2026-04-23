@@ -228,6 +228,7 @@ func TestImageService_Unit_RBACErrors(t *testing.T) {
 }
 
 func testRegisterImageRBACDenied(t *testing.T, svc ports.ImageService, repo *MockImageRepo, fs *MockFileStore, rbacSvc *MockRBACService) {
+	t.Helper()
 	ctx := context.Background()
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, domain.PermissionImageCreate, "*").
 		Return(errors.New(errors.Forbidden, "denied")).Once()
@@ -237,6 +238,7 @@ func testRegisterImageRBACDenied(t *testing.T, svc ports.ImageService, repo *Moc
 }
 
 func testUploadImageRBACDenied(t *testing.T, svc ports.ImageService, repo *MockImageRepo, fs *MockFileStore, rbacSvc *MockRBACService) {
+	t.Helper()
 	ctx := context.Background()
 	id := uuid.New()
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, domain.PermissionImageCreate, id.String()).
@@ -247,6 +249,7 @@ func testUploadImageRBACDenied(t *testing.T, svc ports.ImageService, repo *MockI
 }
 
 func testGetImageRBACDenied(t *testing.T, svc ports.ImageService, repo *MockImageRepo, fs *MockFileStore, rbacSvc *MockRBACService) {
+	t.Helper()
 	ctx := context.Background()
 	id := uuid.New()
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, domain.PermissionImageRead, id.String()).
@@ -257,6 +260,7 @@ func testGetImageRBACDenied(t *testing.T, svc ports.ImageService, repo *MockImag
 }
 
 func testListImagesRBACDenied(t *testing.T, svc ports.ImageService, repo *MockImageRepo, fs *MockFileStore, rbacSvc *MockRBACService) {
+	t.Helper()
 	ctx := context.Background()
 	userID := uuid.New()
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, domain.PermissionImageRead, "*").
@@ -267,6 +271,7 @@ func testListImagesRBACDenied(t *testing.T, svc ports.ImageService, repo *MockIm
 }
 
 func testDeleteImageRBACDenied(t *testing.T, svc ports.ImageService, repo *MockImageRepo, fs *MockFileStore, rbacSvc *MockRBACService) {
+	t.Helper()
 	ctx := context.Background()
 	id := uuid.New()
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, domain.PermissionImageDelete, id.String()).
@@ -277,6 +282,7 @@ func testDeleteImageRBACDenied(t *testing.T, svc ports.ImageService, repo *MockI
 }
 
 func testImportImageRBACDenied(t *testing.T, svc ports.ImageService, repo *MockImageRepo, fs *MockFileStore, rbacSvc *MockRBACService) {
+	t.Helper()
 	ctx := context.Background()
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, domain.PermissionImageCreate, "*").
 		Return(errors.New(errors.Forbidden, "denied")).Once()
