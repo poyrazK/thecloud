@@ -583,15 +583,15 @@ type MockFunctionScheduleRepo struct{ mock.Mock }
 func (m *MockFunctionScheduleRepo) Create(ctx context.Context, s *domain.FunctionSchedule) error {
 	return m.Called(ctx, s).Error(0)
 }
-func (m *MockFunctionScheduleRepo) GetByID(ctx context.Context, id, userID uuid.UUID) (*domain.FunctionSchedule, error) {
-	args := m.Called(ctx, id, userID)
+func (m *MockFunctionScheduleRepo) GetByID(ctx context.Context, id, userID, tenantID uuid.UUID) (*domain.FunctionSchedule, error) {
+	args := m.Called(ctx, id, userID, tenantID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*domain.FunctionSchedule), args.Error(1)
 }
-func (m *MockFunctionScheduleRepo) List(ctx context.Context, userID uuid.UUID) ([]*domain.FunctionSchedule, error) {
-	args := m.Called(ctx, userID)
+func (m *MockFunctionScheduleRepo) List(ctx context.Context, userID, tenantID uuid.UUID) ([]*domain.FunctionSchedule, error) {
+	args := m.Called(ctx, userID, tenantID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

@@ -71,7 +71,7 @@ func TestFunctionScheduleServiceUnit(t *testing.T) {
 
 	t.Run("ListSchedules", func(t *testing.T) {
 		expected := []*domain.FunctionSchedule{{ID: uuid.New(), Name: "sched1"}}
-		repo.On("List", mock.Anything, userID).Return(expected, nil).Once()
+		repo.On("List", mock.Anything, userID, tenantID).Return(expected, nil).Once()
 
 		schedules, err := svc.ListSchedules(ctx)
 		require.NoError(t, err)
@@ -82,7 +82,7 @@ func TestFunctionScheduleServiceUnit(t *testing.T) {
 	t.Run("GetSchedule", func(t *testing.T) {
 		schedID := uuid.New()
 		expected := &domain.FunctionSchedule{ID: schedID, Name: "sched1"}
-		repo.On("GetByID", mock.Anything, schedID, userID).Return(expected, nil).Once()
+		repo.On("GetByID", mock.Anything, schedID, userID, tenantID).Return(expected, nil).Once()
 
 		sched, err := svc.GetSchedule(ctx, schedID)
 		require.NoError(t, err)
@@ -92,7 +92,7 @@ func TestFunctionScheduleServiceUnit(t *testing.T) {
 	t.Run("DeleteSchedule", func(t *testing.T) {
 		schedID := uuid.New()
 		sched := &domain.FunctionSchedule{ID: schedID, UserID: userID}
-		repo.On("GetByID", mock.Anything, schedID, userID).Return(sched, nil).Once()
+		repo.On("GetByID", mock.Anything, schedID, userID, tenantID).Return(sched, nil).Once()
 		repo.On("Delete", mock.Anything, schedID).Return(nil).Once()
 		auditSvc.On("Log", mock.Anything, userID, "function_schedule.delete", "function_schedule", schedID.String(), mock.Anything).Return(nil).Once()
 
@@ -103,7 +103,7 @@ func TestFunctionScheduleServiceUnit(t *testing.T) {
 	t.Run("PauseSchedule", func(t *testing.T) {
 		schedID := uuid.New()
 		sched := &domain.FunctionSchedule{ID: schedID, UserID: userID, Status: domain.FunctionScheduleStatusActive}
-		repo.On("GetByID", mock.Anything, schedID, userID).Return(sched, nil).Once()
+		repo.On("GetByID", mock.Anything, schedID, userID, tenantID).Return(sched, nil).Once()
 		repo.On("Update", mock.Anything, mock.MatchedBy(func(s *domain.FunctionSchedule) bool {
 			return s.Status == domain.FunctionScheduleStatusPaused && s.NextRunAt == nil
 		})).Return(nil).Once()
@@ -115,7 +115,7 @@ func TestFunctionScheduleServiceUnit(t *testing.T) {
 	t.Run("ResumeSchedule", func(t *testing.T) {
 		schedID := uuid.New()
 		sched := &domain.FunctionSchedule{ID: schedID, UserID: userID, Status: domain.FunctionScheduleStatusPaused, Schedule: "*/5 * * * *"}
-		repo.On("GetByID", mock.Anything, schedID, userID).Return(sched, nil).Once()
+		repo.On("GetByID", mock.Anything, schedID, userID, tenantID).Return(sched, nil).Once()
 		repo.On("Update", mock.Anything, mock.MatchedBy(func(s *domain.FunctionSchedule) bool {
 			return s.Status == domain.FunctionScheduleStatusActive && s.NextRunAt != nil
 		})).Return(nil).Once()
@@ -127,7 +127,7 @@ func TestFunctionScheduleServiceUnit(t *testing.T) {
 	t.Run("GetScheduleRuns", func(t *testing.T) {
 		schedID := uuid.New()
 		expectedRuns := []*domain.FunctionScheduleRun{{ID: uuid.New(), Status: "SUCCESS"}}
-		repo.On("GetByID", mock.Anything, schedID, userID).Return(&domain.FunctionSchedule{ID: schedID, UserID: userID}, nil).Once()
+		repo.On("GetByID", mock.Anything, schedID, userID, tenantID).Return(&domain.FunctionSchedule{ID: schedID, UserID: userID}, nil).Once()
 		repo.On("GetScheduleRuns", mock.Anything, schedID, 50).Return(expectedRuns, nil).Once()
 
 		runs, err := svc.GetScheduleRuns(ctx, schedID, 50)
@@ -159,7 +159,7 @@ func TestFunctionScheduleServiceUnit(t *testing.T) {
 
 	t.Run("DeleteSchedule_NotFound", func(t *testing.T) {
 		schedID := uuid.New()
-		repo.On("GetByID", mock.Anything, schedID, userID).Return(nil, fmt.Errorf("not found")).Once()
+		repo.On("GetByID", mock.Anything, schedID, userID, tenantID).Return(nil, fmt.Errorf("not found")).Once()
 
 		err := svc.DeleteSchedule(ctx, schedID)
 		require.Error(t, err)
@@ -167,7 +167,7 @@ func TestFunctionScheduleServiceUnit(t *testing.T) {
 
 	t.Run("GetScheduleRuns_NotFound", func(t *testing.T) {
 		schedID := uuid.New()
-		repo.On("GetByID", mock.Anything, schedID, userID).Return(nil, fmt.Errorf("not found")).Once()
+		repo.On("GetByID", mock.Anything, schedID, userID, tenantID).Return(nil, fmt.Errorf("not found")).Once()
 
 		_, err := svc.GetScheduleRuns(ctx, schedID, 50)
 		require.Error(t, err)
@@ -176,7 +176,7 @@ func TestFunctionScheduleServiceUnit(t *testing.T) {
 	t.Run("ResumeSchedule_InvalidCron", func(t *testing.T) {
 		schedID := uuid.New()
 		sched := &domain.FunctionSchedule{ID: schedID, UserID: userID, Status: domain.FunctionScheduleStatusPaused, Schedule: "invalid"}
-		repo.On("GetByID", mock.Anything, schedID, userID).Return(sched, nil).Once()
+		repo.On("GetByID", mock.Anything, schedID, userID, tenantID).Return(sched, nil).Once()
 
 		err := svc.ResumeSchedule(ctx, schedID)
 		require.Error(t, err)
@@ -196,7 +196,7 @@ func TestFunctionScheduleServiceUnit(t *testing.T) {
 	t.Run("DeleteSchedule_DeleteError", func(t *testing.T) {
 		schedID := uuid.New()
 		sched := &domain.FunctionSchedule{ID: schedID, UserID: userID}
-		repo.On("GetByID", mock.Anything, schedID, userID).Return(sched, nil).Once()
+		repo.On("GetByID", mock.Anything, schedID, userID, tenantID).Return(sched, nil).Once()
 		repo.On("Delete", mock.Anything, schedID).Return(fmt.Errorf("delete failed")).Once()
 
 		err := svc.DeleteSchedule(ctx, schedID)
@@ -205,7 +205,7 @@ func TestFunctionScheduleServiceUnit(t *testing.T) {
 
 	t.Run("GetScheduleRuns_RepoError", func(t *testing.T) {
 		schedID := uuid.New()
-		repo.On("GetByID", mock.Anything, schedID, userID).Return(&domain.FunctionSchedule{ID: schedID, UserID: userID}, nil).Once()
+		repo.On("GetByID", mock.Anything, schedID, userID, tenantID).Return(&domain.FunctionSchedule{ID: schedID, UserID: userID}, nil).Once()
 		repo.On("GetScheduleRuns", mock.Anything, schedID, 50).Return(nil, fmt.Errorf("db error")).Once()
 
 		_, err := svc.GetScheduleRuns(ctx, schedID, 50)
@@ -224,7 +224,7 @@ func TestFunctionScheduleServiceUnit(t *testing.T) {
 			ID: schedID, UserID: userID, Status: domain.FunctionScheduleStatusPaused, Schedule: "*/5 * * * *",
 		}
 		rbacSvc2.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionFunctionScheduleUpdate, schedID.String()).Return(nil).Once()
-		repo2.On("GetByID", mock.Anything, schedID, userID).Return(sched, nil).Once()
+		repo2.On("GetByID", mock.Anything, schedID, userID, tenantID).Return(sched, nil).Once()
 		repo2.On("Update", mock.Anything, mock.Anything).Return(fmt.Errorf("update failed")).Once()
 
 		svc2 := services.NewFunctionScheduleService(repo2, fnRepo2, rbacSvc2, eventSvc2, auditSvc2, slog.Default())

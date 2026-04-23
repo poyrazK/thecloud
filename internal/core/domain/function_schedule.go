@@ -36,12 +36,14 @@ type FunctionSchedule struct {
 
 // FunctionScheduleRun records a single execution of a FunctionSchedule.
 type FunctionScheduleRun struct {
-	ID           uuid.UUID `json:"id"`
-	ScheduleID   uuid.UUID `json:"schedule_id"`
-	InvocationID uuid.UUID `json:"invocation_id"`
-	Status       string    `json:"status"`        // "SUCCESS" or "FAILED"
-	StatusCode   int       `json:"status_code"`   // Exit code from function
-	DurationMs   int64     `json:"duration_ms"`   // Execution time in milliseconds
-	ErrorMessage string    `json:"error_message,omitempty"`
-	StartedAt    time.Time `json:"started_at"`
+	ID           uuid.UUID  `json:"id"`
+	ScheduleID   uuid.UUID  `json:"schedule_id"`
+	InvocationID *uuid.UUID `json:"invocation_id,omitempty"` // nil when async invoke is queued but not yet executed
+	Status       string     `json:"status"`                 // PENDING, SUCCESS, or FAILED
+	StatusCode   int        `json:"status_code"`            // Exit code from function
+	// DurationMs measures time from worker pick-up to async invocation creation,
+	// not actual function execution time (since async invoke returns immediately)
+	DurationMs   int64      `json:"duration_ms"`
+	ErrorMessage string     `json:"error_message,omitempty"`
+	StartedAt    time.Time  `json:"started_at"`
 }

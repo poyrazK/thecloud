@@ -24,7 +24,7 @@ CREATE INDEX IF NOT EXISTS idx_function_schedules_claimed_until ON function_sche
 CREATE TABLE IF NOT EXISTS function_schedule_runs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     schedule_id UUID NOT NULL REFERENCES function_schedules(id) ON DELETE CASCADE,
-    invocation_id UUID NOT NULL REFERENCES invocations(id),
+    invocation_id UUID REFERENCES invocations(id),
     status VARCHAR(50) NOT NULL,
     status_code INT NOT NULL DEFAULT 0,
     duration_ms BIGINT NOT NULL DEFAULT 0,
@@ -33,3 +33,4 @@ CREATE TABLE IF NOT EXISTS function_schedule_runs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_function_schedule_runs_schedule_id ON function_schedule_runs(schedule_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_function_schedule_runs_idempotent ON function_schedule_runs(schedule_id, started_at) WHERE started_at > NOW() - INTERVAL '1 hour';

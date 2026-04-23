@@ -12,8 +12,8 @@ import (
 // FunctionScheduleRepository manages the persistence of function schedules.
 type FunctionScheduleRepository interface {
 	Create(ctx context.Context, schedule *domain.FunctionSchedule) error
-	GetByID(ctx context.Context, id, userID uuid.UUID) (*domain.FunctionSchedule, error)
-	List(ctx context.Context, userID uuid.UUID) ([]*domain.FunctionSchedule, error)
+	GetByID(ctx context.Context, id, userID, tenantID uuid.UUID) (*domain.FunctionSchedule, error)
+	List(ctx context.Context, userID, tenantID uuid.UUID) ([]*domain.FunctionSchedule, error)
 	Update(ctx context.Context, schedule *domain.FunctionSchedule) error
 	Delete(ctx context.Context, id uuid.UUID) error
 

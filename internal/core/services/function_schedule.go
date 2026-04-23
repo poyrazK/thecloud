@@ -113,7 +113,7 @@ func (s *FunctionScheduleService) ListSchedules(ctx context.Context) ([]*domain.
 		return nil, err
 	}
 
-	return s.repo.List(ctx, userID)
+	return s.repo.List(ctx, userID, tenantID)
 }
 
 func (s *FunctionScheduleService) GetSchedule(ctx context.Context, id uuid.UUID) (*domain.FunctionSchedule, error) {
@@ -124,7 +124,7 @@ func (s *FunctionScheduleService) GetSchedule(ctx context.Context, id uuid.UUID)
 		return nil, err
 	}
 
-	return s.repo.GetByID(ctx, id, userID)
+	return s.repo.GetByID(ctx, id, userID, tenantID)
 }
 
 func (s *FunctionScheduleService) DeleteSchedule(ctx context.Context, id uuid.UUID) error {
@@ -135,7 +135,7 @@ func (s *FunctionScheduleService) DeleteSchedule(ctx context.Context, id uuid.UU
 		return err
 	}
 
-	_, err := s.repo.GetByID(ctx, id, userID)
+	_, err := s.repo.GetByID(ctx, id, userID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -159,7 +159,7 @@ func (s *FunctionScheduleService) PauseSchedule(ctx context.Context, id uuid.UUI
 		return err
 	}
 
-	sched, err := s.repo.GetByID(ctx, id, userID)
+	sched, err := s.repo.GetByID(ctx, id, userID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -177,7 +177,7 @@ func (s *FunctionScheduleService) ResumeSchedule(ctx context.Context, id uuid.UU
 		return err
 	}
 
-	sched, err := s.repo.GetByID(ctx, id, userID)
+	sched, err := s.repo.GetByID(ctx, id, userID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -201,7 +201,7 @@ func (s *FunctionScheduleService) GetScheduleRuns(ctx context.Context, id uuid.U
 		return nil, err
 	}
 
-	_, err := s.repo.GetByID(ctx, id, userID)
+	_, err := s.repo.GetByID(ctx, id, userID, tenantID)
 	if err != nil {
 		return nil, err
 	}

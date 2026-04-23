@@ -3,12 +3,15 @@ package postgres
 
 import (
 	"context"
+	"fmt"
+	stdlib_errors "errors"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 // PostgresFunctionScheduleRepository provides PostgreSQL-backed function schedule persistence.
@@ -42,16 +45,23 @@ func (r *PostgresFunctionScheduleRepository) Create(ctx context.Context, schedul
 	return err
 }
 
-func (r *PostgresFunctionScheduleRepository) GetByID(ctx context.Context, id, userID uuid.UUID) (*domain.FunctionSchedule, error) {
-	query := `SELECT id, user_id, tenant_id, function_id, name, schedule, payload, status, last_run_at, next_run_at, claimed_until, created_at, updated_at FROM function_schedules WHERE id = $1 AND user_id = $2`
-	return r.scanFunctionSchedule(r.db.QueryRow(ctx, query, id, userID))
+func (r *PostgresFunctionScheduleRepository) GetByID(ctx context.Context, id, userID, tenantID uuid.UUID) (*domain.FunctionSchedule, error) {
+	query := `SELECT id, user_id, tenant_id, function_id, name, schedule, payload, status, last_run_at, next_run_at, claimed_until, created_at, updated_at FROM function_schedules WHERE id = $1 AND user_id = $2 AND tenant_id = $3`
+	sched, err := r.scanFunctionSchedule(r.db.QueryRow(ctx, query, id, userID, tenantID))
+	if err != nil {
+		if stdlib_errors.Is(err, pgx.ErrNoRows) {
+			return nil, errors.New(errors.NotFound, fmt.Sprintf("function schedule not found: %s", id))
+		}
+		return nil, errors.Wrap(errors.Internal, "failed to get function schedule", err)
+	}
+	return sched, nil
 }
 
-func (r *PostgresFunctionScheduleRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.FunctionSchedule, error) {
-	query := `SELECT id, user_id, tenant_id, function_id, name, schedule, payload, status, last_run_at, next_run_at, claimed_until, created_at, updated_at FROM function_schedules WHERE user_id = $1 ORDER BY created_at DESC`
-	rows, err := r.db.Query(ctx, query, userID)
+func (r *PostgresFunctionScheduleRepository) List(ctx context.Context, userID, tenantID uuid.UUID) ([]*domain.FunctionSchedule, error) {
+	query := `SELECT id, user_id, tenant_id, function_id, name, schedule, payload, status, last_run_at, next_run_at, claimed_until, created_at, updated_at FROM function_schedules WHERE user_id = $1 AND tenant_id = $2 ORDER BY created_at DESC`
+	rows, err := r.db.Query(ctx, query, userID, tenantID)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(errors.Internal, "failed to list function schedules", err)
 	}
 	return r.scanFunctionSchedules(rows)
 }
