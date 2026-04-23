@@ -19,7 +19,6 @@ type FunctionScheduleService struct {
 	repo     ports.FunctionScheduleRepository
 	fnRepo   ports.FunctionRepository
 	rbacSvc  ports.RBACService
-	fnSvc    ports.FunctionService
 	eventSvc ports.EventService
 	auditSvc ports.AuditService
 	logger   *slog.Logger
@@ -31,7 +30,6 @@ func NewFunctionScheduleService(
 	repo ports.FunctionScheduleRepository,
 	fnRepo ports.FunctionRepository,
 	rbacSvc ports.RBACService,
-	fnSvc ports.FunctionService,
 	eventSvc ports.EventService,
 	auditSvc ports.AuditService,
 	logger *slog.Logger,
@@ -40,7 +38,6 @@ func NewFunctionScheduleService(
 		repo:     repo,
 		fnRepo:   fnRepo,
 		rbacSvc:  rbacSvc,
-		fnSvc:    fnSvc,
 		eventSvc: eventSvc,
 		auditSvc: auditSvc,
 		logger:   logger,
@@ -186,7 +183,7 @@ func (s *FunctionScheduleService) ResumeSchedule(ctx context.Context, id uuid.UU
 
 	schedNext, err := s.parser.Parse(sched.Schedule)
 	if err != nil {
-		return fmt.Errorf("invalid schedule in job: %w", err)
+		return fmt.Errorf("invalid schedule for function schedule %s: %w", id, err)
 	}
 	nextRun := schedNext.Next(time.Now())
 

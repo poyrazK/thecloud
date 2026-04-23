@@ -73,7 +73,7 @@ func (w *FunctionScheduleWorker) runSchedule(ctx context.Context, sched *domain.
 	invocation, err := w.fnSvc.InvokeFunction(ctx, sched.FunctionID, sched.Payload, true)
 
 	duration := time.Since(start)
-	status := "SUCCESS"
+	status := "PENDING"
 	statusCode := 0
 	errorMsg := ""
 
@@ -81,12 +81,10 @@ func (w *FunctionScheduleWorker) runSchedule(ctx context.Context, sched *domain.
 		status = "FAILED"
 		errorMsg = err.Error()
 	} else if invocation != nil {
+		status = invocation.Status
 		statusCode = invocation.StatusCode
-		if invocation.Status == "FAILED" {
-			status = "FAILED"
-			if len(invocation.Logs) > 0 {
-				errorMsg = invocation.Logs
-			}
+		if invocation.Status == "FAILED" && len(invocation.Logs) > 0 {
+			errorMsg = invocation.Logs
 		}
 	}
 

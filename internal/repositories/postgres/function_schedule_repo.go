@@ -84,7 +84,7 @@ func (r *PostgresFunctionScheduleRepository) ClaimNextSchedulesToRun(ctx context
 	farFuture := now.Add(365 * 24 * time.Hour)
 
 	selectQuery := `
-		SELECT id, user_id, tenant_id, function_id, name, schedule, payload, status, last_run_at, next_run_at, created_at, updated_at
+		SELECT id, user_id, tenant_id, function_id, name, schedule, payload, status, last_run_at, next_run_at, claimed_until, created_at, updated_at
 		FROM function_schedules
 		WHERE status = 'ACTIVE'
 		  AND next_run_at <= NOW()

@@ -2,6 +2,7 @@
 package httphandlers
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -23,10 +24,10 @@ func NewFunctionScheduleHandler(svc ports.FunctionScheduleService) *FunctionSche
 
 // CreateFunctionScheduleRequest is the payload for schedule creation.
 type CreateFunctionScheduleRequest struct {
-	FunctionID uuid.UUID `json:"function_id" binding:"required"`
-	Name       string    `json:"name" binding:"required"`
-	Schedule   string    `json:"schedule" binding:"required"`
-	Payload    []byte    `json:"payload"`
+	FunctionID uuid.UUID       `json:"function_id" binding:"required"`
+	Name       string          `json:"name" binding:"required"`
+	Schedule   string          `json:"schedule" binding:"required"`
+	Payload    json.RawMessage `json:"payload"`
 }
 
 // Create handles POST /function-schedules
@@ -37,7 +38,7 @@ func (h *FunctionScheduleHandler) Create(c *gin.Context) {
 		return
 	}
 
-	sched, err := h.svc.CreateSchedule(c.Request.Context(), req.FunctionID, req.Name, req.Schedule, req.Payload)
+	sched, err := h.svc.CreateSchedule(c.Request.Context(), req.FunctionID, req.Name, req.Schedule, []byte(req.Payload))
 	if err != nil {
 		httputil.Error(c, err)
 		return

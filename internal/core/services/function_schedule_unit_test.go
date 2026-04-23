@@ -19,13 +19,12 @@ import (
 func TestFunctionScheduleServiceUnit(t *testing.T) {
 	repo := new(MockFunctionScheduleRepo)
 	fnRepo := new(MockFunctionRepo)
-	fnSvc := new(MockFunctionService)
 	eventSvc := new(MockEventService)
 	auditSvc := new(MockAuditService)
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil)
 
-	svc := services.NewFunctionScheduleService(repo, fnRepo, rbacSvc, fnSvc, eventSvc, auditSvc, slog.Default())
+	svc := services.NewFunctionScheduleService(repo, fnRepo, rbacSvc, eventSvc, auditSvc, slog.Default())
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -144,7 +143,6 @@ func TestFunctionScheduleServiceUnit(t *testing.T) {
 		rbacSvc2 := new(MockRBACService)
 		eventSvc2 := new(MockEventService)
 		auditSvc2 := new(MockAuditService)
-		fnSvc2 := new(MockFunctionService)
 
 		fn := &domain.Function{ID: fnID, Name: "test-fn", UserID: userID}
 		fnRepo2.On("GetByID", mock.Anything, fnID).Return(fn, nil).Once()
@@ -152,7 +150,7 @@ func TestFunctionScheduleServiceUnit(t *testing.T) {
 		rbacSvc2.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionFunctionScheduleCreate, "*").Return(nil).Once()
 		rbacSvc2.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionFunctionRead, fn.ID.String()).Return(fmt.Errorf("access denied")).Once()
 
-		svc2 := services.NewFunctionScheduleService(repo2, fnRepo2, rbacSvc2, fnSvc2, eventSvc2, auditSvc2, slog.Default())
+		svc2 := services.NewFunctionScheduleService(repo2, fnRepo2, rbacSvc2, eventSvc2, auditSvc2, slog.Default())
 
 		_, err := svc2.CreateSchedule(ctx, fnID, "nightly", "0 2 * * *", []byte{})
 		require.Error(t, err)
@@ -220,7 +218,6 @@ func TestFunctionScheduleServiceUnit(t *testing.T) {
 		rbacSvc2 := new(MockRBACService)
 		eventSvc2 := new(MockEventService)
 		auditSvc2 := new(MockAuditService)
-		fnSvc2 := new(MockFunctionService)
 
 		schedID := uuid.New()
 		sched := &domain.FunctionSchedule{
@@ -230,7 +227,7 @@ func TestFunctionScheduleServiceUnit(t *testing.T) {
 		repo2.On("GetByID", mock.Anything, schedID, userID).Return(sched, nil).Once()
 		repo2.On("Update", mock.Anything, mock.Anything).Return(fmt.Errorf("update failed")).Once()
 
-		svc2 := services.NewFunctionScheduleService(repo2, fnRepo2, rbacSvc2, fnSvc2, eventSvc2, auditSvc2, slog.Default())
+		svc2 := services.NewFunctionScheduleService(repo2, fnRepo2, rbacSvc2, eventSvc2, auditSvc2, slog.Default())
 		err := svc2.ResumeSchedule(ctx, schedID)
 		require.Error(t, err)
 	})

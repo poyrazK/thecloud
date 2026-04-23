@@ -282,7 +282,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		return nil, nil, fmt.Errorf("failed to init secret service: %w", err)
 	}
 	fnSvc := services.NewFunctionService(c.Repos.Function, rbacSvc, c.Compute, fileStore, auditSvc, c.Logger)
-	fnSchedSvc := services.NewFunctionScheduleService(c.Repos.FunctionSchedule, c.Repos.Function, rbacSvc, fnSvc, eventSvc, auditSvc, c.Logger)
+	fnSchedSvc := services.NewFunctionScheduleService(c.Repos.FunctionSchedule, c.Repos.Function, rbacSvc, eventSvc, auditSvc, c.Logger)
 	cacheSvc := services.NewCacheService(c.Repos.Cache, rbacSvc, c.Compute, c.Repos.Vpc, eventSvc, auditSvc, c.Logger)
 	queueSvc := services.NewQueueService(c.Repos.Queue, rbacSvc, eventSvc, auditSvc, c.Logger)
 	pipelineSvc := services.NewPipelineService(c.Repos.Pipeline, c.Repos.TaskQueue, eventSvc, auditSvc, c.Logger)

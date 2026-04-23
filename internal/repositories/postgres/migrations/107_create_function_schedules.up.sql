@@ -3,7 +3,7 @@
 CREATE TABLE IF NOT EXISTS function_schedules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    tenant_id UUID NOT NULL,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     function_id UUID NOT NULL REFERENCES functions(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     schedule VARCHAR(100) NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS function_schedules (
     claimed_until TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(user_id, name)
+    UNIQUE(tenant_id, user_id, name)
 );
 
 CREATE INDEX IF NOT EXISTS idx_function_schedules_user_id ON function_schedules(user_id);
