@@ -264,6 +264,14 @@ func formatFromURL(url string) string {
 }
 
 func (s *imageService) importFromURL(ctx context.Context, img *domain.Image, imageURL string) error {
+	parsedURL, err := url.Parse(imageURL)
+	if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return fmt.Errorf("invalid URL scheme: only http and https are allowed")
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
 	if err != nil {
 		return fmt.Errorf("invalid URL: %w", err)
