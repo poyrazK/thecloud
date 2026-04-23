@@ -361,6 +361,13 @@ func TestImageService_Unit_ErrorPaths(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("ImportImage_InvalidScheme", func(t *testing.T) {
+		// url.Parse succeeds for ftp:// but scheme is not http/https
+		_, err := svc.ImportImage(ctx, "name", "ftp://example.com/img.qcow2", "desc", "linux", "1.0", false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid URL scheme")
+	})
+
 	t.Run("UploadImage_UpdateFails", func(t *testing.T) {
 		imgID := uuid.New()
 		img := &domain.Image{ID: imgID, UserID: userID}

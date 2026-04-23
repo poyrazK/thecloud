@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -194,12 +195,21 @@ func (s *imageService) DeleteImage(ctx context.Context, id uuid.UUID) error {
 	return s.repo.Delete(ctx, id)
 }
 
-func (s *imageService) ImportImage(ctx context.Context, name, url, description, os, version string, isPublic bool) (*domain.Image, error) {
+func (s *imageService) ImportImage(ctx context.Context, name, imageURL, description, os, version string, isPublic bool) (*domain.Image, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionImageCreate, "*"); err != nil {
 		return nil, err
+	}
+
+	// Validate URL before creating any record (CodeQL: go/request-forgery)
+	parsedURL, err := url.Parse(imageURL)
+	if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
+		return nil, fmt.Errorf("invalid URL: %w", err)
+	}
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return nil, fmt.Errorf("invalid URL scheme: only http and https are allowed")
 	}
 
 	img := &domain.Image{
@@ -212,8 +222,8 @@ func (s *imageService) ImportImage(ctx context.Context, name, url, description, 
 		UserID:      userID,
 		TenantID:    &tenantID,
 		Status:      domain.ImageStatusPending,
-		SourceURL:   url,
-		Format:      formatFromURL(url),
+		SourceURL:   imageURL,
+		Format:      formatFromURL(imageURL),
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -223,7 +233,7 @@ func (s *imageService) ImportImage(ctx context.Context, name, url, description, 
 	}
 
 	// Download and stream to storage
-	if err := s.importFromURL(ctx, img, url); err != nil {
+	if err := s.importFromURL(ctx, img, imageURL); err != nil {
 		img.Status = domain.ImageStatusError
 		_ = s.repo.Update(ctx, img)
 		return nil, err
@@ -253,8 +263,8 @@ func formatFromURL(url string) string {
 	}
 }
 
-func (s *imageService) importFromURL(ctx context.Context, img *domain.Image, url string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+func (s *imageService) importFromURL(ctx context.Context, img *domain.Image, imageURL string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
 	if err != nil {
 		return fmt.Errorf("invalid URL: %w", err)
 	}
