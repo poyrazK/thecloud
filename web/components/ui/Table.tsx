@@ -15,6 +15,7 @@ interface TableProps<T> {
   columns: Column<T>[];
   onRowClick?: (item: T) => void;
   emptyMessage?: string;
+  getRowKey?: (item: T, index: number) => React.Key;
 }
 
 export function Table<T>({
@@ -22,6 +23,7 @@ export function Table<T>({
   columns,
   onRowClick,
   emptyMessage = 'No data found.',
+  getRowKey,
 }: TableProps<T>) {
   return (
     <div className={styles.container}>
@@ -45,7 +47,13 @@ export function Table<T>({
           ) : null}
           {data.map((item, rowIndex) => (
             <tr
-              key={rowIndex}
+              key={
+                getRowKey
+                  ? getRowKey(item, rowIndex)
+                  : typeof item === 'object' && item !== null && 'id' in (item as Record<string, unknown>)
+                    ? String((item as Record<string, unknown>).id)
+                    : rowIndex
+              }
               onClick={() => onRowClick && onRowClick(item)}
               className={onRowClick ? styles.clickable : ''}
             >
@@ -53,7 +61,9 @@ export function Table<T>({
                 <td key={colIndex}>
                   {col.cell
                     ? col.cell(item)
-                    : (col.accessorKey ? String(item[col.accessorKey]) : '')}
+                    : col.accessorKey
+                      ? (item[col.accessorKey] == null ? '' : String(item[col.accessorKey]))
+                      : ''}
                 </td>
               ))}
             </tr>

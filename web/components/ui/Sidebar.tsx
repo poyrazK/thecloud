@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Cloud, LayoutGrid, Server, HardDrive, Network, Settings, Activity, Menu, X } from 'lucide-react';
@@ -20,12 +20,39 @@ export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement | null>(null);
+  const sidebarRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     MENU_ITEMS.forEach((item) => {
       router.prefetch(item.href);
     });
   }, [router]);
+
+  useEffect(() => {
+    if (!open) {
+      if (window.matchMedia('(max-width: 1024px)').matches) {
+        toggleRef.current?.focus();
+      }
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+
+    const root = sidebarRef.current;
+    const firstFocusable = root?.querySelector<HTMLElement>('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    firstFocusable?.focus();
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
 
   const handleNavigate = (href: string) => (event: React.MouseEvent<HTMLAnchorElement>) => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
@@ -47,9 +74,12 @@ export const Sidebar: React.FC = () => {
   return (
     <>
       <button
+        ref={toggleRef}
         className={styles.mobileToggle}
         type="button"
         onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        aria-controls="console-sidebar"
         aria-label="Toggle navigation"
       >
         {open ? <X size={18} /> : <Menu size={18} />}
@@ -65,7 +95,11 @@ export const Sidebar: React.FC = () => {
         />
       ) : null}
 
-      <aside className={`${styles.sidebar} material-sidebar ${open ? styles.mobileOpen : ''}`}>
+      <aside
+        id="console-sidebar"
+        ref={sidebarRef}
+        className={`${styles.sidebar} material-sidebar ${open ? styles.mobileOpen : ''}`}
+      >
         <div className={styles.logo}>
           <div className={styles.logoIcon}>
             <Cloud size={16} />

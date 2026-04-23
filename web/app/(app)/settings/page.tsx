@@ -49,7 +49,7 @@ export default function SettingsPage() {
     return `${apiKey.slice(0, 6)}...${apiKey.slice(-4)}`;
   }, [apiKey]);
 
-  const saveSettings = async () => {
+  const saveSettings = () => {
     setSaving(true);
     setError(null);
     setMessage(null);
@@ -76,16 +76,31 @@ export default function SettingsPage() {
     setTesting(true);
     setError(null);
     setMessage(null);
+    setProfile(null);
+    setTenants([]);
 
     try {
       const me = await cloudApiRequest<Profile>('/auth/me', undefined, candidate);
-      const tenantData = await cloudApiRequest<Tenant[]>('/tenants', undefined, candidate).catch(() => []);
+      let tenantWarning: string | null = null;
+      let tenantData: Tenant[] = [];
+      try {
+        tenantData = await cloudApiRequest<Tenant[]>('/tenants', undefined, candidate);
+      } catch (tenantErr) {
+        const tenantReason = tenantErr instanceof Error ? tenantErr.message : 'Tenant list unavailable.';
+        tenantWarning = `Authentication succeeded, but loading tenants failed: ${tenantReason}`;
+      }
 
       setProfile(me ?? null);
       setTenants(tenantData ?? []);
-      setMessage('Connection successful. Credentials and endpoint are valid.');
+      if (!tenantWarning) {
+        setMessage('Connection successful. Credentials and endpoint are valid.');
+      } else {
+        setError(tenantWarning);
+      }
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'Connection test failed.';
+      setProfile(null);
+      setTenants([]);
       setError(reason);
     } finally {
       setTesting(false);
@@ -106,7 +121,7 @@ export default function SettingsPage() {
         </div>
       </header>
 
-      {message ? <div className={styles.notice}><strong>Saved:</strong> <span className={styles.noticeText}>{message}</span></div> : null}
+      {message ? <div className={styles.notice}><strong>Status:</strong> <span className={styles.noticeText}>{message}</span></div> : null}
       {error ? <div className={styles.error}>{error}</div> : null}
 
       <Card title="API Connection" subtitle="Used by compute, storage, network, and activity pages" className={styles.panel}>

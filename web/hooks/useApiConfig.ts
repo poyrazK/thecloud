@@ -3,21 +3,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   type CloudApiConfig,
+  getDefaultCloudApiConfig,
   getStoredCloudApiConfig,
   saveStoredCloudApiConfig,
 } from '@/lib/api';
 
 export function useApiConfig() {
-  const [config, setConfig] = useState<CloudApiConfig>(() => getStoredCloudApiConfig());
-  const ready = typeof window !== 'undefined';
+  const [config, setConfig] = useState<CloudApiConfig>(() => getDefaultCloudApiConfig());
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    const hydrate = () => {
+      setConfig(getStoredCloudApiConfig());
+      setReady(true);
+    };
+
+    const hydrationTimer = window.setTimeout(hydrate, 0);
+
     const syncFromStorage = () => {
       setConfig(getStoredCloudApiConfig());
     };
 
     window.addEventListener('storage', syncFromStorage);
     return () => {
+      window.clearTimeout(hydrationTimer);
       window.removeEventListener('storage', syncFromStorage);
     };
   }, []);

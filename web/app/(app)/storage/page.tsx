@@ -210,7 +210,7 @@ export default function StoragePage() {
             </select>
           </div>
           <div className={styles.field}>
-            <label>Create</label>
+            <span className={styles.panelMeta}>Action</span>
             <Button onClick={() => void createBucket()} loading={isSaving}>
               <Plus size={16} /> Create Bucket
             </Button>

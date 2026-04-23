@@ -31,6 +31,7 @@ export class CloudApiError extends Error {
 const STORAGE_KEY = "thecloud.console.api.v1";
 const DEFAULT_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 const RESPONSE_CACHE_TTL_MS = 4000;
+let sessionApiKey = "";
 
 interface ResponseCacheEntry {
   timestamp: number;
@@ -39,8 +40,17 @@ interface ResponseCacheEntry {
 
 const responseCache = new Map<string, ResponseCacheEntry>();
 
+function apiKeyFingerprint(apiKey: string): string {
+  if (!apiKey) return "no-key";
+  let hash = 0;
+  for (let index = 0; index < apiKey.length; index += 1) {
+    hash = (hash * 31 + apiKey.charCodeAt(index)) >>> 0;
+  }
+  return hash.toString(16);
+}
+
 function cacheKeyForRequest(config: CloudApiConfig, path: string): string {
-  return `${config.baseUrl}|${config.tenantId}|${path}`;
+  return `${config.baseUrl}|${config.tenantId}|${apiKeyFingerprint(config.apiKey)}|${path}`;
 }
 
 export function clearApiResponseCache(): void {
@@ -51,49 +61,74 @@ function normalizeBaseUrl(url: string): string {
   return url.trim().replace(/\/+$/, "") || DEFAULT_BASE_URL;
 }
 
+export function getDefaultCloudApiConfig(): CloudApiConfig {
+  return {
+    baseUrl: normalizeBaseUrl(DEFAULT_BASE_URL),
+    apiKey: "",
+    tenantId: "",
+  };
+}
+
 function safeParseConfig(raw: string | null): Partial<CloudApiConfig> {
   if (!raw) {
     return {};
   }
 
   try {
-    const parsed = JSON.parse(raw) as Partial<CloudApiConfig>;
-    return parsed ?? {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+    return parsed as Partial<CloudApiConfig>;
   } catch {
     return {};
   }
 }
 
+function getSessionApiKey(): string {
+  return sessionApiKey;
+}
+
+function setSessionApiKey(value: string): void {
+  sessionApiKey = value.trim();
+}
+
 export function getStoredCloudApiConfig(): CloudApiConfig {
   if (typeof window === "undefined") {
-    return {
-      baseUrl: normalizeBaseUrl(DEFAULT_BASE_URL),
-      apiKey: "",
-      tenantId: "",
-    };
+    return getDefaultCloudApiConfig();
   }
 
   const parsed = safeParseConfig(window.localStorage.getItem(STORAGE_KEY));
+  const storedApiKey = getSessionApiKey();
 
   return {
     baseUrl: normalizeBaseUrl(parsed.baseUrl ?? DEFAULT_BASE_URL),
-    apiKey: (parsed.apiKey ?? "").trim(),
+    apiKey: storedApiKey,
     tenantId: (parsed.tenantId ?? "").trim(),
   };
 }
 
 export function saveStoredCloudApiConfig(update: Partial<CloudApiConfig>): CloudApiConfig {
   const current = getStoredCloudApiConfig();
+  const nextApiKey = (update.apiKey ?? current.apiKey).trim();
   const next: CloudApiConfig = {
     ...current,
     ...update,
     baseUrl: normalizeBaseUrl(update.baseUrl ?? current.baseUrl),
-    apiKey: (update.apiKey ?? current.apiKey).trim(),
+    apiKey: nextApiKey,
     tenantId: (update.tenantId ?? current.tenantId).trim(),
   };
 
+  setSessionApiKey(nextApiKey);
+
   if (typeof window !== "undefined") {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        baseUrl: next.baseUrl,
+        tenantId: next.tenantId,
+      })
+    );
   }
 
   clearApiResponseCache();
@@ -102,6 +137,8 @@ export function saveStoredCloudApiConfig(update: Partial<CloudApiConfig>): Cloud
 }
 
 export function clearStoredCloudApiConfig(): void {
+  setSessionApiKey("");
+
   if (typeof window !== "undefined") {
     window.localStorage.removeItem(STORAGE_KEY);
   }
@@ -188,7 +225,19 @@ export async function cloudApiRequest<T>(
   }
 
   let result: T;
-  if (isJson && payload && typeof payload === "object" && "data" in (payload as ApiEnvelope<T>)) {
+  if (
+    isJson &&
+    payload &&
+    typeof payload === "object" &&
+    "data" in (payload as ApiEnvelope<T>) &&
+    "meta" in (payload as ApiEnvelope<T>) &&
+    typeof (payload as ApiEnvelope<T>).meta === "object" &&
+    !!(payload as ApiEnvelope<T>).meta &&
+    (
+      Boolean((payload as ApiEnvelope<T>).meta?.request_id) ||
+      Boolean((payload as ApiEnvelope<T>).meta?.timestamp)
+    )
+  ) {
     result = (payload as ApiEnvelope<T>).data as T;
   } else {
     result = payload as T;

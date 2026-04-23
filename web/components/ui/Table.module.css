@@ -45,9 +45,9 @@
   cursor: pointer;
 }
 
-.emptyCell {
+.table td.emptyCell {
   text-align: center;
   color: var(--muted-foreground);
   font-size: 0.9rem;
-  padding: 24px 10px !important;
+  padding: 24px 10px;
 }

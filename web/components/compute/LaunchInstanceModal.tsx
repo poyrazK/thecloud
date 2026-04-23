@@ -42,6 +42,11 @@ export const LaunchInstanceModal: React.FC<LaunchInstanceModalProps> = ({
   });
   const [localError, setLocalError] = useState<string | null>(null);
 
+  const handleClose = () => {
+    setLocalError(null);
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,8 +65,8 @@ export const LaunchInstanceModal: React.FC<LaunchInstanceModalProps> = ({
         name: formData.name.trim(),
         ports: formData.ports.trim(),
       });
-      onClose();
-      setFormData({
+      handleClose();
+      setFormData({ 
         name: '',
         image: 'ubuntu-22.04',
         ports: '',
@@ -77,7 +82,7 @@ export const LaunchInstanceModal: React.FC<LaunchInstanceModalProps> = ({
       <div className={`${styles.modal} material-platter`}>
         <div className={styles.header}>
           <h2 className={styles.title}>Launch Instance</h2>
-          <Button variant="ghost" onClick={onClose} className={styles.closeBtn}>
+          <Button variant="ghost" onClick={handleClose} className={styles.closeBtn} disabled={isSubmitting}>
             <X size={18} />
           </Button>
         </div>
@@ -147,7 +152,7 @@ export const LaunchInstanceModal: React.FC<LaunchInstanceModalProps> = ({
           {localError ? <div className={styles.error}>{localError}</div> : null}
 
           <div className={styles.footer}>
-            <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
+            <Button type="button" variant="secondary" onClick={handleClose} disabled={isSubmitting}>Cancel</Button>
             <Button type="submit" variant="primary" loading={isSubmitting}>
               Launch Instance
             </Button>

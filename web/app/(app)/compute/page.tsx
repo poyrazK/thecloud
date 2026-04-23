@@ -60,7 +60,7 @@ export default function ComputePage() {
   const [vpcs, setVpcs] = useState<ApiVpc[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLaunching, setIsLaunching] = useState(false);
-  const [pendingInstanceID, setPendingInstanceID] = useState<string | null>(null);
+  const [pendingInstanceIDs, setPendingInstanceIDs] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
@@ -107,8 +107,11 @@ export default function ComputePage() {
     const payload: Record<string, string> = {
       name: data.name,
       image: data.image,
-      ports: data.ports,
     };
+
+    if (data.ports) {
+      payload.ports = data.ports;
+    }
 
     if (data.vpcId) {
       payload.vpc_id = data.vpcId;
@@ -131,7 +134,11 @@ export default function ComputePage() {
   };
 
   const stopInstance = async (id: string) => {
-    setPendingInstanceID(id);
+    setPendingInstanceIDs((previous) => {
+      const next = new Set(previous);
+      next.add(id);
+      return next;
+    });
     setError(null);
     try {
       await cloudApiRequest(`/instances/${id}/stop`, { method: 'POST' }, config);
@@ -140,12 +147,20 @@ export default function ComputePage() {
       const message = err instanceof Error ? err.message : 'Failed to stop instance.';
       setError(message);
     } finally {
-      setPendingInstanceID(null);
+      setPendingInstanceIDs((previous) => {
+        const next = new Set(previous);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
   const terminateInstance = async (id: string) => {
-    setPendingInstanceID(id);
+    setPendingInstanceIDs((previous) => {
+      const next = new Set(previous);
+      next.add(id);
+      return next;
+    });
     setError(null);
     try {
       await cloudApiRequest(`/instances/${id}`, { method: 'DELETE' }, config);
@@ -154,7 +169,11 @@ export default function ComputePage() {
       const message = err instanceof Error ? err.message : 'Failed to terminate instance.';
       setError(message);
     } finally {
-      setPendingInstanceID(null);
+      setPendingInstanceIDs((previous) => {
+        const next = new Set(previous);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -199,7 +218,8 @@ export default function ComputePage() {
             variant="ghost"
             size="sm"
             onClick={() => void stopInstance(item.id)}
-            loading={pendingInstanceID === item.id}
+            loading={pendingInstanceIDs.has(item.id)}
+            disabled={pendingInstanceIDs.has(item.id)}
           >
             Stop
           </Button>
@@ -207,7 +227,8 @@ export default function ComputePage() {
             variant="secondary"
             size="sm"
             onClick={() => void terminateInstance(item.id)}
-            disabled={pendingInstanceID === item.id}
+            loading={pendingInstanceIDs.has(item.id)}
+            disabled={pendingInstanceIDs.has(item.id)}
           >
             Delete
           </Button>

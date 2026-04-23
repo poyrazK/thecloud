@@ -34,6 +34,7 @@ export default function NetworkPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [newVpcName, setNewVpcName] = useState('');
   const [newVpcCIDR, setNewVpcCIDR] = useState('10.0.0.0/16');
+  const [pendingVpcId, setPendingVpcId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadVpcs = useCallback(async () => {
@@ -95,6 +96,7 @@ export default function NetworkPage() {
     if (!allowed) return;
 
     setError(null);
+    setPendingVpcId(id);
 
     try {
       await cloudApiRequest(`/vpcs/${id}`, { method: 'DELETE' }, config);
@@ -102,6 +104,8 @@ export default function NetworkPage() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to delete VPC.';
       setError(message);
+    } finally {
+      setPendingVpcId(null);
     }
   };
 
@@ -124,9 +128,22 @@ export default function NetworkPage() {
       header: 'Status', 
       cell: (item) => {
         const normalized = item.status.toLowerCase();
+        let indicator: 'running' | 'pending' | 'stopped' | 'error' = 'error';
+        if (normalized.includes('active') || normalized.includes('running')) {
+          indicator = 'running';
+        } else if (normalized.includes('pending') || normalized.includes('creating') || normalized.includes('provisioning')) {
+          indicator = 'pending';
+        } else if (
+          normalized.includes('stop') ||
+          normalized.includes('deleted') ||
+          normalized.includes('inactive') ||
+          normalized.includes('terminated')
+        ) {
+          indicator = 'stopped';
+        }
         return (
           <StatusIndicator
-            status={normalized.includes('active') ? 'running' : normalized.includes('pending') ? 'pending' : 'stopped'}
+            status={indicator}
             label={item.status.toLowerCase()}
           />
         );
@@ -143,7 +160,13 @@ export default function NetworkPage() {
     {
       header: 'Actions',
       cell: (item) => (
-        <Button variant="ghost" size="sm" onClick={() => void deleteVpc(item.id)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => void deleteVpc(item.id)}
+          loading={pendingVpcId === item.id}
+          disabled={pendingVpcId === item.id}
+        >
           Delete
         </Button>
       ),
@@ -201,7 +224,7 @@ export default function NetworkPage() {
             />
           </div>
           <div className={styles.field}>
-            <label>Create</label>
+            <span className={styles.panelMeta}>Action</span>
             <Button onClick={() => void createVpc()} loading={isSaving}>
               <Plus size={16} /> Create VPC
             </Button>

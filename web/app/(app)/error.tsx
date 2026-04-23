@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 
 export default function AppError({
@@ -9,12 +10,17 @@ export default function AppError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
+
   return (
     <div style={{ padding: '24px 0', display: 'grid', gap: '12px' }}>
       <h2 style={{ margin: 0 }}>Something went wrong in the console.</h2>
       <p style={{ margin: 0, color: 'var(--muted-foreground)' }}>
-        {error.message || 'Unexpected runtime error.'}
+        Something went wrong. Please try again.
       </p>
+      {error.digest ? <p style={{ margin: 0, color: 'var(--muted-foreground)' }}>Reference: {error.digest}</p> : null}
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
         <button
           type="button"

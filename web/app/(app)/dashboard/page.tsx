@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { Button } from '@/components/ui/Button';
 import { cloudApiRequest } from '@/lib/api';
+import { eventStatus } from '@/lib/events';
 import { useApiConfig } from '@/hooks/useApiConfig';
 import styles from '../pages.module.css';
 
@@ -31,8 +32,6 @@ interface ApiEvent {
   resource_type: string;
   created_at: string;
 }
-
-const HEALTHY_PREFIXES = ['INSTANCE_', 'VPC_', 'STORAGE_', 'DB_', 'CACHE_'];
 
 function relativeTime(value: string): string {
   const date = new Date(value);
@@ -111,9 +110,7 @@ export default function DashboardPage() {
       return 'n/a';
     }
 
-    const healthyEvents = events.filter((event) =>
-      HEALTHY_PREFIXES.some((prefix) => event.action?.toUpperCase().startsWith(prefix))
-    ).length;
+    const healthyEvents = events.filter((event) => eventStatus(event.action) === 'success').length;
     const ratio = Math.round((healthyEvents / events.length) * 100);
     return `${ratio}%`;
   }, [events]);
@@ -188,7 +185,7 @@ export default function DashboardPage() {
                 <div key={event.id} className={styles.activityItem}>
                   <div className={styles.activityTop}>
                     <span>{event.action}</span>
-                    <StatusIndicator status="success" label={relativeTime(event.created_at)} />
+                    <StatusIndicator status={eventStatus(event.action)} label={relativeTime(event.created_at)} />
                   </div>
                   <div className={styles.activityMeta}>
                     {event.resource_type}: {event.resource_id}

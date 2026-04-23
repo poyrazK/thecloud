@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { StatusIndicator } from '@/components/ui/StatusIndicator';
 import { Download, RefreshCw } from 'lucide-react';
 import { cloudApiRequest } from '@/lib/api';
+import { eventStatus } from '@/lib/events';
 import { useApiConfig } from '@/hooks/useApiConfig';
 import styles from '../pages.module.css';
 
@@ -41,14 +42,6 @@ function summarizeMetadata(metadata: unknown): string {
   } catch {
     return 'metadata unavailable';
   }
-}
-
-function eventStatus(action: string): 'success' | 'failure' {
-  const normalized = action.toLowerCase();
-  if (normalized.includes('fail') || normalized.includes('error') || normalized.includes('deny')) {
-    return 'failure';
-  }
-  return 'success';
 }
 
 export default function ActivityPage() {
@@ -90,17 +83,24 @@ export default function ActivityPage() {
       return;
     }
 
-    const header = ['id', 'action', 'resource_type', 'resource_id', 'created_at'];
+    const escapeCsv = (value: unknown) => {
+      const raw = String(value ?? '');
+      const guarded = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+      return `"${guarded.replace(/"/g, '""')}"`;
+    };
+
+    const header = ['id', 'action', 'resource_type', 'resource_id', 'metadata', 'created_at'];
     const rows = events.map((event) => [
       event.id,
       event.action,
       event.resource_type,
       event.resource_id,
+      summarizeMetadata(event.metadata),
       event.created_at,
     ]);
 
     const csv = [header, ...rows]
-      .map((line) => line.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(','))
+      .map((line) => line.map(escapeCsv).join(','))
       .join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -108,8 +108,10 @@ export default function ActivityPage() {
     const link = document.createElement('a');
     link.href = url;
     link.download = `thecloud-events-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   const columns: Column<ApiEvent>[] = [

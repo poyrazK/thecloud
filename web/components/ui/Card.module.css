@@ -29,3 +29,10 @@
   color: var(--muted-foreground);
   font-size: 0.83rem;
 }
+
+.action {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}

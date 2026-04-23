@@ -23,9 +23,15 @@ export const Button: React.FC<ButtonProps> = ({
     <button
       className={`${styles.button} ${styles[variant]} ${styles[size]} ${className || ""}`}
       disabled={isDisabled}
+      aria-busy={loading || undefined}
       {...props}
     >
       {loading ? <span className={styles.spinner} aria-hidden="true" /> : null}
+      {loading ? (
+        <span className={styles.srOnly} aria-live="polite">
+          Loading
+        </span>
+      ) : null}
       {children}
     </button>
   );
