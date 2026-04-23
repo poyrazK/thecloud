@@ -3,6 +3,7 @@ package platform
 import (
 	"context"
 	"crypto/rand"
+	"encoding/binary"
 	"math"
 	"math/big"
 	"time"
@@ -100,8 +101,16 @@ func randomInt64(max int64) (int64, error) {
 	if max <= 0 {
 		return 0, nil
 	}
-	// crypto/rand.Int() returns a random int64 up to max-1 directly,
-	// avoiding any uint64->int64 conversion that triggers G115.
+	// Fast path for common case max <= 2^31-1: use 4 random bytes and uint32 mod.
+	if max <= 1<<31-1 {
+		var b [4]byte
+		_, err := rand.Read(b[:])
+		if err != nil {
+			return 0, err
+		}
+		return int64(binary.LittleEndian.Uint32(b[:]) % uint32(max)), nil
+	}
+	// Slow path for large max values.
 	n, err := rand.Int(rand.Reader, big.NewInt(max))
 	return n.Int64(), err
 }

@@ -138,22 +138,13 @@ func (q *durableTaskQueue) Receive(ctx context.Context, queueName, groupName, co
 }
 
 func (q *durableTaskQueue) Ack(ctx context.Context, queueName, groupName, messageID string) error {
-	acked, err := q.client.XAck(ctx, queueName, groupName, messageID).Result()
+	pipe := q.client.Pipeline()
+	pipe.XAck(ctx, queueName, groupName, messageID)
+	pipe.XDel(ctx, queueName, messageID)
+	_, err := pipe.Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("ack %s/%s/%s: %w", queueName, groupName, messageID, err)
 	}
-	if acked == 0 {
-		return fmt.Errorf("ack %s/%s/%s: message not pending", queueName, groupName, messageID)
-	}
-
-	deleted, delErr := q.client.XDel(ctx, queueName, messageID).Result()
-	if delErr != nil {
-		return fmt.Errorf("ack xdel %s/%s: %w", queueName, messageID, delErr)
-	}
-	if deleted == 0 {
-		return fmt.Errorf("ack xdel %s/%s: no message deleted", queueName, messageID)
-	}
-
 	return nil
 }
 

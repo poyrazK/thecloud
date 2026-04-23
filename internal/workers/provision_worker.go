@@ -21,8 +21,8 @@ const (
 	provisionGroup      = "provision_workers"
 	provisionMaxWorkers = 20
 	// How long a message can sit in PEL before another consumer reclaims it.
-	// Must be longer than provisionStaleThreshold (15m) to avoid premature reclaim.
-	provisionReclaimMs = 20 * 60 * 1000 // 20 minutes
+	// Must be shorter than provisionStaleThreshold (15m) to reclaim promptly.
+	provisionReclaimMs = 1 * 60 * 1000 // 1 minute
 	provisionReclaimN  = 10
 	// Stale threshold for idempotency ledger: if a "running" entry is older
 	// than this, it is considered abandoned and can be reclaimed.
