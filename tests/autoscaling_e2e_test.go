@@ -103,7 +103,7 @@ func TestAutoScalingE2E(t *testing.T) {
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 
 		// Wait for scaling group to be fully deleted from database
-		timeout := 15 * time.Second
+		timeout := 60 * time.Second
 		start := time.Now()
 		for time.Since(start) < timeout {
 			resp = getRequest(t, client, fmt.Sprintf("%s/autoscaling/groups/%s", testutil.TestBaseURL, groupID), token)
@@ -115,7 +115,7 @@ func TestAutoScalingE2E(t *testing.T) {
 		}
 
 		// Delete VPC with retry
-		timeout = 30 * time.Second
+		timeout = 45 * time.Second
 		start = time.Now()
 		for time.Since(start) < timeout {
 			resp = deleteRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token)

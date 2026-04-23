@@ -240,20 +240,30 @@ func (r *ResilientCompute) DeleteNetwork(ctx context.Context, id string) error {
 
 // ---------- Volume Attachment ----------
 
-func (r *ResilientCompute) AttachVolume(ctx context.Context, id string, volumePath string) (string, error) {
-	var devPath string
+func (r *ResilientCompute) AttachVolume(ctx context.Context, id string, volumePath string) (string, string, error) {
+	var devPath, containerID string
 	err := r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
 		var e error
-		devPath, e = r.inner.AttachVolume(ctx, id, volumePath)
+		devPath, containerID, e = r.inner.AttachVolume(ctx, id, volumePath)
 		return e
 	})
-	return devPath, err
+	if err != nil {
+		return "", "", err
+	}
+	return devPath, containerID, nil
 }
 
-func (r *ResilientCompute) DetachVolume(ctx context.Context, id string, volumePath string) error {
-	return r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
-		return r.inner.DetachVolume(ctx, id, volumePath)
+func (r *ResilientCompute) DetachVolume(ctx context.Context, id string, volumePath string) (string, error) {
+	var containerID string
+	err := r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
+		var e error
+		containerID, e = r.inner.DetachVolume(ctx, id, volumePath)
+		return e
 	})
+	if err != nil {
+		return "", err
+	}
+	return containerID, nil
 }
 
 // ---------- Health ----------

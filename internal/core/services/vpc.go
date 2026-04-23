@@ -23,11 +23,12 @@ type VpcServiceParams struct {
 	LBRepo         ports.LBRepository
 	PeeringRepo    ports.VPCPeeringRepository
 	RouteTableRepo ports.RouteTableRepository
+	AsRepo         ports.AutoScalingRepository
 	RBACSvc        ports.RBACService
 	Network        ports.NetworkBackend
 	AuditSvc       ports.AuditService
 	Logger         *slog.Logger
-	DefaultCIDR     string
+	DefaultCIDR    string
 }
 
 // VpcService handles the lifecycle of Virtual Private Clouds (VPCs),
@@ -37,11 +38,12 @@ type VpcService struct {
 	lbRepo         ports.LBRepository
 	peeringRepo    ports.VPCPeeringRepository
 	routeTableRepo ports.RouteTableRepository
+	asRepo         ports.AutoScalingRepository
 	rbacSvc        ports.RBACService
 	network        ports.NetworkBackend
 	auditSvc       ports.AuditService
 	logger         *slog.Logger
-	defaultCIDR     string
+	defaultCIDR    string
 }
 
 // NewVpcService creates a new instance of VpcService.
@@ -60,11 +62,12 @@ func NewVpcService(params VpcServiceParams) *VpcService {
 		lbRepo:         params.LBRepo,
 		peeringRepo:    params.PeeringRepo,
 		routeTableRepo: params.RouteTableRepo,
+		asRepo:         params.AsRepo,
 		rbacSvc:        params.RBACSvc,
 		network:        params.Network,
 		auditSvc:       params.AuditSvc,
 		logger:         logger,
-		defaultCIDR:     defaultCIDR,
+		defaultCIDR:    defaultCIDR,
 	}
 }
 
@@ -254,6 +257,14 @@ func (s *VpcService) checkDeleteDependencies(ctx context.Context, vpcID uuid.UUI
 					return errors.New(errors.Conflict, "cannot delete VPC: active peering connections exist")
 				}
 			}
+		}
+	}
+
+	// Check for scaling groups linked to this VPC
+	if s.asRepo != nil {
+		count, asErr := s.asRepo.CountGroupsByVPC(ctx, vpcID)
+		if asErr == nil && count > 0 {
+			return errors.New(errors.Conflict, "cannot delete VPC: scaling groups still exist")
 		}
 	}
 

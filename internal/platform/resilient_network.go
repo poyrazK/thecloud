@@ -193,6 +193,18 @@ func (r *ResilientNetwork) SetVethIP(ctx context.Context, vethEnd, ip, cidr stri
 
 // ---------- Health ----------
 
+func (r *ResilientNetwork) SetupNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR, egressIP string) error {
+	return r.callProtected(ctx, func(ctx context.Context) error {
+		return r.inner.SetupNATForSubnet(ctx, bridge, natVethEnd, subnetCIDR, egressIP)
+	})
+}
+
+func (r *ResilientNetwork) RemoveNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR, egressIP string) error {
+	return r.callProtected(ctx, func(ctx context.Context) error {
+		return r.inner.RemoveNATForSubnet(ctx, bridge, natVethEnd, subnetCIDR, egressIP)
+	})
+}
+
 func (r *ResilientNetwork) Ping(ctx context.Context) error {
 	return r.cb.Execute(func() error {
 		ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)

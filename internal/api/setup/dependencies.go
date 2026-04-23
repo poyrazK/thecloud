@@ -201,6 +201,7 @@ type Workers struct {
 	Healing           Runner
 	DatabaseFailover  Runner
 	Log               Runner
+	FunctionSchedule  Runner
 
 	// Parallel consumer workers (safe to run on multiple nodes)
 	Pipeline  *workers.PipelineWorker
@@ -238,7 +239,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	eventSvc := services.NewEventService(services.EventServiceParams{Repo: c.Repos.Event, RBACSvc: rbacSvc, Publisher: wsHub, Logger: c.Logger})
 
 	// 3. Cloud Infrastructure Services (VPC, Subnet, Instance, Volume, SG, LB)
-	vpcSvc := services.NewVpcService(services.VpcServiceParams{Repo: c.Repos.Vpc, LBRepo: c.Repos.LB, PeeringRepo: c.Repos.VPCPeering, RBACSvc: rbacSvc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger, DefaultCIDR: c.Config.DefaultVPCCIDR})
+	vpcSvc := services.NewVpcService(services.VpcServiceParams{Repo: c.Repos.Vpc, LBRepo: c.Repos.LB, PeeringRepo: c.Repos.VPCPeering, AsRepo: c.Repos.AutoScaling, RBACSvc: rbacSvc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger, DefaultCIDR: c.Config.DefaultVPCCIDR})
 	subnetSvc := services.NewSubnetService(services.SubnetServiceParams{Repo: c.Repos.Subnet, RBACSvc: rbacSvc, VpcRepo: c.Repos.Vpc, AuditSvc: auditSvc, Logger: c.Logger})
 	volumeSvc := services.NewVolumeService(services.VolumeServiceParams{Repo: c.Repos.Volume, RBACSvc: rbacSvc, Storage: c.Storage, EventSvc: eventSvc, AuditSvc: auditSvc, Logger: c.Logger})
 
@@ -247,7 +248,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to init powerdns backend: %w", err)
 	}
-<// Wrap DNS backend with resilience (circuit breaker + timeout).
+	// Wrap DNS backend with resilience (circuit breaker + timeout).
 	resilientDNS := platform.NewResilientDNS(pdnsBackend, c.Logger, platform.ResilientDNSOpts{})
 	dnsSvc := services.NewDNSService(services.DNSServiceParams{
 		Repo: c.Repos.DNS, RBAC: rbacSvc, Backend: resilientDNS, VpcRepo: c.Repos.Vpc,
@@ -357,7 +358,7 @@ svcs := &Services{WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Tenant: 
 
 	lifecycleWorker := workers.NewLifecycleWorker(c.Repos.Lifecycle, storageSvc, c.Repos.Storage, c.Logger)
 	clusterReconciler := workers.NewClusterReconciler(c.Repos.Cluster, clusterProvisioner, c.Logger)
-	dbFailoverWorker := workers.NewDatabaseFailoverWorker(databaseSvc, c.Repos.Database, c.Logger)
+	dbFailoverWorker := workers.NewDatabaseFailoverWorker(databaseSvc, c.Repos.Database, c.Compute, c.Logger)
 	logWorker := workers.NewLogWorker(logSvc, c.Logger)
 
 	// For replicaMonitor, we must convert nil *ReplicaMonitor to nil Runner to avoid
