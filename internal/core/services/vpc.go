@@ -199,25 +199,20 @@ func (s *VpcService) ListVPCs(ctx context.Context) ([]*domain.VPC, error) {
 
 // DeleteVPC removes a VPC, its associated OVS bridge, and all related database records.
 func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
-	s.logger.Info("DeleteVPC called", "idOrName", idOrName)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcDelete, idOrName); err != nil {
-		s.logger.Info("DeleteVPC: authorize failed", "idOrName", idOrName, "error", err)
 		return err
 	}
 
 	vpc, err := s.GetVPC(ctx, idOrName)
 	if err != nil {
-		s.logger.Info("DeleteVPC: GetVPC failed", "idOrName", idOrName, "error", err)
 		return err
 	}
 
-	s.logger.Info("DeleteVPC: starting dependency check", "vpcID", vpc.ID)
 	// 1. Check for dependent resources
 	if err := s.checkDeleteDependencies(ctx, vpc.ID); err != nil {
-		s.logger.Info("DeleteVPC: dependency check failed", "vpcID", vpc.ID, "error", err)
 		return err
 	}
 
@@ -245,50 +240,23 @@ func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
 func (s *VpcService) checkDeleteDependencies(ctx context.Context, vpcID uuid.UUID) error {
 	// Check for Load Balancers
 	lbs, err := s.lbRepo.ListAll(ctx)
-	if err != nil {
-		return fmt.Errorf("check load balancers: %w", err)
-	}
-	for _, lb := range lbs {
-		if lb == nil {
-			s.logger.Warn("checkDeleteDependencies: nil LB in list, skipping")
-			continue
+	if err == nil {
+		for _, lb := range lbs {
+			if lb.VpcID == vpcID && lb.Status != domain.LBStatusDeleted {
+				return errors.New(errors.Conflict, "cannot delete VPC: load balancers still exist")
+			}
 		}
-		if lb.VpcID != vpcID {
-			continue
-		}
-		// Allow deletion if LB is being cleaned up (DELETED status).
-		// The LBWorker runs every 5s to delete DELETED LBs from DB.
-		// If LBWorker isn't running (ROLE=api), the LB record stays in DELETED
-		// but won't block VPC deletion since we skip DELETED status here.
-		if lb.Status == domain.LBStatusDeleted {
-			continue
-		}
-		s.logger.Info("checkDeleteDependencies: blocking VPC delete due to LB", "lb_id", lb.ID, "lb_status", lb.Status)
-		return errors.New(errors.Conflict, "cannot delete VPC: load balancers still exist")
 	}
 
 	// Check for active VPC peering connections
 	if s.peeringRepo != nil {
 		peerings, peerErr := s.peeringRepo.ListByVPC(ctx, vpcID)
-		if peerErr != nil {
-			return fmt.Errorf("check VPC peerings: %w", peerErr)
-		}
-		for _, p := range peerings {
-			if p.Status == domain.PeeringStatusActive || p.Status == domain.PeeringStatusPendingAcceptance {
-				return errors.New(errors.Conflict, "cannot delete VPC: active peering connections exist")
+		if peerErr == nil {
+			for _, p := range peerings {
+				if p.Status == domain.PeeringStatusActive || p.Status == domain.PeeringStatusPendingAcceptance {
+					return errors.New(errors.Conflict, "cannot delete VPC: active peering connections exist")
+				}
 			}
-		}
-	}
-
-	// Check for scaling groups linked to this VPC
-	if s.asRepo != nil {
-		count, asErr := s.asRepo.CountGroupsByVPC(ctx, vpcID)
-		if asErr != nil {
-			s.logger.Error("checkDeleteDependencies: scaling groups count failed", "error", asErr)
-			return fmt.Errorf("check scaling groups: %w", asErr)
-		}
-		if count > 0 {
-			return errors.New(errors.Conflict, "cannot delete VPC: scaling groups still exist")
 		}
 	}
 

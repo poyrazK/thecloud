@@ -103,9 +103,7 @@ func TestAutoScalingE2E(t *testing.T) {
 		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 
 		// Wait for scaling group to be fully deleted from database
-		// If AutoScalingWorker is not running (ROLE=api), group stays DELETING forever
-		// and checkDeleteDependencies will block VPC deletion with "scaling groups still exist"
-		timeout := 60 * time.Second
+		timeout := 15 * time.Second
 		start := time.Now()
 		for time.Since(start) < timeout {
 			resp = getRequest(t, client, fmt.Sprintf("%s/autoscaling/groups/%s", testutil.TestBaseURL, groupID), token)
@@ -113,20 +111,11 @@ func TestAutoScalingE2E(t *testing.T) {
 			if resp.StatusCode == http.StatusNotFound {
 				break
 			}
-			// If group is stuck in DELETING (worker not running), force cleanup by checking status
-			if resp.StatusCode == http.StatusOK {
-				var res struct{ Data struct{ Status string } }
-				if json.NewDecoder(resp.Body).Decode(&res) == nil && res.Data.Status == "DELETING" {
-					// Worker not running - group stuck in DELETING, manually clean up
-					// Just proceed and let VPC deletion try (it will fail on count check)
-					break
-				}
-			}
 			time.Sleep(1 * time.Second)
 		}
 
 		// Delete VPC with retry
-		timeout = 180 * time.Second
+		timeout = 30 * time.Second
 		start = time.Now()
 		for time.Since(start) < timeout {
 			resp = deleteRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token)
@@ -134,7 +123,6 @@ func TestAutoScalingE2E(t *testing.T) {
 			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
 				return
 			}
-			t.Logf("VPC delete status %d attempt %d", resp.StatusCode, int(time.Since(start)/2)+1)
 			time.Sleep(2 * time.Second)
 		}
 		t.Errorf("Timeout waiting for VPC %s to be deleted", vpcID)

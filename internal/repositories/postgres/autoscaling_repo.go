@@ -139,8 +139,7 @@ func (r *AutoScalingRepo) scanScalingGroups(rows pgx.Rows) ([]*domain.ScalingGro
 func (r *AutoScalingRepo) CountGroupsByVPC(ctx context.Context, vpcID uuid.UUID) (int, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	var count int
-	// Only count ACTIVE/UPDATING groups - DELETING groups are being cleaned up and will be gone soon
-	err := r.db.QueryRow(ctx, "SELECT COUNT(*) FROM scaling_groups WHERE vpc_id = $1 AND user_id = $2 AND status != $3", vpcID, userID, domain.ScalingGroupStatusDeleting).Scan(&count)
+	err := r.db.QueryRow(ctx, "SELECT COUNT(*) FROM scaling_groups WHERE vpc_id = $1 AND user_id = $2", vpcID, userID).Scan(&count)
 	return count, err
 }
 
