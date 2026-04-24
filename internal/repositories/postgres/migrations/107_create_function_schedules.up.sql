@@ -33,4 +33,5 @@ CREATE TABLE IF NOT EXISTS function_schedule_runs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_function_schedule_runs_schedule_id ON function_schedule_runs(schedule_id);
+CREATE INDEX IF NOT EXISTS idx_function_schedule_runs_started_at ON function_schedule_runs(started_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_function_schedule_runs_idempotent ON function_schedule_runs(schedule_id, started_at);

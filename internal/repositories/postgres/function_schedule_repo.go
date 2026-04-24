@@ -187,6 +187,7 @@ func (r *PostgresFunctionScheduleRepository) ReapStaleClaims(ctx context.Context
 		WHERE claimed_until IS NOT NULL
 		  AND claimed_until < NOW()
 		  AND next_run_at > NOW() + INTERVAL '1 day'
+		  AND last_run_at IS NOT NULL
 		RETURNING id
 	`
 	rows, err := tx.Query(ctx, query)

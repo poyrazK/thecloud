@@ -12,9 +12,8 @@ import (
 type FunctionScheduleStatus string
 
 const (
-	FunctionScheduleStatusActive  FunctionScheduleStatus = "ACTIVE"
-	FunctionScheduleStatusPaused  FunctionScheduleStatus = "PAUSED"
-	FunctionScheduleStatusDeleted FunctionScheduleStatus = "DELETED"
+	FunctionScheduleStatusActive FunctionScheduleStatus = "ACTIVE"
+	FunctionScheduleStatusPaused FunctionScheduleStatus = "PAUSED"
 )
 
 // FunctionSchedule represents a scheduled invocation of a serverless function.
