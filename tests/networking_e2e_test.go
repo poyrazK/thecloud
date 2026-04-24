@@ -168,10 +168,8 @@ func TestNetworkingE2E(t *testing.T) {
 			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
 				return
 			}
-			// Log non-retryable errors immediately
-			if resp.StatusCode != http.StatusConflict && resp.StatusCode != http.StatusInternalServerError {
-				t.Logf("VPC delete unexpected status %d on attempt %d", resp.StatusCode, int(time.Since(start)/2)+1)
-			}
+			// Log status on each retry for diagnostics
+			t.Logf("VPC delete status %d attempt %d", resp.StatusCode, int(time.Since(start)/2)+1)
 			time.Sleep(2 * time.Second)
 		}
 		t.Errorf("Timeout waiting for VPC %s to be deleted", vpcID)
