@@ -59,10 +59,14 @@ type NetworkBackend interface {
 	// SetVethIP assigns an IP address to a virtual ethernet interface.
 	SetVethIP(ctx context.Context, vethEnd, ip, cidr string) error
 
-	// NAT Gateway Management (for private subnet internet access via SNAT)
+// NAT for subnet outbound traffic (used by NAT Gateway)
 
-	// SetupNATForSubnet configures iptables SNAT rules for a subnet's internet access.
-	SetupNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR, publicIP string) error
+// SetupNATForSubnet configures iptables SNAT rules for outbound traffic from a subnet.
+// natVethEnd: the host-side veth endpoint connected to the NAT gateway
+// subnetCIDR: the CIDR block of the subnet being NATed
+// egressIP: the public IP to SNAT traffic to
+SetupNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR, egressIP string) error
+
 	// RemoveNATForSubnet removes iptables SNAT rules for a subnet.
 	RemoveNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR string) error
 
