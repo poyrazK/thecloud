@@ -240,22 +240,24 @@ func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
 func (s *VpcService) checkDeleteDependencies(ctx context.Context, vpcID uuid.UUID) error {
 	// Check for Load Balancers
 	lbs, err := s.lbRepo.ListAll(ctx)
-	if err == nil {
-		for _, lb := range lbs {
-			if lb.VpcID == vpcID && lb.Status != domain.LBStatusDeleted {
-				return errors.New(errors.Conflict, "cannot delete VPC: load balancers still exist")
-			}
+	if err != nil {
+		return fmt.Errorf("check load balancers: %w", err)
+	}
+	for _, lb := range lbs {
+		if lb.VpcID == vpcID && lb.Status != domain.LBStatusDeleted {
+			return errors.New(errors.Conflict, "cannot delete VPC: load balancers still exist")
 		}
 	}
 
 	// Check for active VPC peering connections
 	if s.peeringRepo != nil {
 		peerings, peerErr := s.peeringRepo.ListByVPC(ctx, vpcID)
-		if peerErr == nil {
-			for _, p := range peerings {
-				if p.Status == domain.PeeringStatusActive || p.Status == domain.PeeringStatusPendingAcceptance {
-					return errors.New(errors.Conflict, "cannot delete VPC: active peering connections exist")
-				}
+		if peerErr != nil {
+			return fmt.Errorf("check VPC peerings: %w", peerErr)
+		}
+		for _, p := range peerings {
+			if p.Status == domain.PeeringStatusActive || p.Status == domain.PeeringStatusPendingAcceptance {
+				return errors.New(errors.Conflict, "cannot delete VPC: active peering connections exist")
 			}
 		}
 	}
@@ -263,7 +265,10 @@ func (s *VpcService) checkDeleteDependencies(ctx context.Context, vpcID uuid.UUI
 	// Check for scaling groups linked to this VPC
 	if s.asRepo != nil {
 		count, asErr := s.asRepo.CountGroupsByVPC(ctx, vpcID)
-		if asErr == nil && count > 0 {
+		if asErr != nil {
+			return fmt.Errorf("check scaling groups: %w", asErr)
+		}
+		if count > 0 {
 			return errors.New(errors.Conflict, "cannot delete VPC: scaling groups still exist")
 		}
 	}
