@@ -19,27 +19,29 @@ import (
 
 // VpcServiceParams defines dependencies for VpcService creation.
 type VpcServiceParams struct {
-	Repo        ports.VpcRepository
-	LBRepo      ports.LBRepository
-	PeeringRepo ports.VPCPeeringRepository
-	RBACSvc     ports.RBACService
-	Network     ports.NetworkBackend
-	AuditSvc    ports.AuditService
-	Logger      *slog.Logger
-	DefaultCIDR string
+	Repo           ports.VpcRepository
+	LBRepo         ports.LBRepository
+	PeeringRepo    ports.VPCPeeringRepository
+	RouteTableRepo ports.RouteTableRepository
+	RBACSvc        ports.RBACService
+	Network        ports.NetworkBackend
+	AuditSvc       ports.AuditService
+	Logger         *slog.Logger
+	DefaultCIDR     string
 }
 
 // VpcService handles the lifecycle of Virtual Private Clouds (VPCs),
 // including network isolation through OVS bridges and backend persistence.
 type VpcService struct {
-	repo        ports.VpcRepository
-	lbRepo      ports.LBRepository
-	peeringRepo ports.VPCPeeringRepository
-	rbacSvc     ports.RBACService
-	network     ports.NetworkBackend
-	auditSvc    ports.AuditService
-	logger      *slog.Logger
-	defaultCIDR string
+	repo           ports.VpcRepository
+	lbRepo         ports.LBRepository
+	peeringRepo    ports.VPCPeeringRepository
+	routeTableRepo ports.RouteTableRepository
+	rbacSvc        ports.RBACService
+	network        ports.NetworkBackend
+	auditSvc       ports.AuditService
+	logger         *slog.Logger
+	defaultCIDR     string
 }
 
 // NewVpcService creates a new instance of VpcService.
@@ -54,14 +56,15 @@ func NewVpcService(params VpcServiceParams) *VpcService {
 		logger = slog.Default()
 	}
 	return &VpcService{
-		repo:        params.Repo,
-		lbRepo:      params.LBRepo,
-		peeringRepo: params.PeeringRepo,
-		rbacSvc:     params.RBACSvc,
-		network:     params.Network,
-		auditSvc:    params.AuditSvc,
-		logger:      logger,
-		defaultCIDR: defaultCIDR,
+		repo:           params.Repo,
+		lbRepo:         params.LBRepo,
+		peeringRepo:    params.PeeringRepo,
+		routeTableRepo: params.RouteTableRepo,
+		rbacSvc:        params.RBACSvc,
+		network:        params.Network,
+		auditSvc:       params.AuditSvc,
+		logger:         logger,
+		defaultCIDR:     defaultCIDR,
 	}
 }
 
@@ -126,6 +129,30 @@ func (s *VpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*do
 			s.logger.Error("failed to rollback bridge", "bridge", bridgeName, "error", rbErr)
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to create VPC in database", err)
+	}
+
+	// 5. Create main route table with local route
+	if s.routeTableRepo != nil {
+		mainRT := &domain.RouteTable{
+			ID:        uuid.New(),
+			VPCID:     vpc.ID,
+			Name:      "main",
+			IsMain:    true,
+			Routes:    []domain.Route{},
+		}
+		mainRT.Routes = append(mainRT.Routes, domain.Route{
+			ID:              uuid.New(),
+			RouteTableID:    mainRT.ID,
+			DestinationCIDR: vpc.CIDRBlock,
+			TargetType:     domain.RouteTargetLocal,
+		})
+		if err := s.routeTableRepo.Create(ctx, mainRT); err != nil {
+			// Rollback: delete VPC
+			s.logger.Error("failed to create main route table, rolling back VPC", "error", err)
+			_ = s.repo.Delete(ctx, vpc.ID)
+			_ = s.network.DeleteBridge(ctx, bridgeName)
+			return nil, errors.Wrap(errors.Internal, "failed to create main route table", err)
+		}
 	}
 
 	if err := s.auditSvc.Log(ctx, vpc.UserID, "vpc.create", "vpc", vpc.ID.String(), map[string]interface{}{
