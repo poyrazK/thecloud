@@ -137,6 +137,18 @@ func TestNetworkingE2E(t *testing.T) {
 		_ = resp.Body.Close()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
+		// Wait for LB to be fully removed from DB (worker runs every 5s)
+		lbGoneTimeout := 30 * time.Second
+		lbGoneStart := time.Now()
+		for time.Since(lbGoneStart) < lbGoneTimeout {
+			resp = getRequest(t, client, fmt.Sprintf(lbRoute, testutil.TestBaseURL, lbID), token)
+			_ = resp.Body.Close()
+			if resp.StatusCode == http.StatusNotFound {
+				break
+			}
+			time.Sleep(2 * time.Second)
+		}
+
 		// Delete Security Group
 		resp = deleteRequest(t, client, fmt.Sprintf(sgRoute, testutil.TestBaseURL, sgID), token)
 		_ = resp.Body.Close()
@@ -147,7 +159,7 @@ func TestNetworkingE2E(t *testing.T) {
 		_ = resp.Body.Close()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-		// Delete VPC with retry to account for asynchronous cleanup of resources like LBs
+		// Delete VPC with retry
 		timeout := 120 * time.Second
 		start := time.Now()
 		for time.Since(start) < timeout {
