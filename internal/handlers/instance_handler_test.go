@@ -485,3 +485,106 @@ func TestInstanceHandlerUpdateMetadata(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
+
+func TestInstanceHandlerResizeInstance(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		mockSvc, handler, r := setupInstanceHandlerTest(t)
+		defer mockSvc.AssertExpectations(t)
+		r.POST(instancesPath+"/:id/resize", handler.ResizeInstance)
+
+		id := uuid.New()
+		mockSvc.On("ResizeInstance", mock.Anything, id.String(), "basic-4").Return(nil).Once()
+
+		body := `{"instance_type":"basic-4"}`
+		req := httptest.NewRequest(http.MethodPost, instancesPath+"/"+id.String()+"/resize", strings.NewReader(body))
+		req.Header.Set(contentType, applicationJSON)
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("InvalidID", func(t *testing.T) {
+		mockSvc, handler, r := setupInstanceHandlerTest(t)
+		defer mockSvc.AssertExpectations(t)
+		r.POST(instancesPath+"/:id/resize", handler.ResizeInstance)
+
+		req := httptest.NewRequest(http.MethodPost, instancesPath+"/not-a-uuid/resize", strings.NewReader(`{"instance_type":"basic-4"}`))
+		req.Header.Set(contentType, applicationJSON)
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		mockSvc.AssertNotCalled(t, "ResizeInstance", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("InvalidBody", func(t *testing.T) {
+		mockSvc, handler, r := setupInstanceHandlerTest(t)
+		defer mockSvc.AssertExpectations(t)
+		r.POST(instancesPath+"/:id/resize", handler.ResizeInstance)
+
+		id := uuid.New()
+		req := httptest.NewRequest(http.MethodPost, instancesPath+"/"+id.String()+"/resize", strings.NewReader(`{invalid json}`))
+		req.Header.Set(contentType, applicationJSON)
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		mockSvc.AssertNotCalled(t, "ResizeInstance", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("EmptyInstanceType", func(t *testing.T) {
+		mockSvc, handler, r := setupInstanceHandlerTest(t)
+		defer mockSvc.AssertExpectations(t)
+		r.POST(instancesPath+"/:id/resize", handler.ResizeInstance)
+
+		id := uuid.New()
+		req := httptest.NewRequest(http.MethodPost, instancesPath+"/"+id.String()+"/resize", strings.NewReader(`{"instance_type":""}`))
+		req.Header.Set(contentType, applicationJSON)
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		mockSvc.AssertNotCalled(t, "ResizeInstance", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("NotFound", func(t *testing.T) {
+		mockSvc, handler, r := setupInstanceHandlerTest(t)
+		defer mockSvc.AssertExpectations(t)
+		r.POST(instancesPath+"/:id/resize", handler.ResizeInstance)
+
+		id := uuid.New()
+		mockSvc.On("ResizeInstance", mock.Anything, id.String(), "basic-4").Return(errors.New(errors.NotFound, "instance not found")).Once()
+
+		body := `{"instance_type":"basic-4"}`
+		req := httptest.NewRequest(http.MethodPost, instancesPath+"/"+id.String()+"/resize", strings.NewReader(body))
+		req.Header.Set(contentType, applicationJSON)
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusNotFound, w.Code)
+	})
+
+	t.Run("QuotaExceeded", func(t *testing.T) {
+		mockSvc, handler, r := setupInstanceHandlerTest(t)
+		defer mockSvc.AssertExpectations(t)
+		r.POST(instancesPath+"/:id/resize", handler.ResizeInstance)
+
+		id := uuid.New()
+		mockSvc.On("ResizeInstance", mock.Anything, id.String(), "basic-4").Return(errors.New(errors.Forbidden, "insufficient quota")).Once()
+
+		body := `{"instance_type":"basic-4"}`
+		req := httptest.NewRequest(http.MethodPost, instancesPath+"/"+id.String()+"/resize", strings.NewReader(body))
+		req.Header.Set(contentType, applicationJSON)
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusForbidden, w.Code)
+	})
+}
