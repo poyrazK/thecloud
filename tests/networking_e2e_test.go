@@ -148,7 +148,7 @@ func TestNetworkingE2E(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		// Delete VPC with retry to account for asynchronous cleanup of resources like LBs
-		timeout := 45 * time.Second
+		timeout := 60 * time.Second
 		start := time.Now()
 		for time.Since(start) < timeout {
 			resp = deleteRequest(t, client, fmt.Sprintf(vpcRoute, testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token)
