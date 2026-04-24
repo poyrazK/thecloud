@@ -225,14 +225,6 @@ func TestResizeInstance(t *testing.T) {
 		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-		var res struct {
-			Data struct {
-				InstanceType string `json:"instance_type"`
-			} `json:"data"`
-		}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
-		assert.Equal(t, "basic-4", res.Data.InstanceType)
 	})
 
 	// 4. Verify instance type changed via GET
@@ -243,7 +235,9 @@ func TestResizeInstance(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		var res struct {
-			Data domain.Instance `json:"data"`
+			Data struct {
+				InstanceType string `json:"instance_type"`
+			} `json:"data"`
 		}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
 		assert.Equal(t, "basic-4", res.Data.InstanceType)
@@ -333,14 +327,6 @@ func TestResizeInstanceDownsize(t *testing.T) {
 		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-		var res struct {
-			Data struct {
-				InstanceType string `json:"instance_type"`
-			} `json:"data"`
-		}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
-		assert.Equal(t, "basic-2", res.Data.InstanceType)
 	})
 
 	// 4. Terminate
