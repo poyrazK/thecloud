@@ -246,3 +246,40 @@ func (a *OvsAdapter) SetVethIP(ctx context.Context, vethEnd, ip, cidr string) er
 	}
 	return nil
 }
+
+func (a *OvsAdapter) SetupNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR, publicIP string) error {
+	// Setup iptables SNAT for outbound traffic from subnet
+	// Create veth pair for NAT
+	if err := a.CreateVethPair(ctx, natVethEnd, natVethEnd+"-c"); err != nil {
+		a.logger.Warn("veth pair may already exist", "error", err)
+	}
+	if err := a.AttachVethToBridge(ctx, bridge, natVethEnd); err != nil {
+		return errors.Wrap(errors.Internal, "failed to attach NAT veth to bridge", err)
+	}
+
+	// Enable IP forwarding and setup NAT rules via iptables
+	cmd := a.exec.CommandContext(ctx, "iptables", "-t", "nat", "-A", "POSTROUTING",
+		"-s", subnetCIDR, "!", "-d", "10.0.0.0/8", "-j", "SNAT", "--to-source", publicIP)
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(errors.Internal, "failed to setup SNAT rule", err)
+	}
+
+	a.logger.Info("NAT configured for subnet", "subnet", subnetCIDR, "public_ip", publicIP)
+	return nil
+}
+
+func (a *OvsAdapter) RemoveNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR string) error {
+	// Remove NAT rules
+	cmd := a.exec.CommandContext(ctx, "iptables", "-t", "nat", "-D", "POSTROUTING",
+		"-s", subnetCIDR, "!", "-d", "10.0.0.0/8", "-j", "SNAT")
+	if err := cmd.Run(); err != nil {
+		a.logger.Warn("failed to remove SNAT rule (may not exist)", "error", err)
+	}
+
+	// Remove NAT device from bridge and delete veth pair
+	_ = a.DeletePort(ctx, bridge, natVethEnd)
+	_ = a.DeleteVethPair(ctx, natVethEnd)
+
+	a.logger.Info("NAT removed for subnet", "subnet", subnetCIDR)
+	return nil
+}

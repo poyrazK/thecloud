@@ -59,6 +59,13 @@ type NetworkBackend interface {
 	// SetVethIP assigns an IP address to a virtual ethernet interface.
 	SetVethIP(ctx context.Context, vethEnd, ip, cidr string) error
 
+	// NAT Gateway Management (for private subnet internet access via SNAT)
+
+	// SetupNATForSubnet configures iptables SNAT rules for a subnet's internet access.
+	SetupNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR, publicIP string) error
+	// RemoveNATForSubnet removes iptables SNAT rules for a subnet.
+	RemoveNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR string) error
+
 	// Health & Type
 
 	// Ping verifies the connectivity and responsiveness of the networking service.
