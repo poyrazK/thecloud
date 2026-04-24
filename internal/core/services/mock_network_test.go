@@ -334,6 +334,181 @@ func (m *MockNetworkBackend) SetVethIP(ctx context.Context, vethEnd, ip, cidr st
 func (m *MockNetworkBackend) Ping(ctx context.Context) error {
 	return m.Called(ctx).Error(0)
 }
+func (m *MockNetworkBackend) SetupNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR, egressIP string) error {
+	return m.Called(ctx, bridge, natVethEnd, subnetCIDR, egressIP).Error(0)
+}
+func (m *MockNetworkBackend) RemoveNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR string) error {
+	return m.Called(ctx, bridge, natVethEnd, subnetCIDR).Error(0)
+}
 func (m *MockNetworkBackend) Type() string {
 	return m.Called().String(0)
+}
+
+// MockIGWRepo
+type MockIGWRepo struct{ mock.Mock }
+
+func (m *MockIGWRepo) Create(ctx context.Context, igw *domain.InternetGateway) error {
+	return m.Called(ctx, igw).Error(0)
+}
+func (m *MockIGWRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.InternetGateway, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.InternetGateway), args.Error(1)
+}
+func (m *MockIGWRepo) GetByVPC(ctx context.Context, vpcID uuid.UUID) (*domain.InternetGateway, error) {
+	args := m.Called(ctx, vpcID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.InternetGateway), args.Error(1)
+}
+func (m *MockIGWRepo) Update(ctx context.Context, igw *domain.InternetGateway) error {
+	return m.Called(ctx, igw).Error(0)
+}
+func (m *MockIGWRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockIGWRepo) ListAll(ctx context.Context) ([]*domain.InternetGateway, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.InternetGateway), args.Error(1)
+}
+
+// MockRTRepo
+type MockRTRepo struct{ mock.Mock }
+
+func (m *MockRTRepo) Create(ctx context.Context, rt *domain.RouteTable) error {
+	return m.Called(ctx, rt).Error(0)
+}
+func (m *MockRTRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.RouteTable, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.RouteTable), args.Error(1)
+}
+func (m *MockRTRepo) GetByVPC(ctx context.Context, vpcID uuid.UUID) ([]*domain.RouteTable, error) {
+	args := m.Called(ctx, vpcID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.RouteTable), args.Error(1)
+}
+func (m *MockRTRepo) GetMainByVPC(ctx context.Context, vpcID uuid.UUID) (*domain.RouteTable, error) {
+	args := m.Called(ctx, vpcID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.RouteTable), args.Error(1)
+}
+func (m *MockRTRepo) Update(ctx context.Context, rt *domain.RouteTable) error {
+	return m.Called(ctx, rt).Error(0)
+}
+func (m *MockRTRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockRTRepo) AddRoute(ctx context.Context, rtID uuid.UUID, route *domain.Route) error {
+	return m.Called(ctx, rtID, route).Error(0)
+}
+func (m *MockRTRepo) RemoveRoute(ctx context.Context, rtID, routeID uuid.UUID) error {
+	return m.Called(ctx, rtID, routeID).Error(0)
+}
+func (m *MockRTRepo) ListRoutes(ctx context.Context, rtID uuid.UUID) ([]domain.Route, error) {
+	args := m.Called(ctx, rtID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.Route), args.Error(1)
+}
+func (m *MockRTRepo) AssociateSubnet(ctx context.Context, rtID, subnetID uuid.UUID) error {
+	return m.Called(ctx, rtID, subnetID).Error(0)
+}
+func (m *MockRTRepo) DisassociateSubnet(ctx context.Context, rtID, subnetID uuid.UUID) error {
+	return m.Called(ctx, rtID, subnetID).Error(0)
+}
+func (m *MockRTRepo) ListAssociatedSubnets(ctx context.Context, rtID uuid.UUID) ([]uuid.UUID, error) {
+	args := m.Called(ctx, rtID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]uuid.UUID), args.Error(1)
+}
+
+// MockNATGatewayRepo
+type MockNATGatewayRepo struct{ mock.Mock }
+
+func (m *MockNATGatewayRepo) Create(ctx context.Context, ng *domain.NATGateway) error {
+	return m.Called(ctx, ng).Error(0)
+}
+func (m *MockNATGatewayRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.NATGateway, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.NATGateway), args.Error(1)
+}
+func (m *MockNATGatewayRepo) ListBySubnet(ctx context.Context, subnetID uuid.UUID) ([]*domain.NATGateway, error) {
+	args := m.Called(ctx, subnetID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.NATGateway), args.Error(1)
+}
+func (m *MockNATGatewayRepo) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*domain.NATGateway, error) {
+	args := m.Called(ctx, vpcID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.NATGateway), args.Error(1)
+}
+func (m *MockNATGatewayRepo) Update(ctx context.Context, ng *domain.NATGateway) error {
+	return m.Called(ctx, ng).Error(0)
+}
+func (m *MockNATGatewayRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+
+// MockEIPRepo
+type MockEIPRepo struct{ mock.Mock }
+
+func (m *MockEIPRepo) Create(ctx context.Context, eip *domain.ElasticIP) error {
+	return m.Called(ctx, eip).Error(0)
+}
+func (m *MockEIPRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.ElasticIP, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.ElasticIP), args.Error(1)
+}
+func (m *MockEIPRepo) GetByPublicIP(ctx context.Context, publicIP string) (*domain.ElasticIP, error) {
+	args := m.Called(ctx, publicIP)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.ElasticIP), args.Error(1)
+}
+func (m *MockEIPRepo) GetByInstanceID(ctx context.Context, instanceID uuid.UUID) (*domain.ElasticIP, error) {
+	args := m.Called(ctx, instanceID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.ElasticIP), args.Error(1)
+}
+func (m *MockEIPRepo) List(ctx context.Context) ([]*domain.ElasticIP, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.ElasticIP), args.Error(1)
+}
+func (m *MockEIPRepo) Update(ctx context.Context, eip *domain.ElasticIP) error {
+	return m.Called(ctx, eip).Error(0)
+}
+func (m *MockEIPRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
 }
