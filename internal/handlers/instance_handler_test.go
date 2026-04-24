@@ -111,6 +111,11 @@ func (m *instanceServiceMock) UpdateInstanceMetadata(ctx context.Context, id uui
 	return m.Called(ctx, id, metadata, labels).Error(0)
 }
 
+func (m *instanceServiceMock) ResizeInstance(ctx context.Context, idOrName, newInstanceType string) error {
+	args := m.Called(ctx, idOrName, newInstanceType)
+	return args.Error(0)
+}
+
 func setupInstanceHandlerTest(_ *testing.T) (*instanceServiceMock, *InstanceHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	mockSvc := new(instanceServiceMock)
