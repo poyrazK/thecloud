@@ -268,6 +268,7 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		instanceGroup.GET("/:id/stats", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.GetStats)
 		instanceGroup.GET("/:id/console", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.GetConsole)
 		instanceGroup.PUT("/:id/metadata", httputil.Permission(svcs.RBAC, domain.PermissionInstanceUpdate), handlers.Instance.UpdateMetadata)
+		instanceGroup.POST("/:id/resize", httputil.Permission(svcs.RBAC, domain.PermissionInstanceResize), handlers.Instance.ResizeInstance)
 		instanceGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionInstanceTerminate), handlers.Instance.Terminate)
 	}
 
