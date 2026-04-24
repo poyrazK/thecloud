@@ -926,6 +926,10 @@ definitions:
     - function:create
     - function:delete
     - function:read
+    - function_schedule:create
+    - function_schedule:read
+    - function_schedule:delete
+    - function_schedule:update
     - cache:create
     - cache:delete
     - cache:read
@@ -1038,6 +1042,10 @@ definitions:
     - PermissionFunctionCreate
     - PermissionFunctionDelete
     - PermissionFunctionRead
+    - PermissionFunctionScheduleCreate
+    - PermissionFunctionScheduleRead
+    - PermissionFunctionScheduleDelete
+    - PermissionFunctionScheduleUpdate
     - PermissionCacheCreate
     - PermissionCacheDelete
     - PermissionCacheRead

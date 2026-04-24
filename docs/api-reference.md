@@ -936,6 +936,35 @@ Invoke a function.
 ### GET /functions/:id/logs
 Get execution logs.
 
+### GET /function-schedules
+List all function schedules.
+
+### POST /function-schedules
+Create a scheduled function invocation.
+```json
+{
+  "function_id": "uuid",
+  "name": "nightly-processing",
+  "schedule": "0 2 * * *",
+  "payload": {}
+}
+```
+
+### GET /function-schedules/:id
+Get a specific schedule.
+
+### DELETE /function-schedules/:id
+Delete a schedule.
+
+### POST /function-schedules/:id/pause
+Pause a schedule.
+
+### POST /function-schedules/:id/resume
+Resume a paused schedule.
+
+### GET /function-schedules/:id/runs
+Get run history for a schedule.
+
 ---
 
 ## CloudLogs (Persistent Logs) 🆕

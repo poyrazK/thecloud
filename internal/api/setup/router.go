@@ -49,6 +49,7 @@ type Handlers struct {
 	Database      *httphandlers.DatabaseHandler
 	Secret        *httphandlers.SecretHandler
 	Function      *httphandlers.FunctionHandler
+	FunctionSchedule *httphandlers.FunctionScheduleHandler
 	Cache         *httphandlers.CacheHandler
 	Queue         *httphandlers.QueueHandler
 	Notify        *httphandlers.NotifyHandler
@@ -95,6 +96,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		Database:      httphandlers.NewDatabaseHandler(svcs.Database),
 		Secret:        httphandlers.NewSecretHandler(svcs.Secret),
 		Function:      httphandlers.NewFunctionHandler(svcs.Function),
+		FunctionSchedule: httphandlers.NewFunctionScheduleHandler(svcs.FunctionSchedule),
 		Cache:         httphandlers.NewCacheHandler(svcs.Cache),
 		Queue:         httphandlers.NewQueueHandler(svcs.Queue),
 		Notify:        httphandlers.NewNotifyHandler(svcs.Notify),
@@ -513,6 +515,18 @@ func registerDevOpsRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		fnGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionFunctionDelete), handlers.Function.Delete)
 		fnGroup.POST("/:id/invoke", httputil.Permission(svcs.RBAC, domain.PermissionFunctionInvoke), handlers.Function.Invoke)
 		fnGroup.GET("/:id/logs", httputil.Permission(svcs.RBAC, domain.PermissionFunctionRead), handlers.Function.GetLogs)
+	}
+
+	fnSchedGroup := r.Group("/function-schedules")
+	fnSchedGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
+	{
+		fnSchedGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionFunctionScheduleCreate), handlers.FunctionSchedule.Create)
+		fnSchedGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionFunctionScheduleRead), handlers.FunctionSchedule.List)
+		fnSchedGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionFunctionScheduleRead), handlers.FunctionSchedule.Get)
+		fnSchedGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionFunctionScheduleDelete), handlers.FunctionSchedule.Delete)
+		fnSchedGroup.POST("/:id/pause", httputil.Permission(svcs.RBAC, domain.PermissionFunctionScheduleUpdate), handlers.FunctionSchedule.Pause)
+		fnSchedGroup.POST("/:id/resume", httputil.Permission(svcs.RBAC, domain.PermissionFunctionScheduleUpdate), handlers.FunctionSchedule.Resume)
+		fnSchedGroup.GET("/:id/runs", httputil.Permission(svcs.RBAC, domain.PermissionFunctionScheduleRead), handlers.FunctionSchedule.GetRuns)
 	}
 
 	queueGroup := r.Group("/queues")

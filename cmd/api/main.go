@@ -244,6 +244,9 @@ func runWorkers(ctx context.Context, wg *sync.WaitGroup, workers *setup.Workers)
 	if workers.Lifecycle != nil {
 		startWorker(ctx, wg, workers.Lifecycle)
 	}
+	if workers.FunctionSchedule != nil {
+		startWorker(ctx, wg, workers.FunctionSchedule)
+	}
 	if workers.ReplicaMonitor != nil {
 		startWorker(ctx, wg, workers.ReplicaMonitor)
 	}

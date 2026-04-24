@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	"github.com/poyrazk/thecloud/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -37,7 +38,7 @@ func testAuthServiceUnitExtended(t *testing.T) {
 		email := "existing@example.com"
 		mockUserRepo.On("GetByEmail", mock.Anything, email).Return(&domain.User{ID: uuid.New()}, nil).Once()
 
-		_, err := svc.Register(ctx, email, testPassword, "Test User")
+		_, err := svc.Register(ctx, email, testutil.TestPasswordStrong, "Test User")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "already exists")
 	})
@@ -49,7 +50,7 @@ func testAuthServiceUnitExtended(t *testing.T) {
 		mockTenantSvc.On("CreateTenant", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("tenant fail")).Once()
 		mockUserRepo.On("Delete", mock.Anything, mock.Anything).Return(nil).Once()
 
-		_, err := svc.Register(ctx, email, testPassword, "Rollback User")
+		_, err := svc.Register(ctx, email, testutil.TestPasswordStrong, "Rollback User")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to create personal tenant")
 		mockUserRepo.AssertExpectations(t)
@@ -67,7 +68,7 @@ func testAuthServiceUnitExtended(t *testing.T) {
 
 	t.Run("Login_IdentityServiceError", func(t *testing.T) {
 		email := "login@example.com"
-		pass := testPassword
+		pass := testutil.TestPasswordStrong
 		// We can't easily mock bcrypt without a wrapper or pre-hashed password
 		// But we can check GetByEmail returning error
 		mockUserRepo.On("GetByEmail", mock.Anything, email).Return(nil, fmt.Errorf("db fail")).Once()
