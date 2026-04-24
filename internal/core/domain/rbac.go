@@ -16,6 +16,7 @@ const (
 	PermissionInstanceTerminate Permission = "instance:terminate"
 	PermissionInstanceRead      Permission = "instance:read"
 	PermissionInstanceUpdate    Permission = "instance:update"
+	PermissionInstanceResize    Permission = "instance:resize"
 
 	// SSH Key Permissions
 	PermissionSSHKeyCreate Permission = "ssh_key:create"
