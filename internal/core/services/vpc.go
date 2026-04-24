@@ -199,20 +199,25 @@ func (s *VpcService) ListVPCs(ctx context.Context) ([]*domain.VPC, error) {
 
 // DeleteVPC removes a VPC, its associated OVS bridge, and all related database records.
 func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
+	s.logger.Info("DeleteVPC called", "idOrName", idOrName)
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcDelete, idOrName); err != nil {
+		s.logger.Info("DeleteVPC: authorize failed", "idOrName", idOrName, "error", err)
 		return err
 	}
 
 	vpc, err := s.GetVPC(ctx, idOrName)
 	if err != nil {
+		s.logger.Info("DeleteVPC: GetVPC failed", "idOrName", idOrName, "error", err)
 		return err
 	}
 
+	s.logger.Info("DeleteVPC: starting dependency check", "vpcID", vpc.ID)
 	// 1. Check for dependent resources
 	if err := s.checkDeleteDependencies(ctx, vpc.ID); err != nil {
+		s.logger.Info("DeleteVPC: dependency check failed", "vpcID", vpc.ID, "error", err)
 		return err
 	}
 
@@ -244,6 +249,10 @@ func (s *VpcService) checkDeleteDependencies(ctx context.Context, vpcID uuid.UUI
 		return fmt.Errorf("check load balancers: %w", err)
 	}
 	for _, lb := range lbs {
+		if lb == nil {
+			s.logger.Warn("checkDeleteDependencies: nil LB in list, skipping")
+			continue
+		}
 		if lb.VpcID != vpcID {
 			continue
 		}
@@ -254,6 +263,7 @@ func (s *VpcService) checkDeleteDependencies(ctx context.Context, vpcID uuid.UUI
 		if lb.Status == domain.LBStatusDeleted {
 			continue
 		}
+		s.logger.Info("checkDeleteDependencies: blocking VPC delete due to LB", "lb_id", lb.ID, "lb_status", lb.Status)
 		return errors.New(errors.Conflict, "cannot delete VPC: load balancers still exist")
 	}
 
@@ -274,6 +284,7 @@ func (s *VpcService) checkDeleteDependencies(ctx context.Context, vpcID uuid.UUI
 	if s.asRepo != nil {
 		count, asErr := s.asRepo.CountGroupsByVPC(ctx, vpcID)
 		if asErr != nil {
+			s.logger.Error("checkDeleteDependencies: scaling groups count failed", "error", asErr)
 			return fmt.Errorf("check scaling groups: %w", asErr)
 		}
 		if count > 0 {
