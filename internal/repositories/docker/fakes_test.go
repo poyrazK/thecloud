@@ -192,4 +192,9 @@ func (f *fakeDockerClient) ContainerRename(ctx context.Context, containerID stri
 	return nil
 }
 
+func (f *fakeDockerClient) ContainerUpdate(ctx context.Context, containerID string, updateConfig container.UpdateConfig) (container.UpdateResponse, error) {
+	f.inc("ContainerUpdate")
+	return container.UpdateResponse{}, nil
+}
+
 var errFakeNotFound = errors.New("not found")
