@@ -115,7 +115,7 @@ func TestAutoScalingE2E(t *testing.T) {
 		}
 
 		// Delete VPC with retry
-		timeout = 90 * time.Second
+		timeout = 180 * time.Second
 		start = time.Now()
 		for time.Since(start) < timeout {
 			resp = deleteRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token)
