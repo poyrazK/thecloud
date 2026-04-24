@@ -137,6 +137,9 @@ func (m *mockInstanceSvc) Exec(ctx context.Context, idOrName string, cmd []strin
 func (m *mockInstanceSvc) UpdateInstanceMetadata(ctx context.Context, id uuid.UUID, metadata, labels map[string]string) error {
 	return m.Called(ctx, id, metadata, labels).Error(0)
 }
+func (m *mockInstanceSvc) ResizeInstance(ctx context.Context, idOrName, newInstanceType string) error {
+	return m.Called(ctx, idOrName, newInstanceType).Error(0)
+}
 
 func TestHealingWorker(t *testing.T) {
 	t.Parallel()
