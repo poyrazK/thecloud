@@ -880,6 +880,7 @@ definitions:
     - instance:terminate
     - instance:read
     - instance:update
+    - instance:resize
     - ssh_key:create
     - ssh_key:read
     - ssh_key:delete
@@ -996,6 +997,7 @@ definitions:
     - PermissionInstanceTerminate
     - PermissionInstanceRead
     - PermissionInstanceUpdate
+    - PermissionInstanceResize
     - PermissionSSHKeyCreate
     - PermissionSSHKeyRead
     - PermissionSSHKeyDelete
@@ -2157,6 +2159,13 @@ definitions:
     required:
     - new_password
     - token
+    type: object
+  httphandlers.ResizeInstanceRequest:
+    properties:
+      instance_type:
+        type: string
+    required:
+    - instance_type
     type: object
   httphandlers.RestoreBackupRequest:
     properties:
@@ -4825,6 +4834,47 @@ paths:
       security:
       - APIKeyAuth: []
       summary: Update instance metadata
+      tags:
+      - instances
+  /instances/{id}/resize:
+    post:
+      consumes:
+      - application/json
+      description: Change the instance type (CPU/memory) of an existing instance
+      parameters:
+      - description: Instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Resize request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.ResizeInstanceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Resize an instance
       tags:
       - instances
   /instances/{id}/stats:
