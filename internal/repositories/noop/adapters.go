@@ -149,6 +149,7 @@ func (b *NoopComputeBackend) DetachVolume(ctx context.Context, id string, volume
 }
 func (b *NoopComputeBackend) Ping(ctx context.Context) error { return nil }
 func (b *NoopComputeBackend) Type() string                  { return "noop" }
+func (b *NoopComputeBackend) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error { return nil }
 
 // NoopDNSService is a no-op DNS service.
 type NoopDNSService struct{}
