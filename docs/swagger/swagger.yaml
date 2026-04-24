@@ -551,6 +551,9 @@ definitions:
       size_gb:
         description: Minimum disk size required
         type: integer
+      source_url:
+        description: URL image was imported from
+        type: string
       status:
         $ref: '#/definitions/domain.ImageStatus'
       tenant_id:
@@ -2247,6 +2250,26 @@ definitions:
       volume_id:
         type: string
     type: object
+  httphandlers.importImageRequest:
+    properties:
+      description:
+        type: string
+      is_public:
+        type: boolean
+      name:
+        type: string
+      os:
+        type: string
+      url:
+        type: string
+      version:
+        type: string
+    required:
+    - name
+    - os
+    - url
+    - version
+    type: object
   httphandlers.registerImageRequest:
     properties:
       description:
@@ -2460,6 +2483,28 @@ paths:
               type: string
             type: object
       summary: Upload image file
+      tags:
+      - Images
+  /api/v1/images/import:
+    post:
+      consumes:
+      - application/json
+      description: Downloads an OS image from a remote URL and registers it
+      parameters:
+      - description: Import request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.importImageRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/domain.Image'
+      summary: Import image from URL
       tags:
       - Images
   /audit:

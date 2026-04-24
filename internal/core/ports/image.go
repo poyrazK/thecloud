@@ -15,6 +15,8 @@ type ImageService interface {
 	RegisterImage(ctx context.Context, name, description, os, version string, isPublic bool) (*domain.Image, error)
 	// UploadImage streams the binary image data to the underlying storage backend.
 	UploadImage(ctx context.Context, id uuid.UUID, reader io.Reader) error
+	// ImportImage downloads an image from a remote URL, stores it, and registers it.
+	ImportImage(ctx context.Context, name, url, description, os, version string, isPublic bool) (*domain.Image, error)
 	// GetImage retrieves details for a specific image by its UUID.
 	GetImage(ctx context.Context, id uuid.UUID) (*domain.Image, error)
 	// ListImages returns images available to the user, including private and optionally public ones.

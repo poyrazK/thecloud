@@ -175,6 +175,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/images/import": {
+            "post": {
+                "description": "Downloads an OS image from a remote URL and registers it",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Images"
+                ],
+                "summary": "Import image from URL",
+                "parameters": [
+                    {
+                        "description": "Import request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.importImageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Image"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/images/{id}": {
             "get": {
                 "description": "Get detailed information about a specific image",
@@ -7840,6 +7874,10 @@ const docTemplate = `{
                     "description": "Minimum disk size required",
                     "type": "integer"
                 },
+                "source_url": {
+                    "description": "URL image was imported from",
+                    "type": "string"
+                },
                 "status": {
                     "$ref": "#/definitions/domain.ImageStatus"
                 },
@@ -10196,6 +10234,35 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "volume_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httphandlers.importImageRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "os",
+                "url",
+                "version"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "is_public": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "os": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "version": {
                     "type": "string"
                 }
             }

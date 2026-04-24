@@ -302,6 +302,7 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		imageGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionImageRead), handlers.Image.GetImage)
 		imageGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionImageDelete), handlers.Image.DeleteImage)
 		imageGroup.POST("/:id/upload", httputil.Permission(svcs.RBAC, domain.PermissionImageCreate), handlers.Image.UploadImage)
+		imageGroup.POST("/import", httputil.Permission(svcs.RBAC, domain.PermissionImageCreate), handlers.Image.ImportImage)
 	}
 
 	clusterGroup := r.Group("/clusters")
