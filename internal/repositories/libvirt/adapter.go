@@ -164,6 +164,63 @@ func (a *LibvirtAdapter) Type() string {
 	return "libvirt"
 }
 
+func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
+	dom, err := a.client.DomainLookupByName(ctx, id)
+	if err != nil {
+		return fmt.Errorf(errDomainNotFound, err)
+	}
+
+	// Cold resize: stop → update domain XML → start
+	state, _, err := a.client.DomainGetState(ctx, dom, 0)
+	if err != nil {
+		return fmt.Errorf("failed to get domain state: %w", err)
+	}
+
+	if state == domainStateRunning {
+		if err := a.client.DomainDestroy(ctx, dom); err != nil {
+			return fmt.Errorf("failed to stop domain for resize: %w", err)
+		}
+	}
+
+	// Update domain XML with new memory and vCPU settings
+	domXML, err := a.client.DomainGetXMLDesc(ctx, dom, 0)
+	if err != nil {
+		return fmt.Errorf("failed to get domain XML: %w", err)
+	}
+
+	// Modify memory (in KiB) and vCPU in the XML
+	newDOMXML := a.applyDomainResize(domXML, int(memory/1024), int(cpu))
+
+	if err := a.client.DomainUndefine(ctx, dom); err != nil {
+		return fmt.Errorf("failed to undefine domain: %w", err)
+	}
+
+	newDom, err := a.client.DomainDefineXML(ctx, newDOMXML)
+	if err != nil {
+		return fmt.Errorf("failed to redefine domain with new resources: %w", err)
+	}
+
+	if err := a.client.DomainCreate(ctx, newDom); err != nil {
+		return fmt.Errorf("failed to start domain after resize: %w", err)
+	}
+
+	a.logger.Info("domain resized", "domain", id, "cpu", cpu, "memory_bytes", memory)
+	return nil
+}
+
+// applyDomainResize updates vCPU and memory in domain XML.
+func (a *LibvirtAdapter) applyDomainResize(xml string, memoryKiB, vcpus int) string {
+	// Replace memory allocation
+	xml = regexp.MustCompile(`<memory unit="KiB">\d+</memory>`).
+		ReplaceAllString(xml, fmt.Sprintf(`<memory unit="KiB">%d</memory>`, memoryKiB))
+	xml = regexp.MustCompile(`<currentMemory unit="KiB">\d+</currentMemory>`).
+		ReplaceAllString(xml, fmt.Sprintf(`<currentMemory unit="KiB">%d</currentMemory>`, memoryKiB))
+	// Replace vCPU count
+	xml = regexp.MustCompile(`<vcpu[^>]*>\d+</vcpu>`).
+		ReplaceAllString(xml, fmt.Sprintf(`<vcpu>%d</vcpu>`, vcpus))
+	return xml
+}
+
 func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
 	name := a.sanitizeDomainName(opts.Name)
 
