@@ -714,6 +714,96 @@ func (s *InstanceService) GetConsoleURL(ctx context.Context, idOrName string) (s
 	return s.compute.GetConsoleURL(ctx, id)
 }
 
+func (s *InstanceService) ResizeInstance(ctx context.Context, idOrName, newInstanceType string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceResize, idOrName); err != nil {
+		return err
+	}
+
+	// Resolve instance
+	inst, err := s.repo.GetByName(ctx, idOrName)
+	if err != nil {
+		id, uuidErr := uuid.Parse(idOrName)
+		if uuidErr == nil {
+			inst, err = s.repo.GetByID(ctx, id)
+		}
+	}
+	if err != nil || inst == nil {
+		return errors.New(errors.NotFound, "instance not found")
+	}
+
+	// Resolve current and target instance types
+	oldIT, err := s.instanceTypeRepo.GetByID(ctx, inst.InstanceType)
+	if err != nil {
+		return errors.Wrap(errors.InvalidInput, "current instance type not found", err)
+	}
+	newIT, err := s.instanceTypeRepo.GetByID(ctx, newInstanceType)
+	if err != nil {
+		return errors.Wrap(errors.InvalidInput, "invalid instance type: "+newInstanceType, err)
+	}
+
+	// Quota delta check: if increasing, check; if decreasing, skip
+	deltaCPU := newIT.VCPUs - oldIT.VCPUs
+	deltaMem := (newIT.MemoryMB - oldIT.MemoryMB) / 1024
+	if deltaCPU > 0 {
+		if err := s.tenantSvc.CheckQuota(ctx, tenantID, "vcpus", deltaCPU); err != nil {
+			return errors.Wrap(errors.Forbidden, "insufficient vCPU quota for resize", err)
+		}
+	}
+	if deltaMem > 0 {
+		if err := s.tenantSvc.CheckQuota(ctx, tenantID, "memory", deltaMem); err != nil {
+			return errors.Wrap(errors.Forbidden, "insufficient memory quota for resize", err)
+		}
+	}
+
+	// Get container/domain ID
+	target := inst.ContainerID
+	if target == "" {
+		target = s.formatContainerName(inst.ID)
+	}
+
+	// Call compute backend to resize (cpu in NanoCPUs, memory in bytes)
+	cpuNano := int64(newIT.VCPUs) * 1e9
+	memoryBytes := int64(newIT.MemoryMB) * 1024 * 1024
+	if err := s.compute.ResizeInstance(ctx, target, cpuNano, memoryBytes); err != nil {
+		platform.InstanceOperationsTotal.WithLabelValues("resize", "failure").Inc()
+		return errors.Wrap(errors.Internal, "failed to resize instance", err)
+	}
+
+	// Update quota delta
+	if deltaCPU > 0 {
+		_ = s.tenantSvc.IncrementUsage(ctx, tenantID, "vcpus", deltaCPU)
+	} else if deltaCPU < 0 {
+		_ = s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", -deltaCPU)
+	}
+	if deltaMem > 0 {
+		_ = s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", deltaMem)
+	} else if deltaMem < 0 {
+		_ = s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", -deltaMem)
+	}
+
+	// Update instance record
+	inst.InstanceType = newInstanceType
+	if err := s.repo.Update(ctx, inst); err != nil {
+		return errors.Wrap(errors.Internal, "failed to update instance record", err)
+	}
+
+	platform.InstanceOperationsTotal.WithLabelValues("resize", "success").Inc()
+	s.logger.Info("instance resized", "instance_id", inst.ID, "old_type", oldIT.ID, "new_type", newIT.ID)
+
+	if err := s.auditSvc.Log(ctx, inst.UserID, "instance.resize", "instance", inst.ID.String(), map[string]interface{}{
+		"name":      inst.Name,
+		"old_type":  oldIT.ID,
+		"new_type":  newIT.ID,
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "instance.resize", "instance_id", inst.ID, "error", err)
+	}
+
+	return nil
+}
+
 func (s *InstanceService) TerminateInstance(ctx context.Context, idOrName string) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
