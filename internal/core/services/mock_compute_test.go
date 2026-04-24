@@ -119,6 +119,10 @@ func (m *MockInstanceService) UpdateInstanceMetadata(ctx context.Context, id uui
 	args := m.Called(ctx, id, metadata, labels)
 	return args.Error(0)
 }
+func (m *MockInstanceService) ResizeInstance(ctx context.Context, idOrName, newInstanceType string) error {
+	args := m.Called(ctx, idOrName, newInstanceType)
+	return args.Error(0)
+}
 func (m *MockInstanceService) Provision(ctx context.Context, job domain.ProvisionJob) error {
 	return m.Called(ctx, job).Error(0)
 }
@@ -207,6 +211,9 @@ func (m *MockComputeBackend) DetachVolume(ctx context.Context, id string, path s
 func (m *MockComputeBackend) GetConsoleURL(ctx context.Context, id string) (string, error) {
 	args := m.Called(ctx, id)
 	return args.String(0), args.Error(1)
+}
+func (m *MockComputeBackend) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
+	return m.Called(ctx, id, cpu, memory).Error(0)
 }
 
 // MockClusterRepo
