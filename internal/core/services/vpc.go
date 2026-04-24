@@ -244,9 +244,17 @@ func (s *VpcService) checkDeleteDependencies(ctx context.Context, vpcID uuid.UUI
 		return fmt.Errorf("check load balancers: %w", err)
 	}
 	for _, lb := range lbs {
-		if lb.VpcID == vpcID && lb.Status != domain.LBStatusDeleted {
-			return errors.New(errors.Conflict, "cannot delete VPC: load balancers still exist")
+		if lb.VpcID != vpcID {
+			continue
 		}
+		// Allow deletion if LB is being cleaned up (DELETED status).
+		// The LBWorker runs every 5s to delete DELETED LBs from DB.
+		// If LBWorker isn't running (ROLE=api), the LB record stays in DELETED
+		// but won't block VPC deletion since we skip DELETED status here.
+		if lb.Status == domain.LBStatusDeleted {
+			continue
+		}
+		return errors.New(errors.Conflict, "cannot delete VPC: load balancers still exist")
 	}
 
 	// Check for active VPC peering connections
