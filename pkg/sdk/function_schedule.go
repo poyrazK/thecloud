@@ -2,6 +2,7 @@
 package sdk
 
 import (
+	"context"
 	"time"
 )
 
@@ -50,6 +51,26 @@ func (c *Client) CreateFunctionSchedule(functionID, name, schedule string, paylo
 
 	var resp Response[FunctionSchedule]
 	if err := c.post(functionSchedulesPath, reqBody, &resp); err != nil {
+		return nil, err
+	}
+	return &resp.Data, nil
+}
+
+func (c *Client) CreateFunctionScheduleContext(ctx context.Context, functionID, name, schedule string, payload []byte) (*FunctionSchedule, error) {
+	reqBody := struct {
+		FunctionID string `json:"function_id"`
+		Name       string `json:"name"`
+		Schedule   string `json:"schedule"`
+		Payload    string `json:"payload"`
+	}{
+		FunctionID: functionID,
+		Name:       name,
+		Schedule:   schedule,
+		Payload:    string(payload),
+	}
+
+	var resp Response[FunctionSchedule]
+	if err := c.postContext(ctx, functionSchedulesPath, reqBody, &resp); err != nil {
 		return nil, err
 	}
 	return &resp.Data, nil

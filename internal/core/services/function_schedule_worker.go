@@ -107,7 +107,14 @@ func (w *FunctionScheduleWorker) runSchedule(ctx context.Context, sched *domain.
 	}
 
 	if err := w.repo.CompleteScheduleRun(ctx, run, sched, nextRun); err != nil {
-		log.Printf("FunctionScheduleWorker: failed to complete schedule run: %v", err)
+		log.Printf("FunctionScheduleWorker: failed to complete schedule run, retrying: %v", err)
+		for i := 1; i <= 3; i++ {
+			time.Sleep(time.Duration(i) * time.Second)
+			if err := w.repo.CompleteScheduleRun(ctx, run, sched, nextRun); err == nil {
+				return
+			}
+		}
+		log.Printf("FunctionScheduleWorker: failed to complete schedule run after 3 retries, schedule %s may need manual intervention", sched.ID)
 	}
 }
 

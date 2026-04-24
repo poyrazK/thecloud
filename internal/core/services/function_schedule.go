@@ -144,6 +144,10 @@ func (s *FunctionScheduleService) DeleteSchedule(ctx context.Context, id uuid.UU
 		return err
 	}
 
+	if err := s.eventSvc.RecordEvent(ctx, "FUNCTION_SCHEDULE_DELETED", id.String(), "FUNCTION_SCHEDULE", nil); err != nil {
+		s.logger.Warn("failed to record event", "action", "FUNCTION_SCHEDULE_DELETED", "schedule_id", id, "error", err)
+	}
+
 	if err := s.auditSvc.Log(ctx, userID, "function_schedule.delete", "function_schedule", id.String(), map[string]interface{}{}); err != nil {
 		s.logger.Warn("failed to log audit event", "error", err)
 	}
@@ -204,6 +208,14 @@ func (s *FunctionScheduleService) GetScheduleRuns(ctx context.Context, id uuid.U
 	_, err := s.repo.GetByID(ctx, id, userID, tenantID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Validate and cap limit
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 500 {
+		limit = 500
 	}
 
 	return s.repo.GetScheduleRuns(ctx, id, limit)

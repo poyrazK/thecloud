@@ -2,8 +2,11 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/olekukonko/tablewriter"
@@ -24,13 +27,21 @@ var createFnSchedCmd = &cobra.Command{
 		schedule, _ := cmd.Flags().GetString("schedule")
 		payloadStr, _ := cmd.Flags().GetString("payload")
 
+		// Validate JSON payload
+		if payloadStr != "{}" && !json.Valid([]byte(payloadStr)) {
+			return fmt.Errorf("invalid JSON payload: %s", payloadStr)
+		}
+
+		ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+		defer cancel()
+
 		client := createClient(opts)
 
 		// Resolve function name to ID
 		fnID := functionRef
 		if _, err := uuid.Parse(functionRef); err != nil {
 			// Not a UUID, try to resolve by name
-			functions, err := client.ListFunctions()
+			functions, err := client.ListFunctionsContext(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to list functions: %w", err)
 			}
@@ -48,7 +59,7 @@ var createFnSchedCmd = &cobra.Command{
 		}
 
 		payload := []byte(payloadStr)
-		sched, err := client.CreateFunctionSchedule(fnID, name, schedule, payload)
+		sched, err := client.CreateFunctionScheduleContext(ctx, fnID, name, schedule, payload)
 		if err != nil {
 			return err
 		}

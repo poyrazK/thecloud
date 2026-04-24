@@ -94,6 +94,7 @@ func TestFunctionScheduleServiceUnit(t *testing.T) {
 		sched := &domain.FunctionSchedule{ID: schedID, UserID: userID}
 		repo.On("GetByID", mock.Anything, schedID, userID, tenantID).Return(sched, nil).Once()
 		repo.On("Delete", mock.Anything, schedID).Return(nil).Once()
+		eventSvc.On("RecordEvent", mock.Anything, "FUNCTION_SCHEDULE_DELETED", schedID.String(), "FUNCTION_SCHEDULE", mock.Anything).Return(nil).Once()
 		auditSvc.On("Log", mock.Anything, userID, "function_schedule.delete", "function_schedule", schedID.String(), mock.Anything).Return(nil).Once()
 
 		err := svc.DeleteSchedule(ctx, schedID)

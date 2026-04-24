@@ -209,7 +209,7 @@ func (r *PostgresFunctionScheduleRepository) GetScheduleRuns(ctx context.Context
 	query := `SELECT id, schedule_id, invocation_id, status, status_code, duration_ms, error_message, started_at FROM function_schedule_runs WHERE schedule_id = $1 ORDER BY started_at DESC LIMIT $2`
 	rows, err := r.db.Query(ctx, query, scheduleID, limit)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(errors.Internal, "failed to get schedule runs", err)
 	}
 	return r.scanFunctionScheduleRuns(rows)
 }
@@ -278,9 +278,12 @@ func (r *PostgresFunctionScheduleRepository) scanFunctionScheduleRuns(rows pgx.R
 	for rows.Next() {
 		run, err := r.scanFunctionScheduleRun(rows)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(errors.Internal, "failed to scan schedule runs", err)
 		}
 		runs = append(runs, run)
 	}
-	return runs, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrap(errors.Internal, "rows error in scanFunctionScheduleRuns", err)
+	}
+	return runs, nil
 }

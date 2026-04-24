@@ -3,6 +3,7 @@ package sdk
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"time"
 )
@@ -62,6 +63,14 @@ func (c *Client) CreateFunction(name, runtime, handler string, code []byte) (*Fu
 func (c *Client) ListFunctions() ([]*Function, error) {
 	var resp Response[[]*Function]
 	if err := c.get("/functions", &resp); err != nil {
+		return nil, err
+	}
+	return resp.Data, nil
+}
+
+func (c *Client) ListFunctionsContext(ctx context.Context) ([]*Function, error) {
+	var resp Response[[]*Function]
+	if err := c.getContext(ctx, "/functions", &resp); err != nil {
 		return nil, err
 	}
 	return resp.Data, nil
