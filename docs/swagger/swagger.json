@@ -3951,18 +3951,6 @@
                             "$ref": "#/definitions/httputil.Response"
                         }
                     },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/httputil.Response"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/httputil.Response"
-                        }
-                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -10173,8 +10161,7 @@
             ],
             "properties": {
                 "instance_type": {
-                    "type": "string",
-                    "minLength": 1
+                    "type": "string"
                 }
             }
         },
