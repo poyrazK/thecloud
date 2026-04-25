@@ -45,7 +45,7 @@ func TestInternetGatewayService_CreateIGW(t *testing.T) {
 
 	igw, err := svc.CreateIGW(ctx)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, igw)
 	assert.Equal(t, domain.IGWStatusDetached, igw.Status)
 	assert.Nil(t, igw.VPCID)
@@ -89,7 +89,7 @@ func TestInternetGatewayService_AttachIGW_Success(t *testing.T) {
 
 	err := svc.AttachIGW(ctx, igwID, vpcID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, domain.IGWStatusAttached, igw.Status)
 	assert.Equal(t, &vpcID, igw.VPCID)
 	mockIGW.AssertExpectations(t)
@@ -122,7 +122,7 @@ func TestInternetGatewayService_AttachIGW_AlreadyAttached(t *testing.T) {
 
 	err := svc.AttachIGW(ctx, igwID, vpcID)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "already attached")
 }
 
@@ -153,7 +153,7 @@ func TestInternetGatewayService_Delete_AttachedIGW(t *testing.T) {
 
 	err := svc.DeleteIGW(ctx, igwID)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "attached")
 	mockIGW.AssertExpectations(t)
 }
@@ -186,7 +186,7 @@ func TestInternetGatewayService_Delete_DetachedIGW(t *testing.T) {
 
 	err := svc.DeleteIGW(ctx, igwID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	mockIGW.AssertExpectations(t)
 }
 
@@ -222,7 +222,7 @@ func TestRouteTableService_CreateRouteTable(t *testing.T) {
 
 	rt, err := svc.CreateRouteTable(ctx, vpcID, "test-rt", false)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, rt)
 	assert.Equal(t, "test-rt", rt.Name)
 	assert.Equal(t, vpcID, rt.VPCID)
@@ -251,7 +251,7 @@ func TestRouteTableService_CreateRouteTable_VPCNotFound(t *testing.T) {
 
 	_, err := svc.CreateRouteTable(ctx, vpcID, "test-rt", false)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
 
@@ -325,7 +325,7 @@ func TestRouteTableService_AssociateSubnet(t *testing.T) {
 
 	err := svc.AssociateSubnet(ctx, rtID, subnetID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	mockRT.AssertExpectations(t)
 }
 
@@ -356,7 +356,7 @@ func TestRouteTableService_DisassociateSubnet(t *testing.T) {
 
 	err := svc.DisassociateSubnet(ctx, rtID, subnetID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	mockRT.AssertExpectations(t)
 }
 
@@ -406,7 +406,7 @@ func TestNATGatewayService_CreateNATGateway(t *testing.T) {
 
 	nat, err := svc.CreateNATGateway(ctx, subnetID, eipID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, nat)
 	assert.Equal(t, subnetID, nat.SubnetID)
 	assert.Equal(t, eipID, nat.ElasticIPID)
@@ -449,7 +449,7 @@ func TestNATGatewayService_CreateNATGateway_EIPNotAllocated(t *testing.T) {
 
 	_, err := svc.CreateNATGateway(ctx, subnetID, eipID)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "allocated")
 }
 
@@ -500,7 +500,7 @@ func TestNATGatewayService_DeleteNATGateway(t *testing.T) {
 
 	err := svc.DeleteNATGateway(ctx, natID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	mockNAT.AssertExpectations(t)
 }
 
@@ -526,6 +526,6 @@ func TestNATGatewayService_DeleteNATGateway_NotFound(t *testing.T) {
 
 	err := svc.DeleteNATGateway(ctx, natID)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
