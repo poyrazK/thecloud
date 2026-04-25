@@ -65,4 +65,14 @@ type ComputeBackend interface {
 	Type() string
 	// ResizeInstance updates the CPU and memory limits of a running or stopped instance.
 	ResizeInstance(ctx context.Context, id string, cpu, memory int64) error
+
+	// Snapshots
+
+	// CreateSnapshot creates a point-in-time snapshot of the instance's root disk.
+	// The snapshot is stored internally and can be used for rollback via RestoreSnapshot.
+	CreateSnapshot(ctx context.Context, id, name string) error
+	// RestoreSnapshot restores the instance's root disk from a previously created snapshot.
+	RestoreSnapshot(ctx context.Context, id, name string) error
+	// DeleteSnapshot deletes a previously created snapshot.
+	DeleteSnapshot(ctx context.Context, id, name string) error
 }

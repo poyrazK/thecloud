@@ -215,6 +215,15 @@ func (m *MockComputeBackend) GetConsoleURL(ctx context.Context, id string) (stri
 func (m *MockComputeBackend) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
 	return m.Called(ctx, id, cpu, memory).Error(0)
 }
+func (m *MockComputeBackend) CreateSnapshot(ctx context.Context, id, name string) error {
+	return m.Called(ctx, id, name).Error(0)
+}
+func (m *MockComputeBackend) RestoreSnapshot(ctx context.Context, id, name string) error {
+	return m.Called(ctx, id, name).Error(0)
+}
+func (m *MockComputeBackend) DeleteSnapshot(ctx context.Context, id, name string) error {
+	return m.Called(ctx, id, name).Error(0)
+}
 
 // MockClusterRepo
 type MockClusterRepo struct{ mock.Mock }
