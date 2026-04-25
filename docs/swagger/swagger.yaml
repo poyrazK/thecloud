@@ -4860,6 +4860,10 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/httputil.Response'
+        "429":
+          description: Too Many Requests (Quota Exceeded)
+          schema:
+            $ref: '#/definitions/httputil.Response'
         "500":
           description: Internal Server Error
           schema:
