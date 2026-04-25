@@ -222,11 +222,16 @@ var updateFnCmd = &cobra.Command{
 		var envVars []*sdk.EnvVar
 		for _, e := range envVarsStr {
 			parts := strings.SplitN(e, "=", 2)
-			if len(parts) == 2 {
-				envVars = append(envVars, &sdk.EnvVar{Key: parts[0], Value: parts[1]})
-			} else {
+			if len(parts) != 2 {
 				return fmt.Errorf("invalid env var format: %q, expected KEY=VALUE", e)
 			}
+			envVar := &sdk.EnvVar{Key: parts[0]}
+			if strings.HasPrefix(parts[1], "@") {
+				envVar.SecretRef = parts[1] // e.g. "@my-api-key"
+			} else {
+				envVar.Value = parts[1]
+			}
+			envVars = append(envVars, envVar)
 		}
 
 		fn, err := client.UpdateFunction(targetID, &sdk.FunctionUpdateRequest{

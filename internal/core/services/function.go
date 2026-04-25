@@ -5,6 +5,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/json"
 	stdlib_errors "errors"
 	"fmt"
 	"io"
@@ -44,17 +45,19 @@ type FunctionService struct {
 	compute   ports.ComputeBackend
 	fileStore ports.FileStore
 	auditSvc  ports.AuditService
+	secretSvc ports.SecretService
 	logger    *slog.Logger
 }
 
 // NewFunctionService constructs a FunctionService with its dependencies.
-func NewFunctionService(repo ports.FunctionRepository, rbacSvc ports.RBACService, compute ports.ComputeBackend, fileStore ports.FileStore, auditSvc ports.AuditService, logger *slog.Logger) *FunctionService {
+func NewFunctionService(repo ports.FunctionRepository, rbacSvc ports.RBACService, compute ports.ComputeBackend, fileStore ports.FileStore, auditSvc ports.AuditService, secretSvc ports.SecretService, logger *slog.Logger) *FunctionService {
 	return &FunctionService{
 		repo:      repo,
 		rbacSvc:   rbacSvc,
 		compute:   compute,
 		fileStore: fileStore,
 		auditSvc:  auditSvc,
+		secretSvc: secretSvc,
 		logger:    logger,
 	}
 }
@@ -258,7 +261,7 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	opts := s.buildTaskOptions(f, tmpDir, payload)
+	opts := s.buildTaskOptions(ctx, f, tmpDir, payload)
 
 	containerID, _, err := s.compute.RunTask(ctx, opts)
 	if err != nil {
@@ -276,7 +279,7 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 	return i, nil
 }
 
-func (s *FunctionService) buildTaskOptions(f *domain.Function, tmpDir string, payload []byte) ports.RunTaskOptions {
+func (s *FunctionService) buildTaskOptions(ctx context.Context, f *domain.Function, tmpDir string, payload []byte) ports.RunTaskOptions {
 	config := runtimes[f.Runtime]
 	pidsLimit := int64(50)
 
@@ -284,7 +287,20 @@ func (s *FunctionService) buildTaskOptions(f *domain.Function, tmpDir string, pa
 
 	env := []string{fmt.Sprintf("PAYLOAD=%s", string(payload))}
 	for _, e := range f.EnvVars {
-		env = append(env, e.Key+"="+e.Value)
+		if e.SecretRef != "" {
+			// Resolve secret reference at invocation time (dynamic)
+			name := strings.TrimPrefix(e.SecretRef, "@")
+			secret, err := s.secretSvc.GetSecretByName(ctx, name)
+			if err != nil {
+				s.logger.Warn("failed to resolve secret", "ref", e.SecretRef, "key", e.Key, "error", err)
+				continue // skip this var rather than failing the invocation
+			}
+			// Inject as JSON object: {"key": "...", "value": "..."}
+			secretJSON, _ := json.Marshal(map[string]string{"key": e.Key, "value": secret.EncryptedValue})
+			env = append(env, e.Key+"="+string(secretJSON))
+		} else {
+			env = append(env, e.Key+"="+e.Value)
+		}
 	}
 
 	return ports.RunTaskOptions{

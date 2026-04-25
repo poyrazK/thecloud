@@ -3,6 +3,7 @@ package services
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -55,7 +56,7 @@ func TestFunctionService_BuildTaskOptions(t *testing.T) {
 	tmpDir := "/tmp/fn-123"
 	payload := []byte(`{"foo":"bar"}`)
 
-	opts := s.buildTaskOptions(f, tmpDir, payload)
+	opts := s.buildTaskOptions(context.Background(), f, tmpDir, payload)
 	assert.Equal(t, "node:20-alpine", opts.Image)
 	assert.Equal(t, []string{"node", "./index.handler"}, opts.Command)
 	assert.Contains(t, opts.Env[0], "PAYLOAD=")
