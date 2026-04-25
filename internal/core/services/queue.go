@@ -43,7 +43,7 @@ func (s *QueueService) CreateQueue(ctx context.Context, name string, opts *ports
 	}
 
 	// Check if already exists
-	existing, err := s.repo.GetByName(ctx, name, userID)
+	existing, err := s.repo.GetByName(ctx, name, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -55,6 +55,7 @@ func (s *QueueService) CreateQueue(ctx context.Context, name string, opts *ports
 	q := &domain.Queue{
 		ID:                qID,
 		UserID:            userID,
+		TenantID:          tenantID,
 		Name:              name,
 		ARN:               fmt.Sprintf("arn:thecloud:queue:local:%s:queue/%s", userID, qID),
 		VisibilityTimeout: 30,
@@ -102,7 +103,7 @@ func (s *QueueService) GetQueue(ctx context.Context, id uuid.UUID) (*domain.Queu
 		return nil, err
 	}
 
-	q, err := s.repo.GetByID(ctx, id, userID)
+	q, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +122,7 @@ func (s *QueueService) ListQueues(ctx context.Context) ([]*domain.Queue, error) 
 		return nil, err
 	}
 
-	return s.repo.List(ctx, userID)
+	return s.repo.List(ctx, tenantID)
 }
 
 func (s *QueueService) DeleteQueue(ctx context.Context, id uuid.UUID) error {
@@ -132,7 +133,7 @@ func (s *QueueService) DeleteQueue(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	q, err := s.repo.GetByID(ctx, id, userID)
+	q, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return err
 	}
@@ -140,7 +141,7 @@ func (s *QueueService) DeleteQueue(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("queue not found")
 	}
 
-	if err := s.repo.Delete(ctx, q.ID); err != nil {
+	if err := s.repo.Delete(ctx, q.ID, tenantID); err != nil {
 		return err
 	}
 
@@ -165,7 +166,7 @@ func (s *QueueService) SendMessage(ctx context.Context, queueID uuid.UUID, body 
 		return nil, err
 	}
 
-	q, err := s.repo.GetByID(ctx, queueID, userID)
+	q, err := s.repo.GetByID(ctx, queueID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +200,7 @@ func (s *QueueService) ReceiveMessages(ctx context.Context, queueID uuid.UUID, m
 		return nil, err
 	}
 
-	q, err := s.repo.GetByID(ctx, queueID, userID)
+	q, err := s.repo.GetByID(ctx, queueID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +238,7 @@ func (s *QueueService) DeleteMessage(ctx context.Context, queueID uuid.UUID, rec
 		return err
 	}
 
-	q, err := s.repo.GetByID(ctx, queueID, userID)
+	q, err := s.repo.GetByID(ctx, queueID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -266,7 +267,7 @@ func (s *QueueService) PurgeQueue(ctx context.Context, queueID uuid.UUID) error 
 		return err
 	}
 
-	q, err := s.repo.GetByID(ctx, queueID, userID)
+	q, err := s.repo.GetByID(ctx, queueID, tenantID)
 	if err != nil {
 		return err
 	}

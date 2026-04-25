@@ -62,8 +62,8 @@ func TestDNSIsolationE2E(t *testing.T) {
 	t.Cleanup(func() {
 		_ = deleteRequest(t, client, fmt.Sprintf("%s/dns/zones/%s", testutil.TestBaseURL, zoneAID), token).Body.Close()
 		_ = deleteRequest(t, client, fmt.Sprintf("%s/dns/zones/%s", testutil.TestBaseURL, zoneBID), token).Body.Close()
-		_ = deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpcAID), token).Body.Close()
-		_ = deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpcBID), token).Body.Close()
+		_ = deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s?force=true", testutil.TestBaseURL, vpcAID), token).Body.Close()
+		_ = deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s?force=true", testutil.TestBaseURL, vpcBID), token).Body.Close()
 	})
 }
 

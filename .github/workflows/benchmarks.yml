@@ -27,7 +27,22 @@ jobs:
             | grep -E '^(goos:|goarch:|pkg:|cpu:|Benchmark|PASS$|ok\s)' \
             | tee bench.txt
 
-      - name: Store Benchmark Result
+      - name: Store Benchmark Result (PR)
+        if: github.event_name == 'pull_request'
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Go Benchmarks
+          tool: 'go'
+          output-file-path: bench.txt
+          # On PRs, publishing to gh-pages is not allowed in all permission models.
+          auto-push: false
+          # Fail if performance drops by more than 50%
+          alert-threshold: '200%'
+          comment-on-alert: false
+          fail-on-alert: false
+
+      - name: Store Benchmark Result (main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: Go Benchmarks

@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSecretService_Unit(t *testing.T) {
+func testSecretServiceUnitCRUD(t *testing.T) {
 	mockRepo := new(MockSecretRepo)
 	mockRBAC := new(MockRBACService)
 	mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -42,7 +42,6 @@ func TestSecretService_Unit(t *testing.T) {
 	ctx = appcontext.WithTenantID(ctx, tenantID)
 	ctx = appcontext.WithUserID(ctx, userID)
 
-	// Set up Create mock before computing validEncrypted (consumed here)
 	mockRepo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 	createdSecret, err := svc.CreateSecret(ctx, "temp", "tempvalue", "tempdesc")
 	require.NoError(t, err)
@@ -83,7 +82,7 @@ func TestSecretService_Unit(t *testing.T) {
 		result, err := svc.GetSecret(ctx, id)
 		require.NoError(t, err)
 		assert.Equal(t, id, result.ID)
-		assert.Equal(t, "tempvalue", result.EncryptedValue) // decrypted value
+		assert.Equal(t, "tempvalue", result.EncryptedValue)
 	})
 
 	t.Run("GetSecret_NotFound", func(t *testing.T) {
@@ -267,7 +266,13 @@ func TestSecretService_Unit(t *testing.T) {
 	})
 }
 
-func TestNewSecretService_Errors(t *testing.T) {
+func TestSecretService_Unit(t *testing.T) {
+	t.Run("CRUD", testSecretServiceUnitCRUD)
+	t.Run("NewErrors", testNewSecretServiceUnitErrors)
+	t.Run("AuthorizeErrors", testSecretServiceUnitAuthorizeErrors)
+}
+
+func testNewSecretServiceUnitErrors(t *testing.T) {
 	logger := slog.Default()
 	masterKey := "test-master-key-32-chars-long-!!!"
 
@@ -377,7 +382,7 @@ func TestNewSecretService_Errors(t *testing.T) {
 	})
 }
 
-func TestSecretService_AuthorizeErrors(t *testing.T) {
+func testSecretServiceUnitAuthorizeErrors(t *testing.T) {
 	mockRepo := new(MockSecretRepo)
 	mockRBAC := new(MockRBACService)
 	mockEvent := new(MockEventService)

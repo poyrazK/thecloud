@@ -50,10 +50,12 @@ type ComputeBackend interface {
 	// Volume/Disk Attachment (Physical/Block)
 
 	// AttachVolume connects a storage resource to the instance.
-	// Returns the guest-assigned device path (e.g., "/dev/vdb").
-	AttachVolume(ctx context.Context, id string, volumePath string) (string, error)
+	// Returns the guest-assigned device path (e.g., "/dev/vdb") and the new container ID
+	// (container ID may change after stop->recreate->start for Docker bind mounts).
+	AttachVolume(ctx context.Context, id string, volumePath string) (string, string, error)
 	// DetachVolume disconnects a storage resource from the instance.
-	DetachVolume(ctx context.Context, id string, volumePath string) error
+	// Returns the new container ID (container ID may change after stop->recreate->start for Docker bind mounts).
+	DetachVolume(ctx context.Context, id string, volumePath string) (string, error)
 
 	// Health
 

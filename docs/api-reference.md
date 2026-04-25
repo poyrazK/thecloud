@@ -243,6 +243,75 @@ Get the VNC console URL for the instance.
 
 ---
 
+## Images
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /images
+List all images available to the authenticated user (own + public).
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid",
+    "name": "ubuntu-22.04",
+    "description": "Ubuntu 22.04 LTS",
+    "os": "linux",
+    "version": "22.04",
+    "format": "qcow2",
+    "size_gb": 2,
+    "is_public": false,
+    "status": "ACTIVE",
+    "created_at": "2026-04-21T10:00:00Z"
+  }
+]
+```
+
+### POST /images
+Register a new image (metadata only; upload the file separately via `POST /images/:id/upload`).
+
+**Request:**
+```json
+{
+  "name": "my-custom-image",
+  "description": "My custom OS image",
+  "os": "linux",
+  "version": "22.04",
+  "is_public": false
+}
+```
+
+### GET /images/:id
+Get details of a specific image.
+
+### DELETE /images/:id
+Delete an image and its associated file from storage.
+
+### POST /images/:id/upload
+Upload the qcow2/image file for a registered image (multipart/form-data).
+
+**Form field:** `file` — the image binary file.
+
+### POST /images/import
+Import an image from a remote URL. The file is downloaded and stored automatically.
+
+**Request:**
+```json
+{
+  "name": "ubuntu-22.04-cloud",
+  "url": "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img",
+  "description": "Ubuntu 22.04 LTS cloud image",
+  "os": "linux",
+  "version": "22.04",
+  "is_public": false
+}
+```
+
+**Response:** `202 Accepted` — image metadata is returned immediately. The image status transitions from `PENDING` to `ACTIVE` once the download completes.
+
+---
+
 ## Networks (VPC)
 
 **Headers Required:** `X-API-Key: <your-api-key>`
@@ -301,10 +370,145 @@ Delete a VPC.
  
  ### DELETE /vpc-peerings/:id
  Delete a peering connection and remove all associated network routes.
- 
+
  ---
- 
- ## Security Groups
+
+## Route Tables 🆕
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /route-tables
+List all route tables for a VPC.
+Query params: `?vpc_id=<vpc-uuid>` (required)
+
+### POST /route-tables
+Create a new custom route table.
+```json
+{
+  "vpc_id": "vpc-uuid",
+  "name": "custom-rt",
+  "is_main": false
+}
+```
+
+### GET /route-tables/:id
+Get details of a specific route table including its routes.
+
+### DELETE /route-tables/:id
+Delete a custom route table. Cannot delete the main route table of a VPC.
+
+### POST /route-tables/:id/routes
+Add a route to a route table.
+```json
+{
+  "destination_cidr": "0.0.0.0/0",
+  "target_type": "igw",
+  "target_id": "igw-uuid"
+}
+```
+
+**Target Types:**
+- `local` - Traffic within VPC CIDR
+- `igw` - Internet Gateway
+- `nat` - NAT Gateway
+- `peering` - VPC Peering connection
+
+### DELETE /route-tables/:id/routes?route_id=<route_id>
+Remove a route from a route table. Query param `route_id` is required.
+
+### POST /route-tables/:id/associate
+Associate a subnet with a route table.
+```json
+{
+  "subnet_id": "subnet-uuid"
+}
+```
+
+### POST /route-tables/:id/disassociate
+Disassociate a subnet from a route table.
+```json
+{
+  "subnet_id": "subnet-uuid"
+}
+```
+
+---
+
+## Internet Gateways 🆕
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /internet-gateways
+List all internet gateways for the tenant.
+
+### POST /internet-gateways
+Create a new internet gateway.
+**Response (201 Created):**
+```json
+{
+  "id": "uuid",
+  "status": "detached",
+  "arn": "arn:thecloud:vpc:local:tenant:igw/uuid"
+}
+```
+
+### GET /internet-gateways/:id
+Get details of a specific internet gateway.
+
+### POST /internet-gateways/:id/attach
+Attach an internet gateway to a VPC.
+```json
+{
+  "vpc_id": "vpc-uuid"
+}
+```
+
+### POST /internet-gateways/:id/detach
+Detach an internet gateway from its VPC. Must remove all routes referencing this IGW first.
+
+### DELETE /internet-gateways/:id
+Delete an internet gateway. Must be detached first.
+
+---
+
+## NAT Gateways 🆕
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /nat-gateways
+List all NAT gateways for a VPC.
+Query params: `?vpc_id=<vpc-uuid>` (required)
+
+### POST /nat-gateways
+Create a new NAT gateway in a subnet with an allocated Elastic IP.
+```json
+{
+  "subnet_id": "subnet-uuid",
+  "eip_id": "eip-uuid"
+}
+```
+**Response (201 Created):**
+```json
+{
+  "id": "uuid",
+  "vpc_id": "vpc-uuid",
+  "subnet_id": "subnet-uuid",
+  "elastic_ip_id": "eip-uuid",
+  "status": "active",
+  "private_ip": "10.0.1.100",
+  "arn": "arn:thecloud:vpc:local:tenant:nat-gateway/uuid"
+}
+```
+
+### GET /nat-gateways/:id
+Get details of a specific NAT gateway.
+
+### DELETE /nat-gateways/:id
+Delete a NAT gateway and release the associated Elastic IP back to allocated state.
+
+---
+
+## Security Groups
 
 **Headers Required:** `X-API-Key: <your-api-key>`
 
@@ -723,6 +927,27 @@ Regenerate the database password and update it in both the database engine and V
 }
 ```
 
+### POST /databases/:id/stop
+Stop a running database instance. The data volume is retained.
+- **Constraints**: Cannot stop replicas (must promote first) or databases in CREATING/DELETING state.
+- **Response**:
+```json
+{
+  "message": "database stopped"
+}
+```
+
+### POST /databases/:id/start
+Start a stopped database instance.
+- **Constraints**: Database must be in STOPPED state.
+- **Workflow**: Starts container, waits for readiness, starts sidecars if enabled.
+- **Response**:
+```json
+{
+  "message": "database started"
+}
+```
+
 ---
 
 ## Global Load Balancers 🆕
@@ -845,6 +1070,57 @@ Invoke a function.
 
 ### GET /functions/:id/logs
 Get execution logs.
+
+### PATCH /functions/:id
+Update a function's configuration (timeout, memory, handler, environment variables).
+
+**Environment variables** — each entry can be either a plain-text value or a secret reference, but not both:
+```json
+{
+  "handler": "newhandler.js",
+  "timeout": 300,
+  "memory_mb": 256,
+  "env_vars": [
+    { "key": "FOO", "value": "bar" },
+    { "key": "API_KEY", "secret_ref": "@my-api-key" }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `key` | string | Env var name |
+| `value` | string | Plain-text value (mutually exclusive with `secret_ref`) |
+| `secret_ref` | string | Secret name reference with `@` prefix (e.g. `"@my-api-key"`) |
+
+### GET /function-schedules
+List all function schedules.
+
+### POST /function-schedules
+Create a scheduled function invocation.
+```json
+{
+  "function_id": "uuid",
+  "name": "nightly-processing",
+  "schedule": "0 2 * * *",
+  "payload": {}
+}
+```
+
+### GET /function-schedules/:id
+Get a specific schedule.
+
+### DELETE /function-schedules/:id
+Delete a schedule.
+
+### POST /function-schedules/:id/pause
+Pause a schedule.
+
+### POST /function-schedules/:id/resume
+Resume a paused schedule.
+
+### GET /function-schedules/:id/runs
+Get run history for a schedule.
 
 ---
 

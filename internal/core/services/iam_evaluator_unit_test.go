@@ -11,15 +11,15 @@ import (
 )
 
 func TestIAMEvaluator_Unit(t *testing.T) {
-	t.Run("Evaluate_Allow", TestIAMEvaluator_Evaluate_Allow)
-	t.Run("Evaluate_Deny", TestIAMEvaluator_Evaluate_Deny)
-	t.Run("Evaluate_NoMatch", TestIAMEvaluator_Evaluate_NoMatch)
-	t.Run("Evaluate_ExplicitDenyWins", TestIAMEvaluator_Evaluate_ExplicitDenyWins)
-	t.Run("Evaluate_WildcardAction", TestIAMEvaluator_Evaluate_WildcardAction)
-	t.Run("Evaluate_WildcardResource", TestIAMEvaluator_Evaluate_WildcardResource)
+	t.Run("Evaluate_Allow", testIAMEvaluatorEvaluateAllow)
+	t.Run("Evaluate_Deny", testIAMEvaluatorEvaluateDeny)
+	t.Run("Evaluate_NoMatch", testIAMEvaluatorEvaluateNoMatch)
+	t.Run("Evaluate_ExplicitDenyWins", testIAMEvaluatorEvaluateExplicitDenyWins)
+	t.Run("Evaluate_WildcardAction", testIAMEvaluatorEvaluateWildcardAction)
+	t.Run("Evaluate_WildcardResource", testIAMEvaluatorEvaluateWildcardResource)
 }
 
-func TestIAMEvaluator_Evaluate_Allow(t *testing.T) {
+func testIAMEvaluatorEvaluateAllow(t *testing.T) {
 	evaluator := services.NewIAMEvaluator()
 	ctx := context.Background()
 
@@ -40,7 +40,7 @@ func TestIAMEvaluator_Evaluate_Allow(t *testing.T) {
 	assert.Equal(t, domain.EffectAllow, effect)
 }
 
-func TestIAMEvaluator_Evaluate_Deny(t *testing.T) {
+func testIAMEvaluatorEvaluateDeny(t *testing.T) {
 	evaluator := services.NewIAMEvaluator()
 	ctx := context.Background()
 
@@ -61,7 +61,7 @@ func TestIAMEvaluator_Evaluate_Deny(t *testing.T) {
 	assert.Equal(t, domain.EffectDeny, effect)
 }
 
-func TestIAMEvaluator_Evaluate_NoMatch(t *testing.T) {
+func testIAMEvaluatorEvaluateNoMatch(t *testing.T) {
 	evaluator := services.NewIAMEvaluator()
 	ctx := context.Background()
 
@@ -82,7 +82,7 @@ func TestIAMEvaluator_Evaluate_NoMatch(t *testing.T) {
 	assert.Equal(t, domain.PolicyEffect(""), effect)
 }
 
-func TestIAMEvaluator_Evaluate_ExplicitDenyWins(t *testing.T) {
+func testIAMEvaluatorEvaluateExplicitDenyWins(t *testing.T) {
 	evaluator := services.NewIAMEvaluator()
 	ctx := context.Background()
 
@@ -108,7 +108,7 @@ func TestIAMEvaluator_Evaluate_ExplicitDenyWins(t *testing.T) {
 	assert.Equal(t, domain.EffectDeny, effect)
 }
 
-func TestIAMEvaluator_Evaluate_WildcardAction(t *testing.T) {
+func testIAMEvaluatorEvaluateWildcardAction(t *testing.T) {
 	evaluator := services.NewIAMEvaluator()
 	ctx := context.Background()
 
@@ -140,7 +140,7 @@ func TestIAMEvaluator_Evaluate_WildcardAction(t *testing.T) {
 	}
 }
 
-func TestIAMEvaluator_Evaluate_WildcardResource(t *testing.T) {
+func testIAMEvaluatorEvaluateWildcardResource(t *testing.T) {
 	evaluator := services.NewIAMEvaluator()
 	ctx := context.Background()
 

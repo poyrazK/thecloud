@@ -9,7 +9,10 @@ import (
 	"log/slog"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types"
@@ -22,7 +25,6 @@ import (
 	"github.com/docker/go-connections/nat"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/poyrazk/thecloud/internal/core/ports"
-	"github.com/poyrazk/thecloud/internal/errors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"gopkg.in/yaml.v3"
@@ -43,6 +45,19 @@ const (
 type DockerAdapter struct {
 	cli    dockerClient
 	logger *slog.Logger
+	// containerLocks maps container IDs to mutexes for serializing attach/detach operations
+	containerLocks sync.Map
+}
+
+// deleteLock removes the lock entry for a container after attach/detach completes.
+// Must be called while holding the lock.
+func (a *DockerAdapter) deleteLock(containerID string) {
+	a.containerLocks.Delete(containerID)
+}
+
+func (a *DockerAdapter) getContainerLock(containerID string) *sync.Mutex {
+	lock, _ := a.containerLocks.LoadOrStore(containerID, &sync.Mutex{})
+	return lock.(*sync.Mutex)
 }
 
 // dockerClient is a narrow interface over the Docker SDK client.
@@ -69,6 +84,7 @@ type dockerClient interface {
 	ContainerExecStart(ctx context.Context, execID string, config container.ExecStartOptions) error
 	ContainerExecAttach(ctx context.Context, execID string, config container.ExecStartOptions) (types.HijackedResponse, error)
 	ContainerExecInspect(ctx context.Context, execID string) (container.ExecInspect, error)
+	ContainerRename(ctx context.Context, containerID string, newName string) error
 }
 
 // NewDockerAdapter constructs a DockerAdapter with a Docker client.
@@ -596,12 +612,192 @@ func (a *DockerAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID stri
 	return nil
 }
 
-func (a *DockerAdapter) AttachVolume(ctx context.Context, id string, volumePath string) (string, error) {
-	return "", errors.New(errors.NotImplemented, "attaching volumes to running containers is not supported in docker adapter")
+func (a *DockerAdapter) AttachVolume(ctx context.Context, id string, volumePath string) (string, string, error) {
+	lock := a.getContainerLock(id)
+	lock.Lock()
+	defer a.deleteLock(id) // Clean up lock entry after operation
+	defer lock.Unlock()
+
+	// 1. Inspect current container to get configuration
+	inspect, err := a.cli.ContainerInspect(ctx, id)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to inspect container %s: %w", id, err)
+	}
+
+	// Parse volumePath: if it contains ":", it's already in hostPath:containerPath[:mode] format
+	// Otherwise, it's a backend volume name to be mounted at a generated path
+	bindSpec := volumePath
+	if !strings.Contains(volumePath, ":") {
+		// Backend volume name - mount as read-write at generated path
+		bindSpec = volumePath + ":/mnt/cloud-volume-" + uuid.New().String()[:8] + ":rw"
+	}
+
+	// 2. Stop the container gracefully
+	timeout := 30
+	if err := a.cli.ContainerStop(ctx, id, container.StopOptions{Timeout: &timeout}); err != nil {
+		return "", "", fmt.Errorf("failed to stop container %s: %w", id, err)
+	}
+
+	// 3. Build new HostConfig with updated binds
+	oldHostConfig := inspect.HostConfig
+	oldHostConfig.Binds = append(oldHostConfig.Binds, bindSpec)
+
+	config := inspect.Config
+	hostConfig := &container.HostConfig{
+		PortBindings: oldHostConfig.PortBindings,
+		Binds:        oldHostConfig.Binds,
+		Privileged:   oldHostConfig.Privileged,
+		Resources:    oldHostConfig.Resources,
+		NetworkMode:  oldHostConfig.NetworkMode,
+	}
+
+	networkingConfig := &network.NetworkingConfig{
+		EndpointsConfig: inspect.NetworkSettings.Networks,
+	}
+
+	// Reconstruct container name from inspect response
+	containerName := ""
+	if inspect.Name != "" {
+		containerName = strings.TrimPrefix(inspect.Name, "/")
+	}
+
+	// 4. Rename old container to free the name before creating new one
+	oldContainerTmpName := ""
+	if containerName != "" {
+		oldContainerTmpName = id + "-old"
+		if err := a.cli.ContainerRename(ctx, id, oldContainerTmpName); err != nil {
+			return "", "", fmt.Errorf("failed to rename old container: %w", err)
+		}
+	}
+
+	// 5. Create new container with updated binds
+	createResp, err := a.cli.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, containerName)
+	if err != nil {
+		// Rollback: rename old container back and restart it
+		if containerName != "" {
+			_ = a.cli.ContainerRename(ctx, oldContainerTmpName, containerName)
+		}
+		_ = a.cli.ContainerStart(ctx, id, container.StartOptions{})
+		return "", "", fmt.Errorf("failed to recreate container with volume: %w", err)
+	}
+
+	// 6. Start the new container
+	if err := a.cli.ContainerStart(ctx, createResp.ID, container.StartOptions{}); err != nil {
+		// Cleanup failed container and rollback
+		_ = a.cli.ContainerRemove(ctx, createResp.ID, container.RemoveOptions{Force: true})
+		if containerName != "" {
+			_ = a.cli.ContainerRename(ctx, oldContainerTmpName, containerName)
+		}
+		_ = a.cli.ContainerStart(ctx, id, container.StartOptions{})
+		return "", "", fmt.Errorf("failed to start container: %w", err)
+	}
+
+	// 7. Remove old container (best effort - no error if this fails)
+	if err := a.cli.ContainerRemove(ctx, id, container.RemoveOptions{Force: true}); err != nil {
+		a.logger.Warn("failed to remove old container after volume attach",
+			"old_id", id, "new_id", createResp.ID, "error", err)
+	}
+
+	// Return the container-side mount path and the new container ID
+	// bindSpec format: "devicePath:containerPath[:mode]"
+	parts := strings.Split(bindSpec, ":")
+	containerPath := parts[1]
+	return containerPath, createResp.ID, nil
 }
 
-func (a *DockerAdapter) DetachVolume(ctx context.Context, id string, volumePath string) error {
-	return errors.New(errors.NotImplemented, "detaching volumes from running containers is not supported in docker adapter")
+func (a *DockerAdapter) DetachVolume(ctx context.Context, id string, volumePath string) (string, error) {
+	lock := a.getContainerLock(id)
+	lock.Lock()
+	defer a.deleteLock(id) // Clean up lock entry after operation
+	defer lock.Unlock()
+
+	// 1. Inspect current container
+	inspect, err := a.cli.ContainerInspect(ctx, id)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect container %s: %w", id, err)
+	}
+
+	// 2. Find and remove the bind mount matching volumePath
+	currentBinds := inspect.HostConfig.Binds
+	newBinds := make([]string, 0, len(currentBinds))
+	found := false
+
+	for _, bind := range currentBinds {
+		parts := strings.Split(bind, ":")
+		if len(parts) >= 2 {
+			// Match by host path prefix (volumePath) or container path
+			if strings.HasPrefix(bind, volumePath+":") || parts[1] == volumePath {
+				found = true
+				continue // skip this bind (remove it)
+			}
+		}
+		newBinds = append(newBinds, bind)
+	}
+
+	if !found {
+		return "", fmt.Errorf("volume path %s not found in container binds", volumePath)
+	}
+
+	// 3. Stop the container
+	timeout := 30
+	if err := a.cli.ContainerStop(ctx, id, container.StopOptions{Timeout: &timeout}); err != nil {
+		return "", fmt.Errorf("failed to stop container %s: %w", id, err)
+	}
+
+	// 4. Recreate without the volume bind
+	config := inspect.Config
+	hostConfig := &container.HostConfig{
+		PortBindings: inspect.HostConfig.PortBindings,
+		Binds:        newBinds,
+		Privileged:   inspect.HostConfig.Privileged,
+		Resources:    inspect.HostConfig.Resources,
+		NetworkMode:  inspect.HostConfig.NetworkMode,
+	}
+	networkingConfig := &network.NetworkingConfig{
+		EndpointsConfig: inspect.NetworkSettings.Networks,
+	}
+
+	containerName := ""
+	if inspect.Name != "" {
+		containerName = strings.TrimPrefix(inspect.Name, "/")
+	}
+
+	// 4b. Rename old container to free the name before creating new one
+	oldContainerTmpName := ""
+	if containerName != "" {
+		oldContainerTmpName = id + "-old"
+		if err := a.cli.ContainerRename(ctx, id, oldContainerTmpName); err != nil {
+			return "", fmt.Errorf("failed to rename old container: %w", err)
+		}
+	}
+
+	createResp, err := a.cli.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, containerName)
+	if err != nil {
+		// Rollback: rename old container back and restart
+		if containerName != "" {
+			_ = a.cli.ContainerRename(ctx, oldContainerTmpName, containerName)
+		}
+		_ = a.cli.ContainerStart(ctx, id, container.StartOptions{})
+		return "", fmt.Errorf("failed to recreate container: %w", err)
+	}
+
+	// 5. Start new container
+	if err := a.cli.ContainerStart(ctx, createResp.ID, container.StartOptions{}); err != nil {
+		_ = a.cli.ContainerRemove(ctx, createResp.ID, container.RemoveOptions{Force: true})
+		if containerName != "" {
+			_ = a.cli.ContainerRename(ctx, oldContainerTmpName, containerName)
+		}
+		_ = a.cli.ContainerStart(ctx, id, container.StartOptions{})
+		return "", fmt.Errorf("failed to start container: %w", err)
+	}
+
+	// 6. Remove old container (best effort)
+	if err := a.cli.ContainerRemove(ctx, id, container.RemoveOptions{Force: true}); err != nil {
+		a.logger.Warn("failed to remove old container after volume detach",
+			"old_id", id, "new_id", createResp.ID, "error", err)
+	}
+
+	return createResp.ID, nil
 }
 
 func (a *DockerAdapter) GetConsoleURL(ctx context.Context, id string) (string, error) {

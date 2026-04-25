@@ -198,7 +198,7 @@ func (s *stackService) deletePhysicalResource(ctx context.Context, resourceType,
 	case "Instance":
 		_ = s.instanceSvc.TerminateInstance(ctx, physicalID)
 	case "VPC":
-		_ = s.vpcSvc.DeleteVPC(ctx, physicalID)
+		_ = s.vpcSvc.DeleteVPC(ctx, physicalID, true) // force delete for stack cleanup
 	case "Volume":
 		_ = s.volumeSvc.DeleteVolume(ctx, physicalID)
 	case "Snapshot":

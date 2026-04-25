@@ -265,9 +265,13 @@ definitions:
         type: string
       created_at:
         type: string
+      encrypted_volume:
+        type: boolean
       engine:
         $ref: '#/definitions/domain.DatabaseEngine'
       id:
+        type: string
+      kms_key_id:
         type: string
       metrics_enabled:
         type: boolean
@@ -302,6 +306,8 @@ definitions:
         type: string
       version:
         description: Engine version (e.g. "15", "8.0")
+        type: string
+      volume_key_ref:
         type: string
       vpc_id:
         description: Optional private networking
@@ -520,6 +526,14 @@ definitions:
       user_id:
         type: string
     type: object
+  domain.IGWStatus:
+    enum:
+    - detached
+    - attached
+    type: string
+    x-enum-varnames:
+    - IGWStatusDetached
+    - IGWStatusAttached
   domain.Image:
     properties:
       created_at:
@@ -545,6 +559,9 @@ definitions:
       size_gb:
         description: Minimum disk size required
         type: integer
+      source_url:
+        description: URL image was imported from
+        type: string
       status:
         $ref: '#/definitions/domain.ImageStatus'
       tenant_id:
@@ -693,6 +710,23 @@ definitions:
         description: Number of virtual CPUs
         type: integer
     type: object
+  domain.InternetGateway:
+    properties:
+      arn:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      status:
+        $ref: '#/definitions/domain.IGWStatus'
+      tenant_id:
+        type: string
+      user_id:
+        type: string
+      vpc_id:
+        type: string
+    type: object
   domain.LBStatus:
     enum:
     - CREATING
@@ -799,6 +833,41 @@ definitions:
       user_id:
         type: string
     type: object
+  domain.NATGateway:
+    properties:
+      arn:
+        type: string
+      created_at:
+        type: string
+      elastic_ip_id:
+        type: string
+      id:
+        type: string
+      private_ip:
+        type: string
+      status:
+        $ref: '#/definitions/domain.NATGatewayStatus'
+      subnet_id:
+        type: string
+      tenant_id:
+        type: string
+      user_id:
+        type: string
+      vpc_id:
+        type: string
+    type: object
+  domain.NATGatewayStatus:
+    enum:
+    - pending
+    - active
+    - failed
+    - deleted
+    type: string
+    x-enum-varnames:
+    - NATGatewayStatusPending
+    - NATGatewayStatusActive
+    - NATGatewayStatusFailed
+    - NATGatewayStatusDeleted
   domain.NodeGroup:
     properties:
       cluster_id:
@@ -917,6 +986,11 @@ definitions:
     - function:create
     - function:delete
     - function:read
+    - function:update
+    - function_schedule:create
+    - function_schedule:read
+    - function_schedule:delete
+    - function_schedule:update
     - cache:create
     - cache:delete
     - cache:read
@@ -1029,6 +1103,11 @@ definitions:
     - PermissionFunctionCreate
     - PermissionFunctionDelete
     - PermissionFunctionRead
+    - PermissionFunctionUpdate
+    - PermissionFunctionScheduleCreate
+    - PermissionFunctionScheduleRead
+    - PermissionFunctionScheduleDelete
+    - PermissionFunctionScheduleUpdate
     - PermissionCacheCreate
     - PermissionCacheDelete
     - PermissionCacheRead
@@ -1175,6 +1254,67 @@ definitions:
           $ref: '#/definitions/domain.Permission'
         type: array
     type: object
+  domain.Route:
+    properties:
+      created_at:
+        type: string
+      destination_cidr:
+        type: string
+      id:
+        type: string
+      route_table_id:
+        type: string
+      target_id:
+        type: string
+      target_name:
+        type: string
+      target_type:
+        $ref: '#/definitions/domain.RouteTargetType'
+    type: object
+  domain.RouteTable:
+    properties:
+      associations:
+        items:
+          $ref: '#/definitions/domain.RouteTableAssociation'
+        type: array
+      created_at:
+        type: string
+      id:
+        type: string
+      is_main:
+        type: boolean
+      name:
+        type: string
+      routes:
+        items:
+          $ref: '#/definitions/domain.Route'
+        type: array
+      vpc_id:
+        type: string
+    type: object
+  domain.RouteTableAssociation:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      route_table_id:
+        type: string
+      subnet_id:
+        type: string
+    type: object
+  domain.RouteTargetType:
+    enum:
+    - local
+    - igw
+    - nat
+    - peering
+    type: string
+    x-enum-varnames:
+    - RouteTargetLocal
+    - RouteTargetIGW
+    - RouteTargetNAT
+    - RouteTargetPeering
   domain.RoutingPolicy:
     enum:
     - LATENCY
@@ -1646,10 +1786,14 @@ definitions:
         type: string
       created_at:
         type: string
+      encrypted:
+        type: boolean
       id:
         type: string
       instance_id:
         description: Attached instance
+        type: string
+      kms_key_id:
         type: string
       mount_path:
         description: Internal mount point
@@ -1706,6 +1850,18 @@ definitions:
     required:
     - permission
     type: object
+  httphandlers.AddRouteRequest:
+    properties:
+      destination_cidr:
+        type: string
+      target_id:
+        type: string
+      target_type:
+        type: string
+    required:
+    - destination_cidr
+    - target_type
+    type: object
   httphandlers.AddTargetRequest:
     properties:
       instance_id:
@@ -1724,6 +1880,13 @@ definitions:
         type: string
     required:
     - instance_id
+    type: object
+  httphandlers.AssociateSubnetRequest:
+    properties:
+      subnet_id:
+        type: string
+    required:
+    - subnet_id
     type: object
   httphandlers.AttachDetachSGRequest:
     properties:
@@ -1880,6 +2043,16 @@ definitions:
     - port
     - vpc_id
     type: object
+  httphandlers.CreateNATGatewayRequest:
+    properties:
+      eip_id:
+        type: string
+      subnet_id:
+        type: string
+    required:
+    - eip_id
+    - subnet_id
+    type: object
   httphandlers.CreatePeeringRequest:
     properties:
       accepter_vpc_id:
@@ -1942,6 +2115,18 @@ definitions:
     - name
     - path_prefix
     - target_url
+    type: object
+  httphandlers.CreateRouteTableRequest:
+    properties:
+      is_main:
+        type: boolean
+      name:
+        type: string
+      vpc_id:
+        type: string
+    required:
+    - name
+    - vpc_id
     type: object
   httphandlers.CreateSSHKeyRequest:
     properties:
@@ -2020,6 +2205,13 @@ definitions:
         type: string
     required:
     - email
+    type: object
+  httphandlers.IGWAttachRequest:
+    properties:
+      vpc_id:
+        type: string
+    required:
+    - vpc_id
     type: object
   httphandlers.LaunchRequest:
     properties:
@@ -2237,6 +2429,26 @@ definitions:
       volume_id:
         type: string
     type: object
+  httphandlers.importImageRequest:
+    properties:
+      description:
+        type: string
+      is_public:
+        type: boolean
+      name:
+        type: string
+      os:
+        type: string
+      url:
+        type: string
+      version:
+        type: string
+    required:
+    - name
+    - os
+    - url
+    - version
+    type: object
   httphandlers.registerImageRequest:
     properties:
       description:
@@ -2450,6 +2662,28 @@ paths:
               type: string
             type: object
       summary: Upload image file
+      tags:
+      - Images
+  /api/v1/images/import:
+    post:
+      consumes:
+      - application/json
+      description: Downloads an OS image from a remote URL and registers it
+      parameters:
+      - description: Import request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.importImageRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/domain.Image'
+      summary: Import image from URL
       tags:
       - Images
   /audit:
@@ -4822,6 +5056,160 @@ paths:
       summary: Stop an instance
       tags:
       - instances
+  /internet-gateways:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.InternetGateway'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List Internet Gateways
+      tags:
+      - internet-gateways
+    post:
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.InternetGateway'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create Internet Gateway
+      tags:
+      - internet-gateways
+  /internet-gateways/{id}:
+    delete:
+      parameters:
+      - description: Internet Gateway ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete Internet Gateway
+      tags:
+      - internet-gateways
+    get:
+      parameters:
+      - description: Internet Gateway ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.InternetGateway'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get Internet Gateway
+      tags:
+      - internet-gateways
+  /internet-gateways/{id}/attach:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Internet Gateway ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Attach Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.IGWAttachRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Attach Internet Gateway
+      tags:
+      - internet-gateways
+  /internet-gateways/{id}/detach:
+    post:
+      parameters:
+      - description: Internet Gateway ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Detach Internet Gateway
+      tags:
+      - internet-gateways
   /lb:
     get:
       description: Gets a list of all load balancers
@@ -5077,6 +5465,116 @@ paths:
       summary: Get logs by resource
       tags:
       - logs
+  /nat-gateways:
+    get:
+      parameters:
+      - description: VPC ID to filter by
+        in: query
+        name: vpc_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.NATGateway'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List NAT Gateways
+      tags:
+      - nat-gateways
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: NAT Gateway Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreateNATGatewayRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.NATGateway'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create NAT Gateway
+      tags:
+      - nat-gateways
+  /nat-gateways/{id}:
+    delete:
+      parameters:
+      - description: NAT Gateway ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete NAT Gateway
+      tags:
+      - nat-gateways
+    get:
+      parameters:
+      - description: NAT Gateway ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.NATGateway'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get NAT Gateway
+      tags:
+      - nat-gateways
   /rbac/bindings:
     get:
       description: Returns all user-role assignments
@@ -5249,6 +5747,245 @@ paths:
       summary: Remove permission from role
       tags:
       - RBAC
+  /route-tables:
+    get:
+      parameters:
+      - description: VPC ID to filter by
+        in: query
+        name: vpc_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.RouteTable'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List Route Tables
+      tags:
+      - route-tables
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Route Table Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreateRouteTableRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.RouteTable'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create Route Table
+      tags:
+      - route-tables
+  /route-tables/{id}:
+    delete:
+      parameters:
+      - description: Route Table ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete Route Table
+      tags:
+      - route-tables
+    get:
+      parameters:
+      - description: Route Table ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.RouteTable'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get Route Table
+      tags:
+      - route-tables
+  /route-tables/{id}/associate:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Route Table ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Subnet Association Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.AssociateSubnetRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Associate Subnet
+      tags:
+      - route-tables
+  /route-tables/{id}/disassociate:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Route Table ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Subnet Disassociation Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.AssociateSubnetRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Disassociate Subnet
+      tags:
+      - route-tables
+  /route-tables/{id}/routes:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Route Table ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Route Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.AddRouteRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Route'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Add Route
+      tags:
+      - route-tables
+  /route-tables/{id}/routes/{route_id}:
+    delete:
+      parameters:
+      - description: Route Table ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Route ID
+        in: path
+        name: route_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Remove Route
+      tags:
+      - route-tables
   /security-groups:
     get:
       description: Lists all security groups for a VPC
@@ -6683,6 +7420,10 @@ paths:
         name: id
         required: true
         type: string
+      - description: Force delete even with dependent resources (for async cleanup)
+        in: query
+        name: force
+        type: boolean
       produces:
       - application/json
       responses:

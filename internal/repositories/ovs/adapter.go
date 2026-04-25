@@ -246,3 +246,56 @@ func (a *OvsAdapter) SetVethIP(ctx context.Context, vethEnd, ip, cidr string) er
 	}
 	return nil
 }
+
+// SetupNATForSubnet configures iptables SNAT rules for outbound traffic from a subnet.
+func (a *OvsAdapter) SetupNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR, egressIP string) error {
+	// Get the physical interface that the NAT gateway's veth is attached to
+	// We use iptables to perform SNAT on traffic from the subnet
+
+	// First, ensure IP forwarding is enabled
+	cmd := a.exec.CommandContext(ctx, "sysctl", "-w", "net.ipv4.ip_forward=1")
+	if err := cmd.Run(); err != nil {
+		a.logger.Warn("failed to enable IP forwarding", "error", err)
+	}
+
+	// Add SNAT rule: traffic from subnet going out via the nat veth endpoint gets SNATed
+	// -t nat: use NAT table
+	// -A POSTROUTING: append to POSTROUTING chain (after routing decision)
+	// -s <subnetCIDR>: match traffic from this subnet
+	// -o <natVethEnd>: output device is the NAT veth
+	// -j SNAT --to-source <egressIP>: SNAT to the egress IP
+	cmd = a.exec.CommandContext(ctx, "iptables", "-t", "nat", "-A", "POSTROUTING",
+		"-s", subnetCIDR, "-o", natVethEnd, "-j", "SNAT", "--to-source", egressIP)
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(errors.Internal, "failed to setup NAT SNAT rule", err)
+	}
+
+	a.logger.Info("NAT SNAT rule configured",
+		"subnet", subnetCIDR,
+		"egress_ip", egressIP,
+		"nat_veth", natVethEnd)
+
+	return nil
+}
+
+// RemoveNATForSubnet removes iptables SNAT rules for a subnet.
+// egressIP is used to precisely match the SNAT rule when deleting.
+func (a *OvsAdapter) RemoveNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR, egressIP string) error {
+	// Use -C to check if rule exists (with egressIP), then -D to delete it
+	checkCmd := a.exec.CommandContext(ctx, "iptables", "-t", "nat", "-C", "POSTROUTING",
+		"-s", subnetCIDR, "-o", natVethEnd, "-j", "SNAT", "--to-source", egressIP)
+	// If rule exists, delete it; if not, just log and return (no error)
+	if checkCmd.Run() == nil {
+		// Rule exists - now delete it
+		cmd := a.exec.CommandContext(ctx, "iptables", "-t", "nat", "-D", "POSTROUTING",
+			"-s", subnetCIDR, "-o", natVethEnd, "-j", "SNAT", "--to-source", egressIP)
+		if err := cmd.Run(); err != nil {
+			return errors.Wrap(errors.Internal, "failed to remove NAT SNAT rule", err)
+		}
+	} else {
+		a.logger.Warn("NAT SNAT rule does not exist, nothing to remove", "subnet", subnetCIDR)
+	}
+
+	a.logger.Info("NAT SNAT rule removed", "subnet", subnetCIDR, "nat_veth", natVethEnd)
+	return nil
+}

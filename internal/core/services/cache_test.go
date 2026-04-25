@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package services_test
 
 import (
@@ -77,7 +80,7 @@ func TestCreateCacheSuccess(t *testing.T) {
 	_ = compute.DeleteInstance(ctx, cache.ContainerID)
 
 	// Verify in DB
-	fetched, err := repo.GetByID(ctx, cache.ID)
+	fetched, err := repo.GetByID(ctx, cache.ID, appcontext.TenantIDFromContext(ctx))
 	require.NoError(t, err)
 	assert.Equal(t, cache.ID, fetched.ID)
 }
@@ -130,6 +133,6 @@ func TestDeleteCacheSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify deleted from DB
-	_, err = repo.GetByID(ctx, cache.ID)
+	_, err = repo.GetByID(ctx, cache.ID, appcontext.TenantIDFromContext(ctx))
 	require.Error(t, err) // Should return not found error
 }

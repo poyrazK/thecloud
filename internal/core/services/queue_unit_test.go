@@ -25,10 +25,12 @@ func TestQueueServiceUnit(t *testing.T) {
 
 	ctx := context.Background()
 	userID := uuid.New()
+	tenantID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("CreateQueue", func(t *testing.T) {
-		mockRepo.On("GetByName", mock.Anything, "my-queue", userID).Return(nil, nil).Once()
+		mockRepo.On("GetByName", mock.Anything, "my-queue", mock.Anything).Return(nil, nil).Once()
 		mockRepo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 		mockEventSvc.On("RecordEvent", mock.Anything, "QUEUE_CREATED", mock.Anything, "QUEUE", mock.Anything).Return(nil).Once()
 		mockAuditSvc.On("Log", mock.Anything, userID, "queue.create", "queue", mock.Anything, mock.Anything).Return(nil).Once()
@@ -42,7 +44,7 @@ func TestQueueServiceUnit(t *testing.T) {
 
 	t.Run("SendMessage", func(t *testing.T) {
 		qID := uuid.New()
-		mockRepo.On("GetByID", mock.Anything, qID, userID).Return(&domain.Queue{ID: qID, MaxMessageSize: 100}, nil).Once()
+		mockRepo.On("GetByID", mock.Anything, qID, mock.Anything).Return(&domain.Queue{ID: qID, MaxMessageSize: 100}, nil).Once()
 		mockRepo.On("SendMessage", mock.Anything, qID, "hello").Return(&domain.Message{ID: uuid.New()}, nil).Once()
 		mockEventSvc.On("RecordEvent", mock.Anything, "MESSAGE_SENT", mock.Anything, "MESSAGE", mock.Anything).Return(nil).Once()
 
@@ -54,7 +56,7 @@ func TestQueueServiceUnit(t *testing.T) {
 
 	t.Run("ReceiveMessages", func(t *testing.T) {
 		qID := uuid.New()
-		mockRepo.On("GetByID", mock.Anything, qID, userID).Return(&domain.Queue{ID: qID, VisibilityTimeout: 30}, nil).Once()
+		mockRepo.On("GetByID", mock.Anything, qID, mock.Anything).Return(&domain.Queue{ID: qID, VisibilityTimeout: 30}, nil).Once()
 		mockRepo.On("ReceiveMessages", mock.Anything, qID, 5, 30).Return([]*domain.Message{{ID: uuid.New()}}, nil).Once()
 		mockEventSvc.On("RecordEvent", mock.Anything, "MESSAGE_RECEIVED", mock.Anything, "MESSAGE", mock.Anything).Return(nil).Once()
 

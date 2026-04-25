@@ -31,6 +31,8 @@ type Volume struct {
 	InstanceID  *uuid.UUID   `json:"instance_id,omitempty"`  // Attached instance
 	BackendPath string       `json:"backend_path,omitempty"` // Physical path on host/storage
 	MountPath   string       `json:"mount_path,omitempty"`   // Internal mount point
+	Encrypted   bool         `json:"encrypted"`
+	KMSKeyID    string       `json:"kms_key_id,omitempty"`
 	CreatedAt   time.Time    `json:"created_at"`
 	UpdatedAt   time.Time    `json:"updated_at"`
 }

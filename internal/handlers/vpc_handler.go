@@ -99,13 +99,15 @@ func (h *VpcHandler) Get(c *gin.Context) {
 // @Produce json
 // @Security APIKeyAuth
 // @Param id path string true "VPC ID or Name"
+// @Param force query bool false "Force delete even with dependent resources (for async cleanup)"
 // @Success 200 {object} httputil.Response
 // @Failure 404 {object} httputil.Response
 // @Failure 500 {object} httputil.Response
 // @Router /vpcs/{id} [delete]
 func (h *VpcHandler) Delete(c *gin.Context) {
 	idOrName := c.Param("id")
-	if err := h.svc.DeleteVPC(c.Request.Context(), idOrName); err != nil {
+	force := c.Query("force") == "true"
+	if err := h.svc.DeleteVPC(c.Request.Context(), idOrName, force); err != nil {
 		httputil.Error(c, err)
 		return
 	}

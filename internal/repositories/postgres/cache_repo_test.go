@@ -26,6 +26,7 @@ func TestCacheRepository_Create(t *testing.T) {
 		cache := &domain.Cache{
 			ID:          uuid.New(),
 			UserID:      uuid.New(),
+			TenantID:    uuid.New(),
 			Name:        "test-cache",
 			Engine:      domain.EngineRedis,
 			Version:     "6.2",
@@ -40,7 +41,7 @@ func TestCacheRepository_Create(t *testing.T) {
 		}
 
 		mock.ExpectExec("INSERT INTO caches").
-			WithArgs(cache.ID, cache.UserID, cache.Name, cache.Engine, cache.Version, cache.Status, cache.VpcID,
+			WithArgs(cache.ID, cache.UserID, cache.TenantID, cache.Name, cache.Engine, cache.Version, cache.Status, cache.VpcID,
 				cache.ContainerID, cache.Port, cache.Password, cache.MemoryMB, cache.CreatedAt, cache.UpdatedAt).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
@@ -73,16 +74,17 @@ func TestCacheRepository_GetByID(t *testing.T) {
 
 		repo := NewCacheRepository(mock)
 		id := uuid.New()
+		tenantID := uuid.New()
 		now := time.Now()
 		vpcID := uuid.New()
 
-		mock.ExpectQuery("SELECT.*FROM caches WHERE id = \\$1").
-			WithArgs(id).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "engine", "version", "status", "vpc_id", "container_id", "port", "password", "memory_mb", "created_at", "updated_at"}).
-				AddRow(id, uuid.New(), "test-cache", string(domain.EngineRedis), "6.2", string(domain.CacheStatusRunning), vpcID,
+		mock.ExpectQuery("SELECT.*FROM caches WHERE id = \\$1 AND tenant_id = \\$2").
+			WithArgs(id, tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "engine", "version", "status", "vpc_id", "container_id", "port", "password", "memory_mb", "created_at", "updated_at"}).
+				AddRow(id, uuid.New(), tenantID, "test-cache", string(domain.EngineRedis), "6.2", string(domain.CacheStatusRunning), vpcID,
 					"cid-1", 6379, "pass", 1024, now, now))
 
-		cache, err := repo.GetByID(context.Background(), id)
+		cache, err := repo.GetByID(context.Background(), id, tenantID)
 		require.NoError(t, err)
 		assert.NotNil(t, cache)
 		assert.Equal(t, id, cache.ID)
@@ -96,12 +98,13 @@ func TestCacheRepository_GetByID(t *testing.T) {
 
 		repo := NewCacheRepository(mock)
 		id := uuid.New()
+		tenantID := uuid.New()
 
 		mock.ExpectQuery("SELECT.*FROM caches").
-			WithArgs(id).
+			WithArgs(id, tenantID).
 			WillReturnError(pgx.ErrNoRows)
 
-		cache, err := repo.GetByID(context.Background(), id)
+		cache, err := repo.GetByID(context.Background(), id, tenantID)
 		require.Error(t, err)
 		assert.Nil(t, cache)
 		assert.True(t, errors.Is(err, errors.NotFound))
@@ -115,17 +118,17 @@ func TestCacheRepository_GetByName(t *testing.T) {
 		defer mock.Close()
 
 		repo := NewCacheRepository(mock)
-		userID := uuid.New()
+		tenantID := uuid.New()
 		name := "test-cache"
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT.*FROM caches WHERE user_id = \\$1 AND name = \\$2").
-			WithArgs(userID, name).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "engine", "version", "status", "vpc_id", "container_id", "port", "password", "memory_mb", "created_at", "updated_at"}).
-				AddRow(uuid.New(), userID, name, string(domain.EngineRedis), "6.2", string(domain.CacheStatusRunning), nil,
+		mock.ExpectQuery("SELECT.*FROM caches WHERE tenant_id = \\$1 AND name = \\$2").
+			WithArgs(tenantID, name).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "engine", "version", "status", "vpc_id", "container_id", "port", "password", "memory_mb", "created_at", "updated_at"}).
+				AddRow(uuid.New(), uuid.New(), tenantID, name, string(domain.EngineRedis), "6.2", string(domain.CacheStatusRunning), nil,
 					"cid-1", 6379, "pass", 1024, now, now))
 
-		cache, err := repo.GetByName(context.Background(), userID, name)
+		cache, err := repo.GetByName(context.Background(), tenantID, name)
 		require.NoError(t, err)
 		assert.NotNil(t, cache)
 		assert.Equal(t, name, cache.Name)
@@ -137,14 +140,14 @@ func TestCacheRepository_GetByName(t *testing.T) {
 		defer mock.Close()
 
 		repo := NewCacheRepository(mock)
-		userID := uuid.New()
+		tenantID := uuid.New()
 		name := "test-cache"
 
 		mock.ExpectQuery("SELECT.*FROM caches").
-			WithArgs(userID, name).
+			WithArgs(tenantID, name).
 			WillReturnError(pgx.ErrNoRows)
 
-		cache, err := repo.GetByName(context.Background(), userID, name)
+		cache, err := repo.GetByName(context.Background(), tenantID, name)
 		require.Error(t, err)
 		assert.Nil(t, cache)
 		assert.True(t, errors.Is(err, errors.NotFound))
@@ -158,16 +161,16 @@ func TestCacheRepository_List(t *testing.T) {
 		defer mock.Close()
 
 		repo := NewCacheRepository(mock)
-		userID := uuid.New()
+		tenantID := uuid.New()
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT.*FROM caches WHERE user_id = \\$1").
-			WithArgs(userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "engine", "version", "status", "vpc_id", "container_id", "port", "password", "memory_mb", "created_at", "updated_at"}).
-				AddRow(uuid.New(), userID, "cache-1", string(domain.EngineRedis), "6.2", string(domain.CacheStatusRunning), nil, "cid-1", 6379, "pass", 1024, now, now).
-				AddRow(uuid.New(), userID, "cache-2", string(domain.EngineRedis), "6.2", string(domain.CacheStatusStopped), nil, "cid-2", 6380, "pass", 1024, now, now))
+		mock.ExpectQuery("SELECT.*FROM caches WHERE tenant_id = \\$1").
+			WithArgs(tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "engine", "version", "status", "vpc_id", "container_id", "port", "password", "memory_mb", "created_at", "updated_at"}).
+				AddRow(uuid.New(), uuid.New(), tenantID, "cache-1", string(domain.EngineRedis), "6.2", string(domain.CacheStatusRunning), nil, "cid-1", 6379, "pass", 1024, now, now).
+				AddRow(uuid.New(), uuid.New(), tenantID, "cache-2", string(domain.EngineRedis), "6.2", string(domain.CacheStatusStopped), nil, "cid-2", 6380, "pass", 1024, now, now))
 
-		caches, err := repo.List(context.Background(), userID)
+		caches, err := repo.List(context.Background(), tenantID)
 		require.NoError(t, err)
 		assert.Len(t, caches, 2)
 	})
@@ -178,13 +181,13 @@ func TestCacheRepository_List(t *testing.T) {
 		defer mock.Close()
 
 		repo := NewCacheRepository(mock)
-		userID := uuid.New()
+		tenantID := uuid.New()
 
 		mock.ExpectQuery("SELECT.*FROM caches").
-			WithArgs(userID).
+			WithArgs(tenantID).
 			WillReturnError(assert.AnError)
 
-		caches, err := repo.List(context.Background(), userID)
+		caches, err := repo.List(context.Background(), tenantID)
 		require.Error(t, err)
 		assert.Nil(t, caches)
 		assert.True(t, errors.Is(err, errors.Internal))
@@ -238,12 +241,13 @@ func TestCacheRepository_Delete(t *testing.T) {
 
 		repo := NewCacheRepository(mock)
 		id := uuid.New()
+		tenantID := uuid.New()
 
 		mock.ExpectExec("DELETE FROM caches").
-			WithArgs(id).
+			WithArgs(id, tenantID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
-		err = repo.Delete(context.Background(), id)
+		err = repo.Delete(context.Background(), id, tenantID)
 		require.NoError(t, err)
 	})
 
@@ -254,12 +258,13 @@ func TestCacheRepository_Delete(t *testing.T) {
 
 		repo := NewCacheRepository(mock)
 		id := uuid.New()
+		tenantID := uuid.New()
 
 		mock.ExpectExec("DELETE FROM caches").
-			WithArgs(id).
+			WithArgs(id, tenantID).
 			WillReturnError(assert.AnError)
 
-		err = repo.Delete(context.Background(), id)
+		err = repo.Delete(context.Background(), id, tenantID)
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, errors.Internal))
 	})

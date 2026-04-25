@@ -49,6 +49,7 @@ type Handlers struct {
 	Database      *httphandlers.DatabaseHandler
 	Secret        *httphandlers.SecretHandler
 	Function      *httphandlers.FunctionHandler
+	FunctionSchedule *httphandlers.FunctionScheduleHandler
 	Cache         *httphandlers.CacheHandler
 	Queue         *httphandlers.QueueHandler
 	Notify        *httphandlers.NotifyHandler
@@ -71,6 +72,9 @@ type Handlers struct {
 	Log           *httphandlers.LogHandler
 	IAM           *httphandlers.IAMHandler
 	VPCPeering    *httphandlers.VPCPeeringHandler
+	RouteTable    *httphandlers.RouteTableHandler
+	InternetGateway *httphandlers.InternetGatewayHandler
+	NATGateway    *httphandlers.NATGatewayHandler
 	Ws            *ws.Handler
 }
 
@@ -95,6 +99,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		Database:      httphandlers.NewDatabaseHandler(svcs.Database),
 		Secret:        httphandlers.NewSecretHandler(svcs.Secret),
 		Function:      httphandlers.NewFunctionHandler(svcs.Function),
+		FunctionSchedule: httphandlers.NewFunctionScheduleHandler(svcs.FunctionSchedule),
 		Cache:         httphandlers.NewCacheHandler(svcs.Cache),
 		Queue:         httphandlers.NewQueueHandler(svcs.Queue),
 		Notify:        httphandlers.NewNotifyHandler(svcs.Notify),
@@ -117,6 +122,9 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		Log:           httphandlers.NewLogHandler(svcs.Log),
 		IAM:           httphandlers.NewIAMHandler(svcs.IAM),
 		VPCPeering:    httphandlers.NewVPCPeeringHandler(svcs.VPCPeering),
+		RouteTable:    httphandlers.NewRouteTableHandler(svcs.RouteTable),
+		InternetGateway: httphandlers.NewInternetGatewayHandler(svcs.InternetGateway),
+		NATGateway:    httphandlers.NewNATGatewayHandler(svcs.NATGateway),
 		Ws:            ws.NewHandler(svcs.WsHub, svcs.Identity, logger),
 	}
 }
@@ -302,6 +310,7 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		imageGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionImageRead), handlers.Image.GetImage)
 		imageGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionImageDelete), handlers.Image.DeleteImage)
 		imageGroup.POST("/:id/upload", httputil.Permission(svcs.RBAC, domain.PermissionImageCreate), handlers.Image.UploadImage)
+		imageGroup.POST("/import", httputil.Permission(svcs.RBAC, domain.PermissionImageCreate), handlers.Image.ImportImage)
 	}
 
 	clusterGroup := r.Group("/clusters")
@@ -393,7 +402,43 @@ func registerNetworkRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		peeringGroup.POST("/:id/accept", httputil.Permission(svcs.RBAC, domain.PermissionVpcPeeringAccept), handlers.VPCPeering.Accept)
 		peeringGroup.POST("/:id/reject", httputil.Permission(svcs.RBAC, domain.PermissionVpcPeeringAccept), handlers.VPCPeering.Reject)
 		peeringGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionVpcPeeringDelete), handlers.VPCPeering.Delete)
-	}
+		}
+
+		// Route Tables
+		rtGroup := r.Group("/route-tables")
+		rtGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant), httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant))
+		{
+			rtGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionVpcUpdate), handlers.RouteTable.Create)
+			rtGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionVpcRead), handlers.RouteTable.List)
+			rtGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionVpcRead), handlers.RouteTable.Get)
+			rtGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionVpcDelete), handlers.RouteTable.Delete)
+			rtGroup.POST("/:id/routes", httputil.Permission(svcs.RBAC, domain.PermissionVpcUpdate), handlers.RouteTable.AddRoute)
+			rtGroup.DELETE("/:id/routes", httputil.Permission(svcs.RBAC, domain.PermissionVpcUpdate), handlers.RouteTable.RemoveRoute)
+			rtGroup.POST("/:id/associate", httputil.Permission(svcs.RBAC, domain.PermissionVpcUpdate), handlers.RouteTable.AssociateSubnet)
+			rtGroup.POST("/:id/disassociate", httputil.Permission(svcs.RBAC, domain.PermissionVpcUpdate), handlers.RouteTable.DisassociateSubnet)
+		}
+
+		// Internet Gateways
+		igwGroup := r.Group("/internet-gateways")
+		igwGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant), httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant))
+		{
+			igwGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionVpcCreate), handlers.InternetGateway.Create)
+			igwGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionVpcRead), handlers.InternetGateway.List)
+			igwGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionVpcRead), handlers.InternetGateway.Get)
+			igwGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionVpcDelete), handlers.InternetGateway.Delete)
+			igwGroup.POST("/:id/attach", httputil.Permission(svcs.RBAC, domain.PermissionVpcUpdate), handlers.InternetGateway.Attach)
+			igwGroup.POST("/:id/detach", httputil.Permission(svcs.RBAC, domain.PermissionVpcUpdate), handlers.InternetGateway.Detach)
+		}
+
+		// NAT Gateways
+		natGroup := r.Group("/nat-gateways")
+		natGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant), httputil.RequireTenant(), httputil.TenantMember(svcs.Tenant))
+		{
+			natGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionVpcCreate), handlers.NATGateway.Create)
+			natGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionVpcRead), handlers.NATGateway.List)
+			natGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionVpcRead), handlers.NATGateway.Get)
+			natGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionVpcDelete), handlers.NATGateway.Delete)
+		}
 }
 
 func registerGlobalLBRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
@@ -476,6 +521,8 @@ func registerDataRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		dbGroup.POST("/:id/snapshots", httputil.Permission(svcs.RBAC, domain.PermissionDBCreate), handlers.Database.CreateSnapshot)
 		dbGroup.GET("/:id/snapshots", httputil.Permission(svcs.RBAC, domain.PermissionDBRead), handlers.Database.ListSnapshots)
 		dbGroup.POST("/:id/rotate-credentials", httputil.Permission(svcs.RBAC, domain.PermissionDBUpdate), handlers.Database.RotateCredentials)
+		dbGroup.POST("/:id/stop", httputil.Permission(svcs.RBAC, domain.PermissionDBUpdate), handlers.Database.Stop)
+		dbGroup.POST("/:id/start", httputil.Permission(svcs.RBAC, domain.PermissionDBUpdate), handlers.Database.Start)
 	}
 
 	cacheGroup := r.Group("/caches")
@@ -507,9 +554,22 @@ func registerDevOpsRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		fnGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionFunctionCreate), handlers.Function.Create)
 		fnGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionFunctionRead), handlers.Function.List)
 		fnGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionFunctionRead), handlers.Function.Get)
+		fnGroup.PATCH("/:id", httputil.Permission(svcs.RBAC, domain.PermissionFunctionUpdate), handlers.Function.Update)
 		fnGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionFunctionDelete), handlers.Function.Delete)
 		fnGroup.POST("/:id/invoke", httputil.Permission(svcs.RBAC, domain.PermissionFunctionInvoke), handlers.Function.Invoke)
 		fnGroup.GET("/:id/logs", httputil.Permission(svcs.RBAC, domain.PermissionFunctionRead), handlers.Function.GetLogs)
+	}
+
+	fnSchedGroup := r.Group("/function-schedules")
+	fnSchedGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))
+	{
+		fnSchedGroup.POST("", httputil.Permission(svcs.RBAC, domain.PermissionFunctionScheduleCreate), handlers.FunctionSchedule.Create)
+		fnSchedGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionFunctionScheduleRead), handlers.FunctionSchedule.List)
+		fnSchedGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionFunctionScheduleRead), handlers.FunctionSchedule.Get)
+		fnSchedGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionFunctionScheduleDelete), handlers.FunctionSchedule.Delete)
+		fnSchedGroup.POST("/:id/pause", httputil.Permission(svcs.RBAC, domain.PermissionFunctionScheduleUpdate), handlers.FunctionSchedule.Pause)
+		fnSchedGroup.POST("/:id/resume", httputil.Permission(svcs.RBAC, domain.PermissionFunctionScheduleUpdate), handlers.FunctionSchedule.Resume)
+		fnSchedGroup.GET("/:id/runs", httputil.Permission(svcs.RBAC, domain.PermissionFunctionScheduleRead), handlers.FunctionSchedule.GetRuns)
 	}
 
 	queueGroup := r.Group("/queues")

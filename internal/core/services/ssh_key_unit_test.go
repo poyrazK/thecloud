@@ -18,7 +18,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func TestSSHKeyService_Unit(t *testing.T) {
+func testSSHKeyServiceUnitCRUD(t *testing.T) {
 	mockRepo := new(MockSSHKeyRepo)
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -35,7 +35,6 @@ func TestSSHKeyService_Unit(t *testing.T) {
 	ctx = appcontext.WithTenantID(ctx, tenantID)
 	ctx = appcontext.WithUserID(ctx, userID)
 
-	// Generate a valid RSA public key for testing
 	privateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
 	publicRsaKey, _ := ssh.NewPublicKey(&privateKey.PublicKey)
 	pubKey := string(ssh.MarshalAuthorizedKey(publicRsaKey))
@@ -119,7 +118,14 @@ func TestSSHKeyService_Unit(t *testing.T) {
 	})
 }
 
-func TestNewSSHKeyService_Errors(t *testing.T) {
+func TestSSHKeyService_Unit(t *testing.T) {
+	t.Run("CRUD", testSSHKeyServiceUnitCRUD)
+	t.Run("NewErrors", testNewSSHKeyServiceUnitErrors)
+	t.Run("CreateKeyErrors", testSSHKeyServiceUnitCreateKeyErrors)
+	t.Run("GetKeyErrors", testSSHKeyServiceUnitGetKeyErrors)
+}
+
+func testNewSSHKeyServiceUnitErrors(t *testing.T) {
 	t.Run("NilRepo", func(t *testing.T) {
 		rbacSvc := new(MockRBACService)
 		_, err := services.NewSSHKeyService(services.SSHKeyServiceParams{
@@ -141,7 +147,7 @@ func TestNewSSHKeyService_Errors(t *testing.T) {
 	})
 }
 
-func TestSSHKeyService_CreateKey_Errors(t *testing.T) {
+func testSSHKeyServiceUnitCreateKeyErrors(t *testing.T) {
 	mockRepo := new(MockSSHKeyRepo)
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -186,7 +192,7 @@ func TestSSHKeyService_CreateKey_Errors(t *testing.T) {
 	})
 }
 
-func TestSSHKeyService_GetKey_Errors(t *testing.T) {
+func testSSHKeyServiceUnitGetKeyErrors(t *testing.T) {
 	mockRepo := new(MockSSHKeyRepo)
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)

@@ -14,6 +14,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/services"
+	svcerrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -73,7 +74,18 @@ func (m *MockDNSService) UnregisterInstance(ctx context.Context, id uuid.UUID) e
 	return args.Error(0)
 }
 
-func TestInstanceService_LaunchInstance_Unit(t *testing.T) {
+func TestInstanceService_Unit(t *testing.T) {
+	t.Run("LaunchInstance", testInstanceServiceLaunchInstanceUnit)
+	t.Run("Lifecycle", testInstanceServiceLifecycleUnit)
+	t.Run("Exec", testInstanceServiceExecUnit)
+	t.Run("ProvisionFinalize", testInstanceServiceProvisionFinalize)
+	t.Run("Terminate", testInstanceServiceTerminateUnit)
+	t.Run("VolumeRelease", testInstanceServiceVolumeReleaseUnit)
+	t.Run("RBACErrors", testInstanceServiceUnitRbacErrors)
+	t.Run("RepoErrors", testInstanceServiceUnitRepoErrors)
+}
+
+func testInstanceServiceLaunchInstanceUnit(t *testing.T) {
 	repo := new(MockInstanceRepo)
 	vpcRepo := new(MockVpcRepo)
 	subnetRepo := new(MockSubnetRepo)
@@ -207,7 +219,7 @@ func TestInstanceService_LaunchInstance_Unit(t *testing.T) {
 	})
 }
 
-func TestInstanceService_Lifecycle_Unit(t *testing.T) {
+func testInstanceServiceLifecycleUnit(t *testing.T) {
 	repo := new(MockInstanceRepo)
 	vpcRepo := new(MockVpcRepo)
 	subnetRepo := new(MockSubnetRepo)
@@ -308,7 +320,7 @@ func TestInstanceService_Lifecycle_Unit(t *testing.T) {
 	})
 }
 
-func TestInstanceService_Exec_Unit(t *testing.T) {
+func testInstanceServiceExecUnit(t *testing.T) {
 	repo := new(MockInstanceRepo)
 	compute := new(MockComputeBackend)
 	rbacSvc := new(MockRBACService)
@@ -351,7 +363,7 @@ func TestInstanceService_Exec_Unit(t *testing.T) {
 }
 
 // TestInstanceService_Provision_Finalize tests the Provision method focusing on finalizeProvision path
-func TestInstanceService_Provision_Finalize(t *testing.T) {
+func testInstanceServiceProvisionFinalize(t *testing.T) {
 	t.Run("Finalize_Success", func(t *testing.T) {
 		repo := new(MockInstanceRepo)
 		vpcRepo := new(MockVpcRepo)
@@ -611,7 +623,7 @@ func TestInstanceService_Provision_Finalize(t *testing.T) {
 	})
 }
 
-func TestInstanceService_Terminate_Unit(t *testing.T) {
+func testInstanceServiceTerminateUnit(t *testing.T) {
 	t.Run("TerminateInstance_WithVolumesAttached", func(t *testing.T) {
 		repo := new(MockInstanceRepo)
 		volRepo := new(MockVolumeRepo)
@@ -840,7 +852,7 @@ func TestInstanceService_Terminate_Unit(t *testing.T) {
 	})
 }
 
-func TestInstanceService_VolumeRelease_Unit(t *testing.T) {
+func testInstanceServiceVolumeReleaseUnit(t *testing.T) {
 	t.Run("releaseAttachedVolumes_ListError", func(t *testing.T) {
 		repo := new(MockInstanceRepo)
 		volRepo := new(MockVolumeRepo)
@@ -962,5 +974,377 @@ func TestInstanceService_VolumeRelease_Unit(t *testing.T) {
 		err := svc.TerminateInstance(ctx, instanceID.String())
 		require.NoError(t, err)
 		mock.AssertExpectationsForObjects(t, repo, volRepo, typeRepo, compute, rbacSvc, eventSvc, auditSvc, tenantSvc)
+	})
+}
+
+func testInstanceServiceUnitRbacErrors(t *testing.T) {
+	repo := new(MockInstanceRepo)
+	vpcRepo := new(MockVpcRepo)
+	subnetRepo := new(MockSubnetRepo)
+	volRepo := new(MockVolumeRepo)
+	typeRepo := new(MockInstanceTypeRepo)
+	compute := new(MockComputeBackend)
+	network := new(MockNetworkBackend)
+	rbacSvc := new(MockRBACService)
+	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
+	dnsSvc := new(MockDNSService)
+	taskQueue := new(MockTaskQueue)
+	tenantSvc := new(MockTenantService)
+	sshKeySvc := new(MockSSHKeyService)
+
+	svc := services.NewInstanceService(services.InstanceServiceParams{
+		Repo:             repo,
+		VpcRepo:          vpcRepo,
+		SubnetRepo:       subnetRepo,
+		VolumeRepo:       volRepo,
+		InstanceTypeRepo: typeRepo,
+		Compute:          compute,
+		Network:          network,
+		RBAC:             rbacSvc,
+		EventSvc:         eventSvc,
+		AuditSvc:         auditSvc,
+		DNSSvc:           dnsSvc,
+		TaskQueue:        taskQueue,
+		TenantSvc:        tenantSvc,
+		SSHKeySvc:        sshKeySvc,
+		DockerNetwork:    "bridge",
+		Logger:           slog.Default(),
+	})
+
+	ctx := context.Background()
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
+
+	instID := uuid.New()
+	instIDStr := instID.String()
+
+	type rbacCase struct {
+		name       string
+		permission domain.Permission
+		resourceID string
+		invoke     func() error
+	}
+
+	cases := []rbacCase{
+		{
+			name:       "LaunchInstance_Unauthorized",
+			permission: domain.PermissionInstanceLaunch,
+			resourceID: "*",
+			invoke: func() error {
+				_, err := svc.LaunchInstance(ctx, ports.LaunchParams{Name: "test", Image: "alpine", InstanceType: "t2.micro"})
+				return err
+			},
+		},
+		{
+			name:       "StartInstance_Unauthorized",
+			permission: domain.PermissionInstanceUpdate,
+			resourceID: instIDStr,
+			invoke: func() error {
+				return svc.StartInstance(ctx, instIDStr)
+			},
+		},
+		{
+			name:       "StopInstance_Unauthorized",
+			permission: domain.PermissionInstanceUpdate,
+			resourceID: instIDStr,
+			invoke: func() error {
+				return svc.StopInstance(ctx, instIDStr)
+			},
+		},
+		{
+			name:       "ListInstances_Unauthorized",
+			permission: domain.PermissionInstanceRead,
+			resourceID: "*",
+			invoke: func() error {
+				_, err := svc.ListInstances(ctx)
+				return err
+			},
+		},
+		{
+			name:       "GetInstance_Unauthorized",
+			permission: domain.PermissionInstanceRead,
+			resourceID: instIDStr,
+			invoke: func() error {
+				_, err := svc.GetInstance(ctx, instIDStr)
+				return err
+			},
+		},
+		{
+			name:       "GetInstanceLogs_Unauthorized",
+			permission: domain.PermissionInstanceRead,
+			resourceID: instIDStr,
+			invoke: func() error {
+				_, err := svc.GetInstanceLogs(ctx, instIDStr)
+				return err
+			},
+		},
+		{
+			name:       "GetConsoleURL_Unauthorized",
+			permission: domain.PermissionInstanceRead,
+			resourceID: instIDStr,
+			invoke: func() error {
+				_, err := svc.GetConsoleURL(ctx, instIDStr)
+				return err
+			},
+		},
+		{
+			name:       "TerminateInstance_Unauthorized",
+			permission: domain.PermissionInstanceTerminate,
+			resourceID: instIDStr,
+			invoke: func() error {
+				return svc.TerminateInstance(ctx, instIDStr)
+			},
+		},
+		{
+			name:       "GetInstanceStats_Unauthorized",
+			permission: domain.PermissionInstanceRead,
+			resourceID: instIDStr,
+			invoke: func() error {
+				_, err := svc.GetInstanceStats(ctx, instIDStr)
+				return err
+			},
+		},
+		{
+			name:       "Exec_Unauthorized",
+			permission: domain.PermissionInstanceUpdate,
+			resourceID: instIDStr,
+			invoke: func() error {
+				_, err := svc.Exec(ctx, instIDStr, []string{"ls"})
+				return err
+			},
+		},
+		{
+			name:       "UpdateInstanceMetadata_Unauthorized",
+			permission: domain.PermissionInstanceUpdate,
+			resourceID: instIDStr,
+			invoke: func() error {
+				return svc.UpdateInstanceMetadata(ctx, instID, nil, nil)
+			},
+		},
+	}
+
+	authErr := svcerrors.New(svcerrors.Forbidden, "permission denied")
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rbacSvc.On("Authorize", mock.Anything, userID, tenantID, c.permission, c.resourceID).Return(authErr).Once()
+			err := c.invoke()
+			require.Error(t, err)
+			assert.True(t, svcerrors.Is(err, svcerrors.Forbidden))
+		})
+	}
+}
+
+func testInstanceServiceUnitRepoErrors(t *testing.T) {
+	repo := new(MockInstanceRepo)
+	vpcRepo := new(MockVpcRepo)
+	subnetRepo := new(MockSubnetRepo)
+	volRepo := new(MockVolumeRepo)
+	typeRepo := new(MockInstanceTypeRepo)
+	compute := new(MockComputeBackend)
+	network := new(MockNetworkBackend)
+	rbacSvc := new(MockRBACService)
+	eventSvc := new(MockEventService)
+	auditSvc := new(MockAuditService)
+	dnsSvc := new(MockDNSService)
+	taskQueue := new(MockTaskQueue)
+	tenantSvc := new(MockTenantService)
+	sshKeySvc := new(MockSSHKeyService)
+
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	compute.On("Type").Return("docker", nil).Maybe()
+
+	svc := services.NewInstanceService(services.InstanceServiceParams{
+		Repo:             repo,
+		VpcRepo:          vpcRepo,
+		SubnetRepo:       subnetRepo,
+		VolumeRepo:       volRepo,
+		InstanceTypeRepo: typeRepo,
+		Compute:          compute,
+		Network:          network,
+		RBAC:             rbacSvc,
+		EventSvc:         eventSvc,
+		AuditSvc:         auditSvc,
+		DNSSvc:           dnsSvc,
+		TaskQueue:        taskQueue,
+		TenantSvc:        tenantSvc,
+		SSHKeySvc:        sshKeySvc,
+		DockerNetwork:    "bridge",
+		Logger:           slog.Default(),
+	})
+
+	ctx := context.Background()
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
+
+	instID := uuid.New()
+	inst := &domain.Instance{ID: instID, UserID: userID, TenantID: tenantID, Status: domain.StatusRunning, ContainerID: "cid-1", Name: "test-inst"}
+	instStoppedNoCID := &domain.Instance{ID: instID, UserID: userID, TenantID: tenantID, Status: domain.StatusStopped, ContainerID: "", Name: "test-inst"}
+
+	t.Run("GetInstance_NotFound", func(t *testing.T) {
+		repo.On("GetByName", mock.Anything, "not-found").Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
+		repo.On("GetByID", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
+
+		_, err := svc.GetInstance(ctx, "not-found")
+		require.Error(t, err)
+	})
+
+	t.Run("GetInstance_RepoError", func(t *testing.T) {
+		repo.On("GetByName", mock.Anything, "error").Return(nil, fmt.Errorf("db error")).Once()
+
+		_, err := svc.GetInstance(ctx, "error")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "db error")
+	})
+
+	t.Run("ListInstances_RepoError", func(t *testing.T) {
+		repo.On("List", mock.Anything).Return(nil, fmt.Errorf("db error")).Once()
+
+		_, err := svc.ListInstances(ctx)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "db error")
+	})
+
+	t.Run("StartInstance_NotFound", func(t *testing.T) {
+		repo.On("GetByName", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
+		repo.On("GetByID", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
+
+		err := svc.StartInstance(ctx, "not-found")
+		require.Error(t, err)
+	})
+
+	t.Run("StartInstance_ComputeError", func(t *testing.T) {
+		// Use name string (not UUID) so GetByName is called; ContainerID empty so it formats name
+		repo.On("GetByName", mock.Anything, "test-inst").Return(instStoppedNoCID, nil).Once()
+		compute.On("StartInstance", mock.Anything, mock.Anything).Return(fmt.Errorf("compute error")).Once()
+		repo.On("Update", mock.Anything, mock.Anything).Return(nil).Maybe()
+		auditSvc.On("Log", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		err := svc.StartInstance(ctx, "test-inst")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "compute error")
+	})
+
+	t.Run("StopInstance_NotFound", func(t *testing.T) {
+		repo.On("GetByName", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
+		repo.On("GetByID", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
+
+		err := svc.StopInstance(ctx, "not-found")
+		require.Error(t, err)
+	})
+
+	t.Run("StopInstance_ComputeError", func(t *testing.T) {
+		// Use name string (not UUID) so GetByName is called; StatusRunning so compute is called
+		repo.On("GetByName", mock.Anything, "test-inst").Return(inst, nil).Once()
+		compute.On("StopInstance", mock.Anything, mock.Anything).Return(fmt.Errorf("compute error")).Once()
+		repo.On("Update", mock.Anything, mock.Anything).Return(nil).Maybe()
+		auditSvc.On("Log", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		err := svc.StopInstance(ctx, "test-inst")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "compute error")
+	})
+
+	t.Run("TerminateInstance_NotFound", func(t *testing.T) {
+		repo.On("GetByName", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
+		repo.On("GetByID", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
+
+		err := svc.TerminateInstance(ctx, "not-found")
+		require.Error(t, err)
+	})
+
+	t.Run("TerminateInstance_RepoDeleteError", func(t *testing.T) {
+		// Use name string so GetByName is called
+		repo.On("GetByName", mock.Anything, "test-inst").Return(inst, nil).Once()
+		compute.On("DeleteInstance", mock.Anything, mock.Anything).Return(nil).Once()
+		volRepo.On("ListByInstanceID", mock.Anything, instID).Return([]*domain.Volume{}, nil).Once()
+		repo.On("Delete", mock.Anything, instID).Return(fmt.Errorf("db error")).Once()
+		compute.On("Type").Return("docker").Maybe()
+		dnsSvc.On("UnregisterInstance", mock.Anything, instID).Return(nil).Maybe()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "instances", 1).Return(nil).Maybe()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 1).Return(nil).Maybe()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "memory", 1).Return(nil).Maybe()
+
+		err := svc.TerminateInstance(ctx, "test-inst")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "db error")
+	})
+
+	t.Run("LaunchInstance_SSHKeyNotFound", func(t *testing.T) {
+		sshKeyID := uuid.New()
+	params := ports.LaunchParams{Name: "test", Image: "alpine", InstanceType: "t2.micro", SSHKeyID: &sshKeyID}
+	typeRepo.On("GetByID", mock.Anything, "t2.micro").Return(&domain.InstanceType{ID: "t2.micro", VCPUs: 1, MemoryMB: 1024}, nil).Once()
+	tenantSvc.On("CheckQuota", mock.Anything, tenantID, "instances", 1).Return(nil).Once()
+	tenantSvc.On("CheckQuota", mock.Anything, tenantID, "vcpus", 1).Return(nil).Once()
+	tenantSvc.On("CheckQuota", mock.Anything, tenantID, "memory", 1).Return(nil).Once()
+	tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "vcpus", 1).Return(nil).Maybe()
+	tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "memory", 1).Return(nil).Maybe()
+	tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 1).Return(nil).Maybe()
+	tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "memory", 1).Return(nil).Maybe()
+	sshKeySvc.On("GetKey", mock.Anything, sshKeyID).Return(nil, svcerrors.New(svcerrors.NotFound, "ssh key not found")).Once()
+
+		_, err := svc.LaunchInstance(ctx, params)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "ssh key not found")
+	})
+
+	t.Run("LaunchInstance_PortValidationError", func(t *testing.T) {
+		params := ports.LaunchParams{Name: "test", Image: "alpine", InstanceType: "t2.micro", Ports: "invalid-port"}
+		typeRepo.On("GetByID", mock.Anything, "t2.micro").Return(&domain.InstanceType{ID: "t2.micro", VCPUs: 1, MemoryMB: 1024}, nil).Once()
+		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "instances", 1).Return(nil).Once()
+		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "vcpus", 1).Return(nil).Once()
+		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "memory", 1).Return(nil).Once()
+		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "vcpus", 1).Return(nil).Maybe()
+		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "memory", 1).Return(nil).Maybe()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 1).Return(nil).Maybe()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "memory", 1).Return(nil).Maybe()
+
+		_, err := svc.LaunchInstance(ctx, params)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "port format must be host:container")
+	})
+
+	t.Run("GetInstanceLogs_NotFound", func(t *testing.T) {
+		repo.On("GetByName", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
+		repo.On("GetByID", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
+
+		_, err := svc.GetInstanceLogs(ctx, "not-found")
+		require.Error(t, err)
+	})
+
+	t.Run("GetConsoleURL_NotFound", func(t *testing.T) {
+		repo.On("GetByName", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
+		repo.On("GetByID", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
+
+		_, err := svc.GetConsoleURL(ctx, "not-found")
+		require.Error(t, err)
+	})
+
+	t.Run("GetInstanceStats_NotFound", func(t *testing.T) {
+		repo.On("GetByName", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
+		repo.On("GetByID", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
+
+		_, err := svc.GetInstanceStats(ctx, "not-found")
+		require.Error(t, err)
+	})
+
+	t.Run("Exec_NotFound", func(t *testing.T) {
+		repo.On("GetByName", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
+		repo.On("GetByID", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
+
+		_, err := svc.Exec(ctx, "not-found", []string{"ls"})
+		require.Error(t, err)
+	})
+
+	t.Run("UpdateInstanceMetadata_NotFound", func(t *testing.T) {
+		repo.On("GetByID", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Maybe()
+		repo.On("Update", mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		err := svc.UpdateInstanceMetadata(ctx, instID, nil, nil)
+		require.Error(t, err)
 	})
 }

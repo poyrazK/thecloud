@@ -30,12 +30,13 @@ func (r *PipelineRepository) CreatePipeline(ctx context.Context, pipeline *domai
 	}
 
 	query := `
-		INSERT INTO pipelines (id, user_id, name, repository_url, branch, webhook_secret, config, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO pipelines (id, user_id, tenant_id, name, repository_url, branch, webhook_secret, config, status, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 	_, err = r.db.Exec(ctx, query,
 		pipeline.ID,
 		pipeline.UserID,
+		pipeline.TenantID,
 		pipeline.Name,
 		pipeline.RepositoryURL,
 		pipeline.Branch,
@@ -50,30 +51,30 @@ func (r *PipelineRepository) CreatePipeline(ctx context.Context, pipeline *domai
 
 func (r *PipelineRepository) GetPipelineByID(ctx context.Context, id uuid.UUID) (*domain.Pipeline, error) {
 	query := `
-		SELECT id, user_id, name, repository_url, branch, webhook_secret, config, status, created_at, updated_at
+		SELECT id, user_id, tenant_id, name, repository_url, branch, webhook_secret, config, status, created_at, updated_at
 		FROM pipelines
 		WHERE id = $1
 	`
 	return r.scanPipeline(r.db.QueryRow(ctx, query, id))
 }
 
-func (r *PipelineRepository) GetPipeline(ctx context.Context, id, userID uuid.UUID) (*domain.Pipeline, error) {
+func (r *PipelineRepository) GetPipeline(ctx context.Context, id, tenantID uuid.UUID) (*domain.Pipeline, error) {
 	query := `
-		SELECT id, user_id, name, repository_url, branch, webhook_secret, config, status, created_at, updated_at
+		SELECT id, user_id, tenant_id, name, repository_url, branch, webhook_secret, config, status, created_at, updated_at
 		FROM pipelines
-		WHERE id = $1 AND user_id = $2
+		WHERE id = $1 AND tenant_id = $2
 	`
-	return r.scanPipeline(r.db.QueryRow(ctx, query, id, userID))
+	return r.scanPipeline(r.db.QueryRow(ctx, query, id, tenantID))
 }
 
-func (r *PipelineRepository) ListPipelines(ctx context.Context, userID uuid.UUID) ([]*domain.Pipeline, error) {
+func (r *PipelineRepository) ListPipelines(ctx context.Context, tenantID uuid.UUID) ([]*domain.Pipeline, error) {
 	query := `
-		SELECT id, user_id, name, repository_url, branch, webhook_secret, config, status, created_at, updated_at
+		SELECT id, user_id, tenant_id, name, repository_url, branch, webhook_secret, config, status, created_at, updated_at
 		FROM pipelines
-		WHERE user_id = $1
+		WHERE tenant_id = $1
 		ORDER BY created_at DESC
 	`
-	rows, err := r.db.Query(ctx, query, userID)
+	rows, err := r.db.Query(ctx, query, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +96,7 @@ func (r *PipelineRepository) UpdatePipeline(ctx context.Context, pipeline *domai
 			config = $5,
 			status = $6,
 			updated_at = NOW()
-		WHERE id = $7 AND user_id = $8
+		WHERE id = $7 AND tenant_id = $8
 	`
 	_, err = r.db.Exec(ctx, query,
 		pipeline.Name,
@@ -105,26 +106,27 @@ func (r *PipelineRepository) UpdatePipeline(ctx context.Context, pipeline *domai
 		configJSON,
 		pipeline.Status,
 		pipeline.ID,
-		pipeline.UserID,
+		pipeline.TenantID,
 	)
 	return err
 }
 
-func (r *PipelineRepository) DeletePipeline(ctx context.Context, id, userID uuid.UUID) error {
-	query := `DELETE FROM pipelines WHERE id = $1 AND user_id = $2`
-	_, err := r.db.Exec(ctx, query, id, userID)
+func (r *PipelineRepository) DeletePipeline(ctx context.Context, id, tenantID uuid.UUID) error {
+	query := `DELETE FROM pipelines WHERE id = $1 AND tenant_id = $2`
+	_, err := r.db.Exec(ctx, query, id, tenantID)
 	return err
 }
 
 func (r *PipelineRepository) CreateBuild(ctx context.Context, build *domain.Build) error {
 	query := `
-		INSERT INTO builds (id, pipeline_id, user_id, commit_hash, trigger_type, status, started_at, finished_at, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO builds (id, pipeline_id, user_id, tenant_id, commit_hash, trigger_type, status, started_at, finished_at, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 	_, err := r.db.Exec(ctx, query,
 		build.ID,
 		build.PipelineID,
 		build.UserID,
+		build.TenantID,
 		build.CommitHash,
 		build.TriggerType,
 		build.Status,
@@ -136,23 +138,23 @@ func (r *PipelineRepository) CreateBuild(ctx context.Context, build *domain.Buil
 	return err
 }
 
-func (r *PipelineRepository) GetBuild(ctx context.Context, id, userID uuid.UUID) (*domain.Build, error) {
+func (r *PipelineRepository) GetBuild(ctx context.Context, id, tenantID uuid.UUID) (*domain.Build, error) {
 	query := `
-		SELECT id, pipeline_id, user_id, commit_hash, trigger_type, status, started_at, finished_at, created_at, updated_at
+		SELECT id, pipeline_id, user_id, tenant_id, commit_hash, trigger_type, status, started_at, finished_at, created_at, updated_at
 		FROM builds
-		WHERE id = $1 AND user_id = $2
+		WHERE id = $1 AND tenant_id = $2
 	`
-	return r.scanBuild(r.db.QueryRow(ctx, query, id, userID))
+	return r.scanBuild(r.db.QueryRow(ctx, query, id, tenantID))
 }
 
-func (r *PipelineRepository) ListBuildsByPipeline(ctx context.Context, pipelineID, userID uuid.UUID) ([]*domain.Build, error) {
+func (r *PipelineRepository) ListBuildsByPipeline(ctx context.Context, pipelineID, tenantID uuid.UUID) ([]*domain.Build, error) {
 	query := `
-		SELECT id, pipeline_id, user_id, commit_hash, trigger_type, status, started_at, finished_at, created_at, updated_at
+		SELECT id, pipeline_id, user_id, tenant_id, commit_hash, trigger_type, status, started_at, finished_at, created_at, updated_at
 		FROM builds
-		WHERE pipeline_id = $1 AND user_id = $2
+		WHERE pipeline_id = $1 AND tenant_id = $2
 		ORDER BY created_at DESC
 	`
-	rows, err := r.db.Query(ctx, query, pipelineID, userID)
+	rows, err := r.db.Query(ctx, query, pipelineID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -275,6 +277,7 @@ func (r *PipelineRepository) scanPipeline(row pgx.Row) (*domain.Pipeline, error)
 	err := row.Scan(
 		&pipeline.ID,
 		&pipeline.UserID,
+		&pipeline.TenantID,
 		&pipeline.Name,
 		&pipeline.RepositoryURL,
 		&pipeline.Branch,
@@ -323,6 +326,7 @@ func (r *PipelineRepository) scanBuild(row pgx.Row) (*domain.Build, error) {
 		&build.ID,
 		&build.PipelineID,
 		&build.UserID,
+		&build.TenantID,
 		&build.CommitHash,
 		&triggerType,
 		&status,

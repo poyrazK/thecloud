@@ -24,13 +24,13 @@ func NewCacheRepository(db DB) *CacheRepository {
 func (r *CacheRepository) Create(ctx context.Context, cache *domain.Cache) error {
 	query := `
 		INSERT INTO caches (
-			id, user_id, name, engine, version, status, vpc_id, 
+			id, user_id, tenant_id, name, engine, version, status, vpc_id,
 			container_id, port, password, memory_mb, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	`
 	_, err := r.db.Exec(ctx, query,
-		cache.ID, cache.UserID, cache.Name, cache.Engine, cache.Version, cache.Status, cache.VpcID,
+		cache.ID, cache.UserID, cache.TenantID, cache.Name, cache.Engine, cache.Version, cache.Status, cache.VpcID,
 		cache.ContainerID, cache.Port, cache.Password, cache.MemoryMB, cache.CreatedAt, cache.UpdatedAt,
 	)
 	if err != nil {
@@ -39,38 +39,38 @@ func (r *CacheRepository) Create(ctx context.Context, cache *domain.Cache) error
 	return nil
 }
 
-func (r *CacheRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Cache, error) {
+func (r *CacheRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.Cache, error) {
 	query := `
-		SELECT 
-			id, user_id, name, engine, version, status, vpc_id,
+		SELECT
+			id, user_id, tenant_id, name, engine, version, status, vpc_id,
 			container_id, port, password, memory_mb, created_at, updated_at
 		FROM caches
-		WHERE id = $1
+		WHERE id = $1 AND tenant_id = $2
 	`
-	return r.scanCache(r.db.QueryRow(ctx, query, id))
+	return r.scanCache(r.db.QueryRow(ctx, query, id, tenantID))
 }
 
-func (r *CacheRepository) GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Cache, error) {
+func (r *CacheRepository) GetByName(ctx context.Context, tenantID uuid.UUID, name string) (*domain.Cache, error) {
 	query := `
-		SELECT 
-			id, user_id, name, engine, version, status, vpc_id,
+		SELECT
+			id, user_id, tenant_id, name, engine, version, status, vpc_id,
 			container_id, port, password, memory_mb, created_at, updated_at
 		FROM caches
-		WHERE user_id = $1 AND name = $2
+		WHERE tenant_id = $1 AND name = $2
 	`
-	return r.scanCache(r.db.QueryRow(ctx, query, userID, name))
+	return r.scanCache(r.db.QueryRow(ctx, query, tenantID, name))
 }
 
-func (r *CacheRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.Cache, error) {
+func (r *CacheRepository) List(ctx context.Context, tenantID uuid.UUID) ([]*domain.Cache, error) {
 	query := `
-		SELECT 
-			id, user_id, name, engine, version, status, vpc_id,
+		SELECT
+			id, user_id, tenant_id, name, engine, version, status, vpc_id,
 			container_id, port, password, memory_mb, created_at, updated_at
 		FROM caches
-		WHERE user_id = $1
+		WHERE tenant_id = $1
 		ORDER BY created_at DESC
 	`
-	rows, err := r.db.Query(ctx, query, userID)
+	rows, err := r.db.Query(ctx, query, tenantID)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to list caches", err)
 	}
@@ -81,7 +81,7 @@ func (r *CacheRepository) scanCache(row pgx.Row) (*domain.Cache, error) {
 	var cache domain.Cache
 	var engine, status string
 	err := row.Scan(
-		&cache.ID, &cache.UserID, &cache.Name, &engine, &cache.Version, &status, &cache.VpcID,
+		&cache.ID, &cache.UserID, &cache.TenantID, &cache.Name, &engine, &cache.Version, &status, &cache.VpcID,
 		&cache.ContainerID, &cache.Port, &cache.Password, &cache.MemoryMB, &cache.CreatedAt, &cache.UpdatedAt,
 	)
 	if err != nil {
@@ -126,9 +126,9 @@ func (r *CacheRepository) Update(ctx context.Context, cache *domain.Cache) error
 	return nil
 }
 
-func (r *CacheRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM caches WHERE id = $1`
-	_, err := r.db.Exec(ctx, query, id)
+func (r *CacheRepository) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
+	query := `DELETE FROM caches WHERE id = $1 AND tenant_id = $2`
+	_, err := r.db.Exec(ctx, query, id, tenantID)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to delete cache", err)
 	}

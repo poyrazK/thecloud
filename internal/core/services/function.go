@@ -5,6 +5,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/json"
 	stdlib_errors "errors"
 	"fmt"
 	"io"
@@ -44,17 +45,19 @@ type FunctionService struct {
 	compute   ports.ComputeBackend
 	fileStore ports.FileStore
 	auditSvc  ports.AuditService
+	secretSvc ports.SecretService
 	logger    *slog.Logger
 }
 
 // NewFunctionService constructs a FunctionService with its dependencies.
-func NewFunctionService(repo ports.FunctionRepository, rbacSvc ports.RBACService, compute ports.ComputeBackend, fileStore ports.FileStore, auditSvc ports.AuditService, logger *slog.Logger) *FunctionService {
+func NewFunctionService(repo ports.FunctionRepository, rbacSvc ports.RBACService, compute ports.ComputeBackend, fileStore ports.FileStore, auditSvc ports.AuditService, secretSvc ports.SecretService, logger *slog.Logger) *FunctionService {
 	return &FunctionService{
 		repo:      repo,
 		rbacSvc:   rbacSvc,
 		compute:   compute,
 		fileStore: fileStore,
 		auditSvc:  auditSvc,
+		secretSvc: secretSvc,
 		logger:    logger,
 	}
 }
@@ -130,6 +133,38 @@ func (s *FunctionService) ListFunctions(ctx context.Context) ([]*domain.Function
 	}
 
 	return s.repo.List(ctx, userID)
+}
+
+func (s *FunctionService) UpdateFunction(ctx context.Context, id uuid.UUID, req *domain.FunctionUpdate) (*domain.Function, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionUpdate, id.String()); err != nil {
+		return nil, err
+	}
+
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+
+	if err := s.repo.Update(ctx, id, req); err != nil {
+		return nil, err
+	}
+
+	f, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.auditSvc.Log(ctx, f.UserID, "function.update", "function", f.ID.String(), map[string]interface{}{
+		"name": f.Name,
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "function.update", "function_id", f.ID, "error", err)
+	}
+
+	s.logger.Info("function updated", "id", id)
+
+	return f, nil
 }
 
 func (s *FunctionService) DeleteFunction(ctx context.Context, id uuid.UUID) error {
@@ -226,7 +261,7 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	opts := s.buildTaskOptions(f, tmpDir, payload)
+	opts := s.buildTaskOptions(ctx, f, tmpDir, payload)
 
 	containerID, _, err := s.compute.RunTask(ctx, opts)
 	if err != nil {
@@ -244,16 +279,34 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 	return i, nil
 }
 
-func (s *FunctionService) buildTaskOptions(f *domain.Function, tmpDir string, payload []byte) ports.RunTaskOptions {
+func (s *FunctionService) buildTaskOptions(ctx context.Context, f *domain.Function, tmpDir string, payload []byte) ports.RunTaskOptions {
 	config := runtimes[f.Runtime]
 	pidsLimit := int64(50)
 
 	handler := s.normalizeHandler(f.Runtime, f.Handler)
 
+	env := []string{fmt.Sprintf("PAYLOAD=%s", string(payload))}
+	for _, e := range f.EnvVars {
+		if e.SecretRef != "" {
+			// Resolve secret reference at invocation time (dynamic)
+			name := strings.TrimPrefix(e.SecretRef, "@")
+			secret, err := s.secretSvc.GetSecretByName(ctx, name)
+			if err != nil {
+				s.logger.Warn("failed to resolve secret", "ref", e.SecretRef, "key", e.Key, "error", err)
+				continue // skip rather than failing the invocation
+			}
+			// Inject as JSON object: {"key": "...", "value": "..."}
+			secretJSON, _ := json.Marshal(map[string]string{"key": e.Key, "value": secret.EncryptedValue})
+			env = append(env, e.Key+"="+string(secretJSON))
+		} else {
+			env = append(env, e.Key+"="+e.Value)
+		}
+	}
+
 	return ports.RunTaskOptions{
 		Image:           config.Image,
 		Command:         append(config.Entrypoint, handler),
-		Env:             []string{fmt.Sprintf("PAYLOAD=%s", string(payload))},
+		Env:             env,
 		MemoryMB:        int64(f.MemoryMB),
 		CPUs:            0.5,
 		NetworkDisabled: true,

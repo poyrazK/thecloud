@@ -62,13 +62,14 @@ This document provides a comprehensive overview of every feature currently imple
 **What it is**: Persistent disks that can be attached/detached from instances.
 **Tech Stack**: Docker Volumes or Linux LVM.
 **Implementation**:
-- **Docker Mode**: Maps to `docker volume create`.
+- **Docker Mode**: Uses Docker bind mounts via stop→recreate→start cycle. When a volume is attached, the container is gracefully stopped, recreated with updated bind mounts, and restarted. This approach ensures container ID tracking and rollback on failures.
 - **LVM Mode**:
   - **Creation**: Allocates raw logical volumes (`lvcreate`) from a volume group.
   - **Snapshots**: Instant, copy-on-write snapshots for backups.
   - **Performance**: Near-native block device performance for VMs.
-- **Attachment**: Hot-pluggable (in Libvirt mode) or bind-mounted (in Docker mode).
+- **Attachment**: Hot-pluggable (in Libvirt mode) or via container recreation (in Docker mode).
 - **Persistence**: Data survives instance termination.
+- **Container ID Tracking**: After attach/detach, the instance's `ContainerID` is updated to reflect the new container created during the operation.
 
 ### 4. Object Storage (S3-compatible)
 **What it is**: Store and retrieve files (blobs) via API with enterprise-grade features.
@@ -127,10 +128,11 @@ This document provides a comprehensive overview of every feature currently imple
 - **Connection Pooling**: Optional high-performance pooling for PostgreSQL via a **PgBouncer** sidecar. Dynamically toggleable on existing instances.
 - **Observability Sidecars**: Built-in metrics collection via Prometheus exporters (`postgres-exporter`, `mysqld-exporter`) running as managed sidecars.
 - **Read Replicas**: Support for creating read-only replicas linked to a primary instance. Replicas inherit the primary's configuration, including storage size and feature flags.
-- **Automated Failover**: A dedicated `DatabaseFailoverWorker` performs periodic TCP health checks on primary instances. If a primary becomes unreachable, the worker automatically selects and promotes the most suitable replica to the primary role.
+- **Automated Failover**: A dedicated `DatabaseFailoverWorker` performs periodic TCP health checks on primary instances. If a primary becomes unreachable, the worker checks replication lag on all linked PostgreSQL standbys (using `pg_last_wal_receive_lsn()` / `pg_last_wal_replay_lsn()` and `pg_last_xact_replay_timestamp()` with a ≤ 5 seconds threshold) and promotes the healthiest replica. Non-PostgreSQL engines fall back to TCP-only health checks and are treated as having zero lag for promotion selection.
 - **Manual Promotion**: API support for manually promoting a replica to primary status for maintenance or planned transitions.
 - **Security & Vault Integration 🆕**: Optional integration with **HashiCorp Vault (KV v2)** for secure credential storage. The system orchestrates storing database passwords in Vault, while maintaining a `password` field in the database metadata store for fallback support and legacy compatibility.
 - **Credential Rotation 🆕**: Support for automated password rotation. The system regenerates secure passwords, executes `ALTER USER` commands inside the database container, and updates Vault on success. If present, the **PgBouncer** sidecar is automatically restarted (recreated) to apply new credentials. Note: Exporter sidecars are not reloaded as part of this flow, and rotation is not fully atomic across the database and Vault.
+- **Encryption at Rest 🆕**: Optional volume encryption using **Vault Transit** for DEK management. When `kms_key_id` is provided at creation, each volume gets a unique 256-bit DEK encrypted by Vault. Supports AES-256-GCM and works transparently across all storage backends. Meets compliance requirements (SOC 2, GDPR, HIPAA).
 
 - **Credentials**: Auto-generates secure passwords (16-char random) and default usernames.
 - **VPC Integration**: Databases can be deployed into specific VPCs for network isolation.
@@ -166,6 +168,9 @@ This document provides a comprehensive overview of every feature currently imple
 - **Async Invocation**: Background execution via Go routines.
 - **Invocation Logs**: Stored history of function executions with output/errors.
 - **Handler Configuration**: Specify entry point file for each function.
+- **Partial Updates**: Update timeout, memory, handler, and status via `PATCH /functions/:id`.
+- **Environment Variables**: Inject key-value env vars at runtime without code changes.
+- **Secret Integration**: Env vars can reference secrets (`@secretname`) resolved at invocation time via SecretService — no plaintext secrets stored in the database.
 
 ### 8. Load Balancer (ELB)
 **What it is**: Distribute incoming HTTP traffic across multiple instances.

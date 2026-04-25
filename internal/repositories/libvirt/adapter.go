@@ -463,10 +463,10 @@ func (a *LibvirtAdapter) GetInstancePort(ctx context.Context, id string, interna
 	return 0, fmt.Errorf("no host port mapping found for instance %s port %s", id, internalPort)
 }
 
-func (a *LibvirtAdapter) AttachVolume(ctx context.Context, id string, volumePath string) (string, error) {
+func (a *LibvirtAdapter) AttachVolume(ctx context.Context, id string, volumePath string) (string, string, error) {
 	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
-		return "", fmt.Errorf(errDomainNotFound, err)
+		return "", "", fmt.Errorf(errDomainNotFound, err)
 	}
 
 	dev := "vdb"
@@ -489,15 +489,15 @@ func (a *LibvirtAdapter) AttachVolume(ctx context.Context, id string, volumePath
     </disk>`, diskType, driverType, sourceAttr, volumePath, dev)
 
 	if err := a.client.DomainAttachDevice(ctx, dom, xml); err != nil {
-		return "", err
+		return "", "", err
 	}
-	return "/dev/" + dev, nil
+	return "/dev/" + dev, "", nil
 }
 
-func (a *LibvirtAdapter) DetachVolume(ctx context.Context, id string, volumePath string) error {
+func (a *LibvirtAdapter) DetachVolume(ctx context.Context, id string, volumePath string) (string, error) {
 	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
-		return fmt.Errorf(errDomainNotFound, err)
+		return "", fmt.Errorf(errDomainNotFound, err)
 	}
 
 	xml := fmt.Sprintf("<disk type='file' device='disk'><source file='%s'/><target dev='vdb' bus='virtio'/></disk>", volumePath)
@@ -505,7 +505,7 @@ func (a *LibvirtAdapter) DetachVolume(ctx context.Context, id string, volumePath
 		xml = fmt.Sprintf("<disk type='block' device='disk'><source dev='%s'/><target dev='vdb' bus='virtio'/></disk>", volumePath)
 	}
 
-	return a.client.DomainDetachDevice(ctx, dom, xml)
+	return "", a.client.DomainDetachDevice(ctx, dom, xml)
 }
 
 func (a *LibvirtAdapter) GetConsoleURL(ctx context.Context, id string) (string, error) {

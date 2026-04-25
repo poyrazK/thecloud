@@ -95,7 +95,7 @@ func (s *CacheService) CreateCache(ctx context.Context, name, version string, me
 
 	containerID, allocatedPorts, err := s.launchCacheContainer(ctx, cache, networkID)
 	if err != nil {
-		if delErr := s.repo.Delete(ctx, cache.ID); delErr != nil {
+		if delErr := s.repo.Delete(ctx, cache.ID, tenantID); delErr != nil {
 			s.logger.Error("failed to delete failed cache record", "id", cache.ID, "error", delErr)
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to launch cache container", err)
@@ -228,7 +228,7 @@ func (s *CacheService) ListCaches(ctx context.Context) ([]*domain.Cache, error) 
 		return nil, err
 	}
 
-	return s.repo.List(ctx, userID)
+	return s.repo.List(ctx, tenantID)
 }
 
 func (s *CacheService) DeleteCache(ctx context.Context, idOrName string) error {
@@ -253,7 +253,7 @@ func (s *CacheService) DeleteCache(ctx context.Context, idOrName string) error {
 		}
 	}
 
-	if err := s.repo.Delete(ctx, cache.ID); err != nil {
+	if err := s.repo.Delete(ctx, cache.ID, tenantID); err != nil {
 		return err
 	}
 
@@ -290,12 +290,12 @@ func (s *CacheService) GetConnectionString(ctx context.Context, idOrName string)
 }
 
 func (s *CacheService) getCacheByIDOrName(ctx context.Context, idOrName string) (*domain.Cache, error) {
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	id, err := uuid.Parse(idOrName)
 	if err == nil {
-		return s.repo.GetByID(ctx, id)
+		return s.repo.GetByID(ctx, id, tenantID)
 	}
-	userID := appcontext.UserIDFromContext(ctx)
-	return s.repo.GetByName(ctx, userID, idOrName)
+	return s.repo.GetByName(ctx, tenantID, idOrName)
 }
 
 func (s *CacheService) FlushCache(ctx context.Context, idOrName string) error {

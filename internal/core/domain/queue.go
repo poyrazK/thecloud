@@ -21,6 +21,7 @@ const (
 type Queue struct {
 	ID                uuid.UUID   `json:"id"`
 	UserID            uuid.UUID   `json:"user_id"`
+	TenantID          uuid.UUID   `json:"tenant_id"`
 	Name              string      `json:"name"`
 	ARN               string      `json:"arn"`                // Unique identifier (arn:thecloud:queue:{region}:{user}:{name})
 	VisibilityTimeout int         `json:"visibility_timeout"` // Seconds a message remains hidden after retrieval

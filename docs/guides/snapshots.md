@@ -43,12 +43,14 @@ cloud volumes snapshot delete --snapshot-id snap-1234
 ## Notes & Limitations
 
 - Libvirt backend supports efficient QCOW2 snapshots; ensure the storage pool has enough space
+- Docker backend uses volume copy via an alpine container with tar archiving
 - Snapshot restore may require instance restart if a volume is attached
 
 ## Troubleshooting
 
 - Snapshot creation fails with disk space error: verify storage pool availability
 - Restores not applied: ensure instance detach/reattach and check volume mount state
+- Docker: After attach/detach operations, the instance's ContainerID is updated automatically
 
 ## Next Steps
 

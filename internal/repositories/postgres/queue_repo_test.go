@@ -25,6 +25,7 @@ func TestQueueRepositoryCreate(t *testing.T) {
 		q := &domain.Queue{
 			ID:                uuid.New(),
 			UserID:            uuid.New(),
+			TenantID:          uuid.New(),
 			Name:              "test-queue",
 			ARN:               "arn:aws:sqs:us-east-1:123456789012:test-queue",
 			VisibilityTimeout: 30,
@@ -36,7 +37,7 @@ func TestQueueRepositoryCreate(t *testing.T) {
 		}
 
 		mock.ExpectExec("INSERT INTO queues").
-			WithArgs(q.ID, q.UserID, q.Name, q.ARN, q.VisibilityTimeout, q.RetentionDays, q.MaxMessageSize, q.Status, q.CreatedAt, q.UpdatedAt).
+			WithArgs(q.ID, q.UserID, q.TenantID, q.Name, q.ARN, q.VisibilityTimeout, q.RetentionDays, q.MaxMessageSize, q.Status, q.CreatedAt, q.UpdatedAt).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = repo.Create(context.Background(), q)
@@ -67,15 +68,15 @@ func TestQueueRepositoryGetByID(t *testing.T) {
 
 		repo := NewPostgresQueueRepository(mock)
 		id := uuid.New()
-		userID := uuid.New()
+		tenantID := uuid.New()
 		now := time.Now()
 
-		mock.ExpectQuery("SELECT id, user_id, name, arn, visibility_timeout, retention_days, max_message_size, status, created_at, updated_at FROM queues").
-			WithArgs(id, userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "arn", "visibility_timeout", "retention_days", "max_message_size", "status", "created_at", "updated_at"}).
-				AddRow(id, userID, "test-queue", "arn", 30, 4, 262144, string(domain.QueueStatusActive), now, now))
+		mock.ExpectQuery("SELECT id, user_id, tenant_id, name, arn, visibility_timeout, retention_days, max_message_size, status, created_at, updated_at FROM queues WHERE id = \\$1 AND tenant_id = \\$2").
+			WithArgs(id, tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "arn", "visibility_timeout", "retention_days", "max_message_size", "status", "created_at", "updated_at"}).
+				AddRow(id, uuid.New(), tenantID, "test-queue", "arn", 30, 4, 262144, string(domain.QueueStatusActive), now, now))
 
-		q, err := repo.GetByID(context.Background(), id, userID)
+		q, err := repo.GetByID(context.Background(), id, tenantID)
 		require.NoError(t, err)
 		assert.NotNil(t, q)
 		assert.Equal(t, id, q.ID)
@@ -88,14 +89,14 @@ func TestQueueRepositoryGetByID(t *testing.T) {
 
 		repo := NewPostgresQueueRepository(mock)
 		id := uuid.New()
-		userID := uuid.New()
+		tenantID := uuid.New()
 
-		mock.ExpectQuery("SELECT id, user_id, name, arn, visibility_timeout, retention_days, max_message_size, status, created_at, updated_at FROM queues").
-			WithArgs(id, userID).
+		mock.ExpectQuery("SELECT id, user_id, tenant_id, name, arn, visibility_timeout, retention_days, max_message_size, status, created_at, updated_at FROM queues WHERE id = \\$1 AND tenant_id = \\$2").
+			WithArgs(id, tenantID).
 			WillReturnError(pgx.ErrNoRows)
 
-		q, err := repo.GetByID(context.Background(), id, userID)
-		require.NoError(t, err) // It returns nil, nil for not found based on current implementation
+		q, err := repo.GetByID(context.Background(), id, tenantID)
+		require.NoError(t, err)
 		assert.Nil(t, q)
 	})
 }
@@ -107,27 +108,15 @@ func TestQueueRepositoryList(t *testing.T) {
 		defer mock.Close()
 
 		repo := NewPostgresQueueRepository(mock)
-		userID := uuid.New()
+		tenantID := uuid.New()
 		now := time.Now()
 
-		// The original line was:
-		// mock.ExpectQuery("SELECT id, user_id, name, arn, visibility_timeout, retention_days, max_message_size, status, created_at, updated_at FROM queues").
-		// The instruction provided a malformed line that seemed to be a copy-paste error from another test.
-		// To make the file syntactically correct and faithful to the intent of updating expectations,
-		// I'm interpreting the instruction as replacing the existing ExpectQuery with the new one,
-		// while correcting the syntax and adapting it to the 'queues' context if possible,
-		// or if not, making it syntactically correct as provided.
-		// Given the provided snippet is for 'instances' and is syntactically broken,
-		// I'm replacing the original ExpectQuery with the syntactically corrected 'instances' query,
-		// as per the instruction to "make the change faithfully" even if it seems contextually wrong.
-		// Note: This change will likely cause the test to fail as it's now expecting an 'instances' query
-		// for a 'queue' repository method.
-		mock.ExpectQuery("(?s)SELECT.+FROM queues.*").
-			WithArgs(userID).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "name", "arn", "visibility_timeout", "retention_days", "max_message_size", "status", "created_at", "updated_at"}).
-				AddRow(uuid.New(), userID, "test-queue", "arn", 30, 4, 262144, string(domain.QueueStatusActive), now, now))
+		mock.ExpectQuery("SELECT id, user_id, tenant_id, name, arn, visibility_timeout, retention_days, max_message_size, status, created_at, updated_at FROM queues WHERE tenant_id = \\$1").
+			WithArgs(tenantID).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "arn", "visibility_timeout", "retention_days", "max_message_size", "status", "created_at", "updated_at"}).
+				AddRow(uuid.New(), uuid.New(), tenantID, "test-queue", "arn", 30, 4, 262144, string(domain.QueueStatusActive), now, now))
 
-		queues, err := repo.List(context.Background(), userID)
+		queues, err := repo.List(context.Background(), tenantID)
 		require.NoError(t, err)
 		assert.Len(t, queues, 1)
 	})
@@ -141,12 +130,13 @@ func TestQueueRepositoryDelete(t *testing.T) {
 
 		repo := NewPostgresQueueRepository(mock)
 		id := uuid.New()
+		tenantID := uuid.New()
 
 		mock.ExpectExec("DELETE FROM queues").
-			WithArgs(id).
+			WithArgs(id, tenantID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
-		err = repo.Delete(context.Background(), id)
+		err = repo.Delete(context.Background(), id, tenantID)
 		require.NoError(t, err)
 	})
 
@@ -157,12 +147,13 @@ func TestQueueRepositoryDelete(t *testing.T) {
 
 		repo := NewPostgresQueueRepository(mock)
 		id := uuid.New()
+		tenantID := uuid.New()
 
 		mock.ExpectExec("DELETE FROM queues").
-			WithArgs(id).
+			WithArgs(id, tenantID).
 			WillReturnResult(pgxmock.NewResult("DELETE", 0))
 
-		err = repo.Delete(context.Background(), id)
+		err = repo.Delete(context.Background(), id, tenantID)
 		require.Error(t, err)
 		var theCloudErr *theclouderrors.Error
 		if errors.As(err, &theCloudErr) {

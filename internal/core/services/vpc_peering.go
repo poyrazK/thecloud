@@ -17,25 +17,24 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-const (
-	vpcPeeringTracer  = "vpc-peering-service"
-	peeringFlowFormat = "ip,nw_dst=%s"
-)
+const vpcPeeringTracer = "vpc-peering-service"
 
 // VPCPeeringService manages VPC peering connection lifecycle,
 // including CIDR validation and OVS flow rule programming.
 type VPCPeeringService struct {
-	repo     ports.VPCPeeringRepository
-	vpcRepo  ports.VpcRepository
-	network  ports.NetworkBackend
-	auditSvc ports.AuditService
-	logger   *slog.Logger
+	repo          ports.VPCPeeringRepository
+	vpcRepo       ports.VpcRepository
+	rtRepo        ports.RouteTableRepository
+	network       ports.NetworkBackend
+	auditSvc      ports.AuditService
+	logger        *slog.Logger
 }
 
 // VPCPeeringServiceParams holds dependencies for VPCPeeringService.
 type VPCPeeringServiceParams struct {
 	Repo     ports.VPCPeeringRepository
 	VpcRepo  ports.VpcRepository
+	RTRepo   ports.RouteTableRepository
 	Network  ports.NetworkBackend
 	AuditSvc ports.AuditService
 	Logger   *slog.Logger
@@ -46,6 +45,7 @@ func NewVPCPeeringService(params VPCPeeringServiceParams) *VPCPeeringService {
 	return &VPCPeeringService{
 		repo:     params.Repo,
 		vpcRepo:  params.VpcRepo,
+		rtRepo:   params.RTRepo,
 		network:  params.Network,
 		auditSvc: params.AuditSvc,
 		logger:   params.Logger,
@@ -155,9 +155,9 @@ func (s *VPCPeeringService) AcceptPeering(ctx context.Context, peeringID uuid.UU
 		return nil, errors.Wrap(errors.Internal, "failed to get accepter VPC", err)
 	}
 
-	// Program OVS flow rules for cross-bridge routing
-	if err := s.addPeeringFlows(ctx, requesterVPC, accepterVPC); err != nil {
-		s.logger.Error("failed to program peering OVS flows", "peering_id", peeringID, "error", err)
+	// Program routes in route tables for cross-VPC routing
+	if err := s.addPeeringFlows(ctx, requesterVPC, accepterVPC, peeringID); err != nil {
+		s.logger.Error("failed to program peering routes", "peering_id", peeringID, "error", err)
 		_ = s.repo.UpdateStatus(ctx, peeringID, domain.PeeringStatusFailed)
 		return nil, errors.Wrap(errors.Internal, "failed to establish network peering", err)
 	}
@@ -232,8 +232,8 @@ func (s *VPCPeeringService) DeletePeering(ctx context.Context, peeringID uuid.UU
 		}
 
 		if requesterVPC != nil && accepterVPC != nil {
-			if err := s.removePeeringFlows(ctx, requesterVPC, accepterVPC); err != nil {
-				s.logger.Error("failed to remove peering OVS flows", "peering_id", peeringID, "error", err)
+			if err := s.removePeeringFlows(ctx, requesterVPC, accepterVPC, peeringID); err != nil {
+				s.logger.Error("failed to remove peering routes", "peering_id", peeringID, "error", err)
 			}
 		}
 	}
@@ -262,66 +262,112 @@ func (s *VPCPeeringService) ListPeerings(ctx context.Context) ([]*domain.VPCPeer
 	return s.repo.List(ctx, tenantID)
 }
 
-// addPeeringFlows programs OVS flow rules to allow traffic between two VPC bridges.
-func (s *VPCPeeringService) addPeeringFlows(ctx context.Context, requesterVPC, accepterVPC *domain.VPC) error {
-	// Flow on requester bridge: route traffic destined for accepter's CIDR
-	requesterFlow := ports.FlowRule{
-		Priority: 500,
-		Match:    fmt.Sprintf(peeringFlowFormat, accepterVPC.CIDRBlock),
-		Actions:  "NORMAL",
-	}
-	if err := s.network.AddFlowRule(ctx, requesterVPC.NetworkID, requesterFlow); err != nil {
-		return fmt.Errorf("failed to add flow on requester bridge %s: %w", requesterVPC.NetworkID, err)
+// addPeeringFlows adds routes in route tables to allow traffic between two VPCs.
+func (s *VPCPeeringService) addPeeringFlows(ctx context.Context, requesterVPC, accepterVPC *domain.VPC, peeringID uuid.UUID) error {
+	if s.rtRepo == nil {
+		return fmt.Errorf("route table repository not available")
 	}
 
-	// Flow on accepter bridge: route traffic destined for requester's CIDR
-	accepterFlow := ports.FlowRule{
-		Priority: 500,
-		Match:    fmt.Sprintf(peeringFlowFormat, requesterVPC.CIDRBlock),
-		Actions:  "NORMAL",
-	}
-	if err := s.network.AddFlowRule(ctx, accepterVPC.NetworkID, accepterFlow); err != nil {
-		// Rollback first flow
-		_ = s.network.DeleteFlowRule(ctx, requesterVPC.NetworkID, requesterFlow.Match)
-		return fmt.Errorf("failed to add flow on accepter bridge %s: %w", accepterVPC.NetworkID, err)
+	// Get main route table for requester VPC
+	reqRT, err := s.rtRepo.GetMainByVPC(ctx, requesterVPC.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get main route table for requester VPC: %w", err)
 	}
 
-	s.logger.Info("peering OVS flows programmed",
-		"requester_bridge", requesterVPC.NetworkID,
-		"accepter_bridge", accepterVPC.NetworkID,
+	// Get main route table for accepter VPC
+	accRT, err := s.rtRepo.GetMainByVPC(ctx, accepterVPC.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get main route table for accepter VPC: %w", err)
+	}
+
+	// Add route in requester RT: traffic to accepter VPC CIDR goes through peering
+	reqRoute := &domain.Route{
+		ID:              uuid.New(),
+		RouteTableID:    reqRT.ID,
+		DestinationCIDR: accepterVPC.CIDRBlock,
+		TargetType:     domain.RouteTargetPeering,
+		TargetID:       &peeringID,
+		TargetName:     fmt.Sprintf("peering-%s", peeringID.String()[:8]),
+	}
+	if err := s.rtRepo.AddRoute(ctx, reqRT.ID, reqRoute); err != nil {
+		return fmt.Errorf("failed to add route in requester route table: %w", err)
+	}
+
+	// Add route in accepter RT: traffic to requester VPC CIDR goes through peering
+	accRoute := &domain.Route{
+		ID:              uuid.New(),
+		RouteTableID:    accRT.ID,
+		DestinationCIDR: requesterVPC.CIDRBlock,
+		TargetType:     domain.RouteTargetPeering,
+		TargetID:       &peeringID,
+		TargetName:     fmt.Sprintf("peering-%s", peeringID.String()[:8]),
+	}
+	if err := s.rtRepo.AddRoute(ctx, accRT.ID, accRoute); err != nil {
+		// Rollback requester route
+		_ = s.rtRepo.RemoveRoute(ctx, reqRT.ID, reqRoute.ID)
+		return fmt.Errorf("failed to add route in accepter route table: %w", err)
+	}
+
+	s.logger.Info("peering routes programmed",
+		"requester_vpc", requesterVPC.ID,
+		"accepter_vpc", accepterVPC.ID,
+		"peering_id", peeringID,
 	)
 
 	return nil
 }
 
-// removePeeringFlows removes OVS flow rules for a peering connection.
-func (s *VPCPeeringService) removePeeringFlows(ctx context.Context, requesterVPC, accepterVPC *domain.VPC) error {
-	var firstErr error
-
-	// Remove flow from requester bridge
-	requesterMatch := fmt.Sprintf(peeringFlowFormat, accepterVPC.CIDRBlock)
-	if err := s.network.DeleteFlowRule(ctx, requesterVPC.NetworkID, requesterMatch); err != nil {
-		s.logger.Error("failed to remove flow from requester bridge", "bridge", requesterVPC.NetworkID, "error", err)
-		firstErr = err
+// removePeeringFlows removes routes from route tables for a peering connection.
+func (s *VPCPeeringService) removePeeringFlows(ctx context.Context, requesterVPC, accepterVPC *domain.VPC, peeringID uuid.UUID) error {
+	if s.rtRepo == nil {
+		return fmt.Errorf("route table repository not available")
 	}
 
-	// Remove flow from accepter bridge
-	accepterMatch := fmt.Sprintf(peeringFlowFormat, requesterVPC.CIDRBlock)
-	if err := s.network.DeleteFlowRule(ctx, accepterVPC.NetworkID, accepterMatch); err != nil {
-		s.logger.Error("failed to remove flow from accepter bridge", "bridge", accepterVPC.NetworkID, "error", err)
-		if firstErr == nil {
-			firstErr = err
+	var failed bool
+
+	// Get main route table for requester VPC and find peering routes
+	reqRT, err := s.rtRepo.GetMainByVPC(ctx, requesterVPC.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get main route table for requester VPC: %w", err)
+	}
+
+	reqRoutes, _ := s.rtRepo.ListRoutes(ctx, reqRT.ID)
+	for _, r := range reqRoutes {
+		if r.TargetType == domain.RouteTargetPeering && r.TargetID != nil && *r.TargetID == peeringID {
+			if err := s.rtRepo.RemoveRoute(ctx, reqRT.ID, r.ID); err != nil {
+				s.logger.Error("failed to remove route from requester route table", "route_id", r.ID, "error", err)
+				failed = true
+			}
+			break
 		}
 	}
 
-	if firstErr == nil {
-		s.logger.Info("peering OVS flows removed",
-			"requester_bridge", requesterVPC.NetworkID,
-			"accepter_bridge", accepterVPC.NetworkID,
+	// Get main route table for accepter VPC and find peering routes
+	accRT, err := s.rtRepo.GetMainByVPC(ctx, accepterVPC.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get main route table for accepter VPC: %w", err)
+	}
+
+	accRoutes, _ := s.rtRepo.ListRoutes(ctx, accRT.ID)
+	for _, r := range accRoutes {
+		if r.TargetType == domain.RouteTargetPeering && r.TargetID != nil && *r.TargetID == peeringID {
+			if err := s.rtRepo.RemoveRoute(ctx, accRT.ID, r.ID); err != nil {
+				s.logger.Error("failed to remove route from accepter route table", "route_id", r.ID, "error", err)
+				failed = true
+			}
+			break
+		}
+	}
+
+	if !failed {
+		s.logger.Info("peering routes removed",
+			"requester_vpc", requesterVPC.ID,
+			"accepter_vpc", accepterVPC.ID,
+			"peering_id", peeringID,
 		)
 	}
 
-	return firstErr
+	return nil
 }
 
 // validateNonOverlappingCIDRs checks that two CIDR blocks do not overlap.
