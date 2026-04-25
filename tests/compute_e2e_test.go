@@ -207,7 +207,8 @@ func TestResizeInstance(t *testing.T) {
 		defer func() { _ = resp.Body.Close() }()
 
 		// Accept 200 (success) or 429 (quota exceeded - new tenants may not have extra quota)
-		if resp.StatusCode == http.StatusOK {
+		switch resp.StatusCode {
+		case http.StatusOK:
 			// Resize succeeded - verify the type changed
 			var res struct {
 				Data struct {
@@ -217,10 +218,10 @@ func TestResizeInstance(t *testing.T) {
 			if assert.NoError(t, json.NewDecoder(resp.Body).Decode(&res)) {
 				assert.Equal(t, "standard-1", res.Data.InstanceType)
 			}
-		} else if resp.StatusCode == http.StatusTooManyRequests {
+		case http.StatusTooManyRequests:
 			// Quota exceeded - this is acceptable for new tenants with limited quota
 			t.Log("Resize returned 429 (quota exceeded) - tenant may not have extra quota allocated")
-		} else {
+		default:
 			t.Errorf("Unexpected status code: got %d, want 200 or 429", resp.StatusCode)
 		}
 	})
