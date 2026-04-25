@@ -216,10 +216,10 @@ func TestResizeInstance(t *testing.T) {
 		t.Skipf("Instance did not reach running state within timeout (90s). Last status: %s", lastStatus)
 	})
 
-	// 3. Resize to basic-4
+	// 3. Resize to standard-1 (upsize: 1→2 vCPU, 1024→2048MB)
 	t.Run("Resize", func(t *testing.T) {
 		payload := map[string]string{
-			"instance_type": "basic-4",
+			"instance_type": "standard-1",
 		}
 		resp := postRequest(t, client, fmt.Sprintf("%s%s/%s/resize", testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token, payload)
 		defer func() { _ = resp.Body.Close() }()
@@ -240,7 +240,7 @@ func TestResizeInstance(t *testing.T) {
 			} `json:"data"`
 		}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&res))
-		assert.Equal(t, "basic-4", res.Data.InstanceType)
+		assert.Equal(t, "standard-1", res.Data.InstanceType)
 	})
 
 	// 5. Terminate Instance
@@ -263,12 +263,12 @@ func TestResizeInstanceDownsize(t *testing.T) {
 	var instanceID string
 	instanceName := fmt.Sprintf("e2e-resize-down-%d-%s", time.Now().UnixNano()%1000, uuid.New().String())
 
-	// 1. Launch Instance with basic-4 type
+	// 1. Launch Instance with basic-2 type
 	t.Run("LaunchInstance", func(t *testing.T) {
 		payload := map[string]string{
 			"name":         instanceName,
 			"image":        "nginx:alpine",
-			"instance_type": "basic-4",
+			"instance_type": "basic-2",
 			"ports":        "0:80",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
