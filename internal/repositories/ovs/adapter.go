@@ -279,14 +279,14 @@ func (a *OvsAdapter) SetupNATForSubnet(ctx context.Context, bridge, natVethEnd, 
 }
 
 // RemoveNATForSubnet removes iptables SNAT rules for a subnet.
-// We use --check (-C) to see if rule exists, then delete (-D) with same params.
 func (a *OvsAdapter) RemoveNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR string) error {
 	// Use -C to check if rule exists, then -D to delete it
 	// This avoids needing to know the exact egress IP
 	checkCmd := a.exec.CommandContext(ctx, "iptables", "-t", "nat", "-C", "POSTROUTING",
 		"-s", subnetCIDR, "-o", natVethEnd, "-j", "SNAT")
-	if checkCmd.Run() != nil {
-		// Rule doesn't exist, nothing to remove
+	checkErr := checkCmd.Run()
+	if checkErr != nil {
+		// Rule doesn't exist, nothing to remove - this is not an error
 		a.logger.Warn("NAT SNAT rule does not exist, nothing to remove", "subnet", subnetCIDR)
 		return nil
 	}
