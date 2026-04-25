@@ -113,8 +113,9 @@ func (a *DockerAdapter) Type() string {
 func (a *DockerAdapter) ResizeInstance(ctx context.Context, id string, cpuNanoCPUs, memoryBytes int64) error {
 	resp, err := a.cli.ContainerUpdate(ctx, id, container.UpdateConfig{
 		Resources: container.Resources{
-			NanoCPUs: cpuNanoCPUs,
-			Memory:   memoryBytes,
+			NanoCPUs:    cpuNanoCPUs,
+			Memory:      memoryBytes,
+			MemorySwap:  memoryBytes, // Must be >= Memory; setting equal disables swap while allowing memory update
 		},
 	})
 	if err != nil {
