@@ -12,6 +12,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 // ---- InternetGateway Service Tests ----
@@ -291,7 +292,7 @@ func TestRouteTableService_AddRoute(t *testing.T) {
 
 	route, err := svc.AddRoute(ctx, rtID, "0.0.0.0/0", domain.RouteTargetIGW, &igwID)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "0.0.0.0/0", route.DestinationCIDR)
 	assert.Equal(t, domain.RouteTargetIGW, route.TargetType)
 	mockRT.AssertExpectations(t)
