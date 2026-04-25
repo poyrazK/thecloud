@@ -17,13 +17,13 @@ import (
 
 // waitForInstanceStatus polls an instance until it reaches RUNNING or times out.
 // It returns the last observed status if the timeout is reached (caller should t.Skipf).
-func waitForInstanceStatus(t *testing.T, client *http.Client, token, instanceID string, timeout time.Duration) domain.InstanceStatus {
+func waitForInstanceStatus(t *testing.T, client *http.Client, token, instanceID string) domain.InstanceStatus {
 	t.Helper()
 	start := time.Now()
 	var lastStatus domain.InstanceStatus
 	errorCount := 0
 
-	for time.Since(start) < timeout {
+	for time.Since(start) < 90*time.Second {
 		resp := getRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
 		var res struct {
 			Data domain.Instance `json:"data"`
@@ -100,7 +100,7 @@ func TestComputeE2E(t *testing.T) {
 
 	// 2.5 Wait for Instance to be Running
 	t.Run("WaitForRunning", func(t *testing.T) {
-		lastStatus := waitForInstanceStatus(t, client, token, instanceID, 90*time.Second)
+		lastStatus := waitForInstanceStatus(t, client, token, instanceID)
 		if lastStatus != domain.StatusRunning {
 			t.Skipf("Instance did not reach running state within timeout (90s). Last status: %s. Docker backend may be unavailable.", lastStatus)
 		}
@@ -190,7 +190,7 @@ func TestResizeInstance(t *testing.T) {
 
 	// 2. Wait for Instance to be Running
 	t.Run("WaitForRunning", func(t *testing.T) {
-		lastStatus := waitForInstanceStatus(t, client, token, instanceID, 90*time.Second)
+		lastStatus := waitForInstanceStatus(t, client, token, instanceID)
 		if lastStatus != domain.StatusRunning {
 			t.Skipf("Instance did not reach running state within timeout (90s). Last status: %s", lastStatus)
 		}
@@ -267,7 +267,7 @@ func TestResizeInstanceDownsize(t *testing.T) {
 
 	// 2. Wait for Running
 	t.Run("WaitForRunning", func(t *testing.T) {
-		lastStatus := waitForInstanceStatus(t, client, token, instanceID, 90*time.Second)
+		lastStatus := waitForInstanceStatus(t, client, token, instanceID)
 		if lastStatus != domain.StatusRunning {
 			t.Skipf("Instance did not reach running state within timeout. Last status: %s", lastStatus)
 		}
@@ -327,7 +327,7 @@ func TestResizeInstanceInvalidType(t *testing.T) {
 
 	// 2. Wait for Running
 	t.Run("WaitForRunning", func(t *testing.T) {
-		lastStatus := waitForInstanceStatus(t, client, token, instanceID, 90*time.Second)
+		lastStatus := waitForInstanceStatus(t, client, token, instanceID)
 		if lastStatus != domain.StatusRunning {
 			t.Skipf("Instance did not reach running state within timeout. Last status: %s", lastStatus)
 		}
