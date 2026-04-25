@@ -47,6 +47,9 @@ type fakeDockerClient struct {
 	networkCreateErr error
 	networkRemoveErr error
 
+	containerUpdateResp container.UpdateResponse
+	containerUpdateErr  error
+
 	Calls map[string]int
 	mu    sync.Mutex
 }
@@ -194,7 +197,7 @@ func (f *fakeDockerClient) ContainerRename(ctx context.Context, containerID stri
 
 func (f *fakeDockerClient) ContainerUpdate(ctx context.Context, containerID string, updateConfig container.UpdateConfig) (container.UpdateResponse, error) {
 	f.inc("ContainerUpdate")
-	return container.UpdateResponse{}, nil
+	return f.containerUpdateResp, f.containerUpdateErr
 }
 
 var errFakeNotFound = errors.New("not found")
