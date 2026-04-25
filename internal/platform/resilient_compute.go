@@ -137,6 +137,12 @@ func (r *ResilientCompute) DeleteInstance(ctx context.Context, id string) error 
 	})
 }
 
+func (r *ResilientCompute) ResizeInstance(ctx context.Context, id string, cpuNano, memoryBytes int64) error {
+	return r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
+		return r.inner.ResizeInstance(ctx, id, cpuNano, memoryBytes)
+	})
+}
+
 func (r *ResilientCompute) GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error) {
 	var rc io.ReadCloser
 	err := r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {

@@ -63,4 +63,6 @@ type ComputeBackend interface {
 	Ping(ctx context.Context) error
 	// Type returns a string identifier of the backend (e.g., "docker", "kvm").
 	Type() string
+	// ResizeInstance updates the CPU and memory limits of a running or stopped instance.
+	ResizeInstance(ctx context.Context, id string, cpu, memory int64) error
 }

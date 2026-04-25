@@ -210,6 +210,9 @@ func (m *mockComputeBackend) Ping(ctx context.Context) error {
 func (m *mockComputeBackend) Type() string {
 	return "mock"
 }
+func (m *mockComputeBackend) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
+	return m.Called(ctx, id, cpu, memory).Error(0)
+}
 
 func TestDatabaseFailoverWorker(t *testing.T) {
 	t.Parallel()

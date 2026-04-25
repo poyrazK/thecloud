@@ -232,6 +232,28 @@ Update instance (e.g., status).
 ### DELETE /instances/:id
 Terminate an instance.
 
+### POST /instances/:id/resize
+Resize an instance to a different instance type (CPU/memory).
+
+**Request:**
+```json
+{
+  "instance_type": "basic-4"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "instance resized"
+}
+```
+
+**Error Responses:**
+- `400` — Invalid input (bad instance ID, empty instance type, invalid type)
+- `404` — Instance not found
+- `403` — Insufficient quota for the requested type
+
 ### GET /instances/:id/console
 Get the VNC console URL for the instance.
 **Response:**
