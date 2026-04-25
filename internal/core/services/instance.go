@@ -824,10 +824,9 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 			return err
 		}
 		if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "vcpus", deltaCPU); err != nil {
-			quotaErrs = append(quotaErrs, fmt.Errorf("vcpu increment: %w", err))
-		} else {
-			cpuIncremented = true
+			return errors.Wrap(errors.Internal, "failed to increment vCPU quota for resize", err)
 		}
+		cpuIncremented = true
 	} else if deltaCPU < 0 {
 		if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", -deltaCPU); err != nil {
 			quotaErrs = append(quotaErrs, fmt.Errorf("vcpu decrement: %w", err))
@@ -838,10 +837,13 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 			return err
 		}
 		if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", deltaMemMB); err != nil {
-			quotaErrs = append(quotaErrs, fmt.Errorf("memory increment: %w", err))
-		} else {
-			memIncremented = true
+			// Rollback the vCPU increment since memory increment failed
+			if cpuIncremented {
+				_ = s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", deltaCPU)
+			}
+			return errors.Wrap(errors.Internal, "failed to increment memory quota for resize", err)
 		}
+		memIncremented = true
 	} else if deltaMemMB < 0 {
 		if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", -deltaMemMB); err != nil {
 			quotaErrs = append(quotaErrs, fmt.Errorf("memory decrement: %w", err))
