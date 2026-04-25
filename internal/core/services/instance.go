@@ -852,6 +852,10 @@ func (s *InstanceService) ResizeInstance(ctx context.Context, idOrName, newInsta
 		s.logger.Warn("failed to log audit event", "action", "instance.resize", "instance_id", inst.ID, "error", err)
 	}
 
+	if len(quotaErrs) > 0 {
+		return errors.Wrap(errors.Internal, "resize succeeded but quota updates failed", fmt.Errorf("%v", quotaErrs))
+	}
+
 	return nil
 }
 

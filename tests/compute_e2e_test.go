@@ -18,6 +18,7 @@ import (
 // waitForInstanceStatus polls an instance until it reaches the desired status or times out.
 // It returns the last observed status if the timeout is reached (caller should t.Skipf).
 func waitForInstanceStatus(t *testing.T, client *http.Client, token, instanceID string, desired domain.InstanceStatus, timeout time.Duration) domain.InstanceStatus {
+	t.Helper()
 	start := time.Now()
 	var lastStatus domain.InstanceStatus
 	errorCount := 0
