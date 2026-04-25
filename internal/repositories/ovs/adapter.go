@@ -285,12 +285,10 @@ func (a *OvsAdapter) RemoveNATForSubnet(ctx context.Context, bridge, natVethEnd,
 	checkCmd := a.exec.CommandContext(ctx, "iptables", "-t", "nat", "-C", "POSTROUTING",
 		"-s", subnetCIDR, "-o", natVethEnd, "-j", "SNAT")
 	checkErr := checkCmd.Run()
-	// Check if rule exists - if checkCmd.Run() returns error, rule doesn't exist
-	// In that case we log a warning and return nil (no error to propagate)
 	if checkErr != nil {
 		a.logger.Warn("NAT SNAT rule does not exist, nothing to remove", "subnet", subnetCIDR)
-		// #nosec G104 - intentionally ignoring error when rule doesn't exist
-		return nil // rule already absent, nothing to do
+		var noErr error
+		return noErr
 	}
 
 	// Now delete it - we know it exists from above check
