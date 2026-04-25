@@ -1073,16 +1073,25 @@ Get execution logs.
 
 ### PATCH /functions/:id
 Update a function's configuration (timeout, memory, handler, environment variables).
+
+**Environment variables** — each entry can be either a plain-text value or a secret reference, but not both:
 ```json
 {
   "handler": "newhandler.js",
   "timeout": 300,
   "memory_mb": 256,
   "env_vars": [
-    { "key": "FOO", "value": "bar" }
+    { "key": "FOO", "value": "bar" },
+    { "key": "API_KEY", "secret_ref": "@my-api-key" }
   ]
 }
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `key` | string | Env var name |
+| `value` | string | Plain-text value (mutually exclusive with `secret_ref`) |
+| `secret_ref` | string | Secret name reference with `@` prefix (e.g. `"@my-api-key"`) |
 
 ### GET /function-schedules
 List all function schedules.

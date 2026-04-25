@@ -170,6 +170,7 @@ This document provides a comprehensive overview of every feature currently imple
 - **Handler Configuration**: Specify entry point file for each function.
 - **Partial Updates**: Update timeout, memory, handler, and status via `PATCH /functions/:id`.
 - **Environment Variables**: Inject key-value env vars at runtime without code changes.
+- **Secret Integration**: Env vars can reference secrets (`@secretname`) resolved at invocation time via SecretService — no plaintext secrets stored in the database.
 
 ### 8. Load Balancer (ELB)
 **What it is**: Distribute incoming HTTP traffic across multiple instances.

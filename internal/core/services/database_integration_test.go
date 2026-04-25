@@ -18,6 +18,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,7 +40,7 @@ func setupDatabaseServiceTest(t *testing.T) (ports.DatabaseService, ports.Databa
 
 	eventRepo := postgres.NewEventRepository(db)
 
-	rbacSvc := new(MockRBACService) 
+	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	auditRepo := postgres.NewAuditRepository(db)
 	eventSvc := services.NewEventService(services.EventServiceParams{Repo: eventRepo, RBACSvc: rbacSvc, Logger: slog.Default()})
@@ -47,7 +48,7 @@ func setupDatabaseServiceTest(t *testing.T) (ports.DatabaseService, ports.Databa
 
 	volRepo := postgres.NewVolumeRepository(db)
 	storage := noop.NewNoopStorageBackendAdapter()
-	volumeSvc := services.NewVolumeService(volRepo, storage, eventSvc, auditSvc, slog.Default())
+	volumeSvc := services.NewVolumeService(services.VolumeServiceParams{Repo: volRepo, Storage: storage, EventSvc: eventSvc, AuditSvc: auditSvc, Logger: slog.Default()})
 
 	logger := slog.Default()
 
