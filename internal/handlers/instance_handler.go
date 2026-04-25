@@ -432,6 +432,10 @@ type ResizeInstanceRequest struct {
 // @Router /instances/{id}/resize [post]
 func (h *InstanceHandler) ResizeInstance(c *gin.Context) {
 	idStr := c.Param("id")
+	if idStr == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
+		return
+	}
 
 	var req ResizeInstanceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

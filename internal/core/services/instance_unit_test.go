@@ -1562,7 +1562,7 @@ func testInstanceServiceResizeInstanceUnit(t *testing.T) {
 		newType := &domain.InstanceType{ID: "basic-4", VCPUs: 4, MemoryMB: 4096}
 
 		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceResize, instanceID.String()).Return(nil).Once()
-		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Once()
+		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
 		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
 		typeRepo.On("GetByID", mock.Anything, "basic-2").Return(oldType, nil).Once()
 		typeRepo.On("GetByID", mock.Anything, "basic-4").Return(newType, nil).Once()
