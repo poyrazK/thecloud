@@ -7420,6 +7420,10 @@ paths:
         name: id
         required: true
         type: string
+      - description: Force delete even with dependent resources (for async cleanup)
+        in: query
+        name: force
+        type: boolean
       produces:
       - application/json
       responses:
