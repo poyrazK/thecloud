@@ -261,3 +261,15 @@ func (a *FirecrackerAdapter) Type() string {
 func (a *FirecrackerAdapter) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
 	return fmt.Errorf("resize not supported on firecracker")
 }
+
+func (a *FirecrackerAdapter) CreateSnapshot(ctx context.Context, id, name string) error {
+	return fmt.Errorf("snapshots not supported on firecracker")
+}
+
+func (a *FirecrackerAdapter) RestoreSnapshot(ctx context.Context, id, name string) error {
+	return fmt.Errorf("snapshots not supported on firecracker")
+}
+
+func (a *FirecrackerAdapter) DeleteSnapshot(ctx context.Context, id, name string) error {
+	return fmt.Errorf("snapshots not supported on firecracker")
+}
