@@ -44,6 +44,14 @@ const (
 	memStatTagRSS    = 6
 )
 
+// Package-level pre-compiled regexes for applyDomainResize.
+// MustCompile panics on invalid regex, so these are validated at init time.
+var (
+	memoryResizeRe     = regexp.MustCompile(`(?i)<memory(?:\s[^>]*)?>\d+</memory>`)
+	currentMemResizeRe = regexp.MustCompile(`(?i)<currentMemory(?:\s[^>]*)?>\d+</currentMemory>`)
+	vcpuResizeRe       = regexp.MustCompile(`(?i)<vcpu(?:\s[^>]*)?>\d+</vcpu>`)
+)
+
 // LibvirtAdapter implements compute backend operations using libvirt/KVM.
 type LibvirtAdapter struct {
 	client LibvirtClient
@@ -225,16 +233,13 @@ func (a *LibvirtAdapter) applyDomainResize(xmlContent string, memoryKiB, vcpus i
 	result := xmlContent
 
 	// Replace <memory unit="KiB">...</memory> or <memory>...</memory>
-	memoryRe := regexp.MustCompile(`(?i)<memory(?:\s[^>]*)?>\d+</memory>`)
-	result = memoryRe.ReplaceAllString(result, fmt.Sprintf(`<memory unit="KiB">%d</memory>`, memoryKiB))
+	result = memoryResizeRe.ReplaceAllString(result, fmt.Sprintf(`<memory unit="KiB">%d</memory>`, memoryKiB))
 
 	// Replace <currentMemory unit="KiB">...</currentMemory> or <currentMemory>...</currentMemory>
-	currentMemRe := regexp.MustCompile(`(?i)<currentMemory(?:\s[^>]*)?>\d+</currentMemory>`)
-	result = currentMemRe.ReplaceAllString(result, fmt.Sprintf(`<currentMemory unit="KiB">%d</currentMemory>`, memoryKiB))
+	result = currentMemResizeRe.ReplaceAllString(result, fmt.Sprintf(`<currentMemory unit="KiB">%d</currentMemory>`, memoryKiB))
 
 	// Replace <vcpu placement="static">...</vcpu> or <vcpu>...</vcpu>
-	vcpuRe := regexp.MustCompile(`(?i)<vcpu(?:\s[^>]*)?>\d+</vcpu>`)
-	result = vcpuRe.ReplaceAllString(result, fmt.Sprintf(`<vcpu>%d</vcpu>`, vcpus))
+	result = vcpuResizeRe.ReplaceAllString(result, fmt.Sprintf(`<vcpu>%d</vcpu>`, vcpus))
 
 	// Verify we actually made replacements
 	if result == xmlContent {
