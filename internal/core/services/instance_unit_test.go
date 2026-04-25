@@ -1691,12 +1691,14 @@ func testInstanceServiceResizeInstanceUnit(t *testing.T) {
 		typeRepo := new(MockInstanceTypeRepo)
 		rbacSvc := new(MockRBACService)
 		tenantSvc := new(MockTenantService)
+		compute := new(MockComputeBackend)
 
 		svc := services.NewInstanceService(services.InstanceServiceParams{
 			Repo:             repo,
 			InstanceTypeRepo: typeRepo,
 			RBAC:             rbacSvc,
 			TenantSvc:        tenantSvc,
+			Compute:          compute,
 			Logger:           slog.Default(),
 		})
 
@@ -1723,13 +1725,14 @@ func testInstanceServiceResizeInstanceUnit(t *testing.T) {
 		repo.On("GetByName", mock.Anything, "test-inst").Return(inst, nil).Once()
 		typeRepo.On("GetByID", mock.Anything, "basic-2").Return(oldType, nil).Once()
 		typeRepo.On("GetByID", mock.Anything, "basic-4").Return(newType, nil).Once()
+		compute.On("ResizeInstance", mock.Anything, "cid-1", int64(4e9), int64(4096*1024*1024)).Return(nil).Once()
 		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "vcpus", 2).Return(fmt.Errorf("insufficient vCPU quota")).Once()
 
 		err := svc.ResizeInstance(ctx, "test-inst", "basic-4")
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "insufficient vCPU quota")
-		mock.AssertExpectationsForObjects(t, repo, typeRepo, rbacSvc, tenantSvc)
+		mock.AssertExpectationsForObjects(t, repo, typeRepo, rbacSvc, tenantSvc, compute)
 	})
 
 	t.Run("QuotaExceeded_Memory", func(t *testing.T) {
@@ -1737,12 +1740,14 @@ func testInstanceServiceResizeInstanceUnit(t *testing.T) {
 		typeRepo := new(MockInstanceTypeRepo)
 		rbacSvc := new(MockRBACService)
 		tenantSvc := new(MockTenantService)
+		compute := new(MockComputeBackend)
 
 		svc := services.NewInstanceService(services.InstanceServiceParams{
 			Repo:             repo,
 			InstanceTypeRepo: typeRepo,
 			RBAC:             rbacSvc,
 			TenantSvc:        tenantSvc,
+			Compute:          compute,
 			Logger:           slog.Default(),
 		})
 
@@ -1769,14 +1774,16 @@ func testInstanceServiceResizeInstanceUnit(t *testing.T) {
 		repo.On("GetByName", mock.Anything, "test-inst").Return(inst, nil).Once()
 		typeRepo.On("GetByID", mock.Anything, "basic-2").Return(oldType, nil).Once()
 		typeRepo.On("GetByID", mock.Anything, "basic-4").Return(newType, nil).Once()
+		compute.On("ResizeInstance", mock.Anything, "cid-1", int64(4e9), int64(4096*1024*1024)).Return(nil).Once()
 		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "vcpus", 2).Return(nil).Once()
+		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "vcpus", 2).Return(nil).Once()
 		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "memory", 2048).Return(fmt.Errorf("insufficient memory quota")).Once()
 
 		err := svc.ResizeInstance(ctx, "test-inst", "basic-4")
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "insufficient memory quota")
-		mock.AssertExpectationsForObjects(t, repo, typeRepo, rbacSvc, tenantSvc)
+		mock.AssertExpectationsForObjects(t, repo, typeRepo, rbacSvc, tenantSvc, compute)
 	})
 
 	t.Run("ComputeError", func(t *testing.T) {
@@ -1820,8 +1827,6 @@ func testInstanceServiceResizeInstanceUnit(t *testing.T) {
 		repo.On("GetByName", mock.Anything, "test-inst").Return(inst, nil).Once()
 		typeRepo.On("GetByID", mock.Anything, "basic-2").Return(oldType, nil).Once()
 		typeRepo.On("GetByID", mock.Anything, "basic-4").Return(newType, nil).Once()
-		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "vcpus", 2).Return(nil).Once()
-		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "memory", 2048).Return(nil).Once()
 		compute.On("ResizeInstance", mock.Anything, "cid-1", int64(4*1e9), int64(4096*1024*1024)).Return(fmt.Errorf("docker error")).Once()
 
 		err := svc.ResizeInstance(ctx, "test-inst", "basic-4")
