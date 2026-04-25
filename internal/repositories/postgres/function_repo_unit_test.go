@@ -115,3 +115,23 @@ func TestFunctionRepositoryDelete(t *testing.T) {
 	err = repo.Delete(ctx, id)
 	require.NoError(t, err)
 }
+
+func TestFunctionRepositoryUpdate(t *testing.T) {
+	t.Parallel()
+	mock, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewFunctionRepository(mock)
+	id := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(context.Background(), tenantID)
+
+	timeout := 300
+	mock.ExpectExec("UPDATE functions SET").
+		WithArgs(id, timeout).
+		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+	err = repo.Update(ctx, id, &domain.FunctionUpdate{Timeout: &timeout})
+	require.NoError(t, err)
+}

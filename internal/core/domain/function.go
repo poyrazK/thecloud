@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 // EnvVar represents a key-value environment variable for a function.
@@ -24,6 +25,17 @@ type FunctionUpdate struct {
 	MemoryMB  *int       `json:"memory_mb,omitempty"`
 	Status    string     `json:"status,omitempty"`
 	EnvVars   []*EnvVar `json:"env_vars,omitempty"`
+}
+
+// Validate checks that timeout and memory values are within acceptable bounds.
+func (u *FunctionUpdate) Validate() error {
+	if u.Timeout != nil && (*u.Timeout < 1 || *u.Timeout > 900) {
+		return errors.New(errors.InvalidInput, "timeout must be between 1 and 900 seconds")
+	}
+	if u.MemoryMB != nil && (*u.MemoryMB < 64 || *u.MemoryMB > 10240) {
+		return errors.New(errors.InvalidInput, "memory must be between 64 and 10240 MB")
+	}
+	return nil
 }
 
 // SetColumns returns the names of non-zero/nil fields for dynamic SQL UPDATE.

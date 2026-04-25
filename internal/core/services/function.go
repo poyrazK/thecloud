@@ -140,15 +140,8 @@ func (s *FunctionService) UpdateFunction(ctx context.Context, id uuid.UUID, req 
 		return nil, err
 	}
 
-	if req.Timeout != nil {
-		if *req.Timeout < 1 || *req.Timeout > 900 {
-			return nil, errors.New(errors.InvalidInput, "timeout must be between 1 and 900 seconds")
-		}
-	}
-	if req.MemoryMB != nil {
-		if *req.MemoryMB < 64 || *req.MemoryMB > 10240 {
-			return nil, errors.New(errors.InvalidInput, "memory must be between 64 and 10240 MB")
-		}
+	if err := req.Validate(); err != nil {
+		return nil, err
 	}
 
 	if err := s.repo.Update(ctx, id, req); err != nil {
