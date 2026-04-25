@@ -106,5 +106,5 @@ func (a *FirecrackerAdapter) Type() string {
 }
 
 func (a *FirecrackerAdapter) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
-	return fmt.Errorf("resize not supported on firecracker")
+	return fmt.Errorf("firecracker not supported on this platform")
 }
