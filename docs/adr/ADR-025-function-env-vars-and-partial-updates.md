@@ -71,7 +71,7 @@ return ports.RunTaskOptions{Env: env, ...}
 - Supports secrets rotation without code changes
 - Same function code can be used with different configurations
 
-**Security note:** Env vars in containers are visible to any user who can inspect the container. Secrets should use the SecretService instead.
+**Security note:** Env vars in containers are visible to any user who can inspect the container. Plain-text env vars are suitable for non-sensitive configuration. For secrets, use the SecretService integration described below.
 
 ### 4. Validation Rules
 
@@ -81,6 +81,37 @@ return ports.RunTaskOptions{Env: env, ...}
 | `MemoryMB` | 64–10240 MB | Container resource limits; practical upper bound |
 
 Validation occurs in the service layer before calling the repository.
+
+### 5. Secret Integration
+
+Environment variables can reference secrets stored in the SecretService using `@secretname` syntax. Secrets are resolved dynamically at invocation time (not stored in the function record), enabling rotation without code changes.
+
+**EnvVar structure:**
+```go
+type EnvVar struct {
+    Key       string `json:"key"`
+    Value     string `json:"value,omitempty"`
+    SecretRef string `json:"secret_ref,omitempty"` // e.g. "@my-api-key"
+}
+```
+
+**Constraint:** `Value` and `SecretRef` are mutually exclusive — at least one must be set. This is validated in `FunctionUpdate.Validate()`.
+
+**Resolution flow:**
+1. At update time, the user sets `--env API_KEY=@my-secret` (CLI) or `{"key":"API_KEY","secret_ref":"@my-secret"}` (API)
+2. The `SecretRef` is stored in `env_vars` JSONB — no plaintext secret touches the database
+3. At invocation, `buildTaskOptions` calls `SecretService.GetSecretByName(ctx, "my-secret")` to resolve the secret
+4. The secret value is injected as a JSON object: `API_KEY={"key":"API_KEY","value":"s3cr3t"}`
+
+**Why dynamic resolution:**
+- Secrets can be rotated in SecretService without updating the function
+- No plaintext secrets in the database
+- If secret resolution fails, the env var is skipped (warning logged) rather than failing the invocation
+
+**Alternative considered: Store encrypted secret at update time**
+- Would require storing the encryption key alongside the function
+- Rotation would still require function update to re-encrypt
+- Rejected in favor of runtime resolution for better secret hygiene
 
 ## Consequences
 

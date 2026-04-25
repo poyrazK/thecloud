@@ -809,7 +809,7 @@ cloud function update my-func --env FOO=bar --env DEBUG=true
 - `--handler`, `-H`: Handler name
 - `--timeout`: Timeout in seconds (1-900)
 - `--memory`: Memory in MB (64-10240)
-- `--env`: Environment variable KEY=VALUE (can be repeated)
+- `--env`: Environment variable `KEY=VALUE` or `KEY=@secretname` for secrets (can be repeated)
 
 ### `fn-schedule create`
 

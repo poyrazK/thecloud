@@ -54,10 +54,36 @@ cloud fn update hello --env FOO=bar --env DB_HOST=localhost
 Environment variables are injected at runtime into the function container:
 
 ```bash
-cloud fn update my-func --env API_KEY=secret --env DEBUG=true
+cloud fn update my-func --env FOO=bar --env DEBUG=true
 ```
 
 Environment variables are available via `process.env` (Node.js), `os.environ` (Python), or `os.Getenv` (Go, Java).
+
+### Using Secrets
+
+For sensitive values like API keys and database passwords, reference secrets stored in the SecretService:
+
+```bash
+cloud fn update my-func --env API_KEY=@my-api-key --env DB_PASSWORD=@db-secret
+```
+
+The `@secretname` syntax resolves the secret at invocation time (not at update time). This means:
+- Secrets are never stored as plain text in the database
+- You can rotate secrets in the SecretService without updating the function
+- If a secret cannot be resolved, the env var is skipped and a warning is logged
+
+The resolved secret is injected as a JSON object:
+```
+API_KEY={"key":"API_KEY","value":"s3cr3t"}
+```
+
+Your function code can parse this:
+```javascript
+const apiKeyObj = JSON.parse(process.env.API_KEY);
+console.log(apiKeyObj.value); // s3cr3t
+```
+
+**Note:** Plain-text env vars (`--env FOO=bar`) and secret refs (`--env FOO=@my-secret`) cannot be mixed on the same env var entry — each entry must be one or the other.
 
 ### Available Update Options
 
