@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	stdlib_errors "errors"
 	"fmt"
 	"io"
@@ -190,7 +191,10 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 	}
 
 	// Modify memory (in KiB) and vCPU in the XML
-	newDOMXML := a.applyDomainResize(domXML, int(memory/1024), int(cpu/1e9))
+	newDOMXML, err := a.applyDomainResize(domXML, int(memory/1024), int(cpu/1e9))
+	if err != nil {
+		return fmt.Errorf("failed to modify domain XML: %w", err)
+	}
 
 	if err := a.client.DomainUndefine(ctx, dom); err != nil {
 		return fmt.Errorf("failed to undefine domain: %w", err)
@@ -211,17 +215,34 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 	return nil
 }
 
-// applyDomainResize updates vCPU and memory in domain XML.
-func (a *LibvirtAdapter) applyDomainResize(xml string, memoryKiB, vcpus int) string {
-	// Replace memory allocation
-	xml = regexp.MustCompile(`<memory unit="KiB">\d+</memory>`).
-		ReplaceAllString(xml, fmt.Sprintf(`<memory unit="KiB">%d</memory>`, memoryKiB))
-	xml = regexp.MustCompile(`<currentMemory unit="KiB">\d+</currentMemory>`).
-		ReplaceAllString(xml, fmt.Sprintf(`<currentMemory unit="KiB">%d</currentMemory>`, memoryKiB))
-	// Replace vCPU count
-	xml = regexp.MustCompile(`<vcpu[^>]*>\d+</vcpu>`).
-		ReplaceAllString(xml, fmt.Sprintf(`<vcpu>%d</vcpu>`, vcpus))
-	return xml
+// domainXML represents the parts of a Libvirt domain XML we need to modify during resize.
+// We use a lightweight struct that captures memory (in KiB) and vcpu count.
+type domainXML struct {
+	XMLName xml.Name `xml:"domain"`
+	Type    string   `xml:"type,attr"`
+	Memory  int      `xml:"memory"`
+	CurrentMemory int `xml:"currentMemory"`
+	VCPU    int      `xml:"vcpu"`
+}
+
+// applyDomainResize updates vCPU and memory in domain XML using proper XML parsing.
+// This replaces the fragile regex-based approach with robust struct-based unmarshal/marshal.
+func (a *LibvirtAdapter) applyDomainResize(xmlContent string, memoryKiB, vcpus int) (string, error) {
+	var dom domainXML
+	if err := xml.Unmarshal([]byte(xmlContent), &dom); err != nil {
+		return "", fmt.Errorf("failed to parse domain XML: %w", err)
+	}
+
+	dom.Memory = memoryKiB
+	dom.CurrentMemory = memoryKiB
+	dom.VCPU = vcpus
+
+	out, err := xml.MarshalIndent(dom, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize modified domain XML: %w", err)
+	}
+
+	return string(out), nil
 }
 
 func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
