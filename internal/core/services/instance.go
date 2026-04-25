@@ -722,7 +722,43 @@ func (s *InstanceService) ResizeInstance(ctx context.Context, idOrName, newInsta
 		return err
 	}
 
-	// Resolve instance
+	inst, err := s.resolveInstance(ctx, idOrName)
+	if err != nil || inst == nil {
+		return errors.New(errors.NotFound, "instance not found")
+	}
+
+	oldIT, newIT, err := s.resolveInstanceTypes(ctx, inst.InstanceType, newInstanceType)
+	if err != nil {
+		return err
+	}
+
+	if oldIT.ID == newIT.ID {
+		s.logger.Info("instance already at target type, skipping resize", "instance_id", inst.ID, "type", oldIT.ID)
+		return nil
+	}
+
+	if err := s.validateResize(inst); err != nil {
+		return err
+	}
+
+	target := inst.ContainerID
+	if target == "" {
+		target = s.formatContainerName(inst.ID)
+	}
+
+	if err := s.executeResize(ctx, target, newIT); err != nil {
+		return err
+	}
+
+	if err := s.completeResize(ctx, tenantID, inst, target, oldIT, newIT, newInstanceType); err != nil {
+		return err
+	}
+
+	s.logger.Info("instance resized", "instance_id", inst.ID, "old_type", oldIT.ID, "new_type", newIT.ID)
+	return nil
+}
+
+func (s *InstanceService) resolveInstance(ctx context.Context, idOrName string) (*domain.Instance, error) {
 	inst, err := s.repo.GetByName(ctx, idOrName)
 	if err != nil {
 		id, uuidErr := uuid.Parse(idOrName)
@@ -730,65 +766,53 @@ func (s *InstanceService) ResizeInstance(ctx context.Context, idOrName, newInsta
 			inst, err = s.repo.GetByID(ctx, id)
 		}
 	}
-	if err != nil || inst == nil {
-		return errors.New(errors.NotFound, "instance not found")
-	}
-
-	// Resolve current and target instance types
-	oldIT, err := s.instanceTypeRepo.GetByID(ctx, inst.InstanceType)
 	if err != nil {
-		return errors.Wrap(errors.InvalidInput, "current instance type not found", err)
+		return nil, err
 	}
-	newIT, err := s.instanceTypeRepo.GetByID(ctx, newInstanceType)
+	return inst, nil
+}
+
+func (s *InstanceService) resolveInstanceTypes(ctx context.Context, currentType, newType string) (*domain.InstanceType, *domain.InstanceType, error) {
+	oldIT, err := s.instanceTypeRepo.GetByID(ctx, currentType)
 	if err != nil {
-		return errors.Wrap(errors.InvalidInput, "invalid instance type: "+newInstanceType, err)
+		return nil, nil, errors.Wrap(errors.InvalidInput, "current instance type not found", err)
 	}
-
-	// Same-size short-circuit
-	if oldIT.ID == newIT.ID {
-		s.logger.Info("instance already at target type, skipping resize", "instance_id", inst.ID, "type", oldIT.ID)
-		return nil
+	newIT, err := s.instanceTypeRepo.GetByID(ctx, newType)
+	if err != nil {
+		return nil, nil, errors.Wrap(errors.InvalidInput, "invalid instance type: "+newType, err)
 	}
+	return oldIT, newIT, nil
+}
 
-	// Status/ContainerID validation
+func (s *InstanceService) validateResize(inst *domain.Instance) error {
 	if inst.ContainerID == "" {
 		return errors.New(errors.InvalidInput, "instance has no active container, not yet provisioned")
 	}
 	if inst.Status != domain.StatusRunning && inst.Status != domain.StatusStopped {
 		return errors.New(errors.Conflict, "instance state must be RUNNING or STOPPED to resize, got: "+string(inst.Status))
 	}
+	return nil
+}
 
-	// Quota delta check: if increasing, check; if decreasing, skip
-	deltaCPU := newIT.VCPUs - oldIT.VCPUs
-	deltaMemMB := newIT.MemoryMB - oldIT.MemoryMB
-	if deltaCPU > 0 {
-		if err := s.tenantSvc.CheckQuota(ctx, tenantID, "vcpus", deltaCPU); err != nil {
-			return err // preserve QuotaExceeded kind
-		}
-	}
-	if deltaMemMB > 0 {
-		if err := s.tenantSvc.CheckQuota(ctx, tenantID, "memory", deltaMemMB); err != nil {
-			return err // preserve QuotaExceeded kind
-		}
-	}
-
-	// Get container/domain ID
-	target := inst.ContainerID
-	if target == "" {
-		target = s.formatContainerName(inst.ID)
-	}
-
-	// Call compute backend to resize (cpu in NanoCPUs, memory in bytes)
-	cpuNano := int64(newIT.VCPUs) * 1e9
-	memoryBytes := int64(newIT.MemoryMB) * 1024 * 1024
+func (s *InstanceService) executeResize(ctx context.Context, target string, it *domain.InstanceType) error {
+	cpuNano := int64(it.VCPUs) * 1e9
+	memoryBytes := int64(it.MemoryMB) * 1024 * 1024
 	if err := s.compute.ResizeInstance(ctx, target, cpuNano, memoryBytes); err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("resize", "failure").Inc()
 		return errors.Wrap(errors.Internal, "failed to resize instance", err)
 	}
+	return nil
+}
 
-	// Update quota delta — capture errors instead of discarding
+func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID, inst *domain.Instance, target string, oldIT, newIT *domain.InstanceType, newInstanceType string) error {
+	deltaCPU := newIT.VCPUs - oldIT.VCPUs
+	deltaMemMB := newIT.MemoryMB - oldIT.MemoryMB
+
 	var quotaErrs []error
 	if deltaCPU > 0 {
+		if err := s.tenantSvc.CheckQuota(ctx, tenantID, "vcpus", deltaCPU); err != nil {
+			return err
+		}
 		if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "vcpus", deltaCPU); err != nil {
 			quotaErrs = append(quotaErrs, fmt.Errorf("vcpu increment: %w", err))
 		}
@@ -798,6 +822,9 @@ func (s *InstanceService) ResizeInstance(ctx context.Context, idOrName, newInsta
 		}
 	}
 	if deltaMemMB > 0 {
+		if err := s.tenantSvc.CheckQuota(ctx, tenantID, "memory", deltaMemMB); err != nil {
+			return err
+		}
 		if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", deltaMemMB); err != nil {
 			quotaErrs = append(quotaErrs, fmt.Errorf("memory increment: %w", err))
 		}
@@ -807,14 +834,11 @@ func (s *InstanceService) ResizeInstance(ctx context.Context, idOrName, newInsta
 		}
 	}
 
-	// Update instance record
 	inst.InstanceType = newInstanceType
 	if err := s.repo.Update(ctx, inst); err != nil {
-		// Rollback: revert compute to old size
 		oldCpuNano := int64(oldIT.VCPUs) * 1e9
 		oldMemoryBytes := int64(oldIT.MemoryMB) * 1024 * 1024
 		_ = s.compute.ResizeInstance(ctx, target, oldCpuNano, oldMemoryBytes)
-		// Undo quota changes
 		if deltaCPU > 0 {
 			_ = s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", deltaCPU)
 		} else if deltaCPU < 0 {
@@ -828,13 +852,14 @@ func (s *InstanceService) ResizeInstance(ctx context.Context, idOrName, newInsta
 		return errors.Wrap(errors.Internal, "failed to update instance record, rollback attempted", err)
 	}
 
-	// Log quota errors that occurred after successful resize
+	platform.InstanceOperationsTotal.WithLabelValues("resize", "success").Inc()
+
 	for _, qe := range quotaErrs {
 		s.logger.Error("quota update failed after resize", "error", qe, "tenant_id", tenantID)
 	}
-
-	platform.InstanceOperationsTotal.WithLabelValues("resize", "success").Inc()
-	s.logger.Info("instance resized", "instance_id", inst.ID, "old_type", oldIT.ID, "new_type", newIT.ID)
+	if len(quotaErrs) > 0 {
+		return errors.Wrap(errors.Internal, "resize succeeded but quota updates failed", fmt.Errorf("%v", quotaErrs))
+	}
 
 	if err := s.eventSvc.RecordEvent(ctx, "INSTANCE_RESIZE", inst.ID.String(), "INSTANCE", map[string]interface{}{
 		"name":     inst.Name,
@@ -845,15 +870,11 @@ func (s *InstanceService) ResizeInstance(ctx context.Context, idOrName, newInsta
 	}
 
 	if err := s.auditSvc.Log(ctx, inst.UserID, "instance.resize", "instance", inst.ID.String(), map[string]interface{}{
-		"name":      inst.Name,
-		"old_type":  oldIT.ID,
-		"new_type":  newIT.ID,
+		"name":     inst.Name,
+		"old_type": oldIT.ID,
+		"new_type": newIT.ID,
 	}); err != nil {
 		s.logger.Warn("failed to log audit event", "action", "instance.resize", "instance_id", inst.ID, "error", err)
-	}
-
-	if len(quotaErrs) > 0 {
-		return errors.Wrap(errors.Internal, "resize succeeded but quota updates failed", fmt.Errorf("%v", quotaErrs))
 	}
 
 	return nil
