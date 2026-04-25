@@ -116,7 +116,7 @@ func TestDeleteStackSuccess(t *testing.T) {
 	repo.On("ListResources", mock.Anything, stackID).Return(resources, nil)
 
 	instanceSvc.On("TerminateInstance", mock.Anything, resources[1].PhysicalID).Return(nil)
-	vpcSvc.On("DeleteVPC", mock.Anything, resources[0].PhysicalID, false).Return(nil)
+	vpcSvc.On("DeleteVPC", mock.Anything, resources[0].PhysicalID, true).Return(nil)
 	repo.On("Delete", mock.Anything, stackID).Return(nil)
 
 	err := svc.DeleteStack(ctx, stackID)
@@ -182,7 +182,7 @@ Resources:
 		},
 	}, nil)
 
-	vpcSvc.On("DeleteVPC", mock.Anything, vpcID.String(), false).Return(nil)
+	vpcSvc.On("DeleteVPC", mock.Anything, vpcID.String(), true).Return(nil)
 	repo.On("DeleteResources", mock.Anything, mock.Anything).Return(nil)
 
 	repo.On("Update", mock.Anything, mock.MatchedBy(func(s *domain.Stack) bool {
@@ -245,7 +245,7 @@ Resources:
 	}, nil)
 
 	instanceSvc.On("TerminateInstance", mock.Anything, instanceID.String()).Return(nil)
-	vpcSvc.On("DeleteVPC", mock.Anything, vpcID.String(), false).Return(nil)
+	vpcSvc.On("DeleteVPC", mock.Anything, vpcID.String(), true).Return(nil)
 	volumeSvc.On("DeleteVolume", mock.Anything, volumeID.String()).Return(nil)
 	snapshotSvc.On("DeleteSnapshot", mock.Anything, snapshotID).Return(nil)
 	repo.On("DeleteResources", mock.Anything, mock.Anything).Return(nil)

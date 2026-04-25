@@ -301,7 +301,7 @@ func testStackServiceUnitDeleteErrors(t *testing.T) {
 			{StackID: id, LogicalID: "MyVPC", PhysicalID: vpcID.String(), ResourceType: "VPC"},
 		}, nil).Once()
 		mockRepo.On("Delete", mock.Anything, id).Return(nil).Run(func(mock.Arguments) { close(done) }).Once()
-		mockVpcSvc.On("DeleteVPC", mock.Anything, vpcID.String(), false).Return(fmt.Errorf("vpc delete error")).Once()
+		mockVpcSvc.On("DeleteVPC", mock.Anything, vpcID.String(), true).Return(fmt.Errorf("vpc delete error")).Once()
 
 		err := svc.DeleteStack(ctx, id)
 		require.NoError(t, err)
