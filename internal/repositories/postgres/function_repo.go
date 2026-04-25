@@ -70,13 +70,14 @@ func (r *FunctionRepository) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *FunctionRepository) Update(ctx context.Context, id uuid.UUID, u *domain.FunctionUpdate) error {
+	tenantID := appcontext.TenantIDFromContext(ctx)
 	cols := u.SetColumns()
 	if len(cols) == 0 {
 		return nil
 	}
 
 	setClause := ""
-	args := []interface{}{id}
+	args := []interface{}{id, tenantID}
 	argIdx := 1
 	for i, col := range cols {
 		if i > 0 {
@@ -85,7 +86,7 @@ func (r *FunctionRepository) Update(ctx context.Context, id uuid.UUID, u *domain
 		setClause += col + " = $" + fmt.Sprintf("%d", i+2)
 	}
 
-	query := fmt.Sprintf(`UPDATE functions SET %s, updated_at = NOW() WHERE id = $1`, setClause)
+	query := fmt.Sprintf(`UPDATE functions SET %s, updated_at = NOW() WHERE id = $1 AND tenant_id = $2`, setClause)
 
 	for _, col := range cols {
 		switch col {

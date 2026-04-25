@@ -224,6 +224,8 @@ var updateFnCmd = &cobra.Command{
 			parts := strings.SplitN(e, "=", 2)
 			if len(parts) == 2 {
 				envVars = append(envVars, &sdk.EnvVar{Key: parts[0], Value: parts[1]})
+			} else {
+				return fmt.Errorf("invalid env var format: %q, expected KEY=VALUE", e)
 			}
 		}
 

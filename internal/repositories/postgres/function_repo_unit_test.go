@@ -129,7 +129,7 @@ func TestFunctionRepositoryUpdate(t *testing.T) {
 
 	timeout := 300
 	mock.ExpectExec("UPDATE functions SET").
-		WithArgs(id, timeout).
+		WithArgs(id, tenantID, timeout).
 		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
 	err = repo.Update(ctx, id, &domain.FunctionUpdate{Timeout: &timeout})
