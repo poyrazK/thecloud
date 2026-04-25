@@ -22,27 +22,34 @@ func TestVpcServiceUnit(t *testing.T) {
 	network := new(MockNetworkBackend)
 	auditSvc := new(MockAuditService)
 	peeringRepo := new(MockVPCPeeringRepo)
+	routeTableRepo := new(MockRTRepo)
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	svc := services.NewVpcService(services.VpcServiceParams{
-		Repo:        repo,
-		LBRepo:      lbRepo,
-		PeeringRepo: peeringRepo,
-		RBACSvc:     rbacSvc,
-		Network:     network,
-		AuditSvc:    auditSvc,
-		Logger:      slog.Default(),
-		DefaultCIDR: "10.0.0.0/16",
+		Repo:           repo,
+		LBRepo:         lbRepo,
+		PeeringRepo:    peeringRepo,
+		RouteTableRepo: routeTableRepo,
+		RBACSvc:        rbacSvc,
+		Network:        network,
+		AuditSvc:       auditSvc,
+		Logger:         slog.Default(),
+		DefaultCIDR:    "10.0.0.0/16",
 	})
 
 	ctx := context.Background()
 	userID := uuid.New()
 	ctx = appcontext.WithUserID(ctx, userID)
 
-	t.Run("CreateVPC", func(t *testing.T) {
+	t.Run("CreateVPC_AutoCreatesMainRouteTable", func(t *testing.T) {
 		network.On("CreateBridge", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		repo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
+		routeTableRepo.On("Create", mock.Anything, mock.MatchedBy(func(rt *domain.RouteTable) bool {
+			return rt.IsMain && rt.Name == "main" && len(rt.Routes) == 1 &&
+				rt.Routes[0].DestinationCIDR == "10.1.0.0/16" &&
+				rt.Routes[0].TargetType == domain.RouteTargetLocal
+		})).Return(nil).Once()
 		auditSvc.On("Log", mock.Anything, userID, "vpc.create", "vpc", mock.Anything, mock.Anything).Return(nil).Once()
 
 		vpc, err := svc.CreateVPC(ctx, "test-vpc", "10.1.0.0/16")
@@ -50,6 +57,7 @@ func TestVpcServiceUnit(t *testing.T) {
 		assert.NotNil(t, vpc)
 		assert.Equal(t, "10.1.0.0/16", vpc.CIDRBlock)
 		repo.AssertExpectations(t)
+		routeTableRepo.AssertExpectations(t)
 	})
 
 	t.Run("CreateVPC_BridgeFailure", func(t *testing.T) {

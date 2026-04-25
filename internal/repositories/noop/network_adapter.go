@@ -87,6 +87,18 @@ func (n *NoopNetworkAdapter) SetVethIP(ctx context.Context, vethEnd, ip, cidr st
 	return nil
 }
 
+func (n *NoopNetworkAdapter) SetupNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR, egressIP string) error {
+	n.logger.Warn("noop network adapter: SetupNATForSubnet called but not implemented",
+		"bridge", bridge, "natVethEnd", natVethEnd, "subnetCIDR", subnetCIDR, "egressIP", egressIP)
+	return nil
+}
+
+func (n *NoopNetworkAdapter) RemoveNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR, egressIP string) error {
+	n.logger.Warn("noop network adapter: RemoveNATForSubnet called but not implemented",
+		"bridge", bridge, "natVethEnd", natVethEnd, "subnetCIDR", subnetCIDR, "egressIP", egressIP)
+	return nil
+}
+
 func (n *NoopNetworkAdapter) Ping(ctx context.Context) error {
 	return nil
 }

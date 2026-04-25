@@ -69,7 +69,10 @@ type Repositories struct {
 	Log           ports.LogRepository
 	IAM           ports.IAMRepository
 	Pipeline      ports.PipelineRepository
-	VPCPeering    ports.VPCPeeringRepository
+	VPCPeering     ports.VPCPeeringRepository
+	RouteTable     ports.RouteTableRepository
+	IGW            ports.IGWRepository
+	NATGateway     ports.NATGatewayRepository
 }
 
 // InitRepositories constructs repositories using the provided database clients.
@@ -116,6 +119,9 @@ func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 		IAM:           postgres.NewIAMRepository(db),
 		Pipeline:      postgres.NewPipelineRepository(db),
 		VPCPeering:    postgres.NewVPCPeeringRepository(db),
+		RouteTable:    postgres.NewRouteTableRepository(db),
+		IGW:           postgres.NewIGWRepository(db),
+		NATGateway:    postgres.NewNATGatewayRepository(db),
 	}
 }
 
@@ -164,6 +170,9 @@ type Services struct {
 	IAM           ports.IAMService
 	Pipeline      ports.PipelineService
 	VPCPeering    ports.VPCPeeringService
+	RouteTable    *services.RouteTableService
+	InternetGateway *services.InternetGatewayService
+	NATGateway    *services.NATGatewayService
 }
 
 // Workers struct to return background workers
@@ -311,7 +320,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		return nil, nil, err
 	}
 
-	svcs := &Services{WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Tenant: tenantSvc, Auth: authSvc, PasswordReset: pwdResetSvc, RBAC: rbacSvc, Vpc: vpcSvc, Subnet: subnetSvc, Event: eventSvc, Volume: volumeSvc, Instance: instSvcConcrete, SecurityGroup: sgSvc, LB: lbSvc, Snapshot: snapshotSvc, Stack: stackSvc, Storage: storageSvc, Database: databaseSvc, Secret: secretSvc, Function: fnSvc, FunctionSchedule: fnSchedSvc, Cache: cacheSvc, Queue: queueSvc, Notify: notifySvc, Cron: cronSvc, Gateway: gwSvc, Container: containerSvc, Pipeline: pipelineSvc, Health: services.NewHealthServiceImpl(c.DB, c.Compute, clusterSvc), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc, Cluster: clusterSvc, Dashboard: services.NewDashboardService(rbacSvc, c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger), Lifecycle: services.NewLifecycleService(c.Repos.Lifecycle, rbacSvc, c.Repos.Storage), InstanceType: services.NewInstanceTypeService(c.Repos.InstanceType, rbacSvc), GlobalLB: glbSvc, DNS: dnsSvc, SSHKey: sshKeySvc, ElasticIP: services.NewElasticIPService(services.ElasticIPServiceParams{Repo: c.Repos.ElasticIP, RBAC: rbacSvc, InstanceRepo: c.Repos.Instance, AuditSvc: auditSvc, Logger: c.Logger}), Log: logSvc, IAM: iamSvc, VPCPeering: services.NewVPCPeeringService(services.VPCPeeringServiceParams{Repo: c.Repos.VPCPeering, VpcRepo: c.Repos.Vpc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger})}
+svcs := &Services{WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Tenant: tenantSvc, Auth: authSvc, PasswordReset: pwdResetSvc, RBAC: rbacSvc, Vpc: vpcSvc, Subnet: subnetSvc, Event: eventSvc, Volume: volumeSvc, Instance: instSvcConcrete, SecurityGroup: sgSvc, LB: lbSvc, Snapshot: snapshotSvc, Stack: stackSvc, Storage: storageSvc, Database: databaseSvc, Secret: secretSvc, Function: fnSvc, FunctionSchedule: fnSchedSvc, Cache: cacheSvc, Queue: queueSvc, Notify: notifySvc, Cron: cronSvc, Gateway: gwSvc, Container: containerSvc, Pipeline: pipelineSvc, Health: services.NewHealthServiceImpl(c.DB, c.Compute, clusterSvc), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc, Cluster: clusterSvc, Dashboard: services.NewDashboardService(rbacSvc, c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger), Lifecycle: services.NewLifecycleService(c.Repos.Lifecycle, rbacSvc, c.Repos.Storage), InstanceType: services.NewInstanceTypeService(c.Repos.InstanceType, rbacSvc), GlobalLB: glbSvc, DNS: dnsSvc, SSHKey: sshKeySvc, ElasticIP: services.NewElasticIPService(services.ElasticIPServiceParams{Repo: c.Repos.ElasticIP, RBAC: rbacSvc, InstanceRepo: c.Repos.Instance, AuditSvc: auditSvc, Logger: c.Logger}), Log: logSvc, IAM: iamSvc, VPCPeering: services.NewVPCPeeringService(services.VPCPeeringServiceParams{Repo: c.Repos.VPCPeering, VpcRepo: c.Repos.Vpc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger}), RouteTable: services.NewRouteTableService(services.RouteTableServiceParams{Repo: c.Repos.RouteTable, VpcRepo: c.Repos.Vpc, RBACSvc: rbacSvc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger}), InternetGateway: services.NewInternetGatewayService(services.InternetGatewayServiceParams{Repo: c.Repos.IGW, RTRepo: c.Repos.RouteTable, VpcRepo: c.Repos.Vpc, RBACSvc: rbacSvc, AuditSvc: auditSvc, Logger: c.Logger}), NATGateway: services.NewNATGatewayService(services.NATGatewayServiceParams{Repo: c.Repos.NATGateway, EIPRepo: c.Repos.ElasticIP, SubnetRepo: c.Repos.Subnet, VpcRepo: c.Repos.Vpc, RBACSvc: rbacSvc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger})}
 
 	// 7. High Availability & Monitoring
 	replicaMonitor := initReplicaMonitor(c)
