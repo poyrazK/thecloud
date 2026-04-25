@@ -85,6 +85,7 @@ const (
 	PermissionFunctionCreate Permission = "function:create"
 	PermissionFunctionDelete Permission = "function:delete"
 	PermissionFunctionRead   Permission = "function:read"
+	PermissionFunctionUpdate Permission = "function:update"
 
 	// Cache Permissions
 	PermissionCacheCreate Permission = "cache:create"
