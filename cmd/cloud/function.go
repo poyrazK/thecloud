@@ -204,6 +204,7 @@ var updateFnCmd = &cobra.Command{
 		timeout, _ := cmd.Flags().GetInt("timeout")
 		memoryMB, _ := cmd.Flags().GetInt("memory")
 		envVarsStr, _ := cmd.Flags().GetStringSlice("env")
+		status, _ := cmd.Flags().GetString("status")
 
 		var handlerPtr *string
 		if handler != "" {
@@ -231,6 +232,7 @@ var updateFnCmd = &cobra.Command{
 			Timeout:  timeoutPtr,
 			MemoryMB: memoryPtr,
 			EnvVars:  envVars,
+			Status:   status,
 		})
 		if err != nil {
 			return err
@@ -256,6 +258,7 @@ func init() {
 	updateFnCmd.Flags().Int("timeout", 0, "Timeout in seconds (1-900)")
 	updateFnCmd.Flags().Int("memory", 0, "Memory in MB (64-10240)")
 	updateFnCmd.Flags().StringSlice("env", []string{}, "Environment variable KEY=VALUE")
+	updateFnCmd.Flags().String("status", "", "Function status (e.g., paused, running)")
 
 	functionCmd.AddCommand(createFnCmd)
 	functionCmd.AddCommand(listFnCmd)

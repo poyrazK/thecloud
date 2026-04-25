@@ -15,6 +15,9 @@ type EnvVar struct {
 
 // FunctionUpdate describes fields that can be updated on a function.
 // All fields are pointers so nil means "do not update".
+// Note: Status is a string (not pointer) because empty string is used as sentinel
+// to distinguish "not provided" from "set to empty string" — this is intentional
+// and differs from the pointer pattern used by other fields.
 type FunctionUpdate struct {
 	Handler   *string    `json:"handler,omitempty"`
 	Timeout   *int       `json:"timeout,omitempty"`

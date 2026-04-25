@@ -229,4 +229,20 @@ func testFunctionServiceUpdateFunction(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "memory must be between")
 	})
+
+	t.Run("update_env_vars", func(t *testing.T) {
+		fn := &domain.Function{ID: id, Name: "test-fn"}
+		repo.On("Update", mock.Anything, id, mock.Anything).Return(nil).Once()
+		repo.On("GetByID", mock.Anything, id).Return(fn, nil).Once()
+		auditSvc.On("Log", mock.Anything, mock.Anything, "function.update", "function", id.String(), mock.Anything).Return(nil).Once()
+
+		envVars := []*domain.EnvVar{
+			{Key: "FOO", Value: "bar"},
+			{Key: "DEBUG", Value: "true"},
+		}
+		updated, err := svc.UpdateFunction(ctx, id, &domain.FunctionUpdate{EnvVars: envVars})
+		require.NoError(t, err)
+		assert.NotNil(t, updated)
+		repo.AssertExpectations(t)
+	})
 }
