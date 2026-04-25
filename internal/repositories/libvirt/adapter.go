@@ -42,7 +42,20 @@ const (
 	// Memory stat tags
 	memStatTagActual = 5
 	memStatTagRSS    = 6
+
+	// Default timeout for libvirt operations that don't have intrinsic timeouts
+	defaultLibvirtOpTimeout = 30 * time.Second
 )
+
+// withLibvirtTimeout wraps a context with a default timeout for libvirt operations.
+// If the context already has a shorter deadline, it is preserved.
+func withLibvirtTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
+	dl, ok := ctx.Deadline()
+	if ok && dl.Sub(time.Now()) < defaultLibvirtOpTimeout {
+		return context.WithCancel(ctx) // Preserve existing, shorter deadline
+	}
+	return context.WithTimeout(ctx, defaultLibvirtOpTimeout)
+}
 
 // LibvirtAdapter implements compute backend operations using libvirt/KVM.
 type LibvirtAdapter struct {
@@ -165,6 +178,10 @@ func (a *LibvirtAdapter) Type() string {
 }
 
 func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
+	// Apply default timeout to prevent unbounded waits on libvirt operations
+	ctx, cancel := withLibvirtTimeout(ctx)
+	defer cancel()
+
 	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
 		return fmt.Errorf(errDomainNotFound, err)
@@ -221,19 +238,26 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 
 // applyDomainResize updates vCPU and memory in domain XML using targeted regex replacements
 // that preserve all other elements, attributes, and namespaces.
+//
+// NOTE: This uses regex-based replacement rather than xml.Decoder because Libvirt domain
+// XML contains many optional elements and namespaces that are difficult to model with
+// static struct types. The regex approach is deliberate and documented in ADR-025.
+// Future work could use xml.Decoder with a more complete domain model if needed.
 func (a *LibvirtAdapter) applyDomainResize(xmlContent string, memoryKiB, vcpus int) (string, error) {
 	result := xmlContent
 
-	// Replace <memory unit="KiB">...</memory> or <memory>...</memory>
+	// Pre-compile regexes for efficiency
 	memoryRe := regexp.MustCompile(`(?i)<memory(?:\s[^>]*)?>\d+</memory>`)
+	currentMemRe := regexp.MustCompile(`(?i)<currentMemory(?:\s[^>]*)?>\d+</currentMemory>`)
+	vcpuRe := regexp.MustCompile(`(?i)<vcpu(?:\s[^>]*)?>\d+</vcpu>`)
+
+	// Replace <memory unit="KiB">...</memory> or <memory>...</memory>
 	result = memoryRe.ReplaceAllString(result, fmt.Sprintf(`<memory unit="KiB">%d</memory>`, memoryKiB))
 
 	// Replace <currentMemory unit="KiB">...</currentMemory> or <currentMemory>...</currentMemory>
-	currentMemRe := regexp.MustCompile(`(?i)<currentMemory(?:\s[^>]*)?>\d+</currentMemory>`)
 	result = currentMemRe.ReplaceAllString(result, fmt.Sprintf(`<currentMemory unit="KiB">%d</currentMemory>`, memoryKiB))
 
 	// Replace <vcpu placement="static">...</vcpu> or <vcpu>...</vcpu>
-	vcpuRe := regexp.MustCompile(`(?i)<vcpu(?:\s[^>]*)?>\d+</vcpu>`)
 	result = vcpuRe.ReplaceAllString(result, fmt.Sprintf(`<vcpu>%d</vcpu>`, vcpus))
 
 	// Verify we actually made replacements
