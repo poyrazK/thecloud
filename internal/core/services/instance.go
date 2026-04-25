@@ -28,6 +28,13 @@ import (
 // Handles instance CRUD, port mapping, volume attachment, and resource monitoring.
 //
 // All methods are safe for concurrent use and return domain errors.
+
+const (
+	// NanoCPUsPerVCPU is the number of nanocpus per vCPU (1 vCPU = 1e9 nanocpus).
+	NanoCPUsPerVCPU = int64(1e9)
+	// BytesPerMB is the number of bytes per megabyte.
+	BytesPerMB = int64(1024 * 1024)
+)
 type InstanceService struct {
 	repo             ports.InstanceRepository
 	vpcRepo          ports.VpcRepository
@@ -761,13 +768,15 @@ func (s *InstanceService) ResizeInstance(ctx context.Context, idOrName, newInsta
 func (s *InstanceService) resolveInstance(ctx context.Context, idOrName string) (*domain.Instance, error) {
 	inst, err := s.repo.GetByName(ctx, idOrName)
 	if err != nil {
-		id, uuidErr := uuid.Parse(idOrName)
-		if uuidErr == nil {
-			inst, err = s.repo.GetByID(ctx, id)
+		if errors.Is(err, errors.NotFound) {
+			id, uuidErr := uuid.Parse(idOrName)
+			if uuidErr == nil {
+				inst, err = s.repo.GetByID(ctx, id)
+			}
 		}
-	}
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
 	return inst, nil
 }
@@ -795,8 +804,8 @@ func (s *InstanceService) validateResize(inst *domain.Instance) error {
 }
 
 func (s *InstanceService) executeResize(ctx context.Context, target string, it *domain.InstanceType) error {
-	cpuNano := int64(it.VCPUs) * 1e9
-	memoryBytes := int64(it.MemoryMB) * 1024 * 1024
+	cpuNano := int64(it.VCPUs) * NanoCPUsPerVCPU
+	memoryBytes := int64(it.MemoryMB) * BytesPerMB
 	if err := s.compute.ResizeInstance(ctx, target, cpuNano, memoryBytes); err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("resize", "failure").Inc()
 		return errors.Wrap(errors.Internal, "failed to resize instance", err)
@@ -809,12 +818,15 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 	deltaMemMB := newIT.MemoryMB - oldIT.MemoryMB
 
 	var quotaErrs []error
+	var cpuIncremented, memIncremented bool
 	if deltaCPU > 0 {
 		if err := s.tenantSvc.CheckQuota(ctx, tenantID, "vcpus", deltaCPU); err != nil {
 			return err
 		}
 		if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "vcpus", deltaCPU); err != nil {
 			quotaErrs = append(quotaErrs, fmt.Errorf("vcpu increment: %w", err))
+		} else {
+			cpuIncremented = true
 		}
 	} else if deltaCPU < 0 {
 		if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", -deltaCPU); err != nil {
@@ -827,6 +839,8 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 		}
 		if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", deltaMemMB); err != nil {
 			quotaErrs = append(quotaErrs, fmt.Errorf("memory increment: %w", err))
+		} else {
+			memIncremented = true
 		}
 	} else if deltaMemMB < 0 {
 		if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", -deltaMemMB); err != nil {
@@ -836,18 +850,36 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 
 	inst.InstanceType = newInstanceType
 	if err := s.repo.Update(ctx, inst); err != nil {
-		oldCpuNano := int64(oldIT.VCPUs) * 1e9
-		oldMemoryBytes := int64(oldIT.MemoryMB) * 1024 * 1024
-		_ = s.compute.ResizeInstance(ctx, target, oldCpuNano, oldMemoryBytes)
-		if deltaCPU > 0 {
-			_ = s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", deltaCPU)
-		} else if deltaCPU < 0 {
-			_ = s.tenantSvc.IncrementUsage(ctx, tenantID, "vcpus", -deltaCPU)
+		oldCpuNano := int64(oldIT.VCPUs) * NanoCPUsPerVCPU
+		oldMemoryBytes := int64(oldIT.MemoryMB) * BytesPerMB
+		var rollbackErrs []error
+
+		if resizeErr := s.compute.ResizeInstance(ctx, target, oldCpuNano, oldMemoryBytes); resizeErr != nil {
+			rollbackErrs = append(rollbackErrs, fmt.Errorf("compute resize rollback (target=%s, old_cpu_nano=%d, old_memory_bytes=%d): %w", target, oldCpuNano, oldMemoryBytes, resizeErr))
 		}
-		if deltaMemMB > 0 {
-			_ = s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", deltaMemMB)
-		} else if deltaMemMB < 0 {
-			_ = s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", -deltaMemMB)
+		if cpuIncremented {
+			if decErr := s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", deltaCPU); decErr != nil {
+				rollbackErrs = append(rollbackErrs, fmt.Errorf("vcpu decrement rollback (tenant_id=%s, delta_cpu=%d): %w", tenantID, deltaCPU, decErr))
+			}
+		}
+		if deltaCPU < 0 {
+			if incErr := s.tenantSvc.IncrementUsage(ctx, tenantID, "vcpus", -deltaCPU); incErr != nil {
+				rollbackErrs = append(rollbackErrs, fmt.Errorf("vcpu increment rollback (tenant_id=%s, delta_cpu=%d): %w", tenantID, -deltaCPU, incErr))
+			}
+		}
+		if memIncremented {
+			if decErr := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", deltaMemMB); decErr != nil {
+				rollbackErrs = append(rollbackErrs, fmt.Errorf("memory decrement rollback (tenant_id=%s, delta_mem_mb=%d): %w", tenantID, deltaMemMB, decErr))
+			}
+		}
+		if deltaMemMB < 0 {
+			if incErr := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", -deltaMemMB); incErr != nil {
+				rollbackErrs = append(rollbackErrs, fmt.Errorf("memory increment rollback (tenant_id=%s, delta_mem_mb=%d): %w", tenantID, -deltaMemMB, incErr))
+			}
+		}
+
+		if len(rollbackErrs) > 0 {
+			return errors.Wrap(errors.Internal, fmt.Sprintf("failed to update instance record (instance_id=%s), rollback attempted: %v", inst.ID, rollbackErrs), err)
 		}
 		return errors.Wrap(errors.Internal, "failed to update instance record, rollback attempted", err)
 	}
