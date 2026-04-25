@@ -132,6 +132,38 @@ func (s *FunctionService) ListFunctions(ctx context.Context) ([]*domain.Function
 	return s.repo.List(ctx, userID)
 }
 
+func (s *FunctionService) UpdateFunction(ctx context.Context, id uuid.UUID, req *domain.FunctionUpdate) (*domain.Function, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionUpdate, id.String()); err != nil {
+		return nil, err
+	}
+
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+
+	if err := s.repo.Update(ctx, id, req); err != nil {
+		return nil, err
+	}
+
+	f, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.auditSvc.Log(ctx, f.UserID, "function.update", "function", f.ID.String(), map[string]interface{}{
+		"name": f.Name,
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "function.update", "function_id", f.ID, "error", err)
+	}
+
+	s.logger.Info("function updated", "id", id)
+
+	return f, nil
+}
+
 func (s *FunctionService) DeleteFunction(ctx context.Context, id uuid.UUID) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
@@ -250,10 +282,15 @@ func (s *FunctionService) buildTaskOptions(f *domain.Function, tmpDir string, pa
 
 	handler := s.normalizeHandler(f.Runtime, f.Handler)
 
+	env := []string{fmt.Sprintf("PAYLOAD=%s", string(payload))}
+	for _, e := range f.EnvVars {
+		env = append(env, e.Key+"="+e.Value)
+	}
+
 	return ports.RunTaskOptions{
 		Image:           config.Image,
 		Command:         append(config.Entrypoint, handler),
-		Env:             []string{fmt.Sprintf("PAYLOAD=%s", string(payload))},
+		Env:             env,
 		MemoryMB:        int64(f.MemoryMB),
 		CPUs:            0.5,
 		NetworkDisabled: true,

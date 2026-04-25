@@ -936,6 +936,19 @@ Invoke a function.
 ### GET /functions/:id/logs
 Get execution logs.
 
+### PATCH /functions/:id
+Update a function's configuration (timeout, memory, handler, environment variables).
+```json
+{
+  "handler": "newhandler.js",
+  "timeout": 300,
+  "memory_mb": 256,
+  "env_vars": [
+    { "key": "FOO", "value": "bar" }
+  ]
+}
+```
+
 ### GET /function-schedules
 List all function schedules.
 

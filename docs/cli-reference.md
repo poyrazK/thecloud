@@ -790,6 +790,27 @@ Delete a function. (Alias: `delete`)
 cloud function rm my-func
 ```
 
+### `function update <id>`
+
+Update a function's configuration.
+
+```bash
+# Update timeout and memory
+cloud function update my-func --timeout 300 --memory 256
+
+# Update handler
+cloud function update my-func --handler newhandler.js
+
+# Set environment variables
+cloud function update my-func --env FOO=bar --env DEBUG=true
+```
+
+**Flags:**
+- `--handler`, `-H`: Handler name
+- `--timeout`: Timeout in seconds (1-900)
+- `--memory`: Memory in MB (64-10240)
+- `--env`: Environment variable KEY=VALUE (can be repeated)
+
 ### `fn-schedule create`
 
 Create a scheduled function invocation.

@@ -85,6 +85,7 @@ const (
 	PermissionFunctionCreate Permission = "function:create"
 	PermissionFunctionDelete Permission = "function:delete"
 	PermissionFunctionRead   Permission = "function:read"
+	PermissionFunctionUpdate Permission = "function:update"
 
 	// Function Schedule Permissions
 	PermissionFunctionScheduleCreate Permission = "function_schedule:create"

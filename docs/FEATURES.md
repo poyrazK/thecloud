@@ -168,6 +168,8 @@ This document provides a comprehensive overview of every feature currently imple
 - **Async Invocation**: Background execution via Go routines.
 - **Invocation Logs**: Stored history of function executions with output/errors.
 - **Handler Configuration**: Specify entry point file for each function.
+- **Partial Updates**: Update timeout, memory, handler, and status via `PATCH /functions/:id`.
+- **Environment Variables**: Inject key-value env vars at runtime without code changes.
 
 ### 8. Load Balancer (ELB)
 **What it is**: Distribute incoming HTTP traffic across multiple instances.
