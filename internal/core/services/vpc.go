@@ -23,11 +23,12 @@ type VpcServiceParams struct {
 	LBRepo         ports.LBRepository
 	PeeringRepo    ports.VPCPeeringRepository
 	RouteTableRepo ports.RouteTableRepository
+	AsRepo         ports.AutoScalingRepository
 	RBACSvc        ports.RBACService
 	Network        ports.NetworkBackend
 	AuditSvc       ports.AuditService
 	Logger         *slog.Logger
-	DefaultCIDR     string
+	DefaultCIDR    string
 }
 
 // VpcService handles the lifecycle of Virtual Private Clouds (VPCs),
@@ -37,11 +38,12 @@ type VpcService struct {
 	lbRepo         ports.LBRepository
 	peeringRepo    ports.VPCPeeringRepository
 	routeTableRepo ports.RouteTableRepository
+	asRepo         ports.AutoScalingRepository
 	rbacSvc        ports.RBACService
 	network        ports.NetworkBackend
 	auditSvc       ports.AuditService
 	logger         *slog.Logger
-	defaultCIDR     string
+	defaultCIDR    string
 }
 
 // NewVpcService creates a new instance of VpcService.
@@ -60,11 +62,12 @@ func NewVpcService(params VpcServiceParams) *VpcService {
 		lbRepo:         params.LBRepo,
 		peeringRepo:    params.PeeringRepo,
 		routeTableRepo: params.RouteTableRepo,
+		asRepo:         params.AsRepo,
 		rbacSvc:        params.RBACSvc,
 		network:        params.Network,
 		auditSvc:       params.AuditSvc,
 		logger:         logger,
-		defaultCIDR:     defaultCIDR,
+		defaultCIDR:    defaultCIDR,
 	}
 }
 
@@ -195,7 +198,8 @@ func (s *VpcService) ListVPCs(ctx context.Context) ([]*domain.VPC, error) {
 }
 
 // DeleteVPC removes a VPC, its associated OVS bridge, and all related database records.
-func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
+// If force is true, dependency checks are skipped (for async cleanup scenarios).
+func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string, force bool) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
@@ -208,9 +212,16 @@ func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
 		return err
 	}
 
-	// 1. Check for dependent resources
-	if err := s.checkDeleteDependencies(ctx, vpc.ID); err != nil {
-		return err
+	// 1. Check for dependent resources (skip if force is true)
+	if !force {
+		if err := s.checkDeleteDependencies(ctx, vpc.ID); err != nil {
+			return err
+		}
+	} else {
+		// Force delete: cascade delete dependent resources to satisfy FK constraints
+		if err := s.cascadeDeleteDependencies(ctx, vpc.ID); err != nil {
+			return errors.Wrap(errors.Internal, "failed to cascade delete dependencies", err)
+		}
 	}
 
 	// 2. Remove OVS bridge
@@ -237,25 +248,80 @@ func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
 func (s *VpcService) checkDeleteDependencies(ctx context.Context, vpcID uuid.UUID) error {
 	// Check for Load Balancers
 	lbs, err := s.lbRepo.ListAll(ctx)
-	if err == nil {
-		for _, lb := range lbs {
-			if lb.VpcID == vpcID && lb.Status != domain.LBStatusDeleted {
-				return errors.New(errors.Conflict, "cannot delete VPC: load balancers still exist")
-			}
+	if err != nil {
+		return fmt.Errorf("checking load balancers: %w", err)
+	}
+	for _, lb := range lbs {
+		if lb.VpcID == vpcID && lb.Status != domain.LBStatusDeleted {
+			return errors.New(errors.Conflict, "cannot delete VPC: load balancers still exist")
 		}
 	}
 
 	// Check for active VPC peering connections
 	if s.peeringRepo != nil {
 		peerings, peerErr := s.peeringRepo.ListByVPC(ctx, vpcID)
-		if peerErr == nil {
-			for _, p := range peerings {
-				if p.Status == domain.PeeringStatusActive || p.Status == domain.PeeringStatusPendingAcceptance {
-					return errors.New(errors.Conflict, "cannot delete VPC: active peering connections exist")
-				}
+		if peerErr != nil {
+			return fmt.Errorf("checking VPC peerings: %w", peerErr)
+		}
+		for _, p := range peerings {
+			if p.Status == domain.PeeringStatusActive || p.Status == domain.PeeringStatusPendingAcceptance {
+				return errors.New(errors.Conflict, "cannot delete VPC: active peering connections exist")
 			}
 		}
 	}
 
+	// Check for scaling groups
+	if s.asRepo != nil {
+		count, asErr := s.asRepo.CountGroupsByVPC(ctx, vpcID)
+		if asErr != nil {
+			return fmt.Errorf("checking scaling groups: %w", asErr)
+		}
+		if count > 0 {
+			return errors.New(errors.Conflict, "cannot delete VPC: scaling groups still exist")
+		}
+	}
+
+	return nil
+}
+
+// cascadeDeleteDependencies deletes all dependent resources of a VPC.
+// This is used when force=true to bypass FK constraint violations.
+// Returns an error if any deletion fails (partial failures are reported).
+func (s *VpcService) cascadeDeleteDependencies(ctx context.Context, vpcID uuid.UUID) error {
+	// Delete all scaling groups for this VPC directly
+	groups, err := s.asRepo.ListGroups(ctx)
+	if err != nil {
+		return fmt.Errorf("listing scaling groups: %w", err)
+	}
+	var delErrs []error
+	for _, group := range groups {
+		if group.VpcID == vpcID {
+			if err := s.asRepo.DeleteGroup(ctx, group.ID); err != nil {
+				delErrs = append(delErrs, fmt.Errorf("scaling group %s: %w", group.ID, err))
+			}
+		}
+	}
+
+	// Delete all load balancers for this VPC directly
+	lbs, err := s.lbRepo.ListAll(ctx)
+	if err != nil {
+		return fmt.Errorf("listing load balancers: %w", err)
+	}
+	for _, lb := range lbs {
+		if lb.VpcID == vpcID {
+			if err := s.lbRepo.Delete(ctx, lb.ID); err != nil {
+				delErrs = append(delErrs, fmt.Errorf("load balancer %s: %w", lb.ID, err))
+			}
+		}
+	}
+
+	if len(delErrs) > 0 {
+		// Return the first error as the main error, with others in the message
+		first := delErrs[0]
+		if len(delErrs) > 1 {
+			return fmt.Errorf("cascade delete partially failed (%d errors): %w", len(delErrs), first)
+		}
+		return first
+	}
 	return nil
 }

@@ -55,8 +55,8 @@ func (m *MockVpcService) ListVPCs(ctx context.Context) ([]*domain.VPC, error) {
 	r0, _ := args.Get(0).([]*domain.VPC)
 	return r0, args.Error(1)
 }
-func (m *MockVpcService) DeleteVPC(ctx context.Context, idOrName string) error {
-	return m.Called(ctx, idOrName).Error(0)
+func (m *MockVpcService) DeleteVPC(ctx context.Context, idOrName string, force bool) error {
+	return m.Called(ctx, idOrName, force).Error(0)
 }
 
 // MockSubnetRepo

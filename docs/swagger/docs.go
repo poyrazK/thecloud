@@ -7862,6 +7862,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Force delete even with dependent resources (for async cleanup)",
+                        "name": "force",
+                        "in": "query"
                     }
                 ],
                 "responses": {
