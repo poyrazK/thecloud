@@ -217,6 +217,11 @@ func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string, force bool)
 		if err := s.checkDeleteDependencies(ctx, vpc.ID); err != nil {
 			return err
 		}
+	} else {
+		// Force delete: cascade delete dependent resources to satisfy FK constraints
+		if err := s.cascadeDeleteDependencies(ctx, vpc.ID); err != nil {
+			return errors.Wrap(errors.Internal, "failed to cascade delete dependencies", err)
+		}
 	}
 
 	// 2. Remove OVS bridge
@@ -273,6 +278,38 @@ func (s *VpcService) checkDeleteDependencies(ctx context.Context, vpcID uuid.UUI
 		}
 		if count > 0 {
 			return errors.New(errors.Conflict, "cannot delete VPC: scaling groups still exist")
+		}
+	}
+
+	return nil
+}
+
+// cascadeDeleteDependencies deletes all dependent resources of a VPC.
+// This is used when force=true to bypass FK constraint violations.
+func (s *VpcService) cascadeDeleteDependencies(ctx context.Context, vpcID uuid.UUID) error {
+	// Delete all scaling groups for this VPC directly
+	groups, err := s.asRepo.ListGroups(ctx)
+	if err != nil {
+		return fmt.Errorf("listing scaling groups: %w", err)
+	}
+	for _, group := range groups {
+		if group.VpcID == vpcID {
+			if delErr := s.asRepo.DeleteGroup(ctx, group.ID); delErr != nil {
+				s.logger.Warn("failed to delete scaling group", "group_id", group.ID, "error", delErr)
+			}
+		}
+	}
+
+	// Delete all load balancers for this VPC directly
+	lbs, err := s.lbRepo.ListAll(ctx)
+	if err != nil {
+		return fmt.Errorf("listing load balancers: %w", err)
+	}
+	for _, lb := range lbs {
+		if lb.VpcID == vpcID {
+			if delErr := s.lbRepo.Delete(ctx, lb.ID); delErr != nil {
+				s.logger.Warn("failed to delete load balancer", "lb_id", lb.ID, "error", delErr)
+			}
 		}
 	}
 
