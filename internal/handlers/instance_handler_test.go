@@ -581,7 +581,7 @@ func TestInstanceHandlerResizeInstance(t *testing.T) {
 		r.POST(instancesPath+"/:id/resize", handler.ResizeInstance)
 
 		id := uuid.New()
-		mockSvc.On("ResizeInstance", mock.Anything, id.String(), "basic-4").Return(errors.New(errors.Forbidden, "insufficient quota")).Once()
+		mockSvc.On("ResizeInstance", mock.Anything, id.String(), "basic-4").Return(errors.New(errors.QuotaExceeded, "quota exceeded for resources")).Once()
 
 		body := `{"instance_type":"basic-4"}`
 		req := httptest.NewRequest(http.MethodPost, instancesPath+"/"+id.String()+"/resize", strings.NewReader(body))
@@ -590,6 +590,6 @@ func TestInstanceHandlerResizeInstance(t *testing.T) {
 
 		r.ServeHTTP(w, req)
 
-		assert.Equal(t, http.StatusForbidden, w.Code)
+		assert.Equal(t, http.StatusTooManyRequests, w.Code)
 	})
 }

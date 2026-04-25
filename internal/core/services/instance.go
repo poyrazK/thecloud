@@ -817,7 +817,6 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 	deltaCPU := newIT.VCPUs - oldIT.VCPUs
 	deltaMemMB := newIT.MemoryMB - oldIT.MemoryMB
 
-	var quotaErrs []error
 	var cpuIncremented, memIncremented bool
 	if deltaCPU > 0 {
 		if err := s.tenantSvc.CheckQuota(ctx, tenantID, "vcpus", deltaCPU); err != nil {
@@ -829,7 +828,7 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 		cpuIncremented = true
 	} else if deltaCPU < 0 {
 		if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", -deltaCPU); err != nil {
-			quotaErrs = append(quotaErrs, fmt.Errorf("vcpu decrement: %w", err))
+			return errors.Wrap(errors.Internal, "failed to decrement vCPU quota after resize failure", err)
 		}
 	}
 	if deltaMemMB > 0 {
@@ -846,7 +845,7 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 		memIncremented = true
 	} else if deltaMemMB < 0 {
 		if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", -deltaMemMB); err != nil {
-			quotaErrs = append(quotaErrs, fmt.Errorf("memory decrement: %w", err))
+			return errors.Wrap(errors.Internal, "failed to decrement memory quota after resize failure", err)
 		}
 	}
 
@@ -887,13 +886,6 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 	}
 
 	platform.InstanceOperationsTotal.WithLabelValues("resize", "success").Inc()
-
-	for _, qe := range quotaErrs {
-		s.logger.Error("quota update failed after resize", "error", qe, "tenant_id", tenantID)
-	}
-	if len(quotaErrs) > 0 {
-		return errors.Wrap(errors.Internal, "resize succeeded but quota updates failed", fmt.Errorf("%v", quotaErrs))
-	}
 
 	if err := s.eventSvc.RecordEvent(ctx, "INSTANCE_RESIZE", inst.ID.String(), "INSTANCE", map[string]interface{}{
 		"name":     inst.Name,
