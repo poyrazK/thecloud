@@ -151,6 +151,12 @@ func (e *PgLeaderElector) RunAsLeader(ctx context.Context, key string, fn func(c
 	heartbeatDone := make(chan struct{})
 	go func() {
 		defer close(heartbeatDone)
+		defer func() {
+			if r := recover(); r != nil {
+				e.logger.Error("heartbeat goroutine panicked", "key", key, "panic", r)
+				fnCancel()
+			}
+		}()
 		e.heartbeat(fnCtx, key, fnCancel)
 	}()
 
@@ -170,34 +176,18 @@ func (e *PgLeaderElector) heartbeat(ctx context.Context, key string, cancel cont
 	ticker := time.NewTicker(leaderRenewInterval)
 	defer ticker.Stop()
 
-	lockID := keyToLockID(key)
-
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			// Check if we still hold the lock by trying to acquire it again.
-			// pg_try_advisory_lock is re-entrant: if we already hold it, it returns true
-			// and increments the lock count. We immediately unlock the extra acquisition.
-			var stillHeld bool
-			err := e.db.QueryRow(ctx, "SELECT pg_try_advisory_lock($1)", lockID).Scan(&stillHeld)
+			// Simple liveness check: verify we can still talk to the DB.
+			// If the DB connection is dead, leadership is effectively lost.
+			// (RunAsLeader's retry loop handles re-acquisition on context cancellation.)
+			var alive int
+			err := e.db.QueryRow(ctx, "SELECT 1").Scan(&alive)
 			if err != nil {
-				e.logger.Error("heartbeat check failed, assuming leadership lost", "key", key, "error", err)
-				cancel()
-				return
-			}
-			if stillHeld {
-				// We re-acquired (re-entrant), so unlock the extra lock count
-				if _, unlockErr := e.db.Exec(ctx, "SELECT pg_advisory_unlock($1)", lockID); unlockErr != nil {
-					e.logger.Error("failed to release re-entrant heartbeat lock",
-						"key", key, "error", unlockErr)
-					cancel()
-					return
-				}
-			} else {
-				// We lost the lock
-				e.logger.Error("leadership lost", "key", key)
+				e.logger.Error("heartbeat DB check failed, assuming leadership lost", "key", key, "error", err)
 				cancel()
 				return
 			}

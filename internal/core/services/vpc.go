@@ -286,16 +286,18 @@ func (s *VpcService) checkDeleteDependencies(ctx context.Context, vpcID uuid.UUI
 
 // cascadeDeleteDependencies deletes all dependent resources of a VPC.
 // This is used when force=true to bypass FK constraint violations.
+// Returns an error if any deletion fails (partial failures are reported).
 func (s *VpcService) cascadeDeleteDependencies(ctx context.Context, vpcID uuid.UUID) error {
 	// Delete all scaling groups for this VPC directly
 	groups, err := s.asRepo.ListGroups(ctx)
 	if err != nil {
 		return fmt.Errorf("listing scaling groups: %w", err)
 	}
+	var delErrs []error
 	for _, group := range groups {
 		if group.VpcID == vpcID {
-			if delErr := s.asRepo.DeleteGroup(ctx, group.ID); delErr != nil {
-				s.logger.Warn("failed to delete scaling group", "group_id", group.ID, "error", delErr)
+			if err := s.asRepo.DeleteGroup(ctx, group.ID); err != nil {
+				delErrs = append(delErrs, fmt.Errorf("scaling group %s: %w", group.ID, err))
 			}
 		}
 	}
@@ -307,11 +309,19 @@ func (s *VpcService) cascadeDeleteDependencies(ctx context.Context, vpcID uuid.U
 	}
 	for _, lb := range lbs {
 		if lb.VpcID == vpcID {
-			if delErr := s.lbRepo.Delete(ctx, lb.ID); delErr != nil {
-				s.logger.Warn("failed to delete load balancer", "lb_id", lb.ID, "error", delErr)
+			if err := s.lbRepo.Delete(ctx, lb.ID); err != nil {
+				delErrs = append(delErrs, fmt.Errorf("load balancer %s: %w", lb.ID, err))
 			}
 		}
 	}
 
+	if len(delErrs) > 0 {
+		// Return the first error as the main error, with others in the message
+		first := delErrs[0]
+		if len(delErrs) > 1 {
+			return fmt.Errorf("cascade delete partially failed (%d errors): %w", len(delErrs), first)
+		}
+		return first
+	}
 	return nil
 }
