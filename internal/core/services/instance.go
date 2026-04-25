@@ -823,6 +823,7 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 			return err
 		}
 		if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "vcpus", deltaCPU); err != nil {
+			platform.InstanceOperationsTotal.WithLabelValues("resize", "quota_failure").Inc()
 			return errors.Wrap(errors.Internal, "failed to increment vCPU quota for resize", err)
 		}
 		cpuIncremented = true
@@ -836,6 +837,7 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 			return err
 		}
 		if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", deltaMemMB); err != nil {
+			platform.InstanceOperationsTotal.WithLabelValues("resize", "quota_failure").Inc()
 			// Rollback the vCPU increment since memory increment failed
 			if cpuIncremented {
 				_ = s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", deltaCPU)
@@ -888,17 +890,21 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 	platform.InstanceOperationsTotal.WithLabelValues("resize", "success").Inc()
 
 	if err := s.eventSvc.RecordEvent(ctx, "INSTANCE_RESIZE", inst.ID.String(), "INSTANCE", map[string]interface{}{
-		"name":     inst.Name,
-		"old_type": oldIT.ID,
-		"new_type": newIT.ID,
+		"name":           inst.Name,
+		"old_type":      oldIT.ID,
+		"new_type":      newIT.ID,
+		"delta_vcpus":   deltaCPU,
+		"delta_memory_mb": deltaMemMB,
 	}); err != nil {
 		s.logger.Warn("failed to record event", "action", "INSTANCE_RESIZE", "instance_id", inst.ID, "error", err)
 	}
 
 	if err := s.auditSvc.Log(ctx, inst.UserID, "instance.resize", "instance", inst.ID.String(), map[string]interface{}{
-		"name":     inst.Name,
-		"old_type": oldIT.ID,
-		"new_type": newIT.ID,
+		"name":           inst.Name,
+		"old_type":       oldIT.ID,
+		"new_type":       newIT.ID,
+		"delta_vcpus":    deltaCPU,
+		"delta_memory_mb": deltaMemMB,
 	}); err != nil {
 		s.logger.Warn("failed to log audit event", "action", "instance.resize", "instance_id", inst.ID, "error", err)
 	}
