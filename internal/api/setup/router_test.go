@@ -49,7 +49,7 @@ func (s stubNetworkBackend) SetVethIP(_ context.Context, _ string, _ string, _ s
 func (s stubNetworkBackend) SetupNATForSubnet(_ context.Context, _ string, _ string, _ string, _ string) error {
 	return nil
 }
-func (s stubNetworkBackend) RemoveNATForSubnet(_ context.Context, _ string, _ string, _ string) error {
+func (s stubNetworkBackend) RemoveNATForSubnet(_ context.Context, _ string, _ string, _ string, _ string) error {
 	return nil
 }
 func (s stubNetworkBackend) Ping(_ context.Context) error { return s.pingErr }

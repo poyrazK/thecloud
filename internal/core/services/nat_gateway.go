@@ -194,16 +194,27 @@ func (s *NATGatewayService) DeleteNATGateway(ctx context.Context, natID uuid.UUI
 	}
 
 	// Get subnet and VPC for cleanup
-	subnet, _ := s.subnetRepo.GetByID(ctx, nat.SubnetID)
-	vpc, _ := s.vpcRepo.GetByID(ctx, nat.VPCID)
+	subnet, err := s.subnetRepo.GetByID(ctx, nat.SubnetID)
+	if err != nil {
+		s.logger.Warn("failed to get subnet during NAT cleanup", "nat_id", natID, "error", err)
+	}
+	vpc, err := s.vpcRepo.GetByID(ctx, nat.VPCID)
+	if err != nil {
+		s.logger.Warn("failed to get VPC during NAT cleanup", "nat_id", natID, "error", err)
+	}
 
 	// Get EIP for public IP
-	eip, _ := s.eipRepo.GetByID(ctx, nat.ElasticIPID)
+	eip, err := s.eipRepo.GetByID(ctx, nat.ElasticIPID)
+	if err != nil {
+		s.logger.Warn("failed to get EIP during NAT cleanup", "nat_id", natID, "error", err)
+	}
 
 	// Remove NAT setup
-	if subnet != nil && vpc != nil {
+	if subnet != nil && vpc != nil && eip != nil {
 		natVethEnd := fmt.Sprintf("nat-%s", natID.String()[:8])
-		_ = s.network.RemoveNATForSubnet(ctx, vpc.NetworkID, natVethEnd, subnet.CIDRBlock)
+		if err := s.network.RemoveNATForSubnet(ctx, vpc.NetworkID, natVethEnd, subnet.CIDRBlock, eip.PublicIP); err != nil {
+			s.logger.Error("failed to remove NAT setup", "nat_id", natID, "error", err)
+		}
 	}
 
 	// Release the EIP back to allocated state

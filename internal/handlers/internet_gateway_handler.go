@@ -92,7 +92,7 @@ type IGWAttachRequest struct {
 // @Accept json
 // @Produce json
 // @Param id path string true "Internet Gateway ID"
-// @Param request body AttachRequest true "Attach Request"
+// @Param request body IGWAttachRequest true "Attach Request"
 // @Success 200
 // @Failure 400 {object} httputil.Response
 // @Failure 409 {object} httputil.Response

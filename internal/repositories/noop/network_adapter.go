@@ -93,9 +93,9 @@ func (n *NoopNetworkAdapter) SetupNATForSubnet(ctx context.Context, bridge, natV
 	return nil
 }
 
-func (n *NoopNetworkAdapter) RemoveNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR string) error {
+func (n *NoopNetworkAdapter) RemoveNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR, egressIP string) error {
 	n.logger.Warn("noop network adapter: RemoveNATForSubnet called but not implemented",
-		"bridge", bridge, "natVethEnd", natVethEnd, "subnetCIDR", subnetCIDR)
+		"bridge", bridge, "natVethEnd", natVethEnd, "subnetCIDR", subnetCIDR, "egressIP", egressIP)
 	return nil
 }
 

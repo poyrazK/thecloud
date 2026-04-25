@@ -4246,7 +4246,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httphandlers.AttachRequest"
+                            "$ref": "#/definitions/httphandlers.IGWAttachRequest"
                         }
                     }
                 ],
@@ -5515,7 +5515,7 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Route ID",
                         "name": "route_id",
-                        "in": "query",
+                        "in": "path",
                         "required": true
                     }
                 ],
@@ -10970,6 +10970,17 @@ const docTemplate = `{
             ],
             "properties": {
                 "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "httphandlers.IGWAttachRequest": {
+            "type": "object",
+            "required": [
+                "vpc_id"
+            ],
+            "properties": {
+                "vpc_id": {
                     "type": "string"
                 }
             }

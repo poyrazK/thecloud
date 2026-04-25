@@ -494,7 +494,7 @@ func TestNATGatewayService_DeleteNATGateway(t *testing.T) {
 	mockVPC.On("GetByID", mock.Anything, vpcID).Return(vpc, nil)
 	mockEIP.On("GetByID", mock.Anything, eipID).Return(eip, nil)
 	mockEIP.On("Update", mock.Anything, mock.AnythingOfType("*domain.ElasticIP")).Return(nil)
-	mockNetwork.On("RemoveNATForSubnet", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	mockNetwork.On("RemoveNATForSubnet", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	mockNAT.On("Delete", mock.Anything, natID).Return(nil)
 	mockAudit.On("Log", mock.Anything, mock.Anything, "nat_gateway.delete", "nat_gateway", mock.Anything, mock.Anything).Return(nil)
 

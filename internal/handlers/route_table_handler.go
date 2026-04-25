@@ -183,7 +183,7 @@ func (h *RouteTableHandler) AddRoute(c *gin.Context) {
 // @Tags route-tables
 // @Security APIKeyAuth
 // @Param id path string true "Route Table ID"
-// @Param route_id query string true "Route ID"
+// @Param route_id path string true "Route ID"
 // @Success 204
 // @Failure 400 {object} httputil.Response
 // @Failure 500 {object} httputil.Response
@@ -196,7 +196,7 @@ func (h *RouteTableHandler) RemoveRoute(c *gin.Context) {
 		return
 	}
 
-	routeIDStr := c.Query("route_id")
+	routeIDStr := c.Param("route_id")
 	if routeIDStr == "" {
 		httputil.Error(c, errors.New(errors.InvalidInput, "route_id is required"))
 		return

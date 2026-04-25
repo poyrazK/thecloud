@@ -337,8 +337,8 @@ func (m *MockNetworkBackend) Ping(ctx context.Context) error {
 func (m *MockNetworkBackend) SetupNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR, egressIP string) error {
 	return m.Called(ctx, bridge, natVethEnd, subnetCIDR, egressIP).Error(0)
 }
-func (m *MockNetworkBackend) RemoveNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR string) error {
-	return m.Called(ctx, bridge, natVethEnd, subnetCIDR).Error(0)
+func (m *MockNetworkBackend) RemoveNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR, egressIP string) error {
+	return m.Called(ctx, bridge, natVethEnd, subnetCIDR, egressIP).Error(0)
 }
 func (m *MockNetworkBackend) Type() string {
 	return m.Called().String(0)

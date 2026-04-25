@@ -68,7 +68,8 @@ type NetworkBackend interface {
 SetupNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR, egressIP string) error
 
 	// RemoveNATForSubnet removes iptables SNAT rules for a subnet.
-	RemoveNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR string) error
+	// egressIP is used to precisely match the SNAT rule when deleting.
+	RemoveNATForSubnet(ctx context.Context, bridge, natVethEnd, subnetCIDR, egressIP string) error
 
 	// Health & Type
 

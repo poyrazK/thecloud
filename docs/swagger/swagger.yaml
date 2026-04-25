@@ -2204,6 +2204,13 @@ definitions:
     required:
     - email
     type: object
+  httphandlers.IGWAttachRequest:
+    properties:
+      vpc_id:
+        type: string
+    required:
+    - vpc_id
+    type: object
   httphandlers.LaunchRequest:
     properties:
       cmd:
@@ -5154,7 +5161,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/httphandlers.AttachRequest'
+          $ref: '#/definitions/httphandlers.IGWAttachRequest'
       produces:
       - application/json
       responses:
@@ -5957,7 +5964,7 @@ paths:
         required: true
         type: string
       - description: Route ID
-        in: query
+        in: path
         name: route_id
         required: true
         type: string
