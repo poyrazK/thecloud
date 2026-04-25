@@ -201,12 +201,12 @@ type Workers struct {
 	Healing           Runner
 	DatabaseFailover  Runner
 	Log               Runner
-	FunctionSchedule  Runner
 
 	// Parallel consumer workers (safe to run on multiple nodes)
-	Pipeline  *workers.PipelineWorker
-	Provision *workers.ProvisionWorker
-	Cluster   *workers.ClusterWorker
+	Pipeline          *workers.PipelineWorker
+	Provision         *workers.ProvisionWorker
+	Cluster           *workers.ClusterWorker
+	FunctionSchedule  *services.FunctionScheduleWorker
 }
 
 // ServiceConfig holds the dependencies required to initialize services
@@ -383,9 +383,10 @@ svcs := &Services{WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Tenant: 
 		Log:               guardSingleton("singleton:log", logWorker),
 
 		// Parallel consumer workers — no leader election needed
-		Pipeline:  workers.NewPipelineWorker(c.Repos.Pipeline, c.Repos.DurableQueue, c.Repos.Ledger, c.Compute, c.Logger),
-		Provision: provisionWorker,
-		Cluster:   workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.DurableQueue, c.Repos.Ledger, c.Logger),
+		Pipeline:         workers.NewPipelineWorker(c.Repos.Pipeline, c.Repos.DurableQueue, c.Repos.Ledger, c.Compute, c.Logger),
+		Provision:        provisionWorker,
+		Cluster:          workers.NewClusterWorker(c.Repos.Cluster, clusterProvisioner, c.Repos.DurableQueue, c.Repos.Ledger, c.Logger),
+		FunctionSchedule: services.NewFunctionScheduleWorker(c.Repos.FunctionSchedule, fnSvc),
 	}
 
 	return svcs, workersCollection, nil
