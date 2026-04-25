@@ -432,19 +432,14 @@ type ResizeInstanceRequest struct {
 // @Router /instances/{id}/resize [post]
 func (h *InstanceHandler) ResizeInstance(c *gin.Context) {
 	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		httputil.Error(c, errors.New(errors.InvalidInput, "invalid instance id"))
-		return
-	}
 
 	var req ResizeInstanceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httputil.Error(c, errors.Wrap(errors.InvalidInput, "invalid request body", err))
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid request body"))
 		return
 	}
 
-	if err := h.svc.ResizeInstance(c.Request.Context(), id.String(), req.InstanceType); err != nil {
+	if err := h.svc.ResizeInstance(c.Request.Context(), idStr, req.InstanceType); err != nil {
 		httputil.Error(c, err)
 		return
 	}

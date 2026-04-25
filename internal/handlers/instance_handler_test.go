@@ -503,6 +503,8 @@ func TestInstanceHandlerResizeInstance(t *testing.T) {
 		r.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Contains(t, w.Body.String(), `"message":"instance resized"`)
+		assert.Contains(t, w.Body.String(), `"data"`)
 	})
 
 	t.Run("InvalidID", func(t *testing.T) {
@@ -510,14 +512,17 @@ func TestInstanceHandlerResizeInstance(t *testing.T) {
 		defer mockSvc.AssertExpectations(t)
 		r.POST(instancesPath+"/:id/resize", handler.ResizeInstance)
 
-		req := httptest.NewRequest(http.MethodPost, instancesPath+"/not-a-uuid/resize", strings.NewReader(`{"instance_type":"basic-4"}`))
+		// Handler accepts name-or-uuid, passes raw string to service
+		mockSvc.On("ResizeInstance", mock.Anything, "my-instance-name", "basic-4").Return(nil).Once()
+
+		body := `{"instance_type":"basic-4"}`
+		req := httptest.NewRequest(http.MethodPost, instancesPath+"/my-instance-name/resize", strings.NewReader(body))
 		req.Header.Set(contentType, applicationJSON)
 		w := httptest.NewRecorder()
 
 		r.ServeHTTP(w, req)
 
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-		mockSvc.AssertNotCalled(t, "ResizeInstance", mock.Anything, mock.Anything, mock.Anything)
+		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
 	t.Run("InvalidBody", func(t *testing.T) {
