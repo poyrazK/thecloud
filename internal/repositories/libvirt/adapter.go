@@ -204,7 +204,7 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 		// Rollback: attempt to redefine the original domain to prevent permanent loss
 		_, rollbackErr := a.client.DomainDefineXML(ctx, domXML)
 		if rollbackErr != nil {
-			return fmt.Errorf("failed to redefine domain with new resources (instance_id=%s, target=%s), rollback also failed: original error: %w; rollback error: %v", id, newDOMXML, err, rollbackErr)
+			return fmt.Errorf("failed to redefine domain with new resources (instance_id=%s, target=%s), rollback also failed: original error: %w; rollback error: %w", id, newDOMXML, err, rollbackErr)
 		}
 		return fmt.Errorf("failed to redefine domain with new resources: %w", err)
 	}
