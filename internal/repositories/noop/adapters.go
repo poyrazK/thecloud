@@ -441,7 +441,7 @@ func (r *NoopFunctionRepository) GetByName(ctx context.Context, userID uuid.UUID
 func (r *NoopFunctionRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.Function, error) {
 	return []*domain.Function{}, nil
 }
-func (r *NoopFunctionRepository) Update(ctx context.Context, fn *domain.Function) error { return nil }
+func (r *NoopFunctionRepository) Update(ctx context.Context, id uuid.UUID, u *domain.FunctionUpdate) error { return nil }
 func (r *NoopFunctionRepository) Delete(ctx context.Context, id uuid.UUID) error        { return nil }
 func (r *NoopFunctionRepository) GetInvocations(ctx context.Context, fnID uuid.UUID, limit int) ([]*domain.Invocation, error) {
 	return []*domain.Invocation{}, nil
