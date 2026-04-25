@@ -215,8 +215,8 @@ func TestFunctionServiceZipSlipProtection(t *testing.T) {
 func TestFunctionServiceSecretEnvVarIntegration(t *testing.T) {
 	svc, _, secretSvc, ctx := setupFunctionServiceTest(t)
 
-	// Create a secret to reference
-	secret, err := secretSvc.CreateSecret(ctx, "my-api-key", "s3cr3t-value", "test secret")
+	// Create a secret to reference (resolved by name in sub-tests)
+	_, err := secretSvc.CreateSecret(ctx, "my-api-key", "s3cr3t-value", "test secret")
 	require.NoError(t, err)
 
 	t.Run("plainTextEnvVar", func(t *testing.T) {
@@ -328,6 +328,4 @@ process.exit(0);
 		assert.Contains(t, inv.Logs, `"value":"s3cr3t-value"`)
 		assert.Contains(t, inv.Logs, "BAR=plain-value")
 	})
-
-	_ = secret // used in secretRefEnvVar
 }

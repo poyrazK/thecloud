@@ -4,34 +4,35 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestFunctionUpdate_Validate(t *testing.T) {
+func TestFunctionUpdateValidate(t *testing.T) {
 	t.Run("timeout_too_low", func(t *testing.T) {
 		timeout := 0
 		err := (&FunctionUpdate{Timeout: &timeout}).Validate()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "timeout")
 	})
 
 	t.Run("timeout_too_high", func(t *testing.T) {
 		timeout := 901
 		err := (&FunctionUpdate{Timeout: &timeout}).Validate()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "timeout")
 	})
 
 	t.Run("memory_too_low", func(t *testing.T) {
 		mem := 32
 		err := (&FunctionUpdate{MemoryMB: &mem}).Validate()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "memory")
 	})
 
 	t.Run("memory_too_high", func(t *testing.T) {
 		mem := 10241
 		err := (&FunctionUpdate{MemoryMB: &mem}).Validate()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "memory")
 	})
 
@@ -39,7 +40,7 @@ func TestFunctionUpdate_Validate(t *testing.T) {
 		timeout := 300
 		mem := 256
 		err := (&FunctionUpdate{Timeout: &timeout, MemoryMB: &mem}).Validate()
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	})
 
 	t.Run("env_var_both_value_and_secret_ref", func(t *testing.T) {
@@ -47,7 +48,7 @@ func TestFunctionUpdate_Validate(t *testing.T) {
 			EnvVars: []*EnvVar{{Key: "API_KEY", Value: "plain", SecretRef: "@secret"}},
 		}
 		err := u.Validate()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot have both")
 	})
 
@@ -56,7 +57,7 @@ func TestFunctionUpdate_Validate(t *testing.T) {
 			EnvVars: []*EnvVar{{Key: "API_KEY"}},
 		}
 		err := u.Validate()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "either value or secret_ref")
 	})
 
@@ -65,7 +66,7 @@ func TestFunctionUpdate_Validate(t *testing.T) {
 			EnvVars: []*EnvVar{{Key: "FOO", Value: "bar"}},
 		}
 		err := u.Validate()
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	})
 
 	t.Run("env_var_only_secret_ref", func(t *testing.T) {
@@ -73,7 +74,7 @@ func TestFunctionUpdate_Validate(t *testing.T) {
 			EnvVars: []*EnvVar{{Key: "API_KEY", SecretRef: "@my-secret"}},
 		}
 		err := u.Validate()
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	})
 
 	t.Run("env_var_mixed_one_invalid", func(t *testing.T) {
@@ -84,7 +85,7 @@ func TestFunctionUpdate_Validate(t *testing.T) {
 			},
 		}
 		err := u.Validate()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "either value or secret_ref")
 	})
 }
