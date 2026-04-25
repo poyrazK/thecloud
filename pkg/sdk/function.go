@@ -26,8 +26,9 @@ type Function struct {
 
 // EnvVar represents a key-value environment variable.
 type EnvVar struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	Key       string `json:"key"`
+	Value     string `json:"value,omitempty"`
+	SecretRef string `json:"secret_ref,omitempty"`
 }
 
 // FunctionUpdateRequest describes fields that can be updated.

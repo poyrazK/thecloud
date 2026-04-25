@@ -32,9 +32,10 @@ func testFunctionServiceBasicOps(t *testing.T) {
 	fileStore := new(MockFileStore)
 	auditSvc := new(MockAuditService)
 	rbacSvc := new(MockRBACService)
+	secretSvc := new(MockSecretService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, slog.Default())
+	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, secretSvc, slog.Default())
 
 	ctx := context.Background()
 	userID := uuid.New()
@@ -87,9 +88,10 @@ func testFunctionServiceCreateFunction(t *testing.T) {
 	fileStore := new(MockFileStore)
 	auditSvc := new(MockAuditService)
 	rbacSvc := new(MockRBACService)
+	secretSvc := new(MockSecretService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, slog.Default())
+	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, secretSvc, slog.Default())
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	userID := appcontext.UserIDFromContext(ctx)
@@ -118,9 +120,10 @@ func testFunctionServiceInvokeFunction(t *testing.T) {
 	fileStore := new(MockFileStore)
 	auditSvc := new(MockAuditService)
 	rbacSvc := new(MockRBACService)
+	secretSvc := new(MockSecretService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, slog.Default())
+	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, secretSvc, slog.Default())
 
 	ctx := context.Background()
 	id := uuid.New()
@@ -181,8 +184,9 @@ func testFunctionServiceInvokeFunction(t *testing.T) {
 func testFunctionServiceCreateFunctionUnsupportedRuntime(t *testing.T) {
 	repo := new(MockFunctionRepo)
 	rbacSvc := new(MockRBACService)
+	secretSvc := new(MockSecretService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	svc := services.NewFunctionService(repo, rbacSvc, nil, nil, nil, slog.Default())
+	svc := services.NewFunctionService(repo, rbacSvc, nil, nil, nil, secretSvc, slog.Default())
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 
 	_, err := svc.CreateFunction(ctx, "fail", "cobol99", "handler", []byte("code"))
@@ -196,9 +200,10 @@ func testFunctionServiceUpdateFunction(t *testing.T) {
 	fileStore := new(MockFileStore)
 	auditSvc := new(MockAuditService)
 	rbacSvc := new(MockRBACService)
+	secretSvc := new(MockSecretService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, slog.Default())
+	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, secretSvc, slog.Default())
 
 	ctx := appcontext.WithUserID(context.Background(), uuid.New())
 	id := uuid.New()
