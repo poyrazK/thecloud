@@ -128,3 +128,17 @@ type Services struct {
 - Only main route table cannot be deleted
 - Subnet association is one-to-one: a subnet can only belong to one route table
 - NAT gateway creation requires EIP to be in `allocated` (not `associated`) state
+
+### NAT Gateway Requirements
+
+The NAT gateway implementation requires `net.ipv4.ip_forward=1` to be enabled on the host system:
+
+```bash
+# Enable immediately (requires root)
+sysctl -w net.ipv4.ip_forward=1
+
+# Make persistent across reboots
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+```
+
+This is a **system-wide** kernel parameter. Without it, packets from private subnets will not be forwarded to the NAT gateway's veth interface, and NAT functionality will not work.

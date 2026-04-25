@@ -119,6 +119,13 @@ Extend NetworkBackend with NAT support and implement in OVS adapter.
 - iptables SNAT for outbound traffic
 - Return traffic auto de-SNATed via connection tracking
 
+### Requirements
+- `net.ipv4.ip_forward=1` must be enabled on the host system
+  - This is a **system-wide setting** required for NAT functionality
+  - Can be enabled with: `sysctl -w net.ipv4.ip_forward=1`
+  - To persist across reboots, add to `/etc/sysctl.conf`: `net.ipv4.ip_forward=1`
+  - Without this setting, NAT gateway traffic will not be forwarded
+
 ### Dependencies
 - Requires PR #2 merged and `feature/vpc-routing` rebased
 

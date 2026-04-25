@@ -479,6 +479,9 @@ func TestNATGatewayService_CreateNATGateway(t *testing.T) {
 				mocks.eip.On("GetByID", mock.Anything, eipID).Return(tt.eip, nil)
 			}
 
+			// Check for existing NAT gateways on subnet
+			mocks.nat.On("ListBySubnet", mock.Anything, subnetID).Return([]*domain.NATGateway(nil), nil).Maybe()
+
 			// Create is always called
 			mocks.nat.On("Create", mock.Anything, mock.AnythingOfType("*domain.NATGateway")).Return(nil).Maybe()
 

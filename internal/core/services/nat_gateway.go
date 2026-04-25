@@ -106,6 +106,17 @@ func (s *NATGatewayService) CreateNATGateway(ctx context.Context, subnetID, eipI
 		return nil, errors.New(errors.InvalidInput, "invalid EIP address format")
 	}
 
+	// Check if another NAT gateway already exists for this subnet
+	existing, err := s.repo.ListBySubnet(ctx, subnetID)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to check existing NAT gateways", err)
+	}
+	for _, nat := range existing {
+		if nat.PrivateIP == subnet.GatewayIP {
+			return nil, errors.New(errors.InvalidInput, "NAT gateway already exists for this subnet with the same private IP")
+		}
+	}
+
 	natID := uuid.New()
 	arn := fmt.Sprintf("arn:thecloud:vpc:local:%s:nat-gateway/%s", userID.String(), natID.String())
 
@@ -227,7 +238,10 @@ func (s *NATGatewayService) DeleteNATGateway(ctx context.Context, natID uuid.UUI
 		eip.VpcID = nil
 		eip.Status = domain.EIPStatusAllocated
 		eip.UpdatedAt = time.Now()
-		_ = s.eipRepo.Update(ctx, eip)
+		if err := s.eipRepo.Update(ctx, eip); err != nil {
+			s.logger.Warn("failed to release EIP during NAT gateway deletion",
+				"eip_id", eip.ID, "nat_id", natID, "error", err)
+		}
 	}
 
 	// Delete NAT record
