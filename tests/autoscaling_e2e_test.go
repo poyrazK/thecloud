@@ -118,7 +118,7 @@ func TestAutoScalingE2E(t *testing.T) {
 		timeout = 120 * time.Second
 		start = time.Now()
 		for time.Since(start) < timeout {
-			resp = deleteRequest(t, client, fmt.Sprintf("%s%s/%s", testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token)
+			resp = deleteRequest(t, client, fmt.Sprintf("%s%s/%s?force=true", testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token)
 			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
 				return

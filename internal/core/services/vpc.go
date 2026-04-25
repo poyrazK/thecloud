@@ -198,7 +198,8 @@ func (s *VpcService) ListVPCs(ctx context.Context) ([]*domain.VPC, error) {
 }
 
 // DeleteVPC removes a VPC, its associated OVS bridge, and all related database records.
-func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
+// If force is true, dependency checks are skipped (for async cleanup scenarios).
+func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string, force bool) error {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
@@ -211,9 +212,11 @@ func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string) error {
 		return err
 	}
 
-	// 1. Check for dependent resources
-	if err := s.checkDeleteDependencies(ctx, vpc.ID); err != nil {
-		return err
+	// 1. Check for dependent resources (skip if force is true)
+	if !force {
+		if err := s.checkDeleteDependencies(ctx, vpc.ID); err != nil {
+			return err
+		}
 	}
 
 	// 2. Remove OVS bridge

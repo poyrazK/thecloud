@@ -156,7 +156,7 @@ func TestDNSInstanceAutoRegistrationE2E(t *testing.T) {
 		// Delete Zone
 		_ = deleteRequest(t, client, fmt.Sprintf("%s/dns/zones/%s", testutil.TestBaseURL, zoneID), token).Body.Close()
 		// Delete VPC
-		_ = deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpcID), token).Body.Close()
+		_ = deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s?force=true", testutil.TestBaseURL, vpcID), token).Body.Close()
 	})
 }
 

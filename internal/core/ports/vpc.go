@@ -31,5 +31,6 @@ type VpcService interface {
 	// ListVPCs returns all virtual networks registered to the current authorized user.
 	ListVPCs(ctx context.Context) ([]*domain.VPC, error)
 	// DeleteVPC decommissioning an existing virtual network.
-	DeleteVPC(ctx context.Context, idOrName string) error
+	// If force is true, dependency checks are skipped (for async cleanup scenarios).
+	DeleteVPC(ctx context.Context, idOrName string, force bool) error
 }

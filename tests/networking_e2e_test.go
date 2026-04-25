@@ -23,8 +23,8 @@ func TestNetworkingE2E(t *testing.T) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	token := registerAndLogin(t, client, "network-tester@thecloud.local", "Network Tester")
 
-	const (
-		vpcRoute  = "%s%s/%s"
+		const (
+		vpcRoute  = "%s%s/%s?force=true"
 		subRoute  = "%s/vpcs/%s/subnets"
 		sgRoute   = "%s/security-groups/%s"
 		lbRoute   = "%s/lb/%s"
