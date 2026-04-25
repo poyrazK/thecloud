@@ -34,6 +34,40 @@ To create a function, you need a zip file containing your code.
    cloud fn create --name hello --runtime nodejs20 --handler index.js --code code.zip
    ```
 
+## Updating a Function
+
+You can update a function's configuration without redeploying code:
+
+```bash
+# Update timeout and memory
+cloud fn update hello --timeout 300 --memory 256
+
+# Update handler
+cloud fn update hello --handler newhandler.js
+
+# Set environment variables
+cloud fn update hello --env FOO=bar --env DB_HOST=localhost
+```
+
+### Environment Variables
+
+Environment variables are injected at runtime into the function container:
+
+```bash
+cloud fn update my-func --env API_KEY=secret --env DEBUG=true
+```
+
+Environment variables are available via `process.env` (Node.js), `os.environ` (Python), or `os.Getenv` (Go, Java).
+
+### Available Update Options
+
+| Flag | Description | Valid Range |
+|------|-------------|------------|
+| `--handler` | Entry point file | string |
+| `--timeout` | Execution timeout (seconds) | 1–900 |
+| `--memory` | Memory allocation (MB) | 64–10240 |
+| `--env` | Environment variable `KEY=VALUE` | multiple |
+
 ## Invoking a Function
 
 You can invoke a function synchronously or asynchronously.
