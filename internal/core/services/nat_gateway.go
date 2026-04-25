@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"time"
 
 	"github.com/google/uuid"
@@ -98,6 +99,11 @@ func (s *NATGatewayService) CreateNATGateway(ctx context.Context, subnetID, eipI
 	// Verify EIP is allocated
 	if eip.Status != domain.EIPStatusAllocated {
 		return nil, errors.New(errors.InvalidInput, "elastic IP is not in allocated state")
+	}
+
+	// Validate egress IP format
+	if net.ParseIP(eip.PublicIP) == nil {
+		return nil, errors.New(errors.InvalidInput, "invalid EIP address format")
 	}
 
 	natID := uuid.New()

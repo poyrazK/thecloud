@@ -15,6 +15,54 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// ---- Test Helpers ----
+
+func newTestCtx(userID, tenantID uuid.UUID) context.Context {
+	ctx := context.Background()
+	ctx = appcontext.WithUserID(ctx, userID)
+	ctx = appcontext.WithTenantID(ctx, tenantID)
+	return ctx
+}
+
+type natGatewaySvcMocks struct {
+	nat     *MockNATGatewayRepo
+	subnet  *MockSubnetRepo
+	vpc     *MockVpcRepo
+	eip     *MockEIPRepo
+	network *MockNetworkBackend
+	rbac    *MockRBACService
+	audit   *MockAuditService
+}
+
+func setupNATGatewaySvcMocks() natGatewaySvcMocks {
+	return natGatewaySvcMocks{
+		nat:     new(MockNATGatewayRepo),
+		subnet:  new(MockSubnetRepo),
+		vpc:     new(MockVpcRepo),
+		eip:     new(MockEIPRepo),
+		network: new(MockNetworkBackend),
+		rbac:    new(MockRBACService),
+		audit:   new(MockAuditService),
+	}
+}
+
+func (m *natGatewaySvcMocks) service() *services.NATGatewayService {
+	return services.NewNATGatewayService(services.NATGatewayServiceParams{
+		Repo:       m.nat,
+		SubnetRepo: m.subnet,
+		VpcRepo:    m.vpc,
+		EIPRepo:    m.eip,
+		Network:    m.network,
+		RBACSvc:    m.rbac,
+		AuditSvc:   m.audit,
+		Logger:     slog.Default(),
+	})
+}
+
+func (m *natGatewaySvcMocks) expectAuthSuccess() {
+	m.rbac.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+}
+
 // ---- InternetGateway Service Tests ----
 
 func TestInternetGatewayService_CreateIGW(t *testing.T) {
@@ -363,169 +411,212 @@ func TestRouteTableService_DisassociateSubnet(t *testing.T) {
 // ---- NATGateway Service Tests ----
 
 func TestNATGatewayService_CreateNATGateway(t *testing.T) {
-	mockNAT := new(MockNATGatewayRepo)
-	mockSubnet := new(MockSubnetRepo)
-	mockVPC := new(MockVpcRepo)
-	mockEIP := new(MockEIPRepo)
-	mockNetwork := new(MockNetworkBackend)
-	mockRBAC := new(MockRBACService)
-	mockAudit := new(MockAuditService)
-
-	svc := services.NewNATGatewayService(services.NATGatewayServiceParams{
-		Repo:       mockNAT,
-		SubnetRepo: mockSubnet,
-		VpcRepo:    mockVPC,
-		EIPRepo:    mockEIP,
-		Network:    mockNetwork,
-		RBACSvc:    mockRBAC,
-		AuditSvc:   mockAudit,
-		Logger:     slog.Default(),
-	})
-
-	ctx := context.Background()
 	userID := uuid.New()
 	tenantID := uuid.New()
-	ctx = appcontext.WithUserID(ctx, userID)
-	ctx = appcontext.WithTenantID(ctx, tenantID)
-
 	subnetID := uuid.New()
 	eipID := uuid.New()
 	vpcID := uuid.New()
+
 	subnet := &domain.Subnet{ID: subnetID, VPCID: vpcID, GatewayIP: "10.0.0.1", CIDRBlock: "10.0.0.0/24"}
 	vpc := &domain.VPC{ID: vpcID, Name: "vpc", NetworkID: "br-vpc"}
-	eip := &domain.ElasticIP{ID: eipID, UserID: userID, TenantID: tenantID, PublicIP: "203.0.113.10", Status: domain.EIPStatusAllocated}
+	eipAllocated := &domain.ElasticIP{ID: eipID, UserID: userID, TenantID: tenantID, PublicIP: "203.0.113.10", Status: domain.EIPStatusAllocated}
 
-	mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	mockSubnet.On("GetByID", mock.Anything, subnetID).Return(subnet, nil)
-	mockVPC.On("GetByID", mock.Anything, vpcID).Return(vpc, nil)
-	mockEIP.On("GetByID", mock.Anything, eipID).Return(eip, nil)
-	mockNAT.On("Create", mock.Anything, mock.AnythingOfType("*domain.NATGateway")).Return(nil)
-	mockNetwork.On("SetupNATForSubnet", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	mockNAT.On("Update", mock.Anything, mock.AnythingOfType("*domain.NATGateway")).Return(nil)
-	mockAudit.On("Log", mock.Anything, mock.Anything, "nat_gateway.create", "nat_gateway", mock.Anything, mock.Anything).Return(nil)
+	tests := []struct {
+		name       string
+		subnet     *domain.Subnet
+		vpc        *domain.VPC
+		eip        *domain.ElasticIP
+		networkErr error
+		wantErr    bool
+		errContains string
+	}{
+		{
+			name:    "success",
+			subnet:  subnet,
+			vpc:     vpc,
+			eip:     eipAllocated,
+			wantErr: false,
+		},
+		{
+			name:        "eip not allocated",
+			subnet:      subnet,
+			vpc:         vpc,
+			eip:         &domain.ElasticIP{ID: eipID, Status: domain.EIPStatusAssociated},
+			wantErr:     true,
+			errContains: "allocated",
+		},
+		{
+			name:        "invalid egress ip format",
+			subnet:      subnet,
+			vpc:         vpc,
+			eip:         &domain.ElasticIP{ID: eipID, Status: domain.EIPStatusAllocated, PublicIP: "invalid-ip"},
+			wantErr:     true,
+			errContains: "invalid",
+		},
+		{
+			name:        "network setup failed",
+			subnet:      subnet,
+			vpc:         vpc,
+			eip:         eipAllocated,
+			networkErr:  errors.New("network error"),
+			wantErr:     true,
+			errContains: "failed to setup NAT",
+		},
+	}
 
-	nat, err := svc.CreateNATGateway(ctx, subnetID, eipID)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mocks := setupNATGatewaySvcMocks()
+			mocks.expectAuthSuccess()
 
-	require.NoError(t, err)
-	assert.NotNil(t, nat)
-	assert.Equal(t, subnetID, nat.SubnetID)
-	assert.Equal(t, eipID, nat.ElasticIPID)
-	assert.Equal(t, domain.NATGatewayStatusActive, nat.Status)
-	mockNAT.AssertExpectations(t)
-}
+			if tt.subnet != nil {
+				mocks.subnet.On("GetByID", mock.Anything, subnetID).Return(tt.subnet, nil)
+			}
+			if tt.vpc != nil {
+				mocks.vpc.On("GetByID", mock.Anything, tt.subnet.VPCID).Return(tt.vpc, nil)
+			}
+			if tt.eip != nil {
+				mocks.eip.On("GetByID", mock.Anything, eipID).Return(tt.eip, nil)
+			}
 
-func TestNATGatewayService_CreateNATGateway_EIPNotAllocated(t *testing.T) {
-	mockNAT := new(MockNATGatewayRepo)
-	mockSubnet := new(MockSubnetRepo)
-	mockVPC := new(MockVpcRepo)
-	mockEIP := new(MockEIPRepo)
-	mockRBAC := new(MockRBACService)
+			// Create is always called
+			mocks.nat.On("Create", mock.Anything, mock.AnythingOfType("*domain.NATGateway")).Return(nil).Maybe()
 
-	svc := services.NewNATGatewayService(services.NATGatewayServiceParams{
-		Repo:       mockNAT,
-		SubnetRepo: mockSubnet,
-		VpcRepo:    mockVPC,
-		EIPRepo:    mockEIP,
-		RBACSvc:    mockRBAC,
-		Logger:     slog.Default(),
-	})
+			if tt.networkErr != nil {
+				// Network fails - NAT is created then marked as failed
+				mocks.network.On("SetupNATForSubnet", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tt.networkErr).Maybe()
+				mocks.nat.On("Update", mock.Anything, mock.AnythingOfType("*domain.NATGateway")).Return(nil).Maybe()
+			} else if !tt.wantErr {
+				// Success case
+				mocks.network.On("SetupNATForSubnet", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+				mocks.nat.On("Update", mock.Anything, mock.AnythingOfType("*domain.NATGateway")).Return(nil).Maybe()
+				mocks.audit.On("Log", mock.Anything, mock.Anything, "nat_gateway.create", "nat_gateway", mock.Anything, mock.Anything).Return(nil).Maybe()
+			}
 
-	ctx := context.Background()
-	userID := uuid.New()
-	tenantID := uuid.New()
-	ctx = appcontext.WithUserID(ctx, userID)
-	ctx = appcontext.WithTenantID(ctx, tenantID)
+			ctx := newTestCtx(userID, tenantID)
+			nat, err := mocks.service().CreateNATGateway(ctx, subnetID, eipID)
 
-	subnetID := uuid.New()
-	eipID := uuid.New()
-	vpcID := uuid.New()
-	subnet := &domain.Subnet{ID: subnetID, VPCID: vpcID, GatewayIP: "10.0.0.1", CIDRBlock: "10.0.0.0/24"}
-	eip := &domain.ElasticIP{ID: eipID, Status: domain.EIPStatusAssociated} // wrong status
-
-	mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	mockSubnet.On("GetByID", mock.Anything, subnetID).Return(subnet, nil)
-	mockVPC.On("GetByID", mock.Anything, vpcID).Return(&domain.VPC{ID: vpcID}, nil)
-	mockEIP.On("GetByID", mock.Anything, eipID).Return(eip, nil)
-
-	_, err := svc.CreateNATGateway(ctx, subnetID, eipID)
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "allocated")
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+			} else {
+				require.NoError(t, err)
+				assert.NotNil(t, nat)
+				assert.Equal(t, subnetID, nat.SubnetID)
+				assert.Equal(t, eipID, nat.ElasticIPID)
+				assert.Equal(t, domain.NATGatewayStatusActive, nat.Status)
+			}
+		})
+	}
 }
 
 func TestNATGatewayService_DeleteNATGateway(t *testing.T) {
-	mockNAT := new(MockNATGatewayRepo)
-	mockSubnet := new(MockSubnetRepo)
-	mockVPC := new(MockVpcRepo)
-	mockEIP := new(MockEIPRepo)
-	mockNetwork := new(MockNetworkBackend)
-	mockRBAC := new(MockRBACService)
-	mockAudit := new(MockAuditService)
-
-	svc := services.NewNATGatewayService(services.NATGatewayServiceParams{
-		Repo:       mockNAT,
-		SubnetRepo: mockSubnet,
-		VpcRepo:    mockVPC,
-		EIPRepo:    mockEIP,
-		Network:    mockNetwork,
-		RBACSvc:    mockRBAC,
-		AuditSvc:   mockAudit,
-		Logger:     slog.Default(),
-	})
-
-	ctx := context.Background()
 	userID := uuid.New()
 	tenantID := uuid.New()
-	ctx = appcontext.WithUserID(ctx, userID)
-	ctx = appcontext.WithTenantID(ctx, tenantID)
-
 	natID := uuid.New()
 	subnetID := uuid.New()
 	eipID := uuid.New()
 	vpcID := uuid.New()
+
 	nat := &domain.NATGateway{ID: natID, SubnetID: subnetID, ElasticIPID: eipID, Status: domain.NATGatewayStatusActive, VPCID: vpcID, UserID: userID, TenantID: tenantID}
 	subnet := &domain.Subnet{ID: subnetID, CIDRBlock: "10.0.0.0/24"}
 	vpc := &domain.VPC{ID: vpcID, NetworkID: "br-vpc"}
 	eip := &domain.ElasticIP{ID: eipID, Status: domain.EIPStatusAssociated, PublicIP: "203.0.113.10"}
 
-	mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	mockNAT.On("GetByID", mock.Anything, natID).Return(nat, nil)
-	mockSubnet.On("GetByID", mock.Anything, subnetID).Return(subnet, nil)
-	mockVPC.On("GetByID", mock.Anything, vpcID).Return(vpc, nil)
-	mockEIP.On("GetByID", mock.Anything, eipID).Return(eip, nil)
-	mockEIP.On("Update", mock.Anything, mock.AnythingOfType("*domain.ElasticIP")).Return(nil)
-	mockNetwork.On("RemoveNATForSubnet", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	mockNAT.On("Delete", mock.Anything, natID).Return(nil)
-	mockAudit.On("Log", mock.Anything, mock.Anything, "nat_gateway.delete", "nat_gateway", mock.Anything, mock.Anything).Return(nil)
+	tests := []struct {
+		name        string
+		nat         *domain.NATGateway
+		subnet      *domain.Subnet
+		vpc         *domain.VPC
+		eip         *domain.ElasticIP
+		natGetErr   error
+		subnetGetErr error
+		vpcGetErr    error
+		eipGetErr    error
+		networkErr   error
+		wantErr      bool
+		errContains  string
+	}{
+		{
+			name:    "success",
+			nat:     nat,
+			subnet:  subnet,
+			vpc:     vpc,
+			eip:     eip,
+			wantErr: false,
+		},
+		{
+			name:       "nat not found",
+			natGetErr:  errors.New("not found"),
+			wantErr:    true,
+			errContains: "not found",
+		},
+		{
+			name:        "subnet not found",
+			nat:         nat,
+			subnetGetErr: errors.New("subnet not found"),
+			wantErr:     true,
+			errContains: "subnet",
+		},
+		{
+			name:     "vpc not found",
+			nat:      nat,
+			subnet:   subnet,
+			vpcGetErr: errors.New("vpc not found"),
+			wantErr:  true,
+			errContains: "vpc",
+		},
+		{
+			name:      "eip not found",
+			nat:       nat,
+			subnet:    subnet,
+			vpc:       vpc,
+			eipGetErr: errors.New("eip not found"),
+			wantErr:  true,
+			errContains: "eip",
+		},
+	}
 
-	err := svc.DeleteNATGateway(ctx, natID)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mocks := setupNATGatewaySvcMocks()
+			mocks.expectAuthSuccess()
 
-	require.NoError(t, err)
-	mockNAT.AssertExpectations(t)
-}
+			if tt.natGetErr != nil {
+				mocks.nat.On("GetByID", mock.Anything, natID).Return(nil, tt.natGetErr)
+			} else {
+				mocks.nat.On("GetByID", mock.Anything, natID).Return(tt.nat, nil)
+				mocks.subnet.On("GetByID", mock.Anything, tt.nat.SubnetID).Return(tt.subnet, tt.subnetGetErr)
+			}
+			if tt.subnetGetErr == nil && tt.subnet != nil {
+				mocks.vpc.On("GetByID", mock.Anything, tt.nat.VPCID).Return(tt.vpc, tt.vpcGetErr)
+			}
+			if tt.vpcGetErr == nil && tt.vpc != nil {
+				mocks.eip.On("GetByID", mock.Anything, tt.nat.ElasticIPID).Return(tt.eip, tt.eipGetErr)
+			}
 
-func TestNATGatewayService_DeleteNATGateway_NotFound(t *testing.T) {
-	mockNAT := new(MockNATGatewayRepo)
-	mockRBAC := new(MockRBACService)
+			if !tt.wantErr {
+				mocks.eip.On("Update", mock.Anything, mock.AnythingOfType("*domain.ElasticIP")).Return(nil).Maybe()
+				mocks.network.On("RemoveNATForSubnet", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tt.networkErr).Maybe()
+				if tt.networkErr == nil {
+					mocks.nat.On("Delete", mock.Anything, natID).Return(nil).Maybe()
+					mocks.audit.On("Log", mock.Anything, mock.Anything, "nat_gateway.delete", "nat_gateway", mock.Anything, mock.Anything).Return(nil).Maybe()
+				}
+			}
 
-	svc := services.NewNATGatewayService(services.NATGatewayServiceParams{
-		Repo:     mockNAT,
-		RBACSvc:  mockRBAC,
-		Logger:   slog.Default(),
-	})
+			ctx := newTestCtx(userID, tenantID)
+			err := mocks.service().DeleteNATGateway(ctx, natID)
 
-	ctx := context.Background()
-	userID := uuid.New()
-	tenantID := uuid.New()
-	ctx = appcontext.WithUserID(ctx, userID)
-	ctx = appcontext.WithTenantID(ctx, tenantID)
-
-	natID := uuid.New()
-	mockRBAC.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	mockNAT.On("GetByID", mock.Anything, natID).Return(nil, errors.New("not found"))
-
-	err := svc.DeleteNATGateway(ctx, natID)
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
