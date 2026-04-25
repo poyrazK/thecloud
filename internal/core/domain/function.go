@@ -9,9 +9,11 @@ import (
 )
 
 // EnvVar represents a key-value environment variable for a function.
+// Value and SecretRef are mutually exclusive — at least one must be set when an EnvVar is provided.
 type EnvVar struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	Key       string `json:"key"`
+	Value     string `json:"value,omitempty"`
+	SecretRef string `json:"secret_ref,omitempty"` // reference to a Secret, e.g. "@my-api-key"
 }
 
 // FunctionUpdate describes fields that can be updated on a function.
@@ -34,6 +36,14 @@ func (u *FunctionUpdate) Validate() error {
 	}
 	if u.MemoryMB != nil && (*u.MemoryMB < 64 || *u.MemoryMB > 10240) {
 		return errors.New(errors.InvalidInput, "memory must be between 64 and 10240 MB")
+	}
+	for _, e := range u.EnvVars {
+		if e.Value != "" && e.SecretRef != "" {
+			return errors.New(errors.InvalidInput, "env var cannot have both value and secret_ref")
+		}
+		if e.Value == "" && e.SecretRef == "" {
+			return errors.New(errors.InvalidInput, "env var must have either value or secret_ref")
+		}
 	}
 	return nil
 }
