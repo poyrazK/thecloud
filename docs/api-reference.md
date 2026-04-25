@@ -243,6 +243,75 @@ Get the VNC console URL for the instance.
 
 ---
 
+## Images
+
+**Headers Required:** `X-API-Key: <your-api-key>`
+
+### GET /images
+List all images available to the authenticated user (own + public).
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid",
+    "name": "ubuntu-22.04",
+    "description": "Ubuntu 22.04 LTS",
+    "os": "linux",
+    "version": "22.04",
+    "format": "qcow2",
+    "size_gb": 2,
+    "is_public": false,
+    "status": "ACTIVE",
+    "created_at": "2026-04-21T10:00:00Z"
+  }
+]
+```
+
+### POST /images
+Register a new image (metadata only; upload the file separately via `POST /images/:id/upload`).
+
+**Request:**
+```json
+{
+  "name": "my-custom-image",
+  "description": "My custom OS image",
+  "os": "linux",
+  "version": "22.04",
+  "is_public": false
+}
+```
+
+### GET /images/:id
+Get details of a specific image.
+
+### DELETE /images/:id
+Delete an image and its associated file from storage.
+
+### POST /images/:id/upload
+Upload the qcow2/image file for a registered image (multipart/form-data).
+
+**Form field:** `file` — the image binary file.
+
+### POST /images/import
+Import an image from a remote URL. The file is downloaded and stored automatically.
+
+**Request:**
+```json
+{
+  "name": "ubuntu-22.04-cloud",
+  "url": "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img",
+  "description": "Ubuntu 22.04 LTS cloud image",
+  "os": "linux",
+  "version": "22.04",
+  "is_public": false
+}
+```
+
+**Response:** `202 Accepted` — image metadata is returned immediately. The image status transitions from `PENDING` to `ACTIVE` once the download completes.
+
+---
+
 ## Networks (VPC)
 
 **Headers Required:** `X-API-Key: <your-api-key>`
@@ -879,6 +948,35 @@ Update a function's configuration (timeout, memory, handler, environment variabl
   ]
 }
 ```
+
+### GET /function-schedules
+List all function schedules.
+
+### POST /function-schedules
+Create a scheduled function invocation.
+```json
+{
+  "function_id": "uuid",
+  "name": "nightly-processing",
+  "schedule": "0 2 * * *",
+  "payload": {}
+}
+```
+
+### GET /function-schedules/:id
+Get a specific schedule.
+
+### DELETE /function-schedules/:id
+Delete a schedule.
+
+### POST /function-schedules/:id/pause
+Pause a schedule.
+
+### POST /function-schedules/:id/resume
+Resume a paused schedule.
+
+### GET /function-schedules/:id/runs
+Get run history for a schedule.
 
 ---
 

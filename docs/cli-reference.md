@@ -811,6 +811,54 @@ cloud function update my-func --env FOO=bar --env DEBUG=true
 - `--memory`: Memory in MB (64-10240)
 - `--env`: Environment variable KEY=VALUE (can be repeated)
 
+### `fn-schedule create`
+
+Create a scheduled function invocation.
+
+```bash
+cloud fn-schedule create --name nightly --function my-func --schedule "0 2 * * *"
+```
+
+### `fn-schedule list`
+
+List all function schedules.
+
+```bash
+cloud fn-schedule list
+```
+
+### `fn-schedule pause <id>`
+
+Pause a schedule to temporarily prevent invocations.
+
+```bash
+cloud fn-schedule pause [schedule-id]
+```
+
+### `fn-schedule resume <id>`
+
+Resume a paused schedule.
+
+```bash
+cloud fn-schedule resume [schedule-id]
+```
+
+### `fn-schedule logs <id>`
+
+View run history for a schedule.
+
+```bash
+cloud fn-schedule logs [schedule-id]
+```
+
+### `fn-schedule rm <id>`
+
+Delete a function schedule.
+
+```bash
+cloud fn-schedule rm [schedule-id]
+```
+
 ---
 
 ## Tips & Tricks
