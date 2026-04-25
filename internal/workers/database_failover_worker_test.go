@@ -210,6 +210,18 @@ func (m *mockComputeBackend) Ping(ctx context.Context) error {
 func (m *mockComputeBackend) Type() string {
 	return "mock"
 }
+func (m *mockComputeBackend) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
+	return m.Called(ctx, id, cpu, memory).Error(0)
+}
+func (m *mockComputeBackend) CreateSnapshot(ctx context.Context, id, name string) error {
+	return m.Called(ctx, id, name).Error(0)
+}
+func (m *mockComputeBackend) RestoreSnapshot(ctx context.Context, id, name string) error {
+	return m.Called(ctx, id, name).Error(0)
+}
+func (m *mockComputeBackend) DeleteSnapshot(ctx context.Context, id, name string) error {
+	return m.Called(ctx, id, name).Error(0)
+}
 
 func TestDatabaseFailoverWorker(t *testing.T) {
 	t.Parallel()

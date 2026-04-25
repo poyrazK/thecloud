@@ -109,6 +109,22 @@ func (m *mockCompute) Ping(_ context.Context) error {
 	m.callCount.Add(1)
 	return m.err
 }
+func (m *mockCompute) ResizeInstance(_ context.Context, _ string, _, _ int64) error {
+	m.callCount.Add(1)
+	return m.err
+}
+func (m *mockCompute) CreateSnapshot(_ context.Context, _, _ string) error {
+	m.callCount.Add(1)
+	return m.err
+}
+func (m *mockCompute) RestoreSnapshot(_ context.Context, _, _ string) error {
+	m.callCount.Add(1)
+	return m.err
+}
+func (m *mockCompute) DeleteSnapshot(_ context.Context, _, _ string) error {
+	m.callCount.Add(1)
+	return m.err
+}
 func (m *mockCompute) Type() string { return "mock" }
 
 // ---------- tests ----------

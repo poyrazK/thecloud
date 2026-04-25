@@ -104,3 +104,19 @@ func (a *FirecrackerAdapter) Ping(ctx context.Context) error {
 func (a *FirecrackerAdapter) Type() string {
 	return "firecracker-noop"
 }
+
+func (a *FirecrackerAdapter) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
+	return fmt.Errorf("firecracker not supported on this platform")
+}
+
+func (a *FirecrackerAdapter) CreateSnapshot(ctx context.Context, id, name string) error {
+	return fmt.Errorf("firecracker not supported on this platform")
+}
+
+func (a *FirecrackerAdapter) RestoreSnapshot(ctx context.Context, id, name string) error {
+	return fmt.Errorf("firecracker not supported on this platform")
+}
+
+func (a *FirecrackerAdapter) DeleteSnapshot(ctx context.Context, id, name string) error {
+	return fmt.Errorf("firecracker not supported on this platform")
+}
