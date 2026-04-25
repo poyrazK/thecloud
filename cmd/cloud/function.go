@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -179,6 +181,65 @@ var rmFnCmd = &cobra.Command{
 	},
 }
 
+var updateFnCmd = &cobra.Command{
+	Use:   "update [name/id]",
+	Short: "Update a function's configuration",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		id := args[0]
+		client := createClient(opts)
+
+		targetID := id
+		functions, err := client.ListFunctions()
+		if err == nil {
+			for _, f := range functions {
+				if f.Name == id {
+					targetID = f.ID
+					break
+				}
+			}
+		}
+
+		handler, _ := cmd.Flags().GetString("handler")
+		timeout, _ := cmd.Flags().GetInt("timeout")
+		memoryMB, _ := cmd.Flags().GetInt("memory")
+		envVarsStr, _ := cmd.Flags().GetStringSlice("env")
+
+		var handlerPtr *string
+		if handler != "" {
+			handlerPtr = &handler
+		}
+		var timeoutPtr *int
+		if cmd.Flags().Changed("timeout") {
+			timeoutPtr = &timeout
+		}
+		var memoryPtr *int
+		if cmd.Flags().Changed("memory") {
+			memoryPtr = &memoryMB
+		}
+
+		var envVars []*sdk.EnvVar
+		for _, e := range envVarsStr {
+			parts := strings.SplitN(e, "=", 2)
+			if len(parts) == 2 {
+				envVars = append(envVars, &sdk.EnvVar{Key: parts[0], Value: parts[1]})
+			}
+		}
+
+		fn, err := client.UpdateFunction(targetID, &sdk.FunctionUpdateRequest{
+			Handler:  handlerPtr,
+			Timeout:  timeoutPtr,
+			MemoryMB: memoryPtr,
+			EnvVars:  envVars,
+		})
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Function %s updated (ID: %s)\n", fn.Name, fn.ID)
+		return nil
+	},
+}
+
 func init() {
 	createFnCmd.Flags().StringP("name", "n", "", "Function name")
 	createFnCmd.Flags().StringP("runtime", "r", "nodejs20", "Runtime (nodejs20, python312, go122, ruby33, java21)")
@@ -191,9 +252,15 @@ func init() {
 	invokeFnCmd.Flags().StringP("payload-file", "f", "", "Path to payload file")
 	invokeFnCmd.Flags().BoolP("async", "a", false, "Invoke asynchronously")
 
+	updateFnCmd.Flags().StringP("handler", "H", "", "Handler name")
+	updateFnCmd.Flags().Int("timeout", 0, "Timeout in seconds (1-900)")
+	updateFnCmd.Flags().Int("memory", 0, "Memory in MB (64-10240)")
+	updateFnCmd.Flags().StringSlice("env", []string{}, "Environment variable KEY=VALUE")
+
 	functionCmd.AddCommand(createFnCmd)
 	functionCmd.AddCommand(listFnCmd)
 	functionCmd.AddCommand(invokeFnCmd)
 	functionCmd.AddCommand(logsFnCmd)
 	functionCmd.AddCommand(rmFnCmd)
+	functionCmd.AddCommand(updateFnCmd)
 }
