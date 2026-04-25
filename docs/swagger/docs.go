@@ -4130,6 +4130,254 @@ const docTemplate = `{
                 }
             }
         },
+        "/internet-gateways": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internet-gateways"
+                ],
+                "summary": "List Internet Gateways",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.InternetGateway"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internet-gateways"
+                ],
+                "summary": "Create Internet Gateway",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.InternetGateway"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/internet-gateways/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internet-gateways"
+                ],
+                "summary": "Get Internet Gateway",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Internet Gateway ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.InternetGateway"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "internet-gateways"
+                ],
+                "summary": "Delete Internet Gateway",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Internet Gateway ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/internet-gateways/{id}/attach": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "internet-gateways"
+                ],
+                "summary": "Attach Internet Gateway",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Internet Gateway ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Attach Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.IGWAttachRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/internet-gateways/{id}/detach": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "internet-gateways"
+                ],
+                "summary": "Detach Internet Gateway",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Internet Gateway ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/lb": {
             "get": {
                 "security": [
@@ -4534,6 +4782,183 @@ const docTemplate = `{
                 }
             }
         },
+        "/nat-gateways": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "nat-gateways"
+                ],
+                "summary": "List NAT Gateways",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "VPC ID to filter by",
+                        "name": "vpc_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.NATGateway"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "nat-gateways"
+                ],
+                "summary": "Create NAT Gateway",
+                "parameters": [
+                    {
+                        "description": "NAT Gateway Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.CreateNATGatewayRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.NATGateway"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/nat-gateways/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "nat-gateways"
+                ],
+                "summary": "Get NAT Gateway",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "NAT Gateway ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.NATGateway"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "nat-gateways"
+                ],
+                "summary": "Delete NAT Gateway",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "NAT Gateway ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/rbac/bindings": {
             "get": {
                 "description": "Returns all user-role assignments",
@@ -4791,6 +5216,388 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/route-tables": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "route-tables"
+                ],
+                "summary": "List Route Tables",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "VPC ID to filter by",
+                        "name": "vpc_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.RouteTable"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "route-tables"
+                ],
+                "summary": "Create Route Table",
+                "parameters": [
+                    {
+                        "description": "Route Table Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.CreateRouteTableRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.RouteTable"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/route-tables/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "route-tables"
+                ],
+                "summary": "Get Route Table",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Route Table ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.RouteTable"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "route-tables"
+                ],
+                "summary": "Delete Route Table",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Route Table ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/route-tables/{id}/associate": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "route-tables"
+                ],
+                "summary": "Associate Subnet",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Route Table ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Subnet Association Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.AssociateSubnetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/route-tables/{id}/disassociate": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "route-tables"
+                ],
+                "summary": "Disassociate Subnet",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Route Table ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Subnet Disassociation Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.AssociateSubnetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/route-tables/{id}/routes": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "route-tables"
+                ],
+                "summary": "Add Route",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Route Table ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Route Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.AddRouteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Route"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/route-tables/{id}/routes/{route_id}": {
+            "delete": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "route-tables"
+                ],
+                "summary": "Remove Route",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Route Table ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Route ID",
+                        "name": "route_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
                     }
                 }
             }
@@ -7119,6 +7926,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Force delete even with dependent resources (for async cleanup)",
+                        "name": "force",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -7903,6 +8716,17 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.IGWStatus": {
+            "type": "string",
+            "enum": [
+                "detached",
+                "attached"
+            ],
+            "x-enum-varnames": [
+                "IGWStatusDetached",
+                "IGWStatusAttached"
+            ]
+        },
         "domain.Image": {
             "type": "object",
             "properties": {
@@ -8150,6 +8974,32 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.InternetGateway": {
+            "type": "object",
+            "properties": {
+                "arn": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/domain.IGWStatus"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "vpc_id": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.LBStatus": {
             "type": "string",
             "enum": [
@@ -8305,6 +9155,56 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.NATGateway": {
+            "type": "object",
+            "properties": {
+                "arn": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "elastic_ip_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "private_ip": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/domain.NATGatewayStatus"
+                },
+                "subnet_id": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "vpc_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.NATGatewayStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "active",
+                "failed",
+                "deleted"
+            ],
+            "x-enum-varnames": [
+                "NATGatewayStatusPending",
+                "NATGatewayStatusActive",
+                "NATGatewayStatusFailed",
+                "NATGatewayStatusDeleted"
+            ]
+        },
         "domain.NodeGroup": {
             "type": "object",
             "properties": {
@@ -8458,6 +9358,11 @@ const docTemplate = `{
                 "function:create",
                 "function:delete",
                 "function:read",
+                "function:update",
+                "function_schedule:create",
+                "function_schedule:read",
+                "function_schedule:delete",
+                "function_schedule:update",
                 "cache:create",
                 "cache:delete",
                 "cache:read",
@@ -8571,6 +9476,11 @@ const docTemplate = `{
                 "PermissionFunctionCreate",
                 "PermissionFunctionDelete",
                 "PermissionFunctionRead",
+                "PermissionFunctionUpdate",
+                "PermissionFunctionScheduleCreate",
+                "PermissionFunctionScheduleRead",
+                "PermissionFunctionScheduleDelete",
+                "PermissionFunctionScheduleUpdate",
                 "PermissionCacheCreate",
                 "PermissionCacheDelete",
                 "PermissionCacheRead",
@@ -8751,6 +9661,96 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "domain.Route": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "destination_cidr": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "route_table_id": {
+                    "type": "string"
+                },
+                "target_id": {
+                    "type": "string"
+                },
+                "target_name": {
+                    "type": "string"
+                },
+                "target_type": {
+                    "$ref": "#/definitions/domain.RouteTargetType"
+                }
+            }
+        },
+        "domain.RouteTable": {
+            "type": "object",
+            "properties": {
+                "associations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.RouteTableAssociation"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_main": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "routes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.Route"
+                    }
+                },
+                "vpc_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.RouteTableAssociation": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "route_table_id": {
+                    "type": "string"
+                },
+                "subnet_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.RouteTargetType": {
+            "type": "string",
+            "enum": [
+                "local",
+                "igw",
+                "nat",
+                "peering"
+            ],
+            "x-enum-varnames": [
+                "RouteTargetLocal",
+                "RouteTargetIGW",
+                "RouteTargetNAT",
+                "RouteTargetPeering"
+            ]
         },
         "domain.RoutingPolicy": {
             "type": "string",
@@ -9519,6 +10519,24 @@ const docTemplate = `{
                 }
             }
         },
+        "httphandlers.AddRouteRequest": {
+            "type": "object",
+            "required": [
+                "destination_cidr",
+                "target_type"
+            ],
+            "properties": {
+                "destination_cidr": {
+                    "type": "string"
+                },
+                "target_id": {
+                    "type": "string"
+                },
+                "target_type": {
+                    "type": "string"
+                }
+            }
+        },
         "httphandlers.AddTargetRequest": {
             "type": "object",
             "required": [
@@ -9544,6 +10562,17 @@ const docTemplate = `{
             ],
             "properties": {
                 "instance_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "httphandlers.AssociateSubnetRequest": {
+            "type": "object",
+            "required": [
+                "subnet_id"
+            ],
+            "properties": {
+                "subnet_id": {
                     "type": "string"
                 }
             }
@@ -9776,6 +10805,21 @@ const docTemplate = `{
                 }
             }
         },
+        "httphandlers.CreateNATGatewayRequest": {
+            "type": "object",
+            "required": [
+                "eip_id",
+                "subnet_id"
+            ],
+            "properties": {
+                "eip_id": {
+                    "type": "string"
+                },
+                "subnet_id": {
+                    "type": "string"
+                }
+            }
+        },
         "httphandlers.CreatePeeringRequest": {
             "type": "object",
             "required": [
@@ -9866,6 +10910,24 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "target_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "httphandlers.CreateRouteTableRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "vpc_id"
+            ],
+            "properties": {
+                "is_main": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "vpc_id": {
                     "type": "string"
                 }
             }
@@ -9982,6 +11044,17 @@ const docTemplate = `{
             ],
             "properties": {
                 "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "httphandlers.IGWAttachRequest": {
+            "type": "object",
+            "required": [
+                "vpc_id"
+            ],
+            "properties": {
+                "vpc_id": {
                     "type": "string"
                 }
             }

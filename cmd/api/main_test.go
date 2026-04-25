@@ -158,12 +158,115 @@ func TestRunApplicationApiRoleStartsAndShutsDown(t *testing.T) {
 		}()
 	}
 
-	runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), &setup.Workers{})
+	err := runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), &setup.Workers{})
+	if err != nil {
+		t.Fatalf("runApplication returned error: %v", err)
+	}
 
 	select {
 	case <-shutdownCalled:
 	case <-time.After(time.Second):
 		t.Fatalf("expected server shutdown to be called")
+	}
+}
+
+func TestRunApplicationWorkerRoleDoesNotStartHTTP(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	t.Setenv("ROLE", "worker")
+
+	deps := DefaultDeps()
+
+	deps.NewHTTPServer = func(string, http.Handler) *http.Server {
+		t.Fatalf("NewHTTPServer should not be called in worker-only mode")
+		return nil
+	}
+	deps.StartHTTPServer = func(*http.Server) error {
+		t.Fatalf("StartHTTPServer should not be called in worker-only mode")
+		return nil
+	}
+	deps.ShutdownHTTPServer = func(context.Context, *http.Server) error {
+		t.Fatalf("ShutdownHTTPServer should not be called in worker-only mode")
+		return nil
+	}
+	deps.NotifySignals = func(c chan<- os.Signal, _ ...os.Signal) {
+		go func() {
+			// Give workers a moment to start, then signal shutdown
+			time.Sleep(50 * time.Millisecond)
+			c <- syscall.SIGTERM
+		}()
+	}
+
+	err := runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), &setup.Workers{})
+	if err != nil {
+		t.Fatalf("runApplication returned error: %v", err)
+	}
+	// If we reach here without t.Fatalf, the test passes — no HTTP server was touched.
+}
+
+func TestRunApplicationDefaultsToAllRole(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	t.Setenv("ROLE", "") // Explicitly empty to verify default
+
+	started := make(chan struct{})
+	shutdownCalled := make(chan struct{})
+	deps := DefaultDeps()
+
+	deps.NewHTTPServer = func(addr string, handler http.Handler) *http.Server {
+		return &http.Server{
+			Addr:              addr,
+			Handler:           handler,
+			ReadHeaderTimeout: 10 * time.Second,
+		}
+	}
+	deps.StartHTTPServer = func(*http.Server) error {
+		close(started)
+		return http.ErrServerClosed
+	}
+	deps.ShutdownHTTPServer = func(context.Context, *http.Server) error {
+		close(shutdownCalled)
+		return nil
+	}
+	deps.NotifySignals = func(c chan<- os.Signal, _ ...os.Signal) {
+		go func() {
+			<-started
+			c <- syscall.SIGTERM
+		}()
+	}
+
+	err := runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), &setup.Workers{})
+	if err != nil {
+		t.Fatalf("runApplication returned error: %v", err)
+	}
+
+	select {
+	case <-shutdownCalled:
+	case <-time.After(time.Second):
+		t.Fatalf("expected server shutdown to be called when ROLE defaults to 'all'")
+	}
+}
+
+func TestRunApplicationInvalidRoleReturnsEarly(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	t.Setenv("ROLE", "invalid")
+
+	deps := DefaultDeps()
+
+	deps.NewHTTPServer = func(string, http.Handler) *http.Server {
+		t.Fatalf("NewHTTPServer should not be called for invalid role")
+		return nil
+	}
+	deps.StartHTTPServer = func(*http.Server) error {
+		t.Fatalf("StartHTTPServer should not be called for invalid role")
+		return nil
+	}
+	deps.NotifySignals = func(c chan<- os.Signal, _ ...os.Signal) {
+		t.Fatalf("NotifySignals should not be called for invalid role")
+	}
+
+	// Should return immediately without starting anything
+	err := runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), &setup.Workers{})
+	if err == nil {
+		t.Fatalf("expected error for invalid role")
 	}
 }
 

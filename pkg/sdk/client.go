@@ -50,10 +50,10 @@ type ErrorResponse struct {
 
 // get performs a GET request against the API.
 func (c *Client) get(path string, result interface{}) error {
-	return c.getWithContext(context.Background(), path, result)
+	return c.getContext(context.Background(), path, result)
 }
 
-func (c *Client) getWithContext(ctx context.Context, path string, result interface{}) error {
+func (c *Client) getContext(ctx context.Context, path string, result interface{}) error {
 	resp, err := c.resty.R().
 		SetContext(ctx).
 		SetResult(result).
@@ -70,11 +70,15 @@ func (c *Client) getWithContext(ctx context.Context, path string, result interfa
 	return nil
 }
 
-func (c *Client) post(path string, body interface{}, result interface{}) error {
-	return c.postWithContext(context.Background(), path, body, result)
+func (c *Client) getWithContext(ctx context.Context, path string, result interface{}) error {
+	return c.getContext(ctx, path, result)
 }
 
-func (c *Client) postWithContext(ctx context.Context, path string, body interface{}, result interface{}) error {
+func (c *Client) post(path string, body interface{}, result interface{}) error {
+	return c.postContext(context.Background(), path, body, result)
+}
+
+func (c *Client) postContext(ctx context.Context, path string, body interface{}, result interface{}) error {
 	req := c.resty.R().SetContext(ctx)
 	if body != nil {
 		req.SetBody(body)
@@ -93,6 +97,10 @@ func (c *Client) postWithContext(ctx context.Context, path string, body interfac
 	}
 
 	return nil
+}
+
+func (c *Client) postWithContext(ctx context.Context, path string, body interface{}, result interface{}) error {
+	return c.postContext(ctx, path, body, result)
 }
 
 func (c *Client) delete(path string, result interface{}) error {

@@ -206,7 +206,7 @@ func runVpcIntegrationTest(t *testing.T, client *http.Client, token string) {
 			respDb.Body.Close()
 		}
 		// Cleanup VPC if DB fails
-		respDelVpc := deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpcID), token)
+		respDelVpc := deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s?force=true", testutil.TestBaseURL, vpcID), token)
 		if respDelVpc != nil && respDelVpc.Body != nil {
 			respDelVpc.Body.Close()
 		}
@@ -226,7 +226,7 @@ func runVpcIntegrationTest(t *testing.T, client *http.Client, token string) {
 	if respDel1 != nil && respDel1.Body != nil {
 		respDel1.Body.Close()
 	}
-	respDel2 := deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s", testutil.TestBaseURL, vpcID), token)
+	respDel2 := deleteRequest(t, client, fmt.Sprintf("%s/vpcs/%s?force=true", testutil.TestBaseURL, vpcID), token)
 	if respDel2 != nil && respDel2.Body != nil {
 		respDel2.Body.Close()
 	}

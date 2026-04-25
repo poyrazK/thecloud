@@ -221,3 +221,35 @@ func TestOvsAdapterListFlowRules(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, rules)
 }
+
+func TestOvsAdapterSetupNATForSubnet(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		fx := &fakeExecer{cmd: &fakeCmd{}}
+		a := &OvsAdapter{logger: slog.Default(), exec: fx}
+
+		err := a.SetupNATForSubnet(context.Background(), "br0", "nat0", "10.0.0.0/24", "203.0.113.10")
+		require.NoError(t, err)
+	})
+}
+
+func TestOvsAdapterRemoveNATForSubnet(t *testing.T) {
+	t.Run("success when rule exists", func(t *testing.T) {
+		// Rule exists on first check (checkCmd.Run() returns nil)
+		// Then delete succeeds - both commands succeed
+		fx := &fakeExecer{cmd: &fakeCmd{}}
+		a := &OvsAdapter{logger: slog.Default(), exec: fx}
+
+		err := a.RemoveNATForSubnet(context.Background(), "br0", "nat0", "10.0.0.0/24", "203.0.113.10")
+		require.NoError(t, err)
+	})
+
+	t.Run("success when rule does not exist", func(t *testing.T) {
+		// Check command returns error (rule doesn't exist), so delete is not called
+		// The function returns nil because there's nothing to clean up
+		fx := &fakeExecer{cmd: &fakeCmd{runErr: errors.New("iptables: No rule exists")}}
+		a := &OvsAdapter{logger: slog.Default(), exec: fx}
+
+		err := a.RemoveNATForSubnet(context.Background(), "br0", "nat0", "10.0.0.0/24", "203.0.113.10")
+		require.NoError(t, err)
+	})
+}

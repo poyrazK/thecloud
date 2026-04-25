@@ -81,6 +81,15 @@ func (m *mockFunctionService) GetFunctionLogs(ctx context.Context, id uuid.UUID,
 	return r0, args.Error(1)
 }
 
+func (m *mockFunctionService) UpdateFunction(ctx context.Context, id uuid.UUID, req *domain.FunctionUpdate) (*domain.Function, error) {
+	args := m.Called(ctx, id, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	r0, _ := args.Get(0).(*domain.Function)
+	return r0, args.Error(1)
+}
+
 func setupFunctionHandlerTest(_ *testing.T) (*mockFunctionService, *FunctionHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockFunctionService)
@@ -380,6 +389,52 @@ func TestFunctionHandlerDeleteError(t *testing.T) {
 		id := uuid.New()
 		svc.On("DeleteFunction", mock.Anything, id).Return(errors.New(errors.Internal, "error"))
 		req, _ := http.NewRequest(http.MethodDelete, functionsPath+"/"+id.String(), nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		svc.AssertExpectations(t)
+	})
+}
+
+func TestFunctionHandlerUpdate(t *testing.T) {
+	t.Parallel()
+	svc, handler, r := setupFunctionHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.PATCH(functionsPath+"/:id", handler.Update)
+
+	id := uuid.New()
+	fn := &domain.Function{ID: id, Name: testFunctionName, Timeout: 300}
+	svc.On("UpdateFunction", mock.Anything, id, mock.Anything).Return(fn, nil)
+
+	body := `{"timeout":300}`
+	req, err := http.NewRequest(http.MethodPatch, functionsPath+"/"+id.String(), strings.NewReader(body))
+	require.NoError(t, err)
+	req.Header.Set(hdrContentType, "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestFunctionHandlerUpdateError(t *testing.T) {
+	t.Parallel()
+	t.Run("InvalidID", func(t *testing.T) {
+		_, handler, r := setupFunctionHandlerTest(t)
+		r.PATCH(functionsPath+"/:id", handler.Update)
+		req, _ := http.NewRequest(http.MethodPatch, functionsPath+fnPathInvalid, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("ServiceError", func(t *testing.T) {
+		svc, handler, r := setupFunctionHandlerTest(t)
+		r.PATCH(functionsPath+"/:id", handler.Update)
+		id := uuid.New()
+		svc.On("UpdateFunction", mock.Anything, id, mock.Anything).Return(nil, errors.New(errors.Internal, "error"))
+		req, _ := http.NewRequest(http.MethodPatch, functionsPath+"/"+id.String(), strings.NewReader(`{}`))
+		req.Header.Set(hdrContentType, "application/json")
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
