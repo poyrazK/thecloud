@@ -20,13 +20,13 @@ type QueueRepository interface {
 	// Create saves a new message queue record.
 	Create(ctx context.Context, queue *domain.Queue) error
 	// GetByID retrieves a queue by its unique UUID.
-	GetByID(ctx context.Context, id, userID uuid.UUID) (*domain.Queue, error)
-	// GetByName retrieves a queue by name for a specific user.
-	GetByName(ctx context.Context, name string, userID uuid.UUID) (*domain.Queue, error)
-	// List returns all queues owned by a user.
-	List(ctx context.Context, userID uuid.UUID) ([]*domain.Queue, error)
+	GetByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.Queue, error)
+	// GetByName retrieves a queue by name for a specific tenant.
+	GetByName(ctx context.Context, name string, tenantID uuid.UUID) (*domain.Queue, error)
+	// List returns all queues for a tenant.
+	List(ctx context.Context, tenantID uuid.UUID) ([]*domain.Queue, error)
 	// Delete removes a queue and its associated messages.
-	Delete(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, id, tenantID uuid.UUID) error
 
 	// Messages
 

@@ -456,23 +456,23 @@ func (m *MockQueueRepo) Create(ctx context.Context, q *domain.Queue) error {
 	args := m.Called(ctx, q)
 	return args.Error(0)
 }
-func (m *MockQueueRepo) GetByID(ctx context.Context, id, userID uuid.UUID) (*domain.Queue, error) {
-	args := m.Called(ctx, id, userID)
+func (m *MockQueueRepo) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.Queue, error) {
+	args := m.Called(ctx, id, tenantID)
 	r0, _ := args.Get(0).(*domain.Queue)
 	return r0, args.Error(1)
 }
-func (m *MockQueueRepo) GetByName(ctx context.Context, name string, userID uuid.UUID) (*domain.Queue, error) {
-	args := m.Called(ctx, name, userID)
+func (m *MockQueueRepo) GetByName(ctx context.Context, name string, tenantID uuid.UUID) (*domain.Queue, error) {
+	args := m.Called(ctx, name, tenantID)
 	r0, _ := args.Get(0).(*domain.Queue)
 	return r0, args.Error(1)
 }
-func (m *MockQueueRepo) List(ctx context.Context, userID uuid.UUID) ([]*domain.Queue, error) {
-	args := m.Called(ctx, userID)
+func (m *MockQueueRepo) List(ctx context.Context, tenantID uuid.UUID) ([]*domain.Queue, error) {
+	args := m.Called(ctx, tenantID)
 	r0, _ := args.Get(0).([]*domain.Queue)
 	return r0, args.Error(1)
 }
-func (m *MockQueueRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	return m.Called(ctx, id).Error(0)
+func (m *MockQueueRepo) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
+	return m.Called(ctx, id, tenantID).Error(0)
 }
 func (m *MockQueueRepo) SendMessage(ctx context.Context, queueID uuid.UUID, body string) (*domain.Message, error) {
 	args := m.Called(ctx, queueID, body)
@@ -575,4 +575,145 @@ type MockRealtimePublisher struct{ mock.Mock }
 
 func (m *MockRealtimePublisher) PublishEvent(ctx context.Context, event *domain.WSEvent, tenantID uuid.UUID, userID *uuid.UUID) error {
 	return m.Called(ctx, event, tenantID, userID).Error(0)
+}
+
+// MockFunctionScheduleRepo
+type MockFunctionScheduleRepo struct{ mock.Mock }
+
+func (m *MockFunctionScheduleRepo) Create(ctx context.Context, s *domain.FunctionSchedule) error {
+	return m.Called(ctx, s).Error(0)
+}
+func (m *MockFunctionScheduleRepo) GetByID(ctx context.Context, id, userID, tenantID uuid.UUID) (*domain.FunctionSchedule, error) {
+	args := m.Called(ctx, id, userID, tenantID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.FunctionSchedule), args.Error(1)
+}
+func (m *MockFunctionScheduleRepo) List(ctx context.Context, userID, tenantID uuid.UUID) ([]*domain.FunctionSchedule, error) {
+	args := m.Called(ctx, userID, tenantID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.FunctionSchedule), args.Error(1)
+}
+func (m *MockFunctionScheduleRepo) Update(ctx context.Context, s *domain.FunctionSchedule) error {
+	return m.Called(ctx, s).Error(0)
+}
+func (m *MockFunctionScheduleRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockFunctionScheduleRepo) ClaimNextSchedulesToRun(ctx context.Context, lockTimeout time.Duration) ([]*domain.FunctionSchedule, error) {
+	args := m.Called(ctx, lockTimeout)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.FunctionSchedule), args.Error(1)
+}
+func (m *MockFunctionScheduleRepo) CompleteScheduleRun(ctx context.Context, run *domain.FunctionScheduleRun, schedule *domain.FunctionSchedule, nextRunAt time.Time) error {
+	return m.Called(ctx, run, schedule, nextRunAt).Error(0)
+}
+func (m *MockFunctionScheduleRepo) ReapStaleClaims(ctx context.Context) (int, error) {
+	args := m.Called(ctx)
+	return args.Int(0), args.Error(1)
+}
+func (m *MockFunctionScheduleRepo) GetScheduleRuns(ctx context.Context, scheduleID uuid.UUID, limit int) ([]*domain.FunctionScheduleRun, error) {
+	args := m.Called(ctx, scheduleID, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.FunctionScheduleRun), args.Error(1)
+}
+
+type MockFunctionScheduleRepository = MockFunctionScheduleRepo
+
+// MockFunctionService (for worker tests)
+type MockFunctionService struct{ mock.Mock }
+
+func (m *MockFunctionService) CreateFunction(ctx context.Context, name, runtime, handler string, code []byte) (*domain.Function, error) {
+	args := m.Called(ctx, name, runtime, handler, code)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Function), args.Error(1)
+}
+func (m *MockFunctionService) GetFunction(ctx context.Context, id uuid.UUID) (*domain.Function, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Function), args.Error(1)
+}
+func (m *MockFunctionService) ListFunctions(ctx context.Context) ([]*domain.Function, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Function), args.Error(1)
+}
+func (m *MockFunctionService) DeleteFunction(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockFunctionService) InvokeFunction(ctx context.Context, id uuid.UUID, payload []byte, async bool) (*domain.Invocation, error) {
+	args := m.Called(ctx, id, payload, async)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Invocation), args.Error(1)
+}
+func (m *MockFunctionService) GetFunctionLogs(ctx context.Context, id uuid.UUID, limit int) ([]*domain.Invocation, error) {
+	args := m.Called(ctx, id, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Invocation), args.Error(1)
+}
+func (m *MockFunctionService) UpdateFunction(ctx context.Context, id uuid.UUID, req *domain.FunctionUpdate) (*domain.Function, error) {
+	args := m.Called(ctx, id, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Function), args.Error(1)
+}
+
+type MockFunctionScheduleService = MockFunctionScheduleServiceImpl
+
+type MockFunctionScheduleServiceImpl struct{ mock.Mock }
+
+func (m *MockFunctionScheduleServiceImpl) CreateSchedule(ctx context.Context, functionID uuid.UUID, name, schedule string, payload []byte) (*domain.FunctionSchedule, error) {
+	args := m.Called(ctx, functionID, name, schedule, payload)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.FunctionSchedule), args.Error(1)
+}
+func (m *MockFunctionScheduleServiceImpl) ListSchedules(ctx context.Context) ([]*domain.FunctionSchedule, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.FunctionSchedule), args.Error(1)
+}
+func (m *MockFunctionScheduleServiceImpl) GetSchedule(ctx context.Context, id uuid.UUID) (*domain.FunctionSchedule, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.FunctionSchedule), args.Error(1)
+}
+func (m *MockFunctionScheduleServiceImpl) DeleteSchedule(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockFunctionScheduleServiceImpl) PauseSchedule(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockFunctionScheduleServiceImpl) ResumeSchedule(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockFunctionScheduleServiceImpl) GetScheduleRuns(ctx context.Context, id uuid.UUID, limit int) ([]*domain.FunctionScheduleRun, error) {
+	args := m.Called(ctx, id, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.FunctionScheduleRun), args.Error(1)
 }

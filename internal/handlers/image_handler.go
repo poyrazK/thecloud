@@ -29,6 +29,15 @@ type registerImageRequest struct {
 	IsPublic    bool   `json:"is_public"`
 }
 
+type importImageRequest struct {
+	Name        string `json:"name" binding:"required"`
+	URL         string `json:"url" binding:"required,url"`
+	Description string `json:"description"`
+	OS          string `json:"os" binding:"required"`
+	Version     string `json:"version" binding:"required"`
+	IsPublic    bool   `json:"is_public"`
+}
+
 // RegisterImage godoc
 // @Summary Register a new image
 // @Description Register a new VM image metadata before uploading the actual file
@@ -159,4 +168,29 @@ func (h *ImageHandler) DeleteImage(c *gin.Context) {
 	}
 
 	httputil.Success(c, http.StatusOK, gin.H{"message": "image deleted"})
+}
+
+// ImportImage godoc
+// @Summary Import image from URL
+// @Description Downloads an OS image from a remote URL and registers it
+// @Tags Images
+// @Accept json
+// @Produce json
+// @Param request body importImageRequest true "Import request"
+// @Success 202 {object} domain.Image
+// @Router /api/v1/images/import [post]
+func (h *ImageHandler) ImportImage(c *gin.Context) {
+	var req importImageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, errors.Wrap(errors.InvalidInput, err.Error(), err))
+		return
+	}
+
+	img, err := h.svc.ImportImage(c.Request.Context(), req.Name, req.URL, req.Description, req.OS, req.Version, req.IsPublic)
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusAccepted, img)
 }

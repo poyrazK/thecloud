@@ -187,4 +187,9 @@ func (f *fakeDockerClient) ContainerExecInspect(ctx context.Context, execID stri
 	return f.execInspect, nil
 }
 
+func (f *fakeDockerClient) ContainerRename(ctx context.Context, containerID string, newName string) error {
+	f.inc("ContainerRename")
+	return nil
+}
+
 var errFakeNotFound = errors.New("not found")

@@ -46,22 +46,22 @@ type WebhookTriggerOptions struct {
 type PipelineRepository interface {
 	CreatePipeline(ctx context.Context, pipeline *domain.Pipeline) error
 	GetPipelineByID(ctx context.Context, id uuid.UUID) (*domain.Pipeline, error)
-	GetPipeline(ctx context.Context, id, userID uuid.UUID) (*domain.Pipeline, error)
-	ListPipelines(ctx context.Context, userID uuid.UUID) ([]*domain.Pipeline, error)
+	GetPipeline(ctx context.Context, id, tenantID uuid.UUID) (*domain.Pipeline, error)
+	ListPipelines(ctx context.Context, tenantID uuid.UUID) ([]*domain.Pipeline, error)
 	UpdatePipeline(ctx context.Context, pipeline *domain.Pipeline) error
-	DeletePipeline(ctx context.Context, id, userID uuid.UUID) error
+	DeletePipeline(ctx context.Context, id, tenantID uuid.UUID) error
 
 	CreateBuild(ctx context.Context, build *domain.Build) error
-	GetBuild(ctx context.Context, id, userID uuid.UUID) (*domain.Build, error)
-	ListBuildsByPipeline(ctx context.Context, pipelineID, userID uuid.UUID) ([]*domain.Build, error)
+	GetBuild(ctx context.Context, id, tenantID uuid.UUID) (*domain.Build, error)
+	ListBuildsByPipeline(ctx context.Context, pipelineID, tenantID uuid.UUID) ([]*domain.Build, error)
 	UpdateBuild(ctx context.Context, build *domain.Build) error
 
 	CreateBuildStep(ctx context.Context, step *domain.BuildStep) error
-	ListBuildSteps(ctx context.Context, buildID, userID uuid.UUID) ([]*domain.BuildStep, error)
+	ListBuildSteps(ctx context.Context, buildID, tenantID uuid.UUID) ([]*domain.BuildStep, error)
 	UpdateBuildStep(ctx context.Context, step *domain.BuildStep) error
 
 	AppendBuildLog(ctx context.Context, log *domain.BuildLog) error
-	ListBuildLogs(ctx context.Context, buildID, userID uuid.UUID, limit int) ([]*domain.BuildLog, error)
+	ListBuildLogs(ctx context.Context, buildID, tenantID uuid.UUID, limit int) ([]*domain.BuildLog, error)
 	ReserveWebhookDelivery(ctx context.Context, pipelineID uuid.UUID, provider, event, deliveryID string) (bool, error)
 }
 

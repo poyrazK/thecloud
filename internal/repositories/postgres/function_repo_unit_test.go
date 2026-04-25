@@ -63,10 +63,10 @@ func TestFunctionRepositoryGetByID(t *testing.T) {
 	ctx := appcontext.WithTenantID(context.Background(), tenantID)
 	now := time.Now()
 
-	mock.ExpectQuery("SELECT id, user_id, tenant_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, created_at, updated_at FROM functions WHERE id = \\$1 AND tenant_id = \\$2").
+	mock.ExpectQuery("SELECT id, user_id, tenant_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, env_vars, created_at, updated_at FROM functions WHERE id = \\$1 AND tenant_id = \\$2").
 		WithArgs(id, tenantID).
-		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "runtime", "handler", "code_path", "timeout_seconds", "memory_mb", "status", "created_at", "updated_at"}).
-			AddRow(id, uuid.New(), tenantID, testFuncName, testFuncRuntime, testFuncHandler, testFuncPath, 30, 128, "ready", now, now))
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "runtime", "handler", "code_path", "timeout_seconds", "memory_mb", "status", "env_vars", "created_at", "updated_at"}).
+			AddRow(id, uuid.New(), tenantID, testFuncName, testFuncRuntime, testFuncHandler, testFuncPath, 30, 128, "ready", []byte("{}"), now, now))
 
 	f, err := repo.GetByID(ctx, id)
 	require.NoError(t, err)
@@ -87,10 +87,10 @@ func TestFunctionRepositoryList(t *testing.T) {
 	ctx := appcontext.WithTenantID(context.Background(), tenantID)
 	now := time.Now()
 
-	mock.ExpectQuery("SELECT id, user_id, tenant_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, created_at, updated_at FROM functions WHERE tenant_id = \\$1").
+	mock.ExpectQuery("SELECT id, user_id, tenant_id, name, runtime, handler, code_path, timeout_seconds, memory_mb, status, env_vars, created_at, updated_at FROM functions WHERE tenant_id = \\$1").
 		WithArgs(tenantID).
-		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "runtime", "handler", "code_path", "timeout_seconds", "memory_mb", "status", "created_at", "updated_at"}).
-			AddRow(uuid.New(), userID, tenantID, testFuncName, testFuncRuntime, testFuncHandler, testFuncPath, 30, 128, "ready", now, now))
+		WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "name", "runtime", "handler", "code_path", "timeout_seconds", "memory_mb", "status", "env_vars", "created_at", "updated_at"}).
+			AddRow(uuid.New(), userID, tenantID, testFuncName, testFuncRuntime, testFuncHandler, testFuncPath, 30, 128, "ready", []byte("{}"), now, now))
 
 	functions, err := repo.List(ctx, userID)
 	require.NoError(t, err)
@@ -113,5 +113,25 @@ func TestFunctionRepositoryDelete(t *testing.T) {
 		WillReturnResult(pgxmock.NewResult("DELETE", 1))
 
 	err = repo.Delete(ctx, id)
+	require.NoError(t, err)
+}
+
+func TestFunctionRepositoryUpdate(t *testing.T) {
+	t.Parallel()
+	mock, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewFunctionRepository(mock)
+	id := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(context.Background(), tenantID)
+
+	timeout := 300
+	mock.ExpectExec("UPDATE functions SET").
+		WithArgs(id, tenantID, timeout).
+		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+	err = repo.Update(ctx, id, &domain.FunctionUpdate{Timeout: &timeout})
 	require.NoError(t, err)
 }

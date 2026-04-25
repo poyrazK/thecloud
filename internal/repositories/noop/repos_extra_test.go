@@ -89,7 +89,7 @@ func TestNoopRepositoriesExtra(t *testing.T) {
 	t.Run("CacheRepository", func(t *testing.T) {
 		repo := &NoopCacheRepository{}
 		require.NoError(t, repo.Create(ctx, &domain.Cache{}))
-		_, err := repo.GetByID(ctx, id)
+		_, err := repo.GetByID(ctx, id, uID)
 		require.NoError(t, err)
 		_, err = repo.GetByName(ctx, uID, "name")
 		require.NoError(t, err)
@@ -97,7 +97,7 @@ func TestNoopRepositoriesExtra(t *testing.T) {
 		require.NoError(t, err)
 		assert.Empty(t, list)
 		require.NoError(t, repo.Update(ctx, &domain.Cache{}))
-		require.NoError(t, repo.Delete(ctx, id))
+		require.NoError(t, repo.Delete(ctx, id, uID))
 	})
 
 	t.Run("FunctionRepository", func(t *testing.T) {

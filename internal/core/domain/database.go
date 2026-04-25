@@ -70,4 +70,7 @@ type Database struct {
 	PoolingPort         int               `json:"pooling_port,omitempty"`
 	PoolerContainerID   string            `json:"-"`
 	CredentialPath      string            `json:"-"`
+	KmsKeyID            string            `json:"kms_key_id,omitempty"`
+	EncryptedVolume     bool              `json:"encrypted_volume"`
+	VolumeKeyRef        string            `json:"volume_key_ref,omitempty"`
 }

@@ -58,6 +58,9 @@ func init() {
 	rootCmd.AddCommand(instanceTypeCmd)
 	rootCmd.AddCommand(newSSHKeyCmd(&opts))
 	rootCmd.AddCommand(vpcPeeringCmd)
+	rootCmd.AddCommand(igwCmd)
+	rootCmd.AddCommand(natGatewayCmd)
+	rootCmd.AddCommand(routeTableCmd)
 
 	rootCmd.PersistentFlags().BoolVarP(&opts.JSON, "json", "j", false, "Output in JSON format")
 	rootCmd.PersistentFlags().StringVarP(&opts.APIKey, "api-key", "k", "", "API key for authentication")

@@ -407,11 +407,66 @@ Users can trigger automated password rotation for their database instances.
 - **Workflow**:
     1.  **Generate Password**: A new 16-character secure password is generated.
     2.  **Engine Update**: The `ALTER USER` command is executed inside the database container first to apply the new password.
-    3.  **Update Vault**: The new secret is written to Vault. (Note: A failure here may leave the database and Vault out of sync).
+    3.  **Update Vault**: The new secret is written to Vault. If Vault store fails after the DB password has been changed, `RotateCredentials` attempts to roll back the database password to its original value via an `Exec` call inside the container. However, the rollback itself can fail (e.g., if the `Exec` call fails), in which case `RotateCredentials` returns an error indicating manual intervention may be required.
     4.  **Sidecar Update**: Sidecars such as PgBouncer/pooler are automatically recreated to apply the new credentials only when they are present.
     5.  **Audit**: The rotation event is recorded in the system events and audit logs.
 
 This mechanism ensures that database access remains secure and meets compliance requirements for periodic credential updates.
+
+### Managed Database Encryption at Rest
+
+The platform supports **encryption at rest** for managed database volumes using HashiCorp Vault Transit Secrets Engine for key management.
+
+#### Overview
+When a `KmsKeyID` is provided during database creation, the platform:
+1. Generates a unique 256-bit DEK (Data Encryption Key) for the volume
+2. Encrypts the DEK with Vault Transit using the specified key
+3. Stores the encrypted DEK in the `volume_encryption_keys` table
+4. Uses the DEK for transparent volume encryption/decryption
+
+#### Schema
+```sql
+CREATE TABLE volume_encryption_keys (
+    volume_id      UUID PRIMARY KEY REFERENCES volumes(id) ON DELETE CASCADE,
+    encrypted_dek  BYTEA NOT NULL,
+    kms_key_id     VARCHAR(500) NOT NULL,
+    algorithm      VARCHAR(50) NOT NULL DEFAULT 'AES-256-GCM',
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+#### API Usage
+```bash
+# Create encrypted database
+POST /databases
+{
+  "name": "secure-db",
+  "engine": "postgres",
+  "version": "15",
+  "kms_key_id": "vault:transit/my-master-key"
+}
+
+# Response includes encryption status
+{
+  "id": "...",
+  "name": "secure-db",
+  "encrypted_volume": true,
+  "kms_key_id": "vault:transit/my-master-key"
+}
+```
+
+#### Architecture
+- **DEK Pattern**: Each volume has a unique DEK encrypted by Vault Transit (master key)
+- **Application-Level**: Encryption is transparent to the database engine
+- **Vault Transit**: Handles all cryptographic operations; DEKs are never persisted unencrypted
+
+#### Implementation
+- **Service**: `VolumeEncryptionService` in `internal/core/services/volume_encryption.go`
+- **Repository**: `VolumeEncryptionRepository` in `internal/repositories/postgres/volume_encryption_repo.go`
+- **Adapter**: `TransitKMSAdapter` in `internal/adapters/vault/transit_kms_adapter.go`
+- **Interface**: `KMSClient` in `internal/core/ports/kms_client.go`
+
+See [ADR-024](./adr/ADR-024-database-encryption-at-rest.md) for full architecture details.
 
 ### Managed Database Persistence
 
@@ -423,6 +478,10 @@ When a managed database is provisioned, the service automatically:
 2.  **Mounts the Volume**: The volume is attached to the compute instance and mounted to the appropriate data directory:
     -   **PostgreSQL**: `/var/lib/postgresql/data`
     -   **MySQL**: `/var/lib/mysql`
+
+    **Attachment Mechanism**:
+    - **Libvirt backend**: Volumes are hot-plugged as virtio disks (`/dev/vdb`) via `DomainAttachDevice`.
+    - **Docker backend**: Volumes are attached via a stop→recreate→start cycle. The container is gracefully stopped, recreated with updated bind mounts, and restarted. The instance's `ContainerID` is updated after the operation.
 
 This integration ensures that all database state (tables, indexes, logs) is stored on durable block storage rather than the container's ephemeral layer.
 
@@ -517,11 +576,44 @@ The Cloud platform supports asynchronous replication for managed databases to pr
 The `DatabaseFailoverWorker` provides automated recovery for failed primary instances:
 1. **Health Monitoring**: Performs periodic TCP health checks on all instances with the `PRIMARY` role.
 2. **Failure Detection**: If a Primary is unreachable, it is marked as failed.
-3. **Replica Selection**: The worker identifies all healthy replicas linked to the failed Primary.
-4. **Promotion**: The first available healthy replica is automatically promoted to the `PRIMARY` role using the `PromoteToPrimary` logic, which reconfigures the underlying engine and updates the metadata.
+3. **Replica Selection**: The worker identifies all replicas linked to the failed Primary and checks each one's replication status.
+   - For **PostgreSQL replicas**, determines replication lag using standby-side metrics: `pg_last_wal_receive_lsn()` compared against `pg_last_wal_replay_lsn()` (equal = caught up, zero lag) and `pg_last_xact_replay_timestamp()` for replay lag. Only replicas with lag ≤ 5 seconds are considered healthy promotion candidates. A primary node returns a sentinel value (max int) so it is never selected.
+   - For **non-PostgreSQL replicas**, a TCP health check is performed and the replica is treated as having lag = 0 for promotion consideration — the most recently started replica will be selected.
+   - If no healthy replica exists, failover is aborted and an error is logged.
+4. **Promotion**: The selected replica is automatically promoted to the `PRIMARY` role using the `PromoteToPrimary` logic, which reconfigures the underlying engine and updates the metadata.
 
 #### Manual Promotion
 Replicas can be promoted manually via the API. Promoting a replica removes its link to the previous primary and converts it into a standalone Primary instance.
+
+### Managed Database Stop/Start Lifecycle
+
+The platform supports stopping and starting managed database instances to pause usage and save costs (similar to AWS RDS Stop/Start).
+
+#### Stop Operation
+The `POST /databases/:id/stop` endpoint stops a running database:
+1. **Validation**: Database must be RUNNING and not a REPLICA (replicas must be promoted first).
+2. **Compute Stop**: The database container and all sidecars (PgBouncer, exporter) are stopped via the configured compute backend. If the main container fails to stop, the operation returns an error without updating status.
+3. **Status Update**: Database status transitions to `STOPPED`.
+4. **Data Persistence**: The underlying volume is retained — no data is lost.
+
+#### Start Operation
+The `POST /databases/:id/start` endpoint restarts a stopped database:
+1. **Validation**: Database must be in `STOPPED` state. The container ID must be present in the database record.
+2. **Compute Start**: The database container is started with the existing volume.
+3. **Readiness Wait**: The service polls until the instance has a non-empty IP address assigned. If readiness fails, the operation returns an error without updating status.
+4. **Sidecar Start**: PgBouncer and/or metrics exporter are started if enabled.
+5. **Status Update**: Database status transitions to `RUNNING`.
+
+#### Use Cases
+- **Cost Savings**: Stop dev/test databases overnight or when not in use.
+- **Pause Workflows**: Halt batch processing without deleting the database.
+- **Graceful Maintenance**: Stop before performing maintenance on the underlying host.
+
+#### Constraints
+- Cannot stop a REPLICA (must promote to primary first).
+- Cannot stop databases in CREATING, DELETING, or STOPPED state.
+- Cannot start databases that are not STOPPED.
+- Volumes persist indefinitely; manually delete the database to clean up storage.
 
 #### `caches` - Redis Instances
 ```sql
@@ -737,15 +829,15 @@ CREATE INDEX idx_events_created_at ON events(created_at);
 
 ### Migration System
 
-**Tool**: Goose  
+**Tool**: Custom embed-based migrator (`internal/repositories/postgres/migrator.go`)  
 **Location**: `internal/repositories/postgres/migrations/`  
-**Format**: SQL files with up/down migrations
+**Format**: `.up.sql` files only (one-way, forward-only)
 
 **Migration File Naming**:
 ```
-001_create_users.sql
-002_create_instances.sql
-003_add_rbac_tables.sql
+001_create_users.up.sql
+002_create_instances.up.sql
+003_add_rbac_tables.up.sql
 ```
 
 **Migration Structure**:
@@ -755,10 +847,9 @@ CREATE TABLE my_table (
     id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL
 );
-
--- +goose Down
-DROP TABLE my_table;
 ```
+
+**Version Tracking**: Applied versions are tracked in `schema_migrations` table (version, dirty, created_at). Each migration runs exactly once — subsequent startups skip already-applied migrations.
 
 ### Running Migrations
 
@@ -772,17 +863,14 @@ go run cmd/api/main.go
 go run cmd/api/main.go -migrate-only
 ```
 
-**Rollback** (down migration):
-```bash
-goose -dir internal/repositories/postgres/migrations postgres "connection-string" down
-```
+**Rollback**: Not supported. Migrations are forward-only and version-tracked.
 
 ### Creating New Migrations
 
-1. Create new file: `XXX_description.sql`
-2. Add `-- +goose Up` section
-3. Add `-- +goose Down` section
-4. Test both up and down migrations
+1. Create new file: `XXX_description.up.sql` (use `.up.sql` suffix)
+2. Add SQL statements (no `-- +goose Up` marker required, but harmless as SQL comment)
+3. Version is extracted from numeric prefix (e.g., `072_` → version 72)
+4. Test the migration on a fresh database
 
 **Example**:
 ```sql

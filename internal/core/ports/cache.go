@@ -39,13 +39,13 @@ type CacheRepository interface {
 	// Create saves a new cache record.
 	Create(ctx context.Context, cache *domain.Cache) error
 	// GetByID fetches a cache by its unique UUID.
-	GetByID(ctx context.Context, id uuid.UUID) (*domain.Cache, error)
-	// GetByName fetches a user-owned cache by its friendly name.
-	GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Cache, error)
-	// List returns all caches owned by a specific user.
-	List(ctx context.Context, userID uuid.UUID) ([]*domain.Cache, error)
+	GetByID(ctx context.Context, id, tenantID uuid.UUID) (*domain.Cache, error)
+	// GetByName fetches a cache by its friendly name.
+	GetByName(ctx context.Context, tenantID uuid.UUID, name string) (*domain.Cache, error)
+	// List returns all caches for a tenant.
+	List(ctx context.Context, tenantID uuid.UUID) ([]*domain.Cache, error)
 	// Update modifies an existing cache's metadata or status.
 	Update(ctx context.Context, cache *domain.Cache) error
 	// Delete removes a cache record from storage.
-	Delete(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, id, tenantID uuid.UUID) error
 }

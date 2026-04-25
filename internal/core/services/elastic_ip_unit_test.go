@@ -14,7 +14,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestElasticIPService_AllocateIP(t *testing.T) {
+func TestElasticIPService_Unit(t *testing.T) {
+	t.Run("AllocateIP", testElasticIPServiceAllocateIP)
+	t.Run("ReleaseIP", testElasticIPServiceReleaseIP)
+	t.Run("AssociateIP", testElasticIPServiceAssociateIP)
+	t.Run("DisassociateIP", testElasticIPServiceDisassociateIP)
+	t.Run("ListAndGet", testElasticIPServiceListAndGet)
+}
+
+func testElasticIPServiceAllocateIP(t *testing.T) {
 	repo := new(MockElasticIPRepo)
 	auditSvc := new(MockAuditService)
 	rbacSvc := new(MockRBACService)
@@ -37,7 +45,7 @@ func TestElasticIPService_AllocateIP(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
-func TestElasticIPService_ReleaseIP(t *testing.T) {
+func testElasticIPServiceReleaseIP(t *testing.T) {
 	repo := new(MockElasticIPRepo)
 	auditSvc := new(MockAuditService)
 	rbacSvc := new(MockRBACService)
@@ -60,7 +68,7 @@ func TestElasticIPService_ReleaseIP(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
-func TestElasticIPService_AssociateIP(t *testing.T) {
+func testElasticIPServiceAssociateIP(t *testing.T) {
 	repo := new(MockElasticIPRepo)
 	auditSvc := new(MockAuditService)
 	rbacSvc := new(MockRBACService)
@@ -111,7 +119,7 @@ func TestElasticIPService_AssociateIP(t *testing.T) {
 	})
 }
 
-func TestElasticIPService_DisassociateIP(t *testing.T) {
+func testElasticIPServiceDisassociateIP(t *testing.T) {
 	repo := new(MockElasticIPRepo)
 	auditSvc := new(MockAuditService)
 	rbacSvc := new(MockRBACService)
@@ -147,7 +155,7 @@ func TestElasticIPService_DisassociateIP(t *testing.T) {
 	})
 }
 
-func TestElasticIPService_ListAndGet(t *testing.T) {
+func testElasticIPServiceListAndGet(t *testing.T) {
 	repo := new(MockElasticIPRepo)
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)

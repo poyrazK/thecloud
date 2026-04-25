@@ -178,17 +178,20 @@ Recommendation:
 
 Severity: Medium
 
-What is wrong:
+Status: ✅ RESOLVED (PR #141)
+
+What was wrong:
 - `internal/repositories/postgres/migrator.go:20-90` re-runs every `.up.sql` on every startup.
 - There is no migration history table in the migrator flow itself.
 
-Why it matters:
+Why it mattered:
 - This only works if every migration is replay-safe forever.
 - The first non-idempotent migration will break deploys.
 
-Recommendation:
-- Track applied versions explicitly.
-- Use a standard migration table and one-way execution model.
+Resolution:
+- `migrator.go` now tracks applied versions in `schema_migrations` table.
+- Uses `ON CONFLICT DO NOTHING` for idempotent version recording.
+- Skips already-applied migrations on subsequent runs.
 
 ### 9. Tests hide production reality in key areas
 

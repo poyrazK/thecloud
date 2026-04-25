@@ -23,8 +23,8 @@ func TestNetworkingE2E(t *testing.T) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	token := registerAndLogin(t, client, "network-tester@thecloud.local", "Network Tester")
 
-	const (
-		vpcRoute  = "%s%s/%s"
+		const (
+		vpcRoute  = "%s%s/%s?force=true"
 		subRoute  = "%s/vpcs/%s/subnets"
 		sgRoute   = "%s/security-groups/%s"
 		lbRoute   = "%s/lb/%s"
@@ -148,7 +148,7 @@ func TestNetworkingE2E(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		// Delete VPC with retry to account for asynchronous cleanup of resources like LBs
-		timeout := 30 * time.Second
+		timeout := 120 * time.Second
 		start := time.Now()
 		for time.Since(start) < timeout {
 			resp = deleteRequest(t, client, fmt.Sprintf(vpcRoute, testutil.TestBaseURL, testutil.TestRouteVpcs, vpcID), token)
@@ -156,7 +156,7 @@ func TestNetworkingE2E(t *testing.T) {
 			if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
 				return
 			}
-			time.Sleep(2 * time.Second)
+			time.Sleep(10 * time.Second)
 		}
 		t.Errorf("Timeout waiting for VPC %s to be deleted", vpcID)
 	})

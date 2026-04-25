@@ -71,7 +71,7 @@ func TestFirecrackerAdapterNoopMethods(t *testing.T) {
 	})
 
 	t.Run("AttachVolume", func(t *testing.T) {
-		_, err := adapter.AttachVolume(ctx, "id", "path")
+		_, _, err := adapter.AttachVolume(ctx, "id", "path")
 		require.Error(t, err)
 	})
 
@@ -123,7 +123,7 @@ func TestFirecrackerAdapterNoopMethods(t *testing.T) {
 	})
 
 	t.Run("DetachVolume", func(t *testing.T) {
-		err := adapter.DetachVolume(ctx, "id", "path")
+		_, err := adapter.DetachVolume(ctx, "id", "path")
 		require.Error(t, err)
 	})
 }

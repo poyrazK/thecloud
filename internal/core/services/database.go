@@ -38,74 +38,80 @@ const (
 	MySQLExporterPort     = "9104"
 )
 
-func quotePostgresIdentifier(value string) string {
-	return `"` + strings.ReplaceAll(value, `"`, `""`) + `"`
-}
-
-func quotePostgresLiteral(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
-}
-
-func quoteMySQLLiteral(value string) string {
-	escaped := strings.ReplaceAll(value, `\`, `\\`)
-	escaped = strings.ReplaceAll(escaped, "'", "''")
-	return "'" + escaped + "'"
-}
-
 // DatabaseService manages database instances and lifecycle.
 type DatabaseService struct {
-	repo           ports.DatabaseRepository
-	rbacSvc        ports.RBACService
-	compute        ports.ComputeBackend
-	vpcRepo        ports.VpcRepository
-	volumeSvc      ports.VolumeService
-	snapshotSvc    ports.SnapshotService
-	snapshotRepo   ports.SnapshotRepository
-	eventSvc       ports.EventService
-	auditSvc       ports.AuditService
-	secrets        ports.SecretsManager
-	logger         *slog.Logger
-	vaultMountPath string
-	// Simple in-memory idempotency cache for rotation
-	rotationCache map[string]bool
-	rotationMu    sync.Mutex
+	repo              ports.DatabaseRepository
+	rbacSvc           ports.RBACService
+	compute           ports.ComputeBackend
+	vpcRepo           ports.VpcRepository
+	volumeSvc         ports.VolumeService
+	snapshotSvc       ports.SnapshotService
+	snapshotRepo      ports.SnapshotRepository
+	eventSvc          ports.EventService
+	auditSvc          ports.AuditService
+	secrets           ports.SecretsManager
+	volumeEncryption  ports.VolumeEncryptionService
+	logger            *slog.Logger
+	vaultMountPath    string
+	// In-memory idempotency cache for rotation. Stores timestamp of last rotation attempt.
+	// Expired entries are deleted on lookup to prevent unbounded growth, but this does
+	// not guarantee all expired entries are reaped.
+	rotationCache     map[string]time.Time
+	rotationCacheTTL time.Duration
+	rotationMu        sync.Mutex
+
+	// In-flight rotation state for idempotency cache
+	rotationInFlight map[string]*rotationInFlightEntry
 }
+
+// rotationInFlightEntry holds the state of an in-progress rotation
+type rotationInFlightEntry struct {
+	done chan struct{}
+	err  error
+}
+
+// defaultRotationCacheTTL is the default TTL for rotation idempotency entries
+const defaultRotationCacheTTL = 24 * time.Hour
 
 // Ensure DatabaseService implements ports.DatabaseService
 var _ ports.DatabaseService = (*DatabaseService)(nil)
 
 // DatabaseServiceParams holds dependencies for DatabaseService creation.
 type DatabaseServiceParams struct {
-	Repo           ports.DatabaseRepository
-	RBAC           ports.RBACService
-	Compute        ports.ComputeBackend
-	VpcRepo        ports.VpcRepository
-	VolumeSvc      ports.VolumeService
-	SnapshotSvc    ports.SnapshotService
-	SnapshotRepo   ports.SnapshotRepository
-	EventSvc       ports.EventService
-	AuditSvc       ports.AuditService
-	Secrets        ports.SecretsManager
-	Logger         *slog.Logger
-	VaultMountPath string
+	Repo              ports.DatabaseRepository
+	RBAC              ports.RBACService
+	Compute           ports.ComputeBackend
+	VpcRepo           ports.VpcRepository
+	VolumeSvc         ports.VolumeService
+	SnapshotSvc       ports.SnapshotService
+	SnapshotRepo      ports.SnapshotRepository
+	EventSvc          ports.EventService
+	AuditSvc          ports.AuditService
+	Secrets           ports.SecretsManager
+	VolumeEncryption  ports.VolumeEncryptionService
+	Logger            *slog.Logger
+	VaultMountPath    string
 }
 
 // NewDatabaseService constructs a DatabaseService with its dependencies.
 func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 	return &DatabaseService{
-		repo:           params.Repo,
-		rbacSvc:        params.RBAC,
-		compute:        params.Compute,
-		vpcRepo:        params.VpcRepo,
-		volumeSvc:      params.VolumeSvc,
-		snapshotSvc:    params.SnapshotSvc,
-		snapshotRepo:   params.SnapshotRepo,
-		eventSvc:       params.EventSvc,
-		auditSvc:       params.AuditSvc,
-		secrets:        params.Secrets,
-		logger:         params.Logger,
-		vaultMountPath: params.VaultMountPath,
-		rotationCache:  make(map[string]bool),
+		repo:             params.Repo,
+		rbacSvc:          params.RBAC,
+		compute:          params.Compute,
+		vpcRepo:          params.VpcRepo,
+		volumeSvc:        params.VolumeSvc,
+		snapshotSvc:      params.SnapshotSvc,
+		snapshotRepo:     params.SnapshotRepo,
+		eventSvc:         params.EventSvc,
+		auditSvc:         params.AuditSvc,
+		secrets:          params.Secrets,
+		volumeEncryption: params.VolumeEncryption,
+		logger:           params.Logger,
+		vaultMountPath:   params.VaultMountPath,
+		rotationCache:    make(map[string]time.Time),
+		rotationCacheTTL: defaultRotationCacheTTL,
+		rotationInFlight: make(map[string]*rotationInFlightEntry),
 	}
 }
 
@@ -134,6 +140,10 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDa
 	db.Parameters = req.Parameters
 	db.MetricsEnabled = req.MetricsEnabled
 	db.PoolingEnabled = req.PoolingEnabled
+	if req.KmsKeyID != "" {
+		db.KmsKeyID = req.KmsKeyID
+		db.EncryptedVolume = true
+	}
 
 	return s.provisionDatabase(ctx, db, password, req.Parameters, "", "DATABASE_CREATE")
 }
@@ -148,6 +158,11 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 	primary, err := s.repo.GetByID(ctx, primaryID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Ensure the primary database belongs to the same tenant without leaking cross-tenant existence
+	if primary.TenantID != tenantID {
+		return nil, errors.New(errors.NotFound, "database not found")
 	}
 
 	primaryIP, err := s.compute.GetInstanceIP(ctx, primary.ContainerID)
@@ -239,6 +254,31 @@ func (s *DatabaseService) provisionDatabase(ctx context.Context, db *domain.Data
 			s.logger.Warn("failed to cleanup vault secret after volume creation failure", "path", db.CredentialPath, "error", delErr)
 		}
 		return nil, errors.Wrap(errors.Internal, "failed to create persistent volume", err)
+	}
+
+	// Create encryption key for volume if encryption is enabled
+	if db.EncryptedVolume && db.KmsKeyID != "" {
+		if s.volumeEncryption == nil {
+			// Rollback: delete the created volume and secret
+			if delErr := s.volumeSvc.DeleteVolume(ctx, vol.ID.String()); delErr != nil {
+				s.logger.Warn("failed to rollback volume after encryption setup failure", "volume_id", vol.ID, "error", delErr)
+			}
+			if delErr := s.secrets.DeleteSecret(ctx, db.CredentialPath); delErr != nil {
+				s.logger.Warn("failed to cleanup vault secret after volume creation failure", "path", db.CredentialPath, "error", delErr)
+			}
+			return nil, errors.New(errors.Internal, "volume encryption service not configured")
+		}
+		if err := s.volumeEncryption.CreateVolumeKey(ctx, vol.ID, db.KmsKeyID); err != nil {
+			// Rollback: delete the created volume and secret
+			if delErr := s.volumeSvc.DeleteVolume(ctx, vol.ID.String()); delErr != nil {
+				s.logger.Warn("failed to rollback volume after encryption key creation failure", "volume_id", vol.ID, "error", delErr)
+			}
+			if delErr := s.secrets.DeleteSecret(ctx, db.CredentialPath); delErr != nil {
+				s.logger.Warn("failed to cleanup vault secret after encryption key creation failure", "path", db.CredentialPath, "error", delErr)
+			}
+			return nil, errors.Wrap(errors.Internal, "failed to create volume encryption key", err)
+		}
+		db.VolumeKeyRef = fmt.Sprintf("vol-key-%s", vol.ID.String()[:8])
 	}
 
 	return s.finalizeProvisioning(ctx, db, vol, password, parameters, primaryIP, action)
@@ -429,6 +469,7 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 		}
 	}
 
+	var volID uuid.UUID
 	vols, err := s.volumeSvc.ListVolumes(ctx)
 	if err == nil {
 		expectedPrefix := fmt.Sprintf("db-vol-%s", db.ID.String()[:8])
@@ -437,9 +478,20 @@ func (s *DatabaseService) DeleteDatabase(ctx context.Context, id uuid.UUID) erro
 		}
 		for _, v := range vols {
 			if strings.HasPrefix(v.Name, expectedPrefix) {
-				_ = s.volumeSvc.DeleteVolume(ctx, v.ID.String())
+				if err := s.volumeSvc.DeleteVolume(ctx, v.ID.String()); err != nil {
+					s.logger.Warn("failed to delete volume", "volume_id", v.ID, "error", err)
+				} else {
+					volID = v.ID
+				}
 				break
 			}
+		}
+	}
+
+	// Delete encryption key for volume if encryption was enabled
+	if db.EncryptedVolume && volID != uuid.Nil {
+		if err := s.volumeEncryption.DeleteVolumeKey(ctx, volID); err != nil {
+			s.logger.Warn("failed to delete volume encryption key", "volume_id", volID, "error", err)
 		}
 	}
 
@@ -467,6 +519,34 @@ func (s *DatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) er
 	if db.Role == domain.RolePrimary {
 		return errors.New(errors.InvalidInput, "database is already a primary")
 	}
+
+	// Execute database engine promotion command in container
+	var cmd []string
+	switch db.Engine {
+	case domain.EnginePostgres:
+		// Create promotion trigger file - PostgreSQL monitors this file
+		// and exits recovery mode when it appears
+		cmd = []string{"touch", "/var/lib/postgresql/data/promote"}
+	case domain.EngineMySQL:
+		// Fetch current password from Vault (db.Password may be stale after rotation)
+		password := db.Password
+		if db.CredentialPath != "" {
+			secret, err := s.secrets.GetSecret(ctx, db.CredentialPath)
+			if err == nil && secret != nil {
+				if p, ok := secret["password"].(string); ok {
+					password = p
+				}
+			}
+		}
+		cmd = []string{"mysql", "-u", "root", "-p" + password, "-e", "STOP REPLICA; RESET REPLICA ALL;"}
+	default:
+		return errors.New(errors.Internal, "unsupported engine for promotion")
+	}
+
+	if _, err := s.compute.Exec(ctx, db.ContainerID, cmd); err != nil {
+		return errors.Wrap(errors.Internal, "failed to promote database engine", err)
+	}
+
 	db.Role = domain.RolePrimary
 	db.PrimaryID = nil
 	if err := s.repo.Update(ctx, db); err != nil {
@@ -552,16 +632,184 @@ func (s *DatabaseService) ListDatabaseSnapshots(ctx context.Context, databaseID 
 	return s.snapshotRepo.ListByVolumeID(ctx, vol.ID)
 }
 
-func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, idempotencyKey string) error {
-	if idempotencyKey != "" {
-		s.rotationMu.Lock()
-		if s.rotationCache[idempotencyKey] {
-			s.rotationMu.Unlock()
-			return nil // Already rotated
-		}
-		s.rotationMu.Unlock()
+func (s *DatabaseService) StopDatabase(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBUpdate, id.String()); err != nil {
+		return err
 	}
 
+	db, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if db.Status != domain.DatabaseStatusRunning {
+		return errors.New(errors.InvalidInput, "database is not running")
+	}
+	if db.Role == domain.RoleReplica {
+		return errors.New(errors.InvalidInput, "cannot stop a replica database")
+	}
+
+	// Stop sidecars first
+	if db.ExporterContainerID != "" {
+		if err := s.compute.StopInstance(ctx, db.ExporterContainerID); err != nil {
+			s.logger.Warn("failed to stop exporter container", "container_id", db.ExporterContainerID, "error", err)
+		}
+	}
+	if db.PoolerContainerID != "" {
+		if err := s.compute.StopInstance(ctx, db.PoolerContainerID); err != nil {
+			s.logger.Warn("failed to stop pooler container", "container_id", db.PoolerContainerID, "error", err)
+		}
+	}
+
+	// Stop database container; must succeed before marking as stopped.
+	if db.ContainerID != "" {
+		if err := s.compute.StopInstance(ctx, db.ContainerID); err != nil {
+			return errors.Wrap(errors.Internal, "failed to stop database container", err)
+		}
+	}
+
+	db.Status = domain.DatabaseStatusStopped
+	if err := s.repo.Update(ctx, db); err != nil {
+		return err
+	}
+
+	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_STOP", db.ID.String(), "DATABASE", nil)
+	_ = s.auditSvc.Log(ctx, db.UserID, "database.stop", "database", db.ID.String(), map[string]interface{}{"name": db.Name})
+	platform.RDSInstancesTotal.WithLabelValues(string(db.Engine), "stopped").Inc()
+	platform.RDSInstancesTotal.WithLabelValues(string(db.Engine), "running").Dec()
+
+	return nil
+}
+
+func (s *DatabaseService) StartDatabase(ctx context.Context, id uuid.UUID) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBUpdate, id.String()); err != nil {
+		return err
+	}
+
+	db, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if db.Status != domain.DatabaseStatusStopped {
+		return errors.New(errors.InvalidInput, "database is not stopped")
+	}
+	if db.ContainerID == "" {
+		return errors.New(errors.Internal, "database container ID is missing")
+	}
+
+	// Start database container
+	if err := s.compute.StartInstance(ctx, db.ContainerID); err != nil {
+		return errors.Wrap(errors.Internal, "failed to start database container", err)
+	}
+
+	// Wait for database to be ready; return error if it fails.
+	if err := s.waitForDatabaseReady(ctx, db); err != nil {
+		return errors.Wrap(errors.Internal, "database failed to become ready", err)
+	}
+
+	// Start sidecars if enabled
+	if db.ExporterContainerID != "" {
+		if err := s.compute.StartInstance(ctx, db.ExporterContainerID); err != nil {
+			s.logger.Warn("failed to start exporter container", "container_id", db.ExporterContainerID, "error", err)
+		}
+	}
+	if db.PoolingEnabled && db.PoolerContainerID != "" {
+		if err := s.compute.StartInstance(ctx, db.PoolerContainerID); err != nil {
+			s.logger.Warn("failed to start pooler container", "container_id", db.PoolerContainerID, "error", err)
+		}
+	}
+
+	db.Status = domain.DatabaseStatusRunning
+	if err := s.repo.Update(ctx, db); err != nil {
+		return err
+	}
+
+	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_START", db.ID.String(), "DATABASE", nil)
+	_ = s.auditSvc.Log(ctx, db.UserID, "database.start", "database", db.ID.String(), map[string]interface{}{"name": db.Name})
+	platform.RDSInstancesTotal.WithLabelValues(string(db.Engine), "running").Inc()
+	platform.RDSInstancesTotal.WithLabelValues(string(db.Engine), "stopped").Dec()
+
+	return nil
+}
+
+func (s *DatabaseService) waitForDatabaseReady(ctx context.Context, db *domain.Database) error {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for i := 0; i < 30; i++ {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+
+		dbIP, err := s.compute.GetInstanceIP(ctx, db.ContainerID)
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			continue
+		}
+		if dbIP != "" {
+			return nil
+		}
+	}
+	return errors.New(errors.Internal, "database did not become ready in time")
+}
+
+func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, idempotencyKey string) error {
+	// Handle idempotency with in-flight support
+	if idempotencyKey != "" {
+		s.rotationMu.Lock()
+		// Check for existing completed entry
+		if cachedAt, ok := s.rotationCache[idempotencyKey]; ok {
+			if time.Since(cachedAt) < s.rotationCacheTTL {
+				s.rotationMu.Unlock()
+				return nil // Already rotated
+			}
+			// Expired entry - remove it
+			delete(s.rotationCache, idempotencyKey)
+		}
+		// Check for in-flight rotation
+		if entry, exists := s.rotationInFlight[idempotencyKey]; exists {
+			s.rotationMu.Unlock()
+			// Wait for the in-flight rotation to complete
+			<-entry.done
+			if entry.err != nil {
+				return entry.err
+			}
+			return nil // Rotation completed successfully
+		}
+		// Create in-flight entry
+		entry := &rotationInFlightEntry{done: make(chan struct{})}
+		s.rotationInFlight[idempotencyKey] = entry
+		s.rotationMu.Unlock()
+
+		// Perform rotation, then update in-flight state
+		rotateErr := s.doRotateCredentials(ctx, id, idempotencyKey)
+
+		s.rotationMu.Lock()
+		if rotateErr == nil {
+			s.rotationCache[idempotencyKey] = time.Now()
+		}
+		entry.err = rotateErr
+		close(entry.done)
+		delete(s.rotationInFlight, idempotencyKey)
+		s.rotationMu.Unlock()
+
+		return rotateErr
+	}
+
+	return s.doRotateCredentials(ctx, id, idempotencyKey)
+}
+
+// doRotateCredentials performs the actual credential rotation
+func (s *DatabaseService) doRotateCredentials(ctx context.Context, id uuid.UUID, _ string) error {
 	db, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -584,17 +832,8 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, i
 	}
 
 	// 1. Execute ALTER USER in container FIRST
-	var cmd []string
-	switch db.Engine {
-	case domain.EnginePostgres:
-		usernameIdent := quotePostgresIdentifier(db.Username)
-		passwordLiteral := quotePostgresLiteral(newPassword)
-		cmd = []string{"psql", "-h", "127.0.0.1", "-U", db.Username, "-d", "postgres", "-c", fmt.Sprintf("ALTER USER %s WITH PASSWORD %s;", usernameIdent, passwordLiteral)}
-	case domain.EngineMySQL:
-		usernameLiteral := quoteMySQLLiteral(db.Username)
-		passwordLiteral := quoteMySQLLiteral(newPassword)
-		cmd = []string{"mysql", "-u", "root", "-p" + currentPassword, "-e", fmt.Sprintf("ALTER USER %s@'%%' IDENTIFIED BY %s;", usernameLiteral, passwordLiteral)}
-	default:
+	cmd := s.buildPasswordChangeCmd(db.Engine, db.Username, currentPassword, newPassword)
+	if cmd == nil {
 		return errors.New(errors.Internal, "unsupported engine for credential rotation")
 	}
 
@@ -615,9 +854,15 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, i
 		vaultPath = s.getVaultPath(db.ID)
 	}
 	if err := s.secrets.StoreSecret(ctx, vaultPath, map[string]interface{}{"password": newPassword}); err != nil {
-		// Note: At this point DB password is changed but Vault update failed.
-		// The system is out of sync. Fallback password in DB record remains old.
-		return errors.Wrap(errors.Internal, "database password updated but failed to store in vault", err)
+		// Vault store failed but DB already has new password - rollback to original
+		rollbackCmd := s.buildPasswordChangeCmd(db.Engine, db.Username, currentPassword, newPassword)
+		if _, rollbackErr := s.compute.Exec(ctx, db.ContainerID, rollbackCmd); rollbackErr != nil {
+			// Rollback also failed - system is in critical state requiring manual intervention
+			return errors.Wrap(errors.Internal,
+				fmt.Sprintf("credential rotation failed and rollback also failed - manual intervention required (vault store error: %v)", err),
+				rollbackErr)
+		}
+		return errors.Wrap(errors.Internal, "vault store failed, DB password rolled back", err)
 	}
 
 	// 3. Update DB record if needed (metadata or path)
@@ -648,12 +893,6 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, i
 		}
 	}
 
-	if idempotencyKey != "" {
-		s.rotationMu.Lock()
-		s.rotationCache[idempotencyKey] = true
-		s.rotationMu.Unlock()
-	}
-
 	_ = s.eventSvc.RecordEvent(ctx, "DATABASE_CREDENTIALS_ROTATE", db.ID.String(), "DATABASE", nil)
 	_ = s.auditSvc.Log(ctx, db.UserID, "database.rotate_credentials", "database", db.ID.String(), nil)
 
@@ -677,6 +916,30 @@ func (s *DatabaseService) validateCreationRequest(req ports.CreateDatabaseReques
 
 func (s *DatabaseService) getVaultPath(dbID uuid.UUID) string {
 	return fmt.Sprintf("%s/%s/credentials", s.vaultMountPath, dbID.String())
+}
+
+// sqlStringLiteral escapes a string for use in SQL string literals
+func sqlStringLiteral(s string) string {
+	// Escape single quotes for SQL
+	return strings.ReplaceAll(s, "'", "''")
+}
+
+// postgresIdentifier escapes a PostgreSQL identifier
+func postgresIdentifier(id string) string {
+	// PostgreSQL uses double quotes for identifiers
+	return "\"" + strings.ReplaceAll(id, "\"", "\"\"") + "\""
+}
+
+func (s *DatabaseService) buildPasswordChangeCmd(engine domain.DatabaseEngine, username, authPassword, targetPassword string) []string {
+	switch engine {
+	case domain.EnginePostgres:
+		return []string{"psql", "-h", "127.0.0.1", "-U", username, "-d", "postgres", "-c",
+			fmt.Sprintf("ALTER USER %s WITH PASSWORD '%s';", postgresIdentifier(username), sqlStringLiteral(targetPassword))}
+	case domain.EngineMySQL:
+		return []string{"mysql", "-u", "root", "-p" + authPassword, "-e",
+			fmt.Sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s';", sqlStringLiteral(username), sqlStringLiteral(targetPassword))}
+	}
+	return nil
 }
 
 func (s *DatabaseService) resolveDatabasePort(ctx context.Context, db *domain.Database, allocatedPorts []string, defaultPort string) error {
@@ -818,7 +1081,7 @@ func (s *DatabaseService) getExporterConfig(engine domain.DatabaseEngine, dbIP, 
 		dsn := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=disable", username, password, dbIP, DefaultPostgresPort, dbName)
 		return PostgresExporterImage, []string{"DATA_SOURCE_NAME=" + dsn}, PostgresExporterPort
 	case domain.EngineMySQL:
-		dsn := fmt.Sprintf("%s:%s@(%s:%s)/%s", username, password, dbIP, DefaultMySQLPort, dbName)
+		dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", username, password, dbIP, DefaultMySQLPort, dbName)
 		return MySQLExporterImage, []string{"DATA_SOURCE_NAME=" + dsn}, MySQLExporterPort
 	}
 	return "", nil, ""

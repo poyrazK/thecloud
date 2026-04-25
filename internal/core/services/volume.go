@@ -3,7 +3,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -30,33 +29,39 @@ func FormatBackendVolumeName(id uuid.UUID) string {
 
 // VolumeServiceParams defines dependencies for VolumeService.
 type VolumeServiceParams struct {
-	Repo     ports.VolumeRepository
-	RBACSvc  ports.RBACService
-	Storage  ports.StorageBackend
-	EventSvc ports.EventService
-	AuditSvc ports.AuditService
-	Logger   *slog.Logger
+	Repo         ports.VolumeRepository
+	RBACSvc      ports.RBACService
+	Storage      ports.StorageBackend
+	Compute      ports.ComputeBackend
+	EventSvc     ports.EventService
+	AuditSvc     ports.AuditService
+	Logger       *slog.Logger
+	InstanceRepo ports.InstanceRepository
 }
 
 // VolumeService manages block volume lifecycle and attachments.
 type VolumeService struct {
-	repo     ports.VolumeRepository
-	rbacSvc  ports.RBACService
-	storage  ports.StorageBackend
-	eventSvc ports.EventService
-	auditSvc ports.AuditService
-	logger   *slog.Logger
+	repo         ports.VolumeRepository
+	rbacSvc      ports.RBACService
+	storage      ports.StorageBackend
+	compute      ports.ComputeBackend
+	eventSvc     ports.EventService
+	auditSvc     ports.AuditService
+	logger       *slog.Logger
+	instanceRepo ports.InstanceRepository
 }
 
 // NewVolumeService constructs a VolumeService with its dependencies.
 func NewVolumeService(params VolumeServiceParams) *VolumeService {
 	return &VolumeService{
-		repo:     params.Repo,
-		rbacSvc:  params.RBACSvc,
-		storage:  params.Storage,
-		eventSvc: params.EventSvc,
-		auditSvc: params.AuditSvc,
-		logger:   params.Logger,
+		repo:         params.Repo,
+		rbacSvc:      params.RBACSvc,
+		storage:      params.Storage,
+		compute:      params.Compute,
+		eventSvc:     params.EventSvc,
+		auditSvc:     params.AuditSvc,
+		logger:       params.Logger,
+		instanceRepo: params.InstanceRepo,
 	}
 }
 
@@ -272,24 +277,54 @@ func (s *VolumeService) AttachVolume(ctx context.Context, volumeID string, insta
 		return "", errors.New(errors.InvalidInput, "invalid instance ID")
 	}
 
-	// 1. Attach via Backend
+	// 1. Attach via Storage Backend (LVM/physical) - returns device path
 	backendName := FormatBackendVolumeName(vol.ID)
 	devicePath, err := s.storage.AttachVolume(ctx, backendName, instanceID)
 	if err != nil {
 		return "", errors.Wrap(errors.Internal, "failed to attach volume in backend", err)
 	}
 
-	// 2. Update DB
+	// 2. If Compute backend exists and instance has ContainerID, update container with new volume bind
+	var newContainerID string
+	if s.compute != nil {
+		inst, err := s.instanceRepo.GetByID(ctx, instUUID)
+		if err != nil {
+			// Rollback storage attach
+			_ = s.storage.DetachVolume(ctx, backendName, instanceID)
+			return "", errors.Wrap(errors.Internal, "failed to get instance", err)
+		}
+
+		if inst.ContainerID != "" {
+			bindSpec := devicePath + ":" + mountPath + ":rw"
+			_, newContainerID, err = s.compute.AttachVolume(ctx, inst.ContainerID, bindSpec)
+			if err != nil {
+				// Rollback storage attach
+				_ = s.storage.DetachVolume(ctx, backendName, instanceID)
+				return "", errors.Wrap(errors.Internal, "failed to attach volume to container", err)
+			}
+			// Update instance.ContainerID only when backend returns non-empty (Docker recreates container)
+			if newContainerID != "" {
+				inst.ContainerID = newContainerID
+				if err := s.instanceRepo.Update(ctx, inst); err != nil {
+					s.logger.Warn("failed to update instance ContainerID after volume attach",
+						"instance_id", instUUID, "new_container_id", newContainerID, "error", err)
+				}
+			}
+		}
+	}
+
+	// 4. Update DB
 	vol.Status = domain.VolumeStatusInUse
 	vol.InstanceID = &instUUID
 	vol.MountPath = mountPath
 	vol.UpdatedAt = time.Now()
 
 	if err := s.repo.Update(ctx, vol); err != nil {
-		if detachErr := s.storage.DetachVolume(ctx, backendName, instanceID); detachErr != nil {
-			s.logger.Error("failed to rollback attachment after DB update failure", "volume_id", vol.ID, "error", detachErr)
-			return "", fmt.Errorf("failed to attach volume (DB error: %w) and rollback failed: %w", err, detachErr)
+		// Rollback compute attach if it happened
+		if newContainerID != "" && s.compute != nil {
+			_, _ = s.compute.DetachVolume(ctx, newContainerID, mountPath)
 		}
+		_ = s.storage.DetachVolume(ctx, backendName, instanceID)
 		return "", err
 	}
 
@@ -315,14 +350,38 @@ func (s *VolumeService) DetachVolume(ctx context.Context, volumeID string) error
 	}
 
 	instanceID := vol.InstanceID.String()
-
-	// 1. Detach via Backend
 	backendName := FormatBackendVolumeName(vol.ID)
+
+	// 1. If Compute backend exists, detach from container first
+	var newContainerID string
+	if s.compute != nil && vol.MountPath != "" {
+		inst, err := s.instanceRepo.GetByID(ctx, *vol.InstanceID)
+		if err != nil {
+			return errors.Wrap(errors.Internal, "failed to get instance", err)
+		}
+
+		if inst.ContainerID != "" {
+			newContainerID, err = s.compute.DetachVolume(ctx, inst.ContainerID, vol.MountPath)
+			if err != nil {
+				return errors.Wrap(errors.Internal, "failed to detach volume from container", err)
+			}
+			// Update instance.ContainerID only when backend returns non-empty (Docker recreates container)
+			if newContainerID != "" {
+				inst.ContainerID = newContainerID
+				if err := s.instanceRepo.Update(ctx, inst); err != nil {
+					s.logger.Warn("failed to update instance ContainerID after volume detach",
+						"instance_id", vol.InstanceID, "error", err)
+				}
+			}
+		}
+	}
+
+	// 3. Detach via Storage Backend
 	if err := s.storage.DetachVolume(ctx, backendName, instanceID); err != nil {
 		return errors.Wrap(errors.Internal, "failed to detach volume in backend", err)
 	}
 
-	// 2. Update DB
+	// 4. Update DB
 	vol.Status = domain.VolumeStatusAvailable
 	vol.InstanceID = nil
 	vol.MountPath = ""

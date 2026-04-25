@@ -147,12 +147,13 @@ func (m *mockComputeBackendExtended) CreateNetwork(ctx context.Context, name str
 func (m *mockComputeBackendExtended) DeleteNetwork(ctx context.Context, id string) error {
 	return nil
 }
-func (m *mockComputeBackendExtended) AttachVolume(ctx context.Context, id, volumePath string) (string, error) {
+func (m *mockComputeBackendExtended) AttachVolume(ctx context.Context, id, volumePath string) (string, string, error) {
+	args := m.Called(ctx, id, volumePath)
+	return args.String(0), args.String(1), args.Error(2)
+}
+func (m *mockComputeBackendExtended) DetachVolume(ctx context.Context, id, volumePath string) (string, error) {
 	args := m.Called(ctx, id, volumePath)
 	return args.String(0), args.Error(1)
-}
-func (m *mockComputeBackendExtended) DetachVolume(ctx context.Context, id, volumePath string) error {
-	return m.Called(ctx, id, volumePath).Error(0)
 }
 func (m *mockComputeBackendExtended) Ping(ctx context.Context) error {
 	return nil
@@ -163,12 +164,13 @@ func TestPipelineWorker_processJob(t *testing.T) {
 	compute := new(mockComputeBackendExtended)
 	taskQueue := new(MockTaskQueue)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	worker := NewPipelineWorker(repo, taskQueue, compute, logger)
+	worker := NewPipelineWorker(repo, taskQueue, nil, compute, logger)
 
 	buildID := uuid.New()
 	pipelineID := uuid.New()
 	userID := uuid.New()
 	job := domain.BuildJob{BuildID: buildID, PipelineID: pipelineID, UserID: userID}
+	msg := &ports.DurableMessage{ID: "1-0", Queue: pipelineQueueName}
 
 	t.Run("Success", func(t *testing.T) {
 		build := &domain.Build{ID: buildID, PipelineID: pipelineID, UserID: userID}
@@ -205,9 +207,11 @@ func TestPipelineWorker_processJob(t *testing.T) {
 		repo.On("UpdateBuild", mock.Anything, mock.MatchedBy(func(b *domain.Build) bool {
 			return b.Status == domain.BuildStatusSucceeded
 		})).Return(nil).Once()
+		taskQueue.On("Ack", mock.Anything, pipelineQueueName, pipelineGroup, msg.ID).Return(nil).Once()
 
-		worker.processJob(job)
+		worker.processJob(context.Background(), msg, job)
 		repo.AssertExpectations(t)
 		compute.AssertExpectations(t)
+		taskQueue.AssertExpectations(t)
 	})
 }

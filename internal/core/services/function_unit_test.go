@@ -18,7 +18,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFunctionServiceBasicOps(t *testing.T) {
+func TestFunctionService_Unit(t *testing.T) {
+	t.Run("BasicOps", testFunctionServiceBasicOps)
+	t.Run("CreateFunction", testFunctionServiceCreateFunction)
+	t.Run("InvokeFunction", testFunctionServiceInvokeFunction)
+	t.Run("UpdateFunction", testFunctionServiceUpdateFunction)
+	t.Run("CreateFunction_UnsupportedRuntime", testFunctionServiceCreateFunctionUnsupportedRuntime)
+}
+
+func testFunctionServiceBasicOps(t *testing.T) {
 	repo := new(MockFunctionRepo)
 	compute := new(MockComputeBackend)
 	fileStore := new(MockFileStore)
@@ -73,7 +81,7 @@ func TestFunctionServiceBasicOps(t *testing.T) {
 	})
 }
 
-func TestFunctionServiceCreateFunction(t *testing.T) {
+func testFunctionServiceCreateFunction(t *testing.T) {
 	repo := new(MockFunctionRepo)
 	compute := new(MockComputeBackend)
 	fileStore := new(MockFileStore)
@@ -104,7 +112,7 @@ func TestFunctionServiceCreateFunction(t *testing.T) {
 	})
 }
 
-func TestFunctionServiceInvokeFunction(t *testing.T) {
+func testFunctionServiceInvokeFunction(t *testing.T) {
 	repo := new(MockFunctionRepo)
 	compute := new(MockComputeBackend)
 	fileStore := new(MockFileStore)
@@ -170,7 +178,7 @@ func TestFunctionServiceInvokeFunction(t *testing.T) {
 	})
 }
 
-func TestFunctionService_CreateFunction_UnsupportedRuntime(t *testing.T) {
+func testFunctionServiceCreateFunctionUnsupportedRuntime(t *testing.T) {
 	repo := new(MockFunctionRepo)
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -180,4 +188,61 @@ func TestFunctionService_CreateFunction_UnsupportedRuntime(t *testing.T) {
 	_, err := svc.CreateFunction(ctx, "fail", "cobol99", "handler", []byte("code"))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported runtime")
+}
+
+func testFunctionServiceUpdateFunction(t *testing.T) {
+	repo := new(MockFunctionRepo)
+	compute := new(MockComputeBackend)
+	fileStore := new(MockFileStore)
+	auditSvc := new(MockAuditService)
+	rbacSvc := new(MockRBACService)
+	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, slog.Default())
+
+	ctx := appcontext.WithUserID(context.Background(), uuid.New())
+	id := uuid.New()
+
+	t.Run("success", func(t *testing.T) {
+		fn := &domain.Function{ID: id, Name: "test-fn", Timeout: 30}
+		repo.On("Update", mock.Anything, id, mock.Anything).Return(nil).Once()
+		repo.On("GetByID", mock.Anything, id).Return(fn, nil).Once()
+		auditSvc.On("Log", mock.Anything, mock.Anything, "function.update", "function", id.String(), mock.Anything).Return(nil).Once()
+
+		timeout := 300
+		updated, err := svc.UpdateFunction(ctx, id, &domain.FunctionUpdate{Timeout: &timeout})
+		require.NoError(t, err)
+		assert.NotNil(t, updated)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("invalid_timeout", func(t *testing.T) {
+		timeout := 9999
+		_, err := svc.UpdateFunction(ctx, id, &domain.FunctionUpdate{Timeout: &timeout})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "timeout must be between")
+	})
+
+	t.Run("invalid_memory", func(t *testing.T) {
+		mem := 32
+		_, err := svc.UpdateFunction(ctx, id, &domain.FunctionUpdate{MemoryMB: &mem})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "memory must be between")
+	})
+
+	t.Run("update_env_vars", func(t *testing.T) {
+		fn := &domain.Function{ID: id, Name: "test-fn"}
+		repo.On("Update", mock.Anything, id, mock.Anything).Return(nil).Once()
+		repo.On("GetByID", mock.Anything, id).Return(fn, nil).Once()
+		auditSvc.On("Log", mock.Anything, mock.Anything, "function.update", "function", id.String(), mock.Anything).Return(nil).Once()
+
+		envVars := []*domain.EnvVar{
+			{Key: "FOO", Value: "bar"},
+			{Key: "DEBUG", Value: "true"},
+		}
+		updated, err := svc.UpdateFunction(ctx, id, &domain.FunctionUpdate{EnvVars: envVars})
+		require.NoError(t, err)
+		assert.NotNil(t, updated)
+		repo.AssertExpectations(t)
+	})
 }
