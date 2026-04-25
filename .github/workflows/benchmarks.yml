@@ -50,7 +50,8 @@ jobs:
           output-file-path: bench.txt
           # Access token to push results to gh-pages branch
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
+          # Fork PRs cannot push to upstream gh-pages with GITHUB_TOKEN.
+          auto-push: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
           # Fail if performance drops by more than 50%
           alert-threshold: '200%'
           comment-on-alert: true
