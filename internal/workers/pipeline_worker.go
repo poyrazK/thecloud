@@ -22,7 +22,10 @@ const (
 	pipelineQueueName  = "pipeline_build_queue"
 	pipelineGroup      = "pipeline_workers"
 	pipelineMaxWorkers = 5
-	pipelineReclaimMs  = 10 * 60 * 1000 // 10 minutes (builds are longer)
+	// Must be shorter than pipelineStaleThreshold (35m) to reclaim promptly,
+	// but longer than max expected job runtime (30m) to avoid stealing messages
+	// from workers that are legitimately still processing.
+	pipelineReclaimMs = 32 * 60 * 1000 // 32 minutes
 	pipelineReclaimN   = 5
 	// Stale threshold for idempotency ledger: builds can take up to 30 min,
 	// so a "running" entry older than this is considered abandoned.

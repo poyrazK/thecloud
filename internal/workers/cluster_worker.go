@@ -123,10 +123,17 @@ func (w *ClusterWorker) processJob(workerCtx context.Context, msg *ports.Durable
 			return
 		}
 		if !acquired {
-			w.logger.Info("skipping duplicate cluster job",
+			// Check if it's already finished or just being processed by someone else.
+			status, _, _, getErr := w.ledger.GetStatus(workerCtx, jobKey)
+			if getErr == nil && status == "completed" {
+				w.logger.Info("skipping already completed cluster job",
+					"cluster_id", job.ClusterID, "type", job.Type, "msg_id", msg.ID)
+				w.ackWithLog(workerCtx, msg.ID, "cluster already completed")
+				return
+			}
+			w.logger.Info("cluster job is currently being processed by another worker",
 				"cluster_id", job.ClusterID, "type", job.Type, "msg_id", msg.ID)
-			w.ackWithLog(workerCtx, msg.ID, "duplicate cluster job")
-			return
+			return // Leave unacked for redelivery/wait.
 		}
 	}
 
