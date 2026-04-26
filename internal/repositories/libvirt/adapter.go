@@ -203,7 +203,7 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 	}
 
 	// Create pre-resize snapshot for rollback in case of failure
-	snapshotName := fmt.Sprintf("pre-resize-%d", time.Now().Unix())
+	snapshotName := fmt.Sprintf("pre-resize-%s", uuid.New().String()[:8])
 	if err := a.CreateSnapshot(ctx, id, snapshotName); err != nil {
 		a.logger.Warn("failed to create pre-resize snapshot, proceeding without safety net", "domain", id, "error", err)
 	}
@@ -222,14 +222,11 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 
 	newDom, err := a.client.DomainDefineXML(ctx, newDOMXML)
 	if err != nil {
-		// Rollback: redefine the original domain to prevent permanent loss.
-		// If wasRunning, also restart it to restore the original state.
-		_, rollbackErr := a.client.DomainDefineXML(ctx, domXML)
+		// Rollback: restore volume and redefine original domain
+		rollbackErr := a.rollbackFromSnapshot(ctx, id, snapshotName, domXML)
 		if rollbackErr != nil {
-			a.rollbackFromSnapshot(ctx, id, snapshotName, domXML)
 			return fmt.Errorf("failed to redefine domain with new resources (instance_id=%s, target=%s), rollback also failed: original error: %w; rollback error: %w", id, newDOMXML, err, rollbackErr)
 		}
-		a.rollbackFromSnapshot(ctx, id, snapshotName, domXML)
 		return fmt.Errorf("failed to redefine domain with new resources: %w", err)
 	}
 
@@ -867,15 +864,17 @@ func (a *LibvirtAdapter) DeleteSnapshot(ctx context.Context, id, name string) er
 }
 
 // rollbackFromSnapshot restores the root volume from a snapshot and redefines the domain
-// with the original XML. This is used when a resize operation fails mid-way.
-func (a *LibvirtAdapter) rollbackFromSnapshot(ctx context.Context, id, snapshotName, domXML string) {
+// with the original XML. This is used when a resize operation fails after DomainUndefine.
+func (a *LibvirtAdapter) rollbackFromSnapshot(ctx context.Context, id, snapshotName, originalXML string) error {
 	if err := a.RestoreSnapshot(ctx, id, snapshotName); err != nil {
-		a.logger.Error("failed to rollback from snapshot", "domain", id, "snapshot", snapshotName, "error", err)
-		return
+		return fmt.Errorf("failed to restore snapshot volume: %w", err)
 	}
-	if _, err := a.client.DomainDefineXML(ctx, domXML); err != nil {
-		a.logger.Error("failed to redefine domain after snapshot restore", "domain", id, "error", err)
+	// Redefine the domain so it can boot from the restored volume
+	if _, err := a.client.DomainDefineXML(ctx, originalXML); err != nil {
+		return fmt.Errorf("failed to redefine domain after snapshot restore: %w", err)
 	}
+	a.logger.Info("rollback from snapshot complete", "domain", id, "snapshot", snapshotName)
+	return nil
 }
 
 func (a *LibvirtAdapter) prepareRootVolume(ctx context.Context, name string, imageName string) (string, libvirt.StorageVol, error) {
