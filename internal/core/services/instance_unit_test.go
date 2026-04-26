@@ -1829,9 +1829,123 @@ func testInstanceServiceResizeInstanceUnit(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to decrement vCPU quota for resize")
-		// Verify compute was never called (quota failed first)
 		repo.AssertNotCalled(t, "Update")
 		mock.AssertExpectationsForObjects(t, repo, typeRepo, rbacSvc, tenantSvc)
+	})
+
+	t.Run("Failure_DownsizeComputeResizeFails", func(t *testing.T) {
+		repo := new(MockInstanceRepo)
+		typeRepo := new(MockInstanceTypeRepo)
+		compute := new(MockComputeBackend)
+		rbacSvc := new(MockRBACService)
+		tenantSvc := new(MockTenantService)
+		eventSvc := new(MockEventService)
+
+		svc := services.NewInstanceService(services.InstanceServiceParams{
+			Repo:             repo,
+			InstanceTypeRepo: typeRepo,
+			Compute:          compute,
+			RBAC:             rbacSvc,
+			TenantSvc:        tenantSvc,
+			EventSvc:         eventSvc,
+			Logger:           slog.Default(),
+		})
+
+		ctx := context.Background()
+		userID := uuid.New()
+		tenantID := uuid.New()
+		instanceID := uuid.New()
+		ctx = appcontext.WithUserID(ctx, userID)
+		ctx = appcontext.WithTenantID(ctx, tenantID)
+
+		inst := &domain.Instance{
+			ID:           instanceID,
+			UserID:       userID,
+			TenantID:     tenantID,
+			Status:       domain.StatusRunning,
+			InstanceType: "basic-4",
+			ContainerID:  "cid-1",
+		}
+
+		oldType := &domain.InstanceType{ID: "basic-4", VCPUs: 4, MemoryMB: 4096}
+		newType := &domain.InstanceType{ID: "basic-2", VCPUs: 2, MemoryMB: 2048}
+
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceResize, "test-inst").Return(nil).Once()
+		repo.On("GetByName", mock.Anything, "test-inst").Return(inst, nil).Once()
+		typeRepo.On("GetByID", mock.Anything, "basic-4").Return(oldType, nil).Once()
+		typeRepo.On("GetByID", mock.Anything, "basic-2").Return(newType, nil).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 2).Return(nil).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "memory", 2048).Return(nil).Once()
+		compute.On("ResizeInstance", mock.Anything, "cid-1", int64(2*1e9), int64(2048*1024*1024)).Return(fmt.Errorf("libvirt error")).Once()
+		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "vcpus", 2).Return(nil).Maybe()
+		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "memory", 2048).Return(nil).Maybe()
+
+		err := svc.ResizeInstance(ctx, "test-inst", "basic-2")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to resize instance")
+		mock.AssertExpectationsForObjects(t, repo, typeRepo, compute, rbacSvc, tenantSvc, eventSvc)
+	})
+
+	t.Run("Success_VersionIncrementedOnResize", func(t *testing.T) {
+		repo := new(MockInstanceRepo)
+		typeRepo := new(MockInstanceTypeRepo)
+		compute := new(MockComputeBackend)
+		rbacSvc := new(MockRBACService)
+		tenantSvc := new(MockTenantService)
+		eventSvc := new(MockEventService)
+		auditSvc := new(MockAuditService)
+
+		svc := services.NewInstanceService(services.InstanceServiceParams{
+			Repo:             repo,
+			InstanceTypeRepo: typeRepo,
+			Compute:          compute,
+			RBAC:             rbacSvc,
+			TenantSvc:        tenantSvc,
+			EventSvc:         eventSvc,
+			AuditSvc:         auditSvc,
+			Logger:           slog.Default(),
+		})
+
+		ctx := context.Background()
+		userID := uuid.New()
+		tenantID := uuid.New()
+		instanceID := uuid.New()
+		ctx = appcontext.WithUserID(ctx, userID)
+		ctx = appcontext.WithTenantID(ctx, tenantID)
+
+		inst := &domain.Instance{
+			ID:           instanceID,
+			UserID:       userID,
+			TenantID:     tenantID,
+			Status:       domain.StatusRunning,
+			InstanceType: "basic-2",
+			ContainerID:  "cid-1",
+			Version:      1,
+		}
+
+		oldType := &domain.InstanceType{ID: "basic-2", VCPUs: 2, MemoryMB: 2048}
+		newType := &domain.InstanceType{ID: "basic-4", VCPUs: 4, MemoryMB: 4096}
+
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceResize, "test-inst").Return(nil).Once()
+		repo.On("GetByName", mock.Anything, "test-inst").Return(inst, nil).Once()
+		typeRepo.On("GetByID", mock.Anything, "basic-2").Return(oldType, nil).Once()
+		typeRepo.On("GetByID", mock.Anything, "basic-4").Return(newType, nil).Once()
+		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "vcpus", 2).Return(nil).Once()
+		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "vcpus", 2).Return(nil).Once()
+		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "memory", 2048).Return(nil).Once()
+		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "memory", 2048).Return(nil).Once()
+		compute.On("ResizeInstance", mock.Anything, "cid-1", int64(4*1e9), int64(4096*1024*1024)).Return(nil).Once()
+		repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
+			return i.InstanceType == "basic-4" && i.Version == 2
+		})).Return(nil).Once()
+		eventSvc.On("RecordEvent", mock.Anything, "INSTANCE_RESIZE", instanceID.String(), "INSTANCE", mock.Anything).Return(nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "instance.resize", "instance", instanceID.String(), mock.Anything).Return(nil).Once()
+
+		err := svc.ResizeInstance(ctx, "test-inst", "basic-4")
+
+		require.NoError(t, err)
+		mock.AssertExpectationsForObjects(t, repo, typeRepo, compute, rbacSvc, tenantSvc, eventSvc, auditSvc)
 	})
 
 	t.Run("ComputeError", func(t *testing.T) {

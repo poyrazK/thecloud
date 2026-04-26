@@ -449,5 +449,8 @@ func (h *InstanceHandler) ResizeInstance(c *gin.Context) {
 		return
 	}
 
-	httputil.Success(c, http.StatusOK, gin.H{"message": "instance resized"})
+	httputil.Success(c, http.StatusOK, gin.H{
+		"message":        "instance resized",
+		"instance_type": req.InstanceType,
+	})
 }
