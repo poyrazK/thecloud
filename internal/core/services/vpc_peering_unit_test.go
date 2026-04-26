@@ -18,11 +18,13 @@ import (
 func TestVPCPeeringService_Unit(t *testing.T) {
 	mockRepo := new(MockVPCPeeringRepo)
 	mockVpcRepo := new(MockVpcRepo)
+	mockRTRepo := new(MockRTRepo)
 	mockNetwork := new(MockNetworkBackend)
 	mockAuditSvc := new(MockAuditService)
 	svc := services.NewVPCPeeringService(services.VPCPeeringServiceParams{
 		Repo:     mockRepo,
 		VpcRepo:  mockVpcRepo,
+		RTRepo:   mockRTRepo,
 		Network:  mockNetwork,
 		AuditSvc: mockAuditSvc,
 		Logger:   slog.Default(),
@@ -127,7 +129,7 @@ func TestVPCPeeringService_Unit(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("AcceptPeering_FlowProgrammingFailure", func(t *testing.T) {
+	t.Run("AcceptPeering_RouteProgrammingFailure", func(t *testing.T) {
 		peeringID := uuid.New()
 		requesterVPCID := uuid.New()
 		accepterVPCID := uuid.New()
@@ -139,11 +141,16 @@ func TestVPCPeeringService_Unit(t *testing.T) {
 		}
 		requesterVPC := &domain.VPC{ID: requesterVPCID, Name: "req", NetworkID: "net-req", CIDRBlock: "10.0.0.0/16"}
 		accepterVPC := &domain.VPC{ID: accepterVPCID, Name: "acc", NetworkID: "net-acc", CIDRBlock: "11.0.0.0/16"}
+		reqRT := &domain.RouteTable{ID: uuid.New(), VPCID: requesterVPCID, Name: "main", IsMain: true}
+		accRT := &domain.RouteTable{ID: uuid.New(), VPCID: accepterVPCID, Name: "main", IsMain: true}
 
 		mockRepo.On("GetByID", mock.Anything, peeringID).Return(peering, nil).Once()
 		mockVpcRepo.On("GetByID", mock.Anything, requesterVPCID).Return(requesterVPC, nil).Once()
 		mockVpcRepo.On("GetByID", mock.Anything, accepterVPCID).Return(accepterVPC, nil).Once()
-		mockNetwork.On("AddFlowRule", mock.Anything, "net-req", mock.Anything).Return(fmt.Errorf("flow error")).Once()
+		mockRTRepo.On("GetMainByVPC", mock.Anything, requesterVPCID).Return(reqRT, nil).Once()
+		mockRTRepo.On("GetMainByVPC", mock.Anything, accepterVPCID).Return(accRT, nil).Once()
+		// AddRoute fails on second route (accepter)
+		mockRTRepo.On("AddRoute", mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("route table error")).Once()
 		mockRepo.On("UpdateStatus", mock.Anything, peeringID, domain.PeeringStatusFailed).Return(nil).Once()
 
 		_, err := svc.AcceptPeering(ctx, peeringID)
@@ -163,12 +170,16 @@ func TestVPCPeeringService_Unit(t *testing.T) {
 		}
 		requesterVPC := &domain.VPC{ID: requesterVPCID, Name: "req", NetworkID: "net-req", CIDRBlock: "10.0.0.0/16"}
 		accepterVPC := &domain.VPC{ID: accepterVPCID, Name: "acc", NetworkID: "net-acc", CIDRBlock: "11.0.0.0/16"}
+		reqRT := &domain.RouteTable{ID: uuid.New(), VPCID: requesterVPCID, Name: "main", IsMain: true}
+		accRT := &domain.RouteTable{ID: uuid.New(), VPCID: accepterVPCID, Name: "main", IsMain: true}
 
 		mockRepo.On("GetByID", mock.Anything, peeringID).Return(peering, nil).Once()
 		mockVpcRepo.On("GetByID", mock.Anything, requesterVPCID).Return(requesterVPC, nil).Once()
 		mockVpcRepo.On("GetByID", mock.Anything, accepterVPCID).Return(accepterVPC, nil).Once()
-		mockNetwork.On("AddFlowRule", mock.Anything, "net-req", mock.Anything).Return(nil).Once()
-		mockNetwork.On("AddFlowRule", mock.Anything, "net-acc", mock.Anything).Return(nil).Once()
+		mockRTRepo.On("GetMainByVPC", mock.Anything, requesterVPCID).Return(reqRT, nil).Once()
+		mockRTRepo.On("GetMainByVPC", mock.Anything, accepterVPCID).Return(accRT, nil).Once()
+		mockRTRepo.On("AddRoute", mock.Anything, reqRT.ID, mock.Anything).Return(nil).Once()
+		mockRTRepo.On("AddRoute", mock.Anything, accRT.ID, mock.Anything).Return(nil).Once()
 		mockRepo.On("UpdateStatus", mock.Anything, peeringID, domain.PeeringStatusActive).Return(nil).Once()
 		mockAuditSvc.On("Log", mock.Anything, userID, "vpc_peering.accept", "vpc_peering", mock.Anything, mock.Anything).Return(nil).Once()
 
@@ -228,7 +239,7 @@ func TestVPCPeeringService_Unit(t *testing.T) {
 		mockRepo.AssertExpectations(t)
 	})
 
-	t.Run("DeletePeering_ActiveWithOVSCleanup", func(t *testing.T) {
+	t.Run("DeletePeering_ActiveWithRouteCleanup", func(t *testing.T) {
 		peeringID := uuid.New()
 		requesterVPCID := uuid.New()
 		accepterVPCID := uuid.New()
@@ -240,12 +251,22 @@ func TestVPCPeeringService_Unit(t *testing.T) {
 		}
 		requesterVPC := &domain.VPC{ID: requesterVPCID, Name: "req", NetworkID: "net-req", CIDRBlock: "10.0.0.0/16"}
 		accepterVPC := &domain.VPC{ID: accepterVPCID, Name: "acc", NetworkID: "net-acc", CIDRBlock: "11.0.0.0/16"}
+		reqRT := &domain.RouteTable{ID: uuid.New(), VPCID: requesterVPCID, Name: "main", IsMain: true}
+		accRT := &domain.RouteTable{ID: uuid.New(), VPCID: accepterVPCID, Name: "main", IsMain: true}
+
+		// Peering routes that match our peering ID
+		reqRoutes := []domain.Route{{ID: uuid.New(), TargetType: domain.RouteTargetPeering, TargetID: &peeringID}}
+		accRoutes := []domain.Route{{ID: uuid.New(), TargetType: domain.RouteTargetPeering, TargetID: &peeringID}}
 
 		mockRepo.On("GetByID", mock.Anything, peeringID).Return(peering, nil).Once()
 		mockVpcRepo.On("GetByID", mock.Anything, requesterVPCID).Return(requesterVPC, nil).Once()
 		mockVpcRepo.On("GetByID", mock.Anything, accepterVPCID).Return(accepterVPC, nil).Once()
-		mockNetwork.On("DeleteFlowRule", mock.Anything, "net-req", mock.Anything).Return(nil).Once()
-		mockNetwork.On("DeleteFlowRule", mock.Anything, "net-acc", mock.Anything).Return(nil).Once()
+		mockRTRepo.On("GetMainByVPC", mock.Anything, requesterVPCID).Return(reqRT, nil).Once()
+		mockRTRepo.On("GetMainByVPC", mock.Anything, accepterVPCID).Return(accRT, nil).Once()
+		mockRTRepo.On("ListRoutes", mock.Anything, reqRT.ID).Return(reqRoutes, nil).Once()
+		mockRTRepo.On("ListRoutes", mock.Anything, accRT.ID).Return(accRoutes, nil).Once()
+		mockRTRepo.On("RemoveRoute", mock.Anything, reqRT.ID, reqRoutes[0].ID).Return(nil).Once()
+		mockRTRepo.On("RemoveRoute", mock.Anything, accRT.ID, accRoutes[0].ID).Return(nil).Once()
 		mockRepo.On("Delete", mock.Anything, peeringID).Return(nil).Once()
 		mockAuditSvc.On("Log", mock.Anything, userID, "vpc_peering.delete", "vpc_peering", mock.Anything, mock.Anything).Return(nil).Once()
 

@@ -53,8 +53,8 @@ func (m *mockVpcService) GetVPC(ctx context.Context, idOrName string) (*domain.V
 	return r0, args.Error(1)
 }
 
-func (m *mockVpcService) DeleteVPC(ctx context.Context, idOrName string) error {
-	args := m.Called(ctx, idOrName)
+func (m *mockVpcService) DeleteVPC(ctx context.Context, idOrName string, force bool) error {
+	args := m.Called(ctx, idOrName, force)
 	return args.Error(0)
 }
 
@@ -167,7 +167,7 @@ func TestVpcHandlerDelete(t *testing.T) {
 	r.DELETE(vpcsPath+"/:id", handler.Delete)
 
 	vpcID := uuid.New().String()
-	svc.On("DeleteVPC", mock.Anything, vpcID).Return(nil)
+	svc.On("DeleteVPC", mock.Anything, vpcID, false).Return(nil)
 
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest("DELETE", vpcsPath+"/"+vpcID, nil)
@@ -196,7 +196,7 @@ func TestVpcHandlerDeleteError(t *testing.T) {
 	svc, handler, r := setupVpcHandlerTest(t)
 	r.DELETE(vpcsPath+"/:id", handler.Delete)
 
-	svc.On("DeleteVPC", mock.Anything, "error-id").Return(assert.AnError)
+	svc.On("DeleteVPC", mock.Anything, "error-id", false).Return(assert.AnError)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("DELETE", vpcsPath+"/error-id", nil)

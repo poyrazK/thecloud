@@ -668,6 +668,13 @@ func (m *MockFunctionService) GetFunctionLogs(ctx context.Context, id uuid.UUID,
 	}
 	return args.Get(0).([]*domain.Invocation), args.Error(1)
 }
+func (m *MockFunctionService) UpdateFunction(ctx context.Context, id uuid.UUID, req *domain.FunctionUpdate) (*domain.Function, error) {
+	args := m.Called(ctx, id, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Function), args.Error(1)
+}
 
 type MockFunctionScheduleService = MockFunctionScheduleServiceImpl
 

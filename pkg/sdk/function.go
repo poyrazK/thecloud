@@ -19,8 +19,25 @@ type Function struct {
 	Timeout   int       `json:"timeout"`
 	MemoryMB  int       `json:"memory_mb"`
 	Status    string    `json:"status"`
+	EnvVars   []*EnvVar `json:"env_vars,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// EnvVar represents a key-value environment variable.
+type EnvVar struct {
+	Key       string `json:"key"`
+	Value     string `json:"value,omitempty"`
+	SecretRef string `json:"secret_ref,omitempty"`
+}
+
+// FunctionUpdateRequest describes fields that can be updated.
+type FunctionUpdateRequest struct {
+	Handler  *string    `json:"handler,omitempty"`
+	Timeout  *int       `json:"timeout,omitempty"`
+	MemoryMB *int       `json:"memory_mb,omitempty"`
+	Status   string     `json:"status,omitempty"`
+	EnvVars  []*EnvVar `json:"env_vars,omitempty"`
 }
 
 // Invocation represents a function invocation result.
@@ -86,6 +103,14 @@ func (c *Client) GetFunction(id string) (*Function, error) {
 
 func (c *Client) DeleteFunction(id string) error {
 	return c.delete(functionsPath+id, nil)
+}
+
+func (c *Client) UpdateFunction(id string, req *FunctionUpdateRequest) (*Function, error) {
+	var resp Response[Function]
+	if err := c.patch(functionsPath+id, req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp.Data, nil
 }
 
 func (c *Client) InvokeFunction(id string, payload []byte, async bool) (*Invocation, error) {

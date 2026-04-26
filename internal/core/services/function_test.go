@@ -26,13 +26,14 @@ import (
 
 const indexJSMockFile = "index.js"
 
-func setupFunctionServiceTest(t *testing.T) (*services.FunctionService, ports.FunctionRepository, context.Context) {
+func setupFunctionServiceTest(t *testing.T) (*services.FunctionService, ports.FunctionRepository, ports.SecretService, context.Context) {
 	t.Helper()
 	db := setupDB(t)
 	cleanDB(t, db)
 	ctx := setupTestUser(t, db)
 
 	repo := postgres.NewFunctionRepository(db)
+	secretRepo := postgres.NewSecretRepository(db)
 
 	compute, err := docker.NewDockerAdapter(slog.Default())
 	require.NoError(t, err)
@@ -50,11 +51,29 @@ func setupFunctionServiceTest(t *testing.T) (*services.FunctionService, ports.Fu
 		RBACSvc: rbacSvc,
 	})
 
+	eventRepo := postgres.NewEventRepository(db)
+	eventSvc := services.NewEventService(services.EventServiceParams{
+		Repo:    eventRepo,
+		RBACSvc: rbacSvc,
+	})
+
+	masterKey := "test-master-key-32-chars-long-!!!"
+	secretSvc, err := services.NewSecretService(services.SecretServiceParams{
+		Repo:        secretRepo,
+		RBACSvc:     rbacSvc,
+		EventSvc:    eventSvc,
+		AuditSvc:    auditSvc,
+		Logger:      slog.Default(),
+		MasterKey:   masterKey,
+		Environment: "test",
+	})
+	require.NoError(t, err)
+
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, logger)
+	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, secretSvc, logger)
 
-	return svc, repo, ctx
+	return svc, repo, secretSvc, ctx
 }
 
 
@@ -72,7 +91,7 @@ func createZip(t *testing.T, content string) []byte {
 }
 
 func TestFunctionServiceCreateFunctionSuccess(t *testing.T) {
-	svc, repo, ctx := setupFunctionServiceTest(t)
+	svc, repo, _, ctx := setupFunctionServiceTest(t)
 	userID := appcontext.UserIDFromContext(ctx)
 
 	name := "test-func"
@@ -97,7 +116,7 @@ func TestFunctionServiceCreateFunctionSuccess(t *testing.T) {
 func TestFunctionServiceInvokeFunctionSuccess(t *testing.T) {
 	// Skip if we don't want to actually run docker in all environments,
 	// but here we are aiming for real integration.
-	svc, _, ctx := setupFunctionServiceTest(t)
+	svc, _, _, ctx := setupFunctionServiceTest(t)
 
 	code := createZip(t, `
 const payload = process.env.PAYLOAD;
@@ -116,7 +135,7 @@ process.exit(0);
 }
 
 func TestFunctionServiceDeleteFunctionSuccess(t *testing.T) {
-	svc, repo, ctx := setupFunctionServiceTest(t)
+	svc, repo, _, ctx := setupFunctionServiceTest(t)
 
 	code := createZip(t, "console.log(1)")
 	f, _ := svc.CreateFunction(ctx, "to-delete", "nodejs20", indexJSMockFile, code)
@@ -130,7 +149,7 @@ func TestFunctionServiceDeleteFunctionSuccess(t *testing.T) {
 }
 
 func TestFunctionServiceListFunctions(t *testing.T) {
-	svc, _, ctx := setupFunctionServiceTest(t)
+	svc, _, _, ctx := setupFunctionServiceTest(t)
 	code := createZip(t, "1")
 	_, _ = svc.CreateFunction(ctx, "fn1", "nodejs20", indexJSMockFile, code)
 	_, _ = svc.CreateFunction(ctx, "fn2", "nodejs20", indexJSMockFile, code)
@@ -141,7 +160,7 @@ func TestFunctionServiceListFunctions(t *testing.T) {
 }
 
 func TestFunctionServiceGetFunction(t *testing.T) {
-	svc, _, ctx := setupFunctionServiceTest(t)
+	svc, _, _, ctx := setupFunctionServiceTest(t)
 	code := createZip(t, "1")
 	f, _ := svc.CreateFunction(ctx, "get-me", "nodejs20", indexJSMockFile, code)
 
@@ -151,7 +170,7 @@ func TestFunctionServiceGetFunction(t *testing.T) {
 }
 
 func TestFunctionServiceInvokeAsync(t *testing.T) {
-	svc, repo, ctx := setupFunctionServiceTest(t)
+	svc, repo, _, ctx := setupFunctionServiceTest(t)
 	code := createZip(t, "console.log('async')")
 	f, _ := svc.CreateFunction(ctx, "async-test", "nodejs20", indexJSMockFile, code)
 
@@ -175,7 +194,7 @@ func TestFunctionServiceInvokeAsync(t *testing.T) {
 }
 
 func TestFunctionServiceZipSlipProtection(t *testing.T) {
-	svc, _, ctx := setupFunctionServiceTest(t)
+	svc, _, _, ctx := setupFunctionServiceTest(t)
 
 	// Create malicious zip
 	buf := new(bytes.Buffer)
@@ -191,4 +210,122 @@ func TestFunctionServiceZipSlipProtection(t *testing.T) {
 	assert.NotNil(t, inv)
 	assert.Equal(t, "FAILED", inv.Status)
 	assert.Contains(t, inv.Logs, "invalid file path in zip")
+}
+
+func TestFunctionServiceSecretEnvVarIntegration(t *testing.T) {
+	svc, _, secretSvc, ctx := setupFunctionServiceTest(t)
+
+	// Create a secret to reference (resolved by name in sub-tests)
+	_, err := secretSvc.CreateSecret(ctx, "my-api-key", "s3cr3t-value", "test secret")
+	require.NoError(t, err)
+
+	t.Run("plainTextEnvVar", func(t *testing.T) {
+		code := createZip(t, `
+console.log("ENV_FOO=" + process.env.FOO);
+process.exit(0);
+`)
+		f, err := svc.CreateFunction(ctx, "env-plain", "nodejs20", indexJSMockFile, code)
+		require.NoError(t, err)
+
+		// Update with plain text env var
+		timeout := 300
+		mem := 256
+		_, err = svc.UpdateFunction(ctx, f.ID, &domain.FunctionUpdate{
+			EnvVars:  []*domain.EnvVar{{Key: "FOO", Value: "bar"}},
+			Timeout:  &timeout,
+			MemoryMB: &mem,
+		})
+		require.NoError(t, err)
+
+		// Invoke and verify
+		inv, err := svc.InvokeFunction(ctx, f.ID, []byte("{}"), false)
+		require.NoError(t, err)
+		assert.Equal(t, "SUCCESS", inv.Status)
+		assert.Contains(t, inv.Logs, "ENV_FOO=bar")
+	})
+
+	t.Run("secretRefEnvVar", func(t *testing.T) {
+		code := createZip(t, `
+const foo = JSON.parse(process.env.FOO || '{}');
+console.log("KEY=" + foo.key);
+console.log("VAL=" + foo.value);
+process.exit(0);
+`)
+		f, err := svc.CreateFunction(ctx, "env-secret", "nodejs20", indexJSMockFile, code)
+		require.NoError(t, err)
+
+		// Update with secret ref
+		timeout := 300
+		mem := 256
+		_, err = svc.UpdateFunction(ctx, f.ID, &domain.FunctionUpdate{
+			EnvVars:  []*domain.EnvVar{{Key: "FOO", SecretRef: "@my-api-key"}},
+			Timeout:  &timeout,
+			MemoryMB: &mem,
+		})
+		require.NoError(t, err)
+
+		// Invoke and verify JSON injection format
+		inv, err := svc.InvokeFunction(ctx, f.ID, []byte("{}"), false)
+		require.NoError(t, err)
+		assert.Equal(t, "SUCCESS", inv.Status)
+		assert.Contains(t, inv.Logs, `"key":"FOO"`)
+		assert.Contains(t, inv.Logs, `"value":"s3cr3t-value"`)
+	})
+
+	t.Run("secretRefMissing_skipsEnvVar", func(t *testing.T) {
+		code := createZip(t, `
+console.log("HAS_BAZ=" + (process.env.BAZ !== undefined));
+process.exit(0);
+`)
+		f, err := svc.CreateFunction(ctx, "env-missing-secret", "nodejs20", indexJSMockFile, code)
+		require.NoError(t, err)
+
+		// Update with reference to non-existent secret
+		timeout := 300
+		mem := 256
+		_, err = svc.UpdateFunction(ctx, f.ID, &domain.FunctionUpdate{
+			EnvVars:  []*domain.EnvVar{{Key: "BAZ", SecretRef: "@nonexistent-secret"}},
+			Timeout:  &timeout,
+			MemoryMB: &mem,
+		})
+		require.NoError(t, err)
+
+		// Invoke — missing secret should be skipped, BAZ not set
+		inv, err := svc.InvokeFunction(ctx, f.ID, []byte("{}"), false)
+		require.NoError(t, err)
+		assert.Equal(t, "SUCCESS", inv.Status)
+		assert.Contains(t, inv.Logs, "HAS_BAZ=false")
+	})
+
+	t.Run("mixedPlainTextAndSecretRef", func(t *testing.T) {
+		code := createZip(t, `
+const foo = JSON.parse(process.env.FOO || '{}');
+const bar = process.env.BAR;
+console.log("KEY=" + foo.key);
+console.log("VAL=" + foo.value);
+console.log("BAR=" + bar);
+process.exit(0);
+`)
+		f, err := svc.CreateFunction(ctx, "env-mixed", "nodejs20", indexJSMockFile, code)
+		require.NoError(t, err)
+
+		timeout := 300
+		mem := 256
+		_, err = svc.UpdateFunction(ctx, f.ID, &domain.FunctionUpdate{
+			EnvVars: []*domain.EnvVar{
+				{Key: "FOO", SecretRef: "@my-api-key"},
+				{Key: "BAR", Value: "plain-value"},
+			},
+			Timeout:  &timeout,
+			MemoryMB: &mem,
+		})
+		require.NoError(t, err)
+
+		inv, err := svc.InvokeFunction(ctx, f.ID, []byte("{}"), false)
+		require.NoError(t, err)
+		assert.Equal(t, "SUCCESS", inv.Status)
+		assert.Contains(t, inv.Logs, `"key":"FOO"`)
+		assert.Contains(t, inv.Logs, `"value":"s3cr3t-value"`)
+		assert.Contains(t, inv.Logs, "BAR=plain-value")
+	})
 }

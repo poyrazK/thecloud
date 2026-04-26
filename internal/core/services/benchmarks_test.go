@@ -130,9 +130,10 @@ func BenchmarkFunctionServiceInvoke(b *testing.B) {
 	fileStore := &noop.NoopFileStore{}
 	auditSvc := &noop.NoopAuditService{}
 	rbacSvc := &noop.NoopRBACService{}
+	secretSvc := &noop.NoopSecretService{}
 	logger := slog.Default()
 
-	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, logger)
+	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, secretSvc, logger)
 
 	ctx := context.Background()
 	id := uuid.New()
@@ -450,9 +451,10 @@ func BenchmarkFunctionServiceList(b *testing.B) {
 	fileStore := &noop.NoopFileStore{}
 	auditSvc := &noop.NoopAuditService{}
 	rbacSvc := &noop.NoopRBACService{}
+	secretSvc := &noop.NoopSecretService{}
 	logger := slog.Default()
 
-	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, logger)
+	svc := services.NewFunctionService(repo, rbacSvc, compute, fileStore, auditSvc, secretSvc, logger)
 
 	ctx := context.Background()
 

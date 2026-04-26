@@ -18,6 +18,8 @@ type FunctionRepository interface {
 	GetByName(ctx context.Context, userID uuid.UUID, name string) (*domain.Function, error)
 	// List returns all functions owned by a user.
 	List(ctx context.Context, userID uuid.UUID) ([]*domain.Function, error)
+	// Update applies partial updates to a function via FunctionUpdate.
+	Update(ctx context.Context, id uuid.UUID, u *domain.FunctionUpdate) error
 	// Delete removes a function definition and its associated code metadata.
 	Delete(ctx context.Context, id uuid.UUID) error
 	// CreateInvocation records the start or completion of a function execution.
@@ -34,6 +36,8 @@ type FunctionService interface {
 	GetFunction(ctx context.Context, id uuid.UUID) (*domain.Function, error)
 	// ListFunctions returns all functions belonging to the current authorized context.
 	ListFunctions(ctx context.Context) ([]*domain.Function, error)
+	// UpdateFunction applies partial updates to a function.
+	UpdateFunction(ctx context.Context, id uuid.UUID, req *domain.FunctionUpdate) (*domain.Function, error)
 	// DeleteFunction decommission a serverless function.
 	DeleteFunction(ctx context.Context, id uuid.UUID) error
 	// InvokeFunction executes a function with the provided payload.

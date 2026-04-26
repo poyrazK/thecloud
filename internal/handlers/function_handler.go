@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/pkg/httputil"
@@ -29,6 +30,15 @@ type CreateFunctionRequest struct {
 	Name    string `form:"name" binding:"required"`
 	Runtime string `form:"runtime" binding:"required"`
 	Handler string `form:"handler" binding:"required"`
+}
+
+// UpdateFunctionRequest is the payload for function update.
+type UpdateFunctionRequest struct {
+	Handler  *string           `json:"handler,omitempty"`
+	Timeout  *int              `json:"timeout,omitempty"`
+	MemoryMB *int              `json:"memory_mb,omitempty"`
+	Status   string            `json:"status,omitempty"`
+	EnvVars  []*domain.EnvVar  `json:"env_vars,omitempty"`
 }
 
 func (h *FunctionHandler) Create(c *gin.Context) {
@@ -88,6 +98,33 @@ func (h *FunctionHandler) Get(c *gin.Context) {
 		return
 	}
 	httputil.Success(c, http.StatusOK, function)
+}
+
+func (h *FunctionHandler) Update(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, invalidFunctionIDMsg))
+		return
+	}
+
+	var req UpdateFunctionRequest
+	if err := c.ShouldBind(&req); err != nil {
+		httputil.Error(c, errors.Wrap(errors.InvalidInput, "invalid request", err))
+		return
+	}
+
+	fn, err := h.svc.UpdateFunction(c.Request.Context(), id, &domain.FunctionUpdate{
+		Handler:  req.Handler,
+		Timeout:  req.Timeout,
+		MemoryMB: req.MemoryMB,
+		Status:   req.Status,
+		EnvVars:  req.EnvVars,
+	})
+	if err != nil {
+		httputil.Error(c, err)
+		return
+	}
+	httputil.Success(c, http.StatusOK, fn)
 }
 
 func (h *FunctionHandler) Delete(c *gin.Context) {

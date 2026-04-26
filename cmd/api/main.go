@@ -130,16 +130,28 @@ func run() error {
 	defer db.Close()
 	defer func() { _ = rdb.Close() }()
 
-	compute, storage, network, lbProxy, err := initBackends(deps, cfg, logger, db, rdb)
+	rawCompute, rawStorage, rawNetwork, rawLBProxy, err := initBackends(deps, cfg, logger, db, rdb)
 	if err != nil {
 		logger.Error("backend initialization failed", "error", err)
 		return err
 	}
 
+	// Wrap raw backends with resilience decorators (circuit breaker, bulkhead, timeouts).
+	compute := platform.NewResilientCompute(rawCompute, logger, platform.ResilientComputeOpts{})
+	storage := platform.NewResilientStorage(rawStorage, logger, platform.ResilientStorageOpts{})
+	network := platform.NewResilientNetwork(rawNetwork, logger, platform.ResilientNetworkOpts{})
+	lbProxy := platform.NewResilientLB(rawLBProxy, logger, platform.ResilientLBOpts{})
+
 	repos := deps.InitRepositories(db, rdb)
+
+	// Create leader elector for singleton worker coordination.
+	// When multiple worker replicas run, only one will hold leadership per key.
+	leaderElector := postgres.NewPgLeaderElector(db, logger)
+
 	svcs, workers, err := deps.InitServices(setup.ServiceConfig{
 		Config: cfg, Repos: repos, Compute: compute, Storage: storage,
 		Network: network, LBProxy: lbProxy, DB: db, RDB: rdb, Logger: logger,
+		LeaderElector: leaderElector,
 	})
 	if err != nil {
 		logger.Error("service initialization failed", "error", err)
@@ -154,15 +166,21 @@ func run() error {
 		r.Use(otelgin.Middleware("compute-api"))
 	}
 
-	runApplication(deps, cfg, logger, r, workers)
-	return nil
+	return runApplication(deps, cfg, logger, r, workers)
 }
 
-func runApplication(deps AppDeps, cfg *platform.Config, logger *slog.Logger, r *gin.Engine, workers *setup.Workers) {
-	role := os.Getenv("APP_ROLE")
+func runApplication(deps AppDeps, cfg *platform.Config, logger *slog.Logger, r *gin.Engine, workers *setup.Workers) error {
+	role := os.Getenv("ROLE")
 	if role == "" {
 		role = "all"
 	}
+
+	validRoles := map[string]bool{"api": true, "worker": true, "all": true}
+	if !validRoles[role] {
+		logger.Error("invalid ROLE value, must be one of: api, worker, all", "role", role)
+		return fmt.Errorf("invalid ROLE value %q, must be one of: api, worker, all", role)
+	}
+	logger.Info("starting with role", "role", role)
 
 	wg := &sync.WaitGroup{}
 	workerCtx, workerCancel := context.WithCancel(context.Background())
@@ -171,9 +189,9 @@ func runApplication(deps AppDeps, cfg *platform.Config, logger *slog.Logger, r *
 		runWorkers(workerCtx, wg, workers)
 	}
 
-	srv := deps.NewHTTPServer(":"+cfg.Port, r)
-
+	var srv *http.Server
 	if role == "api" || role == "all" {
+		srv = deps.NewHTTPServer(":"+cfg.Port, r)
 		go func() {
 			logger.Info("starting compute-api", "port", cfg.Port)
 			if err := deps.StartHTTPServer(srv); err != nil && !stdlib_errors.Is(err, http.ErrServerClosed) {
@@ -181,25 +199,28 @@ func runApplication(deps AppDeps, cfg *platform.Config, logger *slog.Logger, r *
 			}
 		}()
 	} else {
-		logger.Info("running in worker-only mode")
+		logger.Info("running in worker-only mode, HTTP server disabled")
 	}
 
 	quit := make(chan os.Signal, 1)
 	deps.NotifySignals(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	logger.Info("shutting down server...")
+	logger.Info("shutting down...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultShutdownTimeout)
 	defer cancel()
 
-	if err := deps.ShutdownHTTPServer(ctx, srv); err != nil {
-		logger.Error("server forced to shutdown", "error", err)
+	if srv != nil {
+		if err := deps.ShutdownHTTPServer(ctx, srv); err != nil {
+			logger.Error("server forced to shutdown", "error", err)
+		}
 	}
 
 	workerCancel()
 	wg.Wait()
-	logger.Info("server exited")
+	logger.Info("shutdown complete")
+	return nil
 }
 
 type runner interface {
