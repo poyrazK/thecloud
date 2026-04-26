@@ -47,6 +47,13 @@ const (
 	defaultLibvirtOpTimeout = 30 * time.Second
 )
 
+// Package-level pre-compiled regexes for domain XML modification (gocritic/bandit complaint: const patterns).
+var (
+	memoryRe    = regexp.MustCompile(`(?i)<memory(?:\s[^>]*)?>\d+</memory>`)
+	currentMemRe = regexp.MustCompile(`(?i)<currentMemory(?:\s[^>]*)?>\d+</currentMemory>`)
+	vcpuRe       = regexp.MustCompile(`(?i)<vcpu(?:\s[^>]*)?>\d+</vcpu>`)
+)
+
 // withLibvirtTimeout wraps a context with a default timeout for libvirt operations.
 // If the context already has a shorter deadline, it is preserved.
 func withLibvirtTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
@@ -245,11 +252,6 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 // Future work could use xml.Decoder with a more complete domain model if needed.
 func (a *LibvirtAdapter) applyDomainResize(xmlContent string, memoryKiB, vcpus int) (string, error) {
 	result := xmlContent
-
-	// Pre-compile regexes for efficiency
-	memoryRe := regexp.MustCompile(`(?i)<memory(?:\s[^>]*)?>\d+</memory>`)
-	currentMemRe := regexp.MustCompile(`(?i)<currentMemory(?:\s[^>]*)?>\d+</currentMemory>`)
-	vcpuRe := regexp.MustCompile(`(?i)<vcpu(?:\s[^>]*)?>\d+</vcpu>`)
 
 	// Replace <memory unit="KiB">...</memory> or <memory>...</memory>
 	result = memoryRe.ReplaceAllString(result, fmt.Sprintf(`<memory unit="KiB">%d</memory>`, memoryKiB))
