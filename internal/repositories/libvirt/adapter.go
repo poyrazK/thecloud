@@ -22,9 +22,37 @@ import (
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
+	libvirtsocket "github.com/digitalocean/go-libvirt/socket"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
+
+type libvirtUnixDialer struct {
+	uri     string
+	timeout time.Duration
+}
+
+var _ libvirtsocket.Dialer = (*libvirtUnixDialer)(nil)
+
+func (d *libvirtUnixDialer) Dial() (net.Conn, error) {
+	return net.DialTimeout("unix", d.uri, d.timeout)
+}
+
+// SocketDialer is the interface for creating network connections.
+// It allows dependency injection for testing.
+type SocketDialer interface {
+	Dial() (net.Conn, error)
+}
+
+// DialerOption configures NewLibvirtAdapter.
+type DialerOption func(*LibvirtAdapter)
+
+// WithSocketDialer injects a custom socket dialer for testing.
+func WithSocketDialer(d SocketDialer) DialerOption {
+	return func(a *LibvirtAdapter) {
+		a.socketDialer = d
+	}
+}
 
 const (
 	defaultPoolName   = "default"
@@ -66,6 +94,9 @@ type LibvirtAdapter struct {
 	execCommandContext func(ctx context.Context, name string, arg ...string) *exec.Cmd
 	lookPath           func(file string) (string, error)
 	osOpen             func(name string) (*os.File, error)
+
+	// Socket dialer for testability
+	socketDialer SocketDialer
 }
 
 func (a *LibvirtAdapter) recordPortMapping(name string, hPortStr string, cPort string) error {
@@ -85,7 +116,7 @@ func (a *LibvirtAdapter) recordPortMapping(name string, hPortStr string, cPort s
 }
 
 // NewLibvirtAdapter creates a LibvirtAdapter connected to the provided URI.
-func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error) {
+func NewLibvirtAdapter(logger *slog.Logger, uri string, opts ...DialerOption) (*LibvirtAdapter, error) {
 	if uri == "" {
 		uri = os.Getenv("LIBVIRT_URI")
 	}
@@ -93,27 +124,8 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 		uri = "/var/run/libvirt/libvirt-sock"
 	}
 
-	// Connect to libvirt socket
-	c, err := net.DialTimeout("unix", uri, 2*time.Second)
-	if err != nil {
-		// Fallback to session mode if system socket fails
-		if !strings.Contains(uri, "session") {
-			sessionUri := filepath.Join(os.Getenv("HOME"), ".cache/libvirt/libvirt-sock")
-			if c2, err2 := net.DialTimeout("unix", sessionUri, 2*time.Second); err2 == nil {
-				c = c2
-				uri = sessionUri
-			} else {
-				return nil, fmt.Errorf("failed to dial libvirt (system and session): %w", err)
-			}
-		} else {
-			return nil, fmt.Errorf("failed to dial libvirt: %w", err)
-		}
-	}
-
-	//nolint:staticcheck
-	l := libvirt.New(c)
+	// Create adapter with default dialer first (needed for option application)
 	adapter := &LibvirtAdapter{
-		client:             &RealLibvirtClient{conn: l},
 		logger:             logger,
 		uri:                uri,
 		portMappings:       make(map[string]map[string]int),
@@ -127,6 +139,39 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 		lookPath:           exec.LookPath,
 		osOpen:             os.Open,
 	}
+
+	// Apply options (e.g., inject mock dialer for testing)
+	for _, opt := range opts {
+		opt(adapter)
+	}
+
+	// Determine dialer to use
+	var dialer SocketDialer
+	if adapter.socketDialer != nil {
+		dialer = adapter.socketDialer
+	} else {
+		dialer = &libvirtUnixDialer{uri: uri, timeout: 2 * time.Second}
+	}
+
+	// Verify connectivity
+	if _, err := dialer.Dial(); err != nil {
+		// Fallback to session mode if system socket fails
+		if !strings.Contains(uri, "session") {
+			sessionUri := filepath.Join(os.Getenv("HOME"), ".cache/libvirt/libvirt-sock")
+			sessionDialer := &libvirtUnixDialer{uri: sessionUri, timeout: 2 * time.Second}
+			if _, err2 := sessionDialer.Dial(); err2 == nil {
+				dialer = sessionDialer
+				adapter.uri = sessionUri
+			} else {
+				return nil, fmt.Errorf("failed to dial libvirt (system and session): %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to dial libvirt: %w", err)
+		}
+	}
+
+	l := libvirt.NewWithDialer(dialer)
+	adapter.client = &RealLibvirtClient{conn: l}
 
 	connectCtx, connectCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer connectCancel()
