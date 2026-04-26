@@ -137,6 +137,12 @@ func (r *ResilientCompute) DeleteInstance(ctx context.Context, id string) error 
 	})
 }
 
+func (r *ResilientCompute) ResizeInstance(ctx context.Context, id string, cpuNano, memoryBytes int64) error {
+	return r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
+		return r.inner.ResizeInstance(ctx, id, cpuNano, memoryBytes)
+	})
+}
+
 func (r *ResilientCompute) GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error) {
 	var rc io.ReadCloser
 	err := r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
@@ -281,13 +287,6 @@ func (r *ResilientCompute) Ping(ctx context.Context) error {
 // Type delegates directly — no protection needed.
 func (r *ResilientCompute) Type() string {
 	return r.inner.Type()
-}
-
-// ResizeInstance delegates to the inner backend with circuit breaker and timeout.
-func (r *ResilientCompute) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
-	return r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
-		return r.inner.ResizeInstance(ctx, id, cpu, memory)
-	})
 }
 
 // Unwrap returns the underlying ComputeBackend (useful for tests).

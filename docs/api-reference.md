@@ -253,7 +253,6 @@ Resize an instance to a different instance type (CPU/memory).
 - `400` — Invalid input (bad instance ID, empty instance type, invalid type)
 - `404` — Instance not found
 - `403` — Insufficient quota for the requested type
-- `429` — Quota exceeded (resource limit exceeded)
 
 ### GET /instances/:id/console
 Get the VNC console URL for the instance.

@@ -4029,6 +4029,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/httputil.Response"
                         }
                     },
+                    "429": {
+                        "description": "Quota Exceeded",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {

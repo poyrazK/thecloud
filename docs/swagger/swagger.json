@@ -4022,7 +4022,7 @@
                         }
                     },
                     "429": {
-                        "description": "Too Many Requests (Quota Exceeded)",
+                        "description": "Quota Exceeded",
                         "schema": {
                             "$ref": "#/definitions/httputil.Response"
                         }

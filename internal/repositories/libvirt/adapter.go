@@ -86,6 +86,11 @@ type LibvirtAdapter struct {
 	execCommandContext func(ctx context.Context, name string, arg ...string) *exec.Cmd
 	lookPath           func(file string) (string, error)
 	osOpen             func(name string) (*os.File, error)
+
+	// Pre-compiled regexes for applyDomainResize
+	memoryResizeRe    *regexp.Regexp
+	currentMemResizeRe *regexp.Regexp
+	vcpuResizeRe       *regexp.Regexp
 }
 
 func (a *LibvirtAdapter) recordPortMapping(name string, hPortStr string, cPort string) error {
@@ -132,6 +137,11 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 
 	//nolint:staticcheck
 	l := libvirt.New(c)
+
+	memoryRe := regexp.MustCompile(`(?i)<memory(?:\s[^>]*)?>\d+</memory>`)
+	currentMemRe := regexp.MustCompile(`(?i)<currentMemory(?:\s[^>]*)?>\d+</currentMemory>`)
+	vcpuRe := regexp.MustCompile(`(?i)<vcpu(?:\s[^>]*)?>\d+</vcpu>`)
+
 	adapter := &LibvirtAdapter{
 		client:             &RealLibvirtClient{conn: l},
 		logger:             logger,
@@ -146,6 +156,9 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 		execCommandContext: exec.CommandContext,
 		lookPath:           exec.LookPath,
 		osOpen:             os.Open,
+		memoryResizeRe:     memoryRe,
+		currentMemResizeRe: currentMemRe,
+		vcpuResizeRe:       vcpuRe,
 	}
 
 	connectCtx, connectCancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -225,19 +238,34 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 
 	newDom, err := a.client.DomainDefineXML(ctx, newDOMXML)
 	if err != nil {
-		// Rollback: attempt to redefine the original domain to prevent permanent loss.
-		// Note: if both DomainDefineXML calls fail (new XML invalid AND original rollback fails),
-		// the domain is left in an undefined state with no automatic recovery path.
-		// Operator intervention (e.g., virsh define with saved XML) is required in this case.
+		// Rollback: redefine the original domain to prevent permanent loss.
+		// If wasRunning, also restart it to restore the original state.
 		_, rollbackErr := a.client.DomainDefineXML(ctx, domXML)
 		if rollbackErr != nil {
-			return fmt.Errorf("failed to redefine domain with new resources (instance_id=%s, target=%s), rollback also failed: original error: %w; rollback error: %w", id, newDOMXML, err, rollbackErr)
+			return fmt.Errorf("failed to redefine domain with new resources (instance_id=%s), rollback also failed: original error: %w; rollback error: %w", id, err, rollbackErr)
+		}
+		if wasRunning {
+			if restartErr := a.client.DomainCreate(ctx, dom); restartErr != nil {
+				return fmt.Errorf("failed to redefine and restart domain after resize failure (instance_id=%s): redefine succeeded but restart failed: %w", id, restartErr)
+			}
 		}
 		return fmt.Errorf("failed to redefine domain with new resources: %w", err)
 	}
 
 	if wasRunning {
 		if err := a.client.DomainCreate(ctx, newDom); err != nil {
+			// Rollback: undefine the new definition and restore the original domain.
+			undefineErr := a.client.DomainUndefine(ctx, newDom)
+			if undefineErr != nil {
+				a.logger.Error("failed to undefine new domain after DomainCreate failure", "domain", id, "error", undefineErr)
+			}
+			_, rollbackErr := a.client.DomainDefineXML(ctx, domXML)
+			if rollbackErr != nil {
+				return fmt.Errorf("failed to start domain after resize (instance_id=%s), rollback also failed: original error: %w; rollback error: %w", id, err, rollbackErr)
+			}
+			if restartErr := a.client.DomainCreate(ctx, dom); restartErr != nil {
+				return fmt.Errorf("failed to start domain after resize (instance_id=%s), rollback redef succeeded but restart failed: %w", id, restartErr)
+			}
 			return fmt.Errorf("failed to start domain after resize: %w", err)
 		}
 	}
@@ -257,13 +285,13 @@ func (a *LibvirtAdapter) applyDomainResize(xmlContent string, memoryKiB, vcpus i
 	result := xmlContent
 
 	// Replace <memory unit="KiB">...</memory> or <memory>...</memory>
-	result = memoryRe.ReplaceAllString(result, fmt.Sprintf(`<memory unit="KiB">%d</memory>`, memoryKiB))
+	result = a.memoryResizeRe.ReplaceAllString(result, fmt.Sprintf(`<memory unit="KiB">%d</memory>`, memoryKiB))
 
 	// Replace <currentMemory unit="KiB">...</currentMemory> or <currentMemory>...</currentMemory>
-	result = currentMemRe.ReplaceAllString(result, fmt.Sprintf(`<currentMemory unit="KiB">%d</currentMemory>`, memoryKiB))
+	result = a.currentMemResizeRe.ReplaceAllString(result, fmt.Sprintf(`<currentMemory unit="KiB">%d</currentMemory>`, memoryKiB))
 
 	// Replace <vcpu placement="static">...</vcpu> or <vcpu>...</vcpu>
-	result = vcpuRe.ReplaceAllString(result, fmt.Sprintf(`<vcpu>%d</vcpu>`, vcpus))
+	result = a.vcpuResizeRe.ReplaceAllString(result, fmt.Sprintf(`<vcpu>%d</vcpu>`, vcpus))
 
 	// Verify we actually made replacements
 	if result == xmlContent {

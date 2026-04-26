@@ -43,13 +43,13 @@ The service calculates a **delta** between old and new instance types:
 - If downsize (`delta < 0`): quota check is skipped (releasing resources back to the pool)
 - If same size (`delta == 0`): no quota interaction
 
-After a successful resize, usage counters are updated with the delta (`IncrementUsage` for upsize, `DecrementUsage` for downsize). Failures in usage updates are propagated as errors — they no longer silently accumulate.
+After a successful resize, usage counters are updated with the delta (`IncrementUsage` for upsize, `DecrementUsage` for downsize). Failures in usage updates are logged but not propagated — a future background reconciliation worker could correct drift.
 
 ### Error Handling
 
 - Instance not found → `404 NotFound`
 - Current or target instance type invalid → `400 InvalidInput`
-- Quota exceeded → `429 Too Many Requests`
+- Quota exceeded → `403 Forbidden`
 - Compute backend failure → `500 Internal` with metrics instrumentation (`resize_failure`)
 
 ---
@@ -64,8 +64,8 @@ After a successful resize, usage counters are updated with the delta (`Increment
 
 ### Negative
 - Libvirt resize causes instance downtime (cold migration)
-- Quota usage decrement failures are now propagated rather than silently accumulating
-- Regex-based XML patching is fragile if domain XML format changes (mitigated by pre-compilation and documented approach)
+- Quota usage drift is possible if `IncrementUsage`/`DecrementUsage` calls fail silently
+- Regex-based XML patching is fragile if domain XML format changes
 
 ### Neutral
 - E2E tests require running server with Docker — skipped in unit/CI runs

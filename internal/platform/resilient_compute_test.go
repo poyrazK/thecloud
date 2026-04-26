@@ -293,6 +293,34 @@ func TestResilientComputePingBypassesBulkhead(t *testing.T) {
 	}
 }
 
+func TestResilientComputeResizeInstance(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		mock := &mockCompute{}
+		rc := NewResilientCompute(mock, slog.Default(), ResilientComputeOpts{})
+
+		err := rc.ResizeInstance(context.Background(), "inst-1", int64(4*1e9), int64(4096*1024*1024))
+		if err != nil {
+			t.Fatalf("expected nil error, got %v", err)
+		}
+		if mock.callCount.Load() < 1 {
+			t.Fatalf("expected at least 1 call, got %d", mock.callCount.Load())
+		}
+	})
+
+	t.Run("Error", func(t *testing.T) {
+		mock := &mockCompute{err: errors.New("resize failed")}
+		rc := NewResilientCompute(mock, slog.Default(), ResilientComputeOpts{})
+
+		err := rc.ResizeInstance(context.Background(), "inst-1", int64(4*1e9), int64(4096*1024*1024))
+		if err == nil {
+			t.Fatal("expected error")
+		}
+		if mock.callCount.Load() < 1 {
+			t.Fatalf("expected at least 1 call, got %d", mock.callCount.Load())
+		}
+	})
+}
+
 // ---------- test helpers ----------
 
 func assertNoErr(t *testing.T, err error) {
