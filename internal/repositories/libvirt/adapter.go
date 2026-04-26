@@ -826,6 +826,11 @@ func (a *LibvirtAdapter) DeleteVolume(ctx context.Context, name string) error {
 	return nil
 }
 
+// snapshotPath returns the path to the snapshot archive for the given instance and snapshot name.
+func snapshotPath(id, name string) string {
+	return fmt.Sprintf("/tmp/snapshot-%s-%s.tar.gz", id, name)
+}
+
 // CreateSnapshot creates a point-in-time snapshot of the instance's root disk.
 // The snapshot is stored at a temp path derived from the snapshot name.
 func (a *LibvirtAdapter) CreateSnapshot(ctx context.Context, id, name string) error {
@@ -836,7 +841,7 @@ func (a *LibvirtAdapter) CreateSnapshot(ctx context.Context, id, name string) er
 	_ = dom // verified existence
 
 	volName := id + "-root"
-	snapshotPath := fmt.Sprintf("/tmp/snapshot-%s-%s.tar.gz", id, name)
+	snapshotPath := snapshotPath(id, name)
 
 	return a.CreateVolumeSnapshot(ctx, volName, snapshotPath)
 }
@@ -850,7 +855,7 @@ func (a *LibvirtAdapter) RestoreSnapshot(ctx context.Context, id, name string) e
 	_ = dom // verified existence
 
 	volName := id + "-root"
-	snapshotPath := fmt.Sprintf("/tmp/snapshot-%s-%s.tar.gz", id, name)
+	snapshotPath := snapshotPath(id, name)
 
 	return a.RestoreVolumeSnapshot(ctx, volName, snapshotPath)
 }
@@ -863,7 +868,7 @@ func (a *LibvirtAdapter) DeleteSnapshot(ctx context.Context, id, name string) er
 	}
 	_ = dom // verified existence
 
-	snapshotPath := fmt.Sprintf("/tmp/snapshot-%s-%s.tar.gz", id, name)
+	snapshotPath := snapshotPath(id, name)
 	if err := os.Remove(snapshotPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to delete snapshot: %w", err)
 	}
