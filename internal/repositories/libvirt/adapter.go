@@ -118,18 +118,9 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 	//nolint:staticcheck
 	l := libvirt.New(c)
 
-	memoryRe, err := regexp.Compile(`(?i)<memory(?:\s[^>]*)?>\d+</memory>`)
-	if err != nil {
-		return nil, fmt.Errorf("invalid memory regex: %w", err)
-	}
-	currentMemRe, err := regexp.Compile(`(?i)<currentMemory(?:\s[^>]*)?>\d+</currentMemory>`)
-	if err != nil {
-		return nil, fmt.Errorf("invalid currentMemory regex: %w", err)
-	}
-	vcpuRe, err := regexp.Compile(`(?i)<vcpu(?:\s[^>]*)?>\d+</vcpu>`)
-	if err != nil {
-		return nil, fmt.Errorf("invalid vcpu regex: %w", err)
-	}
+	memoryRe := regexp.MustCompile(`(?i)<memory(?:\s[^>]*)?>\d+</memory>`)
+	currentMemRe := regexp.MustCompile(`(?i)<currentMemory(?:\s[^>]*)?>\d+</currentMemory>`)
+	vcpuRe := regexp.MustCompile(`(?i)<vcpu(?:\s[^>]*)?>\d+</vcpu>`)
 
 	adapter := &LibvirtAdapter{
 		client:             &RealLibvirtClient{conn: l},
