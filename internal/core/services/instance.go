@@ -852,11 +852,15 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 	deltaMemMB := newIT.MemoryMB - oldIT.MemoryMB
 
 	var quotaErrs []error
+
+	// Downsize: quota decrement failures are logged but not propagated.
+	// A future reconciliation worker can correct any resulting quota drift.
 	if deltaCPU < 0 {
 		if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", -deltaCPU); err != nil {
 			quotaErrs = append(quotaErrs, fmt.Errorf("vcpu decrement: %w", err))
 		}
 	}
+	// Downsize: same — decrement failures are non-fatal.
 	if deltaMemMB < 0 {
 		if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", -deltaMemMB/1024); err != nil {
 			quotaErrs = append(quotaErrs, fmt.Errorf("memory decrement: %w", err))
