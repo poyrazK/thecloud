@@ -283,6 +283,13 @@ func (r *ResilientCompute) Type() string {
 	return r.inner.Type()
 }
 
+// ResizeInstance delegates to the inner backend with circuit breaker and timeout.
+func (r *ResilientCompute) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
+	return r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
+		return r.inner.ResizeInstance(ctx, id, cpu, memory)
+	})
+}
+
 // Unwrap returns the underlying ComputeBackend (useful for tests).
 func (r *ResilientCompute) Unwrap() ports.ComputeBackend {
 	return r.inner
