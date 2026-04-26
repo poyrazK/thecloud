@@ -26,6 +26,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+
 const (
 	defaultPoolName   = "default"
 	userDataFileName  = "user-data"
@@ -236,7 +237,9 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 
 	if wasRunning {
 		if err := a.client.DomainCreate(ctx, newDom); err != nil {
-			a.rollbackFromSnapshot(ctx, id, snapshotName, domXML)
+			if rbErr := a.rollbackFromSnapshot(ctx, id, snapshotName, domXML); rbErr != nil {
+				return fmt.Errorf("failed to start domain after resize (instance_id=%s, rollback_err=%s): %w", id, rbErr, err)
+			}
 			return fmt.Errorf("failed to start domain after resize: %w", err)
 		}
 	}
