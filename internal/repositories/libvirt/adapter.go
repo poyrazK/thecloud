@@ -211,12 +211,16 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 	// Modify memory (in KiB) and vCPU in the XML
 	newDOMXML, err := a.applyDomainResize(domXML, int(memory/1024), int(cpu/1e9))
 	if err != nil {
-		a.rollbackFromSnapshot(ctx, id, snapshotName, domXML)
+		if rbErr := a.rollbackFromSnapshot(ctx, id, snapshotName, domXML); rbErr != nil {
+			return fmt.Errorf("failed to modify domain XML (instance_id=%s, rollback_err=%s): %w", id, rbErr, err)
+		}
 		return fmt.Errorf("failed to modify domain XML: %w", err)
 	}
 
 	if err := a.client.DomainUndefine(ctx, dom); err != nil {
-		a.rollbackFromSnapshot(ctx, id, snapshotName, domXML)
+		if rbErr := a.rollbackFromSnapshot(ctx, id, snapshotName, domXML); rbErr != nil {
+			return fmt.Errorf("failed to undefine domain (instance_id=%s, rollback_err=%s): %w", id, rbErr, err)
+		}
 		return fmt.Errorf("failed to undefine domain: %w", err)
 	}
 
