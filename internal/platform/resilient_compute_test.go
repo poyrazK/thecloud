@@ -109,6 +109,10 @@ func (m *mockCompute) Ping(_ context.Context) error {
 	m.callCount.Add(1)
 	return m.err
 }
+func (m *mockCompute) ResizeInstance(_ context.Context, _ string, _, _ int64) error {
+	m.callCount.Add(1)
+	return m.err
+}
 func (m *mockCompute) Type() string { return "mock" }
 
 // ---------- tests ----------
@@ -256,7 +260,7 @@ func TestResilientComputeTimeout(t *testing.T) {
 func TestResilientComputeUnwrap(t *testing.T) {
 	mock := &mockCompute{}
 	rc := NewResilientCompute(mock, slog.Default(), ResilientComputeOpts{})
-	if rc.Unwrap() != mock {
+	if _, ok := rc.Unwrap().(*mockCompute); !ok {
 		t.Fatal("Unwrap should return the inner backend")
 	}
 }
