@@ -958,6 +958,51 @@ func TestLibvirtAdapter_SnapshotMethods(t *testing.T) {
 	})
 }
 
+func TestLibvirtAdapter_ApplyDomainResize(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	a := &LibvirtAdapter{logger: logger}
+
+	t.Run("both memory and vcpu replaced", func(t *testing.T) {
+		xml := `<memory unit="KiB">1048576</memory><currentMemory unit="KiB">1048576</currentMemory><vcpu>2</vcpu>`
+		result, err := a.applyDomainResize(xml, 2097152, 4)
+		require.NoError(t, err)
+		assert.Contains(t, result, `<memory unit="KiB">2097152</memory>`)
+		assert.Contains(t, result, `<currentMemory unit="KiB">2097152</currentMemory>`)
+		assert.Contains(t, result, `<vcpu>4</vcpu>`)
+	})
+
+	t.Run("missing both memory and vcpu elements", func(t *testing.T) {
+		xml := `<name>test-vm</name>`
+		_, err := a.applyDomainResize(xml, 2097152, 4)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no memory or vcpu elements")
+	})
+
+	t.Run("memory without unit attribute", func(t *testing.T) {
+		xml := `<memory>1048576</memory><vcpu>2</vcpu>`
+		result, err := a.applyDomainResize(xml, 2097152, 4)
+		require.NoError(t, err)
+		assert.Contains(t, result, `<memory unit="KiB">2097152</memory>`)
+		assert.Contains(t, result, `<vcpu>4</vcpu>`)
+	})
+
+	t.Run("resize to same values produces error", func(t *testing.T) {
+		xml := `<memory unit="KiB">1048576</memory><currentMemory unit="KiB">1048576</currentMemory><vcpu>2</vcpu>`
+		// All replacements produce identical output, so result == xmlContent → error
+		_, err := a.applyDomainResize(xml, 1048576, 2)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no memory or vcpu elements")
+	})
+
+	t.Run("vcpu with placement attribute", func(t *testing.T) {
+		xml := `<memory unit="KiB">1048576</memory><vcpu placement="static">2</vcpu>`
+		result, err := a.applyDomainResize(xml, 2097152, 4)
+		require.NoError(t, err)
+		assert.Contains(t, result, `<memory unit="KiB">2097152</memory>`)
+		assert.Contains(t, result, `<vcpu>4</vcpu>`)
+	})
+}
+
 func TestLibvirtAdapter_ResizeInstance_RollbackOnFailure(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	ctx := context.Background()
@@ -1073,6 +1118,53 @@ func TestLibvirtAdapter_ResizeInstance_RollbackOnFailure(t *testing.T) {
 		err := a.ResizeInstance(ctx, "test-vm", 2e9, 2*1024*1024*1024)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to undefine domain")
+		m.AssertExpectations(t)
+	})
+
+	t.Run("rollback on DomainCreate failure", func(t *testing.T) {
+		// Fresh mock instance for this subtest
+		m := new(MockLibvirtClient)
+		newDom := libvirt.Domain{Name: "test-vm-resized"}
+		a := &LibvirtAdapter{
+			client: m,
+			logger: logger,
+			execCommand: func(name string, arg ...string) *exec.Cmd {
+				if name == "tar" && len(arg) >= 2 && arg[1] == "xzf" {
+					for i, argVal := range arg {
+						if argVal == "-C" && i+1 < len(arg) {
+							tmpDir := arg[i+1]
+							_ = os.MkdirAll(tmpDir, 0750)
+							_, _ = os.Create(tmpDir + "/disk.qcow2")
+							break
+						}
+					}
+					return exec.Command("true")
+				}
+				return exec.Command("true")
+			},
+		}
+
+		// DomainLookupByName: ResizeInstance start + CreateSnapshot inside ResizeInstance + RestoreSnapshot inside rollback
+		m.On("DomainLookupByName", mock.Anything, "test-vm").Return(dom, nil).Times(3)
+		m.On("DomainGetState", mock.Anything, dom, uint32(0)).Return(int32(domainStateRunning), int32(0), nil).Once()
+		m.On("DomainDestroy", mock.Anything, dom).Return(nil).Once()
+		m.On("DomainGetXMLDesc", mock.Anything, dom, mock.Anything).Return(originalXML, nil).Once()
+		// Pool/vol: CreateSnapshot (1) + RestoreVolumeSnapshot in rollback (1)
+		m.On("StoragePoolLookupByName", mock.Anything, "default").Return(pool, nil).Times(2)
+		m.On("StorageVolLookupByName", mock.Anything, pool, "test-vm-root").Return(vol, nil).Times(2)
+		m.On("StorageVolGetPath", mock.Anything, vol).Return("/path/to/test-vm-root", nil).Times(2)
+		m.On("DomainUndefine", mock.Anything, dom).Return(nil).Once()
+		// DomainDefineXML: new domain succeeds (1 call for new domain definition)
+		m.On("DomainDefineXML", mock.Anything, mock.Anything).Return(newDom, nil).Once()
+		// DomainCreate FAILS
+		m.On("DomainCreate", mock.Anything, newDom).Return(fmt.Errorf("failed to start")).Once()
+		// Rollback: RestoreSnapshot → DomainDefineXML with original XML (may be called)
+		m.On("DomainDefineXML", mock.Anything, originalXML).Return(dom, nil).Maybe()
+
+		err := a.ResizeInstance(ctx, "test-vm", 2e9, 2*1024*1024*1024)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to start domain after resize")
+		assert.Contains(t, err.Error(), "rollback_err")
 		m.AssertExpectations(t)
 	})
 }
