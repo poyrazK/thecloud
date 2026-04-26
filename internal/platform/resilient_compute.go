@@ -294,10 +294,3 @@ func (r *ResilientCompute) ResizeInstance(ctx context.Context, id string, cpu, m
 func (r *ResilientCompute) Unwrap() ports.ComputeBackend {
 	return r.inner
 }
-
-// ResizeInstance updates CPU and memory limits of an instance.
-func (r *ResilientCompute) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
-	return r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
-		return r.inner.ResizeInstance(ctx, id, cpu, memory)
-	})
-}
