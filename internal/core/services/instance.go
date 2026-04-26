@@ -753,6 +753,11 @@ func (s *InstanceService) ResizeInstance(ctx context.Context, idOrName, newInsta
 		target = s.formatContainerName(inst.ID)
 	}
 
+	// Upsize: fail fast before touching the backend if quota is insufficient.
+	if err := s.prepareResize(ctx, tenantID, oldIT, newIT); err != nil {
+		return err
+	}
+
 	if err := s.executeResize(ctx, target, newIT); err != nil {
 		return err
 	}
@@ -813,12 +818,13 @@ func (s *InstanceService) executeResize(ctx context.Context, target string, it *
 	return nil
 }
 
-func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID, inst *domain.Instance, target string, oldIT, newIT *domain.InstanceType, newInstanceType string) error {
+// prepareResize performs quota checks and increments for an upsize before the
+// backend resize is applied. It returns an error if any quota operation fails,
+// preventing a backend resize with no rollback path.
+func (s *InstanceService) prepareResize(ctx context.Context, tenantID uuid.UUID, oldIT, newIT *domain.InstanceType) error {
 	deltaCPU := newIT.VCPUs - oldIT.VCPUs
 	deltaMemMB := newIT.MemoryMB - oldIT.MemoryMB
 
-	var quotaErrs []error
-	var cpuIncremented, memIncremented bool
 	if deltaCPU > 0 {
 		if err := s.tenantSvc.CheckQuota(ctx, tenantID, "vcpus", deltaCPU); err != nil {
 			return err
@@ -826,30 +832,33 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 		if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "vcpus", deltaCPU); err != nil {
 			return errors.Wrap(errors.Internal, "failed to increment vCPU quota for resize", err)
 		}
-		cpuIncremented = true
-		// Downsize: quota decrement failures are logged but not propagated.
-		// A future reconciliation worker can correct any resulting quota drift.
-	} else if deltaCPU < 0 {
+	}
+	if deltaMemMB > 0 {
+		if err := s.tenantSvc.CheckQuota(ctx, tenantID, "memory", deltaMemMB/1024); err != nil {
+			return err
+		}
+		if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", deltaMemMB/1024); err != nil {
+			return errors.Wrap(errors.Internal, "failed to increment memory quota for resize", err)
+		}
+	}
+	return nil
+}
+
+// completeResize handles DB update and quota adjustments for a resize.
+// Upsize quota work is done in prepareResize before executeResize.
+// This function handles downsize quota release and all rollback paths.
+func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID, inst *domain.Instance, target string, oldIT, newIT *domain.InstanceType, newInstanceType string) error {
+	deltaCPU := newIT.VCPUs - oldIT.VCPUs
+	deltaMemMB := newIT.MemoryMB - oldIT.MemoryMB
+
+	var quotaErrs []error
+	if deltaCPU < 0 {
 		if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", -deltaCPU); err != nil {
 			quotaErrs = append(quotaErrs, fmt.Errorf("vcpu decrement: %w", err))
 		}
 	}
-	if deltaMemMB > 0 {
-		if err := s.tenantSvc.CheckQuota(ctx, tenantID, "memory", deltaMemMB); err != nil {
-			return err
-		}
-		if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", deltaMemMB); err != nil {
-			// Rollback the vCPU increment since memory increment failed
-			if cpuIncremented {
-				_ = s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", deltaCPU)
-			}
-			return errors.Wrap(errors.Internal, "failed to increment memory quota for resize", err)
-		}
-		memIncremented = true
-		// Downsize: quota decrement failures are logged but not propagated.
-		// A future reconciliation worker can correct any resulting quota drift.
-	} else if deltaMemMB < 0 {
-		if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", -deltaMemMB); err != nil {
+	if deltaMemMB < 0 {
+		if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", -deltaMemMB/1024); err != nil {
 			quotaErrs = append(quotaErrs, fmt.Errorf("memory decrement: %w", err))
 		}
 	}
@@ -863,24 +872,27 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 		if resizeErr := s.compute.ResizeInstance(ctx, target, oldCpuNano, oldMemoryBytes); resizeErr != nil {
 			rollbackErrs = append(rollbackErrs, fmt.Errorf("compute resize rollback (target=%s, old_cpu_nano=%d, old_memory_bytes=%d): %w", target, oldCpuNano, oldMemoryBytes, resizeErr))
 		}
-		if cpuIncremented {
-			if decErr := s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", deltaCPU); decErr != nil {
-				rollbackErrs = append(rollbackErrs, fmt.Errorf("vcpu decrement rollback (tenant_id=%s, delta_cpu=%d): %w", tenantID, deltaCPU, decErr))
+		// Rollback: reacquire quota for any upsize that was applied
+		if deltaCPU > 0 {
+			if incErr := s.tenantSvc.IncrementUsage(ctx, tenantID, "vcpus", deltaCPU); incErr != nil {
+				rollbackErrs = append(rollbackErrs, fmt.Errorf("vcpu increment rollback (tenant_id=%s, delta_cpu=%d): %w", tenantID, deltaCPU, incErr))
 			}
 		}
+		// Rollback: reacquire memory quota for any upsize that was applied
+		if deltaMemMB > 0 {
+			if incErr := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", deltaMemMB/1024); incErr != nil {
+				rollbackErrs = append(rollbackErrs, fmt.Errorf("memory increment rollback (tenant_id=%s, delta_mem_gb=%d): %w", tenantID, deltaMemMB/1024, incErr))
+			}
+		}
+		// Rollback: release quota that was acquired for any downsize
 		if deltaCPU < 0 {
-			if incErr := s.tenantSvc.IncrementUsage(ctx, tenantID, "vcpus", -deltaCPU); incErr != nil {
-				rollbackErrs = append(rollbackErrs, fmt.Errorf("vcpu increment rollback (tenant_id=%s, delta_cpu=%d): %w", tenantID, -deltaCPU, incErr))
-			}
-		}
-		if memIncremented {
-			if decErr := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", deltaMemMB); decErr != nil {
-				rollbackErrs = append(rollbackErrs, fmt.Errorf("memory decrement rollback (tenant_id=%s, delta_mem_mb=%d): %w", tenantID, deltaMemMB, decErr))
+			if decErr := s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", -deltaCPU); decErr != nil {
+				rollbackErrs = append(rollbackErrs, fmt.Errorf("vcpu decrement rollback (tenant_id=%s, delta_cpu=%d): %w", tenantID, -deltaCPU, decErr))
 			}
 		}
 		if deltaMemMB < 0 {
-			if incErr := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", -deltaMemMB); incErr != nil {
-				rollbackErrs = append(rollbackErrs, fmt.Errorf("memory increment rollback (tenant_id=%s, delta_mem_mb=%d): %w", tenantID, -deltaMemMB, incErr))
+			if decErr := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", -deltaMemMB/1024); decErr != nil {
+				rollbackErrs = append(rollbackErrs, fmt.Errorf("memory decrement rollback (tenant_id=%s, delta_mem_gb=%d): %w", tenantID, -deltaMemMB/1024, decErr))
 			}
 		}
 
