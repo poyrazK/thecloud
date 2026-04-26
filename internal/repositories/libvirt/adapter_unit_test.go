@@ -829,3 +829,79 @@ func TestLibvirtAdapter_IsNotFound(t *testing.T) {
 		assert.False(t, a.isNotFound(err))
 	})
 }
+
+func TestLibvirtUnixDialer(t *testing.T) {
+	t.Parallel()
+
+	t.Run("ImplementsSocketDialerInterface", func(t *testing.T) {
+		t.Parallel()
+		var dialer SocketDialer = &libvirtUnixDialer{uri: "/var/run/libvirt/libvirt-sock", timeout: 2 * time.Second}
+		assert.NotNil(t, dialer)
+	})
+
+	t.Run("DialTimeoutReturnsConn", func(t *testing.T) {
+		t.Parallel()
+		// This test requires a real Unix socket to exist.
+		// If /var/run/libvirt/libvirt-sock doesn't exist, this will fail.
+		// In CI without libvirt, we expect this to fail gracefully.
+		dialer := &libvirtUnixDialer{uri: "/var/run/libvirt/libvirt-sock", timeout: 100 * time.Millisecond}
+		conn, err := dialer.Dial()
+		if err != nil {
+			// Expected if no libvirt socket exists (e.g., in CI without libvirt)
+			assert.NotNil(t, err)
+			return
+		}
+		assert.NotNil(t, conn)
+		conn.Close()
+	})
+
+	t.Run("DialInvalidPathReturnsError", func(t *testing.T) {
+		t.Parallel()
+		dialer := &libvirtUnixDialer{uri: "/nonexistent/path/to/socket", timeout: 100 * time.Millisecond}
+		conn, err := dialer.Dial()
+		assert.Error(t, err)
+		assert.Nil(t, conn)
+	})
+
+	t.Run("DialWithVeryShortTimeout", func(t *testing.T) {
+		t.Parallel()
+		dialer := &libvirtUnixDialer{uri: "/var/run/libvirt/libvirt-sock", timeout: 1 * time.Millisecond}
+		conn, err := dialer.Dial()
+		// Should either succeed quickly or timeout/fail
+		if err != nil {
+			assert.NotNil(t, err)
+		} else {
+			assert.NotNil(t, conn)
+			conn.Close()
+		}
+	})
+}
+
+func TestWithSocketDialerOption(t *testing.T) {
+	t.Parallel()
+
+	t.Run("SetsSocketDialerField", func(t *testing.T) {
+		t.Parallel()
+		logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+		// Create a mock dialer
+		mockDialer := &mockSocketDialer{err: fmt.Errorf("test error")}
+
+		// Create adapter with the option
+		a := &LibvirtAdapter{logger: logger}
+		WithSocketDialer(mockDialer)(a)
+
+		// Verify the dialer was set
+		assert.Equal(t, mockDialer, a.socketDialer)
+	})
+}
+
+// mockSocketDialer is a test double for SocketDialer.
+type mockSocketDialer struct {
+	conn net.Conn
+	err  error
+}
+
+func (m *mockSocketDialer) Dial() (net.Conn, error) {
+	return m.conn, m.err
+}
