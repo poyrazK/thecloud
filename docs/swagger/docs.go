@@ -3974,6 +3974,76 @@ const docTemplate = `{
                 }
             }
         },
+        "/instances/{id}/resize": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Change the instance type (CPU/memory) of an existing instance",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "instances"
+                ],
+                "summary": "Resize an instance",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Resize request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httphandlers.ResizeInstanceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "429": {
+                        "description": "Quota Exceeded",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/instances/{id}/stats": {
             "get": {
                 "security": [
@@ -9247,6 +9317,7 @@ const docTemplate = `{
                 "instance:terminate",
                 "instance:read",
                 "instance:update",
+                "instance:resize",
                 "ssh_key:create",
                 "ssh_key:read",
                 "ssh_key:delete",
@@ -9364,6 +9435,7 @@ const docTemplate = `{
                 "PermissionInstanceTerminate",
                 "PermissionInstanceRead",
                 "PermissionInstanceUpdate",
+                "PermissionInstanceResize",
                 "PermissionSSHKeyCreate",
                 "PermissionSSHKeyRead",
                 "PermissionSSHKeyDelete",
@@ -11157,6 +11229,17 @@ const docTemplate = `{
                     "minLength": 8
                 },
                 "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "httphandlers.ResizeInstanceRequest": {
+            "type": "object",
+            "required": [
+                "instance_type"
+            ],
+            "properties": {
+                "instance_type": {
                     "type": "string"
                 }
             }

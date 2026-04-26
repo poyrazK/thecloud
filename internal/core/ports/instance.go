@@ -74,4 +74,6 @@ type InstanceService interface {
 	Exec(ctx context.Context, idOrName string, cmd []string) (string, error)
 	// UpdateInstanceMetadata updates the metadata and labels of an instance.
 	UpdateInstanceMetadata(ctx context.Context, id uuid.UUID, metadata, labels map[string]string) error
+	// ResizeInstance changes the instance type (CPU/memory) of an existing instance.
+	ResizeInstance(ctx context.Context, idOrName, newInstanceType string) error
 }
