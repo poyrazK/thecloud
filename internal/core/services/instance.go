@@ -829,6 +829,7 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 		cpuIncremented = true
 	} else if deltaCPU < 0 {
 		if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", -deltaCPU); err != nil {
+			platform.InstanceOperationsTotal.WithLabelValues("resize", "quota_decrement_failure").Inc()
 			return errors.Wrap(errors.Internal, "failed to decrement vCPU quota after resize failure", err)
 		}
 	}
@@ -840,13 +841,17 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 			platform.InstanceOperationsTotal.WithLabelValues("resize", "quota_failure").Inc()
 			// Rollback the vCPU increment since memory increment failed
 			if cpuIncremented {
-				_ = s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", deltaCPU)
+				if decErr := s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", deltaCPU); decErr != nil {
+					return errors.Wrap(errors.Internal,
+						fmt.Sprintf("memory increment failed (%v), vCPU rollback also failed (%v)", err, decErr), err)
+				}
 			}
 			return errors.Wrap(errors.Internal, "failed to increment memory quota for resize", err)
 		}
 		memIncremented = true
 	} else if deltaMemMB < 0 {
 		if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", -deltaMemMB); err != nil {
+			platform.InstanceOperationsTotal.WithLabelValues("resize", "quota_decrement_failure").Inc()
 			return errors.Wrap(errors.Internal, "failed to decrement memory quota after resize failure", err)
 		}
 	}
