@@ -848,10 +848,9 @@ func TestLibvirtUnixDialer(t *testing.T) {
 		conn, err := dialer.Dial()
 		if err != nil {
 			// Expected if no libvirt socket exists (e.g., in CI without libvirt)
-			assert.NotNil(t, err)
 			return
 		}
-		assert.NotNil(t, conn)
+		require.NotNil(t, conn)
 		conn.Close()
 	})
 
@@ -859,7 +858,7 @@ func TestLibvirtUnixDialer(t *testing.T) {
 		t.Parallel()
 		dialer := &libvirtUnixDialer{uri: "/nonexistent/path/to/socket", timeout: 100 * time.Millisecond}
 		conn, err := dialer.Dial()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, conn)
 	})
 
@@ -869,11 +868,11 @@ func TestLibvirtUnixDialer(t *testing.T) {
 		conn, err := dialer.Dial()
 		// Should either succeed quickly or timeout/fail
 		if err != nil {
-			assert.NotNil(t, err)
-		} else {
-			assert.NotNil(t, conn)
-			conn.Close()
+			// Expected - socket unreachable or timeout
+			return
 		}
+		require.NotNil(t, conn)
+		conn.Close()
 	})
 }
 
