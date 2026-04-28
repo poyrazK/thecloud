@@ -753,8 +753,7 @@ func (s *InstanceService) ResizeInstance(ctx context.Context, idOrName, newInsta
 		target = s.formatContainerName(inst.ID)
 	}
 
-	oldVersion := inst.Version
-	if err := s.completeResize(ctx, tenantID, inst, target, oldIT, newIT, newInstanceType, oldVersion); err != nil {
+	if err := s.completeResize(ctx, tenantID, inst, target, oldIT, newIT, newInstanceType); err != nil {
 		return err
 	}
 
@@ -800,7 +799,7 @@ func (s *InstanceService) validateResize(inst *domain.Instance) error {
 	return nil
 }
 
-func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID, inst *domain.Instance, target string, oldIT, newIT *domain.InstanceType, newInstanceType string, oldVersion int) error {
+func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID, inst *domain.Instance, target string, oldIT, newIT *domain.InstanceType, newInstanceType string) error {
 	deltaCPU := newIT.VCPUs - oldIT.VCPUs
 	deltaMemMB := newIT.MemoryMB - oldIT.MemoryMB
 
@@ -846,33 +845,34 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 	newMemoryBytes := int64(newIT.MemoryMB) * BytesPerMB
 	if err := s.compute.ResizeInstance(ctx, target, newCpuNano, newMemoryBytes); err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("resize", "failure").Inc()
-		// Rollback quota changes since compute resize failed; log errors but continue since undo is not possible
+		// Rollback quota changes since compute resize failed
+		var rollbackErrs []error
 		if deltaCPU > 0 {
 			if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", deltaCPU); err != nil {
-				s.logger.Error("rollback vcpu decrement failed", "error", err, "tenant_id", tenantID, "delta", deltaCPU)
+				rollbackErrs = append(rollbackErrs, fmt.Errorf("vcpu decrement rollback failed (tenant_id=%s, delta_cpu=%d): %w", tenantID, deltaCPU, err))
 			}
 		} else if deltaCPU < 0 {
 			if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "vcpus", -deltaCPU); err != nil {
-				s.logger.Error("rollback vcpu increment failed", "error", err, "tenant_id", tenantID, "delta", -deltaCPU)
+				rollbackErrs = append(rollbackErrs, fmt.Errorf("vcpu increment rollback failed (tenant_id=%s, delta_cpu=%d): %w", tenantID, -deltaCPU, err))
 			}
 		}
 		if deltaMemMB > 0 {
 			if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", deltaMemMB); err != nil {
-				s.logger.Error("rollback memory decrement failed", "error", err, "tenant_id", tenantID)
+				rollbackErrs = append(rollbackErrs, fmt.Errorf("memory decrement rollback failed (tenant_id=%s, delta_mem_mb=%d): %w", tenantID, deltaMemMB, err))
 			}
 		} else if deltaMemMB < 0 {
 			if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", -deltaMemMB); err != nil {
-				s.logger.Error("rollback memory increment failed", "error", err, "tenant_id", tenantID)
+				rollbackErrs = append(rollbackErrs, fmt.Errorf("memory increment rollback failed (tenant_id=%s, delta_mem_mb=%d): %w", tenantID, -deltaMemMB, err))
 			}
 		}
-		return errors.Wrap(errors.Internal, "failed to resize instance", err)
+		errMsg := "failed to resize instance"
+		if len(rollbackErrs) > 0 {
+			errMsg += fmt.Sprintf("; rollback errors: %v", rollbackErrs)
+		}
+		return errors.Wrap(errors.Internal, errMsg, err)
 	}
 
 	// 3. DB update
-	// Optimistic lock: ensure instance hasn't been modified since we read it
-	if inst.Version != oldVersion {
-		return errors.New(errors.Conflict, "instance was modified by another operation, please retry")
-	}
 	inst.InstanceType = newInstanceType
 	inst.Version++
 	if err := s.repo.Update(ctx, inst); err != nil {
