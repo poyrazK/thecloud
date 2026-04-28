@@ -72,7 +72,9 @@ func TestWebSocketLifecycle(t *testing.T) {
 	go hub.Run()
 
 	mockID := new(mockIdentityService)
-	handler := NewHandler(hub, mockID, logger)
+	// Use "*" so the existing dialer test (which doesn't set Origin) is
+	// unaffected by the fail-closed default introduced for #249.
+	handler := NewHandler(hub, mockID, logger, "*")
 
 	r := gin.New()
 	r.GET("/ws", handler.ServeWS)
