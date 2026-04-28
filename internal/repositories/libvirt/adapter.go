@@ -61,6 +61,11 @@ type LibvirtAdapter struct {
 	ipWaitInterval   time.Duration
 	taskWaitInterval time.Duration
 
+	// Pre-compiled regexes for domain XML modification
+	reMemory        *regexp.Regexp
+	reCurrentMemory *regexp.Regexp
+	reVCPU          *regexp.Regexp
+
 	// OS dependencies for testability
 	execCommand        func(name string, arg ...string) *exec.Cmd
 	execCommandContext func(ctx context.Context, name string, arg ...string) *exec.Cmd
@@ -122,6 +127,9 @@ func NewLibvirtAdapter(logger *slog.Logger, uri string) (*LibvirtAdapter, error)
 		poolEnd:            net.ParseIP("192.168.200.255"),
 		ipWaitInterval:     5 * time.Second,
 		taskWaitInterval:   2 * time.Second,
+		reMemory:           regexp.MustCompile(`<memory unit="KiB">\d+</memory>`),
+		reCurrentMemory:    regexp.MustCompile(`<currentMemory unit="KiB">\d+</currentMemory>`),
+		reVCPU:             regexp.MustCompile(`<vcpu[^>]*>\d+</vcpu>`),
 		execCommand:        exec.Command,
 		execCommandContext: exec.CommandContext,
 		lookPath:           exec.LookPath,
@@ -241,13 +249,10 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 // applyDomainResize updates vCPU and memory in domain XML.
 func (a *LibvirtAdapter) applyDomainResize(xml string, memoryKiB, vcpus int) string {
 	// Replace memory allocation
-	xml = regexp.MustCompile(`<memory unit="KiB">\d+</memory>`).
-		ReplaceAllString(xml, fmt.Sprintf(`<memory unit="KiB">%d</memory>`, memoryKiB))
-	xml = regexp.MustCompile(`<currentMemory unit="KiB">\d+</currentMemory>`).
-		ReplaceAllString(xml, fmt.Sprintf(`<currentMemory unit="KiB">%d</currentMemory>`, memoryKiB))
+	xml = a.reMemory.ReplaceAllString(xml, fmt.Sprintf(`<memory unit="KiB">%d</memory>`, memoryKiB))
+	xml = a.reCurrentMemory.ReplaceAllString(xml, fmt.Sprintf(`<currentMemory unit="KiB">%d</currentMemory>`, memoryKiB))
 	// Replace vCPU count
-	xml = regexp.MustCompile(`<vcpu[^>]*>\d+</vcpu>`).
-		ReplaceAllString(xml, fmt.Sprintf(`<vcpu>%d</vcpu>`, vcpus))
+	xml = a.reVCPU.ReplaceAllString(xml, fmt.Sprintf(`<vcpu>%d</vcpu>`, vcpus))
 	return xml
 }
 
