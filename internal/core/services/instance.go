@@ -618,6 +618,96 @@ func (s *InstanceService) StopInstance(ctx context.Context, idOrName string) err
 	return nil
 }
 
+// PauseInstance freezes a running instance (CPU halted, memory/network retained).
+func (s *InstanceService) PauseInstance(ctx context.Context, idOrName string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate, idOrName); err != nil {
+		return err
+	}
+
+	inst, err := s.GetInstance(ctx, idOrName)
+	if err != nil {
+		return err
+	}
+
+	if inst.Status != domain.StatusRunning {
+		return errors.New(errors.Conflict, "instance must be RUNNING to pause, got: "+string(inst.Status))
+	}
+
+	target := inst.ContainerID
+	if target == "" {
+		target = s.formatContainerName(inst.ID)
+	}
+
+	if err := s.compute.PauseInstance(ctx, target); err != nil {
+		platform.InstanceOperationsTotal.WithLabelValues("pause", "failure").Inc()
+		s.logger.Error("failed to pause container", "container_id", target, "error", err)
+		return errors.Wrap(errors.Internal, "failed to pause container", err)
+	}
+
+	inst.Status = domain.StatusPaused
+	if err := s.repo.Update(ctx, inst); err != nil {
+		return err
+	}
+
+	if err := s.auditSvc.Log(ctx, inst.UserID, "instance.pause", "instance", inst.ID.String(), map[string]interface{}{
+		"name": inst.Name,
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "instance.pause", "instance_id", inst.ID, "error", err)
+	}
+
+	platform.InstanceOperationsTotal.WithLabelValues("pause", "success").Inc()
+	s.logger.Info("instance paused", "instance_id", inst.ID)
+	return nil
+}
+
+// ResumeInstance resumes a paused instance back to running state.
+func (s *InstanceService) ResumeInstance(ctx context.Context, idOrName string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate, idOrName); err != nil {
+		return err
+	}
+
+	inst, err := s.GetInstance(ctx, idOrName)
+	if err != nil {
+		return err
+	}
+
+	if inst.Status != domain.StatusPaused {
+		return errors.New(errors.Conflict, "instance must be PAUSED to resume, got: "+string(inst.Status))
+	}
+
+	target := inst.ContainerID
+	if target == "" {
+		target = s.formatContainerName(inst.ID)
+	}
+
+	if err := s.compute.ResumeInstance(ctx, target); err != nil {
+		platform.InstanceOperationsTotal.WithLabelValues("resume", "failure").Inc()
+		s.logger.Error("failed to resume container", "container_id", target, "error", err)
+		return errors.Wrap(errors.Internal, "failed to resume container", err)
+	}
+
+	inst.Status = domain.StatusRunning
+	if err := s.repo.Update(ctx, inst); err != nil {
+		return err
+	}
+
+	if err := s.auditSvc.Log(ctx, inst.UserID, "instance.resume", "instance", inst.ID.String(), map[string]interface{}{
+		"name": inst.Name,
+	}); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "instance.resume", "instance_id", inst.ID, "error", err)
+	}
+
+	platform.InstanceOperationsTotal.WithLabelValues("resume", "success").Inc()
+	s.logger.Info("instance resumed", "instance_id", inst.ID)
+	return nil
+}
+
 // ListInstances returns all instances owned by the current user.
 func (s *InstanceService) ListInstances(ctx context.Context) ([]*domain.Instance, error) {
 	userID := appcontext.UserIDFromContext(ctx)

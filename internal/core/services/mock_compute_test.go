@@ -85,6 +85,12 @@ func (m *MockInstanceService) StartInstance(ctx context.Context, idOrName string
 func (m *MockInstanceService) StopInstance(ctx context.Context, idOrName string) error {
 	return m.Called(ctx, idOrName).Error(0)
 }
+func (m *MockInstanceService) PauseInstance(ctx context.Context, idOrName string) error {
+	return m.Called(ctx, idOrName).Error(0)
+}
+func (m *MockInstanceService) ResumeInstance(ctx context.Context, idOrName string) error {
+	return m.Called(ctx, idOrName).Error(0)
+}
 func (m *MockInstanceService) ListInstances(ctx context.Context) ([]*domain.Instance, error) {
 	args := m.Called(ctx)
 	r0, _ := args.Get(0).([]*domain.Instance)
@@ -137,6 +143,12 @@ func (m *MockComputeBackend) StartInstance(ctx context.Context, id string) error
 	return m.Called(ctx, id).Error(0)
 }
 func (m *MockComputeBackend) StopInstance(ctx context.Context, id string) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockComputeBackend) PauseInstance(ctx context.Context, id string) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockComputeBackend) ResumeInstance(ctx context.Context, id string) error {
 	return m.Called(ctx, id).Error(0)
 }
 func (m *MockComputeBackend) GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error) {
@@ -196,6 +208,9 @@ func (m *MockComputeBackend) GetInstancePort(ctx context.Context, id string, por
 }
 func (m *MockComputeBackend) Ping(ctx context.Context) error {
 	return m.Called(ctx).Error(0)
+}
+func (m *MockComputeBackend) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
+	return m.Called(ctx, id, cpu, memory).Error(0)
 }
 func (m *MockComputeBackend) Type() string {
 	return m.Called().String(0)
