@@ -164,6 +164,93 @@ func (a *LibvirtAdapter) Type() string {
 	return "libvirt"
 }
 
+// PauseInstance suspends a running domain (freezes CPU, retains memory/network).
+func (a *LibvirtAdapter) PauseInstance(ctx context.Context, id string) error {
+	dom, err := a.client.DomainLookupByName(ctx, id)
+	if err != nil {
+		return fmt.Errorf(errDomainNotFound, err)
+	}
+	if err := a.client.DomainSuspend(ctx, dom); err != nil {
+		return fmt.Errorf("failed to suspend domain: %w", err)
+	}
+	a.logger.Info("domain paused", "domain", id)
+	return nil
+}
+
+// ResumeInstance resumes a paused domain back to running state.
+func (a *LibvirtAdapter) ResumeInstance(ctx context.Context, id string) error {
+	dom, err := a.client.DomainLookupByName(ctx, id)
+	if err != nil {
+		return fmt.Errorf(errDomainNotFound, err)
+	}
+	if err := a.client.DomainResume(ctx, dom); err != nil {
+		return fmt.Errorf("failed to resume domain: %w", err)
+	}
+	a.logger.Info("domain resumed", "domain", id)
+	return nil
+}
+
+// ResizeInstance updates the CPU and memory limits of a running or stopped instance.
+func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
+	dom, err := a.client.DomainLookupByName(ctx, id)
+	if err != nil {
+		return fmt.Errorf(errDomainNotFound, err)
+	}
+
+	// Cold resize: stop → update domain XML → start
+	state, _, err := a.client.DomainGetState(ctx, dom, 0)
+	if err != nil {
+		return fmt.Errorf("failed to get domain state: %w", err)
+	}
+
+	wasRunning := state == domainStateRunning
+	if wasRunning {
+		if err := a.client.DomainDestroy(ctx, dom); err != nil {
+			return fmt.Errorf("failed to stop domain for resize: %w", err)
+		}
+	}
+
+	// Update domain XML with new memory and vCPU settings
+	domXML, err := a.client.DomainGetXMLDesc(ctx, dom, 0)
+	if err != nil {
+		return fmt.Errorf("failed to get domain XML: %w", err)
+	}
+
+	// Modify memory (in KiB) and vCPU in the XML
+	newDOMXML := a.applyDomainResize(domXML, int(memory/1024), int(cpu/1e9))
+
+	if err := a.client.DomainUndefine(ctx, dom); err != nil {
+		return fmt.Errorf("failed to undefine domain: %w", err)
+	}
+
+	newDom, err := a.client.DomainDefineXML(ctx, newDOMXML)
+	if err != nil {
+		return fmt.Errorf("failed to redefine domain with new resources: %w", err)
+	}
+
+	if wasRunning {
+		if err := a.client.DomainCreate(ctx, newDom); err != nil {
+			return fmt.Errorf("failed to start domain after resize: %w", err)
+		}
+	}
+
+	a.logger.Info("domain resized", "domain", id, "vcpus", cpu/1e9, "memory_ki_b", memory/1024)
+	return nil
+}
+
+// applyDomainResize updates vCPU and memory in domain XML.
+func (a *LibvirtAdapter) applyDomainResize(xml string, memoryKiB, vcpus int) string {
+	// Replace memory allocation
+	xml = regexp.MustCompile(`<memory unit="KiB">\d+</memory>`).
+		ReplaceAllString(xml, fmt.Sprintf(`<memory unit="KiB">%d</memory>`, memoryKiB))
+	xml = regexp.MustCompile(`<currentMemory unit="KiB">\d+</currentMemory>`).
+		ReplaceAllString(xml, fmt.Sprintf(`<currentMemory unit="KiB">%d</currentMemory>`, memoryKiB))
+	// Replace vCPU count
+	xml = regexp.MustCompile(`<vcpu[^>]*>\d+</vcpu>`).
+		ReplaceAllString(xml, fmt.Sprintf(`<vcpu>%d</vcpu>`, vcpus))
+	return xml
+}
+
 func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
 	name := a.sanitizeDomainName(opts.Name)
 

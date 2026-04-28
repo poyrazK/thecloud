@@ -19,6 +19,8 @@ type LibvirtClient interface {
 	DomainDefineXML(ctx context.Context, xml string) (libvirt.Domain, error)
 	DomainCreate(ctx context.Context, dom libvirt.Domain) error
 	DomainDestroy(ctx context.Context, dom libvirt.Domain) error
+	DomainSuspend(ctx context.Context, dom libvirt.Domain) error
+	DomainResume(ctx context.Context, dom libvirt.Domain) error
 	DomainUndefine(ctx context.Context, dom libvirt.Domain) error
 	DomainGetState(ctx context.Context, dom libvirt.Domain, flags uint32) (int32, int32, error)
 	DomainGetXMLDesc(ctx context.Context, dom libvirt.Domain, flags libvirt.DomainXMLFlags) (string, error)
