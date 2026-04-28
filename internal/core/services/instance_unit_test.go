@@ -1997,15 +1997,83 @@ func testInstanceServiceResizeInstanceUnit(t *testing.T) {
 		compute.On("ResizeInstance", mock.Anything, "cid-1", int64(4*1e9), int64(4096*1024*1024)).Return(nil).Once()
 		// repo.Update returns Conflict (simulating another resize modified the instance)
 		// On DB failure, rollback calls compute resize back to old values and decrements quota
-		compute.On("ResizeInstance", mock.Anything, "cid-1", int64(2*1e9), int64(2048*1024*1024)).Return(nil).Maybe()
-		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 2).Return(nil).Maybe()
-		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "memory", 2048).Return(nil).Maybe()
+		compute.On("ResizeInstance", mock.Anything, "cid-1", int64(2*1e9), int64(2048*1024*1024)).Return(nil).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 2).Return(nil).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "memory", 2048).Return(nil).Once()
 		repo.On("Update", mock.Anything, mock.Anything).Return(svcerrors.New(svcerrors.Conflict, "update conflict")).Once()
 
 		err := svc.ResizeInstance(ctx, "test-inst", "basic-4")
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "conflict")
+		// Verify rollback was invoked
+		compute.AssertCalled(t, "ResizeInstance", mock.Anything, "cid-1", int64(2*1e9), int64(2048*1024*1024))
+		tenantSvc.AssertCalled(t, "DecrementUsage", mock.Anything, tenantID, "vcpus", 2)
+		tenantSvc.AssertCalled(t, "DecrementUsage", mock.Anything, tenantID, "memory", 2048)
+		repo.AssertCalled(t, "Update", mock.Anything, mock.Anything)
+	})
+
+	t.Run("Failure_DBUpdateConflictWithRollbackFailure", func(t *testing.T) {
+		repo := new(MockInstanceRepo)
+		typeRepo := new(MockInstanceTypeRepo)
+		compute := new(MockComputeBackend)
+		rbacSvc := new(MockRBACService)
+		tenantSvc := new(MockTenantService)
+
+		svc := services.NewInstanceService(services.InstanceServiceParams{
+			Repo:             repo,
+			InstanceTypeRepo: typeRepo,
+			Compute:          compute,
+			RBAC:             rbacSvc,
+			TenantSvc:        tenantSvc,
+			Logger:           slog.Default(),
+		})
+
+		ctx := context.Background()
+		userID := uuid.New()
+		tenantID := uuid.New()
+		instanceID := uuid.New()
+		ctx = appcontext.WithUserID(ctx, userID)
+		ctx = appcontext.WithTenantID(ctx, tenantID)
+
+		inst := &domain.Instance{
+			ID:           instanceID,
+			UserID:       userID,
+			TenantID:     tenantID,
+			Status:       domain.StatusRunning,
+			InstanceType: "basic-2",
+			ContainerID:  "cid-1",
+			Version:      1,
+		}
+
+		oldType := &domain.InstanceType{ID: "basic-2", VCPUs: 2, MemoryMB: 2048}
+		newType := &domain.InstanceType{ID: "basic-4", VCPUs: 4, MemoryMB: 4096}
+
+		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceResize, "test-inst").Return(nil).Once()
+		repo.On("GetByName", mock.Anything, "test-inst").Return(inst, nil).Once()
+		typeRepo.On("GetByID", mock.Anything, "basic-2").Return(oldType, nil).Once()
+		typeRepo.On("GetByID", mock.Anything, "basic-4").Return(newType, nil).Once()
+		// Quota calls for upsize
+		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "vcpus", 2).Return(nil).Once()
+		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "vcpus", 2).Return(nil).Once()
+		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "memory", 2048).Return(nil).Once()
+		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "memory", 2048).Return(nil).Once()
+		// Compute resize succeeds
+		compute.On("ResizeInstance", mock.Anything, "cid-1", int64(4*1e9), int64(4096*1024*1024)).Return(nil).Once()
+		// repo.Update returns Conflict
+		repo.On("Update", mock.Anything, mock.Anything).Return(svcerrors.New(svcerrors.Conflict, "update conflict")).Once()
+		// Compute rollback FAILS
+		compute.On("ResizeInstance", mock.Anything, "cid-1", int64(2*1e9), int64(2048*1024*1024)).Return(fmt.Errorf("libvirt error")).Once()
+		// Quota rollback succeeds
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 2).Return(nil).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "memory", 2048).Return(nil).Once()
+
+		err := svc.ResizeInstance(ctx, "test-inst", "basic-4")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "conflict")
+		assert.Contains(t, err.Error(), "rollback")
+		compute.AssertCalled(t, "ResizeInstance", mock.Anything, "cid-1", int64(2*1e9), int64(2048*1024*1024))
 	})
 
 	t.Run("ComputeError", func(t *testing.T) {
