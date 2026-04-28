@@ -37,6 +37,7 @@ const (
 
 	// Domain states
 	domainStateRunning = 1
+	domainStatePaused  = 3
 	domainStateShutoff = 5
 
 	// Memory stat tags
@@ -178,6 +179,15 @@ func (a *LibvirtAdapter) PauseInstance(ctx context.Context, id string) error {
 	if err != nil {
 		return fmt.Errorf(errDomainNotFound, err)
 	}
+
+	state, _, err := a.client.DomainGetState(ctx, dom, 0)
+	if err != nil {
+		return fmt.Errorf("failed to get domain state: %w", err)
+	}
+	if state != domainStateRunning {
+		return fmt.Errorf("domain is not running (state=%d), cannot pause", state)
+	}
+
 	if err := a.client.DomainSuspend(ctx, dom); err != nil {
 		return fmt.Errorf("failed to suspend domain: %w", err)
 	}
@@ -191,6 +201,15 @@ func (a *LibvirtAdapter) ResumeInstance(ctx context.Context, id string) error {
 	if err != nil {
 		return fmt.Errorf(errDomainNotFound, err)
 	}
+
+	state, _, err := a.client.DomainGetState(ctx, dom, 0)
+	if err != nil {
+		return fmt.Errorf("failed to get domain state: %w", err)
+	}
+	if state != domainStatePaused {
+		return fmt.Errorf("domain is not paused (state=%d), cannot resume", state)
+	}
+
 	if err := a.client.DomainResume(ctx, dom); err != nil {
 		return fmt.Errorf("failed to resume domain: %w", err)
 	}
