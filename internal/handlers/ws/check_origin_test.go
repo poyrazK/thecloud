@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -27,7 +28,7 @@ func TestCheckOrigin_FailClosed(t *testing.T) {
 		{"case-sensitive match", []string{"https://app.example.com"}, "https://APP.example.com", false},
 	}
 
-	logger := slog.New(slog.NewTextHandler(io_discard{}, nil))
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -44,7 +45,3 @@ func TestCheckOrigin_FailClosed(t *testing.T) {
 	}
 }
 
-// io_discard is a tiny stand-in for io.Discard that avoids pulling in `io`.
-type io_discard struct{}
-
-func (io_discard) Write(p []byte) (int, error) { return len(p), nil }
