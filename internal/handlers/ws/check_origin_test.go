@@ -21,7 +21,7 @@ func TestCheckOrigin_FailClosed(t *testing.T) {
 		{"explicit origin rejects other", []string{"https://app.example.com"}, "https://evil.example.com", false},
 		{"explicit origin rejects empty", []string{"https://app.example.com"}, "", false},
 		{"wildcard allows any non-empty origin", []string{"*"}, "https://anything.example", true},
-		{"wildcard still rejects empty origin", []string{"*"}, "", false},
+		{"wildcard also allows empty origin (non-browser opt-in)", []string{"*"}, "", true},
 		{"comma-separated list is parsed", []string{"https://a.example,https://b.example"}, "https://b.example", true},
 		{"trims whitespace", []string{"  https://a.example , https://b.example "}, "https://a.example", true},
 		{"case-sensitive match", []string{"https://app.example.com"}, "https://APP.example.com", false},

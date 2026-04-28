@@ -116,14 +116,16 @@ func (h *Handler) upgrader() *websocket.Upgrader {
 // checkOrigin enforces the configured allowlist. Defaults are fail-closed:
 //
 //   - No allowlist configured → reject everything.
-//   - Empty Origin header → reject (browsers always send it for cross-origin
-//     WebSocket upgrades; the only requests without one are non-browser clients
-//     that should authenticate via the API rather than the websocket route).
-//   - Wildcard "*" entry → allow any origin. Intended only for development /
-//     internal endpoints; logged as a warning at handler construction.
-//
-// Matches are byte-exact on the full Origin string, so attackers cannot bypass
-// the check via subdomain or port confusion.
+//   - Wildcard "*" entry → allow any origin, including non-browser clients
+//     that don't send Origin at all. Intended for development and for
+//     non-credentialed dev endpoints; logged as a warning at handler
+//     construction.
+//   - Empty Origin header with a non-wildcard allowlist → reject. Browsers
+//     always send Origin for cross-origin WebSocket upgrades; the only
+//     requests without one are non-browser clients which should opt into
+//     "*" explicitly rather than getting in for free.
+//   - Otherwise → byte-exact match against the allowlist, so attackers
+//     cannot bypass via subdomain or port confusion.
 func (h *Handler) checkOrigin(r *http.Request) bool {
 	if len(h.allowedOrigins) == 0 {
 		if h.logger != nil {
@@ -132,6 +134,16 @@ func (h *Handler) checkOrigin(r *http.Request) bool {
 		}
 		return false
 	}
+
+	// Wildcard short-circuit. If "*" is in the allowlist the operator has
+	// explicitly opted into permissive mode, so we accept even Origin-less
+	// non-browser clients (CLI tools, server-to-server tests).
+	for _, allowed := range h.allowedOrigins {
+		if allowed == "*" {
+			return true
+		}
+	}
+
 	origin := r.Header.Get("Origin")
 	if origin == "" {
 		if h.logger != nil {
@@ -141,7 +153,7 @@ func (h *Handler) checkOrigin(r *http.Request) bool {
 		return false
 	}
 	for _, allowed := range h.allowedOrigins {
-		if allowed == "*" || allowed == origin {
+		if allowed == origin {
 			return true
 		}
 	}
