@@ -33,6 +33,9 @@ const (
 	// Check logs for details. Manual intervention may be required.
 	StatusError InstanceStatus = "ERROR"
 
+	// StatusPaused indicates the instance is paused (frozen CPU, retained memory/network).
+	StatusPaused InstanceStatus = "PAUSED"
+
 	// StatusDeleted indicates the instance has been permanently removed.
 	// All associated resources have been cleaned up.
 	StatusDeleted InstanceStatus = "DELETED"
