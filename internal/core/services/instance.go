@@ -799,11 +799,10 @@ func (s *InstanceService) validateResize(inst *domain.Instance) error {
 	return nil
 }
 
-func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID, inst *domain.Instance, target string, oldIT, newIT *domain.InstanceType, newInstanceType string) error {
-	deltaCPU := newIT.VCPUs - oldIT.VCPUs
-	deltaMemMB := newIT.MemoryMB - oldIT.MemoryMB
-
-	// 1. Quota changes first — fail fast before any VM state change
+// applyQuotaChanges applies quota changes for a resize (upsize or downsize).
+// For upsize: checks and increments quota. For downsize: decrements quota.
+// Returns an error on the first quota operation failure.
+func (s *InstanceService) applyQuotaChanges(ctx context.Context, tenantID uuid.UUID, deltaCPU, deltaMemMB int) error {
 	if deltaCPU > 0 {
 		if err := s.tenantSvc.CheckQuota(ctx, tenantID, "vcpus", deltaCPU); err != nil {
 			return err
@@ -839,32 +838,72 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 			return errors.Wrap(errors.Internal, "failed to decrement memory quota for resize", err)
 		}
 	}
+	return nil
+}
+
+// rollbackQuota reverses quota changes applied during a resize.
+// deltaCPU and deltaMemMB are the same deltas passed to applyQuotaChanges.
+// Returns a list of rollback errors encountered.
+func (s *InstanceService) rollbackQuota(ctx context.Context, tenantID uuid.UUID, deltaCPU, deltaMemMB int) []error {
+	var errs []error
+	if deltaCPU > 0 {
+		if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", deltaCPU); err != nil {
+			errs = append(errs, fmt.Errorf("vcpu decrement rollback failed (tenant_id=%s, delta_cpu=%d): %w", tenantID, deltaCPU, err))
+		}
+	} else if deltaCPU < 0 {
+		if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "vcpus", -deltaCPU); err != nil {
+			errs = append(errs, fmt.Errorf("vcpu increment rollback failed (tenant_id=%s, delta_cpu=%d): %w", tenantID, -deltaCPU, err))
+		}
+	}
+	if deltaMemMB > 0 {
+		if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", deltaMemMB); err != nil {
+			errs = append(errs, fmt.Errorf("memory decrement rollback failed (tenant_id=%s, delta_mem_mb=%d): %w", tenantID, deltaMemMB, err))
+		}
+	} else if deltaMemMB < 0 {
+		if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", -deltaMemMB); err != nil {
+			errs = append(errs, fmt.Errorf("memory increment rollback failed (tenant_id=%s, delta_mem_mb=%d): %w", tenantID, -deltaMemMB, err))
+		}
+	}
+	return errs
+}
+
+// rollbackCompute reverts the compute instance to its previous CPU and memory allocation.
+func (s *InstanceService) rollbackCompute(ctx context.Context, target string, oldCpuNano, oldMemoryBytes int64) error {
+	return s.compute.ResizeInstance(ctx, target, oldCpuNano, oldMemoryBytes)
+}
+
+// recordInstanceResizeEvent records the resize event and audit log.
+func (s *InstanceService) recordInstanceResizeEvent(ctx context.Context, inst *domain.Instance, oldIT, newIT *domain.InstanceType, deltaCPU, deltaMemMB int) {
+	params := map[string]interface{}{
+		"name":            inst.Name,
+		"old_type":        oldIT.ID,
+		"new_type":        newIT.ID,
+		"delta_vcpus":     deltaCPU,
+		"delta_memory_mb": deltaMemMB,
+	}
+	if err := s.eventSvc.RecordEvent(ctx, "INSTANCE_RESIZE", inst.ID.String(), "INSTANCE", params); err != nil {
+		s.logger.Warn("failed to record event", "action", "INSTANCE_RESIZE", "instance_id", inst.ID, "error", err)
+	}
+	if err := s.auditSvc.Log(ctx, inst.UserID, "instance.resize", "instance", inst.ID.String(), params); err != nil {
+		s.logger.Warn("failed to log audit event", "action", "instance.resize", "instance_id", inst.ID, "error", err)
+	}
+}
+
+func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID, inst *domain.Instance, target string, oldIT, newIT *domain.InstanceType, newInstanceType string) error {
+	deltaCPU := newIT.VCPUs - oldIT.VCPUs
+	deltaMemMB := newIT.MemoryMB - oldIT.MemoryMB
+
+	// 1. Quota changes first — fail fast before any VM state change
+	if err := s.applyQuotaChanges(ctx, tenantID, deltaCPU, deltaMemMB); err != nil {
+		return err
+	}
 
 	// 2. Compute resize (now that quota is settled)
 	newCpuNano := int64(newIT.VCPUs) * NanoCPUsPerVCPU
 	newMemoryBytes := int64(newIT.MemoryMB) * BytesPerMB
 	if err := s.compute.ResizeInstance(ctx, target, newCpuNano, newMemoryBytes); err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("resize", "failure").Inc()
-		// Rollback quota changes since compute resize failed
-		var rollbackErrs []error
-		if deltaCPU > 0 {
-			if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", deltaCPU); err != nil {
-				rollbackErrs = append(rollbackErrs, fmt.Errorf("vcpu decrement rollback failed (tenant_id=%s, delta_cpu=%d): %w", tenantID, deltaCPU, err))
-			}
-		} else if deltaCPU < 0 {
-			if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "vcpus", -deltaCPU); err != nil {
-				rollbackErrs = append(rollbackErrs, fmt.Errorf("vcpu increment rollback failed (tenant_id=%s, delta_cpu=%d): %w", tenantID, -deltaCPU, err))
-			}
-		}
-		if deltaMemMB > 0 {
-			if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", deltaMemMB); err != nil {
-				rollbackErrs = append(rollbackErrs, fmt.Errorf("memory decrement rollback failed (tenant_id=%s, delta_mem_mb=%d): %w", tenantID, deltaMemMB, err))
-			}
-		} else if deltaMemMB < 0 {
-			if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", -deltaMemMB); err != nil {
-				rollbackErrs = append(rollbackErrs, fmt.Errorf("memory increment rollback failed (tenant_id=%s, delta_mem_mb=%d): %w", tenantID, -deltaMemMB, err))
-			}
-		}
+		rollbackErrs := s.rollbackQuota(ctx, tenantID, deltaCPU, deltaMemMB)
 		errMsg := "failed to resize instance"
 		if len(rollbackErrs) > 0 {
 			errMsg += fmt.Sprintf("; rollback errors: %v", rollbackErrs)
@@ -880,28 +919,10 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 		oldMemoryBytes := int64(oldIT.MemoryMB) * BytesPerMB
 		var rollbackErrs []error
 
-		if resizeErr := s.compute.ResizeInstance(ctx, target, oldCpuNano, oldMemoryBytes); resizeErr != nil {
+		if resizeErr := s.rollbackCompute(ctx, target, oldCpuNano, oldMemoryBytes); resizeErr != nil {
 			rollbackErrs = append(rollbackErrs, fmt.Errorf("compute resize rollback (target=%s, old_cpu_nano=%d, old_memory_bytes=%d): %w", target, oldCpuNano, oldMemoryBytes, resizeErr))
 		}
-		// Quota rollback for DB update failure (quota was successfully updated before compute resize)
-		if deltaCPU > 0 {
-			if decErr := s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", deltaCPU); decErr != nil {
-				rollbackErrs = append(rollbackErrs, fmt.Errorf("vcpu decrement rollback (tenant_id=%s, delta_cpu=%d): %w", tenantID, deltaCPU, decErr))
-			}
-		} else if deltaCPU < 0 {
-			if incErr := s.tenantSvc.IncrementUsage(ctx, tenantID, "vcpus", -deltaCPU); incErr != nil {
-				rollbackErrs = append(rollbackErrs, fmt.Errorf("vcpu increment rollback (tenant_id=%s, delta_cpu=%d): %w", tenantID, -deltaCPU, incErr))
-			}
-		}
-		if deltaMemMB > 0 {
-			if decErr := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", deltaMemMB); decErr != nil {
-				rollbackErrs = append(rollbackErrs, fmt.Errorf("memory decrement rollback (tenant_id=%s, delta_mem_mb=%d): %w", tenantID, deltaMemMB, decErr))
-			}
-		} else if deltaMemMB < 0 {
-			if incErr := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", -deltaMemMB); incErr != nil {
-				rollbackErrs = append(rollbackErrs, fmt.Errorf("memory increment rollback (tenant_id=%s, delta_mem_mb=%d): %w", tenantID, -deltaMemMB, incErr))
-			}
-		}
+		rollbackErrs = append(rollbackErrs, s.rollbackQuota(ctx, tenantID, deltaCPU, deltaMemMB)...)
 
 		if len(rollbackErrs) > 0 {
 			return errors.Wrap(errors.Internal, fmt.Sprintf("failed to update instance record (instance_id=%s), rollback attempted: %v", inst.ID, rollbackErrs), err)
@@ -910,27 +931,7 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 	}
 
 	platform.InstanceOperationsTotal.WithLabelValues("resize", "success").Inc()
-
-	if err := s.eventSvc.RecordEvent(ctx, "INSTANCE_RESIZE", inst.ID.String(), "INSTANCE", map[string]interface{}{
-		"name":            inst.Name,
-		"old_type":       oldIT.ID,
-		"new_type":       newIT.ID,
-		"delta_vcpus":    deltaCPU,
-		"delta_memory_mb": deltaMemMB,
-	}); err != nil {
-		s.logger.Warn("failed to record event", "action", "INSTANCE_RESIZE", "instance_id", inst.ID, "error", err)
-	}
-
-	if err := s.auditSvc.Log(ctx, inst.UserID, "instance.resize", "instance", inst.ID.String(), map[string]interface{}{
-		"name":            inst.Name,
-		"old_type":       oldIT.ID,
-		"new_type":       newIT.ID,
-		"delta_vcpus":    deltaCPU,
-		"delta_memory_mb": deltaMemMB,
-	}); err != nil {
-		s.logger.Warn("failed to log audit event", "action", "instance.resize", "instance_id", inst.ID, "error", err)
-	}
-
+	s.recordInstanceResizeEvent(ctx, inst, oldIT, newIT, deltaCPU, deltaMemMB)
 	return nil
 }
 
