@@ -262,6 +262,8 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		instanceGroup.GET("", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.List)
 		instanceGroup.GET("/:id", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.Get)
 		instanceGroup.POST("/:id/stop", httputil.Permission(svcs.RBAC, domain.PermissionInstanceUpdate), handlers.Instance.Stop)
+		instanceGroup.POST("/:id/pause", httputil.Permission(svcs.RBAC, domain.PermissionInstanceUpdate), handlers.Instance.Pause)
+		instanceGroup.POST("/:id/resume", httputil.Permission(svcs.RBAC, domain.PermissionInstanceUpdate), handlers.Instance.Resume)
 		instanceGroup.GET("/:id/logs", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.GetLogs)
 		instanceGroup.GET("/:id/stats", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.GetStats)
 		instanceGroup.GET("/:id/console", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.GetConsole)
