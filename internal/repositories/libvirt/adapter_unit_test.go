@@ -960,7 +960,15 @@ func TestLibvirtAdapter_SnapshotMethods(t *testing.T) {
 
 func TestLibvirtAdapter_ApplyDomainResize(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	a := &LibvirtAdapter{logger: logger}
+	memoryRe := regexp.MustCompile(`(?i)<memory(?:\s[^>]*)?>\d+</memory>`)
+	currentMemRe := regexp.MustCompile(`(?i)<currentMemory(?:\s[^>]*)?>\d+</currentMemory>`)
+	vcpuRe := regexp.MustCompile(`(?i)<vcpu(?:\s[^>]*)?>\d+</vcpu>`)
+	a := &LibvirtAdapter{
+		logger:             logger,
+		memoryResizeRe:      memoryRe,
+		currentMemResizeRe:  currentMemRe,
+		vcpuResizeRe:        vcpuRe,
+	}
 
 	t.Run("both memory and vcpu replaced", func(t *testing.T) {
 		xml := `<memory unit="KiB">1048576</memory><currentMemory unit="KiB">1048576</currentMemory><vcpu>2</vcpu>`
@@ -1124,10 +1132,16 @@ func TestLibvirtAdapter_ResizeInstance_RollbackOnFailure(t *testing.T) {
 	t.Run("rollback on DomainCreate failure", func(t *testing.T) {
 		// Fresh mock instance for this subtest
 		m := new(MockLibvirtClient)
+		memoryRe := regexp.MustCompile(`(?i)<memory(?:\s[^>]*)?>\d+</memory>`)
+		currentMemRe := regexp.MustCompile(`(?i)<currentMemory(?:\s[^>]*)?>\d+</currentMemory>`)
+		vcpuRe := regexp.MustCompile(`(?i)<vcpu(?:\s[^>]*)?>\d+</vcpu>`)
 		newDom := libvirt.Domain{Name: "test-vm-resized"}
 		a := &LibvirtAdapter{
-			client: m,
-			logger: logger,
+			client:             m,
+			logger:             logger,
+			memoryResizeRe:      memoryRe,
+			currentMemResizeRe:  currentMemRe,
+			vcpuResizeRe:        vcpuRe,
 			execCommand: func(name string, arg ...string) *exec.Cmd {
 				if name == "tar" && len(arg) >= 2 && arg[1] == "xzf" {
 					for i, argVal := range arg {
