@@ -47,6 +47,10 @@ func (b *PowerDNSBackend) ensureTrailingDot(name string) string {
 func (b *PowerDNSBackend) CreateZone(ctx context.Context, zoneName string, nameservers []string) error {
 	zoneName = b.ensureTrailingDot(zoneName)
 
+	if len(nameservers) == 0 {
+		return fmt.Errorf("cannot create zone: nameservers must not be empty")
+	}
+
 	zone := &powerdns.Zone{
 		Name:        powerdns.String(zoneName),
 		Kind:        powerdns.ZoneKindPtr(powerdns.NativeZoneKind),
