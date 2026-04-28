@@ -78,6 +78,31 @@ func TestFunctionService_InternalExtract(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid file path")
 	})
+
+	// Regression for #237: simple HasPrefix checks miss case-variant
+	// traversal payloads on case-insensitive filesystems and miss
+	// backslash-separated payloads written by archives produced on Windows.
+	traversalPayloads := []string{
+		"..././../etc/passwd",
+		"foo/../../bar.txt",
+		"./../etc/passwd",
+		"/abs/etc/passwd",     // absolute path
+		"..\\windows\\sys.ini", // backslash separator
+		"a\x00b.txt",           // NUL byte
+	}
+	for _, name := range traversalPayloads {
+		name := name
+		t.Run("extractZip rejects "+name, func(t *testing.T) {
+			buf := new(bytes.Buffer)
+			zw := zip.NewWriter(buf)
+			_, _ = zw.Create(name)
+			_ = zw.Close()
+
+			err := s.extractZip(bytes.NewReader(buf.Bytes()), tmpDir)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "invalid file path")
+		})
+	}
 }
 
 func TestFunctionService_BuildTaskOptions(t *testing.T) {

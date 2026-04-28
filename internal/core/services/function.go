@@ -432,11 +432,39 @@ func (s *FunctionService) extractZip(rc io.Reader, tmpDir string) error {
 }
 
 func (s *FunctionService) extractZipFile(file *zip.File, tmpDir string) error {
-	// G305: Clean path and verify prefix to prevent file traversal
-	cleanTmpDir := filepath.Clean(tmpDir)
-	//nolint:gosec // G305: Path sanitization and prefix check are performed below
+	// Reject any zip entry whose name would escape tmpDir. Belt and braces:
+	//
+	//   - filepath.Join already canonicalises the path on the host (Linux).
+	//   - filepath.Rel makes the comparison robust to trailing slashes and
+	//     separator differences across platforms.
+	//   - filepath.IsLocal (Go 1.20+) rejects entries that contain `..`,
+	//     drive letters, or absolute paths even before we touch the filesystem.
+	//   - We additionally reject mixed-separator entries (`a/..\\..\\etc`)
+	//     because zip(1) is happy to write them on case-insensitive hosts.
+	//
+	// This closes the gap reported in #237 where case-variant payloads such as
+	// `../../Etc/passwd` slipped through a HasPrefix check that compared raw
+	// bytes against a lowercased prefix.
+	if !filepath.IsLocal(file.Name) {
+		return fmt.Errorf("invalid file path in zip: %s", file.Name)
+	}
+	if strings.ContainsAny(file.Name, "\\\x00") {
+		return fmt.Errorf("invalid file path in zip: %s", file.Name)
+	}
+
+	cleanTmpDir, err := filepath.Abs(filepath.Clean(tmpDir))
+	if err != nil {
+		return fmt.Errorf("resolve extraction root: %w", err)
+	}
+	//nolint:gosec // G305: Path sanitization is performed via the IsLocal +
+	// filepath.Rel check below.
 	path := filepath.Join(cleanTmpDir, file.Name)
-	if !strings.HasPrefix(filepath.Clean(path), cleanTmpDir+string(os.PathSeparator)) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("resolve extraction target: %w", err)
+	}
+	rel, err := filepath.Rel(cleanTmpDir, absPath)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
 		return fmt.Errorf("invalid file path in zip: %s", file.Name)
 	}
 
