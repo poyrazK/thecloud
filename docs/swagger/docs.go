@@ -4030,7 +4030,7 @@ const docTemplate = `{
                         }
                     },
                     "429": {
-                        "description": "Quota Exceeded",
+                        "description": "Too Many Requests",
                         "schema": {
                             "$ref": "#/definitions/httputil.Response"
                         }

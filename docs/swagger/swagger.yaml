@@ -5040,7 +5040,7 @@ paths:
           schema:
             $ref: '#/definitions/httputil.Response'
         "429":
-          description: Quota Exceeded
+          description: Too Many Requests
           schema:
             $ref: '#/definitions/httputil.Response'
         "500":
