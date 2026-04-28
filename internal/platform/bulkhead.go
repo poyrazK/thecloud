@@ -50,10 +50,8 @@ func (b *Bulkhead) Execute(ctx context.Context, fn func() error) error {
 }
 
 func (b *Bulkhead) acquire(ctx context.Context) error {
-	select {
-	case <-ctx.Done():
-		return ErrBulkheadFull
-	default:
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
 
 	if b.timeout > 0 {
@@ -65,7 +63,7 @@ func (b *Bulkhead) acquire(ctx context.Context) error {
 		case <-timer.C:
 			return ErrBulkheadFull
 		case <-ctx.Done():
-			return ErrBulkheadFull
+			return ctx.Err()
 		}
 	}
 	// No explicit timeout — rely on context.
@@ -73,7 +71,7 @@ func (b *Bulkhead) acquire(ctx context.Context) error {
 	case b.sem <- struct{}{}:
 		return nil
 	case <-ctx.Done():
-		return ErrBulkheadFull
+		return ctx.Err()
 	}
 }
 
