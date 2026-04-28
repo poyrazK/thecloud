@@ -114,7 +114,7 @@ func TestWebSocketAuthFailure(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	hub := NewHub(logger)
 	mockID := new(mockIdentityService)
-	handler := NewHandler(hub, mockID, logger)
+	handler := NewHandler(hub, mockID, logger, "*")
 
 	r := gin.New()
 	r.GET("/ws", handler.ServeWS)
