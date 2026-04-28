@@ -213,14 +213,14 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 	newDOMXML, err := a.applyDomainResize(domXML, int(memory/1024), int(cpu/1e9))
 	if err != nil {
 		if rbErr := a.rollbackFromSnapshot(ctx, id, snapshotName, domXML); rbErr != nil {
-			return fmt.Errorf("failed to modify domain XML (instance_id=%s, rollback_err=%s): %w", id, rbErr, err)
+			return fmt.Errorf("failed to modify domain XML (instance_id=%s, rollback_err=%v): %w", id, rbErr, err)
 		}
 		return fmt.Errorf("failed to modify domain XML: %w", err)
 	}
 
 	if err := a.client.DomainUndefine(ctx, dom); err != nil {
 		if rbErr := a.rollbackFromSnapshot(ctx, id, snapshotName, domXML); rbErr != nil {
-			return fmt.Errorf("failed to undefine domain (instance_id=%s, rollback_err=%s): %w", id, rbErr, err)
+			return fmt.Errorf("failed to undefine domain (instance_id=%s, rollback_err=%v): %w", id, rbErr, err)
 		}
 		return fmt.Errorf("failed to undefine domain: %w", err)
 	}
@@ -230,7 +230,7 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 		// Rollback: restore volume and redefine original domain
 		rollbackErr := a.rollbackFromSnapshot(ctx, id, snapshotName, domXML)
 		if rollbackErr != nil {
-			return fmt.Errorf("failed to redefine domain with new resources (instance_id=%s, target=%s), rollback also failed: original error: %w; rollback error: %w", id, newDOMXML, err, rollbackErr)
+			return fmt.Errorf("failed to redefine domain with new resources (instance_id=%s, target=%s), rollback also failed: original error: %w; rollback error: %v", id, newDOMXML, err, rollbackErr)
 		}
 		return fmt.Errorf("failed to redefine domain with new resources: %w", err)
 	}
@@ -238,7 +238,7 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 	if wasRunning {
 		if err := a.client.DomainCreate(ctx, newDom); err != nil {
 			if rbErr := a.rollbackFromSnapshot(ctx, id, snapshotName, domXML); rbErr != nil {
-				return fmt.Errorf("failed to start domain after resize (instance_id=%s, rollback_err=%s): %w", id, rbErr, err)
+				return fmt.Errorf("failed to start domain after resize (instance_id=%s, rollback_err=%v): %w", id, rbErr, err)
 			}
 			return fmt.Errorf("failed to start domain after resize: %w", err)
 		}
