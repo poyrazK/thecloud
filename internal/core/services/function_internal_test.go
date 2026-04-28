@@ -79,14 +79,17 @@ func TestFunctionService_InternalExtract(t *testing.T) {
 		assert.Contains(t, err.Error(), "invalid file path")
 	})
 
-	// Regression for #237: simple HasPrefix checks miss case-variant
-	// traversal payloads on case-insensitive filesystems and miss
-	// backslash-separated payloads written by archives produced on Windows.
+	// Regression for #237: simple HasPrefix checks miss several traversal
+	// payload classes — absolute paths, real `..` segments, mixed separators
+	// (Windows-authored archives), and NUL bytes. Notably we do NOT include
+	// `..././../etc/passwd` here: filepath.Clean reduces it to `etc/passwd`,
+	// a perfectly local relative path that is meant to extract as
+	// `<tmpDir>/etc/passwd` rather than escape. The hardening targets real
+	// escape attempts, not benign canonicalization.
 	traversalPayloads := []string{
-		"..././../etc/passwd",
 		"foo/../../bar.txt",
 		"./../etc/passwd",
-		"/abs/etc/passwd",     // absolute path
+		"/abs/etc/passwd",      // absolute path
 		"..\\windows\\sys.ini", // backslash separator
 		"a\x00b.txt",           // NUL byte
 	}
