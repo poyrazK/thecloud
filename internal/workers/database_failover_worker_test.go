@@ -207,6 +207,15 @@ func (m *mockComputeBackend) DetachVolume(ctx context.Context, id string, volume
 func (m *mockComputeBackend) Ping(ctx context.Context) error {
 	return m.Called(ctx).Error(0)
 }
+func (m *mockComputeBackend) PauseInstance(ctx context.Context, id string) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *mockComputeBackend) ResumeInstance(ctx context.Context, id string) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *mockComputeBackend) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
+	return m.Called(ctx, id, cpu, memory).Error(0)
+}
 func (m *mockComputeBackend) Type() string {
 	return "mock"
 }

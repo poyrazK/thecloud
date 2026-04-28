@@ -158,6 +158,15 @@ func (m *mockComputeBackendExtended) DetachVolume(ctx context.Context, id, volum
 func (m *mockComputeBackendExtended) Ping(ctx context.Context) error {
 	return nil
 }
+func (m *mockComputeBackendExtended) PauseInstance(ctx context.Context, id string) error {
+	return nil
+}
+func (m *mockComputeBackendExtended) ResumeInstance(ctx context.Context, id string) error {
+	return nil
+}
+func (m *mockComputeBackendExtended) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
+	return nil
+}
 
 func TestPipelineWorker_processJob(t *testing.T) {
 	repo := new(mockPipelineRepo)
