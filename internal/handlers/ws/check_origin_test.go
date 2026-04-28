@@ -26,6 +26,8 @@ func TestCheckOrigin_FailClosed(t *testing.T) {
 		{"comma-separated list is parsed", []string{"https://a.example,https://b.example"}, "https://b.example", true},
 		{"trims whitespace", []string{"  https://a.example , https://b.example "}, "https://a.example", true},
 		{"case-sensitive match", []string{"https://app.example.com"}, "https://APP.example.com", false},
+		{"origin with trailing dot rejected", []string{"https://app.example.com"}, "https://app.example.com.", false},
+		{"origin without trailing dot matches", []string{"https://app.example.com"}, "https://app.example.com", true},
 	}
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
