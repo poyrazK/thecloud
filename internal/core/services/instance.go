@@ -805,7 +805,6 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 	deltaMemMB := newIT.MemoryMB - oldIT.MemoryMB
 
 	// 1. Quota changes first — fail fast before any VM state change
-	memoryGB := deltaMemMB / 1024
 	if deltaCPU > 0 {
 		if err := s.tenantSvc.CheckQuota(ctx, tenantID, "vcpus", deltaCPU); err != nil {
 			return err
@@ -821,10 +820,10 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 		}
 	}
 	if deltaMemMB > 0 {
-		if err := s.tenantSvc.CheckQuota(ctx, tenantID, "memory", memoryGB); err != nil {
+		if err := s.tenantSvc.CheckQuota(ctx, tenantID, "memory", deltaMemMB); err != nil {
 			return err
 		}
-		if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", memoryGB); err != nil {
+		if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", deltaMemMB); err != nil {
 			platform.InstanceOperationsTotal.WithLabelValues("resize", "quota_failure").Inc()
 			// Rollback vCPU increment since memory increment failed
 			if deltaCPU > 0 {
@@ -836,7 +835,7 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 			return errors.Wrap(errors.Internal, "failed to increment memory quota for resize", err)
 		}
 	} else if deltaMemMB < 0 {
-		if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", -deltaMemMB/1024); err != nil {
+		if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", -deltaMemMB); err != nil {
 			platform.InstanceOperationsTotal.WithLabelValues("resize", "quota_decrement_failure").Inc()
 			return errors.Wrap(errors.Internal, "failed to decrement memory quota for resize", err)
 		}
@@ -858,11 +857,11 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 			}
 		}
 		if deltaMemMB > 0 {
-			if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", deltaMemMB/1024); err != nil {
+			if err := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", deltaMemMB); err != nil {
 				s.logger.Error("rollback memory decrement failed", "error", err, "tenant_id", tenantID)
 			}
 		} else if deltaMemMB < 0 {
-			if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", -deltaMemMB/1024); err != nil {
+			if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", -deltaMemMB); err != nil {
 				s.logger.Error("rollback memory increment failed", "error", err, "tenant_id", tenantID)
 			}
 		}
@@ -895,11 +894,11 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 			}
 		}
 		if deltaMemMB > 0 {
-			if decErr := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", deltaMemMB/1024); decErr != nil {
+			if decErr := s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", deltaMemMB); decErr != nil {
 				rollbackErrs = append(rollbackErrs, fmt.Errorf("memory decrement rollback (tenant_id=%s, delta_mem_mb=%d): %w", tenantID, deltaMemMB, decErr))
 			}
 		} else if deltaMemMB < 0 {
-			if incErr := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", -deltaMemMB/1024); incErr != nil {
+			if incErr := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", -deltaMemMB); incErr != nil {
 				rollbackErrs = append(rollbackErrs, fmt.Errorf("memory increment rollback (tenant_id=%s, delta_mem_mb=%d): %w", tenantID, -deltaMemMB, incErr))
 			}
 		}
