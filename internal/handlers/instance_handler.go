@@ -428,7 +428,7 @@ type ResizeInstanceRequest struct {
 // @Success 200 {object} httputil.Response
 // @Failure 400 {object} httputil.Response
 // @Failure 404 {object} httputil.Response
-// @Failure 429 {object} httputil.Response "Quota Exceeded"
+// @Failure 429 {object} httputil.Response "Too Many Requests"
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id}/resize [post]
 func (h *InstanceHandler) ResizeInstance(c *gin.Context) {
