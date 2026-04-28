@@ -75,5 +75,5 @@ type InstanceService interface {
 	// UpdateInstanceMetadata updates the metadata and labels of an instance.
 	UpdateInstanceMetadata(ctx context.Context, id uuid.UUID, metadata, labels map[string]string) error
 	// ResizeInstance changes the instance type (CPU/memory) of an existing instance.
-	ResizeInstance(ctx context.Context, idOrName, newInstanceType string) error
+	ResizeInstance(ctx context.Context, idOrName, newInstanceType string) (*domain.Instance, error)
 }

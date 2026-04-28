@@ -3973,7 +3973,7 @@
                         "APIKeyAuth": []
                     }
                 ],
-                "description": "Change the instance type (CPU/memory) of an existing instance",
+                "description": "Change the instance type (CPU/memory) of an existing instance. Note: Libvirt-backed instances require a brief restart (cold resize); Docker-backed instances support live resize without downtime.",
                 "consumes": [
                     "application/json"
                 ],

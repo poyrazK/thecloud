@@ -119,9 +119,12 @@ func (m *MockInstanceService) UpdateInstanceMetadata(ctx context.Context, id uui
 	args := m.Called(ctx, id, metadata, labels)
 	return args.Error(0)
 }
-func (m *MockInstanceService) ResizeInstance(ctx context.Context, idOrName, newInstanceType string) error {
+func (m *MockInstanceService) ResizeInstance(ctx context.Context, idOrName, newInstanceType string) (*domain.Instance, error) {
 	args := m.Called(ctx, idOrName, newInstanceType)
-	return args.Error(0)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Instance), args.Error(1)
 }
 func (m *MockInstanceService) Provision(ctx context.Context, job domain.ProvisionJob) error {
 	return m.Called(ctx, job).Error(0)

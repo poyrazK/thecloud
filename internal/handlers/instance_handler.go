@@ -418,7 +418,7 @@ type ResizeInstanceRequest struct {
 
 // ResizeInstance godoc
 // @Summary Resize an instance
-// @Description Change the instance type (CPU/memory) of an existing instance
+// @Description Change the instance type (CPU/memory) of an existing instance. Note: Libvirt-backed instances require a brief restart (cold resize); Docker-backed instances support live resize without downtime.
 // @Tags instances
 // @Accept json
 // @Produce json
@@ -444,13 +444,15 @@ func (h *InstanceHandler) ResizeInstance(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.ResizeInstance(c.Request.Context(), idStr, req.InstanceType); err != nil {
+	inst, err := h.svc.ResizeInstance(c.Request.Context(), idStr, req.InstanceType)
+	if err != nil {
 		httputil.Error(c, err)
 		return
 	}
 
 	httputil.Success(c, http.StatusOK, gin.H{
-		"message":        "instance resized",
-		"instance_type": req.InstanceType,
+		"message":       "instance resized",
+		"instance_type": inst.InstanceType,
+		"status":        string(inst.Status),
 	})
 }
