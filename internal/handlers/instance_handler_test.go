@@ -60,6 +60,12 @@ func (m *instanceServiceMock) StartInstance(ctx context.Context, idOrName string
 func (m *instanceServiceMock) StopInstance(ctx context.Context, idOrName string) error {
 	return m.Called(ctx, idOrName).Error(0)
 }
+func (m *instanceServiceMock) PauseInstance(ctx context.Context, idOrName string) error {
+	return m.Called(ctx, idOrName).Error(0)
+}
+func (m *instanceServiceMock) ResumeInstance(ctx context.Context, idOrName string) error {
+	return m.Called(ctx, idOrName).Error(0)
+}
 
 func (m *instanceServiceMock) ListInstances(ctx context.Context) ([]*domain.Instance, error) {
 	args := m.Called(ctx)
