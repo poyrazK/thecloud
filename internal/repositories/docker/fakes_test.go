@@ -95,6 +95,14 @@ func (f *fakeDockerClient) ContainerStop(ctx context.Context, containerID string
 	return f.stopErr
 }
 
+func (f *fakeDockerClient) ContainerPause(ctx context.Context, containerID string) error {
+	return nil
+}
+
+func (f *fakeDockerClient) ContainerUnpause(ctx context.Context, containerID string) error {
+	return nil
+}
+
 func (f *fakeDockerClient) ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error {
 	return f.removeErr
 }
@@ -190,6 +198,11 @@ func (f *fakeDockerClient) ContainerExecInspect(ctx context.Context, execID stri
 func (f *fakeDockerClient) ContainerRename(ctx context.Context, containerID string, newName string) error {
 	f.inc("ContainerRename")
 	return nil
+}
+
+func (f *fakeDockerClient) ContainerUpdate(ctx context.Context, containerID string, config container.UpdateConfig) (container.UpdateResponse, error) {
+	f.inc("ContainerUpdate")
+	return container.UpdateResponse{}, nil
 }
 
 var errFakeNotFound = errors.New("not found")
