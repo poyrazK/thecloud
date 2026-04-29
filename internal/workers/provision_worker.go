@@ -74,9 +74,19 @@ func (w *ProvisionWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 
 	sem := make(chan struct{}, provisionMaxWorkers)
 
+	// inFlight tracks every goroutine this worker spawns (the reclaim loop and
+	// each per-message processJob). Waiting on it before Run returns ensures
+	// shutdown drains in-flight work instead of leaking goroutines.
+	var inFlight sync.WaitGroup
+	defer inFlight.Wait()
+
 	// Start a background goroutine that periodically reclaims stale messages
 	// from crashed consumers.
-	go w.reclaimLoop(ctx, sem)
+	inFlight.Add(1)
+	go func() {
+		defer inFlight.Done()
+		w.reclaimLoop(ctx, sem, &inFlight)
+	}()
 
 	for {
 		select {
@@ -110,7 +120,9 @@ func (w *ProvisionWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 			)
 
 			sem <- struct{}{} // acquire concurrency slot
+			inFlight.Add(1)
 			go func(m *ports.DurableMessage, j domain.ProvisionJob) {
+				defer inFlight.Done()
 				defer func() { <-sem }()
 				w.processJob(ctx, m, j)
 			}(msg, job)
@@ -191,8 +203,9 @@ func (w *ProvisionWorker) processJob(workerCtx context.Context, msg *ports.Durab
 }
 
 // reclaimLoop periodically reclaims messages stuck in the PEL from crashed
-// consumers and re-processes them.
-func (w *ProvisionWorker) reclaimLoop(ctx context.Context, sem chan struct{}) {
+// consumers and re-processes them. Spawned processJob goroutines are added to
+// inFlight so Run can wait for them on shutdown.
+func (w *ProvisionWorker) reclaimLoop(ctx context.Context, sem chan struct{}, inFlight *sync.WaitGroup) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
@@ -219,7 +232,9 @@ func (w *ProvisionWorker) reclaimLoop(ctx context.Context, sem chan struct{}) {
 
 				m := m // capture loop variable
 				sem <- struct{}{}
+				inFlight.Add(1)
 				go func() {
+					defer inFlight.Done()
 					defer func() { <-sem }()
 					w.processJob(ctx, &m, job)
 				}()
