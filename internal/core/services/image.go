@@ -2,6 +2,7 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -18,6 +19,25 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
+
+const (
+	maxImageImportSize = 10 * 1024 * 1024 * 1024 // 10 GB
+)
+
+var allowedContentTypes = map[string]bool{
+	"image/jpeg":                  true,
+	"image/png":                   true,
+	"image/gif":                   true,
+	"application/x-iso9660-image": true, // .iso
+	"application/octet-stream":    true, // .qcow2, .raw, .img fallback
+}
+
+var formatMagic = map[string][]byte{
+	"qcow2": {0x51, 0x46, 0x44, 0xbf},
+	"iso":   {0x43, 0x44, 0x30, 0x30, 0x31},
+	"raw":   {},
+	"img":   {},
+}
 
 // ImageServiceParams defines the dependencies for ImageService.
 type ImageServiceParams struct {
@@ -288,8 +308,36 @@ func (s *imageService) importFromURL(ctx context.Context, img *domain.Image, ima
 		return fmt.Errorf("remote returned status %d", resp.StatusCode)
 	}
 
+	// Validate Content-Length if available
+	if resp.ContentLength > maxImageImportSize {
+		return fmt.Errorf("image exceeds max size: %d bytes (max %d)", resp.ContentLength, maxImageImportSize)
+	}
+
+	// Validate Content-Type header
+	ct := resp.Header.Get("Content-Type")
+	if idx := strings.Index(ct, ";"); idx != -1 {
+		ct = strings.TrimSpace(ct[:idx])
+	}
+	if ct != "" && !allowedContentTypes[ct] {
+		return fmt.Errorf("invalid content-type: %q", ct)
+	}
+
 	key := fmt.Sprintf("%s.%s", img.ID.String(), img.Format)
-	size, err := s.fileStore.Write(ctx, s.bucketName, key, resp.Body)
+
+	// Read magic bytes for format validation
+	sniff := make([]byte, sniffLen)
+	n, _ := io.ReadFull(resp.Body, sniff)
+	sniff = sniff[:n]
+
+	// Validate magic bytes for expected format
+	if magic, ok := formatMagic[img.Format]; ok && len(magic) > 0 && !bytes.HasPrefix(sniff, magic) {
+		return fmt.Errorf("invalid magic bytes for format %s", img.Format)
+	}
+
+	// Reconstruct body: sniffed prefix + remaining stream
+	body := io.MultiReader(bytes.NewReader(sniff), resp.Body)
+
+	size, err := s.fileStore.Write(ctx, s.bucketName, key, io.LimitReader(body, maxImageImportSize))
 	if err != nil {
 		return fmt.Errorf("failed to store image: %w", err)
 	}

@@ -148,9 +148,13 @@ func TestImageService_Unit(t *testing.T) {
 	})
 
 	t.Run("ImportImage_Success", func(t *testing.T) {
+		// QCOW2 magic bytes + padding
+		qcow2Magic := []byte{0x51, 0x46, 0x44, 0xbf}
+		testData := append(qcow2Magic, bytes.Repeat([]byte("x"), 1024*1024-len(qcow2Magic))...)
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/octet-stream")
 			w.WriteHeader(http.StatusOK)
-			w.Write(bytes.Repeat([]byte("x"), 1024*1024)) // 1MB response
+			w.Write(testData)
 		}))
 		defer server.Close()
 
@@ -422,7 +426,9 @@ func TestImageService_Unit_ImportImage(t *testing.T) {
 	ctx = appcontext.WithUserID(ctx, uuid.New())
 
 	t.Run("FormatIMG", func(t *testing.T) {
+		// .img format has no magic bytes - any data is valid
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/octet-stream")
 			w.WriteHeader(http.StatusOK)
 			w.Write(bytes.Repeat([]byte("x"), 1024))
 		}))
@@ -440,7 +446,9 @@ func TestImageService_Unit_ImportImage(t *testing.T) {
 	})
 
 	t.Run("FormatRaw", func(t *testing.T) {
+		// .raw format has no magic bytes - any data is valid
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/octet-stream")
 			w.WriteHeader(http.StatusOK)
 			w.Write(bytes.Repeat([]byte("x"), 1024))
 		}))
@@ -458,9 +466,13 @@ func TestImageService_Unit_ImportImage(t *testing.T) {
 	})
 
 	t.Run("FormatISO", func(t *testing.T) {
+		// CD-ROM magic bytes
+		isoMagic := []byte{0x43, 0x44, 0x30, 0x30, 0x31}
+		testData := append(isoMagic, bytes.Repeat([]byte("x"), 1024-len(isoMagic))...)
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/x-iso9660-image")
 			w.WriteHeader(http.StatusOK)
-			w.Write(bytes.Repeat([]byte("x"), 1024))
+			w.Write(testData)
 		}))
 		defer server.Close()
 
@@ -476,9 +488,12 @@ func TestImageService_Unit_ImportImage(t *testing.T) {
 	})
 
 	t.Run("UpdateToActiveFails", func(t *testing.T) {
+		qcow2Magic := []byte{0x51, 0x46, 0x44, 0xbf}
+		testData := append(qcow2Magic, bytes.Repeat([]byte("x"), 1024*1024-len(qcow2Magic))...)
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/octet-stream")
 			w.WriteHeader(http.StatusOK)
-			w.Write(bytes.Repeat([]byte("x"), 1024*1024))
+			w.Write(testData)
 		}))
 		defer server.Close()
 
@@ -502,7 +517,7 @@ func TestImageService_Unit_ImportImage(t *testing.T) {
 			return i.Status == domain.ImageStatusError
 		})).Return(nil).Once()
 
-		_, err := svc.ImportImage(deadlineCtx, "my-image", "http://localhost:1/image.img", "desc", "linux", "1.0", false)
+		_, err := svc.ImportImage(deadlineCtx, "my-image", "http://localhost:1/image.qcow2", "desc", "linux", "1.0", false)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to fetch image")
 	})
