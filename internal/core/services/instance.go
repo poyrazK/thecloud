@@ -695,8 +695,7 @@ func (s *InstanceService) ResumeInstance(ctx context.Context, idOrName string) e
 
 	if err := s.compute.ResumeInstance(ctx, target); err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("resume", "failure").Inc()
-		s.logger.Error("failed to resume container, instance left in PAUSED state",
-			"container_id", target, "instance_id", inst.ID, "error", err)
+		s.logger.Error("failed to resume container", "container_id", target, "error", err)
 		return errors.Wrap(errors.Internal, "failed to resume container", err)
 	}
 

@@ -4,7 +4,6 @@ package firecracker
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -24,8 +23,7 @@ const (
 )
 
 var (
-	idRegex         = regexp.MustCompile(`^[a-zA-Z0-9\-_]+$`)
-	ErrNotSupported = errors.New("operation not supported on this backend")
+	idRegex = regexp.MustCompile(`^[a-zA-Z0-9\-_]+$`)
 )
 
 // Config holds Firecracker specific configuration.
@@ -155,21 +153,14 @@ func (a *FirecrackerAdapter) PauseInstance(ctx context.Context, id string) error
 	if a.cfg.MockMode {
 		return nil
 	}
-	return ErrNotSupported
+	return nil // Firecracker does not support pause/resume
 }
 
 func (a *FirecrackerAdapter) ResumeInstance(ctx context.Context, id string) error {
 	if a.cfg.MockMode {
 		return nil
 	}
-	return ErrNotSupported
-}
-
-func (a *FirecrackerAdapter) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
-	if a.cfg.MockMode {
-		return nil
-	}
-	return ErrNotSupported
+	return nil // Firecracker does not support pause/resume
 }
 
 func (a *FirecrackerAdapter) DeleteInstance(ctx context.Context, id string) error {
