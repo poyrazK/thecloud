@@ -6,9 +6,10 @@ import (
 	"time"
 )
 
-// ErrBulkheadFull is returned when the bulkhead's concurrency limit is reached
-// and the caller's timeout/context expires before a slot opens.
-var ErrBulkheadFull = errors.New("bulkhead: concurrency limit reached")
+// ErrBulkheadFull is returned only when the bulkhead's concurrency limit is reached
+// and the caller's wait timeout expires before a slot opens.
+// Context cancellation or expiry returns ctx.Err() instead of ErrBulkheadFull.
+var ErrBulkheadFull = errors.New("bulkhead: concurrency limit reached, wait timeout")
 
 // Bulkhead limits concurrent access to a resource using a semaphore pattern.
 // It prevents one slow/failing component from consuming all available goroutines

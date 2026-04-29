@@ -215,7 +215,7 @@ func (a *LibvirtAdapter) ResumeInstance(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to get domain state: %w", err)
 	}
 	if state != domainStatePaused {
-		return fmt.Errorf("domain is not paused (state=%d), cannot resume", state)
+		return fmt.Errorf("%w: domain is %d, must be PAUSED (3)", apierrors.ErrInstanceNotResumable, state)
 	}
 
 	if err := a.client.DomainResume(ctx, dom); err != nil {

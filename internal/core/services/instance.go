@@ -658,8 +658,19 @@ func (s *InstanceService) PauseInstance(ctx context.Context, idOrName string) er
 		return errors.Wrap(errors.Internal, "failed to pause container", err)
 	}
 
+	oldStatus := inst.Status
 	inst.Status = domain.StatusPaused
 	if err := s.repo.Update(ctx, inst); err != nil {
+		// Best-effort rollback: undo the pause since DB update failed
+		inst.Status = oldStatus
+		if rollbackErr := s.repo.Update(ctx, inst); rollbackErr != nil {
+			s.logger.Warn("failed to rollback pause after repo error",
+				"instance_id", inst.ID, "pause_error", err, "rollback_error", rollbackErr)
+		}
+		if resumeErr := s.compute.ResumeInstance(ctx, target); resumeErr != nil {
+			s.logger.Warn("failed to undo pause after repo error",
+				"instance_id", inst.ID, "resume_error", resumeErr)
+		}
 		return err
 	}
 
@@ -699,11 +710,12 @@ func (s *InstanceService) ResumeInstance(ctx context.Context, idOrName string) e
 
 	if err := s.compute.ResumeInstance(ctx, target); err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("resume", "failure").Inc()
-		s.logger.Error("failed to resume container, rolling back to RUNNING",
-			"container_id", target, "instance_id", inst.ID, "error", err)
-		inst.Status = domain.StatusRunning
+		oldStatus := inst.Status
+		s.logger.Error("failed to resume container, rolling back",
+			"container_id", target, "instance_id", inst.ID, "old_status", oldStatus, "error", err)
+		inst.Status = oldStatus
 		if repoErr := s.repo.Update(ctx, inst); repoErr != nil {
-			s.logger.Error("failed to rollback instance status to RUNNING",
+			s.logger.Error("failed to rollback instance status",
 				"instance_id", inst.ID, "resume_error", err, "rollback_error", repoErr)
 		}
 		return errors.Wrap(errors.Internal, "failed to resume container", err)
@@ -711,6 +723,16 @@ func (s *InstanceService) ResumeInstance(ctx context.Context, idOrName string) e
 
 	inst.Status = domain.StatusRunning
 	if err := s.repo.Update(ctx, inst); err != nil {
+		// Best-effort rollback: undo the resume since DB update failed
+		inst.Status = domain.StatusPaused
+		if rollbackErr := s.repo.Update(ctx, inst); rollbackErr != nil {
+			s.logger.Warn("failed to rollback resume after repo error",
+				"instance_id", inst.ID, "resume_error", err, "rollback_error", rollbackErr)
+		}
+		if pauseErr := s.compute.PauseInstance(ctx, target); pauseErr != nil {
+			s.logger.Warn("failed to undo resume after repo error",
+				"instance_id", inst.ID, "pause_error", pauseErr)
+		}
 		return err
 	}
 

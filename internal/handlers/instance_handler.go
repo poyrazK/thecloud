@@ -252,6 +252,9 @@ func (h *InstanceHandler) Stop(c *gin.Context) {
 // @Security APIKeyAuth
 // @Param id path string true "Instance ID"
 // @Success 200 {object} httputil.Response
+// @Failure 400 {object} httputil.Response
+// @Failure 401 {object} httputil.Response
+// @Failure 403 {object} httputil.Response
 // @Failure 404 {object} httputil.Response
 // @Failure 409 {object} httputil.Response "Instance not in RUNNING state"
 // @Failure 500 {object} httputil.Response
@@ -279,6 +282,9 @@ func (h *InstanceHandler) Pause(c *gin.Context) {
 // @Security APIKeyAuth
 // @Param id path string true "Instance ID"
 // @Success 200 {object} httputil.Response
+// @Failure 400 {object} httputil.Response
+// @Failure 401 {object} httputil.Response
+// @Failure 403 {object} httputil.Response
 // @Failure 404 {object} httputil.Response
 // @Failure 409 {object} httputil.Response "Instance not in PAUSED state"
 // @Failure 500 {object} httputil.Response

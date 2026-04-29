@@ -8,7 +8,7 @@
 |----|-------|----------------------|
 | PR 1 | Image Management | ✅ COMPLETED |
 | PR 2 | Instance Resize/Scale | ✅ COMPLETED |
-| PR 3 | Instance Pause/Resume | ❌ NOT IMPLEMENTED |
+| PR 3 | Instance Pause/Resume | ✅ COMPLETED |
 | PR 4 | Provision Retry & Error Handling | ❌ NOT IMPLEMENTED |
 | PR 5 | Instance Tags | ❌ NOT IMPLEMENTED |
 | PR 6 | WebSocket Progress Events | ⚠️ PARTIALLY IMPLEMENTED |
@@ -138,76 +138,22 @@ imageGroup.POST("/import", httputil.Permission(svcs.RBAC, domain.PermissionImage
 
 ## PR 3: Instance Pause/Resume
 
-**Status: ❌ NOT IMPLEMENTED**
+**Status: ✅ COMPLETED**
 
-### What exists
-- `PermissionInstanceUpdate` in RBAC (`internal/core/domain/rbac.go:18`)
+### What was built
 
-### What needs to be built
-
-**Goal**: Pause an instance (freeze CPU, retain memory and network) without full shutdown.
-
-#### 1. `internal/core/domain/instance.go` — add `StatusPaused`
-```go
-StatusPaused InstanceStatus = "PAUSED"  // Add to existing enum
-```
-
-#### 2. `internal/core/ports/instance.go` — add methods
-```go
-PauseInstance(ctx context.Context, idOrName string) error
-ResumeInstance(ctx context.Context, idOrName string) error
-```
-
-#### 3. `internal/core/services/instance.go` — implement both methods
-**`PauseInstance`**:
-- RBAC: `PermissionInstanceUpdate`
-- Get instance by idOrName
-- Validate status == `StatusRunning`
-- Call `compute.PauseInstance(ctx, containerID)` or `compute.SuspendInstance(ctx, containerID)`
-- Update status to `StatusPaused`
-- Audit log
-
-**`ResumeInstance`**:
-- RBAC: `PermissionInstanceUpdate`
-- Get instance by idOrName
-- Validate status == `StatusPaused`
-- Call `compute.ResumeInstance(ctx, containerID)` or `compute.ResumeInstance(ctx, containerID)`
-- Update status to `StatusRunning`
-- Audit log
-
-#### 4. `internal/core/ports/compute.go` — add to `ComputeBackend` interface
-```go
-PauseInstance(ctx context.Context, id string) error
-ResumeInstance(ctx context.Context, id string) error
-```
-
-#### 5. `internal/repositories/docker/adapter.go` — implement
-```go
-func (a *Adapter) PauseInstance(ctx context.Context, id string) error {
-    return a.client.ContainerPause(ctx, id)
-}
-func (a *Adapter) ResumeInstance(ctx context.Context, id string) error {
-    return a.client.ContainerUnpause(ctx, id)
-}
-```
-
-#### 6. `internal/repositories/libvirt/adapter.go` — implement
-```go
-// Uses virDomainSuspend (pause) and virDomainResume
-```
-
-#### 7. `internal/handlers/instance_handler.go` — add endpoints
-```go
-// POST /api/v1/instances/:id/pause
-PauseInstance(c *gin.Context)
-// POST /api/v1/instances/:id/resume
-ResumeInstance(c *gin.Context)
-```
-
-#### 8. Tests
-- Unit tests for pause/resume state transitions
-- Error: instance not running → cannot pause
-- Error: instance not paused → cannot resume
+- `StatusPaused` in `InstanceStatus` enum (`internal/core/domain/instance.go`)
+- `POST /api/v1/instances/:id/pause` and `POST /api/v1/instances/:id/resume` endpoints
+- `PauseInstance` and `ResumeInstance` on `ComputeBackend` and `InstanceService` interfaces
+- **Docker backend**: `ContainerPause` and `ContainerUnpause`
+- **Libvirt backend**: `DomainSuspend` and `DomainResume` with state verification
+- **Firecracker/Noop backends**: stub implementations
+- State validation: RUNNING→PAUSED, PAUSED→RUNNING transitions enforced at service layer
+- Audit events: `instance.pause` and `instance.resume` logged
+- Resume rollback: if backend resume fails, instance status rolls back to RUNNING
+- Resilient compute wrapper: circuit breaker + bulkhead protection
+- Sentinel errors: `ErrInstanceNotPausable` and `ErrInstanceNotResumable`
+- Unit tests: service layer (6 tests), handler layer (6 tests), platform layer (11 tests)
 
 ### Files
 | Action | File |
@@ -215,11 +161,21 @@ ResumeInstance(c *gin.Context)
 | Modify | `internal/core/domain/instance.go` — add StatusPaused |
 | Modify | `internal/core/ports/compute.go` — add PauseInstance/ResumeInstance |
 | Modify | `internal/core/ports/instance.go` — add interface methods |
-| Modify | `internal/core/services/instance.go` — implement methods |
+| Modify | `internal/core/services/instance.go` — implement methods with rollback |
 | Modify | `internal/handlers/instance_handler.go` — add pause/resume handlers |
-| Modify | `internal/repositories/docker/adapter.go` — implement docker pause/unpause |
-| Modify | `internal/repositories/libvirt/adapter.go` — implement libvirt suspend/resume |
+| Modify | `internal/repositories/docker/adapter.go` — implement ContainerPause/Unpause |
+| Modify | `internal/repositories/libvirt/adapter.go` — implement DomainSuspend/Resume |
+| Modify | `internal/repositories/firecracker/adapter.go` — stub implementations |
+| Modify | `internal/repositories/noop/adapters.go` — stub implementations |
 | Modify | `internal/api/setup/router.go` — wire endpoints |
+| Modify | `internal/errors/errors.go` — add ErrInstanceNotPausable/ErrInstanceNotResumable |
+| Modify | `internal/platform/resilient_compute.go` — add pause/resume passthrough |
+
+### Tests
+- Unit (`instance_unit_test.go`): success, wrong state, compute error, rollback on failure
+- Unit (`resilient_compute_test.go`): circuit breaker and bulkhead protection
+- Handler (`instance_handler_test.go`): success, not found, conflict cases
+- Worker mocks: PauseInstance/ResumeInstance added to all worker test mocks
 
 ---
 
