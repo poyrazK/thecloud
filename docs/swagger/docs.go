@@ -3974,6 +3974,58 @@ const docTemplate = `{
                 }
             }
         },
+        "/instances/{id}/pause": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Freezes a running instance (CPU halted, memory/network retained)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "instances"
+                ],
+                "summary": "Pause an instance",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not in RUNNING state",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/instances/{id}/resize": {
             "post": {
                 "security": [
@@ -4031,6 +4083,58 @@ const docTemplate = `{
                     },
                     "429": {
                         "description": "Quota Exceeded",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/resume": {
+            "post": {
+                "security": [
+                    {
+                        "APIKeyAuth": []
+                    }
+                ],
+                "description": "Resumes a paused instance back to running state",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "instances"
+                ],
+                "summary": "Resume an instance",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Instance not in PAUSED state",
                         "schema": {
                             "$ref": "#/definitions/httputil.Response"
                         }
@@ -8934,6 +9038,7 @@ const docTemplate = `{
                 "RUNNING",
                 "STOPPED",
                 "ERROR",
+                "PAUSED",
                 "DELETED"
             ],
             "x-enum-varnames": [
@@ -8941,6 +9046,7 @@ const docTemplate = `{
                 "StatusRunning",
                 "StatusStopped",
                 "StatusError",
+                "StatusPaused",
                 "StatusDeleted"
             ]
         },
