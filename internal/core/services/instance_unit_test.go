@@ -1088,6 +1088,9 @@ func testInstanceServicePauseResumeUnit(t *testing.T) {
 		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
 		compute.On("ResumeInstance", mock.Anything, "cid-1").Return(fmt.Errorf("resume failed")).Once()
 		compute.On("Type").Return("docker").Maybe()
+		repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
+			return i.Status == domain.StatusRunning // rollback to RUNNING on failure
+		})).Return(nil).Once()
 		auditSvc.On("Log", mock.Anything, userID, "instance.resume", "instance", instanceID.String(), mock.Anything).Return(nil).Maybe()
 
 		err := svc.ResumeInstance(ctx, instanceID.String())

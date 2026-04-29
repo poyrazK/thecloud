@@ -24,6 +24,7 @@ import (
 
 	"github.com/digitalocean/go-libvirt"
 	"github.com/google/uuid"
+	apierrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
@@ -192,7 +193,7 @@ func (a *LibvirtAdapter) PauseInstance(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to get domain state: %w", err)
 	}
 	if state != domainStateRunning {
-		return fmt.Errorf("domain is not running (state=%d), cannot pause", state)
+		return fmt.Errorf("%w: domain is %d, must be RUNNING (1)", apierrors.ErrInstanceNotPausable, state)
 	}
 
 	if err := a.client.DomainSuspend(ctx, dom); err != nil {

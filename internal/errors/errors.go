@@ -99,3 +99,9 @@ var (
 	ErrLBTargetExists = New(LBTargetExists, "target already registered")
 	ErrLBCrossVPC     = New(LBCrossVPC, "target must be in same VPC as LB")
 )
+
+// Instance sentinel errors for state-based failures.
+var (
+	ErrInstanceNotPausable  = New(Conflict, "instance cannot be paused in current state")
+	ErrInstanceNotResumable = New(Conflict, "instance cannot be resumed in current state")
+)

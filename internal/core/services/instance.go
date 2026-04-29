@@ -650,6 +650,10 @@ func (s *InstanceService) PauseInstance(ctx context.Context, idOrName string) er
 
 	if err := s.compute.PauseInstance(ctx, target); err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("pause", "failure").Inc()
+		if errors.Is(err, errors.Conflict) {
+			s.logger.Warn("pause not possible in current state", "container_id", target, "error", err)
+			return errors.New(errors.Conflict, err.Error())
+		}
 		s.logger.Error("failed to pause container", "container_id", target, "error", err)
 		return errors.Wrap(errors.Internal, "failed to pause container", err)
 	}
@@ -695,7 +699,13 @@ func (s *InstanceService) ResumeInstance(ctx context.Context, idOrName string) e
 
 	if err := s.compute.ResumeInstance(ctx, target); err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("resume", "failure").Inc()
-		s.logger.Error("failed to resume container", "container_id", target, "error", err)
+		s.logger.Error("failed to resume container, rolling back to RUNNING",
+			"container_id", target, "instance_id", inst.ID, "error", err)
+		inst.Status = domain.StatusRunning
+		if repoErr := s.repo.Update(ctx, inst); repoErr != nil {
+			s.logger.Error("failed to rollback instance status to RUNNING",
+				"instance_id", inst.ID, "resume_error", err, "rollback_error", repoErr)
+		}
 		return errors.Wrap(errors.Internal, "failed to resume container", err)
 	}
 
