@@ -143,6 +143,24 @@ func (r *ResilientCompute) ResizeInstance(ctx context.Context, id string, cpuNan
 	})
 }
 
+func (r *ResilientCompute) CreateSnapshot(ctx context.Context, id, name string) error {
+	return r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
+		return r.inner.CreateSnapshot(ctx, id, name)
+	})
+}
+
+func (r *ResilientCompute) RestoreSnapshot(ctx context.Context, id, name string) error {
+	return r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
+		return r.inner.RestoreSnapshot(ctx, id, name)
+	})
+}
+
+func (r *ResilientCompute) DeleteSnapshot(ctx context.Context, id, name string) error {
+	return r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
+		return r.inner.DeleteSnapshot(ctx, id, name)
+	})
+}
+
 func (r *ResilientCompute) GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error) {
 	var rc io.ReadCloser
 	err := r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {

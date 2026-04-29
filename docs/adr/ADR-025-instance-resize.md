@@ -20,14 +20,18 @@ We implemented `POST /instances/:id/resize` with an `instance_type` payload that
 
 ### Backend Strategy: Cold Resize for Libvirt
 
-Libvirt does not support live CPU/memory hot-plug for the compute backends we target (KVM/QEMU). Therefore resize requires a **cold resize** cycle:
+Libvirt does not support live CPU/memory hot-plug for the compute backends we target (KVM/QEMU). Therefore resize requires a **cold resize** cycle with a snapshot-before-resize safety net:
 
 1. **Detect running state** via `DomainGetState`
 2. **Stop the domain** (`DomainDestroy`) if currently running
 3. **Fetch current domain XML** (`DomainGetXMLDesc`)
-4. **Patch the XML** using regex replacement of `<memory>`, `<currentMemory>`, and `<vcpu>` elements
-5. **Undefine and redefine** the domain with new resources (`DomainUndefine`, `DomainDefineXML`)
-6. **Restart the domain** (`DomainCreate`)
+4. **Create a pre-resize snapshot** — QCOW2 volume is tar'd to `/tmp/snapshot-<id>-<name>.tar.gz`
+5. **Patch the XML** using regex replacement of `<memory>`, `<currentMemory>`, and `<vcpu>` elements
+6. **Undefine and redefine** the domain with new resources (`DomainUndefine`, `DomainDefineXML`)
+7. **Restart the domain** (`DomainCreate`)
+8. **On success**: delete the pre-resize snapshot
+
+**Rollback on failure:** If any step fails after `DomainUndefine` (i.e. the domain has been undefined but the new domain hasn't been started), the system restores the volume from the snapshot archive and redefines the domain with the original XML via `DomainDefineXML`. This ensures the instance can be recovered to its pre-resize state even if the resize operation fails mid-way.
 
 This is the same approach used by other Libvirt-based cloud platforms (OpenStack, oVirt) where live resize is not available.
 
@@ -66,6 +70,8 @@ After a successful resize, usage counters are updated with the delta (`Increment
 - Libvirt resize causes instance downtime (cold migration)
 - Quota usage drift is possible if `IncrementUsage`/`DecrementUsage` calls fail silently
 - Regex-based XML patching is fragile if domain XML format changes
+- If snapshot creation fails, resize proceeds without a rollback safety net (logged as `WARN`)
+- Rollback itself can fail if `RestoreSnapshot` or `DomainDefineXML` fails during recovery
 
 ### Neutral
 - E2E tests require running server with Docker — skipped in unit/CI runs

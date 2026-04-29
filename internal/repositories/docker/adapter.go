@@ -127,6 +127,21 @@ func (a *DockerAdapter) ResizeInstance(ctx context.Context, id string, cpuNanoCP
 	return nil
 }
 
+// CreateSnapshot is a no-op for Docker since Docker resize is hot (no restart required).
+func (a *DockerAdapter) CreateSnapshot(ctx context.Context, id, name string) error {
+	return nil
+}
+
+// RestoreSnapshot is a no-op for Docker since Docker resize is hot (no restart required).
+func (a *DockerAdapter) RestoreSnapshot(ctx context.Context, id, name string) error {
+	return nil
+}
+
+// DeleteSnapshot is a no-op for Docker since Docker resize is hot (no restart required).
+func (a *DockerAdapter) DeleteSnapshot(ctx context.Context, id, name string) error {
+	return nil
+}
+
 func (a *DockerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
 	ctx, span := otel.Tracer(tracerName).Start(ctx, "CreateInstance")
 	defer span.End()
