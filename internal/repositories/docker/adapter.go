@@ -471,10 +471,13 @@ func (a *DockerAdapter) GetInstancePort(ctx context.Context, containerID string,
 		}
 
 		// Wait and retry
+		timer := time.NewTimer(500 * time.Millisecond)
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return 0, ctx.Err()
-		case <-time.After(500 * time.Millisecond):
+		case <-timer.C:
+			timer.Stop()
 			continue
 		}
 	}
@@ -870,10 +873,13 @@ func (a *DockerAdapter) GetInstanceIP(ctx context.Context, id string) (string, e
 
 	retry:
 		// Wait and retry
+		timer := time.NewTimer(500 * time.Millisecond)
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return "", ctx.Err()
-		case <-time.After(500 * time.Millisecond):
+		case <-timer.C:
+			timer.Stop()
 			continue
 		}
 	}
