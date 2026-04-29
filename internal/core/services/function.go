@@ -446,10 +446,10 @@ func (s *FunctionService) extractZipFile(file *zip.File, tmpDir string) error {
 	// `../../Etc/passwd` slipped through a HasPrefix check that compared raw
 	// bytes against a lowercased prefix.
 	if !filepath.IsLocal(file.Name) {
-		return fmt.Errorf("invalid file path in zip: %s", file.Name)
+		return fmt.Errorf("invalid file path in zip: %q", file.Name)
 	}
 	if strings.ContainsAny(file.Name, "\\\x00") {
-		return fmt.Errorf("invalid file path in zip: %s", file.Name)
+		return fmt.Errorf("invalid file path in zip: %q", file.Name)
 	}
 
 	cleanTmpDir, err := filepath.Abs(filepath.Clean(tmpDir))
@@ -465,7 +465,7 @@ func (s *FunctionService) extractZipFile(file *zip.File, tmpDir string) error {
 	}
 	rel, err := filepath.Rel(cleanTmpDir, absPath)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-		return fmt.Errorf("invalid file path in zip: %s (resolved to %s)", file.Name, absPath)
+		return fmt.Errorf("invalid file path in zip: %q (resolved to %s)", file.Name, absPath)
 	}
 
 	if file.FileInfo().IsDir() {

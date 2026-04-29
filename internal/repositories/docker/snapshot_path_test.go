@@ -21,6 +21,7 @@ func TestValidateSnapshotPath(t *testing.T) {
 		{"double slash is non-canonical", "/var//lib/thecloud", true},
 		{"NUL byte rejected", "/var/lib/thecloud/foo\x00.tar.gz", true},
 		{"embedded dotdot segment", "/var/lib/thecloud/../../etc/passwd", true},
+		{"root path rejected", "/", true},
 	}
 
 	for _, tc := range cases {

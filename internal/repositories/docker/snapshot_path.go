@@ -11,15 +11,10 @@ import (
 //
 // The previous check, `strings.Contains(path, "..")`, missed several real
 // traversal payloads:
-//
 //   - `..././etc/passwd` — the substring scan finds `..`, but writing the path
 //     after the dot/slash rules collapses to `../etc/passwd`.
-//   - `foo/%2E%2E/bar` and other URL-encoded forms — substring matching does
-//     not see the unescaped `..`.
 //   - `Etc/passwd` on case-insensitive filesystems (macOS, Windows) — the
 //     simple compare against a denylist of lowercase paths fails.
-//   - Symlinks — a path that itself contains no `..` may resolve to one
-//     outside any expected base directory.
 //
 // The rules below close those gaps:
 //
@@ -34,6 +29,10 @@ import (
 //     remains byte-exact — but rule (2) already rejects mixed-case traversal
 //     payloads because Clean does not lowercase, leaving them visible.
 //
+// Note: URL-encoded traversal (e.g. %2E%2E) and symlink-based escapes are not
+// handled by this function; callers must ensure the path originates from a
+// trusted source that has already decoded and resolved symlinks.
+//
 // The function returns the cleaned path so callers can use it directly.
 func validateSnapshotPath(p string) (string, error) {
 	if p == "" {
@@ -44,8 +43,7 @@ func validateSnapshotPath(p string) (string, error) {
 		return "", fmt.Errorf("snapshot path must be absolute: %q", p)
 	}
 
-	// Slash-normalize first so URL-style separators get caught even on
-	// platforms where filepath uses backslashes.
+	// Reject NUL bytes in the path, which can truncate or escape path boundaries.
 	if strings.Contains(p, "\x00") {
 		return "", fmt.Errorf("snapshot path contains NUL byte")
 	}
@@ -62,6 +60,12 @@ func validateSnapshotPath(p string) (string, error) {
 		if seg == ".." {
 			return "", fmt.Errorf("snapshot path contains traversal segment: %q", p)
 		}
+	}
+
+	// Reject root "/" — filepath.Dir("") and filepath.Base(".") cause the host
+	// root to be bound into the container, a critical security issue.
+	if cleaned == "/" {
+		return "", fmt.Errorf("snapshot path resolves to root: %q", p)
 	}
 
 	return cleaned, nil

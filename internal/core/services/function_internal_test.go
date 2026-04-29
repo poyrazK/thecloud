@@ -71,10 +71,11 @@ func TestFunctionService_InternalExtract(t *testing.T) {
 		buf := new(bytes.Buffer)
 		zw := zip.NewWriter(buf)
 		// Zip file with relative path attempting traversal
-		_, _ = zw.Create("../traversal.txt")
-		_ = zw.Close()
+		_, err := zw.Create("../traversal.txt")
+		require.NoError(t, err)
+		require.NoError(t, zw.Close())
 
-		err := s.extractZip(bytes.NewReader(buf.Bytes()), tmpDir)
+		err = s.extractZip(bytes.NewReader(buf.Bytes()), tmpDir)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid file path")
 	})
@@ -98,10 +99,11 @@ func TestFunctionService_InternalExtract(t *testing.T) {
 		t.Run("extractZip rejects "+name, func(t *testing.T) {
 			buf := new(bytes.Buffer)
 			zw := zip.NewWriter(buf)
-			_, _ = zw.Create(name)
-			_ = zw.Close()
+			_, err := zw.Create(name)
+			require.NoError(t, err)
+			require.NoError(t, zw.Close())
 
-			err := s.extractZip(bytes.NewReader(buf.Bytes()), tmpDir)
+			err = s.extractZip(bytes.NewReader(buf.Bytes()), tmpDir)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "invalid file path")
 		})
