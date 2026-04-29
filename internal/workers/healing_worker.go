@@ -102,12 +102,11 @@ func (w *HealingWorker) healERRORInstances(ctx context.Context) {
 
 			// Wait a bit to avoid race conditions with recent failures
 			timer := time.NewTimer(w.healingDelay)
+			defer timer.Stop()
 			select {
 			case <-ctx.Done():
-				timer.Stop()
 				return
 			case <-timer.C:
-				timer.Stop()
 			}
 
 			w.logger.Info("initiating healing restart", "instance_id", id)
