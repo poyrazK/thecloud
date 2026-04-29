@@ -106,22 +106,40 @@ func TestCreateBackup_Extra(t *testing.T) {
 
 func TestFailCluster(t *testing.T) {
 	ctx := context.Background()
-	repo := new(mockClusterRepo)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	cluster := &domain.Cluster{ID: uuid.New()}
 
-	p := &KubeadmProvisioner{
-		repo:   repo,
-		logger: logger,
-	}
+	t.Run("UpdateSucceeds", func(t *testing.T) {
+		repo := new(mockClusterRepo)
+		cluster := &domain.Cluster{ID: uuid.New()}
+		p := &KubeadmProvisioner{repo: repo, logger: logger}
 
-	repo.On("Update", ctx, mock.MatchedBy(func(c *domain.Cluster) bool {
-		return c.Status == domain.ClusterStatusFailed
-	})).Return(nil).Once()
+		repo.On("Update", ctx, mock.MatchedBy(func(c *domain.Cluster) bool {
+			return c.Status == domain.ClusterStatusFailed
+		})).Return(nil).Once()
 
-	err := p.failCluster(ctx, cluster, "test error", fmt.Errorf("underlying"))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "test error")
+		err := p.failCluster(ctx, cluster, "test error", fmt.Errorf("underlying"))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "test error")
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("UpdateFails_StillReturnsOriginalError", func(t *testing.T) {
+		repo := new(mockClusterRepo)
+		cluster := &domain.Cluster{ID: uuid.New()}
+		p := &KubeadmProvisioner{repo: repo, logger: logger}
+
+		repo.On("Update", ctx, mock.Anything).Return(fmt.Errorf("db down")).Once()
+
+		err := p.failCluster(ctx, cluster, "test error", fmt.Errorf("underlying"))
+		require.Error(t, err)
+		// Original failure must surface, not the persistence error.
+		assert.Contains(t, err.Error(), "test error")
+		assert.Contains(t, err.Error(), "underlying")
+		assert.NotContains(t, err.Error(), "db down")
+		// In-memory status still flipped to Failed even if persistence failed.
+		assert.Equal(t, domain.ClusterStatusFailed, cluster.Status)
+		repo.AssertExpectations(t)
+	})
 }
 
 func TestDeprovision(t *testing.T) {
