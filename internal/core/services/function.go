@@ -465,7 +465,7 @@ func (s *FunctionService) extractZipFile(file *zip.File, tmpDir string) error {
 	}
 	rel, err := filepath.Rel(cleanTmpDir, absPath)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-		return fmt.Errorf("invalid file path in zip: %s", file.Name)
+		return fmt.Errorf("invalid file path in zip: %s (resolved to %s)", file.Name, absPath)
 	}
 
 	if file.FileInfo().IsDir() {

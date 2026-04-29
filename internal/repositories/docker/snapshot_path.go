@@ -58,7 +58,7 @@ func validateSnapshotPath(p string) (string, error) {
 	// After Clean a leading `..` cannot survive on an absolute path, but reject
 	// any embedded `..` segment defensively for older filepath behavior on
 	// other platforms.
-	for _, seg := range strings.Split(filepath.ToSlash(cleaned), "/") {
+	for _, seg := range strings.Split(cleaned, "/") {
 		if seg == ".." {
 			return "", fmt.Errorf("snapshot path contains traversal segment: %q", p)
 		}
