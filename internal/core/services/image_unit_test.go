@@ -521,6 +521,65 @@ func TestImageService_Unit_ImportImage(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to fetch image")
 	})
+
+	t.Run("ImportImage_ExceedsMaxSize", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.Header().Set("Content-Length", "99999999999999") // >> 10GB
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		repo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
+		repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Image) bool {
+			return i.Status == domain.ImageStatusError
+		})).Return(nil).Once()
+
+		_, err := svc.ImportImage(ctx, "big-img", server.URL+"/image.qcow2", "desc", "linux", "1.0", false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exceeds max size")
+	})
+
+	t.Run("ImportImage_InvalidContentType", func(t *testing.T) {
+		qcow2Magic := []byte{0x51, 0x46, 0x44, 0xbf}
+		testData := append(qcow2Magic, bytes.Repeat([]byte("x"), 1024*1024-len(qcow2Magic))...)
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html") // not allowed
+			w.WriteHeader(http.StatusOK)
+			w.Write(testData)
+		}))
+		defer server.Close()
+
+		repo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
+		repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Image) bool {
+			return i.Status == domain.ImageStatusError
+		})).Return(nil).Once()
+
+		_, err := svc.ImportImage(ctx, "bad-ct", server.URL+"/image.qcow2", "desc", "linux", "1.0", false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid content-type")
+	})
+
+	t.Run("ImportImage_WrongMagicBytes", func(t *testing.T) {
+		// JPEG magic bytes for a .qcow2 URL — format mismatch
+		jpegMagic := []byte{0xff, 0xd8, 0xff, 0xe0}
+		testData := append(jpegMagic, bytes.Repeat([]byte("x"), 1024*1024-len(jpegMagic))...)
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.WriteHeader(http.StatusOK)
+			w.Write(testData)
+		}))
+		defer server.Close()
+
+		repo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
+		repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Image) bool {
+			return i.Status == domain.ImageStatusError
+		})).Return(nil).Once()
+
+		_, err := svc.ImportImage(ctx, "spoofed", server.URL+"/image.qcow2", "desc", "linux", "1.0", false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid magic bytes")
+	})
 }
 
 func TestImageService_Unit_ListImages_OtherUserNoReadAll(t *testing.T) {
