@@ -1877,13 +1877,14 @@ func testInstanceServiceResizeInstanceUnit(t *testing.T) {
 		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 2).Return(nil).Once()
 		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "memory", 2048).Return(nil).Once()
 		compute.On("ResizeInstance", mock.Anything, "cid-1", int64(2*1e9), int64(2048*1024*1024)).Return(fmt.Errorf("libvirt error")).Once()
-		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "vcpus", 2).Return(nil).Maybe()
-		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "memory", 2048).Return(nil).Maybe()
+		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "vcpus", 2).Return(nil).Once()
+		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "memory", 2048).Return(nil).Once()
 
 		err := svc.ResizeInstance(ctx, "test-inst", "basic-2")
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to resize instance")
+		compute.AssertNotCalled(t, "ResizeInstance") // no compute rollback on compute failure, only quota rollback
 		mock.AssertExpectationsForObjects(t, repo, typeRepo, compute, rbacSvc, tenantSvc, eventSvc)
 	})
 
@@ -2122,14 +2123,14 @@ func testInstanceServiceResizeInstanceUnit(t *testing.T) {
 		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "memory", 2048).Return(nil).Once()
 		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "memory", 2048).Return(nil).Once()
 		compute.On("ResizeInstance", mock.Anything, "cid-1", int64(4*1e9), int64(4096*1024*1024)).Return(fmt.Errorf("docker error")).Once()
-		// Quota rollback when compute resize fails
-		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 2).Return(nil).Maybe()
-		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "memory", 2048).Return(nil).Maybe()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 2).Return(nil).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "memory", 2048).Return(nil).Once()
 
 		err := svc.ResizeInstance(ctx, "test-inst", "basic-4")
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to resize instance")
+		compute.AssertNotCalled(t, "ResizeInstance") // no compute rollback on compute failure, only quota rollback
 		mock.AssertExpectationsForObjects(t, repo, typeRepo, compute, rbacSvc, tenantSvc, eventSvc)
 	})
 
