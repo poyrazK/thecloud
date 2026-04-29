@@ -1,6 +1,6 @@
 # CloudFunctions Guide
 
-CloudFunctions allows you to run serverless code in response to API requests. It uses Docker containers to provide a secure, isolated environment for your code.
+CloudFunctions allows you to run serverless code in response to API requests or on a schedule. It uses Docker containers to provide a secure, isolated environment for your code.
 
 ## Supported Runtimes
 
@@ -33,6 +33,66 @@ To create a function, you need a zip file containing your code.
    ```bash
    cloud fn create --name hello --runtime nodejs20 --handler index.js --code code.zip
    ```
+
+## Updating a Function
+
+You can update a function's configuration without redeploying code:
+
+```bash
+# Update timeout and memory
+cloud fn update hello --timeout 300 --memory 256
+
+# Update handler
+cloud fn update hello --handler newhandler.js
+
+# Set environment variables
+cloud fn update hello --env FOO=bar --env DB_HOST=localhost
+```
+
+### Environment Variables
+
+Environment variables are injected at runtime into the function container:
+
+```bash
+cloud fn update my-func --env FOO=bar --env DEBUG=true
+```
+
+Environment variables are available via `process.env` (Node.js), `os.environ` (Python), or `os.Getenv` (Go, Java).
+
+### Using Secrets
+
+For sensitive values like API keys and database passwords, reference secrets stored in the SecretService:
+
+```bash
+cloud fn update my-func --env API_KEY=@my-api-key --env DB_PASSWORD=@db-secret
+```
+
+The `@secretname` syntax resolves the secret at invocation time (not at update time). This means:
+- Secrets are never stored as plain text in the database
+- You can rotate secrets in the SecretService without updating the function
+- If a secret cannot be resolved, the env var is skipped and a warning is logged
+
+The resolved secret is injected as a JSON object:
+```
+API_KEY={"key":"API_KEY","value":"s3cr3t"}
+```
+
+Your function code can parse this:
+```javascript
+const apiKeyObj = JSON.parse(process.env.API_KEY);
+console.log(apiKeyObj.value); // s3cr3t
+```
+
+**Note:** Plain-text env vars (`--env FOO=bar`) and secret refs (`--env FOO=@my-secret`) cannot be mixed on the same env var entry — each entry must be one or the other.
+
+### Available Update Options
+
+| Flag | Description | Valid Range |
+|------|-------------|------------|
+| `--handler` | Entry point file | string |
+| `--timeout` | Execution timeout (seconds) | 1–900 |
+| `--memory` | Memory allocation (MB) | 64–10240 |
+| `--env` | Environment variable `KEY=VALUE` | multiple |
 
 ## Invoking a Function
 
@@ -69,3 +129,72 @@ You can view the logs of the last 100 invocations:
 ```bash
 cloud fn logs hello
 ```
+
+## Scheduled Invocation
+
+You can schedule a function to run on a cron expression. This is useful for periodic tasks like data processing, batch jobs, or maintenance tasks.
+
+### Creating a Schedule
+
+```bash
+cloud fn-schedule create \
+  --name nightly-processing \
+  --function my-function \
+  --schedule "0 2 * * *"
+```
+
+The schedule expression follows standard cron format:
+
+| Field | Values | Special Characters |
+|-------|--------|-------------------|
+| Minute | 0-59 | `*`, `,`, `-` |
+| Hour | 0-23 | `*`, `,`, `-` |
+| Day of Month | 1-31 | `*`, `,`, `-` |
+| Month | 1-12 | `*`, `,`, `-` |
+| Day of Week | 0-6 | `*`, `,`, `-` |
+
+**Examples:**
+
+- `*/5 * * * *` — Every 5 minutes
+- `0 2 * * *` — Daily at 2:00 AM
+- `0 9 * * 1-5` — Weekdays at 9:00 AM
+- `0 */6 * * *` — Every 6 hours
+
+### Listing Schedules
+
+```bash
+cloud fn-schedule list
+```
+
+### Pausing and Resuming
+
+Pause a schedule to temporarily prevent invocations without deleting it:
+
+```bash
+cloud fn-schedule pause [schedule-id]
+cloud fn-schedule resume [schedule-id]
+```
+
+### Viewing Run History
+
+```bash
+cloud fn-schedule logs [schedule-id]
+```
+
+### Deleting a Schedule
+
+```bash
+cloud fn-schedule rm [schedule-id]
+```
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/function-schedules` | Create a schedule |
+| `GET` | `/function-schedules` | List all schedules |
+| `GET` | `/function-schedules/:id` | Get a schedule |
+| `DELETE` | `/function-schedules/:id` | Delete a schedule |
+| `POST` | `/function-schedules/:id/pause` | Pause a schedule |
+| `POST` | `/function-schedules/:id/resume` | Resume a schedule |
+| `GET` | `/function-schedules/:id/runs` | Get run history |

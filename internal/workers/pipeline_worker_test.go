@@ -158,14 +158,8 @@ func (m *mockComputeBackendExtended) DetachVolume(ctx context.Context, id, volum
 func (m *mockComputeBackendExtended) Ping(ctx context.Context) error {
 	return nil
 }
-func (m *mockComputeBackendExtended) PauseInstance(ctx context.Context, id string) error {
-	return nil
-}
-func (m *mockComputeBackendExtended) ResumeInstance(ctx context.Context, id string) error {
-	return nil
-}
 func (m *mockComputeBackendExtended) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
-	return nil
+	return m.Called(ctx, id, cpu, memory).Error(0)
 }
 
 func TestPipelineWorker_processJob(t *testing.T) {
@@ -173,12 +167,13 @@ func TestPipelineWorker_processJob(t *testing.T) {
 	compute := new(mockComputeBackendExtended)
 	taskQueue := new(MockTaskQueue)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	worker := NewPipelineWorker(repo, taskQueue, compute, logger)
+	worker := NewPipelineWorker(repo, taskQueue, nil, compute, logger)
 
 	buildID := uuid.New()
 	pipelineID := uuid.New()
 	userID := uuid.New()
 	job := domain.BuildJob{BuildID: buildID, PipelineID: pipelineID, UserID: userID}
+	msg := &ports.DurableMessage{ID: "1-0", Queue: pipelineQueueName}
 
 	t.Run("Success", func(t *testing.T) {
 		build := &domain.Build{ID: buildID, PipelineID: pipelineID, UserID: userID}
@@ -215,9 +210,11 @@ func TestPipelineWorker_processJob(t *testing.T) {
 		repo.On("UpdateBuild", mock.Anything, mock.MatchedBy(func(b *domain.Build) bool {
 			return b.Status == domain.BuildStatusSucceeded
 		})).Return(nil).Once()
+		taskQueue.On("Ack", mock.Anything, pipelineQueueName, pipelineGroup, msg.ID).Return(nil).Once()
 
-		worker.processJob(job)
+		worker.processJob(context.Background(), msg, job)
 		repo.AssertExpectations(t)
 		compute.AssertExpectations(t)
+		taskQueue.AssertExpectations(t)
 	})
 }

@@ -4,8 +4,10 @@ package workers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -16,29 +18,62 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
-const pipelineQueueName = "pipeline_build_queue"
+const (
+	pipelineQueueName  = "pipeline_build_queue"
+	pipelineGroup      = "pipeline_workers"
+	pipelineMaxWorkers = 5
+	// Must be shorter than pipelineStaleThreshold (35m) to reclaim promptly,
+	// but longer than max expected job runtime (30m) to avoid stealing messages
+	// from workers that are legitimately still processing.
+	pipelineReclaimMs = 32 * 60 * 1000 // 32 minutes
+	pipelineReclaimN   = 5
+	// Stale threshold for idempotency ledger: builds can take up to 30 min,
+	// so a "running" entry older than this is considered abandoned.
+	pipelineStaleThreshold = 35 * time.Minute
+)
 
 // PipelineWorker processes queued pipeline builds.
 type PipelineWorker struct {
-	repo      ports.PipelineRepository
-	taskQueue ports.TaskQueue
-	compute   ports.ComputeBackend
-	logger    *slog.Logger
+	repo         ports.PipelineRepository
+	taskQueue    ports.DurableTaskQueue
+	ledger       ports.ExecutionLedger
+	compute      ports.ComputeBackend
+	logger       *slog.Logger
+	consumerName string
 }
 
 // NewPipelineWorker creates a new PipelineWorker.
-func NewPipelineWorker(repo ports.PipelineRepository, taskQueue ports.TaskQueue, compute ports.ComputeBackend, logger *slog.Logger) *PipelineWorker {
+// If ledger is nil, idempotency checks are skipped.
+func NewPipelineWorker(repo ports.PipelineRepository, taskQueue ports.DurableTaskQueue, ledger ports.ExecutionLedger, compute ports.ComputeBackend, logger *slog.Logger) *PipelineWorker {
+	hostname, _ := os.Hostname()
+	if hostname == "" {
+		hostname = "pipeline-worker"
+	}
 	return &PipelineWorker{
-		repo:      repo,
-		taskQueue: taskQueue,
-		compute:   compute,
-		logger:    logger,
+		repo:         repo,
+		taskQueue:    taskQueue,
+		ledger:       ledger,
+		compute:      compute,
+		logger:       logger,
+		consumerName: hostname,
 	}
 }
 
 func (w *PipelineWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
-	w.logger.Info("starting pipeline worker")
+	w.logger.Info("starting pipeline worker",
+		"consumer", w.consumerName,
+		"concurrency", pipelineMaxWorkers,
+	)
+
+	if err := w.taskQueue.EnsureGroup(ctx, pipelineQueueName, pipelineGroup); err != nil {
+		w.logger.Error("failed to ensure pipeline consumer group", "error", err)
+		return
+	}
+
+	sem := make(chan struct{}, pipelineMaxWorkers)
+
+	go w.reclaimLoop(ctx, sem)
 
 	for {
 		select {
@@ -46,68 +81,159 @@ func (w *PipelineWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 			w.logger.Info("stopping pipeline worker")
 			return
 		default:
-			msg, err := w.taskQueue.Dequeue(ctx, pipelineQueueName)
+			msg, err := w.taskQueue.Receive(ctx, pipelineQueueName, pipelineGroup, w.consumerName)
 			if err != nil {
-				w.logger.Error("failed to dequeue pipeline job", "error", err)
+				w.logger.Error("failed to receive pipeline job", "error", err)
 				time.Sleep(1 * time.Second)
 				continue
 			}
-			if msg == "" {
+			if msg == nil {
 				continue
 			}
 
 			var job domain.BuildJob
-			if err := json.Unmarshal([]byte(msg), &job); err != nil {
-				w.logger.Error("failed to unmarshal build job", "error", err)
+			if err := json.Unmarshal([]byte(msg.Payload), &job); err != nil {
+				w.logger.Error("failed to unmarshal build job",
+					"error", err, "msg_id", msg.ID)
+				w.ackWithLog(ctx, msg.ID, "pipeline poison message")
 				continue
 			}
 
-			w.processJob(job)
+			sem <- struct{}{}
+			go func(m *ports.DurableMessage, j domain.BuildJob) {
+				defer func() { <-sem }()
+				w.processJob(ctx, m, j)
+			}(msg, job)
 		}
 	}
 }
 
-func (w *PipelineWorker) processJob(job domain.BuildJob) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+func (w *PipelineWorker) processJob(workerCtx context.Context, msg *ports.DurableMessage, job domain.BuildJob) {
+	jobKey := fmt.Sprintf("pipeline:%s", job.BuildID)
+
+	// Idempotency check: skip if already completed or actively being processed.
+	if w.ledger != nil {
+		acquired, err := w.ledger.TryAcquire(workerCtx, jobKey, pipelineStaleThreshold)
+		if err != nil {
+			w.logger.Error("execution ledger error",
+				"build_id", job.BuildID, "msg_id", msg.ID, "error", err)
+			w.nackWithLog(workerCtx, msg.ID, "ledger try_acquire failed")
+			return
+		}
+		if !acquired {
+			// Check if it's already finished or just being processed by someone else.
+			status, _, _, getErr := w.ledger.GetStatus(workerCtx, jobKey)
+			if getErr == nil && status == "completed" {
+				w.logger.Info("skipping already completed pipeline job",
+					"build_id", job.BuildID, "msg_id", msg.ID)
+				w.ackWithLog(workerCtx, msg.ID, "pipeline already completed")
+				return
+			}
+			w.logger.Info("pipeline job is currently being processed by another worker",
+				"build_id", job.BuildID, "msg_id", msg.ID)
+			return // Leave unacked for redelivery/wait.
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(workerCtx, 30*time.Minute)
 	defer cancel()
 	ctx = appcontext.WithUserID(ctx, job.UserID)
 
-	build, pipeline := w.loadBuildAndPipeline(ctx, job)
+	build, pipeline, err := w.loadBuildAndPipeline(ctx, job)
+	if err != nil {
+		// Transient error loading build/pipeline — nack and retry.
+		w.logger.Error("transient error loading build/pipeline",
+			"build_id", job.BuildID, "error", err)
+		if w.ledger != nil {
+			if ledgerErr := w.ledger.MarkFailed(workerCtx, jobKey, "transient load error"); ledgerErr != nil {
+				w.logger.Warn("failed to mark pipeline job failed in ledger",
+					"build_id", job.BuildID, "msg_id", msg.ID, "error", ledgerErr)
+			}
+		}
+		w.nackWithLog(workerCtx, msg.ID, "transient pipeline load error")
+		return
+	}
+
 	if build == nil || pipeline == nil {
+		// Build or pipeline truly not found — ack to avoid infinite retries.
+		if w.ledger != nil {
+			if ledgerErr := w.ledger.MarkComplete(workerCtx, jobKey, "not_found"); ledgerErr != nil {
+				w.logger.Warn("failed to mark pipeline job complete in ledger",
+					"build_id", job.BuildID, "msg_id", msg.ID, "error", ledgerErr)
+			}
+		}
+		w.ackWithLog(workerCtx, msg.ID, "pipeline build/pipeline not found")
 		return
 	}
 
 	if !w.markBuildRunning(ctx, build) {
+		if w.ledger != nil {
+			if ledgerErr := w.ledger.MarkFailed(workerCtx, jobKey, "failed to mark build running"); ledgerErr != nil {
+				w.logger.Warn("failed to mark pipeline job failed in ledger",
+					"build_id", job.BuildID, "msg_id", msg.ID, "error", ledgerErr)
+			}
+		}
+		w.nackWithLog(workerCtx, msg.ID, "mark build running failed")
 		return
 	}
 
 	if len(pipeline.Config.Stages) == 0 {
 		w.failBuild(ctx, build, "pipeline has no stages")
+		if w.ledger != nil {
+			if ledgerErr := w.ledger.MarkComplete(workerCtx, jobKey, "no_stages"); ledgerErr != nil {
+				w.logger.Warn("failed to mark pipeline job complete in ledger",
+					"build_id", job.BuildID, "msg_id", msg.ID, "error", ledgerErr)
+			}
+		}
+		w.ackWithLog(workerCtx, msg.ID, "pipeline has no stages")
 		return
 	}
 
 	if !w.executePipeline(ctx, build, pipeline) {
+		// Build failed but was processed — ack the message.
+		if w.ledger != nil {
+			if ledgerErr := w.ledger.MarkComplete(workerCtx, jobKey, "build_failed"); ledgerErr != nil {
+				w.logger.Warn("failed to mark pipeline job complete in ledger",
+					"build_id", job.BuildID, "msg_id", msg.ID, "error", ledgerErr)
+			}
+		}
+		w.ackWithLog(workerCtx, msg.ID, "pipeline execution failed")
 		return
 	}
 
 	w.markBuildSucceeded(ctx, build)
+
+	if w.ledger != nil {
+		if ledgerErr := w.ledger.MarkComplete(workerCtx, jobKey, "ok"); ledgerErr != nil {
+			w.logger.Warn("failed to mark pipeline job complete in ledger",
+				"build_id", job.BuildID, "msg_id", msg.ID, "error", ledgerErr)
+		}
+	}
+	w.ackWithLog(workerCtx, msg.ID, "pipeline job success")
 }
 
-func (w *PipelineWorker) loadBuildAndPipeline(ctx context.Context, job domain.BuildJob) (*domain.Build, *domain.Pipeline) {
+func (w *PipelineWorker) loadBuildAndPipeline(ctx context.Context, job domain.BuildJob) (*domain.Build, *domain.Pipeline, error) {
 	build, err := w.repo.GetBuild(ctx, job.BuildID, job.UserID)
-	if err != nil || build == nil {
+	if err != nil {
 		w.logger.Error("failed to load build", "build_id", job.BuildID, "error", err)
-		return nil, nil
+		return nil, nil, err
+	}
+	if build == nil {
+		return nil, nil, nil
 	}
 
 	pipeline, err := w.repo.GetPipeline(ctx, job.PipelineID, job.UserID)
-	if err != nil || pipeline == nil {
+	if err != nil {
 		w.logger.Error("failed to load pipeline", "pipeline_id", job.PipelineID, "error", err)
+		w.failBuild(ctx, build, "pipeline load error: "+err.Error())
+		return nil, nil, err
+	}
+	if pipeline == nil {
 		w.failBuild(ctx, build, "pipeline not found")
-		return nil, nil
+		return build, nil, nil
 	}
 
-	return build, pipeline
+	return build, pipeline, nil
 }
 
 func (w *PipelineWorker) markBuildRunning(ctx context.Context, build *domain.Build) bool {
@@ -157,7 +283,9 @@ func (w *PipelineWorker) executeStageStep(ctx context.Context, build *domain.Bui
 	}
 
 	if logs != "" {
-		_ = w.repo.AppendBuildLog(ctx, &domain.BuildLog{ID: uuid.New(), BuildID: build.ID, StepID: step.ID, Content: logs, CreatedAt: time.Now()})
+		if err := w.repo.AppendBuildLog(ctx, &domain.BuildLog{ID: uuid.New(), BuildID: build.ID, StepID: step.ID, Content: logs, CreatedAt: time.Now()}); err != nil {
+			w.logger.Warn("failed to append build log", "build_id", build.ID, "step_id", step.ID, "error", err)
+		}
 	}
 
 	if exitCode != 0 {
@@ -189,6 +317,7 @@ func (w *PipelineWorker) runTaskForStep(ctx context.Context, buildID uuid.UUID, 
 	logs, logsErr := w.collectTaskLogs(ctx, containerID)
 	if logsErr != nil {
 		w.logger.Warn("failed to collect task logs", "container_id", containerID, "error", logsErr)
+		return exitCode, "", fmt.Errorf("failed to collect logs: %w", logsErr)
 	}
 
 	return exitCode, logs, nil
@@ -219,7 +348,9 @@ func (w *PipelineWorker) markStepFinished(ctx context.Context, step *domain.Buil
 	step.FinishedAt = &finished
 	step.UpdatedAt = finished
 	step.ExitCode = &exitCode
-	_ = w.repo.UpdateBuildStep(ctx, step)
+	if err := w.repo.UpdateBuildStep(ctx, step); err != nil {
+		w.logger.Warn("failed to update build step", "step_id", step.ID, "build_id", step.BuildID, "error", err)
+	}
 }
 
 func (w *PipelineWorker) markBuildSucceeded(ctx context.Context, build *domain.Build) {
@@ -227,7 +358,9 @@ func (w *PipelineWorker) markBuildSucceeded(ctx context.Context, build *domain.B
 	build.Status = domain.BuildStatusSucceeded
 	build.FinishedAt = &finish
 	build.UpdatedAt = finish
-	_ = w.repo.UpdateBuild(ctx, build)
+	if err := w.repo.UpdateBuild(ctx, build); err != nil {
+		w.logger.Warn("failed to update build", "build_id", build.ID, "error", err)
+	}
 }
 
 func (w *PipelineWorker) failStepAndBuild(ctx context.Context, step *domain.BuildStep, build *domain.Build, message string) {
@@ -235,8 +368,12 @@ func (w *PipelineWorker) failStepAndBuild(ctx context.Context, step *domain.Buil
 	step.Status = domain.BuildStatusFailed
 	step.FinishedAt = &end
 	step.UpdatedAt = end
-	_ = w.repo.UpdateBuildStep(ctx, step)
-	_ = w.repo.AppendBuildLog(ctx, &domain.BuildLog{ID: uuid.New(), BuildID: build.ID, StepID: step.ID, Content: message, CreatedAt: end})
+	if err := w.repo.UpdateBuildStep(ctx, step); err != nil {
+		w.logger.Warn("failed to update build step", "step_id", step.ID, "build_id", step.BuildID, "error", err)
+	}
+	if err := w.repo.AppendBuildLog(ctx, &domain.BuildLog{ID: uuid.New(), BuildID: build.ID, StepID: step.ID, Content: message, CreatedAt: end}); err != nil {
+		w.logger.Warn("failed to append build log", "build_id", build.ID, "step_id", step.ID, "error", err)
+	}
 	w.failBuild(ctx, build, message)
 }
 
@@ -245,8 +382,12 @@ func (w *PipelineWorker) failBuild(ctx context.Context, build *domain.Build, mes
 	build.Status = domain.BuildStatusFailed
 	build.FinishedAt = &finish
 	build.UpdatedAt = finish
-	_ = w.repo.UpdateBuild(ctx, build)
-	_ = w.repo.AppendBuildLog(ctx, &domain.BuildLog{ID: uuid.New(), BuildID: build.ID, Content: message, CreatedAt: finish})
+	if err := w.repo.UpdateBuild(ctx, build); err != nil {
+		w.logger.Warn("failed to update build", "build_id", build.ID, "error", err)
+	}
+	if err := w.repo.AppendBuildLog(ctx, &domain.BuildLog{ID: uuid.New(), BuildID: build.ID, Content: message, CreatedAt: finish}); err != nil {
+		w.logger.Warn("failed to append build log", "build_id", build.ID, "error", err)
+	}
 }
 
 func (w *PipelineWorker) collectTaskLogs(ctx context.Context, taskID string) (string, error) {
@@ -261,4 +402,54 @@ func (w *PipelineWorker) collectTaskLogs(ctx context.Context, taskID string) (st
 		return "", err
 	}
 	return string(data), nil
+}
+
+func (w *PipelineWorker) reclaimLoop(ctx context.Context, sem chan struct{}) {
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			msgs, err := w.taskQueue.ReclaimStale(ctx, pipelineQueueName, pipelineGroup, w.consumerName, pipelineReclaimMs, pipelineReclaimN)
+			if err != nil {
+				w.logger.Warn("pipeline reclaim error", "error", err)
+				continue
+			}
+			for _, m := range msgs {
+				var job domain.BuildJob
+				if err := json.Unmarshal([]byte(m.Payload), &job); err != nil {
+					w.logger.Error("failed to unmarshal reclaimed pipeline job",
+						"msg_id", m.ID, "error", err)
+					w.ackWithLog(ctx, m.ID, "reclaimed pipeline poison message")
+					continue
+				}
+				w.logger.Info("reclaimed stale pipeline job",
+					"build_id", job.BuildID, "msg_id", m.ID)
+
+				m := m
+				sem <- struct{}{}
+				go func() {
+					defer func() { <-sem }()
+					w.processJob(ctx, &m, job)
+				}()
+			}
+		}
+	}
+}
+
+func (w *PipelineWorker) ackWithLog(ctx context.Context, messageID string, reason string) {
+	if err := w.taskQueue.Ack(ctx, pipelineQueueName, pipelineGroup, messageID); err != nil {
+		w.logger.Warn("failed to ack pipeline job",
+			"msg_id", messageID, "reason", reason, "error", err)
+	}
+}
+
+func (w *PipelineWorker) nackWithLog(ctx context.Context, messageID string, reason string) {
+	if err := w.taskQueue.Nack(ctx, pipelineQueueName, pipelineGroup, messageID); err != nil {
+		w.logger.Warn("failed to nack pipeline job",
+			"msg_id", messageID, "reason", reason, "error", err)
+	}
 }

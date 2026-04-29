@@ -125,6 +125,10 @@ func (m *MockInstanceService) UpdateInstanceMetadata(ctx context.Context, id uui
 	args := m.Called(ctx, id, metadata, labels)
 	return args.Error(0)
 }
+func (m *MockInstanceService) ResizeInstance(ctx context.Context, idOrName, newInstanceType string) error {
+	args := m.Called(ctx, idOrName, newInstanceType)
+	return args.Error(0)
+}
 func (m *MockInstanceService) Provision(ctx context.Context, job domain.ProvisionJob) error {
 	return m.Called(ctx, job).Error(0)
 }

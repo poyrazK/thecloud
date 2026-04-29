@@ -131,18 +131,6 @@ func (r *ResilientCompute) StopInstance(ctx context.Context, id string) error {
 	})
 }
 
-func (r *ResilientCompute) PauseInstance(ctx context.Context, id string) error {
-	return r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
-		return r.inner.PauseInstance(ctx, id)
-	})
-}
-
-func (r *ResilientCompute) ResumeInstance(ctx context.Context, id string) error {
-	return r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
-		return r.inner.ResumeInstance(ctx, id)
-	})
-}
-
 func (r *ResilientCompute) DeleteInstance(ctx context.Context, id string) error {
 	return r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
 		return r.inner.DeleteInstance(ctx, id)
@@ -293,6 +281,18 @@ func (r *ResilientCompute) Ping(ctx context.Context) error {
 		ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		return r.inner.Ping(ctx2)
+	})
+}
+
+func (r *ResilientCompute) PauseInstance(ctx context.Context, id string) error {
+	return r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
+		return r.inner.PauseInstance(ctx, id)
+	})
+}
+
+func (r *ResilientCompute) ResumeInstance(ctx context.Context, id string) error {
+	return r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
+		return r.inner.ResumeInstance(ctx, id)
 	})
 }
 

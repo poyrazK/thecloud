@@ -47,6 +47,9 @@ type fakeDockerClient struct {
 	networkCreateErr error
 	networkRemoveErr error
 
+	containerUpdateResp container.UpdateResponse
+	containerUpdateErr  error
+
 	Calls map[string]int
 	mu    sync.Mutex
 }
@@ -93,14 +96,6 @@ func (f *fakeDockerClient) ContainerStart(ctx context.Context, containerID strin
 
 func (f *fakeDockerClient) ContainerStop(ctx context.Context, containerID string, options container.StopOptions) error {
 	return f.stopErr
-}
-
-func (f *fakeDockerClient) ContainerPause(ctx context.Context, containerID string) error {
-	return nil
-}
-
-func (f *fakeDockerClient) ContainerUnpause(ctx context.Context, containerID string) error {
-	return nil
 }
 
 func (f *fakeDockerClient) ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error {
@@ -200,9 +195,9 @@ func (f *fakeDockerClient) ContainerRename(ctx context.Context, containerID stri
 	return nil
 }
 
-func (f *fakeDockerClient) ContainerUpdate(ctx context.Context, containerID string, config container.UpdateConfig) (container.UpdateResponse, error) {
+func (f *fakeDockerClient) ContainerUpdate(ctx context.Context, containerID string, updateConfig container.UpdateConfig) (container.UpdateResponse, error) {
 	f.inc("ContainerUpdate")
-	return container.UpdateResponse{}, nil
+	return f.containerUpdateResp, f.containerUpdateErr
 }
 
 var errFakeNotFound = errors.New("not found")

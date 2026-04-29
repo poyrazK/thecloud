@@ -87,7 +87,7 @@ type dockerClient interface {
 	ContainerExecAttach(ctx context.Context, execID string, config container.ExecStartOptions) (types.HijackedResponse, error)
 	ContainerExecInspect(ctx context.Context, execID string) (container.ExecInspect, error)
 	ContainerRename(ctx context.Context, containerID string, newName string) error
-	ContainerUpdate(ctx context.Context, containerID string, config container.UpdateConfig) (container.UpdateResponse, error)
+ContainerUpdate(ctx context.Context, containerID string, updateConfig container.UpdateConfig) (container.UpdateResponse, error)
 }
 
 // NewDockerAdapter constructs a DockerAdapter with a Docker client.
@@ -110,6 +110,23 @@ func (a *DockerAdapter) Ping(ctx context.Context) error {
 
 func (a *DockerAdapter) Type() string {
 	return "docker"
+}
+
+func (a *DockerAdapter) ResizeInstance(ctx context.Context, id string, cpuNanoCPUs, memoryBytes int64) error {
+	resp, err := a.cli.ContainerUpdate(ctx, id, container.UpdateConfig{
+		Resources: container.Resources{
+			NanoCPUs:    cpuNanoCPUs,
+			Memory:      memoryBytes,
+			MemorySwap:  memoryBytes, // Must be >= Memory; setting equal disables swap while allowing memory update
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update container %s: %w", id, err)
+	}
+	if resp.Warnings != nil {
+		a.logger.Warn("container update warnings", "container_id", id, "warnings", resp.Warnings)
+	}
+	return nil
 }
 
 func (a *DockerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
@@ -388,24 +405,6 @@ func (a *DockerAdapter) PauseInstance(ctx context.Context, name string) error {
 func (a *DockerAdapter) ResumeInstance(ctx context.Context, name string) error {
 	if err := a.cli.ContainerUnpause(ctx, name); err != nil {
 		return fmt.Errorf("failed to resume container %s: %w", name, err)
-	}
-	return nil
-}
-
-// ResizeInstance updates the CPU and memory limits of a container.
-func (a *DockerAdapter) ResizeInstance(ctx context.Context, id string, cpuNanoCPUs, memoryBytes int64) error {
-	resp, err := a.cli.ContainerUpdate(ctx, id, container.UpdateConfig{
-		Resources: container.Resources{
-			NanoCPUs:    cpuNanoCPUs,
-			Memory:      memoryBytes,
-			MemorySwap:  memoryBytes, // Must be >= Memory; setting equal disables swap while allowing memory update
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update container %s: %w", id, err)
-	}
-	if resp.Warnings != nil {
-		a.logger.Warn("container update warnings", "container_id", id, "warnings", resp.Warnings)
 	}
 	return nil
 }

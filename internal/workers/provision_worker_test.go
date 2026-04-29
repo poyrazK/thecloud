@@ -18,28 +18,53 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type fakeTaskQueue struct {
-	messages []string
-	errors   []error // To simulate dequeue errors
+// fakeDurableQueue implements ports.DurableTaskQueue for testing.
+type fakeDurableQueue struct {
+	messages []*ports.DurableMessage
+	errors   []error
 	index    int
+	acked    []string
+	nacked   []string
 }
 
-func (f *fakeTaskQueue) Enqueue(ctx context.Context, queueName string, payload interface{}) error {
+func (f *fakeDurableQueue) Enqueue(ctx context.Context, queueName string, payload interface{}) error {
 	return nil
 }
 
-func (f *fakeTaskQueue) Dequeue(ctx context.Context, queueName string) (string, error) {
+func (f *fakeDurableQueue) Dequeue(ctx context.Context, queueName string) (string, error) {
+	return "", nil
+}
+
+func (f *fakeDurableQueue) EnsureGroup(ctx context.Context, queueName, groupName string) error {
+	return nil
+}
+
+func (f *fakeDurableQueue) Receive(ctx context.Context, queueName, groupName, consumerName string) (*ports.DurableMessage, error) {
 	if f.index < len(f.errors) && f.errors[f.index] != nil {
 		err := f.errors[f.index]
 		f.index++
-		return "", err
+		return nil, err
 	}
 	if f.index < len(f.messages) {
 		msg := f.messages[f.index]
 		f.index++
 		return msg, nil
 	}
-	return "", nil
+	return nil, nil
+}
+
+func (f *fakeDurableQueue) Ack(ctx context.Context, queueName, groupName, messageID string) error {
+	f.acked = append(f.acked, messageID)
+	return nil
+}
+
+func (f *fakeDurableQueue) Nack(ctx context.Context, queueName, groupName, messageID string) error {
+	f.nacked = append(f.nacked, messageID)
+	return nil
+}
+
+func (f *fakeDurableQueue) ReclaimStale(ctx context.Context, queueName, groupName, consumerName string, minIdleMs int64, count int64) ([]ports.DurableMessage, error) {
+	return nil, nil
 }
 
 // failingComputeBackend forces Provision to fail
@@ -53,48 +78,57 @@ func (f *failingComputeBackend) LaunchInstanceWithOptions(ctx context.Context, o
 
 func TestProvisionWorkerRun(t *testing.T) {
 	tests := []struct {
-		name           string
-		message        interface{} // string or struct
-		injectDequeErr bool
-		failProvision  bool
-		wantLog        string
+		name          string
+		payload       interface{}
+		poisonJSON    bool
+		failProvision bool
+		wantLog       string
+		wantAcked     bool
+		wantNacked    bool
 	}{
 		{
 			name: "success",
-			message: domain.ProvisionJob{
+			payload: domain.ProvisionJob{
 				InstanceID: uuid.New(),
 				UserID:     uuid.New(),
 			},
-			wantLog: "successfully provisioned instance",
+			wantLog:   "successfully provisioned instance",
+			wantAcked: true,
 		},
 		{
-			name:    "deserialize_error",
-			message: "{invalid-json}",
-			wantLog: "failed to unmarshal provision job",
+			name:       "deserialize_error",
+			poisonJSON: true,
+			wantLog:    "failed to unmarshal provision job",
+			wantAcked:  true, // poison messages are acked to unblock the queue
 		},
 		{
-			name:          "provision_error",
-			message:       domain.ProvisionJob{InstanceID: uuid.New(), UserID: uuid.New()},
+			name: "provision_error",
+			payload: domain.ProvisionJob{
+				InstanceID: uuid.New(),
+				UserID:     uuid.New(),
+			},
 			failProvision: true,
 			wantLog:       "failed to provision instance",
+			wantNacked:    true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var msgBytes []byte
-			switch v := tt.message.(type) {
-			case string:
-				msgBytes = []byte(v)
-			default:
-				msgBytes, _ = json.Marshal(v)
+			var payloadStr string
+			if tt.poisonJSON {
+				payloadStr = "{invalid-json}"
+			} else {
+				data, _ := json.Marshal(tt.payload)
+				payloadStr = string(data)
 			}
 
-			fq := &fakeTaskQueue{
-				messages: []string{string(msgBytes)},
+			fq := &fakeDurableQueue{
+				messages: []*ports.DurableMessage{
+					{ID: "1-0", Payload: payloadStr, Queue: provisionQueue},
+				},
 			}
 
-			// Compute backend
 			var compute ports.ComputeBackend = &noop.NoopComputeBackend{}
 			if tt.failProvision {
 				compute = &failingComputeBackend{}
@@ -116,7 +150,7 @@ func TestProvisionWorkerRun(t *testing.T) {
 
 			var buf bytes.Buffer
 			logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
-			worker := NewProvisionWorker(instSvc, fq, logger)
+			worker := NewProvisionWorker(instSvc, fq, nil, logger)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			var wg sync.WaitGroup
@@ -124,20 +158,30 @@ func TestProvisionWorkerRun(t *testing.T) {
 
 			go worker.Run(ctx, &wg)
 
-			time.Sleep(50 * time.Millisecond)
+			// Give worker time to process
+			time.Sleep(200 * time.Millisecond)
 			cancel()
 			wg.Wait()
 
 			assert.Contains(t, buf.String(), tt.wantLog)
+			switch {
+			case tt.wantAcked:
+				assert.NotEmpty(t, fq.acked, "expected message to be acked")
+				assert.Empty(t, fq.nacked, "did not expect message to be nacked when acked")
+			case tt.wantNacked:
+				assert.NotEmpty(t, fq.nacked, "expected message to be nacked")
+				assert.Empty(t, fq.acked, "did not expect message to be acked when nacked")
+			default:
+				assert.Empty(t, fq.acked, "expected no ack")
+				assert.Empty(t, fq.nacked, "expected no nack")
+			}
 		})
 	}
 }
 
-func TestProvisionWorkerRunDequeueError(t *testing.T) {
-	// Test that worker continues on queue error
-	fq := &fakeTaskQueue{
-		messages: []string{},
-		errors:   []error{errors.New("redis connection failed")},
+func TestProvisionWorkerRunReceiveError(t *testing.T) {
+	fq := &fakeDurableQueue{
+		errors: []error{errors.New("redis connection failed")},
 	}
 
 	instSvc := services.NewInstanceService(services.InstanceServiceParams{
@@ -156,7 +200,7 @@ func TestProvisionWorkerRunDequeueError(t *testing.T) {
 
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&buf, nil))
-	worker := NewProvisionWorker(instSvc, fq, logger)
+	worker := NewProvisionWorker(instSvc, fq, nil, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
@@ -166,5 +210,6 @@ func TestProvisionWorkerRunDequeueError(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	cancel()
 	wg.Wait()
-	// No specific log to check as it just continues, but we ensure no panic and coverage hits error path
+
+	assert.Contains(t, buf.String(), "failed to receive provision job")
 }

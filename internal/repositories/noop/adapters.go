@@ -112,8 +112,6 @@ func (b *NoopComputeBackend) LaunchInstanceWithOptions(ctx context.Context, opts
 }
 func (b *NoopComputeBackend) StartInstance(ctx context.Context, id string) error { return nil }
 func (b *NoopComputeBackend) StopInstance(ctx context.Context, id string) error  { return nil }
-func (b *NoopComputeBackend) PauseInstance(ctx context.Context, id string) error   { return nil }
-func (b *NoopComputeBackend) ResumeInstance(ctx context.Context, id string) error { return nil }
 func (b *NoopComputeBackend) DeleteInstance(ctx context.Context, id string) error { return nil }
 func (b *NoopComputeBackend) GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("")), nil
@@ -149,11 +147,11 @@ func (b *NoopComputeBackend) AttachVolume(ctx context.Context, id string, volume
 func (b *NoopComputeBackend) DetachVolume(ctx context.Context, id string, volumePath string) (string, error) {
 	return "", nil
 }
-func (b *NoopComputeBackend) Ping(ctx context.Context) error                     { return nil }
-func (b *NoopComputeBackend) Type() string                                        { return "noop" }
-func (b *NoopComputeBackend) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
-	return nil
-}
+func (b *NoopComputeBackend) Ping(ctx context.Context) error                      { return nil }
+func (b *NoopComputeBackend) Type() string                                   { return "noop" }
+func (b *NoopComputeBackend) PauseInstance(ctx context.Context, id string) error   { return nil }
+func (b *NoopComputeBackend) ResumeInstance(ctx context.Context, id string) error  { return nil }
+func (b *NoopComputeBackend) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error { return nil }
 
 // NoopDNSService is a no-op DNS service.
 type NoopDNSService struct{}
@@ -445,7 +443,7 @@ func (r *NoopFunctionRepository) GetByName(ctx context.Context, userID uuid.UUID
 func (r *NoopFunctionRepository) List(ctx context.Context, userID uuid.UUID) ([]*domain.Function, error) {
 	return []*domain.Function{}, nil
 }
-func (r *NoopFunctionRepository) Update(ctx context.Context, fn *domain.Function) error { return nil }
+func (r *NoopFunctionRepository) Update(ctx context.Context, id uuid.UUID, u *domain.FunctionUpdate) error { return nil }
 func (r *NoopFunctionRepository) Delete(ctx context.Context, id uuid.UUID) error        { return nil }
 func (r *NoopFunctionRepository) GetInvocations(ctx context.Context, fnID uuid.UUID, limit int) ([]*domain.Invocation, error) {
 	return []*domain.Invocation{}, nil

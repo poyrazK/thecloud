@@ -16,6 +16,7 @@ const (
 	PermissionInstanceTerminate Permission = "instance:terminate"
 	PermissionInstanceRead      Permission = "instance:read"
 	PermissionInstanceUpdate    Permission = "instance:update"
+	PermissionInstanceResize    Permission = "instance:resize"
 
 	// SSH Key Permissions
 	PermissionSSHKeyCreate Permission = "ssh_key:create"
@@ -85,6 +86,13 @@ const (
 	PermissionFunctionCreate Permission = "function:create"
 	PermissionFunctionDelete Permission = "function:delete"
 	PermissionFunctionRead   Permission = "function:read"
+	PermissionFunctionUpdate Permission = "function:update"
+
+	// Function Schedule Permissions
+	PermissionFunctionScheduleCreate Permission = "function_schedule:create"
+	PermissionFunctionScheduleRead   Permission = "function_schedule:read"
+	PermissionFunctionScheduleDelete Permission = "function_schedule:delete"
+	PermissionFunctionScheduleUpdate Permission = "function_schedule:update"
 
 	// Cache Permissions
 	PermissionCacheCreate Permission = "cache:create"

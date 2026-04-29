@@ -26,8 +26,6 @@ func (m *mockCompute) LaunchInstanceWithOptions(ctx context.Context, opts ports.
 }
 func (m *mockCompute) StartInstance(ctx context.Context, id string) error  { return nil }
 func (m *mockCompute) StopInstance(ctx context.Context, id string) error   { return nil }
-func (m *mockCompute) PauseInstance(ctx context.Context, id string) error   { return nil }
-func (m *mockCompute) ResumeInstance(ctx context.Context, id string) error { return nil }
 func (m *mockCompute) DeleteInstance(ctx context.Context, id string) error { return nil }
 func (m *mockCompute) GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("")), nil
@@ -58,11 +56,9 @@ func (m *mockCompute) AttachVolume(ctx context.Context, id string, volumePath st
 func (m *mockCompute) DetachVolume(ctx context.Context, id string, volumePath string) (string, error) {
 	return "", nil
 }
-func (m *mockCompute) Ping(ctx context.Context) error                    { return nil }
-func (m *mockCompute) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
-	return nil
-}
-func (m *mockCompute) Type() string { return "mock" }
+func (m *mockCompute) Ping(ctx context.Context) error { return nil }
+func (m *mockCompute) Type() string                   { return "mock" }
+func (m *mockCompute) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error { return nil }
 
 func TestLBProxyAdapter(t *testing.T) {
 	mc := new(mockCompute)

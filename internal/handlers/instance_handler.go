@@ -464,3 +464,44 @@ func (h *InstanceHandler) UpdateMetadata(c *gin.Context) {
 
 	httputil.Success(c, http.StatusOK, gin.H{"message": "metadata updated"})
 }
+
+// ResizeInstanceRequest is the payload for resizing an instance.
+type ResizeInstanceRequest struct {
+	InstanceType string `json:"instance_type" binding:"required"`
+}
+
+// ResizeInstance godoc
+// @Summary Resize an instance
+// @Description Change the instance type (CPU/memory) of an existing instance
+// @Tags instances
+// @Accept json
+// @Produce json
+// @Security APIKeyAuth
+// @Param id path string true "Instance ID"
+// @Param request body ResizeInstanceRequest true "Resize request"
+// @Success 200 {object} httputil.Response
+// @Failure 400 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 429 {object} httputil.Response "Quota Exceeded"
+// @Failure 500 {object} httputil.Response
+// @Router /instances/{id}/resize [post]
+func (h *InstanceHandler) ResizeInstance(c *gin.Context) {
+	idStr := c.Param("id")
+	if idStr == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
+		return
+	}
+
+	var req ResizeInstanceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httputil.Error(c, errors.New(errors.InvalidInput, "invalid request body"))
+		return
+	}
+
+	if err := h.svc.ResizeInstance(c.Request.Context(), idStr, req.InstanceType); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, gin.H{"message": "instance resized"})
+}

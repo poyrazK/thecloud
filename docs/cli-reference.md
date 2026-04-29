@@ -396,7 +396,160 @@ cloud vpc rm my-network
  
  ```bash
  cloud vpc-peering rm peering-uuid
- ```
+```
+
+---
+
+## Route Table Commands 🆕
+
+Manage VPC route tables.
+
+### `route-table list [vpc-id]`
+
+List all route tables in a VPC.
+
+```bash
+cloud route-table list vpc-uuid
+```
+
+### `route-table create [vpc-id] [name]`
+
+Create a new route table in a VPC.
+
+```bash
+cloud route-table create vpc-uuid my-rt --main
+```
+
+**Flags:**
+| Flag | Short | Required | Default | Description |
+|------|-------|----------|---------|-------------|
+| `--main` | | No | false | Set as the main route table for the VPC |
+
+### `route-table rm <id>`
+
+Delete a route table. Cannot delete the main route table.
+
+```bash
+cloud route-table rm rt-uuid
+```
+
+### `route-table add-route <rt-id> [dest-cidr] [target-type]`
+
+Add a route to a route table.
+
+```bash
+cloud route-table add-route rt-uuid 0.0.0.0/0 igw --target-id igw-uuid
+cloud route-table add-route rt-uuid 10.0.1.0/24 nat --target-id nat-uuid
+cloud route-table add-route rt-uuid 10.0.2.0/24 peering --target-id peering-uuid
+```
+
+**Target Types:** `local`, `igw`, `nat`, `peering`, `instance`
+
+### `route-table remove-route <rt-id> <route-id>`
+
+Remove a route from a route table.
+
+```bash
+cloud route-table remove-route rt-uuid route-uuid
+```
+
+### `route-table associate <rt-id> <subnet-id>`
+
+Associate a subnet with a route table.
+
+```bash
+cloud route-table associate rt-uuid subnet-uuid
+```
+
+### `route-table disassociate <rt-id> <subnet-id>`
+
+Disassociate a subnet from a route table.
+
+```bash
+cloud route-table disassociate rt-uuid subnet-uuid
+```
+
+---
+
+## Internet Gateway Commands 🆕
+
+Manage internet gateways for VPC routing.
+
+### `igw create`
+
+Create a new internet gateway.
+
+```bash
+cloud igw create
+```
+
+### `igw attach <igw-id> <vpc-id>`
+
+Attach an internet gateway to a VPC. This allows instances in private subnets to access the internet via the IGW.
+
+```bash
+cloud igw attach igw-uuid vpc-uuid
+```
+
+### `igw detach <igw-id>`
+
+Detach an internet gateway from its VPC. Must remove all routes referencing the IGW first.
+
+```bash
+cloud igw detach igw-uuid
+```
+
+### `igw list`
+
+List all internet gateways.
+
+```bash
+cloud igw list
+```
+
+### `igw rm <id>`
+
+Delete an internet gateway. Must be detached first.
+
+```bash
+cloud igw rm igw-uuid
+```
+
+---
+
+## NAT Gateway Commands 🆕
+
+Manage NAT gateways for private subnet internet access.
+
+### `nat-gateway create [subnet-id] [eip-id]`
+
+Create a NAT gateway in a public subnet with an allocated elastic IP.
+
+```bash
+cloud nat-gateway create subnet-uuid eip-uuid
+```
+
+**Flags:**
+| Flag | Short | Required | Default | Description |
+|------|-------|----------|---------|-------------|
+| `--name` | `-n` | No | - | NAT gateway name |
+
+### `nat-gateway list [vpc-id]`
+
+List all NAT gateways, optionally filtered by VPC.
+
+```bash
+cloud nat-gateway list
+cloud nat-gateway list vpc-uuid
+```
+
+### `nat-gateway rm <id>`
+
+Delete a NAT gateway and release the associated elastic IP.
+
+```bash
+cloud nat-gateway rm nat-uuid
+```
 
 ---
 
@@ -788,6 +941,75 @@ Delete a function. (Alias: `delete`)
 
 ```bash
 cloud function rm my-func
+```
+
+### `function update <id>`
+
+Update a function's configuration.
+
+```bash
+# Update timeout and memory
+cloud function update my-func --timeout 300 --memory 256
+
+# Update handler
+cloud function update my-func --handler newhandler.js
+
+# Set environment variables
+cloud function update my-func --env FOO=bar --env DEBUG=true
+```
+
+**Flags:**
+- `--handler`, `-H`: Handler name
+- `--timeout`: Timeout in seconds (1-900)
+- `--memory`: Memory in MB (64-10240)
+- `--env`: Environment variable `KEY=VALUE` or `KEY=@secretname` for secrets (can be repeated)
+
+### `fn-schedule create`
+
+Create a scheduled function invocation.
+
+```bash
+cloud fn-schedule create --name nightly --function my-func --schedule "0 2 * * *"
+```
+
+### `fn-schedule list`
+
+List all function schedules.
+
+```bash
+cloud fn-schedule list
+```
+
+### `fn-schedule pause <id>`
+
+Pause a schedule to temporarily prevent invocations.
+
+```bash
+cloud fn-schedule pause [schedule-id]
+```
+
+### `fn-schedule resume <id>`
+
+Resume a paused schedule.
+
+```bash
+cloud fn-schedule resume [schedule-id]
+```
+
+### `fn-schedule logs <id>`
+
+View run history for a schedule.
+
+```bash
+cloud fn-schedule logs [schedule-id]
+```
+
+### `fn-schedule rm <id>`
+
+Delete a function schedule.
+
+```bash
+cloud fn-schedule rm [schedule-id]
 ```
 
 ---

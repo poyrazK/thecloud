@@ -113,15 +113,9 @@ func (m *mockCompute) ResizeInstance(_ context.Context, _ string, _, _ int64) er
 	m.callCount.Add(1)
 	return m.err
 }
-func (m *mockCompute) PauseInstance(_ context.Context, _ string) error {
-	m.callCount.Add(1)
-	return m.err
-}
-func (m *mockCompute) ResumeInstance(_ context.Context, _ string) error {
-	m.callCount.Add(1)
-	return m.err
-}
 func (m *mockCompute) Type() string { return "mock" }
+func (m *mockCompute) PauseInstance(_ context.Context, _ string) error { return nil }
+func (m *mockCompute) ResumeInstance(_ context.Context, _ string) error { return nil }
 
 // ---------- tests ----------
 
