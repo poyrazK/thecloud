@@ -819,6 +819,13 @@ func (s *InstanceService) applyQuotaChanges(ctx context.Context, tenantID uuid.U
 	}
 	if deltaMemMB > 0 {
 		if err := s.tenantSvc.CheckQuota(ctx, tenantID, "memory", deltaMemMB); err != nil {
+			// Rollback vCPU increment since memory quota check failed
+			if deltaCPU > 0 {
+				if decErr := s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", deltaCPU); decErr != nil {
+					return errors.Wrap(errors.Internal,
+						fmt.Sprintf("memory quota check failed (%v), vCPU rollback also failed (%v)", err, decErr), err)
+				}
+			}
 			return err
 		}
 		if err := s.tenantSvc.IncrementUsage(ctx, tenantID, "memory", deltaMemMB); err != nil {

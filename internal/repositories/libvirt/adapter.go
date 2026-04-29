@@ -252,11 +252,11 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 			if undefineErr != nil {
 				a.logger.Error("failed to undefine new domain after DomainCreate failure", "domain", id, "error", undefineErr)
 			}
-			_, rollbackErr := a.client.DomainDefineXML(ctx, domXML)
+			restoredDom, rollbackErr := a.client.DomainDefineXML(ctx, domXML)
 			if rollbackErr != nil {
 				return fmt.Errorf("failed to start domain after resize (instance_id=%s), rollback also failed: original error: %w; rollback error: %w", id, err, rollbackErr)
 			}
-			if restartErr := a.client.DomainCreate(ctx, dom); restartErr != nil {
+			if restartErr := a.client.DomainCreate(ctx, restoredDom); restartErr != nil {
 				return fmt.Errorf("failed to start domain after resize (instance_id=%s), rollback redef succeeded but restart failed: %w", id, restartErr)
 			}
 			return fmt.Errorf("failed to start domain after resize: %w", err)

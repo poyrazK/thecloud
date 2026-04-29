@@ -277,12 +277,12 @@ func TestResizeInstanceDownsize(t *testing.T) {
 	instanceName := fmt.Sprintf("e2e-resize-down-%d-%s", time.Now().UnixNano()%1000, uuid.New().String())
 	instanceReady := false
 
-	// 1. Launch Instance with basic-2 type
+	// 1. Launch Instance with standard-1 type (larger than basic-2 for real downsize)
 	t.Run("LaunchInstance", func(t *testing.T) {
 		payload := map[string]string{
 			"name":         instanceName,
 			"image":        "nginx:alpine",
-			"instance_type": "basic-2",
+			"instance_type": "standard-1",
 			"ports":        "0:80",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)

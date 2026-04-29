@@ -1776,6 +1776,7 @@ func testInstanceServiceResizeInstanceUnit(t *testing.T) {
 		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "vcpus", 2).Return(nil).Once()
 		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "vcpus", 2).Return(nil).Once()
 		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "memory", 2048).Return(fmt.Errorf("insufficient memory quota")).Once()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 2).Return(nil).Once()
 
 		err := svc.ResizeInstance(ctx, "test-inst", "basic-4")
 
