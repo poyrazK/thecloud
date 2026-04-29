@@ -31,10 +31,13 @@ This document provides a comprehensive overview of every feature currently imple
   - **Networking**: Integrated with Open vSwitch (OVS) for true SDN.
 
 - **Backend Selection**: Set via `COMPUTE_BACKEND` environment variable (`docker` or `libvirt`).
-- **Lifecycle**: The `InstanceService` manages the backend API to Create, Start, Stop, Resize, and Remove instances.
+- **Lifecycle**: The `InstanceService` manages the backend API to Create, Start, Stop, Pause, Resume, Resize, and Remove instances.
+- **Instance States**: Instances transition through states: `STARTING` → `RUNNING` → `STOPPED` / `PAUSED` → `DELETED`. The `PAUSED` state freezes CPU while retaining memory and network connections.
+- **Pause/Resume**: RUNNING instances can be paused (via `DomainSuspend` for Libvirt, `ContainerPause` for Docker) and later resumed. State transitions are validated to ensure proper ordering.
 - **Instance Metadata & Labels**: Support for arbitrary key-value pairs assigned to instances for organization and filtering.
 - **Cloud-Init (Docker Simulation)**: Simulates Cloud-Init configuration injection in containers (SSH keys, script execution).
 - **Self-Healing**: Automated background worker that detects instances in `ERROR` state and attempts recovery via restart.
+- **Resilient Compute**: Backend operations are wrapped with circuit breaker and bulkhead patterns for fault tolerance.
 
 ### 2. Networking (VPC & Elastic IPs)
 **What it is**: Isolated virtual networks and static public IP addresses.
