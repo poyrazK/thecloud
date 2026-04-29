@@ -213,9 +213,6 @@ func (m *MockComputeBackend) GetInstancePort(ctx context.Context, id string, por
 func (m *MockComputeBackend) Ping(ctx context.Context) error {
 	return m.Called(ctx).Error(0)
 }
-func (m *MockComputeBackend) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
-	return m.Called(ctx, id, cpu, memory).Error(0)
-}
 func (m *MockComputeBackend) Type() string {
 	return m.Called().String(0)
 }
@@ -226,6 +223,18 @@ func (m *MockComputeBackend) DetachVolume(ctx context.Context, id string, path s
 func (m *MockComputeBackend) GetConsoleURL(ctx context.Context, id string) (string, error) {
 	args := m.Called(ctx, id)
 	return args.String(0), args.Error(1)
+}
+func (m *MockComputeBackend) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
+	return m.Called(ctx, id, cpu, memory).Error(0)
+}
+func (m *MockComputeBackend) CreateSnapshot(ctx context.Context, id, name string) error {
+	return m.Called(ctx, id, name).Error(0)
+}
+func (m *MockComputeBackend) RestoreSnapshot(ctx context.Context, id, name string) error {
+	return m.Called(ctx, id, name).Error(0)
+}
+func (m *MockComputeBackend) DeleteSnapshot(ctx context.Context, id, name string) error {
+	return m.Called(ctx, id, name).Error(0)
 }
 
 // MockClusterRepo

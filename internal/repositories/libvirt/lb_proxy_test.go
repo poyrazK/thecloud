@@ -61,6 +61,9 @@ func (m *mockCompute) DetachVolume(ctx context.Context, id string, volumePath st
 func (m *mockCompute) Ping(ctx context.Context) error { return nil }
 func (m *mockCompute) Type() string                   { return "mock" }
 func (m *mockCompute) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error { return nil }
+func (m *mockCompute) CreateSnapshot(ctx context.Context, id, name string) error { return nil }
+func (m *mockCompute) RestoreSnapshot(ctx context.Context, id, name string) error { return nil }
+func (m *mockCompute) DeleteSnapshot(ctx context.Context, id, name string) error { return nil }
 
 func TestLBProxyAdapter(t *testing.T) {
 	mc := new(mockCompute)
