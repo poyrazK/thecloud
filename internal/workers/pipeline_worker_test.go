@@ -161,6 +161,12 @@ func (m *mockComputeBackendExtended) Ping(ctx context.Context) error {
 func (m *mockComputeBackendExtended) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
 	return m.Called(ctx, id, cpu, memory).Error(0)
 }
+func (m *mockComputeBackendExtended) PauseInstance(ctx context.Context, id string) error {
+	return nil
+}
+func (m *mockComputeBackendExtended) ResumeInstance(ctx context.Context, id string) error {
+	return nil
+}
 
 func TestPipelineWorker_processJob(t *testing.T) {
 	repo := new(mockPipelineRepo)
