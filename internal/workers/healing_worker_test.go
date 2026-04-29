@@ -236,8 +236,9 @@ func TestHealingWorker_ContextCancelled_BeforeTimerFires(t *testing.T) {
 	cancel()
 	worker.reconcileWG.Wait()
 
-	// Verify the goroutine hit ctx.Done() and bailed out before calling StopInstance
+	// Verify the goroutine hit ctx.Done() and bailed out before calling StopInstance or StartInstance
 	svc.AssertNotCalled(t, "StopInstance", mock.Anything, "00000000-0000-0000-0000-000000000001")
+	svc.AssertNotCalled(t, "StartInstance", mock.Anything, "00000000-0000-0000-0000-000000000001")
 	repo.AssertExpectations(t)
 }
 
