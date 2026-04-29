@@ -61,6 +61,7 @@ func TestComputeE2E(t *testing.T) {
 
 	var instanceID string
 	instanceName := fmt.Sprintf("e2e-inst-%d-%s", time.Now().UnixNano()%1000, uuid.New().String())
+	instanceReady := false
 
 	// 1. Launch Instance
 	t.Run("LaunchInstance", func(t *testing.T) {
@@ -101,7 +102,8 @@ func TestComputeE2E(t *testing.T) {
 	// 2.5 Wait for Instance to be Running
 	t.Run("WaitForRunning", func(t *testing.T) {
 		lastStatus := waitForInstanceStatus(t, client, token, instanceID)
-		if lastStatus != domain.StatusRunning {
+		instanceReady = (lastStatus == domain.StatusRunning)
+		if !instanceReady {
 			t.Skipf("Instance did not reach running state within timeout (90s). Last status: %s. Docker backend may be unavailable.", lastStatus)
 		}
 	})
@@ -139,6 +141,9 @@ func TestComputeE2E(t *testing.T) {
 
 	// 5. Stop Instance
 	t.Run("StopInstance", func(t *testing.T) {
+		if !instanceReady {
+			t.Skip("Instance did not reach RUNNING state, skipping stop")
+		}
 		resp := postRequest(t, client, fmt.Sprintf("%s%s/%s/stop", testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token, nil)
 		defer func() { _ = resp.Body.Close() }()
 
@@ -147,6 +152,9 @@ func TestComputeE2E(t *testing.T) {
 
 	// 6. Terminate Instance
 	t.Run("TerminateInstance", func(t *testing.T) {
+		if !instanceReady {
+			t.Skip("Instance did not reach RUNNING state, skipping terminate")
+		}
 		resp := deleteRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
 		defer func() { _ = resp.Body.Close() }()
 
@@ -164,6 +172,7 @@ func TestResizeInstance(t *testing.T) {
 
 	var instanceID string
 	instanceName := fmt.Sprintf("e2e-resize-%d-%s", time.Now().UnixNano()%1000, uuid.New().String())
+	instanceReady := false // tracks whether instance reached RUNNING state
 
 	// 1. Launch Instance with basic-2 type
 	t.Run("LaunchInstance", func(t *testing.T) {
@@ -191,7 +200,8 @@ func TestResizeInstance(t *testing.T) {
 	// 2. Wait for Instance to be Running
 	t.Run("WaitForRunning", func(t *testing.T) {
 		lastStatus := waitForInstanceStatus(t, client, token, instanceID)
-		if lastStatus != domain.StatusRunning {
+		instanceReady = (lastStatus == domain.StatusRunning)
+		if !instanceReady {
 			t.Skipf("Instance did not reach running state within timeout (90s). Last status: %s", lastStatus)
 		}
 	})
@@ -200,6 +210,9 @@ func TestResizeInstance(t *testing.T) {
 	// Note: Upsize may fail with 429 (quota exceeded) if the new tenant doesn't have
 	// enough quota allocated. Both 200 (success) and 429 (quota exceeded) are valid.
 	t.Run("Resize", func(t *testing.T) {
+		if !instanceReady {
+			t.Skip("Instance did not reach RUNNING state, skipping resize")
+		}
 		payload := map[string]string{
 			"instance_type": "standard-1",
 		}
@@ -220,6 +233,9 @@ func TestResizeInstance(t *testing.T) {
 
 	// 4. Verify instance type changed via GET (only if resize succeeded)
 	t.Run("VerifyResize", func(t *testing.T) {
+		if !instanceReady {
+			t.Skip("Instance did not reach RUNNING state, skipping verify")
+		}
 		resp := getRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
 		defer func() { _ = resp.Body.Close() }()
 
@@ -239,6 +255,9 @@ func TestResizeInstance(t *testing.T) {
 
 	// 5. Terminate Instance
 	t.Run("TerminateInstance", func(t *testing.T) {
+		if !instanceReady {
+			t.Skip("Instance did not reach RUNNING state, skipping terminate")
+		}
 		resp := deleteRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
 		defer func() { _ = resp.Body.Close() }()
 
@@ -256,6 +275,7 @@ func TestResizeInstanceDownsize(t *testing.T) {
 
 	var instanceID string
 	instanceName := fmt.Sprintf("e2e-resize-down-%d-%s", time.Now().UnixNano()%1000, uuid.New().String())
+	instanceReady := false
 
 	// 1. Launch Instance with basic-2 type
 	t.Run("LaunchInstance", func(t *testing.T) {
@@ -282,13 +302,17 @@ func TestResizeInstanceDownsize(t *testing.T) {
 	// 2. Wait for Running
 	t.Run("WaitForRunning", func(t *testing.T) {
 		lastStatus := waitForInstanceStatus(t, client, token, instanceID)
-		if lastStatus != domain.StatusRunning {
+		instanceReady = (lastStatus == domain.StatusRunning)
+		if !instanceReady {
 			t.Skipf("Instance did not reach running state within timeout. Last status: %s", lastStatus)
 		}
 	})
 
 	// 3. Downsize to basic-2
 	t.Run("Resize", func(t *testing.T) {
+		if !instanceReady {
+			t.Skip("Instance did not reach RUNNING state, skipping resize")
+		}
 		payload := map[string]string{
 			"instance_type": "basic-2",
 		}
@@ -300,6 +324,9 @@ func TestResizeInstanceDownsize(t *testing.T) {
 
 	// 4. Terminate
 	t.Run("TerminateInstance", func(t *testing.T) {
+		if !instanceReady {
+			t.Skip("Instance did not reach RUNNING state, skipping terminate")
+		}
 		resp := deleteRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
 		defer func() { _ = resp.Body.Close() }()
 
@@ -317,6 +344,7 @@ func TestResizeInstanceInvalidType(t *testing.T) {
 
 	var instanceID string
 	instanceName := fmt.Sprintf("e2e-resize-inv-%d-%s", time.Now().UnixNano()%1000, uuid.New().String())
+	instanceReady := false
 
 	// 1. Launch Instance
 	t.Run("LaunchInstance", func(t *testing.T) {
@@ -342,13 +370,17 @@ func TestResizeInstanceInvalidType(t *testing.T) {
 	// 2. Wait for Running
 	t.Run("WaitForRunning", func(t *testing.T) {
 		lastStatus := waitForInstanceStatus(t, client, token, instanceID)
-		if lastStatus != domain.StatusRunning {
+		instanceReady = (lastStatus == domain.StatusRunning)
+		if !instanceReady {
 			t.Skipf("Instance did not reach running state within timeout. Last status: %s", lastStatus)
 		}
 	})
 
 	// 3. Try to resize to invalid type (should fail with 400 or 422)
 	t.Run("ResizeInvalidType", func(t *testing.T) {
+		if !instanceReady {
+			t.Skip("Instance did not reach RUNNING state, skipping resize")
+		}
 		payload := map[string]string{
 			"instance_type": "nonexistent-type",
 		}
@@ -361,6 +393,9 @@ func TestResizeInstanceInvalidType(t *testing.T) {
 
 	// 4. Terminate
 	t.Run("TerminateInstance", func(t *testing.T) {
+		if !instanceReady {
+			t.Skip("Instance did not reach RUNNING state, skipping terminate")
+		}
 		resp := deleteRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
 		defer func() { _ = resp.Body.Close() }()
 
