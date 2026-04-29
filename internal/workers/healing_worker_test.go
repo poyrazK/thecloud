@@ -209,6 +209,38 @@ func TestHealingWorker(t *testing.T) {
 	}
 }
 
+func TestHealingWorker_ContextCancelled_BeforeTimerFires(t *testing.T) {
+	repo := new(mockInstanceRepo)
+	svc := new(mockInstanceSvc)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	worker := NewHealingWorker(svc, repo, logger)
+	worker.healingDelay = 100 * time.Millisecond // Short but won't fire before ctx cancel
+
+	erroredInstance := &domain.Instance{
+		ID:       uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+		Status:   domain.StatusError,
+		UserID:   uuid.New(),
+		TenantID: uuid.New(),
+	}
+
+	repo.On("ListAll", mock.Anything).Return([]*domain.Instance{erroredInstance}, nil)
+	// StopInstance and StartInstance must NOT be called — ctx cancelled before timer fires
+	svc.On("StopInstance", mock.Anything, "00000000-0000-0000-0000-000000000001").Return(nil).Maybe()
+	svc.On("StartInstance", mock.Anything, "00000000-0000-0000-0000-000000000001").Return(nil).Maybe()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	worker.healERRORInstances(ctx)
+
+	// Cancel immediately — ctx.Done() should fire before the 100ms timer
+	cancel()
+	worker.reconcileWG.Wait()
+
+	// Verify the goroutine hit ctx.Done() and bailed out before calling StopInstance
+	svc.AssertNotCalled(t, "StopInstance", mock.Anything, "00000000-0000-0000-0000-000000000001")
+	repo.AssertExpectations(t)
+}
+
 func TestHealingWorker_Run(t *testing.T) {
 	repo := new(mockInstanceRepo)
 	svc := new(mockInstanceSvc)
