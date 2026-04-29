@@ -150,11 +150,12 @@ func TestImageService_Unit(t *testing.T) {
 	t.Run("ImportImage_Success", func(t *testing.T) {
 		// QCOW2 magic bytes + padding
 		qcow2Magic := []byte{0x51, 0x46, 0x44, 0xbf}
-		testData := append(qcow2Magic, bytes.Repeat([]byte("x"), 1024*1024-len(qcow2Magic))...)
+		payload := make([]byte, 1024*1024)
+		copy(payload, qcow2Magic)
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/octet-stream")
 			w.WriteHeader(http.StatusOK)
-			w.Write(testData)
+			w.Write(payload)
 		}))
 		defer server.Close()
 
@@ -468,11 +469,12 @@ func TestImageService_Unit_ImportImage(t *testing.T) {
 	t.Run("FormatISO", func(t *testing.T) {
 		// CD-ROM magic bytes
 		isoMagic := []byte{0x43, 0x44, 0x30, 0x30, 0x31}
-		testData := append(isoMagic, bytes.Repeat([]byte("x"), 1024-len(isoMagic))...)
+		payload := make([]byte, 1024)
+		copy(payload, isoMagic)
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/x-iso9660-image")
 			w.WriteHeader(http.StatusOK)
-			w.Write(testData)
+			w.Write(payload)
 		}))
 		defer server.Close()
 
@@ -489,11 +491,12 @@ func TestImageService_Unit_ImportImage(t *testing.T) {
 
 	t.Run("UpdateToActiveFails", func(t *testing.T) {
 		qcow2Magic := []byte{0x51, 0x46, 0x44, 0xbf}
-		testData := append(qcow2Magic, bytes.Repeat([]byte("x"), 1024*1024-len(qcow2Magic))...)
+		payload := make([]byte, 1024*1024)
+		copy(payload, qcow2Magic)
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/octet-stream")
 			w.WriteHeader(http.StatusOK)
-			w.Write(testData)
+			w.Write(payload)
 		}))
 		defer server.Close()
 
@@ -542,11 +545,12 @@ func TestImageService_Unit_ImportImage(t *testing.T) {
 
 	t.Run("ImportImage_InvalidContentType", func(t *testing.T) {
 		qcow2Magic := []byte{0x51, 0x46, 0x44, 0xbf}
-		testData := append(qcow2Magic, bytes.Repeat([]byte("x"), 1024*1024-len(qcow2Magic))...)
+		payload := make([]byte, 1024*1024)
+		copy(payload, qcow2Magic)
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "text/html") // not allowed
 			w.WriteHeader(http.StatusOK)
-			w.Write(testData)
+			w.Write(payload)
 		}))
 		defer server.Close()
 
@@ -563,11 +567,12 @@ func TestImageService_Unit_ImportImage(t *testing.T) {
 	t.Run("ImportImage_WrongMagicBytes", func(t *testing.T) {
 		// JPEG magic bytes for a .qcow2 URL — format mismatch
 		jpegMagic := []byte{0xff, 0xd8, 0xff, 0xe0}
-		testData := append(jpegMagic, bytes.Repeat([]byte("x"), 1024*1024-len(jpegMagic))...)
+		payload := make([]byte, 1024*1024)
+		copy(payload, jpegMagic)
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/octet-stream")
 			w.WriteHeader(http.StatusOK)
-			w.Write(testData)
+			w.Write(payload)
 		}))
 		defer server.Close()
 
