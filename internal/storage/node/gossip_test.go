@@ -8,6 +8,8 @@ import (
 
 	pb "github.com/poyrazk/thecloud/internal/storage/protocol"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -122,5 +124,127 @@ func TestGossipProtocolDetectFailures(t *testing.T) {
 
 	g.mu.RLock()
 	assert.Equal(t, "dead", g.members["node2"].Status)
+	assert.False(t, g.members["node2"].DeadAt.IsZero(), "DeadAt should be set on transition")
 	g.mu.RUnlock()
+}
+
+// fakeConn lets us seed g.peers without a real gRPC server, just to verify the
+// connection is closed when the peer transitions to dead.
+func newFakeGRPCConn(t *testing.T) *grpc.ClientConn {
+	t.Helper()
+	conn, err := grpc.NewClient("passthrough:///fake", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("grpc.NewClient: %v", err)
+	}
+	return conn
+}
+
+func TestGossipProtocolDetectFailuresClosesPeerConnOnDead(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	g := NewGossipProtocol("node1", testNode1Addr, logger)
+
+	conn := newFakeGRPCConn(t)
+	g.members["node2"] = &MemberState{
+		Address:  testNode2Addr,
+		Status:   "suspect",
+		LastSeen: time.Now().Add(-20 * time.Second),
+	}
+	g.peers["node2"] = &peerClient{conn: conn, client: pb.NewStorageNodeClient(conn)}
+
+	g.detectFailures()
+
+	g.mu.RLock()
+	_, peerStillThere := g.peers["node2"]
+	g.mu.RUnlock()
+	assert.False(t, peerStillThere, "peer connection should be removed when node is flagged dead")
+	assert.Equal(t, "SHUTDOWN", conn.GetState().String(), "underlying gRPC conn should be closed")
+}
+
+func TestGossipProtocolDetectFailuresPurgesDeadMembers(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	g := NewGossipProtocol("node1", testNode1Addr, logger)
+
+	g.members["node2"] = &MemberState{
+		Address:  testNode2Addr,
+		Status:   "dead",
+		LastSeen: time.Now().Add(-2 * time.Hour),
+		DeadAt:   time.Now().Add(-2 * deadPurgeAfter),
+	}
+
+	g.detectFailures()
+
+	g.mu.RLock()
+	_, exists := g.members["node2"]
+	g.mu.RUnlock()
+	assert.False(t, exists, "dead member should be purged after grace period")
+}
+
+func TestGossipProtocolStopClosesAllPeers(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	g := NewGossipProtocol("node1", testNode1Addr, logger)
+
+	conn1 := newFakeGRPCConn(t)
+	conn2 := newFakeGRPCConn(t)
+	g.peers["node2"] = &peerClient{conn: conn1, client: pb.NewStorageNodeClient(conn1)}
+	g.peers["node3"] = &peerClient{conn: conn2, client: pb.NewStorageNodeClient(conn2)}
+
+	g.Stop()
+
+	assert.Empty(t, g.peers, "peers map should be cleared on Stop")
+	assert.Empty(t, g.members, "members map should be cleared on Stop")
+	assert.Equal(t, "SHUTDOWN", conn1.GetState().String())
+	assert.Equal(t, "SHUTDOWN", conn2.GetState().String())
+}
+
+func TestGossipProtocolStopIsIdempotent(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	g := NewGossipProtocol("node1", testNode1Addr, logger)
+
+	g.Stop()
+	// Second call must not panic on close-of-closed-channel.
+	g.Stop()
+}
+
+func TestGossipProtocolOnGossipIgnoresDeadResurrection(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	g := NewGossipProtocol("node1", testNode1Addr, logger)
+
+	// Locally we already consider node2 dead.
+	g.members["node2"] = &MemberState{
+		Address:   testNode2Addr,
+		Status:    "dead",
+		LastSeen:  time.Now().Add(-1 * time.Hour),
+		Heartbeat: 5,
+		DeadAt:    time.Now(),
+	}
+
+	// A peer reports node2 as alive with a higher heartbeat.
+	msg := &pb.GossipMessage{
+		Members: map[string]*pb.MemberState{
+			"node2": {Addr: testNode2Addr, Status: "alive", Heartbeat: 99},
+		},
+	}
+	g.OnGossip(msg)
+
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	assert.Equal(t, "dead", g.members["node2"].Status, "dead status should be sticky locally")
+	assert.Equal(t, uint64(5), g.members["node2"].Heartbeat)
+}
+
+func TestGossipProtocolOnGossipDoesNotDiscoverDeadNode(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	g := NewGossipProtocol("node1", testNode1Addr, logger)
+
+	msg := &pb.GossipMessage{
+		Members: map[string]*pb.MemberState{
+			"node2": {Addr: testNode2Addr, Status: "dead", Heartbeat: 1},
+		},
+	}
+	g.OnGossip(msg)
+
+	g.mu.RLock()
+	_, exists := g.members["node2"]
+	g.mu.RUnlock()
+	assert.False(t, exists, "should not add a member that is reported dead")
 }
