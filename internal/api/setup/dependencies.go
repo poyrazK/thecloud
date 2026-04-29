@@ -182,6 +182,9 @@ type Services struct {
 
 // Shutdown cleanly stops all services.
 func (s *Services) Shutdown() {
+	if s == nil || s.WsHub == nil {
+		return
+	}
 	s.WsHub.Stop()
 }
 

@@ -59,7 +59,6 @@ type AppDeps struct {
 	StartHTTPServer    func(*http.Server) error
 	ShutdownHTTPServer func(context.Context, *http.Server) error
 	NotifySignals      func(chan<- os.Signal, ...os.Signal)
-	Shutdown           func()
 }
 
 // DefaultDeps returns the production dependency wiring for the API server.
