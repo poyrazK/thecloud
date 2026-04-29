@@ -180,6 +180,11 @@ type Services struct {
 	NATGateway    *services.NATGatewayService
 }
 
+// Shutdown cleanly stops all services.
+func (s *Services) Shutdown() {
+	s.WsHub.Stop()
+}
+
 // Runner is the interface that all background workers implement.
 type Runner interface {
 	Run(context.Context, *sync.WaitGroup)

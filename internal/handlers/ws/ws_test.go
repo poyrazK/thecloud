@@ -2,6 +2,7 @@ package ws
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -144,4 +145,19 @@ func TestWebSocketAuthFailure(t *testing.T) {
 			_ = resp.Body.Close()
 		}
 	})
+}
+
+func TestHubShutdown(t *testing.T) {
+	t.Parallel()
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	hub := NewHub(logger)
+	go hub.Run()
+
+	hub.Stop()
+
+	select {
+	case <-hub.Stopped():
+	case <-time.After(time.Second):
+		t.Fatal("hub.Run() did not exit within 1s after Stop()")
+	}
 }

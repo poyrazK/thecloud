@@ -18,6 +18,8 @@ type Hub struct {
 	broadcast  chan []byte
 	register   chan *Client
 	unregister chan *Client
+	stopCh     chan struct{}
+	stoppedCh  chan struct{}
 	mu         sync.RWMutex
 	logger     *slog.Logger
 }
@@ -29,14 +31,19 @@ func NewHub(logger *slog.Logger) *Hub {
 		broadcast:  make(chan []byte, 256),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
+		stopCh:     make(chan struct{}),
+		stoppedCh:  make(chan struct{}),
 		logger:     logger,
 	}
 }
 
 // Run starts the hub's main loop.
 func (h *Hub) Run() {
+	defer close(h.stoppedCh)
 	for {
 		select {
+		case <-h.stopCh:
+			return
 		case client := <-h.register:
 			h.mu.Lock()
 			h.clients[client] = true
@@ -67,6 +74,16 @@ func (h *Hub) Run() {
 			h.mu.RUnlock()
 		}
 	}
+}
+
+// Stop signals the hub to shut down. Safe to call once.
+func (h *Hub) Stop() {
+	close(h.stopCh)
+}
+
+// Stopped returns a channel that is closed when Run() has exited.
+func (h *Hub) Stopped() <-chan struct{} {
+	return h.stoppedCh
 }
 
 // BroadcastEvent sends a WSEvent to all connected clients.
