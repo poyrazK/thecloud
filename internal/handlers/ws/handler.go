@@ -21,17 +21,33 @@ type Handler struct {
 	hub            *Hub
 	identitySvc    ports.IdentityService
 	logger         *slog.Logger
-	allowedOrigins string
+	allowedOrigins []string
 }
 
 // NewHandler creates a new WebSocket handler.
+//
+// allowedOrigins is the explicit allowlist of origins permitted to open a
+// WebSocket connection. The list is required: an empty configuration is
+// treated as "deny all". This is a fail-closed default — see #249. Operators
+// who really want to allow everything must opt in explicitly by passing "*"
+// (which is itself only safe for non-credential-bearing endpoints).
 func NewHandler(hub *Hub, identitySvc ports.IdentityService, logger *slog.Logger, allowedOrigins ...string) *Handler {
-	origins := strings.Join(allowedOrigins, ",")
+	cleaned := make([]string, 0, len(allowedOrigins))
+	for _, raw := range allowedOrigins {
+		for _, o := range strings.Split(raw, ",") {
+			if trimmed := strings.TrimSpace(o); trimmed != "" {
+				cleaned = append(cleaned, trimmed)
+			}
+		}
+	}
+	if len(cleaned) == 0 && logger != nil {
+		logger.Warn("websocket handler started with empty allowed-origins list; all cross-origin upgrades will be rejected")
+	}
 	return &Handler{
 		hub:            hub,
 		identitySvc:    identitySvc,
 		logger:         logger,
-		allowedOrigins: origins,
+		allowedOrigins: cleaned,
 	}
 }
 
@@ -93,25 +109,58 @@ func (h *Handler) upgrader() *websocket.Upgrader {
 	return &websocket.Upgrader{
 		ReadBufferSize:  websocketReadBufferSize,
 		WriteBufferSize: websocketWriteBufferSize,
-		CheckOrigin: func(r *http.Request) bool {
-			origin := r.Header.Get("Origin")
-			// Browser clients always send Origin header for WebSocket handshakes.
-			// If no origins are configured, allow all (backward compatible).
-			// If origins are configured, only allow matching origins.
-			if h.allowedOrigins == "" {
-				return true
-			}
-			if origin == "" {
-				// Reject requests with no origin when allowlist is enforced
-				return false
-			}
-			allowed := strings.Split(h.allowedOrigins, ",")
-			for _, o := range allowed {
-				if strings.TrimSpace(o) == origin {
-					return true
-				}
-			}
-			return false
-		},
+		CheckOrigin:     h.checkOrigin,
 	}
+}
+
+// checkOrigin enforces the configured allowlist. Defaults are fail-closed:
+//
+//   - No allowlist configured → reject everything.
+//   - Wildcard "*" entry → allow any origin, including non-browser clients
+//     that don't send Origin at all. Intended for development and for
+//     non-credentialed dev endpoints; logged as a warning at handler
+//     construction.
+//   - Empty Origin header with a non-wildcard allowlist → reject. Browsers
+//     always send Origin for cross-origin WebSocket upgrades; the only
+//     requests without one are non-browser clients which should opt into
+//     "*" explicitly rather than getting in for free.
+//   - Otherwise → byte-exact match against the allowlist, so attackers
+//     cannot bypass via subdomain or port confusion.
+func (h *Handler) checkOrigin(r *http.Request) bool {
+	if len(h.allowedOrigins) == 0 {
+		if h.logger != nil {
+			h.logger.Warn("rejecting websocket upgrade: no allowed origins configured",
+				slog.String("remote", r.RemoteAddr))
+		}
+		return false
+	}
+
+	// Wildcard short-circuit. If "*" is in the allowlist the operator has
+	// explicitly opted into permissive mode, so we accept even Origin-less
+	// non-browser clients (CLI tools, server-to-server tests).
+	for _, allowed := range h.allowedOrigins {
+		if allowed == "*" {
+			return true
+		}
+	}
+
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		if h.logger != nil {
+			h.logger.Debug("rejecting websocket upgrade: missing Origin header",
+				slog.String("remote", r.RemoteAddr))
+		}
+		return false
+	}
+	for _, allowed := range h.allowedOrigins {
+		if allowed == origin {
+			return true
+		}
+	}
+	if h.logger != nil {
+		h.logger.Debug("rejecting websocket upgrade: origin not in allowlist",
+			slog.String("origin", origin),
+			slog.String("remote", r.RemoteAddr))
+	}
+	return false
 }
