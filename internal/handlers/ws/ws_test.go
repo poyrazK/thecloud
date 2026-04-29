@@ -2,6 +2,7 @@ package ws
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -72,7 +73,9 @@ func TestWebSocketLifecycle(t *testing.T) {
 	go hub.Run()
 
 	mockID := new(mockIdentityService)
-	handler := NewHandler(hub, mockID, logger)
+	// Use "*" so the existing dialer test (which doesn't set Origin) is
+	// unaffected by the fail-closed default introduced for #249.
+	handler := NewHandler(hub, mockID, logger, "*")
 
 	r := gin.New()
 	r.GET("/ws", handler.ServeWS)
@@ -112,7 +115,7 @@ func TestWebSocketAuthFailure(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	hub := NewHub(logger)
 	mockID := new(mockIdentityService)
-	handler := NewHandler(hub, mockID, logger)
+	handler := NewHandler(hub, mockID, logger, "*")
 
 	r := gin.New()
 	r.GET("/ws", handler.ServeWS)
@@ -142,4 +145,19 @@ func TestWebSocketAuthFailure(t *testing.T) {
 			_ = resp.Body.Close()
 		}
 	})
+}
+
+func TestHubShutdown(t *testing.T) {
+	t.Parallel()
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	hub := NewHub(logger)
+	go hub.Run()
+
+	hub.Stop()
+
+	select {
+	case <-hub.Stopped():
+	case <-time.After(time.Second):
+		t.Fatal("hub.Run() did not exit within 1s after Stop()")
+	}
 }

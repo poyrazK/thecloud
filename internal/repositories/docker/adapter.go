@@ -164,6 +164,21 @@ func dockerResizeShouldRetry(err error) bool {
 	return false
 }
 
+// CreateSnapshot is a no-op for Docker since Docker resize is hot (no restart required).
+func (a *DockerAdapter) CreateSnapshot(ctx context.Context, id, name string) error {
+	return nil
+}
+
+// RestoreSnapshot is a no-op for Docker since Docker resize is hot (no restart required).
+func (a *DockerAdapter) RestoreSnapshot(ctx context.Context, id, name string) error {
+	return nil
+}
+
+// DeleteSnapshot is a no-op for Docker since Docker resize is hot (no restart required).
+func (a *DockerAdapter) DeleteSnapshot(ctx context.Context, id, name string) error {
+	return nil
+}
+
 func (a *DockerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
 	ctx, span := otel.Tracer(tracerName).Start(ctx, "CreateInstance")
 	defer span.End()
@@ -551,10 +566,11 @@ func (a *DockerAdapter) CreateVolumeSnapshot(ctx context.Context, volumeID strin
 	// volumeID is the docker volume name
 	// destinationPath is on the host
 
-	// Check for path traversal in destinationPath
-	if strings.Contains(destinationPath, "..") {
-		return fmt.Errorf("invalid destination path: traversal detected")
+	cleanedDest, err := validateSnapshotPath(destinationPath)
+	if err != nil {
+		return fmt.Errorf("invalid destination path: %w", err)
 	}
+	destinationPath = cleanedDest
 
 	// Ensure parent dir of destinationPath exists
 	// We assume destinationPath is accessible to the docker daemon (bind mount)
@@ -617,10 +633,11 @@ func (a *DockerAdapter) RestoreVolumeSnapshot(ctx context.Context, volumeID stri
 	// volumeID is the docker volume name
 	// sourcePath is the .tar.gz on host
 
-	// Check for path traversal in sourcePath
-	if strings.Contains(sourcePath, "..") {
-		return fmt.Errorf("invalid source path: traversal detected")
+	cleanedSource, err := validateSnapshotPath(sourcePath)
+	if err != nil {
+		return fmt.Errorf("invalid source path: %w", err)
 	}
+	sourcePath = cleanedSource
 
 	imageName := "alpine"
 	if _, err := a.cli.ImagePull(ctx, imageName, image.PullOptions{}); err != nil {

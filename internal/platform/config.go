@@ -27,6 +27,10 @@ type Config struct {
 	StorageBackend       string
 	// StorageSecret is the secret key used for signing presigned URLs
 	StorageSecret        string
+	// WSAllowedOrigins is a comma-separated allowlist of Origin headers
+	// permitted to open a WebSocket connection. Empty means deny all
+	// cross-origin upgrades. See #249.
+	WSAllowedOrigins     string
 	LvmVgName            string
 	ObjectStorageMode    string
 	ObjectStorageNodes   string
@@ -66,6 +70,7 @@ func NewConfig() (*Config, error) {
 		RateLimitAuth:        getEnv("RATE_LIMIT_AUTH", "10"),
 		StorageBackend:       getEnv("STORAGE_BACKEND", "noop"),
 		StorageSecret:        getEnv("STORAGE_SECRET", "storage-secret-key"),
+		WSAllowedOrigins:     os.Getenv("WS_ALLOWED_ORIGINS"),
 		LvmVgName:            getEnv("LVM_VG_NAME", "thecloud-vg"),
 		ObjectStorageMode:    getEnv("OBJECT_STORAGE_MODE", "local"),
 

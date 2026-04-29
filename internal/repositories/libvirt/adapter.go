@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	stdlib_errors "errors"
 	"fmt"
 	"io"
@@ -25,6 +26,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
+
 
 const (
 	defaultPoolName   = "default"
@@ -219,28 +221,34 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 		return fmt.Errorf("failed to get domain XML: %w", err)
 	}
 
+	// Create pre-resize snapshot for rollback in case of failure
+	snapshotName := fmt.Sprintf("pre-resize-%s", uuid.New().String()[:8])
+	if err := a.CreateSnapshot(ctx, id, snapshotName); err != nil {
+		a.logger.Warn("failed to create pre-resize snapshot, proceeding without safety net", "domain", id, "error", err)
+	}
+
 	// Modify memory (in KiB) and vCPU in the XML
 	newDOMXML, err := a.applyDomainResize(domXML, int(memory/1024), int(cpu/1e9))
 	if err != nil {
+		if rbErr := a.rollbackFromSnapshot(ctx, id, snapshotName, domXML); rbErr != nil {
+			return fmt.Errorf("failed to modify domain XML (instance_id=%s): %w", id, errors.Join(err, rbErr))
+		}
 		return fmt.Errorf("failed to modify domain XML: %w", err)
 	}
 
 	if err := a.client.DomainUndefine(ctx, dom); err != nil {
+		if rbErr := a.rollbackFromSnapshot(ctx, id, snapshotName, domXML); rbErr != nil {
+			return fmt.Errorf("failed to undefine domain (instance_id=%s): %w", id, errors.Join(err, rbErr))
+		}
 		return fmt.Errorf("failed to undefine domain: %w", err)
 	}
 
 	newDom, err := a.client.DomainDefineXML(ctx, newDOMXML)
 	if err != nil {
-		// Rollback: redefine the original domain to prevent permanent loss.
-		// If wasRunning, also restart it to restore the original state.
-		_, rollbackErr := a.client.DomainDefineXML(ctx, domXML)
+		// Rollback: restore volume and redefine original domain
+		rollbackErr := a.rollbackFromSnapshot(ctx, id, snapshotName, domXML)
 		if rollbackErr != nil {
-			return fmt.Errorf("failed to redefine domain with new resources (instance_id=%s), rollback also failed: original error: %w; rollback error: %w", id, err, rollbackErr)
-		}
-		if wasRunning {
-			if restartErr := a.client.DomainCreate(ctx, dom); restartErr != nil {
-				return fmt.Errorf("failed to redefine and restart domain after resize failure (instance_id=%s): redefine succeeded but restart failed: %w", id, restartErr)
-			}
+			return fmt.Errorf("failed to redefine domain with new resources (instance_id=%s, target=%s): %w", id, newDOMXML, errors.Join(err, rollbackErr))
 		}
 		return fmt.Errorf("failed to redefine domain with new resources: %w", err)
 	}
@@ -261,6 +269,11 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 			}
 			return fmt.Errorf("failed to start domain after resize: %w", err)
 		}
+	}
+
+	// Resize succeeded — clean up the pre-resize snapshot
+	if err := a.DeleteSnapshot(ctx, id, snapshotName); err != nil {
+		a.logger.Warn("failed to delete pre-resize snapshot", "domain", id, "snapshot", snapshotName, "error", err)
 	}
 
 	a.logger.Info("domain resized", "domain", id, "vcpus", cpu/1e9, "memory_kib", memory/1024)
@@ -842,6 +855,69 @@ func (a *LibvirtAdapter) DeleteVolume(ctx context.Context, name string) error {
 	if err := a.client.StorageVolDelete(ctx, vol, 0); err != nil {
 		return fmt.Errorf("failed to delete volume: %w", err)
 	}
+	return nil
+}
+
+// snapshotPath returns the path to the snapshot archive for the given instance and snapshot name.
+func snapshotPath(id, name string) string {
+	return fmt.Sprintf("/tmp/snapshot-%s-%s.tar.gz", id, name)
+}
+
+// CreateSnapshot creates a point-in-time snapshot of the instance's root disk.
+// The snapshot is stored at a temp path derived from the snapshot name.
+func (a *LibvirtAdapter) CreateSnapshot(ctx context.Context, id, name string) error {
+	dom, err := a.client.DomainLookupByName(ctx, id)
+	if err != nil {
+		return fmt.Errorf(errDomainNotFound, err)
+	}
+	_ = dom // verified existence
+
+	volName := id + "-root"
+	snapshotPath := snapshotPath(id, name)
+
+	return a.CreateVolumeSnapshot(ctx, volName, snapshotPath)
+}
+
+// RestoreSnapshot restores the instance's root disk from a previously created snapshot.
+func (a *LibvirtAdapter) RestoreSnapshot(ctx context.Context, id, name string) error {
+	dom, err := a.client.DomainLookupByName(ctx, id)
+	if err != nil {
+		return fmt.Errorf(errDomainNotFound, err)
+	}
+	_ = dom // verified existence
+
+	volName := id + "-root"
+	snapshotPath := snapshotPath(id, name)
+
+	return a.RestoreVolumeSnapshot(ctx, volName, snapshotPath)
+}
+
+// DeleteSnapshot deletes a previously created snapshot archive.
+func (a *LibvirtAdapter) DeleteSnapshot(ctx context.Context, id, name string) error {
+	dom, err := a.client.DomainLookupByName(ctx, id)
+	if err != nil {
+		return fmt.Errorf(errDomainNotFound, err)
+	}
+	_ = dom // verified existence
+
+	snapshotPath := snapshotPath(id, name)
+	if err := os.Remove(snapshotPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to delete snapshot: %w", err)
+	}
+	return nil
+}
+
+// rollbackFromSnapshot restores the root volume from a snapshot and redefines the domain
+// with the original XML. This is used when a resize operation fails after DomainUndefine.
+func (a *LibvirtAdapter) rollbackFromSnapshot(ctx context.Context, id, snapshotName, originalXML string) error {
+	if err := a.RestoreSnapshot(ctx, id, snapshotName); err != nil {
+		return fmt.Errorf("failed to restore snapshot volume: %w", err)
+	}
+	// Redefine the domain so it can boot from the restored volume
+	if _, err := a.client.DomainDefineXML(ctx, originalXML); err != nil {
+		return fmt.Errorf("failed to redefine domain after snapshot restore: %w", err)
+	}
+	a.logger.Info("rollback from snapshot complete", "domain", id, "snapshot", snapshotName)
 	return nil
 }
 

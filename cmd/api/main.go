@@ -59,6 +59,7 @@ type AppDeps struct {
 	StartHTTPServer    func(*http.Server) error
 	ShutdownHTTPServer func(context.Context, *http.Server) error
 	NotifySignals      func(chan<- os.Signal, ...os.Signal)
+	Shutdown           func()
 }
 
 // DefaultDeps returns the production dependency wiring for the API server.
@@ -166,10 +167,10 @@ func run() error {
 		r.Use(otelgin.Middleware("compute-api"))
 	}
 
-	return runApplication(deps, cfg, logger, r, workers)
+	return runApplication(deps, cfg, logger, r, svcs, workers)
 }
 
-func runApplication(deps AppDeps, cfg *platform.Config, logger *slog.Logger, r *gin.Engine, workers *setup.Workers) error {
+func runApplication(deps AppDeps, cfg *platform.Config, logger *slog.Logger, r *gin.Engine, svcs *setup.Services, workers *setup.Workers) error {
 	role := os.Getenv("ROLE")
 	if role == "" {
 		role = "all"
@@ -219,6 +220,9 @@ func runApplication(deps AppDeps, cfg *platform.Config, logger *slog.Logger, r *
 
 	workerCancel()
 	wg.Wait()
+	if svcs != nil {
+		svcs.Shutdown()
+	}
 	logger.Info("shutdown complete")
 	return nil
 }

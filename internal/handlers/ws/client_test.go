@@ -25,7 +25,9 @@ func TestClientBatching(t *testing.T) {
 	go hub.Run()
 
 	mockID := new(mockIdentityService)
-	handler := NewHandler(hub, mockID, logger)
+	// Pass "*" so the gorilla websocket Dialer (which doesn't set Origin)
+	// is accepted by the fail-closed allowlist introduced for #249.
+	handler := NewHandler(hub, mockID, logger, "*")
 
 	r := gin.New()
 	r.GET("/ws", handler.ServeWS)
@@ -69,7 +71,9 @@ func TestClientPingPong(t *testing.T) {
 	go hub.Run()
 
 	mockID := new(mockIdentityService)
-	handler := NewHandler(hub, mockID, logger)
+	// Pass "*" so the gorilla websocket Dialer (which doesn't set Origin)
+	// is accepted by the fail-closed allowlist introduced for #249.
+	handler := NewHandler(hub, mockID, logger, "*")
 
 	r := gin.New()
 	r.GET("/ws", handler.ServeWS)

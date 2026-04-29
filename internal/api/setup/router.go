@@ -125,7 +125,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		RouteTable:    httphandlers.NewRouteTableHandler(svcs.RouteTable),
 		InternetGateway: httphandlers.NewInternetGatewayHandler(svcs.InternetGateway),
 		NATGateway:    httphandlers.NewNATGatewayHandler(svcs.NATGateway),
-		Ws:            ws.NewHandler(svcs.WsHub, svcs.Identity, logger),
+		Ws:            ws.NewHandler(svcs.WsHub, svcs.Identity, logger, cfg.WSAllowedOrigins),
 	}
 }
 

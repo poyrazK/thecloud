@@ -77,8 +77,13 @@ func (m *mockInstanceService) UpdateInstanceMetadata(ctx context.Context, id uui
 	args := m.Called(ctx, id, metadata, labels)
 	return args.Error(0)
 }
-func (m *mockInstanceService) ResizeInstance(ctx context.Context, idOrName, newInstanceType string) error {
-	return m.Called(ctx, idOrName, newInstanceType).Error(0)
+func (m *mockInstanceService) ResizeInstance(ctx context.Context, idOrName, newInstanceType string) (*domain.Instance, error) {
+	args := m.Called(ctx, idOrName, newInstanceType)
+	var r0 *domain.Instance
+	if args.Get(0) != nil {
+		r0, _ = args.Get(0).(*domain.Instance)
+	}
+	return r0, args.Error(1)
 }
 
 type mockClusterRepo struct{ mock.Mock }

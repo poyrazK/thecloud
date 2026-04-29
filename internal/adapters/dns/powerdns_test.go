@@ -19,6 +19,20 @@ const (
 	testPDNSZone = "example.com."
 )
 
+func TestPowerDNSCreateZoneEmptyNameservers(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	backend, err := NewPowerDNSBackend("http://localhost", testPDNSKey, "localhost", logger)
+	require.NoError(t, err)
+
+	err = backend.CreateZone(context.Background(), testPDNSZone, []string{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nameservers must not be empty")
+
+	err = backend.CreateZone(context.Background(), testPDNSZone, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nameservers must not be empty")
+}
+
 func TestPowerDNSCreateZone(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, testPDNSKey, r.Header.Get("X-API-Key"))
