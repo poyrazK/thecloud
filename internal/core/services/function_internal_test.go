@@ -71,13 +71,43 @@ func TestFunctionService_InternalExtract(t *testing.T) {
 		buf := new(bytes.Buffer)
 		zw := zip.NewWriter(buf)
 		// Zip file with relative path attempting traversal
-		_, _ = zw.Create("../traversal.txt")
-		_ = zw.Close()
+		_, err := zw.Create("../traversal.txt")
+		require.NoError(t, err)
+		require.NoError(t, zw.Close())
 
-		err := s.extractZip(bytes.NewReader(buf.Bytes()), tmpDir)
+		err = s.extractZip(bytes.NewReader(buf.Bytes()), tmpDir)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid file path")
 	})
+
+	// Regression for #237: simple HasPrefix checks miss several traversal
+	// payload classes — absolute paths, real `..` segments, mixed separators
+	// (Windows-authored archives), and NUL bytes. Notably we do NOT include
+	// `..././../etc/passwd` here: filepath.Clean reduces it to `etc/passwd`,
+	// a perfectly local relative path that is meant to extract as
+	// `<tmpDir>/etc/passwd` rather than escape. The hardening targets real
+	// escape attempts, not benign canonicalization.
+	traversalPayloads := []string{
+		"foo/../../bar.txt",
+		"./../etc/passwd",
+		"/abs/etc/passwd",      // absolute path
+		"..\\windows\\sys.ini", // backslash separator
+		"a\x00b.txt",           // NUL byte
+	}
+	for _, name := range traversalPayloads {
+		name := name
+		t.Run("extractZip rejects "+name, func(t *testing.T) {
+			buf := new(bytes.Buffer)
+			zw := zip.NewWriter(buf)
+			_, err := zw.Create(name)
+			require.NoError(t, err)
+			require.NoError(t, zw.Close())
+
+			err = s.extractZip(bytes.NewReader(buf.Bytes()), tmpDir)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "invalid file path")
+		})
+	}
 }
 
 func TestFunctionService_BuildTaskOptions(t *testing.T) {
