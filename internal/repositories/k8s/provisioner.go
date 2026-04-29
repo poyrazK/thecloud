@@ -375,11 +375,13 @@ func (p *KubeadmProvisioner) waitForKubeconfig(ctx context.Context, cluster *dom
 			return out, nil
 		}
 
+		timer := time.NewTimer(10 * time.Second)
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return "", ctx.Err()
-		case <-time.After(10 * time.Second):
-			continue
+		case <-timer.C:
+			timer.Stop()
 		}
 	}
 	return "", fmt.Errorf("timed out waiting for kubeconfig")
