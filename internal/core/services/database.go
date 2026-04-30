@@ -17,7 +17,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/pkg/util"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
+
+const tracerNameDatabase = "database-service"
 
 const (
 	// Default ports for database engines
@@ -116,9 +121,19 @@ func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 }
 
 func (s *DatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDatabaseRequest) (*domain.Database, error) {
+	tracer := otel.Tracer(tracerNameDatabase)
+	_, span := tracer.Start(ctx, "DatabaseService.CreateDatabase",
+		trace.WithAttributes(
+			attribute.String("db.name", req.Name),
+			attribute.String("db.engine", req.Engine),
+			attribute.String("db.version", req.Version),
+		))
+	defer span.End()
+
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBCreate, "*"); err != nil {
+		span.RecordError(err)
 		return nil, err
 	}
 	dbEngine := domain.DatabaseEngine(req.Engine)
@@ -192,9 +207,19 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 }
 
 func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.RestoreDatabaseRequest) (*domain.Database, error) {
+	tracer := otel.Tracer(tracerNameDatabase)
+	_, span := tracer.Start(ctx, "DatabaseService.RestoreDatabase",
+		trace.WithAttributes(
+			attribute.String("db.new_name", req.NewName),
+			attribute.String("db.engine", req.Engine),
+			attribute.String("db.snapshot_id", req.SnapshotID.String()),
+		))
+	defer span.End()
+
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBCreate, "*"); err != nil {
+		span.RecordError(err)
 		return nil, err
 	}
 	snap, err := s.snapshotSvc.GetSnapshot(ctx, req.SnapshotID)
@@ -810,6 +835,13 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, i
 
 // doRotateCredentials performs the actual credential rotation
 func (s *DatabaseService) doRotateCredentials(ctx context.Context, id uuid.UUID, _ string) error {
+	tracer := otel.Tracer(tracerNameDatabase)
+	_, span := tracer.Start(ctx, "DatabaseService.doRotateCredentials",
+		trace.WithAttributes(
+			attribute.String("db.id", id.String()),
+		))
+	defer span.End()
+
 	db, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err

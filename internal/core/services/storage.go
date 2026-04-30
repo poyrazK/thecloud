@@ -22,7 +22,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/pkg/crypto"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
+
+const tracerNameStorage = "storage-service"
 
 const (
 	errMultipartNotFound = "multipart upload not found"
@@ -83,10 +88,19 @@ func NewStorageService(params StorageServiceParams) *StorageService {
 }
 
 func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r io.Reader, providedChecksum string) (*domain.Object, error) {
+	tracer := otel.Tracer(tracerNameStorage)
+	_, span := tracer.Start(ctx, "StorageService.Upload",
+		trace.WithAttributes(
+			attribute.String("storage.bucket", bucketName),
+			attribute.String("storage.key", key),
+		))
+	defer span.End()
+
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageWrite, "*"); err != nil {
+		span.RecordError(err)
 		return nil, err
 	}
 
@@ -203,10 +217,19 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 }
 
 func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.ReadCloser, *domain.Object, error) {
+	tracer := otel.Tracer(tracerNameStorage)
+	_, span := tracer.Start(ctx, "StorageService.Download",
+		trace.WithAttributes(
+			attribute.String("storage.bucket", bucket),
+			attribute.String("storage.key", key),
+		))
+	defer span.End()
+
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageRead, bucket); err != nil {
+		span.RecordError(err)
 		return nil, nil, err
 	}
 
@@ -367,10 +390,19 @@ func (s *StorageService) DeleteObject(ctx context.Context, bucket, key string) e
 
 // CreateBucket creates a new storage bucket.
 func (s *StorageService) CreateBucket(ctx context.Context, name string, isPublic bool) (*domain.Bucket, error) {
+	tracer := otel.Tracer(tracerNameStorage)
+	_, span := tracer.Start(ctx, "StorageService.CreateBucket",
+		trace.WithAttributes(
+			attribute.String("storage.bucket", name),
+			attribute.Bool("storage.is_public", isPublic),
+		))
+	defer span.End()
+
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageWrite, "*"); err != nil {
+		span.RecordError(err)
 		return nil, err
 	}
 
@@ -427,10 +459,19 @@ func (s *StorageService) GetBucket(ctx context.Context, name string) (*domain.Bu
 }
 
 func (s *StorageService) DeleteBucket(ctx context.Context, name string, force bool) error {
+	tracer := otel.Tracer(tracerNameStorage)
+	_, span := tracer.Start(ctx, "StorageService.DeleteBucket",
+		trace.WithAttributes(
+			attribute.String("storage.bucket", name),
+			attribute.Bool("storage.force", force),
+		))
+	defer span.End()
+
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionStorageDelete, name); err != nil {
+		span.RecordError(err)
 		return err
 	}
 
