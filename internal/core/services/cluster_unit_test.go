@@ -514,6 +514,7 @@ func TestClusterService_Unit(t *testing.T) {
 			Status:  domain.ClusterStatusRunning,
 		}
 		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
+		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
 		mockProv.On("Repair", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			select {
 			case called <- struct{}{}:

@@ -15,8 +15,11 @@ Our KaaS solution leverages `kubeadm` for standard, compliant cluster bootstrapp
     *   SSH key management for secure node access.
 *   **Standard Compliance**: Uses upstream Kubernetes (v1.29.0 default).
 *   **High Availability & Self-Healing**:
-    *   **Cluster Reconciliation**: A background `ClusterReconciler` worker periodically audits cluster health.
-    *   **Automatic Repair**: Automatically detects and repairs unhealthy clusters (e.g., API server down or nodes not ready) by re-applying configurations and reconciling the desired node count.
+    *   **Cluster Reconciliation**: A background `ClusterReconciler` worker audits cluster health every 5 minutes.
+    *   **Automatic Repair**: Detects and repairs unhealthy clusters:
+        *   *API server down*: Restarts kubelet on each control plane node sequentially until recovered.
+        *   *Nodes not ready*: Re-applies Calico CNI, restarts kube-proxy daemonset, and restarts kubelet on individual non-ready nodes.
+    *   **Backoff**: Skips clusters repaired within the last 5 minutes or unhealthy for less than 2 minutes (transient tolerance).
 *   **Disaster Recovery**: Integrated Backup and Restore capabilities for cluster state.
 
 ## Architecture
@@ -146,8 +149,11 @@ Use `type: NodePort` or `type: LoadBalancer` to expose services. The Cloud's sec
 *   **High Availability**: Multi-control plane HA (3 masters + API Load Balancer) is supported via the `--ha` flag.
 *   **Autoscaling**: Automatic node group scaling via the integrated Cluster Autoscaler.
 *   **Disaster Recovery**: Manual Backup and Restore capabilities.
+*   **Self-Healing**: Automatic repair of unhealthy clusters (API server down or nodes not ready).
 
 ## Limitations (MVP)
-*   **Automated Backups**: Manual etcd snapshots only.
+*   **Automated Backups**: Manual etcd snapshots only. The backup scheduler is not yet wired up.
 *   **OS Support**: Optimized for Ubuntu 22.04 only.
 *   **Region Support**: Single region control plane.
+*   **Node Upgrades**: Worker node OS/kubelet upgrades are not yet automated; only control plane can be upgraded.
+*   **kubectl apply**: Users cannot apply arbitrary manifests to the cluster via the platform API.

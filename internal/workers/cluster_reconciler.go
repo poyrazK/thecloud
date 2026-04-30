@@ -59,8 +59,25 @@ func (r *ClusterReconciler) reconcile(ctx context.Context) {
 	}
 
 	for _, cluster := range clusters {
-		// Only reconcile active clusters
+		// Only reconcile running clusters
 		if cluster.Status != domain.ClusterStatusRunning {
+			continue
+		}
+
+		// Skip if recently repaired successfully (within 5 minutes)
+		if cluster.LastRepairSucceeded != nil {
+			since := time.Since(*cluster.LastRepairSucceeded)
+			if since < 5*time.Minute {
+				r.logger.Debug("skipping cluster, recently repaired",
+					"cluster_id", cluster.ID, "since", since.Round(time.Second))
+				continue
+			}
+		}
+
+		// Skip if unhealthy for less than 2 minutes (transient tolerance)
+		if cluster.UnhealthySince != nil && time.Since(*cluster.UnhealthySince) < 2*time.Minute {
+			r.logger.Debug("skipping cluster, unhealthy duration under tolerance",
+				"cluster_id", cluster.ID)
 			continue
 		}
 
@@ -71,7 +88,7 @@ func (r *ClusterReconciler) reconcile(ctx context.Context) {
 			continue
 		}
 
-		// Simple reconciliation logic: if API is down or nodes are not ready, attempt a repair
+		// If API is down or nodes are not ready, attempt repair
 		if !health.APIServer || health.NodesReady < health.NodesTotal {
 			r.logger.Warn("cluster unhealthy, initiating repair",
 				"cluster_id", cluster.ID,
@@ -82,9 +99,18 @@ func (r *ClusterReconciler) reconcile(ctx context.Context) {
 
 			if err := r.provisioner.Repair(ctx, cluster); err != nil {
 				r.logger.Error("failed to repair cluster", "cluster_id", cluster.ID, "error", err)
+				// Update health tracking for next cycle's backoff decision
+				cluster.IsHealthy = false
+				cluster.FailureReason = err.Error()
+				if cluster.UnhealthySince == nil {
+					cluster.UnhealthySince = ptrTime(time.Now())
+				}
+				_ = r.repo.Update(ctx, cluster)
 			} else {
-				r.logger.Info("cluster repair initiated successfully", "cluster_id", cluster.ID)
+				r.logger.Info("cluster repair completed successfully", "cluster_id", cluster.ID)
 			}
 		}
 	}
 }
+
+func ptrTime(t time.Time) *time.Time { return &t }

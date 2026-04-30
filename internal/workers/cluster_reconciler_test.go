@@ -5,10 +5,12 @@ import (
 	"io"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -141,5 +143,69 @@ func TestClusterReconcilerReconcile(t *testing.T) {
 
 		prov.AssertNotCalled(t, "GetHealth", mock.Anything, mock.Anything)
 		repo.AssertExpectations(t)
+	})
+
+	t.Run("Skipping Cluster Repaired Within 5 Minutes", func(t *testing.T) {
+		repo := new(MockClusterRepo)
+		prov := new(mockProvisioner)
+		reconciler := NewClusterReconciler(repo, prov, logger)
+
+		now := time.Now()
+		recentCluster := &domain.Cluster{
+			ID:               uuid.New(),
+			Status:           domain.ClusterStatusRunning,
+			LastRepairSucceeded: ptrTime(now.Add(-3 * time.Minute)),
+		}
+		repo.On("ListAll", mock.Anything).Return([]*domain.Cluster{recentCluster}, nil).Once()
+
+		reconciler.reconcile(ctx)
+
+		prov.AssertNotCalled(t, "GetHealth", mock.Anything, mock.Anything)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("Skipping Cluster Unhealthy For Less Than 2 Minutes", func(t *testing.T) {
+		repo := new(MockClusterRepo)
+		prov := new(mockProvisioner)
+		reconciler := NewClusterReconciler(repo, prov, logger)
+
+		now := time.Now()
+		unhealthyCluster := &domain.Cluster{
+			ID:               uuid.New(),
+			Status:           domain.ClusterStatusRunning,
+			UnhealthySince:    ptrTime(now.Add(-1 * time.Minute)),
+		}
+		repo.On("ListAll", mock.Anything).Return([]*domain.Cluster{unhealthyCluster}, nil).Once()
+
+		reconciler.reconcile(ctx)
+
+		prov.AssertNotCalled(t, "GetHealth", mock.Anything, mock.Anything)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("Repair Failed Updates Health State", func(t *testing.T) {
+		repo := new(MockClusterRepo)
+		prov := new(mockProvisioner)
+		reconciler := NewClusterReconciler(repo, prov, logger)
+
+		cluster := &domain.Cluster{
+			ID:     uuid.New(),
+			Status: domain.ClusterStatusRunning,
+		}
+		repo.On("ListAll", mock.Anything).Return([]*domain.Cluster{cluster}, nil).Once()
+		prov.On("GetHealth", mock.Anything, cluster).Return(&ports.ClusterHealth{
+			APIServer:  false,
+			NodesReady: 0,
+			NodesTotal: 3,
+		}, nil).Once()
+		prov.On("Repair", mock.Anything, cluster).Return(assert.AnError).Once()
+		repo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+			return !c.IsHealthy && c.FailureReason != "" && c.UnhealthySince != nil
+		})).Return(nil).Once()
+
+		reconciler.reconcile(ctx)
+
+		repo.AssertExpectations(t)
+		prov.AssertExpectations(t)
 	})
 }

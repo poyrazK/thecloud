@@ -234,6 +234,7 @@ func TestClusterServiceRepairCluster(t *testing.T) {
 	cluster := &domain.Cluster{ID: clusterID, UserID: userID, TenantID: tenantID}
 
 	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
+	repo.On("Update", mock.Anything, mock.Anything).Return(nil)
 	done := make(chan struct{})
 	provisioner.On("Repair", mock.Anything, cluster).Return(nil).Run(func(_ mock.Arguments) { close(done) }).Once()
 
@@ -245,6 +246,22 @@ func TestClusterServiceRepairCluster(t *testing.T) {
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("expected repair to be invoked")
 	}
+}
+
+func TestClusterServiceRepairCluster_ConflictWhenAlreadyRepairing(t *testing.T) {
+	t.Parallel()
+	repo, _, _, _, _, svc := setupClusterServiceTest(t)
+	userID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(appcontext.WithUserID(context.Background(), userID), tenantID)
+	clusterID := uuid.New()
+	cluster := &domain.Cluster{ID: clusterID, UserID: userID, TenantID: tenantID, Status: domain.ClusterStatusRepairing}
+
+	repo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil)
+
+	err := svc.RepairCluster(ctx, clusterID)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already in progress")
 }
 
 func TestClusterServiceScaleCluster(t *testing.T) {
