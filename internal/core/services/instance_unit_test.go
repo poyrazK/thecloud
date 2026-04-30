@@ -1069,6 +1069,7 @@ func testInstanceServicePauseResumeUnit(t *testing.T) {
 				auditSvc.On("Log", mock.Anything, userID, "instance.pause", "instance", instanceID.String(), mock.Anything).Return(nil).Maybe()
 			},
 			assert: func(t *testing.T, err error, inst *domain.Instance) {
+				t.Helper()
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "db error")
 				assert.Equal(t, domain.StatusRunning, inst.Status)
@@ -1092,6 +1093,7 @@ func testInstanceServicePauseResumeUnit(t *testing.T) {
 				auditSvc.On("Log", mock.Anything, userID, "instance.resume", "instance", instanceID.String(), mock.Anything).Return(nil).Once()
 			},
 			assert: func(t *testing.T, err error, inst *domain.Instance) {
+				t.Helper()
 				require.NoError(t, err)
 				assert.Equal(t, domain.StatusRunning, inst.Status)
 			},
@@ -1107,6 +1109,7 @@ func testInstanceServicePauseResumeUnit(t *testing.T) {
 				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
 			},
 			assert: func(t *testing.T, err error, inst *domain.Instance) {
+				t.Helper()
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "must be PAUSED to resume")
 			},
@@ -1126,6 +1129,7 @@ func testInstanceServicePauseResumeUnit(t *testing.T) {
 				auditSvc.On("Log", mock.Anything, userID, "instance.resume", "instance", instanceID.String(), mock.Anything).Return(nil).Maybe()
 			},
 			assert: func(t *testing.T, err error, inst *domain.Instance) {
+				t.Helper()
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "resume failed")
 			},
@@ -1143,6 +1147,7 @@ func testInstanceServicePauseResumeUnit(t *testing.T) {
 				compute.On("Type").Return("docker").Maybe()
 			},
 			assert: func(t *testing.T, err error, inst *domain.Instance) {
+				t.Helper()
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "instance cannot be resumed")
 				assert.True(t, svcerrors.Is(err, svcerrors.Conflict))
@@ -1167,6 +1172,7 @@ func testInstanceServicePauseResumeUnit(t *testing.T) {
 				auditSvc.On("Log", mock.Anything, userID, "instance.resume", "instance", instanceID.String(), mock.Anything).Return(nil).Maybe()
 			},
 			assert: func(t *testing.T, err error, inst *domain.Instance) {
+				t.Helper()
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "db error")
 				assert.Equal(t, domain.StatusPaused, inst.Status)
