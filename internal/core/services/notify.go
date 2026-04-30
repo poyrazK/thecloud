@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"time"
@@ -14,6 +15,8 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
+
+var webhookHTTPClient = &http.Client{Timeout: 15 * time.Second}
 
 // NotifyServiceParams defines the dependencies for NotifyService.
 type NotifyServiceParams struct {
@@ -286,12 +289,28 @@ func (s *NotifyService) deliverToQueue(ctx context.Context, sub *domain.Subscrip
 }
 
 func (s *NotifyService) deliverToWebhook(ctx context.Context, sub *domain.Subscription, body string) {
-	req, _ := http.NewRequestWithContext(ctx, "POST", sub.Endpoint, bytes.NewBufferString(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, sub.Endpoint, bytes.NewBufferString(body))
+	if err != nil {
+		s.logger.Warn("failed to build webhook request", "endpoint", sub.Endpoint, "error", err)
+		return
+	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+
+	resp, err := webhookHTTPClient.Do(req)
 	if err != nil {
 		s.logger.Warn("failed to deliver to webhook", "endpoint", sub.Endpoint, "error", err)
 		return
 	}
-	_ = resp.Body.Close()
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode >= 400 {
+		s.logger.Warn("webhook delivery failed",
+			"endpoint", sub.Endpoint,
+			"subscription_id", sub.ID,
+			"status", resp.StatusCode)
+		return
+	}
 }
