@@ -4014,7 +4014,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httputil.Response"
+                            "$ref": "#/definitions/httphandlers.ResizeInstanceResponse"
                         }
                     },
                     "400": {
@@ -11240,6 +11240,20 @@ const docTemplate = `{
             ],
             "properties": {
                 "instance_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "httphandlers.ResizeInstanceResponse": {
+            "type": "object",
+            "properties": {
+                "instance_type": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
                     "type": "string"
                 }
             }

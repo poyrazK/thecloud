@@ -2338,6 +2338,15 @@ definitions:
     required:
     - instance_type
     type: object
+  httphandlers.ResizeInstanceResponse:
+    properties:
+      instance_type:
+        type: string
+      message:
+        type: string
+      status:
+        type: string
+    type: object
   httphandlers.RestoreBackupRequest:
     properties:
       backup_path:
@@ -5032,7 +5041,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httputil.Response'
+            $ref: '#/definitions/httphandlers.ResizeInstanceResponse'
         "400":
           description: Bad Request
           schema:
