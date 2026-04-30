@@ -31,6 +31,8 @@ func getServerSecret() string {
 		return secret
 	}
 	// Fallback for development - in production this should not be used
+	// Log warning to help diagnose configuration issues
+	slog.Default().Warn("SECRETS_ENCRYPTION_KEY not set, using development secret for API key hashing - configure for production")
 	return "thecloud-development-secret-do-not-use-in-production"
 }
 
