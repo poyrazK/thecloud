@@ -288,7 +288,8 @@ func (s *ClusterService) RepairCluster(ctx context.Context, id uuid.UUID) error 
 	}
 
 	go func() {
-		bgCtx := context.Background()
+		bgCtx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 		bgCtx = appcontext.WithUserID(bgCtx, cluster.UserID)
 		bgCtx = appcontext.WithTenantID(bgCtx, cluster.TenantID)
 		s.logger.Info("starting cluster repair", "cluster_id", cluster.ID)
@@ -331,7 +332,8 @@ func (s *ClusterService) ScaleCluster(ctx context.Context, id uuid.UUID, workers
 	}
 
 	go func() {
-		bgCtx := context.Background()
+		bgCtx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 		bgCtx = appcontext.WithUserID(bgCtx, cluster.UserID)
 		bgCtx = appcontext.WithTenantID(bgCtx, cluster.TenantID)
 		s.logger.Info("starting cluster scale", "cluster_id", cluster.ID, "new_workers", workers)
