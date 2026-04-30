@@ -471,7 +471,155 @@ func (p *KubeadmProvisioner) GetStatus(ctx context.Context, cluster *domain.Clus
 	return cluster.Status, nil
 }
 
-func (p *KubeadmProvisioner) Repair(ctx context.Context, cluster *domain.Cluster) error { return nil }
+func (p *KubeadmProvisioner) Repair(ctx context.Context, cluster *domain.Cluster) error {
+	p.logger.Info("repairing cluster", "cluster_id", cluster.ID)
+
+	// Get current health to determine repair strategy
+	health, err := p.GetHealth(ctx, cluster)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to get cluster health", err)
+	}
+
+	// Set repairing status
+	cluster.Status = domain.ClusterStatusRepairing
+	cluster.LastRepairAttempt = ptrTime(time.Now())
+	cluster.RepairAttempts++
+	if err := p.repo.Update(ctx, cluster); err != nil {
+		return errors.Wrap(errors.Internal, "failed to update cluster status", err)
+	}
+
+	// Run remediation based on what is broken
+	var repairErr error
+	switch {
+	case !health.APIServer:
+		repairErr = p.repairAPIServer(ctx, cluster, health)
+	case health.NodesReady < health.NodesTotal:
+		repairErr = p.repairNodes(ctx, cluster, health)
+	default:
+		p.logger.Info("cluster appears healthy, no repair needed", "cluster_id", cluster.ID)
+	}
+
+	// Update cluster status based on outcome
+	if repairErr != nil {
+		cluster.FailureReason = repairErr.Error()
+		cluster.Status = domain.ClusterStatusFailed
+		cluster.IsHealthy = false
+		p.logger.Error("cluster repair failed", "cluster_id", cluster.ID, "error", repairErr)
+	} else {
+		cluster.Status = domain.ClusterStatusRunning
+		cluster.IsHealthy = true
+		cluster.UnhealthySince = nil
+		cluster.FailureReason = ""
+		cluster.LastRepairSucceeded = ptrTime(time.Now())
+		p.logger.Info("cluster repair succeeded", "cluster_id", cluster.ID)
+	}
+
+	return p.repo.Update(ctx, cluster)
+}
+
+func (p *KubeadmProvisioner) repairAPIServer(ctx context.Context, cluster *domain.Cluster, health *ports.ClusterHealth) error {
+	// Iterate all control plane IPs (HA-aware)
+	for _, cpIP := range cluster.ControlPlaneIPs {
+		exec, err := p.getExecutor(ctx, cluster, cpIP)
+		if err != nil {
+			p.logger.Warn("failed to get executor for control plane node", "node_ip", cpIP, "error", err)
+			continue
+		}
+
+		// Restart kubelet on this node
+		if _, err := exec.Run(ctx, "systemctl restart kubelet"); err != nil {
+			p.logger.Warn("failed to restart kubelet", "node_ip", cpIP, "error", err)
+			continue
+		}
+
+		// Wait for kubelet to stabilize
+		time.Sleep(5 * time.Second)
+
+		// Re-check health
+		health, err := p.GetHealth(ctx, cluster)
+		if err != nil {
+			p.logger.Warn("health check failed after kubelet restart", "node_ip", cpIP, "error", err)
+			continue
+		}
+		if health.APIServer {
+			p.logger.Info("API server recovered after kubelet restart", "node_ip", cpIP)
+			return nil
+		}
+	}
+
+	return errors.New(errors.Internal, "failed to recover API server after attempting all control plane nodes")
+}
+
+func (p *KubeadmProvisioner) repairNodes(ctx context.Context, cluster *domain.Cluster, health *ports.ClusterHealth) error {
+	masterIP := cluster.ControlPlaneIPs[0]
+	exec, err := p.getExecutor(ctx, cluster, masterIP)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to get executor", err)
+	}
+
+	// 1. Re-apply Calico CNI (most common cause of nodes not ready)
+	p.logger.Info("reapplying Calico CNI", "cluster_id", cluster.ID)
+	calicoManifest := "https://raw.githubusercontent.com/projectcalico/calico/v3.25.0/manifests/calico.yaml"
+	if _, err := exec.Run(ctx, fmt.Sprintf("kubectl --kubeconfig %s apply -f %s", adminKubeconfig, calicoManifest)); err != nil {
+		p.logger.Warn("failed to reapply Calico", "error", err)
+	}
+
+	// 2. Restart kube-proxy daemonset
+	p.logger.Info("restarting kube-proxy", "cluster_id", cluster.ID)
+	if _, err := exec.Run(ctx, fmt.Sprintf("kubectl --kubeconfig %s rollout restart daemonset/kube-proxy -n kube-system", adminKubeconfig)); err != nil {
+		p.logger.Warn("failed to restart kube-proxy", "error", err)
+	}
+
+	// 3. Wait and verify
+	time.Sleep(10 * time.Second)
+	health, err = p.GetHealth(ctx, cluster)
+	if err == nil && health.NodesReady >= health.NodesTotal {
+		return nil
+	}
+
+	// 4. If still unhealthy, restart kubelet on individual non-ready nodes
+	out, err := exec.Run(ctx, fmt.Sprintf("kubectl --kubeconfig %s get nodes --no-headers", adminKubeconfig))
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to get node status", err)
+	}
+
+	nodes, err := p.repo.GetNodes(ctx, cluster.ID)
+	if err != nil {
+		return errors.Wrap(errors.Internal, "failed to get cluster nodes", err)
+	}
+
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		if strings.Contains(line, " Ready ") {
+			continue
+		}
+		parts := strings.Fields(line)
+		if len(parts) == 0 {
+			continue
+		}
+		nodeName := parts[0]
+
+		// Find IP for this node
+		for _, node := range nodes {
+			inst, err := p.instSvc.GetInstance(ctx, node.InstanceID.String())
+			if err != nil {
+				continue
+			}
+			if inst.Name == nodeName || strings.Contains(nodeName, inst.ID.String()) {
+				nodeExec, err := p.getExecutor(ctx, cluster, inst.PrivateIP)
+				if err != nil {
+					continue
+				}
+				if _, err := nodeExec.Run(ctx, "systemctl restart kubelet"); err != nil {
+					p.logger.Warn("failed to restart kubelet on node", "node", nodeName, "error", err)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func ptrTime(t time.Time) *time.Time { return &t }
 
 func (p *KubeadmProvisioner) Scale(ctx context.Context, cluster *domain.Cluster) error {
 	return p.provisionWorkers(ctx, cluster)
@@ -519,6 +667,19 @@ func (p *KubeadmProvisioner) GetHealth(ctx context.Context, cluster *domain.Clus
 		}
 		health.Message = fmt.Sprintf("%d/%d nodes are ready", health.NodesReady, health.NodesTotal)
 	}
+
+	// Update cluster health tracking
+	cluster.IsHealthy = health.APIServer && health.NodesReady >= health.NodesTotal
+	if !cluster.IsHealthy {
+		if cluster.UnhealthySince == nil {
+			cluster.UnhealthySince = ptrTime(time.Now())
+		}
+		cluster.FailureReason = health.Message
+	} else {
+		cluster.UnhealthySince = nil
+		cluster.FailureReason = ""
+	}
+	_ = p.repo.Update(ctx, cluster)
 
 	return health, nil
 }

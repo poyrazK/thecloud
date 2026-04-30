@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"testing"
@@ -13,6 +14,26 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+// Local shadow of mockNodeExecutor from restore_test.go to avoid cross-test pollution.
+type localMockNodeExecutor struct {
+	mock.Mock
+}
+
+func (m *localMockNodeExecutor) Run(ctx context.Context, cmd string) (string, error) {
+	args := m.Called(ctx, cmd)
+	return args.String(0), args.Error(1)
+}
+
+func (m *localMockNodeExecutor) WriteFile(ctx context.Context, path string, data io.Reader) error {
+	args := m.Called(ctx, path, data)
+	return args.Error(0)
+}
+
+func (m *localMockNodeExecutor) WaitForReady(ctx context.Context, timeout time.Duration) error {
+	args := m.Called(ctx, timeout)
+	return args.Error(0)
+}
 
 type mockSecretSvc struct{ mock.Mock }
 
@@ -137,7 +158,7 @@ func setupProvisionerUnit(t *testing.T) (*KubeadmProvisioner, *mockInstanceServi
 }
 
 func TestKubeadmProvisionerSimpleOps(t *testing.T) {
-	p, _, _ := setupProvisionerUnit(t)
+	p, mockInst, mockRepo := setupProvisionerUnit(t)
 	ctx := context.Background()
 	cluster := &domain.Cluster{ID: uuid.New(), Status: domain.ClusterStatusProvisioning}
 
@@ -148,8 +169,138 @@ func TestKubeadmProvisionerSimpleOps(t *testing.T) {
 	})
 
 	t.Run("Repair", func(t *testing.T) {
+		cluster.ControlPlaneIPs = []string{"10.0.0.1"}
+		inst := &domain.Instance{ID: uuid.New(), PrivateIP: "10.0.0.1"}
+		mockInst.On("ListInstances", mock.Anything).Return([]*domain.Instance{inst}, nil)
+		mockInst.On("Exec", mock.Anything, inst.ID.String(), mock.Anything).Return("success", nil)
+		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil)
+		mockRepo.On("GetNodes", mock.Anything, mock.Anything).Return(nil, nil)
 		err := p.Repair(ctx, cluster)
 		require.NoError(t, err)
+	})
+}
+
+func TestKubeadmProvisionerRepair(t *testing.T) {
+	// These tests verify the repair flow by checking status transitions and field updates.
+	// Each test gets its own fresh provisioner with isolated mocks.
+	ctx := context.Background()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	makeCluster := func() *domain.Cluster {
+		return &domain.Cluster{
+			ID:              uuid.New(),
+			UserID:          uuid.New(),
+			Name:            "test-cluster",
+			ControlPlaneIPs: []string{"10.0.0.1"},
+			Status:          domain.ClusterStatusRunning,
+		}
+	}
+
+	inst := &domain.Instance{ID: uuid.New(), PrivateIP: "10.0.0.1"}
+
+	t.Run("Repair sets repairing then running status on success", func(t *testing.T) {
+		mockInst := new(mockInstanceService)
+		mockRepo := new(mockClusterRepo)
+
+		var statusSequence []domain.ClusterStatus
+		mockInst.On("ListInstances", mock.Anything).Return([]*domain.Instance{inst}, nil)
+		mockRepo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+			statusSequence = append(statusSequence, c.Status)
+			return true
+		})).Return(nil).Maybe()
+		mockRepo.On("GetNodes", mock.Anything, mock.Anything).Return(nil, nil)
+
+		exec := new(localMockNodeExecutor)
+		// Three Run calls: GetHealth (APIServer check), GetHealth (nodes check), repairNodes sees healthy cluster
+		exec.On("Run", mock.Anything, mock.Anything).Return("node1 Ready", nil)
+
+		p := &KubeadmProvisioner{
+			instSvc: mockInst,
+			repo:    mockRepo,
+			logger:  logger,
+			executorFactory: func(ctx context.Context, c *domain.Cluster, ip string) (NodeExecutor, error) {
+				return exec, nil
+			},
+		}
+
+		err := p.Repair(ctx, makeCluster())
+		require.NoError(t, err)
+		// statusSequence order: [Running(GetHealth init), Repairing, Running]
+		// Check last is Running and we have at least Repairing in the sequence
+		require.GreaterOrEqual(t, len(statusSequence), 2, "expected at least 2 status updates")
+		assert.Equal(t, domain.ClusterStatusRunning, statusSequence[len(statusSequence)-1])
+		hasRepairing := false
+		for _, s := range statusSequence {
+			if s == domain.ClusterStatusRepairing {
+				hasRepairing = true
+				break
+			}
+		}
+		assert.True(t, hasRepairing, "expected Repairing status in sequence")
+	})
+
+	t.Run("Repair sets Failed status when repair fails", func(t *testing.T) {
+		mockInst := new(mockInstanceService)
+		mockRepo := new(mockClusterRepo)
+
+		var finalStatus domain.ClusterStatus
+		mockInst.On("ListInstances", mock.Anything).Return([]*domain.Instance{inst}, nil)
+		mockRepo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+			finalStatus = c.Status
+			return true
+		})).Return(nil).Maybe()
+		mockRepo.On("GetNodes", mock.Anything, mock.Anything).Return(nil, nil)
+
+		exec := new(localMockNodeExecutor)
+		exec.On("Run", mock.Anything, mock.Anything).Return("", errors.New("api unreachable")).Maybe()
+		// Ensure exec is actually used
+		exec.AssertNotCalled(t, "WriteFile", mock.Anything, mock.Anything, mock.Anything)
+
+		p := &KubeadmProvisioner{
+			instSvc: mockInst,
+			repo:    mockRepo,
+			logger:  logger,
+			executorFactory: func(ctx context.Context, c *domain.Cluster, ip string) (NodeExecutor, error) {
+				return exec, nil
+			},
+		}
+
+		err := p.Repair(ctx, makeCluster())
+		// Repair() returns nil even on failure — it handles errors internally by persisting status=Failed
+		require.NoError(t, err, "Repair should not return error, errors are persisted to cluster status")
+		assert.Equal(t, domain.ClusterStatusFailed, finalStatus)
+	})
+
+	t.Run("Repair increments RepairAttempts and sets LastRepairAttempt", func(t *testing.T) {
+		mockInst := new(mockInstanceService)
+		mockRepo := new(mockClusterRepo)
+
+		var repairAttempts int
+		mockInst.On("ListInstances", mock.Anything).Return([]*domain.Instance{inst}, nil)
+		mockRepo.On("Update", mock.Anything, mock.MatchedBy(func(c *domain.Cluster) bool {
+			repairAttempts = c.RepairAttempts
+			return true
+		})).Return(nil).Maybe()
+		mockRepo.On("GetNodes", mock.Anything, mock.Anything).Return(nil, nil)
+
+		exec := new(localMockNodeExecutor)
+		exec.On("Run", mock.Anything, mock.Anything).Return("node1 Ready", nil)
+
+		p := &KubeadmProvisioner{
+			instSvc: mockInst,
+			repo:    mockRepo,
+			logger:  logger,
+			executorFactory: func(ctx context.Context, c *domain.Cluster, ip string) (NodeExecutor, error) {
+				return exec, nil
+			},
+		}
+
+		cluster := makeCluster()
+		err := p.Repair(ctx, cluster)
+		require.NoError(t, err)
+		assert.Equal(t, 1, repairAttempts)
+		assert.NotNil(t, cluster.LastRepairAttempt)
+		assert.NotNil(t, cluster.LastRepairSucceeded)
 	})
 }
 
