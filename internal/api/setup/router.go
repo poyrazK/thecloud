@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
@@ -80,6 +81,7 @@ type Handlers struct {
 
 // InitHandlers constructs HTTP handlers and websocket hub.
 func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Handlers {
+	origins := strings.Split(cfg.DashboardAllowedOrigins, ",")
 	return &Handlers{
 		Audit:         httphandlers.NewAuditHandler(svcs.Audit),
 		Identity:      httphandlers.NewIdentityHandler(svcs.Identity),
@@ -91,7 +93,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		Event:         httphandlers.NewEventHandler(svcs.Event),
 		Volume:        httphandlers.NewVolumeHandler(svcs.Volume),
 		LB:            httphandlers.NewLBHandler(svcs.LB),
-		Dashboard:     httphandlers.NewDashboardHandler(svcs.Dashboard),
+		Dashboard:     httphandlers.NewDashboardHandler(svcs.Dashboard, logger, origins...),
 		RBAC:          httphandlers.NewRBACHandler(svcs.RBAC),
 		Snapshot:      httphandlers.NewSnapshotHandler(svcs.Snapshot),
 		Stack:         httphandlers.NewStackHandler(svcs.Stack),

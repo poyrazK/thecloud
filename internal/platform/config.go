@@ -31,6 +31,10 @@ type Config struct {
 	// permitted to open a WebSocket connection. Empty means deny all
 	// cross-origin upgrades. See #249.
 	WSAllowedOrigins     string
+	// DashboardAllowedOrigins is a comma-separated allowlist of Origin headers
+	// permitted for SSE connections. Empty means deny all cross-origin SSE.
+	// See #347.
+	DashboardAllowedOrigins string
 	LvmVgName            string
 	ObjectStorageMode    string
 	ObjectStorageNodes   string
@@ -71,6 +75,7 @@ func NewConfig() (*Config, error) {
 		StorageBackend:       getEnv("STORAGE_BACKEND", "noop"),
 		StorageSecret:        getEnv("STORAGE_SECRET", "storage-secret-key"),
 		WSAllowedOrigins:     os.Getenv("WS_ALLOWED_ORIGINS"),
+		DashboardAllowedOrigins: os.Getenv("DASHBOARD_ALLOWED_ORIGINS"),
 		LvmVgName:            getEnv("LVM_VG_NAME", "thecloud-vg"),
 		ObjectStorageMode:    getEnv("OBJECT_STORAGE_MODE", "local"),
 
