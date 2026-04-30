@@ -400,13 +400,14 @@ func (a *LibvirtAdapter) waitInitialIP(ctx context.Context, id string) (string, 
 	defer ticker.Stop()
 
 	// Safety limit: max 5 minutes regardless of context
-	timeout := time.After(5 * time.Minute)
+	timeout := time.NewTimer(5 * time.Minute)
+	defer timeout.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
-		case <-timeout:
+		case <-timeout.C:
 			return "", fmt.Errorf("timed out waiting for IP for instance %s", id)
 		case <-ticker.C:
 			ip, err := a.GetInstanceIP(ctx, id)

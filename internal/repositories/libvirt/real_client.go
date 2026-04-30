@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sync"
 
 	"github.com/digitalocean/go-libvirt"
 )
@@ -16,28 +17,46 @@ type RealLibvirtClient struct {
 
 func (r *RealLibvirtClient) Connect(ctx context.Context) error {
 	errChan := make(chan error, 1)
+	done := make(chan struct{})
+	once := sync.Once{}
 	go func() {
+		select {
+		case <-done:
+			return
+		default:
+		}
 		errChan <- r.conn.Connect()
 	}()
 
 	select {
 	case <-ctx.Done():
+		once.Do(func() { close(done) })
 		return ctx.Err()
 	case err := <-errChan:
+		once.Do(func() { close(done) })
 		return err
 	}
 }
 
 func (r *RealLibvirtClient) ConnectToURI(ctx context.Context, uri string) error {
 	errChan := make(chan error, 1)
+	done := make(chan struct{})
+	once := sync.Once{}
 	go func() {
+		select {
+		case <-done:
+			return
+		default:
+		}
 		errChan <- r.conn.ConnectToURI(libvirt.ConnectURI(uri))
 	}()
 
 	select {
 	case <-ctx.Done():
+		once.Do(func() { close(done) })
 		return ctx.Err()
 	case err := <-errChan:
+		once.Do(func() { close(done) })
 		return err
 	}
 }

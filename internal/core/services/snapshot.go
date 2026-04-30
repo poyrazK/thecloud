@@ -85,7 +85,8 @@ func (s *SnapshotService) CreateSnapshot(ctx context.Context, volumeID uuid.UUID
 	// Copy snapshot to avoid data race with returned pointer
 	asyncSnap := *snapshot
 	go func() {
-		bgCtx := context.Background()
+		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
 		err := s.performSnapshot(bgCtx, vol, &asyncSnap)
 		if err != nil {
 			s.logger.Error("failed to perform snapshot", "snapshot_id", snapshot.ID, "error", err)
