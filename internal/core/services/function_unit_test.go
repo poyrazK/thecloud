@@ -185,7 +185,7 @@ func testFunctionServiceInvokeFunction(t *testing.T) {
 		repo.On("GetByID", mock.Anything, id).Return(f, nil).Once()
 		auditSvc.On("Log", mock.Anything, userID, "function.invoke_async", "function", id.String(), mock.Anything).Return(nil).Once()
 
-		// Make runInvocation fail by having fileStore.Read return an error
+		// Make prepareCode fail by having fileStore.Read return an error
 		fileStore.On("Read", mock.Anything, "functions", f.CodePath).Return(nil, io.EOF).Once()
 		repo.On("CreateInvocation", mock.Anything, mock.MatchedBy(func(i *domain.Invocation) bool {
 			return i.Status == "FAILED"
@@ -199,7 +199,7 @@ func testFunctionServiceInvokeFunction(t *testing.T) {
 		// Wait for async goroutine to complete
 		compute.On("RunTask", mock.Anything, mock.Anything).Return("", nil, io.EOF).Maybe()
 		compute.On("DeleteInstance", mock.Anything, mock.Anything).Return(nil).Maybe()
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond)
 	})
 }
 
