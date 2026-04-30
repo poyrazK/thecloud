@@ -34,6 +34,8 @@ const (
 	NanoCPUsPerVCPU = int64(1e9)
 	// BytesPerMB is the number of bytes per megabyte.
 	BytesPerMB = int64(1024 * 1024)
+		// maxStatsSize bounds instance stats JSON decoding to prevent memory exhaustion.
+		maxStatsSize = 1 * 1024 * 1024 // 1 MB
 )
 type InstanceService struct {
 	repo             ports.InstanceRepository
@@ -1112,7 +1114,7 @@ func (s *InstanceService) GetInstanceStats(ctx context.Context, idOrName string)
 	defer func() { _ = stream.Close() }()
 
 	var stats domain.RawDockerStats
-	if err := json.NewDecoder(stream).Decode(&stats); err != nil {
+	if err := json.NewDecoder(io.LimitReader(stream, maxStatsSize)).Decode(&stats); err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to decode stats", err)
 	}
 

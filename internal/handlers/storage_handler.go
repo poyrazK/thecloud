@@ -34,8 +34,9 @@ func NewStorageHandler(svc ports.StorageService, cfg *platform.Config) *StorageH
 }
 
 const (
-	errInvalidUploadID = "invalid upload id"
+	errInvalidUploadID  = "invalid upload id"
 	headerContentSha256 = "X-Content-Sha256"
+	maxUploadSize       = 5 * 1024 * 1024 * 1024 // 5 GB
 )
 
 // Upload uploads an object to a bucket
@@ -61,7 +62,7 @@ func (h *StorageHandler) Upload(c *gin.Context) {
 	providedChecksum := c.GetHeader(headerContentSha256)
 
 	// Read from request body (stream)
-	obj, err := h.svc.Upload(c.Request.Context(), bucket, key, c.Request.Body, providedChecksum)
+	obj, err := h.svc.Upload(c.Request.Context(), bucket, key, io.LimitReader(c.Request.Body, maxUploadSize), providedChecksum)
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -318,7 +319,7 @@ func (h *StorageHandler) UploadPart(c *gin.Context) {
 
 	providedChecksum := c.GetHeader(headerContentSha256)
 
-	part, err := h.svc.UploadPart(c.Request.Context(), uploadID, partNumber, c.Request.Body, providedChecksum)
+	part, err := h.svc.UploadPart(c.Request.Context(), uploadID, partNumber, io.LimitReader(c.Request.Body, maxUploadSize), providedChecksum)
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -501,7 +502,7 @@ func (h *StorageHandler) ServePresignedUpload(c *gin.Context) {
 	// The Repository `SaveMeta` saves this UserID. It's valid to have Nil (0000...) for system/anon uploads?
 	// It's acceptable for this feature.
 
-	obj, err := h.svc.Upload(c.Request.Context(), bucket, key, c.Request.Body, "")
+	obj, err := h.svc.Upload(c.Request.Context(), bucket, key, io.LimitReader(c.Request.Body, maxUploadSize), "")
 	if err != nil {
 		httputil.Error(c, err)
 		return

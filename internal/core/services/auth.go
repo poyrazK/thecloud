@@ -206,6 +206,31 @@ func (s *AuthService) incrementFailure(email string) {
 		s.lockouts[email] = time.Now().Add(s.lockoutDuration)
 		platform.AuthAttemptsTotal.WithLabelValues("failure_lockout").Inc()
 	}
+	// Probabilistically purge expired entries to prevent unbounded map growth.
+	// Every ~10 calls, scan and remove stale entries.
+	if len(s.lockouts) > 0 && time.Now().Nanosecond()%10 == 0 {
+		s.purgeExpiredLocked()
+	}
+}
+
+// purgeExpiredLocked removes expired lockouts and stale failure records.
+// Caller must hold s.mu.
+func (s *AuthService) purgeExpiredLocked() {
+	now := time.Now()
+	for email, lockoutTime := range s.lockouts {
+		if now.After(lockoutTime) {
+			delete(s.lockouts, email)
+			delete(s.failedAttempts, email)
+		}
+	}
+	// Also purge failure-only entries that have no lockout and are very old
+	// (these are users who failed but didn't reach lockout threshold)
+	for email, count := range s.failedAttempts {
+		// If count is suspiciously high, purge to prevent unbounded growth
+		if count > maxFailedAttempts*10 {
+			delete(s.failedAttempts, email)
+		}
+	}
 }
 
 func (s *AuthService) GetUserByID(ctx context.Context, userID uuid.UUID) (*domain.User, error) {

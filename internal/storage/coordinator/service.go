@@ -21,6 +21,8 @@ const (
 	errNoNodesAvailable = "no storage nodes available"
 	chunkSize           = 1024 * 1024 // 1MB chunks
 	repairTimeout       = 30 * time.Second
+	// maxObjectSize prevents memory exhaustion when writing large objects.
+	maxObjectSize = 5 * 1024 * 1024 * 1024 // 5 GB
 )
 
 // Coordinator implements ports.FileStore to manage distributed storage.
@@ -230,6 +232,9 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 		n, err := r.Read(buf)
 		if n > 0 {
 			totalSize += int64(n)
+			if totalSize > maxObjectSize {
+				return totalSize, fmt.Errorf("object exceeds max size: %d bytes (max %d)", totalSize, maxObjectSize)
+			}
 			// Broadcast chunk
 			for i := len(streams) - 1; i >= 0; i-- {
 				errSend := streams[i].stream.Send(&pb.StoreRequest{
