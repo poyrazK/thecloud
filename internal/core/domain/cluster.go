@@ -78,6 +78,16 @@ type Cluster struct {
 
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
+
+	// Health tracking
+	IsHealthy         bool       `json:"is_healthy"`
+	UnhealthySince    *time.Time `json:"unhealthy_since,omitempty"`
+	FailureReason     string     `json:"failure_reason,omitempty"`
+
+	// Repair tracking
+	RepairAttempts       int        `json:"repair_attempts"`
+	LastRepairAttempt   *time.Time `json:"last_repair_attempt,omitempty"`
+	LastRepairSucceeded *time.Time `json:"last_repair_succeeded,omitempty"`
 }
 
 // ClusterNode represents a node within a Kubernetes cluster.
@@ -89,4 +99,8 @@ type ClusterNode struct {
 	Status        string     `json:"status"`
 	LastHeartbeat *time.Time `json:"last_heartbeat,omitempty"`
 	JoinedAt      time.Time  `json:"joined_at"`
+
+	// Node failure tracking
+	UnhealthySince *time.Time `json:"unhealthy_since,omitempty"`
+	FailureReason  string     `json:"failure_reason,omitempty"`
 }
