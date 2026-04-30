@@ -3,6 +3,8 @@ package httphandlers
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -52,7 +54,8 @@ func (m *dashboardServiceMock) GetStats(ctx context.Context) (*domain.DashboardS
 func setupDashboardHandlerTest(_ *testing.T) (*dashboardServiceMock, *DashboardHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	mockSvc := new(dashboardServiceMock)
-	handler := NewDashboardHandler(mockSvc)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	handler := NewDashboardHandler(mockSvc, logger, "*") // "*" for test allowlist
 	r := gin.New()
 	return mockSvc, handler, r
 }

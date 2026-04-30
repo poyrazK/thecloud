@@ -2,8 +2,10 @@
 package httphandlers
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -13,12 +15,23 @@ import (
 
 // DashboardHandler handles dashboard API endpoints.
 type DashboardHandler struct {
-	svc ports.DashboardService
+	svc            ports.DashboardService
+	logger        *slog.Logger
+	allowedOrigins []string
 }
 
 // NewDashboardHandler creates a new dashboard handler.
-func NewDashboardHandler(svc ports.DashboardService) *DashboardHandler {
-	return &DashboardHandler{svc: svc}
+// allowedOrigins is an optional list of permitted Origin header values for SSE.
+// If empty, cross-origin SSE requests are denied.
+func NewDashboardHandler(svc ports.DashboardService, logger *slog.Logger, allowedOrigins ...string) *DashboardHandler {
+	cleaned := make([]string, 0, len(allowedOrigins))
+	for _, raw := range allowedOrigins {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed != "" {
+			cleaned = append(cleaned, trimmed)
+		}
+	}
+	return &DashboardHandler{svc: svc, logger: logger, allowedOrigins: cleaned}
 }
 
 // GetSummary returns resource counts and overview metrics.
@@ -98,10 +111,16 @@ func (h *DashboardHandler) GetStats(c *gin.Context) {
 // @Security APIKeyAuth
 // @Router /api/dashboard/stream [get]
 func (h *DashboardHandler) StreamEvents(c *gin.Context) {
+	origin := c.Request.Header.Get("Origin")
+	if !h.isOriginAllowed(origin) {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+	c.Header("Access-Control-Allow-Origin", origin)
+
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
-	c.Header("Access-Control-Allow-Origin", "*")
 
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
@@ -126,4 +145,21 @@ func (h *DashboardHandler) StreamEvents(c *gin.Context) {
 			c.Writer.Flush()
 		}
 	}
+}
+
+// isOriginAllowed returns true if the given origin is permitted for SSE.
+// Empty allowlist means deny all. "*" in allowlist means allow any origin.
+func (h *DashboardHandler) isOriginAllowed(origin string) bool {
+	if len(h.allowedOrigins) == 0 {
+		return false // fail-closed by default
+	}
+	for _, allowed := range h.allowedOrigins {
+		if allowed == "*" {
+			return true
+		}
+		if allowed == origin {
+			return true
+		}
+	}
+	return false
 }
