@@ -1010,6 +1010,7 @@ func testInstanceServicePauseResumeUnit(t *testing.T) {
 				auditSvc.On("Log", mock.Anything, userID, "instance.pause", "instance", instanceID.String(), mock.Anything).Return(nil).Once()
 			},
 			assert: func(t *testing.T, err error, inst *domain.Instance) {
+				t.Helper()
 				require.NoError(t, err)
 				assert.Equal(t, domain.StatusPaused, inst.Status)
 			},
@@ -1025,6 +1026,7 @@ func testInstanceServicePauseResumeUnit(t *testing.T) {
 				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
 			},
 			assert: func(t *testing.T, err error, inst *domain.Instance) {
+				t.Helper()
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "must be RUNNING to pause")
 			},
@@ -1043,6 +1045,7 @@ func testInstanceServicePauseResumeUnit(t *testing.T) {
 				auditSvc.On("Log", mock.Anything, userID, "instance.pause", "instance", instanceID.String(), mock.Anything).Return(nil).Maybe()
 			},
 			assert: func(t *testing.T, err error, inst *domain.Instance) {
+				t.Helper()
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "pause failed")
 			},
