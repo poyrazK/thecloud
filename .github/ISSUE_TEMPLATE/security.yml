@@ -1,0 +1,39 @@
+name: Security Issue
+description: Report a security vulnerability (private disclosure)
+labels: ["security"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Security Issue
+
+        Thank you for reporting a security vulnerability. For private disclosure, please contact us directly at **hpk.poyraz@gmail.com** instead of filing a public issue.
+
+        If you still choose to submit here, this issue will be triaged within 48 hours.
+
+  - type: textarea
+    id: vulnerability
+    attributes:
+      label: Vulnerability Description
+      description: Description of the security issue
+      placeholder: Describe the vulnerability...
+    validations:
+      required: true
+
+  - type: input
+    id: severity
+    attributes:
+      label: Severity (Optional)
+      description: Estimated severity (Critical, High, Medium, Low)
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the vulnerability
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Potential Impact
+      description: What could an attacker do with this vulnerability?
