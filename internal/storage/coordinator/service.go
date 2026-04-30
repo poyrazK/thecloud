@@ -231,7 +231,7 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 		if n > 0 {
 			totalSize += int64(n)
 			// Broadcast chunk
-			for i := 0; i < len(streams); i++ {
+			for i := len(streams) - 1; i >= 0; i-- {
 				errSend := streams[i].stream.Send(&pb.StoreRequest{
 					Payload: &pb.StoreRequest_ChunkData{
 						ChunkData: buf[:n],
@@ -240,7 +240,6 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 				if errSend != nil {
 					// Remove failed stream
 					streams = append(streams[:i], streams[i+1:]...)
-					i--
 				}
 			}
 		}
