@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
@@ -178,6 +179,27 @@ func testFunctionServiceInvokeFunction(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, inv)
 		assert.Equal(t, "PENDING", inv.Status)
+	})
+
+	t.Run("async error logged", func(t *testing.T) {
+		repo.On("GetByID", mock.Anything, id).Return(f, nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "function.invoke_async", "function", id.String(), mock.Anything).Return(nil).Once()
+
+		// Make runInvocation fail by having fileStore.Read return an error
+		fileStore.On("Read", mock.Anything, "functions", f.CodePath).Return(nil, io.EOF).Once()
+		repo.On("CreateInvocation", mock.Anything, mock.MatchedBy(func(i *domain.Invocation) bool {
+			return i.Status == "FAILED"
+		})).Return(nil).Once()
+
+		inv, err := svc.InvokeFunction(ctx, id, []byte("{}"), true)
+		require.NoError(t, err)
+		assert.NotNil(t, inv)
+		assert.Equal(t, "PENDING", inv.Status)
+
+		// Wait for async goroutine to complete
+		compute.On("RunTask", mock.Anything, mock.Anything).Return("", nil, io.EOF).Maybe()
+		compute.On("DeleteInstance", mock.Anything, mock.Anything).Return(nil).Maybe()
+		time.Sleep(50 * time.Millisecond)
 	})
 }
 
