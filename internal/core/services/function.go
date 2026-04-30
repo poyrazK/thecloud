@@ -239,9 +239,16 @@ func (s *FunctionService) InvokeFunction(ctx context.Context, id uuid.UUID, payl
 			s.logger.Warn("failed to log audit event", "action", "function.invoke_async", "function_id", f.ID, "error", err)
 		}
 		go func() {
-			// Use a copy to avoid data race with the caller reading the returned invocation
+			bgCtx := context.Background()
+			bgCtx = appcontext.WithUserID(bgCtx, userID)
+			bgCtx = appcontext.WithTenantID(bgCtx, tenantID)
 			asyncInv := *invocation
-			_, _ = s.runInvocation(context.Background(), f, &asyncInv, payload)
+			if _, err := s.runInvocation(bgCtx, f, &asyncInv, payload); err != nil {
+				s.logger.Error("async invocation failed",
+					"function_id", f.ID,
+					"invocation_id", asyncInv.ID,
+					"error", err)
+			}
 		}()
 		return invocation, nil
 	}
