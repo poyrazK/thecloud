@@ -96,3 +96,9 @@ func getEnv(key, fallback string) string {
 	}
 	return fallback
 }
+
+// GetSecretsEncryptionKey returns the secrets encryption key from environment.
+// Returns empty string if not set.
+func GetSecretsEncryptionKey() string {
+	return os.Getenv("SECRETS_ENCRYPTION_KEY")
+}

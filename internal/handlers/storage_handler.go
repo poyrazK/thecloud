@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -104,8 +105,8 @@ func (h *StorageHandler) Download(c *gin.Context) {
 	}
 	defer func() { _ = reader.Close() }()
 
-	// Set headers
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", key))
+	// Set headers - sanitize filename to prevent header injection
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", url.PathEscape(key)))
 	c.Header("Content-Type", obj.ContentType)
 	c.Header("Content-Length", fmt.Sprintf("%d", obj.SizeBytes))
 
@@ -461,7 +462,7 @@ func (h *StorageHandler) ServePresignedDownload(c *gin.Context) {
 	}
 	defer func() { _ = reader.Close() }()
 
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", key))
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", url.PathEscape(key)))
 	c.Header("Content-Type", obj.ContentType)
 	c.Header("Content-Length", fmt.Sprintf("%d", obj.SizeBytes))
 	_, _ = io.Copy(c.Writer, reader)
