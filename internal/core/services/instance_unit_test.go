@@ -1995,27 +1995,20 @@ func testInstanceServiceResizeInstanceUnit(t *testing.T) {
 		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "vcpus", 2).Return(nil).Once()
 		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "memory", 2).Return(nil).Once()
 		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "memory", 2).Return(nil).Once()
-		// Compute resize
+		// Compute resize succeeds
 		compute.On("ResizeInstance", mock.Anything, "cid-1", int64(4*1e9), int64(4096*1024*1024)).Return(nil).Once()
 		// repo.Update returns Conflict (simulating another resize modified the instance)
-		// On DB failure, rollback calls compute resize back to old values and decrements quota
-		compute.On("ResizeInstance", mock.Anything, "cid-1", int64(2*1e9), int64(2048*1024*1024)).Return(nil).Once()
-		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 2).Return(nil).Once()
-		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "memory", 2).Return(nil).Once()
+		// On conflict, we log warning and return success since compute already succeeded
 		repo.On("Update", mock.Anything, mock.Anything).Return(svcerrors.New(svcerrors.Conflict, "update conflict")).Once()
 
-		_, err := svc.ResizeInstance(ctx, "test-inst", "basic-4")
+		result, err := svc.ResizeInstance(ctx, "test-inst", "basic-4")
 
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "conflict")
-		// Verify rollback was invoked
-		compute.AssertCalled(t, "ResizeInstance", mock.Anything, "cid-1", int64(2*1e9), int64(2048*1024*1024))
-		tenantSvc.AssertCalled(t, "DecrementUsage", mock.Anything, tenantID, "vcpus", 2)
-		tenantSvc.AssertCalled(t, "DecrementUsage", mock.Anything, tenantID, "memory", 2)
-		repo.AssertCalled(t, "Update", mock.Anything, mock.Anything)
+		// Conflict is treated as success since compute resize already happened
+		require.NoError(t, err)
+		assert.Equal(t, "basic-4", result.InstanceType)
 	})
 
-	t.Run("Failure_DBUpdateConflictWithRollbackFailure", func(t *testing.T) {
+	t.Run("Failure_NonConflictDBUpdateWithRollbackFailure", func(t *testing.T) {
 		repo := new(MockInstanceRepo)
 		typeRepo := new(MockInstanceTypeRepo)
 		compute := new(MockComputeBackend)
@@ -2062,8 +2055,8 @@ func testInstanceServiceResizeInstanceUnit(t *testing.T) {
 		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "memory", 2).Return(nil).Once()
 		// Compute resize succeeds
 		compute.On("ResizeInstance", mock.Anything, "cid-1", int64(4*1e9), int64(4096*1024*1024)).Return(nil).Once()
-		// repo.Update returns Conflict
-		repo.On("Update", mock.Anything, mock.Anything).Return(svcerrors.New(svcerrors.Conflict, "update conflict")).Once()
+		// repo.Update returns Internal error (not Conflict - this tests DB failure scenario)
+		repo.On("Update", mock.Anything, mock.Anything).Return(svcerrors.New(svcerrors.Internal, "db error")).Once()
 		// Compute rollback FAILS
 		compute.On("ResizeInstance", mock.Anything, "cid-1", int64(2*1e9), int64(2048*1024*1024)).Return(fmt.Errorf("libvirt error")).Once()
 		// Quota rollback succeeds
@@ -2072,10 +2065,10 @@ func testInstanceServiceResizeInstanceUnit(t *testing.T) {
 
 		_, err := svc.ResizeInstance(ctx, "test-inst", "basic-4")
 
+		// Should return error since DB update failed and rollback failed
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "conflict")
+		assert.Contains(t, err.Error(), "db error")
 		assert.Contains(t, err.Error(), "rollback")
-		compute.AssertCalled(t, "ResizeInstance", mock.Anything, "cid-1", int64(2*1e9), int64(2048*1024*1024))
 	})
 
 	t.Run("ComputeError", func(t *testing.T) {

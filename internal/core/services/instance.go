@@ -882,10 +882,18 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 		return errors.Wrap(errors.Internal, "failed to resize instance", err)
 	}
 
-	// 3. DB update
+	// 3. DB update with optimistic locking
 	inst.InstanceType = newInstanceType
 	inst.Version++
 	if err := s.repo.Update(ctx, inst); err != nil {
+		// Check if it's a conflict error (another resize beat us)
+		if isConflictError(err) {
+			// Conflict: another resize already committed - the compute is already at new size anyway
+			// Log and return success since the resize did happen on compute backend
+			s.logger.Warn("instance update conflict after resize, compute already at target", "instance_id", inst.ID)
+			return nil
+		}
+		// Non-conflict error (e.g. network failure) - rollback and fail
 		oldCpuNano := int64(oldIT.VCPUs) * NanoCPUsPerVCPU
 		oldMemoryBytes := int64(oldIT.MemoryMB) * BytesPerMB
 		var rollbackErrs []error
@@ -939,6 +947,15 @@ func (s *InstanceService) recordInstanceResizeEvent(ctx context.Context, inst *d
 	if err := s.auditSvc.Log(ctx, inst.UserID, "instance.resize", "instance", inst.ID.String(), params); err != nil {
 		s.logger.Warn("failed to log audit event", "action", "instance.resize", "instance_id", inst.ID, "error", err)
 	}
+}
+
+// isConflictError returns true if the error is a conflict type (version mismatch)
+func isConflictError(err error) bool {
+	var e errors.Error
+	if errors.As(err, &e) {
+		return e.Type == errors.Conflict
+	}
+	return false
 }
 
 func (s *InstanceService) TerminateInstance(ctx context.Context, idOrName string) error {
