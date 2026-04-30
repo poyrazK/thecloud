@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"math"
 	"strconv"
@@ -22,6 +23,8 @@ import (
 
 const (
 	defaultRedisPort = "6379"
+	// maxCacheStatsSize bounds cache stats JSON decoding to prevent memory exhaustion.
+	maxCacheStatsSize = 1 * 1024 * 1024 // 1 MB
 )
 
 // CacheService manages cache clusters and their lifecycle.
@@ -365,7 +368,7 @@ func (s *CacheService) GetCacheStats(ctx context.Context, idOrName string) (*por
 			Limit uint64 `json:"limit"`
 		} `json:"memory_stats"`
 	}
-	if err := json.NewDecoder(stream).Decode(&dockerStats); err != nil {
+	if err := json.NewDecoder(io.LimitReader(stream, maxCacheStatsSize)).Decode(&dockerStats); err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to decode stats", err)
 	}
 

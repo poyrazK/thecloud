@@ -30,6 +30,7 @@ const (
 	versionQueryFormat   = "%s?versionId=%s"
 	versionEpochBit      = 1 << 62
 	sniffLen             = 512
+	maxPartSize          = 5 * 1024 * 1024 * 1024 // 5 GB per part
 )
 
 // generateVersionID generates a timestamp-based version ID (reverse chronological).
@@ -603,7 +604,7 @@ func (s *StorageService) UploadPart(ctx context.Context, uploadID uuid.UUID, par
 
 	// 3. Write to store (use temporary location)
 	partKey := fmt.Sprintf(partPathFormat, upload.ID.String(), partNumber)
-	size, err := s.store.Write(ctx, upload.Bucket, partKey, teeReader)
+	size, err := s.store.Write(ctx, upload.Bucket, partKey, io.LimitReader(teeReader, maxPartSize))
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to write part", err)
 	}
