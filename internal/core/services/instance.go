@@ -717,12 +717,12 @@ func (s *InstanceService) ResumeInstance(ctx context.Context, idOrName string) e
 				"container_id", target, "instance_id", inst.ID, "error", err)
 			return errors.New(errors.Conflict, err.Error())
 		}
-		s.logger.Error("failed to resume container, rolling back",
-			"container_id", target, "instance_id", inst.ID, "old_status", oldStatus, "error", err)
+		s.logger.Error("failed to resume container, instance left in PAUSED state",
+			"container_id", target, "instance_id", inst.ID, "error", err)
 		inst.Status = oldStatus
 		if repoErr := s.repo.Update(ctx, inst); repoErr != nil {
-			s.logger.Error("failed to rollback instance status",
-				"instance_id", inst.ID, "resume_error", err, "rollback_error", repoErr)
+			s.logger.Error("failed to persist instance status after resume failure",
+				"instance_id", inst.ID, "resume_error", err, "persist_error", repoErr)
 		}
 		return errors.Wrap(errors.Internal, "failed to resume container", err)
 	}
