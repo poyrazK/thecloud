@@ -85,7 +85,7 @@ func TestBulkheadRespectsContext(t *testing.T) {
 	defer cancel()
 
 	err := bh.Execute(ctx, func() error { return nil })
-	require.ErrorIs(t, err, ErrBulkheadFull)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
 
 	close(done)
 }

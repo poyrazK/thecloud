@@ -62,6 +62,8 @@ func (t *testComputeBackend) ResizeInstance(ctx context.Context, id string, cpu,
 func (t *testComputeBackend) CreateSnapshot(ctx context.Context, id, name string) error            { return nil }
 func (t *testComputeBackend) RestoreSnapshot(ctx context.Context, id, name string) error            { return nil }
 func (t *testComputeBackend) DeleteSnapshot(ctx context.Context, id, name string) error             { return nil }
+func (t *testComputeBackend) PauseInstance(ctx context.Context, id string) error                      { return nil }
+func (t *testComputeBackend) ResumeInstance(ctx context.Context, id string) error                     { return nil }
 
 // compile-time check that testComputeBackend satisfies ports.ComputeBackend
 var _ ports.ComputeBackend = (*testComputeBackend)(nil)

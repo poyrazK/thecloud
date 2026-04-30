@@ -24,6 +24,7 @@ import (
 
 	"github.com/digitalocean/go-libvirt"
 	"github.com/google/uuid"
+	apierrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
@@ -39,12 +40,27 @@ const (
 
 	// Domain states
 	domainStateRunning = 1
+	domainStatePaused  = 3
 	domainStateShutoff = 5
 
 	// Memory stat tags
 	memStatTagActual = 5
 	memStatTagRSS    = 6
 )
+
+// domainStateName returns a human-readable name for a libvirt domain state.
+func domainStateName(state int32) string {
+	switch state {
+	case domainStateRunning:
+		return "RUNNING"
+	case domainStatePaused:
+		return "PAUSED"
+	case domainStateShutoff:
+		return "SHUTOFF"
+	default:
+		return fmt.Sprintf("UNKNOWN(%d)", state)
+	}
+}
 
 // LibvirtAdapter implements compute backend operations using libvirt/KVM.
 type LibvirtAdapter struct {
@@ -177,6 +193,50 @@ func (a *LibvirtAdapter) Ping(ctx context.Context) error {
 
 func (a *LibvirtAdapter) Type() string {
 	return "libvirt"
+}
+
+// PauseInstance suspends a running domain (freezes CPU, retains memory/network).
+func (a *LibvirtAdapter) PauseInstance(ctx context.Context, id string) error {
+	dom, err := a.client.DomainLookupByName(ctx, id)
+	if err != nil {
+		return fmt.Errorf(errDomainNotFound, err)
+	}
+
+	state, _, err := a.client.DomainGetState(ctx, dom, 0)
+	if err != nil {
+		return fmt.Errorf("failed to get domain state: %w", err)
+	}
+	if state != domainStateRunning {
+		return fmt.Errorf("%w: domain is %s, must be RUNNING", apierrors.ErrInstanceNotPausable, domainStateName(state))
+	}
+
+	if err := a.client.DomainSuspend(ctx, dom); err != nil {
+		return fmt.Errorf("failed to suspend domain: %w", err)
+	}
+	a.logger.Info("domain paused", "domain", id)
+	return nil
+}
+
+// ResumeInstance resumes a paused domain back to running state.
+func (a *LibvirtAdapter) ResumeInstance(ctx context.Context, id string) error {
+	dom, err := a.client.DomainLookupByName(ctx, id)
+	if err != nil {
+		return fmt.Errorf(errDomainNotFound, err)
+	}
+
+	state, _, err := a.client.DomainGetState(ctx, dom, 0)
+	if err != nil {
+		return fmt.Errorf("failed to get domain state: %w", err)
+	}
+	if state != domainStatePaused {
+		return fmt.Errorf("%w: domain is %s, must be PAUSED", apierrors.ErrInstanceNotResumable, domainStateName(state))
+	}
+
+	if err := a.client.DomainResume(ctx, dom); err != nil {
+		return fmt.Errorf("failed to resume domain: %w", err)
+	}
+	a.logger.Info("domain resumed", "domain", id)
+	return nil
 }
 
 func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {

@@ -126,6 +126,8 @@ func (m *mockCompute) DeleteSnapshot(_ context.Context, _, _ string) error {
 	return m.err
 }
 func (m *mockCompute) Type() string { return "mock" }
+func (m *mockCompute) PauseInstance(_ context.Context, _ string) error { return nil }
+func (m *mockCompute) ResumeInstance(_ context.Context, _ string) error { return nil }
 
 // ---------- tests ----------
 

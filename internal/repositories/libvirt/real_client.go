@@ -103,6 +103,24 @@ func (r *RealLibvirtClient) DomainDestroy(ctx context.Context, dom libvirt.Domai
 	return r.conn.DomainDestroy(dom)
 }
 
+func (r *RealLibvirtClient) DomainSuspend(ctx context.Context, dom libvirt.Domain) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+	return r.conn.DomainSuspend(dom)
+}
+
+func (r *RealLibvirtClient) DomainResume(ctx context.Context, dom libvirt.Domain) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+	return r.conn.DomainResume(dom)
+}
+
 func (r *RealLibvirtClient) DomainUndefine(ctx context.Context, dom libvirt.Domain) error {
 	select {
 	case <-ctx.Done():

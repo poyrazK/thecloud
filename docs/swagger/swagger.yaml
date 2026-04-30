@@ -676,6 +676,7 @@ definitions:
     - RUNNING
     - STOPPED
     - ERROR
+    - PAUSED
     - DELETED
     type: string
     x-enum-varnames:
@@ -683,6 +684,7 @@ definitions:
     - StatusRunning
     - StatusStopped
     - StatusError
+    - StatusPaused
     - StatusDeleted
   domain.InstanceType:
     properties:
@@ -5007,6 +5009,51 @@ paths:
       summary: Update instance metadata
       tags:
       - instances
+  /instances/{id}/pause:
+    post:
+      description: Freezes a running instance (CPU halted, memory/network retained)
+      parameters:
+      - description: Instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "409":
+          description: Instance not in RUNNING state
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Pause an instance
+      tags:
+      - instances
   /instances/{id}/resize:
     post:
       consumes:
@@ -5050,6 +5097,51 @@ paths:
       security:
       - APIKeyAuth: []
       summary: Resize an instance
+      tags:
+      - instances
+  /instances/{id}/resume:
+    post:
+      description: Resumes a paused instance back to running state
+      parameters:
+      - description: Instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "409":
+          description: Instance not in PAUSED state
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Resume an instance
       tags:
       - instances
   /instances/{id}/stats:

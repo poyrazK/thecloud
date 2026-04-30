@@ -49,6 +49,12 @@ func (m *MockInstanceService) StartInstance(ctx context.Context, id string) erro
 func (m *MockInstanceService) StopInstance(ctx context.Context, id string) error {
 	return nil
 }
+func (m *MockInstanceService) PauseInstance(ctx context.Context, id string) error {
+	return nil
+}
+func (m *MockInstanceService) ResumeInstance(ctx context.Context, id string) error {
+	return nil
+}
 func (m *MockInstanceService) ListInstances(ctx context.Context) ([]*domain.Instance, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {

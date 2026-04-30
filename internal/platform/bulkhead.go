@@ -6,9 +6,10 @@ import (
 	"time"
 )
 
-// ErrBulkheadFull is returned when the bulkhead's concurrency limit is reached
-// and the caller's timeout/context expires before a slot opens.
-var ErrBulkheadFull = errors.New("bulkhead: concurrency limit reached")
+// ErrBulkheadFull is returned only when the bulkhead's concurrency limit is reached
+// and the caller's wait timeout expires before a slot opens.
+// Context cancellation or expiry returns ctx.Err() instead of ErrBulkheadFull.
+var ErrBulkheadFull = errors.New("bulkhead: concurrency limit reached, wait timeout")
 
 // Bulkhead limits concurrent access to a resource using a semaphore pattern.
 // It prevents one slow/failing component from consuming all available goroutines
@@ -31,6 +32,9 @@ func NewBulkhead(opts BulkheadOpts) *Bulkhead {
 	if opts.MaxConc <= 0 {
 		opts.MaxConc = 10
 	}
+	if opts.WaitTimeout == 0 {
+		opts.WaitTimeout = 5 * time.Second
+	}
 	return &Bulkhead{
 		name:    opts.Name,
 		sem:     make(chan struct{}, opts.MaxConc),
@@ -50,10 +54,8 @@ func (b *Bulkhead) Execute(ctx context.Context, fn func() error) error {
 }
 
 func (b *Bulkhead) acquire(ctx context.Context) error {
-	select {
-	case <-ctx.Done():
-		return ErrBulkheadFull
-	default:
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
 
 	if b.timeout > 0 {
@@ -65,7 +67,7 @@ func (b *Bulkhead) acquire(ctx context.Context) error {
 		case <-timer.C:
 			return ErrBulkheadFull
 		case <-ctx.Done():
-			return ErrBulkheadFull
+			return ctx.Err()
 		}
 	}
 	// No explicit timeout — rely on context.
@@ -73,7 +75,7 @@ func (b *Bulkhead) acquire(ctx context.Context) error {
 	case b.sem <- struct{}{}:
 		return nil
 	case <-ctx.Done():
-		return ErrBulkheadFull
+		return ctx.Err()
 	}
 }
 

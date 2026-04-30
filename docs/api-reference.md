@@ -263,6 +263,40 @@ Get the VNC console URL for the instance.
 }
 ```
 
+### POST /instances/:id/pause
+Pause a running instance (freezes CPU, retains memory/network).
+
+**Prerequisites:** Instance must be in `RUNNING` state.
+
+**Response:**
+```json
+{
+  "message": "instance paused"
+}
+```
+
+**Error Responses:**
+- `400` — Instance not in RUNNING state (returned as `CONFLICT`)
+- `404` — Instance not found
+- `403` — Insufficient permissions
+
+### POST /instances/:id/resume
+Resume a paused instance back to running state.
+
+**Prerequisites:** Instance must be in `PAUSED` state.
+
+**Response:**
+```json
+{
+  "message": "instance resumed"
+}
+```
+
+**Error Responses:**
+- `400` — Instance not in PAUSED state (returned as `CONFLICT`)
+- `404` — Instance not found
+- `403` — Insufficient permissions
+
 ---
 
 ## Images

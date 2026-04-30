@@ -45,6 +45,14 @@ func (m *MockLibvirtClient) DomainDestroy(ctx context.Context, dom libvirt.Domai
 	return m.Called(ctx, dom).Error(0)
 }
 
+func (m *MockLibvirtClient) DomainSuspend(ctx context.Context, dom libvirt.Domain) error {
+	return m.Called(ctx, dom).Error(0)
+}
+
+func (m *MockLibvirtClient) DomainResume(ctx context.Context, dom libvirt.Domain) error {
+	return m.Called(ctx, dom).Error(0)
+}
+
 func (m *MockLibvirtClient) DomainUndefine(ctx context.Context, dom libvirt.Domain) error {
 	return m.Called(ctx, dom).Error(0)
 }

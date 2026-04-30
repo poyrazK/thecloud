@@ -140,6 +140,12 @@ func (m *mockInstanceSvc) UpdateInstanceMetadata(ctx context.Context, id uuid.UU
 func (m *mockInstanceSvc) ResizeInstance(ctx context.Context, idOrName, newInstanceType string) error {
 	return m.Called(ctx, idOrName, newInstanceType).Error(0)
 }
+func (m *mockInstanceSvc) PauseInstance(ctx context.Context, idOrName string) error {
+	return m.Called(ctx, idOrName).Error(0)
+}
+func (m *mockInstanceSvc) ResumeInstance(ctx context.Context, idOrName string) error {
+	return m.Called(ctx, idOrName).Error(0)
+}
 
 func TestHealingWorker(t *testing.T) {
 	t.Parallel()

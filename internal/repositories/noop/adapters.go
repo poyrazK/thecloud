@@ -147,8 +147,10 @@ func (b *NoopComputeBackend) AttachVolume(ctx context.Context, id string, volume
 func (b *NoopComputeBackend) DetachVolume(ctx context.Context, id string, volumePath string) (string, error) {
 	return "", nil
 }
-func (b *NoopComputeBackend) Ping(ctx context.Context) error { return nil }
-func (b *NoopComputeBackend) Type() string                  { return "noop" }
+func (b *NoopComputeBackend) Ping(ctx context.Context) error                      { return nil }
+func (b *NoopComputeBackend) Type() string                                   { return "noop" }
+func (b *NoopComputeBackend) PauseInstance(ctx context.Context, id string) error   { return nil }
+func (b *NoopComputeBackend) ResumeInstance(ctx context.Context, id string) error  { return nil }
 func (b *NoopComputeBackend) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error { return nil }
 func (b *NoopComputeBackend) CreateSnapshot(ctx context.Context, id, name string) error { return nil }
 func (b *NoopComputeBackend) RestoreSnapshot(ctx context.Context, id, name string) error { return nil }

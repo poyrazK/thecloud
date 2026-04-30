@@ -302,6 +302,18 @@ func (r *ResilientCompute) Ping(ctx context.Context) error {
 	})
 }
 
+func (r *ResilientCompute) PauseInstance(ctx context.Context, id string) error {
+	return r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
+		return r.inner.PauseInstance(ctx, id)
+	})
+}
+
+func (r *ResilientCompute) ResumeInstance(ctx context.Context, id string) error {
+	return r.callProtected(ctx, r.opts.CallTimeout, func(ctx context.Context) error {
+		return r.inner.ResumeInstance(ctx, id)
+	})
+}
+
 // Type delegates directly — no protection needed.
 func (r *ResilientCompute) Type() string {
 	return r.inner.Type()
