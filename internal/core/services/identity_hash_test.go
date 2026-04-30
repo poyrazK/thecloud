@@ -36,15 +36,15 @@ func TestGetServerSecret(t *testing.T) {
 
 	t.Run("WithEnvVar", func(t *testing.T) {
 		os.Setenv("SECRETS_ENCRYPTION_KEY", "test-secret-key")
-		// Re-initialize serverSecret
-		serverSecret = getServerSecret()
-		assert.Equal(t, "test-secret-key", serverSecret)
+		// getServerSecret reads env directly, no need to modify global
+		secret := getServerSecret()
+		assert.Equal(t, "test-secret-key", secret)
 	})
 
 	t.Run("WithoutEnvVar", func(t *testing.T) {
 		os.Unsetenv("SECRETS_ENCRYPTION_KEY")
-		// Re-initialize serverSecret - will use fallback
-		serverSecret = getServerSecret()
-		assert.Equal(t, "thecloud-development-secret-do-not-use-in-production", serverSecret)
+		// getServerSecret will return fallback
+		secret := getServerSecret()
+		assert.Equal(t, "thecloud-development-secret-do-not-use-in-production", secret)
 	})
 }

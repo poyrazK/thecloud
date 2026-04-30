@@ -92,6 +92,19 @@ func TestNewClientWithKey_SecureByDefault(t *testing.T) {
 	assert.NotNil(t, client.HostKeyCallback)
 }
 
+func TestNewClientWithKeyInsecure(t *testing.T) {
+	// Ensure insecure mode is off for this test
+	SetInsecureMode(false)
+
+	privKey := generateTestKey(t)
+	client, err := NewClientWithKeyInsecure(testLocalhostSSH, "user", privKey)
+	require.NoError(t, err)
+	assert.NotNil(t, client)
+	assert.True(t, client.Insecure)
+	// HostKeyCallback should be ssh.InsecureIgnoreHostKey
+	assert.NotNil(t, client.HostKeyCallback)
+}
+
 func TestWaitForSSH(t *testing.T) {
 	// Start a dummy TCP server
 	l, err := net.Listen("tcp", testLoopbackAddr)
