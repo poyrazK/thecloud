@@ -367,7 +367,8 @@ func (s *stackService) DeleteStack(ctx context.Context, id uuid.UUID) error {
 
 	// 2. Perform background deletion
 	go func() {
-		bgCtx := context.Background()
+		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
 		bgCtx = appcontext.WithUserID(bgCtx, stack.UserID)
 		bgCtx = appcontext.WithTenantID(bgCtx, stack.TenantID)
 

@@ -307,7 +307,7 @@ func (w *PipelineWorker) runTaskForStep(ctx context.Context, buildID uuid.UUID, 
 	if runErr != nil {
 		return 0, "", runErr
 	}
-	defer func() { _ = w.compute.DeleteInstance(context.Background(), containerID) }()
+	defer func() { _ = w.compute.DeleteInstance(ctx, containerID) }()
 
 	exitCode, waitErr := w.compute.WaitTask(ctx, containerID)
 	if waitErr != nil {

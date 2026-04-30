@@ -186,7 +186,9 @@ func (s *FunctionService) DeleteFunction(ctx context.Context, id uuid.UUID) erro
 
 	// Async delete from file store
 	go func() {
-		if err := s.fileStore.Delete(context.Background(), "functions", f.CodePath); err != nil {
+		delCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := s.fileStore.Delete(delCtx, "functions", f.CodePath); err != nil {
 			s.logger.Warn("failed to delete function code from storage", "code_path", f.CodePath, "error", err)
 		}
 	}()
@@ -274,12 +276,12 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 	if err != nil {
 		return s.failInvocation(i, fmt.Sprintf("Error running task: %v", err), err)
 	}
-	defer func() { _ = s.compute.DeleteInstance(context.Background(), containerID) }()
+	defer func() { _ = s.compute.DeleteInstance(ctx, containerID) }()
 
 	statusCode, err := s.waitForTask(ctx, containerID, f.Timeout)
 	s.captureInvocationResults(i, containerID, statusCode, err)
 
-	if err := s.repo.CreateInvocation(context.Background(), i); err != nil {
+	if err := s.repo.CreateInvocation(ctx, i); err != nil {
 		s.logger.Error("failed to record invocation", "error", err)
 	}
 
