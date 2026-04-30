@@ -662,14 +662,15 @@ func (s *InstanceService) PauseInstance(ctx context.Context, idOrName string) er
 	inst.Status = domain.StatusPaused
 	if err := s.repo.Update(ctx, inst); err != nil {
 		// Best-effort rollback: undo the pause since DB update failed
+		// Call compensating backend first, then restore DB status
+		if resumeErr := s.compute.ResumeInstance(ctx, target); resumeErr != nil {
+			s.logger.Warn("failed to undo pause after repo error",
+				"instance_id", inst.ID, "resume_error", resumeErr)
+		}
 		inst.Status = oldStatus
 		if rollbackErr := s.repo.Update(ctx, inst); rollbackErr != nil {
 			s.logger.Warn("failed to rollback pause after repo error",
 				"instance_id", inst.ID, "pause_error", err, "rollback_error", rollbackErr)
-		}
-		if resumeErr := s.compute.ResumeInstance(ctx, target); resumeErr != nil {
-			s.logger.Warn("failed to undo pause after repo error",
-				"instance_id", inst.ID, "resume_error", resumeErr)
 		}
 		return err
 	}
@@ -711,6 +712,11 @@ func (s *InstanceService) ResumeInstance(ctx context.Context, idOrName string) e
 	if err := s.compute.ResumeInstance(ctx, target); err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("resume", "failure").Inc()
 		oldStatus := inst.Status
+		if errors.Is(err, errors.Conflict) {
+			s.logger.Warn("resume not possible in current state",
+				"container_id", target, "instance_id", inst.ID, "error", err)
+			return errors.New(errors.Conflict, err.Error())
+		}
 		s.logger.Error("failed to resume container, rolling back",
 			"container_id", target, "instance_id", inst.ID, "old_status", oldStatus, "error", err)
 		inst.Status = oldStatus
@@ -724,14 +730,15 @@ func (s *InstanceService) ResumeInstance(ctx context.Context, idOrName string) e
 	inst.Status = domain.StatusRunning
 	if err := s.repo.Update(ctx, inst); err != nil {
 		// Best-effort rollback: undo the resume since DB update failed
+		// Call compensating backend first, then restore DB status
+		if pauseErr := s.compute.PauseInstance(ctx, target); pauseErr != nil {
+			s.logger.Warn("failed to undo resume after repo error",
+				"instance_id", inst.ID, "pause_error", pauseErr)
+		}
 		inst.Status = domain.StatusPaused
 		if rollbackErr := s.repo.Update(ctx, inst); rollbackErr != nil {
 			s.logger.Warn("failed to rollback resume after repo error",
 				"instance_id", inst.ID, "resume_error", err, "rollback_error", rollbackErr)
-		}
-		if pauseErr := s.compute.PauseInstance(ctx, target); pauseErr != nil {
-			s.logger.Warn("failed to undo resume after repo error",
-				"instance_id", inst.ID, "pause_error", pauseErr)
 		}
 		return err
 	}

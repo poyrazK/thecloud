@@ -32,6 +32,9 @@ func NewBulkhead(opts BulkheadOpts) *Bulkhead {
 	if opts.MaxConc <= 0 {
 		opts.MaxConc = 10
 	}
+	if opts.WaitTimeout == 0 {
+		opts.WaitTimeout = 5 * time.Second
+	}
 	return &Bulkhead{
 		name:    opts.Name,
 		sem:     make(chan struct{}, opts.MaxConc),

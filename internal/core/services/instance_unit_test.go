@@ -980,19 +980,6 @@ func testInstanceServiceVolumeReleaseUnit(t *testing.T) {
 }
 
 func testInstanceServicePauseResumeUnit(t *testing.T) {
-	repo := new(MockInstanceRepo)
-	compute := new(MockComputeBackend)
-	rbacSvc := new(MockRBACService)
-	auditSvc := new(MockAuditService)
-
-	svc := services.NewInstanceService(services.InstanceServiceParams{
-		Repo:       repo,
-		Compute:    compute,
-		RBAC:       rbacSvc,
-		AuditSvc:   auditSvc,
-		Logger:     slog.Default(),
-	})
-
 	ctx := context.Background()
 	instanceID := uuid.New()
 	userID := uuid.New()
@@ -1000,158 +987,231 @@ func testInstanceServicePauseResumeUnit(t *testing.T) {
 	ctx = appcontext.WithUserID(ctx, userID)
 	ctx = appcontext.WithTenantID(ctx, tenantID)
 
-	t.Run("PauseInstance_Success", func(t *testing.T) {
-		inst := &domain.Instance{ID: instanceID, UserID: userID, TenantID: tenantID, Status: domain.StatusRunning, ContainerID: "cid-1"}
-		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Maybe()
-		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
-		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
-		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
-		compute.On("PauseInstance", mock.Anything, "cid-1").Return(nil).Once()
-		compute.On("Type").Return("docker").Maybe()
-		repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
-			return i.Status == domain.StatusPaused
-		})).Return(nil).Once()
-		auditSvc.On("Log", mock.Anything, userID, "instance.pause", "instance", instanceID.String(), mock.Anything).Return(nil).Once()
+	type pauseResumeCase struct {
+		name   string
+		method func(*services.InstanceService) func(context.Context, string) error
+		setup  func(*domain.Instance, *MockInstanceRepo, *MockComputeBackend, *MockRBACService, *MockAuditService)
+		assert func(*testing.T, error, *domain.Instance)
+	}
 
-		err := svc.PauseInstance(ctx, instanceID.String())
-		require.NoError(t, err)
-		assert.Equal(t, domain.StatusPaused, inst.Status)
-		mock.AssertExpectationsForObjects(t, repo, compute, rbacSvc, auditSvc)
-	})
+	pauseCases := []pauseResumeCase{
+		{
+			name:   "PauseInstance_Success",
+			method: func(svc *services.InstanceService) func(context.Context, string) error { return svc.PauseInstance },
+			setup: func(inst *domain.Instance, repo *MockInstanceRepo, compute *MockComputeBackend, rbacSvc *MockRBACService, auditSvc *MockAuditService) {
+				inst.Status = domain.StatusRunning
+				repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Maybe()
+				repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
+				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
+				compute.On("PauseInstance", mock.Anything, "cid-1").Return(nil).Once()
+				compute.On("Type").Return("docker").Maybe()
+				repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool { return i.Status == domain.StatusPaused })).Return(nil).Once()
+				auditSvc.On("Log", mock.Anything, userID, "instance.pause", "instance", instanceID.String(), mock.Anything).Return(nil).Once()
+			},
+			assert: func(t *testing.T, err error, inst *domain.Instance) {
+				require.NoError(t, err)
+				assert.Equal(t, domain.StatusPaused, inst.Status)
+			},
+		},
+		{
+			name:   "PauseInstance_WrongState",
+			method: func(svc *services.InstanceService) func(context.Context, string) error { return svc.PauseInstance },
+			setup: func(inst *domain.Instance, repo *MockInstanceRepo, compute *MockComputeBackend, rbacSvc *MockRBACService, auditSvc *MockAuditService) {
+				inst.Status = domain.StatusPaused
+				repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Maybe()
+				repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
+				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
+			},
+			assert: func(t *testing.T, err error, inst *domain.Instance) {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "must be RUNNING to pause")
+			},
+		},
+		{
+			name:   "PauseInstance_ComputeError",
+			method: func(svc *services.InstanceService) func(context.Context, string) error { return svc.PauseInstance },
+			setup: func(inst *domain.Instance, repo *MockInstanceRepo, compute *MockComputeBackend, rbacSvc *MockRBACService, auditSvc *MockAuditService) {
+				inst.Status = domain.StatusRunning
+				repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Maybe()
+				repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
+				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
+				compute.On("PauseInstance", mock.Anything, "cid-1").Return(fmt.Errorf("pause failed")).Once()
+				compute.On("Type").Return("docker").Maybe()
+				auditSvc.On("Log", mock.Anything, userID, "instance.pause", "instance", instanceID.String(), mock.Anything).Return(nil).Maybe()
+			},
+			assert: func(t *testing.T, err error, inst *domain.Instance) {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "pause failed")
+			},
+		},
+		{
+			name:   "PauseInstance_RepoError_Rollback",
+			method: func(svc *services.InstanceService) func(context.Context, string) error { return svc.PauseInstance },
+			setup: func(inst *domain.Instance, repo *MockInstanceRepo, compute *MockComputeBackend, rbacSvc *MockRBACService, auditSvc *MockAuditService) {
+				inst.Status = domain.StatusRunning
+				repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Maybe()
+				repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
+				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
+				compute.On("PauseInstance", mock.Anything, "cid-1").Return(nil).Once()
+				compute.On("Type").Return("docker").Maybe()
+				// First Update (to PAUSED) fails
+				repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool { return i.Status == domain.StatusPaused })).Return(fmt.Errorf("db error")).Once()
+				// Rollback: backend undo first, then repo status restore
+				compute.On("ResumeInstance", mock.Anything, "cid-1").Return(nil).Once()
+				repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool { return i.Status == domain.StatusRunning })).Return(nil).Once()
+				auditSvc.On("Log", mock.Anything, userID, "instance.pause", "instance", instanceID.String(), mock.Anything).Return(nil).Maybe()
+			},
+			assert: func(t *testing.T, err error, inst *domain.Instance) {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "db error")
+				assert.Equal(t, domain.StatusRunning, inst.Status)
+			},
+		},
+	}
 
-	t.Run("PauseInstance_WrongState", func(t *testing.T) {
-		inst := &domain.Instance{ID: instanceID, UserID: userID, TenantID: tenantID, Status: domain.StatusPaused, ContainerID: "cid-1"}
-		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Maybe()
-		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
-		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
-		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
+	resumeCases := []pauseResumeCase{
+		{
+			name:   "ResumeInstance_Success",
+			method: func(svc *services.InstanceService) func(context.Context, string) error { return svc.ResumeInstance },
+			setup: func(inst *domain.Instance, repo *MockInstanceRepo, compute *MockComputeBackend, rbacSvc *MockRBACService, auditSvc *MockAuditService) {
+				inst.Status = domain.StatusPaused
+				repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Maybe()
+				repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
+				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
+				compute.On("ResumeInstance", mock.Anything, "cid-1").Return(nil).Once()
+				compute.On("Type").Return("docker").Maybe()
+				repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool { return i.Status == domain.StatusRunning })).Return(nil).Once()
+				auditSvc.On("Log", mock.Anything, userID, "instance.resume", "instance", instanceID.String(), mock.Anything).Return(nil).Once()
+			},
+			assert: func(t *testing.T, err error, inst *domain.Instance) {
+				require.NoError(t, err)
+				assert.Equal(t, domain.StatusRunning, inst.Status)
+			},
+		},
+		{
+			name:   "ResumeInstance_WrongState",
+			method: func(svc *services.InstanceService) func(context.Context, string) error { return svc.ResumeInstance },
+			setup: func(inst *domain.Instance, repo *MockInstanceRepo, compute *MockComputeBackend, rbacSvc *MockRBACService, auditSvc *MockAuditService) {
+				inst.Status = domain.StatusRunning
+				repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Maybe()
+				repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
+				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
+			},
+			assert: func(t *testing.T, err error, inst *domain.Instance) {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "must be PAUSED to resume")
+			},
+		},
+		{
+			name:   "ResumeInstance_ComputeError",
+			method: func(svc *services.InstanceService) func(context.Context, string) error { return svc.ResumeInstance },
+			setup: func(inst *domain.Instance, repo *MockInstanceRepo, compute *MockComputeBackend, rbacSvc *MockRBACService, auditSvc *MockAuditService) {
+				inst.Status = domain.StatusPaused
+				repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Maybe()
+				repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
+				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
+				compute.On("ResumeInstance", mock.Anything, "cid-1").Return(fmt.Errorf("resume failed")).Once()
+				compute.On("Type").Return("docker").Maybe()
+				repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool { return i.Status == domain.StatusPaused })).Return(nil).Once()
+				auditSvc.On("Log", mock.Anything, userID, "instance.resume", "instance", instanceID.String(), mock.Anything).Return(nil).Maybe()
+			},
+			assert: func(t *testing.T, err error, inst *domain.Instance) {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "resume failed")
+			},
+		},
+		{
+			name:   "ResumeInstance_ConflictError",
+			method: func(svc *services.InstanceService) func(context.Context, string) error { return svc.ResumeInstance },
+			setup: func(inst *domain.Instance, repo *MockInstanceRepo, compute *MockComputeBackend, rbacSvc *MockRBACService, auditSvc *MockAuditService) {
+				inst.Status = domain.StatusPaused
+				repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Maybe()
+				repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
+				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
+				compute.On("ResumeInstance", mock.Anything, "cid-1").Return(svcerrors.ErrInstanceNotResumable).Once()
+				compute.On("Type").Return("docker").Maybe()
+			},
+			assert: func(t *testing.T, err error, inst *domain.Instance) {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "instance cannot be resumed")
+				assert.True(t, svcerrors.Is(err, svcerrors.Conflict))
+			},
+		},
+		{
+			name:   "ResumeInstance_RepoError_Rollback",
+			method: func(svc *services.InstanceService) func(context.Context, string) error { return svc.ResumeInstance },
+			setup: func(inst *domain.Instance, repo *MockInstanceRepo, compute *MockComputeBackend, rbacSvc *MockRBACService, auditSvc *MockAuditService) {
+				inst.Status = domain.StatusPaused
+				repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Maybe()
+				repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
+				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
+				rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
+				compute.On("ResumeInstance", mock.Anything, "cid-1").Return(nil).Once()
+				compute.On("Type").Return("docker").Maybe()
+				// First Update (to RUNNING) fails
+				repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool { return i.Status == domain.StatusRunning })).Return(fmt.Errorf("db error")).Once()
+				// Rollback: backend undo first, then repo status restore
+				compute.On("PauseInstance", mock.Anything, "cid-1").Return(nil).Once()
+				repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool { return i.Status == domain.StatusPaused })).Return(nil).Once()
+				auditSvc.On("Log", mock.Anything, userID, "instance.resume", "instance", instanceID.String(), mock.Anything).Return(nil).Maybe()
+			},
+			assert: func(t *testing.T, err error, inst *domain.Instance) {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "db error")
+				assert.Equal(t, domain.StatusPaused, inst.Status)
+			},
+		},
+	}
 
-		err := svc.PauseInstance(ctx, instanceID.String())
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "must be RUNNING to pause")
-		mock.AssertExpectationsForObjects(t, repo, rbacSvc)
-	})
+	for _, tc := range pauseCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := new(MockInstanceRepo)
+			compute := new(MockComputeBackend)
+			rbacSvc := new(MockRBACService)
+			auditSvc := new(MockAuditService)
+			svc := services.NewInstanceService(services.InstanceServiceParams{
+				Repo:     repo,
+				Compute:  compute,
+				RBAC:     rbacSvc,
+				AuditSvc: auditSvc,
+				Logger:   slog.Default(),
+			})
+			inst := &domain.Instance{ID: instanceID, UserID: userID, TenantID: tenantID, Status: domain.StatusRunning, ContainerID: "cid-1"}
+			tc.setup(inst, repo, compute, rbacSvc, auditSvc)
+			err := tc.method(svc)(ctx, instanceID.String())
+			tc.assert(t, err, inst)
+			mock.AssertExpectationsForObjects(t, repo, compute, rbacSvc, auditSvc)
+		})
+	}
 
-	t.Run("PauseInstance_ComputeError", func(t *testing.T) {
-		inst := &domain.Instance{ID: instanceID, UserID: userID, TenantID: tenantID, Status: domain.StatusRunning, ContainerID: "cid-1"}
-		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Maybe()
-		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
-		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
-		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
-		compute.On("PauseInstance", mock.Anything, "cid-1").Return(fmt.Errorf("pause failed")).Once()
-		compute.On("Type").Return("docker").Maybe()
-		auditSvc.On("Log", mock.Anything, userID, "instance.pause", "instance", instanceID.String(), mock.Anything).Return(nil).Maybe()
-
-		err := svc.PauseInstance(ctx, instanceID.String())
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "pause failed")
-		mock.AssertExpectationsForObjects(t, repo, compute, rbacSvc)
-	})
-
-	t.Run("PauseInstance_RepoError_Rollback", func(t *testing.T) {
-		inst := &domain.Instance{ID: instanceID, UserID: userID, TenantID: tenantID, Status: domain.StatusRunning, ContainerID: "cid-1"}
-		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Maybe()
-		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
-		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
-		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
-		compute.On("PauseInstance", mock.Anything, "cid-1").Return(nil).Once()
-		compute.On("Type").Return("docker").Maybe()
-		// First Update call (to set PAUSED) fails - triggers rollback
-		repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
-			return i.Status == domain.StatusPaused
-		})).Return(fmt.Errorf("db error")).Once()
-		// Rollback: restore status to RUNNING via repo Update
-		repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
-			return i.Status == domain.StatusRunning
-		})).Return(nil).Once()
-		// Also undo the backend pause
-		compute.On("ResumeInstance", mock.Anything, "cid-1").Return(nil).Once()
-		auditSvc.On("Log", mock.Anything, userID, "instance.pause", "instance", instanceID.String(), mock.Anything).Return(nil).Maybe()
-
-		err := svc.PauseInstance(ctx, instanceID.String())
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "db error")
-		assert.Equal(t, domain.StatusRunning, inst.Status) // status rolled back via repo Update
-		mock.AssertExpectationsForObjects(t, repo, compute, rbacSvc)
-	})
-
-	t.Run("ResumeInstance_Success", func(t *testing.T) {
-		inst := &domain.Instance{ID: instanceID, UserID: userID, TenantID: tenantID, Status: domain.StatusPaused, ContainerID: "cid-1"}
-		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Maybe()
-		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
-		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
-		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
-		compute.On("ResumeInstance", mock.Anything, "cid-1").Return(nil).Once()
-		compute.On("Type").Return("docker").Maybe()
-		repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
-			return i.Status == domain.StatusRunning
-		})).Return(nil).Once()
-		auditSvc.On("Log", mock.Anything, userID, "instance.resume", "instance", instanceID.String(), mock.Anything).Return(nil).Once()
-
-		err := svc.ResumeInstance(ctx, instanceID.String())
-		require.NoError(t, err)
-		assert.Equal(t, domain.StatusRunning, inst.Status)
-		mock.AssertExpectationsForObjects(t, repo, compute, rbacSvc, auditSvc)
-	})
-
-	t.Run("ResumeInstance_WrongState", func(t *testing.T) {
-		inst := &domain.Instance{ID: instanceID, UserID: userID, TenantID: tenantID, Status: domain.StatusRunning, ContainerID: "cid-1"}
-		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Maybe()
-		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
-		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
-		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
-
-		err := svc.ResumeInstance(ctx, instanceID.String())
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "must be PAUSED to resume")
-		mock.AssertExpectationsForObjects(t, repo, rbacSvc)
-	})
-
-	t.Run("ResumeInstance_ComputeError", func(t *testing.T) {
-		inst := &domain.Instance{ID: instanceID, UserID: userID, TenantID: tenantID, Status: domain.StatusPaused, ContainerID: "cid-1"}
-		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Maybe()
-		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
-		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
-		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
-		compute.On("ResumeInstance", mock.Anything, "cid-1").Return(fmt.Errorf("resume failed")).Once()
-		compute.On("Type").Return("docker").Maybe()
-		repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
-			return i.Status == domain.StatusPaused // preserve old status on rollback
-		})).Return(nil).Once()
-		auditSvc.On("Log", mock.Anything, userID, "instance.resume", "instance", instanceID.String(), mock.Anything).Return(nil).Maybe()
-
-		err := svc.ResumeInstance(ctx, instanceID.String())
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "resume failed")
-		mock.AssertExpectationsForObjects(t, repo, compute, rbacSvc)
-	})
-
-	t.Run("ResumeInstance_RepoError_Rollback", func(t *testing.T) {
-		inst := &domain.Instance{ID: instanceID, UserID: userID, TenantID: tenantID, Status: domain.StatusPaused, ContainerID: "cid-1"}
-		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Maybe()
-		repo.On("GetByID", mock.Anything, instanceID).Return(inst, nil).Once()
-		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceUpdate, instanceID.String()).Return(nil).Once()
-		rbacSvc.On("Authorize", mock.Anything, userID, tenantID, domain.PermissionInstanceRead, instanceID.String()).Return(nil).Once()
-		compute.On("ResumeInstance", mock.Anything, "cid-1").Return(nil).Once()
-		compute.On("Type").Return("docker").Maybe()
-		// First Update call (to set RUNNING) fails - triggers rollback
-		repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
-			return i.Status == domain.StatusRunning
-		})).Return(fmt.Errorf("db error")).Once()
-		// Rollback: restore status to PAUSED via repo Update
-		repo.On("Update", mock.Anything, mock.MatchedBy(func(i *domain.Instance) bool {
-			return i.Status == domain.StatusPaused
-		})).Return(nil).Once()
-		// Also undo the backend resume
-		compute.On("PauseInstance", mock.Anything, "cid-1").Return(nil).Once()
-		auditSvc.On("Log", mock.Anything, userID, "instance.resume", "instance", instanceID.String(), mock.Anything).Return(nil).Maybe()
-
-		err := svc.ResumeInstance(ctx, instanceID.String())
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "db error")
-		assert.Equal(t, domain.StatusPaused, inst.Status) // status rolled back via repo Update
-		mock.AssertExpectationsForObjects(t, repo, compute, rbacSvc)
-	})
+	for _, tc := range resumeCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := new(MockInstanceRepo)
+			compute := new(MockComputeBackend)
+			rbacSvc := new(MockRBACService)
+			auditSvc := new(MockAuditService)
+			svc := services.NewInstanceService(services.InstanceServiceParams{
+				Repo:     repo,
+				Compute:  compute,
+				RBAC:     rbacSvc,
+				AuditSvc: auditSvc,
+				Logger:   slog.Default(),
+			})
+			inst := &domain.Instance{ID: instanceID, UserID: userID, TenantID: tenantID, Status: domain.StatusPaused, ContainerID: "cid-1"}
+			tc.setup(inst, repo, compute, rbacSvc, auditSvc)
+			err := tc.method(svc)(ctx, instanceID.String())
+			tc.assert(t, err, inst)
+			mock.AssertExpectationsForObjects(t, repo, compute, rbacSvc, auditSvc)
+		})
+	}
 }
 
 func testInstanceServiceUnitRbacErrors(t *testing.T) {
