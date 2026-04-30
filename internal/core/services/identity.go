@@ -3,6 +3,7 @@ package services
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -16,6 +17,33 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/platform"
 )
+
+// serverSecret is used as HMAC key to prevent rainbow table attacks on API key hashes.
+// This is derived from SECRETS_ENCRYPTION_KEY env var if set, otherwise uses a static value.
+// In production, set SECRETS_ENCRYPTION_KEY for proper security.
+var serverSecret = getServerSecret()
+
+func getServerSecret() string {
+	// Use the secrets encryption key if available, otherwise fall back to a warning string
+	// that will be rejected in production
+	secret := platform.GetSecretsEncryptionKey()
+	if secret != "" {
+		return secret
+	}
+	// Fallback for development - in production this should not be used
+	return "thecloud-development-secret-do-not-use-in-production"
+}
+
+// computeKeyHash creates a HMAC-SHA256 hash of the API key using the server secret.
+// This prevents rainbow table attacks while maintaining a stable key fingerprint.
+// API keys are machine-generated 32-char hex strings (~128 bits of entropy),
+// but using HMAC adds an additional layer of protection.
+func computeKeyHash(key string) string {
+	//nolint:codeql // HMAC-SHA256 is used for key fingerprinting, not password hashing.
+	h := hmac.New(sha256.New, []byte(serverSecret))
+	h.Write([]byte(key))
+	return hex.EncodeToString(h.Sum(nil))
+}
 
 // IdentityServiceParams defines the dependencies for IdentityService.
 type IdentityServiceParams struct {
@@ -221,14 +249,4 @@ func (s *IdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uu
 	}
 
 	return newKey, nil
-}
-
-func computeKeyHash(key string) string {
-	//nolint:codeql // SHA-256 is used as a stable key fingerprint, not password hashing.
-	// API keys are machine-generated 32-char hex strings (~128 bits of entropy).
-	// Using a memory-hard function (argon2/bcrypt) would slow validation
-	// unnecessarily and does not improve security for high-entropy keys.
-	h := sha256.New()
-	h.Write([]byte(key))
-	return hex.EncodeToString(h.Sum(nil))
 }
