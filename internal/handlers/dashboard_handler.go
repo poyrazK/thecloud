@@ -113,6 +113,11 @@ func (h *DashboardHandler) GetStats(c *gin.Context) {
 func (h *DashboardHandler) StreamEvents(c *gin.Context) {
 	origin := c.Request.Header.Get("Origin")
 	if !h.isOriginAllowed(origin) {
+		if origin != "" && h.logger != nil {
+			h.logger.Warn("SSE stream rejected: origin not in allowlist",
+				"origin", origin,
+				"path", c.Request.URL.Path)
+		}
 		c.AbortWithStatus(http.StatusForbidden)
 		return
 	}
