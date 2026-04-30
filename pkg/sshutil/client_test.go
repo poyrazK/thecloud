@@ -60,6 +60,38 @@ func TestNewClientWithKey(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestRejectHostKeyCallback(t *testing.T) {
+	err := rejectHostKeyCallback("example.com", nil, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "rejected by policy")
+}
+
+func TestSetInsecureMode(t *testing.T) {
+	// Reset to default state
+	SetInsecureMode(false)
+	assert.False(t, insecureSSH.Load())
+
+	// Enable insecure mode
+	SetInsecureMode(true)
+	assert.True(t, insecureSSH.Load())
+
+	// Disable insecure mode
+	SetInsecureMode(false)
+	assert.False(t, insecureSSH.Load())
+}
+
+func TestNewClientWithKey_SecureByDefault(t *testing.T) {
+	// Ensure insecure mode is off
+	SetInsecureMode(false)
+
+	privKey := generateTestKey(t)
+	client, err := NewClientWithKey(testLocalhostSSH, "user", privKey)
+	require.NoError(t, err)
+	assert.NotNil(t, client)
+	// HostKeyCallback should be rejectHostKeyCallback, not ssh.InsecureIgnoreHostKey
+	assert.NotNil(t, client.HostKeyCallback)
+}
+
 func TestWaitForSSH(t *testing.T) {
 	// Start a dummy TCP server
 	l, err := net.Listen("tcp", testLoopbackAddr)
