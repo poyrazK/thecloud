@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -33,7 +34,7 @@ func NewClientWithKey(host, user, privateKey string) (*Client, error) {
 	}
 
 	var hostKeyCallback ssh.HostKeyCallback
-	if insecureSSH {
+	if insecureSSH.Load() {
 		hostKeyCallback = ssh.InsecureIgnoreHostKey()
 	} else {
 		hostKeyCallback = rejectHostKeyCallback
@@ -72,7 +73,7 @@ func NewClientWithKeyInsecure(host, user, privateKey string) (*Client, error) {
 // insecureSSH controls global SSH host key verification behavior.
 // Default is false (secure) - requires proper host key verification.
 // Set to true only for development environments.
-var insecureSSH = false
+var insecureSSH atomic.Bool
 
 // rejectHostKeyCallback rejects all host keys by default.
 func rejectHostKeyCallback(hostname string, remote net.Addr, key ssh.PublicKey) error {
@@ -83,7 +84,7 @@ func rejectHostKeyCallback(hostname string, remote net.Addr, key ssh.PublicKey) 
 // WARNING: Setting to true disables host key verification and is insecure.
 // Only use this for development/testing with trusted networks.
 func SetInsecureMode(insecure bool) {
-	insecureSSH = insecure
+	insecureSSH.Store(insecure)
 }
 
 // Run executes a command and returns its output.
