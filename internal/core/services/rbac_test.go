@@ -166,7 +166,8 @@ func TestRBACServiceIntegration(t *testing.T) {
 		_ = roleRepo.CreateRole(ctx, role)
 
 		userID := uuid.New()
-		tenantID := appcontext.TenantIDFromContext(ctx); user := &domain.User{ID: userID, TenantID: tenantID, Email: "manager@test.com", Role: "none"}
+		tenantID := appcontext.TenantIDFromContext(ctx)
+		user := &domain.User{ID: userID, TenantID: tenantID, Email: "manager@test.com", Role: "none"}
 		_ = userRepo.Create(ctx, user)
 
 		err := svc.BindRole(ctx, "manager@test.com", "manager")

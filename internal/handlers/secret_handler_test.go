@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	secretsPath    = "/secrets"
-	testSecretName = "sec-1"
+	secretsPath       = "/secrets"
+	testSecretName    = "sec-1"
 	errSecretNotFound = "not found"
 )
 

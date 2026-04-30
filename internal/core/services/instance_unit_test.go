@@ -409,17 +409,17 @@ func testInstanceServiceProvisionFinalize(t *testing.T) {
 		vpcID := uuid.New()
 		subnetID := uuid.New()
 		inst := &domain.Instance{
-			ID:            uuid.New(),
-			UserID:        userID,
-			TenantID:      tenantID,
-			Name:          "test-inst",
-			Image:         "alpine",
-			InstanceType:  "t2.micro",
-			VpcID:         &vpcID,
-			SubnetID:      &subnetID,
-			Status:        domain.StatusStarting,
-			PrivateIP:     "10.0.0.100", // Pre-allocated IP
-			OvsPort:       "ovs-port-1",
+			ID:           uuid.New(),
+			UserID:       userID,
+			TenantID:     tenantID,
+			Name:         "test-inst",
+			Image:        "alpine",
+			InstanceType: "t2.micro",
+			VpcID:        &vpcID,
+			SubnetID:     &subnetID,
+			Status:       domain.StatusStarting,
+			PrivateIP:    "10.0.0.100", // Pre-allocated IP
+			OvsPort:      "ovs-port-1",
 		}
 
 		// Mock GetByID to return instance
@@ -501,17 +501,17 @@ func testInstanceServiceProvisionFinalize(t *testing.T) {
 		vpcID := uuid.New()
 		subnetID := uuid.New()
 		inst := &domain.Instance{
-			ID:            uuid.New(),
-			UserID:        userID,
-			TenantID:      tenantID,
-			Name:          "test-inst",
-			Image:         "alpine",
-			InstanceType:  "t2.micro",
-			VpcID:         &vpcID,
-			SubnetID:      &subnetID,
-			Status:        domain.StatusStarting,
-			PrivateIP:     "10.0.0.100",
-			OvsPort:       "ovs-port-1",
+			ID:           uuid.New(),
+			UserID:       userID,
+			TenantID:     tenantID,
+			Name:         "test-inst",
+			Image:        "alpine",
+			InstanceType: "t2.micro",
+			VpcID:        &vpcID,
+			SubnetID:     &subnetID,
+			Status:       domain.StatusStarting,
+			PrivateIP:    "10.0.0.100",
+			OvsPort:      "ovs-port-1",
 		}
 
 		repo.On("GetByID", mock.Anything, mock.Anything).Return(inst, nil).Maybe()
@@ -576,17 +576,17 @@ func testInstanceServiceProvisionFinalize(t *testing.T) {
 		vpcID := uuid.New()
 		subnetID := uuid.New()
 		inst := &domain.Instance{
-			ID:            uuid.New(),
-			UserID:        userID,
-			TenantID:      tenantID,
-			Name:          "test-inst",
-			Image:         "alpine",
-			InstanceType:  "t2.micro",
-			VpcID:         &vpcID,
-			SubnetID:      &subnetID,
-			Status:        domain.StatusStarting,
-			PrivateIP:     "", // Empty - will trigger GetInstanceIP
-			OvsPort:       "ovs-port-1",
+			ID:           uuid.New(),
+			UserID:       userID,
+			TenantID:     tenantID,
+			Name:         "test-inst",
+			Image:        "alpine",
+			InstanceType: "t2.micro",
+			VpcID:        &vpcID,
+			SubnetID:     &subnetID,
+			Status:       domain.StatusStarting,
+			PrivateIP:    "", // Empty - will trigger GetInstanceIP
+			OvsPort:      "ovs-port-1",
 		}
 
 		repo.On("GetByID", mock.Anything, mock.Anything).Return(inst, nil).Maybe()
@@ -663,13 +663,13 @@ func testInstanceServiceTerminateUnit(t *testing.T) {
 		vol2 := &domain.Volume{ID: uuid.New(), TenantID: tenantID, Status: domain.VolumeStatusInUse, InstanceID: &instanceID, MountPath: "/mnt/vol2"}
 
 		inst := &domain.Instance{
-			ID:            instanceID,
-			UserID:        userID,
-			TenantID:      tenantID,
-			Status:        domain.StatusRunning,
-			ContainerID:   "cid-1",
-			InstanceType:  "t2.micro",
-			VpcID:         &vpcID,
+			ID:           instanceID,
+			UserID:       userID,
+			TenantID:     tenantID,
+			Status:       domain.StatusRunning,
+			ContainerID:  "cid-1",
+			InstanceType: "t2.micro",
+			VpcID:        &vpcID,
 		}
 
 		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Once()
@@ -705,11 +705,11 @@ func testInstanceServiceTerminateUnit(t *testing.T) {
 		tenantSvc := new(MockTenantService)
 
 		svc := services.NewInstanceService(services.InstanceServiceParams{
-			Repo:       repo,
-			Compute:    compute,
-			RBAC:       rbacSvc,
-			TenantSvc:  tenantSvc,
-			Logger:     slog.Default(),
+			Repo:      repo,
+			Compute:   compute,
+			RBAC:      rbacSvc,
+			TenantSvc: tenantSvc,
+			Logger:    slog.Default(),
 		})
 
 		ctx := context.Background()
@@ -769,12 +769,12 @@ func testInstanceServiceTerminateUnit(t *testing.T) {
 		ctx = appcontext.WithTenantID(ctx, tenantID)
 
 		inst := &domain.Instance{
-			ID:            instanceID,
-			UserID:        userID,
-			TenantID:      tenantID,
-			Status:        domain.StatusStopped,
-			ContainerID:   "cid-1",
-			InstanceType:  "unknown-type",
+			ID:           instanceID,
+			UserID:       userID,
+			TenantID:     tenantID,
+			Status:       domain.StatusStopped,
+			ContainerID:  "cid-1",
+			InstanceType: "unknown-type",
 		}
 
 		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Once()
@@ -824,12 +824,12 @@ func testInstanceServiceTerminateUnit(t *testing.T) {
 		ctx = appcontext.WithTenantID(ctx, tenantID)
 
 		inst := &domain.Instance{
-			ID:            instanceID,
-			UserID:        userID,
-			TenantID:      tenantID,
-			Status:        domain.StatusStopped,
-			ContainerID:   "cid-1",
-			InstanceType:  "t2.micro",
+			ID:           instanceID,
+			UserID:       userID,
+			TenantID:     tenantID,
+			Status:       domain.StatusStopped,
+			ContainerID:  "cid-1",
+			InstanceType: "t2.micro",
 		}
 
 		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Once()
@@ -884,12 +884,12 @@ func testInstanceServiceVolumeReleaseUnit(t *testing.T) {
 		ctx = appcontext.WithTenantID(ctx, tenantID)
 
 		inst := &domain.Instance{
-			ID:            instanceID,
-			UserID:        userID,
-			TenantID:      tenantID,
-			Status:        domain.StatusRunning,
-			ContainerID:   "cid-1",
-			InstanceType:  "t2.micro",
+			ID:           instanceID,
+			UserID:       userID,
+			TenantID:     tenantID,
+			Status:       domain.StatusRunning,
+			ContainerID:  "cid-1",
+			InstanceType: "t2.micro",
 		}
 
 		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Once()
@@ -944,12 +944,12 @@ func testInstanceServiceVolumeReleaseUnit(t *testing.T) {
 		vol2 := &domain.Volume{ID: uuid.New(), TenantID: tenantID, Status: domain.VolumeStatusInUse, InstanceID: &instanceID}
 
 		inst := &domain.Instance{
-			ID:            instanceID,
-			UserID:        userID,
-			TenantID:      tenantID,
-			Status:        domain.StatusRunning,
-			ContainerID:   "cid-1",
-			InstanceType:  "t2.micro",
+			ID:           instanceID,
+			UserID:       userID,
+			TenantID:     tenantID,
+			Status:       domain.StatusRunning,
+			ContainerID:  "cid-1",
+			InstanceType: "t2.micro",
 		}
 
 		repo.On("GetByName", mock.Anything, instanceID.String()).Return(nil, fmt.Errorf("not found")).Once()
@@ -1277,16 +1277,16 @@ func testInstanceServiceUnitRepoErrors(t *testing.T) {
 
 	t.Run("LaunchInstance_SSHKeyNotFound", func(t *testing.T) {
 		sshKeyID := uuid.New()
-	params := ports.LaunchParams{Name: "test", Image: "alpine", InstanceType: "t2.micro", SSHKeyID: &sshKeyID}
-	typeRepo.On("GetByID", mock.Anything, "t2.micro").Return(&domain.InstanceType{ID: "t2.micro", VCPUs: 1, MemoryMB: 1024}, nil).Once()
-	tenantSvc.On("CheckQuota", mock.Anything, tenantID, "instances", 1).Return(nil).Once()
-	tenantSvc.On("CheckQuota", mock.Anything, tenantID, "vcpus", 1).Return(nil).Once()
-	tenantSvc.On("CheckQuota", mock.Anything, tenantID, "memory", 1).Return(nil).Once()
-	tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "vcpus", 1).Return(nil).Maybe()
-	tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "memory", 1).Return(nil).Maybe()
-	tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 1).Return(nil).Maybe()
-	tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "memory", 1).Return(nil).Maybe()
-	sshKeySvc.On("GetKey", mock.Anything, sshKeyID).Return(nil, svcerrors.New(svcerrors.NotFound, "ssh key not found")).Once()
+		params := ports.LaunchParams{Name: "test", Image: "alpine", InstanceType: "t2.micro", SSHKeyID: &sshKeyID}
+		typeRepo.On("GetByID", mock.Anything, "t2.micro").Return(&domain.InstanceType{ID: "t2.micro", VCPUs: 1, MemoryMB: 1024}, nil).Once()
+		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "instances", 1).Return(nil).Once()
+		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "vcpus", 1).Return(nil).Once()
+		tenantSvc.On("CheckQuota", mock.Anything, tenantID, "memory", 1).Return(nil).Once()
+		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "vcpus", 1).Return(nil).Maybe()
+		tenantSvc.On("IncrementUsage", mock.Anything, tenantID, "memory", 1).Return(nil).Maybe()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "vcpus", 1).Return(nil).Maybe()
+		tenantSvc.On("DecrementUsage", mock.Anything, tenantID, "memory", 1).Return(nil).Maybe()
+		sshKeySvc.On("GetKey", mock.Anything, sshKeyID).Return(nil, svcerrors.New(svcerrors.NotFound, "ssh key not found")).Once()
 
 		_, err := svc.LaunchInstance(ctx, params)
 		require.Error(t, err)
@@ -1586,8 +1586,8 @@ func testInstanceServiceResizeInstanceUnit(t *testing.T) {
 		rbacSvc := new(MockRBACService)
 
 		svc := services.NewInstanceService(services.InstanceServiceParams{
-			Repo:  repo,
-			RBAC:  rbacSvc,
+			Repo:   repo,
+			RBAC:   rbacSvc,
 			Logger: slog.Default(),
 		})
 
@@ -2198,7 +2198,7 @@ func testInstanceServiceResizeInstanceUnit(t *testing.T) {
 		rbacSvc := new(MockRBACService)
 
 		svc := services.NewInstanceService(services.InstanceServiceParams{
-			RBAC:  rbacSvc,
+			RBAC:   rbacSvc,
 			Logger: slog.Default(),
 		})
 

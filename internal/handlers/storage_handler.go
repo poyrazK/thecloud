@@ -34,7 +34,7 @@ func NewStorageHandler(svc ports.StorageService, cfg *platform.Config) *StorageH
 }
 
 const (
-	errInvalidUploadID = "invalid upload id"
+	errInvalidUploadID  = "invalid upload id"
 	headerContentSha256 = "X-Content-Sha256"
 )
 

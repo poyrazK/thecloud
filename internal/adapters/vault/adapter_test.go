@@ -8,9 +8,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"log/slog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"log/slog"
 )
 
 func TestAdapter(t *testing.T) {

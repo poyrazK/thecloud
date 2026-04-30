@@ -27,7 +27,6 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
-
 const (
 	defaultPoolName   = "default"
 	userDataFileName  = "user-data"
@@ -83,7 +82,7 @@ type LibvirtAdapter struct {
 	osOpen             func(name string) (*os.File, error)
 
 	// Pre-compiled regexes for applyDomainResize
-	memoryResizeRe    *regexp.Regexp
+	memoryResizeRe     *regexp.Regexp
 	currentMemResizeRe *regexp.Regexp
 	vcpuResizeRe       *regexp.Regexp
 }

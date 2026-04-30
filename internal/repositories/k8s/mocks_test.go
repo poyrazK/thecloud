@@ -106,7 +106,7 @@ func (m *mockClusterRepo) Update(ctx context.Context, c *domain.Cluster) error {
 	}
 	return nil
 }
-func (m *mockClusterRepo) Delete(ctx context.Context, id uuid.UUID) error { return nil }
+func (m *mockClusterRepo) Delete(ctx context.Context, id uuid.UUID) error           { return nil }
 func (m *mockClusterRepo) AddNode(ctx context.Context, n *domain.ClusterNode) error { return nil }
 func (m *mockClusterRepo) GetNodes(ctx context.Context, clusterID uuid.UUID) ([]*domain.ClusterNode, error) {
 	args := m.Called(ctx, clusterID)

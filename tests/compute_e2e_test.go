@@ -178,9 +178,9 @@ func TestResizeInstance(t *testing.T) {
 	t.Run("LaunchInstance", func(t *testing.T) {
 		payload := map[string]string{
 			"name":          instanceName,
-			"image":          "nginx:alpine",
-			"instance_type":  "basic-2",
-			"ports":          "0:80",
+			"image":         "nginx:alpine",
+			"instance_type": "basic-2",
+			"ports":         "0:80",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
 		defer func() { _ = resp.Body.Close() }()
@@ -280,10 +280,10 @@ func TestResizeInstanceDownsize(t *testing.T) {
 	// 1. Launch Instance with standard-1 type (larger than basic-2 for real downsize)
 	t.Run("LaunchInstance", func(t *testing.T) {
 		payload := map[string]string{
-			"name":         instanceName,
-			"image":        "nginx:alpine",
+			"name":          instanceName,
+			"image":         "nginx:alpine",
 			"instance_type": "standard-1",
-			"ports":        "0:80",
+			"ports":         "0:80",
 		}
 		resp := postRequest(t, client, testutil.TestBaseURL+testutil.TestRouteInstances, token, payload)
 		defer func() { _ = resp.Body.Close() }()

@@ -23,8 +23,8 @@ func TestPostgresNotifyRepository(t *testing.T) {
 
 	t.Run("CreateAndGetTopic", func(t *testing.T) {
 		topic := &domain.Topic{
-			ID:        uuid.New(),
-			UserID:    userID, TenantID:  tenantID,
+			ID:     uuid.New(),
+			UserID: userID, TenantID: tenantID,
 			Name:      "test-topic",
 			ARN:       "arn:thecloud:notify:local:" + userID.String() + ":topic/test-topic",
 			CreatedAt: time.Now(),
@@ -45,8 +45,8 @@ func TestPostgresNotifyRepository(t *testing.T) {
 		require.NoError(t, err)
 
 		sub := &domain.Subscription{
-			ID:        uuid.New(),
-			UserID:    userID, TenantID:  tenantID,
+			ID:     uuid.New(),
+			UserID: userID, TenantID: tenantID,
 			TopicID:   topicID,
 			Protocol:  domain.ProtocolWebhook,
 			Endpoint:  "http://test",

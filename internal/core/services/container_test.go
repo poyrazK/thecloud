@@ -33,10 +33,10 @@ func setupContainerServiceIntegrationTest(t *testing.T) (ports.ContainerService,
 
 	eventRepo := postgres.NewEventRepository(db)
 	eventSvc := services.NewEventService(services.EventServiceParams{
-		Repo:    eventRepo,
-		RBACSvc: rbacSvc,
-		Publisher:     nil,
-		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Repo:      eventRepo,
+		RBACSvc:   rbacSvc,
+		Publisher: nil,
+		Logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(services.AuditServiceParams{
@@ -129,10 +129,10 @@ func TestContainer_ChaosRestart(t *testing.T) {
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	eventSvc := services.NewEventService(services.EventServiceParams{
-		Repo:    postgres.NewEventRepository(db),
-		RBACSvc: rbacSvc,
-		Publisher:     nil,
-		Logger:  slog.Default(),
+		Repo:      postgres.NewEventRepository(db),
+		RBACSvc:   rbacSvc,
+		Publisher: nil,
+		Logger:    slog.Default(),
 	})
 	auditSvc := services.NewAuditService(services.AuditServiceParams{
 		Repo:    postgres.NewAuditRepository(db),

@@ -292,9 +292,9 @@ func testDatabaseServiceUnitExtended(t *testing.T) {
 		}{
 			{
 				name:            "primary not found",
-				primaryID:      uuid.New(),
-				mockReturn:     nil,
-				mockErr:        fmt.Errorf("not found"),
+				primaryID:       uuid.New(),
+				mockReturn:      nil,
+				mockErr:         fmt.Errorf("not found"),
 				expectErrSubstr: "not found",
 			},
 			{
@@ -548,16 +548,16 @@ func testDatabaseServiceUnitExtended(t *testing.T) {
 	t.Run("StopDatabase_Success", func(t *testing.T) {
 		dbID := uuid.New()
 		db := &domain.Database{
-			ID:       dbID,
-			UserID:   userID,
-			Status:   domain.DatabaseStatusRunning,
-			Role:     domain.RolePrimary,
-			Engine:   domain.EnginePostgres,
-			Name:     "test-stop-db",
-			ContainerID: "db-cid",
+			ID:                  dbID,
+			UserID:              userID,
+			Status:              domain.DatabaseStatusRunning,
+			Role:                domain.RolePrimary,
+			Engine:              domain.EnginePostgres,
+			Name:                "test-stop-db",
+			ContainerID:         "db-cid",
 			ExporterContainerID: "exp-cid",
-			PoolingEnabled: true,
-			PoolerContainerID: "pooler-cid",
+			PoolingEnabled:      true,
+			PoolerContainerID:   "pooler-cid",
 		}
 		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
 		mockCompute.On("StopInstance", mock.Anything, "exp-cid").Return(nil).Once()
@@ -596,10 +596,10 @@ func testDatabaseServiceUnitExtended(t *testing.T) {
 	t.Run("StopDatabase_ComputeError", func(t *testing.T) {
 		dbID := uuid.New()
 		db := &domain.Database{
-			ID:       dbID,
-			UserID:   userID,
-			Status:   domain.DatabaseStatusRunning,
-			Role:     domain.RolePrimary,
+			ID:          dbID,
+			UserID:      userID,
+			Status:      domain.DatabaseStatusRunning,
+			Role:        domain.RolePrimary,
 			ContainerID: "db-cid",
 		}
 		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
@@ -613,14 +613,14 @@ func testDatabaseServiceUnitExtended(t *testing.T) {
 	t.Run("StartDatabase_Success", func(t *testing.T) {
 		dbID := uuid.New()
 		db := &domain.Database{
-			ID:       dbID,
-			UserID:   userID,
-			Status:   domain.DatabaseStatusStopped,
-			Role:     domain.RolePrimary,
-			Engine:   domain.EnginePostgres,
-			Name:     "test-start-db",
-			ContainerID: "db-cid",
-			PoolingEnabled: true,
+			ID:                dbID,
+			UserID:            userID,
+			Status:            domain.DatabaseStatusStopped,
+			Role:              domain.RolePrimary,
+			Engine:            domain.EnginePostgres,
+			Name:              "test-start-db",
+			ContainerID:       "db-cid",
+			PoolingEnabled:    true,
 			PoolerContainerID: "pooler-cid",
 		}
 		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
@@ -660,10 +660,10 @@ func testDatabaseServiceUnitExtended(t *testing.T) {
 	t.Run("StartDatabase_ComputeError", func(t *testing.T) {
 		dbID := uuid.New()
 		db := &domain.Database{
-			ID:       dbID,
-			UserID:   userID,
-			Status:   domain.DatabaseStatusStopped,
-			Role:     domain.RolePrimary,
+			ID:          dbID,
+			UserID:      userID,
+			Status:      domain.DatabaseStatusStopped,
+			Role:        domain.RolePrimary,
 			ContainerID: "db-cid",
 		}
 		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
@@ -677,10 +677,10 @@ func testDatabaseServiceUnitExtended(t *testing.T) {
 	t.Run("StartDatabase_ReadinessTimeout", func(t *testing.T) {
 		dbID := uuid.New()
 		db := &domain.Database{
-			ID:       dbID,
-			UserID:   userID,
-			Status:   domain.DatabaseStatusStopped,
-			Role:     domain.RolePrimary,
+			ID:          dbID,
+			UserID:      userID,
+			Status:      domain.DatabaseStatusStopped,
+			Role:        domain.RolePrimary,
 			ContainerID: "cid-timeout",
 		}
 		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
@@ -1157,10 +1157,10 @@ func testDatabaseServiceUnitValidationErrors(t *testing.T) {
 	defer mock.AssertExpectationsForObjects(t, mockRBAC)
 
 	svc := services.NewDatabaseService(services.DatabaseServiceParams{
-		Repo:    new(DatabaseUnitMockRepo),
-		RBAC:    mockRBAC,
-		Compute: new(MockComputeBackend),
-		VpcRepo: new(MockVpcRepo),
+		Repo:         new(DatabaseUnitMockRepo),
+		RBAC:         mockRBAC,
+		Compute:      new(MockComputeBackend),
+		VpcRepo:      new(MockVpcRepo),
 		VolumeSvc:    new(MockVolumeService),
 		SnapshotSvc:  new(mockSnapshotService),
 		SnapshotRepo: new(mockSnapshotRepository),

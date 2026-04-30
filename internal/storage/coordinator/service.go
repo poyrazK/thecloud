@@ -295,18 +295,18 @@ func (c *Coordinator) Read(ctx context.Context, bucket, key string) (io.ReadClos
 
 	// Wrapper to handle streaming read and async repair
 	winningReader := &grpcStreamReader{stream: winner.stream}
-	
+
 	if len(repairNodes) > 0 {
 		pr, pw := io.Pipe()
 		tee := io.TeeReader(winningReader, pw)
-		
+
 		repairCtx, cancel := context.WithTimeout(ctx, repairTimeout)
 		go func() {
 			defer cancel()
 			c.repairNodes(repairCtx, bucket, key, pr, winner.timestamp, repairNodes)
 			_ = pr.Close()
 		}()
-		
+
 		return &repairingReadCloser{
 			Reader: tee,
 			pw:     pw,

@@ -418,9 +418,9 @@ type ResizeInstanceRequest struct {
 
 // ResizeInstanceResponse is the response for a successful resize operation.
 type ResizeInstanceResponse struct {
-	Message     string `json:"message"`
+	Message      string `json:"message"`
 	InstanceType string `json:"instance_type"`
-	Status      string `json:"status"`
+	Status       string `json:"status"`
 }
 
 // ResizeInstance godoc
@@ -460,6 +460,6 @@ func (h *InstanceHandler) ResizeInstance(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, ResizeInstanceResponse{
 		Message:      "instance resized",
 		InstanceType: inst.InstanceType,
-		Status:      string(inst.Status),
+		Status:       string(inst.Status),
 	})
 }

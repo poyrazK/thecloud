@@ -38,10 +38,10 @@ func setupCacheServiceTest(t *testing.T) (*services.CacheService, ports.CacheRep
 
 	eventRepo := postgres.NewEventRepository(db)
 	eventSvc := services.NewEventService(services.EventServiceParams{
-		Repo:    eventRepo,
-		RBACSvc: rbacSvc,
-		Publisher:     nil,
-		Logger:  slog.Default(),
+		Repo:      eventRepo,
+		RBACSvc:   rbacSvc,
+		Publisher: nil,
+		Logger:    slog.Default(),
 	})
 
 	auditRepo := postgres.NewAuditRepository(db)

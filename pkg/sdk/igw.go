@@ -11,18 +11,18 @@ type IGWStatus string
 
 const (
 	IGWStatusDetached IGWStatus = "detached"
-	IGWStatusAttached  IGWStatus = "attached"
+	IGWStatusAttached IGWStatus = "attached"
 )
 
 // InternetGateway describes an internet gateway resource.
 type InternetGateway struct {
-	ID        string     `json:"id"`
-	VPCID     *string    `json:"vpc_id,omitempty"`
-	UserID    string     `json:"user_id"`
-	TenantID  string     `json:"tenant_id"`
-	Status    IGWStatus  `json:"status"`
-	ARN       string     `json:"arn"`
-	CreatedAt time.Time  `json:"created_at"`
+	ID        string    `json:"id"`
+	VPCID     *string   `json:"vpc_id,omitempty"`
+	UserID    string    `json:"user_id"`
+	TenantID  string    `json:"tenant_id"`
+	Status    IGWStatus `json:"status"`
+	ARN       string    `json:"arn"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // CreateIGW creates a new internet gateway in detached state.

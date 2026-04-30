@@ -130,7 +130,7 @@ const (
 	// Auto-Scaling Permissions
 	PermissionAsgCreate Permission = "asg:create"
 	PermissionAsgDelete Permission = "asg:delete"
-	
+
 	PermissionAsgRead   Permission = "asg:read"
 	PermissionAsgUpdate Permission = "asg:update"
 
@@ -173,9 +173,9 @@ const (
 	PermissionTenantDelete Permission = "tenant:delete"
 
 	// Identity Permissions
-	PermissionIdentityCreate Permission = "identity:create"
-	PermissionIdentityRead   Permission = "identity:read"
-	PermissionIdentityDelete Permission = "identity:delete"
+	PermissionIdentityCreate  Permission = "identity:create"
+	PermissionIdentityRead    Permission = "identity:read"
+	PermissionIdentityDelete  Permission = "identity:delete"
 	PermissionIdentityReadAll Permission = "identity:read_all"
 
 	// Accounting Permissions

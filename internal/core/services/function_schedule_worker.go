@@ -89,9 +89,14 @@ func (w *FunctionScheduleWorker) runSchedule(ctx context.Context, sched *domain.
 	}
 
 	run := &domain.FunctionScheduleRun{
-		ID:           uuid.New(),
-		ScheduleID:   sched.ID,
-		InvocationID: func() *uuid.UUID { if invocation != nil { return &invocation.ID }; return nil }(),
+		ID:         uuid.New(),
+		ScheduleID: sched.ID,
+		InvocationID: func() *uuid.UUID {
+			if invocation != nil {
+				return &invocation.ID
+			}
+			return nil
+		}(),
 		Status:       status,
 		StatusCode:   statusCode,
 		DurationMs:   duration.Milliseconds(),

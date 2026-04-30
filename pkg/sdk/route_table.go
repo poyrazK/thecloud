@@ -11,8 +11,8 @@ type RouteTargetType string
 
 const (
 	RouteTargetLocal   RouteTargetType = "local"
-	RouteTargetIGW    RouteTargetType = "igw"
-	RouteTargetNAT    RouteTargetType = "nat"
+	RouteTargetIGW     RouteTargetType = "igw"
+	RouteTargetNAT     RouteTargetType = "nat"
 	RouteTargetPeering RouteTargetType = "peering"
 )
 
@@ -86,7 +86,7 @@ func (c *Client) DeleteRouteTable(id string) error {
 func (c *Client) AddRoute(rtID, destCIDR string, targetType RouteTargetType, targetID string) (*Route, error) {
 	body := map[string]interface{}{
 		"destination_cidr": destCIDR,
-		"target_type":     targetType,
+		"target_type":      targetType,
 	}
 	if targetID != "" {
 		body["target_id"] = targetID

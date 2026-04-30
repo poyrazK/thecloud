@@ -422,12 +422,12 @@ func TestNATGatewayService_CreateNATGateway(t *testing.T) {
 	eipAllocated := &domain.ElasticIP{ID: eipID, UserID: userID, TenantID: tenantID, PublicIP: "203.0.113.10", Status: domain.EIPStatusAllocated}
 
 	tests := []struct {
-		name       string
-		subnet     *domain.Subnet
-		vpc        *domain.VPC
-		eip        *domain.ElasticIP
-		networkErr error
-		wantErr    bool
+		name        string
+		subnet      *domain.Subnet
+		vpc         *domain.VPC
+		eip         *domain.ElasticIP
+		networkErr  error
+		wantErr     bool
 		errContains string
 	}{
 		{
@@ -529,12 +529,12 @@ func TestNATGatewayService_DeleteNATGateway(t *testing.T) {
 	eip := &domain.ElasticIP{ID: eipID, Status: domain.EIPStatusAssociated, PublicIP: "203.0.113.10"}
 
 	tests := []struct {
-		name        string
-		nat         *domain.NATGateway
-		subnet      *domain.Subnet
-		vpc         *domain.VPC
-		eip         *domain.ElasticIP
-		natGetErr   error
+		name         string
+		nat          *domain.NATGateway
+		subnet       *domain.Subnet
+		vpc          *domain.VPC
+		eip          *domain.ElasticIP
+		natGetErr    error
 		subnetGetErr error
 		vpcGetErr    error
 		eipGetErr    error
@@ -551,33 +551,33 @@ func TestNATGatewayService_DeleteNATGateway(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:       "nat not found",
-			natGetErr:  errors.New("not found"),
-			wantErr:    true,
+			name:        "nat not found",
+			natGetErr:   errors.New("not found"),
+			wantErr:     true,
 			errContains: "not found",
 		},
 		{
-			name:        "subnet not found",
-			nat:         nat,
+			name:         "subnet not found",
+			nat:          nat,
 			subnetGetErr: errors.New("subnet not found"),
-			wantErr:     true,
-			errContains: "subnet",
+			wantErr:      true,
+			errContains:  "subnet",
 		},
 		{
-			name:     "vpc not found",
-			nat:      nat,
-			subnet:   subnet,
-			vpcGetErr: errors.New("vpc not found"),
-			wantErr:  true,
+			name:        "vpc not found",
+			nat:         nat,
+			subnet:      subnet,
+			vpcGetErr:   errors.New("vpc not found"),
+			wantErr:     true,
 			errContains: "vpc",
 		},
 		{
-			name:      "eip not found",
-			nat:       nat,
-			subnet:    subnet,
-			vpc:       vpc,
-			eipGetErr: errors.New("eip not found"),
-			wantErr:  true,
+			name:        "eip not found",
+			nat:         nat,
+			subnet:      subnet,
+			vpc:         vpc,
+			eipGetErr:   errors.New("eip not found"),
+			wantErr:     true,
 			errContains: "eip",
 		},
 	}

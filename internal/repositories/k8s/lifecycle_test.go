@@ -17,7 +17,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/services"
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/internal/repositories/docker"
-	"github.com/poyrazk/thecloud/internal/repositories/k8s" 
+	"github.com/poyrazk/thecloud/internal/repositories/k8s"
 	"github.com/poyrazk/thecloud/internal/repositories/noop"
 	"github.com/poyrazk/thecloud/internal/repositories/postgres"
 	"github.com/stretchr/testify/assert"
@@ -80,19 +80,19 @@ func TestK8sProvisionerLifecycle(t *testing.T) {
 
 	// Core Services
 	sgSvc := services.NewSecurityGroupService(sgRepo, vpcRepo, netBackend, auditSvc, logger)
-	storageSvc := services.NewStorageService(services.StorageServiceParams{ 
-		Repo:     storageRepo, 
-		RBACSvc:  rbacSvc, 
-		AuditSvc: auditSvc, 
-		Config:   &platform.Config{}, 
-		Logger:   logger, 
-	}) 
-	lbSvc := services.NewLBService(services.LBServiceParams{ 
-		Repo:         lbRepo, 
-		RBACSvc:      rbacSvc, 
-		VpcRepo:      vpcRepo, 
-		InstanceRepo: instanceRepo, 
-		AuditSvc:     auditSvc, 
+	storageSvc := services.NewStorageService(services.StorageServiceParams{
+		Repo:     storageRepo,
+		RBACSvc:  rbacSvc,
+		AuditSvc: auditSvc,
+		Config:   &platform.Config{},
+		Logger:   logger,
+	})
+	lbSvc := services.NewLBService(services.LBServiceParams{
+		Repo:         lbRepo,
+		RBACSvc:      rbacSvc,
+		VpcRepo:      vpcRepo,
+		InstanceRepo: instanceRepo,
+		AuditSvc:     auditSvc,
 	})
 
 	// InstanceService: The real one!

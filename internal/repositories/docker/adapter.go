@@ -16,7 +16,6 @@ import (
 
 	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types"
-	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
@@ -26,6 +25,7 @@ import (
 	"github.com/docker/go-connections/nat"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/platform"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"gopkg.in/yaml.v3"
@@ -114,16 +114,16 @@ func (a *DockerAdapter) Type() string {
 func (a *DockerAdapter) ResizeInstance(ctx context.Context, id string, cpuNanoCPUs, memoryBytes int64) error {
 	return platform.Retry(ctx, platform.RetryOpts{
 		MaxAttempts: 3,
-		BaseDelay:  500 * time.Millisecond,
-		MaxDelay:   10 * time.Second,
-		Multiplier: 2.0,
+		BaseDelay:   500 * time.Millisecond,
+		MaxDelay:    10 * time.Second,
+		Multiplier:  2.0,
 		ShouldRetry: dockerResizeShouldRetry,
 	}, func(ctx context.Context) error {
 		resp, err := a.cli.ContainerUpdate(ctx, id, container.UpdateConfig{
 			Resources: container.Resources{
-				NanoCPUs:    cpuNanoCPUs,
-				Memory:      memoryBytes,
-				MemorySwap:  memoryBytes, // Must be >= Memory; setting equal disables swap while allowing memory update
+				NanoCPUs:   cpuNanoCPUs,
+				Memory:     memoryBytes,
+				MemorySwap: memoryBytes, // Must be >= Memory; setting equal disables swap while allowing memory update
 			},
 		})
 		if err != nil {

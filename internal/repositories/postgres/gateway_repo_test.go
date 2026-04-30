@@ -25,8 +25,8 @@ func TestPostgresGatewayRepository(t *testing.T) {
 
 	t.Run("CreateAndListRoutes", func(t *testing.T) {
 		route := &domain.GatewayRoute{
-			ID:          uuid.New(),
-			UserID:      userID, TenantID:    tenantID,
+			ID:     uuid.New(),
+			UserID: userID, TenantID: tenantID,
 			Name:        "test-route",
 			PathPrefix:  "/v1-test",
 			PathPattern: "/v1-test/*",

@@ -171,11 +171,11 @@ func TestClusterService_Unit(t *testing.T) {
 
 		clusterID := uuid.New()
 		cluster := &domain.Cluster{
-			ID:                   clusterID,
-			UserID:               userID,
-			TenantID:             tenantID,
-			Status:               domain.ClusterStatusRunning,
-			KubeconfigEncrypted:  "encrypted-kubeconfig",
+			ID:                  clusterID,
+			UserID:              userID,
+			TenantID:            tenantID,
+			Status:              domain.ClusterStatusRunning,
+			KubeconfigEncrypted: "encrypted-kubeconfig",
 		}
 		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
 		mockSecretSvc.On("Decrypt", mock.Anything, userID, "encrypted-kubeconfig").Return("decrypted-kubeconfig", nil).Once()
@@ -192,10 +192,10 @@ func TestClusterService_Unit(t *testing.T) {
 
 		clusterID := uuid.New()
 		cluster := &domain.Cluster{
-			ID:      clusterID,
-			UserID:  userID,
+			ID:       clusterID,
+			UserID:   userID,
 			TenantID: tenantID,
-			Status:  domain.ClusterStatusPending,
+			Status:   domain.ClusterStatusPending,
 		}
 		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
 
@@ -211,11 +211,11 @@ func TestClusterService_Unit(t *testing.T) {
 		called := make(chan struct{}, 1)
 		clusterID := uuid.New()
 		cluster := &domain.Cluster{
-			ID:           clusterID,
-			UserID:       userID,
-			TenantID:     tenantID,
-			Status:       domain.ClusterStatusRunning,
-			WorkerCount:  2,
+			ID:          clusterID,
+			UserID:      userID,
+			TenantID:    tenantID,
+			Status:      domain.ClusterStatusRunning,
+			WorkerCount: 2,
 		}
 		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
 		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
@@ -245,10 +245,10 @@ func TestClusterService_Unit(t *testing.T) {
 
 		clusterID := uuid.New()
 		cluster := &domain.Cluster{
-			ID:      clusterID,
-			UserID:  userID,
+			ID:       clusterID,
+			UserID:   userID,
 			TenantID: tenantID,
-			Status:  domain.ClusterStatusRunning,
+			Status:   domain.ClusterStatusRunning,
 		}
 		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
 
@@ -279,10 +279,10 @@ func TestClusterService_Unit(t *testing.T) {
 
 		clusterID := uuid.New()
 		cluster := &domain.Cluster{
-			ID:      clusterID,
-			UserID:  userID,
+			ID:       clusterID,
+			UserID:   userID,
 			TenantID: tenantID,
-			Status:  domain.ClusterStatusRunning,
+			Status:   domain.ClusterStatusRunning,
 		}
 		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
 		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Twice()
@@ -299,10 +299,10 @@ func TestClusterService_Unit(t *testing.T) {
 
 		clusterID := uuid.New()
 		cluster := &domain.Cluster{
-			ID:      clusterID,
-			UserID:  userID,
+			ID:       clusterID,
+			UserID:   userID,
 			TenantID: tenantID,
-			Status:  domain.ClusterStatusRunning,
+			Status:   domain.ClusterStatusRunning,
 		}
 		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
 		mockProv.On("CreateBackup", mock.Anything, cluster).Return(nil).Once()
@@ -318,10 +318,10 @@ func TestClusterService_Unit(t *testing.T) {
 
 		clusterID := uuid.New()
 		cluster := &domain.Cluster{
-			ID:      clusterID,
-			UserID:  userID,
+			ID:       clusterID,
+			UserID:   userID,
 			TenantID: tenantID,
-			Status:  domain.ClusterStatusPending,
+			Status:   domain.ClusterStatusPending,
 		}
 		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
 
@@ -336,10 +336,10 @@ func TestClusterService_Unit(t *testing.T) {
 
 		clusterID := uuid.New()
 		cluster := &domain.Cluster{
-			ID:      clusterID,
-			UserID:  userID,
+			ID:       clusterID,
+			UserID:   userID,
 			TenantID: tenantID,
-			Status:  domain.ClusterStatusRunning,
+			Status:   domain.ClusterStatusRunning,
 		}
 		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
 		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Twice()
@@ -356,10 +356,10 @@ func TestClusterService_Unit(t *testing.T) {
 
 		clusterID := uuid.New()
 		cluster := &domain.Cluster{
-			ID:      clusterID,
-			UserID:  userID,
+			ID:       clusterID,
+			UserID:   userID,
 			TenantID: tenantID,
-			Status:  domain.ClusterStatusRunning,
+			Status:   domain.ClusterStatusRunning,
 		}
 		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
 		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
@@ -376,10 +376,10 @@ func TestClusterService_Unit(t *testing.T) {
 
 		clusterID := uuid.New()
 		cluster := &domain.Cluster{
-			ID:      clusterID,
-			UserID:  userID,
+			ID:       clusterID,
+			UserID:   userID,
 			TenantID: tenantID,
-			Status:  domain.ClusterStatusRunning,
+			Status:   domain.ClusterStatusRunning,
 		}
 		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
 
@@ -395,11 +395,11 @@ func TestClusterService_Unit(t *testing.T) {
 
 		clusterID := uuid.New()
 		cluster := &domain.Cluster{
-			ID:           clusterID,
-			UserID:       userID,
-			TenantID:     tenantID,
-			WorkerCount:  2,
-			NodeGroups:   []domain.NodeGroup{{Name: "default-pool"}},
+			ID:          clusterID,
+			UserID:      userID,
+			TenantID:    tenantID,
+			WorkerCount: 2,
+			NodeGroups:  []domain.NodeGroup{{Name: "default-pool"}},
 		}
 		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
 		mockRepo.On("AddNodeGroup", mock.Anything, mock.Anything).Return(nil).Once()
@@ -466,10 +466,10 @@ func TestClusterService_Unit(t *testing.T) {
 
 		clusterID := uuid.New()
 		cluster := &domain.Cluster{
-			ID:           clusterID,
-			UserID:       userID,
-			TenantID:     tenantID,
-			WorkerCount:  5,
+			ID:          clusterID,
+			UserID:      userID,
+			TenantID:    tenantID,
+			WorkerCount: 5,
 			NodeGroups: []domain.NodeGroup{
 				{Name: "default-pool"},
 				{Name: "extra-pool", CurrentSize: 3},
@@ -508,10 +508,10 @@ func TestClusterService_Unit(t *testing.T) {
 		called := make(chan struct{}, 1)
 		clusterID := uuid.New()
 		cluster := &domain.Cluster{
-			ID:      clusterID,
-			UserID:  userID,
+			ID:       clusterID,
+			UserID:   userID,
 			TenantID: tenantID,
-			Status:  domain.ClusterStatusRunning,
+			Status:   domain.ClusterStatusRunning,
 		}
 		mockRepo.On("GetByID", mock.Anything, clusterID).Return(cluster, nil).Once()
 		mockProv.On("Repair", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {

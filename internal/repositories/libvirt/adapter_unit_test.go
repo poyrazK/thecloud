@@ -965,9 +965,9 @@ func TestLibvirtAdapter_ApplyDomainResize(t *testing.T) {
 	vcpuRe := regexp.MustCompile(`(?i)<vcpu(?:\s[^>]*)?>\d+</vcpu>`)
 	a := &LibvirtAdapter{
 		logger:             logger,
-		memoryResizeRe:      memoryRe,
-		currentMemResizeRe:  currentMemRe,
-		vcpuResizeRe:        vcpuRe,
+		memoryResizeRe:     memoryRe,
+		currentMemResizeRe: currentMemRe,
+		vcpuResizeRe:       vcpuRe,
 	}
 
 	t.Run("both memory and vcpu replaced", func(t *testing.T) {
@@ -1028,9 +1028,9 @@ func TestLibvirtAdapter_ResizeInstance_RollbackOnFailure(t *testing.T) {
 		a := &LibvirtAdapter{
 			client:             m,
 			logger:             logger,
-			memoryResizeRe:      memoryRe,
-			currentMemResizeRe:  currentMemRe,
-			vcpuResizeRe:        vcpuRe,
+			memoryResizeRe:     memoryRe,
+			currentMemResizeRe: currentMemRe,
+			vcpuResizeRe:       vcpuRe,
 			execCommand: func(name string, arg ...string) *exec.Cmd {
 				// When tar xzf is called during RestoreVolumeSnapshot rollback,
 				// create a dummy qcow2 file so the "empty archive" check passes
@@ -1086,9 +1086,9 @@ func TestLibvirtAdapter_ResizeInstance_RollbackOnFailure(t *testing.T) {
 		a := &LibvirtAdapter{
 			client:             m,
 			logger:             logger,
-			memoryResizeRe:      memoryRe,
-			currentMemResizeRe:  currentMemRe,
-			vcpuResizeRe:        vcpuRe,
+			memoryResizeRe:     memoryRe,
+			currentMemResizeRe: currentMemRe,
+			vcpuResizeRe:       vcpuRe,
 			execCommand: func(name string, arg ...string) *exec.Cmd {
 				// When tar xzf is called during RestoreVolumeSnapshot rollback,
 				// create a dummy qcow2 file so the "empty archive" check passes
@@ -1139,9 +1139,9 @@ func TestLibvirtAdapter_ResizeInstance_RollbackOnFailure(t *testing.T) {
 		a := &LibvirtAdapter{
 			client:             m,
 			logger:             logger,
-			memoryResizeRe:      memoryRe,
-			currentMemResizeRe:  currentMemRe,
-			vcpuResizeRe:        vcpuRe,
+			memoryResizeRe:     memoryRe,
+			currentMemResizeRe: currentMemRe,
+			vcpuResizeRe:       vcpuRe,
 			execCommand: func(name string, arg ...string) *exec.Cmd {
 				if name == "tar" && len(arg) >= 2 && arg[1] == "xzf" {
 					for i, argVal := range arg {
