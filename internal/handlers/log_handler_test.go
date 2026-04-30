@@ -100,6 +100,76 @@ func TestLogHandlerSearch(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
+
+	t.Run("limit clamped to max", func(t *testing.T) {
+		mockSvc, handler, r := setupLogHandlerTest()
+		r.GET("/logs", handler.Search)
+
+		mockSvc.On("SearchLogs", mock.Anything, mock.MatchedBy(func(q domain.LogQuery) bool {
+			return q.Limit == maxLogLimit
+		})).Return([]*domain.LogEntry{}, 0, nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/logs?limit=1000000", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("non-positive limit uses default", func(t *testing.T) {
+		mockSvc, handler, r := setupLogHandlerTest()
+		r.GET("/logs", handler.Search)
+
+		mockSvc.On("SearchLogs", mock.Anything, mock.MatchedBy(func(q domain.LogQuery) bool {
+			return q.Limit == defaultLogLimit
+		})).Return([]*domain.LogEntry{}, 0, nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/logs?limit=-5", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("negative offset normalized to zero", func(t *testing.T) {
+		mockSvc, handler, r := setupLogHandlerTest()
+		r.GET("/logs", handler.Search)
+
+		mockSvc.On("SearchLogs", mock.Anything, mock.MatchedBy(func(q domain.LogQuery) bool {
+			return q.Offset == 0
+		})).Return([]*domain.LogEntry{}, 0, nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/logs?offset=-10", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("offset above max rejected", func(t *testing.T) {
+		_, handler, r := setupLogHandlerTest()
+		r.GET("/logs", handler.Search)
+
+		req := httptest.NewRequest(http.MethodGet, "/logs?offset=2000000", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("non-numeric limit rejected", func(t *testing.T) {
+		_, handler, r := setupLogHandlerTest()
+		r.GET("/logs", handler.Search)
+
+		req := httptest.NewRequest(http.MethodGet, "/logs?limit=abc", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
 }
 
 func TestLogHandlerGetByResource(t *testing.T) {
@@ -134,5 +204,21 @@ func TestLogHandlerGetByResource(t *testing.T) {
 		r.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("limit clamped to max", func(t *testing.T) {
+		mockSvc, handler, r := setupLogHandlerTest()
+		r.GET("/logs/:id", handler.GetByResource)
+
+		mockSvc.On("SearchLogs", mock.Anything, mock.MatchedBy(func(q domain.LogQuery) bool {
+			return q.Limit == maxLogLimit
+		})).Return([]*domain.LogEntry{}, 0, nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/logs/res-1?limit=1000000", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockSvc.AssertExpectations(t)
 	})
 }
