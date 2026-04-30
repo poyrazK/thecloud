@@ -48,6 +48,20 @@ const (
 	memStatTagRSS    = 6
 )
 
+// domainStateName returns a human-readable name for a libvirt domain state.
+func domainStateName(state int32) string {
+	switch state {
+	case domainStateRunning:
+		return "RUNNING"
+	case domainStatePaused:
+		return "PAUSED"
+	case domainStateShutoff:
+		return "SHUTOFF"
+	default:
+		return fmt.Sprintf("UNKNOWN(%d)", state)
+	}
+}
+
 // LibvirtAdapter implements compute backend operations using libvirt/KVM.
 type LibvirtAdapter struct {
 	client LibvirtClient
@@ -193,7 +207,7 @@ func (a *LibvirtAdapter) PauseInstance(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to get domain state: %w", err)
 	}
 	if state != domainStateRunning {
-		return fmt.Errorf("%w: domain is %d, must be RUNNING (1)", apierrors.ErrInstanceNotPausable, state)
+		return fmt.Errorf("%w: domain is %s, must be RUNNING", apierrors.ErrInstanceNotPausable, domainStateName(state))
 	}
 
 	if err := a.client.DomainSuspend(ctx, dom); err != nil {
@@ -215,7 +229,7 @@ func (a *LibvirtAdapter) ResumeInstance(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to get domain state: %w", err)
 	}
 	if state != domainStatePaused {
-		return fmt.Errorf("%w: domain is %d, must be PAUSED (3)", apierrors.ErrInstanceNotResumable, state)
+		return fmt.Errorf("%w: domain is %s, must be PAUSED", apierrors.ErrInstanceNotResumable, domainStateName(state))
 	}
 
 	if err := a.client.DomainResume(ctx, dom); err != nil {

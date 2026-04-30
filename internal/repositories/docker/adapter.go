@@ -86,8 +86,8 @@ type dockerClient interface {
 	ContainerExecStart(ctx context.Context, execID string, config container.ExecStartOptions) error
 	ContainerExecAttach(ctx context.Context, execID string, config container.ExecStartOptions) (types.HijackedResponse, error)
 	ContainerExecInspect(ctx context.Context, execID string) (container.ExecInspect, error)
-	ContainerRename(ctx context.Context, containerID string, newName string) error
-ContainerUpdate(ctx context.Context, containerID string, updateConfig container.UpdateConfig) (container.UpdateResponse, error)
+		ContainerRename(ctx context.Context, containerID string, newName string) error
+	ContainerUpdate(ctx context.Context, containerID string, updateConfig container.UpdateConfig) (container.UpdateResponse, error)
 }
 
 // NewDockerAdapter constructs a DockerAdapter with a Docker client.
