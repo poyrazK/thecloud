@@ -218,3 +218,135 @@ func TestDashboardHandlerErrors(t *testing.T) {
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
 	})
 }
+
+func TestDashboardHandlerStreamEvents_OriginNotAllowed(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+	mockSvc := new(dashboardServiceMock)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	// Only "https://allowed.example.com" is allowed — anything else is rejected
+	handler := NewDashboardHandler(mockSvc, logger, "https://allowed.example.com")
+	r := gin.New()
+	r.GET("/stream", handler.StreamEvents)
+
+	summary := &domain.ResourceSummary{TotalInstances: 10}
+	mockSvc.On("GetSummary", mock.Anything).Return(summary, nil)
+
+	req, _ := http.NewRequest("GET", "/stream", nil)
+	req.Header.Set("Origin", "https://evil.example.com")
+	w := httptest.NewRecorder()
+	ctx, cancel := context.WithCancel(context.Background())
+	req = req.WithContext(ctx)
+
+	go r.ServeHTTP(w, req)
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	// Request should be rejected with 403 before SSE headers are sent
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestDashboardHandlerStreamEvents_OriginAllowed(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+	mockSvc := new(dashboardServiceMock)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	handler := NewDashboardHandler(mockSvc, logger, "https://app.example.com")
+	r := gin.New()
+	r.GET("/stream", handler.StreamEvents)
+
+	summary := &domain.ResourceSummary{TotalInstances: 10}
+	mockSvc.On("GetSummary", mock.Anything).Return(summary, nil)
+
+	req, _ := http.NewRequest("GET", "/stream", nil)
+	req.Header.Set("Origin", "https://app.example.com")
+	w := httptest.NewRecorder()
+	ctx, cancel := context.WithCancel(context.Background())
+	req = req.WithContext(ctx)
+
+	go r.ServeHTTP(w, req)
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	assert.Contains(t, w.Header().Get("Content-Type"), "text/event-stream")
+	assert.Contains(t, w.Body.String(), "event:summary")
+	assert.Equal(t, "https://app.example.com", w.Header().Get("Access-Control-Allow-Origin"))
+}
+
+func TestDashboardHandlerStreamEvents_WildcardAllowsAny(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+	mockSvc := new(dashboardServiceMock)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	handler := NewDashboardHandler(mockSvc, logger, "*")
+	r := gin.New()
+	r.GET("/stream", handler.StreamEvents)
+
+	summary := &domain.ResourceSummary{TotalInstances: 10}
+	mockSvc.On("GetSummary", mock.Anything).Return(summary, nil)
+
+	req, _ := http.NewRequest("GET", "/stream", nil)
+	req.Header.Set("Origin", "https://anything.com")
+	w := httptest.NewRecorder()
+	ctx, cancel := context.WithCancel(context.Background())
+	req = req.WithContext(ctx)
+
+	go r.ServeHTTP(w, req)
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	assert.Contains(t, w.Header().Get("Content-Type"), "text/event-stream")
+	assert.Contains(t, w.Body.String(), "event:summary")
+}
+
+func TestDashboardHandlerStreamEvents_EmptyAllowlistDenied(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+	mockSvc := new(dashboardServiceMock)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	// Empty allowlist = fail-closed
+	handler := NewDashboardHandler(mockSvc, logger)
+	r := gin.New()
+	r.GET("/stream", handler.StreamEvents)
+
+	req, _ := http.NewRequest("GET", "/stream", nil)
+	req.Header.Set("Origin", "https://anything.com")
+	w := httptest.NewRecorder()
+	ctx, cancel := context.WithCancel(context.Background())
+	req = req.WithContext(ctx)
+
+	go r.ServeHTTP(w, req)
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	// Empty allowlist → deny all cross-origin → 403
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestDashboardHandlerStreamEvents_SameOriginNoHeader(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+	mockSvc := new(dashboardServiceMock)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	// With wildcard, same-origin (no Origin header) should be allowed
+	handler := NewDashboardHandler(mockSvc, logger, "*")
+	r := gin.New()
+	r.GET("/stream", handler.StreamEvents)
+
+	summary := &domain.ResourceSummary{TotalInstances: 10}
+	mockSvc.On("GetSummary", mock.Anything).Return(summary, nil)
+
+	req, _ := http.NewRequest("GET", "/stream", nil)
+	// No Origin header set — same-origin request
+	w := httptest.NewRecorder()
+	ctx, cancel := context.WithCancel(context.Background())
+	req = req.WithContext(ctx)
+
+	go r.ServeHTTP(w, req)
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	// No Origin header = same-origin → allowed with wildcard
+	assert.Contains(t, w.Header().Get("Content-Type"), "text/event-stream")
+	assert.Contains(t, w.Body.String(), "event:summary")
+}
