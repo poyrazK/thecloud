@@ -23,6 +23,11 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 )
 
+const (
+	// maxLogSize bounds log reading in captureInvocationResults to prevent memory exhaustion.
+	maxLogSize = 1 * 1024 * 1024 // 1 MB
+)
+
 // RuntimeConfig describes how a function runtime is executed.
 type RuntimeConfig struct {
 	Image      string
@@ -358,7 +363,7 @@ func (s *FunctionService) waitForTask(ctx context.Context, containerID string, t
 func (s *FunctionService) captureInvocationResults(i *domain.Invocation, containerID string, statusCode int64, waitErr error) {
 	logsReader, _ := s.compute.GetInstanceLogs(context.Background(), containerID)
 	if logsReader != nil {
-		logBytes, _ := io.ReadAll(logsReader)
+		logBytes, _ := io.ReadAll(io.LimitReader(logsReader, maxLogSize))
 		// Sanitize logs to prevent log injection (strip control characters)
 		re := regexp.MustCompile(`[^[:print:][:space:]]`)
 		i.Logs = re.ReplaceAllString(string(logBytes), "?")

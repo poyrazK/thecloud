@@ -4,6 +4,8 @@ package node
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"io"
 	"math"
 	"os"
@@ -17,6 +19,8 @@ type LocalStore struct {
 	rootDir string
 	mu      sync.RWMutex
 }
+
+const maxObjectSize = 5 * 1024 * 1024 * 1024 // 5 GB
 
 // NewLocalStore initializes a new local storage backend.
 func NewLocalStore(dataDir string) (*LocalStore, error) {
@@ -46,9 +50,9 @@ func (s *LocalStore) WriteStream(bucket, key string, r io.Reader, timestamp int6
 		return 0, err
 	}
 
-	n, copyErr := io.Copy(f, r)
+	n, copyErr := io.Copy(f, io.LimitReader(r, maxObjectSize))
 	closeErr := f.Close()
-	if copyErr != nil {
+	if copyErr != nil && !errors.Is(copyErr, io.EOF) {
 		_ = os.Remove(tmpPath)
 		return n, copyErr
 	}
@@ -195,6 +199,11 @@ func (s *LocalStore) Assemble(bucket, key string, parts []string) (int64, error)
 			break
 		}
 		totalSize += n
+		if totalSize > maxObjectSize {
+			_ = f.Close()
+			_ = os.Remove(tmpPath)
+			return totalSize, fmt.Errorf("assembled object exceeds max size: %d bytes (max %d)", totalSize, maxObjectSize)
+		}
 	}
 
 	closeErr := f.Close()
