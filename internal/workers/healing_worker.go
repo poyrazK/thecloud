@@ -101,10 +101,12 @@ func (w *HealingWorker) healERRORInstances(ctx context.Context) {
 			defer func() { <-w.semaphore }() // Release semaphore token
 
 			// Wait a bit to avoid race conditions with recent failures
+			timer := time.NewTimer(w.healingDelay)
+			defer timer.Stop()
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(w.healingDelay):
+			case <-timer.C:
 			}
 
 			w.logger.Info("initiating healing restart", "instance_id", id)

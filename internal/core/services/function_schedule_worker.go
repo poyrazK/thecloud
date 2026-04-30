@@ -109,11 +109,14 @@ func (w *FunctionScheduleWorker) runSchedule(ctx context.Context, sched *domain.
 	if err := w.repo.CompleteScheduleRun(ctx, run, sched, nextRun); err != nil {
 		log.Printf("FunctionScheduleWorker: failed to complete schedule run, retrying: %v", err)
 		for i := 1; i <= 3; i++ {
+			timer := time.NewTimer(time.Duration(i) * time.Second)
 			select {
 			case <-ctx.Done():
+				timer.Stop()
 				log.Printf("FunctionScheduleWorker: context cancelled during retry")
 				return
-			case <-time.After(time.Duration(i) * time.Second):
+			case <-timer.C:
+				timer.Stop()
 			}
 			if err := w.repo.CompleteScheduleRun(ctx, run, sched, nextRun); err == nil {
 				return

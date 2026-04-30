@@ -158,7 +158,7 @@ func TestRunApplicationApiRoleStartsAndShutsDown(t *testing.T) {
 		}()
 	}
 
-	err := runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), &setup.Workers{})
+	err := runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), nil, &setup.Workers{})
 	if err != nil {
 		t.Fatalf("runApplication returned error: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestRunApplicationWorkerRoleDoesNotStartHTTP(t *testing.T) {
 		}()
 	}
 
-	err := runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), &setup.Workers{})
+	err := runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), nil, &setup.Workers{})
 	if err != nil {
 		t.Fatalf("runApplication returned error: %v", err)
 	}
@@ -233,7 +233,7 @@ func TestRunApplicationDefaultsToAllRole(t *testing.T) {
 		}()
 	}
 
-	err := runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), &setup.Workers{})
+	err := runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), nil, &setup.Workers{})
 	if err != nil {
 		t.Fatalf("runApplication returned error: %v", err)
 	}
@@ -264,7 +264,7 @@ func TestRunApplicationInvalidRoleReturnsEarly(t *testing.T) {
 	}
 
 	// Should return immediately without starting anything
-	err := runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), &setup.Workers{})
+	err := runApplication(deps, &platform.Config{Port: "0"}, logger, gin.New(), nil, &setup.Workers{})
 	if err == nil {
 		t.Fatalf("expected error for invalid role")
 	}

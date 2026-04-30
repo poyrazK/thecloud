@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -23,6 +24,47 @@ type testSecretSvc struct {
 	val string
 	err error
 }
+
+// testComputeBackend is a minimal test double for ComputeBackend.
+type testComputeBackend struct{}
+
+func (t *testComputeBackend) LaunchInstanceWithOptions(ctx context.Context, opts ports.CreateInstanceOptions) (string, []string, error) {
+	return "", nil, nil
+}
+func (t *testComputeBackend) StartInstance(ctx context.Context, id string) error                  { return nil }
+func (t *testComputeBackend) StopInstance(ctx context.Context, id string) error                    { return nil }
+func (t *testComputeBackend) DeleteInstance(ctx context.Context, id string) error                  { return nil }
+func (t *testComputeBackend) GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error) { return nil, nil }
+func (t *testComputeBackend) GetInstanceStats(ctx context.Context, id string) (io.ReadCloser, error) {
+	return nil, nil
+}
+func (t *testComputeBackend) GetInstancePort(ctx context.Context, id string, internalPort string) (int, error) {
+	return 0, nil
+}
+func (t *testComputeBackend) GetInstanceIP(ctx context.Context, id string) (string, error) { return "", nil }
+func (t *testComputeBackend) GetConsoleURL(ctx context.Context, id string) (string, error)   { return "", nil }
+func (t *testComputeBackend) Exec(ctx context.Context, id string, cmd []string) (string, error) { return "", nil }
+func (t *testComputeBackend) RunTask(ctx context.Context, opts ports.RunTaskOptions) (string, []string, error) {
+	return "", nil, nil
+}
+func (t *testComputeBackend) WaitTask(ctx context.Context, id string) (int64, error) { return 0, nil }
+func (t *testComputeBackend) CreateNetwork(ctx context.Context, name string) (string, error) { return "", nil }
+func (t *testComputeBackend) DeleteNetwork(ctx context.Context, id string) error         { return nil }
+func (t *testComputeBackend) AttachVolume(ctx context.Context, id string, volumePath string) (string, string, error) {
+	return "", "", nil
+}
+func (t *testComputeBackend) DetachVolume(ctx context.Context, id string, volumePath string) (string, error) {
+	return "", nil
+}
+func (t *testComputeBackend) Ping(ctx context.Context) error                                        { return nil }
+func (t *testComputeBackend) Type() string                                                          { return "test" }
+func (t *testComputeBackend) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error { return nil }
+func (t *testComputeBackend) CreateSnapshot(ctx context.Context, id, name string) error            { return nil }
+func (t *testComputeBackend) RestoreSnapshot(ctx context.Context, id, name string) error            { return nil }
+func (t *testComputeBackend) DeleteSnapshot(ctx context.Context, id, name string) error             { return nil }
+
+// compile-time check that testComputeBackend satisfies ports.ComputeBackend
+var _ ports.ComputeBackend = (*testComputeBackend)(nil)
 
 func (t *testSecretSvc) CreateSecret(ctx context.Context, name, value, desc string) (*domain.Secret, error) {
 	return &domain.Secret{ID: uuid.New(), Name: name}, nil
@@ -173,6 +215,44 @@ func TestFunctionService_BuildTaskOptions(t *testing.T) {
 		for _, e := range opts.Env {
 			assert.NotContains(t, e, "API_KEY")
 		}
+	})
+}
+
+func TestFunctionService_CaptureInvocationResults(t *testing.T) {
+	s := &FunctionService{logger: slog.Default(), compute: &testComputeBackend{}}
+
+	t.Run("non-zero exit code", func(t *testing.T) {
+		i := &domain.Invocation{ID: uuid.New(), Status: "RUNNING"}
+		s.captureInvocationResults(i, "task-1", 127, nil)
+		assert.Equal(t, "FAILED", i.Status)
+		assert.Equal(t, 127, i.StatusCode)
+	})
+
+	t.Run("error during wait", func(t *testing.T) {
+		i := &domain.Invocation{ID: uuid.New(), Status: "RUNNING"}
+		s.captureInvocationResults(i, "task-1", 0, errors.New("connection lost"))
+		assert.Equal(t, "FAILED", i.Status)
+		assert.Contains(t, i.Logs, "connection lost")
+	})
+
+	t.Run("timeout", func(t *testing.T) {
+		i := &domain.Invocation{ID: uuid.New(), Status: "RUNNING"}
+		s.captureInvocationResults(i, "task-1", 0, context.DeadlineExceeded)
+		assert.Equal(t, "FAILED", i.Status)
+		assert.Contains(t, i.Logs, "timed out")
+	})
+
+	t.Run("success", func(t *testing.T) {
+		i := &domain.Invocation{ID: uuid.New(), Status: "RUNNING"}
+		s.captureInvocationResults(i, "task-1", 0, nil)
+		assert.Equal(t, "SUCCESS", i.Status)
+		assert.Equal(t, 0, i.StatusCode)
+	})
+
+	t.Run("logs sanitized", func(t *testing.T) {
+		i := &domain.Invocation{ID: uuid.New(), Status: "RUNNING"}
+		s.captureInvocationResults(i, "task-1", 0, nil)
+		assert.NotContains(t, i.Logs, "\x00")
 	})
 }
 

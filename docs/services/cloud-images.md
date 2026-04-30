@@ -37,12 +37,27 @@ The two-step flow allows large files to be uploaded without blocking the API ser
 POST /images/import
   → Create image record (status=PENDING)
   → HTTP GET remote URL (30-minute timeout)
-  → Stream response body directly to FileStore
+  → Validate Content-Length (max 10 GB)
+  → Validate Content-Type header against allowlist
+  → Read first 512 bytes for magic byte validation (qcow2, iso formats)
+  → Stream response body to FileStore with size limit
   → On success: status=ACTIVE
   → On failure: status=ERROR
 ```
 
 Import is synchronous and returns `202 Accepted` immediately after the image metadata is created. The download and storage happens in the foreground; for very large images (>1GB) this may take several minutes.
+
+### Import Security Validations
+
+URL imports are protected against SSRF and content-spoofing attacks:
+
+| Validation | Detail |
+|------------|--------|
+| **Scheme restriction** | Only `http://` and `https://` allowed — no `file://`, `gopher://`, etc. |
+| **Size limit** | `Content-Length` header must be ≤ 10 GB. Streaming is capped at the same limit. |
+| **Content-Type allowlist** | Must be one of: `image/jpeg`, `image/png`, `image/gif`, `application/x-iso9660-image`, `application/octet-stream` |
+| **Magic byte validation** | First 512 bytes are verified against expected format signature (QCOW2: `QFD¿`, ISO: `CD001`) |
+| **Format-to-content consistency** | The declared URL extension (`.qcow2`, `.iso`, etc.) must match magic bytes — a `.qcow2` URL returning JPEG data is rejected |
 
 ---
 
@@ -109,8 +124,11 @@ cloud image delete <image-id>
 |----------|--------|
 | Remote URL returns non-200 | `ERROR` status; error message includes HTTP status code |
 | Remote URL unreachable / timeout | `ERROR` status; 30-minute timeout per request |
-| File store write fails | `ERROR` status; partial file may remain |
+| Content-Length exceeds 10 GB | `ERROR` status; `"image exceeds max size"` |
+| Content-Type not in allowlist | `ERROR` status; `"invalid content-type"` |
+| Magic bytes don't match declared format | `ERROR` status; `"invalid magic bytes for format"` |
 | Invalid URL format | Returns `400 Bad Request` before image creation |
+| File store write fails | `ERROR` status; partial file may remain |
 
 ---
 
