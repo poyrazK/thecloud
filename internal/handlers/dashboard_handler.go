@@ -31,6 +31,10 @@ func NewDashboardHandler(svc ports.DashboardService, logger *slog.Logger, allowe
 			cleaned = append(cleaned, trimmed)
 		}
 	}
+	if len(cleaned) == 0 && logger != nil {
+		logger.Warn("DashboardHandler: cross-origin SSE is disabled (no allowed origins configured). " +
+			"Set DASHBOARD_ALLOWED_ORIGINS env var to enable.")
+	}
 	return &DashboardHandler{svc: svc, logger: logger, allowedOrigins: cleaned}
 }
 
