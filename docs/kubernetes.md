@@ -20,6 +20,7 @@ Our KaaS solution leverages `kubeadm` for standard, compliant cluster bootstrapp
         *   *API server down*: Restarts kubelet on each control plane node sequentially until recovered.
         *   *Nodes not ready*: Re-applies Calico CNI, restarts kube-proxy daemonset, and restarts kubelet on individual non-ready nodes.
     *   **Backoff**: Skips clusters repaired within the last 5 minutes or unhealthy for less than 2 minutes (transient tolerance).
+    *   **Repair Timeout**: Repair operations timeout after 10 minutes (configurable via `repair_timeout_minutes` field); clusters that time out are marked `Failed`.
 *   **Disaster Recovery**: Integrated Backup and Restore capabilities for cluster state.
 
 ## Architecture
@@ -157,3 +158,4 @@ Use `type: NodePort` or `type: LoadBalancer` to expose services. The Cloud's sec
 *   **Region Support**: Single region control plane.
 *   **Node Upgrades**: Worker node OS/kubelet upgrades are not yet automated; only control plane can be upgraded.
 *   **kubectl apply**: Users cannot apply arbitrary manifests to the cluster via the platform API.
+*   **Self-Healing Calico Version**: Repair re-applies a fixed Calico version (`v3.25.0`); does not track the cluster's installed version.
