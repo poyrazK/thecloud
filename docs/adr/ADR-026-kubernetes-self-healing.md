@@ -57,3 +57,6 @@ After a failed repair, the cluster is marked `Failed` and subsequent reconciliat
 - Repair operations that restart kubelet may cause brief pod disruption on the affected node
 - HA control plane recovery depends on at least one control plane node having a functional kubelet
 - Calico version is hardcoded in the repair logic (`v3.25.0`) — should track cluster's installed version
+- `Repair()` returns `nil` even on failure; errors are handled internally by persisting `Status=Failed` — intentional for async callers
+- Repair has a 10-minute timeout (configurable via `RepairTimeoutMinutes`); clusters that time out are marked `Failed`
+- `repairNodes()` returns error if any node kubelet restarts fail (partial failures do not look like success)

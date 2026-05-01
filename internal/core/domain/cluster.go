@@ -7,6 +7,9 @@ import (
 	"github.com/google/uuid"
 )
 
+// DefaultRepairTimeout is the default timeout for cluster repair operations.
+const DefaultRepairTimeout = 10 * time.Minute
+
 // ClusterStatus represents the current state of a Kubernetes cluster.
 type ClusterStatus string
 
@@ -88,6 +91,7 @@ type Cluster struct {
 	RepairAttempts       int        `json:"repair_attempts"`
 	LastRepairAttempt   *time.Time `json:"last_repair_attempt,omitempty"`
 	LastRepairSucceeded *time.Time `json:"last_repair_succeeded,omitempty"`
+	RepairTimeoutMinutes int        `json:"repair_timeout_minutes"` // 0 means use default (10 min)
 }
 
 // ClusterNode represents a node within a Kubernetes cluster.
