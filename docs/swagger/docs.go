@@ -9056,6 +9056,15 @@ const docTemplate = `{
                 "cpu_percentage": {
                     "type": "number"
                 },
+                "cpu_time_nanoseconds": {
+                    "type": "integer"
+                },
+                "disk_read_bytes": {
+                    "type": "integer"
+                },
+                "disk_write_bytes": {
+                    "type": "integer"
+                },
                 "memory_limit_bytes": {
                     "type": "number"
                 },
@@ -9064,6 +9073,12 @@ const docTemplate = `{
                 },
                 "memory_usage_bytes": {
                     "type": "number"
+                },
+                "network_rx_bytes": {
+                    "type": "integer"
+                },
+                "network_tx_bytes": {
+                    "type": "integer"
                 }
             }
         },
