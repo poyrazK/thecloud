@@ -742,6 +742,7 @@ func TestLibvirtAdapter_StatsAndConsole(t *testing.T) {
 	t.Run("GetInstanceStats", func(t *testing.T) {
 		m.On("DomainLookupByName", mock.Anything, id).Return(dom, nil).Once()
 		m.On("DomainMemoryStats", mock.Anything, dom, uint32(10), uint32(0)).Return([]libvirt.DomainMemoryStat{}, nil).Once()
+		m.On("DomainGetCPUStats", mock.Anything, dom, uint32(0), int32(0), uint32(0), libvirt.TypedParameterFlags(0)).Return([]libvirt.TypedParam{}, int32(0), nil).Once()
 		m.On("DomainGetState", mock.Anything, dom, uint32(0)).Return(int32(1), int32(0), nil).Once()
 
 		stats, err := a.GetInstanceStats(ctx, id)

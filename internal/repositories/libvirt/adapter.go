@@ -602,10 +602,26 @@ func (a *LibvirtAdapter) GetInstanceStats(ctx context.Context, id string) (io.Re
 		}
 	}
 
+	// Get CPU stats via DomainGetCPUStats
+	cpuParams, _, err := a.client.DomainGetCPUStats(ctx, dom, 0, 0, 0, 0)
+	var cpuTime uint64
+	if err == nil {
+		for _, p := range cpuParams {
+			if p.Field == "cpu_time" && p.Value.D == 4 { // D==4 means ULLONG
+				if v, ok := p.Value.I.(uint64); ok {
+					cpuTime = v
+				}
+			}
+		}
+	}
+
 	statJSON, _ := json.Marshal(map[string]interface{}{
 		"memory_stats": map[string]uint64{
 			"usage": usage,
 			"limit": limit,
+		},
+		"cpu_stats": map[string]uint64{
+			"cpu_time": cpuTime,
 		},
 	})
 	return io.NopCloser(bytes.NewReader(statJSON)), nil
