@@ -91,10 +91,15 @@ type Instance struct {
 // InstanceStats contains real-time resource usage metrics.
 // Values are instantaneous snapshots from the compute backend.
 type InstanceStats struct {
-	CPUPercentage    float64 `json:"cpu_percentage"`
-	MemoryUsageBytes float64 `json:"memory_usage_bytes"`
-	MemoryLimitBytes float64 `json:"memory_limit_bytes"`
-	MemoryPercentage float64 `json:"memory_percentage"`
+	CPUPercentage       float64 `json:"cpu_percentage"`
+	MemoryUsageBytes    float64 `json:"memory_usage_bytes"`
+	MemoryLimitBytes    float64 `json:"memory_limit_bytes"`
+	MemoryPercentage    float64 `json:"memory_percentage"`
+	NetworkRxBytes      int64   `json:"network_rx_bytes"`
+	NetworkTxBytes      int64   `json:"network_tx_bytes"`
+	DiskReadBytes       int64   `json:"disk_read_bytes"`
+	DiskWriteBytes      int64   `json:"disk_write_bytes"`
+	CPUTimeNanoseconds  int64   `json:"cpu_time_nanoseconds,omitempty"`
 }
 
 // RawDockerStats mirrors Docker's stats payload for CPU/memory calculations.
@@ -104,6 +109,7 @@ type RawDockerStats struct {
 			TotalUsage uint64 `json:"total_usage"`
 		} `json:"cpu_usage"`
 		SystemCPUUsage uint64 `json:"system_cpu_usage"`
+		CPUTime        uint64 `json:"cpu_time"` // libvirt: cumulative CPU time in nanoseconds
 	} `json:"cpu_stats"`
 	PreCPUStats struct {
 		CPUUsage struct {
@@ -115,4 +121,18 @@ type RawDockerStats struct {
 		Usage uint64 `json:"usage"`
 		Limit uint64 `json:"limit"`
 	} `json:"memory_stats"`
+	NetworkStats map[string]struct {
+		RxBytes uint64 `json:"rx_bytes"`
+		TxBytes uint64 `json:"tx_bytes"`
+	} `json:"network_stats"`
+	BlkioStats struct {
+		IoServiceBytes []BlkioStatEntry `json:"ioservice_bytes"`
+	} `json:"blkio_stats"`
+}
+
+// BlkioStatEntry represents a single block I/O stat entry.
+type BlkioStatEntry struct {
+	Op     string `json:"op"`
+	Device string `json:"device"`
+	Value  uint64 `json:"value"`
 }
