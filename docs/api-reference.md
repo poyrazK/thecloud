@@ -263,6 +263,39 @@ Get the VNC console URL for the instance.
 }
 ```
 
+### GET /instances/:id/stats
+Get real-time resource usage stats for an instance (CPU, memory, network I/O, disk I/O).
+
+**Response:**
+```json
+{
+  "cpu_percentage": 25.5,
+  "memory_usage_bytes": 524288000,
+  "memory_limit_bytes": 1073741824,
+  "memory_percentage": 48.8,
+  "network_rx_bytes": 1024000,
+  "network_tx_bytes": 512000,
+  "disk_read_bytes": 10240000,
+  "disk_write_bytes": 5120000,
+  "cpu_time_nanoseconds": 5000000000
+}
+```
+
+**Fields:**
+- `cpu_percentage` (float): CPU usage as percentage of available
+- `memory_usage_bytes` (float): Current memory usage in bytes
+- `memory_limit_bytes` (float): Memory limit in bytes
+- `memory_percentage` (float): Memory usage as percentage of limit
+- `network_rx_bytes` (int): Total network bytes received
+- `network_tx_bytes` (int): Total network bytes transmitted
+- `disk_read_bytes` (int): Total disk bytes read
+- `disk_write_bytes` (int): Total disk bytes written
+- `cpu_time_nanoseconds` (int, optional): Cumulative CPU time in nanoseconds (Libvirt backend)
+
+**Error Responses:**
+- `404` — Instance not found
+- `503` — Backend stats unavailable
+
 ### POST /instances/:id/pause
 Pause a running instance (freezes CPU, retains memory/network).
 
