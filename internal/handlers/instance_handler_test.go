@@ -457,7 +457,17 @@ func TestInstanceHandlerGetStats(t *testing.T) {
 	r.GET(instancesPath+"/:id/stats", handler.GetStats)
 
 	id := uuid.New().String()
-	stats := &domain.InstanceStats{CPUPercentage: 10.5, MemoryUsageBytes: 128}
+	stats := &domain.InstanceStats{
+		CPUPercentage:      10.5,
+		MemoryUsageBytes:   128,
+		MemoryLimitBytes:   256,
+		MemoryPercentage:   50.0,
+		NetworkRxBytes:     1024,
+		NetworkTxBytes:     512,
+		DiskReadBytes:      4096,
+		DiskWriteBytes:     2048,
+		CPUTimeNanoseconds: 3000000000,
+	}
 	mockSvc.On("GetInstanceStats", mock.Anything, id).Return(stats, nil)
 
 	req := httptest.NewRequest(http.MethodGet, instancesPath+"/"+id+"/stats", nil)
@@ -466,6 +476,24 @@ func TestInstanceHandlerGetStats(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Verify all new stats fields are present in the JSON response
+	// httputil.Success wraps data in {"data": {...}}
+	var wrapper struct {
+		Data map[string]interface{} `json:"data"`
+	}
+	err := json.Unmarshal(w.Body.Bytes(), &wrapper)
+	require.NoError(t, err)
+
+	assert.Equal(t, 10.5, wrapper.Data["cpu_percentage"])
+	assert.Equal(t, float64(128), wrapper.Data["memory_usage_bytes"])
+	assert.Equal(t, float64(256), wrapper.Data["memory_limit_bytes"])
+	assert.Equal(t, float64(50.0), wrapper.Data["memory_percentage"])
+	assert.Equal(t, float64(1024), wrapper.Data["network_rx_bytes"])
+	assert.Equal(t, float64(512), wrapper.Data["network_tx_bytes"])
+	assert.Equal(t, float64(4096), wrapper.Data["disk_read_bytes"])
+	assert.Equal(t, float64(2048), wrapper.Data["disk_write_bytes"])
+	assert.Equal(t, float64(3000000000), wrapper.Data["cpu_time_nanoseconds"])
 }
 
 func TestInstanceHandlerLaunchWithVolumesAndVPC(t *testing.T) {
