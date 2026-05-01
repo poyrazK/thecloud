@@ -1264,11 +1264,34 @@ func (s *InstanceService) calculateInstanceStats(stats *domain.RawDockerStats) *
 		memPercent = (memUsage / memLimit) * 100.0
 	}
 
+	// Sum network rx/tx across all interfaces
+	var rxBytes, txBytes int64
+	for _, net := range stats.NetworkStats {
+		rxBytes += int64(net.RxBytes)
+		txBytes += int64(net.TxBytes)
+	}
+
+	// Sum block read/write bytes
+	var readBytes, writeBytes int64
+	for _, entry := range stats.BlkioStats.IoServiceBytes {
+		switch entry.Op {
+		case "read", "Read":
+			readBytes += int64(entry.Value)
+		case "write", "Write":
+			writeBytes += int64(entry.Value)
+		}
+	}
+
 	return &domain.InstanceStats{
-		CPUPercentage:    cpuPercent,
-		MemoryUsageBytes: memUsage,
-		MemoryLimitBytes: memLimit,
-		MemoryPercentage: memPercent,
+		CPUPercentage:      cpuPercent,
+		MemoryUsageBytes:    memUsage,
+		MemoryLimitBytes:    memLimit,
+		MemoryPercentage:    memPercent,
+		NetworkRxBytes:      rxBytes,
+		NetworkTxBytes:      txBytes,
+		DiskReadBytes:       readBytes,
+		DiskWriteBytes:      writeBytes,
+		CPUTimeNanoseconds:  int64(stats.CPUStats.CPUTime),
 	}
 }
 
