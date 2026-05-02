@@ -438,7 +438,7 @@ func initStorageServices(c ServiceConfig, rbacSvc ports.RBACService, audit ports
 			c.Logger.Info("added storage node", "id", nodeID, "addr", addr)
 		}
 
-		fileStore = coordinator.NewCoordinator(ring, clients, 3)
+		fileStore = coordinator.NewCoordinator(context.Background(), ring, clients, 3)
 	} else {
 		fileStore, err = filesystem.NewLocalFileStore("./thecloud-data/local/storage")
 		if err != nil {

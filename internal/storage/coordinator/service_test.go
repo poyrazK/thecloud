@@ -159,7 +159,7 @@ func TestCoordinatorWriteQuorum_TCs(t *testing.T) {
 			tt.setupMocks(c1, c2, c3)
 
 			clients := map[string]pb.StorageNodeClient{node1: c1, node2: c2, node3: c3}
-			coord := NewCoordinator(ring, clients, 3)
+			coord := NewCoordinator(context.Background(), ring, clients, 3)
 			defer coord.Stop()
 
 			n, err := coord.Write(context.Background(), "b", "k", bytes.NewReader([]byte("hello")))
@@ -182,7 +182,7 @@ func TestCoordinatorReadRepair(t *testing.T) {
 
 	c1, c2, c3 := new(MockStorageNodeClient), new(MockStorageNodeClient), new(MockStorageNodeClient)
 	clients := map[string]pb.StorageNodeClient{node1: c1, node2: c2, node3: c3}
-	coord := NewCoordinator(ring, clients, 3)
+	coord := NewCoordinator(context.Background(), ring, clients, 3)
 	defer coord.Stop()
 
 	tsNew := time.Now().UnixNano()
@@ -241,7 +241,7 @@ func TestCoordinatorDelete(t *testing.T) {
 
 	c1, c2, c3 := new(MockStorageNodeClient), new(MockStorageNodeClient), new(MockStorageNodeClient)
 	clients := map[string]pb.StorageNodeClient{node1: c1, node2: c2, node3: c3}
-	coord := NewCoordinator(ring, clients, 3)
+	coord := NewCoordinator(context.Background(), ring, clients, 3)
 	defer coord.Stop()
 
 	c1.On("Delete", mock.Anything, mock.Anything).Return(&pb.DeleteResponse{Success: true}, nil)
@@ -260,7 +260,7 @@ func TestCoordinatorAssemble(t *testing.T) {
 
 	c1, c2, c3 := new(MockStorageNodeClient), new(MockStorageNodeClient), new(MockStorageNodeClient)
 	clients := map[string]pb.StorageNodeClient{node1: c1, node2: c2, node3: c3}
-	coord := NewCoordinator(ring, clients, 3)
+	coord := NewCoordinator(context.Background(), ring, clients, 3)
 	defer coord.Stop()
 
 	c1.On("Assemble", mock.Anything, mock.Anything).Return(&pb.AssembleResponse{Size: 100}, nil)
@@ -275,7 +275,7 @@ func TestCoordinatorAssemble(t *testing.T) {
 func TestCoordinatorGetClusterStatus(t *testing.T) {
 	ring := NewConsistentHashRing(10)
 	clients := make(map[string]pb.StorageNodeClient)
-	coord := NewCoordinator(ring, clients, 3)
+	coord := NewCoordinator(context.Background(), ring, clients, 3)
 	defer coord.Stop()
 
 	status, err := coord.GetClusterStatus(context.Background())

@@ -37,7 +37,7 @@ type Coordinator struct {
 }
 
 // NewCoordinator creates a new distributed storage coordinator.
-func NewCoordinator(ring *ConsistentHashRing, clients map[string]pb.StorageNodeClient, replicaCount int) *Coordinator {
+func NewCoordinator(ctx context.Context, ring *ConsistentHashRing, clients map[string]pb.StorageNodeClient, replicaCount int) *Coordinator {
 	if replicaCount < 1 {
 		replicaCount = 1
 	}
@@ -48,24 +48,26 @@ func NewCoordinator(ring *ConsistentHashRing, clients map[string]pb.StorageNodeC
 		writeQuorum:  (replicaCount / 2) + 1,
 		stopCh:       make(chan struct{}),
 	}
-	go c.startSyncLoop()
+	go c.startSyncLoop(ctx)
 	return c
 }
 
-func (c *Coordinator) startSyncLoop() {
+func (c *Coordinator) startSyncLoop(ctx context.Context) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			c.SyncClusterState()
+			c.SyncClusterState(ctx)
 		case <-c.stopCh:
+			return
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (c *Coordinator) SyncClusterState() {
+func (c *Coordinator) SyncClusterState(ctx context.Context) {
 	// Pick random node to query
 	var client pb.StorageNodeClient
 	if len(c.clients) == 0 {
@@ -89,7 +91,7 @@ func (c *Coordinator) SyncClusterState() {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
 	resp, err := client.GetClusterStatus(ctx, &pb.Empty{})
