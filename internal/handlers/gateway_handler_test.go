@@ -49,21 +49,21 @@ func (m *mockGatewayService) CreateRoute(ctx context.Context, params ports.Creat
 	return r0, args.Error(1)
 }
 
-func (m *mockGatewayService) GetProxy(method, path string) (*httputil.ReverseProxy, map[string]string, bool) {
+func (m *mockGatewayService) GetProxy(method, path string) (*httputil.ReverseProxy, *domain.GatewayRoute, map[string]string, bool) {
 	args := m.Called(method, path)
 	if args.Get(0) == nil {
-		return nil, nil, args.Bool(2)
+		return nil, nil, nil, args.Bool(3)
+	}
+	var route *domain.GatewayRoute
+	if r := args.Get(1); r != nil {
+		route = r.(*domain.GatewayRoute)
 	}
 	var params map[string]string
-	if p := args.Get(1); p != nil {
-		var ok bool
-		params, ok = p.(map[string]string)
-		if !ok {
-			params = nil
-		}
+	if p := args.Get(2); p != nil {
+		params = p.(map[string]string)
 	}
 	r0, _ := args.Get(0).(*httputil.ReverseProxy)
-	return r0, params, args.Bool(2)
+	return r0, route, params, args.Bool(3)
 }
 
 func (m *mockGatewayService) ListRoutes(ctx context.Context) ([]*domain.GatewayRoute, error) {
@@ -168,7 +168,7 @@ func TestGatewayHandlerProxyNotFound(t *testing.T) {
 
 	r.Any(gwProxyPath, handler.Proxy)
 
-	svc.On("GetProxy", "GET", "/unknown").Return(nil, nil, false)
+	svc.On("GetProxy", "GET", "/unknown").Return(nil, nil, nil, false)
 
 	req, err := http.NewRequest(http.MethodGet, "/gw/unknown", nil)
 	require.NoError(t, err)
@@ -200,7 +200,7 @@ func TestGatewayHandlerProxySuccess(t *testing.T) {
 	// Gateway Handler implementation: c.Request.URL.Path = c.Param("proxy")? or just calls ServeHTTP.
 	// If GatewayHandler calls `proxy.ServeHTTP(w, c.Request)`, the request path "/gw/api" is sent to target.
 	// Test server expects any path.
-	svc.On("GetProxy", "GET", "/api").Return(proxy, map[string]string{}, true)
+	svc.On("GetProxy", "GET", "/api").Return(proxy, (*domain.GatewayRoute)(nil), map[string]string{}, true)
 
 	req, err := http.NewRequest(http.MethodGet, gwAPITestPath, nil)
 	require.NoError(t, err)
@@ -223,7 +223,7 @@ func TestGatewayHandlerProxyWithoutSlash(t *testing.T) {
 	defer ts.Close()
 	targetURL, _ := url.Parse(ts.URL)
 
-	svc.On("GetProxy", "GET", "/api").Return(httputil.NewSingleHostReverseProxy(targetURL), map[string]string{}, true)
+	svc.On("GetProxy", "GET", "/api").Return(httputil.NewSingleHostReverseProxy(targetURL), (*domain.GatewayRoute)(nil), map[string]string{}, true)
 
 	req, err := http.NewRequest(http.MethodGet, gwAPITestPath, nil)
 	require.NoError(t, err)
@@ -246,7 +246,7 @@ func TestGatewayHandlerProxyWithSlash(t *testing.T) {
 	defer ts.Close()
 	targetURL, _ := url.Parse(ts.URL)
 
-	svc.On("GetProxy", "GET", "//api").Return(httputil.NewSingleHostReverseProxy(targetURL), map[string]string{}, true)
+	svc.On("GetProxy", "GET", "//api").Return(httputil.NewSingleHostReverseProxy(targetURL), (*domain.GatewayRoute)(nil), map[string]string{}, true)
 
 	req, err := http.NewRequest(http.MethodGet, "/gw//api", nil)
 	require.NoError(t, err)
@@ -313,7 +313,7 @@ func TestGatewayHandlerProxyParamWithoutSlash(t *testing.T) {
 	targetURL, _ := url.Parse(ts.URL)
 
 	// Expect GetProxy to be called with "/api" (slash added)
-	mockSvc.On("GetProxy", "GET", "/api").Return(httputil.NewSingleHostReverseProxy(targetURL), map[string]string{}, true)
+	mockSvc.On("GetProxy", "GET", "/api").Return(httputil.NewSingleHostReverseProxy(targetURL), (*domain.GatewayRoute)(nil), map[string]string{}, true)
 
 	handler.Proxy(c)
 
