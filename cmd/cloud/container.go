@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -40,10 +41,27 @@ var listDeploymentsCmd = &cobra.Command{
 	Short: "List all deployments",
 	Run: func(cmd *cobra.Command, args []string) {
 		client := createClient(opts)
-		deps, err := client.ListDeployments()
-		if err != nil {
-			fmt.Printf(containerErrorFormat, err)
-			return
+
+		limit, _ := cmd.Flags().GetInt("limit")
+		offset, _ := cmd.Flags().GetInt("offset")
+
+		var deps []sdk.Deployment
+		var meta *sdk.ListResponse[sdk.Deployment]
+
+		if limit > 0 || offset > 0 {
+			var err error
+			deps, meta, err = client.ListDeploymentsWithPagination(limit, offset)
+			if err != nil {
+				fmt.Printf(containerErrorFormat, err)
+				return
+			}
+		} else {
+			var err error
+			deps, err = client.ListDeployments()
+			if err != nil {
+				fmt.Printf(containerErrorFormat, err)
+				return
+			}
 		}
 
 		table := tablewriter.NewWriter(os.Stdout)
@@ -59,6 +77,14 @@ var listDeploymentsCmd = &cobra.Command{
 			})
 		}
 		table.Render()
+
+		if meta != nil {
+			fmt.Printf("\nShowing %d of %d total", len(deps), meta.TotalCount)
+			if meta.HasMore {
+				fmt.Print(" (more available)")
+			}
+			fmt.Println()
+		}
 	},
 }
 
@@ -102,6 +128,9 @@ var deleteDeploymentCmd = &cobra.Command{
 func init() {
 	createDeploymentCmd.Flags().IntP("replicas", "r", 1, "Number of replicas")
 	createDeploymentCmd.Flags().StringP("ports", "p", "", "Ports to expose (e.g. 80:80)")
+
+	listDeploymentsCmd.Flags().Int("limit", 0, "Maximum number of results (0 = use server default)")
+	listDeploymentsCmd.Flags().Int("offset", 0, "Number of results to skip")
 
 	containerCmd.AddCommand(createDeploymentCmd)
 	containerCmd.AddCommand(listDeploymentsCmd)

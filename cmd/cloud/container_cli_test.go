@@ -55,6 +55,10 @@ func TestCreateDeploymentCmd(t *testing.T) {
 }
 
 func TestListDeploymentsCmd(t *testing.T) {
+	type listDeploymentsResponse struct {
+		Data []map[string]interface{} `json:"data"`
+	}
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/containers/deployments" || r.Method != http.MethodGet {
@@ -72,7 +76,7 @@ func TestListDeploymentsCmd(t *testing.T) {
 				"status":        "running",
 			},
 		}
-		_ = json.NewEncoder(w).Encode(payload)
+		_ = json.NewEncoder(w).Encode(listDeploymentsResponse{Data: payload})
 	}))
 	defer server.Close()
 
