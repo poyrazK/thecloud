@@ -55,34 +55,41 @@ func (s *elasticIPService) AllocateIP(ctx context.Context) (*domain.ElasticIP, e
 		return nil, err
 	}
 
-	id := uuid.New()
+	// Retry on potential IP collision (theoretical race with concurrent allocation).
+	// The IP is generated from UUID bytes 12-15 which has limited entropy,
+	// and the database enforces uniqueness on PublicIP.
+	maxRetries := 3
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		id := uuid.New()
+		publicIP := s.generateDeterministicIP(id)
 
-	// Simulate public IP allocation from CGNAT range 100.64.0.0/10 for demo/simulation
-	// In a real system, this would come from an IP pool manager or provider SDK
-	publicIP := s.generateDeterministicIP(id)
+		eip := &domain.ElasticIP{
+			ID:        id,
+			UserID:    userID,
+			TenantID:  tenantID,
+			PublicIP:  publicIP,
+			Status:    domain.EIPStatusAllocated,
+			ARN:       fmt.Sprintf("arn:thecloud:vpc:local:%s:eip/%s", userID, id),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
 
-	eip := &domain.ElasticIP{
-		ID:        id,
-		UserID:    userID,
-		TenantID:  tenantID,
-		PublicIP:  publicIP,
-		Status:    domain.EIPStatusAllocated,
-		ARN:       fmt.Sprintf("arn:thecloud:vpc:local:%s:eip/%s", userID, id),
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		if err := s.repo.Create(ctx, eip); err != nil {
+			lastErr = err
+			continue // Retry with new UUID/IP
+		}
+
+		if err := s.auditSvc.Log(ctx, userID, "eip.allocate", "eip", id.String(), map[string]interface{}{
+			"public_ip": publicIP,
+		}); err != nil {
+			s.logger.Warn("audit log failed for eip.allocate", "error", err)
+		}
+
+		return eip, nil
 	}
 
-	if err := s.repo.Create(ctx, eip); err != nil {
-		return nil, err
-	}
-
-	if err := s.auditSvc.Log(ctx, userID, "eip.allocate", "eip", id.String(), map[string]interface{}{
-		"public_ip": publicIP,
-	}); err != nil {
-		s.logger.Warn("audit log failed for eip.allocate", "error", err)
-	}
-
-	return eip, nil
+	return nil, lastErr
 }
 
 func (s *elasticIPService) ReleaseIP(ctx context.Context, id uuid.UUID) error {

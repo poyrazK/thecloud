@@ -169,12 +169,18 @@ func (c *Coordinator) Assemble(ctx context.Context, bucket, key string, parts []
 	}
 	wg.Wait()
 
-	// 3. Quorum check
-	if successCount < c.writeQuorum {
-		return 0, fmt.Errorf("assemble quorum failed (%d/%d): %w", successCount, c.writeQuorum, lastErr)
+	// 3. Quorum check - lock to safely read shared variables written by goroutines
+	mu.Lock()
+	count := successCount
+	lerr := lastErr
+	sz := size
+	mu.Unlock()
+
+	if count < c.writeQuorum {
+		return 0, fmt.Errorf("assemble quorum failed (%d/%d): %w", count, c.writeQuorum, lerr)
 	}
 
-	return size, nil
+	return sz, nil
 }
 
 func (c *Coordinator) Stop() {

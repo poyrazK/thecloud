@@ -67,16 +67,17 @@ func (h *Hub) Run() {
 			h.logger.Debug("client disconnected", slog.Int("total", len(h.clients)))
 
 		case message := <-h.broadcast:
-			h.mu.RLock()
+			h.mu.Lock()
 			for client := range h.clients {
 				select {
 				case client.send <- message:
 				default:
-					close(client.send)
-					delete(h.clients, client)
+					h.mu.Unlock()
+					h.unregister <- client
+					h.mu.Lock()
 				}
 			}
-			h.mu.RUnlock()
+			h.mu.Unlock()
 		}
 	}
 }
