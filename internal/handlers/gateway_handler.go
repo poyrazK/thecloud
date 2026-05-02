@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -39,12 +40,13 @@ type CreateRouteRequest struct {
 
 // GatewayHandler handles API gateway HTTP endpoints.
 type GatewayHandler struct {
-	svc ports.GatewayService
+	svc    ports.GatewayService
+	logger *slog.Logger
 }
 
 // NewGatewayHandler constructs a GatewayHandler.
-func NewGatewayHandler(svc ports.GatewayService) *GatewayHandler {
-	return &GatewayHandler{svc: svc}
+func NewGatewayHandler(svc ports.GatewayService, logger *slog.Logger) *GatewayHandler {
+	return &GatewayHandler{svc: svc, logger: logger}
 }
 
 // CreateRoute establishes a new ingress mapping
@@ -68,6 +70,12 @@ func (h *GatewayHandler) CreateRoute(c *gin.Context) {
 
 	if req.RateLimit == 0 {
 		req.RateLimit = 100
+	}
+
+	// Validate TLS settings
+	if req.RequireTLS && req.TLSSkipVerify {
+		httputil.Error(c, errors.New(errors.InvalidInput, "cannot set both require_tls and tls_skip_verify"))
+		return
 	}
 
 	params := ports.CreateRouteParams{
@@ -196,13 +204,18 @@ func (h *GatewayHandler) injectTraceHeaders(c *gin.Context) {
 
 func generateTraceID() string {
 	b := make([]byte, 16)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		// crypto/rand.Read rarely fails, but handle it gracefully
+		return uuid.New().String()
+	}
 	return hex.EncodeToString(b)
 }
 
 func generateSpanID() string {
 	b := make([]byte, 8)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		return uuid.New().String()[:16]
+	}
 	return hex.EncodeToString(b)
 }
 
@@ -214,7 +227,14 @@ func (h *GatewayHandler) checkCIDR(c *gin.Context, route *domain.GatewayRoute) b
 
 	// Check blocked CIDRs first (takes precedence)
 	for _, cidrStr := range route.BlockedCIDRs {
-		if _, ipNet, err := net.ParseCIDR(cidrStr); err == nil && ipNet.Contains(clientIP) {
+		_, ipNet, err := net.ParseCIDR(cidrStr)
+		if err != nil {
+			if h.logger != nil {
+				h.logger.Warn("invalid blocked CIDR", "cidr", cidrStr, "error", err)
+			}
+			continue
+		}
+		if ipNet.Contains(clientIP) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied"})
 			return false
 		}
@@ -224,7 +244,14 @@ func (h *GatewayHandler) checkCIDR(c *gin.Context, route *domain.GatewayRoute) b
 	if len(route.AllowedCIDRs) > 0 {
 		allowed := false
 		for _, cidrStr := range route.AllowedCIDRs {
-			if _, ipNet, err := net.ParseCIDR(cidrStr); err == nil && ipNet.Contains(clientIP) {
+			_, ipNet, err := net.ParseCIDR(cidrStr)
+			if err != nil {
+				if h.logger != nil {
+					h.logger.Warn("invalid allowed CIDR", "cidr", cidrStr, "error", err)
+				}
+				continue
+			}
+			if ipNet.Contains(clientIP) {
 				allowed = true
 				break
 			}
@@ -245,6 +272,8 @@ type limitedReader struct {
 	read  int64
 }
 
+// Read enforces the byte limit. When the limit is reached, io.EOF is returned
+// even if the underlying reader returned an error (error shadowing for limit enforcement).
 func (l *limitedReader) Read(p []byte) (n int, err error) {
 	if l.read >= l.limit {
 		return 0, io.EOF
@@ -259,4 +288,8 @@ func (l *limitedReader) Read(p []byte) (n int, err error) {
 		err = io.EOF
 	}
 	return
+}
+
+func (l *limitedReader) Close() error {
+	return l.ReadCloser.Close()
 }

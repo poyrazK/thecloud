@@ -88,7 +88,7 @@ func (m *mockGatewayService) RefreshRoutes(ctx context.Context) error {
 func setupGatewayHandlerTest(_ *testing.T) (*mockGatewayService, *GatewayHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockGatewayService)
-	handler := NewGatewayHandler(svc)
+	handler := NewGatewayHandler(svc, nil)
 	r := gin.New()
 	return svc, handler, r
 }
@@ -296,7 +296,7 @@ func TestGatewayHandlerListError(t *testing.T) {
 func TestGatewayHandlerProxyParamWithoutSlash(t *testing.T) {
 	t.Parallel()
 	mockSvc := new(mockGatewayService)
-	handler := NewGatewayHandler(mockSvc)
+	handler := NewGatewayHandler(mockSvc, nil)
 	gin.SetMode(gin.TestMode)
 
 	// Manually create context to pass parameter without slash
