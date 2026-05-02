@@ -36,6 +36,15 @@ func (c *Client) ListInstances() ([]Instance, error) {
 	return res.Data, nil
 }
 
+// ListInstancesWithPagination returns instances with pagination metadata.
+func (c *Client) ListInstancesWithPagination(limit, offset int) ([]Instance, *ListResponse[Instance], error) {
+	var res Response[ListResponse[Instance]]
+	if err := c.getWithPagination("/instances", &res, limit, offset); err != nil {
+		return nil, nil, err
+	}
+	return res.Data.Data, &res.Data, nil
+}
+
 // ListInstancesWithContext returns all instances with context support.
 func (c *Client) ListInstancesWithContext(ctx context.Context) ([]Instance, error) {
 	var res Response[[]Instance]
@@ -180,6 +189,15 @@ func (c *Client) ListInstanceTypes() ([]InstanceType, error) {
 	return res.Data, nil
 }
 
+// ListInstanceTypesWithPagination returns instance types with pagination metadata.
+func (c *Client) ListInstanceTypesWithPagination(limit, offset int) ([]InstanceType, *ListResponse[InstanceType], error) {
+	var res Response[ListResponse[InstanceType]]
+	if err := c.getWithPagination("/instance-types", &res, limit, offset); err != nil {
+		return nil, nil, err
+	}
+	return res.Data.Data, &res.Data, nil
+}
+
 // RegisterSSHKey registers a new SSH public key.
 func (c *Client) RegisterSSHKey(name, publicKey string) (*SSHKey, error) {
 	body := map[string]string{
@@ -200,4 +218,13 @@ func (c *Client) ListSSHKeys() ([]SSHKey, error) {
 		return nil, err
 	}
 	return res.Data, nil
+}
+
+// ListSSHKeysWithPagination returns SSH keys with pagination metadata.
+func (c *Client) ListSSHKeysWithPagination(limit, offset int) ([]SSHKey, *ListResponse[SSHKey], error) {
+	var res Response[ListResponse[SSHKey]]
+	if err := c.getWithPagination("/ssh-keys", &res, limit, offset); err != nil {
+		return nil, nil, err
+	}
+	return res.Data.Data, &res.Data, nil
 }

@@ -85,6 +85,19 @@ func (c *Client) ListFunctions() ([]*Function, error) {
 	return resp.Data, nil
 }
 
+func (c *Client) ListFunctionsWithPagination(limit, offset int) ([]*Function, *ListResponse[Function], error) {
+	var resp Response[ListResponse[Function]]
+	if err := c.getWithPagination("/functions", &resp, limit, offset); err != nil {
+		return nil, nil, err
+	}
+	// Convert []Function to []*Function
+	result := make([]*Function, len(resp.Data.Data))
+	for i := range resp.Data.Data {
+		result[i] = &resp.Data.Data[i]
+	}
+	return result, &resp.Data, nil
+}
+
 func (c *Client) ListFunctionsContext(ctx context.Context) ([]*Function, error) {
 	var resp Response[[]*Function]
 	if err := c.getContext(ctx, "/functions", &resp); err != nil {
