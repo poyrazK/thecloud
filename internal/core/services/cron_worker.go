@@ -36,9 +36,8 @@ func NewCronWorker(repo ports.CronRepository) *CronWorker {
 func (w *CronWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	ticker := time.NewTicker(10 * time.Second)
-	reaperTicker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
-	defer reaperTicker.Stop()
+	tickCounter := 0
 
 	log.Println("CloudCron Worker started")
 
@@ -49,8 +48,10 @@ func (w *CronWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 			return
 		case <-ticker.C:
 			w.ProcessJobs(ctx)
-		case <-reaperTicker.C:
-			w.reapStaleClaims(ctx)
+			tickCounter++
+			if tickCounter%6 == 0 { // every 60 seconds
+				w.reapStaleClaims(ctx)
+			}
 		}
 	}
 }

@@ -35,9 +35,8 @@ func NewFunctionScheduleWorker(repo ports.FunctionScheduleRepository, fnSvc port
 func (w *FunctionScheduleWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	ticker := time.NewTicker(10 * time.Second)
-	reaperTicker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
-	defer reaperTicker.Stop()
+	tickCounter := 0
 
 	log.Println("FunctionSchedule Worker started")
 
@@ -48,8 +47,10 @@ func (w *FunctionScheduleWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 			return
 		case <-ticker.C:
 			w.ProcessSchedules(ctx)
-		case <-reaperTicker.C:
-			w.reapStaleClaims(ctx)
+			tickCounter++
+			if tickCounter%6 == 0 { // every 60 seconds
+				w.reapStaleClaims(ctx)
+			}
 		}
 	}
 }
