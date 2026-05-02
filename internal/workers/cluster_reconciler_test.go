@@ -147,39 +147,39 @@ func TestClusterReconcilerReconcile(t *testing.T) {
 
 	t.Run("Skipping Cluster Repaired Within 5 Minutes", func(t *testing.T) {
 		repo := new(MockClusterRepo)
-		prov := new(mockProvisioner)
-		reconciler := NewClusterReconciler(repo, prov, logger)
+		provider := new(mockProvisioner)
+		reconciler := NewClusterReconciler(repo, provider, logger)
 
 		now := time.Now()
 		recentCluster := &domain.Cluster{
-			ID:               uuid.New(),
-			Status:           domain.ClusterStatusRunning,
-			LastRepairSucceeded: ptrTime(now.Add(-3 * time.Minute)),
+			ID:                 uuid.New(),
+			Status:             domain.ClusterStatusRunning,
+			LastRepairSucceeded: domain.PtrTime(now.Add(-3 * time.Minute)),
 		}
 		repo.On("ListAll", mock.Anything).Return([]*domain.Cluster{recentCluster}, nil).Once()
 
 		reconciler.reconcile(ctx)
 
-		prov.AssertNotCalled(t, "GetHealth", mock.Anything, mock.Anything)
+		provider.AssertNotCalled(t, "GetHealth", mock.Anything, mock.Anything)
 		repo.AssertExpectations(t)
 	})
 
 	t.Run("Skipping Cluster Unhealthy For Less Than 2 Minutes", func(t *testing.T) {
 		repo := new(MockClusterRepo)
-		prov := new(mockProvisioner)
-		reconciler := NewClusterReconciler(repo, prov, logger)
+		provider := new(mockProvisioner)
+		reconciler := NewClusterReconciler(repo, provider, logger)
 
 		now := time.Now()
 		unhealthyCluster := &domain.Cluster{
-			ID:               uuid.New(),
-			Status:           domain.ClusterStatusRunning,
-			UnhealthySince:    ptrTime(now.Add(-1 * time.Minute)),
+			ID:              uuid.New(),
+			Status:          domain.ClusterStatusRunning,
+			UnhealthySince:  domain.PtrTime(now.Add(-1 * time.Minute)),
 		}
 		repo.On("ListAll", mock.Anything).Return([]*domain.Cluster{unhealthyCluster}, nil).Once()
 
 		reconciler.reconcile(ctx)
 
-		prov.AssertNotCalled(t, "GetHealth", mock.Anything, mock.Anything)
+		provider.AssertNotCalled(t, "GetHealth", mock.Anything, mock.Anything)
 		repo.AssertExpectations(t)
 	})
 

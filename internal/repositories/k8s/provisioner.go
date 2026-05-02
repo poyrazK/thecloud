@@ -472,6 +472,9 @@ func (p *KubeadmProvisioner) GetStatus(ctx context.Context, cluster *domain.Clus
 	return cluster.Status, nil
 }
 
+// Repair executes cluster health remediation. It always returns nil — errors are
+// handled internally by persisting status=Failed. Callers should check cluster.Status
+// or cluster.FailureReason to determine the repair outcome.
 func (p *KubeadmProvisioner) Repair(ctx context.Context, cluster *domain.Cluster) error {
 	p.logger.Info("repairing cluster", "cluster_id", cluster.ID)
 
@@ -557,7 +560,9 @@ func (p *KubeadmProvisioner) repairAPIServer(ctx context.Context, cluster *domai
 		}
 
 		// Wait for kubelet to stabilize
-		time.Sleep(5 * time.Second)
+		if err := sleepWithCtx(ctx, 5*time.Second); err != nil {
+			return err
+		}
 
 		// Re-check health
 		health, err := p.GetHealth(ctx, cluster)
@@ -603,7 +608,9 @@ func (p *KubeadmProvisioner) repairNodes(ctx context.Context, cluster *domain.Cl
 	}
 
 	// 3. Wait and verify
-	time.Sleep(10 * time.Second)
+	if err := sleepWithCtx(ctx, 10*time.Second); err != nil {
+		return err
+	}
 	health, err = p.GetHealth(ctx, cluster)
 	if err == nil && health.NodesReady >= health.NodesTotal {
 		return nil
@@ -625,6 +632,12 @@ func (p *KubeadmProvisioner) repairNodes(ctx context.Context, cluster *domain.Cl
 			continue
 		}
 		nodeName := parts[0]
+
+		// Validate nodeName to prevent shell injection via kubectl output
+		if !isValidNodeName(nodeName) {
+			p.logger.Warn("invalid node name from kubectl output, skipping", "node", nodeName)
+			continue
+		}
 
 		// Get node's InternalIP directly via jsonpath instead of matching by name/ID
 		ipOut, err := exec.Run(ctx, fmt.Sprintf("kubectl --kubeconfig %s get node %s -o jsonpath='{.status.addresses[?(@.type==\"InternalIP\")].address}'", adminKubeconfig, nodeName))
@@ -657,6 +670,30 @@ func (p *KubeadmProvisioner) repairNodes(ctx context.Context, cluster *domain.Cl
 }
 
 func ptrTime(t time.Time) *time.Time { return &t }
+
+// sleepWithCtx pauses for duration d but returns early if ctx is cancelled.
+func sleepWithCtx(ctx context.Context, d time.Duration) error {
+	select {
+	case <-time.After(d):
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// isValidNodeName validates that a node name is a valid Kubernetes node name.
+// Kubernetes node names are DNS labels (max 253 chars, alphanumeric + dash/dot).
+func isValidNodeName(name string) bool {
+	if name == "" || len(name) > 253 {
+		return false
+	}
+	for _, c := range name {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '.' || c == ':') {
+			return false
+		}
+	}
+	return true
+}
 
 func (p *KubeadmProvisioner) Scale(ctx context.Context, cluster *domain.Cluster) error {
 	return p.provisionWorkers(ctx, cluster)

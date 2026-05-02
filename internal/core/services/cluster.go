@@ -15,8 +15,6 @@ import (
 	"github.com/poyrazk/thecloud/pkg/crypto"
 )
 
-func ptrTime(t time.Time) *time.Time { return &t }
-
 // ClusterService implements the managed Kubernetes service.
 type ClusterService struct {
 	repo        ports.ClusterRepository
@@ -297,7 +295,7 @@ func (s *ClusterService) RepairCluster(ctx context.Context, id uuid.UUID) error 
 	// Set repairing status immediately
 	cluster.Status = domain.ClusterStatusRepairing
 	cluster.RepairAttempts++
-	cluster.LastRepairAttempt = ptrTime(time.Now())
+	cluster.LastRepairAttempt = domain.PtrTime(time.Now())
 	if err := s.repo.Update(ctx, cluster); err != nil {
 		return errors.Wrap(errors.Internal, "failed to update cluster status", err)
 	}

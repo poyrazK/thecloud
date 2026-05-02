@@ -103,7 +103,7 @@ func (r *ClusterReconciler) reconcile(ctx context.Context) {
 				cluster.IsHealthy = false
 				cluster.FailureReason = err.Error()
 				if cluster.UnhealthySince == nil {
-					cluster.UnhealthySince = ptrTime(time.Now())
+					cluster.UnhealthySince = domain.PtrTime(time.Now())
 				}
 				_ = r.repo.Update(ctx, cluster)
 			} else {
@@ -112,5 +112,3 @@ func (r *ClusterReconciler) reconcile(ctx context.Context) {
 		}
 	}
 }
-
-func ptrTime(t time.Time) *time.Time { return &t }
