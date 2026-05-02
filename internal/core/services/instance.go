@@ -1290,21 +1290,21 @@ func (s *InstanceService) calculateInstanceStats(stats *domain.RawDockerStats) *
 		memPercent = (memUsage / memLimit) * 100.0
 	}
 
-	// Sum network rx/tx across all interfaces
-	var rxBytes, txBytes int64
+	// Sum network rx/tx across all interfaces (uint64 to avoid gosec G115 overflow warnings)
+	var rxBytes, txBytes uint64
 	for _, net := range stats.NetworkStats {
-		rxBytes += int64(net.RxBytes)
-		txBytes += int64(net.TxBytes)
+		rxBytes += net.RxBytes
+		txBytes += net.TxBytes
 	}
 
 	// Sum block read/write bytes
-	var readBytes, writeBytes int64
+	var readBytes, writeBytes uint64
 	for _, entry := range stats.BlkioStats.IoServiceBytes {
 		switch entry.Op {
 		case "read", "Read":
-			readBytes += int64(entry.Value)
+			readBytes += entry.Value
 		case "write", "Write":
-			writeBytes += int64(entry.Value)
+			writeBytes += entry.Value
 		}
 	}
 
@@ -1313,10 +1313,10 @@ func (s *InstanceService) calculateInstanceStats(stats *domain.RawDockerStats) *
 		MemoryUsageBytes:    memUsage,
 		MemoryLimitBytes:    memLimit,
 		MemoryPercentage:    memPercent,
-		NetworkRxBytes:      rxBytes,
-		NetworkTxBytes:      txBytes,
-		DiskReadBytes:       readBytes,
-		DiskWriteBytes:      writeBytes,
+		NetworkRxBytes:      int64(rxBytes),
+		NetworkTxBytes:      int64(txBytes),
+		DiskReadBytes:       int64(readBytes),
+		DiskWriteBytes:      int64(writeBytes),
 		CPUTimeNanoseconds:  int64(stats.CPUStats.CPUTime),
 	}
 }

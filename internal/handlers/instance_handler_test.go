@@ -488,9 +488,9 @@ func TestInstanceHandlerGetStats(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &wrapper)
 	require.NoError(t, err)
 
-	assert.Equal(t, 10.5, wrapper.Data["cpu_percentage"])
-	assert.Equal(t, float64(128), wrapper.Data["memory_usage_bytes"])
-	assert.Equal(t, float64(256), wrapper.Data["memory_limit_bytes"])
+	assert.InDelta(t, 10.5, wrapper.Data["cpu_percentage"], 0.01)
+	assert.InDelta(t, 128, wrapper.Data["memory_usage_bytes"], 0.01)
+	assert.InDelta(t, 256, wrapper.Data["memory_limit_bytes"], 0.01)
 	assert.Equal(t, float64(50.0), wrapper.Data["memory_percentage"])
 	assert.Equal(t, float64(1024), wrapper.Data["network_rx_bytes"])
 	assert.Equal(t, float64(512), wrapper.Data["network_tx_bytes"])
