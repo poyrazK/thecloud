@@ -8680,11 +8680,37 @@ const docTemplate = `{
         "domain.GatewayRoute": {
             "type": "object",
             "properties": {
+                "allowed_cidrs": {
+                    "description": "IPs allowed to access (empty = all)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "blocked_cidrs": {
+                    "description": "IPs blocked from access",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "created_at": {
                     "type": "string"
                 },
+                "dial_timeout": {
+                    "description": "TCP dial timeout in milliseconds",
+                    "type": "integer"
+                },
                 "id": {
                     "type": "string"
+                },
+                "idle_conn_timeout": {
+                    "description": "Idle connection timeout in milliseconds",
+                    "type": "integer"
+                },
+                "max_body_size": {
+                    "description": "Max request body size in bytes",
+                    "type": "integer"
                 },
                 "methods": {
                     "description": "New: HTTP methods to match (empty = all)",
@@ -8723,6 +8749,14 @@ const docTemplate = `{
                     "description": "Maximum allowed requests per second per IP",
                     "type": "integer"
                 },
+                "require_tls": {
+                    "description": "Force HTTPS for backend",
+                    "type": "boolean"
+                },
+                "response_header_timeout": {
+                    "description": "Time to receive headers in milliseconds",
+                    "type": "integer"
+                },
                 "strip_prefix": {
                     "description": "If true, removes path_prefix from request before forwarding",
                     "type": "boolean"
@@ -8733,6 +8767,10 @@ const docTemplate = `{
                 },
                 "tenant_id": {
                     "type": "string"
+                },
+                "tls_skip_verify": {
+                    "description": "Skip TLS verification for backend",
+                    "type": "boolean"
                 },
                 "updated_at": {
                     "type": "string"
@@ -11036,6 +11074,27 @@ const docTemplate = `{
                 "target_url"
             ],
             "properties": {
+                "allowed_cidrs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "blocked_cidrs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "dial_timeout": {
+                    "type": "integer"
+                },
+                "idle_conn_timeout": {
+                    "type": "integer"
+                },
+                "max_body_size": {
+                    "type": "integer"
+                },
                 "methods": {
                     "type": "array",
                     "items": {
@@ -11054,11 +11113,20 @@ const docTemplate = `{
                 "rate_limit": {
                     "type": "integer"
                 },
+                "require_tls": {
+                    "type": "boolean"
+                },
+                "response_header_timeout": {
+                    "type": "integer"
+                },
                 "strip_prefix": {
                     "type": "boolean"
                 },
                 "target_url": {
                     "type": "string"
+                },
+                "tls_skip_verify": {
+                    "type": "boolean"
                 }
             }
         },
