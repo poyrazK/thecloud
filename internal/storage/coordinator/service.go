@@ -247,6 +247,7 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 				if errSend != nil {
 					// Remove failed stream
 					streams = append(streams[:i], streams[i+1:]...)
+					i--
 				}
 			}
 		}
