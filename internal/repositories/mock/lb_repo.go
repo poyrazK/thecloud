@@ -70,6 +70,10 @@ func (m *MockLBRepo) ListAll(ctx context.Context) ([]*domain.LoadBalancer, error
 	return m.List(ctx)
 }
 
+func (m *MockLBRepo) ListByStatus(ctx context.Context, status string, limit, offset int) ([]*domain.LoadBalancer, error) {
+	return m.List(ctx)
+}
+
 func (m *MockLBRepo) AddTarget(ctx context.Context, target *domain.LBTarget) error       { return nil }
 func (m *MockLBRepo) RemoveTarget(ctx context.Context, lbID, instanceID uuid.UUID) error { return nil }
 func (m *MockLBRepo) ListTargets(ctx context.Context, lbID uuid.UUID) ([]*domain.LBTarget, error) {
