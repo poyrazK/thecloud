@@ -1290,7 +1290,7 @@ func (s *InstanceService) calculateInstanceStats(stats *domain.RawDockerStats) *
 		memPercent = (memUsage / memLimit) * 100.0
 	}
 
-	// Sum network rx/tx across all interfaces (uint64 to avoid gosec G115 overflow warnings)
+	// Sum network rx/tx across all interfaces
 	var rxBytes, txBytes uint64
 	for _, net := range stats.NetworkStats {
 		rxBytes += net.RxBytes
@@ -1313,10 +1313,10 @@ func (s *InstanceService) calculateInstanceStats(stats *domain.RawDockerStats) *
 		MemoryUsageBytes:    memUsage,
 		MemoryLimitBytes:    memLimit,
 		MemoryPercentage:    memPercent,
-		NetworkRxBytes:      int64(rxBytes),
-		NetworkTxBytes:      int64(txBytes),
-		DiskReadBytes:       int64(readBytes),
-		DiskWriteBytes:      int64(writeBytes),
+		NetworkRxBytes:      rxBytes,
+		NetworkTxBytes:      txBytes,
+		DiskReadBytes:       readBytes,
+		DiskWriteBytes:      writeBytes,
 		CPUTimeNanoseconds:  int64(stats.CPUStats.CPUTime),
 	}
 }

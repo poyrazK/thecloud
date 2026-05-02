@@ -95,10 +95,10 @@ type InstanceStats struct {
 	MemoryUsageBytes    float64 `json:"memory_usage_bytes"`
 	MemoryLimitBytes    float64 `json:"memory_limit_bytes"`
 	MemoryPercentage    float64 `json:"memory_percentage"`
-	NetworkRxBytes      int64   `json:"network_rx_bytes"`
-	NetworkTxBytes      int64   `json:"network_tx_bytes"`
-	DiskReadBytes       int64   `json:"disk_read_bytes"`
-	DiskWriteBytes      int64   `json:"disk_write_bytes"`
+	NetworkRxBytes      uint64 `json:"network_rx_bytes"`
+	NetworkTxBytes      uint64 `json:"network_tx_bytes"`
+	DiskReadBytes       uint64 `json:"disk_read_bytes"`
+	DiskWriteBytes      uint64 `json:"disk_write_bytes"`
 	CPUTimeNanoseconds  int64   `json:"cpu_time_nanoseconds,omitempty"` // only populated by Libvirt backend; Docker uses delta-based percentage instead
 }
 
