@@ -9,21 +9,29 @@ import (
 
 // GatewayRoute defines an ingress rule for mapping external HTTP traffic to internal resources.
 type GatewayRoute struct {
-	ID          uuid.UUID `json:"id"`
-	UserID      uuid.UUID `json:"user_id"`
-	TenantID    uuid.UUID `json:"tenant_id"`
-	Name        string    `json:"name"`
-	PathPrefix  string    `json:"path_prefix"`  // Legacy: Request path to match (e.g., "/api/v1")
-	PathPattern string    `json:"path_pattern"` // New: Pattern with {params}
-	PatternType string    `json:"pattern_type"` // "prefix" or "pattern"
-	ParamNames  []string  `json:"param_names"`  // Extracted parameter names
-	TargetURL   string    `json:"target_url"`   // Internal destination (e.g., "http://service-a:8080")
-	Methods     []string  `json:"methods"`      // New: HTTP methods to match (empty = all)
-	StripPrefix bool      `json:"strip_prefix"` // If true, removes path_prefix from request before forwarding
-	RateLimit   int       `json:"rate_limit"`   // Maximum allowed requests per second per IP
-	Priority    int       `json:"priority"`     // Manual priority for tie-breaking
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID                       uuid.UUID `json:"id"`
+	UserID                   uuid.UUID `json:"user_id"`
+	TenantID                 uuid.UUID `json:"tenant_id"`
+	Name                     string    `json:"name"`
+	PathPrefix               string    `json:"path_prefix"`    // Legacy: Request path to match (e.g., "/api/v1")
+	PathPattern              string    `json:"path_pattern"`   // New: Pattern with {params}
+	PatternType              string    `json:"pattern_type"`   // "prefix" or "pattern"
+	ParamNames               []string  `json:"param_names"`    // Extracted parameter names
+	TargetURL                string    `json:"target_url"`     // Internal destination (e.g., "http://service-a:8080")
+	Methods                  []string  `json:"methods"`        // New: HTTP methods to match (empty = all)
+	StripPrefix              bool      `json:"strip_prefix"`   // If true, removes path_prefix from request before forwarding
+	RateLimit                int       `json:"rate_limit"`      // Maximum allowed requests per second per IP
+	DialTimeout              int64     `json:"dial_timeout"`    // TCP dial timeout in milliseconds
+	ResponseHeaderTimeout     int64     `json:"response_header_timeout"` // Time to receive headers in milliseconds
+	IdleConnTimeout          int64     `json:"idle_conn_timeout"`       // Idle connection timeout in milliseconds
+	TLSSkipVerify            bool      `json:"tls_skip_verify"`  // Skip TLS verification for backend
+	RequireTLS              bool      `json:"require_tls"`      // Force HTTPS for backend
+	AllowedCIDRs             []string  `json:"allowed_cidrs"`   // IPs allowed to access (empty = all)
+	BlockedCIDRs             []string  `json:"blocked_cidrs"`   // IPs blocked from access
+	MaxBodySize              int64     `json:"max_body_size"`   // Max request body size in bytes
+	Priority                 int       `json:"priority"`        // Manual priority for tie-breaking
+	CreatedAt                time.Time `json:"created_at"`
+	UpdatedAt                time.Time `json:"updated_at"`
 }
 
 // RouteMatch represents a successful route pattern match.

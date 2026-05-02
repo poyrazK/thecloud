@@ -3,8 +3,10 @@ package services
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -69,21 +71,29 @@ func (s *GatewayService) CreateRoute(ctx context.Context, params ports.CreateRou
 	}
 
 	route := &domain.GatewayRoute{
-		ID:          uuid.New(),
-		UserID:      userID,
-		TenantID:    tenantID,
-		Name:        params.Name,
-		PathPrefix:  params.Pattern, // Use pattern as prefix for backward compatibility where possible
-		PathPattern: params.Pattern,
-		PatternType: patternType,
-		ParamNames:  paramNames,
-		TargetURL:   params.Target,
-		Methods:     params.Methods,
-		StripPrefix: params.StripPrefix,
-		RateLimit:   params.RateLimit,
-		Priority:    params.Priority,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		ID:                       uuid.New(),
+		UserID:                   userID,
+		TenantID:                 tenantID,
+		Name:                     params.Name,
+		PathPrefix:               params.Pattern,
+		PathPattern:              params.Pattern,
+		PatternType:              patternType,
+		ParamNames:               paramNames,
+		TargetURL:                params.Target,
+		Methods:                  params.Methods,
+		StripPrefix:             params.StripPrefix,
+		RateLimit:                params.RateLimit,
+		DialTimeout:              params.DialTimeout,
+		ResponseHeaderTimeout:    params.ResponseHeaderTimeout,
+		IdleConnTimeout:          params.IdleConnTimeout,
+		TLSSkipVerify:            params.TLSSkipVerify,
+		RequireTLS:              params.RequireTLS,
+		AllowedCIDRs:             params.AllowedCIDRs,
+		BlockedCIDRs:             params.BlockedCIDRs,
+		MaxBodySize:              params.MaxBodySize,
+		Priority:                 params.Priority,
+		CreatedAt:                time.Now(),
+		UpdatedAt:                time.Now(),
 	}
 
 	if err := s.repo.CreateRoute(ctx, route); err != nil {
@@ -180,6 +190,32 @@ func (s *GatewayService) createReverseProxy(route *domain.GatewayRoute) (*httput
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
+
+	// Configure custom transport with timeouts and TLS
+	dialTimeout := time.Duration(route.DialTimeout) * time.Millisecond
+	if dialTimeout <= 0 {
+		dialTimeout = 5 * time.Second
+	}
+	responseHeaderTimeout := time.Duration(route.ResponseHeaderTimeout) * time.Millisecond
+	if responseHeaderTimeout <= 0 {
+		responseHeaderTimeout = 30 * time.Second
+	}
+	idleConnTimeout := time.Duration(route.IdleConnTimeout) * time.Millisecond
+	if idleConnTimeout <= 0 {
+		idleConnTimeout = 90 * time.Second
+	}
+
+	proxy.Transport = &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   dialTimeout,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ResponseHeaderTimeout: responseHeaderTimeout,
+		IdleConnTimeout:       idleConnTimeout,
+		TLSClientConfig:       s.buildTLSConfig(route),
+		TLSHandshakeTimeout:   10 * time.Second,
+	}
+
 	originalDirector := proxy.Director
 	proxy.Director = func(req *http.Request) {
 		if route.StripPrefix {
@@ -199,6 +235,16 @@ func (s *GatewayService) createReverseProxy(route *domain.GatewayRoute) (*httput
 	return proxy, nil
 }
 
+func (s *GatewayService) buildTLSConfig(route *domain.GatewayRoute) *tls.Config {
+	cfg := &tls.Config{
+		InsecureSkipVerify: route.TLSSkipVerify,
+	}
+	if route.RequireTLS {
+		cfg.MinVersion = tls.VersionTLS12
+	}
+	return cfg
+}
+
 func (s *GatewayService) sortRoutes(routes []*domain.GatewayRoute) {
 	// Sort routes by specificity (longer literal prefixes and higher priority first)
 	sort.Slice(routes, func(i, j int) bool {
@@ -210,7 +256,7 @@ func (s *GatewayService) sortRoutes(routes []*domain.GatewayRoute) {
 
 // ProxyHandler is handled in the API layer for now
 
-func (s *GatewayService) GetProxy(method, path string) (*httputil.ReverseProxy, map[string]string, bool) {
+func (s *GatewayService) GetProxy(method, path string) (*httputil.ReverseProxy, *domain.GatewayRoute, map[string]string, bool) {
 	s.proxyMu.RLock()
 	defer s.proxyMu.RUnlock()
 
@@ -226,10 +272,10 @@ func (s *GatewayService) GetProxy(method, path string) (*httputil.ReverseProxy, 
 	}
 
 	if bestMatch != nil {
-		return s.proxies[bestMatch.Route.ID], bestMatch.Params, true
+		return s.proxies[bestMatch.Route.ID], bestMatch.Route, bestMatch.Params, true
 	}
 
-	return nil, nil, false
+	return nil, nil, nil, false
 }
 
 func (s *GatewayService) checkRouteMatch(route *domain.GatewayRoute, method, path string) *domain.RouteMatch {
