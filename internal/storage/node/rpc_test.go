@@ -15,10 +15,10 @@ import (
 
 type mockStoreServer struct {
 	grpc.ServerStream
-	ctx      context.Context
-	reqs     []*pb.StoreRequest
-	resp     *pb.StoreResponse
-	recvIdx  int
+	ctx     context.Context
+	reqs    []*pb.StoreRequest
+	resp    *pb.StoreResponse
+	recvIdx int
 }
 
 func (m *mockStoreServer) Context() context.Context { return m.ctx }
@@ -37,8 +37,8 @@ func (m *mockStoreServer) Recv() (*pb.StoreRequest, error) {
 
 type mockRetrieveServer struct {
 	grpc.ServerStream
-	ctx    context.Context
-	resps  []*pb.RetrieveResponse
+	ctx   context.Context
+	resps []*pb.RetrieveResponse
 }
 
 func (m *mockRetrieveServer) Context() context.Context { return m.ctx }
@@ -71,7 +71,7 @@ func TestRPCServer(t *testing.T) {
 	retrieveMock := &mockRetrieveServer{ctx: ctx}
 	err = server.Retrieve(&pb.RetrieveRequest{Bucket: "bucket1", Key: "key1"}, retrieveMock)
 	require.NoError(t, err)
-	
+
 	found := false
 	var data []byte
 	for _, r := range retrieveMock.resps {

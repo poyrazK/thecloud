@@ -20,12 +20,12 @@ const igwTracer = "internet-gateway-service"
 
 // InternetGatewayService manages the lifecycle of Internet Gateways.
 type InternetGatewayService struct {
-	repo           ports.IGWRepository
-	rtRepo         ports.RouteTableRepository
-	vpcRepo        ports.VpcRepository
-	rbacSvc        ports.RBACService
-	auditSvc       ports.AuditService
-	logger         *slog.Logger
+	repo     ports.IGWRepository
+	rtRepo   ports.RouteTableRepository
+	vpcRepo  ports.VpcRepository
+	rbacSvc  ports.RBACService
+	auditSvc ports.AuditService
+	logger   *slog.Logger
 }
 
 // InternetGatewayServiceParams holds dependencies for InternetGatewayService.

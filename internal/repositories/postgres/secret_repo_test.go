@@ -30,8 +30,8 @@ func TestSecretRepository_Integration(t *testing.T) {
 	t.Run("CreateSecret", func(t *testing.T) {
 		secretID = uuid.New()
 		secret := &domain.Secret{
-			ID:             secretID,
-			UserID:         userID, TenantID:       tenantID,
+			ID:     secretID,
+			UserID: userID, TenantID: tenantID,
 			Name:           "test-secret",
 			EncryptedValue: "encrypted-data-here",
 			Description:    "Test secret for integration testing",
@@ -61,8 +61,8 @@ func TestSecretRepository_Integration(t *testing.T) {
 	t.Run("List", func(t *testing.T) {
 		// Create another secret
 		secret2 := &domain.Secret{
-			ID:             uuid.New(),
-			UserID:         userID, TenantID:       tenantID,
+			ID:     uuid.New(),
+			UserID: userID, TenantID: tenantID,
 			Name:           "another-secret",
 			EncryptedValue: "more-encrypted-data",
 			Description:    "Another test secret",

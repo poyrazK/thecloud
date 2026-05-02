@@ -33,10 +33,10 @@ type EnvVar struct {
 
 // FunctionUpdateRequest describes fields that can be updated.
 type FunctionUpdateRequest struct {
-	Handler  *string    `json:"handler,omitempty"`
-	Timeout  *int       `json:"timeout,omitempty"`
-	MemoryMB *int       `json:"memory_mb,omitempty"`
-	Status   string     `json:"status,omitempty"`
+	Handler  *string   `json:"handler,omitempty"`
+	Timeout  *int      `json:"timeout,omitempty"`
+	MemoryMB *int      `json:"memory_mb,omitempty"`
+	Status   string    `json:"status,omitempty"`
 	EnvVars  []*EnvVar `json:"env_vars,omitempty"`
 }
 

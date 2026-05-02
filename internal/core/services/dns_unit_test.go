@@ -300,17 +300,17 @@ func testGetZoneByVPC(t *testing.T) {
 	ctx = appcontext.WithUserID(ctx, userID)
 
 	testCases := []struct {
-		name       string
-		rbacErr    error
-		repoZone   *domain.DNSZone
-		repoErr    error
-		expectErr  bool
+		name      string
+		rbacErr   error
+		repoZone  *domain.DNSZone
+		repoErr   error
+		expectErr bool
 	}{
 		{
-			name:     "Success",
-			rbacErr:  nil,
-			repoZone: &domain.DNSZone{ID: uuid.New(), VpcID: uuid.New(), Name: "vpc.internal"},
-			repoErr:  nil,
+			name:      "Success",
+			rbacErr:   nil,
+			repoZone:  &domain.DNSZone{ID: uuid.New(), VpcID: uuid.New(), Name: "vpc.internal"},
+			repoErr:   nil,
 			expectErr: false,
 		},
 		{

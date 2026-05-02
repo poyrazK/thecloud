@@ -177,8 +177,8 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*domai
 	delete(s.failedAttempts, email)
 	s.mu.Unlock()
 
-	if user.DefaultTenantID != nil { 
-		ctx = appcontext.WithTenantID(ctx, *user.DefaultTenantID) 
+	if user.DefaultTenantID != nil {
+		ctx = appcontext.WithTenantID(ctx, *user.DefaultTenantID)
 	}
 	// or just return a fresh one. In a real platform, login gives you a JWT and
 	// you manage API keys separately.

@@ -23,9 +23,7 @@ func setupTestUser(t *testing.T, db *pgxpool.Pool) context.Context {
 	return postgres.SetupTestUser(t, db)
 }
 
-
-func cleanDB(t *testing.T, db *pgxpool.Pool) { 
-	t.Helper() 
-	postgres.CleanDB(t, db) 
-} 
-
+func cleanDB(t *testing.T, db *pgxpool.Pool) {
+	t.Helper()
+	postgres.CleanDB(t, db)
+}

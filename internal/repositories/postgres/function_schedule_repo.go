@@ -3,8 +3,8 @@ package postgres
 
 import (
 	"context"
-	"fmt"
 	stdlib_errors "errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"

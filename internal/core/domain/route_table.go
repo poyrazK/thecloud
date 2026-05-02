@@ -21,13 +21,13 @@ const (
 // RouteTable represents a collection of routes associated with a VPC.
 // It controls where network traffic is directed.
 type RouteTable struct {
-	ID           uuid.UUID              `json:"id"`
-	VPCID        uuid.UUID              `json:"vpc_id"`
-	Name         string                 `json:"name"`
-	IsMain       bool                   `json:"is_main"`
-	Routes       []Route                `json:"routes,omitempty"`
+	ID           uuid.UUID               `json:"id"`
+	VPCID        uuid.UUID               `json:"vpc_id"`
+	Name         string                  `json:"name"`
+	IsMain       bool                    `json:"is_main"`
+	Routes       []Route                 `json:"routes,omitempty"`
 	Associations []RouteTableAssociation `json:"associations,omitempty"`
-	CreatedAt    time.Time              `json:"created_at"`
+	CreatedAt    time.Time               `json:"created_at"`
 }
 
 // Validate checks if the route table fields are valid.

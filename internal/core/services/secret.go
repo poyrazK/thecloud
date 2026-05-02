@@ -68,8 +68,8 @@ func NewSecretService(params SecretServiceParams) (*SecretService, error) {
 			params.Logger.Error("SECRETS_ENCRYPTION_KEY is required in production but was not set")
 			return nil, errors.New(errors.InvalidInput, "SECRETS_ENCRYPTION_KEY is required in production but was not set")
 		}
-			masterKey = "default-thecloud-development-key-32chars" 
-			params.Logger.Warn("SECRETS_ENCRYPTION_KEY not set, using default key") 
+		masterKey = "default-thecloud-development-key-32chars"
+		params.Logger.Warn("SECRETS_ENCRYPTION_KEY not set, using default key")
 
 	}
 

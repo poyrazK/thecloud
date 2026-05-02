@@ -18,15 +18,15 @@ import (
 const (
 	defaultDatabaseFailoverInterval = 30 * time.Second
 	databaseCheckTimeout            = 2 * time.Second
-	maxAcceptableLagSeconds        = 5
+	maxAcceptableLagSeconds         = 5
 )
 
 // DatabaseFailoverWorker monitors managed database primaries and performs automatic failover to replicas.
 type DatabaseFailoverWorker struct {
-	dbSvc    ports.DatabaseService
-	repo     ports.DatabaseRepository
-	compute  ports.ComputeBackend
-	logger   *slog.Logger
+	dbSvc   ports.DatabaseService
+	repo    ports.DatabaseRepository
+	compute ports.ComputeBackend
+	logger  *slog.Logger
 
 	interval time.Duration
 }

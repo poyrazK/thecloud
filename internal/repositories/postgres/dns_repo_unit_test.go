@@ -118,14 +118,14 @@ func TestDNSRepository_Records(t *testing.T) {
 	zoneID := uuid.New()
 
 	record := &domain.DNSRecord{
-		ID:          uuid.New(),
-		ZoneID:      zoneID,
-		Name:        "www.example.com.",
-		Type:        domain.RecordTypeA,
-		Content:     "1.2.3.4",
-		TTL:         3600,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		ID:        uuid.New(),
+		ZoneID:    zoneID,
+		Name:      "www.example.com.",
+		Type:      domain.RecordTypeA,
+		Content:   "1.2.3.4",
+		TTL:       3600,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	t.Run("CreateRecord", func(t *testing.T) {

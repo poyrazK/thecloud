@@ -23,8 +23,8 @@ func TestPostgresContainerRepository(t *testing.T) {
 
 	t.Run("CreateAndGetDeployment", func(t *testing.T) {
 		dep := &domain.Deployment{
-			ID:           uuid.New(),
-			UserID:       userID, TenantID:     tenantID,
+			ID:     uuid.New(),
+			UserID: userID, TenantID: tenantID,
 			Name:         "test-dep",
 			Image:        "nginx",
 			Replicas:     3,

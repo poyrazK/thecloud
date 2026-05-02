@@ -30,15 +30,18 @@ type MockAccountingRepository = MockAccountingRepo
 // MockAuditService
 type MockAuditService struct{ mock.Mock }
 
-type MockAuditRepository struct{ mock.Mock } 
-func (m *MockAuditRepository) Create(ctx context.Context, log *domain.AuditLog) error { 
-	return m.Called(ctx, log).Error(0) 
-} 
-func (m *MockAuditRepository) ListByUserID(ctx context.Context, userID uuid.UUID, limit int) ([]*domain.AuditLog, error) { 
-	args := m.Called(ctx, userID, limit) 
-	if args.Get(0) == nil { return nil, args.Error(1) } 
-	return args.Get(0).([]*domain.AuditLog), args.Error(1) 
-} 
+type MockAuditRepository struct{ mock.Mock }
+
+func (m *MockAuditRepository) Create(ctx context.Context, log *domain.AuditLog) error {
+	return m.Called(ctx, log).Error(0)
+}
+func (m *MockAuditRepository) ListByUserID(ctx context.Context, userID uuid.UUID, limit int) ([]*domain.AuditLog, error) {
+	args := m.Called(ctx, userID, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.AuditLog), args.Error(1)
+}
 
 func (m *MockAuditService) Log(ctx context.Context, userID uuid.UUID, action, resourceType, resourceID string, details map[string]interface{}) error {
 	return m.Called(ctx, userID, action, resourceType, resourceID, details).Error(0)

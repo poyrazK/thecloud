@@ -97,8 +97,8 @@ func (s *RouteTableService) CreateRouteTable(ctx context.Context, vpcID uuid.UUI
 	}
 
 	if err := s.auditSvc.Log(ctx, userID, "route_table.create", "route_table", rtID.String(), map[string]interface{}{
-		"vpc_id": vpcID.String(),
-		"name":   name,
+		"vpc_id":  vpcID.String(),
+		"name":    name,
 		"is_main": isMain,
 	}); err != nil {
 		s.logger.Warn("failed to log audit event", "error", err)
@@ -187,10 +187,10 @@ func (s *RouteTableService) AddRoute(ctx context.Context, rtID uuid.UUID, destin
 		ID:              uuid.New(),
 		RouteTableID:    rtID,
 		DestinationCIDR: destinationCIDR,
-		TargetType:     targetType,
-		TargetID:       targetID,
-		TargetName:     string(targetType),
-		CreatedAt:      time.Now(),
+		TargetType:      targetType,
+		TargetID:        targetID,
+		TargetName:      string(targetType),
+		CreatedAt:       time.Now(),
 	}
 
 	if err := route.Validate(); err != nil {
@@ -214,9 +214,9 @@ func (s *RouteTableService) AddRoute(ctx context.Context, rtID uuid.UUID, destin
 	}
 
 	if err := s.auditSvc.Log(ctx, userID, "route_table.add_route", "route_table", rtID.String(), map[string]interface{}{
-		"route_id": route.ID.String(),
+		"route_id":         route.ID.String(),
 		"destination_cidr": destinationCIDR,
-		"target_type": string(targetType),
+		"target_type":      string(targetType),
 	}); err != nil {
 		s.logger.Warn("failed to log audit event", "error", err)
 	}
