@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -18,14 +19,35 @@ var instanceTypeListCmd = &cobra.Command{
 	Short: "List all available instance types",
 	Run: func(cmd *cobra.Command, args []string) {
 		client := createClient(opts)
-		types, err := client.ListInstanceTypes()
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
+
+		limit, _ := cmd.Flags().GetInt("limit")
+		offset, _ := cmd.Flags().GetInt("offset")
+
+		var types []sdk.InstanceType
+		var meta *sdk.ListResponse[sdk.InstanceType]
+
+		if limit > 0 || offset > 0 {
+			var err error
+			types, meta, err = client.ListInstanceTypesWithPagination(limit, offset)
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				return
+			}
+		} else {
+			var err error
+			types, err = client.ListInstanceTypes()
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				return
+			}
 		}
 
 		if opts.JSON {
-			printJSON(types)
+			if meta != nil {
+				printJSON(meta)
+			} else {
+				printJSON(types)
+			}
 			return
 		}
 
@@ -49,9 +71,19 @@ var instanceTypeListCmd = &cobra.Command{
 			})
 		}
 		table.Render()
+
+		if meta != nil {
+			fmt.Printf("\nShowing %d of %d total", len(types), meta.TotalCount)
+			if meta.HasMore {
+				fmt.Print(" (more available)")
+			}
+			fmt.Println()
+		}
 	},
 }
 
 func init() {
 	instanceTypeCmd.AddCommand(instanceTypeListCmd)
+	instanceTypeListCmd.Flags().Int("limit", 0, "Maximum number of results (0 = use server default)")
+	instanceTypeListCmd.Flags().Int("offset", 0, "Number of results to skip")
 }
