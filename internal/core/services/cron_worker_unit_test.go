@@ -43,4 +43,3 @@ func testCronWorkerProcessJobsClaimError(t *testing.T) {
 
 	repo.AssertExpectations(t)
 }
-

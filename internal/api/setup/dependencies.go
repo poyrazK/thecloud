@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-"time"
 	"sync"
+	"time"
 
 	"strings"
 
@@ -30,154 +30,154 @@ import (
 
 // Repositories bundles all data access implementations.
 type Repositories struct {
-	Audit         ports.AuditRepository
-	User          ports.UserRepository
-	Tenant        ports.TenantRepository
-	Identity      ports.IdentityRepository
-	PasswordReset ports.PasswordResetRepository
-	RBAC          ports.RoleRepository
-	Instance      ports.InstanceRepository
-	Vpc           ports.VpcRepository
-	Event         ports.EventRepository
-	Volume        ports.VolumeRepository
-	SecurityGroup ports.SecurityGroupRepository
-	Subnet        ports.SubnetRepository
-	LB            ports.LBRepository
-	Snapshot      ports.SnapshotRepository
-	Stack         ports.StackRepository
-	Storage       ports.StorageRepository
-	Database      ports.DatabaseRepository
-	Secret        ports.SecretRepository
-	Function      ports.FunctionRepository
+	Audit            ports.AuditRepository
+	User             ports.UserRepository
+	Tenant           ports.TenantRepository
+	Identity         ports.IdentityRepository
+	PasswordReset    ports.PasswordResetRepository
+	RBAC             ports.RoleRepository
+	Instance         ports.InstanceRepository
+	Vpc              ports.VpcRepository
+	Event            ports.EventRepository
+	Volume           ports.VolumeRepository
+	SecurityGroup    ports.SecurityGroupRepository
+	Subnet           ports.SubnetRepository
+	LB               ports.LBRepository
+	Snapshot         ports.SnapshotRepository
+	Stack            ports.StackRepository
+	Storage          ports.StorageRepository
+	Database         ports.DatabaseRepository
+	Secret           ports.SecretRepository
+	Function         ports.FunctionRepository
 	FunctionSchedule ports.FunctionScheduleRepository
-	Cache         ports.CacheRepository
-	Queue         ports.QueueRepository
-	Notify        ports.NotifyRepository
-	Cron          ports.CronRepository
-	Gateway       ports.GatewayRepository
-	Container     ports.ContainerRepository
-	AutoScaling   ports.AutoScalingRepository
-	Accounting    ports.AccountingRepository
-	TaskQueue     ports.TaskQueue
-	DurableQueue  ports.DurableTaskQueue
-	Ledger        ports.ExecutionLedger
-	Image         ports.ImageRepository
-	Cluster       ports.ClusterRepository
-	Lifecycle     ports.LifecycleRepository
-	DNS           ports.DNSRepository
-	InstanceType  ports.InstanceTypeRepository
-	GlobalLB      ports.GlobalLBRepository
-	SSHKey        ports.SSHKeyRepository
-	ElasticIP     ports.ElasticIPRepository
-	Log           ports.LogRepository
-	IAM           ports.IAMRepository
-	Pipeline      ports.PipelineRepository
-	VPCPeering     ports.VPCPeeringRepository
-	RouteTable     ports.RouteTableRepository
-	IGW            ports.IGWRepository
-	NATGateway     ports.NATGatewayRepository
+	Cache            ports.CacheRepository
+	Queue            ports.QueueRepository
+	Notify           ports.NotifyRepository
+	Cron             ports.CronRepository
+	Gateway          ports.GatewayRepository
+	Container        ports.ContainerRepository
+	AutoScaling      ports.AutoScalingRepository
+	Accounting       ports.AccountingRepository
+	TaskQueue        ports.TaskQueue
+	DurableQueue     ports.DurableTaskQueue
+	Ledger           ports.ExecutionLedger
+	Image            ports.ImageRepository
+	Cluster          ports.ClusterRepository
+	Lifecycle        ports.LifecycleRepository
+	DNS              ports.DNSRepository
+	InstanceType     ports.InstanceTypeRepository
+	GlobalLB         ports.GlobalLBRepository
+	SSHKey           ports.SSHKeyRepository
+	ElasticIP        ports.ElasticIPRepository
+	Log              ports.LogRepository
+	IAM              ports.IAMRepository
+	Pipeline         ports.PipelineRepository
+	VPCPeering       ports.VPCPeeringRepository
+	RouteTable       ports.RouteTableRepository
+	IGW              ports.IGWRepository
+	NATGateway       ports.NATGatewayRepository
 }
 
 // InitRepositories constructs repositories using the provided database clients.
 func InitRepositories(db postgres.DB, rdb *redisv9.Client) *Repositories {
 	return &Repositories{
-		Audit:         postgres.NewAuditRepository(db),
-		User:          postgres.NewUserRepo(db),
-		Tenant:        postgres.NewTenantRepo(db),
-		Identity:      postgres.NewIdentityRepository(db),
-		PasswordReset: postgres.NewPasswordResetRepository(db),
-		RBAC:          postgres.NewRBACRepository(db),
-		Instance:      postgres.NewInstanceRepository(db),
-		Vpc:           postgres.NewVpcRepository(db),
-		Event:         postgres.NewEventRepository(db),
-		Volume:        postgres.NewVolumeRepository(db),
-		SecurityGroup: postgres.NewSecurityGroupRepository(db),
-		Subnet:        postgres.NewSubnetRepository(db),
-		LB:            postgres.NewLBRepository(db),
-		Snapshot:      postgres.NewSnapshotRepository(db),
-		Stack:         postgres.NewStackRepository(db),
-		Storage:       postgres.NewStorageRepository(db),
-		Database:      postgres.NewDatabaseRepository(db),
-		Secret:        postgres.NewSecretRepository(db),
-		Function:      postgres.NewFunctionRepository(db),
+		Audit:            postgres.NewAuditRepository(db),
+		User:             postgres.NewUserRepo(db),
+		Tenant:           postgres.NewTenantRepo(db),
+		Identity:         postgres.NewIdentityRepository(db),
+		PasswordReset:    postgres.NewPasswordResetRepository(db),
+		RBAC:             postgres.NewRBACRepository(db),
+		Instance:         postgres.NewInstanceRepository(db),
+		Vpc:              postgres.NewVpcRepository(db),
+		Event:            postgres.NewEventRepository(db),
+		Volume:           postgres.NewVolumeRepository(db),
+		SecurityGroup:    postgres.NewSecurityGroupRepository(db),
+		Subnet:           postgres.NewSubnetRepository(db),
+		LB:               postgres.NewLBRepository(db),
+		Snapshot:         postgres.NewSnapshotRepository(db),
+		Stack:            postgres.NewStackRepository(db),
+		Storage:          postgres.NewStorageRepository(db),
+		Database:         postgres.NewDatabaseRepository(db),
+		Secret:           postgres.NewSecretRepository(db),
+		Function:         postgres.NewFunctionRepository(db),
 		FunctionSchedule: postgres.NewPostgresFunctionScheduleRepository(db),
-		Cache:         postgres.NewCacheRepository(db),
-		Queue:         postgres.NewPostgresQueueRepository(db),
-		Notify:        postgres.NewPostgresNotifyRepository(db),
-		Cron:          postgres.NewPostgresCronRepository(db),
-		Gateway:       postgres.NewPostgresGatewayRepository(db),
-		Container:     postgres.NewPostgresContainerRepository(db),
-		AutoScaling:   postgres.NewAutoScalingRepo(db),
-		Accounting:    postgres.NewAccountingRepository(db),
-		TaskQueue:     redis.NewRedisTaskQueue(rdb),
-		DurableQueue:  redis.NewDurableTaskQueue(rdb),
-		Ledger:        postgres.NewExecutionLedger(db),
-		Image:         postgres.NewImageRepository(db),
-		Cluster:       postgres.NewClusterRepository(db),
-		Lifecycle:     postgres.NewLifecycleRepository(db),
-		DNS:           postgres.NewDNSRepository(db),
-		InstanceType:  postgres.NewInstanceTypeRepository(db),
-		GlobalLB:      postgres.NewGlobalLBRepository(db),
-		SSHKey:        postgres.NewSSHKeyRepo(db),
-		ElasticIP:     postgres.NewElasticIPRepository(db),
-		Log:           postgres.NewLogRepository(db),
-		IAM:           postgres.NewIAMRepository(db),
-		Pipeline:      postgres.NewPipelineRepository(db),
-		VPCPeering:    postgres.NewVPCPeeringRepository(db),
-		RouteTable:    postgres.NewRouteTableRepository(db),
-		IGW:           postgres.NewIGWRepository(db),
-		NATGateway:    postgres.NewNATGatewayRepository(db),
+		Cache:            postgres.NewCacheRepository(db),
+		Queue:            postgres.NewPostgresQueueRepository(db),
+		Notify:           postgres.NewPostgresNotifyRepository(db),
+		Cron:             postgres.NewPostgresCronRepository(db),
+		Gateway:          postgres.NewPostgresGatewayRepository(db),
+		Container:        postgres.NewPostgresContainerRepository(db),
+		AutoScaling:      postgres.NewAutoScalingRepo(db),
+		Accounting:       postgres.NewAccountingRepository(db),
+		TaskQueue:        redis.NewRedisTaskQueue(rdb),
+		DurableQueue:     redis.NewDurableTaskQueue(rdb),
+		Ledger:           postgres.NewExecutionLedger(db),
+		Image:            postgres.NewImageRepository(db),
+		Cluster:          postgres.NewClusterRepository(db),
+		Lifecycle:        postgres.NewLifecycleRepository(db),
+		DNS:              postgres.NewDNSRepository(db),
+		InstanceType:     postgres.NewInstanceTypeRepository(db),
+		GlobalLB:         postgres.NewGlobalLBRepository(db),
+		SSHKey:           postgres.NewSSHKeyRepo(db),
+		ElasticIP:        postgres.NewElasticIPRepository(db),
+		Log:              postgres.NewLogRepository(db),
+		IAM:              postgres.NewIAMRepository(db),
+		Pipeline:         postgres.NewPipelineRepository(db),
+		VPCPeering:       postgres.NewVPCPeeringRepository(db),
+		RouteTable:       postgres.NewRouteTableRepository(db),
+		IGW:              postgres.NewIGWRepository(db),
+		NATGateway:       postgres.NewNATGatewayRepository(db),
 	}
 }
 
 // Services bundles the core application services.
 type Services struct {
-	WsHub         *ws.Hub
-	Audit         ports.AuditService
-	Identity      ports.IdentityService
-	Tenant        ports.TenantService
-	Auth          ports.AuthService
-	PasswordReset ports.PasswordResetService
-	RBAC          ports.RBACService
-	Vpc           ports.VpcService
-	Subnet        ports.SubnetService
-	Event         ports.EventService
-	Volume        ports.VolumeService
-	Instance      ports.InstanceService
-	SecurityGroup ports.SecurityGroupService
-	LB            ports.LBService
-	Dashboard     ports.DashboardService
-	Snapshot      ports.SnapshotService
-	Stack         ports.StackService
-	Storage       ports.StorageService
-	Database      ports.DatabaseService
-	Secret        ports.SecretService
-	Function      ports.FunctionService
+	WsHub            *ws.Hub
+	Audit            ports.AuditService
+	Identity         ports.IdentityService
+	Tenant           ports.TenantService
+	Auth             ports.AuthService
+	PasswordReset    ports.PasswordResetService
+	RBAC             ports.RBACService
+	Vpc              ports.VpcService
+	Subnet           ports.SubnetService
+	Event            ports.EventService
+	Volume           ports.VolumeService
+	Instance         ports.InstanceService
+	SecurityGroup    ports.SecurityGroupService
+	LB               ports.LBService
+	Dashboard        ports.DashboardService
+	Snapshot         ports.SnapshotService
+	Stack            ports.StackService
+	Storage          ports.StorageService
+	Database         ports.DatabaseService
+	Secret           ports.SecretService
+	Function         ports.FunctionService
 	FunctionSchedule ports.FunctionScheduleService
-	Cache         ports.CacheService
-	Queue         ports.QueueService
-	Notify        ports.NotifyService
-	Cron          ports.CronService
-	Gateway       ports.GatewayService
-	Container     ports.ContainerService
-	Health        ports.HealthService
-	AutoScaling   ports.AutoScalingService
-	Accounting    ports.AccountingService
-	Image         ports.ImageService
-	Cluster       ports.ClusterService
-	Lifecycle     ports.LifecycleService
-	DNS           ports.DNSService
-	InstanceType  ports.InstanceTypeService
-	GlobalLB      ports.GlobalLBService
-	SSHKey        ports.SSHKeyService
-	ElasticIP     ports.ElasticIPService
-	Log           ports.LogService
-	IAM           ports.IAMService
-	Pipeline      ports.PipelineService
-	VPCPeering    ports.VPCPeeringService
-	RouteTable    *services.RouteTableService
-	InternetGateway *services.InternetGatewayService
-	NATGateway    *services.NATGatewayService
+	Cache            ports.CacheService
+	Queue            ports.QueueService
+	Notify           ports.NotifyService
+	Cron             ports.CronService
+	Gateway          ports.GatewayService
+	Container        ports.ContainerService
+	Health           ports.HealthService
+	AutoScaling      ports.AutoScalingService
+	Accounting       ports.AccountingService
+	Image            ports.ImageService
+	Cluster          ports.ClusterService
+	Lifecycle        ports.LifecycleService
+	DNS              ports.DNSService
+	InstanceType     ports.InstanceTypeService
+	GlobalLB         ports.GlobalLBService
+	SSHKey           ports.SSHKeyService
+	ElasticIP        ports.ElasticIPService
+	Log              ports.LogService
+	IAM              ports.IAMService
+	Pipeline         ports.PipelineService
+	VPCPeering       ports.VPCPeeringService
+	RouteTable       *services.RouteTableService
+	InternetGateway  *services.InternetGatewayService
+	NATGateway       *services.NATGatewayService
 }
 
 // Shutdown cleanly stops all services.
@@ -211,10 +211,10 @@ type Workers struct {
 	Log               Runner
 
 	// Parallel consumer workers (safe to run on multiple nodes)
-	Pipeline          *workers.PipelineWorker
-	Provision         *workers.ProvisionWorker
-	Cluster           *workers.ClusterWorker
-	FunctionSchedule  *services.FunctionScheduleWorker
+	Pipeline         *workers.PipelineWorker
+	Provision        *workers.ProvisionWorker
+	Cluster          *workers.ClusterWorker
+	FunctionSchedule *services.FunctionScheduleWorker
 }
 
 // ServiceConfig holds the dependencies required to initialize services
@@ -349,7 +349,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 		return nil, nil, err
 	}
 
-svcs := &Services{WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Tenant: tenantSvc, Auth: authSvc, PasswordReset: pwdResetSvc, RBAC: rbacSvc, Vpc: vpcSvc, Subnet: subnetSvc, Event: eventSvc, Volume: volumeSvc, Instance: instSvcConcrete, SecurityGroup: sgSvc, LB: lbSvc, Snapshot: snapshotSvc, Stack: stackSvc, Storage: storageSvc, Database: databaseSvc, Secret: secretSvc, Function: fnSvc, FunctionSchedule: fnSchedSvc, Cache: cacheSvc, Queue: queueSvc, Notify: notifySvc, Cron: cronSvc, Gateway: gwSvc, Container: containerSvc, Pipeline: pipelineSvc, Health: services.NewHealthServiceImpl(c.DB, c.Compute, clusterSvc), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc, Cluster: clusterSvc, Dashboard: services.NewDashboardService(rbacSvc, c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger), Lifecycle: services.NewLifecycleService(c.Repos.Lifecycle, rbacSvc, c.Repos.Storage), InstanceType: services.NewInstanceTypeService(c.Repos.InstanceType, rbacSvc), GlobalLB: glbSvc, DNS: dnsSvc, SSHKey: sshKeySvc, ElasticIP: services.NewElasticIPService(services.ElasticIPServiceParams{Repo: c.Repos.ElasticIP, RBAC: rbacSvc, InstanceRepo: c.Repos.Instance, AuditSvc: auditSvc, Logger: c.Logger}), Log: logSvc, IAM: iamSvc, VPCPeering: services.NewVPCPeeringService(services.VPCPeeringServiceParams{Repo: c.Repos.VPCPeering, VpcRepo: c.Repos.Vpc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger}), RouteTable: services.NewRouteTableService(services.RouteTableServiceParams{Repo: c.Repos.RouteTable, VpcRepo: c.Repos.Vpc, RBACSvc: rbacSvc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger}), InternetGateway: services.NewInternetGatewayService(services.InternetGatewayServiceParams{Repo: c.Repos.IGW, RTRepo: c.Repos.RouteTable, VpcRepo: c.Repos.Vpc, RBACSvc: rbacSvc, AuditSvc: auditSvc, Logger: c.Logger}), NATGateway: services.NewNATGatewayService(services.NATGatewayServiceParams{Repo: c.Repos.NATGateway, EIPRepo: c.Repos.ElasticIP, SubnetRepo: c.Repos.Subnet, VpcRepo: c.Repos.Vpc, RBACSvc: rbacSvc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger})}
+	svcs := &Services{WsHub: wsHub, Audit: auditSvc, Identity: identitySvc, Tenant: tenantSvc, Auth: authSvc, PasswordReset: pwdResetSvc, RBAC: rbacSvc, Vpc: vpcSvc, Subnet: subnetSvc, Event: eventSvc, Volume: volumeSvc, Instance: instSvcConcrete, SecurityGroup: sgSvc, LB: lbSvc, Snapshot: snapshotSvc, Stack: stackSvc, Storage: storageSvc, Database: databaseSvc, Secret: secretSvc, Function: fnSvc, FunctionSchedule: fnSchedSvc, Cache: cacheSvc, Queue: queueSvc, Notify: notifySvc, Cron: cronSvc, Gateway: gwSvc, Container: containerSvc, Pipeline: pipelineSvc, Health: services.NewHealthServiceImpl(c.DB, c.Compute, clusterSvc), AutoScaling: asgSvc, Accounting: accountingSvc, Image: imageSvc, Cluster: clusterSvc, Dashboard: services.NewDashboardService(rbacSvc, c.Repos.Instance, c.Repos.Volume, c.Repos.Vpc, c.Repos.Event, c.Logger), Lifecycle: services.NewLifecycleService(c.Repos.Lifecycle, rbacSvc, c.Repos.Storage), InstanceType: services.NewInstanceTypeService(c.Repos.InstanceType, rbacSvc), GlobalLB: glbSvc, DNS: dnsSvc, SSHKey: sshKeySvc, ElasticIP: services.NewElasticIPService(services.ElasticIPServiceParams{Repo: c.Repos.ElasticIP, RBAC: rbacSvc, InstanceRepo: c.Repos.Instance, AuditSvc: auditSvc, Logger: c.Logger}), Log: logSvc, IAM: iamSvc, VPCPeering: services.NewVPCPeeringService(services.VPCPeeringServiceParams{Repo: c.Repos.VPCPeering, VpcRepo: c.Repos.Vpc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger}), RouteTable: services.NewRouteTableService(services.RouteTableServiceParams{Repo: c.Repos.RouteTable, VpcRepo: c.Repos.Vpc, RBACSvc: rbacSvc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger}), InternetGateway: services.NewInternetGatewayService(services.InternetGatewayServiceParams{Repo: c.Repos.IGW, RTRepo: c.Repos.RouteTable, VpcRepo: c.Repos.Vpc, RBACSvc: rbacSvc, AuditSvc: auditSvc, Logger: c.Logger}), NATGateway: services.NewNATGatewayService(services.NATGatewayServiceParams{Repo: c.Repos.NATGateway, EIPRepo: c.Repos.ElasticIP, SubnetRepo: c.Repos.Subnet, VpcRepo: c.Repos.Vpc, RBACSvc: rbacSvc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger})}
 
 	// 7. High Availability & Monitoring
 	replicaMonitor := initReplicaMonitor(c)

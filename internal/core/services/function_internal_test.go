@@ -80,8 +80,8 @@ func (t *testSecretSvc) GetSecretByName(ctx context.Context, name string) (*doma
 	}
 	return &domain.Secret{ID: uuid.New(), Name: name, EncryptedValue: t.val}, nil
 }
-func (t *testSecretSvc) ListSecrets(ctx context.Context) ([]*domain.Secret, error)  { return nil, nil }
-func (t *testSecretSvc) DeleteSecret(ctx context.Context, id uuid.UUID) error    { return nil }
+func (t *testSecretSvc) ListSecrets(ctx context.Context) ([]*domain.Secret, error) { return nil, nil }
+func (t *testSecretSvc) DeleteSecret(ctx context.Context, id uuid.UUID) error      { return nil }
 func (t *testSecretSvc) Encrypt(ctx context.Context, userID uuid.UUID, plain string) (string, error) {
 	return plain, nil
 }

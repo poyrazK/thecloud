@@ -82,7 +82,7 @@ func TestIdentityRepository_GetAPIKeyByHash(t *testing.T) {
 					WithArgs("notfoundhash").
 					WillReturnRows(pgxmock.NewRows([]string{"id", "user_id", "tenant_id", "key", "name", "created_at", "last_used", "default_tenant_id", "expires_at"}))
 			},
-			wantErr: true,
+			wantErr:  true,
 			checkKey: func(k *domain.APIKey) {},
 		},
 	}

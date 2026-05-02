@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	dekKeySize         = 32             // 256-bit DEK
+	dekKeySize         = 32            // 256-bit DEK
 	dekCipherAlgorithm = "AES-256-GCM" // DEK encryption algorithm
 )
 

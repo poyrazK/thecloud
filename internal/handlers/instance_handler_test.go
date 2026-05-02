@@ -117,9 +117,12 @@ func (m *instanceServiceMock) UpdateInstanceMetadata(ctx context.Context, id uui
 	return m.Called(ctx, id, metadata, labels).Error(0)
 }
 
-func (m *instanceServiceMock) ResizeInstance(ctx context.Context, idOrName, newInstanceType string) error {
+func (m *instanceServiceMock) ResizeInstance(ctx context.Context, idOrName, newInstanceType string) (*domain.Instance, error) {
 	args := m.Called(ctx, idOrName, newInstanceType)
-	return args.Error(0)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Instance), args.Error(1)
 }
 
 func setupInstanceHandlerTest(_ *testing.T) (*instanceServiceMock, *InstanceHandler, *gin.Engine) {
@@ -601,7 +604,7 @@ func TestInstanceHandlerResizeInstance(t *testing.T) {
 		r.POST(instancesPath+"/:id/resize", handler.ResizeInstance)
 
 		id := uuid.New()
-		mockSvc.On("ResizeInstance", mock.Anything, id.String(), "basic-4").Return(nil).Once()
+		mockSvc.On("ResizeInstance", mock.Anything, id.String(), "basic-4").Return(&domain.Instance{InstanceType: "basic-4", Status: domain.StatusRunning}, nil).Once()
 
 		body := `{"instance_type":"basic-4"}`
 		req := httptest.NewRequest(http.MethodPost, instancesPath+"/"+id.String()+"/resize", strings.NewReader(body))
@@ -621,7 +624,7 @@ func TestInstanceHandlerResizeInstance(t *testing.T) {
 		r.POST(instancesPath+"/:id/resize", handler.ResizeInstance)
 
 		// Handler accepts name-or-uuid, passes raw string to service
-		mockSvc.On("ResizeInstance", mock.Anything, "my-instance-name", "basic-4").Return(nil).Once()
+		mockSvc.On("ResizeInstance", mock.Anything, "my-instance-name", "basic-4").Return(&domain.Instance{InstanceType: "basic-4", Status: domain.StatusRunning}, nil).Once()
 
 		body := `{"instance_type":"basic-4"}`
 		req := httptest.NewRequest(http.MethodPost, instancesPath+"/my-instance-name/resize", strings.NewReader(body))
@@ -671,7 +674,7 @@ func TestInstanceHandlerResizeInstance(t *testing.T) {
 		r.POST(instancesPath+"/:id/resize", handler.ResizeInstance)
 
 		id := uuid.New()
-		mockSvc.On("ResizeInstance", mock.Anything, id.String(), "basic-4").Return(errors.New(errors.NotFound, "instance not found")).Once()
+		mockSvc.On("ResizeInstance", mock.Anything, id.String(), "basic-4").Return(nil, errors.New(errors.NotFound, "instance not found")).Once()
 
 		body := `{"instance_type":"basic-4"}`
 		req := httptest.NewRequest(http.MethodPost, instancesPath+"/"+id.String()+"/resize", strings.NewReader(body))
@@ -689,7 +692,7 @@ func TestInstanceHandlerResizeInstance(t *testing.T) {
 		r.POST(instancesPath+"/:id/resize", handler.ResizeInstance)
 
 		id := uuid.New()
-		mockSvc.On("ResizeInstance", mock.Anything, id.String(), "basic-4").Return(errors.New(errors.Forbidden, "insufficient quota")).Once()
+		mockSvc.On("ResizeInstance", mock.Anything, id.String(), "basic-4").Return(nil, errors.New(errors.QuotaExceeded, "quota exceeded for resources")).Once()
 
 		body := `{"instance_type":"basic-4"}`
 		req := httptest.NewRequest(http.MethodPost, instancesPath+"/"+id.String()+"/resize", strings.NewReader(body))
@@ -698,6 +701,6 @@ func TestInstanceHandlerResizeInstance(t *testing.T) {
 
 		r.ServeHTTP(w, req)
 
-		assert.Equal(t, http.StatusForbidden, w.Code)
+		assert.Equal(t, http.StatusTooManyRequests, w.Code)
 	})
 }

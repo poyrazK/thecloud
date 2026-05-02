@@ -22,11 +22,11 @@ type EnvVar struct {
 // to distinguish "not provided" from "set to empty string" — this is intentional
 // and differs from the pointer pattern used by other fields.
 type FunctionUpdate struct {
-	Handler   *string    `json:"handler,omitempty"`
-	Timeout   *int       `json:"timeout,omitempty"`
-	MemoryMB  *int       `json:"memory_mb,omitempty"`
-	Status    string     `json:"status,omitempty"`
-	EnvVars   []*EnvVar `json:"env_vars,omitempty"`
+	Handler  *string   `json:"handler,omitempty"`
+	Timeout  *int      `json:"timeout,omitempty"`
+	MemoryMB *int      `json:"memory_mb,omitempty"`
+	Status   string    `json:"status,omitempty"`
+	EnvVars  []*EnvVar `json:"env_vars,omitempty"`
 }
 
 // Validate checks that timeout and memory values are within acceptable bounds.

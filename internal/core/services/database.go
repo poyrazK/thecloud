@@ -45,25 +45,25 @@ const (
 
 // DatabaseService manages database instances and lifecycle.
 type DatabaseService struct {
-	repo              ports.DatabaseRepository
-	rbacSvc           ports.RBACService
-	compute           ports.ComputeBackend
-	vpcRepo           ports.VpcRepository
-	volumeSvc         ports.VolumeService
-	snapshotSvc       ports.SnapshotService
-	snapshotRepo      ports.SnapshotRepository
-	eventSvc          ports.EventService
-	auditSvc          ports.AuditService
-	secrets           ports.SecretsManager
-	volumeEncryption  ports.VolumeEncryptionService
-	logger            *slog.Logger
-	vaultMountPath    string
+	repo             ports.DatabaseRepository
+	rbacSvc          ports.RBACService
+	compute          ports.ComputeBackend
+	vpcRepo          ports.VpcRepository
+	volumeSvc        ports.VolumeService
+	snapshotSvc      ports.SnapshotService
+	snapshotRepo     ports.SnapshotRepository
+	eventSvc         ports.EventService
+	auditSvc         ports.AuditService
+	secrets          ports.SecretsManager
+	volumeEncryption ports.VolumeEncryptionService
+	logger           *slog.Logger
+	vaultMountPath   string
 	// In-memory idempotency cache for rotation. Stores timestamp of last rotation attempt.
 	// Expired entries are deleted on lookup to prevent unbounded growth, but this does
 	// not guarantee all expired entries are reaped.
-	rotationCache     map[string]time.Time
+	rotationCache    map[string]time.Time
 	rotationCacheTTL time.Duration
-	rotationMu        sync.Mutex
+	rotationMu       sync.Mutex
 
 	// In-flight rotation state for idempotency cache
 	rotationInFlight map[string]*rotationInFlightEntry
@@ -83,19 +83,19 @@ var _ ports.DatabaseService = (*DatabaseService)(nil)
 
 // DatabaseServiceParams holds dependencies for DatabaseService creation.
 type DatabaseServiceParams struct {
-	Repo              ports.DatabaseRepository
-	RBAC              ports.RBACService
-	Compute           ports.ComputeBackend
-	VpcRepo           ports.VpcRepository
-	VolumeSvc         ports.VolumeService
-	SnapshotSvc       ports.SnapshotService
-	SnapshotRepo      ports.SnapshotRepository
-	EventSvc          ports.EventService
-	AuditSvc          ports.AuditService
-	Secrets           ports.SecretsManager
-	VolumeEncryption  ports.VolumeEncryptionService
-	Logger            *slog.Logger
-	VaultMountPath    string
+	Repo             ports.DatabaseRepository
+	RBAC             ports.RBACService
+	Compute          ports.ComputeBackend
+	VpcRepo          ports.VpcRepository
+	VolumeSvc        ports.VolumeService
+	SnapshotSvc      ports.SnapshotService
+	SnapshotRepo     ports.SnapshotRepository
+	EventSvc         ports.EventService
+	AuditSvc         ports.AuditService
+	Secrets          ports.SecretsManager
+	VolumeEncryption ports.VolumeEncryptionService
+	Logger           *slog.Logger
+	VaultMountPath   string
 }
 
 // NewDatabaseService constructs a DatabaseService with its dependencies.

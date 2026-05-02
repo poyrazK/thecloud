@@ -67,17 +67,17 @@ type Cluster struct {
 	TokenExpiresAt         *time.Time `json:"-"`
 	CACertHash             string     `json:"-"`
 
-	NetworkIsolation   bool      `json:"network_isolation"`
-	HAEnabled          bool      `json:"ha_enabled"`
-	APIServerLBAddress *string   `json:"api_server_lb_address,omitempty"`
-	JobID              *string   `json:"job_id,omitempty"`
+	NetworkIsolation   bool    `json:"network_isolation"`
+	HAEnabled          bool    `json:"ha_enabled"`
+	APIServerLBAddress *string `json:"api_server_lb_address,omitempty"`
+	JobID              *string `json:"job_id,omitempty"`
 
 	// Backup Policy
 	BackupSchedule      string `json:"backup_schedule,omitempty" example:"0 0 * * *"`
 	BackupRetentionDays int    `json:"backup_retention_days,omitempty" example:"7"`
 
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // ClusterNode represents a node within a Kubernetes cluster.

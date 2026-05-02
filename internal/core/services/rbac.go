@@ -65,14 +65,13 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 	if userID == uuid.Nil {
 		return false, nil
 	}
-	// System user bypass - requires both system ID AND internal signal 
-	if systemID, err := appcontext.SystemUserID(); err == nil && userID == systemID { 
-		if appcontext.IsInternalCall(ctx) { 
-			return true, nil 
-		} 
-		s.logger.Warn("RBAC: system user ID used without internal signal", "user_id", userID) 
-	} 
-
+	// System user bypass - requires both system ID AND internal signal
+	if systemID, err := appcontext.SystemUserID(); err == nil && userID == systemID {
+		if appcontext.IsInternalCall(ctx) {
+			return true, nil
+		}
+		s.logger.Warn("RBAC: system user ID used without internal signal", "user_id", userID)
+	}
 
 	var roleName string
 
@@ -249,5 +248,9 @@ func (s *rbacService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, acti
 	if len(policies) == 0 {
 		return false, nil
 	}
-	effect, err := s.evaluator.Evaluate(ctx, policies, action, resource, evalCtx); if err != nil { return false, err }; return effect == domain.EffectAllow, nil
+	effect, err := s.evaluator.Evaluate(ctx, policies, action, resource, evalCtx)
+	if err != nil {
+		return false, err
+	}
+	return effect == domain.EffectAllow, nil
 }

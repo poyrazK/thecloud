@@ -18,16 +18,16 @@ const (
 
 // NATGateway describes a NAT gateway resource.
 type NATGateway struct {
-	ID          string          `json:"id"`
-	VPCID       string          `json:"vpc_id"`
-	SubnetID    string          `json:"subnet_id"`
-	ElasticIPID string          `json:"elastic_ip_id"`
-	UserID      string          `json:"user_id"`
-	TenantID    string          `json:"tenant_id"`
+	ID          string           `json:"id"`
+	VPCID       string           `json:"vpc_id"`
+	SubnetID    string           `json:"subnet_id"`
+	ElasticIPID string           `json:"elastic_ip_id"`
+	UserID      string           `json:"user_id"`
+	TenantID    string           `json:"tenant_id"`
 	Status      NATGatewayStatus `json:"status"`
-	PrivateIP   string          `json:"private_ip"`
-	ARN         string          `json:"arn"`
-	CreatedAt   time.Time       `json:"created_at"`
+	PrivateIP   string           `json:"private_ip"`
+	ARN         string           `json:"arn"`
+	CreatedAt   time.Time        `json:"created_at"`
 }
 
 // CreateNATGateway creates a new NAT gateway in a subnet with an elastic IP.

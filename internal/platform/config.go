@@ -26,7 +26,7 @@ type Config struct {
 	RateLimitAuth        string
 	StorageBackend       string
 	// StorageSecret is the secret key used for signing presigned URLs
-	StorageSecret        string
+	StorageSecret string
 	// WSAllowedOrigins is a comma-separated allowlist of Origin headers
 	// permitted to open a WebSocket connection. Empty means deny all
 	// cross-origin upgrades. See #249.

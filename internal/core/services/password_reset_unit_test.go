@@ -21,7 +21,9 @@ func (m *MockPasswordResetRepo) Create(ctx context.Context, t *domain.PasswordRe
 }
 func (m *MockPasswordResetRepo) GetByTokenHash(ctx context.Context, hash string) (*domain.PasswordResetToken, error) {
 	args := m.Called(ctx, hash)
-	if args.Get(0) == nil { return nil, args.Error(1) }
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*domain.PasswordResetToken), args.Error(1)
 }
 func (m *MockPasswordResetRepo) MarkAsUsed(ctx context.Context, id string) error {

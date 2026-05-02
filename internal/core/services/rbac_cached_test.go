@@ -114,4 +114,3 @@ func setupCachedRBACTest(t *testing.T) (*mockRBACService, *redis.Client, *minire
 	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	return new(mockRBACService), client, mr
 }
-
