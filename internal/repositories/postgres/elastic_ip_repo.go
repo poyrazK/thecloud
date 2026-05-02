@@ -7,10 +7,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
 )
+
+// uniqueViolationSQLState is the PostgreSQL error code for unique constraint violations.
+// See: https://www.postgresql.org/docs/current/errcodes-35.html
+const uniqueViolationSQLState = "23505"
 
 // ElasticIPRepository provides a PostgreSQL implementation for managing Elastic IP metadata.
 type ElasticIPRepository struct {
@@ -34,6 +39,10 @@ func (r *ElasticIPRepository) Create(ctx context.Context, eip *domain.ElasticIP)
 		eip.CreatedAt, eip.UpdatedAt,
 	)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if stdlib_errors.As(err, &pgErr) && pgErr.Code == uniqueViolationSQLState {
+			return errors.Wrap(errors.Conflict, "public IP already allocated", err)
+		}
 		return errors.Wrap(errors.Internal, "failed to create elastic ip", err)
 	}
 	return nil

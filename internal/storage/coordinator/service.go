@@ -171,11 +171,10 @@ func (c *Coordinator) Assemble(ctx context.Context, bucket, key string, parts []
 	}
 	wg.Wait()
 
-	// 3. Quorum check
+	// 3. Quorum check — all goroutines have completed, variables are visible per Go Memory Model
 	if successCount < c.writeQuorum {
 		return 0, fmt.Errorf("assemble quorum failed (%d/%d): %w", successCount, c.writeQuorum, lastErr)
 	}
-
 	return size, nil
 }
 
