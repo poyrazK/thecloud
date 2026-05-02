@@ -34,11 +34,11 @@ type CreateFunctionRequest struct {
 
 // UpdateFunctionRequest is the payload for function update.
 type UpdateFunctionRequest struct {
-	Handler  *string           `json:"handler,omitempty"`
-	Timeout  *int              `json:"timeout,omitempty"`
-	MemoryMB *int              `json:"memory_mb,omitempty"`
-	Status   string            `json:"status,omitempty"`
-	EnvVars  []*domain.EnvVar  `json:"env_vars,omitempty"`
+	Handler  *string          `json:"handler,omitempty"`
+	Timeout  *int             `json:"timeout,omitempty"`
+	MemoryMB *int             `json:"memory_mb,omitempty"`
+	Status   string           `json:"status,omitempty"`
+	EnvVars  []*domain.EnvVar `json:"env_vars,omitempty"`
 }
 
 func (h *FunctionHandler) Create(c *gin.Context) {

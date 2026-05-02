@@ -26,7 +26,7 @@ type Config struct {
 	RateLimitAuth        string
 	StorageBackend       string
 	// StorageSecret is the secret key used for signing presigned URLs
-	StorageSecret        string
+	StorageSecret string
 	// WSAllowedOrigins is a comma-separated allowlist of Origin headers
 	// permitted to open a WebSocket connection. Empty means deny all
 	// cross-origin upgrades. See #249.
@@ -100,4 +100,10 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+// GetSecretsEncryptionKey returns the secrets encryption key from environment.
+// Returns empty string if not set.
+func GetSecretsEncryptionKey() string {
+	return os.Getenv("SECRETS_ENCRYPTION_KEY")
 }

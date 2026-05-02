@@ -17,7 +17,12 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/pkg/util"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
+
+const tracerNameDatabase = "database-service"
 
 const (
 	// Default ports for database engines
@@ -40,25 +45,25 @@ const (
 
 // DatabaseService manages database instances and lifecycle.
 type DatabaseService struct {
-	repo              ports.DatabaseRepository
-	rbacSvc           ports.RBACService
-	compute           ports.ComputeBackend
-	vpcRepo           ports.VpcRepository
-	volumeSvc         ports.VolumeService
-	snapshotSvc       ports.SnapshotService
-	snapshotRepo      ports.SnapshotRepository
-	eventSvc          ports.EventService
-	auditSvc          ports.AuditService
-	secrets           ports.SecretsManager
-	volumeEncryption  ports.VolumeEncryptionService
-	logger            *slog.Logger
-	vaultMountPath    string
+	repo             ports.DatabaseRepository
+	rbacSvc          ports.RBACService
+	compute          ports.ComputeBackend
+	vpcRepo          ports.VpcRepository
+	volumeSvc        ports.VolumeService
+	snapshotSvc      ports.SnapshotService
+	snapshotRepo     ports.SnapshotRepository
+	eventSvc         ports.EventService
+	auditSvc         ports.AuditService
+	secrets          ports.SecretsManager
+	volumeEncryption ports.VolumeEncryptionService
+	logger           *slog.Logger
+	vaultMountPath   string
 	// In-memory idempotency cache for rotation. Stores timestamp of last rotation attempt.
 	// Expired entries are deleted on lookup to prevent unbounded growth, but this does
 	// not guarantee all expired entries are reaped.
-	rotationCache     map[string]time.Time
+	rotationCache    map[string]time.Time
 	rotationCacheTTL time.Duration
-	rotationMu        sync.Mutex
+	rotationMu       sync.Mutex
 
 	// In-flight rotation state for idempotency cache
 	rotationInFlight map[string]*rotationInFlightEntry
@@ -78,19 +83,19 @@ var _ ports.DatabaseService = (*DatabaseService)(nil)
 
 // DatabaseServiceParams holds dependencies for DatabaseService creation.
 type DatabaseServiceParams struct {
-	Repo              ports.DatabaseRepository
-	RBAC              ports.RBACService
-	Compute           ports.ComputeBackend
-	VpcRepo           ports.VpcRepository
-	VolumeSvc         ports.VolumeService
-	SnapshotSvc       ports.SnapshotService
-	SnapshotRepo      ports.SnapshotRepository
-	EventSvc          ports.EventService
-	AuditSvc          ports.AuditService
-	Secrets           ports.SecretsManager
-	VolumeEncryption  ports.VolumeEncryptionService
-	Logger            *slog.Logger
-	VaultMountPath    string
+	Repo             ports.DatabaseRepository
+	RBAC             ports.RBACService
+	Compute          ports.ComputeBackend
+	VpcRepo          ports.VpcRepository
+	VolumeSvc        ports.VolumeService
+	SnapshotSvc      ports.SnapshotService
+	SnapshotRepo     ports.SnapshotRepository
+	EventSvc         ports.EventService
+	AuditSvc         ports.AuditService
+	Secrets          ports.SecretsManager
+	VolumeEncryption ports.VolumeEncryptionService
+	Logger           *slog.Logger
+	VaultMountPath   string
 }
 
 // NewDatabaseService constructs a DatabaseService with its dependencies.
@@ -116,9 +121,19 @@ func NewDatabaseService(params DatabaseServiceParams) *DatabaseService {
 }
 
 func (s *DatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDatabaseRequest) (*domain.Database, error) {
+	tracer := otel.Tracer(tracerNameDatabase)
+	_, span := tracer.Start(ctx, "DatabaseService.CreateDatabase",
+		trace.WithAttributes(
+			attribute.String("db.name", req.Name),
+			attribute.String("db.engine", req.Engine),
+			attribute.String("db.version", req.Version),
+		))
+	defer span.End()
+
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBCreate, "*"); err != nil {
+		span.RecordError(err)
 		return nil, err
 	}
 	dbEngine := domain.DatabaseEngine(req.Engine)
@@ -192,9 +207,19 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 }
 
 func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.RestoreDatabaseRequest) (*domain.Database, error) {
+	tracer := otel.Tracer(tracerNameDatabase)
+	_, span := tracer.Start(ctx, "DatabaseService.RestoreDatabase",
+		trace.WithAttributes(
+			attribute.String("db.new_name", req.NewName),
+			attribute.String("db.engine", req.Engine),
+			attribute.String("db.snapshot_id", req.SnapshotID.String()),
+		))
+	defer span.End()
+
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBCreate, "*"); err != nil {
+		span.RecordError(err)
 		return nil, err
 	}
 	snap, err := s.snapshotSvc.GetSnapshot(ctx, req.SnapshotID)
@@ -810,6 +835,13 @@ func (s *DatabaseService) RotateCredentials(ctx context.Context, id uuid.UUID, i
 
 // doRotateCredentials performs the actual credential rotation
 func (s *DatabaseService) doRotateCredentials(ctx context.Context, id uuid.UUID, _ string) error {
+	tracer := otel.Tracer(tracerNameDatabase)
+	_, span := tracer.Start(ctx, "DatabaseService.doRotateCredentials",
+		trace.WithAttributes(
+			attribute.String("db.id", id.String()),
+		))
+	defer span.End()
+
 	db, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err

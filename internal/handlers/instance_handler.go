@@ -476,19 +476,26 @@ type ResizeInstanceRequest struct {
 	InstanceType string `json:"instance_type" binding:"required"`
 }
 
+// ResizeInstanceResponse is the response for a successful resize operation.
+type ResizeInstanceResponse struct {
+	Message      string `json:"message"`
+	InstanceType string `json:"instance_type"`
+	Status       string `json:"status"`
+}
+
 // ResizeInstance godoc
 // @Summary Resize an instance
-// @Description Change the instance type (CPU/memory) of an existing instance
+// @Description Change the instance type (CPU/memory) of an existing instance. Note: Libvirt-backed instances require a brief restart (cold resize); Docker-backed instances support live resize without downtime.
 // @Tags instances
 // @Accept json
 // @Produce json
 // @Security APIKeyAuth
 // @Param id path string true "Instance ID"
 // @Param request body ResizeInstanceRequest true "Resize request"
-// @Success 200 {object} httputil.Response
+// @Success 200 {object} httphandlers.ResizeInstanceResponse
 // @Failure 400 {object} httputil.Response
 // @Failure 404 {object} httputil.Response
-// @Failure 429 {object} httputil.Response "Quota Exceeded"
+// @Failure 429 {object} httputil.Response "Too Many Requests"
 // @Failure 500 {object} httputil.Response
 // @Router /instances/{id}/resize [post]
 func (h *InstanceHandler) ResizeInstance(c *gin.Context) {
@@ -504,10 +511,15 @@ func (h *InstanceHandler) ResizeInstance(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.ResizeInstance(c.Request.Context(), idStr, req.InstanceType); err != nil {
+	inst, err := h.svc.ResizeInstance(c.Request.Context(), idStr, req.InstanceType)
+	if err != nil {
 		httputil.Error(c, err)
 		return
 	}
 
-	httputil.Success(c, http.StatusOK, gin.H{"message": "instance resized"})
+	httputil.Success(c, http.StatusOK, ResizeInstanceResponse{
+		Message:      "instance resized",
+		InstanceType: inst.InstanceType,
+		Status:       string(inst.Status),
+	})
 }

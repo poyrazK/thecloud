@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/jackc/pgx/v5/pgxpool"
+	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/services"
 	internalerrors "github.com/poyrazk/thecloud/internal/errors"
@@ -172,9 +172,9 @@ func TestAuthServiceValidateToken(t *testing.T) {
 
 	email := "session_" + uuid.NewString() + "@example.com"
 	user, err := svc.Register(ctx, email, testPassword, "User")
-		if user != nil && user.DefaultTenantID != nil { 
-			ctx = appcontext.WithTenantID(ctx, *user.DefaultTenantID) 
-		}
+	if user != nil && user.DefaultTenantID != nil {
+		ctx = appcontext.WithTenantID(ctx, *user.DefaultTenantID)
+	}
 	require.NoError(t, err)
 
 	apiKey, err := identitySvc.CreateKey(ctx, user.ID, "session")
@@ -191,9 +191,9 @@ func TestAuthServiceRevokeToken(t *testing.T) {
 
 	email := "revoke_" + uuid.NewString() + "@example.com"
 	user, err := svc.Register(ctx, email, testPassword, "User")
-		if user != nil && user.DefaultTenantID != nil { 
-			ctx = appcontext.WithTenantID(ctx, *user.DefaultTenantID) 
-		}
+	if user != nil && user.DefaultTenantID != nil {
+		ctx = appcontext.WithTenantID(ctx, *user.DefaultTenantID)
+	}
 	require.NoError(t, err)
 
 	apiKey, err := identitySvc.CreateKey(ctx, user.ID, "session")
@@ -212,9 +212,9 @@ func TestAuthServiceRotateToken(t *testing.T) {
 
 	email := "rotate_" + uuid.NewString() + "@example.com"
 	user, err := svc.Register(ctx, email, testPassword, "User")
-		if user != nil && user.DefaultTenantID != nil { 
-			ctx = appcontext.WithTenantID(ctx, *user.DefaultTenantID) 
-		}
+	if user != nil && user.DefaultTenantID != nil {
+		ctx = appcontext.WithTenantID(ctx, *user.DefaultTenantID)
+	}
 	require.NoError(t, err)
 
 	apiKey, err := identitySvc.CreateKey(ctx, user.ID, "session")
@@ -265,9 +265,9 @@ func TestAuthServiceTokenRotationIntegration(t *testing.T) {
 	ctx := context.Background()
 	email := "rotate_int_" + uuid.NewString() + "@example.com"
 	user, err := svc.Register(ctx, email, testPassword, "User")
-		if user != nil && user.DefaultTenantID != nil { 
-			ctx = appcontext.WithTenantID(ctx, *user.DefaultTenantID) 
-		}
+	if user != nil && user.DefaultTenantID != nil {
+		ctx = appcontext.WithTenantID(ctx, *user.DefaultTenantID)
+	}
 	require.NoError(t, err)
 
 	// Initial token

@@ -212,10 +212,10 @@ func TestAutoScaling_TriggerScaleUp(t *testing.T) {
 		RBACSvc: rbacSvc,
 	})
 	eventSvc := services.NewEventService(services.EventServiceParams{
-		Repo:    postgres.NewEventRepository(db),
-		RBACSvc: rbacSvc,
-		Publisher:     nil,
-		Logger:  slog.Default(),
+		Repo:      postgres.NewEventRepository(db),
+		RBACSvc:   rbacSvc,
+		Publisher: nil,
+		Logger:    slog.Default(),
 	})
 
 	worker := services.NewAutoScalingWorker(asgRepo, instSvc, &NoopLBService{}, eventSvc, &RealClock{})

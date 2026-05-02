@@ -25,6 +25,7 @@ import (
 	"github.com/docker/go-connections/nat"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/platform"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"gopkg.in/yaml.v3"
@@ -113,20 +114,56 @@ func (a *DockerAdapter) Type() string {
 }
 
 func (a *DockerAdapter) ResizeInstance(ctx context.Context, id string, cpuNanoCPUs, memoryBytes int64) error {
-	resp, err := a.cli.ContainerUpdate(ctx, id, container.UpdateConfig{
-		Resources: container.Resources{
-			NanoCPUs:    cpuNanoCPUs,
-			Memory:      memoryBytes,
-			MemorySwap:  memoryBytes, // Must be >= Memory; setting equal disables swap while allowing memory update
-		},
+	return platform.Retry(ctx, platform.RetryOpts{
+		MaxAttempts: 3,
+		BaseDelay:   500 * time.Millisecond,
+		MaxDelay:    10 * time.Second,
+		Multiplier:  2.0,
+		ShouldRetry: dockerResizeShouldRetry,
+	}, func(ctx context.Context) error {
+		resp, err := a.cli.ContainerUpdate(ctx, id, container.UpdateConfig{
+			Resources: container.Resources{
+				NanoCPUs:   cpuNanoCPUs,
+				Memory:     memoryBytes,
+				MemorySwap: memoryBytes, // Must be >= Memory; setting equal disables swap while allowing memory update
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update container %s: %w", id, err)
+		}
+		if resp.Warnings != nil {
+			a.logger.Warn("container update warnings", "container_id", id, "warnings", resp.Warnings)
+		}
+		return nil
 	})
-	if err != nil {
-		return fmt.Errorf("failed to update container %s: %w", id, err)
+}
+
+// dockerResizeShouldRetry returns true for Docker-transient errors that are safe to retry.
+// It excludes permanent errors such as "not found" so retries do not mask real failures.
+func dockerResizeShouldRetry(err error) bool {
+	if err == nil {
+		return false
 	}
-	if resp.Warnings != nil {
-		a.logger.Warn("container update warnings", "container_id", id, "warnings", resp.Warnings)
+	if errdefs.IsUnavailable(err) {
+		return true
 	}
-	return nil
+	if errdefs.IsResourceExhausted(err) {
+		return true
+	}
+	if errdefs.IsInternal(err) {
+		return true
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "reset") || strings.Contains(msg, "refused") {
+		return true
+	}
+	if strings.Contains(msg, "EOF") {
+		return true
+	}
+	if strings.Contains(msg, "temporary") {
+		return true
+	}
+	return false
 }
 
 // CreateSnapshot is a no-op for Docker since Docker resize is hot (no restart required).

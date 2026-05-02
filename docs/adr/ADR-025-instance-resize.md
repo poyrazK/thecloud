@@ -53,7 +53,7 @@ After a successful resize, usage counters are updated with the delta (`Increment
 
 - Instance not found → `404 NotFound`
 - Current or target instance type invalid → `400 InvalidInput`
-- Quota exceeded → `403 Forbidden`
+- Quota exceeded → `429 Too Many Requests`
 - Compute backend failure → `500 Internal` with metrics instrumentation (`resize_failure`)
 
 ---

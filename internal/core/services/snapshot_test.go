@@ -43,10 +43,10 @@ func setupSnapshotServiceIntegrationTest(t *testing.T) (ports.SnapshotService, p
 
 	eventRepo := postgres.NewEventRepository(db)
 	eventSvc := services.NewEventService(services.EventServiceParams{
-		Repo:    eventRepo,
-		RBACSvc: rbacSvc,
-		Publisher:     nil,
-		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Repo:      eventRepo,
+		RBACSvc:   rbacSvc,
+		Publisher: nil,
+		Logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))

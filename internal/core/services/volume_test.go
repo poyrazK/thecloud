@@ -34,10 +34,10 @@ func setupVolumeServiceTest(t *testing.T) (*services.VolumeService, *postgres.Vo
 
 	eventRepo := postgres.NewEventRepository(db)
 	eventSvc := services.NewEventService(services.EventServiceParams{
-		Repo:    eventRepo,
-		RBACSvc: rbacSvc,
-		Publisher:     nil,
-		Logger:  slog.Default(),
+		Repo:      eventRepo,
+		RBACSvc:   rbacSvc,
+		Publisher: nil,
+		Logger:    slog.Default(),
 	})
 
 	auditRepo := postgres.NewAuditRepository(db)
@@ -174,13 +174,13 @@ func TestVolume_LaunchAttach_Conflict(t *testing.T) {
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	// We also need VolumeService to create volumes elegantly
-	volSvc := services.NewVolumeService(services.VolumeServiceParams{ 
-		Repo:     volRepo, 
-		RBACSvc:  rbacSvc, 
-		Storage:  noop.NewNoopStorageBackend(), 
-		EventSvc: services.NewEventService(services.EventServiceParams{Repo: postgres.NewEventRepository(db), RBACSvc: rbacSvc, Publisher: nil, Logger: slog.Default()}), 
-		AuditSvc: services.NewAuditService(services.AuditServiceParams{Repo: postgres.NewAuditRepository(db), RBACSvc: rbacSvc}), 
-		Logger:   slog.Default(), 
+	volSvc := services.NewVolumeService(services.VolumeServiceParams{
+		Repo:     volRepo,
+		RBACSvc:  rbacSvc,
+		Storage:  noop.NewNoopStorageBackend(),
+		EventSvc: services.NewEventService(services.EventServiceParams{Repo: postgres.NewEventRepository(db), RBACSvc: rbacSvc, Publisher: nil, Logger: slog.Default()}),
+		AuditSvc: services.NewAuditService(services.AuditServiceParams{Repo: postgres.NewAuditRepository(db), RBACSvc: rbacSvc}),
+		Logger:   slog.Default(),
 	})
 
 	// 1. Create Volume

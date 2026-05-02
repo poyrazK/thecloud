@@ -4051,7 +4051,7 @@ const docTemplate = `{
                         "APIKeyAuth": []
                     }
                 ],
-                "description": "Change the instance type (CPU/memory) of an existing instance",
+                "description": "Change the instance type (CPU/memory) of an existing instance. Note: Libvirt-backed instances require a brief restart (cold resize); Docker-backed instances support live resize without downtime.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4084,7 +4084,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/httputil.Response"
+                            "$ref": "#/definitions/httphandlers.ResizeInstanceResponse"
                         }
                     },
                     "400": {
@@ -4100,7 +4100,7 @@ const docTemplate = `{
                         }
                     },
                     "429": {
-                        "description": "Quota Exceeded",
+                        "description": "Too Many Requests",
                         "schema": {
                             "$ref": "#/definitions/httputil.Response"
                         }
@@ -9057,6 +9057,7 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "cpu_time_nanoseconds": {
+                    "description": "only populated by Libvirt backend; Docker uses delta-based percentage instead",
                     "type": "integer"
                 },
                 "disk_read_bytes": {
@@ -11397,6 +11398,20 @@ const docTemplate = `{
             ],
             "properties": {
                 "instance_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "httphandlers.ResizeInstanceResponse": {
+            "type": "object",
+            "properties": {
+                "instance_type": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
                     "type": "string"
                 }
             }

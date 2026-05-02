@@ -151,11 +151,11 @@ func setupStorageServiceIntegrationTest(t *testing.T) (ports.StorageService, por
 
 	svc := services.NewStorageService(services.StorageServiceParams{
 		Repo:       repo,
-		RBACSvc:    rbacSvc, 
-		Store:      store, 
-		AuditSvc:   auditSvc, 
-		EncryptSvc: encSvc, 
-		Config:     cfg, 
+		RBACSvc:    rbacSvc,
+		Store:      store,
+		AuditSvc:   auditSvc,
+		EncryptSvc: encSvc,
+		Config:     cfg,
 		Logger:     slog.Default(),
 	})
 

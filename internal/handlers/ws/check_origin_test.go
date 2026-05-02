@@ -46,4 +46,3 @@ func TestCheckOrigin_FailClosed(t *testing.T) {
 		})
 	}
 }
-

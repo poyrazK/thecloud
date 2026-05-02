@@ -26,10 +26,11 @@ const (
 	// but longer than max expected job runtime (30m) to avoid stealing messages
 	// from workers that are legitimately still processing.
 	pipelineReclaimMs = 32 * 60 * 1000 // 32 minutes
-	pipelineReclaimN   = 5
+	pipelineReclaimN  = 5
 	// Stale threshold for idempotency ledger: builds can take up to 30 min,
 	// so a "running" entry older than this is considered abandoned.
 	pipelineStaleThreshold = 35 * time.Minute
+	maxPayloadSize         = 10 * 1024 * 1024 // 10 MB max pipeline job payload
 )
 
 // PipelineWorker processes queued pipeline builds.
@@ -92,6 +93,11 @@ func (w *PipelineWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 			}
 
 			var job domain.BuildJob
+			if len(msg.Payload) > maxPayloadSize {
+				w.logger.Error("pipeline job payload too large", "msg_id", msg.ID, "size", len(msg.Payload))
+				w.ackWithLog(ctx, msg.ID, "pipeline payload too large")
+				continue
+			}
 			if err := json.Unmarshal([]byte(msg.Payload), &job); err != nil {
 				w.logger.Error("failed to unmarshal build job",
 					"error", err, "msg_id", msg.ID)
@@ -420,6 +426,11 @@ func (w *PipelineWorker) reclaimLoop(ctx context.Context, sem chan struct{}) {
 			}
 			for _, m := range msgs {
 				var job domain.BuildJob
+				if len(m.Payload) > maxPayloadSize {
+					w.logger.Error("reclaimed pipeline job payload too large", "msg_id", m.ID, "size", len(m.Payload))
+					w.ackWithLog(ctx, m.ID, "pipeline payload too large")
+					continue
+				}
 				if err := json.Unmarshal([]byte(m.Payload), &job); err != nil {
 					w.logger.Error("failed to unmarshal reclaimed pipeline job",
 						"msg_id", m.ID, "error", err)

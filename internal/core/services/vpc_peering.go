@@ -22,12 +22,12 @@ const vpcPeeringTracer = "vpc-peering-service"
 // VPCPeeringService manages VPC peering connection lifecycle,
 // including CIDR validation and OVS flow rule programming.
 type VPCPeeringService struct {
-	repo          ports.VPCPeeringRepository
-	vpcRepo       ports.VpcRepository
-	rtRepo        ports.RouteTableRepository
-	network       ports.NetworkBackend
-	auditSvc      ports.AuditService
-	logger        *slog.Logger
+	repo     ports.VPCPeeringRepository
+	vpcRepo  ports.VpcRepository
+	rtRepo   ports.RouteTableRepository
+	network  ports.NetworkBackend
+	auditSvc ports.AuditService
+	logger   *slog.Logger
 }
 
 // VPCPeeringServiceParams holds dependencies for VPCPeeringService.
@@ -285,9 +285,9 @@ func (s *VPCPeeringService) addPeeringFlows(ctx context.Context, requesterVPC, a
 		ID:              uuid.New(),
 		RouteTableID:    reqRT.ID,
 		DestinationCIDR: accepterVPC.CIDRBlock,
-		TargetType:     domain.RouteTargetPeering,
-		TargetID:       &peeringID,
-		TargetName:     fmt.Sprintf("peering-%s", peeringID.String()[:8]),
+		TargetType:      domain.RouteTargetPeering,
+		TargetID:        &peeringID,
+		TargetName:      fmt.Sprintf("peering-%s", peeringID.String()[:8]),
 	}
 	if err := s.rtRepo.AddRoute(ctx, reqRT.ID, reqRoute); err != nil {
 		return fmt.Errorf("failed to add route in requester route table: %w", err)
@@ -298,9 +298,9 @@ func (s *VPCPeeringService) addPeeringFlows(ctx context.Context, requesterVPC, a
 		ID:              uuid.New(),
 		RouteTableID:    accRT.ID,
 		DestinationCIDR: requesterVPC.CIDRBlock,
-		TargetType:     domain.RouteTargetPeering,
-		TargetID:       &peeringID,
-		TargetName:     fmt.Sprintf("peering-%s", peeringID.String()[:8]),
+		TargetType:      domain.RouteTargetPeering,
+		TargetID:        &peeringID,
+		TargetName:      fmt.Sprintf("peering-%s", peeringID.String()[:8]),
 	}
 	if err := s.rtRepo.AddRoute(ctx, accRT.ID, accRoute); err != nil {
 		// Rollback requester route

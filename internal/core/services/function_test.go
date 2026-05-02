@@ -76,7 +76,6 @@ func setupFunctionServiceTest(t *testing.T) (*services.FunctionService, ports.Fu
 	return svc, repo, secretSvc, ctx
 }
 
-
 func createZip(t *testing.T, content string) []byte {
 	t.Helper()
 	buf := new(bytes.Buffer)

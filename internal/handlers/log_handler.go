@@ -13,9 +13,27 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
+const (
+	defaultLogLimit = 100
+	maxLogLimit     = 1000
+	maxLogOffset    = 1_000_000
+)
+
 // LogHandler handles log-related requests.
 type LogHandler struct {
 	svc ports.LogService
+}
+
+// clampLogLimit bounds a user-supplied limit to a safe range. Values <= 0 fall
+// back to the default; values above maxLogLimit are capped.
+func clampLogLimit(limit int) int {
+	if limit <= 0 {
+		return defaultLogLimit
+	}
+	if limit > maxLogLimit {
+		return maxLogLimit
+	}
+	return limit
 }
 
 // NewLogHandler creates a new LogHandler.
@@ -68,7 +86,7 @@ func (h *LogHandler) Search(c *gin.Context) {
 	}
 
 	// Pagination
-	limitStr := c.DefaultQuery("limit", "100")
+	limitStr := c.DefaultQuery("limit", strconv.Itoa(defaultLogLimit))
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil {
 		httputil.Error(c, errors.New(errors.InvalidInput, "invalid limit; must be a number"))
@@ -81,8 +99,15 @@ func (h *LogHandler) Search(c *gin.Context) {
 		httputil.Error(c, errors.New(errors.InvalidInput, "invalid offset; must be a number"))
 		return
 	}
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > maxLogOffset {
+		httputil.Error(c, errors.New(errors.InvalidInput, "offset too large"))
+		return
+	}
 
-	query.Limit = limit
+	query.Limit = clampLogLimit(limit)
 	query.Offset = offset
 
 	entries, total, err := h.svc.SearchLogs(c.Request.Context(), query)
@@ -113,11 +138,11 @@ func (h *LogHandler) GetByResource(c *gin.Context) {
 	id := c.Param("id")
 	tenantID := appcontext.TenantIDFromContext(c.Request.Context())
 
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(defaultLogLimit)))
 	query := domain.LogQuery{
 		TenantID:   tenantID,
 		ResourceID: id,
-		Limit:      limit,
+		Limit:      clampLogLimit(limit),
 	}
 
 	entries, total, err := h.svc.SearchLogs(c.Request.Context(), query)

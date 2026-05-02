@@ -456,8 +456,8 @@ func testAutoScalingServiceUnitValidationErrors(t *testing.T) {
 
 		_, err := svc.CreatePolicy(ctx, ports.CreateScalingPolicyParams{
 			GroupID:     groupID,
-			Name:       "cpu-high",
-			MetricType: "cpu",
+			Name:        "cpu-high",
+			MetricType:  "cpu",
 			CooldownSec: domain.MinCooldownSeconds - 1,
 		})
 		require.Error(t, err)

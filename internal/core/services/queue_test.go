@@ -28,10 +28,10 @@ func setupQueueServiceTest(t *testing.T) (ports.QueueService, *postgres.Postgres
 
 	eventRepo := postgres.NewEventRepository(db)
 	eventSvc := services.NewEventService(services.EventServiceParams{
-		Repo:    eventRepo,
-		RBACSvc: rbacSvc,
-		Publisher:     nil,
-		Logger:  nil,
+		Repo:      eventRepo,
+		RBACSvc:   rbacSvc,
+		Publisher: nil,
+		Logger:    nil,
 	})
 	auditRepo := postgres.NewAuditRepository(db)
 	auditSvc := services.NewAuditService(services.AuditServiceParams{

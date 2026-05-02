@@ -36,12 +36,12 @@ type PoolDB interface {
 // because PostgreSQL advisory locks are connection-scoped: a lock acquired
 // on one connection cannot be released from another.
 type PgLeaderElector struct {
-	db       DB
-	pool     *pgxpool.Pool // non-nil if pool was passed (for Acquire)
-	logger   *slog.Logger
-	mu       sync.Mutex
-	conn     *pgxpool.Conn // dedicated connection for active leadership
-	held     map[string]bool // tracks which keys this instance holds
+	db     DB
+	pool   *pgxpool.Pool // non-nil if pool was passed (for Acquire)
+	logger *slog.Logger
+	mu     sync.Mutex
+	conn   *pgxpool.Conn   // dedicated connection for active leadership
+	held   map[string]bool // tracks which keys this instance holds
 }
 
 // NewPgLeaderElector creates a leader elector backed by Postgres advisory locks.

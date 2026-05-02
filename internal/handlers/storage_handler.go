@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -34,9 +35,84 @@ func NewStorageHandler(svc ports.StorageService, cfg *platform.Config) *StorageH
 }
 
 const (
-	errInvalidUploadID = "invalid upload id"
+	errInvalidUploadID  = "invalid upload id"
 	headerContentSha256 = "X-Content-Sha256"
+	maxUploadSize       = 5 * 1024 * 1024 * 1024 // 5 GB
 )
+
+// contentDispositionAttachment builds a safe `Content-Disposition: attachment`
+// header for a stored object.
+//
+// Object keys can contain path segments, non-ASCII characters, control
+// characters, quotes, backslashes, or CRLF that — if interpolated naively —
+// would either corrupt the header (HTTP response splitting) or let an attacker
+// inject additional headers. The output therefore emits two parameters per
+// RFC 6266:
+//
+//   - `filename="..."`     ASCII-only fallback for legacy clients. All bytes
+//                          outside the safe printable range and the two
+//                          characters that are special inside a quoted-string
+//                          (`"` and `\`) are replaced with `_`.
+//   - `filename*=UTF-8''…` RFC 5987 percent-encoded form preserving the
+//                          original Unicode basename for modern clients.
+//
+// `path.Base` is used to discard any path segments embedded in the key. If the
+// resulting name is empty we fall back to "download".
+func contentDispositionAttachment(key string) string {
+	name := path.Base(key)
+	if name == "." || name == "/" || name == "" {
+		name = "download"
+	}
+
+	return fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`,
+		asciiFilenameFallback(name), rfc5987Encode(name))
+}
+
+// asciiFilenameFallback returns an ASCII-only sanitized copy of name suitable
+// for the legacy `filename=` parameter. Any byte that is a control character
+// (<0x20 or 0x7f), non-ASCII (>=0x80), or special inside a quoted-string is
+// replaced with `_` so the value can be safely wrapped in double quotes.
+func asciiFilenameFallback(name string) string {
+	out := make([]byte, 0, len(name))
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		switch {
+		case c < 0x20, c == 0x7f, c >= 0x80, c == '"', c == '\\':
+			out = append(out, '_')
+		default:
+			out = append(out, c)
+		}
+	}
+	if len(out) == 0 {
+		return "download"
+	}
+	return string(out)
+}
+
+// rfc5987Encode percent-encodes a value per RFC 5987 attr-char rules so it can
+// be safely placed in a `filename*` parameter.
+func rfc5987Encode(s string) string {
+	const hex = "0123456789ABCDEF"
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'A' && c <= 'Z',
+			c >= 'a' && c <= 'z',
+			c >= '0' && c <= '9',
+			c == '!', c == '#', c == '$', c == '&', c == '+',
+			c == '-', c == '.', c == '^', c == '_', c == '`',
+			c == '|', c == '~':
+			b.WriteByte(c)
+		default:
+			b.WriteByte('%')
+			b.WriteByte(hex[c>>4])
+			b.WriteByte(hex[c&0x0f])
+		}
+	}
+	return b.String()
+}
 
 // Upload uploads an object to a bucket
 // @Summary Upload an object
@@ -61,7 +137,7 @@ func (h *StorageHandler) Upload(c *gin.Context) {
 	providedChecksum := c.GetHeader(headerContentSha256)
 
 	// Read from request body (stream)
-	obj, err := h.svc.Upload(c.Request.Context(), bucket, key, c.Request.Body, providedChecksum)
+	obj, err := h.svc.Upload(c.Request.Context(), bucket, key, io.LimitReader(c.Request.Body, maxUploadSize), providedChecksum)
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -105,7 +181,7 @@ func (h *StorageHandler) Download(c *gin.Context) {
 	defer func() { _ = reader.Close() }()
 
 	// Set headers
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", key))
+	c.Header("Content-Disposition", contentDispositionAttachment(key))
 	c.Header("Content-Type", obj.ContentType)
 	c.Header("Content-Length", fmt.Sprintf("%d", obj.SizeBytes))
 
@@ -318,7 +394,7 @@ func (h *StorageHandler) UploadPart(c *gin.Context) {
 
 	providedChecksum := c.GetHeader(headerContentSha256)
 
-	part, err := h.svc.UploadPart(c.Request.Context(), uploadID, partNumber, c.Request.Body, providedChecksum)
+	part, err := h.svc.UploadPart(c.Request.Context(), uploadID, partNumber, io.LimitReader(c.Request.Body, maxUploadSize), providedChecksum)
 	if err != nil {
 		httputil.Error(c, err)
 		return
@@ -461,7 +537,7 @@ func (h *StorageHandler) ServePresignedDownload(c *gin.Context) {
 	}
 	defer func() { _ = reader.Close() }()
 
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", key))
+	c.Header("Content-Disposition", contentDispositionAttachment(key))
 	c.Header("Content-Type", obj.ContentType)
 	c.Header("Content-Length", fmt.Sprintf("%d", obj.SizeBytes))
 	_, _ = io.Copy(c.Writer, reader)
@@ -501,7 +577,7 @@ func (h *StorageHandler) ServePresignedUpload(c *gin.Context) {
 	// The Repository `SaveMeta` saves this UserID. It's valid to have Nil (0000...) for system/anon uploads?
 	// It's acceptable for this feature.
 
-	obj, err := h.svc.Upload(c.Request.Context(), bucket, key, c.Request.Body, "")
+	obj, err := h.svc.Upload(c.Request.Context(), bucket, key, io.LimitReader(c.Request.Body, maxUploadSize), "")
 	if err != nil {
 		httputil.Error(c, err)
 		return

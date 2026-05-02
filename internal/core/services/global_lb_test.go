@@ -27,4 +27,3 @@ func setupGlobalLBTest(t *testing.T) (*services.GlobalLBService, *mock.MockGloba
 	require.True(t, ok)
 	return svc, repo, lbRepo, mockGeoDNS
 }
-

@@ -26,7 +26,10 @@ func NewLocalFileStore(basePath string) (*LocalFileStore, error) {
 	return &LocalFileStore{basePath: basePath}, nil
 }
 
-const errTraversal = "invalid path: traversal detected"
+const (
+	errTraversal   = "invalid path: traversal detected"
+	maxObjectSize   = 5 * 1024 * 1024 * 1024 // 5 GB - prevents memory exhaustion during writes
+)
 
 func (s *LocalFileStore) Write(ctx context.Context, bucket, key string, r io.Reader) (int64, error) {
 	bucketPath := filepath.Join(s.basePath, filepath.Clean(bucket))
@@ -46,7 +49,7 @@ func (s *LocalFileStore) Write(ctx context.Context, bucket, key string, r io.Rea
 	}
 	defer func() { _ = f.Close() }()
 
-	n, err := io.Copy(f, r)
+	n, err := io.Copy(f, io.LimitReader(r, maxObjectSize))
 	if err != nil {
 		return 0, errors.Wrap(errors.Internal, "failed to write file", err)
 	}
@@ -130,6 +133,10 @@ func (s *LocalFileStore) Assemble(ctx context.Context, bucket, key string, parts
 			return 0, errors.Wrap(errors.Internal, "failed to copy part", err)
 		}
 		totalSize += n
+		if totalSize > maxObjectSize {
+			_ = os.Remove(partPath)
+			return totalSize, fmt.Errorf("assembled object exceeds max size: %d bytes (max %d)", totalSize, maxObjectSize)
+		}
 		_ = os.Remove(partPath) // Cleanup part
 	}
 

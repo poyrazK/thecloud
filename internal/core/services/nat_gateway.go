@@ -21,14 +21,14 @@ const natGatewayTracer = "nat-gateway-service"
 
 // NATGatewayService manages the lifecycle of NAT Gateways.
 type NATGatewayService struct {
-	repo         ports.NATGatewayRepository
-	eipRepo      ports.ElasticIPRepository
-	subnetRepo   ports.SubnetRepository
-	vpcRepo      ports.VpcRepository
-	rbacSvc      ports.RBACService
-	network      ports.NetworkBackend
-	auditSvc     ports.AuditService
-	logger       *slog.Logger
+	repo       ports.NATGatewayRepository
+	eipRepo    ports.ElasticIPRepository
+	subnetRepo ports.SubnetRepository
+	vpcRepo    ports.VpcRepository
+	rbacSvc    ports.RBACService
+	network    ports.NetworkBackend
+	auditSvc   ports.AuditService
+	logger     *slog.Logger
 }
 
 // NATGatewayServiceParams holds dependencies for NATGatewayService.
@@ -155,8 +155,8 @@ func (s *NATGatewayService) CreateNATGateway(ctx context.Context, subnetID, eipI
 	}
 
 	if err := s.auditSvc.Log(ctx, userID, "nat_gateway.create", "nat_gateway", natID.String(), map[string]interface{}{
-		"subnet_id": subnetID.String(),
-		"eip_id":    eipID.String(),
+		"subnet_id":  subnetID.String(),
+		"eip_id":     eipID.String(),
 		"private_ip": nat.PrivateIP,
 	}); err != nil {
 		s.logger.Warn("failed to log audit event", "error", err)

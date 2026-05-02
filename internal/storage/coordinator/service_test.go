@@ -39,10 +39,10 @@ func (m *MockStoreClient) CloseAndRecv() (*pb.StoreResponse, error) {
 	return r0, args.Error(1)
 }
 
-func (m *MockStoreClient) Context() context.Context { return context.Background() }
+func (m *MockStoreClient) Context() context.Context     { return context.Background() }
 func (m *MockStoreClient) Header() (metadata.MD, error) { return nil, nil }
-func (m *MockStoreClient) Trailer() metadata.MD { return nil }
-func (m *MockStoreClient) CloseSend() error { return nil }
+func (m *MockStoreClient) Trailer() metadata.MD         { return nil }
+func (m *MockStoreClient) CloseSend() error             { return nil }
 
 // MockRetrieveClient implements pb.StorageNode_RetrieveClient
 type MockRetrieveClient struct {
@@ -61,10 +61,10 @@ func (m *MockRetrieveClient) Recv() (*pb.RetrieveResponse, error) {
 	return r, nil
 }
 
-func (m *MockRetrieveClient) Context() context.Context { return context.Background() }
+func (m *MockRetrieveClient) Context() context.Context     { return context.Background() }
 func (m *MockRetrieveClient) Header() (metadata.MD, error) { return nil, nil }
-func (m *MockRetrieveClient) Trailer() metadata.MD { return nil }
-func (m *MockRetrieveClient) CloseSend() error { return nil }
+func (m *MockRetrieveClient) Trailer() metadata.MD         { return nil }
+func (m *MockRetrieveClient) CloseSend() error             { return nil }
 
 // MockStorageNodeClient
 type MockStorageNodeClient struct {

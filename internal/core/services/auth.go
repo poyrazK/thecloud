@@ -177,8 +177,8 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*domai
 	delete(s.failedAttempts, email)
 	s.mu.Unlock()
 
-	if user.DefaultTenantID != nil { 
-		ctx = appcontext.WithTenantID(ctx, *user.DefaultTenantID) 
+	if user.DefaultTenantID != nil {
+		ctx = appcontext.WithTenantID(ctx, *user.DefaultTenantID)
 	}
 	// or just return a fresh one. In a real platform, login gives you a JWT and
 	// you manage API keys separately.
@@ -205,6 +205,31 @@ func (s *AuthService) incrementFailure(email string) {
 	if s.failedAttempts[email] >= maxFailedAttempts {
 		s.lockouts[email] = time.Now().Add(s.lockoutDuration)
 		platform.AuthAttemptsTotal.WithLabelValues("failure_lockout").Inc()
+	}
+	// Probabilistically purge expired entries to prevent unbounded map growth.
+	// Every ~10 calls, scan and remove stale entries.
+	if len(s.lockouts) > 0 && time.Now().Nanosecond()%10 == 0 {
+		s.purgeExpiredLocked()
+	}
+}
+
+// purgeExpiredLocked removes expired lockouts and stale failure records.
+// Caller must hold s.mu.
+func (s *AuthService) purgeExpiredLocked() {
+	now := time.Now()
+	for email, lockoutTime := range s.lockouts {
+		if now.After(lockoutTime) {
+			delete(s.lockouts, email)
+			delete(s.failedAttempts, email)
+		}
+	}
+	// Also purge failure-only entries that have no lockout and are very old
+	// (these are users who failed but didn't reach lockout threshold)
+	for email, count := range s.failedAttempts {
+		// If count is suspiciously high, purge to prevent unbounded growth
+		if count > maxFailedAttempts*10 {
+			delete(s.failedAttempts, email)
+		}
 	}
 }
 

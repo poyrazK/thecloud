@@ -131,10 +131,10 @@ func setupInstanceServiceTest(t *testing.T) (*pgxpool.Pool, *services.InstanceSe
 
 	eventRepo := postgres.NewEventRepository(db)
 	eventSvc := services.NewEventService(services.EventServiceParams{
-		Repo:    eventRepo,
-		RBACSvc: rbacSvc,
-		Publisher:     nil,
-		Logger:  slog.Default(),
+		Repo:      eventRepo,
+		RBACSvc:   rbacSvc,
+		Publisher: nil,
+		Logger:    slog.Default(),
 	})
 
 	auditRepo := postgres.NewAuditRepository(db)
@@ -270,23 +270,23 @@ func TestInstanceServiceLaunchDBFailure(t *testing.T) {
 
 	defaultType := &domain.InstanceType{ID: testInstanceType, Name: "Basic 2", VCPUs: 1, MemoryMB: 128, DiskGB: 1}
 	_, _ = itRepo.Create(ctx, defaultType)
-	tenantRepo := postgres.NewTenantRepo(db) 
-	_ = tenantRepo.UpdateQuota(ctx, &domain.TenantQuota{ 
-		TenantID: appcontext.TenantIDFromContext(ctx), 
-		MaxInstances: 10, 
-		MaxVCPUs: 20, 
-		MaxMemoryGB: 40, 
-		MaxStorageGB: 1000, 
+	tenantRepo := postgres.NewTenantRepo(db)
+	_ = tenantRepo.UpdateQuota(ctx, &domain.TenantQuota{
+		TenantID:     appcontext.TenantIDFromContext(ctx),
+		MaxInstances: 10,
+		MaxVCPUs:     20,
+		MaxMemoryGB:  40,
+		MaxStorageGB: 1000,
 	})
 
 	rbacSvc := new(MockRBACService)
 	rbacSvc.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	eventSvc := services.NewEventService(services.EventServiceParams{
-		Repo:    postgres.NewEventRepository(db),
-		RBACSvc: rbacSvc,
-		Publisher:     nil,
-		Logger:  slog.Default(),
+		Repo:      postgres.NewEventRepository(db),
+		RBACSvc:   rbacSvc,
+		Publisher: nil,
+		Logger:    slog.Default(),
 	})
 	auditSvc := services.NewAuditService(services.AuditServiceParams{
 		Repo:    postgres.NewAuditRepository(db),

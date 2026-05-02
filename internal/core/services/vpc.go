@@ -137,17 +137,17 @@ func (s *VpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*do
 	// 5. Create main route table with local route
 	if s.routeTableRepo != nil {
 		mainRT := &domain.RouteTable{
-			ID:        uuid.New(),
-			VPCID:     vpc.ID,
-			Name:      "main",
-			IsMain:    true,
-			Routes:    []domain.Route{},
+			ID:     uuid.New(),
+			VPCID:  vpc.ID,
+			Name:   "main",
+			IsMain: true,
+			Routes: []domain.Route{},
 		}
 		mainRT.Routes = append(mainRT.Routes, domain.Route{
 			ID:              uuid.New(),
 			RouteTableID:    mainRT.ID,
 			DestinationCIDR: vpc.CIDRBlock,
-			TargetType:     domain.RouteTargetLocal,
+			TargetType:      domain.RouteTargetLocal,
 		})
 		if err := s.routeTableRepo.Create(ctx, mainRT); err != nil {
 			// Rollback: delete VPC

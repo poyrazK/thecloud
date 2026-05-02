@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poyrazk/thecloud/internal/core/domain"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,7 +31,6 @@ func TestIdentityRepository_Integration(t *testing.T) {
 	// Cleanup
 	_, _ = db.Exec(context.Background(), "DELETE FROM api_keys")
 
-
 	var keyID uuid.UUID
 	keyString := "test-api-key-12345"
 	keyHash := sha256.Sum256([]byte(keyString))
@@ -40,8 +39,8 @@ func TestIdentityRepository_Integration(t *testing.T) {
 	t.Run("CreateAPIKey", func(t *testing.T) {
 		keyID = uuid.New()
 		apiKey := &domain.APIKey{
-			ID:        keyID,
-			UserID:    userID, TenantID:  tenantID,
+			ID:     keyID,
+			UserID: userID, TenantID: tenantID,
 			Key:       keyString,
 			KeyHash:   keyHashHex,
 			Name:      "test-key",
@@ -98,8 +97,8 @@ func TestIdentityRepository_Integration(t *testing.T) {
 		anotherKey := "test-key-" + uuid.New().String()
 		anotherHash := sha256.Sum256([]byte(anotherKey))
 		key2 := &domain.APIKey{
-			ID:        uuid.New(),
-			UserID:    userID, TenantID:  tenantID,
+			ID:     uuid.New(),
+			UserID: userID, TenantID: tenantID,
 			Key:       anotherKey,
 			KeyHash:   hex.EncodeToString(anotherHash[:]),
 			Name:      "another-key",

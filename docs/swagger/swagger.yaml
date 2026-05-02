@@ -664,6 +664,8 @@ definitions:
       cpu_percentage:
         type: number
       cpu_time_nanoseconds:
+        description: only populated by Libvirt backend; Docker uses delta-based percentage
+          instead
         type: integer
       disk_read_bytes:
         type: integer
@@ -2349,6 +2351,15 @@ definitions:
         type: string
     required:
     - instance_type
+    type: object
+  httphandlers.ResizeInstanceResponse:
+    properties:
+      instance_type:
+        type: string
+      message:
+        type: string
+      status:
+        type: string
     type: object
   httphandlers.RestoreBackupRequest:
     properties:
@@ -5068,7 +5079,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Change the instance type (CPU/memory) of an existing instance
+      description: 'Change the instance type (CPU/memory) of an existing instance.
+        Note: Libvirt-backed instances require a brief restart (cold resize); Docker-backed
+        instances support live resize without downtime.'
       parameters:
       - description: Instance ID
         in: path
@@ -5087,7 +5100,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httputil.Response'
+            $ref: '#/definitions/httphandlers.ResizeInstanceResponse'
         "400":
           description: Bad Request
           schema:
@@ -5097,7 +5110,7 @@ paths:
           schema:
             $ref: '#/definitions/httputil.Response'
         "429":
-          description: Quota Exceeded
+          description: Too Many Requests
           schema:
             $ref: '#/definitions/httputil.Response'
         "500":

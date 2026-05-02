@@ -14,12 +14,26 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// deadPurgeAfter is how long a member stays in the members map after being
+// flagged dead, giving the Coordinator time to observe the status before the
+// entry is reaped.
+const deadPurgeAfter = 60 * time.Second
+
 // MemberState tracks a peer's status in the gossip ring.
 type MemberState struct {
 	Address   string
 	Status    string
 	LastSeen  time.Time
 	Heartbeat uint64
+	// DeadAt is the time the member transitioned to "dead". Zero otherwise.
+	DeadAt time.Time
+}
+
+// peerClient bundles a gRPC connection with its generated client so the
+// connection can be closed when the peer is no longer needed.
+type peerClient struct {
+	conn   *grpc.ClientConn
+	client pb.StorageNodeClient
 }
 
 // GossipProtocol manages membership and health gossip between nodes.
@@ -29,9 +43,10 @@ type GossipProtocol struct {
 	members  map[string]*MemberState
 	mu       sync.RWMutex
 	stopCh   chan struct{}
+	stopOnce sync.Once
 	logger   *slog.Logger
 	dialOpts []grpc.DialOption
-	peers    map[string]pb.StorageNodeClient
+	peers    map[string]*peerClient
 }
 
 // NewGossipProtocol constructs a GossipProtocol for a node.
@@ -42,7 +57,7 @@ func NewGossipProtocol(nodeID, address string, logger *slog.Logger) *GossipProto
 		members:  make(map[string]*MemberState),
 		stopCh:   make(chan struct{}),
 		logger:   logger,
-		peers:    make(map[string]pb.StorageNodeClient),
+		peers:    make(map[string]*peerClient),
 		dialOpts: []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())},
 	}
 	// Add self
@@ -99,20 +114,53 @@ func (g *GossipProtocol) detectFailures() {
 			continue
 		}
 
-		if m.Status == "alive" && now.Sub(m.LastSeen) > timeout {
+		switch {
+		case m.Status == "alive" && now.Sub(m.LastSeen) > timeout:
 			m.Status = "suspect"
 			g.logger.Warn("node flagged as suspect", "id", id, "last_seen", m.LastSeen)
-		} else if m.Status == "suspect" && now.Sub(m.LastSeen) > 3*timeout {
+		case m.Status == "suspect" && now.Sub(m.LastSeen) > 3*timeout:
 			m.Status = "dead"
+			m.DeadAt = now
 			g.logger.Error("node flagged as dead", "id", id, "last_seen", m.LastSeen)
-			// Reconfiguration is handled asynchronously by the Coordinator
-			// seeing the updated status via GetClusterStatus.
+			// Close and drop the gRPC client connection so it doesn't leak.
+			// The member entry is kept until the purge below so the
+			// Coordinator can observe the "dead" status via GetClusterStatus.
+			g.closePeerLocked(id)
+		case m.Status == "dead" && !m.DeadAt.IsZero() && now.Sub(m.DeadAt) > deadPurgeAfter:
+			delete(g.members, id)
+			g.closePeerLocked(id)
+			g.logger.Info("purged dead member", "id", id)
 		}
 	}
 }
 
+// closePeerLocked closes and removes the peer client for id. Caller must hold
+// g.mu (write lock).
+func (g *GossipProtocol) closePeerLocked(id string) {
+	p, ok := g.peers[id]
+	if !ok {
+		return
+	}
+	delete(g.peers, id)
+	if err := p.conn.Close(); err != nil {
+		g.logger.Warn("failed to close peer connection", "peer", id, "error", err)
+	}
+}
+
 func (g *GossipProtocol) Stop() {
-	close(g.stopCh)
+	g.stopOnce.Do(func() {
+		close(g.stopCh)
+
+		g.mu.Lock()
+		defer g.mu.Unlock()
+		for id, p := range g.peers {
+			if err := p.conn.Close(); err != nil {
+				g.logger.Warn("failed to close peer connection", "peer", id, "error", err)
+			}
+			delete(g.peers, id)
+		}
+		clear(g.members)
+	})
 }
 
 func (g *GossipProtocol) gossip() {
@@ -162,27 +210,45 @@ func (g *GossipProtocol) gossip() {
 
 func (g *GossipProtocol) sendGossip(targetID string, msg *pb.GossipMessage) {
 	g.mu.RLock()
-	targetAddr := g.members[targetID].Address
-	client, ok := g.peers[targetID]
+	member, memberOK := g.members[targetID]
+	p, peerOK := g.peers[targetID]
 	g.mu.RUnlock()
 
-	if !ok {
+	if !memberOK {
+		return
+	}
+	targetAddr := member.Address
+
+	if !peerOK {
 		conn, err := grpc.NewClient(targetAddr, g.dialOpts...)
 		if err != nil {
 			g.logger.Error("failed to connect to peer", "peer", targetID, "error", err)
 			return
 		}
-		client = pb.NewStorageNodeClient(conn)
+		newPeer := &peerClient{conn: conn, client: pb.NewStorageNodeClient(conn)}
+
 		g.mu.Lock()
-		g.peers[targetID] = client
-		g.mu.Unlock()
+		// Re-check under the write lock: another goroutine may have created
+		// the peer concurrently, or the member may have been purged.
+		if existing, ok := g.peers[targetID]; ok {
+			g.mu.Unlock()
+			_ = conn.Close()
+			p = existing
+		} else if _, stillMember := g.members[targetID]; !stillMember {
+			g.mu.Unlock()
+			_ = conn.Close()
+			return
+		} else {
+			g.peers[targetID] = newPeer
+			p = newPeer
+			g.mu.Unlock()
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	_, err := client.Gossip(ctx, msg)
-	if err != nil {
+	if _, err := p.client.Gossip(ctx, msg); err != nil {
 		g.logger.Warn("gossip failed", "target", targetID, "error", err)
 		// Mark as suspect if needed (Phase 2 enhancement)
 	}
@@ -195,7 +261,11 @@ func (g *GossipProtocol) OnGossip(msg *pb.GossipMessage) {
 	for id, remoteState := range msg.Members {
 		localState, exists := g.members[id]
 		if !exists {
-			// New member discovered
+			// Don't resurrect a node a peer is reporting as already dead —
+			// otherwise a tombstone we just purged could be re-added.
+			if remoteState.Status == "dead" {
+				continue
+			}
 			g.members[id] = &MemberState{
 				Address:   remoteState.Addr,
 				Status:    remoteState.Status,
@@ -203,6 +273,12 @@ func (g *GossipProtocol) OnGossip(msg *pb.GossipMessage) {
 				Heartbeat: remoteState.Heartbeat,
 			}
 			g.logger.Info("discovered new member", "id", id, "addr", remoteState.Addr)
+			continue
+		}
+
+		// Once we've locally flagged a member as dead, ignore further updates
+		// from gossip — peers will eventually converge.
+		if localState.Status == "dead" {
 			continue
 		}
 

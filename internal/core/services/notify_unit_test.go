@@ -1,10 +1,16 @@
 package services_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
@@ -407,6 +413,75 @@ func testNotifyServiceUnitPublishErrors(t *testing.T) {
 		<-done
 	})
 
+	t.Run("Publish_WebhookNon2xxStatus", func(t *testing.T) {
+		// Issue #338: webhook delivery must surface non-2xx HTTP responses.
+		var (
+			mu       sync.Mutex
+			received bool
+		)
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			mu.Lock()
+			received = true
+			mu.Unlock()
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		var logBuf bytes.Buffer
+		var logMu sync.Mutex
+		capturingLogger := slog.New(slog.NewTextHandler(&lockedWriter{w: &logBuf, mu: &logMu}, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+		mockRepo2 := new(MockNotifyRepo)
+		mockQueueSvc2 := new(MockQueueService)
+		mockEventSvc2 := new(MockEventService)
+		mockAuditSvc2 := new(MockAuditService)
+		rbacSvc2 := new(MockRBACService)
+		rbacSvc2.On("Authorize", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+		svc2 := services.NewNotifyService(services.NotifyServiceParams{
+			Repo:     mockRepo2,
+			RBACSvc:  rbacSvc2,
+			QueueSvc: mockQueueSvc2,
+			EventSvc: mockEventSvc2,
+			AuditSvc: mockAuditSvc2,
+			Logger:   capturingLogger,
+		})
+
+		done := make(chan struct{})
+		topicID := uuid.New()
+		topic := &domain.Topic{ID: topicID, UserID: userID}
+		sub := &domain.Subscription{
+			ID:       uuid.New(),
+			UserID:   userID,
+			TopicID:  topicID,
+			Protocol: domain.ProtocolWebhook,
+			Endpoint: server.URL,
+		}
+		mockRepo2.On("GetTopicByID", mock.Anything, topicID, userID).Return(topic, nil).Once()
+		mockRepo2.On("SaveMessage", mock.Anything, mock.Anything).Return(nil).Once()
+		mockRepo2.On("ListSubscriptions", mock.Anything, topicID).Return([]*domain.Subscription{sub}, nil).Once()
+		mockEventSvc2.On("RecordEvent", mock.Anything, "TOPIC_PUBLISHED", mock.Anything, "TOPIC", mock.Anything).Return(nil).Once()
+		mockAuditSvc2.On("Log", mock.Anything, userID, "notify.publish", "topic", topicID.String(), mock.Anything).Return(nil).Run(func(mock.Arguments) { close(done) }).Once()
+
+		err := svc2.Publish(ctx, topicID, "hello")
+		require.NoError(t, err)
+		<-done
+
+		// Allow the async webhook goroutine a moment to fire and log.
+		require.Eventually(t, func() bool {
+			mu.Lock()
+			defer mu.Unlock()
+			return received
+		}, 2*time.Second, 10*time.Millisecond, "webhook server never received request")
+
+		require.Eventually(t, func() bool {
+			logMu.Lock()
+			defer logMu.Unlock()
+			return strings.Contains(logBuf.String(), "webhook delivery failed") &&
+				strings.Contains(logBuf.String(), "status=500")
+		}, 2*time.Second, 10*time.Millisecond, "expected webhook delivery failure log with status=500")
+	})
+
 	t.Run("Publish_QueueInvalidUUID", func(t *testing.T) {
 		done := make(chan struct{})
 		topicID := uuid.New()
@@ -429,4 +504,15 @@ func testNotifyServiceUnitPublishErrors(t *testing.T) {
 		require.NoError(t, err)
 		<-done
 	})
+}
+
+type lockedWriter struct {
+	w  *bytes.Buffer
+	mu *sync.Mutex
+}
+
+func (l *lockedWriter) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.w.Write(p)
 }

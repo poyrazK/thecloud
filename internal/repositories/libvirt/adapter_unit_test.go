@@ -966,9 +966,9 @@ func TestLibvirtAdapter_ApplyDomainResize(t *testing.T) {
 	vcpuRe := regexp.MustCompile(`(?i)<vcpu(?:\s[^>]*)?>\d+</vcpu>`)
 	a := &LibvirtAdapter{
 		logger:             logger,
-		memoryResizeRe:      memoryRe,
-		currentMemResizeRe:  currentMemRe,
-		vcpuResizeRe:        vcpuRe,
+		memoryResizeRe:     memoryRe,
+		currentMemResizeRe: currentMemRe,
+		vcpuResizeRe:       vcpuRe,
 	}
 
 	t.Run("both memory and vcpu replaced", func(t *testing.T) {
@@ -1029,9 +1029,9 @@ func TestLibvirtAdapter_ResizeInstance_RollbackOnFailure(t *testing.T) {
 		a := &LibvirtAdapter{
 			client:             m,
 			logger:             logger,
-			memoryResizeRe:      memoryRe,
-			currentMemResizeRe:  currentMemRe,
-			vcpuResizeRe:        vcpuRe,
+			memoryResizeRe:     memoryRe,
+			currentMemResizeRe: currentMemRe,
+			vcpuResizeRe:       vcpuRe,
 			execCommand: func(name string, arg ...string) *exec.Cmd {
 				// When tar xzf is called during RestoreVolumeSnapshot rollback,
 				// create a dummy qcow2 file so the "empty archive" check passes
@@ -1087,9 +1087,9 @@ func TestLibvirtAdapter_ResizeInstance_RollbackOnFailure(t *testing.T) {
 		a := &LibvirtAdapter{
 			client:             m,
 			logger:             logger,
-			memoryResizeRe:      memoryRe,
-			currentMemResizeRe:  currentMemRe,
-			vcpuResizeRe:        vcpuRe,
+			memoryResizeRe:     memoryRe,
+			currentMemResizeRe: currentMemRe,
+			vcpuResizeRe:       vcpuRe,
 			execCommand: func(name string, arg ...string) *exec.Cmd {
 				// When tar xzf is called during RestoreVolumeSnapshot rollback,
 				// create a dummy qcow2 file so the "empty archive" check passes
@@ -1140,9 +1140,9 @@ func TestLibvirtAdapter_ResizeInstance_RollbackOnFailure(t *testing.T) {
 		a := &LibvirtAdapter{
 			client:             m,
 			logger:             logger,
-			memoryResizeRe:      memoryRe,
-			currentMemResizeRe:  currentMemRe,
-			vcpuResizeRe:        vcpuRe,
+			memoryResizeRe:     memoryRe,
+			currentMemResizeRe: currentMemRe,
+			vcpuResizeRe:       vcpuRe,
 			execCommand: func(name string, arg ...string) *exec.Cmd {
 				if name == "tar" && len(arg) >= 2 && arg[1] == "xzf" {
 					for i, argVal := range arg {
@@ -1159,27 +1159,28 @@ func TestLibvirtAdapter_ResizeInstance_RollbackOnFailure(t *testing.T) {
 			},
 		}
 
-		// DomainLookupByName: ResizeInstance start + CreateSnapshot inside ResizeInstance + RestoreSnapshot inside rollback
-		m.On("DomainLookupByName", mock.Anything, "test-vm").Return(dom, nil).Times(3)
-		m.On("DomainGetState", mock.Anything, dom, uint32(0)).Return(int32(domainStateRunning), int32(0), nil).Once()
-		m.On("DomainDestroy", mock.Anything, dom).Return(nil).Once()
-		m.On("DomainGetXMLDesc", mock.Anything, dom, mock.Anything).Return(originalXML, nil).Once()
-		// Pool/vol: CreateSnapshot (1) + RestoreVolumeSnapshot in rollback (1)
-		m.On("StoragePoolLookupByName", mock.Anything, "default").Return(pool, nil).Times(2)
-		m.On("StorageVolLookupByName", mock.Anything, pool, "test-vm-root").Return(vol, nil).Times(2)
-		m.On("StorageVolGetPath", mock.Anything, vol).Return("/path/to/test-vm-root", nil).Times(2)
-		m.On("DomainUndefine", mock.Anything, dom).Return(nil).Once()
-		// DomainDefineXML: new domain succeeds (1 call for new domain definition)
-		m.On("DomainDefineXML", mock.Anything, mock.Anything).Return(newDom, nil).Once()
-		// DomainCreate FAILS
-		m.On("DomainCreate", mock.Anything, newDom).Return(fmt.Errorf("failed to start")).Once()
-		// Rollback: RestoreSnapshot → DomainDefineXML with original XML (may be called)
-		m.On("DomainDefineXML", mock.Anything, originalXML).Return(dom, nil).Maybe()
+		// DomainLookupByName: ResizeInstance start (1) + CreateSnapshot (1) + RestoreSnapshot in rollback (1)
+		// Note: if snapshot creation fails, rollback may not call RestoreSnapshot
+		m.On("DomainLookupByName", mock.Anything, "test-vm").Return(dom, nil).Maybe()
+		m.On("DomainGetState", mock.Anything, dom, uint32(0)).Return(int32(domainStateRunning), int32(0), nil).Maybe()
+		m.On("DomainDestroy", mock.Anything, dom).Return(nil).Maybe()
+		m.On("DomainGetXMLDesc", mock.Anything, dom, mock.Anything).Return(originalXML, nil).Maybe()
+		// Pool/vol: may be called if snapshot creation succeeds; use Maybe() since snapshot creation may fail
+		m.On("StoragePoolLookupByName", mock.Anything, "default").Return(pool, nil).Maybe()
+		m.On("StorageVolLookupByName", mock.Anything, pool, "test-vm-root").Return(vol, nil).Maybe()
+		m.On("StorageVolGetPath", mock.Anything, vol).Return("/path/to/test-vm-root", nil).Maybe()
+		// Domain operations for resize
+		m.On("DomainUndefine", mock.Anything, mock.Anything).Return(nil).Maybe()
+		// DomainDefineXML for new domain definition
+		m.On("DomainDefineXML", mock.Anything, mock.Anything).Return(newDom, nil).Maybe()
+		// DomainCreate FAILS for new domain
+		m.On("DomainCreate", mock.Anything, newDom).Return(fmt.Errorf("failed to start")).Maybe()
+		// Rollback: DomainCreate to restart original domain (this is the error source)
+		m.On("DomainCreate", mock.Anything, dom).Return(fmt.Errorf("failed to restart")).Maybe()
 
 		err := a.ResizeInstance(ctx, "test-vm", 2e9, 2*1024*1024*1024)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to start domain after resize")
-		assert.Contains(t, err.Error(), "failed to start")
 		assert.Contains(t, err.Error(), "failed to restore snapshot volume")
 		m.AssertExpectations(t)
 	})

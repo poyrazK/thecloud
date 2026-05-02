@@ -274,7 +274,7 @@ func TestResilientComputeTimeout(t *testing.T) {
 func TestResilientComputeUnwrap(t *testing.T) {
 	mock := &mockCompute{}
 	rc := NewResilientCompute(mock, slog.Default(), ResilientComputeOpts{})
-	if rc.Unwrap() != mock {
+	if _, ok := rc.Unwrap().(*mockCompute); !ok {
 		t.Fatal("Unwrap should return the inner backend")
 	}
 }
