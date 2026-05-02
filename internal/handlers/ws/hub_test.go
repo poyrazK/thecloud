@@ -85,21 +85,23 @@ func TestHubConcurrentBroadcastAndUnregister(t *testing.T) {
 	hub.Register(client)
 	waitForCondition(t, func() bool { return hub.ClientCount() == 1 })
 
-	// Spawn goroutines that stress broadcast + unregister
+	// Signal all goroutines to start broadcasting at the same time
+	startCh := make(chan struct{})
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			<-startCh
 			for j := 0; j < 50; j++ {
 				hub.BroadcastEvent(&domain.WSEvent{Type: "test"})
-				time.Sleep(time.Microsecond)
 			}
 		}()
 	}
 
-	// Unregister while broadcasts are happening
-	time.Sleep(10 * time.Millisecond)
+	close(startCh)
+	// Small delay before unregister to allow goroutines to be in broadcast
+	time.Sleep(5 * time.Millisecond)
 	hub.Unregister(client)
 
 	wg.Wait()

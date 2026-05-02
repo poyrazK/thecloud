@@ -97,7 +97,7 @@ func (s *elasticIPService) AllocateIP(ctx context.Context) (*domain.ElasticIP, e
 		return eip, nil
 	}
 
-	return nil, lastErr
+	return nil, fmt.Errorf("failed to allocate unique IP after %d attempts: %w", maxRetries, lastErr)
 }
 
 func (s *elasticIPService) ReleaseIP(ctx context.Context, id uuid.UUID) error {
