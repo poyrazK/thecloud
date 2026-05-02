@@ -239,12 +239,14 @@ func TestGatewayE2E(t *testing.T) {
 			req, _ := http.NewRequest("GET", url, nil)
 			req.Header.Set(testutil.TestHeaderAPIKey, token)
 			resp, err := client.Do(req)
+			if resp != nil {
+				defer resp.Body.Close()
+			}
 			if err == nil && resp.StatusCode == http.StatusOK {
 				var res struct {
 					URL string `json:"url"`
 				}
 				_ = json.NewDecoder(resp.Body).Decode(&res)
-				resp.Body.Close()
 				if finalURL = res.URL; finalURL != "" && (finalURL == httpbinAnything+"/specific" || finalURL == httpbinAnything+"/general") {
 					if finalURL == httpbinAnything+"/specific" {
 						break
