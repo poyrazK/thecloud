@@ -607,7 +607,7 @@ func (a *LibvirtAdapter) GetInstanceStats(ctx context.Context, id string) (io.Re
 	var cpuTime uint64
 	if err == nil {
 		for _, p := range cpuParams {
-			if p.Field == "cpu_time" && p.Value.D == 4 { // D==4 means ULLONG
+			if p.Field == "cpu_time" && p.Value.D == 4 { // 4 = ULLONG discriminator per go-libvirt TypedParamValue
 				if v, ok := p.Value.I.(uint64); ok {
 					cpuTime = v
 				}

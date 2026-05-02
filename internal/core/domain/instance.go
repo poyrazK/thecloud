@@ -99,7 +99,7 @@ type InstanceStats struct {
 	NetworkTxBytes      int64   `json:"network_tx_bytes"`
 	DiskReadBytes       int64   `json:"disk_read_bytes"`
 	DiskWriteBytes      int64   `json:"disk_write_bytes"`
-	CPUTimeNanoseconds  int64   `json:"cpu_time_nanoseconds,omitempty"`
+	CPUTimeNanoseconds  int64   `json:"cpu_time_nanoseconds,omitempty"` // only populated by Libvirt backend; Docker uses delta-based percentage instead
 }
 
 // RawDockerStats mirrors Docker's stats payload for CPU/memory calculations.
