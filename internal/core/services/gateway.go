@@ -237,7 +237,7 @@ func (s *GatewayService) createReverseProxy(route *domain.GatewayRoute) (*httput
 
 func (s *GatewayService) buildTLSConfig(route *domain.GatewayRoute) *tls.Config {
 	cfg := &tls.Config{
-		InsecureSkipVerify: route.TLSSkipVerify,
+		InsecureSkipVerify: route.TLSSkipVerify, //nolint:gosec // User-controlled option for development/testing
 	}
 	if route.RequireTLS {
 		cfg.MinVersion = tls.VersionTLS12
