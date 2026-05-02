@@ -244,7 +244,7 @@ func TestRunSuccess(t *testing.T) {
 	defer stop()
 
 	privKey := generateTestKey(t)
-	client, err := NewClientWithKey(addr, "user", privKey)
+	client, err := NewClientWithKeyInsecure(addr, "user", privKey)
 	require.NoError(t, err)
 
 	out, err := client.Run(context.Background(), testCmdEcho)
@@ -257,7 +257,7 @@ func TestWriteFileSuccess(t *testing.T) {
 	defer stop()
 
 	privKey := generateTestKey(t)
-	client, err := NewClientWithKey(addr, "user", privKey)
+	client, err := NewClientWithKeyInsecure(addr, "user", privKey)
 	require.NoError(t, err)
 
 	err = client.WriteFile(context.Background(), "/tmp/test.txt", []byte("data"), "0644")
@@ -278,7 +278,7 @@ func TestWriteFileScpError(t *testing.T) {
 	defer stop()
 
 	privKey := generateTestKey(t)
-	client, err := NewClientWithKey(addr, "user", privKey)
+	client, err := NewClientWithKeyInsecure(addr, "user", privKey)
 	require.NoError(t, err)
 
 	err = client.WriteFile(context.Background(), "/tmp/test.txt", []byte("data"), "0644")
