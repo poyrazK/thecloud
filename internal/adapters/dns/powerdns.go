@@ -64,7 +64,8 @@ func (b *PowerDNSBackend) CreateZone(ctx context.Context, zoneName string, names
 	}
 
 	// Add an initial SOA record to satisfy PowerDNS requirements for Native zones
-	soaContent := fmt.Sprintf("%s hostmaster.%s 1 10800 3600 604800 3600", nameservers[0], zoneName)
+	ns := nameservers[0] // validated above
+	soaContent := fmt.Sprintf("%s hostmaster.%s 1 10800 3600 604800 3600", ns, zoneName)
 	soaRecord := ports.RecordSet{
 		Name:    zoneName,
 		Type:    "SOA",
