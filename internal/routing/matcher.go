@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+var (
+	paramRegex     = regexp.MustCompile(`{([a-zA-Z0-9_]+)(?::([^}]+))?}`)
+	extractParamRe = regexp.MustCompile(`{([a-zA-Z0-9_]+)(?::[^}]+)?}`)
+)
+
 // PatternMatcher handles matching a URL path against a pattern and extracting parameters.
 type PatternMatcher struct {
 	Pattern    string
@@ -44,7 +49,7 @@ func CompilePattern(pattern string) (*PatternMatcher, error) {
 	// We need to parse the pattern to identify {name} and {name:regex} parts,
 	// escape the literal parts, and convert the parameter parts into named capture groups.
 	var res strings.Builder
-	re := regexp.MustCompile(`{([a-zA-Z0-9_]+)(?::([^}]+))?}`)
+	re := paramRegex
 
 	lastIndex := 0
 	matches := re.FindAllStringSubmatchIndex(pattern, -1)
@@ -88,7 +93,7 @@ func CompilePattern(pattern string) (*PatternMatcher, error) {
 }
 
 func extractParamNames(pattern string) []string {
-	re := regexp.MustCompile(`{([a-zA-Z0-9_]+)(?::[^}]+)?}`)
+	re := extractParamRe
 	matches := re.FindAllStringSubmatch(pattern, -1)
 	names := make([]string, 0, len(matches))
 	for _, m := range matches {

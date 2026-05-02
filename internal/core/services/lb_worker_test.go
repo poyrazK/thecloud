@@ -83,6 +83,11 @@ func (m *mockLBRepo) ListAll(ctx context.Context) ([]*domain.LoadBalancer, error
 	r0, _ := args.Get(0).([]*domain.LoadBalancer)
 	return r0, args.Error(1)
 }
+func (m *mockLBRepo) ListByStatus(ctx context.Context, status string, limit, offset int) ([]*domain.LoadBalancer, error) {
+	args := m.Called(ctx, status, limit, offset)
+	r0, _ := args.Get(0).([]*domain.LoadBalancer)
+	return r0, args.Error(1)
+}
 func (m *mockLBRepo) Update(ctx context.Context, lb *domain.LoadBalancer) error {
 	return m.Called(ctx, lb).Error(0)
 }
@@ -164,7 +169,7 @@ func TestLBWorkerProcessCreatingLBs(t *testing.T) {
 		Status: domain.LBStatusCreating,
 	}
 
-	lbRepo.On("ListAll", ctx).Return([]*domain.LoadBalancer{lb}, nil)
+	lbRepo.On("ListByStatus", mock.Anything, string(domain.LBStatusCreating), 100, 0).Return([]*domain.LoadBalancer{lb}, nil)
 	lbRepo.On("ListTargets", mock.Anything, lbID).Return([]*domain.LBTarget{}, nil)
 	proxy.On("DeployProxy", mock.Anything, lb, []*domain.LBTarget{}).Return("http://lb-url", nil)
 	lbRepo.On("Update", mock.Anything, mock.MatchedBy(func(l *domain.LoadBalancer) bool {
@@ -192,7 +197,7 @@ func TestLBWorkerProcessDeletingLBs(t *testing.T) {
 		Status: domain.LBStatusDeleted,
 	}
 
-	lbRepo.On("ListAll", ctx).Return([]*domain.LoadBalancer{lb}, nil)
+	lbRepo.On("ListByStatus", mock.Anything, string(domain.LBStatusDeleted), 100, 0).Return([]*domain.LoadBalancer{lb}, nil)
 	proxy.On("RemoveProxy", mock.Anything, lbID).Return(nil)
 	lbRepo.On("Delete", mock.Anything, lbID).Return(nil)
 
@@ -217,7 +222,7 @@ func TestLBWorkerProcessActiveLBs(t *testing.T) {
 		Status: domain.LBStatusActive,
 	}
 
-	lbRepo.On("ListAll", ctx).Return([]*domain.LoadBalancer{lb}, nil)
+	lbRepo.On("ListByStatus", mock.Anything, string(domain.LBStatusActive), 100, 0).Return([]*domain.LoadBalancer{lb}, nil)
 	lbRepo.On("ListTargets", mock.Anything, lbID).Return([]*domain.LBTarget{}, nil)
 	proxy.On("UpdateProxyConfig", mock.Anything, lb, []*domain.LBTarget{}).Return(nil)
 
@@ -253,7 +258,7 @@ func TestLBWorkerProcessHealthChecks(t *testing.T) {
 		Ports: "80:8080",
 	}
 
-	lbRepo.On("ListAll", ctx).Return([]*domain.LoadBalancer{lb}, nil)
+	lbRepo.On("ListByStatus", mock.Anything, string(domain.LBStatusActive), 100, 0).Return([]*domain.LoadBalancer{lb}, nil)
 	lbRepo.On("ListTargets", mock.Anything, lbID).Return([]*domain.LBTarget{target}, nil)
 	instRepo.On("GetByID", mock.Anything, instID).Return(inst, nil)
 

@@ -22,6 +22,8 @@ type LBRepository interface {
 	List(ctx context.Context) ([]*domain.LoadBalancer, error)
 	// ListAll returns every load balancer in the system for background management tasks.
 	ListAll(ctx context.Context) ([]*domain.LoadBalancer, error)
+	// ListByStatus returns load balancers with a specific status for background workers.
+	ListByStatus(ctx context.Context, status string, limit, offset int) ([]*domain.LoadBalancer, error)
 	// Update modifies an existing load balancer's configuration or status.
 	Update(ctx context.Context, lb *domain.LoadBalancer) error
 	// Delete removes a load balancer record from storage.

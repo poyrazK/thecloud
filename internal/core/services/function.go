@@ -33,6 +33,8 @@ const (
 	maxLogSize = 1 * 1024 * 1024 // 1 MB
 )
 
+var logSanitizationRe = regexp.MustCompile(`[^[:print:][:space:]]`)
+
 // RuntimeConfig describes how a function runtime is executed.
 type RuntimeConfig struct {
 	Image      string
@@ -403,8 +405,7 @@ func (s *FunctionService) captureInvocationResults(i *domain.Invocation, contain
 	if logsReader != nil {
 		logBytes, _ := io.ReadAll(io.LimitReader(logsReader, maxLogSize))
 		// Sanitize logs to prevent log injection (strip control characters)
-		re := regexp.MustCompile(`[^[:print:][:space:]]`)
-		i.Logs = re.ReplaceAllString(string(logBytes), "?")
+		i.Logs = logSanitizationRe.ReplaceAllString(string(logBytes), "?")
 		_ = logsReader.Close()
 	}
 

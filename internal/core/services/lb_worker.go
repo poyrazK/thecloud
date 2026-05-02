@@ -15,12 +15,24 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+const defaultBatchLimit = 100
+
+// LBWorkerOption configures an LBWorker on construction.
+type LBWorkerOption func(*LBWorker)
+
+// WithBatchLimit sets the pagination batch size for worker queries.
+// Defaults to 100 if not set.
+func WithBatchLimit(n int) LBWorkerOption {
+	return func(w *LBWorker) { w.batchLimit = n }
+}
+
 // LBWorker reconciles load balancer state and health checks.
 type LBWorker struct {
 	lbRepo       ports.LBRepository
 	instanceRepo ports.InstanceRepository
 	proxyAdapter ports.LBProxyAdapter
 	dialer       PortDialer
+	batchLimit   int
 }
 
 // PortDialer defines an interface for dialing network connections.
@@ -35,13 +47,18 @@ func (d *realDialer) DialTimeout(network, address string, timeout time.Duration)
 }
 
 // NewLBWorker constructs an LBWorker with its dependencies.
-func NewLBWorker(lbRepo ports.LBRepository, instanceRepo ports.InstanceRepository, proxyAdapter ports.LBProxyAdapter) *LBWorker {
-	return &LBWorker{
+func NewLBWorker(lbRepo ports.LBRepository, instanceRepo ports.InstanceRepository, proxyAdapter ports.LBProxyAdapter, opts ...LBWorkerOption) *LBWorker {
+	w := &LBWorker{
 		lbRepo:       lbRepo,
 		instanceRepo: instanceRepo,
 		proxyAdapter: proxyAdapter,
 		dialer:       &realDialer{},
+		batchLimit:   defaultBatchLimit,
 	}
+	for _, opt := range opts {
+		opt(w)
+	}
+	return w
 }
 
 func (w *LBWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
@@ -66,31 +83,45 @@ func (w *LBWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 func (w *LBWorker) processCreatingLBs(ctx context.Context) {
-	lbs, err := w.lbRepo.ListAll(ctx)
-	if err != nil {
-		log.Printf("Worker: failed to list LBs: %v", err)
-		return
-	}
-
-	for _, lb := range lbs {
-		if lb.Status == domain.LBStatusCreating {
+	offset := 0
+	for {
+		lbs, err := w.lbRepo.ListByStatus(ctx, string(domain.LBStatusCreating), w.batchLimit, offset)
+		if err != nil {
+			log.Printf("Worker: failed to list creating LBs: %v", err)
+			return
+		}
+		if len(lbs) == 0 {
+			return
+		}
+		for _, lb := range lbs {
 			gCtx := appcontext.WithUserID(ctx, lb.UserID)
 			w.deployLB(gCtx, lb)
 		}
+		if len(lbs) < w.batchLimit {
+			return
+		}
+		offset += w.batchLimit
 	}
 }
 
 func (w *LBWorker) processDeletingLBs(ctx context.Context) {
-	lbs, err := w.lbRepo.ListAll(ctx)
-	if err != nil {
-		return
-	}
-
-	for _, lb := range lbs {
-		if lb.Status == domain.LBStatusDeleted {
+	offset := 0
+	for {
+		lbs, err := w.lbRepo.ListByStatus(ctx, string(domain.LBStatusDeleted), w.batchLimit, offset)
+		if err != nil {
+			return
+		}
+		if len(lbs) == 0 {
+			return
+		}
+		for _, lb := range lbs {
 			gCtx := appcontext.WithUserID(ctx, lb.UserID)
 			w.cleanupLB(gCtx, lb)
 		}
+		if len(lbs) < w.batchLimit {
+			return
+		}
+		offset += w.batchLimit
 	}
 }
 
@@ -133,37 +164,50 @@ func (w *LBWorker) cleanupLB(ctx context.Context, lb *domain.LoadBalancer) {
 }
 
 func (w *LBWorker) processActiveLBs(ctx context.Context) {
-	lbs, err := w.lbRepo.ListAll(ctx)
-	if err != nil {
-		return
-	}
-
-	for _, lb := range lbs {
-		if lb.Status == domain.LBStatusActive {
+	offset := 0
+	for {
+		lbs, err := w.lbRepo.ListByStatus(ctx, string(domain.LBStatusActive), w.batchLimit, offset)
+		if err != nil {
+			return
+		}
+		if len(lbs) == 0 {
+			return
+		}
+		for _, lb := range lbs {
 			gCtx := appcontext.WithUserID(ctx, lb.UserID)
 			targets, err := w.lbRepo.ListTargets(gCtx, lb.ID)
 			if err != nil {
 				continue
 			}
-			// Update configuration (e.g. if targets changed)
 			if err := w.proxyAdapter.UpdateProxyConfig(gCtx, lb, targets); err != nil {
 				log.Printf("Worker: failed to update proxy config for LB %s: %v", lb.ID, err)
 			}
 		}
+		if len(lbs) < w.batchLimit {
+			return
+		}
+		offset += w.batchLimit
 	}
 }
 
 func (w *LBWorker) processHealthChecks(ctx context.Context) {
-	lbs, err := w.lbRepo.ListAll(ctx)
-	if err != nil {
-		return
-	}
-
-	for _, lb := range lbs {
-		if lb.Status == domain.LBStatusActive {
+	offset := 0
+	for {
+		lbs, err := w.lbRepo.ListByStatus(ctx, string(domain.LBStatusActive), w.batchLimit, offset)
+		if err != nil {
+			return
+		}
+		if len(lbs) == 0 {
+			return
+		}
+		for _, lb := range lbs {
 			gCtx := appcontext.WithUserID(ctx, lb.UserID)
 			w.checkLBHealth(gCtx, lb)
 		}
+		if len(lbs) < w.batchLimit {
+			return
+		}
+		offset += w.batchLimit
 	}
 }
 
