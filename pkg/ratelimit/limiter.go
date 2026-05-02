@@ -8,12 +8,14 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"golang.org/x/time/rate"
 )
 
 // IPRateLimiter manages rate limiters for different IPs/clients
 type IPRateLimiter struct {
 	ips    map[string]*rate.Limiter
+	routes map[uuid.UUID]map[string]*rate.Limiter // per-route limiters
 	mu     sync.RWMutex
 	rate   rate.Limit
 	burst  int
@@ -24,6 +26,7 @@ type IPRateLimiter struct {
 func NewIPRateLimiter(r rate.Limit, b int, logger *slog.Logger) *IPRateLimiter {
 	i := &IPRateLimiter{
 		ips:    make(map[string]*rate.Limiter),
+		routes: make(map[uuid.UUID]map[string]*rate.Limiter),
 		rate:   r,
 		burst:  b,
 		logger: logger,
@@ -49,6 +52,25 @@ func (i *IPRateLimiter) GetLimiter(key string) *rate.Limiter {
 	return limiter
 }
 
+// GetRouteLimiter returns a rate limiter for a specific route and client key.
+// This enables per-route rate limiting while maintaining per-client tracking.
+func (i *IPRateLimiter) GetRouteLimiter(routeID uuid.UUID, key string) *rate.Limiter {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	if i.routes[routeID] == nil {
+		i.routes[routeID] = make(map[string]*rate.Limiter)
+	}
+
+	limiter, exists := i.routes[routeID][key]
+	if !exists {
+		limiter = rate.NewLimiter(i.rate, i.burst)
+		i.routes[routeID][key] = limiter
+	}
+
+	return limiter
+}
+
 // cleanupLoop removes old entries (rudimentary GC)
 func (i *IPRateLimiter) cleanupLoop() {
 	for {
@@ -57,6 +79,7 @@ func (i *IPRateLimiter) cleanupLoop() {
 		// Start fresh every cleanup cycle for simplicity
 		// A production robust implementation would track last access time
 		i.ips = make(map[string]*rate.Limiter)
+		i.routes = make(map[uuid.UUID]map[string]*rate.Limiter)
 		i.mu.Unlock()
 	}
 }
