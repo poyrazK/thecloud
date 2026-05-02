@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -1007,6 +1008,10 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 
 	// 2. Compute resize (now that quota is settled)
 	newCpuNano := int64(newIT.VCPUs) * NanoCPUsPerVCPU
+	const maxMemoryMB = math.MaxInt64 / BytesPerMB
+	if int64(newIT.MemoryMB) > maxMemoryMB {
+		return fmt.Errorf("memory size overflows int64: %d MB", newIT.MemoryMB)
+	}
 	newMemoryBytes := int64(newIT.MemoryMB) * BytesPerMB
 	if err := s.compute.ResizeInstance(ctx, target, newCpuNano, newMemoryBytes); err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("resize", "failure").Inc()
@@ -1497,7 +1502,13 @@ func (s *InstanceService) findAvailableIP(ipNet *net.IPNet, usedIPs map[string]b
 	ip := make(net.IP, len(ipNet.IP))
 	copy(ip, ipNet.IP)
 
-	for {
+	ones, _ := ipNet.Mask.Size()
+	maxIPs := uint64(1) << (32 - ones)
+	if maxIPs > 1<<16 {
+		maxIPs = 1 << 16 // cap at 65536 to prevent unbounded iteration
+	}
+
+	for iterations := uint64(0); iterations < maxIPs; iterations++ {
 		// Increment IP
 		for i := len(ip) - 1; i >= 0; i-- {
 			ip[i]++
@@ -1519,7 +1530,7 @@ func (s *InstanceService) findAvailableIP(ipNet *net.IPNet, usedIPs map[string]b
 			return displayIP, nil
 		}
 	}
-	return "", fmt.Errorf("no available IPs in subnet")
+	return "", fmt.Errorf("no available IPs in subnet after %d attempts", maxIPs)
 }
 
 func (s *InstanceService) Exec(ctx context.Context, idOrName string, cmd []string) (string, error) {
