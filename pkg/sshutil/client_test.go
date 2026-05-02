@@ -60,65 +60,6 @@ func TestNewClientWithKey(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRejectHostKeyCallback(t *testing.T) {
-	err := rejectHostKeyCallback("example.com", nil, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "rejected by policy")
-}
-
-func TestSetInsecureMode(t *testing.T) {
-	// Save original state and restore after test
-	originalValue := insecureSSH.Load()
-	t.Cleanup(func() {
-		insecureSSH.Store(originalValue)
-	})
-
-	// Enable insecure mode
-	SetInsecureMode(true)
-	assert.True(t, insecureSSH.Load())
-
-	// Disable insecure mode
-	SetInsecureMode(false)
-	assert.False(t, insecureSSH.Load())
-}
-
-func TestNewClientWithKey_SecureByDefault(t *testing.T) {
-	// Save original state and restore after test
-	originalValue := insecureSSH.Load()
-	t.Cleanup(func() {
-		insecureSSH.Store(originalValue)
-	})
-
-	// Ensure insecure mode is off for this test
-	SetInsecureMode(false)
-
-	privKey := generateTestKey(t)
-	client, err := NewClientWithKey(testLocalhostSSH, "user", privKey)
-	require.NoError(t, err)
-	assert.NotNil(t, client)
-	// HostKeyCallback should be rejectHostKeyCallback, not ssh.InsecureIgnoreHostKey
-	assert.NotNil(t, client.HostKeyCallback)
-}
-
-func TestNewClientWithKeyInsecure(t *testing.T) {
-	// Save original state and restore after test
-	originalValue := insecureSSH.Load()
-	t.Cleanup(func() {
-		insecureSSH.Store(originalValue)
-	})
-
-	// Ensure insecure mode is off for this test
-	SetInsecureMode(false)
-
-	privKey := generateTestKey(t)
-	client, err := NewClientWithKeyInsecure(testLocalhostSSH, "user", privKey)
-	require.NoError(t, err)
-	assert.NotNil(t, client)
-	assert.True(t, client.Insecure)
-	// HostKeyCallback should be ssh.InsecureIgnoreHostKey
-	assert.NotNil(t, client.HostKeyCallback)
-}
-
 func TestWaitForSSH(t *testing.T) {
 	// Start a dummy TCP server
 	l, err := net.Listen("tcp", testLoopbackAddr)
@@ -244,7 +185,7 @@ func TestRunSuccess(t *testing.T) {
 	defer stop()
 
 	privKey := generateTestKey(t)
-	client, err := NewClientWithKeyInsecure(addr, "user", privKey)
+	client, err := NewClientWithKey(addr, "user", privKey)
 	require.NoError(t, err)
 
 	out, err := client.Run(context.Background(), testCmdEcho)
@@ -257,7 +198,7 @@ func TestWriteFileSuccess(t *testing.T) {
 	defer stop()
 
 	privKey := generateTestKey(t)
-	client, err := NewClientWithKeyInsecure(addr, "user", privKey)
+	client, err := NewClientWithKey(addr, "user", privKey)
 	require.NoError(t, err)
 
 	err = client.WriteFile(context.Background(), "/tmp/test.txt", []byte("data"), "0644")
@@ -278,7 +219,7 @@ func TestWriteFileScpError(t *testing.T) {
 	defer stop()
 
 	privKey := generateTestKey(t)
-	client, err := NewClientWithKeyInsecure(addr, "user", privKey)
+	client, err := NewClientWithKey(addr, "user", privKey)
 	require.NoError(t, err)
 
 	err = client.WriteFile(context.Background(), "/tmp/test.txt", []byte("data"), "0644")

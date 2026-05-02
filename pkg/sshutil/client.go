@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
-	"sync/atomic"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -19,41 +18,10 @@ type Client struct {
 	User            string
 	Auth            []ssh.AuthMethod
 	HostKeyCallback ssh.HostKeyCallback
-	// Insecure controls whether host key verification is disabled.
-	// Set to true only for development/testing with trusted networks.
-	Insecure bool
 }
 
 // NewClientWithKey constructs an SSH client using a private key.
-// By default, host key verification is enabled. Set client.Insecure = true
-// only for development environments with trusted networks.
 func NewClientWithKey(host, user, privateKey string) (*Client, error) {
-	signer, err := ssh.ParsePrivateKey([]byte(privateKey))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse private key: %w", err)
-	}
-
-	var hostKeyCallback ssh.HostKeyCallback
-	if insecureSSH.Load() {
-		hostKeyCallback = ssh.InsecureIgnoreHostKey()
-	} else {
-		hostKeyCallback = rejectHostKeyCallback
-	}
-
-	return &Client{
-		Host: host,
-		User: user,
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
-		},
-		HostKeyCallback: hostKeyCallback,
-	}, nil
-}
-
-// NewClientWithKeyInsecure constructs an SSH client that skips host key verification.
-// WARNING: This is insecure and should only be used in development/testing.
-// For production, use NewClientWithKey with proper host key verification.
-func NewClientWithKeyInsecure(host, user, privateKey string) (*Client, error) {
 	signer, err := ssh.ParsePrivateKey([]byte(privateKey))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse private key: %w", err)
@@ -66,25 +34,7 @@ func NewClientWithKeyInsecure(host, user, privateKey string) (*Client, error) {
 			ssh.PublicKeys(signer),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Insecure:        true,
 	}, nil
-}
-
-// insecureSSH controls global SSH host key verification behavior.
-// Default is false (secure) - requires proper host key verification.
-// Set to true only for development environments.
-var insecureSSH atomic.Bool
-
-// rejectHostKeyCallback rejects all host keys by default.
-func rejectHostKeyCallback(hostname string, remote net.Addr, key ssh.PublicKey) error {
-	return fmt.Errorf("unknown host key for %s: rejected by policy", hostname)
-}
-
-// SetInsecureMode enables or disables SSH host key verification.
-// WARNING: Setting to true disables host key verification and is insecure.
-// Only use this for development/testing with trusted networks.
-func SetInsecureMode(insecure bool) {
-	insecureSSH.Store(insecure)
 }
 
 // Run executes a command and returns its output.
