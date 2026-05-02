@@ -28,6 +28,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+var domainNameSanitizeRe = regexp.MustCompile(`[^a-zA-Z0-9-]`)
 
 const (
 	defaultPoolName   = "default"
@@ -423,7 +424,7 @@ func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts por
 }
 
 func (a *LibvirtAdapter) sanitizeDomainName(name string) string {
-	name = regexp.MustCompile(`[^a-zA-Z0-9-]`).ReplaceAllString(name, "")
+	name = domainNameSanitizeRe.ReplaceAllString(name, "")
 	if name == "" {
 		return uuid.New().String()[:8]
 	}
