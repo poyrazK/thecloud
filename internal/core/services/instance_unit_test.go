@@ -431,6 +431,7 @@ func testInstanceServiceProvisionFinalize(t *testing.T) {
 		vpcRepo.On("GetByID", mock.Anything, vpcID).Return(&domain.VPC{ID: vpcID, NetworkID: "net1"}, nil).Maybe() // called twice: provisionNetwork + plumbNetwork
 		subnetRepo.On("GetByID", mock.Anything, subnetID).Return(&domain.Subnet{ID: subnetID, CIDRBlock: "10.0.0.0/24", GatewayIP: "10.0.0.1"}, nil).Maybe()
 		repo.On("ListBySubnet", mock.Anything, subnetID).Return([]*domain.Instance{}, nil).Maybe()
+		repo.On("ListSubnetUsedIPs", mock.Anything, subnetID).Return([]string{}, nil).Maybe()
 		network.On("CreateVethPair", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 		network.On("AttachVethToBridge", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 		network.On("SetVethIP", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
@@ -520,6 +521,7 @@ func testInstanceServiceProvisionFinalize(t *testing.T) {
 		vpcRepo.On("GetByID", mock.Anything, mock.Anything).Return(&domain.VPC{ID: vpcID, NetworkID: "net1"}, nil).Maybe()
 		subnetRepo.On("GetByID", mock.Anything, mock.Anything).Return(&domain.Subnet{ID: subnetID, CIDRBlock: "10.0.0.0/24", GatewayIP: "10.0.0.1"}, nil).Maybe()
 		repo.On("ListBySubnet", mock.Anything, mock.Anything).Return([]*domain.Instance{}, nil).Maybe()
+		repo.On("ListSubnetUsedIPs", mock.Anything, mock.Anything).Return([]string{}, nil).Maybe()
 		network.On("CreateVethPair", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 		network.On("AttachVethToBridge", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 		network.On("SetVethIP", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
@@ -595,6 +597,7 @@ func testInstanceServiceProvisionFinalize(t *testing.T) {
 		vpcRepo.On("GetByID", mock.Anything, mock.Anything).Return(&domain.VPC{ID: vpcID, NetworkID: "net1"}, nil).Maybe()
 		subnetRepo.On("GetByID", mock.Anything, mock.Anything).Return(&domain.Subnet{ID: subnetID, CIDRBlock: "10.0.0.0/24", GatewayIP: "10.0.0.1"}, nil).Maybe()
 		repo.On("ListBySubnet", mock.Anything, mock.Anything).Return([]*domain.Instance{}, nil).Maybe()
+		repo.On("ListSubnetUsedIPs", mock.Anything, mock.Anything).Return([]string{}, nil).Maybe()
 		network.On("CreateVethPair", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 		network.On("AttachVethToBridge", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 		network.On("SetVethIP", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
