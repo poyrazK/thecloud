@@ -144,6 +144,12 @@ func (m *mockInstanceSvc) ResizeInstance(ctx context.Context, idOrName, newInsta
 	}
 	return args.Get(0).(*domain.Instance), args.Error(1)
 }
+func (m *mockInstanceSvc) PauseInstance(ctx context.Context, idOrName string) error {
+	return m.Called(ctx, idOrName).Error(0)
+}
+func (m *mockInstanceSvc) ResumeInstance(ctx context.Context, idOrName string) error {
+	return m.Called(ctx, idOrName).Error(0)
+}
 
 func TestHealingWorker(t *testing.T) {
 	t.Parallel()

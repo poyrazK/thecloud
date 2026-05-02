@@ -24,8 +24,10 @@ import (
 
 	"github.com/digitalocean/go-libvirt"
 	"github.com/google/uuid"
+	apierrors "github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
+
 
 const (
 	defaultPoolName   = "default"
@@ -38,24 +40,26 @@ const (
 
 	// Domain states
 	domainStateRunning = 1
+	domainStatePaused  = 3
 	domainStateShutoff = 5
 
 	// Memory stat tags
 	memStatTagActual = 5
 	memStatTagRSS    = 6
-
-	// Default timeout for libvirt operations that don't have intrinsic timeouts
-	defaultLibvirtOpTimeout = 30 * time.Second
 )
 
-// withLibvirtTimeout wraps a context with a default timeout for libvirt operations.
-// If the context already has a shorter deadline, it is preserved.
-func withLibvirtTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
-	dl, ok := ctx.Deadline()
-	if ok && dl.Sub(time.Now()) < defaultLibvirtOpTimeout {
-		return context.WithCancel(ctx) // Preserve existing, shorter deadline
+// domainStateName returns a human-readable name for a libvirt domain state.
+func domainStateName(state int32) string {
+	switch state {
+	case domainStateRunning:
+		return "RUNNING"
+	case domainStatePaused:
+		return "PAUSED"
+	case domainStateShutoff:
+		return "SHUTOFF"
+	default:
+		return fmt.Sprintf("UNKNOWN(%d)", state)
 	}
-	return context.WithTimeout(ctx, defaultLibvirtOpTimeout)
 }
 
 // LibvirtAdapter implements compute backend operations using libvirt/KVM.
@@ -82,7 +86,7 @@ type LibvirtAdapter struct {
 	osOpen             func(name string) (*os.File, error)
 
 	// Pre-compiled regexes for applyDomainResize
-	memoryResizeRe     *regexp.Regexp
+	memoryResizeRe    *regexp.Regexp
 	currentMemResizeRe *regexp.Regexp
 	vcpuResizeRe       *regexp.Regexp
 }
@@ -191,11 +195,51 @@ func (a *LibvirtAdapter) Type() string {
 	return "libvirt"
 }
 
-func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
-	// Apply default timeout to prevent unbounded waits on libvirt operations
-	ctx, cancel := withLibvirtTimeout(ctx)
-	defer cancel()
+// PauseInstance suspends a running domain (freezes CPU, retains memory/network).
+func (a *LibvirtAdapter) PauseInstance(ctx context.Context, id string) error {
+	dom, err := a.client.DomainLookupByName(ctx, id)
+	if err != nil {
+		return fmt.Errorf(errDomainNotFound, err)
+	}
 
+	state, _, err := a.client.DomainGetState(ctx, dom, 0)
+	if err != nil {
+		return fmt.Errorf("failed to get domain state: %w", err)
+	}
+	if state != domainStateRunning {
+		return fmt.Errorf("%w: domain is %s, must be RUNNING", apierrors.ErrInstanceNotPausable, domainStateName(state))
+	}
+
+	if err := a.client.DomainSuspend(ctx, dom); err != nil {
+		return fmt.Errorf("failed to suspend domain: %w", err)
+	}
+	a.logger.Info("domain paused", "domain", id)
+	return nil
+}
+
+// ResumeInstance resumes a paused domain back to running state.
+func (a *LibvirtAdapter) ResumeInstance(ctx context.Context, id string) error {
+	dom, err := a.client.DomainLookupByName(ctx, id)
+	if err != nil {
+		return fmt.Errorf(errDomainNotFound, err)
+	}
+
+	state, _, err := a.client.DomainGetState(ctx, dom, 0)
+	if err != nil {
+		return fmt.Errorf("failed to get domain state: %w", err)
+	}
+	if state != domainStatePaused {
+		return fmt.Errorf("%w: domain is %s, must be PAUSED", apierrors.ErrInstanceNotResumable, domainStateName(state))
+	}
+
+	if err := a.client.DomainResume(ctx, dom); err != nil {
+		return fmt.Errorf("failed to resume domain: %w", err)
+	}
+	a.logger.Info("domain resumed", "domain", id)
+	return nil
+}
+
+func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
 	dom, err := a.client.DomainLookupByName(ctx, id)
 	if err != nil {
 		return fmt.Errorf(errDomainNotFound, err)
@@ -254,17 +298,8 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 
 	if wasRunning {
 		if err := a.client.DomainCreate(ctx, newDom); err != nil {
-			// Rollback: undefine the new definition and restore the original domain.
-			undefineErr := a.client.DomainUndefine(ctx, newDom)
-			if undefineErr != nil {
-				a.logger.Error("failed to undefine new domain after DomainCreate failure", "domain", id, "error", undefineErr)
-			}
-			restoredDom, rollbackErr := a.client.DomainDefineXML(ctx, domXML)
-			if rollbackErr != nil {
-				return fmt.Errorf("failed to start domain after resize (instance_id=%s), rollback also failed: original error: %w; rollback error: %w", id, err, rollbackErr)
-			}
-			if restartErr := a.client.DomainCreate(ctx, restoredDom); restartErr != nil {
-				return fmt.Errorf("failed to start domain after resize (instance_id=%s), rollback redef succeeded but restart failed: %w", id, restartErr)
+			if rbErr := a.rollbackFromSnapshot(ctx, id, snapshotName, domXML); rbErr != nil {
+				return fmt.Errorf("failed to start domain after resize (instance_id=%s): %w", id, errors.Join(err, rbErr))
 			}
 			return fmt.Errorf("failed to start domain after resize: %w", err)
 		}
@@ -281,11 +316,6 @@ func (a *LibvirtAdapter) ResizeInstance(ctx context.Context, id string, cpu, mem
 
 // applyDomainResize updates vCPU and memory in domain XML using targeted regex replacements
 // that preserve all other elements, attributes, and namespaces.
-//
-// NOTE: This uses regex-based replacement rather than xml.Decoder because Libvirt domain
-// XML contains many optional elements and namespaces that are difficult to model with
-// static struct types. The regex approach is deliberate and documented in ADR-025.
-// Future work could use xml.Decoder with a more complete domain model if needed.
 func (a *LibvirtAdapter) applyDomainResize(xmlContent string, memoryKiB, vcpus int) (string, error) {
 	result := xmlContent
 
@@ -430,13 +460,14 @@ func (a *LibvirtAdapter) waitInitialIP(ctx context.Context, id string) (string, 
 	defer ticker.Stop()
 
 	// Safety limit: max 5 minutes regardless of context
-	timeout := time.After(5 * time.Minute)
+	timeout := time.NewTimer(5 * time.Minute)
+	defer timeout.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
-		case <-timeout:
+		case <-timeout.C:
 			return "", fmt.Errorf("timed out waiting for IP for instance %s", id)
 		case <-ticker.C:
 			ip, err := a.GetInstanceIP(ctx, id)

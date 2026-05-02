@@ -26,6 +26,8 @@ func (m *mockCompute) LaunchInstanceWithOptions(ctx context.Context, opts ports.
 }
 func (m *mockCompute) StartInstance(ctx context.Context, id string) error  { return nil }
 func (m *mockCompute) StopInstance(ctx context.Context, id string) error   { return nil }
+func (m *mockCompute) PauseInstance(ctx context.Context, id string) error   { return nil }
+func (m *mockCompute) ResumeInstance(ctx context.Context, id string) error { return nil }
 func (m *mockCompute) DeleteInstance(ctx context.Context, id string) error { return nil }
 func (m *mockCompute) GetInstanceLogs(ctx context.Context, id string) (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("")), nil

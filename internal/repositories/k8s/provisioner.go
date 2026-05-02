@@ -108,7 +108,9 @@ func (p *KubeadmProvisioner) Provision(ctx context.Context, cluster *domain.Clus
 	}
 
 	cluster.Status = domain.ClusterStatusRunning
-	_ = p.repo.Update(ctx, cluster)
+	if err := p.repo.Update(ctx, cluster); err != nil {
+		return fmt.Errorf("provisioning succeeded but failed to persist running status for cluster %s: %w", cluster.ID, err)
+	}
 	return nil
 }
 
@@ -185,7 +187,9 @@ func (p *KubeadmProvisioner) provisionControlPlane(ctx context.Context, cluster 
 		return p.failCluster(ctx, cluster, "control plane node failed to get an IP", nil)
 	}
 	cluster.ControlPlaneIPs = append(cluster.ControlPlaneIPs, masterIP)
-	_ = p.repo.Update(ctx, cluster)
+	if err := p.repo.Update(ctx, cluster); err != nil {
+		return p.failCluster(ctx, cluster, "failed to persist control plane IP", err)
+	}
 
 	// Wait for kubeadm init to finish and kubeconfig to be available via SSH
 	p.logger.Info("waiting for kubeadm init to complete", "ip", masterIP)
@@ -202,7 +206,9 @@ func (p *KubeadmProvisioner) provisionControlPlane(ctx context.Context, cluster 
 	}
 	cluster.KubeconfigEncrypted = encryptedKubeconfig
 
-	_ = p.repo.Update(ctx, cluster)
+	if err := p.repo.Update(ctx, cluster); err != nil {
+		return p.failCluster(ctx, cluster, "failed to persist encrypted kubeconfig", err)
+	}
 	return nil
 }
 
@@ -375,11 +381,13 @@ func (p *KubeadmProvisioner) waitForKubeconfig(ctx context.Context, cluster *dom
 			return out, nil
 		}
 
+		timer := time.NewTimer(10 * time.Second)
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return "", ctx.Err()
-		case <-time.After(10 * time.Second):
-			continue
+		case <-timer.C:
+			timer.Stop()
 		}
 	}
 	return "", fmt.Errorf("timed out waiting for kubeconfig")
@@ -460,7 +468,12 @@ func (p *KubeadmProvisioner) Deprovision(ctx context.Context, cluster *domain.Cl
 
 func (p *KubeadmProvisioner) failCluster(ctx context.Context, cluster *domain.Cluster, msg string, err error) error {
 	cluster.Status = domain.ClusterStatusFailed
-	_ = p.repo.Update(ctx, cluster)
+	if updateErr := p.repo.Update(ctx, cluster); updateErr != nil {
+		// We're already returning a failure; log so the persistence
+		// gap is visible in operations rather than silently dropped.
+		p.logger.Error("failed to persist failed cluster status",
+			"cluster_id", cluster.ID, "error", updateErr, "original_error", err)
+	}
 	p.logger.Error(msg, "cluster_id", cluster.ID, "error", err)
 	return fmt.Errorf("%s: %w", msg, err)
 }

@@ -149,6 +149,20 @@ func (a *FirecrackerAdapter) StopInstance(ctx context.Context, id string) error 
 	return m.Shutdown(ctx)
 }
 
+func (a *FirecrackerAdapter) PauseInstance(ctx context.Context, id string) error {
+	if a.cfg.MockMode {
+		return nil
+	}
+	return nil // Firecracker does not support pause/resume
+}
+
+func (a *FirecrackerAdapter) ResumeInstance(ctx context.Context, id string) error {
+	if a.cfg.MockMode {
+		return nil
+	}
+	return nil // Firecracker does not support pause/resume
+}
+
 func (a *FirecrackerAdapter) DeleteInstance(ctx context.Context, id string) error {
 	if !idRegex.MatchString(id) {
 		return fmt.Errorf("invalid instance ID format: %s", id)

@@ -32,6 +32,8 @@ func (m *mockInstanceService) LaunchInstanceWithOptions(ctx context.Context, opt
 }
 func (m *mockInstanceService) StartInstance(ctx context.Context, idOrName string) error { return nil }
 func (m *mockInstanceService) StopInstance(ctx context.Context, idOrName string) error  { return nil }
+func (m *mockInstanceService) PauseInstance(ctx context.Context, idOrName string) error   { return nil }
+func (m *mockInstanceService) ResumeInstance(ctx context.Context, idOrName string) error { return nil }
 func (m *mockInstanceService) ListInstances(ctx context.Context) ([]*domain.Instance, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {

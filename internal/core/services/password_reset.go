@@ -75,10 +75,9 @@ func (s *PasswordResetService) RequestReset(ctx context.Context, email string) e
 		return err
 	}
 
-	// Note: EmailService integration is pending.
-	// For MVP/Demo: Log the token so we can test it manually.
-	// Future: Inject and use EmailService here.
-	s.logger.Debug("password reset token", "email", email, "token", token)
+	// TODO: deliver `token` via an injected EmailService once available.
+	// Never log or persist the plaintext token — its only safe destination is the user.
+	s.logger.Info("password reset token issued", "user_id", user.ID, "token_id", resetToken.ID)
 
 	return nil
 }

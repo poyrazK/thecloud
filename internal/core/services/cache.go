@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"math"
 	"strconv"
@@ -18,10 +19,17 @@ import (
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/pkg/util"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
+
+const tracerNameCache = "cache-service"
 
 const (
 	defaultRedisPort = "6379"
+	// maxCacheStatsSize bounds cache stats JSON decoding to prevent memory exhaustion.
+	maxCacheStatsSize = 1 * 1024 * 1024 // 1 MB
 )
 
 // CacheService manages cache clusters and their lifecycle.
@@ -57,10 +65,20 @@ func NewCacheService(
 }
 
 func (s *CacheService) CreateCache(ctx context.Context, name, version string, memoryMB int, vpcID *uuid.UUID) (*domain.Cache, error) {
+	tracer := otel.Tracer(tracerNameCache)
+	_, span := tracer.Start(ctx, "CacheService.CreateCache",
+		trace.WithAttributes(
+			attribute.String("cache.name", name),
+			attribute.String("cache.version", version),
+			attribute.Int("cache.memory_mb", memoryMB),
+		))
+	defer span.End()
+
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheCreate, "*"); err != nil {
+		span.RecordError(err)
 		return nil, err
 	}
 
@@ -336,10 +354,18 @@ func (s *CacheService) FlushCache(ctx context.Context, idOrName string) error {
 }
 
 func (s *CacheService) GetCacheStats(ctx context.Context, idOrName string) (*ports.CacheStats, error) {
+	tracer := otel.Tracer(tracerNameCache)
+	_, span := tracer.Start(ctx, "CacheService.GetCacheStats",
+		trace.WithAttributes(
+			attribute.String("cache.id_or_name", idOrName),
+		))
+	defer span.End()
+
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionCacheRead, idOrName); err != nil {
+		span.RecordError(err)
 		return nil, err
 	}
 
@@ -365,7 +391,7 @@ func (s *CacheService) GetCacheStats(ctx context.Context, idOrName string) (*por
 			Limit uint64 `json:"limit"`
 		} `json:"memory_stats"`
 	}
-	if err := json.NewDecoder(stream).Decode(&dockerStats); err != nil {
+	if err := json.NewDecoder(io.LimitReader(stream, maxCacheStatsSize)).Decode(&dockerStats); err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to decode stats", err)
 	}
 

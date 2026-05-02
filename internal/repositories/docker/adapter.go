@@ -72,6 +72,8 @@ type dockerClient interface {
 	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *v1.Platform, containerName string) (container.CreateResponse, error)
 	ContainerStart(ctx context.Context, containerID string, options container.StartOptions) error
 	ContainerStop(ctx context.Context, containerID string, options container.StopOptions) error
+	ContainerPause(ctx context.Context, containerID string) error
+	ContainerUnpause(ctx context.Context, containerID string) error
 	ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error
 	ContainerLogs(ctx context.Context, containerID string, options container.LogsOptions) (io.ReadCloser, error)
 	ContainerStats(ctx context.Context, containerID string, stream bool) (container.StatsResponseReader, error)
@@ -85,7 +87,7 @@ type dockerClient interface {
 	ContainerExecStart(ctx context.Context, execID string, config container.ExecStartOptions) error
 	ContainerExecAttach(ctx context.Context, execID string, config container.ExecStartOptions) (types.HijackedResponse, error)
 	ContainerExecInspect(ctx context.Context, execID string) (container.ExecInspect, error)
-	ContainerRename(ctx context.Context, containerID string, newName string) error
+		ContainerRename(ctx context.Context, containerID string, newName string) error
 	ContainerUpdate(ctx context.Context, containerID string, updateConfig container.UpdateConfig) (container.UpdateResponse, error)
 }
 
@@ -445,6 +447,20 @@ func (a *DockerAdapter) StopInstance(ctx context.Context, name string) error {
 	return nil
 }
 
+func (a *DockerAdapter) PauseInstance(ctx context.Context, name string) error {
+	if err := a.cli.ContainerPause(ctx, name); err != nil {
+		return fmt.Errorf("failed to pause container %s: %w", name, err)
+	}
+	return nil
+}
+
+func (a *DockerAdapter) ResumeInstance(ctx context.Context, name string) error {
+	if err := a.cli.ContainerUnpause(ctx, name); err != nil {
+		return fmt.Errorf("failed to resume container %s: %w", name, err)
+	}
+	return nil
+}
+
 func (a *DockerAdapter) DeleteInstance(ctx context.Context, containerID string) error {
 	err := a.cli.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: true})
 	if err != nil {
@@ -508,10 +524,13 @@ func (a *DockerAdapter) GetInstancePort(ctx context.Context, containerID string,
 		}
 
 		// Wait and retry
+		timer := time.NewTimer(500 * time.Millisecond)
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return 0, ctx.Err()
-		case <-time.After(500 * time.Millisecond):
+		case <-timer.C:
+			timer.Stop()
 			continue
 		}
 	}
@@ -907,10 +926,13 @@ func (a *DockerAdapter) GetInstanceIP(ctx context.Context, id string) (string, e
 
 	retry:
 		// Wait and retry
+		timer := time.NewTimer(500 * time.Millisecond)
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return "", ctx.Err()
-		case <-time.After(500 * time.Millisecond):
+		case <-timer.C:
+			timer.Stop()
 			continue
 		}
 	}

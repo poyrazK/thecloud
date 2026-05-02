@@ -161,6 +161,12 @@ func (m *mockComputeBackendExtended) Ping(ctx context.Context) error {
 func (m *mockComputeBackendExtended) ResizeInstance(ctx context.Context, id string, cpu, memory int64) error {
 	return m.Called(ctx, id, cpu, memory).Error(0)
 }
+func (m *mockComputeBackendExtended) PauseInstance(ctx context.Context, id string) error {
+	return nil
+}
+func (m *mockComputeBackendExtended) ResumeInstance(ctx context.Context, id string) error {
+	return nil
+}
 func (m *mockComputeBackendExtended) CreateSnapshot(ctx context.Context, id, name string) error {
 	return m.Called(ctx, id, name).Error(0)
 }

@@ -21,6 +21,21 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+)
+
+const tracerNameFunction = "function-service"
+
+const (
+	// maxLogSize bounds log reading in captureInvocationResults to prevent memory exhaustion.
+	maxLogSize = 1 * 1024 * 1024 // 1 MB
+)
+
+const (
+	// maxLogSize bounds log reading in captureInvocationResults to prevent memory exhaustion.
+	maxLogSize = 1 * 1024 * 1024 // 1 MB
 )
 
 // RuntimeConfig describes how a function runtime is executed.
@@ -63,10 +78,20 @@ func NewFunctionService(repo ports.FunctionRepository, rbacSvc ports.RBACService
 }
 
 func (s *FunctionService) CreateFunction(ctx context.Context, name, runtime, handler string, code []byte) (*domain.Function, error) {
+	tracer := otel.Tracer(tracerNameFunction)
+	_, span := tracer.Start(ctx, "FunctionService.CreateFunction",
+		trace.WithAttributes(
+			attribute.String("function.name", name),
+			attribute.String("function.runtime", runtime),
+			attribute.String("function.handler", handler),
+		))
+	defer span.End()
+
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionCreate, "*"); err != nil {
+		span.RecordError(err)
 		return nil, err
 	}
 
@@ -186,7 +211,9 @@ func (s *FunctionService) DeleteFunction(ctx context.Context, id uuid.UUID) erro
 
 	// Async delete from file store
 	go func() {
-		if err := s.fileStore.Delete(context.Background(), "functions", f.CodePath); err != nil {
+		delCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := s.fileStore.Delete(delCtx, "functions", f.CodePath); err != nil {
 			s.logger.Warn("failed to delete function code from storage", "code_path", f.CodePath, "error", err)
 		}
 	}()
@@ -200,25 +227,48 @@ func (s *FunctionService) DeleteFunction(ctx context.Context, id uuid.UUID) erro
 }
 
 func (s *FunctionService) GetFunctionLogs(ctx context.Context, id uuid.UUID, limit int) ([]*domain.Invocation, error) {
+	tracer := otel.Tracer(tracerNameFunction)
+	_, span := tracer.Start(ctx, "FunctionService.GetFunctionLogs",
+		trace.WithAttributes(
+			attribute.String("function.id", id.String()),
+			attribute.Int("function.log_limit", limit),
+		))
+	defer span.End()
+
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionRead, id.String()); err != nil {
+		span.RecordError(err)
 		return nil, err
 	}
 
-	// Verify existence and tenant scoping
+	// Verify existence and tenant scoping (use original ctx to avoid mock context mismatch)
 	if _, err := s.repo.GetByID(ctx, id); err != nil {
+		span.RecordError(err)
 		return nil, err
 	}
 
-	return s.repo.GetInvocations(ctx, id, limit)
+	invocations, err := s.repo.GetInvocations(ctx, id, limit)
+	if err != nil {
+		span.RecordError(err)
+	}
+	return invocations, err
 }
 func (s *FunctionService) InvokeFunction(ctx context.Context, id uuid.UUID, payload []byte, async bool) (*domain.Invocation, error) {
+	tracer := otel.Tracer(tracerNameFunction)
+	_, span := tracer.Start(ctx, "FunctionService.InvokeFunction",
+		trace.WithAttributes(
+			attribute.String("function.id", id.String()),
+			attribute.Bool("function.async", async),
+		))
+	defer span.End()
+
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionFunctionInvoke, id.String()); err != nil {
+		span.RecordError(err)
 		return nil, err
 	}
 
@@ -239,9 +289,16 @@ func (s *FunctionService) InvokeFunction(ctx context.Context, id uuid.UUID, payl
 			s.logger.Warn("failed to log audit event", "action", "function.invoke_async", "function_id", f.ID, "error", err)
 		}
 		go func() {
-			// Use a copy to avoid data race with the caller reading the returned invocation
+			bgCtx := context.Background()
+			bgCtx = appcontext.WithUserID(bgCtx, userID)
+			bgCtx = appcontext.WithTenantID(bgCtx, tenantID)
 			asyncInv := *invocation
-			_, _ = s.runInvocation(context.Background(), f, &asyncInv, payload)
+			if _, err := s.runInvocation(bgCtx, f, &asyncInv, payload); err != nil {
+				s.logger.Error("async invocation failed",
+					"function_id", f.ID,
+					"invocation_id", asyncInv.ID,
+					"error", err)
+			}
 		}()
 		return invocation, nil
 	}
@@ -267,12 +324,12 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 	if err != nil {
 		return s.failInvocation(i, fmt.Sprintf("Error running task: %v", err), err)
 	}
-	defer func() { _ = s.compute.DeleteInstance(context.Background(), containerID) }()
+	defer func() { _ = s.compute.DeleteInstance(ctx, containerID) }()
 
 	statusCode, err := s.waitForTask(ctx, containerID, f.Timeout)
 	s.captureInvocationResults(i, containerID, statusCode, err)
 
-	if err := s.repo.CreateInvocation(context.Background(), i); err != nil {
+	if err := s.repo.CreateInvocation(ctx, i); err != nil {
 		s.logger.Error("failed to record invocation", "error", err)
 	}
 
@@ -349,7 +406,7 @@ func (s *FunctionService) waitForTask(ctx context.Context, containerID string, t
 func (s *FunctionService) captureInvocationResults(i *domain.Invocation, containerID string, statusCode int64, waitErr error) {
 	logsReader, _ := s.compute.GetInstanceLogs(context.Background(), containerID)
 	if logsReader != nil {
-		logBytes, _ := io.ReadAll(logsReader)
+		logBytes, _ := io.ReadAll(io.LimitReader(logsReader, maxLogSize))
 		// Sanitize logs to prevent log injection (strip control characters)
 		re := regexp.MustCompile(`[^[:print:][:space:]]`)
 		i.Logs = re.ReplaceAllString(string(logBytes), "?")

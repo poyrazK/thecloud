@@ -58,6 +58,10 @@ type InstanceService interface {
 	StartInstance(ctx context.Context, idOrName string) error
 	// StopInstance gracefully shuts down or halts a running compute resource.
 	StopInstance(ctx context.Context, idOrName string) error
+	// PauseInstance freezes a running instance (CPU halted, memory/network retained).
+	PauseInstance(ctx context.Context, idOrName string) error
+	// ResumeInstance resumes a paused instance back to running state.
+	ResumeInstance(ctx context.Context, idOrName string) error
 	// ListInstances returns a slice of all compute resources accessible to the caller.
 	ListInstances(ctx context.Context) ([]*domain.Instance, error)
 	// GetInstance retrieves detailed information about a specific compute resource.

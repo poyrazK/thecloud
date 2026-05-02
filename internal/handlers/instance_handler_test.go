@@ -60,6 +60,12 @@ func (m *instanceServiceMock) StartInstance(ctx context.Context, idOrName string
 func (m *instanceServiceMock) StopInstance(ctx context.Context, idOrName string) error {
 	return m.Called(ctx, idOrName).Error(0)
 }
+func (m *instanceServiceMock) PauseInstance(ctx context.Context, idOrName string) error {
+	return m.Called(ctx, idOrName).Error(0)
+}
+func (m *instanceServiceMock) ResumeInstance(ctx context.Context, idOrName string) error {
+	return m.Called(ctx, idOrName).Error(0)
+}
 
 func (m *instanceServiceMock) ListInstances(ctx context.Context) ([]*domain.Instance, error) {
 	args := m.Called(ctx)
@@ -325,6 +331,108 @@ func TestInstanceHandlerTerminateNotFound(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestInstanceHandlerPause(t *testing.T) {
+	t.Parallel()
+	mockSvc, handler, r := setupInstanceHandlerTest(t)
+	defer mockSvc.AssertExpectations(t)
+	r.POST(instancesPath+"/:id/pause", handler.Pause)
+
+	id := uuid.New().String()
+	mockSvc.On("PauseInstance", mock.Anything, id).Return(nil)
+
+	req := httptest.NewRequest(http.MethodPost, instancesPath+"/"+id+"/pause", nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestInstanceHandlerPauseNotFound(t *testing.T) {
+	t.Parallel()
+	mockSvc, handler, r := setupInstanceHandlerTest(t)
+	defer mockSvc.AssertExpectations(t)
+	r.POST(instancesPath+"/:id/pause", handler.Pause)
+
+	id := uuid.New().String()
+	mockSvc.On("PauseInstance", mock.Anything, id).Return(errors.New(errors.NotFound, "not found"))
+
+	req := httptest.NewRequest(http.MethodPost, instancesPath+"/"+id+"/pause", nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestInstanceHandlerPauseConflict(t *testing.T) {
+	t.Parallel()
+	mockSvc, handler, r := setupInstanceHandlerTest(t)
+	defer mockSvc.AssertExpectations(t)
+	r.POST(instancesPath+"/:id/pause", handler.Pause)
+
+	id := uuid.New().String()
+	mockSvc.On("PauseInstance", mock.Anything, id).Return(errors.New(errors.Conflict, "instance not in RUNNING state"))
+
+	req := httptest.NewRequest(http.MethodPost, instancesPath+"/"+id+"/pause", nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
+func TestInstanceHandlerResume(t *testing.T) {
+	t.Parallel()
+	mockSvc, handler, r := setupInstanceHandlerTest(t)
+	defer mockSvc.AssertExpectations(t)
+	r.POST(instancesPath+"/:id/resume", handler.Resume)
+
+	id := uuid.New().String()
+	mockSvc.On("ResumeInstance", mock.Anything, id).Return(nil)
+
+	req := httptest.NewRequest(http.MethodPost, instancesPath+"/"+id+"/resume", nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestInstanceHandlerResumeNotFound(t *testing.T) {
+	t.Parallel()
+	mockSvc, handler, r := setupInstanceHandlerTest(t)
+	defer mockSvc.AssertExpectations(t)
+	r.POST(instancesPath+"/:id/resume", handler.Resume)
+
+	id := uuid.New().String()
+	mockSvc.On("ResumeInstance", mock.Anything, id).Return(errors.New(errors.NotFound, "not found"))
+
+	req := httptest.NewRequest(http.MethodPost, instancesPath+"/"+id+"/resume", nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestInstanceHandlerResumeConflict(t *testing.T) {
+	t.Parallel()
+	mockSvc, handler, r := setupInstanceHandlerTest(t)
+	defer mockSvc.AssertExpectations(t)
+	r.POST(instancesPath+"/:id/resume", handler.Resume)
+
+	id := uuid.New().String()
+	mockSvc.On("ResumeInstance", mock.Anything, id).Return(errors.New(errors.Conflict, "instance not in PAUSED state"))
+
+	req := httptest.NewRequest(http.MethodPost, instancesPath+"/"+id+"/resume", nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusConflict, w.Code)
 }
 
 func TestInstanceHandlerGetLogs(t *testing.T) {

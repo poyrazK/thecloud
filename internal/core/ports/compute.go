@@ -18,6 +18,10 @@ type ComputeBackend interface {
 	StartInstance(ctx context.Context, id string) error
 	// StopInstance gracefully shuts down or forcibly terminates a running instance.
 	StopInstance(ctx context.Context, id string) error
+	// PauseInstance freezes a running instance (CPU halted, memory/network retained).
+	PauseInstance(ctx context.Context, id string) error
+	// ResumeInstance resumes a paused instance back to running state.
+	ResumeInstance(ctx context.Context, id string) error
 	// DeleteInstance removes an instance and its ephemeral resources.
 	DeleteInstance(ctx context.Context, id string) error
 	// GetInstanceLogs returns a stream of stdout/stderr from the instance.

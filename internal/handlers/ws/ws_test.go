@@ -161,3 +161,20 @@ func TestHubShutdown(t *testing.T) {
 		t.Fatal("hub.Run() did not exit within 1s after Stop()")
 	}
 }
+
+func TestHubStopIdempotent(t *testing.T) {
+	t.Parallel()
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	hub := NewHub(logger)
+	go hub.Run()
+
+	hub.Stop()
+	hub.Stop() // safe to call twice
+	hub.Stop() // and again
+
+	select {
+	case <-hub.Stopped():
+	case <-time.After(time.Second):
+		t.Fatal("hub.Run() did not exit within 1s after Stop()")
+	}
+}

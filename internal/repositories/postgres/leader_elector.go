@@ -184,10 +184,13 @@ func (e *PgLeaderElector) RunAsLeader(ctx context.Context, key string, fn func(c
 		if err != nil {
 			e.logger.Warn("leader election attempt failed, retrying",
 				"key", key, "error", err, "retry_in", leaderRetryInterval)
+			timer := time.NewTimer(leaderRetryInterval)
 			select {
 			case <-ctx.Done():
+				timer.Stop()
 				return ctx.Err()
-			case <-time.After(leaderRetryInterval):
+			case <-timer.C:
+				timer.Stop()
 				continue
 			}
 		}
@@ -198,10 +201,13 @@ func (e *PgLeaderElector) RunAsLeader(ctx context.Context, key string, fn func(c
 		}
 
 		e.logger.Debug("leadership not acquired, another instance is leader", "key", key)
+		timer := time.NewTimer(leaderRetryInterval)
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return ctx.Err()
-		case <-time.After(leaderRetryInterval):
+		case <-timer.C:
+			timer.Stop()
 		}
 	}
 

@@ -1,0 +1,71 @@
+name: Bug Report
+description: Report a bug in TheCloud
+labels: ["bug", "priority"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Bug Report
+
+        Thanks for taking the time to report a bug. Please fill out the details below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear description of the bug
+      placeholder: Describe the issue in detail...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How to reproduce the bug
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Go Version
+      description: Go version (e.g., 1.24)
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: OS (e.g., macOS, Ubuntu)
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: Any error messages or logs
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: Relevant environment variables or config

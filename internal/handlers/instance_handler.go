@@ -244,6 +244,66 @@ func (h *InstanceHandler) Stop(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, gin.H{"message": "instance stop initiated"})
 }
 
+// Pause pauses a running instance
+// @Summary Pause an instance
+// @Description Freezes a running instance (CPU halted, memory/network retained)
+// @Tags instances
+// @Produce json
+// @Security APIKeyAuth
+// @Param id path string true "Instance ID"
+// @Success 200 {object} httputil.Response
+// @Failure 400 {object} httputil.Response
+// @Failure 401 {object} httputil.Response
+// @Failure 403 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 409 {object} httputil.Response "Instance not in RUNNING state"
+// @Failure 500 {object} httputil.Response
+// @Router /instances/{id}/pause [post]
+func (h *InstanceHandler) Pause(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
+		return
+	}
+
+	if err := h.svc.PauseInstance(c.Request.Context(), id); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, gin.H{"message": "instance paused"})
+}
+
+// Resume resumes a paused instance
+// @Summary Resume an instance
+// @Description Resumes a paused instance back to running state
+// @Tags instances
+// @Produce json
+// @Security APIKeyAuth
+// @Param id path string true "Instance ID"
+// @Success 200 {object} httputil.Response
+// @Failure 400 {object} httputil.Response
+// @Failure 401 {object} httputil.Response
+// @Failure 403 {object} httputil.Response
+// @Failure 404 {object} httputil.Response
+// @Failure 409 {object} httputil.Response "Instance not in PAUSED state"
+// @Failure 500 {object} httputil.Response
+// @Router /instances/{id}/resume [post]
+func (h *InstanceHandler) Resume(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		httputil.Error(c, errors.New(errors.InvalidInput, "id is required"))
+		return
+	}
+
+	if err := h.svc.ResumeInstance(c.Request.Context(), id); err != nil {
+		httputil.Error(c, err)
+		return
+	}
+
+	httputil.Success(c, http.StatusOK, gin.H{"message": "instance resumed"})
+}
+
 // GetLogs returns instance logs
 // @Summary Get instance logs
 // @Description Gets the console output logs for a compute instance
