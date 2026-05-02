@@ -151,7 +151,7 @@ func TestInstanceService_CalculateInstanceStats(t *testing.T) {
 		stats.CPUStats.CPUTime = 5000000000 // 5 nanoseconds
 
 		res := svc.calculateInstanceStats(stats)
-		assert.Equal(t, int64(5000000000), res.CPUTimeNanoseconds)
+		assert.Equal(t, uint64(5000000000), res.CPUTimeNanoseconds)
 	})
 
 	t.Run("Combined all fields", func(t *testing.T) {
@@ -180,7 +180,7 @@ func TestInstanceService_CalculateInstanceStats(t *testing.T) {
 		assert.Equal(t, uint64(250), res.NetworkTxBytes)
 		assert.Equal(t, uint64(2048), res.DiskReadBytes)
 		assert.Equal(t, uint64(0), res.DiskWriteBytes)
-		assert.Equal(t, int64(3000000000), res.CPUTimeNanoseconds)
+		assert.Equal(t, uint64(3000000000), res.CPUTimeNanoseconds)
 	})
 }
 

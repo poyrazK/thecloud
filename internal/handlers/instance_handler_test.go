@@ -491,12 +491,12 @@ func TestInstanceHandlerGetStats(t *testing.T) {
 	assert.InDelta(t, 10.5, wrapper.Data["cpu_percentage"], 0.01)
 	assert.InDelta(t, 128, wrapper.Data["memory_usage_bytes"], 0.01)
 	assert.InDelta(t, 256, wrapper.Data["memory_limit_bytes"], 0.01)
-	assert.Equal(t, float64(50.0), wrapper.Data["memory_percentage"])
+	assert.InDelta(t, 50.0, wrapper.Data["memory_percentage"], 0.01)
 	assert.Equal(t, uint64(1024), uint64(wrapper.Data["network_rx_bytes"].(float64)))
 	assert.Equal(t, uint64(512), uint64(wrapper.Data["network_tx_bytes"].(float64)))
 	assert.Equal(t, uint64(4096), uint64(wrapper.Data["disk_read_bytes"].(float64)))
 	assert.Equal(t, uint64(2048), uint64(wrapper.Data["disk_write_bytes"].(float64)))
-	assert.Equal(t, float64(3000000000), wrapper.Data["cpu_time_nanoseconds"])
+	assert.Equal(t, uint64(3000000000), uint64(wrapper.Data["cpu_time_nanoseconds"].(float64)))
 }
 
 func TestInstanceHandlerLaunchWithVolumesAndVPC(t *testing.T) {

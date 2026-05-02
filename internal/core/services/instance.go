@@ -1317,7 +1317,7 @@ func (s *InstanceService) calculateInstanceStats(stats *domain.RawDockerStats) *
 		NetworkTxBytes:      txBytes,
 		DiskReadBytes:       readBytes,
 		DiskWriteBytes:      writeBytes,
-		CPUTimeNanoseconds:  int64(stats.CPUStats.CPUTime),
+		CPUTimeNanoseconds:  stats.CPUStats.CPUTime,
 	}
 }
 
