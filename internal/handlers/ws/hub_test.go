@@ -3,8 +3,12 @@ package ws
 import (
 	"io"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
 func TestHubRegisterUnregister(t *testing.T) {
@@ -64,4 +68,39 @@ func waitForCondition(t *testing.T, condition func() bool) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatal("condition not met before timeout")
+}
+
+func TestHubConcurrentBroadcastAndUnregister(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	hub := NewHub(logger)
+	go hub.Run()
+	defer hub.Stop()
+
+	client := &Client{
+		hub:      hub,
+		send:     make(chan []byte, 1),
+		tenantID: uuid.New(),
+		userID:   uuid.New().String(),
+	}
+	hub.Register(client)
+	waitForCondition(t, func() bool { return hub.ClientCount() == 1 })
+
+	// Spawn goroutines that stress broadcast + unregister
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 50; j++ {
+				hub.BroadcastEvent(&domain.WSEvent{Type: "test"})
+				time.Sleep(time.Microsecond)
+			}
+		}()
+	}
+
+	// Unregister while broadcasts are happening
+	time.Sleep(10 * time.Millisecond)
+	hub.Unregister(client)
+
+	wg.Wait()
 }

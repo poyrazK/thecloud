@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -76,8 +77,15 @@ func (s *elasticIPService) AllocateIP(ctx context.Context) (*domain.ElasticIP, e
 		}
 
 		if err := s.repo.Create(ctx, eip); err != nil {
-			lastErr = err
-			continue // Retry with new UUID/IP
+			// Retry only on unique constraint violations (IP collision).
+			// Fail fast on all other errors (DB down, constraint violations, etc.).
+			if strings.Contains(err.Error(), "unique constraint") ||
+				strings.Contains(err.Error(), "duplicate key") ||
+				strings.Contains(err.Error(), "23505") { // PostgreSQL unique violation code
+				lastErr = err
+				continue
+			}
+			return nil, err
 		}
 
 		if err := s.auditSvc.Log(ctx, userID, "eip.allocate", "eip", id.String(), map[string]interface{}{
