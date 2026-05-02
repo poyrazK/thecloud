@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/poyrazk/thecloud/internal/csi"
 	"github.com/poyrazk/thecloud/pkg/sdk"
@@ -49,22 +48,13 @@ func main() {
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	done := make(chan struct{})
 	go func() {
 		<-c
 		d.Stop()
-		close(done)
 	}()
 
 	if err := d.Run(); err != nil {
 		fmt.Printf("Failed to run driver: %v\n", err)
 		os.Exit(1)
-	}
-
-	// Wait for signal handler to complete cleanup with timeout
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		fmt.Println("cleanup timed out after 5s, exiting anyway")
 	}
 }
