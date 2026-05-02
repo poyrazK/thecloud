@@ -169,18 +169,11 @@ func (c *Coordinator) Assemble(ctx context.Context, bucket, key string, parts []
 	}
 	wg.Wait()
 
-	// 3. Quorum check - lock to safely read shared variables written by goroutines
-	mu.Lock()
-	count := successCount
-	finalErr := lastErr
-	sz := size
-	mu.Unlock()
-
-	if count < c.writeQuorum {
-		return 0, fmt.Errorf("assemble quorum failed (%d/%d): %w", count, c.writeQuorum, finalErr)
+	// 3. Quorum check — all goroutines have completed, variables are visible per Go Memory Model
+	if successCount < c.writeQuorum {
+		return 0, fmt.Errorf("assemble quorum failed (%d/%d): %w", successCount, c.writeQuorum, lastErr)
 	}
-
-	return sz, nil
+	return size, nil
 }
 
 func (c *Coordinator) Stop() {

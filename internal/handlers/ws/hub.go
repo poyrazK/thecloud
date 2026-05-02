@@ -72,6 +72,8 @@ func (h *Hub) Run() {
 				select {
 				case client.send <- message:
 				default:
+					// Send to unregister channel outside the lock to avoid deadlock.
+					// The unregister handler processes serially, ensuring safe removal.
 					h.mu.Unlock()
 					h.unregister <- client
 					h.mu.Lock()

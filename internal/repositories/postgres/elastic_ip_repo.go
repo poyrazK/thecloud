@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -34,6 +35,10 @@ func (r *ElasticIPRepository) Create(ctx context.Context, eip *domain.ElasticIP)
 		eip.CreatedAt, eip.UpdatedAt,
 	)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if stdlib_errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return errors.Wrap(errors.Conflict, "public IP already allocated", err)
+		}
 		return errors.Wrap(errors.Internal, "failed to create elastic ip", err)
 	}
 	return nil

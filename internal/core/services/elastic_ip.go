@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,9 +58,11 @@ func (s *elasticIPService) AllocateIP(ctx context.Context) (*domain.ElasticIP, e
 	// Retry on potential IP collision (theoretical race with concurrent allocation).
 	// The IP is generated from UUID bytes 12-15 which has limited entropy,
 	// and the database enforces uniqueness on PublicIP.
-	maxRetries := 3
 	var lastErr error
-	for i := 0; i < maxRetries; i++ {
+	for i := 0; i < maxElasticIPRetries; i++ {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		id := uuid.New()
 		publicIP := s.generateDeterministicIP(id)
 
@@ -79,9 +80,7 @@ func (s *elasticIPService) AllocateIP(ctx context.Context) (*domain.ElasticIP, e
 		if err := s.repo.Create(ctx, eip); err != nil {
 			// Retry only on unique constraint violations (IP collision).
 			// Fail fast on all other errors (DB down, constraint violations, etc.).
-			if strings.Contains(err.Error(), "unique constraint") ||
-				strings.Contains(err.Error(), "duplicate key") ||
-				strings.Contains(err.Error(), "23505") { // PostgreSQL unique violation code
+			if errors.Is(err, errors.Conflict) {
 				lastErr = err
 				continue
 			}
@@ -97,7 +96,7 @@ func (s *elasticIPService) AllocateIP(ctx context.Context) (*domain.ElasticIP, e
 		return eip, nil
 	}
 
-	return nil, fmt.Errorf("failed to allocate unique IP after %d attempts: %w", maxRetries, lastErr)
+	return nil, fmt.Errorf("failed to allocate unique IP after %d attempts: %w", maxElasticIPRetries, lastErr)
 }
 
 func (s *elasticIPService) ReleaseIP(ctx context.Context, id uuid.UUID) error {
@@ -257,6 +256,11 @@ const (
 	CGNAT_SECOND_OCTET_BASE = 64
 	// CGNAT_SECOND_OCTET_MASK is the number of addresses in the /10 range (within the second octet).
 	CGNAT_SECOND_OCTET_MASK = 64
+
+	// maxElasticIPRetries is the maximum number of attempts to allocate a unique public IP.
+	// The IP is generated from UUID bytes 12-15 which has limited entropy,
+	// and the database enforces uniqueness on PublicIP via a unique constraint.
+	maxElasticIPRetries = 3
 
 	// UUID byte indices used for deterministic IP generation.
 	UUID_IP_BYTE_1 = 12
