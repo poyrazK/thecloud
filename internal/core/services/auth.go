@@ -22,8 +22,10 @@ import (
 )
 
 const (
-	maxFailedAttempts = 5
-	defaultLockout    = 15 * time.Minute
+	maxFailedAttempts  = 5
+	defaultLockout     = 15 * time.Minute
+	maxLockoutMapSize  = 10000  // prevents unbounded map growth DoS
+	maxFailedMapSize   = 10000  // prevents unbounded map growth DoS
 )
 
 // AuthService handles registration and authentication workflows.
@@ -206,8 +208,11 @@ func (s *AuthService) incrementFailure(email string) {
 		s.lockouts[email] = time.Now().Add(s.lockoutDuration)
 		platform.AuthAttemptsTotal.WithLabelValues("failure_lockout").Inc()
 	}
-	// Probabilistically purge expired entries to prevent unbounded map growth.
-	// Every ~10 calls, scan and remove stale entries.
+	// Deterministic size-based eviction to prevent unbounded map growth DoS.
+	if len(s.lockouts) > maxLockoutMapSize || len(s.failedAttempts) > maxFailedMapSize {
+		s.purgeExpiredLocked()
+	}
+	// Probabilistic purge as secondary cleanup.
 	if len(s.lockouts) > 0 && time.Now().Nanosecond()%10 == 0 {
 		s.purgeExpiredLocked()
 	}

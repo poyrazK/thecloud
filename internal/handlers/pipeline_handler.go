@@ -20,6 +20,9 @@ type PipelineHandler struct {
 	svc ports.PipelineService
 }
 
+// maxPipelinePayloadSize bounds webhook trigger payloads.
+const maxPipelinePayloadSize = 10 * 1024 * 1024 // 10 MB
+
 // NewPipelineHandler constructs a PipelineHandler.
 func NewPipelineHandler(svc ports.PipelineService) *PipelineHandler {
 	return &PipelineHandler{svc: svc}
@@ -238,7 +241,7 @@ func (h *PipelineHandler) WebhookTrigger(c *gin.Context) {
 		return
 	}
 
-	payload, err := io.ReadAll(c.Request.Body)
+	payload, err := io.ReadAll(io.LimitReader(c.Request.Body, maxPipelinePayloadSize))
 	if err != nil {
 		httputil.Error(c, fmt.Errorf("failed to read payload: %w", err))
 		return

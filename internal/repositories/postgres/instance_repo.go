@@ -176,6 +176,29 @@ func (r *InstanceRepository) ListBySubnet(ctx context.Context, subnetID uuid.UUI
 	return r.scanInstances(rows)
 }
 
+// ListSubnetUsedIPs returns only private IP addresses in a subnet.
+func (r *InstanceRepository) ListSubnetUsedIPs(ctx context.Context, subnetID uuid.UUID) ([]string, error) {
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	query := `
+		SELECT private_ip FROM instances
+		WHERE subnet_id = $1 AND tenant_id = $2 AND private_ip != ''
+	`
+	rows, err := r.db.Query(ctx, query, subnetID, tenantID)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to list subnet IPs", err)
+	}
+	defer rows.Close()
+	var ips []string
+	for rows.Next() {
+		var ip string
+		if err := rows.Scan(&ip); err != nil {
+			return nil, err
+		}
+		ips = append(ips, ip)
+	}
+	return ips, rows.Err()
+}
+
 func (r *InstanceRepository) scanInstances(rows pgx.Rows) ([]*domain.Instance, error) {
 	defer rows.Close()
 	var instances []*domain.Instance

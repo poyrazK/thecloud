@@ -15,6 +15,12 @@ import (
 
 const invalidFunctionIDMsg = "invalid function id"
 
+// maxFunctionCodeSize bounds function code uploads to prevent memory exhaustion.
+const maxFunctionCodeSize = 10 * 1024 * 1024 // 10 MB
+
+// maxFunctionPayloadSize bounds invocation payloads.
+const maxFunctionPayloadSize = 10 * 1024 * 1024 // 10 MB
+
 // FunctionHandler handles serverless function HTTP endpoints.
 type FunctionHandler struct {
 	svc ports.FunctionService
@@ -61,7 +67,7 @@ func (h *FunctionHandler) Create(c *gin.Context) {
 	}
 	defer func() { _ = f.Close() }()
 
-	code, err := io.ReadAll(f)
+	code, err := io.ReadAll(io.LimitReader(f, maxFunctionCodeSize))
 	if err != nil {
 		httputil.Error(c, errors.Wrap(errors.Internal, "failed to read code file", err))
 		return
@@ -148,7 +154,7 @@ func (h *FunctionHandler) Invoke(c *gin.Context) {
 		return
 	}
 
-	payload, err := io.ReadAll(c.Request.Body)
+	payload, err := io.ReadAll(io.LimitReader(c.Request.Body, maxFunctionPayloadSize))
 	if err != nil {
 		httputil.Error(c, errors.Wrap(errors.InvalidInput, "failed to read payload", err))
 		return

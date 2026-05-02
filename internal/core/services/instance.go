@@ -1322,15 +1322,14 @@ func (s *InstanceService) allocateIP(ctx context.Context, subnet *domain.Subnet)
 		return "", err
 	}
 
-	instances, err := s.repo.ListBySubnet(ctx, subnet.ID)
+	usedIPsList, err := s.repo.ListSubnetUsedIPs(ctx, subnet.ID)
 	if err != nil {
 		return "", err
 	}
 
 	usedIPs := make(map[string]bool)
-	for _, inst := range instances {
-		if inst.PrivateIP != "" {
-			ip := inst.PrivateIP
+	for _, ip := range usedIPsList {
+		if ip != "" {
 			if idx := strings.Index(ip, "/"); idx != -1 {
 				ip = ip[:idx]
 			}

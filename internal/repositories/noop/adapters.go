@@ -35,6 +35,9 @@ func (r *NoopInstanceRepository) ListByUserID(ctx context.Context, userID uuid.U
 func (r *NoopInstanceRepository) ListBySubnet(ctx context.Context, subnetID uuid.UUID) ([]*domain.Instance, error) {
 	return []*domain.Instance{}, nil
 }
+func (r *NoopInstanceRepository) ListSubnetUsedIPs(ctx context.Context, subnetID uuid.UUID) ([]string, error) {
+	return nil, nil
+}
 func (r *NoopInstanceRepository) ListByVPC(ctx context.Context, vpcID uuid.UUID) ([]*domain.Instance, error) {
 	return []*domain.Instance{}, nil
 }

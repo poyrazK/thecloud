@@ -22,6 +22,8 @@ type InstanceRepository interface {
 	ListAll(ctx context.Context) ([]*domain.Instance, error)
 	// ListBySubnet returns all instances residing within a specific subnet.
 	ListBySubnet(ctx context.Context, subnetID uuid.UUID) ([]*domain.Instance, error)
+	// ListSubnetUsedIPs returns only private IP addresses in a subnet (avoids loading full instance records).
+	ListSubnetUsedIPs(ctx context.Context, subnetID uuid.UUID) ([]string, error)
 	// Update modifies an existing instance's metadata or status.
 	Update(ctx context.Context, instance *domain.Instance) error
 	// Delete removes an instance record from persistent storage.
