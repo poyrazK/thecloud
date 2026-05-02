@@ -67,9 +67,11 @@ func TestRejectHostKeyCallback(t *testing.T) {
 }
 
 func TestSetInsecureMode(t *testing.T) {
-	// Reset to default state
-	SetInsecureMode(false)
-	assert.False(t, insecureSSH.Load())
+	// Save original state and restore after test
+	originalValue := insecureSSH.Load()
+	t.Cleanup(func() {
+		insecureSSH.Store(originalValue)
+	})
 
 	// Enable insecure mode
 	SetInsecureMode(true)
@@ -81,7 +83,13 @@ func TestSetInsecureMode(t *testing.T) {
 }
 
 func TestNewClientWithKey_SecureByDefault(t *testing.T) {
-	// Ensure insecure mode is off
+	// Save original state and restore after test
+	originalValue := insecureSSH.Load()
+	t.Cleanup(func() {
+		insecureSSH.Store(originalValue)
+	})
+
+	// Ensure insecure mode is off for this test
 	SetInsecureMode(false)
 
 	privKey := generateTestKey(t)
@@ -93,6 +101,12 @@ func TestNewClientWithKey_SecureByDefault(t *testing.T) {
 }
 
 func TestNewClientWithKeyInsecure(t *testing.T) {
+	// Save original state and restore after test
+	originalValue := insecureSSH.Load()
+	t.Cleanup(func() {
+		insecureSSH.Store(originalValue)
+	})
+
 	// Ensure insecure mode is off for this test
 	SetInsecureMode(false)
 
