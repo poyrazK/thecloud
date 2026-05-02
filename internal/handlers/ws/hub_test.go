@@ -5,6 +5,9 @@ import (
 	"log/slog"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
 func TestHubRegisterUnregister(t *testing.T) {
@@ -67,9 +70,46 @@ func waitForCondition(t *testing.T, condition func() bool) {
 }
 
 func TestHubConcurrentBroadcastAndUnregister(t *testing.T) {
-	// Skipping - issue #285: concurrent broadcast/unregister race is covered
-	// by race detector on existing TestHubBroadcast and TestHubRegisterUnregister.
-	// The original test caused CI timeouts due to goroutines blocking on
-	// closed channel after unregister.
-	t.Skip("Skipping flaky test - see issue #285")
+	t.Parallel()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	hub := NewHub(logger)
+	go hub.Run()
+
+	// Client with send buffer pre-filled so broadcast's default case triggers.
+	client := &Client{
+		hub:      hub,
+		send:     make(chan []byte, 1),
+		userID:   "test-user",
+		tenantID: uuid.New(),
+	}
+
+	// Fill the buffer so next send hits the default branch.
+	client.send <- []byte("fill")
+
+	startCh := make(chan struct{})
+	doneCh := make(chan struct{})
+
+	go func() {
+		close(startCh)
+		hub.Unregister(client)
+		close(doneCh)
+	}()
+
+	<-startCh
+	hub.BroadcastEvent(&domain.WSEvent{Type: "test"})
+
+	select {
+	case <-doneCh:
+		// Unregister completed without deadlock.
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("unregister timed out — possible deadlock in broadcast path")
+	}
+
+	// Verify client was removed from hub.
+	hub.mu.RLock()
+	_, ok := hub.clients[client]
+	hub.mu.RUnlock()
+	if ok {
+		t.Fatal("client still present in hub after unregister")
+	}
 }
