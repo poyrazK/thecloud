@@ -33,11 +33,6 @@ const (
 	maxLogSize = 1 * 1024 * 1024 // 1 MB
 )
 
-const (
-	// maxLogSize bounds log reading in captureInvocationResults to prevent memory exhaustion.
-	maxLogSize = 1 * 1024 * 1024 // 1 MB
-)
-
 // RuntimeConfig describes how a function runtime is executed.
 type RuntimeConfig struct {
 	Image      string

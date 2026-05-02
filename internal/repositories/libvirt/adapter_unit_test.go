@@ -1180,7 +1180,7 @@ func TestLibvirtAdapter_ResizeInstance_RollbackOnFailure(t *testing.T) {
 		err := a.ResizeInstance(ctx, "test-vm", 2e9, 2*1024*1024*1024)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to start domain after resize")
-		assert.Contains(t, err.Error(), "restart failed")
+		assert.Contains(t, err.Error(), "failed to restore snapshot volume")
 		m.AssertExpectations(t)
 	})
 }
