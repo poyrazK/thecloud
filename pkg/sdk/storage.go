@@ -140,6 +140,15 @@ func (c *Client) ListBuckets() ([]Bucket, error) {
 	return res.Data, nil
 }
 
+// ListBucketsWithPagination returns buckets with pagination metadata.
+func (c *Client) ListBucketsWithPagination(limit, offset int) ([]Bucket, *ListResponse[Bucket], error) {
+	var res Response[ListResponse[Bucket]]
+	if err := c.getWithPagination("/storage/buckets", &res, limit, offset); err != nil {
+		return nil, nil, err
+	}
+	return res.Data.Data, &res.Data, nil
+}
+
 // DeleteBucket removes a bucket by name.
 func (c *Client) DeleteBucket(ctx context.Context, name string, force ...bool) error {
 	path := fmt.Sprintf("/storage/buckets/%s", name)

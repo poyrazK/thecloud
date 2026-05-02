@@ -36,9 +36,19 @@ func (c *Client) CreateDeployment(name, image string, replicas int, ports string
 }
 
 func (c *Client) ListDeployments() ([]Deployment, error) {
-	var deps []Deployment
-	err := c.get("/containers/deployments", &deps)
-	return deps, err
+	var res Response[[]Deployment]
+	if err := c.get("/containers/deployments", &res); err != nil {
+		return nil, err
+	}
+	return res.Data, nil
+}
+
+func (c *Client) ListDeploymentsWithPagination(limit, offset int) ([]Deployment, *ListResponse[Deployment], error) {
+	var res Response[ListResponse[Deployment]]
+	if err := c.getWithPagination("/containers/deployments", &res, limit, offset); err != nil {
+		return nil, nil, err
+	}
+	return res.Data.Data, &res.Data, nil
 }
 
 func (c *Client) GetDeployment(id string) (*Deployment, error) {
