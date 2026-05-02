@@ -22,8 +22,12 @@ import (
 )
 
 const (
-	maxFailedAttempts = 5
+	lockoutThreshold  = 5
 	defaultLockout    = 15 * time.Minute
+	// Hard size limits prevent unbounded map growth under high failure traffic.
+	// The probabilistic purge (every ~10 calls) may not keep up with rapid failures.
+	maxFailedAttemptsMap = 1000
+	maxLockoutsMap       = 10000
 )
 
 // AuthService handles registration and authentication workflows.
@@ -202,13 +206,22 @@ func (s *AuthService) incrementFailure(email string) {
 	defer s.mu.Unlock()
 	s.failedAttempts[email]++
 	platform.AuthAttemptsTotal.WithLabelValues("failure_incorrect_password").Inc()
-	if s.failedAttempts[email] >= maxFailedAttempts {
+	if s.failedAttempts[email] >= lockoutThreshold {
 		s.lockouts[email] = time.Now().Add(s.lockoutDuration)
 		platform.AuthAttemptsTotal.WithLabelValues("failure_lockout").Inc()
 	}
 	// Probabilistically purge expired entries to prevent unbounded map growth.
 	// Every ~10 calls, scan and remove stale entries.
 	if len(s.lockouts) > 0 && time.Now().Nanosecond()%10 == 0 {
+		s.purgeExpiredLocked()
+	}
+	// Deterministic hard-limit eviction: if maps grow beyond maxSize, aggressively
+	// purge all expired entries. This prevents unbounded growth under high failure
+	// traffic before the probabilistic trigger can catch up.
+	if len(s.lockouts) > maxLockoutsMap {
+		s.purgeExpiredLocked()
+	}
+	if len(s.failedAttempts) > maxFailedAttemptsMap {
 		s.purgeExpiredLocked()
 	}
 }
@@ -227,7 +240,7 @@ func (s *AuthService) purgeExpiredLocked() {
 	// (these are users who failed but didn't reach lockout threshold)
 	for email, count := range s.failedAttempts {
 		// If count is suspiciously high, purge to prevent unbounded growth
-		if count > maxFailedAttempts*10 {
+		if count > lockoutThreshold*10 {
 			delete(s.failedAttempts, email)
 		}
 	}
