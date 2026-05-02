@@ -242,7 +242,9 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, params ports.Launc
 	s.logger.Info("enqueueing provision job", "instance_id", inst.ID, "queue", "provision_queue", "tenant_id", inst.TenantID)
 	if err := s.taskQueue.Enqueue(ctx, "provision_queue", job); err != nil {
 		s.logger.Error("failed to enqueue provision job", "instance_id", inst.ID, "error", err)
-		// Return error on enqueue failure to maintain system reliability and state consistency.
+		// Rollback quota reservation on enqueue failure
+		_ = s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", it.VCPUs)
+		_ = s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", it.MemoryMB/1024)
 		return nil, errors.Wrap(errors.Internal, "failed to enqueue provisioning task", err)
 	}
 
