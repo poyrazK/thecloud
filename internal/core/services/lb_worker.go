@@ -66,31 +66,47 @@ func (w *LBWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 func (w *LBWorker) processCreatingLBs(ctx context.Context) {
-	lbs, err := w.lbRepo.ListAll(ctx)
-	if err != nil {
-		log.Printf("Worker: failed to list LBs: %v", err)
-		return
-	}
-
-	for _, lb := range lbs {
-		if lb.Status == domain.LBStatusCreating {
+	const batchLimit = 100
+	offset := 0
+	for {
+		lbs, err := w.lbRepo.ListByStatus(ctx, string(domain.LBStatusCreating), batchLimit, offset)
+		if err != nil {
+			log.Printf("Worker: failed to list creating LBs: %v", err)
+			return
+		}
+		if len(lbs) == 0 {
+			return
+		}
+		for _, lb := range lbs {
 			gCtx := appcontext.WithUserID(ctx, lb.UserID)
 			w.deployLB(gCtx, lb)
 		}
+		if len(lbs) < batchLimit {
+			return
+		}
+		offset += batchLimit
 	}
 }
 
 func (w *LBWorker) processDeletingLBs(ctx context.Context) {
-	lbs, err := w.lbRepo.ListAll(ctx)
-	if err != nil {
-		return
-	}
-
-	for _, lb := range lbs {
-		if lb.Status == domain.LBStatusDeleted {
+	const batchLimit = 100
+	offset := 0
+	for {
+		lbs, err := w.lbRepo.ListByStatus(ctx, string(domain.LBStatusDeleted), batchLimit, offset)
+		if err != nil {
+			return
+		}
+		if len(lbs) == 0 {
+			return
+		}
+		for _, lb := range lbs {
 			gCtx := appcontext.WithUserID(ctx, lb.UserID)
 			w.cleanupLB(gCtx, lb)
 		}
+		if len(lbs) < batchLimit {
+			return
+		}
+		offset += batchLimit
 	}
 }
 
@@ -133,37 +149,52 @@ func (w *LBWorker) cleanupLB(ctx context.Context, lb *domain.LoadBalancer) {
 }
 
 func (w *LBWorker) processActiveLBs(ctx context.Context) {
-	lbs, err := w.lbRepo.ListAll(ctx)
-	if err != nil {
-		return
-	}
-
-	for _, lb := range lbs {
-		if lb.Status == domain.LBStatusActive {
+	const batchLimit = 100
+	offset := 0
+	for {
+		lbs, err := w.lbRepo.ListByStatus(ctx, string(domain.LBStatusActive), batchLimit, offset)
+		if err != nil {
+			return
+		}
+		if len(lbs) == 0 {
+			return
+		}
+		for _, lb := range lbs {
 			gCtx := appcontext.WithUserID(ctx, lb.UserID)
 			targets, err := w.lbRepo.ListTargets(gCtx, lb.ID)
 			if err != nil {
 				continue
 			}
-			// Update configuration (e.g. if targets changed)
 			if err := w.proxyAdapter.UpdateProxyConfig(gCtx, lb, targets); err != nil {
 				log.Printf("Worker: failed to update proxy config for LB %s: %v", lb.ID, err)
 			}
 		}
+		if len(lbs) < batchLimit {
+			return
+		}
+		offset += batchLimit
 	}
 }
 
 func (w *LBWorker) processHealthChecks(ctx context.Context) {
-	lbs, err := w.lbRepo.ListAll(ctx)
-	if err != nil {
-		return
-	}
-
-	for _, lb := range lbs {
-		if lb.Status == domain.LBStatusActive {
+	const batchLimit = 100
+	offset := 0
+	for {
+		lbs, err := w.lbRepo.ListByStatus(ctx, string(domain.LBStatusActive), batchLimit, offset)
+		if err != nil {
+			return
+		}
+		if len(lbs) == 0 {
+			return
+		}
+		for _, lb := range lbs {
 			gCtx := appcontext.WithUserID(ctx, lb.UserID)
 			w.checkLBHealth(gCtx, lb)
 		}
+		if len(lbs) < batchLimit {
+			return
+		}
+		offset += batchLimit
 	}
 }
 
