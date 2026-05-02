@@ -46,6 +46,10 @@ const (
 	// Memory stat tags
 	memStatTagActual = 5
 	memStatTagRSS    = 6
+
+	// typedParamULLONG is the discriminator value for uint64 in libvirt.TypedParamValue.
+	// The go-libvirt library uses a struct{D uint32; I interface{}} where D==4 means ULLONG.
+	typedParamULLONG = 4
 )
 
 // domainStateName returns a human-readable name for a libvirt domain state.
@@ -607,13 +611,14 @@ func (a *LibvirtAdapter) GetInstanceStats(ctx context.Context, id string) (io.Re
 	var cpuTime uint64
 	if err == nil {
 		for _, p := range cpuParams {
-			if p.Field == "cpu_time" && p.Value.D == 4 { // 4 = ULLONG discriminator per go-libvirt TypedParamValue
+			if p.Field == "cpu_time" && p.Value.D == typedParamULLONG {
 				if v, ok := p.Value.I.(uint64); ok {
 					cpuTime = v
 				}
 			}
 		}
 	}
+	// Stats are best-effort; CPU time is omitted on error (graceful degradation)
 
 	statJSON, _ := json.Marshal(map[string]interface{}{
 		"memory_stats": map[string]uint64{

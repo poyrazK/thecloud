@@ -286,11 +286,11 @@ Get real-time resource usage stats for an instance (CPU, memory, network I/O, di
 - `memory_usage_bytes` (float): Current memory usage in bytes
 - `memory_limit_bytes` (float): Memory limit in bytes
 - `memory_percentage` (float): Memory usage as percentage of limit
-- `network_rx_bytes` (int): Total network bytes received
-- `network_tx_bytes` (int): Total network bytes transmitted
-- `disk_read_bytes` (int): Total disk bytes read
-- `disk_write_bytes` (int): Total disk bytes written
-- `cpu_time_nanoseconds` (int, optional): Cumulative CPU time in nanoseconds (Libvirt backend)
+- `network_rx_bytes` (uint64): Total network bytes received
+- `network_tx_bytes` (uint64): Total network bytes transmitted
+- `disk_read_bytes` (uint64): Total disk bytes read
+- `disk_write_bytes` (uint64): Total disk bytes written
+- `cpu_time_nanoseconds` (uint64, optional): Cumulative CPU time in nanoseconds (Libvirt backend)
 
 **Error Responses:**
 - `404` — Instance not found

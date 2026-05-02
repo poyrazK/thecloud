@@ -750,6 +750,25 @@ func TestLibvirtAdapter_StatsAndConsole(t *testing.T) {
 		assert.NotNil(t, stats)
 	})
 
+	t.Run("GetInstanceStats_WithCPUStats", func(t *testing.T) {
+		cpuParams := []libvirt.TypedParam{
+			{Field: "cpu_time", Value: libvirt.TypedParamValue{D: typedParamULLONG, I: uint64(5000000000)}},
+		}
+		m.On("DomainLookupByName", mock.Anything, id).Return(dom, nil).Once()
+		m.On("DomainMemoryStats", mock.Anything, dom, uint32(10), uint32(0)).Return([]libvirt.DomainMemoryStat{}, nil).Once()
+		m.On("DomainGetCPUStats", mock.Anything, dom, uint32(0), int32(0), uint32(0), libvirt.TypedParameterFlags(0)).Return(cpuParams, int32(0), nil).Once()
+		m.On("DomainGetState", mock.Anything, dom, uint32(0)).Return(int32(1), int32(0), nil).Once()
+
+		stats, err := a.GetInstanceStats(ctx, id)
+		require.NoError(t, err)
+		assert.NotNil(t, stats)
+
+		// Read and verify the stats JSON contains the CPU time
+		statsBytes, err := io.ReadAll(stats)
+		require.NoError(t, err)
+		assert.Contains(t, string(statsBytes), `"cpu_time":5000000000`)
+	})
+
 	t.Run("GetConsoleURL", func(t *testing.T) {
 		xml := "<domain><devices><graphics type='vnc' port='5900'/></devices></domain>"
 		m.On("DomainLookupByName", mock.Anything, id).Return(dom, nil).Once()
