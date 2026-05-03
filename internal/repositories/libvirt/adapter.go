@@ -609,16 +609,16 @@ func (a *LibvirtAdapter) GetInstanceStats(ctx context.Context, id string) (io.Re
 	// Get CPU stats via DomainGetCPUStats
 	cpuParams, _, err := a.client.DomainGetCPUStats(ctx, dom, 0, 0, 0, 0)
 	var cpuTime uint64
-	if err == nil {
-		for _, p := range cpuParams {
-			if p.Field == "cpu_time" && p.Value.D == typedParamULLONG {
-				if v, ok := p.Value.I.(uint64); ok {
-					cpuTime = v
-				}
+	if err != nil {
+		return nil, fmt.Errorf("DomainGetCPUStats failed: %w", err)
+	}
+	for _, p := range cpuParams {
+		if p.Field == "cpu_time" && p.Value.D == typedParamULLONG {
+			if v, ok := p.Value.I.(uint64); ok {
+				cpuTime = v
 			}
 		}
 	}
-	// Stats are best-effort; CPU time is omitted on error (graceful degradation)
 
 	statJSON, _ := json.Marshal(map[string]interface{}{
 		"memory_stats": map[string]uint64{

@@ -294,7 +294,7 @@ Get real-time resource usage stats for an instance (CPU, memory, network I/O, di
 
 **Error Responses:**
 - `404` — Instance not found
-- `503` — Backend stats unavailable
+- `500` — Backend stats unavailable (internal error)
 
 ### POST /instances/:id/pause
 Pause a running instance (freezes CPU, retains memory/network).

@@ -386,7 +386,7 @@ func (h *InstanceHandler) Terminate(c *gin.Context) {
 
 // GetStats returns instance metrics
 // @Summary Get instance stats
-// @Description Gets real-time CPU and Memory usage for a compute instance
+// @Description Gets real-time CPU, memory, network I/O, disk I/O, and CPU time (nanoseconds) for a compute instance
 // @Tags instances
 // @Produce json
 // @Security APIKeyAuth
