@@ -25,7 +25,12 @@ func (r *RealLibvirtClient) Connect(ctx context.Context) error {
 			return
 		default:
 		}
-		errChan <- r.conn.Connect()
+		err := r.conn.Connect()
+		select {
+		case errChan <- err:
+		case <-done:
+		case <-ctx.Done():
+		}
 	}()
 
 	select {
@@ -48,7 +53,12 @@ func (r *RealLibvirtClient) ConnectToURI(ctx context.Context, uri string) error 
 			return
 		default:
 		}
-		errChan <- r.conn.ConnectToURI(libvirt.ConnectURI(uri))
+		err := r.conn.ConnectToURI(libvirt.ConnectURI(uri))
+		select {
+		case errChan <- err:
+		case <-done:
+		case <-ctx.Done():
+		}
 	}()
 
 	select {

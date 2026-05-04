@@ -244,7 +244,8 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 					},
 				})
 				if errSend != nil {
-					// Remove failed stream
+					// Close stream before removing to release resources
+					_, _ = streams[i].stream.CloseAndRecv()
 					streams = append(streams[:i], streams[i+1:]...)
 					i--
 				}
@@ -467,6 +468,7 @@ func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, r io.
 					},
 				})
 				if errSend != nil {
+					_, _ = streams[i].stream.CloseAndRecv()
 					streams = append(streams[:i], streams[i+1:]...)
 					i--
 				}
