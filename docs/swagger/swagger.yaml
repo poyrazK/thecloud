@@ -664,15 +664,13 @@ definitions:
       cpu_percentage:
         type: number
       cpu_time_nanoseconds:
-        description: "only populated by Libvirt backend; Docker uses delta-based percentage instead"
+        description: only populated by Libvirt backend; Docker uses delta-based percentage
+          instead
         type: integer
-        format: uint64
       disk_read_bytes:
         type: integer
-        format: uint64
       disk_write_bytes:
         type: integer
-        format: uint64
       memory_limit_bytes:
         type: number
       memory_percentage:
@@ -681,10 +679,8 @@ definitions:
         type: number
       network_rx_bytes:
         type: integer
-        format: uint64
       network_tx_bytes:
         type: integer
-        format: uint64
     type: object
   domain.InstanceStatus:
     enum:
