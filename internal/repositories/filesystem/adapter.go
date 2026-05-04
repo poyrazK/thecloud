@@ -126,7 +126,17 @@ func (s *LocalFileStore) Assemble(ctx context.Context, bucket, key string, parts
 		if err != nil {
 			return 0, errors.Wrap(errors.Internal, "failed to open part file", err)
 		}
-
+		partInfo, err := pf.Stat()
+		if err != nil {
+			_ = pf.Close()
+			return 0, errors.Wrap(errors.Internal, "failed to stat part file", err)
+		}
+		partSize := partInfo.Size()
+		if totalSize+partSize > maxObjectSize {
+			_ = pf.Close()
+			_ = os.Remove(destPath)
+			return totalSize + partSize, fmt.Errorf("assembled object exceeds max size: %d bytes (max %d)", totalSize+partSize, maxObjectSize)
+		}
 		n, err := io.Copy(f, pf)
 		_ = pf.Close()
 		if err != nil {

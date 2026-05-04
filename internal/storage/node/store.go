@@ -192,6 +192,19 @@ func (s *LocalStore) Assemble(bucket, key string, parts []string) (int64, error)
 			assembleErr = err
 			break
 		}
+		partInfo, err := pf.Stat()
+		if err != nil {
+			_ = pf.Close()
+			assembleErr = err
+			break
+		}
+		partSize := partInfo.Size()
+		if totalSize+partSize > maxObjectSize {
+			_ = pf.Close()
+			_ = f.Close()
+			_ = os.Remove(tmpPath)
+			return totalSize, fmt.Errorf("assembled object exceeds max size: %d bytes (max %d)", totalSize+partSize, maxObjectSize)
+		}
 		n, err := io.Copy(f, pf)
 		_ = pf.Close()
 		if err != nil {

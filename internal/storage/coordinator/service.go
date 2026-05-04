@@ -458,9 +458,18 @@ func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, r io.
 	}
 
 	buf := make([]byte, chunkSize)
+	var totalSize int64
 	for {
 		nr, err := r.Read(buf)
 		if nr > 0 {
+			totalSize += int64(nr)
+			if totalSize > maxObjectSize {
+				// Close all open streams before returning
+				for _, ns := range streams {
+					_, _ = ns.stream.CloseAndRecv()
+				}
+				return
+			}
 			for i := 0; i < len(streams); i++ {
 				errSend := streams[i].stream.Send(&pb.StoreRequest{
 					Payload: &pb.StoreRequest_ChunkData{
