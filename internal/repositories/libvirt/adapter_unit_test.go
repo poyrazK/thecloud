@@ -762,6 +762,7 @@ func TestLibvirtAdapter_StatsAndConsole(t *testing.T) {
 		stats, err := a.GetInstanceStats(ctx, id)
 		require.NoError(t, err)
 		assert.NotNil(t, stats)
+		defer stats.Close()
 
 		// Read and verify the stats JSON contains the CPU time
 		statsBytes, err := io.ReadAll(stats)

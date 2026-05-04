@@ -95,10 +95,10 @@ type InstanceStats struct {
 	MemoryUsageBytes    float64 `json:"memory_usage_bytes"`
 	MemoryLimitBytes    float64 `json:"memory_limit_bytes"`
 	MemoryPercentage    float64 `json:"memory_percentage"`
-	NetworkRxBytes      uint64 `json:"network_rx_bytes"`
-	NetworkTxBytes      uint64 `json:"network_tx_bytes"`
-	DiskReadBytes       uint64 `json:"disk_read_bytes"`
-	DiskWriteBytes      uint64 `json:"disk_write_bytes"`
+	NetworkRxBytes      uint64 `json:"network_rx_bytes,omitempty"`
+	NetworkTxBytes      uint64 `json:"network_tx_bytes,omitempty"`
+	DiskReadBytes       uint64 `json:"disk_read_bytes,omitempty"`
+	DiskWriteBytes      uint64 `json:"disk_write_bytes,omitempty"`
 	CPUTimeNanoseconds  uint64 `json:"cpu_time_nanoseconds,omitempty"` // only populated by Libvirt backend; Docker uses delta-based percentage instead
 }
 
@@ -124,15 +124,17 @@ type RawDockerStats struct {
 	NetworkStats map[string]struct {
 		RxBytes uint64 `json:"rx_bytes"`
 		TxBytes uint64 `json:"tx_bytes"`
-	} `json:"network_stats"`
+	} `json:"networks"`
 	BlkioStats struct {
-		IoServiceBytes []BlkioStatEntry `json:"ioservice_bytes"`
+		IoServiceBytes []BlkioStatEntry `json:"io_service_bytes_recursive"`
 	} `json:"blkio_stats"`
 }
 
-// BlkioStatEntry represents a single block I/O stat entry.
+// BlkioStatEntry represents a single block I/O stat entry (Docker format).
+// Docker uses Major/Minor uint64 for the device identifier.
 type BlkioStatEntry struct {
-	Op     string `json:"op"`
-	Device string `json:"device"`
-	Value  uint64 `json:"value"`
+	Op    string `json:"op"`
+	Major uint64 `json:"major"`
+	Minor uint64 `json:"minor"`
+	Value uint64 `json:"value"`
 }
