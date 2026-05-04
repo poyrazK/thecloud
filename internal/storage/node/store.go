@@ -4,7 +4,7 @@ package node
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
+	stdlib_errors "errors"
 	"fmt"
 	"io"
 	"math"
@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	apperrors "github.com/poyrazk/thecloud/internal/errors"
 )
 
 // LocalStore manages file storage on the local disk.
@@ -52,7 +54,7 @@ func (s *LocalStore) WriteStream(bucket, key string, r io.Reader, timestamp int6
 
 	n, copyErr := io.Copy(f, io.LimitReader(r, maxObjectSize))
 	closeErr := f.Close()
-	if copyErr != nil && !errors.Is(copyErr, io.EOF) {
+	if copyErr != nil && !stdlib_errors.Is(copyErr, io.EOF) {
 		_ = os.Remove(tmpPath)
 		return n, copyErr
 	}
@@ -203,7 +205,7 @@ func (s *LocalStore) Assemble(bucket, key string, parts []string) (int64, error)
 			_ = pf.Close()
 			_ = f.Close()
 			_ = os.Remove(tmpPath)
-			return totalSize, fmt.Errorf("assembled object exceeds max size: %d bytes (max %d)", totalSize+partSize, maxObjectSize)
+			return totalSize + partSize, apperrors.New(apperrors.ObjectTooLarge, fmt.Sprintf("assembled object exceeds max size: %d bytes (max %d)", totalSize+partSize, maxObjectSize))
 		}
 		n, err := io.Copy(f, pf)
 		_ = pf.Close()
@@ -215,7 +217,7 @@ func (s *LocalStore) Assemble(bucket, key string, parts []string) (int64, error)
 		if totalSize > maxObjectSize {
 			_ = f.Close()
 			_ = os.Remove(tmpPath)
-			return totalSize, fmt.Errorf("assembled object exceeds max size: %d bytes (max %d)", totalSize, maxObjectSize)
+			return totalSize, apperrors.New(apperrors.ObjectTooLarge, fmt.Sprintf("assembled object exceeds max size: %d bytes (max %d)", totalSize, maxObjectSize))
 		}
 	}
 

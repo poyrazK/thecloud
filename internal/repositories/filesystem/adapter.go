@@ -135,7 +135,7 @@ func (s *LocalFileStore) Assemble(ctx context.Context, bucket, key string, parts
 		if totalSize+partSize > maxObjectSize {
 			_ = pf.Close()
 			_ = os.Remove(destPath)
-			return totalSize + partSize, fmt.Errorf("assembled object exceeds max size: %d bytes (max %d)", totalSize+partSize, maxObjectSize)
+			return totalSize + partSize, errors.New(errors.ObjectTooLarge, fmt.Sprintf("assembled object exceeds max size: %d bytes (max %d)", totalSize+partSize, maxObjectSize))
 		}
 		n, err := io.Copy(f, pf)
 		_ = pf.Close()
@@ -145,7 +145,7 @@ func (s *LocalFileStore) Assemble(ctx context.Context, bucket, key string, parts
 		totalSize += n
 		if totalSize > maxObjectSize {
 			_ = os.Remove(partPath)
-			return totalSize, fmt.Errorf("assembled object exceeds max size: %d bytes (max %d)", totalSize, maxObjectSize)
+			return totalSize, errors.New(errors.ObjectTooLarge, fmt.Sprintf("assembled object exceeds max size: %d bytes (max %d)", totalSize, maxObjectSize))
 		}
 		_ = os.Remove(partPath) // Cleanup part
 	}
