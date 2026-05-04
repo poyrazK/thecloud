@@ -15,7 +15,8 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
-// PipelineHandler handles CI/CD pipeline endpoints.
+// maxPayloadSize prevents memory exhaustion when reading webhook payloads.
+const maxPayloadSize = 10 * 1024 * 1024 // 10 MB, aligned with pipeline_worker.go
 type PipelineHandler struct {
 	svc ports.PipelineService
 }
@@ -238,7 +239,7 @@ func (h *PipelineHandler) WebhookTrigger(c *gin.Context) {
 		return
 	}
 
-	payload, err := io.ReadAll(c.Request.Body)
+	payload, err := io.ReadAll(io.LimitReader(c.Request.Body, maxPayloadSize))
 	if err != nil {
 		httputil.Error(c, fmt.Errorf("failed to read payload: %w", err))
 		return
