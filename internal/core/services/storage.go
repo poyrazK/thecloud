@@ -40,6 +40,37 @@ const (
 
 var validBucketNameRe = regexp.MustCompile(`^[a-z0-9.-]+$`)
 
+// boundedReader reads from r but returns ObjectTooLarge if more than limit bytes
+// are consumed, ensuring oversized uploads fail with an explicit error rather than
+// silent truncation.
+type boundedReader struct {
+	r      io.Reader
+	limit  int64
+	count  int64
+	delete func() // cleanup partial object on oversize
+}
+
+func (b *boundedReader) Read(p []byte) (n int, err error) {
+	if b.count >= b.limit {
+		b.delete()
+		return 0, errors.New(errors.ObjectTooLarge, "object exceeds maximum size")
+	}
+	remaining := b.limit - b.count
+	if int64(len(p)) > remaining {
+		p = p[:remaining]
+	}
+	n, err = b.r.Read(p)
+	b.count += int64(n)
+	if b.count > b.limit {
+		b.delete()
+		return n, errors.New(errors.ObjectTooLarge, "object exceeds maximum size")
+	}
+	if err == io.EOF && b.count <= b.limit {
+		return n, io.EOF
+	}
+	return n, err
+}
+
 // generateVersionID generates a timestamp-based version ID (reverse chronological).
 func generateVersionID() string {
 	return fmt.Sprintf("%d", versionEpochBit-time.Now().UnixNano())
@@ -176,9 +207,24 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 		dataStream = encryptedReader
 	}
 
-	// Defense-in-depth: bound memory usage even if handler limit is bypassed
-	size, err := s.store.Write(ctx, bucketName, storeKey, io.LimitReader(dataStream, maxPartSize))
+	// Defense-in-depth: error on oversized upload rather than silent truncation.
+	// boundedReader tears down any partial object when the limit is exceeded.
+	br := &boundedReader{
+		r:     dataStream,
+		limit: maxPartSize,
+		delete: func() {
+			_ = s.store.Delete(ctx, bucketName, storeKey)
+		},
+	}
+	size, err := s.store.Write(ctx, bucketName, storeKey, br)
 	if err != nil {
+		// boundedReader already deleted the partial object on ObjectTooLarge.
+		// Preserve the error type so the HTTP layer returns 413.
+		var appErr errors.Error
+		if errors.As(err, &appErr) && appErr.Type == errors.ObjectTooLarge {
+			span.RecordError(err)
+			return nil, err
+		}
 		// We leave the record as PENDING. The garbage collector will clean it up.
 		return nil, errors.Wrap(errors.Internal, "failed to write to store", err)
 	}
