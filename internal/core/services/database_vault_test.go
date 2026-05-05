@@ -75,17 +75,23 @@ func TestDatabaseService_RotateCredentials(t *testing.T) {
 		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
 		mockSecrets.On("GetSecret", mock.Anything, db.CredentialPath).Return(map[string]interface{}{"password": "old-pass"}, nil).Once()
 
-		// 1. Execute ALTER USER in container
-		mockCompute.On("Exec", mock.Anything, db.ContainerID, mock.Anything).Return("ALTER ROLE", nil).Once()
-
-		// 2. Update in Vault
-		mockSecrets.On("StoreSecret", mock.Anything, db.CredentialPath, mock.MatchedBy(func(data map[string]interface{}) bool {
+		// 1. Store new credential at versioned path in Vault FIRST
+		versionedPath := db.CredentialPath + "/v2"
+		mockSecrets.On("StoreSecret", mock.Anything, versionedPath, mock.MatchedBy(func(data map[string]interface{}) bool {
 			return data["password"] != ""
 		})).Return(nil).Once()
 
-		// 3. Update DB record
+		// 2. Execute ALTER USER in container
+		mockCompute.On("Exec", mock.Anything, db.ContainerID, mock.Anything).Return("ALTER ROLE", nil).Once()
+
+		// 3. Update DB record to point to new versioned path
 		mockRepo.On("Update", mock.Anything, mock.MatchedBy(func(d *domain.Database) bool {
-			return d.ID == dbID
+			return d.ID == dbID && d.CredentialPath == versionedPath
+		})).Return(nil).Once()
+
+		// 4. Update old path for backwards compatibility
+		mockSecrets.On("StoreSecret", mock.Anything, db.CredentialPath, mock.MatchedBy(func(data map[string]interface{}) bool {
+			return data["password"] != ""
 		})).Return(nil).Once()
 
 		mockEventSvc.On("RecordEvent", mock.Anything, "DATABASE_CREDENTIALS_ROTATE", dbID.String(), "DATABASE", mock.Anything).Return(nil).Once()
@@ -99,23 +105,20 @@ func TestDatabaseService_RotateCredentials(t *testing.T) {
 		mockRepo.AssertExpectations(t)
 	})
 
-	t.Run("RotateCredentials_VaultFailure_WithRollback", func(t *testing.T) {
+	t.Run("RotateCredentials_VaultFailure_WithoutDBChange", func(t *testing.T) {
 		mockRepo.On("GetByID", mock.Anything, dbID).Return(db, nil).Once()
 		mockSecrets.On("GetSecret", mock.Anything, db.CredentialPath).Return(map[string]interface{}{"password": "old-pass"}, nil).Once()
-		// First Exec: ALTER USER with new password (succeeds)
-		mockCompute.On("Exec", mock.Anything, db.ContainerID, mock.Anything).Return("ALTER ROLE", nil).Once()
-		// Vault store fails
-		mockSecrets.On("StoreSecret", mock.Anything, db.CredentialPath, mock.Anything).Return(fmt.Errorf("vault error")).Once()
-		// Second Exec: rollback to original password (succeeds)
-		mockCompute.On("Exec", mock.Anything, db.ContainerID, mock.Anything).Return("ALTER ROLE", nil).Once()
+		// Vault store fails at step 1 (versioned path) - DB is NOT changed
+		versionedPath := db.CredentialPath + "/v2"
+		mockSecrets.On("StoreSecret", mock.Anything, versionedPath, mock.Anything).Return(fmt.Errorf("vault error")).Once()
 
 		err := svc.RotateCredentials(ctx, dbID, "")
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "vault store failed, DB password rolled back")
+		assert.Contains(t, err.Error(), "failed to store new credential in vault")
 
 		mockSecrets.AssertExpectations(t)
+		// Compute.Exec should NOT be called since Vault failed before DB change
 		mockCompute.AssertExpectations(t)
-		mockRepo.AssertExpectations(t)
 	})
 }
 
