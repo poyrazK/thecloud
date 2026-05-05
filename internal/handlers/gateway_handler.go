@@ -169,7 +169,7 @@ func (h *GatewayHandler) Proxy(c *gin.Context) {
 	// Apply request size limit - reject oversized requests before proxying
 	if route != nil && route.MaxBodySize > 0 {
 		if c.Request.ContentLength > route.MaxBodySize {
-			httputil.Error(c, errors.New(errors.InvalidInput, "request body too large"))
+			httputil.Error(c, errors.New(errors.ObjectTooLarge, "request body too large"))
 			return
 		}
 		// For chunked bodies, pre-read and enforce limit

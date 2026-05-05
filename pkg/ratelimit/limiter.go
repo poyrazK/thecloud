@@ -70,8 +70,11 @@ func (i *IPRateLimiter) GetRouteLimiter(routeID uuid.UUID, key string, r rate.Li
 		return limiter
 	}
 
-	// Update existing limiter with new rate/burst if different
-	limiter.SetLimit(r)
+	// Recreate limiter if rate or burst changed (SetLimit only updates rate)
+	if limiter.Limit() != r || limiter.Burst() != burst {
+		limiter = rate.NewLimiter(r, burst)
+		i.routes[routeID][key] = limiter
+	}
 	return limiter
 }
 

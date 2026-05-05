@@ -98,6 +98,18 @@ func (s *GatewayService) CreateRoute(ctx context.Context, params ports.CreateRou
 		UpdatedAt:                time.Now(),
 	}
 
+	// Validate CIDRs before saving
+	for _, cidr := range route.AllowedCIDRs {
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			return nil, fmt.Errorf("invalid allowed CIDR %q: %w", cidr, err)
+		}
+	}
+	for _, cidr := range route.BlockedCIDRs {
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			return nil, fmt.Errorf("invalid blocked CIDR %q: %w", cidr, err)
+		}
+	}
+
 	if err := s.repo.CreateRoute(ctx, route); err != nil {
 		return nil, err
 	}

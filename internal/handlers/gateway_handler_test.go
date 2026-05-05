@@ -293,6 +293,35 @@ func TestGatewayHandlerListError(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
+func TestGatewayHandlerProxyBodySizeLimit(t *testing.T) {
+	t.Parallel()
+	svc, handler, r := setupGatewayHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.Any(gwProxyPath, handler.Proxy)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("proxy should not be called for oversized body")
+	}))
+	defer ts.Close()
+	targetURL, _ := url.Parse(ts.URL)
+
+	svc.On("GetProxy", "GET", "/api").Return(
+		httputil.NewSingleHostReverseProxy(targetURL),
+		&domain.GatewayRoute{MaxBodySize: 10, AllowedCIDRs: []string{"10.0.0.0/8"}},
+		map[string]string{},
+		true,
+	)
+
+	req, _ := http.NewRequest("GET", gwAPITestPath, nil)
+	req.ContentLength = 100 // Exceeds MaxBodySize of 10
+	req.RemoteAddr = "10.0.0.1:12345"
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+}
+
 func TestGatewayHandlerProxyParamWithoutSlash(t *testing.T) {
 	t.Parallel()
 	mockSvc := new(mockGatewayService)
