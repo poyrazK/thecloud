@@ -906,6 +906,7 @@ func (s *DatabaseService) doRotateCredentials(ctx context.Context, id uuid.UUID,
 	if err := s.secrets.DeleteSecret(ctx, oldVersionedPath); err != nil {
 		// Log but don't fail - old version may not exist if this is first rotation
 		s.logger.Warn("failed to cleanup old credential version from vault", "path", oldVersionedPath, "error", err)
+		platform.CredentialCleanupFailures.Inc()
 	}
 
 	// 4. If pooler is enabled, restart it to pick up new credentials
