@@ -236,7 +236,7 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 			if totalSize > maxObjectSize {
 				return totalSize, fmt.Errorf("object exceeds max size: %d bytes (max %d)", totalSize, maxObjectSize)
 			}
-			// Broadcast chunk — compact live streams in place to avoid index skip bug
+			// Broadcast chunk — build live-streams slice excluding failed ones to avoid index skip bug
 			live := streams[:0]
 			for i := 0; i < len(streams); i++ {
 				errSend := streams[i].stream.Send(&pb.StoreRequest{

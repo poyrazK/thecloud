@@ -291,7 +291,8 @@ func TestCoordinatorWriteStreamFailureMidChunk(t *testing.T) {
 
 	// Node A (node1): succeeds on all sends
 	sm1 := new(MockStoreClient)
-	sm1.On("Send", mock.Anything).Return(nil).Maybe()
+	sm1.On("Send", mock.Anything).Return(nil).Once() // metadata
+	sm1.On("Send", mock.Anything).Return(nil).Once() // chunk
 	sm1.On("CloseAndRecv").Return(&pb.StoreResponse{Success: true}, nil)
 
 	// Node B (node2): fails on first chunk Send (after metadata Send succeeds)
