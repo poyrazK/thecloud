@@ -1169,6 +1169,24 @@ func (s *InstanceService) updateTerminationMetrics(inst *domain.Instance) {
 }
 
 func (s *InstanceService) finalizeTermination(ctx context.Context, inst *domain.Instance) error {
+	// Release Quota FIRST — before delete so failure is recoverable
+	it, err := s.instanceTypeRepo.GetByID(ctx, inst.InstanceType)
+	if err != nil {
+		s.logger.Error("failed to resolve instance type for quota release", "instance_id", inst.ID, "type", inst.InstanceType, "error", err)
+	}
+	if it != nil {
+		if err := s.tenantSvc.DecrementUsage(ctx, inst.TenantID, "instances", 1); err != nil {
+			s.logger.Error("failed to decrement instance quota", "instance_id", inst.ID, "error", err)
+		}
+		if err := s.tenantSvc.DecrementUsage(ctx, inst.TenantID, "vcpus", it.VCPUs); err != nil {
+			s.logger.Error("failed to decrement vcpu quota", "instance_id", inst.ID, "error", err)
+		}
+		if err := s.tenantSvc.DecrementUsage(ctx, inst.TenantID, "memory", it.MemoryMB/1024); err != nil {
+			s.logger.Error("failed to decrement memory quota", "instance_id", inst.ID, "error", err)
+		}
+	}
+
+	// Delete AFTER quota release — safe to fail now
 	if err := s.repo.Delete(ctx, inst.ID); err != nil {
 		return err
 	}
@@ -1180,18 +1198,6 @@ func (s *InstanceService) finalizeTermination(ctx context.Context, inst *domain.
 		"name": inst.Name,
 	}); err != nil {
 		s.logger.Warn("failed to log audit event", "action", "instance.terminate", "instance_id", inst.ID, "error", err)
-	}
-
-	// Release Quota
-	// Best effort - if instance type is not found, we can't decrement, but we shouldn't fail termination.
-	// In a perfect world we'd store exact resource allocation on the instance record to release it.
-	it, err := s.instanceTypeRepo.GetByID(ctx, inst.InstanceType)
-	if err == nil {
-		_ = s.tenantSvc.DecrementUsage(ctx, inst.TenantID, "instances", 1)
-		_ = s.tenantSvc.DecrementUsage(ctx, inst.TenantID, "vcpus", it.VCPUs)
-		_ = s.tenantSvc.DecrementUsage(ctx, inst.TenantID, "memory", it.MemoryMB/1024)
-	} else {
-		s.logger.Warn("failed to resolve instance type for quota release", "instance_id", inst.ID, "type", inst.InstanceType, "error", err)
 	}
 
 	return nil
