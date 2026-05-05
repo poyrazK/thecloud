@@ -5,7 +5,10 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"log/slog"
+	"math"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -20,6 +23,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
+	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/poyrazk/thecloud/internal/routing"
 )
 
@@ -94,6 +98,10 @@ func (s *GatewayService) CreateRoute(ctx context.Context, params ports.CreateRou
 		AllowedCIDRs:             params.AllowedCIDRs,
 		BlockedCIDRs:             params.BlockedCIDRs,
 		MaxBodySize:              params.MaxBodySize,
+		CircuitBreakerThreshold:  params.CircuitBreakerThreshold,
+		CircuitBreakerTimeout:    params.CircuitBreakerTimeout,
+		MaxRetries:               params.MaxRetries,
+		RetryTimeout:             params.RetryTimeout,
 		Priority:                 params.Priority,
 		CreatedAt:                time.Now(),
 		UpdatedAt:                time.Now(),
@@ -243,7 +251,7 @@ func (s *GatewayService) createReverseProxy(route *domain.GatewayRoute) (*httput
 		idleConnTimeout = 90 * time.Second
 	}
 
-	proxy.Transport = &http.Transport{
+	baseTransport := &http.Transport{
 		DialContext: (&net.Dialer{
 			Timeout:   dialTimeout,
 			KeepAlive: 30 * time.Second,
@@ -253,6 +261,8 @@ func (s *GatewayService) createReverseProxy(route *domain.GatewayRoute) (*httput
 		TLSClientConfig:       s.buildTLSConfig(route),
 		TLSHandshakeTimeout:   10 * time.Second,
 	}
+
+	proxy.Transport = newRetryTransport(baseTransport, route, s.logger)
 
 	originalDirector := proxy.Director
 	proxy.Director = func(req *http.Request) {
@@ -374,4 +384,126 @@ func calculateMatchScore(route *domain.GatewayRoute, _ string) int {
 	}
 
 	return score
+}
+
+// retryTransport wraps an http.Transport with circuit breaker and retry logic.
+type retryTransport struct {
+	base         *http.Transport
+	cb           *platform.CircuitBreaker // nil if circuit breaker is disabled
+	maxRetries   int
+	retryTimeout time.Duration
+	logger       *slog.Logger
+}
+
+// newRetryTransport wraps a base http.Transport with per-route retry and circuit breaker behavior.
+func newRetryTransport(base *http.Transport, route *domain.GatewayRoute, logger *slog.Logger) *retryTransport {
+	rt := &retryTransport{
+		base:         base,
+		maxRetries:   route.MaxRetries,
+		retryTimeout: time.Duration(route.RetryTimeout) * time.Millisecond,
+		logger:       logger,
+	}
+	if route.CircuitBreakerThreshold > 0 {
+		rt.cb = platform.NewCircuitBreakerWithOpts(platform.CircuitBreakerOpts{
+			Name:          route.ID.String(),
+			Threshold:     route.CircuitBreakerThreshold,
+			ResetTimeout:  time.Duration(route.CircuitBreakerTimeout) * time.Millisecond,
+			OnStateChange: func(name string, from, to platform.State) {
+				if logger != nil {
+					logger.Warn("circuit breaker state change",
+						"route_id", name,
+						"from", from.String(),
+						"to", to.String())
+				}
+			},
+		})
+	}
+	return rt
+}
+
+// RoundTrip implements http.RoundTripper.
+func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if rt.cb != nil {
+		var resp *http.Response
+		var err error
+		execErr := rt.cb.Execute(func() error {
+			resp, err = rt.doRoundTrip(req)
+			return err
+		})
+		if execErr != nil {
+			return nil, execErr
+		}
+		return resp, err
+	}
+	return rt.doRoundTrip(req)
+}
+
+func (rt *retryTransport) doRoundTrip(req *http.Request) (*http.Response, error) {
+	if rt.maxRetries <= 0 {
+		return rt.base.RoundTrip(req)
+	}
+
+	var lastResp *http.Response
+	var lastErr error
+	maxAttempts := rt.maxRetries + 1 // first attempt + retries
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if attempt > 0 {
+			delay := rt.backoffWithJitter(attempt)
+			select {
+			case <-req.Context().Done():
+				return nil, req.Context().Err()
+			case <-time.After(delay):
+			}
+		}
+
+		resp, err := rt.base.RoundTrip(req)
+		if err == nil {
+			if !rt.isRetryableStatus(resp.StatusCode) {
+				return resp, nil
+			}
+			// drain and close body so connection can be reused
+			io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+			lastResp = resp
+		} else {
+			if !rt.isRetryableError(err) {
+				return nil, err
+			}
+			lastErr = err
+			lastResp = resp
+		}
+	}
+	return lastResp, lastErr
+}
+
+func (rt *retryTransport) isRetryableStatus(code int) bool {
+	return code == 502 || code == 503 || code == 504 || code == 429
+}
+
+func (rt *retryTransport) isRetryableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "timeout") ||
+		strings.Contains(msg, "reset by peer") ||
+		strings.Contains(msg, "broken pipe") ||
+		strings.Contains(msg, "connection reset")
+}
+
+func (rt *retryTransport) backoffWithJitter(attempt int) time.Duration {
+	base := 100 * time.Millisecond
+	max := rt.retryTimeout
+	if max <= 0 {
+		max = 5 * time.Second
+	}
+	multiplier := 2.0
+	delay := float64(base) * math.Pow(multiplier, float64(attempt-1))
+	if delay > float64(max) {
+		delay = float64(max)
+	}
+	jitter := time.Duration(rand.Int63n(int64(delay)))
+	return jitter
 }
