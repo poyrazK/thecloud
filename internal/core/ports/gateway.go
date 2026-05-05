@@ -28,13 +28,21 @@ type GatewayRepository interface {
 
 // CreateRouteParams holds parameters for creating a new route.
 type CreateRouteParams struct {
-	Name        string
-	Pattern     string
-	Target      string
-	Methods     []string
-	StripPrefix bool
-	RateLimit   int
-	Priority    int
+	Name                   string
+	Pattern                string
+	Target                 string
+	Methods                []string
+	StripPrefix            bool
+	RateLimit              int
+	DialTimeout            int64
+	ResponseHeaderTimeout  int64
+	IdleConnTimeout        int64
+	TLSSkipVerify          bool
+	RequireTLS            bool
+	AllowedCIDRs           []string
+	BlockedCIDRs           []string
+	MaxBodySize            int64
+	Priority               int
 }
 
 // GatewayService provides business logic for managing the API gateway and ingress traffic.
@@ -48,5 +56,6 @@ type GatewayService interface {
 	// RefreshRoutes reloads all routes and pre-compiles matchers.
 	RefreshRoutes(ctx context.Context) error
 	// GetProxy finds the appropriate backend for the given path and method.
-	GetProxy(method, path string) (*httputil.ReverseProxy, map[string]string, bool)
+	// Returns proxy, route, path params, and found flag.
+	GetProxy(method, path string) (*httputil.ReverseProxy, *domain.GatewayRoute, map[string]string, bool)
 }
