@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"log/slog"
+	"math"
 	"math/big"
 	"sync"
 	"time"
@@ -132,6 +133,15 @@ func (g *GossipProtocol) detectFailures() {
 			g.logger.Info("purged dead member", "id", id)
 		}
 	}
+
+	// Clean up orphaned peers — entries in g.peers whose corresponding
+	// members have been purged. Without this, connections accumulate forever.
+	for id := range g.peers {
+		if _, inMembers := g.members[id]; !inMembers {
+			g.closePeerLocked(id)
+			g.logger.Info("cleaned up orphaned peer", "id", id)
+		}
+	}
 }
 
 // closePeerLocked closes and removes the peer client for id. Caller must hold
@@ -167,7 +177,12 @@ func (g *GossipProtocol) gossip() {
 	g.mu.Lock()
 	// Increment own heartbeat
 	me := g.members[g.nodeID]
-	me.Heartbeat++
+	if me.Heartbeat == math.MaxUint64 {
+		me.Heartbeat = 0
+		g.logger.Warn("heartbeat counter overflow, reset to 0", "node_id", g.nodeID)
+	} else {
+		me.Heartbeat++
+	}
 	me.LastSeen = time.Now()
 
 	// Prepare message
