@@ -41,7 +41,7 @@ func getServerSecret() string {
 // API keys are machine-generated 32-char hex strings (~128 bits of entropy),
 // but using HMAC adds an additional layer of protection.
 func computeKeyHash(key string) string {
-	//nolint:codeql // HMAC-SHA256 is used for key fingerprinting, not password hashing.
+	// HMAC-SHA256 is used for key fingerprinting, not password hashing.
 	h := hmac.New(sha256.New, []byte(serverSecret))
 	h.Write([]byte(key))
 	return hex.EncodeToString(h.Sum(nil))
