@@ -21,14 +21,14 @@ type GatewayRoute struct {
 	Methods                  []string  `json:"methods"`        // New: HTTP methods to match (empty = all)
 	StripPrefix              bool      `json:"strip_prefix"`   // If true, removes path_prefix from request before forwarding
 	RateLimit                int       `json:"rate_limit"`      // Maximum allowed requests per second per IP
-	DialTimeout              int64     `json:"dial_timeout"`    // TCP dial timeout in milliseconds
-	ResponseHeaderTimeout     int64     `json:"response_header_timeout"` // Time to receive headers in milliseconds
-	IdleConnTimeout          int64     `json:"idle_conn_timeout"`       // Idle connection timeout in milliseconds
-	TLSSkipVerify            bool      `json:"tls_skip_verify"`  // Skip TLS verification for backend
-	RequireTLS              bool      `json:"require_tls"`      // Force HTTPS for backend
-	AllowedCIDRs             []string  `json:"allowed_cidrs"`   // IPs allowed to access (empty = all)
-	BlockedCIDRs             []string  `json:"blocked_cidrs"`   // IPs blocked from access
-	MaxBodySize              int64     `json:"max_body_size"`   // Max request body size in bytes
+	DialTimeout              int64     `json:"dial_timeout,omitempty"`           // TCP dial timeout in milliseconds
+	ResponseHeaderTimeout    int64     `json:"response_header_timeout,omitempty"` // Time to receive headers in milliseconds
+	IdleConnTimeout          int64     `json:"idle_conn_timeout,omitempty"`       // Idle connection timeout in milliseconds
+	TLSSkipVerify            bool      `json:"tls_skip_verify,omitempty"`         // Skip TLS verification for backend
+	RequireTLS               bool      `json:"require_tls,omitempty"`             // Force HTTPS for backend
+	AllowedCIDRs             []string  `json:"allowed_cidrs,omitempty"`          // IPs allowed to access (empty = all)
+	BlockedCIDRs             []string  `json:"blocked_cidrs,omitempty"`           // IPs blocked from access
+	MaxBodySize              int64     `json:"max_body_size,omitempty"`          // Max request body size in bytes
 	Priority                 int       `json:"priority"`        // Manual priority for tie-breaking
 	CreatedAt                time.Time `json:"created_at"`
 	UpdatedAt                time.Time `json:"updated_at"`

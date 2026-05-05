@@ -9,50 +9,58 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCheckCIDR_NoBlockedOrAllowed(t *testing.T) {
+func TestCheckCIDR(t *testing.T) {
 	t.Parallel()
 
-	gin.SetMode(gin.TestMode)
-	handler := &GatewayHandler{logger: nil}
-	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest("GET", "/", nil)
-	c.Request.RemoteAddr = "10.0.0.1:12345"
-
-	route := &domain.GatewayRoute{
-		BlockedCIDRs: []string{},
-		AllowedCIDRs: []string{},
+	tests := []struct {
+		name           string
+		remoteAddr     string
+		blockedCIDRs   []string
+		allowedCIDRs   []string
+		expectedResult bool
+	}{
+		{
+			name:           "no restrictions should allow all",
+			remoteAddr:     "10.0.0.1:12345",
+			blockedCIDRs:   []string{},
+			allowedCIDRs:   []string{},
+			expectedResult: true,
+		},
+		{
+			name:           "empty CIDR lists should allow all",
+			remoteAddr:     "10.0.0.1:12345",
+			blockedCIDRs:   nil,
+			allowedCIDRs:   nil,
+			expectedResult: true,
+		},
+		{
+			name:           "invalid IP should be denied (fail closed)",
+			remoteAddr:     "invalid-ip:12345",
+			blockedCIDRs:   nil,
+			allowedCIDRs:   nil,
+			expectedResult: false,
+		},
 	}
 
-	result := handler.checkCIDR(c, route)
-	assert.True(t, result, "no restrictions should allow all")
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-func TestCheckCIDR_EmptyBlockedAndAllowed(t *testing.T) {
-	t.Parallel()
+			gin.SetMode(gin.TestMode)
+			handler := &GatewayHandler{logger: nil}
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest("GET", "/", nil)
+			if tt.remoteAddr != "" {
+				c.Request.RemoteAddr = tt.remoteAddr
+			}
 
-	gin.SetMode(gin.TestMode)
-	handler := &GatewayHandler{logger: nil}
-	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest("GET", "/", nil)
-	c.Request.RemoteAddr = "10.0.0.1:12345"
+			route := &domain.GatewayRoute{
+				BlockedCIDRs: tt.blockedCIDRs,
+				AllowedCIDRs: tt.allowedCIDRs,
+			}
 
-	route := &domain.GatewayRoute{}
-
-	result := handler.checkCIDR(c, route)
-	assert.True(t, result, "empty CIDR lists should allow all")
-}
-
-func TestCheckCIDR_InvalidIP(t *testing.T) {
-	t.Parallel()
-
-	gin.SetMode(gin.TestMode)
-	handler := &GatewayHandler{logger: nil}
-	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest("GET", "/", nil)
-	// Leave RemoteAddr empty to test invalid IP handling
-
-	route := &domain.GatewayRoute{}
-
-	result := handler.checkCIDR(c, route)
-	assert.True(t, result, "invalid IP should be allowed (fail open)")
+			result := handler.checkCIDR(c, route)
+			assert.Equal(t, tt.expectedResult, result, tt.name)
+		})
+	}
 }

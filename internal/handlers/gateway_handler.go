@@ -157,7 +157,7 @@ func (h *GatewayHandler) Proxy(c *gin.Context) {
 
 	proxy, route, params, ok := h.svc.GetProxy(c.Request.Method, path)
 	if !ok {
-		c.JSON(http.StatusNotFound, gin.H{"error": "No route found for " + path})
+		httputil.Error(c, errors.New(errors.NotFound, "No route found for "+path))
 		return
 	}
 
@@ -166,11 +166,18 @@ func (h *GatewayHandler) Proxy(c *gin.Context) {
 		return
 	}
 
-	// Apply request size limit
+	// Apply request size limit - reject oversized requests before proxying
 	if route != nil && route.MaxBodySize > 0 {
-		c.Request.Body = &limitedReader{
-			ReadCloser: c.Request.Body,
-			limit:      route.MaxBodySize,
+		if c.Request.ContentLength > route.MaxBodySize {
+			httputil.Error(c, errors.New(errors.InvalidInput, "request body too large"))
+			return
+		}
+		// For chunked bodies, pre-read and enforce limit
+		if c.Request.ContentLength < 0 {
+			c.Request.Body = &limitedReader{
+				ReadCloser: c.Request.Body,
+				limit:      route.MaxBodySize,
+			}
 		}
 	}
 
@@ -195,11 +202,26 @@ func (h *GatewayHandler) injectTraceHeaders(c *gin.Context) {
 	c.Request.Header.Set("X-Request-ID", requestID)
 	c.Header("X-Request-ID", requestID)
 
-	// W3C TraceContext
+	// W3C TraceContext - preserve incoming trace headers if present
+	inboundTraceParent := c.GetHeader("traceparent")
+	if inboundTraceParent != "" {
+		c.Request.Header.Set("traceparent", inboundTraceParent)
+		c.Header("traceparent", inboundTraceParent)
+		inboundTraceState := c.GetHeader("tracestate")
+		if inboundTraceState != "" {
+			c.Request.Header.Set("tracestate", inboundTraceState)
+			c.Header("tracestate", inboundTraceState)
+		}
+		return
+	}
+
+	// No inbound traceparent - generate new trace context
 	traceID := generateTraceID()
 	spanID := generateSpanID()
 	c.Request.Header.Set("traceparent", fmt.Sprintf("00-%s-%s-01", traceID, spanID))
 	c.Request.Header.Set("tracestate", "")
+	c.Header("traceparent", fmt.Sprintf("00-%s-%s-01", traceID, spanID))
+	c.Header("tracestate", "")
 }
 
 func generateTraceID() string {
@@ -222,7 +244,8 @@ func generateSpanID() string {
 func (h *GatewayHandler) checkCIDR(c *gin.Context, route *domain.GatewayRoute) bool {
 	clientIP := net.ParseIP(c.ClientIP())
 	if clientIP == nil {
-		return true // Allow if we can't parse IP
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied: invalid client IP"})
+		return false
 	}
 
 	// Check blocked CIDRs first (takes precedence)
@@ -232,7 +255,8 @@ func (h *GatewayHandler) checkCIDR(c *gin.Context, route *domain.GatewayRoute) b
 			if h.logger != nil {
 				h.logger.Warn("invalid blocked CIDR", "cidr", cidrStr, "error", err)
 			}
-			continue
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied: misconfigured blocked CIDR"})
+			return false
 		}
 		if ipNet.Contains(clientIP) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied"})
@@ -249,7 +273,8 @@ func (h *GatewayHandler) checkCIDR(c *gin.Context, route *domain.GatewayRoute) b
 				if h.logger != nil {
 					h.logger.Warn("invalid allowed CIDR", "cidr", cidrStr, "error", err)
 				}
-				continue
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied: misconfigured allowed CIDR"})
+				return false
 			}
 			if ipNet.Contains(clientIP) {
 				allowed = true

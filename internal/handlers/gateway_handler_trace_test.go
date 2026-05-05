@@ -6,33 +6,38 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGenerateTraceID(t *testing.T) {
-	t.Parallel()
+func TestTraceIDGeneration(t *testing.T) {
+	tests := []struct {
+		name         string
+		generator    func() string
+		expectedLen  int
+		checkUnique  bool
+	}{
+		{
+			name:        "trace ID has correct length",
+			generator:   generateTraceID,
+			expectedLen: 32,
+			checkUnique:  true,
+		},
+		{
+			name:        "span ID has correct length",
+			generator:   generateSpanID,
+			expectedLen: 16,
+			checkUnique:  true,
+		},
+	}
 
-	id := generateTraceID()
-	assert.Len(t, id, 32, "trace ID should be 32 hex characters (16 bytes)")
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-func TestGenerateSpanID(t *testing.T) {
-	t.Parallel()
+			id := tt.generator()
+			assert.Len(t, id, tt.expectedLen, "ID should have expected length")
 
-	id := generateSpanID()
-	assert.Len(t, id, 16, "span ID should be 16 hex characters (8 bytes)")
-}
-
-func TestGenerateTraceID_Uniqueness(t *testing.T) {
-	t.Parallel()
-
-	// Generate two IDs and ensure they're different
-	id1 := generateTraceID()
-	id2 := generateTraceID()
-	assert.NotEqual(t, id1, id2, "consecutive trace IDs should be unique")
-}
-
-func TestGenerateSpanID_Uniqueness(t *testing.T) {
-	t.Parallel()
-
-	id1 := generateSpanID()
-	id2 := generateSpanID()
-	assert.NotEqual(t, id1, id2, "consecutive span IDs should be unique")
+			if tt.checkUnique {
+				id2 := tt.generator()
+				assert.NotEqual(t, id, id2, "consecutive IDs should be unique")
+			}
+		})
+	}
 }

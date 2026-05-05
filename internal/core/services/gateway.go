@@ -46,7 +46,9 @@ func NewGatewayService(repo ports.GatewayRepository, rbacSvc ports.RBACService, 
 		logger:   logger,
 	}
 	// Initial load
-	_ = s.RefreshRoutes(context.Background())
+	if err := s.RefreshRoutes(context.Background()); err != nil {
+		s.logger.Error("failed to refresh routes on startup", "error", err)
+	}
 	return s
 }
 
@@ -108,7 +110,9 @@ func (s *GatewayService) CreateRoute(ctx context.Context, params ports.CreateRou
 		s.logger.Warn("failed to log audit event", "action", "gateway.route_create", "route_id", route.ID, "error", err)
 	}
 
-	_ = s.RefreshRoutes(ctx)
+	if err := s.RefreshRoutes(ctx); err != nil {
+		s.logger.Warn("failed to refresh routes after create", "route_id", route.ID, "error", err)
+	}
 	return route, nil
 }
 
@@ -160,6 +164,7 @@ func (s *GatewayService) RefreshRoutes(ctx context.Context) error {
 	for _, r := range routes {
 		proxy, err := s.createReverseProxy(r)
 		if err != nil {
+			s.logger.Error("failed to create reverse proxy for route", "route_id", r.ID, "route_name", r.Name, "target_url", r.TargetURL, "error", err)
 			continue
 		}
 
@@ -239,8 +244,10 @@ func (s *GatewayService) buildTLSConfig(route *domain.GatewayRoute) *tls.Config 
 	cfg := &tls.Config{
 		InsecureSkipVerify: route.TLSSkipVerify, //nolint:gosec // User-controlled option for development/testing
 	}
+	// Always set baseline TLS 1.2, raise to 1.3 if RequireTLS
+	cfg.MinVersion = tls.VersionTLS12
 	if route.RequireTLS {
-		cfg.MinVersion = tls.VersionTLS12
+		cfg.MinVersion = tls.VersionTLS13
 	}
 	return cfg
 }

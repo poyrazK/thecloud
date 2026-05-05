@@ -54,7 +54,8 @@ func (i *IPRateLimiter) GetLimiter(key string) *rate.Limiter {
 
 // GetRouteLimiter returns a rate limiter for a specific route and client key.
 // This enables per-route rate limiting while maintaining per-client tracking.
-func (i *IPRateLimiter) GetRouteLimiter(routeID uuid.UUID, key string) *rate.Limiter {
+// The r and burst parameters specify the per-route rate limits.
+func (i *IPRateLimiter) GetRouteLimiter(routeID uuid.UUID, key string, r rate.Limit, burst int) *rate.Limiter {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
@@ -64,10 +65,13 @@ func (i *IPRateLimiter) GetRouteLimiter(routeID uuid.UUID, key string) *rate.Lim
 
 	limiter, exists := i.routes[routeID][key]
 	if !exists {
-		limiter = rate.NewLimiter(i.rate, i.burst)
+		limiter = rate.NewLimiter(r, burst)
 		i.routes[routeID][key] = limiter
+		return limiter
 	}
 
+	// Update existing limiter with new rate/burst if different
+	limiter.SetLimit(r)
 	return limiter
 }
 
