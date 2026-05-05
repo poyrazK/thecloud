@@ -45,6 +45,15 @@ func (c *Client) ListInstancesWithPagination(limit, offset int) ([]Instance, *Li
 	return res.Data.Data, &res.Data, nil
 }
 
+// ListInstancesWithContextAndPagination returns instances with context and pagination metadata.
+func (c *Client) ListInstancesWithContextAndPagination(ctx context.Context, limit, offset int) ([]Instance, *ListResponse[Instance], error) {
+	var res Response[ListResponse[Instance]]
+	if err := c.getContextWithPagination(ctx, "/instances", &res, limit, offset); err != nil {
+		return nil, nil, err
+	}
+	return res.Data.Data, &res.Data, nil
+}
+
 // ListInstancesWithContext returns all instances with context support.
 func (c *Client) ListInstancesWithContext(ctx context.Context) ([]Instance, error) {
 	var res Response[[]Instance]

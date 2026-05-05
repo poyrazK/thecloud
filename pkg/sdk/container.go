@@ -1,7 +1,10 @@
 // Package sdk provides the official Go SDK for the platform.
 package sdk
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 // Deployment describes a container deployment.
 type Deployment struct {
@@ -46,6 +49,15 @@ func (c *Client) ListDeployments() ([]Deployment, error) {
 func (c *Client) ListDeploymentsWithPagination(limit, offset int) ([]Deployment, *ListResponse[Deployment], error) {
 	var res Response[ListResponse[Deployment]]
 	if err := c.getWithPagination("/containers/deployments", &res, limit, offset); err != nil {
+		return nil, nil, err
+	}
+	return res.Data.Data, &res.Data, nil
+}
+
+// ListDeploymentsWithContextAndPagination returns deployments with context and pagination metadata.
+func (c *Client) ListDeploymentsWithContextAndPagination(ctx context.Context, limit, offset int) ([]Deployment, *ListResponse[Deployment], error) {
+	var res Response[ListResponse[Deployment]]
+	if err := c.getContextWithPagination(ctx, "/containers/deployments", &res, limit, offset); err != nil {
 		return nil, nil, err
 	}
 	return res.Data.Data, &res.Data, nil

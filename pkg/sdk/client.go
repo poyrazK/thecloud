@@ -97,7 +97,11 @@ func (c *Client) getWithContext(ctx context.Context, path string, result interfa
 
 // getWithPagination performs a GET request with optional pagination parameters.
 func (c *Client) getWithPagination(path string, result interface{}, limit, offset int) error {
-	req := c.resty.R().SetResult(result)
+	return c.getContextWithPagination(context.Background(), path, result, limit, offset)
+}
+
+func (c *Client) getContextWithPagination(ctx context.Context, path string, result interface{}, limit, offset int) error {
+	req := c.resty.R().SetContext(ctx).SetResult(result)
 	if limit > 0 {
 		req.SetQueryParam("limit", strconv.Itoa(limit))
 	}
