@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -23,23 +22,14 @@ var instanceTypeListCmd = &cobra.Command{
 		limit, _ := cmd.Flags().GetInt("limit")
 		offset, _ := cmd.Flags().GetInt("offset")
 
-		var types []sdk.InstanceType
-		var meta *sdk.ListResponse[sdk.InstanceType]
-
-		if limit > 0 || offset > 0 {
-			var err error
-			types, meta, err = client.ListInstanceTypesWithPagination(limit, offset)
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				return
-			}
-		} else {
-			var err error
-			types, err = client.ListInstanceTypes()
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				return
-			}
+		types, meta, err := listWithPagination(
+			client.ListInstanceTypes,
+			client.ListInstanceTypesWithPagination,
+			limit, offset,
+		)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
 		}
 
 		if opts.JSON {
