@@ -108,7 +108,12 @@ var configSetCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Printf("[SUCCESS] %s set to %s\n", key, value)
+		// Mask API key value when logging
+		if key == "api-key" {
+			fmt.Printf("[SUCCESS] %s set to %s\n", key, "***")
+		} else {
+			fmt.Printf("[SUCCESS] %s set to %s\n", key, value)
+		}
 	},
 }
 
