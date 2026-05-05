@@ -390,7 +390,7 @@ func TestCoordinatorRepairStreamFailureContinues(t *testing.T) {
 	data, err := io.ReadAll(r)
 	require.NoError(t, err)
 	assert.Equal(t, "newdata", string(data))
-	_ = r.Close()
+	require.NoError(t, r.Close())
 
 	// Wait for async repair goroutines
 	time.Sleep(200 * time.Millisecond)

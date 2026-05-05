@@ -489,6 +489,7 @@ func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, r io.
 					},
 				})
 				if errSend != nil {
+					streams[i].cancel()
 					_, _ = streams[i].stream.CloseAndRecv()
 					continue
 				}
