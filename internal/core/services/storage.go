@@ -42,32 +42,64 @@ var validBucketNameRe = regexp.MustCompile(`^[a-z0-9.-]+$`)
 
 // boundedReader reads from r but returns ObjectTooLarge if more than limit bytes
 // are consumed, ensuring oversized uploads fail with an explicit error rather than
-// silent truncation.
+// silent truncation. It uses a 1-byte probe to distinguish "object exactly at
+// limit" (underlying EOF on next Read) from "object exceeds limit" (extra data).
 type boundedReader struct {
-	r      io.Reader
-	limit  int64
-	count  int64
-	delete func() // cleanup partial object on oversize
+	r          io.Reader
+	limit      int64
+	count      int64
+	cleanupFn func() // cleanup partial object on oversize; may be nil
 }
 
 func (b *boundedReader) Read(p []byte) (n int, err error) {
-	if b.count >= b.limit {
-		b.delete()
+	// Already exceeded limit — propagate error immediately.
+	if b.count > b.limit {
+		if b.cleanupFn != nil {
+			b.cleanupFn()
+		}
 		return 0, errors.New(errors.ObjectTooLarge, "object exceeds maximum size")
 	}
+
 	remaining := b.limit - b.count
 	if int64(len(p)) > remaining {
 		p = p[:remaining]
 	}
+
+	// Read up to 'remaining' bytes from underlying.
 	n, err = b.r.Read(p)
 	b.count += int64(n)
+
+	// Detect overflow: we read past the limit.
 	if b.count > b.limit {
-		b.delete()
-		return n, errors.New(errors.ObjectTooLarge, "object exceeds maximum size")
+		if b.cleanupFn != nil {
+			b.cleanupFn()
+		}
+		// Return 0 to signal no valid data transferred; error conveys cause.
+		return 0, errors.New(errors.ObjectTooLarge, "object exceeds maximum size")
 	}
-	if err == io.EOF && b.count <= b.limit {
-		return n, io.EOF
+
+	// count == limit — signal limit reached.
+	// If underlying error is already EOF, return it directly.
+	// Otherwise probe to distinguish "exact limit + underlying done" (EOF)
+	// from "exact limit + underlying has more" (overflow).
+	if b.count == b.limit {
+		if err == io.EOF {
+			return 0, io.EOF
+		}
+		// Underlying may have more data; probe with 1 byte.
+		probe := [1]byte{}
+		_, probeErr := b.r.Read(probe[:])
+		if probeErr == io.EOF {
+			// Underlying exhausted at exactly the limit — clean EOF.
+			return 0, io.EOF
+		}
+		// Extra data exists beyond the limit — overflow.
+		if b.cleanupFn != nil {
+			b.cleanupFn()
+		}
+		return 0, errors.New(errors.ObjectTooLarge, "object exceeds maximum size")
 	}
+
 	return n, err
 }
 
@@ -212,7 +244,7 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 	br := &boundedReader{
 		r:     dataStream,
 		limit: maxPartSize,
-		delete: func() {
+		cleanupFn: func() {
 			_ = s.store.Delete(ctx, bucketName, storeKey)
 		},
 	}
