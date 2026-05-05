@@ -36,6 +36,14 @@ func TestNewConfig(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "9090", cfg.Port)
 	})
+
+	t.Run("Missing POWERDNS_API_KEY fails", func(t *testing.T) {
+		os.Setenv("STORAGE_SECRET", "test-secret")
+		os.Unsetenv("POWERDNS_API_KEY")
+		_, err := NewConfig()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "POWERDNS_API_KEY")
+	})
 }
 
 func TestGetEnv(t *testing.T) {

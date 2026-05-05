@@ -967,12 +967,15 @@ func postgresIdentifier(id string) string {
 func (s *DatabaseService) buildPasswordChangeCmd(engine domain.DatabaseEngine, username, authPassword, targetPassword string) []string {
 	switch engine {
 	case domain.EnginePostgres:
-		// Use psql with password via env var (POSTGRES_PASSWORD_FILE not supported by psql)
-		// The password won't appear in /proc/cmdline since it's passed via env
+		// Use psql with password via env var (POSTGRES_PASSWORD_FILE not supported by psql).
+		// Note: While env vars avoid cmdline exposure, the password is still visible to
+		// root users via /proc/$pid/environ. This is a known tradeoff - the alternative
+		// (stdin password) requires more complex interaction patterns with psql.
 		stmt := fmt.Sprintf("ALTER USER %s WITH PASSWORD '%s';", postgresIdentifier(username), sqlStringLiteral(targetPassword))
 		return []string{"sh", "-c", "POSTGRES_PASSWORD='" + sqlStringLiteral(targetPassword) + "' psql -h 127.0.0.1 -U " + username + " -d postgres -c '" + stmt + "'"}
 	case domain.EngineMySQL:
-		// Use mysql with password via MYSQL_PWD env var to avoid cmdline exposure
+		// Use mysql with password via MYSQL_PWD env var to avoid cmdline exposure.
+		// Same tradeoff as above - password visible in /proc environment to root users.
 		stmt := fmt.Sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s';", sqlStringLiteral(username), sqlStringLiteral(targetPassword))
 		return []string{"sh", "-c", "MYSQL_PWD='" + sqlStringLiteral(authPassword) + "' mysql -u " + sqlStringLiteral(username) + " --execute='" + stmt + "'"}
 	}

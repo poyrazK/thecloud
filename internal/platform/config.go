@@ -3,7 +3,6 @@ package platform
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -117,11 +116,9 @@ func GetSecretsEncryptionKey() string {
 // validateConfig ensures required configuration values are present.
 func validateConfig(cfg *Config) error {
 	if cfg.StorageSecret == "" {
-		slog.Error("STORAGE_SECRET environment variable is required")
 		return fmt.Errorf("STORAGE_SECRET environment variable is required")
 	}
 	if cfg.PowerDNSAPIKey == "" {
-		slog.Error("POWERDNS_API_KEY environment variable is required")
 		return fmt.Errorf("POWERDNS_API_KEY environment variable is required")
 	}
 	return nil
