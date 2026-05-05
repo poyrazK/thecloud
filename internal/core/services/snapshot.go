@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,6 +24,9 @@ type SnapshotService struct {
 	eventSvc   ports.EventService
 	auditSvc   ports.AuditService
 	logger     *slog.Logger
+	// asyncResults tracks in-progress snapshot goroutines for error propagation.
+	asyncResults map[uuid.UUID]chan error
+	mu           sync.Mutex
 }
 
 const snapshotNamePrefix = "thecloud-snap-"
@@ -39,13 +43,14 @@ func NewSnapshotService(
 	logger *slog.Logger,
 ) *SnapshotService {
 	return &SnapshotService{
-		repo:       repo,
-		rbacSvc:    rbacSvc,
-		volumeRepo: volumeRepo,
-		storage:    storage,
-		eventSvc:   eventSvc,
-		auditSvc:   auditSvc,
-		logger:     logger,
+		repo:         repo,
+		rbacSvc:      rbacSvc,
+		volumeRepo:   volumeRepo,
+		storage:      storage,
+		eventSvc:     eventSvc,
+		auditSvc:     auditSvc,
+		logger:       logger,
+		asyncResults: make(map[uuid.UUID]chan error),
 	}
 }
 
@@ -84,6 +89,13 @@ func (s *SnapshotService) CreateSnapshot(ctx context.Context, volumeID uuid.UUID
 	// 4. Perform async snapshot
 	// Copy snapshot to avoid data race with returned pointer
 	asyncSnap := *snapshot
+
+	// Register error channel so caller can wait for async result
+	errCh := make(chan error, 1)
+	s.mu.Lock()
+	s.asyncResults[snapshot.ID] = errCh
+	s.mu.Unlock()
+
 	go func() {
 		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
@@ -91,10 +103,18 @@ func (s *SnapshotService) CreateSnapshot(ctx context.Context, volumeID uuid.UUID
 		if err != nil {
 			s.logger.Error("failed to perform snapshot", "snapshot_id", snapshot.ID, "error", err)
 			asyncSnap.Status = domain.SnapshotStatusError
+			errCh <- err
 		} else {
 			asyncSnap.Status = domain.SnapshotStatusAvailable
 		}
 		_ = s.repo.Update(bgCtx, &asyncSnap)
+
+		// Clean up tracking entry
+		s.mu.Lock()
+		delete(s.asyncResults, snapshot.ID)
+		s.mu.Unlock()
+
+		close(errCh)
 	}()
 
 	if err := s.eventSvc.RecordEvent(ctx, "SNAPSHOT_CREATE", snapshot.ID.String(), "SNAPSHOT", map[string]interface{}{
@@ -132,6 +152,33 @@ func (s *SnapshotService) GetSnapshot(ctx context.Context, id uuid.UUID) (*domai
 	}
 
 	return s.repo.GetByID(ctx, id)
+}
+
+// WaitForSnapshot blocks until the snapshot async operation completes.
+// Returns the final snapshot state and any error that occurred during async creation.
+func (s *SnapshotService) WaitForSnapshot(ctx context.Context, id uuid.UUID) (*domain.Snapshot, error) {
+	s.mu.Lock()
+	errCh, ok := s.asyncResults[id]
+	s.mu.Unlock()
+
+	if !ok {
+		// Not in progress — return current state from repo
+		return s.GetSnapshot(ctx, id)
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case err := <-errCh:
+		snap, snapErr := s.GetSnapshot(ctx, id)
+		if snapErr != nil {
+			return nil, snapErr
+		}
+		if err != nil {
+			return snap, fmt.Errorf("async snapshot failed: %w", err)
+		}
+		return snap, nil
+	}
 }
 
 func (s *SnapshotService) performSnapshot(ctx context.Context, vol *domain.Volume, snapshot *domain.Snapshot) error {
