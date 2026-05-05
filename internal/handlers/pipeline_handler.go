@@ -242,15 +242,15 @@ func (h *PipelineHandler) WebhookTrigger(c *gin.Context) {
 		return
 	}
 
-	payload, err := io.ReadAll(c.Request.Body)
+	payload, err := io.ReadAll(io.LimitReader(c.Request.Body, int64(maxPayloadSize)+1))
 	if err != nil {
 		httputil.Error(c, fmt.Errorf("failed to read payload: %w", err))
 		return
 	}
 	// Reject payloads that exceed the limit to prevent truncated bodies
 	// from causing signature validation failures or duplicate delivery issues.
-	if len(payload) >= maxPayloadSize {
-		httputil.Error(c, errors.New(errors.InvalidInput, "webhook payload exceeds maximum size"))
+	if len(payload) > maxPayloadSize {
+		httputil.Error(c, errors.New(errors.ObjectTooLarge, "webhook payload exceeds maximum size"))
 		return
 	}
 
