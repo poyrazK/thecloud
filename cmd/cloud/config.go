@@ -108,14 +108,7 @@ var configSetCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// Never log sensitive values - only log key names, not contents
-		if key == "api-key" {
-			fmt.Println("[SUCCESS] api-key set")
-		} else if key == "api-url" {
-			fmt.Printf("[SUCCESS] api-url set to %s\n", value)
-		} else {
-			fmt.Printf("[SUCCESS] %s set to %s\n", key, value)
-		}
+		fmt.Println("[SUCCESS] configuration updated")
 	},
 }
 
