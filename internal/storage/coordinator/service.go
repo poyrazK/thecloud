@@ -236,20 +236,21 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 			if totalSize > maxObjectSize {
 				return totalSize, fmt.Errorf("object exceeds max size: %d bytes (max %d)", totalSize, maxObjectSize)
 			}
-			// Broadcast chunk
-			for i := len(streams) - 1; i >= 0; i-- {
+			// Broadcast chunk — build live-streams slice excluding failed ones to avoid index skip bug
+			live := streams[:0]
+			for i := 0; i < len(streams); i++ {
 				errSend := streams[i].stream.Send(&pb.StoreRequest{
 					Payload: &pb.StoreRequest_ChunkData{
 						ChunkData: buf[:n],
 					},
 				})
 				if errSend != nil {
-					// Close stream before removing to release resources
 					_, _ = streams[i].stream.CloseAndRecv()
-					streams = append(streams[:i], streams[i+1:]...)
-					i--
+					continue
 				}
+				live = append(live, streams[i])
 			}
+			streams = live
 		}
 		if errors.Is(err, io.EOF) {
 			break
@@ -479,6 +480,8 @@ func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, r io.
 				}()
 				return
 			}
+			// Broadcast chunk to live streams — build live-streams slice excluding failed ones to avoid index skip bug
+			live := streams[:0]
 			for i := 0; i < len(streams); i++ {
 				errSend := streams[i].stream.Send(&pb.StoreRequest{
 					Payload: &pb.StoreRequest_ChunkData{
@@ -486,11 +489,13 @@ func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, r io.
 					},
 				})
 				if errSend != nil {
+					streams[i].cancel()
 					_, _ = streams[i].stream.CloseAndRecv()
-					streams = append(streams[:i], streams[i+1:]...)
-					i--
+					continue
 				}
+				live = append(live, streams[i])
 			}
+			streams = live
 		}
 		if err != nil {
 			break
