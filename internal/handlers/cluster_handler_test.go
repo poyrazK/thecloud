@@ -379,7 +379,7 @@ func TestClusterHandlerScaleCluster(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
-	t.Run(msgInvalidID, func(t *testing.T) {
+	t.Run("InvalidID", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest("PUT", clustersPrefix+"invalid/scale", nil)
 		r.ServeHTTP(w, req)
@@ -400,6 +400,30 @@ func TestClusterHandlerScaleCluster(t *testing.T) {
 		req := httptest.NewRequest("PUT", clustersPrefix+clusterID.String()+scalePathSuffix, bytes.NewBuffer(body))
 		r.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+
+	t.Run("WorkersZero_Rejected", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]interface{}{"workers": 0})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("PUT", clustersPrefix+clusterID.String()+scalePathSuffix, bytes.NewBuffer(body))
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("WorkersNegative_Rejected", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]interface{}{"workers": -1})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("PUT", clustersPrefix+clusterID.String()+scalePathSuffix, bytes.NewBuffer(body))
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("WorkersMissing_Rejected", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]interface{}{})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("PUT", clustersPrefix+clusterID.String()+scalePathSuffix, bytes.NewBuffer(body))
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 }
 

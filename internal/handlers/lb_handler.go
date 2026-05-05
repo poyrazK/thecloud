@@ -34,7 +34,7 @@ type CreateLBRequest struct {
 // AddTargetRequest is the payload for adding a load balancer target.
 type AddTargetRequest struct {
 	InstanceID string `json:"instance_id" binding:"required"`
-	Port       int    `json:"port" binding:"required"`
+	Port       int    `json:"port" binding:"required,min=1,max=65535"`
 	Weight     int    `json:"weight"`
 }
 
