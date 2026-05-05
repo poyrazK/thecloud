@@ -20,7 +20,6 @@ import (
 const (
 	fmtErrorLog     = "Error: %v\n"
 	fmtDetailRow    = "%-15s %v\n"
-	demoPrompt      = "[WARN] No API Key found. Run 'cloud auth create-demo <name>' to get one."
 	successInstance = "[SUCCESS] Instance launched successfully!\n"
 	infoStop        = "[INFO] Instance stop initiated."
 	pollInterval    = 2 * time.Second
@@ -40,23 +39,14 @@ var listCmd = &cobra.Command{
 		limit, _ := cmd.Flags().GetInt("limit")
 		offset, _ := cmd.Flags().GetInt("offset")
 
-		var instances []sdk.Instance
-		var meta *sdk.ListResponse[sdk.Instance]
-
-		if limit > 0 || offset > 0 {
-			var err error
-			instances, meta, err = client.ListInstancesWithPagination(limit, offset)
-			if err != nil {
-				fmt.Printf(fmtErrorLog, err)
-				return
-			}
-		} else {
-			var err error
-			instances, err = client.ListInstances()
-			if err != nil {
-				fmt.Printf(fmtErrorLog, err)
-				return
-			}
+		instances, meta, err := listWithPagination(
+			client.ListInstances,
+			client.ListInstancesWithPagination,
+			limit, offset,
+		)
+		if err != nil {
+			fmt.Printf(fmtErrorLog, err)
+			return
 		}
 
 		if opts.JSON {
