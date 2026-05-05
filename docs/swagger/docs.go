@@ -11087,13 +11087,16 @@ const docTemplate = `{
                     }
                 },
                 "dial_timeout": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "idle_conn_timeout": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "max_body_size": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "methods": {
                     "type": "array",
@@ -11108,16 +11111,19 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "priority": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "rate_limit": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "require_tls": {
                     "type": "boolean"
                 },
                 "response_header_timeout": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "strip_prefix": {
                     "type": "boolean"

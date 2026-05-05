@@ -2136,17 +2136,14 @@ definitions:
           type: string
         type: array
       dial_timeout:
-        type: integer
         minimum: 0
-        description: TCP dial timeout in milliseconds
+        type: integer
       idle_conn_timeout:
-        type: integer
         minimum: 0
-        description: Idle connection timeout in milliseconds
+        type: integer
       max_body_size:
-        type: integer
         minimum: 0
-        description: Max request body size in bytes
+        type: integer
       methods:
         items:
           type: string
@@ -2156,16 +2153,16 @@ definitions:
       path_prefix:
         type: string
       priority:
-        type: integer
         minimum: 0
+        type: integer
       rate_limit:
-        type: integer
         minimum: 0
+        type: integer
       require_tls:
         type: boolean
       response_header_timeout:
-        type: integer
         minimum: 0
+        type: integer
       strip_prefix:
         type: boolean
       target_url:

@@ -26,16 +26,16 @@ type CreateRouteRequest struct {
 	TargetURL            string   `json:"target_url" binding:"required"`
 	Methods              []string `json:"methods"`
 	StripPrefix          bool     `json:"strip_prefix"`
-	RateLimit            int      `json:"rate_limit"`
-	DialTimeout          int64    `json:"dial_timeout"`
-	ResponseHeaderTimeout int64    `json:"response_header_timeout"`
-	IdleConnTimeout      int64    `json:"idle_conn_timeout"`
+	RateLimit            int      `json:"rate_limit" binding:"gte=0"`
+	DialTimeout          int64    `json:"dial_timeout" binding:"gte=0"`
+	ResponseHeaderTimeout int64    `json:"response_header_timeout" binding:"gte=0"`
+	IdleConnTimeout      int64    `json:"idle_conn_timeout" binding:"gte=0"`
 	TLSSkipVerify        bool     `json:"tls_skip_verify"`
 	RequireTLS          bool     `json:"require_tls"`
 	AllowedCIDRs         []string `json:"allowed_cidrs"`
 	BlockedCIDRs         []string `json:"blocked_cidrs"`
-	MaxBodySize          int64    `json:"max_body_size"`
-	Priority             int      `json:"priority"`
+	MaxBodySize          int64    `json:"max_body_size" binding:"gte=0"`
+	Priority             int      `json:"priority" binding:"gte=0"`
 }
 
 // GatewayHandler handles API gateway HTTP endpoints.
