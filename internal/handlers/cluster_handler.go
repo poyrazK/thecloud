@@ -201,7 +201,7 @@ func (h *ClusterHandler) RepairCluster(c *gin.Context) {
 
 // ScaleClusterRequest is the payload for scaling workers.
 type ScaleClusterRequest struct {
-	Workers int `json:"workers"`
+	Workers int `json:"workers" binding:"required,min=1"`
 }
 
 // ScaleCluster godoc

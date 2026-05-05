@@ -27,7 +27,7 @@ func NewLBHandler(svc ports.LBService) *LBHandler {
 type CreateLBRequest struct {
 	Name      string `json:"name" binding:"required"`
 	VpcID     string `json:"vpc_id" binding:"required"`
-	Port      int    `json:"port" binding:"required"`
+	Port      int    `json:"port" binding:"required,min=1,max=65535"`
 	Algorithm string `json:"algorithm"`
 }
 
