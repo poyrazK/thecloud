@@ -480,7 +480,7 @@ func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, r io.
 				}()
 				return
 			}
-			// Broadcast chunk to live streams — compact in place to avoid index skip bug
+			// Broadcast chunk to live streams — build live-streams slice excluding failed ones to avoid index skip bug
 			live := streams[:0]
 			for i := 0; i < len(streams); i++ {
 				errSend := streams[i].stream.Send(&pb.StoreRequest{
