@@ -108,9 +108,9 @@ var configSetCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// Mask API key value when logging
+		// Mask API key value when logging - don't pass value to fmt to avoid CodeQL alert
 		if key == "api-key" {
-			fmt.Printf("[SUCCESS] %s set to %s\n", key, "***")
+			fmt.Println("[SUCCESS] api-key set")
 		} else {
 			fmt.Printf("[SUCCESS] %s set to %s\n", key, value)
 		}
