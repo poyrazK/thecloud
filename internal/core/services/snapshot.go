@@ -107,7 +107,15 @@ func (s *SnapshotService) CreateSnapshot(ctx context.Context, volumeID uuid.UUID
 		} else {
 			asyncSnap.Status = domain.SnapshotStatusAvailable
 		}
-		_ = s.repo.Update(bgCtx, &asyncSnap)
+		if updateErr := s.repo.Update(bgCtx, &asyncSnap); updateErr != nil {
+			s.logger.Error("failed to update snapshot status", "snapshot_id", snapshot.ID, "error", updateErr)
+			// Propagate Update failure so callers don't think snapshot succeeded
+			// when it remains stuck in CREATING. Only send if performSnapshot
+			// succeeded, since errCh already carries that error.
+			if err == nil {
+				errCh <- fmt.Errorf("failed to persist snapshot status: %w", updateErr)
+			}
+		}
 
 		// Clean up tracking entry
 		s.mu.Lock()
