@@ -111,10 +111,10 @@ func TestInstanceService_CalculateInstanceStats(t *testing.T) {
 		res := svc.calculateInstanceStats(stats)
 		assert.InDelta(t, 10.0, res.CPUPercentage, 0.01) // (1000-500)/(10000-5000) * 100 = 10%
 		assert.InDelta(t, 50.0, res.MemoryPercentage, 0.01)
-		assert.Equal(t, uint64(0), res.NetworkRxBytes)
-		assert.Equal(t, uint64(0), res.NetworkTxBytes)
-		assert.Equal(t, uint64(0), res.DiskReadBytes)
-		assert.Equal(t, uint64(0), res.DiskWriteBytes)
+		assert.Nil(t, res.NetworkRxBytes)
+		assert.Nil(t, res.NetworkTxBytes)
+		assert.Nil(t, res.DiskReadBytes)
+		assert.Nil(t, res.DiskWriteBytes)
 	})
 
 	t.Run("Network I/O multiple interfaces", func(t *testing.T) {
@@ -128,8 +128,8 @@ func TestInstanceService_CalculateInstanceStats(t *testing.T) {
 		}
 
 		res := svc.calculateInstanceStats(stats)
-		assert.Equal(t, uint64(3000), res.NetworkRxBytes) // 1000 + 2000
-		assert.Equal(t, uint64(2000), res.NetworkTxBytes) // 500 + 1500
+		assert.Equal(t, uint64(3000), *res.NetworkRxBytes) // 1000 + 2000
+		assert.Equal(t, uint64(2000), *res.NetworkTxBytes) // 500 + 1500
 	})
 
 	t.Run("Block I/O read and write", func(t *testing.T) {
@@ -142,8 +142,8 @@ func TestInstanceService_CalculateInstanceStats(t *testing.T) {
 		}
 
 		res := svc.calculateInstanceStats(stats)
-		assert.Equal(t, uint64(6000), res.DiskReadBytes)  // 5000 + 1000
-		assert.Equal(t, uint64(5000), res.DiskWriteBytes) // 3000 + 2000
+		assert.Equal(t, uint64(6000), *res.DiskReadBytes)  // 5000 + 1000
+		assert.Equal(t, uint64(5000), *res.DiskWriteBytes) // 3000 + 2000
 	})
 
 	t.Run("CPU time nanoseconds", func(t *testing.T) {
@@ -151,7 +151,7 @@ func TestInstanceService_CalculateInstanceStats(t *testing.T) {
 		stats.CPUStats.CPUTime = 5000000000 // 5 nanoseconds
 
 		res := svc.calculateInstanceStats(stats)
-		assert.Equal(t, uint64(5000000000), res.CPUTimeNanoseconds)
+		assert.Equal(t, uint64(5000000000), *res.CPUTimeNanoseconds)
 	})
 
 	t.Run("Combined all fields", func(t *testing.T) {
@@ -176,11 +176,11 @@ func TestInstanceService_CalculateInstanceStats(t *testing.T) {
 		res := svc.calculateInstanceStats(stats)
 		assert.InDelta(t, 10.0, res.CPUPercentage, 0.01)
 		assert.InDelta(t, 50.0, res.MemoryPercentage, 0.01)
-		assert.Equal(t, uint64(500), res.NetworkRxBytes)
-		assert.Equal(t, uint64(250), res.NetworkTxBytes)
-		assert.Equal(t, uint64(2048), res.DiskReadBytes)
-		assert.Equal(t, uint64(0), res.DiskWriteBytes)
-		assert.Equal(t, uint64(3000000000), res.CPUTimeNanoseconds)
+		assert.Equal(t, uint64(500), *res.NetworkRxBytes)
+		assert.Equal(t, uint64(250), *res.NetworkTxBytes)
+		assert.Equal(t, uint64(2048), *res.DiskReadBytes)
+		assert.Equal(t, uint64(0), *res.DiskWriteBytes) // source data exists but write sum is 0
+		assert.Equal(t, uint64(3000000000), *res.CPUTimeNanoseconds)
 	})
 }
 

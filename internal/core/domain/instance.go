@@ -95,11 +95,11 @@ type InstanceStats struct {
 	MemoryUsageBytes    float64 `json:"memory_usage_bytes"`
 	MemoryLimitBytes    float64 `json:"memory_limit_bytes"`
 	MemoryPercentage    float64 `json:"memory_percentage"`
-	NetworkRxBytes      uint64 `json:"network_rx_bytes,omitempty"`
-	NetworkTxBytes      uint64 `json:"network_tx_bytes,omitempty"`
-	DiskReadBytes       uint64 `json:"disk_read_bytes,omitempty"`
-	DiskWriteBytes      uint64 `json:"disk_write_bytes,omitempty"`
-	CPUTimeNanoseconds  uint64 `json:"cpu_time_nanoseconds,omitempty"` // only populated by Libvirt backend; Docker uses delta-based percentage instead
+	NetworkRxBytes      *uint64 `json:"network_rx_bytes,omitempty"`
+	NetworkTxBytes      *uint64 `json:"network_tx_bytes,omitempty"`
+	DiskReadBytes       *uint64 `json:"disk_read_bytes,omitempty"`
+	DiskWriteBytes      *uint64 `json:"disk_write_bytes,omitempty"`
+	CPUTimeNanoseconds  *uint64 `json:"cpu_time_nanoseconds,omitempty"` // only populated by Libvirt backend; Docker uses delta-based percentage instead
 }
 
 // RawDockerStats mirrors Docker's stats payload for CPU/memory calculations.

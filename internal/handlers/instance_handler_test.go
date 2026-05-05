@@ -453,6 +453,8 @@ func TestInstanceHandlerGetLogs(t *testing.T) {
 	assert.Equal(t, "logs content", w.Body.String())
 }
 
+func ptrUint64(v uint64) *uint64 { return &v }
+
 func TestInstanceHandlerGetStats(t *testing.T) {
 	t.Parallel()
 	mockSvc, handler, r := setupInstanceHandlerTest(t)
@@ -465,11 +467,11 @@ func TestInstanceHandlerGetStats(t *testing.T) {
 		MemoryUsageBytes:   128,
 		MemoryLimitBytes:   256,
 		MemoryPercentage:   50.0,
-		NetworkRxBytes:     1024,
-		NetworkTxBytes:     512,
-		DiskReadBytes:      4096,
-		DiskWriteBytes:     2048,
-		CPUTimeNanoseconds: 3000000000,
+		NetworkRxBytes:     ptrUint64(1024),
+		NetworkTxBytes:     ptrUint64(512),
+		DiskReadBytes:      ptrUint64(4096),
+		DiskWriteBytes:     ptrUint64(2048),
+		CPUTimeNanoseconds: ptrUint64(3000000000),
 	}
 	mockSvc.On("GetInstanceStats", mock.Anything, id).Return(stats, nil)
 
@@ -492,11 +494,11 @@ func TestInstanceHandlerGetStats(t *testing.T) {
 	assert.InDelta(t, 128, wrapper.Data.MemoryUsageBytes, 0.01)
 	assert.InDelta(t, 256, wrapper.Data.MemoryLimitBytes, 0.01)
 	assert.InDelta(t, 50.0, wrapper.Data.MemoryPercentage, 0.01)
-	assert.Equal(t, uint64(1024), wrapper.Data.NetworkRxBytes)
-	assert.Equal(t, uint64(512), wrapper.Data.NetworkTxBytes)
-	assert.Equal(t, uint64(4096), wrapper.Data.DiskReadBytes)
-	assert.Equal(t, uint64(2048), wrapper.Data.DiskWriteBytes)
-	assert.Equal(t, uint64(3000000000), wrapper.Data.CPUTimeNanoseconds)
+	assert.Equal(t, uint64(1024), *wrapper.Data.NetworkRxBytes)
+	assert.Equal(t, uint64(512), *wrapper.Data.NetworkTxBytes)
+	assert.Equal(t, uint64(4096), *wrapper.Data.DiskReadBytes)
+	assert.Equal(t, uint64(2048), *wrapper.Data.DiskWriteBytes)
+	assert.Equal(t, uint64(3000000000), *wrapper.Data.CPUTimeNanoseconds)
 }
 
 func TestInstanceHandlerLaunchWithVolumesAndVPC(t *testing.T) {

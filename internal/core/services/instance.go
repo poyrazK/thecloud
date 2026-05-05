@@ -1291,21 +1291,36 @@ func (s *InstanceService) calculateInstanceStats(stats *domain.RawDockerStats) *
 	}
 
 	// Sum network rx/tx across all interfaces
-	var rxBytes, txBytes uint64
-	for _, net := range stats.NetworkStats {
-		rxBytes += net.RxBytes
-		txBytes += net.TxBytes
+	var rxBytes, txBytes *uint64
+	if stats.NetworkStats != nil {
+		var r, t uint64
+		for _, net := range stats.NetworkStats {
+			r += net.RxBytes
+			t += net.TxBytes
+		}
+		rxBytes = &r
+		txBytes = &t
 	}
 
 	// Sum block read/write bytes
-	var readBytes, writeBytes uint64
-	for _, entry := range stats.BlkioStats.IoServiceBytes {
-		switch entry.Op {
-		case "read", "Read":
-			readBytes += entry.Value
-		case "write", "Write":
-			writeBytes += entry.Value
+	var readBytes, writeBytes *uint64
+	if stats.BlkioStats.IoServiceBytes != nil {
+		var r, w uint64
+		for _, entry := range stats.BlkioStats.IoServiceBytes {
+			switch entry.Op {
+			case "read", "Read":
+				r += entry.Value
+			case "write", "Write":
+				w += entry.Value
+			}
 		}
+		readBytes = &r
+		writeBytes = &w
+	}
+
+	var cpuTime *uint64
+	if ct := stats.CPUStats.CPUTime; ct > 0 {
+		cpuTime = &ct
 	}
 
 	return &domain.InstanceStats{
@@ -1317,7 +1332,7 @@ func (s *InstanceService) calculateInstanceStats(stats *domain.RawDockerStats) *
 		NetworkTxBytes:      txBytes,
 		DiskReadBytes:       readBytes,
 		DiskWriteBytes:      writeBytes,
-		CPUTimeNanoseconds:  stats.CPUStats.CPUTime,
+		CPUTimeNanoseconds:  cpuTime,
 	}
 }
 
