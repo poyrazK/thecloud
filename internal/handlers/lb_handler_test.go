@@ -258,6 +258,20 @@ func TestLBHandlerAddTarget(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 
+	t.Run("PortNegative_Rejected", func(t *testing.T) {
+		body, err := json.Marshal(map[string]interface{}{
+			"instance_id": instID.String(),
+			"port":        -1,
+			"weight":      10,
+		})
+		require.NoError(t, err)
+		w := httptest.NewRecorder()
+		req, err := http.NewRequest("POST", lbPath+"/"+lbID.String()+"/targets", bytes.NewBuffer(body))
+		require.NoError(t, err)
+		r.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
 	t.Run("PortExceedsMax_Rejected", func(t *testing.T) {
 		body, err := json.Marshal(map[string]interface{}{
 			"instance_id": instID.String(),
