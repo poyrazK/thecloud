@@ -20,6 +20,8 @@ type CLIOptions struct {
 
 var opts CLIOptions
 
+const errFmt = "Error: %v\n"
+
 func createClient(o CLIOptions) *sdk.Client {
 	cfg := loadFullConfig()
 
@@ -100,4 +102,18 @@ func truncateID(id string) string {
 		return id
 	}
 	return id[:n]
+}
+
+// listWithPagination is a generic helper for list commands that support pagination.
+// It calls the paginated function if limit/offset are set, otherwise calls the regular function.
+func listWithPagination[T any](
+	regularFn func() ([]T, error),
+	pagFn func(int, int) ([]T, *sdk.ListResponse[T], error),
+	limit, offset int,
+) ([]T, *sdk.ListResponse[T], error) {
+	if limit > 0 || offset > 0 {
+		return pagFn(limit, offset)
+	}
+	items, err := regularFn()
+	return items, nil, err
 }

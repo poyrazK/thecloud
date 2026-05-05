@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -45,23 +44,14 @@ var listDeploymentsCmd = &cobra.Command{
 		limit, _ := cmd.Flags().GetInt("limit")
 		offset, _ := cmd.Flags().GetInt("offset")
 
-		var deps []sdk.Deployment
-		var meta *sdk.ListResponse[sdk.Deployment]
-
-		if limit > 0 || offset > 0 {
-			var err error
-			deps, meta, err = client.ListDeploymentsWithPagination(limit, offset)
-			if err != nil {
-				fmt.Printf(containerErrorFormat, err)
-				return
-			}
-		} else {
-			var err error
-			deps, err = client.ListDeployments()
-			if err != nil {
-				fmt.Printf(containerErrorFormat, err)
-				return
-			}
+		deps, meta, err := listWithPagination(
+			client.ListDeployments,
+			client.ListDeploymentsWithPagination,
+			limit, offset,
+		)
+		if err != nil {
+			fmt.Printf(containerErrorFormat, err)
+			return
 		}
 
 		table := tablewriter.NewWriter(os.Stdout)
