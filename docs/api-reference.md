@@ -264,20 +264,22 @@ Get the VNC console URL for the instance.
 ```
 
 ### GET /instances/:id/stats
-Get real-time resource usage stats for an instance (CPU, memory, network I/O, disk I/O).
+Get real-time resource usage stats for an instance (CPU, memory, network I/O, disk I/O). Returns a wrapped response via `httputil.Success`.
 
 **Response:**
 ```json
 {
-  "cpu_percentage": 25.5,
-  "memory_usage_bytes": 524288000,
-  "memory_limit_bytes": 1073741824,
-  "memory_percentage": 48.8,
-  "network_rx_bytes": 1024000,
-  "network_tx_bytes": 512000,
-  "disk_read_bytes": 10240000,
-  "disk_write_bytes": 5120000,
-  "cpu_time_nanoseconds": 5000000000
+  "data": {
+    "cpu_percentage": 25.5,
+    "memory_usage_bytes": 524288000,
+    "memory_limit_bytes": 1073741824,
+    "memory_percentage": 48.8,
+    "network_rx_bytes": 1024000,
+    "network_tx_bytes": 512000,
+    "disk_read_bytes": 10240000,
+    "disk_write_bytes": 5120000,
+    "cpu_time_nanoseconds": 5000000000
+  }
 }
 ```
 

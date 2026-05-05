@@ -620,7 +620,7 @@ func (a *LibvirtAdapter) GetInstanceStats(ctx context.Context, id string) (io.Re
 		}
 	}
 
-	statJSON, _ := json.Marshal(map[string]interface{}{
+	statJSON, err := json.Marshal(map[string]interface{}{
 		"memory_stats": map[string]uint64{
 			"usage": usage,
 			"limit": limit,
@@ -629,6 +629,9 @@ func (a *LibvirtAdapter) GetInstanceStats(ctx context.Context, id string) (io.Re
 			"cpu_time": cpuTime,
 		},
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal stats: %w", err)
+	}
 	return io.NopCloser(bytes.NewReader(statJSON)), nil
 }
 
