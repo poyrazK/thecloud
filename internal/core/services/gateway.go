@@ -19,6 +19,7 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/routing"
 )
 
@@ -101,12 +102,12 @@ func (s *GatewayService) CreateRoute(ctx context.Context, params ports.CreateRou
 	// Validate CIDRs before saving
 	for _, cidr := range route.AllowedCIDRs {
 		if _, _, err := net.ParseCIDR(cidr); err != nil {
-			return nil, fmt.Errorf("invalid allowed CIDR %q: %w", cidr, err)
+			return nil, errors.New(errors.InvalidInput, fmt.Sprintf("invalid allowed CIDR %q: %v", cidr, err))
 		}
 	}
 	for _, cidr := range route.BlockedCIDRs {
 		if _, _, err := net.ParseCIDR(cidr); err != nil {
-			return nil, fmt.Errorf("invalid blocked CIDR %q: %w", cidr, err)
+			return nil, errors.New(errors.InvalidInput, fmt.Sprintf("invalid blocked CIDR %q: %v", cidr, err))
 		}
 	}
 

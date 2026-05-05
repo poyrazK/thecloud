@@ -245,7 +245,7 @@ func generateSpanID() string {
 func (h *GatewayHandler) checkCIDR(c *gin.Context, route *domain.GatewayRoute) bool {
 	clientIP := net.ParseIP(c.ClientIP())
 	if clientIP == nil {
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied: invalid client IP"})
+		httputil.Error(c, errors.New(errors.Forbidden, "access denied: invalid client IP"))
 		return false
 	}
 
@@ -256,11 +256,11 @@ func (h *GatewayHandler) checkCIDR(c *gin.Context, route *domain.GatewayRoute) b
 			if h.logger != nil {
 				h.logger.Warn("invalid blocked CIDR", "cidr", cidrStr, "error", err)
 			}
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied: misconfigured blocked CIDR"})
+			httputil.Error(c, errors.New(errors.Forbidden, "access denied: misconfigured blocked CIDR"))
 			return false
 		}
 		if ipNet.Contains(clientIP) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied"})
+			httputil.Error(c, errors.New(errors.Forbidden, "access denied"))
 			return false
 		}
 	}
@@ -274,7 +274,7 @@ func (h *GatewayHandler) checkCIDR(c *gin.Context, route *domain.GatewayRoute) b
 				if h.logger != nil {
 					h.logger.Warn("invalid allowed CIDR", "cidr", cidrStr, "error", err)
 				}
-				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied: misconfigured allowed CIDR"})
+				httputil.Error(c, errors.New(errors.Forbidden, "access denied: misconfigured allowed CIDR"))
 				return false
 			}
 			if ipNet.Contains(clientIP) {
@@ -283,7 +283,7 @@ func (h *GatewayHandler) checkCIDR(c *gin.Context, route *domain.GatewayRoute) b
 			}
 		}
 		if !allowed {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied"})
+			httputil.Error(c, errors.New(errors.Forbidden, "access denied"))
 			return false
 		}
 	}
