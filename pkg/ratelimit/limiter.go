@@ -78,7 +78,10 @@ func (i *IPRateLimiter) GetRouteLimiter(routeID uuid.UUID, key string, r rate.Li
 	return limiter
 }
 
-// cleanupLoop removes old entries (rudimentary GC)
+// cleanupLoop removes old entries periodically. This is a simplified GC strategy
+// that discards all limiters every 10 minutes rather than tracking per-entry
+// access times. Sufficient for moderate traffic; consider tracking last-access
+// timestamps for high-traffic production deployments.
 func (i *IPRateLimiter) cleanupLoop() {
 	for {
 		time.Sleep(10 * time.Minute)

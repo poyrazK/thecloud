@@ -39,6 +39,7 @@ type CreateRouteRequest struct {
 }
 
 // GatewayHandler handles API gateway HTTP endpoints.
+// Note: logger may be nil in test contexts; all logging calls check for nil before use.
 type GatewayHandler struct {
 	svc    ports.GatewayService
 	logger *slog.Logger
