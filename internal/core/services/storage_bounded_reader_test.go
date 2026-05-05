@@ -63,7 +63,7 @@ func TestBoundedReaderExceedsLimit(t *testing.T) {
 	assert.True(t, deleteCalled, "delete must be called on oversize")
 	assert.Equal(t, 0, n2)
 	var appErr1 apperrors.Error
-	assert.ErrorAs(t, err2, &appErr1)
+	require.ErrorAs(t, err2, &appErr1)
 	assert.Equal(t, apperrors.ObjectTooLarge, appErr1.Type)
 }
 
@@ -89,7 +89,7 @@ func TestBoundedReaderExceedsLimitInSingleRead(t *testing.T) {
 	n2, err2 := br.Read(buf)
 	assert.Equal(t, 0, n2)
 	var appErr2 apperrors.Error
-	assert.ErrorAs(t, err2, &appErr2)
+	require.ErrorAs(t, err2, &appErr2)
 	assert.Equal(t, apperrors.ObjectTooLarge, appErr2.Type)
 }
 
