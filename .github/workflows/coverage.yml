@@ -1,5 +1,10 @@
 name: Coverage Gate
 
+env:
+  SECRETS_ENCRYPTION_KEY: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
+  STORAGE_SECRET: ci-test-storage-secret-key
+  POWERDNS_API_KEY: ci-test-powerdns-api-key
+
 on:
   pull_request:
     branches: [ main ]
