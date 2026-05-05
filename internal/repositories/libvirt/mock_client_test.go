@@ -83,6 +83,13 @@ func (m *MockLibvirtClient) DomainMemoryStats(ctx context.Context, dom libvirt.D
 	return r0, args.Error(1)
 }
 
+func (m *MockLibvirtClient) DomainGetCPUStats(ctx context.Context, dom libvirt.Domain, nparams uint32, startCPU int32, ncpus uint32, flags libvirt.TypedParameterFlags) ([]libvirt.TypedParam, int32, error) {
+	args := m.Called(ctx, dom, nparams, startCPU, ncpus, flags)
+	r0, _ := args.Get(0).([]libvirt.TypedParam)
+	r1, _ := args.Get(1).(int32)
+	return r0, r1, args.Error(2)
+}
+
 // Network
 
 func (m *MockLibvirtClient) NetworkLookupByName(ctx context.Context, name string) (libvirt.Network, error) {

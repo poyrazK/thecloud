@@ -1578,6 +1578,15 @@ func testInstanceServiceUnitRepoErrors(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("GetInstanceStats_ComputeError", func(t *testing.T) {
+		repo.On("GetByName", mock.Anything, "test-inst").Return(inst, nil).Once()
+		compute.On("GetInstanceStats", mock.Anything, "cid-1").Return(nil, fmt.Errorf("stats unavailable")).Once()
+
+		_, err := svc.GetInstanceStats(ctx, "test-inst")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "stats unavailable")
+	})
+
 	t.Run("Exec_NotFound", func(t *testing.T) {
 		repo.On("GetByName", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
 		repo.On("GetByID", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()

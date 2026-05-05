@@ -27,6 +27,7 @@ type LibvirtClient interface {
 	DomainAttachDevice(ctx context.Context, dom libvirt.Domain, xml string) error
 	DomainDetachDevice(ctx context.Context, dom libvirt.Domain, xml string) error
 	DomainMemoryStats(ctx context.Context, dom libvirt.Domain, maxStats uint32, flags uint32) ([]libvirt.DomainMemoryStat, error)
+	DomainGetCPUStats(ctx context.Context, dom libvirt.Domain, nparams uint32, startCPU int32, ncpus uint32, flags libvirt.TypedParameterFlags) ([]libvirt.TypedParam, int32, error)
 
 	// Network
 	NetworkLookupByName(ctx context.Context, name string) (libvirt.Network, error)

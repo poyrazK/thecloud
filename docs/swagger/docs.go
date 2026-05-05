@@ -4191,7 +4191,7 @@ const docTemplate = `{
                         "APIKeyAuth": []
                     }
                 ],
-                "description": "Gets real-time CPU and Memory usage for a compute instance",
+                "description": "Gets real-time CPU, memory, network I/O, disk I/O, and CPU time (nanoseconds) for a compute instance",
                 "produces": [
                     "application/json"
                 ],
@@ -9056,6 +9056,16 @@ const docTemplate = `{
                 "cpu_percentage": {
                     "type": "number"
                 },
+                "cpu_time_nanoseconds": {
+                    "description": "only populated by Libvirt backend; Docker uses delta-based percentage instead",
+                    "type": "integer"
+                },
+                "disk_read_bytes": {
+                    "type": "integer"
+                },
+                "disk_write_bytes": {
+                    "type": "integer"
+                },
                 "memory_limit_bytes": {
                     "type": "number"
                 },
@@ -9064,6 +9074,12 @@ const docTemplate = `{
                 },
                 "memory_usage_bytes": {
                     "type": "number"
+                },
+                "network_rx_bytes": {
+                    "type": "integer"
+                },
+                "network_tx_bytes": {
+                    "type": "integer"
                 }
             }
         },
