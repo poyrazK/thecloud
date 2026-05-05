@@ -869,8 +869,9 @@ func (s *DatabaseService) doRotateCredentials(ctx context.Context, id uuid.UUID,
 	if vaultPath == "" {
 		vaultPath = s.getVaultPath(db.ID)
 	}
-	// Use versioned path to avoid split-brain: store new cred BEFORE updating DB
-	versionedPath := vaultPath + "/v2"
+	// Increment version and compute new versioned path
+	newVersion := db.CredentialVersion + 1
+	versionedPath := vaultPath + "/v" + strconv.Itoa(newVersion)
 	if err := s.secrets.StoreSecret(ctx, versionedPath, map[string]interface{}{"password": newPassword}); err != nil {
 		return errors.Wrap(errors.Internal, "failed to store new credential in vault", err)
 	}
@@ -895,14 +896,16 @@ func (s *DatabaseService) doRotateCredentials(ctx context.Context, id uuid.UUID,
 	// 3. Update DB record to point to new versioned path (ONLY after DB confirmed updated)
 	// The old path still has the old password for rollback if needed
 	db.CredentialPath = versionedPath
+	db.CredentialVersion = newVersion
 	if err := s.repo.Update(ctx, db); err != nil {
 		return errors.Wrap(errors.Internal, "failed to update DB credential path", err)
 	}
 
-	// 4. Update old path atomically (for backwards compatibility)
-	// In future: background cleanup of old versions
-	if err := s.secrets.StoreSecret(ctx, vaultPath, map[string]interface{}{"password": newPassword}); err != nil {
-		s.logger.Warn("failed to update current vault path, versioned path is primary", "path", vaultPath, "error", err)
+	// 4. Cleanup old versioned path from Vault
+	oldVersionedPath := vaultPath + "/v" + strconv.Itoa(db.CredentialVersion-1)
+	if err := s.secrets.DeleteSecret(ctx, oldVersionedPath); err != nil {
+		// Log but don't fail - old version may not exist if this is first rotation
+		s.logger.Warn("failed to cleanup old credential version from vault", "path", oldVersionedPath, "error", err)
 	}
 
 	// 4. If pooler is enabled, restart it to pick up new credentials
