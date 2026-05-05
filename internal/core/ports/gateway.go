@@ -41,8 +41,12 @@ type CreateRouteParams struct {
 	RequireTLS            bool
 	AllowedCIDRs           []string
 	BlockedCIDRs           []string
-	MaxBodySize            int64
-	Priority               int
+	MaxBodySize               int64
+	CircuitBreakerThreshold  int
+	CircuitBreakerTimeout    int64
+	MaxRetries               int
+	RetryTimeout             int64
+	Priority                 int
 }
 
 // GatewayService provides business logic for managing the API gateway and ingress traffic.
