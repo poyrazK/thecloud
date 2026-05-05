@@ -3,8 +3,10 @@ package services
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -17,6 +19,7 @@ import (
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/internal/routing"
 )
 
@@ -44,7 +47,9 @@ func NewGatewayService(repo ports.GatewayRepository, rbacSvc ports.RBACService, 
 		logger:   logger,
 	}
 	// Initial load
-	_ = s.RefreshRoutes(context.Background())
+	if err := s.RefreshRoutes(context.Background()); err != nil {
+		s.logger.Error("failed to refresh routes on startup", "error", err)
+	}
 	return s
 }
 
@@ -69,21 +74,51 @@ func (s *GatewayService) CreateRoute(ctx context.Context, params ports.CreateRou
 	}
 
 	route := &domain.GatewayRoute{
-		ID:          uuid.New(),
-		UserID:      userID,
-		TenantID:    tenantID,
-		Name:        params.Name,
-		PathPrefix:  params.Pattern, // Use pattern as prefix for backward compatibility where possible
-		PathPattern: params.Pattern,
-		PatternType: patternType,
-		ParamNames:  paramNames,
-		TargetURL:   params.Target,
-		Methods:     params.Methods,
-		StripPrefix: params.StripPrefix,
-		RateLimit:   params.RateLimit,
-		Priority:    params.Priority,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		ID:                       uuid.New(),
+		UserID:                   userID,
+		TenantID:                 tenantID,
+		Name:                     params.Name,
+		PathPrefix:               params.Pattern,
+		PathPattern:              params.Pattern,
+		PatternType:              patternType,
+		ParamNames:               paramNames,
+		TargetURL:                params.Target,
+		Methods:                  params.Methods,
+		StripPrefix:             params.StripPrefix,
+		RateLimit:                params.RateLimit,
+		DialTimeout:              params.DialTimeout,
+		ResponseHeaderTimeout:    params.ResponseHeaderTimeout,
+		IdleConnTimeout:          params.IdleConnTimeout,
+		TLSSkipVerify:            params.TLSSkipVerify,
+		RequireTLS:              params.RequireTLS,
+		AllowedCIDRs:             params.AllowedCIDRs,
+		BlockedCIDRs:             params.BlockedCIDRs,
+		MaxBodySize:              params.MaxBodySize,
+		Priority:                 params.Priority,
+		CreatedAt:                time.Now(),
+		UpdatedAt:                time.Now(),
+	}
+
+	// Validate CIDRs before saving
+	for _, cidr := range route.AllowedCIDRs {
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			return nil, errors.New(errors.InvalidInput, fmt.Sprintf("invalid allowed CIDR %q: %v", cidr, err))
+		}
+	}
+	for _, cidr := range route.BlockedCIDRs {
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			return nil, errors.New(errors.InvalidInput, fmt.Sprintf("invalid blocked CIDR %q: %v", cidr, err))
+		}
+	}
+
+	// Pre-parse CIDRs into []*net.IPNet for fast per-request matching
+	for _, cidr := range route.AllowedCIDRs {
+		_, ipNet, _ := net.ParseCIDR(cidr) // err already nil per validation above
+		route.AllowedIPNets = append(route.AllowedIPNets, ipNet)
+	}
+	for _, cidr := range route.BlockedCIDRs {
+		_, ipNet, _ := net.ParseCIDR(cidr)
+		route.BlockedIPNets = append(route.BlockedIPNets, ipNet)
 	}
 
 	if err := s.repo.CreateRoute(ctx, route); err != nil {
@@ -98,7 +133,9 @@ func (s *GatewayService) CreateRoute(ctx context.Context, params ports.CreateRou
 		s.logger.Warn("failed to log audit event", "action", "gateway.route_create", "route_id", route.ID, "error", err)
 	}
 
-	_ = s.RefreshRoutes(ctx)
+	if err := s.RefreshRoutes(ctx); err != nil {
+		s.logger.Warn("failed to refresh routes after create", "route_id", route.ID, "error", err)
+	}
 	return route, nil
 }
 
@@ -150,7 +187,18 @@ func (s *GatewayService) RefreshRoutes(ctx context.Context) error {
 	for _, r := range routes {
 		proxy, err := s.createReverseProxy(r)
 		if err != nil {
+			s.logger.Error("failed to create reverse proxy for route", "route_id", r.ID, "route_name", r.Name, "target_url", r.TargetURL, "error", err)
 			continue
+		}
+
+		// Pre-parse CIDRs for fast per-request matching
+		for _, cidr := range r.AllowedCIDRs {
+			_, ipNet, _ := net.ParseCIDR(cidr)
+			r.AllowedIPNets = append(r.AllowedIPNets, ipNet)
+		}
+		for _, cidr := range r.BlockedCIDRs {
+			_, ipNet, _ := net.ParseCIDR(cidr)
+			r.BlockedIPNets = append(r.BlockedIPNets, ipNet)
 		}
 
 		newProxies[r.ID] = proxy
@@ -180,6 +228,32 @@ func (s *GatewayService) createReverseProxy(route *domain.GatewayRoute) (*httput
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
+
+	// Configure custom transport with timeouts and TLS
+	dialTimeout := time.Duration(route.DialTimeout) * time.Millisecond
+	if dialTimeout <= 0 {
+		dialTimeout = 5 * time.Second
+	}
+	responseHeaderTimeout := time.Duration(route.ResponseHeaderTimeout) * time.Millisecond
+	if responseHeaderTimeout <= 0 {
+		responseHeaderTimeout = 30 * time.Second
+	}
+	idleConnTimeout := time.Duration(route.IdleConnTimeout) * time.Millisecond
+	if idleConnTimeout <= 0 {
+		idleConnTimeout = 90 * time.Second
+	}
+
+	proxy.Transport = &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   dialTimeout,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ResponseHeaderTimeout: responseHeaderTimeout,
+		IdleConnTimeout:       idleConnTimeout,
+		TLSClientConfig:       s.buildTLSConfig(route),
+		TLSHandshakeTimeout:   10 * time.Second,
+	}
+
 	originalDirector := proxy.Director
 	proxy.Director = func(req *http.Request) {
 		if route.StripPrefix {
@@ -199,6 +273,18 @@ func (s *GatewayService) createReverseProxy(route *domain.GatewayRoute) (*httput
 	return proxy, nil
 }
 
+func (s *GatewayService) buildTLSConfig(route *domain.GatewayRoute) *tls.Config {
+	cfg := &tls.Config{
+		InsecureSkipVerify: route.TLSSkipVerify, //nolint:gosec // User-controlled option for development/testing
+	}
+	// Always set baseline TLS 1.2, raise to 1.3 if RequireTLS
+	cfg.MinVersion = tls.VersionTLS12
+	if route.RequireTLS {
+		cfg.MinVersion = tls.VersionTLS13
+	}
+	return cfg
+}
+
 func (s *GatewayService) sortRoutes(routes []*domain.GatewayRoute) {
 	// Sort routes by specificity (longer literal prefixes and higher priority first)
 	sort.Slice(routes, func(i, j int) bool {
@@ -210,7 +296,7 @@ func (s *GatewayService) sortRoutes(routes []*domain.GatewayRoute) {
 
 // ProxyHandler is handled in the API layer for now
 
-func (s *GatewayService) GetProxy(method, path string) (*httputil.ReverseProxy, map[string]string, bool) {
+func (s *GatewayService) GetProxy(method, path string) (*httputil.ReverseProxy, *domain.GatewayRoute, map[string]string, bool) {
 	s.proxyMu.RLock()
 	defer s.proxyMu.RUnlock()
 
@@ -226,10 +312,10 @@ func (s *GatewayService) GetProxy(method, path string) (*httputil.ReverseProxy, 
 	}
 
 	if bestMatch != nil {
-		return s.proxies[bestMatch.Route.ID], bestMatch.Params, true
+		return s.proxies[bestMatch.Route.ID], bestMatch.Route, bestMatch.Params, true
 	}
 
-	return nil, nil, false
+	return nil, nil, nil, false
 }
 
 func (s *GatewayService) checkRouteMatch(route *domain.GatewayRoute, method, path string) *domain.RouteMatch {

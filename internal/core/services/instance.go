@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -242,7 +243,9 @@ func (s *InstanceService) LaunchInstance(ctx context.Context, params ports.Launc
 	s.logger.Info("enqueueing provision job", "instance_id", inst.ID, "queue", "provision_queue", "tenant_id", inst.TenantID)
 	if err := s.taskQueue.Enqueue(ctx, "provision_queue", job); err != nil {
 		s.logger.Error("failed to enqueue provision job", "instance_id", inst.ID, "error", err)
-		// Return error on enqueue failure to maintain system reliability and state consistency.
+		// Rollback quota reservation on enqueue failure
+		_ = s.tenantSvc.DecrementUsage(ctx, tenantID, "vcpus", it.VCPUs)
+		_ = s.tenantSvc.DecrementUsage(ctx, tenantID, "memory", it.MemoryMB/1024)
 		return nil, errors.Wrap(errors.Internal, "failed to enqueue provisioning task", err)
 	}
 
@@ -1005,6 +1008,10 @@ func (s *InstanceService) completeResize(ctx context.Context, tenantID uuid.UUID
 
 	// 2. Compute resize (now that quota is settled)
 	newCpuNano := int64(newIT.VCPUs) * NanoCPUsPerVCPU
+	const maxMemoryMB = math.MaxInt64 / BytesPerMB
+	if int64(newIT.MemoryMB) > maxMemoryMB {
+		return fmt.Errorf("memory size overflows int64: %d MB", newIT.MemoryMB)
+	}
 	newMemoryBytes := int64(newIT.MemoryMB) * BytesPerMB
 	if err := s.compute.ResizeInstance(ctx, target, newCpuNano, newMemoryBytes); err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("resize", "failure").Inc()
@@ -1169,6 +1176,24 @@ func (s *InstanceService) updateTerminationMetrics(inst *domain.Instance) {
 }
 
 func (s *InstanceService) finalizeTermination(ctx context.Context, inst *domain.Instance) error {
+	// Release Quota FIRST — before delete so failure is recoverable
+	it, err := s.instanceTypeRepo.GetByID(ctx, inst.InstanceType)
+	if err != nil {
+		s.logger.Error("failed to resolve instance type for quota release", "instance_id", inst.ID, "type", inst.InstanceType, "error", err)
+	}
+	if it != nil {
+		if err := s.tenantSvc.DecrementUsage(ctx, inst.TenantID, "instances", 1); err != nil {
+			s.logger.Error("failed to decrement instance quota", "instance_id", inst.ID, "error", err)
+		}
+		if err := s.tenantSvc.DecrementUsage(ctx, inst.TenantID, "vcpus", it.VCPUs); err != nil {
+			s.logger.Error("failed to decrement vcpu quota", "instance_id", inst.ID, "error", err)
+		}
+		if err := s.tenantSvc.DecrementUsage(ctx, inst.TenantID, "memory", it.MemoryMB/1024); err != nil {
+			s.logger.Error("failed to decrement memory quota", "instance_id", inst.ID, "error", err)
+		}
+	}
+
+	// Delete AFTER quota release — safe to fail now
 	if err := s.repo.Delete(ctx, inst.ID); err != nil {
 		return err
 	}
@@ -1180,18 +1205,6 @@ func (s *InstanceService) finalizeTermination(ctx context.Context, inst *domain.
 		"name": inst.Name,
 	}); err != nil {
 		s.logger.Warn("failed to log audit event", "action", "instance.terminate", "instance_id", inst.ID, "error", err)
-	}
-
-	// Release Quota
-	// Best effort - if instance type is not found, we can't decrement, but we shouldn't fail termination.
-	// In a perfect world we'd store exact resource allocation on the instance record to release it.
-	it, err := s.instanceTypeRepo.GetByID(ctx, inst.InstanceType)
-	if err == nil {
-		_ = s.tenantSvc.DecrementUsage(ctx, inst.TenantID, "instances", 1)
-		_ = s.tenantSvc.DecrementUsage(ctx, inst.TenantID, "vcpus", it.VCPUs)
-		_ = s.tenantSvc.DecrementUsage(ctx, inst.TenantID, "memory", it.MemoryMB/1024)
-	} else {
-		s.logger.Warn("failed to resolve instance type for quota release", "instance_id", inst.ID, "type", inst.InstanceType, "error", err)
 	}
 
 	return nil
@@ -1290,11 +1303,49 @@ func (s *InstanceService) calculateInstanceStats(stats *domain.RawDockerStats) *
 		memPercent = (memUsage / memLimit) * 100.0
 	}
 
+	// Sum network rx/tx across all interfaces
+	var rxBytes, txBytes *uint64
+	if stats.NetworkStats != nil {
+		var r, t uint64
+		for _, net := range stats.NetworkStats {
+			r += net.RxBytes
+			t += net.TxBytes
+		}
+		rxBytes = &r
+		txBytes = &t
+	}
+
+	// Sum block read/write bytes
+	var readBytes, writeBytes *uint64
+	if stats.BlkioStats.IoServiceBytes != nil {
+		var r, w uint64
+		for _, entry := range stats.BlkioStats.IoServiceBytes {
+			switch entry.Op {
+			case "read", "Read":
+				r += entry.Value
+			case "write", "Write":
+				w += entry.Value
+			}
+		}
+		readBytes = &r
+		writeBytes = &w
+	}
+
+	var cpuTime *uint64
+	if ct := stats.CPUStats.CPUTime; ct > 0 {
+		cpuTime = &ct
+	}
+
 	return &domain.InstanceStats{
-		CPUPercentage:    cpuPercent,
-		MemoryUsageBytes: memUsage,
-		MemoryLimitBytes: memLimit,
-		MemoryPercentage: memPercent,
+		CPUPercentage:      cpuPercent,
+		MemoryUsageBytes:    memUsage,
+		MemoryLimitBytes:    memLimit,
+		MemoryPercentage:    memPercent,
+		NetworkRxBytes:      rxBytes,
+		NetworkTxBytes:      txBytes,
+		DiskReadBytes:       readBytes,
+		DiskWriteBytes:      writeBytes,
+		CPUTimeNanoseconds:  cpuTime,
 	}
 }
 
@@ -1495,7 +1546,13 @@ func (s *InstanceService) findAvailableIP(ipNet *net.IPNet, usedIPs map[string]b
 	ip := make(net.IP, len(ipNet.IP))
 	copy(ip, ipNet.IP)
 
-	for {
+	ones, _ := ipNet.Mask.Size()
+	maxIPs := uint64(1) << (32 - ones)
+	if maxIPs > 1<<16 {
+		maxIPs = 1 << 16 // cap at 65536 to prevent unbounded iteration
+	}
+
+	for iterations := uint64(0); iterations < maxIPs; iterations++ {
 		// Increment IP
 		for i := len(ip) - 1; i >= 0; i-- {
 			ip[i]++
@@ -1517,7 +1574,7 @@ func (s *InstanceService) findAvailableIP(ipNet *net.IPNet, usedIPs map[string]b
 			return displayIP, nil
 		}
 	}
-	return "", fmt.Errorf("no available IPs in subnet")
+	return "", fmt.Errorf("no available IPs in subnet after %d attempts", maxIPs)
 }
 
 func (s *InstanceService) Exec(ctx context.Context, idOrName string, cmd []string) (string, error) {

@@ -28,6 +28,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/ports"
 )
 
+var domainNameSanitizeRe = regexp.MustCompile(`[^a-zA-Z0-9-]`)
 
 const (
 	defaultPoolName   = "default"
@@ -46,6 +47,10 @@ const (
 	// Memory stat tags
 	memStatTagActual = 5
 	memStatTagRSS    = 6
+
+	// typedParamULLONG is the discriminator value for uint64 in libvirt.TypedParamValue.
+	// The go-libvirt library uses a struct{D uint32; I interface{}} where D==4 means ULLONG.
+	typedParamULLONG = 4
 )
 
 // domainStateName returns a human-readable name for a libvirt domain state.
@@ -423,7 +428,7 @@ func (a *LibvirtAdapter) LaunchInstanceWithOptions(ctx context.Context, opts por
 }
 
 func (a *LibvirtAdapter) sanitizeDomainName(name string) string {
-	name = regexp.MustCompile(`[^a-zA-Z0-9-]`).ReplaceAllString(name, "")
+	name = domainNameSanitizeRe.ReplaceAllString(name, "")
 	if name == "" {
 		return uuid.New().String()[:8]
 	}
@@ -602,12 +607,32 @@ func (a *LibvirtAdapter) GetInstanceStats(ctx context.Context, id string) (io.Re
 		}
 	}
 
-	statJSON, _ := json.Marshal(map[string]interface{}{
+	// Get CPU stats via DomainGetCPUStats
+	cpuParams, _, err := a.client.DomainGetCPUStats(ctx, dom, 0, 0, 0, 0)
+	var cpuTime uint64
+	if err != nil {
+		return nil, fmt.Errorf("DomainGetCPUStats failed: %w", err)
+	}
+	for _, p := range cpuParams {
+		if p.Field == "cpu_time" && p.Value.D == typedParamULLONG {
+			if v, ok := p.Value.I.(uint64); ok {
+				cpuTime = v
+			}
+		}
+	}
+
+	statJSON, err := json.Marshal(map[string]interface{}{
 		"memory_stats": map[string]uint64{
 			"usage": usage,
 			"limit": limit,
 		},
+		"cpu_stats": map[string]uint64{
+			"cpu_time": cpuTime,
+		},
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal stats: %w", err)
+	}
 	return io.NopCloser(bytes.NewReader(statJSON)), nil
 }
 

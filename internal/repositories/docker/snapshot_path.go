@@ -2,6 +2,7 @@ package docker
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -51,6 +52,11 @@ func validateSnapshotPath(p string) (string, error) {
 	cleaned := filepath.Clean(p)
 	if cleaned != p {
 		return "", fmt.Errorf("snapshot path is not canonical: %q (cleaned %q)", p, cleaned)
+	}
+
+	// Reject symlinks to prevent traversal through symlink-based escapes.
+	if info, err := os.Lstat(cleaned); err == nil && (info.Mode()&os.ModeSymlink) != 0 {
+		return "", fmt.Errorf("snapshot path is a symlink: %q", p)
 	}
 
 	// After Clean a leading `..` cannot survive on an absolute path, but reject

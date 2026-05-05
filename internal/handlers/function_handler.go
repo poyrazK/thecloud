@@ -13,7 +13,13 @@ import (
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
-const invalidFunctionIDMsg = "invalid function id"
+const (
+	invalidFunctionIDMsg = "invalid function id"
+	// maxFunctionCodeSize prevents memory exhaustion when reading function code uploads.
+	maxFunctionCodeSize = 10 * 1024 * 1024 // 10 MB
+	// maxInvokePayloadSize prevents memory exhaustion on function invocation payloads.
+	maxInvokePayloadSize = 1 * 1024 * 1024 // 1 MB
+)
 
 // FunctionHandler handles serverless function HTTP endpoints.
 type FunctionHandler struct {
@@ -61,7 +67,7 @@ func (h *FunctionHandler) Create(c *gin.Context) {
 	}
 	defer func() { _ = f.Close() }()
 
-	code, err := io.ReadAll(f)
+	code, err := io.ReadAll(io.LimitReader(f, maxFunctionCodeSize))
 	if err != nil {
 		httputil.Error(c, errors.Wrap(errors.Internal, "failed to read code file", err))
 		return
@@ -148,7 +154,7 @@ func (h *FunctionHandler) Invoke(c *gin.Context) {
 		return
 	}
 
-	payload, err := io.ReadAll(c.Request.Body)
+	payload, err := io.ReadAll(io.LimitReader(c.Request.Body, maxInvokePayloadSize))
 	if err != nil {
 		httputil.Error(c, errors.Wrap(errors.InvalidInput, "failed to read payload", err))
 		return

@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/pkg/httputil"
 )
 
@@ -19,6 +20,9 @@ import (
 type PipelineHandler struct {
 	svc ports.PipelineService
 }
+
+// maxPayloadSize prevents memory exhaustion when reading webhook payloads.
+const maxPayloadSize = 10 * 1024 * 1024 // 10 MB, aligned with pipeline_worker.go
 
 // NewPipelineHandler constructs a PipelineHandler.
 func NewPipelineHandler(svc ports.PipelineService) *PipelineHandler {
@@ -238,9 +242,15 @@ func (h *PipelineHandler) WebhookTrigger(c *gin.Context) {
 		return
 	}
 
-	payload, err := io.ReadAll(c.Request.Body)
+	payload, err := io.ReadAll(io.LimitReader(c.Request.Body, int64(maxPayloadSize)+1))
 	if err != nil {
 		httputil.Error(c, fmt.Errorf("failed to read payload: %w", err))
+		return
+	}
+	// Reject payloads that exceed the limit to prevent truncated bodies
+	// from causing signature validation failures or duplicate delivery issues.
+	if len(payload) > maxPayloadSize {
+		httputil.Error(c, errors.New(errors.ObjectTooLarge, "webhook payload exceeds maximum size"))
 		return
 	}
 

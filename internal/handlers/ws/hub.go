@@ -67,16 +67,19 @@ func (h *Hub) Run() {
 			h.logger.Debug("client disconnected", slog.Int("total", len(h.clients)))
 
 		case message := <-h.broadcast:
-			h.mu.RLock()
+			h.mu.Lock()
 			for client := range h.clients {
 				select {
 				case client.send <- message:
 				default:
-					close(client.send)
+					// Client send buffer is full — remove client directly while locked.
+					// Do NOT send to unregister (which needs the lock) to avoid deadlock.
+					// Decrement is handled by BroadcastEventToTenant for consistency.
 					delete(h.clients, client)
+					close(client.send)
 				}
 			}
-			h.mu.RUnlock()
+			h.mu.Unlock()
 		}
 	}
 }

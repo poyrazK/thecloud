@@ -98,6 +98,21 @@ func (r *LBRepository) ListAll(ctx context.Context) ([]*domain.LoadBalancer, err
 	return r.scanLBs(rows)
 }
 
+func (r *LBRepository) ListByStatus(ctx context.Context, status string, limit, offset int) ([]*domain.LoadBalancer, error) {
+	query := `
+		SELECT id, user_id, COALESCE(idempotency_key, ''), name, vpc_id, port, algorithm, COALESCE(ip, ''), status, version, created_at
+		FROM load_balancers
+		WHERE status = $1
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3
+	`
+	rows, err := r.db.Query(ctx, query, status, limit, offset)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to list load balancers by status", err)
+	}
+	return r.scanLBs(rows)
+}
+
 func (r *LBRepository) scanLB(row pgx.Row) (*domain.LoadBalancer, error) {
 	var lb domain.LoadBalancer
 	var status string

@@ -38,6 +38,8 @@ const (
 	maxPartSize          = 5 * 1024 * 1024 * 1024 // 5 GB per part
 )
 
+var validBucketNameRe = regexp.MustCompile(`^[a-z0-9.-]+$`)
+
 // generateVersionID generates a timestamp-based version ID (reverse chronological).
 func generateVersionID() string {
 	return fmt.Sprintf("%d", versionEpochBit-time.Now().UnixNano())
@@ -411,7 +413,7 @@ func (s *StorageService) CreateBucket(ctx context.Context, name string, isPublic
 		return nil, errors.New(errors.InvalidInput, "bucket name must be between 3 and 63 characters")
 	}
 
-	validName := regexp.MustCompile(`^[a-z0-9.-]+$`)
+	validName := validBucketNameRe
 	if !validName.MatchString(name) {
 		return nil, errors.New(errors.InvalidInput, "bucket name can only contain lowercase letters, numbers, dots, and hyphens")
 	}

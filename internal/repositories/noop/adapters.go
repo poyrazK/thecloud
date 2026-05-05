@@ -582,6 +582,9 @@ func (r *NoopLBRepository) List(ctx context.Context) ([]*domain.LoadBalancer, er
 func (r *NoopLBRepository) ListAll(ctx context.Context) ([]*domain.LoadBalancer, error) {
 	return []*domain.LoadBalancer{}, nil
 }
+func (r *NoopLBRepository) ListByStatus(ctx context.Context, status string, limit, offset int) ([]*domain.LoadBalancer, error) {
+	return []*domain.LoadBalancer{}, nil
+}
 func (r *NoopLBRepository) Update(ctx context.Context, lb *domain.LoadBalancer) error { return nil }
 func (r *NoopLBRepository) Delete(ctx context.Context, id uuid.UUID) error            { return nil }
 func (r *NoopLBRepository) AddTarget(ctx context.Context, target *domain.LBTarget) error {

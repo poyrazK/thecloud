@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -145,6 +146,9 @@ func (a *OvsAdapter) CreateVXLANTunnel(ctx context.Context, bridge string, vni i
 	if !bridgeNameRegex.MatchString(bridge) {
 		return errors.New(errors.InvalidInput, invalidBridgeNameMsg)
 	}
+	if net.ParseIP(remoteIP) == nil {
+		return errors.New(errors.InvalidInput, "invalid remote IP address")
+	}
 
 	tunnelName := fmt.Sprintf("vxlan-%s", strings.ReplaceAll(remoteIP, ".", "-"))
 	cmd := a.exec.CommandContext(ctx, a.ovsPath,
@@ -163,6 +167,9 @@ func (a *OvsAdapter) CreateVXLANTunnel(ctx context.Context, bridge string, vni i
 }
 
 func (a *OvsAdapter) DeleteVXLANTunnel(ctx context.Context, bridge string, remoteIP string) error {
+	if net.ParseIP(remoteIP) == nil {
+		return errors.New(errors.InvalidInput, "invalid remote IP address")
+	}
 	tunnelName := fmt.Sprintf("vxlan-%s", strings.ReplaceAll(remoteIP, ".", "-"))
 	return a.DeletePort(ctx, bridge, tunnelName)
 }

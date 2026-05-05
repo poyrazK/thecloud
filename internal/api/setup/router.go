@@ -106,7 +106,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		Queue:         httphandlers.NewQueueHandler(svcs.Queue),
 		Notify:        httphandlers.NewNotifyHandler(svcs.Notify),
 		Cron:          httphandlers.NewCronHandler(svcs.Cron),
-		Gateway:       httphandlers.NewGatewayHandler(svcs.Gateway),
+		Gateway:       httphandlers.NewGatewayHandler(svcs.Gateway, logger),
 		Container:     httphandlers.NewContainerHandler(svcs.Container),
 		Pipeline:      httphandlers.NewPipelineHandler(svcs.Pipeline),
 		Health:        httphandlers.NewHealthHandler(svcs.Health),

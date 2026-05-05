@@ -38,7 +38,11 @@ func (w *LifecycleWorker) Run(ctx context.Context, wg *sync.WaitGroup) {
 	w.logger.Info("lifecycle worker started")
 
 	// Run immediately on startup
-	go w.processRules(ctx)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		w.processRules(ctx)
+	}()
 
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()

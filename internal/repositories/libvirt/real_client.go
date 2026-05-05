@@ -25,7 +25,12 @@ func (r *RealLibvirtClient) Connect(ctx context.Context) error {
 			return
 		default:
 		}
-		errChan <- r.conn.Connect()
+		err := r.conn.Connect()
+		select {
+		case errChan <- err:
+		case <-done:
+		case <-ctx.Done():
+		}
 	}()
 
 	select {
@@ -48,7 +53,12 @@ func (r *RealLibvirtClient) ConnectToURI(ctx context.Context, uri string) error 
 			return
 		default:
 		}
-		errChan <- r.conn.ConnectToURI(libvirt.ConnectURI(uri))
+		err := r.conn.ConnectToURI(libvirt.ConnectURI(uri))
+		select {
+		case errChan <- err:
+		case <-done:
+		case <-ctx.Done():
+		}
 	}()
 
 	select {
@@ -173,6 +183,15 @@ func (r *RealLibvirtClient) DomainMemoryStats(ctx context.Context, dom libvirt.D
 	default:
 	}
 	return r.conn.DomainMemoryStats(dom, maxStats, flags)
+}
+
+func (r *RealLibvirtClient) DomainGetCPUStats(ctx context.Context, dom libvirt.Domain, nparams uint32, startCPU int32, ncpus uint32, flags libvirt.TypedParameterFlags) ([]libvirt.TypedParam, int32, error) {
+	select {
+	case <-ctx.Done():
+		return nil, 0, ctx.Err()
+	default:
+	}
+	return r.conn.DomainGetCPUStats(dom, nparams, startCPU, ncpus, flags)
 }
 
 // Network

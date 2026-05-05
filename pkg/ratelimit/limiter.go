@@ -8,12 +8,14 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"golang.org/x/time/rate"
 )
 
 // IPRateLimiter manages rate limiters for different IPs/clients
 type IPRateLimiter struct {
 	ips    map[string]*rate.Limiter
+	routes map[uuid.UUID]map[string]*rate.Limiter // per-route limiters
 	mu     sync.RWMutex
 	rate   rate.Limit
 	burst  int
@@ -24,6 +26,7 @@ type IPRateLimiter struct {
 func NewIPRateLimiter(r rate.Limit, b int, logger *slog.Logger) *IPRateLimiter {
 	i := &IPRateLimiter{
 		ips:    make(map[string]*rate.Limiter),
+		routes: make(map[uuid.UUID]map[string]*rate.Limiter),
 		rate:   r,
 		burst:  b,
 		logger: logger,
@@ -49,7 +52,36 @@ func (i *IPRateLimiter) GetLimiter(key string) *rate.Limiter {
 	return limiter
 }
 
-// cleanupLoop removes old entries (rudimentary GC)
+// GetRouteLimiter returns a rate limiter for a specific route and client key.
+// This enables per-route rate limiting while maintaining per-client tracking.
+// The r and burst parameters specify the per-route rate limits.
+func (i *IPRateLimiter) GetRouteLimiter(routeID uuid.UUID, key string, r rate.Limit, burst int) *rate.Limiter {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	if i.routes[routeID] == nil {
+		i.routes[routeID] = make(map[string]*rate.Limiter)
+	}
+
+	limiter, exists := i.routes[routeID][key]
+	if !exists {
+		limiter = rate.NewLimiter(r, burst)
+		i.routes[routeID][key] = limiter
+		return limiter
+	}
+
+	// Recreate limiter if rate or burst changed (SetLimit only updates rate)
+	if limiter.Limit() != r || limiter.Burst() != burst {
+		limiter = rate.NewLimiter(r, burst)
+		i.routes[routeID][key] = limiter
+	}
+	return limiter
+}
+
+// cleanupLoop removes old entries periodically. This is a simplified GC strategy
+// that discards all limiters every 10 minutes rather than tracking per-entry
+// access times. Sufficient for moderate traffic; consider tracking last-access
+// timestamps for high-traffic production deployments.
 func (i *IPRateLimiter) cleanupLoop() {
 	for {
 		time.Sleep(10 * time.Minute)
@@ -57,6 +89,7 @@ func (i *IPRateLimiter) cleanupLoop() {
 		// Start fresh every cleanup cycle for simplicity
 		// A production robust implementation would track last access time
 		i.ips = make(map[string]*rate.Limiter)
+		i.routes = make(map[uuid.UUID]map[string]*rate.Limiter)
 		i.mu.Unlock()
 	}
 }

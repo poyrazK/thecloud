@@ -37,7 +37,7 @@ type Coordinator struct {
 }
 
 // NewCoordinator creates a new distributed storage coordinator.
-func NewCoordinator(ring *ConsistentHashRing, clients map[string]pb.StorageNodeClient, replicaCount int) *Coordinator {
+func NewCoordinator(ctx context.Context, ring *ConsistentHashRing, clients map[string]pb.StorageNodeClient, replicaCount int) *Coordinator {
 	if replicaCount < 1 {
 		replicaCount = 1
 	}
@@ -48,24 +48,26 @@ func NewCoordinator(ring *ConsistentHashRing, clients map[string]pb.StorageNodeC
 		writeQuorum:  (replicaCount / 2) + 1,
 		stopCh:       make(chan struct{}),
 	}
-	go c.startSyncLoop()
+	go c.startSyncLoop(ctx)
 	return c
 }
 
-func (c *Coordinator) startSyncLoop() {
+func (c *Coordinator) startSyncLoop(ctx context.Context) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			c.SyncClusterState()
+			c.SyncClusterState(ctx)
 		case <-c.stopCh:
+			return
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (c *Coordinator) SyncClusterState() {
+func (c *Coordinator) SyncClusterState(ctx context.Context) {
 	// Pick random node to query
 	var client pb.StorageNodeClient
 	if len(c.clients) == 0 {
@@ -89,7 +91,7 @@ func (c *Coordinator) SyncClusterState() {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
 	resp, err := client.GetClusterStatus(ctx, &pb.Empty{})
@@ -169,11 +171,10 @@ func (c *Coordinator) Assemble(ctx context.Context, bucket, key string, parts []
 	}
 	wg.Wait()
 
-	// 3. Quorum check
+	// 3. Quorum check — all goroutines have completed, variables are visible per Go Memory Model
 	if successCount < c.writeQuorum {
 		return 0, fmt.Errorf("assemble quorum failed (%d/%d): %w", successCount, c.writeQuorum, lastErr)
 	}
-
 	return size, nil
 }
 
@@ -235,18 +236,21 @@ func (c *Coordinator) Write(ctx context.Context, bucket, key string, r io.Reader
 			if totalSize > maxObjectSize {
 				return totalSize, fmt.Errorf("object exceeds max size: %d bytes (max %d)", totalSize, maxObjectSize)
 			}
-			// Broadcast chunk
-			for i := len(streams) - 1; i >= 0; i-- {
+			// Broadcast chunk — build live-streams slice excluding failed ones to avoid index skip bug
+			live := streams[:0]
+			for i := 0; i < len(streams); i++ {
 				errSend := streams[i].stream.Send(&pb.StoreRequest{
 					Payload: &pb.StoreRequest_ChunkData{
 						ChunkData: buf[:n],
 					},
 				})
 				if errSend != nil {
-					// Remove failed stream
-					streams = append(streams[:i], streams[i+1:]...)
+					_, _ = streams[i].stream.CloseAndRecv()
+					continue
 				}
+				live = append(live, streams[i])
 			}
+			streams = live
 		}
 		if errors.Is(err, io.EOF) {
 			break
@@ -426,12 +430,15 @@ func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, r io.
 	type nodeStream struct {
 		id     string
 		stream pb.StorageNode_StoreClient
+		cancel context.CancelFunc
 	}
 	streams := make([]nodeStream, 0, len(nodes))
 	for _, nodeID := range nodes {
 		if client, ok := c.clients[nodeID]; ok {
-			st, err := client.Store(ctx)
+			streamCtx, cancel := context.WithCancel(ctx)
+			st, err := client.Store(streamCtx)
 			if err != nil {
+				cancel()
 				continue
 			}
 			err = st.Send(&pb.StoreRequest{
@@ -444,9 +451,10 @@ func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, r io.
 				},
 			})
 			if err != nil {
+				cancel()
 				continue
 			}
-			streams = append(streams, nodeStream{id: nodeID, stream: st})
+			streams = append(streams, nodeStream{id: nodeID, stream: st, cancel: cancel})
 		}
 	}
 
@@ -455,9 +463,25 @@ func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, r io.
 	}
 
 	buf := make([]byte, chunkSize)
+	var totalSize int64
 	for {
 		nr, err := r.Read(buf)
 		if nr > 0 {
+			totalSize += int64(nr)
+			if totalSize > maxObjectSize {
+				// Cancel all stream contexts so server-side handlers abort cleanly.
+				// Drain r to unblock the caller's io.TeeReader/io.Pipe so it can exit.
+				for _, ns := range streams {
+					ns.cancel()
+					_, _ = ns.stream.CloseAndRecv()
+				}
+				go func() {
+					_, _ = io.Copy(io.Discard, r)
+				}()
+				return
+			}
+			// Broadcast chunk to live streams — build live-streams slice excluding failed ones to avoid index skip bug
+			live := streams[:0]
 			for i := 0; i < len(streams); i++ {
 				errSend := streams[i].stream.Send(&pb.StoreRequest{
 					Payload: &pb.StoreRequest_ChunkData{
@@ -465,10 +489,13 @@ func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, r io.
 					},
 				})
 				if errSend != nil {
-					streams = append(streams[:i], streams[i+1:]...)
-					i--
+					streams[i].cancel()
+					_, _ = streams[i].stream.CloseAndRecv()
+					continue
 				}
+				live = append(live, streams[i])
 			}
+			streams = live
 		}
 		if err != nil {
 			break

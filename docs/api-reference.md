@@ -263,6 +263,41 @@ Get the VNC console URL for the instance.
 }
 ```
 
+### GET /instances/:id/stats
+Get real-time resource usage stats for an instance (CPU, memory, network I/O, disk I/O). Returns a wrapped response via `httputil.Success`.
+
+**Response:**
+```json
+{
+  "data": {
+    "cpu_percentage": 25.5,
+    "memory_usage_bytes": 524288000,
+    "memory_limit_bytes": 1073741824,
+    "memory_percentage": 48.8,
+    "network_rx_bytes": 1024000,
+    "network_tx_bytes": 512000,
+    "disk_read_bytes": 10240000,
+    "disk_write_bytes": 5120000,
+    "cpu_time_nanoseconds": 5000000000
+  }
+}
+```
+
+**Fields:**
+- `cpu_percentage` (float): CPU usage as percentage of available
+- `memory_usage_bytes` (float): Current memory usage in bytes
+- `memory_limit_bytes` (float): Memory limit in bytes
+- `memory_percentage` (float): Memory usage as percentage of limit
+- `network_rx_bytes` (uint64 | null): Total network bytes received; omitted when unavailable
+- `network_tx_bytes` (uint64 | null): Total network bytes transmitted; omitted when unavailable
+- `disk_read_bytes` (uint64 | null): Total disk bytes read; omitted when unavailable
+- `disk_write_bytes` (uint64 | null): Total disk bytes written; omitted when unavailable
+- `cpu_time_nanoseconds` (uint64 | null, optional): Cumulative CPU time in nanoseconds (Libvirt backend); omitted when unavailable
+
+**Error Responses:**
+- `404` — Instance not found
+- `500` — Backend stats unavailable (internal error)
+
 ### POST /instances/:id/pause
 Pause a running instance (freezes CPU, retains memory/network).
 
