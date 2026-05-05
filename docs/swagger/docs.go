@@ -10712,7 +10712,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "port": {
-                    "type": "integer"
+                    "type": "integer",
+                    "maximum": 65535,
+                    "minimum": 1
                 },
                 "weight": {
                     "type": "integer"
@@ -10962,7 +10964,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "port": {
-                    "type": "integer"
+                    "type": "integer",
+                    "maximum": 65535,
+                    "minimum": 1
                 },
                 "vpc_id": {
                     "type": "string"
@@ -11493,9 +11497,13 @@ const docTemplate = `{
         },
         "httphandlers.ScaleClusterRequest": {
             "type": "object",
+            "required": [
+                "workers"
+            ],
             "properties": {
                 "workers": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 1
                 }
             }
         },

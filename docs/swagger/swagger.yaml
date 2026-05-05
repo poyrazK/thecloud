@@ -1883,6 +1883,8 @@ definitions:
       instance_id:
         type: string
       port:
+        maximum: 65535
+        minimum: 1
         type: integer
       weight:
         type: integer
@@ -2051,6 +2053,8 @@ definitions:
       name:
         type: string
       port:
+        maximum: 65535
+        minimum: 1
         type: integer
       vpc_id:
         type: string
@@ -2415,7 +2419,10 @@ definitions:
   httphandlers.ScaleClusterRequest:
     properties:
       workers:
+        minimum: 1
         type: integer
+    required:
+    - workers
     type: object
   httphandlers.ScaleDeploymentRequest:
     properties:

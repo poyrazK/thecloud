@@ -10704,7 +10704,9 @@
                     "type": "string"
                 },
                 "port": {
-                    "type": "integer"
+                    "type": "integer",
+                    "maximum": 65535,
+                    "minimum": 1
                 },
                 "weight": {
                     "type": "integer"
@@ -10954,7 +10956,9 @@
                     "type": "string"
                 },
                 "port": {
-                    "type": "integer"
+                    "type": "integer",
+                    "maximum": 65535,
+                    "minimum": 1
                 },
                 "vpc_id": {
                     "type": "string"
@@ -11485,9 +11489,13 @@
         },
         "httphandlers.ScaleClusterRequest": {
             "type": "object",
+            "required": [
+                "workers"
+            ],
             "properties": {
                 "workers": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 1
                 }
             }
         },
