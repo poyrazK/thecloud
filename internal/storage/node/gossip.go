@@ -134,12 +134,14 @@ func (g *GossipProtocol) detectFailures() {
 		}
 	}
 
-	// Clean up orphaned peers — entries in g.peers whose corresponding
-	// members have been purged. Without this, connections accumulate forever.
+	// Clean up orphaned peers: entries in g.peers whose corresponding
+	// members no longer exist. This can happen when:
+	// 1. sendGossip connects to a node and adds it to g.peers
+	// 2. detectFailures purges that member from g.members before sendGossip runs
+	// Without this sweep, gRPC connections would leak indefinitely.
 	for id := range g.peers {
 		if _, inMembers := g.members[id]; !inMembers {
 			g.closePeerLocked(id)
-			g.logger.Info("cleaned up orphaned peer", "id", id)
 		}
 	}
 }
@@ -301,6 +303,16 @@ func (g *GossipProtocol) OnGossip(msg *pb.GossipMessage) {
 			localState.Heartbeat = remoteState.Heartbeat
 			localState.LastSeen = time.Now()
 			localState.Status = remoteState.Status
+		} else if remoteState.Heartbeat < localState.Heartbeat && remoteState.Heartbeat < 100 {
+			// Heartbeat appears to have wrapped (very low value while local is high).
+			// Use the gossip message timestamp as a freshness tiebreaker — a newer
+			// timestamp means the remote heartbeat was incremented after the wrap.
+			remoteTime := time.Unix(msg.Timestamp, 0)
+			if remoteTime.After(localState.LastSeen) {
+				localState.Heartbeat = remoteState.Heartbeat
+				localState.LastSeen = remoteTime
+				localState.Status = remoteState.Status
+			}
 		}
 	}
 }
