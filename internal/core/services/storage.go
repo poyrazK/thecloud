@@ -176,7 +176,8 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 		dataStream = encryptedReader
 	}
 
-	size, err := s.store.Write(ctx, bucketName, storeKey, dataStream)
+	// Defense-in-depth: bound memory usage even if handler limit is bypassed
+	size, err := s.store.Write(ctx, bucketName, storeKey, io.LimitReader(dataStream, maxPartSize))
 	if err != nil {
 		// We leave the record as PENDING. The garbage collector will clean it up.
 		return nil, errors.Wrap(errors.Internal, "failed to write to store", err)
