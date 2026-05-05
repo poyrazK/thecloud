@@ -3,6 +3,7 @@ package node
 import (
 	"bytes"
 	"log/slog"
+	"math"
 	"testing"
 	"time"
 
@@ -247,4 +248,87 @@ func TestGossipProtocolOnGossipDoesNotDiscoverDeadNode(t *testing.T) {
 	_, exists := g.members["node2"]
 	g.mu.RUnlock()
 	assert.False(t, exists, "should not add a member that is reported dead")
+}
+
+func TestGossipProtocolHeartbeatOverflowResets(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	g := NewGossipProtocol("node1", testNode1Addr, logger)
+
+	g.mu.Lock()
+	g.members["node1"].Heartbeat = math.MaxUint64
+	g.mu.Unlock()
+
+	// gossip() should detect overflow and reset to 0
+	g.gossip()
+
+	g.mu.RLock()
+	hb := g.members["node1"].Heartbeat
+	g.mu.RUnlock()
+	assert.Equal(t, uint64(0), hb, "heartbeat should reset to 0 on overflow")
+}
+
+func TestGossipProtocolOnGossipWraparoundTiebreaker(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	g := NewGossipProtocol("node1", testNode1Addr, logger)
+
+	now := time.Now()
+	g.mu.Lock()
+	g.members["node2"] = &MemberState{
+		Address:   testNode2Addr,
+		Status:    "alive",
+		LastSeen:  now,
+		Heartbeat: 100, // high heartbeat before wrap
+	}
+	g.mu.Unlock()
+
+	// Remote node rebooted — its heartbeat wrapped to 1, message timestamp is now
+	olderMsg := &pb.GossipMessage{
+		SenderId:   "node2",
+		Timestamp:  now.Add(-1 * time.Second).Unix(), // older than our LastSeen
+		Members: map[string]*pb.MemberState{
+			"node2": {Addr: testNode2Addr, Status: "alive", Heartbeat: 1},
+		},
+	}
+	g.OnGossip(olderMsg)
+
+	g.mu.RLock()
+	hb := g.members["node2"].Heartbeat
+	g.mu.RUnlock()
+	assert.Equal(t, uint64(100), hb, "older message with low heartbeat should not override")
+
+	// Newer message with wrapped heartbeat should win
+	newerMsg := &pb.GossipMessage{
+		SenderId:   "node2",
+		Timestamp:  now.Add(1 * time.Second).Unix(), // newer than our LastSeen
+		Members: map[string]*pb.MemberState{
+			"node2": {Addr: testNode2Addr, Status: "alive", Heartbeat: 1},
+		},
+	}
+	g.OnGossip(newerMsg)
+
+	g.mu.RLock()
+	hb = g.members["node2"].Heartbeat
+	ls := g.members["node2"].LastSeen
+	g.mu.RUnlock()
+	assert.Equal(t, uint64(1), hb, "newer message with wrapped heartbeat should override")
+	assert.True(t, ls.After(now), "LastSeen should update to newer timestamp")
+}
+
+func TestGossipProtocolDetectFailuresCleansOrphanedPeer(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	g := NewGossipProtocol("node1", testNode1Addr, logger)
+
+	// Seed an orphaned peer — in peers but not in members
+	// (simulates a peer that was added via AddPeer but whose member entry
+	// was already purged before the peer was ever connected)
+	conn := newFakeGRPCConn(t)
+	g.peers["orphan-node"] = &peerClient{conn: conn, client: pb.NewStorageNodeClient(conn)}
+
+	g.detectFailures()
+
+	g.mu.RLock()
+	_, peerStillThere := g.peers["orphan-node"]
+	g.mu.RUnlock()
+	assert.False(t, peerStillThere, "orphaned peer should be removed by detectFailures")
+	assert.Equal(t, "SHUTDOWN", conn.GetState().String(), "connection should be closed")
 }
