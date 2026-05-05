@@ -250,15 +250,7 @@ func (h *GatewayHandler) checkCIDR(c *gin.Context, route *domain.GatewayRoute) b
 	}
 
 	// Check blocked CIDRs first (takes precedence)
-	for _, cidrStr := range route.BlockedCIDRs {
-		_, ipNet, err := net.ParseCIDR(cidrStr)
-		if err != nil {
-			if h.logger != nil {
-				h.logger.Warn("invalid blocked CIDR", "cidr", cidrStr, "error", err)
-			}
-			httputil.Error(c, errors.New(errors.Forbidden, "access denied: misconfigured blocked CIDR"))
-			return false
-		}
+	for _, ipNet := range route.BlockedIPNets {
 		if ipNet.Contains(clientIP) {
 			httputil.Error(c, errors.New(errors.Forbidden, "access denied"))
 			return false
@@ -266,17 +258,9 @@ func (h *GatewayHandler) checkCIDR(c *gin.Context, route *domain.GatewayRoute) b
 	}
 
 	// If allowlist is non-empty, only allow matched IPs
-	if len(route.AllowedCIDRs) > 0 {
+	if len(route.AllowedIPNets) > 0 {
 		allowed := false
-		for _, cidrStr := range route.AllowedCIDRs {
-			_, ipNet, err := net.ParseCIDR(cidrStr)
-			if err != nil {
-				if h.logger != nil {
-					h.logger.Warn("invalid allowed CIDR", "cidr", cidrStr, "error", err)
-				}
-				httputil.Error(c, errors.New(errors.Forbidden, "access denied: misconfigured allowed CIDR"))
-				return false
-			}
+		for _, ipNet := range route.AllowedIPNets {
 			if ipNet.Contains(clientIP) {
 				allowed = true
 				break

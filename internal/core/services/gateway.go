@@ -111,6 +111,16 @@ func (s *GatewayService) CreateRoute(ctx context.Context, params ports.CreateRou
 		}
 	}
 
+	// Pre-parse CIDRs into []*net.IPNet for fast per-request matching
+	for _, cidr := range route.AllowedCIDRs {
+		_, ipNet, _ := net.ParseCIDR(cidr) // err already nil per validation above
+		route.AllowedIPNets = append(route.AllowedIPNets, ipNet)
+	}
+	for _, cidr := range route.BlockedCIDRs {
+		_, ipNet, _ := net.ParseCIDR(cidr)
+		route.BlockedIPNets = append(route.BlockedIPNets, ipNet)
+	}
+
 	if err := s.repo.CreateRoute(ctx, route); err != nil {
 		return nil, err
 	}
@@ -179,6 +189,16 @@ func (s *GatewayService) RefreshRoutes(ctx context.Context) error {
 		if err != nil {
 			s.logger.Error("failed to create reverse proxy for route", "route_id", r.ID, "route_name", r.Name, "target_url", r.TargetURL, "error", err)
 			continue
+		}
+
+		// Pre-parse CIDRs for fast per-request matching
+		for _, cidr := range r.AllowedCIDRs {
+			_, ipNet, _ := net.ParseCIDR(cidr)
+			r.AllowedIPNets = append(r.AllowedIPNets, ipNet)
+		}
+		for _, cidr := range r.BlockedCIDRs {
+			_, ipNet, _ := net.ParseCIDR(cidr)
+			r.BlockedIPNets = append(r.BlockedIPNets, ipNet)
 		}
 
 		newProxies[r.ID] = proxy

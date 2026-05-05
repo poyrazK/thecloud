@@ -2,6 +2,7 @@
 package domain
 
 import (
+	"net"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,7 +28,9 @@ type GatewayRoute struct {
 	TLSSkipVerify            bool      `json:"tls_skip_verify,omitempty"`         // Skip TLS verification for backend
 	RequireTLS               bool      `json:"require_tls,omitempty"`             // Force HTTPS for backend
 	AllowedCIDRs             []string  `json:"allowed_cidrs,omitempty"`          // IPs allowed to access (empty = all)
+	AllowedIPNets            []*net.IPNet `json:"-"`                              // pre-parsed at creation/refresh for fast lookup
 	BlockedCIDRs             []string  `json:"blocked_cidrs,omitempty"`           // IPs blocked from access
+	BlockedIPNets            []*net.IPNet `json:"-"`                              // pre-parsed at creation/refresh for fast lookup
 	MaxBodySize              int64     `json:"max_body_size,omitempty"`          // Max request body size in bytes
 	Priority                 int       `json:"priority"`        // Manual priority for tie-breaking
 	CreatedAt                time.Time `json:"created_at"`
