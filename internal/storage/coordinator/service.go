@@ -429,12 +429,15 @@ func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, r io.
 	type nodeStream struct {
 		id     string
 		stream pb.StorageNode_StoreClient
+		cancel context.CancelFunc
 	}
 	streams := make([]nodeStream, 0, len(nodes))
 	for _, nodeID := range nodes {
 		if client, ok := c.clients[nodeID]; ok {
-			st, err := client.Store(ctx)
+			streamCtx, cancel := context.WithCancel(ctx)
+			st, err := client.Store(streamCtx)
 			if err != nil {
+				cancel()
 				continue
 			}
 			err = st.Send(&pb.StoreRequest{
@@ -447,9 +450,10 @@ func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, r io.
 				},
 			})
 			if err != nil {
+				cancel()
 				continue
 			}
-			streams = append(streams, nodeStream{id: nodeID, stream: st})
+			streams = append(streams, nodeStream{id: nodeID, stream: st, cancel: cancel})
 		}
 	}
 
@@ -458,9 +462,23 @@ func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, r io.
 	}
 
 	buf := make([]byte, chunkSize)
+	var totalSize int64
 	for {
 		nr, err := r.Read(buf)
 		if nr > 0 {
+			totalSize += int64(nr)
+			if totalSize > maxObjectSize {
+				// Cancel all stream contexts so server-side handlers abort cleanly.
+				// Drain r to unblock the caller's io.TeeReader/io.Pipe so it can exit.
+				for _, ns := range streams {
+					ns.cancel()
+					_, _ = ns.stream.CloseAndRecv()
+				}
+				go func() {
+					_, _ = io.Copy(io.Discard, r)
+				}()
+				return
+			}
 			for i := 0; i < len(streams); i++ {
 				errSend := streams[i].stream.Send(&pb.StoreRequest{
 					Payload: &pb.StoreRequest_ChunkData{
