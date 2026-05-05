@@ -39,7 +39,7 @@ func TestBoundedReaderAtLimit(t *testing.T) {
 
 	buf := make([]byte, 100)
 	n, err := br.Read(buf)
-	assert.NoError(t, err) // EOF at exactly limit is fine
+	require.NoError(t, err) // EOF at exactly limit is fine
 	assert.Equal(t, 5, n)
 	assert.False(t, deleteCalled)
 }
