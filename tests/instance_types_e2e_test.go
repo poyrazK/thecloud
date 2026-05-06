@@ -87,6 +87,7 @@ func TestInstanceTypesE2E(t *testing.T) {
 	t.Run("TerminateInstance", func(t *testing.T) {
 		var resp *http.Response
 		for attempt := 0; attempt < 3; attempt++ {
+			// resp is always closed before the next iteration or early return
 			if attempt > 0 {
 				time.Sleep(time.Duration(attempt*500) * time.Millisecond)
 			}

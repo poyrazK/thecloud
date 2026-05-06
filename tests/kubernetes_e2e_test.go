@@ -79,7 +79,8 @@ func TestKubernetesE2E(t *testing.T) {
 			// Cluster not found — acceptable during early provisioning
 			t.Log("Cluster not found (may still be provisioning)")
 		default:
-			t.Logf("Kubeconfig endpoint returned %d", resp.StatusCode)
+			// Unexpected status — log for CI searchability but don't fail
+			t.Logf("Kubeconfig endpoint returned unexpected status %d", resp.StatusCode)
 		}
 	})
 
