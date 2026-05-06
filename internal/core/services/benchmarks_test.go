@@ -44,7 +44,7 @@ func BenchmarkInstanceServiceList(b *testing.B) {
 		b.Run(fmt.Sprintf("records=%d", size), func(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				instances, _ := svc.ListInstances(ctx)
+				instances, _ := svc.ListInstances(ctx, nil)
 				if len(instances) != size {
 					b.Fatalf("expected %d instances, got %d", size, len(instances))
 				}
@@ -228,7 +228,7 @@ type benchInstanceRepository struct {
 	instances []*domain.Instance
 }
 
-func (r *benchInstanceRepository) List(ctx context.Context) ([]*domain.Instance, error) {
+func (r *benchInstanceRepository) List(ctx context.Context, tagFilter []string) ([]*domain.Instance, error) {
 	instances := make([]*domain.Instance, len(r.instances))
 	copy(instances, r.instances)
 	return instances, nil
