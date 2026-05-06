@@ -23,7 +23,7 @@ func (r *NoopInstanceRepository) GetByID(ctx context.Context, id uuid.UUID) (*do
 func (r *NoopInstanceRepository) GetByName(ctx context.Context, name string) (*domain.Instance, error) {
 	return &domain.Instance{ID: uuid.New(), Name: name}, nil
 }
-func (r *NoopInstanceRepository) List(ctx context.Context) ([]*domain.Instance, error) {
+func (r *NoopInstanceRepository) List(ctx context.Context, tagFilter []string) ([]*domain.Instance, error) {
 	return []*domain.Instance{}, nil
 }
 func (r *NoopInstanceRepository) ListAll(ctx context.Context) ([]*domain.Instance, error) {

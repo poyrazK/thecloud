@@ -38,8 +38,8 @@ func (m *mockInstanceRepo) GetByName(ctx context.Context, name string) (*domain.
 	return r0, args.Error(1)
 }
 
-func (m *mockInstanceRepo) List(ctx context.Context) ([]*domain.Instance, error) {
-	args := m.Called(ctx)
+func (m *mockInstanceRepo) List(ctx context.Context, tagFilter []string) ([]*domain.Instance, error) {
+	args := m.Called(ctx, tagFilter)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
