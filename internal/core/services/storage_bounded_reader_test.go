@@ -57,13 +57,13 @@ func TestBoundedReaderAtLimit(t *testing.T) {
 	n1, err1 := br.Read(buf)
 	// first Read: data transferred, probe finds underlying EOF → clean EOF
 	assert.Equal(t, 0, n1)
-	assert.ErrorIs(t, err1, io.EOF)
+	require.ErrorIs(t, err1, io.EOF)
 	assert.False(t, cleanupCalled)
 
 	// Second Read: count == limit, underlying already exhausted → clean EOF
 	n2, err2 := br.Read(buf)
 	assert.Equal(t, 0, n2)
-	assert.ErrorIs(t, err2, io.EOF)
+	require.ErrorIs(t, err2, io.EOF)
 	assert.False(t, cleanupCalled, "cleanup should not be called for exact-limit clean EOF")
 }
 
