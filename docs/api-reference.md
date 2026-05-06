@@ -189,6 +189,59 @@ Readiness probe. Checks connections to Database and Docker daemon.
 ### GET /instances
 List all instances owned by the authenticated user.
 
+**Query Parameters:**
+- `tag` (string, repeatable): Filter instances by label. Supports `key:value` format for exact match or bare key for existence check. Example: `?tag=env:prod&tag=team:backend`
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "id": "inst-uuid",
+      "name": "web-01",
+      "status": "RUNNING",
+      "labels": {
+        "env": "prod",
+        "team": "backend"
+      }
+    }
+  ]
+}
+```
+
+### GET /instances/:id/tags
+Get all labels for an instance.
+
+**Response:**
+```json
+{
+  "data": {
+    "env": "prod",
+    "team": "backend"
+  }
+}
+```
+
+### POST /instances/:id/tags
+Add or update one or more labels on an instance. Merges with existing labels.
+
+**Request:**
+```json
+{
+  "tags": {
+    "env": "prod",
+    "team": "backend"
+  }
+}
+```
+
+**Response:** Updated label map (same format as GET /instances/:id/tags).
+
+### DELETE /instances/:id/tags/:key
+Remove a label key from an instance.
+
+**Response:** `204 No Content`
+
 ### POST /instances
 Launch a new instance.
 ```json

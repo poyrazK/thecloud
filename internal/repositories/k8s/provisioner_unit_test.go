@@ -188,7 +188,7 @@ func TestKubeadmProvisionerUpgrade(t *testing.T) {
 
 	mockRepo.On("GetNodes", ctx, cluster.ID).Return(nodes, nil).Once()
 	mockInst.On("GetInstance", ctx, nodes[0].InstanceID.String()).Return(inst, nil).Once()
-	mockInst.On("ListInstances", ctx).Return([]*domain.Instance{inst}, nil).Once()
+	mockInst.On("ListInstances", ctx, mock.Anything).Return([]*domain.Instance{inst}, nil).Once()
 	mockInst.On("Exec", ctx, inst.ID.String(), mock.Anything).Return("success", nil)
 
 	err := p.Upgrade(ctx, cluster, "v1.29.0")

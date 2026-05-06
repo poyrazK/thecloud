@@ -761,7 +761,8 @@ func (s *InstanceService) ResumeInstance(ctx context.Context, idOrName string) e
 }
 
 // ListInstances returns all instances owned by the current user.
-func (s *InstanceService) ListInstances(ctx context.Context) ([]*domain.Instance, error) {
+// tagFilter optionally restricts results to instances matching all given label constraints.
+func (s *InstanceService) ListInstances(ctx context.Context, tagFilter []string) ([]*domain.Instance, error) {
 	userID := appcontext.UserIDFromContext(ctx)
 	tenantID := appcontext.TenantIDFromContext(ctx)
 
@@ -769,7 +770,7 @@ func (s *InstanceService) ListInstances(ctx context.Context) ([]*domain.Instance
 		return nil, err
 	}
 
-	return s.repo.List(ctx)
+	return s.repo.List(ctx, tagFilter)
 }
 
 // GetInstance retrieves an instance by its UUID or name.
@@ -1649,6 +1650,74 @@ func (s *InstanceService) UpdateInstanceMetadata(ctx context.Context, id uuid.UU
 				inst.Labels[k] = v
 			}
 		}
+	}
+
+	return s.repo.Update(ctx, inst)
+}
+
+// GetTags returns the label set for an instance.
+func (s *InstanceService) GetTags(ctx context.Context, id uuid.UUID) (map[string]string, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceRead, id.String()); err != nil {
+		return nil, err
+	}
+
+	inst, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if inst.Labels == nil {
+		return map[string]string{}, nil
+	}
+	return inst.Labels, nil
+}
+
+// SetTags replaces an instance's labels with the provided map (add/update).
+func (s *InstanceService) SetTags(ctx context.Context, id uuid.UUID, labels map[string]string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate, id.String()); err != nil {
+		return err
+	}
+
+	inst, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if inst.Labels == nil {
+		inst.Labels = make(map[string]string)
+	}
+	for k, v := range labels {
+		if v == "" {
+			delete(inst.Labels, k)
+		} else {
+			inst.Labels[k] = v
+		}
+	}
+
+	return s.repo.Update(ctx, inst)
+}
+
+// RemoveTag deletes a single label key from an instance.
+func (s *InstanceService) RemoveTag(ctx context.Context, id uuid.UUID, key string) error {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionInstanceUpdate, id.String()); err != nil {
+		return err
+	}
+
+	inst, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if inst.Labels != nil {
+		delete(inst.Labels, key)
 	}
 
 	return s.repo.Update(ctx, inst)

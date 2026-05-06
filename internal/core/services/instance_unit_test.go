@@ -1305,7 +1305,7 @@ func testInstanceServiceUnitRbacErrors(t *testing.T) {
 			permission: domain.PermissionInstanceRead,
 			resourceID: "*",
 			invoke: func() error {
-				_, err := svc.ListInstances(ctx)
+				_, err := svc.ListInstances(ctx, nil)
 				return err
 			},
 		},
@@ -1448,9 +1448,9 @@ func testInstanceServiceUnitRepoErrors(t *testing.T) {
 	})
 
 	t.Run("ListInstances_RepoError", func(t *testing.T) {
-		repo.On("List", mock.Anything).Return(nil, fmt.Errorf("db error")).Once()
+		repo.On("List", mock.Anything, []string(nil)).Return(nil, fmt.Errorf("db error")).Once()
 
-		_, err := svc.ListInstances(ctx)
+		_, err := svc.ListInstances(ctx, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "db error")
 	})
