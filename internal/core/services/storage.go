@@ -87,6 +87,9 @@ func (b *boundedReader) Read(p []byte) (n int, err error) {
 			return 0, io.EOF
 		}
 		// Underlying may have more data; probe with 1 byte.
+		// Note: the probe reads from the already-encrypted stream (boundedReader
+		// sits above the encryption layer in Upload), so it does not interfere
+		// with decryption state.
 		probe := [1]byte{}
 		_, probeErr := b.r.Read(probe[:])
 		if probeErr == io.EOF {

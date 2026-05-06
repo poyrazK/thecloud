@@ -88,9 +88,9 @@ func TestBoundedReaderExceedsLimit(t *testing.T) {
 }
 
 func TestBoundedReaderExceedsLimitInSingleRead(t *testing.T) {
-	// Simulates an io.LimitReader wrapping a 10-byte reader at limit 5.
-	// The boundedReader should reject on the first Read because the underlying
-	// provides more data than the limit allows (count exceeds limit).
+	// 10 bytes of data, limit is 5 — boundedReader reads up to remaining (5)
+	// and probe finds extra data, so it returns ObjectTooLarge immediately
+	// on the first Read (no partial data returned to caller).
 	r := &countingReader{data: make([]byte, 10)}
 	br := &boundedReader{
 		r:         r,
@@ -100,8 +100,23 @@ func TestBoundedReaderExceedsLimitInSingleRead(t *testing.T) {
 
 	buf := make([]byte, 100)
 	n, err := br.Read(buf)
-	// First Read: boundedReader reads up to remaining (5) and probe finds extra data,
-	// so it returns ObjectTooLarge immediately
+	assert.Equal(t, 0, n)
+	var appErr apperrors.Error
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, apperrors.ObjectTooLarge, appErr.Type)
+}
+
+func TestBoundedReaderNilCleanupFn(t *testing.T) {
+	// cleanupFn is nil — overflow must not panic.
+	r := &countingReader{data: make([]byte, 10)}
+	br := &boundedReader{
+		r:     r,
+		limit: 5,
+		// cleanupFn intentionally nil
+	}
+
+	buf := make([]byte, 100)
+	n, err := br.Read(buf)
 	assert.Equal(t, 0, n)
 	var appErr apperrors.Error
 	require.ErrorAs(t, err, &appErr)
