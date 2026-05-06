@@ -422,6 +422,9 @@ func (h *ClusterHandler) SetBackupPolicy(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, nil)
 }
 
+// isValidBackupSchedule validates a cron schedule string for backup timing.
+// Returns true for valid cron expressions or empty string.
+// Validates both standard cron format and @prefix shortcuts (e.g., @daily).
 func isValidBackupSchedule(schedule string) bool {
 	if schedule == "" {
 		return true
