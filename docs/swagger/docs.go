@@ -4327,7 +4327,7 @@ const docTemplate = `{
                         "APIKeyAuth": []
                     }
                 ],
-                "description": "Merges the provided tags into the instance's label set. Existing keys are overwritten; keys with empty values are removed.",
+                "description": "Merges the provided tags into the instance's label set. Existing keys are overwritten.",
                 "consumes": [
                     "application/json"
                 ],

@@ -504,7 +504,7 @@ type SetTagsRequest struct {
 
 // SetTags replaces an instance's labels with the provided map (add/update).
 // @Summary Set instance tags
-// @Description Merges the provided tags into the instance's label set. Existing keys are overwritten; keys with empty values are removed.
+// @Description Merges the provided tags into the instance's label set. Existing keys are overwritten.
 // @Tags instances
 // @Accept json
 // @Produce json

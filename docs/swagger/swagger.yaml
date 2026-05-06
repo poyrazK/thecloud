@@ -5259,7 +5259,7 @@ paths:
       consumes:
       - application/json
       description: Merges the provided tags into the instance's label set. Existing
-        keys are overwritten; keys with empty values are removed.
+        keys are overwritten.
       parameters:
       - description: Instance ID
         in: path
