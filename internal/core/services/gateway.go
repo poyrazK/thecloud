@@ -107,6 +107,20 @@ func (s *GatewayService) CreateRoute(ctx context.Context, params ports.CreateRou
 		UpdatedAt:                time.Now(),
 	}
 
+	// Apply default values for resilience parameters
+	if route.CircuitBreakerThreshold == 0 {
+		route.CircuitBreakerThreshold = 5
+	}
+	if route.CircuitBreakerTimeout == 0 {
+		route.CircuitBreakerTimeout = 30000 // ms
+	}
+	if route.MaxRetries == 0 {
+		route.MaxRetries = 2
+	}
+	if route.RetryTimeout == 0 {
+		route.RetryTimeout = 5000 // ms
+	}
+
 	// Validate CIDRs before saving
 	for _, cidr := range route.AllowedCIDRs {
 		if _, _, err := net.ParseCIDR(cidr); err != nil {
@@ -388,7 +402,7 @@ func calculateMatchScore(route *domain.GatewayRoute, _ string) int {
 
 // retryTransport wraps an http.Transport with circuit breaker and retry logic.
 type retryTransport struct {
-	base         *http.Transport
+	base         http.RoundTripper
 	cb           *platform.CircuitBreaker // nil if circuit breaker is disabled
 	maxRetries   int
 	retryTimeout time.Duration
@@ -396,7 +410,7 @@ type retryTransport struct {
 }
 
 // newRetryTransport wraps a base http.Transport with per-route retry and circuit breaker behavior.
-func newRetryTransport(base *http.Transport, route *domain.GatewayRoute, logger *slog.Logger) *retryTransport {
+func newRetryTransport(base http.RoundTripper, route *domain.GatewayRoute, logger *slog.Logger) *retryTransport {
 	rt := &retryTransport{
 		base:         base,
 		maxRetries:   route.MaxRetries,
@@ -439,7 +453,7 @@ func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (rt *retryTransport) doRoundTrip(req *http.Request) (*http.Response, error) {
-	if rt.maxRetries <= 0 {
+	if rt.maxRetries <= 0 || !rt.isIdempotent(req.Method) {
 		return rt.base.RoundTrip(req)
 	}
 
@@ -462,17 +476,18 @@ func (rt *retryTransport) doRoundTrip(req *http.Request) (*http.Response, error)
 			if !rt.isRetryableStatus(resp.StatusCode) {
 				return resp, nil
 			}
-			// drain and close body so connection can be reused
+			// drain and close body so connection can be reused, then retry
 			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 			lastResp = resp
-		} else {
-			if !rt.isRetryableError(err) {
-				return nil, err
-			}
-			lastErr = err
-			lastResp = resp
+			continue
 		}
+
+		if !rt.isRetryableError(err) {
+			return nil, err
+		}
+		lastErr = err
+		lastResp = resp
 	}
 	return lastResp, lastErr
 }
@@ -491,6 +506,11 @@ func (rt *retryTransport) isRetryableError(err error) bool {
 		strings.Contains(msg, "reset by peer") ||
 		strings.Contains(msg, "broken pipe") ||
 		strings.Contains(msg, "connection reset")
+}
+
+func (rt *retryTransport) isIdempotent(method string) bool {
+	return method == "GET" || method == "HEAD" || method == "PUT" ||
+		method == "DELETE" || method == "OPTIONS"
 }
 
 func (rt *retryTransport) backoffWithJitter(attempt int) time.Duration {
