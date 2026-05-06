@@ -115,7 +115,7 @@ func TestInstanceTypesE2E(t *testing.T) {
 		}
 		if resp != nil {
 			t.Logf("Instance still exists after %d attempts", maxRetries)
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
 		}
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 }
