@@ -1668,6 +1668,9 @@ func (s *InstanceService) GetTags(ctx context.Context, id uuid.UUID) (map[string
 	if err != nil {
 		return nil, err
 	}
+	if inst.Labels == nil {
+		return map[string]string{}, nil
+	}
 	return inst.Labels, nil
 }
 
@@ -1689,7 +1692,11 @@ func (s *InstanceService) SetTags(ctx context.Context, id uuid.UUID, labels map[
 		inst.Labels = make(map[string]string)
 	}
 	for k, v := range labels {
-		inst.Labels[k] = v
+		if v == "" {
+			delete(inst.Labels, k)
+		} else {
+			inst.Labels[k] = v
+		}
 	}
 
 	return s.repo.Update(ctx, inst)
