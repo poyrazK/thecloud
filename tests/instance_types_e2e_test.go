@@ -84,12 +84,16 @@ func TestInstanceTypesE2E(t *testing.T) {
 	})
 
 	// 4. Terminate Instance
+	const (
+		maxRetries   = 3
+		retryDelayMs = 500 // milliseconds between retry attempts
+	)
 	t.Run("TerminateInstance", func(t *testing.T) {
 		var resp *http.Response
-		for attempt := 0; attempt < 3; attempt++ {
+		for attempt := 0; attempt < maxRetries; attempt++ {
 			// resp is always closed before the next iteration or early return
 			if attempt > 0 {
-				time.Sleep(time.Duration(attempt*500) * time.Millisecond)
+				time.Sleep(time.Duration(attempt*retryDelayMs) * time.Millisecond)
 			}
 			resp = deleteRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
 			if resp.StatusCode == http.StatusOK {
@@ -108,6 +112,9 @@ func TestInstanceTypesE2E(t *testing.T) {
 				return
 			}
 			resp.Body.Close()
+		}
+		if resp != nil {
+			t.Logf("Instance still exists after %d attempts", maxRetries)
 		}
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
