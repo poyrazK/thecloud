@@ -85,21 +85,28 @@ func TestInstanceTypesE2E(t *testing.T) {
 
 	// 4. Terminate Instance
 	t.Run("TerminateInstance", func(t *testing.T) {
-		resp := deleteRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
-		defer func() { _ = resp.Body.Close() }()
-
-		// 500 may occur if chaos tests restarted the API between test runs
-		// In that case, the instance may have been deleted by the API restart cleanup
-		if resp.StatusCode == http.StatusInternalServerError {
-			// Check if instance was already deleted (not found)
-			checkResp := getRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
-			defer func() { _ = checkResp.Body.Close() }()
-			if checkResp.StatusCode == http.StatusNotFound {
-				t.Log("Instance already deleted (likely by API restart cleanup during chaos tests)")
+		var resp *http.Response
+		for attempt := 0; attempt < 3; attempt++ {
+			if attempt > 0 {
+				time.Sleep(time.Duration(attempt*500) * time.Millisecond)
+			}
+			resp = deleteRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
+			if resp.StatusCode == http.StatusOK {
+				resp.Body.Close()
 				return
 			}
-			// Instance exists but delete failed - this is a real error
-			t.Fatalf("Instance termination failed with 500 but instance still exists at %s", instanceID)
+			if resp.StatusCode != http.StatusInternalServerError {
+				break
+			}
+			// 500 — check if instance was already deleted by API restart cleanup
+			checkResp := getRequest(t, client, fmt.Sprintf(testutil.TestRouteFormat, testutil.TestBaseURL, testutil.TestRouteInstances, instanceID), token)
+			checkResp.Body.Close()
+			if checkResp.StatusCode == http.StatusNotFound {
+				t.Log("Instance already deleted (API restart cleanup during chaos tests)")
+				resp.Body.Close()
+				return
+			}
+			resp.Body.Close()
 		}
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
