@@ -240,7 +240,9 @@ func TestClientResizeInstance(t *testing.T) {
 
 		var req map[string]string
 		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("failed to decode request: %v", err)
+		}
 		assert.Equal(t, "basic-4", req["instance_type"])
 
 		w.WriteHeader(http.StatusOK)
