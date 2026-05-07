@@ -176,6 +176,7 @@ func (m *mockComputeBackendExtended) RestoreSnapshot(ctx context.Context, id, na
 func (m *mockComputeBackendExtended) DeleteSnapshot(ctx context.Context, id, name string) error {
 	return m.Called(ctx, id, name).Error(0)
 }
+func (m *mockComputeBackendExtended) ResetCircuitBreaker() {}
 
 func TestPipelineWorker_processJob(t *testing.T) {
 	repo := new(mockPipelineRepo)
