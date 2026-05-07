@@ -49,10 +49,19 @@ func TestCreateRoleCmd(t *testing.T) {
 	_ = createRoleCmd.Flags().Set("permissions", string(domain.PermissionInstanceRead))
 
 	fmt.Fprintf(os.Stderr, "DEBUG: About to call createRoleCmd.Run\n")
-	out := captureStdout(t, func() {
-		createRoleCmd.Run(createRoleCmd, []string{rbacTestRoleName})
-	})
-	fmt.Fprintf(os.Stderr, "DEBUG: createRoleCmd.Run completed\n")
+	var out string
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Fprintf(os.Stderr, "DEBUG: panic in Run: %v\n", r)
+				t.Fatalf("panic in createRoleCmd.Run: %v", r)
+			}
+		}()
+		out = captureStdout(t, func() {
+			createRoleCmd.Run(createRoleCmd, []string{rbacTestRoleName})
+		})
+	}()
+	fmt.Fprintf(os.Stderr, "DEBUG: createRoleCmd.Run completed, output length: %d\n", len(out))
 	if !strings.Contains(out, "Role created") || !strings.Contains(out, rbacTestRoleID) {
 		t.Fatalf("expected success output, got: %s", out)
 	}
