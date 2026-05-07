@@ -141,7 +141,7 @@ jobs:
           DATABASE_URL="postgres://cloud:cloud@127.0.0.1:5433/${DATABASE_NAME}?sslmode=disable" go run ./cmd/api -migrate-only
       - name: Run Integration Tests
         env:
-          DATABASE_URL: postgres://cloud:cloud@127.0.0.1:5433/cloud_test_$GITHUB_RUN_ID?sslmode=disable
+          DATABASE_URL: postgres://cloud:cloud@127.0.0.1:5433/cloud_test_${{ github.run_id }}?sslmode=disable
         run: go test -tags=integration -v ./internal/repositories/postgres/...
 
   test-libvirt:
