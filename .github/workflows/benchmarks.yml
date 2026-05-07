@@ -32,6 +32,17 @@ jobs:
             | grep -E '^(goos:|goarch:|pkg:|cpu:|Benchmark|PASS$|ok\s)' \
             | tee bench.txt
 
+      - name: Check Benchmark Output
+        run: |
+          if [ ! -s bench.txt ]; then
+            echo "ERROR: bench.txt is empty. Benchmark command produced no output."
+            echo "This likely means 'go test' failed or produced no benchmark data."
+            echo "Running without 2>/dev/null to expose actual error:"
+            go test -run '^$' -bench=. -benchmem ./internal/core/services/... 2>&1 || true
+            exit 1
+          fi
+          echo "Benchmark output OK ($(wc -l < bench.txt) lines)"
+
       - name: Store Benchmark Result (PR)
         if: github.event_name == 'pull_request'
         uses: benchmark-action/github-action-benchmark@v1
