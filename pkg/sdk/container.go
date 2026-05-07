@@ -36,9 +36,12 @@ func (c *Client) CreateDeployment(name, image string, replicas int, ports string
 }
 
 func (c *Client) ListDeployments() ([]Deployment, error) {
-	var deps []Deployment
-	err := c.get("/containers/deployments", &deps)
-	return deps, err
+	var res Response[[]Deployment]
+	err := c.get("/containers/deployments", &res)
+	if err != nil {
+		return nil, err
+	}
+	return res.Data, nil
 }
 
 func (c *Client) GetDeployment(id string) (*Deployment, error) {
