@@ -162,7 +162,7 @@ func (c *Client) GetKubeconfigWithContext(ctx context.Context, idOrName string, 
 	}
 	path := clustersPath + "/" + id + "/kubeconfig"
 	if role != "" {
-		path += "?role=" + role
+		path += "?role=" + url.QueryEscape(role)
 	}
 	var resp Response[string]
 	if err := c.getWithContext(ctx, path, &resp); err != nil {

@@ -64,7 +64,11 @@ var snapshotCreateCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		volIDOrName := args[0]
-		desc, _ := cmd.Flags().GetString("desc")
+		desc, err := cmd.Flags().GetString("desc")
+		if err != nil {
+			fmt.Printf(snapshotErrorFormat, err)
+			return
+		}
 
 		client := createClient(opts)
 		snapshot, err := client.CreateSnapshot(cmd.Context(), volIDOrName, desc)
