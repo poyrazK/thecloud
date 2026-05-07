@@ -57,9 +57,13 @@ func TestCreateRoleCmd(t *testing.T) {
 				t.Fatalf("panic in createRoleCmd.Run: %v", r)
 			}
 		}()
+		fmt.Fprintf(os.Stderr, "DEBUG: Before captureStdout\n")
 		out = captureStdout(t, func() {
+			fmt.Fprintf(os.Stderr, "DEBUG: Inside captureStdout fn, before Run\n")
 			createRoleCmd.Run(createRoleCmd, []string{rbacTestRoleName})
+			fmt.Fprintf(os.Stderr, "DEBUG: Inside captureStdout fn, after Run\n")
 		})
+		fmt.Fprintf(os.Stderr, "DEBUG: After captureStdout returned\n")
 	}()
 	fmt.Fprintf(os.Stderr, "DEBUG: createRoleCmd.Run completed, output length: %d\n", len(out))
 	if !strings.Contains(out, "Role created") || !strings.Contains(out, rbacTestRoleID) {
