@@ -45,14 +45,6 @@ func (c *Client) ListInstancesWithContext(ctx context.Context) ([]Instance, erro
 	return res.Data, nil
 }
 
-// resolveInstanceID resolves an instance ID or name to a full ID.
-func (c *Client) resolveInstanceID(idOrName string) (string, error) {
-	return c.resolveID("instance", func() ([]interface{}, error) {
-		instances, err := c.ListInstances()
-		return interfaceSlice(instances), err
-	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
-}
-
 // resolveInstanceIDWithContext resolves an instance ID or name to a full ID with context support.
 func (c *Client) resolveInstanceIDWithContext(ctx context.Context, idOrName string) (string, error) {
 	return c.resolveID("instance", func() ([]interface{}, error) {

@@ -99,14 +99,6 @@ func (c *Client) ListClustersWithContext(ctx context.Context) ([]*Cluster, error
 	return resp.Data, nil
 }
 
-// resolveClusterID resolves a cluster ID or name to a full UUID.
-func (c *Client) resolveClusterID(idOrName string) (string, error) {
-	return c.resolveID("cluster", func() ([]interface{}, error) {
-		clusters, err := c.ListClusters()
-		return interfaceSlicePtr(clusters), err
-	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
-}
-
 // resolveClusterIDWithContext resolves a cluster ID or name to a full UUID with context support.
 func (c *Client) resolveClusterIDWithContext(ctx context.Context, idOrName string) (string, error) {
 	return c.resolveID("cluster", func() ([]interface{}, error) {
