@@ -41,15 +41,23 @@ func (c *Client) CreateVolume(name string, sizeGB int) (*Volume, error) {
 }
 
 func (c *Client) GetVolume(idOrName string) (*Volume, error) {
+	id := c.resolveID("volume", func() ([]interface{}, error) {
+		vols, err := c.ListVolumes()
+		return interfaceSlice(vols), err
+	}, func(v interface{}) string { return v.(Volume).ID.String() }, func(v interface{}) string { return v.(Volume).Name }, idOrName)
 	var res Response[Volume]
-	if err := c.get(fmt.Sprintf("/volumes/%s", idOrName), &res); err != nil {
+	if err := c.get(fmt.Sprintf("/volumes/%s", id), &res); err != nil {
 		return nil, err
 	}
 	return &res.Data, nil
 }
 
 func (c *Client) DeleteVolume(idOrName string) error {
-	return c.delete(fmt.Sprintf("/volumes/%s", idOrName), nil)
+	id := c.resolveID("volume", func() ([]interface{}, error) {
+		vols, err := c.ListVolumes()
+		return interfaceSlice(vols), err
+	}, func(v interface{}) string { return v.(Volume).ID.String() }, func(v interface{}) string { return v.(Volume).Name }, idOrName)
+	return c.delete(fmt.Sprintf("/volumes/%s", id), nil)
 }
 
 func (c *Client) AttachVolume(volumeID, instanceID, mountPath string) (string, error) {

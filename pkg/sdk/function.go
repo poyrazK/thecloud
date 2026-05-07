@@ -113,7 +113,11 @@ func (c *Client) UpdateFunction(id string, req *FunctionUpdateRequest) (*Functio
 	return &resp.Data, nil
 }
 
-func (c *Client) InvokeFunction(id string, payload []byte, async bool) (*Invocation, error) {
+func (c *Client) InvokeFunction(idOrName string, payload []byte, async bool) (*Invocation, error) {
+	id := c.resolveID("function", func() ([]interface{}, error) {
+		fns, err := c.ListFunctions()
+		return interfaceSlicePtr(fns), err
+	}, func(v interface{}) string { return v.(*Function).ID }, func(v interface{}) string { return v.(*Function).Name }, idOrName)
 	url := functionsPath + id + "/invoke"
 	if async {
 		url += "?async=true"

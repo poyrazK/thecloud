@@ -31,7 +31,11 @@ func (c *Client) ListSnapshots() ([]*domain.Snapshot, error) {
 	return res.Data, nil
 }
 
-func (c *Client) GetSnapshot(id string) (*domain.Snapshot, error) {
+func (c *Client) GetSnapshot(idOrName string) (*domain.Snapshot, error) {
+	id := c.resolveID("snapshot", func() ([]interface{}, error) {
+		snaps, err := c.ListSnapshots()
+		return interfaceSlice(snaps), err
+	}, func(v interface{}) string { return v.(*domain.Snapshot).ID.String() }, func(v interface{}) string { return v.(*domain.Snapshot).VolumeName }, idOrName)
 	var snapshot domain.Snapshot
 	err := c.get(fmt.Sprintf("/snapshots/%s", id), &snapshot)
 	if err != nil {
@@ -40,11 +44,19 @@ func (c *Client) GetSnapshot(id string) (*domain.Snapshot, error) {
 	return &snapshot, nil
 }
 
-func (c *Client) DeleteSnapshot(id string) error {
+func (c *Client) DeleteSnapshot(idOrName string) error {
+	id := c.resolveID("snapshot", func() ([]interface{}, error) {
+		snaps, err := c.ListSnapshots()
+		return interfaceSlice(snaps), err
+	}, func(v interface{}) string { return v.(*domain.Snapshot).ID.String() }, func(v interface{}) string { return v.(*domain.Snapshot).VolumeName }, idOrName)
 	return c.delete(fmt.Sprintf("/snapshots/%s", id), nil)
 }
 
-func (c *Client) RestoreSnapshot(id string, newVolumeName string) (*domain.Volume, error) {
+func (c *Client) RestoreSnapshot(idOrName string, newVolumeName string) (*domain.Volume, error) {
+	id := c.resolveID("snapshot", func() ([]interface{}, error) {
+		snaps, err := c.ListSnapshots()
+		return interfaceSlice(snaps), err
+	}, func(v interface{}) string { return v.(*domain.Snapshot).ID.String() }, func(v interface{}) string { return v.(*domain.Snapshot).VolumeName }, idOrName)
 	req := map[string]interface{}{
 		"new_volume_name": newVolumeName,
 	}
