@@ -350,7 +350,10 @@ func TestCircuitBreaker_GoesHalfOpenAfterTimeout(t *testing.T) {
 	// Wait for half-open window to expire, then trigger a probe request
 	time.Sleep(80 * time.Millisecond)
 	_ = cb.Execute(func() error { return errors.New("still failing") })
-	// State should be Open still (probe failed), or HalfOpen if it just transitioned
+	// After ResetTimeout the CB transitions to half-open automatically.
+	// The probe arrives during or just after that transition, so either
+	// Open (transition not yet observed) or HalfOpen (transition complete but probe pending)
+	// is valid — this is not a flaky test.
 	assert.True(t, cb.GetState() == platform.StateOpen || cb.GetState() == platform.StateHalfOpen)
 }
 
