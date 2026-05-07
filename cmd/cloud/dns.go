@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/olekukonko/tablewriter"
@@ -64,12 +65,30 @@ var dnsCreateZoneCmd = &cobra.Command{
 
 		var vpcID *uuid.UUID
 		if vpcStr != "" {
+			// Try to resolve as full UUID first
 			uid, err := uuid.Parse(vpcStr)
 			if err != nil {
-				fmt.Printf("Error: invalid vpc-id format: %v\n", err)
-				return
+				// Not a UUID, try to resolve by name or short ID
+				client := createClient(opts)
+				vpcs, err := client.ListVPCs()
+				if err == nil {
+					for _, vpc := range vpcs {
+						if vpc.Name == vpcStr || strings.HasPrefix(vpc.ID, vpcStr) {
+							uid, err := uuid.Parse(vpc.ID)
+							if err == nil {
+								vpcID = &uid
+								break
+							}
+						}
+					}
+				}
+				if vpcID == nil {
+					fmt.Printf("Error: invalid vpc-id format: %v\n", err)
+					return
+				}
+			} else {
+				vpcID = &uid
 			}
-			vpcID = &uid
 		}
 
 		client := createClient(opts)

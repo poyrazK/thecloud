@@ -67,7 +67,14 @@ func (c *Client) ListScalingGroups() ([]ScalingGroup, error) {
 	return respData.Data, nil
 }
 
-func (c *Client) GetScalingGroup(id string) (*ScalingGroup, error) {
+func (c *Client) GetScalingGroup(idOrName string) (*ScalingGroup, error) {
+	id, err := c.resolveID("scaling-group", func() ([]interface{}, error) {
+		groups, err := c.ListScalingGroups()
+		return interfaceSlice(groups), err
+	}, func(v interface{}) string { return v.(ScalingGroup).ID }, func(v interface{}) string { return v.(ScalingGroup).Name }, idOrName)
+	if err != nil {
+		return nil, err
+	}
 	var respData Response[ScalingGroup]
 	resp, err := c.resty.R().
 		SetResult(&respData).
@@ -82,7 +89,14 @@ func (c *Client) GetScalingGroup(id string) (*ScalingGroup, error) {
 	return &respData.Data, nil
 }
 
-func (c *Client) DeleteScalingGroup(id string) error {
+func (c *Client) DeleteScalingGroup(idOrName string) error {
+	id, err := c.resolveID("scaling-group", func() ([]interface{}, error) {
+		groups, err := c.ListScalingGroups()
+		return interfaceSlice(groups), err
+	}, func(v interface{}) string { return v.(ScalingGroup).ID }, func(v interface{}) string { return v.(ScalingGroup).Name }, idOrName)
+	if err != nil {
+		return err
+	}
 	resp, err := c.resty.R().Delete(c.apiURL + "/autoscaling/groups/" + id)
 	if err != nil {
 		return err
