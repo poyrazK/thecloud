@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -58,12 +59,23 @@ func TestCreateRoleCmd(t *testing.T) {
 			}
 		}()
 		fmt.Fprintf(os.Stderr, "DEBUG: Before captureStdout\n")
-		out = captureStdout(t, func() {
-			fmt.Fprintf(os.Stderr, "DEBUG: Inside captureStdout fn, before Run\n")
-			createRoleCmd.Run(createRoleCmd, []string{rbacTestRoleName})
-			fmt.Fprintf(os.Stderr, "DEBUG: Inside captureStdout fn, after Run\n")
-		})
-		fmt.Fprintf(os.Stderr, "DEBUG: After captureStdout returned\n")
+		// Use direct stdout capture with explicit timing
+		oldStdout := os.Stdout
+		r, w, err := os.Pipe()
+		if err != nil {
+			t.Fatalf("pipe: %v", err)
+		}
+		os.Stdout = w
+		fmt.Fprintf(os.Stderr, "DEBUG: Pipe created, about to call Run\n")
+		createRoleCmd.Run(createRoleCmd, []string{rbacTestRoleName})
+		fmt.Fprintf(os.Stderr, "DEBUG: Run completed, closing pipe\n")
+		w.Close()
+		os.Stdout = oldStdout
+		fmt.Fprintf(os.Stderr, "DEBUG: Pipe closed, about to copy\n")
+		var buf strings.Builder
+		io.Copy(&buf, r)
+		out = buf.String()
+		fmt.Fprintf(os.Stderr, "DEBUG: output captured: %d bytes\n", len(out))
 	}()
 	fmt.Fprintf(os.Stderr, "DEBUG: createRoleCmd.Run completed, output length: %d\n", len(out))
 	if !strings.Contains(out, "Role created") || !strings.Contains(out, rbacTestRoleID) {
