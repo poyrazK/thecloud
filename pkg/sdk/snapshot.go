@@ -32,12 +32,15 @@ func (c *Client) ListSnapshots() ([]*domain.Snapshot, error) {
 }
 
 func (c *Client) GetSnapshot(idOrName string) (*domain.Snapshot, error) {
-	id := c.resolveID("snapshot", func() ([]interface{}, error) {
+	id, err := c.resolveID("snapshot", func() ([]interface{}, error) {
 		snaps, err := c.ListSnapshots()
 		return interfaceSlice(snaps), err
 	}, func(v interface{}) string { return v.(*domain.Snapshot).ID.String() }, func(v interface{}) string { return v.(*domain.Snapshot).VolumeName }, idOrName)
+	if err != nil {
+		return nil, err
+	}
 	var snapshot domain.Snapshot
-	err := c.get(fmt.Sprintf("/snapshots/%s", id), &snapshot)
+	err = c.get(fmt.Sprintf("/snapshots/%s", id), &snapshot)
 	if err != nil {
 		return nil, err
 	}
@@ -45,24 +48,30 @@ func (c *Client) GetSnapshot(idOrName string) (*domain.Snapshot, error) {
 }
 
 func (c *Client) DeleteSnapshot(idOrName string) error {
-	id := c.resolveID("snapshot", func() ([]interface{}, error) {
+	id, err := c.resolveID("snapshot", func() ([]interface{}, error) {
 		snaps, err := c.ListSnapshots()
 		return interfaceSlice(snaps), err
 	}, func(v interface{}) string { return v.(*domain.Snapshot).ID.String() }, func(v interface{}) string { return v.(*domain.Snapshot).VolumeName }, idOrName)
+	if err != nil {
+		return err
+	}
 	return c.delete(fmt.Sprintf("/snapshots/%s", id), nil)
 }
 
 func (c *Client) RestoreSnapshot(idOrName string, newVolumeName string) (*domain.Volume, error) {
-	id := c.resolveID("snapshot", func() ([]interface{}, error) {
+	id, err := c.resolveID("snapshot", func() ([]interface{}, error) {
 		snaps, err := c.ListSnapshots()
 		return interfaceSlice(snaps), err
 	}, func(v interface{}) string { return v.(*domain.Snapshot).ID.String() }, func(v interface{}) string { return v.(*domain.Snapshot).VolumeName }, idOrName)
+	if err != nil {
+		return nil, err
+	}
 	req := map[string]interface{}{
 		"new_volume_name": newVolumeName,
 	}
 
 	var vol domain.Volume
-	err := c.post(fmt.Sprintf("/snapshots/%s/restore", id), req, &vol)
+	err = c.post(fmt.Sprintf("/snapshots/%s/restore", id), req, &vol)
 	if err != nil {
 		return nil, err
 	}
