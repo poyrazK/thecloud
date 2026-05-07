@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/google/uuid"
 	"github.com/olekukonko/tablewriter"
+	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -61,7 +63,8 @@ var subscribeCmd = &cobra.Command{
 		endpoint, _ := cmd.Flags().GetString("endpoint")
 
 		client := createClient(opts)
-		sub, err := client.Subscribe(args[0], protocol, endpoint)
+		topicID := resolveTopicID(args[0], client)
+		sub, err := client.Subscribe(topicID, protocol, endpoint)
 		if err != nil {
 			fmt.Printf(notifyErrorFormat, err)
 			return
@@ -77,7 +80,8 @@ var publishCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		client := createClient(opts)
-		err := client.Publish(args[0], args[1])
+		topicID := resolveTopicID(args[0], client)
+		err := client.Publish(topicID, args[1])
 		if err != nil {
 			fmt.Printf(notifyErrorFormat, err)
 			return
@@ -113,4 +117,21 @@ func init() {
 	notifyCmd.AddCommand(subscribeCmd)
 	notifyCmd.AddCommand(publishCmd)
 	notifyCmd.AddCommand(unsubscribeCmd)
+}
+
+// resolveTopicID resolves a topic ID or name to a full UUID.
+func resolveTopicID(idOrName string, client *sdk.Client) string {
+	if _, err := uuid.Parse(idOrName); err == nil {
+		return idOrName
+	}
+	topics, err := client.ListTopics()
+	if err != nil {
+		return idOrName
+	}
+	for _, t := range topics {
+		if t.Name == idOrName {
+			return t.ID
+		}
+	}
+	return idOrName
 }

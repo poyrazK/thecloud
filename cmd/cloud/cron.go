@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/google/uuid"
 	"github.com/olekukonko/tablewriter"
+	"github.com/poyrazk/thecloud/pkg/sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -60,7 +62,8 @@ var pauseCronCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		client := createClient(opts)
-		err := client.PauseCronJob(args[0])
+		jobID := resolveCronJobID(args[0], client)
+		err := client.PauseCronJob(jobID)
 		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
@@ -75,7 +78,8 @@ var resumeCronCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		client := createClient(opts)
-		err := client.ResumeCronJob(args[0])
+		jobID := resolveCronJobID(args[0], client)
+		err := client.ResumeCronJob(jobID)
 		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
@@ -90,7 +94,8 @@ var deleteCronCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		client := createClient(opts)
-		err := client.DeleteCronJob(args[0])
+		jobID := resolveCronJobID(args[0], client)
+		err := client.DeleteCronJob(jobID)
 		if err != nil {
 			fmt.Printf(errFmt, err)
 			return
@@ -108,5 +113,21 @@ func init() {
 	cronCmd.AddCommand(pauseCronCmd)
 	cronCmd.AddCommand(resumeCronCmd)
 	cronCmd.AddCommand(deleteCronCmd)
+}
 
+// resolveCronJobID resolves a cron job ID or name to a full UUID.
+func resolveCronJobID(idOrName string, client *sdk.Client) string {
+	if _, err := uuid.Parse(idOrName); err == nil {
+		return idOrName
+	}
+	jobs, err := client.ListCronJobs()
+	if err != nil {
+		return idOrName
+	}
+	for _, j := range jobs {
+		if j.Name == idOrName {
+			return j.ID
+		}
+	}
+	return idOrName
 }
