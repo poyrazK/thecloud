@@ -254,6 +254,7 @@ func (m *MockComputeBackend) RestoreSnapshot(ctx context.Context, id, name strin
 func (m *MockComputeBackend) DeleteSnapshot(ctx context.Context, id, name string) error {
 	return m.Called(ctx, id, name).Error(0)
 }
+func (m *MockComputeBackend) ResetCircuitBreaker() {}
 
 // MockClusterRepo
 type MockClusterRepo struct{ mock.Mock }
