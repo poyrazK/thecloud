@@ -228,6 +228,7 @@ func (m *mockComputeBackend) RestoreSnapshot(ctx context.Context, id, name strin
 func (m *mockComputeBackend) DeleteSnapshot(ctx context.Context, id, name string) error {
 	return m.Called(ctx, id, name).Error(0)
 }
+func (m *mockComputeBackend) ResetCircuitBreaker() {}
 
 func TestDatabaseFailoverWorker(t *testing.T) {
 	t.Parallel()

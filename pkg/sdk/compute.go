@@ -153,6 +153,14 @@ func (c *Client) GetInstanceLogs(idOrName string) (string, error) {
 	return string(resp.Body()), nil
 }
 
+// ResizeInstance changes the instance type of a running or stopped instance.
+func (c *Client) ResizeInstance(idOrName, newInstanceType string) error {
+	body := map[string]string{
+		"instance_type": newInstanceType,
+	}
+	return c.post(fmt.Sprintf("/instances/%s/resize", idOrName), body, nil)
+}
+
 // InstanceStats captures resource usage for an instance.
 type InstanceStats struct {
 	CPUPercentage    float64 `json:"cpu_percentage"`

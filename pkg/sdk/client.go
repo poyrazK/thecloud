@@ -4,9 +4,11 @@ package sdk
 import (
 	"context"
 	"fmt"
-	"strconv"
+"strconv"
+	"strings"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
 )
 
 // Client is the API client for the platform.
@@ -220,4 +222,61 @@ func (c *Client) patchWithContext(ctx context.Context, path string, body interfa
 	}
 
 	return nil
+}
+
+// resolveID resolves a partial ID or name to a full UUID.
+// It tries: (1) valid UUID, (2) exact name match, (3) ID prefix match.
+// Returns the resolved ID or an error if not found or ambiguous.
+func (c *Client) resolveID(resourceType string, listFn func() ([]interface{}, error), getID func(interface{}) string, getName func(interface{}) string, idOrName string) (string, error) {
+	// If it's a valid UUID, use it directly
+	if _, err := uuid.Parse(idOrName); err == nil {
+		return idOrName, nil
+	}
+
+	// Try to resolve by name or prefix
+	items, err := listFn()
+	if err != nil {
+		return "", err
+	}
+
+	// Check for exact name match
+	for _, item := range items {
+		if getName(item) == idOrName {
+			return getID(item), nil
+		}
+	}
+
+	// Try prefix match - track matches for ambiguity check
+	var matches []string
+	for _, item := range items {
+		if strings.HasPrefix(getID(item), idOrName) {
+			matches = append(matches, getID(item))
+		}
+	}
+
+	if len(matches) == 0 {
+		return "", fmt.Errorf("%s not found: %s", resourceType, idOrName)
+	}
+	if len(matches) > 1 {
+		return "", fmt.Errorf("%s ambiguous: %s matches %d resources", resourceType, idOrName, len(matches))
+	}
+	return matches[0], nil
+}
+
+// interfaceSlice converts a slice of any type to []interface{}
+func interfaceSlice[T any](slice []T) []interface{} {
+	result := make([]interface{}, len(slice))
+	for i, v := range slice {
+		result[i] = v
+	}
+	return result
+}
+
+// interfaceSlicePtr converts a slice of pointer type to []interface{}
+func interfaceSlicePtr[T any](slice []*T) []interface{} {
+	result := make([]interface{}, len(slice))
+	for i, v := range slice {
+		result[i] = v
+	}
+	return result
 }

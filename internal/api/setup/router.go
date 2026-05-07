@@ -77,6 +77,7 @@ type Handlers struct {
 	InternetGateway *httphandlers.InternetGatewayHandler
 	NATGateway    *httphandlers.NATGatewayHandler
 	Ws            *ws.Handler
+	Admin         *httphandlers.AdminHandler
 }
 
 // InitHandlers constructs HTTP handlers and websocket hub.
@@ -278,6 +279,9 @@ func registerComputeRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		instanceGroup.GET("/:id/stats", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.GetStats)
 		instanceGroup.GET("/:id/console", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.GetConsole)
 		instanceGroup.PUT("/:id/metadata", httputil.Permission(svcs.RBAC, domain.PermissionInstanceUpdate), handlers.Instance.UpdateMetadata)
+		instanceGroup.GET("/:id/tags", httputil.Permission(svcs.RBAC, domain.PermissionInstanceRead), handlers.Instance.GetTags)
+		instanceGroup.POST("/:id/tags", httputil.Permission(svcs.RBAC, domain.PermissionInstanceUpdate), handlers.Instance.SetTags)
+		instanceGroup.DELETE("/:id/tags/:key", httputil.Permission(svcs.RBAC, domain.PermissionInstanceUpdate), handlers.Instance.RemoveTag)
 		instanceGroup.POST("/:id/resize", httputil.Permission(svcs.RBAC, domain.PermissionInstanceResize), handlers.Instance.ResizeInstance)
 		instanceGroup.DELETE("/:id", httputil.Permission(svcs.RBAC, domain.PermissionInstanceTerminate), handlers.Instance.Terminate)
 	}
@@ -712,6 +716,12 @@ func registerAdminRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	{
 		billingGroup.GET("/summary", handlers.Accounting.GetSummary)
 		billingGroup.GET("/usage", handlers.Accounting.ListUsage)
+	}
+
+	// Internal admin endpoints (E2E test support)
+	internalGroup := r.Group("/internal/admin")
+	{
+		internalGroup.POST("/reset-circuit-breakers", handlers.Admin.ResetCircuitBreakers)
 	}
 }
 

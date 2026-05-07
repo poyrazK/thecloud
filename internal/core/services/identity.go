@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,21 +20,20 @@ import (
 )
 
 // serverSecret is used as HMAC key to prevent rainbow table attacks on API key hashes.
-// This is derived from SECRETS_ENCRYPTION_KEY env var if set, otherwise uses a static value.
-// In production, set SECRETS_ENCRYPTION_KEY for proper security.
 var serverSecret = getServerSecret()
 
 func getServerSecret() string {
-	// Use the secrets encryption key if available, otherwise fall back to a warning string
-	// that will be rejected in production
 	secret := platform.GetSecretsEncryptionKey()
 	if secret != "" {
 		return secret
 	}
-	// Fallback for development - in production this should not be used
-	// Log warning to help diagnose configuration issues
-	slog.Default().Warn("SECRETS_ENCRYPTION_KEY not set, using development secret for API key hashing - configure for production")
-	return "thecloud-development-secret-do-not-use-in-production"
+	// For tests, allow a fallback to avoid os.Exit in package init
+	if os.Getenv("TEST_SECRETS") != "" {
+		return os.Getenv("TEST_SECRETS")
+	}
+	slog.Default().Error("SECRETS_ENCRYPTION_KEY environment variable is required")
+	os.Exit(1)
+	return "" // unreachable but satisfies compiler
 }
 
 // computeKeyHash creates a HMAC-SHA256 hash of the API key using the server secret.
@@ -41,6 +41,7 @@ func getServerSecret() string {
 // API keys are machine-generated 32-char hex strings (~128 bits of entropy),
 // but using HMAC adds an additional layer of protection.
 func computeKeyHash(key string) string {
+	// HMAC-SHA256 is used for key fingerprinting, not password hashing.
 	//nolint:codeql // HMAC-SHA256 is used for key fingerprinting, not password hashing.
 	h := hmac.New(sha256.New, []byte(serverSecret))
 	h.Write([]byte(key))

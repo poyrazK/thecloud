@@ -1362,3 +1362,7 @@ func (a *LibvirtAdapter) isNotFound(err error) bool {
 	}
 	return strings.Contains(strings.ToLower(err.Error()), "not found")
 }
+
+// ResetCircuitBreaker is a no-op for the raw Libvirt adapter.
+// The circuit breaker lives in ResilientCompute wrapping this backend.
+func (a *LibvirtAdapter) ResetCircuitBreaker() {}

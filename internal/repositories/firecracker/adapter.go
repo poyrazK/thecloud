@@ -287,3 +287,7 @@ func (a *FirecrackerAdapter) RestoreSnapshot(ctx context.Context, id, name strin
 func (a *FirecrackerAdapter) DeleteSnapshot(ctx context.Context, id, name string) error {
 	return fmt.Errorf("snapshots not supported on firecracker")
 }
+
+// ResetCircuitBreaker is a no-op for the raw Firecracker adapter.
+// The circuit breaker lives in ResilientCompute wrapping this backend.
+func (a *FirecrackerAdapter) ResetCircuitBreaker() {}

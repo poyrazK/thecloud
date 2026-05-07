@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -18,8 +19,9 @@ func SignURL(secretKey, baseURL, method, bucket, key string, expires time.Time) 
 		return "", fmt.Errorf("invalid base URL: %w", err)
 	}
 
-	// Clean path
-	path := fmt.Sprintf("/storage/presigned/%s/%s", bucket, key)
+	// Clean path - strip leading slash to match VerifyURL behavior
+	cleanKey := strings.TrimPrefix(key, "/")
+	path := fmt.Sprintf("/storage/presigned/%s/%s", bucket, cleanKey)
 	u.Path = path
 
 	// Add expiration param

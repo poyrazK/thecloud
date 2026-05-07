@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 )
 
@@ -203,7 +204,7 @@ func (c *Client) GeneratePresignedURL(bucket, key, method string, expirySeconds 
 	}
 
 	var res Response[PresignedURL]
-	if err := c.post(fmt.Sprintf("/storage/presign/%s/%s", bucket, key), req, &res); err != nil {
+	if err := c.post(fmt.Sprintf("/storage/presign/%s/%s", bucket, strings.TrimPrefix(key, "/")), req, &res); err != nil {
 		return nil, err
 	}
 	return &res.Data, nil

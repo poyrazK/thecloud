@@ -65,15 +65,17 @@ func TestListDeploymentsCmd(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		payload := []map[string]interface{}{
-			{
-				"id":            containerTestID,
-				"name":          containerTestName,
-				"image":         "nginx:latest",
-				"replicas":      2,
-				"current_count": 2,
-				"ports":         "80:80",
-				"status":        "running",
+		payload := map[string]interface{}{
+			"data": []map[string]interface{}{
+				{
+					"id":            containerTestID,
+					"name":          containerTestName,
+					"image":         "nginx:latest",
+					"replicas":      2,
+					"current_count": 2,
+					"ports":         "80:80",
+					"status":        "running",
+				},
 			},
 		}
 		_ = json.NewEncoder(w).Encode(listDeploymentsResponse{Data: payload})
