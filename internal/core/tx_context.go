@@ -5,9 +5,7 @@ import (
 	"context"
 )
 
-// ctxKeyTransaction is the key used to store/retrieve pgx.Tx in context.
-type ctxKeyTransaction struct{}
-
+// txKey is the context key for storing/retrieving a transaction.
 type txKey struct{}
 
 // WithTransaction stores a pgx.Tx in the context for transaction-aware repositories.

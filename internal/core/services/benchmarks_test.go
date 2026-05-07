@@ -19,7 +19,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// noopDB is a minimal DB that returns nil transactions for benchmarking.
+// noopDB returns a nil transaction. Benchmarks do not exercise transactional paths
+// so this is safe — the nil transaction is never used by repo methods in benchmark scenarios.
 type noopDB struct{}
 
 func (noopDB) Begin(ctx context.Context) (services.Transaction, error) { return nil, nil }

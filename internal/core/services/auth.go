@@ -159,10 +159,10 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 		user = updatedUser
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return nil, errors.Wrap(errors.Internal, "failed to commit transaction", err)
+	if commitErr := tx.Commit(ctx); commitErr != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to commit transaction", commitErr)
 	}
-	err = nil // clear defer error flag
+	err = nil // transaction committed successfully, clear so defer no-ops
 
 	if err := s.auditSvc.Log(ctx, user.ID, "user.register", "user", user.ID.String(), map[string]interface{}{
 		"email": email,

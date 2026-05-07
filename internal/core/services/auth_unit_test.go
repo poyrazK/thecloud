@@ -63,7 +63,7 @@ func testAuthServiceUnitExtended(t *testing.T) {
 		assert.Contains(t, err.Error(), "already exists")
 	})
 
-	t.Run("Register_TenantFailureRollback", func(t *testing.T) {
+	t.Run("Register_BeginFailure", func(t *testing.T) {
 		email := "rollback@example.com"
 		mockUserRepo.On("GetByEmail", mock.Anything, email).Return(nil, nil).Once()
 		mockDB.On("Begin", mock.Anything).Return(nil, fmt.Errorf("begin failed")).Once()
