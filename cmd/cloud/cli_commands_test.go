@@ -155,7 +155,7 @@ func handleVolumes(w http.ResponseWriter, r *http.Request) bool {
 		resp := sdk.Response[sdk.Volume]{
 			Data: sdk.Volume{
 				ID:        volID,
-				Name:      "data", // Original mock returns "data" - keep for create test
+				Name:      "data",
 				SizeGB:    20,
 				Status:    "available",
 				CreatedAt: time.Now().UTC(),
