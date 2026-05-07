@@ -2,20 +2,27 @@
 package sdk
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
-func (c *Client) CreateSnapshot(volumeID uuid.UUID, description string) (*domain.Snapshot, error) {
+func (c *Client) CreateSnapshot(ctx context.Context, volumeIDOrName string, description string) (*domain.Snapshot, error) {
+	id, err := c.resolveIDWithContext(ctx, "volume", func(ctx context.Context) ([]interface{}, error) {
+		vols, err := c.ListVolumesWithContext(ctx)
+		return interfaceSlice(vols), err
+	}, func(v interface{}) string { return v.(Volume).ID.String() }, func(v interface{}) string { return v.(Volume).Name }, volumeIDOrName)
+	if err != nil {
+		return nil, err
+	}
 	req := map[string]interface{}{
-		"volume_id":   volumeID,
+		"volume_id":   id,
 		"description": description,
 	}
 
 	var snapshot domain.Snapshot
-	err := c.post("/snapshots", req, &snapshot)
+	err = c.postWithContext(ctx, "/snapshots", req, &snapshot)
 	if err != nil {
 		return nil, err
 	}

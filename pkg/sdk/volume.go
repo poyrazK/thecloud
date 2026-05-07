@@ -2,6 +2,7 @@
 package sdk
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -23,6 +24,14 @@ type Volume struct {
 func (c *Client) ListVolumes() ([]Volume, error) {
 	var res Response[[]Volume]
 	if err := c.get("/volumes", &res); err != nil {
+		return nil, err
+	}
+	return res.Data, nil
+}
+
+func (c *Client) ListVolumesWithContext(ctx context.Context) ([]Volume, error) {
+	var res Response[[]Volume]
+	if err := c.getWithContext(ctx, "/volumes", &res); err != nil {
 		return nil, err
 	}
 	return res.Data, nil

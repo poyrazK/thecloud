@@ -216,6 +216,43 @@ func (c *Client) resolveID(resourceType string, listFn func() ([]interface{}, er
 	return matches[0], nil
 }
 
+// resolveIDWithContext resolves a partial ID or name to a full UUID with context support.
+func (c *Client) resolveIDWithContext(ctx context.Context, resourceType string, listFn func(context.Context) ([]interface{}, error), getID func(interface{}) string, getName func(interface{}) string, idOrName string) (string, error) {
+	// If it's a valid UUID, use it directly
+	if _, err := uuid.Parse(idOrName); err == nil {
+		return idOrName, nil
+	}
+
+	// Try to resolve by name or prefix
+	items, err := listFn(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	// Check for exact name match
+	for _, item := range items {
+		if getName(item) == idOrName {
+			return getID(item), nil
+		}
+	}
+
+	// Try prefix match - track matches for ambiguity check
+	var matches []string
+	for _, item := range items {
+		if strings.HasPrefix(getID(item), idOrName) {
+			matches = append(matches, getID(item))
+		}
+	}
+
+	if len(matches) == 0 {
+		return "", fmt.Errorf("%s not found: %s", resourceType, idOrName)
+	}
+	if len(matches) > 1 {
+		return "", fmt.Errorf("%s ambiguous: %s matches %d resources", resourceType, idOrName, len(matches))
+	}
+	return matches[0], nil
+}
+
 // interfaceSlice converts a slice of any type to []interface{}
 func interfaceSlice[T any](slice []T) []interface{} {
 	result := make([]interface{}, len(slice))

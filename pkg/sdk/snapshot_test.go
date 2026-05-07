@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -25,6 +26,7 @@ const (
 
 func TestClientCreateSnapshot(t *testing.T) {
 	volumeID := uuid.New()
+	volumeIDStr := volumeID.String()
 	expectedSnapshot := domain.Snapshot{
 		ID:          uuid.New(),
 		VolumeID:    volumeID,
@@ -34,13 +36,24 @@ func TestClientCreateSnapshot(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/volumes" && r.Method == http.MethodGet {
+			w.Header().Set(snapshotContentType, snapshotApplicationJSON)
+			err := json.NewEncoder(w).Encode(Response[[]Volume]{
+				Data: []Volume{{ID: volumeID, Name: "test-volume"}},
+			})
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			return
+		}
 		assert.Equal(t, snapshotPath, r.URL.Path)
 		assert.Equal(t, http.MethodPost, r.Method)
 
 		var req map[string]interface{}
 		err := json.NewDecoder(r.Body).Decode(&req)
 		assert.NoError(t, err)
-		assert.Equal(t, volumeID.String(), req["volume_id"])
+		assert.Equal(t, volumeIDStr, req["volume_id"])
 		assert.Equal(t, expectedSnapshot.Description, req["description"])
 
 		w.Header().Set(snapshotContentType, snapshotApplicationJSON)
@@ -49,7 +62,7 @@ func TestClientCreateSnapshot(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, snapshotAPIKey)
-	snapshot, err := client.CreateSnapshot(volumeID, snapshotDescription)
+	snapshot, err := client.CreateSnapshot(context.Background(), volumeIDStr, snapshotDescription)
 
 	require.NoError(t, err)
 	assert.NotNil(t, snapshot)
@@ -157,7 +170,7 @@ func TestClientSnapshotErrors(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, snapshotAPIKey)
-	_, err := client.CreateSnapshot(uuid.New(), "snap")
+	_, err := client.CreateSnapshot(context.Background(), uuid.New().String(), "snap")
 	require.Error(t, err)
 
 	_, err = client.ListSnapshots()
