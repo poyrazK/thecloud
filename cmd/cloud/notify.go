@@ -87,6 +87,22 @@ var publishCmd = &cobra.Command{
 	},
 }
 
+var unsubscribeCmd = &cobra.Command{
+	Use:   "unsubscribe [subscription-id]",
+	Short: "Unsubscribe from a topic",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		client := createClient(opts)
+		err := client.Unsubscribe(args[0])
+		if err != nil {
+			fmt.Printf(notifyErrorFormat, err)
+			return
+		}
+
+		fmt.Println("[SUCCESS] Unsubscribed successfully")
+	},
+}
+
 func init() {
 	subscribeCmd.Flags().StringP("protocol", "p", "webhook", "Protocol (webhook/queue)")
 	subscribeCmd.Flags().StringP("endpoint", "e", "", "Endpoint (URL or Queue ID)")
@@ -96,4 +112,5 @@ func init() {
 	notifyCmd.AddCommand(listTopicsCmd)
 	notifyCmd.AddCommand(subscribeCmd)
 	notifyCmd.AddCommand(publishCmd)
+	notifyCmd.AddCommand(unsubscribeCmd)
 }
