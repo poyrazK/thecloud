@@ -19,6 +19,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// noopDB is a minimal DB that returns nil transactions for benchmarking.
+type noopDB struct{}
+
+func (noopDB) Begin(ctx context.Context) (services.Transaction, error) { return nil, nil }
+
 func BenchmarkInstanceServiceList(b *testing.B) {
 	tenantID := uuid.New()
 	for _, size := range []int{10, 100, 1000} {
@@ -311,7 +316,7 @@ func BenchmarkAuthServiceLoginParallel(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	tenantSvc := &NoopTenantService{}
 
-	svc := services.NewAuthService(userRepo, idSvc, auditSvc, tenantSvc, slog.Default())
+	svc := services.NewAuthService(userRepo, idSvc, auditSvc, tenantSvc, noopDB{}, slog.Default())
 
 	ctx := context.Background()
 	email := "admin@thecloud.local"
@@ -470,7 +475,7 @@ func BenchmarkAuthServiceRegister(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	tenantSvc := &NoopTenantService{}
 
-	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc, slog.Default())
+	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc, noopDB{}, slog.Default())
 
 	ctx := context.Background()
 
@@ -513,7 +518,7 @@ func BenchmarkAuthServiceLogin(b *testing.B) {
 	auditSvc := &noop.NoopAuditService{}
 	tenantSvc := &NoopTenantService{}
 
-	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc, slog.Default())
+	svc := services.NewAuthService(userRepo, identitySvc, auditSvc, tenantSvc, noopDB{}, slog.Default())
 
 	ctx := context.Background()
 

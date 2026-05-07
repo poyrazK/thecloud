@@ -238,7 +238,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	auditSvc := services.NewAuditService(services.AuditServiceParams{Repo: c.Repos.Audit, RBACSvc: rbacSvc, Logger: c.Logger})
 	identitySvc := initIdentityServices(c, rbacSvc, auditSvc)
 	tenantSvc := services.NewTenantService(services.TenantServiceParams{Repo: c.Repos.Tenant, UserRepo: c.Repos.User, RBACSvc: rbacSvc, Logger: c.Logger})
-	authSvc := services.NewAuthService(c.Repos.User, identitySvc, auditSvc, tenantSvc, c.Logger)
+	authSvc := services.NewAuthService(c.Repos.User, identitySvc, auditSvc, tenantSvc, c.DB, c.Logger)
 	pwdResetSvc := services.NewPasswordResetService(c.Repos.PasswordReset, c.Repos.User, c.Logger)
 
 	// 2. WebSocket & Core Infrastructure

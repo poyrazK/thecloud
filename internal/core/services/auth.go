@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
+	"github.com/poyrazk/thecloud/internal/core"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
@@ -20,6 +21,17 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// DB is the database interface that supports beginning transactions.
+type DB interface {
+	Begin(ctx context.Context) (Transaction, error)
+}
+
+// Transaction wraps a database transaction with Commit and Rollback.
+type Transaction interface {
+	Commit(ctx context.Context) error
+	Rollback(ctx context.Context) error
+}
 
 const (
 	lockoutThreshold  = 5
@@ -36,6 +48,7 @@ type AuthService struct {
 	apiKeySvc       ports.IdentityService
 	auditSvc        ports.AuditService
 	tenantSvc       ports.TenantService
+	db              DB
 	logger          *slog.Logger
 	failedAttempts  map[string]int
 	lockouts        map[string]time.Time
@@ -44,12 +57,13 @@ type AuthService struct {
 }
 
 // NewAuthService constructs an AuthService with its dependencies.
-func NewAuthService(userRepo ports.UserRepository, apiKeySvc ports.IdentityService, auditSvc ports.AuditService, tenantSvc ports.TenantService, logger *slog.Logger) *AuthService {
+func NewAuthService(userRepo ports.UserRepository, apiKeySvc ports.IdentityService, auditSvc ports.AuditService, tenantSvc ports.TenantService, db DB, logger *slog.Logger) *AuthService {
 	return &AuthService{
 		userRepo:        userRepo,
 		apiKeySvc:       apiKeySvc,
 		auditSvc:        auditSvc,
 		tenantSvc:       tenantSvc,
+		db:              db,
 		logger:          logger,
 		failedAttempts:  make(map[string]int),
 		lockouts:        make(map[string]time.Time),
@@ -95,8 +109,19 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 		UpdatedAt:    time.Now(),
 	}
 
-	// Transactionality would be better here, but avoiding for simplicity unless needed
-	err = s.userRepo.Create(ctx, user)
+	// Begin transaction for atomic user+tenant creation
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to begin transaction", err)
+	}
+	txCtx := core.WithTransaction(ctx, tx)
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
+	err = s.userRepo.Create(txCtx, user)
 	if err != nil {
 		return nil, err
 	}
@@ -122,21 +147,22 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 	}
 	tenantSlug := fmt.Sprintf("personal-%s-%s", slugName, user.ID.String()[:8])
 
-	tenant, err := s.tenantSvc.CreateTenant(appcontext.WithInternalCall(ctx), tenantName, tenantSlug, user.ID)
+	tenant, err := s.tenantSvc.CreateTenant(appcontext.WithInternalCall(txCtx), tenantName, tenantSlug, user.ID)
 	if err != nil {
-		rollbackErr := s.userRepo.Delete(ctx, user.ID)
-		if rollbackErr != nil {
-			return nil, fmt.Errorf("failed to create personal tenant: %w; rollback failed: %w", err, rollbackErr)
-		}
-		return nil, fmt.Errorf("failed to create personal tenant: %w", err)
+		return nil, err
 	}
-	ctx = appcontext.WithTenantID(ctx, tenant.ID)
+	txCtx = appcontext.WithTenantID(txCtx, tenant.ID)
 
 	// Reload user to reflect changes made during tenant creation (e.g. DefaultTenantID)
-	updatedUser, err := s.userRepo.GetByID(ctx, user.ID)
+	updatedUser, err := s.userRepo.GetByID(txCtx, user.ID)
 	if err == nil {
 		user = updatedUser
 	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to commit transaction", err)
+	}
+	err = nil // clear defer error flag
 
 	if err := s.auditSvc.Log(ctx, user.ID, "user.register", "user", user.ID.String(), map[string]interface{}{
 		"email": email,
