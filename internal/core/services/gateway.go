@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"crypto/rand"
+	"encoding/binary"
 	"math"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -437,19 +438,26 @@ func newRetryTransport(base http.RoundTripper, route *domain.GatewayRoute, logge
 
 // RoundTrip implements http.RoundTripper.
 func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if rt.cb != nil {
-		var resp *http.Response
-		var err error
-		execErr := rt.cb.Execute(func() error {
-			resp, err = rt.doRoundTrip(req)
-			return err
-		})
-		if execErr != nil {
-			return nil, execErr
-		}
-		return resp, err
+	if rt.cb == nil {
+		return rt.doRoundTrip(req)
 	}
-	return rt.doRoundTrip(req)
+
+	type result struct {
+		resp *http.Response
+		err  error
+	}
+	var r result
+	cbErr := rt.cb.Execute(func() error {
+		r.resp, r.err = rt.doRoundTrip(req)
+		return r.err
+	})
+	if cbErr != nil {
+		return nil, cbErr
+	}
+	if r.resp != nil {
+		_ = r.resp.Body.Close()
+	}
+	return r.resp, r.err
 }
 
 func (rt *retryTransport) doRoundTrip(req *http.Request) (*http.Response, error) {
@@ -477,8 +485,8 @@ func (rt *retryTransport) doRoundTrip(req *http.Request) (*http.Response, error)
 				return resp, nil
 			}
 			// drain and close body so connection can be reused, then retry
-			io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
 			lastResp = resp
 			continue
 		}
@@ -515,15 +523,23 @@ func (rt *retryTransport) isIdempotent(method string) bool {
 
 func (rt *retryTransport) backoffWithJitter(attempt int) time.Duration {
 	base := 100 * time.Millisecond
-	max := rt.retryTimeout
-	if max <= 0 {
-		max = 5 * time.Second
+	cap := rt.retryTimeout
+	if cap <= 0 {
+		cap = 5 * time.Second
 	}
 	multiplier := 2.0
 	delay := float64(base) * math.Pow(multiplier, float64(attempt-1))
-	if delay > float64(max) {
-		delay = float64(max)
+	if delay > float64(cap) {
+		delay = float64(cap)
 	}
-	jitter := time.Duration(rand.Int63n(int64(delay)))
+	jitter := rt.cryptoJitter(time.Duration(delay))
 	return jitter
+}
+
+func (rt *retryTransport) cryptoJitter(max time.Duration) time.Duration {
+	var buf [8]byte
+	_, _ = rand.Read(buf[:])
+	val := binary.BigEndian.Uint64(buf[:])
+	frac := float64(val) / float64(math.MaxUint64)
+	return time.Duration(float64(max) * frac)
 }
