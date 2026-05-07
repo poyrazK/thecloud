@@ -59,7 +59,7 @@ var snapshotListCmd = &cobra.Command{
 }
 
 var snapshotCreateCmd = &cobra.Command{
-	Use:   "create [volume-id]",
+	Use:   "create [volume-id|volume-name]",
 	Short: "Create a snapshot from a volume",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -67,7 +67,7 @@ var snapshotCreateCmd = &cobra.Command{
 		desc, _ := cmd.Flags().GetString("desc")
 
 		client := createClient(opts)
-		snapshot, err := client.CreateSnapshot(volIDOrName, desc)
+		snapshot, err := client.CreateSnapshot(cmd.Context(), volIDOrName, desc)
 		if err != nil {
 			fmt.Printf(snapshotErrorFormat, err)
 			return

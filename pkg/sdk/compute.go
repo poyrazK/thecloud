@@ -64,7 +64,7 @@ func (c *Client) GetInstance(idOrName string) (*Instance, error) {
 // GetInstanceWithContext retrieves a compute instance with context support.
 func (c *Client) GetInstanceWithContext(ctx context.Context, idOrName string) (*Instance, error) {
 	id, err := c.resolveID("instance", func() ([]interface{}, error) {
-		instances, err := c.ListInstances()
+		instances, err := c.ListInstancesWithContext(ctx)
 		return interfaceSlice(instances), err
 	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
 	if err != nil {
@@ -156,7 +156,7 @@ func (c *Client) TerminateInstance(idOrName string) error {
 // TerminateInstanceWithContext deletes an instance with context support.
 func (c *Client) TerminateInstanceWithContext(ctx context.Context, idOrName string) error {
 	id, err := c.resolveID("instance", func() ([]interface{}, error) {
-		instances, err := c.ListInstances()
+		instances, err := c.ListInstancesWithContext(ctx)
 		return interfaceSlice(instances), err
 	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
 	if err != nil {

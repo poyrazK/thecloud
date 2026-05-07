@@ -2,14 +2,15 @@
 package sdk
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
-func (c *Client) CreateSnapshot(volumeIDOrName string, description string) (*domain.Snapshot, error) {
-	id, err := c.resolveID("volume", func() ([]interface{}, error) {
-		vols, err := c.ListVolumes()
+func (c *Client) CreateSnapshot(ctx context.Context, volumeIDOrName string, description string) (*domain.Snapshot, error) {
+	id, err := c.resolveIDWithContext(ctx, "volume", func(ctx context.Context) ([]interface{}, error) {
+		vols, err := c.ListVolumesWithContext(ctx)
 		return interfaceSlice(vols), err
 	}, func(v interface{}) string { return v.(Volume).ID.String() }, func(v interface{}) string { return v.(Volume).Name }, volumeIDOrName)
 	if err != nil {
@@ -21,7 +22,7 @@ func (c *Client) CreateSnapshot(volumeIDOrName string, description string) (*dom
 	}
 
 	var snapshot domain.Snapshot
-	err = c.post("/snapshots", req, &snapshot)
+	err = c.postWithContext(ctx, "/snapshots", req, &snapshot)
 	if err != nil {
 		return nil, err
 	}
