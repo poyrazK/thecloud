@@ -78,7 +78,7 @@ func TestListDeploymentsCmd(t *testing.T) {
 				},
 			},
 		}
-		_ = json.NewEncoder(w).Encode(listDeploymentsResponse{Data: payload})
+		_ = json.NewEncoder(w).Encode(listDeploymentsResponse{Data: payload["data"].([]map[string]interface{})})
 	}))
 	defer server.Close()
 
