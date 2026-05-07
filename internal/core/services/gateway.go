@@ -452,10 +452,11 @@ func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return r.err
 	})
 	if cbErr != nil {
+		if r.resp != nil {
+			_, _ = io.Copy(io.Discard, r.resp.Body)
+			_ = r.resp.Body.Close()
+		}
 		return nil, cbErr
-	}
-	if r.resp != nil {
-		_ = r.resp.Body.Close()
 	}
 	return r.resp, r.err
 }
@@ -540,7 +541,9 @@ func (rt *retryTransport) backoffWithJitter(attempt int) time.Duration {
 // frac is in [0, 1) so result is always non-negative and strictly bounded by max.
 func (rt *retryTransport) cryptoJitter(max time.Duration) time.Duration {
 	var buf [8]byte
-	_, _ = rand.Read(buf[:])
+	if _, err := rand.Read(buf[:]); err != nil {
+		return max / 2 // deterministic fallback on crypto rand failure
+	}
 	val := binary.BigEndian.Uint64(buf[:])
 	frac := float64(val) / float64(math.MaxUint64)
 	return time.Duration(float64(max) * frac)

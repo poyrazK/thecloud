@@ -16,6 +16,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	defaultCircuitBreakerThreshold = 5
+	defaultCircuitBreakerTimeout  = 30000 // ms
+	defaultMaxRetries            = 2
+	defaultRetryTimeout          = 5000  // ms
+)
+
 type mockGatewayRepo struct {
 	mock.Mock
 }
@@ -74,10 +81,10 @@ func TestGatewayService_Unit(t *testing.T) {
 
 		res, err := svc.CreateRoute(ctx, params)
 		require.NoError(t, err)
-		assert.Equal(t, 5, res.CircuitBreakerThreshold)
-		assert.Equal(t, int64(30000), res.CircuitBreakerTimeout)
-		assert.Equal(t, 2, res.MaxRetries)
-		assert.Equal(t, int64(5000), res.RetryTimeout)
+		assert.Equal(t, defaultCircuitBreakerThreshold, res.CircuitBreakerThreshold)
+		assert.Equal(t, int64(defaultCircuitBreakerTimeout), res.CircuitBreakerTimeout)
+		assert.Equal(t, defaultMaxRetries, res.MaxRetries)
+		assert.Equal(t, int64(defaultRetryTimeout), res.RetryTimeout)
 	})
 
 	t.Run("CreateRoute", func(t *testing.T) {

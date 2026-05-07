@@ -11118,6 +11118,12 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "circuit_breaker_threshold": {
+                    "type": "integer"
+                },
+                "circuit_breaker_timeout": {
+                    "type": "integer"
+                },
                 "dial_timeout": {
                     "type": "integer",
                     "minimum": 0
@@ -11129,6 +11135,9 @@ const docTemplate = `{
                 "max_body_size": {
                     "type": "integer",
                     "minimum": 0
+                },
+                "max_retries": {
+                    "type": "integer"
                 },
                 "methods": {
                     "type": "array",
@@ -11156,6 +11165,9 @@ const docTemplate = `{
                 "response_header_timeout": {
                     "type": "integer",
                     "minimum": 0
+                },
+                "retry_timeout": {
+                    "type": "integer"
                 },
                 "strip_prefix": {
                     "type": "boolean"

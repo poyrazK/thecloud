@@ -66,11 +66,3 @@ issues:
       linters:
         - unparam
       text: "MockInstanceService|MockRBACService"
-    - path: internal/core/services/gateway\.go
-      linters:
-        - bodyclose
-      text: "response body must be closed"
-    - path: internal/core/services/gateway_retry_test\.go
-      linters:
-        - bodyclose
-      text: "response body must be closed"
