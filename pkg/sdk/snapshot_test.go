@@ -68,7 +68,7 @@ func TestClientListSnapshots(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.Header().Set(snapshotContentType, snapshotApplicationJSON)
-		_ = json.NewEncoder(w).Encode(expectedSnapshots)
+		_ = json.NewEncoder(w).Encode(Response[[]*domain.Snapshot]{Data: expectedSnapshots})
 	}))
 	defer server.Close()
 

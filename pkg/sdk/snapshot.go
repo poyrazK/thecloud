@@ -23,12 +23,12 @@ func (c *Client) CreateSnapshot(volumeID uuid.UUID, description string) (*domain
 }
 
 func (c *Client) ListSnapshots() ([]*domain.Snapshot, error) {
-	var snapshots []*domain.Snapshot
-	err := c.get("/snapshots", &snapshots)
+	var res Response[[]*domain.Snapshot]
+	err := c.get("/snapshots", &res)
 	if err != nil {
 		return nil, err
 	}
-	return snapshots, nil
+	return res.Data, nil
 }
 
 func (c *Client) GetSnapshot(id string) (*domain.Snapshot, error) {
