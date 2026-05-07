@@ -2160,8 +2160,10 @@ definitions:
           type: string
         type: array
       circuit_breaker_threshold:
+        minimum: 0
         type: integer
       circuit_breaker_timeout:
+        minimum: 0
         type: integer
       dial_timeout:
         minimum: 0
@@ -2173,6 +2175,7 @@ definitions:
         minimum: 0
         type: integer
       max_retries:
+        minimum: 0
         type: integer
       methods:
         items:
@@ -2194,6 +2197,7 @@ definitions:
         minimum: 0
         type: integer
       retry_timeout:
+        minimum: 0
         type: integer
       strip_prefix:
         type: boolean

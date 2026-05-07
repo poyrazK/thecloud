@@ -11119,10 +11119,12 @@ const docTemplate = `{
                     }
                 },
                 "circuit_breaker_threshold": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "circuit_breaker_timeout": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "dial_timeout": {
                     "type": "integer",
@@ -11137,7 +11139,8 @@ const docTemplate = `{
                     "minimum": 0
                 },
                 "max_retries": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "methods": {
                     "type": "array",
@@ -11167,7 +11170,8 @@ const docTemplate = `{
                     "minimum": 0
                 },
                 "retry_timeout": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "strip_prefix": {
                     "type": "boolean"
