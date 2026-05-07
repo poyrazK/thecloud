@@ -536,6 +536,8 @@ func (rt *retryTransport) backoffWithJitter(attempt int) time.Duration {
 	return jitter
 }
 
+// cryptoJitter returns a random duration in [0, max) using crypto/rand.
+// frac is in [0, 1) so result is always non-negative and strictly bounded by max.
 func (rt *retryTransport) cryptoJitter(max time.Duration) time.Duration {
 	var buf [8]byte
 	_, _ = rand.Read(buf[:])
