@@ -81,7 +81,11 @@ func (s *ContainerService) ListDeployments(ctx context.Context) ([]*domain.Deplo
 		return nil, err
 	}
 
-	return s.repo.ListDeployments(ctx, userID)
+	deployments, err := s.repo.ListDeployments(ctx, userID)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to list deployments", err)
+	}
+	return deployments, nil
 }
 
 func (s *ContainerService) GetDeployment(ctx context.Context, id uuid.UUID) (*domain.Deployment, error) {
@@ -92,7 +96,11 @@ func (s *ContainerService) GetDeployment(ctx context.Context, id uuid.UUID) (*do
 		return nil, err
 	}
 
-	return s.repo.GetDeploymentByID(ctx, id, userID)
+	dep, err := s.repo.GetDeploymentByID(ctx, id, userID)
+	if err != nil {
+		return nil, errors.Wrap(errors.Internal, "failed to get deployment", err)
+	}
+	return dep, nil
 }
 
 func (s *ContainerService) ScaleDeployment(ctx context.Context, id uuid.UUID, replicas int) error {
