@@ -8694,6 +8694,14 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "circuit_breaker_threshold": {
+                    "description": "consecutive failures to trip open (0=disabled)",
+                    "type": "integer"
+                },
+                "circuit_breaker_timeout": {
+                    "description": "ms in open before half-open",
+                    "type": "integer"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -8710,6 +8718,10 @@ const docTemplate = `{
                 },
                 "max_body_size": {
                     "description": "Max request body size in bytes",
+                    "type": "integer"
+                },
+                "max_retries": {
+                    "description": "max retry attempts (0=disabled)",
                     "type": "integer"
                 },
                 "methods": {
@@ -8755,6 +8767,10 @@ const docTemplate = `{
                 },
                 "response_header_timeout": {
                     "description": "Time to receive headers in milliseconds",
+                    "type": "integer"
+                },
+                "retry_timeout": {
+                    "description": "total retry window in ms",
                     "type": "integer"
                 },
                 "strip_prefix": {
