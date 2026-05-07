@@ -212,6 +212,23 @@ Terminate and remove an instance. (Alias: `delete`)
 cloud instance rm my-server
 ```
 
+### `instance resize <id> <instance-type>`
+
+Resize an instance to a new instance type.
+
+```bash
+cloud instance resize my-server basic-4
+```
+
+**Examples**:
+```bash
+# Resize to a larger instance type
+cloud instance resize my-server standard-2
+
+# Resize to a smaller instance type
+cloud instance resize my-server basic-1
+```
+
 ### `instance stats <id>`
 
 Show real-time resource usage.
@@ -1010,6 +1027,58 @@ Delete a function schedule.
 
 ```bash
 cloud fn-schedule rm [schedule-id]
+```
+
+---
+
+## CloudNotify Commands
+
+Manage pub/sub messaging topics and subscriptions.
+
+### `notify create-topic <name>`
+
+Create a new notification topic.
+
+```bash
+cloud notify create-topic my-topic
+```
+
+### `notify list-topics`
+
+List all notification topics.
+
+```bash
+cloud notify list-topics
+```
+
+### `notify subscribe <topic-id>`
+
+Subscribe to a topic to receive notifications.
+
+```bash
+cloud notify subscribe topic-uuid --endpoint https://example.com/webhook
+```
+
+**Flags**:
+| Flag | Short | Required | Default | Description |
+|------|-------|----------|---------|-------------|
+| `--protocol` | `-p` | No | `webhook` | Protocol (webhook or queue) |
+| `--endpoint` | `-e` | Yes | - | Endpoint URL or queue ID |
+
+### `notify unsubscribe <subscription-id>`
+
+Unsubscribe from a topic.
+
+```bash
+cloud notify unsubscribe subscription-uuid
+```
+
+### `notify publish <topic-id> <message>`
+
+Publish a message to a topic.
+
+```bash
+cloud notify publish topic-uuid "Hello, world!"
 ```
 
 ---
