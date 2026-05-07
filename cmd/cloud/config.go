@@ -17,7 +17,12 @@ type cliConfig struct {
 	Debug    bool   `json:"debug"`
 }
 
-var configFile = filepath.Join(os.Getenv("HOME"), ".cloud", "config.json")
+func getConfigFilePath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".cloud", "config.json")
+}
+
+var configFile = getConfigFilePath()
 
 func loadConfigFile() string {
 	data, err := os.ReadFile(configFile)
