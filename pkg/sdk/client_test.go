@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -137,7 +138,7 @@ func TestResolveID_ValidUUID(t *testing.T) {
 		func(v interface{}) string { return v.(struct{ ID, Name string }).ID },
 		func(v interface{}) string { return v.(struct{ ID, Name string }).Name },
 		"abc123")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "abc123", id)
 }
 
@@ -150,7 +151,7 @@ func TestResolveID_NameMatch(t *testing.T) {
 		func(v interface{}) string { return v.(struct{ ID, Name string }).ID },
 		func(v interface{}) string { return v.(struct{ ID, Name string }).Name },
 		"test-name")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "abc123", id)
 }
 
@@ -163,8 +164,8 @@ func TestResolveID_NotFound(t *testing.T) {
 		func(v interface{}) string { return v.(struct{ ID, Name string }).ID },
 		func(v interface{}) string { return v.(struct{ ID, Name string }).Name },
 		"nonexistent")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not found")
 }
 
 func TestResolveID_Ambiguous(t *testing.T) {
