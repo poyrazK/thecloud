@@ -246,3 +246,123 @@ func TestClientDisassociateSubnet(t *testing.T) {
 
 	require.NoError(t, err)
 }
+
+func TestClientListRouteTablesError(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"internal error"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	_, err := client.ListRouteTables("vpc-123")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "api error")
+}
+
+func TestClientCreateRouteTableError(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"invalid vpc_id"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	_, err := client.CreateRouteTable("invalid-uuid", "my-rt", false)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "api error")
+}
+
+func TestClientGetRouteTableError(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":"route table not found"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	_, err := client.GetRouteTable("nonexistent")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "api error")
+}
+
+func TestClientDeleteRouteTableError(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":"cannot delete main route table"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	err := client.DeleteRouteTable("rt-123")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "api error")
+}
+
+func TestClientAddRouteError(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"invalid CIDR format"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	_, err := client.AddRoute("rt-123", "invalid", RouteTargetIGW, "igw-789")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "api error")
+}
+
+func TestClientRemoveRouteError(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":"route not found"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	err := client.RemoveRoute("rt-123", "nonexistent")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "api error")
+}
+
+func TestClientAssociateSubnetError(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"error":"subnet already associated"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	err := client.AssociateSubnet("rt-123", "subnet-456")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "api error")
+}
+
+func TestClientDisassociateSubnetError(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":"association not found"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	err := client.DisassociateSubnet("rt-123", "subnet-456")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "api error")
+}

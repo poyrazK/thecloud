@@ -141,3 +141,63 @@ func TestClientDetachIGW(t *testing.T) {
 
 	require.NoError(t, err)
 }
+
+func TestClientCreateIGWError(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"internal error"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	_, err := client.CreateIGW()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "api error")
+}
+
+func TestClientListIGWsError(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"bad request"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	_, err := client.ListIGWs()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "api error")
+}
+
+func TestClientGetIGWError(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":"not found"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	_, err := client.GetIGW("nonexistent")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "api error")
+}
+
+func TestClientDeleteIGWError(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":"forbidden"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	err := client.DeleteIGW("igw-123")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "api error")
+}
