@@ -45,12 +45,25 @@ func (c *Client) ListInstancesWithContext(ctx context.Context) ([]Instance, erro
 	return res.Data, nil
 }
 
-// GetInstance retrieves a compute instance by ID or name.
-func (c *Client) GetInstance(idOrName string) (*Instance, error) {
-	id, err := c.resolveID("instance", func() ([]interface{}, error) {
+// resolveInstanceID resolves an instance ID or name to a full ID.
+func (c *Client) resolveInstanceID(idOrName string) (string, error) {
+	return c.resolveID("instance", func() ([]interface{}, error) {
 		instances, err := c.ListInstances()
 		return interfaceSlice(instances), err
 	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+}
+
+// resolveInstanceIDWithContext resolves an instance ID or name to a full ID with context support.
+func (c *Client) resolveInstanceIDWithContext(ctx context.Context, idOrName string) (string, error) {
+	return c.resolveID("instance", func() ([]interface{}, error) {
+		instances, err := c.ListInstancesWithContext(ctx)
+		return interfaceSlice(instances), err
+	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+}
+
+// GetInstance retrieves a compute instance by ID or name.
+func (c *Client) GetInstance(idOrName string) (*Instance, error) {
+	id, err := c.resolveInstanceID(idOrName)
 	if err != nil {
 		return nil, err
 	}
@@ -63,10 +76,7 @@ func (c *Client) GetInstance(idOrName string) (*Instance, error) {
 
 // GetInstanceWithContext retrieves a compute instance with context support.
 func (c *Client) GetInstanceWithContext(ctx context.Context, idOrName string) (*Instance, error) {
-	id, err := c.resolveID("instance", func() ([]interface{}, error) {
-		instances, err := c.ListInstancesWithContext(ctx)
-		return interfaceSlice(instances), err
-	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+	id, err := c.resolveInstanceIDWithContext(ctx, idOrName)
 	if err != nil {
 		return nil, err
 	}
@@ -78,10 +88,7 @@ func (c *Client) GetInstanceWithContext(ctx context.Context, idOrName string) (*
 }
 
 func (c *Client) GetConsoleURL(idOrName string) (string, error) {
-	id, err := c.resolveID("instance", func() ([]interface{}, error) {
-		instances, err := c.ListInstances()
-		return interfaceSlice(instances), err
-	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+	id, err := c.resolveInstanceID(idOrName)
 	if err != nil {
 		return "", err
 	}
@@ -122,10 +129,7 @@ func (c *Client) LaunchInstance(name, image, ports, instanceType string, vpcID, 
 
 // UpdateInstanceMetadata updates the metadata and labels of an instance.
 func (c *Client) UpdateInstanceMetadata(idOrName string, metadata, labels map[string]string) error {
-	id, err := c.resolveID("instance", func() ([]interface{}, error) {
-		instances, err := c.ListInstances()
-		return interfaceSlice(instances), err
-	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+	id, err := c.resolveInstanceID(idOrName)
 	if err != nil {
 		return err
 	}
@@ -138,10 +142,7 @@ func (c *Client) UpdateInstanceMetadata(idOrName string, metadata, labels map[st
 
 // StopInstance stops a running instance by ID or name.
 func (c *Client) StopInstance(idOrName string) error {
-	id, err := c.resolveID("instance", func() ([]interface{}, error) {
-		instances, err := c.ListInstances()
-		return interfaceSlice(instances), err
-	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+	id, err := c.resolveInstanceID(idOrName)
 	if err != nil {
 		return err
 	}
@@ -155,10 +156,7 @@ func (c *Client) TerminateInstance(idOrName string) error {
 
 // TerminateInstanceWithContext deletes an instance with context support.
 func (c *Client) TerminateInstanceWithContext(ctx context.Context, idOrName string) error {
-	id, err := c.resolveID("instance", func() ([]interface{}, error) {
-		instances, err := c.ListInstancesWithContext(ctx)
-		return interfaceSlice(instances), err
-	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+	id, err := c.resolveInstanceIDWithContext(ctx, idOrName)
 	if err != nil {
 		return err
 	}
@@ -167,10 +165,7 @@ func (c *Client) TerminateInstanceWithContext(ctx context.Context, idOrName stri
 
 // GetInstanceLogs retrieves the raw log output for an instance.
 func (c *Client) GetInstanceLogs(idOrName string) (string, error) {
-	id, err := c.resolveID("instance", func() ([]interface{}, error) {
-		instances, err := c.ListInstances()
-		return interfaceSlice(instances), err
-	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+	id, err := c.resolveInstanceID(idOrName)
 	if err != nil {
 		return "", err
 	}
@@ -186,10 +181,7 @@ func (c *Client) GetInstanceLogs(idOrName string) (string, error) {
 
 // ResizeInstance changes the instance type of a running or stopped instance.
 func (c *Client) ResizeInstance(idOrName, newInstanceType string) error {
-	id, err := c.resolveID("instance", func() ([]interface{}, error) {
-		instances, err := c.ListInstances()
-		return interfaceSlice(instances), err
-	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+	id, err := c.resolveInstanceID(idOrName)
 	if err != nil {
 		return err
 	}
@@ -209,10 +201,7 @@ type InstanceStats struct {
 
 // GetInstanceStats returns resource usage metrics for an instance.
 func (c *Client) GetInstanceStats(idOrName string) (*InstanceStats, error) {
-	id, err := c.resolveID("instance", func() ([]interface{}, error) {
-		instances, err := c.ListInstances()
-		return interfaceSlice(instances), err
-	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+	id, err := c.resolveInstanceID(idOrName)
 	if err != nil {
 		return nil, err
 	}

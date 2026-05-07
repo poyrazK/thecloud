@@ -90,6 +90,31 @@ func (c *Client) ListClusters() ([]*Cluster, error) {
 	return resp.Data, nil
 }
 
+// ListClustersWithContext returns all clusters for the current user with context support.
+func (c *Client) ListClustersWithContext(ctx context.Context) ([]*Cluster, error) {
+	var resp Response[[]*Cluster]
+	if err := c.getWithContext(ctx, clustersPath, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Data, nil
+}
+
+// resolveClusterID resolves a cluster ID or name to a full UUID.
+func (c *Client) resolveClusterID(idOrName string) (string, error) {
+	return c.resolveID("cluster", func() ([]interface{}, error) {
+		clusters, err := c.ListClusters()
+		return interfaceSlicePtr(clusters), err
+	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+}
+
+// resolveClusterIDWithContext resolves a cluster ID or name to a full UUID with context support.
+func (c *Client) resolveClusterIDWithContext(ctx context.Context, idOrName string) (string, error) {
+	return c.resolveID("cluster", func() ([]interface{}, error) {
+		clusters, err := c.ListClustersWithContext(ctx)
+		return interfaceSlicePtr(clusters), err
+	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+}
+
 // CreateCluster initiates cluster provisioning.
 func (c *Client) CreateCluster(input *CreateClusterInput) (*Cluster, error) {
 	var resp Response[*Cluster]
@@ -106,10 +131,7 @@ func (c *Client) GetCluster(idOrName string) (*Cluster, error) {
 
 // GetClusterWithContext retrieves cluster details by ID or name with context support.
 func (c *Client) GetClusterWithContext(ctx context.Context, idOrName string) (*Cluster, error) {
-	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
-		clusters, err := c.ListClusters()
-		return interfaceSlicePtr(clusters), err
-	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	id, err := c.resolveClusterIDWithContext(ctx, idOrName)
 	if err != nil {
 		return nil, err
 	}
@@ -122,10 +144,7 @@ func (c *Client) GetClusterWithContext(ctx context.Context, idOrName string) (*C
 
 // DeleteCluster removes a cluster.
 func (c *Client) DeleteCluster(idOrName string) error {
-	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
-		clusters, err := c.ListClusters()
-		return interfaceSlicePtr(clusters), err
-	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	id, err := c.resolveClusterID(idOrName)
 	if err != nil {
 		return err
 	}
@@ -135,10 +154,7 @@ func (c *Client) DeleteCluster(idOrName string) error {
 
 // GetKubeconfig retrieves the cluster kubeconfig, optionally for a specific role.
 func (c *Client) GetKubeconfig(idOrName string, role string) (string, error) {
-	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
-		clusters, err := c.ListClusters()
-		return interfaceSlicePtr(clusters), err
-	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	id, err := c.resolveClusterID(idOrName)
 	if err != nil {
 		return "", err
 	}
@@ -155,10 +171,7 @@ func (c *Client) GetKubeconfig(idOrName string, role string) (string, error) {
 
 // RepairCluster triggers a re-run of critical provisioning steps.
 func (c *Client) RepairCluster(idOrName string) error {
-	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
-		clusters, err := c.ListClusters()
-		return interfaceSlicePtr(clusters), err
-	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	id, err := c.resolveClusterID(idOrName)
 	if err != nil {
 		return err
 	}
@@ -168,10 +181,7 @@ func (c *Client) RepairCluster(idOrName string) error {
 
 // ScaleCluster adjusts the number of worker nodes.
 func (c *Client) ScaleCluster(idOrName string, workers int) error {
-	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
-		clusters, err := c.ListClusters()
-		return interfaceSlicePtr(clusters), err
-	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	id, err := c.resolveClusterID(idOrName)
 	if err != nil {
 		return err
 	}
@@ -182,10 +192,7 @@ func (c *Client) ScaleCluster(idOrName string, workers int) error {
 
 // GetClusterHealth retrieved the operational health of the cluster.
 func (c *Client) GetClusterHealth(idOrName string) (*ClusterHealth, error) {
-	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
-		clusters, err := c.ListClusters()
-		return interfaceSlicePtr(clusters), err
-	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	id, err := c.resolveClusterID(idOrName)
 	if err != nil {
 		return nil, err
 	}
@@ -203,10 +210,7 @@ type UpgradeClusterInput struct {
 
 // UpgradeCluster initiates an asynchronous version upgrade.
 func (c *Client) UpgradeCluster(idOrName string, version string) error {
-	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
-		clusters, err := c.ListClusters()
-		return interfaceSlicePtr(clusters), err
-	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	id, err := c.resolveClusterID(idOrName)
 	if err != nil {
 		return err
 	}
@@ -217,10 +221,7 @@ func (c *Client) UpgradeCluster(idOrName string, version string) error {
 
 // RotateSecrets triggers a renewal of cluster certificates.
 func (c *Client) RotateSecrets(idOrName string) error {
-	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
-		clusters, err := c.ListClusters()
-		return interfaceSlicePtr(clusters), err
-	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	id, err := c.resolveClusterID(idOrName)
 	if err != nil {
 		return err
 	}
@@ -230,10 +231,7 @@ func (c *Client) RotateSecrets(idOrName string) error {
 
 // CreateBackup initiates a cluster state snapshot.
 func (c *Client) CreateBackup(idOrName string) error {
-	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
-		clusters, err := c.ListClusters()
-		return interfaceSlicePtr(clusters), err
-	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	id, err := c.resolveClusterID(idOrName)
 	if err != nil {
 		return err
 	}
@@ -248,10 +246,7 @@ type RestoreBackupInput struct {
 
 // RestoreBackup initiates a cluster restoration from a specific path.
 func (c *Client) RestoreBackup(idOrName string, backupPath string) error {
-	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
-		clusters, err := c.ListClusters()
-		return interfaceSlicePtr(clusters), err
-	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	id, err := c.resolveClusterID(idOrName)
 	if err != nil {
 		return err
 	}
@@ -262,10 +257,7 @@ func (c *Client) RestoreBackup(idOrName string, backupPath string) error {
 
 // AddNodeGroup adds a new node pool to the cluster.
 func (c *Client) AddNodeGroup(clusterIDOrName string, input NodeGroupInput) (*NodeGroup, error) {
-	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
-		clusters, err := c.ListClusters()
-		return interfaceSlicePtr(clusters), err
-	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, clusterIDOrName)
+	id, err := c.resolveClusterID(clusterIDOrName)
 	if err != nil {
 		return nil, err
 	}
@@ -278,10 +270,7 @@ func (c *Client) AddNodeGroup(clusterIDOrName string, input NodeGroupInput) (*No
 
 // UpdateNodeGroupWithContext updates a node group's parameters with context support.
 func (c *Client) UpdateNodeGroupWithContext(ctx context.Context, clusterIDOrName string, name string, input UpdateNodeGroupInput) (*NodeGroup, error) {
-	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
-		clusters, err := c.ListClusters()
-		return interfaceSlicePtr(clusters), err
-	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, clusterIDOrName)
+	id, err := c.resolveClusterIDWithContext(ctx, clusterIDOrName)
 	if err != nil {
 		return nil, err
 	}
@@ -294,10 +283,7 @@ func (c *Client) UpdateNodeGroupWithContext(ctx context.Context, clusterIDOrName
 
 // DeleteNodeGroup removes a node group.
 func (c *Client) DeleteNodeGroup(clusterIDOrName string, name string) error {
-	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
-		clusters, err := c.ListClusters()
-		return interfaceSlicePtr(clusters), err
-	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, clusterIDOrName)
+	id, err := c.resolveClusterID(clusterIDOrName)
 	if err != nil {
 		return err
 	}
