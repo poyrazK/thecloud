@@ -21,7 +21,7 @@ const (
 )
 
 func TestCreateRoleCmd(t *testing.T) {
-	fmt.Fprintf(os.Stderr, "DEBUG: TestCreateRoleCmd starting\n")
+	fmt.Fprintf(os.Stderr, "TESTv5: TestCreateRoleCmd starting\n")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/rbac/roles" || r.Method != http.MethodPost {
