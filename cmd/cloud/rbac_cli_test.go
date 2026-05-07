@@ -40,12 +40,16 @@ func TestCreateRoleCmd(t *testing.T) {
 	defer server.Close()
 
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("CLOUD_API_KEY", rbacTestAPIKey)
 	saveConfig(rbacTestAPIKey)
 
 	oldURL := opts.APIURL
+	oldKey := opts.APIKey
 	opts.APIURL = server.URL
-	defer func() { opts.APIURL = oldURL }()
+	opts.APIKey = rbacTestAPIKey
+	defer func() {
+		opts.APIURL = oldURL
+		opts.APIKey = oldKey
+	}()
 
 	_ = createRoleCmd.Flags().Set("description", "read-only")
 	_ = createRoleCmd.Flags().Set("permissions", string(domain.PermissionInstanceRead))
