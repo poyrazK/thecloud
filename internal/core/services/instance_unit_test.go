@@ -79,6 +79,7 @@ func TestInstanceService_Unit(t *testing.T) {
 	t.Run("Lifecycle", testInstanceServiceLifecycleUnit)
 	t.Run("Exec", testInstanceServiceExecUnit)
 	t.Run("ProvisionFinalize", testInstanceServiceProvisionFinalize)
+	t.Run("ProvisionFinalize_LibvirtNoopNetwork", testInstanceServiceProvisionFinalize_LibvirtNoopNetwork)
 	t.Run("Terminate", testInstanceServiceTerminateUnit)
 	t.Run("VolumeRelease", testInstanceServiceVolumeReleaseUnit)
 	t.Run("PauseResume", testInstanceServicePauseResumeUnit)
@@ -622,6 +623,92 @@ func testInstanceServiceProvisionFinalize(t *testing.T) {
 		assert.Equal(t, domain.StatusRunning, inst.Status)
 
 		repo.AssertExpectations(t)
+	})
+}
+
+func testInstanceServiceProvisionFinalize_LibvirtNoopNetwork(t *testing.T) {
+	t.Run("Libvirt_NoopNetwork_ReturnsDefaultNetwork", func(t *testing.T) {
+		repo := new(MockInstanceRepo)
+		vpcRepo := new(MockVpcRepo)
+		subnetRepo := new(MockSubnetRepo)
+		volRepo := new(MockVolumeRepo)
+		typeRepo := new(MockInstanceTypeRepo)
+		compute := new(MockComputeBackend)
+		eventSvc := new(MockEventService)
+		auditSvc := new(MockAuditService)
+		dnsSvc := new(MockDNSService)
+
+		svc := services.NewInstanceService(services.InstanceServiceParams{
+			Repo:             repo,
+			VpcRepo:          vpcRepo,
+			SubnetRepo:       subnetRepo,
+			VolumeRepo:       volRepo,
+			InstanceTypeRepo: typeRepo,
+			Compute:          compute,
+			Network:          nil, // noop network backend
+			EventSvc:         eventSvc,
+			AuditSvc:         auditSvc,
+			DNSSvc:           dnsSvc,
+			Logger:           slog.Default(),
+		})
+
+		ctx := context.Background()
+		userID := uuid.New()
+		tenantID := uuid.New()
+		ctx = appcontext.WithUserID(ctx, userID)
+		ctx = appcontext.WithTenantID(ctx, tenantID)
+
+		vpcID := uuid.New()
+		subnetID := uuid.New()
+		inst := &domain.Instance{
+			ID:           uuid.New(),
+			UserID:       userID,
+			TenantID:     tenantID,
+			Name:         "test-inst",
+			Image:        "alpine",
+			InstanceType: "t2.micro",
+			VpcID:        &vpcID,
+			SubnetID:     &subnetID,
+			Status:       domain.StatusStarting,
+		}
+
+		repo.On("GetByID", mock.Anything, inst.ID).Return(inst, nil).Once()
+		compute.On("Type").Return("libvirt").Maybe()
+		vpcRepo.On("GetByID", mock.Anything, vpcID).Return(&domain.VPC{ID: vpcID, NetworkID: "br-vpc-12345678"}, nil).Maybe()
+		subnetRepo.On("GetByID", mock.Anything, subnetID).Return(&domain.Subnet{ID: subnetID, CIDRBlock: "10.0.0.0/24", GatewayIP: "10.0.0.1"}, nil).Maybe()
+		volRepo.On("ListByInstanceID", mock.Anything, mock.Anything).Return([]*domain.Volume{}, nil).Maybe()
+		typeRepo.On("GetByID", mock.Anything, "t2.micro").Return(&domain.InstanceType{ID: "t2.micro", VCPUs: 1, MemoryMB: 1024, DiskGB: 10}, nil).Maybe()
+
+		// Capture the NetworkID passed to LaunchInstanceWithOptions
+		var capturedNetworkID string
+		compute.On("LaunchInstanceWithOptions", mock.Anything, mock.MatchedBy(func(opts ports.CreateInstanceOptions) bool {
+			capturedNetworkID = opts.NetworkID
+			return true
+		})).Return("domain-123", []string{}, nil).Once()
+
+		// GetInstanceIP is called in finalizeProvision when PrivateIP is empty
+		compute.On("GetInstanceIP", mock.Anything, "domain-123").Return("192.168.122.50", nil).Maybe()
+
+		dnsSvc.On("RegisterInstance", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		repo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
+		eventSvc.On("RecordEvent", mock.Anything, "INSTANCE_LAUNCH", mock.Anything, "INSTANCE", mock.Anything).Return(nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "instance.launch", "instance", mock.Anything, mock.Anything).Return(nil).Once()
+
+		job := domain.ProvisionJob{
+			InstanceID: inst.ID,
+			UserData:   "",
+			Volumes:    nil,
+		}
+
+		err := svc.Provision(ctx, job)
+		require.NoError(t, err)
+
+		// Verify that libvirt used "default" network instead of the OVS bridge name
+		assert.Equal(t, "default", capturedNetworkID)
+		assert.Equal(t, domain.StatusRunning, inst.Status)
+
+		repo.AssertExpectations(t)
+		compute.AssertExpectations(t)
 	})
 }
 
