@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -18,6 +20,7 @@ const (
 )
 
 func TestCreateRoleCmd(t *testing.T) {
+	fmt.Fprintf(os.Stderr, "DEBUG: TestCreateRoleCmd starting\n")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path != "/rbac/roles" || r.Method != http.MethodPost {
@@ -45,9 +48,11 @@ func TestCreateRoleCmd(t *testing.T) {
 	_ = createRoleCmd.Flags().Set("description", "read-only")
 	_ = createRoleCmd.Flags().Set("permissions", string(domain.PermissionInstanceRead))
 
+	fmt.Fprintf(os.Stderr, "DEBUG: About to call createRoleCmd.Run\n")
 	out := captureStdout(t, func() {
 		createRoleCmd.Run(createRoleCmd, []string{rbacTestRoleName})
 	})
+	fmt.Fprintf(os.Stderr, "DEBUG: createRoleCmd.Run completed\n")
 	if !strings.Contains(out, "Role created") || !strings.Contains(out, rbacTestRoleID) {
 		t.Fatalf("expected success output, got: %s", out)
 	}
