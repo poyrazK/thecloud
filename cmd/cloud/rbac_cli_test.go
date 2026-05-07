@@ -50,34 +50,27 @@ func TestCreateRoleCmd(t *testing.T) {
 	_ = createRoleCmd.Flags().Set("permissions", string(domain.PermissionInstanceRead))
 
 	fmt.Fprintf(os.Stderr, "DEBUG: About to call createRoleCmd.Run\n")
-	var out string
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				fmt.Fprintf(os.Stderr, "DEBUG: panic in Run: %v\n", r)
-				t.Fatalf("panic in createRoleCmd.Run: %v", r)
-			}
-		}()
-		fmt.Fprintf(os.Stderr, "DEBUG: Before captureStdout\n")
-		// Use direct stdout capture with explicit timing
-		oldStdout := os.Stdout
-		r, w, err := os.Pipe()
-		if err != nil {
-			t.Fatalf("pipe: %v", err)
-		}
-		os.Stdout = w
-		fmt.Fprintf(os.Stderr, "DEBUG: Pipe created, about to call Run\n")
-		createRoleCmd.Run(createRoleCmd, []string{rbacTestRoleName})
-		fmt.Fprintf(os.Stderr, "DEBUG: Run completed, closing pipe\n")
-		w.Close()
-		os.Stdout = oldStdout
-		fmt.Fprintf(os.Stderr, "DEBUG: Pipe closed, about to copy\n")
-		var buf strings.Builder
-		io.Copy(&buf, r)
-		out = buf.String()
-		fmt.Fprintf(os.Stderr, "DEBUG: output captured: %d bytes\n", len(out))
-	}()
-	fmt.Fprintf(os.Stderr, "DEBUG: createRoleCmd.Run completed, output length: %d\n", len(out))
+	fmt.Fprintf(os.Stderr, "DEBUG: Before creating pipe\n")
+
+	// Direct call without any stdout redirection
+	fmt.Fprintf(os.Stderr, "DEBUG: Calling createRoleCmd.Run directly\n")
+	createRoleCmd.Run(createRoleCmd, []string{rbacTestRoleName})
+	fmt.Fprintf(os.Stderr, "DEBUG: createRoleCmd.Run completed\n")
+
+	// Now capture output for assertion
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stdout = w
+	createRoleCmd.Run(createRoleCmd, []string{rbacTestRoleName})
+	w.Close()
+	os.Stdout = oldStdout
+	var buf strings.Builder
+	io.Copy(&buf, r)
+	out := buf.String()
+	fmt.Fprintf(os.Stderr, "DEBUG: output captured: %d bytes\n", len(out))
 	if !strings.Contains(out, "Role created") || !strings.Contains(out, rbacTestRoleID) {
 		t.Fatalf("expected success output, got: %s", out)
 	}
