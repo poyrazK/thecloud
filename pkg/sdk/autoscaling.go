@@ -117,10 +117,17 @@ type CreatePolicyRequest struct {
 	CooldownSec int     `json:"cooldown_sec"`
 }
 
-func (c *Client) CreateScalingPolicy(groupID string, req CreatePolicyRequest) error {
+func (c *Client) CreateScalingPolicy(groupIDOrName string, req CreatePolicyRequest) error {
+	id, err := c.resolveID("scaling-group", func() ([]interface{}, error) {
+		groups, err := c.ListScalingGroups()
+		return interfaceSlice(groups), err
+	}, func(v interface{}) string { return v.(ScalingGroup).ID }, func(v interface{}) string { return v.(ScalingGroup).Name }, groupIDOrName)
+	if err != nil {
+		return err
+	}
 	resp, err := c.resty.R().
 		SetBody(req).
-		Post(fmt.Sprintf("%s/autoscaling/groups/%s/policies", c.apiURL, groupID))
+		Post(fmt.Sprintf("%s/autoscaling/groups/%s/policies", c.apiURL, id))
 
 	if err != nil {
 		return err

@@ -47,8 +47,15 @@ func (c *Client) ListInstancesWithContext(ctx context.Context) ([]Instance, erro
 
 // GetInstance retrieves a compute instance by ID or name.
 func (c *Client) GetInstance(idOrName string) (*Instance, error) {
+	id, err := c.resolveID("instance", func() ([]interface{}, error) {
+		instances, err := c.ListInstances()
+		return interfaceSlice(instances), err
+	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+	if err != nil {
+		return nil, err
+	}
 	var res Response[Instance]
-	if err := c.get(fmt.Sprintf("/instances/%s", idOrName), &res); err != nil {
+	if err := c.get(fmt.Sprintf("/instances/%s", id), &res); err != nil {
 		return nil, err
 	}
 	return &res.Data, nil
@@ -56,16 +63,30 @@ func (c *Client) GetInstance(idOrName string) (*Instance, error) {
 
 // GetInstanceWithContext retrieves a compute instance with context support.
 func (c *Client) GetInstanceWithContext(ctx context.Context, idOrName string) (*Instance, error) {
+	id, err := c.resolveID("instance", func() ([]interface{}, error) {
+		instances, err := c.ListInstances()
+		return interfaceSlice(instances), err
+	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+	if err != nil {
+		return nil, err
+	}
 	var res Response[Instance]
-	if err := c.getWithContext(ctx, fmt.Sprintf("/instances/%s", idOrName), &res); err != nil {
+	if err := c.getWithContext(ctx, fmt.Sprintf("/instances/%s", id), &res); err != nil {
 		return nil, err
 	}
 	return &res.Data, nil
 }
 
 func (c *Client) GetConsoleURL(idOrName string) (string, error) {
+	id, err := c.resolveID("instance", func() ([]interface{}, error) {
+		instances, err := c.ListInstances()
+		return interfaceSlice(instances), err
+	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+	if err != nil {
+		return "", err
+	}
 	var res Response[string]
-	if err := c.get(fmt.Sprintf("/instances/%s/console", idOrName), &res); err != nil {
+	if err := c.get(fmt.Sprintf("/instances/%s/console", id), &res); err != nil {
 		return "", err
 	}
 	return res.Data, nil
@@ -100,7 +121,14 @@ func (c *Client) LaunchInstance(name, image, ports, instanceType string, vpcID, 
 }
 
 // UpdateInstanceMetadata updates the metadata and labels of an instance.
-func (c *Client) UpdateInstanceMetadata(id string, metadata, labels map[string]string) error {
+func (c *Client) UpdateInstanceMetadata(idOrName string, metadata, labels map[string]string) error {
+	id, err := c.resolveID("instance", func() ([]interface{}, error) {
+		instances, err := c.ListInstances()
+		return interfaceSlice(instances), err
+	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+	if err != nil {
+		return err
+	}
 	body := map[string]interface{}{
 		"metadata": metadata,
 		"labels":   labels,
@@ -110,7 +138,14 @@ func (c *Client) UpdateInstanceMetadata(id string, metadata, labels map[string]s
 
 // StopInstance stops a running instance by ID or name.
 func (c *Client) StopInstance(idOrName string) error {
-	return c.post(fmt.Sprintf("/instances/%s/stop", idOrName), nil, nil)
+	id, err := c.resolveID("instance", func() ([]interface{}, error) {
+		instances, err := c.ListInstances()
+		return interfaceSlice(instances), err
+	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+	if err != nil {
+		return err
+	}
+	return c.post(fmt.Sprintf("/instances/%s/stop", id), nil, nil)
 }
 
 // TerminateInstance deletes an instance by ID or name.
@@ -120,12 +155,26 @@ func (c *Client) TerminateInstance(idOrName string) error {
 
 // TerminateInstanceWithContext deletes an instance with context support.
 func (c *Client) TerminateInstanceWithContext(ctx context.Context, idOrName string) error {
-	return c.deleteWithContext(ctx, fmt.Sprintf("/instances/%s", idOrName), nil)
+	id, err := c.resolveID("instance", func() ([]interface{}, error) {
+		instances, err := c.ListInstances()
+		return interfaceSlice(instances), err
+	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+	if err != nil {
+		return err
+	}
+	return c.deleteWithContext(ctx, fmt.Sprintf("/instances/%s", id), nil)
 }
 
 // GetInstanceLogs retrieves the raw log output for an instance.
 func (c *Client) GetInstanceLogs(idOrName string) (string, error) {
-	resp, err := c.resty.R().Get(c.apiURL + fmt.Sprintf("/instances/%s/logs", idOrName))
+	id, err := c.resolveID("instance", func() ([]interface{}, error) {
+		instances, err := c.ListInstances()
+		return interfaceSlice(instances), err
+	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+	if err != nil {
+		return "", err
+	}
+	resp, err := c.resty.R().Get(c.apiURL + fmt.Sprintf("/instances/%s/logs", id))
 	if err != nil {
 		return "", err
 	}
@@ -137,10 +186,17 @@ func (c *Client) GetInstanceLogs(idOrName string) (string, error) {
 
 // ResizeInstance changes the instance type of a running or stopped instance.
 func (c *Client) ResizeInstance(idOrName, newInstanceType string) error {
+	id, err := c.resolveID("instance", func() ([]interface{}, error) {
+		instances, err := c.ListInstances()
+		return interfaceSlice(instances), err
+	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+	if err != nil {
+		return err
+	}
 	body := map[string]string{
 		"instance_type": newInstanceType,
 	}
-	return c.post(fmt.Sprintf("/instances/%s/resize", idOrName), body, nil)
+	return c.post(fmt.Sprintf("/instances/%s/resize", id), body, nil)
 }
 
 // InstanceStats captures resource usage for an instance.
@@ -153,8 +209,15 @@ type InstanceStats struct {
 
 // GetInstanceStats returns resource usage metrics for an instance.
 func (c *Client) GetInstanceStats(idOrName string) (*InstanceStats, error) {
+	id, err := c.resolveID("instance", func() ([]interface{}, error) {
+		instances, err := c.ListInstances()
+		return interfaceSlice(instances), err
+	}, func(v interface{}) string { return v.(Instance).ID }, func(v interface{}) string { return v.(Instance).Name }, idOrName)
+	if err != nil {
+		return nil, err
+	}
 	var res Response[InstanceStats]
-	if err := c.get(fmt.Sprintf("/instances/%s/stats", idOrName), &res); err != nil {
+	if err := c.get(fmt.Sprintf("/instances/%s/stats", id), &res); err != nil {
 		return nil, err
 	}
 	return &res.Data, nil

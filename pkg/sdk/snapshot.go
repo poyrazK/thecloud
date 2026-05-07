@@ -4,18 +4,24 @@ package sdk
 import (
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 )
 
-func (c *Client) CreateSnapshot(volumeID uuid.UUID, description string) (*domain.Snapshot, error) {
+func (c *Client) CreateSnapshot(volumeIDOrName string, description string) (*domain.Snapshot, error) {
+	id, err := c.resolveID("volume", func() ([]interface{}, error) {
+		vols, err := c.ListVolumes()
+		return interfaceSlice(vols), err
+	}, func(v interface{}) string { return v.(Volume).ID.String() }, func(v interface{}) string { return v.(Volume).Name }, volumeIDOrName)
+	if err != nil {
+		return nil, err
+	}
 	req := map[string]interface{}{
-		"volume_id":   volumeID,
+		"volume_id":   id,
 		"description": description,
 	}
 
 	var snapshot domain.Snapshot
-	err := c.post("/snapshots", req, &snapshot)
+	err = c.post("/snapshots", req, &snapshot)
 	if err != nil {
 		return nil, err
 	}

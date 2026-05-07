@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/olekukonko/tablewriter"
@@ -61,38 +60,15 @@ var dnsCreateZoneCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
 		desc, _ := cmd.Flags().GetString("description")
-		vpcStr, _ := cmd.Flags().GetString("vpc-id")
+		vpcIDOrName, _ := cmd.Flags().GetString("vpc-id")
 
-		var vpcID *uuid.UUID
-		if vpcStr != "" {
-			// Try to resolve as full UUID first
-			uid, err := uuid.Parse(vpcStr)
-			if err != nil {
-				// Not a UUID, try to resolve by name or short ID
-				client := createClient(opts)
-				vpcs, err := client.ListVPCs()
-				if err == nil {
-					for _, vpc := range vpcs {
-						if vpc.Name == vpcStr || strings.HasPrefix(vpc.ID, vpcStr) {
-							uid, err := uuid.Parse(vpc.ID)
-							if err == nil {
-								vpcID = &uid
-								break
-							}
-						}
-					}
-				}
-				if vpcID == nil {
-					fmt.Printf("Error: invalid vpc-id format: %v\n", err)
-					return
-				}
-			} else {
-				vpcID = &uid
-			}
+		var vpcPtr *string
+		if vpcIDOrName != "" {
+			vpcPtr = &vpcIDOrName
 		}
 
 		client := createClient(opts)
-		zone, err := client.CreateDNSZone(name, desc, vpcID)
+		zone, err := client.CreateDNSZone(name, desc, vpcPtr)
 		if err != nil {
 			fmt.Printf(dnsErrorFormat, err)
 			return

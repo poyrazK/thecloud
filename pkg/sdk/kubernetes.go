@@ -99,13 +99,20 @@ func (c *Client) CreateCluster(input *CreateClusterInput) (*Cluster, error) {
 	return resp.Data, nil
 }
 
-// GetCluster retrieves cluster details by ID.
-func (c *Client) GetCluster(id string) (*Cluster, error) {
-	return c.GetClusterWithContext(context.Background(), id)
+// GetCluster retrieves cluster details by ID or name.
+func (c *Client) GetCluster(idOrName string) (*Cluster, error) {
+	return c.GetClusterWithContext(context.Background(), idOrName)
 }
 
-// GetClusterWithContext retrieves cluster details by ID with context support.
-func (c *Client) GetClusterWithContext(ctx context.Context, id string) (*Cluster, error) {
+// GetClusterWithContext retrieves cluster details by ID or name with context support.
+func (c *Client) GetClusterWithContext(ctx context.Context, idOrName string) (*Cluster, error) {
+	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
+		clusters, err := c.ListClusters()
+		return interfaceSlicePtr(clusters), err
+	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	if err != nil {
+		return nil, err
+	}
 	var resp Response[*Cluster]
 	if err := c.getWithContext(ctx, clustersPath+"/"+id, &resp); err != nil {
 		return nil, err
@@ -114,13 +121,27 @@ func (c *Client) GetClusterWithContext(ctx context.Context, id string) (*Cluster
 }
 
 // DeleteCluster removes a cluster.
-func (c *Client) DeleteCluster(id string) error {
+func (c *Client) DeleteCluster(idOrName string) error {
+	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
+		clusters, err := c.ListClusters()
+		return interfaceSlicePtr(clusters), err
+	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	if err != nil {
+		return err
+	}
 	var resp Response[any]
 	return c.delete(clustersPath+"/"+id, &resp)
 }
 
 // GetKubeconfig retrieves the cluster kubeconfig, optionally for a specific role.
-func (c *Client) GetKubeconfig(id string, role string) (string, error) {
+func (c *Client) GetKubeconfig(idOrName string, role string) (string, error) {
+	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
+		clusters, err := c.ListClusters()
+		return interfaceSlicePtr(clusters), err
+	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	if err != nil {
+		return "", err
+	}
 	path := clustersPath + "/" + id + "/kubeconfig"
 	if role != "" {
 		path += "?role=" + role
@@ -133,20 +154,41 @@ func (c *Client) GetKubeconfig(id string, role string) (string, error) {
 }
 
 // RepairCluster triggers a re-run of critical provisioning steps.
-func (c *Client) RepairCluster(id string) error {
+func (c *Client) RepairCluster(idOrName string) error {
+	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
+		clusters, err := c.ListClusters()
+		return interfaceSlicePtr(clusters), err
+	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	if err != nil {
+		return err
+	}
 	var resp Response[any]
 	return c.post(clustersPath+"/"+id+"/repair", nil, &resp)
 }
 
 // ScaleCluster adjusts the number of worker nodes.
-func (c *Client) ScaleCluster(id string, workers int) error {
+func (c *Client) ScaleCluster(idOrName string, workers int) error {
+	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
+		clusters, err := c.ListClusters()
+		return interfaceSlicePtr(clusters), err
+	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	if err != nil {
+		return err
+	}
 	var resp Response[any]
 	input := &ScaleClusterInput{Workers: workers}
 	return c.post(clustersPath+"/"+id+"/scale", input, &resp)
 }
 
 // GetClusterHealth retrieved the operational health of the cluster.
-func (c *Client) GetClusterHealth(id string) (*ClusterHealth, error) {
+func (c *Client) GetClusterHealth(idOrName string) (*ClusterHealth, error) {
+	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
+		clusters, err := c.ListClusters()
+		return interfaceSlicePtr(clusters), err
+	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	if err != nil {
+		return nil, err
+	}
 	var resp Response[*ClusterHealth]
 	if err := c.get(clustersPath+"/"+id+"/health", &resp); err != nil {
 		return nil, err
@@ -160,20 +202,41 @@ type UpgradeClusterInput struct {
 }
 
 // UpgradeCluster initiates an asynchronous version upgrade.
-func (c *Client) UpgradeCluster(id string, version string) error {
+func (c *Client) UpgradeCluster(idOrName string, version string) error {
+	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
+		clusters, err := c.ListClusters()
+		return interfaceSlicePtr(clusters), err
+	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	if err != nil {
+		return err
+	}
 	var resp Response[any]
 	input := &UpgradeClusterInput{Version: version}
 	return c.post(clustersPath+"/"+id+"/upgrade", input, &resp)
 }
 
 // RotateSecrets triggers a renewal of cluster certificates.
-func (c *Client) RotateSecrets(id string) error {
+func (c *Client) RotateSecrets(idOrName string) error {
+	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
+		clusters, err := c.ListClusters()
+		return interfaceSlicePtr(clusters), err
+	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	if err != nil {
+		return err
+	}
 	var resp Response[any]
 	return c.post(clustersPath+"/"+id+"/rotate-secrets", nil, &resp)
 }
 
 // CreateBackup initiates a cluster state snapshot.
-func (c *Client) CreateBackup(id string) error {
+func (c *Client) CreateBackup(idOrName string) error {
+	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
+		clusters, err := c.ListClusters()
+		return interfaceSlicePtr(clusters), err
+	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	if err != nil {
+		return err
+	}
 	var resp Response[any]
 	return c.post(clustersPath+"/"+id+"/backups", nil, &resp)
 }
@@ -184,32 +247,60 @@ type RestoreBackupInput struct {
 }
 
 // RestoreBackup initiates a cluster restoration from a specific path.
-func (c *Client) RestoreBackup(id string, backupPath string) error {
+func (c *Client) RestoreBackup(idOrName string, backupPath string) error {
+	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
+		clusters, err := c.ListClusters()
+		return interfaceSlicePtr(clusters), err
+	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, idOrName)
+	if err != nil {
+		return err
+	}
 	var resp Response[any]
 	input := &RestoreBackupInput{BackupPath: backupPath}
 	return c.post(clustersPath+"/"+id+"/restore", input, &resp)
 }
 
 // AddNodeGroup adds a new node pool to the cluster.
-func (c *Client) AddNodeGroup(clusterID string, input NodeGroupInput) (*NodeGroup, error) {
+func (c *Client) AddNodeGroup(clusterIDOrName string, input NodeGroupInput) (*NodeGroup, error) {
+	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
+		clusters, err := c.ListClusters()
+		return interfaceSlicePtr(clusters), err
+	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, clusterIDOrName)
+	if err != nil {
+		return nil, err
+	}
 	var resp Response[*NodeGroup]
-	if err := c.post(clustersPath+"/"+clusterID+"/nodegroups", input, &resp); err != nil {
+	if err := c.post(clustersPath+"/"+id+"/nodegroups", input, &resp); err != nil {
 		return nil, err
 	}
 	return resp.Data, nil
 }
 
 // UpdateNodeGroupWithContext updates a node group's parameters with context support.
-func (c *Client) UpdateNodeGroupWithContext(ctx context.Context, clusterID string, name string, input UpdateNodeGroupInput) (*NodeGroup, error) {
+func (c *Client) UpdateNodeGroupWithContext(ctx context.Context, clusterIDOrName string, name string, input UpdateNodeGroupInput) (*NodeGroup, error) {
+	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
+		clusters, err := c.ListClusters()
+		return interfaceSlicePtr(clusters), err
+	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, clusterIDOrName)
+	if err != nil {
+		return nil, err
+	}
 	var resp Response[*NodeGroup]
-	if err := c.putWithContext(ctx, clustersPath+"/"+clusterID+"/nodegroups/"+url.PathEscape(name), input, &resp); err != nil {
+	if err := c.putWithContext(ctx, clustersPath+"/"+id+"/nodegroups/"+url.PathEscape(name), input, &resp); err != nil {
 		return nil, err
 	}
 	return resp.Data, nil
 }
 
 // DeleteNodeGroup removes a node group.
-func (c *Client) DeleteNodeGroup(clusterID string, name string) error {
+func (c *Client) DeleteNodeGroup(clusterIDOrName string, name string) error {
+	id, err := c.resolveID("cluster", func() ([]interface{}, error) {
+		clusters, err := c.ListClusters()
+		return interfaceSlicePtr(clusters), err
+	}, func(v interface{}) string { return v.(*Cluster).ID.String() }, func(v interface{}) string { return v.(*Cluster).Name }, clusterIDOrName)
+	if err != nil {
+		return err
+	}
 	var resp Response[any]
-	return c.delete(clustersPath+"/"+clusterID+"/nodegroups/"+url.PathEscape(name), &resp)
+	return c.delete(clustersPath+"/"+id+"/nodegroups/"+url.PathEscape(name), &resp)
 }
