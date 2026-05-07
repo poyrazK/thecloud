@@ -40,9 +40,12 @@ func (c *Client) CreateCronJob(name, schedule, url, method, payload string) (*Cr
 }
 
 func (c *Client) ListCronJobs() ([]CronJob, error) {
-	var jobs []CronJob
-	err := c.get("/cron/jobs", &jobs)
-	return jobs, err
+	var res Response[[]CronJob]
+	err := c.get("/cron/jobs", &res)
+	if err != nil {
+		return nil, err
+	}
+	return res.Data, nil
 }
 
 func (c *Client) GetCronJob(id string) (*CronJob, error) {
