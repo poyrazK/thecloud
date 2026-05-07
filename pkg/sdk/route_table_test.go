@@ -11,6 +11,7 @@ import (
 )
 
 func TestClientListRouteTables(t *testing.T) {
+	t.Parallel()
 	vpcID := "vpc-123"
 	expectedRTs := []RouteTable{
 		{ID: "rt-1", VPCID: vpcID, Name: "main-rt", IsMain: true},
@@ -37,6 +38,7 @@ func TestClientListRouteTables(t *testing.T) {
 }
 
 func TestClientCreateRouteTable(t *testing.T) {
+	t.Parallel()
 	vpcID := "vpc-123"
 	expectedRT := RouteTable{
 		ID:     "rt-456",
@@ -70,6 +72,7 @@ func TestClientCreateRouteTable(t *testing.T) {
 }
 
 func TestClientGetRouteTable(t *testing.T) {
+	t.Parallel()
 	id := "rt-123"
 	expectedRT := RouteTable{
 		ID:    id,
@@ -95,6 +98,7 @@ func TestClientGetRouteTable(t *testing.T) {
 }
 
 func TestClientDeleteRouteTable(t *testing.T) {
+	t.Parallel()
 	id := "rt-123"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -106,6 +110,139 @@ func TestClientDeleteRouteTable(t *testing.T) {
 
 	client := NewClient(server.URL, "test-api-key")
 	err := client.DeleteRouteTable(id)
+
+	require.NoError(t, err)
+}
+
+func strPtr(s string) *string { return &s }
+
+func TestClientAddRoute(t *testing.T) {
+	t.Parallel()
+	rtID := "rt-123"
+	expectedRoute := Route{
+		ID:              "route-456",
+		RouteTableID:    rtID,
+		DestinationCIDR: "10.0.0.0/16",
+		TargetType:      RouteTargetIGW,
+		TargetID:        strPtr("igw-789"),
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/route-tables/"+rtID+"/routes", r.URL.Path)
+		assert.Equal(t, http.MethodPost, r.Method)
+
+		var req map[string]interface{}
+		err := json.NewDecoder(r.Body).Decode(&req)
+		assert.NoError(t, err)
+		assert.Equal(t, "10.0.0.0/16", req["destination_cidr"])
+		assert.Equal(t, "igw", req["target_type"])
+		assert.Equal(t, "igw-789", req["target_id"])
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(Response[Route]{Data: expectedRoute})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	route, err := client.AddRoute(rtID, "10.0.0.0/16", RouteTargetIGW, "igw-789")
+
+	require.NoError(t, err)
+	assert.NotNil(t, route)
+	assert.Equal(t, expectedRoute.ID, route.ID)
+	assert.Equal(t, expectedRoute.DestinationCIDR, route.DestinationCIDR)
+}
+
+func TestClientAddRouteWithoutTargetID(t *testing.T) {
+	t.Parallel()
+	rtID := "rt-123"
+	expectedRoute := Route{
+		ID:              "route-456",
+		RouteTableID:    rtID,
+		DestinationCIDR: "0.0.0.0/0",
+		TargetType:      RouteTargetLocal,
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/route-tables/"+rtID+"/routes", r.URL.Path)
+		assert.Equal(t, http.MethodPost, r.Method)
+
+		var req map[string]interface{}
+		err := json.NewDecoder(r.Body).Decode(&req)
+		assert.NoError(t, err)
+		assert.Equal(t, "0.0.0.0/0", req["destination_cidr"])
+		assert.Equal(t, "local", req["target_type"])
+		_, hasTargetID := req["target_id"]
+		assert.False(t, hasTargetID, "target_id should not be present when empty")
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(Response[Route]{Data: expectedRoute})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	route, err := client.AddRoute(rtID, "0.0.0.0/0", RouteTargetLocal, "")
+
+	require.NoError(t, err)
+	assert.NotNil(t, route)
+	assert.Equal(t, expectedRoute.TargetType, route.TargetType)
+}
+
+func TestClientRemoveRoute(t *testing.T) {
+	t.Parallel()
+	rtID := "rt-123"
+	routeID := "route-456"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/route-tables/"+rtID+"/routes/"+routeID, r.URL.Path)
+		assert.Equal(t, http.MethodDelete, r.Method)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	err := client.RemoveRoute(rtID, routeID)
+
+	require.NoError(t, err)
+}
+
+func TestClientAssociateSubnet(t *testing.T) {
+	t.Parallel()
+	rtID := "rt-123"
+	subnetID := "subnet-456"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/route-tables/"+rtID+"/associations", r.URL.Path)
+		assert.Equal(t, http.MethodPost, r.Method)
+
+		var req map[string]string
+		err := json.NewDecoder(r.Body).Decode(&req)
+		assert.NoError(t, err)
+		assert.Equal(t, subnetID, req["subnet_id"])
+
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	err := client.AssociateSubnet(rtID, subnetID)
+
+	require.NoError(t, err)
+}
+
+func TestClientDisassociateSubnet(t *testing.T) {
+	t.Parallel()
+	rtID := "rt-123"
+	subnetID := "subnet-456"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/route-tables/"+rtID+"/associations/"+subnetID, r.URL.Path)
+		assert.Equal(t, http.MethodDelete, r.Method)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-api-key")
+	err := client.DisassociateSubnet(rtID, subnetID)
 
 	require.NoError(t, err)
 }

@@ -11,6 +11,7 @@ import (
 )
 
 func TestClientCreateIGW(t *testing.T) {
+	t.Parallel()
 	expectedIGW := InternetGateway{
 		ID:     "igw-123",
 		Status: IGWStatusDetached,
@@ -35,6 +36,7 @@ func TestClientCreateIGW(t *testing.T) {
 }
 
 func TestClientListIGWs(t *testing.T) {
+	t.Parallel()
 	expectedIGWs := []InternetGateway{
 		{ID: "igw-1", Status: IGWStatusDetached},
 		{ID: "igw-2", Status: IGWStatusAttached},
@@ -58,6 +60,7 @@ func TestClientListIGWs(t *testing.T) {
 }
 
 func TestClientGetIGW(t *testing.T) {
+	t.Parallel()
 	id := "igw-123"
 	expectedIGW := InternetGateway{
 		ID:     id,
@@ -82,6 +85,7 @@ func TestClientGetIGW(t *testing.T) {
 }
 
 func TestClientDeleteIGW(t *testing.T) {
+	t.Parallel()
 	id := "igw-123"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -98,6 +102,7 @@ func TestClientDeleteIGW(t *testing.T) {
 }
 
 func TestClientAttachIGW(t *testing.T) {
+	t.Parallel()
 	igwID := "igw-123"
 	vpcID := "vpc-456"
 
@@ -121,6 +126,7 @@ func TestClientAttachIGW(t *testing.T) {
 }
 
 func TestClientDetachIGW(t *testing.T) {
+	t.Parallel()
 	igwID := "igw-123"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
