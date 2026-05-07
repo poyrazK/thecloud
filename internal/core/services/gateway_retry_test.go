@@ -11,6 +11,7 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // mockRT is a simple http.RoundTripper for testing retry behavior.
@@ -148,7 +149,7 @@ func TestRetryTransport_RetriesOnConnectionRefused(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/", nil)
 	resp, err := transport.RoundTrip(req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, 2, m.calls, "should retry after connection refused")
 }
@@ -164,7 +165,7 @@ func TestRetryTransport_RetriesOn502(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/", nil)
 	resp, err := transport.RoundTrip(req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, 3, m.calls, "should retry 502 twice then succeed")
 }
@@ -179,7 +180,7 @@ func TestRetryTransport_RetriesOn503(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/", nil)
 	resp, err := transport.RoundTrip(req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, 2, m.calls)
 }
@@ -194,7 +195,7 @@ func TestRetryTransport_RetriesOn429(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/", nil)
 	resp, err := transport.RoundTrip(req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, 2, m.calls)
 }
@@ -208,7 +209,7 @@ func TestRetryTransport_NoRetryOn500(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/", nil)
 	resp, err := transport.RoundTrip(req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 500, resp.StatusCode)
 	assert.Equal(t, 1, m.calls, "500 should not be retried")
 }
@@ -222,7 +223,7 @@ func TestRetryTransport_NoRetryOn400(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/", nil)
 	resp, err := transport.RoundTrip(req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 400, resp.StatusCode)
 	assert.Equal(t, 1, m.calls, "400 should not be retried")
 }
@@ -237,7 +238,7 @@ func TestRetryTransport_RetriesOnTimeoutError(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/", nil)
 	resp, err := transport.RoundTrip(req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, 2, m.calls)
 }
@@ -253,7 +254,7 @@ func TestRetryTransport_GivesUpAfterMaxRetries(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/", nil)
 	resp, err := transport.RoundTrip(req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 502, resp.StatusCode)
 	assert.Equal(t, 3, m.calls, "3 attempts: first + 2 retries")
 }
@@ -265,7 +266,7 @@ func TestRetryTransport_SucceedsOnFirstAttempt(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/", nil)
 	resp, err := transport.RoundTrip(req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, 1, m.calls)
 }
