@@ -2,11 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
@@ -53,19 +50,9 @@ func TestCreateRoleCmd(t *testing.T) {
 	_ = createRoleCmd.Flags().Set("description", "read-only")
 	_ = createRoleCmd.Flags().Set("permissions", string(domain.PermissionInstanceRead))
 
-	// Capture output and run command
-	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	os.Stdout = w
-	createRoleCmd.Run(createRoleCmd, []string{rbacTestRoleName})
-	w.Close()
-	os.Stdout = oldStdout
-	var buf strings.Builder
-	io.Copy(&buf, r)
-	out := buf.String()
+	out := captureStdout(t, func() {
+		createRoleCmd.Run(createRoleCmd, []string{rbacTestRoleName})
+	})
 	if !strings.Contains(out, "Role created") || !strings.Contains(out, rbacTestRoleID) {
 		t.Fatalf("expected success output, got: %s", out)
 	}
