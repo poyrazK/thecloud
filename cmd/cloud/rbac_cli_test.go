@@ -40,6 +40,7 @@ func TestCreateRoleCmd(t *testing.T) {
 	defer server.Close()
 
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("CLOUD_API_KEY", rbacTestAPIKey)
 	saveConfig(rbacTestAPIKey)
 
 	oldURL := opts.APIURL
@@ -49,15 +50,7 @@ func TestCreateRoleCmd(t *testing.T) {
 	_ = createRoleCmd.Flags().Set("description", "read-only")
 	_ = createRoleCmd.Flags().Set("permissions", string(domain.PermissionInstanceRead))
 
-	fmt.Fprintf(os.Stderr, "DEBUG: About to call createRoleCmd.Run\n")
-	fmt.Fprintf(os.Stderr, "DEBUG: Before creating pipe\n")
-
-	// Direct call without any stdout redirection
-	fmt.Fprintf(os.Stderr, "DEBUG: Calling createRoleCmd.Run directly\n")
-	createRoleCmd.Run(createRoleCmd, []string{rbacTestRoleName})
-	fmt.Fprintf(os.Stderr, "DEBUG: createRoleCmd.Run completed\n")
-
-	// Now capture output for assertion
+	// Capture output and run command
 	oldStdout := os.Stdout
 	r, w, err := os.Pipe()
 	if err != nil {
@@ -70,7 +63,6 @@ func TestCreateRoleCmd(t *testing.T) {
 	var buf strings.Builder
 	io.Copy(&buf, r)
 	out := buf.String()
-	fmt.Fprintf(os.Stderr, "DEBUG: output captured: %d bytes\n", len(out))
 	if !strings.Contains(out, "Role created") || !strings.Contains(out, rbacTestRoleID) {
 		t.Fatalf("expected success output, got: %s", out)
 	}
