@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -48,14 +47,13 @@ func main() {
 	cloudClient := sdk.NewClient(*apiURL, *apiKey)
 	d := csi.NewDriver(*driverName, *version, *nodeID, *endpoint, cloudClient, logger)
 
-	var wg sync.WaitGroup
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	wg.Add(1)
+	done := make(chan struct{})
 	go func() {
-		defer wg.Done()
 		<-c
 		d.Stop()
+		close(done)
 	}()
 
 	if err := d.Run(); err != nil {
@@ -64,11 +62,6 @@ func main() {
 	}
 
 	// Wait for signal handler to complete cleanup with timeout
-	done := make(chan struct{}, 1)
-	go func() {
-		wg.Wait()
-		done <- struct{}{}
-	}()
 	select {
 	case <-done:
 	case <-time.After(5 * time.Second):
