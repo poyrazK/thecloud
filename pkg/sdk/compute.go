@@ -63,15 +63,7 @@ func (c *Client) resolveInstanceIDWithContext(ctx context.Context, idOrName stri
 
 // GetInstance retrieves a compute instance by ID or name.
 func (c *Client) GetInstance(idOrName string) (*Instance, error) {
-	id, err := c.resolveInstanceID(idOrName)
-	if err != nil {
-		return nil, err
-	}
-	var res Response[Instance]
-	if err := c.get(fmt.Sprintf("/instances/%s", id), &res); err != nil {
-		return nil, err
-	}
-	return &res.Data, nil
+	return c.GetInstanceWithContext(context.Background(), idOrName)
 }
 
 // GetInstanceWithContext retrieves a compute instance with context support.
@@ -88,12 +80,16 @@ func (c *Client) GetInstanceWithContext(ctx context.Context, idOrName string) (*
 }
 
 func (c *Client) GetConsoleURL(idOrName string) (string, error) {
-	id, err := c.resolveInstanceID(idOrName)
+	return c.GetConsoleURLWithContext(context.Background(), idOrName)
+}
+
+func (c *Client) GetConsoleURLWithContext(ctx context.Context, idOrName string) (string, error) {
+	id, err := c.resolveInstanceIDWithContext(ctx, idOrName)
 	if err != nil {
 		return "", err
 	}
 	var res Response[string]
-	if err := c.get(fmt.Sprintf("/instances/%s/console", id), &res); err != nil {
+	if err := c.getWithContext(ctx, fmt.Sprintf("/instances/%s/console", id), &res); err != nil {
 		return "", err
 	}
 	return res.Data, nil
@@ -129,7 +125,11 @@ func (c *Client) LaunchInstance(name, image, ports, instanceType string, vpcID, 
 
 // UpdateInstanceMetadata updates the metadata and labels of an instance.
 func (c *Client) UpdateInstanceMetadata(idOrName string, metadata, labels map[string]string) error {
-	id, err := c.resolveInstanceID(idOrName)
+	return c.UpdateInstanceMetadataWithContext(context.Background(), idOrName, metadata, labels)
+}
+
+func (c *Client) UpdateInstanceMetadataWithContext(ctx context.Context, idOrName string, metadata, labels map[string]string) error {
+	id, err := c.resolveInstanceIDWithContext(ctx, idOrName)
 	if err != nil {
 		return err
 	}
@@ -137,16 +137,20 @@ func (c *Client) UpdateInstanceMetadata(idOrName string, metadata, labels map[st
 		"metadata": metadata,
 		"labels":   labels,
 	}
-	return c.put(fmt.Sprintf("/instances/%s/metadata", id), body, nil)
+	return c.putWithContext(ctx, fmt.Sprintf("/instances/%s/metadata", id), body, nil)
 }
 
 // StopInstance stops a running instance by ID or name.
 func (c *Client) StopInstance(idOrName string) error {
-	id, err := c.resolveInstanceID(idOrName)
+	return c.StopInstanceWithContext(context.Background(), idOrName)
+}
+
+func (c *Client) StopInstanceWithContext(ctx context.Context, idOrName string) error {
+	id, err := c.resolveInstanceIDWithContext(ctx, idOrName)
 	if err != nil {
 		return err
 	}
-	return c.post(fmt.Sprintf("/instances/%s/stop", id), nil, nil)
+	return c.postWithContext(ctx, fmt.Sprintf("/instances/%s/stop", id), nil, nil)
 }
 
 // TerminateInstance deletes an instance by ID or name.
@@ -165,11 +169,15 @@ func (c *Client) TerminateInstanceWithContext(ctx context.Context, idOrName stri
 
 // GetInstanceLogs retrieves the raw log output for an instance.
 func (c *Client) GetInstanceLogs(idOrName string) (string, error) {
-	id, err := c.resolveInstanceID(idOrName)
+	return c.GetInstanceLogsWithContext(context.Background(), idOrName)
+}
+
+func (c *Client) GetInstanceLogsWithContext(ctx context.Context, idOrName string) (string, error) {
+	id, err := c.resolveInstanceIDWithContext(ctx, idOrName)
 	if err != nil {
 		return "", err
 	}
-	resp, err := c.resty.R().Get(c.apiURL + fmt.Sprintf("/instances/%s/logs", id))
+	resp, err := c.resty.R().SetContext(ctx).Get(c.apiURL + fmt.Sprintf("/instances/%s/logs", id))
 	if err != nil {
 		return "", err
 	}
@@ -181,14 +189,18 @@ func (c *Client) GetInstanceLogs(idOrName string) (string, error) {
 
 // ResizeInstance changes the instance type of a running or stopped instance.
 func (c *Client) ResizeInstance(idOrName, newInstanceType string) error {
-	id, err := c.resolveInstanceID(idOrName)
+	return c.ResizeInstanceWithContext(context.Background(), idOrName, newInstanceType)
+}
+
+func (c *Client) ResizeInstanceWithContext(ctx context.Context, idOrName, newInstanceType string) error {
+	id, err := c.resolveInstanceIDWithContext(ctx, idOrName)
 	if err != nil {
 		return err
 	}
 	body := map[string]string{
 		"instance_type": newInstanceType,
 	}
-	return c.post(fmt.Sprintf("/instances/%s/resize", id), body, nil)
+	return c.postWithContext(ctx, fmt.Sprintf("/instances/%s/resize", id), body, nil)
 }
 
 // InstanceStats captures resource usage for an instance.
@@ -201,12 +213,16 @@ type InstanceStats struct {
 
 // GetInstanceStats returns resource usage metrics for an instance.
 func (c *Client) GetInstanceStats(idOrName string) (*InstanceStats, error) {
-	id, err := c.resolveInstanceID(idOrName)
+	return c.GetInstanceStatsWithContext(context.Background(), idOrName)
+}
+
+func (c *Client) GetInstanceStatsWithContext(ctx context.Context, idOrName string) (*InstanceStats, error) {
+	id, err := c.resolveInstanceIDWithContext(ctx, idOrName)
 	if err != nil {
 		return nil, err
 	}
 	var res Response[InstanceStats]
-	if err := c.get(fmt.Sprintf("/instances/%s/stats", id), &res); err != nil {
+	if err := c.getWithContext(ctx, fmt.Sprintf("/instances/%s/stats", id), &res); err != nil {
 		return nil, err
 	}
 	return &res.Data, nil

@@ -144,17 +144,27 @@ func (c *Client) GetClusterWithContext(ctx context.Context, idOrName string) (*C
 
 // DeleteCluster removes a cluster.
 func (c *Client) DeleteCluster(idOrName string) error {
-	id, err := c.resolveClusterID(idOrName)
+	return c.DeleteClusterWithContext(context.Background(), idOrName)
+}
+
+// DeleteClusterWithContext removes a cluster with context support.
+func (c *Client) DeleteClusterWithContext(ctx context.Context, idOrName string) error {
+	id, err := c.resolveClusterIDWithContext(ctx, idOrName)
 	if err != nil {
 		return err
 	}
 	var resp Response[any]
-	return c.delete(clustersPath+"/"+id, &resp)
+	return c.deleteWithContext(ctx, clustersPath+"/"+id, &resp)
 }
 
 // GetKubeconfig retrieves the cluster kubeconfig, optionally for a specific role.
 func (c *Client) GetKubeconfig(idOrName string, role string) (string, error) {
-	id, err := c.resolveClusterID(idOrName)
+	return c.GetKubeconfigWithContext(context.Background(), idOrName, role)
+}
+
+// GetKubeconfigWithContext retrieves the cluster kubeconfig with context support.
+func (c *Client) GetKubeconfigWithContext(ctx context.Context, idOrName string, role string) (string, error) {
+	id, err := c.resolveClusterIDWithContext(ctx, idOrName)
 	if err != nil {
 		return "", err
 	}
@@ -163,7 +173,7 @@ func (c *Client) GetKubeconfig(idOrName string, role string) (string, error) {
 		path += "?role=" + role
 	}
 	var resp Response[string]
-	if err := c.get(path, &resp); err != nil {
+	if err := c.getWithContext(ctx, path, &resp); err != nil {
 		return "", err
 	}
 	return resp.Data, nil
@@ -171,33 +181,48 @@ func (c *Client) GetKubeconfig(idOrName string, role string) (string, error) {
 
 // RepairCluster triggers a re-run of critical provisioning steps.
 func (c *Client) RepairCluster(idOrName string) error {
-	id, err := c.resolveClusterID(idOrName)
+	return c.RepairClusterWithContext(context.Background(), idOrName)
+}
+
+// RepairClusterWithContext triggers a re-run of critical provisioning steps with context support.
+func (c *Client) RepairClusterWithContext(ctx context.Context, idOrName string) error {
+	id, err := c.resolveClusterIDWithContext(ctx, idOrName)
 	if err != nil {
 		return err
 	}
 	var resp Response[any]
-	return c.post(clustersPath+"/"+id+"/repair", nil, &resp)
+	return c.postWithContext(ctx, clustersPath+"/"+id+"/repair", nil, &resp)
 }
 
 // ScaleCluster adjusts the number of worker nodes.
 func (c *Client) ScaleCluster(idOrName string, workers int) error {
-	id, err := c.resolveClusterID(idOrName)
+	return c.ScaleClusterWithContext(context.Background(), idOrName, workers)
+}
+
+// ScaleClusterWithContext adjusts the number of worker nodes with context support.
+func (c *Client) ScaleClusterWithContext(ctx context.Context, idOrName string, workers int) error {
+	id, err := c.resolveClusterIDWithContext(ctx, idOrName)
 	if err != nil {
 		return err
 	}
 	var resp Response[any]
 	input := &ScaleClusterInput{Workers: workers}
-	return c.post(clustersPath+"/"+id+"/scale", input, &resp)
+	return c.postWithContext(ctx, clustersPath+"/"+id+"/scale", input, &resp)
 }
 
 // GetClusterHealth retrieved the operational health of the cluster.
 func (c *Client) GetClusterHealth(idOrName string) (*ClusterHealth, error) {
-	id, err := c.resolveClusterID(idOrName)
+	return c.GetClusterHealthWithContext(context.Background(), idOrName)
+}
+
+// GetClusterHealthWithContext retrieves the operational health of the cluster with context support.
+func (c *Client) GetClusterHealthWithContext(ctx context.Context, idOrName string) (*ClusterHealth, error) {
+	id, err := c.resolveClusterIDWithContext(ctx, idOrName)
 	if err != nil {
 		return nil, err
 	}
 	var resp Response[*ClusterHealth]
-	if err := c.get(clustersPath+"/"+id+"/health", &resp); err != nil {
+	if err := c.getWithContext(ctx, clustersPath+"/"+id+"/health", &resp); err != nil {
 		return nil, err
 	}
 	return resp.Data, nil
@@ -210,33 +235,48 @@ type UpgradeClusterInput struct {
 
 // UpgradeCluster initiates an asynchronous version upgrade.
 func (c *Client) UpgradeCluster(idOrName string, version string) error {
-	id, err := c.resolveClusterID(idOrName)
+	return c.UpgradeClusterWithContext(context.Background(), idOrName, version)
+}
+
+// UpgradeClusterWithContext initiates an asynchronous version upgrade with context support.
+func (c *Client) UpgradeClusterWithContext(ctx context.Context, idOrName string, version string) error {
+	id, err := c.resolveClusterIDWithContext(ctx, idOrName)
 	if err != nil {
 		return err
 	}
 	var resp Response[any]
 	input := &UpgradeClusterInput{Version: version}
-	return c.post(clustersPath+"/"+id+"/upgrade", input, &resp)
+	return c.postWithContext(ctx, clustersPath+"/"+id+"/upgrade", input, &resp)
 }
 
 // RotateSecrets triggers a renewal of cluster certificates.
 func (c *Client) RotateSecrets(idOrName string) error {
-	id, err := c.resolveClusterID(idOrName)
+	return c.RotateSecretsWithContext(context.Background(), idOrName)
+}
+
+// RotateSecretsWithContext triggers a renewal of cluster certificates with context support.
+func (c *Client) RotateSecretsWithContext(ctx context.Context, idOrName string) error {
+	id, err := c.resolveClusterIDWithContext(ctx, idOrName)
 	if err != nil {
 		return err
 	}
 	var resp Response[any]
-	return c.post(clustersPath+"/"+id+"/rotate-secrets", nil, &resp)
+	return c.postWithContext(ctx, clustersPath+"/"+id+"/rotate-secrets", nil, &resp)
 }
 
 // CreateBackup initiates a cluster state snapshot.
 func (c *Client) CreateBackup(idOrName string) error {
-	id, err := c.resolveClusterID(idOrName)
+	return c.CreateBackupWithContext(context.Background(), idOrName)
+}
+
+// CreateBackupWithContext initiates a cluster state snapshot with context support.
+func (c *Client) CreateBackupWithContext(ctx context.Context, idOrName string) error {
+	id, err := c.resolveClusterIDWithContext(ctx, idOrName)
 	if err != nil {
 		return err
 	}
 	var resp Response[any]
-	return c.post(clustersPath+"/"+id+"/backups", nil, &resp)
+	return c.postWithContext(ctx, clustersPath+"/"+id+"/backups", nil, &resp)
 }
 
 // RestoreBackupInput defines the input for restoring a cluster from backup.
@@ -246,23 +286,33 @@ type RestoreBackupInput struct {
 
 // RestoreBackup initiates a cluster restoration from a specific path.
 func (c *Client) RestoreBackup(idOrName string, backupPath string) error {
-	id, err := c.resolveClusterID(idOrName)
+	return c.RestoreBackupWithContext(context.Background(), idOrName, backupPath)
+}
+
+// RestoreBackupWithContext initiates a cluster restoration from a specific path with context support.
+func (c *Client) RestoreBackupWithContext(ctx context.Context, idOrName string, backupPath string) error {
+	id, err := c.resolveClusterIDWithContext(ctx, idOrName)
 	if err != nil {
 		return err
 	}
 	var resp Response[any]
 	input := &RestoreBackupInput{BackupPath: backupPath}
-	return c.post(clustersPath+"/"+id+"/restore", input, &resp)
+	return c.postWithContext(ctx, clustersPath+"/"+id+"/restore", input, &resp)
 }
 
 // AddNodeGroup adds a new node pool to the cluster.
 func (c *Client) AddNodeGroup(clusterIDOrName string, input NodeGroupInput) (*NodeGroup, error) {
-	id, err := c.resolveClusterID(clusterIDOrName)
+	return c.AddNodeGroupWithContext(context.Background(), clusterIDOrName, input)
+}
+
+// AddNodeGroupWithContext adds a new node pool to the cluster with context support.
+func (c *Client) AddNodeGroupWithContext(ctx context.Context, clusterIDOrName string, input NodeGroupInput) (*NodeGroup, error) {
+	id, err := c.resolveClusterIDWithContext(ctx, clusterIDOrName)
 	if err != nil {
 		return nil, err
 	}
 	var resp Response[*NodeGroup]
-	if err := c.post(clustersPath+"/"+id+"/nodegroups", input, &resp); err != nil {
+	if err := c.postWithContext(ctx, clustersPath+"/"+id+"/nodegroups", input, &resp); err != nil {
 		return nil, err
 	}
 	return resp.Data, nil
@@ -283,10 +333,15 @@ func (c *Client) UpdateNodeGroupWithContext(ctx context.Context, clusterIDOrName
 
 // DeleteNodeGroup removes a node group.
 func (c *Client) DeleteNodeGroup(clusterIDOrName string, name string) error {
-	id, err := c.resolveClusterID(clusterIDOrName)
+	return c.DeleteNodeGroupWithContext(context.Background(), clusterIDOrName, name)
+}
+
+// DeleteNodeGroupWithContext removes a node group with context support.
+func (c *Client) DeleteNodeGroupWithContext(ctx context.Context, clusterIDOrName string, name string) error {
+	id, err := c.resolveClusterIDWithContext(ctx, clusterIDOrName)
 	if err != nil {
 		return err
 	}
 	var resp Response[any]
-	return c.delete(clustersPath+"/"+id+"/nodegroups/"+url.PathEscape(name), &resp)
+	return c.deleteWithContext(ctx, clustersPath+"/"+id+"/nodegroups/"+url.PathEscape(name), &resp)
 }
