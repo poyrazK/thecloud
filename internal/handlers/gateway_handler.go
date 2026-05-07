@@ -36,10 +36,10 @@ type CreateRouteRequest struct {
 	BlockedCIDRs           []string `json:"blocked_cidrs"`
 	MaxBodySize           int64    `json:"max_body_size" binding:"gte=0"`
 	Priority              int      `json:"priority" binding:"gte=0"`
-	CircuitBreakerThreshold int     `json:"circuit_breaker_threshold"`
-	CircuitBreakerTimeout   int64   `json:"circuit_breaker_timeout"`
-	MaxRetries            int      `json:"max_retries"`
-	RetryTimeout          int64    `json:"retry_timeout"`
+	CircuitBreakerThreshold int     `json:"circuit_breaker_threshold" binding:"gte=0"`
+	CircuitBreakerTimeout   int64   `json:"circuit_breaker_timeout" binding:"gte=0"`
+	MaxRetries              int     `json:"max_retries" binding:"gte=0"`
+	RetryTimeout            int64   `json:"retry_timeout" binding:"gte=0"`
 }
 
 // GatewayHandler handles API gateway HTTP endpoints.
