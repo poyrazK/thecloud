@@ -43,7 +43,7 @@ func TestSanitizeSchemaName(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := sanitizeSchemaName(tc.input)
 			if tc.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Empty(t, got)
 			} else {
 				require.NoError(t, err)
