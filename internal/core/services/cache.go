@@ -174,10 +174,6 @@ func (s *CacheService) resolveNetworkID(ctx context.Context, vpcID *uuid.UUID) (
 		s.logger.Error("failed to get VPC", "vpc_id", vpcID, "error", err)
 		return "", err
 	}
-	// For Docker backend with OVS networks, don't pass br-vpc-* networks
-	if s.compute != nil && s.compute.Type() == "docker" && strings.HasPrefix(vpc.NetworkID, "br-vpc-") {
-		return "", nil
-	}
 	return vpc.NetworkID, nil
 }
 

@@ -247,7 +247,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 	eventSvc := services.NewEventService(services.EventServiceParams{Repo: c.Repos.Event, RBACSvc: rbacSvc, Publisher: wsHub, Logger: c.Logger})
 
 	// 3. Cloud Infrastructure Services (VPC, Subnet, Instance, Volume, SG, LB)
-	vpcSvc := services.NewVpcService(services.VpcServiceParams{Repo: c.Repos.Vpc, LBRepo: c.Repos.LB, PeeringRepo: c.Repos.VPCPeering, AsRepo: c.Repos.AutoScaling, RBACSvc: rbacSvc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger, DefaultCIDR: c.Config.DefaultVPCCIDR})
+	vpcSvc := services.NewVpcService(services.VpcServiceParams{Repo: c.Repos.Vpc, LBRepo: c.Repos.LB, PeeringRepo: c.Repos.VPCPeering, AsRepo: c.Repos.AutoScaling, RBACSvc: rbacSvc, Network: c.Network, AuditSvc: auditSvc, Logger: c.Logger, DefaultCIDR: c.Config.DefaultVPCCIDR, ComputeBackend: c.Config.ComputeBackend})
 	subnetSvc := services.NewSubnetService(services.SubnetServiceParams{Repo: c.Repos.Subnet, RBACSvc: rbacSvc, VpcRepo: c.Repos.Vpc, AuditSvc: auditSvc, Logger: c.Logger})
 	volumeSvc := services.NewVolumeService(services.VolumeServiceParams{Repo: c.Repos.Volume, RBACSvc: rbacSvc, Storage: c.Storage, EventSvc: eventSvc, AuditSvc: auditSvc, Logger: c.Logger})
 
