@@ -133,15 +133,15 @@ jobs:
             sleep 2
           done'
       - name: Run Database Migrations
-        env:
-          DATABASE_URL: postgres://cloud:cloud@127.0.0.1:5433/cloud?sslmode=disable
         run: |
-          PGPASSWORD=cloud psql -h 127.0.0.1 -p 5433 -U cloud -d postgres -c "DROP DATABASE IF EXISTS cloud;"
-          PGPASSWORD=cloud psql -h 127.0.0.1 -p 5433 -U cloud -d postgres -c "CREATE DATABASE cloud;"
-          go run ./cmd/api -migrate-only
+          # Use unique database per run to avoid cleanup race conditions
+          # that cause "column already exists" errors from stale Postgres state.
+          DATABASE_NAME="cloud_test_${GITHUB_RUN_ID}"
+          PGPASSWORD=cloud psql -h 127.0.0.1 -p 5433 -U cloud -d postgres -c "CREATE DATABASE ${DATABASE_NAME};"
+          DATABASE_URL="postgres://cloud:cloud@127.0.0.1:5433/${DATABASE_NAME}?sslmode=disable" go run ./cmd/api -migrate-only
       - name: Run Integration Tests
         env:
-          DATABASE_URL: postgres://cloud:cloud@127.0.0.1:5433/cloud?sslmode=disable
+          DATABASE_URL: postgres://cloud:cloud@127.0.0.1:5433/cloud_test_${GITHUB_RUN_ID}?sslmode=disable
         run: go test -tags=integration -v ./internal/repositories/postgres/...
 
   test-libvirt:
