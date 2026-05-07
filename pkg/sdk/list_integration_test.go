@@ -95,7 +95,7 @@ func TestListOperations_EmptyResponse(t *testing.T) {
 
 	deps, err := client.ListDeployments()
 	require.NoError(t, err)
-	assert.Len(t, deps, 0)
+	assert.Empty(t, deps)
 }
 
 // TestListOperations_WithMeta verifies that list operations correctly ignore meta field
