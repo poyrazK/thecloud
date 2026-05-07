@@ -178,7 +178,7 @@ func TestResolveID_Ambiguous(t *testing.T) {
 		func(v interface{}) string { return v.(struct{ ID, Name string }).ID },
 		func(v interface{}) string { return v.(struct{ ID, Name string }).Name },
 		"abc")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "ambiguous")
 }
 
@@ -188,5 +188,5 @@ func TestResolveID_ListError(t *testing.T) {
 		func(v interface{}) string { return "" },
 		func(v interface{}) string { return "" },
 		"abc")
-	assert.Error(t, err)
+	require.Error(t, err)
 }
