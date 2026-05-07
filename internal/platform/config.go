@@ -2,6 +2,7 @@
 package platform
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -56,7 +57,7 @@ type Config struct {
 func NewConfig() (*Config, error) {
 	_ = godotenv.Load() // Ignore error if .env doesn't exist
 
-	return &Config{
+	cfg := &Config{
 		Port:                 getEnv("PORT", "8080"),
 		DatabaseURL:          getEnv("DATABASE_URL", "postgres://cloud:cloud@localhost:5433/thecloud"),
 		DatabaseReadURL:      getEnv("DATABASE_READ_URL", ""), // Default to empty (use primary)
@@ -73,7 +74,7 @@ func NewConfig() (*Config, error) {
 		RateLimitGlobal:      getEnv("RATE_LIMIT_GLOBAL", "100"),
 		RateLimitAuth:        getEnv("RATE_LIMIT_AUTH", "10"),
 		StorageBackend:       getEnv("STORAGE_BACKEND", "noop"),
-		StorageSecret:        getEnv("STORAGE_SECRET", "storage-secret-key"),
+		StorageSecret:        os.Getenv("STORAGE_SECRET"),
 		WSAllowedOrigins:     os.Getenv("WS_ALLOWED_ORIGINS"),
 		DashboardAllowedOrigins: os.Getenv("DASHBOARD_ALLOWED_ORIGINS"),
 		LvmVgName:            getEnv("LVM_VG_NAME", "thecloud-vg"),
@@ -81,7 +82,7 @@ func NewConfig() (*Config, error) {
 
 		ObjectStorageNodes:   getEnv("OBJECT_STORAGE_NODES", ""),
 		PowerDNSAPIURL:       getEnv("POWERDNS_API_URL", "http://localhost:8081"),
-		PowerDNSAPIKey:       getEnv("POWERDNS_API_KEY", "thecloud-dns-secret"),
+		PowerDNSAPIKey:       os.Getenv("POWERDNS_API_KEY"),
 		PowerDNSServerID:     getEnv("POWERDNS_SERVER_ID", "localhost"),
 		LibvirtURI:           getEnv("LIBVIRT_URI", ""),
 		DockerDefaultNetwork: getEnv("DOCKER_DEFAULT_NETWORK", "cloud-network"),
@@ -92,7 +93,11 @@ func NewConfig() (*Config, error) {
 		VaultAddress:         getEnv("VAULT_ADDR", "http://localhost:8200"),
 		VaultToken:           getEnv("VAULT_TOKEN", ""),
 		VaultMountPath:       getEnv("VAULT_MOUNT_PATH", "secret/data/thecloud/rds"),
-	}, nil
+	}
+	if err := validateConfig(cfg); err != nil {
+		return nil, err
+	}
+	return cfg, nil
 }
 
 func getEnv(key, fallback string) string {
@@ -106,4 +111,15 @@ func getEnv(key, fallback string) string {
 // Returns empty string if not set.
 func GetSecretsEncryptionKey() string {
 	return os.Getenv("SECRETS_ENCRYPTION_KEY")
+}
+
+// validateConfig ensures required configuration values are present.
+func validateConfig(cfg *Config) error {
+	if cfg.StorageSecret == "" {
+		return fmt.Errorf("STORAGE_SECRET environment variable is required")
+	}
+	if cfg.PowerDNSAPIKey == "" {
+		return fmt.Errorf("POWERDNS_API_KEY environment variable is required")
+	}
+	return nil
 }

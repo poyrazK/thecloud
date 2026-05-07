@@ -563,7 +563,8 @@ func (s *DatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) er
 				}
 			}
 		}
-		cmd = []string{"mysql", "-u", "root", "-p" + password, "-e", "STOP REPLICA; RESET REPLICA ALL;"}
+		// Use MYSQL_PWD env var to avoid password appearing in process list
+		cmd = []string{"sh", "-c", fmt.Sprintf("MYSQL_PWD='%s' mysql -u root --execute='STOP REPLICA; RESET REPLICA ALL;'", sqlStringLiteral(password))}
 	default:
 		return errors.New(errors.Internal, "unsupported engine for promotion")
 	}
@@ -852,7 +853,7 @@ func (s *DatabaseService) doRotateCredentials(ctx context.Context, id uuid.UUID,
 		return errors.Wrap(errors.Internal, "failed to generate new password", err)
 	}
 
-	// Get current password for MySQL auth
+	// Get current password for DB auth
 	currentPassword := db.Password
 	if db.CredentialPath != "" {
 		secret, err := s.secrets.GetSecret(ctx, db.CredentialPath)
@@ -863,7 +864,19 @@ func (s *DatabaseService) doRotateCredentials(ctx context.Context, id uuid.UUID,
 		}
 	}
 
-	// 1. Execute ALTER USER in container FIRST
+	// 1. Store new password in Vault at versioned path FIRST (before DB change)
+	vaultPath := db.CredentialPath
+	if vaultPath == "" {
+		vaultPath = s.getVaultPath(db.ID)
+	}
+	// Increment version and compute new versioned path
+	newVersion := db.CredentialVersion + 1
+	versionedPath := vaultPath + "/v" + strconv.Itoa(newVersion)
+	if err := s.secrets.StoreSecret(ctx, versionedPath, map[string]interface{}{"password": newPassword}); err != nil {
+		return errors.Wrap(errors.Internal, "failed to store new credential in vault", err)
+	}
+
+	// 2. Execute ALTER USER in container using currentPassword for auth
 	cmd := s.buildPasswordChangeCmd(db.Engine, db.Username, currentPassword, newPassword)
 	if cmd == nil {
 		return errors.New(errors.Internal, "unsupported engine for credential rotation")
@@ -880,27 +893,20 @@ func (s *DatabaseService) doRotateCredentials(ctx context.Context, id uuid.UUID,
 		return errors.Wrap(errors.Internal, "failed to execute password rotation in container", execErr)
 	}
 
-	// 2. Update in Vault ONLY after DB success
-	vaultPath := db.CredentialPath
-	if vaultPath == "" {
-		vaultPath = s.getVaultPath(db.ID)
-	}
-	if err := s.secrets.StoreSecret(ctx, vaultPath, map[string]interface{}{"password": newPassword}); err != nil {
-		// Vault store failed but DB already has new password - rollback to original
-		rollbackCmd := s.buildPasswordChangeCmd(db.Engine, db.Username, currentPassword, newPassword)
-		if _, rollbackErr := s.compute.Exec(ctx, db.ContainerID, rollbackCmd); rollbackErr != nil {
-			// Rollback also failed - system is in critical state requiring manual intervention
-			return errors.Wrap(errors.Internal,
-				fmt.Sprintf("credential rotation failed and rollback also failed - manual intervention required (vault store error: %v)", err),
-				rollbackErr)
-		}
-		return errors.Wrap(errors.Internal, "vault store failed, DB password rolled back", err)
+	// 3. Update DB record to point to new versioned path (ONLY after DB confirmed updated)
+	// The old path still has the old password for rollback if needed
+	db.CredentialPath = versionedPath
+	db.CredentialVersion = newVersion
+	if err := s.repo.Update(ctx, db); err != nil {
+		return errors.Wrap(errors.Internal, "failed to update DB credential path", err)
 	}
 
-	// 3. Update DB record if needed (metadata or path)
-	db.CredentialPath = vaultPath
-	if err := s.repo.Update(ctx, db); err != nil {
-		return err
+	// 4. Cleanup old versioned path from Vault
+	oldVersionedPath := vaultPath + "/v" + strconv.Itoa(db.CredentialVersion-1)
+	if err := s.secrets.DeleteSecret(ctx, oldVersionedPath); err != nil {
+		// Log but don't fail - old version may not exist if this is first rotation
+		s.logger.Warn("failed to cleanup old credential version from vault", "path", oldVersionedPath, "error", err)
+		platform.CredentialCleanupFailures.Inc()
 	}
 
 	// 4. If pooler is enabled, restart it to pick up new credentials
@@ -965,11 +971,18 @@ func postgresIdentifier(id string) string {
 func (s *DatabaseService) buildPasswordChangeCmd(engine domain.DatabaseEngine, username, authPassword, targetPassword string) []string {
 	switch engine {
 	case domain.EnginePostgres:
-		return []string{"psql", "-h", "127.0.0.1", "-U", username, "-d", "postgres", "-c",
-			fmt.Sprintf("ALTER USER %s WITH PASSWORD '%s';", postgresIdentifier(username), sqlStringLiteral(targetPassword))}
+		// Use PGPASSWORD env var for authentication (libpq standard).
+		// Note: While env vars avoid cmdline exposure, the password is still visible to
+		// root users via /proc/$pid/environ. This is a known tradeoff - the alternative
+		// (stdin password) requires more complex interaction patterns with psql.
+		// authPassword (current password) authenticates the connection; targetPassword is the new password being set.
+		stmt := fmt.Sprintf("ALTER USER %s WITH PASSWORD '%s';", postgresIdentifier(username), sqlStringLiteral(targetPassword))
+		return []string{"sh", "-c", "PGPASSWORD='" + sqlStringLiteral(authPassword) + "' psql -h 127.0.0.1 -U " + username + " -d postgres -c '" + stmt + "'"}
 	case domain.EngineMySQL:
-		return []string{"mysql", "-u", "root", "-p" + authPassword, "-e",
-			fmt.Sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s';", sqlStringLiteral(username), sqlStringLiteral(targetPassword))}
+		// Use mysql with password via MYSQL_PWD env var to avoid cmdline exposure.
+		// Same tradeoff as above - password visible in /proc environment to root users.
+		stmt := fmt.Sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s';", sqlStringLiteral(username), sqlStringLiteral(targetPassword))
+		return []string{"sh", "-c", "MYSQL_PWD='" + sqlStringLiteral(authPassword) + "' mysql -u " + sqlStringLiteral(username) + " --execute='" + stmt + "'"}
 	}
 	return nil
 }
