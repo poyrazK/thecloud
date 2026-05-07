@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
 	"github.com/poyrazk/thecloud/internal/core"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -22,15 +23,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// Transaction is a type alias for pgx.Tx so that postgres.DB.Begin (which
+// returns pgx.Tx) satisfies the services.DB interface.
+type Transaction = pgx.Tx
+
 // DB is the database interface that supports beginning transactions.
 type DB interface {
 	Begin(ctx context.Context) (Transaction, error)
-}
-
-// Transaction wraps a database transaction with Commit and Rollback.
-type Transaction interface {
-	Commit(ctx context.Context) error
-	Rollback(ctx context.Context) error
 }
 
 const (
