@@ -1455,6 +1455,13 @@ func (s *InstanceService) resolveNetworkConfig(ctx context.Context, vpcID, subne
 		}
 	}
 
+	// For libvirt compute with no network backend (NETWORK_BACKEND=noop),
+	// return "default" (libvirt's built-in NAT network) instead of OVS bridge.
+	// This avoids libvirt failing to find non-existent OVS bridges.
+	if s.compute.Type() == "libvirt" && s.network == nil && vpcID != nil {
+		return "default", "", "", nil
+	}
+
 	if subnetID == nil || s.network == nil {
 		return networkID, "", "", nil
 	}
