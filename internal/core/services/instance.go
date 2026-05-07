@@ -606,8 +606,8 @@ func (s *InstanceService) StopInstance(ctx context.Context, idOrName string) err
 
 	if err := s.compute.StopInstance(ctx, target); err != nil {
 		platform.InstanceOperationsTotal.WithLabelValues("stop", "failure").Inc()
-		s.logger.Error("failed to stop docker container", "container_id", target, "error", err)
-		return errors.Wrap(errors.Internal, "failed to stop container", err)
+		s.logger.Error("failed to stop instance", "backend", s.compute.Type(), "id", target, "error", err)
+		return errors.Wrap(errors.Internal, fmt.Sprintf("failed to stop %s instance", s.compute.Type()), err)
 	}
 
 	platform.InstancesTotal.WithLabelValues("running", s.compute.Type()).Dec()

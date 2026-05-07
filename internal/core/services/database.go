@@ -1195,9 +1195,6 @@ func (s *DatabaseService) resolveVpcNetwork(ctx context.Context, vpcID *uuid.UUI
 	if err != nil {
 		return "", err
 	}
-	if s.compute != nil && s.compute.Type() == "docker" && strings.HasPrefix(vpc.NetworkID, "br-vpc-") {
-		return "", nil
-	}
 	return vpc.NetworkID, nil
 }
 
