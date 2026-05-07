@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/poyrazk/thecloud/internal/csi"
 	"github.com/poyrazk/thecloud/pkg/sdk"
@@ -63,5 +64,14 @@ func main() {
 	}
 
 	// Wait for signal handler to complete cleanup with timeout
-	wg.Wait()
+	done := make(chan struct{}, 1)
+	go func() {
+		wg.Wait()
+		done <- struct{}{}
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		fmt.Println("cleanup timed out after 5s, exiting anyway")
+	}
 }
