@@ -232,3 +232,36 @@ func TestClientAPIError(t *testing.T) {
 	assert.Contains(t, err.Error(), "api error")
 	assert.Contains(t, err.Error(), "invalid input")
 }
+
+func TestClientResizeInstance(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, computeInstancesPath+computeInstanceID+"/resize", r.URL.Path)
+		assert.Equal(t, http.MethodPost, r.Method)
+
+		var req map[string]string
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			t.Fatalf("failed to decode request: %v", err)
+		}
+		assert.Equal(t, "basic-4", req["instance_type"])
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, computeAPIKey)
+	err := client.ResizeInstance(computeInstanceID, "basic-4")
+	require.NoError(t, err)
+}
+
+func TestClientResizeInstanceError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, computeAPIKey)
+	err := client.ResizeInstance(computeInstanceID, "basic-4")
+	require.Error(t, err)
+}

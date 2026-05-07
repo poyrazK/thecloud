@@ -257,6 +257,22 @@ var rmCmd = &cobra.Command{
 	},
 }
 
+var resizeCmd = &cobra.Command{
+	Use:   "resize [id/name] [instance-type]",
+	Short: "Resize an instance to a new instance type",
+	Args:  cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		id := args[0]
+		instanceType := args[1]
+		client := createClient(opts)
+		if err := client.ResizeInstance(id, instanceType); err != nil {
+			fmt.Printf(fmtErrorLog, err)
+			return
+		}
+		fmt.Printf("[SUCCESS] Instance %s resized to %s.\n", id, instanceType)
+	},
+}
+
 var statsCmd = &cobra.Command{
 	Use:   "stats [id/name]",
 	Short: "Show instance statistics (CPU/Mem)",
@@ -398,6 +414,7 @@ func init() {
 	instanceCmd.AddCommand(showCmd)
 	instanceCmd.AddCommand(consoleCmd)
 	instanceCmd.AddCommand(rmCmd)
+	instanceCmd.AddCommand(resizeCmd)
 	instanceCmd.AddCommand(statsCmd)
 	instanceCmd.AddCommand(metadataCmd)
 	instanceCmd.AddCommand(sshCmd)
