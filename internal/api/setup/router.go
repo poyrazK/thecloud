@@ -77,6 +77,7 @@ type Handlers struct {
 	InternetGateway *httphandlers.InternetGatewayHandler
 	NATGateway    *httphandlers.NATGatewayHandler
 	Ws            *ws.Handler
+	Admin         *httphandlers.AdminHandler
 }
 
 // InitHandlers constructs HTTP handlers and websocket hub.
@@ -715,6 +716,12 @@ func registerAdminRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 	{
 		billingGroup.GET("/summary", handlers.Accounting.GetSummary)
 		billingGroup.GET("/usage", handlers.Accounting.ListUsage)
+	}
+
+	// Internal admin endpoints (E2E test support)
+	internalGroup := r.Group("/internal/admin")
+	{
+		internalGroup.POST("/reset-circuit-breakers", handlers.Admin.ResetCircuitBreakers)
 	}
 }
 

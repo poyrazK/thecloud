@@ -1042,3 +1042,7 @@ func (a *DockerAdapter) Exec(ctx context.Context, containerID string, cmd []stri
 
 	return outBuf.String(), nil
 }
+
+// ResetCircuitBreaker is a no-op for the raw Docker adapter.
+// The circuit breaker lives in ResilientCompute wrapping this backend.
+func (a *DockerAdapter) ResetCircuitBreaker() {}

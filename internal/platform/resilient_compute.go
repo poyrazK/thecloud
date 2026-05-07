@@ -323,3 +323,9 @@ func (r *ResilientCompute) Type() string {
 func (r *ResilientCompute) Unwrap() ports.ComputeBackend {
 	return r.inner
 }
+
+// ResetCircuitBreaker resets the circuit breaker state.
+// Useful for E2E tests that need clean state between test suites.
+func (r *ResilientCompute) ResetCircuitBreaker() {
+	r.cb.Reset()
+}
