@@ -21,12 +21,12 @@ func (c *Client) CreateSnapshot(ctx context.Context, volumeIDOrName string, desc
 		"description": description,
 	}
 
-	var snapshot domain.Snapshot
-	err = c.postWithContext(ctx, "/snapshots", req, &snapshot)
+	var res Response[domain.Snapshot]
+	err = c.postWithContext(ctx, "/snapshots", req, &res)
 	if err != nil {
 		return nil, err
 	}
-	return &snapshot, nil
+	return &res.Data, nil
 }
 
 func (c *Client) ListSnapshots() ([]*domain.Snapshot, error) {
@@ -46,12 +46,12 @@ func (c *Client) GetSnapshot(idOrName string) (*domain.Snapshot, error) {
 	if err != nil {
 		return nil, err
 	}
-	var snapshot domain.Snapshot
-	err = c.get(fmt.Sprintf("/snapshots/%s", id), &snapshot)
+	var res Response[domain.Snapshot]
+	err = c.get(fmt.Sprintf("/snapshots/%s", id), &res)
 	if err != nil {
 		return nil, err
 	}
-	return &snapshot, nil
+	return &res.Data, nil
 }
 
 func (c *Client) DeleteSnapshot(idOrName string) error {
@@ -77,10 +77,10 @@ func (c *Client) RestoreSnapshot(idOrName string, newVolumeName string) (*domain
 		"new_volume_name": newVolumeName,
 	}
 
-	var vol domain.Volume
-	err = c.post(fmt.Sprintf("/snapshots/%s/restore", id), req, &vol)
+	var res Response[domain.Volume]
+	err = c.post(fmt.Sprintf("/snapshots/%s/restore", id), req, &res)
 	if err != nil {
 		return nil, err
 	}
-	return &vol, nil
+	return &res.Data, nil
 }
