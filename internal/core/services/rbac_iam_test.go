@@ -76,6 +76,7 @@ func TestRBACService_IAMIntegration(t *testing.T) {
 		// Use a custom role name like "custom-dev" so it doesn't match defaultRoleAdmin/Viewer fallbacks
 		tenantRepo.On("GetMembership", ctx, tenantID, userID).Return(&domain.TenantMember{UserID: userID, TenantID: tenantID, Role: "custom-dev"}, nil).Once()
 		iamRepo.On("GetPoliciesForUser", ctx, tenantID, userID).Return([]*domain.Policy{}, nil).Once()
+		iamRepo.On("GetPoliciesForRole", ctx, tenantID, "custom-dev").Return([]*domain.Policy{}, nil).Once()
 		roleRepo.On("GetRoleByName", ctx, "custom-dev").Return(&domain.Role{ID: uuid.New(), Name: "custom-dev", Permissions: []domain.Permission{domain.PermissionInstanceLaunch}}, nil).Once()
 
 		// Fallback logic for custom role
