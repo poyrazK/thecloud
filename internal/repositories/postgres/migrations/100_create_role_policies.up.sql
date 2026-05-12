@@ -1,3 +1,4 @@
+-- +goose Up
 -- Allow IAM policies to be attached to RBAC roles
 CREATE TABLE IF NOT EXISTS role_policies (
     role_name VARCHAR(255) NOT NULL,
@@ -8,5 +9,5 @@ CREATE TABLE IF NOT EXISTS role_policies (
     FOREIGN KEY (policy_id) REFERENCES policies(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_role_policies_role_name ON role_policies(role_name);
-CREATE INDEX idx_role_policies_tenant_id ON role_policies(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_role_policies_role_name ON role_policies(role_name);
+CREATE INDEX IF NOT EXISTS idx_role_policies_tenant_id ON role_policies(tenant_id);

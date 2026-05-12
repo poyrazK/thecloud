@@ -160,7 +160,11 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 // Returns (allowed, stop) where stop=true means decision is final.
 func (s *rbacService) checkIAMPolicies(ctx context.Context, tenantID, userID uuid.UUID, permission domain.Permission, resource string, evalCtx map[string]interface{}) (bool, bool) {
 	policies, err := s.iamRepo.GetPoliciesForUser(ctx, tenantID, userID)
-	if err != nil || len(policies) == 0 {
+	if err != nil {
+		s.logger.Error("RBAC: failed to get user IAM policies, falling through to role policies", "user_id", userID, "tenant_id", tenantID, "error", err)
+		return false, false
+	}
+	if len(policies) == 0 {
 		return false, false
 	}
 	return s.evaluatePolicies(ctx, policies, permission, resource, evalCtx)
@@ -170,7 +174,11 @@ func (s *rbacService) checkIAMPolicies(ctx context.Context, tenantID, userID uui
 // Returns (allowed, stop) where stop=true means decision is final.
 func (s *rbacService) checkRoleIAMPolicies(ctx context.Context, tenantID uuid.UUID, roleName string, permission domain.Permission, resource string, evalCtx map[string]interface{}) (bool, bool) {
 	policies, err := s.iamRepo.GetPoliciesForRole(ctx, tenantID, roleName)
-	if err != nil || len(policies) == 0 {
+	if err != nil {
+		s.logger.Error("RBAC: failed to get role IAM policies, falling through to RBAC fallback", "role", roleName, "tenant_id", tenantID, "error", err)
+		return false, false
+	}
+	if len(policies) == 0 {
 		return false, false
 	}
 	return s.evaluatePolicies(ctx, policies, permission, resource, evalCtx)
@@ -178,9 +186,11 @@ func (s *rbacService) checkRoleIAMPolicies(ctx context.Context, tenantID uuid.UU
 
 // evaluatePolicies evaluates a set of policies and returns (allowed, stop).
 // stop=true means a final decision (Allow or Deny) was reached.
+// If evaluation fails, returns an error via the logger and (false, false) to continue to next policy source.
 func (s *rbacService) evaluatePolicies(ctx context.Context, policies []*domain.Policy, permission domain.Permission, resource string, evalCtx map[string]interface{}) (bool, bool) {
 	effect, err := s.evaluator.Evaluate(ctx, policies, string(permission), resource, evalCtx)
 	if err != nil {
+		s.logger.Error("RBAC: IAM policy evaluation failed, falling through to next policy source", "error", err, "permission", permission, "resource", resource)
 		return false, false
 	}
 	if effect == domain.EffectAllow {
