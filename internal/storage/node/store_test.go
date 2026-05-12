@@ -65,13 +65,16 @@ func TestLocalStorePathTraversal(t *testing.T) {
 		{name: "dot key", key: ".", wantErr: true},
 		{name: "dot slash", key: "./", wantErr: true},
 		{name: "dot dot dot", key: "./.", wantErr: true},
+		// Dot in middle is allowed: filepath.Clean normalizes "foo/./bar" to "foo/bar"
 		{name: "dot in middle works", key: "foo/./bar", wantErr: false},
 		{name: "url encoded traversal", key: "..%2Foutside.txt", wantErr: true},
 		{name: "backslash encoded", key: "..%5Coutside.txt", wantErr: true},
 		{name: "multi dot dot", key: "../foo/../../bar", wantErr: true},
 	}
 	for _, tc := range testCases {
+		tc := tc // capture range variable for parallel subtest
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			err := store.Write("bucket", tc.key, []byte("data"), 0)
 			if tc.wantErr {
 				require.Error(t, err)
