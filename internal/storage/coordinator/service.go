@@ -31,6 +31,7 @@ type Coordinator struct {
 	clients      map[string]pb.StorageNodeClient
 	replicaCount int
 	writeQuorum  int
+	readQuorum   int
 	stopCh       chan struct{}
 	lastStatus   *domain.StorageCluster
 	mu           sync.RWMutex
@@ -46,6 +47,7 @@ func NewCoordinator(ctx context.Context, ring *ConsistentHashRing, clients map[s
 		clients:      clients,
 		replicaCount: replicaCount,
 		writeQuorum:  (replicaCount / 2) + 1,
+		readQuorum:   (replicaCount / 2) + 1,
 		stopCh:       make(chan struct{}),
 	}
 	go c.startSyncLoop(ctx)
@@ -296,9 +298,9 @@ func (c *Coordinator) Read(ctx context.Context, bucket, key string) (io.ReadClos
 	results := c.collectReadResults(ctx, bucket, key, nodes)
 	winner, repairNodes, foundCount := c.processReadResults(results)
 
-	if foundCount == 0 {
-		platform.StorageOperations.WithLabelValues("cluster_read", bucket, "not_found").Inc()
-		return nil, fmt.Errorf("object not found")
+	if foundCount < c.readQuorum {
+		platform.StorageOperations.WithLabelValues("cluster_read", bucket, "quorum_failure").Inc()
+		return nil, fmt.Errorf("read quorum failed (%d/%d)", foundCount, c.readQuorum)
 	}
 
 	// Wrapper to handle streaming read and async repair
