@@ -470,10 +470,9 @@ func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 		return nil, r.err
 	}
-	// r.resp may have unclosed body here — ReverseProxy.ServeHTTP reads and closes it downstream
-	resp := r.resp
-	r.resp = nil // prevent further use after return
-	return resp, nil
+	// caller (ReverseProxy via ServeHTTP) reads and closes r.resp.Body
+	//nolint:bodyclose
+	return r.resp, nil
 }
 
 func (rt *retryTransport) doRoundTrip(req *http.Request) (*http.Response, error) {
@@ -482,7 +481,6 @@ func (rt *retryTransport) doRoundTrip(req *http.Request) (*http.Response, error)
 	}
 
 	var lastResp *http.Response
-	var lastErr error
 	maxAttempts := rt.maxRetries + 1 // first attempt + retries
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
@@ -510,10 +508,12 @@ func (rt *retryTransport) doRoundTrip(req *http.Request) (*http.Response, error)
 		if !rt.isRetryableError(err) {
 			return nil, err
 		}
-		lastErr = err
 		lastResp = resp
 	}
-	return lastResp, lastErr
+	// all attempts yielded retryable statuses — return last one with nil error
+	// so caller (ReverseProxy) reads and closes the body
+	//nolint:bodyclose
+	return lastResp, nil
 }
 
 func (rt *retryTransport) isRetryableStatus(code int) bool {
