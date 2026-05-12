@@ -98,13 +98,16 @@ func (r *DatabaseRepository) scanDatabase(row pgx.Row) (*domain.Database, error)
 
 func (r *DatabaseRepository) scanDatabases(rows pgx.Rows) ([]*domain.Database, error) {
 	defer rows.Close()
-	var databases []*domain.Database
+	databases := make([]*domain.Database, 0)
 	for rows.Next() {
 		db, err := r.scanDatabase(rows)
 		if err != nil {
 			return nil, err
 		}
 		databases = append(databases, db)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return databases, nil
 }
