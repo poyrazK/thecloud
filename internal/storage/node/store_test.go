@@ -56,31 +56,30 @@ func TestLocalStorePathTraversal(t *testing.T) {
 	_, _, err = store.Read("bucket", "../outside.txt")
 	require.Error(t, err)
 
-	// Attempt with dot keys - should resolve to bucket dir itself
-	err = store.Write("bucket", ".", []byte("evil"), 0)
-	require.Error(t, err)
-
-	err = store.Write("bucket", "./", []byte("evil"), 0)
-	require.Error(t, err)
-
-	err = store.Write("bucket", "./.", []byte("evil"), 0)
-	require.Error(t, err)
-
-	// Dot in middle should work (it's normalized away)
-	err = store.Write("bucket", "foo/./bar", []byte("data"), 0)
-	require.NoError(t, err)
-
-	// URL-encoded traversal attempts - should be normalized by filepath.Clean
-	err = store.Write("bucket", "..%2Foutside.txt", []byte("evil"), 0)
-	require.Error(t, err)
-
-	// Backslash encoded - Windows-style traversal attempt
-	err = store.Write("bucket", "..%5Coutside.txt", []byte("evil"), 0)
-	require.Error(t, err)
-
-	// Double dot with subdir - should still be blocked
-	err = store.Write("bucket", "../foo/../../bar", []byte("evil"), 0)
-	require.Error(t, err)
+	// Table-driven tests for path isolation edge cases
+	testCases := []struct {
+		name         string
+		key          string
+		wantErr      bool
+	}{
+		{name: "dot key", key: ".", wantErr: true},
+		{name: "dot slash", key: "./", wantErr: true},
+		{name: "dot dot dot", key: "./.", wantErr: true},
+		{name: "dot in middle works", key: "foo/./bar", wantErr: false},
+		{name: "url encoded traversal", key: "..%2Foutside.txt", wantErr: true},
+		{name: "backslash encoded", key: "..%5Coutside.txt", wantErr: true},
+		{name: "multi dot dot", key: "../foo/../../bar", wantErr: true},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := store.Write("bucket", tc.key, []byte("data"), 0)
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
 
 func TestLocalStoreAssemble(t *testing.T) {
