@@ -141,7 +141,7 @@ func (e *iamEvaluator) evalStringLike(expected, actual interface{}, exists bool)
 	return e.matchPattern(expectedStr, actualStr)
 }
 
-func (e *iamEvaluator) evalIP(op domain.ConditionOperator, expected, actual interface{}, exists bool) bool {
+func (e *iamEvaluator) evalIP(_ domain.ConditionOperator, expected, actual interface{}, exists bool) bool {
 	if !exists {
 		return false
 	}
