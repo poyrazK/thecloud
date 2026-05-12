@@ -135,7 +135,7 @@ func (s *LocalStore) ReadStream(bucket, key string) (io.ReadCloser, int64, error
 }
 
 // Read retrieves data from disk.
-// Warning: for large files (>100MB), use ReadStream() instead to avoid memory exhaustion.
+// Warning: for large files (>maxReadBytes), use ReadStream() instead to avoid memory exhaustion.
 func (s *LocalStore) Read(bucket, key string) ([]byte, int64, error) {
 	path, err := s.getObjectPath(bucket, key)
 	if err != nil {
@@ -148,7 +148,7 @@ func (s *LocalStore) Read(bucket, key string) ([]byte, int64, error) {
 		return nil, 0, err
 	}
 	if info.Size() > maxReadBytes {
-		return nil, 0, fmt.Errorf("file too large (%d bytes) for Read(), use ReadStream() for large files", info.Size())
+		return nil, 0, fmt.Errorf("file too large (%d bytes, max %d) for Read(), use ReadStream() for large files", info.Size(), maxReadBytes)
 	}
 
 	rc, timestamp, err := s.ReadStream(bucket, key)
