@@ -453,6 +453,7 @@ func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	var r result
 	cbErr := rt.cb.Execute(func() error {
+		//nolint:bodyclose
 		r.resp, r.err = rt.doRoundTrip(req)
 		return r.err
 	})
