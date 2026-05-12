@@ -172,6 +172,131 @@ func TestIAMEvaluator_Evaluate_Conditions(t *testing.T) {
 			want: domain.EffectAllow,
 		},
 		{
+			name: "StringNotEquals condition - values do not match",
+			policies: []*domain.Policy{
+				{
+					Statements: []domain.Statement{
+						{
+							Effect:   domain.EffectAllow,
+							Action:   []string{"instance:*"},
+							Resource: []string{"*"},
+							Condition: domain.Condition{
+								"StringNotEquals": {
+									"thecloud:TenantId": "tenant-123",
+								},
+							},
+						},
+					},
+				},
+			},
+			action:   "instance:launch",
+			resource: "instance:123",
+			evalCtx: map[string]interface{}{
+				"thecloud:TenantId": "tenant-456",
+			},
+			want: domain.EffectAllow,
+		},
+		{
+			name: "StringNotEquals condition - values match returns no effect",
+			policies: []*domain.Policy{
+				{
+					Statements: []domain.Statement{
+						{
+							Effect:   domain.EffectAllow,
+							Action:   []string{"instance:*"},
+							Resource: []string{"*"},
+							Condition: domain.Condition{
+								"StringNotEquals": {
+									"thecloud:TenantId": "tenant-123",
+								},
+							},
+						},
+					},
+				},
+			},
+			action:   "instance:launch",
+			resource: "instance:123",
+			evalCtx: map[string]interface{}{
+				"thecloud:TenantId": "tenant-123",
+			},
+			want: "",
+		},
+		{
+			name: "StringNotLike condition - pattern does not match",
+			policies: []*domain.Policy{
+				{
+					Statements: []domain.Statement{
+						{
+							Effect:   domain.EffectAllow,
+							Action:   []string{"instance:*"},
+							Resource: []string{"*"},
+							Condition: domain.Condition{
+								"StringNotLike": {
+									"aws:UserId": "admin-*",
+								},
+							},
+						},
+					},
+				},
+			},
+			action:   "instance:launch",
+			resource: "instance:123",
+			evalCtx: map[string]interface{}{
+				"aws:UserId": "user-abc-123",
+			},
+			want: domain.EffectAllow,
+		},
+		{
+			name: "StringNotLike condition - pattern matches returns no effect",
+			policies: []*domain.Policy{
+				{
+					Statements: []domain.Statement{
+						{
+							Effect:   domain.EffectAllow,
+							Action:   []string{"instance:*"},
+							Resource: []string{"*"},
+							Condition: domain.Condition{
+								"StringNotLike": {
+									"aws:UserId": "admin-*",
+								},
+							},
+						},
+					},
+				},
+			},
+			action:   "instance:launch",
+			resource: "instance:123",
+			evalCtx: map[string]interface{}{
+				"aws:UserId": "admin-123",
+			},
+			want: "",
+		},
+		{
+			name: "DateEquals condition - times are equal",
+			policies: []*domain.Policy{
+				{
+					Statements: []domain.Statement{
+						{
+							Effect:   domain.EffectAllow,
+							Action:   []string{"instance:*"},
+							Resource: []string{"*"},
+							Condition: domain.Condition{
+								"DateEquals": {
+									"aws:CurrentTime": "2025-06-15T10:00:00Z",
+								},
+							},
+						},
+					},
+				},
+			},
+			action:   "instance:launch",
+			resource: "instance:123",
+			evalCtx: map[string]interface{}{
+				"aws:CurrentTime": "2025-06-15T10:00:00Z",
+			},
+			want: domain.EffectAllow,
+		},
+		{
 			name: "DateGreaterThan condition - current time after threshold",
 			policies: []*domain.Policy{
 				{

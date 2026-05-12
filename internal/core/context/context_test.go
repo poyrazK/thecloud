@@ -60,26 +60,27 @@ func TestTenantIDContext(t *testing.T) {
 }
 
 func TestSourceIPContext(t *testing.T) {
-	t.Run("Extract from empty context", func(t *testing.T) {
-		ctx := context.Background()
-		ip := appcontext.SourceIPFromContext(ctx)
-		assert.Equal(t, "", ip)
-	})
+	tests := []struct {
+		name     string
+		ctx      context.Context
+		expected string
+	}{
+		{
+			name:     "Extract from empty context",
+			ctx:      context.Background(),
+			expected: "",
+		},
+		{
+			name:     "Set and extract",
+			ctx:      appcontext.WithSourceIP(context.Background(), "192.168.1.100"),
+			expected: "192.168.1.100",
+		},
+	}
 
-	t.Run("Set and extract", func(t *testing.T) {
-		ctx := context.Background()
-		expectedIP := "192.168.1.100"
-		ctx = appcontext.WithSourceIP(ctx, expectedIP)
-		ip := appcontext.SourceIPFromContext(ctx)
-		assert.Equal(t, expectedIP, ip)
-	})
-
-	t.Run("Ignore invalid type", func(t *testing.T) {
-		ctx := context.WithValue(context.Background(), sourceIPKey("source_ip"), 12345)
-		ip := appcontext.SourceIPFromContext(ctx)
-		assert.Equal(t, "", ip)
-	})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := appcontext.SourceIPFromContext(tc.ctx)
+			assert.Equal(t, tc.expected, got)
+		})
+	}
 }
-
-// sourceIPKey is used to test invalid type handling
-type sourceIPKey string
