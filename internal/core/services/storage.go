@@ -178,7 +178,7 @@ func (s *StorageService) Upload(ctx context.Context, bucketName, key string, r i
 		return nil, err
 	}
 
-	versionID := "null" // Default version ID when versioning is disabled
+	versionID := "" // Default version ID when versioning is disabled
 	if bucket.VersioningEnabled {
 		versionID = generateVersionID()
 	}
@@ -325,7 +325,7 @@ func (s *StorageService) Download(ctx context.Context, bucket, key string) (io.R
 
 	// 2. Open file
 	storeKey := key
-	if obj.VersionID != "null" {
+	if obj.VersionID != "" {
 		storeKey = versionedStoreKey(key, obj.VersionID)
 	}
 
@@ -394,7 +394,7 @@ func (s *StorageService) DownloadVersion(ctx context.Context, bucket, key, versi
 
 	// 2. Open file
 	storeKey := key
-	if obj.VersionID != "null" {
+	if obj.VersionID != "" {
 		storeKey = versionedStoreKey(key, obj.VersionID)
 	}
 
@@ -432,7 +432,7 @@ func (s *StorageService) DeleteVersion(ctx context.Context, bucket, key, version
 
 	// 2. Delete from store
 	storeKey := key
-	if versionID != "null" {
+	if versionID != "" {
 		storeKey = versionedStoreKey(key, versionID)
 	}
 
@@ -625,7 +625,7 @@ func (s *StorageService) CleanupDeleted(ctx context.Context, limit int) (int, er
 	deletedCount := 0
 	for _, obj := range deleted {
 		storeKey := obj.Key
-		if obj.VersionID != "null" {
+		if obj.VersionID != "" {
 			storeKey = versionedStoreKey(obj.Key, obj.VersionID)
 		}
 
@@ -653,7 +653,7 @@ func (s *StorageService) CleanupPendingUploads(ctx context.Context, olderThan ti
 	cleanedCount := 0
 	for _, obj := range pending {
 		storeKey := obj.Key
-		if obj.VersionID != "null" {
+		if obj.VersionID != "" {
 			storeKey = versionedStoreKey(obj.Key, obj.VersionID)
 		}
 
