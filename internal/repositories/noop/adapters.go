@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 // NoopInstanceRepository is a no-op instance repository.
@@ -51,6 +52,9 @@ func (r *NoopVpcRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 }
 func (r *NoopVpcRepository) GetByName(ctx context.Context, name string) (*domain.VPC, error) {
 	return &domain.VPC{ID: uuid.New(), Name: name}, nil
+}
+func (r *NoopVpcRepository) GetByIdempotencyKey(ctx context.Context, key string) (*domain.VPC, error) {
+	return nil, errors.New(errors.NotFound, "idempotency key not found")
 }
 func (r *NoopVpcRepository) List(ctx context.Context) ([]*domain.VPC, error) {
 	return []*domain.VPC{}, nil
