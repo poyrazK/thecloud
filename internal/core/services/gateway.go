@@ -462,10 +462,9 @@ func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if r.err != nil {
 		if r.resp != nil {
 			_, _ = io.Copy(io.Discard, r.resp.Body)
-			//nolint:bodyclose
 			_ = r.resp.Body.Close()
 		}
-		return nil, r.err
+		return nil, r.err //nolint:bodyclose
 	}
 	return r.resp, nil //nolint:bodyclose
 }
