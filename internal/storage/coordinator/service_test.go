@@ -395,6 +395,170 @@ func TestCoordinatorWriteRepair(t *testing.T) {
 	sm2Repair.AssertCalled(t, "CloseAndRecv")
 }
 
+func TestCoordinatorWriteRepair_SourceNodeDown(t *testing.T) {
+	ring := NewConsistentHashRing(10)
+	ring.AddNode(node1)
+	ring.AddNode(node2)
+	ring.AddNode(node3)
+
+	// Node1 and Node3 succeed; Node2 fails mid-stream
+	sm1 := new(MockStoreClient)
+	sm1.On("Send", mock.Anything).Return(nil).Once()
+	sm1.On("Send", mock.Anything).Return(nil).Once()
+	sm1.On("CloseAndRecv").Return(&pb.StoreResponse{Success: true}, nil)
+
+	sm3 := new(MockStoreClient)
+	sm3.On("Send", mock.Anything).Return(nil).Maybe()
+	sm3.On("CloseAndRecv").Return(&pb.StoreResponse{Success: true}, nil)
+
+	sm2Write := new(MockStoreClient)
+	sm2Write.On("Send", mock.Anything).Return(nil).Once()
+	sm2Write.On("Send", mock.Anything).Return(errors.New("mid-stream failure")).Once()
+	sm2Write.On("CloseAndRecv").Return(&pb.StoreResponse{Success: false, Error: "stream error"}, nil)
+
+	c1, c2, c3 := new(MockStorageNodeClient), new(MockStorageNodeClient), new(MockStorageNodeClient)
+	c1.On("Store", mock.Anything).Return(sm1, nil)
+	c3.On("Store", mock.Anything).Return(sm3, nil)
+
+	// c2.Store returns different mocks for write vs repair
+	sm2Repair := new(MockStoreClient)
+	sm2Repair.On("Send", mock.Anything).Return(nil).Maybe()
+	sm2Repair.On("CloseAndRecv").Return(&pb.StoreResponse{Success: true}, nil)
+	c2.On("Store", mock.Anything).Return(sm2Write, nil).Once()
+	c2.On("Store", mock.Anything).Return(sm2Repair, nil).Once()
+
+	// Source node (Node1) Retrieve fails during repair
+	c1.On("Retrieve", mock.Anything, mock.Anything).Return(nil, errors.New("source node down")).Once()
+
+	clients := map[string]pb.StorageNodeClient{node1: c1, node2: c2, node3: c3}
+	coord := NewCoordinator(context.Background(), ring, clients, 3)
+	defer coord.Stop()
+
+	// Write succeeds with quorum
+	n, err := coord.Write(context.Background(), "b", "k", bytes.NewReader([]byte("hello")))
+	require.NoError(t, err)
+	assert.Equal(t, int64(5), n)
+
+	// Wait for async write repair
+	time.Sleep(200 * time.Millisecond)
+
+	// Source was called but failed, so repair should not complete
+	c1.AssertCalled(t, "Retrieve", mock.Anything, mock.Anything)
+	// sm2Repair should NOT be called since source failed
+	sm2Repair.AssertNotCalled(t, "CloseAndRecv")
+}
+
+func TestCoordinatorWriteRepair_AllRepairNodesDown(t *testing.T) {
+	ring := NewConsistentHashRing(10)
+	ring.AddNode(node1)
+	ring.AddNode(node2)
+	ring.AddNode(node3)
+
+	// Node1 and Node3 succeed; Node2 fails mid-stream
+	sm1 := new(MockStoreClient)
+	sm1.On("Send", mock.Anything).Return(nil).Once()
+	sm1.On("Send", mock.Anything).Return(nil).Once()
+	sm1.On("CloseAndRecv").Return(&pb.StoreResponse{Success: true}, nil)
+
+	sm3 := new(MockStoreClient)
+	sm3.On("Send", mock.Anything).Return(nil).Maybe()
+	sm3.On("CloseAndRecv").Return(&pb.StoreResponse{Success: true}, nil)
+
+	sm2Write := new(MockStoreClient)
+	sm2Write.On("Send", mock.Anything).Return(nil).Once()
+	sm2Write.On("Send", mock.Anything).Return(errors.New("mid-stream failure")).Once()
+	sm2Write.On("CloseAndRecv").Return(&pb.StoreResponse{Success: false, Error: "stream error"}, nil)
+
+	c1, c2, c3 := new(MockStorageNodeClient), new(MockStorageNodeClient), new(MockStorageNodeClient)
+	c1.On("Store", mock.Anything).Return(sm1, nil)
+	c3.On("Store", mock.Anything).Return(sm3, nil)
+
+	// c2.Store first call succeeds for write, second call fails for repair
+	c2.On("Store", mock.Anything).Return(sm2Write, nil).Once()
+	c2.On("Store", mock.Anything).Return(nil, errors.New("repair node down")).Once()
+
+	// Node1 serves as source for repair
+	rm1 := &MockRetrieveClient{resps: []*pb.RetrieveResponse{
+		{Payload: &pb.RetrieveResponse_Metadata{Metadata: &pb.RetrieveMetadata{Found: true, Timestamp: time.Now().UnixNano()}}},
+		{Payload: &pb.RetrieveResponse_ChunkData{ChunkData: []byte("hello")}},
+	}}
+	c1.On("Retrieve", mock.Anything, mock.Anything).Return(rm1, nil).Once()
+
+	clients := map[string]pb.StorageNodeClient{node1: c1, node2: c2, node3: c3}
+	coord := NewCoordinator(context.Background(), ring, clients, 3)
+	defer coord.Stop()
+
+	// Write succeeds with quorum
+	n, err := coord.Write(context.Background(), "b", "k", bytes.NewReader([]byte("hello")))
+	require.NoError(t, err)
+	assert.Equal(t, int64(5), n)
+
+	// Wait for async write repair
+	time.Sleep(200 * time.Millisecond)
+
+	// Source was called but repair node was down - repair silently skipped
+	c1.AssertCalled(t, "Retrieve", mock.Anything, mock.Anything)
+	// No repair Store call succeeded
+}
+
+func TestCoordinatorWriteRepair_PartialRepairFailure(t *testing.T) {
+	ring := NewConsistentHashRing(10)
+	ring.AddNode(node1)
+	ring.AddNode(node2)
+	ring.AddNode(node3)
+
+	ts := time.Now().UnixNano()
+
+	// Node1 and Node3 succeed; Node2 fails mid-stream
+	sm1 := new(MockStoreClient)
+	sm1.On("Send", mock.Anything).Return(nil).Once()
+	sm1.On("Send", mock.Anything).Return(nil).Once()
+	sm1.On("CloseAndRecv").Return(&pb.StoreResponse{Success: true}, nil)
+
+	sm3 := new(MockStoreClient)
+	sm3.On("Send", mock.Anything).Return(nil).Maybe()
+	sm3.On("CloseAndRecv").Return(&pb.StoreResponse{Success: true}, nil)
+
+	sm2Write := new(MockStoreClient)
+	sm2Write.On("Send", mock.Anything).Return(nil).Once()
+	sm2Write.On("Send", mock.Anything).Return(errors.New("mid-stream failure")).Once()
+	sm2Write.On("CloseAndRecv").Return(&pb.StoreResponse{Success: false, Error: "stream error"}, nil)
+
+	c1, c2, c3 := new(MockStorageNodeClient), new(MockStorageNodeClient), new(MockStorageNodeClient)
+	c1.On("Store", mock.Anything).Return(sm1, nil)
+	c3.On("Store", mock.Anything).Return(sm3, nil)
+
+	// c2.Store: write succeeds, repair sends but CloseAndRecv fails
+	sm2Repair := new(MockStoreClient)
+	sm2Repair.On("Send", mock.Anything).Return(nil).Maybe()
+	sm2Repair.On("CloseAndRecv").Return(&pb.StoreResponse{Success: false, Error: "repair failed"}, nil)
+	c2.On("Store", mock.Anything).Return(sm2Write, nil).Once()
+	c2.On("Store", mock.Anything).Return(sm2Repair, nil).Once()
+
+	// Node1 serves as source for repair
+	rm1 := &MockRetrieveClient{resps: []*pb.RetrieveResponse{
+		{Payload: &pb.RetrieveResponse_Metadata{Metadata: &pb.RetrieveMetadata{Found: true, Timestamp: ts}}},
+		{Payload: &pb.RetrieveResponse_ChunkData{ChunkData: []byte("hello")}},
+	}}
+	c1.On("Retrieve", mock.Anything, mock.Anything).Return(rm1, nil).Once()
+
+	clients := map[string]pb.StorageNodeClient{node1: c1, node2: c2, node3: c3}
+	coord := NewCoordinator(context.Background(), ring, clients, 3)
+	defer coord.Stop()
+
+	// Write succeeds with quorum
+	n, err := coord.Write(context.Background(), "b", "k", bytes.NewReader([]byte("hello")))
+	require.NoError(t, err)
+	assert.Equal(t, int64(5), n)
+
+	// Wait for async write repair
+	time.Sleep(200 * time.Millisecond)
+
+	// Repair was attempted but CloseAndRecv returned failure
+	c1.AssertCalled(t, "Retrieve", mock.Anything, mock.Anything)
+	sm2Repair.AssertCalled(t, "CloseAndRecv")
+}
+
 func TestCoordinatorRepairStreamFailureContinues(t *testing.T) {
 	ring := NewConsistentHashRing(10)
 	ring.AddNode(node1)
