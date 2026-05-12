@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/stretchr/testify/assert"
@@ -745,6 +746,136 @@ func TestIAMEvaluator_EdgeCases(t *testing.T) {
 			resource: "instance:123",
 			evalCtx: map[string]interface{}{
 				"thecloud:IsAdmin": true,
+			},
+			want: "",
+		},
+		// DateEquals with time.Time actual type
+		{
+			name: "DateEquals condition - actual is time.Time object",
+			policies: []*domain.Policy{
+				{
+					Statements: []domain.Statement{
+						{
+							Effect:   domain.EffectAllow,
+							Action:   []string{"instance:*"},
+							Resource: []string{"*"},
+							Condition: domain.Condition{
+								"DateEquals": {
+									"aws:CurrentTime": "2025-06-15T10:00:00Z",
+								},
+							},
+						},
+					},
+				},
+			},
+			action:   "instance:launch",
+			resource: "instance:123",
+			evalCtx: map[string]interface{}{
+				"aws:CurrentTime": time.Date(2025, 6, 15, 10, 0, 0, 0, time.UTC),
+			},
+			want: domain.EffectAllow,
+		},
+		// DateGreaterThan at exact boundary - should be false
+		{
+			name: "DateGreaterThan condition - at exact boundary returns false",
+			policies: []*domain.Policy{
+				{
+					Statements: []domain.Statement{
+						{
+							Effect:   domain.EffectAllow,
+							Action:   []string{"instance:*"},
+							Resource: []string{"*"},
+							Condition: domain.Condition{
+								"DateGreaterThan": {
+									"aws:CurrentTime": "2025-06-15T10:00:00Z",
+								},
+							},
+						},
+					},
+				},
+			},
+			action:   "instance:launch",
+			resource: "instance:123",
+			evalCtx: map[string]interface{}{
+				"aws:CurrentTime": "2025-06-15T10:00:00Z", // exactly equal - not greater
+			},
+			want: "",
+		},
+		// DateLessThan at exact boundary - should be false
+		{
+			name: "DateLessThan condition - at exact boundary returns false",
+			policies: []*domain.Policy{
+				{
+					Statements: []domain.Statement{
+						{
+							Effect:   domain.EffectAllow,
+							Action:   []string{"instance:*"},
+							Resource: []string{"*"},
+							Condition: domain.Condition{
+								"DateLessThan": {
+									"aws:CurrentTime": "2025-06-15T10:00:00Z",
+								},
+							},
+						},
+					},
+				},
+			},
+			action:   "instance:launch",
+			resource: "instance:123",
+			evalCtx: map[string]interface{}{
+				"aws:CurrentTime": "2025-06-15T10:00:00Z", // exactly equal - not less
+			},
+			want: "",
+		},
+		// Null condition - expected not string
+		{
+			name: "Null condition - expected is int not string",
+			policies: []*domain.Policy{
+				{
+					Statements: []domain.Statement{
+						{
+							Effect:   domain.EffectAllow,
+							Action:   []string{"instance:*"},
+							Resource: []string{"*"},
+							Condition: domain.Condition{
+								"Null": {
+									"thecloud:SomeKey": 123, // int instead of string
+								},
+							},
+						},
+					},
+				},
+			},
+			action:   "instance:launch",
+			resource: "instance:123",
+			evalCtx: map[string]interface{}{
+				"thecloud:SomeKey": "value",
+			},
+			want: "",
+		},
+		// StringLike with float actual type
+		{
+			name: "StringLike condition - expected string, actual is float",
+			policies: []*domain.Policy{
+				{
+					Statements: []domain.Statement{
+						{
+							Effect:   domain.EffectAllow,
+							Action:   []string{"instance:*"},
+							Resource: []string{"*"},
+							Condition: domain.Condition{
+								"StringLike": {
+									"aws:UserId": "user-*",
+								},
+							},
+						},
+					},
+				},
+			},
+			action:   "instance:launch",
+			resource: "instance:123",
+			evalCtx: map[string]interface{}{
+				"aws:UserId": 123.456, // float instead of string
 			},
 			want: "",
 		},
