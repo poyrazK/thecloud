@@ -166,6 +166,8 @@ func (h *StorageHandler) Download(c *gin.Context) {
 	if !ok {
 		return
 	}
+	// Normalize key to basename for consistency with Upload
+	key = path.Base(key)
 	versionID := c.Query("versionId")
 
 	var reader io.ReadCloser
@@ -234,6 +236,8 @@ func (h *StorageHandler) Delete(c *gin.Context) {
 	if !ok {
 		return
 	}
+	// Normalize key to basename for consistency with Upload
+	key = path.Base(key)
 	versionID := c.Query("versionId")
 
 	var err error
