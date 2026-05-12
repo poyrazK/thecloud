@@ -32,6 +32,17 @@ func Auth(svc ports.IdentityService, tenantSvc ports.TenantService) gin.HandlerF
 		// Wrap the request context with UserID
 		ctx := appcontext.WithUserID(c.Request.Context(), apiKeyObj.UserID)
 
+		// Set source IP for IAM condition evaluation
+		// Note: c.ClientIP() respects X-Forwarded-For, which can be spoofed by clients.
+		// For production, ensure trusted proxies are configured in Gin engine:
+		//   engine.SetTrustedProxies([]string{"10.0.0.0/8", "172.16.0.0/12"})
+		// Alternatively, use a custom function to extract the rightmost untrusted IP.
+		sourceIP := c.ClientIP()
+		if sourceIP == "" {
+			sourceIP = c.Request.RemoteAddr
+		}
+		ctx = appcontext.WithSourceIP(ctx, sourceIP)
+
 		tenantID, err := resolveAndVerifyTenant(ctx, c.GetHeader("X-Tenant-ID"), apiKeyObj.DefaultTenantID, apiKeyObj.UserID, tenantSvc)
 		if err != nil {
 			Error(c, err)

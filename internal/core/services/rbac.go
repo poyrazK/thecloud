@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
@@ -112,7 +113,9 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 	if s.iamRepo != nil && s.evaluator != nil {
 		policies, err := s.iamRepo.GetPoliciesForUser(ctx, tenantID, userID)
 		if err == nil && len(policies) > 0 {
-			effect, evalErr := s.evaluator.Evaluate(ctx, policies, string(permission), resource, nil)
+			// Build evaluation context for IAM condition evaluation
+			evalCtx := s.buildEvalCtx(ctx, tenantID)
+			effect, evalErr := s.evaluator.Evaluate(ctx, policies, string(permission), resource, evalCtx)
 			if evalErr == nil {
 				if effect == domain.EffectAllow {
 					return true, nil
@@ -120,7 +123,6 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 				if effect == domain.EffectDeny {
 					return false, nil
 				}
-				// If "", continue to role-based logic
 			}
 		}
 	}
@@ -153,6 +155,23 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 
 	s.logger.Warn("RBAC: permission denied (role in DB but permission not listed)", "role", role.Name, "permission", permission, "resource", resource)
 	return false, nil
+}
+
+func (s *rbacService) buildEvalCtx(ctx context.Context, tenantID uuid.UUID) map[string]interface{} {
+	evalCtx := map[string]interface{}{
+		string(domain.KeyTenantID):  tenantID.String(),
+		string(domain.KeyCurrentTime): time.Now().UTC(),
+	}
+
+	if userID := appcontext.UserIDFromContext(ctx); userID != uuid.Nil {
+		evalCtx[string(domain.KeyUserID)] = userID.String()
+	}
+
+	if sourceIP := appcontext.SourceIPFromContext(ctx); sourceIP != "" {
+		evalCtx[string(domain.KeySourceIP)] = sourceIP
+	}
+
+	return evalCtx
 }
 
 func (s *rbacService) CreateRole(ctx context.Context, role *domain.Role) error {
