@@ -4,6 +4,7 @@ package sdk
 import (
 	"context"
 	"fmt"
+"strconv"
 	"strings"
 
 	"github.com/go-resty/resty/v2"
@@ -22,14 +23,34 @@ const (
 	errAPIError      = "api error: %s"
 )
 
+// ListResponse wraps paginated list responses.
+type ListResponse[T any] struct {
+	Data       []T   `json:"data"`
+	TotalCount int   `json:"total_count,omitempty"`
+	HasMore    bool  `json:"has_more,omitempty"`
+}
+
 // NewClient constructs a Client with the provided API URL and key.
 func NewClient(apiURL, apiKey string) *Client {
 	client := resty.New()
 	client.SetHeader("X-API-Key", apiKey)
+	client.SetRetryCount(3)
+	client.AddRetryCondition(func(r *resty.Response, err error) bool {
+		if err != nil {
+			return false
+		}
+		statusCode := r.StatusCode()
+		return statusCode >= 500 || statusCode == 429
+	})
 	return &Client{
 		resty:  client,
 		apiURL: apiURL,
 	}
+}
+
+// EnableDebug enables debug mode for the underlying HTTP client.
+func (c *Client) EnableDebug() {
+	c.resty.SetDebug(true)
 }
 
 // SetTenant sets the X-Tenant-ID header for subsequent requests.
@@ -74,6 +95,32 @@ func (c *Client) getContext(ctx context.Context, path string, result interface{}
 
 func (c *Client) getWithContext(ctx context.Context, path string, result interface{}) error {
 	return c.getContext(ctx, path, result)
+}
+
+// getWithPagination performs a GET request with optional pagination parameters.
+func (c *Client) getWithPagination(path string, result interface{}, limit, offset int) error {
+	return c.getContextWithPagination(context.Background(), path, result, limit, offset)
+}
+
+func (c *Client) getContextWithPagination(ctx context.Context, path string, result interface{}, limit, offset int) error {
+	req := c.resty.R().SetContext(ctx).SetResult(result)
+	if limit > 0 {
+		req.SetQueryParam("limit", strconv.Itoa(limit))
+	}
+	if offset > 0 {
+		req.SetQueryParam("offset", strconv.Itoa(offset))
+	}
+
+	resp, err := req.Get(c.apiURL + path)
+	if err != nil {
+		return fmt.Errorf(errRequestFailed, err)
+	}
+
+	if resp.IsError() {
+		return fmt.Errorf(errAPIError, resp.String())
+	}
+
+	return nil
 }
 
 func (c *Client) post(path string, body interface{}, result interface{}) error {

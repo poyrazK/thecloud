@@ -19,7 +19,6 @@ var sgCmd = &cobra.Command{
 const (
 	flagVPCID      = "vpc-id"
 	descVPCID      = "VPC ID"
-	errFmt         = "Error: %v\n"
 	msgRuleRemoved = "[SUCCESS] Rule %s removed successfully.\n"
 	msgSgDetached  = "[SUCCESS] Security Group %s detached from instance %s successfully.\n"
 )

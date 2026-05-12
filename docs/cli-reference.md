@@ -22,8 +22,11 @@ Available for all commands:
 | Flag | Short | Description | Example |
 |------|-------|-------------|---------|
 | `--api-key` | `-k` | API key for authentication | `-k thecloud_abc123...` |
+| `--api-url` | | API server URL | `--api-url http://localhost:8080` |
 | `--tenant` | | Tenant ID to use for requests | `--tenant uuid` |
-| `--json` | `-j` | Output in JSON format | `-j` |
+| `--output` | `-o` | Output format (table, json, yaml) | `--output json` |
+| `--json` | `-j` | Output in JSON format (deprecated, use --output=json) | `-j` |
+| `--debug` | `-d` | Enable debug mode | `-d` |
 | `--help` | `-h` | Show command help | `-h` |
 
 ## Configuration
@@ -32,8 +35,69 @@ The CLI stores configuration in `~/.cloud/config.json`:
 
 ```json
 {
-  "api_key": "thecloud_xxxxx"
+  "api_key": "thecloud_xxxxx",
+  "api_url": "http://localhost:8080",
+  "output": "table",
+  "tenant": "",
+  "debug": false
 }
+```
+
+### `config` Command
+
+Manage CLI configuration:
+
+```bash
+# Show current configuration
+cloud config show
+
+# Set a config value
+cloud config set api-url http://localhost:8080
+cloud config set output table
+
+# Unset a config value
+cloud config unset tenant
+```
+
+---
+
+## Pagination
+
+List commands support `--limit` and `--offset` flags for pagination:
+
+```bash
+# Get first 10 results
+cloud instance list --limit 10
+
+# Get results with offset
+cloud instance list --limit 10 --offset 10
+
+# Works with all list commands
+cloud function list --limit 20
+cloud container list --limit 50 --offset 100
+cloud storage list --limit 25
+```
+
+When paginated results are available, the CLI shows:
+```
+Showing 10 of 50 total (more available)
+```
+
+---
+
+## Shell Completion
+
+Generate shell completion scripts:
+
+```bash
+# Bash
+cloud completion bash > /etc/bash/completion.d/cloud
+
+# Zsh
+cloud completion zsh > ~/.zsh/completions/_cloud
+
+# Fish
+cloud completion fish > ~/.config/fish/completions/cloud.fish
 ```
 
 ---
@@ -137,7 +201,14 @@ List all instances in the current tenant.
 ```bash
 cloud instance list
 cloud instance list --json  # JSON output
+cloud instance list --limit 10 --offset 0  # Pagination
 ```
+
+**Flags**:
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--limit` | `0` | Maximum number of results (0 = use server default) |
+| `--offset` | `0` | Number of results to skip |
 
 **Standard Output**:
 ```
@@ -239,6 +310,57 @@ cloud instance stats my-server
 
 ---
 
+## Container Commands
+
+Manage container deployments.
+
+### `container list`
+
+List all container deployments.
+
+```bash
+cloud container list
+cloud container list --limit 10 --offset 0  # Pagination
+```
+
+**Flags**:
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--limit` | `0` | Maximum number of results (0 = use server default) |
+| `--offset` | `0` | Number of results to skip |
+
+### `container deploy <name> <image>`
+
+Create a new container deployment.
+
+```bash
+cloud container deploy my-app nginx:latest --replicas 3 --ports 80:80
+```
+
+**Flags**:
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--replicas` | `-r` | `1` | Number of replicas |
+| `--ports` | `-p` | - | Ports to expose (e.g., 80:80) |
+
+### `container scale <id> <replicas>`
+
+Scale a deployment.
+
+```bash
+cloud container scale dep-uuid 5
+```
+
+### `container rm <id>`
+
+Delete a container deployment.
+
+```bash
+cloud container rm dep-uuid
+```
+
+---
+
 ## SSH Key Commands 🆕
 
 ### `ssh-key register <name> <file>`
@@ -255,7 +377,14 @@ List all registered SSH keys.
 
 ```bash
 cloud ssh-key list
+cloud ssh-key list --limit 10 --offset 0  # Pagination
 ```
+
+**Flags**:
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--limit` | `0` | Maximum number of results (0 = use server default) |
+| `--offset` | `0` | Number of results to skip |
 
 ---
 
@@ -679,7 +808,14 @@ List all buckets, or objects within a specific bucket.
 ```bash
 cloud storage list
 cloud storage list my-bucket
+cloud storage list --limit 20 --offset 0  # Pagination (buckets only)
 ```
+
+**Flags** (for bucket listing):
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--limit` | `0` | Maximum number of results (0 = use server default) |
+| `--offset` | `0` | Number of results to skip |
 
 ### `storage download <bucket> <key> <dest>`
 
@@ -934,7 +1070,14 @@ List all functions.
 
 ```bash
 cloud function list
+cloud function list --limit 20 --offset 0  # Pagination
 ```
+
+**Flags**:
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--limit` | `0` | Maximum number of results (0 = use server default) |
+| `--offset` | `0` | Number of results to skip |
 
 ### `function create`
 

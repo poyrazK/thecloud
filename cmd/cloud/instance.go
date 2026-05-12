@@ -20,7 +20,6 @@ import (
 const (
 	fmtErrorLog     = "Error: %v\n"
 	fmtDetailRow    = "%-15s %v\n"
-	demoPrompt      = "[WARN] No API Key found. Run 'cloud auth create-demo <name>' to get one."
 	successInstance = "[SUCCESS] Instance launched successfully!\n"
 	infoStop        = "[INFO] Instance stop initiated."
 	pollInterval    = 2 * time.Second
@@ -36,14 +35,26 @@ var listCmd = &cobra.Command{
 	Short: "List all instances",
 	Run: func(cmd *cobra.Command, args []string) {
 		client := createClient(opts)
-		instances, err := client.ListInstances()
+
+		limit, _ := cmd.Flags().GetInt("limit")
+		offset, _ := cmd.Flags().GetInt("offset")
+
+		instances, meta, err := listWithPagination(
+			client.ListInstances,
+			client.ListInstancesWithPagination,
+			limit, offset,
+		)
 		if err != nil {
 			fmt.Printf(fmtErrorLog, err)
 			return
 		}
 
 		if opts.JSON {
-			printJSON(instances)
+			if meta != nil {
+				printJSON(meta)
+			} else {
+				printJSON(instances)
+			}
 			return
 		}
 
@@ -64,6 +75,14 @@ var listCmd = &cobra.Command{
 			})
 		}
 		table.Render()
+
+		if meta != nil {
+			fmt.Printf("\nShowing %d of %d total", len(instances), meta.TotalCount)
+			if meta.HasMore {
+				fmt.Print(" (more available)")
+			}
+			fmt.Println()
+		}
 	},
 }
 
@@ -435,6 +454,9 @@ func init() {
 
 	metadataCmd.Flags().StringSliceP("metadata", "m", nil, "Metadata (key=value)")
 	metadataCmd.Flags().StringSliceP("label", "l", nil, "Labels (key=value)")
+
+	listCmd.Flags().Int("limit", 0, "Maximum number of results (0 = use server default)")
+	listCmd.Flags().Int("offset", 0, "Number of results to skip")
 
 	sshCmd.Flags().StringP("i", "i", "", "Identity file (private key path)")
 	sshCmd.Flags().StringP("user", "u", "root", "User to log in as")
