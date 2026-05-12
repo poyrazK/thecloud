@@ -879,6 +879,58 @@ func TestIAMEvaluator_EdgeCases(t *testing.T) {
 			},
 			want: "",
 		},
+		// DateEquals with invalid expected format - parse error
+		{
+			name: "DateEquals condition - expected is invalid RFC3339 format",
+			policies: []*domain.Policy{
+				{
+					Statements: []domain.Statement{
+						{
+							Effect:   domain.EffectAllow,
+							Action:   []string{"instance:*"},
+							Resource: []string{"*"},
+							Condition: domain.Condition{
+								"DateEquals": {
+									"aws:CurrentTime": "invalid-date-format", // invalid expected
+								},
+							},
+						},
+					},
+				},
+			},
+			action:   "instance:launch",
+			resource: "instance:123",
+			evalCtx: map[string]interface{}{
+				"aws:CurrentTime": "2025-06-15T10:00:00Z", // valid actual
+			},
+			want: "", // parse fails → condition not met
+		},
+		// StringEquals with nil actual value
+		{
+			name: "StringEquals condition - actual is nil",
+			policies: []*domain.Policy{
+				{
+					Statements: []domain.Statement{
+						{
+							Effect:   domain.EffectAllow,
+							Action:   []string{"instance:*"},
+							Resource: []string{"*"},
+							Condition: domain.Condition{
+								"StringEquals": {
+									"thecloud:TenantId": "tenant-123",
+								},
+							},
+						},
+					},
+				},
+			},
+			action:   "instance:launch",
+			resource: "instance:123",
+			evalCtx: map[string]interface{}{
+				"thecloud:TenantId": nil, // nil value
+			},
+			want: "",
+		},
 	}
 
 	for _, tt := range tests {
