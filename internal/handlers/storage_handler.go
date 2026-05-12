@@ -134,10 +134,14 @@ func (h *StorageHandler) Upload(c *gin.Context) {
 		return
 	}
 
+	// Use only the filename (last path segment) as the object key, not the full path.
+	// This mirrors contentDispositionAttachment which already uses path.Base for the same reason.
+	objectKey := path.Base(key)
+
 	providedChecksum := c.GetHeader(headerContentSha256)
 
 	// Read from request body (stream)
-	obj, err := h.svc.Upload(c.Request.Context(), bucket, key, io.LimitReader(c.Request.Body, maxUploadSize), providedChecksum)
+	obj, err := h.svc.Upload(c.Request.Context(), bucket, objectKey, io.LimitReader(c.Request.Body, maxUploadSize), providedChecksum)
 	if err != nil {
 		httputil.Error(c, err)
 		return
