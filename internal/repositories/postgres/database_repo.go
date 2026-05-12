@@ -106,6 +106,9 @@ func (r *DatabaseRepository) scanDatabases(rows pgx.Rows) ([]*domain.Database, e
 		}
 		databases = append(databases, db)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return databases, nil
 }
 
