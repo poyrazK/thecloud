@@ -439,7 +439,12 @@ func newRetryTransport(base http.RoundTripper, route *domain.GatewayRoute, logge
 // RoundTrip implements http.RoundTripper.
 func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if rt.cb == nil {
-		return rt.doRoundTrip(req)
+		resp, err := rt.doRoundTrip(req)
+		if resp != nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+		}
+		return resp, err
 	}
 
 	type result struct {
@@ -448,6 +453,7 @@ func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	var r result
 	cbErr := rt.cb.Execute(func() error {
+		//nolint:bodyclose
 		r.resp, r.err = rt.doRoundTrip(req)
 		return r.err
 	})
@@ -458,7 +464,12 @@ func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 		return nil, cbErr
 	}
-	return r.resp, r.err //nolint:bodyclose // caller reads body and is responsible for closing it
+	if r.err != nil {
+		return nil, r.err
+	}
+	// caller (ReverseProxy via ServeHTTP) reads and closes the body
+	//nolint:bodyclose
+	return r.resp, r.err
 }
 
 func (rt *retryTransport) doRoundTrip(req *http.Request) (*http.Response, error) {
