@@ -25,6 +25,10 @@ type LocalStore struct {
 
 const maxObjectSize = 5 * 1024 * 1024 * 1024 // 5 GB
 
+// maxReadBytes is the maximum size for the Read() convenience method.
+// Files larger than this should use ReadStream() to avoid memory exhaustion.
+const maxReadBytes = 100 * 1024 * 1024 // 100 MB
+
 // NewLocalStore initializes a new local storage backend.
 func NewLocalStore(dataDir string) (*LocalStore, error) {
 	if err := os.MkdirAll(dataDir, 0750); err != nil {
@@ -131,7 +135,22 @@ func (s *LocalStore) ReadStream(bucket, key string) (io.ReadCloser, int64, error
 }
 
 // Read retrieves data from disk.
+// Warning: for large files (>100MB), use ReadStream() instead to avoid memory exhaustion.
 func (s *LocalStore) Read(bucket, key string) ([]byte, int64, error) {
+	path, err := s.getObjectPath(bucket, key)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Check file size before reading to prevent memory exhaustion
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, 0, err
+	}
+	if info.Size() > maxReadBytes {
+		return nil, 0, fmt.Errorf("file too large (%d bytes) for Read(), use ReadStream() for large files", info.Size())
+	}
+
 	rc, timestamp, err := s.ReadStream(bucket, key)
 	if err != nil {
 		return nil, 0, err
