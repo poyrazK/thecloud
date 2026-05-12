@@ -335,6 +335,66 @@ func TestCoordinatorWriteStreamFailureMidChunk(t *testing.T) {
 	sm2.AssertCalled(t, "CloseAndRecv")
 }
 
+func TestCoordinatorWriteRepair(t *testing.T) {
+	ring := NewConsistentHashRing(10)
+	ring.AddNode(node1)
+	ring.AddNode(node2)
+	ring.AddNode(node3)
+
+	ts := time.Now().UnixNano()
+
+	// Node1 and Node3 succeed; Node2 fails mid-stream
+	sm1 := new(MockStoreClient)
+	sm1.On("Send", mock.Anything).Return(nil).Once()  // metadata
+	sm1.On("Send", mock.Anything).Return(nil).Once()  // chunk
+	sm1.On("CloseAndRecv").Return(&pb.StoreResponse{Success: true}, nil)
+
+	sm3 := new(MockStoreClient)
+	sm3.On("Send", mock.Anything).Return(nil).Maybe()
+	sm3.On("CloseAndRecv").Return(&pb.StoreResponse{Success: true}, nil)
+
+	// Node2 fails on chunk send (not at CloseAndRecv — that would count as quorum failure)
+	sm2Write := new(MockStoreClient)
+	sm2Write.On("Send", mock.Anything).Return(nil).Once()  // metadata succeeds
+	sm2Write.On("Send", mock.Anything).Return(errors.New("mid-stream failure")).Once()
+	// CloseAndRecv is still called on the failed stream for cleanup
+	sm2Write.On("CloseAndRecv").Return(&pb.StoreResponse{Success: false, Error: "stream error"}, nil)
+
+	c1, c2, c3 := new(MockStorageNodeClient), new(MockStorageNodeClient), new(MockStorageNodeClient)
+	c1.On("Store", mock.Anything).Return(sm1, nil)
+	c3.On("Store", mock.Anything).Return(sm3, nil)
+
+	// c2.Store: first call = initial write (sm2Write), second call = repair (sm2Repair)
+	sm2Repair := new(MockStoreClient)
+	sm2Repair.On("Send", mock.Anything).Return(nil).Maybe()
+	sm2Repair.On("CloseAndRecv").Return(&pb.StoreResponse{Success: true}, nil)
+	c2.On("Store", mock.Anything).Return(sm2Write, nil).Once()
+	c2.On("Store", mock.Anything).Return(sm2Repair, nil).Once()
+
+	// Write repair: Node1 serves Retrieve, Node2 receives repair Store
+	rm1 := &MockRetrieveClient{resps: []*pb.RetrieveResponse{
+		{Payload: &pb.RetrieveResponse_Metadata{Metadata: &pb.RetrieveMetadata{Found: true, Timestamp: ts}}},
+		{Payload: &pb.RetrieveResponse_ChunkData{ChunkData: []byte("hello")}},
+	}}
+	c1.On("Retrieve", mock.Anything, mock.Anything).Return(rm1, nil).Once()
+
+	clients := map[string]pb.StorageNodeClient{node1: c1, node2: c2, node3: c3}
+	coord := NewCoordinator(context.Background(), ring, clients, 3)
+	defer coord.Stop()
+
+	// Write succeeds with quorum (node1 + node3 = 2, node2 pruned mid-stream)
+	n, err := coord.Write(context.Background(), "b", "k", bytes.NewReader([]byte("hello")))
+	require.NoError(t, err)
+	assert.Equal(t, int64(5), n)
+
+	// Wait for async write repair
+	time.Sleep(200 * time.Millisecond)
+
+	// Verify write repair: Node1 was used as source, Node2 was repaired
+	c1.AssertCalled(t, "Retrieve", mock.Anything, mock.Anything)
+	sm2Repair.AssertCalled(t, "CloseAndRecv")
+}
+
 func TestCoordinatorRepairStreamFailureContinues(t *testing.T) {
 	ring := NewConsistentHashRing(10)
 	ring.AddNode(node1)
