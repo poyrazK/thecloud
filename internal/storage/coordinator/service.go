@@ -595,7 +595,7 @@ func (c *Coordinator) writeRepair(ctx context.Context, bucket, key string, times
 
 	for {
 		chunk, err := st.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
