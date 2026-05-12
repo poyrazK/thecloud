@@ -5,7 +5,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"encoding/json"
 	stdlib_errors "errors"
 	"fmt"
 	"io"
@@ -321,7 +320,13 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 	if err != nil {
 		return s.failInvocation(i, fmt.Sprintf("Error running task: %v", err), err)
 	}
-	defer func() { _ = s.compute.DeleteInstance(ctx, containerID) }()
+	go func(cid string) {
+		delCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := s.compute.DeleteInstance(delCtx, cid); err != nil {
+			s.logger.Warn("failed to delete invocation container", "container_id", cid, "error", err)
+		}
+	}(containerID)
 
 	statusCode, err := s.waitForTask(ctx, containerID, f.Timeout)
 	s.captureInvocationResults(i, containerID, statusCode, err)
@@ -349,9 +354,8 @@ func (s *FunctionService) buildTaskOptions(ctx context.Context, f *domain.Functi
 				s.logger.Warn("failed to resolve secret", "ref", e.SecretRef, "key", e.Key, "error", err)
 				continue // skip rather than failing the invocation
 			}
-			// Inject as JSON object: {"key": "...", "value": "..."}
-			secretJSON, _ := json.Marshal(map[string]string{"key": e.Key, "value": secret.EncryptedValue})
-			env = append(env, e.Key+"="+string(secretJSON))
+			// Inject as plain environment variable
+			env = append(env, e.Key+"="+secret.EncryptedValue)
 		} else {
 			env = append(env, e.Key+"="+e.Value)
 		}

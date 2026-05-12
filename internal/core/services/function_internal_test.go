@@ -196,8 +196,7 @@ func TestFunctionService_BuildTaskOptions(t *testing.T) {
 			}
 		}
 		assert.NotEmpty(t, apiKeyEnv)
-		assert.Contains(t, apiKeyEnv, `"key":"API_KEY"`)
-		assert.Contains(t, apiKeyEnv, `"value":"s3cr3t"`)
+		assert.Equal(t, "API_KEY=s3cr3t", apiKeyEnv)
 	})
 
 	t.Run("secretResolutionFailure", func(t *testing.T) {
