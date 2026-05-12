@@ -98,3 +98,41 @@ func TestResolveSubnetIDByUUID(t *testing.T) {
 		t.Fatalf("expected %s, got %s", id, resolved)
 	}
 }
+
+func TestResolveVPCIDByName(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/vpcs" {
+			_ = json.NewEncoder(w).Encode(sdk.Response[[]sdk.VPC]{
+				Data: []sdk.VPC{
+					{ID: "uuid-vpc-1", Name: "my-vpc", CIDRBlock: "10.0.0.0/16"},
+				},
+			})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client := sdk.NewClient(server.URL, "test-key")
+	resolved := resolveVPCID("my-vpc", client)
+	if resolved != "uuid-vpc-1" {
+		t.Fatalf("expected uuid-vpc-1, got %s", resolved)
+	}
+}
+
+func TestResolveVPCIDByUUID(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound) // Should not be called
+	}))
+	defer server.Close()
+
+	client := sdk.NewClient(server.URL, "test-key")
+	id := "abc123-def456"
+	resolved := resolveVPCID(id, client)
+	if resolved != id {
+		t.Fatalf("expected %s, got %s", id, resolved)
+	}
+}
