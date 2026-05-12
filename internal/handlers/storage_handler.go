@@ -641,6 +641,8 @@ func (h *StorageHandler) ListVersions(c *gin.Context) {
 	if !ok {
 		return
 	}
+	// Normalize key to basename for consistency with Upload
+	key = path.Base(key)
 
 	versions, err := h.svc.ListVersions(c.Request.Context(), bucket, key)
 	if err != nil {
