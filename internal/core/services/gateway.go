@@ -470,7 +470,7 @@ func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 		return nil, r.err
 	}
-	return r.resp, nil //nolint:bodyclose // caller (ReverseProxy via ServeHTTP) reads and closes the body
+	return r.resp, nil //nolint:bodyclose
 }
 
 func (rt *retryTransport) doRoundTrip(req *http.Request) (*http.Response, error) {

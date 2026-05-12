@@ -206,7 +206,7 @@ func TestRetryTransport_NoRetryOn500(t *testing.T) {
 	transport := wrapTransport(m, &retryTransport{maxRetries: 2})
 
 	req, _ := http.NewRequest("GET", "/", nil)
-	resp, err := transport.RoundTrip(req)
+	resp, err := transport.RoundTrip(req) //nolint:bodyclose
 	require.NoError(t, err)
 	assert.Equal(t, 500, resp.StatusCode)
 	assert.Equal(t, 1, m.calls, "500 should not be retried")
@@ -220,7 +220,7 @@ func TestRetryTransport_NoRetryOn400(t *testing.T) {
 	transport := wrapTransport(m, &retryTransport{maxRetries: 2})
 
 	req, _ := http.NewRequest("GET", "/", nil)
-	resp, err := transport.RoundTrip(req)
+	resp, err := transport.RoundTrip(req) //nolint:bodyclose
 	require.NoError(t, err)
 	assert.Equal(t, 400, resp.StatusCode)
 	assert.Equal(t, 1, m.calls, "400 should not be retried")
@@ -235,7 +235,7 @@ func TestRetryTransport_RetriesOnTimeoutError(t *testing.T) {
 	transport := wrapTransport(m, &retryTransport{maxRetries: 2})
 
 	req, _ := http.NewRequest("GET", "/", nil)
-	resp, err := transport.RoundTrip(req)
+	resp, err := transport.RoundTrip(req) //nolint:bodyclose
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, 2, m.calls)
@@ -251,7 +251,7 @@ func TestRetryTransport_GivesUpAfterMaxRetries(t *testing.T) {
 	transport := wrapTransport(m, &retryTransport{maxRetries: 2})
 
 	req, _ := http.NewRequest("GET", "/", nil)
-	resp, err := transport.RoundTrip(req)
+	resp, err := transport.RoundTrip(req) //nolint:bodyclose
 	require.NoError(t, err)
 	assert.Equal(t, 502, resp.StatusCode)
 	assert.Equal(t, 3, m.calls, "3 attempts: first + 2 retries")
@@ -263,7 +263,7 @@ func TestRetryTransport_SucceedsOnFirstAttempt(t *testing.T) {
 	transport := wrapTransport(m, &retryTransport{maxRetries: 2})
 
 	req, _ := http.NewRequest("GET", "/", nil)
-	resp, err := transport.RoundTrip(req)
+	resp, err := transport.RoundTrip(req) //nolint:bodyclose
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, 1, m.calls)
