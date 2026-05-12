@@ -42,7 +42,8 @@ func (h *VpcHandler) Create(c *gin.Context) {
 		return
 	}
 
-	vpc, err := h.svc.CreateVPC(c.Request.Context(), req.Name, req.CIDRBlock)
+	idempotencyKey := c.GetHeader("Idempotency-Key")
+	vpc, err := h.svc.CreateVPC(c.Request.Context(), req.Name, req.CIDRBlock, idempotencyKey)
 	if err != nil {
 		httputil.Error(c, err)
 		return

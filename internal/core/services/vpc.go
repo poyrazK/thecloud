@@ -78,7 +78,7 @@ func NewVpcService(params VpcServiceParams) *VpcService {
 
 // CreateVPC provisions a new VPC with an associated OVS bridge for network isolation.
 // It generates a unique VXLAN ID and persists the VPC metadata to the database.
-func (s *VpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*domain.VPC, error) {
+func (s *VpcService) CreateVPC(ctx context.Context, name, cidrBlock, idempotencyKey string) (*domain.VPC, error) {
 	ctx, span := otel.Tracer("vpc-service").Start(ctx, "CreateVPC")
 	defer span.End()
 
@@ -87,6 +87,14 @@ func (s *VpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*do
 
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcCreate, "*"); err != nil {
 		return nil, err
+	}
+
+	// Check if already created via idempotency key
+	if idempotencyKey != "" {
+		existing, err := s.repo.GetByIdempotencyKey(ctx, idempotencyKey)
+		if err == nil {
+			return existing, nil
+		}
 	}
 
 	span.SetAttributes(
@@ -127,16 +135,17 @@ func (s *VpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*do
 
 	// 4. Persist to DB
 	vpc := &domain.VPC{
-		ID:        vpcID,
-		UserID:    userID,
-		TenantID:  tenantID,
-		Name:      name,
-		CIDRBlock: cidrBlock,
-		NetworkID: bridgeName, // empty string for libvirt
-		VXLANID:   vxlanID,
-		Status:    "active",
-		ARN:       arn,
-		CreatedAt: time.Now(),
+		ID:            vpcID,
+		UserID:        userID,
+		TenantID:      tenantID,
+		Name:          name,
+		CIDRBlock:     cidrBlock,
+		NetworkID:     bridgeName,
+		VXLANID:       vxlanID,
+		Status:        "active",
+		ARN:           arn,
+		CreatedAt:     time.Now(),
+		IdempotencyKey: idempotencyKey,
 	}
 
 	if err := s.repo.Create(ctx, vpc); err != nil {
