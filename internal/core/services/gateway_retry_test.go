@@ -110,9 +110,8 @@ func TestRetryTransport_DoesNotRetryWhenMaxRetriesZero(t *testing.T) {
 	transport := wrapTransport(m, &retryTransport{maxRetries: 0})
 
 	_, _ = transport.RoundTrip(nil)
-	if m.results[0].resp != nil {
-		_ = m.results[0].resp.Body.Close()
-	}
+	// m.results[0] (502) is returned immediately, body closed in doRoundTrip loop exit path
+	// m.results[1] (200) is never consumed since maxRetries=0 → no retry
 	assert.Equal(t, 1, m.calls, "should call base transport only once")
 }
 
@@ -123,10 +122,9 @@ func TestRetryTransport_DoesNotRetryNonIdempotentPOST(t *testing.T) {
 
 	req, _ := http.NewRequest("POST", "/", nil)
 	_, _ = transport.RoundTrip(req)
-	if m.results[0].resp != nil {
-		_ = m.results[0].resp.Body.Close()
-	}
 	assert.Equal(t, 1, m.calls, "POST should not be retried")
+	// m.results[0].err is non-nil, returned immediately — no body to close
+	// m.results[1] is never consumed since POST is not retried
 }
 
 func TestRetryTransport_DoesNotRetryNonIdempotentPATCH(t *testing.T) {

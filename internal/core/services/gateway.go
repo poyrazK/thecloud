@@ -458,7 +458,7 @@ func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 		return nil, cbErr
 	}
-	return r.resp, r.err
+	return r.resp, r.err //nolint:bodyclose // caller reads body and is responsible for closing it
 }
 
 func (rt *retryTransport) doRoundTrip(req *http.Request) (*http.Response, error) {
