@@ -110,6 +110,19 @@ func (m *MockIAMRepository) GetPoliciesForUser(ctx context.Context, tenantID, us
 	}
 	return args.Get(0).([]*domain.Policy), args.Error(1)
 }
+func (m *MockIAMRepository) AttachPolicyToRole(ctx context.Context, tenantID uuid.UUID, roleName string, policyID uuid.UUID) error {
+	return m.Called(ctx, tenantID, roleName, policyID).Error(0)
+}
+func (m *MockIAMRepository) DetachPolicyFromRole(ctx context.Context, tenantID uuid.UUID, roleName string, policyID uuid.UUID) error {
+	return m.Called(ctx, tenantID, roleName, policyID).Error(0)
+}
+func (m *MockIAMRepository) GetPoliciesForRole(ctx context.Context, tenantID uuid.UUID, roleName string) ([]*domain.Policy, error) {
+	args := m.Called(ctx, tenantID, roleName)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Policy), args.Error(1)
+}
 
 // MockIdentityService
 type MockIdentityService struct {
