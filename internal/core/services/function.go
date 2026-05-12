@@ -320,6 +320,8 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 	if err != nil {
 		return s.failInvocation(i, fmt.Sprintf("Error running task: %v", err), err)
 	}
+	// Fire-and-forget: container cleanup runs in isolated goroutine with its own
+	// timeout context, preventing slow Docker cleanup from blocking the response.
 	go func(cid string) {
 		delCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
