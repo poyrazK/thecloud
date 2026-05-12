@@ -453,7 +453,6 @@ func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	var r result
 	cbErr := rt.cb.Execute(func() error {
-		//nolint:bodyclose
 		r.resp, r.err = rt.doRoundTrip(req)
 		return r.err
 	})
@@ -465,11 +464,16 @@ func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, cbErr
 	}
 	if r.err != nil {
+		if r.resp != nil {
+			_, _ = io.Copy(io.Discard, r.resp.Body)
+			_ = r.resp.Body.Close()
+		}
 		return nil, r.err
 	}
-	// caller (ReverseProxy via ServeHTTP) reads and closes the body
-	//nolint:bodyclose
-	return r.resp, r.err
+	// r.resp may have unclosed body here — ReverseProxy.ServeHTTP reads and closes it downstream
+	resp := r.resp
+	r.resp = nil // prevent further use after return
+	return resp, nil
 }
 
 func (rt *retryTransport) doRoundTrip(req *http.Request) (*http.Response, error) {
