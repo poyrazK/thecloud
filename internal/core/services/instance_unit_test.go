@@ -823,7 +823,7 @@ func testInstanceServiceTerminateUnit(t *testing.T) {
 
 		err := svc.TerminateInstance(ctx, instanceID.String())
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to remove container")
+		assert.Contains(t, err.Error(), "failed to remove docker instance")
 		mock.AssertExpectationsForObjects(t, repo, rbacSvc, compute)
 	})
 

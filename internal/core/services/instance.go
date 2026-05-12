@@ -1219,8 +1219,8 @@ func (s *InstanceService) removeInstanceContainer(ctx context.Context, inst *dom
 	}
 
 	if err := s.compute.DeleteInstance(ctx, containerID); err != nil {
-		s.logger.Warn("failed to remove docker container", "container_id", containerID, "error", err)
-		return errors.Wrap(errors.Internal, "failed to remove container", err)
+		s.logger.Warn("failed to remove instance", "backend", s.compute.Type(), "id", containerID, "error", err)
+		return errors.Wrap(errors.Internal, fmt.Sprintf("failed to remove %s instance", s.compute.Type()), err)
 	}
 
 	s.logger.Info("instance terminated", "instance_id", inst.ID)
