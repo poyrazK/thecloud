@@ -159,16 +159,16 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 
 func (s *rbacService) buildEvalCtx(ctx context.Context, tenantID uuid.UUID) map[string]interface{} {
 	evalCtx := map[string]interface{}{
-		"thecloud:TenantId": tenantID.String(),
-		"aws:CurrentTime":   time.Now().UTC(),
+		string(domain.KeyTenantID):  tenantID.String(),
+		string(domain.KeyCurrentTime): time.Now().UTC(),
 	}
 
 	if userID := appcontext.UserIDFromContext(ctx); userID != uuid.Nil {
-		evalCtx["aws:UserId"] = userID.String()
+		evalCtx[string(domain.KeyUserID)] = userID.String()
 	}
 
 	if sourceIP := appcontext.SourceIPFromContext(ctx); sourceIP != "" {
-		evalCtx["aws:SourceIp"] = sourceIP
+		evalCtx[string(domain.KeySourceIP)] = sourceIP
 	}
 
 	return evalCtx
