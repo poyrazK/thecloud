@@ -167,6 +167,50 @@ func TestSecretHandlerGetByName(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
+func TestSecretHandlerGetByShortID(t *testing.T) {
+	t.Parallel()
+	svc, handler, r := setupSecretHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.GET(secretsPath+"/:id", handler.Get)
+
+	id := uuid.New()
+	secret := &domain.Secret{ID: id, Name: testSecretName}
+	shortPrefix := id.String()[:8]
+	svc.On("GetSecretByName", mock.Anything, shortPrefix).Return(nil, errors.New(errors.NotFound, "not found"))
+	svc.On("ListSecrets", mock.Anything).Return([]*domain.Secret{secret}, nil)
+	svc.On("GetSecret", mock.Anything, id).Return(secret, nil)
+
+	req, err := http.NewRequest(http.MethodGet, secretsPath+"/"+shortPrefix, nil)
+	require.NoError(t, err)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestSecretHandlerDeleteByShortID(t *testing.T) {
+	t.Parallel()
+	svc, handler, r := setupSecretHandlerTest(t)
+	defer svc.AssertExpectations(t)
+
+	r.DELETE(secretsPath+"/:id", handler.Delete)
+
+	id := uuid.New()
+	secret := &domain.Secret{ID: id, Name: testSecretName}
+	shortPrefix := id.String()[:8]
+	svc.On("GetSecretByName", mock.Anything, shortPrefix).Return(nil, errors.New(errors.NotFound, "not found"))
+	svc.On("ListSecrets", mock.Anything).Return([]*domain.Secret{secret}, nil)
+	svc.On("DeleteSecret", mock.Anything, id).Return(nil)
+
+	req, err := http.NewRequest(http.MethodDelete, secretsPath+"/"+shortPrefix, nil)
+	require.NoError(t, err)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
 func TestSecretHandlerDelete(t *testing.T) {
 	t.Parallel()
 	t.Run("SuccessByID", func(t *testing.T) {

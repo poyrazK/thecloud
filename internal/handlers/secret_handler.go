@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/errors"
 	"github.com/poyrazk/thecloud/pkg/httputil"
@@ -71,17 +72,25 @@ func (h *SecretHandler) resolveShortID(ctx context.Context, idStr string) (uuid.
 	// Then try short ID prefix match
 	secrets, err := h.svc.ListSecrets(ctx)
 	if err != nil {
-		return uuid.Nil, errors.New(errors.NotFound, "secret not found")
+		return uuid.Nil, err
 	}
 
 	idStrLower := strings.ToLower(idStr)
+	var candidates []*domain.Secret
 	for _, s := range secrets {
 		if strings.HasPrefix(s.ID.String(), idStr) || strings.HasPrefix(strings.ToLower(s.Name), idStrLower) {
-			return s.ID, nil
+			candidates = append(candidates, s)
 		}
 	}
 
-	return uuid.Nil, errors.New(errors.NotFound, "secret not found")
+	if len(candidates) == 0 {
+		return uuid.Nil, errors.New(errors.NotFound, "secret not found")
+	}
+	if len(candidates) > 1 {
+		return uuid.Nil, errors.New(errors.InvalidInput, "ambiguous secret identifier")
+	}
+
+	return candidates[0].ID, nil
 }
 
 func (h *SecretHandler) Get(c *gin.Context) {
