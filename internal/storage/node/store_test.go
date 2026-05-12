@@ -55,6 +55,32 @@ func TestLocalStorePathTraversal(t *testing.T) {
 	// Attempt to read outside root
 	_, _, err = store.Read("bucket", "../outside.txt")
 	require.Error(t, err)
+
+	// Attempt with dot keys - should resolve to bucket dir itself
+	err = store.Write("bucket", ".", []byte("evil"), 0)
+	require.Error(t, err)
+
+	err = store.Write("bucket", "./", []byte("evil"), 0)
+	require.Error(t, err)
+
+	err = store.Write("bucket", "./.", []byte("evil"), 0)
+	require.Error(t, err)
+
+	// Dot in middle should work (it's normalized away)
+	err = store.Write("bucket", "foo/./bar", []byte("data"), 0)
+	require.NoError(t, err)
+
+	// URL-encoded traversal attempts - should be normalized by filepath.Clean
+	err = store.Write("bucket", "..%2Foutside.txt", []byte("evil"), 0)
+	require.Error(t, err)
+
+	// Backslash encoded - Windows-style traversal attempt
+	err = store.Write("bucket", "..%5Coutside.txt", []byte("evil"), 0)
+	require.Error(t, err)
+
+	// Double dot with subdir - should still be blocked
+	err = store.Write("bucket", "../foo/../../bar", []byte("evil"), 0)
+	require.Error(t, err)
 }
 
 func TestLocalStoreAssemble(t *testing.T) {

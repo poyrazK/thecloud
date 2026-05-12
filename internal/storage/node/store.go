@@ -10,6 +10,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -278,8 +279,9 @@ func (s *LocalStore) getObjectPath(bucket, key string) (string, error) {
 	fullPath := filepath.Join(bucketDir, cleanKey)
 
 	// Verify it's within bucketDir (strict isolation)
+	// Must be a child path - not the directory itself, not parent
 	rel, err := filepath.Rel(bucketDir, fullPath)
-	if err != nil || len(rel) < 2 && rel == ".." || (len(rel) >= 2 && rel[:2] == "..") {
+	if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
 		return "", os.ErrPermission
 	}
 
