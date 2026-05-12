@@ -167,12 +167,7 @@ func (h *SecurityGroupHandler) Delete(c *gin.Context) {
 // @Failure 500 {object} httputil.Response
 // @Router /security-groups/{id}/rules [post]
 func (h *SecurityGroupHandler) AddRule(c *gin.Context) {
-	groupIDStr := c.Param("id")
-	groupID, err := uuid.Parse(groupIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group_id"})
-		return
-	}
+	idOrName := c.Param("id")
 
 	var req domain.SecurityRule
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -180,7 +175,7 @@ func (h *SecurityGroupHandler) AddRule(c *gin.Context) {
 		return
 	}
 
-	rule, err := h.svc.AddRule(c.Request.Context(), groupID, req)
+	rule, err := h.svc.AddRule(c.Request.Context(), idOrName, req)
 	if err != nil {
 		httputil.Error(c, err)
 		return

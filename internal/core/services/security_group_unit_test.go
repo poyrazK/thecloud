@@ -52,7 +52,7 @@ func TestSecurityGroupService_Unit(t *testing.T) {
 		mockNetwork.On("AddFlowRule", mock.Anything, "net-1", mock.Anything).Return(nil).Maybe()
 		mockAuditSvc.On("Log", mock.Anything, userID, "security_group.add_rule", "security_group", sgID.String(), mock.Anything).Return(nil).Maybe()
 
-		res, err := svc.AddRule(ctx, sgID, rule)
+		res, err := svc.AddRule(ctx, sgID.String(), rule)
 		require.NoError(t, err)
 		assert.NotNil(t, res)
 	})
