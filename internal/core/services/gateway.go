@@ -453,8 +453,7 @@ func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	var r result
 	cbErr := rt.cb.Execute(func() error {
-		//nolint:bodyclose
-		r.resp, r.err = rt.doRoundTrip(req)
+		r.resp, r.err = rt.doRoundTrip(req) //nolint:bodyclose
 		return r.err
 	})
 	if cbErr != nil {
@@ -471,8 +470,7 @@ func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 		return nil, r.err
 	}
-	//nolint:bodyclose
-	return r.resp, nil // caller (ReverseProxy via ServeHTTP) reads and closes the body
+	return r.resp, nil //nolint:bodyclose // caller (ReverseProxy via ServeHTTP) reads and closes the body
 }
 
 func (rt *retryTransport) doRoundTrip(req *http.Request) (*http.Response, error) {
@@ -510,8 +508,7 @@ func (rt *retryTransport) doRoundTrip(req *http.Request) (*http.Response, error)
 		}
 		lastResp = resp
 	}
-	//nolint:bodyclose
-	return lastResp, nil
+	return lastResp, nil //nolint:bodyclose
 }
 
 func (rt *retryTransport) isRetryableStatus(code int) bool {

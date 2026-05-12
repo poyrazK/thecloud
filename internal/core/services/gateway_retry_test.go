@@ -109,8 +109,7 @@ func TestRetryTransport_DoesNotRetryWhenMaxRetriesZero(t *testing.T) {
 	m := &mockRT{results: []mockRTResult{mockResp(502), mockResp(200)}}
 	transport := wrapTransport(m, &retryTransport{maxRetries: 0})
 
-	//nolint:bodyclose
-	_, _ = transport.RoundTrip(nil)
+	_, _ = transport.RoundTrip(nil) //nolint:bodyclose
 	// m.results[0] (502) is returned immediately, body closed in doRoundTrip loop exit path
 	// m.results[1] (200) is never consumed since maxRetries=0 → no retry
 	assert.Equal(t, 1, m.calls, "should call base transport only once")
@@ -122,8 +121,7 @@ func TestRetryTransport_DoesNotRetryNonIdempotentPOST(t *testing.T) {
 	transport := wrapTransport(m, &retryTransport{maxRetries: 2})
 
 	req, _ := http.NewRequest("POST", "/", nil)
-	//nolint:bodyclose
-	_, _ = transport.RoundTrip(req)
+	_, _ = transport.RoundTrip(req) //nolint:bodyclose
 	assert.Equal(t, 1, m.calls, "POST should not be retried")
 	// m.results[0].err is non-nil, returned immediately — no body to close
 	// m.results[1] is never consumed since POST is not retried
@@ -135,8 +133,7 @@ func TestRetryTransport_DoesNotRetryNonIdempotentPATCH(t *testing.T) {
 	transport := wrapTransport(m, &retryTransport{maxRetries: 2})
 
 	req, _ := http.NewRequest("PATCH", "/", nil)
-	//nolint:bodyclose
-	_, _ = transport.RoundTrip(req)
+	_, _ = transport.RoundTrip(req) //nolint:bodyclose
 	assert.Equal(t, 1, m.calls, "PATCH should not be retried")
 }
 
@@ -149,7 +146,7 @@ func TestRetryTransport_RetriesOnConnectionRefused(t *testing.T) {
 	transport := wrapTransport(m, &retryTransport{maxRetries: 2})
 
 	req, _ := http.NewRequest("GET", "/", nil)
-	resp, err := transport.RoundTrip(req)
+	resp, err := transport.RoundTrip(req) //nolint:bodyclose
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, 2, m.calls, "should retry after connection refused")
@@ -165,7 +162,7 @@ func TestRetryTransport_RetriesOn502(t *testing.T) {
 	transport := wrapTransport(m, &retryTransport{maxRetries: 2})
 
 	req, _ := http.NewRequest("GET", "/", nil)
-	resp, err := transport.RoundTrip(req)
+	resp, err := transport.RoundTrip(req) //nolint:bodyclose
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, 3, m.calls, "should retry 502 twice then succeed")
@@ -180,7 +177,7 @@ func TestRetryTransport_RetriesOn503(t *testing.T) {
 	transport := wrapTransport(m, &retryTransport{maxRetries: 2})
 
 	req, _ := http.NewRequest("GET", "/", nil)
-	resp, err := transport.RoundTrip(req)
+	resp, err := transport.RoundTrip(req) //nolint:bodyclose
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, 2, m.calls)
@@ -195,7 +192,7 @@ func TestRetryTransport_RetriesOn429(t *testing.T) {
 	transport := wrapTransport(m, &retryTransport{maxRetries: 2})
 
 	req, _ := http.NewRequest("GET", "/", nil)
-	resp, err := transport.RoundTrip(req)
+	resp, err := transport.RoundTrip(req) //nolint:bodyclose
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, 2, m.calls)
