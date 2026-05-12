@@ -1,6 +1,7 @@
 package node
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -145,4 +146,36 @@ func TestLocalStoreInvalidAbsolutePath(t *testing.T) {
 	err := store.Write("bucket", "/abs/path", []byte("data"), 0)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, os.ErrInvalid)
+}
+
+func TestLocalStoreReadSizeLimit(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, _ := NewLocalStore(tmpDir)
+	bucket := "test-bucket"
+	key := "largefile.bin"
+
+	// Create a file larger than maxReadBytes (100MB)
+	// Use WriteStream which doesn't have the size check
+	largeData := make([]byte, maxReadBytes+1024)
+	for i := range largeData {
+		largeData[i] = byte(i % 256)
+	}
+
+	err := store.Write(bucket, key, largeData, 0)
+	require.NoError(t, err)
+
+	// Read() should fail due to size limit
+	_, _, err = store.Read(bucket, key)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "file too large")
+
+	// But ReadStream() should still work
+	rc, _, err := store.ReadStream(bucket, key)
+	require.NoError(t, err)
+	defer rc.Close()
+
+	// Verify we can read the data via stream
+	data, err := io.ReadAll(rc)
+	require.NoError(t, err)
+	assert.Equal(t, len(largeData), len(data))
 }
