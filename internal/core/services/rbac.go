@@ -111,35 +111,17 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 
 	// 2. Check Attached IAM Policies (if IAMRepo and Evaluator are provided)
 	if s.iamRepo != nil && s.evaluator != nil {
-		policies, err := s.iamRepo.GetPoliciesForUser(ctx, tenantID, userID)
-		if err == nil && len(policies) > 0 {
-			// Build evaluation context for IAM condition evaluation
-			evalCtx := s.buildEvalCtx(ctx, tenantID)
-			effect, evalErr := s.evaluator.Evaluate(ctx, policies, string(permission), resource, evalCtx)
-			if evalErr == nil {
-				if effect == domain.EffectAllow {
-					return true, nil
-				}
-				if effect == domain.EffectDeny {
-					return false, nil
-				}
-			}
+		evalCtx := s.buildEvalCtx(ctx, tenantID)
+
+		// Check user-attached policies
+		if allowed, stop := s.checkIAMPolicies(ctx, tenantID, userID, permission, resource, evalCtx); allowed || stop {
+			return allowed, nil
 		}
 
-		// 2b. Check IAM Policies attached to the user's role
+		// Check role-attached policies
 		if roleName != "" {
-			rolePolicies, err := s.iamRepo.GetPoliciesForRole(ctx, tenantID, roleName)
-			if err == nil && len(rolePolicies) > 0 {
-				evalCtx := s.buildEvalCtx(ctx, tenantID)
-				effect, evalErr := s.evaluator.Evaluate(ctx, rolePolicies, string(permission), resource, evalCtx)
-				if evalErr == nil {
-					if effect == domain.EffectAllow {
-						return true, nil
-					}
-					if effect == domain.EffectDeny {
-						return false, nil
-					}
-				}
+			if allowed, stop := s.checkRoleIAMPolicies(ctx, tenantID, roleName, permission, resource, evalCtx); allowed || stop {
+				return allowed, nil
 			}
 		}
 	}
@@ -172,6 +154,42 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 
 	s.logger.Warn("RBAC: permission denied (role in DB but permission not listed)", "role", role.Name, "permission", permission, "resource", resource)
 	return false, nil
+}
+
+// checkIAMPolicies evaluates IAM policies attached directly to a user.
+// Returns (allowed, stop) where stop=true means decision is final.
+func (s *rbacService) checkIAMPolicies(ctx context.Context, tenantID, userID uuid.UUID, permission domain.Permission, resource string, evalCtx map[string]interface{}) (bool, bool) {
+	policies, err := s.iamRepo.GetPoliciesForUser(ctx, tenantID, userID)
+	if err != nil || len(policies) == 0 {
+		return false, false
+	}
+	return s.evaluatePolicies(ctx, policies, permission, resource, evalCtx)
+}
+
+// checkRoleIAMPolicies evaluates IAM policies attached to a user's role.
+// Returns (allowed, stop) where stop=true means decision is final.
+func (s *rbacService) checkRoleIAMPolicies(ctx context.Context, tenantID uuid.UUID, roleName string, permission domain.Permission, resource string, evalCtx map[string]interface{}) (bool, bool) {
+	policies, err := s.iamRepo.GetPoliciesForRole(ctx, tenantID, roleName)
+	if err != nil || len(policies) == 0 {
+		return false, false
+	}
+	return s.evaluatePolicies(ctx, policies, permission, resource, evalCtx)
+}
+
+// evaluatePolicies evaluates a set of policies and returns (allowed, stop).
+// stop=true means a final decision (Allow or Deny) was reached.
+func (s *rbacService) evaluatePolicies(ctx context.Context, policies []*domain.Policy, permission domain.Permission, resource string, evalCtx map[string]interface{}) (bool, bool) {
+	effect, err := s.evaluator.Evaluate(ctx, policies, string(permission), resource, evalCtx)
+	if err != nil {
+		return false, false
+	}
+	if effect == domain.EffectAllow {
+		return true, true
+	}
+	if effect == domain.EffectDeny {
+		return false, true
+	}
+	return false, false
 }
 
 func (s *rbacService) buildEvalCtx(ctx context.Context, tenantID uuid.UUID) map[string]interface{} {
