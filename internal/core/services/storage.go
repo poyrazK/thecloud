@@ -432,7 +432,7 @@ func (s *StorageService) DeleteVersion(ctx context.Context, bucket, key, version
 
 	// 2. Delete from store
 	storeKey := key
-	if versionID != "null" {
+	if versionID != "" {
 		storeKey = versionedStoreKey(key, versionID)
 	}
 
