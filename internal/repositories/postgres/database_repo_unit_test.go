@@ -194,13 +194,6 @@ func TestDatabaseRepository_Delete(t *testing.T) {
 
 func TestDatabaseRepository_List_Empty(t *testing.T) {
 	t.Parallel()
-	mock, err := pgxmock.NewPool()
-	require.NoError(t, err)
-	defer mock.Close()
-
-	repo := NewDatabaseRepository(mock)
-	tenantID := uuid.New()
-	ctx := appcontext.WithTenantID(context.Background(), tenantID)
 
 	cols := []string{"id", "user_id", "tenant_id", "name", "engine", "version",
 		"status", "role", "primary_id", "vpc_id", "container_id", "port",
@@ -208,47 +201,52 @@ func TestDatabaseRepository_List_Empty(t *testing.T) {
 		"parameters", "metrics_enabled", "metrics_port", "exporter_container_id",
 		"pooling_enabled", "pooling_port", "pooler_container_id", "credential_path"}
 
-	// Return empty rows (no AddRow calls) - verifies slice is non-nil
-	mock.ExpectQuery("SELECT .* FROM databases").
-		WithArgs(tenantID).
-		WillReturnRows(pgxmock.NewRows(cols))
+	tests := []struct {
+		name string
+		call func(*DatabaseRepository, context.Context, uuid.UUID, uuid.UUID) ([]*domain.Database, error)
+	}{
+		{
+			name: "List returns empty non-nil slice",
+			call: func(repo *DatabaseRepository, ctx context.Context, tenantID uuid.UUID, _ uuid.UUID) ([]*domain.Database, error) {
+				return repo.List(ctx)
+			},
+		},
+		{
+			name: "ListReplicas returns empty non-nil slice",
+			call: func(repo *DatabaseRepository, ctx context.Context, _ uuid.UUID, primaryID uuid.UUID) ([]*domain.Database, error) {
+				return repo.ListReplicas(ctx, primaryID)
+			},
+		},
+	}
 
-	databases, err := repo.List(ctx)
-	require.NoError(t, err)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			mock, err := pgxmock.NewPool()
+			require.NoError(t, err)
+			defer mock.Close()
 
-	// Key assertions: non-nil empty slice (not nil, which marshals as null)
-	assert.NotNil(t, databases)
-	assert.Empty(t, databases)
-	assert.Equal(t, []*domain.Database{}, databases)
-}
+			repo := NewDatabaseRepository(mock)
+			tenantID := uuid.New()
+			primaryID := uuid.New()
+			ctx := appcontext.WithTenantID(context.Background(), tenantID)
 
-func TestDatabaseRepository_ListReplicas_Empty(t *testing.T) {
-	t.Parallel()
-	mock, err := pgxmock.NewPool()
-	require.NoError(t, err)
-	defer mock.Close()
+			query := "SELECT .* FROM databases"
 
-	repo := NewDatabaseRepository(mock)
-	primaryID := uuid.New()
-	tenantID := uuid.New()
-	ctx := appcontext.WithTenantID(context.Background(), tenantID)
+			if tc.name == "List returns empty non-nil slice" {
+				mock.ExpectQuery(query).WithArgs(tenantID).WillReturnRows(pgxmock.NewRows(cols))
+			} else {
+				mock.ExpectQuery("SELECT .* FROM databases WHERE primary_id = .*").WithArgs(primaryID, tenantID).WillReturnRows(pgxmock.NewRows(cols))
+			}
 
-	cols := []string{"id", "user_id", "tenant_id", "name", "engine", "version",
-		"status", "role", "primary_id", "vpc_id", "container_id", "port",
-		"username", "password", "created_at", "updated_at", "allocated_storage",
-		"parameters", "metrics_enabled", "metrics_port", "exporter_container_id",
-		"pooling_enabled", "pooling_port", "pooler_container_id", "credential_path"}
+			result, err := tc.call(repo, ctx, tenantID, primaryID)
+			require.NoError(t, err)
 
-	// Return empty rows (no AddRow calls) - verifies slice is non-nil
-	mock.ExpectQuery("SELECT .* FROM databases WHERE primary_id = .*").
-		WithArgs(primaryID, tenantID).
-		WillReturnRows(pgxmock.NewRows(cols))
+			assert.NotNil(t, result)
+			assert.Empty(t, result)
+			assert.Equal(t, []*domain.Database{}, result)
 
-	replicas, err := repo.ListReplicas(ctx, primaryID)
-	require.NoError(t, err)
-
-	// Key assertions: non-nil empty slice (not nil, which marshals as null)
-	assert.NotNil(t, replicas)
-	assert.Empty(t, replicas)
-	assert.Equal(t, []*domain.Database{}, replicas)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }
