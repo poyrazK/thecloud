@@ -191,3 +191,64 @@ func TestDatabaseRepository_Delete(t *testing.T) {
 	err = repo.Delete(ctx, id)
 	require.NoError(t, err)
 }
+
+func TestDatabaseRepository_List_Empty(t *testing.T) {
+	t.Parallel()
+	mock, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewDatabaseRepository(mock)
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(context.Background(), tenantID)
+
+	cols := []string{"id", "user_id", "tenant_id", "name", "engine", "version",
+		"status", "role", "primary_id", "vpc_id", "container_id", "port",
+		"username", "password", "created_at", "updated_at", "allocated_storage",
+		"parameters", "metrics_enabled", "metrics_port", "exporter_container_id",
+		"pooling_enabled", "pooling_port", "pooler_container_id", "credential_path"}
+
+	// Return empty rows (no AddRow calls) - verifies slice is non-nil
+	mock.ExpectQuery("SELECT .* FROM databases").
+		WithArgs(tenantID).
+		WillReturnRows(pgxmock.NewRows(cols))
+
+	databases, err := repo.List(ctx)
+	require.NoError(t, err)
+
+	// Key assertions: non-nil empty slice (not nil, which marshals as null)
+	assert.NotNil(t, databases)
+	assert.Empty(t, databases)
+	assert.Equal(t, []*domain.Database{}, databases)
+}
+
+func TestDatabaseRepository_ListReplicas_Empty(t *testing.T) {
+	t.Parallel()
+	mock, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mock.Close()
+
+	repo := NewDatabaseRepository(mock)
+	primaryID := uuid.New()
+	tenantID := uuid.New()
+	ctx := appcontext.WithTenantID(context.Background(), tenantID)
+
+	cols := []string{"id", "user_id", "tenant_id", "name", "engine", "version",
+		"status", "role", "primary_id", "vpc_id", "container_id", "port",
+		"username", "password", "created_at", "updated_at", "allocated_storage",
+		"parameters", "metrics_enabled", "metrics_port", "exporter_container_id",
+		"pooling_enabled", "pooling_port", "pooler_container_id", "credential_path"}
+
+	// Return empty rows (no AddRow calls) - verifies slice is non-nil
+	mock.ExpectQuery("SELECT .* FROM databases WHERE primary_id = .*").
+		WithArgs(primaryID, tenantID).
+		WillReturnRows(pgxmock.NewRows(cols))
+
+	replicas, err := repo.ListReplicas(ctx, primaryID)
+	require.NoError(t, err)
+
+	// Key assertions: non-nil empty slice (not nil, which marshals as null)
+	assert.NotNil(t, replicas)
+	assert.Empty(t, replicas)
+	assert.Equal(t, []*domain.Database{}, replicas)
+}
