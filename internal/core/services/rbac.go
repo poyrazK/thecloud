@@ -125,6 +125,23 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 				}
 			}
 		}
+
+		// 2b. Check IAM Policies attached to the user's role
+		if roleName != "" {
+			rolePolicies, err := s.iamRepo.GetPoliciesForRole(ctx, tenantID, roleName)
+			if err == nil && len(rolePolicies) > 0 {
+				evalCtx := s.buildEvalCtx(ctx, tenantID)
+				effect, evalErr := s.evaluator.Evaluate(ctx, rolePolicies, string(permission), resource, evalCtx)
+				if evalErr == nil {
+					if effect == domain.EffectAllow {
+						return true, nil
+					}
+					if effect == domain.EffectDeny {
+						return false, nil
+					}
+				}
+			}
+		}
 	}
 	// 3. Fallback to Role-based logic
 	if roleName == domain.RoleAdmin {
