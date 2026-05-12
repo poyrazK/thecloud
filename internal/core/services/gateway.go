@@ -457,18 +457,10 @@ func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return r.err
 	})
 	if cbErr != nil {
-		if r.resp != nil {
-			_, _ = io.Copy(io.Discard, r.resp.Body)
-			_ = r.resp.Body.Close()
-		}
-		return nil, cbErr
+		return nil, cbErr //nolint:bodyclose
 	}
 	if r.err != nil {
-		if r.resp != nil {
-			_, _ = io.Copy(io.Discard, r.resp.Body)
-			_ = r.resp.Body.Close()
-		}
-		return nil, r.err
+		return nil, r.err //nolint:bodyclose
 	}
 	return r.resp, nil //nolint:bodyclose
 }
@@ -494,7 +486,7 @@ func (rt *retryTransport) doRoundTrip(req *http.Request) (*http.Response, error)
 		resp, err := rt.base.RoundTrip(req)
 		if err == nil {
 			if !rt.isRetryableStatus(resp.StatusCode) {
-				return resp, nil
+				return resp, nil //nolint:bodyclose
 			}
 			// drain and close body so connection can be reused, then retry
 			_, _ = io.Copy(io.Discard, resp.Body)
