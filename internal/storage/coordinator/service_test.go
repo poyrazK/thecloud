@@ -403,3 +403,80 @@ func TestCoordinatorRepairStreamFailureContinues(t *testing.T) {
 	smRepair3.AssertNumberOfCalls(t, "Send", 2)
 	smRepair3.AssertCalled(t, "CloseAndRecv")
 }
+
+func TestCoordinatorReadQuorum(t *testing.T) {
+	ts := time.Now().UnixNano()
+
+	tests := []struct {
+		name          string
+		replicaCount  int
+		setupMocks    func(c1, c2, c3 *MockStorageNodeClient) []*MockStoreClient
+		expectedError string
+	}{
+		{
+			name:         "Failure_OnlyOneNodeResponds",
+			replicaCount: 3,
+			setupMocks: func(c1, c2, c3 *MockStorageNodeClient) []*MockStoreClient {
+				// Node 1: has data (counted in foundCount)
+				rm1 := &MockRetrieveClient{resps: []*pb.RetrieveResponse{
+					{Payload: &pb.RetrieveResponse_Metadata{Metadata: &pb.RetrieveMetadata{Found: true, Timestamp: ts}}},
+					{Payload: &pb.RetrieveResponse_ChunkData{ChunkData: []byte("data")}},
+				}}
+				c1.On("Retrieve", mock.Anything, mock.Anything).Return(rm1, nil)
+				// Node 2: Retrieve error
+				c2.On("Retrieve", mock.Anything, mock.Anything).Return(nil, errors.New("node down"))
+				// Node 3: Retrieve error
+				c3.On("Retrieve", mock.Anything, mock.Anything).Return(nil, errors.New("node down"))
+				return nil
+			},
+			expectedError: "read quorum failed (1/2)",
+		},
+		{
+			name:         "Success_TwoOfThreeRespond",
+			replicaCount: 3,
+			setupMocks: func(c1, c2, c3 *MockStorageNodeClient) []*MockStoreClient {
+				rm1 := &MockRetrieveClient{resps: []*pb.RetrieveResponse{
+					{Payload: &pb.RetrieveResponse_Metadata{Metadata: &pb.RetrieveMetadata{Found: true, Timestamp: ts}}},
+					{Payload: &pb.RetrieveResponse_ChunkData{ChunkData: []byte("data")}},
+				}}
+				c1.On("Retrieve", mock.Anything, mock.Anything).Return(rm1, nil)
+				rm2 := &MockRetrieveClient{resps: []*pb.RetrieveResponse{
+					{Payload: &pb.RetrieveResponse_Metadata{Metadata: &pb.RetrieveMetadata{Found: true, Timestamp: ts}}},
+					{Payload: &pb.RetrieveResponse_ChunkData{ChunkData: []byte("data")}},
+				}}
+				c2.On("Retrieve", mock.Anything, mock.Anything).Return(rm2, nil)
+				c3.On("Retrieve", mock.Anything, mock.Anything).Return(nil, errors.New("node down"))
+				return nil
+			},
+			expectedError: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ring := NewConsistentHashRing(10)
+			ring.AddNode(node1)
+			ring.AddNode(node2)
+			ring.AddNode(node3)
+
+			c1, c2, c3 := new(MockStorageNodeClient), new(MockStorageNodeClient), new(MockStorageNodeClient)
+			tt.setupMocks(c1, c2, c3)
+
+			clients := map[string]pb.StorageNodeClient{node1: c1, node2: c2, node3: c3}
+			coord := NewCoordinator(context.Background(), ring, clients, tt.replicaCount)
+			defer coord.Stop()
+
+			r, err := coord.Read(context.Background(), "b", "k")
+			if tt.expectedError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError)
+			} else {
+				require.NoError(t, err)
+				data, readErr := io.ReadAll(r)
+				require.NoError(t, readErr)
+				assert.Equal(t, "data", string(data))
+				require.NoError(t, r.Close())
+			}
+		})
+	}
+}
