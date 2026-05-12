@@ -32,6 +32,9 @@ func Auth(svc ports.IdentityService, tenantSvc ports.TenantService) gin.HandlerF
 		// Wrap the request context with UserID
 		ctx := appcontext.WithUserID(c.Request.Context(), apiKeyObj.UserID)
 
+		// Set source IP for IAM condition evaluation
+		ctx = appcontext.WithSourceIP(ctx, c.ClientIP())
+
 		tenantID, err := resolveAndVerifyTenant(ctx, c.GetHeader("X-Tenant-ID"), apiKeyObj.DefaultTenantID, apiKeyObj.UserID, tenantSvc)
 		if err != nil {
 			Error(c, err)
