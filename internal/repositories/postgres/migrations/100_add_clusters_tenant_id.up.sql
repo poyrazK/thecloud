@@ -9,9 +9,8 @@ END $$;
 
 -- Step 2: Backfill tenant_id from users table for existing clusters
 UPDATE clusters c
-SET tenant_id = t.id
+SET tenant_id = u.default_tenant_id
 FROM users u
-JOIN tenants t ON u.tenant_id = t.id
 WHERE c.user_id = u.id AND c.tenant_id IS NULL;
 
 -- Step 3: Set default for any remaining (standalone/system clusters without user)
