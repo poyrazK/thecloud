@@ -154,8 +154,10 @@ func TestSecretHandlerGetByName(t *testing.T) {
 
 	r.GET(secretsPath+"/:id", handler.Get)
 
-	secret := &domain.Secret{ID: uuid.New(), Name: testSecretName}
+	id := uuid.New()
+	secret := &domain.Secret{ID: id, Name: testSecretName}
 	svc.On("GetSecretByName", mock.Anything, testSecretName).Return(secret, nil)
+	svc.On("GetSecret", mock.Anything, id).Return(secret, nil)
 
 	req, err := http.NewRequest(http.MethodGet, secretsPath+"/"+testSecretName, nil)
 	require.NoError(t, err)
@@ -196,6 +198,7 @@ func TestSecretHandlerDelete(t *testing.T) {
 		svc, handler, r := setupSecretHandlerTest(t)
 		r.DELETE(secretsPath+"/:id", handler.Delete)
 		svc.On("GetSecretByName", mock.Anything, testSecretName).Return(nil, errors.New(errors.NotFound, errSecretNotFound))
+		svc.On("ListSecrets", mock.Anything).Return(nil, errors.New(errors.NotFound, errSecretNotFound))
 		req, _ := http.NewRequest(http.MethodDelete, secretsPath+"/"+testSecretName, nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -270,6 +273,7 @@ func TestSecretHandlerGetError(t *testing.T) {
 		svc, handler, r := setupSecretHandlerTest(t)
 		r.GET(secretsPath+"/:id", handler.Get)
 		svc.On("GetSecretByName", mock.Anything, "name").Return(nil, errors.New(errors.NotFound, errSecretNotFound))
+		svc.On("ListSecrets", mock.Anything).Return(nil, errors.New(errors.NotFound, errSecretNotFound))
 		req, _ := http.NewRequest(http.MethodGet, secretsPath+"/name", nil)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
