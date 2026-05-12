@@ -57,7 +57,7 @@ func TestClientCreateSnapshot(t *testing.T) {
 		assert.Equal(t, expectedSnapshot.Description, req["description"])
 
 		w.Header().Set(snapshotContentType, snapshotApplicationJSON)
-		_ = json.NewEncoder(w).Encode(expectedSnapshot)
+		_ = json.NewEncoder(w).Encode(Response[domain.Snapshot]{Data: expectedSnapshot})
 	}))
 	defer server.Close()
 
@@ -102,7 +102,7 @@ func TestClientGetSnapshot(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 
 		w.Header().Set(snapshotContentType, snapshotApplicationJSON)
-		_ = json.NewEncoder(w).Encode(expectedSnapshot)
+		_ = json.NewEncoder(w).Encode(Response[domain.Snapshot]{Data: expectedSnapshot})
 	}))
 	defer server.Close()
 
@@ -149,7 +149,7 @@ func TestClientRestoreSnapshot(t *testing.T) {
 		assert.Equal(t, newVolumeName, req["new_volume_name"])
 
 		w.Header().Set(snapshotContentType, snapshotApplicationJSON)
-		_ = json.NewEncoder(w).Encode(expectedVolume)
+		_ = json.NewEncoder(w).Encode(Response[domain.Volume]{Data: expectedVolume})
 	}))
 	defer server.Close()
 
