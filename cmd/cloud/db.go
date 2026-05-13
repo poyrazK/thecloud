@@ -60,11 +60,17 @@ var dbListCmd = &cobra.Command{
 var dbCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new managed database instance",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		name, _ := cmd.Flags().GetString("name")
 		engine, _ := cmd.Flags().GetString("engine")
 		version, _ := cmd.Flags().GetString("version")
 		vpc, _ := cmd.Flags().GetString("vpc")
+		size, _ := cmd.Flags().GetInt("size")
+
+		if size < 10 {
+			fmt.Printf("Error: --size must be at least 10GB\n")
+			return
+		}
 
 		var vpcPtr *string
 		if vpc != "" {
@@ -72,7 +78,7 @@ var dbCreateCmd = &cobra.Command{
 		}
 
 		client := createClient(opts)
-		db, err := client.CreateDatabase(name, engine, version, vpcPtr)
+		db, err := client.CreateDatabase(name, engine, version, vpcPtr, size)
 		if err != nil {
 			fmt.Printf(errorFormat, err)
 			return
@@ -189,5 +195,6 @@ func init() {
 	dbCreateCmd.Flags().StringP("engine", "e", "postgres", "Database engine (postgres/mysql)")
 	dbCreateCmd.Flags().StringP("version", "v", "16", "Engine version")
 	dbCreateCmd.Flags().StringP("vpc", "V", "", "VPC ID to attach to")
+	dbCreateCmd.Flags().Int("size", 10, "Allocated storage in GB (minimum 10GB)")
 	_ = dbCreateCmd.MarkFlagRequired("name")
 }

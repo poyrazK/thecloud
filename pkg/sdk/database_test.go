@@ -47,7 +47,7 @@ func TestClientCreateDatabase(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, dbAPIKey)
-	db, err := client.CreateDatabase(dbTestName, "postgres", "14", &vpcID)
+	db, err := client.CreateDatabase(dbTestName, "postgres", "14", &vpcID, 10)
 
 	require.NoError(t, err)
 	assert.NotNil(t, db)
@@ -166,7 +166,7 @@ func TestClientDatabaseErrors(t *testing.T) {
 
 	client := NewClient(server.URL, dbAPIKey)
 
-	_, err := client.CreateDatabase("db", "postgres", "14", nil)
+	_, err := client.CreateDatabase("db", "postgres", "14", nil, 10)
 	require.Error(t, err)
 
 	_, err = client.ListDatabases()
