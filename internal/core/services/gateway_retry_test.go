@@ -257,6 +257,23 @@ func TestRetryTransport_GivesUpAfterMaxRetries(t *testing.T) {
 	assert.Equal(t, 3, m.calls, "3 attempts: first + 2 retries")
 }
 
+func TestRetryTransport_GivesUpOnConnectionErrorAfterMaxRetries(t *testing.T) {
+	t.Parallel()
+	m := &mockRT{results: []mockRTResult{
+		mockErr("connection refused"),
+		mockErr("connection refused"),
+		mockErr("connection refused"),
+	}}
+	transport := wrapTransport(m, &retryTransport{maxRetries: 2})
+
+	req, _ := http.NewRequest("GET", "/", nil)
+	resp, err := transport.RoundTrip(req) //nolint:bodyclose
+	// When all attempts return errors, doRoundTrip returns nil, nil
+	require.NoError(t, err)
+	assert.Nil(t, resp)
+	assert.Equal(t, 3, m.calls, "3 attempts: first + 2 retries")
+}
+
 func TestRetryTransport_SucceedsOnFirstAttempt(t *testing.T) {
 	t.Parallel()
 	m := &mockRT{results: []mockRTResult{mockResp(200)}}
