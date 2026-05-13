@@ -58,10 +58,6 @@ var sgListCmd = &cobra.Command{
 	Short: "List security groups",
 	Run: func(cmd *cobra.Command, args []string) {
 		vpcID, _ := cmd.Flags().GetString(flagVPCID)
-		if vpcID == "" {
-			fmt.Printf("Error: --%s is required\n", flagVPCID)
-			return
-		}
 
 		client := createClient(opts)
 		groups, err := client.ListSecurityGroups(vpcID)

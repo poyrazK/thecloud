@@ -46,7 +46,7 @@ func (m *mockSGSvc) ListGroups(ctx context.Context, v uuid.UUID) ([]*domain.Secu
 	return nil, nil
 }
 func (m *mockSGSvc) DeleteGroup(ctx context.Context, id uuid.UUID) error { return nil }
-func (m *mockSGSvc) AddRule(ctx context.Context, sgID uuid.UUID, r domain.SecurityRule) (*domain.SecurityRule, error) {
+func (m *mockSGSvc) AddRule(ctx context.Context, idOrName string, r domain.SecurityRule) (*domain.SecurityRule, error) {
 	return nil, nil
 }
 func (m *mockSGSvc) RemoveRule(ctx context.Context, ruleID uuid.UUID) error               { return nil }
