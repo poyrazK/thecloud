@@ -232,7 +232,10 @@ func (s *SecurityGroupService) resolveGroupID(ctx context.Context, idOrName stri
 	}
 	sg, err := s.repo.GetByNameAcrossVPCs(ctx, idOrName)
 	if err != nil {
-		return uuid.Nil, errors.Wrap(errors.NotFound, "security group not found", err)
+		if errors.Is(err, errors.NotFound) {
+			return uuid.Nil, errors.Wrap(errors.NotFound, "security group not found", err)
+		}
+		return uuid.Nil, err
 	}
 	return sg.ID, nil
 }
