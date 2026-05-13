@@ -433,7 +433,7 @@ func (s *FunctionService) failInvocation(i *domain.Invocation, logMsg string, er
 	i.Status = "FAILED"
 	i.Logs = logMsg
 	_ = s.repo.CreateInvocation(context.Background(), i)
-	return i, err
+	return i, errors.Wrap(errors.Internal, logMsg, err)
 }
 
 func (s *FunctionService) prepareCode(ctx context.Context, f *domain.Function) (string, error) {
