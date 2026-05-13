@@ -792,6 +792,9 @@ func (a *DockerAdapter) AttachVolume(ctx context.Context, id string, volumePath 
 	// Return the container-side mount path and the new container ID
 	// bindSpec format: "devicePath:containerPath[:mode]"
 	parts := strings.Split(bindSpec, ":")
+	if len(parts) < 2 {
+		return "", createResp.ID, fmt.Errorf("invalid bind spec %q: expected hostPath:containerPath[:mode]", bindSpec)
+	}
 	containerPath := parts[1]
 	return containerPath, createResp.ID, nil
 }
