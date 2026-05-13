@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -19,6 +20,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 )
+
+// TestMain switches the package into insecure-host-key mode for the duration
+// of the tests. The library itself refuses to skip verification by default.
+func TestMain(m *testing.M) {
+	if err := os.Setenv(envInsecureHostKey, "1"); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to set %s: %v\n", envInsecureHostKey, err)
+		os.Exit(1)
+	}
+	os.Exit(m.Run())
+}
 
 // generateTestKey generates a private key for testing
 func generateTestKey(t *testing.T) string {
