@@ -313,8 +313,11 @@ func (c *Coordinator) Read(ctx context.Context, bucket, key string) (io.ReadClos
 		repairCtx, cancel := context.WithTimeout(ctx, repairTimeout)
 		go func() {
 			defer cancel()
+			// Ensure the pipe reader is closed on every exit path (panic,
+			// early return inside repairNodes, etc.) so the writer side
+			// upstream can unblock.
+			defer func() { _ = pr.Close() }()
 			c.repairNodes(repairCtx, bucket, key, pr, winner.timestamp, repairNodes)
-			_ = pr.Close()
 		}()
 
 		return &repairingReadCloser{
@@ -453,6 +456,11 @@ func (c *Coordinator) repairNodes(ctx context.Context, bucket, key string, r io.
 				},
 			})
 			if err != nil {
+				// The stream is half-open: it was created on the server side but the
+				// metadata frame failed. Drain it with CloseAndRecv before cancelling
+				// so the server-side goroutine exits cleanly instead of waiting on
+				// context cancellation.
+				_, _ = st.CloseAndRecv()
 				cancel()
 				continue
 			}
