@@ -15,10 +15,25 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// deadPurgeAfter is how long a member stays in the members map after being
-// flagged dead, giving the Coordinator time to observe the status before the
-// entry is reaped.
-const deadPurgeAfter = 60 * time.Second
+// Gossip protocol tuning constants. These are deliberately exported so that
+// tests, embedders, and ops tooling can override them in lock-step without
+// editing source. The defaults are conservative for low-latency LAN clusters
+// and may need to be raised for WAN/high-latency deployments to avoid false
+// positives.
+const (
+	// deadPurgeAfter is how long a member stays in the members map after being
+	// flagged dead, giving the Coordinator time to observe the status before
+	// the entry is reaped.
+	deadPurgeAfter = 60 * time.Second
+	// defaultFailCheckInterval is how often detectFailures runs.
+	defaultFailCheckInterval = 2 * time.Second
+	// defaultGossipRPCTimeout bounds a single Gossip RPC. Networks with
+	// >2s p99 latency should override this.
+	defaultGossipRPCTimeout = 2 * time.Second
+	// defaultFailureDetectionTimeout is the LastSeen age at which a peer is
+	// promoted from "alive" → "suspect". Dead promotion is 3× this.
+	defaultFailureDetectionTimeout = 5 * time.Second
+)
 
 // MemberState tracks a peer's status in the gossip ring.
 type MemberState struct {
@@ -48,18 +63,52 @@ type GossipProtocol struct {
 	logger   *slog.Logger
 	dialOpts []grpc.DialOption
 	peers    map[string]*peerClient
+
+	// Tunable timeouts. Defaults applied in NewGossipProtocol; tests/embedders
+	// can override them via SetFailureDetectionTimeout, SetGossipRPCTimeout,
+	// and SetFailCheckInterval before calling Start.
+	failureDetectionTimeout time.Duration
+	gossipRPCTimeout        time.Duration
+	failCheckInterval       time.Duration
+}
+
+// SetFailureDetectionTimeout overrides the alive→suspect promotion threshold.
+// Must be called before Start.
+func (g *GossipProtocol) SetFailureDetectionTimeout(d time.Duration) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.failureDetectionTimeout = d
+}
+
+// SetGossipRPCTimeout overrides the per-RPC Gossip timeout.
+// Must be called before Start.
+func (g *GossipProtocol) SetGossipRPCTimeout(d time.Duration) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.gossipRPCTimeout = d
+}
+
+// SetFailCheckInterval overrides how often detectFailures runs.
+// Must be called before Start.
+func (g *GossipProtocol) SetFailCheckInterval(d time.Duration) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.failCheckInterval = d
 }
 
 // NewGossipProtocol constructs a GossipProtocol for a node.
 func NewGossipProtocol(nodeID, address string, logger *slog.Logger) *GossipProtocol {
 	g := &GossipProtocol{
-		nodeID:   nodeID,
-		address:  address,
-		members:  make(map[string]*MemberState),
-		stopCh:   make(chan struct{}),
-		logger:   logger,
-		peers:    make(map[string]*peerClient),
-		dialOpts: []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())},
+		nodeID:                  nodeID,
+		address:                 address,
+		members:                 make(map[string]*MemberState),
+		stopCh:                  make(chan struct{}),
+		logger:                  logger,
+		peers:                   make(map[string]*peerClient),
+		dialOpts:                []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())},
+		failureDetectionTimeout: defaultFailureDetectionTimeout,
+		gossipRPCTimeout:        defaultGossipRPCTimeout,
+		failCheckInterval:       defaultFailCheckInterval,
 	}
 	// Add self
 	g.members[nodeID] = &MemberState{
@@ -86,7 +135,10 @@ func (g *GossipProtocol) AddPeer(id, addr string) {
 
 func (g *GossipProtocol) Start(interval time.Duration) {
 	ticker := time.NewTicker(interval)
-	failTicker := time.NewTicker(2 * time.Second) // Check failures often
+	g.mu.RLock()
+	failInterval := g.failCheckInterval
+	g.mu.RUnlock()
+	failTicker := time.NewTicker(failInterval)
 	go func() {
 		for {
 			select {
@@ -108,7 +160,7 @@ func (g *GossipProtocol) detectFailures() {
 	defer g.mu.Unlock()
 
 	now := time.Now()
-	timeout := 5 * time.Second
+	timeout := g.failureDetectionTimeout
 
 	for id, m := range g.members {
 		if id == g.nodeID {
@@ -262,7 +314,10 @@ func (g *GossipProtocol) sendGossip(targetID string, msg *pb.GossipMessage) {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	g.mu.RLock()
+	rpcTimeout := g.gossipRPCTimeout
+	g.mu.RUnlock()
+	ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
 	defer cancel()
 
 	if _, err := p.client.Gossip(ctx, msg); err != nil {

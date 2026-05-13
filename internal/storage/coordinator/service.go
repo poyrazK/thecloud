@@ -15,14 +15,20 @@ import (
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/platform"
 	pb "github.com/poyrazk/thecloud/internal/storage/protocol"
+	"github.com/poyrazk/thecloud/internal/storage/storageconst"
 )
 
 const (
 	errNoNodesAvailable = "no storage nodes available"
-	chunkSize           = 1024 * 1024 // 1MB chunks
 	repairTimeout       = 30 * time.Second
-	// maxObjectSize prevents memory exhaustion when writing large objects.
-	maxObjectSize = 5 * 1024 * 1024 * 1024 // 5 GB
+)
+
+// chunkSize and maxObjectSize are re-exported aliases of the canonical
+// values in internal/storage/storageconst so that the coordinator and node
+// packages cannot drift. Update the source-of-truth there.
+const (
+	chunkSize     = storageconst.ChunkSize
+	maxObjectSize = storageconst.MaxObjectSize
 )
 
 // Coordinator implements ports.FileStore to manage distributed storage.
