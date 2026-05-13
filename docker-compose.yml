@@ -108,6 +108,7 @@ services:
       - POWERDNS_API_KEY=${POWERDNS_API_KEY}
       - STORAGE_SECRET=${STORAGE_SECRET}
       - DOCKER_DEFAULT_NETWORK=${DOCKER_DEFAULT_NETWORK:-cloud-network}
+      - CLOUD_API_URL=${CLOUD_API_URL:-http://host.docker.internal:8080}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/run/openvswitch:/var/run/openvswitch
