@@ -39,6 +39,7 @@ func TestClientCreateDatabase(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, expectedDB.Name, req.Name)
 		assert.Equal(t, expectedDB.Engine, req.Engine)
+		assert.Equal(t, 10, req.AllocatedStorage)
 
 		w.Header().Set(dbContentType, dbApplicationJSON)
 		resp := Response[Database]{Data: expectedDB}

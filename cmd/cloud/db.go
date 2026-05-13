@@ -68,7 +68,7 @@ var dbCreateCmd = &cobra.Command{
 		size, _ := cmd.Flags().GetInt("size")
 
 		if size < 10 {
-			fmt.Printf("Error: --size must be at least 10GB\n")
+			fmt.Printf(errorFormat, "--size must be at least 10GB")
 			return
 		}
 
