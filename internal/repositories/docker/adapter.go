@@ -893,7 +893,7 @@ func (a *DockerAdapter) DetachVolume(ctx context.Context, id string, volumePath 
 }
 
 func (a *DockerAdapter) GetConsoleURL(ctx context.Context, id string) (string, error) {
-	return "", errors.Wrap(errors.Internal, "console not supported for docker instances", nil)
+	return "", errors.New(errors.NotImplemented, "console not supported for docker instances")
 }
 
 func (a *DockerAdapter) GetInstanceIP(ctx context.Context, id string) (string, error) {

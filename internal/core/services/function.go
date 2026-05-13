@@ -311,7 +311,7 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 
 	tmpDir, err := s.prepareCode(ctx, f)
 	if err != nil {
-		return s.failInvocation(i, fmt.Sprintf("Error preparing code: %v", err), err)
+		return s.failInvocation(i, "function invocation failed", err)
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
@@ -319,7 +319,7 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 
 	containerID, _, err := s.compute.RunTask(ctx, opts)
 	if err != nil {
-		return s.failInvocation(i, fmt.Sprintf("Error running task: %v", err), err)
+		return s.failInvocation(i, "function invocation failed", err)
 	}
 	defer func() { _ = s.compute.DeleteInstance(ctx, containerID) }()
 

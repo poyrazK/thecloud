@@ -1675,6 +1675,26 @@ func testInstanceServiceUnitRepoErrors(t *testing.T) {
 		assert.Contains(t, err.Error(), "stats unavailable")
 	})
 
+	t.Run("GetInstanceLogs_ComputeError", func(t *testing.T) {
+		repo.On("GetByName", mock.Anything, "test-inst").Return(inst, nil).Once()
+		compute.On("GetInstanceLogs", mock.Anything, "cid-1").Return(nil, fmt.Errorf("log stream error")).Once()
+
+		_, err := svc.GetInstanceLogs(ctx, "test-inst")
+		require.Error(t, err)
+		assert.True(t, svcerrors.Is(err, svcerrors.Internal))
+		assert.Contains(t, err.Error(), "failed to get instance logs")
+	})
+
+	t.Run("GetConsoleURL_ComputeError", func(t *testing.T) {
+		repo.On("GetByName", mock.Anything, "test-inst").Return(inst, nil).Once()
+		compute.On("GetConsoleURL", mock.Anything, "cid-1").Return("", fmt.Errorf("console unavailable")).Once()
+
+		_, err := svc.GetConsoleURL(ctx, "test-inst")
+		require.Error(t, err)
+		assert.True(t, svcerrors.Is(err, svcerrors.Internal))
+		assert.Contains(t, err.Error(), "failed to get console URL")
+	})
+
 	t.Run("Exec_NotFound", func(t *testing.T) {
 		repo.On("GetByName", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
 		repo.On("GetByID", mock.Anything, mock.Anything).Return(nil, svcerrors.New(svcerrors.NotFound, "not found")).Once()
