@@ -418,10 +418,18 @@ func (s *FunctionService) getBulkhead(f *domain.Function) *platform.Bulkhead {
 	if b, ok = s.bulkheadRegistry[f.ID]; ok {
 		return b
 	}
+
+	// WaitTimeout: if MaxQueueDepth > 0, allow waiting for a slot
+	// Use MaxQueueDepth * 100ms as sensible wait time per slot in queue
+	waitTimeout := 0
+	if f.MaxQueueDepth > 0 {
+		waitTimeout = f.MaxQueueDepth * 100 // milliseconds
+	}
+
 	b = platform.NewBulkhead(platform.BulkheadOpts{
 		Name:        f.ID.String(),
 		MaxConc:     f.MaxConcurrentInvocations,
-		WaitTimeout: 0, // fail fast if at capacity
+		WaitTimeout: time.Duration(waitTimeout) * time.Millisecond,
 	})
 	s.bulkheadRegistry[f.ID] = b
 	return b
