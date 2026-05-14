@@ -26,8 +26,8 @@ type mockVpcService struct {
 	mock.Mock
 }
 
-func (m *mockVpcService) CreateVPC(ctx context.Context, name, cidrBlock string) (*domain.VPC, error) {
-	args := m.Called(ctx, name, cidrBlock)
+func (m *mockVpcService) CreateVPC(ctx context.Context, name, cidrBlock, idempotencyKey string) (*domain.VPC, error) {
+	args := m.Called(ctx, name, cidrBlock, idempotencyKey)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -74,7 +74,7 @@ func TestVpcHandlerCreate(t *testing.T) {
 	r.POST(vpcsPath, handler.Create)
 
 	vpc := &domain.VPC{ID: uuid.New(), Name: testVpcName}
-	svc.On("CreateVPC", mock.Anything, testVpcName, testutil.TestCIDR).Return(vpc, nil)
+	svc.On("CreateVPC", mock.Anything, testVpcName, testutil.TestCIDR, "").Return(vpc, nil)
 
 	body, err := json.Marshal(map[string]string{"name": testVpcName, "cidr_block": testutil.TestCIDR})
 	require.NoError(t, err)
