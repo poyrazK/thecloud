@@ -212,7 +212,10 @@ func (s *LocalStore) Delete(bucket, key string) error {
 	}
 	switch {
 	case dataErr != nil && metaErr != nil:
-		return fmt.Errorf("failed to delete data (%w) and meta (%v)", dataErr, metaErr)
+		// errorlint disallows %v with a second error inside a wrapping
+		// Errorf, so join them explicitly. The data error is the primary
+		// signal for the caller — meta failure rides along for visibility.
+		return fmt.Errorf("failed to delete data: %w (meta also failed: %s)", dataErr, metaErr.Error())
 	case dataErr != nil:
 		return fmt.Errorf("failed to delete data: %w", dataErr)
 	case metaErr != nil:
