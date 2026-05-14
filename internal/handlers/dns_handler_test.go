@@ -61,7 +61,7 @@ func TestCreateZoneHandler(t *testing.T) {
 		assert.Equal(t, testZoneName, response.Name)
 	})
 
-	t.Run("invalid input", func(t *testing.T) {
+	t.Run("invalid input - missing name", func(t *testing.T) {
 		svc := mocks.NewDNSService(t)
 		handler := NewDNSHandler(svc)
 		r := gin.New()
@@ -77,6 +77,46 @@ func TestCreateZoneHandler(t *testing.T) {
 		r.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Contains(t, w.Body.String(), "field 'name' is required")
+	})
+
+	t.Run("invalid input - missing vpc_id", func(t *testing.T) {
+		svc := mocks.NewDNSService(t)
+		handler := NewDNSHandler(svc)
+		r := gin.New()
+		r.POST(zonesPath, handler.CreateZone)
+
+		reqBody := map[string]interface{}{
+			"name": testZoneName,
+		}
+		body, _ := json.Marshal(reqBody)
+
+		req, _ := http.NewRequest(http.MethodPost, zonesPath, bytes.NewBuffer(body))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Contains(t, w.Body.String(), "field 'vpc_id' is required")
+	})
+
+	t.Run("invalid input - invalid vpc_id format", func(t *testing.T) {
+		svc := mocks.NewDNSService(t)
+		handler := NewDNSHandler(svc)
+		r := gin.New()
+		r.POST(zonesPath, handler.CreateZone)
+
+		reqBody := map[string]interface{}{
+			"name":   testZoneName,
+			"vpc_id": "not-a-valid-uuid",
+		}
+		body, _ := json.Marshal(reqBody)
+
+		req, _ := http.NewRequest(http.MethodPost, zonesPath, bytes.NewBuffer(body))
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Contains(t, w.Body.String(), "field 'vpc_id' must be a valid UUID")
 	})
 }
 
