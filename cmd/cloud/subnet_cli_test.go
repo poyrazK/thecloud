@@ -98,3 +98,62 @@ func TestResolveSubnetIDByUUID(t *testing.T) {
 		t.Fatalf("expected %s, got %s", id, resolved)
 	}
 }
+
+func TestResolveVPCID(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+		wantServer bool // true if server should be called
+	}{
+		{
+			name:     "resolve by name",
+			input:    "my-vpc",
+			expected: "uuid-vpc-1",
+			wantServer: true,
+		},
+		{
+			name:     "passthrough UUID",
+			input:    "abc123-def456",
+			expected: "abc123-def456",
+			wantServer: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var server *httptest.Server
+			if tt.wantServer {
+				server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/json")
+					if r.URL.Path == "/vpcs" {
+						err := json.NewEncoder(w).Encode(sdk.Response[[]sdk.VPC]{
+							Data: []sdk.VPC{
+								{ID: "uuid-vpc-1", Name: "my-vpc", CIDRBlock: "10.0.0.0/16"},
+							},
+						})
+						if err != nil {
+							t.Fatalf("failed to encode response: %v", err)
+						}
+						return
+					}
+					w.WriteHeader(http.StatusNotFound)
+				}))
+				defer server.Close()
+			} else {
+				server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusNotFound) // Should not be called
+				}))
+				defer server.Close()
+			}
+
+			client := sdk.NewClient(server.URL, "test-key")
+			resolved := resolveVPCID(tt.input, client)
+			if resolved != tt.expected {
+				t.Fatalf("expected %s, got %s", tt.expected, resolved)
+			}
+		})
+	}
+}
