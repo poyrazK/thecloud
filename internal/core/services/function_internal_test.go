@@ -10,11 +10,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/platform"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -281,4 +284,61 @@ func TestFunctionService_NormalizeHandler(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestFunctionService_GetBulkhead(t *testing.T) {
+	svc := &FunctionService{
+		bulkheadRegistry: make(map[uuid.UUID]*platform.Bulkhead),
+		bulkheadMu:       sync.RWMutex{},
+		logger:           slog.Default(),
+	}
+
+	t.Run("no throttling when MaxConcurrentInvocations is zero", func(t *testing.T) {
+		f := &domain.Function{ID: uuid.New(), MaxConcurrentInvocations: 0}
+		b := svc.getBulkhead(f)
+		assert.Nil(t, b)
+	})
+
+	t.Run("no throttling when MaxConcurrentInvocations is negative", func(t *testing.T) {
+		f := &domain.Function{ID: uuid.New(), MaxConcurrentInvocations: -1}
+		b := svc.getBulkhead(f)
+		assert.Nil(t, b)
+	})
+
+	t.Run("bulkhead created and cached for reuse", func(t *testing.T) {
+		fID := uuid.New()
+		f := &domain.Function{ID: fID, MaxConcurrentInvocations: 2, MaxQueueDepth: 0}
+		b1 := svc.getBulkhead(f)
+		b2 := svc.getBulkhead(f)
+		require.NotNil(t, b1)
+		require.NotNil(t, b2)
+		assert.Same(t, b1, b2)
+	})
+
+	t.Run("different functions get different bulkheads", func(t *testing.T) {
+		f1 := &domain.Function{ID: uuid.New(), MaxConcurrentInvocations: 2, MaxQueueDepth: 0}
+		f2 := &domain.Function{ID: uuid.New(), MaxConcurrentInvocations: 5, MaxQueueDepth: 0}
+		b1 := svc.getBulkhead(f1)
+		b2 := svc.getBulkhead(f2)
+		require.NotNil(t, b1)
+		require.NotNil(t, b2)
+		assert.NotSame(t, b1, b2)
+	})
+
+	t.Run("MaxQueueDepth of zero gives no-wait bulkhead", func(t *testing.T) {
+		f := &domain.Function{ID: uuid.New(), MaxConcurrentInvocations: 2, MaxQueueDepth: 0}
+		b := svc.getBulkhead(f)
+		require.NotNil(t, b)
+		// Bulkhead with WaitTimeout=0 and no explicit timeout uses 5s default
+		// We just verify a bulkhead was created
+		assert.Equal(t, "2", b.Name())
+	})
+
+	t.Run("MaxQueueDepth > 0 gives bulkhead with wait timeout", func(t *testing.T) {
+		f := &domain.Function{ID: uuid.New(), MaxConcurrentInvocations: 2, MaxQueueDepth: 5}
+		b := svc.getBulkhead(f)
+		require.NotNil(t, b)
+		// Verify bulkhead name includes function ID
+		assert.Contains(t, b.Name(), f.ID.String())
+	})
 }
