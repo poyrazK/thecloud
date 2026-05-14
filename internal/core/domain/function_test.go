@@ -36,10 +36,25 @@ func TestFunctionUpdateValidate(t *testing.T) {
 		assert.Contains(t, err.Error(), "memory")
 	})
 
-	t.Run("valid_timeout_and_memory", func(t *testing.T) {
+	t.Run("cpu_too_low", func(t *testing.T) {
+		cpu := 0.05
+		err := (&FunctionUpdate{CPUs: &cpu}).Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cpu")
+	})
+
+	t.Run("cpu_too_high", func(t *testing.T) {
+		cpu := 9.0
+		err := (&FunctionUpdate{CPUs: &cpu}).Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cpu")
+	})
+
+	t.Run("valid_timeout_memory_cpu", func(t *testing.T) {
 		timeout := 300
 		mem := 256
-		err := (&FunctionUpdate{Timeout: &timeout, MemoryMB: &mem}).Validate()
+		cpu := 2.0
+		err := (&FunctionUpdate{Timeout: &timeout, MemoryMB: &mem, CPUs: &cpu}).Validate()
 		assert.NoError(t, err)
 	})
 

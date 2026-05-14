@@ -60,20 +60,15 @@ var dnsCreateZoneCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
 		desc, _ := cmd.Flags().GetString("description")
-		vpcStr, _ := cmd.Flags().GetString("vpc-id")
+		vpcIDOrName, _ := cmd.Flags().GetString("vpc-id")
 
-		var vpcID *uuid.UUID
-		if vpcStr != "" {
-			uid, err := uuid.Parse(vpcStr)
-			if err != nil {
-				fmt.Printf("Error: invalid vpc-id format: %v\n", err)
-				return
-			}
-			vpcID = &uid
+		var vpcPtr *string
+		if vpcIDOrName != "" {
+			vpcPtr = &vpcIDOrName
 		}
 
 		client := createClient(opts)
-		zone, err := client.CreateDNSZone(name, desc, vpcID)
+		zone, err := client.CreateDNSZone(name, desc, vpcPtr)
 		if err != nil {
 			fmt.Printf(dnsErrorFormat, err)
 			return

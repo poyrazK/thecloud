@@ -25,10 +25,10 @@ func NewVpcRepository(db DB) *VpcRepository {
 // Create inserts a new VPC record into the database.
 func (r *VpcRepository) Create(ctx context.Context, vpc *domain.VPC) error {
 	query := `
-		INSERT INTO vpcs (id, user_id, tenant_id, name, cidr_block, network_id, vxlan_id, status, arn, created_at)
-		VALUES ($1, $2, $3, $4, NULLIF($5, '')::cidr, $6, $7, $8, $9, $10)
+		INSERT INTO vpcs (id, user_id, tenant_id, name, cidr_block, network_id, vxlan_id, status, arn, created_at, idempotency_key)
+		VALUES ($1, $2, $3, $4, NULLIF($5, '')::cidr, $6, $7, $8, $9, $10, NULLIF($11, ''))
 	`
-	_, err := r.db.Exec(ctx, query, vpc.ID, vpc.UserID, vpc.TenantID, vpc.Name, vpc.CIDRBlock, vpc.NetworkID, vpc.VXLANID, vpc.Status, vpc.ARN, vpc.CreatedAt)
+	_, err := r.db.Exec(ctx, query, vpc.ID, vpc.UserID, vpc.TenantID, vpc.Name, vpc.CIDRBlock, vpc.NetworkID, vpc.VXLANID, vpc.Status, vpc.ARN, vpc.CreatedAt, vpc.IdempotencyKey)
 	if err != nil {
 		return errors.Wrap(errors.Internal, "failed to create vpc", err)
 	}
@@ -47,6 +47,16 @@ func (r *VpcRepository) GetByName(ctx context.Context, name string) (*domain.VPC
 	tenantID := appcontext.TenantIDFromContext(ctx)
 	query := `SELECT id, user_id, tenant_id, name, COALESCE(cidr_block::text, ''), network_id, vxlan_id, status, arn, created_at FROM vpcs WHERE name = $1 AND tenant_id = $2`
 	return r.scanVPC(r.db.QueryRow(ctx, query, name, tenantID))
+}
+
+// GetByIdempotencyKey retrieves a VPC by its idempotency key (scoped to user).
+func (r *VpcRepository) GetByIdempotencyKey(ctx context.Context, key string) (*domain.VPC, error) {
+	if key == "" {
+		return nil, errors.New(errors.NotFound, "idempotency key empty")
+	}
+	userID := appcontext.UserIDFromContext(ctx)
+	query := `SELECT id, user_id, tenant_id, name, COALESCE(cidr_block::text, ''), network_id, vxlan_id, status, arn, created_at FROM vpcs WHERE idempotency_key = $1 AND user_id = $2`
+	return r.scanVPC(r.db.QueryRow(ctx, query, key, userID))
 }
 
 // List returns all VPCs belonging to the authenticated user.

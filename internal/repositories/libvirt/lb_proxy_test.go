@@ -66,6 +66,7 @@ func (m *mockCompute) ResizeInstance(ctx context.Context, id string, cpu, memory
 func (m *mockCompute) CreateSnapshot(ctx context.Context, id, name string) error  { return nil }
 func (m *mockCompute) RestoreSnapshot(ctx context.Context, id, name string) error { return nil }
 func (m *mockCompute) DeleteSnapshot(ctx context.Context, id, name string) error  { return nil }
+func (m *mockCompute) ResetCircuitBreaker() {}
 
 func TestLBProxyAdapter(t *testing.T) {
 	mc := new(mockCompute)

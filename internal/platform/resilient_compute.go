@@ -54,6 +54,12 @@ func (o ResilientComputeOpts) withDefaults() ResilientComputeOpts {
 
 // ResilientCompute wraps a ComputeBackend with circuit breaker, bulkhead,
 // and per-call timeouts. It implements the ports.ComputeBackend interface.
+//
+// Note: the circuit breaker is per-backend-instance (one breaker guards all
+// operations on a single compute backend). If one operation fails repeatedly,
+// the breaker trips and blocks all subsequent calls to that backend until the
+// reset timeout expires. This is a deliberate design trade-off for simplicity.
+// For finer-grained isolation, each operation type could have its own breaker.
 type ResilientCompute struct {
 	inner    ports.ComputeBackend
 	cb       *CircuitBreaker
@@ -322,4 +328,10 @@ func (r *ResilientCompute) Type() string {
 // Unwrap returns the underlying ComputeBackend (useful for tests).
 func (r *ResilientCompute) Unwrap() ports.ComputeBackend {
 	return r.inner
+}
+
+// ResetCircuitBreaker resets the circuit breaker state.
+// Useful for E2E tests that need clean state between test suites.
+func (r *ResilientCompute) ResetCircuitBreaker() {
+	r.cb.Reset()
 }

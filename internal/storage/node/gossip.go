@@ -51,7 +51,9 @@ type GossipProtocol struct {
 }
 
 // NewGossipProtocol constructs a GossipProtocol for a node.
-func NewGossipProtocol(nodeID, address string, logger *slog.Logger) *GossipProtocol {
+// dialOpts are the gRPC dial options to use when connecting to peers.
+// If nil, insecure credentials are used by default.
+func NewGossipProtocol(nodeID, address string, dialOpts []grpc.DialOption, logger *slog.Logger) *GossipProtocol {
 	g := &GossipProtocol{
 		nodeID:   nodeID,
 		address:  address,
@@ -59,7 +61,10 @@ func NewGossipProtocol(nodeID, address string, logger *slog.Logger) *GossipProto
 		stopCh:   make(chan struct{}),
 		logger:   logger,
 		peers:    make(map[string]*peerClient),
-		dialOpts: []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())},
+		dialOpts: dialOpts,
+	}
+	if g.dialOpts == nil {
+		g.dialOpts = []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 	}
 	// Add self
 	g.members[nodeID] = &MemberState{

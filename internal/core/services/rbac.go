@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	appcontext "github.com/poyrazk/thecloud/internal/core/context"
@@ -110,17 +111,17 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 
 	// 2. Check Attached IAM Policies (if IAMRepo and Evaluator are provided)
 	if s.iamRepo != nil && s.evaluator != nil {
-		policies, err := s.iamRepo.GetPoliciesForUser(ctx, tenantID, userID)
-		if err == nil && len(policies) > 0 {
-			effect, evalErr := s.evaluator.Evaluate(ctx, policies, string(permission), resource, nil)
-			if evalErr == nil {
-				if effect == domain.EffectAllow {
-					return true, nil
-				}
-				if effect == domain.EffectDeny {
-					return false, nil
-				}
-				// If "", continue to role-based logic
+		evalCtx := s.buildEvalCtx(ctx, tenantID)
+
+		// Check user-attached policies
+		if allowed, stop := s.checkIAMPolicies(ctx, tenantID, userID, permission, resource, evalCtx); allowed || stop {
+			return allowed, nil
+		}
+
+		// Check role-attached policies
+		if roleName != "" {
+			if allowed, stop := s.checkRoleIAMPolicies(ctx, tenantID, roleName, permission, resource, evalCtx); allowed || stop {
+				return allowed, nil
 			}
 		}
 	}
@@ -153,6 +154,69 @@ func (s *rbacService) HasPermission(ctx context.Context, userID uuid.UUID, tenan
 
 	s.logger.Warn("RBAC: permission denied (role in DB but permission not listed)", "role", role.Name, "permission", permission, "resource", resource)
 	return false, nil
+}
+
+// checkIAMPolicies evaluates IAM policies attached directly to a user.
+// Returns (allowed, stop) where stop=true means decision is final.
+func (s *rbacService) checkIAMPolicies(ctx context.Context, tenantID, userID uuid.UUID, permission domain.Permission, resource string, evalCtx map[string]interface{}) (bool, bool) {
+	policies, err := s.iamRepo.GetPoliciesForUser(ctx, tenantID, userID)
+	if err != nil {
+		s.logger.Error("RBAC: failed to get user IAM policies, falling through to role policies", "user_id", userID, "tenant_id", tenantID, "error", err)
+		return false, false
+	}
+	if len(policies) == 0 {
+		return false, false
+	}
+	return s.evaluatePolicies(ctx, policies, permission, resource, evalCtx)
+}
+
+// checkRoleIAMPolicies evaluates IAM policies attached to a user's role.
+// Returns (allowed, stop) where stop=true means decision is final.
+func (s *rbacService) checkRoleIAMPolicies(ctx context.Context, tenantID uuid.UUID, roleName string, permission domain.Permission, resource string, evalCtx map[string]interface{}) (bool, bool) {
+	policies, err := s.iamRepo.GetPoliciesForRole(ctx, tenantID, roleName)
+	if err != nil {
+		s.logger.Error("RBAC: failed to get role IAM policies, falling through to RBAC fallback", "role", roleName, "tenant_id", tenantID, "error", err)
+		return false, false
+	}
+	if len(policies) == 0 {
+		return false, false
+	}
+	return s.evaluatePolicies(ctx, policies, permission, resource, evalCtx)
+}
+
+// evaluatePolicies evaluates a set of policies and returns (allowed, stop).
+// stop=true means a final decision (Allow or Deny) was reached.
+// If evaluation fails, returns an error via the logger and (false, false) to continue to next policy source.
+func (s *rbacService) evaluatePolicies(ctx context.Context, policies []*domain.Policy, permission domain.Permission, resource string, evalCtx map[string]interface{}) (bool, bool) {
+	effect, err := s.evaluator.Evaluate(ctx, policies, string(permission), resource, evalCtx)
+	if err != nil {
+		s.logger.Error("RBAC: IAM policy evaluation failed, falling through to next policy source", "error", err, "permission", permission, "resource", resource)
+		return false, false
+	}
+	if effect == domain.EffectAllow {
+		return true, true
+	}
+	if effect == domain.EffectDeny {
+		return false, true
+	}
+	return false, false
+}
+
+func (s *rbacService) buildEvalCtx(ctx context.Context, tenantID uuid.UUID) map[string]interface{} {
+	evalCtx := map[string]interface{}{
+		string(domain.KeyTenantID):  tenantID.String(),
+		string(domain.KeyCurrentTime): time.Now().UTC(),
+	}
+
+	if userID := appcontext.UserIDFromContext(ctx); userID != uuid.Nil {
+		evalCtx[string(domain.KeyUserID)] = userID.String()
+	}
+
+	if sourceIP := appcontext.SourceIPFromContext(ctx); sourceIP != "" {
+		evalCtx[string(domain.KeySourceIP)] = sourceIP
+	}
+
+	return evalCtx
 }
 
 func (s *rbacService) CreateRole(ctx context.Context, role *domain.Role) error {

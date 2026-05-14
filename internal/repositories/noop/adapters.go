@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
 	"github.com/poyrazk/thecloud/internal/core/ports"
+	"github.com/poyrazk/thecloud/internal/errors"
 )
 
 // NoopInstanceRepository is a no-op instance repository.
@@ -23,7 +24,7 @@ func (r *NoopInstanceRepository) GetByID(ctx context.Context, id uuid.UUID) (*do
 func (r *NoopInstanceRepository) GetByName(ctx context.Context, name string) (*domain.Instance, error) {
 	return &domain.Instance{ID: uuid.New(), Name: name}, nil
 }
-func (r *NoopInstanceRepository) List(ctx context.Context) ([]*domain.Instance, error) {
+func (r *NoopInstanceRepository) List(ctx context.Context, tagFilter []string) ([]*domain.Instance, error) {
 	return []*domain.Instance{}, nil
 }
 func (r *NoopInstanceRepository) ListAll(ctx context.Context) ([]*domain.Instance, error) {
@@ -51,6 +52,9 @@ func (r *NoopVpcRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.
 }
 func (r *NoopVpcRepository) GetByName(ctx context.Context, name string) (*domain.VPC, error) {
 	return &domain.VPC{ID: uuid.New(), Name: name}, nil
+}
+func (r *NoopVpcRepository) GetByIdempotencyKey(ctx context.Context, key string) (*domain.VPC, error) {
+	return nil, errors.New(errors.NotFound, "idempotency key not found")
 }
 func (r *NoopVpcRepository) List(ctx context.Context) ([]*domain.VPC, error) {
 	return []*domain.VPC{}, nil
@@ -155,6 +159,7 @@ func (b *NoopComputeBackend) ResizeInstance(ctx context.Context, id string, cpu,
 func (b *NoopComputeBackend) CreateSnapshot(ctx context.Context, id, name string) error { return nil }
 func (b *NoopComputeBackend) RestoreSnapshot(ctx context.Context, id, name string) error { return nil }
 func (b *NoopComputeBackend) DeleteSnapshot(ctx context.Context, id, name string) error { return nil }
+func (b *NoopComputeBackend) ResetCircuitBreaker() {}
 
 // NoopDNSService is a no-op DNS service.
 type NoopDNSService struct{}

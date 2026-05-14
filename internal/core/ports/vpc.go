@@ -16,6 +16,8 @@ type VpcRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.VPC, error)
 	// GetByName retrieves a VPC definition by its friendly name (scoped to authorized user).
 	GetByName(ctx context.Context, name string) (*domain.VPC, error)
+	// GetByIdempotencyKey retrieves a VPC by its idempotency key (scoped to user).
+	GetByIdempotencyKey(ctx context.Context, key string) (*domain.VPC, error)
 	// List returns all VPCs accessible to the current user context.
 	List(ctx context.Context) ([]*domain.VPC, error)
 	// Delete removes a VPC definition from storage.
@@ -25,7 +27,7 @@ type VpcRepository interface {
 // VpcService provides business logic for managing isolated virtual networks.
 type VpcService interface {
 	// CreateVPC establishes a new isolated virtual network with a specific address space.
-	CreateVPC(ctx context.Context, name, cidrBlock string) (*domain.VPC, error)
+	CreateVPC(ctx context.Context, name, cidrBlock, idempotencyKey string) (*domain.VPC, error)
 	// GetVPC retrieves detailed information for a specific virtual network.
 	GetVPC(ctx context.Context, idOrName string) (*domain.VPC, error)
 	// ListVPCs returns all virtual networks registered to the current authorized user.

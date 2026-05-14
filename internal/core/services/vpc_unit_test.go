@@ -52,7 +52,7 @@ func TestVpcServiceUnit(t *testing.T) {
 		})).Return(nil).Once()
 		auditSvc.On("Log", mock.Anything, userID, "vpc.create", "vpc", mock.Anything, mock.Anything).Return(nil).Once()
 
-		vpc, err := svc.CreateVPC(ctx, "test-vpc", "10.1.0.0/16")
+		vpc, err := svc.CreateVPC(ctx, "test-vpc", "10.1.0.0/16", "")
 		require.NoError(t, err)
 		assert.NotNil(t, vpc)
 		assert.Equal(t, "10.1.0.0/16", vpc.CIDRBlock)
@@ -63,7 +63,7 @@ func TestVpcServiceUnit(t *testing.T) {
 	t.Run("CreateVPC_BridgeFailure", func(t *testing.T) {
 		network.On("CreateBridge", mock.Anything, mock.Anything, mock.Anything).Return(fmt.Errorf("bridge fail")).Once()
 
-		_, err := svc.CreateVPC(ctx, "fail", "10.2.0.0/16")
+		_, err := svc.CreateVPC(ctx, "fail", "10.2.0.0/16", "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "bridge")
 	})
@@ -73,14 +73,43 @@ func TestVpcServiceUnit(t *testing.T) {
 		repo.On("Create", mock.Anything, mock.Anything).Return(fmt.Errorf("db fail")).Once()
 		network.On("DeleteBridge", mock.Anything, mock.Anything).Return(nil).Once()
 
-		_, err := svc.CreateVPC(ctx, "rollback", "10.3.0.0/16")
+		_, err := svc.CreateVPC(ctx, "rollback", "10.3.0.0/16", "")
 		require.Error(t, err)
 	})
 
 	t.Run("CreateVPC_InvalidCIDR", func(t *testing.T) {
-		_, err := svc.CreateVPC(ctx, "test-vpc", "invalid")
+		_, err := svc.CreateVPC(ctx, "test-vpc", "invalid", "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid CIDR")
+	})
+
+	t.Run("CreateVPC_IdempotencyKey_ReturnsExisting", func(t *testing.T) {
+		existingVPC := &domain.VPC{
+			ID:        uuid.New(),
+			UserID:    userID,
+			Name:      "test-vpc",
+			CIDRBlock: "10.1.0.0/16",
+		}
+		repo.On("GetByIdempotencyKey", mock.Anything, "my-idempotency-key").Return(existingVPC, nil).Once()
+
+		vpc, err := svc.CreateVPC(ctx, "test-vpc", "10.1.0.0/16", "my-idempotency-key")
+		require.NoError(t, err)
+		assert.Equal(t, existingVPC.ID, vpc.ID)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("CreateVPC_IdempotencyKey_EmptyKey_CreatesNew", func(t *testing.T) {
+		network.On("CreateBridge", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		repo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
+		routeTableRepo.On("Create", mock.Anything, mock.MatchedBy(func(rt *domain.RouteTable) bool {
+			return rt.IsMain && rt.Name == "main"
+		})).Return(nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "vpc.create", "vpc", mock.Anything, mock.Anything).Return(nil).Once()
+
+		vpc, err := svc.CreateVPC(ctx, "new-vpc", "10.1.0.0/16", "")
+		require.NoError(t, err)
+		assert.NotNil(t, vpc)
+		repo.AssertExpectations(t)
 	})
 
 	t.Run("DeleteVPC_Success", func(t *testing.T) {

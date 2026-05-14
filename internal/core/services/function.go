@@ -5,7 +5,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"encoding/json"
 	stdlib_errors "errors"
 	"fmt"
 	"io"
@@ -31,7 +30,23 @@ const tracerNameFunction = "function-service"
 const (
 	// maxLogSize bounds log reading in captureInvocationResults to prevent memory exhaustion.
 	maxLogSize = 1 * 1024 * 1024 // 1 MB
+	// CleanupTimeout is the timeout for asynchronous container cleanup.
+	CleanupTimeout = 30 * time.Second
 )
+
+// contextWithMetadata copies user/tenant metadata from src into a fresh background context.
+// This allows cleanup goroutines to have access to context values (for logging/tracing)
+// without being tied to src's cancellation or deadline.
+func contextWithMetadata(src context.Context) context.Context {
+	ctx := context.Background()
+	if userID := appcontext.UserIDFromContext(src); userID != uuid.Nil {
+		ctx = appcontext.WithUserID(ctx, userID)
+	}
+	if tenantID := appcontext.TenantIDFromContext(src); tenantID != uuid.Nil {
+		ctx = appcontext.WithTenantID(ctx, tenantID)
+	}
+	return ctx
+}
 
 var logSanitizationRe = regexp.MustCompile(`[^[:print:][:space:]]`)
 
@@ -115,6 +130,7 @@ func (s *FunctionService) CreateFunction(ctx context.Context, name, runtime, han
 		CodePath:  codeKey,
 		Timeout:   30,
 		MemoryMB:  128,
+		CPUs:      0.5,
 		Status:    "ACTIVE",
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -311,7 +327,7 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 
 	tmpDir, err := s.prepareCode(ctx, f)
 	if err != nil {
-		return s.failInvocation(i, fmt.Sprintf("Error preparing code: %v", err), err)
+		return s.failInvocation(i, "function invocation failed", err)
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
@@ -319,12 +335,22 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 
 	containerID, _, err := s.compute.RunTask(ctx, opts)
 	if err != nil {
-		return s.failInvocation(i, fmt.Sprintf("Error running task: %v", err), err)
+		return s.failInvocation(i, "function invocation failed", err)
 	}
-	defer func() { _ = s.compute.DeleteInstance(ctx, containerID) }()
 
 	statusCode, err := s.waitForTask(ctx, containerID, f.Timeout)
 	s.captureInvocationResults(i, containerID, statusCode, err)
+
+	// Fire-and-forget: container cleanup runs in isolated goroutine with its own
+	// timeout context, preventing slow Docker cleanup from blocking the response.
+	// Runs after task completion so container is no longer needed for result capture.
+	go func(cid string) {
+		delCtx, cancel := context.WithTimeout(contextWithMetadata(ctx), CleanupTimeout)
+		defer cancel()
+		if err := s.compute.DeleteInstance(delCtx, cid); err != nil {
+			s.logger.Warn("failed to delete invocation container", "container_id", cid, "error", err)
+		}
+	}(containerID)
 
 	if err := s.repo.CreateInvocation(ctx, i); err != nil {
 		s.logger.Error("failed to record invocation", "error", err)
@@ -349,9 +375,8 @@ func (s *FunctionService) buildTaskOptions(ctx context.Context, f *domain.Functi
 				s.logger.Warn("failed to resolve secret", "ref", e.SecretRef, "key", e.Key, "error", err)
 				continue // skip rather than failing the invocation
 			}
-			// Inject as JSON object: {"key": "...", "value": "..."}
-			secretJSON, _ := json.Marshal(map[string]string{"key": e.Key, "value": secret.EncryptedValue})
-			env = append(env, e.Key+"="+string(secretJSON))
+			// Inject as plain environment variable
+			env = append(env, e.Key+"="+secret.EncryptedValue)
 		} else {
 			env = append(env, e.Key+"="+e.Value)
 		}
@@ -362,7 +387,7 @@ func (s *FunctionService) buildTaskOptions(ctx context.Context, f *domain.Functi
 		Command:         append(config.Entrypoint, handler),
 		Env:             env,
 		MemoryMB:        int64(f.MemoryMB),
-		CPUs:            0.5,
+		CPUs:            f.CPUs,
 		NetworkDisabled: true,
 		ReadOnlyRootfs:  true,
 		WorkingDir:      "/var/task",
@@ -433,7 +458,7 @@ func (s *FunctionService) failInvocation(i *domain.Invocation, logMsg string, er
 	i.Status = "FAILED"
 	i.Logs = logMsg
 	_ = s.repo.CreateInvocation(context.Background(), i)
-	return i, err
+	return i, errors.Wrap(errors.Internal, logMsg, err)
 }
 
 func (s *FunctionService) prepareCode(ctx context.Context, f *domain.Function) (string, error) {
