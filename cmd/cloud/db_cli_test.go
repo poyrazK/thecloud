@@ -184,7 +184,9 @@ func TestDBCreateSizeValidation(t *testing.T) {
 						"updated_at": time.Now().UTC().Format(time.RFC3339),
 					},
 				}
-				_ = json.NewEncoder(w).Encode(payload)
+				if err := json.NewEncoder(w).Encode(payload); err != nil {
+					t.Fatalf("failed to encode response: %v", err)
+				}
 			}))
 			defer server.Close()
 
