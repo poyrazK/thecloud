@@ -71,6 +71,46 @@ func TestNewClientWithKey(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestNewClientWithKey_NoHostKeyVerification(t *testing.T) {
+	// When THECLOUD_SSH_INSECURE_IGNORE_HOSTKEY is NOT set and no known_hosts
+	// file exists, NewClientWithKey must return an error (not silently use insecure defaults).
+	// Use a temp dir as HOME so there's no ~/.ssh/known_hosts fallback.
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	t.Setenv(envInsecureHostKey, "")
+	t.Setenv(envKnownHostsPath, "")
+
+	privKey := generateTestKey(t)
+	_, err := NewClientWithKey(testLocalhostSSH, "user", privKey)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ssh host key verification not configured")
+}
+
+func TestNewClientWithKeyAndCallback(t *testing.T) {
+	privKey := generateTestKey(t)
+
+	t.Run("NilCallback", func(t *testing.T) {
+		_, err := NewClientWithKeyAndCallback(testLocalhostSSH, "user", privKey, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "host key callback is required")
+	})
+
+	t.Run("ValidCallback", func(t *testing.T) {
+		cb := ssh.InsecureIgnoreHostKey()
+		client, err := NewClientWithKeyAndCallback(testLocalhostSSH, "user", privKey, cb)
+		require.NoError(t, err)
+		assert.NotNil(t, client)
+		assert.Equal(t, testLocalhostSSH, client.Host)
+	})
+
+	t.Run("InvalidKey", func(t *testing.T) {
+		cb := ssh.InsecureIgnoreHostKey()
+		_, err := NewClientWithKeyAndCallback(testLocalhostSSH, "user", "invalid-key", cb)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse private key")
+	})
+}
+
 func TestWaitForSSH(t *testing.T) {
 	// Start a dummy TCP server
 	l, err := net.Listen("tcp", testLoopbackAddr)
