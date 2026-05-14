@@ -485,7 +485,13 @@ func (a *DockerAdapter) GetInstanceLogs(ctx context.Context, containerID string)
 		return nil, fmt.Errorf("failed to get container logs: %w", err)
 	}
 
-	// Use a pipe to clean the stream asynchronously
+	// Use a pipe to clean the stream asynchronously.
+	// The defers below run on every exit path (including a panic out of
+	// stdcopy.StdCopy), so src is always closed even if StdCopy errors
+	// before consuming the stream. src.Close runs first (LIFO) so the
+	// underlying reader stops producing before the pipe writer closes,
+	// avoiding races where the reader keeps trying to push frames into a
+	// closed writer.
 	r, w := io.Pipe()
 	go func() {
 		defer func() { _ = w.Close() }()
