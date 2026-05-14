@@ -43,8 +43,8 @@ func (u *FunctionUpdate) Validate() error {
 	if u.CPUs != nil && (*u.CPUs < 0.1 || *u.CPUs > 8.0) {
 		return errors.New(errors.InvalidInput, "cpu must be between 0.1 and 8.0 cores")
 	}
-	if u.MaxConcurrentInvocations != nil && *u.MaxConcurrentInvocations < 0 {
-		return errors.New(errors.InvalidInput, "max_concurrent_invocations must be non-negative")
+	if u.MaxConcurrentInvocations != nil && (*u.MaxConcurrentInvocations < 0 || *u.MaxConcurrentInvocations > 1000) {
+		return errors.New(errors.InvalidInput, "max_concurrent_invocations must be between 0 and 1000")
 	}
 	if u.MaxQueueDepth != nil && *u.MaxQueueDepth < 0 {
 		return errors.New(errors.InvalidInput, "max_queue_depth must be non-negative")

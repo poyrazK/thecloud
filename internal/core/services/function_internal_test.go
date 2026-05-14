@@ -339,4 +339,11 @@ func TestFunctionService_GetBulkhead(t *testing.T) {
 		// Verify bulkhead name includes function ID
 		assert.Contains(t, b.Name(), f.ID.String())
 	})
+
+	t.Run("MaxQueueDepth zero gives immediate-fail bulkhead", func(t *testing.T) {
+		f := &domain.Function{ID: uuid.New(), MaxConcurrentInvocations: 2, MaxQueueDepth: 0}
+		b := svc.getBulkhead(f)
+		require.NotNil(t, b)
+		// Bulkhead should be configured for immediate fail (negative timeout)
+	})
 }

@@ -424,6 +424,9 @@ func (s *FunctionService) getBulkhead(f *domain.Function) *platform.Bulkhead {
 	waitTimeout := 0
 	if f.MaxQueueDepth > 0 {
 		waitTimeout = f.MaxQueueDepth * 100 // milliseconds
+	} else if f.MaxConcurrentInvocations > 0 {
+		// MaxQueueDepth == 0 means no waiting — use -1 as sentinel for immediate-fail
+		waitTimeout = -1
 	}
 
 	b = platform.NewBulkhead(platform.BulkheadOpts{
