@@ -86,6 +86,7 @@ func TestDatabaseService_RotateCredentials(t *testing.T) {
 		}
 		mockRepo.On("GetByID", mock.Anything, dbID).Return(testDB, nil).Once()
 		mockSecrets.On("GetSecret", mock.Anything, testDB.CredentialPath).Return(map[string]interface{}{"password": "old-pass"}, nil).Once()
+		mockCompute.On("Type").Return("docker").Maybe()
 
 		// 1. Store new credential at versioned path in Vault FIRST (version 2 since db starts at version 1)
 		versionedPath := testDB.CredentialPath + "/v2"
@@ -216,6 +217,7 @@ func TestDatabaseService_RotateCredentials(t *testing.T) {
 		}
 		mockRepo.On("GetByID", mock.Anything, dbID).Return(testDB, nil).Once()
 		mockSecrets.On("GetSecret", mock.Anything, testDB.CredentialPath).Return(map[string]interface{}{"password": "old-pass"}, nil).Once()
+		mockCompute.On("Type").Return("docker").Maybe()
 		// Vault store fails at step 1 (versioned path) - DB is NOT changed
 		versionedPath := testDB.CredentialPath + "/v2"
 		mockSecrets.On("StoreSecret", mock.Anything, versionedPath, mock.Anything).Return(fmt.Errorf("vault error")).Once()
@@ -253,6 +255,7 @@ func TestDatabaseService_VaultIntegration_CreateDatabase(t *testing.T) {
 		Logger:         slog.Default(),
 		VaultMountPath: "secret/rds",
 	})
+	mockCompute.On("Type").Return("docker").Maybe()
 
 	ctx := context.Background()
 

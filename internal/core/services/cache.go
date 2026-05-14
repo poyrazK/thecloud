@@ -82,6 +82,10 @@ func (s *CacheService) CreateCache(ctx context.Context, name, version string, me
 		return nil, err
 	}
 
+	if s.compute.Type() == "libvirt" {
+		return nil, errors.New(errors.InvalidInput, "managed cache requires docker compute backend (COMPUTE_BACKEND=libvirt is not supported)")
+	}
+
 	password, err := util.GenerateRandomPassword(16)
 	if err != nil {
 		return nil, errors.Wrap(errors.Internal, "failed to generate password", err)
@@ -329,6 +333,10 @@ func (s *CacheService) FlushCache(ctx context.Context, idOrName string) error {
 		return errors.New(errors.InstanceNotRunning, "cache is not running")
 	}
 
+	if s.compute.Type() == "libvirt" {
+		return errors.New(errors.InvalidInput, "cache flush requires docker compute backend (COMPUTE_BACKEND=libvirt is not supported)")
+	}
+
 	// Exec FLUSHALL inside the container
 	// We need to pass the password if set.
 	cmd := []string{"redis-cli"}
@@ -372,6 +380,10 @@ func (s *CacheService) GetCacheStats(ctx context.Context, idOrName string) (*por
 
 	if cache.Status != domain.CacheStatusRunning {
 		return nil, errors.New(errors.InstanceNotRunning, "cache is not running")
+	}
+
+	if s.compute.Type() == "libvirt" {
+		return nil, errors.New(errors.InvalidInput, "cache stats requires docker compute backend (COMPUTE_BACKEND=libvirt is not supported)")
 	}
 
 	stream, err := s.compute.GetInstanceStats(ctx, cache.ContainerID)
