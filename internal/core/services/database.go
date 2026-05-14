@@ -136,6 +136,11 @@ func (s *DatabaseService) CreateDatabase(ctx context.Context, req ports.CreateDa
 		span.RecordError(err)
 		return nil, err
 	}
+
+	if s.compute.Type() == "libvirt" {
+		return nil, errors.New(errors.InvalidInput, "managed databases require docker compute backend (COMPUTE_BACKEND=libvirt is not supported)")
+	}
+
 	dbEngine := domain.DatabaseEngine(req.Engine)
 
 	if err := s.validateCreationRequest(req, dbEngine); err != nil {
@@ -168,6 +173,10 @@ func (s *DatabaseService) CreateReplica(ctx context.Context, primaryID uuid.UUID
 	tenantID := appcontext.TenantIDFromContext(ctx)
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBCreate, "*"); err != nil {
 		return nil, err
+	}
+
+	if s.compute.Type() == "libvirt" {
+		return nil, errors.New(errors.InvalidInput, "database replicas require docker compute backend (COMPUTE_BACKEND=libvirt is not supported)")
 	}
 
 	primary, err := s.repo.GetByID(ctx, primaryID)
@@ -222,6 +231,11 @@ func (s *DatabaseService) RestoreDatabase(ctx context.Context, req ports.Restore
 		span.RecordError(err)
 		return nil, err
 	}
+
+	if s.compute.Type() == "libvirt" {
+		return nil, errors.New(errors.InvalidInput, "database restore requires docker compute backend (COMPUTE_BACKEND=libvirt is not supported)")
+	}
+
 	snap, err := s.snapshotSvc.GetSnapshot(ctx, req.SnapshotID)
 	if err != nil {
 		return nil, err
@@ -369,6 +383,10 @@ func (s *DatabaseService) ModifyDatabase(ctx context.Context, req ports.ModifyDa
 
 	if req.Parameters != nil {
 		db.Parameters = req.Parameters
+	}
+
+	if s.compute.Type() == "libvirt" && (req.MetricsEnabled != nil && *req.MetricsEnabled) {
+		return nil, errors.New(errors.InvalidInput, "database metrics require docker compute backend (COMPUTE_BACKEND=libvirt is not supported)")
 	}
 
 	if req.AllocatedStorage != nil {
@@ -537,6 +555,11 @@ func (s *DatabaseService) PromoteToPrimary(ctx context.Context, id uuid.UUID) er
 	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionDBUpdate, id.String()); err != nil {
 		return err
 	}
+
+	if s.compute.Type() == "libvirt" {
+		return errors.New(errors.InvalidInput, "database promotion requires docker compute backend (COMPUTE_BACKEND=libvirt is not supported)")
+	}
+
 	db, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -846,6 +869,10 @@ func (s *DatabaseService) doRotateCredentials(ctx context.Context, id uuid.UUID,
 	db, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
+	}
+
+	if s.compute.Type() == "libvirt" {
+		return errors.New(errors.InvalidInput, "credential rotation requires docker compute backend (COMPUTE_BACKEND=libvirt is not supported)")
 	}
 
 	newPassword, err := util.GenerateRandomPassword(16)

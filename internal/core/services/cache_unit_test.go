@@ -75,6 +75,7 @@ func testCacheServiceUnitExtended(t *testing.T) {
 	ctx = appcontext.WithTenantID(ctx, tenantID)
 
 	t.Run("CreateCache_Success", func(t *testing.T) {
+		compute.On("Type").Return("docker").Maybe()
 		repo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 		compute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).Return("cid", []string{"30001:6379"}, nil).Once()
 		repo.On("Update", mock.Anything, mock.Anything).Return(nil).Once()
@@ -88,6 +89,7 @@ func testCacheServiceUnitExtended(t *testing.T) {
 	})
 
 	t.Run("CreateCache_LaunchFailure", func(t *testing.T) {
+		compute.On("Type").Return("docker").Maybe()
 		repo.On("Create", mock.Anything, mock.Anything).Return(nil).Once()
 		compute.On("LaunchInstanceWithOptions", mock.Anything, mock.Anything).Return("", nil, fmt.Errorf("launch fail")).Once()
 		repo.On("Delete", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
