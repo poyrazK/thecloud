@@ -25,7 +25,7 @@ var subnetListCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		client := createClient(opts)
-		vpcID := args[0]
+		vpcID := resolveVPCID(args[0], client)
 		subnets, err := client.ListSubnets(vpcID)
 		if err != nil {
 			fmt.Printf(subnetErrorFormat, err)
@@ -115,6 +115,23 @@ func resolveSubnetID(idOrName string, client *sdk.Client) string {
 	for _, s := range subnets {
 		if s.Name == idOrName {
 			return s.ID
+		}
+	}
+	return idOrName
+}
+
+// resolveVPCID resolves a VPC ID or name to a full UUID.
+func resolveVPCID(idOrName string, client *sdk.Client) string {
+	if _, err := uuid.Parse(idOrName); err == nil {
+		return idOrName
+	}
+	vpcs, err := client.ListVPCs()
+	if err != nil {
+		return idOrName
+	}
+	for _, v := range vpcs {
+		if v.Name == idOrName {
+			return v.ID
 		}
 	}
 	return idOrName
