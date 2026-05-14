@@ -817,7 +817,7 @@ func (s *InstanceService) GetInstanceLogs(ctx context.Context, idOrName string) 
 
 	stream, err := s.compute.GetInstanceLogs(ctx, inst.ContainerID)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(errors.Internal, "failed to get instance logs", err)
 	}
 	defer func() { _ = stream.Close() }()
 
@@ -854,7 +854,11 @@ func (s *InstanceService) GetConsoleURL(ctx context.Context, idOrName string) (s
 		id = inst.ContainerID
 	}
 
-	return s.compute.GetConsoleURL(ctx, id)
+	url, err := s.compute.GetConsoleURL(ctx, id)
+	if err != nil {
+		return "", errors.Wrap(errors.Internal, "failed to get console URL", err)
+	}
+	return url, nil
 }
 
 func (s *InstanceService) ResizeInstance(ctx context.Context, idOrName, newInstanceType string) (*domain.Instance, error) {

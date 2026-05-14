@@ -326,7 +326,7 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 
 	tmpDir, err := s.prepareCode(ctx, f)
 	if err != nil {
-		return s.failInvocation(i, fmt.Sprintf("Error preparing code: %v", err), err)
+		return s.failInvocation(i, "function invocation failed", err)
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
@@ -334,7 +334,7 @@ func (s *FunctionService) runInvocation(ctx context.Context, f *domain.Function,
 
 	containerID, _, err := s.compute.RunTask(ctx, opts)
 	if err != nil {
-		return s.failInvocation(i, fmt.Sprintf("Error running task: %v", err), err)
+		return s.failInvocation(i, "function invocation failed", err)
 	}
 
 	statusCode, err := s.waitForTask(ctx, containerID, f.Timeout)
@@ -457,7 +457,7 @@ func (s *FunctionService) failInvocation(i *domain.Invocation, logMsg string, er
 	i.Status = "FAILED"
 	i.Logs = logMsg
 	_ = s.repo.CreateInvocation(context.Background(), i)
-	return i, err
+	return i, errors.Wrap(errors.Internal, logMsg, err)
 }
 
 func (s *FunctionService) prepareCode(ctx context.Context, f *domain.Function) (string, error) {
