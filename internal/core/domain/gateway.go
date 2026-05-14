@@ -32,6 +32,10 @@ type GatewayRoute struct {
 	BlockedCIDRs             []string  `json:"blocked_cidrs,omitempty"`           // IPs blocked from access
 	BlockedIPNets            []*net.IPNet `json:"-"`                              // pre-parsed at creation/refresh for fast lookup
 	MaxBodySize              int64     `json:"max_body_size,omitempty"`          // Max request body size in bytes
+	CircuitBreakerThreshold  int       `json:"circuit_breaker_threshold,omitempty"` // consecutive failures to trip open (0=disabled)
+	CircuitBreakerTimeout    int64     `json:"circuit_breaker_timeout,omitempty"`    // ms in open before half-open
+	MaxRetries               int       `json:"max_retries,omitempty"`                // max retry attempts (0=disabled)
+	RetryTimeout             int64     `json:"retry_timeout,omitempty"`               // total retry window in ms
 	Priority                 int       `json:"priority"`        // Manual priority for tie-breaking
 	CreatedAt                time.Time `json:"created_at"`
 	UpdatedAt                time.Time `json:"updated_at"`

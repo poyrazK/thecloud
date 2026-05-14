@@ -411,6 +411,12 @@ definitions:
         items:
           type: string
         type: array
+      circuit_breaker_threshold:
+        description: consecutive failures to trip open (0=disabled)
+        type: integer
+      circuit_breaker_timeout:
+        description: ms in open before half-open
+        type: integer
       created_at:
         type: string
       dial_timeout:
@@ -423,6 +429,9 @@ definitions:
         type: integer
       max_body_size:
         description: Max request body size in bytes
+        type: integer
+      max_retries:
+        description: max retry attempts (0=disabled)
         type: integer
       methods:
         description: 'New: HTTP methods to match (empty = all)'
@@ -456,6 +465,9 @@ definitions:
         type: boolean
       response_header_timeout:
         description: Time to receive headers in milliseconds
+        type: integer
+      retry_timeout:
+        description: total retry window in ms
         type: integer
       strip_prefix:
         description: If true, removes path_prefix from request before forwarding
@@ -2153,6 +2165,12 @@ definitions:
         items:
           type: string
         type: array
+      circuit_breaker_threshold:
+        minimum: 0
+        type: integer
+      circuit_breaker_timeout:
+        minimum: 0
+        type: integer
       dial_timeout:
         minimum: 0
         type: integer
@@ -2160,6 +2178,9 @@ definitions:
         minimum: 0
         type: integer
       max_body_size:
+        minimum: 0
+        type: integer
+      max_retries:
         minimum: 0
         type: integer
       methods:
@@ -2179,6 +2200,9 @@ definitions:
       require_tls:
         type: boolean
       response_header_timeout:
+        minimum: 0
+        type: integer
+      retry_timeout:
         minimum: 0
         type: integer
       strip_prefix:

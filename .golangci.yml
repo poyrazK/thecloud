@@ -65,3 +65,7 @@ issues:
       linters:
         - unparam
       text: "MockInstanceService|MockRBACService"
+    - path: internal/core/services/gateway\.go
+      linters:
+        - nolintlint
+      text: "directive.*unused.*bodyclose"
