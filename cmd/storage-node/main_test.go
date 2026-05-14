@@ -3,25 +3,12 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
-	"net"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 )
-
-// startServer starts the gRPC server and returns a cancel func to shut it down.
-// This lets tests avoid blocking on grpcServer.Serve().
-func startServer(ctx context.Context) {
-	// Server is started within run() — we just need a way to interrupt it.
-	// We use a goroutine that watches the context and sends SIGTERM.
-	go func() {
-		<-ctx.Done()
-		// Signal will be handled by the existing signal handler in run()
-	}()
-}
 
 func TestRun_TLSEnabledMissingCertFile(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -121,12 +108,4 @@ func TestRun_TLSDisabledNoCertRequired(t *testing.T) {
 	case <-ctx.Done():
 		// Timeout means server started fine without TLS — good
 	}
-}
-
-// Helper: find a free port by binding a listener.
-func freePort(t *testing.T) string {
-	lis, err := net.Listen("tcp", ":0")
-	require.NoError(t, err)
-	defer lis.Close()
-	return fmt.Sprintf("%d", lis.Addr().(*net.TCPAddr).Port)
 }
