@@ -99,7 +99,7 @@ func TestVpcHandlerCreateErrors(t *testing.T) {
 	})
 
 	t.Run("ServiceError", func(t *testing.T) {
-		svc.On("CreateVPC", mock.Anything, "err-vpc", "").Return(nil, assert.AnError)
+		svc.On("CreateVPC", mock.Anything, "err-vpc", "", "").Return(nil, assert.AnError)
 		body, _ := json.Marshal(map[string]string{"name": "err-vpc"})
 		w := httptest.NewRecorder()
 		req, _ := http.NewRequest("POST", vpcsPath, bytes.NewBuffer(body))
