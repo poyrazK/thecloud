@@ -495,7 +495,7 @@ func TestAuthHandlerTokenSuccess(t *testing.T) {
 	data := httpResp["data"].(map[string]interface{})
 	assert.Equal(t, "jwt-token", data["access_token"])
 	assert.Equal(t, "Bearer", data["token_type"])
-	assert.Equal(t, float64(3600), data["expires_in"])
+	assert.InDelta(t, 3600, data["expires_in"], 0)
 }
 
 func TestAuthHandlerTokenDisabledSA(t *testing.T) {
