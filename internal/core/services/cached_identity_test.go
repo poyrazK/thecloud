@@ -125,6 +125,10 @@ func (m *mockIdentityService) ListServiceAccountSecrets(ctx context.Context, saI
 	return r0, args.Error(1)
 }
 
+func (m *mockIdentityService) TokenTTL() time.Duration {
+	return time.Hour
+}
+
 func setupCachedIdentityTest(t *testing.T) (*mockIdentityService, *redis.Client) {
 	t.Helper()
 	mr, err := miniredis.Run()

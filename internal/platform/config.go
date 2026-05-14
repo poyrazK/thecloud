@@ -4,6 +4,7 @@ package platform
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -49,8 +50,10 @@ type Config struct {
 	FirecrackerRootfs    string
 	FirecrackerMockMode  bool
 	VaultAddress         string
-	VaultToken           string
-	VaultMountPath       string
+	VaultToken          string
+	VaultMountPath      string
+	// ServiceAccountTokenTTL is the lifetime in seconds of SA JWTs. Defaults to 3600.
+	ServiceAccountTokenTTL int
 }
 
 // NewConfig loads configuration from the environment with defaults.
@@ -93,6 +96,7 @@ func NewConfig() (*Config, error) {
 		VaultAddress:         getEnv("VAULT_ADDR", "http://localhost:8200"),
 		VaultToken:           getEnv("VAULT_TOKEN", ""),
 		VaultMountPath:       getEnv("VAULT_MOUNT_PATH", "secret/data/thecloud/rds"),
+		ServiceAccountTokenTTL: getEnvInt("SERVICE_ACCOUNT_TOKEN_TTL", 3600),
 	}
 	if err := validateConfig(cfg); err != nil {
 		return nil, err
@@ -103,6 +107,15 @@ func NewConfig() (*Config, error) {
 func getEnv(key, fallback string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
+	}
+	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	if value, exists := os.LookupEnv(key); exists {
+		if i, err := strconv.Atoi(value); err == nil {
+			return i
+		}
 	}
 	return fallback
 }

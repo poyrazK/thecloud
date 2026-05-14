@@ -70,6 +70,8 @@ type IdentityServiceParams struct {
 	RbacSvc  ports.RBACService
 	AuditSvc ports.AuditService
 	Logger   *slog.Logger
+	// TokenTTL is the lifetime of service account JWTs. Defaults to 1 hour.
+	TokenTTL time.Duration
 }
 
 // IdentityService manages API key lifecycle and validation.
@@ -79,6 +81,7 @@ type IdentityService struct {
 	rbacSvc  ports.RBACService
 	auditSvc ports.AuditService
 	logger   *slog.Logger
+	tokenTTL time.Duration
 }
 
 // NewIdentityService constructs an IdentityService with its dependencies.
@@ -87,12 +90,17 @@ func NewIdentityService(params IdentityServiceParams) *IdentityService {
 	if logger == nil {
 		logger = slog.Default()
 	}
+	tokenTTL := params.TokenTTL
+	if tokenTTL == 0 {
+		tokenTTL = time.Hour
+	}
 	return &IdentityService{
 		repo:     params.Repo,
 		saRepo:   params.SARepo,
 		rbacSvc:  params.RbacSvc,
 		auditSvc: params.AuditSvc,
 		logger:   logger,
+		tokenTTL: tokenTTL,
 	}
 }
 
@@ -253,22 +261,13 @@ func (s *IdentityService) RotateKey(ctx context.Context, userID uuid.UUID, id uu
 	return newKey, nil
 }
 
-// SAClaims are the JWT claims for service account access tokens.
-type SAClaims struct {
-	jwt.RegisteredClaims
-	ServiceAccountID uuid.UUID `json:"sa_id"`
-	TenantID         uuid.UUID `json:"tenant_id"`
-	Role             string    `json:"role"`
-	Scopes           []string  `json:"scopes,omitempty"`
-}
-
 // generateSAToken generates a JWT for a service account.
-func generateSAToken(saID, tenantID uuid.UUID, role string) (string, error) {
-	claims := SAClaims{
+func (s *IdentityService) generateSAToken(saID, tenantID uuid.UUID, role string) (string, error) {
+	claims := domain.ServiceAccountClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "thecloud",
 			Subject:   saID.String(),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.tokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ID:        uuid.New().String(),
 		},
@@ -282,8 +281,8 @@ func generateSAToken(saID, tenantID uuid.UUID, role string) (string, error) {
 }
 
 // validateSAToken validates a service account JWT and returns claims.
-func validateSAToken(tokenString string) (*SAClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &SAClaims{}, func(token *jwt.Token) (interface{}, error) {
+func validateSAToken(tokenString string) (*domain.ServiceAccountClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &domain.ServiceAccountClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -293,7 +292,7 @@ func validateSAToken(tokenString string) (*SAClaims, error) {
 		return nil, err
 	}
 
-	claims, ok := token.Claims.(*SAClaims)
+	claims, ok := token.Claims.(*domain.ServiceAccountClaims)
 	if !ok || !token.Valid {
 		return nil, stdlib_errors.New("invalid token")
 	}
@@ -430,7 +429,7 @@ func (s *IdentityService) ValidateClientCredentials(ctx context.Context, clientI
 
 	platform.AuthAttemptsTotal.WithLabelValues("success_service_account").Inc()
 
-	token, err := generateSAToken(saID, sa.TenantID, sa.Role)
+	token, err := s.generateSAToken(saID, sa.TenantID, sa.Role)
 	if err != nil {
 		return "", errors.Wrap(errors.Internal, "failed to generate token", err)
 	}
@@ -439,6 +438,15 @@ func (s *IdentityService) ValidateClientCredentials(ctx context.Context, clientI
 }
 
 // ValidateAccessToken validates a Bearer JWT and returns claims.
+//
+// SECURITY NOTE: This validates that the SA has at least one active (non-expired) secret
+// at the time of this call. However, this does not revoke JWTs that were issued when the SA
+// had valid secrets. A JWT remains valid until its natural expiry (tokenTTL).
+// If a secret is revoked, the next ValidateAccessToken call will fail because the SA will
+// have no active secrets — but previously-issued JWTs remain valid until exp.
+//
+// This is a fundamental trade-off of stateless JWT design. For immediate revocation,
+// a revocation list or shorter tokenTTL is required.
 func (s *IdentityService) ValidateAccessToken(ctx context.Context, tokenString string) (*domain.ServiceAccountClaims, error) {
 	claims, err := validateSAToken(tokenString)
 	if err != nil {
@@ -453,12 +461,22 @@ func (s *IdentityService) ValidateAccessToken(ctx context.Context, tokenString s
 		return nil, errors.New(errors.Unauthorized, "service account is disabled")
 	}
 
-	return &domain.ServiceAccountClaims{
-		ServiceAccountID: claims.ServiceAccountID,
-		TenantID:        claims.TenantID,
-		Role:            claims.Role,
-		Scopes:          claims.Scopes,
-	}, nil
+	secrets, err := s.saRepo.ListSecretsByServiceAccount(ctx, claims.ServiceAccountID)
+	if err != nil {
+		return nil, errors.New(errors.Unauthorized, "service account not found")
+	}
+	hasValidSecret := false
+	for _, sec := range secrets {
+		if sec.ExpiresAt == nil || time.Now().Before(*sec.ExpiresAt) {
+			hasValidSecret = true
+			break
+		}
+	}
+	if !hasValidSecret {
+		return nil, errors.New(errors.Unauthorized, "service account has no active secrets")
+	}
+
+	return claims, nil
 }
 
 // RotateServiceAccountSecret rotates the secret, returns new plaintext.
@@ -533,4 +551,9 @@ func (s *IdentityService) ListServiceAccountSecrets(ctx context.Context, saID uu
 	}
 
 	return s.saRepo.ListSecretsByServiceAccount(ctx, saID)
+}
+
+// TokenTTL returns the configured service account token TTL.
+func (s *IdentityService) TokenTTL() time.Duration {
+	return s.tokenTTL
 }

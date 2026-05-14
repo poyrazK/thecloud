@@ -135,6 +135,10 @@ func (m *mockIdentityService) ListServiceAccountSecrets(ctx context.Context, saI
 	return r0, args.Error(1)
 }
 
+func (m *mockIdentityService) TokenTTL() time.Duration {
+	return time.Hour
+}
+
 func TestWebSocketLifecycle(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)

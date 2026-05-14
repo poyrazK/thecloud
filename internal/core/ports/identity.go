@@ -3,6 +3,7 @@ package ports
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -76,4 +77,6 @@ type IdentityService interface {
 	RevokeServiceAccountSecret(ctx context.Context, saID uuid.UUID, secretID uuid.UUID) error
 	// ListServiceAccountSecrets returns all secrets for a service account.
 	ListServiceAccountSecrets(ctx context.Context, saID uuid.UUID) ([]*domain.ServiceAccountSecret, error)
+	// TokenTTL returns the configured service account token TTL.
+	TokenTTL() time.Duration
 }

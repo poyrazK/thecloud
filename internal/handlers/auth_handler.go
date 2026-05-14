@@ -192,7 +192,7 @@ func (h *AuthHandler) Me(c *gin.Context) {
 
 // Token godoc
 // @Summary Exchange client credentials for access token
-// @Description OAuth2 Client Credentials flow - exchange client_id and client_secret for JWT
+// @Description OAuth2 Client Credentials flow - exchange client_id and client_secret for JWT. Response includes access_token (JWT), token_type ("Bearer"), and expires_in (seconds, e.g. 3600 = 1 hour).
 // @Tags Auth
 // @Accept x-www-form-urlencoded
 // @Produce json
@@ -224,6 +224,6 @@ func (h *AuthHandler) Token(c *gin.Context) {
 	httputil.Success(c, http.StatusOK, TokenResponse{
 		AccessToken: token,
 		TokenType:   "Bearer",
-		ExpiresIn:   3600,
+		ExpiresIn:   int(h.identitySvc.TokenTTL().Seconds()),
 	})
 }

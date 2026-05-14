@@ -135,13 +135,25 @@ func (s *cachedIdentityService) ValidateAccessToken(ctx context.Context, token s
 }
 
 func (s *cachedIdentityService) RotateServiceAccountSecret(ctx context.Context, saID uuid.UUID) (string, error) {
-	return s.base.RotateServiceAccountSecret(ctx, saID)
+	secret, err := s.base.RotateServiceAccountSecret(ctx, saID)
+	if err == nil {
+		s.redis.Del(ctx, fmt.Sprintf("sa:auth:%s", saID))
+	}
+	return secret, err
 }
 
 func (s *cachedIdentityService) RevokeServiceAccountSecret(ctx context.Context, saID uuid.UUID, secretID uuid.UUID) error {
-	return s.base.RevokeServiceAccountSecret(ctx, saID, secretID)
+	err := s.base.RevokeServiceAccountSecret(ctx, saID, secretID)
+	if err == nil {
+		s.redis.Del(ctx, fmt.Sprintf("sa:auth:%s", saID))
+	}
+	return err
 }
 
 func (s *cachedIdentityService) ListServiceAccountSecrets(ctx context.Context, saID uuid.UUID) ([]*domain.ServiceAccountSecret, error) {
 	return s.base.ListServiceAccountSecrets(ctx, saID)
+}
+
+func (s *cachedIdentityService) TokenTTL() time.Duration {
+	return s.base.TokenTTL()
 }

@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
@@ -240,6 +241,10 @@ func (m *MockIdentityService) ValidateKey(ctx context.Context, key string) (*dom
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*domain.User), args.Error(1)
+}
+
+func (m *MockIdentityService) TokenTTL() time.Duration {
+	return time.Hour
 }
 
 // MockIdentityRepo

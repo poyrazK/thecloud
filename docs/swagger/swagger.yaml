@@ -66,7 +66,6 @@ definitions:
         type: number
       usage_by_type:
         additionalProperties:
-          format: float64
           type: number
         type: object
       user_id:
@@ -1090,6 +1089,10 @@ definitions:
     - identity:read
     - identity:delete
     - identity:read_all
+    - service_account:create
+    - service_account:read
+    - service_account:update
+    - service_account:delete
     - accounting:read
     - audit:read
     - dashboard:read
@@ -1208,6 +1211,10 @@ definitions:
     - PermissionIdentityRead
     - PermissionIdentityDelete
     - PermissionIdentityReadAll
+    - PermissionServiceAccountCreate
+    - PermissionServiceAccountRead
+    - PermissionServiceAccountUpdate
+    - PermissionServiceAccountDelete
     - PermissionAccountingRead
     - PermissionAuditRead
     - PermissionDashboardRead
@@ -1536,6 +1543,62 @@ definitions:
         type: integer
       protocol:
         description: Traffic protocol (e.g., "tcp", "udp", "icmp", "all")
+        type: string
+    type: object
+  domain.ServiceAccount:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      enabled:
+        type: boolean
+      id:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  domain.ServiceAccountSecret:
+    properties:
+      created_at:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      last_used_at:
+        type: string
+      name:
+        type: string
+      service_account_id:
+        type: string
+    type: object
+  domain.ServiceAccountWithSecret:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      enabled:
+        type: boolean
+      id:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
+      secret:
+        description: Only set on create/rotate
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
         type: string
     type: object
   domain.Snapshot:
@@ -2224,6 +2287,18 @@ definitions:
     - name
     - vpc_id
     type: object
+  httphandlers.CreateServiceAccountRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
+    required:
+    - name
+    - role
+    type: object
   httphandlers.CreateSnapshotRequest:
     properties:
       description:
@@ -2484,6 +2559,15 @@ definitions:
         type: integer
     required:
     - replicas
+    type: object
+  httphandlers.TokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      token_type:
+        type: string
     type: object
   httphandlers.UpdateNodeGroupRequest:
     properties:
@@ -4747,6 +4831,322 @@ paths:
       summary: Update IAM Policy
       tags:
       - iam
+  /iam/service-accounts:
+    get:
+      description: List all service accounts for the tenant.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.ServiceAccount'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List Service Accounts
+      tags:
+      - iam
+    post:
+      consumes:
+      - application/json
+      description: Create a new service account with credentials for M2M authentication.
+      parameters:
+      - description: Service account details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httphandlers.CreateServiceAccountRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.ServiceAccountWithSecret'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Create Service Account
+      tags:
+      - iam
+  /iam/service-accounts/{id}:
+    delete:
+      description: Delete an existing service account and all its secrets.
+      parameters:
+      - description: Service Account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Delete Service Account
+      tags:
+      - iam
+    get:
+      description: Get details of a specific service account.
+      parameters:
+      - description: Service Account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.ServiceAccount'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Get Service Account
+      tags:
+      - iam
+  /iam/service-accounts/{id}/rotate-secret:
+    post:
+      description: Rotate the secret for a service account, returns new plaintext.
+      parameters:
+      - description: Service Account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Rotate Service Account Secret
+      tags:
+      - iam
+  /iam/service-accounts/{id}/secrets:
+    get:
+      description: List all secrets for a service account.
+      parameters:
+      - description: Service Account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.ServiceAccountSecret'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List Service Account Secrets
+      tags:
+      - iam
+  /iam/service-accounts/{id}/secrets/{secretId}:
+    post:
+      description: Revoke a specific secret from a service account.
+      parameters:
+      - description: Service Account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Secret ID
+        in: path
+        name: secretId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Revoke Service Account Secret
+      tags:
+      - iam
+  /iam/service-accounts/{saId}/policies:
+    get:
+      description: List all IAM policies currently attached to a specific service
+        account.
+      parameters:
+      - description: Service Account ID
+        in: path
+        name: saId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Policy'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: List Service Account IAM Policies
+      tags:
+      - iam
+  /iam/service-accounts/{saId}/policies/{policyId}:
+    delete:
+      description: Remove a specific IAM policy assignment from a service account.
+      parameters:
+      - description: Service Account ID
+        in: path
+        name: saId
+        required: true
+        type: string
+      - description: Policy ID
+        in: path
+        name: policyId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Detach IAM Policy from Service Account
+      tags:
+      - iam
+    post:
+      description: Attach a specific IAM policy to a service account.
+      parameters:
+      - description: Service Account ID
+        in: path
+        name: saId
+        required: true
+        type: string
+      - description: Policy ID
+        in: path
+        name: policyId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      security:
+      - APIKeyAuth: []
+      summary: Attach IAM Policy to Service Account
+      tags:
+      - iam
   /iam/users/{userId}/policies:
     get:
       description: List all IAM policies currently attached to a specific user.
@@ -5900,6 +6300,47 @@ paths:
       summary: Get NAT Gateway
       tags:
       - nat-gateways
+  /oauth2/token:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: OAuth2 Client Credentials flow - exchange client_id and client_secret
+        for JWT. Response includes access_token (JWT), token_type ("Bearer"), and
+        expires_in (seconds, e.g. 3600 = 1 hour).
+      parameters:
+      - description: grant_type (client_credentials)
+        in: formData
+        name: grant_type
+        required: true
+        type: string
+      - description: client_id (service account ID)
+        in: formData
+        name: client_id
+        required: true
+        type: string
+      - description: client_secret
+        in: formData
+        name: client_secret
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httphandlers.TokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.Response'
+      summary: Exchange client credentials for access token
+      tags:
+      - Auth
   /rbac/bindings:
     get:
       description: Returns all user-role assignments

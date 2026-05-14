@@ -544,6 +544,9 @@ func (s *NoopIdentityService) RevokeServiceAccountSecret(ctx context.Context, sa
 func (s *NoopIdentityService) ListServiceAccountSecrets(ctx context.Context, saID uuid.UUID) ([]*domain.ServiceAccountSecret, error) {
 	return []*domain.ServiceAccountSecret{}, nil
 }
+func (s *NoopIdentityService) TokenTTL() time.Duration {
+	return time.Hour
+}
 
 type NoopIdentityRepository struct{}
 

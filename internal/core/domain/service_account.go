@@ -3,6 +3,7 @@ package domain
 import (
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
@@ -37,6 +38,7 @@ type ServiceAccountWithSecret struct {
 
 // ServiceAccountClaims are the JWT claims for a service account access token.
 type ServiceAccountClaims struct {
+	jwt.RegisteredClaims
 	ServiceAccountID uuid.UUID `json:"sa_id"`
 	TenantID         uuid.UUID `json:"tenant_id"`
 	Role             string    `json:"role"`

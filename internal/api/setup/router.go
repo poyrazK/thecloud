@@ -248,9 +248,9 @@ func registerIAMRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		iamGroup.POST("/service-accounts/:id/rotate-secret", handlers.IAM.RotateServiceAccountSecret)
 
 		// SA policy attachment
-		iamGroup.POST("/service-accounts/:saId/policies/:policyId", handlers.IAM.AttachPolicyToServiceAccount)
-		iamGroup.DELETE("/service-accounts/:saId/policies/:policyId", handlers.IAM.DetachPolicyFromServiceAccount)
-		iamGroup.GET("/service-accounts/:saId/policies", handlers.IAM.GetServiceAccountPolicies)
+		iamGroup.POST("/service-accounts/:id/policies/:policyId", handlers.IAM.AttachPolicyToServiceAccount)
+		iamGroup.DELETE("/service-accounts/:id/policies/:policyId", handlers.IAM.DetachPolicyFromServiceAccount)
+		iamGroup.GET("/service-accounts/:id/policies", handlers.IAM.GetServiceAccountPolicies)
 	}
 }
 

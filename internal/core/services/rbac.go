@@ -404,8 +404,8 @@ func (s *rbacService) hasPermissionForSA(ctx context.Context, saID uuid.UUID, te
 func (s *rbacService) checkSAIAMPolicies(ctx context.Context, tenantID, saID uuid.UUID, permission domain.Permission, resource string, evalCtx map[string]interface{}) (bool, bool) {
 	policies, err := s.iamRepo.GetPoliciesForServiceAccount(ctx, tenantID, saID)
 	if err != nil {
-		s.logger.Error("RBAC: failed to get SA IAM policies, falling through to role policies", "sa_id", saID, "tenant_id", tenantID, "error", err)
-		return false, false
+		s.logger.Error("RBAC: failed to get SA IAM policies, denying access", "sa_id", saID, "tenant_id", tenantID, "error", err)
+		return false, true
 	}
 	if len(policies) == 0 {
 		return false, false

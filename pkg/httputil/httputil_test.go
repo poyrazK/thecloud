@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -137,6 +138,10 @@ func (m *mockIdentityService) ListServiceAccountSecrets(ctx context.Context, saI
 	}
 	r0, _ := args.Get(0).([]*domain.ServiceAccountSecret)
 	return r0, args.Error(1)
+}
+
+func (m *mockIdentityService) TokenTTL() time.Duration {
+	return time.Hour
 }
 
 type mockTenantService struct {
