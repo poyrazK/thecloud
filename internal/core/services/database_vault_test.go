@@ -115,6 +115,93 @@ func TestDatabaseService_RotateCredentials(t *testing.T) {
 		mockRepo.AssertExpectations(t)
 	})
 
+	t.Run("RotateCredentials_ExecFailure_RollsBackOrphanedVaultEntry", func(t *testing.T) {
+		testDB := &domain.Database{
+			ID:               db.ID,
+			UserID:           db.UserID,
+			Name:             db.Name,
+			Engine:           domain.EnginePostgres,
+			Username:         db.Username,
+			ContainerID:      db.ContainerID,
+			CredentialPath:   "secret/rds/" + dbID.String() + "/credentials",
+			CredentialVersion: 1,
+		}
+		mockRepo.On("GetByID", mock.Anything, dbID).Return(testDB, nil).Once()
+		mockSecrets.On("GetSecret", mock.Anything, testDB.CredentialPath).Return(map[string]interface{}{"password": "old-pass"}, nil).Once()
+
+		versionedPath := testDB.CredentialPath + "/v2"
+		mockSecrets.On("StoreSecret", mock.Anything, versionedPath, mock.Anything).Return(nil).Once()
+
+		// ALTER USER fails - rollback of orphaned vault entry should be attempted
+		mockCompute.On("Exec", mock.Anything, testDB.ContainerID, mock.Anything).Return("", fmt.Errorf("exec failed")).Times(10)
+		// Rollback: delete orphaned vault entry
+		mockSecrets.On("DeleteSecret", mock.Anything, versionedPath).Return(nil).Once()
+
+		err := svc.RotateCredentials(ctx, dbID, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to execute password rotation in container")
+		mockSecrets.AssertExpectations(t)
+		mockCompute.AssertExpectations(t)
+	})
+
+	t.Run("RotateCredentials_ExecFailure_RollbackFails_StillReturnsOriginalError", func(t *testing.T) {
+		testDB := &domain.Database{
+			ID:               db.ID,
+			UserID:           db.UserID,
+			Name:             db.Name,
+			Engine:           domain.EnginePostgres,
+			Username:         db.Username,
+			ContainerID:      db.ContainerID,
+			CredentialPath:   "secret/rds/" + dbID.String() + "/credentials",
+			CredentialVersion: 1,
+		}
+		mockRepo.On("GetByID", mock.Anything, dbID).Return(testDB, nil).Once()
+		mockSecrets.On("GetSecret", mock.Anything, testDB.CredentialPath).Return(map[string]interface{}{"password": "old-pass"}, nil).Once()
+
+		versionedPath := testDB.CredentialPath + "/v2"
+		mockSecrets.On("StoreSecret", mock.Anything, versionedPath, mock.Anything).Return(nil).Once()
+
+		// ALTER USER fails, rollback also fails
+		mockCompute.On("Exec", mock.Anything, testDB.ContainerID, mock.Anything).Return("", fmt.Errorf("exec failed")).Times(10)
+		mockSecrets.On("DeleteSecret", mock.Anything, versionedPath).Return(fmt.Errorf("rollback failed")).Once()
+
+		err := svc.RotateCredentials(ctx, dbID, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to execute password rotation in container")
+		mockSecrets.AssertExpectations(t)
+		mockCompute.AssertExpectations(t)
+	})
+
+	t.Run("RotateCredentials_RepoUpdateFails_AfterRotation_LogsExplicitRecovery", func(t *testing.T) {
+		testDB := &domain.Database{
+			ID:               db.ID,
+			UserID:           db.UserID,
+			Name:             db.Name,
+			Engine:           domain.EnginePostgres,
+			Username:         db.Username,
+			ContainerID:      db.ContainerID,
+			CredentialPath:   "secret/rds/" + dbID.String() + "/credentials",
+			CredentialVersion: 1,
+		}
+		mockRepo.On("GetByID", mock.Anything, dbID).Return(testDB, nil).Once()
+		mockSecrets.On("GetSecret", mock.Anything, testDB.CredentialPath).Return(map[string]interface{}{"password": "old-pass"}, nil).Once()
+
+		versionedPath := testDB.CredentialPath + "/v2"
+		mockSecrets.On("StoreSecret", mock.Anything, versionedPath, mock.Anything).Return(nil).Once()
+		mockCompute.On("Exec", mock.Anything, testDB.ContainerID, mock.Anything).Return("ALTER ROLE", nil).Once()
+
+		// DB record update fails after password was already rotated in the container
+		mockRepo.On("Update", mock.Anything, mock.MatchedBy(func(d *domain.Database) bool {
+			return d.CredentialPath == versionedPath && d.CredentialVersion == 2
+		})).Return(fmt.Errorf("db update failed")).Once()
+
+		err := svc.RotateCredentials(ctx, dbID, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to update DB credential path")
+		mockCompute.AssertExpectations(t)
+		mockRepo.AssertExpectations(t)
+	})
+
 	t.Run("RotateCredentials_VaultFailure_WithoutDBChange", func(t *testing.T) {
 		// Create a fresh db for this test
 		testDB := &domain.Database{
