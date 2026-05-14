@@ -933,8 +933,16 @@ cloud db list
 Create a new managed database.
 
 ```bash
-cloud db create --name my-db --engine postgres --version 16
+cloud db create --name my-db --engine postgres --version 16 --size 20
 ```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--name` | `-n` | | Database name (required) |
+| `--engine` | `-e` | `postgres` | Database engine (postgres/mysql) |
+| `--version` | `-v` | `16` | Engine version |
+| `--vpc` | `-V` | | VPC ID to attach to |
+| `--size` | | `10` | Allocated storage in GB (minimum 10GB) |
 
 ### `db connection <id>`
 
