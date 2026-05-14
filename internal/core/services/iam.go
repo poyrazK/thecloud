@@ -132,3 +132,30 @@ func (s *iamService) GetPoliciesForRole(ctx context.Context, roleName string) ([
 	tenantID := appcontext.TenantIDFromContext(ctx)
 	return s.repo.GetPoliciesForRole(ctx, tenantID, roleName)
 }
+
+func (s *iamService) AttachPolicyToServiceAccount(ctx context.Context, saID uuid.UUID, policyID uuid.UUID) error {
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.repo.AttachPolicyToServiceAccount(ctx, tenantID, saID, policyID); err != nil {
+		return err
+	}
+	if err := s.eventSvc.RecordEvent(ctx, "IAM_POLICY_ATTACH_SA", policyID.String(), "POLICY", map[string]interface{}{"sa_id": saID.String()}); err != nil {
+		s.logger.Warn("failed to record event", "action", "IAM_POLICY_ATTACH_SA", "policy_id", policyID, "error", err)
+	}
+	return nil
+}
+
+func (s *iamService) DetachPolicyFromServiceAccount(ctx context.Context, saID uuid.UUID, policyID uuid.UUID) error {
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	if err := s.repo.DetachPolicyFromServiceAccount(ctx, tenantID, saID, policyID); err != nil {
+		return err
+	}
+	if err := s.eventSvc.RecordEvent(ctx, "IAM_POLICY_DETACH_SA", policyID.String(), "POLICY", map[string]interface{}{"sa_id": saID.String()}); err != nil {
+		s.logger.Warn("failed to record event", "action", "IAM_POLICY_DETACH_SA", "policy_id", policyID, "error", err)
+	}
+	return nil
+}
+
+func (s *iamService) GetPoliciesForServiceAccount(ctx context.Context, saID uuid.UUID) ([]*domain.Policy, error) {
+	tenantID := appcontext.TenantIDFromContext(ctx)
+	return s.repo.GetPoliciesForServiceAccount(ctx, tenantID, saID)
+}
