@@ -1788,6 +1788,8 @@ definitions:
         type: string
       id:
         type: string
+      idempotency_key:
+        type: string
       name:
         type: string
       network_id:

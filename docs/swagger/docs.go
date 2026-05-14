@@ -10712,6 +10712,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "idempotency_key": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
