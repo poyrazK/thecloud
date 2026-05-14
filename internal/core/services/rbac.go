@@ -22,6 +22,8 @@ type RBACServiceParams struct {
 	IAMRepo    ports.IAMRepository
 	Evaluator  ports.PolicyEvaluator
 	Logger     *slog.Logger
+	// SA repo for service account authorization - used when checking IAM policies for SAs
+	SARepo ports.ServiceAccountRepository
 }
 
 type rbacService struct {
@@ -31,6 +33,7 @@ type rbacService struct {
 	iamRepo    ports.IAMRepository
 	evaluator  ports.PolicyEvaluator
 	logger     *slog.Logger
+	saRepo     ports.ServiceAccountRepository
 }
 
 // NewRBACService constructs an RBAC service for role-based authorization.
@@ -42,6 +45,7 @@ func NewRBACService(params RBACServiceParams) *rbacService {
 		iamRepo:    params.IAMRepo,
 		evaluator:  params.Evaluator,
 		logger:     params.Logger,
+		saRepo:     params.SARepo,
 	}
 }
 
@@ -317,4 +321,94 @@ func (s *rbacService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, acti
 		return false, err
 	}
 	return effect == domain.EffectAllow, nil
+}
+
+func (s *rbacService) AuthorizeServiceAccount(ctx context.Context, saID uuid.UUID, tenantID uuid.UUID, permission domain.Permission, resource string) error {
+	if appcontext.IsInternalCall(ctx) {
+		return nil
+	}
+
+	allowed, err := s.hasPermissionForSA(ctx, saID, tenantID, permission, resource)
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return errors.New(errors.Forbidden, fmt.Sprintf("permission denied: %s on %s for service account", permission, resource))
+	}
+	return nil
+}
+
+func (s *rbacService) hasPermissionForSA(ctx context.Context, saID uuid.UUID, tenantID uuid.UUID, permission domain.Permission, resource string) (bool, error) {
+	if saID == uuid.Nil {
+		return false, nil
+	}
+
+	sa, err := s.saRepo.GetByID(ctx, saID)
+	if err != nil {
+		if errors.Is(err, errors.NotFound) {
+			s.logger.Warn("RBAC: service account not found", "sa_id", saID)
+			return false, nil
+		}
+		s.logger.Error("RBAC: failed to get service account", "sa_id", saID, "error", err)
+		return false, errors.Wrap(errors.Internal, "failed to get service account", err)
+	}
+
+	roleName := sa.Role
+	s.logger.Debug("RBAC: checking SA permission", "sa_id", saID, "tenant_id", tenantID, "role", roleName, "permission", permission, "resource", resource)
+
+	evalCtx := s.buildEvalCtx(ctx, tenantID)
+
+	// 1. Check IAM policies attached to SA
+	if s.iamRepo != nil && s.evaluator != nil {
+		if allowed, stop := s.checkSAIAMPolicies(ctx, tenantID, saID, permission, resource, evalCtx); allowed || stop {
+			return allowed, nil
+		}
+
+		// 2. Check IAM policies attached to SA's role
+		if roleName != "" {
+			if allowed, stop := s.checkRoleIAMPolicies(ctx, tenantID, roleName, permission, resource, evalCtx); allowed || stop {
+				return allowed, nil
+			}
+		}
+	}
+
+	// 3. Fallback to Role-based logic
+	if roleName == domain.RoleAdmin {
+		return true, nil
+	}
+
+	role, err := s.roleRepo.GetRoleByName(ctx, roleName)
+	if err != nil {
+		if errors.Is(err, errors.NotFound) {
+			s.logger.Warn("RBAC: role not found in DB", "role", roleName)
+			return false, nil
+		}
+		s.logger.Error("RBAC: failed to get role", "role", roleName, "error", err)
+		return false, errors.Wrap(errors.Internal, "failed to get role", err)
+	}
+
+	for _, p := range role.Permissions {
+		if p == domain.PermissionFullAccess {
+			return true, nil
+		}
+		if p == permission {
+			return true, nil
+		}
+	}
+
+	s.logger.Warn("RBAC: permission denied for SA (role in DB but permission not listed)", "role", role.Name, "sa_id", saID, "permission", permission, "resource", resource)
+	return false, nil
+}
+
+// checkSAIAMPolicies evaluates IAM policies attached directly to a service account.
+func (s *rbacService) checkSAIAMPolicies(ctx context.Context, tenantID, saID uuid.UUID, permission domain.Permission, resource string, evalCtx map[string]interface{}) (bool, bool) {
+	policies, err := s.iamRepo.GetPoliciesForServiceAccount(ctx, tenantID, saID)
+	if err != nil {
+		s.logger.Error("RBAC: failed to get SA IAM policies, falling through to role policies", "sa_id", saID, "tenant_id", tenantID, "error", err)
+		return false, false
+	}
+	if len(policies) == 0 {
+		return false, false
+	}
+	return s.evaluatePolicies(ctx, policies, permission, resource, evalCtx)
 }

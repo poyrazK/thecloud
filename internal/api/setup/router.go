@@ -267,8 +267,8 @@ func registerAuthRoutes(r *gin.Engine, handlers *Handlers, svcs *Services, cfg *
 	r.POST("/auth/forgot-password", authMiddleware, handlers.Auth.ForgotPassword)
 	r.POST("/auth/reset-password", authMiddleware, handlers.Auth.ResetPassword)
 
-	// OAuth2 token endpoint (no auth required)
-	r.POST("/oauth2/token", handlers.Auth.Token)
+	// OAuth2 token endpoint (rate-limited like login)
+	r.POST("/oauth2/token", authMiddleware, handlers.Auth.Token)
 
 	keyGroup := r.Group("/auth/keys")
 	keyGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))

@@ -174,6 +174,10 @@ func (s *cachedRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID
 	return s.rbac.EvaluatePolicy(ctx, userID, action, resource, evalCtx)
 }
 
+func (s *cachedRBACService) AuthorizeServiceAccount(ctx context.Context, saID uuid.UUID, tenantID uuid.UUID, permission domain.Permission, resource string) error {
+	return s.rbac.AuthorizeServiceAccount(ctx, saID, tenantID, permission, resource)
+}
+
 func (s *cachedRBACService) invalidateRoleCache(ctx context.Context, id uuid.UUID, name string) {
 	s.cache.Del(ctx, fmt.Sprintf("rbac:role:id:%s", id))
 	s.cache.Del(ctx, fmt.Sprintf("rbac:role:name:%s", name))

@@ -107,18 +107,40 @@ func GetUserID(c *gin.Context) uuid.UUID {
 	return userID
 }
 
+// GetServiceAccountID returns the authenticated service account ID from the request context.
+func GetServiceAccountID(c *gin.Context) uuid.UUID {
+	val, exists := c.Get("serviceAccountID")
+	if !exists {
+		return uuid.Nil
+	}
+	saID, ok := val.(uuid.UUID)
+	if !ok {
+		return uuid.Nil
+	}
+	return saID
+}
+
 // Permission enforces RBAC checks for the provided permission.
 func Permission(rbac ports.RBACService, permission domain.Permission) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := GetUserID(c)
+		saID := GetServiceAccountID(c)
 		tenantID := GetTenantID(c)
-		if userID == uuid.Nil {
+
+		if userID == uuid.Nil && saID == uuid.Nil {
 			Error(c, errors.New(errors.Unauthorized, "authentication required"))
 			c.Abort()
 			return
 		}
 
-		if err := rbac.Authorize(c.Request.Context(), userID, tenantID, permission, "*"); err != nil {
+		var err error
+		if saID != uuid.Nil {
+			err = rbac.AuthorizeServiceAccount(c.Request.Context(), saID, tenantID, permission, "*")
+		} else {
+			err = rbac.Authorize(c.Request.Context(), userID, tenantID, permission, "*")
+		}
+
+		if err != nil {
 			Error(c, errors.New(errors.Forbidden, "permission denied"))
 			c.Abort()
 			return

@@ -409,7 +409,7 @@ func initIdentityServices(c ServiceConfig, rbacSvc ports.RBACService, audit port
 func initRBACServices(c ServiceConfig) ports.RBACService {
 	iamRepo := c.Repos.IAM
 	evaluator := services.NewIAMEvaluator()
-	base := services.NewRBACService(services.RBACServiceParams{UserRepo: c.Repos.User, RoleRepo: c.Repos.RBAC, TenantRepo: c.Repos.Tenant, IAMRepo: iamRepo, Evaluator: evaluator, Logger: c.Logger})
+	base := services.NewRBACService(services.RBACServiceParams{UserRepo: c.Repos.User, RoleRepo: c.Repos.RBAC, TenantRepo: c.Repos.Tenant, IAMRepo: iamRepo, Evaluator: evaluator, Logger: c.Logger, SARepo: c.Repos.ServiceAccount})
 	return services.NewCachedRBACService(base, c.RDB, c.Logger)
 }
 
