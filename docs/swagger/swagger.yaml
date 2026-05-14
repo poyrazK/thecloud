@@ -66,6 +66,7 @@ definitions:
         type: number
       usage_by_type:
         additionalProperties:
+          format: float64
           type: number
         type: object
       user_id:

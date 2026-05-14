@@ -8899,7 +8899,8 @@ const docTemplate = `{
                 "usage_by_type": {
                     "type": "object",
                     "additionalProperties": {
-                        "type": "number"
+                        "type": "number",
+                        "format": "float64"
                     }
                 },
                 "user_id": {
