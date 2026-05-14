@@ -15,16 +15,17 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func setupIAMHandlerTest() (*mocks.IAMService, *IAMHandler, *gin.Engine) {
+func setupIAMHandlerTest() (*mocks.IAMService, *mockIdentityService, *IAMHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
-	svc := new(mocks.IAMService)
-	handler := NewIAMHandler(svc)
+	iamSvc := new(mocks.IAMService)
+	identitySvc := new(mockIdentityService)
+	handler := NewIAMHandler(iamSvc, identitySvc)
 	r := gin.New()
-	return svc, handler, r
+	return iamSvc, identitySvc, handler, r
 }
 
 func TestIAMHandler_CreatePolicy(t *testing.T) {
-	svc, handler, r := setupIAMHandlerTest()
+	svc, _, handler, r := setupIAMHandlerTest()
 	r.POST("/iam/policies", handler.CreatePolicy)
 
 	policy := domain.Policy{
@@ -46,7 +47,7 @@ func TestIAMHandler_CreatePolicy(t *testing.T) {
 }
 
 func TestIAMHandler_ListPolicies(t *testing.T) {
-	svc, handler, r := setupIAMHandlerTest()
+	svc, _, handler, r := setupIAMHandlerTest()
 	r.GET("/iam/policies", handler.ListPolicies)
 
 	svc.On("ListPolicies", mock.Anything).Return([]*domain.Policy{{ID: uuid.New(), Name: "P1"}}, nil)
@@ -60,7 +61,7 @@ func TestIAMHandler_ListPolicies(t *testing.T) {
 }
 
 func TestIAMHandler_AttachPolicy(t *testing.T) {
-	svc, handler, r := setupIAMHandlerTest()
+	svc, _, handler, r := setupIAMHandlerTest()
 	r.POST("/iam/users/:userId/policies/:policyId", handler.AttachPolicyToUser)
 
 	uID := uuid.New()
