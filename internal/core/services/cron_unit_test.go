@@ -132,7 +132,7 @@ func TestCronServiceUnit(t *testing.T) {
 
 		runs, err := svc.GetJobRuns(ctx, jobID, 0) // limit <= 0 should default to 50
 		require.NoError(t, err)
-		assert.Len(t, runs, 0)
+		assert.Empty(t, runs)
 	})
 
 	t.Run("UpdateJob", func(t *testing.T) {
