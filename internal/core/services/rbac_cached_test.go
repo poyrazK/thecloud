@@ -104,6 +104,11 @@ func (m *mockRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, 
 	return args.Bool(0), args.Error(1)
 }
 
+func (m *mockRBACService) AuthorizeServiceAccount(ctx context.Context, saID uuid.UUID, tenantID uuid.UUID, permission domain.Permission, resource string) error {
+	args := m.Called(ctx, saID, tenantID, permission, resource)
+	return args.Error(0)
+}
+
 func setupCachedRBACTest(t *testing.T) (*mockRBACService, *redis.Client, *miniredis.Miniredis) {
 	t.Helper()
 

@@ -770,6 +770,9 @@ func (s *NoopRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User,
 func (s *NoopRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error) {
 	return true, nil
 }
+func (s *NoopRBACService) AuthorizeServiceAccount(ctx context.Context, saID, tenantID uuid.UUID, permission domain.Permission, resource string) error {
+	return nil
+}
 
 // NoopDatabaseService is a no-op database service.
 type NoopDatabaseService struct{}

@@ -70,6 +70,9 @@ func (m *MockRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, 
 	args := m.Called(ctx, userID, action, resource, context)
 	return args.Bool(0), args.Error(1)
 }
+func (m *MockRBACService) AuthorizeServiceAccount(ctx context.Context, saID, tenantID uuid.UUID, permission domain.Permission, resource string) error {
+	return m.Called(ctx, saID, tenantID, permission, resource).Error(0)
+}
 
 // MockIAMRepository
 type MockIAMRepository struct{ mock.Mock }
