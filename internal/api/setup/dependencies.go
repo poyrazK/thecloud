@@ -25,6 +25,8 @@ import (
 	"github.com/poyrazk/thecloud/internal/workers"
 	redisv9 "github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
+	"crypto/tls"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -412,9 +414,30 @@ func initRBACServices(c ServiceConfig) ports.RBACService {
 	return services.NewCachedRBACService(base, c.RDB, c.Logger)
 }
 
+func buildStorageDialOpts(cfg *platform.Config) ([]grpc.DialOption, error) {
+	if cfg.StorageTLSEnabled {
+		cert, err := tls.LoadX509KeyPair(cfg.StorageTLSCertFile, cfg.StorageTLSKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load storage TLS cert: %w", err)
+		}
+		tlsCfg := &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS13,
+		}
+		creds := credentials.NewTLS(tlsCfg)
+		return []grpc.DialOption{grpc.WithTransportCredentials(creds)}, nil
+	}
+	return []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}, nil
+}
+
 func initStorageServices(c ServiceConfig, rbacSvc ports.RBACService, audit ports.AuditService, encryption ports.EncryptionService) (ports.StorageService, ports.FileStore, error) {
 	var fileStore ports.FileStore
 	var err error
+
+	dialOpts, err := buildStorageDialOpts(c.Config)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to build storage dial options: %w", err)
+	}
 
 	if c.Config.ObjectStorageMode == "distributed" {
 		c.Logger.Info("initializing distributed storage backend")
@@ -429,7 +452,7 @@ func initStorageServices(c ServiceConfig, rbacSvc ports.RBACService, audit ports
 			}
 			nodeID := fmt.Sprintf("node-%d", i+1)
 
-			conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			conn, err := grpc.NewClient(addr, dialOpts...)
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to connect to storage node %s: %w", addr, err)
 			}

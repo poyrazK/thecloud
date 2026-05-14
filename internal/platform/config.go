@@ -28,6 +28,12 @@ type Config struct {
 	StorageBackend       string
 	// StorageSecret is the secret key used for signing presigned URLs
 	StorageSecret string
+	// StorageTLSEnabled enables TLS for storage node communication
+	StorageTLSEnabled bool
+	// StorageTLSCertFile is the path to the PEM certificate file for TLS
+	StorageTLSCertFile string
+	// StorageTLSKeyFile is the path to the PEM key file for TLS
+	StorageTLSKeyFile string
 	// WSAllowedOrigins is a comma-separated allowlist of Origin headers
 	// permitted to open a WebSocket connection. Empty means deny all
 	// cross-origin upgrades. See #249.
@@ -75,6 +81,9 @@ func NewConfig() (*Config, error) {
 		RateLimitAuth:        getEnv("RATE_LIMIT_AUTH", "10"),
 		StorageBackend:       getEnv("STORAGE_BACKEND", "noop"),
 		StorageSecret:        os.Getenv("STORAGE_SECRET"),
+		StorageTLSEnabled:    getEnv("STORAGE_TLS_ENABLED", "false") == "true",
+		StorageTLSCertFile:   os.Getenv("STORAGE_TLS_CERT_FILE"),
+		StorageTLSKeyFile:    os.Getenv("STORAGE_TLS_KEY_FILE"),
 		WSAllowedOrigins:     os.Getenv("WS_ALLOWED_ORIGINS"),
 		DashboardAllowedOrigins: os.Getenv("DASHBOARD_ALLOWED_ORIGINS"),
 		LvmVgName:            getEnv("LVM_VG_NAME", "thecloud-vg"),
