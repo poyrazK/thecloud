@@ -50,10 +50,26 @@ var secretsListCmd = &cobra.Command{
 }
 
 var secretsCreateCmd = &cobra.Command{
-	Use:   "create",
+	Use:   "create [name]",
 	Short: "Store a new encrypted secret",
+	Long: `Store a new encrypted secret.
+
+The name may be given either as a positional argument or with the -n/--name
+flag (whichever is more ergonomic for the caller). The --value flag is
+required either way.`,
+	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name, _ := cmd.Flags().GetString("name")
+		// Positional name overrides the -n flag if both are given; this lets
+		// callers do `cloud secrets create mysecret -v hunter2` without having
+		// to remember the flag form.
+		if len(args) == 1 && args[0] != "" {
+			name = args[0]
+		}
+		if name == "" {
+			fmt.Println("Error: secret name required (positional or -n/--name)")
+			return
+		}
 		value, _ := cmd.Flags().GetString("value")
 		desc, _ := cmd.Flags().GetString("description")
 
@@ -121,9 +137,11 @@ func init() {
 	secretsCmd.AddCommand(secretsGetCmd)
 	secretsCmd.AddCommand(secretsRmCmd)
 
-	secretsCreateCmd.Flags().StringP("name", "n", "", "Unique name of the secret (required)")
+	// "name" is optional at the flag layer because the command also accepts a
+	// positional name; the Run function rejects the request if neither is
+	// present. "value" stays required.
+	secretsCreateCmd.Flags().StringP("name", "n", "", "Unique name of the secret (or positional arg)")
 	secretsCreateCmd.Flags().StringP("value", "v", "", "Value to encrypt (required)")
 	secretsCreateCmd.Flags().StringP("description", "d", "", "Optional description")
-	_ = secretsCreateCmd.MarkFlagRequired("name")
 	_ = secretsCreateCmd.MarkFlagRequired("value")
 }
