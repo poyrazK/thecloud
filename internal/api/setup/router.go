@@ -615,6 +615,8 @@ func registerDevOpsRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		cronGroup.DELETE("/jobs/:id", httputil.Permission(svcs.RBAC, domain.PermissionCronDelete), handlers.Cron.DeleteJob)
 		cronGroup.POST("/jobs/:id/pause", httputil.Permission(svcs.RBAC, domain.PermissionCronUpdate), handlers.Cron.PauseJob)
 		cronGroup.POST("/jobs/:id/resume", httputil.Permission(svcs.RBAC, domain.PermissionCronUpdate), handlers.Cron.ResumeJob)
+		cronGroup.GET("/jobs/:id/runs", httputil.Permission(svcs.RBAC, domain.PermissionCronRead), handlers.Cron.GetJobRuns)
+		cronGroup.PUT("/jobs/:id", httputil.Permission(svcs.RBAC, domain.PermissionCronUpdate), handlers.Cron.UpdateJob)
 	}
 
 	gatewayGroup := r.Group("/gateway")

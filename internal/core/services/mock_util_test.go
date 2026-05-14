@@ -143,6 +143,10 @@ func (m *MockCronRepo) ReapStaleClaims(ctx context.Context) (int, error) {
 	args := m.Called(ctx)
 	return args.Get(0).(int), args.Error(1)
 }
+func (m *MockCronRepo) GetJobRuns(ctx context.Context, jobID uuid.UUID, limit int) ([]*domain.CronJobRun, error) {
+	args := m.Called(ctx, jobID, limit)
+	return args.Get(0).([]*domain.CronJobRun), args.Error(1)
+}
 
 type MockCronRepository = MockCronRepo
 
