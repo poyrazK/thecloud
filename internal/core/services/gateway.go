@@ -4,12 +4,12 @@ package services
 import (
 	"context"
 	"crypto/tls"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"log/slog"
-	"crypto/rand"
-	"encoding/binary"
 	"math"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -410,6 +410,20 @@ type retryTransport struct {
 	logger       *slog.Logger
 }
 
+// retryableStatusError wraps a response returned when retries are exhausted
+// on a retryable status code. It allows the circuit breaker to count the
+// failure while still returning the response to the caller.
+type retryableStatusError struct {
+	resp *http.Response
+}
+
+func (e *retryableStatusError) Error() string {
+	if e.resp == nil {
+		return "retryable status exhausted"
+	}
+	return fmt.Sprintf("retryable status exhausted: %d", e.resp.StatusCode)
+}
+
 // newRetryTransport wraps a base http.Transport with per-route retry and circuit breaker behavior.
 func newRetryTransport(base http.RoundTripper, route *domain.GatewayRoute, logger *slog.Logger) *retryTransport {
 	rt := &retryTransport{
@@ -439,7 +453,12 @@ func newRetryTransport(base http.RoundTripper, route *domain.GatewayRoute, logge
 // RoundTrip implements http.RoundTripper.
 func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if rt.cb == nil {
-		return rt.doRoundTrip(req)
+		resp, err := rt.doRoundTrip(req)
+		var se *retryableStatusError
+		if stderrors.As(err, &se) && se.resp != nil {
+			return se.resp, nil //nolint:bodyclose
+		}
+		return resp, err
 	}
 
 	type result struct {
@@ -455,7 +474,10 @@ func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, cbErr
 	}
 	if r.err != nil {
-		// r.resp is always nil when r.err is set (doRoundTrip only sets resp on success)
+		var se *retryableStatusError
+		if stderrors.As(r.err, &se) && se.resp != nil {
+			return se.resp, nil //nolint:bodyclose
+		}
 		return nil, r.err
 	}
 	return r.resp, nil //nolint:bodyclose
@@ -468,8 +490,13 @@ func (rt *retryTransport) doRoundTrip(req *http.Request) (*http.Response, error)
 
 	var lastResp *http.Response
 	maxAttempts := rt.maxRetries + 1 // first attempt + retries
+	start := time.Now()
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
+		// Check overall retry window
+		if rt.retryTimeout > 0 && time.Since(start) >= rt.retryTimeout {
+			break
+		}
 		if attempt > 0 {
 			delay := rt.backoffWithJitter(attempt)
 			select {
@@ -495,6 +522,23 @@ func (rt *retryTransport) doRoundTrip(req *http.Request) (*http.Response, error)
 			return nil, err
 		}
 		lastResp = resp
+
+		// For idempotent methods with a replayable body, clone the request before retry.
+		// This ensures subsequent attempts get a fresh body.
+		if attempt < maxAttempts-1 && req.GetBody != nil {
+			body, err := req.GetBody()
+			if err == nil {
+				req = req.Clone(req.Context())
+				req.Body = body
+			}
+		}
+	}
+
+	// If we exhausted retries on a retryable status, return a wrapped error
+	// so the circuit breaker can count this as a failure. The response is
+	// unwrapped and returned to the caller in RoundTrip.
+	if lastResp != nil && rt.isRetryableStatus(lastResp.StatusCode) {
+		return nil, &retryableStatusError{resp: lastResp}
 	}
 	return lastResp, nil //nolint:bodyclose
 }
@@ -531,18 +575,13 @@ func (rt *retryTransport) backoffWithJitter(attempt int) time.Duration {
 	if delay > float64(cap) {
 		delay = float64(cap)
 	}
-	jitter := rt.cryptoJitter(time.Duration(delay))
-	return jitter
+	return rt.jitter(time.Duration(delay))
 }
 
-// cryptoJitter returns a random duration in [0, max) using crypto/rand.
-// frac is in [0, 1) so result is always non-negative and strictly bounded by max.
-func (rt *retryTransport) cryptoJitter(max time.Duration) time.Duration {
-	var buf [8]byte
-	if _, err := rand.Read(buf[:]); err != nil {
-		return max / 2 // deterministic fallback on crypto rand failure
-	}
-	val := binary.BigEndian.Uint64(buf[:])
-	frac := float64(val) / float64(math.MaxUint64)
+// jitter returns a random duration in [0, max) using math/rand/v2.
+// rand.Uint() is safe for concurrent use; no locking needed.
+func (rt *retryTransport) jitter(max time.Duration) time.Duration {
+	val := float64(rand.Uint()) / float64(1<<64) * float64(math.MaxUint64)
+	frac := val / float64(math.MaxUint64)
 	return time.Duration(float64(max) * frac)
 }
