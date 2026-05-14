@@ -218,6 +218,11 @@ func (m *mockRBACService) ListRoles(ctx context.Context) ([]*domain.Role, error)
 	return args.Get(0).([]*domain.Role), args.Error(1)
 }
 
+func (m *mockRBACService) AuthorizeServiceAccount(ctx context.Context, saID, tenantID uuid.UUID, permission domain.Permission, resource string) error {
+	args := m.Called(ctx, saID, tenantID, permission, resource)
+	return args.Error(0)
+}
+
 func (m *mockRBACService) GetRoleByID(ctx context.Context, id uuid.UUID) (*domain.Role, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {

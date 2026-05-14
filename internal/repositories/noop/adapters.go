@@ -524,6 +524,33 @@ func (s *NoopIdentityService) RevokeKey(ctx context.Context, userID, id uuid.UUI
 func (s *NoopIdentityService) RotateKey(ctx context.Context, userID, id uuid.UUID) (*domain.APIKey, error) {
 	return &domain.APIKey{ID: id}, nil
 }
+func (s *NoopIdentityService) CreateServiceAccount(ctx context.Context, tenantID uuid.UUID, name, role string) (*domain.ServiceAccountWithSecret, error) {
+	return &domain.ServiceAccountWithSecret{ServiceAccount: domain.ServiceAccount{ID: uuid.New(), TenantID: tenantID, Name: name, Role: role, Enabled: true}}, nil
+}
+func (s *NoopIdentityService) GetServiceAccount(ctx context.Context, id uuid.UUID) (*domain.ServiceAccount, error) {
+	return &domain.ServiceAccount{ID: id}, nil
+}
+func (s *NoopIdentityService) ListServiceAccounts(ctx context.Context, tenantID uuid.UUID) ([]*domain.ServiceAccount, error) {
+	return []*domain.ServiceAccount{}, nil
+}
+func (s *NoopIdentityService) UpdateServiceAccount(ctx context.Context, sa *domain.ServiceAccount) error { return nil }
+func (s *NoopIdentityService) DeleteServiceAccount(ctx context.Context, id uuid.UUID) error { return nil }
+func (s *NoopIdentityService) ValidateClientCredentials(ctx context.Context, clientID, clientSecret string) (string, error) {
+	return "noop-token", nil
+}
+func (s *NoopIdentityService) ValidateAccessToken(ctx context.Context, token string) (*domain.ServiceAccountClaims, error) {
+	return &domain.ServiceAccountClaims{ServiceAccountID: uuid.New(), TenantID: uuid.New(), Role: "service"}, nil
+}
+func (s *NoopIdentityService) RotateServiceAccountSecret(ctx context.Context, saID uuid.UUID) (string, error) {
+	return "sa_newsecret", nil
+}
+func (s *NoopIdentityService) RevokeServiceAccountSecret(ctx context.Context, saID, secretID uuid.UUID) error { return nil }
+func (s *NoopIdentityService) ListServiceAccountSecrets(ctx context.Context, saID uuid.UUID) ([]*domain.ServiceAccountSecret, error) {
+	return []*domain.ServiceAccountSecret{}, nil
+}
+func (s *NoopIdentityService) TokenTTL() time.Duration {
+	return time.Hour
+}
 
 type NoopIdentityRepository struct{}
 
@@ -749,6 +776,9 @@ func (s *NoopRBACService) ListRoleBindings(ctx context.Context) ([]*domain.User,
 }
 func (s *NoopRBACService) EvaluatePolicy(ctx context.Context, userID uuid.UUID, action string, resource string, context map[string]interface{}) (bool, error) {
 	return true, nil
+}
+func (s *NoopRBACService) AuthorizeServiceAccount(ctx context.Context, saID, tenantID uuid.UUID, permission domain.Permission, resource string) error {
+	return nil
 }
 
 // NoopDatabaseService is a no-op database service.

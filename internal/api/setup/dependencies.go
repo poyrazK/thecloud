@@ -73,6 +73,7 @@ type Repositories struct {
 	ElasticIP        ports.ElasticIPRepository
 	Log              ports.LogRepository
 	IAM              ports.IAMRepository
+	ServiceAccount   ports.ServiceAccountRepository
 	Pipeline         ports.PipelineRepository
 	VPCPeering       ports.VPCPeeringRepository
 	RouteTable       ports.RouteTableRepository
@@ -403,15 +404,19 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 }
 
 func initIdentityServices(c ServiceConfig, rbacSvc ports.RBACService, audit ports.AuditService) ports.IdentityService {
-	base := services.NewIdentityService(services.IdentityServiceParams{Repo: c.Repos.Identity, RbacSvc: rbacSvc, AuditSvc: audit, Logger: c.Logger})
+	tokenTTL := time.Duration(c.Config.ServiceAccountTokenTTL) * time.Second
+	if tokenTTL == 0 {
+		tokenTTL = time.Hour
+	}
+	base := services.NewIdentityService(services.IdentityServiceParams{Repo: c.Repos.Identity, SARepo: c.Repos.ServiceAccount, RbacSvc: rbacSvc, AuditSvc: audit, Logger: c.Logger, TokenTTL: tokenTTL})
 	return services.NewCachedIdentityService(base, c.RDB, c.Logger)
 }
 
 func initRBACServices(c ServiceConfig) ports.RBACService {
 	iamRepo := c.Repos.IAM
 	evaluator := services.NewIAMEvaluator()
-	base := services.NewRBACService(services.RBACServiceParams{UserRepo: c.Repos.User, RoleRepo: c.Repos.RBAC, TenantRepo: c.Repos.Tenant, IAMRepo: iamRepo, Evaluator: evaluator, Logger: c.Logger})
-	return services.NewCachedRBACService(base, c.RDB, c.Logger)
+	base := services.NewRBACService(services.RBACServiceParams{UserRepo: c.Repos.User, RoleRepo: c.Repos.RBAC, TenantRepo: c.Repos.Tenant, IAMRepo: iamRepo, Evaluator: evaluator, Logger: c.Logger, SARepo: c.Repos.ServiceAccount})
+	return services.NewCachedRBACService(base, c.Repos.ServiceAccount, c.RDB, c.Logger)
 }
 
 func buildStorageDialOpts(cfg *platform.Config) ([]grpc.DialOption, error) {
