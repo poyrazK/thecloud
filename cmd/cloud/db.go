@@ -44,16 +44,22 @@ var dbListCmd = &cobra.Command{
 		for _, db := range databases {
 			id := truncateID(db.ID)
 
-			table.Append([]string{
+			if err := table.Append([]string{
 				id,
 				db.Name,
 				db.Engine,
 				db.Version,
 				db.Status,
 				fmt.Sprintf("%d", db.Port),
-			})
+			}); err != nil {
+				fmt.Printf(errorFormat, err)
+				return
+			}
 		}
-		table.Render()
+		if err := table.Render(); err != nil {
+			fmt.Printf(errorFormat, err)
+			return
+		}
 	},
 }
 
