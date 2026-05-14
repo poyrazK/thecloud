@@ -25,17 +25,21 @@ type FunctionUpdate struct {
 	Handler  *string   `json:"handler,omitempty"`
 	Timeout  *int      `json:"timeout,omitempty"`
 	MemoryMB *int      `json:"memory_mb,omitempty"`
+	CPUs     *float64  `json:"cpus,omitempty"`
 	Status   string    `json:"status,omitempty"`
 	EnvVars  []*EnvVar `json:"env_vars,omitempty"`
 }
 
-// Validate checks that timeout and memory values are within acceptable bounds.
+// Validate checks that timeout, memory, and CPU values are within acceptable bounds.
 func (u *FunctionUpdate) Validate() error {
 	if u.Timeout != nil && (*u.Timeout < 1 || *u.Timeout > 900) {
 		return errors.New(errors.InvalidInput, "timeout must be between 1 and 900 seconds")
 	}
 	if u.MemoryMB != nil && (*u.MemoryMB < 64 || *u.MemoryMB > 10240) {
 		return errors.New(errors.InvalidInput, "memory must be between 64 and 10240 MB")
+	}
+	if u.CPUs != nil && (*u.CPUs < 0.1 || *u.CPUs > 8.0) {
+		return errors.New(errors.InvalidInput, "cpu must be between 0.1 and 8.0 cores")
 	}
 	for _, e := range u.EnvVars {
 		if e.Value != "" && e.SecretRef != "" {
@@ -60,6 +64,9 @@ func (u *FunctionUpdate) SetColumns() []string {
 	if u.MemoryMB != nil {
 		cols = append(cols, "memory_mb")
 	}
+	if u.CPUs != nil {
+		cols = append(cols, "cpus")
+	}
 	if u.Status != "" {
 		cols = append(cols, "status")
 	}
@@ -79,9 +86,10 @@ type Function struct {
 	Runtime   string    `json:"runtime"`   // e.g. "python3.9", "go1.21"
 	Handler   string    `json:"handler"`   // Entry point (e.g. "main.Handle")
 	CodePath  string    `json:"code_path"` // Path to code artifact
-	Timeout   int       `json:"timeout"`   // Execution timeout in seconds
-	MemoryMB  int       `json:"memory_mb"` // Memory allocation
-	Status    string    `json:"status"`    // e.g. "DEPLOYING", "READY"
+	Timeout   int       `json:"timeout"`    // Execution timeout in seconds
+	MemoryMB  int       `json:"memory_mb"`  // Memory allocation in MB
+	CPUs      float64   `json:"cpus"`      // CPU cores (e.g., 0.5, 1.0, 2.0)
+	Status    string    `json:"status"`     // e.g. "DEPLOYING", "READY"
 	EnvVars   []*EnvVar `json:"env_vars,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

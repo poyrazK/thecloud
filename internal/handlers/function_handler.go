@@ -43,6 +43,7 @@ type UpdateFunctionRequest struct {
 	Handler  *string          `json:"handler,omitempty"`
 	Timeout  *int             `json:"timeout,omitempty"`
 	MemoryMB *int             `json:"memory_mb,omitempty"`
+	CPUs     *float64         `json:"cpus,omitempty"`
 	Status   string           `json:"status,omitempty"`
 	EnvVars  []*domain.EnvVar `json:"env_vars,omitempty"`
 }
@@ -123,6 +124,7 @@ func (h *FunctionHandler) Update(c *gin.Context) {
 		Handler:  req.Handler,
 		Timeout:  req.Timeout,
 		MemoryMB: req.MemoryMB,
+		CPUs:     req.CPUs,
 		Status:   req.Status,
 		EnvVars:  req.EnvVars,
 	})
