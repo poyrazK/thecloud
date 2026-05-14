@@ -890,6 +890,13 @@ func (s *DatabaseService) doRotateCredentials(ctx context.Context, id uuid.UUID,
 		time.Sleep(500 * time.Millisecond)
 	}
 	if execErr != nil {
+		// Roll back the orphaned vault entry. Log rollback failures separately
+		// so the operator can clean up by hand instead of conflating two unrelated errors.
+		if rbErr := s.secrets.DeleteSecret(ctx, versionedPath); rbErr != nil {
+			s.logger.Error("orphaned vault entry left after failed credential rotation",
+				"db_id", db.ID, "vault_path", versionedPath, "rollback_error", rbErr)
+			platform.CredentialCleanupFailures.Inc()
+		}
 		return errors.Wrap(errors.Internal, "failed to execute password rotation in container", execErr)
 	}
 
@@ -898,6 +905,10 @@ func (s *DatabaseService) doRotateCredentials(ctx context.Context, id uuid.UUID,
 	db.CredentialPath = versionedPath
 	db.CredentialVersion = newVersion
 	if err := s.repo.Update(ctx, db); err != nil {
+		// DB password has rotated but our record is out of date. The new password is
+		// still in vault at versionedPath, so the operator can recover; log clearly.
+		s.logger.Error("password rotated on engine but failed to persist credential path; recovery requires manual update",
+			"db_id", db.ID, "vault_path", versionedPath, "version", newVersion, "error", err)
 		return errors.Wrap(errors.Internal, "failed to update DB credential path", err)
 	}
 
