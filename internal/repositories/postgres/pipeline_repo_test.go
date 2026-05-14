@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	stdlib_errors "errors"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -490,5 +489,5 @@ func TestPipelineRepository_GetBuild_ScanError(t *testing.T) {
 	result, err := repo.GetBuild(context.Background(), uuid.New(), uuid.New())
 	require.Error(t, err)
 	assert.Nil(t, result)
-	assert.False(t, stdlib_errors.Is(err, pgx.ErrNoRows))
+	assert.NotErrorIs(t, err, pgx.ErrNoRows)
 }
