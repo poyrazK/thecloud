@@ -25,6 +25,11 @@ type IAMRepository interface {
 	AttachPolicyToRole(ctx context.Context, tenantID uuid.UUID, roleName string, policyID uuid.UUID) error
 	DetachPolicyFromRole(ctx context.Context, tenantID uuid.UUID, roleName string, policyID uuid.UUID) error
 	GetPoliciesForRole(ctx context.Context, tenantID uuid.UUID, roleName string) ([]*domain.Policy, error)
+
+	// Service Account Policy Assignment
+	AttachPolicyToServiceAccount(ctx context.Context, tenantID uuid.UUID, saID uuid.UUID, policyID uuid.UUID) error
+	DetachPolicyFromServiceAccount(ctx context.Context, tenantID uuid.UUID, saID uuid.UUID, policyID uuid.UUID) error
+	GetPoliciesForServiceAccount(ctx context.Context, tenantID uuid.UUID, saID uuid.UUID) ([]*domain.Policy, error)
 }
 
 // IAMService defines the business logic for IAM management.
@@ -42,6 +47,10 @@ type IAMService interface {
 	AttachPolicyToRole(ctx context.Context, roleName string, policyID uuid.UUID) error
 	DetachPolicyFromRole(ctx context.Context, roleName string, policyID uuid.UUID) error
 	GetPoliciesForRole(ctx context.Context, roleName string) ([]*domain.Policy, error)
+
+	AttachPolicyToServiceAccount(ctx context.Context, saID uuid.UUID, policyID uuid.UUID) error
+	DetachPolicyFromServiceAccount(ctx context.Context, saID uuid.UUID, policyID uuid.UUID) error
+	GetPoliciesForServiceAccount(ctx context.Context, saID uuid.UUID) ([]*domain.Policy, error)
 }
 
 // PolicyEvaluator defines the logic for evaluating access based on a set of policies.
