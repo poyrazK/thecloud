@@ -87,7 +87,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		Audit:         httphandlers.NewAuditHandler(svcs.Audit),
 		Identity:      httphandlers.NewIdentityHandler(svcs.Identity),
 		Tenant:        httphandlers.NewTenantHandler(svcs.Tenant),
-		Auth:          httphandlers.NewAuthHandler(svcs.Auth, svcs.PasswordReset),
+		Auth:          httphandlers.NewAuthHandler(svcs.Auth, svcs.PasswordReset, svcs.Identity),
 		Vpc:           httphandlers.NewVpcHandler(svcs.Vpc),
 		Subnet:        httphandlers.NewSubnetHandler(svcs.Subnet),
 		Instance:      httphandlers.NewInstanceHandler(svcs.Instance),
@@ -123,7 +123,7 @@ func InitHandlers(svcs *Services, cfg *platform.Config, logger *slog.Logger) *Ha
 		SSHKey:        httphandlers.NewSSHKeyHandler(svcs.SSHKey),
 		ElasticIP:     httphandlers.NewElasticIPHandler(svcs.ElasticIP),
 		Log:           httphandlers.NewLogHandler(svcs.Log),
-		IAM:           httphandlers.NewIAMHandler(svcs.IAM),
+		IAM:           httphandlers.NewIAMHandler(svcs.IAM, svcs.Identity),
 		VPCPeering:    httphandlers.NewVPCPeeringHandler(svcs.VPCPeering),
 		RouteTable:    httphandlers.NewRouteTableHandler(svcs.RouteTable),
 		InternetGateway: httphandlers.NewInternetGatewayHandler(svcs.InternetGateway),
@@ -236,6 +236,21 @@ func registerIAMRoutes(r *gin.Engine, handlers *Handlers, svcs *Services) {
 		iamGroup.POST("/users/:userId/policies/:policyId", handlers.IAM.AttachPolicyToUser)
 		iamGroup.DELETE("/users/:userId/policies/:policyId", handlers.IAM.DetachPolicyFromUser)
 		iamGroup.GET("/users/:userId/policies", handlers.IAM.GetUserPolicies)
+
+		// Service account routes
+		iamGroup.POST("/service-accounts", handlers.IAM.CreateServiceAccount)
+		iamGroup.GET("/service-accounts", handlers.IAM.ListServiceAccounts)
+		iamGroup.GET("/service-accounts/:id", handlers.IAM.GetServiceAccount)
+		iamGroup.DELETE("/service-accounts/:id", handlers.IAM.DeleteServiceAccount)
+
+		iamGroup.POST("/service-accounts/:id/secrets/:secretId", handlers.IAM.RevokeServiceAccountSecret)
+		iamGroup.GET("/service-accounts/:id/secrets", handlers.IAM.ListServiceAccountSecrets)
+		iamGroup.POST("/service-accounts/:id/rotate-secret", handlers.IAM.RotateServiceAccountSecret)
+
+		// SA policy attachment
+		iamGroup.POST("/service-accounts/:saId/policies/:policyId", handlers.IAM.AttachPolicyToServiceAccount)
+		iamGroup.DELETE("/service-accounts/:saId/policies/:policyId", handlers.IAM.DetachPolicyFromServiceAccount)
+		iamGroup.GET("/service-accounts/:saId/policies", handlers.IAM.GetServiceAccountPolicies)
 	}
 }
 
@@ -251,6 +266,9 @@ func registerAuthRoutes(r *gin.Engine, handlers *Handlers, svcs *Services, cfg *
 	r.POST("/auth/login", authMiddleware, handlers.Auth.Login)
 	r.POST("/auth/forgot-password", authMiddleware, handlers.Auth.ForgotPassword)
 	r.POST("/auth/reset-password", authMiddleware, handlers.Auth.ResetPassword)
+
+	// OAuth2 token endpoint (no auth required)
+	r.POST("/oauth2/token", handlers.Auth.Token)
 
 	keyGroup := r.Group("/auth/keys")
 	keyGroup.Use(httputil.Auth(svcs.Identity, svcs.Tenant))

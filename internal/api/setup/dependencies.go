@@ -71,6 +71,7 @@ type Repositories struct {
 	ElasticIP        ports.ElasticIPRepository
 	Log              ports.LogRepository
 	IAM              ports.IAMRepository
+	ServiceAccount   ports.ServiceAccountRepository
 	Pipeline         ports.PipelineRepository
 	VPCPeering       ports.VPCPeeringRepository
 	RouteTable       ports.RouteTableRepository
@@ -401,7 +402,7 @@ func InitServices(c ServiceConfig) (*Services, *Workers, error) {
 }
 
 func initIdentityServices(c ServiceConfig, rbacSvc ports.RBACService, audit ports.AuditService) ports.IdentityService {
-	base := services.NewIdentityService(services.IdentityServiceParams{Repo: c.Repos.Identity, RbacSvc: rbacSvc, AuditSvc: audit, Logger: c.Logger})
+	base := services.NewIdentityService(services.IdentityServiceParams{Repo: c.Repos.Identity, SARepo: c.Repos.ServiceAccount, RbacSvc: rbacSvc, AuditSvc: audit, Logger: c.Logger})
 	return services.NewCachedIdentityService(base, c.RDB, c.Logger)
 }
 
