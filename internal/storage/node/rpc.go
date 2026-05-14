@@ -8,12 +8,12 @@ import (
 	"os"
 
 	pb "github.com/poyrazk/thecloud/internal/storage/protocol"
+	"github.com/poyrazk/thecloud/internal/storage/storageconst"
 )
 
-const (
-	// defaultRetrieveChunkSize is the size of chunks sent during retrieval.
-	defaultRetrieveChunkSize = 1024 * 1024 // 1MB
-)
+// defaultRetrieveChunkSize is sourced from storageconst so the node and
+// coordinator chunk wire frames identically.
+const defaultRetrieveChunkSize = storageconst.ChunkSize
 
 // RPCServer exposes storage-node RPC endpoints.
 type RPCServer struct {

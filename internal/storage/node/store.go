@@ -15,6 +15,7 @@ import (
 	"time"
 
 	apperrors "github.com/poyrazk/thecloud/internal/errors"
+	"github.com/poyrazk/thecloud/internal/storage/storageconst"
 )
 
 // LocalStore manages file storage on the local disk.
@@ -23,7 +24,9 @@ type LocalStore struct {
 	mu      sync.RWMutex
 }
 
-const maxObjectSize = 5 * 1024 * 1024 * 1024 // 5 GB
+// maxObjectSize re-exports the canonical limit from storageconst so the
+// node and coordinator stay in lock-step.
+const maxObjectSize = storageconst.MaxObjectSize
 
 // maxReadBytes is the maximum size for the Read() convenience method.
 // Files larger than this should use ReadStream() to avoid memory exhaustion.
@@ -186,7 +189,11 @@ func (s *LocalStore) Read(bucket, key string) ([]byte, int64, error) {
 	return data, timestamp, nil
 }
 
-// Delete removes data from disk.
+// Delete removes data from disk. Both the data file and its .meta sidecar
+// must go. If the sidecar removal fails but the data file succeeds, the
+// combined error is returned so the caller can decide whether to retry or
+// trigger a repair — silently dropping the meta error left stale metadata
+// that confused later reads.
 func (s *LocalStore) Delete(bucket, key string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -196,8 +203,25 @@ func (s *LocalStore) Delete(bucket, key string) error {
 		return err
 	}
 
-	_ = os.Remove(path + ".meta")
-	return os.Remove(path)
+	var dataErr, metaErr error
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		dataErr = err
+	}
+	if err := os.Remove(path + ".meta"); err != nil && !os.IsNotExist(err) {
+		metaErr = err
+	}
+	switch {
+	case dataErr != nil && metaErr != nil:
+		// errorlint disallows %v with a second error inside a wrapping
+		// Errorf, so join them explicitly. The data error is the primary
+		// signal for the caller — meta failure rides along for visibility.
+		return fmt.Errorf("failed to delete data: %w (meta also failed: %s)", dataErr, metaErr.Error())
+	case dataErr != nil:
+		return fmt.Errorf("failed to delete data: %w", dataErr)
+	case metaErr != nil:
+		return fmt.Errorf("failed to delete meta: %w", metaErr)
+	}
+	return nil
 }
 
 // Assemble combines multiple parts into a single object.
