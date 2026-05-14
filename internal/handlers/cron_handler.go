@@ -3,6 +3,7 @@ package httphandlers
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -126,7 +127,10 @@ func (h *CronHandler) GetJobRuns(c *gin.Context) {
 		return
 	}
 
-	runs, err := h.svc.GetJobRuns(c.Request.Context(), id, 50)
+	limitStr := c.DefaultQuery("limit", "50")
+	limit, _ := strconv.Atoi(limitStr)
+
+	runs, err := h.svc.GetJobRuns(c.Request.Context(), id, limit)
 	if err != nil {
 		httputil.Error(c, err)
 		return

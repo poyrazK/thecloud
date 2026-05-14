@@ -125,7 +125,7 @@ var logsCronCmd = &cobra.Command{
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header([]string{"ID", "STATUS", "CODE", "DURATION", "STARTED AT"})
 		for _, r := range runs {
-			table.Append([]string{r.ID, r.Status, fmt.Sprintf("%d", r.StatusCode), fmt.Sprintf("%dms", r.DurationMs), r.StartedAt})
+			table.Append([]string{truncateID(r.ID), r.Status, fmt.Sprintf("%d", r.StatusCode), fmt.Sprintf("%dms", r.DurationMs), r.StartedAt})
 		}
 		table.Render()
 	},
