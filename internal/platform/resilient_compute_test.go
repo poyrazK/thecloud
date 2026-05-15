@@ -350,7 +350,7 @@ func TestResilientCompute_PerOperationIsolation(t *testing.T) {
 	// Trip the launch breaker (2 failures needed for threshold=2)
 	mock.err = errors.New("launch always fails")
 	for i := 0; i < 2; i++ {
-		rc.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{})
+		_, _, _ = rc.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{})
 	}
 
 	// Verify launch breaker is open
