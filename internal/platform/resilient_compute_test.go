@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -11,7 +12,6 @@ import (
 	"time"
 
 	"github.com/poyrazk/thecloud/internal/core/ports"
-	"log/slog"
 )
 
 // ---------- mock compute backend ----------
@@ -125,10 +125,10 @@ func (m *mockCompute) DeleteSnapshot(_ context.Context, _, _ string) error {
 	m.callCount.Add(1)
 	return m.err
 }
-func (m *mockCompute) Type() string { return "mock" }
-func (m *mockCompute) PauseInstance(_ context.Context, _ string) error { return nil }
+func (m *mockCompute) Type() string                                     { return "mock" }
+func (m *mockCompute) PauseInstance(_ context.Context, _ string) error  { return nil }
 func (m *mockCompute) ResumeInstance(_ context.Context, _ string) error { return nil }
-func (m *mockCompute) ResetCircuitBreaker() {}
+func (m *mockCompute) ResetCircuitBreaker()                             {}
 
 // ---------- tests ----------
 
