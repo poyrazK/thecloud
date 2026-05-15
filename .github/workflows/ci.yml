@@ -27,6 +27,12 @@ jobs:
         with:
           go-version: '1.25.0'
           cache: true
+      - name: Generate TLS test certs
+        run: |
+          mkdir -p cmd/storage-node/testdata/tls internal/api/setup/testdata/tls
+          openssl req -x509 -newkey rsa:2048 -keyout cmd/storage-node/testdata/tls/test-key.pem -out cmd/storage-node/testdata/tls/test-cert.pem -days 365 -nodes -subj "/CN=test"
+          openssl req -x509 -newkey rsa:2048 -keyout internal/api/setup/testdata/tls/ca-key.pem -out internal/api/setup/testdata/tls/ca-cert.pem -days 365 -nodes -subj "/CN=test-ca"
+          openssl req -x509 -newkey rsa:2048 -keyout internal/api/setup/testdata/tls/test-key.pem -out internal/api/setup/testdata/tls/test-cert.pem -days 365 -nodes -subj "/CN=test"
       - name: Verify Swagger
         run: |
           go install github.com/swaggo/swag/cmd/swag@v1.16.6
@@ -66,6 +72,12 @@ jobs:
           cache: true
       - name: Install Dependencies
         run: go mod download
+      - name: Generate TLS test certs
+        run: |
+          mkdir -p cmd/storage-node/testdata/tls internal/api/setup/testdata/tls
+          openssl req -x509 -newkey rsa:2048 -keyout cmd/storage-node/testdata/tls/test-key.pem -out cmd/storage-node/testdata/tls/test-cert.pem -days 365 -nodes -subj "/CN=test"
+          openssl req -x509 -newkey rsa:2048 -keyout internal/api/setup/testdata/tls/ca-key.pem -out internal/api/setup/testdata/tls/ca-cert.pem -days 365 -nodes -subj "/CN=test-ca"
+          openssl req -x509 -newkey rsa:2048 -keyout internal/api/setup/testdata/tls/test-key.pem -out internal/api/setup/testdata/tls/test-cert.pem -days 365 -nodes -subj "/CN=test"
       - name: Wait for Database
         run: |
           timeout 60s bash -c 'until pg_isready -h 127.0.0.1 -p 5433 -U cloud; do
@@ -99,6 +111,12 @@ jobs:
           cache: true
       - name: Install Dependencies
         run: go mod download
+      - name: Generate TLS test certs
+        run: |
+          mkdir -p cmd/storage-node/testdata/tls internal/api/setup/testdata/tls
+          openssl req -x509 -newkey rsa:2048 -keyout cmd/storage-node/testdata/tls/test-key.pem -out cmd/storage-node/testdata/tls/test-cert.pem -days 365 -nodes -subj "/CN=test"
+          openssl req -x509 -newkey rsa:2048 -keyout internal/api/setup/testdata/tls/ca-key.pem -out internal/api/setup/testdata/tls/ca-cert.pem -days 365 -nodes -subj "/CN=test-ca"
+          openssl req -x509 -newkey rsa:2048 -keyout internal/api/setup/testdata/tls/test-key.pem -out internal/api/setup/testdata/tls/test-cert.pem -days 365 -nodes -subj "/CN=test"
       - name: Wait for Database
         run: |
           timeout 60s bash -c 'until pg_isready -h 127.0.0.1 -p 5433 -U cloud; do
@@ -126,6 +144,12 @@ jobs:
           cache: true
       - name: Install Dependencies
         run: go mod download
+      - name: Generate TLS test certs
+        run: |
+          mkdir -p cmd/storage-node/testdata/tls internal/api/setup/testdata/tls
+          openssl req -x509 -newkey rsa:2048 -keyout cmd/storage-node/testdata/tls/test-key.pem -out cmd/storage-node/testdata/tls/test-cert.pem -days 365 -nodes -subj "/CN=test"
+          openssl req -x509 -newkey rsa:2048 -keyout internal/api/setup/testdata/tls/ca-key.pem -out internal/api/setup/testdata/tls/ca-cert.pem -days 365 -nodes -subj "/CN=test-ca"
+          openssl req -x509 -newkey rsa:2048 -keyout internal/api/setup/testdata/tls/test-key.pem -out internal/api/setup/testdata/tls/test-cert.pem -days 365 -nodes -subj "/CN=test"
       - name: Wait for Database
         run: |
           timeout 60s bash -c 'until pg_isready -h 127.0.0.1 -p 5433 -U cloud; do
@@ -229,7 +253,12 @@ jobs:
 
       - name: Install Dependencies
         run: go mod download
-
+      - name: Generate TLS test certs
+        run: |
+          mkdir -p cmd/storage-node/testdata/tls internal/api/setup/testdata/tls
+          openssl req -x509 -newkey rsa:2048 -keyout cmd/storage-node/testdata/tls/test-key.pem -out cmd/storage-node/testdata/tls/test-cert.pem -days 365 -nodes -subj "/CN=test"
+          openssl req -x509 -newkey rsa:2048 -keyout internal/api/setup/testdata/tls/ca-key.pem -out internal/api/setup/testdata/tls/ca-cert.pem -days 365 -nodes -subj "/CN=test-ca"
+          openssl req -x509 -newkey rsa:2048 -keyout internal/api/setup/testdata/tls/test-key.pem -out internal/api/setup/testdata/tls/test-cert.pem -days 365 -nodes -subj "/CN=test"
       - name: Wait for Database
         run: |
           timeout 60s bash -c 'until pg_isready -h 127.0.0.1 -p 5433 -U cloud; do
@@ -314,6 +343,12 @@ jobs:
           firecracker --version
       - name: Install Dependencies
         run: go mod download
+      - name: Generate TLS test certs
+        run: |
+          mkdir -p cmd/storage-node/testdata/tls internal/api/setup/testdata/tls
+          openssl req -x509 -newkey rsa:2048 -keyout cmd/storage-node/testdata/tls/test-key.pem -out cmd/storage-node/testdata/tls/test-cert.pem -days 365 -nodes -subj "/CN=test"
+          openssl req -x509 -newkey rsa:2048 -keyout internal/api/setup/testdata/tls/ca-key.pem -out internal/api/setup/testdata/tls/ca-cert.pem -days 365 -nodes -subj "/CN=test-ca"
+          openssl req -x509 -newkey rsa:2048 -keyout internal/api/setup/testdata/tls/test-key.pem -out internal/api/setup/testdata/tls/test-cert.pem -days 365 -nodes -subj "/CN=test"
       - name: Run Firecracker Unit Tests
         run: go test -v ./internal/repositories/firecracker/...
       - name: Run Firecracker E2E Test
