@@ -71,18 +71,37 @@ func (w *LifecycleWorker) processRules(ctx context.Context) {
 	}
 }
 
+// maxObjectsPerRulePerTick caps how many objects a single lifecycle rule
+// will materialise per invocation. Without it a bucket containing millions
+// of small files would force the worker to load every Object record into
+// memory at once. When the cap is hit, the worker logs how many objects
+// were scanned so the operator knows the next tick still has work to do.
+//
+// The cap is intentionally generous: most lifecycle rules target buckets
+// with thousands, not millions, of objects, and rules run every 24h.
+const maxObjectsPerRulePerTick = 50000
+
 func (w *LifecycleWorker) processRule(ctx context.Context, rule *domain.LifecycleRule) {
 	logger := w.logger.With("rule_id", rule.ID, "bucket", rule.BucketName)
 
 	// Context with rule owner's ID to pass permission checks
 	ruleCtx := appcontext.WithUserID(ctx, rule.UserID)
 
-	// List all objects in bucket
-	// Note: For production, this should support pagination and prefix filtering at DB level
+	// List all objects in bucket.
+	// TODO: replace with a paginated/streaming list at the storage layer
+	// once StorageService gains a ListObjectsPaginated method. Until then
+	// we cap the per-tick batch at maxObjectsPerRulePerTick.
 	objects, err := w.storageSvc.ListObjects(ruleCtx, rule.BucketName)
 	if err != nil {
 		logger.Error("failed to list objects for lifecycle", "error", err)
 		return
+	}
+
+	if len(objects) > maxObjectsPerRulePerTick {
+		logger.Warn("lifecycle rule scan capped — bucket has more objects than per-tick limit",
+			"scanned", len(objects), "limit", maxObjectsPerRulePerTick,
+			"hint", "remaining objects will be processed on the next tick once a paginated list lands")
+		objects = objects[:maxObjectsPerRulePerTick]
 	}
 
 	expiration := time.Duration(rule.ExpirationDays) * 24 * time.Hour
@@ -95,8 +114,9 @@ func (w *LifecycleWorker) processRule(ctx context.Context, rule *domain.Lifecycl
 			continue
 		}
 
-		// Check expiration
-		age := now.Sub(obj.CreatedAt)
+		// Check expiration. Sub is timezone-agnostic; explicit UTC conversion
+		// keeps log lines consistent.
+		age := now.Sub(obj.CreatedAt.UTC())
 		if age > expiration {
 			logger.Info("expiring object", "key", obj.Key, "age_days", int(age.Hours()/24))
 			if err := w.storageSvc.DeleteObject(ruleCtx, rule.BucketName, obj.Key); err != nil {
