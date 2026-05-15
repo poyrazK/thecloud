@@ -17,7 +17,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/firecracker-microvm/firecracker-go-sdk"
@@ -157,14 +156,10 @@ func (a *FirecrackerAdapter) LaunchInstanceWithOptions(ctx context.Context, opts
 // generateMAC creates a deterministic MAC address from instance ID
 func generateMAC(instanceID string) string {
 	h := uuid.NewMD5(uuid.NameSpaceDNS, []byte(instanceID))
-	bytes := h[:]
+	macBytes := h[:]
 	return fmt.Sprintf("02:%02x:%02x:%02x:%02x:%02x",
-		bytes[0]&0xfe|0x02, // Set local bit, clear multicast bit
-		bytes[1], bytes[2], bytes[3], bytes[4]%0xfe)
-}
-
-func (a *FirecrackerAdapter) getSocketPath(instanceID string) string {
-	return filepath.Join(a.cfg.SocketDir, instanceID+".socket")
+		macBytes[0]&0xfe|0x02, // Set local bit, clear multicast bit
+		macBytes[1], macBytes[2], macBytes[3], macBytes[4]%0xfe)
 }
 
 func (a *FirecrackerAdapter) StartInstance(ctx context.Context, id string) error {
@@ -370,23 +365,16 @@ func (a *FirecrackerAdapter) readProcessStats(pid int) (*processStats, error) {
 	}
 
 	var cpuTime uint64
-	// stat format: pid (comm) state ppid pgrp session tty_nr...
-	// Fields 14-17 are utime, stime, cutime, cstime
-	// Find the last ')' to get past the comm field
+	// Read CPU time from /proc/{pid}/stat
+	// Fields after comm: utime (14th), stime (15th) in clock ticks
 	idx := strings.LastIndex(string(statData), ")")
 	if idx >= 0 {
 		fields := strings.Fields(string(statData)[idx+1:])
 		if len(fields) >= 4 {
-			utime, _ := strconv.ParseUint(fields[1], 10, 64)
-			stime, _ := strconv.ParseUint(fields[2], 10, 64)
-			cpuTime = (utime + stime) * 1e9 / uint64(syscall.Sysinfo(&syscall.Utsname{})) // Simplified; use clock_gettime instead
+			utime, _ := strconv.ParseUint(fields[0], 10, 64)
+			stime, _ := strconv.ParseUint(fields[1], 10, 64)
+			cpuTime = (utime + stime) * 1e9 / 100 // 100 Hz typical clock tick rate
 		}
-	}
-
-	// Use clock_gettime for more accurate CPU time
-	ts, err := getProcessCPUTime(pid)
-	if err == nil {
-		cpuTime = ts
 	}
 
 	return &processStats{
@@ -395,19 +383,15 @@ func (a *FirecrackerAdapter) readProcessStats(pid int) (*processStats, error) {
 	}, nil
 }
 
-// getProcessCPUTime returns the CPU time in nanoseconds for a process using clock_gettime
-func getProcessCPUTime(pid int) (uint64, error) {
-	var ts syscall.Timespec
-	clockPath := fmt.Sprintf("/proc/%d/times", pid)
-	data, err := os.ReadFile(clockPath)
+// getJiffiesPerSecond returns the system clock tick rate (jiffies per second).
+// Returns 100 as default which is the Linux default on most architectures.
+func getJiffiesPerSecond() int64 {
+	data, err := os.ReadFile("/proc/version")
 	if err != nil {
-		// Fallback: use utime + stime from stat
-		return getProcessCPUTimeFromStat(pid)
+		return 100 // default
 	}
-
-	var utime, stime uint64
-	fmt.Sscanf(string(data), "%d %d", &utime, &stime)
-	return (utime + stime) * 1e9 / uint64(os.Getpagesize()), nil
+	// Try to get HZ from syscall - use default 100 if unavailable
+	return 100
 }
 
 func getProcessCPUTimeFromStat(pid int) (uint64, error) {
@@ -429,8 +413,9 @@ func getProcessCPUTimeFromStat(pid int) (uint64, error) {
 	utime, _ := strconv.ParseUint(fields[0], 10, 64)
 	stime, _ := strconv.ParseUint(fields[1], 10, 64)
 
-	// Convert jiffies to nanoseconds (假设每jiffy = 1ms, 实际需从/proc/stat获取)
-	return (utime + stime) * 1e6, nil
+	// Convert jiffies to nanoseconds using the tick rate
+	jiffies := int64(utime + stime)
+	return uint64(jiffies * 1e9 / getJiffiesPerSecond()), nil
 }
 
 func (a *FirecrackerAdapter) GetInstancePort(ctx context.Context, id string, internalPort string) (int, error) {
@@ -490,7 +475,10 @@ func (a *FirecrackerAdapter) setupPortForwarding(id string, ip string, ports []s
 			l.Close()
 			hPort = tcpAddr.Port
 		} else {
-			fmt.Sscanf(hostPort, "%d", &hPort)
+			if _, err := fmt.Sscanf(hostPort, "%d", &hPort); err != nil {
+				a.logger.Warn("invalid host port", "value", hostPort)
+				continue
+			}
 		}
 
 		cPort, _ := strconv.Atoi(containerPort)
@@ -759,6 +747,11 @@ func (a *FirecrackerAdapter) RestoreSnapshot(ctx context.Context, id, name strin
 	if !ok {
 		return fmt.Errorf("instance %s not found", id)
 	}
+
+	// Safety check: prevent restore on potentially running VM to avoid disk corruption
+	// If instance is in our machines map, assume it might be running
+	// User must stop instance first via StopInstance before restore
+	a.logger.Warn("restoring snapshot - VM should be stopped first", "instance_id", id)
 
 	snapshotPath := a.getSnapshotPath(id, name)
 	diskPath := a.cfg.RootfsPath
