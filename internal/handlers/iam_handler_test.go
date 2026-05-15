@@ -10,9 +10,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/poyrazk/thecloud/internal/core/domain"
+	"github.com/poyrazk/thecloud/internal/core/ports"
 	"github.com/poyrazk/thecloud/internal/core/ports/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func setupIAMHandlerTest() (*mocks.IAMService, *IAMHandler, *gin.Engine) {
@@ -74,5 +76,151 @@ func TestIAMHandler_AttachPolicy(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+	svc.AssertExpectations(t)
+}
+
+func TestIAMHandler_Simulate(t *testing.T) {
+	t.Parallel()
+	svc, handler, r := setupIAMHandlerTest()
+	r.POST("/iam/simulate", handler.Simulate)
+
+	userID := uuid.New()
+	svc.On("SimulatePolicy", mock.Anything, ports.Principal{UserID: &userID}, []string{"compute:instance:launch"}, []string{"arn:thecloud:compute:us-east-1:*:instance/*"}, mock.Anything).
+		Return(&ports.SimulateResult{Decision: domain.EffectAllow, Evaluated: 1, Matched: &ports.StatementMatch{Effect: domain.EffectAllow, Reason: "allow statement matched"}}, nil)
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"user_id":   userID.String(),
+		"actions":   []string{"compute:instance:launch"},
+		"resources": []string{"arn:thecloud:compute:us-east-1:*:instance/*"},
+	})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/iam/simulate", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	data := resp["data"].(map[string]interface{})
+	assert.Equal(t, "allow", data["decision"])
+	assert.InDelta(t, 1, data["evaluated"], 0)
+	svc.AssertExpectations(t)
+}
+
+func TestIAMHandler_SimulateDeny(t *testing.T) {
+	t.Parallel()
+	svc, handler, r := setupIAMHandlerTest()
+	r.POST("/iam/simulate", handler.Simulate)
+
+	userID := uuid.New()
+	svc.On("SimulatePolicy", mock.Anything, ports.Principal{UserID: &userID}, []string{"compute:instance:delete"}, []string{"arn:thecloud:compute:us-east-1:*:instance/*"}, mock.Anything).
+		Return(&ports.SimulateResult{Decision: domain.EffectDeny, Evaluated: 2, Matched: &ports.StatementMatch{Effect: domain.EffectDeny, Reason: "deny statement matched"}}, nil)
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"user_id":   userID.String(),
+		"actions":   []string{"compute:instance:delete"},
+		"resources": []string{"arn:thecloud:compute:us-east-1:*:instance/*"},
+	})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/iam/simulate", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	data := resp["data"].(map[string]interface{})
+	assert.Equal(t, "deny", data["decision"])
+	svc.AssertExpectations(t)
+}
+
+func TestIAMHandler_SimulateMissingPrincipal(t *testing.T) {
+	t.Parallel()
+	_, handler, r := setupIAMHandlerTest()
+	r.POST("/iam/simulate", handler.Simulate)
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"actions":   []string{"compute:instance:launch"},
+		"resources": []string{"arn:thecloud:compute:us-east-1:*:instance/*"},
+	})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/iam/simulate", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestIAMHandler_SimulateServiceAccount(t *testing.T) {
+	t.Parallel()
+	svc, handler, r := setupIAMHandlerTest()
+	r.POST("/iam/simulate", handler.Simulate)
+
+	saID := uuid.New()
+	svc.On("SimulatePolicy", mock.Anything, ports.Principal{ServiceAccountID: &saID}, []string{"compute:instance:launch"}, []string{"arn:thecloud:compute:us-east-1:*:instance/*"}, mock.Anything).
+		Return(&ports.SimulateResult{Decision: domain.EffectAllow, Evaluated: 1, Matched: &ports.StatementMatch{Effect: domain.EffectAllow, Reason: "allow statement matched"}}, nil)
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"service_account_id": saID.String(),
+		"actions":           []string{"compute:instance:launch"},
+		"resources":         []string{"arn:thecloud:compute:us-east-1:*:instance/*"},
+	})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/iam/simulate", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	data := resp["data"].(map[string]interface{})
+	assert.Equal(t, "allow", data["decision"])
+	svc.AssertExpectations(t)
+}
+
+func TestIAMHandler_SimulateDenyWithCondition(t *testing.T) {
+	t.Parallel()
+	svc, handler, r := setupIAMHandlerTest()
+	r.POST("/iam/simulate", handler.Simulate)
+
+	userID := uuid.New()
+	svc.On("SimulatePolicy", mock.Anything, ports.Principal{UserID: &userID}, []string{"compute:instance:delete"}, []string{"arn:thecloud:compute:us-east-1:*:instance/*"}, mock.Anything).
+		Return(&ports.SimulateResult{
+			Decision: domain.EffectDeny, Evaluated: 1,
+			Matched: &ports.StatementMatch{
+				Action: "compute:instance:delete", Resource: "arn:thecloud:compute:us-east-1:*:instance/*",
+				PolicyID: uuid.New(), PolicyName: "DenyDeletePolicy",
+				StatementSid: "deny-delete", Effect: domain.EffectDeny,
+				Reason: "deny statement matched",
+			},
+		}, nil)
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"user_id":   userID.String(),
+		"actions":   []string{"compute:instance:delete"},
+		"resources": []string{"arn:thecloud:compute:us-east-1:*:instance/*"},
+		"context": map[string]interface{}{
+			"aws:SourceIp": "10.0.0.1",
+		},
+	})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/iam/simulate", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	data := resp["data"].(map[string]interface{})
+	matched := data["matched"].(map[string]interface{})
+	assert.Equal(t, "deny", data["decision"])
+	assert.Equal(t, "compute:instance:delete", matched["action"])
+	assert.Equal(t, "arn:thecloud:compute:us-east-1:*:instance/*", matched["resource"])
+	assert.Equal(t, "DenyDeletePolicy", matched["policy_name"])
+	assert.Equal(t, "deny-delete", matched["statement_sid"])
 	svc.AssertExpectations(t)
 }
