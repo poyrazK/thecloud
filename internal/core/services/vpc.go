@@ -224,6 +224,29 @@ func (s *VpcService) ListVPCs(ctx context.Context) ([]*domain.VPC, error) {
 	return s.repo.List(ctx)
 }
 
+// UpdateVPC modifies an existing VPC's name.
+func (s *VpcService) UpdateVPC(ctx context.Context, idOrName, name string) (*domain.VPC, error) {
+	userID := appcontext.UserIDFromContext(ctx)
+	tenantID := appcontext.TenantIDFromContext(ctx)
+
+	if err := s.rbacSvc.Authorize(ctx, userID, tenantID, domain.PermissionVpcUpdate, idOrName); err != nil {
+		return nil, err
+	}
+
+	vpc, err := s.GetVPC(ctx, idOrName)
+	if err != nil {
+		return nil, err
+	}
+
+	vpc.Name = name
+	if err := s.repo.Update(ctx, vpc); err != nil {
+		return nil, err
+	}
+
+	s.logger.Info("vpc updated", "id", vpc.ID, "name", name)
+	return vpc, nil
+}
+
 // DeleteVPC removes a VPC, its associated OVS bridge, and all related database records.
 // If force is true, dependency checks are skipped (for async cleanup scenarios).
 func (s *VpcService) DeleteVPC(ctx context.Context, idOrName string, force bool) error {
