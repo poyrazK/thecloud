@@ -76,6 +76,10 @@ func (m *mockCacheService) GetCacheStats(ctx context.Context, idOrName string) (
 	return r0, args.Error(1)
 }
 
+func (m *mockCacheService) ResizeCache(ctx context.Context, idOrName string, newMemoryMB int) error {
+	return m.Called(ctx, idOrName, newMemoryMB).Error(0)
+}
+
 func setupCacheHandlerTest(_ *testing.T) (*mockCacheService, *CacheHandler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	svc := new(mockCacheService)
