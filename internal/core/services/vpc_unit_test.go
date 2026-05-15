@@ -186,6 +186,9 @@ func TestVpcServiceUnit(t *testing.T) {
 		repo.On("Update", mock.Anything, mock.MatchedBy(func(v *domain.VPC) bool {
 			return v.ID == vpcID && v.Name == "new-name"
 		})).Return(nil).Once()
+		auditSvc.On("Log", mock.Anything, userID, "vpc.update", "vpc", vpcID.String(), map[string]interface{}{
+			"name": "new-name",
+		}).Return(nil).Once()
 
 		vpc, err := svc.UpdateVPC(ctx, vpcID.String(), "new-name")
 		require.NoError(t, err)
@@ -199,5 +202,16 @@ func TestVpcServiceUnit(t *testing.T) {
 
 		_, err := svc.UpdateVPC(ctx, vpcID.String(), "new-name")
 		require.Error(t, err)
+	})
+
+	t.Run("UpdateVPC_WhitespaceNameRejected", func(t *testing.T) {
+		vpcID := uuid.New()
+		existingVPC := &domain.VPC{ID: vpcID, UserID: userID, Name: "old-name"}
+
+		repo.On("GetByID", mock.Anything, vpcID).Return(existingVPC, nil).Once()
+
+		_, err := svc.UpdateVPC(ctx, vpcID.String(), "   ")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "whitespace")
 	})
 }
