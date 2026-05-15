@@ -432,7 +432,9 @@ func buildStorageDialOpts(cfg *platform.Config) ([]grpc.DialOption, error) {
 				return nil, fmt.Errorf("failed to read storage TLS CA cert: %w", err)
 			}
 			caPool := x509.NewCertPool()
-			caPool.AppendCertsFromPEM(caCert)
+			if !caPool.AppendCertsFromPEM(caCert) {
+				return nil, fmt.Errorf("failed to parse storage TLS CA cert PEM from %s", cfg.StorageTLSCACertFile)
+			}
 			tlsCfg.RootCAs = caPool
 		}
 		if cfg.StorageTLSSkipVerify {

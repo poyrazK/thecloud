@@ -67,7 +67,9 @@ func run() error {
 				return fmt.Errorf("failed to read TLS CA cert: %w", err)
 			}
 			caPool := x509.NewCertPool()
-			caPool.AppendCertsFromPEM(caCert)
+			if !caPool.AppendCertsFromPEM(caCert) {
+				return fmt.Errorf("failed to parse TLS CA cert PEM from %s", *tlsCAFile)
+			}
 			tlsCfg.RootCAs = caPool
 		}
 		if *tlsSkipVerify {
