@@ -12518,6 +12518,9 @@
         "httphandlers.StatementMatch": {
             "type": "object",
             "properties": {
+                "action": {
+                    "type": "string"
+                },
                 "effect": {
                     "type": "string"
                 },
@@ -12528,6 +12531,9 @@
                     "type": "string"
                 },
                 "reason": {
+                    "type": "string"
+                },
+                "resource": {
                     "type": "string"
                 },
                 "statement_sid": {
