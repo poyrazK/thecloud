@@ -336,6 +336,40 @@ func TestResilientComputeResizeInstance(t *testing.T) {
 	})
 }
 
+// Per-operation isolation: tripping one breaker shouldn't affect others.
+func TestResilientCompute_PerOperationIsolation(t *testing.T) {
+	// mockLaunch fails always, mockDelete succeeds always
+	mock := &mockCompute{}
+	logger := slog.Default()
+	rc := NewResilientCompute(mock, logger, ResilientComputeOpts{
+		CBThreshold:    2,
+		CBResetTimeout: 10 * time.Second,
+	})
+	ctx := context.Background()
+
+	// Trip the launch breaker (2 failures needed for threshold=2)
+	mock.err = errors.New("launch always fails")
+	for i := 0; i < 2; i++ {
+		rc.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{})
+	}
+
+	// Verify launch breaker is open
+	_, _, err := rc.LaunchInstanceWithOptions(ctx, ports.CreateInstanceOptions{})
+	if !errors.Is(err, ErrCircuitOpen) {
+		t.Fatalf("expected launch breaker open, got %v", err)
+	}
+
+	// Reset so delete uses a fresh breaker
+	rc.ResetCircuitBreaker()
+
+	// Delete should still work — its own breaker is independent
+	mock.err = nil
+	err = rc.DeleteInstance(ctx, "any-id")
+	if err != nil {
+		t.Fatalf("delete failed: %v", err)
+	}
+}
+
 // ---------- test helpers ----------
 
 func assertNoErr(t *testing.T, err error) {
